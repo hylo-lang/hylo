@@ -1,4 +1,5 @@
 import Foundation
+import Utils
 
 /// A Val source file.
 ///
@@ -154,4 +155,15 @@ extension SourceFile: CustomStringConvertible {
 
   public var description: String { "SourceFile(\(url)" }
 
+}
+
+/// Given a collection of file and directory paths as specified on the valc command line, returns
+/// the actual source files to process.
+///
+/// Paths of files in `sourcePaths` are unconditionally treated as Val source files. Paths of
+/// directories are recursively searched for `.val` files, which are considered Val `sourceFiles`;
+/// all others are treated as non-source files and are ignored.
+public func sourceFiles<S: Collection>(in sourcePaths: S) throws -> [SourceFile]
+where S.Element == URL {
+  return try sourceFilePaths(in: sourcePaths).map(SourceFile.init)
 }

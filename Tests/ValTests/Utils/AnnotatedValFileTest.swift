@@ -66,9 +66,7 @@ extension XCTestCase {
       Bundle.module.url(forResource: sourceDirectory, withExtension: nil),
       "No test cases")
 
-    let sources = try sourceFilePaths(in: [testCaseDirectory]).map(SourceFile.init)
-
-    for source in sources {
+    for source in try sourceFiles(in: [testCaseDirectory]) {
       var annotations = TestAnnotation.parseAll(from: source)
 
       // Separate the annotations to be checked by default diagnostic annotation checking from

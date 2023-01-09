@@ -13,9 +13,7 @@ extension AST {
     do {
       var diagnostics = Diagnostics()
       corelib = try insert(
-        sourceFilePaths(in: [ValModule.core!]).map(SourceFile.init),
-        asModule: "Val",
-        diagnostics: &diagnostics)
+        sourceFiles(in: [ValModule.core!]), asModule: "Val", diagnostics: &diagnostics)
 
       assert(isCoreModuleLoaded)
     } catch let error {

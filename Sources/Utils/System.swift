@@ -19,12 +19,12 @@ public func withFiles(in directory: URL, _ action: (URL) throws -> Bool) rethrow
   return true
 }
 
-/// Given a collection of file and directory paths as specified on the valc command line, returns the paths of
-/// the actual source files to process.
+/// Given a collection of file and directory paths as specified on the valc command line, returns
+/// the paths of the actual source files to process.
 ///
-/// Paths of files in `sourcePaths` are unconditionally treated as Val source files. Paths of directories are
-/// recursively searched for `.val` files, which are considered Val `sourceFiles`; all others are
-/// treated as non-source files and are ignored.
+/// Paths of files in `sourcePaths` are unconditionally treated as Val source files. Paths of
+/// directories are recursively searched for `.val` files, which are considered Val `sourceFiles`;
+/// all others are treated as non-source files and are ignored.
 public func sourceFilePaths<S: Collection>(in sourcePaths: S) -> [URL]
 where S.Element == URL {
   let explicitSourceFiles = sourcePaths.filter { !$0.hasDirectoryPath }
