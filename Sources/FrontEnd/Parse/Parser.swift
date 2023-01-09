@@ -34,9 +34,7 @@ public enum Parser {
     // Temporarily stash the ast and diagnostics in the parser state, avoiding CoW costs
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input), diagnostics: diagnostics)
     defer { diagnostics = state.diagnostics }
-    defer { ast = state.ast }
     diagnostics = Diagnostics()
-    ast = AST()
 
     let translation = Self.parseSourceFile(in: &state)
     try state.diagnostics.throwOnError()
@@ -45,6 +43,7 @@ public enum Parser {
     assert(state.peek() == nil, "expected EOF")
 
     state.ast[module].addSourceFile(translation)
+    ast = state.ast
 
     return translation
   }
@@ -360,7 +359,7 @@ public enum Parser {
     }
 
     // Create a new `AssociatedTypeDecl`.
-    let decl = state.insert(
+    return state.insert(
       AssociatedTypeDecl(
         introducerRange: parts.0.0.0.0.origin,
         identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
@@ -368,7 +367,6 @@ public enum Parser {
         whereClause: parts.0.1,
         defaultValue: parts.1,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `AssociatedValueDecl`.
@@ -401,14 +399,13 @@ public enum Parser {
     }
 
     // Create a new `AssociatedValueDecl`.
-    let decl = state.insert(
+    return state.insert(
       AssociatedValueDecl(
         introducerRange: parts.0.0.0.origin,
         identifier: SourceRepresentable(token: parts.0.0.1, in: state.lexer.source),
         whereClause: parts.0.1,
         defaultValue: parts.1,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `BindingDecl`.
@@ -425,7 +422,7 @@ public enum Parser {
     // Create a new `BindingDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       BindingDecl(
         attributes: prologue.attributes,
         accessModifier: prologue.accessModifiers.first,
@@ -433,7 +430,6 @@ public enum Parser {
         pattern: pattern,
         initializer: initializer,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `ConformanceDecl`.
@@ -463,7 +459,7 @@ public enum Parser {
 
     // Create a new `ConformanceDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       ConformanceDecl(
         accessModifier: prologue.accessModifiers.first,
         subject: parts.0.0.0.1,
@@ -471,7 +467,6 @@ public enum Parser {
         whereClause: parts.0.1,
         members: parts.1,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `ExtensionDecl`.
@@ -505,14 +500,13 @@ public enum Parser {
 
     // Create a new `ExtensionDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       ExtensionDecl(
         accessModifier: prologue.accessModifiers.first,
         subject: parts.0.0.1,
         whereClause: parts.0.1,
         members: parts.1,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `FunctionDecl` or `MethodDecl`.
@@ -580,7 +574,7 @@ public enum Parser {
     // Create a new `FunctionDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       FunctionDecl(
         introducerRange: head.name.introducerRange,
         attributes: prologue.attributes,
@@ -596,7 +590,6 @@ public enum Parser {
         output: signature.output,
         body: body,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Builds a new instance of `Method` from its parsed parts.
@@ -624,7 +617,7 @@ public enum Parser {
 
     // Create a new `MethodDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       MethodDecl(
         introducerRange: head.name.introducerRange,
         attributes: prologue.attributes,
@@ -636,7 +629,6 @@ public enum Parser {
         output: signature.output,
         impls: impls,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `ImportDecl`.
@@ -666,12 +658,11 @@ public enum Parser {
     }
 
     // Create a new `ImportDecl`.
-    let decl = state.insert(
+    return state.insert(
       ImportDecl(
         introducerRange: parts.0.origin,
         identifier: SourceRepresentable(token: parts.1, in: state.lexer.source),
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `InitializerDecl`.
@@ -735,7 +726,7 @@ public enum Parser {
 
     // Create a new `InitializerDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       InitializerDecl(
         introducer: SourceRepresentable(value: .memberwiseInit, range: parts.0.origin),
         attributes: prologue.attributes,
@@ -745,7 +736,6 @@ public enum Parser {
         receiver: receiver,
         body: nil,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `NamespaceDecl`.
@@ -772,14 +762,13 @@ public enum Parser {
 
     // Create a new `NamespaceDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       NamespaceDecl(
         introducerRange: parts.0.0.origin,
         accessModifier: prologue.accessModifiers.first,
         identifier: SourceRepresentable(token: parts.0.1, in: state.lexer.source),
         members: parts.1,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `OperatorDecl`.
@@ -807,7 +796,7 @@ public enum Parser {
 
     // Create a new `OperatorDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       OperatorDecl(
         introducerRange: parts.0.0.0.origin,
         accessModifier: prologue.accessModifiers.first,
@@ -815,7 +804,6 @@ public enum Parser {
         name: parts.0.1,
         precedenceGroup: parts.1,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `SubscriptDecl` representing a property declaration.
@@ -834,7 +822,7 @@ public enum Parser {
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       SubscriptDecl(
         introducer: head.introducer,
         attributes: prologue.attributes,
@@ -847,7 +835,6 @@ public enum Parser {
         output: signature,
         impls: impls,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `SubscriptDecl`.
@@ -869,7 +856,7 @@ public enum Parser {
     // Create a new `SubscriptDecl`.
     assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       SubscriptDecl(
         introducer: head.introducer,
         attributes: prologue.attributes,
@@ -882,7 +869,6 @@ public enum Parser {
         output: signature.output,
         impls: impls,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   static func parseSubscriptDeclBody(
@@ -973,14 +959,12 @@ public enum Parser {
     }
 
     // Create a new `SubscriptImplDecl`.
-    let decl = state.insert(
+    return state.insert(
       SubscriptImplDecl(
         introducer: introducer,
         receiver: receiver,
         body: body,
         origin: origin))
-
-    return decl
   }
 
   /// Parses an instance of `TraitDecl`.
@@ -1013,7 +997,7 @@ public enum Parser {
 
     // Create a new `TraitDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       TraitDecl(
         accessModifier: prologue.accessModifiers.first,
         identifier: SourceRepresentable(token: name, in: state.lexer.source),
@@ -1021,7 +1005,6 @@ public enum Parser {
         members: members,
         selfParameterDecl: selfParameterDecl,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Parses an instance of `ProductTypeDecl`.
@@ -1054,7 +1037,7 @@ public enum Parser {
 
     // Create a new `ProductTypeDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       ProductTypeDecl(
         accessModifier: prologue.accessModifiers.first,
         identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
@@ -1063,7 +1046,6 @@ public enum Parser {
         members: members,
         memberwiseInit: memberwiseInit,
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   /// Returns the first memberwise initializer declaration in `members` or synthesizes an implicit
@@ -1121,14 +1103,13 @@ public enum Parser {
 
     // Create a new `TypeAliasDecl`.
     assert(prologue.accessModifiers.count <= 1)
-    let decl = state.insert(
+    return state.insert(
       TypeAliasDecl(
         accessModifier: prologue.accessModifiers.first,
         identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
         genericClause: parts.0.0.1,
         body: .typeExpr(parts.1),
         origin: state.range(from: prologue.startIndex)))
-    return decl
   }
 
   private static func parseFunctionDeclHead(

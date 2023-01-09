@@ -259,38 +259,6 @@ private struct CLI: ParsableCommand {
       ])
   }
 
-  /*
-  /// Parses the contents of the file at `fileURL` and insert them into `ast[module]`.
-  private func insert(
-    contentsOf fileURL: URL,
-    into module: NodeID<ModuleDecl>,
-    in ast: inout AST
-  ) -> Bool {
-    switch fileURL.pathExtension {
-    case "val":
-      log(verbose: fileURL.relativePath)
-
-      // Read the contents of the file.
-      let sourceFile: SourceFile
-      do {
-        sourceFile = try SourceFile(contentsOf: fileURL)
-      } catch let error {
-        log(errorLabel + error.localizedDescription)
-        return false
-      }
-
-      // Parse the file.
-      let parseResult = Parser.parse(sourceFile, into: module, in: &ast, diagostics: )
-      log(diagnostics: parseResult.diagnostics)
-      return !parseResult.failed
-
-    default:
-      log("ignoring file with unsupported extension: \(fileURL.relativePath)")
-      return true
-    }
-  }
-*/
-
   /// Creates a module from the contents at `url` and adds it to the AST.
   ///
   /// - Requires: `url` must denote a directly.
