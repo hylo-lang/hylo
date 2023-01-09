@@ -112,11 +112,7 @@ private struct CLI: ParsableCommand {
 
     log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
-    let (sources, skippedFiles) = sourceAndNonSourceFilesFromCommandPaths(inputs)
-    for f in skippedFiles {
-      log("ignoring file with unsupported extension: \(f)")
-    }
-
+    let sources = sourceFilesFromCommandPaths(inputs)
     var diagnostics = Diagnostics(reportingToStderr: true)
 
     // Merge all inputs into the same same module.
