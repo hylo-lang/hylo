@@ -63,17 +63,14 @@ public struct InitializerDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value == .public }
 
-  public func validateForm(in ast: AST) -> SuccessOrDiagnostics {
-    var report: [Diagnostic] = []
+  public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
 
     // Parameter declarations must have a type annotation.
     for p in parameters {
       if ast[p].annotation == nil {
-        report.append(.diagnose(missingTypeAnnotation: ast[p], in: ast))
+        diagnostics.report(.diagnose(missingTypeAnnotation: ast[p], in: ast))
       }
     }
-
-    return report.isEmpty ? .success : .failure(report)
   }
 
 }

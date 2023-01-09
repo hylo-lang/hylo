@@ -99,32 +99,29 @@ private struct CLI: ParsableCommand {
   }
 
   fileprivate mutating func run() throws {
+    if compileInputAsModules {
+      fatalError("compilation as modules not yet implemented.")
+    }
+
     /// The name of the product being built.
     let productName = "main"
     /// The AST of the program being compiled.
     var ast = AST()
 
-    if compileInputAsModules {
-      fatalError("not implemented")
-    }
-
     // *** Parsing ***
 
     log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
-    // Merge all inputs into the same same module.
-    let moduleDecl = try! ast.insert(wellFormed: ModuleDecl(name: productName))
-    for input in inputs {
-      if input.hasDirectoryPath {
-        if !withFiles(in: input, { insert(contentsOf: $0, into: moduleDecl, in: &ast) }) {
-          CLI.exit(withError: ExitCode(-1))
-        }
-      } else {
-        if !insert(contentsOf: input, into: moduleDecl, in: &ast) {
-          CLI.exit(withError: ExitCode(-1))
-        }
-      }
+    let (sources, skippedFiles) = sourceAndNonSourceFilesFromCommandPaths(inputs)
+    for f in skippedFiles {
+      log("ignoring file with unsupported extension: \(f)")
     }
+
+    var diagnostics = Diagnostics(reportingToStderr: true)
+
+    // Merge all inputs into the same same module.
+    let moduleDecl: NodeID<ModuleDecl> = try ast.insert(
+      sources.lazy.map(SourceFile.init), asModule: "Main", diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
@@ -260,36 +257,6 @@ private struct CLI: ParsableCommand {
         "-I", buildDirectoryURL.path,
         cxxSourceURL.path,
       ])
-  }
-
-  /// Parses the contents of the file at `fileURL` and insert them into `ast[module]`.
-  private func insert(
-    contentsOf fileURL: URL,
-    into module: NodeID<ModuleDecl>,
-    in ast: inout AST
-  ) -> Bool {
-    switch fileURL.pathExtension {
-    case "val":
-      log(verbose: fileURL.relativePath)
-
-      // Read the contents of the file.
-      let sourceFile: SourceFile
-      do {
-        sourceFile = try SourceFile(contentsOf: fileURL)
-      } catch let error {
-        log(errorLabel + error.localizedDescription)
-        return false
-      }
-
-      // Parse the file.
-      let parseResult = Parser.parse(sourceFile, into: module, in: &ast)
-      log(diagnostics: parseResult.diagnostics)
-      return !parseResult.failed
-
-    default:
-      log("ignoring file with unsupported extension: \(fileURL.relativePath)")
-      return true
-    }
   }
 
   /// Creates a module from the contents at `url` and adds it to the AST.

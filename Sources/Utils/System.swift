@@ -18,3 +18,28 @@ public func withFiles(in directory: URL, _ action: (URL) throws -> Bool) rethrow
   }
   return true
 }
+
+/// Given a collection of source paths as specified on the valc command line, returns the paths of
+/// the actual source files to process along with the paths of any files that should be skipped.
+///
+/// Paths of files are unconditionally treated as Val `sourceFiles`. Paths of directories are
+/// recursively searched for `.val` files, which are considered Val `sourceFiles`; all others are
+/// treated as `nonSourceFiles` and should be skipped.
+public func sourceAndNonSourceFilesFromCommandPaths<S: Collection>(
+  _ commandPaths: S
+) -> (sourceFiles: [URL], nonSourceFiles: [URL])
+where S.Element == URL {
+  let explicitSourceFiles = commandPaths.filter { !$0.hasDirectoryPath }
+  let sourceDirectories = commandPaths.filter { $0.hasDirectoryPath }
+
+  // Recursively search the directory paths.
+  var nonSourceFiles: [URL] = []
+  var sourceFiles = explicitSourceFiles
+  for d in sourceDirectories {
+    withFiles(in: d) { f in
+      if f.pathExtension == "val" { sourceFiles.append(f) } else { nonSourceFiles.append(f) }
+      return true
+    }
+  }
+  return (sourceFiles, nonSourceFiles)
+}

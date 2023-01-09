@@ -13,12 +13,10 @@ final class ParserTests: XCTestCase {
       { (source, diagnostics) in
         // Create a module for the input.
         var ast = AST()
-        let module = try! ast.insert(wellFormed: ModuleDecl(name: source.baseName))
+        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
 
         // Parse the input.
-        let parseResult = Parser.parse(source, into: module, in: &ast)
-        diagnostics += parseResult.diagnostics
-        if parseResult.failed { throw DiagnosedError(diagnostics) }
+        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
       })
   }
 
@@ -33,11 +31,11 @@ final class ParserTests: XCTestCase {
         """)
 
     var program = AST()
-    let module = try program.insert(wellFormed: ModuleDecl(name: "Main"))
+    let module = program.insert(synthesized: ModuleDecl(name: "Main"))
 
-    let parseResult = Parser.parse(input, into: module, in: &program)
-    XCTAssertFalse(parseResult.failed)
-    XCTAssertEqual(parseResult.diagnostics.count, 0)
+    var d = Diagnostics()
+    _ = try Parser.parse(input, into: module, in: &program, diagnostics: &d)
+    XCTAssert(d.log.isEmpty, "\n\(d)")
   }
 
   func testSourceFile() throws {
@@ -53,7 +51,7 @@ final class ParserTests: XCTestCase {
           public let y = 0;
         """)
 
-    let (id, ast) = try input.parse(with: Parser.parseSourceFile)
+    let (id, ast) = input.parse(with: Parser.parseSourceFile)
     XCTAssertEqual(ast[id].decls.count, 4)
   }
 

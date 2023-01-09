@@ -9,7 +9,12 @@ extension AST {
   /// - Requires: The Core library must not have been already imported.
   public mutating func importCoreModule() {
     precondition(!isCoreModuleLoaded, "Core library is already loaded")
-    corelib = try! insert(wellFormed: ModuleDecl(name: "Val"))
+
+    var diagnostics = Diagnostics()
+    corelib = insert(ModuleDecl(name: "Val"), diagnostics: &diagnostics)
+    if !diagnostics.log.isEmpty {
+      fatalError("Error inserting the core module:\n\(diagnostics)")
+    }
 
     withFiles(
       in: ValModule.core!,
@@ -19,20 +24,13 @@ extension AST {
         // Parse the file.
         do {
           let sourceFile = try SourceFile(contentsOf: sourceURL)
-          let diagnostics = Parser.parse(sourceFile, into: corelib!, in: &self).diagnostics
-
-          // Note: the core module shouldn't produce any diagnostic.
-          if !diagnostics.isEmpty {
-            throw DiagnosedError(diagnostics)
-          } else {
-            return true
-          }
-        } catch let error as DiagnosedError {
-          fatalError("\(list: error.diagnostics, joinedBy: "\n")")
+          _ = try Parser.parse(sourceFile, into: corelib!, in: &self, diagnostics: &diagnostics)
+          // Parsing the core module should generate no diagnostics, not even warnings.
+          if diagnostics.log.isEmpty { return true }
+          throw diagnostics
         } catch let error {
-          fatalError(error.localizedDescription)
+          fatalError("Error parsing the core module:\n\(error.localizedDescription)")
         }
       })
   }
-
 }
