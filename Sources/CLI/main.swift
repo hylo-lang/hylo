@@ -112,16 +112,11 @@ private struct CLI: ParsableCommand {
 
     log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
-    let (sources, skippedFiles) = sourceAndNonSourceFilesFromCommandPaths(inputs)
-    for f in skippedFiles {
-      log("ignoring file with unsupported extension: \(f)")
-    }
-
     var diagnostics = Diagnostics(reportingToStderr: true)
 
     // Merge all inputs into the same same module.
-    let moduleDecl: NodeID<ModuleDecl> = try ast.insert(
-      sources.lazy.map(SourceFile.init), asModule: "Main", diagnostics: &diagnostics)
+    let moduleDecl = try ast.insert(
+      sourceFiles(in: inputs), asModule: "Main", diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {

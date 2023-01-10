@@ -66,43 +66,34 @@ extension XCTestCase {
       Bundle.module.url(forResource: sourceDirectory, withExtension: nil),
       "No test cases")
 
-    try withFiles(
-      in: testCaseDirectory,
-      { (url) in
-        // Skip non-val files.
-        if url.pathExtension != "val" { return true }
+    for source in try sourceFiles(in: [testCaseDirectory]) {
+      var annotations = TestAnnotation.parseAll(from: source)
 
-        let source = try SourceFile(contentsOf: url)
-        var annotations = TestAnnotation.parseAll(from: source)
+      // Separate the annotations to be checked by default diagnostic annotation checking from
+      // those to be checked by `processAndCheck`.
+      let p = annotations.partition(by: { checkedCommands.contains($0.command) })
+      let (diagnosticAnnotations, processingAnnotations) = (annotations[..<p], annotations[p...])
 
-        // Separate the annotations to be checked by default diagnostic annotation checking from
-        // those to be checked by `processAndCheck`.
-        let p = annotations.partition(by: { checkedCommands.contains($0.command) })
-        let (diagnosticAnnotations, processingAnnotations) = (annotations[..<p], annotations[p...])
+      var diagnostics = Diagnostics()
+      let failures = XCTContext.runActivity(
+        named: source.baseName,
+        block: { activity in
+          let completedProcessingTestFailures = try? processAndCheck(
+            source, processingAnnotations, &diagnostics)
 
-        var diagnostics = Diagnostics()
-        let failures = XCTContext.runActivity(
-          named: source.baseName,
-          block: { activity in
-            let completedProcessingTestFailures = try? processAndCheck(
-              source, processingAnnotations, &diagnostics)
+          return failuresToReport(
+            effectsOfProcessing: (
+              ranToCompletion: completedProcessingTestFailures != nil,
+              testFailures: completedProcessingTestFailures ?? [],
+              diagnostics: diagnostics
+            ),
+            unhandledAnnotations: diagnosticAnnotations)
+        })
 
-            return failuresToReport(
-              effectsOfProcessing: (
-                ranToCompletion: completedProcessingTestFailures != nil,
-                testFailures: completedProcessingTestFailures ?? [],
-                diagnostics: diagnostics
-              ),
-              unhandledAnnotations: diagnosticAnnotations)
-          })
-
-        for f in failures {
-          record(f)
-        }
-
-        // Move to the next test case.
-        return true
-      })
+      for f in failures {
+        record(f)
+      }
+    }
   }
 
   /// Given the effects of processing and the annotations not specifically handled by
