@@ -18,7 +18,7 @@ final class TypeCheckerTests: XCTestCase {
         _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 
         // Run the type checker.
-        var checker = TypeChecker(program: ScopedProgram(ast: ast))
+        var checker = TypeChecker(program: ScopedProgram(ast))
         _ = checker.check(module: module)
         diagnostics.report(checker.diagnostics)
         try diagnostics.throwOnError()

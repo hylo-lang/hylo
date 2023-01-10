@@ -135,7 +135,7 @@ private struct CLI: ParsableCommand {
 
     // Initialize the type checker.
     var checker = TypeChecker(
-      program: ScopedProgram(ast: ast),
+      program: ScopedProgram(ast),
       isBuiltinModuleVisible: true,
       enablingInferenceTracingIn: inferenceTracingRange)
     var typeCheckingSucceeded = true
