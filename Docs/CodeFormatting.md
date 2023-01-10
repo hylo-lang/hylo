@@ -5,7 +5,7 @@ The Swift source code in this repository is meant to be checked with `swift-form
 Contributors are asked to format all the code they submit to the repo.
 There is a CI job that checks the formatting; this job will not auto-correct the formatting, it will just ensure that the formatting is correct.
 
-At this point we use the version `swift-format` at commit SHA a1ebffecbfb429efed708534ec644ea015b9f4d4.
+At this point we use the version `swift-format` at commit SHA 0bc2f0381c72d66a949254af22208a81377cf717.
 
 ## Manually Running `swift-format`
 
