@@ -299,11 +299,11 @@ private struct CLI: ParsableCommand {
       write(line)
       write("\n")
 
-      let padding = line.distance(from: line.startIndex, to: site.lowerBound)
+      let padding = line.distance(from: line.startIndex, to: site.start)
       write(String(repeating: " ", count: padding))
 
       let count = line.distance(
-        from: site.lowerBound, to: min(site.upperBound, line.endIndex))
+        from: site.start, to: min(site.end, line.endIndex))
       if count > 1 {
         write(String(repeating: "~", count: count))
       } else {

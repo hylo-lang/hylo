@@ -193,7 +193,7 @@ public struct AST: Codable {
 
     case .infix(_, let lhs, let rhs):
       if let lhsRange = origin(of: lhs), let rhsRange = origin(of: rhs) {
-        return lhsRange.extended(upTo: rhsRange.upperBound)
+        return lhsRange.extended(upTo: rhsRange.end)
       } else {
         return nil
       }

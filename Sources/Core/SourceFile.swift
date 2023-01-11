@@ -32,7 +32,7 @@ public struct SourceFile {
   /// Returns the contents of the file in the specified range.
   public subscript(_ range: SourceRange) -> Substring {
     precondition(range.file.url == url, "invalid source range")
-    return text[range.lowerBound ..< range.upperBound]
+    return text[range.start ..< range.end]
   }
 
   /// The contents of the line in which `location` is defined.

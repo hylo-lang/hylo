@@ -5,13 +5,13 @@ public struct SourceRange: Hashable {
   public let file: SourceFile
 
   /// The start index of the range.
-  public var lowerBound: String.Index {
-    didSet { precondition(lowerBound <= upperBound) }
+  public var start: String.Index {
+    didSet { precondition(start <= end) }
   }
 
   /// The end index of the range.
-  public var upperBound: String.Index {
-    didSet { precondition(lowerBound <= upperBound) }
+  public var end: String.Index {
+    didSet { precondition(start <= end) }
   }
 
   /// Creates a range in `file` from `lowerBound` to `upperBound`.
@@ -20,30 +20,30 @@ public struct SourceRange: Hashable {
   public init(in file: SourceFile, from lowerBound: String.Index, to upperBound: String.Index) {
     precondition(lowerBound <= upperBound)
     self.file = file
-    self.lowerBound = lowerBound
-    self.upperBound = upperBound
+    self.start = lowerBound
+    self.end = upperBound
   }
 
   /// Returns whether `self` contains the given location.
   public func contains(_ l: SourceLocation) -> Bool {
-    (l.file == file) && (l.index >= lowerBound) && (l.index < upperBound)
+    (l.file == file) && (l.index >= start) && (l.index < end)
   }
 
   /// Returns the first source location in this range.
   public func first() -> SourceLocation {
-    SourceLocation(file: file, index: lowerBound)
+    SourceLocation(file: file, index: start)
   }
 
   /// Returns the last source location in this range, unless the range is empty.
   public func last() -> SourceLocation? {
-    lowerBound < upperBound
-      ? SourceLocation(file: file, index: file.text.index(before: upperBound))
+    start < end
+      ? SourceLocation(file: file, index: file.text.index(before: end))
       : nil
   }
 
   /// Returns a copy of `self` with the upper bound set to `newUpperBound`.
   public func extended(upTo newUpperBound: String.Index) -> SourceRange {
-    SourceRange(in: file, from: lowerBound, to: newUpperBound)
+    SourceRange(in: file, from: start, to: newUpperBound)
   }
 
   /// Returns a copy of `self` extended to cover `other`.
@@ -51,13 +51,13 @@ public struct SourceRange: Hashable {
     precondition(file == other.file, "incompatible ranges")
     return SourceRange(
       in: file,
-      from: Swift.min(lowerBound, other.lowerBound),
-      to: Swift.max(upperBound, other.upperBound))
+      from: Swift.min(start, other.start),
+      to: Swift.max(end, other.end))
   }
 
   public static func ..< (l: SourceRange, r: SourceRange) -> SourceRange {
     precondition(l.file == r.file, "incompatible locations")
-    return SourceRange(in: l.file, from: l.lowerBound, to: r.lowerBound)
+    return SourceRange(in: l.file, from: l.start, to: r.start)
   }
 
 }
@@ -73,10 +73,10 @@ extension SourceRange: Codable {
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     file = try container.decode(SourceFile.self, forKey: .file)
-    lowerBound = String.Index(
+    start = String.Index(
       utf16Offset: try container.decode(Int.self, forKey: .lowerBound),
       in: file.text)
-    upperBound = String.Index(
+    end = String.Index(
       utf16Offset: try container.decode(Int.self, forKey: .upperBound),
       in: file.text)
   }
@@ -84,8 +84,8 @@ extension SourceRange: Codable {
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(file, forKey: .file)
-    try container.encode(lowerBound.utf16Offset(in: file.text), forKey: .lowerBound)
-    try container.encode(upperBound.utf16Offset(in: file.text), forKey: .upperBound)
+    try container.encode(start.utf16Offset(in: file.text), forKey: .lowerBound)
+    try container.encode(end.utf16Offset(in: file.text), forKey: .upperBound)
   }
 
 }
@@ -96,8 +96,8 @@ extension SourceRange: CustomReflectable {
     Mirror(
       self,
       children: [
-        "start": SourceLocation(file: file, index: lowerBound),
-        "end": SourceLocation(file: file, index: upperBound),
+        "start": SourceLocation(file: file, index: start),
+        "end": SourceLocation(file: file, index: end),
       ])
   }
 

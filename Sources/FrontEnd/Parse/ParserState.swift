@@ -100,15 +100,15 @@ struct ParserState {
   /// Returns whether there are whitespaces before *and* after `token`.
   mutating func hasLeadingAndTrailingWhitespaces(_ token: Token) -> Bool {
     guard
-      let a = lexer.sourceCode.text.prefix(upTo: token.origin.lowerBound).last,
-      let b = lexer.sourceCode.text.suffix(from: token.origin.upperBound).first
+      let a = lexer.sourceCode.text.prefix(upTo: token.origin.start).last,
+      let b = lexer.sourceCode.text.suffix(from: token.origin.end).first
     else { return false }
     return a.isWhitespace && b.isWhitespace
   }
 
   /// Returns whether there is a new line in the character stream before `bound`.
   mutating func hasNewline(before bound: Token) -> Bool {
-    lexer.sourceCode.text[currentIndex ..< bound.origin.lowerBound]
+    lexer.sourceCode.text[currentIndex ..< bound.origin.start]
       .contains(where: { $0.isNewline })
   }
 
@@ -157,13 +157,13 @@ struct ParserState {
   mutating func take() -> Token? {
     // Return the token in the lookahead buffer, if available.
     if let token = lookahead.popFirst() {
-      currentIndex = token.origin.upperBound
+      currentIndex = token.origin.end
       return token
     }
 
     // Attempt to pull a new element from the lexer.
     guard let token = lexer.next() else { return nil }
-    currentIndex = token.origin.upperBound
+    currentIndex = token.origin.end
     return token
   }
 
@@ -171,7 +171,7 @@ struct ParserState {
   mutating func take(_ kind: Token.Kind) -> Token? {
     if peek()?.kind == kind {
       let token = lookahead.removeFirst()
-      currentIndex = token.origin.upperBound
+      currentIndex = token.origin.end
       return token
     } else {
       return nil
@@ -189,7 +189,7 @@ struct ParserState {
   mutating func take(if predicate: (Token) -> Bool) -> Token? {
     if let token = peek(), predicate(token) {
       let token = lookahead.removeFirst()
-      currentIndex = token.origin.upperBound
+      currentIndex = token.origin.end
       return token
     } else {
       return nil
@@ -220,13 +220,13 @@ struct ParserState {
       _ = take()
 
       // Merge the leading angle bracket with attached operators.
-      var upper = head.origin.upperBound
-      while let next = take(if: { $0.isOperatorPart && (upper == $0.origin.lowerBound) }) {
-        upper = next.origin.upperBound
+      var upper = head.origin.end
+      while let next = take(if: { $0.isOperatorPart && (upper == $0.origin.start) }) {
+        upper = next.origin.end
       }
 
       var range = head.origin
-      range.upperBound = upper
+      range.end = upper
       return SourceRepresentable(value: String(lexer.sourceCode[range]), range: range)
 
     default:
