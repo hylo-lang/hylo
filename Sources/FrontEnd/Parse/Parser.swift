@@ -3349,13 +3349,16 @@ extension SourceRepresentable where Part == Identifier {
 }
 
 extension AST {
-  public mutating func insert<S: Sequence>(
-    _ sources: S, asModule newModule: String, diagnostics: inout Diagnostics
+
+  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics to
+  /// `diagnostics`.
+  public mutating func makeModule<S: Sequence>(
+    _ name: String, sourceCode: S, diagnostics: inout Diagnostics
   ) throws -> NodeID<ModuleDecl>
   where S.Element == SourceFile {
-    let newModule = self.insert(synthesized: ModuleDecl(name: newModule))
+    let newModule = self.insert(synthesized: ModuleDecl(name: name))
 
-    for f in sources {
+    for f in sourceCode {
       do {
         _ = try Parser.parse(f, into: newModule, in: &self, diagnostics: &diagnostics)
       } catch _ as Diagnostics {}  // These have been logged, let's keep parsing other files.
@@ -3363,4 +3366,5 @@ extension AST {
     try diagnostics.throwOnError()
     return newModule
   }
+
 }

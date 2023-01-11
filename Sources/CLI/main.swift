@@ -107,20 +107,16 @@ private struct CLI: ParsableCommand {
       fatalError("compilation as modules not yet implemented.")
     }
 
-    /// The name of the product being built.
+    var diagnostics = Diagnostics(reportingToStderr: true)
+
     let productName = "main"
+    log(verbose: "Parsing '\(productName)'".styled([.bold]))
+
     /// The AST of the program being compiled.
     var ast = AST()
 
-    // *** Parsing ***
-
-    log(verbose: "Parsing '\(productName)'".styled([.bold]))
-
-    var diagnostics = Diagnostics(reportingToStderr: true)
-
-    // Merge all inputs into the same same module.
-    let moduleDecl = try ast.insert(
-      sourceFiles(in: inputs), asModule: "Main", diagnostics: &diagnostics)
+    let newModule = try ast.makeModule(
+      "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
@@ -149,7 +145,7 @@ private struct CLI: ParsableCommand {
 
     // Type-check the input.
     checker.isBuiltinModuleVisible = importBuiltinModule
-    typeCheckingSucceeded = checker.check(module: moduleDecl) && typeCheckingSucceeded
+    typeCheckingSucceeded = checker.check(module: newModule) && typeCheckingSucceeded
 
     // Report type-checking errors.
     log(diagnostics: checker.diagnostics)
@@ -173,7 +169,7 @@ private struct CLI: ParsableCommand {
     log(verbose: "Lowering '\(productName)'".styled([.bold]))
 
     // Initialize the IR emitter.
-    var irModule = Module(moduleDecl, in: typedProgram)
+    var irModule = Module(newModule, in: typedProgram)
 
     // Handle `--emit raw-ir`.
     if outputType == .rawIR {
@@ -216,7 +212,7 @@ private struct CLI: ParsableCommand {
     var transpiler = CXXTranspiler(program: typedProgram)
 
     // Translate the module to C++.
-    let cxxModule = transpiler.emit(module: typedProgram[moduleDecl])
+    let cxxModule = transpiler.emit(module: typedProgram[newModule])
     let cxxHeader = cxxModule.emitHeader()
     let cxxSource = cxxModule.emitSource()
 
