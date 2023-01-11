@@ -122,6 +122,7 @@ private struct CLI: ParsableCommand {
     if outputType == .rawAST {
       let url = outputURL ?? URL(fileURLWithPath: "ast.json")
       let encoder = JSONEncoder()
+      encoder.outputFormatting = .prettyPrinted
       try encoder.encode(ast).write(to: url, options: .atomic)
       CLI.exit()
     }
