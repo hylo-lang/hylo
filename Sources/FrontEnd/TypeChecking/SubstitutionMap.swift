@@ -94,6 +94,22 @@ struct SubstitutionMap {
     return type.transform(_impl(type:))
   }
 
+  /// Removes the key/value pairs in `self` that are not also in `other`.
+  mutating func formIntersection(_ other: Self) {
+    for (key, lhs) in storage {
+      storage[key] = (lhs == other[key]) ? lhs : nil
+    }
+  }
+
+  /// Returns a new substitution map containing the key/value pairs common to `self` and `other`.
+  func intersection(_ other: Self) -> Self {
+    var result = SubstitutionMap()
+    for (key, lhs) in storage {
+      result.storage[key] = (lhs == other[key]) ? lhs : nil
+    }
+    return result
+  }
+
 }
 
 extension SubstitutionMap: ExpressibleByDictionaryLiteral {

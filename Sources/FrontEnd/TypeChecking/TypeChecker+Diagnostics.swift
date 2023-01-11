@@ -9,13 +9,6 @@ extension Diagnostic {
   }
 
   static func diagnose(
-    ambiguousUse expr: NodeID<NameExpr>,
-    in ast: AST
-  ) -> Diagnostic {
-    .error("ambiguous use of '\(ast[expr].name.value)'", range: ast[expr].origin)
-  }
-
-  static func diagnose(
     circularRefinementAt range: SourceRange?
   ) -> Diagnostic {
     .error("circular trait refinement", range: range)
@@ -446,6 +439,25 @@ extension Diagnostic {
     .error(
       "type '\(subtype)' is not strict subtype of '\(supertype)'",
       range: origin)
+  }
+
+  static func error(
+    ambiguousUse expr: NodeID<NameExpr>,
+    in ast: AST,
+    candidates: [AnyDeclID] = []
+  ) -> Diagnostic {
+    let children = candidates.compactMap({ (decl) -> Diagnostic? in
+      if let origin = ast[decl].origin {
+        return .error("candidate here", range: origin)
+      } else {
+        return nil
+      }
+    })
+
+    return .error(
+      "ambiguous use of '\(ast[expr].name.value)'",
+      range: ast[expr].origin,
+      children: children)
   }
 
 }

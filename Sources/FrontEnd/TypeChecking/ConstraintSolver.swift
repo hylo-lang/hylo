@@ -4,6 +4,9 @@ import Utils
 /// A constraint system solver.
 struct ConstraintSolver {
 
+  /// The solution of an exploration given a particular choice.
+  private typealias ExploratinResult<T> = (choice: T, solution: Solution)
+
   /// A type that's used to compare competing solutions.
   public let comparator: AnyType
 
@@ -526,9 +529,8 @@ struct ConstraintSolver {
     defer { indentation -= 1 }
     log("actions:")
 
-    return explore(
+    let results = explore(
       constraint.choices,
-      cause: constraint.cause,
       using: &checker,
       configuringSubSolversWith: { (solver, choice) in
         solver.penalties += choice.penalties
@@ -536,6 +538,16 @@ struct ConstraintSolver {
           solver.insert(fresh: c)
         }
       })
+
+    if let pick = results.uniqueElement?.solution {
+      return pick
+    } else if results.isEmpty {
+      return nil
+    }
+
+    return formAmbiguousSolution(
+      results,
+      cause: .diagnose(ambiguousDisjunctionAt: constraint.cause.origin))
   }
 
   /// Attempts to solve the remaining constraints with each individual choice in `overload` and
@@ -549,9 +561,8 @@ struct ConstraintSolver {
     defer { indentation -= 1 }
     log("actions:")
 
-    return explore(
+    let results = explore(
       constraint.choices,
-      cause: constraint.cause,
       using: &checker,
       configuringSubSolversWith: { (solver, choice) in
         solver.penalties += choice.penalties
@@ -560,22 +571,33 @@ struct ConstraintSolver {
           solver.insert(fresh: c)
         }
       })
+
+    if let pick = results.uniqueElement?.solution {
+      return pick
+    } else if results.isEmpty {
+      return nil
+    }
+
+    return formAmbiguousSolution(
+      results,
+      cause: .error(
+        ambiguousUse: constraint.overloadedExpr,
+        in: checker.program.ast,
+        candidates: results.map(\.choice.reference.decl)))
   }
 
-  /// Solves the remaining constraint with each given choice and returns the best solution along
-  /// with the choice that produced it.
+  /// Solves the remaining constraint with each given choice and returns the best solutions.
   private mutating func explore<Choices: Collection>(
     _ choices: Choices,
-    cause: ConstraintCause?,
     using checker: inout TypeChecker,
     configuringSubSolversWith configureSubSolver: (inout Self, Choices.Element) -> Void
-  ) -> Solution? where Choices.Element: Choice {
+  ) -> [ExploratinResult<Choices.Element>] where Choices.Element: Choice {
     log("- fork:")
     indentation += 1
     defer { indentation -= 1 }
 
     /// The results of the exploration.
-    var results: [Solution] = []
+    var results: [ExploratinResult<Choices.Element>] = []
 
     for choice in choices {
       // Don't bother if there's no chance to find a better solution.
@@ -596,69 +618,75 @@ struct ConstraintSolver {
       guard let newSolution = subSolver.solve(using: &checker) else { continue }
 
       // Insert the new result.
-      insert(newSolution, into: &results, using: &checker)
+      insert((choice, newSolution), into: &results, using: &checker)
     }
 
-    switch results.count {
-    case 0:
-      return nil
-
-    case 1:
-      return results[0]
-
-    default:
-      // TODO: Merge remaining solutions
-      results[0].addDiagnostic(.diagnose(ambiguousDisjunctionAt: cause?.origin))
-      return results[0]
-    }
+    return results
   }
 
-  /// Inserts `newSolution` into `solutions` if its solution is better than or incomparable to any
-  /// of the latter's elements.
-  private mutating func insert(
-    _ newSolution: Solution,
-    into solutions: inout [Solution],
+  /// Inserts `newResult` into `bestResults` if its solution is better than or incomparable to any
+  /// of sthe latter's elements.
+  private mutating func insert<T>(
+    _ newResult: ExploratinResult<T>,
+    into bestResults: inout [ExploratinResult<T>],
     using checker: inout TypeChecker
   ) {
     // Ignore worse solutions.
-    if newSolution.score > best { return }
+    if newResult.solution.score > best { return }
 
     // Fast path: if the new solution has a better score, discard all others.
-    if solutions.isEmpty || (newSolution.score < best) {
-      best = newSolution.score
-      solutions = [newSolution]
+    if bestResults.isEmpty || (newResult.solution.score < best) {
+      best = newResult.solution.score
+      bestResults = [newResult]
       return
     }
 
     // Slow path: inspect how the solution compares with the ones we have.
-    let lhs = newSolution.typeAssumptions.reify(comparator, withVariables: .substituteByError)
+    var shouldInsert = false
+    let lhs = newResult.solution.typeAssumptions.reify(
+      comparator,
+      withVariables: .substituteByError)
+
     var i = 0
-    while i < solutions.count {
-      let rhs = solutions[i].typeAssumptions.reify(comparator, withVariables: .substituteByError)
+    while i < bestResults.count {
+      let rhs = bestResults[i].solution.typeAssumptions.reify(
+        comparator,
+        withVariables: .substituteByError)
+
       if checker.areEquivalent(lhs, rhs) {
         // Check if the new solution binds name expressions to more specialized declarations.
-        switch checker.compareSolutionBindings(newSolution, solutions[0], scope: scope) {
-        case .comparable(.coarser), .comparable(.equal):
-          // Note: If the new solution is coarser than the current one, then all other current
-          // solutions are either finer or equal to the new one.
+        let comparison = checker.compareSolutionBindings(
+          newResult.solution, bestResults[0].solution, scope: scope)
+        switch comparison {
+        case .comparable(.equal):
+          // The new solution is equal; discard it.
           return
-
-        case .comparable(.finer):
-          solutions.remove(at: i)
-
-        case .incomparable:
+        case .comparable(.coarser):
+          // The new solution is coarser; discard it unless it's better than another one.
           i += 1
+        case .comparable(.finer):
+          // The new solution is finer; keep it and discard the old one.
+          bestResults.remove(at: i)
+          shouldInsert = true
+        case .incomparable:
+          // The new solution is incomparable; keep it.
+          i += 1
+          shouldInsert = true
         }
       } else if checker.isStrictSubtype(lhs, rhs) {
-        // The new solution is finer; discard the current one.
-        solutions.remove(at: i)
+        // The new solution is finer; keep it and discard the old one.
+        bestResults.remove(at: i)
+        shouldInsert = true
       } else {
-        // The new solution is incomparable; keep the current one.
+        // The new solution is incomparable; keep it.
         i += 1
+        shouldInsert = true
       }
     }
 
-    solutions.append(newSolution)
+    if shouldInsert {
+      bestResults.append(newResult)
+    }
   }
 
   /// Schedules `constraint` to be solved in the future.
@@ -727,6 +755,31 @@ struct ConstraintSolver {
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
       diagnostics: diagnostics + stale.map(Diagnostic.diagnose(staleConstraint:)))
+  }
+
+  /// Creates an ambiguous solution.
+  private func formAmbiguousSolution<T>(
+    _ results: [ExploratinResult<T>],
+    cause: Diagnostic
+  ) -> Solution {
+    var types = results[0].solution.typeAssumptions
+    var bindings = results[0].solution.bindingAssumptions
+    var penalties = results[0].solution.score.penalties
+    var diagnostics = Set(results[0].solution.diagnostics)
+    diagnostics.insert(cause)
+
+    for result in results.dropFirst() {
+      types.formIntersection(result.solution.typeAssumptions)
+      bindings.formIntersection(result.solution.bindingAssumptions)
+      penalties = max(penalties, result.solution.score.penalties)
+      diagnostics.formUnion(result.solution.diagnostics)
+    }
+
+    return Solution(
+      typeAssumptions: types,
+      bindingAssumptions: bindings,
+      penalties: penalties,
+      diagnostics: Array(diagnostics))
   }
 
   /// Returns `true` if `lhs` is structurally compatible with `rhs`. Otherwise, generates the

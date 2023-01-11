@@ -27,7 +27,7 @@ struct Solution {
   let typeAssumptions: SubstitutionMap
 
   /// The name binding assumptions made by the solver.
-  let bindingAssumptions: [NodeID<NameExpr>: DeclRef]
+  let bindingAssumptions: BindingMap
 
   /// The penalties of the solution.
   private var penalties: Int
@@ -55,10 +55,5 @@ struct Solution {
 
   /// The score of the solution.
   var score: Score { Score(errorCount: diagnostics.count, penalties: penalties) }
-
-  /// Adds `d` to the list of diagnostics associated with this solution.
-  mutating func addDiagnostic(_ d: Diagnostic) {
-    diagnostics.append(d)
-  }
 
 }
