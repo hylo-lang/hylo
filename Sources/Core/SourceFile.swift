@@ -24,7 +24,7 @@ public struct SourceFile {
   }
 
   /// Creates a source file with the specified contents, creating a unique random URL.
-  public init(text: String) {
+  public init(synthesizedText text: String) {
     self.url = URL(string: "synthesized://\(UUID().uuidString)")!
     self.text = text
   }
@@ -124,14 +124,6 @@ extension SourceFile: Hashable {
 
   public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
     return lhs.url == rhs.url
-  }
-
-}
-
-extension SourceFile: ExpressibleByStringLiteral {
-
-  public init(stringLiteral value: String) {
-    self.init(text: value)
   }
 
 }
