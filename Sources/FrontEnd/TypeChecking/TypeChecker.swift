@@ -1541,7 +1541,7 @@ public struct TypeChecker {
       shouldLogTrace = true
 
       let loc = subjectRange.first()
-      let subjectDescription = subjectRange.source[subjectRange]
+      let subjectDescription = subjectRange.file[subjectRange]
       print("Inferring type of '\(subjectDescription)' at \(loc)")
       print("---")
     } else {

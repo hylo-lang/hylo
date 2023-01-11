@@ -2,7 +2,7 @@
 public struct SourceRange: Hashable {
 
   /// The source file containing the locations.
-  public let source: SourceFile
+  public let file: SourceFile
 
   /// The start index of the range.
   public var lowerBound: String.Index {
@@ -14,50 +14,50 @@ public struct SourceRange: Hashable {
     didSet { precondition(lowerBound <= upperBound) }
   }
 
-  /// Creates a range in `source` from `lowerBound` to `upperBound`.
+  /// Creates a range in `file` from `lowerBound` to `upperBound`.
   ///
   /// - Requires: `lowerBound <= upperBound`
-  public init(in source: SourceFile, from lowerBound: String.Index, to upperBound: String.Index) {
+  public init(in file: SourceFile, from lowerBound: String.Index, to upperBound: String.Index) {
     precondition(lowerBound <= upperBound)
-    self.source = source
+    self.file = file
     self.lowerBound = lowerBound
     self.upperBound = upperBound
   }
 
   /// Returns whether `self` contains the given location.
   public func contains(_ l: SourceLocation) -> Bool {
-    (l.source == source) && (l.index >= lowerBound) && (l.index < upperBound)
+    (l.file == file) && (l.index >= lowerBound) && (l.index < upperBound)
   }
 
   /// Returns the first source location in this range.
   public func first() -> SourceLocation {
-    SourceLocation(source: source, index: lowerBound)
+    SourceLocation(file: file, index: lowerBound)
   }
 
   /// Returns the last source location in this range, unless the range is empty.
   public func last() -> SourceLocation? {
     lowerBound < upperBound
-      ? SourceLocation(source: source, index: source.contents.index(before: upperBound))
+      ? SourceLocation(file: file, index: file.contents.index(before: upperBound))
       : nil
   }
 
   /// Returns a copy of `self` with the upper bound set to `newUpperBound`.
   public func extended(upTo newUpperBound: String.Index) -> SourceRange {
-    SourceRange(in: source, from: lowerBound, to: newUpperBound)
+    SourceRange(in: file, from: lowerBound, to: newUpperBound)
   }
 
   /// Returns a copy of `self` extended to cover `other`.
   public func extended(toCover other: SourceRange) -> SourceRange {
-    precondition(source == other.source, "incompatible ranges")
+    precondition(file == other.file, "incompatible ranges")
     return SourceRange(
-      in: source,
+      in: file,
       from: Swift.min(lowerBound, other.lowerBound),
       to: Swift.max(upperBound, other.upperBound))
   }
 
   public static func ..< (l: SourceRange, r: SourceRange) -> SourceRange {
-    precondition(l.source == r.source, "incompatible locations")
-    return SourceRange(in: l.source, from: l.lowerBound, to: r.lowerBound)
+    precondition(l.file == r.file, "incompatible locations")
+    return SourceRange(in: l.file, from: l.lowerBound, to: r.lowerBound)
   }
 
 }
@@ -66,26 +66,26 @@ extension SourceRange: Codable {
 
   fileprivate enum CodingKeys: String, CodingKey {
 
-    case source, lowerBound, upperBound
+    case file, lowerBound, upperBound
 
   }
 
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    source = try container.decode(SourceFile.self, forKey: .source)
+    file = try container.decode(SourceFile.self, forKey: .file)
     lowerBound = String.Index(
       utf16Offset: try container.decode(Int.self, forKey: .lowerBound),
-      in: source.contents)
+      in: file.contents)
     upperBound = String.Index(
       utf16Offset: try container.decode(Int.self, forKey: .upperBound),
-      in: source.contents)
+      in: file.contents)
   }
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
-    try container.encode(source, forKey: .source)
-    try container.encode(lowerBound.utf16Offset(in: source.contents), forKey: .lowerBound)
-    try container.encode(upperBound.utf16Offset(in: source.contents), forKey: .upperBound)
+    try container.encode(file, forKey: .file)
+    try container.encode(lowerBound.utf16Offset(in: file.contents), forKey: .lowerBound)
+    try container.encode(upperBound.utf16Offset(in: file.contents), forKey: .upperBound)
   }
 
 }
@@ -96,8 +96,8 @@ extension SourceRange: CustomReflectable {
     Mirror(
       self,
       children: [
-        "start": SourceLocation(source: source, index: lowerBound),
-        "end": SourceLocation(source: source, index: upperBound),
+        "start": SourceLocation(file: file, index: lowerBound),
+        "end": SourceLocation(file: file, index: upperBound),
       ])
   }
 

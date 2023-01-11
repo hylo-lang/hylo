@@ -2,28 +2,28 @@
 public struct SourceLocation: Hashable {
 
   /// The source file containing the location.
-  public let source: SourceFile
+  public let file: SourceFile
 
   /// The position of the location in the source file.
   public let index: String.Index
 
   /// Creates a new source location.
-  public init(source: SourceFile, index: String.Index) {
-    self.source = source
+  public init(file: SourceFile, index: String.Index) {
+    self.file = file
     self.index = index
   }
 
   /// The 1-based line and column indicies of this location.
   public var lineAndColumnIndices: (line: Int, column: Int) {
-    source.lineAndColumnIndices(at: self)
+    file.lineAndColumnIndices(at: self)
   }
 
   /// Returns a source range from `l` to `r`.
   ///
-  /// - Requires: `l.source == r.source`
+  /// - Requires: `l.file == r.file`
   public static func ..< (l: Self, r: Self) -> SourceRange {
-    precondition(l.source == r.source, "incompatible locations")
-    return SourceRange(in: l.source, from: l.index, to: r.index)
+    precondition(l.file == r.file, "incompatible locations")
+    return SourceRange(in: l.file, from: l.index, to: r.index)
   }
 
 }
@@ -31,7 +31,7 @@ public struct SourceLocation: Hashable {
 extension SourceLocation: Comparable {
 
   public static func < (l: Self, r: Self) -> Bool {
-    precondition(l.source == r.source, "incompatible locations")
+    precondition(l.file == r.file, "incompatible locations")
     return l.index < r.index
   }
 
@@ -41,22 +41,22 @@ extension SourceLocation: Codable {
 
   fileprivate enum CodingKeys: String, CodingKey {
 
-    case source, index
+    case file, index
 
   }
 
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    source = try container.decode(SourceFile.self, forKey: .source)
+    file = try container.decode(SourceFile.self, forKey: .file)
     index = String.Index(
       utf16Offset: try container.decode(Int.self, forKey: .index),
-      in: source.contents)
+      in: file.contents)
   }
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
-    try container.encode(source, forKey: .source)
-    try container.encode(index.utf16Offset(in: source.contents), forKey: .index)
+    try container.encode(file, forKey: .file)
+    try container.encode(index.utf16Offset(in: file.contents), forKey: .index)
   }
 
 }
@@ -64,8 +64,8 @@ extension SourceLocation: Codable {
 extension SourceLocation: CustomStringConvertible {
 
   public var description: String {
-    let (line, column) = source.lineAndColumnIndices(at: self)
-    return "\(source.url.relativePath):\(line):\(column)"
+    let (line, column) = file.lineAndColumnIndices(at: self)
+    return "\(file.url.relativePath):\(line):\(column)"
   }
 
 }
@@ -73,11 +73,11 @@ extension SourceLocation: CustomStringConvertible {
 extension SourceLocation: CustomReflectable {
 
   public var customMirror: Mirror {
-    let (line, column) = source.lineAndColumnIndices(at: self)
+    let (line, column) = file.lineAndColumnIndices(at: self)
     return Mirror(
       self,
       children: [
-        "sourceURL": source.url,
+        "sourceURL": file.url,
         "line": line,
         "column": column,
       ])

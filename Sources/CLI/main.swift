@@ -272,7 +272,7 @@ private struct CLI: ParsableCommand {
   private func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
     // Log the location, if available.
     if let location = diagnostic.location?.first() {
-      let path = location.source.url.relativePath
+      let path = location.file.url.relativePath
       let (line, column) = location.lineAndColumnIndices
       write("\(path):\(line):\(column): ".styled([.bold]))
     }
@@ -295,7 +295,7 @@ private struct CLI: ParsableCommand {
 
     // Log the window
     if let site = diagnostic.location {
-      let line = site.source.lineContents(at: site.first())
+      let line = site.file.lineContents(at: site.first())
       write(line)
       write("\n")
 

@@ -73,7 +73,7 @@ extension Diagnostic: CustomStringConvertible {
     let prefix: String
     if let l = location?.first() {
       let (line, column) = l.lineAndColumnIndices
-      prefix = "\(l.source.url):\(line):\(column): "
+      prefix = "\(l.file.url):\(line):\(column): "
     } else {
       prefix = ""
     }

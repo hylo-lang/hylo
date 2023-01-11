@@ -320,7 +320,7 @@ final class LexerTests: XCTestCase {
   private func assert(
     _ tokens: [Token],
     matches specs: [TokenSpecification],
-    in source: SourceFile,
+    in sourceCode: SourceFile,
     file: StaticString = #filePath,
     line: UInt = #line
   ) {
@@ -338,7 +338,7 @@ final class LexerTests: XCTestCase {
         file: spec.file,
         line: spec.line)
 
-      let value = source[token.origin]
+      let value = sourceCode[token.origin]
       XCTAssert(
         value == spec.value,
         "token has value '\(value)', not '\(spec.value)'",

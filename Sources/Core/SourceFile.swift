@@ -31,13 +31,13 @@ public struct SourceFile {
 
   /// Returns the contents of the file in the specified range.
   public subscript(_ range: SourceRange) -> Substring {
-    precondition(range.source.url == url, "invalid source range")
+    precondition(range.file.url == url, "invalid source range")
     return contents[range.lowerBound ..< range.upperBound]
   }
 
   /// The contents of the line in which `location` is defined.
   public func lineContents(at location: SourceLocation) -> Substring {
-    precondition(location.source == self, "invalid location")
+    precondition(location.file == self, "invalid location")
 
     var lower = location.index
     while lower > contents.startIndex {
@@ -59,7 +59,7 @@ public struct SourceFile {
 
   /// The 1-based line and column indices if `location`.
   public func lineAndColumnIndices(at location: SourceLocation) -> (line: Int, column: Int) {
-    precondition(location.source == self, "invalid location")
+    precondition(location.file == self, "invalid location")
 
     if location.index == contents.endIndex {
       let lines = contents.split(whereSeparator: { $0.isNewline })
@@ -111,7 +111,7 @@ public struct SourceFile {
     if currentColumn != column { return nil }
 
     // We're done.
-    return SourceLocation(source: self, index: position)
+    return SourceLocation(file: self, index: position)
   }
 
 }

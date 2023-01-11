@@ -28,7 +28,7 @@ extension Diagnostic {
       at: state.currentLocation,
       children: [
         .error(
-          "to match this '\(state.lexer.source[opener.origin])'",
+          "to match this '\(state.lexer.sourceCode[opener.origin])'",
           range: opener.origin)
       ]
     )
