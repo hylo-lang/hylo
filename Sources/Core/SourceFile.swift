@@ -1,3 +1,4 @@
+import Algorithms
 import Foundation
 import Utils
 
@@ -12,10 +13,17 @@ public struct SourceFile {
   /// The URL of the source file.
   public let url: URL
 
+  /// The start position of each line.
+  ///
+  /// - Invariant: always starts with `contents.startIndex` and ends with `contents.endIndex`, even
+  ///   if there's no final newline.
+  public let lineStarts: [String.Index]
+
   /// Creates a source file with the contents of the specifide URL.
   public init(contentsOf url: URL) throws {
     self.url = url
     self.text = try String(contentsOf: url)
+    self.lineStarts = text.lineBoundaries()
   }
 
   /// The name of the source file, sans path qualification or extension.
@@ -27,6 +35,7 @@ public struct SourceFile {
   public init(synthesizedText text: String) {
     self.url = URL(string: "synthesized://\(UUID().uuidString)")!
     self.text = text
+    self.lineStarts = text.lineBoundaries()
   }
 
   /// Returns the contents of the file in the specified range.
@@ -60,25 +69,9 @@ public struct SourceFile {
   /// The 1-based line and column indices if `location`.
   public func lineAndColumnIndices(at location: SourceLocation) -> (line: Int, column: Int) {
     precondition(location.file == self, "invalid location")
-
-    if location.index == text.endIndex {
-      let lines = text.split(whereSeparator: { $0.isNewline })
-      return (line: lines.count, column: (lines.last?.count ?? 0) + 1)
-    }
-
-    var lineIndex = 1
-    for c in text.prefix(upTo: location.index) where c.isNewline {
-      lineIndex += 1
-    }
-
-    let buffer = text.prefix(upTo: location.index)
-    var columnIndex = 1
-    for c in buffer.reversed() {
-      guard !c.isNewline else { break }
-      columnIndex += 1
-    }
-
-    return (lineIndex, columnIndex)
+    let lineNumber = lineStarts.partitioningIndex(where: { $0 > location.index })
+    let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: location.index) + 1
+    return (lineNumber, columnNumber)
   }
 
   /// Returns the location corresponding to the given 1-based line and column indices, or `nil` if
