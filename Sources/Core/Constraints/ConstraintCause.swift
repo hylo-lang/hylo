@@ -13,6 +13,9 @@ public struct ConstraintCause: Hashable {
     /// The constraint is caused by a binding reference.
     case binding
 
+    /// The constraint is caused by a conditional expression.
+    case branchMerge
+
     /// The constraint is caused by an expression being used as a callee.
     case callee
 
