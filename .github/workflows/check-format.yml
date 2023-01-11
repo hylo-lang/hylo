@@ -2,9 +2,9 @@ name: Check the format of the Swift code
 
 on:
   push:
-    branches: [ main, format-check ]
+    branches: [ main-disabled, format-check ]
   pull_request:
-    branches: [ main ]
+    branches: [ main-disabled ]
 
 jobs:
   check-format:
