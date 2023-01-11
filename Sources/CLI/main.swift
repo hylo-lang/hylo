@@ -64,17 +64,21 @@ private struct CLI: ParsableCommand {
 
   @Option(
     name: [.customLong("trace-inference")],
-    help: "Enable tracing of type inference requests at the given line.")
+    help: ArgumentHelp(
+      "Enable tracing of type inference requests at the given line.",
+      valueName: "file:line"))
   private var inferenceTracingRange: SourceRange?
 
   @Option(
     name: [.customLong("emit")],
-    help: "Emit the specified type output files.")
+    help: ArgumentHelp(
+      "Emit the specified type output files. From: raw-ast, raw-ir, ir, cpp, binary",
+      valueName: "output-type"))
   private var outputType: OutputType = .binary
 
   @Option(
     name: [.customShort("o")],
-    help: "Write output to <o>.",
+    help: ArgumentHelp("Write output to <file>.", valueName: "file"),
     transform: URL.init(fileURLWithPath:))
   private var outputURL: URL?
 
