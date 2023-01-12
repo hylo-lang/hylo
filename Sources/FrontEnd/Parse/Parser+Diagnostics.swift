@@ -6,13 +6,13 @@ extension Diagnostic {
     .error("assignment operator requires whitespaces on both sides", range: token.origin)
   }
 
-  static func diagnose(expected kind: Token.Kind, at location: SourceLocation) -> Diagnostic {
+  static func diagnose(expected kind: Token.Kind, at location: SourcePosition) -> Diagnostic {
     diagnose(expected: "'\(kind)'", at: location)
   }
 
   static func diagnose(
     expected subject: String,
-    at location: SourceLocation,
+    at location: SourcePosition,
     children: [Diagnostic] = []
   ) -> Diagnostic {
     .error("expected \(subject)", range: location ..< location, children: children)
@@ -50,11 +50,11 @@ extension Diagnostic {
     .error("unexpected token '\(token.kind)'", range: token.origin)
   }
 
-  static func diagnose(unterminatedCommentEndingAt endLocation: SourceLocation) -> Diagnostic {
+  static func diagnose(unterminatedCommentEndingAt endLocation: SourcePosition) -> Diagnostic {
     .error("unterminated comment", range: endLocation ..< endLocation)
   }
 
-  static func diagnose(unterminatedStringEndingAt endLocation: SourceLocation) -> Diagnostic {
+  static func diagnose(unterminatedStringEndingAt endLocation: SourcePosition) -> Diagnostic {
     .error("unterminated string", range: endLocation ..< endLocation)
   }
 

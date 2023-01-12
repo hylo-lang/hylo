@@ -48,7 +48,7 @@ public struct SourceFile {
   }
 
   /// The contents of the line in which `location` is defined.
-  public func lineContents(at location: SourceLocation) -> Substring {
+  public func lineContents(at location: SourcePosition) -> Substring {
     precondition(location.file == self, "invalid location")
 
     var lower = location.index
@@ -72,15 +72,15 @@ public struct SourceFile {
   /// Returns the location corresponding to `i` in `text`.
   ///
   /// - Precondition: `i` is a valid index in `text`.
-  public func position(_ i: Index) -> SourceLocation {
-    SourceLocation(i, in: self)
+  public func position(_ i: Index) -> SourcePosition {
+    SourcePosition(i, in: self)
   }
 
   /// Returns the location corresponding to the given 1-based line and column indices.
   ///
   /// - Precondition: the line and column exist in `self`.
-  public func position(line: Int, column: Int) -> SourceLocation {
-    SourceLocation(line: line, column: column, in: self)
+  public func position(line: Int, column: Int) -> SourcePosition {
+    SourcePosition(line: line, column: column, in: self)
   }
 
   /// Returns the region of `self` corresponding to `r`.

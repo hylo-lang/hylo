@@ -1,10 +1,10 @@
-/// A location in a source file.
-public struct SourceLocation: Hashable {
+/// A character boundary in a source file.
+public struct SourcePosition: Hashable {
 
-  /// The source file containing the location.
+  /// The source file containing the position.
   public let file: SourceFile
 
-  /// The position of the location in the source file.
+  /// The position relative to the source file.
   public let index: String.Index
 
   /// Creates an instance with the given properties.
@@ -21,7 +21,7 @@ public struct SourceLocation: Hashable {
     self.index = file.index(line: line, column: column)
   }
 
-  /// Returns the line and column number of this location.
+  /// Returns the line and column number of this position.
   public func lineAndColumn() -> (line: Int, column: Int) {
     let r = file.lineAndColumn(index)
     return (r.line, r.column)
@@ -42,7 +42,7 @@ public struct SourceLocation: Hashable {
   }
 }
 
-extension SourceLocation: Comparable {
+extension SourcePosition: Comparable {
 
   public static func < (l: Self, r: Self) -> Bool {
     precondition(l.file == r.file, "incompatible locations")
@@ -51,7 +51,7 @@ extension SourceLocation: Comparable {
 
 }
 
-extension SourceLocation: Codable {
+extension SourcePosition: Codable {
 
   fileprivate enum CodingKeys: String, CodingKey {
 
@@ -75,7 +75,7 @@ extension SourceLocation: Codable {
 
 }
 
-extension SourceLocation: CustomStringConvertible {
+extension SourcePosition: CustomStringConvertible {
 
   public var description: String {
     let (line, column) = lineAndColumn()
@@ -84,7 +84,7 @@ extension SourceLocation: CustomStringConvertible {
 
 }
 
-extension SourceLocation: CustomReflectable {
+extension SourcePosition: CustomReflectable {
 
   public var customMirror: Mirror {
     let (line, column) = lineAndColumn()

@@ -81,7 +81,7 @@ struct ParserState {
   var isParsingCaptureList: Bool { contexts.last == .captureList }
 
   /// The current location of the parser in the character stream.
-  var currentLocation: SourceLocation {
+  var currentLocation: SourcePosition {
     lexer.sourceCode.position(currentIndex)
   }
 

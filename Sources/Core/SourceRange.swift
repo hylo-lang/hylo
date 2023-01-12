@@ -20,17 +20,17 @@ public struct SourceRange: Hashable {
   }
 
   /// Returns whether `self` contains the given location.
-  public func contains(_ l: SourceLocation) -> Bool {
+  public func contains(_ l: SourcePosition) -> Bool {
     (l.file == file) && indices.contains(l.index)
   }
 
   /// Returns the first source location in this range.
-  public func first() -> SourceLocation {
+  public func first() -> SourcePosition {
     file.position(start)
   }
 
   /// Returns the last source location in this range, unless the range is empty.
-  public func last() -> SourceLocation? {
+  public func last() -> SourcePosition? {
     indices.isEmpty ? nil : file.position(text.dropLast().endIndex)
   }
 

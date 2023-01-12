@@ -16,7 +16,7 @@ public struct Lexer: IteratorProtocol, Sequence {
   }
 
   /// The current location of the lexer in `sourceCode`.
-  public var location: SourceLocation { sourceCode.position(index) }
+  public var location: SourcePosition { sourceCode.position(index) }
 
   /// Advances to the next token and returns it, or returns `nil` if no next token exists.
   public mutating func next() -> Token? {
