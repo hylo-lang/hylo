@@ -7,6 +7,9 @@ import Utils
 /// - Note: two source files are equal if and only if they have the same path in the filesystem.
 public struct SourceFile {
 
+  /// A position in the source text.
+  public typealias Index = String.Index
+
   /// The contents of the source file.
   public let text: String
 
@@ -17,7 +20,7 @@ public struct SourceFile {
   ///
   /// - Invariant: always starts with `contents.startIndex` and ends with `contents.endIndex`, even
   ///   if there's no final newline.
-  public let lineStarts: [String.Index]
+  public let lineStarts: [Index]
 
   /// Creates a source file with the contents of the specifide URL.
   public init(contentsOf url: URL) throws {
@@ -69,8 +72,8 @@ public struct SourceFile {
   /// Returns the location corresponding to `i` in `text`.
   ///
   /// - Precondition: `i` is a valid index in `text`.
-  public func at(_ i: String.Index) -> SourceLocation {
-    return SourceLocation(i, in: self)
+  public func at(_ i: Index) -> SourceLocation {
+    SourceLocation(i, in: self)
   }
 
   /// Returns the location corresponding to the given 1-based line and column indices.
@@ -83,7 +86,7 @@ public struct SourceFile {
   /// Returns the 1-based line and column numbers corresponding to `i`.
   ///
   /// - Precondition: `i` is a valid index in `contents`.
-  func lineAndColumn(_ i: String.Index) -> (line: Int, column: Int) {
+  func lineAndColumn(_ i: Index) -> (line: Int, column: Int) {
     let lineNumber = lineStarts.partitioningIndex(where: { $0 > i })
     let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: i) + 1
     return (lineNumber, columnNumber)
@@ -92,7 +95,7 @@ public struct SourceFile {
   /// Returns the index in `text` corresponding to `line` and `column`.
   ///
   /// - Precondition: `line` and `column` describe a valid location in `self`.
-  func index(line: Int, column: Int) -> String.Index {
+  func index(line: Int, column: Int) -> Index {
     return text.index(lineStarts[line - 1], offsetBy: column - 1)
   }
 
