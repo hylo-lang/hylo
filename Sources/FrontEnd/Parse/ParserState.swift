@@ -82,7 +82,7 @@ struct ParserState {
 
   /// The current location of the parser in the character stream.
   var currentLocation: SourceLocation {
-    SourceLocation(file: lexer.sourceCode, index: currentIndex)
+    lexer.sourceCode.at(currentIndex)
   }
 
   /// The next character in the character stream, unless the parser reached its end.

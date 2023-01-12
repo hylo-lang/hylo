@@ -31,13 +31,13 @@ public struct SourceRange: Hashable {
 
   /// Returns the first source location in this range.
   public func first() -> SourceLocation {
-    SourceLocation(file: file, index: start)
+    file.at(start)
   }
 
   /// Returns the last source location in this range, unless the range is empty.
   public func last() -> SourceLocation? {
     start < end
-      ? SourceLocation(file: file, index: file.text.index(before: end))
+      ? file.at(file.text.index(before: end))
       : nil
   }
 
@@ -96,8 +96,8 @@ extension SourceRange: CustomReflectable {
     Mirror(
       self,
       children: [
-        "start": SourceLocation(file: file, index: start),
-        "end": SourceLocation(file: file, index: end),
+        "start": file.at(start),
+        "end": file.at(end),
       ])
   }
 

@@ -8,7 +8,7 @@ public struct SourceLocation: Hashable {
   public let index: String.Index
 
   /// Creates an instance with the given properties.
-  public init(file: SourceFile, index: String.Index) {
+  init(_ index: String.Index, in file: SourceFile) {
     self.file = file
     self.index = index
   }
@@ -16,7 +16,7 @@ public struct SourceLocation: Hashable {
   /// Creates an instance referring to the given 1-based line and column numbers in `source`.
   ///
   /// - Precondition: `line` and `column` denote a valid position in `source`.
-  public init(file: SourceFile, line: Int, column: Int) {
+  init(line: Int, column: Int, in file: SourceFile) {
     self.file = file
     self.index = file.index(line: line, column: column)
   }

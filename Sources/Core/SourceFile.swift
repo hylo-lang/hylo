@@ -66,11 +66,18 @@ public struct SourceFile {
     return text[lower ..< upper]
   }
 
+  /// Returns the location corresponding to `i` in `text`.
+  ///
+  /// - Precondition: `i` is a valid index in `text`.
+  public func at(_ i: String.Index) -> SourceLocation {
+    return SourceLocation(i, in: self)
+  }
+
   /// Returns the location corresponding to the given 1-based line and column indices.
   ///
   /// - Precondition: the line and column exist in `self`.
   public func at(line: Int, column: Int) -> SourceLocation {
-    return SourceLocation(file: self, line: line, column: column)
+    return SourceLocation(line: line, column: column, in: self)
   }
 
   /// Returns the 1-based line and column numbers corresponding to `i`.
