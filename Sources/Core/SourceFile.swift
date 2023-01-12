@@ -66,11 +66,20 @@ public struct SourceFile {
     return text[lower ..< upper]
   }
 
-  /// The 1-based line and column indices if `location`.
+  /// Returns the 1-based line and column indices of `location`.
+  ///
+  /// - Precondition: `location` is in `self`.
   public func lineAndColumnIndices(at location: SourceLocation) -> (line: Int, column: Int) {
     precondition(location.file == self, "invalid location")
-    let lineNumber = lineStarts.partitioningIndex(where: { $0 > location.index })
-    let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: location.index) + 1
+    return lineAndColumnIndices(at: location.index)
+  }
+
+  /// Returns the 1-based line and column indices of `p`.
+  ///
+  /// - Precondition: `p` is a position in `contents`.
+  func lineAndColumnIndices(at p: String.Index) -> (line: Int, column: Int) {
+    let lineNumber = lineStarts.partitioningIndex(where: { $0 > p })
+    let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: p) + 1
     return (lineNumber, columnNumber)
   }
 
