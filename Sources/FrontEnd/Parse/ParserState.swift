@@ -114,7 +114,7 @@ struct ParserState {
 
   /// Returns a source range from `startIndex` to `self.currentIndex`.
   func range(from startIndex: String.Index) -> SourceRange {
-    SourceRange(in: lexer.sourceCode, from: startIndex, to: currentIndex)
+    lexer.sourceCode.over(startIndex ..< currentIndex)
   }
 
   /// Returns whether `token` is a member index.
@@ -225,8 +225,7 @@ struct ParserState {
         upper = next.origin.end
       }
 
-      var range = head.origin
-      range.end = upper
+      let range = head.origin.file.over(head.origin.start ..< upper)
       return SourceRepresentable(value: String(lexer.sourceCode[range]), range: range)
 
     default:

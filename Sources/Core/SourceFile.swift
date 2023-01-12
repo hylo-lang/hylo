@@ -80,7 +80,14 @@ public struct SourceFile {
   ///
   /// - Precondition: the line and column exist in `self`.
   public func at(line: Int, column: Int) -> SourceLocation {
-    return SourceLocation(line: line, column: column, in: self)
+    SourceLocation(line: line, column: column, in: self)
+  }
+
+  /// Returns the region of `self` corresponding to `r`.
+  ///
+  /// - Precondition: `r` is a valid range in `self`.
+  public func over(_ r: Range<Index>) -> SourceRange {
+    SourceRange(r, in: self)
   }
 
   /// Returns the 1-based line and column numbers corresponding to `i`.

@@ -52,7 +52,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           } else {
             return Token(
               kind: .unterminatedBlockComment,
-              origin: SourceRange(in: sourceCode, from: start, to: index))
+              origin: sourceCode.over(start ..< index))
           }
         }
 
@@ -71,7 +71,7 @@ public struct Lexer: IteratorProtocol, Sequence {
     // Scan names and keywords.
     if head.isLetter || (head == "_") {
       let word = take(while: { $0.isLetter || $0.isDecDigit })
-      token.origin = SourceRange(in: sourceCode, from: token.origin.start, to: index)
+      token.origin.extend(upTo: index)
 
       switch word {
       case "_": token.kind = .under
@@ -126,7 +126,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "as":
         _ = take("!")
         _ = take("!")
-        token.origin.end = index
+        token.origin.extend(upTo: index)
         token.kind = .cast
 
       default:
@@ -155,7 +155,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         }
       }
 
-      token.origin.end = index
+      token.origin.extend(upTo: index)
       return token
     }
 
@@ -170,7 +170,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           discard()
           if let c = peek(), c.isHexDigit {
             _ = take(while: { $0.isHexDigit })
-            token.origin.end = index
+            token.origin.extend(upTo: index)
             return token
           }
 
@@ -178,7 +178,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           discard()
           if let c = peek(), c.isOctDigit {
             _ = take(while: { $0.isOctDigit })
-            token.origin.end = index
+            token.origin.extend(upTo: index)
             return token
           }
 
@@ -186,7 +186,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           discard()
           if let c = peek(), c.isBinDigit {
             _ = take(while: { $0.isBinDigit })
-            token.origin.end = index
+            token.origin.extend(upTo: index)
             return token
           }
 
@@ -220,7 +220,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         }
       }
 
-      token.origin.end = index
+      token.origin.extend(upTo: index)
       return token
     }
 
@@ -232,7 +232,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       while index < sourceCode.text.endIndex {
         if !escape && (take("\"") != nil) {
           token.kind = .string
-          token.origin.end = index
+          token.origin.extend(upTo: index)
           return token
         } else if take("\\") != nil {
           escape = !escape
@@ -243,7 +243,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       }
 
       token.kind = .unterminatedString
-      token.origin.end = index
+      token.origin.extend(upTo: index)
       return token
     }
 
@@ -254,7 +254,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         take(while: { $0.isLetter || ($0 == "_") }).isEmpty
         ? .invalid
         : .attribute
-      token.origin.end = index
+      token.origin.extend(upTo: index)
       return token
     }
 
@@ -282,7 +282,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       default: token.kind = .oper
       }
 
-      token.origin.end = index
+      token.origin.extend(upTo: index)
       return token
     }
 
@@ -301,7 +301,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       // Scan range operators.
       if (take(prefix: "...") ?? take(prefix: "..<")) != nil {
         token.kind = .oper
-        token.origin.end = index
+        token.origin.extend(upTo: index)
         return token
       }
 
@@ -312,7 +312,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       // Scan double colons.
       if take(prefix: "::") != nil {
         token.kind = .twoColons
-        token.origin.end = index
+        token.origin.extend(upTo: index)
         return token
       }
 
@@ -325,7 +325,7 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     // Either the token is punctuation, or it's kind is `invalid`.
     discard()
-    token.origin.end = index
+    token.origin.extend(upTo: index)
     return token
   }
 

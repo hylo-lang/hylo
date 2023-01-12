@@ -18,7 +18,7 @@ extension SourceRange: ExpressibleByArgument {
     let endIndex = source.text
       .suffix(from: start.index)
       .firstIndex(where: { $0.isNewline })
-    self.init(in: source, from: start.index, to: endIndex ?? source.text.endIndex)
+    self = source.over(start.index ..< (endIndex ?? source.text.endIndex))
   }
 
 }

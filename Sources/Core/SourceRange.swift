@@ -4,29 +4,24 @@ public struct SourceRange: Hashable {
   /// The source file containing the locations.
   public let file: SourceFile
 
+  /// The part of `file` covered by `self`.
+  public let indices: Range<SourceFile.Index>
+
   /// The start index of the range.
-  public var start: String.Index {
-    didSet { precondition(start <= end) }
-  }
+  public var start: SourceFile.Index { indices.lowerBound }
 
   /// The end index of the range.
-  public var end: String.Index {
-    didSet { precondition(start <= end) }
-  }
+  public var end: SourceFile.Index { indices.upperBound }
 
-  /// Creates a range in `file` from `lowerBound` to `upperBound`.
-  ///
-  /// - Requires: `lowerBound <= upperBound`
-  public init(in file: SourceFile, from lowerBound: String.Index, to upperBound: String.Index) {
-    precondition(lowerBound <= upperBound)
+  /// Creates an instance with the given properties.
+  init(_ indices: Range<SourceFile.Index>, in file: SourceFile) {
     self.file = file
-    self.start = lowerBound
-    self.end = upperBound
+    self.indices = indices
   }
 
   /// Returns whether `self` contains the given location.
   public func contains(_ l: SourceLocation) -> Bool {
-    (l.file == file) && (l.index >= start) && (l.index < end)
+    (l.file == file) && indices.contains(l.index)
   }
 
   /// Returns the first source location in this range.
@@ -36,23 +31,34 @@ public struct SourceRange: Hashable {
 
   /// Returns the last source location in this range, unless the range is empty.
   public func last() -> SourceLocation? {
-    start < end
-      ? file.at(file.text.index(before: end))
-      : nil
+    indices.isEmpty ? nil : file.at(text.dropLast().endIndex)
   }
 
-  /// Returns a copy of `self` with the upper bound set to `newUpperBound`.
-  public func extended(upTo newUpperBound: String.Index) -> SourceRange {
-    SourceRange(in: file, from: start, to: newUpperBound)
+  /// Returns a copy of `self` with the end increased (if necessary) to `newEnd`.
+  public func extended(upTo newEnd: SourceFile.Index) -> SourceRange {
+    precondition(newEnd >= end)
+    return file.over(start ..< newEnd)
   }
 
   /// Returns a copy of `self` extended to cover `other`.
   public func extended(toCover other: SourceRange) -> SourceRange {
     precondition(file == other.file, "incompatible ranges")
-    return SourceRange(
-      in: file,
-      from: Swift.min(start, other.start),
-      to: Swift.max(end, other.end))
+    return file.over(Swift.min(start, other.start) ..< Swift.max(end, other.end))
+  }
+
+  /// Increases (if necessary) the end of `self` so that it equals `newEnd`.
+  public mutating func extend(upTo newEnd: SourceFile.Index) {
+    self = self.extended(upTo: newEnd)
+  }
+
+  /// Returns a copy of `self` extended to cover `other`.
+  public mutating func extend(toCover other: SourceRange) {
+    self = self.extended(toCover: other)
+  }
+
+  /// The source text contained in this range.
+  public var text: Substring {
+    file.text[indices]
   }
 
 }
@@ -61,26 +67,27 @@ extension SourceRange: Codable {
 
   fileprivate enum CodingKeys: String, CodingKey {
 
-    case file, lowerBound, upperBound
+    case file, start, end
 
   }
 
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     file = try container.decode(SourceFile.self, forKey: .file)
-    start = String.Index(
-      utf16Offset: try container.decode(Int.self, forKey: .lowerBound),
+    let start = String.Index(
+      utf16Offset: try container.decode(Int.self, forKey: .start),
       in: file.text)
-    end = String.Index(
-      utf16Offset: try container.decode(Int.self, forKey: .upperBound),
+    let end = String.Index(
+      utf16Offset: try container.decode(Int.self, forKey: .end),
       in: file.text)
+    indices = start ..< end
   }
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(file, forKey: .file)
-    try container.encode(start.utf16Offset(in: file.text), forKey: .lowerBound)
-    try container.encode(end.utf16Offset(in: file.text), forKey: .upperBound)
+    try container.encode(start.utf16Offset(in: file.text), forKey: .start)
+    try container.encode(end.utf16Offset(in: file.text), forKey: .end)
   }
 
 }
