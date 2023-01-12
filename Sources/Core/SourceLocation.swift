@@ -32,7 +32,7 @@ public struct SourceLocation: Hashable {
   /// - Requires: `l.file == r.file`
   public static func ..< (l: Self, r: Self) -> SourceRange {
     precondition(l.file == r.file, "incompatible locations")
-    return l.file.over(l.index ..< r.index)
+    return l.file.range(l.index ..< r.index)
   }
 
   /// Returns the text of the line in which `self` resides.

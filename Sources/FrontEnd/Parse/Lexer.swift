@@ -16,7 +16,7 @@ public struct Lexer: IteratorProtocol, Sequence {
   }
 
   /// The current location of the lexer in `sourceCode`.
-  public var location: SourceLocation { sourceCode.at(index) }
+  public var location: SourceLocation { sourceCode.position(index) }
 
   /// Advances to the next token and returns it, or returns `nil` if no next token exists.
   public mutating func next() -> Token? {
@@ -52,7 +52,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           } else {
             return Token(
               kind: .unterminatedBlockComment,
-              origin: sourceCode.over(start ..< index))
+              origin: sourceCode.range(start ..< index))
           }
         }
 
@@ -145,7 +145,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         _ = take(while: { $0.isLetter || $0.isDecDigit })
 
         if peek() == "`" {
-          let start = sourceCode.at(sourceCode.text.index(after: token.origin.start))
+          let start = sourceCode.position(sourceCode.text.index(after: token.origin.start))
           token.kind = .name
           token.origin = start ..< location
           discard()

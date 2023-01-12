@@ -26,24 +26,24 @@ public struct SourceRange: Hashable {
 
   /// Returns the first source location in this range.
   public func first() -> SourceLocation {
-    file.at(start)
+    file.position(start)
   }
 
   /// Returns the last source location in this range, unless the range is empty.
   public func last() -> SourceLocation? {
-    indices.isEmpty ? nil : file.at(text.dropLast().endIndex)
+    indices.isEmpty ? nil : file.position(text.dropLast().endIndex)
   }
 
   /// Returns a copy of `self` with the end increased (if necessary) to `newEnd`.
   public func extended(upTo newEnd: SourceFile.Index) -> SourceRange {
     precondition(newEnd >= end)
-    return file.over(start ..< newEnd)
+    return file.range(start ..< newEnd)
   }
 
   /// Returns a copy of `self` extended to cover `other`.
   public func extended(toCover other: SourceRange) -> SourceRange {
     precondition(file == other.file, "incompatible ranges")
-    return file.over(Swift.min(start, other.start) ..< Swift.max(end, other.end))
+    return file.range(Swift.min(start, other.start) ..< Swift.max(end, other.end))
   }
 
   /// Increases (if necessary) the end of `self` so that it equals `newEnd`.
@@ -98,8 +98,8 @@ extension SourceRange: CustomReflectable {
     Mirror(
       self,
       children: [
-        "start": file.at(start),
-        "end": file.at(end),
+        "start": file.position(start),
+        "end": file.position(end),
       ])
   }
 

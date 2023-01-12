@@ -82,7 +82,7 @@ struct ParserState {
 
   /// The current location of the parser in the character stream.
   var currentLocation: SourceLocation {
-    lexer.sourceCode.at(currentIndex)
+    lexer.sourceCode.position(currentIndex)
   }
 
   /// The next character in the character stream, unless the parser reached its end.
@@ -114,7 +114,7 @@ struct ParserState {
 
   /// Returns a source range from `startIndex` to `self.currentIndex`.
   func range(from startIndex: String.Index) -> SourceRange {
-    lexer.sourceCode.over(startIndex ..< currentIndex)
+    lexer.sourceCode.range(startIndex ..< currentIndex)
   }
 
   /// Returns whether `token` is a member index.
@@ -225,7 +225,7 @@ struct ParserState {
         upper = next.origin.end
       }
 
-      let range = head.origin.file.over(head.origin.start ..< upper)
+      let range = head.origin.file.range(head.origin.start ..< upper)
       return SourceRepresentable(value: String(lexer.sourceCode[range]), range: range)
 
     default:

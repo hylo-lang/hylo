@@ -14,9 +14,9 @@ final class SourceFileTests: XCTestCase {
       """)
 
     for position in source.text.indices {
-      let x = source.at(position)
+      let x = source.position(position)
       let (line, column) = x.lineAndColumn()
-      XCTAssertEqual(x, source.at(line: line, column: column))
+      XCTAssertEqual(x, source.position(line: line, column: column))
     }
   }
 

@@ -12,13 +12,13 @@ extension SourceRange: ExpressibleByArgument {
       let source = try? SourceFile(contentsOf: URL(fileURLWithPath: String(s)))
     else { return nil }
 
-    let start = source.at(line: line, column: 1)
+    let start = source.position(line: line, column: 1)
 
     // Create a range covering the given line.
     let endIndex = source.text
       .suffix(from: start.index)
       .firstIndex(where: { $0.isNewline })
-    self = source.over(start.index ..< (endIndex ?? source.text.endIndex))
+    self = source.range(start.index ..< (endIndex ?? source.text.endIndex))
   }
 
 }

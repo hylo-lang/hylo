@@ -72,21 +72,21 @@ public struct SourceFile {
   /// Returns the location corresponding to `i` in `text`.
   ///
   /// - Precondition: `i` is a valid index in `text`.
-  public func at(_ i: Index) -> SourceLocation {
+  public func position(_ i: Index) -> SourceLocation {
     SourceLocation(i, in: self)
   }
 
   /// Returns the location corresponding to the given 1-based line and column indices.
   ///
   /// - Precondition: the line and column exist in `self`.
-  public func at(line: Int, column: Int) -> SourceLocation {
+  public func position(line: Int, column: Int) -> SourceLocation {
     SourceLocation(line: line, column: column, in: self)
   }
 
   /// Returns the region of `self` corresponding to `r`.
   ///
   /// - Precondition: `r` is a valid range in `self`.
-  public func over(_ r: Range<Index>) -> SourceRange {
+  public func range(_ r: Range<Index>) -> SourceRange {
     SourceRange(r, in: self)
   }
 
