@@ -5,7 +5,7 @@ import XCTest
 final class LexerTests: XCTestCase {
 
   func testBool() {
-    let input = SourceFile(contents: "true false")
+    let input = SourceFile(text: "true false")
     assert(
       tokenize(input),
       matches: [
@@ -16,7 +16,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testDecimalInteger() {
-    let input = SourceFile(contents: "0 001 42 00 1_234 1_2__34__")
+    let input = SourceFile(text: "0 001 42 00 1_234 1_2__34__")
     assert(
       tokenize(input),
       matches: [
@@ -31,7 +31,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testHexadecimalInteger() {
-    let input = SourceFile(contents: "0x0123 0xabcdef 0x__0_a_ 0xg 0x")
+    let input = SourceFile(text: "0x0123 0xabcdef 0x__0_a_ 0xg 0x")
     assert(
       tokenize(input),
       matches: [
@@ -47,7 +47,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testOctalInteger() {
-    let input = SourceFile(contents: "0o0123 0o__0_6_ 0o8 0o")
+    let input = SourceFile(text: "0o0123 0o__0_6_ 0o8 0o")
     assert(
       tokenize(input),
       matches: [
@@ -62,7 +62,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testBinaryInteger() {
-    let input = SourceFile(contents: "0b01 0b__0_1_ 0b8 0b")
+    let input = SourceFile(text: "0b01 0b__0_1_ 0b8 0b")
     assert(
       tokenize(input),
       matches: [
@@ -77,7 +77,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testFloatingPoint() {
-    let input = SourceFile(contents: "0.0 001.00 0.1_2__34__ 1e1_000 1.12e+123 3.45E-6 1. 1e")
+    let input = SourceFile(text: "0.0 001.00 0.1_2__34__ 1e1_000 1.12e+123 3.45E-6 1. 1e")
     assert(
       tokenize(input),
       matches: [
@@ -96,7 +96,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testString() {
-    let input = SourceFile(contents: #""" "a 0+ " "a\nb" "a\"" "abc "#)
+    let input = SourceFile(text: #""" "a 0+ " "a\nb" "a\"" "abc "#)
     assert(
       tokenize(input),
       matches: [
@@ -111,7 +111,7 @@ final class LexerTests: XCTestCase {
 
   func testKeywords() {
     let input = SourceFile(
-      contents: """
+      text: """
         any break catch conformance continue deinit do else extension for fun if import in infix init
         inout let match namespace nil operator postfix prefix property public return set sink some
         spawn static subscript trait try type typealias var where while yield yielded
@@ -167,7 +167,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testIdentifiers() {
-    let input = SourceFile(contents: "foo éléphant _bar _1_2_3 _")
+    let input = SourceFile(text: "foo éléphant _bar _1_2_3 _")
     assert(
       tokenize(input),
       matches: [
@@ -181,7 +181,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testBackquotedIdentifier() {
-    let input = SourceFile(contents: "`type` `foo` `a_b_` `12`")
+    let input = SourceFile(text: "`type` `foo` `a_b_` `12`")
     assert(
       tokenize(input),
       matches: [
@@ -196,7 +196,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testAttributes() {
-    let input = SourceFile(contents: "@implicitcopy @_foo @2")
+    let input = SourceFile(text: "@implicitcopy @_foo @2")
     assert(
       tokenize(input),
       matches: [
@@ -209,7 +209,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testOperators() {
-    let input = SourceFile(contents: "= -> * / % +- == != ~> >! <? >> &|^ ... ..< | &")
+    let input = SourceFile(text: "= -> * / % +- == != ~> >! <? >> &|^ ... ..< | &")
     assert(
       tokenize(input),
       matches: [
@@ -238,7 +238,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testCastOperators() {
-    let input = SourceFile(contents: "is as as!")
+    let input = SourceFile(text: "is as as!")
     assert(
       tokenize(input),
       matches: [
@@ -250,7 +250,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testPunctuation() {
-    let input = SourceFile(contents: ",;.: ::")
+    let input = SourceFile(text: ",;.: ::")
     assert(
       tokenize(input),
       matches: [
@@ -264,7 +264,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testDelimiters() {
-    let input = SourceFile(contents: "()[]{}<>")
+    let input = SourceFile(text: "()[]{}<>")
     assert(
       tokenize(input),
       matches: [
@@ -282,7 +282,7 @@ final class LexerTests: XCTestCase {
 
   func testComments() {
     let input = SourceFile(
-      contents: """
+      text: """
         // line comment
         // line comment with block start /*
         /* Block comment
@@ -305,7 +305,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testInvalid() {
-    let input = SourceFile(contents: "\0")
+    let input = SourceFile(text: "\0")
     assert(
       tokenize(input),
       matches: [TokenSpecification(.invalid, "\0")],

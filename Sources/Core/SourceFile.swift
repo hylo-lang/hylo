@@ -7,7 +7,7 @@ import Utils
 public struct SourceFile {
 
   /// The contents of the source file.
-  public let contents: String
+  public let text: String
 
   /// The URL of the source file.
   public let url: URL
@@ -15,7 +15,7 @@ public struct SourceFile {
   /// Creates a source file with the contents of the specifide URL.
   public init(contentsOf url: URL) throws {
     self.url = url
-    self.contents = try String(contentsOf: url)
+    self.text = try String(contentsOf: url)
   }
 
   /// The name of the source file, sans path qualification or extension.
@@ -24,15 +24,15 @@ public struct SourceFile {
   }
 
   /// Creates a source file with the specified contents, creating a unique random URL.
-  public init(contents: String) {
+  public init(text: String) {
     self.url = URL(string: "synthesized://\(UUID().uuidString)")!
-    self.contents = contents
+    self.text = text
   }
 
   /// Returns the contents of the file in the specified range.
   public subscript(_ range: SourceRange) -> Substring {
     precondition(range.file.url == url, "invalid source range")
-    return contents[range.lowerBound ..< range.upperBound]
+    return text[range.lowerBound ..< range.upperBound]
   }
 
   /// The contents of the line in which `location` is defined.
@@ -40,9 +40,9 @@ public struct SourceFile {
     precondition(location.file == self, "invalid location")
 
     var lower = location.index
-    while lower > contents.startIndex {
-      let predecessor = contents.index(before: lower)
-      if contents[predecessor].isNewline {
+    while lower > text.startIndex {
+      let predecessor = text.index(before: lower)
+      if text[predecessor].isNewline {
         break
       } else {
         lower = predecessor
@@ -50,28 +50,28 @@ public struct SourceFile {
     }
 
     var upper = location.index
-    while upper < contents.endIndex && !contents[upper].isNewline {
-      upper = contents.index(after: upper)
+    while upper < text.endIndex && !text[upper].isNewline {
+      upper = text.index(after: upper)
     }
 
-    return contents[lower ..< upper]
+    return text[lower ..< upper]
   }
 
   /// The 1-based line and column indices if `location`.
   public func lineAndColumnIndices(at location: SourceLocation) -> (line: Int, column: Int) {
     precondition(location.file == self, "invalid location")
 
-    if location.index == contents.endIndex {
-      let lines = contents.split(whereSeparator: { $0.isNewline })
+    if location.index == text.endIndex {
+      let lines = text.split(whereSeparator: { $0.isNewline })
       return (line: lines.count, column: (lines.last?.count ?? 0) + 1)
     }
 
     var lineIndex = 1
-    for c in contents.prefix(upTo: location.index) where c.isNewline {
+    for c in text.prefix(upTo: location.index) where c.isNewline {
       lineIndex += 1
     }
 
-    let buffer = contents.prefix(upTo: location.index)
+    let buffer = text.prefix(upTo: location.index)
     var columnIndex = 1
     for c in buffer.reversed() {
       guard !c.isNewline else { break }
@@ -84,13 +84,13 @@ public struct SourceFile {
   /// Returns the location corresponding to the given 1-based line and column indices, or `nil` if
   /// these indices do not correspond to a valid location.
   public func location(at line: Int, _ column: Int) -> SourceLocation? {
-    var position = contents.startIndex
+    var position = text.startIndex
 
     // Get to the given line.
     var currentLine = 1
-    while (currentLine < line) && (position != contents.endIndex) {
-      defer { position = contents.index(after: position) }
-      if contents[position].isNewline {
+    while (currentLine < line) && (position != text.endIndex) {
+      defer { position = text.index(after: position) }
+      if text[position].isNewline {
         currentLine += 1
         if currentLine == line { break }
       }
@@ -101,10 +101,10 @@ public struct SourceFile {
 
     // Get to the given column.
     var currentColumn = 1
-    while (currentColumn < column) && (position != contents.endIndex) {
-      if contents[position].isNewline { break }
+    while (currentColumn < column) && (position != text.endIndex) {
+      if text[position].isNewline { break }
       currentColumn += 1
-      position = contents.index(after: position)
+      position = text.index(after: position)
     }
 
     // Make sure the cilumn number is in bounds.
@@ -131,7 +131,7 @@ extension SourceFile: Hashable {
 extension SourceFile: ExpressibleByStringLiteral {
 
   public init(stringLiteral value: String) {
-    self.init(contents: value)
+    self.init(text: value)
   }
 
 }

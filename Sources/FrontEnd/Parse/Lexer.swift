@@ -12,7 +12,7 @@ public struct Lexer: IteratorProtocol, Sequence {
   /// Creates a lexer generating tokens from the contents of `source`.
   public init(tokenizing source: SourceFile) {
     self.sourceCode = source
-    self.index = source.contents.startIndex
+    self.index = source.text.startIndex
   }
 
   /// The current location of the lexer in `sourceCode`.
@@ -22,17 +22,17 @@ public struct Lexer: IteratorProtocol, Sequence {
   public mutating func next() -> Token? {
     // Skip whitespaces and comments.
     while true {
-      if index == sourceCode.contents.endIndex { return nil }
+      if index == sourceCode.text.endIndex { return nil }
 
       // Skip whitespaces.
-      if sourceCode.contents[index].isWhitespace {
+      if sourceCode.text[index].isWhitespace {
         discard()
         continue
       }
 
       // Skip line comments.
       if take(prefix: "//") != nil {
-        while (index < sourceCode.contents.endIndex) && !sourceCode.contents[index].isNewline {
+        while (index < sourceCode.text.endIndex) && !sourceCode.text[index].isNewline {
           discard()
         }
         continue
@@ -47,7 +47,7 @@ public struct Lexer: IteratorProtocol, Sequence {
             open += 1
           } else if take(prefix: "*/") != nil {
             open -= 1
-          } else if index < sourceCode.contents.endIndex {
+          } else if index < sourceCode.text.endIndex {
             discard()
           } else {
             return Token(
@@ -65,7 +65,7 @@ public struct Lexer: IteratorProtocol, Sequence {
     }
 
     // Scan a new token.
-    let head = sourceCode.contents[index]
+    let head = sourceCode.text[index]
     var token = Token(kind: .invalid, origin: location ..< location)
 
     // Scan names and keywords.
@@ -146,7 +146,7 @@ public struct Lexer: IteratorProtocol, Sequence {
 
         if peek() == "`" {
           let start = SourceLocation(
-            file: sourceCode, index: sourceCode.contents.index(after: token.origin.lowerBound))
+            file: sourceCode, index: sourceCode.text.index(after: token.origin.lowerBound))
           token.kind = .name
           token.origin = start ..< location
           discard()
@@ -230,7 +230,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       discard()
 
       var escape = false
-      while index < sourceCode.contents.endIndex {
+      while index < sourceCode.text.endIndex {
         if !escape && (take("\"") != nil) {
           token.kind = .string
           token.origin.upperBound = index
@@ -266,7 +266,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "<", ">":
         // Leading angle brackets are tokenized individually, to parse generic clauses.
         discard()
-        oper = sourceCode.contents[token.origin.lowerBound ..< index]
+        oper = sourceCode.text[token.origin.lowerBound ..< index]
 
       default:
         oper = take(while: { $0.isOperator })
@@ -332,20 +332,20 @@ public struct Lexer: IteratorProtocol, Sequence {
 
   /// Discards `count` characters from the stream.
   private mutating func discard(_ count: Int = 1) {
-    index = sourceCode.contents.index(index, offsetBy: count)
+    index = sourceCode.text.index(index, offsetBy: count)
   }
 
   /// Returns the next character in the stream without consuming it, if any.
   private func peek() -> Character? {
-    if index == sourceCode.contents.endIndex { return nil }
-    return sourceCode.contents[index]
+    if index == sourceCode.text.endIndex { return nil }
+    return sourceCode.text[index]
   }
 
   /// Returns the current index and consumes `character` from the stream, or returns `nil` if the
   /// stream starts with a different character.
   public mutating func take(_ character: Character) -> String.Index? {
     if peek() != character { return nil }
-    defer { index = sourceCode.contents.index(after: index) }
+    defer { index = sourceCode.text.index(after: index) }
     return index
   }
 
@@ -355,10 +355,10 @@ public struct Lexer: IteratorProtocol, Sequence {
   where T.Element == Character {
     var newIndex = index
     for ch in prefix {
-      if newIndex == sourceCode.contents.endIndex || sourceCode.contents[newIndex] != ch {
+      if newIndex == sourceCode.text.endIndex || sourceCode.text[newIndex] != ch {
         return nil
       }
-      newIndex = sourceCode.contents.index(after: newIndex)
+      newIndex = sourceCode.text.index(after: newIndex)
     }
 
     defer { index = newIndex }
@@ -369,10 +369,10 @@ public struct Lexer: IteratorProtocol, Sequence {
   private mutating func take(while predicate: (Character) -> Bool) -> Substring {
     let start = index
     while let ch = peek(), predicate(ch) {
-      index = sourceCode.contents.index(after: index)
+      index = sourceCode.text.index(after: index)
     }
 
-    return sourceCode.contents[start ..< index]
+    return sourceCode.text[start ..< index]
   }
 
 }

@@ -14,10 +14,10 @@ extension SourceRange: ExpressibleByArgument {
     else { return nil }
 
     // Create a range covering the given line.
-    let endIndex = source.contents
+    let endIndex = source.text
       .suffix(from: start.index)
       .firstIndex(where: { $0.isNewline })
-    self.init(in: source, from: start.index, to: endIndex ?? source.contents.endIndex)
+    self.init(in: source, from: start.index, to: endIndex ?? source.text.endIndex)
   }
 
 }

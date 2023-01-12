@@ -5,7 +5,7 @@ final class SourceFileTests: XCTestCase {
 
   func testLocationConversion() {
     let source = SourceFile(
-      contents: """
+      text: """
         import Greetings
 
         public fun main() {
@@ -13,7 +13,7 @@ final class SourceFileTests: XCTestCase {
         }
         """)
 
-    for position in source.contents.indices {
+    for position in source.text.indices {
       let location = SourceLocation(file: source, index: position)
       let (line, column) = source.lineAndColumnIndices(at: location)
       XCTAssertEqual(source.location(at: line, column), location)

@@ -107,7 +107,7 @@ struct TestAnnotation: Hashable {
     /// The annotations parsed from the input.
     var annotations: [TestAnnotation] = []
     /// The input stream.
-    let stream = sourceCode.contents
+    let stream = sourceCode.text
     /// The current position in the stream.
     var index = stream.startIndex
     /// The line at the current position.

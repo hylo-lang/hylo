@@ -50,13 +50,13 @@ extension SourceLocation: Codable {
     file = try container.decode(SourceFile.self, forKey: .file)
     index = String.Index(
       utf16Offset: try container.decode(Int.self, forKey: .index),
-      in: file.contents)
+      in: file.text)
   }
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(file, forKey: .file)
-    try container.encode(index.utf16Offset(in: file.contents), forKey: .index)
+    try container.encode(index.utf16Offset(in: file.text), forKey: .index)
   }
 
 }

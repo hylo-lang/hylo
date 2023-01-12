@@ -37,7 +37,7 @@ public struct SourceRange: Hashable {
   /// Returns the last source location in this range, unless the range is empty.
   public func last() -> SourceLocation? {
     lowerBound < upperBound
-      ? SourceLocation(file: file, index: file.contents.index(before: upperBound))
+      ? SourceLocation(file: file, index: file.text.index(before: upperBound))
       : nil
   }
 
@@ -75,17 +75,17 @@ extension SourceRange: Codable {
     file = try container.decode(SourceFile.self, forKey: .file)
     lowerBound = String.Index(
       utf16Offset: try container.decode(Int.self, forKey: .lowerBound),
-      in: file.contents)
+      in: file.text)
     upperBound = String.Index(
       utf16Offset: try container.decode(Int.self, forKey: .upperBound),
-      in: file.contents)
+      in: file.text)
   }
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     try container.encode(file, forKey: .file)
-    try container.encode(lowerBound.utf16Offset(in: file.contents), forKey: .lowerBound)
-    try container.encode(upperBound.utf16Offset(in: file.contents), forKey: .upperBound)
+    try container.encode(lowerBound.utf16Offset(in: file.text), forKey: .lowerBound)
+    try container.encode(upperBound.utf16Offset(in: file.text), forKey: .upperBound)
   }
 
 }

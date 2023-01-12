@@ -52,7 +52,7 @@ struct ParserState {
   init(ast: AST, lexer: Lexer, diagnostics: Diagnostics? = nil) {
     self.ast = ast
     self.lexer = lexer
-    self.currentIndex = lexer.sourceCode.contents.startIndex
+    self.currentIndex = lexer.sourceCode.text.startIndex
     self.diagnostics = diagnostics ?? Diagnostics()
   }
 
@@ -86,29 +86,29 @@ struct ParserState {
   }
 
   /// The next character in the character stream, unless the parser reached its end.
-  var currentCharacter: Character? { isAtEOF ? nil : lexer.sourceCode.contents[currentIndex] }
+  var currentCharacter: Character? { isAtEOF ? nil : lexer.sourceCode.text[currentIndex] }
 
   /// Returns whether the parser is at the end of the character stream.
-  var isAtEOF: Bool { currentIndex == lexer.sourceCode.contents.endIndex }
+  var isAtEOF: Bool { currentIndex == lexer.sourceCode.text.endIndex }
 
   /// Returns whether there is a whitespace at the current index.
   var hasLeadingWhitespace: Bool {
-    currentIndex < lexer.sourceCode.contents.endIndex
-      && lexer.sourceCode.contents[currentIndex].isWhitespace
+    currentIndex < lexer.sourceCode.text.endIndex
+      && lexer.sourceCode.text[currentIndex].isWhitespace
   }
 
   /// Returns whether there are whitespaces before *and* after `token`.
   mutating func hasLeadingAndTrailingWhitespaces(_ token: Token) -> Bool {
     guard
-      let a = lexer.sourceCode.contents.prefix(upTo: token.origin.lowerBound).last,
-      let b = lexer.sourceCode.contents.suffix(from: token.origin.upperBound).first
+      let a = lexer.sourceCode.text.prefix(upTo: token.origin.lowerBound).last,
+      let b = lexer.sourceCode.text.suffix(from: token.origin.upperBound).first
     else { return false }
     return a.isWhitespace && b.isWhitespace
   }
 
   /// Returns whether there is a new line in the character stream before `bound`.
   mutating func hasNewline(before bound: Token) -> Bool {
-    lexer.sourceCode.contents[currentIndex ..< bound.origin.lowerBound]
+    lexer.sourceCode.text[currentIndex ..< bound.origin.lowerBound]
       .contains(where: { $0.isNewline })
   }
 
