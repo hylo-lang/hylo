@@ -26,6 +26,11 @@ public struct SourceLocation: Hashable {
     return SourceRange(in: l.file, from: l.index, to: r.index)
   }
 
+  /// Returns the text of the line in which `self` resides.
+  public func textOfLine() -> Substring {
+    let l = lineAndColumnNumbers().line
+    return file.text[file.lineStarts[l - 1] ..< file.lineStarts[l]]
+  }
 }
 
 extension SourceLocation: Comparable {

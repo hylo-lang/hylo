@@ -295,7 +295,7 @@ private struct CLI: ParsableCommand {
 
     // Log the window
     if let site = diagnostic.location {
-      let line = site.file.lineContents(at: site.first())
+      let line = site.first().textOfLine()
       write(line)
       write("\n")
 
