@@ -55,11 +55,6 @@ public struct SourceRange: Hashable {
       to: Swift.max(end, other.end))
   }
 
-  public static func ..< (l: SourceRange, r: SourceRange) -> SourceRange {
-    precondition(l.file == r.file, "incompatible locations")
-    return SourceRange(in: l.file, from: l.start, to: r.start)
-  }
-
 }
 
 extension SourceRange: Codable {
