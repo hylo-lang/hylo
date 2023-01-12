@@ -7,7 +7,7 @@ extension Diagnostic {
   var expectation: TestAnnotation {
     return TestAnnotation(
       in: location?.file.url ?? URL(string: "nowhere://at/all")!,
-      atLine: location?.first().lineAndColumnIndices.line ?? 1,
+      atLine: location?.first().lineAndColumn().line ?? 1,
       parsing: "diagnostic " + message
     )
   }

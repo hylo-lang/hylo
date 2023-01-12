@@ -66,54 +66,27 @@ public struct SourceFile {
     return text[lower ..< upper]
   }
 
-  /// Returns the 1-based line and column indices of `location`.
+  /// Returns the location corresponding to the given 1-based line and column indices.
   ///
-  /// - Precondition: `location` is in `self`.
-  public func lineAndColumnIndices(at location: SourceLocation) -> (line: Int, column: Int) {
-    precondition(location.file == self, "invalid location")
-    return lineAndColumnIndices(at: location.index)
+  /// - Precondition: the line and column exist in `self`.
+  public func at(line: Int, column: Int) -> SourceLocation {
+    return SourceLocation(file: self, line: line, column: column)
   }
 
-  /// Returns the 1-based line and column indices of `p`.
+  /// Returns the 1-based line and column numbers corresponding to `i`.
   ///
-  /// - Precondition: `p` is a position in `contents`.
-  func lineAndColumnIndices(at p: String.Index) -> (line: Int, column: Int) {
-    let lineNumber = lineStarts.partitioningIndex(where: { $0 > p })
-    let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: p) + 1
+  /// - Precondition: `i` is a valid index in `contents`.
+  func lineAndColumn(_ i: String.Index) -> (line: Int, column: Int) {
+    let lineNumber = lineStarts.partitioningIndex(where: { $0 > i })
+    let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: i) + 1
     return (lineNumber, columnNumber)
   }
 
-  /// Returns the location corresponding to the given 1-based line and column indices, or `nil` if
-  /// these indices do not correspond to a valid location.
-  public func location(at line: Int, _ column: Int) -> SourceLocation? {
-    var position = text.startIndex
-
-    // Get to the given line.
-    var currentLine = 1
-    while (currentLine < line) && (position != text.endIndex) {
-      defer { position = text.index(after: position) }
-      if text[position].isNewline {
-        currentLine += 1
-        if currentLine == line { break }
-      }
-    }
-
-    // Make sure the line number is in bounds.
-    if currentLine != line { return nil }
-
-    // Get to the given column.
-    var currentColumn = 1
-    while (currentColumn < column) && (position != text.endIndex) {
-      if text[position].isNewline { break }
-      currentColumn += 1
-      position = text.index(after: position)
-    }
-
-    // Make sure the cilumn number is in bounds.
-    if currentColumn != column { return nil }
-
-    // We're done.
-    return SourceLocation(file: self, index: position)
+  /// Returns the index in `text` corresponding to `line` and `column`.
+  ///
+  /// - Precondition: `line` and `column` describe a valid location in `self`.
+  func index(line: Int, column: Int) -> String.Index {
+    return text.index(lineStarts[line - 1], offsetBy: column - 1)
   }
 
 }

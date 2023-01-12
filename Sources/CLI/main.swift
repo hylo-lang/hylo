@@ -273,7 +273,7 @@ private struct CLI: ParsableCommand {
     // Log the location, if available.
     if let location = diagnostic.location?.first() {
       let path = location.file.url.relativePath
-      let (line, column) = location.lineAndColumnIndices
+      let (line, column) = location.lineAndColumn()
       write("\(path):\(line):\(column): ".styled([.bold]))
     }
 

@@ -7,15 +7,24 @@ public struct SourceLocation: Hashable {
   /// The position of the location in the source file.
   public let index: String.Index
 
-  /// Creates a new source location.
+  /// Creates an instance with the given properties.
   public init(file: SourceFile, index: String.Index) {
     self.file = file
     self.index = index
   }
 
-  /// The 1-based line and column indicies of this location.
-  public var lineAndColumnIndices: (line: Int, column: Int) {
-    file.lineAndColumnIndices(at: self)
+  /// Creates an instance referring to the given 1-based line and column numbers in `source`.
+  ///
+  /// - Precondition: `line` and `column` denote a valid position in `source`.
+  public init(file: SourceFile, line: Int, column: Int) {
+    self.file = file
+    self.index = file.index(line: line, column: column)
+  }
+
+  /// Returns the line and column number of this location.
+  public func lineAndColumn() -> (line: Int, column: Int) {
+    let r = file.lineAndColumn(index)
+    return (r.line, r.column)
   }
 
   /// Returns a source range from `l` to `r`.
@@ -28,7 +37,7 @@ public struct SourceLocation: Hashable {
 
   /// Returns the text of the line in which `self` resides.
   public func textOfLine() -> Substring {
-    let l = lineAndColumnNumbers().line
+    let l = lineAndColumn().line
     return file.text[file.lineStarts[l - 1] ..< file.lineStarts[l]]
   }
 }
@@ -69,7 +78,7 @@ extension SourceLocation: Codable {
 extension SourceLocation: CustomStringConvertible {
 
   public var description: String {
-    let (line, column) = file.lineAndColumnIndices(at: self)
+    let (line, column) = lineAndColumn()
     return "\(file.url.relativePath):\(line):\(column)"
   }
 
@@ -78,14 +87,8 @@ extension SourceLocation: CustomStringConvertible {
 extension SourceLocation: CustomReflectable {
 
   public var customMirror: Mirror {
-    let (line, column) = file.lineAndColumnIndices(at: self)
-    return Mirror(
-      self,
-      children: [
-        "sourceURL": file.url,
-        "line": line,
-        "column": column,
-      ])
+    let (line, column) = lineAndColumn()
+    return Mirror(self, children: ["sourceURL": file.url, "line": line, "column": column])
   }
 
 }

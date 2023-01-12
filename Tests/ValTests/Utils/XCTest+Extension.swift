@@ -18,7 +18,7 @@ extension XCTSourceCodeLocation {
 
   /// Creates an instance from a location in a Val source file.
   convenience init(_ l: SourceLocation) {
-    self.init(fileURL: l.file.url, lineNumber: l.lineAndColumnIndices.line)
+    self.init(fileURL: l.file.url, lineNumber: l.lineAndColumn().line)
   }
 
 }
