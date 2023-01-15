@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ class declaration.
-public struct CXXClassDecl {
+public struct CXXClassDecl: CXXTopLevelDecl {
 
   /// The ID of a C++ class in its module.
   public typealias ID = Int
@@ -34,9 +34,13 @@ public struct CXXClassDecl {
     target.write("class \(name)")
   }
 
-  /// Writes the definition of the class into `target`.
+  public func writeDeclaration<Target: TextOutputStream>(into target: inout Target) {
+    writeSignature(into: &target)
+    target.write(";\n")
+  }
   public func writeDefinition<Target: TextOutputStream>(into target: inout Target) {
-    target.write("{\n")
+    writeSignature(into: &target)
+    target.write(" {\n")
     target.write("public:\n")
     for member in members {
       switch member {

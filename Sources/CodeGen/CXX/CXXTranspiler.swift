@@ -91,7 +91,7 @@ public struct CXXTranspiler {
     }
 
     // Create the C++ function object.
-    module.addFunction(
+    module.addTopLevelDecl(
       CXXFunctionDecl(
         identifier: identifier,
         output: output,
@@ -171,7 +171,7 @@ public struct CXXTranspiler {
     }
 
     // Create the C++ class.
-    module.addClass(CXXClassDecl(name: name, members: cxxMembers, original: decl))
+    module.addTopLevelDecl(CXXClassDecl(name: name, members: cxxMembers, original: decl))
   }
 
   private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXRepresentable {

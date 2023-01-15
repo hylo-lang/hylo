@@ -11,25 +11,17 @@ public struct CXXModule {
   /// The typed program for wich we are constructing the CXX translation.
   public let program: TypedProgram
 
-  /// The C++ functions declared in `self`.
-  private var cxxFunctions: [CXXFunctionDecl] = []
-
-  /// The C++ classes declared in this module.
-  private var cxxClasses: [CXXClassDecl] = []
+  /// The C++ top-level declarations for this module
+  private var cxxTopLevelDecls: [CXXTopLevelDecl] = []
 
   public init(_ decl: ModuleDecl.Typed, for program: TypedProgram) {
     self.valDecl = decl
     self.program = program
   }
 
-  /// Add a function to this module.
-  public mutating func addFunction(_ functionDecl: CXXFunctionDecl) {
-    cxxFunctions.append(functionDecl)
-  }
-
-  /// Add a class to this module.
-  public mutating func addClass(_ classDecl: CXXClassDecl) {
-    cxxClasses.append(classDecl)
+  /// Add a top-level C++ declaration to this module.
+  public mutating func addTopLevelDecl(_ decl: CXXTopLevelDecl) {
+    cxxTopLevelDecls.append(decl)
   }
 
   // MARK: Serialization
@@ -50,16 +42,9 @@ public struct CXXModule {
     // Create a namespace for the entire module.
     output.write("namespace \(valDecl.name) {\n\n")
 
-    // Emit classes declarations.
-    for decl in cxxClasses {
-      decl.writeSignature(into: &output)
-      output.write(";\n")
-    }
-
-    // Emit top-level functions.
-    for decl in cxxFunctions {
-      decl.writeSignature(into: &output)
-      output.write(";\n")
+    // Emit the C++ text needed for the header corresponding to the C++ declarations.
+    for decl in cxxTopLevelDecls {
+      decl.writeDeclaration(into: &output)
     }
 
     output.write("\n}\n\n")  // module namespace
@@ -79,20 +64,9 @@ public struct CXXModule {
     // Create a namespace for the entire module.
     output.write("namespace \(valDecl.name) {\n\n")
 
-    // Emit classes definitions
-    for decl in cxxClasses {
-      decl.writeSignature(into: &output)
-      output.write(" ")
+    // Emit the C++ text needed for the source file corresponding to the C++ declarations.
+    for decl in cxxTopLevelDecls {
       decl.writeDefinition(into: &output)
-    }
-
-    // Emit top-level functions.
-    for decl in cxxFunctions {
-      decl.writeSignature(into: &output)
-      output.write(" ")
-      if decl.body != nil {
-        decl.body!.writeCode(into: &output)
-      }
     }
 
     output.write("\n}\n")  // module namespace

@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ function declaration.
-public struct CXXFunctionDecl {
+public struct CXXFunctionDecl: CXXTopLevelDecl {
 
   /// The ID of a C++ function in its module.
   public typealias ID = Int
@@ -34,4 +34,17 @@ public struct CXXFunctionDecl {
     target.write(")")
   }
 
+  public func writeDeclaration<Target: TextOutputStream>(into target: inout Target) {
+    writeSignature(into: &target)
+    target.write(";\n")
+  }
+  public func writeDefinition<Target: TextOutputStream>(into target: inout Target) {
+    writeSignature(into: &target)
+    if body != nil {
+      target.write(" ")
+      body!.writeCode(into: &target)
+    } else {
+      target.write(";\n")
+    }
+  }
 }
