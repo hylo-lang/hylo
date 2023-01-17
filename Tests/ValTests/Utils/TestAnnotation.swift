@@ -204,4 +204,5 @@ struct TestAnnotation: Hashable {
       type: .assertionFailure, compactDescription: message,
       sourceCodeContext: .init(location: location))
   }
+
 }
