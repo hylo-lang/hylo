@@ -53,7 +53,7 @@ public struct CXXTranspiler {
       return emit(brace: stmt)
 
     case .expr(let expr):
-      let exprBody = CXXReturnStmt(expr: emitR(expr: expr), original: expr)
+      let exprBody = CXXReturnStmt(expr: emitR(expr: expr), original: AnyNodeID.TypedNode(expr))
       return CXXScopedBlock(stmts: [exprBody], original: AnyNodeID.TypedNode(expr))
     }
   }
@@ -155,7 +155,11 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "return stmt", original: AnyNodeID.TypedNode(stmt))
+    var expr: CXXRepresentable?
+    if stmt.value != nil {
+      expr = emitR(expr: stmt.value!)
+    }
+    return CXXReturnStmt(expr: expr, original: AnyNodeID.TypedNode(stmt))
   }
 
   // MARK: Expressions
