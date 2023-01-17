@@ -310,8 +310,7 @@ extension TypeChecker {
     }
 
     // Case 3b
-    if
-      let c = NodeID<NameExpr>(syntax.callee),
+    if let c = NodeID<NameExpr>(syntax.callee),
       let d = referredDecls[c]?.decl,
       isNominalTypeDecl(d)
     {
@@ -639,8 +638,7 @@ extension TypeChecker {
     }
 
     // Case 3b
-    if
-      let c = NodeID<NameExpr>(syntax.callee),
+    if let c = NodeID<NameExpr>(syntax.callee),
       let d = referredDecls[c]?.decl,
       isNominalTypeDecl(d)
     {
@@ -721,8 +719,7 @@ extension TypeChecker {
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
     // information down the expression tree. Otherwise, infer the type of the expression from the
     // leaves and use type constraints to detect potential mismatch.
-    if
-      let type = TupleType(expectedType),
+    if let type = TupleType(expectedType),
       type.elements.elementsEqual(elements, by: { (a, b) in a.label == b.label?.value })
     {
       for i in 0 ..< elements.count {

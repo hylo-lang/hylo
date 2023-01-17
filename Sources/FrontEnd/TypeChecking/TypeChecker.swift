@@ -1521,8 +1521,7 @@ public struct TypeChecker {
   ) -> (succeeded: Bool, solution: Solution) {
     // Determine whether tracing should be enabled.
     let shouldLogTrace: Bool
-    if
-      let tracingRange = inferenceTracingRange,
+    if let tracingRange = inferenceTracingRange,
       let subjectRange = program.ast[subject].origin,
       tracingRange.contains(subjectRange.first())
     {
