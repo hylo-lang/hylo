@@ -38,4 +38,4 @@ jobs:
     - name: Build (Release)
       run: swift --version build -v -c release
     - name: Test (Release)
-      run: swift test -c release -Xswiftc
+      run: swift test -c release -Xswiftc -enable-testing
