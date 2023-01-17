@@ -5,10 +5,10 @@ extension Diagnostic {
     guard let lhs = l.location else { return true }
     guard let rhs = r.location else { return false }
 
-    if lhs.source == rhs.source {
+    if lhs.file == rhs.file {
       return lhs.first() < rhs.first()
     } else {
-      return lhs.source.url.path.lexicographicallyPrecedes(rhs.source.url.path)
+      return lhs.file.url.path.lexicographicallyPrecedes(rhs.file.url.path)
     }
   }
 

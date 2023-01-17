@@ -108,7 +108,7 @@ public enum Parser {
     in state: inout ParserState,
     then continuation: (_ prologue: DeclPrologue, _ state: inout ParserState) throws -> R?
   ) throws -> R? {
-    guard let startIndex = state.peek()?.origin.lowerBound else { return nil }
+    guard let startIndex = state.peek()?.origin.start else { return nil }
     var isPrologueEmpty = true
 
     // Parse attributes.
@@ -238,7 +238,7 @@ public enum Parser {
           .map(AnyDeclID.init)
 
       case .name:
-        let introducer = state.lexer.source[state.peek()!.origin]
+        let introducer = state.lexer.sourceCode[state.peek()!.origin]
         if introducer == "value" && state.isAtTypeScope {
           // Note: associated values are parsed at any type scope to produce better diagnostics
           // when they are not at trait scope.
@@ -362,7 +362,7 @@ public enum Parser {
     return state.insert(
       AssociatedTypeDecl(
         introducerRange: parts.0.0.0.0.origin,
-        identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
+        identifier: state.token(parts.0.0.0.1),
         conformances: parts.0.0.1 ?? [],
         whereClause: parts.0.1,
         defaultValue: parts.1,
@@ -402,7 +402,7 @@ public enum Parser {
     return state.insert(
       AssociatedValueDecl(
         introducerRange: parts.0.0.0.origin,
-        identifier: SourceRepresentable(token: parts.0.0.1, in: state.lexer.source),
+        identifier: state.token(parts.0.0.1),
         whereClause: parts.0.1,
         defaultValue: parts.1,
         origin: state.range(from: prologue.startIndex)))
@@ -661,7 +661,7 @@ public enum Parser {
     return state.insert(
       ImportDecl(
         introducerRange: parts.0.origin,
-        identifier: SourceRepresentable(token: parts.1, in: state.lexer.source),
+        identifier: state.token(parts.1),
         origin: state.range(from: prologue.startIndex)))
   }
 
@@ -766,7 +766,7 @@ public enum Parser {
       NamespaceDecl(
         introducerRange: parts.0.0.origin,
         accessModifier: prologue.accessModifiers.first,
-        identifier: SourceRepresentable(token: parts.0.1, in: state.lexer.source),
+        identifier: state.token(parts.0.1),
         members: parts.1,
         origin: state.range(from: prologue.startIndex)))
   }
@@ -947,7 +947,7 @@ public enum Parser {
     }
 
     let origin: SourceRange
-    if let startIndex = introducer.origin?.lowerBound {
+    if let startIndex = introducer.origin?.start {
       origin = state.range(from: startIndex)
     } else {
       switch body! {
@@ -1000,7 +1000,7 @@ public enum Parser {
     return state.insert(
       TraitDecl(
         accessModifier: prologue.accessModifiers.first,
-        identifier: SourceRepresentable(token: name, in: state.lexer.source),
+        identifier: state.token(name),
         refinements: refinements,
         members: members,
         selfParameterDecl: selfParameterDecl,
@@ -1040,7 +1040,7 @@ public enum Parser {
     return state.insert(
       ProductTypeDecl(
         accessModifier: prologue.accessModifiers.first,
-        identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
+        identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
         conformances: parts.0.1 ?? [],
         members: members,
@@ -1106,7 +1106,7 @@ public enum Parser {
     return state.insert(
       TypeAliasDecl(
         accessModifier: prologue.accessModifiers.first,
-        identifier: SourceRepresentable(token: parts.0.0.0.1, in: state.lexer.source),
+        identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
         body: .typeExpr(parts.1),
         origin: state.range(from: prologue.startIndex)))
@@ -1130,9 +1130,7 @@ public enum Parser {
     if let introducer = state.take(.fun) {
       let stem = try state.expect("identifier", using: { $0.take(.name) })
       return FunctionDeclName(
-        introducerRange: introducer.origin,
-        stem: SourceRepresentable(token: stem, in: state.lexer.source),
-        notation: nil)
+        introducerRange: introducer.origin, stem: state.token(stem), notation: nil)
     }
 
     if let notation = try operatorNotation.parse(&state) {
@@ -1250,7 +1248,7 @@ public enum Parser {
       .map({ (state, tree) -> PropertyDeclHead in
         PropertyDeclHead(
           introducer: SourceRepresentable(value: .property, range: tree.0.origin),
-          stem: SourceRepresentable(token: tree.1, in: state.lexer.source))
+          stem: state.token(tree.1))
       }))
 
   static let propertyDeclSignature = (take(.colon).and(expr).second)
@@ -1260,7 +1258,7 @@ public enum Parser {
       .map({ (state, tree) -> SubscriptDeclHead in
         SubscriptDeclHead(
           introducer: SourceRepresentable(value: .subscript, range: tree.0.0.0.origin),
-          stem: tree.0.0.1.map({ SourceRepresentable(token: $0, in: state.lexer.source) }),
+          stem: tree.0.0.1.map({ state.token($0) }),
           genericClause: tree.0.1,
           captures: tree.1 ?? [])
       }))
@@ -1315,7 +1313,7 @@ public enum Parser {
             annotation: tree.0.1?.1,
             defaultValue: tree.1?.1,
             origin: state.range(
-              from: tree.0.0.label?.origin!.lowerBound ?? tree.0.0.name.origin!.lowerBound)))
+              from: tree.0.0.label?.origin!.start ?? tree.0.0.name.origin!.start)))
       }))
 
   typealias ParameterInterface = (
@@ -1334,23 +1332,17 @@ public enum Parser {
       if let nameCandidate = state.take(.name) {
         if labelCandidate.kind == .under {
           // case `_ name`
-          return (
-            label: nil,
-            name: SourceRepresentable(token: nameCandidate, in: state.lexer.source)
-          )
+          return (label: nil, name: state.token(nameCandidate))
         } else {
           // case `label name`
-          return (
-            label: SourceRepresentable(token: labelCandidate, in: state.lexer.source),
-            name: SourceRepresentable(token: nameCandidate, in: state.lexer.source)
-          )
+          return (label: state.token(labelCandidate), name: state.token(nameCandidate))
         }
       }
 
       // Assume the first token is the name.
       if labelCandidate.kind == .name {
         // case `<no-label> name`
-        let name = SourceRepresentable(token: labelCandidate, in: state.lexer.source)
+        let name = state.token(labelCandidate)
         return (label: name, name: name)
       }
 
@@ -1396,11 +1388,11 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<GenericParameterDecl> in
         state.insert(
           GenericParameterDecl(
-            identifier: SourceRepresentable(token: tree.0.0.1, in: state.lexer.source),
+            identifier: state.token(tree.0.0.1),
             conformances: tree.0.1?.1 ?? [],
             defaultValue: tree.1?.1,
             origin: state.range(
-              from: tree.0.0.0?.origin.lowerBound ?? tree.0.0.1.origin.lowerBound)))
+              from: tree.0.0.0?.origin.start ?? tree.0.0.1.origin.start)))
       }))
 
   static let conformanceList =
@@ -1445,7 +1437,7 @@ public enum Parser {
     let rhs = try state.expect("type expression", using: parseExpr(in:))
 
     let castKind: CastExpr.Kind
-    switch state.lexer.source[infixOperator.origin] {
+    switch state.lexer.sourceCode[infixOperator.origin] {
     case "as":
       castKind = .up
     case "as!":
@@ -1483,8 +1475,8 @@ public enum Parser {
       if !state.hasLeadingWhitespace {
         // If there isn't any leading whitespace before the next expression but the operator is on
         // a different line, we may be looking at the start of a prefix expression.
-        let rangeBefore = state.ast[lhs].origin!.upperBound ..< operatorStem.origin!.lowerBound
-        if state.lexer.source.contents[rangeBefore].contains(where: { $0.isNewline }) {
+        let rangeBefore = state.ast[lhs].origin!.end ..< operatorStem.origin!.start
+        if state.lexer.sourceCode.text[rangeBefore].contains(where: { $0.isNewline }) {
           state.restore(from: backup)
           break
         }
@@ -1540,7 +1532,7 @@ public enum Parser {
           name: SourceRepresentable(
             value: Name(stem: op.value, notation: .prefix),
             range: op.origin),
-          origin: state.range(from: op.origin!.lowerBound)))
+          origin: state.range(from: op.origin!.start)))
 
       let call = state.insert(
         FunctionCallExpr(
@@ -1565,7 +1557,7 @@ public enum Parser {
         InoutExpr(
           operatorRange: op.origin,
           subject: operand,
-          origin: state.range(from: op.origin.lowerBound)))
+          origin: state.range(from: op.origin.start)))
       return AnyExprID(expr)
     }
 
@@ -1590,7 +1582,7 @@ public enum Parser {
           name: SourceRepresentable(
             value: Name(stem: op.value, notation: .postfix),
             range: op.origin),
-          origin: state.range(from: state.ast[operand].origin!.lowerBound)))
+          origin: state.range(from: state.ast[operand].origin!.start)))
 
       let call = state.insert(
         FunctionCallExpr(
@@ -1617,7 +1609,7 @@ public enum Parser {
             TupleMemberExpr(
               tuple: head,
               index: index,
-              origin: state.range(from: headOrigin.lowerBound)))
+              origin: state.range(from: headOrigin.start)))
           head = AnyExprID(expr)
           continue
         }
@@ -1628,7 +1620,7 @@ public enum Parser {
               domain: .expr(head),
               name: component.name,
               arguments: component.arguments,
-              origin: state.range(from: headOrigin.lowerBound)))
+              origin: state.range(from: headOrigin.start)))
           head = AnyExprID(expr)
           continue
         }
@@ -1645,7 +1637,7 @@ public enum Parser {
           ConformanceLensTypeExpr(
             subject: head,
             lens: lens,
-            origin: state.range(from: headOrigin.lowerBound)))
+            origin: state.range(from: headOrigin.start)))
         head = AnyExprID(expr)
         continue
       }
@@ -1660,7 +1652,7 @@ public enum Parser {
           FunctionCallExpr(
             callee: head,
             arguments: arguments,
-            origin: state.range(from: headOrigin.lowerBound)))
+            origin: state.range(from: headOrigin.start)))
         head = AnyExprID(expr)
         continue
       }
@@ -1672,7 +1664,7 @@ public enum Parser {
           SubscriptCallExpr(
             callee: head,
             arguments: arguments,
-            origin: state.range(from: headOrigin.lowerBound)))
+            origin: state.range(from: headOrigin.start)))
         head = AnyExprID(expr)
         continue
       }
@@ -1701,7 +1693,7 @@ public enum Parser {
       _ = state.take()
       let expr = state.insert(
         BooleanLiteralExpr(
-          value: state.lexer.source[head.origin] == "true",
+          value: state.lexer.sourceCode[head.origin] == "true",
           origin: head.origin))
       return AnyExprID(expr)
 
@@ -1710,7 +1702,7 @@ public enum Parser {
       _ = state.take()
       let expr = state.insert(
         IntegerLiteralExpr(
-          value: state.lexer.source[head.origin].filter({ $0 != "_" }),
+          value: state.lexer.sourceCode[head.origin].filter({ $0 != "_" }),
           origin: head.origin))
       return AnyExprID(expr)
 
@@ -1719,7 +1711,7 @@ public enum Parser {
       _ = state.take()
       let expr = state.insert(
         FloatLiteralExpr(
-          value: state.lexer.source[head.origin].filter({ $0 != "_" }),
+          value: state.lexer.sourceCode[head.origin].filter({ $0 != "_" }),
           origin: head.origin))
       return AnyExprID(expr)
 
@@ -1728,7 +1720,7 @@ public enum Parser {
       _ = state.take()
       let expr = state.insert(
         StringLiteralExpr(
-          value: String(state.lexer.source[head.origin].dropFirst().dropLast()),
+          value: String(state.lexer.sourceCode[head.origin].dropFirst().dropLast()),
           origin: head.origin))
       return AnyExprID(expr)
 
@@ -1837,7 +1829,7 @@ public enum Parser {
         domain: .implicit,
         name: component.name,
         arguments: component.arguments,
-        origin: state.range(from: head.origin.lowerBound)))
+        origin: state.range(from: head.origin.start)))
   }
 
   private static func parseNameExprComponent(
@@ -1868,9 +1860,7 @@ public enum Parser {
     if let label = state.take(if: { $0.isLabel }) {
       if state.take(.colon) != nil {
         if let value = try parseExpr(in: &state) {
-          return LabeledArgument(
-            label: SourceRepresentable(token: label, in: state.lexer.source),
-            value: value)
+          return LabeledArgument(label: state.token(label), value: value)
         }
       }
     }
@@ -1920,7 +1910,7 @@ public enum Parser {
         if state.take(.under) != nil {
           labels.append(nil)
         } else if let label = state.take(if: { $0.isLabel }) {
-          labels.append(String(state.lexer.source[label.origin]))
+          labels.append(String(state.lexer.sourceCode[label.origin]))
         } else {
           break
         }
@@ -1953,10 +1943,10 @@ public enum Parser {
 
     return SourceRepresentable(
       value: Name(
-        stem: String(state.lexer.source[identifier.origin]),
+        stem: String(state.lexer.sourceCode[identifier.origin]),
         labels: labels,
         introducer: introducer?.value),
-      range: state.range(from: identifier.origin.lowerBound))
+      range: state.range(from: identifier.origin.start))
   }
 
   private static func parseOperatorEntityName(
@@ -1975,7 +1965,7 @@ public enum Parser {
 
     return SourceRepresentable(
       value: Name(stem: identifier.value, notation: OperatorNotation(notation)!),
-      range: state.range(from: identifier.origin!.lowerBound))
+      range: state.range(from: identifier.origin!.start))
   }
 
   private static func parseLambdaExpr(in state: inout ParserState) throws -> NodeID<LambdaExpr>? {
@@ -1996,7 +1986,7 @@ public enum Parser {
         output: signature.output,
         body: body,
         isInExprContext: true,
-        origin: state.range(from: introducer.origin.lowerBound)))
+        origin: state.range(from: introducer.origin.start)))
     return state.insert(
       LambdaExpr(decl: decl, origin: state.ast[decl].origin))
   }
@@ -2037,7 +2027,7 @@ public enum Parser {
         condition: condition,
         success: body,
         failure: elseClause,
-        origin: state.range(from: introducer.origin.lowerBound)))
+        origin: state.range(from: introducer.origin.start)))
   }
 
   private static let conditionalExprBody = TryCatch(
@@ -2062,7 +2052,7 @@ public enum Parser {
       MatchExpr(
         subject: subject,
         cases: cases.0.1,
-        origin: state.range(from: introducer.origin.lowerBound)))
+        origin: state.range(from: introducer.origin.start)))
   }
 
   static let matchCase =
@@ -2110,7 +2100,7 @@ public enum Parser {
         output: output,
         body: body,
         isInExprContext: true,
-        origin: state.range(from: introducer.origin.lowerBound)))
+        origin: state.range(from: introducer.origin.start)))
     return state.insert(
       SpawnExpr(decl: decl, origin: state.ast[decl].origin))
   }
@@ -2147,7 +2137,7 @@ public enum Parser {
         let expr = state.insert(
           TupleExpr(
             elements: [],
-            origin: state.range(from: opener.origin.lowerBound)))
+            origin: state.range(from: opener.origin.start)))
         return AnyExprID(expr)
       }
 
@@ -2163,7 +2153,7 @@ public enum Parser {
         environment: nil,
         parameters: parameters,
         output: output,
-        origin: state.range(from: opener.origin.lowerBound)))
+        origin: state.range(from: opener.origin.start)))
     return AnyExprID(expr)
   }
 
@@ -2192,7 +2182,7 @@ public enum Parser {
       let expr = state.insert(
         BufferLiteralExpr(
           elements: environement != nil ? [environement!] : [],
-          origin: state.range(from: opener.origin.lowerBound)))
+          origin: state.range(from: opener.origin.start)))
       return AnyExprID(expr)
     }
 
@@ -2227,7 +2217,7 @@ public enum Parser {
         environment: e,
         parameters: parameters,
         output: output,
-        origin: state.range(from: opener.origin.lowerBound)))
+        origin: state.range(from: opener.origin.start)))
     return AnyExprID(expr)
   }
 
@@ -2249,7 +2239,7 @@ public enum Parser {
     let expr = state.insert(
       TupleExpr(
         elements: elementList.elements,
-        origin: state.range(from: elementList.opener.origin.lowerBound)))
+        origin: state.range(from: elementList.opener.origin.start)))
     return AnyExprID(expr)
   }
 
@@ -2262,9 +2252,7 @@ public enum Parser {
     if let label = state.take(if: { $0.isLabel }) {
       if state.take(.colon) != nil {
         if let value = try expr.parse(&state) {
-          return TupleExpr.Element(
-            label: SourceRepresentable(token: label, in: state.lexer.source),
-            value: value)
+          return TupleExpr.Element(label: state.token(label), value: value)
         }
       }
     }
@@ -2287,7 +2275,7 @@ public enum Parser {
     return state.insert(
       TupleTypeExpr(
         elements: elementList.elements,
-        origin: state.range(from: elementList.opener.origin.lowerBound)))
+        origin: state.range(from: elementList.opener.origin.start)))
   }
 
   private static func parseTupleTypeExprElement(
@@ -2299,9 +2287,7 @@ public enum Parser {
     if let label = state.take(if: { $0.isLabel }) {
       if state.take(.colon) != nil {
         if let type = try expr.parse(&state) {
-          return TupleTypeExpr.Element(
-            label: SourceRepresentable(token: label, in: state.lexer.source),
-            type: type)
+          return TupleTypeExpr.Element(label: state.token(label), type: type)
         }
       }
     }
@@ -2582,11 +2568,9 @@ public enum Parser {
     }))
 
   static let namePattern =
-    (take(.name)
-      .map({ (state, token) -> NodeID<NamePattern> in
-        let declID = state.insert(
-          VarDecl(
-            identifier: SourceRepresentable(token: token, in: state.lexer.source)))
+    (take(.name).map(
+      { (state, token) -> NodeID<NamePattern> in
+        let declID = state.insert(VarDecl(identifier: state.token(token)))
         return state.insert(NamePattern(decl: declID, origin: token.origin))
       }))
 
@@ -2596,7 +2580,7 @@ public enum Parser {
         state.insert(
           TuplePattern(
             elements: tree.0.1 ?? [],
-            origin: tree.0.0.origin.extended(upTo: tree.1.origin.upperBound)))
+            origin: tree.0.0.origin.extended(upTo: tree.1.origin.end)))
       }))
 
   static let tuplePatternElementList =
@@ -2611,9 +2595,7 @@ public enum Parser {
       if let label = state.take(if: { $0.isLabel }) {
         if state.take(.colon) != nil {
           if let value = try pattern.parse(&state) {
-            return TuplePattern.Element(
-              label: SourceRepresentable(token: label, in: state.lexer.source),
-              pattern: value)
+            return TuplePattern.Element(label: state.token(label), pattern: value)
           }
         }
       }
@@ -2775,7 +2757,7 @@ public enum Parser {
           throw Diagnostics(
             .error(
               "conditional binding requires an initializer",
-              range: bindingRange.extended(upTo: bindingRange.lowerBound)))
+              range: bindingRange.extended(upTo: bindingRange.start)))
         }
 
         return state.insert(
@@ -2828,7 +2810,7 @@ public enum Parser {
       AssignStmt(
         left: lhs,
         right: rhs,
-        origin: state.range(from: state.ast[lhs].origin!.lowerBound)))
+        origin: state.range(from: state.ast[lhs].origin!.start)))
     return AnyStmtID(stmt)
   }
 
@@ -2845,9 +2827,7 @@ public enum Parser {
     if let label = state.take(if: { $0.isLabel }) {
       if state.take(.colon) != nil {
         if let type = try parameterTypeExpr.parse(&state) {
-          return LambdaTypeExpr.Parameter(
-            label: SourceRepresentable(token: label, in: state.lexer.source),
-            type: type)
+          return LambdaTypeExpr.Parameter(label: state.token(label), type: type)
         }
       }
     }
@@ -2870,7 +2850,7 @@ public enum Parser {
             convention: tree.0 ?? SourceRepresentable(value: .let),
             bareType: tree.1,
             origin: state.range(
-              from: tree.0?.origin!.lowerBound ?? state.ast[tree.1].origin!.lowerBound)))
+              from: tree.0?.origin!.start ?? state.ast[tree.1].origin!.start)))
       }))
 
   static let receiverEffect = accessEffect
@@ -2945,17 +2925,15 @@ public enum Parser {
     let arguments = try parseAttributeArgumentList(in: &state) ?? []
 
     return SourceRepresentable(
-      value: Attribute(
-        name: SourceRepresentable(token: introducer, in: state.lexer.source),
-        arguments: arguments),
-      range: state.range(from: introducer.origin.lowerBound))
+      value: Attribute(name: state.token(introducer), arguments: arguments),
+      range: state.range(from: introducer.origin.start))
   }
 
   private static func parseAttributeArgument(
     in state: inout ParserState
   ) throws -> Attribute.Argument? {
     if let token = state.take(.int) {
-      if let value = Int(state.lexer.source[token.origin]) {
+      if let value = Int(state.lexer.sourceCode[token.origin]) {
         return .integer(SourceRepresentable(value: value, range: token.origin))
       } else {
         throw Diagnostics(.error("invalid integer literal", range: token.origin))
@@ -2963,7 +2941,7 @@ public enum Parser {
     }
 
     if let token = state.take(.string) {
-      let value = String(state.lexer.source[token.origin].dropFirst().dropLast())
+      let value = String(state.lexer.sourceCode[token.origin].dropFirst().dropLast())
       return .string(SourceRepresentable(value: value, range: token.origin))
     }
 
@@ -3130,7 +3108,7 @@ struct ContextualKeyword<T: RawRepresentable>: Combinator where T.RawValue == St
 
   func parse(_ state: inout ParserState) throws -> Element? {
     if let next = state.peek(), next.kind == .name {
-      if let value = T(rawValue: String(state.lexer.source[next.origin])) {
+      if let value = T(rawValue: String(state.lexer.sourceCode[next.origin])) {
         _ = state.take()
         return SourceRepresentable(value: value, range: next.origin)
       }
@@ -3340,22 +3318,25 @@ extension OperatorNotation {
 
 }
 
-extension SourceRepresentable where Part == Identifier {
+extension ParserState {
 
-  fileprivate init(token: Token, in source: SourceFile) {
-    self.init(value: String(source[token.origin]), range: token.origin)
+  fileprivate func token(_ t: Token) -> SourceRepresentable<Identifier> {
+    .init(value: String(lexer.sourceCode[t.origin]), range: t.origin)
   }
 
 }
 
 extension AST {
-  public mutating func insert<S: Sequence>(
-    _ sources: S, asModule newModule: String, diagnostics: inout Diagnostics
+
+  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics to
+  /// `diagnostics`.
+  public mutating func makeModule<S: Sequence>(
+    _ name: String, sourceCode: S, diagnostics: inout Diagnostics
   ) throws -> NodeID<ModuleDecl>
   where S.Element == SourceFile {
-    let newModule = self.insert(synthesized: ModuleDecl(name: newModule))
+    let newModule = self.insert(synthesized: ModuleDecl(name: name))
 
-    for f in sources {
+    for f in sourceCode {
       do {
         _ = try Parser.parse(f, into: newModule, in: &self, diagnostics: &diagnostics)
       } catch _ as Diagnostics {}  // These have been logged, let's keep parsing other files.
@@ -3363,4 +3344,5 @@ extension AST {
     try diagnostics.throwOnError()
     return newModule
   }
+
 }

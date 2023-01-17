@@ -8,16 +8,16 @@ final class CaptureCollectorTests: XCTestCase {
   func testFunctionBindings() throws {
     var ast = AST()
     let module = ast.insert(synthesized: ModuleDecl(name: "main"))
-    let source = SourceFile(
-      contents: """
-        fun f<X, v: Void>[let c = ()](_ p: Any) {
-          let _ = free   // captured
-          let _ = X      // bound
-          let _ = v      // bound
-          let _ = c      // bound
-          let _ = p      // bound
-        }
-        """)
+    let source = testCode(
+      """
+      fun f<X, v: Void>[let c = ()](_ p: Any) {
+        let _ = free   // captured
+        let _ = X      // bound
+        let _ = v      // bound
+        let _ = c      // bound
+        let _ = p      // bound
+      }
+      """)
 
     var diagnostics = Diagnostics()
     _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)

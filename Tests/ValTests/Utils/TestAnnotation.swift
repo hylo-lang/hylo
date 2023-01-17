@@ -103,11 +103,11 @@ struct TestAnnotation: Hashable {
   }
 
   /// Parses and returns the test annotations in `source`.
-  static func parseAll(from source: SourceFile) -> [TestAnnotation] {
+  static func parseAll(from sourceCode: SourceFile) -> [TestAnnotation] {
     /// The annotations parsed from the input.
     var annotations: [TestAnnotation] = []
     /// The input stream.
-    let stream = source.contents
+    let stream = sourceCode.text
     /// The current position in the stream.
     var index = stream.startIndex
     /// The line at the current position.
@@ -153,7 +153,7 @@ struct TestAnnotation: Hashable {
           openedBlockComments = 0
           if let start = indexAfterAnnotationBlockOpener {
             annotations.append(
-              TestAnnotation(in: source.url, atLine: line, parsing: stream[start ..< index]))
+              TestAnnotation(in: sourceCode.url, atLine: line, parsing: stream[start ..< index]))
             indexAfterAnnotationBlockOpener = nil
           }
 
@@ -185,7 +185,7 @@ struct TestAnnotation: Hashable {
 
         if let start = start {
           annotations.append(
-            TestAnnotation(in: source.url, atLine: line, parsing: stream[start ..< index]))
+            TestAnnotation(in: sourceCode.url, atLine: line, parsing: stream[start ..< index]))
         }
 
         continue

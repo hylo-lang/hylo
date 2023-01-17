@@ -9,15 +9,16 @@ extension SourceRange: ExpressibleByArgument {
     var s = Substring(argument)
     guard
       let line = (s.takeSuffix(until: ":")?.dropFirst()).flatMap({ Int($0) }),
-      let source = try? SourceFile(contentsOf: URL(fileURLWithPath: String(s))),
-      let start = source.location(at: line, 1)
+      let source = try? SourceFile(contentsOf: URL(fileURLWithPath: String(s)))
     else { return nil }
 
+    let start = source.position(line: line, column: 1)
+
     // Create a range covering the given line.
-    let endIndex = source.contents
+    let endIndex = source.text
       .suffix(from: start.index)
       .firstIndex(where: { $0.isNewline })
-    self.init(in: source, from: start.index, to: endIndex ?? source.contents.endIndex)
+    self = source.range(start.index ..< (endIndex ?? source.text.endIndex))
   }
 
 }
