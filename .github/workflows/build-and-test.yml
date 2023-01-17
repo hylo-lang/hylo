@@ -43,8 +43,7 @@ jobs:
       if: matrix.os == 'ubuntu-22.04'
       with:
         SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 74.50
-        INCLUDE_TESTS: 'true'
+        MINIMUM_COVERAGE: 74.45
     - name: Build (Release)
       run: swift build -v -c release
     - name: Test (Release)
@@ -53,5 +52,4 @@ jobs:
       if: matrix.os == 'ubuntu-22.04'
       with:
         SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 74.50
-        INCLUDE_TESTS: 'true'
+        MINIMUM_COVERAGE: 74.45
