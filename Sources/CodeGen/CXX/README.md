@@ -11,3 +11,96 @@ A Val module is transpiled as a C++ compilation unit, composed of one header and
 All transpiled symbols are defined in the module namespace.
 The header of a transpiled unit exposes the public symbols of the module through a C++ API.
 
+## Val to CXX mapping
+
+### Declarations
+
+| Val decl | Scope | CXX decl | Notes |
+| -------- | ----- | -------- | ----- |
+| `ModuleDecl` | module | `CXXModule` | One Val module to one CXX module. |
+| `TopLevelDeclSet` | module | N/A | Translated indirectly through `ModuleDecl`. |
+| `ImportDecl` | top-level | `CXXImportDecl` | Translated into C++20 `import` declarations |
+| `NamespaceDecl` | top-level | `CXXNamespaceDecl` | |
+| `FunctionDecl` | top-level | `CXXFunctionDecl` | |
+| `OperatorDecl` | top-level | `CXXOperatorDecl` | |
+| `ProductTypeDecl` | top-level | `CXXClassDecl` | |
+| `TypeAliasDecl` | top-level | `CXXUsingDecl` | |
+| `TraitDecl` | top-level | TODO | |
+| `ConformanceDecl` | top-level | TODO | |
+| `ExtensionDecl` | top-level | TODO | |
+| `GenericParameterDecl` | function decl, class decl | `CXXTODO` | |
+| `ParameterDecl` | function decl | `CXXFunction.Parameter` | |
+| `ImplicitCapture` | function decl | TODO | |
+| `MethodImplDecl` | function | N/A | Translated indirectly with `CXXMethodDecl` |
+| `MethodDecl` | class | `CXXMethodDecl` | |
+| `InitializerDecl` | class | `CXXConstructor` | |
+| `SubscriptDecl` | class | TODO | |
+| `AssociatedTypeDecl` | protocol | TODO | |
+| `AssociatedValueDecl` | protocol | TODO | |
+| `BindingDecl` | class, function body | N/A | Translated with its content (`VarDecl`, etc.) |
+| `VarDecl` | class, function body | `CXXClassAttribute`, `CXXVarDecl` | |
+| `BuiltinDecl` | ??? | TODO | |
+
+### Expressions
+
+| Val node | CXX node | Notes |
+| -------- | -------- | ----- |
+| `BooleanLiteralExpr` | `CXXBooleanLiteralExpr` | |
+| `BufferLiteralExpr` | `CXXBracedInitListExpr` | |
+| `CastExpr` | `CXXStaticCastExpr` | TODO: investigate possible casts |
+| `CondExpr` | `CXXCondExpr`, `CXXIfStmt` + `CXXStmtExpr` | If `CondExpr` is used in expression contexts, then the result is `CXXCondExpr`. Otherwhise, we use a `CXXIfStmt`, and wrap the statements in a `CXXStmtExpr` to transform them into an expression. |
+| `ConformanceLensTypeExpr` | TODO | |
+| `ErrorExpr` | N/A | |
+| `ExistentialTypeExpr` | TODO | |
+| `FloatLiteralExpr` | `CXXFloatLiteralExpr` | |
+| `FoldedSequenceExpr` | N/A | Translated into an expression tree, using paranthesis (`CXXParenthesisExpr`) in the appropriate places |
+| `FunctionCallExpr` | `CXXFunctionCallExpr`, `CXXOperatorCallExpr` | |
+| `InoutExpr` | N/A | There is no CXX special syntactic treatment for `inout` arguments |
+| `IntegerLiteralExpr` | `CXXIntegerLiteralExpr` | |
+| `LabeledArgument` | N/A | This is handled at function decl / function call level |
+| `LambdaExpr` | `CXXLambdaExpr` | |
+| `LambdaTypeExpr` | `CXXTypeExpr` | |
+| `MapLiteralExpr` | TODO | |
+| `MatchCase` | TODO | |
+| `MatchExpr` | TODO | |
+| `NilLiteralExpr` | `CXXNullptrExpr` | TODO: semantically `nullptr` from C++ isn't equivalent to Val's `nil`. |
+| `ParameterTypeExpr` | `CXXTypeExpr` | |
+| `SequenceExpr` | N/A | Translated into an expression tree, using paranthesis (`CXXParenthesisExpr`) in the appropriate places |
+| `SpawnExpr` | `CXXFunctionCall` | This will be translated into calls to library functions. |
+| `StringLiteralExpr` | `CXXStringLiteralExpr` | |
+| `SubscriptCallExpr` | `CXXSubscriptCallExpr` | |
+| `TraitComposition` | TODO | |
+| `TupleExpr` | `CXXFunctionCall` | Translated into a function call to an `std::tuple` constructor. |
+| `TupleMemberExpr` | TODO | |
+| `TupleTypeExpr` | `CXXTypeExpr` | |
+| `UnicodeScalarLiteralExpr` | TODO | |
+| `UnionTypeExpr` | `CXXTypeExpr` | |
+| `WildcardExpr` | TODO | |
+
+### Patterns
+
+| Val node | CXX node | Notes |
+| -------- | -------- | ----- |
+| `BindingPattern` | TODO | |
+| `ExprPattern` | TODO | |
+| `NamePattern` | TODO | |
+| `TuplePattern` | TODO | |
+| `WhildcardPattern` | TODO | |
+
+
+### Statements
+
+| Val node | CXX node | Notes |
+| -------- | -------- | ----- |
+| `AssignStmt` | `CXXExprStmt` + `CXXOperatorCallExpr` | |
+| `BraceStmt` | `CXXScopedBlock` | |
+| `BreakStmt` | `CXXBreakStmt` | |
+| `CondBindingStmt` | `CXXIfStmt` | |
+| `ContinueStmt` | `CXXContinueStmt` | |
+| `DeclStmt` | N/A | Translated accordingly to the referred decl. |
+| `DoWhileStmt` | `CXXDoWhileStmt` | |
+| `ExprStmt` | `CXXExprStmt` | |
+| `ForStmt` | `CXXForStmt` | |
+| `ReturnStmt` | `CXXReturnStmt` | |
+| `WhileStmt` | `CXXWhileStmt` | |
+| `YieldStmt` | TODO | |
