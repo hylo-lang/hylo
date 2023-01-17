@@ -297,7 +297,6 @@ private struct CLI: ParsableCommand {
     if let site = diagnostic.location {
       let line = site.first().textOfLine()
       write(line)
-      write("\n")
 
       let padding = line.distance(from: line.startIndex, to: site.start)
       write(String(repeating: " ", count: padding))
