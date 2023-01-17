@@ -5,7 +5,7 @@ struct AnyNode: Codable {
 
   fileprivate enum CodingKeys: String, CodingKey {
 
-    case nodeName, kind, data
+    case nodeType, kind, data
 
   }
 
@@ -28,7 +28,7 @@ struct AnyNode: Codable {
     var container = encoder.container(keyedBy: CodingKeys.self)
 
     let nodeType = type(of: node)
-    try container.encode("\(nodeType)", forKey: .nodeName)
+    try container.encode("\(nodeType)", forKey: .nodeType)
     try container.encode(nodeType.kind, forKey: .kind)
     try container.encode(node)
   }
