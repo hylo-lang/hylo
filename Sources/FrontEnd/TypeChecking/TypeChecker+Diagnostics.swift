@@ -2,25 +2,25 @@ import Core
 
 extension Diagnostic {
 
-  static func diagnose(
+  static func error(
     ambiguousDisjunctionAt range: SourceRange?
   ) -> Diagnostic {
     .error("ambiguous disjunction", range: range)
   }
 
-  static func diagnose(
+  static func error(
     circularRefinementAt range: SourceRange?
   ) -> Diagnostic {
     .error("circular trait refinement", range: range)
   }
 
-  static func diagnose(
+  static func error(
     circularDependencyAt range: SourceRange?
   ) -> Diagnostic {
     .error("circular dependency", range: range)
   }
 
-  static func diagnose(
+  static func error(
     cannotConstructTrait trait: TraitType,
     at range: SourceRange?
   ) -> Diagnostic {
@@ -29,7 +29,7 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     cannotInferComplexReturnTypeAt range: SourceRange?
   ) -> Diagnostic {
     .error(
@@ -37,27 +37,27 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     conformanceToNonTraitType type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("conformance to non-trait type '\(type)'", range: range)
   }
 
-  static func diagnose(
+  static func error(
     declarationRequiresBodyAt range: SourceRange?
   ) -> Diagnostic {
     .error("declaration requires a body", range: range)
   }
 
-  static func diagnose(
+  static func error(
     duplicateCaptureNamed name: String,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("duplicate capture name '\(name)'", range: range)
   }
 
-  static func diagnose(
+  static func error(
     duplicateOperatorNamed name: String,
     at range: SourceRange?
   ) -> Diagnostic {
@@ -71,7 +71,7 @@ extension Diagnostic {
     .error("duplicate parameter name '\(name)'", range: range)
   }
 
-  static func diagnose(
+  static func error(
     nameRefersToValue expr: NodeID<NameExpr>,
     in ast: AST
   ) -> Diagnostic {
@@ -80,13 +80,13 @@ extension Diagnostic {
       range: ast[expr].origin)
   }
 
-  static func diagnose(
+  static func error(
     genericDeclHasCapturesAt range: SourceRange?
   ) -> Diagnostic {
     .error("generic declaration has captures", range: range)
   }
 
-  static func diagnose(
+  static func error(
     illegalMemberwiseInitAt range: SourceRange?
   ) -> Diagnostic {
     .error(
@@ -94,14 +94,14 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     illegalParameterConvention convention: AccessEffect,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("'\(convention)' may only be used on parameters", range: range)
   }
 
-  static func diagnose(
+  static func error(
     labels found: [String?],
     incompatibleWith expected: [String?],
     at range: SourceRange?
@@ -114,19 +114,19 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     incompatibleParameterCountAt range: SourceRange?
   ) -> Diagnostic {
     .error("incompatible number of parameters", range: range)
   }
 
-  static func diagnose(
+  static func error(
     incompatibleTupleLengthsAt range: SourceRange?
   ) -> Diagnostic {
     .error("tuples have different lengths", range: range)
   }
 
-  static func diagnose(
+  static func error(
     type l: AnyType,
     incompatibleWith r: AnyType,
     at range: SourceRange?
@@ -134,7 +134,7 @@ extension Diagnostic {
     .error("incompatible types '\(l)' and '\(r)'", range: range)
   }
 
-  static func diagnose(
+  static func error(
     invalidUseOfAssociatedType name: String,
     at range: SourceRange?
   ) -> Diagnostic {
@@ -143,7 +143,7 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     expectedLambdaParameterCount: Int,
     found: Int,
     at range: SourceRange?
@@ -155,47 +155,47 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     inoutCapableMethodBundleMustReturn expectedReturnType: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("inout-capable method bundle must return '\(expectedReturnType)'", range: range)
   }
 
-  static func diagnose(
+  static func error(
     invalidDestructuringOfType type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("invalid destructuring of type '\(type)'", range: range)
   }
 
-  static func diagnose(
+  static func error(
     invalidReferenceToSelfTypeAt range: SourceRange?
   ) -> Diagnostic {
     .error("reference to 'Self' outside of a type context", range: range)
   }
 
-  static func diagnose(
+  static func error(
     invalidParameterType type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("invalid parameter type '\(type)'", range: range)
   }
 
-  static func diagnose(
+  static func error(
     missingReturnValueAt range: SourceRange?
   ) -> Diagnostic {
     .error("non-void function should return a value", range: range)
   }
 
-  static func diagnose(
+  static func error(
     notATrait type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("type '\(type)' is not a trait", range: range)
   }
 
-  static func diagnose(
+  static func error(
     _ type: AnyType,
     doesNotConformTo trait: TraitType,
     at range: SourceRange?,
@@ -207,7 +207,7 @@ extension Diagnostic {
       children: children)
   }
 
-  static func diagnose(
+  static func error(
     invalidConformanceConstraintTo type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
@@ -219,7 +219,7 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     invalidEqualityConstraintBetween l: AnyType,
     and r: AnyType,
     at range: SourceRange?
@@ -232,7 +232,7 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     notEnoughContextToInferArgumentsAt range: SourceRange?
   ) -> Diagnostic {
     .error(
@@ -240,14 +240,14 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     notEnoughContextToResolveMember name: Name,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("not enough contextual information to resolve member '\(name)'", range: range)
   }
 
-  static func diagnose(
+  static func error(
     noType name: Name,
     in domain: AnyType? = nil,
     at range: SourceRange?
@@ -259,20 +259,20 @@ extension Diagnostic {
     }
   }
 
-  static func diagnose(
+  static func error(
     traitRequiresMethod name: Name,
     withType type: AnyType
   ) -> Diagnostic {
     .error("trait requires method '\(name)' with type '\(type)'")
   }
 
-  static func diagnose(
+  static func error(
     staleConstraint c: any Constraint
   ) -> Diagnostic {
     .error("stale constraint '\(c)'")
   }
 
-  static func diagnose(
+  static func error(
     illegalUseOfStaticMember name: Name,
     onInstanceOf: AnyType,
     at range: SourceRange?
@@ -282,28 +282,28 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     undefinedName: String,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("undefined name '\(undefinedName)' in this scope", range: range)
   }
 
-  static func diagnose(
+  static func error(
     undefinedOperator name: String,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("undefined operator '\(name)'", range: range)
   }
 
-  static func diagnose(
+  static func warning(
     unusedResultOfType type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .warning("unused result of type '\(type)'", range: range)
   }
 
-  static func diagnose(
+  static func error(
     invalidGenericArgumentCountTo entity: SourceRepresentable<Name>,
     found: Int,
     expected: Int
@@ -322,7 +322,7 @@ extension Diagnostic {
     }
   }
 
-  static func diagnose(
+  static func error(
     invalidGenericArgumentsTo entity: SourceRepresentable<Name>,
     candidateDiagnostics children: [Diagnostic]
   ) -> Diagnostic {
@@ -332,26 +332,26 @@ extension Diagnostic {
       children: children)
   }
 
-  static func diagnose(
+  static func error(
     argumentToNonGenericType type: AnyType,
     at range: SourceRange?
   ) -> Diagnostic {
     .error("non-generic type '\(type)' has no generic parameters", range: range)
   }
 
-  static func diagnose(
+  static func error(
     metatypeRequiresOneArgumentAt range: SourceRange?
   ) -> Diagnostic {
     .error("reference to 'Metatype' requires exacly one static argument", range: range)
   }
 
-  static func diagnose(
+  static func error(
     tooManyAnnotationsOnGenericValueParametersAt range: SourceRange?
   ) -> Diagnostic {
     .error("only one annotation is allowed on generic value parameter declarations", range: range)
   }
 
-  static func diagnose(
+  static func error(
     invalidBufferTypeExprArgumentCount expr: NodeID<SubscriptCallExpr>,
     in ast: AST
   ) -> Diagnostic {
@@ -360,21 +360,21 @@ extension Diagnostic {
       range: ast[ast[expr].callee].origin)
   }
 
-  static func diagnose(
+  static func error(
     nonCallableType type: AnyType,
     at origin: SourceRange?
   ) -> Diagnostic {
     .error("cannot call value of non-callable type '\(type)'", range: origin)
   }
 
-  static func diagnose(
+  static func error(
     noUnnamedSubscriptsIn domain: AnyType,
     at origin: SourceRange?
   ) -> Diagnostic {
     .error("type '\(domain)' has no unnamed subscripts", range: origin)
   }
 
-  static func diagnose(
+  static func error(
     undefinedName name: Name,
     in domain: AnyType? = nil,
     at range: SourceRange?

@@ -258,7 +258,7 @@ struct ParserState {
     if let element = try parse(&self) {
       return element
     } else {
-      diagnostics.report(.diagnose(expected: expectedConstruct, at: currentLocation))
+      diagnostics.report(.error(expected: expectedConstruct, at: currentLocation))
       throw diagnostics
     }
   }

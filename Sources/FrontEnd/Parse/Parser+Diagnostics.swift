@@ -2,15 +2,15 @@ import Core
 
 extension Diagnostic {
 
-  static func diagnose(assignOperatorRequiresWhitespaces token: Token) -> Diagnostic {
+  static func error(assignOperatorRequiresWhitespaces token: Token) -> Diagnostic {
     .error("assignment operator requires whitespaces on both sides", range: token.origin)
   }
 
-  static func diagnose(expected kind: Token.Kind, at location: SourcePosition) -> Diagnostic {
-    diagnose(expected: "'\(kind)'", at: location)
+  static func error(expected kind: Token.Kind, at location: SourcePosition) -> Diagnostic {
+    error(expected: "'\(kind)'", at: location)
   }
 
-  static func diagnose(
+  static func error(
     expected subject: String,
     at location: SourcePosition,
     children: [Diagnostic] = []
@@ -18,12 +18,12 @@ extension Diagnostic {
     .error("expected \(subject)", range: location ..< location, children: children)
   }
 
-  static func diagnose(
+  static func error(
     expected closerDescription: String,
     matching opener: Token,
     in state: ParserState
   ) -> Diagnostic {
-    .diagnose(
+    .error(
       expected: "'\(closerDescription)'",
       at: state.currentLocation,
       children: [
@@ -34,31 +34,31 @@ extension Diagnostic {
     )
   }
 
-  static func diagnose(infixOperatorRequiresWhitespacesAt range: SourceRange?) -> Diagnostic {
+  static func error(infixOperatorRequiresWhitespacesAt range: SourceRange?) -> Diagnostic {
     .error("infix operator requires whitespaces on both sides", range: range)
   }
 
-  static func diagnose(separatedMutationMarkerAt range: SourceRange?) -> Diagnostic {
+  static func error(separatedMutationMarkerAt range: SourceRange?) -> Diagnostic {
     .error("in-place mutation marker cannot be separated from its expression", range: range)
   }
 
-  static func diagnose(separatedPrefixOperatorAt range: SourceRange?) -> Diagnostic {
+  static func error(separatedPrefixOperatorAt range: SourceRange?) -> Diagnostic {
     .error("prefix operator cannot be separated from its operand", range: range)
   }
 
-  static func diagnose(unexpectedToken token: Token) -> Diagnostic {
+  static func error(unexpectedToken token: Token) -> Diagnostic {
     .error("unexpected token '\(token.kind)'", range: token.origin)
   }
 
-  static func diagnose(unterminatedCommentEndingAt endLocation: SourcePosition) -> Diagnostic {
+  static func error(unterminatedCommentEndingAt endLocation: SourcePosition) -> Diagnostic {
     .error("unterminated comment", range: endLocation ..< endLocation)
   }
 
-  static func diagnose(unterminatedStringEndingAt endLocation: SourcePosition) -> Diagnostic {
+  static func error(unterminatedStringEndingAt endLocation: SourcePosition) -> Diagnostic {
     .error("unterminated string", range: endLocation ..< endLocation)
   }
 
-  static func diagnose(
+  static func error(
     duplicateAccessModifier m: SourceRepresentable<AccessModifier>
   ) -> Diagnostic {
     .error(
@@ -66,7 +66,7 @@ extension Diagnostic {
       range: m.origin)
   }
 
-  static func diagnose(
+  static func error(
     duplicateImplementationIntroducer i: SourceRepresentable<ImplIntroducer>
   ) -> Diagnostic {
     .error(
@@ -74,7 +74,7 @@ extension Diagnostic {
       range: i.origin)
   }
 
-  static func diagnose(
+  static func error(
     duplicateMemberModifier m: SourceRepresentable<MemberModifier>
   ) -> Diagnostic {
     .error(
@@ -82,7 +82,7 @@ extension Diagnostic {
       range: m.origin)
   }
 
-  static func diagnose(
+  static func error(
     memberModifier member: SourceRepresentable<MemberModifier>,
     appearsBeforeAccessModifier access: SourceRepresentable<AccessModifier>
   ) -> Diagnostic {
@@ -91,7 +91,7 @@ extension Diagnostic {
       range: member.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedAccessModifier m: SourceRepresentable<AccessModifier>
   ) -> Diagnostic {
     .error(
@@ -99,7 +99,7 @@ extension Diagnostic {
       range: m.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedAttribute a: SourceRepresentable<Attribute>
   ) -> Diagnostic {
     .error(
@@ -107,7 +107,7 @@ extension Diagnostic {
       range: a.value.name.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedInitializerDecl d: InitializerDecl
   ) -> Diagnostic {
     .error(
@@ -115,7 +115,7 @@ extension Diagnostic {
       range: d.introducer.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedMemberModifier m: SourceRepresentable<MemberModifier>
   ) -> Diagnostic {
     .error(
@@ -123,7 +123,7 @@ extension Diagnostic {
       range: m.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedMethodDecl d: MethodDecl
   ) -> Diagnostic {
     .error(
@@ -131,7 +131,7 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedMethodImplDecl d: MethodImplDecl
   ) -> Diagnostic {
     .error(
@@ -139,7 +139,7 @@ extension Diagnostic {
       range: d.introducer.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedNamespaceDecl d: NamespaceDecl
   ) -> Diagnostic {
     .error(
@@ -147,7 +147,7 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedOperatorDecl d: OperatorDecl
   ) -> Diagnostic {
     .error(
@@ -155,7 +155,7 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedParameterDecl d: ParameterDecl
   ) -> Diagnostic {
     .error(
@@ -163,7 +163,7 @@ extension Diagnostic {
       range: d.identifier.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedPropertyDecl d: SubscriptDecl
   ) -> Diagnostic {
     .error(
@@ -171,7 +171,7 @@ extension Diagnostic {
       range: d.introducer.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedEffect e: SourceRepresentable<AccessEffect>
   ) -> Diagnostic {
     .error(
@@ -179,7 +179,7 @@ extension Diagnostic {
       range: e.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedSubscriptImplDecl d: SubscriptImplDecl
   ) -> Diagnostic {
     .error(
@@ -187,7 +187,7 @@ extension Diagnostic {
       range: d.introducer.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedTraitDecl d: TraitDecl
   ) -> Diagnostic {
     .error(
@@ -195,7 +195,7 @@ extension Diagnostic {
       range: d.identifier.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedVarDecl d: VarDecl
   ) -> Diagnostic {
     .error(

@@ -2,7 +2,7 @@ import Utils
 
 extension Diagnostic {
 
-  static func diagnose(
+  static func error(
     illegalGlobalBindingIntroducer i: SourceRepresentable<BindingPattern.Introducer>
   ) -> Diagnostic {
     .error(
@@ -10,7 +10,7 @@ extension Diagnostic {
       range: i.origin)
   }
 
-  static func diagnose(
+  static func error(
     illegalMemberBindingIntroducer i: SourceRepresentable<BindingPattern.Introducer>
   ) -> Diagnostic {
     .error(
@@ -18,7 +18,7 @@ extension Diagnostic {
       range: i.origin)
   }
 
-  static func diagnose(
+  static func error(
     invalidOperatorLabels found: [String?],
     expected: [String?],
     at range: SourceRange?
@@ -31,7 +31,7 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     invalidOperatorNotation found: OperatorNotation,
     expected: OperatorNotation,
     at range: SourceRange?
@@ -41,7 +41,7 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     missingFunctionIdentifier d: FunctionDecl
   ) -> Diagnostic {
     .error(
@@ -49,13 +49,13 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  static func diagnose(
+  static func error(
     missingMethodIdentifier d: MethodDecl
   ) -> Diagnostic {
-    diagnose(missingMethodIdentifierAt: d.introducerRange)
+    error(missingMethodIdentifierAt: d.introducerRange)
   }
 
-  static func diagnose(
+  static func error(
     missingMethodIdentifierAt range: SourceRange?
   ) -> Diagnostic {
     .error(
@@ -63,7 +63,7 @@ extension Diagnostic {
       range: range)
   }
 
-  static func diagnose(
+  static func error(
     missingSubscriptIdentifier d: SubscriptDecl
   ) -> Diagnostic {
     .error(
@@ -71,7 +71,7 @@ extension Diagnostic {
       range: d.introducer.origin)
   }
 
-  static func diagnose(
+  static func error(
     missingTypeAnnotation p: BindingPattern,
     in ast: AST
   ) -> Diagnostic {
@@ -80,7 +80,7 @@ extension Diagnostic {
       range: ast[p.subpattern].origin)
   }
 
-  static func diagnose(
+  static func error(
     missingTypeAnnotation p: ParameterDecl,
     in ast: AST
   ) -> Diagnostic {
@@ -89,7 +89,7 @@ extension Diagnostic {
       range: p.identifier.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedAssociatedTypeDecl d: AssociatedTypeDecl
   ) -> Diagnostic {
     .error(
@@ -97,7 +97,7 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedAssociatedValueDecl d: AssociatedValueDecl
   ) -> Diagnostic {
     .error(
@@ -105,7 +105,7 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  public static func diagnose(
+  public static func error(
     unexpectedCapture p: BindingPattern
   ) -> Diagnostic {
     .error(
@@ -113,7 +113,7 @@ extension Diagnostic {
       range: p.introducer.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedImportDecl d: ImportDecl
   ) -> Diagnostic {
     .error(
@@ -121,7 +121,7 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedGenericParameterDecl d: GenericParameterDecl
   ) -> Diagnostic {
     .error(
@@ -129,7 +129,7 @@ extension Diagnostic {
       range: d.identifier.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedInitializerDecl d: InitializerDecl
   ) -> Diagnostic {
     .error(
@@ -137,7 +137,7 @@ extension Diagnostic {
       range: d.introducer.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedMemberModifier m: SourceRepresentable<MemberModifier>
   ) -> Diagnostic {
     .error(
@@ -145,7 +145,7 @@ extension Diagnostic {
       range: m.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedMethodDecl d: MethodDecl
   ) -> Diagnostic {
     .error(
@@ -153,7 +153,7 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedMethodImplDecl d: MethodImplDecl
   ) -> Diagnostic {
     .error(
@@ -161,7 +161,7 @@ extension Diagnostic {
       range: d.introducer.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedNamespaceDecl d: NamespaceDecl
   ) -> Diagnostic {
     .error(
@@ -169,7 +169,7 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedOperatorDecl d: OperatorDecl
   ) -> Diagnostic {
     .error(
@@ -177,7 +177,7 @@ extension Diagnostic {
       range: d.introducerRange)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedParameterDecl d: ParameterDecl
   ) -> Diagnostic {
     .error(
@@ -185,7 +185,7 @@ extension Diagnostic {
       range: d.identifier.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedPropertyDecl d: SubscriptDecl
   ) -> Diagnostic {
     .error(
@@ -193,7 +193,7 @@ extension Diagnostic {
       range: d.introducer.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedSubscriptImplDecl d: SubscriptImplDecl
   ) -> Diagnostic {
     .error(
@@ -201,7 +201,7 @@ extension Diagnostic {
       range: d.introducer.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedTraitDecl d: TraitDecl
   ) -> Diagnostic {
     .error(
@@ -209,7 +209,7 @@ extension Diagnostic {
       range: d.identifier.origin)
   }
 
-  static func diagnose(
+  static func error(
     unexpectedVarDecl d: VarDecl
   ) -> Diagnostic {
     .error(
