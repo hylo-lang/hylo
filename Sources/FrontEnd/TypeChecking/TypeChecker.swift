@@ -486,7 +486,7 @@ public struct TypeChecker {
 
       // Otherwise, it's expected to have the realized return type.
       let type = declTypes[id]!.base as! LambdaType
-      let inferredType = infer(typeOf: expr, expecting: type.output.skolemized, inScope: id)
+      let inferredType = deduce(typeOf: expr, expecting: type.output.skolemized, inScope: id)
       return (inferredType != nil) && success
 
     case nil:
@@ -578,7 +578,7 @@ public struct TypeChecker {
           program.ast[impl].introducer.value == .inout
           ? AnyType.void
           : outputType
-        let inferredType = infer(typeOf: expr, expecting: expectedType, inScope: impl)
+        let inferredType = deduce(typeOf: expr, expecting: expectedType, inScope: impl)
         success = (inferredType != nil) && success
 
       case .block(let stmt):
@@ -744,7 +744,7 @@ public struct TypeChecker {
       // Type checks the body of the implementation.
       switch program.ast[impl].body {
       case .expr(let expr):
-        success = (infer(typeOf: expr, expecting: outputType, inScope: impl) != nil) && success
+        success = (deduce(typeOf: expr, expecting: outputType, inScope: impl) != nil) && success
 
       case .block(let stmt):
         success = check(brace: stmt) && success
@@ -1030,7 +1030,7 @@ public struct TypeChecker {
 
     case ExprStmt.self:
       let stmt = program.ast[NodeID<ExprStmt>(rawValue: id.rawValue)]
-      if let type = infer(typeOf: stmt.expr, inScope: lexicalContext) {
+      if let type = deduce(typeOf: stmt.expr, inScope: lexicalContext) {
         // Issue a warning if the type of the expression isn't void.
         if type != .void {
           diagnostics.insert(
@@ -1049,7 +1049,7 @@ public struct TypeChecker {
 
     case DiscardStmt.self:
       let stmt = program.ast[NodeID<DiscardStmt>(rawValue: id.rawValue)]
-      return infer(typeOf: stmt.expr, inScope: lexicalContext) != nil
+      return deduce(typeOf: stmt.expr, inScope: lexicalContext) != nil
 
     case ReturnStmt.self:
       return check(return: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
@@ -1076,7 +1076,7 @@ public struct TypeChecker {
     inScope lexicalContext: S
   ) -> Bool {
     // Infer the type on the left.
-    guard let lhsType = infer(typeOf: program.ast[id].left, inScope: lexicalContext) else {
+    guard let lhsType = deduce(typeOf: program.ast[id].left, inScope: lexicalContext) else {
       return false
     }
 
@@ -1488,14 +1488,14 @@ public struct TypeChecker {
 
   // MARK: Type inference
 
-  /// Infers and returns the type of `subject`, or `nil` if `subject` is ill-typed.
+  /// Deduces the type of `subject`, or `nil` if `subject` is ill-typed.
   ///
   /// - Parameters:
-  ///   - subject: The expression whose type should be inferred.
-  ///   - expectedType: The type `subject` is expected to have given the context it which it occurs,
+  ///   - subject: The expression whose type should be deduced.
+  ///   - expectedType: The type `subject` is expected to have using top-bottom information flow
   ///     or `nil` of such type is unknown.
   ///   - scope: The innermost scope containing `subject`.
-  public mutating func infer<S: ScopeID>(
+  public mutating func deduce<S: ScopeID>(
     typeOf subject: AnyExprID,
     expecting expectedType: AnyType? = nil,
     inScope scope: S
@@ -1508,7 +1508,7 @@ public struct TypeChecker {
   /// Returns a solution describing the best guess to type `subject` and its sub-expressions.
   ///
   /// - Parameters:
-  ///   - subject: The expression whose constituent types should be inferred.
+  ///   - subject: The expression whose constituent types should be deduced.
   ///   - expectedType: The type `subject` is expected to have given the context it which it
   ///     occurs, or `nil` if no such type exists.
   ///   - scope: The innermost scope containing `subject`.
@@ -1519,19 +1519,6 @@ public struct TypeChecker {
     inScope scope: S,
     initialConstraints: [Constraint] = []
   ) -> (succeeded: Bool, solution: Solution) {
-    // Generate constraints.
-    var generator = ConstraintGenerator(
-      subject: subject,
-      scope: AnyScopeID(scope),
-      fixedType: exprTypes[subject],
-      expectedType: expectedType)
-    let constraintGeneration = generator.apply(using: &self)
-
-    // Bail out if constraint generation failed.
-    if constraintGeneration.foundConflict {
-      return (succeeded: false, solution: .init())
-    }
-
     // Determine whether tracing should be enabled.
     let shouldLogTrace: Bool
     if let tracingRange = inferenceTracingRange,
@@ -1539,7 +1526,6 @@ public struct TypeChecker {
       tracingRange.contains(subjectRange.first())
     {
       shouldLogTrace = true
-
       let loc = subjectRange.first()
       let subjectDescription = subjectRange.file[subjectRange]
       print("Inferring type of '\(subjectDescription)' at \(loc)")
@@ -1548,11 +1534,22 @@ public struct TypeChecker {
       shouldLogTrace = false
     }
 
+    // Generate constraints.
+    var facts = InferenceFacts(assigning: exprTypes[subject], to: subject)
+    let inferredType = infer(
+      typeOf: subject, inScope: AnyScopeID(scope),
+      expecting: expectedType, updating: &facts)
+
+    // Bail out if constraint generation failed.
+    if facts.foundConflict {
+      return (succeeded: false, solution: .init())
+    }
+
     // Solve the constraints.
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
-      fresh: initialConstraints + constraintGeneration.constraints,
-      comparingSolutionsWith: constraintGeneration.inferredTypes[subject]!,
+      fresh: initialConstraints + facts.constraints,
+      comparingSolutionsWith: inferredType,
       loggingTrace: shouldLogTrace)
     let solution = solver.apply(using: &self)
 
@@ -1561,7 +1558,7 @@ public struct TypeChecker {
     }
 
     // Apply the solution.
-    for (id, type) in constraintGeneration.inferredTypes.storage {
+    for (id, type) in facts.inferredTypes.storage {
       exprTypes[id] = solution.typeAssumptions.reify(type, withVariables: .keep)
     }
     for (name, ref) in solution.bindingAssumptions {

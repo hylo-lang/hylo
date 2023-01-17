@@ -3,14 +3,16 @@ import Utils
 import XCTest
 
 extension Diagnostic {
+
   /// A test annotation that announces `self` should be expected.
   var expectation: TestAnnotation {
-    return TestAnnotation(
+    TestAnnotation(
       in: location?.file.url ?? URL(string: "nowhere://at/all")!,
       atLine: location?.first().lineAndColumn().line ?? 1,
       parsing: "diagnostic " + message
     )
   }
+
 }
 
 extension XCTestCase {
@@ -109,11 +111,11 @@ extension XCTestCase {
   ) -> [XCTIssue] {
     var testFailures = processing.testFailures
 
-    // If this traps due to non-uniqueness of keys, we have two diagnostics that would be matched by
-    // the same expectation.  We can adjust the code to deal with that if it comes up.
+    // If two diagnostics get two diagnostics that would be matched by the same expectation, we'll
+    // throw one of them. We can adjust the code to deal with that if it comes up.
     var diagnosticsByExpectation = Dictionary(
-      uniqueKeysWithValues:
-        zip(processing.diagnostics.log.lazy.map(\.expectation), processing.diagnostics.log))
+      zip(processing.diagnostics.log.lazy.map(\.expectation), processing.diagnostics.log),
+      uniquingKeysWith: { (a, _) in a })
 
     func fail(_ expectation: TestAnnotation, _ message: String) {
       testFailures.append(expectation.failure(message))
@@ -149,4 +151,5 @@ extension XCTestCase {
     }
     return testFailures
   }
+
 }
