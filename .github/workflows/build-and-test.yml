@@ -42,7 +42,7 @@ jobs:
     - uses: mattpolzin/swift-codecov-action@0.7.3
       if: matrix.os == 'ubuntu-22.04'
       with:
-        MINIMUM_COVERAGE: 74
+        MINIMUM_COVERAGE: 80
         INCLUDE_TESTS: 'true'
     - name: Build (Release)
       run: swift build -v -c release
@@ -51,5 +51,5 @@ jobs:
     - uses: mattpolzin/swift-codecov-action@0.7.3
       if: matrix.os == 'ubuntu-22.04'
       with:
-        MINIMUM_COVERAGE: 74
+        MINIMUM_COVERAGE: 80
         INCLUDE_TESTS: 'true'
