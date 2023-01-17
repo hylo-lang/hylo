@@ -14,7 +14,7 @@ public struct ScopedProgram: Program {
   public private(set) var varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>] = [:]
 
   /// Creates a scoped program from an AST.
-  public init(ast: AST) {
+  public init(_ ast: AST) {
     self.ast = ast
 
     // Establish the scope relationships.

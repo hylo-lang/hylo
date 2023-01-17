@@ -9,26 +9,19 @@ final class TypeCheckerTests: XCTestCase {
     var baseAST = AST()
     baseAST.importCoreModule()
 
-    try checkAnnotatedValFiles(
+    try checkAnnotatedValFileDiagnostics(
       in: "TestCases/TypeChecking",
-      { (source) -> DefaultTestAnnotationHandler in
-        // Create a module for the input.
+      { (source, diagnostics) in
         var ast = baseAST
-        let module = try! ast.insert(wellFormed: ModuleDecl(name: source.baseName))
+        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
 
-        // Parse the input.
-        let parseResult = Parser.parse(source, into: module, in: &ast)
-        if parseResult.failed {
-          return .init(ranToCompletion: false, diagnostics: parseResult.diagnostics)
-        }
+        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 
         // Run the type checker.
-        var checker = TypeChecker(program: ScopedProgram(ast: ast))
-        let success = checker.check(module: module)
-        return .init(
-          ranToCompletion: success,
-          diagnostics: parseResult.diagnostics + Array(checker.diagnostics))
+        var checker = TypeChecker(program: ScopedProgram(ast))
+        _ = checker.check(module: module)
+        diagnostics.report(checker.diagnostics)
+        try diagnostics.throwOnError()
       })
   }
-
 }

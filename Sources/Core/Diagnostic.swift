@@ -1,4 +1,4 @@
-/// An in-flight diagnostic about an error that occured at compile time.
+/// A diagnostic related to a region of Val source code.
 public struct Diagnostic: Hashable {
 
   /// The severity of a diagnostic.
@@ -12,23 +12,6 @@ public struct Diagnostic: Hashable {
 
   }
 
-  /// A diagnostic window, providing detailed explanation about an error.
-  public struct Window: Hashable {
-
-    /// The source range highlighted in the window.
-    public var range: SourceRange
-
-    /// The text of the window, if any.
-    public var text: String?
-
-    /// Creates a new diagnostic window.
-    public init(range: SourceRange, text: String? = nil) {
-      self.text = text
-      self.range = range
-    }
-
-  }
-
   /// The level of the diagnostic.
   public let level: Level
 
@@ -38,10 +21,7 @@ public struct Diagnostic: Hashable {
   public let message: String
 
   /// The location at which the diagnostic should be reported.
-  public let location: SourceLocation?
-
-  /// The window of the diagnostic, if any.
-  public let window: Window?
+  public let location: SourceRange?
 
   /// The sub-diagnostics.
   public let children: [Diagnostic]
@@ -50,14 +30,12 @@ public struct Diagnostic: Hashable {
   public init(
     level: Level,
     message: String,
-    location: SourceLocation? = nil,
-    window: Window? = nil,
+    location: SourceRange? = nil,
     children: [Diagnostic] = []
   ) {
     self.level = level
     self.message = message
     self.location = location
-    self.window = window
     self.children = children
   }
 
@@ -70,8 +48,7 @@ public struct Diagnostic: Hashable {
     Diagnostic(
       level: .error,
       message: message,
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }),
+      location: range,
       children: children)
   }
 
@@ -84,8 +61,7 @@ public struct Diagnostic: Hashable {
     Diagnostic(
       level: .warning,
       message: message,
-      location: range?.first(),
-      window: range.map({ r in Diagnostic.Window(range: r) }),
+      location: range,
       children: children)
   }
 
@@ -95,9 +71,9 @@ extension Diagnostic: CustomStringConvertible {
 
   public var description: String {
     let prefix: String
-    if let l = location {
-      let (line, column) = l.lineAndColumnIndices
-      prefix = "\(l.source.url):\(line):\(column): "
+    if let l = location?.first() {
+      let (line, column) = l.lineAndColumn()
+      prefix = "\(l.file.url):\(line):\(column): "
     } else {
       prefix = ""
     }

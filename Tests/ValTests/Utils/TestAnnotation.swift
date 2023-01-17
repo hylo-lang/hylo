@@ -43,7 +43,7 @@ import XCTest
 ///
 /// The command of the annotation is `cpp` and the argument is a C++ struct declaration with no
 /// indentation on the first and last line, and two spaces before the field declaration..
-struct TestAnnotation {
+struct TestAnnotation: Hashable {
 
   /// The line location of this annotation.
   let location: XCTSourceCodeLocation
@@ -103,11 +103,11 @@ struct TestAnnotation {
   }
 
   /// Parses and returns the test annotations in `source`.
-  static func parseAll(from source: SourceFile) -> [TestAnnotation] {
+  static func parseAll(from sourceCode: SourceFile) -> [TestAnnotation] {
     /// The annotations parsed from the input.
     var annotations: [TestAnnotation] = []
     /// The input stream.
-    let stream = source.contents
+    let stream = sourceCode.text
     /// The current position in the stream.
     var index = stream.startIndex
     /// The line at the current position.
@@ -153,7 +153,7 @@ struct TestAnnotation {
           openedBlockComments = 0
           if let start = indexAfterAnnotationBlockOpener {
             annotations.append(
-              TestAnnotation(in: source.url, atLine: line, parsing: stream[start ..< index]))
+              TestAnnotation(in: sourceCode.url, atLine: line, parsing: stream[start ..< index]))
             indexAfterAnnotationBlockOpener = nil
           }
 
@@ -185,7 +185,7 @@ struct TestAnnotation {
 
         if let start = start {
           annotations.append(
-            TestAnnotation(in: source.url, atLine: line, parsing: stream[start ..< index]))
+            TestAnnotation(in: sourceCode.url, atLine: line, parsing: stream[start ..< index]))
         }
 
         continue
@@ -196,6 +196,13 @@ struct TestAnnotation {
     }
 
     return annotations
+  }
+
+  /// Returns a test failure with the given message, at the expected line of this annotation.
+  func failure(_ message: String) -> XCTIssue {
+    XCTIssue(
+      type: .assertionFailure, compactDescription: message,
+      sourceCodeContext: .init(location: location))
   }
 
 }

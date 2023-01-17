@@ -43,16 +43,17 @@ struct ParserState {
   private var lookahead = Deque<Token>()
 
   /// The diagnostics of the parse errors and warnings.
-  var diagnostics: [Diagnostic] = []
+  var diagnostics: Diagnostics
 
   /// A stack describing the parsing context.
   var contexts: [Context] = []
 
   /// Creates a new context, using `lexer` to generate tokens.
-  init(ast: AST, lexer: Lexer) {
+  init(ast: AST, lexer: Lexer, diagnostics: Diagnostics? = nil) {
     self.ast = ast
     self.lexer = lexer
-    self.currentIndex = lexer.source.contents.startIndex
+    self.currentIndex = lexer.sourceCode.text.startIndex
+    self.diagnostics = diagnostics ?? Diagnostics()
   }
 
   /// Indicates whether the parser is at global scope.
@@ -80,44 +81,46 @@ struct ParserState {
   var isParsingCaptureList: Bool { contexts.last == .captureList }
 
   /// The current location of the parser in the character stream.
-  var currentLocation: SourceLocation { SourceLocation(source: lexer.source, index: currentIndex) }
+  var currentLocation: SourcePosition {
+    lexer.sourceCode.position(currentIndex)
+  }
 
   /// The next character in the character stream, unless the parser reached its end.
-  var currentCharacter: Character? { isAtEOF ? nil : lexer.source.contents[currentIndex] }
+  var currentCharacter: Character? { isAtEOF ? nil : lexer.sourceCode.text[currentIndex] }
 
   /// Returns whether the parser is at the end of the character stream.
-  var isAtEOF: Bool { currentIndex == lexer.source.contents.endIndex }
+  var isAtEOF: Bool { currentIndex == lexer.sourceCode.text.endIndex }
 
   /// Returns whether there is a whitespace at the current index.
   var hasLeadingWhitespace: Bool {
-    currentIndex < lexer.source.contents.endIndex
-      && lexer.source.contents[currentIndex].isWhitespace
+    currentIndex < lexer.sourceCode.text.endIndex
+      && lexer.sourceCode.text[currentIndex].isWhitespace
   }
 
   /// Returns whether there are whitespaces before *and* after `token`.
   mutating func hasLeadingAndTrailingWhitespaces(_ token: Token) -> Bool {
     guard
-      let a = lexer.source.contents.prefix(upTo: token.origin.lowerBound).last,
-      let b = lexer.source.contents.suffix(from: token.origin.upperBound).first
+      let a = lexer.sourceCode.text.prefix(upTo: token.origin.start).last,
+      let b = lexer.sourceCode.text.suffix(from: token.origin.end).first
     else { return false }
     return a.isWhitespace && b.isWhitespace
   }
 
   /// Returns whether there is a new line in the character stream before `bound`.
   mutating func hasNewline(before bound: Token) -> Bool {
-    lexer.source.contents[currentIndex ..< bound.origin.lowerBound]
+    lexer.sourceCode.text[currentIndex ..< bound.origin.start]
       .contains(where: { $0.isNewline })
   }
 
   /// Returns a source range from `startIndex` to `self.currentIndex`.
   func range(from startIndex: String.Index) -> SourceRange {
-    SourceRange(in: lexer.source, from: startIndex, to: currentIndex)
+    lexer.sourceCode.range(startIndex ..< currentIndex)
   }
 
   /// Returns whether `token` is a member index.
   func isMemberIndex(_ token: Token) -> Bool {
     (token.kind == .int)
-      && lexer.source[token.origin].allSatisfy({ ch in
+      && lexer.sourceCode[token.origin].allSatisfy({ ch in
         guard let ascii = ch.asciiValue else { return false }
         return (0x30 ... 0x39) ~= ascii
       })
@@ -154,13 +157,13 @@ struct ParserState {
   mutating func take() -> Token? {
     // Return the token in the lookahead buffer, if available.
     if let token = lookahead.popFirst() {
-      currentIndex = token.origin.upperBound
+      currentIndex = token.origin.end
       return token
     }
 
     // Attempt to pull a new element from the lexer.
     guard let token = lexer.next() else { return nil }
-    currentIndex = token.origin.upperBound
+    currentIndex = token.origin.end
     return token
   }
 
@@ -168,7 +171,7 @@ struct ParserState {
   mutating func take(_ kind: Token.Kind) -> Token? {
     if peek()?.kind == kind {
       let token = lookahead.removeFirst()
-      currentIndex = token.origin.upperBound
+      currentIndex = token.origin.end
       return token
     } else {
       return nil
@@ -186,7 +189,7 @@ struct ParserState {
   mutating func take(if predicate: (Token) -> Bool) -> Token? {
     if let token = peek(), predicate(token) {
       let token = lookahead.removeFirst()
-      currentIndex = token.origin.upperBound
+      currentIndex = token.origin.end
       return token
     } else {
       return nil
@@ -195,7 +198,7 @@ struct ParserState {
 
   /// Consumes and returns a name token with the specified value.
   mutating func take(nameTokenWithValue value: String) -> Token? {
-    take(if: { [source = lexer.source] in
+    take(if: { [source = lexer.sourceCode] in
       ($0.kind == .name) && (source[$0.origin] == value)
     })
   }
@@ -210,21 +213,20 @@ struct ParserState {
     switch head.kind {
     case .oper, .ampersand, .equal, .pipe:
       _ = take()
-      return SourceRepresentable(value: String(lexer.source[head.origin]), range: head.origin)
+      return SourceRepresentable(value: String(lexer.sourceCode[head.origin]), range: head.origin)
 
     case .lAngle, .rAngle:
       // Operator starts with `<` or `>`.
       _ = take()
 
       // Merge the leading angle bracket with attached operators.
-      var upper = head.origin.upperBound
-      while let next = take(if: { $0.isOperatorPart && (upper == $0.origin.lowerBound) }) {
-        upper = next.origin.upperBound
+      var upper = head.origin.end
+      while let next = take(if: { $0.isOperatorPart && (upper == $0.origin.start) }) {
+        upper = next.origin.end
       }
 
-      var range = head.origin
-      range.upperBound = upper
-      return SourceRepresentable(value: String(lexer.source[range]), range: range)
+      let range = head.origin.file.range(head.origin.start ..< upper)
+      return SourceRepresentable(value: String(lexer.sourceCode[range]), range: range)
 
     default:
       return nil
@@ -234,7 +236,7 @@ struct ParserState {
   /// Consumes and returns the value of a member index.
   mutating func takeMemberIndex() -> Int? {
     if let index = take(if: isMemberIndex(_:)) {
-      return Int(lexer.source[index.origin])!
+      return Int(lexer.sourceCode[index.origin])!
     } else {
       return nil
     }
@@ -242,7 +244,7 @@ struct ParserState {
 
   /// Consumes and returns an attribute token with the specified name.
   mutating func take(attribute name: String) -> Token? {
-    take(if: { [source = lexer.source] in
+    take(if: { [source = lexer.sourceCode] in
       ($0.kind == .attribute) && (source[$0.origin] == name)
     })
   }
@@ -256,7 +258,8 @@ struct ParserState {
     if let element = try parse(&self) {
       return element
     } else {
-      throw DiagnosedError(.diagnose(expected: expectedConstruct, at: currentLocation))
+      diagnostics.report(.diagnose(expected: expectedConstruct, at: currentLocation))
+      throw diagnostics
     }
   }
 
@@ -274,6 +277,17 @@ struct ParserState {
     while take(if: predicate) != nil {}
   }
 
+  /// Inserts `n` into `self.ast`, accumulating any diagnostics into `self.diagnostics`.
+  mutating func insert<T: Node>(_ n: T) -> NodeID<T> {
+    ast.insert(n, diagnostics: &diagnostics)
+  }
+
+  /// Inserts `n` into `self.ast`
+  ///
+  /// - Precondition: `n` is well-formed.
+  mutating func insert<T: Node>(synthesized n: T) -> NodeID<T> {
+    ast.insert(synthesized: n)
+  }
 }
 
 extension ParserState: Restorable {

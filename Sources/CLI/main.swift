@@ -7,10 +7,10 @@ import IR
 import Utils
 import ValModule
 
-struct CLI: ParsableCommand {
+private struct CLI: ParsableCommand {
 
   /// The type of the output files to generate.
-  enum OutputType: ExpressibleByArgument {
+  private enum OutputType: ExpressibleByArgument {
 
     /// AST before type-checking.
     case rawAST
@@ -40,52 +40,56 @@ struct CLI: ParsableCommand {
 
   }
 
-  static let configuration = CommandConfiguration(commandName: "valc")
+  fileprivate static let configuration = CommandConfiguration(commandName: "valc")
 
   @Flag(
     name: [.customLong("modules")],
     help: "Compile inputs as separate modules.")
-  var compileInputAsModules: Bool = false
+  private var compileInputAsModules: Bool = false
 
   @Flag(
     name: [.customLong("import-builtin")],
     help: "Import the built-in module.")
-  var importBuiltinModule: Bool = false
+  private var importBuiltinModule: Bool = false
 
   @Flag(
     name: [.customLong("no-std")],
     help: "Do not include the standard library.")
-  var noStandardLibrary: Bool = false
+  private var noStandardLibrary: Bool = false
 
   @Flag(
     name: [.customLong("typecheck")],
     help: "Type-check the input file(s).")
-  var typeCheckOnly: Bool = false
+  private var typeCheckOnly: Bool = false
 
   @Option(
     name: [.customLong("trace-inference")],
-    help: "Enable tracing of type inference requests at the given line.")
-  var inferenceTracingRange: SourceRange?
+    help: ArgumentHelp(
+      "Enable tracing of type inference requests at the given line.",
+      valueName: "file:line"))
+  private var inferenceTracingRange: SourceRange?
 
   @Option(
     name: [.customLong("emit")],
-    help: "Emit the specified type output files.")
-  var outputType: OutputType = .binary
+    help: ArgumentHelp(
+      "Emit the specified type output files. From: raw-ast, raw-ir, ir, cpp, binary",
+      valueName: "output-type"))
+  private var outputType: OutputType = .binary
 
   @Option(
     name: [.customShort("o")],
-    help: "Write output to <o>.",
+    help: ArgumentHelp("Write output to <file>.", valueName: "file"),
     transform: URL.init(fileURLWithPath:))
-  var outputURL: URL?
+  private var outputURL: URL?
 
   @Flag(
     name: [.short, .long],
     help: "Use verbose output.")
-  var verbose: Bool = false
+  private var verbose: Bool = false
 
   @Argument(
     transform: URL.init(fileURLWithPath:))
-  var inputs: [URL]
+  private var inputs: [URL]
 
   private var noteLabel: String { "note: ".styled([.bold, .cyan]) }
 
@@ -98,33 +102,21 @@ struct CLI: ParsableCommand {
     URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
   }
 
-  mutating func run() throws {
-    /// The name of the product being built.
+  fileprivate mutating func run() throws {
+    if compileInputAsModules {
+      fatalError("compilation as modules not yet implemented.")
+    }
+
+    var diagnostics = Diagnostics(reportingToStderr: true)
+
     let productName = "main"
+    log(verbose: "Parsing '\(productName)'".styled([.bold]))
+
     /// The AST of the program being compiled.
     var ast = AST()
 
-    if compileInputAsModules {
-      fatalError("not implemented")
-    }
-
-    // *** Parsing ***
-
-    log(verbose: "Parsing '\(productName)'".styled([.bold]))
-
-    // Merge all inputs into the same same module.
-    let moduleDecl = try! ast.insert(wellFormed: ModuleDecl(name: productName))
-    for input in inputs {
-      if input.hasDirectoryPath {
-        if !withFiles(in: input, { insert(contentsOf: $0, into: moduleDecl, in: &ast) }) {
-          CLI.exit(withError: ExitCode(-1))
-        }
-      } else {
-        if !insert(contentsOf: input, into: moduleDecl, in: &ast) {
-          CLI.exit(withError: ExitCode(-1))
-        }
-      }
-    }
+    let newModule = try ast.makeModule(
+      "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
@@ -143,7 +135,7 @@ struct CLI: ParsableCommand {
 
     // Initialize the type checker.
     var checker = TypeChecker(
-      program: ScopedProgram(ast: ast),
+      program: ScopedProgram(ast),
       isBuiltinModuleVisible: true,
       enablingInferenceTracingIn: inferenceTracingRange)
     var typeCheckingSucceeded = true
@@ -153,7 +145,7 @@ struct CLI: ParsableCommand {
 
     // Type-check the input.
     checker.isBuiltinModuleVisible = importBuiltinModule
-    typeCheckingSucceeded = checker.check(module: moduleDecl) && typeCheckingSucceeded
+    typeCheckingSucceeded = checker.check(module: newModule) && typeCheckingSucceeded
 
     // Report type-checking errors.
     log(diagnostics: checker.diagnostics)
@@ -177,7 +169,7 @@ struct CLI: ParsableCommand {
     log(verbose: "Lowering '\(productName)'".styled([.bold]))
 
     // Initialize the IR emitter.
-    var irModule = Module(moduleDecl, in: typedProgram)
+    var irModule = Module(newModule, in: typedProgram)
 
     // Handle `--emit raw-ir`.
     if outputType == .rawIR {
@@ -220,7 +212,7 @@ struct CLI: ParsableCommand {
     var transpiler = CXXTranspiler(program: typedProgram)
 
     // Translate the module to C++.
-    let cxxModule = transpiler.emit(module: typedProgram[moduleDecl])
+    let cxxModule = transpiler.emit(module: typedProgram[newModule])
     let cxxHeader = cxxModule.emitHeader()
     let cxxSource = cxxModule.emitSource()
 
@@ -262,56 +254,26 @@ struct CLI: ParsableCommand {
       ])
   }
 
-  /// Parses the contents of the file at `fileURL` and insert them into `ast[module]`.
-  func insert(
-    contentsOf fileURL: URL,
-    into module: NodeID<ModuleDecl>,
-    in ast: inout AST
-  ) -> Bool {
-    switch fileURL.pathExtension {
-    case "val":
-      log(verbose: fileURL.relativePath)
-
-      // Read the contents of the file.
-      let sourceFile: SourceFile
-      do {
-        sourceFile = try SourceFile(contentsOf: fileURL)
-      } catch let error {
-        log(errorLabel + error.localizedDescription)
-        return false
-      }
-
-      // Parse the file.
-      let parseResult = Parser.parse(sourceFile, into: module, in: &ast)
-      log(diagnostics: parseResult.diagnostics)
-      return parseResult.source != nil
-
-    default:
-      log("ignoring file with unsupported extension: \(fileURL.relativePath)")
-      return true
-    }
-  }
-
   /// Creates a module from the contents at `url` and adds it to the AST.
   ///
   /// - Requires: `url` must denote a directly.
-  func addModule(url: URL) {
+  private func addModule(url: URL) {
     fatalError("not implemented")
   }
 
   /// Logs the contents of `diagnostics` tot he standard error.
-  func log<S: Sequence>(diagnostics: S) where S.Element == Diagnostic {
+  private func log<S: Sequence>(diagnostics: S) where S.Element == Diagnostic {
     for d in diagnostics.sorted(by: Diagnostic.isLoggedBefore) {
       log(diagnostic: d)
     }
   }
 
   /// Logs `diagnostic` to the standard error.
-  func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
+  private func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
     // Log the location, if available.
-    if let location = diagnostic.location {
-      let path = location.source.url.relativePath
-      let (line, column) = location.lineAndColumnIndices
+    if let location = diagnostic.location?.first() {
+      let path = location.file.url.relativePath
+      let (line, column) = location.lineAndColumn()
       write("\(path):\(line):\(column): ".styled([.bold]))
     }
 
@@ -332,16 +294,16 @@ struct CLI: ParsableCommand {
     write("\n")
 
     // Log the window
-    if let window = diagnostic.window {
-      let line = window.range.source.lineContents(at: window.range.first())
+    if let site = diagnostic.location {
+      let line = site.first().textOfLine()
       write(line)
       write("\n")
 
-      let padding = line.distance(from: line.startIndex, to: window.range.lowerBound)
+      let padding = line.distance(from: line.startIndex, to: site.start)
       write(String(repeating: " ", count: padding))
 
       let count = line.distance(
-        from: window.range.lowerBound, to: min(window.range.upperBound, line.endIndex))
+        from: site.start, to: min(site.end, line.endIndex))
       if count > 1 {
         write(String(repeating: "~", count: count))
       } else {
@@ -357,25 +319,25 @@ struct CLI: ParsableCommand {
   }
 
   /// Logs `message` to the standard error file if `--verbose` is set.
-  func log(verbose message: @autoclosure () -> String, terminator: String = "\n") {
+  private func log(verbose message: @autoclosure () -> String, terminator: String = "\n") {
     if !verbose { return }
     write(message())
     write(terminator)
   }
 
   /// Logs `message` to the standard error file.
-  func log(_ message: String, terminator: String = "\n") {
+  private func log(_ message: String, terminator: String = "\n") {
     write(message)
     write(terminator)
   }
 
   /// Writes `text` to the standard error file.
-  func write<S: StringProtocol>(_ text: S) {
+  private func write<S: StringProtocol>(_ text: S) {
     FileHandle.standardError.write(Data(text.utf8))
   }
 
   /// Returns the path of the specified executable.
-  mutating func find(_ executable: String) -> String {
+  mutating private func find(_ executable: String) -> String {
     // Nothing to do if `executable` is a path
     if executable.contains("/") {
       return executable
@@ -409,7 +371,7 @@ struct CLI: ParsableCommand {
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
   @discardableResult
-  func runCommandLine(_ programPath: String, _ arguments: [String] = []) throws -> String? {
+  private func runCommandLine(_ programPath: String, _ arguments: [String] = []) throws -> String? {
     log(verbose: ([programPath] + arguments).joined(separator: " "))
 
     let pipe = Pipe()

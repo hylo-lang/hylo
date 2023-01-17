@@ -13,24 +13,21 @@ final class CXXTests: XCTestCase {
 
     try checkAnnotatedValFiles(
       in: "TestCases/CXX",
-      { (source) -> CXXAnnotationHandler in
+      checkingAnnotationCommands: ["cpp", "h"],
+
+      { (source, cxxAnnotations, diagnostics) in
         // Create a module for the input.
         var ast = baseAST
-        let module = try! ast.insert(wellFormed: ModuleDecl(name: source.baseName))
+        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
 
         // Parse the input.
-        let parseResult = Parser.parse(source, into: module, in: &ast)
-        var diagnostics = parseResult.diagnostics
-        if parseResult.failed {
-          return .init(module: nil, ranToCompletion: false, diagnostics: diagnostics)
-        }
+        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 
         // Run the type checker.
-        var checker = TypeChecker(program: ScopedProgram(ast: ast))
-        diagnostics.append(contentsOf: checker.diagnostics)
-        if !checker.check(module: module) {
-          return .init(module: nil, ranToCompletion: false, diagnostics: diagnostics)
-        }
+        var checker = TypeChecker(program: ScopedProgram(ast))
+        _ = checker.check(module: module)
+        diagnostics.report(checker.diagnostics)
+        try diagnostics.throwOnError()
 
         let typedProgram = TypedProgram(
           annotating: checker.program,
@@ -46,8 +43,23 @@ final class CXXTests: XCTestCase {
         var transpiler = CXXTranspiler(program: typedProgram)
         let cxxModule = transpiler.emit(module: typedProgram[module])
 
-        return .init(module: cxxModule, ranToCompletion: true, diagnostics: diagnostics)
+        let cxxHeader = cxxModule.emitHeader()
+        let cxxSource = cxxModule.emitSource()
+
+        return cxxAnnotations.compactMap { a in
+          let expectedCXX = a.argument!.removingTrailingNewlines()
+          let cxxSourceToSearch = a.command == "cpp" ? cxxSource : cxxHeader
+
+          return cxxSourceToSearch.contains(expectedCXX)
+            ? nil
+            : a.failure(
+              """
+              transpiled code not found:
+              \(expectedCXX)
+              --- not found in ---
+              \(cxxSourceToSearch)
+              """)
+        }
       })
   }
-
 }
