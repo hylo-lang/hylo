@@ -1,0 +1,10 @@
+/*! cpp
+    void test() {
+    (void) mooing();
+    }
+ */
+public fun mooing() -> Int { 23 }
+
+public fun test() {
+    let _ = mooing()
+}

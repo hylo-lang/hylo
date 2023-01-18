@@ -1,0 +1,15 @@
+/*! cpp
+    void test() {
+    fooling();
+    baring();
+    }
+ */
+public fun fooling() {
+}
+public fun baring() {
+}
+
+public fun test() {
+    fooling()
+    baring()
+}

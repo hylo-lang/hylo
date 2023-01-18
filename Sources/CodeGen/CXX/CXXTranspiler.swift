@@ -218,7 +218,8 @@ public struct CXXTranspiler {
       }
       if stmts.isEmpty {
         // No pattern found; just call the initializer, dropping the result.
-        return CXXVoidCast(baseExpr: cxxInitialzer, original: initializer)
+        let cxxExpr = CXXVoidCast(baseExpr: cxxInitialzer, original: initializer)
+        return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(initializer))
       } else {
         return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(initializer))
       }
@@ -265,7 +266,7 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "expr stmt", original: AnyNodeID.TypedNode(stmt))
+    return CXXExprStmt(expr: emitR(expr: stmt.expr), original: AnyNodeID.TypedNode(stmt))
   }
 
   private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXRepresentable {
