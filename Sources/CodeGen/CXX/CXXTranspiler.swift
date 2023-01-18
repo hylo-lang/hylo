@@ -318,25 +318,25 @@ public struct CXXTranspiler {
   private mutating func emitR(
     cond expr: CondExpr.Typed
   ) -> CXXRepresentable {
-    let isExpression = expr.type != .void
-    if isExpression {
+    // TODO: multiple conditions
+    // TODO: bindings in conditions
+    let condition: CXXRepresentable
+    if expr.condition.count == 1 {
+      switch expr.condition[0] {
+      case .expr(let condExpr):
+        condition = emitR(expr: program[condExpr])
+      case .decl(let decl):
+        condition = CXXComment(
+          comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
+      }
+    } else {
+      fatalError("not implemented")
+    }
+    if expr.type != .void {
+      // We result in an expression
       // TODO: do we need to return an l-value?
-      // TODO: multiple conditions
-      // TODO: bindings in conditions
-      let condition: CXXRepresentable
       let trueExpr: CXXRepresentable
       let falseExpr: CXXRepresentable
-      if expr.condition.count == 1 {
-        switch expr.condition[0] {
-        case .expr(let condExpr):
-          condition = emitR(expr: program[condExpr])
-        case .decl(let decl):
-          condition = CXXComment(
-            comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
-        }
-      } else {
-        fatalError("not implemented")
-      }
       switch expr.success {
       case .expr(let altExpr):
         trueExpr = emitR(expr: program[altExpr])
@@ -355,7 +355,35 @@ public struct CXXTranspiler {
       return CXXConditionalExpr(
         condition: condition, trueExpr: trueExpr, falseExpr: falseExpr, original: expr)
     } else {
-      return CXXComment(comment: "if statement", original: AnyNodeID.TypedNode(expr))
+      // We result in a statement
+      let trueStmt: CXXRepresentable
+      let falseStmt: CXXRepresentable?
+      switch expr.success {
+      case .expr(let altExpr):
+        let expr = program[altExpr]
+        trueStmt = CXXExprStmt(
+          expr: CXXVoidCast(baseExpr: emitR(expr: expr), original: AnyExprID.TypedNode(expr)),
+          original: AnyNodeID.TypedNode(expr))
+      case .block(let braceStmt):
+        trueStmt = emit(stmt: program[braceStmt])
+      }
+      switch expr.failure {
+      case .expr(let altExpr):
+        let expr = program[altExpr]
+        falseStmt = CXXExprStmt(
+          expr: CXXVoidCast(baseExpr: emitR(expr: expr), original: AnyExprID.TypedNode(expr)),
+          original: AnyNodeID.TypedNode(expr))
+      case .block(let braceStmt):
+        falseStmt = emit(stmt: program[braceStmt])
+      case .none:
+        falseStmt = nil
+      }
+      // TODO: the result is put into an expression statement, which is not right
+      return CXXIfStmt(
+        condition: condition,
+        trueStmt: trueStmt,
+        falseStmt: falseStmt,
+        original: AnyNodeID.TypedNode(expr))
     }
   }
 
