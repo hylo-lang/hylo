@@ -1064,7 +1064,8 @@ public struct TypeChecker {
       for cond in stmt.condition {
         switch cond {
         case .expr(let condExpr):
-          success = (deduce(typeOf: condExpr, expecting: nil, inScope: lexicalContext) != nil) && success
+          success =
+            (deduce(typeOf: condExpr, expecting: nil, inScope: lexicalContext) != nil) && success
         default:
           success = false
         }
@@ -1072,7 +1073,16 @@ public struct TypeChecker {
       success = check(brace: stmt.body) && success
       return success
 
-    case DoWhileStmt.self, ForStmt.self, BreakStmt.self, ContinueStmt.self:
+    case DoWhileStmt.self:
+      // TODO: properly implement this
+      let stmt = program.ast[NodeID<DoWhileStmt>(rawValue: id.rawValue)]
+      var success = true
+      success = check(brace: stmt.body) && success
+      success =
+        (deduce(typeOf: stmt.condition, expecting: nil, inScope: lexicalContext) != nil) && success
+      return success
+
+    case ForStmt.self, BreakStmt.self, ContinueStmt.self:
       // TODO: implement checks for these statements
       return true
 

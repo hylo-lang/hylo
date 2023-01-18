@@ -302,12 +302,14 @@ public struct CXXTranspiler {
     } else {
       fatalError("not implemented")
     }
-    let _ = condition
     return CXXWhileStmt(
       condition: condition, body: emit(stmt: stmt.body), original: AnyNodeID.TypedNode(stmt))
   }
   private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "DoWhileStmt", original: AnyNodeID.TypedNode(stmt))
+    return CXXDoWhileStmt(
+      body: emit(stmt: stmt.body),
+      condition: emitR(expr: stmt.condition),
+      original: AnyNodeID.TypedNode(stmt))
   }
   private mutating func emit(forStmt stmt: ForStmt.Typed) -> CXXRepresentable {
     return CXXComment(comment: "ForStmt", original: AnyNodeID.TypedNode(stmt))
