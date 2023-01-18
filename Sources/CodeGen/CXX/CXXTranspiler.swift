@@ -241,6 +241,8 @@ public struct CXXTranspiler {
       return emit(declStmt: DeclStmt.Typed(stmt)!)
     case ExprStmt.self:
       return emit(exprStmt: ExprStmt.Typed(stmt)!)
+    case AssignStmt.self:
+      return emit(assignStmt: AssignStmt.Typed(stmt)!)
     case ReturnStmt.self:
       return emit(returnStmt: ReturnStmt.Typed(stmt)!)
     default:
@@ -267,6 +269,15 @@ public struct CXXTranspiler {
 
   private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXRepresentable {
     return CXXExprStmt(expr: emitR(expr: stmt.expr), original: AnyNodeID.TypedNode(stmt))
+  }
+
+  private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXRepresentable {
+    let cxxExpr = CXXInfixExpr(
+      callee: CXXIdentifier("="),
+      lhs: emitL(expr: stmt.left, withCapability: .set),
+      rhs: emitR(expr: stmt.right),
+      original: AnyNodeID.TypedNode(stmt))
+    return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(stmt))
   }
 
   private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXRepresentable {
@@ -540,7 +551,7 @@ public struct CXXTranspiler {
       "&&=", "**":
       // Expand this as a native infix operator call
       return CXXInfixExpr(
-        callee: CXXIdentifier(name), lhs: lhs, rhs: rhs, original: AnyExprID.TypedNode(expr))
+        callee: CXXIdentifier(name), lhs: lhs, rhs: rhs, original: AnyNodeID.TypedNode(expr))
 
     default:
       // Expand this as a regular function call.
