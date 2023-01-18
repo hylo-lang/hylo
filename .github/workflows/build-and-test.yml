@@ -31,15 +31,11 @@ jobs:
         git config --global core.autocrlf input
       if: matrix.os == 'windows-latest'
     - uses: actions/checkout@v3
-    - name: Swift version 
-      run: swift --version
-    - name: Resolve
-      run: swift package resolve
     - name: Build (Debug)
-      run: swift build -v -c debug
+      run: swift --version build -v -c debug
     - name: Test (Debug)
-      run: swift test -v -c debug
+      run: swift --version test -v -c debug
     - name: Build (Release)
-      run: swift build -v -c release
+      run: swift --version build -v -c release
     - name: Test (Release)
-      run: swift test -v -c release -Xswiftc -enable-testing
+      run: swift test -c release -Xswiftc -enable-testing
