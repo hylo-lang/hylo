@@ -7,8 +7,8 @@ extension Diagnostic {
   /// A test annotation that announces `self` should be expected.
   var expectation: TestAnnotation {
     TestAnnotation(
-      in: location?.file.url ?? URL(string: "nowhere://at/all")!,
-      atLine: location?.first().lineAndColumn().line ?? 1,
+      in: site?.file.url ?? URL(string: "nowhere://at/all")!,
+      atLine: site?.first().lineAndColumn().line ?? 1,
       parsing: "diagnostic " + message
     )
   }
@@ -143,11 +143,7 @@ extension XCTestCase {
     }
 
     testFailures += diagnosticsByExpectation.values.lazy.map {
-      XCTIssue(
-        Diagnostic(
-          level: .error, message: "unexpected diagnostic: '\($0.message)'",
-          location: $0.location,
-          children: $0.children))
+      XCTIssue(.error("unexpected diagnostic: '\($0.message)'", at: $0.site, notes: $0.notes))
     }
     return testFailures
   }

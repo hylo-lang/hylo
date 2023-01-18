@@ -3,7 +3,7 @@ import Core
 extension Diagnostic {
 
   static func error(assignOperatorRequiresWhitespaces token: Token) -> Diagnostic {
-    .error("assignment operator requires whitespaces on both sides", range: token.origin)
+    .error("assignment operator requires whitespaces on both sides", at: token.origin)
   }
 
   static func error(expected kind: Token.Kind, at location: SourcePosition) -> Diagnostic {
@@ -13,9 +13,9 @@ extension Diagnostic {
   static func error(
     expected subject: String,
     at location: SourcePosition,
-    children: [Diagnostic] = []
+    notes: [Diagnostic] = []
   ) -> Diagnostic {
-    .error("expected \(subject)", range: location ..< location, children: children)
+    .error("expected \(subject)", at: location ..< location, notes: notes)
   }
 
   static func error(
@@ -26,36 +26,36 @@ extension Diagnostic {
     .error(
       expected: "'\(closerDescription)'",
       at: state.currentLocation,
-      children: [
+      notes: [
         .error(
           "to match this '\(state.lexer.sourceCode[opener.origin])'",
-          range: opener.origin)
+          at: opener.origin)
       ]
     )
   }
 
-  static func error(infixOperatorRequiresWhitespacesAt range: SourceRange?) -> Diagnostic {
-    .error("infix operator requires whitespaces on both sides", range: range)
+  static func error(infixOperatorRequiresWhitespacesAt site: SourceRange?) -> Diagnostic {
+    .error("infix operator requires whitespaces on both sides", at: site)
   }
 
-  static func error(separatedMutationMarkerAt range: SourceRange?) -> Diagnostic {
-    .error("in-place mutation marker cannot be separated from its expression", range: range)
+  static func error(separatedMutationMarkerAt site: SourceRange?) -> Diagnostic {
+    .error("in-place mutation marker cannot be separated from its expression", at: site)
   }
 
-  static func error(separatedPrefixOperatorAt range: SourceRange?) -> Diagnostic {
-    .error("prefix operator cannot be separated from its operand", range: range)
+  static func error(separatedPrefixOperatorAt site: SourceRange?) -> Diagnostic {
+    .error("prefix operator cannot be separated from its operand", at: site)
   }
 
   static func error(unexpectedToken token: Token) -> Diagnostic {
-    .error("unexpected token '\(token.kind)'", range: token.origin)
+    .error("unexpected token '\(token.kind)'", at: token.origin)
   }
 
   static func error(unterminatedCommentEndingAt endLocation: SourcePosition) -> Diagnostic {
-    .error("unterminated comment", range: endLocation ..< endLocation)
+    .error("unterminated comment", at: endLocation ..< endLocation)
   }
 
   static func error(unterminatedStringEndingAt endLocation: SourcePosition) -> Diagnostic {
-    .error("unterminated string", range: endLocation ..< endLocation)
+    .error("unterminated string", at: endLocation ..< endLocation)
   }
 
   static func error(
@@ -63,7 +63,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "duplicate access modifier '\(m.value)'",
-      range: m.origin)
+      at: m.origin)
   }
 
   static func error(
@@ -71,7 +71,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "duplicate implementation introducer '\(i.value)'",
-      range: i.origin)
+      at: i.origin)
   }
 
   static func error(
@@ -79,7 +79,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "duplicate member modifier '\(m.value)'",
-      range: m.origin)
+      at: m.origin)
   }
 
   static func error(
@@ -88,7 +88,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     return .error(
       "member modifier '\(member.value)' must appear after access modifier '\(access.value)'",
-      range: member.origin)
+      at: member.origin)
   }
 
   static func error(
@@ -96,7 +96,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "unexpected access modifier '\(m.value)'",
-      range: m.origin)
+      at: m.origin)
   }
 
   static func error(
@@ -104,7 +104,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "unexpected attribute modifier '\(a.value.name.value)'",
-      range: a.value.name.origin)
+      at: a.value.name.origin)
   }
 
   static func error(
@@ -112,7 +112,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "initializer declaration is not allowed here",
-      range: d.introducer.origin)
+      at: d.introducer.origin)
   }
 
   static func error(
@@ -120,7 +120,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "unexpected member modifier '\(m.value)'",
-      range: m.origin)
+      at: m.origin)
   }
 
   static func error(
@@ -128,7 +128,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "method bundle declaration is not allowed here",
-      range: d.introducerRange)
+      at: d.introducerRange)
   }
 
   static func error(
@@ -136,7 +136,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "method implementation declaration is not allowed here",
-      range: d.introducer.origin)
+      at: d.introducer.origin)
   }
 
   static func error(
@@ -144,7 +144,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "namespace declaration is not allowed here",
-      range: d.introducerRange)
+      at: d.introducerRange)
   }
 
   static func error(
@@ -152,7 +152,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "operator declaration is not allowed here",
-      range: d.introducerRange)
+      at: d.introducerRange)
   }
 
   static func error(
@@ -160,7 +160,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "parameter declaration is not allowed here",
-      range: d.identifier.origin)
+      at: d.identifier.origin)
   }
 
   static func error(
@@ -168,7 +168,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "property declaration is not allowed here",
-      range: d.introducer.origin)
+      at: d.introducer.origin)
   }
 
   static func error(
@@ -176,7 +176,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "unexpected effect '\(e.value)'",
-      range: e.origin)
+      at: e.origin)
   }
 
   static func error(
@@ -184,7 +184,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "subscript implementation declaration is not allowed here",
-      range: d.introducer.origin)
+      at: d.introducer.origin)
   }
 
   static func error(
@@ -192,7 +192,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "trait declaration is not allowed here",
-      range: d.identifier.origin)
+      at: d.identifier.origin)
   }
 
   static func error(
@@ -200,7 +200,7 @@ extension Diagnostic {
   ) -> Diagnostic {
     .error(
       "variable declaration is not allowed here",
-      range: d.identifier.origin)
+      at: d.identifier.origin)
   }
 
 }

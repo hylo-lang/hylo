@@ -37,7 +37,7 @@ import XCTest
   struct XCTSourceCodeContext {
 
     /// A representation of a location in source code where a test issue occurred.
-    var location: XCTSourceCodeLocation?
+    var site: XCTSourceCodeLocation?
 
   }
 
@@ -92,11 +92,11 @@ import XCTest
   extension XCTestCase {
 
     func record(_ issue: XCTIssue) {
-      let location = issue.sourceCodeContext!.location!
+      let site = issue.sourceCodeContext!.site!
       recordFailure(
         withDescription: issue.compactDescription,
-        inFile: location.fileURL.path,
-        atLine: location.lineNumber,
+        inFile: site.fileURL.path,
+        atLine: site.lineNumber,
         expected: true)
     }
 
