@@ -232,6 +232,18 @@ public struct CXXTranspiler {
       return emit(assignStmt: AssignStmt.Typed(stmt)!)
     case ReturnStmt.self:
       return emit(returnStmt: ReturnStmt.Typed(stmt)!)
+    case WhileStmt.self:
+      return emit(whileStmt: WhileStmt.Typed(stmt)!)
+    case DoWhileStmt.self:
+      return emit(doWhileStmt: DoWhileStmt.Typed(stmt)!)
+    case ForStmt.self:
+      return emit(forStmt: ForStmt.Typed(stmt)!)
+    case BreakStmt.self:
+      return emit(breakStmt: BreakStmt.Typed(stmt)!)
+    case ContinueStmt.self:
+      return emit(continueStmt: ContinueStmt.Typed(stmt)!)
+    case YieldStmt.self:
+      return emit(yieldStmt: YieldStmt.Typed(stmt)!)
     default:
       unreachable("unexpected statement")
     }
@@ -273,6 +285,25 @@ public struct CXXTranspiler {
       expr = emitR(expr: stmt.value!)
     }
     return CXXReturnStmt(expr: expr, original: AnyNodeID.TypedNode(stmt))
+  }
+
+  private mutating func emit(whileStmt stmt: WhileStmt.Typed) -> CXXRepresentable {
+    return CXXComment(comment: "WhileStmt", original: AnyNodeID.TypedNode(stmt))
+  }
+  private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXRepresentable {
+    return CXXComment(comment: "DoWhileStmt", original: AnyNodeID.TypedNode(stmt))
+  }
+  private mutating func emit(forStmt stmt: ForStmt.Typed) -> CXXRepresentable {
+    return CXXComment(comment: "ForStmt", original: AnyNodeID.TypedNode(stmt))
+  }
+  private mutating func emit(breakStmt stmt: BreakStmt.Typed) -> CXXRepresentable {
+    return CXXComment(comment: "BreakStmt", original: AnyNodeID.TypedNode(stmt))
+  }
+  private mutating func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXRepresentable {
+    return CXXComment(comment: "ContinueStmt", original: AnyNodeID.TypedNode(stmt))
+  }
+  private mutating func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXRepresentable {
+    return CXXComment(comment: "YieldStmt", original: AnyNodeID.TypedNode(stmt))
   }
 
   // MARK: Expressions
