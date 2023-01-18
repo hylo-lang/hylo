@@ -288,7 +288,23 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(whileStmt stmt: WhileStmt.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "WhileStmt", original: AnyNodeID.TypedNode(stmt))
+    // TODO: multiple conditions
+    // TODO: bindings in conditions
+    let condition: CXXRepresentable
+    if stmt.condition.count == 1 {
+      switch stmt.condition[0] {
+      case .expr(let condExpr):
+        condition = emitR(expr: program[condExpr])
+      case .decl(let decl):
+        condition = CXXComment(
+          comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
+      }
+    } else {
+      fatalError("not implemented")
+    }
+    let _ = condition
+    return CXXWhileStmt(
+      condition: condition, body: emit(stmt: stmt.body), original: AnyNodeID.TypedNode(stmt))
   }
   private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXRepresentable {
     return CXXComment(comment: "DoWhileStmt", original: AnyNodeID.TypedNode(stmt))
