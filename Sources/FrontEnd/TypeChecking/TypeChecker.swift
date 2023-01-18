@@ -1057,6 +1057,10 @@ public struct TypeChecker {
     case YieldStmt.self:
       return check(yield: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
 
+    case WhileStmt.self, DoWhileStmt.self, ForStmt.self, BreakStmt.self, ContinueStmt.self:
+      // TODO: implement checks for these statements
+      return true
+
     default:
       unreachable("unexpected statement")
     }
