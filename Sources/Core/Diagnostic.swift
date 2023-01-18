@@ -27,12 +27,7 @@ public struct Diagnostic: Hashable {
   public let notes: [Diagnostic]
 
   /// Creates a new diagnostic.
-  public init(
-    level: Level,
-    message: String,
-    site: SourceRange? = nil,
-    notes: [Diagnostic] = []
-  ) {
+  public init(level: Level, message: String, site: SourceRange? = nil, notes: [Diagnostic] = []) {
     self.level = level
     self.message = message
     self.site = site
@@ -40,29 +35,19 @@ public struct Diagnostic: Hashable {
   }
 
   /// Returns an error with the given `message` highlighting `range`.
-  public static func error(
-    _ message: String,
-    at site: SourceRange? = nil,
-    notes: [Diagnostic] = []
-  ) -> Diagnostic {
+  public static func error(_ message: String, at site: SourceRange? = nil, notes: [Diagnostic] = [])
+    -> Diagnostic
+  {
     Diagnostic(
-      level: .error,
-      message: message,
-      site: site,
-      notes: notes)
+      level: .error, message: message, site: site, notes: notes)
   }
 
   /// Returns a warning with the given `message` highlighting `range`..
   public static func warning(
-    _ message: String,
-    at site: SourceRange? = nil,
-    notes: [Diagnostic] = []
+    _ message: String, at site: SourceRange? = nil, notes: [Diagnostic] = []
   ) -> Diagnostic {
     Diagnostic(
-      level: .warning,
-      message: message,
-      site: site,
-      notes: notes)
+      level: .warning, message: message, site: site, notes: notes)
   }
 
 }

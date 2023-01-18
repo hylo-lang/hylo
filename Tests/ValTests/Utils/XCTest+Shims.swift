@@ -94,10 +94,8 @@ import XCTest
     func record(_ issue: XCTIssue) {
       let site = issue.sourceCodeContext!.site!
       recordFailure(
-        withDescription: issue.compactDescription,
-        inFile: site.fileURL.path,
-        atLine: site.lineNumber,
-        expected: true)
+        withDescription: issue.compactDescription, inFile: site.fileURL.path,
+        atLine: site.lineNumber, expected: true)
     }
 
   }
