@@ -110,7 +110,6 @@ private struct CLI: ParsableCommand {
     var diagnostics = Diagnostics(reportingToStderr: true)
 
     let productName = "main"
-    log(verbose: "Parsing '\(productName)'".styled([.bold]))
 
     /// The AST of the program being compiled.
     var ast = AST()
@@ -125,10 +124,6 @@ private struct CLI: ParsableCommand {
       try encoder.encode(ast).write(to: url, options: .atomic)
       CLI.exit()
     }
-
-    // *** Type checking ***
-
-    log(verbose: "Type-checking '\(productName)'".styled([.bold]))
 
     // Import the core library.
     ast.importCoreModule()
@@ -148,7 +143,7 @@ private struct CLI: ParsableCommand {
     typeCheckingSucceeded = checker.check(module: newModule) && typeCheckingSucceeded
 
     // Report type-checking errors.
-    log(diagnostics: checker.diagnostics)
+    diagnostics.report(checker.diagnostics)
     if !typeCheckingSucceeded {
       CLI.exit(withError: ExitCode(-1))
     }
@@ -165,8 +160,6 @@ private struct CLI: ParsableCommand {
       foldedSequenceExprs: checker.foldedSequenceExprs)
 
     // *** IR Lowering ***
-
-    log(verbose: "Lowering '\(productName)'".styled([.bold]))
 
     // Initialize the IR emitter.
     var irModule = Module(newModule, in: typedProgram)
@@ -186,13 +179,11 @@ private struct CLI: ParsableCommand {
       // OwnershipPass(program: typedProgram),
     ]
 
-    log(verbose: "Analyzing '\(productName)'".styled([.bold]))
     for i in 0 ..< pipeline.count {
-      log(verbose: type(of: pipeline[i]).name)
       var passSuccess = true
       for f in 0 ..< irModule.functions.count {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
-        log(diagnostics: pipeline[i].diagnostics)
+        diagnostics.report(pipeline[i].diagnostics)
       }
       guard passSuccess else { CLI.exit(withError: ExitCode(-1)) }
     }
@@ -205,8 +196,6 @@ private struct CLI: ParsableCommand {
     }
 
     // *** C++ Transpiling ***
-
-    log(verbose: "Transpiling to C++ '\(productName)'".styled([.bold]))
 
     // Initialize the transpiler.
     var transpiler = CXXTranspiler(program: typedProgram)
@@ -271,9 +260,9 @@ private struct CLI: ParsableCommand {
   /// Logs `diagnostic` to the standard error.
   private func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
     // Log the location, if available.
-    if let location = diagnostic.location?.first() {
-      let path = location.file.url.relativePath
-      let (line, column) = location.lineAndColumn()
+    if let site = diagnostic.site?.first() {
+      let path = site.file.url.relativePath
+      let (line, column) = site.lineAndColumn()
       write("\(path):\(line):\(column): ".styled([.bold]))
     }
 
@@ -294,7 +283,7 @@ private struct CLI: ParsableCommand {
     write("\n")
 
     // Log the window
-    if let site = diagnostic.location {
+    if let site = diagnostic.site {
       let line = site.first().textOfLine()
       write(line)
 
@@ -311,8 +300,8 @@ private struct CLI: ParsableCommand {
       write("\n")
     }
 
-    // Log the children.
-    for child in diagnostic.children {
+    // Log the notes.
+    for child in diagnostic.notes {
       log(diagnostic: child, asChild: true)
     }
   }

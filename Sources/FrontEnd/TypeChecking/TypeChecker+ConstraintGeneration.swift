@@ -323,7 +323,7 @@ extension TypeChecker {
 
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {
-        addDiagnostic(.diagnose(undefinedName: initName.value, at: initName.origin))
+        addDiagnostic(.error(undefinedName: initName.value, at: initName.origin))
         return facts.assignErrorType(to: syntax.callee)
       }
 
@@ -350,7 +350,7 @@ extension TypeChecker {
 
     // Case 3c
     addDiagnostic(
-      .diagnose(
+      .error(
         nonCallableType: facts.inferredTypes[syntax.callee]!,
         at: program.ast[syntax.callee].origin))
     return facts.assignErrorType(to: subject)
@@ -412,7 +412,7 @@ extension TypeChecker {
       // Check that the declaration defines the expected number of parameters.
       if declType.inputs.count != expectedType.inputs.count {
         addDiagnostic(
-          .diagnose(
+          .error(
             expectedLambdaParameterCount: expectedType.inputs.count,
             found: declType.inputs.count,
             at: syntax.origin))
@@ -422,7 +422,7 @@ extension TypeChecker {
       // Check that the declaration defines the expected argument labels.
       if !declType.inputs.elementsEqual(expectedType.inputs, by: { $0.label == $1.label }) {
         addDiagnostic(
-          .diagnose(
+          .error(
             labels: declType.inputs.map(\.label),
             incompatibleWith: expectedType.inputs.map(\.label),
             at: syntax.origin))
@@ -438,7 +438,7 @@ extension TypeChecker {
       } else {
         // The system is underspecified.
         addDiagnostic(
-          .diagnose(cannotInferComplexReturnTypeAt: program.ast[syntax.decl].introducerRange))
+          .error(cannotInferComplexReturnTypeAt: program.ast[syntax.decl].introducerRange))
         return facts.assignErrorType(to: subject)
       }
     }
@@ -646,7 +646,7 @@ extension TypeChecker {
 
       // Buffer type expressions shall have exactly one argument.
       if syntax.arguments.count != 1 {
-        addDiagnostic(.diagnose(invalidBufferTypeExprArgumentCount: subject, in: program.ast))
+        addDiagnostic(.error(invalidBufferTypeExprArgumentCount: subject, in: program.ast))
         return facts.assignErrorType(to: subject)
       }
 
@@ -659,7 +659,7 @@ extension TypeChecker {
     switch candidates.count {
     case 0:
       addDiagnostic(
-        .diagnose(
+        .error(
           noUnnamedSubscriptsIn: facts.inferredTypes[syntax.callee]!,
           at: program.ast[syntax.callee].origin))
       return facts.assignErrorType(to: subject)
@@ -757,7 +757,7 @@ extension TypeChecker {
     // Check that the labels inferred from the callee are consistent with that of the call.
     if argumentLabels != parameterLabels {
       addDiagnostic(
-        .diagnose(
+        .error(
           labels: argumentLabels,
           incompatibleWith: parameterLabels,
           at: program.ast[callee].origin))
@@ -878,7 +878,7 @@ extension TypeChecker {
       switch candidates.count {
       case 0:
         addDiagnostic(
-          .diagnose(undefinedOperator: operatorStem, at: program.ast[tail[i].operator].origin))
+          .error(undefinedOperator: operatorStem, at: program.ast[tail[i].operator].origin))
         accumulator.append(
           operator: (expr: tail[i].operator, precedence: nil),
           right: tail[i].operand)

@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-12, ubuntu-22.04, windows-latest]
+        os: [macos-12, ubuntu-22.04] # windows-latest disabled pending #236
         swift: [
           { version: "5.7", branch: "swift-5.7.2-release", tag: "5.7.2-RELEASE" }
         ]

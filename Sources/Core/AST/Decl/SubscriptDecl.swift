@@ -82,7 +82,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     // Parameter declarations must have a type annotation.
     for p in parameters ?? [] {
       if ast[p].annotation == nil {
-        diagnostics.report(.diagnose(missingTypeAnnotation: ast[p], in: ast))
+        diagnostics.report(.error(missingTypeAnnotation: ast[p], in: ast))
       }
     }
 

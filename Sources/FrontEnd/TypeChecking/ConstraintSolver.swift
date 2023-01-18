@@ -134,7 +134,7 @@ struct ConstraintSolver {
         log("- fail")
         for trait in nonConforming {
           diagnostics.append(
-            .diagnose(goal.subject, doesNotConformTo: trait, at: goal.cause.origin))
+            .error(goal.subject, doesNotConformTo: trait, at: goal.cause.origin))
         }
       }
 
@@ -171,7 +171,7 @@ struct ConstraintSolver {
       } else {
         log("- fail")
         diagnostics.append(
-          .diagnose(goal.subject, doesNotConformTo: goal.literalTrait, at: goal.cause.origin))
+          .error(goal.subject, doesNotConformTo: goal.literalTrait, at: goal.cause.origin))
       }
     }
   }
@@ -216,7 +216,7 @@ struct ConstraintSolver {
       // Parameter labels must match.
       if l.inputs.map(\.label) != r.inputs.map(\.label) {
         log("- fail")
-        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
+        diagnostics.append(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
         return
       }
 
@@ -234,14 +234,14 @@ struct ConstraintSolver {
       // Parameter labels must match.
       if l.inputs.map(\.label) != r.inputs.map(\.label) {
         log("- fail")
-        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
+        diagnostics.append(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
         return
       }
 
       // Capabilities must match.
       if l.capabilities != r.capabilities {
         log("- fail")
-        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
+        diagnostics.append(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
         return
       }
 
@@ -255,7 +255,7 @@ struct ConstraintSolver {
     default:
       log("- fail")
       diagnostics.append(
-        .diagnose(type: goal.left, incompatibleWith: goal.right, at: goal.cause.origin))
+        .error(type: goal.left, incompatibleWith: goal.right, at: goal.cause.origin))
     }
   }
 
@@ -319,7 +319,7 @@ struct ConstraintSolver {
       // Parameter labels must match.
       if l.inputs.map(\.label) != r.inputs.map(\.label) {
         log("- fail")
-        diagnostics.append(.diagnose(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
+        diagnostics.append(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.origin))
         return
       }
 
@@ -400,7 +400,7 @@ struct ConstraintSolver {
 
     default:
       log("- fail")
-      diagnostics.append(.diagnose(invalidParameterType: goal.right, at: goal.cause.origin))
+      diagnostics.append(.error(invalidParameterType: goal.right, at: goal.cause.origin))
     }
   }
 
@@ -434,7 +434,7 @@ struct ConstraintSolver {
     // Catch uses of static members on instances.
     if nonStaticMatches.isEmpty && !allMatches.isEmpty {
       diagnostics.append(
-        .diagnose(
+        .error(
           illegalUseOfStaticMember: goal.memberName, onInstanceOf: goal.subject,
           at: goal.cause.origin))
     }
@@ -457,7 +457,7 @@ struct ConstraintSolver {
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
       log("- fail")
-      diagnostics.append(.diagnose(undefinedName: "\(goal.memberName)", at: goal.cause.origin))
+      diagnostics.append(.error(undefinedName: "\(goal.memberName)", at: goal.cause.origin))
       return
     }
 
@@ -499,7 +499,7 @@ struct ConstraintSolver {
     // Make sure `F` is callable.
     guard let callee = goal.calleeType.base as? CallableType else {
       log("- fail")
-      diagnostics.append(.diagnose(nonCallableType: goal.calleeType, at: goal.cause.origin))
+      diagnostics.append(.error(nonCallableType: goal.calleeType, at: goal.cause.origin))
       return
     }
 
@@ -547,7 +547,7 @@ struct ConstraintSolver {
 
     return formAmbiguousSolution(
       results,
-      cause: .diagnose(ambiguousDisjunctionAt: constraint.cause.origin))
+      cause: .error(ambiguousDisjunctionAt: constraint.cause.origin))
   }
 
   /// Attempts to solve the remaining constraints with each individual choice in `overload` and
@@ -754,7 +754,7 @@ struct ConstraintSolver {
       typeAssumptions: typeAssumptions.optimized(),
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
-      diagnostics: diagnostics + stale.map(Diagnostic.diagnose(staleConstraint:)))
+      diagnostics: diagnostics + stale.map(Diagnostic.error(staleConstraint:)))
   }
 
   /// Creates an ambiguous solution.
@@ -790,13 +790,13 @@ struct ConstraintSolver {
     cause: ConstraintCause
   ) -> Bool {
     if lhs.count != rhs.count {
-      diagnostics.append(.diagnose(incompatibleParameterCountAt: cause.origin))
+      diagnostics.append(.error(incompatibleParameterCountAt: cause.origin))
       return false
     }
 
     if zip(lhs, rhs).contains(where: { (a, b) in a.label != b.label }) {
       diagnostics.append(
-        .diagnose(
+        .error(
           labels: lhs.map(\.label), incompatibleWith: rhs.map(\.label),
           at: cause.origin))
       return false
@@ -813,13 +813,13 @@ struct ConstraintSolver {
     cause: ConstraintCause
   ) -> Bool {
     if lhs.elements.count != rhs.elements.count {
-      diagnostics.append(.diagnose(incompatibleTupleLengthsAt: cause.origin))
+      diagnostics.append(.error(incompatibleTupleLengthsAt: cause.origin))
       return false
     }
 
     if zip(lhs.elements, rhs.elements).contains(where: { (a, b) in a.label != b.label }) {
       diagnostics.append(
-        .diagnose(
+        .error(
           labels: lhs.elements.map(\.label), incompatibleWith: rhs.elements.map(\.label),
           at: cause.origin))
       return false
