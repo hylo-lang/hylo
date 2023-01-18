@@ -12,9 +12,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-12, ubuntu-22.04] # windows-latest disabled pending #236
+        os: [macos-12, ubuntu-22.04, windows-latest]
         swift: [
-          { version: "5.7", branch: "swift-5.7.2-release", tag: "5.7.2-RELEASE" }
+          { version: "5.7", branch: "swift-5.8-branch", tag: "5.8-DEVELOPMENT-SNAPSHOT-2022-12-29-a" }
         ]
     runs-on: ${{ matrix.os }}
     steps:
@@ -31,23 +31,19 @@ jobs:
         git config --global core.autocrlf input
       if: matrix.os == 'windows-latest'
     - uses: actions/checkout@v3
-    - name: Swift version 
-      run: swift --version
-    - name: Resolve
-      run: swift package resolve
     - name: Build (Debug)
-      run: swift build -v -c debug
+      run: swift --version build -v -c debug
     - name: Test (Debug)
-      run: swift test -v -c debug --enable-code-coverage
+      run: swift --version test -v -c debug --enable-code-coverage
     - uses: mattpolzin/swift-codecov-action@0.7.3
       if: matrix.os == 'ubuntu-22.04'
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 74
     - name: Build (Release)
-      run: swift build -v -c release
+      run: swift --version build -v -c release
     - name: Test (Release)
-      run: swift test -v -c release -Xswiftc -enable-testing --enable-code-coverage
+      run: swift --version test -v -c release -Xswiftc -enable-testing --enable-code-coverage
     - uses: mattpolzin/swift-codecov-action@0.7.3
       if: matrix.os == 'ubuntu-22.04'
       with:
