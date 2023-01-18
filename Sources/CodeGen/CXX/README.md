@@ -38,7 +38,7 @@ The header of a transpiled unit exposes the public symbols of the module through
 | `AssociatedTypeDecl` | protocol | TODO | |
 | `AssociatedValueDecl` | protocol | TODO | |
 | `BindingDecl` | class, function body | N/A | Translated with its content (`VarDecl`, etc.) |
-| `VarDecl` | class, function body | `CXXClassAttribute`, `CXXVarDecl` | |
+| `VarDecl` | class, function body | `CXXClassAttribute`, `CXXLocalVarDecl` | |
 | `BuiltinDecl` | ??? | TODO | |
 
 ### Expressions

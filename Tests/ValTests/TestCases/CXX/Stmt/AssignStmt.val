@@ -1,6 +1,6 @@
 /*! cpp
     void test() {
-    // local binding
+    int x = 5;
     x = 7;
     }
  */

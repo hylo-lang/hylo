@@ -175,27 +175,8 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXRepresentable {
-    let pattern = decl.pattern
+    let capability = decl.pattern.introducer.value
 
-    switch pattern.introducer.value {
-    case .var, .sinklet:
-      return emit(storedLocalBinding: decl)
-    case .let:
-      return emit(borrowedLocalBinding: decl, withCapability: .let)
-    case .inout:
-      return emit(borrowedLocalBinding: decl, withCapability: .inout)
-    }
-  }
-
-  private mutating func emit(storedLocalBinding decl: BindingDecl.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "local binding", original: AnyNodeID.TypedNode(decl))
-  }
-
-  /// Emits borrowed bindings.
-  private mutating func emit(
-    borrowedLocalBinding decl: BindingDecl.Typed,
-    withCapability capability: AccessEffect
-  ) -> CXXRepresentable {
     // There's nothing to do if there's no initializer.
     if let initializer: TypedNode<AnyExprID> = decl.initializer {
 
@@ -211,15 +192,21 @@ public struct CXXTranspiler {
       for (path, name) in pattern.subpattern.names {
         // TODO: emit code for the patterns.
         let decl = name.decl
+        let _ = path
         stmts.append(
-          CXXComment(
-            comment: "decl \(name), type: \(decl.type.description); path: \(path)",
-            original: AnyNodeID.TypedNode(name)))
+          CXXLocalVarDecl(
+            type: CXXTypeExpr(decl.type, ast: program.ast)!,
+            name: CXXIdentifier(decl.identifier.value),
+            initializer: cxxInitialzer,
+            original: decl)
+        )
       }
       if stmts.isEmpty {
         // No pattern found; just call the initializer, dropping the result.
         let cxxExpr = CXXVoidCast(baseExpr: cxxInitialzer, original: initializer)
         return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(initializer))
+      } else if stmts.count == 1 {
+        return stmts[0]
       } else {
         return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(initializer))
       }
