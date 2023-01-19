@@ -12,7 +12,7 @@ public struct InitializerDecl: GenericDecl, GenericScope {
 
   }
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The introducer of the declaration.
   public let introducer: SourceRepresentable<Introducer>
@@ -46,7 +46,7 @@ public struct InitializerDecl: GenericDecl, GenericScope {
     parameters: [NodeID<ParameterDecl>],
     receiver: NodeID<ParameterDecl>,
     body: NodeID<BraceStmt>?,
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     precondition((introducer.value == .`init`) || (body == nil))
 

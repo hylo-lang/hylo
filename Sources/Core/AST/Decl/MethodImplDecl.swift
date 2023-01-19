@@ -11,7 +11,7 @@ public struct MethodImplDecl: Decl, LexicalScope {
 
   }
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The introducer of the method.
   public let introducer: SourceRepresentable<ImplIntroducer>
@@ -27,7 +27,7 @@ public struct MethodImplDecl: Decl, LexicalScope {
     introducer: SourceRepresentable<ImplIntroducer>,
     receiver: NodeID<ParameterDecl>,
     body: Body? = nil,
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     self.origin = origin
     self.introducer = introducer

@@ -7,10 +7,10 @@ public struct SourceRepresentable<Part> {
   public let value: Part
 
   /// The source range from which `part` was extracted, if any.
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// Creates a source representable container, annotating a value with an optional source range.
-  public init(value: Part, range: SourceRange? = nil) {
+  public init(value: Part, range: SourceRange) {
     self.value = value
     self.origin = range
   }
@@ -44,11 +44,7 @@ extension SourceRepresentable: Codable where Part: Codable {
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     value = try container.decode(Part.self, forKey: .value)
-    do {
-      origin = try container.decode(SourceRange?.self, forKey: .range)
-    } catch {
-      origin = nil
-    }
+    origin = try container.decode(SourceRange.self, forKey: .range)
   }
 
   public func encode(to encoder: Encoder) throws {

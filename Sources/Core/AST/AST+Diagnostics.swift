@@ -11,7 +11,7 @@ extension Diagnostic {
   ) -> Diagnostic { .error("member binding must be introduced by 'let' or 'var'", at: i.origin) }
 
   static func error(
-    invalidOperatorLabels found: [String?], expected: [String?], at site: SourceRange?
+    invalidOperatorLabels found: [String?], expected: [String?], at site: SourceRange
   ) -> Diagnostic {
     .error(
       """
@@ -22,7 +22,7 @@ extension Diagnostic {
 
   static func error(
     invalidOperatorNotation found: OperatorNotation, expected: OperatorNotation,
-    at site: SourceRange?
+    at site: SourceRange
   ) -> Diagnostic {
     .error("invalid operator notation '\(found)', expected '\(expected)'", at: site)
   }
@@ -35,7 +35,7 @@ extension Diagnostic {
     error(missingMethodIdentifierAt: d.introducerRange)
   }
 
-  static func error(missingMethodIdentifierAt site: SourceRange?) -> Diagnostic {
+  static func error(missingMethodIdentifierAt site: SourceRange) -> Diagnostic {
     .error("missing identifier in method bundle declaration", at: site)
   }
 

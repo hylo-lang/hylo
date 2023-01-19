@@ -1,10 +1,10 @@
 /// An operator declaration.
 public struct OperatorDecl: Decl {
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The source range of the declaration's introducer, if any.
-  public let introducerRange: SourceRange?
+  public let introducerRange: SourceRange
 
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
@@ -20,12 +20,12 @@ public struct OperatorDecl: Decl {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
+    introducerRange: SourceRange,
     accessModifier: SourceRepresentable<AccessModifier>?,
     notation: SourceRepresentable<OperatorNotation>,
     name: SourceRepresentable<Identifier>,
     precedenceGroup: SourceRepresentable<PrecedenceGroup>?,
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     self.origin = origin
     self.introducerRange = introducerRange

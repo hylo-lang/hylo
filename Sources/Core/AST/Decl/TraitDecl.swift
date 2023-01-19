@@ -3,7 +3,7 @@
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
 public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
@@ -27,7 +27,7 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
     refinements: [NodeID<NameExpr>],
     members: [AnyDeclID],
     selfParameterDecl: NodeID<GenericParameterDecl>,
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     precondition(members.contains(AnyDeclID(selfParameterDecl)))
 

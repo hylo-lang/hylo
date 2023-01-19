@@ -1,7 +1,7 @@
 /// A declaration that extends a type with new members.
 public struct ExtensionDecl: TypeExtendingDecl {
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
@@ -21,7 +21,7 @@ public struct ExtensionDecl: TypeExtendingDecl {
     subject: AnyTypeExprID,
     whereClause: SourceRepresentable<WhereClause>?,
     members: [AnyDeclID],
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     self.origin = origin
     self.accessModifier = accessModifier

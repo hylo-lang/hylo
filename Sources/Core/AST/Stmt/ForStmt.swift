@@ -1,7 +1,7 @@
 /// A for loop.
 public struct ForStmt: Stmt, LexicalScope {
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The conditional binding of the loop.
   public let binding: NodeID<BindingDecl>
@@ -21,7 +21,7 @@ public struct ForStmt: Stmt, LexicalScope {
     domain: AnyExprID,
     filter: AnyExprID?,
     body: NodeID<BraceStmt>,
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     self.origin = origin
     self.binding = binding

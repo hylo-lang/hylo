@@ -11,7 +11,7 @@ public struct MatchCase: Node, LexicalScope {
 
   }
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The pattern of the case.
   public let pattern: AnyPatternID
@@ -26,7 +26,7 @@ public struct MatchCase: Node, LexicalScope {
     pattern: AnyPatternID,
     condition: AnyExprID?,
     body: MatchCase.Body,
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     self.origin = origin
     self.pattern = pattern

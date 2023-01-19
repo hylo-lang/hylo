@@ -52,10 +52,10 @@ public struct ConstraintCause: Hashable {
   public let kind: Kind
 
   /// The source range from which the constraint originates, if any.
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// Creates a new instance with the given properties.
-  public init(_ kind: Kind, at origin: SourceRange?) {
+  public init(_ kind: Kind, at origin: SourceRange) {
     self.kind = kind
     self.origin = origin
   }

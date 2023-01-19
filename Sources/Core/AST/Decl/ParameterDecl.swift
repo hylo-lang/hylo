@@ -1,7 +1,7 @@
 /// A parameter declaration in a function or subscript declaration.
 public struct ParameterDecl: SingleEntityDecl {
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The label of the parameter.
   public let label: SourceRepresentable<Identifier>?
@@ -20,7 +20,7 @@ public struct ParameterDecl: SingleEntityDecl {
     identifier: SourceRepresentable<Identifier>,
     annotation: NodeID<ParameterTypeExpr>? = nil,
     defaultValue: AnyExprID? = nil,
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     self.origin = origin
     self.label = label

@@ -4,7 +4,8 @@ import Utils
 
 /// A Val source file.
 ///
-/// - Note: two source files are equal if and only if they have the same path in the filesystem.
+/// - Note: two source files are equal if and only if they have the same path in the filesystem, or
+///   are both synthesized.
 public struct SourceFile {
 
   /// A position in the source text.
@@ -25,7 +26,7 @@ public struct SourceFile {
   /// Creates a source file with the contents of the specifide URL.
   public init(contentsOf url: URL) throws {
     self.url = url
-    self.text = try String(contentsOf: url)
+    self.text = url.scheme == "synthesized" ? "" : try String(contentsOf: url)
     self.lineStarts = text.lineBoundaries()
   }
 
@@ -111,11 +112,12 @@ public struct SourceFile {
 extension SourceFile: Hashable {
 
   public func hash(into hasher: inout Hasher) {
-    hasher.combine(url)
+    hasher.combine(url.scheme == "synthesized" ? URL(string: "synthesized://") : url)
   }
 
   public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
     return lhs.url == rhs.url
+      || lhs.url.scheme == "synthesized" && rhs.url.scheme == "synthesized"
   }
 
 }
@@ -137,7 +139,7 @@ extension SourceFile: Codable {
 
 extension SourceFile: CustomStringConvertible {
 
-  public var description: String { "SourceFile(\(url)" }
+  public var description: String { "SourceFile(\(url))" }
 
 }
 
