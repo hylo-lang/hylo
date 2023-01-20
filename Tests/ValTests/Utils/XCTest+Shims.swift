@@ -96,8 +96,7 @@ import XCTest
       let location = issue.sourceCodeContext!.location!
       recordFailure(
         withDescription: issue.compactDescription,
-        inFile: location.fileURL.path,
-        atLine: location.lineNumber,
+        inFile: location.fileURL.path, atLine: location.lineNumber,
         expected: true)
     }
 

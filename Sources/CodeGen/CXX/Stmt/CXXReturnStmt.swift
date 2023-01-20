@@ -8,7 +8,7 @@ struct CXXReturnStmt: CXXRepresentable {
 
   /// The original node in Val AST.
   /// This node can be of any type.
-  let original: AnyExprID.TypedNode?
+  let original: AnyNodeID.TypedNode?
 
   func writeCode<Target: TextOutputStream>(into target: inout Target) {
     if expr != nil {

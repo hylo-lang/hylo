@@ -1,0 +1,17 @@
+/*! cpp
+    void returns_void() {
+    // expr stmt
+    return;
+    // expr stmt
+    }
+ */
+public fun prefooer() {
+}
+public fun postfooer() {
+}
+
+public fun returns_void() {
+    prefooer()
+    return
+    postfooer()
+}
