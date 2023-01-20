@@ -36,8 +36,18 @@ jobs:
     - name: Build (Debug)
       run: swift build -v -c debug
     - name: Test (Debug)
-      run: swift test -v -c debug
+      run: swift test -v -c debug --enable-code-coverage
+    - uses: mattpolzin/swift-codecov-action@0.7.3
+      if: matrix.os == 'ubuntu-22.04'
+      with:
+        SORT_ORDER: +cov
+        MINIMUM_COVERAGE: 74
     - name: Build (Release)
       run: swift build -v -c release
     - name: Test (Release)
-      run: swift test -c release -Xswiftc -enable-testing
+      run: swift --version test -v -c release -Xswiftc -enable-testing --enable-code-coverage
+    - uses: mattpolzin/swift-codecov-action@0.7.3
+      if: matrix.os == 'ubuntu-22.04'
+      with:
+        SORT_ORDER: +cov
+        MINIMUM_COVERAGE: 74
