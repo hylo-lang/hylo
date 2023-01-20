@@ -3,7 +3,7 @@ public struct BindingDecl: Decl {
 
   public let origin: SourceRange
 
-  /// The attributes of the declaration, if any.
+  /// The attributes of the declaration.
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.

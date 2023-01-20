@@ -3,7 +3,7 @@ public struct AssociatedValueDecl: SingleEntityDecl {
 
   public let origin: SourceRange
 
-  /// The source range of the declaration's introducer, if any.
+  /// The source range of the declaration's introducer.
   public let introducerRange: SourceRange
 
   /// The identifier of the type.

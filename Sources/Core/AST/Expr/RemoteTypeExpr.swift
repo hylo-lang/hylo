@@ -3,7 +3,7 @@ public struct RemoteTypeExpr: Expr {
 
   public let origin: SourceRange
 
-  /// The source range of the expression's introducer, if any.
+  /// The source range of the expression's introducer.
   public let introducerRange: SourceRange
 
   /// The passing convention of the remote type.

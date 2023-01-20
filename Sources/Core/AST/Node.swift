@@ -1,7 +1,7 @@
 /// A protocol describing the API of an AST node.
 public protocol Node: Codable {
 
-  /// The source range from which `self` was parsed, if any.
+  /// The source range from which `self` was parsed.
   var origin: SourceRange { get }
 
   /// Reports any well-formedness violations of `self` into `diagnostics`.

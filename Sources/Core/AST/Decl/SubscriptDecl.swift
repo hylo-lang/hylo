@@ -16,7 +16,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// The introducer of the declaration.
   public let introducer: SourceRepresentable<Introducer>
 
-  /// The attributes of the declaration, if any.
+  /// The attributes of the declaration.
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.

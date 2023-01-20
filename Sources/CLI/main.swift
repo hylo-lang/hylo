@@ -259,7 +259,7 @@ private struct CLI: ParsableCommand {
 
   /// Logs `diagnostic` to the standard error.
   private func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
-    // Log the location, if available.
+    // Log the location
     let siteFirst = diagnostic.site.first()
     let path = siteFirst.file.url.relativePath
     let (lineFirst, column) = siteFirst.lineAndColumn()

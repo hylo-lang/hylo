@@ -6,7 +6,7 @@ public struct SourceRepresentable<Part> {
   /// The part.
   public let value: Part
 
-  /// The source range from which `part` was extracted, if any.
+  /// The source range from which `part` was extracted.
   public let origin: SourceRange
 
   /// Creates a source representable container, annotating a value with an optional source range.

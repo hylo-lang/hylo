@@ -185,7 +185,7 @@ public struct AST: Codable {
     return result
   }
 
-  /// Returns the source origin of `expr`, if any.
+  /// Returns the source origin of `expr`
   public func origin(of expr: FoldedSequenceExpr) -> SourceRange {
     switch expr {
     case .leaf(let i):

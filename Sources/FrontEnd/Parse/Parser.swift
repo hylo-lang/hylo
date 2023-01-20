@@ -3075,7 +3075,7 @@ struct NameExprComponent {
   /// The name of the component.
   let name: SourceRepresentable<Name>
 
-  /// The static arguments of the component, if any.
+  /// The static arguments of the component.
   let arguments: [LabeledArgument]
 
 }

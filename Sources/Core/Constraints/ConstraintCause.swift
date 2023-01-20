@@ -51,7 +51,7 @@ public struct ConstraintCause: Hashable {
   /// The kind this cause.
   public let kind: Kind
 
-  /// The source range from which the constraint originates, if any.
+  /// The source range from which the constraint originates.
   public let origin: SourceRange
 
   /// Creates a new instance with the given properties.

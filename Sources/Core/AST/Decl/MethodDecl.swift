@@ -3,7 +3,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
 
   public let origin: SourceRange
 
-  /// The source range of the `fun` introducer, if any.
+  /// The source range of the `fun` introducer.
   public let introducerRange: SourceRange
 
   /// The attributes of the declaration.
