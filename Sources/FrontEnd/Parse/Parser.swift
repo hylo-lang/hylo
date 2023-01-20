@@ -948,9 +948,16 @@ public enum Parser {
     }
 
     let origin: SourceRange
-    let startIndex = introducer.origin.start
-    // FIXME: @kyouku-taiga should check this for correctness.
-    origin = state.range(from: startIndex)
+    if introducer.origin != .eliminateFIXME {
+      origin = state.range(from: introducer.origin.start)
+    } else {
+      switch body! {
+      case .expr(let id):
+        origin = state.ast[id].origin
+      case .block(let id):
+        origin = state.ast[id].origin
+      }
+    }
 
     // Create a new `SubscriptImplDecl`.
     return state.insert(
