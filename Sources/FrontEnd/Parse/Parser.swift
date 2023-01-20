@@ -2853,7 +2853,7 @@ public enum Parser {
             bareType: tree.1,
             origin: state.range(
               from: tree.0?.origin.start ?? state.ast[tree.1].origin.start),
-            synthesized: tree.0 == nil  // FIXME: @kyouku-taiga should check this for correctness.
+            synthesized: tree.0 == nil
           ))
       }))
 
