@@ -8,29 +8,32 @@ on:
 
 jobs:
   build:
-    name: Swift ${{ matrix.swift.version }} on ${{ matrix.os }}
+    name: Swift ${{ matrix.swift.version }} on ${{ matrix.host.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-12, ubuntu-22.04, windows-latest]
+        host: [
+          { type: macos, os: macos-12 },
+          { type: linux, os: ubuntu-22.04, test-options: --enable-coverage },
+          { type: windows, os: windows-latest },
+        ]
         swift: [
           { version: "5.7", windows-branch: "swift-5.8-branch", windows-tag: "5.8-DEVELOPMENT-SNAPSHOT-2022-12-29-a" }
         ]
         test-options: [
           { ubuntu-22.04: "--enable-coverage" }
         ]
-
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.host.os }}
     steps:
     - name: Setup swift (non-Windows)
       uses: swift-actions/setup-swift@v1
-      if: !contains(matrix.os, 'windows')
+      if: matrix.host.type != 'windows'
       with:
         swift-version: ${{ matrix.swift.version }}
 
     - name: Setup swift (Windows)
       uses: compnerd/gha-setup-swift@main
-      if: contains(matrix.os, 'windows')
+      if: matrix.host.type == 'windows'
       with:
         branch: ${{ matrix.swift.windows-branch }}
         tag: ${{ matrix.swift.windows-tag }}
@@ -45,10 +48,10 @@ jobs:
     - name: Build (Debug)
       run: swift build -v -c debug
     - name: Test (Debug)
-      run: swift test -v -c debug ${{matrix.test-options[${{matrix.os}}]}}
+      run: swift test -v -c debug ${{matrix.host.test-options}}
     - name: Check code coverage (Debug)
       uses: mattpolzin/swift-codecov-action@0.7.3
-      if: contains(matrix.os, 'ubuntu')
+      if: matrix.host.type == 'linux'
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 74
@@ -56,10 +59,10 @@ jobs:
     - name: Build (Release)
       run: swift build -v -c release
     - name: Test (Release)
-      run: swift test -c release -Xswiftc -enable-testing ${{matrix.test-options[${{matrix.os}}]}}
+      run: swift test -c release -Xswiftc -enable-testing ${{matrix.host.test-options}}
     - name: Check code coverage (Release)
       uses: mattpolzin/swift-codecov-action@0.7.3
-      if: contains(matrix.os, 'ubuntu')
+      if: matrix.host.type == 'linux'
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 74
