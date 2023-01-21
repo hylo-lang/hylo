@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ `continue` statement
-struct CXXContinueStmt: CXXRepresentable {
+struct CXXContinueStmt: CXXNode {
 
   /// The original node in Val AST.
   /// This node can be of any type.

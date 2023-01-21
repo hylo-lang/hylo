@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ integer literal expression.
-public struct CXXIntegerLiteralExpr: CXXRepresentable {
+public struct CXXIntegerLiteralExpr: CXXNode {
 
   /// The value of the literal.
   let value: String

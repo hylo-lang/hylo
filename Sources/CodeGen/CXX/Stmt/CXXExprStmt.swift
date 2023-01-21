@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ expression statement.
-struct CXXExprStmt: CXXRepresentable {
+struct CXXExprStmt: CXXNode {
 
   /// The expression contained in this statement.
   let expr: CXXNode

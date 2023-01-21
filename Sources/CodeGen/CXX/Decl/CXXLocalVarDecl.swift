@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ local variable declaration.
-public struct CXXLocalVarDecl: CXXRepresentable {
+public struct CXXLocalVarDecl: CXXNode {
 
   /// The type of the local variable.
   public let type: CXXTypeExpr

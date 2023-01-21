@@ -85,7 +85,7 @@ public struct CXXTranspiler {
     }
 
     // The body of the function.
-    var cxxBody: CXXRepresentable? = nil
+    var cxxBody: CXXNode? = nil
     if let body = decl.body {
       cxxBody = emit(funBody: body)
     }
@@ -101,7 +101,7 @@ public struct CXXTranspiler {
   }
 
   /// Translate the function body into a CXX entity.
-  private mutating func emit(funBody body: FunctionDecl.Typed.Body) -> CXXRepresentable {
+  private mutating func emit(funBody body: FunctionDecl.Typed.Body) -> CXXNode {
     switch body {
     case .block(let stmt):
       return emit(brace: stmt)
@@ -135,7 +135,7 @@ public struct CXXTranspiler {
           }
         }
         // TODO: visit initializer (bindingDecl.initializer)
-        let cxxInitializer: CXXRepresentable? = nil
+        let cxxInitializer: CXXNode? = nil
         // TODO: pattern introducer (let, var, sink, inout)
         // Visit the name patterns.
         for (_, name) in bindingDecl.pattern.subpattern.names {
@@ -174,7 +174,7 @@ public struct CXXTranspiler {
     module.addTopLevelDecl(CXXClassDecl(name: name, members: cxxMembers, original: decl))
   }
 
-  private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXRepresentable {
+  private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXNode {
     let capability = decl.pattern.introducer.value
 
     // There's nothing to do if there's no initializer.
@@ -187,7 +187,7 @@ public struct CXXTranspiler {
       let cxxInitialzer = emit(expr: initializer, asLValue: isLValue)
 
       // Visit the patterns.
-      var stmts: [CXXRepresentable] = []
+      var stmts: [CXXNode] = []
       let pattern = decl.pattern
       for (path, name) in pattern.subpattern.names {
         // TODO: emit code for the patterns.
@@ -220,7 +220,7 @@ public struct CXXTranspiler {
   // MARK: Statements
 
   /// Emits the given statement into `module` at the current insertion point.
-  private mutating func emit<ID: StmtID>(stmt: ID.TypedNode) -> CXXRepresentable {
+  private mutating func emit<ID: StmtID>(stmt: ID.TypedNode) -> CXXNode {
     switch stmt.kind {
     case BraceStmt.self:
       return emit(brace: BraceStmt.Typed(stmt)!)
@@ -249,15 +249,15 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emit(brace stmt: BraceStmt.Typed) -> CXXRepresentable {
-    var stmts: [CXXRepresentable] = []
+  private mutating func emit(brace stmt: BraceStmt.Typed) -> CXXNode {
+    var stmts: [CXXNode] = []
     for s in stmt.stmts {
       stmts.append(emit(stmt: s))
     }
     return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(stmt))
   }
 
-  private mutating func emit(declStmt stmt: DeclStmt.Typed) -> CXXRepresentable {
+  private mutating func emit(declStmt stmt: DeclStmt.Typed) -> CXXNode {
     switch stmt.decl.kind {
     case BindingDecl.self:
       return emit(localBinding: BindingDecl.Typed(stmt.decl)!)
@@ -266,11 +266,11 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXRepresentable {
+  private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXNode {
     return CXXExprStmt(expr: emitR(expr: stmt.expr), original: AnyNodeID.TypedNode(stmt))
   }
 
-  private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXRepresentable {
+  private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXNode {
     let cxxExpr = CXXInfixExpr(
       callee: CXXIdentifier("="),
       lhs: emitL(expr: stmt.left, withCapability: .set),
@@ -279,18 +279,18 @@ public struct CXXTranspiler {
     return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(stmt))
   }
 
-  private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXRepresentable {
-    var expr: CXXRepresentable?
+  private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXNode {
+    var expr: CXXNode?
     if stmt.value != nil {
       expr = emitR(expr: stmt.value!)
     }
     return CXXReturnStmt(expr: expr, original: AnyNodeID.TypedNode(stmt))
   }
 
-  private mutating func emit(whileStmt stmt: WhileStmt.Typed) -> CXXRepresentable {
+  private mutating func emit(whileStmt stmt: WhileStmt.Typed) -> CXXNode {
     // TODO: multiple conditions
     // TODO: bindings in conditions
-    let condition: CXXRepresentable
+    let condition: CXXNode
     if stmt.condition.count == 1 {
       switch stmt.condition[0] {
       case .expr(let condExpr):
@@ -305,22 +305,22 @@ public struct CXXTranspiler {
     return CXXWhileStmt(
       condition: condition, body: emit(stmt: stmt.body), original: AnyNodeID.TypedNode(stmt))
   }
-  private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXRepresentable {
+  private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXNode {
     return CXXDoWhileStmt(
       body: emit(stmt: stmt.body),
       condition: emitR(expr: stmt.condition),
       original: AnyNodeID.TypedNode(stmt))
   }
-  private mutating func emit(forStmt stmt: ForStmt.Typed) -> CXXRepresentable {
+  private mutating func emit(forStmt stmt: ForStmt.Typed) -> CXXNode {
     return CXXComment(comment: "ForStmt", original: AnyNodeID.TypedNode(stmt))
   }
-  private mutating func emit(breakStmt stmt: BreakStmt.Typed) -> CXXRepresentable {
+  private mutating func emit(breakStmt stmt: BreakStmt.Typed) -> CXXNode {
     return CXXBreakStmt(original: AnyNodeID.TypedNode(stmt))
   }
-  private mutating func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXRepresentable {
+  private mutating func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXNode {
     return CXXContinueStmt(original: AnyNodeID.TypedNode(stmt))
   }
-  private mutating func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXRepresentable {
+  private mutating func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXNode {
     return CXXComment(comment: "YieldStmt", original: AnyNodeID.TypedNode(stmt))
   }
 
@@ -329,7 +329,7 @@ public struct CXXTranspiler {
   private mutating func emit(
     expr: AnyExprID.TypedNode,
     asLValue: Bool
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     if asLValue {
       return emitL(expr: expr, withCapability: .let)
     } else {
@@ -339,7 +339,7 @@ public struct CXXTranspiler {
 
   // MARK: r-values
 
-  private mutating func emitR<ID: ExprID>(expr: ID.TypedNode) -> CXXRepresentable {
+  private mutating func emitR<ID: ExprID>(expr: ID.TypedNode) -> CXXNode {
     switch expr.kind {
     case BooleanLiteralExpr.self:
       return emitR(booleanLiteral: BooleanLiteralExpr.Typed(expr)!)
@@ -360,16 +360,16 @@ public struct CXXTranspiler {
 
   private mutating func emitR(
     booleanLiteral expr: BooleanLiteralExpr.Typed
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     return CXXBooleanLiteralExpr(value: expr.value, original: expr)
   }
 
   private mutating func emitR(
     cond expr: CondExpr.Typed
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     // TODO: multiple conditions
     // TODO: bindings in conditions
-    let condition: CXXRepresentable
+    let condition: CXXNode
     if expr.condition.count == 1 {
       switch expr.condition[0] {
       case .expr(let condExpr):
@@ -384,8 +384,8 @@ public struct CXXTranspiler {
     if expr.type != .void {
       // We result in an expression
       // TODO: do we need to return an l-value?
-      let trueExpr: CXXRepresentable
-      let falseExpr: CXXRepresentable
+      let trueExpr: CXXNode
+      let falseExpr: CXXNode
       switch expr.success {
       case .expr(let altExpr):
         trueExpr = emitR(expr: program[altExpr])
@@ -405,8 +405,8 @@ public struct CXXTranspiler {
         condition: condition, trueExpr: trueExpr, falseExpr: falseExpr, original: expr)
     } else {
       // We result in a statement
-      let trueStmt: CXXRepresentable
-      let falseStmt: CXXRepresentable?
+      let trueStmt: CXXNode
+      let falseStmt: CXXNode?
       switch expr.success {
       case .expr(let altExpr):
         let expr = program[altExpr]
@@ -438,12 +438,12 @@ public struct CXXTranspiler {
 
   private mutating func emitR(
     functionCall expr: FunctionCallExpr.Typed
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     let calleeType = expr.callee.type.base as! LambdaType
 
     // Arguments are evaluated first, from left to right.
     var argumentConventions: [AccessEffect] = []
-    var arguments: [CXXRepresentable] = []
+    var arguments: [CXXNode] = []
 
     for (parameter, argument) in zip(calleeType.inputs, expr.arguments) {
       let parameterType = parameter.type.base as! ParameterType
@@ -454,7 +454,7 @@ public struct CXXTranspiler {
     // If the callee is a name expression referring to the declaration of a function capture-less
     // function, it is interpreted as a direct function reference. Otherwise, it is evaluated as a
     // function object the arguments.
-    let callee: CXXRepresentable
+    let callee: CXXNode
 
     if let calleeNameExpr = NameExpr.Typed(expr.callee) {
       callee = emitR(name: calleeNameExpr, forCalleWithType: calleeType)
@@ -469,14 +469,14 @@ public struct CXXTranspiler {
 
   private mutating func emitR(
     integerLiteral expr: IntegerLiteralExpr.Typed
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     return CXXIntegerLiteralExpr(value: expr.value, original: expr)
   }
 
   private mutating func emitR(
     name expr: NameExpr.Typed,
     forCalleWithType calleeType: LambdaType? = nil
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     switch expr.decl {
     case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
       // Callee refers to a built-in function.
@@ -511,7 +511,7 @@ public struct CXXTranspiler {
       assert(calleeType != nil)
       let receiverType = calleeType!.captures[0].type
 
-      var receiver: CXXRepresentable
+      var receiver: CXXNode
 
       // Add the receiver to the arguments.
       if let type = RemoteType(receiverType) {
@@ -552,7 +552,7 @@ public struct CXXTranspiler {
 
   private mutating func emitR(
     sequence expr: SequenceExpr.Typed
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     return emit(foldedSequence: expr.foldedSequenceExprs!, withCapability: .sink, for: expr)
   }
 
@@ -560,7 +560,7 @@ public struct CXXTranspiler {
     foldedSequence seq: FoldedSequenceExpr,
     withCapability capability: AccessEffect,
     for expr: SequenceExpr.Typed
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     switch seq {
     case .infix(let callee, let lhs, let rhs):
       let calleeExpr = program[callee.expr]
@@ -599,9 +599,9 @@ public struct CXXTranspiler {
 
   private mutating func emitR(
     infix expr: NameExpr.Typed,
-    lhs: CXXRepresentable,
-    rhs: CXXRepresentable
-  ) -> CXXRepresentable {
+    lhs: CXXNode,
+    rhs: CXXNode
+  ) -> CXXNode {
 
     // Obtained the declaration we are calling.
     let calleeDecl: AnyDeclID.TypedNode
@@ -635,7 +635,7 @@ public struct CXXTranspiler {
   private mutating func emit(
     argument expr: AnyExprID.TypedNode,
     to parameterType: ParameterType
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     switch parameterType.convention {
     case .let:
       return emitL(expr: expr, withCapability: .let)
@@ -655,7 +655,7 @@ public struct CXXTranspiler {
   private mutating func emitL<ID: ExprID>(
     expr: ID.TypedNode,
     withCapability capability: AccessEffect
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     switch expr.kind {
     case NameExpr.self:
       return emitL(name: NameExpr.Typed(expr)!, withCapability: capability)
@@ -672,14 +672,14 @@ public struct CXXTranspiler {
   private mutating func emitL(
     name expr: NameExpr.Typed,
     withCapability capability: AccessEffect
-  ) -> CXXRepresentable {
+  ) -> CXXNode {
     switch expr.decl {
     case .direct(let decl):
       return CXXIdentifier(nameOfDecl(decl))
 
     case .member(let decl):
       // Emit the receiver.
-      let receiver: CXXRepresentable?
+      let receiver: CXXNode?
       switch expr.domain {
       case .none:
         // TODO: this doesn't seem right; check the following code

@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ conditional statement
-struct CXXIfStmt: CXXRepresentable {
+struct CXXIfStmt: CXXNode {
 
   /// The expression to be tested by the conditional.
   let condition: CXXNode

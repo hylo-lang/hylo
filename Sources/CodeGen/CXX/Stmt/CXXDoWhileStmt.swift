@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ `do`-`while` statement
-struct CXXDoWhileStmt: CXXRepresentable {
+struct CXXDoWhileStmt: CXXNode {
 
   /// The statement to be executed as part of the loop.
   let body: CXXNode

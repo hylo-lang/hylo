@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ `break` statement
-struct CXXBreakStmt: CXXRepresentable {
+struct CXXBreakStmt: CXXNode {
 
   /// The original node in Val AST.
   /// This node can be of any type.

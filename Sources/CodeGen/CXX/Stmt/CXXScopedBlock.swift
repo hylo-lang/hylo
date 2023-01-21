@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ scoped block -- multiple statements in curly braces
-struct CXXScopedBlock: CXXRepresentable {
+struct CXXScopedBlock: CXXNode {
 
   /// The statements in the scoped block.
   public let stmts: [CXXNode]

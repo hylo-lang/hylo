@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ return statement
-struct CXXReturnStmt: CXXRepresentable {
+struct CXXReturnStmt: CXXNode {
 
   /// The expression to be returned.
   let expr: CXXNode?

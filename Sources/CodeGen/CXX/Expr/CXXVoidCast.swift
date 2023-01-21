@@ -1,7 +1,7 @@
 import Core
 
 /// Cast the result of an expression to void
-struct CXXVoidCast: CXXRepresentable {
+struct CXXVoidCast: CXXNode {
 
   public let baseExpr: CXXNode
 

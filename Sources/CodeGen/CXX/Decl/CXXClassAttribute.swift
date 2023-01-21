@@ -1,7 +1,7 @@
 import Core
 
 /// An attribute of a C++ class.
-public struct CXXClassAttribute: CXXRepresentable {
+public struct CXXClassAttribute: CXXNode {
 
   /// The type of the attribute.
   public let type: CXXTypeExpr
