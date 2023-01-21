@@ -1,7 +1,7 @@
 /// An associated value declaration.
 public struct AssociatedValueDecl: SingleEntityDecl {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The source range of the declaration's introducer.
   public let introducerRange: SourceRange
@@ -21,9 +21,9 @@ public struct AssociatedValueDecl: SingleEntityDecl {
     identifier: SourceRepresentable<Identifier>,
     whereClause: SourceRepresentable<WhereClause>?,
     defaultValue: AnyExprID?,
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.introducerRange = introducerRange
     self.identifier = identifier
     self.whereClause = whereClause

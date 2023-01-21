@@ -25,7 +25,7 @@ final class ASTTests: XCTestCase {
       synthesized: ImportDecl(
         introducerRange: .eliminateFIXME,
         identifier: SourceRepresentable(value: "T", range: .eliminateFIXME),
-        origin: .eliminateFIXME))
+        site: .eliminateFIXME))
 
     // Create a source declaration set.
     let source = ast.insert(synthesized: TopLevelDeclSet(decls: [AnyDeclID(decl)]))
@@ -48,7 +48,7 @@ final class ASTTests: XCTestCase {
               synthesized: FunctionDecl(
                 introducerRange: .eliminateFIXME,
                 identifier: SourceRepresentable(value: "foo", range: .eliminateFIXME),
-                origin: .eliminateFIXME)))
+                site: .eliminateFIXME)))
         ]))
     ast[module].addSourceFile(source)
 

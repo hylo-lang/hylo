@@ -1,7 +1,7 @@
 /// An operator declaration.
 public struct OperatorDecl: Decl {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The source range of the declaration's introducer.
   public let introducerRange: SourceRange
@@ -25,9 +25,9 @@ public struct OperatorDecl: Decl {
     notation: SourceRepresentable<OperatorNotation>,
     name: SourceRepresentable<Identifier>,
     precedenceGroup: SourceRepresentable<PrecedenceGroup>?,
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.introducerRange = introducerRange
     self.accessModifier = accessModifier
     self.notation = notation

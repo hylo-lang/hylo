@@ -1,7 +1,7 @@
 /// A namespace declaration.
 public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The source range of the declaration's introducer.
   public let introducerRange: SourceRange
@@ -21,9 +21,9 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     members: [AnyDeclID],
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.introducerRange = introducerRange
     self.accessModifier = accessModifier
     self.identifier = identifier

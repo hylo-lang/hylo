@@ -1,7 +1,7 @@
 /// The expression of an existential type.
 public struct ExistentialTypeExpr: Expr {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The traits to which the witness conforms.
   public let traits: TraitComposition
@@ -12,9 +12,9 @@ public struct ExistentialTypeExpr: Expr {
   public init(
     traits: TraitComposition,
     whereClause: SourceRepresentable<WhereClause>?,
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.traits = traits
     self.whereClause = whereClause
   }

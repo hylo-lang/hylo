@@ -17,13 +17,13 @@ public struct TuplePattern: Pattern {
 
   }
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The elements of the tuple.
   public let elements: [Element]
 
-  public init(elements: [Element], origin: SourceRange) {
-    self.origin = origin
+  public init(elements: [Element], site: SourceRange) {
+    self.site = site
     self.elements = elements
   }
 

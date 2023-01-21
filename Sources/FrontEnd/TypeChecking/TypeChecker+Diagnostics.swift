@@ -44,7 +44,7 @@ extension Diagnostic {
   }
 
   static func error(nameRefersToValue expr: NodeID<NameExpr>, in ast: AST) -> Diagnostic {
-    .error("expected type but '\(ast[expr].name.value)' refers to a value", at: ast[expr].origin)
+    .error("expected type but '\(ast[expr].name.value)' refers to a value", at: ast[expr].site)
   }
 
   static func error(genericDeclHasCapturesAt site: SourceRange) -> Diagnostic {
@@ -207,13 +207,13 @@ extension Diagnostic {
   ) -> Diagnostic {
     if expected == 0 {
       return .error(
-        "non-generic entity '\(entity.value)' has no generic parameters", at: entity.origin)
+        "non-generic entity '\(entity.value)' has no generic parameters", at: entity.site)
     } else {
       return .error(
         """
         too many generic arguments to entity '\(entity.value)' \
         (found \(found), expected \(expected)
-        """, at: entity.origin)
+        """, at: entity.site)
     }
   }
 
@@ -221,7 +221,7 @@ extension Diagnostic {
     invalidGenericArgumentsTo entity: SourceRepresentable<Name>,
     candidateDiagnostics notes: [Diagnostic]
   ) -> Diagnostic {
-    .error("invalid generic argument(s) for '\(entity.value)'", at: entity.origin, notes: notes)
+    .error("invalid generic argument(s) for '\(entity.value)'", at: entity.site, notes: notes)
   }
 
   static func error(argumentToNonGenericType type: AnyType, at site: SourceRange) -> Diagnostic {
@@ -239,15 +239,15 @@ extension Diagnostic {
   static func error(invalidBufferTypeExprArgumentCount expr: NodeID<SubscriptCallExpr>, in ast: AST)
     -> Diagnostic
   {
-    .error("buffer type expression requires exactly one argument", at: ast[ast[expr].callee].origin)
+    .error("buffer type expression requires exactly one argument", at: ast[ast[expr].callee].site)
   }
 
-  static func error(nonCallableType type: AnyType, at origin: SourceRange) -> Diagnostic {
-    .error("cannot call value of non-callable type '\(type)'", at: origin)
+  static func error(nonCallableType type: AnyType, at site: SourceRange) -> Diagnostic {
+    .error("cannot call value of non-callable type '\(type)'", at: site)
   }
 
-  static func error(noUnnamedSubscriptsIn domain: AnyType, at origin: SourceRange) -> Diagnostic {
-    .error("type '\(domain)' has no unnamed subscripts", at: origin)
+  static func error(noUnnamedSubscriptsIn domain: AnyType, at site: SourceRange) -> Diagnostic {
+    .error("type '\(domain)' has no unnamed subscripts", at: site)
   }
 
   static func error(undefinedName name: Name, in domain: AnyType? = nil, at site: SourceRange)
@@ -260,45 +260,45 @@ extension Diagnostic {
     }
   }
 
-  static func warning(sumTypeWithZeroElementsAt origin: SourceRange) -> Diagnostic {
-    .warning("empty sum type is better expressed as 'Never'", at: origin)
+  static func warning(sumTypeWithZeroElementsAt site: SourceRange) -> Diagnostic {
+    .warning("empty sum type is better expressed as 'Never'", at: site)
   }
 
-  static func error(sumTypeWithOneElementAt origin: SourceRange) -> Diagnostic {
-    .error("sum types should contain at least 2 elements", at: origin)
+  static func error(sumTypeWithOneElementAt site: SourceRange) -> Diagnostic {
+    .error("sum types should contain at least 2 elements", at: site)
   }
 
-  static func error(valueInSumTypeAt origin: SourceRange) -> Diagnostic {
-    .error("sum types cannot contain values", at: origin)
+  static func error(valueInSumTypeAt site: SourceRange) -> Diagnostic {
+    .error("sum types cannot contain values", at: site)
   }
 
-  static func error(_ l: AnyType, isNotSubtypeOf r: AnyType, at origin: SourceRange) -> Diagnostic {
-    .error("'\(l)' is not subtype of '\(r)'", at: origin)
+  static func error(_ l: AnyType, isNotSubtypeOf r: AnyType, at site: SourceRange) -> Diagnostic {
+    .error("'\(l)' is not subtype of '\(r)'", at: site)
   }
 
   static func error(
-    cannotInitialize storageType: AnyType, with valueType: AnyType, at origin: SourceRange
+    cannotInitialize storageType: AnyType, with valueType: AnyType, at site: SourceRange
   ) -> Diagnostic {
     .error(
       "cannot initialize object of type '\(storageType)' with value of type '\(valueType)'",
-      at: origin)
+      at: site)
   }
 
-  static func error(_ valueType: AnyType, doesNotMatchPatternAt origin: SourceRange) -> Diagnostic {
-    .error("value of type '\(valueType)' does not match binding pattern", at: origin)
+  static func error(_ valueType: AnyType, doesNotMatchPatternAt site: SourceRange) -> Diagnostic {
+    .error("value of type '\(valueType)' does not match binding pattern", at: site)
   }
 
   static func error(
-    _ subtype: AnyType, isNotStrictSubtypeOf supertype: AnyType, at origin: SourceRange
+    _ subtype: AnyType, isNotStrictSubtypeOf supertype: AnyType, at site: SourceRange
   ) -> Diagnostic {
-    .error("type '\(subtype)' is not strict subtype of '\(supertype)'", at: origin)
+    .error("type '\(subtype)' is not strict subtype of '\(supertype)'", at: site)
   }
 
   static func error(ambiguousUse expr: NodeID<NameExpr>, in ast: AST, candidates: [AnyDeclID] = [])
     -> Diagnostic
   {
-    let notes = candidates.map { Diagnostic.error("candidate here", at: ast[$0].origin) }
-    return .error("ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].origin, notes: notes)
+    let notes = candidates.map { Diagnostic.error("candidate here", at: ast[$0].site) }
+    return .error("ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site, notes: notes)
   }
 
 }
