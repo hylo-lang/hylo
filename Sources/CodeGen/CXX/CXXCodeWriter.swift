@@ -7,9 +7,9 @@ public struct CXXCodeWriter {
   // MARK: API
 
   /// Write the CXX header content for the given module to the given text stream.
-  public func writeHeaderCode<Target: TextOutputStream>(
-    _ module: CXXModule, into target: inout Target
-  ) {
+  public func emitHeaderCode(_ module: CXXModule) -> String {
+    var target: String = ""
+
     // Emit the header guard.
     // "#pragma once" is non-standard, but implemented by all major compilers,
     // and it typically does a better job
@@ -30,12 +30,14 @@ public struct CXXCodeWriter {
     }
 
     target.write("\n}\n")  // module namespace
+
+    return target
   }
 
   /// Write the CXX source content for the given module to the given text stream.
-  public func writeSourceCode<Target: TextOutputStream>(
-    _ module: CXXModule, into target: inout Target
-  ) {
+  public func emitSourceCode(_ module: CXXModule) -> String {
+    var target: String = ""
+
     // Emit include clauses.
     target.write("#include \"\(module.valDecl.name).h\"\n")
     target.write("\n")
@@ -49,13 +51,13 @@ public struct CXXCodeWriter {
     }
 
     target.write("\n}\n")  // module namespace
+
+    return target
   }
 
   // MARK: Top-level declarations
 
-  private func writeInterface<Target: TextOutputStream>(
-    topLevel decl: CXXTopLevelDecl, into target: inout Target
-  ) {
+  private func writeInterface(topLevel decl: CXXTopLevelDecl, into target: inout String) {
     switch type(of: decl).kind {
     case CXXFunctionDecl.self:
       writeSignature(function: decl as! CXXFunctionDecl, into: &target)
@@ -67,9 +69,7 @@ public struct CXXCodeWriter {
     target.write(";\n")
   }
 
-  private func writeDefinition<Target: TextOutputStream>(
-    topLevel decl: CXXTopLevelDecl, into target: inout Target
-  ) {
+  private func writeDefinition(topLevel decl: CXXTopLevelDecl, into target: inout String) {
     switch type(of: decl).kind {
     case CXXFunctionDecl.self:
       writeDefinition(function: decl as! CXXFunctionDecl, into: &target)
@@ -80,9 +80,7 @@ public struct CXXCodeWriter {
     }
   }
 
-  private func writeSignature<Target: TextOutputStream>(
-    function decl: CXXFunctionDecl, into target: inout Target
-  ) {
+  private func writeSignature(function decl: CXXFunctionDecl, into target: inout String) {
     target.write("\(decl.output) \(decl.identifier)(")
     for i in 0 ..< decl.parameters.count {
       if i != 0 { target.write(", ") }
@@ -90,9 +88,7 @@ public struct CXXCodeWriter {
     }
     target.write(")")
   }
-  private func writeDefinition<Target: TextOutputStream>(
-    function decl: CXXFunctionDecl, into target: inout Target
-  ) {
+  private func writeDefinition(function decl: CXXFunctionDecl, into target: inout String) {
     writeSignature(function: decl, into: &target)
     if decl.body != nil {
       target.write(" ")
@@ -102,14 +98,10 @@ public struct CXXCodeWriter {
     }
   }
 
-  private func writeSignature<Target: TextOutputStream>(
-    type decl: CXXClassDecl, into target: inout Target
-  ) {
+  private func writeSignature(type decl: CXXClassDecl, into target: inout String) {
     target.write("class \(decl.name)")
   }
-  private func writeDefinition<Target: TextOutputStream>(
-    type decl: CXXClassDecl, into target: inout Target
-  ) {
+  private func writeDefinition(type decl: CXXClassDecl, into target: inout String) {
     writeSignature(type: decl, into: &target)
     target.write(" {\n")
     target.write("public:\n")

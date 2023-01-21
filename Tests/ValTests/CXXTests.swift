@@ -44,10 +44,8 @@ final class CXXTests: XCTestCase {
         let codeWriter = CXXCodeWriter()
         let cxxModule = transpiler.emit(module: typedProgram[module])
 
-        var cxxHeaderCode: String = ""
-        var cxxSourceCode: String = ""
-        codeWriter.writeHeaderCode(cxxModule, into: &cxxHeaderCode)
-        codeWriter.writeSourceCode(cxxModule, into: &cxxSourceCode)
+        let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
+        let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
 
         return cxxAnnotations.compactMap { a in
           let expectedCXX = a.argument!.removingTrailingNewlines()

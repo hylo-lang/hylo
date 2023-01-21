@@ -204,10 +204,8 @@ private struct CLI: ParsableCommand {
     // Translate the module to C++ AST.
     let cxxModule = transpiler.emit(module: typedProgram[newModule])
     // Generate the C++ code, header & source.
-    var cxxHeaderCode: String = ""
-    var cxxSourceCode: String = ""
-    codeWriter.writeHeaderCode(cxxModule, into: &cxxHeaderCode)
-    codeWriter.writeSourceCode(cxxModule, into: &cxxSourceCode)
+    let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
+    let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
 
     // Handle `--emit cpp`.
     if outputType == .cpp {
