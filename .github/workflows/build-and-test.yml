@@ -29,7 +29,7 @@ jobs:
         swift-version: ${{ matrix.swift.version }}
 
     - name: Setup swift (Windows)
-    - uses: compnerd/gha-setup-swift@main
+      uses: compnerd/gha-setup-swift@main
       if: matrix.os.contains('windows')
       with:
         branch: ${{ matrix.swift.windows-branch }}
@@ -41,20 +41,24 @@ jobs:
 
     - name: Swift version
       run: swift --version
+
     - name: Build (Debug)
       run: swift build -v -c debug
     - name: Test (Debug)
       run: swift test -v -c debug ${{matrix.test-options[${{matrix.os}}]}}
-    - uses: mattpolzin/swift-codecov-action@0.7.3
+    - name: Check code coverage (Debug)
+      uses: mattpolzin/swift-codecov-action@0.7.3
       if: matrix.os.contains('ubuntu')
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 74
+
     - name: Build (Release)
       run: swift build -v -c release
     - name: Test (Release)
       run: swift test -c release -Xswiftc -enable-testing ${{matrix.test-options[${{matrix.os}}]}}
-    - uses: mattpolzin/swift-codecov-action@0.7.3
+    - name: Check code coverage (Release)
+      uses: mattpolzin/swift-codecov-action@0.7.3
       if: matrix.os.contains('ubuntu')
       with:
         SORT_ORDER: +cov
