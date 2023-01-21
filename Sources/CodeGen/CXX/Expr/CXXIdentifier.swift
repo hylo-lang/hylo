@@ -1,5 +1,5 @@
 /// A string suitable as a C++ identifier.
-struct CXXIdentifier: CXXExpr, CustomStringConvertible {
+struct CXXIdentifier: CXXExpr {
 
   /// The value of the identifier.
   let description: String

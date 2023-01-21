@@ -81,10 +81,15 @@ public struct CXXCodeWriter {
   }
 
   private func writeSignature(function decl: CXXFunctionDecl, into target: inout String) {
-    target.write("\(decl.output) \(decl.identifier)(")
+    write(typeExpr: decl.output, into: &target)
+    target.write(" ")
+    write(identifier: decl.identifier, into: &target)
+    target.write("(")
     for i in 0 ..< decl.parameters.count {
       if i != 0 { target.write(", ") }
-      target.write("\(decl.parameters[i].type) \(decl.parameters[i].name)")
+      write(typeExpr: decl.parameters[i].type, into: &target)
+      target.write(" ")
+      write(identifier: decl.parameters[i].name, into: &target)
     }
     target.write(")")
   }
@@ -99,7 +104,8 @@ public struct CXXCodeWriter {
   }
 
   private func writeSignature(type decl: CXXClassDecl, into target: inout String) {
-    target.write("class \(decl.name)")
+    target.write("class ")
+    write(identifier: decl.name, into: &target)
   }
   private func writeDefinition(type decl: CXXClassDecl, into target: inout String) {
     writeSignature(type: decl, into: &target)
@@ -119,7 +125,8 @@ public struct CXXCodeWriter {
   }
 
   private func write(classAttribute decl: CXXClassAttribute, into target: inout String) {
-    target.write("\(decl.type) ")
+    write(typeExpr: decl.type, into: &target)
+    target.write(" ")
     write(identifier: decl.name, into: &target)
     if let value = decl.initializer {
       target.write(" = ")
@@ -129,7 +136,8 @@ public struct CXXCodeWriter {
   }
 
   private func write(localVar decl: CXXLocalVarDecl, into target: inout String) {
-    target.write("\(decl.type) ")
+    write(typeExpr: decl.type, into: &target)
+    target.write(" ")
     write(identifier: decl.name, into: &target)
     if let value = decl.initializer {
       target.write(" = ")

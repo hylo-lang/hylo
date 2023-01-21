@@ -2,7 +2,7 @@ import Core
 import FrontEnd
 
 /// A type expression in C++.
-struct CXXTypeExpr: CXXExpr, CustomStringConvertible {
+struct CXXTypeExpr: CXXExpr {
 
   /// The textual represention of the type expression.
   let description: String
