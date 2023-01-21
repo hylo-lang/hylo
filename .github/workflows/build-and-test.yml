@@ -8,24 +8,24 @@ on:
 
 jobs:
   build:
-    name: Swift ${{ matrix.swift.version }} on ${{ matrix.os }}
+    name: Swift ${{ matrix.swift.version }} on ${{ matrix.variable.os }}
     strategy:
       fail-fast: false
       matrix:
-        os-options: [
-          { os: macos-12 }, {os: ubuntu-22.04, options: --enable-code-coverage}, { os: windows-latest }
+        variable: [
+          { os: macos-12 }, {os: ubuntu-22.04, test-options: --enable-code-coverage}, { os: windows-latest }
         ]
         swift: [
           { version: "5.7", branch: "swift-5.8-branch", tag: "5.8-DEVELOPMENT-SNAPSHOT-2022-12-29-a" }
         ]
-    runs-on: ${{ matrix.os-options.os }}
+    runs-on: ${{ matrix.variable.os }}
     steps:
     - uses: swift-actions/setup-swift@v1
-      if: matrix.os-options.os != 'windows-latest'
+      if: matrix.variable.os != 'windows-latest'
       with:
         swift-version: ${{ matrix.swift.version }}
     - uses: compnerd/gha-setup-swift@main
-      if: matrix.os-options.os == 'windows-latest'
+      if: matrix.variable.os == 'windows-latest'
       with:
         branch: ${{ matrix.swift.branch }}
         tag: ${{ matrix.swift.tag }}
@@ -35,18 +35,18 @@ jobs:
     - name: Swift version
       run: swift --version
     - name: Build (Debug)
-      run: swift build -v -c debug ${{ matrix.os-options.options }}
+      run: swift build -v -c debug
     - name: Test (Debug)
-      run: swift test -v -c debug ${{ matrix.os-options.options }}
+      run: swift test -v -c debug ${{ matrix.variable.test-options }}
     - uses: mattpolzin/swift-codecov-action@0.7.3
       if: matrix.os == 'ubuntu-22.04'
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 74
     - name: Build (Release)
-      run: swift build -v -c release ${{ matrix.os-options.options }}
+      run: swift build -v -c release
     - name: Test (Release)
-      run: swift test -c release -Xswiftc -enable-testing ${{ matrix.os-options.options }}
+      run: swift test -c release -Xswiftc -enable-testing ${{ matrix.variable.test-options }}
     - uses: mattpolzin/swift-codecov-action@0.7.3
       if: matrix.os == 'ubuntu-22.04'
       with:
