@@ -14,14 +14,11 @@ jobs:
       matrix:
         host: [
           { type: macos, os: macos-12 },
-          { type: linux, os: ubuntu-22.04, test-options: --enable-coverage },
+          { type: linux, os: ubuntu-22.04, test-options: --enable-code-coverage },
           { type: windows, os: windows-latest },
         ]
         swift: [
           { version: "5.7", windows-branch: "swift-5.8-branch", windows-tag: "5.8-DEVELOPMENT-SNAPSHOT-2022-12-29-a" }
-        ]
-        test-options: [
-          { ubuntu-22.04: "--enable-coverage" }
         ]
     runs-on: ${{ matrix.host.os }}
     steps:
