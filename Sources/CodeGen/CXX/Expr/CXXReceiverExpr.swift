@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ `this` expression.
-struct CXXReceiverExpr: CXXNode {
+struct CXXReceiverExpr: CXXExpr {
 
   /// The original node in Val AST.
   let original: AnyExprID.TypedNode?

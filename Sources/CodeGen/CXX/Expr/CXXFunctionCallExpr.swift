@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ function call expression.
-struct CXXFunctionCallExpr: CXXNode {
+struct CXXFunctionCallExpr: CXXExpr {
 
   /// The calee expression.
   /// Can be an identifier, compound expression or any complex expression.

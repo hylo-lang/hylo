@@ -1,5 +1,5 @@
 /// A string suitable as a C++ identifier.
-public struct CXXIdentifier: CXXNode, CustomStringConvertible {
+public struct CXXIdentifier: CXXExpr, CustomStringConvertible {
 
   /// The value of the identifier.
   public let description: String

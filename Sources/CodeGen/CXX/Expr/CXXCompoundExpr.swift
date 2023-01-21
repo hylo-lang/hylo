@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ compound expression; i.e., A.B
-struct CXXCompoundExpr: CXXNode {
+struct CXXCompoundExpr: CXXExpr {
 
   /// The base expression; i.e., the thing before the dot.
   public let base: CXXNode

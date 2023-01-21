@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ conditional expression
-struct CXXConditionalExpr: CXXNode {
+struct CXXConditionalExpr: CXXExpr {
 
   /// The condition expression.
   public let condition: CXXNode

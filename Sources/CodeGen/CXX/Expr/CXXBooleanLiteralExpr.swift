@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ integer literal expression.
-public struct CXXBooleanLiteralExpr: CXXNode {
+public struct CXXBooleanLiteralExpr: CXXExpr {
 
   /// The value of the literal.
   let value: Bool

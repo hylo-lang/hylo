@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ infix operator call expression.
-struct CXXInfixExpr: CXXNode {
+struct CXXInfixExpr: CXXExpr {
 
   /// The calee expression.
   /// Usually, just an identifier.
