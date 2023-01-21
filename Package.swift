@@ -25,9 +25,6 @@ let package = Package(
       url: "https://github.com/apple/swift-collections.git",
       from: "1.0.0"),
     .package(
-      url: "https://github.com/apple/swift-algorithms.git",
-      from: "1.0.0"),
-    .package(
       url: "https://github.com/val-lang/Durian.git",
       from: "1.2.0"),
     .package(
@@ -64,7 +61,6 @@ let package = Package(
       name: "Core",
       dependencies: [
         "Utils",
-        .product(name: "Algorithms", package: "swift-algorithms"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
