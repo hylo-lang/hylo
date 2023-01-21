@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ `while` statement
-struct CXXWhileStmt: CXXNode {
+struct CXXWhileStmt: CXXStmt {
 
   /// The expression to be tested by the `while` loop.
   let condition: CXXNode
