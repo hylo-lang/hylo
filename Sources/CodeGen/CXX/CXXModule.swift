@@ -27,7 +27,7 @@ public struct CXXModule {
   // MARK: Serialization
 
   /// Emits the C++ header of the module.
-  public func emitHeader() -> String {
+  func emitHeader() -> String {
     var output: String = ""
 
     // Emit the header guard.
@@ -54,7 +54,7 @@ public struct CXXModule {
   }
 
   /// Emits the C++ implementation of the module.
-  public func emitSource() -> String {
+  func emitSource() -> String {
     var output: String = ""
 
     // Emit include clauses.
