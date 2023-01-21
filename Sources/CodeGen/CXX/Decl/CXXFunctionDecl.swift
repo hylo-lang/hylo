@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ function declaration.
-public struct CXXFunctionDecl {
+public struct CXXFunctionDecl: CXXTopLevelDecl {
 
   /// The ID of a C++ function in its module.
   public typealias ID = Int
@@ -18,6 +18,9 @@ public struct CXXFunctionDecl {
   /// The parameters of the function.
   public let parameters: [Parameter]
 
+  /// The body of the function.
+  public let body: CXXRepresentable?
+
   /// The original node in Val AST.
   let original: FunctionDecl.Typed
 
@@ -31,4 +34,17 @@ public struct CXXFunctionDecl {
     target.write(")")
   }
 
+  public func writeDeclaration<Target: TextOutputStream>(into target: inout Target) {
+    writeSignature(into: &target)
+    target.write(";\n")
+  }
+  public func writeDefinition<Target: TextOutputStream>(into target: inout Target) {
+    writeSignature(into: &target)
+    if body != nil {
+      target.write(" ")
+      body!.writeCode(into: &target)
+    } else {
+      target.write(";\n")
+    }
+  }
 }

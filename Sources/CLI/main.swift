@@ -260,9 +260,9 @@ private struct CLI: ParsableCommand {
   /// Logs `diagnostic` to the standard error.
   private func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
     // Log the location, if available.
-    if let location = diagnostic.location?.first() {
-      let path = location.file.url.relativePath
-      let (line, column) = location.lineAndColumn()
+    if let site = diagnostic.site?.first() {
+      let path = site.file.url.relativePath
+      let (line, column) = site.lineAndColumn()
       write("\(path):\(line):\(column): ".styled([.bold]))
     }
 
@@ -283,7 +283,7 @@ private struct CLI: ParsableCommand {
     write("\n")
 
     // Log the window
-    if let site = diagnostic.location {
+    if let site = diagnostic.site {
       let line = site.first().textOfLine()
       write(line)
 
@@ -300,8 +300,8 @@ private struct CLI: ParsableCommand {
       write("\n")
     }
 
-    // Log the children.
-    for child in diagnostic.children {
+    // Log the notes.
+    for child in diagnostic.notes {
       log(diagnostic: child, asChild: true)
     }
   }

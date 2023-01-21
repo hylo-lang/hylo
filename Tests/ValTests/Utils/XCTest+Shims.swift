@@ -1,8 +1,9 @@
 import XCTest
 
 /// This file declares a lightweight compatibility layer to fill some of the missing parts of
-/// swift-corelibs-xctest API.
-/// See https://github.com/apple/swift-corelibs-xctest/issues/348
+/// swift-corelibs-xctest API. See https://github.com/apple/swift-corelibs-xctest/issues/348
+///
+/// Do not modify the name of any type or property. Those are meant to match Apple's API.
 
 #if !os(macOS)
 
@@ -95,8 +96,7 @@ import XCTest
       let location = issue.sourceCodeContext!.location!
       recordFailure(
         withDescription: issue.compactDescription,
-        inFile: location.fileURL.path,
-        atLine: location.lineNumber,
+        inFile: location.fileURL.path, atLine: location.lineNumber,
         expected: true)
     }
 

@@ -313,7 +313,7 @@ public enum Parser {
           .error(
             expected: "'}'",
             at: state.currentLocation,
-            children: [.error("to match this '{'", range: opener.origin)]
+            notes: [.error("to match this '{'", at: opener.origin)]
           ))
         break
       }
@@ -2757,7 +2757,7 @@ public enum Parser {
           throw Diagnostics(
             .error(
               "conditional binding requires an initializer",
-              range: bindingRange.extended(upTo: bindingRange.start)))
+              at: bindingRange.extended(upTo: bindingRange.start)))
         }
 
         return state.insert(
@@ -2936,7 +2936,7 @@ public enum Parser {
       if let value = Int(state.lexer.sourceCode[token.origin]) {
         return .integer(SourceRepresentable(value: value, range: token.origin))
       } else {
-        throw Diagnostics(.error("invalid integer literal", range: token.origin))
+        throw Diagnostics(.error("invalid integer literal", at: token.origin))
       }
     }
 

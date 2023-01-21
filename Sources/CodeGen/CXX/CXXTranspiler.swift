@@ -30,6 +30,8 @@ public struct CXXTranspiler {
     switch decl.kind {
     case FunctionDecl.self:
       emit(function: FunctionDecl.Typed(decl)!, into: &module)
+    case ProductTypeDecl.self:
+      emit(type: ProductTypeDecl.Typed(decl)!, into: &module)
     default:
       unreachable("unexpected declaration")
     }
@@ -37,13 +39,65 @@ public struct CXXTranspiler {
 
   /// Emits the given function declaration into `module`.
   public mutating func emit(function decl: FunctionDecl.Typed, into module: inout CXXModule) {
-    // Declare the function in the module if necessary.
-    let id = module.getOrCreateFunction(correspondingTo: decl)
+    assert(program.isGlobal(decl.id))
 
-    // If we have a body for our function, emit it.
-    if let body = decl.body {
-      module.setFunctionBody(emit(funBody: body), forID: id)
+    /// The identifier of the function.
+    let identifier = CXXIdentifier(decl.identifier?.value ?? "")
+
+    // Determine the output type of the function.
+    let output: CXXTypeExpr
+    if identifier.description == "main" {
+      // The output type of `main` must be `int`.
+      output = CXXTypeExpr("int")
+    } else {
+      switch decl.type.base {
+      case let valDeclType as LambdaType:
+        output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
+
+      case is MethodType:
+        fatalError("not implemented")
+
+      default:
+        unreachable()
+      }
     }
+
+    // Determine the parameter types of the function.
+    let paramTypes: [CallableTypeParameter]
+    switch decl.type.base {
+    case let valDeclType as LambdaType:
+      paramTypes = valDeclType.inputs
+
+    case is MethodType:
+      fatalError("not implemented")
+
+    default:
+      unreachable()
+    }
+
+    // Determine the parameters of the function.
+    assert(paramTypes.count == decl.parameters.count)
+    var cxxParams: [CXXFunctionDecl.Parameter] = []
+    for (i, param) in decl.parameters.enumerated() {
+      let name = CXXIdentifier(param.name)
+      let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
+      cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
+    }
+
+    // The body of the function.
+    var cxxBody: CXXRepresentable? = nil
+    if let body = decl.body {
+      cxxBody = emit(funBody: body)
+    }
+
+    // Create the C++ function object.
+    module.addTopLevelDecl(
+      CXXFunctionDecl(
+        identifier: identifier,
+        output: output,
+        parameters: cxxParams,
+        body: cxxBody,
+        original: decl))
   }
 
   /// Translate the function body into a CXX entity.
@@ -53,12 +107,72 @@ public struct CXXTranspiler {
       return emit(brace: stmt)
 
     case .expr(let expr):
-      let exprBody = CXXReturnStmt(expr: emitR(expr: expr), original: expr)
+      let exprBody = CXXReturnStmt(expr: emitR(expr: expr), original: AnyNodeID.TypedNode(expr))
       return CXXScopedBlock(stmts: [exprBody], original: AnyNodeID.TypedNode(expr))
     }
   }
 
   // MARK: Declarations
+
+  /// Emits the given function declaration into `module`.
+  private mutating func emit(type decl: ProductTypeDecl.Typed, into module: inout CXXModule) {
+    assert(program.isGlobal(decl.id))
+
+    let name = CXXIdentifier(decl.identifier.value)
+
+    // Transpile the class membmers.
+    var cxxMembers: [CXXClassDecl.ClassMember] = []
+    for member in decl.members {
+      switch member.kind {
+      case BindingDecl.self:
+        let bindingDecl = BindingDecl.Typed(member)!
+        // Check if the attribute is static or not.
+        var isStatic = false
+        if bindingDecl.memberModifier != nil {
+          switch bindingDecl.memberModifier!.value {
+          case .static:
+            isStatic = true
+          }
+        }
+        // TODO: visit initializer (bindingDecl.initializer)
+        let cxxInitializer: CXXRepresentable? = nil
+        // TODO: pattern introducer (let, var, sink, inout)
+        // Visit the name patterns.
+        for (_, name) in bindingDecl.pattern.subpattern.names {
+          let varDecl = name.decl
+          let cxxAttribute = CXXClassAttribute(
+            type: CXXTypeExpr(varDecl.type, ast: program.ast)!,
+            name: CXXIdentifier(varDecl.name),
+            initializer: cxxInitializer,
+            isStatic: isStatic,
+            original: varDecl)
+          cxxMembers.append(.attribute(cxxAttribute))
+        }
+
+      case InitializerDecl.self:
+        let initialzerDecl = InitializerDecl.Typed(member)!
+        switch initialzerDecl.introducer.value {
+        case .`init`:
+          // TODO: emit constructor
+          cxxMembers.append(.constructor)
+          break
+        case .memberwiseInit:
+          // TODO: emit constructor
+          cxxMembers.append(.constructor)
+          break
+        }
+
+      case MethodDecl.self:
+        cxxMembers.append(.method)
+
+      default:
+        unreachable("unexpected class member")
+      }
+    }
+
+    // Create the C++ class.
+    module.addTopLevelDecl(CXXClassDecl(name: name, members: cxxMembers, original: decl))
+  }
 
   private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXRepresentable {
     let pattern = decl.pattern
@@ -155,7 +269,11 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "return stmt", original: AnyNodeID.TypedNode(stmt))
+    var expr: CXXRepresentable?
+    if stmt.value != nil {
+      expr = emitR(expr: stmt.value!)
+    }
+    return CXXReturnStmt(expr: expr, original: AnyNodeID.TypedNode(stmt))
   }
 
   // MARK: Expressions

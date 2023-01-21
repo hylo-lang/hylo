@@ -1,3 +1,5 @@
+import Utils
+
 /// A tuple type.
 public struct TupleType: TypeProtocol, Hashable {
 
@@ -61,8 +63,11 @@ public struct TupleType: TypeProtocol, Hashable {
 extension TupleType: CustomStringConvertible {
 
   public var description: String {
-    let elements = elements.map({ "\($0)" }).joined(separator: ", ")
-    return "{\(elements)}"
+    if (elements.count == 1) && (elements[0].label == nil) {
+      return "{\(elements[0]),}"
+    } else {
+      return "{\(list: elements)}"
+    }
   }
 
 }

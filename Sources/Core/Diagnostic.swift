@@ -20,49 +20,34 @@ public struct Diagnostic: Hashable {
   /// The message should be general and able to stand on its own.
   public let message: String
 
-  /// The location at which the diagnostic should be reported.
-  public let location: SourceRange?
+  /// The source code or source position (if empty) identified as the cause of the error.
+  public let site: SourceRange?
 
   /// The sub-diagnostics.
-  public let children: [Diagnostic]
+  public let notes: [Diagnostic]
 
   /// Creates a new diagnostic.
-  public init(
-    level: Level,
-    message: String,
-    location: SourceRange? = nil,
-    children: [Diagnostic] = []
-  ) {
+  public init(level: Level, message: String, site: SourceRange? = nil, notes: [Diagnostic] = []) {
     self.level = level
     self.message = message
-    self.location = location
-    self.children = children
+    self.site = site
+    self.notes = notes
   }
 
-  /// Creates an error diagnostic with `message` highlighting `range`.
-  public static func error(
-    _ message: String,
-    range: SourceRange? = nil,
-    children: [Diagnostic] = []
-  ) -> Diagnostic {
+  /// Returns an error with the given `message` highlighting `range`.
+  public static func error(_ message: String, at site: SourceRange? = nil, notes: [Diagnostic] = [])
+    -> Diagnostic
+  {
     Diagnostic(
-      level: .error,
-      message: message,
-      location: range,
-      children: children)
+      level: .error, message: message, site: site, notes: notes)
   }
 
-  /// Creates a warning diagnostic with `message` highlighting `range`.
+  /// Returns a warning with the given `message` highlighting `range`..
   public static func warning(
-    _ message: String,
-    range: SourceRange? = nil,
-    children: [Diagnostic] = []
+    _ message: String, at site: SourceRange? = nil, notes: [Diagnostic] = []
   ) -> Diagnostic {
     Diagnostic(
-      level: .warning,
-      message: message,
-      location: range,
-      children: children)
+      level: .warning, message: message, site: site, notes: notes)
   }
 
 }
@@ -71,7 +56,7 @@ extension Diagnostic: CustomStringConvertible {
 
   public var description: String {
     let prefix: String
-    if let l = location?.first() {
+    if let l = site?.first() {
       let (line, column) = l.lineAndColumn()
       prefix = "\(l.file.url):\(line):\(column): "
     } else {

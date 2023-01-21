@@ -77,8 +77,8 @@ public struct LifetimePass: TransformPass {
 
 extension Diagnostic {
 
-  fileprivate static func unusedBinding(name: Identifier, at range: SourceRange?) -> Diagnostic {
-    .warning("binding '\(name)' was never used", range: range)
+  fileprivate static func unusedBinding(name: Identifier, at site: SourceRange?) -> Diagnostic {
+    .warning("binding '\(name)' was never used", at: site)
   }
 
 }

@@ -1684,8 +1684,12 @@ public struct TypeChecker {
           return nil
         }
 
+      case is TypeVariable:
+        // If the expected type is a variable, we can't infer anything more at this point.
+        return expectedType
+
       case .some:
-        // The pattern has a tuple shape, the expected type hasn't.
+        // If the expected type doesn't have a tuple shape, the pattern cannot match.
         diagnostics.insert(
           .error(
             invalidDestructuringOfType: expectedType!,
