@@ -38,3 +38,35 @@ extension Int {
   }
 
 }
+
+extension Collection {
+  /// Returns the index of the first element in the collection
+  /// that matches the predicate.
+  ///
+  /// The collection must already be partitioned according to the
+  /// predicate, as if `self.partition(by: predicate)` had already
+  /// been called.
+  ///
+  /// - Efficiency: At most log(N) invocations of `predicate`, where
+  ///   N is the length of `self`.  At most log(N) index offsetting
+  ///   operations if `self` conforms to `RandomAccessCollection`;
+  ///   at most N such operations otherwise.
+  public func partitioningIndex(
+    where predicate: (Element) throws -> Bool
+  ) rethrows -> Index {
+    var n = distance(from: startIndex, to: endIndex)
+    var l = startIndex
+
+    while n > 0 {
+      let half = n / 2
+      let mid = index(l, offsetBy: half)
+      if try predicate(self[mid]) {
+        n = half
+      } else {
+        l = index(after: mid)
+        n -= half + 1
+      }
+    }
+    return l
+  }
+}
