@@ -1,15 +1,15 @@
 /// A string suitable as a C++ identifier.
-public struct CXXIdentifier: CXXExpr, CustomStringConvertible {
+struct CXXIdentifier: CXXExpr, CustomStringConvertible {
 
   /// The value of the identifier.
-  public let description: String
+  let description: String
 
-  public init(_ identifier: String) {
+  init(_ identifier: String) {
     description = CXXIdentifier.sanitize(identifier)
   }
 
   /// Sanitizes `identifier` and returns a valid C++ identifier.
-  public static func sanitize(_ identifier: String) -> String {
+  static func sanitize(_ identifier: String) -> String {
     // Append an underscore to reserved identifiers.
     reserved.contains(identifier)
       ? identifier + "_"
@@ -17,7 +17,7 @@ public struct CXXIdentifier: CXXExpr, CustomStringConvertible {
   }
 
   /// The set of reserved keywords in C++.
-  public static let reserved = Set([
+  static let reserved = Set([
     "asm", "auto", "break", "case",
     "catch", "char", "class", "const",
     "continue", "default", "delete", "do",
@@ -30,7 +30,7 @@ public struct CXXIdentifier: CXXExpr, CustomStringConvertible {
     "virtual", "void", "volatile", "while",
   ])
 
-  public func writeCode<Target: TextOutputStream>(into target: inout Target) {
+  func writeCode<Target: TextOutputStream>(into target: inout Target) {
     target.write(description)
   }
 

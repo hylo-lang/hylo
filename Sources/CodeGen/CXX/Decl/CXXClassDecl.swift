@@ -1,13 +1,13 @@
 import Core
 
 /// A C++ class declaration.
-public struct CXXClassDecl: CXXTopLevelDecl {
+struct CXXClassDecl: CXXTopLevelDecl {
 
   /// The ID of a C++ class in its module.
-  public typealias ID = Int
+  typealias ID = Int
 
   /// The type of a CXX class member.
-  public enum ClassMember {
+  enum ClassMember {
 
     /// A CXX class attribute
     case attribute(CXXClassAttribute)
@@ -21,24 +21,24 @@ public struct CXXClassDecl: CXXTopLevelDecl {
   }
 
   /// The name of the function.
-  public let name: CXXIdentifier
+  let name: CXXIdentifier
 
   /// The class membmers.
-  public let members: [ClassMember]
+  let members: [ClassMember]
 
   /// The original node in Val AST.
   let original: ProductTypeDecl.Typed
 
   /// Writes the signature of the class into `target`.
-  public func writeSignature<Target: TextOutputStream>(into target: inout Target) {
+  func writeSignature<Target: TextOutputStream>(into target: inout Target) {
     target.write("class \(name)")
   }
 
-  public func writeDeclaration<Target: TextOutputStream>(into target: inout Target) {
+  func writeDeclaration<Target: TextOutputStream>(into target: inout Target) {
     writeSignature(into: &target)
     target.write(";\n")
   }
-  public func writeDefinition<Target: TextOutputStream>(into target: inout Target) {
+  func writeDefinition<Target: TextOutputStream>(into target: inout Target) {
     writeSignature(into: &target)
     target.write(" {\n")
     target.write("public:\n")

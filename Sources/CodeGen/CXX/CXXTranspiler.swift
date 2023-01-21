@@ -7,7 +7,7 @@ import Utils
 public struct CXXTranspiler {
 
   /// The program being transpiled.
-  public let program: TypedProgram
+  let program: TypedProgram
 
   /// Creates a C++ transpiler with a well-typed AST.
   public init(program: TypedProgram) {
@@ -38,7 +38,7 @@ public struct CXXTranspiler {
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(function decl: FunctionDecl.Typed, into module: inout CXXModule) {
+  mutating func emit(function decl: FunctionDecl.Typed, into module: inout CXXModule) {
     assert(program.isGlobal(decl.id))
 
     /// The identifier of the function.

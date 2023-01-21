@@ -5,10 +5,10 @@ struct CXXFunctionCallExpr: CXXExpr {
 
   /// The calee expression.
   /// Can be an identifier, compound expression or any complex expression.
-  public let callee: CXXExpr
+  let callee: CXXExpr
 
   /// The arguments of the function call.
-  public let arguments: [CXXExpr]
+  let arguments: [CXXExpr]
 
   /// The original node in Val AST.
   let original: AnyExprID.TypedNode?

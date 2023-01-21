@@ -5,7 +5,7 @@ struct CXXComment: CXXNode, CXXExpr, CXXStmt {
 
   /// The content of the comment.
   /// If the string contains a newline, this would be written as a multiline comment.
-  public let comment: String
+  let comment: String
 
   /// The original node in Val AST.
   /// This node can be of any type.

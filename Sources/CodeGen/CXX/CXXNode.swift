@@ -1,6 +1,6 @@
 /// A protocol to group the CXX node types.
 /// The only common API exposed by a CXX node is its kind.
-public protocol CXXNode {
+protocol CXXNode {
 
   // TODO: will be removed soon
   func writeCode<Target: TextOutputStream>(into target: inout Target)

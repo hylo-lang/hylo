@@ -1,5 +1,5 @@
 /// A C++ top-level declaration that needs to be written both to headers and source files.
-public protocol CXXTopLevelDecl: CXXDecl {
+protocol CXXTopLevelDecl: CXXDecl {
 
   /// Write into target the CXX code that needs to reach the header of the module.
   func writeDeclaration<Target: TextOutputStream>(into target: inout Target)
@@ -11,6 +11,6 @@ public protocol CXXTopLevelDecl: CXXDecl {
 
 extension CXXTopLevelDecl {
   // TODO: remove me
-  public func writeCode<Target: TextOutputStream>(into target: inout Target) {}
+  func writeCode<Target: TextOutputStream>(into target: inout Target) {}
 
 }

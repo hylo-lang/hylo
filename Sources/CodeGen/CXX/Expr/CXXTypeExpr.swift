@@ -2,10 +2,10 @@ import Core
 import FrontEnd
 
 /// A type expression in C++.
-public struct CXXTypeExpr: CXXExpr, CustomStringConvertible {
+struct CXXTypeExpr: CXXExpr, CustomStringConvertible {
 
   /// The textual represention of the type expression.
-  public let description: String
+  let description: String
 
   /// The original type in Val AST.
   let original: AnyType?
@@ -17,7 +17,7 @@ public struct CXXTypeExpr: CXXExpr, CustomStringConvertible {
   ///   - isReturnType: If `true`, creates a type expression suitable to appear as the return type
   ///     of a function declaration. Otherwise, creates an expression suitable to appear as a local
   ///     variable type annotation.
-  public init?(_ type: AnyType, ast: AST, asReturnType isReturnType: Bool = false) {
+  init?(_ type: AnyType, ast: AST, asReturnType isReturnType: Bool = false) {
     self.original = type
     switch type.base {
     case AnyType.void:
@@ -42,12 +42,12 @@ public struct CXXTypeExpr: CXXExpr, CustomStringConvertible {
   }
 
   /// Creates a C++ type expression from its textual representation.
-  public init(_ description: String) {
+  init(_ description: String) {
     self.description = description
     self.original = nil
   }
 
-  public func writeCode<Target: TextOutputStream>(into target: inout Target) {
+  func writeCode<Target: TextOutputStream>(into target: inout Target) {
     target.write(description)
   }
 

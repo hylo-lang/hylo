@@ -6,21 +6,21 @@ import Utils
 public struct CXXModule {
 
   /// The module's declaration in Val's AST.
-  public let valDecl: ModuleDecl.Typed
+  let valDecl: ModuleDecl.Typed
 
   /// The typed program for wich we are constructing the CXX translation.
-  public let program: TypedProgram
+  let program: TypedProgram
 
   /// The C++ top-level declarations for this module
   private var cxxTopLevelDecls: [CXXTopLevelDecl] = []
 
-  public init(_ decl: ModuleDecl.Typed, for program: TypedProgram) {
+  init(_ decl: ModuleDecl.Typed, for program: TypedProgram) {
     self.valDecl = decl
     self.program = program
   }
 
   /// Add a top-level C++ declaration to this module.
-  public mutating func addTopLevelDecl(_ decl: CXXTopLevelDecl) {
+  mutating func addTopLevelDecl(_ decl: CXXTopLevelDecl) {
     cxxTopLevelDecls.append(decl)
   }
 

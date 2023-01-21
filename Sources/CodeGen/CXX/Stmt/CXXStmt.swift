@@ -1,2 +1,2 @@
 /// A CXX statement.
-public protocol CXXStmt: CXXNode {}
+protocol CXXStmt: CXXNode {}

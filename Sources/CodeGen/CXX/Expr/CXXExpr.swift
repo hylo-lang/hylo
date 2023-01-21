@@ -1,2 +1,2 @@
 /// A CXX expression.
-public protocol CXXExpr: CXXNode {}
+protocol CXXExpr: CXXNode {}
