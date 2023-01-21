@@ -24,13 +24,13 @@ jobs:
     steps:
     - name: Setup swift (non-Windows)
       uses: swift-actions/setup-swift@v1
-      if: !matrix.os.contains('windows')
+      if: !contains(matrix.os, 'windows')
       with:
         swift-version: ${{ matrix.swift.version }}
 
     - name: Setup swift (Windows)
       uses: compnerd/gha-setup-swift@main
-      if: matrix.os.contains('windows')
+      if: contains(matrix.os, 'windows')
       with:
         branch: ${{ matrix.swift.windows-branch }}
         tag: ${{ matrix.swift.windows-tag }}
@@ -48,7 +48,7 @@ jobs:
       run: swift test -v -c debug ${{matrix.test-options[${{matrix.os}}]}}
     - name: Check code coverage (Debug)
       uses: mattpolzin/swift-codecov-action@0.7.3
-      if: matrix.os.contains('ubuntu')
+      if: contains(matrix.os, 'ubuntu')
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 74
@@ -59,7 +59,7 @@ jobs:
       run: swift test -c release -Xswiftc -enable-testing ${{matrix.test-options[${{matrix.os}}]}}
     - name: Check code coverage (Release)
       uses: mattpolzin/swift-codecov-action@0.7.3
-      if: matrix.os.contains('ubuntu')
+      if: contains(matrix.os, 'ubuntu')
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 74
