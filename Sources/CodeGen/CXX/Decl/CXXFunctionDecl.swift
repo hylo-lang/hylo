@@ -24,27 +24,4 @@ struct CXXFunctionDecl: CXXTopLevelDecl {
   /// The original node in Val AST.
   let original: FunctionDecl.Typed
 
-  /// Writes the signature of the function into `target`.
-  func writeSignature<Target: TextOutputStream>(into target: inout Target) {
-    target.write("\(output) \(identifier)(")
-    for i in 0 ..< parameters.count {
-      if i != 0 { target.write(", ") }
-      target.write("\(parameters[i].type) \(parameters[i].name)")
-    }
-    target.write(")")
-  }
-
-  func writeDeclaration<Target: TextOutputStream>(into target: inout Target) {
-    writeSignature(into: &target)
-    target.write(";\n")
-  }
-  func writeDefinition<Target: TextOutputStream>(into target: inout Target) {
-    writeSignature(into: &target)
-    if body != nil {
-      target.write(" ")
-      body!.writeCode(into: &target)
-    } else {
-      target.write(";\n")
-    }
-  }
 }
