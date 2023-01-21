@@ -7,10 +7,10 @@ struct CXXIfStmt: CXXStmt {
   let condition: CXXExpr
 
   /// The statement to be executed if the condition is true.
-  let trueStmt: CXXNode
+  let trueStmt: CXXStmt
   /// The statement to be executed if the condition is false.
   /// Can be missing.
-  let falseStmt: CXXNode?
+  let falseStmt: CXXStmt?
 
   /// The original node in Val AST.
   /// This node can be of any type.

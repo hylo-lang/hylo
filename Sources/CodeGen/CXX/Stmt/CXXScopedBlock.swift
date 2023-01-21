@@ -4,7 +4,7 @@ import Core
 struct CXXScopedBlock: CXXStmt {
 
   /// The statements in the scoped block.
-  public let stmts: [CXXNode]
+  public let stmts: [CXXStmt]
 
   /// The original node in Val AST.
   /// This node can be of any type.

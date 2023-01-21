@@ -85,7 +85,7 @@ public struct CXXTranspiler {
     }
 
     // The body of the function.
-    var cxxBody: CXXNode? = nil
+    var cxxBody: CXXStmt? = nil
     if let body = decl.body {
       cxxBody = emit(funBody: body)
     }
@@ -101,7 +101,7 @@ public struct CXXTranspiler {
   }
 
   /// Translate the function body into a CXX entity.
-  private mutating func emit(funBody body: FunctionDecl.Typed.Body) -> CXXNode {
+  private mutating func emit(funBody body: FunctionDecl.Typed.Body) -> CXXStmt {
     switch body {
     case .block(let stmt):
       return emit(brace: stmt)
@@ -174,7 +174,7 @@ public struct CXXTranspiler {
     module.addTopLevelDecl(CXXClassDecl(name: name, members: cxxMembers, original: decl))
   }
 
-  private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXNode {
+  private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXStmt {
     let capability = decl.pattern.introducer.value
 
     // There's nothing to do if there's no initializer.
@@ -187,7 +187,7 @@ public struct CXXTranspiler {
       let cxxInitialzer = emit(expr: initializer, asLValue: isLValue)
 
       // Visit the patterns.
-      var stmts: [CXXNode] = []
+      var stmts: [CXXStmt] = []
       let pattern = decl.pattern
       for (path, name) in pattern.subpattern.names {
         // TODO: emit code for the patterns.
@@ -220,7 +220,7 @@ public struct CXXTranspiler {
   // MARK: Statements
 
   /// Emits the given statement into `module` at the current insertion point.
-  private mutating func emit<ID: StmtID>(stmt: ID.TypedNode) -> CXXNode {
+  private mutating func emit<ID: StmtID>(stmt: ID.TypedNode) -> CXXStmt {
     switch stmt.kind {
     case BraceStmt.self:
       return emit(brace: BraceStmt.Typed(stmt)!)
@@ -249,15 +249,15 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emit(brace stmt: BraceStmt.Typed) -> CXXNode {
-    var stmts: [CXXNode] = []
+  private mutating func emit(brace stmt: BraceStmt.Typed) -> CXXStmt {
+    var stmts: [CXXStmt] = []
     for s in stmt.stmts {
       stmts.append(emit(stmt: s))
     }
     return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(stmt))
   }
 
-  private mutating func emit(declStmt stmt: DeclStmt.Typed) -> CXXNode {
+  private mutating func emit(declStmt stmt: DeclStmt.Typed) -> CXXStmt {
     switch stmt.decl.kind {
     case BindingDecl.self:
       return emit(localBinding: BindingDecl.Typed(stmt.decl)!)
@@ -266,11 +266,11 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXNode {
+  private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXStmt {
     return CXXExprStmt(expr: emitR(expr: stmt.expr), original: AnyNodeID.TypedNode(stmt))
   }
 
-  private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXNode {
+  private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXStmt {
     let cxxExpr = CXXInfixExpr(
       callee: CXXIdentifier("="),
       lhs: emitL(expr: stmt.left, withCapability: .set),
@@ -279,7 +279,7 @@ public struct CXXTranspiler {
     return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(stmt))
   }
 
-  private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXNode {
+  private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXStmt {
     var expr: CXXExpr?
     if stmt.value != nil {
       expr = emitR(expr: stmt.value!)
@@ -287,7 +287,7 @@ public struct CXXTranspiler {
     return CXXReturnStmt(expr: expr, original: AnyNodeID.TypedNode(stmt))
   }
 
-  private mutating func emit(whileStmt stmt: WhileStmt.Typed) -> CXXNode {
+  private mutating func emit(whileStmt stmt: WhileStmt.Typed) -> CXXStmt {
     // TODO: multiple conditions
     // TODO: bindings in conditions
     let condition: CXXExpr
@@ -305,22 +305,22 @@ public struct CXXTranspiler {
     return CXXWhileStmt(
       condition: condition, body: emit(stmt: stmt.body), original: AnyNodeID.TypedNode(stmt))
   }
-  private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXNode {
+  private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXStmt {
     return CXXDoWhileStmt(
       body: emit(stmt: stmt.body),
       condition: emitR(expr: stmt.condition),
       original: AnyNodeID.TypedNode(stmt))
   }
-  private mutating func emit(forStmt stmt: ForStmt.Typed) -> CXXNode {
+  private mutating func emit(forStmt stmt: ForStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "ForStmt", original: AnyNodeID.TypedNode(stmt))
   }
-  private mutating func emit(breakStmt stmt: BreakStmt.Typed) -> CXXNode {
+  private mutating func emit(breakStmt stmt: BreakStmt.Typed) -> CXXStmt {
     return CXXBreakStmt(original: AnyNodeID.TypedNode(stmt))
   }
-  private mutating func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXNode {
+  private mutating func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXStmt {
     return CXXContinueStmt(original: AnyNodeID.TypedNode(stmt))
   }
-  private mutating func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXNode {
+  private mutating func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "YieldStmt", original: AnyNodeID.TypedNode(stmt))
   }
 
@@ -405,8 +405,8 @@ public struct CXXTranspiler {
         condition: condition, trueExpr: trueExpr, falseExpr: falseExpr, original: expr)
     } else {
       // We result in a statement
-      let trueStmt: CXXNode
-      let falseStmt: CXXNode?
+      let trueStmt: CXXStmt
+      let falseStmt: CXXStmt?
       switch expr.success {
       case .expr(let altExpr):
         let expr = program[altExpr]

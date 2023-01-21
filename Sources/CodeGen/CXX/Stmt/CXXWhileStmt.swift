@@ -7,7 +7,7 @@ struct CXXWhileStmt: CXXStmt {
   let condition: CXXExpr
 
   /// The statement to be executed as part of the loop.
-  let body: CXXNode
+  let body: CXXStmt
 
   /// The original node in Val AST.
   /// This node can be of any type.
