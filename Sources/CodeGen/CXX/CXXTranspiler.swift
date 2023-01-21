@@ -315,10 +315,10 @@ public struct CXXTranspiler {
     return CXXComment(comment: "ForStmt", original: AnyNodeID.TypedNode(stmt))
   }
   private mutating func emit(breakStmt stmt: BreakStmt.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "BreakStmt", original: AnyNodeID.TypedNode(stmt))
+    return CXXBreakStmt(original: AnyNodeID.TypedNode(stmt))
   }
   private mutating func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "ContinueStmt", original: AnyNodeID.TypedNode(stmt))
+    return CXXContinueStmt(original: AnyNodeID.TypedNode(stmt))
   }
   private mutating func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXRepresentable {
     return CXXComment(comment: "YieldStmt", original: AnyNodeID.TypedNode(stmt))

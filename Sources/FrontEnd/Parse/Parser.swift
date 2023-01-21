@@ -2724,7 +2724,7 @@ public enum Parser {
       }))
 
   static let continueStmt =
-    (take(.break)
+    (take(.continue)
       .map({ (state, token) -> NodeID<ContinueStmt> in
         state.insert(ContinueStmt(origin: token.origin))
       }))

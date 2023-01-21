@@ -890,6 +890,8 @@ extension ScopedProgram {
       visit(braceStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
     case BraceStmt.self:
       break
+    case BreakStmt.self:
+      break
     case CondBindingStmt.self:
       visit(condBindingStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
     case ContinueStmt.self:
