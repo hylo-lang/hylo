@@ -4,7 +4,7 @@ import Core
 struct CXXIfStmt: CXXStmt {
 
   /// The expression to be tested by the conditional.
-  let condition: CXXNode
+  let condition: CXXExpr
 
   /// The statement to be executed if the condition is true.
   let trueStmt: CXXNode

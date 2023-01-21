@@ -8,7 +8,7 @@ public struct CXXLocalVarDecl: CXXDecl {
   /// The name of the local variable.
   public let name: CXXIdentifier
   /// The initializer of the local variable.
-  public let initializer: CXXNode?
+  public let initializer: CXXExpr?
 
   /// The original node in Val AST.
   let original: VarDecl.Typed

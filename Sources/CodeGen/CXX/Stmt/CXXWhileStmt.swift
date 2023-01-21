@@ -4,7 +4,7 @@ import Core
 struct CXXWhileStmt: CXXStmt {
 
   /// The expression to be tested by the `while` loop.
-  let condition: CXXNode
+  let condition: CXXExpr
 
   /// The statement to be executed as part of the loop.
   let body: CXXNode

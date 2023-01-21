@@ -8,7 +8,7 @@ public struct CXXClassAttribute: CXXDecl {
   /// The name of the attribute.
   public let name: CXXIdentifier
   /// The initializer of the attribute.
-  public let initializer: CXXNode?
+  public let initializer: CXXExpr?
   /// True if this is a static class attribute.
   public let isStatic: Bool
 

@@ -4,7 +4,7 @@ import Core
 struct CXXExprStmt: CXXStmt {
 
   /// The expression contained in this statement.
-  let expr: CXXNode
+  let expr: CXXExpr
 
   /// The original node in Val AST.
   let original: AnyNodeID.TypedNode

@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ comment
-struct CXXComment: CXXNode {
+struct CXXComment: CXXNode, CXXExpr, CXXStmt {
 
   /// The content of the comment.
   /// If the string contains a newline, this would be written as a multiline comment.
