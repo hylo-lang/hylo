@@ -12,40 +12,41 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-12, ubuntu-22.04, windows-latest]
+        os-options: [
+          { os: macos-12 }, {os: ubuntu-22.04, options: --enable-code-coverage}, { os: windows-latest }
+        ]
         swift: [
           { version: "5.7", branch: "swift-5.8-branch", tag: "5.8-DEVELOPMENT-SNAPSHOT-2022-12-29-a" }
         ]
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os-options.os }}
     steps:
     - uses: swift-actions/setup-swift@v1
-      if: matrix.os != 'windows-latest'
+      if: matrix.os-options.os != 'windows-latest'
       with:
         swift-version: ${{ matrix.swift.version }}
     - uses: compnerd/gha-setup-swift@main
-      if: matrix.os == 'windows-latest'
+      if: matrix.os-options.os == 'windows-latest'
       with:
         branch: ${{ matrix.swift.branch }}
         tag: ${{ matrix.swift.tag }}
     - run: |
         git config --global core.autocrlf input
-      if: matrix.os == 'windows-latest'
     - uses: actions/checkout@v3
     - name: Swift version
       run: swift --version
     - name: Build (Debug)
-      run: swift build -v -c debug
+      run: swift build -v -c debug ${{ matrix.os-options.options }}
     - name: Test (Debug)
-      run: swift test -v -c debug --enable-code-coverage
+      run: swift test -v -c debug ${{ matrix.os-options.options }}
     - uses: mattpolzin/swift-codecov-action@0.7.3
       if: matrix.os == 'ubuntu-22.04'
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 74
     - name: Build (Release)
-      run: swift build -v -c release
+      run: swift build -v -c release ${{ matrix.os-options.options }}
     - name: Test (Release)
-      run: swift test -c release -Xswiftc -enable-testing --enable-code-coverage
+      run: swift test -c release -Xswiftc -enable-testing ${{ matrix.os-options.options }}
     - uses: mattpolzin/swift-codecov-action@0.7.3
       if: matrix.os == 'ubuntu-22.04'
       with:
