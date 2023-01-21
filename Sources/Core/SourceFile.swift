@@ -5,7 +5,7 @@ import Utils
 /// A Val source file.
 ///
 /// - Note: two source files are equal if and only if they have the same path in the filesystem.
-public struct SourceFile {
+public final class SourceFile: Codable {
 
   /// A position in the source text.
   public typealias Index = String.Index
@@ -106,6 +106,16 @@ public struct SourceFile {
     return text.index(lineStarts[line - 1], offsetBy: column - 1)
   }
 
+  public init(from decoder: Decoder) throws {
+    url = try .init(from: decoder)
+    text = try .init(from: decoder)
+    lineStarts = text.lineBoundaries()
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    try url.encode(to: encoder)
+    try text.encode(to: encoder)
+  }
 }
 
 extension SourceFile: Hashable {
@@ -115,22 +125,7 @@ extension SourceFile: Hashable {
   }
 
   public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
-    return lhs.url == rhs.url
-  }
-
-}
-
-extension SourceFile: Codable {
-
-  public init(from decoder: Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    let url = try container.decode(URL.self)
-    try self.init(contentsOf: url)
-  }
-
-  public func encode(to encoder: Encoder) throws {
-    var container = encoder.singleValueContainer()
-    try container.encode(url)
+    return lhs === rhs || lhs.url == rhs.url
   }
 
 }
