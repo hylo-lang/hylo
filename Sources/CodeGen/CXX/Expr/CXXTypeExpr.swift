@@ -2,7 +2,7 @@ import Core
 import FrontEnd
 
 /// A type expression in C++.
-public struct CXXTypeExpr: CustomStringConvertible {
+public struct CXXTypeExpr: CXXExpr, CustomStringConvertible {
 
   /// The textual represention of the type expression.
   public let description: String
@@ -45,6 +45,10 @@ public struct CXXTypeExpr: CustomStringConvertible {
   public init(_ description: String) {
     self.description = description
     self.original = nil
+  }
+
+  public func writeCode<Target: TextOutputStream>(into target: inout Target) {
+    target.write(description)
   }
 
 }
