@@ -10,12 +10,4 @@ struct CXXScopedBlock: CXXStmt {
   /// This node can be of any type.
   let original: AnyNodeID.TypedNode?
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    target.write("{\n")
-    for stmt in stmts {
-      stmt.writeCode(into: &target)
-    }
-    target.write("}\n")
-  }
-
 }

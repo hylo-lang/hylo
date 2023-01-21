@@ -10,14 +10,4 @@ struct CXXReturnStmt: CXXStmt {
   /// This node can be of any type.
   let original: AnyNodeID.TypedNode?
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    if expr != nil {
-      target.write("return ")
-      expr!.writeCode(into: &target)
-      target.write(";\n")
-    } else {
-      target.write("return;\n")
-    }
-  }
-
 }

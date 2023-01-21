@@ -13,10 +13,4 @@ struct CXXCompoundExpr: CXXExpr {
   /// The original node in Val AST.
   let original: AnyExprID.TypedNode?
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    base.writeCode(into: &target)
-    target.write(".")
-    id.writeCode(into: &target)
-  }
-
 }

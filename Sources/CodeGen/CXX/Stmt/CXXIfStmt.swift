@@ -16,15 +16,4 @@ struct CXXIfStmt: CXXStmt {
   /// This node can be of any type.
   let original: AnyNodeID.TypedNode?
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    target.write("if ( ")
-    condition.writeCode(into: &target)
-    target.write(" ) ")
-    trueStmt.writeCode(into: &target)
-    if falseStmt != nil {
-      target.write("else ")
-      falseStmt!.writeCode(into: &target)
-    }
-  }
-
 }

@@ -30,8 +30,4 @@ struct CXXIdentifier: CXXExpr, CustomStringConvertible {
     "virtual", "void", "volatile", "while",
   ])
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    target.write(description)
-  }
-
 }

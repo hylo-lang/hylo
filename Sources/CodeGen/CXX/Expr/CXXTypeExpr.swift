@@ -47,8 +47,4 @@ struct CXXTypeExpr: CXXExpr, CustomStringConvertible {
     self.original = nil
   }
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    target.write(description)
-  }
-
 }

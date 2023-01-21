@@ -13,11 +13,4 @@ struct CXXWhileStmt: CXXStmt {
   /// This node can be of any type.
   let original: AnyNodeID.TypedNode?
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    target.write("while ( ")
-    condition.writeCode(into: &target)
-    target.write(" ) ")
-    body.writeCode(into: &target)
-  }
-
 }

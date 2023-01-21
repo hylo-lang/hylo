@@ -9,8 +9,4 @@ struct CXXStmtExpr: CXXExpr {
   /// The original node in Val AST.
   let original: AnyNodeID.TypedNode
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    stmt.writeCode(into: &target)
-  }
-
 }

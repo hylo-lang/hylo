@@ -9,8 +9,4 @@ struct CXXIntegerLiteralExpr: CXXExpr {
   /// The original node in Val AST.
   let original: IntegerLiteralExpr.Typed?
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    target.write(value)
-  }
-
 }

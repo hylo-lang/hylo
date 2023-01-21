@@ -13,12 +13,4 @@ struct CXXConditionalExpr: CXXExpr {
   /// The original node in Val AST.
   let original: CondExpr.Typed
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    condition.writeCode(into: &target)
-    target.write(" ? ")
-    trueExpr.writeCode(into: &target)
-    target.write(" : ")
-    falseExpr.writeCode(into: &target)
-  }
-
 }

@@ -17,12 +17,4 @@ struct CXXInfixExpr: CXXExpr {
   /// Typically an expression, but somtimes this can be AssignStmt
   let original: AnyNodeID.TypedNode?
 
-  func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    lhs.writeCode(into: &target)
-    target.write(" ")
-    callee.writeCode(into: &target)
-    target.write(" ")
-    rhs.writeCode(into: &target)
-  }
-
 }
