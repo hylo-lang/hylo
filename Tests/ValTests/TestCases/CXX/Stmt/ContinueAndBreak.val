@@ -11,8 +11,7 @@
     continue;
     inc(count);
     }
-    return // name expression
-    ;
+    return count;
     }
  */
 
