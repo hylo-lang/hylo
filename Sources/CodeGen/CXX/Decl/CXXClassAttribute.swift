@@ -8,7 +8,7 @@ public struct CXXClassAttribute: CXXRepresentable {
   /// The name of the attribute.
   public let name: CXXIdentifier
   /// The initializer of the attribute.
-  public let initializer: CXXRepresentable?
+  public let initializer: CXXNode?
   /// True if this is a static class attribute.
   public let isStatic: Bool
 

@@ -4,7 +4,7 @@ import Core
 struct CXXExprStmt: CXXRepresentable {
 
   /// The expression contained in this statement.
-  let expr: CXXRepresentable
+  let expr: CXXNode
 
   /// The original node in Val AST.
   let original: AnyNodeID.TypedNode

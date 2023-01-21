@@ -19,7 +19,7 @@ public struct CXXFunctionDecl: CXXTopLevelDecl {
   public let parameters: [Parameter]
 
   /// The body of the function.
-  public let body: CXXRepresentable?
+  public let body: CXXNode?
 
   /// The original node in Val AST.
   let original: FunctionDecl.Typed

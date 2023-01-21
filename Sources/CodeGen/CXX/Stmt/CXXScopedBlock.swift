@@ -4,7 +4,7 @@ import Core
 struct CXXScopedBlock: CXXRepresentable {
 
   /// The statements in the scoped block.
-  public let stmts: [CXXRepresentable]
+  public let stmts: [CXXNode]
 
   /// The original node in Val AST.
   /// This node can be of any type.

@@ -3,7 +3,7 @@ import Core
 /// Cast the result of an expression to void
 struct CXXVoidCast: CXXRepresentable {
 
-  public let baseExpr: CXXRepresentable
+  public let baseExpr: CXXNode
 
   /// The original node in Val AST.
   let original: AnyExprID.TypedNode?

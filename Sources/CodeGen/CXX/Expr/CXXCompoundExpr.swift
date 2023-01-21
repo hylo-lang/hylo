@@ -4,11 +4,11 @@ import Core
 struct CXXCompoundExpr: CXXRepresentable {
 
   /// The base expression; i.e., the thing before the dot.
-  public let base: CXXRepresentable
+  public let base: CXXNode
 
   /// The identifier of the compound expression; i.e., the thing after the dot.
   /// Typically this is a CXXIdentifier.
-  public let id: CXXRepresentable
+  public let id: CXXNode
 
   /// The original node in Val AST.
   let original: AnyExprID.TypedNode?

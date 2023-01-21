@@ -4,11 +4,11 @@ import Core
 struct CXXConditionalExpr: CXXRepresentable {
 
   /// The condition expression.
-  public let condition: CXXRepresentable
+  public let condition: CXXNode
   /// The expression to be returned if the condition is `true`.
-  public let trueExpr: CXXRepresentable
+  public let trueExpr: CXXNode
   /// The expression to be returned if the condition is `false`.
-  public let falseExpr: CXXRepresentable
+  public let falseExpr: CXXNode
 
   /// The original node in Val AST.
   let original: CondExpr.Typed

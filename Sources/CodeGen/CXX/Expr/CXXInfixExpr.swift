@@ -5,13 +5,13 @@ struct CXXInfixExpr: CXXRepresentable {
 
   /// The calee expression.
   /// Usually, just an identifier.
-  public let callee: CXXRepresentable
+  public let callee: CXXNode
 
   /// The left-hand-side argument of the operator call.
-  public let lhs: CXXRepresentable
+  public let lhs: CXXNode
 
   /// The right-hand-side argument of the operator call.
-  public let rhs: CXXRepresentable
+  public let rhs: CXXNode
 
   /// The original node in Val AST.
   /// Typically an expression, but somtimes this can be AssignStmt

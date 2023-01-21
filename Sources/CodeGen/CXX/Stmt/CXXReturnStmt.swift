@@ -4,7 +4,7 @@ import Core
 struct CXXReturnStmt: CXXRepresentable {
 
   /// The expression to be returned.
-  let expr: CXXRepresentable?
+  let expr: CXXNode?
 
   /// The original node in Val AST.
   /// This node can be of any type.

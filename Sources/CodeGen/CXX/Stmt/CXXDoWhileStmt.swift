@@ -4,10 +4,10 @@ import Core
 struct CXXDoWhileStmt: CXXRepresentable {
 
   /// The statement to be executed as part of the loop.
-  let body: CXXRepresentable
+  let body: CXXNode
 
   /// The expression to be tested at the end of the loop.
-  let condition: CXXRepresentable
+  let condition: CXXNode
 
   /// The original node in Val AST.
   /// This node can be of any type.
