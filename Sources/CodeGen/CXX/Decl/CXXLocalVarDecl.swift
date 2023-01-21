@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ local variable declaration.
-public struct CXXLocalVarDecl: CXXNode {
+public struct CXXLocalVarDecl: CXXDecl {
 
   /// The type of the local variable.
   public let type: CXXTypeExpr
