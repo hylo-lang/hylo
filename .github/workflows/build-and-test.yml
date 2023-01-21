@@ -8,47 +8,54 @@ on:
 
 jobs:
   build:
-    name: Swift ${{ matrix.swift.version }} on ${{ matrix.variable.os }}
+    name: Swift ${{ matrix.swift.version }} on ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        variable: [
-          { os: macos-12 }, {os: ubuntu-22.04, test-options: --enable-code-coverage}, { os: windows-latest }
-        ]
+        os: [macos-12, ubuntu-22.04, windows-latest]
         swift: [
-          { version: "5.7", branch: "swift-5.8-branch", tag: "5.8-DEVELOPMENT-SNAPSHOT-2022-12-29-a" }
+          { version: "5.7", windows-branch: "swift-5.8-branch", windows-tag: "5.8-DEVELOPMENT-SNAPSHOT-2022-12-29-a" }
         ]
-    runs-on: ${{ matrix.variable.os }}
+        test-options: [
+          { ubuntu-22.04: "--enable-coverage" }
+        ]
+
+    runs-on: ${{ matrix.os }}
     steps:
-    - uses: swift-actions/setup-swift@v1
-      if: matrix.variable.os != 'windows-latest'
+    - name: Setup swift (non-Windows)
+      uses: swift-actions/setup-swift@v1
+      if: !matrix.os.contains('windows')
       with:
         swift-version: ${{ matrix.swift.version }}
+
+    - name: Setup swift (Windows)
     - uses: compnerd/gha-setup-swift@main
-      if: matrix.variable.os == 'windows-latest'
+      if: matrix.os.contains('windows')
       with:
-        branch: ${{ matrix.swift.branch }}
-        tag: ${{ matrix.swift.tag }}
+        branch: ${{ matrix.swift.windows-branch }}
+        tag: ${{ matrix.swift.windows-tag }}
+
     - run: |
         git config --global core.autocrlf input
     - uses: actions/checkout@v3
+
     - name: Swift version
       run: swift --version
     - name: Build (Debug)
       run: swift build -v -c debug
     - name: Test (Debug)
-      run: swift test -v -c debug ${{ matrix.variable.test-options }}
+      run: swift test -v -c debug ${{matrix.test-options[${{matrix.os}}]}}
     - uses: mattpolzin/swift-codecov-action@0.7.3
-      if: matrix.os == 'ubuntu-22.04'
+      if: matrix.os.contains('ubuntu')
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 74
     - name: Build (Release)
       run: swift build -v -c release
     - name: Test (Release)
-      run: swift test -c release -Xswiftc -enable-testing ${{ matrix.variable.test-options }}
+      run: swift test -c release -Xswiftc -enable-testing ${{matrix.test-options[${{matrix.os}}]}}
     - uses: mattpolzin/swift-codecov-action@0.7.3
-      if: matrix.os == 'ubuntu-22.04'
+      if: matrix.os.contains('ubuntu')
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 74
