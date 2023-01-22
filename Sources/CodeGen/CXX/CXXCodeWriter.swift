@@ -91,7 +91,7 @@ public struct CXXCodeWriter {
     target.writeSpace()
     write(identifier: decl.identifier, into: &target)
     target.write("(")
-    for i in 0..<decl.parameters.count {
+    for i in 0 ..< decl.parameters.count {
       if i != 0 { target.write(", ") }
       write(typeExpr: decl.parameters[i].type, into: &target)
       target.writeSpace()
