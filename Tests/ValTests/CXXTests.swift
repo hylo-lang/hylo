@@ -51,13 +51,13 @@ final class CXXTests: XCTestCase {
           let expectedCXX = a.argument!.removingTrailingNewlines()
           let cxxSourceToSearch = a.command == "cpp" ? cxxSourceCode : cxxHeaderCode
 
-          return cxxSourceToSearch.contains(expectedCXX)
+          return cxxSourceToSearch.essentialize().contains(expectedCXX.essentialize())
             ? nil
             : a.failure(
               """
               transpiled code not found:
               \(expectedCXX)
-              --- not found in ---
+              --- not found in (after removing whitespaces) ---
               \(cxxSourceToSearch)
               """)
         }
