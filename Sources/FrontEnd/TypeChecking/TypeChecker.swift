@@ -1054,6 +1054,9 @@ public struct TypeChecker {
     case ReturnStmt.self:
       return check(return: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
 
+    case WhileStmt.self:
+      return check(while: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
+
     case YieldStmt.self:
       return check(yield: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
 
@@ -1123,6 +1126,31 @@ public struct TypeChecker {
     } else {
       return true
     }
+  }
+
+  private mutating func check<S: ScopeID>(
+    while subject: NodeID<WhileStmt>,
+    inScope lexicalContext: S
+  ) -> Bool {
+    let syntax = program.ast[subject]
+
+    // Visit the condition(s).
+    let boolType = AnyType(program.ast.coreType(named: "Bool")!)
+    for item in syntax.condition {
+      switch item {
+      case .expr(let expr):
+        // Condition must be Boolean.
+        let inference = solveConstraints(
+          impliedBy: expr, expecting: boolType, inScope: lexicalContext)
+        if !inference.succeeded { return false }
+
+      case .decl(let binding):
+        if !check(binding: binding) { return false }
+      }
+    }
+
+    // Visit the body.
+    return check(brace: syntax.body)
   }
 
   private mutating func check<S: ScopeID>(
