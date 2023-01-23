@@ -7,7 +7,9 @@ import IR
 import Utils
 import ValModule
 
-private struct CLI: ParsableCommand {
+@main
+
+private struct ValCommand: ParsableCommand {
 
   /// The type of the output files to generate.
   private enum OutputType: ExpressibleByArgument {
@@ -107,9 +109,9 @@ private struct CLI: ParsableCommand {
   private func exit(with diagnostics: Diagnostics) {
     log(diagnostics: diagnostics)
     if diagnostics.errorReported {
-      CLI.exit(withError: ExitCode(-1))
+      ValCommand.exit(withError: ExitCode(-1))
     } else {
-      CLI.exit()
+      ValCommand.exit()
     }
   }
 
@@ -340,14 +342,14 @@ private struct CLI: ParsableCommand {
     }
 
     // Check the cache.
-    if let path = CLI.executableLocationCache[executable] {
+    if let path = ValCommand.executableLocationCache[executable] {
       return path
     }
 
     // Search in the current working directory.
     var candidateURL = currentDirectory.appendingPathComponent(executable)
     if FileManager.default.fileExists(atPath: candidateURL.path) {
-      CLI.executableLocationCache[executable] = candidateURL.path
+      ValCommand.executableLocationCache[executable] = candidateURL.path
       return candidateURL.path
     }
 
@@ -356,13 +358,13 @@ private struct CLI: ParsableCommand {
     for base in environmentPath.split(separator: ":") {
       candidateURL = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
       if FileManager.default.fileExists(atPath: candidateURL.path) {
-        CLI.executableLocationCache[executable] = candidateURL.path
+        ValCommand.executableLocationCache[executable] = candidateURL.path
         return candidateURL.path
       }
     }
 
     log(errorLabel + "executable not found: \(executable)")
-    CLI.exit(withError: ExitCode(-1))
+    ValCommand.exit(withError: ExitCode(-1))
   }
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
@@ -389,6 +391,3 @@ private struct CLI: ParsableCommand {
   private static var executableLocationCache: [String: String] = [:]
 
 }
-
-// Run the program.
-CLI.main()
