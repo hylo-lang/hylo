@@ -259,12 +259,11 @@ private struct CLI: ParsableCommand {
 
   /// Logs `diagnostic` to the standard error.
   private func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
-    // Log the location, if available.
-    if let site = diagnostic.site?.first() {
-      let path = site.file.url.relativePath
-      let (line, column) = site.lineAndColumn()
-      write("\(path):\(line):\(column): ".styled([.bold]))
-    }
+    // Log the location
+    let siteFirst = diagnostic.site.first()
+    let path = siteFirst.file.url.relativePath
+    let (lineFirst, column) = siteFirst.lineAndColumn()
+    write("\(path):\(lineFirst):\(column): ".styled([.bold]))
 
     // Log the level.
     if isChild {
@@ -283,22 +282,21 @@ private struct CLI: ParsableCommand {
     write("\n")
 
     // Log the window
-    if let site = diagnostic.site {
-      let line = site.first().textOfLine()
-      write(line)
+    let site = diagnostic.site
+    let line = site.first().textOfLine()
+    write(line)
 
-      let padding = line.distance(from: line.startIndex, to: site.start)
-      write(String(repeating: " ", count: padding))
+    let padding = line.distance(from: line.startIndex, to: site.start)
+    write(String(repeating: " ", count: padding))
 
-      let count = line.distance(
-        from: site.start, to: min(site.end, line.endIndex))
-      if count > 1 {
-        write(String(repeating: "~", count: count))
-      } else {
-        write("^")
-      }
-      write("\n")
+    let count = line.distance(
+      from: site.start, to: min(site.end, line.endIndex))
+    if count > 1 {
+      write(String(repeating: "~", count: count))
+    } else {
+      write("^")
     }
+    write("\n")
 
     // Log the notes.
     for child in diagnostic.notes {

@@ -1000,7 +1000,7 @@ public struct TypeChecker {
               because: [
                 .error(
                   traitRequiresMethod: Name(of: requirement, in: program.ast)!,
-                  withType: declTypes[requirement]!)
+                  withType: declTypes[requirement]!, at: .eliminateFIXME)
               ]))
           success = false
         }
@@ -1522,9 +1522,9 @@ public struct TypeChecker {
     // Determine whether tracing should be enabled.
     let shouldLogTrace: Bool
     if let tracingRange = inferenceTracingRange,
-      let subjectRange = program.ast[subject].origin,
-      tracingRange.contains(subjectRange.first())
+      tracingRange.contains(program.ast[subject].origin.first())
     {
+      let subjectRange = program.ast[subject].origin
       shouldLogTrace = true
       let loc = subjectRange.first()
       let subjectDescription = subjectRange.file[subjectRange]
@@ -2374,7 +2374,7 @@ public struct TypeChecker {
     }
 
     // Evaluate the static argument list.
-    var arguments: [(value: BoundGenericType.Argument, origin: SourceRange?)] = []
+    var arguments: [(value: BoundGenericType.Argument, origin: SourceRange)] = []
     for a in program.ast[expr].arguments {
       // TODO: Symbolic execution
       guard let type = realize(a.value, inScope: scope)?.instance else { return nil }

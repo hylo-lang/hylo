@@ -9,7 +9,7 @@ public struct CondBindingStmt: Stmt {
 
   }
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The conditional binding.
   public let binding: NodeID<BindingDecl>
@@ -17,7 +17,7 @@ public struct CondBindingStmt: Stmt {
   /// The fallback expression or statement.
   public let fallback: Fallback
 
-  public init(binding: NodeID<BindingDecl>, fallback: Fallback, origin: SourceRange?) {
+  public init(binding: NodeID<BindingDecl>, fallback: Fallback, origin: SourceRange) {
     self.origin = origin
     self.binding = binding
     self.fallback = fallback

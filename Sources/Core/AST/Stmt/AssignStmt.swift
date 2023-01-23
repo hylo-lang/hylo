@@ -1,7 +1,7 @@
 /// An assignment statement.
 public struct AssignStmt: Stmt {
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The left operand.
   public let left: AnyExprID
@@ -9,7 +9,7 @@ public struct AssignStmt: Stmt {
   /// The right operand.
   public let right: AnyExprID
 
-  public init(left: AnyExprID, right: AnyExprID, origin: SourceRange?) {
+  public init(left: AnyExprID, right: AnyExprID, origin: SourceRange) {
     self.origin = origin
     self.left = left
     self.right = right

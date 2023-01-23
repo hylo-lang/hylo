@@ -9,7 +9,7 @@ extension XCTIssue {
       type: .assertionFailure,
       compactDescription: d.message,
       sourceCodeContext:
-        .init(location: (d.site?.first()).map(XCTSourceCodeLocation.init(_:))))
+        .init(location: XCTSourceCodeLocation.init(d.site.first())))
   }
 
 }

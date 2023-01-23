@@ -12,7 +12,7 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
 
   }
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The introducer of the subscript.
   public let introducer: SourceRepresentable<ImplIntroducer>
@@ -27,7 +27,7 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
     introducer: SourceRepresentable<ImplIntroducer>,
     receiver: NodeID<ParameterDecl>?,
     body: Body?,
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     self.origin = origin
     self.introducer = introducer

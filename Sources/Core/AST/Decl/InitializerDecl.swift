@@ -12,12 +12,12 @@ public struct InitializerDecl: GenericDecl, GenericScope {
 
   }
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
   /// The introducer of the declaration.
   public let introducer: SourceRepresentable<Introducer>
 
-  /// The attributes of the declaration, if any.
+  /// The attributes of the declaration.
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
@@ -46,7 +46,7 @@ public struct InitializerDecl: GenericDecl, GenericScope {
     parameters: [NodeID<ParameterDecl>],
     receiver: NodeID<ParameterDecl>,
     body: NodeID<BraceStmt>?,
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     precondition((introducer.value == .`init`) || (body == nil))
 

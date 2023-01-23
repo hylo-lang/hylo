@@ -26,15 +26,15 @@ extension Diagnostic {
       ])
   }
 
-  static func error(infixOperatorRequiresWhitespacesAt site: SourceRange?) -> Diagnostic {
+  static func error(infixOperatorRequiresWhitespacesAt site: SourceRange) -> Diagnostic {
     .error("infix operator requires whitespaces on both sides", at: site)
   }
 
-  static func error(separatedMutationMarkerAt site: SourceRange?) -> Diagnostic {
+  static func error(separatedMutationMarkerAt site: SourceRange) -> Diagnostic {
     .error("in-place mutation marker cannot be separated from its expression", at: site)
   }
 
-  static func error(separatedPrefixOperatorAt site: SourceRange?) -> Diagnostic {
+  static func error(separatedPrefixOperatorAt site: SourceRange) -> Diagnostic {
     .error("prefix operator cannot be separated from its operand", at: site)
   }
 

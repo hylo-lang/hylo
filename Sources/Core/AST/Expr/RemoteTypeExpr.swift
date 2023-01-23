@@ -1,10 +1,10 @@
 /// The type expression of a remote type (e.g., `remote let Int`).
 public struct RemoteTypeExpr: Expr {
 
-  public let origin: SourceRange?
+  public let origin: SourceRange
 
-  /// The source range of the expression's introducer, if any.
-  public let introducerRange: SourceRange?
+  /// The source range of the expression's introducer.
+  public let introducerRange: SourceRange
 
   /// The passing convention of the remote type.
   public var convention: SourceRepresentable<AccessEffect>
@@ -13,10 +13,10 @@ public struct RemoteTypeExpr: Expr {
   public let operand: AnyTypeExprID
 
   public init(
-    introducerRange: SourceRange?,
+    introducerRange: SourceRange,
     convention: SourceRepresentable<AccessEffect>,
     operand: AnyTypeExprID,
-    origin: SourceRange?
+    origin: SourceRange
   ) {
     self.origin = origin
     self.introducerRange = introducerRange

@@ -754,7 +754,10 @@ struct ConstraintSolver {
       typeAssumptions: typeAssumptions.optimized(),
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
-      diagnostics: diagnostics + stale.map(Diagnostic.error(staleConstraint:)))
+      diagnostics: diagnostics
+        + stale.map {
+          Diagnostic.error(staleConstraint: $0, at: .eliminateFIXME)
+        })
   }
 
   /// Creates an ambiguous solution.
@@ -968,7 +971,8 @@ extension TypeChecker {
       else { return false }
 
       constraints.insert(
-        SubtypingConstraint(bareLHS, bareRHS, because: ConstraintCause(.binding, at: nil)))
+        SubtypingConstraint(
+          bareLHS, bareRHS, because: ConstraintCause(.binding, at: .eliminateFIXME)))
     }
 
     // Solve the constraint system.
