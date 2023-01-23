@@ -7,9 +7,7 @@ import IR
 import Utils
 import ValModule
 
-@main
-
-private struct ValCommand: ParsableCommand {
+public struct ValCommand: ParsableCommand {
 
   /// The type of the output files to generate.
   private enum OutputType: ExpressibleByArgument {
@@ -42,7 +40,9 @@ private struct ValCommand: ParsableCommand {
 
   }
 
-  fileprivate static let configuration = CommandConfiguration(commandName: "valc")
+  public static let configuration = CommandConfiguration(commandName: "valc")
+
+  public init() {}
 
   @Flag(
     name: [.customLong("modules")],
@@ -115,7 +115,7 @@ private struct ValCommand: ParsableCommand {
     }
   }
 
-  fileprivate mutating func run() throws {
+  public mutating func run() throws {
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
     }

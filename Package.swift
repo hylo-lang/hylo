@@ -37,6 +37,13 @@ let package = Package(
     .executableTarget(
       name: "CLI",
       dependencies: [
+        "ValCommand",
+      ],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
+      name: "ValCommand",
+      dependencies: [
         "FrontEnd",
         "IR",
         "CodeGenCXX",
@@ -85,8 +92,7 @@ let package = Package(
     .target(
       name: "Utils",
       dependencies: [.product(name: "BigInt", package: "BigInt")],
-      swiftSettings: allTargetsSwiftSettings
-    ),
+      swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
     .testTarget(

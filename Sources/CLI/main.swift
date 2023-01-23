@@ -1,0 +1,3 @@
+import ValCommand
+
+ValCommand.main()
