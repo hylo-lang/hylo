@@ -29,7 +29,7 @@ public struct TypeChecker {
   public var isBuiltinModuleVisible: Bool
 
   /// The source range for which type inference tracing is enabled, if any.
-  public let inferenceTracingRange: SourceRange?
+  public let inferenceTracingSite: SourceRange?
 
   /// The set of lambda expressions whose declarations are pending type checking.
   public private(set) var pendingLambdas: [NodeID<LambdaExpr>] = []
@@ -41,11 +41,11 @@ public struct TypeChecker {
   public init(
     program: ScopedProgram,
     isBuiltinModuleVisible: Bool = false,
-    enablingInferenceTracingIn inferenceTracingRange: SourceRange? = nil
+    enablingInferenceTracingIn inferenceTracingSite: SourceRange? = nil
   ) {
     self.program = program
     self.isBuiltinModuleVisible = isBuiltinModuleVisible
-    self.inferenceTracingRange = inferenceTracingRange
+    self.inferenceTracingSite = inferenceTracingSite
   }
 
   // MARK: Type system
@@ -494,7 +494,7 @@ public struct TypeChecker {
       if program.isRequirement(id) || program.ast[id].isFFI { return success }
 
       // Declaration requires a body.
-      diagnostics.insert(.error(declarationRequiresBodyAt: program.ast[id].introducerRange))
+      diagnostics.insert(.error(declarationRequiresBodyAt: program.ast[id].introducerSite))
       return false
     }
   }
@@ -589,7 +589,7 @@ public struct TypeChecker {
         if program.isRequirement(id) { continue }
 
         // Declaration requires a body.
-        diagnostics.insert(.error(declarationRequiresBodyAt: program.ast[id].introducerRange))
+        diagnostics.insert(.error(declarationRequiresBodyAt: program.ast[id].introducerSite))
         success = false
       }
     }
@@ -1521,13 +1521,13 @@ public struct TypeChecker {
   ) -> (succeeded: Bool, solution: Solution) {
     // Determine whether tracing should be enabled.
     let shouldLogTrace: Bool
-    if let tracingRange = inferenceTracingRange,
-      tracingRange.contains(program.ast[subject].site.first())
+    if let tracingSite = inferenceTracingSite,
+      tracingSite.contains(program.ast[subject].site.first())
     {
-      let subjectRange = program.ast[subject].site
+      let subjectSite = program.ast[subject].site
       shouldLogTrace = true
-      let loc = subjectRange.first()
-      let subjectDescription = subjectRange.file[subjectRange]
+      let loc = subjectSite.first()
+      let subjectDescription = subjectSite.file[subjectSite]
       print("Inferring type of '\(subjectDescription)' at \(loc)")
       print("---")
     } else {
@@ -3118,7 +3118,7 @@ public struct TypeChecker {
       let range =
         program.ast[id].output.map({ (output) in
           program.ast[output].site
-        }) ?? program.ast[id].introducerRange
+        }) ?? program.ast[id].introducerSite
       diagnostics.insert(.error(inoutCapableMethodBundleMustReturn: receiver, at: range))
       return .error
     }

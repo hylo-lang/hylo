@@ -4,7 +4,7 @@ public struct RemoteTypeExpr: Expr {
   public let site: SourceRange
 
   /// The source range of the expression's introducer.
-  public let introducerRange: SourceRange
+  public let introducerSite: SourceRange
 
   /// The passing convention of the remote type.
   public var convention: SourceRepresentable<AccessEffect>
@@ -13,13 +13,13 @@ public struct RemoteTypeExpr: Expr {
   public let operand: AnyTypeExprID
 
   public init(
-    introducerRange: SourceRange,
+    introducerSite: SourceRange,
     convention: SourceRepresentable<AccessEffect>,
     operand: AnyTypeExprID,
     site: SourceRange
   ) {
     self.site = site
-    self.introducerRange = introducerRange
+    self.introducerSite = introducerSite
     self.convention = convention
     self.operand = operand
   }

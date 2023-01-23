@@ -4,7 +4,7 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
   public let site: SourceRange
 
   /// The source range of the declaration's introducer.
-  public let introducerRange: SourceRange
+  public let introducerSite: SourceRange
 
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
@@ -17,14 +17,14 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange,
+    introducerSite: SourceRange,
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     members: [AnyDeclID],
     site: SourceRange
   ) {
     self.site = site
-    self.introducerRange = introducerRange
+    self.introducerSite = introducerSite
     self.accessModifier = accessModifier
     self.identifier = identifier
     self.members = members

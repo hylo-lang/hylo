@@ -438,7 +438,7 @@ extension TypeChecker {
       } else {
         // The system is underspecified.
         addDiagnostic(
-          .error(cannotInferComplexReturnTypeAt: program.ast[syntax.decl].introducerRange))
+          .error(cannotInferComplexReturnTypeAt: program.ast[syntax.decl].introducerSite))
         return facts.assignErrorType(to: subject)
       }
     }

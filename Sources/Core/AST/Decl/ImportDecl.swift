@@ -4,19 +4,19 @@ public struct ImportDecl: SingleEntityDecl {
   public let site: SourceRange
 
   /// The source range of the declaration's introducer.
-  public let introducerRange: SourceRange
+  public let introducerSite: SourceRange
 
   /// The identifier of the imported module.
   public let identifier: SourceRepresentable<Identifier>
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange,
+    introducerSite: SourceRange,
     identifier: SourceRepresentable<Identifier>,
     site: SourceRange
   ) {
     self.site = site
-    self.introducerRange = introducerRange
+    self.introducerSite = introducerSite
     self.identifier = identifier
   }
 

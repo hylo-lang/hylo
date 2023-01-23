@@ -90,7 +90,7 @@ extension Diagnostic {
   }
 
   static func error(unexpectedMethodDecl d: MethodDecl) -> Diagnostic {
-    .error("method bundle declaration is not allowed here", at: d.introducerRange)
+    .error("method bundle declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedMethodImplDecl d: MethodImplDecl) -> Diagnostic {
@@ -98,11 +98,11 @@ extension Diagnostic {
   }
 
   static func error(unexpectedNamespaceDecl d: NamespaceDecl) -> Diagnostic {
-    .error("namespace declaration is not allowed here", at: d.introducerRange)
+    .error("namespace declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedOperatorDecl d: OperatorDecl) -> Diagnostic {
-    .error("operator declaration is not allowed here", at: d.introducerRange)
+    .error("operator declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedParameterDecl d: ParameterDecl) -> Diagnostic {

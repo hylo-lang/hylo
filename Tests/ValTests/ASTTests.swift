@@ -23,7 +23,7 @@ final class ASTTests: XCTestCase {
     // Create a trait declaration.
     let decl = ast.insert(
       synthesized: ImportDecl(
-        introducerRange: .eliminateFIXME,
+        introducerSite: .eliminateFIXME,
         identifier: SourceRepresentable(value: "T", range: .eliminateFIXME),
         site: .eliminateFIXME))
 
@@ -46,7 +46,7 @@ final class ASTTests: XCTestCase {
           AnyDeclID(
             ast.insert(
               synthesized: FunctionDecl(
-                introducerRange: .eliminateFIXME,
+                introducerSite: .eliminateFIXME,
                 identifier: SourceRepresentable(value: "foo", range: .eliminateFIXME),
                 site: .eliminateFIXME)))
         ]))

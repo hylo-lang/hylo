@@ -362,7 +362,7 @@ public enum Parser {
     // Create a new `AssociatedTypeDecl`.
     return state.insert(
       AssociatedTypeDecl(
-        introducerRange: parts.0.0.0.0.site,
+        introducerSite: parts.0.0.0.0.site,
         identifier: state.token(parts.0.0.0.1),
         conformances: parts.0.0.1 ?? [],
         whereClause: parts.0.1,
@@ -402,7 +402,7 @@ public enum Parser {
     // Create a new `AssociatedValueDecl`.
     return state.insert(
       AssociatedValueDecl(
-        introducerRange: parts.0.0.0.site,
+        introducerSite: parts.0.0.0.site,
         identifier: state.token(parts.0.0.1),
         whereClause: parts.0.1,
         defaultValue: parts.1,
@@ -577,7 +577,7 @@ public enum Parser {
     assert(prologue.memberModifiers.count <= 1)
     return state.insert(
       FunctionDecl(
-        introducerRange: head.name.introducerRange,
+        introducerSite: head.name.introducerSite,
         attributes: prologue.attributes,
         accessModifier: prologue.accessModifiers.first,
         memberModifier: prologue.memberModifiers.first,
@@ -620,7 +620,7 @@ public enum Parser {
     assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       MethodDecl(
-        introducerRange: head.name.introducerRange,
+        introducerSite: head.name.introducerSite,
         attributes: prologue.attributes,
         accessModifier: prologue.accessModifiers.first,
         notation: head.name.notation,
@@ -661,7 +661,7 @@ public enum Parser {
     // Create a new `ImportDecl`.
     return state.insert(
       ImportDecl(
-        introducerRange: parts.0.site,
+        introducerSite: parts.0.site,
         identifier: state.token(parts.1),
         site: state.range(from: prologue.startIndex)))
   }
@@ -765,7 +765,7 @@ public enum Parser {
     assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       NamespaceDecl(
-        introducerRange: parts.0.0.site,
+        introducerSite: parts.0.0.site,
         accessModifier: prologue.accessModifiers.first,
         identifier: state.token(parts.0.1),
         members: parts.1,
@@ -799,7 +799,7 @@ public enum Parser {
     assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       OperatorDecl(
-        introducerRange: parts.0.0.0.site,
+        introducerSite: parts.0.0.0.site,
         accessModifier: prologue.accessModifiers.first,
         notation: parts.0.0.1,
         name: parts.0.1,
@@ -1131,14 +1131,14 @@ public enum Parser {
     if let introducer = state.take(.fun) {
       let stem = try state.expect("identifier", using: { $0.take(.name) })
       return FunctionDeclName(
-        introducerRange: introducer.site, stem: state.token(stem), notation: nil)
+        introducerSite: introducer.site, stem: state.token(stem), notation: nil)
     }
 
     if let notation = try operatorNotation.parse(&state) {
       _ = try state.expect("'fun'", using: { $0.take(.fun) })
       let stem = try state.expect("operator", using: operatorIdentifier)
       return FunctionDeclName(
-        introducerRange: notation.site,
+        introducerSite: notation.site,
         stem: stem,
         notation: notation)
     }
@@ -1557,7 +1557,7 @@ public enum Parser {
 
       let expr = state.insert(
         InoutExpr(
-          operatorRange: op.site,
+          operatorSite: op.site,
           subject: operand,
           site: state.range(from: op.site.start)))
       return AnyExprID(expr)
@@ -1981,7 +1981,7 @@ public enum Parser {
 
     let decl = state.insert(
       FunctionDecl(
-        introducerRange: introducer.site,
+        introducerSite: introducer.site,
         receiverEffect: signature.receiverEffect,
         explicitCaptures: explicitCaptures ?? [],
         parameters: signature.parameters,
@@ -2096,7 +2096,7 @@ public enum Parser {
 
     let decl = state.insert(
       FunctionDecl(
-        introducerRange: introducer.site,
+        introducerSite: introducer.site,
         receiverEffect: effect,
         explicitCaptures: explicitCaptures,
         output: output,
@@ -2682,7 +2682,7 @@ public enum Parser {
       }))
 
   static let forStmt =
-    (take(.for).and(bindingPattern).and(forRange).and(maybe(forFilter)).and(loopBody)
+    (take(.for).and(bindingPattern).and(forSite).and(maybe(forFilter)).and(loopBody)
       .map({ (state, tree) -> NodeID<ForStmt> in
         let decl = state.insert(
           BindingDecl(
@@ -2695,7 +2695,7 @@ public enum Parser {
             site: tree.0.0.0.0.site.extended(upTo: state.currentIndex)))
       }))
 
-  static let forRange = (take(.in).and(expr).second)
+  static let forSite = (take(.in).and(expr).second)
 
   static let forFilter = (take(.where).and(expr).second)
 
@@ -2753,20 +2753,20 @@ public enum Parser {
   static let conditionalBindingStmt =
     (bindingDecl.and(take(.else)).and(conditionalBindingFallback)
       .map({ (state, tree) -> NodeID<CondBindingStmt> in
-        let bindingRange = state.ast[tree.0.0].site
+        let bindingSite = state.ast[tree.0.0].site
 
         if state.ast[tree.0.0].initializer == nil {
           throw Diagnostics(
             .error(
               "conditional binding requires an initializer",
-              at: bindingRange.extended(upTo: bindingRange.start)))
+              at: bindingSite.extended(upTo: bindingSite.start)))
         }
 
         return state.insert(
           CondBindingStmt(
             binding: tree.0.0,
             fallback: tree.1,
-            site: bindingRange.extended(upTo: state.currentIndex)))
+            site: bindingSite.extended(upTo: state.currentIndex)))
       }))
 
   static let conditionalBindingFallback =
@@ -2987,7 +2987,7 @@ struct DeclPrologue {
 struct FunctionDeclName {
 
   /// The source range of the `fun` introducer.
-  let introducerRange: SourceRange
+  let introducerSite: SourceRange
 
   /// The stem of the declared identifier.
   let stem: SourceRepresentable<String>

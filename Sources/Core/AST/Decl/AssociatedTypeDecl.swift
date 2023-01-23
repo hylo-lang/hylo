@@ -4,7 +4,7 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
   public let site: SourceRange
 
   /// The source range of the declaration's introducer.
-  public let introducerRange: SourceRange
+  public let introducerSite: SourceRange
 
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>
@@ -20,7 +20,7 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange,
+    introducerSite: SourceRange,
     identifier: SourceRepresentable<Identifier>,
     conformances: [NodeID<NameExpr>],
     whereClause: SourceRepresentable<WhereClause>?,
@@ -28,7 +28,7 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
     site: SourceRange
   ) {
     self.site = site
-    self.introducerRange = introducerRange
+    self.introducerSite = introducerSite
     self.identifier = identifier
     self.conformances = conformances
     self.whereClause = whereClause
