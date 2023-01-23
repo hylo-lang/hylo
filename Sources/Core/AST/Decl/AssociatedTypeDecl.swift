@@ -1,7 +1,7 @@
 /// An associated type declaration.
 public struct AssociatedTypeDecl: SingleEntityDecl {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The source range of the declaration's introducer.
   public let introducerRange: SourceRange
@@ -25,9 +25,9 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
     conformances: [NodeID<NameExpr>],
     whereClause: SourceRepresentable<WhereClause>?,
     defaultValue: AnyTypeExprID?,
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.introducerRange = introducerRange
     self.identifier = identifier
     self.conformances = conformances

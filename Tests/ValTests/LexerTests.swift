@@ -338,7 +338,7 @@ final class LexerTests: XCTestCase {
         file: spec.file,
         line: spec.line)
 
-      let value = sourceCode[token.origin]
+      let value = sourceCode[token.site]
       XCTAssert(
         value == spec.value,
         "token has value '\(value)', not '\(spec.value)'",

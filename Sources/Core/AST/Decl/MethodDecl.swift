@@ -1,7 +1,7 @@
 /// A method declaration.
 public struct MethodDecl: GenericDecl, GenericScope {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The source range of the `fun` introducer.
   public let introducerRange: SourceRange
@@ -43,9 +43,9 @@ public struct MethodDecl: GenericDecl, GenericScope {
     parameters: [NodeID<ParameterDecl>],
     output: AnyTypeExprID?,
     impls: [NodeID<MethodImplDecl>],
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.introducerRange = introducerRange
     self.attributes = attributes
     self.accessModifier = accessModifier

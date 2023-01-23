@@ -10,10 +10,10 @@ public struct ModuleDecl: SingleEntityDecl, LexicalScope {
   public init(name: String) {
     self.name = name
     let f = SourceFile(synthesizedText: "/* module: \(name) */")
-    self.origin = f.position(f.text.startIndex) ..< f.position(f.text.endIndex)
+    self.site = f.position(f.text.startIndex) ..< f.position(f.text.endIndex)
   }
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// Adds the given source file to our list of sources.
   public mutating func addSourceFile(_ s: NodeID<TopLevelDeclSet>) {

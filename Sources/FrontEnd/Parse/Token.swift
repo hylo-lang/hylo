@@ -100,7 +100,7 @@ public struct Token {
   public internal(set) var kind: Kind
 
   /// The source range from which `self` was extracted.
-  public internal(set) var origin: SourceRange
+  public internal(set) var site: SourceRange
 
   /// Indicates whether `self` is a keyword.
   public var isKeyword: Bool {

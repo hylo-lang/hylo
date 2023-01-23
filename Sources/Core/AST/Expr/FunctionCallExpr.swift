@@ -1,7 +1,7 @@
 /// A function call.
 public struct FunctionCallExpr: Expr {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The callee.
   public let callee: AnyExprID
@@ -9,8 +9,8 @@ public struct FunctionCallExpr: Expr {
   /// The arguments of the call.
   public let arguments: [LabeledArgument]
 
-  public init(callee: AnyExprID, arguments: [LabeledArgument], origin: SourceRange) {
-    self.origin = origin
+  public init(callee: AnyExprID, arguments: [LabeledArgument], site: SourceRange) {
+    self.site = site
     self.callee = callee
     self.arguments = arguments
   }

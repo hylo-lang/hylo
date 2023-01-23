@@ -19,7 +19,7 @@ public struct NameExpr: Expr {
 
   }
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The domain of the name, if it is qualified.
   public let domain: Domain
@@ -34,9 +34,9 @@ public struct NameExpr: Expr {
     domain: Domain = .none,
     name: SourceRepresentable<Name>,
     arguments: [LabeledArgument] = [],
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.domain = domain
     self.name = name
     self.arguments = arguments

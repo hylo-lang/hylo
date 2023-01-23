@@ -60,7 +60,7 @@ let package = Package(
     .target(
       name: "Core",
       dependencies: [
-        "Utils",
+        "Utils"
       ],
       swiftSettings: allTargetsSwiftSettings),
 

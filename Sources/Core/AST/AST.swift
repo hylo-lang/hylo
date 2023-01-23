@@ -185,15 +185,15 @@ public struct AST: Codable {
     return result
   }
 
-  /// Returns the source origin of `expr`
-  public func origin(of expr: FoldedSequenceExpr) -> SourceRange {
+  /// Returns the source site of `expr`
+  public func site(of expr: FoldedSequenceExpr) -> SourceRange {
     switch expr {
     case .leaf(let i):
-      return self[i].origin
+      return self[i].site
 
     case .infix(_, let lhs, let rhs):
-      let lhsRange = origin(of: lhs)
-      let rhsRange = origin(of: rhs)
+      let lhsRange = site(of: lhs)
+      let rhsRange = site(of: rhs)
       return lhsRange.extended(upTo: rhsRange.end)
     }
   }

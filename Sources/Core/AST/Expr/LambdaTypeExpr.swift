@@ -17,7 +17,7 @@ public struct LambdaTypeExpr: Expr {
 
   }
 
-  public private(set) var origin: SourceRange
+  public private(set) var site: SourceRange
 
   /// The effect of the lambda's call operator.
   public let receiverEffect: SourceRepresentable<AccessEffect>?
@@ -36,9 +36,9 @@ public struct LambdaTypeExpr: Expr {
     environment: AnyExprID?,
     parameters: [Parameter],
     output: AnyTypeExprID,
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.receiverEffect = receiverEffect
     self.environment = environment
     self.parameters = parameters
