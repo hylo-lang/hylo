@@ -67,7 +67,7 @@ private struct CLI: ParsableCommand {
     help: ArgumentHelp(
       "Enable tracing of type inference requests at the given line.",
       valueName: "file:line"))
-  private var inferenceTracingSite: SourceRange?
+  private var inferenceTracingRange: SourceRange?
 
   @Option(
     name: [.customLong("emit")],
@@ -132,7 +132,7 @@ private struct CLI: ParsableCommand {
     var checker = TypeChecker(
       program: ScopedProgram(ast),
       isBuiltinModuleVisible: true,
-      enablingInferenceTracingIn: inferenceTracingSite)
+      enablingInferenceTracingIn: inferenceTracingRange)
     var typeCheckingSucceeded = true
 
     // Type check the core library.
