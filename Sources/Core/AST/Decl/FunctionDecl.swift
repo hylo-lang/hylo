@@ -13,7 +13,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   public let site: SourceRange
 
-  /// The source range of the `fun` introducer.
+  /// The site of the `fun` introducer.
   public let introducerSite: SourceRange
 
   /// The attributes of the declaration.

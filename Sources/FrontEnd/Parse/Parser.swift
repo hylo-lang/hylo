@@ -2986,7 +2986,7 @@ struct DeclPrologue {
 /// The parsed name of a function declaration.
 struct FunctionDeclName {
 
-  /// The source range of the `fun` introducer.
+  /// The site of the `fun` introducer.
   let introducerSite: SourceRange
 
   /// The stem of the declared identifier.
@@ -3076,7 +3076,7 @@ struct SubscriptDeclSignature {
 /// The parsed component of a name expression.
 struct NameExprComponent {
 
-  /// The source range from which `self` was parsed.
+  /// The site from which `self` was parsed.
   let site: SourceRange
 
   /// The name of the component.

@@ -28,7 +28,7 @@ public struct TypeChecker {
   /// Indicates whether the built-in symbols are visible.
   public var isBuiltinModuleVisible: Bool
 
-  /// The source range for which type inference tracing is enabled, if any.
+  /// The site for which type inference tracing is enabled, if any.
   public let inferenceTracingSite: SourceRange?
 
   /// The set of lambda expressions whose declarations are pending type checking.

@@ -99,7 +99,7 @@ public struct Token {
   /// The kind of the token.
   public internal(set) var kind: Kind
 
-  /// The source range from which `self` was extracted.
+  /// The site from which `self` was extracted.
   public internal(set) var site: SourceRange
 
   /// Indicates whether `self` is a keyword.

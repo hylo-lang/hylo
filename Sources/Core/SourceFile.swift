@@ -43,7 +43,7 @@ public struct SourceFile {
 
   /// Returns the contents of the file in the specified range.
   public subscript(_ range: SourceRange) -> Substring {
-    precondition(range.file.url == url, "invalid source range")
+    precondition(range.file.url == url, "invalid site")
     return text[range.start ..< range.end]
   }
 

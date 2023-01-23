@@ -3,7 +3,7 @@ public struct InoutExpr: Expr {
 
   public let site: SourceRange
 
-  /// The source range of the `&` operator.
+  /// The site of the `&` operator.
   public let operatorSite: SourceRange
 
   /// The underlying expression.

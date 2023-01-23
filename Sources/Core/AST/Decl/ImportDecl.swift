@@ -3,7 +3,7 @@ public struct ImportDecl: SingleEntityDecl {
 
   public let site: SourceRange
 
-  /// The source range of the declaration's introducer.
+  /// The site of the declaration's introducer.
   public let introducerSite: SourceRange
 
   /// The identifier of the imported module.
