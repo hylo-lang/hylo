@@ -1,10 +1,10 @@
 /// A method declaration.
 public struct MethodDecl: GenericDecl, GenericScope {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
-  /// The source range of the `fun` introducer, if any.
-  public let introducerRange: SourceRange?
+  /// The source range of the `fun` introducer.
+  public let introducerRange: SourceRange
 
   /// The attributes of the declaration.
   public let attributes: [SourceRepresentable<Attribute>]
@@ -34,7 +34,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
+    introducerRange: SourceRange,
     attributes: [SourceRepresentable<Attribute>],
     accessModifier: SourceRepresentable<AccessModifier>?,
     notation: SourceRepresentable<OperatorNotation>?,
@@ -43,9 +43,9 @@ public struct MethodDecl: GenericDecl, GenericScope {
     parameters: [NodeID<ParameterDecl>],
     output: AnyTypeExprID?,
     impls: [NodeID<MethodImplDecl>],
-    origin: SourceRange?
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.introducerRange = introducerRange
     self.attributes = attributes
     self.accessModifier = accessModifier

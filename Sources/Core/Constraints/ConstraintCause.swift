@@ -51,13 +51,13 @@ public struct ConstraintCause: Hashable {
   /// The kind this cause.
   public let kind: Kind
 
-  /// The source range from which the constraint originates, if any.
-  public let origin: SourceRange?
+  /// The source range from which the constraint originates.
+  public let site: SourceRange
 
   /// Creates a new instance with the given properties.
-  public init(_ kind: Kind, at origin: SourceRange?) {
+  public init(_ kind: Kind, at site: SourceRange) {
     self.kind = kind
-    self.origin = origin
+    self.site = site
   }
 
 }

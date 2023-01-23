@@ -241,7 +241,7 @@ public struct Emitter {
               from: source,
               at: path,
               binding: name.decl,
-              range: name.decl.origin),
+              range: name.decl.site),
             to: insertionBlock!)[0]
       }
     }
@@ -305,7 +305,7 @@ public struct Emitter {
     }
 
     emitStackDeallocs(in: &module)
-    module.append(ReturnInstruction(value: value, range: stmt.origin), to: insertionBlock!)
+    module.append(ReturnInstruction(value: value, range: stmt.site), to: insertionBlock!)
   }
 
   // MARK: r-values

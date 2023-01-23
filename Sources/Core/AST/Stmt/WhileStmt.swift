@@ -1,7 +1,7 @@
 /// A while loop.
 public struct WhileStmt: Stmt, LexicalScope {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
   /// The condition of the loop.
   ///
@@ -11,10 +11,10 @@ public struct WhileStmt: Stmt, LexicalScope {
   /// The body of the loop.
   public let body: NodeID<BraceStmt>
 
-  public init(condition: [ConditionItem], body: NodeID<BraceStmt>, origin: SourceRange?) {
+  public init(condition: [ConditionItem], body: NodeID<BraceStmt>, site: SourceRange) {
     precondition(condition.count > 0)
 
-    self.origin = origin
+    self.site = site
     self.condition = condition
     self.body = body
   }

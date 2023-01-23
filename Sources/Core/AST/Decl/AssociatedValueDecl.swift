@@ -1,10 +1,10 @@
 /// An associated value declaration.
 public struct AssociatedValueDecl: SingleEntityDecl {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
-  /// The source range of the declaration's introducer, if any.
-  public let introducerRange: SourceRange?
+  /// The source range of the declaration's introducer.
+  public let introducerRange: SourceRange
 
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>
@@ -17,13 +17,13 @@ public struct AssociatedValueDecl: SingleEntityDecl {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
+    introducerRange: SourceRange,
     identifier: SourceRepresentable<Identifier>,
     whereClause: SourceRepresentable<WhereClause>?,
     defaultValue: AnyExprID?,
-    origin: SourceRange?
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.introducerRange = introducerRange
     self.identifier = identifier
     self.whereClause = whereClause

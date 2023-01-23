@@ -1120,27 +1120,27 @@ extension DefiniteInitializationPass {
 extension Diagnostic {
 
   fileprivate static func illegalMove(at site: SourceRange?) -> Diagnostic {
-    .error("illegal move", at: site)
+    .error("illegal move", at: site ?? .eliminateFIXME)
   }
 
   fileprivate static func unboundedStackAllocation(at site: SourceRange?) -> Diagnostic {
-    .error("unbounded stack allocation", at: site)
+    .error("unbounded stack allocation", at: site ?? .eliminateFIXME)
   }
 
   fileprivate static func useOfConsumedObject(at site: SourceRange?) -> Diagnostic {
-    .error("use of consumed object", at: site)
+    .error("use of consumed object", at: site ?? .eliminateFIXME)
   }
 
   fileprivate static func useOfPartiallyConsumedObject(at site: SourceRange?) -> Diagnostic {
-    .error("use of partially consumed object", at: site)
+    .error("use of partially consumed object", at: site ?? .eliminateFIXME)
   }
 
   fileprivate static func useOfPartiallyInitializedObject(at site: SourceRange?) -> Diagnostic {
-    .error("use of partially initialized object", at: site)
+    .error("use of partially initialized object", at: site ?? .eliminateFIXME)
   }
 
   fileprivate static func useOfUninitializedObject(at site: SourceRange?) -> Diagnostic {
-    .error("use of uninitialized object", at: site)
+    .error("use of uninitialized object", at: site ?? .eliminateFIXME)
   }
 
 }

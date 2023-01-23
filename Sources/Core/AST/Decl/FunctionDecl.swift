@@ -11,12 +11,12 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   }
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
-  /// The source range of the `fun` introducer, if any.
-  public let introducerRange: SourceRange?
+  /// The source range of the `fun` introducer.
+  public let introducerRange: SourceRange
 
-  /// The attributes of the declaration, if any.
+  /// The attributes of the declaration.
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
@@ -59,7 +59,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
+    introducerRange: SourceRange,
     attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
@@ -73,9 +73,9 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     output: AnyTypeExprID? = nil,
     body: Body? = nil,
     isInExprContext: Bool = false,
-    origin: SourceRange?
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.introducerRange = introducerRange
     self.attributes = attributes
     self.accessModifier = accessModifier
