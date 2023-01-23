@@ -192,9 +192,9 @@ public struct AST: Codable {
       return self[i].site
 
     case .infix(_, let lhs, let rhs):
-      let lhsRange = site(of: lhs)
-      let rhsRange = site(of: rhs)
-      return lhsRange.extended(upTo: rhsRange.end)
+      let lhsSite = site(of: lhs)
+      let rhsSite = site(of: rhs)
+      return lhsSite.extended(upTo: rhsSite.end)
     }
   }
 

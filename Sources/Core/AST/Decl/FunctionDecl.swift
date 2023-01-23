@@ -14,7 +14,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   public let site: SourceRange
 
   /// The source range of the `fun` introducer.
-  public let introducerRange: SourceRange
+  public let introducerSite: SourceRange
 
   /// The attributes of the declaration.
   public let attributes: [SourceRepresentable<Attribute>]
@@ -59,7 +59,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange,
+    introducerSite: SourceRange,
     attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
@@ -76,7 +76,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     site: SourceRange
   ) {
     self.site = site
-    self.introducerRange = introducerRange
+    self.introducerSite = introducerSite
     self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier

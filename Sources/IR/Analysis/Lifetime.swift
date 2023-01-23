@@ -83,7 +83,7 @@ extension Module {
   ///
   /// The live-range `L` of an operand `x` in a function `f` is the minimal lifetime such that for
   /// for all instructions `i` in `f`, if `i` uses `x` then `i` is in `L`.
-  func liveRange(of operand: Operand, definedIn site: Block.ID) -> Lifetime {
+  func liveSite(of operand: Operand, definedIn site: Block.ID) -> Lifetime {
     // Note: the search implements a variant of Appel's path exploration algorithm, found in
     // "Computing Liveness Sets for SSA-Form Programs" by Brandner et al.
 

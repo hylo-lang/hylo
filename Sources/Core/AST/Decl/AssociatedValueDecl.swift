@@ -4,7 +4,7 @@ public struct AssociatedValueDecl: SingleEntityDecl {
   public let site: SourceRange
 
   /// The source range of the declaration's introducer.
-  public let introducerRange: SourceRange
+  public let introducerSite: SourceRange
 
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>
@@ -17,14 +17,14 @@ public struct AssociatedValueDecl: SingleEntityDecl {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange,
+    introducerSite: SourceRange,
     identifier: SourceRepresentable<Identifier>,
     whereClause: SourceRepresentable<WhereClause>?,
     defaultValue: AnyExprID?,
     site: SourceRange
   ) {
     self.site = site
-    self.introducerRange = introducerRange
+    self.introducerSite = introducerSite
     self.identifier = identifier
     self.whereClause = whereClause
     self.defaultValue = defaultValue

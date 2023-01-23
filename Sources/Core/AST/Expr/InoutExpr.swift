@@ -4,14 +4,14 @@ public struct InoutExpr: Expr {
   public let site: SourceRange
 
   /// The source range of the `&` operator.
-  public let operatorRange: SourceRange
+  public let operatorSite: SourceRange
 
   /// The underlying expression.
   public let subject: AnyExprID
 
-  public init(operatorRange: SourceRange, subject: AnyExprID, site: SourceRange) {
+  public init(operatorSite: SourceRange, subject: AnyExprID, site: SourceRange) {
     self.site = site
-    self.operatorRange = operatorRange
+    self.operatorSite = operatorSite
     self.subject = subject
   }
 

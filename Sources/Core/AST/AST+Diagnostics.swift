@@ -28,11 +28,11 @@ extension Diagnostic {
   }
 
   static func error(missingFunctionIdentifier d: FunctionDecl) -> Diagnostic {
-    .error("missing identifier in function declaration", at: d.introducerRange)
+    .error("missing identifier in function declaration", at: d.introducerSite)
   }
 
   static func error(missingMethodIdentifier d: MethodDecl) -> Diagnostic {
-    error(missingMethodIdentifierAt: d.introducerRange)
+    error(missingMethodIdentifierAt: d.introducerSite)
   }
 
   static func error(missingMethodIdentifierAt site: SourceRange) -> Diagnostic {
@@ -52,11 +52,11 @@ extension Diagnostic {
   }
 
   static func error(unexpectedAssociatedTypeDecl d: AssociatedTypeDecl) -> Diagnostic {
-    .error("associated type declaration is not allowed here", at: d.introducerRange)
+    .error("associated type declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedAssociatedValueDecl d: AssociatedValueDecl) -> Diagnostic {
-    .error("associated value declaration is not allowed here", at: d.introducerRange)
+    .error("associated value declaration is not allowed here", at: d.introducerSite)
   }
 
   public static func error(unexpectedCapture p: BindingPattern) -> Diagnostic {
@@ -64,7 +64,7 @@ extension Diagnostic {
   }
 
   static func error(unexpectedImportDecl d: ImportDecl) -> Diagnostic {
-    .error("import declaration is not allowed here", at: d.introducerRange)
+    .error("import declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedGenericParameterDecl d: GenericParameterDecl) -> Diagnostic {
@@ -80,7 +80,7 @@ extension Diagnostic {
   }
 
   static func error(unexpectedMethodDecl d: MethodDecl) -> Diagnostic {
-    .error("method bundle declaration is not allowed here", at: d.introducerRange)
+    .error("method bundle declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedMethodImplDecl d: MethodImplDecl) -> Diagnostic {
@@ -88,11 +88,11 @@ extension Diagnostic {
   }
 
   static func error(unexpectedNamespaceDecl d: NamespaceDecl) -> Diagnostic {
-    .error("namespace declaration is not allowed here", at: d.introducerRange)
+    .error("namespace declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedOperatorDecl d: OperatorDecl) -> Diagnostic {
-    .error("operator declaration is not allowed here", at: d.introducerRange)
+    .error("operator declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedParameterDecl d: ParameterDecl) -> Diagnostic {
