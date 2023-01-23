@@ -112,7 +112,7 @@ struct ParserState {
       .contains(where: { $0.isNewline })
   }
 
-  /// Returns a source range from `startIndex` to `self.currentIndex`.
+  /// Returns a site from `startIndex` to `self.currentIndex`.
   func range(from startIndex: String.Index) -> SourceRange {
     lexer.sourceCode.range(startIndex ..< currentIndex)
   }

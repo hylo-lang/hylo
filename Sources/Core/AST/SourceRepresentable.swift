@@ -1,15 +1,15 @@
 /// A part of an AST node that may have a textual representation in source code.
 ///
-/// - Note: The source range is a non-salient annotation. It does not contribute to a node's value.
+/// - Note: The site is a non-salient annotation. It does not contribute to a node's value.
 public struct SourceRepresentable<Part> {
 
   /// The part.
   public let value: Part
 
-  /// The source range from which `part` was extracted.
+  /// The site from which `part` was extracted.
   public let site: SourceRange
 
-  /// Creates a source representable container, annotating a value with an optional source range.
+  /// Creates a source representable container, annotating a value with an optional site.
   public init(value: Part, range: SourceRange) {
     self.value = value
     self.site = range
