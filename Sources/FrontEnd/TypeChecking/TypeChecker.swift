@@ -29,7 +29,7 @@ public struct TypeChecker {
   public var isBuiltinModuleVisible: Bool
 
   /// The site for which type inference tracing is enabled, if any.
-  public let inferenceTracingSite: SourceRange?
+  public let inferenceTracingRange: SourceRange?
 
   /// The set of lambda expressions whose declarations are pending type checking.
   public private(set) var pendingLambdas: [NodeID<LambdaExpr>] = []
@@ -41,11 +41,11 @@ public struct TypeChecker {
   public init(
     program: ScopedProgram,
     isBuiltinModuleVisible: Bool = false,
-    enablingInferenceTracingIn inferenceTracingSite: SourceRange? = nil
+    enablingInferenceTracingIn inferenceTracingRange: SourceRange? = nil
   ) {
     self.program = program
     self.isBuiltinModuleVisible = isBuiltinModuleVisible
-    self.inferenceTracingSite = inferenceTracingSite
+    self.inferenceTracingRange = inferenceTracingRange
   }
 
   // MARK: Type system
@@ -1521,7 +1521,7 @@ public struct TypeChecker {
   ) -> (succeeded: Bool, solution: Solution) {
     // Determine whether tracing should be enabled.
     let shouldLogTrace: Bool
-    if let tracingSite = inferenceTracingSite,
+    if let tracingSite = inferenceTracingRange,
       tracingSite.contains(program.ast[subject].site.first())
     {
       let subjectSite = program.ast[subject].site
