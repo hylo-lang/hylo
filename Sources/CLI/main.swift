@@ -102,13 +102,23 @@ private struct CLI: ParsableCommand {
     URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
   }
 
+  /// Logs the given diagnostics and terminates the program with the status `0` or `-1` if any of
+  /// the diagnostics is an error.
+  private func exit(with diagnostics: Diagnostics) {
+    log(diagnostics: diagnostics)
+    if diagnostics.errorReported {
+      CLI.exit(withError: ExitCode(-1))
+    } else {
+      CLI.exit()
+    }
+  }
+
   fileprivate mutating func run() throws {
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
     }
 
-    var diagnostics = Diagnostics(reportingToStderr: true)
-
+    var diagnostics = Diagnostics(reportingToStderr: false)
     let productName = "main"
 
     /// The AST of the program being compiled.
@@ -122,7 +132,7 @@ private struct CLI: ParsableCommand {
       let url = outputURL ?? URL(fileURLWithPath: "ast.json")
       let encoder = JSONEncoder()
       try encoder.encode(ast).write(to: url, options: .atomic)
-      CLI.exit()
+      exit(with: diagnostics)
     }
 
     // Import the core library.
@@ -145,11 +155,11 @@ private struct CLI: ParsableCommand {
     // Report type-checking errors.
     diagnostics.report(checker.diagnostics)
     if !typeCheckingSucceeded {
-      CLI.exit(withError: ExitCode(-1))
+      exit(with: diagnostics)
     }
 
     // Exit if `--typecheck` is set.
-    if typeCheckOnly { CLI.exit() }
+    if typeCheckOnly { exit(with: diagnostics) }
 
     let typedProgram = TypedProgram(
       annotating: checker.program,
@@ -168,7 +178,7 @@ private struct CLI: ParsableCommand {
     if outputType == .rawIR {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      CLI.exit()
+      exit(with: diagnostics)
     }
 
     // Run mandatory IR analysis and transformation passes.
@@ -185,14 +195,14 @@ private struct CLI: ParsableCommand {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
         diagnostics.report(pipeline[i].diagnostics)
       }
-      guard passSuccess else { CLI.exit(withError: ExitCode(-1)) }
+      if !passSuccess { exit(with: diagnostics) }
     }
 
     // Handle `--emit ir`
     if outputType == .ir {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      CLI.exit()
+      exit(with: diagnostics)
     }
 
     // *** C++ Transpiling ***
@@ -212,7 +222,7 @@ private struct CLI: ParsableCommand {
         to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
       try cxxSource.write(
         to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
-      CLI.exit()
+      exit(with: diagnostics)
     }
 
     // *** Machine code generation ***
@@ -251,8 +261,8 @@ private struct CLI: ParsableCommand {
   }
 
   /// Logs the contents of `diagnostics` tot he standard error.
-  private func log<S: Sequence>(diagnostics: S) where S.Element == Diagnostic {
-    for d in diagnostics.sorted(by: Diagnostic.isLoggedBefore) {
+  private func log(diagnostics: Diagnostics) {
+    for d in diagnostics.log.sorted(by: Diagnostic.isLoggedBefore) {
       log(diagnostic: d)
     }
   }
