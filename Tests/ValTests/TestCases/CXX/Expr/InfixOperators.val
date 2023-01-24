@@ -1,0 +1,13 @@
+/*! cpp
+void test() {
+  int a = 5;
+  int b = 7;
+}
+*/
+
+fun test() {
+  var a = 5
+  var b = 7
+  // TODO: parser doesn't work with infix operators
+  // let _ = a+b
+}

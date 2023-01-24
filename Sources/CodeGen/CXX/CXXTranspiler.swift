@@ -272,7 +272,7 @@ public struct CXXTranspiler {
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXStmt {
     let cxxExpr = CXXInfixExpr(
-      callee: CXXIdentifier("="),
+      oper: .assignment,
       lhs: emitL(expr: stmt.left, withCapability: .set),
       rhs: emitR(expr: stmt.right),
       original: AnyNodeID.TypedNode(stmt))
@@ -615,15 +615,35 @@ public struct CXXTranspiler {
     }
 
     // Emit infix operators.
-    // TODO: Do we need to check the base types?
+    let orig = AnyNodeID.TypedNode(expr)
     let name = nameOfDecl(calleeDecl)
     switch name {
-    case "<<", ">>", "*", "*!", "/", "%", "+", "+!", "-", "-!", "..<", "...", "??", "==", "!=", "<",
-      "<=", ">=", ">", "^", "&", "&&", "|", "||", "<<=", ">>=", "*=", "/=", "%=", "+=", "-=", "&=",
-      "&&=", "**":
-      // Expand this as a native infix operator call
-      return CXXInfixExpr(
-        callee: CXXIdentifier(name), lhs: lhs, rhs: rhs, original: AnyNodeID.TypedNode(expr))
+    case "<<": return CXXInfixExpr(oper: .leftShift, lhs: lhs, rhs: rhs, original: orig)
+    case ">>": return CXXInfixExpr(oper: .rightShift, lhs: lhs, rhs: rhs, original: orig)
+    case "*": return CXXInfixExpr(oper: .multiplication, lhs: lhs, rhs: rhs, original: orig)
+    case "/": return CXXInfixExpr(oper: .division, lhs: lhs, rhs: rhs, original: orig)
+    case "%": return CXXInfixExpr(oper: .remainder, lhs: lhs, rhs: rhs, original: orig)
+    case "+": return CXXInfixExpr(oper: .addition, lhs: lhs, rhs: rhs, original: orig)
+    case "-": return CXXInfixExpr(oper: .subtraction, lhs: lhs, rhs: rhs, original: orig)
+    case "==": return CXXInfixExpr(oper: .equality, lhs: lhs, rhs: rhs, original: orig)
+    case "!=": return CXXInfixExpr(oper: .inequality, lhs: lhs, rhs: rhs, original: orig)
+    case "<": return CXXInfixExpr(oper: .lessThan, lhs: lhs, rhs: rhs, original: orig)
+    case "<=": return CXXInfixExpr(oper: .lessEqual, lhs: lhs, rhs: rhs, original: orig)
+    case ">=": return CXXInfixExpr(oper: .greaterEqual, lhs: lhs, rhs: rhs, original: orig)
+    case ">": return CXXInfixExpr(oper: .greaterThan, lhs: lhs, rhs: rhs, original: orig)
+    case "^": return CXXInfixExpr(oper: .bitwiseXor, lhs: lhs, rhs: rhs, original: orig)
+    case "&": return CXXInfixExpr(oper: .bitwiseAnd, lhs: lhs, rhs: rhs, original: orig)
+    case "&&": return CXXInfixExpr(oper: .logicalAnd, lhs: lhs, rhs: rhs, original: orig)
+    case "|": return CXXInfixExpr(oper: .bitwiseOr, lhs: lhs, rhs: rhs, original: orig)
+    case "||": return CXXInfixExpr(oper: .logicalOr, lhs: lhs, rhs: rhs, original: orig)
+    case "<<=": return CXXInfixExpr(oper: .shiftLeftAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case ">>=": return CXXInfixExpr(oper: .shiftRightAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "*=": return CXXInfixExpr(oper: .mulAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "/=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "%=": return CXXInfixExpr(oper: .remAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "+=": return CXXInfixExpr(oper: .addAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "-=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "&=": return CXXInfixExpr(oper: .bitwiseAndAssignment, lhs: lhs, rhs: rhs, original: orig)
 
     default:
       // Expand this as a regular function call.
