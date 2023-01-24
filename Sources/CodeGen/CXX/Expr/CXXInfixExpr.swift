@@ -17,4 +17,11 @@ struct CXXInfixExpr: CXXExpr {
   /// Typically an expression, but somtimes this can be AssignStmt
   let original: AnyNodeID.TypedNode?
 
+  func precedence() -> Int {
+    0  // TODO
+  }
+  func isLeftToRight() -> Bool {
+    true  // TODO
+  }
+
 }

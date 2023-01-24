@@ -9,4 +9,11 @@ struct CXXIntegerLiteralExpr: CXXExpr {
   /// The original node in Val AST.
   let original: IntegerLiteralExpr.Typed?
 
+  func precedence() -> Int {
+    0
+  }
+  func isLeftToRight() -> Bool {
+    true  // doesn't really matter
+  }
+
 }

@@ -13,4 +13,11 @@ struct CXXConditionalExpr: CXXExpr {
   /// The original node in Val AST.
   let original: CondExpr.Typed
 
+  func precedence() -> Int {
+    16
+  }
+  func isLeftToRight() -> Bool {
+    false
+  }
+
 }

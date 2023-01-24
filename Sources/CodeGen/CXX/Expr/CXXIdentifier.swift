@@ -8,6 +8,13 @@ struct CXXIdentifier: CXXExpr {
     description = CXXIdentifier.sanitize(identifier)
   }
 
+  func precedence() -> Int {
+    0
+  }
+  func isLeftToRight() -> Bool {
+    true  // doesn't really matter
+  }
+
   /// Sanitizes `identifier` and returns a valid C++ identifier.
   static func sanitize(_ identifier: String) -> String {
     // Append an underscore to reserved identifiers.
