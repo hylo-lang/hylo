@@ -104,7 +104,7 @@ private struct CLI: ParsableCommand {
 
   /// Logs the given diagnostics and terminates the program with the status `0` or `-1` if any of
   /// the diagnostics is an error.
-  private func exit(with diagnostics: Diagnostics) {
+  private func exit(with diagnostics: Diagnostics) -> Never {
     log(diagnostics: diagnostics)
     if diagnostics.errorReported {
       CLI.exit(withError: ExitCode(-1))
@@ -124,8 +124,14 @@ private struct CLI: ParsableCommand {
     /// The AST of the program being compiled.
     var ast = AST()
 
-    let newModule = try ast.makeModule(
-      "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
+    // Parse the source code.
+    let newModule: NodeID<ModuleDecl>
+    do {
+      newModule = try ast.makeModule(
+        "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
+    } catch _ as Diagnostics {
+      exit(with: diagnostics)
+    }
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
