@@ -115,7 +115,7 @@ public struct ValCommand: ParsableCommand {
     }
   }
 
-  public mutating func run() throws {
+  public func run() throws {
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
     }
@@ -335,7 +335,7 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Returns the path of the specified executable.
-  mutating private func find(_ executable: String) -> String {
+  private func find(_ executable: String) -> String {
     // Nothing to do if `executable` is a path
     if executable.contains("/") {
       return executable
