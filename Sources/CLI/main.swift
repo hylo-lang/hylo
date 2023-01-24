@@ -118,7 +118,7 @@ private struct CLI: ParsableCommand {
       fatalError("compilation as modules not yet implemented.")
     }
 
-    var diagnostics = Diagnostics(reportingToStderr: false)
+    var diagnostics = Diagnostics()
     let productName = "main"
 
     /// The AST of the program being compiled.
