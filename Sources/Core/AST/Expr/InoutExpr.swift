@@ -1,17 +1,17 @@
 /// An expression evaluated in place.
 public struct InoutExpr: Expr {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
-  /// The source range of the `&` operator.
-  public let operatorRange: SourceRange
+  /// The site of the `&` operator.
+  public let operatorSite: SourceRange
 
   /// The underlying expression.
   public let subject: AnyExprID
 
-  public init(operatorRange: SourceRange, subject: AnyExprID, origin: SourceRange) {
-    self.origin = origin
-    self.operatorRange = operatorRange
+  public init(operatorSite: SourceRange, subject: AnyExprID, site: SourceRange) {
+    self.site = site
+    self.operatorSite = operatorSite
     self.subject = subject
   }
 

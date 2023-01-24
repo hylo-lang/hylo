@@ -1,10 +1,10 @@
 /// A break statement.
 public struct BreakStmt: Stmt {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
-  public init(origin: SourceRange) {
-    self.origin = origin
+  public init(site: SourceRange) {
+    self.site = site
   }
 
 }

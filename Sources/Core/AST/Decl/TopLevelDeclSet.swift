@@ -9,7 +9,7 @@ public struct TopLevelDeclSet: Node, LexicalScope {
     self.decls = decls
   }
 
-  public var origin: SourceRange { .eliminateFIXME }
+  public var site: SourceRange { .eliminateFIXME }
 
   public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
     for d in decls {

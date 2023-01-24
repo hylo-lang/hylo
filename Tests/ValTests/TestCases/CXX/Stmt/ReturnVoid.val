@@ -1,8 +1,8 @@
 /*! cpp
     void returns_void() {
-    // expr stmt
+    prefooer();
     return;
-    // expr stmt
+    postfooer();
     }
  */
 public fun prefooer() {

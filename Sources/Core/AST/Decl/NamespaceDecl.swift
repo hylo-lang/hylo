@@ -1,10 +1,10 @@
 /// A namespace declaration.
 public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
-  /// The source range of the declaration's introducer.
-  public let introducerRange: SourceRange
+  /// The site of the declaration's introducer.
+  public let introducerSite: SourceRange
 
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
@@ -17,14 +17,14 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange,
+    introducerSite: SourceRange,
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     members: [AnyDeclID],
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
-    self.introducerRange = introducerRange
+    self.site = site
+    self.introducerSite = introducerSite
     self.accessModifier = accessModifier
     self.identifier = identifier
     self.members = members

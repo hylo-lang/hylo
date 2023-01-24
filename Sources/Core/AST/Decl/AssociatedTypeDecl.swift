@@ -1,10 +1,10 @@
 /// An associated type declaration.
 public struct AssociatedTypeDecl: SingleEntityDecl {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
-  /// The source range of the declaration's introducer.
-  public let introducerRange: SourceRange
+  /// The site of the declaration's introducer.
+  public let introducerSite: SourceRange
 
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>
@@ -20,15 +20,15 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange,
+    introducerSite: SourceRange,
     identifier: SourceRepresentable<Identifier>,
     conformances: [NodeID<NameExpr>],
     whereClause: SourceRepresentable<WhereClause>?,
     defaultValue: AnyTypeExprID?,
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
-    self.introducerRange = introducerRange
+    self.site = site
+    self.introducerSite = introducerSite
     self.identifier = identifier
     self.conformances = conformances
     self.whereClause = whereClause

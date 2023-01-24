@@ -83,7 +83,7 @@ extension Module {
   ///
   /// The live-range `L` of an operand `x` in a function `f` is the minimal lifetime such that for
   /// for all instructions `i` in `f`, if `i` uses `x` then `i` is in `L`.
-  func liveRange(of operand: Operand, definedIn origin: Block.ID) -> Lifetime {
+  func liveSite(of operand: Operand, definedIn site: Block.ID) -> Lifetime {
     // Note: the search implements a variant of Appel's path exploration algorithm, found in
     // "Computing Liveness Sets for SSA-Form Programs" by Brandner et al.
 
@@ -93,13 +93,13 @@ extension Module {
       { (blocks, use) in blocks.insert(use.user.block) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
-    let cfg = functions[origin.function].cfg
+    let cfg = functions[site.function].cfg
     var approximateCoverage: [Function.Blocks.Address: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
     while true {
       guard let occurence = occurences.popFirst() else { break }
 
       // `occurence` is the defining block.
-      if origin.address == occurence { continue }
+      if site.address == occurence { continue }
 
       // We already propagated liveness to the block's live-in set.
       if approximateCoverage[occurence]?.isLiveIn ?? false { continue }
@@ -117,7 +117,7 @@ extension Module {
 
     // If the operand isn't live out of its defining block, its last use is in that block.
     if approximateCoverage.isEmpty {
-      coverage[origin.address] = .closed(lastUse: lastUse(of: operand, in: origin))
+      coverage[site.address] = .closed(lastUse: lastUse(of: operand, in: site))
       return Lifetime(operand: operand, coverage: coverage)
     }
 
@@ -129,7 +129,7 @@ extension Module {
       case (false, true):
         coverage[block] = .liveOut
       case (true, false):
-        let id = Block.ID(function: origin.function, address: block)
+        let id = Block.ID(function: site.function, address: block)
         coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: id))
       case (false, false):
         continue

@@ -1,10 +1,10 @@
 /// A placeholder representing a semantically erroneous expression in the AST.
 public struct ErrorExpr: Expr {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
-  public init(origin: SourceRange) {
-    self.origin = origin
+  public init(site: SourceRange) {
+    self.site = site
   }
 
 }

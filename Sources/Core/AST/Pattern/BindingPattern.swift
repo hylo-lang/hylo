@@ -18,7 +18,7 @@ public struct BindingPattern: Pattern {
 
   }
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The introducer of the pattern.
   public let introducer: SourceRepresentable<Introducer>
@@ -35,9 +35,9 @@ public struct BindingPattern: Pattern {
     introducer: SourceRepresentable<BindingPattern.Introducer>,
     subpattern: AnyPatternID,
     annotation: AnyTypeExprID?,
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.introducer = introducer
     self.subpattern = subpattern
     self.annotation = annotation

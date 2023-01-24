@@ -18,7 +18,7 @@ public struct CastExpr: Expr {
 
   }
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The left operand.
   public let left: AnyExprID
@@ -29,8 +29,8 @@ public struct CastExpr: Expr {
   /// The kind of the cast.
   public let kind: Kind
 
-  public init(left: AnyExprID, right: AnyTypeExprID, kind: Kind, origin: SourceRange) {
-    self.origin = origin
+  public init(left: AnyExprID, right: AnyTypeExprID, kind: Kind, site: SourceRange) {
+    self.site = site
     self.left = left
     self.right = right
     self.kind = kind

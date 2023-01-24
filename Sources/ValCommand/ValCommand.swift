@@ -119,14 +119,20 @@ public struct ValCommand: ParsableCommand {
       fatalError("compilation as modules not yet implemented.")
     }
 
-    var diagnostics = Diagnostics(reportingToStderr: false)
+    var diagnostics = Diagnostics()
     let productName = "main"
 
     /// The AST of the program being compiled.
     var ast = AST()
 
-    let newModule = try ast.makeModule(
-      "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
+    // Parse the source code.
+    let newModule: NodeID<ModuleDecl>
+    do {
+      newModule = try ast.makeModule(
+        "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
+    } catch _ as Diagnostics {
+      return exit(logging: diagnostics, to: &errorChannel)
+    }
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {

@@ -11,7 +11,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
 
   }
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The introducer of the declaration.
   public let introducer: SourceRepresentable<Introducer>
@@ -57,9 +57,9 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     parameters: [NodeID<ParameterDecl>]?,
     output: AnyTypeExprID,
     impls: [NodeID<SubscriptImplDecl>],
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.introducer = introducer
     self.attributes = attributes
     self.accessModifier = accessModifier

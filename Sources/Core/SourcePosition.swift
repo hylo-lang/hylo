@@ -27,7 +27,7 @@ public struct SourcePosition: Hashable {
     return (r.line, r.column)
   }
 
-  /// Returns a source range from `l` to `r`.
+  /// Returns a site from `l` to `r`.
   ///
   /// - Requires: `l.file == r.file`
   public static func ..< (l: Self, r: Self) -> SourceRange {

@@ -1,7 +1,7 @@
 /// A declaration that extends a type with new conformances.
 public struct ConformanceDecl: TypeExtendingDecl {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
@@ -25,9 +25,9 @@ public struct ConformanceDecl: TypeExtendingDecl {
     conformances: [NodeID<NameExpr>],
     whereClause: SourceRepresentable<WhereClause>?,
     members: [AnyDeclID],
-    origin: SourceRange
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.accessModifier = accessModifier
     self.subject = subject
     self.conformances = conformances

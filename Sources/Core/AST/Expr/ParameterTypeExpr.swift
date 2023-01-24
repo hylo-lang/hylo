@@ -1,7 +1,7 @@
 /// A parameter in a lambda type expression.
 public struct ParameterTypeExpr: Expr {
 
-  public let origin: SourceRange
+  public let site: SourceRange
 
   /// The passing convention of the parameter.
   public let convention: SourceRepresentable<AccessEffect>
@@ -15,10 +15,10 @@ public struct ParameterTypeExpr: Expr {
   public init(
     convention: SourceRepresentable<AccessEffect>,
     bareType: AnyTypeExprID,
-    origin: SourceRange,
+    site: SourceRange,
     synthesized: Bool
   ) {
-    self.origin = origin
+    self.site = site
     self.convention = convention
     self.bareType = bareType
     self.isConventionSynthesized = synthesized
