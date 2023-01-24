@@ -313,10 +313,14 @@ public struct ValCommand: ParsableCommand {
     channel.write(diagnostic.message, in: [.bold])
     channel.write("\n")
 
-    // Log the window
+    // Log the window.
     let site = diagnostic.site
     let line = site.first().textOfLine()
+
     channel.write(String(line))
+    if line.isEmpty || !line.last!.isNewline {
+      channel.write("\n")
+    }
 
     let padding = line.distance(from: line.startIndex, to: site.start)
     channel.write(String(repeating: " ", count: padding))
