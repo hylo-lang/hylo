@@ -1051,6 +1051,9 @@ public struct TypeChecker {
       let stmt = program.ast[NodeID<DiscardStmt>(rawValue: id.rawValue)]
       return deduce(typeOf: stmt.expr, inScope: lexicalContext) != nil
 
+    case DoWhileStmt.self:
+      return check(doWhile: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
+
     case ReturnStmt.self:
       return check(return: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
 
@@ -1097,6 +1100,22 @@ public struct TypeChecker {
       inScope: lexicalContext,
       initialConstraints: [assignmentConstraint])
     return inference.succeeded
+  }
+
+  private mutating func check<S: ScopeID>(
+    doWhile subject: NodeID<DoWhileStmt>,
+    inScope lexicalContext: S
+  ) -> Bool {
+    let syntax = program.ast[subject]
+
+    // Visit the condition(s).
+    let boolType = AnyType(program.ast.coreType(named: "Bool")!)
+    let inference = solveConstraints(
+      impliedBy: syntax.condition, expecting: boolType, inScope: lexicalContext)
+    if !inference.succeeded { return false }
+
+    // Visit the body.
+    return check(brace: syntax.body)
   }
 
   private mutating func check<S: ScopeID>(
