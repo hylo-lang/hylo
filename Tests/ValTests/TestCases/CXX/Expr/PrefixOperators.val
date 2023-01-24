@@ -1,0 +1,11 @@
+/*! cpp
+void test() {
+  int a = 5;
+}
+*/
+
+fun test() {
+  var a = 5
+  // TODO: we don't have prefix operators yet
+  // ++a
+}

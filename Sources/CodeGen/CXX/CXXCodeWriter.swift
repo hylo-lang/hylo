@@ -248,6 +248,8 @@ public struct CXXCodeWriter {
       write(typeExpr: expr as! CXXTypeExpr, into: &target)
     case CXXInfixExpr.self:
       write(infixExpr: expr as! CXXInfixExpr, into: &target)
+    case CXXPrefixExpr.self:
+      write(prefixExpr: expr as! CXXPrefixExpr, into: &target)
     case CXXFunctionCallExpr.self:
       write(functionCallExpr: expr as! CXXFunctionCallExpr, into: &target)
     case CXXVoidCast.self:
@@ -326,6 +328,25 @@ public struct CXXCodeWriter {
     }
     target.writeSpace()
     write(expr: expr.rhs, into: &target)
+  }
+  private func write(prefixExpr expr: CXXPrefixExpr, into target: inout CodeFormatter) {
+    // TODO: handle precedence and associativity; as of writing this comment, prefix operators cannot be properly tested.
+    switch expr.oper {
+    case .prefixIncrement: target.write("++")
+    case .prefixDecrement: target.write("--")
+    case .unaryPlus: target.write("+")
+    case .unaryMinus: target.write("-")
+    case .logicalNot: target.write("!")
+    case .bitwiseNot: target.write("~")
+    case .dereference: target.write("*")
+    case .addressOf: target.write("&")
+    case .sizeOf: target.write("sizeof ")
+    case .coAwait: target.write("co_await ")
+    case .throwOp: target.write("throw ")
+    case .coYield: target.write("co_yield ")
+    }
+    target.writeSpace()
+    write(expr: expr.base, into: &target)
   }
   private func write(functionCallExpr expr: CXXFunctionCallExpr, into target: inout CodeFormatter) {
     write(expr: expr.callee, into: &target)

@@ -60,7 +60,7 @@ The header of a transpiled unit exposes the public symbols of the module through
 | `ExistentialTypeExpr` | TODO | |
 | `FloatLiteralExpr` | `CXXFloatLiteralExpr` | |
 | `FoldedSequenceExpr` | N/A | Translated into an expression tree, using paranthesis (`CXXParenthesisExpr`) in the appropriate places |
-| `FunctionCallExpr` | `CXXFunctionCallExpr`, `CXXOperatorCallExpr` | |
+| `FunctionCallExpr` | `CXXFunctionCallExpr`, `CXXInfixExpr`, `CXXPrefixExpr`, `CXXPostfixExpr` | |
 | `InoutExpr` | N/A | There is no CXX special syntactic treatment for `inout` arguments |
 | `IntegerLiteralExpr` | `CXXIntegerLiteralExpr` | |
 | `LabeledArgument` | N/A | This is handled at function decl / function call level |
