@@ -250,6 +250,8 @@ public struct CXXCodeWriter {
       write(infixExpr: expr as! CXXInfixExpr, into: &target)
     case CXXPrefixExpr.self:
       write(prefixExpr: expr as! CXXPrefixExpr, into: &target)
+    case CXXPostfixExpr.self:
+      write(postfixExpr: expr as! CXXPostfixExpr, into: &target)
     case CXXFunctionCallExpr.self:
       write(functionCallExpr: expr as! CXXFunctionCallExpr, into: &target)
     case CXXVoidCast.self:
@@ -345,8 +347,15 @@ public struct CXXCodeWriter {
     case .throwOp: target.write("throw ")
     case .coYield: target.write("co_yield ")
     }
-    target.writeSpace()
     write(expr: expr.base, into: &target)
+  }
+  private func write(postfixExpr expr: CXXPostfixExpr, into target: inout CodeFormatter) {
+    // TODO: handle precedence and associativity; as of writing this comment, postfix operators cannot be properly tested.
+    write(expr: expr.base, into: &target)
+    switch expr.oper {
+    case .suffixIncrement: target.write("++")
+    case .suffixDecrement: target.write("--")
+    }
   }
   private func write(functionCallExpr expr: CXXFunctionCallExpr, into target: inout CodeFormatter) {
     write(expr: expr.callee, into: &target)
