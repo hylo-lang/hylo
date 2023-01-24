@@ -101,12 +101,6 @@ public struct ValCommand: ParsableCommand {
 
   public init() {}
 
-  private var noteLabel: String { "note: ".styled([.bold, .cyan]) }
-
-  private var warningLabel: String { "warning: ".styled([.bold, .yellow]) }
-
-  private var errorLabel: String { "error: ".styled([.bold, .red]) }
-
   /// The URL of the current working directory.
   private var currentDirectory: URL {
     URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
@@ -118,7 +112,7 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Executes the command, logging messages to `errorChannel`, and returns its exit status.
-  public func execute<ErrorChannel: TextOutputStream>(
+  public func execute<ErrorChannel: Channel>(
     loggingTo errorChannel: inout ErrorChannel
   ) throws -> ExitCode {
     if compileInputAsModules {
@@ -265,9 +259,9 @@ public struct ValCommand: ParsableCommand {
 
   /// Logs the given diagnostics to the standard error and returns a success code if none of them
   /// is an error; otherwise, returns a failure code.
-  private func exit<Channel: TextOutputStream>(
+  private func exit<C: Channel>(
     logging diagnostics: Diagnostics,
-    to channel: inout Channel
+    to channel: inout C
   ) -> ExitCode {
     log(diagnostics: diagnostics, to: &channel)
     return diagnostics.errorReported ? ExitCode.failure : ExitCode.success
@@ -281,9 +275,9 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Logs the contents of `diagnostics` tot he standard error.
-  private func log<Channel: TextOutputStream>(
+  private func log<C: Channel>(
     diagnostics: Diagnostics,
-    to channel: inout Channel
+    to channel: inout C
   ) {
     for d in diagnostics.log.sorted(by: Diagnostic.isLoggedBefore) {
       log(diagnostic: d, to: &channel)
@@ -291,31 +285,26 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Logs `diagnostic` to the standard error.
-  private func log<Channel: TextOutputStream>(
+  private func log<C: Channel>(
     diagnostic: Diagnostic,
     asChild isChild: Bool = false,
-    to channel: inout Channel
+    to channel: inout C
   ) {
     // Log the location
     let siteFirst = diagnostic.site.first()
     let path = siteFirst.file.url.relativePath
     let (lineFirst, column) = siteFirst.lineAndColumn()
-    channel.write("\(path):\(lineFirst):\(column): ".styled([.bold]))
+    channel.write("\(path):\(lineFirst):\(column): ", in: [.bold])
 
     // Log the level.
     if isChild {
-      channel.write(noteLabel)
+      log(label: .note, to: &channel)
     } else {
-      switch diagnostic.level {
-      case .warning:
-        channel.write(warningLabel)
-      case .error:
-        channel.write(errorLabel)
-      }
+      log(label: diagnostic.level, to: &channel)
     }
 
     // Log the message.
-    channel.write(diagnostic.message.styled([.bold]))
+    channel.write(diagnostic.message, in: [.bold])
     channel.write("\n")
 
     // Log the window
@@ -342,10 +331,10 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Logs `message` to the standard error file if `--verbose` is set.
-  private func log<Channel: TextOutputStream>(
+  private func log<C: Channel>(
     verbose message: @autoclosure () -> String,
     terminator: String = "\n",
-    to channel: inout Channel
+    to channel: inout C
   ) {
     if !verbose { return }
     channel.write(message())
@@ -353,13 +342,24 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Logs `message` to the standard error file.
-  private func log<Channel: TextOutputStream>(
+  private func log<C: Channel>(
     _ message: String,
     terminator: String = "\n",
-    to channel: inout Channel
+    to channel: inout C
   ) {
     channel.write(message)
     channel.write(terminator)
+  }
+
+  private func log<C: Channel>(label: Diagnostic.Level, to channel: inout C) {
+    switch label {
+    case .note:
+      channel.write("note: ", in: [.bold, .cyan])
+    case .warning:
+      channel.write("warning: ", in: [.bold, .yellow])
+    case .error:
+      channel.write("error: ", in: [.bold, .red])
+    }
   }
 
   /// Returns the path of the specified executable.
@@ -396,10 +396,10 @@ public struct ValCommand: ParsableCommand {
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
   @discardableResult
-  private func runCommandLine<Channel: TextOutputStream>(
+  private func runCommandLine<C: Channel>(
     _ programPath: String,
     _ arguments: [String] = [],
-    loggingTo channel: inout Channel
+    loggingTo channel: inout C
   ) throws -> String? {
     log(verbose: ([programPath] + arguments).joined(separator: " "), to: &channel)
 
