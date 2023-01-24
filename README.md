@@ -7,7 +7,7 @@ Please visit our [website](https://val-lang.dev) to get more information about t
 
 ## Supported platforms
 
-The compiler is currently developed on Unix-like operating systems. While Windows is currently not supported, we would enthusiastically receive any contributions along these lines. See #45 if you'd like to pitch in.
+The compiler is currently developed on Unix-like operating systems. While Windows is currently not supported, we would enthusiastically receive any contributions along these lines. See [#45](https://github.com/val-lang/val/issues/45) if you'd like to pitch in.
 
 ## Installation
 
