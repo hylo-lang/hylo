@@ -100,4 +100,10 @@ let package = Package(
       dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR"],
       resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
+      name: "ValCommandTests",
+      dependencies: ["ValCommand"],
+      resources: [.copy("Inputs")],
+      swiftSettings: allTargetsSwiftSettings),
   ])
