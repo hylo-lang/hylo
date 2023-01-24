@@ -1,5 +1,9 @@
 /*! h
-    int main();
+    void main();
+ */
+/*! cpp
+    void main() {
+    }
  */
 /*! cpp
     int main() {

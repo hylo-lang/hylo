@@ -14,6 +14,9 @@ public struct CXXModule {
   /// The C++ top-level declarations for this module
   private(set) var cxxTopLevelDecls: [CXXTopLevelDecl] = []
 
+  /// If the module contains a `main` function, this will be set to call that function in what will be the CXX program entry point.
+  var cxxEntryPointBody: CXXStmt?
+
   init(_ decl: ModuleDecl.Typed, for program: TypedProgram) {
     self.valDecl = decl
     self.program = program

@@ -58,6 +58,15 @@ public struct CXXCodeWriter {
 
     target.endBrace()
 
+    // If we need to generate the CXX entry point for the mdule, write the `main` function here with the proper body.
+    if module.cxxEntryPointBody != nil {
+      target.addNewLine()
+      target.addNewLine()
+      target.write("int main()")
+      write(stmt: module.cxxEntryPointBody!, into: &target)
+      target.addNewLine()
+    }
+
     return target.code
   }
 

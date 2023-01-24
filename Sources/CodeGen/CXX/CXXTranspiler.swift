@@ -46,20 +46,15 @@ public struct CXXTranspiler {
 
     // Determine the output type of the function.
     let output: CXXTypeExpr
-    if identifier.description == "main" {
-      // The output type of `main` must be `int`.
-      output = CXXTypeExpr("int")
-    } else {
-      switch decl.type.base {
-      case let valDeclType as LambdaType:
-        output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
+    switch decl.type.base {
+    case let valDeclType as LambdaType:
+      output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
 
-      case is MethodType:
-        fatalError("not implemented")
+    case is MethodType:
+      fatalError("not implemented")
 
-      default:
-        unreachable()
-      }
+    default:
+      unreachable()
     }
 
     // Determine the parameter types of the function.
@@ -98,6 +93,44 @@ public struct CXXTranspiler {
         parameters: cxxParams,
         body: cxxBody,
         original: decl))
+
+    // If this is the `main` function of the program, generate the body that needs to be the CXX entry point.
+    if identifier.description == "main" {
+      emit(programEntryPointFor: decl, withOutputType: output, into: &module)
+    }
+  }
+
+  /// Translate the body of the entry-point for the CXX program.
+  private mutating func emit(
+    programEntryPointFor decl: FunctionDecl.Typed, withOutputType output: CXXTypeExpr,
+    into module: inout CXXModule
+  ) {
+    let orig = AnyNodeID.TypedNode(decl)
+
+    // The expression that makes a call to the module `main` function.
+    let callMainExpr = CXXFunctionCallExpr(
+      callee: CXXInfixExpr(
+        oper: .scopeResolution,
+        lhs: CXXIdentifier(module.valDecl.name),
+        rhs: CXXIdentifier("main"),
+        original: nil),
+      arguments: [],
+      original: nil)
+
+    // Build the body of the CXX entry-point function
+    var stmts: [CXXStmt] = []
+    if output.description == "int" {
+      // The expression returns an `int`; make that the program return code.
+      stmts.append(CXXReturnStmt(expr: callMainExpr, original: orig))
+    } else {
+      // Make a plain function call, discarding the result
+      stmts.append(
+        CXXExprStmt(expr: CXXVoidCast(baseExpr: callMainExpr, original: nil), original: orig))
+      // Add a `return 0` statment
+      stmts.append(
+        CXXReturnStmt(expr: CXXIntegerLiteralExpr(value: "0", original: nil), original: orig))
+    }
+    module.cxxEntryPointBody = CXXScopedBlock(stmts: stmts, original: orig)
   }
 
   /// Translate the function body into a CXX entity.
