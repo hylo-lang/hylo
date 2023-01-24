@@ -2806,7 +2806,7 @@ public enum Parser {
       state.diagnostics.report(.error(assignOperatorRequiresWhitespaces: assign))
     }
 
-    let rhs = try state.expect("expression", using: parsePrefixExpr(in:))
+    let rhs = try state.expect("expression", using: parseExpr(in:))
 
     let stmt = state.insert(
       AssignStmt(
