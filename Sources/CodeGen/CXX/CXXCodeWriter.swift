@@ -246,8 +246,6 @@ public struct CXXCodeWriter {
       write(receiverExpr: expr as! CXXReceiverExpr, into: &target)
     case CXXTypeExpr.self:
       write(typeExpr: expr as! CXXTypeExpr, into: &target)
-    case CXXCompoundExpr.self:
-      write(compoundExpr: expr as! CXXCompoundExpr, into: &target)
     case CXXInfixExpr.self:
       write(infixExpr: expr as! CXXInfixExpr, into: &target)
     case CXXFunctionCallExpr.self:
@@ -283,11 +281,6 @@ public struct CXXCodeWriter {
   }
   private func write(typeExpr expr: CXXTypeExpr, into target: inout CodeFormatter) {
     target.write(expr.description)
-  }
-  private func write(compoundExpr expr: CXXCompoundExpr, into target: inout CodeFormatter) {
-    write(expr: expr.base, into: &target)
-    target.write(".")
-    write(expr: expr.id, into: &target)
   }
   private func write(infixExpr expr: CXXInfixExpr, into target: inout CodeFormatter) {
     write(expr: expr.lhs, into: &target)

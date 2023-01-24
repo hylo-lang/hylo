@@ -543,9 +543,10 @@ public struct CXXTranspiler {
       }
 
       // Emit the function reference.
-      return CXXCompoundExpr(
-        base: receiver, id: CXXIdentifier(nameOfDecl(calleeDecl)),
-        original: AnyExprID.TypedNode(expr))
+      return CXXInfixExpr(
+        oper: .dotAccess,
+        lhs: receiver, rhs: CXXIdentifier(nameOfDecl(calleeDecl)),
+        original: AnyNodeID.TypedNode(expr))
 
     case .member(_):
       fatalError("not implemented")
@@ -716,7 +717,8 @@ public struct CXXTranspiler {
       // Emit the compound expression.
       let idExpr = CXXIdentifier(nameOfDecl(decl))
       if receiver != nil {
-        return CXXCompoundExpr(base: receiver!, id: idExpr, original: AnyExprID.TypedNode(expr))
+        return CXXInfixExpr(
+          oper: .dotAccess, lhs: receiver!, rhs: idExpr, original: AnyNodeID.TypedNode(expr))
       } else {
         return idExpr
       }
