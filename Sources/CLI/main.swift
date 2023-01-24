@@ -109,13 +109,13 @@ private struct CLI: ParsableCommand {
 
     var diagnostics = Diagnostics(reportingToStderr: true)
 
-    let productName = "main"
+    let productName = "Main"
 
     /// The AST of the program being compiled.
     var ast = AST()
 
     let newModule = try ast.makeModule(
-      "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
+      productName, sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
