@@ -42,8 +42,6 @@ public struct ValCommand: ParsableCommand {
 
   public static let configuration = CommandConfiguration(commandName: "valc")
 
-  public init() {}
-
   @Flag(
     name: [.customLong("modules")],
     help: "Compile inputs as separate modules.")
@@ -93,6 +91,8 @@ public struct ValCommand: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   private var inputs: [URL]
 
+  public init() {}
+
   private var noteLabel: String { "note: ".styled([.bold, .cyan]) }
 
   private var warningLabel: String { "warning: ".styled([.bold, .yellow]) }
@@ -104,18 +104,12 @@ public struct ValCommand: ParsableCommand {
     URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
   }
 
-  /// Logs the given diagnostics and terminates the program with the status `0` or `-1` if any of
-  /// the diagnostics is an error.
-  private func exit(with diagnostics: Diagnostics) {
-    log(diagnostics: diagnostics)
-    if diagnostics.errorReported {
-      ValCommand.exit(withError: ExitCode(-1))
-    } else {
-      ValCommand.exit()
-    }
+  public func run() throws {
+    ValCommand.exit(withError: try execute())
   }
 
-  public func run() throws {
+  /// Executes the command and returns its exit status.
+  public func execute() throws -> ExitCode {
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
     }
@@ -134,7 +128,7 @@ public struct ValCommand: ParsableCommand {
       let url = outputURL ?? URL(fileURLWithPath: "ast.json")
       let encoder = JSONEncoder()
       try encoder.encode(ast).write(to: url, options: .atomic)
-      exit(with: diagnostics)
+      return exit(with: diagnostics)
     }
 
     // Import the core library.
@@ -157,11 +151,11 @@ public struct ValCommand: ParsableCommand {
     // Report type-checking errors.
     diagnostics.report(checker.diagnostics)
     if !typeCheckingSucceeded {
-      exit(with: diagnostics)
+      return exit(with: diagnostics)
     }
 
     // Exit if `--typecheck` is set.
-    if typeCheckOnly { exit(with: diagnostics) }
+    if typeCheckOnly { return exit(with: diagnostics) }
 
     let typedProgram = TypedProgram(
       annotating: checker.program,
@@ -180,7 +174,7 @@ public struct ValCommand: ParsableCommand {
     if outputType == .rawIR {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      exit(with: diagnostics)
+      return exit(with: diagnostics)
     }
 
     // Run mandatory IR analysis and transformation passes.
@@ -197,14 +191,14 @@ public struct ValCommand: ParsableCommand {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
         diagnostics.report(pipeline[i].diagnostics)
       }
-      if !passSuccess { exit(with: diagnostics) }
+      if !passSuccess { return exit(with: diagnostics) }
     }
 
     // Handle `--emit ir`
     if outputType == .ir {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      exit(with: diagnostics)
+      return exit(with: diagnostics)
     }
 
     // *** C++ Transpiling ***
@@ -224,7 +218,7 @@ public struct ValCommand: ParsableCommand {
         to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
       try cxxSource.write(
         to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
-      exit(with: diagnostics)
+      return exit(with: diagnostics)
     }
 
     // *** Machine code generation ***
@@ -253,6 +247,15 @@ public struct ValCommand: ParsableCommand {
         "-I", buildDirectoryURL.path,
         cxxSourceURL.path,
       ])
+
+    return exit(with: diagnostics)
+  }
+
+  /// Logs the given diagnostics to the standard error and returns a success code if none of them
+  /// is an error; otherwise, returns a failure code.
+  private func exit(with diagnostics: Diagnostics) -> ExitCode {
+    log(diagnostics: diagnostics)
+    return diagnostics.errorReported ? ExitCode.failure : ExitCode.success
   }
 
   /// Creates a module from the contents at `url` and adds it to the AST.
