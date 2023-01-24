@@ -283,6 +283,7 @@ public struct CXXCodeWriter {
     target.write(expr.description)
   }
   private func write(infixExpr expr: CXXInfixExpr, into target: inout CodeFormatter) {
+    // TODO: handle precedence and associativity; as of writing this comment, infix operators cannot be properly tested.
     write(expr: expr.lhs, into: &target)
     target.writeSpace()
     switch expr.oper {
