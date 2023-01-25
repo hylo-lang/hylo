@@ -24,6 +24,11 @@ public struct TypedNode<ID: NodeIDProtocol>: Hashable {
     self.id = id
   }
 
+  /// The site from which self was parsed.
+  public var site: SourceRange {
+    program.ast[id].site
+  }
+
   /// Equality comparison; only check the node ID.
   public static func == (lhs: TypedNode<ID>, rhs: TypedNode<ID>) -> Bool {
     lhs.id == rhs.id
