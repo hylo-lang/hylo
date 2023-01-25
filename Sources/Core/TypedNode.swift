@@ -70,7 +70,7 @@ extension TypedNode where ID: ConcreteNodeID {
 
   /// The corresponding AST node.
   private var syntax: ID.Subject {
-    program.ast[NodeID(id)!]
+    program.ast[NodeID<ID.Subject>(rawValue: id.rawValue)]
   }
 
   /// Accesses the given member of the corresponding AST node.
