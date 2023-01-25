@@ -20,6 +20,16 @@ public type Int {
     Int(value: Builtin.i64_mul(value, other.value))
   }
 
+  /// Returns the additive inverse of `self`.
+  public fun prefix- () -> Self {
+    Int(value: Builtin.i64_neg(value))
+  }
+
+  /// Returns `self`.
+  public fun prefix+ () -> Self {
+    self.copy()
+  }
+
   /// Returns `true` if `self` is smaller than `other`. Otherwise, returns `false`.
   public fun infix< (_ other: Self) -> Bool {
     Bool(value: Builtin.i64_lt(value, other.value))
