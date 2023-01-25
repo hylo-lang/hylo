@@ -42,8 +42,6 @@ public struct SourceRange: Hashable {
 
   /// Returns a copy of `self` extended to cover `other`.
   public func extended(toCover other: SourceRange) -> SourceRange {
-    if self == .eliminateFIXME { return other }
-    if other == .eliminateFIXME { return self }
     precondition(file == other.file, "incompatible ranges")
     return file.range(Swift.min(start, other.start) ..< Swift.max(end, other.end))
   }
@@ -104,16 +102,5 @@ extension SourceRange: CustomReflectable {
         "end": file.position(end),
       ])
   }
-
-}
-
-extension SourceRange {
-
-  private static let nullFile = SourceFile(synthesizedText: "/* eliminate me */")
-
-  /// Temporary stand-in for `nil` as we eliminate optional SourceRange.  See
-  /// https://github.com/val-lang/val/issues/239
-  public static let eliminateFIXME = SourceRange(
-    nullFile.text.startIndex ..< nullFile.text.endIndex, in: nullFile)
 
 }
