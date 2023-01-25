@@ -754,10 +754,7 @@ struct ConstraintSolver {
       typeAssumptions: typeAssumptions.optimized(),
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
-      diagnostics: diagnostics
-        + stale.map {
-          Diagnostic.error(staleConstraint: $0, at: .eliminateFIXME)
-        })
+      diagnostics: diagnostics + stale.map(Diagnostic.error(staleConstraint:)))
   }
 
   /// Creates an ambiguous solution.
