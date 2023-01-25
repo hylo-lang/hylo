@@ -58,10 +58,12 @@ extension NodeIDProtocol {
 }
 
 extension TypedProgram {
+
   /// Bundles `id` together with `self`.
   public subscript<TargetID: NodeIDProtocol>(_ id: TargetID) -> TypedNode<TargetID> {
     TypedNode(id, in: self)
   }
+
 }
 
 extension TypedNode where ID: ConcreteNodeID {
@@ -107,6 +109,7 @@ extension TypedNode where ID: ConcreteNodeID {
     program = s.program
     id = myID
   }
+
 }
 
 extension TypedNode {
@@ -117,6 +120,7 @@ extension TypedNode {
 }
 
 extension TypedNode where ID: ScopeID {
+
   /// The parent scope, if any
   public var parent: AnyScopeID.TypedNode? {
     program.scopeToParent[id].map { .init($0, in: program) }
@@ -126,9 +130,11 @@ extension TypedNode where ID: ScopeID {
   public var decls: LazyMapCollection<[AnyDeclID], AnyDeclID.TypedNode> {
     program.scopeToDecls[id, default: []].lazy.map { .init($0, in: program) }
   }
+
 }
 
 extension TypedNode where ID: DeclID {
+
   /// The scope in which this declaration resides.
   public var scope: AnyScopeID.TypedNode {
     .init(program.declToScope[id]!, in: program)
@@ -144,23 +150,29 @@ extension TypedNode where ID: DeclID {
   public var implicitCaptures: [ImplicitCapture]? {
     program.implicitCaptures[id]
   }
+
 }
 
 extension TypedNode where ID == NodeID<VarDecl> {
+
   /// The binding decl containing this var.
   public var binding: BindingDecl.Typed {
     .init(program.varToBinding[id]!, in: program)
   }
+
 }
 
 extension TypedNode where ID: ExprID {
+
   /// The type of this expression
   public var type: AnyType {
     program.exprTypes[id]!
   }
+
 }
 
 extension TypedNode where ID == NodeID<NameExpr> {
+
   public enum Domain: Equatable {
 
     /// No domain.
@@ -188,6 +200,7 @@ extension TypedNode where ID == NodeID<NameExpr> {
 
   /// A reference to a declaration.
   public enum DeclRef: Hashable {
+
     /// A direct reference.
     case direct(AnyDeclID.TypedNode)
 
@@ -201,6 +214,7 @@ extension TypedNode where ID == NodeID<NameExpr> {
       case .member(let d): return d
       }
     }
+
   }
 
   /// The declaration of this name.
@@ -212,16 +226,20 @@ extension TypedNode where ID == NodeID<NameExpr> {
       return .member(program[decl])
     }
   }
+
 }
 
 extension TypedNode where ID: PatternID {
+
   /// The names associated with this pattern.
   public var names: [(path: [Int], pattern: NamePattern.Typed)] {
     program.ast.names(in: id).map({ (path: $0.path, pattern: program[$0.pattern]) })
   }
+
 }
 
 extension TypedNode where ID == NodeID<ModuleDecl> {
+
   /// Collection of (typed) top-level declarations of the module.
   public typealias TopLevelDecls = LazyMapSequence<
     FlattenSequence<
@@ -237,9 +255,11 @@ extension TypedNode where ID == NodeID<ModuleDecl> {
   public var topLevelDecls: TopLevelDecls {
     program.ast.topLevelDecls(id).map({ program[$0] })
   }
+
 }
 
 extension TypedNode where ID == NodeID<FunctionDecl> {
+
   /// The body of the function, containing typed information
   public enum Body {
 
@@ -264,6 +284,7 @@ extension TypedNode where ID == NodeID<FunctionDecl> {
       return .none
     }
   }
+
 }
 
 extension TypedNode where ID == NodeID<SequenceExpr> {
