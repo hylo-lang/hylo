@@ -1000,7 +1000,8 @@ public struct TypeChecker {
               because: [
                 .error(
                   traitRequiresMethod: Name(of: requirement, in: program.ast)!,
-                  withType: declTypes[requirement]!, at: .eliminateFIXME)
+                  withType: declTypes[requirement]!,
+                  at: program.ast[decl].identifier.site)
               ]))
           success = false
         }
