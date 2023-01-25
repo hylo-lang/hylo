@@ -10,7 +10,7 @@ public struct ModuleDecl: SingleEntityDecl, LexicalScope {
   public init(name: String) {
     self.name = name
     let f = SourceFile(synthesizedText: "/* module: \(name) */")
-    self.site = f.position(f.text.startIndex) ..< f.position(f.text.endIndex)
+    self.site = f.range(f.text.startIndex ..< f.text.endIndex)
   }
 
   public let site: SourceRange
