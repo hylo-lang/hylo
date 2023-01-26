@@ -890,7 +890,7 @@ public enum Parser {
           in: &state,
           introducedBy: SourceRepresentable(
             value: .let,
-            range: state.emptyRange(at: state.ast[body.node].site.start)),
+            range: state.emptyRange(at: state.ast[body.base].site.start)),
           body: body,
           asNonStaticMember: isNonStaticMember)
         return [impl]
@@ -961,7 +961,7 @@ public enum Parser {
     }
 
     let site: SourceRange
-    if let n = body?.node {
+    if let n = body?.base {
       site = introducer.site.extended(toCover: state.ast[n].site)
     } else {
       site = introducer.site
