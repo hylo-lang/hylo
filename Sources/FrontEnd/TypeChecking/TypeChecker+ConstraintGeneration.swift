@@ -16,9 +16,9 @@ extension TypeChecker {
     /// True iff a constraint could not be solved.
     private(set) var foundConflict = false
 
-    /// Creates empty base of facts assigning `type` to `subject` if `type` is not `nil`, or an
-    /// empty base otherwise.
-    init<ID: ExprID>(assigning type: AnyType?, to subject: ID) {
+    /// Creates a base of facts assigning `type` to `subject` if `type` is not `nil`, or an empty
+    /// base otherwise.
+    fileprivate init<ID: ExprID>(assigning type: AnyType?, to subject: ID) {
       if let t = type {
         assign(t, to: subject)
       }
@@ -79,9 +79,21 @@ extension TypeChecker {
 
   }
 
-  /// Infers and returns the type of `subject`, writing the inferred types of its sub-expressions
-  /// and the constraints thereupon in `facts`.
+  /// Returns the inferred type of `subject` along with facts about its sub-expressions knowing it
+  /// occurs in `scope` and is expected to have a type compatible with `expectedType`.
   mutating func infer(
+    typeOf subject: AnyExprID,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?
+  ) -> (type: AnyType, facts: InferenceFacts) {
+    var facts = InferenceFacts(assigning: exprTypes[subject], to: subject)
+    let inferredType = infer(
+      typeOf: subject, inScope: AnyScopeID(scope), expecting: expectedType, updating: &facts)
+    return (inferredType, facts)
+  }
+
+  /// Returns the type of `subject`, writing facts about its sub-expressions in `facts`.
+  private mutating func infer(
     typeOf subject: AnyExprID,
     inScope scope: AnyScopeID,
     expecting expectedType: AnyType?,
