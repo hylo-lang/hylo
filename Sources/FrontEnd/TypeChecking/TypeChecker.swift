@@ -2044,8 +2044,8 @@ public struct TypeChecker {
     return nil
   }
 
-  /// Returns the declarations that expose `identifier` without qualification in `scope`.
-  mutating func lookup(unqualified identifier: String, inScope scope: AnyScopeID) -> DeclSet {
+  /// Returns the declarations that expose `baseName` without qualification in `scope`.
+  mutating func lookup(unqualified baseName: String, inScope scope: AnyScopeID) -> DeclSet {
     let site = scope
 
     var matches = DeclSet()
@@ -2065,7 +2065,7 @@ public struct TypeChecker {
       }
 
       // Search for the identifier in the current scope.
-      let newMatches = lookup(identifier, introducedInDeclSpaceOf: scope, inScope: site)
+      let newMatches = lookup(baseName, introducedInDeclSpaceOf: scope, inScope: site)
         .subtracting(bindingsUnderChecking)
 
       // We can assume the matches are either empty or all overloadable.
@@ -2081,22 +2081,22 @@ public struct TypeChecker {
     if !matches.isEmpty { return matches }
 
     // Check if the identifier refers to the module containing `scope`.
-    if program.ast[root]?.baseName == identifier {
+    if program.ast[root]?.baseName == baseName {
       return [AnyDeclID(root!)]
     }
 
     // Search for the identifier in imported modules.
     for module in program.ast.modules where module != root {
-      matches.formUnion(names(introducedIn: module)[identifier, default: []])
+      matches.formUnion(names(introducedIn: module)[baseName, default: []])
     }
 
     return matches
   }
 
-  /// Returns the declarations that introduce `identifier` in the declaration space of
-  /// `lookupContext`.
+  /// Returns the declarations that introduce a name whose stem is `baseName` in the declaration
+  /// space of `lookupContext`.
   mutating func lookup<T: ScopeID>(
-    _ identifier: String,
+    _ baseName: String,
     introducedInDeclSpaceOf lookupContext: T,
     inScope site: AnyScopeID
   ) -> DeclSet {
@@ -2105,55 +2105,56 @@ public struct TypeChecker {
       let type = ^ProductType(
         NodeID(rawValue: lookupContext.rawValue),
         ast: program.ast)
-      return lookup(identifier, memberOf: type, inScope: site)
+      return lookup(baseName, memberOf: type, inScope: site)
 
     case TraitDecl.self:
       let type = ^TraitType(NodeID(rawValue: lookupContext.rawValue), ast: program.ast)
-      return lookup(identifier, memberOf: type, inScope: site)
+      return lookup(baseName, memberOf: type, inScope: site)
 
     case TypeAliasDecl.self:
       let type = ^TypeAliasType(NodeID(rawValue: lookupContext.rawValue), ast: program.ast)
-      return lookup(identifier, memberOf: type, inScope: site)
+      return lookup(baseName, memberOf: type, inScope: site)
 
     default:
-      return names(introducedIn: lookupContext)[identifier, default: []]
+      return names(introducedIn: lookupContext)[baseName, default: []]
     }
   }
 
-  /// Returns the declarations that introduce `identifier` as a member of `type` in `scope`.
+  /// Returns the declarations that introduce a name whose stem is `baseName` as a member of `type`
+  /// in `scope`.
   mutating func lookup(
-    _ identifier: String,
+    _ baseName: String,
     memberOf type: AnyType,
     inScope scope: AnyScopeID
   ) -> DeclSet {
     if let t = type.base as? ConformanceLensType {
-      return lookup(identifier, memberOf: ^t.lens, inScope: scope)
+      return lookup(baseName, memberOf: ^t.lens, inScope: scope)
     }
 
     let key = MemberLookupKey(type: type, scope: scope)
-    if let m = memberLookupTables[key]?[identifier] {
+    if let m = memberLookupTables[key]?[baseName] {
       return m
     }
 
     var matches: DeclSet
-    defer { memberLookupTables[key, default: [:]][identifier] = matches }
+    defer { memberLookupTables[key, default: [:]][baseName] = matches }
 
     switch type.base {
     case let t as BoundGenericType:
-      matches = lookup(identifier, memberOf: t.base, inScope: scope)
+      matches = lookup(baseName, memberOf: t.base, inScope: scope)
       return matches
 
     case let t as ProductType:
-      matches = names(introducedIn: t.decl)[identifier, default: []]
-      if identifier == "init" {
+      matches = names(introducedIn: t.decl)[baseName, default: []]
+      if baseName == "init" {
         matches.insert(AnyDeclID(program.ast[t.decl].memberwiseInit))
       }
 
     case let t as TraitType:
-      matches = names(introducedIn: t.decl)[identifier, default: []]
+      matches = names(introducedIn: t.decl)[baseName, default: []]
 
     case let t as TypeAliasType:
-      matches = names(introducedIn: t.decl)[identifier, default: []]
+      matches = names(introducedIn: t.decl)[baseName, default: []]
 
     default:
       matches = DeclSet()
@@ -2166,7 +2167,7 @@ public struct TypeChecker {
 
     // Look for members declared in extensions.
     for i in extendingDecls(of: type, exposedTo: scope) {
-      matches.formUnion(names(introducedIn: i)[identifier, default: []])
+      matches.formUnion(names(introducedIn: i)[baseName, default: []])
     }
 
     // We're done if we found at least one non-overloadable match.
@@ -2180,7 +2181,7 @@ public struct TypeChecker {
       if type == trait { continue }
 
       // TODO: Read source of conformance to disambiguate associated names
-      let newMatches = lookup(identifier, memberOf: ^trait, inScope: scope)
+      let newMatches = lookup(baseName, memberOf: ^trait, inScope: scope)
       switch type.base {
       case is AssociatedTypeType,
         is GenericTypeParameterType,
