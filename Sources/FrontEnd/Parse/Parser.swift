@@ -1072,21 +1072,21 @@ public enum Parser {
       if state.ast[m].introducer.value == .memberwiseInit { return m }
     }
 
-    let site = state.emptyRange(at: startIndex)
+    let startOfTypeDecl = state.emptyRange(at: startIndex)
     let receiver = state.insert(
       synthesized: ParameterDecl(
-        identifier: SourceRepresentable(value: "self", range: site),
-        site: site))
+        identifier: SourceRepresentable(value: "self", range: startOfTypeDecl),
+        site: startOfTypeDecl))
     let m = state.insert(
       synthesized: InitializerDecl(
-        introducer: SourceRepresentable(value: .memberwiseInit, range: site),
+        introducer: SourceRepresentable(value: .memberwiseInit, range: startOfTypeDecl),
         attributes: [],
         accessModifier: nil,
         genericClause: nil,
         parameters: [],
         receiver: receiver,
         body: nil,
-        site: site))
+        site: startOfTypeDecl))
     members.append(AnyDeclID(m))
     return m
   }
