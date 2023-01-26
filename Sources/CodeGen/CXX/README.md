@@ -31,7 +31,7 @@ The header of a transpiled unit exposes the public symbols of the module through
 | `GenericParameterDecl` | function decl, class decl | `CXXTODO` | |
 | `ParameterDecl` | function decl | `CXXFunction.Parameter` | |
 | `ImplicitCapture` | function decl | TODO | |
-| `MethodImplDecl` | function | N/A | Translated indirectly with `CXXMethodDecl` |
+| `MethodImpl` | function | N/A | Translated indirectly with `CXXMethodDecl` |
 | `MethodDecl` | class | `CXXMethodDecl` | |
 | `InitializerDecl` | class | `CXXConstructor` | |
 | `SubscriptDecl` | class | TODO | |

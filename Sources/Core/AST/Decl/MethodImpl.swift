@@ -1,5 +1,5 @@
 /// The declaration of a method implementation.
-public struct MethodImplDecl: Decl, LexicalScope {
+public struct MethodImpl: Decl, LexicalScope {
 
   public enum Body: Codable {
 

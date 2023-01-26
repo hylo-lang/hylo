@@ -83,7 +83,7 @@ extension Diagnostic {
     .error("method bundle declaration is not allowed here", at: d.introducerSite)
   }
 
-  static func error(unexpectedMethodImplDecl d: MethodImplDecl) -> Diagnostic {
+  static func error(unexpectedMethodImpl d: MethodImpl) -> Diagnostic {
     .error("method implementation declaration is not allowed here", at: d.introducer.site)
   }
 
@@ -104,7 +104,7 @@ extension Diagnostic {
     .error("property declaration is not allowed here", at: d.introducer.site)
   }
 
-  static func error(unexpectedSubscriptImplDecl d: SubscriptImplDecl) -> Diagnostic {
+  static func error(unexpectedSubscriptImpl d: SubscriptImpl) -> Diagnostic {
     .error("subscript implementation declaration is not allowed here", at: d.introducer.site)
   }
 

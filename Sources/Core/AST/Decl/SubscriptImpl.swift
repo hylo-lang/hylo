@@ -1,5 +1,5 @@
 /// The declaration of a subscript implementation.
-public struct SubscriptImplDecl: Decl, LexicalScope {
+public struct SubscriptImpl: Decl, LexicalScope {
 
   /// The body of a subscript implementation.
   public enum Body: Codable {
