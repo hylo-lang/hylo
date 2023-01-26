@@ -13,25 +13,26 @@ struct CodeFormatter: TextOutputStream {
 
   /// The current level of indentation.
   private var indentationLevel: Int = 0
-  /// True if the next text written should be indented.
-  private var shouldIntent: Bool = false
+  /// True if we are starting a new line.
+  /// Used to detect when we need to write indentation.
+  private var atLineStart: Bool = false
 
   /// Adds new text to the output code.
   mutating func write(_ text: String) {
-    checkAddIndent()
+    writeIndentationAtLineStart()
     code.write(text)
   }
 
   /// Adds new text to the output code, with a new line at the end
   mutating func writeLine(_ text: String) {
-    checkAddIndent()
+    writeIndentationAtLineStart()
     code.write(text)
     writeNewline()
   }
 
   /// Adds a space to the code that is currently written.
   mutating func writeSpace() {
-    checkAddIndent()
+    writeIndentationAtLineStart()
     code.write(" ")
   }
 
@@ -39,7 +40,7 @@ struct CodeFormatter: TextOutputStream {
   /// If the next line contains visible characters, they would be indented.
   mutating func writeNewline() {
     code.write("\n")
-    shouldIntent = true
+    atLineStart = true
   }
 
   /// Increases the indent level and adds a new line.
@@ -58,8 +59,9 @@ struct CodeFormatter: TextOutputStream {
   }
 
   /// Open a curly brace and increase the indent.
-  mutating func beginBrace(withSpaceBefore space: Bool = true) {
-    if space {
+  /// Also writes a space before the brace, if we are not at the beginning of the line.
+  mutating func beginBrace() {
+    if !atLineStart {
       writeSpace()
     }
     write("{")
@@ -71,12 +73,11 @@ struct CodeFormatter: TextOutputStream {
     write("}")
   }
 
-  /// Called when writing some new code (everything except newlines) to ensure that we
-  /// are writing the indent when we are at the beginning of the line.
-  mutating private func checkAddIndent() {
-    if shouldIntent {
+  /// If we are at line start, write the indentation.
+  mutating private func writeIndentationAtLineStart() {
+    if atLineStart {
       code.write(String(repeating: CodeFormatter.indentation, count: indentationLevel))
-      shouldIntent = false
+      atLineStart = false
     }
   }
 }
