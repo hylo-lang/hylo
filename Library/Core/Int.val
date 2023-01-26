@@ -30,6 +30,18 @@ public type Int {
     self.copy()
   }
 
+  /// Increments the current value, and return the old value.
+  /// TODO: fix me
+  public fun postfix++ () -> Self {
+    self.copy()
+  }
+
+  /// Decrements the current value, and return the old value.
+  /// TODO: fix me
+  public fun postfix-- () -> Self {
+    self.copy()
+  }
+
   /// Returns `true` if `self` is smaller than `other`. Otherwise, returns `false`.
   public fun infix< (_ other: Self) -> Bool {
     Bool(value: Builtin.i64_lt(value, other.value))
