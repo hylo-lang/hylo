@@ -178,7 +178,7 @@ public struct CXXTranspiler {
     let capability = decl.pattern.introducer.value
 
     // There's nothing to do if there's no initializer.
-    if let initializer: TypedNode<AnyExprID> = decl.initializer {
+    if let initializer = decl.initializer {
 
       let isLValue =
         (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)

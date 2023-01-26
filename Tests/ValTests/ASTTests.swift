@@ -23,9 +23,9 @@ final class ASTTests: XCTestCase {
     // Create a trait declaration.
     let decl = ast.insert(
       synthesized: ImportDecl(
-        introducerRange: nil,
-        identifier: SourceRepresentable(value: "T"),
-        origin: nil))
+        introducerSite: .eliminateFIXME,
+        identifier: SourceRepresentable(value: "T", range: .eliminateFIXME),
+        site: .eliminateFIXME))
 
     // Create a source declaration set.
     let source = ast.insert(synthesized: TopLevelDeclSet(decls: [AnyDeclID(decl)]))
@@ -46,9 +46,9 @@ final class ASTTests: XCTestCase {
           AnyDeclID(
             ast.insert(
               synthesized: FunctionDecl(
-                introducerRange: nil,
-                identifier: SourceRepresentable(value: "foo"),
-                origin: nil)))
+                introducerSite: .eliminateFIXME,
+                identifier: SourceRepresentable(value: "foo", range: .eliminateFIXME),
+                site: .eliminateFIXME)))
         ]))
     ast[module].addSourceFile(source)
 

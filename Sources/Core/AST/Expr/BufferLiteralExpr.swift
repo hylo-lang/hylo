@@ -1,13 +1,13 @@
 /// A buffer literal expression.
 public struct BufferLiteralExpr: Expr {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
   /// The elements of the literal.
   public let elements: [AnyExprID]
 
-  public init(elements: [AnyExprID], origin: SourceRange?) {
-    self.origin = origin
+  public init(elements: [AnyExprID], site: SourceRange) {
+    self.site = site
     self.elements = elements
   }
 

@@ -41,6 +41,11 @@ public enum BuiltinSymbols {
     from: (.let, .i(64)), (.let, .i(64)),
     to: .builtin(.i(1)))
 
+  /// 64-bit integer negation.
+  public static let i64_neg = LambdaType(
+    from: (.let, .i(64)),
+    to: .builtin(.i(64)))
+
   // 64-bit integer unchecked conversion to 32-bit.
   public static let i64_trunc_to_i32 = LambdaType(
     from: (.let, .i(64)),
@@ -70,6 +75,7 @@ public enum BuiltinSymbols {
     case "i64_add": return Self.i64_add
     case "i64_sub": return Self.i64_sub
     case "i64_lt": return Self.i64_lt
+    case "i64_neg": return Self.i64_neg
     case "i64_trunc_to_i32": return Self.i64_trunc_to_i32
     case "i64_print": return Self.i64_print
 

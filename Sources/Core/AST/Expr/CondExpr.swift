@@ -11,7 +11,7 @@ public struct CondExpr: Expr, LexicalScope {
 
   }
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
   /// The condition of the expression.
   ///
@@ -28,11 +28,11 @@ public struct CondExpr: Expr, LexicalScope {
     condition: [ConditionItem],
     success: CondExpr.Body,
     failure: CondExpr.Body?,
-    origin: SourceRange?
+    site: SourceRange
   ) {
     precondition(condition.count > 0)
 
-    self.origin = origin
+    self.site = site
     self.condition = condition
     self.success = success
     self.failure = failure
