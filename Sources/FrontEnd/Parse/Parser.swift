@@ -934,15 +934,14 @@ public enum Parser {
     }
   }
 
-  /// Inserts in `state.ast` a subscript implementation declaration introduced with the given
-  /// introducer and body and returns its ID.
+  /// Inserts into `state.ast` a subscript implementation having the given `introducer` and `body` returning its ID.
   ///
   /// - Parameters:
   ///   - introducer: The introducer of the declaration, or `nil` if it is implicit. In that case,
   ///     it is synthesized as `let`.
   ///   - body: The body of the declaration, or `nil` if that body should must be synthesized or
   ///     if the declaration denotes a trait requirement.
-  /// - Requires: `body` is not `nil` if `introducer` is.
+  /// - Requires: if `introducer` is `nil`, body is non-`nil`.
   private static func buildSubscriptImplDecl(
     in state: inout ParserState,
     introducedBy introducer: SourceRepresentable<ImplIntroducer>,

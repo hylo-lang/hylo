@@ -10,7 +10,7 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
     /// A block body.
     case block(NodeID<BraceStmt>)
 
-    /// The node wrappedby this instance.
+    /// The node wrapped by this instance.
     public var base: AnyNodeID {
       switch self {
       case .expr(let n):
