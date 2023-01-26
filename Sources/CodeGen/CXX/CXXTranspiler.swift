@@ -175,29 +175,10 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXRepresentable {
-    let pattern = decl.pattern
+    let capability = decl.pattern.introducer.value
 
-    switch pattern.introducer.value {
-    case .var, .sinklet:
-      return emit(storedLocalBinding: decl)
-    case .let:
-      return emit(borrowedLocalBinding: decl, withCapability: .let)
-    case .inout:
-      return emit(borrowedLocalBinding: decl, withCapability: .inout)
-    }
-  }
-
-  private mutating func emit(storedLocalBinding decl: BindingDecl.Typed) -> CXXRepresentable {
-    return CXXComment(comment: "local binding", original: AnyNodeID.TypedNode(decl))
-  }
-
-  /// Emits borrowed bindings.
-  private mutating func emit(
-    borrowedLocalBinding decl: BindingDecl.Typed,
-    withCapability capability: AccessEffect
-  ) -> CXXRepresentable {
     // There's nothing to do if there's no initializer.
-    if let initializer: TypedNode<AnyExprID> = decl.initializer {
+    if let initializer = decl.initializer {
 
       let isLValue =
         (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
@@ -211,15 +192,21 @@ public struct CXXTranspiler {
       for (path, name) in pattern.subpattern.names {
         // TODO: emit code for the patterns.
         let decl = name.decl
+        let _ = path
         stmts.append(
-          CXXComment(
-            comment: "decl \(name), type: \(decl.type.description); path: \(path)",
-            original: AnyNodeID.TypedNode(name)))
+          CXXLocalVarDecl(
+            type: CXXTypeExpr(decl.type, ast: program.ast)!,
+            name: CXXIdentifier(decl.identifier.value),
+            initializer: cxxInitialzer,
+            original: decl)
+        )
       }
       if stmts.isEmpty {
         // No pattern found; just call the initializer, dropping the result.
         let cxxExpr = CXXVoidCast(baseExpr: cxxInitialzer, original: initializer)
         return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(initializer))
+      } else if stmts.count == 1 {
+        return stmts[0]
       } else {
         return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(initializer))
       }
@@ -241,6 +228,8 @@ public struct CXXTranspiler {
       return emit(declStmt: DeclStmt.Typed(stmt)!)
     case ExprStmt.self:
       return emit(exprStmt: ExprStmt.Typed(stmt)!)
+    case AssignStmt.self:
+      return emit(assignStmt: AssignStmt.Typed(stmt)!)
     case ReturnStmt.self:
       return emit(returnStmt: ReturnStmt.Typed(stmt)!)
     default:
@@ -267,6 +256,15 @@ public struct CXXTranspiler {
 
   private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXRepresentable {
     return CXXExprStmt(expr: emitR(expr: stmt.expr), original: AnyNodeID.TypedNode(stmt))
+  }
+
+  private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXRepresentable {
+    let cxxExpr = CXXInfixExpr(
+      callee: CXXIdentifier("="),
+      lhs: emitL(expr: stmt.left, withCapability: .set),
+      rhs: emitR(expr: stmt.right),
+      original: AnyNodeID.TypedNode(stmt))
+    return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(stmt))
   }
 
   private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXRepresentable {
@@ -540,7 +538,7 @@ public struct CXXTranspiler {
       "&&=", "**":
       // Expand this as a native infix operator call
       return CXXInfixExpr(
-        callee: CXXIdentifier(name), lhs: lhs, rhs: rhs, original: AnyExprID.TypedNode(expr))
+        callee: CXXIdentifier(name), lhs: lhs, rhs: rhs, original: AnyNodeID.TypedNode(expr))
 
     default:
       // Expand this as a regular function call.

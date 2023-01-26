@@ -14,7 +14,8 @@ struct CXXInfixExpr: CXXRepresentable {
   public let rhs: CXXRepresentable
 
   /// The original node in Val AST.
-  let original: AnyExprID.TypedNode?
+  /// Typically an expression, but may be an `AssignStmt`.
+  let original: AnyNodeID.TypedNode?
 
   func writeCode<Target: TextOutputStream>(into target: inout Target) {
     lhs.writeCode(into: &target)
