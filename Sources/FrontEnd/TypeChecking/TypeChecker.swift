@@ -931,7 +931,7 @@ public struct TypeChecker {
 
                   switch c.base {
                   case let c as AssociatedTypeType:
-                    let candidates = lookup(c.name.value, memberOf: r, inScope: scope)
+                    let candidates = lookup(program.ast[c.decl].name, memberOf: r, inScope: scope)
 
                     // Name is ambiguous if there's more than one candidate.
                     if candidates.count != 1 {
