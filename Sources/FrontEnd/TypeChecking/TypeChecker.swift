@@ -1582,10 +1582,8 @@ public struct TypeChecker {
     }
 
     // Generate constraints.
-    var facts = InferenceFacts(assigning: exprTypes[subject], to: subject)
-    let inferredType = infer(
-      typeOf: subject, inScope: AnyScopeID(scope),
-      expecting: expectedType, updating: &facts)
+    let (inferredType, facts) = infer(
+      typeOf: subject, inScope: AnyScopeID(scope), expecting: expectedType)
 
     // Bail out if constraint generation failed.
     if facts.foundConflict {
@@ -1605,7 +1603,7 @@ public struct TypeChecker {
     }
 
     // Apply the solution.
-    for (id, type) in facts.inferredTypes.storage {
+    for (id, type) in facts.inferredExprTypes.storage {
       exprTypes[id] = solution.typeAssumptions.reify(type, withVariables: .keep)
     }
     for (name, ref) in solution.bindingAssumptions {
