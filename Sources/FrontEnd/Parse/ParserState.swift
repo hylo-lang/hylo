@@ -117,7 +117,7 @@ struct ParserState {
     lexer.sourceCode.range(startIndex ..< currentIndex)
   }
 
-  /// Returns an empty site starting and ending at `index`.
+  /// Returns a range starting and ending at `index`.
   func emptyRange(at index: String.Index) -> SourceRange {
     lexer.sourceCode.range(index ..< index)
   }
