@@ -1,0 +1,35 @@
+/*! cpp
+    void test1() {
+    while ( mooing() ) {
+    fooing();
+    }
+    erring();
+    }
+ */
+/*! cpp
+    void test2() {
+    while ( mooing() ) {
+    fooing();
+    baring();
+    }
+    erring();
+    }
+ */
+fun fooing() {}
+fun baring() {}
+fun mooing() -> Bool { true }
+fun erring() {}
+
+fun test1() {
+    while mooing() {
+        fooing()
+    }
+    erring();
+}
+fun test2() {
+    while mooing() {
+        fooing()
+        baring()
+    }
+    erring();
+}

@@ -232,6 +232,18 @@ public struct CXXTranspiler {
       return emit(assignStmt: AssignStmt.Typed(stmt)!)
     case ReturnStmt.self:
       return emit(returnStmt: ReturnStmt.Typed(stmt)!)
+    case WhileStmt.self:
+      return emit(whileStmt: WhileStmt.Typed(stmt)!)
+    case DoWhileStmt.self:
+      return emit(doWhileStmt: DoWhileStmt.Typed(stmt)!)
+    case ForStmt.self:
+      return emit(forStmt: ForStmt.Typed(stmt)!)
+    case BreakStmt.self:
+      return emit(breakStmt: BreakStmt.Typed(stmt)!)
+    case ContinueStmt.self:
+      return emit(continueStmt: ContinueStmt.Typed(stmt)!)
+    case YieldStmt.self:
+      return emit(yieldStmt: YieldStmt.Typed(stmt)!)
     default:
       unreachable("unexpected statement")
     }
@@ -273,6 +285,43 @@ public struct CXXTranspiler {
       expr = emitR(expr: stmt.value!)
     }
     return CXXReturnStmt(expr: expr, original: AnyNodeID.TypedNode(stmt))
+  }
+
+  private mutating func emit(whileStmt stmt: WhileStmt.Typed) -> CXXRepresentable {
+    // TODO: multiple conditions
+    // TODO: bindings in conditions
+    let condition: CXXRepresentable
+    if stmt.condition.count == 1 {
+      switch stmt.condition[0] {
+      case .expr(let condExpr):
+        condition = emitR(expr: program[condExpr])
+      case .decl(let decl):
+        condition = CXXComment(
+          comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
+      }
+    } else {
+      fatalError("not implemented")
+    }
+    return CXXWhileStmt(
+      condition: condition, body: emit(stmt: stmt.body), original: AnyNodeID.TypedNode(stmt))
+  }
+  private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXRepresentable {
+    return CXXDoWhileStmt(
+      body: emit(stmt: stmt.body),
+      condition: emitR(expr: stmt.condition),
+      original: AnyNodeID.TypedNode(stmt))
+  }
+  private mutating func emit(forStmt stmt: ForStmt.Typed) -> CXXRepresentable {
+    return CXXComment(comment: "ForStmt", original: AnyNodeID.TypedNode(stmt))
+  }
+  private mutating func emit(breakStmt stmt: BreakStmt.Typed) -> CXXRepresentable {
+    return CXXBreakStmt(original: AnyNodeID.TypedNode(stmt))
+  }
+  private mutating func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXRepresentable {
+    return CXXContinueStmt(original: AnyNodeID.TypedNode(stmt))
+  }
+  private mutating func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXRepresentable {
+    return CXXComment(comment: "YieldStmt", original: AnyNodeID.TypedNode(stmt))
   }
 
   // MARK: Expressions
@@ -318,25 +367,25 @@ public struct CXXTranspiler {
   private mutating func emitR(
     cond expr: CondExpr.Typed
   ) -> CXXRepresentable {
-    let isExpression = expr.type != .void
-    if isExpression {
+    // TODO: multiple conditions
+    // TODO: bindings in conditions
+    let condition: CXXRepresentable
+    if expr.condition.count == 1 {
+      switch expr.condition[0] {
+      case .expr(let condExpr):
+        condition = emitR(expr: program[condExpr])
+      case .decl(let decl):
+        condition = CXXComment(
+          comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
+      }
+    } else {
+      fatalError("not implemented")
+    }
+    if expr.type != .void {
+      // We result in an expression
       // TODO: do we need to return an l-value?
-      // TODO: multiple conditions
-      // TODO: bindings in conditions
-      let condition: CXXRepresentable
       let trueExpr: CXXRepresentable
       let falseExpr: CXXRepresentable
-      if expr.condition.count == 1 {
-        switch expr.condition[0] {
-        case .expr(let condExpr):
-          condition = emitR(expr: program[condExpr])
-        case .decl(let decl):
-          condition = CXXComment(
-            comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
-        }
-      } else {
-        fatalError("not implemented")
-      }
       switch expr.success {
       case .expr(let altExpr):
         trueExpr = emitR(expr: program[altExpr])
@@ -355,7 +404,35 @@ public struct CXXTranspiler {
       return CXXConditionalExpr(
         condition: condition, trueExpr: trueExpr, falseExpr: falseExpr, original: expr)
     } else {
-      return CXXComment(comment: "if statement", original: AnyNodeID.TypedNode(expr))
+      // We result in a statement
+      let trueStmt: CXXRepresentable
+      let falseStmt: CXXRepresentable?
+      switch expr.success {
+      case .expr(let altExpr):
+        let expr = program[altExpr]
+        trueStmt = CXXExprStmt(
+          expr: CXXVoidCast(baseExpr: emitR(expr: expr), original: AnyExprID.TypedNode(expr)),
+          original: AnyNodeID.TypedNode(expr))
+      case .block(let braceStmt):
+        trueStmt = emit(stmt: program[braceStmt])
+      }
+      switch expr.failure {
+      case .expr(let altExpr):
+        let expr = program[altExpr]
+        falseStmt = CXXExprStmt(
+          expr: CXXVoidCast(baseExpr: emitR(expr: expr), original: AnyExprID.TypedNode(expr)),
+          original: AnyNodeID.TypedNode(expr))
+      case .block(let braceStmt):
+        falseStmt = emit(stmt: program[braceStmt])
+      case .none:
+        falseStmt = nil
+      }
+      // TODO: the result is put into an expression statement, which is not right
+      return CXXIfStmt(
+        condition: condition,
+        trueStmt: trueStmt,
+        falseStmt: falseStmt,
+        original: AnyNodeID.TypedNode(expr))
     }
   }
 
@@ -380,72 +457,7 @@ public struct CXXTranspiler {
     let callee: CXXRepresentable
 
     if let calleeNameExpr = NameExpr.Typed(expr.callee) {
-      switch calleeNameExpr.decl {
-      case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
-        // Callee refers to a built-in function.
-        assert(calleeType.environment == .void)
-        callee = CXXIdentifier(calleeNameExpr.name.value.stem)
-
-      case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        // Callee is a direct reference to a function or initializer declaration.
-        // TODO: handle captures
-        callee = CXXIdentifier(nameOfDecl(calleeDecl))
-
-      case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
-        switch InitializerDecl.Typed(calleeDecl)!.introducer.value {
-        case .`init`:
-          // TODO: The function is a custom initializer.
-          fatalError("not implemented")
-
-        case .memberwiseInit:
-          // The function is a memberwise initializer. In that case, the whole call expression is
-          // lowered as a `record` instruction.
-          // TODO: implement this
-          fatalError("not implemented")
-        }
-
-      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        // Callee is a member reference to a function or method.
-        let receiverType = calleeType.captures[0].type
-
-        var receiver: CXXRepresentable
-
-        // Add the receiver to the arguments.
-        if let type = RemoteType(receiverType) {
-          // The receiver as a borrowing convention.
-          switch calleeNameExpr.domain {
-          case .none:
-            receiver = CXXReceiverExpr(original: AnyExprID.TypedNode(expr))
-
-          case .expr(let receiverID):
-            receiver = emitL(expr: receiverID, withCapability: type.capability)
-
-          case .implicit:
-            unreachable()
-          }
-        } else {
-          // The receiver is consumed.
-          switch calleeNameExpr.domain {
-          case .none:
-            receiver = CXXReceiverExpr(original: AnyExprID.TypedNode(expr))
-
-          case .expr(let receiverID):
-            receiver = emitR(expr: receiverID)
-
-          case .implicit:
-            unreachable()
-          }
-        }
-
-        // Emit the function reference.
-        callee = CXXCompoundExpr(
-          base: receiver, id: CXXIdentifier(nameOfDecl(calleeDecl)),
-          original: AnyExprID.TypedNode(expr))
-
-      default:
-        // Evaluate the callee as a function object.
-        callee = emitR(expr: expr.callee)
-      }
+      callee = emitR(name: calleeNameExpr, forCalleWithType: calleeType)
     } else {
       // Evaluate the callee as a function object.
       callee = emitR(expr: expr.callee)
@@ -462,9 +474,80 @@ public struct CXXTranspiler {
   }
 
   private mutating func emitR(
-    name expr: NameExpr.Typed
+    name expr: NameExpr.Typed,
+    forCalleWithType calleeType: LambdaType? = nil
   ) -> CXXRepresentable {
-    return CXXComment(comment: "name expression", original: AnyNodeID.TypedNode(expr))
+    switch expr.decl {
+    case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
+      // Callee refers to a built-in function.
+      assert(calleeType == nil || calleeType!.environment == .void)
+      return CXXIdentifier(expr.name.value.stem)
+
+    case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
+      // Callee is a direct reference to a function or initializer declaration.
+      // TODO: handle captures
+      return CXXIdentifier(nameOfDecl(calleeDecl))
+
+    case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
+      switch InitializerDecl.Typed(calleeDecl)!.introducer.value {
+      case .`init`:
+        // TODO: The function is a custom initializer.
+        fatalError("not implemented")
+
+      case .memberwiseInit:
+        // The function is a memberwise initializer. In that case, the whole call expression is
+        // lowered as a `record` instruction.
+        // TODO: implement this
+        fatalError("not implemented")
+      }
+    case .direct(let calleeDecl) where calleeDecl.kind == VarDecl.self:
+      return CXXIdentifier(nameOfDecl(calleeDecl))
+
+    case .direct(_):
+      fatalError("not implemented")
+
+    case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
+      // Callee is a member reference to a function or method.
+      assert(calleeType != nil)
+      let receiverType = calleeType!.captures[0].type
+
+      var receiver: CXXRepresentable
+
+      // Add the receiver to the arguments.
+      if let type = RemoteType(receiverType) {
+        // The receiver as a borrowing convention.
+        switch expr.domain {
+        case .none:
+          receiver = CXXReceiverExpr(original: AnyExprID.TypedNode(expr))
+
+        case .expr(let receiverID):
+          receiver = emitL(expr: receiverID, withCapability: type.capability)
+
+        case .implicit:
+          unreachable()
+        }
+      } else {
+        // The receiver is consumed.
+        switch expr.domain {
+        case .none:
+          receiver = CXXReceiverExpr(original: AnyExprID.TypedNode(expr))
+
+        case .expr(let receiverID):
+          receiver = emitR(expr: receiverID)
+
+        case .implicit:
+          unreachable()
+        }
+      }
+
+      // Emit the function reference.
+      return CXXCompoundExpr(
+        base: receiver, id: CXXIdentifier(nameOfDecl(calleeDecl)),
+        original: AnyExprID.TypedNode(expr))
+
+    case .member(_):
+      fatalError("not implemented")
+    }
   }
 
   private mutating func emitR(
