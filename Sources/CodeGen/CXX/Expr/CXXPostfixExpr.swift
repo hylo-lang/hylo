@@ -19,10 +19,10 @@ struct CXXPostfixExpr: CXXExpr {
   /// Typically an expression, but somtimes this can be AssignStmt
   let original: AnyNodeID.TypedNode?
 
-  func precedence() -> Int {
+  var precedence: Int {
     2
   }
-  func isLeftToRight() -> Bool {
+  var isLeftToRight: Bool {
     true
   }
 

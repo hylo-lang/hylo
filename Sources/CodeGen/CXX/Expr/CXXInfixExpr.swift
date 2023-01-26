@@ -56,7 +56,7 @@ struct CXXInfixExpr: CXXExpr {
   /// Typically an expression, but somtimes this can be AssignStmt
   let original: AnyNodeID.TypedNode?
 
-  func precedence() -> Int {
+  var precedence: Int {
     switch oper {
     case .scopeResolution:
       return 1
@@ -94,7 +94,7 @@ struct CXXInfixExpr: CXXExpr {
       return 17
     }
   }
-  func isLeftToRight() -> Bool {
+  var isLeftToRight: Bool {
     switch oper {
     case .scopeResolution, .dotAccess, .ptrAccess, .dotPtrToMember, .ptrToMember, .multiplication,
       .division, .remainder, .addition, .subtraction, .leftShift, .rightShift, .spaceship,

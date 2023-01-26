@@ -8,10 +8,10 @@ struct CXXVoidCast: CXXExpr {
   /// The original node in Val AST.
   let original: AnyExprID.TypedNode?
 
-  func precedence() -> Int {
+  var precedence: Int {
     3
   }
-  func isLeftToRight() -> Bool {
+  var isLeftToRight: Bool {
     false
   }
 

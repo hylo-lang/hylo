@@ -29,7 +29,7 @@ struct CXXPrefixExpr: CXXExpr {
   /// Typically an expression, but somtimes this can be AssignStmt
   let original: AnyNodeID.TypedNode?
 
-  func precedence() -> Int {
+  var precedence: Int {
     switch oper {
     case .prefixIncrement, .prefixDecrement, .unaryPlus, .unaryMinus, .logicalNot, .bitwiseNot,
       .dereference, .addressOf, .sizeOf, .coAwait:
@@ -38,7 +38,7 @@ struct CXXPrefixExpr: CXXExpr {
       return 16
     }
   }
-  func isLeftToRight() -> Bool {
+  var isLeftToRight: Bool {
     return false
   }
 
