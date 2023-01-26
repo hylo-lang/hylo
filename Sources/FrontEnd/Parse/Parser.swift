@@ -1042,7 +1042,7 @@ public enum Parser {
 
     // Retrieve or synthesize the type's memberwise initializer.
     var members = parts.1
-    let memberwiseInit = getOrCreateMemberwiseInitializer(
+    let memberwiseInit = memberwiseInitializer(
       ofDeclStartingAt: parts.0.0.0.0.site.start,
       among: &members,
       updating: &state)
@@ -1062,7 +1062,7 @@ public enum Parser {
 
   /// Returns the first memberwise initializer declaration in `members` or synthesizes an implicit
   /// one, appends it into `members`, and returns it.
-  private static func getOrCreateMemberwiseInitializer(
+  private static func memberwiseInitializer(
     ofDeclStartingAt startIndex: SourceFile.Index,
     among members: inout [AnyDeclID],
     updating state: inout ParserState
