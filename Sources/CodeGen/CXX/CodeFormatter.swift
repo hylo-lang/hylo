@@ -16,11 +16,6 @@ struct CodeFormatter: TextOutputStream {
   /// True if the next text written should be indented.
   private var shouldIntent: Bool = false
 
-  /// Initializes this object with the right formatting parameters.
-  init(indentSize: Int = 2) {
-    self.indentSize = indentSize
-  }
-
   /// Adds new text to the output code.
   mutating func write(_ text: String) {
     checkAddIndent()
@@ -31,7 +26,7 @@ struct CodeFormatter: TextOutputStream {
   mutating func writeLine(_ text: String) {
     checkAddIndent()
     code.write(text)
-    addNewLine()
+    writeNewline()
   }
 
   /// Adds a space to the code that is currently written.
@@ -48,18 +43,18 @@ struct CodeFormatter: TextOutputStream {
   }
 
   /// Increases the indent level and adds a new line.
-  /// Needs to be paired with a followup `exitIndentScope`.
+  /// Needs to be paired with a followup `dedent`.
   mutating func indent() {
-    curIndent += 1
-    addNewLine()
+    indentationLevel += 1
+    writeNewline()
   }
 
   /// Decreases the indent level.
   /// This does not add a new line; it is typcally called just after a new line.
-  /// Needs to be paired with a previous `enterIndentScope`.
+  /// Needs to be paired with a previous `indent`.
   mutating func dedent() {
-    curIndent -= 1
-    assert(curIndent >= 0)
+    indentationLevel -= 1
+    assert(indentationLevel >= 0)
   }
 
   /// Open a curly brace and increase the indent.
@@ -68,11 +63,11 @@ struct CodeFormatter: TextOutputStream {
       writeSpace()
     }
     write("{")
-    enterIndentScope()
+    indent()
   }
   /// Close a curly brace and decrease the indent.
   mutating func endBrace() {
-    exitIndentScope()
+    dedent()
     write("}")
   }
 
@@ -80,7 +75,7 @@ struct CodeFormatter: TextOutputStream {
   /// are writing the indent when we are at the beginning of the line.
   mutating private func checkAddIndent() {
     if shouldIntent {
-      code.write(String(repeating: " ", count: curIndent * indentSize))
+      code.write(String(repeating: CodeFormatter.indentation, count: indentationLevel))
       shouldIntent = false
     }
   }
