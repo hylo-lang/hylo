@@ -1,10 +1,10 @@
 /// A nil literal expression.
 public struct NilLiteralExpr: Expr {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
-  public init(origin: SourceRange?) {
-    self.origin = origin
+  public init(site: SourceRange) {
+    self.site = site
   }
 
 }

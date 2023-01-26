@@ -47,7 +47,9 @@ extension Diagnostic {
     expectedReturnType: AnyType,
     at site: SourceRange?
   ) -> Diagnostic {
-    .error("missing return in function expected to return '\(expectedReturnType)'", at: site)
+    .error(
+      "missing return in function expected to return '\(expectedReturnType)'",
+      at: site ?? .eliminateFIXME)
   }
 
 }

@@ -1,7 +1,7 @@
 /// A generic parameter declaration.
 public struct GenericParameterDecl: SingleEntityDecl {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
   /// The identifier of the parameter.
   public let identifier: SourceRepresentable<Identifier>
@@ -20,9 +20,9 @@ public struct GenericParameterDecl: SingleEntityDecl {
     identifier: SourceRepresentable<Identifier>,
     conformances: [NodeID<NameExpr>] = [],
     defaultValue: AnyExprID? = nil,
-    origin: SourceRange?
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.identifier = identifier
     self.conformances = conformances
     self.defaultValue = defaultValue

@@ -7,8 +7,8 @@ extension Diagnostic {
   /// A test annotation that announces `self` should be expected.
   var expectation: TestAnnotation {
     TestAnnotation(
-      in: site?.file.url ?? URL(string: "nowhere://at/all")!,
-      atLine: site?.first().lineAndColumn().line ?? 1,
+      in: site.file.url,
+      atLine: site.first().lineAndColumn().line,
       parsing: "diagnostic " + message
     )
   }

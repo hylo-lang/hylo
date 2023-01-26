@@ -52,7 +52,7 @@ extension TypeChecker {
           constraints.append(
             EqualityConstraint(
               ^inferredType, ty,
-              because: ConstraintCause(.structural, at: ast[subject].origin)))
+              because: ConstraintCause(.structural, at: ast[subject].site)))
         }
         return ty
       } else {
@@ -162,7 +162,7 @@ extension TypeChecker {
     }
 
     let rhs = instantiate(
-      target, inScope: scope, cause: ConstraintCause(.cast, at: syntax.origin))
+      target, inScope: scope, cause: ConstraintCause(.cast, at: syntax.site))
     facts.append(rhs.constraints)
 
     let lhs = syntax.left
@@ -179,7 +179,7 @@ extension TypeChecker {
       facts.append(
         SubtypingConstraint(
           lhsType, rhs.shape,
-          because: ConstraintCause(.cast, at: syntax.origin)))
+          because: ConstraintCause(.cast, at: syntax.site)))
 
     case .builtinPointerConversion:
       // The type of the left operand must be `Builtin.Pointer`.
@@ -188,7 +188,7 @@ extension TypeChecker {
       facts.append(
         EqualityConstraint(
           lhsType, .builtin(.pointer),
-          because: ConstraintCause(.cast, at: syntax.origin)))
+          because: ConstraintCause(.cast, at: syntax.site)))
     }
 
     // In any case, the expression is assumed to have the type denoted by the right operand.
@@ -242,7 +242,7 @@ extension TypeChecker {
         facts.append(
           EqualityConstraint(
             successType, failureType,
-            because: ConstraintCause(.branchMerge, at: syntax.origin)))
+            because: ConstraintCause(.branchMerge, at: syntax.site)))
         return facts.constrain(subject, in: program.ast, toHaveType: successType)
       }
 
@@ -292,7 +292,7 @@ extension TypeChecker {
       facts.append(
         FunctionCallConstraint(
           calleeType, takes: parameters, andReturns: returnType,
-          because: ConstraintCause(.callee, at: program.ast[syntax.callee].origin)))
+          because: ConstraintCause(.callee, at: program.ast[syntax.callee].site)))
 
       return facts.constrain(subject, in: program.ast, toHaveType: returnType)
     }
@@ -317,13 +317,13 @@ extension TypeChecker {
       let instanceType = MetatypeType(calleeType)!.instance
       let initName = SourceRepresentable(
         value: Name(stem: "init", labels: ["self"] + syntax.arguments.map({ $0.label?.value })),
-        range: program.ast[c].name.origin)
+        range: program.ast[c].name.site)
       let initCandidates = resolve(
         initName, withArguments: [], memberOf: instanceType, from: scope)
 
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {
-        addDiagnostic(.error(undefinedName: initName.value, at: initName.origin))
+        addDiagnostic(.error(undefinedName: initName.value, at: initName.site))
         return facts.assignErrorType(to: syntax.callee)
       }
 
@@ -352,7 +352,7 @@ extension TypeChecker {
     addDiagnostic(
       .error(
         nonCallableType: facts.inferredTypes[syntax.callee]!,
-        at: program.ast[syntax.callee].origin))
+        at: program.ast[syntax.callee].site))
     return facts.assignErrorType(to: subject)
   }
 
@@ -378,7 +378,7 @@ extension TypeChecker {
     let syntax = program.ast[subject]
 
     let defaultType = AnyType(program.ast.coreType(named: "Int")!)
-    let cause = ConstraintCause(.literal, at: syntax.origin)
+    let cause = ConstraintCause(.literal, at: syntax.site)
 
     // If there's an expected type, constrain it to conform to `ExpressibleByIntegerLiteral`.
     // Otherwise, constraint the literal to have type `Int`.
@@ -415,7 +415,7 @@ extension TypeChecker {
           .error(
             expectedLambdaParameterCount: expectedType.inputs.count,
             found: declType.inputs.count,
-            at: syntax.origin))
+            at: syntax.site))
         return facts.assignErrorType(to: subject)
       }
 
@@ -425,7 +425,7 @@ extension TypeChecker {
           .error(
             labels: declType.inputs.map(\.label),
             incompatibleWith: expectedType.inputs.map(\.label),
-            at: syntax.origin))
+            at: syntax.site))
         return facts.assignErrorType(to: subject)
       }
     } else if declType.output.base is TypeVariable {
@@ -438,7 +438,7 @@ extension TypeChecker {
       } else {
         // The system is underspecified.
         addDiagnostic(
-          .error(cannotInferComplexReturnTypeAt: program.ast[syntax.decl].introducerRange))
+          .error(cannotInferComplexReturnTypeAt: program.ast[syntax.decl].introducerSite))
         return facts.assignErrorType(to: subject)
       }
     }
@@ -461,7 +461,7 @@ extension TypeChecker {
     if let e = expectedType {
       facts.append(
         EqualityConstraint(
-          nameType, e, because: ConstraintCause(.binding, at: program.ast[subject].origin)))
+          nameType, e, because: ConstraintCause(.binding, at: program.ast[subject].site)))
     }
 
     return nameType
@@ -505,7 +505,7 @@ extension TypeChecker {
         MemberConstraint(
           lastVisitedComponentType!, hasMemberReferredToBy: component, ofType: memberType,
           in: program.ast,
-          because: ConstraintCause(.member, at: program.ast[component].origin)))
+          because: ConstraintCause(.member, at: program.ast[component].site)))
       lastVisitedComponentType = facts.constrain(
         component, in: program.ast, toHaveType: memberType)
     }
@@ -553,7 +553,7 @@ extension TypeChecker {
       facts.append(
         ParameterConstraint(
           rhsType, parameterType,
-          because: ConstraintCause(.argument, at: program.ast.origin(of: rhs))))
+          because: ConstraintCause(.argument, at: program.ast.site(of: rhs))))
 
       let outputType = ^TypeVariable()
       let calleeType = LambdaType(
@@ -568,7 +568,7 @@ extension TypeChecker {
         MemberConstraint(
           lhsType, hasMemberReferredToBy: callee.expr, ofType: ^calleeType,
           in: program.ast,
-          because: ConstraintCause(.member, at: program.ast[callee.expr].origin)))
+          because: ConstraintCause(.member, at: program.ast[callee.expr].site)))
 
       return outputType
 
@@ -620,7 +620,7 @@ extension TypeChecker {
       facts.append(
         EqualityConstraint(
           calleeType, ^assumedCalleeType,
-          because: ConstraintCause(.callee, at: program.ast[syntax.callee].origin)))
+          because: ConstraintCause(.callee, at: program.ast[syntax.callee].site)))
 
       return facts.constrain(subject, in: program.ast, toHaveType: returnType)
     }
@@ -661,7 +661,7 @@ extension TypeChecker {
       addDiagnostic(
         .error(
           noUnnamedSubscriptsIn: facts.inferredTypes[syntax.callee]!,
-          at: program.ast[syntax.callee].origin))
+          at: program.ast[syntax.callee].site))
       return facts.assignErrorType(to: subject)
 
     case 1:
@@ -680,7 +680,7 @@ extension TypeChecker {
         declType,
         inScope: scope,
         cause: ConstraintCause(
-          .callee, at: program.ast[syntax.callee].origin))
+          .callee, at: program.ast[syntax.callee].site))
 
       // Visit the arguments.
       let calleeType = SubscriptType(instantiatedType.shape)!
@@ -760,7 +760,7 @@ extension TypeChecker {
         .error(
           labels: argumentLabels,
           incompatibleWith: parameterLabels,
-          at: program.ast[callee].origin))
+          at: program.ast[callee].site))
       return false
     }
 
@@ -779,7 +779,7 @@ extension TypeChecker {
       facts.append(
         ParameterConstraint(
           argumentType, ^parameterType,
-          because: ConstraintCause(.argument, at: program.ast[argumentExpr].origin)))
+          because: ConstraintCause(.argument, at: program.ast[argumentExpr].site)))
     }
 
     return true
@@ -806,7 +806,7 @@ extension TypeChecker {
       facts.append(
         ParameterConstraint(
           argumentType, parameterType,
-          because: ConstraintCause(.argument, at: program.ast[argumentExpr].origin)))
+          because: ConstraintCause(.argument, at: program.ast[argumentExpr].site)))
 
       let argumentLabel = arguments[i].label?.value
       parameters.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
@@ -845,7 +845,7 @@ extension TypeChecker {
       facts.append(
         OverloadConstraint(
           name, withType: nameType, refersToOneOf: overloads,
-          because: ConstraintCause(.binding, at: program.ast[name].origin)))
+          because: ConstraintCause(.binding, at: program.ast[name].site)))
       return facts.constrain(name, in: program.ast, toHaveType: nameType)
     }
   }
@@ -878,7 +878,7 @@ extension TypeChecker {
       switch candidates.count {
       case 0:
         addDiagnostic(
-          .error(undefinedOperator: operatorStem, at: program.ast[tail[i].operator].origin))
+          .error(undefinedOperator: operatorStem, at: program.ast[tail[i].operator].site))
         accumulator.append(
           operator: (expr: tail[i].operator, precedence: nil),
           right: tail[i].operand)

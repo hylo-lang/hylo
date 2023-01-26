@@ -18,7 +18,10 @@ public struct AST: Codable {
   /// Creates an empty AST.
   public init() {}
 
-  /// The ID of the node representing all built-in declarations.
+  /// The ID of a node representing all built-in declarations in declaration references.
+  ///
+  /// The type checker uses this ID to represent declaration references to built-in symbols, since
+  /// those do not have any actual AST representation.
   public var builtinDecl: NodeID<BuiltinDecl> { NodeID(rawValue: 0) }
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
@@ -185,18 +188,16 @@ public struct AST: Codable {
     return result
   }
 
-  /// Returns the source origin of `expr`, if any.
-  public func origin(of expr: FoldedSequenceExpr) -> SourceRange? {
+  /// Returns the source site of `expr`
+  public func site(of expr: FoldedSequenceExpr) -> SourceRange {
     switch expr {
     case .leaf(let i):
-      return self[i].origin
+      return self[i].site
 
     case .infix(_, let lhs, let rhs):
-      if let lhsRange = origin(of: lhs), let rhsRange = origin(of: rhs) {
-        return lhsRange.extended(upTo: rhsRange.end)
-      } else {
-        return nil
-      }
+      let lhsSite = site(of: lhs)
+      let rhsSite = site(of: rhs)
+      return lhsSite.extended(upTo: rhsSite.end)
     }
   }
 

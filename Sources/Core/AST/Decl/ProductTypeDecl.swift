@@ -1,7 +1,7 @@
 /// A (nominal) product type declaration.
 public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericScope {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>?
@@ -29,11 +29,11 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
     conformances: [NodeID<NameExpr>],
     members: [AnyDeclID],
     memberwiseInit: NodeID<InitializerDecl>,
-    origin: SourceRange?
+    site: SourceRange
   ) {
     precondition(members.contains(AnyDeclID(memberwiseInit)))
 
-    self.origin = origin
+    self.site = site
     self.accessModifier = accessModifier
     self.identifier = identifier
     self.genericClause = genericClause

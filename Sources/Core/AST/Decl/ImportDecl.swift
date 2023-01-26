@@ -1,22 +1,22 @@
 /// An import declaration.
 public struct ImportDecl: SingleEntityDecl {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
-  /// The source range of the declaration's introducer, if any.
-  public let introducerRange: SourceRange?
+  /// The site of the declaration's introducer.
+  public let introducerSite: SourceRange
 
   /// The identifier of the imported module.
   public let identifier: SourceRepresentable<Identifier>
 
   /// Creates an instance with the given properties.
   public init(
-    introducerRange: SourceRange?,
+    introducerSite: SourceRange,
     identifier: SourceRepresentable<Identifier>,
-    origin: SourceRange?
+    site: SourceRange
   ) {
-    self.origin = origin
-    self.introducerRange = introducerRange
+    self.site = site
+    self.introducerSite = introducerSite
     self.identifier = identifier
   }
 
