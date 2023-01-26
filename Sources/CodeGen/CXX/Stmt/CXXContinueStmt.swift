@@ -1,10 +1,7 @@
 import Core
 
-/// A C++ return statement
-struct CXXReturnStmt: CXXStmt {
-
-  /// The expression to be returned.
-  let expr: CXXExpr?
+/// A C++ `continue` statement
+struct CXXContinueStmt: CXXStmt {
 
   /// The original node in Val AST.
   /// This node can be of any type.
