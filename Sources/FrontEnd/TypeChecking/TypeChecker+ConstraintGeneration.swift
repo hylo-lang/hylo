@@ -10,6 +10,9 @@ extension TypeChecker {
     /// A map from visited expression to its inferred type.
     private(set) var inferredExprTypes = ExprProperty<AnyType>()
 
+    /// The list of variable declarations visited during constraint generation.
+    private(set) var visitedVarDecls: [NodeID<VarDecl>] = []
+
     /// The set of type constraints between the types involved in the visited expressions.
     private(set) var constraints: [Constraint] = []
 
@@ -23,6 +26,9 @@ extension TypeChecker {
         assign(t, to: subject)
       }
     }
+
+    /// Creates an empty base of facts.
+    fileprivate init() {}
 
     /// Assigns the error type to `subject` and returns the error type.
     fileprivate mutating func assignErrorType<ID: ExprID>(to subject: ID) -> AnyType {
@@ -72,12 +78,19 @@ extension TypeChecker {
       self.constraints.append(contentsOf: constraints)
     }
 
+    /// Marks that `d` has been visited.
+    fileprivate mutating func setVisited(_ d: NodeID<VarDecl>) {
+      visitedVarDecls.append(d)
+    }
+
     /// Indicates that a conflict has been found.
     fileprivate mutating func setConflictFound() {
       foundConflict = true
     }
 
   }
+
+  // MARK: Expressions
 
   /// Returns the inferred type of `subject` along with facts about its sub-expressions knowing it
   /// occurs in `scope` and is expected to have a type compatible with `expectedType`.
@@ -752,6 +765,170 @@ extension TypeChecker {
 
     return facts.constrain(subject, in: program.ast, toHaveType: TupleType(elementTypes))
   }
+
+  // MARK: Patterns
+
+  mutating func infer(
+    typeOf subject: AnyPatternID,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?
+  ) -> (type: AnyType, facts: InferenceFacts) {
+    var facts = InferenceFacts()
+    let inferredType = infer(
+      typeOf: subject, inScope: AnyScopeID(scope), expecting: expectedType, updating: &facts)
+    return (inferredType, facts)
+  }
+
+  /// Returns the type of `subject`, writing facts about its sub-expressions in `facts`.
+  private mutating func infer(
+    typeOf subject: AnyPatternID,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    switch subject.kind {
+    case BindingPattern.self:
+      return infer(
+        typeOfBindingPattern: NodeID(rawValue: subject.rawValue), inScope: scope,
+        expecting: expectedType, updating: &facts)
+    case ExprPattern.self:
+      return infer(
+        typeOfExprPattern: NodeID(rawValue: subject.rawValue), inScope: scope,
+        expecting: expectedType, updating: &facts)
+    case NamePattern.self:
+      return infer(
+        typeOfNamePattern: NodeID(rawValue: subject.rawValue), inScope: scope,
+        expecting: expectedType, updating: &facts)
+    case TuplePattern.self:
+      return infer(
+        typeOfTuplePattern: NodeID(rawValue: subject.rawValue), inScope: scope,
+        expecting: expectedType, updating: &facts)
+    case WildcardPattern.self:
+      return expectedType ?? ^TypeVariable()
+    default:
+      unreachable()
+    }
+  }
+
+  private mutating func infer(
+    typeOfBindingPattern subject: NodeID<BindingPattern>,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    // A binding pattern introduces additional type information when it has a type annotation. In
+    // that case, the type denoted by the annotation is used to infer the type of the sub-pattern
+    // and constrained to be a subtype of the expected type, if any.
+    var subpatternType = expectedType
+    if let a = program.ast[subject].annotation {
+      if let subjectType = realize(a, inScope: scope)?.instance {
+        if let t = expectedType {
+          facts.append(
+            SubtypingConstraint(
+              subjectType, t,
+              because: ConstraintCause(.annotation, at: program.ast[subject].site)))
+
+        }
+        subpatternType = subjectType
+      } else {
+        return .error
+      }
+    }
+
+    return infer(
+      typeOf: program.ast[subject].subpattern,
+      inScope: scope,
+      expecting: subpatternType,
+      updating: &facts)
+  }
+
+  private mutating func infer(
+    typeOfExprPattern subject: NodeID<ExprPattern>,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    infer(
+      typeOf: program.ast[subject].expr, inScope: scope,
+      expecting: expectedType, updating: &facts)
+  }
+
+  private mutating func infer(
+    typeOfNamePattern subject: NodeID<NamePattern>,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    let nameDecl = program.ast[subject].decl
+    let nameType = expectedType ?? ^TypeVariable(node: AnyNodeID(nameDecl))
+    setInferredType(nameType, for: nameDecl)
+    facts.setVisited(nameDecl)
+    return nameType
+  }
+
+  private mutating func infer(
+    typeOfTuplePattern subject: NodeID<TuplePattern>,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    switch expectedType?.base {
+    case let t as TupleType:
+      // The pattern and the expected have a tuple shape.
+      if t.elements.count != program.ast[subject].elements.count {
+        // Invalid destructuring.
+        diagnostics.insert(
+          .error(invalidDestructuringOfType: expectedType!, at: program.ast[subject].site))
+        return .error
+      }
+
+      var lLabels: [String?] = []
+      var rLabels: [String?] = []
+
+      // Visit the elements pairwise.
+      for (a, b) in zip(program.ast[subject].elements, t.elements) {
+        let elementType = infer(
+          typeOf: a.pattern, inScope: scope,
+          expecting: b.type, updating: &facts)
+        if elementType.isError { return .error }
+        lLabels.append(a.label?.value)
+        rLabels.append(b.label)
+      }
+
+      // Check that labels match.
+      if lLabels != rLabels {
+        diagnostics.insert(
+          .error(labels: lLabels, incompatibleWith: rLabels, at: program.ast[subject].site))
+        return .error
+      }
+
+      return expectedType!
+
+    case is TypeVariable:
+      // If the expected type is a variable, we can't infer anything more at this point.
+      return expectedType!
+
+    case .some:
+      // If the expected type doesn't have a tuple shape, the pattern cannot match.
+      diagnostics.insert(
+        .error(invalidDestructuringOfType: expectedType!, at: program.ast[subject].site))
+      return .error
+
+    case nil:
+      // Infer the shape of the expected type.
+      var elements: [TupleType.Element] = []
+      for a in program.ast[subject].elements {
+        let elementType = infer(
+          typeOf: a.pattern, inScope: scope,
+          expecting: nil, updating: &facts)
+        if elementType.isError { return .error }
+        elements.append(.init(label: a.label?.value, type: elementType))
+      }
+      return ^TupleType(elements)
+    }
+  }
+
+  // MARK: Helpers
 
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
   /// to generate their type constraints assuming they have the corresponding type in `parameters`
