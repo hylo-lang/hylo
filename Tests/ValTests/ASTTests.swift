@@ -19,18 +19,18 @@ final class ASTTests: XCTestCase {
 
     // Create a module declarations.
     let input = SourceFile(synthesizedText: "")
-    let site = input.range(input.text.startIndex ..< input.text.endIndex)
     let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
 
     // Create a trait declaration.
     let decl = ast.insert(
       synthesized: ImportDecl(
-        introducerSite: site,
-        identifier: SourceRepresentable(value: "T", range: site),
-        site: site))
+        introducerSite: input.wholeRange,
+        identifier: SourceRepresentable(value: "T", range: input.wholeRange),
+        site: input.wholeRange))
 
     // Create a source declaration set.
-    let source = ast.insert(synthesized: TopLevelDeclSet(decls: [AnyDeclID(decl)], site: site))
+    let source = ast.insert(
+      synthesized: TopLevelDeclSet(decls: [AnyDeclID(decl)], site: input.wholeRange))
     ast[module].addSourceFile(source)
 
     // Subscript the AST for reading with a type-erased ID.
@@ -40,9 +40,8 @@ final class ASTTests: XCTestCase {
   func testCodableRoundtrip() throws {
     var ast = AST()
 
-    // Create a module.
+    // Create a module declarations.
     let input = SourceFile(synthesizedText: "")
-    let site = input.range(input.text.startIndex ..< input.text.endIndex)
     let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
 
     let source = ast.insert(
@@ -51,11 +50,11 @@ final class ASTTests: XCTestCase {
           AnyDeclID(
             ast.insert(
               synthesized: FunctionDecl(
-                introducerSite: site,
-                identifier: SourceRepresentable(value: "foo", range: site),
-                site: site)))
+                introducerSite: input.wholeRange,
+                identifier: SourceRepresentable(value: "foo", range: input.wholeRange),
+                site: input.wholeRange)))
         ],
-        site: site))
+        site: input.wholeRange))
     ast[module].addSourceFile(source)
 
     // Serialize the AST.

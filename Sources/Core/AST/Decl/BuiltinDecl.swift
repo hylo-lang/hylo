@@ -1,13 +1,11 @@
 /// An abstract node representing a built-in declaration.
 public struct BuiltinDecl: Decl {
 
-  public let site: SourceRange
+  public init() {}
 
-  public init() {
-    self.site = Self.source.range(Self.source.text.startIndex ..< Self.source.text.endIndex)
-  }
+  public var site: SourceRange { Self.site }
 
-  /// A synthesized source file to define the site of this type's instances.
-  private static let source = SourceFile(synthesizedText: "/* built-in declaration */")
+  /// A synthesized site for all instances.
+  private static let site = SourceFile(synthesizedText: "/* built-in declaration */").wholeRange
 
 }
