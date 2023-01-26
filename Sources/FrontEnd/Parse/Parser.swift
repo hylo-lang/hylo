@@ -941,7 +941,7 @@ public enum Parser {
   ///     it is synthesized as `let`.
   ///   - body: The body of the declaration, or `nil` if that body should must be synthesized or
   ///     if the declaration denotes a trait requirement.
-  /// - Requires: `body` is not `nil` if `introducer` is.
+  /// - Requires: if `introducer` is `nil`, body is non-`nil`.
   private static func buildSubscriptImplDecl(
     in state: inout ParserState,
     introducedBy introducer: SourceRepresentable<ImplIntroducer>,
