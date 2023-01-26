@@ -42,7 +42,7 @@ public struct Module {
   }
 
   /// The module's name.
-  public var name: String { decl.name }
+  public var name: String { decl.baseName }
 
   /// Accesses the given function.
   public subscript(f: Functions.Index) -> Function {

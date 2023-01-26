@@ -42,7 +42,7 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
     self.memberwiseInit = memberwiseInit
   }
 
-  public var name: String { identifier.value }
+  public var baseName: String { identifier.value }
 
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value != nil }

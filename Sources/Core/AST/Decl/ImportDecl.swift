@@ -20,6 +20,6 @@ public struct ImportDecl: SingleEntityDecl {
     self.identifier = identifier
   }
 
-  public var name: String { identifier.value }
+  public var baseName: String { identifier.value }
 
 }

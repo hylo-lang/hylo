@@ -79,7 +79,7 @@ public struct CXXTranspiler {
     assert(paramTypes.count == decl.parameters.count)
     var cxxParams: [CXXFunctionDecl.Parameter] = []
     for (i, param) in decl.parameters.enumerated() {
-      let name = CXXIdentifier(param.name)
+      let name = CXXIdentifier(param.baseName)
       let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
       cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
     }
@@ -142,7 +142,7 @@ public struct CXXTranspiler {
           let varDecl = name.decl
           let cxxAttribute = CXXClassAttribute(
             type: CXXTypeExpr(varDecl.type, ast: program.ast)!,
-            name: CXXIdentifier(varDecl.name),
+            name: CXXIdentifier(varDecl.baseName),
             initializer: cxxInitializer,
             isStatic: isStatic,
             original: varDecl)
@@ -647,7 +647,7 @@ public struct CXXTranspiler {
       }
 
     case ProductTypeDecl.self:
-      return ProductTypeDecl.Typed(decl)!.name
+      return ProductTypeDecl.Typed(decl)!.baseName
 
     case ParameterDecl.self:
       return ParameterDecl.Typed(decl)!.identifier.value

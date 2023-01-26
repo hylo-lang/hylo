@@ -10,6 +10,6 @@ public struct VarDecl: SingleEntityDecl {
 
   public var site: SourceRange { identifier.site }
 
-  public var name: String { identifier.value }
+  public var baseName: String { identifier.value }
 
 }

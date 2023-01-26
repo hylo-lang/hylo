@@ -31,8 +31,8 @@ public struct CXXModule {
     var output: String = ""
 
     // Emit the header guard.
-    output.write("#ifndef VAL_\(valDecl.name.uppercased())_\n")
-    output.write("#define VAL_\(valDecl.name.uppercased())_\n")
+    output.write("#ifndef VAL_\(valDecl.baseName.uppercased())_\n")
+    output.write("#define VAL_\(valDecl.baseName.uppercased())_\n")
     output.write("\n")
 
     // Emit include clauses.
@@ -40,7 +40,7 @@ public struct CXXModule {
     output.write("\n")
 
     // Create a namespace for the entire module.
-    output.write("namespace \(valDecl.name) {\n\n")
+    output.write("namespace \(valDecl.baseName) {\n\n")
 
     // Emit the C++ text needed for the header corresponding to the C++ declarations.
     for decl in cxxTopLevelDecls {
@@ -58,11 +58,11 @@ public struct CXXModule {
     var output: String = ""
 
     // Emit include clauses.
-    output.write("#include \"\(valDecl.name).h\"\n")
+    output.write("#include \"\(valDecl.baseName).h\"\n")
     output.write("\n")
 
     // Create a namespace for the entire module.
-    output.write("namespace \(valDecl.name) {\n\n")
+    output.write("namespace \(valDecl.baseName) {\n\n")
 
     // Emit the C++ text needed for the source file corresponding to the C++ declarations.
     for decl in cxxTopLevelDecls {

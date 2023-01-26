@@ -897,7 +897,7 @@ public struct Emitter {
       case VarDecl.self:
         let varDecl = VarDecl.Typed(decl)!
         let layout = program.abstractLayout(of: module.type(of: receiver).astType)
-        let memberIndex = layout.storedPropertiesIndices[varDecl.name]!
+        let memberIndex = layout.storedPropertiesIndices[varDecl.baseName]!
 
         // If the lowered receiver is a borrow instruction, modify it in place so that it targets
         // the requested stored member. Otherwise, emit a reborrow.

@@ -13,12 +13,12 @@ public struct GenericTypeParameterType: TypeProtocol {
 
   /// Creates an instance denoting the generic type parameter declared by `decl`.
   public init(_ decl: NodeID<AssociatedTypeDecl>, ast: AST) {
-    self.init(decl: AnyDeclID(decl), name: ast[decl].name)
+    self.init(decl: AnyDeclID(decl), name: ast[decl].baseName)
   }
 
   /// Creates an instance denoting the generic type parameter declared by `decl`.
   public init(_ decl: NodeID<GenericParameterDecl>, ast: AST) {
-    self.init(decl: AnyDeclID(decl), name: ast[decl].name)
+    self.init(decl: AnyDeclID(decl), name: ast[decl].baseName)
   }
 
   /// Creates an instance denoting the `Self` parameter of `trait`.

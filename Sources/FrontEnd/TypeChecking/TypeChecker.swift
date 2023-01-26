@@ -612,10 +612,10 @@ public struct TypeChecker {
     siblingNames: inout Set<String>
   ) -> Bool {
     // Check for duplicate parameter names.
-    if !siblingNames.insert(program.ast[id].name).inserted {
+    if !siblingNames.insert(program.ast[id].baseName).inserted {
       diagnostics.insert(
         .diganose(
-          duplicateParameterNamed: program.ast[id].name, at: program.ast[id].site))
+          duplicateParameterNamed: program.ast[id].baseName, at: program.ast[id].site))
       declRequests[id] = .failure
       return false
     }
@@ -931,7 +931,8 @@ public struct TypeChecker {
 
                   switch c.base {
                   case let c as AssociatedTypeType:
-                    let candidates = lookup(program.ast[c.decl].name, memberOf: r, inScope: scope)
+                    let candidates = lookup(
+                      program.ast[c.decl].baseName, memberOf: r, inScope: scope)
 
                     // Name is ambiguous if there's more than one candidate.
                     if candidates.count != 1 {
@@ -2080,7 +2081,7 @@ public struct TypeChecker {
     if !matches.isEmpty { return matches }
 
     // Check if the identifier refers to the module containing `scope`.
-    if program.ast[root]?.name == identifier {
+    if program.ast[root]?.baseName == identifier {
       return [AnyDeclID(root!)]
     }
 
@@ -2330,7 +2331,7 @@ public struct TypeChecker {
         TraitDecl.self,
         TypeAliasDecl.self,
         VarDecl.self:
-        let name = (program.ast[id] as! SingleEntityDecl).name
+        let name = (program.ast[id] as! SingleEntityDecl).baseName
         table[name, default: []].insert(id)
 
       case BindingDecl.self,
@@ -2711,7 +2712,7 @@ public struct TypeChecker {
       case .some:
         diagnostics.insert(
           .error(
-            invalidUseOfAssociatedType: program.ast[decl].name,
+            invalidUseOfAssociatedType: program.ast[decl].baseName,
             at: name.site))
         return nil
       }
@@ -3292,10 +3293,10 @@ public struct TypeChecker {
       // Collect the names of the capture.
       for (_, namePattern) in program.ast.names(in: program.ast[i].pattern) {
         let varDecl = program.ast[namePattern].decl
-        if !explictNames.insert(Name(stem: program.ast[varDecl].name)).inserted {
+        if !explictNames.insert(Name(stem: program.ast[varDecl].baseName)).inserted {
           diagnostics.insert(
             .error(
-              duplicateCaptureNamed: program.ast[varDecl].name,
+              duplicateCaptureNamed: program.ast[varDecl].baseName,
               at: program.ast[varDecl].site))
           success = false
         }
@@ -3469,7 +3470,7 @@ public struct TypeChecker {
         let d = program.ast[name].decl
         inputs.append(
           CallableTypeParameter(
-            label: program.ast[d].name,
+            label: program.ast[d].baseName,
             type: ^ParameterType(convention: .sink, bareType: declTypes[d]!)))
       }
     }

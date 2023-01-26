@@ -32,7 +32,7 @@ public struct LifetimePass: TransformPass {
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
               diagnostics.append(
-                .unusedBinding(name: decl.name, at: borrow.range ?? .eliminateFIXME))
+                .unusedBinding(name: decl.baseName, at: borrow.range ?? .eliminateFIXME))
             }
             module[block].instructions.remove(at: instruction.address)
             continue

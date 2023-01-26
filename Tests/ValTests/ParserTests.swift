@@ -69,7 +69,7 @@ final class ParserTests: XCTestCase {
     let input = testCode("import Foo")
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseImportDecl)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.name, "Foo")
+    XCTAssertEqual(decl.baseName, "Foo")
   }
 
   func testNamespaceDecl() throws {
@@ -700,7 +700,7 @@ final class ParserTests: XCTestCase {
     let input = testCode("_ foo")
     let (declID, ast) = try apply(Parser.parameterDecl, on: input)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.name, "foo")
+    XCTAssertEqual(decl.baseName, "foo")
   }
 
   func testParameterDeclWithAnnotation() throws {
@@ -788,7 +788,7 @@ final class ParserTests: XCTestCase {
     let input = testCode("T")
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.name, "T")
+    XCTAssertEqual(decl.baseName, "T")
   }
 
   func testGenericParameterWithConformances() throws {
@@ -1465,9 +1465,9 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(names.count, 2)
     if names.count == 2 {
       XCTAssertEqual(names[0].path, [0])
-      XCTAssertEqual(ast[ast[names[0].pattern].decl].name, "foo")
+      XCTAssertEqual(ast[ast[names[0].pattern].decl].baseName, "foo")
       XCTAssertEqual(names[1].path, [1, 0])
-      XCTAssertEqual(ast[ast[names[1].pattern].decl].name, "bar")
+      XCTAssertEqual(ast[ast[names[1].pattern].decl].baseName, "bar")
     }
   }
 
@@ -1489,7 +1489,7 @@ final class ParserTests: XCTestCase {
     let input = testCode("foo")
     let (patternID, ast) = try apply(Parser.namePattern, on: input)
     let pattern = try XCTUnwrap(ast[patternID])
-    XCTAssertEqual(ast[pattern.decl].name, "foo")
+    XCTAssertEqual(ast[pattern.decl].baseName, "foo")
   }
 
   func testTuplePattern() throws {
