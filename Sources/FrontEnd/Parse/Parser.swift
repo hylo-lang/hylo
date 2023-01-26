@@ -2853,14 +2853,14 @@ public enum Parser {
     (maybe(passingConvention)
       .andCollapsingSoftFailures(expr)
       .map({ (state, tree) -> NodeID<ParameterTypeExpr> in
-        let site = state.range(from: tree.0?.site.start ?? state.ast[tree.1].site.start)
+        let s = state.range(from: tree.0?.site.start ?? state.ast[tree.1].site.start)
         return state.insert(
           ParameterTypeExpr(
             convention: tree.0 ?? SourceRepresentable(
               value: .let,
-              range: state.emptyRange(at: site.start)),
+              range: state.emptyRange(at: s.start)),
             bareType: tree.1,
-            site: site,
+            site: s,
             synthesized: tree.0 == nil
           ))
       }))
