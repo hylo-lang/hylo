@@ -1,4 +1,4 @@
-/// Class used to write the output CXX code from the given CXX AST.
+/// A type used to write the output CXX code from the given CXX AST.
 public struct CXXCodeWriter {
 
   /// Initializes the current object.

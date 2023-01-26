@@ -41,7 +41,7 @@ extension StringProtocol {
   /// This will actually keep the non-space characters ingoring how these are spaced out.
   public func essentialize() -> String {
     var remaining = self[..<self.endIndex]
-    var res: String = ""
+    var result: String = ""
     while !remaining.isEmpty {
       // Skip all the whitespaces
       remaining = remaining.drop(while: { $0.isWhitespace })

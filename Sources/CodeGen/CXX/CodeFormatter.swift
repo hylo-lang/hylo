@@ -1,19 +1,18 @@
-/// Class responsible for the formatiing of the CXX code, as it is generated.
+/// A type responsible for formatting CXX code, as it is generated.
 ///
-/// The callers will tell this class what tokens they want to write to the output CXX code,
-/// and this will ensure that proper formatting will be added.
-///
-/// This class will have ownership of the code that is being written.
+/// Users of the type specify what tokens they want written to the generated CXX code
+/// and delegate the formatting logic. Instances of this type have ownership of the code
+/// they generate.
 struct CodeFormatter: TextOutputStream {
 
   /// The amount of indentation we apply to the code.
-  private var indentSize: Int
+  private static let indentation: String = "  "
 
   /// The code that this object is writing.
   var code: String = ""
 
   /// The current level of indentation.
-  private var curIndent: Int = 0
+  private var indentationLevel: Int = 0
   /// True if the next text written should be indented.
   private var shouldIntent: Bool = false
 
@@ -29,7 +28,7 @@ struct CodeFormatter: TextOutputStream {
   }
 
   /// Adds new text to the output code, with a new line at the end
-  mutating func writeLn(_ text: String) {
+  mutating func writeLine(_ text: String) {
     checkAddIndent()
     code.write(text)
     addNewLine()
@@ -43,14 +42,14 @@ struct CodeFormatter: TextOutputStream {
 
   /// Write a new line to the current code.
   /// If the next line contains visible characters, they would be indented.
-  mutating func addNewLine() {
+  mutating func writeNewline() {
     code.write("\n")
     shouldIntent = true
   }
 
   /// Increases the indent level and adds a new line.
   /// Needs to be paired with a followup `exitIndentScope`.
-  mutating func enterIndentScope() {
+  mutating func indent() {
     curIndent += 1
     addNewLine()
   }
@@ -58,7 +57,7 @@ struct CodeFormatter: TextOutputStream {
   /// Decreases the indent level.
   /// This does not add a new line; it is typcally called just after a new line.
   /// Needs to be paired with a previous `enterIndentScope`.
-  mutating func exitIndentScope() {
+  mutating func dedent() {
     curIndent -= 1
     assert(curIndent >= 0)
   }
