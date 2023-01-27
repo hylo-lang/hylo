@@ -1952,34 +1952,15 @@ public struct TypeChecker {
     }
 
     // Search for the declarations of `name`.
-    var matches: [AnyDeclID]
+    let matches: [AnyDeclID]
     if let t = parentType {
-      matches = Array(lookup(name.value.stem, memberOf: t, inScope: lookupScope))
+      matches = filter(
+        decls: lookup(name.value.stem, memberOf: t, inScope: lookupScope),
+        matching: name.value)
     } else {
-      matches = Array(lookup(unqualified: name.value.stem, inScope: lookupScope))
-    }
-
-    // Filter out candidates whose argument labels do not match.
-    if !name.value.labels.isEmpty {
-      filter(decls: &matches, withLabels: name.value.labels)
-    }
-
-    // Filter out candidates whose operator notation does not match.
-    if let notation = name.value.notation {
-      filter(decls: &matches, withNotation: notation)
-    }
-
-    // If the looked up name has an introducer, select the corresponding implementation.
-    if let introducer = name.value.introducer {
-      matches = matches.compactMap({ (match) -> AnyDeclID? in
-        guard
-          let decl = program.ast[NodeID<MethodDecl>(match)],
-          let impl = decl.impls.first(where: { (i) in
-            program.ast[i].introducer.value == introducer
-          })
-        else { return nil }
-        return AnyDeclID(impl)
-      })
+      matches = filter(
+        decls: lookup(unqualified: name.value.stem, inScope: lookupScope),
+        matching: name.value)
     }
 
     // Diagnose undefined symbols.
@@ -3646,9 +3627,41 @@ public struct TypeChecker {
     return r
   }
 
+  /// Returns the declarations in `decls` whose names match `n`.
+  ///
+  /// - Requires: The base name of all declarations in `decls` is equal to `n-stem`
+  mutating func filter(decls: DeclSet, matching n: Name) -> [AnyDeclID] {
+    var matches = Array(decls)
+
+    // Filter out candidates whose argument labels do not match.
+    if !n.labels.isEmpty {
+      filter(decls: &matches, withLabels: n.labels)
+    }
+
+    // Filter out candidates whose operator notation does not match.
+    if let notation = n.notation {
+      filter(decls: &matches, withNotation: notation)
+    }
+
+    // If the looked up name has an introducer, select the corresponding implementation.
+    if let introducer = n.introducer {
+      matches = matches.compactMap({ (match) -> AnyDeclID? in
+        guard
+          let decl = program.ast[NodeID<MethodDecl>(match)],
+          let impl = decl.impls.first(where: { (i) in
+            program.ast[i].introducer.value == introducer
+          })
+        else { return nil }
+        return AnyDeclID(impl)
+      })
+    }
+
+    return matches
+  }
+
   /// Filters the function, method, and subscript declarations in `decls` whose argument labels
   /// match `labels`.
-  mutating func filter(decls: inout [AnyDeclID], withLabels labels: [String?]) {
+  private mutating func filter(decls: inout [AnyDeclID], withLabels labels: [String?]) {
     decls.filterInPlace({ (d) -> Bool in
       switch d.kind {
       case FunctionDecl.self:
