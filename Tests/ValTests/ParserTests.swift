@@ -1457,11 +1457,11 @@ final class ParserTests: XCTestCase {
 
   func testBindingPattern() throws {
     let input = testCode("let (first: foo, second: (bar, _))")
-    let (patternID, ast) = try apply(Parser.bindingPattern, on: input)
-    let pattern = try XCTUnwrap(ast[patternID])
+    let (p, ast) = try input.parse(with: Parser.parseBindingPattern(in:))
+    let pattern = try XCTUnwrap(ast[p])
     XCTAssertEqual(pattern.introducer.value, .let)
 
-    let names = ast.names(in: patternID!)
+    let names = ast.names(in: p!)
     XCTAssertEqual(names.count, 2)
     if names.count == 2 {
       XCTAssertEqual(names[0].path, [0])
@@ -1473,8 +1473,8 @@ final class ParserTests: XCTestCase {
 
   func testBindingPatternWithAnnotation() throws {
     let input = testCode("inout x: T)")
-    let (patternID, ast) = try apply(Parser.bindingPattern, on: input)
-    let pattern = try XCTUnwrap(ast[patternID])
+    let (p, ast) = try input.parse(with: Parser.parseBindingPattern(in:))
+    let pattern = try XCTUnwrap(ast[p])
     XCTAssertNotNil(pattern.annotation)
   }
 

@@ -2487,7 +2487,7 @@ public enum Parser {
     }
 
     // Attempt to parse a binding pattern.
-    if let p = try bindingPattern.parse(&state) {
+    if let p = try parseBindingPattern(in: &state) {
       // Complain if we're already parsing a binding pattern.
       if state.contexts.last == .bindingPattern {
         state.diagnostics.report(.error(nestedBindingPattern: p, in: state.ast))
@@ -2513,58 +2513,68 @@ public enum Parser {
     return AnyPatternID(p)
   }
 
-  static let bindingPattern =
-    (bindingIntroducer
-      .and(
-        inContext(
-          .bindingPattern,
-          apply: oneOf([
-            anyPattern(namePattern),
-            anyPattern(tuplePattern),
-            anyPattern(wildcardPattern),
-          ]))
-      )
-      .and(maybe(take(.colon).and(expr)))
-      .map({ (state, tree) -> NodeID<BindingPattern> in
-        state.insert(
-          BindingPattern(
-            introducer: tree.0.0,
-            subpattern: tree.0.1,
-            annotation: tree.1?.1,
-            site: tree.0.0.site.extended(upTo: state.currentIndex)))
-      }))
+  private static let bindingPattern = Apply(parseBindingPattern(in:))
 
-  static let bindingIntroducer =
-    (Apply<ParserState, SourceRepresentable<BindingPattern.Introducer>>({ (state) in
-      guard let head = state.peek() else { return nil }
+  static func parseBindingPattern(
+    in state: inout ParserState
+  ) throws -> NodeID<BindingPattern>? {
+    guard let introducer = try parseBindingIntroducer(in: &state) else { return nil }
 
-      let introducer: BindingPattern.Introducer
-      switch head.kind {
-      case .let:
-        _ = state.take()
-        introducer = .let
+    // Push the context.
+    state.contexts.append(.bindingPattern)
+    defer { state.contexts.removeLast() }
 
-      case .var:
-        _ = state.take()
-        introducer = .var
+    // Parse the subpattern.
+    let subpattern = try state.expect("pattern", using: parsePattern(in:))
 
-      case .inout:
-        _ = state.take()
-        introducer = .inout
+    // Parse the type annotation, if any.
+    let annotation: AnyExprID?
+    if state.take(.colon) != nil {
+      annotation = try state.expect("type expression", using: parseExpr(in:))
+    } else {
+      annotation = nil
+    }
 
-      case .sink:
-        _ = state.take()
-        _ = try state.expect("'let'", using: { $0.take(.let) })
-        introducer = .sinklet
+    return state.insert(
+      BindingPattern(
+        introducer: introducer,
+        subpattern: subpattern,
+        annotation: annotation,
+        site: state.range(from: introducer.site.start)))
+  }
 
-      default:
-        return nil
-      }
+  private static func parseBindingIntroducer(
+    in state: inout ParserState
+  ) throws -> SourceRepresentable<BindingPattern.Introducer>? {
+    guard let head = state.peek() else { return nil }
 
-      return SourceRepresentable(
-        value: introducer,
-        range: head.site.extended(upTo: state.currentIndex))
-    }))
+    let introducer: BindingPattern.Introducer
+    switch head.kind {
+    case .let:
+      _ = state.take()
+      introducer = .let
+
+    case .var:
+      _ = state.take()
+      introducer = .var
+
+    case .inout:
+      _ = state.take()
+      introducer = .inout
+
+    case .sink:
+      _ = state.take()
+      _ = try state.expect("'let'", using: { $0.take(.let) })
+      introducer = .sinklet
+
+    default:
+      return nil
+    }
+
+    return SourceRepresentable(
+      value: introducer,
+      range: head.site.extended(upTo: state.currentIndex))
+  }
 
   static let exprPattern =
     (Apply<ParserState, AnyPatternID>({ (state) -> AnyPatternID? in
