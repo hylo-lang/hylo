@@ -2065,7 +2065,7 @@ public enum Parser {
     return result
   }
 
-  static func parseMatchCase(in state: inout ParserState) throws -> NodeID<MatchCase>? {
+  private static func parseMatchCase(in state: inout ParserState) throws -> NodeID<MatchCase>? {
     guard let pattern = try parsePattern(in: &state) else { return nil }
 
     // Parse the condition, if any.

@@ -1180,33 +1180,6 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.cases.count, 2)
   }
 
-  func testMatchCaseBlock() throws {
-    let input = testCode("let (x, 0x2a) { }")
-    let (c, ast) = try input.parse(with: Parser.parseMatchCase(in:))
-    let caseVal = try XCTUnwrap(ast[c])
-    if case .block = caseVal.body {
-    } else {
-      XCTFail()
-    }
-  }
-
-  func testMatchCaseExpr() throws {
-    let input = testCode("let (x, 0x2a) { x }")
-    let (c, ast) = try input.parse(with: Parser.parseMatchCase(in:))
-    let caseVal = try XCTUnwrap(ast[c])
-    if case .expr = caseVal.body {
-    } else {
-      XCTFail()
-    }
-  }
-
-  func testMatchCaseWithCondition() throws {
-    let input = testCode("let (x, y) where x > y { }")
-    let (c, ast) = try input.parse(with: Parser.parseMatchCase(in:))
-    let caseVal = try XCTUnwrap(ast[c])
-    XCTAssertNotNil(caseVal.condition)
-  }
-
   func testConditionalExpr() throws {
     let input = testCode("if true { }")
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
