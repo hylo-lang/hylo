@@ -2042,33 +2042,70 @@ public enum Parser {
     let subject = try state.expect("subject", using: parseExpr(in:))
     let cases = try state.expect(
       "match body",
-      using: take(.lBrace).and(zeroOrMany(matchCase)).and(take(.rBrace)))
+      using: parseMatchBody(in:))
 
     return state.insert(
       MatchExpr(
         subject: subject,
-        cases: cases.0.1,
+        cases: cases,
         site: state.range(from: introducer.site.start)))
   }
 
-  static let matchCase =
-    (pattern.and(maybe(take(.where).and(expr))).and(matchCaseBody)
-      .map({ (state, tree) -> NodeID<MatchCase> in
-        state.insert(
-          MatchCase(
-            pattern: tree.0.0,
-            condition: tree.0.1?.1,
-            body: tree.1,
-            site: state.ast[tree.0.0].site.extended(upTo: state.currentIndex)))
-      }))
+  private static func parseMatchBody(in state: inout ParserState) throws -> [NodeID<MatchCase>]? {
+    guard let opener = state.take(.lBrace) else { return nil }
 
-  private static let matchCaseBody = TryCatch(
-    trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> MatchCase.Body in .expr(tree.0.1) }),
-    orCatchingAndApplying:
-      braceStmt
-      .map({ (state, id) -> MatchCase.Body in .block(id) })
-  )
+    var result: [NodeID<MatchCase>] = []
+    while let c = try parseMatchCase(in: &state) {
+      result.append(c)
+    }
+
+    if state.take(.rBrace) == nil {
+      state.diagnostics.report(.error(expected: "}", matching: opener, in: state))
+    }
+    return result
+  }
+
+  static func parseMatchCase(in state: inout ParserState) throws -> NodeID<MatchCase>? {
+    guard let pattern = try parsePattern(in: &state) else { return nil }
+
+    // Parse the condition, if any.
+    let condition: AnyExprID?
+    if state.take(.where) != nil {
+      condition = try state.expect("expression", using: parseExpr(in:))
+    } else {
+      condition = nil
+    }
+
+    // Parse the body.
+    let body = try state.expect("case body", using: parseMatchCaseBody(in:))
+
+    return state.insert(
+      MatchCase(
+        pattern: pattern,
+        condition: condition,
+        body: body,
+        site: state.range(from: state.ast[pattern].site.start)))
+  }
+
+  private static func parseMatchCaseBody(in state: inout ParserState) throws -> MatchCase.Body? {
+    let backup = state.backup()
+
+    // Attempt to parse an expression.
+    if let opener = state.take(.lBrace) {
+      do {
+        if let e = try parseExpr(in: &state) {
+          if state.take(.rBrace) == nil {
+            state.diagnostics.report(.error(expected: "}", matching: opener, in: state))
+          }
+          return .expr(e)
+        }
+      } catch {}
+      state.restore(from: backup)
+    }
+
+    guard let s = try braceStmt.parse(&state) else { return nil }
+    return .block(s)
+  }
 
   private static func parseSpawnExpr(in state: inout ParserState) throws -> NodeID<SpawnExpr>? {
     // Parse the introducer.
@@ -2476,9 +2513,6 @@ public enum Parser {
       try base.parse(&state).map(AnyPatternID.init(_:))
     })
   }
-
-  // FIXME: remove me
-  private static let pattern = Apply(parsePattern(in:))
 
   private static func parsePattern(in state: inout ParserState) throws -> AnyPatternID? {
     // `_` is always a wildcard pattern.

@@ -1182,8 +1182,8 @@ final class ParserTests: XCTestCase {
 
   func testMatchCaseBlock() throws {
     let input = testCode("let (x, 0x2a) { }")
-    let (caseID, ast) = try apply(Parser.matchCase, on: input)
-    let caseVal = try XCTUnwrap(ast[caseID])
+    let (c, ast) = try input.parse(with: Parser.parseMatchCase(in:))
+    let caseVal = try XCTUnwrap(ast[c])
     if case .block = caseVal.body {
     } else {
       XCTFail()
@@ -1192,8 +1192,8 @@ final class ParserTests: XCTestCase {
 
   func testMatchCaseExpr() throws {
     let input = testCode("let (x, 0x2a) { x }")
-    let (caseID, ast) = try apply(Parser.matchCase, on: input)
-    let caseVal = try XCTUnwrap(ast[caseID])
+    let (c, ast) = try input.parse(with: Parser.parseMatchCase(in:))
+    let caseVal = try XCTUnwrap(ast[c])
     if case .expr = caseVal.body {
     } else {
       XCTFail()
@@ -1202,8 +1202,8 @@ final class ParserTests: XCTestCase {
 
   func testMatchCaseWithCondition() throws {
     let input = testCode("let (x, y) where x > y { }")
-    let (caseID, ast) = try apply(Parser.matchCase, on: input)
-    let caseVal = try XCTUnwrap(ast[caseID])
+    let (c, ast) = try input.parse(with: Parser.parseMatchCase(in:))
+    let caseVal = try XCTUnwrap(ast[c])
     XCTAssertNotNil(caseVal.condition)
   }
 
