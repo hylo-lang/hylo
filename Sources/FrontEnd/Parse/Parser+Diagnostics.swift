@@ -129,4 +129,10 @@ extension Diagnostic {
     .error("variable declaration is not allowed here", at: d.identifier.site)
   }
 
+  static func error(nestedBindingPattern p: NodeID<BindingPattern>, in ast: AST) -> Diagnostic {
+    .error(
+      "'\(ast[p].introducer.value)' cannot appear nested in another binding pattern",
+      at: ast[p].introducer.site)
+  }
+
 }

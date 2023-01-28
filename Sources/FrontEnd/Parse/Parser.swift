@@ -2477,15 +2477,41 @@ public enum Parser {
     })
   }
 
-  static let pattern: Recursive<ParserState, AnyPatternID> = (Recursive(_pattern.parse(_:)))
+  // FIXME: remove me
+  private static let pattern = Apply(parsePattern(in:))
 
-  private static let _pattern =
-    (oneOf([
-      anyPattern(bindingPattern),
-      anyPattern(exprPattern),
-      anyPattern(tuplePattern),
-      anyPattern(wildcardPattern),
-    ]))
+  private static func parsePattern(in state: inout ParserState) throws -> AnyPatternID? {
+    // `_` is always a wildcard pattern.
+    if let u = state.take(.under) {
+      return AnyPatternID(state.insert(WildcardPattern(site: u.site)))
+    }
+
+    // Attempt to parse a binding pattern.
+    if let p = try bindingPattern.parse(&state) {
+      // Complain if we're already parsing a binding pattern.
+      if state.contexts.last == .bindingPattern {
+        state.diagnostics.report(.error(nestedBindingPattern: p, in: state.ast))
+      }
+      return AnyPatternID(p)
+    }
+
+    // Attempt to parse a tuple pattern.
+    if let p = try tuplePattern.parse(&state) {
+      return AnyPatternID(p)
+    }
+
+    // Attempt to parse a name pattern if we're in the context of a binding pattern.
+    if state.contexts.last == .bindingPattern {
+      if let p = try namePattern.parse(&state) {
+        return AnyPatternID(p)
+      }
+    }
+
+    // Default to an expression.
+    guard let e = try expr.parse(&state) else { return nil }
+    let p = state.insert(ExprPattern(expr: e, site: state.ast[e].site))
+    return AnyPatternID(p)
+  }
 
   static let bindingPattern =
     (bindingIntroducer
@@ -2590,7 +2616,7 @@ public enum Parser {
       // Parse a labeled element.
       if let label = state.take(if: { $0.isLabel }) {
         if state.take(.colon) != nil {
-          if let value = try pattern.parse(&state) {
+          if let value = try parsePattern(in: &state) {
             return TuplePattern.Element(label: state.token(label), pattern: value)
           }
         }
@@ -2598,7 +2624,7 @@ public enum Parser {
 
       // Backtrack and parse an unlabeled element.
       state.restore(from: backup)
-      if let value = try pattern.parse(&state) {
+      if let value = try parsePattern(in: &state) {
         return TuplePattern.Element(label: nil, pattern: value)
       }
 
