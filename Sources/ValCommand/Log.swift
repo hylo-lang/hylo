@@ -1,7 +1,7 @@
 import Core
 
 /// A type that can be used as a target to log message.
-public protocol Channel: TextOutputStream {
+public protocol Log: TextOutputStream {
 
   /// Indicates whether this instance supports ANSI colors.
   var hasANSIColorSupport: Bool { get }
@@ -11,7 +11,7 @@ public protocol Channel: TextOutputStream {
 
 }
 
-extension Channel {
+extension Log {
 
   public mutating func write(_ text: String, in style: [ANSIEscape]) {
     if hasANSIColorSupport {

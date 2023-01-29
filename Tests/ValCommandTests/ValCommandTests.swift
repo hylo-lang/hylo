@@ -120,7 +120,7 @@ final class ValCommandTests: XCTestCase {
 
 }
 
-extension String: Channel {
+extension String: Log {
 
   public var hasANSIColorSupport: Bool { false }
 

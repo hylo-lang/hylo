@@ -107,14 +107,12 @@ public struct ValCommand: ParsableCommand {
   }
 
   public func run() throws {
-    var errorChannel = StandardErrorStream()
-    ValCommand.exit(withError: try execute(loggingTo: &errorChannel))
+    var errorLog = StandardErrorLog()
+    ValCommand.exit(withError: try execute(loggingTo: &errorLog))
   }
 
-  /// Executes the command, logging messages to `errorChannel`, and returns its exit status.
-  public func execute<ErrorChannel: Channel>(
-    loggingTo errorChannel: inout ErrorChannel
-  ) throws -> ExitCode {
+  /// Executes the command, logging messages to `errorLog`, and returns its exit status.
+  public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
     }
@@ -131,7 +129,7 @@ public struct ValCommand: ParsableCommand {
       newModule = try ast.makeModule(
         "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
     } catch _ as Diagnostics {
-      return finalize(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // Handle `--emit raw-ast`.
@@ -139,7 +137,7 @@ public struct ValCommand: ParsableCommand {
       let url = outputURL ?? URL(fileURLWithPath: "ast.json")
       let encoder = JSONEncoder()
       try encoder.encode(ast).write(to: url, options: .atomic)
-      return finalize(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // Import the core library.
@@ -162,11 +160,11 @@ public struct ValCommand: ParsableCommand {
     // Report type-checking errors.
     diagnostics.report(checker.diagnostics)
     if !typeCheckingSucceeded {
-      return finalize(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // Exit if `--typecheck` is set.
-    if typeCheckOnly { return finalize(logging: diagnostics, to: &errorChannel) }
+    if typeCheckOnly { return finalize(logging: diagnostics, to: &errorLog) }
 
     let typedProgram = TypedProgram(
       annotating: checker.program,
@@ -185,7 +183,7 @@ public struct ValCommand: ParsableCommand {
     if outputType == .rawIR {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return finalize(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // Run mandatory IR analysis and transformation passes.
@@ -202,14 +200,14 @@ public struct ValCommand: ParsableCommand {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
         diagnostics.report(pipeline[i].diagnostics)
       }
-      if !passSuccess { return finalize(logging: diagnostics, to: &errorChannel) }
+      if !passSuccess { return finalize(logging: diagnostics, to: &errorLog) }
     }
 
     // Handle `--emit ir`
     if outputType == .ir {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return finalize(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // *** C++ Transpiling ***
@@ -229,7 +227,7 @@ public struct ValCommand: ParsableCommand {
         to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
       try cxxSource.write(
         to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
-      return finalize(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // *** Machine code generation ***
@@ -258,18 +256,15 @@ public struct ValCommand: ParsableCommand {
         "-I", buildDirectoryURL.path,
         cxxSourceURL.path,
       ],
-      loggingTo: &errorChannel)
+      loggingTo: &errorLog)
 
-    return finalize(logging: diagnostics, to: &errorChannel)
+    return finalize(logging: diagnostics, to: &errorLog)
   }
 
   /// Logs the given diagnostics to the standard error and returns a success code if none of them
   /// is an error; otherwise, returns a failure code.
-  private func finalize<C: Channel>(
-    logging diagnostics: Diagnostics,
-    to channel: inout C
-  ) -> ExitCode {
-    channel.log(diagnostics: diagnostics)
+  private func finalize<L: Log>(logging diagnostics: Diagnostics, to log: inout L) -> ExitCode {
+    log.log(diagnostics: diagnostics)
     return diagnostics.errorReported ? ExitCode.failure : ExitCode.success
   }
 
@@ -314,13 +309,13 @@ public struct ValCommand: ParsableCommand {
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
   @discardableResult
-  private func runCommandLine<C: Channel>(
+  private func runCommandLine<L: Log>(
     _ programPath: String,
     _ arguments: [String] = [],
-    loggingTo channel: inout C
+    loggingTo log: inout L
   ) throws -> String? {
     if verbose {
-      channel.log(([programPath] + arguments).joined(separator: " "))
+      log.log(([programPath] + arguments).joined(separator: " "))
     }
 
     let pipe = Pipe()
