@@ -269,7 +269,7 @@ public struct ValCommand: ParsableCommand {
     logging diagnostics: Diagnostics,
     to channel: inout C
   ) -> ExitCode {
-    log(diagnostics: diagnostics, to: &channel)
+    channel.log(diagnostics: diagnostics)
     return diagnostics.errorReported ? ExitCode.failure : ExitCode.success
   }
 
@@ -278,94 +278,6 @@ public struct ValCommand: ParsableCommand {
   /// - Requires: `url` must denote a directly.
   private func addModule(url: URL) {
     fatalError("not implemented")
-  }
-
-  /// Logs the contents of `diagnostics` tot he standard error.
-  private func log<C: Channel>(
-    diagnostics: Diagnostics,
-    to channel: inout C
-  ) {
-    for d in diagnostics.log.sorted(by: Diagnostic.isLoggedBefore) {
-      log(diagnostic: d, to: &channel)
-    }
-  }
-
-  /// Logs `diagnostic` to the standard error.
-  private func log<C: Channel>(
-    diagnostic: Diagnostic,
-    asChild isChild: Bool = false,
-    to channel: inout C
-  ) {
-    // Log the location
-    let siteFirst = diagnostic.site.first()
-    let path = siteFirst.file.url.relativePath
-    let (lineFirst, column) = siteFirst.lineAndColumn()
-    channel.write("\(path):\(lineFirst):\(column): ", in: [.bold])
-
-    // Log the level.
-    if isChild {
-      log(label: .note, to: &channel)
-    } else {
-      log(label: diagnostic.level, to: &channel)
-    }
-
-    // Log the message.
-    channel.write(diagnostic.message, in: [.bold])
-    channel.write("\n")
-
-    // Log the window
-    let site = diagnostic.site
-    let line = site.first().textOfLine()
-    channel.write(String(line))
-
-    let padding = line.distance(from: line.startIndex, to: site.start)
-    channel.write(String(repeating: " ", count: padding))
-
-    let count = line.distance(
-      from: site.start, to: min(site.end, line.endIndex))
-    if count > 1 {
-      channel.write(String(repeating: "~", count: count))
-    } else {
-      channel.write("^")
-    }
-    channel.write("\n")
-
-    // Log the notes.
-    for child in diagnostic.notes {
-      log(diagnostic: child, asChild: true, to: &channel)
-    }
-  }
-
-  /// Logs `message` to the standard error file if `--verbose` is set.
-  private func log<C: Channel>(
-    verbose message: @autoclosure () -> String,
-    terminator: String = "\n",
-    to channel: inout C
-  ) {
-    if !verbose { return }
-    channel.write(message())
-    channel.write(terminator)
-  }
-
-  /// Logs `message` to the standard error file.
-  private func log<C: Channel>(
-    _ message: String,
-    terminator: String = "\n",
-    to channel: inout C
-  ) {
-    channel.write(message)
-    channel.write(terminator)
-  }
-
-  private func log<C: Channel>(label: Diagnostic.Level, to channel: inout C) {
-    switch label {
-    case .note:
-      channel.write("note: ", in: [.bold, .cyan])
-    case .warning:
-      channel.write("warning: ", in: [.bold, .yellow])
-    case .error:
-      channel.write("error: ", in: [.bold, .red])
-    }
   }
 
   /// Returns the path of the specified executable.
@@ -407,7 +319,9 @@ public struct ValCommand: ParsableCommand {
     _ arguments: [String] = [],
     loggingTo channel: inout C
   ) throws -> String? {
-    log(verbose: ([programPath] + arguments).joined(separator: " "), to: &channel)
+    if verbose {
+      channel.log(([programPath] + arguments).joined(separator: " "))
+    }
 
     let pipe = Pipe()
     let process = Process()
