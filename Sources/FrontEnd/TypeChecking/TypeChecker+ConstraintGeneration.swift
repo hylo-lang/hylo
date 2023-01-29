@@ -108,7 +108,8 @@ extension TypeChecker {
     return (inferredType, facts)
   }
 
-  /// Returns the type of `subject`, writing facts about its sub-expressions in `facts`.
+  /// Returns the type of `subject` given it occurs in `scope`, using `expectedType` to propagate
+  /// top-bottom type inference, and writing facts about its sub-expressions in `facts`.
   private mutating func infer(
     typeOf subject: AnyExprID,
     inScope scope: AnyScopeID,
@@ -782,7 +783,8 @@ extension TypeChecker {
     return (inferredType, facts)
   }
 
-  /// Returns the type of `subject`, writing facts about its sub-expressions in `facts`.
+  /// Returns the type of `subject` given it occurs in `scope`, using `expectedType` to propagate
+  /// top-bottom type inference, and writing facts about its sub-expressions in `facts`.
   private mutating func infer(
     typeOf subject: AnyPatternID,
     inScope scope: AnyScopeID,
