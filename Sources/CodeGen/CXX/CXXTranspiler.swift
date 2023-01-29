@@ -198,7 +198,7 @@ public struct CXXTranspiler {
 
   // MARK: Statements
 
-  /// Emits the given statement into `module` at the current insertion point.
+  /// Transpiles a Val statement into the corresponding C++ statement.
   private func cxx<ID: StmtID>(stmt: ID.TypedNode) -> CXXStmt {
     switch stmt.kind {
     case BraceStmt.self:
@@ -228,49 +228,48 @@ public struct CXXTranspiler {
     }
   }
 
-  private func cxx(brace stmt: BraceStmt.Typed) -> CXXScopedBlock {
-    var stmts: [CXXStmt] = []
-    for s in stmt.stmts {
-      stmts.append(cxx(stmt: s))
-    }
-    return CXXScopedBlock(stmts: stmts)
+  /// Transpiles a Val brace statement into the corresponding C++ scoped block statement.
+  private func cxx(brace src: BraceStmt.Typed) -> CXXScopedBlock {
+    return CXXScopedBlock(stmts: Array(src.stmts.map({ cxx(stmt: $0) })))
   }
 
-  private func cxx(declStmt stmt: DeclStmt.Typed) -> CXXStmt {
-    switch stmt.decl.kind {
+  /// Transpiles a Val declaration statement into the corresponding C++ local decl.
+  private func cxx(declStmt src: DeclStmt.Typed) -> CXXStmt {
+    switch src.decl.kind {
     case BindingDecl.self:
-      return cxx(localBinding: BindingDecl.Typed(stmt.decl)!)
+      return cxx(localBinding: BindingDecl.Typed(src.decl)!)
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  private func cxx(exprStmt stmt: ExprStmt.Typed) -> CXXStmt {
-    return CXXExprStmt(expr: cxxRValue(expr: stmt.expr))
+  /// Transpiles a Val expression statement into the corresponding C++ expression statement.
+  private func cxx(exprStmt src: ExprStmt.Typed) -> CXXStmt {
+    return CXXExprStmt(expr: cxxRValue(expr: src.expr))
   }
 
-  private func cxx(assignStmt stmt: AssignStmt.Typed) -> CXXStmt {
+  /// Transpiles a Val assignment statement into an C++ statement containing an assign expression.
+  private func cxx(assignStmt src: AssignStmt.Typed) -> CXXExprStmt {
     let cxxExpr = CXXInfixExpr(
       oper: .assignment,
-      lhs: cxxLValue(expr: stmt.left, withCapability: .set),
-      rhs: cxxRValue(expr: stmt.right))
+      lhs: cxxLValue(expr: src.left, withCapability: .set),
+      rhs: cxxRValue(expr: src.right))
     return CXXExprStmt(expr: cxxExpr)
   }
 
-  private func cxx(returnStmt stmt: ReturnStmt.Typed) -> CXXStmt {
-    var expr: CXXExpr?
-    if stmt.value != nil {
-      expr = cxxRValue(expr: stmt.value!)
-    }
-    return CXXReturnStmt(expr: expr)
+  /// Transpiles a Val return statement into the corresponding C++ return statement.
+  private func cxx(returnStmt src: ReturnStmt.Typed) -> CXXReturnStmt {
+    let returnValue = src.value != nil ? cxxRValue(expr: src.value!) : nil
+    return CXXReturnStmt(expr: returnValue)
   }
 
-  private func cxx(whileStmt stmt: WhileStmt.Typed) -> CXXStmt {
+  /// Transpiles a Val while statement into the corresponding C++ while statement.
+  private func cxx(whileStmt src: WhileStmt.Typed) -> CXXWhileStmt {
     // TODO: multiple conditions
     // TODO: bindings in conditions
     let condition: CXXExpr
-    if stmt.condition.count == 1 {
-      switch stmt.condition[0] {
+    if src.condition.count == 1 {
+      switch src.condition[0] {
       case .expr(let condExpr):
         condition = cxxRValue(expr: wholeValProgram[condExpr])
       case .decl(let decl):
@@ -281,23 +280,28 @@ public struct CXXTranspiler {
       fatalError("not implemented")
     }
     return CXXWhileStmt(
-      condition: condition, body: cxx(stmt: stmt.body))
+      condition: condition, body: cxx(stmt: src.body))
   }
-  private func cxx(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXStmt {
+  /// Transpiles a Val do-while statement into the corresponding C++ do-while statement.
+  private func cxx(doWhileStmt src: DoWhileStmt.Typed) -> CXXDoWhileStmt {
     return CXXDoWhileStmt(
-      body: cxx(stmt: stmt.body),
-      condition: cxxRValue(expr: stmt.condition))
+      body: cxx(stmt: src.body),
+      condition: cxxRValue(expr: src.condition))
   }
-  private func cxx(forStmt stmt: ForStmt.Typed) -> CXXStmt {
+  /// Transpiles a Val for statement into the corresponding C++ for statement.
+  private func cxx(forStmt src: ForStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "ForStmt")
   }
-  private func cxx(breakStmt stmt: BreakStmt.Typed) -> CXXStmt {
+  /// Transpiles a Val break statement into a C++ break statement.
+  private func cxx(breakStmt src: BreakStmt.Typed) -> CXXBreakStmt {
     return CXXBreakStmt()
   }
-  private func cxx(continueStmt stmt: ContinueStmt.Typed) -> CXXStmt {
+  /// Transpiles a Val continue statement into a C++ continue statement.
+  private func cxx(continueStmt src: ContinueStmt.Typed) -> CXXContinueStmt {
     return CXXContinueStmt()
   }
-  private func cxx(yieldStmt stmt: YieldStmt.Typed) -> CXXStmt {
+  /// Transpiles a Val yield statement into a corresponding C++ statement.
+  private func cxx(yieldStmt src: YieldStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "YieldStmt")
   }
 
