@@ -162,7 +162,7 @@ public struct CXXTranspiler {
           break
         }
 
-      case MethodDecl.self:
+      case MethodDecl.self, FunctionDecl.self:
         cxxMembers.append(.method)
 
       default:
