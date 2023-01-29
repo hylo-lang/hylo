@@ -1,19 +1,49 @@
+import Foundation
 import Utils
 import ValModule
 
 /// An abstract syntax tree.
-public struct AST: Codable {
+public struct AST {
+
+  /// The stored representation of an AST; distinguished for encoding/decoding purposes.
+  private struct Storage: Codable {
+    /// The nodes in `self`.
+    public var nodes: [AnyNode] = [AnyNode(BuiltinDecl())]
+
+    /// The indices of the modules.
+    ///
+    /// - Invariant: All referred modules have a different name.
+    public var modules: [NodeID<ModuleDecl>] = []
+
+    /// The ID of the module containing Val's core library, if any.
+    public var corelib: NodeID<ModuleDecl>?
+  }
+
+  /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
+  private var storage = Storage()
 
   /// The nodes in `self`.
-  private var nodes: [AnyNode] = [AnyNode(BuiltinDecl())]
+  private var nodes: [AnyNode] {
+    get { storage.nodes }
+    set { storage.nodes = newValue }
+    _modify { yield &storage.nodes }
+  }
 
   /// The indices of the modules.
   ///
   /// - Invariant: All referred modules have a different name.
-  public private(set) var modules: [NodeID<ModuleDecl>] = []
+  public private(set) var modules: [NodeID<ModuleDecl>] {
+    get { storage.modules }
+    set { storage.modules = newValue }
+    _modify { yield &storage.modules }
+  }
 
   /// The ID of the module containing Val's core library, if any.
-  public var corelib: NodeID<ModuleDecl>?
+  public var corelib: NodeID<ModuleDecl>? {
+    get { storage.corelib }
+    set { storage.corelib = newValue }
+    _modify { yield &storage.corelib }
+  }
 
   /// Creates an empty AST.
   public init() {}
@@ -199,6 +229,69 @@ public struct AST: Codable {
       let rhsSite = site(of: rhs)
       return lhsSite.extended(upTo: rhsSite.end)
     }
+  }
+
+}
+
+extension AST: Codable {
+
+  /// The format of data that must be injected into a `StatefulEncoder` for serializing an `AST`
+  /// instance.
+  typealias EncodingState = SourceFile.EncodingState
+
+  /// The format of data that must be injected into a `StatefulDecoder` for deserializing an `AST`
+  /// instance.
+  typealias DecodingState = SourceFile.DecodingState
+
+  /// The parts of an encoded AST.
+  private enum CodingKeys: String, CodingKey {
+
+    /// The main content of the AST
+    case storage
+
+    /// Separately encoded content such as `SourceFile` representations, used for reconstructing
+    /// `storage`.
+    case decodingState
+
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+
+    let decodingContext = try container.decode(DecodingState.self, forKey: .decodingState)
+    decoder[state: DecodingState.self] = decodingContext
+    self.storage = try container.decode(AST.Storage.self, forKey: .storage)
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+
+    try container.encode(storage, forKey: .storage)
+    let decodingState = encoder[state: EncodingState.self].decodingState()
+    try container.encode(decodingState, forKey: .decodingState)
+
+  }
+
+}
+
+extension StatefulEncoder {
+
+  /// `self` prepared for encoding an `AST`.
+  public var forAST: Self {
+    var r = self
+    r.setState(AST.EncodingState())
+    return r
+  }
+
+}
+
+extension StatefulDecoder {
+
+  /// `self` prepared for decoding an `AST`.
+  public var forAST: Self {
+    var r = self
+    r.setState(AST.DecodingState())
+    return r
   }
 
 }
