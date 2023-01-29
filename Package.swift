@@ -37,7 +37,7 @@ let package = Package(
     .executableTarget(
       name: "CLI",
       dependencies: [
-        "ValCommand",
+        "ValCommand"
       ],
       swiftSettings: allTargetsSwiftSettings),
 
