@@ -7,9 +7,6 @@ struct CXXTypeExpr: CXXExpr {
   /// The textual represention of the type expression.
   let description: String
 
-  /// The original type in Val AST.
-  let original: AnyType?
-
   /// Creates the C++ expression corresponding to `type`, reading relevant information from `ast`,
   /// or returns `nil` if `type` cannot be expressed in C++.
   ///
@@ -18,7 +15,6 @@ struct CXXTypeExpr: CXXExpr {
   ///     of a function declaration. Otherwise, creates an expression suitable to appear as a local
   ///     variable type annotation.
   init?(_ type: AnyType, ast: AST, asReturnType isReturnType: Bool = false) {
-    self.original = type
     switch type.base {
     case AnyType.void:
       description = isReturnType ? "void" : "std::monostate"
@@ -44,7 +40,6 @@ struct CXXTypeExpr: CXXExpr {
   /// Creates a C++ type expression from its textual representation.
   init(_ description: String) {
     self.description = description
-    self.original = nil
   }
 
   var precedence: Int {

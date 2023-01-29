@@ -10,9 +10,6 @@ struct CXXFunctionCallExpr: CXXExpr {
   /// The arguments of the function call.
   let arguments: [CXXExpr]
 
-  /// The original node in Val AST.
-  let original: AnyExprID.TypedNode?
-
   var precedence: Int {
     2
   }

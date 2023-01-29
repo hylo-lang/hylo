@@ -96,8 +96,7 @@ public struct CXXTranspiler {
         identifier: identifier,
         output: output,
         parameters: cxxParams,
-        body: cxxBody,
-        original: decl))
+        body: cxxBody))
   }
 
   /// Translate the function body into a CXX entity.
@@ -107,8 +106,8 @@ public struct CXXTranspiler {
       return emit(brace: stmt)
 
     case .expr(let expr):
-      let exprBody = CXXReturnStmt(expr: emitR(expr: expr), original: AnyNodeID.TypedNode(expr))
-      return CXXScopedBlock(stmts: [exprBody], original: AnyNodeID.TypedNode(expr))
+      let exprBody = CXXReturnStmt(expr: emitR(expr: expr))
+      return CXXScopedBlock(stmts: [exprBody])
     }
   }
 
@@ -144,8 +143,7 @@ public struct CXXTranspiler {
             type: CXXTypeExpr(varDecl.type, ast: program.ast)!,
             name: CXXIdentifier(varDecl.name),
             initializer: cxxInitializer,
-            isStatic: isStatic,
-            original: varDecl)
+            isStatic: isStatic)
           cxxMembers.append(.attribute(cxxAttribute))
         }
 
@@ -171,7 +169,7 @@ public struct CXXTranspiler {
     }
 
     // Create the C++ class.
-    module.addTopLevelDecl(CXXClassDecl(name: name, members: cxxMembers, original: decl))
+    module.addTopLevelDecl(CXXClassDecl(name: name, members: cxxMembers))
   }
 
   private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXStmt {
@@ -197,23 +195,20 @@ public struct CXXTranspiler {
           CXXLocalVarDecl(
             type: CXXTypeExpr(decl.type, ast: program.ast)!,
             name: CXXIdentifier(decl.identifier.value),
-            initializer: cxxInitialzer,
-            original: decl)
+            initializer: cxxInitialzer)
         )
       }
       if stmts.isEmpty {
         // No pattern found; just call the initializer, dropping the result.
-        let cxxExpr = CXXVoidCast(baseExpr: cxxInitialzer, original: initializer)
-        return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(initializer))
+        let cxxExpr = CXXVoidCast(baseExpr: cxxInitialzer)
+        return CXXExprStmt(expr: cxxExpr)
       } else if stmts.count == 1 {
         return stmts[0]
       } else {
-        return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(initializer))
+        return CXXScopedBlock(stmts: stmts)
       }
     } else {
-      return CXXComment(
-        comment: "EMPTY borrowed local binding (\(capability))", original: AnyNodeID.TypedNode(decl)
-      )
+      return CXXComment(comment: "EMPTY borrowed local binding (\(capability))")
     }
   }
 
@@ -254,7 +249,7 @@ public struct CXXTranspiler {
     for s in stmt.stmts {
       stmts.append(emit(stmt: s))
     }
-    return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(stmt))
+    return CXXScopedBlock(stmts: stmts)
   }
 
   private mutating func emit(declStmt stmt: DeclStmt.Typed) -> CXXStmt {
@@ -267,16 +262,15 @@ public struct CXXTranspiler {
   }
 
   private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXStmt {
-    return CXXExprStmt(expr: emitR(expr: stmt.expr), original: AnyNodeID.TypedNode(stmt))
+    return CXXExprStmt(expr: emitR(expr: stmt.expr))
   }
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXStmt {
     let cxxExpr = CXXInfixExpr(
       oper: .assignment,
       lhs: emitL(expr: stmt.left, withCapability: .set),
-      rhs: emitR(expr: stmt.right),
-      original: AnyNodeID.TypedNode(stmt))
-    return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(stmt))
+      rhs: emitR(expr: stmt.right))
+    return CXXExprStmt(expr: cxxExpr)
   }
 
   private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXStmt {
@@ -284,7 +278,7 @@ public struct CXXTranspiler {
     if stmt.value != nil {
       expr = emitR(expr: stmt.value!)
     }
-    return CXXReturnStmt(expr: expr, original: AnyNodeID.TypedNode(stmt))
+    return CXXReturnStmt(expr: expr)
   }
 
   private mutating func emit(whileStmt stmt: WhileStmt.Typed) -> CXXStmt {
@@ -296,32 +290,31 @@ public struct CXXTranspiler {
       case .expr(let condExpr):
         condition = emitR(expr: program[condExpr])
       case .decl(let decl):
-        condition = CXXComment(
-          comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
+        let _ = decl
+        condition = CXXComment(comment: "binding condition")
       }
     } else {
       fatalError("not implemented")
     }
     return CXXWhileStmt(
-      condition: condition, body: emit(stmt: stmt.body), original: AnyNodeID.TypedNode(stmt))
+      condition: condition, body: emit(stmt: stmt.body))
   }
   private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXStmt {
     return CXXDoWhileStmt(
       body: emit(stmt: stmt.body),
-      condition: emitR(expr: stmt.condition),
-      original: AnyNodeID.TypedNode(stmt))
+      condition: emitR(expr: stmt.condition))
   }
   private mutating func emit(forStmt stmt: ForStmt.Typed) -> CXXStmt {
-    return CXXComment(comment: "ForStmt", original: AnyNodeID.TypedNode(stmt))
+    return CXXComment(comment: "ForStmt")
   }
   private mutating func emit(breakStmt stmt: BreakStmt.Typed) -> CXXStmt {
-    return CXXBreakStmt(original: AnyNodeID.TypedNode(stmt))
+    return CXXBreakStmt()
   }
   private mutating func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXStmt {
-    return CXXContinueStmt(original: AnyNodeID.TypedNode(stmt))
+    return CXXContinueStmt()
   }
   private mutating func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXStmt {
-    return CXXComment(comment: "YieldStmt", original: AnyNodeID.TypedNode(stmt))
+    return CXXComment(comment: "YieldStmt")
   }
 
   // MARK: Expressions
@@ -361,7 +354,7 @@ public struct CXXTranspiler {
   private mutating func emitR(
     booleanLiteral expr: BooleanLiteralExpr.Typed
   ) -> CXXExpr {
-    return CXXBooleanLiteralExpr(value: expr.value, original: expr)
+    return CXXBooleanLiteralExpr(value: expr.value)
   }
 
   private mutating func emitR(
@@ -375,8 +368,8 @@ public struct CXXTranspiler {
       case .expr(let condExpr):
         condition = emitR(expr: program[condExpr])
       case .decl(let decl):
-        condition = CXXComment(
-          comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
+        let _ = decl
+        condition = CXXComment(comment: "binding condition")
       }
     } else {
       fatalError("not implemented")
@@ -399,10 +392,10 @@ public struct CXXTranspiler {
         fatalError("not implemented")
       case .none:
         falseExpr = CXXComment(
-          comment: "missing false alternative", original: AnyNodeID.TypedNode(expr))
+          comment: "missing false alternative")
       }
       return CXXConditionalExpr(
-        condition: condition, trueExpr: trueExpr, falseExpr: falseExpr, original: expr)
+        condition: condition, trueExpr: trueExpr, falseExpr: falseExpr)
     } else {
       // We result in a statement
       let trueStmt: CXXStmt
@@ -411,8 +404,7 @@ public struct CXXTranspiler {
       case .expr(let altExpr):
         let expr = program[altExpr]
         trueStmt = CXXExprStmt(
-          expr: CXXVoidCast(baseExpr: emitR(expr: expr), original: AnyExprID.TypedNode(expr)),
-          original: AnyNodeID.TypedNode(expr))
+          expr: CXXVoidCast(baseExpr: emitR(expr: expr)))
       case .block(let braceStmt):
         trueStmt = emit(stmt: program[braceStmt])
       }
@@ -420,8 +412,7 @@ public struct CXXTranspiler {
       case .expr(let altExpr):
         let expr = program[altExpr]
         falseStmt = CXXExprStmt(
-          expr: CXXVoidCast(baseExpr: emitR(expr: expr), original: AnyExprID.TypedNode(expr)),
-          original: AnyNodeID.TypedNode(expr))
+          expr: CXXVoidCast(baseExpr: emitR(expr: expr)))
       case .block(let braceStmt):
         falseStmt = emit(stmt: program[braceStmt])
       case .none:
@@ -432,9 +423,7 @@ public struct CXXTranspiler {
         stmt: CXXIfStmt(
           condition: condition,
           trueStmt: trueStmt,
-          falseStmt: falseStmt,
-          original: AnyNodeID.TypedNode(expr)),
-        original: AnyNodeID.TypedNode(expr))
+          falseStmt: falseStmt))
     }
   }
 
@@ -473,13 +462,13 @@ public struct CXXTranspiler {
     }
 
     return CXXFunctionCallExpr(
-      callee: callee, arguments: arguments, original: AnyExprID.TypedNode(expr))
+      callee: callee, arguments: arguments)
   }
 
   private mutating func emitR(
     integerLiteral expr: IntegerLiteralExpr.Typed
   ) -> CXXExpr {
-    return CXXIntegerLiteralExpr(value: expr.value, original: expr)
+    return CXXIntegerLiteralExpr(value: expr.value)
   }
 
   private mutating func emitR(
@@ -507,7 +496,7 @@ public struct CXXTranspiler {
         ]
         if let cxxPrefixOperator = prefixOperators[nameOfDecl(calleeDecl)] {
           return CXXPrefixExpr(
-            oper: cxxPrefixOperator, base: emitR(expr: expr.domainExpr!), original: nil)
+            oper: cxxPrefixOperator, base: emitR(expr: expr.domainExpr!))
         }
       } else if functionDecl.notation != nil && functionDecl.notation!.value == .postfix {
         let postfixOperators: [String: CXXPostfixExpr.Operator] = [
@@ -516,7 +505,7 @@ public struct CXXTranspiler {
         ]
         if let cxxPostfixOperator = postfixOperators[nameOfDecl(calleeDecl)] {
           return CXXPostfixExpr(
-            oper: cxxPostfixOperator, base: emitR(expr: expr.domainExpr!), original: nil)
+            oper: cxxPostfixOperator, base: emitR(expr: expr.domainExpr!))
         }
       }
 
@@ -553,7 +542,7 @@ public struct CXXTranspiler {
         // The receiver as a borrowing convention.
         switch expr.domain {
         case .none:
-          receiver = CXXReceiverExpr(original: AnyExprID.TypedNode(expr))
+          receiver = CXXReceiverExpr()
 
         case .expr(let receiverID):
           receiver = emitL(expr: receiverID, withCapability: type.capability)
@@ -565,7 +554,7 @@ public struct CXXTranspiler {
         // The receiver is consumed.
         switch expr.domain {
         case .none:
-          receiver = CXXReceiverExpr(original: AnyExprID.TypedNode(expr))
+          receiver = CXXReceiverExpr()
 
         case .expr(let receiverID):
           receiver = emitR(expr: receiverID)
@@ -578,8 +567,7 @@ public struct CXXTranspiler {
       // Emit the function reference.
       return CXXInfixExpr(
         oper: .dotAccess,
-        lhs: receiver, rhs: CXXIdentifier(nameOfDecl(calleeDecl)),
-        original: AnyNodeID.TypedNode(expr))
+        lhs: receiver, rhs: CXXIdentifier(nameOfDecl(calleeDecl)))
 
     case .member(_):
       fatalError("not implemented")
@@ -649,42 +637,40 @@ public struct CXXTranspiler {
     }
 
     // Emit infix operators.
-    let orig = AnyNodeID.TypedNode(expr)
     let name = nameOfDecl(calleeDecl)
     switch name {
-    case "<<": return CXXInfixExpr(oper: .leftShift, lhs: lhs, rhs: rhs, original: orig)
-    case ">>": return CXXInfixExpr(oper: .rightShift, lhs: lhs, rhs: rhs, original: orig)
-    case "*": return CXXInfixExpr(oper: .multiplication, lhs: lhs, rhs: rhs, original: orig)
-    case "/": return CXXInfixExpr(oper: .division, lhs: lhs, rhs: rhs, original: orig)
-    case "%": return CXXInfixExpr(oper: .remainder, lhs: lhs, rhs: rhs, original: orig)
-    case "+": return CXXInfixExpr(oper: .addition, lhs: lhs, rhs: rhs, original: orig)
-    case "-": return CXXInfixExpr(oper: .subtraction, lhs: lhs, rhs: rhs, original: orig)
-    case "==": return CXXInfixExpr(oper: .equality, lhs: lhs, rhs: rhs, original: orig)
-    case "!=": return CXXInfixExpr(oper: .inequality, lhs: lhs, rhs: rhs, original: orig)
-    case "<": return CXXInfixExpr(oper: .lessThan, lhs: lhs, rhs: rhs, original: orig)
-    case "<=": return CXXInfixExpr(oper: .lessEqual, lhs: lhs, rhs: rhs, original: orig)
-    case ">=": return CXXInfixExpr(oper: .greaterEqual, lhs: lhs, rhs: rhs, original: orig)
-    case ">": return CXXInfixExpr(oper: .greaterThan, lhs: lhs, rhs: rhs, original: orig)
-    case "^": return CXXInfixExpr(oper: .bitwiseXor, lhs: lhs, rhs: rhs, original: orig)
-    case "&": return CXXInfixExpr(oper: .bitwiseAnd, lhs: lhs, rhs: rhs, original: orig)
-    case "&&": return CXXInfixExpr(oper: .logicalAnd, lhs: lhs, rhs: rhs, original: orig)
-    case "|": return CXXInfixExpr(oper: .bitwiseOr, lhs: lhs, rhs: rhs, original: orig)
-    case "||": return CXXInfixExpr(oper: .logicalOr, lhs: lhs, rhs: rhs, original: orig)
-    case "<<=": return CXXInfixExpr(oper: .shiftLeftAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case ">>=": return CXXInfixExpr(oper: .shiftRightAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "*=": return CXXInfixExpr(oper: .mulAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "/=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "%=": return CXXInfixExpr(oper: .remAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "+=": return CXXInfixExpr(oper: .addAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "-=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "&=": return CXXInfixExpr(oper: .bitwiseAndAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "<<": return CXXInfixExpr(oper: .leftShift, lhs: lhs, rhs: rhs)
+    case ">>": return CXXInfixExpr(oper: .rightShift, lhs: lhs, rhs: rhs)
+    case "*": return CXXInfixExpr(oper: .multiplication, lhs: lhs, rhs: rhs)
+    case "/": return CXXInfixExpr(oper: .division, lhs: lhs, rhs: rhs)
+    case "%": return CXXInfixExpr(oper: .remainder, lhs: lhs, rhs: rhs)
+    case "+": return CXXInfixExpr(oper: .addition, lhs: lhs, rhs: rhs)
+    case "-": return CXXInfixExpr(oper: .subtraction, lhs: lhs, rhs: rhs)
+    case "==": return CXXInfixExpr(oper: .equality, lhs: lhs, rhs: rhs)
+    case "!=": return CXXInfixExpr(oper: .inequality, lhs: lhs, rhs: rhs)
+    case "<": return CXXInfixExpr(oper: .lessThan, lhs: lhs, rhs: rhs)
+    case "<=": return CXXInfixExpr(oper: .lessEqual, lhs: lhs, rhs: rhs)
+    case ">=": return CXXInfixExpr(oper: .greaterEqual, lhs: lhs, rhs: rhs)
+    case ">": return CXXInfixExpr(oper: .greaterThan, lhs: lhs, rhs: rhs)
+    case "^": return CXXInfixExpr(oper: .bitwiseXor, lhs: lhs, rhs: rhs)
+    case "&": return CXXInfixExpr(oper: .bitwiseAnd, lhs: lhs, rhs: rhs)
+    case "&&": return CXXInfixExpr(oper: .logicalAnd, lhs: lhs, rhs: rhs)
+    case "|": return CXXInfixExpr(oper: .bitwiseOr, lhs: lhs, rhs: rhs)
+    case "||": return CXXInfixExpr(oper: .logicalOr, lhs: lhs, rhs: rhs)
+    case "<<=": return CXXInfixExpr(oper: .shiftLeftAssignment, lhs: lhs, rhs: rhs)
+    case ">>=": return CXXInfixExpr(oper: .shiftRightAssignment, lhs: lhs, rhs: rhs)
+    case "*=": return CXXInfixExpr(oper: .mulAssignment, lhs: lhs, rhs: rhs)
+    case "/=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs)
+    case "%=": return CXXInfixExpr(oper: .remAssignment, lhs: lhs, rhs: rhs)
+    case "+=": return CXXInfixExpr(oper: .addAssignment, lhs: lhs, rhs: rhs)
+    case "-=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs)
+    case "&=": return CXXInfixExpr(oper: .bitwiseAndAssignment, lhs: lhs, rhs: rhs)
 
     default:
       // Expand this as a regular function call.
       let callee = emitL(name: expr, withCapability: .let)
       let arguments = [lhs, rhs]
-      return CXXFunctionCallExpr(
-        callee: callee, arguments: arguments, original: AnyExprID.TypedNode(expr))
+      return CXXFunctionCallExpr(callee: callee, arguments: arguments)
     }
   }
 
@@ -739,7 +725,7 @@ public struct CXXTranspiler {
       switch expr.domain {
       case .none:
         // TODO: this doesn't seem right; check the following code
-        // receiver = CXXReceiverExpr(original: expr)
+        // receiver = CXXReceiverExpr()
         receiver = nil
       case .implicit:
         fatalError("not implemented")
@@ -750,8 +736,7 @@ public struct CXXTranspiler {
       // Emit the compound expression.
       let idExpr = CXXIdentifier(nameOfDecl(decl))
       if receiver != nil {
-        return CXXInfixExpr(
-          oper: .dotAccess, lhs: receiver!, rhs: idExpr, original: AnyNodeID.TypedNode(expr))
+        return CXXInfixExpr(oper: .dotAccess, lhs: receiver!, rhs: idExpr)
       } else {
         return idExpr
       }
