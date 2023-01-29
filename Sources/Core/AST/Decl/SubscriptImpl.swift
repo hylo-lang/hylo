@@ -1,4 +1,6 @@
 /// The declaration of a subscript implementation.
+/// ///
+/// Instances of this type represent individual variant inside a subscript declaration.
 public struct SubscriptImpl: Decl, LexicalScope {
 
   /// The body of a subscript implementation.
