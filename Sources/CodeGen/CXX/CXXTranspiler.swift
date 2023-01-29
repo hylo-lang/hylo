@@ -30,34 +30,40 @@ public struct CXXTranspiler {
 
   // MARK: Declarations
 
-  /// Emits the given top-level declaration into `module`.
-  func cxx(topLevel decl: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
-    switch decl.kind {
+  /// Transpiles to C++ a top-level declaration.
+  func cxx(topLevel src: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
+    switch src.kind {
     case FunctionDecl.self:
-      return cxx(function: FunctionDecl.Typed(decl)!)
+      return cxx(function: FunctionDecl.Typed(src)!)
     case ProductTypeDecl.self:
-      return cxx(type: ProductTypeDecl.Typed(decl)!)
+      return cxx(type: ProductTypeDecl.Typed(src)!)
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  /// Emits the given function declaration into `module`.
-  func cxx(function decl: FunctionDecl.Typed) -> CXXTopLevelDecl {
-    assert(wholeValProgram.isGlobal(decl.id))
+  /// Transpiles to C++ a top-level function declaration.
+  func cxx(function src: FunctionDecl.Typed) -> CXXFunctionDecl {
+    assert(wholeValProgram.isGlobal(src.id))
 
-    /// The identifier of the function.
-    let identifier = CXXIdentifier(decl.identifier?.value ?? "")
+    let functionName = src.identifier?.value ?? ""
 
-    // Determine the output type of the function.
-    let output: CXXTypeExpr
-    if identifier.description == "main" {
+    return CXXFunctionDecl(
+      identifier: CXXIdentifier(functionName),
+      output: cxxFunctionReturnType(src, with: functionName),
+      parameters: cxxFunctionParameters(src),
+      body: src.body != nil ? cxx(funBody: src.body!) : nil)
+  }
+
+  /// Transpiles the function return type into a C++ type.
+  private func cxxFunctionReturnType(_ src: FunctionDecl.Typed, with name: String) -> CXXTypeExpr {
+    if name == "main" {
       // The output type of `main` must be `int`.
-      output = CXXTypeExpr("int")
+      return CXXTypeExpr("int")
     } else {
-      switch decl.type.base {
+      switch src.type.base {
       case let valDeclType as LambdaType:
-        output = CXXTypeExpr(valDeclType.output, ast: wholeValProgram.ast, asReturnType: true)!
+        return CXXTypeExpr(valDeclType.output, ast: wholeValProgram.ast, asReturnType: true)!
 
       case is MethodType:
         fatalError("not implemented")
@@ -66,45 +72,24 @@ public struct CXXTranspiler {
         unreachable()
       }
     }
+  }
 
-    // Determine the parameter types of the function.
-    let paramTypes: [CallableTypeParameter]
-    switch decl.type.base {
-    case let valDeclType as LambdaType:
-      paramTypes = valDeclType.inputs
+  /// Transpiles the function parameters to C++.
+  private func cxxFunctionParameters(_ src: FunctionDecl.Typed) -> [CXXFunctionDecl.Parameter] {
+    let paramTypes = (src.type.base as! LambdaType).inputs
+    assert(paramTypes.count == src.parameters.count)
 
-    case is MethodType:
-      fatalError("not implemented")
-
-    default:
-      unreachable()
-    }
-
-    // Determine the parameters of the function.
-    assert(paramTypes.count == decl.parameters.count)
     var cxxParams: [CXXFunctionDecl.Parameter] = []
-    for (i, param) in decl.parameters.enumerated() {
+    for (i, param) in src.parameters.enumerated() {
       let name = CXXIdentifier(param.name)
       let type = CXXTypeExpr(paramTypes[i].type, ast: wholeValProgram.ast)
       cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
     }
-
-    // The body of the function.
-    var cxxBody: CXXStmt? = nil
-    if let body = decl.body {
-      cxxBody = cxx(funBody: body)
-    }
-
-    // Create the C++ function object.
-    return CXXFunctionDecl(
-      identifier: identifier,
-      output: output,
-      parameters: cxxParams,
-      body: cxxBody)
+    return cxxParams
   }
 
-  /// Translate the function body into a CXX entity.
-  private func cxx(funBody body: FunctionDecl.Typed.Body) -> CXXStmt {
+  /// Transpiles a function body to a C++.
+  private func cxx(funBody body: FunctionDecl.Typed.Body) -> CXXScopedBlock {
     switch body {
     case .block(let stmt):
       return cxx(brace: stmt)
@@ -115,15 +100,15 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Emits the given function declaration into `module`.
-  private func cxx(type decl: ProductTypeDecl.Typed) -> CXXTopLevelDecl {
-    assert(wholeValProgram.isGlobal(decl.id))
+  /// Transpiles a product type declaration to a C++ class.
+  private func cxx(type src: ProductTypeDecl.Typed) -> CXXClassDecl {
+    assert(wholeValProgram.isGlobal(src.id))
 
-    let name = CXXIdentifier(decl.identifier.value)
+    let name = CXXIdentifier(src.identifier.value)
 
     // Transpile the class membmers.
     var cxxMembers: [CXXClassDecl.ClassMember] = []
-    for member in decl.members {
+    for member in src.members {
       switch member.kind {
       case BindingDecl.self:
         let bindingDecl = BindingDecl.Typed(member)!
@@ -174,6 +159,7 @@ public struct CXXTranspiler {
     return CXXClassDecl(name: name, members: cxxMembers)
   }
 
+  /// Transpiles a local binding declaration to a C++ statement containing a local variable.
   private func cxx(localBinding decl: BindingDecl.Typed) -> CXXStmt {
     let capability = decl.pattern.introducer.value
 
@@ -246,7 +232,7 @@ public struct CXXTranspiler {
     }
   }
 
-  private func cxx(brace stmt: BraceStmt.Typed) -> CXXStmt {
+  private func cxx(brace stmt: BraceStmt.Typed) -> CXXScopedBlock {
     var stmts: [CXXStmt] = []
     for s in stmt.stmts {
       stmts.append(cxx(stmt: s))
