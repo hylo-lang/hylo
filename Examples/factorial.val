@@ -5,6 +5,6 @@ fun factorial(_ n: Int) -> Int {
   if n < 2 { 1 } else { n * factorial(n - 1) }
 }
 
-public fun main() -> Int {
-  factorial(6)
+public fun main() {
+  let _ = factorial(6)
 }
