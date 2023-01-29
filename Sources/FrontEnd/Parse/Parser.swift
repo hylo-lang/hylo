@@ -934,7 +934,8 @@ public enum Parser {
     }
   }
 
-  /// Inserts into `state.ast` a subscript implementation having the given `introducer` and `body` returning its ID.
+  /// Inserts a subscript having the given `introducer` and `body` into `state.ast` and returns its
+  /// ID.
   ///
   /// - Parameters:
   ///   - introducer: The introducer of the declaration, or `nil` if it is implicit. In that case,
@@ -2731,7 +2732,7 @@ public enum Parser {
       }))
 
   static let continueStmt =
-    (take(.break)
+    (take(.continue)
       .map({ (state, token) -> NodeID<ContinueStmt> in
         state.insert(ContinueStmt(site: token.site))
       }))

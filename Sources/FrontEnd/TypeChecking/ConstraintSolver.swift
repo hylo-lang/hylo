@@ -910,8 +910,8 @@ extension TypeChecker {
         else { return .incomparable }
 
         // Rank the candidates.
-        let lRefinesR = refines(lhs, rhs, scope: scope, site: program.ast[n].site)
-        let rRefinesL = refines(rhs, lhs, scope: scope, site: program.ast[n].site)
+        let lRefinesR = refines(lhs, rhs, in: scope, anchoringConstraintsAt: program.ast[n].site)
+        let rRefinesL = refines(rhs, lhs, in: scope, anchoringConstraintsAt: program.ast[n].site)
         switch (lRefinesR, rRefinesL) {
         case (true, false):
           if ranking > .equal { return .incomparable }
@@ -950,8 +950,8 @@ extension TypeChecker {
   fileprivate mutating func refines(
     _ l: AnyType,
     _ r: AnyType,
-    scope: AnyScopeID,
-    site: SourceRange
+    in scope: AnyScopeID,
+    anchoringConstraintsAt site: SourceRange
   ) -> Bool {
     // Skolemize the left operand.
     let skolemizedLeft = l.skolemized

@@ -203,6 +203,16 @@ extension TypedNode where ID == NodeID<NameExpr> {
     }
   }
 
+  /// The domain expression node, if the domain is an expression
+  public var domainExpr: AnyExprID.TypedNode? {
+    switch syntax.domain {
+    case .expr(let expr):
+      return program[expr]
+    default:
+      return nil
+    }
+  }
+
   /// A reference to a declaration.
   public enum DeclRef: Hashable {
 

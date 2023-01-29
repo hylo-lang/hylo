@@ -13,8 +13,8 @@ jobs:
       fail-fast: false
       matrix:
         host: [
-          { type: macos, os: macos-12 },
-          { type: linux, os: ubuntu-22.04, test-options: --enable-code-coverage },
+          { type: macos, os: macos-latest },
+          { type: linux, os: ubuntu-latest, test-options: --enable-code-coverage },
           { type: windows, os: windows-latest },
         ]
         swift: [
@@ -51,7 +51,7 @@ jobs:
       if: matrix.host.type == 'linux'
       with:
         SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 74
+        MINIMUM_COVERAGE: 76
 
     - name: Build (Release)
       run: swift build -v -c release
@@ -62,4 +62,4 @@ jobs:
       if: matrix.host.type == 'linux'
       with:
         SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 74
+        MINIMUM_COVERAGE: 76
