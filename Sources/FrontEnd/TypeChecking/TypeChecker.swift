@@ -1954,13 +1954,11 @@ public struct TypeChecker {
     // Search for the declarations of `name`.
     let matches: [AnyDeclID]
     if let t = parentType {
-      matches = filter(
-        decls: lookup(name.value.stem, memberOf: t, inScope: lookupScope),
-        named: name.value)
+      matches = lookup(name.value.stem, memberOf: t, inScope: lookupScope)
+        .compactMap({ decl($0, named: name.value) })
     } else {
-      matches = filter(
-        decls: lookup(unqualified: name.value.stem, inScope: lookupScope),
-        named: name.value)
+      matches = lookup(unqualified: name.value.stem, inScope: lookupScope)
+        .compactMap({ decl($0, named: name.value) })
     }
 
     // Diagnose undefined symbols.
@@ -3627,87 +3625,75 @@ public struct TypeChecker {
     return r
   }
 
-  /// Returns the members of `decls` named `n`.
+  /// Returns `d` or an implementation thereof if it's named `n`. Otherwise, returns `nil`.
   ///
-  /// - Requires: The base name of all declarations in `decls` is equal to `n.stem`
-  mutating func filter(decls: DeclSet, named n: Name) -> [AnyDeclID] {
-    var matches = Array(decls)
-
-    // Filter out candidates whose argument labels do not match.
-    if !n.labels.isEmpty {
-      filter(decls: &matches, withLabels: n.labels)
+  /// - Requires: The base name of `d` is equal to `n.stem`
+  mutating func decl(_ d: AnyDeclID, named n: Name) -> AnyDeclID? {
+    if !n.labels.isEmpty && !decl(d, isLabeledWith: n.labels) {
+      return nil
     }
 
-    // Filter out candidates whose operator notation does not match.
-    if let notation = n.notation {
-      filter(decls: &matches, withNotation: notation)
+    if let notation = n.notation, !decl(d, hasNotation: notation) {
+      return nil
     }
 
     // If the looked up name has an introducer, select the corresponding implementation.
     if let introducer = n.introducer {
-      matches = matches.compactMap({ (match) -> AnyDeclID? in
-        guard
-          let decl = program.ast[NodeID<MethodDecl>(match)],
-          let impl = decl.impls.first(where: { (i) in
-            program.ast[i].introducer.value == introducer
-          })
-        else { return nil }
-        return AnyDeclID(impl)
-      })
+      guard let m = program.ast[NodeID<MethodDecl>(d)] else { return nil }
+      return m.impls.first(where: { (i) in
+        program.ast[i].introducer.value == introducer
+      }).map(AnyDeclID.init(_:))
     }
 
-    return matches
+    return d
   }
 
-  /// Filters the function, method, and subscript declarations in `decls` whose argument labels
-  /// match `labels`.
-  private mutating func filter(decls: inout [AnyDeclID], withLabels labels: [String?]) {
-    decls.filterInPlace({ (d) -> Bool in
-      switch d.kind {
-      case FunctionDecl.self:
-        let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
-        return labels == decl.parameters.map({ (p) in program.ast[p].label?.value })
+  /// Returns `true` iff `d` is a function, method, and subscript declarations whose argument
+  /// labels are `l`.
+  private mutating func decl(_ d: AnyDeclID, isLabeledWith l: [String?]) -> Bool {
+    switch d.kind {
+    case FunctionDecl.self:
+      let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
+      return l == decl.parameters.map({ (p) in program.ast[p].label?.value })
 
-      case InitializerDecl.self:
-        guard let type = LambdaType(realize(initializerDecl: NodeID(rawValue: d.rawValue))) else {
-          return false
-        }
-        return labels == type.inputs.map({ (p) in p.label })
-
-      case MethodDecl.self:
-        let decl = program.ast[NodeID<MethodDecl>(rawValue: d.rawValue)]
-        return labels == decl.parameters.map({ (p) in program.ast[p].label?.value })
-
-      case SubscriptDecl.self:
-        let decl = program.ast[NodeID<SubscriptDecl>(rawValue: d.rawValue)]
-        if let parameters = decl.parameters {
-          return labels == parameters.map({ (p) in program.ast[p].label?.value })
-        } else {
-          return false
-        }
-
-      default:
+    case InitializerDecl.self:
+      guard let type = LambdaType(realize(initializerDecl: NodeID(rawValue: d.rawValue))) else {
         return false
       }
-    })
+      return l == type.inputs.map({ (p) in p.label })
+
+    case MethodDecl.self:
+      let decl = program.ast[NodeID<MethodDecl>(rawValue: d.rawValue)]
+      return l == decl.parameters.map({ (p) in program.ast[p].label?.value })
+
+    case SubscriptDecl.self:
+      let decl = program.ast[NodeID<SubscriptDecl>(rawValue: d.rawValue)]
+      if let parameters = decl.parameters {
+        return l == parameters.map({ (p) in program.ast[p].label?.value })
+      } else {
+        return false
+      }
+
+    default:
+      return false
+    }
   }
 
-  /// Filters the function and method declarations in `decls` witht the given operator notation.
-  private func filter(decls: inout [AnyDeclID], withNotation notation: OperatorNotation) {
-    decls.filterInPlace({ (d) -> Bool in
-      switch d.kind {
-      case FunctionDecl.self:
-        let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
-        return decl.notation?.value == notation
+  /// Returns `true` iff `d` is a function or method declaration whose name has the operator
+  /// notation `n`.
+  private func decl(_ d: AnyDeclID, hasNotation n: OperatorNotation) -> Bool {
+    switch d.kind {
+    case FunctionDecl.self:
+      let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
+      return decl.notation?.value == n
 
-      case MethodDecl.self:
-        let decl = program.ast[NodeID<MethodDecl>(rawValue: d.rawValue)]
-        return decl.notation?.value == notation
+    case MethodDecl.self:
+      let decl = program.ast[NodeID<MethodDecl>(rawValue: d.rawValue)]
+      return decl.notation?.value == n
 
-      default:
-        return false
-      }
-    })
+    default:
+      return false
+    }
   }
 
 }
