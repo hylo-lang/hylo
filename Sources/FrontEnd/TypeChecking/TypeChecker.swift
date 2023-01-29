@@ -1956,11 +1956,11 @@ public struct TypeChecker {
     if let t = parentType {
       matches = filter(
         decls: lookup(name.value.stem, memberOf: t, inScope: lookupScope),
-        matching: name.value)
+        named: name.value)
     } else {
       matches = filter(
         decls: lookup(unqualified: name.value.stem, inScope: lookupScope),
-        matching: name.value)
+        named: name.value)
     }
 
     // Diagnose undefined symbols.
@@ -3627,10 +3627,10 @@ public struct TypeChecker {
     return r
   }
 
-  /// Returns the declarations in `decls` whose names match `n`.
+  /// Returns the members of `decls` named `n`.
   ///
-  /// - Requires: The base name of all declarations in `decls` is equal to `n-stem`
-  mutating func filter(decls: DeclSet, matching n: Name) -> [AnyDeclID] {
+  /// - Requires: The base name of all declarations in `decls` is equal to `n.stem`
+  mutating func filter(decls: DeclSet, named n: Name) -> [AnyDeclID] {
     var matches = Array(decls)
 
     // Filter out candidates whose argument labels do not match.

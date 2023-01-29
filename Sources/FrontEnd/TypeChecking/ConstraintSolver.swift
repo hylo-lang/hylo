@@ -427,7 +427,7 @@ struct ConstraintSolver {
     // Search for members with the specified name.
     let matches = checker.filter(
       decls: checker.lookup(goal.memberName.stem, memberOf: goal.subject, inScope: scope),
-      matching: goal.memberName)
+      named: goal.memberName)
 
     // Generate the list of candidates.
     let candidates = matches.compactMap({ (match) -> OverloadConstraint.Candidate? in
