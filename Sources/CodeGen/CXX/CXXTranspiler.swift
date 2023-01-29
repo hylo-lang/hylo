@@ -19,7 +19,7 @@ public struct CXXTranspiler {
   }
 
   /// Transpiles Val Module into a C++ module object.
-  public mutating func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
+  public func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
     var cxxModule = CXXModule(source)
     for member in source.topLevelDecls {
       let cxxTopLevelDecl = emit(topLevel: member)
@@ -31,7 +31,7 @@ public struct CXXTranspiler {
   // MARK: Declarations
 
   /// Emits the given top-level declaration into `module`.
-  mutating func emit(topLevel decl: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
+  func emit(topLevel decl: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
     switch decl.kind {
     case FunctionDecl.self:
       return emit(function: FunctionDecl.Typed(decl)!)
@@ -43,7 +43,7 @@ public struct CXXTranspiler {
   }
 
   /// Emits the given function declaration into `module`.
-  mutating func emit(function decl: FunctionDecl.Typed) -> CXXTopLevelDecl {
+  func emit(function decl: FunctionDecl.Typed) -> CXXTopLevelDecl {
     assert(wholeValProgram.isGlobal(decl.id))
 
     /// The identifier of the function.
@@ -104,7 +104,7 @@ public struct CXXTranspiler {
   }
 
   /// Translate the function body into a CXX entity.
-  private mutating func emit(funBody body: FunctionDecl.Typed.Body) -> CXXStmt {
+  private func emit(funBody body: FunctionDecl.Typed.Body) -> CXXStmt {
     switch body {
     case .block(let stmt):
       return emit(brace: stmt)
@@ -116,7 +116,7 @@ public struct CXXTranspiler {
   }
 
   /// Emits the given function declaration into `module`.
-  private mutating func emit(type decl: ProductTypeDecl.Typed) -> CXXTopLevelDecl {
+  private func emit(type decl: ProductTypeDecl.Typed) -> CXXTopLevelDecl {
     assert(wholeValProgram.isGlobal(decl.id))
 
     let name = CXXIdentifier(decl.identifier.value)
@@ -174,7 +174,7 @@ public struct CXXTranspiler {
     return CXXClassDecl(name: name, members: cxxMembers)
   }
 
-  private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXStmt {
+  private func emit(localBinding decl: BindingDecl.Typed) -> CXXStmt {
     let capability = decl.pattern.introducer.value
 
     // There's nothing to do if there's no initializer.
@@ -217,7 +217,7 @@ public struct CXXTranspiler {
   // MARK: Statements
 
   /// Emits the given statement into `module` at the current insertion point.
-  private mutating func emit<ID: StmtID>(stmt: ID.TypedNode) -> CXXStmt {
+  private func emit<ID: StmtID>(stmt: ID.TypedNode) -> CXXStmt {
     switch stmt.kind {
     case BraceStmt.self:
       return emit(brace: BraceStmt.Typed(stmt)!)
@@ -246,7 +246,7 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emit(brace stmt: BraceStmt.Typed) -> CXXStmt {
+  private func emit(brace stmt: BraceStmt.Typed) -> CXXStmt {
     var stmts: [CXXStmt] = []
     for s in stmt.stmts {
       stmts.append(emit(stmt: s))
@@ -254,7 +254,7 @@ public struct CXXTranspiler {
     return CXXScopedBlock(stmts: stmts)
   }
 
-  private mutating func emit(declStmt stmt: DeclStmt.Typed) -> CXXStmt {
+  private func emit(declStmt stmt: DeclStmt.Typed) -> CXXStmt {
     switch stmt.decl.kind {
     case BindingDecl.self:
       return emit(localBinding: BindingDecl.Typed(stmt.decl)!)
@@ -263,11 +263,11 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXStmt {
+  private func emit(exprStmt stmt: ExprStmt.Typed) -> CXXStmt {
     return CXXExprStmt(expr: emitR(expr: stmt.expr))
   }
 
-  private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXStmt {
+  private func emit(assignStmt stmt: AssignStmt.Typed) -> CXXStmt {
     let cxxExpr = CXXInfixExpr(
       oper: .assignment,
       lhs: emitL(expr: stmt.left, withCapability: .set),
@@ -275,7 +275,7 @@ public struct CXXTranspiler {
     return CXXExprStmt(expr: cxxExpr)
   }
 
-  private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXStmt {
+  private func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXStmt {
     var expr: CXXExpr?
     if stmt.value != nil {
       expr = emitR(expr: stmt.value!)
@@ -283,7 +283,7 @@ public struct CXXTranspiler {
     return CXXReturnStmt(expr: expr)
   }
 
-  private mutating func emit(whileStmt stmt: WhileStmt.Typed) -> CXXStmt {
+  private func emit(whileStmt stmt: WhileStmt.Typed) -> CXXStmt {
     // TODO: multiple conditions
     // TODO: bindings in conditions
     let condition: CXXExpr
@@ -301,27 +301,27 @@ public struct CXXTranspiler {
     return CXXWhileStmt(
       condition: condition, body: emit(stmt: stmt.body))
   }
-  private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXStmt {
+  private func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXStmt {
     return CXXDoWhileStmt(
       body: emit(stmt: stmt.body),
       condition: emitR(expr: stmt.condition))
   }
-  private mutating func emit(forStmt stmt: ForStmt.Typed) -> CXXStmt {
+  private func emit(forStmt stmt: ForStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "ForStmt")
   }
-  private mutating func emit(breakStmt stmt: BreakStmt.Typed) -> CXXStmt {
+  private func emit(breakStmt stmt: BreakStmt.Typed) -> CXXStmt {
     return CXXBreakStmt()
   }
-  private mutating func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXStmt {
+  private func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXStmt {
     return CXXContinueStmt()
   }
-  private mutating func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXStmt {
+  private func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "YieldStmt")
   }
 
   // MARK: Expressions
 
-  private mutating func emit(
+  private func emit(
     expr: AnyExprID.TypedNode,
     asLValue: Bool
   ) -> CXXExpr {
@@ -334,7 +334,7 @@ public struct CXXTranspiler {
 
   // MARK: r-values
 
-  private mutating func emitR<ID: ExprID>(expr: ID.TypedNode) -> CXXExpr {
+  private func emitR<ID: ExprID>(expr: ID.TypedNode) -> CXXExpr {
     switch expr.kind {
     case BooleanLiteralExpr.self:
       return emitR(booleanLiteral: BooleanLiteralExpr.Typed(expr)!)
@@ -353,13 +353,13 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emitR(
+  private func emitR(
     booleanLiteral expr: BooleanLiteralExpr.Typed
   ) -> CXXExpr {
     return CXXBooleanLiteralExpr(value: expr.value)
   }
 
-  private mutating func emitR(
+  private func emitR(
     cond expr: CondExpr.Typed
   ) -> CXXExpr {
     // TODO: multiple conditions
@@ -429,7 +429,7 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emitR(
+  private func emitR(
     functionCall expr: FunctionCallExpr.Typed
   ) -> CXXExpr {
     let calleeType = expr.callee.type.base as! LambdaType
@@ -467,13 +467,13 @@ public struct CXXTranspiler {
       callee: callee, arguments: arguments)
   }
 
-  private mutating func emitR(
+  private func emitR(
     integerLiteral expr: IntegerLiteralExpr.Typed
   ) -> CXXExpr {
     return CXXIntegerLiteralExpr(value: expr.value)
   }
 
-  private mutating func emitR(
+  private func emitR(
     name expr: NameExpr.Typed,
     forCalleWithType calleeType: LambdaType? = nil
   ) -> CXXExpr {
@@ -576,13 +576,13 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emitR(
+  private func emitR(
     sequence expr: SequenceExpr.Typed
   ) -> CXXExpr {
     return emit(foldedSequence: expr.foldedSequenceExprs!, withCapability: .sink, for: expr)
   }
 
-  private mutating func emit(
+  private func emit(
     foldedSequence seq: FoldedSequenceExpr,
     withCapability capability: AccessEffect,
     for expr: SequenceExpr.Typed
@@ -623,7 +623,7 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emitR(
+  private func emitR(
     infix expr: NameExpr.Typed,
     lhs: CXXExpr,
     rhs: CXXExpr
@@ -676,7 +676,7 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emit(
+  private func emit(
     argument expr: AnyExprID.TypedNode,
     to parameterType: ParameterType
   ) -> CXXExpr {
@@ -696,7 +696,7 @@ public struct CXXTranspiler {
 
   // MARK: l-values
 
-  private mutating func emitL<ID: ExprID>(
+  private func emitL<ID: ExprID>(
     expr: ID.TypedNode,
     withCapability capability: AccessEffect
   ) -> CXXExpr {
@@ -713,7 +713,7 @@ public struct CXXTranspiler {
     }
   }
 
-  private mutating func emitL(
+  private func emitL(
     name expr: NameExpr.Typed,
     withCapability capability: AccessEffect
   ) -> CXXExpr {

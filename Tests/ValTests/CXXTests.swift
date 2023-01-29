@@ -40,7 +40,7 @@ final class CXXTests: XCTestCase {
         // TODO: Run IR transform passes
 
         // Transpile the module.
-        var transpiler = CXXTranspiler(typedProgram)
+        let transpiler = CXXTranspiler(typedProgram)
         let cxxModule = transpiler.transpile(typedProgram[module])
 
         let codeWriter = CXXCodeWriter()

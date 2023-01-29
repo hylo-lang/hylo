@@ -214,7 +214,7 @@ private struct CLI: ParsableCommand {
     // *** C++ Transpiling ***
 
     // Translate the module to C++ AST.
-    var transpiler = CXXTranspiler(typedProgram)
+    let transpiler = CXXTranspiler(typedProgram)
     let cxxModule = transpiler.transpile(typedProgram[newModule])
     // Generate the C++ code, header & source.
     let codeWriter = CXXCodeWriter()
