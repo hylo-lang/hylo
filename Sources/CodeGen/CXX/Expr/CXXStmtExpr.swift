@@ -9,10 +9,10 @@ struct CXXStmtExpr: CXXExpr {
   /// The original node in Val AST.
   let original: AnyNodeID.TypedNode
 
-  func precedence() -> Int {
+  var precedence: Int {
     0
   }
-  func isLeftToRight() -> Bool {
+  var isLeftToRight: Bool {
     true  // doesn't really matter
   }
 

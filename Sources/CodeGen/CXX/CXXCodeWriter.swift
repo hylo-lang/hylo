@@ -1,4 +1,4 @@
-/// Class used to write the output CXX code from the given CXX AST.
+/// A type used to write the output CXX code from the given CXX AST.
 public struct CXXCodeWriter {
 
   /// Initializes the current object.
@@ -14,24 +14,24 @@ public struct CXXCodeWriter {
     // "#pragma once" is non-standard, but implemented by all major compilers,
     // and it typically does a better job
     // (more efficiently treated in the compiler, and reduces probability of accidents)
-    target.writeLn("#pragma once")
-    target.addNewLine()
+    target.writeLine("#pragma once")
+    target.writeNewline()
 
     // Emit include clauses.
-    target.writeLn("#include <variant>")
-    target.addNewLine()
+    target.writeLine("#include <variant>")
+    target.writeNewline()
 
     // Create a namespace for the entire module.
     target.write("namespace \(module.valDecl.name)")
     target.beginBrace()
-    target.addNewLine()
+    target.writeNewline()
 
     // Emit the C++ text needed for the header corresponding to the C++ declarations.
     for decl in module.cxxTopLevelDecls {
       writeInterface(topLevel: decl, into: &target)
     }
 
-    target.addNewLine()
+    target.writeNewline()
     target.endBrace()
 
     return target.code
@@ -42,29 +42,29 @@ public struct CXXCodeWriter {
     var target = CodeFormatter()
 
     // Emit include clauses.
-    target.writeLn("#include \"\(module.valDecl.name).h\"")
-    target.addNewLine()
+    target.writeLine("#include \"\(module.valDecl.name).h\"")
+    target.writeNewline()
 
     // Create a namespace for the entire module.
     target.write("namespace \(module.valDecl.name)")
     target.beginBrace()
-    target.addNewLine()
+    target.writeNewline()
 
     // Emit the C++ text needed for the source file corresponding to the C++ declarations.
     for decl in module.cxxTopLevelDecls {
       writeDefinition(topLevel: decl, into: &target)
-      target.addNewLine()
+      target.writeNewline()
     }
 
     target.endBrace()
 
     // If we need to generate the CXX entry point for the mdule, write the `main` function here with the proper body.
     if module.cxxEntryPointBody != nil {
-      target.addNewLine()
-      target.addNewLine()
+      target.writeNewline()
+      target.writeNewline()
       target.write("int main()")
       write(stmt: module.cxxEntryPointBody!, into: &target)
-      target.addNewLine()
+      target.writeNewline()
     }
 
     return target.code
@@ -81,7 +81,7 @@ public struct CXXCodeWriter {
     default:
       fatalError("unexpected top-level declaration")
     }
-    target.writeLn(";")
+    target.writeLine(";")
   }
 
   private func writeDefinition(topLevel decl: CXXTopLevelDecl, into target: inout CodeFormatter) {
@@ -114,7 +114,7 @@ public struct CXXCodeWriter {
       target.writeSpace()
       write(stmt: decl.body!, into: &target)
     } else {
-      target.writeLn(";")
+      target.writeLine(";")
     }
   }
 
@@ -125,19 +125,19 @@ public struct CXXCodeWriter {
   private func writeDefinition(type decl: CXXClassDecl, into target: inout CodeFormatter) {
     writeSignature(type: decl, into: &target)
     target.beginBrace()
-    target.writeLn("public:")
+    target.writeLine("public:")
     for member in decl.members {
       switch member {
       case .attribute(let attribute):
         write(classAttribute: attribute, into: &target)
       case .method:
-        target.writeLn("// method")
+        target.writeLine("// method")
       case .constructor:
-        target.writeLn("// constructor")
+        target.writeLine("// constructor")
       }
     }
     target.endBrace()
-    target.writeLn(";")
+    target.writeLine(";")
   }
 
   private func write(classAttribute decl: CXXClassAttribute, into target: inout CodeFormatter) {
@@ -148,7 +148,7 @@ public struct CXXCodeWriter {
       target.write(" = ")
       write(expr: value, into: &target)
     }
-    target.writeLn(";")
+    target.writeLine(";")
   }
 
   private func write(localVar decl: CXXLocalVarDecl, into target: inout CodeFormatter) {
@@ -159,7 +159,7 @@ public struct CXXCodeWriter {
       target.write(" = ")
       write(expr: value, into: &target)
     }
-    target.writeLn(";")
+    target.writeLine(";")
   }
 
   // MARK: Statements
@@ -197,11 +197,11 @@ public struct CXXCodeWriter {
       write(stmt: s, into: &target)
     }
     target.endBrace()
-    target.addNewLine()
+    target.writeNewline()
   }
   private func write(exprStmt stmt: CXXExprStmt, into target: inout CodeFormatter) {
     write(expr: stmt.expr, into: &target)
-    target.writeLn(";")
+    target.writeLine(";")
   }
   private func write(returnStmt stmt: CXXReturnStmt, into target: inout CodeFormatter) {
     target.write("return")
@@ -209,7 +209,7 @@ public struct CXXCodeWriter {
       target.writeSpace()
       write(expr: stmt.expr!, into: &target)
     }
-    target.writeLn(";")
+    target.writeLine(";")
   }
   private func write(ifStmt stmt: CXXIfStmt, into target: inout CodeFormatter) {
     target.write("if ( ")
@@ -232,13 +232,13 @@ public struct CXXCodeWriter {
     write(stmt: stmt.body, into: &target)
     target.write("while ( ")
     write(expr: stmt.condition, into: &target)
-    target.writeLn(" );")
+    target.writeLine(" );")
   }
   private func write(breakStmt stmt: CXXBreakStmt, into target: inout CodeFormatter) {
-    target.writeLn("break;")
+    target.writeLine("break;")
   }
   private func write(continueStmt stmt: CXXContinueStmt, into target: inout CodeFormatter) {
-    target.writeLn("continue;")
+    target.writeLine("continue;")
   }
 
   // MARK: Expressions
@@ -398,7 +398,7 @@ public struct CXXCodeWriter {
     if c.comment.contains("\n") {
       target.write("/* \(c.comment) */")
     } else {
-      target.writeLn("// \(c.comment)")
+      target.writeLine("// \(c.comment)")
     }
   }
 }

@@ -39,15 +39,15 @@ extension StringProtocol {
 
   /// Replace any sucession of whitespace characters (including newlines and tabs) with a single white space charater.
   /// This will actually keep the non-space characters ingoring how these are spaced out.
-  public func essentialize() -> String {
+  public func canonicalize() -> String {
     var remaining = self[..<self.endIndex]
-    var res: String = ""
+    var result: String = ""
     while !remaining.isEmpty {
       // Skip all the whitespaces
       remaining = remaining.drop(while: { $0.isWhitespace })
-      if !res.isEmpty {
+      if !result.isEmpty {
         // The skipped whitespaces will be encoded as a single whitespace
-        res.append(" ")
+        result.append(" ")
       }
 
       // Now, `remaining` starts with a non-whitespace
@@ -55,10 +55,10 @@ extension StringProtocol {
       let idx = remaining.firstIndex(where: { $0.isWhitespace }) ?? self.endIndex
 
       // Copy non-whitespace text, and advance the text we need to copy
-      res.append(contentsOf: remaining[..<idx])
+      result.append(contentsOf: remaining[..<idx])
       remaining = remaining[idx ..< self.endIndex]
     }
 
-    return res
+    return result
   }
 }

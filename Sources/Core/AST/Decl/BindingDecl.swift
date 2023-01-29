@@ -1,9 +1,9 @@
 /// A binding declaration.
 public struct BindingDecl: Decl {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
-  /// The attributes of the declaration, if any.
+  /// The attributes of the declaration.
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
@@ -25,9 +25,9 @@ public struct BindingDecl: Decl {
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     pattern: NodeID<BindingPattern>,
     initializer: AnyExprID?,
-    origin: SourceRange?
+    site: SourceRange
   ) {
-    self.origin = origin
+    self.site = site
     self.attributes = attributes
     self.accessModifier = accessModifier
     self.memberModifier = memberModifier

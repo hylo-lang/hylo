@@ -1,11 +1,26 @@
 /*! cpp
 void test() {
-  int a = 5;
+  // EMPTY borrowed local binding (var)
+  a = a++;
+  a = a--;
 }
 */
 
+type MyInt {
+  let value: Int
+
+  fun postfix++ () -> Self {
+    self
+  }
+
+  fun postfix-- () -> Self {
+    self
+  }
+
+}
+
 fun test() {
-  var a = 5
-  // TODO: we don't have postfix operators yet
-  // a++
+  var a: MyInt
+  a = a++
+  a = a--
 }

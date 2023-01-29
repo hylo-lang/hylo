@@ -1,13 +1,13 @@
 /// A declaration statement.
 public struct DeclStmt: Stmt {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
   /// The declaration.
   public let decl: AnyDeclID
 
-  public init(decl: AnyDeclID, origin: SourceRange?) {
-    self.origin = origin
+  public init(decl: AnyDeclID, site: SourceRange) {
+    self.site = site
     self.decl = decl
   }
 

@@ -51,7 +51,7 @@ final class CXXTests: XCTestCase {
           let expectedCXX = a.argument!.removingTrailingNewlines()
           let cxxSourceToSearch = a.command == "cpp" ? cxxSourceCode : cxxHeaderCode
 
-          return cxxSourceToSearch.essentialize().contains(expectedCXX.essentialize())
+          return cxxSourceToSearch.canonicalize().contains(expectedCXX.canonicalize())
             ? nil
             : a.failure(
               """

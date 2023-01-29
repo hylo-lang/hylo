@@ -3,7 +3,7 @@ import Core
 extension Diagnostic {
 
   static func error(assignOperatorRequiresWhitespaces token: Token) -> Diagnostic {
-    .error("assignment operator requires whitespaces on both sides", at: token.origin)
+    .error("assignment operator requires whitespaces on both sides", at: token.site)
   }
 
   static func error(expected kind: Token.Kind, at location: SourcePosition) -> Diagnostic {
@@ -22,24 +22,24 @@ extension Diagnostic {
     .error(
       expected: "'\(closerDescription)'", at: state.currentLocation,
       notes: [
-        .error("to match this '\(state.lexer.sourceCode[opener.origin])'", at: opener.origin)
+        .error("to match this '\(state.lexer.sourceCode[opener.site])'", at: opener.site)
       ])
   }
 
-  static func error(infixOperatorRequiresWhitespacesAt site: SourceRange?) -> Diagnostic {
+  static func error(infixOperatorRequiresWhitespacesAt site: SourceRange) -> Diagnostic {
     .error("infix operator requires whitespaces on both sides", at: site)
   }
 
-  static func error(separatedMutationMarkerAt site: SourceRange?) -> Diagnostic {
+  static func error(separatedMutationMarkerAt site: SourceRange) -> Diagnostic {
     .error("in-place mutation marker cannot be separated from its expression", at: site)
   }
 
-  static func error(separatedPrefixOperatorAt site: SourceRange?) -> Diagnostic {
+  static func error(separatedPrefixOperatorAt site: SourceRange) -> Diagnostic {
     .error("prefix operator cannot be separated from its operand", at: site)
   }
 
   static func error(unexpectedToken token: Token) -> Diagnostic {
-    .error("unexpected token '\(token.kind)'", at: token.origin)
+    .error("unexpected token '\(token.kind)'", at: token.site)
   }
 
   static func error(unterminatedCommentEndingAt endLocation: SourcePosition) -> Diagnostic {
@@ -51,17 +51,17 @@ extension Diagnostic {
   }
 
   static func error(duplicateAccessModifier m: SourceRepresentable<AccessModifier>) -> Diagnostic {
-    .error("duplicate access modifier '\(m.value)'", at: m.origin)
+    .error("duplicate access modifier '\(m.value)'", at: m.site)
   }
 
   static func error(duplicateImplementationIntroducer i: SourceRepresentable<ImplIntroducer>)
     -> Diagnostic
   {
-    .error("duplicate implementation introducer '\(i.value)'", at: i.origin)
+    .error("duplicate implementation introducer '\(i.value)'", at: i.site)
   }
 
   static func error(duplicateMemberModifier m: SourceRepresentable<MemberModifier>) -> Diagnostic {
-    .error("duplicate member modifier '\(m.value)'", at: m.origin)
+    .error("duplicate member modifier '\(m.value)'", at: m.site)
   }
 
   static func error(
@@ -70,63 +70,63 @@ extension Diagnostic {
   ) -> Diagnostic {
     return .error(
       "member modifier '\(member.value)' must appear after access modifier '\(access.value)'",
-      at: member.origin)
+      at: member.site)
   }
 
   static func error(unexpectedAccessModifier m: SourceRepresentable<AccessModifier>) -> Diagnostic {
-    .error("unexpected access modifier '\(m.value)'", at: m.origin)
+    .error("unexpected access modifier '\(m.value)'", at: m.site)
   }
 
   static func error(unexpectedAttribute a: SourceRepresentable<Attribute>) -> Diagnostic {
-    .error("unexpected attribute modifier '\(a.value.name.value)'", at: a.value.name.origin)
+    .error("unexpected attribute modifier '\(a.value.name.value)'", at: a.value.name.site)
   }
 
   static func error(unexpectedInitializerDecl d: InitializerDecl) -> Diagnostic {
-    .error("initializer declaration is not allowed here", at: d.introducer.origin)
+    .error("initializer declaration is not allowed here", at: d.introducer.site)
   }
 
   static func error(unexpectedMemberModifier m: SourceRepresentable<MemberModifier>) -> Diagnostic {
-    .error("unexpected member modifier '\(m.value)'", at: m.origin)
+    .error("unexpected member modifier '\(m.value)'", at: m.site)
   }
 
   static func error(unexpectedMethodDecl d: MethodDecl) -> Diagnostic {
-    .error("method bundle declaration is not allowed here", at: d.introducerRange)
+    .error("method bundle declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedMethodImplDecl d: MethodImplDecl) -> Diagnostic {
-    .error("method implementation declaration is not allowed here", at: d.introducer.origin)
+    .error("method implementation declaration is not allowed here", at: d.introducer.site)
   }
 
   static func error(unexpectedNamespaceDecl d: NamespaceDecl) -> Diagnostic {
-    .error("namespace declaration is not allowed here", at: d.introducerRange)
+    .error("namespace declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedOperatorDecl d: OperatorDecl) -> Diagnostic {
-    .error("operator declaration is not allowed here", at: d.introducerRange)
+    .error("operator declaration is not allowed here", at: d.introducerSite)
   }
 
   static func error(unexpectedParameterDecl d: ParameterDecl) -> Diagnostic {
-    .error("parameter declaration is not allowed here", at: d.identifier.origin)
+    .error("parameter declaration is not allowed here", at: d.identifier.site)
   }
 
   static func error(unexpectedPropertyDecl d: SubscriptDecl) -> Diagnostic {
-    .error("property declaration is not allowed here", at: d.introducer.origin)
+    .error("property declaration is not allowed here", at: d.introducer.site)
   }
 
   static func error(unexpectedEffect e: SourceRepresentable<AccessEffect>) -> Diagnostic {
-    .error("unexpected effect '\(e.value)'", at: e.origin)
+    .error("unexpected effect '\(e.value)'", at: e.site)
   }
 
   static func error(unexpectedSubscriptImplDecl d: SubscriptImplDecl) -> Diagnostic {
-    .error("subscript implementation declaration is not allowed here", at: d.introducer.origin)
+    .error("subscript implementation declaration is not allowed here", at: d.introducer.site)
   }
 
   static func error(unexpectedTraitDecl d: TraitDecl) -> Diagnostic {
-    .error("trait declaration is not allowed here", at: d.identifier.origin)
+    .error("trait declaration is not allowed here", at: d.identifier.site)
   }
 
   static func error(unexpectedVarDecl d: VarDecl) -> Diagnostic {
-    .error("variable declaration is not allowed here", at: d.identifier.origin)
+    .error("variable declaration is not allowed here", at: d.identifier.site)
   }
 
 }

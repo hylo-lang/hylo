@@ -1,88 +1,83 @@
-/// Class responsible for the formatiing of the CXX code, as it is generated.
+/// A type responsible for formatting CXX code, as it is generated.
 ///
-/// The callers will tell this class what tokens they want to write to the output CXX code,
-/// and this will ensure that proper formatting will be added.
-///
-/// This class will have ownership of the code that is being written.
+/// Users of the type specify what tokens they want written to the generated CXX code
+/// and delegate the formatting logic. Instances of this type have ownership of the code
+/// they generate.
 struct CodeFormatter: TextOutputStream {
 
   /// The amount of indentation we apply to the code.
-  private var indentSize: Int
+  private static let indentation: String = "  "
 
   /// The code that this object is writing.
   var code: String = ""
 
   /// The current level of indentation.
-  private var curIndent: Int = 0
-  /// True if the next text written should be indented.
-  private var shouldIntent: Bool = false
-
-  /// Initializes this object with the right formatting parameters.
-  init(indentSize: Int = 2) {
-    self.indentSize = indentSize
-  }
+  private var indentationLevel: Int = 0
+  /// True if we are starting a new line.
+  /// Used to detect when we need to write indentation.
+  private var atLineStart: Bool = false
 
   /// Adds new text to the output code.
   mutating func write(_ text: String) {
-    checkAddIndent()
+    writeIndentationAtLineStart()
     code.write(text)
   }
 
   /// Adds new text to the output code, with a new line at the end
-  mutating func writeLn(_ text: String) {
-    checkAddIndent()
+  mutating func writeLine(_ text: String) {
+    writeIndentationAtLineStart()
     code.write(text)
-    addNewLine()
+    writeNewline()
   }
 
   /// Adds a space to the code that is currently written.
   mutating func writeSpace() {
-    checkAddIndent()
+    writeIndentationAtLineStart()
     code.write(" ")
   }
 
   /// Write a new line to the current code.
   /// If the next line contains visible characters, they would be indented.
-  mutating func addNewLine() {
+  mutating func writeNewline() {
     code.write("\n")
-    shouldIntent = true
+    atLineStart = true
   }
 
   /// Increases the indent level and adds a new line.
-  /// Needs to be paired with a followup `exitIndentScope`.
-  mutating func enterIndentScope() {
-    curIndent += 1
-    addNewLine()
+  /// Needs to be paired with a followup `dedent`.
+  mutating func indent() {
+    indentationLevel += 1
+    writeNewline()
   }
 
   /// Decreases the indent level.
   /// This does not add a new line; it is typcally called just after a new line.
-  /// Needs to be paired with a previous `enterIndentScope`.
-  mutating func exitIndentScope() {
-    curIndent -= 1
-    assert(curIndent >= 0)
+  /// Needs to be paired with a previous `indent`.
+  mutating func dedent() {
+    indentationLevel -= 1
+    assert(indentationLevel >= 0)
   }
 
   /// Open a curly brace and increase the indent.
-  mutating func beginBrace(withSpaceBefore space: Bool = true) {
-    if space {
+  /// Also writes a space before the brace, if we are not at the beginning of the line.
+  mutating func beginBrace() {
+    if !atLineStart {
       writeSpace()
     }
     write("{")
-    enterIndentScope()
+    indent()
   }
   /// Close a curly brace and decrease the indent.
   mutating func endBrace() {
-    exitIndentScope()
+    dedent()
     write("}")
   }
 
-  /// Called when writing some new code (everything except newlines) to ensure that we
-  /// are writing the indent when we are at the beginning of the line.
-  mutating private func checkAddIndent() {
-    if shouldIntent {
-      code.write(String(repeating: " ", count: curIndent * indentSize))
-      shouldIntent = false
+  /// If we are at line start, write the indentation.
+  mutating private func writeIndentationAtLineStart() {
+    if atLineStart {
+      code.write(String(repeating: CodeFormatter.indentation, count: indentationLevel))
+      atLineStart = false
     }
   }
 }

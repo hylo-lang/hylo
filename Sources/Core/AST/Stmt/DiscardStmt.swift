@@ -1,13 +1,13 @@
 /// A discard statement.
 public struct DiscardStmt: Stmt {
 
-  public let origin: SourceRange?
+  public let site: SourceRange
 
   /// The expression whose value is discarded.
   public let expr: AnyExprID
 
-  public init(expr: AnyExprID, origin: SourceRange?) {
-    self.origin = origin
+  public init(expr: AnyExprID, site: SourceRange) {
+    self.site = site
     self.expr = expr
   }
 

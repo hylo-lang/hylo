@@ -53,10 +53,10 @@ struct CXXInfixExpr: CXXExpr {
   let rhs: CXXExpr
 
   /// The original node in Val AST.
-  /// Typically an expression, but somtimes this can be AssignStmt
+  /// Typically an expression, but may be an `AssignStmt`.
   let original: AnyNodeID.TypedNode?
 
-  func precedence() -> Int {
+  var precedence: Int {
     switch oper {
     case .scopeResolution:
       return 1
@@ -94,7 +94,7 @@ struct CXXInfixExpr: CXXExpr {
       return 17
     }
   }
-  func isLeftToRight() -> Bool {
+  var isLeftToRight: Bool {
     switch oper {
     case .scopeResolution, .dotAccess, .ptrAccess, .dotPtrToMember, .ptrToMember, .multiplication,
       .division, .remainder, .addition, .subtraction, .leftShift, .rightShift, .spaceship,

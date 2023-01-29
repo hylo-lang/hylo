@@ -1,11 +1,13 @@
 /*! cpp
 void test() {
   int a = 5;
+  a = +a;
+  a = -a;
 }
 */
 
 fun test() {
   var a = 5
-  // TODO: we don't have prefix operators yet
-  // ++a
+  a = +a
+  a = -a
 }

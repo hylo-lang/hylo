@@ -440,7 +440,7 @@ final class ParserTests: XCTestCase {
   }
 
   func testPostifxFunctionDecl() throws {
-    let input = testCode("postfix fun +() -> T { x }")
+    let input = testCode("fun postfix+ () -> T { x }")
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
     let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
     XCTAssertEqual(decl.notation?.value, .postfix)
@@ -508,15 +508,15 @@ final class ParserTests: XCTestCase {
   func testFunctionDeclIdentifier() throws {
     let input = testCode("fun foo")
     let identifier = try XCTUnwrap(
-      input.parse(with: Parser.parseFunctionDeclIntroducerAndIdentifier(in:)).element)
+      input.parse(with: Parser.parseFunctionDeclHead(in:)).element)
     XCTAssertEqual(identifier.stem.value, "foo")
     XCTAssertNil(identifier.notation)
   }
 
   func testFunctionDeclOperator() throws {
-    let input = testCode("postfix fun ++")
+    let input = testCode("fun postfix++")
     let identifier = try XCTUnwrap(
-      input.parse(with: Parser.parseFunctionDeclIntroducerAndIdentifier(in:)).element)
+      input.parse(with: Parser.parseFunctionDeclHead(in:)).element)
     XCTAssertEqual(identifier.stem.value, "++")
     XCTAssertEqual(identifier.notation?.value, .postfix)
   }

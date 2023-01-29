@@ -31,7 +31,8 @@ public struct LifetimePass: TransformPass {
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
-              diagnostics.append(.unusedBinding(name: decl.name, at: borrow.range))
+              diagnostics.append(
+                .unusedBinding(name: decl.name, at: borrow.range ?? .eliminateFIXME))
             }
             module[block].instructions.remove(at: instruction.address)
             continue
@@ -56,7 +57,7 @@ public struct LifetimePass: TransformPass {
     guard let uses = module.uses[operand] else { return Lifetime(operand: operand) }
 
     // Compute the live-range of the operand.
-    var result = module.liveRange(of: operand, definedIn: operand.block!)
+    var result = module.liveSite(of: operand, definedIn: operand.block!)
 
     // Extend the lifetime with that of its borrows.
     for use in uses {
@@ -77,7 +78,7 @@ public struct LifetimePass: TransformPass {
 
 extension Diagnostic {
 
-  fileprivate static func unusedBinding(name: Identifier, at site: SourceRange?) -> Diagnostic {
+  fileprivate static func unusedBinding(name: Identifier, at site: SourceRange) -> Diagnostic {
     .warning("binding '\(name)' was never used", at: site)
   }
 

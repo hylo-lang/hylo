@@ -9,7 +9,7 @@ public protocol Instruction {
   /// The operands of the instruction.
   var operands: [Operand] { get }
 
-  /// The source range of the code corresponding to that instruction, if any.
+  /// The site of the code corresponding to that instruction, if any.
   var range: SourceRange? { get }
 
   /// Indicates whether the instruction is a terminator.

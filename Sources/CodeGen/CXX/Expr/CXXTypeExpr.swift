@@ -47,10 +47,10 @@ struct CXXTypeExpr: CXXExpr {
     self.original = nil
   }
 
-  func precedence() -> Int {
+  var precedence: Int {
     0
   }
-  func isLeftToRight() -> Bool {
+  var isLeftToRight: Bool {
     true  // doesn't really matter
   }
 

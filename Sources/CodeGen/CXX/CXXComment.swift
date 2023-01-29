@@ -16,10 +16,10 @@ struct CXXComment: CXXNode, CXXExpr, CXXStmt {
 // Just to conform with CXXExpr
 extension CXXComment {
 
-  func precedence() -> Int {
+  var precedence: Int {
     0
   }
-  func isLeftToRight() -> Bool {
+  var isLeftToRight: Bool {
     true
   }
 

@@ -25,9 +25,6 @@ let package = Package(
       url: "https://github.com/apple/swift-collections.git",
       from: "1.0.0"),
     .package(
-      url: "https://github.com/apple/swift-algorithms.git",
-      from: "1.0.0"),
-    .package(
       url: "https://github.com/val-lang/Durian.git",
       from: "1.2.0"),
     .package(
@@ -39,6 +36,13 @@ let package = Package(
     // The compiler's executable target.
     .executableTarget(
       name: "CLI",
+      dependencies: [
+        "ValCommand",
+      ],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
+      name: "ValCommand",
       dependencies: [
         "FrontEnd",
         "IR",
@@ -63,8 +67,7 @@ let package = Package(
     .target(
       name: "Core",
       dependencies: [
-        "Utils",
-        .product(name: "Algorithms", package: "swift-algorithms"),
+        "Utils"
       ],
       swiftSettings: allTargetsSwiftSettings),
 
@@ -89,13 +92,18 @@ let package = Package(
     .target(
       name: "Utils",
       dependencies: [.product(name: "BigInt", package: "BigInt")],
-      swiftSettings: allTargetsSwiftSettings
-    ),
+      swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
     .testTarget(
       name: "ValTests",
       dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR"],
       resources: [.copy("TestCases")],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
+      name: "ValCommandTests",
+      dependencies: ["ValCommand"],
+      resources: [.copy("Inputs")],
       swiftSettings: allTargetsSwiftSettings),
   ])

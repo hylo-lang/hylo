@@ -195,7 +195,7 @@ public struct CXXTranspiler {
           break
         }
 
-      case MethodDecl.self:
+      case MethodDecl.self, FunctionDecl.self:
         cxxMembers.append(.method)
 
       default:
@@ -211,7 +211,7 @@ public struct CXXTranspiler {
     let capability = decl.pattern.introducer.value
 
     // There's nothing to do if there's no initializer.
-    if let initializer: TypedNode<AnyExprID> = decl.initializer {
+    if let initializer = decl.initializer {
 
       let isLValue =
         (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
@@ -493,6 +493,13 @@ public struct CXXTranspiler {
 
     if let calleeNameExpr = NameExpr.Typed(expr.callee) {
       callee = emitR(name: calleeNameExpr, forCalleWithType: calleeType)
+
+      // The name expresssion might fully represent an prefix/postfix operator call;
+      // in this case, we don't need to wrap this into a function call
+      if callee is CXXPrefixExpr || callee is CXXPostfixExpr {
+        return callee
+      }
+
     } else {
       // Evaluate the callee as a function object.
       callee = emitR(expr: expr.callee)
@@ -520,6 +527,32 @@ public struct CXXTranspiler {
 
     case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
       // Callee is a direct reference to a function or initializer declaration.
+
+      // Check for prefix && postfix operator calls
+      let functionDecl = FunctionDecl.Typed(calleeDecl)!
+      if functionDecl.notation != nil && functionDecl.notation!.value == .prefix {
+        let prefixOperators: [String: CXXPrefixExpr.Operator] = [
+          "++": .prefixIncrement,
+          "--": .prefixDecrement,
+          "+": .unaryPlus,
+          "-": .unaryMinus,
+          "!": .logicalNot,
+        ]
+        if let cxxPrefixOperator = prefixOperators[nameOfDecl(calleeDecl)] {
+          return CXXPrefixExpr(
+            oper: cxxPrefixOperator, base: emitR(expr: expr.domainExpr!), original: nil)
+        }
+      } else if functionDecl.notation != nil && functionDecl.notation!.value == .postfix {
+        let postfixOperators: [String: CXXPostfixExpr.Operator] = [
+          "++": .suffixIncrement,
+          "--": .suffixDecrement,
+        ]
+        if let cxxPostfixOperator = postfixOperators[nameOfDecl(calleeDecl)] {
+          return CXXPostfixExpr(
+            oper: cxxPostfixOperator, base: emitR(expr: expr.domainExpr!), original: nil)
+        }
+      }
+
       // TODO: handle captures
       return CXXIdentifier(nameOfDecl(calleeDecl))
 
