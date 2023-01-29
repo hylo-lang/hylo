@@ -103,49 +103,23 @@ public struct CXXTranspiler {
   /// Transpiles a product type declaration to a C++ class.
   private func cxx(type src: ProductTypeDecl.Typed) -> CXXClassDecl {
     assert(wholeValProgram.isGlobal(src.id))
+    return CXXClassDecl(
+      name: CXXIdentifier(src.identifier.value),
+      members: cxx(classMembers: src.members))
+  }
 
-    let name = CXXIdentifier(src.identifier.value)
-
-    // Transpile the class membmers.
+  /// Transpiles product type members to C++.
+  private func cxx<C: Collection>(classMembers src: C) -> [CXXClassDecl.ClassMember]
+  where C.Element == AnyDeclID.TypedNode {
     var cxxMembers: [CXXClassDecl.ClassMember] = []
-    for member in src.members {
+    for member in src {
       switch member.kind {
       case BindingDecl.self:
-        let bindingDecl = BindingDecl.Typed(member)!
-        // Check if the attribute is static or not.
-        var isStatic = false
-        if bindingDecl.memberModifier != nil {
-          switch bindingDecl.memberModifier!.value {
-          case .static:
-            isStatic = true
-          }
-        }
-        // TODO: visit initializer (bindingDecl.initializer)
-        let cxxInitializer: CXXExpr? = nil
-        // TODO: pattern introducer (let, var, sink, inout)
-        // Visit the name patterns.
-        for (_, name) in bindingDecl.pattern.subpattern.names {
-          let varDecl = name.decl
-          let cxxAttribute = CXXClassAttribute(
-            type: CXXTypeExpr(varDecl.type, ast: wholeValProgram.ast)!,
-            name: CXXIdentifier(varDecl.name),
-            initializer: cxxInitializer,
-            isStatic: isStatic)
-          cxxMembers.append(.attribute(cxxAttribute))
-        }
+        // One binding can expand into multiple class attributes
+        cxx(productTypeBinding: BindingDecl.Typed(member)!, into: &cxxMembers)
 
       case InitializerDecl.self:
-        let initialzerDecl = InitializerDecl.Typed(member)!
-        switch initialzerDecl.introducer.value {
-        case .`init`:
-          // TODO: emit constructor
-          cxxMembers.append(.constructor)
-          break
-        case .memberwiseInit:
-          // TODO: emit constructor
-          cxxMembers.append(.constructor)
-          break
-        }
+        cxxMembers.append(cxx(productTypeInitialzer: InitializerDecl.Typed(member)!))
 
       case MethodDecl.self, FunctionDecl.self:
         cxxMembers.append(.method)
@@ -154,9 +128,36 @@ public struct CXXTranspiler {
         unreachable("unexpected class member")
       }
     }
+    return cxxMembers
+  }
 
-    // Create the C++ class.
-    return CXXClassDecl(name: name, members: cxxMembers)
+  /// Translate a binding decl contained in a product type into one or more C++ class attributes.
+  /// One class attribute will be generated for each name in the binding decl.
+  /// The resulting class members are appended to `res` (the array of class members).
+  private func cxx(
+    productTypeBinding src: BindingDecl.Typed, into res: inout [CXXClassDecl.ClassMember]
+  ) {
+    // TODO: pattern introducer (let, var, sink, inout)
+    for (_, name) in src.pattern.subpattern.names {
+      let varDecl = name.decl
+      let cxxAttribute = CXXClassAttribute(
+        type: CXXTypeExpr(varDecl.type, ast: wholeValProgram.ast)!,
+        name: CXXIdentifier(varDecl.name),
+        initializer: nil,  // TODO
+        isStatic: src.isStatic)
+      res.append(.attribute(cxxAttribute))
+    }
+  }
+  /// Translate an initializer found in product type to the corresponding C++ constructor.
+  private func cxx(productTypeInitialzer src: InitializerDecl.Typed) -> CXXClassDecl.ClassMember {
+    switch src.introducer.value {
+    case .`init`:
+      // TODO: emit constructor
+      return .constructor
+    case .memberwiseInit:
+      // TODO: emit constructor
+      return .constructor
+    }
   }
 
   /// Transpiles a local binding declaration to a C++ statement containing a local variable.
