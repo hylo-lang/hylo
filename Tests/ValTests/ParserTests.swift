@@ -558,7 +558,7 @@ final class ParserTests: XCTestCase {
 
   func testMethodImplBlock() throws {
     let input = testCode("let { }")
-    let (declID, ast) = try apply(Parser.methodImplDecl, on: input)
+    let (declID, ast) = try apply(Parser.methodImpl, on: input)
     let decl = try XCTUnwrap(ast[declID])
     if case .block = decl.body {
     } else {
@@ -568,7 +568,7 @@ final class ParserTests: XCTestCase {
 
   func testMethodImplExpr() throws {
     let input = testCode("let { foo }")
-    let (declID, ast) = try apply(Parser.methodImplDecl, on: input)
+    let (declID, ast) = try apply(Parser.methodImpl, on: input)
     let decl = try XCTUnwrap(ast[declID])
     if case .expr = decl.body {
     } else {

@@ -599,7 +599,7 @@ public enum Parser {
     prologue: DeclPrologue,
     head: FunctionDeclHead,
     signature: FunctionDeclSignature,
-    impls: [NodeID<MethodImplDecl>],
+    impls: [NodeID<MethodImpl>],
     in state: inout ParserState
   ) throws -> NodeID<MethodDecl> {
     // Method declarations cannot be static.
@@ -877,7 +877,7 @@ public enum Parser {
   static func parseSubscriptDeclBody(
     in state: inout ParserState,
     asNonStaticMember isNonStaticMember: Bool
-  ) throws -> [NodeID<SubscriptImplDecl>]? {
+  ) throws -> [NodeID<SubscriptImpl>]? {
     // Push the context.
     state.contexts.append(.subscriptBody)
     defer { state.contexts.removeLast() }
@@ -885,8 +885,8 @@ public enum Parser {
     // Attempt to parse a subscript implementation body and fall back to a bundle.
     let backup = state.backup()
     do {
-      if let body = try subscriptImplDeclBody.parse(&state) {
-        let impl = try buildSubscriptImplDecl(
+      if let body = try subscriptImplBody.parse(&state) {
+        let impl = try buildSubscriptImpl(
           in: &state,
           introducedBy: SourceRepresentable(
             value: .let,
@@ -903,7 +903,7 @@ public enum Parser {
     if state.take(.lBrace) == nil { return nil }
 
     // Parse the subscript implementations.
-    var impls: [NodeID<SubscriptImplDecl>] = []
+    var impls: [NodeID<SubscriptImpl>] = []
     var introducers: Set<ImplIntroducer> = []
     var duplicateIntroducer: SourceRepresentable<ImplIntroducer>? = nil
 
@@ -912,8 +912,8 @@ public enum Parser {
       if state.take(.rBrace) != nil { break }
 
       // Parse an implementation.
-      if let (introducer, body) = try subscriptImplDecl.parse(&state) {
-        let impl = try buildSubscriptImplDecl(
+      if let (introducer, body) = try subscriptImpl.parse(&state) {
+        let impl = try buildSubscriptImpl(
           in: &state,
           introducedBy: introducer,
           body: body,
@@ -943,12 +943,12 @@ public enum Parser {
   ///   - body: The body of the declaration, or `nil` if that body should must be synthesized or
   ///     if the declaration denotes a trait requirement.
   /// - Requires: if `introducer` is `nil`, body is non-`nil`.
-  private static func buildSubscriptImplDecl(
+  private static func buildSubscriptImpl(
     in state: inout ParserState,
     introducedBy introducer: SourceRepresentable<ImplIntroducer>,
-    body: SubscriptImplDecl.Body?,
+    body: SubscriptImpl.Body?,
     asNonStaticMember isNonStaticMember: Bool
-  ) throws -> NodeID<SubscriptImplDecl> {
+  ) throws -> NodeID<SubscriptImpl> {
     // Non-static member subscript declarations require an implicit receiver parameter.
     let receiver: NodeID<ParameterDecl>?
     if isNonStaticMember {
@@ -967,9 +967,9 @@ public enum Parser {
       site = introducer.site
     }
 
-    // Create a new `SubscriptImplDecl`.
+    // Create a new `SubscriptImpl`.
     return state.insert(
-      SubscriptImplDecl(
+      SubscriptImpl(
         introducer: introducer,
         receiver: receiver,
         body: body,
@@ -1190,8 +1190,8 @@ public enum Parser {
     ))
 
   static let methodDeclBody =
-    (take(.lBrace).and(methodImplDecl+).and(take(.rBrace))
-      .map({ (state, tree) -> [NodeID<MethodImplDecl>] in
+    (take(.lBrace).and(methodImpl+).and(take(.rBrace))
+      .map({ (state, tree) -> [NodeID<MethodImpl>] in
         var introducers: Set<ImplIntroducer> = []
         var duplicateIntroducer: SourceRepresentable<ImplIntroducer>? = nil
         for implID in tree.0.1 {
@@ -1206,15 +1206,15 @@ public enum Parser {
         }
       }))
 
-  static let methodImplDecl =
+  static let methodImpl =
     (methodIntroducer.and(maybe(methodImplBody))
-      .map({ (state, tree) -> NodeID<MethodImplDecl> in
+      .map({ (state, tree) -> NodeID<MethodImpl> in
         let receiver = state.insert(
           ParameterDecl(
             identifier: SourceRepresentable(value: "self", range: tree.0.site),
             site: tree.0.site))
         return state.insert(
-          MethodImplDecl(
+          MethodImpl(
             introducer: tree.0,
             receiver: receiver,
             body: tree.1,
@@ -1223,10 +1223,10 @@ public enum Parser {
 
   static let methodImplBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> MethodImplDecl.Body in .expr(tree.0.1) }),
+      .map({ (state, tree) -> MethodImpl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying:
       braceStmt
-      .map({ (state, id) -> MethodImplDecl.Body in .block(id) })
+      .map({ (state, id) -> MethodImpl.Body in .block(id) })
   )
 
   static let methodIntroducer = translate([
@@ -1282,14 +1282,14 @@ public enum Parser {
     return SubscriptDeclSignature(parameters: parameters, output: output)
   }
 
-  static let subscriptImplDecl = (subscriptIntroducer.and(maybe(subscriptImplDeclBody)))
+  static let subscriptImpl = (subscriptIntroducer.and(maybe(subscriptImplBody)))
 
-  static let subscriptImplDeclBody = TryCatch(
+  static let subscriptImplBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> SubscriptImplDecl.Body in .expr(tree.0.1) }),
+      .map({ (state, tree) -> SubscriptImpl.Body in .expr(tree.0.1) }),
     orCatchingAndApplying:
       braceStmt
-      .map({ (state, id) -> SubscriptImplDecl.Body in .block(id) })
+      .map({ (state, id) -> SubscriptImpl.Body in .block(id) })
   )
 
   static let subscriptIntroducer = translate([
@@ -3030,7 +3030,7 @@ enum FunctionOrMethodDeclBody {
 
   case function(FunctionDecl.Body)
 
-  case method([NodeID<MethodImplDecl>])
+  case method([NodeID<MethodImpl>])
 
 }
 

@@ -775,9 +775,9 @@ public struct CXXTranspiler {
     case MethodDecl.self:
       return MethodDecl.Typed(decl)!.identifier.value
 
-    case MethodImplDecl.self:
-      let methodImplDecl = MethodImplDecl.Typed(decl)!
-      switch methodImplDecl.introducer.value {
+    case MethodImpl.self:
+      let methodImpl = MethodImpl.Typed(decl)!
+      switch methodImpl.introducer.value {
       case .let: return "let"
       case .inout: return "inout"
       case .set: return "set"

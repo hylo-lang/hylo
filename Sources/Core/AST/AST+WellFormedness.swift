@@ -61,8 +61,8 @@ extension AST {
     case MethodDecl.self:
       diagnostics.report(.error(unexpectedMethodDecl: self[NodeID(rawValue: decl.rawValue)]))
 
-    case MethodImplDecl.self:
-      diagnostics.report(.error(unexpectedMethodImplDecl: self[NodeID(rawValue: decl.rawValue)]))
+    case MethodImpl.self:
+      diagnostics.report(.error(unexpectedMethodImpl: self[NodeID(rawValue: decl.rawValue)]))
 
     case NamespaceDecl.self:
       break
@@ -90,9 +90,9 @@ extension AST {
         diagnostics.report(.error(missingSubscriptIdentifier: d))
       }
 
-    case SubscriptImplDecl.self:
+    case SubscriptImpl.self:
       diagnostics.report(
-        .error(unexpectedSubscriptImplDecl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedSubscriptImpl: self[NodeID(rawValue: decl.rawValue)]))
 
     case TraitDecl.self:
       break
@@ -166,8 +166,8 @@ extension AST {
     case MethodDecl.self:
       break
 
-    case MethodImplDecl.self:
-      diagnostics.report(.error(unexpectedMethodImplDecl: self[NodeID(rawValue: decl.rawValue)]))
+    case MethodImpl.self:
+      diagnostics.report(.error(unexpectedMethodImpl: self[NodeID(rawValue: decl.rawValue)]))
 
     case NamespaceDecl.self:
       diagnostics.report(.error(unexpectedNamespaceDecl: self[NodeID(rawValue: decl.rawValue)]))
@@ -184,9 +184,9 @@ extension AST {
     case SubscriptDecl.self:
       break
 
-    case SubscriptImplDecl.self:
+    case SubscriptImpl.self:
       diagnostics.report(
-        .error(unexpectedSubscriptImplDecl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedSubscriptImpl: self[NodeID(rawValue: decl.rawValue)]))
 
     case TraitDecl.self:
       diagnostics.report(.error(unexpectedTraitDecl: self[NodeID(rawValue: decl.rawValue)]))

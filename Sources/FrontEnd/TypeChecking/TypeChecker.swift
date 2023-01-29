@@ -313,7 +313,7 @@ public struct TypeChecker {
       return check(initializer: NodeID(rawValue: id.rawValue))
     case MethodDecl.self:
       return check(method: NodeID(rawValue: id.rawValue))
-    case MethodImplDecl.self:
+    case MethodImpl.self:
       return check(method: NodeID(rawValue: program.declToScope[id]!.rawValue))
     case OperatorDecl.self:
       return check(operator: NodeID(rawValue: id.rawValue))
@@ -606,7 +606,7 @@ public struct TypeChecker {
     return success
   }
 
-  private mutating func check(methodImpl: MethodImplDecl) -> Bool {
+  private mutating func check(methodImpl: MethodImpl) -> Bool {
     fatalError("not implemented")
   }
 
@@ -771,7 +771,7 @@ public struct TypeChecker {
     return success
   }
 
-  private mutating func check(subscriptImpl: SubscriptImplDecl) -> Bool {
+  private mutating func check(subscriptImpl: SubscriptImpl) -> Bool {
     fatalError("not implemented")
   }
 
@@ -1238,9 +1238,9 @@ public struct TypeChecker {
   private func expectedOutputType<S: ScopeID>(in lexicalContext: S) -> AnyType? {
     for parent in program.scopes(from: lexicalContext) {
       switch parent.kind {
-      case MethodImplDecl.self:
+      case MethodImpl.self:
         // `lexicalContext` is nested in a method implementation.
-        let decl = NodeID<MethodImplDecl>(rawValue: parent.rawValue)
+        let decl = NodeID<MethodImpl>(rawValue: parent.rawValue)
         if program.ast[decl].introducer.value == .inout {
           return .void
         } else {
@@ -2221,9 +2221,9 @@ public struct TypeChecker {
 
       case BindingDecl.self,
         ConformanceDecl.self,
-        MethodImplDecl.self,
+        MethodImpl.self,
         OperatorDecl.self,
-        SubscriptImplDecl.self:
+        SubscriptImpl.self:
         // Note: operator declarations are not considered during standard name lookup.
         break
 
@@ -2728,7 +2728,7 @@ public struct TypeChecker {
     case MethodDecl.self:
       return realize(methodDecl: NodeID(rawValue: id.rawValue))
 
-    case MethodImplDecl.self:
+    case MethodImpl.self:
       return realize(methodDecl: NodeID(rawValue: program.declToScope[id]!.rawValue))
 
     case ParameterDecl.self:
