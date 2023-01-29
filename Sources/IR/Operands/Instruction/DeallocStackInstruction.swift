@@ -6,11 +6,11 @@ public struct DeallocStackInstruction: Instruction {
   /// The location of the memory being deallocated.
   public let location: Operand
 
-  public let range: SourceRange?
+  public let site: SourceRange
 
-  init(_ location: Operand, range: SourceRange? = nil) {
+  init(_ location: Operand, site: SourceRange) {
     self.location = location
-    self.range = range
+    self.site = site
   }
 
   public var types: [LoweredType] { [] }

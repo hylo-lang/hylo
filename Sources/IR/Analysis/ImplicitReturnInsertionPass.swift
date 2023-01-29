@@ -17,22 +17,22 @@ public struct ImplicitReturnInsertionPass: TransformPass {
     // Reinitialize the internal state of the pass.
     diagnostics.removeAll()
 
-    for i in module[functionID].blocks.indices {
-      if module[functionID][i.address].instructions.last?.isTerminator ?? false {
-        // There's a terminator instruction. Move to the next block.
-        continue
-      } else if expectedReturnType == .void {
+    for block in module[functionID].blocks.indices {
+      // FIXME: Remove empty blocks
+      let last = module[functionID][block.address].instructions.last!
+
+      // Nothing to do if there's a terminator instruction.
+      if last.isTerminator { continue }
+
+      if expectedReturnType == .void {
         // Insert missing return instruction.
         module.insert(
-          ReturnInstruction(),
-          at: module.globalEndIndex(of: Block.ID(function: functionID, address: i.address)))
+          ReturnInstruction(site: last.site),
+          at: module.globalEndIndex(of: Block.ID(function: functionID, address: block.address)))
       } else {
         // No return instruction, yet the function must return a non-void value.
-        let range = module[functionID][i.address].instructions
-          .last(where: { $0.range != nil })?.range
         diagnostics.append(
-          .missingFunctionReturn(
-            expectedReturnType: expectedReturnType, at: range))
+          .missingFunctionReturn(expectedReturnType: expectedReturnType, at: last.site))
       }
     }
 
@@ -45,11 +45,9 @@ extension Diagnostic {
 
   fileprivate static func missingFunctionReturn(
     expectedReturnType: AnyType,
-    at site: SourceRange?
+    at site: SourceRange
   ) -> Diagnostic {
-    .error(
-      "missing return in function expected to return '\(expectedReturnType)'",
-      at: site ?? .eliminateFIXME)
+    .error("missing return in function expected to return '\(expectedReturnType)'", at: site)
   }
 
 }

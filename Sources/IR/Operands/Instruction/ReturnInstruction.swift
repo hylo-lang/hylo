@@ -6,11 +6,11 @@ public struct ReturnInstruction: Instruction {
   /// The returned value.
   public let value: Operand
 
-  public let range: SourceRange?
+  public let site: SourceRange
 
-  init(value: Operand = .constant(.void), range: SourceRange? = nil) {
+  init(value: Operand = .constant(.void), site: SourceRange) {
     self.value = value
-    self.range = range
+    self.site = site
   }
 
   public var types: [LoweredType] { [] }

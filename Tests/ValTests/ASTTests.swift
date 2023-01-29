@@ -18,17 +18,19 @@ final class ASTTests: XCTestCase {
     var ast = AST()
 
     // Create a module declarations.
+    let input = SourceFile(synthesizedText: "")
     let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
 
     // Create a trait declaration.
     let decl = ast.insert(
       synthesized: ImportDecl(
-        introducerSite: .eliminateFIXME,
-        identifier: SourceRepresentable(value: "T", range: .eliminateFIXME),
-        site: .eliminateFIXME))
+        introducerSite: input.wholeRange,
+        identifier: SourceRepresentable(value: "T", range: input.wholeRange),
+        site: input.wholeRange))
 
     // Create a source declaration set.
-    let source = ast.insert(synthesized: TopLevelDeclSet(decls: [AnyDeclID(decl)]))
+    let source = ast.insert(
+      synthesized: TopLevelDeclSet(decls: [AnyDeclID(decl)], site: input.wholeRange))
     ast[module].addSourceFile(source)
 
     // Subscript the AST for reading with a type-erased ID.
@@ -38,26 +40,29 @@ final class ASTTests: XCTestCase {
   func testCodableRoundtrip() throws {
     var ast = AST()
 
-    // Create a module.
+    // Create a module declarations.
+    let input = SourceFile(synthesizedText: "")
     let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
+
     let source = ast.insert(
       synthesized: TopLevelDeclSet(
         decls: [
           AnyDeclID(
             ast.insert(
               synthesized: FunctionDecl(
-                introducerSite: .eliminateFIXME,
-                identifier: SourceRepresentable(value: "foo", range: .eliminateFIXME),
-                site: .eliminateFIXME)))
-        ]))
+                introducerSite: input.wholeRange,
+                identifier: SourceRepresentable(value: "foo", range: input.wholeRange),
+                site: input.wholeRange)))
+        ],
+        site: input.wholeRange))
     ast[module].addSourceFile(source)
 
     // Serialize the AST.
-    let encoder = JSONEncoder()
+    let encoder = JSONEncoder().forAST
     let serialized = try encoder.encode(ast)
 
     // Deserialize the AST.
-    let decoder = JSONDecoder()
+    let decoder = JSONDecoder().forAST
     let deserialized = try decoder.decode(AST.self, from: serialized)
 
     // Deserialized AST should containt a function `foo`.

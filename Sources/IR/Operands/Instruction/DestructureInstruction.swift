@@ -9,12 +9,12 @@ public struct DestructureInstruction: Instruction {
   /// The object being destructured.
   public let object: Operand
 
-  public let range: SourceRange?
+  public let site: SourceRange
 
-  init(_ object: Operand, as types: [LoweredType], range: SourceRange? = nil) {
+  init(_ object: Operand, as types: [LoweredType], site: SourceRange) {
     self.types = types
     self.object = object
-    self.range = range
+    self.site = site
   }
 
   public var operands: [Operand] { [object] }

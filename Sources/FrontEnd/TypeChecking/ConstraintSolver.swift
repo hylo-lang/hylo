@@ -754,10 +754,7 @@ struct ConstraintSolver {
       typeAssumptions: typeAssumptions.optimized(),
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
-      diagnostics: diagnostics
-        + stale.map {
-          Diagnostic.error(staleConstraint: $0, at: .eliminateFIXME)
-        })
+      diagnostics: diagnostics + stale.map(Diagnostic.error(staleConstraint:)))
   }
 
   /// Creates an ambiguous solution.
@@ -913,7 +910,9 @@ extension TypeChecker {
         else { return .incomparable }
 
         // Rank the candidates.
-        switch (refines(lhs, rhs, scope: scope), refines(rhs, lhs, scope: scope)) {
+        let lRefinesR = refines(lhs, rhs, in: scope, anchoringConstraintsAt: program.ast[n].site)
+        let rRefinesL = refines(rhs, lhs, in: scope, anchoringConstraintsAt: program.ast[n].site)
+        switch (lRefinesR, rRefinesL) {
         case (true, false):
           if ranking > .equal { return .incomparable }
           ranking = .finer
@@ -951,7 +950,8 @@ extension TypeChecker {
   fileprivate mutating func refines(
     _ l: AnyType,
     _ r: AnyType,
-    scope: AnyScopeID
+    in scope: AnyScopeID,
+    anchoringConstraintsAt site: SourceRange
   ) -> Bool {
     // Skolemize the left operand.
     let skolemizedLeft = l.skolemized
@@ -963,6 +963,7 @@ extension TypeChecker {
     // Create pairwise subtyping constraints on the parameters.
     let lhs = skolemizedLeft.base as! CallableType
     let rhs = openedRight.shape.base as! CallableType
+
     for i in 0 ..< lhs.inputs.count {
       // Ignore the passing conventions.
       guard
@@ -971,8 +972,7 @@ extension TypeChecker {
       else { return false }
 
       constraints.insert(
-        SubtypingConstraint(
-          bareLHS, bareRHS, because: ConstraintCause(.binding, at: .eliminateFIXME)))
+        SubtypingConstraint(bareLHS, bareRHS, because: ConstraintCause(.binding, at: site)))
     }
 
     // Solve the constraint system.

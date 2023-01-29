@@ -6,7 +6,12 @@ public struct EndBorrowInstruction: Instruction {
   /// The borrow whose lifetime is ended.
   public let borrow: Operand
 
-  public let range: SourceRange?
+  public let site: SourceRange
+
+  init(borrow: Operand, site: SourceRange) {
+    self.borrow = borrow
+    self.site = site
+  }
 
   public var types: [LoweredType] { [] }
 

@@ -14,7 +14,7 @@ public struct CallInstruction: Instruction {
 
   public let operands: [Operand]
 
-  public let range: SourceRange?
+  public let site: SourceRange
 
   public init(
     returnType: LoweredType,
@@ -22,12 +22,12 @@ public struct CallInstruction: Instruction {
     callee: Operand,
     argumentConventions: [AccessEffect],
     arguments: [Operand],
-    range: SourceRange? = nil
+    site: SourceRange
   ) {
     self.returnType = returnType
     self.conventions = [calleeConvention] + argumentConventions
     self.operands = [callee] + arguments
-    self.range = range
+    self.site = site
   }
 
   /// Returns whether the instruction is a call to a built-in function.

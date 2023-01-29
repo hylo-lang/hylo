@@ -141,9 +141,9 @@ extension Program {
     switch decl.kind {
     case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
       return declToScope[decl]!.kind == TraitDecl.self
-    case MethodImplDecl.self:
+    case MethodImpl.self:
       return isRequirement(NodeID<MethodDecl>(rawValue: declToScope[decl]!.rawValue))
-    case SubscriptImplDecl.self:
+    case SubscriptImpl.self:
       return isRequirement(NodeID<SubscriptDecl>(rawValue: declToScope[decl]!.rawValue))
     default:
       return false
