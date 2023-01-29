@@ -135,7 +135,7 @@ public struct ValCommand: ParsableCommand {
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
       let url = outputURL ?? URL(fileURLWithPath: "ast.json")
-      let encoder = JSONEncoder()
+      let encoder = JSONEncoder().forAST
       try encoder.encode(ast).write(to: url, options: .atomic)
       return finalize(logging: diagnostics, to: &errorLog)
     }

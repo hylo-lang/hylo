@@ -58,11 +58,11 @@ final class ASTTests: XCTestCase {
     ast[module].addSourceFile(source)
 
     // Serialize the AST.
-    let encoder = JSONEncoder()
+    let encoder = JSONEncoder().forAST
     let serialized = try encoder.encode(ast)
 
     // Deserialize the AST.
-    let decoder = JSONDecoder()
+    let decoder = JSONDecoder().forAST
     let deserialized = try decoder.decode(AST.self, from: serialized)
 
     // Deserialized AST should containt a function `foo`.
