@@ -424,7 +424,6 @@ struct ConstraintSolver {
       return
     }
 
-    // Search for members with the specified name.
     let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, inScope: scope)
       .compactMap({ checker.decl($0, named: goal.memberName) })
 
