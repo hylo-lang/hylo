@@ -268,7 +268,7 @@ public struct TypeChecker {
     return success
   }
 
-  /// Sets the realized type of `d`.
+  /// Sets the realized type of `d` to `type`.
   ///
   /// - Requires: `d` has not gone through type realization yet.
   mutating func setInferredType(_ type: AnyType, for d: NodeID<VarDecl>) {
