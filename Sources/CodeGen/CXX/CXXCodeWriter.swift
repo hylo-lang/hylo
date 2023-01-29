@@ -284,7 +284,7 @@ public struct CXXCodeWriter {
     target.write("this")
   }
   private func write(typeExpr expr: CXXTypeExpr, into target: inout CodeFormatter) {
-    target.write(expr.description)
+    target.write(expr.code)
   }
   private func write(infixExpr expr: CXXInfixExpr, into target: inout CodeFormatter) {
     // TODO: handle precedence and associativity; as of writing this comment, infix operators cannot be properly tested.

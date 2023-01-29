@@ -63,7 +63,7 @@ public struct CXXTranspiler {
     } else {
       switch src.type.base {
       case let valDeclType as LambdaType:
-        return CXXTypeExpr(valDeclType.output, ast: wholeValProgram.ast, asReturnType: true)!
+        return cxx(typeExpr: valDeclType.output, asReturnType: true)
 
       case is MethodType:
         fatalError("not implemented")
@@ -82,8 +82,8 @@ public struct CXXTranspiler {
     var cxxParams: [CXXFunctionDecl.Parameter] = []
     for (i, param) in src.parameters.enumerated() {
       let name = CXXIdentifier(param.name)
-      let type = CXXTypeExpr(paramTypes[i].type, ast: wholeValProgram.ast)
-      cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
+      let type = cxx(typeExpr: paramTypes[i].type)
+      cxxParams.append(CXXFunctionDecl.Parameter(name, type))
     }
     return cxxParams
   }
@@ -141,7 +141,7 @@ public struct CXXTranspiler {
     for (_, name) in src.pattern.subpattern.names {
       let varDecl = name.decl
       let cxxAttribute = CXXClassAttribute(
-        type: CXXTypeExpr(varDecl.type, ast: wholeValProgram.ast)!,
+        type: cxx(typeExpr: varDecl.type),
         name: CXXIdentifier(varDecl.name),
         initializer: nil,  // TODO
         isStatic: src.isStatic)
@@ -191,7 +191,7 @@ public struct CXXTranspiler {
     -> CXXLocalVarDecl
   {
     CXXLocalVarDecl(
-      type: CXXTypeExpr(src.decl.type, ast: wholeValProgram.ast)!,
+      type: cxx(typeExpr: src.decl.type),
       name: CXXIdentifier(src.decl.identifier.value),
       initializer: cxxInitializer)
   }
@@ -728,6 +728,28 @@ public struct CXXTranspiler {
   }
 
   // MARK: miscelaneous
+
+  private func cxx(typeExpr src: AnyType, asReturnType isReturnType: Bool = false) -> CXXTypeExpr {
+    switch src.base {
+    case AnyType.void:
+      return CXXTypeExpr(isReturnType ? "void" : "std::monostate")
+
+    case let type as ProductType:
+      // TODO: we should translate this to an "int" struct
+      if type == wholeValProgram.ast.coreType(named: "Int") {
+        return CXXTypeExpr("int")
+      } else {
+        return CXXTypeExpr(type.name.value)
+      }
+
+    case let type as ParameterType:
+      // TODO: convention
+      return cxx(typeExpr: type.bareType)
+
+    default:
+      fatalError("not implemented")
+    }
+  }
 
   /// Get the name of the given declaration, without manging and labels.
   private func nameOfDecl<T: DeclID>(_ decl: TypedNode<T>) -> String {
