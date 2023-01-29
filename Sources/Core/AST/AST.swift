@@ -30,7 +30,8 @@ public struct AST: Codable {
 
     let i = NodeID<T>(rawValue: nodes.count)
     if let n = n as? ModuleDecl {
-      precondition(!modules.contains(where: { self[$0].baseName == n.baseName }), "duplicate module")
+      precondition(
+        !modules.contains(where: { self[$0].baseName == n.baseName }), "duplicate module")
       modules.append(i as! NodeID<ModuleDecl>)
     }
     nodes.append(AnyNode(n))

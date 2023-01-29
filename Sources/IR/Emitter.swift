@@ -367,9 +367,10 @@ public struct Emitter {
     // If the expression is supposed to return a value, allocate storage for it.
     var resultStorage: Operand?
     if expr.type != .void {
-      resultStorage = module.append(
-        AllocStackInstruction(expr.type, site: expr.site),
-        to: insertionBlock!)[0]
+      resultStorage =
+        module.append(
+          AllocStackInstruction(expr.type, site: expr.site),
+          to: insertionBlock!)[0]
       stack.top.allocs.append(resultStorage!)
     }
 
