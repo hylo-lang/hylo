@@ -19,12 +19,9 @@ extension TypeChecker {
     /// True iff a constraint could not be solved.
     private(set) var foundConflict = false
 
-    /// Creates a base of facts assigning `type` to `subject` if `type` is not `nil`, or an empty
-    /// base otherwise.
-    fileprivate init<ID: ExprID>(assigning type: AnyType?, to subject: ID) {
-      if let t = type {
-        assign(t, to: subject)
-      }
+    /// Creates a base of facts assigning `type` to `subject`.
+    fileprivate init<ID: ExprID>(assigning type: AnyType, to subject: ID) {
+      assign(type, to: subject)
     }
 
     /// Creates an empty base of facts.
@@ -99,7 +96,13 @@ extension TypeChecker {
     inScope scope: AnyScopeID,
     expecting expectedType: AnyType?
   ) -> (type: AnyType, facts: InferenceFacts) {
-    var facts = InferenceFacts(assigning: exprTypes[subject], to: subject)
+    var facts: InferenceFacts
+    if let t = exprTypes[subject] {
+      facts = InferenceFacts(assigning: t, to: subject)
+    } else {
+      facts = InferenceFacts()
+    }
+
     let inferredType = infer(
       typeOf: subject, inScope: AnyScopeID(scope), expecting: expectedType, updating: &facts)
     return (inferredType, facts)
