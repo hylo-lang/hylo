@@ -1,7 +1,7 @@
 import Foundation
 
-/// A wrapper type implementing `FileHandle.standardError`'s conformance to `Channel`.
-struct StandardErrorStream: Channel {
+/// A wrapper type implementing `FileHandle.standardError`'s conformance to `Log`.
+struct StandardErrorLog: Log {
 
   /// Indicates whether this instance supports ANSI colors.
   var hasANSIColorSupport: Bool

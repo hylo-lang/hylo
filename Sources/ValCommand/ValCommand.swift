@@ -107,14 +107,12 @@ public struct ValCommand: ParsableCommand {
   }
 
   public func run() throws {
-    var errorChannel = StandardErrorStream()
-    ValCommand.exit(withError: try execute(loggingTo: &errorChannel))
+    var errorLog = StandardErrorLog()
+    ValCommand.exit(withError: try execute(loggingTo: &errorLog))
   }
 
-  /// Executes the command, logging messages to `errorChannel`, and returns its exit status.
-  public func execute<ErrorChannel: Channel>(
-    loggingTo errorChannel: inout ErrorChannel
-  ) throws -> ExitCode {
+  /// Executes the command, logging messages to `errorLog`, and returns its exit status.
+  public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
     }
@@ -131,7 +129,7 @@ public struct ValCommand: ParsableCommand {
       newModule = try ast.makeModule(
         "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
     } catch _ as Diagnostics {
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // Handle `--emit raw-ast`.
@@ -139,7 +137,7 @@ public struct ValCommand: ParsableCommand {
       let url = outputURL ?? URL(fileURLWithPath: "ast.json")
       let encoder = JSONEncoder()
       try encoder.encode(ast).write(to: url, options: .atomic)
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // Import the core library.
@@ -162,11 +160,11 @@ public struct ValCommand: ParsableCommand {
     // Report type-checking errors.
     diagnostics.report(checker.diagnostics)
     if !typeCheckingSucceeded {
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // Exit if `--typecheck` is set.
-    if typeCheckOnly { return exit(logging: diagnostics, to: &errorChannel) }
+    if typeCheckOnly { return finalize(logging: diagnostics, to: &errorLog) }
 
     let typedProgram = TypedProgram(
       annotating: checker.program,
@@ -185,7 +183,7 @@ public struct ValCommand: ParsableCommand {
     if outputType == .rawIR {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // Run mandatory IR analysis and transformation passes.
@@ -202,34 +200,37 @@ public struct ValCommand: ParsableCommand {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
         diagnostics.report(pipeline[i].diagnostics)
       }
-      if !passSuccess { return exit(logging: diagnostics, to: &errorChannel) }
+      if !passSuccess { return finalize(logging: diagnostics, to: &errorLog) }
     }
 
     // Handle `--emit ir`
     if outputType == .ir {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // *** C++ Transpiling ***
 
-    // Initialize the transpiler.
+    // Initialize the transpiler & code writer.
     var transpiler = CXXTranspiler(program: typedProgram)
+    let codeWriter = CXXCodeWriter()
 
-    // Translate the module to C++.
+    // Translate the module to C++ AST.
     let cxxModule = transpiler.emit(module: typedProgram[newModule])
-    let cxxHeader = cxxModule.emitHeader()
-    let cxxSource = cxxModule.emitSource()
+
+    // Generate the C++ code, header & source.
+    let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
+    let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
 
     // Handle `--emit cpp`.
     if outputType == .cpp {
       let baseURL = outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
-      try cxxHeader.write(
+      try cxxHeaderCode.write(
         to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
-      try cxxSource.write(
+      try cxxSourceCode.write(
         to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // *** Machine code generation ***
@@ -244,10 +245,10 @@ public struct ValCommand: ParsableCommand {
 
     // Compile the transpiled module.
     let cxxHeaderURL = buildDirectoryURL.appendingPathComponent(productName + ".h")
-    try cxxHeader.write(to: cxxHeaderURL, atomically: true, encoding: .utf8)
+    try cxxHeaderCode.write(to: cxxHeaderURL, atomically: true, encoding: .utf8)
 
     let cxxSourceURL = buildDirectoryURL.appendingPathComponent(productName + ".cpp")
-    try cxxSource.write(to: cxxSourceURL, atomically: true, encoding: .utf8)
+    try cxxSourceCode.write(to: cxxSourceURL, atomically: true, encoding: .utf8)
 
     let clang = try find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
@@ -258,18 +259,15 @@ public struct ValCommand: ParsableCommand {
         "-I", buildDirectoryURL.path,
         cxxSourceURL.path,
       ],
-      loggingTo: &errorChannel)
+      loggingTo: &errorLog)
 
-    return exit(logging: diagnostics, to: &errorChannel)
+    return finalize(logging: diagnostics, to: &errorLog)
   }
 
   /// Logs the given diagnostics to the standard error and returns a success code if none of them
   /// is an error; otherwise, returns a failure code.
-  private func exit<C: Channel>(
-    logging diagnostics: Diagnostics,
-    to channel: inout C
-  ) -> ExitCode {
-    log(diagnostics: diagnostics, to: &channel)
+  private func finalize<L: Log>(logging diagnostics: Diagnostics, to log: inout L) -> ExitCode {
+    log.log(diagnostics: diagnostics)
     return diagnostics.errorReported ? ExitCode.failure : ExitCode.success
   }
 
@@ -278,98 +276,6 @@ public struct ValCommand: ParsableCommand {
   /// - Requires: `url` must denote a directly.
   private func addModule(url: URL) {
     fatalError("not implemented")
-  }
-
-  /// Logs the contents of `diagnostics` tot he standard error.
-  private func log<C: Channel>(
-    diagnostics: Diagnostics,
-    to channel: inout C
-  ) {
-    for d in diagnostics.log.sorted(by: Diagnostic.isLoggedBefore) {
-      log(diagnostic: d, to: &channel)
-    }
-  }
-
-  /// Logs `diagnostic` to the standard error.
-  private func log<C: Channel>(
-    diagnostic: Diagnostic,
-    asChild isChild: Bool = false,
-    to channel: inout C
-  ) {
-    // Log the location
-    let siteFirst = diagnostic.site.first()
-    let path = siteFirst.file.url.relativePath
-    let (lineFirst, column) = siteFirst.lineAndColumn()
-    channel.write("\(path):\(lineFirst):\(column): ", in: [.bold])
-
-    // Log the level.
-    if isChild {
-      log(label: .note, to: &channel)
-    } else {
-      log(label: diagnostic.level, to: &channel)
-    }
-
-    // Log the message.
-    channel.write(diagnostic.message, in: [.bold])
-    channel.write("\n")
-
-    // Log the window.
-    let site = diagnostic.site
-    let line = site.first().textOfLine()
-
-    channel.write(String(line))
-    if line.isEmpty || !line.last!.isNewline {
-      channel.write("\n")
-    }
-
-    let padding = line.distance(from: line.startIndex, to: site.start)
-    channel.write(String(repeating: " ", count: padding))
-
-    let count = line.distance(
-      from: site.start, to: min(site.end, line.endIndex))
-    if count > 1 {
-      channel.write(String(repeating: "~", count: count))
-    } else {
-      channel.write("^")
-    }
-    channel.write("\n")
-
-    // Log the notes.
-    for child in diagnostic.notes {
-      log(diagnostic: child, asChild: true, to: &channel)
-    }
-  }
-
-  /// Logs `message` to the standard error file if `--verbose` is set.
-  private func log<C: Channel>(
-    verbose message: @autoclosure () -> String,
-    terminator: String = "\n",
-    to channel: inout C
-  ) {
-    if !verbose { return }
-    channel.write(message())
-    channel.write(terminator)
-  }
-
-  /// Logs `message` to the standard error file.
-  private func log<C: Channel>(
-    _ message: String,
-    terminator: String = "\n",
-    to channel: inout C
-  ) {
-    channel.write(message)
-    channel.write(terminator)
-  }
-
-  private func log<C: Channel>(label: Diagnostic.Level, to channel: inout C) {
-    switch label {
-    case .note:
-      channel.write("note: ", in: [.bold, .cyan])
-    case .warning:
-      channel.write("warning: ", in: [.bold, .yellow])
-    case .error:
-      channel.write("error: ", in: [.bold, .red])
-    }
   }
 
   /// Returns the path of the specified executable.
@@ -406,12 +312,14 @@ public struct ValCommand: ParsableCommand {
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
   @discardableResult
-  private func runCommandLine<C: Channel>(
+  private func runCommandLine<L: Log>(
     _ programPath: String,
     _ arguments: [String] = [],
-    loggingTo channel: inout C
+    loggingTo log: inout L
   ) throws -> String? {
-    log(verbose: ([programPath] + arguments).joined(separator: " "), to: &channel)
+    if verbose {
+      log.log(([programPath] + arguments).joined(separator: " "))
+    }
 
     let pipe = Pipe()
     let process = Process()
