@@ -41,22 +41,23 @@ final class CXXTests: XCTestCase {
 
         // Transpile the module.
         var transpiler = CXXTranspiler(program: typedProgram)
+        let codeWriter = CXXCodeWriter()
         let cxxModule = transpiler.emit(module: typedProgram[module])
 
-        let cxxHeader = cxxModule.emitHeader()
-        let cxxSource = cxxModule.emitSource()
+        let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
+        let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
 
         return cxxAnnotations.compactMap { a in
           let expectedCXX = a.argument!.removingTrailingNewlines()
-          let cxxSourceToSearch = a.command == "cpp" ? cxxSource : cxxHeader
+          let cxxSourceToSearch = a.command == "cpp" ? cxxSourceCode : cxxHeaderCode
 
-          return cxxSourceToSearch.contains(expectedCXX)
+          return cxxSourceToSearch.canonicalize().contains(expectedCXX.canonicalize())
             ? nil
             : a.failure(
               """
               transpiled code not found:
               \(expectedCXX)
-              --- not found in ---
+              --- not found in (after removing whitespaces) ---
               \(cxxSourceToSearch)
               """)
         }

@@ -1063,6 +1063,35 @@ public struct TypeChecker {
     case YieldStmt.self:
       return check(yield: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
 
+    case WhileStmt.self:
+      // TODO: properly implement this
+      let stmt = program.ast[NodeID<WhileStmt>(rawValue: id.rawValue)]
+      var success = true
+      for cond in stmt.condition {
+        switch cond {
+        case .expr(let condExpr):
+          success =
+            (deduce(typeOf: condExpr, expecting: nil, inScope: lexicalContext) != nil) && success
+        default:
+          success = false
+        }
+      }
+      success = check(brace: stmt.body) && success
+      return success
+
+    case DoWhileStmt.self:
+      // TODO: properly implement this
+      let stmt = program.ast[NodeID<DoWhileStmt>(rawValue: id.rawValue)]
+      var success = true
+      success = check(brace: stmt.body) && success
+      success =
+        (deduce(typeOf: stmt.condition, expecting: nil, inScope: lexicalContext) != nil) && success
+      return success
+
+    case ForStmt.self, BreakStmt.self, ContinueStmt.self:
+      // TODO: implement checks for these statements
+      return true
+
     default:
       unreachable("unexpected statement")
     }

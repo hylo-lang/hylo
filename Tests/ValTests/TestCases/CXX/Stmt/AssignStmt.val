@@ -1,0 +1,10 @@
+/*! cpp
+    void test() {
+    int x = 5;
+    x = 7;
+    }
+ */
+public fun test() {
+    var x = 5
+    x = 7
+}

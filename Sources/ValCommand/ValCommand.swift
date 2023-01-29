@@ -212,20 +212,23 @@ public struct ValCommand: ParsableCommand {
 
     // *** C++ Transpiling ***
 
-    // Initialize the transpiler.
+    // Initialize the transpiler & code writer.
     var transpiler = CXXTranspiler(program: typedProgram)
+    let codeWriter = CXXCodeWriter()
 
-    // Translate the module to C++.
+    // Translate the module to C++ AST.
     let cxxModule = transpiler.emit(module: typedProgram[newModule])
-    let cxxHeader = cxxModule.emitHeader()
-    let cxxSource = cxxModule.emitSource()
+
+    // Generate the C++ code, header & source.
+    let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
+    let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
 
     // Handle `--emit cpp`.
     if outputType == .cpp {
       let baseURL = outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
-      try cxxHeader.write(
+      try cxxHeaderCode.write(
         to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
-      try cxxSource.write(
+      try cxxSourceCode.write(
         to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
       return finalize(logging: diagnostics, to: &errorLog)
     }
@@ -242,10 +245,10 @@ public struct ValCommand: ParsableCommand {
 
     // Compile the transpiled module.
     let cxxHeaderURL = buildDirectoryURL.appendingPathComponent(productName + ".h")
-    try cxxHeader.write(to: cxxHeaderURL, atomically: true, encoding: .utf8)
+    try cxxHeaderCode.write(to: cxxHeaderURL, atomically: true, encoding: .utf8)
 
     let cxxSourceURL = buildDirectoryURL.appendingPathComponent(productName + ".cpp")
-    try cxxSource.write(to: cxxSourceURL, atomically: true, encoding: .utf8)
+    try cxxSourceCode.write(to: cxxSourceURL, atomically: true, encoding: .utf8)
 
     let clang = try find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)

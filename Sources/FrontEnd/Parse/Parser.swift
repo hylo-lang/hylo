@@ -577,13 +577,13 @@ public enum Parser {
     assert(prologue.memberModifiers.count <= 1)
     return state.insert(
       FunctionDecl(
-        introducerSite: head.name.introducerSite,
+        introducerSite: head.introducerSite,
         attributes: prologue.attributes,
         accessModifier: prologue.accessModifiers.first,
         memberModifier: prologue.memberModifiers.first,
         receiverEffect: signature.receiverEffect,
-        notation: head.name.notation,
-        identifier: head.name.stem,
+        notation: head.notation,
+        identifier: head.stem,
         genericClause: head.genericClause,
         explicitCaptures: head.captures,
         parameters: signature.parameters,
@@ -620,11 +620,11 @@ public enum Parser {
     assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       MethodDecl(
-        introducerSite: head.name.introducerSite,
+        introducerSite: head.introducerSite,
         attributes: prologue.attributes,
         accessModifier: prologue.accessModifiers.first,
-        notation: head.name.notation,
-        identifier: head.name.stem,
+        notation: head.notation,
+        identifier: head.stem,
         genericClause: head.genericClause,
         parameters: signature.parameters,
         output: signature.output,
@@ -1113,37 +1113,31 @@ public enum Parser {
         site: state.range(from: prologue.startIndex)))
   }
 
-  private static func parseFunctionDeclHead(
+  static func parseFunctionDeclHead(
     in state: inout ParserState
   ) throws -> FunctionDeclHead? {
-    // Parse the function's introducer and identifier.
-    guard let name = try parseFunctionDeclIntroducerAndIdentifier(in: &state) else { return nil }
+    guard let introducer = state.take(.fun) else { return nil }
+
+    let stem: SourceRepresentable<Identifier>
+    let notation: SourceRepresentable<OperatorNotation>?
+
+    if let n = try operatorNotation.parse(&state) {
+      stem = try state.expect("operator", using: operatorIdentifier)
+      notation = n
+    } else {
+      stem = try state.token(state.expect("identifier", using: { $0.take(.name) }))
+      notation = nil
+    }
 
     let genericClause = try genericClause.parse(&state)
     let captures = try captureList.parse(&state) ?? []
 
-    return FunctionDeclHead(name: name, genericClause: genericClause, captures: captures)
-  }
-
-  static func parseFunctionDeclIntroducerAndIdentifier(
-    in state: inout ParserState
-  ) throws -> FunctionDeclName? {
-    if let introducer = state.take(.fun) {
-      let stem = try state.expect("identifier", using: { $0.take(.name) })
-      return FunctionDeclName(
-        introducerSite: introducer.site, stem: state.token(stem), notation: nil)
-    }
-
-    if let notation = try operatorNotation.parse(&state) {
-      _ = try state.expect("'fun'", using: { $0.take(.fun) })
-      let stem = try state.expect("operator", using: operatorIdentifier)
-      return FunctionDeclName(
-        introducerSite: notation.site,
-        stem: stem,
-        notation: notation)
-    }
-
-    return nil
+    return FunctionDeclHead(
+      introducerSite: introducer.site,
+      stem: stem,
+      notation: notation,
+      genericClause: genericClause,
+      captures: captures)
   }
 
   static func parseFunctionDeclSignature(
@@ -2726,7 +2720,7 @@ public enum Parser {
       }))
 
   static let continueStmt =
-    (take(.break)
+    (take(.continue)
       .map({ (state, token) -> NodeID<ContinueStmt> in
         state.insert(ContinueStmt(site: token.site))
       }))
@@ -2806,7 +2800,7 @@ public enum Parser {
       state.diagnostics.report(.error(assignOperatorRequiresWhitespaces: assign))
     }
 
-    let rhs = try state.expect("expression", using: parsePrefixExpr(in:))
+    let rhs = try state.expect("expression", using: parseExpr(in:))
 
     let stmt = state.insert(
       AssignStmt(
@@ -2983,8 +2977,8 @@ struct DeclPrologue {
 
 }
 
-/// The parsed name of a function declaration.
-struct FunctionDeclName {
+/// The parsed head of a function declaration.
+struct FunctionDeclHead {
 
   /// The site of the `fun` introducer.
   let introducerSite: SourceRange
@@ -2994,14 +2988,6 @@ struct FunctionDeclName {
 
   /// The notation of the declared function, if any.
   let notation: SourceRepresentable<OperatorNotation>?
-
-}
-
-/// The parsed head of a function declaration.
-struct FunctionDeclHead {
-
-  /// The name of the declaration.
-  let name: FunctionDeclName
 
   /// The generic clause of the declaration, if any.
   let genericClause: SourceRepresentable<GenericClause>?
