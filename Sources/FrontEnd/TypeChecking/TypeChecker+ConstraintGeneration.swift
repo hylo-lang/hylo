@@ -8,7 +8,7 @@ extension TypeChecker {
   struct InferenceFacts {
 
     /// A map from visited expression to its inferred type.
-    private(set) var inferredExprTypes = ExprProperty<AnyType>()
+    private(set) var inferredTypes = ExprProperty<AnyType>()
 
     /// The list of variable declarations visited during constraint generation.
     private(set) var visitedVarDecls: [NodeID<VarDecl>] = []
@@ -34,13 +34,13 @@ extension TypeChecker {
     fileprivate mutating func assignErrorType<ID: ExprID>(to subject: ID) -> AnyType {
       foundConflict = true
       let ty = AnyType.error
-      inferredExprTypes[subject] = ty
+      inferredTypes[subject] = ty
       return ty
     }
 
     /// Assigns `type` to `subject`.
     fileprivate mutating func assign<ID: ExprID>(_ type: AnyType, to subject: ID) {
-      inferredExprTypes[subject] = type
+      inferredTypes[subject] = type
     }
 
     /// Constrains `subject` to have type `inferredType` and returns either `inferredType` or the
@@ -53,7 +53,7 @@ extension TypeChecker {
       in ast: AST,
       toHaveType inferredType: T
     ) -> AnyType {
-      if let ty = inferredExprTypes[subject] {
+      if let ty = inferredTypes[subject] {
         if ty != inferredType {
           constraints.append(
             EqualityConstraint(
@@ -63,7 +63,7 @@ extension TypeChecker {
         return ty
       } else {
         let ty = ^inferredType
-        inferredExprTypes[subject] = ty
+        inferredTypes[subject] = ty
         return ty
       }
     }
@@ -112,7 +112,7 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
-    defer { assert(facts.inferredExprTypes[subject] != nil) }
+    defer { assert(facts.inferredTypes[subject] != nil) }
 
     switch subject.kind {
     case BooleanLiteralExpr.self:
@@ -376,7 +376,7 @@ extension TypeChecker {
     // Case 3c
     addDiagnostic(
       .error(
-        nonCallableType: facts.inferredExprTypes[syntax.callee]!,
+        nonCallableType: facts.inferredTypes[syntax.callee]!,
         at: program.ast[syntax.callee].site))
     return facts.assignErrorType(to: subject)
   }
@@ -626,7 +626,7 @@ extension TypeChecker {
     //      type and use it at the callee's type.
 
     // Case 1
-    if facts.inferredExprTypes[syntax.callee]!.isError {
+    if facts.inferredTypes[syntax.callee]!.isError {
       return facts.assignErrorType(to: subject)
     }
 
@@ -651,7 +651,7 @@ extension TypeChecker {
     }
 
     // Case 3a
-    if let callable = SubscriptType(facts.inferredExprTypes[syntax.callee]!) {
+    if let callable = SubscriptType(facts.inferredTypes[syntax.callee]!) {
       if parametersMatching(
         arguments: syntax.arguments, of: syntax.callee, inScope: scope,
         expecting: callable.inputs, updating: &facts)
@@ -681,12 +681,12 @@ extension TypeChecker {
 
     // Case 3c
     let candidates = lookup(
-      "[]", memberOf: facts.inferredExprTypes[syntax.callee]!, inScope: scope)
+      "[]", memberOf: facts.inferredTypes[syntax.callee]!, inScope: scope)
     switch candidates.count {
     case 0:
       addDiagnostic(
         .error(
-          noUnnamedSubscriptsIn: facts.inferredExprTypes[syntax.callee]!,
+          noUnnamedSubscriptsIn: facts.inferredTypes[syntax.callee]!,
           at: program.ast[syntax.callee].site))
       return facts.assignErrorType(to: subject)
 

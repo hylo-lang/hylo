@@ -367,7 +367,7 @@ public struct TypeChecker {
     let declScope = program.declToScope[AnyDeclID(id)]!
     let (shapeType, shapeFact) = infer(
       typeOf: AnyPatternID(syntax.pattern), inScope: declScope, expecting: nil)
-    assert(shapeFact.inferredExprTypes.storage.isEmpty, "expression in binding pattern")
+    assert(shapeFact.inferredTypes.storage.isEmpty, "expression in binding pattern")
 
     if shapeType.isError {
       declTypes[id] = .error
@@ -1612,7 +1612,7 @@ public struct TypeChecker {
     }
 
     // Apply the solution.
-    for (id, type) in facts.inferredExprTypes.storage {
+    for (id, type) in facts.inferredTypes.storage {
       exprTypes[id] = solution.typeAssumptions.reify(type, withVariables: .keep)
     }
     for (name, ref) in solution.bindingAssumptions {
