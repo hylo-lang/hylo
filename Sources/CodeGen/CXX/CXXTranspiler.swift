@@ -161,44 +161,39 @@ public struct CXXTranspiler {
   }
 
   /// Transpiles a local binding declaration to a C++ statement containing a local variable.
-  private func cxx(localBinding decl: BindingDecl.Typed) -> CXXStmt {
-    let capability = decl.pattern.introducer.value
+  /// The statement can be a `CXXLocalVarDecl` or a `CXXScopedBlock` containing `CXXLocalVarDecl` objects.
+  private func cxx(localBinding src: BindingDecl.Typed) -> CXXStmt {
+    let cxxInitializer = src.initializer != nil ? cxx(expr: src.initializer!) : nil
+    let numNames = src.pattern.subpattern.names.count
 
-    // There's nothing to do if there's no initializer.
-    if let initializer = decl.initializer {
+    assert(numNames > 0 || cxxInitializer != nil)
 
-      let isLValue =
-        (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
-
-      // Visit the initializer.
-      let cxxInitialzer = cxx(expr: initializer, asLValue: isLValue)
-
-      // Visit the patterns.
-      var stmts: [CXXStmt] = []
-      let pattern = decl.pattern
-      for (path, name) in pattern.subpattern.names {
-        // TODO: emit code for the patterns.
-        let decl = name.decl
-        let _ = path
-        stmts.append(
-          CXXLocalVarDecl(
-            type: CXXTypeExpr(decl.type, ast: wholeValProgram.ast)!,
-            name: CXXIdentifier(decl.identifier.value),
-            initializer: cxxInitialzer)
-        )
+    if numNames > 1 {
+      // We would output multiple variable declaration statements, gtoupped into a scoped block
+      // TODO: scoped block is not good here, because of lifetime issues
+      var varStmts: [CXXStmt] = []
+      for (_, name) in src.pattern.subpattern.names {
+        varStmts.append(cxx(localNamePattern: name, with: cxxInitializer))
       }
-      if stmts.isEmpty {
-        // No pattern found; just call the initializer, dropping the result.
-        let cxxExpr = CXXVoidCast(baseExpr: cxxInitialzer)
-        return CXXExprStmt(expr: cxxExpr)
-      } else if stmts.count == 1 {
-        return stmts[0]
-      } else {
-        return CXXScopedBlock(stmts: stmts)
-      }
+      return CXXScopedBlock(stmts: varStmts)
+    } else if numNames == 1 {
+      return cxx(localNamePattern: src.pattern.subpattern.names[0].pattern, with: cxxInitializer)
+    } else if numNames == 0 {
+      // No pattern found; just call the initializer, dropping the result.
+      let cxxExpr = CXXVoidCast(baseExpr: cxxInitializer!)
+      return CXXExprStmt(expr: cxxExpr)
     } else {
-      return CXXComment(comment: "EMPTY borrowed local binding (\(capability))")
+      unreachable()
     }
+  }
+  /// Transpile to a C++ local variable the Val name pattern, using a C++ expression as intializer.
+  private func cxx(localNamePattern src: NamePattern.Typed, with cxxInitializer: CXXExpr?)
+    -> CXXLocalVarDecl
+  {
+    CXXLocalVarDecl(
+      type: CXXTypeExpr(src.decl.type, ast: wholeValProgram.ast)!,
+      name: CXXIdentifier(src.decl.identifier.value),
+      initializer: cxxInitializer)
   }
 
   // MARK: Statements
@@ -308,11 +303,11 @@ public struct CXXTranspiler {
 
   // MARK: Expressions
 
-  private func cxx(
-    expr: AnyExprID.TypedNode,
-    asLValue: Bool
-  ) -> CXXExpr {
-    if asLValue {
+  private func cxx(expr: AnyExprID.TypedNode) -> CXXExpr {
+    // TODO: ensure l-valuness check is correct (think of function or type names)
+    let isLValue = (expr.kind == NameExpr.self) || (expr.kind == SubscriptCallExpr.self)
+
+    if isLValue {
       return cxxLValue(expr: expr, withCapability: .let)
     } else {
       return cxxRValue(expr: expr)
