@@ -30,7 +30,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
   public let output: AnyTypeExprID?
 
   /// The implementations of the method.
-  public let impls: [NodeID<MethodImplDecl>]
+  public let impls: [NodeID<MethodImpl>]
 
   /// Creates an instance with the given properties.
   public init(
@@ -42,7 +42,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
     genericClause: SourceRepresentable<GenericClause>?,
     parameters: [NodeID<ParameterDecl>],
     output: AnyTypeExprID?,
-    impls: [NodeID<MethodImplDecl>],
+    impls: [NodeID<MethodImpl>],
     site: SourceRange
   ) {
     self.site = site

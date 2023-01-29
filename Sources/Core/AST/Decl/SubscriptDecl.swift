@@ -43,7 +43,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   public let output: AnyTypeExprID
 
   /// The implementations of the subscript.
-  public let impls: [NodeID<SubscriptImplDecl>]
+  public let impls: [NodeID<SubscriptImpl>]
 
   /// Creates an instance with the given properties.
   public init(
@@ -56,7 +56,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     explicitCaptures: [NodeID<BindingDecl>],
     parameters: [NodeID<ParameterDecl>]?,
     output: AnyTypeExprID,
-    impls: [NodeID<SubscriptImplDecl>],
+    impls: [NodeID<SubscriptImpl>],
     site: SourceRange
   ) {
     self.site = site

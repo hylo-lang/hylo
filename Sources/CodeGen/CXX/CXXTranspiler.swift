@@ -162,7 +162,7 @@ public struct CXXTranspiler {
           break
         }
 
-      case MethodDecl.self:
+      case MethodDecl.self, FunctionDecl.self:
         cxxMembers.append(.method)
 
       default:
@@ -272,7 +272,7 @@ public struct CXXTranspiler {
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXStmt {
     let cxxExpr = CXXInfixExpr(
-      callee: CXXIdentifier("="),
+      oper: .assignment,
       lhs: emitL(expr: stmt.left, withCapability: .set),
       rhs: emitR(expr: stmt.right),
       original: AnyNodeID.TypedNode(stmt))
@@ -460,6 +460,13 @@ public struct CXXTranspiler {
 
     if let calleeNameExpr = NameExpr.Typed(expr.callee) {
       callee = emitR(name: calleeNameExpr, forCalleWithType: calleeType)
+
+      // The name expresssion might fully represent an prefix/postfix operator call;
+      // in this case, we don't need to wrap this into a function call
+      if callee is CXXPrefixExpr || callee is CXXPostfixExpr {
+        return callee
+      }
+
     } else {
       // Evaluate the callee as a function object.
       callee = emitR(expr: expr.callee)
@@ -487,6 +494,32 @@ public struct CXXTranspiler {
 
     case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
       // Callee is a direct reference to a function or initializer declaration.
+
+      // Check for prefix && postfix operator calls
+      let functionDecl = FunctionDecl.Typed(calleeDecl)!
+      if functionDecl.notation != nil && functionDecl.notation!.value == .prefix {
+        let prefixOperators: [String: CXXPrefixExpr.Operator] = [
+          "++": .prefixIncrement,
+          "--": .prefixDecrement,
+          "+": .unaryPlus,
+          "-": .unaryMinus,
+          "!": .logicalNot,
+        ]
+        if let cxxPrefixOperator = prefixOperators[nameOfDecl(calleeDecl)] {
+          return CXXPrefixExpr(
+            oper: cxxPrefixOperator, base: emitR(expr: expr.domainExpr!), original: nil)
+        }
+      } else if functionDecl.notation != nil && functionDecl.notation!.value == .postfix {
+        let postfixOperators: [String: CXXPostfixExpr.Operator] = [
+          "++": .suffixIncrement,
+          "--": .suffixDecrement,
+        ]
+        if let cxxPostfixOperator = postfixOperators[nameOfDecl(calleeDecl)] {
+          return CXXPostfixExpr(
+            oper: cxxPostfixOperator, base: emitR(expr: expr.domainExpr!), original: nil)
+        }
+      }
+
       // TODO: handle captures
       return CXXIdentifier(nameOfDecl(calleeDecl))
 
@@ -543,9 +576,10 @@ public struct CXXTranspiler {
       }
 
       // Emit the function reference.
-      return CXXCompoundExpr(
-        base: receiver, id: CXXIdentifier(nameOfDecl(calleeDecl)),
-        original: AnyExprID.TypedNode(expr))
+      return CXXInfixExpr(
+        oper: .dotAccess,
+        lhs: receiver, rhs: CXXIdentifier(nameOfDecl(calleeDecl)),
+        original: AnyNodeID.TypedNode(expr))
 
     case .member(_):
       fatalError("not implemented")
@@ -615,15 +649,35 @@ public struct CXXTranspiler {
     }
 
     // Emit infix operators.
-    // TODO: Do we need to check the base types?
+    let orig = AnyNodeID.TypedNode(expr)
     let name = nameOfDecl(calleeDecl)
     switch name {
-    case "<<", ">>", "*", "*!", "/", "%", "+", "+!", "-", "-!", "..<", "...", "??", "==", "!=", "<",
-      "<=", ">=", ">", "^", "&", "&&", "|", "||", "<<=", ">>=", "*=", "/=", "%=", "+=", "-=", "&=",
-      "&&=", "**":
-      // Expand this as a native infix operator call
-      return CXXInfixExpr(
-        callee: CXXIdentifier(name), lhs: lhs, rhs: rhs, original: AnyNodeID.TypedNode(expr))
+    case "<<": return CXXInfixExpr(oper: .leftShift, lhs: lhs, rhs: rhs, original: orig)
+    case ">>": return CXXInfixExpr(oper: .rightShift, lhs: lhs, rhs: rhs, original: orig)
+    case "*": return CXXInfixExpr(oper: .multiplication, lhs: lhs, rhs: rhs, original: orig)
+    case "/": return CXXInfixExpr(oper: .division, lhs: lhs, rhs: rhs, original: orig)
+    case "%": return CXXInfixExpr(oper: .remainder, lhs: lhs, rhs: rhs, original: orig)
+    case "+": return CXXInfixExpr(oper: .addition, lhs: lhs, rhs: rhs, original: orig)
+    case "-": return CXXInfixExpr(oper: .subtraction, lhs: lhs, rhs: rhs, original: orig)
+    case "==": return CXXInfixExpr(oper: .equality, lhs: lhs, rhs: rhs, original: orig)
+    case "!=": return CXXInfixExpr(oper: .inequality, lhs: lhs, rhs: rhs, original: orig)
+    case "<": return CXXInfixExpr(oper: .lessThan, lhs: lhs, rhs: rhs, original: orig)
+    case "<=": return CXXInfixExpr(oper: .lessEqual, lhs: lhs, rhs: rhs, original: orig)
+    case ">=": return CXXInfixExpr(oper: .greaterEqual, lhs: lhs, rhs: rhs, original: orig)
+    case ">": return CXXInfixExpr(oper: .greaterThan, lhs: lhs, rhs: rhs, original: orig)
+    case "^": return CXXInfixExpr(oper: .bitwiseXor, lhs: lhs, rhs: rhs, original: orig)
+    case "&": return CXXInfixExpr(oper: .bitwiseAnd, lhs: lhs, rhs: rhs, original: orig)
+    case "&&": return CXXInfixExpr(oper: .logicalAnd, lhs: lhs, rhs: rhs, original: orig)
+    case "|": return CXXInfixExpr(oper: .bitwiseOr, lhs: lhs, rhs: rhs, original: orig)
+    case "||": return CXXInfixExpr(oper: .logicalOr, lhs: lhs, rhs: rhs, original: orig)
+    case "<<=": return CXXInfixExpr(oper: .shiftLeftAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case ">>=": return CXXInfixExpr(oper: .shiftRightAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "*=": return CXXInfixExpr(oper: .mulAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "/=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "%=": return CXXInfixExpr(oper: .remAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "+=": return CXXInfixExpr(oper: .addAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "-=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs, original: orig)
+    case "&=": return CXXInfixExpr(oper: .bitwiseAndAssignment, lhs: lhs, rhs: rhs, original: orig)
 
     default:
       // Expand this as a regular function call.
@@ -696,7 +750,8 @@ public struct CXXTranspiler {
       // Emit the compound expression.
       let idExpr = CXXIdentifier(nameOfDecl(decl))
       if receiver != nil {
-        return CXXCompoundExpr(base: receiver!, id: idExpr, original: AnyExprID.TypedNode(expr))
+        return CXXInfixExpr(
+          oper: .dotAccess, lhs: receiver!, rhs: idExpr, original: AnyNodeID.TypedNode(expr))
       } else {
         return idExpr
       }
@@ -720,9 +775,9 @@ public struct CXXTranspiler {
     case MethodDecl.self:
       return MethodDecl.Typed(decl)!.identifier.value
 
-    case MethodImplDecl.self:
-      let methodImplDecl = MethodImplDecl.Typed(decl)!
-      switch methodImplDecl.introducer.value {
+    case MethodImpl.self:
+      let methodImpl = MethodImpl.Typed(decl)!
+      switch methodImpl.introducer.value {
       case .let: return "let"
       case .inout: return "inout"
       case .set: return "set"

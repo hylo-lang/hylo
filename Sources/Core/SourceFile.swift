@@ -34,6 +34,11 @@ public struct SourceFile {
     url.deletingPathExtension().lastPathComponent
   }
 
+  /// A range covering the whole contents of this instance.
+  public var wholeRange: SourceRange {
+    range(text.startIndex ..< text.endIndex)
+  }
+
   /// Creates a source file with the specified contents, creating a unique random URL.
   public init(synthesizedText text: String) {
     self.url = URL(string: "synthesized://\(UUID().uuidString)")!
