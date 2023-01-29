@@ -22,7 +22,7 @@ public struct CXXTranspiler {
   public func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
     var cxxModule = CXXModule(source)
     for member in source.topLevelDecls {
-      let cxxTopLevelDecl = emit(topLevel: member)
+      let cxxTopLevelDecl = cxx(topLevel: member)
       cxxModule.addTopLevelDecl(cxxTopLevelDecl)
     }
     return cxxModule
@@ -31,19 +31,19 @@ public struct CXXTranspiler {
   // MARK: Declarations
 
   /// Emits the given top-level declaration into `module`.
-  func emit(topLevel decl: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
+  func cxx(topLevel decl: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
     switch decl.kind {
     case FunctionDecl.self:
-      return emit(function: FunctionDecl.Typed(decl)!)
+      return cxx(function: FunctionDecl.Typed(decl)!)
     case ProductTypeDecl.self:
-      return emit(type: ProductTypeDecl.Typed(decl)!)
+      return cxx(type: ProductTypeDecl.Typed(decl)!)
     default:
       unreachable("unexpected declaration")
     }
   }
 
   /// Emits the given function declaration into `module`.
-  func emit(function decl: FunctionDecl.Typed) -> CXXTopLevelDecl {
+  func cxx(function decl: FunctionDecl.Typed) -> CXXTopLevelDecl {
     assert(wholeValProgram.isGlobal(decl.id))
 
     /// The identifier of the function.
@@ -92,7 +92,7 @@ public struct CXXTranspiler {
     // The body of the function.
     var cxxBody: CXXStmt? = nil
     if let body = decl.body {
-      cxxBody = emit(funBody: body)
+      cxxBody = cxx(funBody: body)
     }
 
     // Create the C++ function object.
@@ -104,19 +104,19 @@ public struct CXXTranspiler {
   }
 
   /// Translate the function body into a CXX entity.
-  private func emit(funBody body: FunctionDecl.Typed.Body) -> CXXStmt {
+  private func cxx(funBody body: FunctionDecl.Typed.Body) -> CXXStmt {
     switch body {
     case .block(let stmt):
-      return emit(brace: stmt)
+      return cxx(brace: stmt)
 
     case .expr(let expr):
-      let exprBody = CXXReturnStmt(expr: emitR(expr: expr))
+      let exprBody = CXXReturnStmt(expr: cxxRValue(expr: expr))
       return CXXScopedBlock(stmts: [exprBody])
     }
   }
 
   /// Emits the given function declaration into `module`.
-  private func emit(type decl: ProductTypeDecl.Typed) -> CXXTopLevelDecl {
+  private func cxx(type decl: ProductTypeDecl.Typed) -> CXXTopLevelDecl {
     assert(wholeValProgram.isGlobal(decl.id))
 
     let name = CXXIdentifier(decl.identifier.value)
@@ -174,7 +174,7 @@ public struct CXXTranspiler {
     return CXXClassDecl(name: name, members: cxxMembers)
   }
 
-  private func emit(localBinding decl: BindingDecl.Typed) -> CXXStmt {
+  private func cxx(localBinding decl: BindingDecl.Typed) -> CXXStmt {
     let capability = decl.pattern.introducer.value
 
     // There's nothing to do if there's no initializer.
@@ -184,7 +184,7 @@ public struct CXXTranspiler {
         (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
 
       // Visit the initializer.
-      let cxxInitialzer = emit(expr: initializer, asLValue: isLValue)
+      let cxxInitialzer = cxx(expr: initializer, asLValue: isLValue)
 
       // Visit the patterns.
       var stmts: [CXXStmt] = []
@@ -217,80 +217,80 @@ public struct CXXTranspiler {
   // MARK: Statements
 
   /// Emits the given statement into `module` at the current insertion point.
-  private func emit<ID: StmtID>(stmt: ID.TypedNode) -> CXXStmt {
+  private func cxx<ID: StmtID>(stmt: ID.TypedNode) -> CXXStmt {
     switch stmt.kind {
     case BraceStmt.self:
-      return emit(brace: BraceStmt.Typed(stmt)!)
+      return cxx(brace: BraceStmt.Typed(stmt)!)
     case DeclStmt.self:
-      return emit(declStmt: DeclStmt.Typed(stmt)!)
+      return cxx(declStmt: DeclStmt.Typed(stmt)!)
     case ExprStmt.self:
-      return emit(exprStmt: ExprStmt.Typed(stmt)!)
+      return cxx(exprStmt: ExprStmt.Typed(stmt)!)
     case AssignStmt.self:
-      return emit(assignStmt: AssignStmt.Typed(stmt)!)
+      return cxx(assignStmt: AssignStmt.Typed(stmt)!)
     case ReturnStmt.self:
-      return emit(returnStmt: ReturnStmt.Typed(stmt)!)
+      return cxx(returnStmt: ReturnStmt.Typed(stmt)!)
     case WhileStmt.self:
-      return emit(whileStmt: WhileStmt.Typed(stmt)!)
+      return cxx(whileStmt: WhileStmt.Typed(stmt)!)
     case DoWhileStmt.self:
-      return emit(doWhileStmt: DoWhileStmt.Typed(stmt)!)
+      return cxx(doWhileStmt: DoWhileStmt.Typed(stmt)!)
     case ForStmt.self:
-      return emit(forStmt: ForStmt.Typed(stmt)!)
+      return cxx(forStmt: ForStmt.Typed(stmt)!)
     case BreakStmt.self:
-      return emit(breakStmt: BreakStmt.Typed(stmt)!)
+      return cxx(breakStmt: BreakStmt.Typed(stmt)!)
     case ContinueStmt.self:
-      return emit(continueStmt: ContinueStmt.Typed(stmt)!)
+      return cxx(continueStmt: ContinueStmt.Typed(stmt)!)
     case YieldStmt.self:
-      return emit(yieldStmt: YieldStmt.Typed(stmt)!)
+      return cxx(yieldStmt: YieldStmt.Typed(stmt)!)
     default:
       unreachable("unexpected statement")
     }
   }
 
-  private func emit(brace stmt: BraceStmt.Typed) -> CXXStmt {
+  private func cxx(brace stmt: BraceStmt.Typed) -> CXXStmt {
     var stmts: [CXXStmt] = []
     for s in stmt.stmts {
-      stmts.append(emit(stmt: s))
+      stmts.append(cxx(stmt: s))
     }
     return CXXScopedBlock(stmts: stmts)
   }
 
-  private func emit(declStmt stmt: DeclStmt.Typed) -> CXXStmt {
+  private func cxx(declStmt stmt: DeclStmt.Typed) -> CXXStmt {
     switch stmt.decl.kind {
     case BindingDecl.self:
-      return emit(localBinding: BindingDecl.Typed(stmt.decl)!)
+      return cxx(localBinding: BindingDecl.Typed(stmt.decl)!)
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  private func emit(exprStmt stmt: ExprStmt.Typed) -> CXXStmt {
-    return CXXExprStmt(expr: emitR(expr: stmt.expr))
+  private func cxx(exprStmt stmt: ExprStmt.Typed) -> CXXStmt {
+    return CXXExprStmt(expr: cxxRValue(expr: stmt.expr))
   }
 
-  private func emit(assignStmt stmt: AssignStmt.Typed) -> CXXStmt {
+  private func cxx(assignStmt stmt: AssignStmt.Typed) -> CXXStmt {
     let cxxExpr = CXXInfixExpr(
       oper: .assignment,
-      lhs: emitL(expr: stmt.left, withCapability: .set),
-      rhs: emitR(expr: stmt.right))
+      lhs: cxxLValue(expr: stmt.left, withCapability: .set),
+      rhs: cxxRValue(expr: stmt.right))
     return CXXExprStmt(expr: cxxExpr)
   }
 
-  private func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXStmt {
+  private func cxx(returnStmt stmt: ReturnStmt.Typed) -> CXXStmt {
     var expr: CXXExpr?
     if stmt.value != nil {
-      expr = emitR(expr: stmt.value!)
+      expr = cxxRValue(expr: stmt.value!)
     }
     return CXXReturnStmt(expr: expr)
   }
 
-  private func emit(whileStmt stmt: WhileStmt.Typed) -> CXXStmt {
+  private func cxx(whileStmt stmt: WhileStmt.Typed) -> CXXStmt {
     // TODO: multiple conditions
     // TODO: bindings in conditions
     let condition: CXXExpr
     if stmt.condition.count == 1 {
       switch stmt.condition[0] {
       case .expr(let condExpr):
-        condition = emitR(expr: wholeValProgram[condExpr])
+        condition = cxxRValue(expr: wholeValProgram[condExpr])
       case .decl(let decl):
         let _ = decl
         condition = CXXComment(comment: "binding condition")
@@ -299,67 +299,67 @@ public struct CXXTranspiler {
       fatalError("not implemented")
     }
     return CXXWhileStmt(
-      condition: condition, body: emit(stmt: stmt.body))
+      condition: condition, body: cxx(stmt: stmt.body))
   }
-  private func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXStmt {
+  private func cxx(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXStmt {
     return CXXDoWhileStmt(
-      body: emit(stmt: stmt.body),
-      condition: emitR(expr: stmt.condition))
+      body: cxx(stmt: stmt.body),
+      condition: cxxRValue(expr: stmt.condition))
   }
-  private func emit(forStmt stmt: ForStmt.Typed) -> CXXStmt {
+  private func cxx(forStmt stmt: ForStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "ForStmt")
   }
-  private func emit(breakStmt stmt: BreakStmt.Typed) -> CXXStmt {
+  private func cxx(breakStmt stmt: BreakStmt.Typed) -> CXXStmt {
     return CXXBreakStmt()
   }
-  private func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXStmt {
+  private func cxx(continueStmt stmt: ContinueStmt.Typed) -> CXXStmt {
     return CXXContinueStmt()
   }
-  private func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXStmt {
+  private func cxx(yieldStmt stmt: YieldStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "YieldStmt")
   }
 
   // MARK: Expressions
 
-  private func emit(
+  private func cxx(
     expr: AnyExprID.TypedNode,
     asLValue: Bool
   ) -> CXXExpr {
     if asLValue {
-      return emitL(expr: expr, withCapability: .let)
+      return cxxLValue(expr: expr, withCapability: .let)
     } else {
-      return emitR(expr: expr)
+      return cxxRValue(expr: expr)
     }
   }
 
   // MARK: r-values
 
-  private func emitR<ID: ExprID>(expr: ID.TypedNode) -> CXXExpr {
+  private func cxxRValue<ID: ExprID>(expr: ID.TypedNode) -> CXXExpr {
     switch expr.kind {
     case BooleanLiteralExpr.self:
-      return emitR(booleanLiteral: BooleanLiteralExpr.Typed(expr)!)
+      return cxxRValue(booleanLiteral: BooleanLiteralExpr.Typed(expr)!)
     case CondExpr.self:
-      return emitR(cond: CondExpr.Typed(expr)!)
+      return cxxRValue(cond: CondExpr.Typed(expr)!)
     case FunctionCallExpr.self:
-      return emitR(functionCall: FunctionCallExpr.Typed(expr)!)
+      return cxxRValue(functionCall: FunctionCallExpr.Typed(expr)!)
     case IntegerLiteralExpr.self:
-      return emitR(integerLiteral: IntegerLiteralExpr.Typed(expr)!)
+      return cxxRValue(integerLiteral: IntegerLiteralExpr.Typed(expr)!)
     case NameExpr.self:
-      return emitR(name: NameExpr.Typed(expr)!)
+      return cxxRValue(name: NameExpr.Typed(expr)!)
     case SequenceExpr.self:
-      return emitR(sequence: SequenceExpr.Typed(expr)!)
+      return cxxRValue(sequence: SequenceExpr.Typed(expr)!)
     default:
       unreachable("unexpected expression")
     }
   }
 
-  private func emitR(
+  private func cxxRValue(
     booleanLiteral expr: BooleanLiteralExpr.Typed
   ) -> CXXExpr {
     return CXXBooleanLiteralExpr(value: expr.value)
   }
 
-  private func emitR(
+  private func cxxRValue(
     cond expr: CondExpr.Typed
   ) -> CXXExpr {
     // TODO: multiple conditions
@@ -368,7 +368,7 @@ public struct CXXTranspiler {
     if expr.condition.count == 1 {
       switch expr.condition[0] {
       case .expr(let condExpr):
-        condition = emitR(expr: wholeValProgram[condExpr])
+        condition = cxxRValue(expr: wholeValProgram[condExpr])
       case .decl(let decl):
         let _ = decl
         condition = CXXComment(comment: "binding condition")
@@ -383,13 +383,13 @@ public struct CXXTranspiler {
       let falseExpr: CXXExpr
       switch expr.success {
       case .expr(let altExpr):
-        trueExpr = emitR(expr: wholeValProgram[altExpr])
+        trueExpr = cxxRValue(expr: wholeValProgram[altExpr])
       case .block:
         fatalError("not implemented")
       }
       switch expr.failure {
       case .expr(let altExpr):
-        falseExpr = emitR(expr: wholeValProgram[altExpr])
+        falseExpr = cxxRValue(expr: wholeValProgram[altExpr])
       case .block:
         fatalError("not implemented")
       case .none:
@@ -406,17 +406,17 @@ public struct CXXTranspiler {
       case .expr(let altExpr):
         let expr = wholeValProgram[altExpr]
         trueStmt = CXXExprStmt(
-          expr: CXXVoidCast(baseExpr: emitR(expr: expr)))
+          expr: CXXVoidCast(baseExpr: cxxRValue(expr: expr)))
       case .block(let braceStmt):
-        trueStmt = emit(stmt: wholeValProgram[braceStmt])
+        trueStmt = cxx(stmt: wholeValProgram[braceStmt])
       }
       switch expr.failure {
       case .expr(let altExpr):
         let expr = wholeValProgram[altExpr]
         falseStmt = CXXExprStmt(
-          expr: CXXVoidCast(baseExpr: emitR(expr: expr)))
+          expr: CXXVoidCast(baseExpr: cxxRValue(expr: expr)))
       case .block(let braceStmt):
-        falseStmt = emit(stmt: wholeValProgram[braceStmt])
+        falseStmt = cxx(stmt: wholeValProgram[braceStmt])
       case .none:
         falseStmt = nil
       }
@@ -429,7 +429,7 @@ public struct CXXTranspiler {
     }
   }
 
-  private func emitR(
+  private func cxxRValue(
     functionCall expr: FunctionCallExpr.Typed
   ) -> CXXExpr {
     let calleeType = expr.callee.type.base as! LambdaType
@@ -441,7 +441,7 @@ public struct CXXTranspiler {
     for (parameter, argument) in zip(calleeType.inputs, expr.arguments) {
       let parameterType = parameter.type.base as! ParameterType
       argumentConventions.append(parameterType.convention)
-      arguments.append(emit(argument: wholeValProgram[argument.value], to: parameterType))
+      arguments.append(cxx(argument: wholeValProgram[argument.value], to: parameterType))
     }
 
     // If the callee is a name expression referring to the declaration of a function capture-less
@@ -450,7 +450,7 @@ public struct CXXTranspiler {
     let callee: CXXExpr
 
     if let calleeNameExpr = NameExpr.Typed(expr.callee) {
-      callee = emitR(name: calleeNameExpr, forCalleWithType: calleeType)
+      callee = cxxRValue(name: calleeNameExpr, forCalleWithType: calleeType)
 
       // The name expresssion might fully represent an prefix/postfix operator call;
       // in this case, we don't need to wrap this into a function call
@@ -460,20 +460,20 @@ public struct CXXTranspiler {
 
     } else {
       // Evaluate the callee as a function object.
-      callee = emitR(expr: expr.callee)
+      callee = cxxRValue(expr: expr.callee)
     }
 
     return CXXFunctionCallExpr(
       callee: callee, arguments: arguments)
   }
 
-  private func emitR(
+  private func cxxRValue(
     integerLiteral expr: IntegerLiteralExpr.Typed
   ) -> CXXExpr {
     return CXXIntegerLiteralExpr(value: expr.value)
   }
 
-  private func emitR(
+  private func cxxRValue(
     name expr: NameExpr.Typed,
     forCalleWithType calleeType: LambdaType? = nil
   ) -> CXXExpr {
@@ -498,7 +498,7 @@ public struct CXXTranspiler {
         ]
         if let cxxPrefixOperator = prefixOperators[nameOfDecl(calleeDecl)] {
           return CXXPrefixExpr(
-            oper: cxxPrefixOperator, base: emitR(expr: expr.domainExpr!))
+            oper: cxxPrefixOperator, base: cxxRValue(expr: expr.domainExpr!))
         }
       } else if functionDecl.notation != nil && functionDecl.notation!.value == .postfix {
         let postfixOperators: [String: CXXPostfixExpr.Operator] = [
@@ -507,7 +507,7 @@ public struct CXXTranspiler {
         ]
         if let cxxPostfixOperator = postfixOperators[nameOfDecl(calleeDecl)] {
           return CXXPostfixExpr(
-            oper: cxxPostfixOperator, base: emitR(expr: expr.domainExpr!))
+            oper: cxxPostfixOperator, base: cxxRValue(expr: expr.domainExpr!))
         }
       }
 
@@ -547,7 +547,7 @@ public struct CXXTranspiler {
           receiver = CXXReceiverExpr()
 
         case .expr(let receiverID):
-          receiver = emitL(expr: receiverID, withCapability: type.capability)
+          receiver = cxxLValue(expr: receiverID, withCapability: type.capability)
 
         case .implicit:
           unreachable()
@@ -559,7 +559,7 @@ public struct CXXTranspiler {
           receiver = CXXReceiverExpr()
 
         case .expr(let receiverID):
-          receiver = emitR(expr: receiverID)
+          receiver = cxxRValue(expr: receiverID)
 
         case .implicit:
           unreachable()
@@ -576,13 +576,13 @@ public struct CXXTranspiler {
     }
   }
 
-  private func emitR(
+  private func cxxRValue(
     sequence expr: SequenceExpr.Typed
   ) -> CXXExpr {
-    return emit(foldedSequence: expr.foldedSequenceExprs!, withCapability: .sink, for: expr)
+    return cxx(foldedSequence: expr.foldedSequenceExprs!, withCapability: .sink, for: expr)
   }
 
-  private func emit(
+  private func cxx(
     foldedSequence seq: FoldedSequenceExpr,
     withCapability capability: AccessEffect,
     for expr: SequenceExpr.Typed
@@ -594,7 +594,7 @@ public struct CXXTranspiler {
 
       // Emit the operands, starting with RHS.
       let rhsType = calleeType.inputs[0].type.base as! ParameterType
-      let rhsOperand = emit(foldedSequence: rhs, withCapability: rhsType.convention, for: expr)
+      let rhsOperand = cxx(foldedSequence: rhs, withCapability: rhsType.convention, for: expr)
 
       let lhsConvention: AccessEffect
       if let lhsType = RemoteType(calleeType.captures[0].type) {
@@ -602,28 +602,28 @@ public struct CXXTranspiler {
       } else {
         lhsConvention = .sink
       }
-      let lhsOperand = emit(foldedSequence: lhs, withCapability: lhsConvention, for: expr)
+      let lhsOperand = cxx(foldedSequence: lhs, withCapability: lhsConvention, for: expr)
 
       // Build the resulting infix expression / function call.
-      return emitR(infix: calleeExpr, lhs: lhsOperand, rhs: rhsOperand)
+      return cxxRValue(infix: calleeExpr, lhs: lhsOperand, rhs: rhsOperand)
 
     case .leaf(let expr):
       switch capability {
       case .let:
-        return emitL(expr: wholeValProgram[expr], withCapability: .let)
+        return cxxLValue(expr: wholeValProgram[expr], withCapability: .let)
       case .inout:
-        return emitL(expr: wholeValProgram[expr], withCapability: .inout)
+        return cxxLValue(expr: wholeValProgram[expr], withCapability: .inout)
       case .set:
-        return emitL(expr: wholeValProgram[expr], withCapability: .set)
+        return cxxLValue(expr: wholeValProgram[expr], withCapability: .set)
       case .sink:
-        return emitR(expr: wholeValProgram[expr])
+        return cxxRValue(expr: wholeValProgram[expr])
       case .yielded:
         fatalError("not implemented")
       }
     }
   }
 
-  private func emitR(
+  private func cxxRValue(
     infix expr: NameExpr.Typed,
     lhs: CXXExpr,
     rhs: CXXExpr
@@ -670,25 +670,25 @@ public struct CXXTranspiler {
 
     default:
       // Expand this as a regular function call.
-      let callee = emitL(name: expr, withCapability: .let)
+      let callee = cxxLValue(name: expr, withCapability: .let)
       let arguments = [lhs, rhs]
       return CXXFunctionCallExpr(callee: callee, arguments: arguments)
     }
   }
 
-  private func emit(
+  private func cxx(
     argument expr: AnyExprID.TypedNode,
     to parameterType: ParameterType
   ) -> CXXExpr {
     switch parameterType.convention {
     case .let:
-      return emitL(expr: expr, withCapability: .let)
+      return cxxLValue(expr: expr, withCapability: .let)
     case .inout:
-      return emitL(expr: expr, withCapability: .inout)
+      return cxxLValue(expr: expr, withCapability: .inout)
     case .set:
-      return emitL(expr: expr, withCapability: .set)
+      return cxxLValue(expr: expr, withCapability: .set)
     case .sink:
-      return emitR(expr: expr)
+      return cxxRValue(expr: expr)
     case .yielded:
       fatalError("not implemented")
     }
@@ -696,24 +696,24 @@ public struct CXXTranspiler {
 
   // MARK: l-values
 
-  private func emitL<ID: ExprID>(
+  private func cxxLValue<ID: ExprID>(
     expr: ID.TypedNode,
     withCapability capability: AccessEffect
   ) -> CXXExpr {
     switch expr.kind {
     case NameExpr.self:
-      return emitL(name: NameExpr.Typed(expr)!, withCapability: capability)
+      return cxxLValue(name: NameExpr.Typed(expr)!, withCapability: capability)
 
     case SubscriptCallExpr.self:
       fatalError("not implemented")
 
     default:
       // TODO: do we need to add extra instructions to covert this to l-value?
-      return emitR(expr: expr)
+      return cxxRValue(expr: expr)
     }
   }
 
-  private func emitL(
+  private func cxxLValue(
     name expr: NameExpr.Typed,
     withCapability capability: AccessEffect
   ) -> CXXExpr {
@@ -732,7 +732,7 @@ public struct CXXTranspiler {
       case .implicit:
         fatalError("not implemented")
       case .expr(let recv):
-        receiver = emitL(expr: recv, withCapability: capability)
+        receiver = cxxLValue(expr: recv, withCapability: capability)
       }
 
       // Emit the compound expression.
