@@ -13,4 +13,11 @@ struct CXXFunctionCallExpr: CXXExpr {
   /// The original node in Val AST.
   let original: AnyExprID.TypedNode?
 
+  var precedence: Int {
+    2
+  }
+  var isLeftToRight: Bool {
+    true
+  }
+
 }

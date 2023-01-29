@@ -1,0 +1,17 @@
+/*! cpp
+void test() {
+  int a = 5;
+  int b = 7;
+  a = a + b;
+  a = a - b;
+  a = a + b * 11;
+}
+*/
+
+fun test() {
+  var a = 5
+  var b = 7
+  a = a + b
+  a = a - b
+  a = a + b * 11
+}

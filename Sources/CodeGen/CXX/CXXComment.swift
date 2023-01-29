@@ -12,3 +12,15 @@ struct CXXComment: CXXNode, CXXExpr, CXXStmt {
   let original: AnyNodeID.TypedNode?
 
 }
+
+// Just to conform with CXXExpr
+extension CXXComment {
+
+  var precedence: Int {
+    0
+  }
+  var isLeftToRight: Bool {
+    true
+  }
+
+}
