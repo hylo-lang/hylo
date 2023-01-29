@@ -131,7 +131,7 @@ public struct ValCommand: ParsableCommand {
       newModule = try ast.makeModule(
         "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
     } catch _ as Diagnostics {
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorChannel)
     }
 
     // Handle `--emit raw-ast`.
@@ -139,7 +139,7 @@ public struct ValCommand: ParsableCommand {
       let url = outputURL ?? URL(fileURLWithPath: "ast.json")
       let encoder = JSONEncoder()
       try encoder.encode(ast).write(to: url, options: .atomic)
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorChannel)
     }
 
     // Import the core library.
@@ -162,11 +162,11 @@ public struct ValCommand: ParsableCommand {
     // Report type-checking errors.
     diagnostics.report(checker.diagnostics)
     if !typeCheckingSucceeded {
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorChannel)
     }
 
     // Exit if `--typecheck` is set.
-    if typeCheckOnly { return exit(logging: diagnostics, to: &errorChannel) }
+    if typeCheckOnly { return finalize(logging: diagnostics, to: &errorChannel) }
 
     let typedProgram = TypedProgram(
       annotating: checker.program,
@@ -185,7 +185,7 @@ public struct ValCommand: ParsableCommand {
     if outputType == .rawIR {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorChannel)
     }
 
     // Run mandatory IR analysis and transformation passes.
@@ -202,14 +202,14 @@ public struct ValCommand: ParsableCommand {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
         diagnostics.report(pipeline[i].diagnostics)
       }
-      if !passSuccess { return exit(logging: diagnostics, to: &errorChannel) }
+      if !passSuccess { return finalize(logging: diagnostics, to: &errorChannel) }
     }
 
     // Handle `--emit ir`
     if outputType == .ir {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorChannel)
     }
 
     // *** C++ Transpiling ***
@@ -229,7 +229,7 @@ public struct ValCommand: ParsableCommand {
         to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
       try cxxSource.write(
         to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
-      return exit(logging: diagnostics, to: &errorChannel)
+      return finalize(logging: diagnostics, to: &errorChannel)
     }
 
     // *** Machine code generation ***
@@ -260,12 +260,12 @@ public struct ValCommand: ParsableCommand {
       ],
       loggingTo: &errorChannel)
 
-    return exit(logging: diagnostics, to: &errorChannel)
+    return finalize(logging: diagnostics, to: &errorChannel)
   }
 
   /// Logs the given diagnostics to the standard error and returns a success code if none of them
   /// is an error; otherwise, returns a failure code.
-  private func exit<C: Channel>(
+  private func finalize<C: Channel>(
     logging diagnostics: Diagnostics,
     to channel: inout C
   ) -> ExitCode {
