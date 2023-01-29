@@ -4,42 +4,47 @@ import FrontEnd
 import Utils
 
 /// A Val to C++ transpiler.
+/// This takes Val AST (with type information) and transforms it into C++ AST.
+/// It handles one module at a time.
 public struct CXXTranspiler {
 
-  /// The program being transpiled.
-  let program: TypedProgram
+  /// The Val typed nodes.
+  /// Used in a few cases in which we need to obtain the typed nodes from the corresponding Node IDs,
+  /// and to make general queries in the Val AST.
+  let wholeValProgram: TypedProgram
 
-  /// Creates a C++ transpiler with a well-typed AST.
-  public init(program: TypedProgram) {
-    self.program = program
+  /// Creates a C++ transpiler from the whole Val program.
+  public init(_ wholeValProgram: TypedProgram) {
+    self.wholeValProgram = wholeValProgram
   }
 
-  // MARK: API
-
-  /// Emits the C++ module corresponding to the Val module identified by `decl`.
-  public mutating func emit(module decl: ModuleDecl.Typed) -> CXXModule {
-    var module = CXXModule(decl, for: program)
-    for member in decl.topLevelDecls {
-      emit(topLevel: member, into: &module)
+  /// Transpiles Val Module into a C++ module object.
+  public mutating func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
+    var cxxModule = CXXModule(source)
+    for member in source.topLevelDecls {
+      let cxxTopLevelDecl = emit(topLevel: member)
+      cxxModule.addTopLevelDecl(cxxTopLevelDecl)
     }
-    return module
+    return cxxModule
   }
+
+  // MARK: Declarations
 
   /// Emits the given top-level declaration into `module`.
-  mutating func emit(topLevel decl: AnyDeclID.TypedNode, into module: inout CXXModule) {
+  mutating func emit(topLevel decl: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
     switch decl.kind {
     case FunctionDecl.self:
-      emit(function: FunctionDecl.Typed(decl)!, into: &module)
+      return emit(function: FunctionDecl.Typed(decl)!)
     case ProductTypeDecl.self:
-      emit(type: ProductTypeDecl.Typed(decl)!, into: &module)
+      return emit(type: ProductTypeDecl.Typed(decl)!)
     default:
       unreachable("unexpected declaration")
     }
   }
 
   /// Emits the given function declaration into `module`.
-  mutating func emit(function decl: FunctionDecl.Typed, into module: inout CXXModule) {
-    assert(program.isGlobal(decl.id))
+  mutating func emit(function decl: FunctionDecl.Typed) -> CXXTopLevelDecl {
+    assert(wholeValProgram.isGlobal(decl.id))
 
     /// The identifier of the function.
     let identifier = CXXIdentifier(decl.identifier?.value ?? "")
@@ -52,7 +57,7 @@ public struct CXXTranspiler {
     } else {
       switch decl.type.base {
       case let valDeclType as LambdaType:
-        output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
+        output = CXXTypeExpr(valDeclType.output, ast: wholeValProgram.ast, asReturnType: true)!
 
       case is MethodType:
         fatalError("not implemented")
@@ -80,7 +85,7 @@ public struct CXXTranspiler {
     var cxxParams: [CXXFunctionDecl.Parameter] = []
     for (i, param) in decl.parameters.enumerated() {
       let name = CXXIdentifier(param.name)
-      let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
+      let type = CXXTypeExpr(paramTypes[i].type, ast: wholeValProgram.ast)
       cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
     }
 
@@ -91,12 +96,11 @@ public struct CXXTranspiler {
     }
 
     // Create the C++ function object.
-    module.addTopLevelDecl(
-      CXXFunctionDecl(
-        identifier: identifier,
-        output: output,
-        parameters: cxxParams,
-        body: cxxBody))
+    return CXXFunctionDecl(
+      identifier: identifier,
+      output: output,
+      parameters: cxxParams,
+      body: cxxBody)
   }
 
   /// Translate the function body into a CXX entity.
@@ -111,11 +115,9 @@ public struct CXXTranspiler {
     }
   }
 
-  // MARK: Declarations
-
   /// Emits the given function declaration into `module`.
-  private mutating func emit(type decl: ProductTypeDecl.Typed, into module: inout CXXModule) {
-    assert(program.isGlobal(decl.id))
+  private mutating func emit(type decl: ProductTypeDecl.Typed) -> CXXTopLevelDecl {
+    assert(wholeValProgram.isGlobal(decl.id))
 
     let name = CXXIdentifier(decl.identifier.value)
 
@@ -140,7 +142,7 @@ public struct CXXTranspiler {
         for (_, name) in bindingDecl.pattern.subpattern.names {
           let varDecl = name.decl
           let cxxAttribute = CXXClassAttribute(
-            type: CXXTypeExpr(varDecl.type, ast: program.ast)!,
+            type: CXXTypeExpr(varDecl.type, ast: wholeValProgram.ast)!,
             name: CXXIdentifier(varDecl.name),
             initializer: cxxInitializer,
             isStatic: isStatic)
@@ -169,7 +171,7 @@ public struct CXXTranspiler {
     }
 
     // Create the C++ class.
-    module.addTopLevelDecl(CXXClassDecl(name: name, members: cxxMembers))
+    return CXXClassDecl(name: name, members: cxxMembers)
   }
 
   private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXStmt {
@@ -193,7 +195,7 @@ public struct CXXTranspiler {
         let _ = path
         stmts.append(
           CXXLocalVarDecl(
-            type: CXXTypeExpr(decl.type, ast: program.ast)!,
+            type: CXXTypeExpr(decl.type, ast: wholeValProgram.ast)!,
             name: CXXIdentifier(decl.identifier.value),
             initializer: cxxInitialzer)
         )
@@ -288,7 +290,7 @@ public struct CXXTranspiler {
     if stmt.condition.count == 1 {
       switch stmt.condition[0] {
       case .expr(let condExpr):
-        condition = emitR(expr: program[condExpr])
+        condition = emitR(expr: wholeValProgram[condExpr])
       case .decl(let decl):
         let _ = decl
         condition = CXXComment(comment: "binding condition")
@@ -366,7 +368,7 @@ public struct CXXTranspiler {
     if expr.condition.count == 1 {
       switch expr.condition[0] {
       case .expr(let condExpr):
-        condition = emitR(expr: program[condExpr])
+        condition = emitR(expr: wholeValProgram[condExpr])
       case .decl(let decl):
         let _ = decl
         condition = CXXComment(comment: "binding condition")
@@ -381,13 +383,13 @@ public struct CXXTranspiler {
       let falseExpr: CXXExpr
       switch expr.success {
       case .expr(let altExpr):
-        trueExpr = emitR(expr: program[altExpr])
+        trueExpr = emitR(expr: wholeValProgram[altExpr])
       case .block:
         fatalError("not implemented")
       }
       switch expr.failure {
       case .expr(let altExpr):
-        falseExpr = emitR(expr: program[altExpr])
+        falseExpr = emitR(expr: wholeValProgram[altExpr])
       case .block:
         fatalError("not implemented")
       case .none:
@@ -402,19 +404,19 @@ public struct CXXTranspiler {
       let falseStmt: CXXStmt?
       switch expr.success {
       case .expr(let altExpr):
-        let expr = program[altExpr]
+        let expr = wholeValProgram[altExpr]
         trueStmt = CXXExprStmt(
           expr: CXXVoidCast(baseExpr: emitR(expr: expr)))
       case .block(let braceStmt):
-        trueStmt = emit(stmt: program[braceStmt])
+        trueStmt = emit(stmt: wholeValProgram[braceStmt])
       }
       switch expr.failure {
       case .expr(let altExpr):
-        let expr = program[altExpr]
+        let expr = wholeValProgram[altExpr]
         falseStmt = CXXExprStmt(
           expr: CXXVoidCast(baseExpr: emitR(expr: expr)))
       case .block(let braceStmt):
-        falseStmt = emit(stmt: program[braceStmt])
+        falseStmt = emit(stmt: wholeValProgram[braceStmt])
       case .none:
         falseStmt = nil
       }
@@ -439,7 +441,7 @@ public struct CXXTranspiler {
     for (parameter, argument) in zip(calleeType.inputs, expr.arguments) {
       let parameterType = parameter.type.base as! ParameterType
       argumentConventions.append(parameterType.convention)
-      arguments.append(emit(argument: program[argument.value], to: parameterType))
+      arguments.append(emit(argument: wholeValProgram[argument.value], to: parameterType))
     }
 
     // If the callee is a name expression referring to the declaration of a function capture-less
@@ -587,7 +589,7 @@ public struct CXXTranspiler {
   ) -> CXXExpr {
     switch seq {
     case .infix(let callee, let lhs, let rhs):
-      let calleeExpr = program[callee.expr]
+      let calleeExpr = wholeValProgram[callee.expr]
       let calleeType = calleeExpr.type.base as! LambdaType
 
       // Emit the operands, starting with RHS.
@@ -608,13 +610,13 @@ public struct CXXTranspiler {
     case .leaf(let expr):
       switch capability {
       case .let:
-        return emitL(expr: program[expr], withCapability: .let)
+        return emitL(expr: wholeValProgram[expr], withCapability: .let)
       case .inout:
-        return emitL(expr: program[expr], withCapability: .inout)
+        return emitL(expr: wholeValProgram[expr], withCapability: .inout)
       case .set:
-        return emitL(expr: program[expr], withCapability: .set)
+        return emitL(expr: wholeValProgram[expr], withCapability: .set)
       case .sink:
-        return emitR(expr: program[expr])
+        return emitR(expr: wholeValProgram[expr])
       case .yielded:
         fatalError("not implemented")
       }
