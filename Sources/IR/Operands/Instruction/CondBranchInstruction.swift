@@ -14,7 +14,14 @@ public struct CondBranchInstruction: Instruction {
   /// The target of the branch if `condition` is false.
   public let targetIfFalse: Block.ID
 
-  public let range: SourceRange?
+  public let site: SourceRange
+
+  init(condition: Operand, targetIfTrue: Block.ID, targetIfFalse: Block.ID, site: SourceRange) {
+    self.condition = condition
+    self.targetIfTrue = targetIfTrue
+    self.targetIfFalse = targetIfFalse
+    self.site = site
+  }
 
   public var types: [LoweredType] { [] }
 

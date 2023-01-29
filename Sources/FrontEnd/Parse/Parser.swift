@@ -30,26 +30,12 @@ public enum Parser {
     in ast: inout AST,
     diagnostics: inout Diagnostics
   ) throws -> NodeID<TopLevelDeclSet> {
-
-    // Temporarily stash the ast and diagnostics in the parser state, avoiding CoW costs
+    // Temporarily stash the AST and diagnostics in the parser state, avoiding CoW costs
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input), diagnostics: diagnostics)
     defer { diagnostics = state.diagnostics }
     diagnostics = Diagnostics()
 
-    let translation = Self.parseSourceFile(in: &state)
-    try state.diagnostics.throwOnError()
-
-    // Make sure the entire input was consumed.
-    assert(state.peek() == nil, "expected EOF")
-
-    state.ast[module].addSourceFile(translation)
-    ast = state.ast
-
-    return translation
-  }
-
-  /// Parses an instance of `TopLevelDeclSet`.
-  static func parseSourceFile(in state: inout ParserState) -> NodeID<TopLevelDeclSet> {
+    // Parse the input.
     var members: [AnyDeclID] = []
 
     while let head = state.peek() {
@@ -57,6 +43,7 @@ public enum Parser {
       if state.take(.semi) != nil { continue }
 
       // Attempt to parse a member.
+      let startIndex = state.currentIndex
       do {
         if let member = try parseDecl(in: &state) {
           members.append(member)
@@ -67,7 +54,10 @@ public enum Parser {
         continue
       } catch let error {
         state.diagnostics.report(
-          Diagnostic(level: .error, message: error.localizedDescription, site: .eliminateFIXME))
+          Diagnostic(
+            level: .error,
+            message: error.localizedDescription,
+            site: state.lexer.sourceCode.range(startIndex ..< state.currentIndex)))
         continue
       }
 
@@ -99,7 +89,18 @@ public enum Parser {
       }
     }
 
-    return state.insert(TopLevelDeclSet(decls: members))
+    // Make sure the entire input was consumed.
+    assert(state.peek() == nil, "expected EOF")
+
+    let translation = state.insert(
+      TopLevelDeclSet(
+        decls: members,
+        site: input.range(input.text.startIndex ..< input.text.endIndex)))
+    state.ast[module].addSourceFile(translation)
+
+    try state.diagnostics.throwOnError()
+    ast = state.ast
+    return translation
   }
 
   // MARK: Declarations
@@ -566,8 +567,8 @@ public enum Parser {
     if state.isAtTypeScope && !prologue.isStatic {
       receiver = state.insert(
         synthesized: ParameterDecl(
-          identifier: SourceRepresentable(value: "self", range: .eliminateFIXME),
-          site: .eliminateFIXME))
+          identifier: SourceRepresentable(value: "self", range: head.introducerSite),
+          site: head.introducerSite))
     } else {
       receiver = nil
     }
@@ -687,8 +688,8 @@ public enum Parser {
     // Init declarations require an implicit receiver parameter.
     let receiver = state.insert(
       synthesized: ParameterDecl(
-        identifier: SourceRepresentable(value: "self", range: .eliminateFIXME),
-        site: .eliminateFIXME))
+        identifier: SourceRepresentable(value: "self", range: introducer.site),
+        site: introducer.site))
 
     // Create a new `InitializerDecl`.
     assert(prologue.accessModifiers.count <= 1)
@@ -710,9 +711,10 @@ public enum Parser {
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
   ) throws -> NodeID<InitializerDecl>? {
-    // Parse the parts of the declaration.
-    let parser = (take(nameTokenWithValue: "memberwise").and(take(.`init`)))
-    guard let parts = try parser.parse(&state) else { return nil }
+    // Parse the introducer.
+    guard let a = state.take(nameTokenWithValue: "memberwise") else { return nil }
+    let b = try state.expect("'init'", using: { $0.take(.`init`) })
+    let introducerSite = a.site.extended(toCover: b.site)
 
     // Init declarations cannot be static.
     if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
@@ -722,14 +724,14 @@ public enum Parser {
     // Init declarations require an implicit receiver parameter.
     let receiver = state.insert(
       synthesized: ParameterDecl(
-        identifier: SourceRepresentable(value: "self", range: .eliminateFIXME),
-        site: .eliminateFIXME))
+        identifier: SourceRepresentable(value: "self", range: introducerSite),
+        site: introducerSite))
 
     // Create a new `InitializerDecl`.
     assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       InitializerDecl(
-        introducer: SourceRepresentable(value: .memberwiseInit, range: parts.0.site),
+        introducer: SourceRepresentable(value: .memberwiseInit, range: introducerSite),
         attributes: prologue.attributes,
         accessModifier: prologue.accessModifiers.first,
         genericClause: nil,
@@ -886,7 +888,9 @@ public enum Parser {
       if let body = try subscriptImplDeclBody.parse(&state) {
         let impl = try buildSubscriptImplDecl(
           in: &state,
-          withIntroducer: SourceRepresentable(value: .let, range: .eliminateFIXME),
+          introducedBy: SourceRepresentable(
+            value: .let,
+            range: state.emptyRange(at: state.ast[body.base].site.start)),
           body: body,
           asNonStaticMember: isNonStaticMember)
         return [impl]
@@ -911,7 +915,7 @@ public enum Parser {
       if let (introducer, body) = try subscriptImplDecl.parse(&state) {
         let impl = try buildSubscriptImplDecl(
           in: &state,
-          withIntroducer: introducer,
+          introducedBy: introducer,
           body: body,
           asNonStaticMember: isNonStaticMember)
         impls.append(impl)
@@ -930,9 +934,18 @@ public enum Parser {
     }
   }
 
+  /// Inserts a subscript having the given `introducer` and `body` into `state.ast` and returns its
+  /// ID.
+  ///
+  /// - Parameters:
+  ///   - introducer: The introducer of the declaration, or `nil` if it is implicit. In that case,
+  ///     it is synthesized as `let`.
+  ///   - body: The body of the declaration, or `nil` if that body should must be synthesized or
+  ///     if the declaration denotes a trait requirement.
+  /// - Requires: if `introducer` is `nil`, body is non-`nil`.
   private static func buildSubscriptImplDecl(
     in state: inout ParserState,
-    withIntroducer introducer: SourceRepresentable<ImplIntroducer>,
+    introducedBy introducer: SourceRepresentable<ImplIntroducer>,
     body: SubscriptImplDecl.Body?,
     asNonStaticMember isNonStaticMember: Bool
   ) throws -> NodeID<SubscriptImplDecl> {
@@ -941,22 +954,17 @@ public enum Parser {
     if isNonStaticMember {
       receiver = state.insert(
         synthesized: ParameterDecl(
-          identifier: SourceRepresentable(value: "self", range: .eliminateFIXME),
-          site: .eliminateFIXME))
+          identifier: SourceRepresentable(value: "self", range: introducer.site),
+          site: introducer.site))
     } else {
       receiver = nil
     }
 
     let site: SourceRange
-    if introducer.site != .eliminateFIXME {
-      site = state.range(from: introducer.site.start)
+    if let n = body?.base {
+      site = introducer.site.extended(toCover: state.ast[n].site)
     } else {
-      switch body! {
-      case .expr(let id):
-        site = state.ast[id].site
-      case .block(let id):
-        site = state.ast[id].site
-      }
+      site = introducer.site
     }
 
     // Create a new `SubscriptImplDecl`.
@@ -992,8 +1000,8 @@ public enum Parser {
     // Synthesize the `Self` parameter of the trait.
     let selfParameterDecl = state.insert(
       GenericParameterDecl(
-        identifier: SourceRepresentable(value: "Self", range: .eliminateFIXME),
-        site: .eliminateFIXME))
+        identifier: SourceRepresentable(value: "Self", range: name.site),
+        site: name.site))
     members.append(AnyDeclID(selfParameterDecl))
 
     // Create a new `TraitDecl`.
@@ -1034,7 +1042,10 @@ public enum Parser {
 
     // Retrieve or synthesize the type's memberwise initializer.
     var members = parts.1
-    let memberwiseInit = findOrSynthesizeMemberwiseInitDecl(in: &members, updating: &state)
+    let memberwiseInit = memberwiseInitializer(
+      ofDeclStartingAt: parts.0.0.0.0.site.start,
+      among: &members,
+      updating: &state)
 
     // Create a new `ProductTypeDecl`.
     assert(prologue.accessModifiers.count <= 1)
@@ -1051,8 +1062,9 @@ public enum Parser {
 
   /// Returns the first memberwise initializer declaration in `members` or synthesizes an implicit
   /// one, appends it into `members`, and returns it.
-  private static func findOrSynthesizeMemberwiseInitDecl(
-    in members: inout [AnyDeclID],
+  private static func memberwiseInitializer(
+    ofDeclStartingAt startIndex: SourceFile.Index,
+    among members: inout [AnyDeclID],
     updating state: inout ParserState
   ) -> NodeID<InitializerDecl> {
     for member in members where member.kind == InitializerDecl.self {
@@ -1060,20 +1072,21 @@ public enum Parser {
       if state.ast[m].introducer.value == .memberwiseInit { return m }
     }
 
+    let startOfTypeDecl = state.emptyRange(at: startIndex)
     let receiver = state.insert(
       synthesized: ParameterDecl(
-        identifier: SourceRepresentable(value: "self", range: .eliminateFIXME),
-        site: .eliminateFIXME))
+        identifier: SourceRepresentable(value: "self", range: startOfTypeDecl),
+        site: startOfTypeDecl))
     let m = state.insert(
       synthesized: InitializerDecl(
-        introducer: SourceRepresentable(value: .memberwiseInit, range: .eliminateFIXME),
+        introducer: SourceRepresentable(value: .memberwiseInit, range: startOfTypeDecl),
         attributes: [],
         accessModifier: nil,
         genericClause: nil,
         parameters: [],
         receiver: receiver,
         body: nil,
-        site: .eliminateFIXME))
+        site: startOfTypeDecl))
     members.append(AnyDeclID(m))
     return m
   }
@@ -1198,8 +1211,8 @@ public enum Parser {
       .map({ (state, tree) -> NodeID<MethodImplDecl> in
         let receiver = state.insert(
           ParameterDecl(
-            identifier: SourceRepresentable(value: "self", range: .eliminateFIXME),
-            site: .eliminateFIXME))
+            identifier: SourceRepresentable(value: "self", range: tree.0.site),
+            site: tree.0.site))
         return state.insert(
           MethodImplDecl(
             introducer: tree.0,
@@ -1491,7 +1504,7 @@ public enum Parser {
       let `operator` = state.insert(
         NameExpr(
           name: SourceRepresentable(
-            value: Name(stem: operatorStem.value, notation: .infix), range: .eliminateFIXME),
+            value: Name(stem: operatorStem.value, notation: .infix), range: operatorStem.site),
           site: operatorStem.site))
       tail.append(SequenceExpr.TailElement(operator: `operator`, operand: operand))
     }
@@ -2203,9 +2216,8 @@ public enum Parser {
     let output = try state.expect("type expression", using: parseExpr(in:))
 
     // Synthesize the environment as an empty tuple if we parsed `[]`.
-    let e =
-      environement
-      ?? AnyExprID(state.insert(TupleTypeExpr(elements: [], site: .eliminateFIXME)))
+    let e = environement ?? AnyExprID(
+      state.insert(TupleTypeExpr(elements: [], site: state.emptyRange(at: opener.site.start))))
 
     let expr = state.insert(
       LambdaTypeExpr(
@@ -2841,12 +2853,14 @@ public enum Parser {
     (maybe(passingConvention)
       .andCollapsingSoftFailures(expr)
       .map({ (state, tree) -> NodeID<ParameterTypeExpr> in
-        state.insert(
+        let s = state.range(from: tree.0?.site.start ?? state.ast[tree.1].site.start)
+        return state.insert(
           ParameterTypeExpr(
-            convention: tree.0 ?? SourceRepresentable(value: .let, range: .eliminateFIXME),
+            convention: tree.0 ?? SourceRepresentable(
+              value: .let,
+              range: state.emptyRange(at: s.start)),
             bareType: tree.1,
-            site: state.range(
-              from: tree.0?.site.start ?? state.ast[tree.1].site.start),
+            site: s,
             synthesized: tree.0 == nil
           ))
       }))

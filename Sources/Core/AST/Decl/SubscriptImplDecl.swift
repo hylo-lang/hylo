@@ -10,6 +10,16 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
     /// A block body.
     case block(NodeID<BraceStmt>)
 
+    /// The node wrapped by this instance.
+    public var base: AnyNodeID {
+      switch self {
+      case .expr(let n):
+        return AnyNodeID(n)
+      case .block(let n):
+        return AnyNodeID(n)
+      }
+    }
+
   }
 
   public let site: SourceRange

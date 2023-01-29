@@ -9,8 +9,7 @@ public struct ModuleDecl: SingleEntityDecl, LexicalScope {
 
   public init(name: String) {
     self.name = name
-    let f = SourceFile(synthesizedText: "/* module: \(name) */")
-    self.site = f.position(f.text.startIndex) ..< f.position(f.text.endIndex)
+    self.site = SourceFile(synthesizedText: "/* module: \(name) */").wholeRange
   }
 
   public let site: SourceRange

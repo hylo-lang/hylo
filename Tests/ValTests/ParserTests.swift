@@ -51,8 +51,12 @@ final class ParserTests: XCTestCase {
         public let y = 0;
       """)
 
-    let (id, ast) = input.parse(with: Parser.parseSourceFile)
-    XCTAssertEqual(ast[id].decls.count, 4)
+    var program = AST()
+    let module = program.insert(synthesized: ModuleDecl(name: "Main"))
+    var d = Diagnostics()
+    let translation = try Parser.parse(input, into: module, in: &program, diagnostics: &d)
+
+    XCTAssertEqual(program[translation].decls.count, 4)
   }
 
   // MARK: Declarations

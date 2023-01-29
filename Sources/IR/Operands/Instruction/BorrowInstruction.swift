@@ -18,7 +18,7 @@ public struct BorrowInstruction: Instruction {
   /// The binding in source program to which the instruction corresponds, if any.
   public let binding: VarDecl.Typed?
 
-  public let range: SourceRange?
+  public let site: SourceRange
 
   init(
     _ capability: AccessEffect,
@@ -26,14 +26,14 @@ public struct BorrowInstruction: Instruction {
     from location: Operand,
     at path: [Int] = [],
     binding: VarDecl.Typed? = nil,
-    range: SourceRange? = nil
+    site: SourceRange
   ) {
     self.borrowedType = borrowedType
     self.capability = capability
     self.location = location
     self.path = path
     self.binding = binding
-    self.range = range
+    self.site = site
   }
 
   public var types: [LoweredType] { [borrowedType] }
