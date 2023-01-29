@@ -268,6 +268,15 @@ public struct TypeChecker {
     return success
   }
 
+  /// Sets the realized type of `d` to `type`.
+  ///
+  /// - Requires: `d` has not gone through type realization yet.
+  mutating func setInferredType(_ type: AnyType, for d: NodeID<VarDecl>) {
+    precondition(declRequests[d] == nil)
+    declTypes[d] = type
+    declRequests[d] = .typeRealizationCompleted
+  }
+
   /// Type checks the specified module and returns whether that succeeded.
   ///
   /// - Requires: `id` is a valid ID in the type checker's AST.
@@ -354,9 +363,13 @@ public struct TypeChecker {
       unreachable()
     }
 
-    let scope = program.declToScope[AnyDeclID(id)]!
-    let pattern = syntax.pattern
-    guard var shape = infer(pattern: pattern, inScope: scope) else {
+    // Determine the shape of the declaration.
+    let declScope = program.declToScope[AnyDeclID(id)]!
+    let (shapeType, shapeFact) = infer(
+      typeOf: AnyPatternID(syntax.pattern), inScope: declScope, expecting: nil)
+    assert(shapeFact.inferredTypes.storage.isEmpty, "expression in binding pattern")
+
+    if shapeType.isError {
       declTypes[id] = .error
       declRequests[id] = .failure
       return false
@@ -369,17 +382,18 @@ public struct TypeChecker {
     var success = true
     if let initializer = syntax.initializer {
       let initializerType = exprTypes[initializer].setIfNil(^TypeVariable(node: initializer.base))
+      var initializerConstraints: [Constraint] = shapeFact.constraints
 
       // The type of the initializer may be a subtype of the pattern's
       if hasTypeHint {
-        shape.constraints.append(
+        initializerConstraints.append(
           SubtypingConstraint(
-            initializerType, shape.type,
+            initializerType, shapeType,
             because: ConstraintCause(.initializationWithHint, at: syntax.site)))
       } else {
-        shape.constraints.append(
+        initializerConstraints.append(
           EqualityConstraint(
-            initializerType, shape.type,
+            initializerType, shapeType,
             because: ConstraintCause(.initializationWithPattern, at: syntax.site)))
       }
 
@@ -391,19 +405,19 @@ public struct TypeChecker {
       bindingsUnderChecking.formUnion(names)
       let inference = solveConstraints(
         impliedBy: initializer,
-        expecting: shape.type,
-        inScope: scope,
-        initialConstraints: shape.constraints)
+        expecting: shapeType,
+        inScope: declScope,
+        initialConstraints: initializerConstraints)
       bindingsUnderChecking.subtract(names)
 
       // TODO: Complete underspecified generic signatures
 
       success = inference.succeeded
-      shape.type = inference.solution.typeAssumptions.reify(
-        shape.type, withVariables: .substituteByError)
+      declTypes[id] = inference.solution.typeAssumptions.reify(
+        shapeType, withVariables: .substituteByError)
 
       // Assign the variable declarations in the pattern to their type
-      for decl in shape.decls {
+      for decl in shapeFact.visitedVarDecls {
         modifying(
           &declTypes[decl]!,
           { (t) in
@@ -411,20 +425,15 @@ public struct TypeChecker {
           })
         declRequests[decl] = success ? .success : .failure
       }
-    } else if !hasTypeHint {
+    } else if hasTypeHint {
+      declTypes[id] = shapeType
+    } else {
       unreachable("expected type annotation")
     }
 
-    if success {
-      assert(!shape.type[.hasVariable])
-      declTypes[id] = shape.type
-      declRequests[id] = .success
-      return true
-    } else {
-      declTypes[id] = .error
-      declRequests[id] = .failure
-      return false
-    }
+    assert(!declTypes[id]![.hasVariable])
+    declRequests[id] = success ? .success : .failure
+    return success
   }
 
   private mutating func check(conformance: ConformanceDecl) -> Bool {
@@ -1612,10 +1621,8 @@ public struct TypeChecker {
     }
 
     // Generate constraints.
-    var facts = InferenceFacts(assigning: exprTypes[subject], to: subject)
-    let inferredType = infer(
-      typeOf: subject, inScope: AnyScopeID(scope),
-      expecting: expectedType, updating: &facts)
+    let (inferredType, facts) = infer(
+      typeOf: subject, inScope: AnyScopeID(scope), expecting: expectedType)
 
     // Bail out if constraint generation failed.
     if facts.foundConflict {
@@ -1646,156 +1653,6 @@ public struct TypeChecker {
     diagnostics.formUnion(solution.diagnostics)
 
     return (succeeded: solution.diagnostics.isEmpty, solution: solution)
-  }
-
-  /// Returns the inferred type of `pattern`, the type constraints implied by the expressions it
-  /// may contain, and the IDs of the variable declarations it contains.
-  ///
-  /// - Note: A `nil` return signals a failure to infer the type of the pattern.
-  private mutating func infer<T: PatternID>(
-    pattern: T,
-    inScope scope: AnyScopeID
-  ) -> (type: AnyType, constraints: [Constraint], decls: [NodeID<VarDecl>])? {
-    var constraints: [Constraint] = []
-    var decls: [NodeID<VarDecl>] = []
-    if let type = _infer(
-      pattern: pattern,
-      expectedType: nil,
-      inScope: scope,
-      constraints: &constraints,
-      decls: &decls)
-    {
-      return (type: type, constraints: constraints, decls: decls)
-    } else {
-      return nil
-    }
-  }
-
-  private mutating func _infer<T: PatternID>(
-    pattern: T,
-    expectedType: AnyType?,
-    inScope scope: AnyScopeID,
-    constraints: inout [Constraint],
-    decls: inout [NodeID<VarDecl>]
-  ) -> AnyType? {
-    switch pattern.kind {
-    case BindingPattern.self:
-      // A binding pattern introduces additional type information when it has a type annotation. In
-      // that case, the type denoted by the annotation is used to infer the type of the sub-pattern
-      // and constrained to be a subtype of the expected type, if any.
-      let lhs = program.ast[NodeID<BindingPattern>(rawValue: pattern.rawValue)]
-      var subpatternType = expectedType
-      if let annotation = lhs.annotation {
-        if let type = realize(annotation, inScope: scope)?.instance {
-          if let r = expectedType {
-            constraints.append(
-              SubtypingConstraint(
-                type, r, because: ConstraintCause(.annotation, at: program.ast[pattern].site)))
-          }
-          subpatternType = type
-        } else {
-          return nil
-        }
-      }
-
-      return _infer(
-        pattern: lhs.subpattern,
-        expectedType: subpatternType,
-        inScope: scope,
-        constraints: &constraints,
-        decls: &decls)
-
-    case _ where pattern.kind.value is Expr.Type:
-      fatalError("not implemented")
-
-    case NamePattern.self:
-      let lhs = program.ast[NodeID<NamePattern>(rawValue: pattern.rawValue)]
-      let type = expectedType ?? ^TypeVariable(node: AnyNodeID(lhs.decl))
-      decls.append(lhs.decl)
-      declTypes[lhs.decl] = type
-      declRequests[lhs.decl] = .typeRealizationCompleted
-      return type
-
-    case TuplePattern.self:
-      let lhs = program.ast[NodeID<TuplePattern>(rawValue: pattern.rawValue)]
-      switch expectedType?.base {
-      case let rhs as TupleType:
-        // The pattern and the expected have a tuple shape.
-        if rhs.elements.count == lhs.elements.count {
-          var lLabels: [String?] = []
-          var rLabels: [String?] = []
-
-          // Visit the elements pairwise.
-          for (a, b) in zip(lhs.elements, rhs.elements) {
-            if _infer(
-              pattern: a.pattern,
-              expectedType: b.type,
-              inScope: scope,
-              constraints: &constraints,
-              decls: &decls) == nil
-            {
-              return nil
-            }
-
-            lLabels.append(a.label?.value)
-            rLabels.append(b.label)
-          }
-
-          // Check that labels match.
-          if lLabels == rLabels {
-            return expectedType
-          } else {
-            diagnostics.insert(
-              .error(
-                labels: lLabels,
-                incompatibleWith: rLabels,
-                at: program.ast[pattern].site))
-            return nil
-          }
-        } else {
-          // Invalid destructuring.
-          diagnostics.insert(
-            .error(
-              invalidDestructuringOfType: expectedType!,
-              at: program.ast[pattern].site))
-          return nil
-        }
-
-      case is TypeVariable:
-        // If the expected type is a variable, we can't infer anything more at this point.
-        return expectedType
-
-      case .some:
-        // If the expected type doesn't have a tuple shape, the pattern cannot match.
-        diagnostics.insert(
-          .error(
-            invalidDestructuringOfType: expectedType!,
-            at: program.ast[pattern].site))
-        return nil
-
-      case nil:
-        // Infer the shape of the expected type.
-        var elements: [TupleType.Element] = []
-        for element in lhs.elements {
-          guard
-            let type = _infer(
-              pattern: element.pattern,
-              expectedType: nil,
-              inScope: scope,
-              constraints: &constraints,
-              decls: &decls)
-          else { return nil }
-          elements.append(TupleType.Element(label: element.label?.value, type: type))
-        }
-        return ^TupleType(elements)
-      }
-
-    case WildcardPattern.self:
-      return expectedType ?? ^TypeVariable()
-
-    default:
-      unreachable("unexpected pattern")
-    }
   }
 
   // MARK: Name binding
