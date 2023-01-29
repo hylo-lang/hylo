@@ -6,6 +6,6 @@ public struct BuiltinDecl: Decl {
   public var site: SourceRange { Self.site }
 
   /// A synthesized site for all instances.
-  private static let site = SourceFile(synthesizedText: "/* built-in declaration */").wholeRange
+private static let siteConstant = SourceFile(synthesizedText: "/* built-in declaration */").wholeRange
 
 }
