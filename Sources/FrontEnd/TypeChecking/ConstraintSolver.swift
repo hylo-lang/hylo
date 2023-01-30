@@ -749,7 +749,7 @@ struct ConstraintSolver {
       typeAssumptions: typeAssumptions.optimized(),
       bindingAssumptions: bindingAssumptions,
       penalties: penalties,
-      diagnostics: diagnostics + stale.map(Diagnostic.error(staleConstraint:)))
+      diagnostics: .init(diagnostics + stale.map(Diagnostic.error(staleConstraint:))))
   }
 
   /// Creates an ambiguous solution.
@@ -760,21 +760,21 @@ struct ConstraintSolver {
     var types = results[0].solution.typeAssumptions
     var bindings = results[0].solution.bindingAssumptions
     var penalties = results[0].solution.score.penalties
-    var diagnostics = Set(results[0].solution.diagnostics)
-    diagnostics.insert(cause)
+    var diagnostics = results[0].solution.diagnostics
+    diagnostics.report(cause)
 
     for result in results.dropFirst() {
       types.formIntersection(result.solution.typeAssumptions)
       bindings.formIntersection(result.solution.bindingAssumptions)
       penalties = max(penalties, result.solution.score.penalties)
-      diagnostics.formUnion(result.solution.diagnostics)
+      diagnostics.merge(result.solution.diagnostics)
     }
 
     return Solution(
       typeAssumptions: types,
       bindingAssumptions: bindings,
       penalties: penalties,
-      diagnostics: Array(diagnostics))
+      diagnostics: diagnostics)
   }
 
   /// Returns `true` if `lhs` is structurally compatible with `rhs`. Otherwise, generates the
@@ -973,7 +973,7 @@ extension TypeChecker {
     // Solve the constraint system.
     var solver = ConstraintSolver(
       scope: scope, fresh: constraints, comparingSolutionsWith: .void, loggingTrace: false)
-    return solver.apply(using: &self).diagnostics.isEmpty
+    return !solver.apply(using: &self).diagnostics.errorReported
   }
 
 }
