@@ -60,7 +60,8 @@ public struct AST {
 
     let i = NodeID<T>(rawValue: nodes.count)
     if let n = n as? ModuleDecl {
-      precondition(!modules.contains(where: { self[$0].name == n.name }), "duplicate module")
+      precondition(
+        !modules.contains(where: { self[$0].baseName == n.baseName }), "duplicate module")
       modules.append(i as! NodeID<ModuleDecl>)
     }
     nodes.append(AnyNode(n))
@@ -133,7 +134,7 @@ public struct AST {
 
     for id in topLevelDecls(corelib!) where id.kind == ProductTypeDecl.self {
       let id = NodeID<ProductTypeDecl>(id)!
-      if self[id].name == name {
+      if self[id].baseName == name {
         return ProductType(id, ast: self)
       }
     }
@@ -149,7 +150,7 @@ public struct AST {
 
     for id in topLevelDecls(corelib!) where id.kind == TraitDecl.self {
       let id = NodeID<TraitDecl>(rawValue: id.rawValue)
-      if self[id].name == name {
+      if self[id].baseName == name {
         return TraitType(id, ast: self)
       }
     }

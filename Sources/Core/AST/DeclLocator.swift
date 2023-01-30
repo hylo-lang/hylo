@@ -84,7 +84,7 @@ public struct DeclLocator: Hashable {
 
       case ProductTypeDecl.self:
         let decl = NodeID<ProductTypeDecl>(rawValue: decl.rawValue)
-        self = .product(program.ast[decl].name)
+        self = .product(program.ast[decl].baseName)
 
       default:
         return nil

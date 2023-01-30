@@ -13,7 +13,7 @@ public struct CXXModule {
 
   /// The module name
   var name: String {
-    source.name
+    source.baseName
   }
 
 }

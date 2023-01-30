@@ -26,7 +26,7 @@ public struct AssociatedValueType: TypeProtocol {
     }
 
     self.decl = decl
-    self.name = Incidental(ast[decl].name)
+    self.name = Incidental(ast[decl].baseName)
   }
 
   public var flags: TypeFlags { .isCanonical }

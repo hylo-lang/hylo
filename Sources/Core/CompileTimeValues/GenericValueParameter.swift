@@ -20,7 +20,7 @@ public struct GenericValueParameter: CompileTimeValue {
   ) {
     self.decl = decl
     self.staticType = staticType
-    self.name = Incidental(ast[decl].name)
+    self.name = Incidental(ast[decl].baseName)
   }
 
 }

@@ -74,7 +74,7 @@ public struct CXXTranspiler {
     let paramTypes = (source.type.base as! LambdaType).inputs
     assert(paramTypes.count == source.parameters.count)
     return zip(source.parameters, paramTypes).map { p, t in
-      CXXFunctionDecl.Parameter(CXXIdentifier(p.name), cxx(typeExpr: t.type))
+      CXXFunctionDecl.Parameter(CXXIdentifier(p.baseName), cxx(typeExpr: t.type))
     }
   }
 
@@ -122,7 +122,7 @@ public struct CXXTranspiler {
       .attribute(
         CXXClassAttribute(
           type: cxx(typeExpr: $0.pattern.decl.type),
-          name: CXXIdentifier($0.pattern.decl.name),
+          name: CXXIdentifier($0.pattern.decl.baseName),
           initializer: nil,  // TODO
           isStatic: source.isStatic))
     })
@@ -600,7 +600,7 @@ public struct CXXTranspiler {
       }
 
     case ProductTypeDecl.self:
-      return ProductTypeDecl.Typed(decl)!.name
+      return ProductTypeDecl.Typed(decl)!.baseName
 
     case ParameterDecl.self:
       return ParameterDecl.Typed(decl)!.identifier.value
