@@ -2053,9 +2053,7 @@ public enum Parser {
 
     // Parse the parts of the expression.
     let subject = try state.expect("subject", using: parseExpr(in:))
-    let cases = try state.expect(
-      "match body",
-      using: parseMatchBody(in:))
+    let cases = try state.expect("match body", using: parseMatchBody(in:))
 
     return state.insert(
       MatchExpr(
