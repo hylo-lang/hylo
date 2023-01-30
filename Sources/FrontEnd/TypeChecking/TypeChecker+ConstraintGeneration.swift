@@ -147,6 +147,10 @@ extension TypeChecker {
       return inferType(
         ofLambdaExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
+    case MatchExpr.self:
+      return inferType(
+        ofMatchExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        expecting: expectedType, updating: &facts)
     case NameExpr.self:
       return inferType(
         ofNameExpr: NodeID(rawValue: subject.rawValue), in: scope,
@@ -467,6 +471,34 @@ extension TypeChecker {
     }
 
     return facts.constrain(subject, in: program.ast, toHaveType: declType)
+  }
+
+private mutating func inferType(
+    ofMatchExpr subject: NodeID<MatchExpr>,
+    in scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    let syntax = program.ast[subject]
+
+    // Visit the subject of the match.
+    let subjectType = inferType(of: syntax.subject, in: scope, expecting: nil, updating: &facts)
+    if subjectType.isError {
+      return facts.assignErrorType(to: subject)
+    }
+
+    for c in syntax.cases {
+      // Each pattern is expected to have the same type as the subject.
+      let caseType = inferType(
+        of: program.ast[c].pattern, in: scope,
+        expecting: subjectType, updating: &facts)
+
+      if caseType.isError {
+        return facts.assignErrorType(to: subject)
+      }
+    }
+
+    return facts.constrain(subject, in: program.ast, toHaveType: AnyType.void)
   }
 
   private mutating func inferType(
