@@ -367,9 +367,10 @@ public struct Emitter {
     // If the expression is supposed to return a value, allocate storage for it.
     var resultStorage: Operand?
     if expr.type != .void {
-      resultStorage = module.append(
-        AllocStackInstruction(expr.type, site: expr.site),
-        to: insertionBlock!)[0]
+      resultStorage =
+        module.append(
+          AllocStackInstruction(expr.type, site: expr.site),
+          to: insertionBlock!)[0]
       stack.top.allocs.append(resultStorage!)
     }
 
@@ -931,7 +932,7 @@ public struct Emitter {
       case VarDecl.self:
         let varDecl = VarDecl.Typed(decl)!
         let layout = program.abstractLayout(of: module.type(of: receiver).astType)
-        let memberIndex = layout.storedPropertiesIndices[varDecl.name]!
+        let memberIndex = layout.storedPropertiesIndices[varDecl.baseName]!
 
         // If the lowered receiver is a borrow instruction, modify it in place so that it targets
         // the requested stored member. Otherwise, emit a reborrow.

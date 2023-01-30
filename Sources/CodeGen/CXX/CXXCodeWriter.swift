@@ -22,7 +22,7 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(module.valDecl.name)")
+    target.write("namespace \(module.valDecl.baseName)")
     target.beginBrace()
     target.writeNewline()
 
@@ -42,11 +42,11 @@ public struct CXXCodeWriter {
     var target = CodeFormatter()
 
     // Emit include clauses.
-    target.writeLine("#include \"\(module.valDecl.name).h\"")
+    target.writeLine("#include \"\(module.valDecl.baseName).h\"")
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(module.valDecl.name)")
+    target.write("namespace \(module.valDecl.baseName)")
     target.beginBrace()
     target.writeNewline()
 

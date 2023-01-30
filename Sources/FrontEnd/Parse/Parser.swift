@@ -2216,8 +2216,10 @@ public enum Parser {
     let output = try state.expect("type expression", using: parseExpr(in:))
 
     // Synthesize the environment as an empty tuple if we parsed `[]`.
-    let e = environement ?? AnyExprID(
-      state.insert(TupleTypeExpr(elements: [], site: state.emptyRange(at: opener.site.start))))
+    let e =
+      environement
+      ?? AnyExprID(
+        state.insert(TupleTypeExpr(elements: [], site: state.emptyRange(at: opener.site.start))))
 
     let expr = state.insert(
       LambdaTypeExpr(
@@ -2856,9 +2858,10 @@ public enum Parser {
         let s = state.range(from: tree.0?.site.start ?? state.ast[tree.1].site.start)
         return state.insert(
           ParameterTypeExpr(
-            convention: tree.0 ?? SourceRepresentable(
-              value: .let,
-              range: state.emptyRange(at: s.start)),
+            convention: tree.0
+              ?? SourceRepresentable(
+                value: .let,
+                range: state.emptyRange(at: s.start)),
             bareType: tree.1,
             site: s,
             synthesized: tree.0 == nil

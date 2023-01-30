@@ -100,7 +100,7 @@ struct CaptureCollector {
 
     // Add the names introduced by the declaration to the set of bound names.
     for (_, pattern) in ast.names(in: ast[id].pattern) {
-      boundNames[boundNames.count - 1].insert(Name(stem: ast[ast[pattern].decl].name))
+      boundNames[boundNames.count - 1].insert(Name(stem: ast[ast[pattern].decl].baseName))
     }
   }
 
@@ -119,7 +119,7 @@ struct CaptureCollector {
       if let defaultValue = ast[parameter].defaultValue {
         collectCaptures(ofExpr: defaultValue, into: &captures, inMutatingContext: false)
       }
-      newNames.insert(Name(stem: ast[parameter].name))
+      newNames.insert(Name(stem: ast[parameter].baseName))
     }
 
     // Visit the type and value expressions in the generic clause and collect the names of the
@@ -138,7 +138,7 @@ struct CaptureCollector {
         if let value = ast[parameter].defaultValue {
           collectCaptures(ofExpr: value, into: &captures, inMutatingContext: false)
         }
-        newNames.insert(Name(stem: ast[parameter].name))
+        newNames.insert(Name(stem: ast[parameter].baseName))
       }
     }
 
@@ -149,7 +149,7 @@ struct CaptureCollector {
       }
       if !areExplicitCapturesIncluded {
         for (_, pattern) in ast.names(in: ast[capture].pattern) {
-          newNames.insert(Name(stem: ast[ast[pattern].decl].name))
+          newNames.insert(Name(stem: ast[ast[pattern].decl].baseName))
         }
       }
     }
@@ -421,7 +421,7 @@ struct CaptureCollector {
     ofNamePattern id: NodeID<NamePattern>,
     into captures: inout FreeSet
   ) {
-    let name = Name(stem: ast[ast[id].decl].name)
+    let name = Name(stem: ast[ast[id].decl].baseName)
     boundNames[boundNames.count - 1].insert(name)
   }
 
