@@ -41,6 +41,14 @@ public struct Diagnostics {
 
 }
 
+extension Diagnostics: ExpressibleByArrayLiteral {
+
+  public init(arrayLiteral batch: Diagnostic...) {
+    self.init(batch)
+  }
+
+}
+
 extension Diagnostics: CustomStringConvertible {
 
   public var description: String {
