@@ -34,6 +34,12 @@ public struct Diagnostics {
     for d in batch { report(d) }
   }
 
+  /// Merges `self` with `other`.
+  public mutating func merge(_ other: Self) {
+    log.formUnion(other.log)
+    errorReported = errorReported || other.errorReported
+  }
+
   /// Throws `self` if any errors were reported.
   public func throwOnError() throws {
     if errorReported { throw self }
