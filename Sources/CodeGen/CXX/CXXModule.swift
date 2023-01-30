@@ -9,15 +9,11 @@ public struct CXXModule {
   let source: ModuleDecl.Typed
 
   /// The C++ top-level declarations for this module
-  private(set) var cxxTopLevelDecls: [CXXTopLevelDecl] = []
+  let topLevelDecls: [CXXTopLevelDecl]
 
-  init(_ source: ModuleDecl.Typed) {
-    self.source = source
-  }
-
-  /// Add a top-level C++ declaration to this module.
-  mutating func addTopLevelDecl(_ decl: CXXTopLevelDecl) {
-    cxxTopLevelDecls.append(decl)
+  /// The module name
+  var name: String {
+    source.name
   }
 
 }

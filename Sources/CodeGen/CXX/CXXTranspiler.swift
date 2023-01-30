@@ -19,12 +19,7 @@ public struct CXXTranspiler {
 
   /// Returns a C++ AST implementing the semantics of `source`.
   public func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
-    var result = CXXModule(source)
-    for member in source.topLevelDecls {
-      let cxxTopLevelDecl = cxx(topLevel: member)
-      result.addTopLevelDecl(cxxTopLevelDecl)
-    }
-    return result
+    return CXXModule(source: source, topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }))
   }
 
   // MARK: Declarations

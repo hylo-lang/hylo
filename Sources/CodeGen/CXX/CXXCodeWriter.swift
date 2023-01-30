@@ -22,12 +22,12 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(module.source.name)")
+    target.write("namespace \(module.name)")
     target.beginBrace()
     target.writeNewline()
 
     // Emit the C++ text needed for the header corresponding to the C++ declarations.
-    for decl in module.cxxTopLevelDecls {
+    for decl in module.topLevelDecls {
       writeInterface(topLevel: decl, into: &target)
     }
 
@@ -42,16 +42,16 @@ public struct CXXCodeWriter {
     var target = CodeFormatter()
 
     // Emit include clauses.
-    target.writeLine("#include \"\(module.source.name).h\"")
+    target.writeLine("#include \"\(module.name).h\"")
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(module.source.name)")
+    target.write("namespace \(module.name)")
     target.beginBrace()
     target.writeNewline()
 
     // Emit the C++ text needed for the source file corresponding to the C++ declarations.
-    for decl in module.cxxTopLevelDecls {
+    for decl in module.topLevelDecls {
       writeDefinition(topLevel: decl, into: &target)
       target.writeNewline()
     }
