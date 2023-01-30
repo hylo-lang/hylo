@@ -1589,7 +1589,9 @@ public struct TypeChecker {
       : nil
   }
 
-  /// Returns a solution describing the best guess to type `subject` and its sub-expressions.
+  /// Returns the best solution satisfying `initialConstraints` and describing how to assign types
+  /// to `subject` and its sub-expressions and knowing it occurs in `scope` and is expected to have
+  /// a type compatible with `expectedType`.
   ///
   /// - Parameters:
   ///   - subject: The expression whose constituent types should be deduced.
