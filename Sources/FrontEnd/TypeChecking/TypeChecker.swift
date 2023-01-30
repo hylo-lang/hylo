@@ -268,7 +268,7 @@ public struct TypeChecker {
     return success
   }
 
-  /// Sets the realized type of `d`.
+  /// Sets the realized type of `d` to `type`.
   ///
   /// - Requires: `d` has not gone through type realization yet.
   mutating func setInferredType(_ type: AnyType, for d: NodeID<VarDecl>) {
@@ -313,7 +313,7 @@ public struct TypeChecker {
       return check(initializer: NodeID(rawValue: id.rawValue))
     case MethodDecl.self:
       return check(method: NodeID(rawValue: id.rawValue))
-    case MethodImplDecl.self:
+    case MethodImpl.self:
       return check(method: NodeID(rawValue: program.declToScope[id]!.rawValue))
     case OperatorDecl.self:
       return check(operator: NodeID(rawValue: id.rawValue))
@@ -367,7 +367,7 @@ public struct TypeChecker {
     let declScope = program.declToScope[AnyDeclID(id)]!
     let (shapeType, shapeFact) = infer(
       typeOf: AnyPatternID(syntax.pattern), inScope: declScope, expecting: nil)
-    assert(shapeFact.inferredExprTypes.storage.isEmpty, "expression in binding pattern")
+    assert(shapeFact.inferredTypes.storage.isEmpty, "expression in binding pattern")
 
     if shapeType.isError {
       declTypes[id] = .error
@@ -606,7 +606,7 @@ public struct TypeChecker {
     return success
   }
 
-  private mutating func check(methodImpl: MethodImplDecl) -> Bool {
+  private mutating func check(methodImpl: MethodImpl) -> Bool {
     fatalError("not implemented")
   }
 
@@ -621,10 +621,10 @@ public struct TypeChecker {
     siblingNames: inout Set<String>
   ) -> Bool {
     // Check for duplicate parameter names.
-    if !siblingNames.insert(program.ast[id].name).inserted {
+    if !siblingNames.insert(program.ast[id].baseName).inserted {
       diagnostics.insert(
         .diganose(
-          duplicateParameterNamed: program.ast[id].name, at: program.ast[id].site))
+          duplicateParameterNamed: program.ast[id].baseName, at: program.ast[id].site))
       declRequests[id] = .failure
       return false
     }
@@ -771,7 +771,7 @@ public struct TypeChecker {
     return success
   }
 
-  private mutating func check(subscriptImpl: SubscriptImplDecl) -> Bool {
+  private mutating func check(subscriptImpl: SubscriptImpl) -> Bool {
     fatalError("not implemented")
   }
 
@@ -940,7 +940,8 @@ public struct TypeChecker {
 
                   switch c.base {
                   case let c as AssociatedTypeType:
-                    let candidates = lookup(c.name.value, memberOf: r, inScope: scope)
+                    let candidates = lookup(
+                      program.ast[c.decl].baseName, memberOf: r, inScope: scope)
 
                     // Name is ambiguous if there's more than one candidate.
                     if candidates.count != 1 {
@@ -1009,7 +1010,8 @@ public struct TypeChecker {
               because: [
                 .error(
                   traitRequiresMethod: Name(of: requirement, in: program.ast)!,
-                  withType: declTypes[requirement]!, at: .eliminateFIXME)
+                  withType: declTypes[requirement]!,
+                  at: program.ast[decl].identifier.site)
               ]))
           success = false
         }
@@ -1071,6 +1073,35 @@ public struct TypeChecker {
 
     case YieldStmt.self:
       return check(yield: NodeID(rawValue: id.rawValue), inScope: lexicalContext)
+
+    case WhileStmt.self:
+      // TODO: properly implement this
+      let stmt = program.ast[NodeID<WhileStmt>(rawValue: id.rawValue)]
+      var success = true
+      for cond in stmt.condition {
+        switch cond {
+        case .expr(let condExpr):
+          success =
+            (deduce(typeOf: condExpr, expecting: nil, inScope: lexicalContext) != nil) && success
+        default:
+          success = false
+        }
+      }
+      success = check(brace: stmt.body) && success
+      return success
+
+    case DoWhileStmt.self:
+      // TODO: properly implement this
+      let stmt = program.ast[NodeID<DoWhileStmt>(rawValue: id.rawValue)]
+      var success = true
+      success = check(brace: stmt.body) && success
+      success =
+        (deduce(typeOf: stmt.condition, expecting: nil, inScope: lexicalContext) != nil) && success
+      return success
+
+    case ForStmt.self, BreakStmt.self, ContinueStmt.self:
+      // TODO: implement checks for these statements
+      return true
 
     default:
       unreachable("unexpected statement")
@@ -1208,9 +1239,9 @@ public struct TypeChecker {
   private func expectedOutputType<S: ScopeID>(in lexicalContext: S) -> AnyType? {
     for parent in program.scopes(from: lexicalContext) {
       switch parent.kind {
-      case MethodImplDecl.self:
+      case MethodImpl.self:
         // `lexicalContext` is nested in a method implementation.
-        let decl = NodeID<MethodImplDecl>(rawValue: parent.rawValue)
+        let decl = NodeID<MethodImpl>(rawValue: parent.rawValue)
         if program.ast[decl].introducer.value == .inout {
           return .void
         } else {
@@ -1612,7 +1643,7 @@ public struct TypeChecker {
     }
 
     // Apply the solution.
-    for (id, type) in facts.inferredExprTypes.storage {
+    for (id, type) in facts.inferredTypes.storage {
       exprTypes[id] = solution.typeAssumptions.reify(type, withVariables: .keep)
     }
     for (name, ref) in solution.bindingAssumptions {
@@ -1900,8 +1931,8 @@ public struct TypeChecker {
     return nil
   }
 
-  /// Returns the declarations that expose `name` without qualification in `scope`.
-  mutating func lookup(unqualified name: String, inScope scope: AnyScopeID) -> DeclSet {
+  /// Returns the declarations that expose `baseName` without qualification in `scope`.
+  mutating func lookup(unqualified baseName: String, inScope scope: AnyScopeID) -> DeclSet {
     let site = scope
 
     var matches = DeclSet()
@@ -1920,8 +1951,8 @@ public struct TypeChecker {
         break
       }
 
-      // Search for the name in the current scope.
-      let newMatches = lookup(name, introducedInDeclSpaceOf: scope, inScope: site)
+      // Search for the identifier in the current scope.
+      let newMatches = lookup(baseName, introducedInDeclSpaceOf: scope, inScope: site)
         .subtracting(bindingsUnderChecking)
 
       // We can assume the matches are either empty or all overloadable.
@@ -1936,22 +1967,23 @@ public struct TypeChecker {
     // We're done if we found at least one match.
     if !matches.isEmpty { return matches }
 
-    // Check if the name refers to the module containing `scope`.
-    if program.ast[root]?.name == name {
+    // Check if the identifier refers to the module containing `scope`.
+    if program.ast[root]?.baseName == baseName {
       return [AnyDeclID(root!)]
     }
 
-    // Search for the name in imported modules.
+    // Search for the identifier in imported modules.
     for module in program.ast.modules where module != root {
-      matches.formUnion(names(introducedIn: module)[name, default: []])
+      matches.formUnion(names(introducedIn: module)[baseName, default: []])
     }
 
     return matches
   }
 
-  /// Returns the declarations that introduce `name` in the declaration space of `lookupContext`.
+  /// Returns the declarations that introduce a name whose stem is `baseName` in the declaration
+  /// space of `lookupContext`.
   mutating func lookup<T: ScopeID>(
-    _ name: String,
+    _ baseName: String,
     introducedInDeclSpaceOf lookupContext: T,
     inScope site: AnyScopeID
   ) -> DeclSet {
@@ -1960,55 +1992,56 @@ public struct TypeChecker {
       let type = ^ProductType(
         NodeID(rawValue: lookupContext.rawValue),
         ast: program.ast)
-      return lookup(name, memberOf: type, inScope: site)
+      return lookup(baseName, memberOf: type, inScope: site)
 
     case TraitDecl.self:
       let type = ^TraitType(NodeID(rawValue: lookupContext.rawValue), ast: program.ast)
-      return lookup(name, memberOf: type, inScope: site)
+      return lookup(baseName, memberOf: type, inScope: site)
 
     case TypeAliasDecl.self:
       let type = ^TypeAliasType(NodeID(rawValue: lookupContext.rawValue), ast: program.ast)
-      return lookup(name, memberOf: type, inScope: site)
+      return lookup(baseName, memberOf: type, inScope: site)
 
     default:
-      return names(introducedIn: lookupContext)[name, default: []]
+      return names(introducedIn: lookupContext)[baseName, default: []]
     }
   }
 
-  /// Returns the declarations that introduce `name` as a member of `type` in `scope`.
+  /// Returns the declarations that introduce a name whose stem is `baseName` as a member of `type`
+  /// in `scope`.
   mutating func lookup(
-    _ name: String,
+    _ baseName: String,
     memberOf type: AnyType,
     inScope scope: AnyScopeID
   ) -> DeclSet {
     if let t = type.base as? ConformanceLensType {
-      return lookup(name, memberOf: ^t.lens, inScope: scope)
+      return lookup(baseName, memberOf: ^t.lens, inScope: scope)
     }
 
     let key = MemberLookupKey(type: type, scope: scope)
-    if let m = memberLookupTables[key]?[name] {
+    if let m = memberLookupTables[key]?[baseName] {
       return m
     }
 
     var matches: DeclSet
-    defer { memberLookupTables[key, default: [:]][name] = matches }
+    defer { memberLookupTables[key, default: [:]][baseName] = matches }
 
     switch type.base {
     case let t as BoundGenericType:
-      matches = lookup(name, memberOf: t.base, inScope: scope)
+      matches = lookup(baseName, memberOf: t.base, inScope: scope)
       return matches
 
     case let t as ProductType:
-      matches = names(introducedIn: t.decl)[name, default: []]
-      if name == "init" {
+      matches = names(introducedIn: t.decl)[baseName, default: []]
+      if baseName == "init" {
         matches.insert(AnyDeclID(program.ast[t.decl].memberwiseInit))
       }
 
     case let t as TraitType:
-      matches = names(introducedIn: t.decl)[name, default: []]
+      matches = names(introducedIn: t.decl)[baseName, default: []]
 
     case let t as TypeAliasType:
-      matches = names(introducedIn: t.decl)[name, default: []]
+      matches = names(introducedIn: t.decl)[baseName, default: []]
 
     default:
       matches = DeclSet()
@@ -2021,7 +2054,7 @@ public struct TypeChecker {
 
     // Look for members declared in extensions.
     for i in extendingDecls(of: type, exposedTo: scope) {
-      matches.formUnion(names(introducedIn: i)[name, default: []])
+      matches.formUnion(names(introducedIn: i)[baseName, default: []])
     }
 
     // We're done if we found at least one non-overloadable match.
@@ -2035,7 +2068,7 @@ public struct TypeChecker {
       if type == trait { continue }
 
       // TODO: Read source of conformance to disambiguate associated names
-      let newMatches = lookup(name, memberOf: ^trait, inScope: scope)
+      let newMatches = lookup(baseName, memberOf: ^trait, inScope: scope)
       switch type.base {
       case is AssociatedTypeType,
         is GenericTypeParameterType,
@@ -2186,21 +2219,21 @@ public struct TypeChecker {
         TraitDecl.self,
         TypeAliasDecl.self,
         VarDecl.self:
-        let name = (program.ast[id] as! SingleEntityDecl).name
+        let name = (program.ast[id] as! SingleEntityDecl).baseName
         table[name, default: []].insert(id)
 
       case BindingDecl.self,
         ConformanceDecl.self,
-        MethodImplDecl.self,
+        MethodImpl.self,
         OperatorDecl.self,
-        SubscriptImplDecl.self:
+        SubscriptImpl.self:
         // Note: operator declarations are not considered during standard name lookup.
         break
 
       case FunctionDecl.self:
         let node = program.ast[NodeID<FunctionDecl>(rawValue: id.rawValue)]
-        guard let name = node.identifier?.value else { continue }
-        table[name, default: []].insert(id)
+        guard let i = node.identifier?.value else { continue }
+        table[i, default: []].insert(id)
 
       case InitializerDecl.self:
         table["init", default: []].insert(id)
@@ -2211,8 +2244,8 @@ public struct TypeChecker {
 
       case SubscriptDecl.self:
         let node = program.ast[NodeID<SubscriptDecl>(rawValue: id.rawValue)]
-        let name = node.identifier?.value ?? "[]"
-        table[name, default: []].insert(id)
+        let i = node.identifier?.value ?? "[]"
+        table[i, default: []].insert(id)
 
       default:
         unreachable("unexpected declaration")
@@ -2567,7 +2600,7 @@ public struct TypeChecker {
       case .some:
         diagnostics.insert(
           .error(
-            invalidUseOfAssociatedType: program.ast[decl].name,
+            invalidUseOfAssociatedType: program.ast[decl].baseName,
             at: name.site))
         return nil
       }
@@ -2698,7 +2731,7 @@ public struct TypeChecker {
     case MethodDecl.self:
       return realize(methodDecl: NodeID(rawValue: id.rawValue))
 
-    case MethodImplDecl.self:
+    case MethodImpl.self:
       return realize(methodDecl: NodeID(rawValue: program.declToScope[id]!.rawValue))
 
     case ParameterDecl.self:
@@ -3148,10 +3181,10 @@ public struct TypeChecker {
       // Collect the names of the capture.
       for (_, namePattern) in program.ast.names(in: program.ast[i].pattern) {
         let varDecl = program.ast[namePattern].decl
-        if !explictNames.insert(Name(stem: program.ast[varDecl].name)).inserted {
+        if !explictNames.insert(Name(stem: program.ast[varDecl].baseName)).inserted {
           diagnostics.insert(
             .error(
-              duplicateCaptureNamed: program.ast[varDecl].name,
+              duplicateCaptureNamed: program.ast[varDecl].baseName,
               at: program.ast[varDecl].site))
           success = false
         }
@@ -3325,7 +3358,7 @@ public struct TypeChecker {
         let d = program.ast[name].decl
         inputs.append(
           CallableTypeParameter(
-            label: program.ast[d].name,
+            label: program.ast[d].baseName,
             type: ^ParameterType(convention: .sink, bareType: declTypes[d]!)))
       }
     }

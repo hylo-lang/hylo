@@ -180,8 +180,8 @@ extension Diagnostic {
     .error("trait requires method '\(name)' with type '\(type)'", at: site)
   }
 
-  static func error(staleConstraint c: any Constraint, at site: SourceRange) -> Diagnostic {
-    .error("stale constraint '\(c)'", at: site)
+  static func error(staleConstraint c: any Constraint) -> Diagnostic {
+    .error("stale constraint '\(c)'", at: c.cause.site)
   }
 
   static func error(

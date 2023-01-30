@@ -4,6 +4,9 @@ public struct Diagnostic: Hashable {
   /// The severity of a diagnostic.
   public enum Level: Hashable {
 
+    /// A note.
+    case note
+
     /// An error that does not prevent compilation.
     case warning
 

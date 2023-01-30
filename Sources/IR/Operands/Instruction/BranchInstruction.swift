@@ -8,11 +8,11 @@ public struct BranchInstruction: Instruction {
   /// The target of the branch.
   public let target: Block.ID
 
-  public let range: SourceRange?
+  public let site: SourceRange
 
-  init(target: Block.ID, range: SourceRange? = nil) {
+  init(target: Block.ID, site: SourceRange) {
     self.target = target
-    self.range = range
+    self.site = site
   }
 
   public var types: [LoweredType] { [] }

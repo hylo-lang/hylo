@@ -2,15 +2,14 @@
 public struct ModuleDecl: SingleEntityDecl, LexicalScope {
 
   /// The name of the module.
-  public let name: String
+  public let baseName: String
 
   /// The source files in the module.
   public private(set) var sources: [NodeID<TopLevelDeclSet>] = []
 
   public init(name: String) {
-    self.name = name
-    let f = SourceFile(synthesizedText: "/* module: \(name) */")
-    self.site = f.position(f.text.startIndex) ..< f.position(f.text.endIndex)
+    self.baseName = name
+    self.site = SourceFile(synthesizedText: "/* module: \(name) */").wholeRange
   }
 
   public let site: SourceRange

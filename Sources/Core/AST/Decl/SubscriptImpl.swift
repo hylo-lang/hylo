@@ -1,5 +1,7 @@
 /// The declaration of a subscript implementation.
-public struct SubscriptImplDecl: Decl, LexicalScope {
+/// ///
+/// Instances of this type represent individual variant inside a subscript declaration.
+public struct SubscriptImpl: Decl, LexicalScope {
 
   /// The body of a subscript implementation.
   public enum Body: Codable {
@@ -9,6 +11,16 @@ public struct SubscriptImplDecl: Decl, LexicalScope {
 
     /// A block body.
     case block(NodeID<BraceStmt>)
+
+    /// The node wrapped by this instance.
+    public var base: AnyNodeID {
+      switch self {
+      case .expr(let n):
+        return AnyNodeID(n)
+      case .block(let n):
+        return AnyNodeID(n)
+      }
+    }
 
   }
 

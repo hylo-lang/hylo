@@ -30,7 +30,7 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
     self.members = members
   }
 
-  public var name: String { identifier.value }
+  public var baseName: String { identifier.value }
 
   public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
     for m in members {

@@ -1,0 +1,13 @@
+/*! cpp
+void test() {
+  int a = 5;
+  a = +a;
+  a = -a;
+}
+*/
+
+fun test() {
+  var a = 5
+  a = +a
+  a = -a
+}

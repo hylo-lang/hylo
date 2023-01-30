@@ -9,12 +9,12 @@ public struct AllocStackInstruction: Instruction {
   /// The binding in source program to which the instruction corresponds, if any.
   public let binding: VarDecl.Typed?
 
-  public let range: SourceRange?
+  public let site: SourceRange
 
-  init(_ allocatedType: AnyType, binding: VarDecl.Typed? = nil, range: SourceRange? = nil) {
+  init(_ allocatedType: AnyType, binding: VarDecl.Typed? = nil, site: SourceRange) {
     self.allocatedType = allocatedType
     self.binding = binding
-    self.range = range
+    self.site = site
   }
 
   public var types: [LoweredType] { [.address(allocatedType)] }

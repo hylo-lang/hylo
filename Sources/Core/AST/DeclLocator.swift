@@ -78,13 +78,13 @@ public struct DeclLocator: Hashable {
         let name = program.ast[decl].identifier.value
         self = .function(name: name, labels: labels, notation: program.ast[decl].notation?.value)
 
-      case MethodImplDecl.self:
-        let decl = NodeID<MethodImplDecl>(rawValue: decl.rawValue)
+      case MethodImpl.self:
+        let decl = NodeID<MethodImpl>(rawValue: decl.rawValue)
         self = .methodImpl(program.ast[decl].introducer.value)
 
       case ProductTypeDecl.self:
         let decl = NodeID<ProductTypeDecl>(rawValue: decl.rawValue)
-        self = .product(program.ast[decl].name)
+        self = .product(program.ast[decl].baseName)
 
       default:
         return nil

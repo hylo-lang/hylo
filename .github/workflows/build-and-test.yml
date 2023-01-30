@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, rewrite ]
   pull_request:
-    branches: [ main, rewrite ]
+    branches: [ "**" ]
 
 jobs:
   build:
@@ -51,7 +51,7 @@ jobs:
       if: matrix.host.type == 'linux'
       with:
         SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 74
+        MINIMUM_COVERAGE: 76
 
     - name: Build (Release)
       run: swift build -v -c release
@@ -62,4 +62,4 @@ jobs:
       if: matrix.host.type == 'linux'
       with:
         SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 74
+        MINIMUM_COVERAGE: 76

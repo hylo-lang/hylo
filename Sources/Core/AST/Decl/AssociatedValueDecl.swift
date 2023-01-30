@@ -30,6 +30,6 @@ public struct AssociatedValueDecl: SingleEntityDecl {
     self.defaultValue = defaultValue
   }
 
-  public var name: String { identifier.value }
+  public var baseName: String { identifier.value }
 
 }

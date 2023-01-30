@@ -39,6 +39,6 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
     self.members = members
   }
 
-  public var name: String { identifier.value }
+  public var baseName: String { identifier.value }
 
 }

@@ -12,7 +12,7 @@ public struct ModuleType: TypeProtocol {
   /// Creates an instance denoting the module declared by `decl`.
   public init(_ decl: NodeID<ModuleDecl>, ast: AST) {
     self.decl = decl
-    self.name = Incidental(ast[decl].name)
+    self.name = Incidental(ast[decl].baseName)
   }
 
   public var flags: TypeFlags { .isCanonical }

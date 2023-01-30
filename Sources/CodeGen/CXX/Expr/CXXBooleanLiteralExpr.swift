@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ integer literal expression.
-public struct CXXBooleanLiteralExpr: CXXRepresentable {
+struct CXXBooleanLiteralExpr: CXXExpr {
 
   /// The value of the literal.
   let value: Bool
@@ -9,8 +9,11 @@ public struct CXXBooleanLiteralExpr: CXXRepresentable {
   /// The original node in Val AST.
   let original: BooleanLiteralExpr.Typed?
 
-  public func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    target.write(value ? "true" : "false")
+  var precedence: Int {
+    0
+  }
+  var isLeftToRight: Bool {
+    true  // doesn't really matter
   }
 
 }

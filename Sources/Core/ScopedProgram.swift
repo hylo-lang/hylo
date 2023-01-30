@@ -108,8 +108,8 @@ extension ScopedProgram {
       visit(initializerDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case MethodDecl.self:
       visit(methodDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case MethodImplDecl.self:
-      visit(methodImplDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case MethodImpl.self:
+      visit(methodImpl: NodeID(rawValue: decl.rawValue), withState: &state)
     case ModuleDecl.self:
       visit(moduleDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case NamespaceDecl.self:
@@ -122,8 +122,8 @@ extension ScopedProgram {
       visit(productTypeDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case SubscriptDecl.self:
       visit(subscriptDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case SubscriptImplDecl.self:
-      visit(subscriptImplDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+    case SubscriptImpl.self:
+      visit(subscriptImpl: NodeID(rawValue: decl.rawValue), withState: &state)
     case TraitDecl.self:
       visit(traitDecl: NodeID(rawValue: decl.rawValue), withState: &state)
     case TypeAliasDecl.self:
@@ -321,13 +321,13 @@ extension ScopedProgram {
           this.visit(expr: output, withState: &state)
         }
         for impl in this.ast[decl].impls {
-          this.visit(methodImplDecl: impl, withState: &state)
+          this.visit(methodImpl: impl, withState: &state)
         }
       })
   }
 
   private mutating func visit(
-    methodImplDecl decl: NodeID<MethodImplDecl>,
+    methodImpl decl: NodeID<MethodImpl>,
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
@@ -437,13 +437,13 @@ extension ScopedProgram {
         }
         this.visit(expr: this.ast[decl].output, withState: &state)
         for impl in this.ast[decl].impls {
-          this.visit(subscriptImplDecl: impl, withState: &state)
+          this.visit(subscriptImpl: impl, withState: &state)
         }
       })
   }
 
   private mutating func visit(
-    subscriptImplDecl decl: NodeID<SubscriptImplDecl>,
+    subscriptImpl decl: NodeID<SubscriptImpl>,
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
@@ -889,6 +889,8 @@ extension ScopedProgram {
     case BraceStmt.self:
       visit(braceStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
     case BraceStmt.self:
+      break
+    case BreakStmt.self:
       break
     case CondBindingStmt.self:
       visit(condBindingStmt: NodeID(rawValue: stmt.rawValue), withState: &state)

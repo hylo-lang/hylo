@@ -1,7 +1,7 @@
 import Core
 
 /// A C++ integer literal expression.
-public struct CXXIntegerLiteralExpr: CXXRepresentable {
+struct CXXIntegerLiteralExpr: CXXExpr {
 
   /// The value of the literal.
   let value: String
@@ -9,8 +9,11 @@ public struct CXXIntegerLiteralExpr: CXXRepresentable {
   /// The original node in Val AST.
   let original: IntegerLiteralExpr.Typed?
 
-  public func writeCode<Target: TextOutputStream>(into target: inout Target) {
-    target.write(value)
+  var precedence: Int {
+    0
+  }
+  var isLeftToRight: Bool {
+    true  // doesn't really matter
   }
 
 }

@@ -6,11 +6,11 @@ public struct DeinitInstruction: Instruction {
   /// The object being deinitialized.
   public let object: Operand
 
-  public let range: SourceRange?
+  public let site: SourceRange
 
-  init(_ object: Operand, range: SourceRange? = nil) {
+  init(_ object: Operand, site: SourceRange) {
     self.object = object
-    self.range = range
+    self.site = site
   }
 
   public var types: [LoweredType] { [] }

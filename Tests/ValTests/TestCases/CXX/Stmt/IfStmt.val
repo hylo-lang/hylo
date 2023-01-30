@@ -1,0 +1,61 @@
+/*! cpp
+    void test_if_then_else() {
+    if ( mooing() ) (void) fooing();
+    else (void) baring();
+    ;
+    erring();
+    }
+ */
+/*! cpp
+    void test_if_then_else_blocks() {
+    if ( mooing() ) {
+    fooing();
+    fooing();
+    }
+    else {
+    baring();
+    baring();
+    }
+    ;
+    erring();
+    }
+ */
+/*! cpp
+    void test_if_no_else() {
+    if ( mooing() ) (void) fooing();
+    ;
+    erring();
+    }
+ */
+fun fooing() {}
+fun baring() {}
+fun mooing() -> Bool { true }
+fun erring() {}
+
+fun test_if_then_else() {
+    if mooing() {
+        fooing()
+    } else {
+        baring()
+    }
+    erring()
+}
+
+fun test_if_then_else_blocks() {
+    if mooing() {
+        fooing()
+        fooing()
+    } else {
+        baring()
+        baring()
+    }
+    erring()
+}
+
+fun test_if_no_else() {
+    if mooing() {
+        fooing()
+    }
+    erring()
+}
+
