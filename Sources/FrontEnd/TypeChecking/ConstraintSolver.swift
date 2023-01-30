@@ -127,7 +127,7 @@ struct ConstraintSolver {
       postpone(goal)
 
     case is ProductType, is TupleType:
-      let conformedTraits = checker.conformedTraits(of: goal.subject, inScope: scope) ?? []
+      let conformedTraits = checker.conformedTraits(of: goal.subject, in: scope) ?? []
       let nonConforming = goal.traits.subtracting(conformedTraits)
 
       if !nonConforming.isEmpty {
@@ -163,7 +163,7 @@ struct ConstraintSolver {
     if goal.subject.base is TypeVariable {
       postpone(goal)
     } else {
-      let conformedTraits = checker.conformedTraits(of: goal.subject, inScope: scope) ?? []
+      let conformedTraits = checker.conformedTraits(of: goal.subject, in: scope) ?? []
 
       if conformedTraits.contains(goal.literalTrait) {
         // Add a penalty if `L` isn't `D`.
@@ -426,7 +426,7 @@ struct ConstraintSolver {
 
     // Search for non-static members with the specified name.
     let allMatches = checker.lookup(
-      goal.memberName.stem, memberOf: goal.subject, inScope: scope)
+      goal.memberName.stem, memberOf: goal.subject, in: scope)
     let nonStaticMatches = allMatches.filter({ decl in
       checker.program.isNonStaticMember(decl)
     })

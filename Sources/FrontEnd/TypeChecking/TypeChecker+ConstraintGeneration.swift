@@ -93,7 +93,7 @@ extension TypeChecker {
   /// occurs in `scope` and is expected to have a type compatible with `expectedType`.
   mutating func infer(
     typeOf subject: AnyExprID,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?
   ) -> (type: AnyType, facts: InferenceFacts) {
     var facts: InferenceFacts
@@ -104,7 +104,7 @@ extension TypeChecker {
     }
 
     let inferredType = infer(
-      typeOf: subject, inScope: AnyScopeID(scope), expecting: expectedType, updating: &facts)
+      typeOf: subject, in: AnyScopeID(scope), expecting: expectedType, updating: &facts)
     return (inferredType, facts)
   }
 
@@ -112,7 +112,7 @@ extension TypeChecker {
   /// top-bottom type inference, and writing facts about its sub-expressions in `facts`.
   private mutating func infer(
     typeOf subject: AnyExprID,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -121,47 +121,47 @@ extension TypeChecker {
     switch subject.kind {
     case BooleanLiteralExpr.self:
       return infer(
-        typeOfBooleanLiteralExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfBooleanLiteralExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case CastExpr.self:
       return infer(
-        typeOfCastExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfCastExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case CondExpr.self:
       return infer(
-        typeOfConditionalExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfConditionalExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case FunctionCallExpr.self:
       return infer(
-        typeOfFunctionCallExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfFunctionCallExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case InoutExpr.self:
       return infer(
-        typeOfInoutExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfInoutExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case IntegerLiteralExpr.self:
       return infer(
-        typeOfIntegerLiteralExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfIntegerLiteralExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case LambdaExpr.self:
       return infer(
-        typeOfLambdaExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfLambdaExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case NameExpr.self:
       return infer(
-        typeOfNameExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfNameExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case SequenceExpr.self:
       return infer(
-        typeOfSequenceExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfSequenceExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case SubscriptCallExpr.self:
       return infer(
-        typeOfSubscriptCallExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfSubscriptCallExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case TupleExpr.self:
       return infer(
-        typeOfTupleExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfTupleExpr: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     default:
       unreachable()
@@ -170,7 +170,7 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfBooleanLiteralExpr subject: NodeID<BooleanLiteralExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -179,19 +179,18 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfCastExpr subject: NodeID<CastExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
     let syntax = program.ast[subject]
 
     // Realize the type to which the left operand should be converted.
-    guard let target = realize(syntax.right, inScope: scope)?.instance else {
+    guard let target = realize(syntax.right, in: scope)?.instance else {
       return facts.assignErrorType(to: subject)
     }
 
-    let rhs = instantiate(
-      target, inScope: scope, cause: ConstraintCause(.cast, at: syntax.site))
+    let rhs = instantiate(target, in: scope, cause: ConstraintCause(.cast, at: syntax.site))
     facts.append(rhs.constraints)
 
     let lhs = syntax.left
@@ -199,12 +198,12 @@ extension TypeChecker {
     case .down:
       // Note: constraining the type of the left operand to be above the right operand wouldn't
       // contribute any useful information to the constraint system.
-      _ = infer(typeOf: lhs, inScope: scope, expecting: nil, updating: &facts)
+      _ = infer(typeOf: lhs, in: scope, expecting: nil, updating: &facts)
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
       let lhsType = infer(
-        typeOf: lhs, inScope: scope, expecting: ^TypeVariable(node: lhs.base), updating: &facts)
+        typeOf: lhs, in: scope, expecting: ^TypeVariable(node: lhs.base), updating: &facts)
       facts.append(
         SubtypingConstraint(
           lhsType, rhs.shape,
@@ -212,8 +211,7 @@ extension TypeChecker {
 
     case .builtinPointerConversion:
       // The type of the left operand must be `Builtin.Pointer`.
-      let lhsType = infer(
-        typeOf: lhs, inScope: scope, expecting: nil, updating: &facts)
+      let lhsType = infer(typeOf: lhs, in: scope, expecting: nil, updating: &facts)
       facts.append(
         EqualityConstraint(
           lhsType, .builtin(.pointer),
@@ -226,7 +224,7 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfConditionalExpr subject: NodeID<CondExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -239,7 +237,7 @@ extension TypeChecker {
       case .expr(let expr):
         // Condition must be Boolean.
         facts.assign(boolType, to: expr)
-        _ = infer(typeOf: expr, inScope: scope, expecting: boolType, updating: &facts)
+        _ = infer(typeOf: expr, in: scope, expecting: boolType, updating: &facts)
 
       case .decl(let binding):
         if !check(binding: binding) { facts.setConflictFound() }
@@ -252,8 +250,7 @@ extension TypeChecker {
     // Visit the success branch.
     switch syntax.success {
     case .expr(let expr):
-      successType = infer(
-        typeOf: expr, inScope: scope, expecting: expectedType, updating: &facts)
+      successType = infer(typeOf: expr, in: scope, expecting: expectedType, updating: &facts)
 
     case .block(let branch):
       if !check(brace: branch) { facts.setConflictFound() }
@@ -263,9 +260,7 @@ extension TypeChecker {
     // Visit the failure branch.
     switch syntax.failure {
     case .expr(let expr):
-      let failureType = infer(
-        typeOf: expr, inScope: scope, expecting: expectedType, updating: &facts)
-
+      let failureType = infer(typeOf: expr, in: scope, expecting: expectedType, updating: &facts)
       if let successType = successType {
         // Both branches are single expressions.
         facts.append(
@@ -287,14 +282,14 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfFunctionCallExpr subject: NodeID<FunctionCallExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
     let syntax = program.ast[subject]
 
     // Infer the type of the callee.
-    let calleeType = infer(typeOf: syntax.callee, inScope: scope, expecting: nil, updating: &facts)
+    let calleeType = infer(typeOf: syntax.callee, in: scope, expecting: nil, updating: &facts)
 
     // The following cases must be considered:
     //
@@ -314,8 +309,7 @@ extension TypeChecker {
 
     // Case 2
     if calleeType.base is TypeVariable {
-      let parameters = parametersMatching(
-        arguments: syntax.arguments, inScope: scope, updating: &facts)
+      let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &facts)
       let returnType = expectedType ?? ^TypeVariable(node: AnyNodeID(subject))
 
       facts.append(
@@ -329,7 +323,7 @@ extension TypeChecker {
     // Case 3a
     if let callable = calleeType.base as? CallableType {
       if parametersMatching(
-        arguments: syntax.arguments, of: syntax.callee, inScope: scope,
+        arguments: syntax.arguments, of: syntax.callee, in: scope,
         expecting: callable.inputs, updating: &facts)
       {
         return facts.constrain(subject, in: program.ast, toHaveType: callable.output)
@@ -365,7 +359,7 @@ extension TypeChecker {
 
         // Visit the arguments.
         if parametersMatching(
-          arguments: syntax.arguments, of: syntax.callee, inScope: scope,
+          arguments: syntax.arguments, of: syntax.callee, in: scope,
           expecting: ctorType.inputs, updating: &facts)
         {
           return facts.constrain(subject, in: program.ast, toHaveType: ctorType.output)
@@ -387,20 +381,20 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfInoutExpr subject: NodeID<InoutExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
     let syntax = program.ast[subject]
     let subjectType = infer(
-      typeOf: syntax.subject, inScope: scope,
+      typeOf: syntax.subject, in: scope,
       expecting: expectedType, updating: &facts)
     return facts.constrain(subject, in: program.ast, toHaveType: subjectType)
   }
 
   private mutating func infer(
     typeOfIntegerLiteralExpr subject: NodeID<IntegerLiteralExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -423,7 +417,7 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfLambdaExpr subject: NodeID<LambdaExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -462,7 +456,7 @@ extension TypeChecker {
         // Infer the return type of the lambda from its body.
         facts.assign(declType.output, to: body)
         _ = infer(
-          typeOf: body, inScope: AnyScopeID(syntax.decl),
+          typeOf: body, in: AnyScopeID(syntax.decl),
           expecting: declType.output, updating: &facts)
       } else {
         // The system is underspecified.
@@ -477,14 +471,14 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfNameExpr subject: NodeID<NameExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
     // Resolve the nominal prefix of the expression.
     let resolution = resolve(nominalPrefixOf: subject, from: scope)
     let nameType = infer(
-      typeOfNameExpr: subject, inScope: scope, withNameResolutionResult: resolution,
+      typeOfNameExpr: subject, in: scope, withNameResolutionResult: resolution,
       updating: &facts)
 
     if let e = expectedType {
@@ -498,7 +492,7 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfNameExpr subject: NodeID<NameExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     withNameResolutionResult resolution: TypeChecker.NameResolutionResult,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -512,7 +506,7 @@ extension TypeChecker {
     case .inexecutable(let suffix):
       if case .expr(let domainExpr) = program.ast[subject].domain {
         lastVisitedComponentType = infer(
-          typeOf: domainExpr, inScope: scope, expecting: nil, updating: &facts)
+          typeOf: domainExpr, in: scope, expecting: nil, updating: &facts)
       } else {
         fatalError("not implemented")
       }
@@ -544,24 +538,24 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfSequenceExpr subject: NodeID<SequenceExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
     // Fold the sequence and visit its sub-expressions.
-    let foldedSequence = fold(sequenceExpr: subject, inScope: scope)
+    let foldedSequence = fold(sequenceExpr: subject, in: scope)
     foldedSequenceExprs[subject] = foldedSequence
 
     // Generate constraints from the folded sequence.
     let rootType = infer(
-      typeOfSequenceExpr: foldedSequence, inScope: scope,
+      typeOfSequenceExpr: foldedSequence, in: scope,
       expecting: expectedType, updating: &facts)
     return facts.constrain(subject, in: program.ast, toHaveType: rootType)
   }
 
   private mutating func infer(
     typeOfSequenceExpr subject: FoldedSequenceExpr,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -569,9 +563,9 @@ extension TypeChecker {
     case .infix(let callee, let lhs, let rhs):
       // Infer the types of the operands.
       let lhsType = infer(
-        typeOfSequenceExpr: lhs, inScope: scope, expecting: nil, updating: &facts)
+        typeOfSequenceExpr: lhs, in: scope, expecting: nil, updating: &facts)
       let rhsType = infer(
-        typeOfSequenceExpr: rhs, inScope: scope, expecting: nil, updating: &facts)
+        typeOfSequenceExpr: rhs, in: scope, expecting: nil, updating: &facts)
 
       if lhsType.isError || rhsType.isError {
         return .error
@@ -602,20 +596,20 @@ extension TypeChecker {
       return outputType
 
     case .leaf(let expr):
-      return infer(typeOf: expr, inScope: scope, expecting: expectedType, updating: &facts)
+      return infer(typeOf: expr, in: scope, expecting: expectedType, updating: &facts)
     }
   }
 
   private mutating func infer(
     typeOfSubscriptCallExpr subject: NodeID<SubscriptCallExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
     let syntax = program.ast[subject]
 
     // Infer the type of the callee.
-    let calleeType = infer(typeOf: syntax.callee, inScope: scope, expecting: nil, updating: &facts)
+    let calleeType = infer(typeOf: syntax.callee, in: scope, expecting: nil, updating: &facts)
 
     // The following cases must be considered:
     //
@@ -636,8 +630,7 @@ extension TypeChecker {
 
     // Case 2
     if calleeType.base is TypeVariable {
-      let parameters = parametersMatching(
-        arguments: syntax.arguments, inScope: scope, updating: &facts)
+      let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &facts)
       let returnType = expectedType ?? ^TypeVariable(node: AnyNodeID(subject))
       let assumedCalleeType = SubscriptImplType(
         isProperty: false,
@@ -657,7 +650,7 @@ extension TypeChecker {
     // Case 3a
     if let callable = SubscriptType(facts.inferredTypes[syntax.callee]!) {
       if parametersMatching(
-        arguments: syntax.arguments, of: syntax.callee, inScope: scope,
+        arguments: syntax.arguments, of: syntax.callee, in: scope,
         expecting: callable.inputs, updating: &facts)
       {
         return facts.constrain(subject, in: program.ast, toHaveType: callable.output)
@@ -685,7 +678,7 @@ extension TypeChecker {
 
     // Case 3c
     let candidates = lookup(
-      "[]", memberOf: facts.inferredTypes[syntax.callee]!, inScope: scope)
+      "[]", memberOf: facts.inferredTypes[syntax.callee]!, in: scope)
     switch candidates.count {
     case 0:
       addDiagnostic(
@@ -707,15 +700,13 @@ extension TypeChecker {
 
       // Contextualize the type of the referred declaration.
       let instantiatedType = instantiate(
-        declType,
-        inScope: scope,
-        cause: ConstraintCause(
-          .callee, at: program.ast[syntax.callee].site))
+        declType, in: scope,
+        cause: ConstraintCause(.callee, at: program.ast[syntax.callee].site))
 
       // Visit the arguments.
       let calleeType = SubscriptType(instantiatedType.shape)!
       if parametersMatching(
-        arguments: syntax.arguments, of: syntax.callee, inScope: scope,
+        arguments: syntax.arguments, of: syntax.callee, in: scope,
         expecting: calleeType.inputs, updating: &facts)
       {
         // Register the callee's constraints.
@@ -739,7 +730,7 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfTupleExpr subject: NodeID<TupleExpr>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -754,14 +745,14 @@ extension TypeChecker {
     {
       for i in 0 ..< elements.count {
         let elementType = infer(
-          typeOf: elements[i].value, inScope: scope,
+          typeOf: elements[i].value, in: scope,
           expecting: type.elements[i].type, updating: &facts)
         elementTypes.append(.init(label: elements[i].label?.value, type: elementType))
       }
     } else {
       for i in 0 ..< elements.count {
         let elementType = infer(
-          typeOf: elements[i].value, inScope: scope,
+          typeOf: elements[i].value, in: scope,
           expecting: nil, updating: &facts)
         elementTypes.append(.init(label: elements[i].label?.value, type: elementType))
       }
@@ -774,12 +765,12 @@ extension TypeChecker {
 
   mutating func infer(
     typeOf subject: AnyPatternID,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?
   ) -> (type: AnyType, facts: InferenceFacts) {
     var facts = InferenceFacts()
     let inferredType = infer(
-      typeOf: subject, inScope: AnyScopeID(scope), expecting: expectedType, updating: &facts)
+      typeOf: subject, in: AnyScopeID(scope), expecting: expectedType, updating: &facts)
     return (inferredType, facts)
   }
 
@@ -787,26 +778,26 @@ extension TypeChecker {
   /// top-bottom type inference, and writing facts about its sub-expressions in `facts`.
   private mutating func infer(
     typeOf subject: AnyPatternID,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
     switch subject.kind {
     case BindingPattern.self:
       return infer(
-        typeOfBindingPattern: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfBindingPattern: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case ExprPattern.self:
       return infer(
-        typeOfExprPattern: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfExprPattern: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case NamePattern.self:
       return infer(
-        typeOfNamePattern: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfNamePattern: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case TuplePattern.self:
       return infer(
-        typeOfTuplePattern: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfTuplePattern: NodeID(rawValue: subject.rawValue), in: scope,
         expecting: expectedType, updating: &facts)
     case WildcardPattern.self:
       return expectedType ?? ^TypeVariable()
@@ -817,7 +808,7 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfBindingPattern subject: NodeID<BindingPattern>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -826,7 +817,7 @@ extension TypeChecker {
     // and constrained to be a subtype of the expected type, if any.
     var subpatternType = expectedType
     if let a = program.ast[subject].annotation {
-      if let subjectType = realize(a, inScope: scope)?.instance {
+      if let subjectType = realize(a, in: scope)?.instance {
         if let t = expectedType {
           facts.append(
             SubtypingConstraint(
@@ -841,26 +832,22 @@ extension TypeChecker {
     }
 
     return infer(
-      typeOf: program.ast[subject].subpattern,
-      inScope: scope,
-      expecting: subpatternType,
-      updating: &facts)
+      typeOf: program.ast[subject].subpattern, in: scope,
+      expecting: subpatternType, updating: &facts)
   }
 
   private mutating func infer(
     typeOfExprPattern subject: NodeID<ExprPattern>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
-    infer(
-      typeOf: program.ast[subject].expr, inScope: scope,
-      expecting: expectedType, updating: &facts)
+    infer(typeOf: program.ast[subject].expr, in: scope, expecting: expectedType, updating: &facts)
   }
 
   private mutating func infer(
     typeOfNamePattern subject: NodeID<NamePattern>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -873,7 +860,7 @@ extension TypeChecker {
 
   private mutating func infer(
     typeOfTuplePattern subject: NodeID<TuplePattern>,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting expectedType: AnyType?,
     updating facts: inout InferenceFacts
   ) -> AnyType {
@@ -892,9 +879,7 @@ extension TypeChecker {
 
       // Visit the elements pairwise.
       for (a, b) in zip(program.ast[subject].elements, t.elements) {
-        let elementType = infer(
-          typeOf: a.pattern, inScope: scope,
-          expecting: b.type, updating: &facts)
+        let elementType = infer(typeOf: a.pattern, in: scope, expecting: b.type, updating: &facts)
         if elementType.isError { return .error }
         lLabels.append(a.label?.value)
         rLabels.append(b.label)
@@ -924,7 +909,7 @@ extension TypeChecker {
       var elements: [TupleType.Element] = []
       for a in program.ast[subject].elements {
         let elementType = infer(
-          typeOf: a.pattern, inScope: scope,
+          typeOf: a.pattern, in: scope,
           expecting: nil, updating: &facts)
         if elementType.isError { return .error }
         elements.append(.init(label: a.label?.value, type: elementType))
@@ -941,7 +926,7 @@ extension TypeChecker {
   private mutating func parametersMatching(
     arguments: [LabeledArgument],
     of callee: AnyExprID,
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     expecting parameters: [CallableTypeParameter],
     updating facts: inout InferenceFacts
   ) -> Bool {
@@ -966,7 +951,7 @@ extension TypeChecker {
       // Infer the type of the argument, expecting it's the same as the parameter's bare type.
       let parameterType = ParameterType(parameters[i].type) ?? fatalError("invalid callee type")
       let argumentType = infer(
-        typeOf: argumentExpr, inScope: scope, expecting: parameterType.bareType, updating: &facts)
+        typeOf: argumentExpr, in: scope, expecting: parameterType.bareType, updating: &facts)
 
       // Nothing to constrain if the parameter's type is equal to the argument's type.
       if areEquivalent(parameterType.bareType, argumentType) { continue }
@@ -983,7 +968,7 @@ extension TypeChecker {
   /// Visit `arguments` to generate their type constraints and returns a matching parameter list.
   private mutating func parametersMatching(
     arguments: [LabeledArgument],
-    inScope scope: AnyScopeID,
+    in scope: AnyScopeID,
     updating facts: inout InferenceFacts
   ) -> [CallableTypeParameter] {
     var parameters: [CallableTypeParameter] = []
@@ -995,7 +980,7 @@ extension TypeChecker {
 
       // Infer the type of the argument bottom-up.
       let argumentType = infer(
-        typeOf: argumentExpr, inScope: scope,
+        typeOf: argumentExpr, in: scope,
         expecting: ^TypeVariable(node: AnyNodeID(argumentExpr)), updating: &facts)
 
       facts.append(
@@ -1048,27 +1033,24 @@ extension TypeChecker {
   /// Folds a sequence of binary expressions.
   private mutating func fold(
     sequenceExpr expr: NodeID<SequenceExpr>,
-    inScope scope: AnyScopeID
+    in scope: AnyScopeID
   ) -> FoldedSequenceExpr {
     let syntax = program.ast[expr]
-    return fold(sequenceExprTail: syntax.tail[0...], into: .leaf(syntax.head), inScope: scope)
+    return fold(sequenceExprTail: syntax.tail[0...], into: .leaf(syntax.head), in: scope)
   }
 
   /// Folds the remainder of a sequence of binary expressions into `initialResult`.
   private mutating func fold(
     sequenceExprTail tail: ArraySlice<SequenceExpr.TailElement>,
     into initialResult: FoldedSequenceExpr,
-    inScope scope: AnyScopeID
+    in scope: AnyScopeID
   ) -> FoldedSequenceExpr {
     var accumulator = initialResult
 
     for i in tail.indices {
       // Search for the operator declaration.
       let operatorStem = program.ast[tail[i].operator].name.value.stem
-      let candidates = lookup(
-        operator: operatorStem,
-        notation: .infix,
-        inScope: scope)
+      let candidates = lookup(operator: operatorStem, notation: .infix, in: scope)
 
       switch candidates.count {
       case 0:
