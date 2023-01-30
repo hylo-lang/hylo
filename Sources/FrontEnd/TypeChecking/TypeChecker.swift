@@ -1643,7 +1643,7 @@ public struct TypeChecker {
 
     // Apply the solution.
     for (id, type) in facts.inferredTypes.storage {
-      exprTypes[id] = solution.typeAssumptions.reify(type, withVariables: .keep)
+      exprTypes[id] = solution.typeAssumptions.reify(type)
     }
     for (name, ref) in solution.bindingAssumptions {
       referredDecls[name] = ref
