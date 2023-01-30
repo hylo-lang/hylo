@@ -413,15 +413,14 @@ public struct TypeChecker {
       // TODO: Complete underspecified generic signatures
 
       success = inference.succeeded
-      declTypes[id] = inference.solution.typeAssumptions.reify(
-        shapeType, withVariables: .substituteByError)
+      declTypes[id] = inference.solution.typeAssumptions.reify(shapeType)
 
       // Assign the variable declarations in the pattern to their type
       for decl in shapeFact.visitedVarDecls {
         modifying(
           &declTypes[decl]!,
           { (t) in
-            t = inference.solution.typeAssumptions.reify(t, withVariables: .substituteByError)
+            t = inference.solution.typeAssumptions.reify(t)
           })
         declRequests[decl] = success ? .success : .failure
       }
