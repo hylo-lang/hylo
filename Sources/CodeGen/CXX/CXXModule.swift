@@ -6,13 +6,13 @@ import Utils
 public struct CXXModule {
 
   /// The module's declaration in Val's AST.
-  let valDecl: ModuleDecl.Typed
+  let source: ModuleDecl.Typed
 
   /// The C++ top-level declarations for this module
   private(set) var cxxTopLevelDecls: [CXXTopLevelDecl] = []
 
-  init(_ decl: ModuleDecl.Typed) {
-    self.valDecl = decl
+  init(_ source: ModuleDecl.Typed) {
+    self.source = source
   }
 
   /// Add a top-level C++ declaration to this module.

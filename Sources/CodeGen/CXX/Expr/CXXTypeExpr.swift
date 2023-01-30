@@ -2,11 +2,11 @@
 struct CXXTypeExpr: CXXExpr {
 
   /// The textual represention of the type expression.
-  let code: String
+  let text: String
 
   /// Creates a C++ type expression from its textual representation.
-  init(_ code: String) {
-    self.code = code
+  init(_ text: String) {
+    self.text = text
   }
 
   var precedence: Int {

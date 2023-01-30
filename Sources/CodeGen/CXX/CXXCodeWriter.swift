@@ -22,7 +22,7 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(module.valDecl.name)")
+    target.write("namespace \(module.source.name)")
     target.beginBrace()
     target.writeNewline()
 
@@ -42,11 +42,11 @@ public struct CXXCodeWriter {
     var target = CodeFormatter()
 
     // Emit include clauses.
-    target.writeLine("#include \"\(module.valDecl.name).h\"")
+    target.writeLine("#include \"\(module.source.name).h\"")
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(module.valDecl.name)")
+    target.write("namespace \(module.source.name)")
     target.beginBrace()
     target.writeNewline()
 
@@ -284,7 +284,7 @@ public struct CXXCodeWriter {
     target.write("this")
   }
   private func write(typeExpr expr: CXXTypeExpr, into target: inout CodeFormatter) {
-    target.write(expr.code)
+    target.write(expr.text)
   }
   private func write(infixExpr expr: CXXInfixExpr, into target: inout CodeFormatter) {
     // TODO: handle precedence and associativity; as of writing this comment, infix operators cannot be properly tested.

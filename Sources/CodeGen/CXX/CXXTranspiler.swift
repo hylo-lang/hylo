@@ -3,12 +3,11 @@ import Core
 import FrontEnd
 import Utils
 
-/// A Val to C++ transpiler.
-/// This takes Val AST (with type information) and transforms it into C++ AST.
-/// It handles one module at a time.
+/// The conversion of typed Val module AST into corresponding C++ AST.
 public struct CXXTranspiler {
 
   /// The Val typed nodes.
+  ///
   /// Used in a few cases in which we need to obtain the typed nodes from the corresponding Node IDs,
   /// and to make general queries in the Val AST.
   let wholeValProgram: TypedProgram
@@ -18,14 +17,14 @@ public struct CXXTranspiler {
     self.wholeValProgram = wholeValProgram
   }
 
-  /// Transpiles Val Module into a C++ module object.
+  /// Returns a C++ AST implementing the semantics of `source`.
   public func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
-    var cxxModule = CXXModule(source)
+    var result = CXXModule(source)
     for member in source.topLevelDecls {
       let cxxTopLevelDecl = cxx(topLevel: member)
-      cxxModule.addTopLevelDecl(cxxTopLevelDecl)
+      result.addTopLevelDecl(cxxTopLevelDecl)
     }
-    return cxxModule
+    return result
   }
 
   // MARK: Declarations
@@ -78,14 +77,9 @@ public struct CXXTranspiler {
   private func cxxFunctionParameters(_ src: FunctionDecl.Typed) -> [CXXFunctionDecl.Parameter] {
     let paramTypes = (src.type.base as! LambdaType).inputs
     assert(paramTypes.count == src.parameters.count)
-
-    var cxxParams: [CXXFunctionDecl.Parameter] = []
-    for (i, param) in src.parameters.enumerated() {
-      let name = CXXIdentifier(param.name)
-      let type = cxx(typeExpr: paramTypes[i].type)
-      cxxParams.append(CXXFunctionDecl.Parameter(name, type))
+    return zip(src.parameters, paramTypes).map { p, t in
+      CXXFunctionDecl.Parameter(CXXIdentifier(p.name), cxx(typeExpr: t.type))
     }
-    return cxxParams
   }
 
   /// Transpiles a function body to a C++.
@@ -116,7 +110,7 @@ public struct CXXTranspiler {
       switch member.kind {
       case BindingDecl.self:
         // One binding can expand into multiple class attributes
-        cxx(productTypeBinding: BindingDecl.Typed(member)!, into: &cxxMembers)
+        cxxMembers += cxx(productTypeBinding: BindingDecl.Typed(member)!)
 
       case InitializerDecl.self:
         cxxMembers.append(cxx(productTypeInitialzer: InitializerDecl.Typed(member)!))
@@ -131,22 +125,20 @@ public struct CXXTranspiler {
     return cxxMembers
   }
 
-  /// Translate a binding decl contained in a product type into one or more C++ class attributes.
-  /// One class attribute will be generated for each name in the binding decl.
-  /// The resulting class members are appended to `res` (the array of class members).
-  private func cxx(
-    productTypeBinding src: BindingDecl.Typed, into res: inout [CXXClassDecl.ClassMember]
-  ) {
+  /// Appends one C++ class attribute to `target` for each name bound in `source`.
+  private func cxx(productTypeBinding source: BindingDecl.Typed) -> [CXXClassDecl.ClassMember] {
+    var result: [CXXClassDecl.ClassMember] = []
     // TODO: pattern introducer (let, var, sink, inout)
-    for (_, name) in src.pattern.subpattern.names {
+    for (_, name) in source.pattern.subpattern.names {
       let varDecl = name.decl
       let cxxAttribute = CXXClassAttribute(
         type: cxx(typeExpr: varDecl.type),
         name: CXXIdentifier(varDecl.name),
         initializer: nil,  // TODO
-        isStatic: src.isStatic)
-      res.append(.attribute(cxxAttribute))
+        isStatic: source.isStatic)
+      result.append(.attribute(cxxAttribute))
     }
+    return result
   }
   /// Translate an initializer found in product type to the corresponding C++ constructor.
   private func cxx(productTypeInitialzer src: InitializerDecl.Typed) -> CXXClassDecl.ClassMember {
@@ -161,6 +153,7 @@ public struct CXXTranspiler {
   }
 
   /// Transpiles a local binding declaration to a C++ statement containing a local variable.
+  ///
   /// The statement can be a `CXXLocalVarDecl` or a `CXXScopedBlock` containing `CXXLocalVarDecl` objects.
   private func cxx(localBinding src: BindingDecl.Typed) -> CXXStmt {
     let cxxInitializer = src.initializer != nil ? cxx(expr: src.initializer!) : nil
@@ -169,7 +162,7 @@ public struct CXXTranspiler {
     assert(numNames > 0 || cxxInitializer != nil)
 
     if numNames > 1 {
-      // We would output multiple variable declaration statements, gtoupped into a scoped block
+      // We would output multiple variable declaration statements, grouped into a scoped block
       // TODO: scoped block is not good here, because of lifetime issues
       var varStmts: [CXXStmt] = []
       for (_, name) in src.pattern.subpattern.names {
@@ -427,6 +420,7 @@ public struct CXXTranspiler {
   }
 
   /// Transpiles a Val conditional expression into a corresponding C++ expression.
+  ///
   /// As much as possible, this will be converted into a ternary operator (CXXConditionalExpr).
   /// There are, however, in wich this needs to be translated into an if statment, then trasformed into an expression.
   private func cxx(cond src: CondExpr.Typed) -> CXXExpr {
@@ -485,6 +479,7 @@ public struct CXXTranspiler {
   // MARK: names
 
   /// Transpiles a Val r-value name expression into a corresponding expression.
+  ///
   /// This usually result into a C++ identifier, but it can also result in pre-/post-fix operator calls.
   private func cxx(name src: NameExpr.Typed) -> CXXExpr {
     switch src.decl {
@@ -511,6 +506,7 @@ public struct CXXTranspiler {
     return CXXIdentifier(src.name.value.stem)
   }
   /// Translates a name pointing to a fumction declaration to a C++ expression.
+  ///
   /// Usually this translates to an identifier, but it can translate to pre-/post-fix operator calls.
   private func cxx(
     nameOfFunction src: FunctionDecl.Typed, withDomainExpr domainExpr: AnyExprID.TypedNode?
