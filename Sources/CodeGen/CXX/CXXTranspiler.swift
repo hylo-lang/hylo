@@ -99,46 +99,37 @@ public struct CXXTranspiler {
     assert(wholeValProgram.isGlobal(src.id))
     return CXXClassDecl(
       name: CXXIdentifier(src.identifier.value),
-      members: cxx(classMembers: src.members))
+      members: src.members.flatMap({ cxx(classMember: $0) }))
   }
 
-  /// Transpiles product type members to C++.
-  private func cxx<C: Collection>(classMembers src: C) -> [CXXClassDecl.ClassMember]
-  where C.Element == AnyDeclID.TypedNode {
-    var cxxMembers: [CXXClassDecl.ClassMember] = []
-    for member in src {
-      switch member.kind {
-      case BindingDecl.self:
-        // One binding can expand into multiple class attributes
-        cxxMembers += cxx(productTypeBinding: BindingDecl.Typed(member)!)
+  /// Transpiles product type member to C++.
+  private func cxx(classMember source: AnyDeclID.TypedNode) -> [CXXClassDecl.ClassMember] {
+    switch source.kind {
+    case BindingDecl.self:
+      // One binding can expand into multiple class attributes
+      return cxx(productTypeBinding: BindingDecl.Typed(source)!)
 
-      case InitializerDecl.self:
-        cxxMembers.append(cxx(productTypeInitialzer: InitializerDecl.Typed(member)!))
+    case InitializerDecl.self:
+      return [cxx(productTypeInitialzer: InitializerDecl.Typed(source)!)]
 
-      case MethodDecl.self, FunctionDecl.self:
-        cxxMembers.append(.method)
+    case MethodDecl.self, FunctionDecl.self:
+      return [.method]
 
-      default:
-        unreachable("unexpected class member")
-      }
+    default:
+      unreachable("unexpected class member")
     }
-    return cxxMembers
   }
 
   /// Appends one C++ class attribute to `target` for each name bound in `source`.
   private func cxx(productTypeBinding source: BindingDecl.Typed) -> [CXXClassDecl.ClassMember] {
-    var result: [CXXClassDecl.ClassMember] = []
-    // TODO: pattern introducer (let, var, sink, inout)
-    for (_, name) in source.pattern.subpattern.names {
-      let varDecl = name.decl
-      let cxxAttribute = CXXClassAttribute(
-        type: cxx(typeExpr: varDecl.type),
-        name: CXXIdentifier(varDecl.name),
-        initializer: nil,  // TODO
-        isStatic: source.isStatic)
-      result.append(.attribute(cxxAttribute))
-    }
-    return result
+    return source.pattern.subpattern.names.map({
+      .attribute(
+        CXXClassAttribute(
+          type: cxx(typeExpr: $0.pattern.decl.type),
+          name: CXXIdentifier($0.pattern.decl.name),
+          initializer: nil,  // TODO
+          isStatic: source.isStatic))
+    })
   }
   /// Translate an initializer found in product type to the corresponding C++ constructor.
   private func cxx(productTypeInitialzer src: InitializerDecl.Typed) -> CXXClassDecl.ClassMember {
@@ -162,12 +153,10 @@ public struct CXXTranspiler {
     assert(numNames > 0 || cxxInitializer != nil)
 
     if numNames > 1 {
-      // We would output multiple variable declaration statements, grouped into a scoped block
+      let varStmts = src.pattern.subpattern.names.map({
+        cxx(localNamePattern: $0.pattern, with: cxxInitializer)
+      })
       // TODO: scoped block is not good here, because of lifetime issues
-      var varStmts: [CXXStmt] = []
-      for (_, name) in src.pattern.subpattern.names {
-        varStmts.append(cxx(localNamePattern: name, with: cxxInitializer))
-      }
       return CXXScopedBlock(stmts: varStmts)
     } else if numNames == 1 {
       return cxx(localNamePattern: src.pattern.subpattern.names[0].pattern, with: cxxInitializer)
