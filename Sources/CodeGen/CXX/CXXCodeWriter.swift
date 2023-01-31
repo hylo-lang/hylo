@@ -58,7 +58,7 @@ public struct CXXCodeWriter {
 
     target.endBrace()
 
-    // If we need to generate the CXX entry point for the mdule, write the `main` function here with the proper body.
+    // Write a CXX `main` function if the module has an entry point.
     if module.cxxEntryPointBody != nil {
       target.writeNewline()
       target.writeNewline()

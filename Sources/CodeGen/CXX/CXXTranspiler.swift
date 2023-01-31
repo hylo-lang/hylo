@@ -94,7 +94,7 @@ public struct CXXTranspiler {
         body: cxxBody,
         original: decl))
 
-    // If this is the `main` function of the program, generate the body that needs to be the CXX entry point.
+    // If this is the Val's entry point, generate a CXX entry point body that calls it.
     if identifier.description == "main" {
       emit(programEntryPointFor: decl, withOutputType: output, into: &module)
     }
@@ -108,7 +108,7 @@ public struct CXXTranspiler {
     let orig = AnyNodeID.TypedNode(decl)
 
     // The expression that makes a call to the module `main` function.
-    let callMainExpr = CXXFunctionCallExpr(
+    let callToMain = CXXFunctionCallExpr(
       callee: CXXInfixExpr(
         oper: .scopeResolution,
         lhs: CXXIdentifier(module.valDecl.name),
