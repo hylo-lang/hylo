@@ -22,7 +22,7 @@ final class CaptureCollectorTests: XCTestCase {
     var diagnostics = Diagnostics()
     _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 
-    let fun = NodeID<FunctionDecl>(rawValue: ast.topLevelDecls(module).first!.rawValue)
+    let fun = NodeID<FunctionDecl>(ast.topLevelDecls(module).first!)!
     var collector = CaptureCollector(ast: ast)
     let captures = collector.freeNames(in: fun)
 

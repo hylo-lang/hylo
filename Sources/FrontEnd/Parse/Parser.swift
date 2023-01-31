@@ -1068,7 +1068,7 @@ public enum Parser {
     updating state: inout ParserState
   ) -> NodeID<InitializerDecl> {
     for member in members where member.kind == InitializerDecl.self {
-      let m = NodeID<InitializerDecl>(rawValue: member.rawValue)
+      let m = NodeID<InitializerDecl>(member)!
       if state.ast[m].introducer.value == .memberwiseInit { return m }
     }
 
