@@ -8,8 +8,7 @@ public struct CXXTranspiler {
 
   /// The Val typed nodes.
   ///
-  /// Used in a few cases in which we need to obtain the typed nodes from the corresponding Node IDs,
-  /// and to make general queries in the Val AST.
+  /// This property is used when we need access to the contents of a node from its ID.
   let wholeValProgram: TypedProgram
 
   /// Creates a C++ transpiler from the whole Val program.

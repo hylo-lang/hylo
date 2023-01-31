@@ -11,7 +11,7 @@ public struct CXXModule {
   /// The C++ top-level declarations for this module
   let topLevelDecls: [CXXTopLevelDecl]
 
-  /// The module name
+  /// The module's name.
   var name: String {
     source.baseName
   }
