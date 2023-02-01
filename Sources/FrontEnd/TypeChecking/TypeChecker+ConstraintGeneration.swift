@@ -431,7 +431,7 @@ extension TypeChecker {
     // Schedule the underlying declaration to be type-checked.
     deferTypeChecking(subject)
 
-    if let expectedType = LambdaType(expectedType!) {
+    if let expectedType = expectedType?.base as? LambdaType {
       // Check that the declaration defines the expected number of parameters.
       if declType.inputs.count != expectedType.inputs.count {
         addDiagnostic(
@@ -950,16 +950,17 @@ extension TypeChecker {
       let argumentExpr = arguments[i].value
 
       // Infer the type of the argument, expecting it's the same as the parameter's bare type.
-      let parameterType = ParameterType(parameters[i].type) ?? fatalError("invalid callee type")
-      let argumentType = inferType(
-        of: argumentExpr, in: scope, expecting: parameterType.bareType, updating: &facts)
-
-      // Nothing to constrain if the parameter's type is equal to the argument's type.
-      if areEquivalent(parameterType.bareType, argumentType) { continue }
+      let argumentType: AnyType
+      if let t = ParameterType(parameters[i].type)?.bareType {
+        argumentType = inferType(of: argumentExpr, in: scope, expecting: t, updating: &facts)
+        if areEquivalent(t, argumentType) { continue }
+      } else {
+        argumentType = inferType(of: argumentExpr, in: scope, expecting: nil, updating: &facts)
+      }
 
       facts.append(
         ParameterConstraint(
-          argumentType, ^parameterType,
+          argumentType, parameters[i].type,
           because: ConstraintCause(.argument, at: program.ast[argumentExpr].site)))
     }
 
