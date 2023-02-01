@@ -44,7 +44,7 @@ public struct NodeID<Subject: Node>: ConcreteNodeID {
   /// Creates an instance having the given raw value.
   ///
   /// The result can only be used correctly in an AST where the identified node has type `Subject`.
-  public init(rawValue: RawValue) {
+  init(rawValue: RawValue) {
     self.rawValue = rawValue
   }
 
