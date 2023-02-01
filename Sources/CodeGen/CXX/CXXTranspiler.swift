@@ -31,7 +31,7 @@ public struct CXXTranspiler {
     case ProductTypeDecl.self:
       return cxx(type: ProductTypeDecl.Typed(source)!)
     default:
-      unreachable("unexpected declaration")
+      unexpectedNode(source, whileExpecting: "unexpected declaration")
     }
   }
 
@@ -63,7 +63,7 @@ public struct CXXTranspiler {
         fatalError("not implemented")
 
       default:
-        unreachable()
+        unreachable("unexpected type")
       }
     }
   }
@@ -111,7 +111,7 @@ public struct CXXTranspiler {
       return [.method]
 
     default:
-      unreachable("unexpected class member")
+      unexpectedNode(source, whileExpecting: "class member")
     }
   }
 
@@ -202,7 +202,7 @@ public struct CXXTranspiler {
     case YieldStmt.self:
       return cxx(yieldStmt: YieldStmt.Typed(stmt)!)
     default:
-      unreachable("unexpected statement")
+      unexpectedNode(stmt, whileExpecting: "unexpected statement")
     }
   }
 
@@ -217,7 +217,7 @@ public struct CXXTranspiler {
     case BindingDecl.self:
       return cxx(localBinding: BindingDecl.Typed(source.decl)!)
     default:
-      unreachable("unexpected declaration")
+      unexpectedNode(source.decl, whileExpecting: "unexpected declaration")
     }
   }
 
@@ -301,7 +301,7 @@ public struct CXXTranspiler {
     case CondExpr.self:
       return cxx(cond: CondExpr.Typed(expr)!)
     default:
-      unreachable("unexpected expression")
+      unexpectedNode(expr, whileExpecting: "unexpected expression")
     }
   }
 
@@ -541,7 +541,7 @@ public struct CXXTranspiler {
     case .expr(let receiverID):
       receiver = cxx(expr: receiverID)
     case .implicit:
-      unreachable()
+      fatalError("not implemented")
     }
 
     // Emit the function reference.
