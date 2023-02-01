@@ -454,7 +454,6 @@ extension TypeChecker {
     } else if declType.output.base is TypeVariable {
       if case .expr(let body) = program.ast[syntax.decl].body {
         // Infer the return type of the lambda from its body.
-        facts.assign(declType.output, to: body)
         _ = inferType(
           of: body, in: AnyScopeID(syntax.decl),
           expecting: declType.output, updating: &facts)
