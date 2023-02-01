@@ -1951,7 +1951,7 @@ public struct TypeChecker {
       return resolve(builtin: name.value).map({ [$0] }) ?? []
     }
 
-    // Search for the declarations of `name`.
+    // Gather declarations qualified by `parentType` if it isn't `nil` or unqualified otherwise.
     let matches: [AnyDeclID]
     if let t = parentType {
       matches = lookup(name.value.stem, memberOf: t, inScope: lookupScope)
@@ -3625,7 +3625,8 @@ public struct TypeChecker {
     return r
   }
 
-  /// Returns `d` or an implementation thereof if it's named `n`. Otherwise, returns `nil`.
+  /// Returns `d` if it has name `n`, otherwise the implementation of `d` with name `n` or `nil`
+  /// if no such implementation exists.
   ///
   /// - Requires: The base name of `d` is equal to `n.stem`
   mutating func decl(_ d: AnyDeclID, named n: Name) -> AnyDeclID? {
@@ -3637,7 +3638,7 @@ public struct TypeChecker {
       return nil
     }
 
-    // If the looked up name has an introducer, select the corresponding implementation.
+    // If the looked up name has an introducer, return the corresponding implementation.
     if let introducer = n.introducer {
       guard let m = program.ast[NodeID<MethodDecl>(d)] else { return nil }
       return m.impls.first(where: { (i) in
@@ -3648,8 +3649,8 @@ public struct TypeChecker {
     return d
   }
 
-  /// Returns `true` iff `d` is a function, method, and subscript declarations whose argument
-  /// labels are `l`.
+  /// Returns `true` iff `d` is a function, method, or subscript declaration whose argument labels
+  /// are `l`.
   private mutating func decl(_ d: AnyDeclID, isLabeledWith l: [String?]) -> Bool {
     switch d.kind {
     case FunctionDecl.self:
