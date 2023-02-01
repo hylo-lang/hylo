@@ -41,7 +41,7 @@ public struct TypeChecker {
   public init(
     program: ScopedProgram,
     isBuiltinModuleVisible: Bool = false,
-    enablingInferenceTracingIn inferenceTracingRange: SourceRange? = nil
+    tracingInferenceIn inferenceTracingRange: SourceRange? = nil
   ) {
     self.program = program
     self.isBuiltinModuleVisible = isBuiltinModuleVisible
