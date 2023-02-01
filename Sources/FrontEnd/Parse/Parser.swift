@@ -2931,8 +2931,7 @@ public enum Parser {
                 value: .let,
                 range: state.emptyRange(at: s.start)),
             bareType: tree.1,
-            site: s,
-            synthesized: tree.0 == nil
+            site: s
           ))
       }))
 
