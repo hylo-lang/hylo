@@ -424,23 +424,11 @@ struct ConstraintSolver {
       return
     }
 
-    // Search for non-static members with the specified name.
-    let allMatches = checker.lookup(
-      goal.memberName.stem, memberOf: goal.subject, in: scope)
-    let nonStaticMatches = allMatches.filter({ decl in
-      checker.program.isNonStaticMember(decl)
-    })
-
-    // Catch uses of static members on instances.
-    if nonStaticMatches.isEmpty && !allMatches.isEmpty {
-      diagnostics.append(
-        .error(
-          illegalUseOfStaticMember: goal.memberName, onInstanceOf: goal.subject,
-          at: goal.cause.site))
-    }
+    let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, in: scope)
+      .compactMap({ checker.decl($0, named: goal.memberName) })
 
     // Generate the list of candidates.
-    let candidates = nonStaticMatches.compactMap({ (match) -> OverloadConstraint.Candidate? in
+    let candidates = matches.compactMap({ (match) -> OverloadConstraint.Candidate? in
       // Realize the type of the declaration and skip it if that fails.
       let matchType = checker.realize(decl: match)
       if matchType.isError { return nil }
