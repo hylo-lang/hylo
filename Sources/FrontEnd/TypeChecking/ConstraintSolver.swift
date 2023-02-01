@@ -127,7 +127,7 @@ struct ConstraintSolver {
       postpone(goal)
 
     case is ProductType, is TupleType:
-      let conformedTraits = checker.conformedTraits(of: goal.subject, inScope: scope) ?? []
+      let conformedTraits = checker.conformedTraits(of: goal.subject, in: scope) ?? []
       let nonConforming = goal.traits.subtracting(conformedTraits)
 
       if !nonConforming.isEmpty {
@@ -163,7 +163,7 @@ struct ConstraintSolver {
     if goal.subject.base is TypeVariable {
       postpone(goal)
     } else {
-      let conformedTraits = checker.conformedTraits(of: goal.subject, inScope: scope) ?? []
+      let conformedTraits = checker.conformedTraits(of: goal.subject, in: scope) ?? []
 
       if conformedTraits.contains(goal.literalTrait) {
         // Add a penalty if `L` isn't `D`.
@@ -424,7 +424,7 @@ struct ConstraintSolver {
       return
     }
 
-    let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, inScope: scope)
+    let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, in: scope)
       .compactMap({ checker.decl($0, named: goal.memberName) })
 
     // Generate the list of candidates.
