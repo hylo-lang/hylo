@@ -80,7 +80,7 @@ extension TypeChecker {
   }
 
   /// The common state of all `inferTypes(...)` methods as they recursively visit the AST.
-  private typealias VisitationState = (facts: InferenceFacts, unchecked: [AnyNodeID])
+  private typealias VisitationState = (facts: InferenceFacts, deferred: [AnyDeferredQuery])
 
   // MARK: Expressions
 
@@ -91,17 +91,17 @@ extension TypeChecker {
     of subject: AnyExprID,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?
-  ) -> (type: AnyType, facts: InferenceFacts, unchecked: [AnyNodeID]) {
+  ) -> (type: AnyType, facts: InferenceFacts, deferred: [AnyDeferredQuery]) {
     var s: VisitationState
     if let t = exprTypes[subject] {
-      s = (facts: .init(assigning: t, to: subject), unchecked: [])
+      s = (facts: .init(assigning: t, to: subject), deferred: [])
     } else {
-      s = (facts: .init(), unchecked: [])
+      s = (facts: .init(), deferred: [])
     }
 
     let t = inferType(
       of: subject, in: AnyScopeID(scope), expecting: expectedType, updating: &s)
-    return (t, s.facts, s.unchecked)
+    return (t, s.facts, s.deferred)
   }
 
   /// Returns the type of `subject` given it occurs in `scope`, using `expectedType` to propagate
@@ -431,7 +431,12 @@ extension TypeChecker {
     }
 
     // Schedule the underlying declaration to be type-checked.
-    deferTypeChecking(subject)
+    state.deferred.append(
+      ^DeferredQuery(
+        on: subject,
+        executedWith: { (checker, e, s) in
+          checker.checkDeferred(lambdaExpr: e, s)
+        }))
 
     if let expectedType = LambdaType(expectedType!) {
       // Check that the declaration defines the expected number of parameters.
@@ -800,11 +805,11 @@ private mutating func inferType(
     of subject: AnyPatternID,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?
-  ) -> (type: AnyType, facts: InferenceFacts, unchecked: [AnyNodeID]) {
-    var s: VisitationState = (facts: .init(), unchecked: [])
+  ) -> (type: AnyType, facts: InferenceFacts, deferred: [AnyDeferredQuery]) {
+    var s: VisitationState = (facts: .init(), deferred: [])
     let t = inferType(
       of: subject, in: AnyScopeID(scope), expecting: expectedType, updating: &s)
-    return (t, s.facts, s.unchecked)
+    return (t, s.facts, s.deferred)
   }
 
   /// Returns the type of `subject` given it occurs in `scope`, using `expectedType` to propagate
@@ -888,7 +893,13 @@ private mutating func inferType(
     let nameDecl = program.ast[subject].decl
     let nameType = expectedType ?? ^TypeVariable(node: AnyNodeID(nameDecl))
     setInferredType(nameType, for: nameDecl)
-    state.unchecked.append(AnyNodeID(nameDecl))
+    state.deferred.append(
+      ^DeferredQuery(
+        on: nameDecl,
+        executedWith: { (checker, d, s) in
+          checker.checkDeferred(varDecl: d, s)
+        }))
+
     return nameType
   }
 

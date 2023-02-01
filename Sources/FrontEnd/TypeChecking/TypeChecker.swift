@@ -415,17 +415,8 @@ public struct TypeChecker {
       success = inference.succeeded
       declTypes[id] = inference.solution.typeAssumptions.reify(shape.type)
 
-      // Assign the variable declarations in the pattern to their type
-      for n in shape.unchecked {
-        if let d = NodeID<VarDecl>(n) {
-          modifying(
-            &declTypes[d]!,
-            { (t) in
-              t = inference.solution.typeAssumptions.reify(t)
-            })
-          declRequests[d] = success ? .success : .failure
-        }
-      }
+      // Run deferred queries.
+      success = shape.deferred.reduce(success, { $1.execute(&self, inference.solution) && $0 })
     } else if hasTypeHint {
       declTypes[id] = shape.type
     } else {
@@ -1232,6 +1223,36 @@ public struct TypeChecker {
     return inference.succeeded
   }
 
+  /// Returns whether `d` is well-typed, reading type inference results from `s`.
+  mutating func checkDeferred(varDecl d: NodeID<VarDecl>, _ s: Solution) -> Bool {
+    let success = modifying(
+      &declTypes[d]!,
+      { (t) in
+        t = s.typeAssumptions.reify(t)
+        return t[.hasError]
+      })
+    declRequests[d] = success ? .success : .failure
+    return success
+  }
+
+  /// Returns whether `e` is well-typed, reading type inference results from `s`.
+  mutating func checkDeferred(lambdaExpr e: NodeID<LambdaExpr>, _ s: Solution) -> Bool {
+    guard
+      let declType = exprTypes[e]?.base as? LambdaType,
+      !declType[.hasError]
+    else { return false }
+
+    // Reify the type of the underlying declaration.
+    declTypes[program.ast[e].decl] = ^declType
+    let parameters = program.ast[program.ast[e].decl].parameters
+    for i in 0 ..< parameters.count {
+      declTypes[parameters[i]] = declType.inputs[i].type
+    }
+
+    // Type check the declaration.
+    return check(function: program.ast[e].decl)
+  }
+
   /// Returns the expected output type in `lexicalContext`, or `nil` if `lexicalContext` is not
   /// nested in a function or subscript declaration.
   private func expectedOutputType<S: ScopeID>(in lexicalContext: S) -> AnyType? {
@@ -1623,7 +1644,7 @@ public struct TypeChecker {
     }
 
     // Generate constraints.
-    let (inferredType, facts, _) = inferType(
+    let (inferredType, facts, deferredQueries) = inferType(
       of: subject, in: AnyScopeID(scope), expecting: expectedType)
 
     // Bail out if constraint generation failed.
@@ -1651,10 +1672,15 @@ public struct TypeChecker {
       referredDecls[name] = ref
     }
 
-    // Consume the solution's errors.
-    diagnostics.formUnion(solution.diagnostics.log)
+    // Run deferred queries.
+    let success = deferredQueries.reduce(
+      !solution.diagnostics.errorReported,
+      { (s, q) in
+        q.execute(&self, solution) && s
+      })
 
-    return (succeeded: !solution.diagnostics.errorReported, solution: solution)
+    diagnostics.formUnion(solution.diagnostics.log)
+    return (succeeded: success, solution: solution)
   }
 
   // MARK: Name binding
