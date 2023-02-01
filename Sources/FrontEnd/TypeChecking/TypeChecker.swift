@@ -3661,7 +3661,7 @@ public struct TypeChecker {
       guard let type = LambdaType(realize(initializerDecl: NodeID(rawValue: d.rawValue))) else {
         return false
       }
-      return l == type.inputs.map({ (p) in p.label })
+      return l == type.inputs.map(\.label)
 
     case MethodDecl.self:
       let decl = program.ast[NodeID<MethodDecl>(rawValue: d.rawValue)]
