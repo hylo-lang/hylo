@@ -768,7 +768,7 @@ struct ConstraintSolver {
       types.formIntersection(result.solution.typeAssumptions)
       bindings.formIntersection(result.solution.bindingAssumptions)
       penalties = max(penalties, result.solution.score.penalties)
-      diagnostics.merge(result.solution.diagnostics)
+      diagnostics.formUnion(result.solution.diagnostics)
     }
 
     return Solution(

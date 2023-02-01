@@ -34,8 +34,8 @@ public struct Diagnostics {
     for d in batch { report(d) }
   }
 
-  /// Merges `self` with `other`.
-  public mutating func merge(_ other: Self) {
+  /// Inserts the diagnostics reported to `other` into the `self`.
+  public mutating func formUnion(_ other: Self) {
     log.formUnion(other.log)
     errorReported = errorReported || other.errorReported
   }
