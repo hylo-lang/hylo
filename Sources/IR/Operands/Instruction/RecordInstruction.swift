@@ -12,7 +12,13 @@ public struct RecordInstruction: Instruction {
   /// The operands consumed to initialize the record members.
   public let operands: [Operand]
 
-  public let range: SourceRange?
+  public let site: SourceRange
+
+  init(objectType: LoweredType, operands: [Operand], site: SourceRange) {
+    self.objectType = objectType
+    self.operands = operands
+    self.site = site
+  }
 
   public var types: [LoweredType] { [objectType] }
 
@@ -23,9 +29,4 @@ public struct RecordInstruction: Instruction {
     return !objectType.isAddress
   }
 
-  init(objectType: LoweredType, operands: [Operand], range: SourceRange? = nil) {
-    self.objectType = objectType
-    self.operands = operands
-    self.range = range
-  }
 }

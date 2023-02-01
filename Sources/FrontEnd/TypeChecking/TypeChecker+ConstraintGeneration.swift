@@ -10,19 +10,22 @@ extension TypeChecker {
     /// A map from visited expression to its inferred type.
     private(set) var inferredTypes = ExprProperty<AnyType>()
 
+    /// The list of variable declarations visited during constraint generation.
+    private(set) var visitedVarDecls: [NodeID<VarDecl>] = []
+
     /// The set of type constraints between the types involved in the visited expressions.
     private(set) var constraints: [Constraint] = []
 
     /// True iff a constraint could not be solved.
     private(set) var foundConflict = false
 
-    /// Creates empty base of facts assigning `type` to `subject` if `type` is not `nil`, or an
-    /// empty base otherwise.
-    init<ID: ExprID>(assigning type: AnyType?, to subject: ID) {
-      if let t = type {
-        assign(t, to: subject)
-      }
+    /// Creates a base of facts assigning `type` to `subject`.
+    fileprivate init<ID: ExprID>(assigning type: AnyType, to subject: ID) {
+      assign(type, to: subject)
     }
+
+    /// Creates an empty base of facts.
+    fileprivate init() {}
 
     /// Assigns the error type to `subject` and returns the error type.
     fileprivate mutating func assignErrorType<ID: ExprID>(to subject: ID) -> AnyType {
@@ -72,6 +75,11 @@ extension TypeChecker {
       self.constraints.append(contentsOf: constraints)
     }
 
+    /// Marks that `d` has been visited.
+    fileprivate mutating func setVisited(_ d: NodeID<VarDecl>) {
+      visitedVarDecls.append(d)
+    }
+
     /// Indicates that a conflict has been found.
     fileprivate mutating func setConflictFound() {
       foundConflict = true
@@ -79,9 +87,30 @@ extension TypeChecker {
 
   }
 
-  /// Infers and returns the type of `subject`, writing the inferred types of its sub-expressions
-  /// and the constraints thereupon in `facts`.
+  // MARK: Expressions
+
+  /// Returns the inferred type of `subject` along with facts about its sub-expressions knowing it
+  /// occurs in `scope` and is expected to have a type compatible with `expectedType`.
   mutating func infer(
+    typeOf subject: AnyExprID,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?
+  ) -> (type: AnyType, facts: InferenceFacts) {
+    var facts: InferenceFacts
+    if let t = exprTypes[subject] {
+      facts = InferenceFacts(assigning: t, to: subject)
+    } else {
+      facts = InferenceFacts()
+    }
+
+    let inferredType = infer(
+      typeOf: subject, inScope: AnyScopeID(scope), expecting: expectedType, updating: &facts)
+    return (inferredType, facts)
+  }
+
+  /// Returns the type of `subject` given it occurs in `scope`, using `expectedType` to propagate
+  /// top-bottom type inference, and writing facts about its sub-expressions in `facts`.
+  private mutating func infer(
     typeOf subject: AnyExprID,
     inScope scope: AnyScopeID,
     expecting expectedType: AnyType?,
@@ -92,47 +121,47 @@ extension TypeChecker {
     switch subject.kind {
     case BooleanLiteralExpr.self:
       return infer(
-        typeOfBooleanLiteralExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfBooleanLiteralExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     case CastExpr.self:
       return infer(
-        typeOfCastExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfCastExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     case CondExpr.self:
       return infer(
-        typeOfConditionalExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfConditionalExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     case FunctionCallExpr.self:
       return infer(
-        typeOfFunctionCallExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfFunctionCallExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     case InoutExpr.self:
       return infer(
-        typeOfInoutExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfInoutExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     case IntegerLiteralExpr.self:
       return infer(
-        typeOfIntegerLiteralExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfIntegerLiteralExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     case LambdaExpr.self:
       return infer(
-        typeOfLambdaExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfLambdaExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     case NameExpr.self:
       return infer(
-        typeOfNameExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfNameExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     case SequenceExpr.self:
       return infer(
-        typeOfSequenceExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfSequenceExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     case SubscriptCallExpr.self:
       return infer(
-        typeOfSubscriptCallExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfSubscriptCallExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     case TupleExpr.self:
       return infer(
-        typeOfTupleExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
+        typeOfTupleExpr: NodeID(subject)!, inScope: scope,
         expecting: expectedType, updating: &facts)
     default:
       unreachable()
@@ -655,7 +684,8 @@ extension TypeChecker {
     }
 
     // Case 3c
-    let candidates = lookup("[]", memberOf: facts.inferredTypes[syntax.callee]!, inScope: scope)
+    let candidates = lookup(
+      "[]", memberOf: facts.inferredTypes[syntax.callee]!, inScope: scope)
     switch candidates.count {
     case 0:
       addDiagnostic(
@@ -739,6 +769,171 @@ extension TypeChecker {
 
     return facts.constrain(subject, in: program.ast, toHaveType: TupleType(elementTypes))
   }
+
+  // MARK: Patterns
+
+  mutating func infer(
+    typeOf subject: AnyPatternID,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?
+  ) -> (type: AnyType, facts: InferenceFacts) {
+    var facts = InferenceFacts()
+    let inferredType = infer(
+      typeOf: subject, inScope: AnyScopeID(scope), expecting: expectedType, updating: &facts)
+    return (inferredType, facts)
+  }
+
+  /// Returns the type of `subject` given it occurs in `scope`, using `expectedType` to propagate
+  /// top-bottom type inference, and writing facts about its sub-expressions in `facts`.
+  private mutating func infer(
+    typeOf subject: AnyPatternID,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    switch subject.kind {
+    case BindingPattern.self:
+      return infer(
+        typeOfBindingPattern: NodeID(subject)!, inScope: scope,
+        expecting: expectedType, updating: &facts)
+    case ExprPattern.self:
+      return infer(
+        typeOfExprPattern: NodeID(subject)!, inScope: scope,
+        expecting: expectedType, updating: &facts)
+    case NamePattern.self:
+      return infer(
+        typeOfNamePattern: NodeID(subject)!, inScope: scope,
+        expecting: expectedType, updating: &facts)
+    case TuplePattern.self:
+      return infer(
+        typeOfTuplePattern: NodeID(subject)!, inScope: scope,
+        expecting: expectedType, updating: &facts)
+    case WildcardPattern.self:
+      return expectedType ?? ^TypeVariable()
+    default:
+      unreachable()
+    }
+  }
+
+  private mutating func infer(
+    typeOfBindingPattern subject: NodeID<BindingPattern>,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    // A binding pattern introduces additional type information when it has a type annotation. In
+    // that case, the type denoted by the annotation is used to infer the type of the sub-pattern
+    // and constrained to be a subtype of the expected type, if any.
+    var subpatternType = expectedType
+    if let a = program.ast[subject].annotation {
+      if let subjectType = realize(a, inScope: scope)?.instance {
+        if let t = expectedType {
+          facts.append(
+            SubtypingConstraint(
+              subjectType, t,
+              because: ConstraintCause(.annotation, at: program.ast[subject].site)))
+
+        }
+        subpatternType = subjectType
+      } else {
+        return .error
+      }
+    }
+
+    return infer(
+      typeOf: program.ast[subject].subpattern,
+      inScope: scope,
+      expecting: subpatternType,
+      updating: &facts)
+  }
+
+  private mutating func infer(
+    typeOfExprPattern subject: NodeID<ExprPattern>,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    infer(
+      typeOf: program.ast[subject].expr, inScope: scope,
+      expecting: expectedType, updating: &facts)
+  }
+
+  private mutating func infer(
+    typeOfNamePattern subject: NodeID<NamePattern>,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    let nameDecl = program.ast[subject].decl
+    let nameType = expectedType ?? ^TypeVariable(node: AnyNodeID(nameDecl))
+    setInferredType(nameType, for: nameDecl)
+    facts.setVisited(nameDecl)
+    return nameType
+  }
+
+  private mutating func infer(
+    typeOfTuplePattern subject: NodeID<TuplePattern>,
+    inScope scope: AnyScopeID,
+    expecting expectedType: AnyType?,
+    updating facts: inout InferenceFacts
+  ) -> AnyType {
+    switch expectedType?.base {
+    case let t as TupleType:
+      // The pattern and the expected have a tuple shape.
+      if t.elements.count != program.ast[subject].elements.count {
+        // Invalid destructuring.
+        diagnostics.insert(
+          .error(invalidDestructuringOfType: expectedType!, at: program.ast[subject].site))
+        return .error
+      }
+
+      var lLabels: [String?] = []
+      var rLabels: [String?] = []
+
+      // Visit the elements pairwise.
+      for (a, b) in zip(program.ast[subject].elements, t.elements) {
+        let elementType = infer(
+          typeOf: a.pattern, inScope: scope,
+          expecting: b.type, updating: &facts)
+        if elementType.isError { return .error }
+        lLabels.append(a.label?.value)
+        rLabels.append(b.label)
+      }
+
+      // Check that labels match.
+      if lLabels != rLabels {
+        diagnostics.insert(
+          .error(labels: lLabels, incompatibleWith: rLabels, at: program.ast[subject].site))
+        return .error
+      }
+
+      return expectedType!
+
+    case is TypeVariable:
+      // If the expected type is a variable, we can't infer anything more at this point.
+      return expectedType!
+
+    case .some:
+      // If the expected type doesn't have a tuple shape, the pattern cannot match.
+      diagnostics.insert(
+        .error(invalidDestructuringOfType: expectedType!, at: program.ast[subject].site))
+      return .error
+
+    case nil:
+      // Infer the shape of the expected type.
+      var elements: [TupleType.Element] = []
+      for a in program.ast[subject].elements {
+        let elementType = infer(
+          typeOf: a.pattern, inScope: scope,
+          expecting: nil, updating: &facts)
+        if elementType.isError { return .error }
+        elements.append(.init(label: a.label?.value, type: elementType))
+      }
+      return ^TupleType(elements)
+    }
+  }
+
+  // MARK: Helpers
 
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
   /// to generate their type constraints assuming they have the corresponding type in `parameters`

@@ -83,17 +83,16 @@ extension Program {
     // Static member declarations and initializers are global.
     switch decl.kind {
     case BindingDecl.self:
-      return ast[NodeID<BindingDecl>(rawValue: decl.rawValue)].isStatic
+      return ast[NodeID<BindingDecl>(decl)!].isStatic
 
     case FunctionDecl.self:
-      let i = NodeID<FunctionDecl>(rawValue: decl.rawValue)
-      return ast[i].isStatic
+      return ast[NodeID<FunctionDecl>(decl)!].isStatic
 
     case InitializerDecl.self:
       return true
 
     case SubscriptDecl.self:
-      return ast[NodeID<SubscriptDecl>(rawValue: decl.rawValue)].isStatic
+      return ast[NodeID<SubscriptDecl>(decl)!].isStatic
 
     default:
       return false
@@ -141,10 +140,10 @@ extension Program {
     switch decl.kind {
     case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
       return declToScope[decl]!.kind == TraitDecl.self
-    case MethodImplDecl.self:
-      return isRequirement(NodeID<MethodDecl>(rawValue: declToScope[decl]!.rawValue))
-    case SubscriptImplDecl.self:
-      return isRequirement(NodeID<SubscriptDecl>(rawValue: declToScope[decl]!.rawValue))
+    case MethodImpl.self:
+      return isRequirement(NodeID<MethodDecl>(declToScope[decl]!)!)
+    case SubscriptImpl.self:
+      return isRequirement(NodeID<SubscriptDecl>(declToScope[decl]!)!)
     default:
       return false
     }
@@ -154,10 +153,10 @@ extension Program {
   public func isMemberContext<S: ScopeID>(_ scope: S) -> Bool {
     switch scope.kind {
     case FunctionDecl.self:
-      return isNonStaticMember(NodeID<FunctionDecl>(rawValue: scope.rawValue))
+      return isNonStaticMember(NodeID<FunctionDecl>(scope)!)
 
     case SubscriptDecl.self:
-      return isNonStaticMember(NodeID<SubscriptDecl>(rawValue: scope.rawValue))
+      return isNonStaticMember(NodeID<SubscriptDecl>(scope)!)
 
     case MethodDecl.self, InitializerDecl.self:
       return true

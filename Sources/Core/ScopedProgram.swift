@@ -87,49 +87,49 @@ extension ScopedProgram {
   private mutating func visit(decl: AnyDeclID, withState state: inout VisitorState) {
     switch decl.kind {
     case AssociatedTypeDecl.self:
-      visit(associatedTypeDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(associatedTypeDecl: NodeID(decl)!, withState: &state)
     case AssociatedValueDecl.self:
-      visit(associatedValueDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(associatedValueDecl: NodeID(decl)!, withState: &state)
     case BindingDecl.self:
-      visit(bindingDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(bindingDecl: NodeID(decl)!, withState: &state)
     case BuiltinDecl.self:
       break
     case ConformanceDecl.self:
-      visit(conformanceDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(conformanceDecl: NodeID(decl)!, withState: &state)
     case ExtensionDecl.self:
-      visit(extensionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(extensionDecl: NodeID(decl)!, withState: &state)
     case FunctionDecl.self:
-      visit(functionDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(functionDecl: NodeID(decl)!, withState: &state)
     case GenericParameterDecl.self:
-      visit(genericParameterDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(genericParameterDecl: NodeID(decl)!, withState: &state)
     case ImportDecl.self:
-      visit(importDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(importDecl: NodeID(decl)!, withState: &state)
     case InitializerDecl.self:
-      visit(initializerDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(initializerDecl: NodeID(decl)!, withState: &state)
     case MethodDecl.self:
-      visit(methodDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case MethodImplDecl.self:
-      visit(methodImplDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(methodDecl: NodeID(decl)!, withState: &state)
+    case MethodImpl.self:
+      visit(methodImpl: NodeID(decl)!, withState: &state)
     case ModuleDecl.self:
-      visit(moduleDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(moduleDecl: NodeID(decl)!, withState: &state)
     case NamespaceDecl.self:
-      visit(namespaceDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(namespaceDecl: NodeID(decl)!, withState: &state)
     case OperatorDecl.self:
-      visit(operatorDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(operatorDecl: NodeID(decl)!, withState: &state)
     case ParameterDecl.self:
-      visit(parameterDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(parameterDecl: NodeID(decl)!, withState: &state)
     case ProductTypeDecl.self:
-      visit(productTypeDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(productTypeDecl: NodeID(decl)!, withState: &state)
     case SubscriptDecl.self:
-      visit(subscriptDecl: NodeID(rawValue: decl.rawValue), withState: &state)
-    case SubscriptImplDecl.self:
-      visit(subscriptImplDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(subscriptDecl: NodeID(decl)!, withState: &state)
+    case SubscriptImpl.self:
+      visit(subscriptImpl: NodeID(decl)!, withState: &state)
     case TraitDecl.self:
-      visit(traitDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(traitDecl: NodeID(decl)!, withState: &state)
     case TypeAliasDecl.self:
-      visit(typeAliasDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(typeAliasDecl: NodeID(decl)!, withState: &state)
     case VarDecl.self:
-      visit(varDecl: NodeID(rawValue: decl.rawValue), withState: &state)
+      visit(varDecl: NodeID(decl)!, withState: &state)
     default:
       unreachable("unexpected declaration")
     }
@@ -321,13 +321,13 @@ extension ScopedProgram {
           this.visit(expr: output, withState: &state)
         }
         for impl in this.ast[decl].impls {
-          this.visit(methodImplDecl: impl, withState: &state)
+          this.visit(methodImpl: impl, withState: &state)
         }
       })
   }
 
   private mutating func visit(
-    methodImplDecl decl: NodeID<MethodImplDecl>,
+    methodImpl decl: NodeID<MethodImpl>,
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
@@ -437,13 +437,13 @@ extension ScopedProgram {
         }
         this.visit(expr: this.ast[decl].output, withState: &state)
         for impl in this.ast[decl].impls {
-          this.visit(subscriptImplDecl: impl, withState: &state)
+          this.visit(subscriptImpl: impl, withState: &state)
         }
       })
   }
 
   private mutating func visit(
-    subscriptImplDecl decl: NodeID<SubscriptImplDecl>,
+    subscriptImpl decl: NodeID<SubscriptImpl>,
     withState state: inout VisitorState
   ) {
     insert(decl: decl, into: state.innermost)
@@ -538,59 +538,59 @@ extension ScopedProgram {
     case BooleanLiteralExpr.self:
       break
     case BufferLiteralExpr.self:
-      visit(bufferLiteralExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(bufferLiteralExpr: NodeID(expr)!, withState: &state)
     case CastExpr.self:
-      visit(castExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(castExpr: NodeID(expr)!, withState: &state)
     case CondExpr.self:
-      visit(condExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(condExpr: NodeID(expr)!, withState: &state)
     case ConformanceLensTypeExpr.self:
-      visit(conformanceLensTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(conformanceLensTypeExpr: NodeID(expr)!, withState: &state)
     case ErrorExpr.self:
       break
     case ExistentialTypeExpr.self:
-      visit(existentialTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(existentialTypeExpr: NodeID(expr)!, withState: &state)
     case FloatLiteralExpr.self:
       break
     case FunctionCallExpr.self:
-      visit(functionCallExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(functionCallExpr: NodeID(expr)!, withState: &state)
     case InoutExpr.self:
-      visit(inoutExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(inoutExpr: NodeID(expr)!, withState: &state)
     case IntegerLiteralExpr.self:
       break
     case LambdaExpr.self:
-      visit(lambdaExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(lambdaExpr: NodeID(expr)!, withState: &state)
     case LambdaTypeExpr.self:
-      visit(lambdaTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(lambdaTypeExpr: NodeID(expr)!, withState: &state)
     case MapLiteralExpr.self:
-      visit(mapLiteralExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(mapLiteralExpr: NodeID(expr)!, withState: &state)
     case MatchExpr.self:
-      visit(matchExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(matchExpr: NodeID(expr)!, withState: &state)
     case NameExpr.self:
-      visit(nameExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(nameExpr: NodeID(expr)!, withState: &state)
     case NilLiteralExpr.self:
       break
     case ParameterTypeExpr.self:
-      visit(parameterTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(parameterTypeExpr: NodeID(expr)!, withState: &state)
     case RemoteTypeExpr.self:
-      visit(storedProjectionTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(storedProjectionTypeExpr: NodeID(expr)!, withState: &state)
     case SequenceExpr.self:
-      visit(sequenceExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(sequenceExpr: NodeID(expr)!, withState: &state)
     case SpawnExpr.self:
-      visit(spawnExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(spawnExpr: NodeID(expr)!, withState: &state)
     case StringLiteralExpr.self:
       break
     case SubscriptCallExpr.self:
-      visit(subscriptCallExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(subscriptCallExpr: NodeID(expr)!, withState: &state)
     case TupleExpr.self:
-      visit(tupleExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(tupleExpr: NodeID(expr)!, withState: &state)
     case TupleMemberExpr.self:
-      visit(tupleMemberExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(tupleMemberExpr: NodeID(expr)!, withState: &state)
     case TupleTypeExpr.self:
-      visit(tupleTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(tupleTypeExpr: NodeID(expr)!, withState: &state)
     case UnicodeScalarLiteralExpr.self:
       break
     case UnionTypeExpr.self:
-      visit(unionTypeExpr: NodeID(rawValue: expr.rawValue), withState: &state)
+      visit(unionTypeExpr: NodeID(expr)!, withState: &state)
     case WildcardExpr.self:
       break
     default:
@@ -833,13 +833,13 @@ extension ScopedProgram {
   private mutating func visit(pattern: AnyPatternID, withState state: inout VisitorState) {
     switch pattern.kind {
     case BindingPattern.self:
-      visit(bindingPattern: NodeID(rawValue: pattern.rawValue), withState: &state)
+      visit(bindingPattern: NodeID(pattern)!, withState: &state)
     case ExprPattern.self:
-      visit(exprPattern: NodeID(rawValue: pattern.rawValue), withState: &state)
+      visit(exprPattern: NodeID(pattern)!, withState: &state)
     case NamePattern.self:
-      visit(namePattern: NodeID(rawValue: pattern.rawValue), withState: &state)
+      visit(namePattern: NodeID(pattern)!, withState: &state)
     case TuplePattern.self:
-      visit(tuplePattern: NodeID(rawValue: pattern.rawValue), withState: &state)
+      visit(tuplePattern: NodeID(pattern)!, withState: &state)
     case WildcardPattern.self:
       break
     default:
@@ -885,33 +885,33 @@ extension ScopedProgram {
   private mutating func visit(stmt: AnyStmtID, withState state: inout VisitorState) {
     switch stmt.kind {
     case AssignStmt.self:
-      visit(assignStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(assignStmt: NodeID(stmt)!, withState: &state)
     case BraceStmt.self:
-      visit(braceStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(braceStmt: NodeID(stmt)!, withState: &state)
     case BraceStmt.self:
       break
     case BreakStmt.self:
       break
     case CondBindingStmt.self:
-      visit(condBindingStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(condBindingStmt: NodeID(stmt)!, withState: &state)
     case ContinueStmt.self:
       break
     case DeclStmt.self:
-      visit(declStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(declStmt: NodeID(stmt)!, withState: &state)
     case DiscardStmt.self:
-      visit(discardStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(discardStmt: NodeID(stmt)!, withState: &state)
     case DoWhileStmt.self:
-      visit(doWhileStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(doWhileStmt: NodeID(stmt)!, withState: &state)
     case ExprStmt.self:
-      visit(exprStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(exprStmt: NodeID(stmt)!, withState: &state)
     case ForStmt.self:
-      visit(forStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(forStmt: NodeID(stmt)!, withState: &state)
     case ReturnStmt.self:
-      visit(returnStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(returnStmt: NodeID(stmt)!, withState: &state)
     case WhileStmt.self:
-      visit(whileStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(whileStmt: NodeID(stmt)!, withState: &state)
     case YieldStmt.self:
-      visit(yieldStmt: NodeID(rawValue: stmt.rawValue), withState: &state)
+      visit(yieldStmt: NodeID(stmt)!, withState: &state)
     default:
       unreachable("unexpected statement")
     }

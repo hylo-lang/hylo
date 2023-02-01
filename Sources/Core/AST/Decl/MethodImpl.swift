@@ -1,5 +1,7 @@
 /// The declaration of a method implementation.
-public struct MethodImplDecl: Decl, LexicalScope {
+///
+/// Instances of this type represent individual variant inside a method declaration.
+public struct MethodImpl: Decl, LexicalScope {
 
   public enum Body: Codable {
 

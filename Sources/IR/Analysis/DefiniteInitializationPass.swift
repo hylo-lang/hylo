@@ -118,10 +118,11 @@ public struct DefiniteInitializationPass: TransformPass {
               // at the end of the predecessor.
               if lhs != rhs {
                 // Deinitialize the object at the end of the predecessor.
+                let terminator = module.terminator(
+                  of: Block.ID(function: functionID, address: predecessor))!
                 module.insert(
-                  DeinitInstruction(key.operand(in: functionID)),
-                  before: module.terminator(
-                    of: Block.ID(function: functionID, address: predecessor))!)
+                  DeinitInstruction(key.operand(in: functionID), site: module[terminator].site),
+                  before: terminator)
                 didChange = true
               }
 
@@ -149,9 +150,13 @@ public struct DefiniteInitializationPass: TransformPass {
                 for path in difference {
                   let objectType = program.abstractLayout(of: rootType, at: path).type
                   let object = module.insert(
-                    LoadInstruction(.object(objectType), from: operand, at: path),
+                    LoadInstruction(
+                      .object(objectType), from: operand, at: path,
+                      site: module[terminator].site),
                     before: terminator)[0]
-                  module.insert(DeinitInstruction(object), before: terminator)
+                  module.insert(
+                    DeinitInstruction(object, site: module[terminator].site),
+                    before: terminator)
                 }
                 didChange = true
               }
@@ -321,7 +326,7 @@ public struct DefiniteInitializationPass: TransformPass {
     // Create an abstract location denoting the newly allocated memory.
     let location = MemoryLocation.instruction(block: id.block, address: id.address)
     if currentContext.memory[location] != nil {
-      diagnostics.append(.unboundedStackAllocation(at: instruction.range))
+      diagnostics.append(.unboundedStackAllocation(at: instruction.site))
       return false
     }
 
@@ -358,19 +363,19 @@ public struct DefiniteInitializationPass: TransformPass {
         break
 
       case .fullyUninitialized:
-        diagnostics.append(.useOfUninitializedObject(at: instruction.range))
+        diagnostics.append(.useOfUninitializedObject(at: instruction.site))
         return false
 
       case .fullyConsumed:
-        diagnostics.append(.useOfConsumedObject(at: instruction.range))
+        diagnostics.append(.useOfConsumedObject(at: instruction.site))
         return false
 
       case .partiallyInitialized:
-        diagnostics.append(.useOfPartiallyInitializedObject(at: instruction.range))
+        diagnostics.append(.useOfPartiallyInitializedObject(at: instruction.site))
         return false
 
       case .partiallyConsumed:
-        diagnostics.append(.useOfPartiallyConsumedObject(at: instruction.range))
+        diagnostics.append(.useOfPartiallyConsumedObject(at: instruction.site))
         return false
       }
 
@@ -398,9 +403,12 @@ public struct DefiniteInitializationPass: TransformPass {
         let objectType = program.abstractLayout(of: rootType, at: path).type
         let object = module.insert(
           LoadInstruction(
-            .object(objectType), from: instruction.location, at: path, range: instruction.range),
+            .object(objectType), from: instruction.location, at: path,
+            site: instruction.site),
           before: id)[0]
-        module.insert(DeinitInstruction(object, range: instruction.range), before: id)
+        module.insert(
+          DeinitInstruction(object, site: instruction.site),
+          before: id)
       }
 
       // We can skip the visit of the instructions that were just inserted and update the context
@@ -425,7 +433,7 @@ public struct DefiniteInitializationPass: TransformPass {
     return consume(
       localForKey: key, with: id,
       or: { (this, _) in
-        this.diagnostics.append(.illegalMove(at: instruction.range))
+        this.diagnostics.append(.illegalMove(at: instruction.site))
       })
   }
 
@@ -445,7 +453,7 @@ public struct DefiniteInitializationPass: TransformPass {
           if !consume(
             localForKey: key, with: id,
             or: { (this, _) in
-              this.diagnostics.append(.illegalMove(at: instruction.range))
+              this.diagnostics.append(.illegalMove(at: instruction.site))
             })
           {
             return false
@@ -494,9 +502,9 @@ public struct DefiniteInitializationPass: TransformPass {
           .object(program.abstractLayout(of: alloc.allocatedType, at: path).type),
           from: instruction.location,
           at: path,
-          range: instruction.range),
+          site: instruction.site),
         before: id)[0]
-      module.insert(DeinitInstruction(object, range: instruction.range), before: id)
+      module.insert(DeinitInstruction(object, site: instruction.site), before: id)
 
       // Apply the effect of the inserted instructions on the context directly.
       let consumer = InstructionID(
@@ -519,7 +527,7 @@ public struct DefiniteInitializationPass: TransformPass {
     return consume(
       localForKey: key, with: id,
       or: { (this, _) in
-        this.diagnostics.append(.illegalMove(at: instruction.range))
+        this.diagnostics.append(.illegalMove(at: instruction.site))
       })
   }
 
@@ -531,7 +539,7 @@ public struct DefiniteInitializationPass: TransformPass {
       if !consume(
         localForKey: key, with: id,
         or: { (this, _) in
-          this.diagnostics.append(.illegalMove(at: instruction.range))
+          this.diagnostics.append(.illegalMove(at: instruction.site))
         })
       {
         return false
@@ -569,13 +577,13 @@ public struct DefiniteInitializationPass: TransformPass {
             object = .full(.consumed(by: [id]))
             return nil
           case .fullyUninitialized:
-            return .useOfUninitializedObject(at: instruction.range)
+            return .useOfUninitializedObject(at: instruction.site)
           case .fullyConsumed:
-            return .useOfConsumedObject(at: instruction.range)
+            return .useOfConsumedObject(at: instruction.site)
           case .partiallyInitialized:
-            return .useOfPartiallyInitializedObject(at: instruction.range)
+            return .useOfPartiallyInitializedObject(at: instruction.site)
           case .partiallyConsumed:
-            return .useOfPartiallyConsumedObject(at: instruction.range)
+            return .useOfPartiallyConsumedObject(at: instruction.site)
           }
         })
       {
@@ -598,7 +606,7 @@ public struct DefiniteInitializationPass: TransformPass {
         if !consume(
           localForKey: key, with: id,
           or: { (this, _) in
-            this.diagnostics.append(.illegalMove(at: instruction.range))
+            this.diagnostics.append(.illegalMove(at: instruction.site))
           })
         {
           return false
@@ -619,7 +627,7 @@ public struct DefiniteInitializationPass: TransformPass {
       if !consume(
         localForKey: key, with: id,
         or: { (this, _) in
-          this.diagnostics.append(.illegalMove(at: instruction.range))
+          this.diagnostics.append(.illegalMove(at: instruction.site))
         })
       {
         return false
@@ -637,7 +645,7 @@ public struct DefiniteInitializationPass: TransformPass {
       if !consume(
         localForKey: key, with: id,
         or: { (this, _) in
-          this.diagnostics.append(.illegalMove(at: instruction.range))
+          this.diagnostics.append(.illegalMove(at: instruction.site))
         })
       {
         return false
@@ -1119,28 +1127,28 @@ extension DefiniteInitializationPass {
 
 extension Diagnostic {
 
-  fileprivate static func illegalMove(at site: SourceRange?) -> Diagnostic {
-    .error("illegal move", at: site ?? .eliminateFIXME)
+  fileprivate static func illegalMove(at site: SourceRange) -> Diagnostic {
+    .error("illegal move", at: site)
   }
 
-  fileprivate static func unboundedStackAllocation(at site: SourceRange?) -> Diagnostic {
-    .error("unbounded stack allocation", at: site ?? .eliminateFIXME)
+  fileprivate static func unboundedStackAllocation(at site: SourceRange) -> Diagnostic {
+    .error("unbounded stack allocation", at: site)
   }
 
-  fileprivate static func useOfConsumedObject(at site: SourceRange?) -> Diagnostic {
-    .error("use of consumed object", at: site ?? .eliminateFIXME)
+  fileprivate static func useOfConsumedObject(at site: SourceRange) -> Diagnostic {
+    .error("use of consumed object", at: site)
   }
 
-  fileprivate static func useOfPartiallyConsumedObject(at site: SourceRange?) -> Diagnostic {
-    .error("use of partially consumed object", at: site ?? .eliminateFIXME)
+  fileprivate static func useOfPartiallyConsumedObject(at site: SourceRange) -> Diagnostic {
+    .error("use of partially consumed object", at: site)
   }
 
-  fileprivate static func useOfPartiallyInitializedObject(at site: SourceRange?) -> Diagnostic {
-    .error("use of partially initialized object", at: site ?? .eliminateFIXME)
+  fileprivate static func useOfPartiallyInitializedObject(at site: SourceRange) -> Diagnostic {
+    .error("use of partially initialized object", at: site)
   }
 
-  fileprivate static func useOfUninitializedObject(at site: SourceRange?) -> Diagnostic {
-    .error("use of uninitialized object", at: site ?? .eliminateFIXME)
+  fileprivate static func useOfUninitializedObject(at site: SourceRange) -> Diagnostic {
+    .error("use of uninitialized object", at: site)
   }
 
 }

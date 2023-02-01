@@ -31,8 +31,7 @@ public struct LifetimePass: TransformPass {
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
-              diagnostics.append(
-                .unusedBinding(name: decl.baseName, at: borrow.range ?? .eliminateFIXME))
+              diagnostics.append(.unusedBinding(name: decl.baseName, at: borrow.site))
             }
             module[block].instructions.remove(at: instruction.address)
             continue
@@ -40,7 +39,10 @@ public struct LifetimePass: TransformPass {
 
           // Insert `end_borrow` after the instruction's last users.
           for lastUse in borrowLifetime.maximalElements {
-            module.insert(EndBorrowInstruction(borrow: borrowID, range: nil), after: lastUse.user)
+            module.insert(
+              EndBorrowInstruction(
+                borrow: borrowID, site: module[lastUse.user].site),
+              after: lastUse.user)
           }
 
         default:

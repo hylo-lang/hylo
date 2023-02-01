@@ -7,26 +7,30 @@ import Utils
 ///   are both synthesized.
 public struct SourceFile {
 
+  /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
+  ///
+  /// - Note: the instance is owned by a global dictionary, `Storage.allInstances`.
+  private unowned let storage: Storage
+
   /// A position in the source text.
   public typealias Index = String.Index
 
   /// The contents of the source file.
-  public let text: String
+  public var text: String { storage.text }
 
   /// The URL of the source file.
-  public let url: URL
+  public var url: URL { storage.url }
 
   /// The start position of each line.
   ///
   /// - Invariant: always starts with `contents.startIndex` and ends with `contents.endIndex`, even
   ///   if there's no final newline.
-  public let lineStarts: [Index]
+  public var lineStarts: [Index] { storage.lineStarts }
 
-  /// Creates a source file with the contents of the specifide URL.
-  public init(contentsOf url: URL) throws {
-    self.url = url
-    self.text = url.scheme == "synthesized" ? "" : try String(contentsOf: url)
-    self.lineStarts = text.lineBoundaries()
+  /// Creates an instance representing the file at `filePath`.
+  public init(contentsOf filePath: URL) throws {
+    let storage = try Storage(filePath) { try String(contentsOf: filePath) }
+    self.storage = storage
   }
 
   /// The name of the source file, sans path qualification or extension.
@@ -34,11 +38,15 @@ public struct SourceFile {
     url.deletingPathExtension().lastPathComponent
   }
 
-  /// Creates a source file with the specified contents, creating a unique random URL.
+  /// A range covering the whole contents of this instance.
+  public var wholeRange: SourceRange {
+    range(text.startIndex ..< text.endIndex)
+  }
+
+  /// Creates a source file with the specified contents and a unique random `url`.
   public init(synthesizedText text: String) {
-    self.url = URL(string: "synthesized://\(UUID().uuidString)")!
-    self.text = text
-    self.lineStarts = text.lineBoundaries()
+    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text }
+    self.storage = storage
   }
 
   /// Returns the contents of the file in the specified range.
@@ -123,15 +131,67 @@ extension SourceFile: Hashable {
 
 extension SourceFile: Codable {
 
+  /// The state that must be maintained on behalf of `SourceFile`s while they are encoded.
+  struct EncodingState {
+
+    /// Creates an empty instance.
+    public init() {}
+
+    /// A mapping from the identity of a `SourceFile`'s storage to a pair, (`id`, `s`), where `id`
+    /// is the serialized representation of `SourceFile` instances having that `storage`, and `s`
+    /// is the storage itself.
+    fileprivate var allInstances: [ObjectIdentifier: (id: Int, storage: Storage)] = [:]
+
+    /// Returns the corresponding state that should be used to decode the `SourceFile` values whose
+    /// encoding updated the value of `self`.
+    func decodingState() -> DecodingState {
+      DecodingState(allInstances: allInstances.values.sorted { $0.id < $1.id }.map(\.storage))
+    }
+
+  }
+
+  /// The state that must be maintained on behalf of `SourceFile`s while they are decoded.
+  struct DecodingState: Codable {
+
+    /// Creates an empty instance.
+    ///
+    /// Empty instances are stored in a `StatefulDecoder`, and are eventually replaced during the
+    /// decoding of an `AST`.
+    public init() { allInstances = [] }
+
+    /// Creates an instance containing `allInstances`
+    fileprivate init(allInstances: [Storage]) { self.allInstances = allInstances }
+
+    /// The values that will be used to reconstitute `SourceFile`s.
+    ///
+    /// The ID serialized for a `SourceFile` is used as an index into `allInstances` to find the
+    /// corresponding `storage`.
+    fileprivate let allInstances: [Storage]
+  }
+
   public init(from decoder: Decoder) throws {
     let container = try decoder.singleValueContainer()
-    let url = try container.decode(URL.self)
-    try self.init(contentsOf: url)
+    let id = try container.decode(Int.self)
+    storage = decoder[state: AST.DecodingState.self].allInstances[id]
   }
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
-    try container.encode(url)
+
+    try modifying(&encoder[state: AST.EncodingState.self]) { state in
+      // provisional ID in case `storage` isn't found in `state`.
+      var id = state.allInstances.count
+
+      try modifying(&state.allInstances[ObjectIdentifier(storage)]) { v in
+        if let v1 = v {
+          id = v1.id  // found: revise the ID.
+        } else {
+          v = (id: id, storage: self.storage)  // not found: remember storage for later encoding.
+        }
+        try container.encode(id)
+      }
+    }
+
   }
 
 }
@@ -164,4 +224,68 @@ where S.Element == URL {
     }
   }
   return result
+}
+
+extension SourceFile {
+
+  /// The shared, immutable storage of a `SourceFile`.
+  ///
+  /// `unowned Storage` can be used safely anywhere, because every `Storage` instance is owned by a
+  /// threadsafe global dictionary, `Storage.allInstances,` and never deallocated.
+  public final class Storage: Codable, FactoryInitializable {
+
+    /// The URL of the source file.
+    fileprivate let url: URL
+
+    /// The contents of the source file.
+    fileprivate let text: String
+
+    /// The start position of each line.
+    ///
+    /// - Invariant: always starts with `contents.startIndex` and ends with `contents.endIndex`, even
+    ///   if there's no final newline.
+    fileprivate let lineStarts: [Index]
+
+    /// Creates an instance with the given properties.
+    private init(url: URL, text: String) {
+      self.url = url
+      self.text = text
+      self.lineStarts = text.lineBoundaries()
+    }
+
+    /// The owner of all instances of `Storage`.
+    private static var allInstances = SharedMutable<[URL: Storage]>([:])
+
+    /// Creates an alias to the instance with the given `url` if it exists, or creates a new
+    /// instance having the given `url` and the text resulting from `makeText()`.
+    fileprivate convenience init(_ url: URL, makeText: () throws -> String) rethrows {
+      self.init(
+        aliasing: try Self.allInstances.modify { (c: inout [URL: Storage]) -> Storage in
+          try modifying(&c[url]) { v in
+            let r = try v ?? Storage(url: url, text: makeText())
+            v = r
+            return r
+          }
+        })
+    }
+
+    /// The data that is encoded/decoded for each instance of `self`.
+    private struct Encoding: Codable {
+      let url: URL
+      let text: String
+    }
+
+    public required convenience init(from decoder: Decoder) throws {
+      let container = try decoder.singleValueContainer()
+      let e = try container.decode(Encoding.self)
+      self.init(e.url) { e.text }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+      var container = encoder.singleValueContainer()
+      try container.encode(Encoding(url: url, text: text))
+    }
+
+  }
+
 }

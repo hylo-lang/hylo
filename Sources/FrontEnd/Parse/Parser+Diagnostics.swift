@@ -85,48 +85,14 @@ extension Diagnostic {
     .error("initializer declaration is not allowed here", at: d.introducer.site)
   }
 
-  static func error(unexpectedMemberModifier m: SourceRepresentable<MemberModifier>) -> Diagnostic {
-    .error("unexpected member modifier '\(m.value)'", at: m.site)
-  }
-
-  static func error(unexpectedMethodDecl d: MethodDecl) -> Diagnostic {
-    .error("method bundle declaration is not allowed here", at: d.introducerSite)
-  }
-
-  static func error(unexpectedMethodImplDecl d: MethodImplDecl) -> Diagnostic {
-    .error("method implementation declaration is not allowed here", at: d.introducer.site)
-  }
-
-  static func error(unexpectedNamespaceDecl d: NamespaceDecl) -> Diagnostic {
-    .error("namespace declaration is not allowed here", at: d.introducerSite)
-  }
-
-  static func error(unexpectedOperatorDecl d: OperatorDecl) -> Diagnostic {
-    .error("operator declaration is not allowed here", at: d.introducerSite)
-  }
-
-  static func error(unexpectedParameterDecl d: ParameterDecl) -> Diagnostic {
-    .error("parameter declaration is not allowed here", at: d.identifier.site)
-  }
-
-  static func error(unexpectedPropertyDecl d: SubscriptDecl) -> Diagnostic {
-    .error("property declaration is not allowed here", at: d.introducer.site)
-  }
-
   static func error(unexpectedEffect e: SourceRepresentable<AccessEffect>) -> Diagnostic {
     .error("unexpected effect '\(e.value)'", at: e.site)
   }
 
-  static func error(unexpectedSubscriptImplDecl d: SubscriptImplDecl) -> Diagnostic {
-    .error("subscript implementation declaration is not allowed here", at: d.introducer.site)
-  }
-
-  static func error(unexpectedTraitDecl d: TraitDecl) -> Diagnostic {
-    .error("trait declaration is not allowed here", at: d.identifier.site)
-  }
-
-  static func error(unexpectedVarDecl d: VarDecl) -> Diagnostic {
-    .error("variable declaration is not allowed here", at: d.identifier.site)
+  static func error(nestedBindingPattern p: NodeID<BindingPattern>, in ast: AST) -> Diagnostic {
+    .error(
+      "'\(ast[p].introducer.value)' cannot appear nested in another binding pattern",
+      at: ast[p].introducer.site)
   }
 
 }

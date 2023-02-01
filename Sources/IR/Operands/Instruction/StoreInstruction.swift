@@ -9,12 +9,12 @@ public struct StoreInstruction: Instruction {
   /// The location at which the object is stored.
   public let target: Operand
 
-  public let range: SourceRange?
+  public let site: SourceRange
 
-  init(_ object: Operand, to target: Operand, range: SourceRange? = nil) {
+  init(_ object: Operand, to target: Operand, site: SourceRange) {
     self.object = object
     self.target = target
-    self.range = range
+    self.site = site
   }
 
   public var types: [LoweredType] { [] }
