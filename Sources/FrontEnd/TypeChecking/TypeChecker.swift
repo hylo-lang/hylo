@@ -365,11 +365,11 @@ public struct TypeChecker {
 
     // Determine the shape of the declaration.
     let declScope = program.declToScope[AnyDeclID(id)]!
-    let (shapeType, shapeFact) = inferType(
+    let shape = inferType(
       of: AnyPatternID(syntax.pattern), in: declScope, expecting: nil)
-    assert(shapeFact.inferredTypes.storage.isEmpty, "expression in binding pattern")
+    assert(shape.facts.inferredTypes.storage.isEmpty, "expression in binding pattern")
 
-    if shapeType.isError {
+    if shape.type.isError {
       declTypes[id] = .error
       declRequests[id] = .failure
       return false
@@ -382,18 +382,18 @@ public struct TypeChecker {
     var success = true
     if let initializer = syntax.initializer {
       let initializerType = exprTypes[initializer].setIfNil(^TypeVariable(node: initializer.base))
-      var initializerConstraints: [Constraint] = shapeFact.constraints
+      var initializerConstraints: [Constraint] = shape.facts.constraints
 
       // The type of the initializer may be a subtype of the pattern's
       if hasTypeHint {
         initializerConstraints.append(
           SubtypingConstraint(
-            initializerType, shapeType,
+            initializerType, shape.type,
             because: ConstraintCause(.initializationWithHint, at: syntax.site)))
       } else {
         initializerConstraints.append(
           EqualityConstraint(
-            initializerType, shapeType,
+            initializerType, shape.type,
             because: ConstraintCause(.initializationWithPattern, at: syntax.site)))
       }
 
@@ -405,7 +405,7 @@ public struct TypeChecker {
       bindingsUnderChecking.formUnion(names)
       let inference = solveConstraints(
         impliedBy: initializer,
-        expecting: shapeType,
+        expecting: shape.type,
         in: declScope,
         initialConstraints: initializerConstraints)
       bindingsUnderChecking.subtract(names)
@@ -413,19 +413,21 @@ public struct TypeChecker {
       // TODO: Complete underspecified generic signatures
 
       success = inference.succeeded
-      declTypes[id] = inference.solution.typeAssumptions.reify(shapeType)
+      declTypes[id] = inference.solution.typeAssumptions.reify(shape.type)
 
       // Assign the variable declarations in the pattern to their type
-      for decl in shapeFact.visitedVarDecls {
-        modifying(
-          &declTypes[decl]!,
-          { (t) in
-            t = inference.solution.typeAssumptions.reify(t)
-          })
-        declRequests[decl] = success ? .success : .failure
+      for n in shape.unchecked {
+        if let d = NodeID<VarDecl>(n) {
+          modifying(
+            &declTypes[d]!,
+            { (t) in
+              t = inference.solution.typeAssumptions.reify(t)
+            })
+          declRequests[d] = success ? .success : .failure
+        }
       }
     } else if hasTypeHint {
-      declTypes[id] = shapeType
+      declTypes[id] = shape.type
     } else {
       unreachable("expected type annotation")
     }
@@ -1621,7 +1623,7 @@ public struct TypeChecker {
     }
 
     // Generate constraints.
-    let (inferredType, facts) = inferType(
+    let (inferredType, facts, _) = inferType(
       of: subject, in: AnyScopeID(scope), expecting: expectedType)
 
     // Bail out if constraint generation failed.
