@@ -31,9 +31,6 @@ public struct TypeChecker {
   /// The site for which type inference tracing is enabled, if any.
   public let inferenceTracingRange: SourceRange?
 
-  /// The set of lambda expressions whose declarations are pending type checking.
-  public private(set) var pendingLambdas: [NodeID<LambdaExpr>] = []
-
   /// Creates a new type checker for the specified program.
   ///
   /// - Note: `program` is stored in the type checker and mutated throughout type checking (e.g.,
@@ -238,36 +235,6 @@ public struct TypeChecker {
     diagnostics.insert(d)
   }
 
-  /// Inserts `expr` in the set of pending lambdas.
-  mutating func deferTypeChecking(_ expr: NodeID<LambdaExpr>) {
-    pendingLambdas.append(expr)
-  }
-
-  /// Processed all pending type checking requests and returns whether that succeeded.
-  mutating func checkPending() -> Bool {
-    var success = true
-
-    while let id = pendingLambdas.popLast() {
-      if let declType = exprTypes[id]?.base as? LambdaType,
-        !declType.flags.contains(.hasError)
-      {
-        // Reify the type of the underlying declaration.
-        declTypes[program.ast[id].decl] = ^declType
-        let parameters = program.ast[program.ast[id].decl].parameters
-        for i in 0 ..< parameters.count {
-          declTypes[parameters[i]] = declType.inputs[i].type
-        }
-
-        // Type check the declaration.
-        success = check(function: program.ast[id].decl) && success
-      } else {
-        success = false
-      }
-    }
-
-    return success
-  }
-
   /// Sets the realized type of `d` to `type`.
   ///
   /// - Requires: `d` has not gone through type realization yet.
@@ -289,9 +256,7 @@ public struct TypeChecker {
     for decl in program.ast.topLevelDecls(id) {
       success = check(decl: decl) && success
     }
-
-    // Process pending requests.
-    return checkPending() && success
+    return success
   }
 
   /// Type checks the specified declaration and returns whether that succeeded.
