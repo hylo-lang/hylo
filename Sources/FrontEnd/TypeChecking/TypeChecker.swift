@@ -493,9 +493,9 @@ public struct TypeChecker {
       if (program.ast[id].output == nil) && program.ast[id].isInExprContext { return success }
 
       // Otherwise, it's expected to have the realized return type.
-      let type = declTypes[id]!.base as! LambdaType
-      let inferredType = deduceType(of: expr, expecting: type.output.skolemized, in: id)
-      return (inferredType != nil) && success
+      let t = deduceType(
+        of: expr, expecting: LambdaType(declTypes[id]!)!.output.skolemized, in: id)
+      return (t != nil) && success
 
     case nil:
       // Requirements and FFIs can be without a body.
