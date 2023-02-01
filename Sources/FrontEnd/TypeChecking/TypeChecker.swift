@@ -3630,11 +3630,11 @@ public struct TypeChecker {
   ///
   /// - Requires: The base name of `d` is equal to `n.stem`
   mutating func decl(_ d: AnyDeclID, named n: Name) -> AnyDeclID? {
-    if !n.labels.isEmpty && !decl(d, isLabeledWith: n.labels) {
+    if !n.labels.isEmpty && (n.labels != labels(d)) {
       return nil
     }
 
-    if let notation = n.notation, !decl(d, hasNotation: notation) {
+    if let x = n.notation, x != operatorNotation(d) {
       return nil
     }
 
@@ -3649,51 +3649,47 @@ public struct TypeChecker {
     return d
   }
 
-  /// Returns `true` iff `d` is a function, method, or subscript declaration whose argument labels
-  /// are `l`.
-  private mutating func decl(_ d: AnyDeclID, isLabeledWith l: [String?]) -> Bool {
+  /// Returns the labels of `d`s name.
+  ///
+  /// Only function, method, or subscript declarations may have labels. This method returns `[]`
+  /// for any other declaration.
+  private mutating func labels(_ d: AnyDeclID) -> [String?] {
     switch d.kind {
     case FunctionDecl.self:
-      let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
-      return l == decl.parameters.map({ (p) in program.ast[p].label?.value })
+      return program.ast[NodeID<FunctionDecl>(d)!]
+        .parameters
+        .map({ (p) in program.ast[p].label?.value })
 
     case InitializerDecl.self:
-      guard let type = LambdaType(realize(initializerDecl: NodeID(rawValue: d.rawValue))) else {
-        return false
-      }
-      return l == type.inputs.map(\.label)
+      return LambdaType(realize(initializerDecl: NodeID(rawValue: d.rawValue)))
+        .map({ (t) in t.inputs.map(\.label) }) ?? []
 
     case MethodDecl.self:
-      let decl = program.ast[NodeID<MethodDecl>(rawValue: d.rawValue)]
-      return l == decl.parameters.map({ (p) in program.ast[p].label?.value })
+      return program.ast[NodeID<MethodDecl>(d)!]
+        .parameters
+        .map({ (p) in program.ast[p].label?.value })
 
     case SubscriptDecl.self:
-      let decl = program.ast[NodeID<SubscriptDecl>(rawValue: d.rawValue)]
-      if let parameters = decl.parameters {
-        return l == parameters.map({ (p) in program.ast[p].label?.value })
-      } else {
-        return false
-      }
+      return program.ast[NodeID<SubscriptDecl>(d)!]
+        .parameters
+        .map({ (ps) in ps.map({ (p) in program.ast[p].label?.value }) }) ?? []
 
     default:
-      return false
+      return []
     }
   }
 
-  /// Returns `true` iff `d` is a function or method declaration whose name has the operator
-  /// notation `n`.
-  private func decl(_ d: AnyDeclID, hasNotation n: OperatorNotation) -> Bool {
+  /// Returns the operator notation of `d`'s name, if any.
+  private func operatorNotation(_ d: AnyDeclID) -> OperatorNotation? {
     switch d.kind {
     case FunctionDecl.self:
-      let decl = program.ast[NodeID<FunctionDecl>(rawValue: d.rawValue)]
-      return decl.notation?.value == n
+      return program.ast[NodeID<FunctionDecl>(d)!].notation?.value
 
     case MethodDecl.self:
-      let decl = program.ast[NodeID<MethodDecl>(rawValue: d.rawValue)]
-      return decl.notation?.value == n
+      return program.ast[NodeID<MethodDecl>(d)!].notation?.value
 
     default:
-      return false
+      return nil
     }
   }
 
