@@ -67,7 +67,7 @@ struct SubstitutionMap {
   /// apply `substitutionPolicy` to deal with free variables.
   ///
   /// The default substitution policy is `substituteByError` because we typically use `reify` after
-  /// having build a complete solution and therefore don't expect its result to still contain open
+  /// having built a complete solution and therefore don't expect its result to still contain open
   /// type variables.
   func reify(
     _ type: AnyType,
