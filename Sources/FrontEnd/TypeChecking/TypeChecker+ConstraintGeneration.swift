@@ -118,51 +118,51 @@ extension TypeChecker {
     switch subject.kind {
     case BooleanLiteralExpr.self:
       return inferType(
-        ofBooleanLiteralExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofBooleanLiteralExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case CastExpr.self:
       return inferType(
-        ofCastExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofCastExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case CondExpr.self:
       return inferType(
-        ofConditionalExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofConditionalExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case FunctionCallExpr.self:
       return inferType(
-        ofFunctionCallExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofFunctionCallExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case InoutExpr.self:
       return inferType(
-        ofInoutExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofInoutExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case IntegerLiteralExpr.self:
       return inferType(
-        ofIntegerLiteralExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofIntegerLiteralExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case LambdaExpr.self:
       return inferType(
-        ofLambdaExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofLambdaExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case MatchExpr.self:
       return inferType(
-        ofMatchExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofMatchExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case NameExpr.self:
       return inferType(
-        ofNameExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofNameExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case SequenceExpr.self:
       return inferType(
-        ofSequenceExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofSequenceExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case SubscriptCallExpr.self:
       return inferType(
-        ofSubscriptCallExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofSubscriptCallExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case TupleExpr.self:
       return inferType(
-        ofTupleExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofTupleExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     default:
       unreachable()
@@ -824,19 +824,19 @@ private mutating func inferType(
     switch subject.kind {
     case BindingPattern.self:
       return inferType(
-        ofBindingPattern: NodeID(rawValue: subject.rawValue), in: scope,
+        ofBindingPattern: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case ExprPattern.self:
       return inferType(
-        ofExprPattern: NodeID(rawValue: subject.rawValue), in: scope,
+        ofExprPattern: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case NamePattern.self:
       return inferType(
-        ofNamePattern: NodeID(rawValue: subject.rawValue), in: scope,
+        ofNamePattern: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case TuplePattern.self:
       return inferType(
-        ofTuplePattern: NodeID(rawValue: subject.rawValue), in: scope,
+        ofTuplePattern: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     case WildcardPattern.self:
       return expectedType ?? ^TypeVariable()

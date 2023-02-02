@@ -89,4 +89,10 @@ extension Diagnostic {
     .error("unexpected effect '\(e.value)'", at: e.site)
   }
 
+  static func error(nestedBindingPattern p: NodeID<BindingPattern>, in ast: AST) -> Diagnostic {
+    .error(
+      "'\(ast[p].introducer.value)' cannot appear nested in another binding pattern",
+      at: ast[p].introducer.site)
+  }
+
 }
