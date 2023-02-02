@@ -381,7 +381,7 @@ public struct TypeChecker {
       declTypes[id] = inference.solution.typeAssumptions.reify(shape.type)
 
       // Run deferred queries.
-      success = shape.deferred.reduce(success, { $1.execute(&self, inference.solution) && $0 })
+      success = shape.deferred.reduce(success, { $1(&self, inference.solution) && $0 })
     } else if hasTypeHint {
       declTypes[id] = shape.type
     } else {
@@ -1635,10 +1635,7 @@ public struct TypeChecker {
 
     // Run deferred queries.
     let success = deferredQueries.reduce(
-      !solution.diagnostics.errorReported,
-      { (s, q) in
-        q.execute(&self, solution) && s
-      })
+      !solution.diagnostics.errorReported, { (s, q) in q(&self, solution) && s })
 
     diagnostics.formUnion(solution.diagnostics.log)
     return (succeeded: success, solution: solution)
