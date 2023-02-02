@@ -164,7 +164,7 @@ extension TypeChecker {
         typeOfTupleExpr: NodeID(rawValue: subject.rawValue), inScope: scope,
         expecting: expectedType, updating: &facts)
     default:
-      unexpectedNode(id: subject, in: program.ast, whileExpecting: "expression")
+      unexpected("expression", found: subject, of: program.ast)
     }
   }
 

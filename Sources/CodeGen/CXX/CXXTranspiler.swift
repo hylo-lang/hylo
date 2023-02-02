@@ -31,7 +31,7 @@ public struct CXXTranspiler {
     case ProductTypeDecl.self:
       return cxx(type: ProductTypeDecl.Typed(source)!)
     default:
-      unexpectedNode(source, whileExpecting: "unexpected declaration")
+      unexpected("declaration", found: source)
     }
   }
 
@@ -111,7 +111,7 @@ public struct CXXTranspiler {
       return [.method]
 
     default:
-      unexpectedNode(source, whileExpecting: "class member")
+      unexpected("class member", found: source)
     }
   }
 
@@ -202,7 +202,7 @@ public struct CXXTranspiler {
     case YieldStmt.self:
       return cxx(yieldStmt: YieldStmt.Typed(stmt)!)
     default:
-      unexpectedNode(stmt, whileExpecting: "unexpected statement")
+      unexpected("statement", found: stmt)
     }
   }
 
@@ -217,7 +217,7 @@ public struct CXXTranspiler {
     case BindingDecl.self:
       return cxx(localBinding: BindingDecl.Typed(source.decl)!)
     default:
-      unexpectedNode(source.decl, whileExpecting: "unexpected declaration")
+      unexpected("declaration", found: source)
     }
   }
 
@@ -301,7 +301,7 @@ public struct CXXTranspiler {
     case CondExpr.self:
       return cxx(cond: CondExpr.Typed(expr)!)
     default:
-      unexpectedNode(expr, whileExpecting: "unexpected expression")
+      unexpected("expression", found: expr)
     }
   }
 

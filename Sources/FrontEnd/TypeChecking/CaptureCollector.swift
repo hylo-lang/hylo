@@ -36,7 +36,7 @@ struct CaptureCollector {
       fatalError("not implemented")
 
     default:
-      unexpectedNode(id: id, in: ast, whileExpecting: "declaration")
+      unexpected("declaration", found: id, of: ast)
     }
 
     return captures
@@ -80,7 +80,7 @@ struct CaptureCollector {
         includingExplicitCaptures: false,
         into: &captures)
     default:
-      unexpectedNode(id: id, in: ast, whileExpecting: "declaration")
+      unexpected("declaration", found: id, of: ast)
     }
   }
 
@@ -232,7 +232,7 @@ struct CaptureCollector {
       break
 
     default:
-      unexpectedNode(id: id, in: ast, whileExpecting: "expression")
+      unexpected("expression", found: id, of: ast)
     }
   }
 
@@ -403,7 +403,7 @@ struct CaptureCollector {
     case WildcardPattern.self:
       break
     default:
-      unexpectedNode(id: id, in: ast, whileExpecting: "pattern")
+      unexpected("pattern", found: id, of: ast)
     }
   }
 
@@ -461,7 +461,7 @@ struct CaptureCollector {
     case BreakStmt.self, ContinueStmt.self:
       break
     default:
-      unexpectedNode(id: id, in: ast, whileExpecting: "statement")
+      unexpected("statement", found: id, of: ast)
     }
   }
 
@@ -546,7 +546,7 @@ struct CaptureCollector {
     case TupleTypeExpr.self:
       collectCaptures(ofTupleType: NodeID(rawValue: id.rawValue), into: &captures)
     default:
-      unexpectedNode(id: id, in: ast, whileExpecting: "type expression")
+      unexpected("type expression", found: id, of: ast)
     }
   }
 
