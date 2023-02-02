@@ -149,7 +149,7 @@ extension TypeChecker {
         expecting: expectedType, updating: &facts)
     case MatchExpr.self:
       return inferType(
-        ofMatchExpr: NodeID(rawValue: subject.rawValue), in: scope,
+        ofMatchExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &facts)
     case NameExpr.self:
       return inferType(
