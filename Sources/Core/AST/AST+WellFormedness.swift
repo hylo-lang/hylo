@@ -104,7 +104,7 @@ extension AST {
       diagnostics.report(.error(unexpectedVarDecl: self[NodeID(rawValue: decl.rawValue)]))
 
     default:
-      unreachable("unexpected declaration")
+      unexpectedNode(id: decl, in: self, whileExpecting: "declaration")
     }
 
   }
@@ -198,7 +198,7 @@ extension AST {
       diagnostics.report(.error(unexpectedVarDecl: self[NodeID(rawValue: decl.rawValue)]))
 
     default:
-      unreachable("unexpected declaration")
+      unexpectedNode(id: decl, in: self, whileExpecting: "declaration")
     }
   }
 

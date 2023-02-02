@@ -210,7 +210,7 @@ public struct AST {
         break
 
       default:
-        unreachable("unexpected pattern")
+        unexpectedNode(id: pattern, in: self, whileExpecting: "pattern")
       }
     }
 

@@ -326,7 +326,7 @@ public struct TypeChecker {
     case TypeAliasDecl.self:
       return check(typeAlias: NodeID(rawValue: id.rawValue))
     default:
-      unreachable("unexpected declaration")
+      unexpectedNode(id: id, in: program.ast, whileExpecting: "declaration")
     }
   }
 
@@ -1020,7 +1020,7 @@ public struct TypeChecker {
         fatalError("not implemented")
 
       default:
-        unreachable()
+        unexpectedNode(id: j, in: program.ast, whileExpecting: "trait member")
       }
     }
 
@@ -1104,7 +1104,7 @@ public struct TypeChecker {
       return true
 
     default:
-      unreachable("unexpected statement")
+      unexpectedNode(id: id, in: program.ast, whileExpecting: "statement")
     }
   }
 
@@ -2248,7 +2248,7 @@ public struct TypeChecker {
         table[i, default: []].insert(id)
 
       default:
-        unreachable("unexpected declaration")
+        unexpectedNode(id: id, in: program.ast, whileExpecting: "declaration")
       }
     }
 
@@ -2285,7 +2285,7 @@ public struct TypeChecker {
       return MetatypeType(of: TypeVariable(node: expr.base))
 
     default:
-      unreachable("unexpected expression")
+      unexpectedNode(id: expr, in: program.ast, whileExpecting: "expression")
     }
   }
 
@@ -2772,7 +2772,7 @@ public struct TypeChecker {
         : declTypes[id]!
 
     default:
-      unreachable("unexpected declaration")
+      unexpectedNode(id: id, in: program.ast, whileExpecting: "declaration")
     }
   }
 
@@ -2964,7 +2964,7 @@ public struct TypeChecker {
 
       // Parameters of initializers must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        unreachable("unexpected type expression")
+        unexpectedNode(id: i, in: program.ast, whileExpecting: "type expression")
       }
 
       if let type = realize(parameter: annotation, inScope: AnyScopeID(id))?.instance {
@@ -3011,7 +3011,7 @@ public struct TypeChecker {
 
       // Parameters of methods must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        unreachable("unexpected type expression")
+        unexpectedNode(id: i, in: program.ast, whileExpecting: "type expression")
       }
 
       if let type = realize(parameter: annotation, inScope: AnyScopeID(id))?.instance {
@@ -3098,7 +3098,7 @@ public struct TypeChecker {
 
       // Parameters of subscripts must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        unreachable("unexpected type expression")
+        unexpectedNode(id: i, in: program.ast, whileExpecting: "type expression")
       }
 
       if let type = realize(parameter: annotation, inScope: AnyScopeID(id))?.instance {
