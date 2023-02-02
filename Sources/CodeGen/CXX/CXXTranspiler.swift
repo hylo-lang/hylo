@@ -11,7 +11,7 @@ public struct CXXTranspiler {
   /// This property is used when we need access to the contents of a node from its ID.
   let wholeValProgram: TypedProgram
 
-  /// Creates a C++ transpiler from the whole Val program.
+  /// Creates an instance.
   public init(_ wholeValProgram: TypedProgram) {
     self.wholeValProgram = wholeValProgram
   }
@@ -23,7 +23,7 @@ public struct CXXTranspiler {
 
   // MARK: Declarations
 
-  /// Transpiles to C++ a top-level declaration.
+  /// Returns a transpilation of `source`.
   func cxx(topLevel source: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
     switch source.kind {
     case FunctionDecl.self:
@@ -35,7 +35,7 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Transpiles to C++ a top-level function declaration.
+  /// Returns a transpilation of `source`.
   func cxx(function source: FunctionDecl.Typed) -> CXXFunctionDecl {
     assert(wholeValProgram.isGlobal(source.id))
 
@@ -48,8 +48,9 @@ public struct CXXTranspiler {
       body: source.body != nil ? cxx(funBody: source.body!) : nil)
   }
 
-  /// Transpiles the function return type into a C++ type.
-  private func cxxFunctionReturnType(_ source: FunctionDecl.Typed, with name: String) -> CXXTypeExpr
+  /// Returns a transpilation of the return type `source`.
+  private func cxxFunctionReturnType(_ source: FunctionDecl.Typed, with name: String)
+    -> CXXTypeExpr// TODO: this will be refactored by follow-up patches.
   {
     if name == "main" {
       // The output type of `main` must be `int`.
@@ -68,7 +69,7 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Transpiles the function parameters to C++.
+  /// Returns a transpilation of the parameters of `source`.
   private func cxxFunctionParameters(_ source: FunctionDecl.Typed) -> [CXXFunctionDecl.Parameter] {
     let paramTypes = (source.type.base as! LambdaType).inputs
     assert(paramTypes.count == source.parameters.count)
@@ -77,7 +78,7 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Transpiles a function body to a C++.
+  /// Returns a transpilation of `source`.
   private func cxx(funBody body: FunctionDecl.Typed.Body) -> CXXScopedBlock {
     switch body {
     case .block(let stmt):
@@ -89,7 +90,7 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Transpiles a product type declaration to a C++ class.
+  /// Returns a transpilation of `source`.
   private func cxx(type source: ProductTypeDecl.Typed) -> CXXClassDecl {
     assert(wholeValProgram.isGlobal(source.id))
     return CXXClassDecl(
@@ -97,7 +98,7 @@ public struct CXXTranspiler {
       members: source.members.flatMap({ cxx(classMember: $0) }))
   }
 
-  /// Transpiles product type member to C++.
+  /// Returns a transpilation of `source`.
   private func cxx(classMember source: AnyDeclID.TypedNode) -> [CXXClassDecl.ClassMember] {
     switch source.kind {
     case BindingDecl.self:
@@ -115,7 +116,7 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Appends one C++ class attribute to `target` for each name bound in `source`.
+  /// Returns a transpilation of `source`.
   private func cxx(productTypeBinding source: BindingDecl.Typed) -> [CXXClassDecl.ClassMember] {
     return source.pattern.subpattern.names.map({
       .attribute(
@@ -126,7 +127,7 @@ public struct CXXTranspiler {
           isStatic: source.isStatic))
     })
   }
-  /// Translate an initializer found in product type to the corresponding C++ constructor.
+  /// Returns a transpilation of `source`.
   private func cxx(productTypeInitialzer source: InitializerDecl.Typed) -> CXXClassDecl.ClassMember
   {
     switch source.introducer.value {
@@ -139,9 +140,9 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Transpiles a local binding declaration to a C++ statement containing a local variable.
+  /// Returns a transpilation of `source`.
   ///
-  /// The statement can be a `CXXLocalVarDecl` or a `CXXScopedBlock` containing `CXXLocalVarDecl` objects.
+  /// Returned statement can be a `CXXLocalVarDecl` or a `CXXScopedBlock` containing `CXXLocalVarDecl` objects.
   private func cxx(localBinding source: BindingDecl.Typed) -> CXXStmt {
     let cxxInitializer = source.initializer != nil ? cxx(expr: source.initializer!) : nil
     let numNames = source.pattern.subpattern.names.count
@@ -164,7 +165,7 @@ public struct CXXTranspiler {
       unreachable()
     }
   }
-  /// Transpile to a C++ local variable the Val name pattern, using a C++ expression as intializer.
+  /// Returns a transpilation of `source`.
   private func cxx(localNamePattern source: NamePattern.Typed, with cxxInitializer: CXXExpr?)
     -> CXXLocalVarDecl
   {
@@ -176,42 +177,42 @@ public struct CXXTranspiler {
 
   // MARK: Statements
 
-  /// Transpiles a Val statement into the corresponding C++ statement.
-  private func cxx<ID: StmtID>(stmt: ID.TypedNode) -> CXXStmt {
-    switch stmt.kind {
+  /// Returns a transpilation of `source`.
+  private func cxx<ID: StmtID>(stmt source: ID.TypedNode) -> CXXStmt {
+    switch source.kind {
     case BraceStmt.self:
-      return cxx(brace: BraceStmt.Typed(stmt)!)
+      return cxx(brace: BraceStmt.Typed(source)!)
     case DeclStmt.self:
-      return cxx(declStmt: DeclStmt.Typed(stmt)!)
+      return cxx(declStmt: DeclStmt.Typed(source)!)
     case ExprStmt.self:
-      return cxx(exprStmt: ExprStmt.Typed(stmt)!)
+      return cxx(exprStmt: ExprStmt.Typed(source)!)
     case AssignStmt.self:
-      return cxx(assignStmt: AssignStmt.Typed(stmt)!)
+      return cxx(assignStmt: AssignStmt.Typed(source)!)
     case ReturnStmt.self:
-      return cxx(returnStmt: ReturnStmt.Typed(stmt)!)
+      return cxx(returnStmt: ReturnStmt.Typed(source)!)
     case WhileStmt.self:
-      return cxx(whileStmt: WhileStmt.Typed(stmt)!)
+      return cxx(whileStmt: WhileStmt.Typed(source)!)
     case DoWhileStmt.self:
-      return cxx(doWhileStmt: DoWhileStmt.Typed(stmt)!)
+      return cxx(doWhileStmt: DoWhileStmt.Typed(source)!)
     case ForStmt.self:
-      return cxx(forStmt: ForStmt.Typed(stmt)!)
+      return cxx(forStmt: ForStmt.Typed(source)!)
     case BreakStmt.self:
-      return cxx(breakStmt: BreakStmt.Typed(stmt)!)
+      return cxx(breakStmt: BreakStmt.Typed(source)!)
     case ContinueStmt.self:
-      return cxx(continueStmt: ContinueStmt.Typed(stmt)!)
+      return cxx(continueStmt: ContinueStmt.Typed(source)!)
     case YieldStmt.self:
-      return cxx(yieldStmt: YieldStmt.Typed(stmt)!)
+      return cxx(yieldStmt: YieldStmt.Typed(source)!)
     default:
       unreachable("unexpected statement")
     }
   }
 
-  /// Transpiles a Val brace statement into the corresponding C++ scoped block statement.
+  /// Returns a transpilation of `source`.
   private func cxx(brace source: BraceStmt.Typed) -> CXXScopedBlock {
     return CXXScopedBlock(stmts: Array(source.stmts.map({ cxx(stmt: $0) })))
   }
 
-  /// Transpiles a Val declaration statement into the corresponding C++ local decl.
+  /// Returns a transpilation of `source`.
   private func cxx(declStmt source: DeclStmt.Typed) -> CXXStmt {
     switch source.decl.kind {
     case BindingDecl.self:
@@ -221,12 +222,12 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Transpiles a Val expression statement into the corresponding C++ expression statement.
+  /// Returns a transpilation of `source`.
   private func cxx(exprStmt source: ExprStmt.Typed) -> CXXStmt {
     return CXXExprStmt(expr: cxx(expr: source.expr))
   }
 
-  /// Transpiles a Val assignment statement into an C++ statement containing an assign expression.
+  /// Returns a transpilation of `source`.
   private func cxx(assignStmt source: AssignStmt.Typed) -> CXXExprStmt {
     let cxxExpr = CXXInfixExpr(
       oper: .assignment,
@@ -235,13 +236,13 @@ public struct CXXTranspiler {
     return CXXExprStmt(expr: cxxExpr)
   }
 
-  /// Transpiles a Val return statement into the corresponding C++ return statement.
+  /// Returns a transpilation of `source`.
   private func cxx(returnStmt source: ReturnStmt.Typed) -> CXXReturnStmt {
     let returnValue = source.value != nil ? cxx(expr: source.value!) : nil
     return CXXReturnStmt(expr: returnValue)
   }
 
-  /// Transpiles a Val while statement into the corresponding C++ while statement.
+  /// Returns a transpilation of `source`.
   private func cxx(whileStmt source: WhileStmt.Typed) -> CXXWhileStmt {
     // TODO: multiple conditions
     // TODO: bindings in conditions
@@ -260,69 +261,69 @@ public struct CXXTranspiler {
     return CXXWhileStmt(
       condition: condition, body: cxx(stmt: source.body))
   }
-  /// Transpiles a Val do-while statement into the corresponding C++ do-while statement.
+  /// Returns a transpilation of `source`.
   private func cxx(doWhileStmt source: DoWhileStmt.Typed) -> CXXDoWhileStmt {
     return CXXDoWhileStmt(
       body: cxx(stmt: source.body),
       condition: cxx(expr: source.condition))
   }
-  /// Transpiles a Val for statement into the corresponding C++ for statement.
+  /// Returns a transpilation of `source`.
   private func cxx(forStmt source: ForStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "ForStmt")
   }
-  /// Transpiles a Val break statement into a C++ break statement.
+  /// Returns a transpilation of `source`.
   private func cxx(breakStmt source: BreakStmt.Typed) -> CXXBreakStmt {
     return CXXBreakStmt()
   }
-  /// Transpiles a Val continue statement into a C++ continue statement.
+  /// Returns a transpilation of `source`.
   private func cxx(continueStmt source: ContinueStmt.Typed) -> CXXContinueStmt {
     return CXXContinueStmt()
   }
-  /// Transpiles a Val yield statement into a corresponding C++ statement.
+  /// Returns a transpilation of `source`.
   private func cxx(yieldStmt source: YieldStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "YieldStmt")
   }
 
   // MARK: Expressions
 
-  /// Transpiles a Val expression into a corresponding C++ expression.
-  private func cxx(expr: AnyExprID.TypedNode) -> CXXExpr {
-    switch expr.kind {
+  /// Returns a transpilation of `source`.
+  private func cxx(expr source: AnyExprID.TypedNode) -> CXXExpr {
+    switch source.kind {
     case BooleanLiteralExpr.self:
-      return cxx(booleanLiteral: BooleanLiteralExpr.Typed(expr)!)
+      return cxx(booleanLiteral: BooleanLiteralExpr.Typed(source)!)
     case IntegerLiteralExpr.self:
-      return cxx(integerLiteral: IntegerLiteralExpr.Typed(expr)!)
+      return cxx(integerLiteral: IntegerLiteralExpr.Typed(source)!)
     case NameExpr.self:
-      return cxx(name: NameExpr.Typed(expr)!)
+      return cxx(name: NameExpr.Typed(source)!)
     case SequenceExpr.self:
-      return cxx(sequence: SequenceExpr.Typed(expr)!)
+      return cxx(sequence: SequenceExpr.Typed(source)!)
     case FunctionCallExpr.self:
-      return cxx(functionCall: FunctionCallExpr.Typed(expr)!)
+      return cxx(functionCall: FunctionCallExpr.Typed(source)!)
     case CondExpr.self:
-      return cxx(cond: CondExpr.Typed(expr)!)
+      return cxx(cond: CondExpr.Typed(source)!)
     default:
       unreachable("unexpected expression")
     }
   }
 
-  /// Transpiles a Val boolean literal into a corresponding C++ literal.
+  /// Returns a transpilation of `source`.
   private func cxx(booleanLiteral source: BooleanLiteralExpr.Typed) -> CXXBooleanLiteralExpr {
     return CXXBooleanLiteralExpr(value: source.value)
   }
 
-  /// Transpiles a Val integer literal into a corresponding C++ literal.
+  /// Returns a transpilation of `source`.
   private func cxx(integerLiteral source: IntegerLiteralExpr.Typed) -> CXXExpr {
     return CXXIntegerLiteralExpr(value: source.value)
   }
 
-  /// Transpiles a Val sequence expression into a corresponding C++ expression.
+  /// Returns a transpilation of `source`.
   private func cxx(sequence source: SequenceExpr.Typed) -> CXXExpr {
     return cxx(foldedSequence: source.foldedSequenceExprs!)
   }
 
-  /// Transpiles a Val folded sequence expression into a corresponding C++ expression.
-  private func cxx(foldedSequence seq: FoldedSequenceExpr) -> CXXExpr {
-    switch seq {
+  /// Returns a transpilation of `source`.
+  private func cxx(foldedSequence source: FoldedSequenceExpr) -> CXXExpr {
+    switch source {
     case .infix(let (callee, _), let lhs, let rhs):
       return cxx(
         infix: wholeValProgram[callee],
@@ -334,14 +335,13 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Transpiles a Val infix operator call into a corresponding C++ infix operator / function call.
+  /// Returns a transpilation of `source`.
   private func cxx(
     infix source: NameExpr.Typed,
     lhs: CXXExpr,
     rhs: CXXExpr
   ) -> CXXExpr {
-    let name = nameOfDecl(source.decl.decl)
-    switch name {
+    switch nameOfDecl(source.decl.decl) {
     case "<<": return CXXInfixExpr(oper: .leftShift, lhs: lhs, rhs: rhs)
     case ">>": return CXXInfixExpr(oper: .rightShift, lhs: lhs, rhs: rhs)
     case "*": return CXXInfixExpr(oper: .multiplication, lhs: lhs, rhs: rhs)
@@ -377,10 +377,8 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Transpiles a Val function call into a corresponding C++ function call.
-  private func cxx(
-    functionCall source: FunctionCallExpr.Typed
-  ) -> CXXExpr {
+  /// Returns a transpilation of `source`.
+  private func cxx(functionCall source: FunctionCallExpr.Typed) -> CXXExpr {
     // Transpile the arguments
     // TODO: passing conventions
     let arguments = Array(source.arguments.map({ cxx(expr: wholeValProgram[$0.value]) }))
@@ -404,7 +402,7 @@ public struct CXXTranspiler {
     return CXXFunctionCallExpr(callee: callee, arguments: arguments)
   }
 
-  /// Transpiles a Val conditional expression into a corresponding C++ expression.
+  /// Returns a transpilation of `source`.
   ///
   /// As much as possible, this will be converted into a ternary operator (CXXConditionalExpr).
   /// There are, however, in wich this needs to be translated into an if statment, then trasformed into an expression.
@@ -438,7 +436,7 @@ public struct CXXTranspiler {
         stmt: CXXIfStmt(condition: condition, trueStmt: trueStmt, falseStmt: falseStmt))
     }
   }
-  /// Transates a conditional expression body into the corresponding C++ expression
+  /// Returns a transpilation of `source` as an expression.
   private func cxx(condBodyExpr source: CondExpr.Body?) -> CXXExpr {
     switch source {
     case .expr(let altExpr):
@@ -449,7 +447,7 @@ public struct CXXTranspiler {
       return CXXComment(comment: "missing alternative")
     }
   }
-  /// Transates a conditional expression body into the corresponding C++ statement
+  /// Returns a transpilation of `source` as a statement.
   private func cxx(condBodyStmt source: CondExpr.Body?) -> CXXStmt? {
     switch source {
     case .expr(let altExpr):
@@ -463,7 +461,7 @@ public struct CXXTranspiler {
 
   // MARK: names
 
-  /// Transpiles a Val r-value name expression into a corresponding expression.
+  /// Returns a transpilation of `source`.
   ///
   /// This usually result into a C++ identifier, but it can also result in pre-/post-fix operator calls.
   private func cxx(name source: NameExpr.Typed) -> CXXExpr {
@@ -486,11 +484,11 @@ public struct CXXTranspiler {
       fatalError("not implemented")
     }
   }
-  /// Translates a name pointing to a builin to a C++ expression.
+  /// Returns a transpilation of `source`.
   private func cxx(nameOfBuiltin source: NameExpr.Typed) -> CXXExpr {
     return CXXIdentifier(source.name.value.stem)
   }
-  /// Translates a name pointing to a fumction declaration to a C++ expression.
+  /// Returns a transpilation of `source`.
   ///
   /// Usually this translates to an identifier, but it can translate to pre-/post-fix operator calls.
   private func cxx(
@@ -523,11 +521,11 @@ public struct CXXTranspiler {
     // TODO: handle captures
     return CXXIdentifier(nameOfDecl(source))
   }
-  /// Translates a name pointing to an initializer to a C++ expression.
+  /// Returns a transpilation of `source`.
   private func cxx(nameOfInitializer source: InitializerDecl.Typed) -> CXXExpr {
     fatalError("not implemented")
   }
-  /// Translates a name pointing to a member function to a C++ expression.
+  /// Returns a transpilation of `source`.
   private func cxx(
     nameOfMemberFunction source: FunctionDecl.Typed, withDomain domain: NameExpr.Typed.Domain
   ) -> CXXExpr {
@@ -550,7 +548,7 @@ public struct CXXTranspiler {
 
   // MARK: miscelaneous
 
-  /// Transates a Val type into a C++ type expression.
+  /// Returns a transpilation of `source`.
   private func cxx(typeExpr source: AnyType, asReturnType isReturnType: Bool = false) -> CXXTypeExpr
   {
     switch source.base {
@@ -574,23 +572,23 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Get the name of the given declaration, without manging and labels.
-  private func nameOfDecl<T: DeclID>(_ decl: TypedNode<T>) -> String {
-    switch decl.kind {
+  /// Returns of `source`, without manging and labels.
+  private func nameOfDecl<T: DeclID>(_ source: TypedNode<T>) -> String {
+    switch source.kind {
     case ConformanceDecl.self, ExtensionDecl.self:
       fatalError("not implemented")
 
     case FunctionDecl.self:
-      return FunctionDecl.Typed(decl)!.identifier!.value
+      return FunctionDecl.Typed(source)!.identifier!.value
 
     case InitializerDecl.self:
       return "init"
 
     case MethodDecl.self:
-      return MethodDecl.Typed(decl)!.identifier.value
+      return MethodDecl.Typed(source)!.identifier.value
 
     case MethodImpl.self:
-      let methodImpl = MethodImpl.Typed(decl)!
+      let methodImpl = MethodImpl.Typed(source)!
       switch methodImpl.introducer.value {
       case .let: return "let"
       case .inout: return "inout"
@@ -599,12 +597,12 @@ public struct CXXTranspiler {
       }
 
     case ProductTypeDecl.self:
-      return ProductTypeDecl.Typed(decl)!.baseName
+      return ProductTypeDecl.Typed(source)!.baseName
 
     case ParameterDecl.self:
-      return ParameterDecl.Typed(decl)!.identifier.value
+      return ParameterDecl.Typed(source)!.identifier.value
     case VarDecl.self:
-      return VarDecl.Typed(decl)!.identifier.value
+      return VarDecl.Typed(source)!.identifier.value
 
     default:
       fatalError("not implemented")
