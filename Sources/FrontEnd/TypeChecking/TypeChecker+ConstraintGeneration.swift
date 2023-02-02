@@ -423,49 +423,56 @@ extension TypeChecker {
   ) -> AnyType {
     let syntax = program.ast[subject]
 
+    let subjectConventions: [AccessEffect]?
+    if let s = expectedType?.base as? LambdaType {
+      // Check that the underlying declaration is structurally compatible with the type.
+      let requiredLabels = program.ast[syntax.decl].parameters
+        .map({ (p) in program.ast[p].label?.value })
+      if requiredLabels.count != s.inputs.count {
+        addDiagnostic(
+          .error(
+            expectedLambdaParameterCount: s.inputs.count, found: requiredLabels.count,
+            at: program.ast[syntax.decl].introducerSite))
+        return facts.assignErrorType(to: subject)
+      }
+      if !requiredLabels.elementsEqual(s.inputs, by: { $0 == $1.label }) {
+        addDiagnostic(
+          .error(
+            labels: requiredLabels, incompatibleWith: s.inputs.map(\.label),
+            at: program.ast[syntax.decl].introducerSite))
+        return facts.assignErrorType(to: subject)
+      }
+
+      subjectConventions = s.inputs.map({ (p) in ParameterType(p.type)?.convention ?? .let })
+    } else {
+      subjectConventions = nil
+    }
+
     // Realize the type of the underlying declaration.
-    guard let declType = LambdaType(realize(underlyingDeclOf: subject)) else {
+    guard
+      let underlyingDeclType = LambdaType(
+        realize(underlyingDeclOf: subject, with: subjectConventions))
+    else {
       return facts.assignErrorType(to: subject)
     }
 
     // Schedule the underlying declaration to be type-checked.
     deferTypeChecking(subject)
 
-    if let expectedType = expectedType?.base as? LambdaType {
-      // Check that the declaration defines the expected number of parameters.
-      if declType.inputs.count != expectedType.inputs.count {
-        addDiagnostic(
-          .error(
-            expectedLambdaParameterCount: expectedType.inputs.count,
-            found: declType.inputs.count,
-            at: syntax.site))
-        return facts.assignErrorType(to: subject)
-      }
-
-      // Check that the declaration defines the expected argument labels.
-      if !declType.inputs.elementsEqual(expectedType.inputs, by: { $0.label == $1.label }) {
-        addDiagnostic(
-          .error(
-            labels: declType.inputs.map(\.label),
-            incompatibleWith: expectedType.inputs.map(\.label),
-            at: syntax.site))
-        return facts.assignErrorType(to: subject)
-      }
-    } else if declType.output.base is TypeVariable {
+    // If the underlying declaration's return type is a unknown, infer it from the lambda's body.
+    if underlyingDeclType.output.base is TypeVariable {
       if case .expr(let body) = program.ast[syntax.decl].body {
-        // Infer the return type of the lambda from its body.
         _ = inferType(
           of: body, in: AnyScopeID(syntax.decl),
-          expecting: declType.output, updating: &facts)
+          expecting: underlyingDeclType.output, updating: &facts)
       } else {
-        // The system is underspecified.
         addDiagnostic(
           .error(cannotInferComplexReturnTypeAt: program.ast[syntax.decl].introducerSite))
         return facts.assignErrorType(to: subject)
       }
     }
 
-    return facts.constrain(subject, in: program.ast, toHaveType: declType)
+    return facts.constrain(subject, in: program.ast, toHaveType: underlyingDeclType)
   }
 
   private mutating func inferType(

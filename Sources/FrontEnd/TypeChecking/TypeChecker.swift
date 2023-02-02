@@ -2259,9 +2259,16 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the type of the function declaration underlying `expr`.
-  mutating func realize(underlyingDeclOf expr: NodeID<LambdaExpr>) -> AnyType? {
-    realize(functionDecl: program.ast[expr].decl)
+  /// Returns the realized type of the function declaration underlying `expr` requiring that its
+  /// parameters have the given `conventions`.
+  ///
+  /// - Requires: if supplied, `conventions` has as one element per parameter of the declaration
+  ///   underlying `expr`.
+  mutating func realize(
+    underlyingDeclOf expr: NodeID<LambdaExpr>,
+    with conventions: [AccessEffect]?
+  ) -> AnyType? {
+    realize(functionDecl: program.ast[expr].decl, with: conventions)
   }
 
   /// Realizes and returns a "magic" type expression.
@@ -2748,49 +2755,58 @@ public struct TypeChecker {
     return declTypes[id]!
   }
 
-  private mutating func realize(functionDecl id: NodeID<FunctionDecl>) -> AnyType {
-    _realize(decl: id, { (this, id) in this._realize(functionDecl: id) })
+  /// Returns the realized type of `d` requiring that it be subtype of `supertype`.
+  ///
+  /// - Requires: if supplied, `conventions` has as one element per parameter of the declaration
+  ///   underlying `expr`.
+  private mutating func realize(
+    functionDecl d: NodeID<FunctionDecl>,
+    with conventions: [AccessEffect]? = nil
+  ) -> AnyType {
+    _realize(decl: d, { (this, d) in this._realize(functionDecl: d, with: conventions) })
   }
 
-  private mutating func _realize(functionDecl id: NodeID<FunctionDecl>) -> AnyType {
+  private mutating func _realize(
+    functionDecl id: NodeID<FunctionDecl>,
+    with conventions: [AccessEffect]? = nil
+  ) -> AnyType {
+    if let c = conventions {
+      precondition(c.count == program.ast[id].parameters.count)
+    }
     var success = true
 
     // Realize the input types.
     var inputs: [CallableTypeParameter] = []
-    for i in program.ast[id].parameters {
-      declRequests[i] = .typeCheckingStarted
+    for (i, p) in program.ast[id].parameters.enumerated() {
+      declRequests[p] = .typeCheckingStarted
 
-      if let annotation = program.ast[i].annotation {
-        if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
+      if let annotation = program.ast[p].annotation {
+        if let t = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
           // The annotation may not omit generic arguments.
-          if type[.hasVariable] {
+          if t[.hasVariable] {
             diagnostics.insert(
-              .error(
-                notEnoughContextToInferArgumentsAt: program.ast[annotation].site))
+              .error(notEnoughContextToInferArgumentsAt: program.ast[annotation].site))
             success = false
           }
 
-          declTypes[i] = type
-          declRequests[i] = .typeRealizationCompleted
-          inputs.append(CallableTypeParameter(label: program.ast[i].label?.value, type: type))
+          declTypes[p] = t
+          declRequests[p] = .typeRealizationCompleted
+          inputs.append(CallableTypeParameter(label: program.ast[p].label?.value, type: t))
         } else {
-          declTypes[i] = .error
-          declRequests[i] = .failure
+          declTypes[p] = .error
+          declRequests[p] = .failure
           success = false
         }
       } else {
         // Note: parameter type annotations may be elided if the declaration represents a lambda
         // expression. In that case, the unannotated parameters are associated with a fresh type
-        // so inference can proceed. The actual type of the parameter will be reified during type
-        // checking, when `checkPending` is called.
+        // variable, so inference can proceed.
         if program.ast[id].isInExprContext {
-          let parameterType = ^TypeVariable(node: AnyNodeID(i))
-          declTypes[i] = parameterType
-          declRequests[i] = .typeRealizationCompleted
-          inputs.append(
-            CallableTypeParameter(
-              label: program.ast[i].label?.value,
-              type: parameterType))
+          let t = ^ParameterType(
+            convention: (conventions?[i]) ?? .let, bareType: ^TypeVariable(node: AnyNodeID(p)))
+          declTypes[p] = t
+          declRequests[p] = .typeRealizationCompleted
+          inputs.append(CallableTypeParameter(label: program.ast[p].label?.value, type: t))
         } else {
           unreachable("expected type annotation")
         }
