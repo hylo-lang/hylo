@@ -558,12 +558,7 @@ public struct CXXTranspiler {
       return CXXTypeExpr(isReturnType ? "void" : "std::monostate")
 
     case let type as ProductType:
-      // TODO: we should translate this to an "int" struct
-      if type == wholeValProgram.ast.coreType(named: "Int") {
-        return CXXTypeExpr("int")
-      } else {
-        return CXXTypeExpr(type.name.value)
-      }
+      return CXXTypeExpr(type.name.value)
 
     case let type as ParameterType:
       // TODO: convention

@@ -1,8 +1,8 @@
 /*! h
-    int returns_value();
+    Int returns_value();
  */
 /*! cpp
-    int returns_value() {
+    Int returns_value() {
     return 13;
     }
  */
