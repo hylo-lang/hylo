@@ -1068,7 +1068,7 @@ public enum Parser {
     updating state: inout ParserState
   ) -> NodeID<InitializerDecl> {
     for member in members where member.kind == InitializerDecl.self {
-      let m = NodeID<InitializerDecl>(rawValue: member.rawValue)
+      let m = NodeID<InitializerDecl>(member)!
       if state.ast[m].introducer.value == .memberwiseInit { return m }
     }
 
@@ -2053,35 +2053,70 @@ public enum Parser {
 
     // Parse the parts of the expression.
     let subject = try state.expect("subject", using: parseExpr(in:))
-    let cases = try state.expect(
-      "match body",
-      using: take(.lBrace).and(zeroOrMany(matchCase)).and(take(.rBrace)))
+    let cases = try state.expect("match body", using: parseMatchBody(in:))
 
     return state.insert(
       MatchExpr(
         subject: subject,
-        cases: cases.0.1,
+        cases: cases,
         site: state.range(from: introducer.site.start)))
   }
 
-  static let matchCase =
-    (pattern.and(maybe(take(.where).and(expr))).and(matchCaseBody)
-      .map({ (state, tree) -> NodeID<MatchCase> in
-        state.insert(
-          MatchCase(
-            pattern: tree.0.0,
-            condition: tree.0.1?.1,
-            body: tree.1,
-            site: state.ast[tree.0.0].site.extended(upTo: state.currentIndex)))
-      }))
+  private static func parseMatchBody(in state: inout ParserState) throws -> [NodeID<MatchCase>]? {
+    guard let opener = state.take(.lBrace) else { return nil }
 
-  private static let matchCaseBody = TryCatch(
-    trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> MatchCase.Body in .expr(tree.0.1) }),
-    orCatchingAndApplying:
-      braceStmt
-      .map({ (state, id) -> MatchCase.Body in .block(id) })
-  )
+    var result: [NodeID<MatchCase>] = []
+    while let c = try parseMatchCase(in: &state) {
+      result.append(c)
+    }
+
+    if state.take(.rBrace) == nil {
+      state.diagnostics.report(.error(expected: "}", matching: opener, in: state))
+    }
+    return result
+  }
+
+  private static func parseMatchCase(in state: inout ParserState) throws -> NodeID<MatchCase>? {
+    guard let pattern = try parsePattern(in: &state) else { return nil }
+
+    // Parse the condition, if any.
+    let condition: AnyExprID?
+    if state.take(.where) != nil {
+      condition = try state.expect("expression", using: parseExpr(in:))
+    } else {
+      condition = nil
+    }
+
+    // Parse the body.
+    let body = try state.expect("case body", using: parseMatchCaseBody(in:))
+
+    return state.insert(
+      MatchCase(
+        pattern: pattern,
+        condition: condition,
+        body: body,
+        site: state.range(from: state.ast[pattern].site.start)))
+  }
+
+  private static func parseMatchCaseBody(in state: inout ParserState) throws -> MatchCase.Body? {
+    let backup = state.backup()
+
+    // Attempt to parse an expression.
+    if let opener = state.take(.lBrace) {
+      do {
+        if let e = try parseExpr(in: &state) {
+          if state.take(.rBrace) == nil {
+            state.diagnostics.report(.error(expected: "}", matching: opener, in: state))
+          }
+          return .expr(e)
+        }
+      } catch {}
+      state.restore(from: backup)
+    }
+
+    guard let s = try braceStmt.parse(&state) else { return nil }
+    return .block(s)
+  }
 
   private static func parseSpawnExpr(in state: inout ParserState) throws -> NodeID<SpawnExpr>? {
     // Parse the introducer.
@@ -2491,68 +2526,101 @@ public enum Parser {
     })
   }
 
-  static let pattern: Recursive<ParserState, AnyPatternID> = (Recursive(_pattern.parse(_:)))
+  private static func parsePattern(in state: inout ParserState) throws -> AnyPatternID? {
+    // `_` is always a wildcard pattern.
+    if let u = state.take(.under) {
+      return AnyPatternID(state.insert(WildcardPattern(site: u.site)))
+    }
 
-  private static let _pattern =
-    (oneOf([
-      anyPattern(bindingPattern),
-      anyPattern(exprPattern),
-      anyPattern(tuplePattern),
-      anyPattern(wildcardPattern),
-    ]))
-
-  static let bindingPattern =
-    (bindingIntroducer
-      .and(
-        inContext(
-          .bindingPattern,
-          apply: oneOf([
-            anyPattern(namePattern),
-            anyPattern(tuplePattern),
-            anyPattern(wildcardPattern),
-          ]))
-      )
-      .and(maybe(take(.colon).and(expr)))
-      .map({ (state, tree) -> NodeID<BindingPattern> in
-        state.insert(
-          BindingPattern(
-            introducer: tree.0.0,
-            subpattern: tree.0.1,
-            annotation: tree.1?.1,
-            site: tree.0.0.site.extended(upTo: state.currentIndex)))
-      }))
-
-  static let bindingIntroducer =
-    (Apply<ParserState, SourceRepresentable<BindingPattern.Introducer>>({ (state) in
-      guard let head = state.peek() else { return nil }
-
-      let introducer: BindingPattern.Introducer
-      switch head.kind {
-      case .let:
-        _ = state.take()
-        introducer = .let
-
-      case .var:
-        _ = state.take()
-        introducer = .var
-
-      case .inout:
-        _ = state.take()
-        introducer = .inout
-
-      case .sink:
-        _ = state.take()
-        _ = try state.expect("'let'", using: { $0.take(.let) })
-        introducer = .sinklet
-
-      default:
-        return nil
+    // Attempt to parse a binding pattern.
+    if let p = try parseBindingPattern(in: &state) {
+      // Complain if we're already parsing a binding pattern.
+      if state.contexts.last == .bindingPattern {
+        state.diagnostics.report(.error(nestedBindingPattern: p, in: state.ast))
       }
+      return AnyPatternID(p)
+    }
 
-      return SourceRepresentable(
-        value: introducer,
-        range: head.site.extended(upTo: state.currentIndex))
-    }))
+    // Attempt to parse a tuple pattern.
+    if let p = try tuplePattern.parse(&state) {
+      return AnyPatternID(p)
+    }
+
+    // Attempt to parse a name pattern if we're in the context of a binding pattern.
+    if state.contexts.last == .bindingPattern {
+      if let p = try namePattern.parse(&state) {
+        return AnyPatternID(p)
+      }
+    }
+
+    // Default to an expression.
+    guard let e = try expr.parse(&state) else { return nil }
+    let p = state.insert(ExprPattern(expr: e, site: state.ast[e].site))
+    return AnyPatternID(p)
+  }
+
+  private static let bindingPattern = Apply(parseBindingPattern(in:))
+
+  static func parseBindingPattern(
+    in state: inout ParserState
+  ) throws -> NodeID<BindingPattern>? {
+    guard let introducer = try parseBindingIntroducer(in: &state) else { return nil }
+
+    // Push the context.
+    state.contexts.append(.bindingPattern)
+    defer { state.contexts.removeLast() }
+
+    // Parse the subpattern.
+    let subpattern = try state.expect("pattern", using: parsePattern(in:))
+
+    // Parse the type annotation, if any.
+    let annotation: AnyExprID?
+    if state.take(.colon) != nil {
+      annotation = try state.expect("type expression", using: parseExpr(in:))
+    } else {
+      annotation = nil
+    }
+
+    return state.insert(
+      BindingPattern(
+        introducer: introducer,
+        subpattern: subpattern,
+        annotation: annotation,
+        site: state.range(from: introducer.site.start)))
+  }
+
+  private static func parseBindingIntroducer(
+    in state: inout ParserState
+  ) throws -> SourceRepresentable<BindingPattern.Introducer>? {
+    guard let head = state.peek() else { return nil }
+
+    let introducer: BindingPattern.Introducer
+    switch head.kind {
+    case .let:
+      _ = state.take()
+      introducer = .let
+
+    case .var:
+      _ = state.take()
+      introducer = .var
+
+    case .inout:
+      _ = state.take()
+      introducer = .inout
+
+    case .sink:
+      _ = state.take()
+      _ = try state.expect("'let'", using: { $0.take(.let) })
+      introducer = .sinklet
+
+    default:
+      return nil
+    }
+
+    return SourceRepresentable(
+      value: introducer,
+      range: head.site.extended(upTo: state.currentIndex))
+  }
 
   static let exprPattern =
     (Apply<ParserState, AnyPatternID>({ (state) -> AnyPatternID? in
@@ -2604,7 +2672,7 @@ public enum Parser {
       // Parse a labeled element.
       if let label = state.take(if: { $0.isLabel }) {
         if state.take(.colon) != nil {
-          if let value = try pattern.parse(&state) {
+          if let value = try parsePattern(in: &state) {
             return TuplePattern.Element(label: state.token(label), pattern: value)
           }
         }
@@ -2612,7 +2680,7 @@ public enum Parser {
 
       // Backtrack and parse an unlabeled element.
       state.restore(from: backup)
-      if let value = try pattern.parse(&state) {
+      if let value = try parsePattern(in: &state) {
         return TuplePattern.Element(label: nil, pattern: value)
       }
 
@@ -2863,8 +2931,7 @@ public enum Parser {
                 value: .let,
                 range: state.emptyRange(at: s.start)),
             bareType: tree.1,
-            site: s,
-            synthesized: tree.0 == nil
+            site: s
           ))
       }))
 

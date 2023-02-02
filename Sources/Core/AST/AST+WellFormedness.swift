@@ -12,14 +12,14 @@ extension AST {
     switch decl.kind {
     case AssociatedTypeDecl.self:
       diagnostics.report(
-        .error(unexpectedAssociatedTypeDecl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedAssociatedTypeDecl: self[NodeID(decl)!]))
 
     case AssociatedValueDecl.self:
       diagnostics.report(
-        .error(unexpectedAssociatedValueDecl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
 
     case BindingDecl.self:
-      let d = self[NodeID<BindingDecl>(rawValue: decl.rawValue)]
+      let d = self[NodeID<BindingDecl>(decl)!]
       if let m = d.memberModifier {
         diagnostics.report(.error(unexpectedMemberModifier: m))
       }
@@ -37,7 +37,7 @@ extension AST {
       break
 
     case FunctionDecl.self:
-      let d = self[NodeID<FunctionDecl>(rawValue: decl.rawValue)]
+      let d = self[NodeID<FunctionDecl>(decl)!]
       if let m = d.memberModifier {
         diagnostics.report(.error(unexpectedMemberModifier: m))
       }
@@ -47,39 +47,39 @@ extension AST {
 
     case GenericParameterDecl.self:
       diagnostics.report(
-        .error(unexpectedGenericParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedGenericParameterDecl: self[NodeID(decl)!]))
 
     case ImportDecl.self:
       if !atTopLevel {
-        diagnostics.report(.error(unexpectedImportDecl: self[NodeID(rawValue: decl.rawValue)]))
+        diagnostics.report(.error(unexpectedImportDecl: self[NodeID(decl)!]))
       }
 
     case InitializerDecl.self:
       diagnostics.report(
-        .error(unexpectedInitializerDecl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedInitializerDecl: self[NodeID(decl)!]))
 
     case MethodDecl.self:
-      diagnostics.report(.error(unexpectedMethodDecl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedMethodDecl: self[NodeID(decl)!]))
 
     case MethodImpl.self:
-      diagnostics.report(.error(unexpectedMethodImpl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedMethodImpl: self[NodeID(decl)!]))
 
     case NamespaceDecl.self:
       break
 
     case OperatorDecl.self:
       if !atTopLevel {
-        diagnostics.report(.error(unexpectedOperatorDecl: self[NodeID(rawValue: decl.rawValue)]))
+        diagnostics.report(.error(unexpectedOperatorDecl: self[NodeID(decl)!]))
       }
 
     case ParameterDecl.self:
-      diagnostics.report(.error(unexpectedParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedParameterDecl: self[NodeID(decl)!]))
 
     case ProductTypeDecl.self:
       break
 
     case SubscriptDecl.self:
-      let d = self[NodeID<SubscriptDecl>(rawValue: decl.rawValue)]
+      let d = self[NodeID<SubscriptDecl>(decl)!]
       if d.introducer.value != .subscript {
         diagnostics.report(.error(unexpectedPropertyDecl: d))
       }
@@ -92,7 +92,7 @@ extension AST {
 
     case SubscriptImpl.self:
       diagnostics.report(
-        .error(unexpectedSubscriptImpl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedSubscriptImpl: self[NodeID(decl)!]))
 
     case TraitDecl.self:
       break
@@ -101,7 +101,7 @@ extension AST {
       break
 
     case VarDecl.self:
-      diagnostics.report(.error(unexpectedVarDecl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedVarDecl: self[NodeID(decl)!]))
 
     default:
       unreachable("unexpected declaration")
@@ -114,14 +114,14 @@ extension AST {
     switch decl.kind {
     case AssociatedTypeDecl.self:
       diagnostics.report(
-        .error(unexpectedAssociatedTypeDecl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedAssociatedTypeDecl: self[NodeID(decl)!]))
 
     case AssociatedValueDecl.self:
       diagnostics.report(
-        .error(unexpectedAssociatedValueDecl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
 
     case BindingDecl.self:
-      let d = self[NodeID<BindingDecl>(rawValue: decl.rawValue)]
+      let d = self[NodeID<BindingDecl>(decl)!]
       let introducer = self[d.pattern].introducer
       if introducer.value != .let {
         if introducer.value != .var {
@@ -142,7 +142,7 @@ extension AST {
       break
 
     case FunctionDecl.self:
-      let d = self[NodeID<FunctionDecl>(rawValue: decl.rawValue)]
+      let d = self[NodeID<FunctionDecl>(decl)!]
       if let m = d.memberModifier {
         diagnostics.report(.error(unexpectedMemberModifier: m))
       }
@@ -155,10 +155,10 @@ extension AST {
 
     case GenericParameterDecl.self:
       diagnostics.report(
-        .error(unexpectedGenericParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedGenericParameterDecl: self[NodeID(decl)!]))
 
     case ImportDecl.self:
-      diagnostics.report(.error(unexpectedImportDecl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedImportDecl: self[NodeID(decl)!]))
 
     case InitializerDecl.self:
       break
@@ -167,16 +167,16 @@ extension AST {
       break
 
     case MethodImpl.self:
-      diagnostics.report(.error(unexpectedMethodImpl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedMethodImpl: self[NodeID(decl)!]))
 
     case NamespaceDecl.self:
-      diagnostics.report(.error(unexpectedNamespaceDecl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedNamespaceDecl: self[NodeID(decl)!]))
 
     case OperatorDecl.self:
-      diagnostics.report(.error(unexpectedOperatorDecl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedOperatorDecl: self[NodeID(decl)!]))
 
     case ParameterDecl.self:
-      diagnostics.report(.error(unexpectedParameterDecl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedParameterDecl: self[NodeID(decl)!]))
 
     case ProductTypeDecl.self:
       break
@@ -186,16 +186,16 @@ extension AST {
 
     case SubscriptImpl.self:
       diagnostics.report(
-        .error(unexpectedSubscriptImpl: self[NodeID(rawValue: decl.rawValue)]))
+        .error(unexpectedSubscriptImpl: self[NodeID(decl)!]))
 
     case TraitDecl.self:
-      diagnostics.report(.error(unexpectedTraitDecl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedTraitDecl: self[NodeID(decl)!]))
 
     case TypeAliasDecl.self:
       break
 
     case VarDecl.self:
-      diagnostics.report(.error(unexpectedVarDecl: self[NodeID(rawValue: decl.rawValue)]))
+      diagnostics.report(.error(unexpectedVarDecl: self[NodeID(decl)!]))
 
     default:
       unreachable("unexpected declaration")
