@@ -80,7 +80,7 @@ extension TypeChecker {
   }
 
   /// The common state of all `inferTypes(...)` methods as they recursively visit the AST.
-  private typealias State = (facts: InferenceFacts, deferred: [AnyDeferredQuery])
+  private typealias State = (facts: InferenceFacts, deferred: [DeferredQuery])
 
   // MARK: Expressions
 
@@ -91,7 +91,7 @@ extension TypeChecker {
     of subject: AnyExprID,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?
-  ) -> (type: AnyType, facts: InferenceFacts, deferred: [AnyDeferredQuery]) {
+  ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
     var s: State
     if let t = exprTypes[subject] {
       s = (facts: .init(assigning: t, to: subject), deferred: [])
@@ -431,12 +431,9 @@ extension TypeChecker {
     }
 
     // Schedule the underlying declaration to be type-checked.
-    state.deferred.append(
-      ^DeferredQuery(
-        on: subject,
-        executedWith: { (checker, e, s) in
-          checker.checkDeferred(lambdaExpr: e, s)
-        }))
+    state.deferred.append({ (checker, solution) in
+      checker.checkDeferred(lambdaExpr: subject, solution)
+    })
 
     if let expectedType = LambdaType(expectedType!) {
       // Check that the declaration defines the expected number of parameters.
@@ -805,7 +802,7 @@ extension TypeChecker {
     of subject: AnyPatternID,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?
-  ) -> (type: AnyType, facts: InferenceFacts, deferred: [AnyDeferredQuery]) {
+  ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
     var s: State = (facts: .init(), deferred: [])
     let t = inferType(
       of: subject, in: AnyScopeID(scope), expecting: expectedType, updating: &s)
@@ -893,12 +890,9 @@ extension TypeChecker {
     let nameDecl = program.ast[subject].decl
     let nameType = expectedType ?? ^TypeVariable(node: AnyNodeID(nameDecl))
     setInferredType(nameType, for: nameDecl)
-    state.deferred.append(
-      ^DeferredQuery(
-        on: nameDecl,
-        executedWith: { (checker, d, s) in
-          checker.checkDeferred(varDecl: d, s)
-        }))
+    state.deferred.append({ (checker, solution) in
+      checker.checkDeferred(varDecl: nameDecl, solution)
+    })
 
     return nameType
   }
