@@ -619,6 +619,19 @@ struct ConstraintSolver {
     into bestResults: inout [ExploratinResult<T>],
     using checker: inout TypeChecker
   ) {
+
+    // This algorithms has three steps. The first simply picks the solution with the best score.
+    //
+    // If multiple solutions have the same score, the second step attempts to use a "comparator"
+    // type to decide if a solution refines another. In most cases, it's picked as the root type
+    // being inferred. The rationale is that if we're inferring the type of `e` and get two
+    // competing solutions `s1` and `s2`, `s1` refines `s2` if the type it assigns to `e` is
+    // subtype of the one `s2` assigns to `e`.
+    //
+    // If the comparator cannot distinguish solutions, the last step is to rank the them based on
+    // the name bindings they make. `s1` refines `s2` iff it makes at least one more specific
+    // binding than `s2` and no binding less specific than `s2`.
+
     // Ignore worse solutions.
     if newResult.solution.score > best { return }
 
@@ -629,7 +642,7 @@ struct ConstraintSolver {
       return
     }
 
-    // Slow path: inspect how the solution compares with the ones we have.
+    // Slow path: inspect how the new solution compares with the ones we have.
     var shouldInsert = false
     let lhs = newResult.solution.typeAssumptions.reify(comparator)
 
