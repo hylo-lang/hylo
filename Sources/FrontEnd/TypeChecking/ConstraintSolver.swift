@@ -252,6 +252,14 @@ struct ConstraintSolver {
       solve(equality: .init(l.output, r.output, because: goal.cause), using: &checker)
       solve(equality: .init(l.receiver, r.receiver, because: goal.cause), using: &checker)
 
+    case (let l as ParameterType, let r as ParameterType):
+      if l.convention != r.convention {
+        log("- fail")
+        diagnostics.append(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+        return
+      }
+      solve(equality: .init(l.bareType, r.bareType, because: goal.cause), using: &checker)
+
     default:
       log("- fail")
       diagnostics.append(
