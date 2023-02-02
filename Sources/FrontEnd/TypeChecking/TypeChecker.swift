@@ -1767,8 +1767,9 @@ public struct TypeChecker {
       // Append the resolved component to the nominal prefix.
       resolvedPrefix.append(.init(component, candidates))
 
-      // Defer resolution of the suffix if there are multiple candidates.
-      if candidates.count > 1 { break }
+      // Defer resolution of the remaining name components if there are multiple candidates for
+      // the current component or if we found a type variable.
+      if (candidates.count > 1) || (candidates[0].type.shape.base is TypeVariable) { break }
 
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
