@@ -80,7 +80,7 @@ extension TypeChecker {
   }
 
   /// The common state of all `inferTypes(...)` methods as they recursively visit the AST.
-  private typealias VisitationState = (facts: InferenceFacts, deferred: [AnyDeferredQuery])
+  private typealias State = (facts: InferenceFacts, deferred: [AnyDeferredQuery])
 
   // MARK: Expressions
 
@@ -92,7 +92,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     expecting expectedType: AnyType?
   ) -> (type: AnyType, facts: InferenceFacts, deferred: [AnyDeferredQuery]) {
-    var s: VisitationState
+    var s: State
     if let t = exprTypes[subject] {
       s = (facts: .init(assigning: t, to: subject), deferred: [])
     } else {
@@ -111,7 +111,7 @@ extension TypeChecker {
     of subject: AnyExprID,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     defer { assert(state.facts.inferredTypes[subject] != nil) }
 
@@ -173,7 +173,7 @@ extension TypeChecker {
     ofBooleanLiteralExpr subject: NodeID<BooleanLiteralExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     state.facts.constrain(
       subject, in: program.ast, toHaveType: program.ast.coreType(named: "Bool")!)
@@ -183,7 +183,7 @@ extension TypeChecker {
     ofCastExpr subject: NodeID<CastExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     let syntax = program.ast[subject]
 
@@ -228,7 +228,7 @@ extension TypeChecker {
     ofConditionalExpr subject: NodeID<CondExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     let syntax = program.ast[subject]
 
@@ -286,7 +286,7 @@ extension TypeChecker {
     ofFunctionCallExpr subject: NodeID<FunctionCallExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     let syntax = program.ast[subject]
 
@@ -385,7 +385,7 @@ extension TypeChecker {
     ofInoutExpr subject: NodeID<InoutExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     let syntax = program.ast[subject]
     let subjectType = inferType(
@@ -398,7 +398,7 @@ extension TypeChecker {
     ofIntegerLiteralExpr subject: NodeID<IntegerLiteralExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     let syntax = program.ast[subject]
 
@@ -421,7 +421,7 @@ extension TypeChecker {
     ofLambdaExpr subject: NodeID<LambdaExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     let syntax = program.ast[subject]
 
@@ -480,7 +480,7 @@ extension TypeChecker {
     ofMatchExpr subject: NodeID<MatchExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     let syntax = program.ast[subject]
 
@@ -508,7 +508,7 @@ extension TypeChecker {
     ofNameExpr subject: NodeID<NameExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     // Resolve the nominal prefix of the expression.
     let resolution = resolve(nominalPrefixOf: subject, from: scope)
@@ -529,7 +529,7 @@ extension TypeChecker {
     ofNameExpr subject: NodeID<NameExpr>,
     in scope: AnyScopeID,
     withNameResolutionResult resolution: TypeChecker.NameResolutionResult,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     var lastVisitedComponentType: AnyType?
     let unresolvedComponents: [NodeID<NameExpr>]
@@ -575,7 +575,7 @@ extension TypeChecker {
     ofSequenceExpr subject: NodeID<SequenceExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     // Fold the sequence and visit its sub-expressions.
     let foldedSequence = fold(sequenceExpr: subject, in: scope)
@@ -592,7 +592,7 @@ extension TypeChecker {
     ofSequenceExpr subject: FoldedSequenceExpr,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     switch subject {
     case .infix(let callee, let lhs, let rhs):
@@ -639,7 +639,7 @@ extension TypeChecker {
     ofSubscriptCallExpr subject: NodeID<SubscriptCallExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     let syntax = program.ast[subject]
 
@@ -767,7 +767,7 @@ extension TypeChecker {
     ofTupleExpr subject: NodeID<TupleExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     let elements = program.ast[subject].elements
     var elementTypes: [TupleType.Element] = []
@@ -806,7 +806,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     expecting expectedType: AnyType?
   ) -> (type: AnyType, facts: InferenceFacts, deferred: [AnyDeferredQuery]) {
-    var s: VisitationState = (facts: .init(), deferred: [])
+    var s: State = (facts: .init(), deferred: [])
     let t = inferType(
       of: subject, in: AnyScopeID(scope), expecting: expectedType, updating: &s)
     return (t, s.facts, s.deferred)
@@ -819,7 +819,7 @@ extension TypeChecker {
     of subject: AnyPatternID,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     switch subject.kind {
     case BindingPattern.self:
@@ -849,7 +849,7 @@ extension TypeChecker {
     ofBindingPattern subject: NodeID<BindingPattern>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     // A binding pattern introduces additional type information when it has a type annotation. In
     // that case, the type denoted by the annotation is used to infer the type of the sub-pattern
@@ -879,7 +879,7 @@ extension TypeChecker {
     ofExprPattern subject: NodeID<ExprPattern>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     inferType(of: program.ast[subject].expr, in: scope, expecting: expectedType, updating: &state)
   }
@@ -888,7 +888,7 @@ extension TypeChecker {
     ofNamePattern subject: NodeID<NamePattern>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     let nameDecl = program.ast[subject].decl
     let nameType = expectedType ?? ^TypeVariable(node: AnyNodeID(nameDecl))
@@ -907,7 +907,7 @@ extension TypeChecker {
     ofTuplePattern subject: NodeID<TuplePattern>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     switch expectedType?.base {
     case let t as TupleType:
@@ -973,7 +973,7 @@ extension TypeChecker {
     of callee: AnyExprID,
     in scope: AnyScopeID,
     expecting parameters: [CallableTypeParameter],
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> Bool {
     // Collect the argument and parameter labels.
     let argumentLabels = arguments.map({ $0.label?.value })
@@ -1014,7 +1014,7 @@ extension TypeChecker {
   private mutating func parametersMatching(
     arguments: [LabeledArgument],
     in scope: AnyScopeID,
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> [CallableTypeParameter] {
     var parameters: [CallableTypeParameter] = []
     parameters.reserveCapacity(arguments.count)
@@ -1046,7 +1046,7 @@ extension TypeChecker {
   private mutating func bind(
     _ name: NodeID<NameExpr>,
     to candidates: [TypeChecker.NameResolutionResult.Candidate],
-    updating state: inout VisitationState
+    updating state: inout State
   ) -> AnyType {
     precondition(!candidates.isEmpty)
 
