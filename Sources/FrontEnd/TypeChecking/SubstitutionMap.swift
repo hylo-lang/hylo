@@ -65,7 +65,14 @@ struct SubstitutionMap {
 
   /// Subtitutes each type variable occuring in `type` by its corresponding substitution in `self`,
   /// apply `substitutionPolicy` to deal with free variables.
-  func reify(_ type: AnyType, withVariables substitutionPolicy: SubstitutionPolicy) -> AnyType {
+  ///
+  /// The default substitution policy is `substituteByError` because we typically use `reify` after
+  /// having built a complete solution and therefore don't expect its result to still contain open
+  /// type variables.
+  func reify(
+    _ type: AnyType,
+    withVariables substitutionPolicy: SubstitutionPolicy = .substituteByError
+  ) -> AnyType {
     func _impl(type: AnyType) -> TypeTransformAction {
       if type.base is TypeVariable {
         // Walk `type`.

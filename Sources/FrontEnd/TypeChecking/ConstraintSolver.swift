@@ -631,16 +631,11 @@ struct ConstraintSolver {
 
     // Slow path: inspect how the solution compares with the ones we have.
     var shouldInsert = false
-    let lhs = newResult.solution.typeAssumptions.reify(
-      comparator,
-      withVariables: .substituteByError)
+    let lhs = newResult.solution.typeAssumptions.reify(comparator)
 
     var i = 0
     while i < bestResults.count {
-      let rhs = bestResults[i].solution.typeAssumptions.reify(
-        comparator,
-        withVariables: .substituteByError)
-
+      let rhs = bestResults[i].solution.typeAssumptions.reify(comparator)
       if checker.areEquivalent(lhs, rhs) {
         // Check if the new solution binds name expressions to more specialized declarations.
         let comparison = checker.compareSolutionBindings(

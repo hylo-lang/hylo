@@ -413,15 +413,14 @@ public struct TypeChecker {
       // TODO: Complete underspecified generic signatures
 
       success = inference.succeeded
-      declTypes[id] = inference.solution.typeAssumptions.reify(
-        shapeType, withVariables: .substituteByError)
+      declTypes[id] = inference.solution.typeAssumptions.reify(shapeType)
 
       // Assign the variable declarations in the pattern to their type
       for decl in shapeFact.visitedVarDecls {
         modifying(
           &declTypes[decl]!,
           { (t) in
-            t = inference.solution.typeAssumptions.reify(t, withVariables: .substituteByError)
+            t = inference.solution.typeAssumptions.reify(t)
           })
         declRequests[decl] = success ? .success : .failure
       }
@@ -494,9 +493,9 @@ public struct TypeChecker {
       if (program.ast[id].output == nil) && program.ast[id].isInExprContext { return success }
 
       // Otherwise, it's expected to have the realized return type.
-      let type = declTypes[id]!.base as! LambdaType
-      let inferredType = deduce(typeOf: expr, expecting: type.output.skolemized, in: id)
-      return (inferredType != nil) && success
+      let t = deduceType(
+        of: expr, expecting: LambdaType(declTypes[id]!)!.output.skolemized, in: id)
+      return (t != nil) && success
 
     case nil:
       // Requirements and FFIs can be without a body.
@@ -587,7 +586,7 @@ public struct TypeChecker {
           program.ast[impl].introducer.value == .inout
           ? AnyType.void
           : outputType
-        let inferredType = deduce(typeOf: expr, expecting: expectedType, in: impl)
+        let inferredType = deduceType(of: expr, expecting: expectedType, in: impl)
         success = (inferredType != nil) && success
 
       case .block(let stmt):
@@ -753,7 +752,7 @@ public struct TypeChecker {
       // Type checks the body of the implementation.
       switch program.ast[impl].body {
       case .expr(let expr):
-        success = (deduce(typeOf: expr, expecting: outputType, in: impl) != nil) && success
+        success = (deduceType(of: expr, expecting: outputType, in: impl) != nil) && success
 
       case .block(let stmt):
         success = check(brace: stmt) && success
@@ -1038,7 +1037,7 @@ public struct TypeChecker {
 
     case ExprStmt.self:
       let stmt = program.ast[NodeID<ExprStmt>(id)!]
-      if let type = deduce(typeOf: stmt.expr, in: lexicalContext) {
+      if let type = deduceType(of: stmt.expr, in: lexicalContext) {
         // Issue a warning if the type of the expression isn't void.
         if type != .void {
           diagnostics.insert(
@@ -1057,7 +1056,7 @@ public struct TypeChecker {
 
     case DiscardStmt.self:
       let stmt = program.ast[NodeID<DiscardStmt>(id)!]
-      return deduce(typeOf: stmt.expr, in: lexicalContext) != nil
+      return deduceType(of: stmt.expr, in: lexicalContext) != nil
 
     case DoWhileStmt.self:
       return check(doWhile: NodeID(id)!, in: lexicalContext)
@@ -1079,7 +1078,7 @@ public struct TypeChecker {
         switch cond {
         case .expr(let condExpr):
           success =
-            (deduce(typeOf: condExpr, expecting: nil, in: lexicalContext) != nil) && success
+            (deduceType(of: condExpr, expecting: nil, in: lexicalContext) != nil) && success
         default:
           success = false
         }
@@ -1093,7 +1092,7 @@ public struct TypeChecker {
       var success = true
       success = check(brace: stmt.body) && success
       success =
-        (deduce(typeOf: stmt.condition, expecting: nil, in: lexicalContext) != nil) && success
+        (deduceType(of: stmt.condition, expecting: nil, in: lexicalContext) != nil) && success
       return success
 
     case ForStmt.self, BreakStmt.self, ContinueStmt.self:
@@ -1119,7 +1118,7 @@ public struct TypeChecker {
     in lexicalContext: S
   ) -> Bool {
     // Infer the type on the left.
-    guard let lhsType = deduce(typeOf: program.ast[id].left, in: lexicalContext) else {
+    guard let lhsType = deduceType(of: program.ast[id].left, in: lexicalContext) else {
       return false
     }
 
@@ -1568,15 +1567,16 @@ public struct TypeChecker {
 
   // MARK: Type inference
 
-  /// Deduces the type of `subject`, or `nil` if `subject` is ill-typed.
+  /// Returns the type of `subject` knowing it occurs in `scope` and is expected to have a type
+  /// compatible with `expectedType`.
   ///
   /// - Parameters:
   ///   - subject: The expression whose type should be deduced.
   ///   - expectedType: The type `subject` is expected to have using top-bottom information flow
   ///     or `nil` of such type is unknown.
   ///   - scope: The innermost scope containing `subject`.
-  public mutating func deduce<S: ScopeID>(
-    typeOf subject: AnyExprID,
+  private mutating func deduceType<S: ScopeID>(
+    of subject: AnyExprID,
     expecting expectedType: AnyType? = nil,
     in scope: S
   ) -> AnyType? {
@@ -1585,7 +1585,9 @@ public struct TypeChecker {
       : nil
   }
 
-  /// Returns a solution describing the best guess to type `subject` and its sub-expressions.
+  /// Returns the best solution satisfying `initialConstraints` and describing how to assign types
+  /// to `subject` and its sub-expressions and knowing it occurs in `scope` and is expected to have
+  /// a type compatible with `expectedType`.
   ///
   /// - Parameters:
   ///   - subject: The expression whose constituent types should be deduced.
