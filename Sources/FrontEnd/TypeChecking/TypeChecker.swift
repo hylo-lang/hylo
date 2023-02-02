@@ -1646,9 +1646,9 @@ public struct TypeChecker {
     }
 
     // Consume the solution's errors.
-    diagnostics.formUnion(solution.diagnostics)
+    diagnostics.formUnion(solution.diagnostics.log)
 
-    return (succeeded: solution.diagnostics.isEmpty, solution: solution)
+    return (succeeded: !solution.diagnostics.errorReported, solution: solution)
   }
 
   // MARK: Name binding
