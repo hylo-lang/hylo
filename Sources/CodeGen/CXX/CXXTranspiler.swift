@@ -50,7 +50,7 @@ public struct CXXTranspiler {
 
   /// Returns a transpilation of the return type `source`.
   private func cxxFunctionReturnType(_ source: FunctionDecl.Typed, with name: String)
-    -> CXXTypeExpr// TODO: this will be refactored by follow-up patches.
+    -> CXXTypeExpr  // TODO: this will be refactored by follow-up patches.
   {
     if name == "main" {
       // The output type of `main` must be `int`.
@@ -81,12 +81,11 @@ public struct CXXTranspiler {
   /// Returns a transpilation of `source`.
   private func cxx(funBody body: FunctionDecl.Typed.Body) -> CXXScopedBlock {
     switch body {
-    case .block(let stmt):
-      return cxx(brace: stmt)
+    case .block(let bodyDetails):
+      return cxx(brace: bodyDetails)
 
-    case .expr(let expr):
-      let exprBody = CXXReturnStmt(expr: cxx(expr: expr))
-      return CXXScopedBlock(stmts: [exprBody])
+    case .expr(let bodyDetails):
+      return CXXScopedBlock(stmts: [CXXReturnStmt(expr: cxx(expr: bodyDetails))])
     }
   }
 
@@ -150,17 +149,16 @@ public struct CXXTranspiler {
     assert(numNames > 0 || cxxInitializer != nil)
 
     if numNames > 1 {
-      let varStmts = source.pattern.subpattern.names.map({
+      let variables = source.pattern.subpattern.names.map({
         cxx(localNamePattern: $0.pattern, with: cxxInitializer)
       })
       // TODO: scoped block is not good here, because of lifetime issues
-      return CXXScopedBlock(stmts: varStmts)
+      return CXXScopedBlock(stmts: variables)
     } else if numNames == 1 {
       return cxx(localNamePattern: source.pattern.subpattern.names[0].pattern, with: cxxInitializer)
     } else if numNames == 0 {
       // No pattern found; just call the initializer, dropping the result.
-      let cxxExpr = CXXVoidCast(baseExpr: cxxInitializer!)
-      return CXXExprStmt(expr: cxxExpr)
+      return CXXExprStmt(expr: CXXVoidCast(baseExpr: cxxInitializer!))
     } else {
       unreachable()
     }
@@ -229,17 +227,16 @@ public struct CXXTranspiler {
 
   /// Returns a transpilation of `source`.
   private func cxx(assignStmt source: AssignStmt.Typed) -> CXXExprStmt {
-    let cxxExpr = CXXInfixExpr(
-      oper: .assignment,
-      lhs: cxx(expr: source.left),
-      rhs: cxx(expr: source.right))
-    return CXXExprStmt(expr: cxxExpr)
+    return CXXExprStmt(
+      expr: CXXInfixExpr(
+        oper: .assignment,
+        lhs: cxx(expr: source.left),
+        rhs: cxx(expr: source.right)))
   }
 
   /// Returns a transpilation of `source`.
   private func cxx(returnStmt source: ReturnStmt.Typed) -> CXXReturnStmt {
-    let returnValue = source.value != nil ? cxx(expr: source.value!) : nil
-    return CXXReturnStmt(expr: returnValue)
+    return CXXReturnStmt(expr: source.value != nil ? cxx(expr: source.value!) : nil)
   }
 
   /// Returns a transpilation of `source`.
@@ -249,10 +246,9 @@ public struct CXXTranspiler {
     let condition: CXXExpr
     if source.condition.count == 1 {
       switch source.condition[0] {
-      case .expr(let condExpr):
-        condition = cxx(expr: wholeValProgram[condExpr])
-      case .decl(let decl):
-        let _ = decl
+      case .expr(let conditionDetails):
+        condition = cxx(expr: wholeValProgram[conditionDetails])
+      case .decl(_):
         condition = CXXComment(comment: "binding condition")
       }
     } else {
@@ -330,8 +326,8 @@ public struct CXXTranspiler {
         lhs: cxx(foldedSequence: lhs),
         rhs: cxx(foldedSequence: rhs))
 
-    case .leaf(let expr):
-      return cxx(expr: wholeValProgram[expr])
+    case .leaf(let leafNode):
+      return cxx(expr: wholeValProgram[leafNode])
     }
   }
 
@@ -371,9 +367,7 @@ public struct CXXTranspiler {
 
     default:
       // Expand this as a regular function call.
-      let callee = cxx(name: source)
-      let arguments = [lhs, rhs]
-      return CXXFunctionCallExpr(callee: callee, arguments: arguments)
+      return CXXFunctionCallExpr(callee: cxx(name: source), arguments: [lhs, rhs])
     }
   }
 
@@ -412,10 +406,9 @@ public struct CXXTranspiler {
     let condition: CXXExpr
     if source.condition.count == 1 {
       switch source.condition[0] {
-      case .expr(let condExpr):
-        condition = cxx(expr: wholeValProgram[condExpr])
-      case .decl(let decl):
-        let _ = decl
+      case .expr(let conditionDetails):
+        condition = cxx(expr: wholeValProgram[conditionDetails])
+      case .decl(_):
         condition = CXXComment(comment: "binding condition")
       }
     } else {
@@ -425,22 +418,22 @@ public struct CXXTranspiler {
     if source.type != .void {
       // We result in an expression
       // TODO: do we need to return an l-value?
-      let trueExpr = cxx(condBodyExpr: source.success)
-      let falseExpr = cxx(condBodyExpr: source.failure)
-      return CXXConditionalExpr(condition: condition, trueExpr: trueExpr, falseExpr: falseExpr)
+      return CXXConditionalExpr(
+        condition: condition, trueExpr: cxx(condBodyExpr: source.success),
+        falseExpr: cxx(condBodyExpr: source.failure))
     } else {
       // We result in a statement, and we wrap the statement into an expression
-      let trueStmt = cxx(condBodyStmt: source.success)!
-      let falseStmt = cxx(condBodyStmt: source.failure)
       return CXXStmtExpr(
-        stmt: CXXIfStmt(condition: condition, trueStmt: trueStmt, falseStmt: falseStmt))
+        stmt: CXXIfStmt(
+          condition: condition, trueStmt: cxx(condBodyStmt: source.success)!,
+          falseStmt: cxx(condBodyStmt: source.failure)))
     }
   }
   /// Returns a transpilation of `source` as an expression.
   private func cxx(condBodyExpr source: CondExpr.Body?) -> CXXExpr {
     switch source {
-    case .expr(let altExpr):
-      return cxx(expr: wholeValProgram[altExpr])
+    case .expr(let alternativeDetails):
+      return cxx(expr: wholeValProgram[alternativeDetails])
     case .block:
       fatalError("not implemented")
     case .none:
@@ -450,10 +443,11 @@ public struct CXXTranspiler {
   /// Returns a transpilation of `source` as a statement.
   private func cxx(condBodyStmt source: CondExpr.Body?) -> CXXStmt? {
     switch source {
-    case .expr(let altExpr):
-      return CXXExprStmt(expr: CXXVoidCast(baseExpr: cxx(expr: wholeValProgram[altExpr])))
-    case .block(let altStmt):
-      return cxx(stmt: wholeValProgram[altStmt])
+    case .expr(let alternativeDetails):
+      return CXXExprStmt(
+        expr: CXXVoidCast(baseExpr: cxx(expr: wholeValProgram[alternativeDetails])))
+    case .block(let alternativeDetails):
+      return cxx(stmt: wholeValProgram[alternativeDetails])
     case .none:
       return nil
     }
@@ -466,19 +460,19 @@ public struct CXXTranspiler {
   /// This usually result into a C++ identifier, but it can also result in pre-/post-fix operator calls.
   private func cxx(name source: NameExpr.Typed) -> CXXExpr {
     switch source.decl {
-    case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
+    case .direct(let callee) where callee.kind == BuiltinDecl.self:
       return cxx(nameOfBuiltin: source)
-    case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
+    case .direct(let callee) where callee.kind == FunctionDecl.self:
       return cxx(
-        nameOfFunction: FunctionDecl.Typed(calleeDecl)!, withDomainExpr: source.domainExpr)
-    case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
-      return cxx(nameOfInitializer: InitializerDecl.Typed(calleeDecl)!)
-    case .direct(let calleeDecl):
+        nameOfFunction: FunctionDecl.Typed(callee)!, withDomainExpr: source.domainExpr)
+    case .direct(let callee) where callee.kind == InitializerDecl.self:
+      return cxx(nameOfInitializer: InitializerDecl.Typed(callee)!)
+    case .direct(let callee):
       // For variables, and other declarations, just use the name of the declaration
-      return CXXIdentifier(nameOfDecl(calleeDecl))
+      return CXXIdentifier(nameOfDecl(callee))
 
-    case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-      return cxx(nameOfMemberFunction: FunctionDecl.Typed(calleeDecl)!, withDomain: source.domain)
+    case .member(let callee) where callee.kind == FunctionDecl.self:
+      return cxx(nameOfMemberFunction: FunctionDecl.Typed(callee)!, withDomain: source.domain)
 
     case .member(_):
       fatalError("not implemented")
@@ -496,23 +490,23 @@ public struct CXXTranspiler {
   ) -> CXXExpr {
     // Check for prefix && postfix operator calls
     if source.notation != nil && source.notation!.value == .prefix {
-      let prefixOperators: [String: CXXPrefixExpr.Operator] = [
+      let prefixMapping: [String: CXXPrefixExpr.Operator] = [
         "++": .prefixIncrement,
         "--": .prefixDecrement,
         "+": .unaryPlus,
         "-": .unaryMinus,
         "!": .logicalNot,
       ]
-      if let cxxPrefixOperator = prefixOperators[nameOfDecl(source)] {
+      if let cxxPrefixOperator = prefixMapping[nameOfDecl(source)] {
         return CXXPrefixExpr(
           oper: cxxPrefixOperator, base: cxx(expr: domainExpr!))
       }
     } else if source.notation != nil && source.notation!.value == .postfix {
-      let postfixOperators: [String: CXXPostfixExpr.Operator] = [
+      let postfixMapping: [String: CXXPostfixExpr.Operator] = [
         "++": .suffixIncrement,
         "--": .suffixDecrement,
       ]
-      if let cxxPostfixOperator = postfixOperators[nameOfDecl(source)] {
+      if let cxxPostfixOperator = postfixMapping[nameOfDecl(source)] {
         return CXXPostfixExpr(
           oper: cxxPostfixOperator, base: cxx(expr: domainExpr!))
       }
@@ -536,8 +530,8 @@ public struct CXXTranspiler {
     switch domain {
     case .none:
       receiver = CXXReceiverExpr()
-    case .expr(let receiverID):
-      receiver = cxx(expr: receiverID)
+    case .expr(let domainDetails):
+      receiver = cxx(expr: domainDetails)
     case .implicit:
       unreachable()
     }
@@ -588,8 +582,7 @@ public struct CXXTranspiler {
       return MethodDecl.Typed(source)!.identifier.value
 
     case MethodImpl.self:
-      let methodImpl = MethodImpl.Typed(source)!
-      switch methodImpl.introducer.value {
+      switch MethodImpl.Typed(source)!.introducer.value {
       case .let: return "let"
       case .inout: return "inout"
       case .set: return "set"
