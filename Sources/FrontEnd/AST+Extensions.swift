@@ -11,7 +11,10 @@ extension AST {
     precondition(!isCoreModuleLoaded, "Core library is already loaded")
 
     do {
-      corelib = try makeModule("Val", sources: sourceFiles(in: [ValModule.core!]))
+      var diagnostics = Diagnostics()
+      corelib = try makeModule(
+        "Val", sourceCode: sourceFiles(in: [ValModule.core!]), diagnostics: &diagnostics)
+
       assert(isCoreModuleLoaded)
     } catch let error {
       fatalError("Error parsing the core module:\n\(error.localizedDescription)")
