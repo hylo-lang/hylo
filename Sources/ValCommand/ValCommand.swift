@@ -118,7 +118,7 @@ public struct ValCommand: ParsableCommand {
     }
 
     var diagnostics = Diagnostics()
-    let productName = "main"
+    let productName = "Main"
 
     /// The AST of the program being compiled.
     var ast = AST()
@@ -127,7 +127,7 @@ public struct ValCommand: ParsableCommand {
     let newModule: NodeID<ModuleDecl>
     do {
       newModule = try ast.makeModule(
-        "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
+        productName, sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
     } catch _ as Diagnostics {
       return finalize(logging: diagnostics, to: &errorLog)
     }

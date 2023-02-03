@@ -18,7 +18,9 @@ public struct CXXTranspiler {
 
   /// Returns a C++ AST implementing the semantics of `source`.
   public func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
-    return CXXModule(source: source, topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }))
+    return CXXModule(
+      source: source, topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
+      entryPointBody: entryPointBody(module: source))
   }
 
   // MARK: Declarations
@@ -52,20 +54,15 @@ public struct CXXTranspiler {
   private func cxxFunctionReturnType(_ source: FunctionDecl.Typed, with name: String)
     -> CXXTypeExpr  // TODO: this will be refactored by follow-up patches.
   {
-    if name == "main" {
-      // The output type of `main` must be `int`.
-      return CXXTypeExpr("int")
-    } else {
-      switch source.type.base {
-      case let valDeclType as LambdaType:
-        return cxx(typeExpr: valDeclType.output, asReturnType: true)
+    switch source.type.base {
+    case let valDeclType as LambdaType:
+      return cxx(typeExpr: valDeclType.output, asReturnType: true)
 
-      case is MethodType:
-        fatalError("not implemented")
+    case is MethodType:
+      fatalError("not implemented")
 
-      default:
-        unreachable()
-      }
+    default:
+      unreachable()
     }
   }
 
@@ -601,6 +598,51 @@ public struct CXXTranspiler {
       fatalError("not implemented")
     }
 
+  }
+
+  // MARK: entry point function body
+
+  func entryPointBody(module source: ModuleDecl.Typed) -> CXXScopedBlock? {
+    let possibleBodies = source.topLevelDecls.compactMap({
+      entryPointBody(topLevel: $0, in: source)
+    })
+    return possibleBodies.isEmpty ? nil : possibleBodies.first
+  }
+  func entryPointBody(topLevel source: AnyDeclID.TypedNode, in module: ModuleDecl.Typed)
+    -> CXXScopedBlock?
+  {
+    let function = FunctionDecl.Typed(source)
+    if function != nil && function!.identifier?.value == "main" {
+      return entryPointBody(mainFunction: FunctionDecl.Typed(source)!, in: module)
+    } else {
+      return nil
+    }
+  }
+  private func entryPointBody(mainFunction source: FunctionDecl.Typed, in module: ModuleDecl.Typed)
+    -> CXXScopedBlock
+  {
+    // The expression that makes a call to the module `main` function.
+    let callToMain = CXXFunctionCallExpr(
+      callee: CXXInfixExpr(
+        oper: .scopeResolution,
+        lhs: CXXIdentifier(module.baseName),
+        rhs: CXXIdentifier("main")),
+      arguments: [])
+
+    // Foward function result if the result type is Int32.
+    let resultType = (source.type.base as! LambdaType).output
+    let forwardReturn = resultType == wholeValProgram.ast.coreType(named: "Int32")!
+
+    // Build the body of the CXX entry-point function.
+    var bodyContent: [CXXStmt] = []
+    if forwardReturn {
+      // Forward the result of the function as the exit code.
+      bodyContent = [CXXReturnStmt(expr: callToMain)]
+    } else {
+      // Make a plain function call, discarding the result
+      bodyContent = [CXXExprStmt(expr: CXXVoidCast(baseExpr: callToMain))]
+    }
+    return CXXScopedBlock(stmts: bodyContent)
   }
 
 }
