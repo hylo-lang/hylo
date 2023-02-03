@@ -7,8 +7,17 @@ public enum BuiltinType: TypeProtocol {
   /// and does not specify signedness.
   case i(Int)
 
+  /// A built-in 16-bit floating-point type (specifically, "binary16" in IEEE 754).
+  case half
+
+  /// A built-in 32-bit floating-point type (specifically, "binary32" in IEEE 754).
+  case float
+
   /// A built-in 64-bit floating-point type (specifically, "binary64" in IEEE 754).
   case double
+
+  /// A built-in 128-bit floating-point type (specifically, "binary128" in IEEE 754).
+  case fp128
 
   /// A built-in raw pointer pointer.
   case pointer
@@ -26,8 +35,14 @@ extension BuiltinType: CustomStringConvertible {
     switch self {
     case .i(let bitWidth):
       return "i\(bitWidth)"
+    case .half:
+      return "half"
+    case .float:
+      return "float"
     case .double:
       return "double"
+    case .fp128:
+      return "fp128"
     case .pointer:
       return "Pointer"
     case .module:
@@ -39,14 +54,20 @@ extension BuiltinType: CustomStringConvertible {
 
 extension BuiltinType: LosslessStringConvertible {
 
-  public init?(_ description: String) {
+  public init?<S: StringProtocol>(_ description: S) {
     switch description {
-    case "Builtin":
-      self = .module
+    case "half":
+      self = .half
+    case "float":
+      self = .float
     case "double":
       self = .double
+    case "fp128":
+      self = .fp128
     case "Pointer":
       self = .pointer
+    case "Builtin":
+      self = .module
 
     case _ where description.starts(with: "i"):
       if let bitWidth = Int(description.dropFirst()) {
