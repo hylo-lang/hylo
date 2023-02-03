@@ -25,7 +25,7 @@ final class CXXTests: XCTestCase {
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast))
-        _ = checker.check(module: module)
+        checker.check(module: module)
         diagnostics.report(checker.diagnostics)
         try diagnostics.throwOnError()
 

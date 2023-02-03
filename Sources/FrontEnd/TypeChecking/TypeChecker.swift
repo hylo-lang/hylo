@@ -277,21 +277,20 @@ public struct TypeChecker {
     declRequests[d] = .typeRealizationCompleted
   }
 
-  /// Type checks the specified module and returns whether that succeeded.
+  /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
   ///
   /// - Requires: `id` is a valid ID in the type checker's AST.
-  public mutating func check(module id: NodeID<ModuleDecl>) -> Bool {
+  public mutating func check(module id: NodeID<ModuleDecl>) {
     // Build the type of the module.
     declTypes[id] = ^ModuleType(id, ast: program.ast)
 
     // Type check the declarations in the module.
-    var success = true
     for decl in program.ast.topLevelDecls(id) {
-      success = check(decl: decl) && success
+      _ = check(decl: decl)
     }
 
     // Process pending requests.
-    return checkPending() && success
+    _ = checkPending()
   }
 
   /// Type checks the specified declaration and returns whether that succeeded.
