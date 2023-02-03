@@ -350,7 +350,6 @@ extension TypeChecker {
 
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {
-        addDiagnostic(.error(undefinedName: initName.value, at: initName.site))
         _ = facts.assignErrorType(to: syntax.callee)
         return facts.assignErrorType(to: subject)
       }
