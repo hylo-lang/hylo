@@ -218,7 +218,7 @@ extension TypeChecker {
       let lhsType = inferType(of: lhs, in: scope, expecting: nil, updating: &facts)
       facts.append(
         EqualityConstraint(
-          lhsType, .builtin(.pointer),
+          lhsType, .builtin(.ptr),
           because: ConstraintCause(.cast, at: syntax.site)))
     }
 

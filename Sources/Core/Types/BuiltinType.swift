@@ -19,8 +19,8 @@ public enum BuiltinType: TypeProtocol {
   /// A built-in 128-bit floating-point type (specifically, "binary128" in IEEE 754).
   case fp128
 
-  /// A built-in raw pointer pointer.
-  case pointer
+  /// A built-in opaque pointer.
+  case ptr
 
   /// The type of the built-in module.
   case module
@@ -43,8 +43,8 @@ extension BuiltinType: CustomStringConvertible {
       return "double"
     case .fp128:
       return "fp128"
-    case .pointer:
-      return "Pointer"
+    case .ptr:
+      return "ptr"
     case .module:
       return "Builtin"
     }
@@ -64,8 +64,8 @@ extension BuiltinType: LosslessStringConvertible {
       self = .double
     case "fp128":
       self = .fp128
-    case "Pointer":
-      self = .pointer
+    case "ptr":
+      self = .ptr
     case "Builtin":
       self = .module
 
