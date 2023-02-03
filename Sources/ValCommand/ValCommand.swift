@@ -126,8 +126,7 @@ public struct ValCommand: ParsableCommand {
     // Parse the source code.
     let newModule: NodeID<ModuleDecl>
     do {
-      newModule = try ast.makeModule(
-        "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
+      newModule = try ast.makeModule("Main", sources: sourceFiles(in: inputs))
     } catch _ as Diagnostics {
       return finalize(logging: diagnostics, to: &errorLog)
     }

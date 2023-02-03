@@ -3402,15 +3402,15 @@ extension ParserState {
 
 extension AST {
 
-  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics to
-  /// `diagnostics`.
-  public mutating func makeModule<S: Sequence>(
-    _ name: String, sourceCode: S, diagnostics: inout Diagnostics
+  /// Creates a new module with the given `name` from the given `sources`, returning its ID.
+  public mutating func makeModule<Files: Sequence>(
+    _ name: String, sources: Files
   ) throws -> NodeID<ModuleDecl>
-  where S.Element == SourceFile {
+  where Files.Element == SourceFile {
     let newModule = self.insert(synthesized: ModuleDecl(name: name))
 
-    for f in sourceCode {
+    var diagnostics = Diagnostics()
+    for f in sources {
       do {
         _ = try Parser.parse(f, into: newModule, in: &self, diagnostics: &diagnostics)
       } catch _ as Diagnostics {}  // These have been logged, let's keep parsing other files.
