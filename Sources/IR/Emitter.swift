@@ -397,7 +397,7 @@ public struct Emitter {
             CallInstruction(
               returnType: .object(BuiltinType.i(1)),
               calleeConvention: .let,
-              callee: .constant(.builtin(BuiltinFunctionRef["i1_copy"]!)),
+              callee: .constant(.builtin(BuiltinFunction("copy_i1")!.reference)),
               argumentConventions: [.let],
               arguments: [condition],
               site: program[itemExpr].site),
@@ -510,11 +510,7 @@ public struct Emitter {
       case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
         // Callee refers to a built-in function.
         assert(calleeType.environment == .void)
-        callee = .constant(
-          .builtin(
-            BuiltinFunctionRef(
-              name: calleeNameExpr.name.value.stem,
-              type: .address(calleeType))))
+        callee = .constant(.builtin(BuiltinFunction(calleeNameExpr.name.value.stem)!.reference))
 
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
@@ -773,11 +769,7 @@ public struct Emitter {
       case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
         // Callee refers to a built-in function.
         assert(calleeType.environment == .void)
-        return .constant(
-          .builtin(
-            BuiltinFunctionRef(
-              name: nameExpr.name.value.stem,
-              type: .address(calleeType))))
+        return .constant(.builtin(BuiltinFunction(nameExpr.name.value.stem)!.reference))
 
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
