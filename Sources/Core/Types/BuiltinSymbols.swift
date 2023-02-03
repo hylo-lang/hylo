@@ -53,9 +53,9 @@ public enum BuiltinSymbols {
     to: .void)
 
   // Double-precision floating-point copy.
-  public static let f64_copy = LambdaType(
-    from: (.let, .f64),
-    to: .builtin(.f64))
+  public static let double_copy = LambdaType(
+    from: (.let, .double),
+    to: .builtin(.double))
 
   /// Returns the type of the built-in function with the given name.
   public static subscript(_ name: String) -> LambdaType? {
@@ -73,7 +73,7 @@ public enum BuiltinSymbols {
     case "i64_trunc_to_i32": return Self.i64_trunc_to_i32
     case "i64_print": return Self.i64_print
 
-    case "f64_copy": return Self.f64_copy
+    case "double_copy": return Self.double_copy
 
     default:
       return nil

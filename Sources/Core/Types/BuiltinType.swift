@@ -8,7 +8,7 @@ public enum BuiltinType: TypeProtocol {
   case i(Int)
 
   /// A built-in 64-bit floating-point type (specifically, "binary64" in IEEE 754).
-  case f64
+  case double
 
   /// A built-in raw pointer pointer.
   case pointer
@@ -26,8 +26,8 @@ extension BuiltinType: CustomStringConvertible {
     switch self {
     case .i(let bitWidth):
       return "i\(bitWidth)"
-    case .f64:
-      return "f64"
+    case .double:
+      return "double"
     case .pointer:
       return "Pointer"
     case .module:
@@ -43,8 +43,8 @@ extension BuiltinType: LosslessStringConvertible {
     switch description {
     case "Builtin":
       self = .module
-    case "f64":
-      self = .f64
+    case "double":
+      self = .double
     case "Pointer":
       self = .pointer
 
