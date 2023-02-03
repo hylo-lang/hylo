@@ -473,7 +473,7 @@ extension TypeChecker {
     return facts.constrain(subject, in: program.ast, toHaveType: declType)
   }
 
-private mutating func inferType(
+  private mutating func inferType(
     ofMatchExpr subject: NodeID<MatchExpr>,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?,
