@@ -162,6 +162,14 @@ final class BuiltinFunctionTests: XCTestCase {
       createInstanceWithType: expectedType)
   }
 
+  func testZeroInitializer() throws {
+    let expectedType = LambdaType(to: .builtin(.i(64)))
+    try assertParse(
+      stems: ["zeroinitializer"],
+      parameterizedBy: [["i64"]],
+      createInstanceWithType: expectedType)
+  }
+
   /// For each element in `stems` and `parameters`, assert that parsing a built-in functions named
   /// after their concatenation creates an instance with the same stem and parameters, and whose
   /// type is `expectedType`.

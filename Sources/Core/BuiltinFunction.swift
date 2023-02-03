@@ -110,6 +110,12 @@ public struct BuiltinFunction: Equatable {
         named: stem, [],
         typed: LambdaType(^s, to: ^d))
 
+    case "zeroinitializer":
+      guard let t = builtinType(from: &tokens) else { return nil }
+      self.init(
+        named: stem, [],
+        typed: LambdaType(to: ^t))
+
     default:
       return nil
     }
