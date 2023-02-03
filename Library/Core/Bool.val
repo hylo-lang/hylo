@@ -3,12 +3,19 @@ public type Bool {
 
   var value: Builtin.i1
 
+  memberwise init
+
+  /// Initializes a instance with the value of `0`.
+  public init() {
+    self.value = Builtin.zeroinitializer_i1()
+  }
+
 }
 
 public conformance Bool: Copyable {
 
   public fun copy() -> Self {
-    Bool(value: Builtin.i1_copy(value))
+    Bool(value: value)
   }
 
 }

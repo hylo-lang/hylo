@@ -3,6 +3,13 @@ public type Double {
 
   var value: Builtin.double
 
+  memberwise init
+
+  /// Creates an instance with the value `0.0`.
+  public init() {
+    self.value = Builtin.zeroinitializer_double()
+  }
+
 }
 
 public conformance Double: ExpressibleByIntegerLiteral {}
@@ -10,7 +17,7 @@ public conformance Double: ExpressibleByIntegerLiteral {}
 public conformance Double: Copyable {
 
   public fun copy() -> Self {
-    Double(value: Builtin.double_copy(value))
+    Double(value: value)
   }
 
 }

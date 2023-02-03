@@ -3,26 +3,33 @@ public type Int {
 
   var value: Builtin.i64
 
+  memberwise init
+
+  /// Initializes an instance with the value of `0`.
+  public init() {
+    self.value = Builtin.zeroinitializer_i64()
+  }
+
   /// Returns the sum of `self` and `other`.
   ///
   /// - Requires: The sum of the two arguments must be representable in the arguments' type.
   public fun infix+ (_ other: Self) -> Self {
-    Int(value: Builtin.i64_add(value, other.value))
+    Int(value: Builtin.add_i64(value, other.value))
   }
 
   /// Returns `self` subtracted by `other`.
   public fun infix- (_ other: Self) -> Self {
-    Int(value: Builtin.i64_sub(value, other.value))
+    Int(value: Builtin.sub_i64(value, other.value))
   }
 
   /// Returns the product of `self` and `other`
   public fun infix* (_ other: Self) -> Self {
-    Int(value: Builtin.i64_mul(value, other.value))
+    Int(value: Builtin.mul_i64(value, other.value))
   }
 
   /// Returns the additive inverse of `self`.
   public fun prefix- () -> Self {
-    Int(value: Builtin.i64_neg(value))
+    Int() - self
   }
 
   /// Returns `self`.
@@ -32,7 +39,7 @@ public type Int {
 
   /// Returns `true` if `self` is smaller than `other`. Otherwise, returns `false`.
   public fun infix< (_ other: Self) -> Bool {
-    Bool(value: Builtin.i64_lt(value, other.value))
+    Bool(value: Builtin.icmp_slt_i64(value, other.value))
   }
 
 }
@@ -42,7 +49,7 @@ public conformance Int: ExpressibleByIntegerLiteral {}
 public conformance Int: Copyable {
 
   public fun copy() -> Self {
-    Int(value: Builtin.i64_copy(value))
+    Int(value: value)
   }
 
 }
