@@ -26,7 +26,7 @@ import Utils
 ///
 /// Supported operations include all arithmetic and comparison instructions on built-in integral
 /// and floating-point numbers as well as conversions from and to these types.
-public struct BuiltinFunction: Equatable {
+public struct BuiltinFunction: Hashable {
 
   /// The stem identifier of the function.
   public let baseName: String
