@@ -33,6 +33,12 @@ public struct SourceFile {
     self.storage = storage
   }
 
+  /// Creates a source file with the specified contents and a unique random `url`.
+  public init(synthesizedText text: String) {
+    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text }
+    self.storage = storage
+  }
+
   /// The name of the source file, sans path qualification or extension.
   public var baseName: String {
     url.deletingPathExtension().lastPathComponent
@@ -41,12 +47,6 @@ public struct SourceFile {
   /// A range covering the whole contents of this instance.
   public var wholeRange: SourceRange {
     range(text.startIndex ..< text.endIndex)
-  }
-
-  /// Creates a source file with the specified contents and a unique random `url`.
-  public init(synthesizedText text: String) {
-    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text }
-    self.storage = storage
   }
 
   /// Returns the contents of the file in the specified range.
