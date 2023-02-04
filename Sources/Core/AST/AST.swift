@@ -105,17 +105,6 @@ public struct AST {
     position.map({ nodes[$0.rawValue].node })
   }
 
-  /// Applies `transform` to the node at `position`.
-  mutating func modify<T: Node>(at position: NodeID<T>, _ transform: (T) -> T) {
-    let newNode = transform(self[position])
-
-    var diagnostics = Diagnostics()
-    newNode.validateForm(in: self, into: &diagnostics)
-    assert(diagnostics.log.isEmpty, "\(diagnostics)")
-
-    nodes[position.rawValue] = AnyNode(newNode)
-  }
-
   // MARK: Core library
 
   /// Indicates whether the Core library has been loaded.
