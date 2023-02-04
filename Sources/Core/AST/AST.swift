@@ -81,18 +81,18 @@ public struct AST {
   // MARK: Node access
 
   /// Accesses the node at `position`.
-  public subscript<T: Node>(position: NodeID<T>) -> T {
-    get { nodes[position.rawValue].node as! T }
+  public subscript<T: ConcreteNodeID>(position: T) -> T.Subject {
+    get { nodes[position.rawValue].node as! T.Subject }
     _modify {
-      var n = nodes[position.rawValue].node as! T
+      var n = nodes[position.rawValue].node as! T.Subject
       defer { nodes[position.rawValue] = AnyNode(n) }
       yield &n
     }
   }
 
   /// Accesses the node at `position`.
-  public subscript<T: Node>(position: NodeID<T>?) -> T? {
-    position.map({ nodes[$0.rawValue].node as! T })
+  public subscript<T: ConcreteNodeID>(position: T?) -> T.Subject? {
+    position.map({ nodes[$0.rawValue].node as! T.Subject })
   }
 
   /// Accesses the node at `position`.
