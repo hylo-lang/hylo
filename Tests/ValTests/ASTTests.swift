@@ -16,58 +16,49 @@ final class ASTTests: XCTestCase {
   }
 
   func testDeclAccess() throws {
-    var ast = AST()
+    let input = testCode(
+      """
+      import T
+      """)
 
-    // Create a module declarations.
-    let input = SourceFile(synthesizedText: "")
-    let module = ast.insert(synthesized: ModuleDecl(name: "Val", sources: []))
+    var a = AST()
+    var d = Diagnostics()
+    let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    XCTAssert(d.log.isEmpty, "\n\(d)")
 
-    // Create a trait declaration.
-    let decl = ast.insert(
-      synthesized: ImportDecl(
-        introducerSite: input.wholeRange,
-        identifier: SourceRepresentable(value: "T", range: input.wholeRange),
-        site: input.wholeRange))
+    // Subscript the AST for reading with a typed ID.
+    let s = a[m].sources.first
 
-    // Create a source declaration set.
-    let source = ast.insert(
-      synthesized: TopLevelDeclSet(decls: [AnyDeclID(decl)], site: input.wholeRange))
-    ast[module].addSourceFile(source)
+    // Subscript the AST with an optional typed ID.
+    let typeErasedDecls = try XCTUnwrap(a[s]?.decls)
 
     // Subscript the AST for reading with a type-erased ID.
-    XCTAssert(ast[ast[ast[module].sources.first!].decls.first!] is ImportDecl)
+    XCTAssert(a[typeErasedDecls.first!] is ImportDecl)
   }
 
   func testCodableRoundtrip() throws {
-    var ast = AST()
+    let input = testCode(
+      """
+      public fun main() {
+        print("Hello, World!")
+      }
+      """)
 
-    // Create a module declarations.
-    let input = SourceFile(synthesizedText: "")
-    let module = ast.insert(synthesized: ModuleDecl(name: "Val", sources: []))
-
-    let source = ast.insert(
-      synthesized: TopLevelDeclSet(
-        decls: [
-          AnyDeclID(
-            ast.insert(
-              synthesized: FunctionDecl(
-                introducerSite: input.wholeRange,
-                identifier: SourceRepresentable(value: "foo", range: input.wholeRange),
-                site: input.wholeRange)))
-        ],
-        site: input.wholeRange))
-    ast[module].addSourceFile(source)
+    var original = AST()
+    var d = Diagnostics()
+    let m = try original.makeModule("Main", sourceCode: [input], diagnostics: &d)
 
     // Serialize the AST.
     let encoder = JSONEncoder().forAST
-    let serialized = try encoder.encode(ast)
+    let serialized = try encoder.encode(original)
 
     // Deserialize the AST.
     let decoder = JSONDecoder().forAST
     let deserialized = try decoder.decode(AST.self, from: serialized)
 
-    // Deserialized AST should containt a function `foo`.
-    XCTAssertEqual(deserialized[source].decls.first?.kind, NodeKind(FunctionDecl.self))
+    // Deserialized AST should contain a `main` function.
+    let s = deserialized[m].sources.first!
+    XCTAssertEqual(deserialized[s].decls.first?.kind, NodeKind(FunctionDecl.self))
   }
 
 }
