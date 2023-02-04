@@ -201,7 +201,7 @@ public struct CXXTranspiler {
     case YieldStmt.self:
       return cxx(yieldStmt: YieldStmt.Typed(source)!)
     default:
-      unexpected("statement", found: stmt)
+      unexpected("statement", found: source)
     }
   }
 
@@ -298,7 +298,7 @@ public struct CXXTranspiler {
     case CondExpr.self:
       return cxx(cond: CondExpr.Typed(source)!)
     default:
-      unexpected("expression", found: expr)
+      unexpected("expression", found: source)
     }
   }
 
