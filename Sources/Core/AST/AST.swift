@@ -167,10 +167,7 @@ public struct AST {
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: NodeID<ModuleDecl>) -> TopLevelDecls {
-    let a = self[module].sources.lazy
-      .map({ self[$0].decls })
-      .joined()
-    return a
+    self[self[module].sources].map(\.decls).joined()
   }
 
   /// Returns the IDs of the named patterns contained in `pattern`.
