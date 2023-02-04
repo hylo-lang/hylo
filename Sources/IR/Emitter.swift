@@ -45,7 +45,7 @@ public struct Emitter {
   }
 
   /// Emits the given function declaration into `module`.
-  public mutating func emit(function decl: FunctionDecl.Typed, into module: inout Module) {
+  private mutating func emit(function decl: FunctionDecl.Typed, into module: inout Module) {
     // Declare the function in the module if necessary.
     let functionID = module.getOrCreateFunction(correspondingTo: decl, program: program)
 
@@ -108,14 +108,11 @@ public struct Emitter {
 
     swap(&receiverDecl, &self.receiverDecl)
     stack.pop()
-    assert(stack.frames.isEmpty)
+    assert(stack.isEmpty)
   }
 
   /// Emits the given subscript declaration into `module`.
-  public mutating func emit(
-    subscript decl: SubscriptDecl.Typed,
-    into module: inout Module
-  ) {
+  private mutating func emit(subscript decl: SubscriptDecl.Typed, into module: inout Module) {
     fatalError("not implemented")
   }
 
@@ -964,52 +961,49 @@ public struct Emitter {
 
 extension Emitter {
 
-  /// A type describing the local variables and allocations of a stack frame.
+  /// The local variables and allocations of a lexical scope.
   fileprivate struct Frame {
 
-    /// The local variables in scope.
+    /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = TypedDeclProperty<Operand>()
 
-    /// The stack allocations, in FILO order.
+    /// The allocations in the frame, in FILO order.
     var allocs: [Operand] = []
 
   }
 
-  /// A type describing the state of the call stack during lowering.
+  /// A stack of frames.
   fileprivate struct Stack {
 
     /// The frames in the stack, in FILO order.
-    var frames: [Frame] = []
+    private var frames: [Frame] = []
+
+    /// True iff the stack is empty.
+    var isEmpty: Bool { frames.isEmpty }
 
     /// Accesses the top frame, assuming the stack is not empty.
     var top: Frame {
-      get {
-        frames[frames.count - 1]
-      }
-      _modify {
-        yield &frames[frames.count - 1]
-      }
+      get { frames[frames.count - 1] }
+      _modify { yield &frames[frames.count - 1] }
     }
 
-    /// Accesses the operand assigned `decl`, assuming the stack is not empty.
-    subscript<ID: DeclID>(decl: ID.TypedNode) -> Operand? {
+    /// Accesses the IR corresponding to `d`, assuming the stack is not empty.
+    subscript<ID: DeclID>(d: ID.TypedNode) -> Operand? {
       get {
         for frame in frames.reversed() {
-          if let operand = frame.locals[decl] { return operand }
+          if let operand = frame.locals[d] { return operand }
         }
         return nil
       }
-      set {
-        top.locals[decl] = newValue
-      }
+      set { top.locals[d] = newValue }
     }
 
-    /// Pushes a new frame.
+    /// Pushes `newFrame` on the stack.
     mutating func push(_ newFrame: Frame = Frame()) {
       frames.append(newFrame)
     }
 
-    /// Pops a frame, assuming the stack is not empty.
+    /// Pops the top frame, assuming the stack is not empty.
     mutating func pop() {
       precondition(top.allocs.isEmpty, "stack leak")
       frames.removeLast()
