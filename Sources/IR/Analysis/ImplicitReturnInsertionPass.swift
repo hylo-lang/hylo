@@ -17,26 +17,37 @@ public struct ImplicitReturnInsertionPass: TransformPass {
     // Reinitialize the internal state of the pass.
     diagnostics.removeAll()
 
-    for block in module[f].blocks.indices {
-      // FIXME: Remove empty blocks
-      let last = module[f][block.address].instructions.last!
+    for b in module[f].blocks.indices {
+      let lastInstruction = module[f][b.address].instructions.last
+      if let l = lastInstruction, l.isTerminator { continue }
 
-      // Nothing to do if there's a terminator instruction.
-      if last.isTerminator { continue }
-
-      if expectedReturnType == .void {
-        // Insert missing return instruction.
-        module.insert(
-          ReturnInstruction(site: last.site),
-          at: module.globalEndIndex(of: Block.ID(function: f, address: block.address)))
-      } else {
-        // No return instruction, yet the function must return a non-void value.
-        diagnostics.append(
-          .missingFunctionReturn(expectedReturnType: expectedReturnType, at: last.site))
-      }
+      module.insertReturnVoidInstruction(
+        anchoredAt: lastInstruction?.site ?? .empty(at: module[f].anchor),
+        at: module.globalEndIndex(of: Block.ID(function: f, address: b.address)),
+        inFunctionReturning: expectedReturnType,
+        diagnostics: &diagnostics)
     }
 
     return diagnostics.isEmpty
+  }
+
+}
+
+extension Module {
+
+  /// Inserts at `i` an instruction `return void` anchored at `anchor` if `returnType` is `.void`.
+  /// Otherwise, writes a diagnostic to `diagnostics`.
+  fileprivate mutating func insertReturnVoidInstruction(
+    anchoredAt anchor: SourceRange,
+    at i: InstructionIndex,
+    inFunctionReturning returnType: AnyType,
+    diagnostics: inout [Diagnostic]
+  ) {
+    if returnType == .void {
+      insert(ReturnInstruction(site: anchor), at: i)
+    } else {
+      diagnostics.append(.missingFunctionReturn(expectedReturnType: returnType, at: anchor))
+    }
   }
 
 }
