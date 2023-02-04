@@ -116,6 +116,14 @@ public struct SourceFile {
 
 }
 
+extension SourceFile: ExpressibleByStringLiteral {
+
+  public init(stringLiteral text: String) {
+    self.init(synthesizedText: text)
+  }
+
+}
+
 extension SourceFile: Hashable {
 
   public func hash(into hasher: inout Hasher) {
