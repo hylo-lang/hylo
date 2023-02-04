@@ -1,6 +1,6 @@
 /*! cpp
     void test() {
-    int x = 5;
+    Int x = 5;
     x = 7;
     }
  */
