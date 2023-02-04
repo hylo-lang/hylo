@@ -18,10 +18,8 @@ final class CXXTests: XCTestCase {
       { (source, cxxAnnotations, diagnostics) in
         // Create a module for the input.
         var ast = baseAST
-        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
-
-        // Parse the input.
-        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
+        let module = try ast.makeModule(
+          source.baseName, sourceCode: [source], diagnostics: &diagnostics)
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast))

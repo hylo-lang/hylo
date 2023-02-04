@@ -20,13 +20,12 @@ import Utils
 /// A namespace for the routines of Val's parser.
 public enum Parser {
 
-  /// Parses the declarations of `input` and inserts them into `ast[module]`, updating diagnostics
-  /// as appropriate, returning the identity of parsed source file in `ast`.
+  /// Parses the declarations of `input` updating diagnostics as appropriate, returning the
+  /// identity of parsed source file in `ast`.
   ///
   /// - Throws: Diagnostics if syntax errors were encountered.
   public static func parse(
     _ input: SourceFile,
-    into module: NodeID<ModuleDecl>,
     in ast: inout AST,
     diagnostics: inout Diagnostics
   ) throws -> NodeID<TopLevelDeclSet> {
@@ -96,7 +95,6 @@ public enum Parser {
       TopLevelDeclSet(
         decls: members,
         site: input.range(input.text.startIndex ..< input.text.endIndex)))
-    state.ast[module].addSourceFile(translation)
 
     try state.diagnostics.throwOnError()
     ast = state.ast
@@ -3406,17 +3404,19 @@ extension AST {
   /// `diagnostics`.
   public mutating func makeModule<S: Sequence>(
     _ name: String, sourceCode: S, diagnostics: inout Diagnostics
-  ) throws -> NodeID<ModuleDecl>
-  where S.Element == SourceFile {
-    let newModule = self.insert(synthesized: ModuleDecl(name: name))
-
-    for f in sourceCode {
+  ) throws -> NodeID<ModuleDecl> where S.Element == SourceFile {
+    let translations = try sourceCode.compactMap({ (f) in
       do {
-        _ = try Parser.parse(f, into: newModule, in: &self, diagnostics: &diagnostics)
-      } catch _ as Diagnostics {}  // These have been logged, let's keep parsing other files.
-    }
+        return try Parser.parse(f, in: &self, diagnostics: &diagnostics)
+      } catch _ as Diagnostics {
+        // Diagnostics have been logged, let's keep parsing other files.
+        return nil
+      }
+    })
+
+    let m = insert(ModuleDecl(name: name, sources: translations), diagnostics: &diagnostics)
     try diagnostics.throwOnError()
-    return newModule
+    return m
   }
 
 }

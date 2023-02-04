@@ -13,9 +13,8 @@ final class TypeCheckerTests: XCTestCase {
       in: "TestCases/TypeChecking",
       { (source, diagnostics) in
         var ast = baseAST
-        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
-
-        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
+        let module = try ast.makeModule(
+          source.baseName, sourceCode: [source], diagnostics: &diagnostics)
 
         // Run the type checker.
         var checker = TypeChecker(program: ScopedProgram(ast))
@@ -24,4 +23,5 @@ final class TypeCheckerTests: XCTestCase {
         try diagnostics.throwOnError()
       })
   }
+
 }
