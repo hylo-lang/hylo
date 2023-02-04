@@ -297,7 +297,7 @@ struct CaptureCollector {
         if (ast[callee].name.value.notation == nil) && ast[callee].name.value.labels.isEmpty {
           baseName = Name(
             stem: ast[callee].name.value.stem,
-            labels: ast[id].arguments.map({ $0.label?.value }))
+            labels: ast[id].arguments.map(\.label?.value))
         } else {
           baseName = ast[callee].name.value
         }

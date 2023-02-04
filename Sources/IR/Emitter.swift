@@ -55,7 +55,7 @@ public struct Emitter {
     // Create the function entry.
     assert(module.functions[functionID].blocks.isEmpty)
     let entryID = module.createBasicBlock(
-      accepting: module.functions[functionID].inputs.map({ $0.type }),
+      accepting: module.functions[functionID].inputs.map(\.type),
       atEndOf: functionID)
     insertionBlock = entryID
 
@@ -186,7 +186,7 @@ public struct Emitter {
           let whole = objects[wholePath]!
           let parts = module.append(
             DestructureInstruction(
-              whole, as: layout.storedPropertiesTypes.map({ .object($0) }),
+              whole, as: layout.storedPropertiesTypes.map(LoweredType.object(_:)),
               site: initializer.site),
             to: insertionBlock!)
 
