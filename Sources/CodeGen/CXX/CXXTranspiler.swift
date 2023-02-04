@@ -602,22 +602,24 @@ public struct CXXTranspiler {
 
   // MARK: entry point function body
 
+  /// Returns the transpiled body of the entry point function in `source`.
   func entryPointBody(module source: ModuleDecl.Typed) -> CXXScopedBlock? {
-    let possibleBodies = source.topLevelDecls.compactMap({
-      entryPointBody(topLevel: $0, in: source)
+    let elements = Array(source.topLevelDecls)
+    return elements.first(transformedBy: { (d) in
+      entryPointBody(topLevel: d, in: source)
     })
-    return possibleBodies.isEmpty ? nil : possibleBodies.first
   }
+  /// Returns the transpiled body of the entry point function that may be calling `source`.
   func entryPointBody(topLevel source: AnyDeclID.TypedNode, in module: ModuleDecl.Typed)
     -> CXXScopedBlock?
   {
-    let function = FunctionDecl.Typed(source)
-    if function != nil && function!.identifier?.value == "main" {
+    if FunctionDecl.Typed(source)?.identifier?.value == "main" {
       return entryPointBody(mainFunction: FunctionDecl.Typed(source)!, in: module)
     } else {
       return nil
     }
   }
+  /// Returns the transpiled body of the entry point function calling `source`.
   private func entryPointBody(mainFunction source: FunctionDecl.Typed, in module: ModuleDecl.Typed)
     -> CXXScopedBlock
   {
@@ -643,6 +645,18 @@ public struct CXXTranspiler {
       bodyContent = [CXXExprStmt(expr: CXXVoidCast(baseExpr: callToMain))]
     }
     return CXXScopedBlock(stmts: bodyContent)
+  }
+
+}
+
+extension Sequence {
+
+  /// The result of the first scucessful transformation applied to elements in `self`.
+  public func first<T>(transformedBy transform: (Element) throws -> T?) rethrows -> T? {
+    for x in self {
+      if let y = try transform(x) { return y }
+    }
+    return nil
   }
 
 }
