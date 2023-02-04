@@ -613,7 +613,7 @@ public struct TypeChecker {
   }
 
   private mutating func check(operator id: NodeID<OperatorDecl>) -> Bool {
-    let source = NodeID<TopLevelDeclSet>(program.declToScope[id]!)!
+    let source = NodeID<TranslationUnit>(program.declToScope[id]!)!
 
     // Look for duplicate operator declaration.
     for decl in program.ast[source].decls where decl.kind == OperatorDecl.self {
@@ -1907,7 +1907,7 @@ public struct TypeChecker {
         // We reached the module scope.
         root = NodeID<ModuleDecl>(scope)!
 
-      case TopLevelDeclSet.self:
+      case TranslationUnit.self:
         // Skip file scopes so that we don't search the same file twice.
         continue
 
@@ -2111,7 +2111,7 @@ public struct TypeChecker {
           in: scope)
         root = module
 
-      case TopLevelDeclSet.self:
+      case TranslationUnit.self:
         continue
 
       default:

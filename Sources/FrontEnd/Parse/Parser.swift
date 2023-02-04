@@ -29,7 +29,7 @@ public enum Parser {
     into module: NodeID<ModuleDecl>,
     in ast: inout AST,
     diagnostics: inout Diagnostics
-  ) throws -> NodeID<TopLevelDeclSet> {
+  ) throws -> NodeID<TranslationUnit> {
     // Temporarily stash the AST and diagnostics in the parser state, avoiding CoW costs
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input), diagnostics: diagnostics)
     defer { diagnostics = state.diagnostics }
@@ -93,7 +93,7 @@ public enum Parser {
     assert(state.peek() == nil, "expected EOF")
 
     let translation = state.insert(
-      TopLevelDeclSet(
+      TranslationUnit(
         decls: members,
         site: input.range(input.text.startIndex ..< input.text.endIndex)))
     state.ast[module].addSourceFile(translation)

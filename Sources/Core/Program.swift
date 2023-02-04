@@ -73,7 +73,7 @@ extension Program {
 
     // Declarations at global scope are global.
     switch declToScope[decl]!.kind {
-    case TopLevelDeclSet.self, NamespaceDecl.self:
+    case TranslationUnit.self, NamespaceDecl.self:
       return true
 
     default:
