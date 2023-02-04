@@ -149,7 +149,7 @@ public struct AST {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(corelib!) where id.kind == TraitDecl.self {
-      let id = NodeID<TraitDecl>(rawValue: id.rawValue)
+      let id = NodeID<TraitDecl>(id)!
       if self[id].baseName == name {
         return TraitType(id, ast: self)
       }
@@ -187,18 +187,18 @@ public struct AST {
     ) {
       switch pattern.kind {
       case BindingPattern.self:
-        let p = NodeID<BindingPattern>(rawValue: pattern.rawValue)
+        let p = NodeID<BindingPattern>(pattern)!
         visit(pattern: self[p].subpattern, path: path, result: &result)
 
       case ExprPattern.self:
         break
 
       case NamePattern.self:
-        let p = NodeID<NamePattern>(rawValue: pattern.rawValue)
+        let p = NodeID<NamePattern>(pattern)!
         result.append((path: path, pattern: p))
 
       case TuplePattern.self:
-        let p = NodeID<TuplePattern>(rawValue: pattern.rawValue)
+        let p = NodeID<TuplePattern>(pattern)!
         for i in 0 ..< self[p].elements.count {
           visit(
             pattern: self[p].elements[i].pattern,

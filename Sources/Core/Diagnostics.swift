@@ -34,9 +34,23 @@ public struct Diagnostics {
     for d in batch { report(d) }
   }
 
+  /// Inserts the diagnostics reported to `other` into the `self`.
+  public mutating func formUnion(_ other: Self) {
+    log.formUnion(other.log)
+    errorReported = errorReported || other.errorReported
+  }
+
   /// Throws `self` if any errors were reported.
   public func throwOnError() throws {
     if errorReported { throw self }
+  }
+
+}
+
+extension Diagnostics: ExpressibleByArrayLiteral {
+
+  public init(arrayLiteral batch: Diagnostic...) {
+    self.init(batch)
   }
 
 }

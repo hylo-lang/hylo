@@ -42,7 +42,7 @@ struct GenericEnvironment {
       case let conformance as ConformanceConstraint:
         var allTraits: Set<TraitType> = []
         for trait in conformance.traits {
-          guard let bases = checker.conformedTraits(of: ^trait, inScope: scope)
+          guard let bases = checker.conformedTraits(of: ^trait, in: scope)
           else { return nil }
           allTraits.formUnion(bases)
         }

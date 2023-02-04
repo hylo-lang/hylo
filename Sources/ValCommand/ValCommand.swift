@@ -147,7 +147,7 @@ public struct ValCommand: ParsableCommand {
     var checker = TypeChecker(
       program: ScopedProgram(ast),
       isBuiltinModuleVisible: true,
-      enablingInferenceTracingIn: inferenceTracingRange)
+      tracingInferenceIn: inferenceTracingRange)
     var typeCheckingSucceeded = true
 
     // Type check the core library.

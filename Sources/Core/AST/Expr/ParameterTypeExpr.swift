@@ -9,19 +9,14 @@ public struct ParameterTypeExpr: Expr {
   /// The expression of the parameter's bare type.
   public let bareType: AnyTypeExprID
 
-  /// Indicates whether `convention` was synthesized.
-  public let isConventionSynthesized: Bool
-
   public init(
     convention: SourceRepresentable<AccessEffect>,
     bareType: AnyTypeExprID,
-    site: SourceRange,
-    synthesized: Bool
+    site: SourceRange
   ) {
     self.site = site
     self.convention = convention
     self.bareType = bareType
-    self.isConventionSynthesized = synthesized
   }
 
 }
