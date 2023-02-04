@@ -105,11 +105,6 @@ public struct AST {
     position.map({ nodes[$0.rawValue].node })
   }
 
-  /// Accesses the node at `position`.
-  subscript(raw position: NodeID.RawValue) -> Node {
-    nodes[position].node
-  }
-
   /// Applies `transform` to the node at `position`.
   mutating func modify<T: Node>(at position: NodeID<T>, _ transform: (T) -> T) {
     let newNode = transform(self[position])
