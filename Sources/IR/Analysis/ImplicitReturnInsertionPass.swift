@@ -10,16 +10,16 @@ public struct ImplicitReturnInsertionPass: TransformPass {
   /// Creates a new pass.
   public init() {}
 
-  public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
+  public mutating func run(function f: Function.ID, module: inout Module) -> Bool {
     /// The expected return type of the function.
-    let expectedReturnType = module[functionID].output.astType
+    let expectedReturnType = module[f].output.astType
 
     // Reinitialize the internal state of the pass.
     diagnostics.removeAll()
 
-    for block in module[functionID].blocks.indices {
+    for block in module[f].blocks.indices {
       // FIXME: Remove empty blocks
-      let last = module[functionID][block.address].instructions.last!
+      let last = module[f][block.address].instructions.last!
 
       // Nothing to do if there's a terminator instruction.
       if last.isTerminator { continue }
@@ -28,7 +28,7 @@ public struct ImplicitReturnInsertionPass: TransformPass {
         // Insert missing return instruction.
         module.insert(
           ReturnInstruction(site: last.site),
-          at: module.globalEndIndex(of: Block.ID(function: functionID, address: block.address)))
+          at: module.globalEndIndex(of: Block.ID(function: f, address: block.address)))
       } else {
         // No return instruction, yet the function must return a non-void value.
         diagnostics.append(
