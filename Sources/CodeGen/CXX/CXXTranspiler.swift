@@ -3,56 +3,62 @@ import Core
 import FrontEnd
 import Utils
 
-/// A Val to C++ transpiler.
+/// The conversion of typed Val module AST into corresponding C++ AST.
 public struct CXXTranspiler {
 
-  /// The program being transpiled.
-  let program: TypedProgram
+  /// The Val typed nodes.
+  ///
+  /// This property is used when we need access to the contents of a node from its ID.
+  let wholeValProgram: TypedProgram
 
-  /// Creates a C++ transpiler with a well-typed AST.
-  public init(program: TypedProgram) {
-    self.program = program
+  /// Creates an instance.
+  public init(_ wholeValProgram: TypedProgram) {
+    self.wholeValProgram = wholeValProgram
   }
 
-  // MARK: API
-
-  /// Emits the C++ module corresponding to the Val module identified by `decl`.
-  public mutating func emit(module decl: ModuleDecl.Typed) -> CXXModule {
-    var module = CXXModule(decl, for: program)
-    for member in decl.topLevelDecls {
-      emit(topLevel: member, into: &module)
-    }
-    return module
+  /// Returns a C++ AST implementing the semantics of `source`.
+  public func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
+    return CXXModule(source: source, topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }))
   }
 
-  /// Emits the given top-level declaration into `module`.
-  mutating func emit(topLevel decl: AnyDeclID.TypedNode, into module: inout CXXModule) {
-    switch decl.kind {
+  // MARK: Declarations
+
+  /// Returns a transpilation of `source`.
+  func cxx(topLevel source: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
+    switch source.kind {
     case FunctionDecl.self:
-      emit(function: FunctionDecl.Typed(decl)!, into: &module)
+      return cxx(function: FunctionDecl.Typed(source)!)
     case ProductTypeDecl.self:
-      emit(type: ProductTypeDecl.Typed(decl)!, into: &module)
+      return cxx(type: ProductTypeDecl.Typed(source)!)
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  /// Emits the given function declaration into `module`.
-  mutating func emit(function decl: FunctionDecl.Typed, into module: inout CXXModule) {
-    assert(program.isGlobal(decl.id))
+  /// Returns a transpilation of `source`.
+  func cxx(function source: FunctionDecl.Typed) -> CXXFunctionDecl {
+    assert(wholeValProgram.isGlobal(source.id))
 
-    /// The identifier of the function.
-    let identifier = CXXIdentifier(decl.identifier?.value ?? "")
+    let functionName = source.identifier?.value ?? ""
 
-    // Determine the output type of the function.
-    let output: CXXTypeExpr
-    if identifier.description == "main" {
+    return CXXFunctionDecl(
+      identifier: CXXIdentifier(functionName),
+      output: cxxFunctionReturnType(source, with: functionName),
+      parameters: cxxFunctionParameters(source),
+      body: source.body != nil ? cxx(funBody: source.body!) : nil)
+  }
+
+  /// Returns a transpilation of the return type `source`.
+  private func cxxFunctionReturnType(_ source: FunctionDecl.Typed, with name: String)
+    -> CXXTypeExpr  // TODO: this will be refactored by follow-up patches.
+  {
+    if name == "main" {
       // The output type of `main` must be `int`.
-      output = CXXTypeExpr("int")
+      return CXXTypeExpr("int")
     } else {
-      switch decl.type.base {
+      switch source.type.base {
       case let valDeclType as LambdaType:
-        output = CXXTypeExpr(valDeclType.output, ast: program.ast, asReturnType: true)!
+        return cxx(typeExpr: valDeclType.output, asReturnType: true)
 
       case is MethodType:
         fatalError("not implemented")
@@ -61,723 +67,522 @@ public struct CXXTranspiler {
         unreachable()
       }
     }
+  }
 
-    // Determine the parameter types of the function.
-    let paramTypes: [CallableTypeParameter]
-    switch decl.type.base {
-    case let valDeclType as LambdaType:
-      paramTypes = valDeclType.inputs
+  /// Returns a transpilation of the parameters of `source`.
+  private func cxxFunctionParameters(_ source: FunctionDecl.Typed) -> [CXXFunctionDecl.Parameter] {
+    let paramTypes = (source.type.base as! LambdaType).inputs
+    assert(paramTypes.count == source.parameters.count)
+    return zip(source.parameters, paramTypes).map { p, t in
+      CXXFunctionDecl.Parameter(CXXIdentifier(p.baseName), cxx(typeExpr: t.type))
+    }
+  }
 
-    case is MethodType:
-      fatalError("not implemented")
+  /// Returns a transpilation of `source`.
+  private func cxx(funBody body: FunctionDecl.Typed.Body) -> CXXScopedBlock {
+    switch body {
+    case .block(let bodyDetails):
+      return cxx(brace: bodyDetails)
+
+    case .expr(let bodyDetails):
+      return CXXScopedBlock(stmts: [CXXReturnStmt(expr: cxx(expr: bodyDetails))])
+    }
+  }
+
+  /// Returns a transpilation of `source`.
+  private func cxx(type source: ProductTypeDecl.Typed) -> CXXClassDecl {
+    assert(wholeValProgram.isGlobal(source.id))
+    return CXXClassDecl(
+      name: CXXIdentifier(source.identifier.value),
+      members: source.members.flatMap({ cxx(classMember: $0) }))
+  }
+
+  /// Returns a transpilation of `source`.
+  private func cxx(classMember source: AnyDeclID.TypedNode) -> [CXXClassDecl.ClassMember] {
+    switch source.kind {
+    case BindingDecl.self:
+      // One binding can expand into multiple class attributes
+      return cxx(productTypeBinding: BindingDecl.Typed(source)!)
+
+    case InitializerDecl.self:
+      return [cxx(productTypeInitialzer: InitializerDecl.Typed(source)!)]
+
+    case MethodDecl.self, FunctionDecl.self:
+      return [.method]
 
     default:
+      unreachable("unexpected class member")
+    }
+  }
+
+  /// Returns a transpilation of `source`.
+  private func cxx(productTypeBinding source: BindingDecl.Typed) -> [CXXClassDecl.ClassMember] {
+    return source.pattern.subpattern.names.map({
+      .attribute(
+        CXXClassAttribute(
+          type: cxx(typeExpr: $0.pattern.decl.type),
+          name: CXXIdentifier($0.pattern.decl.baseName),
+          initializer: nil,  // TODO
+          isStatic: source.isStatic))
+    })
+  }
+  /// Returns a transpilation of `source`.
+  private func cxx(productTypeInitialzer source: InitializerDecl.Typed) -> CXXClassDecl.ClassMember
+  {
+    switch source.introducer.value {
+    case .`init`:
+      // TODO: emit constructor
+      return .constructor
+    case .memberwiseInit:
+      // TODO: emit constructor
+      return .constructor
+    }
+  }
+
+  /// Returns a transpilation of `source`.
+  ///
+  /// Returned statement can be a `CXXLocalVarDecl` or a `CXXScopedBlock` containing `CXXLocalVarDecl` objects.
+  private func cxx(localBinding source: BindingDecl.Typed) -> CXXStmt {
+    let cxxInitializer = source.initializer != nil ? cxx(expr: source.initializer!) : nil
+    let numNames = source.pattern.subpattern.names.count
+
+    assert(numNames > 0 || cxxInitializer != nil)
+
+    if numNames > 1 {
+      let variables = source.pattern.subpattern.names.map({
+        cxx(localNamePattern: $0.pattern, with: cxxInitializer)
+      })
+      // TODO: scoped block is not good here, because of lifetime issues
+      return CXXScopedBlock(stmts: variables)
+    } else if numNames == 1 {
+      return cxx(localNamePattern: source.pattern.subpattern.names[0].pattern, with: cxxInitializer)
+    } else if numNames == 0 {
+      // No pattern found; just call the initializer, dropping the result.
+      return CXXExprStmt(expr: CXXVoidCast(baseExpr: cxxInitializer!))
+    } else {
       unreachable()
     }
-
-    // Determine the parameters of the function.
-    assert(paramTypes.count == decl.parameters.count)
-    var cxxParams: [CXXFunctionDecl.Parameter] = []
-    for (i, param) in decl.parameters.enumerated() {
-      let name = CXXIdentifier(param.baseName)
-      let type = CXXTypeExpr(paramTypes[i].type, ast: program.ast)
-      cxxParams.append(CXXFunctionDecl.Parameter(name, type!))
-    }
-
-    // The body of the function.
-    var cxxBody: CXXStmt? = nil
-    if let body = decl.body {
-      cxxBody = emit(funBody: body)
-    }
-
-    // Create the C++ function object.
-    module.addTopLevelDecl(
-      CXXFunctionDecl(
-        identifier: identifier,
-        output: output,
-        parameters: cxxParams,
-        body: cxxBody,
-        original: decl))
   }
-
-  /// Translate the function body into a CXX entity.
-  private mutating func emit(funBody body: FunctionDecl.Typed.Body) -> CXXStmt {
-    switch body {
-    case .block(let stmt):
-      return emit(brace: stmt)
-
-    case .expr(let expr):
-      let exprBody = CXXReturnStmt(expr: emitR(expr: expr), original: AnyNodeID.TypedNode(expr))
-      return CXXScopedBlock(stmts: [exprBody], original: AnyNodeID.TypedNode(expr))
-    }
-  }
-
-  // MARK: Declarations
-
-  /// Emits the given function declaration into `module`.
-  private mutating func emit(type decl: ProductTypeDecl.Typed, into module: inout CXXModule) {
-    assert(program.isGlobal(decl.id))
-
-    let name = CXXIdentifier(decl.identifier.value)
-
-    // Transpile the class membmers.
-    var cxxMembers: [CXXClassDecl.ClassMember] = []
-    for member in decl.members {
-      switch member.kind {
-      case BindingDecl.self:
-        let bindingDecl = BindingDecl.Typed(member)!
-        // Check if the attribute is static or not.
-        var isStatic = false
-        if bindingDecl.memberModifier != nil {
-          switch bindingDecl.memberModifier!.value {
-          case .static:
-            isStatic = true
-          }
-        }
-        // TODO: visit initializer (bindingDecl.initializer)
-        let cxxInitializer: CXXExpr? = nil
-        // TODO: pattern introducer (let, var, sink, inout)
-        // Visit the name patterns.
-        for (_, name) in bindingDecl.pattern.subpattern.names {
-          let varDecl = name.decl
-          let cxxAttribute = CXXClassAttribute(
-            type: CXXTypeExpr(varDecl.type, ast: program.ast)!,
-            name: CXXIdentifier(varDecl.baseName),
-            initializer: cxxInitializer,
-            isStatic: isStatic,
-            original: varDecl)
-          cxxMembers.append(.attribute(cxxAttribute))
-        }
-
-      case InitializerDecl.self:
-        let initialzerDecl = InitializerDecl.Typed(member)!
-        switch initialzerDecl.introducer.value {
-        case .`init`:
-          // TODO: emit constructor
-          cxxMembers.append(.constructor)
-          break
-        case .memberwiseInit:
-          // TODO: emit constructor
-          cxxMembers.append(.constructor)
-          break
-        }
-
-      case MethodDecl.self, FunctionDecl.self:
-        cxxMembers.append(.method)
-
-      default:
-        unreachable("unexpected class member")
-      }
-    }
-
-    // Create the C++ class.
-    module.addTopLevelDecl(CXXClassDecl(name: name, members: cxxMembers, original: decl))
-  }
-
-  private mutating func emit(localBinding decl: BindingDecl.Typed) -> CXXStmt {
-    let capability = decl.pattern.introducer.value
-
-    // There's nothing to do if there's no initializer.
-    if let initializer = decl.initializer {
-
-      let isLValue =
-        (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self)
-
-      // Visit the initializer.
-      let cxxInitialzer = emit(expr: initializer, asLValue: isLValue)
-
-      // Visit the patterns.
-      var stmts: [CXXStmt] = []
-      let pattern = decl.pattern
-      for (path, name) in pattern.subpattern.names {
-        // TODO: emit code for the patterns.
-        let decl = name.decl
-        let _ = path
-        stmts.append(
-          CXXLocalVarDecl(
-            type: CXXTypeExpr(decl.type, ast: program.ast)!,
-            name: CXXIdentifier(decl.identifier.value),
-            initializer: cxxInitialzer,
-            original: decl)
-        )
-      }
-      if stmts.isEmpty {
-        // No pattern found; just call the initializer, dropping the result.
-        let cxxExpr = CXXVoidCast(baseExpr: cxxInitialzer, original: initializer)
-        return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(initializer))
-      } else if stmts.count == 1 {
-        return stmts[0]
-      } else {
-        return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(initializer))
-      }
-    } else {
-      return CXXComment(
-        comment: "EMPTY borrowed local binding (\(capability))", original: AnyNodeID.TypedNode(decl)
-      )
-    }
+  /// Returns a transpilation of `source`.
+  private func cxx(localNamePattern source: NamePattern.Typed, with cxxInitializer: CXXExpr?)
+    -> CXXLocalVarDecl
+  {
+    CXXLocalVarDecl(
+      type: cxx(typeExpr: source.decl.type),
+      name: CXXIdentifier(source.decl.identifier.value),
+      initializer: cxxInitializer)
   }
 
   // MARK: Statements
 
-  /// Emits the given statement into `module` at the current insertion point.
-  private mutating func emit<ID: StmtID>(stmt: ID.TypedNode) -> CXXStmt {
-    switch stmt.kind {
+  /// Returns a transpilation of `source`.
+  private func cxx<ID: StmtID>(stmt source: ID.TypedNode) -> CXXStmt {
+    switch source.kind {
     case BraceStmt.self:
-      return emit(brace: BraceStmt.Typed(stmt)!)
+      return cxx(brace: BraceStmt.Typed(source)!)
     case DeclStmt.self:
-      return emit(declStmt: DeclStmt.Typed(stmt)!)
+      return cxx(declStmt: DeclStmt.Typed(source)!)
     case ExprStmt.self:
-      return emit(exprStmt: ExprStmt.Typed(stmt)!)
+      return cxx(exprStmt: ExprStmt.Typed(source)!)
     case AssignStmt.self:
-      return emit(assignStmt: AssignStmt.Typed(stmt)!)
+      return cxx(assignStmt: AssignStmt.Typed(source)!)
     case ReturnStmt.self:
-      return emit(returnStmt: ReturnStmt.Typed(stmt)!)
+      return cxx(returnStmt: ReturnStmt.Typed(source)!)
     case WhileStmt.self:
-      return emit(whileStmt: WhileStmt.Typed(stmt)!)
+      return cxx(whileStmt: WhileStmt.Typed(source)!)
     case DoWhileStmt.self:
-      return emit(doWhileStmt: DoWhileStmt.Typed(stmt)!)
+      return cxx(doWhileStmt: DoWhileStmt.Typed(source)!)
     case ForStmt.self:
-      return emit(forStmt: ForStmt.Typed(stmt)!)
+      return cxx(forStmt: ForStmt.Typed(source)!)
     case BreakStmt.self:
-      return emit(breakStmt: BreakStmt.Typed(stmt)!)
+      return cxx(breakStmt: BreakStmt.Typed(source)!)
     case ContinueStmt.self:
-      return emit(continueStmt: ContinueStmt.Typed(stmt)!)
+      return cxx(continueStmt: ContinueStmt.Typed(source)!)
     case YieldStmt.self:
-      return emit(yieldStmt: YieldStmt.Typed(stmt)!)
+      return cxx(yieldStmt: YieldStmt.Typed(source)!)
     default:
       unreachable("unexpected statement")
     }
   }
 
-  private mutating func emit(brace stmt: BraceStmt.Typed) -> CXXStmt {
-    var stmts: [CXXStmt] = []
-    for s in stmt.stmts {
-      stmts.append(emit(stmt: s))
-    }
-    return CXXScopedBlock(stmts: stmts, original: AnyNodeID.TypedNode(stmt))
+  /// Returns a transpilation of `source`.
+  private func cxx(brace source: BraceStmt.Typed) -> CXXScopedBlock {
+    return CXXScopedBlock(stmts: Array(source.stmts.map({ cxx(stmt: $0) })))
   }
 
-  private mutating func emit(declStmt stmt: DeclStmt.Typed) -> CXXStmt {
-    switch stmt.decl.kind {
+  /// Returns a transpilation of `source`.
+  private func cxx(declStmt source: DeclStmt.Typed) -> CXXStmt {
+    switch source.decl.kind {
     case BindingDecl.self:
-      return emit(localBinding: BindingDecl.Typed(stmt.decl)!)
+      return cxx(localBinding: BindingDecl.Typed(source.decl)!)
     default:
       unreachable("unexpected declaration")
     }
   }
 
-  private mutating func emit(exprStmt stmt: ExprStmt.Typed) -> CXXStmt {
-    return CXXExprStmt(expr: emitR(expr: stmt.expr), original: AnyNodeID.TypedNode(stmt))
+  /// Returns a transpilation of `source`.
+  private func cxx(exprStmt source: ExprStmt.Typed) -> CXXStmt {
+    return CXXExprStmt(expr: cxx(expr: source.expr))
   }
 
-  private mutating func emit(assignStmt stmt: AssignStmt.Typed) -> CXXStmt {
-    let cxxExpr = CXXInfixExpr(
-      oper: .assignment,
-      lhs: emitL(expr: stmt.left, withCapability: .set),
-      rhs: emitR(expr: stmt.right),
-      original: AnyNodeID.TypedNode(stmt))
-    return CXXExprStmt(expr: cxxExpr, original: AnyNodeID.TypedNode(stmt))
+  /// Returns a transpilation of `source`.
+  private func cxx(assignStmt source: AssignStmt.Typed) -> CXXExprStmt {
+    return CXXExprStmt(
+      expr: CXXInfixExpr(
+        oper: .assignment,
+        lhs: cxx(expr: source.left),
+        rhs: cxx(expr: source.right)))
   }
 
-  private mutating func emit(returnStmt stmt: ReturnStmt.Typed) -> CXXStmt {
-    var expr: CXXExpr?
-    if stmt.value != nil {
-      expr = emitR(expr: stmt.value!)
-    }
-    return CXXReturnStmt(expr: expr, original: AnyNodeID.TypedNode(stmt))
+  /// Returns a transpilation of `source`.
+  private func cxx(returnStmt source: ReturnStmt.Typed) -> CXXReturnStmt {
+    return CXXReturnStmt(expr: source.value != nil ? cxx(expr: source.value!) : nil)
   }
 
-  private mutating func emit(whileStmt stmt: WhileStmt.Typed) -> CXXStmt {
+  /// Returns a transpilation of `source`.
+  private func cxx(whileStmt source: WhileStmt.Typed) -> CXXWhileStmt {
     // TODO: multiple conditions
     // TODO: bindings in conditions
     let condition: CXXExpr
-    if stmt.condition.count == 1 {
-      switch stmt.condition[0] {
-      case .expr(let condExpr):
-        condition = emitR(expr: program[condExpr])
-      case .decl(let decl):
-        condition = CXXComment(
-          comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
+    if source.condition.count == 1 {
+      switch source.condition[0] {
+      case .expr(let conditionDetails):
+        condition = cxx(expr: wholeValProgram[conditionDetails])
+      case .decl(_):
+        condition = CXXComment(comment: "binding condition")
       }
     } else {
       fatalError("not implemented")
     }
     return CXXWhileStmt(
-      condition: condition, body: emit(stmt: stmt.body), original: AnyNodeID.TypedNode(stmt))
+      condition: condition, body: cxx(stmt: source.body))
   }
-  private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) -> CXXStmt {
+  /// Returns a transpilation of `source`.
+  private func cxx(doWhileStmt source: DoWhileStmt.Typed) -> CXXDoWhileStmt {
     return CXXDoWhileStmt(
-      body: emit(stmt: stmt.body),
-      condition: emitR(expr: stmt.condition),
-      original: AnyNodeID.TypedNode(stmt))
+      body: cxx(stmt: source.body),
+      condition: cxx(expr: source.condition))
   }
-  private mutating func emit(forStmt stmt: ForStmt.Typed) -> CXXStmt {
-    return CXXComment(comment: "ForStmt", original: AnyNodeID.TypedNode(stmt))
+  /// Returns a transpilation of `source`.
+  private func cxx(forStmt source: ForStmt.Typed) -> CXXStmt {
+    return CXXComment(comment: "ForStmt")
   }
-  private mutating func emit(breakStmt stmt: BreakStmt.Typed) -> CXXStmt {
-    return CXXBreakStmt(original: AnyNodeID.TypedNode(stmt))
+  /// Returns a transpilation of `source`.
+  private func cxx(breakStmt source: BreakStmt.Typed) -> CXXBreakStmt {
+    return CXXBreakStmt()
   }
-  private mutating func emit(continueStmt stmt: ContinueStmt.Typed) -> CXXStmt {
-    return CXXContinueStmt(original: AnyNodeID.TypedNode(stmt))
+  /// Returns a transpilation of `source`.
+  private func cxx(continueStmt source: ContinueStmt.Typed) -> CXXContinueStmt {
+    return CXXContinueStmt()
   }
-  private mutating func emit(yieldStmt stmt: YieldStmt.Typed) -> CXXStmt {
-    return CXXComment(comment: "YieldStmt", original: AnyNodeID.TypedNode(stmt))
+  /// Returns a transpilation of `source`.
+  private func cxx(yieldStmt source: YieldStmt.Typed) -> CXXStmt {
+    return CXXComment(comment: "YieldStmt")
   }
 
   // MARK: Expressions
 
-  private mutating func emit(
-    expr: AnyExprID.TypedNode,
-    asLValue: Bool
-  ) -> CXXExpr {
-    if asLValue {
-      return emitL(expr: expr, withCapability: .let)
-    } else {
-      return emitR(expr: expr)
-    }
-  }
-
-  // MARK: r-values
-
-  private mutating func emitR<ID: ExprID>(expr: ID.TypedNode) -> CXXExpr {
-    switch expr.kind {
+  /// Returns a transpilation of `source`.
+  private func cxx(expr source: AnyExprID.TypedNode) -> CXXExpr {
+    switch source.kind {
     case BooleanLiteralExpr.self:
-      return emitR(booleanLiteral: BooleanLiteralExpr.Typed(expr)!)
-    case CondExpr.self:
-      return emitR(cond: CondExpr.Typed(expr)!)
-    case FunctionCallExpr.self:
-      return emitR(functionCall: FunctionCallExpr.Typed(expr)!)
+      return cxx(booleanLiteral: BooleanLiteralExpr.Typed(source)!)
     case IntegerLiteralExpr.self:
-      return emitR(integerLiteral: IntegerLiteralExpr.Typed(expr)!)
+      return cxx(integerLiteral: IntegerLiteralExpr.Typed(source)!)
     case NameExpr.self:
-      return emitR(name: NameExpr.Typed(expr)!)
+      return cxx(name: NameExpr.Typed(source)!)
     case SequenceExpr.self:
-      return emitR(sequence: SequenceExpr.Typed(expr)!)
+      return cxx(sequence: SequenceExpr.Typed(source)!)
+    case FunctionCallExpr.self:
+      return cxx(functionCall: FunctionCallExpr.Typed(source)!)
+    case CondExpr.self:
+      return cxx(cond: CondExpr.Typed(source)!)
     default:
       unreachable("unexpected expression")
     }
   }
 
-  private mutating func emitR(
-    booleanLiteral expr: BooleanLiteralExpr.Typed
-  ) -> CXXExpr {
-    return CXXBooleanLiteralExpr(value: expr.value, original: expr)
+  /// Returns a transpilation of `source`.
+  private func cxx(booleanLiteral source: BooleanLiteralExpr.Typed) -> CXXBooleanLiteralExpr {
+    return CXXBooleanLiteralExpr(value: source.value)
   }
 
-  private mutating func emitR(
-    cond expr: CondExpr.Typed
-  ) -> CXXExpr {
-    // TODO: multiple conditions
-    // TODO: bindings in conditions
-    let condition: CXXExpr
-    if expr.condition.count == 1 {
-      switch expr.condition[0] {
-      case .expr(let condExpr):
-        condition = emitR(expr: program[condExpr])
-      case .decl(let decl):
-        condition = CXXComment(
-          comment: "binding condition", original: AnyNodeID.TypedNode(program[decl]))
-      }
-    } else {
-      fatalError("not implemented")
-    }
-    if expr.type != .void {
-      // We result in an expression
-      // TODO: do we need to return an l-value?
-      let trueExpr: CXXExpr
-      let falseExpr: CXXExpr
-      switch expr.success {
-      case .expr(let altExpr):
-        trueExpr = emitR(expr: program[altExpr])
-      case .block:
-        fatalError("not implemented")
-      }
-      switch expr.failure {
-      case .expr(let altExpr):
-        falseExpr = emitR(expr: program[altExpr])
-      case .block:
-        fatalError("not implemented")
-      case .none:
-        falseExpr = CXXComment(
-          comment: "missing false alternative", original: AnyNodeID.TypedNode(expr))
-      }
-      return CXXConditionalExpr(
-        condition: condition, trueExpr: trueExpr, falseExpr: falseExpr, original: expr)
-    } else {
-      // We result in a statement
-      let trueStmt: CXXStmt
-      let falseStmt: CXXStmt?
-      switch expr.success {
-      case .expr(let altExpr):
-        let expr = program[altExpr]
-        trueStmt = CXXExprStmt(
-          expr: CXXVoidCast(baseExpr: emitR(expr: expr), original: AnyExprID.TypedNode(expr)),
-          original: AnyNodeID.TypedNode(expr))
-      case .block(let braceStmt):
-        trueStmt = emit(stmt: program[braceStmt])
-      }
-      switch expr.failure {
-      case .expr(let altExpr):
-        let expr = program[altExpr]
-        falseStmt = CXXExprStmt(
-          expr: CXXVoidCast(baseExpr: emitR(expr: expr), original: AnyExprID.TypedNode(expr)),
-          original: AnyNodeID.TypedNode(expr))
-      case .block(let braceStmt):
-        falseStmt = emit(stmt: program[braceStmt])
-      case .none:
-        falseStmt = nil
-      }
-      // TODO: the result is put into an expression statement, which is not right
-      return CXXStmtExpr(
-        stmt: CXXIfStmt(
-          condition: condition,
-          trueStmt: trueStmt,
-          falseStmt: falseStmt,
-          original: AnyNodeID.TypedNode(expr)),
-        original: AnyNodeID.TypedNode(expr))
+  /// Returns a transpilation of `source`.
+  private func cxx(integerLiteral source: IntegerLiteralExpr.Typed) -> CXXExpr {
+    return CXXIntegerLiteralExpr(value: source.value)
+  }
+
+  /// Returns a transpilation of `source`.
+  private func cxx(sequence source: SequenceExpr.Typed) -> CXXExpr {
+    return cxx(foldedSequence: source.foldedSequenceExprs!)
+  }
+
+  /// Returns a transpilation of `source`.
+  private func cxx(foldedSequence source: FoldedSequenceExpr) -> CXXExpr {
+    switch source {
+    case .infix(let (callee, _), let lhs, let rhs):
+      return cxx(
+        infix: wholeValProgram[callee],
+        lhs: cxx(foldedSequence: lhs),
+        rhs: cxx(foldedSequence: rhs))
+
+    case .leaf(let leafNode):
+      return cxx(expr: wholeValProgram[leafNode])
     }
   }
 
-  private mutating func emitR(
-    functionCall expr: FunctionCallExpr.Typed
+  /// Returns a transpilation of `source`.
+  private func cxx(
+    infix source: NameExpr.Typed,
+    lhs: CXXExpr,
+    rhs: CXXExpr
   ) -> CXXExpr {
-    let calleeType = expr.callee.type.base as! LambdaType
+    switch nameOfDecl(source.decl.decl) {
+    case "<<": return CXXInfixExpr(oper: .leftShift, lhs: lhs, rhs: rhs)
+    case ">>": return CXXInfixExpr(oper: .rightShift, lhs: lhs, rhs: rhs)
+    case "*": return CXXInfixExpr(oper: .multiplication, lhs: lhs, rhs: rhs)
+    case "/": return CXXInfixExpr(oper: .division, lhs: lhs, rhs: rhs)
+    case "%": return CXXInfixExpr(oper: .remainder, lhs: lhs, rhs: rhs)
+    case "+": return CXXInfixExpr(oper: .addition, lhs: lhs, rhs: rhs)
+    case "-": return CXXInfixExpr(oper: .subtraction, lhs: lhs, rhs: rhs)
+    case "==": return CXXInfixExpr(oper: .equality, lhs: lhs, rhs: rhs)
+    case "!=": return CXXInfixExpr(oper: .inequality, lhs: lhs, rhs: rhs)
+    case "<": return CXXInfixExpr(oper: .lessThan, lhs: lhs, rhs: rhs)
+    case "<=": return CXXInfixExpr(oper: .lessEqual, lhs: lhs, rhs: rhs)
+    case ">=": return CXXInfixExpr(oper: .greaterEqual, lhs: lhs, rhs: rhs)
+    case ">": return CXXInfixExpr(oper: .greaterThan, lhs: lhs, rhs: rhs)
+    case "^": return CXXInfixExpr(oper: .bitwiseXor, lhs: lhs, rhs: rhs)
+    case "&": return CXXInfixExpr(oper: .bitwiseAnd, lhs: lhs, rhs: rhs)
+    case "&&": return CXXInfixExpr(oper: .logicalAnd, lhs: lhs, rhs: rhs)
+    case "|": return CXXInfixExpr(oper: .bitwiseOr, lhs: lhs, rhs: rhs)
+    case "||": return CXXInfixExpr(oper: .logicalOr, lhs: lhs, rhs: rhs)
+    case "<<=": return CXXInfixExpr(oper: .shiftLeftAssignment, lhs: lhs, rhs: rhs)
+    case ">>=": return CXXInfixExpr(oper: .shiftRightAssignment, lhs: lhs, rhs: rhs)
+    case "*=": return CXXInfixExpr(oper: .mulAssignment, lhs: lhs, rhs: rhs)
+    case "/=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs)
+    case "%=": return CXXInfixExpr(oper: .remAssignment, lhs: lhs, rhs: rhs)
+    case "+=": return CXXInfixExpr(oper: .addAssignment, lhs: lhs, rhs: rhs)
+    case "-=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs)
+    case "&=": return CXXInfixExpr(oper: .bitwiseAndAssignment, lhs: lhs, rhs: rhs)
 
-    // Arguments are evaluated first, from left to right.
-    var argumentConventions: [AccessEffect] = []
-    var arguments: [CXXExpr] = []
-
-    for (parameter, argument) in zip(calleeType.inputs, expr.arguments) {
-      let parameterType = parameter.type.base as! ParameterType
-      argumentConventions.append(parameterType.convention)
-      arguments.append(emit(argument: program[argument.value], to: parameterType))
+    default:
+      // Expand this as a regular function call.
+      return CXXFunctionCallExpr(callee: cxx(name: source), arguments: [lhs, rhs])
     }
+  }
 
-    // If the callee is a name expression referring to the declaration of a function capture-less
-    // function, it is interpreted as a direct function reference. Otherwise, it is evaluated as a
-    // function object the arguments.
+  /// Returns a transpilation of `source`.
+  private func cxx(functionCall source: FunctionCallExpr.Typed) -> CXXExpr {
+    // Transpile the arguments
+    // TODO: passing conventions
+    let arguments = Array(source.arguments.map({ cxx(expr: wholeValProgram[$0.value]) }))
+
+    // Transpile the calee expression
     let callee: CXXExpr
-
-    if let calleeNameExpr = NameExpr.Typed(expr.callee) {
-      callee = emitR(name: calleeNameExpr, forCalleWithType: calleeType)
+    if let calleeNameExpr = NameExpr.Typed(source.callee) {
+      // If the callee is a name expression, we might need the callee type when expanding the name.
+      callee = cxx(name: calleeNameExpr)
 
       // The name expresssion might fully represent an prefix/postfix operator call;
       // in this case, we don't need to wrap this into a function call
       if callee is CXXPrefixExpr || callee is CXXPostfixExpr {
+        assert(arguments.isEmpty)
         return callee
       }
-
     } else {
-      // Evaluate the callee as a function object.
-      callee = emitR(expr: expr.callee)
+      callee = cxx(expr: source.callee)
     }
 
-    return CXXFunctionCallExpr(
-      callee: callee, arguments: arguments, original: AnyExprID.TypedNode(expr))
+    return CXXFunctionCallExpr(callee: callee, arguments: arguments)
   }
 
-  private mutating func emitR(
-    integerLiteral expr: IntegerLiteralExpr.Typed
-  ) -> CXXExpr {
-    return CXXIntegerLiteralExpr(value: expr.value, original: expr)
-  }
-
-  private mutating func emitR(
-    name expr: NameExpr.Typed,
-    forCalleWithType calleeType: LambdaType? = nil
-  ) -> CXXExpr {
-    switch expr.decl {
-    case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
-      // Callee refers to a built-in function.
-      assert(calleeType == nil || calleeType!.environment == .void)
-      return CXXIdentifier(expr.name.value.stem)
-
-    case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-      // Callee is a direct reference to a function or initializer declaration.
-
-      // Check for prefix && postfix operator calls
-      let functionDecl = FunctionDecl.Typed(calleeDecl)!
-      if functionDecl.notation != nil && functionDecl.notation!.value == .prefix {
-        let prefixOperators: [String: CXXPrefixExpr.Operator] = [
-          "++": .prefixIncrement,
-          "--": .prefixDecrement,
-          "+": .unaryPlus,
-          "-": .unaryMinus,
-          "!": .logicalNot,
-        ]
-        if let cxxPrefixOperator = prefixOperators[nameOfDecl(calleeDecl)] {
-          return CXXPrefixExpr(
-            oper: cxxPrefixOperator, base: emitR(expr: expr.domainExpr!), original: nil)
-        }
-      } else if functionDecl.notation != nil && functionDecl.notation!.value == .postfix {
-        let postfixOperators: [String: CXXPostfixExpr.Operator] = [
-          "++": .suffixIncrement,
-          "--": .suffixDecrement,
-        ]
-        if let cxxPostfixOperator = postfixOperators[nameOfDecl(calleeDecl)] {
-          return CXXPostfixExpr(
-            oper: cxxPostfixOperator, base: emitR(expr: expr.domainExpr!), original: nil)
-        }
+  /// Returns a transpilation of `source`.
+  ///
+  /// As much as possible, this will be converted into a ternary operator (CXXConditionalExpr).
+  /// There are, however, in wich this needs to be translated into an if statment, then trasformed into an expression.
+  private func cxx(cond source: CondExpr.Typed) -> CXXExpr {
+    // TODO: multiple conditions
+    // TODO: bindings in conditions
+    let condition: CXXExpr
+    if source.condition.count == 1 {
+      switch source.condition[0] {
+      case .expr(let conditionDetails):
+        condition = cxx(expr: wholeValProgram[conditionDetails])
+      case .decl(_):
+        condition = CXXComment(comment: "binding condition")
       }
-
-      // TODO: handle captures
-      return CXXIdentifier(nameOfDecl(calleeDecl))
-
-    case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
-      switch InitializerDecl.Typed(calleeDecl)!.introducer.value {
-      case .`init`:
-        // TODO: The function is a custom initializer.
-        fatalError("not implemented")
-
-      case .memberwiseInit:
-        // The function is a memberwise initializer. In that case, the whole call expression is
-        // lowered as a `record` instruction.
-        // TODO: implement this
-        fatalError("not implemented")
-      }
-    case .direct(let calleeDecl) where calleeDecl.kind == VarDecl.self:
-      return CXXIdentifier(nameOfDecl(calleeDecl))
-
-    case .direct(_):
+    } else {
       fatalError("not implemented")
+    }
+    // TODO: better checks if we need an expression or a statement
+    if source.type != .void {
+      // We result in an expression
+      // TODO: do we need to return an l-value?
+      return CXXConditionalExpr(
+        condition: condition, trueExpr: cxx(condBodyExpr: source.success),
+        falseExpr: cxx(condBodyExpr: source.failure))
+    } else {
+      // We result in a statement, and we wrap the statement into an expression
+      return CXXStmtExpr(
+        stmt: CXXIfStmt(
+          condition: condition, trueStmt: cxx(condBodyStmt: source.success)!,
+          falseStmt: cxx(condBodyStmt: source.failure)))
+    }
+  }
+  /// Returns a transpilation of `source` as an expression.
+  private func cxx(condBodyExpr source: CondExpr.Body?) -> CXXExpr {
+    switch source {
+    case .expr(let alternativeDetails):
+      return cxx(expr: wholeValProgram[alternativeDetails])
+    case .block:
+      fatalError("not implemented")
+    case .none:
+      return CXXComment(comment: "missing alternative")
+    }
+  }
+  /// Returns a transpilation of `source` as a statement.
+  private func cxx(condBodyStmt source: CondExpr.Body?) -> CXXStmt? {
+    switch source {
+    case .expr(let alternativeDetails):
+      return CXXExprStmt(
+        expr: CXXVoidCast(baseExpr: cxx(expr: wholeValProgram[alternativeDetails])))
+    case .block(let alternativeDetails):
+      return cxx(stmt: wholeValProgram[alternativeDetails])
+    case .none:
+      return nil
+    }
+  }
 
-    case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-      // Callee is a member reference to a function or method.
-      assert(calleeType != nil)
-      let receiverType = calleeType!.captures[0].type
+  // MARK: names
 
-      var receiver: CXXExpr
+  /// Returns a transpilation of `source`.
+  ///
+  /// This usually result into a C++ identifier, but it can also result in pre-/post-fix operator calls.
+  private func cxx(name source: NameExpr.Typed) -> CXXExpr {
+    switch source.decl {
+    case .direct(let callee) where callee.kind == BuiltinDecl.self:
+      return cxx(nameOfBuiltin: source)
+    case .direct(let callee) where callee.kind == FunctionDecl.self:
+      return cxx(
+        nameOfFunction: FunctionDecl.Typed(callee)!, withDomainExpr: source.domainExpr)
+    case .direct(let callee) where callee.kind == InitializerDecl.self:
+      return cxx(nameOfInitializer: InitializerDecl.Typed(callee)!)
+    case .direct(let callee):
+      // For variables, and other declarations, just use the name of the declaration
+      return CXXIdentifier(nameOfDecl(callee))
 
-      // Add the receiver to the arguments.
-      if let type = RemoteType(receiverType) {
-        // The receiver as a borrowing convention.
-        switch expr.domain {
-        case .none:
-          receiver = CXXReceiverExpr(original: AnyExprID.TypedNode(expr))
-
-        case .expr(let receiverID):
-          receiver = emitL(expr: receiverID, withCapability: type.capability)
-
-        case .implicit:
-          unreachable()
-        }
-      } else {
-        // The receiver is consumed.
-        switch expr.domain {
-        case .none:
-          receiver = CXXReceiverExpr(original: AnyExprID.TypedNode(expr))
-
-        case .expr(let receiverID):
-          receiver = emitR(expr: receiverID)
-
-        case .implicit:
-          unreachable()
-        }
-      }
-
-      // Emit the function reference.
-      return CXXInfixExpr(
-        oper: .dotAccess,
-        lhs: receiver, rhs: CXXIdentifier(nameOfDecl(calleeDecl)),
-        original: AnyNodeID.TypedNode(expr))
+    case .member(let callee) where callee.kind == FunctionDecl.self:
+      return cxx(nameOfMemberFunction: FunctionDecl.Typed(callee)!, withDomain: source.domain)
 
     case .member(_):
       fatalError("not implemented")
     }
   }
-
-  private mutating func emitR(
-    sequence expr: SequenceExpr.Typed
-  ) -> CXXExpr {
-    return emit(foldedSequence: expr.foldedSequenceExprs!, withCapability: .sink, for: expr)
+  /// Returns a transpilation of `source`.
+  private func cxx(nameOfBuiltin source: NameExpr.Typed) -> CXXExpr {
+    return CXXIdentifier(source.name.value.stem)
   }
-
-  private mutating func emit(
-    foldedSequence seq: FoldedSequenceExpr,
-    withCapability capability: AccessEffect,
-    for expr: SequenceExpr.Typed
+  /// Returns a transpilation of `source`.
+  ///
+  /// Usually this translates to an identifier, but it can translate to pre-/post-fix operator calls.
+  private func cxx(
+    nameOfFunction source: FunctionDecl.Typed, withDomainExpr domainExpr: AnyExprID.TypedNode?
   ) -> CXXExpr {
-    switch seq {
-    case .infix(let callee, let lhs, let rhs):
-      let calleeExpr = program[callee.expr]
-      let calleeType = calleeExpr.type.base as! LambdaType
-
-      // Emit the operands, starting with RHS.
-      let rhsType = calleeType.inputs[0].type.base as! ParameterType
-      let rhsOperand = emit(foldedSequence: rhs, withCapability: rhsType.convention, for: expr)
-
-      let lhsConvention: AccessEffect
-      if let lhsType = RemoteType(calleeType.captures[0].type) {
-        lhsConvention = lhsType.capability
-      } else {
-        lhsConvention = .sink
+    // Check for prefix && postfix operator calls
+    if source.notation != nil && source.notation!.value == .prefix {
+      let prefixMapping: [String: CXXPrefixExpr.Operator] = [
+        "++": .prefixIncrement,
+        "--": .prefixDecrement,
+        "+": .unaryPlus,
+        "-": .unaryMinus,
+        "!": .logicalNot,
+      ]
+      if let cxxPrefixOperator = prefixMapping[nameOfDecl(source)] {
+        return CXXPrefixExpr(
+          oper: cxxPrefixOperator, base: cxx(expr: domainExpr!))
       }
-      let lhsOperand = emit(foldedSequence: lhs, withCapability: lhsConvention, for: expr)
-
-      // Build the resulting infix expression / function call.
-      return emitR(infix: calleeExpr, lhs: lhsOperand, rhs: rhsOperand)
-
-    case .leaf(let expr):
-      switch capability {
-      case .let:
-        return emitL(expr: program[expr], withCapability: .let)
-      case .inout:
-        return emitL(expr: program[expr], withCapability: .inout)
-      case .set:
-        return emitL(expr: program[expr], withCapability: .set)
-      case .sink:
-        return emitR(expr: program[expr])
-      case .yielded:
-        fatalError("not implemented")
+    } else if source.notation != nil && source.notation!.value == .postfix {
+      let postfixMapping: [String: CXXPostfixExpr.Operator] = [
+        "++": .suffixIncrement,
+        "--": .suffixDecrement,
+      ]
+      if let cxxPostfixOperator = postfixMapping[nameOfDecl(source)] {
+        return CXXPostfixExpr(
+          oper: cxxPostfixOperator, base: cxx(expr: domainExpr!))
       }
     }
-  }
 
-  private mutating func emitR(
-    infix expr: NameExpr.Typed,
-    lhs: CXXExpr,
-    rhs: CXXExpr
+    // TODO: handle captures
+    return CXXIdentifier(nameOfDecl(source))
+  }
+  /// Returns a transpilation of `source`.
+  private func cxx(nameOfInitializer source: InitializerDecl.Typed) -> CXXExpr {
+    fatalError("not implemented")
+  }
+  /// Returns a transpilation of `source`.
+  private func cxx(
+    nameOfMemberFunction source: FunctionDecl.Typed, withDomain domain: NameExpr.Typed.Domain
   ) -> CXXExpr {
 
-    // Obtained the declaration we are calling.
-    let calleeDecl: AnyDeclID.TypedNode
-    switch expr.decl {
-    case .direct(let decl):
-      calleeDecl = decl
-    case .member(let decl):
-      calleeDecl = decl
+    // TODO: revisit this whole function; simplify it, and check for correctness
+
+    var receiver: CXXExpr
+    switch domain {
+    case .none:
+      receiver = CXXReceiverExpr()
+    case .expr(let domainDetails):
+      receiver = cxx(expr: domainDetails)
+    case .implicit:
+      unreachable()
     }
 
-    // Emit infix operators.
-    let orig = AnyNodeID.TypedNode(expr)
-    let name = nameOfDecl(calleeDecl)
-    switch name {
-    case "<<": return CXXInfixExpr(oper: .leftShift, lhs: lhs, rhs: rhs, original: orig)
-    case ">>": return CXXInfixExpr(oper: .rightShift, lhs: lhs, rhs: rhs, original: orig)
-    case "*": return CXXInfixExpr(oper: .multiplication, lhs: lhs, rhs: rhs, original: orig)
-    case "/": return CXXInfixExpr(oper: .division, lhs: lhs, rhs: rhs, original: orig)
-    case "%": return CXXInfixExpr(oper: .remainder, lhs: lhs, rhs: rhs, original: orig)
-    case "+": return CXXInfixExpr(oper: .addition, lhs: lhs, rhs: rhs, original: orig)
-    case "-": return CXXInfixExpr(oper: .subtraction, lhs: lhs, rhs: rhs, original: orig)
-    case "==": return CXXInfixExpr(oper: .equality, lhs: lhs, rhs: rhs, original: orig)
-    case "!=": return CXXInfixExpr(oper: .inequality, lhs: lhs, rhs: rhs, original: orig)
-    case "<": return CXXInfixExpr(oper: .lessThan, lhs: lhs, rhs: rhs, original: orig)
-    case "<=": return CXXInfixExpr(oper: .lessEqual, lhs: lhs, rhs: rhs, original: orig)
-    case ">=": return CXXInfixExpr(oper: .greaterEqual, lhs: lhs, rhs: rhs, original: orig)
-    case ">": return CXXInfixExpr(oper: .greaterThan, lhs: lhs, rhs: rhs, original: orig)
-    case "^": return CXXInfixExpr(oper: .bitwiseXor, lhs: lhs, rhs: rhs, original: orig)
-    case "&": return CXXInfixExpr(oper: .bitwiseAnd, lhs: lhs, rhs: rhs, original: orig)
-    case "&&": return CXXInfixExpr(oper: .logicalAnd, lhs: lhs, rhs: rhs, original: orig)
-    case "|": return CXXInfixExpr(oper: .bitwiseOr, lhs: lhs, rhs: rhs, original: orig)
-    case "||": return CXXInfixExpr(oper: .logicalOr, lhs: lhs, rhs: rhs, original: orig)
-    case "<<=": return CXXInfixExpr(oper: .shiftLeftAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case ">>=": return CXXInfixExpr(oper: .shiftRightAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "*=": return CXXInfixExpr(oper: .mulAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "/=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "%=": return CXXInfixExpr(oper: .remAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "+=": return CXXInfixExpr(oper: .addAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "-=": return CXXInfixExpr(oper: .divAssignment, lhs: lhs, rhs: rhs, original: orig)
-    case "&=": return CXXInfixExpr(oper: .bitwiseAndAssignment, lhs: lhs, rhs: rhs, original: orig)
-
-    default:
-      // Expand this as a regular function call.
-      let callee = emitL(name: expr, withCapability: .let)
-      let arguments = [lhs, rhs]
-      return CXXFunctionCallExpr(
-        callee: callee, arguments: arguments, original: AnyExprID.TypedNode(expr))
-    }
-  }
-
-  private mutating func emit(
-    argument expr: AnyExprID.TypedNode,
-    to parameterType: ParameterType
-  ) -> CXXExpr {
-    switch parameterType.convention {
-    case .let:
-      return emitL(expr: expr, withCapability: .let)
-    case .inout:
-      return emitL(expr: expr, withCapability: .inout)
-    case .set:
-      return emitL(expr: expr, withCapability: .set)
-    case .sink:
-      return emitR(expr: expr)
-    case .yielded:
-      fatalError("not implemented")
-    }
-  }
-
-  // MARK: l-values
-
-  private mutating func emitL<ID: ExprID>(
-    expr: ID.TypedNode,
-    withCapability capability: AccessEffect
-  ) -> CXXExpr {
-    switch expr.kind {
-    case NameExpr.self:
-      return emitL(name: NameExpr.Typed(expr)!, withCapability: capability)
-
-    case SubscriptCallExpr.self:
-      fatalError("not implemented")
-
-    default:
-      // TODO: do we need to add extra instructions to covert this to l-value?
-      return emitR(expr: expr)
-    }
-  }
-
-  private mutating func emitL(
-    name expr: NameExpr.Typed,
-    withCapability capability: AccessEffect
-  ) -> CXXExpr {
-    switch expr.decl {
-    case .direct(let decl):
-      return CXXIdentifier(nameOfDecl(decl))
-
-    case .member(let decl):
-      // Emit the receiver.
-      let receiver: CXXExpr?
-      switch expr.domain {
-      case .none:
-        // TODO: this doesn't seem right; check the following code
-        // receiver = CXXReceiverExpr(original: expr)
-        receiver = nil
-      case .implicit:
-        fatalError("not implemented")
-      case .expr(let recv):
-        receiver = emitL(expr: recv, withCapability: capability)
-      }
-
-      // Emit the compound expression.
-      let idExpr = CXXIdentifier(nameOfDecl(decl))
-      if receiver != nil {
-        return CXXInfixExpr(
-          oper: .dotAccess, lhs: receiver!, rhs: idExpr, original: AnyNodeID.TypedNode(expr))
-      } else {
-        return idExpr
-      }
-    }
+    // Emit the function reference.
+    return CXXInfixExpr(oper: .dotAccess, lhs: receiver, rhs: CXXIdentifier(nameOfDecl(source)))
   }
 
   // MARK: miscelaneous
 
-  /// Get the name of the given declaration, without manging and labels.
-  private func nameOfDecl<T: DeclID>(_ decl: TypedNode<T>) -> String {
-    switch decl.kind {
+  /// Returns a transpilation of `source`.
+  private func cxx(typeExpr source: AnyType, asReturnType isReturnType: Bool = false) -> CXXTypeExpr
+  {
+    switch source.base {
+    case AnyType.void:
+      return CXXTypeExpr(isReturnType ? "void" : "std::monostate")
+
+    case let type as ProductType:
+      // TODO: we should translate this to an "int" struct
+      if type == wholeValProgram.ast.coreType(named: "Int") {
+        return CXXTypeExpr("int")
+      } else {
+        return CXXTypeExpr(type.name.value)
+      }
+
+    case let type as ParameterType:
+      // TODO: convention
+      return cxx(typeExpr: type.bareType)
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Returns of `source`, without manging and labels.
+  private func nameOfDecl<T: DeclID>(_ source: TypedNode<T>) -> String {
+    switch source.kind {
     case ConformanceDecl.self, ExtensionDecl.self:
       fatalError("not implemented")
 
     case FunctionDecl.self:
-      return FunctionDecl.Typed(decl)!.identifier!.value
+      return FunctionDecl.Typed(source)!.identifier!.value
 
     case InitializerDecl.self:
       return "init"
 
     case MethodDecl.self:
-      return MethodDecl.Typed(decl)!.identifier.value
+      return MethodDecl.Typed(source)!.identifier.value
 
     case MethodImpl.self:
-      let methodImpl = MethodImpl.Typed(decl)!
-      switch methodImpl.introducer.value {
+      switch MethodImpl.Typed(source)!.introducer.value {
       case .let: return "let"
       case .inout: return "inout"
       case .set: return "set"
@@ -785,12 +590,12 @@ public struct CXXTranspiler {
       }
 
     case ProductTypeDecl.self:
-      return ProductTypeDecl.Typed(decl)!.baseName
+      return ProductTypeDecl.Typed(source)!.baseName
 
     case ParameterDecl.self:
-      return ParameterDecl.Typed(decl)!.identifier.value
+      return ParameterDecl.Typed(source)!.identifier.value
     case VarDecl.self:
-      return VarDecl.Typed(decl)!.identifier.value
+      return VarDecl.Typed(source)!.identifier.value
 
     default:
       fatalError("not implemented")

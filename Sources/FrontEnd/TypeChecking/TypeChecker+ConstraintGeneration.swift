@@ -348,8 +348,8 @@ extension TypeChecker {
 
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {
-        addDiagnostic(.error(undefinedName: initName.value, at: initName.site))
-        return state.facts.assignErrorType(to: syntax.callee)
+        _ = state.facts.assignErrorType(to: syntax.callee)
+        return state.facts.assignErrorType(to: subject)
       }
 
       if let pick = initCandidates.uniqueElement {

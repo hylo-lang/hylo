@@ -2,10 +2,6 @@
 // swift-format-ignore: AlwaysUseLowerCamelCase
 public enum BuiltinSymbols {
 
-  /// Terminates the program abnormally.
-  public static let terminate = LambdaType(
-    to: .never)
-
   /// 1-bit integer copy.
   public static let i1_copy = LambdaType(
     from: (.let, .i(1)),
@@ -64,8 +60,6 @@ public enum BuiltinSymbols {
   /// Returns the type of the built-in function with the given name.
   public static subscript(_ name: String) -> LambdaType? {
     switch name {
-    case "terminate": return Self.terminate
-
     case "i1_copy": return Self.i1_copy
 
     case "i32_copy": return Self.i32_copy

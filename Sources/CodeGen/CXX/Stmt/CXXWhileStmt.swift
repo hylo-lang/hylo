@@ -9,8 +9,4 @@ struct CXXWhileStmt: CXXStmt {
   /// The statement to be executed as part of the loop.
   let body: CXXStmt
 
-  /// The original node in Val AST.
-  /// This node can be of any type.
-  let original: AnyNodeID.TypedNode?
-
 }

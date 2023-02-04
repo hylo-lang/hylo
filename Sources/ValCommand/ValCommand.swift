@@ -213,11 +213,11 @@ public struct ValCommand: ParsableCommand {
     // *** C++ Transpiling ***
 
     // Initialize the transpiler & code writer.
-    var transpiler = CXXTranspiler(program: typedProgram)
+    let transpiler = CXXTranspiler(typedProgram)
     let codeWriter = CXXCodeWriter()
 
     // Translate the module to C++ AST.
-    let cxxModule = transpiler.emit(module: typedProgram[newModule])
+    let cxxModule = transpiler.transpile(typedProgram[newModule])
 
     // Generate the C++ code, header & source.
     let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
