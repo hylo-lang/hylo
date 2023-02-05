@@ -588,6 +588,14 @@ public struct Emitter {
               name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
               type: .address(calleeType))))
 
+      case .builtinFunction(let f):
+        // Callee refers to a built-in function.
+        callee = .constant(.builtin(f.reference))
+
+      case .builtinType:
+        // Built-in types are never called.
+        unreachable()
+
       default:
         // Evaluate the callee as a function object.
         callee = emitR(expr: expr.callee, into: &module)
@@ -656,6 +664,12 @@ public struct Emitter {
       fatalError("not implemented")
 
     case .member:
+      fatalError("not implemented")
+
+    case .builtinFunction:
+      fatalError("not implemented")
+
+    case .builtinType:
       fatalError("not implemented")
     }
   }
@@ -844,6 +858,14 @@ public struct Emitter {
               name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
               type: .address(calleeType))))
 
+      case .builtinFunction(let f):
+        // Callee refers to a built-in function.
+        return .constant(.builtin(f.reference))
+
+      case .builtinType:
+        // Built-in types are never called.
+        unreachable()
+
       default:
         // Callee is a lambda.
         break
@@ -947,6 +969,10 @@ public struct Emitter {
       default:
         fatalError("not implemented")
       }
+
+    case .builtinFunction, .builtinType:
+      // Built-in functions and types are never used as l-value.
+      unreachable()
     }
 
     fatalError()

@@ -1774,7 +1774,7 @@ public struct TypeChecker {
 
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
-      if isNominalTypeDecl(candidates[0].reference.decl) {
+      if let d = candidates[0].reference.decl, isNominalTypeDecl(d) {
         parentType = MetatypeType(candidates[0].type.shape)!.instance
       } else {
         parentType = candidates[0].type.shape
