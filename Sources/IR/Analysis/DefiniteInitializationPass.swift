@@ -15,8 +15,6 @@ public struct DefiniteInitializationPass: TransformPass {
 
   private typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
 
-  public static let name = "Definite initialization"
-
   /// The program being lowered.
   public let program: TypedProgram
 
