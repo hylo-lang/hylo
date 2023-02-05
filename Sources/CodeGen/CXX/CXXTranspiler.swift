@@ -560,21 +560,39 @@ public struct CXXTranspiler {
       return cxx(typeExpr: type.bareType)
 
     case let type as BuiltinType:
-      // TODO
-      let _ = type
-      return CXXTypeExpr("builtin")
+      return cxx(builtinType: type)
 
     case let type as SumType:
       if type.elements.isEmpty {
         return CXXTypeExpr(isReturnType ? "void" : "std::monostate")
-      }
-      else {
+      } else {
         // TODO
         fatalError("not implemented")
       }
 
     default:
       fatalError("not implemented")
+    }
+  }
+  /// Returns a transpilation of `source`.
+  private func cxx(builtinType source: BuiltinType) -> CXXTypeExpr {
+    switch source {
+    case .i(let bitWidth) where bitWidth == 1:
+      return CXXTypeExpr("bool")
+    case .i(let bitWidth) where bitWidth == 8:
+      return CXXTypeExpr("int8_t")
+    case .i(let bitWidth) where bitWidth == 16:
+      return CXXTypeExpr("int16_t")
+    case .i(let bitWidth) where bitWidth == 32:
+      return CXXTypeExpr("int32_t")
+    case .i(let bitWidth) where bitWidth == 64:
+      return CXXTypeExpr("int64_t")
+    case .f64:
+      return CXXTypeExpr("double")
+    case .pointer:
+      return CXXTypeExpr("intptr_t")
+    default:
+      fatalError("builtin type not implemented")
     }
   }
 
