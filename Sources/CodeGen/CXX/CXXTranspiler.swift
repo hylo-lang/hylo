@@ -604,20 +604,13 @@ public struct CXXTranspiler {
 
   /// Returns the transpiled body of the entry point function in `source`.
   func entryPointBody(module source: ModuleDecl.Typed) -> CXXScopedBlock? {
-    let elements = Array(source.topLevelDecls)
-    return elements.first(transformedBy: { (d) in
-      entryPointBody(topLevel: d, in: source)
+    return source.topLevelDecls.first(transformedBy: { (d) in
+      if FunctionDecl.Typed(d)?.identifier?.value == "main" {
+        return entryPointBody(mainFunction: FunctionDecl.Typed(d)!, in: source)
+      } else {
+        return nil
+      }
     })
-  }
-  /// Returns the transpiled body of the entry point function that may be calling `source`.
-  func entryPointBody(topLevel source: AnyDeclID.TypedNode, in module: ModuleDecl.Typed)
-    -> CXXScopedBlock?
-  {
-    if FunctionDecl.Typed(source)?.identifier?.value == "main" {
-      return entryPointBody(mainFunction: FunctionDecl.Typed(source)!, in: module)
-    } else {
-      return nil
-    }
   }
   /// Returns the transpiled body of the entry point function calling `source`.
   private func entryPointBody(mainFunction source: FunctionDecl.Typed, in module: ModuleDecl.Typed)
