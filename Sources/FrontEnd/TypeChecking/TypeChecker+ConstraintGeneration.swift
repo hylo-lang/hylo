@@ -165,7 +165,7 @@ extension TypeChecker {
         ofTupleExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     default:
-      unreachable()
+      unexpected("expression", found: subject, of: program.ast)
     }
   }
 

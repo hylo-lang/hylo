@@ -36,7 +36,7 @@ struct CaptureCollector {
       fatalError("not implemented")
 
     default:
-      unreachable()
+      unexpected("declaration", found: id, of: ast)
     }
 
     return captures
@@ -80,7 +80,7 @@ struct CaptureCollector {
         includingExplicitCaptures: false,
         into: &captures)
     default:
-      unreachable("unexpected declaration")
+      unexpected("declaration", found: id, of: ast)
     }
   }
 
@@ -232,7 +232,7 @@ struct CaptureCollector {
       break
 
     default:
-      unreachable("unexpected expression")
+      unexpected("expression", found: id, of: ast)
     }
   }
 
@@ -403,7 +403,7 @@ struct CaptureCollector {
     case WildcardPattern.self:
       break
     default:
-      unreachable("unexpected pattern")
+      unexpected("pattern", found: id, of: ast)
     }
   }
 
@@ -461,7 +461,7 @@ struct CaptureCollector {
     case BreakStmt.self, ContinueStmt.self:
       break
     default:
-      unreachable("unexpected statement")
+      unexpected("statement", found: id, of: ast)
     }
   }
 
@@ -546,7 +546,7 @@ struct CaptureCollector {
     case TupleTypeExpr.self:
       collectCaptures(ofTupleType: NodeID(id)!, into: &captures)
     default:
-      unreachable("unexpected type expression")
+      unexpected("type expression", found: id, of: ast)
     }
   }
 

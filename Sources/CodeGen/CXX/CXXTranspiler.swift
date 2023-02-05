@@ -31,7 +31,7 @@ public struct CXXTranspiler {
     case ProductTypeDecl.self:
       return cxx(type: ProductTypeDecl.Typed(source)!)
     default:
-      unreachable("unexpected declaration")
+      unexpected("declaration", found: source)
     }
   }
 
@@ -64,7 +64,7 @@ public struct CXXTranspiler {
         fatalError("not implemented")
 
       default:
-        unreachable()
+        unreachable("unexpected type")
       }
     }
   }
@@ -111,7 +111,7 @@ public struct CXXTranspiler {
       return [.method]
 
     default:
-      unreachable("unexpected class member")
+      unexpected("class member", found: source)
     }
   }
 
@@ -201,7 +201,7 @@ public struct CXXTranspiler {
     case YieldStmt.self:
       return cxx(yieldStmt: YieldStmt.Typed(source)!)
     default:
-      unreachable("unexpected statement")
+      unexpected("statement", found: source)
     }
   }
 
@@ -216,7 +216,7 @@ public struct CXXTranspiler {
     case BindingDecl.self:
       return cxx(localBinding: BindingDecl.Typed(source.decl)!)
     default:
-      unreachable("unexpected declaration")
+      unexpected("declaration", found: source)
     }
   }
 
@@ -298,7 +298,7 @@ public struct CXXTranspiler {
     case CondExpr.self:
       return cxx(cond: CondExpr.Typed(source)!)
     default:
-      unreachable("unexpected expression")
+      unexpected("expression", found: source)
     }
   }
 
@@ -533,7 +533,7 @@ public struct CXXTranspiler {
     case .expr(let domainDetails):
       receiver = cxx(expr: domainDetails)
     case .implicit:
-      unreachable()
+      fatalError("not implemented")
     }
 
     // Emit the function reference.
@@ -550,12 +550,7 @@ public struct CXXTranspiler {
       return CXXTypeExpr(isReturnType ? "void" : "std::monostate")
 
     case let type as ProductType:
-      // TODO: we should translate this to an "int" struct
-      if type == wholeValProgram.ast.coreType(named: "Int") {
-        return CXXTypeExpr("int")
-      } else {
-        return CXXTypeExpr(type.name.value)
-      }
+      return CXXTypeExpr(type.name.value)
 
     case let type as ParameterType:
       // TODO: convention
