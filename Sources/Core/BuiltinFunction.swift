@@ -38,11 +38,7 @@ public struct BuiltinFunction: Equatable {
   public let type: LambdaType
 
   /// Creates an instance with the given properties.
-  public init(
-    named baseName: String,
-    _ genericParameters: [String],
-    typed type: LambdaType
-  ) {
+  private init(baseName: String, genericParameters: [String], type: LambdaType) {
     self.baseName = baseName
     self.genericParameters = genericParameters
     self.type = type
@@ -51,6 +47,7 @@ public struct BuiltinFunction: Equatable {
   /// Creates an instance by parsing it from `s` or returns `nil` if `s` isn't a valid built-in
   /// function name.
   public init?(parsing s: String) {
+    let make = Self.init(baseName:genericParameters:type:)
     var tokens = s.split(separator: "_")[...]
 
     // The first token is the LLVM instruction name.
@@ -58,63 +55,43 @@ public struct BuiltinFunction: Equatable {
     switch instruction {
     case "copy":
       guard let t = builtinType(&tokens) else { return nil }
-      self.init(
-        named: instruction, [],
-        typed: LambdaType(^t, to: ^t))
+      self = make(instruction, [], LambdaType(^t, to: ^t))
 
     case "add", "sub", "mul", "shl":
       guard let (p, t) = integerArithmeticParameters(&tokens) else { return nil }
-      self.init(
-        named: instruction, [p.0, p.1].compactMap({ $0 }),
-        typed: LambdaType(^t, ^t, to: ^t))
+      self = make(instruction, [p.0, p.1].compactMap({ $0 }), LambdaType(^t, ^t, to: ^t))
 
     case "udiv", "sdiv", "lshr", "ashr":
       guard let (p, t) = (maybe("exact") ++ builtinType)(&tokens) else { return nil }
-      self.init(
-        named: instruction, p.map({ [$0] }) ?? [],
-        typed: LambdaType(^t, ^t, to: ^t))
+      self = make(instruction, p.map({ [$0] }) ?? [], LambdaType(^t, ^t, to: ^t))
 
     case "urem", "srem", "and", "or", "xor":
       guard let t = builtinType(&tokens) else { return nil }
-      self.init(
-        named: instruction, [],
-        typed: LambdaType(^t, ^t, to: ^t))
+      self = make(instruction, [], LambdaType(^t, ^t, to: ^t))
 
     case "icmp":
       guard let (p, t) = integerComparisonParameters(&tokens) else { return nil }
-      self.init(
-        named: instruction, [p],
-        typed: LambdaType(^t, ^t, to: .builtin(.i(1))))
+      self = make(instruction, [p], LambdaType(^t, ^t, to: .builtin(.i(1))))
 
     case "trunc", "zext", "sext", "uitofp", "sitofp":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self.init(
-        named: instruction, [],
-        typed: LambdaType(^s, to: ^d))
+      self = make(instruction, [], LambdaType(^s, to: ^d))
 
     case "fadd", "fsub", "fmul", "fdiv", "frem":
       guard let (p, t) = floatingPointArithmeticParameters(&tokens) else { return nil }
-      self.init(
-        named: instruction, p,
-        typed: LambdaType(^t, ^t, to: ^t))
+      self = make(instruction, p, LambdaType(^t, ^t, to: ^t))
 
     case "fcmp":
       guard let (p, t) = floatingPointComparisonParameters(&tokens) else { return nil }
-      self.init(
-        named: instruction, p.0 + [p.1],
-        typed: LambdaType(^t, ^t, to: .builtin(.i(1))))
+      self = make(instruction, p.0 + [p.1], LambdaType(^t, ^t, to: .builtin(.i(1))))
 
     case "fptrunc", "fpext", "fptoui", "fptosi":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self.init(
-        named: instruction, [],
-        typed: LambdaType(^s, to: ^d))
+      self = make(instruction, [], LambdaType(^s, to: ^d))
 
     case "zeroinitializer":
       guard let t = builtinType(&tokens) else { return nil }
-      self.init(
-        named: instruction, [],
-        typed: LambdaType(to: ^t))
+      self = make(instruction, [], LambdaType(to: ^t))
 
     default:
       return nil
