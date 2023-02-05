@@ -1,6 +1,6 @@
 /*! h
     Int factorial(Int n);
-    int main();
+    void main();
  */
 /*! cpp
       Int factorial(Int n)  {

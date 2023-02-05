@@ -11,6 +11,9 @@ public struct CXXModule {
   /// The C++ top-level declarations for this module
   let topLevelDecls: [CXXTopLevelDecl]
 
+  /// The body of this module's entry point (i.e., the `main` function), if any.
+  let entryPointBody: CXXStmt?
+
   /// The module's name.
   var name: String {
     source.baseName
