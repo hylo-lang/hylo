@@ -53,7 +53,7 @@ public struct BuiltinFunction: Equatable {
   public init?(parsing s: String) {
     var tokens = s.split(separator: "_")[...]
 
-    /// The first token is the stem identifier.
+    // The first token is the stem identifier.
     guard let stem = tokens.popFirst().map(String.init(_:)) else { return nil }
     switch stem {
     case "copy":
