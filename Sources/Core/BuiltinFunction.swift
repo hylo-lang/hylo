@@ -12,7 +12,7 @@ import Utils
 /// LLVM's `add i64` instruction.
 ///
 /// The name of a built-in function is given by the name of its corresponding LLVM instruction
-/// concatenated with all its generic parameters, separated by an underscore. For example:
+/// concatenated with all its generic parameters, separated by underscores. For example:
 ///
 ///     add i64 -> Builtin.add_i64
 ///     icmp ne i32 -> Builtin.icmp_ne_i32
