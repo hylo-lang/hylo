@@ -19,7 +19,7 @@ Different versions of `swift-format` may produce different results.
 ### Running `swift-format`
 
 The script `Tools/run-swift-format.sh` can be used to check and format code.
-It tool will search for `swift-format` in your path `PATH` or at `/usr/local/bin/swift-format`.
+It will search for `swift-format` in your path `PATH` or at `/usr/local/bin/swift-format`.
 
 To check the style for the Swift code in the repository, run the following command from the root directory:
 
