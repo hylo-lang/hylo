@@ -496,9 +496,13 @@ public struct Emitter {
     functionCallExpr expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let calleeType = expr.callee.type.base as! LambdaType
+    if let n = NameExpr.Typed(expr.callee), n.decl.decl.kind == BuiltinDecl.self {
+      let f = BuiltinFunction(n.name.value.stem)!
+      return emitR(builtinFunctionCallTo: f, with: expr.arguments, at: expr.site, into: &module)
+    }
 
     // Determine the callee's convention.
+    let calleeType = LambdaType(expr.callee.type)!
     let calleeConvention = calleeType.receiverEffect ?? .let
 
     // Arguments are evaluated first, from left to right.
@@ -519,9 +523,8 @@ public struct Emitter {
     if let calleeNameExpr = NameExpr.Typed(expr.callee) {
       switch calleeNameExpr.decl {
       case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
-        // Callee refers to a built-in function.
-        assert(calleeType.environment == .void)
-        callee = .constant(.builtin(BuiltinFunction(calleeNameExpr.name.value.stem)!.reference))
+        // Already handled.
+        unreachable()
 
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
@@ -616,6 +619,22 @@ public struct Emitter {
         argumentConventions: argumentConventions,
         arguments: arguments,
         site: expr.site),
+      to: insertionBlock!)[0]
+  }
+
+  /// Emits the IR of a call to `f` with given `arguments` at `site` into `module`, inserting
+  /// instructions at the end of `self.insertionBlock`.
+  private mutating func emitR(
+    builtinFunctionCallTo f: BuiltinFunction,
+    with arguments: [LabeledArgument],
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    return module.append(
+      LLVMInstruction(
+        applying: f,
+        to: arguments.map({ (a) in emitR(expr: program[a.value], into: &module) }),
+        at: site),
       to: insertionBlock!)[0]
   }
 
