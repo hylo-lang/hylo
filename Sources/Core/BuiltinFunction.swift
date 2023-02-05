@@ -51,7 +51,7 @@ public struct BuiltinFunction: Equatable {
   /// Creates an instance by parsing it from `s` or returns `nil` if `s` isn't a valid built-in
   /// function name.
   public init?(parsing s: String) {
-    var tokens = s.split(separator: "_").suffix(from: 0)
+    var tokens = s.split(separator: "_")[...]
 
     /// The first token is the stem identifier.
     guard let stem = tokens.popFirst().flatMap(String.init(_:)) else { return nil }
