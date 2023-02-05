@@ -26,13 +26,23 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Emit include clauses.
-    target.writeLine("#include <variant>")
+    if source.isStdLib {
+      target.writeLine("#include <variant>")
+    } else {
+      target.writeLine("#include \"ValStdLib.h\"")
+    }
     target.writeNewline()
 
     // Create a namespace for the entire module.
     target.write("namespace \(source.name)")
     target.beginBrace()
     target.writeNewline()
+
+    // If we are not in the standard library, use the namespace corresponding to the standard lib.
+    if !source.isStdLib {
+      target.writeLine("using namespace ValStdLib;")
+      target.writeNewline()
+    }
 
     // Emit the C++ text needed for the header corresponding to the C++ declarations.
     for decl in source.topLevelDecls {
