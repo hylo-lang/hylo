@@ -4,11 +4,15 @@ public struct CXXCodeWriter {
   /// Initializes the current object.
   public init() {}
 
+  /// Indicates if we are currently writing the standard library module.
+  private var isStdLib: Bool = false
+
   // MARK: API
 
   /// Returns the C++ code for a translation unit.
-  public func cxxCode(_ source: CXXModule) -> TranslationUnitCode {
-    TranslationUnitCode(
+  public mutating func cxxCode(_ source: CXXModule) -> TranslationUnitCode {
+    self.isStdLib = source.isStdLib
+    return TranslationUnitCode(
       headerCode: generateHeaderCode(source), sourceCode: generateSourceCode(source))
   }
 
@@ -47,6 +51,17 @@ public struct CXXCodeWriter {
     // Emit the C++ text needed for the header corresponding to the C++ declarations.
     for decl in source.topLevelDecls {
       writeInterface(topLevel: decl, into: &target)
+    }
+
+    // Do we need to generate extra code for the standard library?
+    if source.isStdLib {
+      // TODO: revsit this
+      target.writeNewline()
+      target.writeLine("inline bool operator <(Int l, Int r) { return l.value < r.value; }")
+      target.writeLine("inline Int operator +(Int l, Int r) { return l.value + r.value; }")
+      target.writeLine("inline Int operator -(Int l, Int r) { return l.value - r.value; }")
+      target.writeLine("inline Int operator *(Int l, Int r) { return l.value * r.value; }")
+      target.writeLine("inline void abort() { ::abort(); }")
     }
 
     target.writeNewline()
@@ -160,8 +175,38 @@ public struct CXXCodeWriter {
         target.writeLine("// constructor")
       }
     }
+    // Special code for stdlib types
+    if isStdLib {
+      // For standard value types generate implict conversion constructors from C++ literal types.
+      if ["Int", "Int32", "Double", "Bool"].contains(decl.name.description) {
+        write(conversionCtor: decl, into: &target)
+      }
+    }
     target.endBrace()
     target.writeLine(";")
+  }
+
+  /// Writes to `target` the implicit conversion constructor for `source`, coverting from inner
+  /// attribute type.
+  private func write(conversionCtor source: CXXClassDecl, into target: inout CodeFormatter) {
+    let dataMembers = source.members.compactMap({ m in
+      switch m {
+      case .attribute(let dataMember):
+        return dataMember
+      default:
+        return nil
+      }
+    })
+
+    // We need to have just one class attribute in the type
+    if dataMembers.count == 1 {
+      // Write implicit conversion constructor
+      target.write("\(source.name.description)(")
+      write(typeExpr: dataMembers[0].type, into: &target)
+      target.write(" v) : ")
+      write(identifier: dataMembers[0].name, into: &target)
+      target.write("(v) {}")
+    }
   }
 
   private func write(classAttribute decl: CXXClassAttribute, into target: inout CodeFormatter) {

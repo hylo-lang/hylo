@@ -214,7 +214,7 @@ public struct ValCommand: ParsableCommand {
 
     // Initialize the transpiler & code writer.
     let transpiler = CXXTranspiler(typedProgram)
-    let codeWriter = CXXCodeWriter()
+    var codeWriter = CXXCodeWriter()
 
     // Generate C++ code: Val's StdLib + current module.
     let cxxStdLibModule = transpiler.transpile(stdlib: typedProgram.corelib!)

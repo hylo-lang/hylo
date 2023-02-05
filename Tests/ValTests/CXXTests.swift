@@ -41,7 +41,7 @@ final class CXXTests: XCTestCase {
 
         // Transpile the module.
         let transpiler = CXXTranspiler(typedProgram)
-        let codeWriter = CXXCodeWriter()
+        var codeWriter = CXXCodeWriter()
         let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[module]))
 
         return cxxAnnotations.compactMap { a in
