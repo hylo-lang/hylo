@@ -148,6 +148,18 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
             output.write(", \(instruction.path.descriptions())")
           }
 
+        case let instruction as LLVMInstruction:
+          output.write("\(instruction.function.baseName)")
+          if instruction.function.genericParameters.isEmpty {
+            output.write(" ")
+          } else {
+            output.write("_\(list: instruction.function.genericParameters, joinedBy: "_") ")
+          }
+          for operand in instruction.operands {
+            output.write(", ")
+            output.write(describe(operand: operand))
+          }
+
         case let instruction as RecordInstruction:
           output.write("record \(instruction.objectType)")
           for operand in instruction.operands {
