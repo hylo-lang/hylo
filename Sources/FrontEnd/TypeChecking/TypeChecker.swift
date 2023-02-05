@@ -1774,7 +1774,7 @@ public struct TypeChecker {
 
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
-      if isNominalTypeDecl(candidates[0].reference.decl) {
+      if let d = candidates[0].reference.decl, isNominalTypeDecl(d) {
         parentType = MetatypeType(candidates[0].type.shape)!.instance
       } else {
         parentType = candidates[0].type.shape
@@ -1795,8 +1795,9 @@ public struct TypeChecker {
   ) -> [NameResolutionResult.Candidate] {
     // Handle references to the built-in module.
     if (name.value.stem == "Builtin") && (parentType == nil) && isBuiltinModuleVisible {
-      let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
-      return [.init(reference: ref, type: .init(shape: ^BuiltinType.module, constraints: []))]
+      return [
+        .init(reference: .builtinType, type: .init(shape: ^BuiltinType.module, constraints: []))
+      ]
     }
 
     // Handle references to built-in symbols.
@@ -1870,11 +1871,24 @@ public struct TypeChecker {
         : .direct(match)
 
       // Instantiate the type of the declaration
-      let instantiatedType = instantiate(
-        targetType,
-        fromScopeIntroducing: reference.decl,
-        cause: ConstraintCause(.binding, at: name.site))
-      candidates.append(.init(reference: reference, type: instantiatedType))
+      let c = ConstraintCause(.binding, at: name.site)
+      switch reference {
+      case .direct(let d):
+        candidates.append(
+          .init(
+            reference: reference,
+            type: instantiate(targetType, in: program.scopeIntroducing(d), cause: c)))
+
+      case .member(let d):
+        candidates.append(
+          .init(
+            reference: reference,
+            type: instantiate(targetType, in: program.scopeIntroducing(d), cause: c)))
+
+      case .builtinFunction, .builtinType:
+        candidates.append(
+          .init(reference: reference, type: .init(shape: targetType, constraints: [])))
+      }
     }
 
     // If there are no candidates left, diagnose an error.
@@ -1894,13 +1908,11 @@ public struct TypeChecker {
 
   /// Resolves a reference to the built-in symbol named `name`.
   private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
-    let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
-
-    if let type = BuiltinFunction(name.stem)?.type {
-      return .init(reference: ref, type: .init(shape: ^type, constraints: []))
+    if let f = BuiltinFunction(name.stem) {
+      return .init(reference: .builtinFunction(f), type: .init(shape: ^f.type, constraints: []))
     }
-    if let type = BuiltinType(name.stem) {
-      return .init(reference: ref, type: .init(shape: ^type, constraints: []))
+    if let t = BuiltinType(name.stem) {
+      return .init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
     }
     return nil
   }
@@ -3426,28 +3438,6 @@ public struct TypeChecker {
     }
 
     return InstantiatedType(shape: subject.transform(_impl(type:)), constraints: [])
-  }
-
-  /// Instantiates `subject` from the scope introducing `decl` or, if that's an initializer, from
-  /// the scope introducing the type `decl` initializes.
-  func instantiate(
-    _ subject: AnyType,
-    fromScopeIntroducing decl: AnyDeclID,
-    cause: ConstraintCause
-  ) -> InstantiatedType {
-    // Identifiy the scope relative to which quantifiers should be eliminated.
-    let containingScope: AnyScopeID
-    switch decl.kind {
-    case BuiltinDecl.self:
-      return InstantiatedType(shape: subject, constraints: [])
-    case InitializerDecl.self:
-      containingScope = program.scopeToParent[program.declToScope[decl]!]!
-    default:
-      containingScope = program.declToScope[decl]!
-    }
-
-    // Eliminate quantifiers.
-    return instantiate(subject, in: containingScope, cause: cause)
   }
 
   // MARK: Utils

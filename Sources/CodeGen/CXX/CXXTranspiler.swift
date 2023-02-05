@@ -487,11 +487,6 @@ public struct CXXTranspiler {
     forCalleWithType calleeType: LambdaType? = nil
   ) -> CXXExpr {
     switch expr.decl {
-    case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
-      // Callee refers to a built-in function.
-      assert(calleeType == nil || calleeType!.environment == .void)
-      return CXXIdentifier(expr.name.value.stem)
-
     case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
       // Callee is a direct reference to a function or initializer declaration.
 
@@ -535,6 +530,7 @@ public struct CXXTranspiler {
         // TODO: implement this
         fatalError("not implemented")
       }
+
     case .direct(let calleeDecl) where calleeDecl.kind == VarDecl.self:
       return CXXIdentifier(nameOfDecl(calleeDecl))
 
@@ -583,6 +579,13 @@ public struct CXXTranspiler {
 
     case .member(_):
       fatalError("not implemented")
+
+    case .builtinFunction(let f):
+      // Callee refers to a built-in function.
+      return CXXIdentifier(f.baseName)
+
+    case .builtinType:
+      unreachable()
     }
   }
 
@@ -640,13 +643,7 @@ public struct CXXTranspiler {
   ) -> CXXExpr {
 
     // Obtained the declaration we are calling.
-    let calleeDecl: AnyDeclID.TypedNode
-    switch expr.decl {
-    case .direct(let decl):
-      calleeDecl = decl
-    case .member(let decl):
-      calleeDecl = decl
-    }
+    let calleeDecl: AnyDeclID.TypedNode = expr.decl.decl!
 
     // Emit infix operators.
     let orig = AnyNodeID.TypedNode(expr)
@@ -755,6 +752,10 @@ public struct CXXTranspiler {
       } else {
         return idExpr
       }
+
+    default:
+      // Built-in types and functions are never l-values.
+      unreachable()
     }
   }
 
