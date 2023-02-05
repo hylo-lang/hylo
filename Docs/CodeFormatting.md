@@ -96,7 +96,7 @@ Any line that would exceed this limit must be line-wrapped.
 ## Formatting type declarations
 
 Exactly one empty line is added before the first member of a type, protocol, or trait declaration.
-Excatly one empty line is added after each member of a type, protocol, or trait declaration.
+Exactly one empty line is added after each member of a type, protocol, or trait declaration.
 For example:
 
 ```swift
