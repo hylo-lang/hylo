@@ -95,7 +95,8 @@ public struct CXXCodeWriter {
     case CXXFunctionDecl.self:
       writeSignature(function: decl as! CXXFunctionDecl, into: &target)
     case CXXClassDecl.self:
-      writeSignature(type: decl as! CXXClassDecl, into: &target)
+      // We write the class definition in the header file.
+      writeDefinition(type: decl as! CXXClassDecl, into: &target)
     case CXXComment.self:
       write(comment: decl as! CXXComment, into: &target)
     default:
@@ -109,7 +110,8 @@ public struct CXXCodeWriter {
     case CXXFunctionDecl.self:
       writeDefinition(function: decl as! CXXFunctionDecl, into: &target)
     case CXXClassDecl.self:
-      writeDefinition(type: decl as! CXXClassDecl, into: &target)
+      // TODO: write implementation of methods
+      break
     case CXXComment.self:
       write(comment: decl as! CXXComment, into: &target)
     default:
