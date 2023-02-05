@@ -18,7 +18,7 @@ import Utils
 ///     icmp ne i32 -> Builtin.icmp_ne_i32
 ///     fmul fast double -> Builtin.fmul_fast_double
 ///
-/// An exception is made for converting and instructions: the keyword `to` following the first
+/// An exception is made for conversion instructions: the keyword `to` following the first
 /// argument of the instruction and preceeding the resulting type is omitted from the  built-in
 /// function name. For example:
 ///
