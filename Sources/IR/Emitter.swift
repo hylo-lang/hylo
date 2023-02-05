@@ -507,11 +507,6 @@ public struct Emitter {
 
     if let calleeNameExpr = NameExpr.Typed(expr.callee) {
       switch calleeNameExpr.decl {
-      case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
-        // Callee refers to a built-in function.
-        assert(calleeType.environment == .void)
-        callee = .constant(.builtin(BuiltinFunction(calleeNameExpr.name.value.stem)!.reference))
-
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
         // TODO: handle captures
@@ -780,11 +775,6 @@ public struct Emitter {
     // it is interpreted as a direct function reference.
     if let nameExpr = NameExpr.Typed(expr) {
       switch nameExpr.decl {
-      case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
-        // Callee refers to a built-in function.
-        assert(calleeType.environment == .void)
-        return .constant(.builtin(BuiltinFunction(nameExpr.name.value.stem)!.reference))
-
       case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
         // Callee is a direct reference to a function or initializer declaration.
         // TODO: handle captures

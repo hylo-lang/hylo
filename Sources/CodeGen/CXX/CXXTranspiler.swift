@@ -487,11 +487,6 @@ public struct CXXTranspiler {
     forCalleWithType calleeType: LambdaType? = nil
   ) -> CXXExpr {
     switch expr.decl {
-    case .direct(let calleeDecl) where calleeDecl.kind == BuiltinDecl.self:
-      // Callee refers to a built-in function.
-      assert(calleeType == nil || calleeType!.environment == .void)
-      return CXXIdentifier(expr.name.value.stem)
-
     case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
       // Callee is a direct reference to a function or initializer declaration.
 
