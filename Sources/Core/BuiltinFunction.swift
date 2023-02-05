@@ -123,11 +123,11 @@ public struct BuiltinFunction: Equatable {
 
 }
 
-/// A function that parses and instance of `T` by consuming elements from a stream of substrings
-/// or returns `nil` if such instance cannot be parsed.
+/// A function that parses an instance of `T` by consuming a prefix of `tokens`, or returns `nil` 
+/// if such instance cannot be parsed.
 ///
-/// - Note: The stream may have been modified even if the function returns `nil`.
-private typealias Parser<T> = (inout ArraySlice<Substring>) -> T?
+/// - Note: a prefix of `tokens` may have been consumed even if the function returns `nil`.
+private typealias Parser<T> = (_ tokens: inout ArraySlice<Substring>) -> T?
 
 /// Returns a parser that consumes an element equal to `s` and returns `.some(s)`, or returns
 /// `.some(nil)` if such an element can't be consumed.
