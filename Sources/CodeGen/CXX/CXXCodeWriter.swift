@@ -45,7 +45,7 @@ public struct CXXCodeWriter {
     return target.code
   }
 
-  /// The C++ code for `module` that needs to be present in the source file.
+  /// Returns the C++ code for `source` that needs to be present in the source file.
   private func generateSourceCode(_ source: CXXModule) -> String {
     var target = CodeFormatter()
 
