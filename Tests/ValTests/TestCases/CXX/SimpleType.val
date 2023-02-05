@@ -4,8 +4,8 @@
 /*! cpp
     class Point {
     public:
-    int x;
-    int y;
+    Int x;
+    Int y;
     // constructor
     };
  */

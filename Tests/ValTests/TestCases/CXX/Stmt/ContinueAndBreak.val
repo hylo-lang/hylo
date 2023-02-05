@@ -1,6 +1,6 @@
 /*! cpp
-    int lengthForCollatzSequence(int n) {
-    int count = 0;
+    Int lengthForCollatzSequence(Int n) {
+    Int count = 0;
     while ( true ) {
     if ( atTheEndOfCollatzSequence(n) ) {
     break;
