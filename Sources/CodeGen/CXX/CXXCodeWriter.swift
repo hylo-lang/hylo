@@ -67,11 +67,11 @@ public struct CXXCodeWriter {
     target.endBrace()
 
     // Write a CXX `main` function if the module has an entry point.
-    if module.entryPointBody != nil {
+    if source.entryPointBody != nil {
       target.writeNewline()
       target.writeNewline()
       target.write("int main()")
-      write(stmt: module.entryPointBody!, into: &target)
+      write(stmt: source.entryPointBody!, into: &target)
       target.writeNewline()
     }
 
