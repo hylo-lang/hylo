@@ -216,12 +216,24 @@ public struct ValCommand: ParsableCommand {
     let transpiler = CXXTranspiler(typedProgram)
     let codeWriter = CXXCodeWriter()
 
+    // Translate Val StdLib to C++
+    let cxxStdLib = transpiler.transpile(typedProgram.corelib!)
+    let stdLibHeaderCode = codeWriter.emitHeaderCode(cxxStdLib)
+    let stdLibSourceCode = codeWriter.emitSourceCode(cxxStdLib)
+
     // Translate the module to C++ AST.
     let cxxModule = transpiler.transpile(typedProgram[newModule])
 
     // Generate the C++ code, header & source.
     let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
     let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
+
+    // Write the code to disk.
+    let baseURL = outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: "ValStdLib")
+    try stdLibHeaderCode.write(
+      to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
+    try stdLibSourceCode.write(
+      to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
 
     // Handle `--emit cpp`.
     if outputType == .cpp {

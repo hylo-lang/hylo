@@ -69,6 +69,8 @@ public struct CXXCodeWriter {
       writeSignature(function: decl as! CXXFunctionDecl, into: &target)
     case CXXClassDecl.self:
       writeSignature(type: decl as! CXXClassDecl, into: &target)
+    case CXXComment.self:
+      write(comment: decl as! CXXComment, into: &target)
     default:
       fatalError("unexpected top-level declaration")
     }
@@ -81,6 +83,8 @@ public struct CXXCodeWriter {
       writeDefinition(function: decl as! CXXFunctionDecl, into: &target)
     case CXXClassDecl.self:
       writeDefinition(type: decl as! CXXClassDecl, into: &target)
+    case CXXComment.self:
+      write(comment: decl as! CXXComment, into: &target)
     default:
       fatalError("unexpected top-level declaration")
     }

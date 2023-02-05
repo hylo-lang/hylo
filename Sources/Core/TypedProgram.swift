@@ -26,6 +26,11 @@ public struct TypedProgram: Program {
   /// A map from sequence expressions to their evaluation order.
   public let foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr]
 
+  /// The Val standard library module.
+  public var corelib: ModuleDecl.Typed? {
+    ast.corelib != nil ? self[ast.corelib!] : nil
+  }
+
   /// Creates a typed program from a scoped program and property maps describing type annotations.
   public init(
     annotating program: ScopedProgram,
