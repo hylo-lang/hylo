@@ -53,67 +53,67 @@ public struct BuiltinFunction: Equatable {
   public init?(parsing s: String) {
     var tokens = s.split(separator: "_")[...]
 
-    // The first token is the stem identifier.
-    guard let stem = tokens.popFirst().map(String.init(_:)) else { return nil }
-    switch stem {
+    // The first token is the LLVM instruction name.
+    guard let instruction = tokens.popFirst().map(String.init(_:)) else { return nil }
+    switch instruction {
     case "copy":
       guard let t = builtinType(&tokens) else { return nil }
       self.init(
-        named: stem, [],
+        named: instruction, [],
         typed: LambdaType(^t, to: ^t))
 
     case "add", "sub", "mul", "shl":
       guard let (p, t) = integerArithmeticParameters(&tokens) else { return nil }
       self.init(
-        named: stem, [p.0, p.1].compactMap({ $0 }),
+        named: instruction, [p.0, p.1].compactMap({ $0 }),
         typed: LambdaType(^t, ^t, to: ^t))
 
     case "udiv", "sdiv", "lshr", "ashr":
       guard let (p, t) = (maybe("exact") ++ builtinType)(&tokens) else { return nil }
       self.init(
-        named: stem, p.map({ [$0] }) ?? [],
+        named: instruction, p.map({ [$0] }) ?? [],
         typed: LambdaType(^t, ^t, to: ^t))
 
     case "urem", "srem", "and", "or", "xor":
       guard let t = builtinType(&tokens) else { return nil }
       self.init(
-        named: stem, [],
+        named: instruction, [],
         typed: LambdaType(^t, ^t, to: ^t))
 
     case "icmp":
       guard let (p, t) = integerComparisonParameters(&tokens) else { return nil }
       self.init(
-        named: stem, [p],
+        named: instruction, [p],
         typed: LambdaType(^t, ^t, to: .builtin(.i(1))))
 
     case "trunc", "zext", "sext", "uitofp", "sitofp":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
       self.init(
-        named: stem, [],
+        named: instruction, [],
         typed: LambdaType(^s, to: ^d))
 
     case "fadd", "fsub", "fmul", "fdiv", "frem":
       guard let (p, t) = floatingPointArithmeticParameters(&tokens) else { return nil }
       self.init(
-        named: stem, p,
+        named: instruction, p,
         typed: LambdaType(^t, ^t, to: ^t))
 
     case "fcmp":
       guard let (p, t) = floatingPointComparisonParameters(&tokens) else { return nil }
       self.init(
-        named: stem, p.0 + [p.1],
+        named: instruction, p.0 + [p.1],
         typed: LambdaType(^t, ^t, to: .builtin(.i(1))))
 
     case "fptrunc", "fpext", "fptoui", "fptosi":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
       self.init(
-        named: stem, [],
+        named: instruction, [],
         typed: LambdaType(^s, to: ^d))
 
     case "zeroinitializer":
       guard let t = builtinType(&tokens) else { return nil }
       self.init(
-        named: stem, [],
+        named: instruction, [],
         typed: LambdaType(to: ^t))
 
     default:
