@@ -6,6 +6,11 @@ public struct CXXCodeWriter {
 
   // MARK: API
 
+  /// Returns the C++ code for a translation unit.
+  public func cxxCode(_ source: CXXModule) -> TranslationUnitCode {
+    TranslationUnitCode(headerCode: emitHeaderCode(source), sourceCode: emitSourceCode(source))
+  }
+
   /// Write the CXX header content for the given module to the given text stream.
   public func emitHeaderCode(_ module: CXXModule) -> String {
     var target = CodeFormatter()

@@ -216,32 +216,19 @@ public struct ValCommand: ParsableCommand {
     let transpiler = CXXTranspiler(typedProgram)
     let codeWriter = CXXCodeWriter()
 
-    // Translate Val StdLib to C++
-    let cxxStdLib = transpiler.transpile(typedProgram.corelib!)
-    let stdLibHeaderCode = codeWriter.emitHeaderCode(cxxStdLib)
-    let stdLibSourceCode = codeWriter.emitSourceCode(cxxStdLib)
+    // Generate and write C++ code for Val's StdLib.
+    try write(
+      codeWriter.cxxCode(transpiler.transpile(typedProgram.corelib!)),
+      to: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: "ValStdLib"))
 
-    // Translate the module to C++ AST.
-    let cxxModule = transpiler.transpile(typedProgram[newModule])
-
-    // Generate the C++ code, header & source.
-    let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
-    let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
-
-    // Write the code to disk.
-    let baseURL = outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: "ValStdLib")
-    try stdLibHeaderCode.write(
-      to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
-    try stdLibSourceCode.write(
-      to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
+    // Generate C++ code for the current module.
+    let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[newModule]))
 
     // Handle `--emit cpp`.
     if outputType == .cpp {
-      let baseURL = outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
-      try cxxHeaderCode.write(
-        to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
-      try cxxSourceCode.write(
-        to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
+      try write(
+        cxxCode,
+        to: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName))
       return finalize(logging: diagnostics, to: &errorLog)
     }
 
@@ -255,12 +242,9 @@ public struct ValCommand: ParsableCommand {
       appropriateFor: currentDirectory,
       create: true)
 
-    // Compile the transpiled module.
-    let cxxHeaderURL = buildDirectoryURL.appendingPathComponent(productName + ".h")
-    try cxxHeaderCode.write(to: cxxHeaderURL, atomically: true, encoding: .utf8)
-
+    // Write the C++ code to the build directory.
     let cxxSourceURL = buildDirectoryURL.appendingPathComponent(productName + ".cpp")
-    try cxxSourceCode.write(to: cxxSourceURL, atomically: true, encoding: .utf8)
+    try write(cxxCode, to: cxxSourceURL)
 
     let clang = try find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
@@ -274,6 +258,14 @@ public struct ValCommand: ParsableCommand {
       loggingTo: &errorLog)
 
     return finalize(logging: diagnostics, to: &errorLog)
+  }
+
+  /// Writes the code for a C++ translation unit to .h/.cpp files at `baseUrl`.
+  private func write(_ source: TranslationUnitCode, to baseURL: URL) throws {
+    try source.headerCode.write(
+      to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
+    try source.sourceCode.write(
+      to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
   }
 
   /// Logs the given diagnostics to the standard error and returns a success code if none of them
