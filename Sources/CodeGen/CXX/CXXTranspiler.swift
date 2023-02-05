@@ -565,9 +565,13 @@ public struct CXXTranspiler {
       return CXXTypeExpr("builtin")
 
     case let type as SumType:
-      // TODO
-      let _ = type
-      return CXXTypeExpr("sum_type")
+      if type.elements.isEmpty {
+        return CXXTypeExpr(isReturnType ? "void" : "std::monostate")
+      }
+      else {
+        // TODO
+        fatalError("not implemented")
+      }
 
     default:
       fatalError("not implemented")
