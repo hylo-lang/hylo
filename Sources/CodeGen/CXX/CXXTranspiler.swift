@@ -32,6 +32,12 @@ public struct CXXTranspiler {
       return cxx(function: FunctionDecl.Typed(source)!)
     case ProductTypeDecl.self:
       return cxx(type: ProductTypeDecl.Typed(source)!)
+    case OperatorDecl.self:
+      return CXXComment(comment: "operator decl")
+    case ConformanceDecl.self:
+      return CXXComment(comment: "conformance decl")
+    case TraitDecl.self:
+      return CXXComment(comment: "trait decl")
     default:
       unexpected("declaration", found: source)
     }
@@ -552,6 +558,16 @@ public struct CXXTranspiler {
     case let type as ParameterType:
       // TODO: convention
       return cxx(typeExpr: type.bareType)
+
+    case let type as BuiltinType:
+      // TODO
+      let _ = type
+      return CXXTypeExpr("builtin")
+
+    case let type as SumType:
+      // TODO
+      let _ = type
+      return CXXTypeExpr("sum_type")
 
     default:
       fatalError("not implemented")
