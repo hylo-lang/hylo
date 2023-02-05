@@ -186,7 +186,7 @@ final class BuiltinFunctionTests: XCTestCase {
           BuiltinFunction(parsing: "\(s)_\(list: p, joinedBy: "_")"),
           file: file, line: line)
 
-        XCTAssertEqual(f.baseName, s, file: file, line: line)
+        XCTAssertEqual(f.llvmInstruction, s, file: file, line: line)
         XCTAssertEqual(f.type, expectedType, file: file, line: line)
         XCTAssert(
           zip(f.genericParameters, p).allSatisfy({ $0 == $1 }),

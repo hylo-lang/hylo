@@ -28,8 +28,8 @@ import Utils
 /// and floating-point numbers as well as conversions from and to these types.
 public struct BuiltinFunction: Equatable {
 
-  /// The stem identifier of the function.
-  public let baseName: String
+  /// The name of the notional generic function of which `self` is an instance.
+  public let llvmInstruction: String
 
   /// The generic parameters of the function.
   public let genericParameters: [String]
@@ -38,8 +38,8 @@ public struct BuiltinFunction: Equatable {
   public let type: LambdaType
 
   /// Creates an instance with the given properties.
-  private init(baseName: String, genericParameters: [String], type: LambdaType) {
-    self.baseName = baseName
+  private init(llvmInstruction: String, genericParameters: [String], type: LambdaType) {
+    self.llvmInstruction = llvmInstruction
     self.genericParameters = genericParameters
     self.type = type
   }
@@ -47,7 +47,7 @@ public struct BuiltinFunction: Equatable {
   /// Creates an instance by parsing it from `s` or returns `nil` if `s` isn't a valid built-in
   /// function name.
   public init?(parsing s: String) {
-    let make = Self.init(baseName:genericParameters:type:)
+    let make = Self.init(llvmInstruction:genericParameters:type:)
     var tokens = s.split(separator: "_")[...]
 
     // The first token is the LLVM instruction name.
