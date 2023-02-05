@@ -54,7 +54,7 @@ public struct BuiltinFunction: Equatable {
     var tokens = s.split(separator: "_")[...]
 
     /// The first token is the stem identifier.
-    guard let stem = tokens.popFirst().flatMap(String.init(_:)) else { return nil }
+    guard let stem = tokens.popFirst().map(String.init(_:)) else { return nil }
     switch stem {
     case "copy":
       guard let t = builtinType(from: &tokens) else { return nil }
