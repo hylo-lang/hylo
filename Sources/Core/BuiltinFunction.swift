@@ -57,7 +57,7 @@ public struct BuiltinFunction: Equatable {
     guard let stem = tokens.popFirst().map(String.init(_:)) else { return nil }
     switch stem {
     case "copy":
-      guard let t = builtinType(from: &tokens) else { return nil }
+      guard let t = builtinType(&tokens) else { return nil }
       self.init(
         named: stem, [],
         typed: LambdaType(^t, to: ^t))
@@ -75,7 +75,7 @@ public struct BuiltinFunction: Equatable {
         typed: LambdaType(^t, ^t, to: ^t))
 
     case "urem", "srem", "and", "or", "xor":
-      guard let t = builtinType(from: &tokens) else { return nil }
+      guard let t = builtinType(&tokens) else { return nil }
       self.init(
         named: stem, [],
         typed: LambdaType(^t, ^t, to: ^t))
@@ -111,7 +111,7 @@ public struct BuiltinFunction: Equatable {
         typed: LambdaType(^s, to: ^d))
 
     case "zeroinitializer":
-      guard let t = builtinType(from: &tokens) else { return nil }
+      guard let t = builtinType(&tokens) else { return nil }
       self.init(
         named: stem, [],
         typed: LambdaType(to: ^t))
@@ -158,12 +158,12 @@ private func one(of choices: [String]) -> Parser<String> {
 }
 
 /// Returns a built-in type parsed from `stream`.
-private func builtinType(from stream: inout ArraySlice<Substring>) -> BuiltinType? {
+private func builtinType(_ stream: inout ArraySlice<Substring>) -> BuiltinType? {
   stream.popFirst().flatMap(BuiltinType.init(_:))
 }
 
 /// Returns the longest sequence of floating-point math flags that can be parsed from `stream`.
-private func mathFlags(from stream: inout ArraySlice<Substring>) -> [String] {
+private func mathFlags(_ stream: inout ArraySlice<Substring>) -> [String] {
   var result: [String] = []
   while let x = stream.first {
     guard
