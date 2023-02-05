@@ -19,7 +19,16 @@ public struct CXXTranspiler {
   /// Returns a C++ AST implementing the semantics of `source`.
   public func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
     return CXXModule(
-      source: source, topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
+      name: source.baseName, isStdLib: false,
+      topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
+      entryPointBody: entryPointBody(module: source))
+  }
+
+  /// Returns a C++ AST implementing the semantics of `source`.
+  public func transpile(stdlib source: ModuleDecl.Typed) -> CXXModule {
+    return CXXModule(
+      name: "ValStdLib", isStdLib: true,
+      topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
       entryPointBody: entryPointBody(module: source))
   }
 
