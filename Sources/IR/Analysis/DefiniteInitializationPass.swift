@@ -44,9 +44,11 @@ public struct DefiniteInitializationPass: TransformPass {
     /// Indicates whether the pass succeeded.
     var success = true
 
-    /// Returns the before-context that merges the after-contexts of `predecessors`, inserting
+    /// Forms a before-context by merging the after-contexts of `predecessors`.
+    ///
+    /// Returns the context formed by merging the after-contexts of `predecessors`, inserting
     /// deinitialization at the end of these blocks if necessary.
-    func mergeAfterContexts(of predecessors: [Function.Blocks.Address]) -> Context {
+    func beforeContext(mergingAfterContextsOf predecessors: [Function.Blocks.Address]) -> Context {
       /// The set of predecessors that have been visited already.
       var visitedPredecessors: [Function.Blocks.Address] = []
       /// The sources of the after contexts used for this merge.
@@ -64,37 +66,12 @@ public struct DefiniteInitializationPass: TransformPass {
         }
       }
 
-      // Block is unreachable if it has no predecessor.
-      if afterContextSources.isEmpty { return Context() }
-
-      // Merge is trivial if the block has only a single predecessor.
-      if let s = afterContextSources.uniqueElement { return contexts[s]!.after }
-
-      // Merge the after-contexts of all predecessors.
-      var result = contexts[afterContextSources.first!]!.after
-      for predecessor in afterContextSources.dropFirst() {
-        let afterContext = contexts[predecessor]!.after
-
-        // Merge the locals.
-        for (key, lhs) in result.locals {
-          // Ignore definitions that don't dominate the block.
-          guard let rhs = afterContext.locals[key] else {
-            result.locals[key] = nil
-            continue
-          }
-
-          // Merge both values conservatively.
-          result.locals[key] = lhs && rhs
-        }
-
-        // Merge the state of the objects in memory.
-        result.memory.merge(
-          afterContext.memory,
-          uniquingKeysWith: { (lhs, rhs) in
-            assert(lhs.type == rhs.type)
-            return Context.Cell(type: lhs.type, object: lhs.object && rhs.object)
-          })
+      guard let (h, t) = afterContextSources.headAndTail else {
+        // Block is unreachable if it has no predecessor.
+        return Context()
       }
+
+      let result = contexts[h]!.after.merging(t.lazy.map({ contexts[$0]!.after }))
 
       // Make sure the after-contexts are consistent with the computed before-context.
       for predecessor in visitedPredecessors {
@@ -207,15 +184,15 @@ public struct DefiniteInitializationPass: TransformPass {
       }
 
       // Merge the after-contexts of the predecessors.
-      let beforeContext = mergeAfterContexts(of: predecessors)
+      let newContext = beforeContext(mergingAfterContextsOf: predecessors)
 
       // If the before-context didn't change, we're done with the current block.
-      if contexts[block]?.before == beforeContext {
+      if contexts[block]?.before == newContext {
         done.insert(block)
         continue
       }
 
-      currentContext = beforeContext
+      currentContext = newContext
       success = eval(block: block, in: &module) && success
 
       // We're done with the current block if ...
@@ -234,7 +211,7 @@ public struct DefiniteInitializationPass: TransformPass {
       }()
 
       // Update the before/after-context pair for the current block and move to the next one.
-      contexts[block] = (before: beforeContext, after: currentContext)
+      contexts[block] = (before: newContext, after: currentContext)
       if isBlockDone {
         done.insert(block)
       } else {
@@ -1124,6 +1101,32 @@ extension DefiniteInitializationPass {
 
     /// The state of the memory.
     var memory: [MemoryLocation: Cell] = [:]
+
+    /// Merges `other` into `self`.
+    mutating func merge(_ other: Self) {
+      // Merge the locals.
+      for (key, lhs) in locals {
+        // Ignore definitions that don't dominate the block.
+        guard let rhs = other.locals[key] else {
+          locals[key] = nil
+          continue
+        }
+
+        // Merge both values conservatively.
+        locals[key] = lhs && rhs
+      }
+
+      // Merge the state of the objects in memory.
+      memory.merge(other.memory) { (lhs, rhs) in
+        assert(lhs.type == rhs.type)
+        return Context.Cell(type: lhs.type, object: lhs.object && rhs.object)
+      }
+    }
+
+    /// Forms a context by merging the contexts in `others` into `self`.
+    func merging<S: Sequence>(_ others: S) -> Self where S.Element == Self {
+      others.reduce(into: self, { (l, r) in l.merge(r) })
+    }
 
   }
 
