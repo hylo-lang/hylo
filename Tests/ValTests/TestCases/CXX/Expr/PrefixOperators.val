@@ -1,6 +1,6 @@
 /*! cpp
 void test() {
-  int a = 5;
+  Int a = 5;
   a = +a;
   a = -a;
 }

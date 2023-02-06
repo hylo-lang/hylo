@@ -165,7 +165,7 @@ extension TypeChecker {
         ofTupleExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     default:
-      unreachable()
+      unexpected("expression", found: subject, of: program.ast)
     }
   }
 
@@ -216,7 +216,7 @@ extension TypeChecker {
       let lhsType = inferType(of: lhs, in: scope, expecting: nil, updating: &state)
       state.facts.append(
         EqualityConstraint(
-          lhsType, .builtin(.pointer),
+          lhsType, .builtin(.ptr),
           because: ConstraintCause(.cast, at: syntax.site)))
     }
 
@@ -341,7 +341,7 @@ extension TypeChecker {
     {
       let instanceType = MetatypeType(calleeType)!.instance
       let initName = SourceRepresentable(
-        value: Name(stem: "init", labels: ["self"] + syntax.arguments.map({ $0.label?.value })),
+        value: Name(stem: "init", labels: ["self"] + syntax.arguments.map(\.label?.value)),
         range: program.ast[c].name.site)
       let initCandidates = resolve(
         initName, withArguments: [], memberOf: instanceType, from: scope)
@@ -976,8 +976,8 @@ extension TypeChecker {
     updating state: inout State
   ) -> Bool {
     // Collect the argument and parameter labels.
-    let argumentLabels = arguments.map({ $0.label?.value })
-    let parameterLabels = parameters.map({ $0.label })
+    let argumentLabels = arguments.map(\.label?.value)
+    let parameterLabels = parameters.map(\.label)
 
     // Check that the labels inferred from the callee are consistent with that of the call.
     if argumentLabels != parameterLabels {

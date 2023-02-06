@@ -6,8 +6,16 @@ public struct CXXCodeWriter {
 
   // MARK: API
 
-  /// Write the CXX header content for the given module to the given text stream.
-  public func emitHeaderCode(_ module: CXXModule) -> String {
+  /// Returns the C++ code for a translation unit.
+  public func cxxCode(_ source: CXXModule) -> TranslationUnitCode {
+    TranslationUnitCode(
+      headerCode: generateHeaderCode(source), sourceCode: generateSourceCode(source))
+  }
+
+  // MARK: File type specific logic
+
+  /// The C++ code for `module` that needs to be present in the header file.
+  private func generateHeaderCode(_ source: CXXModule) -> String {
     var target = CodeFormatter()
 
     // Emit the header guard.
@@ -22,12 +30,12 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(module.name)")
+    target.write("namespace \(source.name)")
     target.beginBrace()
     target.writeNewline()
 
     // Emit the C++ text needed for the header corresponding to the C++ declarations.
-    for decl in module.topLevelDecls {
+    for decl in source.topLevelDecls {
       writeInterface(topLevel: decl, into: &target)
     }
 
@@ -37,26 +45,35 @@ public struct CXXCodeWriter {
     return target.code
   }
 
-  /// Write the CXX source content for the given module to the given text stream.
-  public func emitSourceCode(_ module: CXXModule) -> String {
+  /// Returns the C++ code for `source` that needs to be present in the source file.
+  private func generateSourceCode(_ source: CXXModule) -> String {
     var target = CodeFormatter()
 
     // Emit include clauses.
-    target.writeLine("#include \"\(module.name).h\"")
+    target.writeLine("#include \"\(source.name).h\"")
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(module.name)")
+    target.write("namespace \(source.name)")
     target.beginBrace()
     target.writeNewline()
 
     // Emit the C++ text needed for the source file corresponding to the C++ declarations.
-    for decl in module.topLevelDecls {
+    for decl in source.topLevelDecls {
       writeDefinition(topLevel: decl, into: &target)
       target.writeNewline()
     }
 
     target.endBrace()
+
+    // Write a CXX `main` function if the module has an entry point.
+    if source.entryPointBody != nil {
+      target.writeNewline()
+      target.writeNewline()
+      target.write("int main()")
+      write(stmt: source.entryPointBody!, into: &target)
+      target.writeNewline()
+    }
 
     return target.code
   }
@@ -69,6 +86,8 @@ public struct CXXCodeWriter {
       writeSignature(function: decl as! CXXFunctionDecl, into: &target)
     case CXXClassDecl.self:
       writeSignature(type: decl as! CXXClassDecl, into: &target)
+    case CXXComment.self:
+      write(comment: decl as! CXXComment, into: &target)
     default:
       fatalError("unexpected top-level declaration")
     }
@@ -81,6 +100,8 @@ public struct CXXCodeWriter {
       writeDefinition(function: decl as! CXXFunctionDecl, into: &target)
     case CXXClassDecl.self:
       writeDefinition(type: decl as! CXXClassDecl, into: &target)
+    case CXXComment.self:
+      write(comment: decl as! CXXComment, into: &target)
     default:
       fatalError("unexpected top-level declaration")
     }

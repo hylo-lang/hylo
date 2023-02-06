@@ -49,6 +49,11 @@ public struct SourceFile {
     range(text.startIndex ..< text.endIndex)
   }
 
+  /// Returns a range starting and ending at `index`.
+  public func emptyRange(at index: String.Index) -> SourceRange {
+    range(index ..< index)
+  }
+
   /// Returns the contents of the file in the specified range.
   public subscript(_ range: SourceRange) -> Substring {
     precondition(range.file.url == url, "invalid site")

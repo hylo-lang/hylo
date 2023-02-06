@@ -41,15 +41,12 @@ final class CXXTests: XCTestCase {
 
         // Transpile the module.
         let transpiler = CXXTranspiler(typedProgram)
-        let cxxModule = transpiler.transpile(typedProgram[module])
-
         let codeWriter = CXXCodeWriter()
-        let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
-        let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
+        let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[module]))
 
         return cxxAnnotations.compactMap { a in
           let expectedCXX = a.argument!.removingTrailingNewlines()
-          let cxxSourceToSearch = a.command == "cpp" ? cxxSourceCode : cxxHeaderCode
+          let cxxSourceToSearch = a.command == "cpp" ? cxxCode.sourceCode : cxxCode.headerCode
 
           return cxxSourceToSearch.canonicalize().contains(expectedCXX.canonicalize())
             ? nil
