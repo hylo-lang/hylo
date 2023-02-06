@@ -18,9 +18,8 @@ import Utils
 ///     icmp ne i32 -> Builtin.icmp_ne_i32
 ///     fmul fast double -> Builtin.fmul_fast_double
 ///
-/// An exception is made for conversion instructions: the keyword `to` following the first
-/// argument of the instruction and preceeding the resulting type is omitted from the  built-in
-/// function name. For example:
+/// An exception is made for LLVM conversion instructions: we omit the keyword `to` that appears
+/// between the first argument and result type. For example:
 ///
 ///     trunc i64 ... to i32 -> Builtin.trunc_i64_i32
 ///
