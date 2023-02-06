@@ -32,7 +32,7 @@ public struct Emitter {
   ///
   /// - Requires: `d` is at module scope.
   mutating func emit(topLevel d: AnyDeclID.TypedNode, into module: inout Module) {
-    precondition(d.scope.kind == TopLevelDeclSet.self)
+    precondition(d.scope.kind == TranslationUnit.self)
     switch d.kind {
     case FunctionDecl.self:
       emit(functionDecl: FunctionDecl.Typed(d)!, into: &module)
