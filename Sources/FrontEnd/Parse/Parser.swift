@@ -29,7 +29,7 @@ public enum Parser {
     into module: NodeID<ModuleDecl>,
     in ast: inout AST,
     diagnostics: inout Diagnostics
-  ) throws -> NodeID<TopLevelDeclSet> {
+  ) throws -> NodeID<TranslationUnit> {
     // Temporarily stash the AST and diagnostics in the parser state, avoiding CoW costs
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input), diagnostics: diagnostics)
     defer { diagnostics = state.diagnostics }
@@ -93,7 +93,7 @@ public enum Parser {
     assert(state.peek() == nil, "expected EOF")
 
     let translation = state.insert(
-      TopLevelDeclSet(
+      TranslationUnit(
         decls: members,
         site: input.range(input.text.startIndex ..< input.text.endIndex)))
     state.ast[module].addSourceFile(translation)
@@ -890,7 +890,7 @@ public enum Parser {
           in: &state,
           introducedBy: SourceRepresentable(
             value: .let,
-            range: state.emptyRange(at: state.ast[body.base].site.start)),
+            range: state.lexer.sourceCode.emptyRange(at: state.ast[body.base].site.start)),
           body: body,
           asNonStaticMember: isNonStaticMember)
         return [impl]
@@ -1072,7 +1072,7 @@ public enum Parser {
       if state.ast[m].introducer.value == .memberwiseInit { return m }
     }
 
-    let startOfTypeDecl = state.emptyRange(at: startIndex)
+    let startOfTypeDecl = state.lexer.sourceCode.emptyRange(at: startIndex)
     let receiver = state.insert(
       synthesized: ParameterDecl(
         identifier: SourceRepresentable(value: "self", range: startOfTypeDecl),
@@ -2251,10 +2251,8 @@ public enum Parser {
     let output = try state.expect("type expression", using: parseExpr(in:))
 
     // Synthesize the environment as an empty tuple if we parsed `[]`.
-    let e =
-      environement
-      ?? AnyExprID(
-        state.insert(TupleTypeExpr(elements: [], site: state.emptyRange(at: opener.site.start))))
+    let s = state.lexer.sourceCode.emptyRange(at: opener.site.start)
+    let e = environement ?? AnyExprID(state.insert(TupleTypeExpr(elements: [], site: s)))
 
     let expr = state.insert(
       LambdaTypeExpr(
@@ -2929,7 +2927,7 @@ public enum Parser {
             convention: tree.0
               ?? SourceRepresentable(
                 value: .let,
-                range: state.emptyRange(at: s.start)),
+                range: state.lexer.sourceCode.emptyRange(at: s.start)),
             bareType: tree.1,
             site: s
           ))

@@ -1,5 +1,5 @@
 /*! cpp
-    void myFun(int x)
+    void myFun(Int x)
  */
 public fun myFun(_ x: Int) {
 }

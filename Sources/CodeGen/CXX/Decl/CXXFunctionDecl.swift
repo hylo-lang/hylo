@@ -21,7 +21,4 @@ struct CXXFunctionDecl: CXXTopLevelDecl {
   /// The body of the function.
   let body: CXXStmt?
 
-  /// The original node in Val AST.
-  let original: FunctionDecl.Typed
-
 }

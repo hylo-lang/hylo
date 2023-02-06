@@ -33,6 +33,12 @@ public struct SourceFile {
     self.storage = storage
   }
 
+  /// Creates a source file with the specified contents and a unique random `url`.
+  public init(synthesizedText text: String) {
+    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text }
+    self.storage = storage
+  }
+
   /// The name of the source file, sans path qualification or extension.
   public var baseName: String {
     url.deletingPathExtension().lastPathComponent
@@ -43,10 +49,9 @@ public struct SourceFile {
     range(text.startIndex ..< text.endIndex)
   }
 
-  /// Creates a source file with the specified contents and a unique random `url`.
-  public init(synthesizedText text: String) {
-    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text }
-    self.storage = storage
+  /// Returns a range starting and ending at `index`.
+  public func emptyRange(at index: String.Index) -> SourceRange {
+    range(index ..< index)
   }
 
   /// Returns the contents of the file in the specified range.
@@ -112,6 +117,14 @@ public struct SourceFile {
   /// - Precondition: `line` and `column` describe a valid location in `self`.
   func index(line: Int, column: Int) -> Index {
     return text.index(lineStarts[line - 1], offsetBy: column - 1)
+  }
+
+}
+
+extension SourceFile: ExpressibleByStringLiteral {
+
+  public init(stringLiteral text: String) {
+    self.init(synthesizedText: text)
   }
 
 }

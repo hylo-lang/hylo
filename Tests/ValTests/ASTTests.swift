@@ -30,7 +30,7 @@ final class ASTTests: XCTestCase {
 
     // Create a source declaration set.
     let source = ast.insert(
-      synthesized: TopLevelDeclSet(decls: [AnyDeclID(decl)], site: input.wholeRange))
+      synthesized: TranslationUnit(decls: [AnyDeclID(decl)], site: input.wholeRange))
     ast[module].addSourceFile(source)
 
     // Subscript the AST for reading with a type-erased ID.
@@ -45,7 +45,7 @@ final class ASTTests: XCTestCase {
     let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
 
     let source = ast.insert(
-      synthesized: TopLevelDeclSet(
+      synthesized: TranslationUnit(
         decls: [
           AnyDeclID(
             ast.insert(

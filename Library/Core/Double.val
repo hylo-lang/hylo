@@ -5,7 +5,7 @@ public type Double {
 
   memberwise init
 
-  /// Creates an instance with the value `0.0`.
+  /// Creates an instance with value `0.0`.
   public init() {
     self.value = Builtin.zeroinitializer_double()
   }

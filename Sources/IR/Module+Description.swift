@@ -149,7 +149,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
           }
 
         case let instruction as LLVMInstruction:
-          output.write("\(instruction.function.baseName)")
+          output.write("\(instruction.function.llvmInstruction)")
           if instruction.function.genericParameters.isEmpty {
             output.write(" ")
           } else {

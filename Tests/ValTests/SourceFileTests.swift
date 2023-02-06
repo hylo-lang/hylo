@@ -4,14 +4,13 @@ import XCTest
 final class SourceFileTests: XCTestCase {
 
   func testLocationConversion() {
-    let source = testCode(
-      """
+    let source: SourceFile = """
       import Greetings
 
       public fun main() {
         print("Hello, World!")
       }
-      """)
+      """
 
     for position in source.text.indices {
       let x = source.position(position)
