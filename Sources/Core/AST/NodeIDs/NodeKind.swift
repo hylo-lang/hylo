@@ -99,7 +99,6 @@ extension NodeKind {
     AssociatedTypeDecl.self,
     AssociatedValueDecl.self,
     BindingDecl.self,
-    BuiltinDecl.self,
     ConformanceDecl.self,
     ExtensionDecl.self,
     FunctionDecl.self,

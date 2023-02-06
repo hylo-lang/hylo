@@ -44,6 +44,15 @@ extension Program {
     }
   }
 
+  /// Returns the scope introducing `d`.
+  public func scopeIntroducing(_ d: AnyDeclID) -> AnyScopeID {
+    if d.kind == InitializerDecl.self {
+      return scopeToParent[declToScope[d]!]!
+    } else {
+      return declToScope[d]!
+    }
+  }
+
   /// Returns whether `decl` is global.
   ///
   /// A declaration is global if and only if:

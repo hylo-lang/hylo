@@ -8,7 +8,7 @@ public struct AST {
   /// The stored representation of an AST; distinguished for encoding/decoding purposes.
   private struct Storage: Codable {
     /// The nodes in `self`.
-    public var nodes: [AnyNode] = [AnyNode(BuiltinDecl())]
+    public var nodes: [AnyNode] = []
 
     /// The indices of the modules.
     ///
@@ -47,12 +47,6 @@ public struct AST {
 
   /// Creates an empty AST.
   public init() {}
-
-  /// The ID of a node representing all built-in declarations in declaration references.
-  ///
-  /// The type checker uses this ID to represent declaration references to built-in symbols, since
-  /// those do not have any actual AST representation.
-  public var builtinDecl: NodeID<BuiltinDecl> { NodeID(rawValue: 0) }
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
   public mutating func insert<T: Node>(_ n: T, diagnostics: inout Diagnostics) -> NodeID<T> {
