@@ -40,7 +40,7 @@ public struct Emitter {
     case TraitDecl.self:
       break
     default:
-      unreachable("unexpected declaration")
+      unexpected("declaration", found: decl)
     }
   }
 
@@ -55,7 +55,7 @@ public struct Emitter {
     // Create the function entry.
     assert(module.functions[functionID].blocks.isEmpty)
     let entryID = module.createBasicBlock(
-      accepting: module.functions[functionID].inputs.map({ $0.type }),
+      accepting: module.functions[functionID].inputs.map(\.type),
       atEndOf: functionID)
     insertionBlock = entryID
 
@@ -186,7 +186,7 @@ public struct Emitter {
           let whole = objects[wholePath]!
           let parts = module.append(
             DestructureInstruction(
-              whole, as: layout.storedPropertiesTypes.map({ .object($0) }),
+              whole, as: layout.storedPropertiesTypes.map(LoweredType.object(_:)),
               site: initializer.site),
             to: insertionBlock!)
 
@@ -269,7 +269,7 @@ public struct Emitter {
     case ReturnStmt.self:
       emit(returnStmt: ReturnStmt.Typed(stmt)!, into: &module)
     default:
-      unreachable("unexpected statement")
+      unexpected("statement", found: stmt)
     }
   }
 
@@ -294,7 +294,7 @@ public struct Emitter {
     case BindingDecl.self:
       emit(localBinding: BindingDecl.Typed(stmt.decl)!, into: &module)
     default:
-      unreachable("unexpected declaration")
+      unexpected("declaration", found: stmt.decl)
     }
   }
 
@@ -341,7 +341,7 @@ public struct Emitter {
     case SequenceExpr.self:
       return emitR(sequence: SequenceExpr.Typed(expr)!, into: &module)
     default:
-      unreachable("unexpected expression")
+      unexpected("expression", found: expr)
     }
   }
 

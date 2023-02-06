@@ -146,6 +146,7 @@ public struct Module {
     let function = Function(
       name: locator.mangled,
       debugName: locator.description,
+      anchor: decl.introducerSite.first(),
       linkage: decl.isPublic ? .external : .module,
       inputs: inputs,
       output: output,

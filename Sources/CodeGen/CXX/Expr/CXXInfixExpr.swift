@@ -52,10 +52,6 @@ struct CXXInfixExpr: CXXExpr {
   /// The right-hand-side argument of the operator call.
   let rhs: CXXExpr
 
-  /// The original node in Val AST.
-  /// Typically an expression, but may be an `AssignStmt`.
-  let original: AnyNodeID.TypedNode?
-
   var precedence: Int {
     switch oper {
     case .scopeResolution:

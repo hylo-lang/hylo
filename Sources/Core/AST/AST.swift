@@ -204,7 +204,7 @@ public struct AST {
         break
 
       default:
-        unreachable("unexpected pattern")
+        unexpected("pattern", found: pattern, of: self)
       }
     }
 

@@ -15,10 +15,6 @@ struct CXXPostfixExpr: CXXExpr {
   /// The base expression of the operator call.
   let base: CXXExpr
 
-  /// The original node in Val AST.
-  /// Typically an expression, but somtimes this can be AssignStmt
-  let original: AnyNodeID.TypedNode?
-
   var precedence: Int {
     2
   }

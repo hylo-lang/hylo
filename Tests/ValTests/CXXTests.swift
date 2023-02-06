@@ -40,16 +40,13 @@ final class CXXTests: XCTestCase {
         // TODO: Run IR transform passes
 
         // Transpile the module.
-        var transpiler = CXXTranspiler(program: typedProgram)
+        let transpiler = CXXTranspiler(typedProgram)
         let codeWriter = CXXCodeWriter()
-        let cxxModule = transpiler.emit(module: typedProgram[module])
-
-        let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
-        let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
+        let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[module]))
 
         return cxxAnnotations.compactMap { a in
           let expectedCXX = a.argument!.removingTrailingNewlines()
-          let cxxSourceToSearch = a.command == "cpp" ? cxxSourceCode : cxxHeaderCode
+          let cxxSourceToSearch = a.command == "cpp" ? cxxCode.sourceCode : cxxCode.headerCode
 
           return cxxSourceToSearch.canonicalize().contains(expectedCXX.canonicalize())
             ? nil
