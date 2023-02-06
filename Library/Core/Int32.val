@@ -3,7 +3,7 @@ public type Int32 {
 
   var value: Builtin.i32
 
-  /// Initializes an instance with the value of `0`.
+  /// Creates an instance with value `0`.
   public init() {
     self.value = Builtin.zeroinitializer_i32()
   }
