@@ -10,7 +10,4 @@ struct CXXLocalVarDecl: CXXDecl, CXXStmt {
   /// The initializer of the local variable.
   let initializer: CXXExpr?
 
-  /// The original node in Val AST.
-  let original: VarDecl.Typed
-
 }

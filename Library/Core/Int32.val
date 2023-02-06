@@ -3,12 +3,12 @@ public type Int32 {
 
   var value: Builtin.i32
 
-  /// Initializes an instance with the value of `0`.
+  /// Creates an instance with value `0`.
   public init() {
     self.value = Builtin.zeroinitializer_i32()
   }
 
-  /// Initializes an instance with the value of `other`.
+  /// Creates a copy of `other`.
   ///
   /// - Requires: The value of `other` must be representable in this type.
   public init(_ other: Int) {

@@ -43,6 +43,11 @@ public struct SourceFile {
     range(text.startIndex ..< text.endIndex)
   }
 
+  /// Returns a range starting and ending at `index`.
+  public func emptyRange(at index: String.Index) -> SourceRange {
+    range(index ..< index)
+  }
+
   /// Creates a source file with the specified contents and a unique random `url`.
   public init(synthesizedText text: String) {
     let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text }

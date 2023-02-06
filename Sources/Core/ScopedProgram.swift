@@ -131,7 +131,7 @@ extension ScopedProgram {
     case VarDecl.self:
       visit(varDecl: NodeID(decl)!, withState: &state)
     default:
-      unreachable("unexpected declaration")
+      unexpected("declaration", found: decl, of: ast)
     }
   }
 
@@ -594,7 +594,7 @@ extension ScopedProgram {
     case WildcardExpr.self:
       break
     default:
-      unreachable("unexpected expression")
+      unexpected("expression", found: expr, of: ast)
     }
   }
 
@@ -843,7 +843,7 @@ extension ScopedProgram {
     case WildcardPattern.self:
       break
     default:
-      unreachable("unexpected pattern")
+      unexpected("pattern", found: pattern, of: ast)
     }
   }
 
@@ -913,7 +913,7 @@ extension ScopedProgram {
     case YieldStmt.self:
       visit(yieldStmt: NodeID(stmt)!, withState: &state)
     default:
-      unreachable("unexpected statement")
+      unexpected("statement", found: stmt, of: ast)
     }
   }
 

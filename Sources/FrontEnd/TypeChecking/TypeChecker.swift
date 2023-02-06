@@ -31,9 +31,6 @@ public struct TypeChecker {
   /// The site for which type inference tracing is enabled, if any.
   public let inferenceTracingRange: SourceRange?
 
-  /// The set of lambda expressions whose declarations are pending type checking.
-  public private(set) var pendingLambdas: [NodeID<LambdaExpr>] = []
-
   /// Creates a new type checker for the specified program.
   ///
   /// - Note: `program` is stored in the type checker and mutated throughout type checking (e.g.,
@@ -238,36 +235,6 @@ public struct TypeChecker {
     diagnostics.insert(d)
   }
 
-  /// Inserts `expr` in the set of pending lambdas.
-  mutating func deferTypeChecking(_ expr: NodeID<LambdaExpr>) {
-    pendingLambdas.append(expr)
-  }
-
-  /// Processed all pending type checking requests and returns whether that succeeded.
-  mutating func checkPending() -> Bool {
-    var success = true
-
-    while let id = pendingLambdas.popLast() {
-      if let declType = exprTypes[id]?.base as? LambdaType,
-        !declType.flags.contains(.hasError)
-      {
-        // Reify the type of the underlying declaration.
-        declTypes[program.ast[id].decl] = ^declType
-        let parameters = program.ast[program.ast[id].decl].parameters
-        for i in 0 ..< parameters.count {
-          declTypes[parameters[i]] = declType.inputs[i].type
-        }
-
-        // Type check the declaration.
-        success = check(function: program.ast[id].decl) && success
-      } else {
-        success = false
-      }
-    }
-
-    return success
-  }
-
   /// Sets the realized type of `d` to `type`.
   ///
   /// - Requires: `d` has not gone through type realization yet.
@@ -289,9 +256,7 @@ public struct TypeChecker {
     for decl in program.ast.topLevelDecls(id) {
       success = check(decl: decl) && success
     }
-
-    // Process pending requests.
-    return checkPending() && success
+    return success
   }
 
   /// Type checks the specified declaration and returns whether that succeeded.
@@ -326,7 +291,7 @@ public struct TypeChecker {
     case TypeAliasDecl.self:
       return check(typeAlias: NodeID(id)!)
     default:
-      unreachable("unexpected declaration")
+      unexpected("declaration", found: id, of: program.ast)
     }
   }
 
@@ -365,11 +330,11 @@ public struct TypeChecker {
 
     // Determine the shape of the declaration.
     let declScope = program.declToScope[AnyDeclID(id)]!
-    let (shapeType, shapeFact) = inferType(
+    let shape = inferType(
       of: AnyPatternID(syntax.pattern), in: declScope, expecting: nil)
-    assert(shapeFact.inferredTypes.storage.isEmpty, "expression in binding pattern")
+    assert(shape.facts.inferredTypes.storage.isEmpty, "expression in binding pattern")
 
-    if shapeType.isError {
+    if shape.type.isError {
       declTypes[id] = .error
       declRequests[id] = .failure
       return false
@@ -382,18 +347,18 @@ public struct TypeChecker {
     var success = true
     if let initializer = syntax.initializer {
       let initializerType = exprTypes[initializer].setIfNil(^TypeVariable(node: initializer.base))
-      var initializerConstraints: [Constraint] = shapeFact.constraints
+      var initializerConstraints: [Constraint] = shape.facts.constraints
 
       // The type of the initializer may be a subtype of the pattern's
       if hasTypeHint {
         initializerConstraints.append(
           SubtypingConstraint(
-            initializerType, shapeType,
+            initializerType, shape.type,
             because: ConstraintCause(.initializationWithHint, at: syntax.site)))
       } else {
         initializerConstraints.append(
           EqualityConstraint(
-            initializerType, shapeType,
+            initializerType, shape.type,
             because: ConstraintCause(.initializationWithPattern, at: syntax.site)))
       }
 
@@ -405,7 +370,7 @@ public struct TypeChecker {
       bindingsUnderChecking.formUnion(names)
       let inference = solveConstraints(
         impliedBy: initializer,
-        expecting: shapeType,
+        expecting: shape.type,
         in: declScope,
         initialConstraints: initializerConstraints)
       bindingsUnderChecking.subtract(names)
@@ -413,19 +378,12 @@ public struct TypeChecker {
       // TODO: Complete underspecified generic signatures
 
       success = inference.succeeded
-      declTypes[id] = inference.solution.typeAssumptions.reify(shapeType)
+      declTypes[id] = inference.solution.typeAssumptions.reify(shape.type)
 
-      // Assign the variable declarations in the pattern to their type
-      for decl in shapeFact.visitedVarDecls {
-        modifying(
-          &declTypes[decl]!,
-          { (t) in
-            t = inference.solution.typeAssumptions.reify(t)
-          })
-        declRequests[decl] = success ? .success : .failure
-      }
+      // Run deferred queries.
+      success = shape.deferred.reduce(success, { $1(&self, inference.solution) && $0 })
     } else if hasTypeHint {
-      declTypes[id] = shapeType
+      declTypes[id] = shape.type
     } else {
       unreachable("expected type annotation")
     }
@@ -1019,7 +977,7 @@ public struct TypeChecker {
         fatalError("not implemented")
 
       default:
-        unreachable()
+        unexpected("trait member", found: j, of: program.ast)
       }
     }
 
@@ -1100,7 +1058,7 @@ public struct TypeChecker {
       return true
 
     default:
-      unreachable("unexpected statement")
+      unexpected("statement", found: id, of: program.ast)
     }
   }
 
@@ -1228,6 +1186,36 @@ public struct TypeChecker {
           because: ConstraintCause(.yield, at: program.ast[program.ast[id].value].site))
       ])
     return inference.succeeded
+  }
+
+  /// Returns whether `d` is well-typed, reading type inference results from `s`.
+  mutating func checkDeferred(varDecl d: NodeID<VarDecl>, _ s: Solution) -> Bool {
+    let success = modifying(
+      &declTypes[d]!,
+      { (t) in
+        t = s.typeAssumptions.reify(t)
+        return t[.hasError]
+      })
+    declRequests[d] = success ? .success : .failure
+    return success
+  }
+
+  /// Returns whether `e` is well-typed, reading type inference results from `s`.
+  mutating func checkDeferred(lambdaExpr e: NodeID<LambdaExpr>, _ s: Solution) -> Bool {
+    guard
+      let declType = exprTypes[e]?.base as? LambdaType,
+      !declType[.hasError]
+    else { return false }
+
+    // Reify the type of the underlying declaration.
+    declTypes[program.ast[e].decl] = ^declType
+    let parameters = program.ast[program.ast[e].decl].parameters
+    for i in 0 ..< parameters.count {
+      declTypes[parameters[i]] = declType.inputs[i].type
+    }
+
+    // Type check the declaration.
+    return check(function: program.ast[e].decl)
   }
 
   /// Returns the expected output type in `lexicalContext`, or `nil` if `lexicalContext` is not
@@ -1617,7 +1605,7 @@ public struct TypeChecker {
     }
 
     // Generate constraints.
-    let (inferredType, facts) = inferType(
+    let (inferredType, facts, deferredQueries) = inferType(
       of: subject, in: AnyScopeID(scope), expecting: expectedType)
 
     // Bail out if constraint generation failed.
@@ -1645,10 +1633,12 @@ public struct TypeChecker {
       referredDecls[name] = ref
     }
 
-    // Consume the solution's errors.
-    diagnostics.formUnion(solution.diagnostics.log)
+    // Run deferred queries.
+    let success = deferredQueries.reduce(
+      !solution.diagnostics.errorReported, { (s, q) in q(&self, solution) && s })
 
-    return (succeeded: !solution.diagnostics.errorReported, solution: solution)
+    diagnostics.formUnion(solution.diagnostics.log)
+    return (succeeded: success, solution: solution)
   }
 
   // MARK: Name binding
@@ -2220,7 +2210,7 @@ public struct TypeChecker {
         table[i, default: []].insert(id)
 
       default:
-        unreachable("unexpected declaration")
+        unexpected("declaration", found: id, of: program.ast)
       }
     }
 
@@ -2257,7 +2247,7 @@ public struct TypeChecker {
       return MetatypeType(of: TypeVariable(node: expr.base))
 
     default:
-      unreachable("unexpected expression")
+      unexpected("expression", found: expr, of: program.ast)
     }
   }
 
@@ -2741,7 +2731,7 @@ public struct TypeChecker {
         : declTypes[id]!
 
     default:
-      unreachable("unexpected declaration")
+      unexpected("declaration", found: id, of: program.ast)
     }
   }
 
@@ -2933,7 +2923,7 @@ public struct TypeChecker {
 
       // Parameters of initializers must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        unreachable("unexpected type expression")
+        unexpected("type expression", found: i, of: program.ast)
       }
 
       if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
@@ -2980,7 +2970,7 @@ public struct TypeChecker {
 
       // Parameters of methods must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        unreachable("unexpected type expression")
+        unexpected("type expression", found: i, of: program.ast)
       }
 
       if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
@@ -3067,7 +3057,7 @@ public struct TypeChecker {
 
       // Parameters of subscripts must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        unreachable("unexpected type expression")
+        unexpected("type expression", found: i, of: program.ast)
       }
 
       if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {

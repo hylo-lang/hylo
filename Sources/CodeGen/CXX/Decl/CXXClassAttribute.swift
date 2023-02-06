@@ -12,7 +12,4 @@ struct CXXClassAttribute: CXXDecl {
   /// True if this is a static class attribute.
   let isStatic: Bool
 
-  /// The original node in Val AST.
-  let original: VarDecl.Typed
-
 }
