@@ -517,7 +517,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    topLevelDeclSet: NodeID<TopLevelDeclSet>,
+    topLevelDeclSet: NodeID<TranslationUnit>,
     withState state: inout VisitorState
   ) {
     nesting(

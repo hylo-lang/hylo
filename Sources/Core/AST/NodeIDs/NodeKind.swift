@@ -173,7 +173,7 @@ extension NodeKind {
 
     // MARK: Others
     MatchCase.self,
-    TopLevelDeclSet.self,
+    TranslationUnit.self,
   ]
 
   static let indices = Dictionary(

@@ -273,7 +273,7 @@ extension TypedNode where ID == NodeID<ModuleDecl> {
   public typealias TopLevelDecls = LazyMapSequence<
     FlattenSequence<
       LazyMapSequence<
-        [NodeID<TopLevelDeclSet>],
+        [NodeID<TranslationUnit>],
         [AnyDeclID]
       >
     >,
