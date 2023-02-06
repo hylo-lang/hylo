@@ -64,115 +64,111 @@ public struct DefiniteInitializationPass: TransformPass {
         }
       }
 
-      switch afterContextSources.count {
-      case 0:
-        // Unreachable block.
-        return Context()
+      // Block is unreachable if it has no predecessor.
+      if afterContextSources.isEmpty { return Context() }
 
-      case 1:
-        // Trivial merge.
-        return contexts[afterContextSources.first!]!.after
+      // Merge is trivial if the block has only a single predecessor.
+      if let s = afterContextSources.uniqueElement { return contexts[s]!.after }
 
-      default:
-        var result = contexts[afterContextSources.first!]!.after
-        for predecessor in afterContextSources.dropFirst() {
-          let afterContext = contexts[predecessor]!.after
+      // Merge the after-contexts of all predecessors.
+      var result = contexts[afterContextSources.first!]!.after
+      for predecessor in afterContextSources.dropFirst() {
+        let afterContext = contexts[predecessor]!.after
 
-          // Merge the locals.
-          for (key, lhs) in result.locals {
-            // Ignore definitions that don't dominate the block.
-            guard let rhs = afterContext.locals[key] else {
-              result.locals[key] = nil
-              continue
-            }
-
-            // Merge both values conservatively.
-            result.locals[key] = lhs && rhs
+        // Merge the locals.
+        for (key, lhs) in result.locals {
+          // Ignore definitions that don't dominate the block.
+          guard let rhs = afterContext.locals[key] else {
+            result.locals[key] = nil
+            continue
           }
 
-          // Merge the state of the objects in memory.
-          result.memory.merge(
-            afterContext.memory,
-            uniquingKeysWith: { (lhs, rhs) in
-              assert(lhs.type == rhs.type)
-              return Context.Cell(type: lhs.type, object: lhs.object && rhs.object)
-            })
+          // Merge both values conservatively.
+          result.locals[key] = lhs && rhs
         }
 
-        // Make sure the after-contexts are consistent with the computed before-context.
-        for predecessor in visitedPredecessors {
-          let afterContext = contexts[predecessor]!.after
-          var didChange = false
-
-          for key in result.locals.keys {
-            switch result.locals[key]! {
-            case .object(let lhs):
-              // Operands have consistent types.
-              let rhs = afterContext.locals[key]!.unwrapObject()!
-              assert(lhs.isFull && rhs.isFull, "bad object operand state")
-
-              // Find situations where an operand is initialized at the end of a predecessor but
-              // deinitialized in the before context. In these cases, the operand is deinitialized
-              // at the end of the predecessor.
-              if lhs != rhs {
-                // Deinitialize the object at the end of the predecessor.
-                let terminator = module.terminator(
-                  of: Block.ID(function: functionID, address: predecessor))!
-                module.insert(
-                  DeinitInstruction(key.operand(in: functionID), site: module[terminator].site),
-                  before: terminator)
-                didChange = true
-              }
-
-            case .locations(let lhs):
-              // Operands have consistent types.
-              let rhs = afterContext.locals[key]!.unwrapLocations()!
-
-              // Assume the objects at each location have the same state. That assertion holds
-              // for the locations referred to by the before-state locals, unless DI or LoW has
-              // been broken somewhere.
-              let stateAtEntry = withObject(at: lhs.first!, { $0 })
-              let stateAtExit = withObject(at: rhs.first!, { $0 })
-
-              // Find situations where the initialization state of an object in memory at the end
-              // of a predecessor is different in the before context. In those these, the object
-              // is deinitialized at the end of the predecessor.
-              let difference = stateAtExit.difference(stateAtEntry)
-              if !difference.isEmpty {
-                // Deinitialize the object at the end of the predecessor.
-                let terminator = module.terminator(
-                  of: Block.ID(function: functionID, address: predecessor))!
-                let operand = key.operand(in: functionID)
-                let rootType = module.type(of: operand).astType
-
-                for path in difference {
-                  let objectType = program.abstractLayout(of: rootType, at: path).type
-                  let object = module.insert(
-                    LoadInstruction(
-                      .object(objectType), from: operand, at: path,
-                      site: module[terminator].site),
-                    before: terminator)[0]
-                  module.insert(
-                    DeinitInstruction(object, site: module[terminator].site),
-                    before: terminator)
-                }
-                didChange = true
-              }
-            }
-          }
-
-          // Reinsert the predecessor in the work list if necessary.
-          if didChange && (done.remove(predecessor) != nil) {
-            var blocksToRevisit = [predecessor]
-            while let b = blocksToRevisit.popLast() {
-              done.remove(b)
-              blocksToRevisit.append(contentsOf: cfg.successors(of: b).filter(done.contains(_:)))
-            }
-          }
-        }
-
-        return result
+        // Merge the state of the objects in memory.
+        result.memory.merge(
+          afterContext.memory,
+          uniquingKeysWith: { (lhs, rhs) in
+            assert(lhs.type == rhs.type)
+            return Context.Cell(type: lhs.type, object: lhs.object && rhs.object)
+          })
       }
+
+      // Make sure the after-contexts are consistent with the computed before-context.
+      for predecessor in visitedPredecessors {
+        let afterContext = contexts[predecessor]!.after
+        var didChange = false
+
+        for key in result.locals.keys {
+          switch result.locals[key]! {
+          case .object(let lhs):
+            // Operands have consistent types.
+            let rhs = afterContext.locals[key]!.unwrapObject()!
+            assert(lhs.isFull && rhs.isFull, "bad object operand state")
+
+            // Find situations where an operand is initialized at the end of a predecessor but
+            // deinitialized in the before context. In these cases, the operand is deinitialized
+            // at the end of the predecessor.
+            if lhs != rhs {
+              // Deinitialize the object at the end of the predecessor.
+              let terminator = module.terminator(
+                of: Block.ID(function: functionID, address: predecessor))!
+              module.insert(
+                DeinitInstruction(key.operand(in: functionID), site: module[terminator].site),
+                before: terminator)
+              didChange = true
+            }
+
+          case .locations(let lhs):
+            // Operands have consistent types.
+            let rhs = afterContext.locals[key]!.unwrapLocations()!
+
+            // Assume the objects at each location have the same state. That assertion holds
+            // for the locations referred to by the before-state locals, unless DI or LoW has
+            // been broken somewhere.
+            let stateAtEntry = withObject(at: lhs.first!, { $0 })
+            let stateAtExit = withObject(at: rhs.first!, { $0 })
+
+            // Find situations where the initialization state of an object in memory at the end
+            // of a predecessor is different in the before context. In those these, the object
+            // is deinitialized at the end of the predecessor.
+            let difference = stateAtExit.difference(stateAtEntry)
+            if !difference.isEmpty {
+              // Deinitialize the object at the end of the predecessor.
+              let terminator = module.terminator(
+                of: Block.ID(function: functionID, address: predecessor))!
+              let operand = key.operand(in: functionID)
+              let rootType = module.type(of: operand).astType
+
+              for path in difference {
+                let objectType = program.abstractLayout(of: rootType, at: path).type
+                let object = module.insert(
+                  LoadInstruction(
+                    .object(objectType), from: operand, at: path,
+                    site: module[terminator].site),
+                  before: terminator)[0]
+                module.insert(
+                  DeinitInstruction(object, site: module[terminator].site),
+                  before: terminator)
+              }
+              didChange = true
+            }
+          }
+        }
+
+        // Reinsert the predecessor in the work list if necessary.
+        if didChange && (done.remove(predecessor) != nil) {
+          var blocksToRevisit = [predecessor]
+          while let b = blocksToRevisit.popLast() {
+            done.remove(b)
+            blocksToRevisit.append(contentsOf: cfg.successors(of: b).filter(done.contains(_:)))
+          }
+        }
+      }
+
+      return result
     }
 
     // Reinitialize the internal state of the pass.
