@@ -1,0 +1,26 @@
+/*! cpp
+void test() {
+  MyInt a;
+  a = a++;
+  a = a--;
+}
+*/
+
+type MyInt {
+  let value: Int
+
+  fun postfix++ () -> Self {
+    self
+  }
+
+  fun postfix-- () -> Self {
+    self
+  }
+
+}
+
+fun test() {
+  var a: MyInt
+  a = a++
+  a = a--
+}

@@ -6,8 +6,16 @@ public struct CXXCodeWriter {
 
   // MARK: API
 
-  /// Write the CXX header content for the given module to the given text stream.
-  public func emitHeaderCode(_ module: CXXModule) -> String {
+  /// Returns the C++ code for a translation unit.
+  public func cxxCode(_ source: CXXModule) -> TranslationUnitCode {
+    TranslationUnitCode(
+      headerCode: generateHeaderCode(source), sourceCode: generateSourceCode(source))
+  }
+
+  // MARK: File type specific logic
+
+  /// The C++ code for `module` that needs to be present in the header file.
+  private func generateHeaderCode(_ source: CXXModule) -> String {
     var target = CodeFormatter()
 
     // Emit the header guard.
@@ -22,12 +30,12 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(module.valDecl.name)")
+    target.write("namespace \(source.name)")
     target.beginBrace()
     target.writeNewline()
 
     // Emit the C++ text needed for the header corresponding to the C++ declarations.
-    for decl in module.cxxTopLevelDecls {
+    for decl in source.topLevelDecls {
       writeInterface(topLevel: decl, into: &target)
     }
 
@@ -37,26 +45,35 @@ public struct CXXCodeWriter {
     return target.code
   }
 
-  /// Write the CXX source content for the given module to the given text stream.
-  public func emitSourceCode(_ module: CXXModule) -> String {
+  /// Returns the C++ code for `source` that needs to be present in the source file.
+  private func generateSourceCode(_ source: CXXModule) -> String {
     var target = CodeFormatter()
 
     // Emit include clauses.
-    target.writeLine("#include \"\(module.valDecl.name).h\"")
+    target.writeLine("#include \"\(source.name).h\"")
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(module.valDecl.name)")
+    target.write("namespace \(source.name)")
     target.beginBrace()
     target.writeNewline()
 
     // Emit the C++ text needed for the source file corresponding to the C++ declarations.
-    for decl in module.cxxTopLevelDecls {
+    for decl in source.topLevelDecls {
       writeDefinition(topLevel: decl, into: &target)
       target.writeNewline()
     }
 
     target.endBrace()
+
+    // Write a CXX `main` function if the module has an entry point.
+    if source.entryPointBody != nil {
+      target.writeNewline()
+      target.writeNewline()
+      target.write("int main()")
+      write(stmt: source.entryPointBody!, into: &target)
+      target.writeNewline()
+    }
 
     return target.code
   }
@@ -69,6 +86,8 @@ public struct CXXCodeWriter {
       writeSignature(function: decl as! CXXFunctionDecl, into: &target)
     case CXXClassDecl.self:
       writeSignature(type: decl as! CXXClassDecl, into: &target)
+    case CXXComment.self:
+      write(comment: decl as! CXXComment, into: &target)
     default:
       fatalError("unexpected top-level declaration")
     }
@@ -81,6 +100,8 @@ public struct CXXCodeWriter {
       writeDefinition(function: decl as! CXXFunctionDecl, into: &target)
     case CXXClassDecl.self:
       writeDefinition(type: decl as! CXXClassDecl, into: &target)
+    case CXXComment.self:
+      write(comment: decl as! CXXComment, into: &target)
     default:
       fatalError("unexpected top-level declaration")
     }
@@ -246,10 +267,12 @@ public struct CXXCodeWriter {
       write(receiverExpr: expr as! CXXReceiverExpr, into: &target)
     case CXXTypeExpr.self:
       write(typeExpr: expr as! CXXTypeExpr, into: &target)
-    case CXXCompoundExpr.self:
-      write(compoundExpr: expr as! CXXCompoundExpr, into: &target)
     case CXXInfixExpr.self:
       write(infixExpr: expr as! CXXInfixExpr, into: &target)
+    case CXXPrefixExpr.self:
+      write(prefixExpr: expr as! CXXPrefixExpr, into: &target)
+    case CXXPostfixExpr.self:
+      write(postfixExpr: expr as! CXXPostfixExpr, into: &target)
     case CXXFunctionCallExpr.self:
       write(functionCallExpr: expr as! CXXFunctionCallExpr, into: &target)
     case CXXVoidCast.self:
@@ -282,19 +305,78 @@ public struct CXXCodeWriter {
     target.write("this")
   }
   private func write(typeExpr expr: CXXTypeExpr, into target: inout CodeFormatter) {
-    target.write(expr.description)
-  }
-  private func write(compoundExpr expr: CXXCompoundExpr, into target: inout CodeFormatter) {
-    write(expr: expr.base, into: &target)
-    target.write(".")
-    write(expr: expr.id, into: &target)
+    target.write(expr.text)
   }
   private func write(infixExpr expr: CXXInfixExpr, into target: inout CodeFormatter) {
+    // TODO: handle precedence and associativity; as of writing this comment, infix operators cannot be properly tested.
     write(expr: expr.lhs, into: &target)
     target.writeSpace()
-    write(expr: expr.callee, into: &target)
+    switch expr.oper {
+    case .scopeResolution: target.write("::")
+    case .dotAccess: target.write(".")
+    case .ptrAccess: target.write("->")
+    case .dotPtrToMember: target.write(".*")
+    case .ptrToMember: target.write("->*")
+    case .multiplication: target.write("*")
+    case .division: target.write("/")
+    case .remainder: target.write("%")
+    case .addition: target.write("+")
+    case .subtraction: target.write("-")
+    case .leftShift: target.write("<<")
+    case .rightShift: target.write(">>")
+    case .spaceship: target.write("<=>")
+    case .lessThan: target.write("<")
+    case .lessEqual: target.write("<=")
+    case .greaterThan: target.write(">")
+    case .greaterEqual: target.write(">=")
+    case .equality: target.write("==")
+    case .inequality: target.write("==")
+    case .bitwiseAnd: target.write("&")
+    case .bitwiseXor: target.write("^")
+    case .bitwiseOr: target.write("|")
+    case .logicalAnd: target.write("&&")
+    case .logicalOr: target.write("||")
+    case .assignment: target.write("=")
+    case .addAssignment: target.write("+=")
+    case .subAssignment: target.write("-=")
+    case .mulAssignment: target.write("*=")
+    case .divAssignment: target.write("/=")
+    case .remAssignment: target.write("%=")
+    case .shiftLeftAssignment: target.write("<<=")
+    case .shiftRightAssignment: target.write(">>=")
+    case .bitwiseAndAssignment: target.write("&=")
+    case .bitwiseXorAssignment: target.write("^=")
+    case .bitwiseOrAssignment: target.write("|=")
+    case .comma: target.write(",")
+    }
     target.writeSpace()
     write(expr: expr.rhs, into: &target)
+  }
+  private func write(prefixExpr expr: CXXPrefixExpr, into target: inout CodeFormatter) {
+    // TODO: handle precedence and associativity; as of writing this comment, prefix operators cannot be properly tested.
+    switch expr.oper {
+    case .prefixIncrement: target.write("++")
+    case .prefixDecrement: target.write("--")
+    case .unaryPlus: target.write("+")
+    case .unaryMinus: target.write("-")
+    case .logicalNot: target.write("!")
+    case .bitwiseNot: target.write("~")
+    case .dereference: target.write("*")
+    case .addressOf: target.write("&")
+    case .sizeOf: target.write("sizeof ")
+    case .coAwait: target.write("co_await ")
+    case .throwOp: target.write("throw ")
+    case .coYield: target.write("co_yield ")
+    }
+    write(expr: expr.base, into: &target)
+  }
+  private func write(postfixExpr expr: CXXPostfixExpr, into target: inout CodeFormatter) {
+    // TODO: handle precedence and associativity; as of writing this comment, postfix operators cannot be properly tested.
+    write(expr: expr.base, into: &target)
+    switch expr.oper {
+    case .suffixIncrement: target.write("++")
+    case .suffixDecrement: target.write("--")
+    }
   }
   private func write(functionCallExpr expr: CXXFunctionCallExpr, into target: inout CodeFormatter) {
     write(expr: expr.callee, into: &target)

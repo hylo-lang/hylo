@@ -1,0 +1,10 @@
+//! expect-success
+
+public fun main() {
+  let a = 42 as Any
+
+  match a {
+    let x: Double {}
+    let y {}
+  }
+}

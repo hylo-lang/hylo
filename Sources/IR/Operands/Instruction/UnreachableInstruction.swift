@@ -3,7 +3,11 @@ import Core
 /// Marks this execution path as unreachable, causing a fatal error otherwise.
 public struct UnrechableInstruction: Instruction {
 
-  public var range: SourceRange?
+  public var site: SourceRange
+
+  init(site: SourceRange) {
+    self.site = site
+  }
 
   public var types: [LoweredType] { [] }
 

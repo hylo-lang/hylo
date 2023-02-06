@@ -83,11 +83,11 @@ final class ValCommandTests: XCTestCase {
     XCTAssertFalse(result.status.isSuccess)
 
     let expectedStandardError = """
-    \(input.relativePath):2:11: error: undefined name 'foo' in this scope
-      let x = foo()
-              ~~~
+      \(input.relativePath):2:11: error: undefined name 'foo' in this scope
+        let x = foo()
+                ~~~
 
-    """
+      """
     XCTAssertEqual(expectedStandardError, result.stderr)
   }
 
@@ -118,10 +118,7 @@ final class ValCommandTests: XCTestCase {
     let output = outputDirectory.appendingPathComponent("a.out")
 
     // Parse the command line's arguments.
-    let cli = try ValCommand.parse(arguments + [
-      "-o", output.relativePath,
-      input.relativePath
-    ])
+    let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
 
     // Execute the command.
     var stderr = ""

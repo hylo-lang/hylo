@@ -13,18 +13,18 @@ public struct LoadInstruction: Instruction {
   /// A sequence of indices identifying a sub-location of `location`.
   public let path: [Int]
 
-  public let range: SourceRange?
+  public let site: SourceRange
 
   init(
     _ objectType: LoweredType,
     from source: Operand,
     at path: [Int] = [],
-    range: SourceRange? = nil
+    site: SourceRange
   ) {
     self.objectType = objectType
     self.source = source
     self.path = path
-    self.range = range
+    self.site = site
   }
 
   public var types: [LoweredType] { [objectType] }

@@ -56,7 +56,7 @@ extension TypedProgram {
       for m in decl.members where m.kind == BindingDecl.self {
         let binding = BindingDecl.Typed(m)!
         for (_, name) in binding.pattern.names {
-          indices[name.decl.name] = types.count
+          indices[name.decl.baseName] = types.count
           types.append(name.decl.type)
         }
       }
