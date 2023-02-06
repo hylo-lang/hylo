@@ -19,6 +19,9 @@ public struct Function {
   /// The debug name of the function, if any.
   public let debugName: String?
 
+  /// The position in source code at which the function is anchored.
+  public let anchor: SourcePosition
+
   /// The linkage of the function.
   public let linkage: Linkage
 

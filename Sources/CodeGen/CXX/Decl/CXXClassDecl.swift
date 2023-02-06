@@ -26,7 +26,4 @@ struct CXXClassDecl: CXXTopLevelDecl {
   /// The class membmers.
   let members: [ClassMember]
 
-  /// The original node in Val AST.
-  let original: ProductTypeDecl.Typed
-
 }

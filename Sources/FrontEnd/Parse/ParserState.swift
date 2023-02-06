@@ -117,11 +117,6 @@ struct ParserState {
     lexer.sourceCode.range(startIndex ..< currentIndex)
   }
 
-  /// Returns a range starting and ending at `index`.
-  func emptyRange(at index: String.Index) -> SourceRange {
-    lexer.sourceCode.range(index ..< index)
-  }
-
   /// Returns whether `token` is a member index.
   func isMemberIndex(_ token: Token) -> Bool {
     (token.kind == .int)

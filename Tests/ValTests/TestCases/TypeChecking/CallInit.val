@@ -1,4 +1,4 @@
-//! expect-success
+//! expect-failure
 
 type A {
 
@@ -10,6 +10,12 @@ type A {
 
 }
 
+fun check<T>(_ x: T) {}
+
 public fun main() {
-  let _ = A(value: 42)
+  let x0 = A(x: 42)
+  check<A>(x0)
+
+  //! @+1 diagnostic type 'A' has no member 'init(self:y:)'
+  let x1 = A(y: 42)
 }

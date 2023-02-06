@@ -10,9 +10,6 @@ struct CXXConditionalExpr: CXXExpr {
   /// The expression to be returned if the condition is `false`.
   let falseExpr: CXXExpr
 
-  /// The original node in Val AST.
-  let original: CondExpr.Typed
-
   var precedence: Int {
     16
   }
