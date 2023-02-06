@@ -1,0 +1,23 @@
+/*! h
+class Int {
+public:
+int64_t value;
+ */
+
+/*! h
+class Bool {
+public:
+bool value;
+ */
+
+/*! h
+class Double {
+public:
+double value;
+ */
+
+/*! h
+class Int32 {
+public:
+int32_t value;
+ */

@@ -205,7 +205,7 @@ public struct CXXCodeWriter {
       write(typeExpr: dataMembers[0].type, into: &target)
       target.write(" v) : ")
       write(identifier: dataMembers[0].name, into: &target)
-      target.write("(v) {}")
+      target.writeLine("(v) {}")
     }
   }
 
