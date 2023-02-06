@@ -44,6 +44,15 @@ extension Program {
     }
   }
 
+  /// Returns the scope introducing `d`.
+  public func scopeIntroducing(_ d: AnyDeclID) -> AnyScopeID {
+    if d.kind == InitializerDecl.self {
+      return scopeToParent[declToScope[d]!]!
+    } else {
+      return declToScope[d]!
+    }
+  }
+
   /// Returns whether `decl` is global.
   ///
   /// A declaration is global if and only if:
@@ -73,7 +82,7 @@ extension Program {
 
     // Declarations at global scope are global.
     switch declToScope[decl]!.kind {
-    case TopLevelDeclSet.self, NamespaceDecl.self:
+    case TranslationUnit.self, NamespaceDecl.self:
       return true
 
     default:

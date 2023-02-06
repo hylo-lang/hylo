@@ -140,7 +140,7 @@ public struct ValCommand: ParsableCommand {
 
     // Parse the source code.
     let newModule = try ast.makeModule(
-      "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
+      productName, sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
@@ -222,20 +222,23 @@ public struct ValCommand: ParsableCommand {
     let transpiler = CXXTranspiler(typedProgram)
     let codeWriter = CXXCodeWriter()
 
-    // Translate the module to C++ AST.
-    let cxxModule = transpiler.transpile(typedProgram[newModule])
+    // Generate C++ code: Val's StdLib + current module.
+    let cxxStdLib = codeWriter.cxxCode(transpiler.transpile(typedProgram.corelib!))
+    let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[newModule]))
 
-    // Generate the C++ code, header & source.
-    let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
-    let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
+    let stdLibFilename = "ValStdLib"
 
     // Handle `--emit cpp`.
     if outputType == .cpp {
-      let baseURL = outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
-      try cxxHeaderCode.write(
-        to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
-      try cxxSourceCode.write(
-        to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
+      try write(
+        cxxStdLib,
+        to: outputURL?.deletingLastPathComponent().appendingPathComponent(stdLibFilename)
+          ?? URL(fileURLWithPath: stdLibFilename),
+        loggingTo: &errorLog)
+      try write(
+        cxxCode,
+        to: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName),
+        loggingTo: &errorLog)
       return
     }
 
@@ -249,12 +252,13 @@ public struct ValCommand: ParsableCommand {
       appropriateFor: currentDirectory,
       create: true)
 
-    // Compile the transpiled module.
-    let cxxHeaderURL = buildDirectoryURL.appendingPathComponent(productName + ".h")
-    try cxxHeaderCode.write(to: cxxHeaderURL, atomically: true, encoding: .utf8)
-
-    let cxxSourceURL = buildDirectoryURL.appendingPathComponent(productName + ".cpp")
-    try cxxSourceCode.write(to: cxxSourceURL, atomically: true, encoding: .utf8)
+    // Write the C++ code to the build directory.
+    try write(
+      cxxStdLib,
+      to: buildDirectoryURL.appendingPathComponent(stdLibFilename),
+      loggingTo: &errorLog)
+    try write(
+      cxxCode, to: buildDirectoryURL.appendingPathComponent(productName), loggingTo: &errorLog)
 
     let clang = try find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
@@ -263,9 +267,25 @@ public struct ValCommand: ParsableCommand {
       [
         "-o", binaryURL.path,
         "-I", buildDirectoryURL.path,
-        cxxSourceURL.path,
+        buildDirectoryURL.appendingPathComponent(productName + ".cpp").path,
       ],
       loggingTo: &errorLog)
+  }
+
+  /// Writes the code for a C++ translation unit to .h/.cpp files at `baseUrl`.
+  private func write<L: Log>(_ source: TranslationUnitCode, to baseURL: URL, loggingTo log: inout L)
+    throws
+  {
+    try write(source.headerCode, toURL: baseURL.appendingPathExtension("h"), loggingTo: &log)
+    try write(source.sourceCode, toURL: baseURL.appendingPathExtension("cpp"), loggingTo: &log)
+  }
+
+  /// Writes `source` to the `filename`, possibly with verbose logging.
+  private func write<L: Log>(_ source: String, toURL url: URL, loggingTo log: inout L) throws {
+    if verbose {
+      log.log("Writing \(url)")
+    }
+    try source.write(to: url, atomically: true, encoding: .utf8)
   }
 
   /// Creates a module from the contents at `url` and adds it to the AST.

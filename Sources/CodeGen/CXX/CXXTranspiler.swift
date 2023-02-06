@@ -18,7 +18,9 @@ public struct CXXTranspiler {
 
   /// Returns a C++ AST implementing the semantics of `source`.
   public func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
-    return CXXModule(source: source, topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }))
+    return CXXModule(
+      source: source, topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
+      entryPointBody: entryPointBody(module: source))
   }
 
   // MARK: Declarations
@@ -30,8 +32,14 @@ public struct CXXTranspiler {
       return cxx(function: FunctionDecl.Typed(source)!)
     case ProductTypeDecl.self:
       return cxx(type: ProductTypeDecl.Typed(source)!)
+    case OperatorDecl.self:
+      return CXXComment(comment: "operator decl")
+    case ConformanceDecl.self:
+      return CXXComment(comment: "conformance decl")
+    case TraitDecl.self:
+      return CXXComment(comment: "trait decl")
     default:
-      unreachable("unexpected declaration")
+      unexpected("declaration", found: source)
     }
   }
 
@@ -52,20 +60,15 @@ public struct CXXTranspiler {
   private func cxxFunctionReturnType(_ source: FunctionDecl.Typed, with name: String)
     -> CXXTypeExpr  // TODO: this will be refactored by follow-up patches.
   {
-    if name == "main" {
-      // The output type of `main` must be `int`.
-      return CXXTypeExpr("int")
-    } else {
-      switch source.type.base {
-      case let valDeclType as LambdaType:
-        return cxx(typeExpr: valDeclType.output, asReturnType: true)
+    switch source.type.base {
+    case let valDeclType as LambdaType:
+      return cxx(typeExpr: valDeclType.output, asReturnType: true)
 
-      case is MethodType:
-        fatalError("not implemented")
+    case is MethodType:
+      fatalError("not implemented")
 
-      default:
-        unreachable()
-      }
+    default:
+      unreachable("unexpected type")
     }
   }
 
@@ -111,7 +114,7 @@ public struct CXXTranspiler {
       return [.method]
 
     default:
-      unreachable("unexpected class member")
+      unexpected("class member", found: source)
     }
   }
 
@@ -201,7 +204,7 @@ public struct CXXTranspiler {
     case YieldStmt.self:
       return cxx(yieldStmt: YieldStmt.Typed(source)!)
     default:
-      unreachable("unexpected statement")
+      unexpected("statement", found: source)
     }
   }
 
@@ -216,7 +219,7 @@ public struct CXXTranspiler {
     case BindingDecl.self:
       return cxx(localBinding: BindingDecl.Typed(source.decl)!)
     default:
-      unreachable("unexpected declaration")
+      unexpected("declaration", found: source)
     }
   }
 
@@ -298,7 +301,7 @@ public struct CXXTranspiler {
     case CondExpr.self:
       return cxx(cond: CondExpr.Typed(source)!)
     default:
-      unreachable("unexpected expression")
+      unexpected("expression", found: source)
     }
   }
 
@@ -337,7 +340,7 @@ public struct CXXTranspiler {
     lhs: CXXExpr,
     rhs: CXXExpr
   ) -> CXXExpr {
-    switch nameOfDecl(source.decl.decl) {
+    switch nameOfDecl(source.decl.decl!) {
     case "<<": return CXXInfixExpr(oper: .leftShift, lhs: lhs, rhs: rhs)
     case ">>": return CXXInfixExpr(oper: .rightShift, lhs: lhs, rhs: rhs)
     case "*": return CXXInfixExpr(oper: .multiplication, lhs: lhs, rhs: rhs)
@@ -460,13 +463,13 @@ public struct CXXTranspiler {
   /// This usually result into a C++ identifier, but it can also result in pre-/post-fix operator calls.
   private func cxx(name source: NameExpr.Typed) -> CXXExpr {
     switch source.decl {
-    case .direct(let callee) where callee.kind == BuiltinDecl.self:
-      return cxx(nameOfBuiltin: source)
     case .direct(let callee) where callee.kind == FunctionDecl.self:
       return cxx(
         nameOfFunction: FunctionDecl.Typed(callee)!, withDomainExpr: source.domainExpr)
+
     case .direct(let callee) where callee.kind == InitializerDecl.self:
       return cxx(nameOfInitializer: InitializerDecl.Typed(callee)!)
+
     case .direct(let callee):
       // For variables, and other declarations, just use the name of the declaration
       return CXXIdentifier(nameOfDecl(callee))
@@ -476,12 +479,16 @@ public struct CXXTranspiler {
 
     case .member(_):
       fatalError("not implemented")
+
+    case .builtinFunction(let f):
+      // Callee refers to a built-in function.
+      return CXXIdentifier(f.llvmInstruction)
+
+    case .builtinType:
+      unreachable()
     }
   }
-  /// Returns a transpilation of `source`.
-  private func cxx(nameOfBuiltin source: NameExpr.Typed) -> CXXExpr {
-    return CXXIdentifier(source.name.value.stem)
-  }
+
   /// Returns a transpilation of `source`.
   ///
   /// Usually this translates to an identifier, but it can translate to pre-/post-fix operator calls.
@@ -533,7 +540,7 @@ public struct CXXTranspiler {
     case .expr(let domainDetails):
       receiver = cxx(expr: domainDetails)
     case .implicit:
-      unreachable()
+      fatalError("not implemented")
     }
 
     // Emit the function reference.
@@ -550,16 +557,21 @@ public struct CXXTranspiler {
       return CXXTypeExpr(isReturnType ? "void" : "std::monostate")
 
     case let type as ProductType:
-      // TODO: we should translate this to an "int" struct
-      if type == wholeValProgram.ast.coreType(named: "Int") {
-        return CXXTypeExpr("int")
-      } else {
-        return CXXTypeExpr(type.name.value)
-      }
+      return CXXTypeExpr(type.name.value)
 
     case let type as ParameterType:
       // TODO: convention
       return cxx(typeExpr: type.bareType)
+
+    case let type as BuiltinType:
+      // TODO
+      let _ = type
+      return CXXTypeExpr("builtin")
+
+    case let type as SumType:
+      // TODO
+      let _ = type
+      return CXXTypeExpr("sum_type")
 
     default:
       fatalError("not implemented")
@@ -601,6 +613,46 @@ public struct CXXTranspiler {
       fatalError("not implemented")
     }
 
+  }
+
+  // MARK: entry point function body
+
+  /// Returns the transpiled body of the entry point function in `source`.
+  func entryPointBody(module source: ModuleDecl.Typed) -> CXXScopedBlock? {
+    return source.topLevelDecls.first(transformedBy: { (d) in
+      if FunctionDecl.Typed(d)?.identifier?.value == "main" {
+        return entryPointBody(mainFunction: FunctionDecl.Typed(d)!, in: source)
+      } else {
+        return nil
+      }
+    })
+  }
+  /// Returns the transpiled body of the entry point function calling `source`.
+  private func entryPointBody(mainFunction source: FunctionDecl.Typed, in module: ModuleDecl.Typed)
+    -> CXXScopedBlock
+  {
+    // The expression that makes a call to the module `main` function.
+    let callToMain = CXXFunctionCallExpr(
+      callee: CXXInfixExpr(
+        oper: .scopeResolution,
+        lhs: CXXIdentifier(module.baseName),
+        rhs: CXXIdentifier("main")),
+      arguments: [])
+
+    // Foward function result if the result type is Int32.
+    let resultType = (source.type.base as! LambdaType).output
+    let forwardReturn = resultType == wholeValProgram.ast.coreType(named: "Int32")!
+
+    // Build the body of the CXX entry-point function.
+    var bodyContent: [CXXStmt] = []
+    if forwardReturn {
+      // Forward the result of the function as the exit code.
+      bodyContent = [CXXReturnStmt(expr: callToMain)]
+    } else {
+      // Make a plain function call, discarding the result
+      bodyContent = [CXXExprStmt(expr: CXXVoidCast(baseExpr: callToMain))]
+    }
+    return CXXScopedBlock(stmts: bodyContent)
   }
 
 }
