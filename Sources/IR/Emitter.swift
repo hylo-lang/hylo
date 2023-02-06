@@ -19,7 +19,7 @@ public struct Emitter {
   private var frames = Stack()
 
   /// The receiver of the function or subscript currently being lowered, if any.
-  private var receiverDecl: ParameterDecl.Typed?
+  private var receiver: ParameterDecl.Typed?
 
   /// Creates an emitter with a well-typed AST.
   public init(program: TypedProgram) {
@@ -87,7 +87,7 @@ public struct Emitter {
     // Emit the body.
     frames.push(Frame(locals: locals))
     var receiverDecl = decl.receiver
-    swap(&receiverDecl, &self.receiverDecl)
+    swap(&receiverDecl, &self.receiver)
 
     switch body {
     case .block(let stmt):
@@ -109,7 +109,7 @@ public struct Emitter {
       }
     }
 
-    swap(&receiverDecl, &self.receiverDecl)
+    swap(&receiverDecl, &self.receiver)
     frames.pop()
     assert(frames.isEmpty)
   }
@@ -561,7 +561,7 @@ public struct Emitter {
           case .none:
             let receiver = module.append(
               BorrowInstruction(
-                type.capability, .address(type.base), from: frames[receiverDecl!]!,
+                type.capability, .address(type.base), from: frames[receiver!]!,
                 site: expr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
@@ -581,7 +581,7 @@ public struct Emitter {
           case .none:
             let receiver = module.append(
               LoadInstruction(
-                .object(receiverType), from: frames[receiverDecl!]!, site: expr.site),
+                .object(receiverType), from: frames[receiver!]!, site: expr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -817,7 +817,7 @@ public struct Emitter {
           case .none:
             let receiver = module.append(
               BorrowInstruction(
-                type.capability, .address(type.base), from: frames[receiverDecl!]!,
+                type.capability, .address(type.base), from: frames[receiver!]!,
                 site: nameExpr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
@@ -837,7 +837,7 @@ public struct Emitter {
           case .none:
             let receiver = module.append(
               LoadInstruction(
-                .object(receiverType), from: frames[receiverDecl!]!, site: nameExpr.site),
+                .object(receiverType), from: frames[receiver!]!, site: nameExpr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -920,37 +920,37 @@ public struct Emitter {
 
     case .member(let decl):
       // Emit the receiver.
-      let receiver: Operand
+      let r: Operand
 
       switch expr.domain {
       case .none:
-        receiver = frames[receiverDecl!]!
+        r = frames[receiver!]!
       case .implicit:
         fatalError("not implemented")
       case .expr(let receiverID):
-        receiver = emitL(expr: receiverID, withCapability: capability, into: &module)
+        r = emitL(expr: receiverID, withCapability: capability, into: &module)
       }
 
       // Emit the bound member.
       switch decl.kind {
       case VarDecl.self:
         let varDecl = VarDecl.Typed(decl)!
-        let layout = program.abstractLayout(of: module.type(of: receiver).astType)
+        let layout = program.abstractLayout(of: module.type(of: r).astType)
         let memberIndex = layout.storedPropertiesIndices[varDecl.baseName]!
 
         // If the lowered receiver is a borrow instruction, modify it in place so that it targets
         // the requested stored member. Otherwise, emit a reborrow.
-        if let id = receiver.instruction,
+        if let id = r.instruction,
           let receiverInstruction = module[id] as? BorrowInstruction
         {
           module[id] = BorrowInstruction(
             capability, .address(expr.type), from: receiverInstruction.location,
             at: receiverInstruction.path + [memberIndex],
             site: expr.site)
-          return receiver
+          return r
         } else {
           let member = BorrowInstruction(
-            capability, .address(expr.type), from: receiver,
+            capability, .address(expr.type), from: r,
             at: [memberIndex],
             site: expr.site)
           return module.append(member, to: insertionBlock!)[0]
