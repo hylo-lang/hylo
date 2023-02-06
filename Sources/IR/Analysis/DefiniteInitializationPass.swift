@@ -4,21 +4,21 @@ import Utils
 
 /// The definite initialization pass.
 ///
-/// Definite initialization checks that objects are initialized before use and deinitialized
-/// before their storage is reused or before they go and out scope.
+/// Definite initialization is a mendatory IR pass ensuiring that objects are initialized before
+/// use and deinitialized before their storage is reused or before they go and out scope.
 public struct DefiniteInitializationPass: TransformPass {
 
-  /// The pass is implemented as an abstract interpreter keeping track of the initialization state
-  /// of the objects in registers and memory.
-  ///
-  /// The interpreter relies on the IR being well-formed.
+  // The pass is implemented as an abstract interpreter keeping track of the initialization state
+  // of the objects in registers and memory.
 
+  /// A map fron function block to the context of the abstract interpreter before and after the
+  /// evaluation of its instructions.
   private typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
 
-  /// The program being lowered.
-  public let program: TypedProgram
+  /// The program from which the analyzed IR was lowered.
+  private let program: TypedProgram
 
-  /// The ID of the function being interpreted.
+  /// The ID of the function being analyzed.
   private var functionID: Function.ID = -1
 
   /// The current evaluation context.
@@ -33,7 +33,7 @@ public struct DefiniteInitializationPass: TransformPass {
   public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
     /// The control flow graph of the function to analyze.
     let cfg = module[functionID].cfg
-    /// The dominator tree of the function to analyize.
+    /// The dominator tree of the function to analyze.
     let dominatorTree = DominatorTree(function: functionID, cfg: cfg, in: module)
     /// A FILO list of blocks to visit.
     var work: Deque<Function.Blocks.Address>
