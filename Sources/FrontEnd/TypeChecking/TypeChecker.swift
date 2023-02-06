@@ -1194,7 +1194,7 @@ public struct TypeChecker {
       &declTypes[d]!,
       { (t) in
         t = s.typeAssumptions.reify(t)
-        return t[.hasError]
+        return !t[.hasError]
       })
     declRequests[d] = success ? .success : .failure
     return success
