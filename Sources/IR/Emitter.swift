@@ -284,6 +284,8 @@ public struct Emitter {
       emit(exprStmt: ExprStmt.Typed(stmt)!, into: &module)
     case ReturnStmt.self:
       emit(returnStmt: ReturnStmt.Typed(stmt)!, into: &module)
+    case WhileStmt.self:
+      emit(whileStmt: WhileStmt.Typed(stmt)!, into: &module)
     default:
       unexpected("statement", found: stmt)
     }
@@ -320,7 +322,6 @@ public struct Emitter {
     module.append(
       BranchInstruction(target: loopBody, site: .empty(at: stmt.site.first())),
       to: insertionBlock!)
-
     insertionBlock = loopBody
 
     // Note: we're not using `emit(braceStmt:into:)` because we need to evaluate the loop
@@ -356,6 +357,46 @@ public struct Emitter {
 
     emitStackDeallocs(in: &module, site: stmt.site)
     module.append(ReturnInstruction(value: value, site: stmt.site), to: insertionBlock!)
+  }
+
+  private mutating func emit(whileStmt stmt: WhileStmt.Typed, into module: inout Module) {
+    let loopHead = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let loopTail = module.createBasicBlock(atEndOf: insertionBlock!.function)
+
+    // Emit the condition(s).
+    module.append(
+      BranchInstruction(target: loopHead, site: .empty(at: stmt.site.first())),
+      to: insertionBlock!)
+    insertionBlock = loopHead
+
+    for item in stmt.condition {
+      let b = module.createBasicBlock(atEndOf: insertionBlock!.function)
+
+      frames.push()
+      defer { frames.pop() }
+
+      switch item {
+      case .expr(let itemExpr):
+        let e = program[itemExpr]
+        let c = emitBranchCondition(e, into: &module)
+        emitStackDeallocs(in: &module, site: e.site)
+        module.append(
+          CondBranchInstruction(
+            condition: c, targetIfTrue: b, targetIfFalse: loopTail,
+            site: e.site),
+          to: insertionBlock!)
+        insertionBlock = b
+
+      case .decl:
+        fatalError("not implemented")
+      }
+    }
+
+    emit(braceStmt: stmt.body, into: &module)
+    module.append(
+      BranchInstruction(target: loopHead, site: .empty(at: stmt.site.first())),
+      to: insertionBlock!)
+    insertionBlock = loopTail
   }
 
   // MARK: r-values
