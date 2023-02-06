@@ -28,7 +28,7 @@ public struct Emitter {
 
   // MARK: Declarations
 
-  /// Emits the IR of the top-level declaration `d` into `module`.
+  /// Inserts the IR for the top-level declaration `d` into `module`.
   ///
   /// - Requires: `d` is at module scope.
   mutating func emit(topLevel d: AnyDeclID.TypedNode, into module: inout Module) {
@@ -47,7 +47,7 @@ public struct Emitter {
     }
   }
 
-  /// Emits the IR of `decl` into `module`.
+  /// Inserts the IR for `decl` into `module`.
   private mutating func emit(functionDecl decl: FunctionDecl.Typed, into module: inout Module) {
     // Declare the function in the module if necessary.
     let functionID = module.getOrCreateFunction(correspondingTo: decl, program: program)
@@ -114,12 +114,12 @@ public struct Emitter {
     assert(frames.isEmpty)
   }
 
-  /// Emits the IR of `decl` into `module`.
+  /// Inserts the IR for `decl` into `module`.
   private mutating func emit(subscriptDecl decl: SubscriptDecl.Typed, into module: inout Module) {
     fatalError("not implemented")
   }
 
-  /// Emits the IR of `decl` into `module`.
+  /// Inserts the IR for `decl` into `module`.
   private mutating func emit(productDecl decl: ProductTypeDecl.Typed, into module: inout Module) {
     for member in decl.members {
       // Emit the member functions and subscripts of the type declaration.
@@ -140,19 +140,23 @@ public struct Emitter {
     }
   }
 
-  /// Emits the IR of `decl` into `module`, assuming it's a local binding.
+  /// Inserts the IR for the local binding `decl` into `module`.
+  ///
+  /// - Requires: `decl` is a local binding.
   private mutating func emit(localBindingDecl decl: BindingDecl.Typed, into module: inout Module) {
     switch decl.pattern.introducer.value {
     case .var, .sinklet:
       emit(storedLocalBindingDecl: decl, into: &module)
     case .let:
-      emit(borrowedLocalBindingDecl: decl, withCapability: .let, into: &module)
+      emit(localBindingDecl: decl, borrowing: .let, into: &module)
     case .inout:
-      emit(borrowedLocalBindingDecl: decl, withCapability: .inout, into: &module)
+      emit(localBindingDecl: decl, borrowing: .inout, into: &module)
     }
   }
 
-  /// Emits the IR of `decl` into `module`, assuming it's a local `var` or `sink let` binding.
+  /// Inserts the IR for the local binding `decl` into `module`.
+  ///
+  /// - Requires: `decl` is a local local `var` or `sink let` binding.
   private mutating func emit(
     storedLocalBindingDecl decl: BindingDecl.Typed,
     into module: inout Module
@@ -213,10 +217,12 @@ public struct Emitter {
     }
   }
 
-  /// Emits the IR of `decl` into `module`, assuming it's a local `let`, `inout` or `set` binding.
+  /// Inserts the IR for the local binding `decl` into `module`.
+  ///
+  /// - Requires: `decl` is a local local `let`, `inout`, or `set` binding.
   private mutating func emit(
-    borrowedLocalBindingDecl decl: BindingDecl.Typed,
-    withCapability capability: AccessEffect,
+    localBindingDecl decl: BindingDecl.Typed,
+    borrowing capability: AccessEffect,
     into module: inout Module
   ) {
     precondition(program.isLocal(decl.id))
@@ -230,7 +236,7 @@ public struct Emitter {
       let source: Operand
       if (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self) {
         // Emit the initializer as a l-value.
-        source = emitL(expr: initializer, withCapability: capability, into: &module)
+        source = emitL(expr: initializer, meantFor: capability, into: &module)
       } else {
         // emit a r-value and store it into local storage.
         let value = emitR(expr: initializer, into: &module)
@@ -263,7 +269,7 @@ public struct Emitter {
 
   // MARK: Statements
 
-  /// Emits the IR of `stmt` into `module`.
+  /// Inserts the IR for `stmt` into `module`.
   private mutating func emit<ID: StmtID>(stmt: ID.TypedNode, into module: inout Module) {
     switch stmt.kind {
     case AssignStmt.self:
@@ -284,7 +290,7 @@ public struct Emitter {
   private mutating func emit(assignStmt stmt: AssignStmt.Typed, into module: inout Module) {
     let rhs = emitR(expr: stmt.right, into: &module)
     // FIXME: Should request the capability 'set or inout'.
-    let lhs = emitL(expr: stmt.left, withCapability: .set, into: &module)
+    let lhs = emitL(expr: stmt.left, meantFor: .set, into: &module)
     _ = module.append(StoreInstruction(rhs, to: lhs, site: stmt.site), to: insertionBlock!)
   }
 
@@ -324,8 +330,7 @@ public struct Emitter {
 
   // MARK: r-values
 
-  /// Emits the IR of `expr` treated as a r-value into `module`, inserting instructions at the end
-  /// of `self.insertionBlock`.
+  /// Inserts the IR for the rvalue `expr` into `module` at the end of the current insertion block.
   private mutating func emitR<ID: ExprID>(
     expr: ID.TypedNode,
     into module: inout Module
@@ -396,7 +401,7 @@ public struct Emitter {
       switch item {
       case .expr(let itemExpr):
         // Evaluate the condition in the current block.
-        var condition = emitL(expr: program[itemExpr], withCapability: .let, into: &module)
+        var condition = emitL(expr: program[itemExpr], meantFor: .let, into: &module)
         condition =
           module.append(
             BorrowInstruction(
@@ -567,7 +572,7 @@ public struct Emitter {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            let receiver = emitL(expr: receiverID, withCapability: type.capability, into: &module)
+            let receiver = emitL(expr: receiverID, meantFor: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
 
           case .implicit:
@@ -730,11 +735,11 @@ public struct Emitter {
     case .leaf(let expr):
       switch convention {
       case .let:
-        return emitL(expr: program[expr], withCapability: .let, into: &module)
+        return emitL(expr: program[expr], meantFor: .let, into: &module)
       case .inout:
-        return emitL(expr: program[expr], withCapability: .inout, into: &module)
+        return emitL(expr: program[expr], meantFor: .inout, into: &module)
       case .set:
-        return emitL(expr: program[expr], withCapability: .set, into: &module)
+        return emitL(expr: program[expr], meantFor: .set, into: &module)
       case .sink:
         return emitR(expr: program[expr], into: &module)
       case .yielded:
@@ -750,11 +755,11 @@ public struct Emitter {
   ) -> Operand {
     switch parameterType.convention {
     case .let:
-      return emitL(expr: expr, withCapability: .let, into: &module)
+      return emitL(expr: expr, meantFor: .let, into: &module)
     case .inout:
-      return emitL(expr: expr, withCapability: .inout, into: &module)
+      return emitL(expr: expr, meantFor: .inout, into: &module)
     case .set:
-      return emitL(expr: expr, withCapability: .set, into: &module)
+      return emitL(expr: expr, meantFor: .set, into: &module)
     case .sink:
       return emitR(expr: expr, into: &module)
     case .yielded:
@@ -762,8 +767,9 @@ public struct Emitter {
     }
   }
 
-  /// Emits the IR of `expr` as an operand suitable to be the callee of a `CallInstruction` into
-  /// `module`, updating `conventions` and `arguments` if `expr` refers to a bound member function.
+  /// Inserts the IR for the callee `expr` into `module` at the end of the current insertion block,
+  /// inserting into `conventions` and `arguments` the passing convention and value of the callee's
+  /// receiver if `expr` refers to a bound member function.
   ///
   /// - Requires: `expr` has a lambda type.
   private mutating func emitCallee(
@@ -823,7 +829,7 @@ public struct Emitter {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            let receiver = emitL(expr: receiverID, withCapability: type.capability, into: &module)
+            let receiver = emitL(expr: receiverID, meantFor: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
 
           case .implicit:
@@ -868,16 +874,16 @@ public struct Emitter {
 
   // MARK: l-values
 
-  /// Emits the IR of `expr` treated as a l-value with given `capability` into `module`, inserting
-  /// instructions at the end of `self.insertionBlock`.
+  /// Inserts the IR for the lvalue `expr` meant for `capability` into `module` at the end of the
+  /// current insertion block.
   private mutating func emitL<ID: ExprID>(
     expr: ID.TypedNode,
-    withCapability capability: AccessEffect,
+    meantFor capability: AccessEffect,
     into module: inout Module
   ) -> Operand {
     switch expr.kind {
     case NameExpr.self:
-      return emitL(nameExpr: NameExpr.Typed(expr)!, withCapability: capability, into: &module)
+      return emitL(nameExpr: NameExpr.Typed(expr)!, meantFor: capability, into: &module)
 
     case SubscriptCallExpr.self:
       fatalError("not implemented")
@@ -904,7 +910,7 @@ public struct Emitter {
 
   private mutating func emitL(
     nameExpr expr: NameExpr.Typed,
-    withCapability capability: AccessEffect,
+    meantFor capability: AccessEffect,
     into module: inout Module
   ) -> Operand {
     switch expr.decl {
@@ -928,7 +934,7 @@ public struct Emitter {
       case .implicit:
         fatalError("not implemented")
       case .expr(let receiverID):
-        r = emitL(expr: receiverID, withCapability: capability, into: &module)
+        r = emitL(expr: receiverID, meantFor: capability, into: &module)
       }
 
       // Emit the bound member.
@@ -966,8 +972,7 @@ public struct Emitter {
 
   // MARK: Helpers
 
-  /// Pops the top frame of `self.stack` and emits a deallocation instruction for each allocation
-  /// in that frame.
+  /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
   private mutating func emitStackDeallocs(in module: inout Module, site: SourceRange) {
     while let alloc = frames.top.allocs.popLast() {
       module.append(DeallocStackInstruction(alloc, site: site), to: insertionBlock!)
@@ -992,19 +997,25 @@ extension Emitter {
   /// A stack of frames.
   fileprivate struct Stack {
 
-    /// The frames in the stack, in FILO order.
+    /// The frames in the stack, ordered from bottom to top.
     private var frames: [Frame] = []
 
     /// True iff the stack is empty.
     var isEmpty: Bool { frames.isEmpty }
 
-    /// Accesses the top frame, assuming the stack is not empty.
+    /// Accesses the top frame.
+    ///
+    /// - Requires: The stack is not empty.
     var top: Frame {
       get { frames[frames.count - 1] }
       _modify { yield &frames[frames.count - 1] }
     }
 
-    /// Accesses the IR corresponding to `d`, assuming the stack is not empty.
+    /// Accesses the IR corresponding to `d`.
+    ///
+    /// - Requires: The stack is not empty.
+    /// - Complexity: O(*n*) for read access where *n* is the number of frames in the stack. O(1)
+    ///   for write access.
     subscript<ID: DeclID>(d: ID.TypedNode) -> Operand? {
       get {
         for frame in frames.reversed() {
@@ -1020,10 +1031,13 @@ extension Emitter {
       frames.append(newFrame)
     }
 
-    /// Pops the top frame, assuming the stack is not empty.
-    mutating func pop() {
+    /// Pops the top frame.
+    ///
+    /// - Requires: The stack is not empty.
+    @discardableResult
+    mutating func pop() -> Frame {
       precondition(top.allocs.isEmpty, "stack leak")
-      frames.removeLast()
+      return frames.removeLast()
     }
 
   }
