@@ -18,7 +18,7 @@ public struct Emitter {
   /// A stack of frames describing the variables and allocations of each traversed lexical scope.
   private var stack = Stack()
 
-  /// The declaration of the receiver of the function or subscript currently lowered, if any.
+  /// The receiver of the function or subscript currently being lowered, if any.
   private var receiverDecl: ParameterDecl.Typed?
 
   /// Creates an emitter with a well-typed AST.
