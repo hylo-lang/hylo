@@ -5,7 +5,7 @@ import XCTest
 final class BuiltinFunctionTests: XCTestCase {
 
   func testInvalid() {
-    XCTAssertNil(BuiltinFunction(parsing: "add"))
+    XCTAssertNil(BuiltinFunction("add"))
   }
 
   func testIntegerArithmetic() throws {
@@ -183,7 +183,7 @@ final class BuiltinFunctionTests: XCTestCase {
     for s in stems {
       for p in parameters {
         let f = try XCTUnwrap(
-          BuiltinFunction(parsing: "\(s)_\(list: p, joinedBy: "_")"),
+          BuiltinFunction("\(s)_\(list: p, joinedBy: "_")"),
           file: file, line: line)
 
         XCTAssertEqual(f.llvmInstruction, s, file: file, line: line)

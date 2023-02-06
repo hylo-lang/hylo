@@ -1886,7 +1886,7 @@ public struct TypeChecker {
   private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
     let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
 
-    if let type = BuiltinSymbols[name.stem] {
+    if let type = BuiltinFunction(name.stem)?.type {
       return .init(reference: ref, type: .init(shape: ^type, constraints: []))
     }
     if let type = BuiltinType(name.stem) {

@@ -25,7 +25,7 @@ import Utils
 ///
 /// Supported operations include all LLVM arithmetic and comparison instructions on built-in integral
 /// and floating-point numbers as well as conversions from and to these types.
-public struct BuiltinFunction: Equatable {
+public struct BuiltinFunction: Hashable {
 
   /// The name of the notional generic function of which `self` is an instance.
   public let llvmInstruction: String
@@ -45,7 +45,7 @@ public struct BuiltinFunction: Equatable {
 
   /// Creates an instance by parsing it from `s` or returns `nil` if `s` isn't a valid built-in
   /// function name.
-  public init?(parsing s: String) {
+  public init?(_ s: String) {
     let make = Self.init(llvmInstruction:genericParameters:type:)
     var tokens = s.split(separator: "_")[...]
 

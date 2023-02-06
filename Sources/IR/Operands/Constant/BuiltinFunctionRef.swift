@@ -3,27 +3,32 @@ import Core
 /// A Val IR reference to a built-in function.
 public struct BuiltinFunctionRef: ConstantProtocol, Hashable {
 
-  /// The name of the function.
-  public let name: String
+  /// The function being referred to.
+  public let function: BuiltinFunction
+
+  /// Creates an instance referring to `f`.
+  public init(referringTo f: BuiltinFunction) {
+    self.function = f
+  }
 
   /// The type of the function.
-  public let type: LoweredType
-
-  /// Returns a reference to the built-in function with the given name.
-  public static subscript(_ name: String) -> BuiltinFunctionRef? {
-    if let type = BuiltinSymbols[name] {
-      return BuiltinFunctionRef(name: name, type: .address(type))
-    } else {
-      return nil
-    }
-  }
+  public var type: LoweredType { .address(function.type) }
 
 }
 
 extension BuiltinFunctionRef: CustomStringConvertible {
 
   public var description: String {
-    "@builtin.\(name)"
+    "@builtin.\(function)"
+  }
+
+}
+
+extension BuiltinFunction {
+
+  /// Returns a Val IR reference to this instance.
+  var reference: BuiltinFunctionRef {
+    BuiltinFunctionRef(referringTo: self)
   }
 
 }
