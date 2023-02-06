@@ -1799,10 +1799,10 @@ public struct TypeChecker {
     let matches: [AnyDeclID]
     if let t = parentType {
       matches = lookup(name.value.stem, memberOf: t, in: lookupScope)
-        .compactMap({ decl($0, named: name.value) })
+        .compactMap({ decl(in: $0, named: name.value) })
     } else {
       matches = lookup(unqualified: name.value.stem, in: lookupScope)
-        .compactMap({ decl($0, named: name.value) })
+        .compactMap({ decl(in: $0, named: name.value) })
     }
 
     // Diagnose undefined symbols.
@@ -3457,7 +3457,7 @@ public struct TypeChecker {
   /// if no such implementation exists.
   ///
   /// - Requires: The base name of `d` is equal to `n.stem`
-  mutating func decl(_ d: AnyDeclID, named n: Name) -> AnyDeclID? {
+  mutating func decl(in d: AnyDeclID, named n: Name) -> AnyDeclID? {
     if !n.labels.isEmpty && (n.labels != labels(d)) {
       return nil
     }

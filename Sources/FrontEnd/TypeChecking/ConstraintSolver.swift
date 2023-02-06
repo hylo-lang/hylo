@@ -424,7 +424,7 @@ struct ConstraintSolver {
     }
 
     let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, in: scope)
-      .compactMap({ checker.decl($0, named: goal.memberName) })
+      .compactMap({ checker.decl(in: $0, named: goal.memberName) })
 
     // Generate the list of candidates.
     let candidates = matches.compactMap({ (match) -> OverloadConstraint.Candidate? in
