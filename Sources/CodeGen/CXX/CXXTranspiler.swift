@@ -600,10 +600,16 @@ public struct CXXTranspiler {
       return CXXTypeExpr("int32_t")
     case .i(let bitWidth) where bitWidth == 64:
       return CXXTypeExpr("int64_t")
-    case .f64:
+    case .half:
+      return CXXTypeExpr("float") // not properly supported; just keep the compiler happy
+    case .float:
+      return CXXTypeExpr("float")
+    case .double:
       return CXXTypeExpr("double")
-    case .pointer:
-      return CXXTypeExpr("intptr_t")
+    case .fp128:
+      return CXXTypeExpr("long double")
+    case .ptr:
+      return CXXTypeExpr("long")
     default:
       fatalError("builtin type not implemented")
     }
