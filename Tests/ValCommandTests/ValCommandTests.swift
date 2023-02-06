@@ -59,6 +59,7 @@ final class ValCommandTests: XCTestCase {
       FileManager.default.fileExists(atPath: baseURL.appendingPathExtension("cpp").relativePath))
   }
 
+  #if !os(Windows)
   func testBinary() throws {
     let input = try XCTUnwrap(
       Bundle.module.url(forResource: "Success", withExtension: ".val", subdirectory: "Inputs"),
@@ -69,6 +70,7 @@ final class ValCommandTests: XCTestCase {
     XCTAssert(result.stderr.isEmpty)
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
+  #endif
 
   func testTypeCheckSuccess() throws {
     let input = try url(forSourceNamed: "Success")
