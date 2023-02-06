@@ -1,13 +1,12 @@
 //! expect-failure
 
 public fun main() {
-  var x = true
   do {
-    &x = false
+    let x = false
   } while x
 
-  var y = 0
+  var x = 0
   do {
-    &y = 1
-  } while y   //! diagnostic incompatible types 'Int' and 'Bool'
+    &x = 1
+  } while x   //! diagnostic incompatible types 'Int' and 'Bool'
 }
