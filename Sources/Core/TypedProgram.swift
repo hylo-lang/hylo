@@ -28,7 +28,7 @@ public struct TypedProgram: Program {
 
   /// The Val standard library module.
   public var corelib: ModuleDecl.Typed? {
-    ast.corelib != nil ? self[ast.corelib!] : nil
+    ast.corelib.map({ self[$0] })
   }
 
   /// Creates a typed program from a scoped program and property maps describing type annotations.

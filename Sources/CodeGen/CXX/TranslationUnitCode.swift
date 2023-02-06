@@ -6,6 +6,7 @@ public struct TranslationUnitCode {
 
   /// The code that belongs to a C++ header file.
   public let headerCode: String
+
   /// The code that belongs to a C++ source file.
   public let sourceCode: String
 

@@ -15,9 +15,3 @@
 /Sources/Parser/**
 !/Sources/Parser/Val.g4
 !/Sources/Parser/ValParser+Extensions.swift
-
-# Generated C++ files
-Main.h
-Main.cpp
-ValStdLib.h
-ValStdLib.cpp

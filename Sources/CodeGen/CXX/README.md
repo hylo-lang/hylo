@@ -24,7 +24,7 @@ The header of a transpiled unit exposes the public symbols of the module through
 | Val decl | Scope | CXX decl | Notes |
 | -------- | ----- | -------- | ----- |
 | `ModuleDecl` | module | `CXXModule` | One Val module to one CXX module. |
-| `TopLevelDeclSet` | module | N/A | Translated indirectly through `ModuleDecl`. |
+| `TranslationUnit` | module | N/A | Translated indirectly through `ModuleDecl`. |
 | `ImportDecl` | top-level | `CXXImportDecl` | Translated into C++20 `import` declarations |
 | `NamespaceDecl` | top-level | `CXXNamespaceDecl` | |
 | `FunctionDecl` | top-level | `CXXFunctionDecl` | |

@@ -613,7 +613,7 @@ public struct TypeChecker {
   }
 
   private mutating func check(operator id: NodeID<OperatorDecl>) -> Bool {
-    let source = NodeID<TopLevelDeclSet>(program.declToScope[id]!)!
+    let source = NodeID<TranslationUnit>(program.declToScope[id]!)!
 
     // Look for duplicate operator declaration.
     for decl in program.ast[source].decls where decl.kind == OperatorDecl.self {
@@ -1764,7 +1764,7 @@ public struct TypeChecker {
 
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
-      if isNominalTypeDecl(candidates[0].reference.decl) {
+      if let d = candidates[0].reference.decl, isNominalTypeDecl(d) {
         parentType = MetatypeType(candidates[0].type.shape)!.instance
       } else {
         parentType = candidates[0].type.shape
@@ -1785,8 +1785,9 @@ public struct TypeChecker {
   ) -> [NameResolutionResult.Candidate] {
     // Handle references to the built-in module.
     if (name.value.stem == "Builtin") && (parentType == nil) && isBuiltinModuleVisible {
-      let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
-      return [.init(reference: ref, type: .init(shape: ^BuiltinType.module, constraints: []))]
+      return [
+        .init(reference: .builtinType, type: .init(shape: ^BuiltinType.module, constraints: []))
+      ]
     }
 
     // Handle references to built-in symbols.
@@ -1798,10 +1799,10 @@ public struct TypeChecker {
     let matches: [AnyDeclID]
     if let t = parentType {
       matches = lookup(name.value.stem, memberOf: t, in: lookupScope)
-        .compactMap({ decl($0, named: name.value) })
+        .compactMap({ decl(in: $0, named: name.value) })
     } else {
       matches = lookup(unqualified: name.value.stem, in: lookupScope)
-        .compactMap({ decl($0, named: name.value) })
+        .compactMap({ decl(in: $0, named: name.value) })
     }
 
     // Diagnose undefined symbols.
@@ -1860,11 +1861,24 @@ public struct TypeChecker {
         : .direct(match)
 
       // Instantiate the type of the declaration
-      let instantiatedType = instantiate(
-        targetType,
-        fromScopeIntroducing: reference.decl,
-        cause: ConstraintCause(.binding, at: name.site))
-      candidates.append(.init(reference: reference, type: instantiatedType))
+      let c = ConstraintCause(.binding, at: name.site)
+      switch reference {
+      case .direct(let d):
+        candidates.append(
+          .init(
+            reference: reference,
+            type: instantiate(targetType, in: program.scopeIntroducing(d), cause: c)))
+
+      case .member(let d):
+        candidates.append(
+          .init(
+            reference: reference,
+            type: instantiate(targetType, in: program.scopeIntroducing(d), cause: c)))
+
+      case .builtinFunction, .builtinType:
+        candidates.append(
+          .init(reference: reference, type: .init(shape: targetType, constraints: [])))
+      }
     }
 
     // If there are no candidates left, diagnose an error.
@@ -1884,13 +1898,11 @@ public struct TypeChecker {
 
   /// Resolves a reference to the built-in symbol named `name`.
   private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
-    let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
-
-    if let type = BuiltinSymbols[name.stem] {
-      return .init(reference: ref, type: .init(shape: ^type, constraints: []))
+    if let f = BuiltinFunction(name.stem) {
+      return .init(reference: .builtinFunction(f), type: .init(shape: ^f.type, constraints: []))
     }
-    if let type = BuiltinType(name.stem) {
-      return .init(reference: ref, type: .init(shape: ^type, constraints: []))
+    if let t = BuiltinType(name.stem) {
+      return .init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
     }
     return nil
   }
@@ -1907,7 +1919,7 @@ public struct TypeChecker {
         // We reached the module scope.
         root = NodeID<ModuleDecl>(scope)!
 
-      case TopLevelDeclSet.self:
+      case TranslationUnit.self:
         // Skip file scopes so that we don't search the same file twice.
         continue
 
@@ -2111,7 +2123,7 @@ public struct TypeChecker {
           in: scope)
         root = module
 
-      case TopLevelDeclSet.self:
+      case TranslationUnit.self:
         continue
 
       default:
@@ -3418,28 +3430,6 @@ public struct TypeChecker {
     return InstantiatedType(shape: subject.transform(_impl(type:)), constraints: [])
   }
 
-  /// Instantiates `subject` from the scope introducing `decl` or, if that's an initializer, from
-  /// the scope introducing the type `decl` initializes.
-  func instantiate(
-    _ subject: AnyType,
-    fromScopeIntroducing decl: AnyDeclID,
-    cause: ConstraintCause
-  ) -> InstantiatedType {
-    // Identifiy the scope relative to which quantifiers should be eliminated.
-    let containingScope: AnyScopeID
-    switch decl.kind {
-    case BuiltinDecl.self:
-      return InstantiatedType(shape: subject, constraints: [])
-    case InitializerDecl.self:
-      containingScope = program.scopeToParent[program.declToScope[decl]!]!
-    default:
-      containingScope = program.declToScope[decl]!
-    }
-
-    // Eliminate quantifiers.
-    return instantiate(subject, in: containingScope, cause: cause)
-  }
-
   // MARK: Utils
 
   /// Returns whether `decl` is a nominal type declaration.
@@ -3467,7 +3457,7 @@ public struct TypeChecker {
   /// if no such implementation exists.
   ///
   /// - Requires: The base name of `d` is equal to `n.stem`
-  mutating func decl(_ d: AnyDeclID, named n: Name) -> AnyDeclID? {
+  mutating func decl(in d: AnyDeclID, named n: Name) -> AnyDeclID? {
     if !n.labels.isEmpty && (n.labels != labels(d)) {
       return nil
     }

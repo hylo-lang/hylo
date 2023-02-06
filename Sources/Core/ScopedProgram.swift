@@ -92,8 +92,6 @@ extension ScopedProgram {
       visit(associatedValueDecl: NodeID(decl)!, withState: &state)
     case BindingDecl.self:
       visit(bindingDecl: NodeID(decl)!, withState: &state)
-    case BuiltinDecl.self:
-      break
     case ConformanceDecl.self:
       visit(conformanceDecl: NodeID(decl)!, withState: &state)
     case ExtensionDecl.self:
@@ -519,7 +517,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    topLevelDeclSet: NodeID<TopLevelDeclSet>,
+    topLevelDeclSet: NodeID<TranslationUnit>,
     withState state: inout VisitorState
   ) {
     nesting(

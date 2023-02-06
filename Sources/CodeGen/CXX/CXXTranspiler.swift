@@ -349,7 +349,7 @@ public struct CXXTranspiler {
     lhs: CXXExpr,
     rhs: CXXExpr
   ) -> CXXExpr {
-    switch nameOfDecl(source.decl.decl) {
+    switch nameOfDecl(source.decl.decl!) {
     case "<<": return CXXInfixExpr(oper: .leftShift, lhs: lhs, rhs: rhs)
     case ">>": return CXXInfixExpr(oper: .rightShift, lhs: lhs, rhs: rhs)
     case "*": return CXXInfixExpr(oper: .multiplication, lhs: lhs, rhs: rhs)
@@ -472,13 +472,13 @@ public struct CXXTranspiler {
   /// This usually result into a C++ identifier, but it can also result in pre-/post-fix operator calls.
   private func cxx(name source: NameExpr.Typed) -> CXXExpr {
     switch source.decl {
-    case .direct(let callee) where callee.kind == BuiltinDecl.self:
-      return cxx(nameOfBuiltin: source)
     case .direct(let callee) where callee.kind == FunctionDecl.self:
       return cxx(
         nameOfFunction: FunctionDecl.Typed(callee)!, withDomainExpr: source.domainExpr)
+
     case .direct(let callee) where callee.kind == InitializerDecl.self:
       return cxx(nameOfInitializer: InitializerDecl.Typed(callee)!)
+
     case .direct(let callee):
       // For variables, and other declarations, just use the name of the declaration
       return CXXIdentifier(nameOfDecl(callee))
@@ -488,12 +488,16 @@ public struct CXXTranspiler {
 
     case .member(_):
       fatalError("not implemented")
+
+    case .builtinFunction(let f):
+      // Callee refers to a built-in function.
+      return CXXIdentifier(f.llvmInstruction)
+
+    case .builtinType:
+      unreachable()
     }
   }
-  /// Returns a transpilation of `source`.
-  private func cxx(nameOfBuiltin source: NameExpr.Typed) -> CXXExpr {
-    return CXXIdentifier(source.name.value.stem)
-  }
+
   /// Returns a transpilation of `source`.
   ///
   /// Usually this translates to an identifier, but it can translate to pre-/post-fix operator calls.
