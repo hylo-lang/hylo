@@ -16,7 +16,7 @@ public struct Emitter {
   private var insertionBlock: Block.ID?
 
   /// A stack of frames describing the variables and allocations of each traversed lexical scope.
-  private var stack = Stack()
+  private var frames = Stack()
 
   /// The receiver of the function or subscript currently being lowered, if any.
   private var receiverDecl: ParameterDecl.Typed?
@@ -85,7 +85,7 @@ public struct Emitter {
     }
 
     // Emit the body.
-    stack.push(Frame(locals: locals))
+    frames.push(Frame(locals: locals))
     var receiverDecl = decl.receiver
     swap(&receiverDecl, &self.receiverDecl)
 
@@ -110,8 +110,8 @@ public struct Emitter {
     }
 
     swap(&receiverDecl, &self.receiverDecl)
-    stack.pop()
-    assert(stack.isEmpty)
+    frames.pop()
+    assert(frames.isEmpty)
   }
 
   /// Emits the IR of `decl` into `module`.
@@ -173,8 +173,8 @@ public struct Emitter {
       let storage = module.append(
         AllocStackInstruction(name.decl.type, site: name.site),
         to: insertionBlock!)[0]
-      stack.top.allocs.append(storage)
-      stack[name.decl] = storage
+      frames.top.allocs.append(storage)
+      frames[name.decl] = storage
 
       if let initializer = decl.initializer {
         // Determine the object corresponding to the current name.
@@ -239,7 +239,7 @@ public struct Emitter {
         let storage = module.append(
           AllocStackInstruction(exprType, site: pattern.site),
           to: insertionBlock!)[0]
-        stack.top.allocs.append(storage)
+        frames.top.allocs.append(storage)
         source = storage
 
         let target = module.append(
@@ -251,7 +251,7 @@ public struct Emitter {
       }
 
       for (path, name) in pattern.subpattern.names {
-        stack[name.decl] =
+        frames[name.decl] =
           module.append(
             BorrowInstruction(
               capability, .address(name.decl.type), from: source, at: path, binding: name.decl,
@@ -289,12 +289,12 @@ public struct Emitter {
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
-    stack.push()
+    frames.push()
     for s in stmt.stmts {
       emit(stmt: s, into: &module)
     }
     emitStackDeallocs(in: &module, site: stmt.site)
-    stack.pop()
+    frames.pop()
   }
 
   private mutating func emit(declStmt stmt: DeclStmt.Typed, into module: inout Module) {
@@ -382,7 +382,7 @@ public struct Emitter {
         module.append(
           AllocStackInstruction(expr.type, site: expr.site),
           to: insertionBlock!)[0]
-      stack.top.allocs.append(resultStorage!)
+      frames.top.allocs.append(resultStorage!)
     }
 
     // Emit the condition(s).
@@ -434,7 +434,7 @@ public struct Emitter {
     // Note: the insertion pointer is already set in the corresponding block.
     switch expr.success {
     case .expr(let thenExpr):
-      stack.push()
+      frames.push()
       let value = emitR(expr: program[thenExpr], into: &module)
       if let target = resultStorage {
         let target = module.append(
@@ -447,7 +447,7 @@ public struct Emitter {
           to: insertionBlock!)
       }
       emitStackDeallocs(in: &module, site: expr.site)
-      stack.pop()
+      frames.pop()
 
     case .block:
       fatalError("not implemented")
@@ -458,7 +458,7 @@ public struct Emitter {
     insertionBlock = alt
     switch expr.failure {
     case .expr(let elseExpr):
-      stack.push()
+      frames.push()
       let value = emitR(expr: program[elseExpr], into: &module)
       if let target = resultStorage {
         let target = module.append(
@@ -471,7 +471,7 @@ public struct Emitter {
           to: insertionBlock!)
       }
       emitStackDeallocs(in: &module, site: expr.site)
-      stack.pop()
+      frames.pop()
 
     case .block:
       fatalError("not implemented")
@@ -561,7 +561,7 @@ public struct Emitter {
           case .none:
             let receiver = module.append(
               BorrowInstruction(
-                type.capability, .address(type.base), from: stack[receiverDecl!]!,
+                type.capability, .address(type.base), from: frames[receiverDecl!]!,
                 site: expr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
@@ -580,7 +580,8 @@ public struct Emitter {
           switch calleeNameExpr.domain {
           case .none:
             let receiver = module.append(
-              LoadInstruction(.object(receiverType), from: stack[receiverDecl!]!, site: expr.site),
+              LoadInstruction(
+                .object(receiverType), from: frames[receiverDecl!]!, site: expr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -658,7 +659,7 @@ public struct Emitter {
     switch expr.decl {
     case .direct(let declID):
       // Lookup for a local symbol.
-      if let source = stack[declID] {
+      if let source = frames[declID] {
         return module.append(
           LoadInstruction(.object(expr.type), from: source, site: expr.site),
           to: insertionBlock!)[0]
@@ -816,7 +817,7 @@ public struct Emitter {
           case .none:
             let receiver = module.append(
               BorrowInstruction(
-                type.capability, .address(type.base), from: stack[receiverDecl!]!,
+                type.capability, .address(type.base), from: frames[receiverDecl!]!,
                 site: nameExpr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
@@ -836,7 +837,7 @@ public struct Emitter {
           case .none:
             let receiver = module.append(
               LoadInstruction(
-                .object(receiverType), from: stack[receiverDecl!]!, site: nameExpr.site),
+                .object(receiverType), from: frames[receiverDecl!]!, site: nameExpr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -886,7 +887,7 @@ public struct Emitter {
       let storage = module.append(
         AllocStackInstruction(expr.type, site: expr.site),
         to: insertionBlock!)[0]
-      stack.top.allocs.append(storage)
+      frames.top.allocs.append(storage)
 
       let target = module.append(
         BorrowInstruction(.set, .address(expr.type), from: storage, site: expr.site),
@@ -909,7 +910,7 @@ public struct Emitter {
     switch expr.decl {
     case .direct(let decl):
       // Lookup for a local symbol.
-      if let source = stack[decl] {
+      if let source = frames[decl] {
         return module.append(
           BorrowInstruction(capability, .address(expr.type), from: source, site: expr.site),
           to: insertionBlock!)[0]
@@ -923,7 +924,7 @@ public struct Emitter {
 
       switch expr.domain {
       case .none:
-        receiver = stack[receiverDecl!]!
+        receiver = frames[receiverDecl!]!
       case .implicit:
         fatalError("not implemented")
       case .expr(let receiverID):
@@ -968,7 +969,7 @@ public struct Emitter {
   /// Pops the top frame of `self.stack` and emits a deallocation instruction for each allocation
   /// in that frame.
   private mutating func emitStackDeallocs(in module: inout Module, site: SourceRange) {
-    while let alloc = stack.top.allocs.popLast() {
+    while let alloc = frames.top.allocs.popLast() {
       module.append(DeallocStackInstruction(alloc, site: site), to: insertionBlock!)
     }
   }
