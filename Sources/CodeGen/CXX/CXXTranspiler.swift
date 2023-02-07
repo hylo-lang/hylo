@@ -591,25 +591,25 @@ public struct CXXTranspiler {
   private func cxx(builtinType source: BuiltinType) -> CXXTypeExpr {
     switch source {
     case .i(let bitWidth) where bitWidth == 1:
-      return CXXTypeExpr("bool")
+      return CXXTypeExpr(native: "bool")
     case .i(let bitWidth) where bitWidth == 8:
-      return CXXTypeExpr("int8_t")
+      return CXXTypeExpr(native: "int8_t")
     case .i(let bitWidth) where bitWidth == 16:
-      return CXXTypeExpr("int16_t")
+      return CXXTypeExpr(native: "int16_t")
     case .i(let bitWidth) where bitWidth == 32:
-      return CXXTypeExpr("int32_t")
+      return CXXTypeExpr(native: "int32_t")
     case .i(let bitWidth) where bitWidth == 64:
-      return CXXTypeExpr("int64_t")
+      return CXXTypeExpr(native: "int64_t")
     case .half:
-      return CXXTypeExpr("float") // not properly supported; just keep the compiler happy
+      fatalError("half floats are not supported in C++")
     case .float:
-      return CXXTypeExpr("float")
+      return CXXTypeExpr(native: "float")
     case .double:
-      return CXXTypeExpr("double")
+      return CXXTypeExpr(native: "double")
     case .fp128:
-      return CXXTypeExpr("long double")
+      return CXXTypeExpr(native: "long double")
     case .ptr:
-      return CXXTypeExpr("long")
+      return CXXTypeExpr(native: "intptr_t")
     default:
       fatalError("builtin type not implemented")
     }

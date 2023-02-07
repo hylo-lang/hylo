@@ -1,3 +1,5 @@
+import ValModule
+
 /// A type used to write the output CXX code from the given CXX AST.
 public struct CXXCodeWriter {
 
@@ -53,19 +55,17 @@ public struct CXXCodeWriter {
       writeInterface(topLevel: decl, into: &target)
     }
 
-    // Do we need to generate extra code for the standard library?
-    if source.isStdLib {
-      // TODO: revsit this
-      target.writeNewline()
-      target.writeLine("inline bool operator <(Int l, Int r) { return l.value < r.value; }")
-      target.writeLine("inline Int operator +(Int l, Int r) { return l.value + r.value; }")
-      target.writeLine("inline Int operator -(Int l, Int r) { return l.value - r.value; }")
-      target.writeLine("inline Int operator *(Int l, Int r) { return l.value * r.value; }")
-      target.writeLine("inline void abort() { ::abort(); }")
-    }
-
     target.writeNewline()
     target.endBrace()
+    target.writeNewline()
+
+    // Add extra native code to the stdlib header.
+    if source.isStdLib {
+      let fileToInclude = ValModule.core!.appendingPathComponent("/cxx/NativeCode.h")
+      if let text = try? String(contentsOf: fileToInclude) {
+        target.write(text)
+      }
+    }
 
     return target.code
   }
@@ -90,10 +90,18 @@ public struct CXXCodeWriter {
     }
 
     target.endBrace()
+    target.writeNewline()
+
+    // Add extra native code to the stdlib source file.
+    if source.isStdLib {
+      let fileToInclude = ValModule.core!.appendingPathComponent("/cxx/NativeCode.cpp")
+      if let text = try? String(contentsOf: fileToInclude) {
+        target.write(text)
+      }
+    }
 
     // Write a CXX `main` function if the module has an entry point.
     if source.entryPointBody != nil {
-      target.writeNewline()
       target.writeNewline()
       target.write("int main()")
       write(stmt: source.entryPointBody!, into: &target)
@@ -177,10 +185,8 @@ public struct CXXCodeWriter {
     }
     // Special code for stdlib types
     if isStdLib {
-      // For standard value types generate implict conversion constructors from C++ literal types.
-      if ["Int", "Int32", "Double", "Bool"].contains(decl.name.description) {
-        write(conversionCtor: decl, into: &target)
-      }
+      // For standard value types try to generate implict conversion constructors from C++ literal types.
+      write(conversionCtor: decl, into: &target)
     }
     target.endBrace()
     target.writeLine(";")
@@ -188,6 +194,8 @@ public struct CXXCodeWriter {
 
   /// Writes to `target` the implicit conversion constructor for `source`, coverting from inner
   /// attribute type.
+  ///
+  /// This only applies for classes have one data member, and its type is native.
   private func write(conversionCtor source: CXXClassDecl, into target: inout CodeFormatter) {
     let dataMembers = source.members.compactMap({ m in
       switch m {
@@ -198,8 +206,9 @@ public struct CXXCodeWriter {
       }
     })
 
-    // We need to have just one class attribute in the type
-    if dataMembers.count == 1 {
+    // We need to have just one class attribute in the type,
+    // and the type of the attribute needs to be native.
+    if dataMembers.count == 1 && dataMembers[0].type.isNative {
       // Write implicit conversion constructor
       target.write("\(source.name.description)(")
       write(typeExpr: dataMembers[0].type, into: &target)
