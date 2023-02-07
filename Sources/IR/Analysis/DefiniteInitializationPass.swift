@@ -444,88 +444,66 @@ extension DefiniteInitializationPass {
     /// The null location.
     case null
 
-    /// The location of a an argument to a `let`, `inout`, or `set` parameter.
-    case arg(index: Int)
+    /// The location of an argument to a `let`, `inout`, or `set` parameter.
+    case argument(index: Int)
 
     /// A location produced by an instruction.
     case instruction(block: Function.Blocks.Address, address: Block.Instructions.Address)
 
-    /// A sub-location rooted at an argument or an instruction.
+    /// A sub-location rooted at an argument or instruction.
+    ///
+    /// `path[i]` denotes the index of a property in the abstract layout of the object stored at
+    /// `.sublocation(root: r, path: path.prefix(upTo: i))`. For example, if `r` is the location
+    /// identifying storage of type `{{A, B}, C}`, then `sublocation(root: r, path: [0, 1])` is a
+    /// location identifying storage of type `B`.
+    ///
+    /// - Note: Use `appending(_:)` to create instances of this case.
+    /// - Requires: `root` is `.argument` or `.instruction` and `path` is not empty.
     indirect case sublocation(root: MemoryLocation, path: [Int])
 
-    /// The canonical form of `self`.
-    var canonical: MemoryLocation {
-      switch self {
-      case .sublocation(let root, let path) where path.isEmpty:
-        return root
-      default:
-        return self
-      }
-    }
-
-    /// Returns a new locating created by appending the given path to this one.
+    /// Returns a new locating created by appending `suffix` to this one.
+    ///
+    /// - Requires: `self` is not `.null`.
     func appending(_ suffix: [Int]) -> MemoryLocation {
       if suffix.isEmpty { return self }
 
       switch self {
       case .null:
         preconditionFailure("null location")
-      case .arg, .instruction:
+      case .argument, .instruction:
         return .sublocation(root: self, path: suffix)
       case .sublocation(let root, let prefix):
         return .sublocation(root: root, path: prefix + suffix)
       }
     }
 
-    func hash(into hasher: inout Hasher) {
-      switch self {
-      case .null:
-        hasher.combine(-1)
-      case .arg(let i):
-        hasher.combine(i)
-      case .instruction(let b, let a):
-        hasher.combine(b)
-        hasher.combine(a)
-      case .sublocation(let r, let p):
-        hasher.combine(r)
-        for i in p { hasher.combine(i) }
-      }
-    }
-
-    static func == (l: MemoryLocation, r: MemoryLocation) -> Bool {
-      switch (l, r) {
-      case (.null, .null):
-        return true
-      case (.arg(let a), .arg(let b)):
-        return a == b
-      case (.instruction(let a0, let a1), .instruction(let b0, let b1)):
-        return (a0 == b0) && (a1 == b1)
-      case (.sublocation(let a0, let a1), .sublocation(let b0, let b1)):
-        return (a0 == b0) && (a1 == b1)
-      case (.sublocation(let a0, let a1), _) where a1.isEmpty:
-        return a0 == r
-      case (_, .sublocation(let b0, let b1)) where b1.isEmpty:
-        return l == b0
-      default:
-        return false
-      }
-    }
-
   }
 
-  /// An abstract object.
+  /// An abstract object or aggregate of objects.
   fileprivate enum Object: Equatable {
 
     /// The initialization state of an object or sub-object.
+    ///
+    /// The values of this type form a lattice whose supremum is `.initialized` and infimum is
+    /// `.consumed(by: s)` where `s` is the set of all instructions. The join of two elements in
+    /// this lattice represent the conservative superposition of two initialization states.
     enum State: Equatable {
 
+      /// Object is initialized.
       case initialized
 
+      /// Object is uninitialized.
       case uninitialized
 
+      /// Object was consumed the users in the payload.
+      ///
+      /// An object can be consumed by multiple users after merging after-contexts in which it's
+      /// been consumed by different users.
+      ///
+      /// - Requires: The payload is not empty.
       case consumed(by: Set<InstructionID>)
 
-      /// Returns `lhs` merged with `rhs`.
+      /// Forms a new state by merging `lhs` with `rhs`.
       static func && (lhs: State, rhs: State) -> State {
         switch lhs {
         case .initialized:
@@ -534,41 +512,38 @@ extension DefiniteInitializationPass {
         case .uninitialized:
           return rhs == .initialized ? lhs : rhs
 
-        case .consumed(var a):
+        case .consumed(let a):
           if case .consumed(let b) = rhs {
-            a.formUnion(b)
+            return .consumed(by: a.union(b))
+          } else {
+            return .consumed(by: a)
           }
-          return .consumed(by: a)
         }
       }
 
     }
 
-    /// The summary of an the initialization state of an object and its parts.
-    enum StateSummary: Equatable {
+    /// The initialization state of an object or aggregate of objects.
+    enum PartitionedState: Equatable {
 
-      /// The object and all its parts are initialized.
+      /// Object and all its parts are initialized.
       case fullyInitialized
 
-      /// The object is fully uninitialized.
+      /// Object is fully uninitialized.
       case fullyUninitialized
 
-      /// The object is fully consumed.
+      /// Object was consumed the users in the payload.
       ///
-      /// The payload contains the set of instructions that consumed the object.
-      case fullyConsumed(consumers: Set<InstructionID>)
+      /// - Requires: The payload is not empty.
+      case fullyConsumed(by: Set<InstructionID>)
 
-      /// The object has at least one uninitialized part, at least one initialized part, and no
-      /// consumed part.
-      ///
-      /// The payload contains the paths to the (partially) initialized parts of the object.
+      /// Object has uninitialized parts, initialized parts, and no consumed parts; the payload
+      /// contains the paths to all fully or partially initialized parts.
       case partiallyInitialized(initialized: [[Int]])
 
-      /// The object has at least one consumed part and one initialized part.
-      ///
-      /// The payload contains the set of instructions that consumed the object or some of its
-      /// parts, and the paths to the (partially) initialized parts.
-      case partiallyConsumed(consumers: Set<InstructionID>, initialized: [[Int]])
+      /// Object has uninitialized parts, initialized parts; the payload contains the users of the
+      /// consumed parts and the paths to all fully or partially initialized parts.
+      case partiallyConsumed(by: Set<InstructionID>, initialized: [[Int]])
 
     }
 
@@ -621,7 +596,7 @@ extension DefiniteInitializationPass {
     }
 
     /// A summary of the initialization of the object and its parts.
-    var summary: StateSummary {
+    var summary: PartitionedState {
       switch self {
       case .full(.initialized):
         return .fullyInitialized
@@ -630,7 +605,7 @@ extension DefiniteInitializationPass {
         return .fullyUninitialized
 
       case .full(.consumed(let consumers)):
-        return .fullyConsumed(consumers: consumers)
+        return .fullyConsumed(by: consumers)
 
       case .partial(let parts):
         var hasUninitializedPart = false
@@ -667,9 +642,9 @@ extension DefiniteInitializationPass {
               : .fullyInitialized
           }
         } else if initializedPaths.isEmpty {
-          return .fullyConsumed(consumers: consumers)
+          return .fullyConsumed(by: consumers)
         } else {
-          return .partiallyConsumed(consumers: consumers, initialized: initializedPaths)
+          return .partiallyConsumed(by: consumers, initialized: initializedPaths)
         }
       }
     }
@@ -844,12 +819,12 @@ extension DefiniteInitializationPass {
         let (c, t) = function.inputs[i]
         switch c {
         case .let, .inout:
-          let l = MemoryLocation.arg(index: i)
+          let l = MemoryLocation.argument(index: i)
           locals[parameterKey] = .locations([l])
           memory[l] = Context.Cell(type: t.astType, object: .full(.initialized))
 
         case .set:
-          let l = MemoryLocation.arg(index: i)
+          let l = MemoryLocation.argument(index: i)
           locals[parameterKey] = .locations([l])
           memory[l] = Context.Cell(type: t.astType, object: .full(.uninitialized))
 
@@ -900,7 +875,7 @@ extension DefiniteInitializationPass {
       case .null:
         preconditionFailure("null location")
 
-      case .arg, .instruction:
+      case .argument, .instruction:
         return action(&memory[location]!.object)
 
       case .sublocation(let rootLocation, let path):
