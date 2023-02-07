@@ -1,5 +1,6 @@
 import Core
 import FrontEnd
+import TestUtils
 import XCTest
 
 final class TypeCheckerTests: XCTestCase {
@@ -10,7 +11,7 @@ final class TypeCheckerTests: XCTestCase {
     baseAST.importCoreModule()
 
     try checkAnnotatedValFileDiagnostics(
-      in: "TestCases/TypeChecking",
+      in: Bundle.module.url(forResource: "TestCases/TypeChecking", withExtension: nil)!,
       { (source, diagnostics) in
         var ast = baseAST
         let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))

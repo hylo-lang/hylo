@@ -12,7 +12,7 @@ final class EmitterTests: XCTestCase {
     baseAST.importCoreModule()
 
     try checkAnnotatedValFileDiagnostics(
-      in: "TestCases/Lowering",
+      in: Bundle.module.url(forResource: "TestCases/Lowering", withExtension: nil)!,
       { (source, diagnostics) in
         // Create a module for the input.
         var ast = baseAST

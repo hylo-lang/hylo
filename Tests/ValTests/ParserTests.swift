@@ -9,7 +9,7 @@ final class ParserTests: XCTestCase {
 
   func testParser() throws {
     try checkAnnotatedValFileDiagnostics(
-      in: "TestCases/Parsing",
+      in: Bundle.module.url(forResource: "TestCases/Parsing", withExtension: nil)!,
       { (source, diagnostics) in
         // Create a module for the input.
         var ast = AST()

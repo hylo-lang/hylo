@@ -1,6 +1,7 @@
 import CodeGenCXX
 import Core
 import FrontEnd
+import TestUtils
 import Utils
 import XCTest
 
@@ -12,7 +13,7 @@ final class CXXTests: XCTestCase {
     baseAST.importCoreModule()
 
     try checkAnnotatedValFiles(
-      in: "TestCases/CXX",
+      in: Bundle.module.url(forResource: "TestCases/CXX", withExtension: nil)!,
       checkingAnnotationCommands: ["cpp", "h"],
 
       { (source, cxxAnnotations, diagnostics) in
@@ -85,7 +86,7 @@ final class CXXTests: XCTestCase {
 
     // Read test cases; use .val files just for convenience.
     try checkAnnotatedValFiles(
-      in: "TestCases/CXXStdLib",
+      in: Bundle.module.url(forResource: "TestCases/CXXStdLib", withExtension: nil)!,
       checkingAnnotationCommands: ["cpp", "h"],
       { (source, cxxAnnotations, diagnostics) in
         return cxxAnnotations.compactMap { a in

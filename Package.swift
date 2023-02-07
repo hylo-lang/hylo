@@ -95,15 +95,20 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
+    .target(
+      name: "TestUtils",
+      dependencies: ["Utils"],
+      path: "Tests/TestUtils",
+      swiftSettings: allTargetsSwiftSettings),
     .testTarget(
       name: "ValTests",
-      dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR"],
+      dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR", "TestUtils"],
       resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "ValCommandTests",
-      dependencies: ["ValCommand"],
+      dependencies: ["ValCommand", "TestUtils"],
       resources: [.copy("Inputs")],
       swiftSettings: allTargetsSwiftSettings),
   ])

@@ -31,15 +31,15 @@ extension XCTestCase {
   /// the effects of processing don't match the file's diagnostic annotation commands ("diagnostic",
   /// "expect-failure", and "expect-success").
   ///
-  /// - Parameter `sourceDirectory`: a path relative to the ValTests/ directory of this project.
+  /// - Parameter `testCaseDirectory`: where the test files are searched.
   /// - Parameter `process`: applies some compilation phases to `file`, updating `diagnostics`
   ///   with any generated diagnostics. Throws an `Error` if any phases failed.
-  func checkAnnotatedValFileDiagnostics(
-    in sourceDirectory: String,
+  public func checkAnnotatedValFileDiagnostics(
+    in testCaseDirectory: URL,
     _ process: (_ file: SourceFile, _ diagnostics: inout Diagnostics) throws -> Void
   ) throws {
     try checkAnnotatedValFiles(
-      in: sourceDirectory, checkingAnnotationCommands: [],
+      in: testCaseDirectory, checkingAnnotationCommands: [],
       { (file, annotationsToHandle, diagnostics) in
         assert(annotationsToHandle.isEmpty)
         try process(file, &diagnostics)
@@ -48,19 +48,19 @@ extension XCTestCase {
     )
   }
 
-  /// Applies `processAndCheck` to each ".val" file in `sourceDirectory` along with the subset of
+  /// Applies `processAndCheck` to each ".val" file in `testCaseDirectory` along with the subset of
   /// that file's annotations whose commands match `checkedCommands`, and reports resulting XCTest
   /// failures, along with any additional failures where the effects of processing don't match the
   /// file's diagnostic annotation commands ("diagnostic", "expect-failure", and "expect-success").
   ///
   /// - Parameters:
-  ///   - `sourceDirectory`: a path relative to the ValTests/ directory of this project.
+  ///   - `testCaseDirectory`: where the test files are searched.
   ///   - `checkedCommands`: the annnotation commands to be validated by `processAndCheck`.
   ///   - `processAndCheck`: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
-  func checkAnnotatedValFiles(
-    in sourceDirectory: String,
+  public func checkAnnotatedValFiles(
+    in testCaseDirectory: URL,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
 
     _ processAndCheck: (
@@ -69,10 +69,6 @@ extension XCTestCase {
       _ diagnostics: inout Diagnostics
     ) throws -> [XCTIssue]
   ) throws {
-    let testCaseDirectory = try XCTUnwrap(
-      Bundle.module.url(forResource: sourceDirectory, withExtension: nil),
-      "No test cases")
-
     for file in try sourceFiles(in: [testCaseDirectory]) {
       var annotations = TestAnnotation.parseAll(from: file)
 
