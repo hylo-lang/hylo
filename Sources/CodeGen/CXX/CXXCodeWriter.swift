@@ -61,7 +61,7 @@ public struct CXXCodeWriter {
 
     // Add extra native code to the stdlib header.
     if source.isStdLib {
-      let fileToInclude = ValModule.core!.appendingPathComponent("/cxx/NativeCode.h")
+      let fileToInclude = ValModule.cxxSupport!.appendingPathComponent("NativeCode.h")
       if let text = try? String(contentsOf: fileToInclude) {
         target.write(text)
       }
@@ -94,7 +94,7 @@ public struct CXXCodeWriter {
 
     // Add extra native code to the stdlib source file.
     if source.isStdLib {
-      let fileToInclude = ValModule.core!.appendingPathComponent("/cxx/NativeCode.cpp")
+      let fileToInclude = ValModule.cxxSupport!.appendingPathComponent("NativeCode.cpp")
       if let text = try? String(contentsOf: fileToInclude) {
         target.write(text)
       }
