@@ -109,6 +109,6 @@ let package = Package(
     .testTarget(
       name: "ValCommandTests",
       dependencies: ["ValCommand", "TestUtils"],
-      resources: [.copy("Inputs")],
+      resources: [.copy("Inputs"), .copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
   ])
