@@ -1100,16 +1100,15 @@ public struct TypeChecker {
     doWhile subject: NodeID<DoWhileStmt>,
     in lexicalContext: S
   ) -> Bool {
-    let syntax = program.ast[subject]
+    let success = check(brace: program.ast[subject].body)
 
-    // Visit the condition(s).
+    // Visit the condition of the loop in the scope of the body.
     let boolType = AnyType(program.ast.coreType(named: "Bool")!)
     let inference = solveConstraints(
-      impliedBy: syntax.condition, expecting: boolType, in: lexicalContext)
-    if !inference.succeeded { return false }
+      impliedBy: program.ast[subject].condition, expecting: boolType,
+      in: program.ast[subject].body)
 
-    // Visit the body.
-    return check(brace: syntax.body)
+    return success && inference.succeeded
   }
 
   private mutating func check<S: ScopeID>(
@@ -1194,7 +1193,7 @@ public struct TypeChecker {
       &declTypes[d]!,
       { (t) in
         t = s.typeAssumptions.reify(t)
-        return t[.hasError]
+        return !t[.hasError]
       })
     declRequests[d] = success ? .success : .failure
     return success
