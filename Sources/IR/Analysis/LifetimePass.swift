@@ -3,8 +3,6 @@ import Core
 /// The lifetime pass.
 public struct LifetimePass: TransformPass {
 
-  public static let name = "Lifetime"
-
   /// The program being lowered.
   public let program: TypedProgram
 

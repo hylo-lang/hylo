@@ -555,9 +555,14 @@ public struct Emitter {
     functionCallExpr expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let calleeType = expr.callee.type.base as! LambdaType
+    if let n = NameExpr.Typed(expr.callee),
+      case .builtinFunction(let f) = n.decl
+    {
+      return emitR(builtinFunctionCallTo: f, with: expr.arguments, at: expr.site, into: &module)
+    }
 
     // Determine the callee's convention.
+    let calleeType = LambdaType(expr.callee.type)!
     let calleeConvention = calleeType.receiverEffect ?? .let
 
     // Arguments are evaluated first, from left to right.
@@ -654,9 +659,9 @@ public struct Emitter {
               name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
               type: .address(calleeType))))
 
-      case .builtinFunction(let f):
-        // Callee refers to a built-in function.
-        callee = .constant(.builtin(f.reference))
+      case .builtinFunction:
+        // Already handled.
+        unreachable()
 
       case .builtinType:
         // Built-in types are never called.
@@ -679,6 +684,22 @@ public struct Emitter {
         argumentConventions: argumentConventions,
         arguments: arguments,
         site: expr.site),
+      to: insertionBlock!)[0]
+  }
+
+  /// Emits the IR of a call to `f` with given `arguments` at `site` into `module`, inserting
+  /// instructions at the end of `self.insertionBlock`.
+  private mutating func emitR(
+    builtinFunctionCallTo f: BuiltinFunction,
+    with arguments: [LabeledArgument],
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    return module.append(
+      LLVMInstruction(
+        applying: f,
+        to: arguments.map({ (a) in emitR(expr: program[a.value], into: &module) }),
+        at: site),
       to: insertionBlock!)[0]
   }
 
