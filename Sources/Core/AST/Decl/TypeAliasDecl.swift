@@ -13,21 +13,21 @@ public struct TypeAliasDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericSc
   public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The expression of the aliased type.
-  public let body: AnyTypeExprID
+  public let aliasedType: AnyTypeExprID
 
   /// Creates an instance with the given properties.
   public init(
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
-    body: AnyTypeExprID,
+    aliasedType: AnyTypeExprID,
     site: SourceRange
   ) {
     self.site = site
     self.accessModifier = accessModifier
     self.identifier = identifier
     self.genericClause = genericClause
-    self.body = body
+    self.aliasedType = aliasedType
   }
 
   public var baseName: String { identifier.value }

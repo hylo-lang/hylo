@@ -762,7 +762,7 @@ public struct TypeChecker {
 
   private mutating func _check(typeAlias id: NodeID<TypeAliasDecl>) -> Bool {
     // Realize the subject.
-    guard let subject = realize(program.ast[id].body, in: AnyScopeID(id))?.instance else {
+    guard let subject = realize(program.ast[id].aliasedType, in: AnyScopeID(id))?.instance else {
       return false
     }
 

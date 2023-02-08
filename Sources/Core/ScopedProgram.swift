@@ -496,7 +496,7 @@ extension ScopedProgram {
         if let clause = this.ast[decl].genericClause?.value {
           this.visit(genericClause: clause, withState: &state)
         }
-        this.visit(expr: this.ast[decl].body, withState: &state)
+        this.visit(expr: this.ast[decl].aliasedType, withState: &state)
       })
   }
 
