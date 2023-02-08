@@ -3399,19 +3399,19 @@ extension ParserState {
 
 extension AST {
 
-  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics to
-  /// `diagnostics`.
+  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics
+  /// to `diagnostics`.
   public mutating func makeModule<S: Sequence>(
     _ name: String, sourceCode: S, diagnostics: inout Diagnostics
   ) throws -> NodeID<ModuleDecl> where S.Element == SourceFile {
-    let translations = try sourceCode.compactMap({ (f) in
+    var translations: [NodeID<TopLevelDeclSet>] = []
+    for f in sourceCode {
       do {
-        return try Parser.parse(f, in: &self, diagnostics: &diagnostics)
+        try translations.append(Parser.parse(f, in: &self, diagnostics: &diagnostics))
       } catch _ as Diagnostics {
-        // Diagnostics have been logged, let's keep parsing other files.
-        return nil
+        // Suppress the error until all files are parsed.
       }
-    })
+    }
 
     let m = insert(ModuleDecl(name: name, sources: translations), diagnostics: &diagnostics)
     try diagnostics.throwOnError()
