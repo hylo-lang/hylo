@@ -32,7 +32,7 @@ public struct DefiniteInitializationPass: TransformPass {
     var done: Set<Function.Blocks.Address> = []
 
     /// The state of the abstract interpreter before and after the visited basic blocks.
-    var contexts: [Function.Blocks.Address: (before: Context, after: Context)] = [:]
+    var contexts: Contexts = [:]
 
     /// The diagnostics reported by the pass.
     ///
