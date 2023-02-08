@@ -186,19 +186,11 @@ public struct ValCommand: ParsableCommand {
       return finalize(logging: diagnostics, to: &errorLog)
     }
 
-    // Run mandatory IR analysis and transformation passes.
-    var pipeline: [TransformPass] = [
-      ImplicitReturnInsertionPass(),
-      DefiniteInitializationPass(program: typedProgram),
-      LifetimePass(program: typedProgram),
-      // OwnershipPass(program: typedProgram),
-    ]
-
-    for i in pipeline.indices {
-      for f in irModule.functions.indices {
-        pipeline[i].run(function: f, module: &irModule, diagnostics: &diagnostics)
-      }
-      if diagnostics.errorReported { return finalize(logging: diagnostics, to: &errorLog) }
+    do {
+      let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
+      try p.apply(&irModule, reportingDiagnosticsInto: &diagnostics)
+    } catch _ as Diagnostics {
+      return finalize(logging: diagnostics, to: &errorLog)
     }
 
     // Handle `--emit ir`

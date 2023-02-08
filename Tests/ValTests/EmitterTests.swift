@@ -40,18 +40,8 @@ final class EmitterTests: XCTestCase {
         var irModule = Module(module, in: typedProgram)
 
         // Run mandatory IR analysis and transformation passes.
-        var pipeline: [TransformPass] = [
-          ImplicitReturnInsertionPass(),
-          DefiniteInitializationPass(program: typedProgram),
-          LifetimePass(program: typedProgram),
-        ]
-
-        for i in pipeline.indices {
-          for f in irModule.functions.indices {
-            pipeline[i].run(function: f, module: &irModule, diagnostics: &diagnostics)
-          }
-          try diagnostics.throwOnError()
-        }
+        let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
+        try p.apply(&irModule, reportingDiagnosticsInto: &diagnostics)
       })
   }
 
