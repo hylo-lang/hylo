@@ -220,20 +220,19 @@ public struct ValCommand: ParsableCommand {
 
     // Initialize the transpiler & code writer.
     let transpiler = CXXTranspiler(typedProgram)
-    let codeWriter = CXXCodeWriter()
+    var codeWriter = CXXCodeWriter()
 
     // Generate C++ code: Val's StdLib + current module.
-    let cxxStdLib = codeWriter.cxxCode(transpiler.transpile(typedProgram.corelib!))
+    let cxxStdLibModule = transpiler.transpile(stdlib: typedProgram.corelib!)
+    let cxxStdLib = codeWriter.cxxCode(cxxStdLibModule)
     let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[newModule]))
-
-    let stdLibFilename = "ValStdLib"
 
     // Handle `--emit cpp`.
     if outputType == .cpp {
       try write(
         cxxStdLib,
-        to: outputURL?.deletingLastPathComponent().appendingPathComponent(stdLibFilename)
-          ?? URL(fileURLWithPath: stdLibFilename),
+        to: outputURL?.deletingLastPathComponent().appendingPathComponent(cxxStdLibModule.name)
+          ?? URL(fileURLWithPath: cxxStdLibModule.name),
         loggingTo: &errorLog)
       try write(
         cxxCode,
@@ -255,7 +254,7 @@ public struct ValCommand: ParsableCommand {
     // Write the C++ code to the build directory.
     try write(
       cxxStdLib,
-      to: buildDirectoryURL.appendingPathComponent(stdLibFilename),
+      to: buildDirectoryURL.appendingPathComponent(cxxStdLibModule.name),
       loggingTo: &errorLog)
     try write(
       cxxCode, to: buildDirectoryURL.appendingPathComponent(productName), loggingTo: &errorLog)
