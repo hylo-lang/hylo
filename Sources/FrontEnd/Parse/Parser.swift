@@ -20,8 +20,7 @@ import Utils
 /// A namespace for the routines of Val's parser.
 public enum Parser {
 
-  /// Parses the declarations of `input` updating diagnostics as appropriate, returning the
-  /// identity of parsed source file in `ast`.
+  /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to `diagnostics`.
   ///
   /// - Throws: Diagnostics if syntax errors were encountered.
   public static func parse(
