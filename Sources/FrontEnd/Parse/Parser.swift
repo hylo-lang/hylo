@@ -1122,7 +1122,7 @@ public enum Parser {
         accessModifier: prologue.accessModifiers.first,
         identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
-        body: .typeExpr(parts.1),
+        body: parts.1,
         site: state.range(from: prologue.startIndex)))
   }
 

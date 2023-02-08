@@ -1,16 +1,6 @@
 /// A type alias declaration.
 public struct TypeAliasDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericScope {
 
-  public enum Body: Codable {
-
-    /// A single type expression.
-    case typeExpr(AnyTypeExprID)
-
-    /// A union of product type declarations.
-    case union([NodeID<ProductTypeDecl>])
-
-  }
-
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
@@ -22,15 +12,15 @@ public struct TypeAliasDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericSc
   /// The generic clause of the declaration, if any.
   public let genericClause: SourceRepresentable<GenericClause>?
 
-  /// The body of the declaration.
-  public let body: Body
+  /// The expression of the aliased type.
+  public let body: AnyTypeExprID
 
   /// Creates an instance with the given properties.
   public init(
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
-    body: Body,
+    body: AnyTypeExprID,
     site: SourceRange
   ) {
     self.site = site
