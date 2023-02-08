@@ -762,17 +762,8 @@ public struct TypeChecker {
 
   private mutating func _check(typeAlias id: NodeID<TypeAliasDecl>) -> Bool {
     // Realize the subject.
-    let subject: AnyType
-    switch program.ast[id].body {
-    case .typeExpr(let j):
-      if let s = realize(j, in: AnyScopeID(id))?.instance {
-        subject = s
-      } else {
-        return false
-      }
-
-    case .union:
-      fatalError("not implemented")
+    guard let subject = realize(program.ast[id].aliasedType, in: AnyScopeID(id))?.instance else {
+      return false
     }
 
     // Type-check the generic clause.
