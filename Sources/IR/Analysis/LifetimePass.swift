@@ -3,21 +3,17 @@ import Core
 /// The lifetime pass.
 public struct LifetimePass: TransformPass {
 
-  /// The program being lowered.
+  /// The program from which the analyzed IR was lowered.
   public let program: TypedProgram
 
-  public private(set) var diagnostics: [Diagnostic] = []
-
+  /// Creates an instance that analyzes IR lowered from `program`.
   public init(program: TypedProgram) {
     self.program = program
   }
 
-  public mutating func run(function functionID: Function.ID, module: inout Module) -> Bool {
-    // Reinitialize the internal state of the pass.
-    diagnostics.removeAll()
-
-    for blockIndex in module[functionID].blocks.indices {
-      let block = Block.ID(function: functionID, address: blockIndex.address)
+  public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
+    for blockIndex in module[f].blocks.indices {
+      let block = Block.ID(function: f, address: blockIndex.address)
 
       for instruction in module[block].instructions.indices {
         switch module[block][instruction.address] {
@@ -29,7 +25,7 @@ public struct LifetimePass: TransformPass {
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
-              diagnostics.append(.unusedBinding(name: decl.baseName, at: borrow.site))
+              diagnostics.report(.unusedBinding(name: decl.baseName, at: borrow.site))
             }
             module[block].instructions.remove(at: instruction.address)
             continue
@@ -48,8 +44,6 @@ public struct LifetimePass: TransformPass {
         }
       }
     }
-
-    return diagnostics.isEmpty
   }
 
   private func lifetime(of operand: Operand, in module: Module) -> Lifetime {

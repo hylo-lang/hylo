@@ -194,13 +194,11 @@ public struct ValCommand: ParsableCommand {
       // OwnershipPass(program: typedProgram),
     ]
 
-    for i in 0 ..< pipeline.count {
-      var passSuccess = true
-      for f in 0 ..< irModule.functions.count {
-        passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
-        diagnostics.report(pipeline[i].diagnostics)
+    for i in pipeline.indices {
+      for f in irModule.functions.indices {
+        pipeline[i].run(function: f, module: &irModule, diagnostics: &diagnostics)
       }
-      if !passSuccess { return finalize(logging: diagnostics, to: &errorLog) }
+      if diagnostics.errorReported { return finalize(logging: diagnostics, to: &errorLog) }
     }
 
     // Handle `--emit ir`

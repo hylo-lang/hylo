@@ -11,13 +11,12 @@ public struct DefiniteInitializationPass: TransformPass {
   /// The program from which the analyzed IR was lowered.
   private let program: TypedProgram
 
-  public private(set) var diagnostics: [Diagnostic] = []
-
+  /// Creates an instance that analyzes IR lowered from `program`.
   public init(program: TypedProgram) {
     self.program = program
   }
 
-  public mutating func run(function: Function.ID, module: inout Module) -> Bool {
+  public func run(function: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
 
     /// The control flow graph of the function to analyze.
     let cfg = module[function].cfg
@@ -33,11 +32,6 @@ public struct DefiniteInitializationPass: TransformPass {
 
     /// The state of the abstract interpreter before and after the visited basic blocks.
     var contexts: [Function.Blocks.Address: (before: Context, after: Context)] = [:]
-
-    /// The diagnostics reported by the pass.
-    ///
-    /// - TODO: This binding will should be removed once `TransformPass` is refactored.
-    var diagnostics1 = Diagnostics()
 
     /// Returns `true` if `b` has been visited.
     func visited(_ b: Function.Blocks.Address) -> Bool {
@@ -180,15 +174,15 @@ public struct DefiniteInitializationPass: TransformPass {
         case .full(.initialized):
           break
         case .full(.uninitialized):
-          diagnostics1.report(.useOfUninitializedObject(at: borrow.site))
+          diagnostics.report(.useOfUninitializedObject(at: borrow.site))
         case .full(.consumed):
-          diagnostics1.report(.useOfConsumedObject(at: borrow.site))
+          diagnostics.report(.useOfConsumedObject(at: borrow.site))
         case .partial:
           let p = o.value.paths!
           if p.consumed.isEmpty {
-            diagnostics1.report(.useOfPartiallyInitializedObject(at: borrow.site))
+            diagnostics.report(.useOfPartiallyInitializedObject(at: borrow.site))
           } else {
-            diagnostics1.report(.useOfPartiallyConsumedObject(at: borrow.site))
+            diagnostics.report(.useOfPartiallyConsumedObject(at: borrow.site))
           }
         }
 
@@ -234,7 +228,7 @@ public struct DefiniteInitializationPass: TransformPass {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(condBranch i: InstructionID, in context: inout Context) {
       let branch = module[i] as! CondBranchInstruction
-      context.consume(branch.condition, with: i, at: branch.site, diagnostics: &diagnostics1)
+      context.consume(branch.condition, with: i, at: branch.site, diagnostics: &diagnostics)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -245,7 +239,7 @@ public struct DefiniteInitializationPass: TransformPass {
         case .let, .inout, .set:
           continue
         case .sink:
-          context.consume(o, with: i, at: call.site, diagnostics: &diagnostics1)
+          context.consume(o, with: i, at: call.site, diagnostics: &diagnostics)
         case .yielded:
           unreachable()
         }
@@ -299,13 +293,13 @@ public struct DefiniteInitializationPass: TransformPass {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deinit i: InstructionID, in context: inout Context) {
       let x = module[i] as! DeinitInstruction
-      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics1)
+      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(destructure i: InstructionID, in context: inout Context) {
       let x = module[i] as! DestructureInstruction
-      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics1)
+      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
 
       assignObjectRegisters(createdBy: i, in: &context)
     }
@@ -336,15 +330,15 @@ public struct DefiniteInitializationPass: TransformPass {
           case .full(.initialized):
             o.value = .full(.consumed(by: [i]))
           case .full(.uninitialized):
-            diagnostics1.report(.useOfUninitializedObject(at: load.site))
+            diagnostics.report(.useOfUninitializedObject(at: load.site))
           case .full(.consumed):
-            diagnostics1.report(.useOfConsumedObject(at: load.site))
+            diagnostics.report(.useOfConsumedObject(at: load.site))
           case .partial:
             let p = o.value.paths!
             if p.consumed.isEmpty {
-              diagnostics1.report(.useOfPartiallyInitializedObject(at: load.site))
+              diagnostics.report(.useOfPartiallyInitializedObject(at: load.site))
             } else {
-              diagnostics1.report(.useOfPartiallyConsumedObject(at: load.site))
+              diagnostics.report(.useOfPartiallyConsumedObject(at: load.site))
             }
           }
         }
@@ -357,7 +351,7 @@ public struct DefiniteInitializationPass: TransformPass {
     func interpret(record i: InstructionID, in context: inout Context) {
       let x = module[i] as! RecordInstruction
       for o in x.operands {
-        context.consume(o, with: i, at: x.site, diagnostics: &diagnostics1)
+        context.consume(o, with: i, at: x.site, diagnostics: &diagnostics)
       }
 
       assignObjectRegisters(createdBy: i, in: &context)
@@ -366,7 +360,7 @@ public struct DefiniteInitializationPass: TransformPass {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) {
       let x = module[i] as! ReturnInstruction
-      context.consume(x.value, with: i, at: x.site, diagnostics: &diagnostics1)
+      context.consume(x.value, with: i, at: x.site, diagnostics: &diagnostics)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -374,7 +368,7 @@ public struct DefiniteInitializationPass: TransformPass {
       let store = module[i] as! StoreInstruction
 
       // Consume the object operand.
-      context.consume(store.object, with: i, at: store.site, diagnostics: &diagnostics1)
+      context.consume(store.object, with: i, at: store.site, diagnostics: &diagnostics)
 
       // Target operand must be a location.
       let locations: Set<MemoryLocation>
@@ -438,9 +432,6 @@ public struct DefiniteInitializationPass: TransformPass {
         work.append(block)
       }
     }
-
-    diagnostics = Array(diagnostics1.log)
-    return !diagnostics1.errorReported
   }
 
 }

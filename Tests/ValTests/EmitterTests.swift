@@ -46,11 +46,9 @@ final class EmitterTests: XCTestCase {
           LifetimePass(program: typedProgram),
         ]
 
-        var success = true
-        for i in 0 ..< pipeline.count {
-          for f in 0 ..< irModule.functions.count {
-            success = pipeline[i].run(function: f, module: &irModule) && success
-            diagnostics.report(pipeline[i].diagnostics)
+        for i in pipeline.indices {
+          for f in irModule.functions.indices {
+            pipeline[i].run(function: f, module: &irModule, diagnostics: &diagnostics)
           }
           try diagnostics.throwOnError()
         }
