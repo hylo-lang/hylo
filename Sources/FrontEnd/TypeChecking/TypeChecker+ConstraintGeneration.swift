@@ -3,6 +3,18 @@ import Utils
 
 extension TypeChecker {
 
+  /// A deferred type checking query on a node that should be applied after the types of its
+  /// constituent parts have been inferred.
+  ///
+  /// This type is meant to represent closures capturing the nodes on which they apply. For
+  /// example:
+  ///
+  ///     let n: NodeID<VarDecl> = foo()
+  ///     let deferredQuery: DeferredQuery = { (c, s) in
+  ///       c.checkDeferred(varDecl: n, s)
+  ///     }
+  typealias DeferredQuery = (_ checker: inout TypeChecker, _ solution: Solution) -> Bool
+
   /// The types inferred by constraint generation for the visited expressions, along with the
   /// constraints between these types.
   struct InferenceFacts {
