@@ -2723,12 +2723,7 @@ public struct TypeChecker {
         })
 
     case TypeAliasDecl.self:
-      return _realize(
-        decl: id,
-        { (this, id) in
-          let instance = TypeAliasType(NodeID(id)!, ast: this.program.ast)
-          return ^MetatypeType(of: instance)
-        })
+      return realize(typeAliasDecl: NodeID(id)!)
 
     case VarDecl.self:
       let bindingDecl = program.varToBinding[NodeID(id)!]!
@@ -3130,6 +3125,15 @@ public struct TypeChecker {
       environment: ^environment,
       inputs: inputs,
       output: output)
+  }
+
+  private mutating func realize(typeAliasDecl d: NodeID<TypeAliasDecl>) -> AnyType {
+    _realize(decl: d, { (this, id) in this._realize(typeAliasDecl: d) })
+  }
+
+  private mutating func _realize(typeAliasDecl d: NodeID<TypeAliasDecl>) -> AnyType {
+    let instance = TypeAliasType(NodeID(d)!, ast: program.ast)
+    return ^MetatypeType(of: instance)
   }
 
   /// Realizes the explicit captures in `list`, writing the captured names in `explicitNames`, and
