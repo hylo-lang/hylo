@@ -60,16 +60,16 @@ final class ValCommandTests: XCTestCase {
   }
 
   #if !os(Windows)
-  func testBinary() throws {
-    let input = try XCTUnwrap(
-      Bundle.module.url(forResource: "Success", withExtension: ".val", subdirectory: "Inputs"),
-      "No inputs")
+    func testBinary() throws {
+      let input = try XCTUnwrap(
+        Bundle.module.url(forResource: "Success", withExtension: ".val", subdirectory: "Inputs"),
+        "No inputs")
 
-    let result = try compile(input, with: ["--emit", "binary"])
-    XCTAssert(result.status.isSuccess)
-    XCTAssert(result.stderr.isEmpty)
-    XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
-  }
+      let result = try compile(input, with: ["--emit", "binary"])
+      XCTAssert(result.status.isSuccess)
+      XCTAssert(result.stderr.isEmpty)
+      XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
+    }
   #endif
 
   func testTypeCheckSuccess() throws {
