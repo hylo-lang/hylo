@@ -111,33 +111,43 @@ public struct ValCommand: ParsableCommand {
     ValCommand.exit(withError: try execute(loggingTo: &errorLog))
   }
 
-  /// Executes the command, logging messages to `errorLog`, and returns its exit status.
+  /// Executes the command, logging Val messages to `errorLog`, and returns its exit status.
+  ///
+  /// Propagates any thrown errors that are not Val diagnostics,
   public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
+    do {
+      try execute1(loggingTo: &errorLog)
+    } catch let d as Diagnostics {
+      assert(d.errorReported, "Diagnostics containing no errors were thrown")
+      return ExitCode.failure
+    }
+    return ExitCode.success
+  }
+
+  /// Executes the command, logging Val messages to `errorLog`.
+  public func execute1<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
+    var diagnostics = Diagnostics()
+    defer { errorLog.log(diagnostics: diagnostics) }
+
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
     }
 
-    var diagnostics = Diagnostics()
     let productName = makeProductName(inputs)
 
     /// The AST of the program being compiled.
     var ast = AST()
 
     // Parse the source code.
-    let newModule: NodeID<ModuleDecl>
-    do {
-      newModule = try ast.makeModule(
-        productName, sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
-    } catch _ as Diagnostics {
-      return finalize(logging: diagnostics, to: &errorLog)
-    }
+    let newModule = try ast.makeModule(
+      productName, sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".ast.json")
       let encoder = JSONEncoder().forAST
       try encoder.encode(ast).write(to: url, options: .atomic)
-      return finalize(logging: diagnostics, to: &errorLog)
+      return
     }
 
     // Import the core library.
@@ -148,23 +158,19 @@ public struct ValCommand: ParsableCommand {
       program: ScopedProgram(ast),
       isBuiltinModuleVisible: true,
       tracingInferenceIn: inferenceTracingRange)
-    var typeCheckingSucceeded = true
 
     // Type check the core library.
-    typeCheckingSucceeded = checker.check(module: checker.program.ast.corelib!)
+    checker.check(module: checker.program.ast.corelib!)
 
     // Type-check the input.
     checker.isBuiltinModuleVisible = importBuiltinModule
-    typeCheckingSucceeded = checker.check(module: newModule) && typeCheckingSucceeded
+    checker.check(module: newModule)
 
-    // Report type-checking errors.
     diagnostics.report(checker.diagnostics)
-    if !typeCheckingSucceeded {
-      return finalize(logging: diagnostics, to: &errorLog)
-    }
+    try diagnostics.throwOnError()
 
     // Exit if `--typecheck` is set.
-    if typeCheckOnly { return finalize(logging: diagnostics, to: &errorLog) }
+    if typeCheckOnly { return }
 
     let typedProgram = TypedProgram(
       annotating: checker.program,
@@ -183,7 +189,7 @@ public struct ValCommand: ParsableCommand {
     if outputType == .rawIR {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return finalize(logging: diagnostics, to: &errorLog)
+      return
     }
 
     // Run mandatory IR analysis and transformation passes.
@@ -200,14 +206,14 @@ public struct ValCommand: ParsableCommand {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
         diagnostics.report(pipeline[i].diagnostics)
       }
-      if !passSuccess { return finalize(logging: diagnostics, to: &errorLog) }
+      if !passSuccess { return }
     }
 
     // Handle `--emit ir`
     if outputType == .ir {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return finalize(logging: diagnostics, to: &errorLog)
+      return
     }
 
     // *** C++ Transpiling ***
@@ -233,7 +239,7 @@ public struct ValCommand: ParsableCommand {
         cxxCode,
         to: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName),
         loggingTo: &errorLog)
-      return finalize(logging: diagnostics, to: &errorLog)
+      return
     }
 
     // *** Machine code generation ***
@@ -264,8 +270,6 @@ public struct ValCommand: ParsableCommand {
         buildDirectoryURL.appendingPathComponent(productName + ".cpp").path,
       ],
       loggingTo: &errorLog)
-
-    return finalize(logging: diagnostics, to: &errorLog)
   }
 
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
@@ -292,13 +296,6 @@ public struct ValCommand: ParsableCommand {
       log.log("Writing \(url)")
     }
     try source.write(to: url, atomically: true, encoding: .utf8)
-  }
-
-  /// Logs the given diagnostics to the standard error and returns a success code if none of them
-  /// is an error; otherwise, returns a failure code.
-  private func finalize<L: Log>(logging diagnostics: Diagnostics, to log: inout L) -> ExitCode {
-    log.log(diagnostics: diagnostics)
-    return diagnostics.errorReported ? ExitCode.failure : ExitCode.success
   }
 
   /// Creates a module from the contents at `url` and adds it to the AST.

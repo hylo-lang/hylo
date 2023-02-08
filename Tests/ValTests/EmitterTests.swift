@@ -24,7 +24,7 @@ final class EmitterTests: XCTestCase {
         // Run the type checker
         // Note: built-in module is visible so that we can test built-in function calls.
         var checker = TypeChecker(program: ScopedProgram(ast), isBuiltinModuleVisible: true)
-        _ = checker.check(module: module)
+        checker.check(module: module)
         diagnostics.report(checker.diagnostics)
         try diagnostics.throwOnError()
 
