@@ -1080,10 +1080,15 @@ public struct TypeChecker {
       return false
     }
 
-    // Constrain the right to be subtype of the left.
+    // The type on the left must be `Sinkable`.
+    let lhsConstraint = ConformanceConstraint(
+      lhsType, conformsTo: [program.ast.coreTrait(named: "Sinkable")!],
+      because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].site))
+
+    // Constrain the right to be subtype on the left.
     let rhsType = exprTypes[program.ast[id].right].setIfNil(
       ^TypeVariable(node: program.ast[id].right.base))
-    let assignmentConstraint = SubtypingConstraint(
+    let rhsConstraint = SubtypingConstraint(
       rhsType, lhsType,
       because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].site))
 
@@ -1092,7 +1097,7 @@ public struct TypeChecker {
       impliedBy: AnyExprID(program.ast[id].right),
       expecting: lhsType,
       in: lexicalContext,
-      initialConstraints: [assignmentConstraint])
+      initialConstraints: [lhsConstraint, rhsConstraint])
     return inference.succeeded
   }
 
