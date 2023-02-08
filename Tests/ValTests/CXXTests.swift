@@ -23,19 +23,7 @@ final class CXXTests: XCTestCase {
         // Parse the input.
         _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 
-        // Run the type checker.
-        var checker = TypeChecker(program: ScopedProgram(ast))
-        checker.check(module: module)
-        diagnostics.report(checker.diagnostics)
-        try diagnostics.throwOnError()
-
-        let typedProgram = TypedProgram(
-          annotating: checker.program,
-          declTypes: checker.declTypes,
-          exprTypes: checker.exprTypes,
-          implicitCaptures: checker.implicitCaptures,
-          referredDecls: checker.referredDecls,
-          foldedSequenceExprs: checker.foldedSequenceExprs)
+        let typedProgram = try ast.typeChecked(standardLibrary: nil, diagnostics: &diagnostics)
 
         // TODO: Run IR transform passes
 

@@ -150,35 +150,13 @@ public struct ValCommand: ParsableCommand {
       return
     }
 
-    // Import the core library.
-    ast.importCoreModule()
-
-    // Initialize the type checker.
-    var checker = TypeChecker(
-      program: ScopedProgram(ast),
-      isBuiltinModuleVisible: true,
-      tracingInferenceIn: inferenceTracingRange)
-
-    // Type check the core library.
-    checker.check(module: checker.program.ast.corelib!)
-
-    // Type-check the input.
-    checker.isBuiltinModuleVisible = importBuiltinModule
-    checker.check(module: newModule)
-
-    diagnostics.report(checker.diagnostics)
-    try diagnostics.throwOnError()
+    let typedProgram = try ast.typeChecked(
+      standardLibrary: importBuiltinModule ? newModule : nil,
+      tracingInferenceIn: inferenceTracingRange,
+      diagnostics: &diagnostics)
 
     // Exit if `--typecheck` is set.
     if typeCheckOnly { return }
-
-    let typedProgram = TypedProgram(
-      annotating: checker.program,
-      declTypes: checker.declTypes,
-      exprTypes: checker.exprTypes,
-      implicitCaptures: checker.implicitCaptures,
-      referredDecls: checker.referredDecls,
-      foldedSequenceExprs: checker.foldedSequenceExprs)
 
     // *** IR Lowering ***
 
