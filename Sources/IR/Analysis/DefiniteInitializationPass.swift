@@ -6,7 +6,7 @@ import Utils
 ///
 /// Definite initialization is a mendatory IR pass ensuiring that objects are initialized before
 /// use and deinitialized before their storage is reused or before they go and out scope.
-public struct DefiniteInitializationPass: TransformPass {
+public struct DefiniteInitializationPass {
 
   /// The program from which the analyzed IR was lowered.
   private let program: TypedProgram
@@ -16,6 +16,8 @@ public struct DefiniteInitializationPass: TransformPass {
     self.program = program
   }
 
+  /// Runs this pass represented by this instance on `function` in `module`, reporting warnings
+  /// and errors into `diagnostics`.
   public func run(function: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
 
     /// The control flow graph of the function to analyze.

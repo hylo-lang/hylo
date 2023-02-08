@@ -1,11 +1,13 @@
 import Core
 
 /// A transformation pass that inserts return instructions.
-public struct ImplicitReturnInsertionPass: TransformPass {
+public struct ImplicitReturnInsertionPass {
 
   /// Creates a new pass.
   public init() {}
 
+  /// Runs this pass represented by this instance on `function` in `module`, reporting warnings
+  /// and errors into `diagnostics`.
   public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
     /// The expected return type of the function.
     let expectedReturnType = module[f].output.astType

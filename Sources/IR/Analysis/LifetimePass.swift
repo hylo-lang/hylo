@@ -1,7 +1,7 @@
 import Core
 
 /// The lifetime pass.
-public struct LifetimePass: TransformPass {
+public struct LifetimePass {
 
   /// The program from which the analyzed IR was lowered.
   public let program: TypedProgram
@@ -11,6 +11,8 @@ public struct LifetimePass: TransformPass {
     self.program = program
   }
 
+  /// Runs this pass represented by this instance on `function` in `module`, reporting warnings
+  /// and errors into `diagnostics`.
   public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
     for blockIndex in module[f].blocks.indices {
       let block = Block.ID(function: f, address: blockIndex.address)
