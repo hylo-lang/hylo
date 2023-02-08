@@ -279,9 +279,9 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Writes the code for a C++ translation unit to .h/.cpp files at `baseUrl`.
-  private func write<L: Log>(_ source: TranslationUnitCode, to baseURL: URL, loggingTo log: inout L)
-    throws
-  {
+  private func write<L: Log>(
+    _ source: TranslationUnitCode, to baseURL: URL, loggingTo log: inout L
+  ) throws {
     try write(source.headerCode, toURL: baseURL.appendingPathExtension("h"), loggingTo: &log)
     try write(source.sourceCode, toURL: baseURL.appendingPathExtension("cpp"), loggingTo: &log)
   }
