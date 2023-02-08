@@ -26,14 +26,20 @@ final class ASTTests: XCTestCase {
     let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     XCTAssert(d.log.isEmpty, "\n\(d)")
 
-    // Subscript the AST for reading with a typed ID.
+    // Note: we use `XCTUnwrap` when we're expecting a non-nil value produced by a subscript under
+    // test. Otherwise, we use `!`.
+
+    // Test `AST.subscript<T: ConcreteNodeID>(T)`
     let s = a[m].sources.first
 
-    // Subscript the AST with an optional typed ID.
-    let typeErasedDecls = try XCTUnwrap(a[s]?.decls)
+    // Test `AST.subscript<T: ConcreteNodeID>(T?)`
+    let allDecls = try XCTUnwrap(a[s]?.decls)
 
-    // Subscript the AST for reading with a type-erased ID.
-    XCTAssert(a[typeErasedDecls.first!] is ImportDecl)
+    // Test `AST.subscript<T: NodeIDProtocol>(T)`
+    XCTAssert(a[allDecls.first!] is ImportDecl)
+
+    // Test `AST.subscript<T: NodeIDProtocol>(T?)`
+    XCTAssert(a[allDecls.first] is ImportDecl)
   }
 
   func testCodableRoundtrip() throws {
