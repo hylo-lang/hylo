@@ -9,13 +9,18 @@ public struct TypeAliasType: TypeProtocol {
   /// The name of the alias.
   public let name: Incidental<String>
 
-  /// Creates an instance denoting the product type declared by `decl`.
-  public init(_ decl: NodeID<TypeAliasDecl>, ast: AST) {
-    self.decl = decl
-    self.name = Incidental(ast[decl].baseName)
-  }
+  /// The resolved type of the alias.
+  public let resolved: Incidental<AnyType>
 
-  public var flags: TypeFlags { .isCanonical }
+  public let flags: TypeFlags
+
+  /// Creates a type alias resolving to `resolved` and declared by `d` in `ast`.
+  public init(aliasing resolved: AnyType, declaredBy d: NodeID<TypeAliasDecl>, in ast: AST) {
+    self.decl = d
+    self.name = Incidental(ast[decl].baseName)
+    self.resolved = Incidental(resolved)
+    self.flags = resolved.flags.removing(.isCanonical)
+  }
 
 }
 
