@@ -68,7 +68,7 @@ public struct AST {
   public mutating func insert<T: Node>(synthesized n: T) -> NodeID<T> {
     var d = Diagnostics()
     let r = insert(n, diagnostics: &d)
-    precondition(d.log.isEmpty, "ill-formed synthesized node \(n)")
+    precondition(d.log.isEmpty, "ill-formed synthesized node \(n)\n\(d)")
     return r
   }
 

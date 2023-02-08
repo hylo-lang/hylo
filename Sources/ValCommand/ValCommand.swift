@@ -133,7 +133,7 @@ public struct ValCommand: ParsableCommand {
       fatalError("compilation as modules not yet implemented.")
     }
 
-    let productName = "main"
+    let productName = makeProductName(inputs)
 
     /// The AST of the program being compiled.
     var ast = AST()
@@ -144,7 +144,7 @@ public struct ValCommand: ParsableCommand {
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
-      let url = outputURL ?? URL(fileURLWithPath: "ast.json")
+      let url = outputURL ?? URL(fileURLWithPath: productName + ".ast.json")
       let encoder = JSONEncoder().forAST
       try encoder.encode(ast).write(to: url, options: .atomic)
       return
@@ -272,10 +272,20 @@ public struct ValCommand: ParsableCommand {
       loggingTo: &errorLog)
   }
 
+  /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
+  /// `u` without any path extension and stripping all leading dots. Otherwise, returns "Main".
+  private func makeProductName(_ inputs: [URL]) -> String {
+    if let u = inputs.uniqueElement {
+      let n = u.deletingPathExtension().lastPathComponent.drop(while: { $0 == "." })
+      if !n.isEmpty { return String(n) }
+    }
+    return "Main"
+  }
+
   /// Writes the code for a C++ translation unit to .h/.cpp files at `baseUrl`.
-  private func write<L: Log>(_ source: TranslationUnitCode, to baseURL: URL, loggingTo log: inout L)
-    throws
-  {
+  private func write<L: Log>(
+    _ source: TranslationUnitCode, to baseURL: URL, loggingTo log: inout L
+  ) throws {
     try write(source.headerCode, toURL: baseURL.appendingPathExtension("h"), loggingTo: &log)
     try write(source.sourceCode, toURL: baseURL.appendingPathExtension("cpp"), loggingTo: &log)
   }

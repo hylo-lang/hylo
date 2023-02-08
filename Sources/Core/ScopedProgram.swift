@@ -496,15 +496,7 @@ extension ScopedProgram {
         if let clause = this.ast[decl].genericClause?.value {
           this.visit(genericClause: clause, withState: &state)
         }
-        switch this.ast[decl].body {
-        case .typeExpr(let expr):
-          this.visit(expr: expr, withState: &state)
-
-        case .union(let union):
-          for element in union {
-            this.visit(productTypeDecl: element, withState: &state)
-          }
-        }
+        this.visit(expr: this.ast[decl].aliasedType, withState: &state)
       })
   }
 

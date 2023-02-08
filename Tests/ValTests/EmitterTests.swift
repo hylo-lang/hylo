@@ -21,8 +21,9 @@ final class EmitterTests: XCTestCase {
         // Parse the input.
         _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 
-        // Run the type checker.
-        var checker = TypeChecker(program: ScopedProgram(ast))
+        // Run the type checker
+        // Note: built-in module is visible so that we can test built-in function calls.
+        var checker = TypeChecker(program: ScopedProgram(ast), isBuiltinModuleVisible: true)
         checker.check(module: module)
         diagnostics.report(checker.diagnostics)
         try diagnostics.throwOnError()

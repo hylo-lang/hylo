@@ -1,0 +1,7 @@
+//! expect-success
+
+public fun main() {
+  do {
+    let x = true
+  } while x
+}

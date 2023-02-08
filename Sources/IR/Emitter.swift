@@ -278,10 +278,14 @@ public struct Emitter {
       emit(braceStmt: BraceStmt.Typed(stmt)!, into: &module)
     case DeclStmt.self:
       emit(declStmt: DeclStmt.Typed(stmt)!, into: &module)
+    case DoWhileStmt.self:
+      emit(doWhileStmt: DoWhileStmt.Typed(stmt)!, into: &module)
     case ExprStmt.self:
       emit(exprStmt: ExprStmt.Typed(stmt)!, into: &module)
     case ReturnStmt.self:
       emit(returnStmt: ReturnStmt.Typed(stmt)!, into: &module)
+    case WhileStmt.self:
+      emit(whileStmt: WhileStmt.Typed(stmt)!, into: &module)
     default:
       unexpected("statement", found: stmt)
     }
@@ -312,6 +316,33 @@ public struct Emitter {
     }
   }
 
+  private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed, into module: inout Module) {
+    let loopBody = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let loopTail = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    module.append(
+      BranchInstruction(target: loopBody, site: .empty(at: stmt.site.first())),
+      to: insertionBlock!)
+    insertionBlock = loopBody
+
+    // Note: we're not using `emit(braceStmt:into:)` because we need to evaluate the loop
+    // condition before exiting the scope.
+    frames.push()
+    for s in stmt.body.stmts {
+      emit(stmt: s, into: &module)
+    }
+
+    let c = emitBranchCondition(stmt.condition, into: &module)
+    emitStackDeallocs(in: &module, site: stmt.site)
+    frames.pop()
+    module.append(
+      CondBranchInstruction(
+        condition: c, targetIfTrue: loopBody, targetIfFalse: loopTail,
+        site: stmt.condition.site),
+      to: insertionBlock!)
+
+    insertionBlock = loopTail
+  }
+
   private mutating func emit(exprStmt stmt: ExprStmt.Typed, into module: inout Module) {
     _ = emitR(expr: stmt.expr, into: &module)
   }
@@ -326,6 +357,46 @@ public struct Emitter {
 
     emitStackDeallocs(in: &module, site: stmt.site)
     module.append(ReturnInstruction(value: value, site: stmt.site), to: insertionBlock!)
+  }
+
+  private mutating func emit(whileStmt stmt: WhileStmt.Typed, into module: inout Module) {
+    let loopHead = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let loopTail = module.createBasicBlock(atEndOf: insertionBlock!.function)
+
+    // Emit the condition(s).
+    module.append(
+      BranchInstruction(target: loopHead, site: .empty(at: stmt.site.first())),
+      to: insertionBlock!)
+    insertionBlock = loopHead
+
+    for item in stmt.condition {
+      let b = module.createBasicBlock(atEndOf: insertionBlock!.function)
+
+      frames.push()
+      defer { frames.pop() }
+
+      switch item {
+      case .expr(let itemExpr):
+        let e = program[itemExpr]
+        let c = emitBranchCondition(e, into: &module)
+        emitStackDeallocs(in: &module, site: e.site)
+        module.append(
+          CondBranchInstruction(
+            condition: c, targetIfTrue: b, targetIfFalse: loopTail,
+            site: e.site),
+          to: insertionBlock!)
+        insertionBlock = b
+
+      case .decl:
+        fatalError("not implemented")
+      }
+    }
+
+    emit(braceStmt: stmt.body, into: &module)
+    module.append(
+      BranchInstruction(target: loopHead, site: .empty(at: stmt.site.first())),
+      to: insertionBlock!)
+    insertionBlock = loopTail
   }
 
   // MARK: r-values
@@ -401,27 +472,10 @@ public struct Emitter {
       switch item {
       case .expr(let itemExpr):
         // Evaluate the condition in the current block.
-        var condition = emitL(expr: program[itemExpr], meantFor: .let, into: &module)
-        condition =
-          module.append(
-            BorrowInstruction(
-              .let, .address(BuiltinType.i(1)), from: condition, at: [0],
-              site: program[itemExpr].site),
-            to: insertionBlock!)[0]
-        condition =
-          module.append(
-            CallInstruction(
-              returnType: .object(BuiltinType.i(1)),
-              calleeConvention: .let,
-              callee: .constant(.builtin(BuiltinFunction("copy_i1")!.reference)),
-              argumentConventions: [.let],
-              arguments: [condition],
-              site: program[itemExpr].site),
-            to: insertionBlock!)[0]
-
+        let c = emitBranchCondition(program[itemExpr], into: &module)
         module.append(
           CondBranchInstruction(
-            condition: condition,
+            condition: c,
             targetIfTrue: success,
             targetIfFalse: failure,
             site: expr.site),
@@ -501,9 +555,14 @@ public struct Emitter {
     functionCallExpr expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let calleeType = expr.callee.type.base as! LambdaType
+    if let n = NameExpr.Typed(expr.callee),
+      case .builtinFunction(let f) = n.decl
+    {
+      return emitR(builtinFunctionCallTo: f, with: expr.arguments, at: expr.site, into: &module)
+    }
 
     // Determine the callee's convention.
+    let calleeType = LambdaType(expr.callee.type)!
     let calleeConvention = calleeType.receiverEffect ?? .let
 
     // Arguments are evaluated first, from left to right.
@@ -600,9 +659,9 @@ public struct Emitter {
               name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
               type: .address(calleeType))))
 
-      case .builtinFunction(let f):
-        // Callee refers to a built-in function.
-        callee = .constant(.builtin(f.reference))
+      case .builtinFunction:
+        // Already handled.
+        unreachable()
 
       case .builtinType:
         // Built-in types are never called.
@@ -625,6 +684,22 @@ public struct Emitter {
         argumentConventions: argumentConventions,
         arguments: arguments,
         site: expr.site),
+      to: insertionBlock!)[0]
+  }
+
+  /// Emits the IR of a call to `f` with given `arguments` at `site` into `module`, inserting
+  /// instructions at the end of `self.insertionBlock`.
+  private mutating func emitR(
+    builtinFunctionCallTo f: BuiltinFunction,
+    with arguments: [LabeledArgument],
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    return module.append(
+      LLVMInstruction(
+        applying: f,
+        to: arguments.map({ (a) in emitR(expr: program[a.value], into: &module) }),
+        at: site),
       to: insertionBlock!)[0]
   }
 
@@ -882,6 +957,30 @@ public struct Emitter {
 
     // Otherwise, by default, a callee is evaluated as a function object.
     return emitR(expr: expr, into: &module)
+  }
+
+  /// Inserts the IR for branch condition `expr` into `module` at the end of the current insertion
+  /// block.
+  ///
+  /// - Requires: `expr.type` is `Val.Bool`
+  private mutating func emitBranchCondition<ID: ExprID>(
+    _ expr: ID.TypedNode,
+    into module: inout Module
+  ) -> Operand {
+    var v = emitL(expr: expr, meantFor: .let, into: &module)
+    v = module.append(
+      BorrowInstruction(.let, .address(BuiltinType.i(1)), from: v, at: [0], site: expr.site),
+      to: insertionBlock!)[0]
+    v = module.append(
+      CallInstruction(
+        returnType: .object(BuiltinType.i(1)),
+        calleeConvention: .let,
+        callee: .constant(.builtin(BuiltinFunction("copy_i1")!.reference)),
+        argumentConventions: [.let],
+        arguments: [v],
+        site: expr.site),
+      to: insertionBlock!)[0]
+    return v
   }
 
   // MARK: l-values

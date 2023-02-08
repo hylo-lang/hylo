@@ -120,25 +120,32 @@ struct ConstraintSolver {
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
+    var missingTraits: Set<TraitType>
 
     switch goal.subject.base {
     case is TypeVariable:
       // Postpone the solving if `L` is still unknown.
       postpone(goal)
+      return
+
+    case is BuiltinType:
+      // Built-in types are `Sinkable`.
+      missingTraits = constraint.traits.subtracting(
+        [checker.program.ast.coreTrait(named: "Sinkable")!])
 
     case is ProductType, is TupleType:
-      let conformedTraits = checker.conformedTraits(of: goal.subject, in: scope) ?? []
-      let nonConforming = goal.traits.subtracting(conformedTraits)
-
-      if !nonConforming.isEmpty {
-        log("- fail")
-        for trait in nonConforming {
-          diagnostics.report(.error(goal.subject, doesNotConformTo: trait, at: goal.cause.site))
-        }
-      }
+      missingTraits = goal.traits.subtracting(
+        checker.conformedTraits(of: goal.subject, in: scope) ?? [])
 
     default:
       fatalError("not implemented")
+    }
+
+    if !missingTraits.isEmpty {
+      log("- fail")
+      for t in missingTraits {
+        diagnostics.report(.error(goal.subject, doesNotConformTo: t, at: goal.cause.site))
+      }
     }
   }
 
