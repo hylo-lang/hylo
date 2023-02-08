@@ -16,8 +16,8 @@ public struct DefiniteInitializationPass {
     self.program = program
   }
 
-  /// Runs this pass represented by this instance on `function` in `module`, reporting warnings
-  /// and errors into `diagnostics`.
+  /// Reports any use-before-initialization errors in `function` into `diagnostics`, 
+  /// where `function` is in `module` and `module` is in `self.program`.
   public func run(function: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
 
     /// The control flow graph of the function to analyze.
