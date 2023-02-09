@@ -870,7 +870,7 @@ public struct TypeChecker {
           }
         }
 
-        requirementType = requirementType.transform(substituteSelf(type:))
+        requirementType = relations.canonical(requirementType.transform(substituteSelf(type:)))
         if requirementType.isError { continue }
 
         // Search for candidate implementations.
@@ -880,8 +880,7 @@ public struct TypeChecker {
 
         // Filter out the candidates with incompatible types.
         candidates = candidates.filter({ (candidate) -> Bool in
-          let candidateType = realize(decl: candidate)
-          return relations.canonical(candidateType) == requirementType
+          return realize(decl: candidate) == requirementType
         })
 
         // TODO: Filter out the candidates with incompatible constraints.
@@ -2471,7 +2470,7 @@ public struct TypeChecker {
       domain = d
 
       // Handle references to built-in types.
-      if d == .builtin(.module) {
+      if relations.areEquivalent(d, .builtin(.module)) {
         if let type = BuiltinType(name.value.stem) {
           return MetatypeType(of: .builtin(type))
         } else {
@@ -3226,7 +3225,7 @@ public struct TypeChecker {
       // Capture-less local functions are not captured.
       if let d = NodeID<FunctionDecl>(captureDecl) {
         guard let lambda = realize(functionDecl: d).base as? LambdaType else { continue }
-        if lambda.environment == .void { continue }
+        if relations.areEquivalent(lambda.environment, .void) { continue }
       }
 
       // Other local declarations are captured.
