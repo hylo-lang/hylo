@@ -6,8 +6,9 @@ public struct ImplicitReturnInsertionPass {
   /// Creates a new pass.
   public init() {}
 
-  /// Runs this pass represented by this instance on `function` in `module`, reporting warnings
-  /// and errors into `diagnostics`.
+  /// If `f` returns `Void`, inserts `return` instructions in all basic blocks without a terminator
+  /// instruction. Otherwise, report missing return values. `f` is in `module` and `module` is in
+  /// `self.program`.
   public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
     /// The expected return type of the function.
     let expectedReturnType = module[f].output.astType

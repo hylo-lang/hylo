@@ -11,8 +11,8 @@ public struct LifetimePass {
     self.program = program
   }
 
-  /// Runs this pass represented by this instance on `function` in `module`, reporting warnings
-  /// and errors into `diagnostics`.
+  /// Inserts `end_borrow` instructions after the last use of each `borrow` instruction in `f`,
+  /// where `f` is in `module` and `module` is in `self.program`.
   public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
     for blockIndex in module[f].blocks.indices {
       let block = Block.ID(function: f, address: blockIndex.address)
