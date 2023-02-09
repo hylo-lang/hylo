@@ -18,13 +18,13 @@ public struct DefiniteInitializationPass {
 
   /// Reports any use-before-initialization errors in `function` into `diagnostics`, 
   /// where `function` is in `module` and `module` is in `self.program`.
-  public func run(function: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
+  public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
 
     /// The control flow graph of the function to analyze.
-    let cfg = module[function].cfg
+    let cfg = module[f].cfg
 
     /// The dominator tree of the function to analyze.
-    let dominatorTree = DominatorTree(function: function, cfg: cfg, in: module)
+    let dominatorTree = DominatorTree(function: f, cfg: cfg, in: module)
 
     /// A FILO list of blocks to visit.
     var work = Deque(dominatorTree.bfs)
@@ -88,9 +88,9 @@ public struct DefiniteInitializationPass {
     ) -> Context {
       var newContext = initialContext
 
-      let blockInstructions = module[function][b].instructions
+      let blockInstructions = module[f][b].instructions
       for i in blockInstructions.indices {
-        let user = InstructionID(function, b, i.address)
+        let user = InstructionID(f, b, i.address)
 
         switch blockInstructions[i] {
         case is AllocStackInstruction:
@@ -395,8 +395,8 @@ public struct DefiniteInitializationPass {
       }
 
       // The entry block is a special case.
-      if block == module[function].blocks.firstAddress {
-        let x = Context(entryOf: module[function], in: program)
+      if block == module[f].blocks.firstAddress {
+        let x = Context(entryOf: module[f], in: program)
         let y = afterContext(of: block, in: x)
         contexts[block] = (before: x, after: y)
         done.insert(block)
