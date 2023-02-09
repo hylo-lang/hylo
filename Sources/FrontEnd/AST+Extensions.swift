@@ -27,7 +27,7 @@ extension AST {
   ///   - standardLibrary: The module, if any, to be checked with the Builtin module visible.
   ///   - inferenceTracingRange: A range of source code in which to trace type inference, or `nil` 
   ///     to disable tracing.
-  ///   - diagnostics: channel for errors and warnings.
+  ///   - diagnostics: A channel for errors and warnings.
   public func typeChecked(
     standardLibrary: NodeID<ModuleDecl>?,
     tracingInferenceIn inferenceTracingRange: SourceRange? = nil,
