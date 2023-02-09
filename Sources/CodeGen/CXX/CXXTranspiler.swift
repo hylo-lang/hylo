@@ -47,6 +47,8 @@ public struct CXXTranspiler {
       return CXXComment(comment: "conformance decl")
     case TraitDecl.self:
       return CXXComment(comment: "trait decl")
+    case TypeAliasDecl.self:
+      return CXXComment(comment: "type alias decl")
     default:
       unexpected("declaration", found: source)
     }
