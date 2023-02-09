@@ -34,6 +34,8 @@ public struct CXXCodeWriter {
     // Emit include clauses.
     if source.isStdLib {
       target.writeLine("#include <variant>")
+      target.writeLine("#include <cstdint>")
+      target.writeLine("#include <cstdlib>")
     } else {
       target.writeLine("#include \"ValStdLib.h\"")
     }
