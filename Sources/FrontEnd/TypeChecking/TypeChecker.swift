@@ -2262,14 +2262,6 @@ public struct TypeChecker {
       }
       return type
 
-    case "Void":
-      let type = MetatypeType(of: .void)
-      if arguments.count > 0 {
-        diagnostics.insert(.error(argumentToNonGenericType: type.instance, at: name.site))
-        return nil
-      }
-      return type
-
     case "Self":
       guard let type = realizeSelfTypeExpr(in: scope) else {
         diagnostics.insert(.error(invalidReferenceToSelfTypeAt: name.site))
