@@ -25,6 +25,9 @@ public struct TypeChecker {
   /// A map from sequence expressions to their evaluation order.
   public internal(set) var foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr] = [:]
 
+  /// The type relations of the program.
+  public internal(set) var relations = TypeRelations()
+
   /// Indicates whether the built-in symbols are visible.
   public var isBuiltinModuleVisible: Bool
 
@@ -46,64 +49,6 @@ public struct TypeChecker {
   }
 
   // MARK: Type system
-
-  /// Returns whether `lhs` is canonically equivalent to `rhs`.
-  public func areEquivalent(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    canonicalize(type: lhs) == canonicalize(type: rhs)
-  }
-
-  /// Returns whether `lhs` is a strict subtype of `rhs`.
-  public func isStrictSubtype(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    // TODO: Implement me
-    return false
-  }
-
-  /// Returns the canonical form of `type`.
-  public func canonicalize(type: AnyType) -> AnyType {
-    if type[.isCanonical] { return type }
-
-    switch type.base {
-    case let t as BoundGenericType:
-      let base = canonicalize(type: t.base)
-      let arguments = t.arguments.map({ (a) -> BoundGenericType.Argument in
-        switch a {
-        case .type(let a):
-          return .type(canonicalize(type: a))
-        case .value:
-          fatalError("not implemented")
-        }
-      })
-      return ^BoundGenericType(base, arguments: arguments)
-
-    case let t as ExistentialType:
-      return ^ExistentialType(
-        traits: t.traits,
-        constraints: ConstraintSet(t.constraints.map(canonicalize(constraint:))))
-
-    case let t as MetatypeType:
-      return ^MetatypeType(of: canonicalize(type: t.instance))
-
-    case let t as SumType:
-      return ^SumType(Set(t.elements.map(canonicalize(type:))))
-
-    case let t as TupleType:
-      return ^TupleType(
-        t.elements.map({ (e) -> TupleType.Element in
-          .init(label: e.label, type: canonicalize(type: e.type))
-        }))
-
-    case let t as TypeAliasType:
-      return canonicalize(type: t.resolved.value)
-
-    default:
-      unreachable()
-    }
-  }
-
-  /// Returns the canonical form of `constraint`.
-  public func canonicalize(constraint: Constraint) -> Constraint {
-    constraint.modifyingTypes(canonicalize(type:))
-  }
 
   /// Returns the set of traits to which `type` conforms in `scope`.
   ///
@@ -865,7 +810,7 @@ public struct TypeChecker {
       case FunctionDecl.self:
         // Make sure the requirement is well-typed.
         let requirement = NodeID<FunctionDecl>(j)!
-        var requirementType = canonicalize(type: realize(functionDecl: requirement))
+        var requirementType = relations.canonical(realize(functionDecl: requirement))
 
         /// Substitute `Self` by the conforming type in `type`.
         func substituteSelf(type: AnyType) -> TypeTransformAction {
@@ -936,7 +881,7 @@ public struct TypeChecker {
         // Filter out the candidates with incompatible types.
         candidates = candidates.filter({ (candidate) -> Bool in
           let candidateType = realize(decl: candidate)
-          return canonicalize(type: candidateType) == requirementType
+          return relations.canonical(candidateType) == requirementType
         })
 
         // TODO: Filter out the candidates with incompatible constraints.
@@ -2114,7 +2059,7 @@ public struct TypeChecker {
     exposedTo scope: S
   ) -> [AnyDeclID] {
     /// The canonical form of `subject`.
-    let canonicalSubject = canonicalize(type: subject)
+    let canonicalSubject = relations.canonical(subject)
     /// The declarations extending `subject`.
     var matches: [AnyDeclID] = []
     /// The module at the root of `scope`, when found.
@@ -2172,7 +2117,7 @@ public struct TypeChecker {
 
       // Check for matches.
       guard let extendedType = realize(decl: i).base as? MetatypeType else { continue }
-      if canonicalize(type: extendedType.instance) == subject {
+      if relations.canonical(extendedType.instance) == subject {
         matches.append(i)
       }
     }

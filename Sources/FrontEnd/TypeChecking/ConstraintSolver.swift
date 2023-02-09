@@ -163,7 +163,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // The constraint is trivially solved if `L` is equal to `D`.
-    if checker.areEquivalent(goal.subject, goal.defaultSubject) { return }
+    if checker.relations.areEquivalent(goal.subject, goal.defaultSubject) { return }
 
     // Check that `L` conforms to `T` or postpone if it's still unknown.
     if goal.subject.base is TypeVariable {
@@ -195,7 +195,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Handle trivially satisified constraints.
-    if checker.areEquivalent(goal.left, goal.right) { return }
+    if checker.relations.areEquivalent(goal.left, goal.right) { return }
 
     switch (goal.left.base, goal.right.base) {
     case (let tau as TypeVariable, _):
@@ -279,7 +279,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Handle cases where `L` is equal to `R`.
-    if checker.areEquivalent(goal.left, goal.right) {
+    if checker.relations.areEquivalent(goal.left, goal.right) {
       if goal.isStrict {
         log("- fail")
         diagnostics.report(
@@ -344,7 +344,7 @@ struct ConstraintSolver {
     case (_, let r as SumType):
       // If `R` is a sum type and `L` isn't, then `L` must be contained in `R`.
       for e in r.elements {
-        if checker.areEquivalent(goal.left, e) { return }
+        if checker.relations.areEquivalent(goal.left, e) { return }
       }
 
       // Postpone the constraint if either `L` or `R` contains variables. Otherwise, `L` is not
@@ -392,7 +392,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Handle trivially satisified constraints.
-    if checker.areEquivalent(goal.left, goal.right) { return }
+    if checker.relations.areEquivalent(goal.left, goal.right) { return }
 
     switch goal.right.base {
     case is TypeVariable:
@@ -655,7 +655,7 @@ struct ConstraintSolver {
     var i = 0
     while i < bestResults.count {
       let rhs = bestResults[i].solution.typeAssumptions.reify(comparator)
-      if checker.areEquivalent(lhs, rhs) {
+      if checker.relations.areEquivalent(lhs, rhs) {
         // Check if the new solution binds name expressions to more specialized declarations.
         let comparison = checker.compareSolutionBindings(
           newResult.solution, bestResults[0].solution, scope: scope)
@@ -675,7 +675,7 @@ struct ConstraintSolver {
           i += 1
           shouldInsert = true
         }
-      } else if checker.isStrictSubtype(lhs, rhs) {
+      } else if checker.relations.isStrictSubtype(lhs, rhs) {
         // The new solution is finer; keep it and discard the old one.
         bestResults.remove(at: i)
         shouldInsert = true
