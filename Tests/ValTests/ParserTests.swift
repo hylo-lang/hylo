@@ -13,10 +13,7 @@ final class ParserTests: XCTestCase {
       { (source, diagnostics) in
         // Create a module for the input.
         var ast = AST()
-        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
-
-        // Parse the input.
-        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
+        _ = try ast.makeModule(source.baseName, sourceCode: [source], diagnostics: &diagnostics)
       })
   }
 
@@ -30,11 +27,9 @@ final class ParserTests: XCTestCase {
       }
       """)
 
-    var program = AST()
-    let module = program.insert(synthesized: ModuleDecl(name: "Main"))
-
+    var a = AST()
     var d = Diagnostics()
-    _ = try Parser.parse(input, into: module, in: &program, diagnostics: &d)
+    _ = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     XCTAssert(d.log.isEmpty, "\n\(d)")
   }
 
@@ -51,12 +46,10 @@ final class ParserTests: XCTestCase {
         public let y = 0;
       """)
 
-    var program = AST()
-    let module = program.insert(synthesized: ModuleDecl(name: "Main"))
+    var a = AST()
     var d = Diagnostics()
-    let translation = try Parser.parse(input, into: module, in: &program, diagnostics: &d)
-
-    XCTAssertEqual(program[translation].decls.count, 4)
+    let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    XCTAssertEqual(a[a[m].sources.first!].decls.count, 4)
   }
 
   // MARK: Declarations

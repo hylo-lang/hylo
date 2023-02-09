@@ -20,13 +20,11 @@ import Utils
 /// A namespace for the routines of Val's parser.
 public enum Parser {
 
-  /// Parses the declarations of `input` and inserts them into `ast[module]`, updating diagnostics
-  /// as appropriate, returning the identity of parsed source file in `ast`.
+  /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to `diagnostics`.
   ///
   /// - Throws: Diagnostics if syntax errors were encountered.
   public static func parse(
     _ input: SourceFile,
-    into module: NodeID<ModuleDecl>,
     in ast: inout AST,
     diagnostics: inout Diagnostics
   ) throws -> NodeID<TopLevelDeclSet> {
@@ -96,7 +94,6 @@ public enum Parser {
       TopLevelDeclSet(
         decls: members,
         site: input.range(input.text.startIndex ..< input.text.endIndex)))
-    state.ast[module].addSourceFile(translation)
 
     try state.diagnostics.throwOnError()
     ast = state.ast
@@ -3402,21 +3399,23 @@ extension ParserState {
 
 extension AST {
 
-  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics to
-  /// `diagnostics`.
+  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics
+  /// to `diagnostics`.
   public mutating func makeModule<S: Sequence>(
     _ name: String, sourceCode: S, diagnostics: inout Diagnostics
-  ) throws -> NodeID<ModuleDecl>
-  where S.Element == SourceFile {
-    let newModule = self.insert(synthesized: ModuleDecl(name: name))
-
+  ) throws -> NodeID<ModuleDecl> where S.Element == SourceFile {
+    var translations: [NodeID<TopLevelDeclSet>] = []
     for f in sourceCode {
       do {
-        _ = try Parser.parse(f, into: newModule, in: &self, diagnostics: &diagnostics)
-      } catch _ as Diagnostics {}  // These have been logged, let's keep parsing other files.
+        try translations.append(Parser.parse(f, in: &self, diagnostics: &diagnostics))
+      } catch _ as Diagnostics {
+        // Suppress the error until all files are parsed.
+      }
     }
+
+    let m = insert(ModuleDecl(name: name, sources: translations), diagnostics: &diagnostics)
     try diagnostics.throwOnError()
-    return newModule
+    return m
   }
 
 }

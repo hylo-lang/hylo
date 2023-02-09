@@ -82,12 +82,7 @@ public struct AST {
 
   /// Accesses the node at `position`.
   public subscript<T: ConcreteNodeID>(position: T) -> T.Subject {
-    get { nodes[position.rawValue].node as! T.Subject }
-    _modify {
-      var n = nodes[position.rawValue].node as! T.Subject
-      defer { nodes[position.rawValue] = AnyNode(n) }
-      yield &n
-    }
+    nodes[position.rawValue].node as! T.Subject
   }
 
   /// Accesses the node at `position`.
