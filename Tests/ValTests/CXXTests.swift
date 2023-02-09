@@ -68,7 +68,7 @@ final class CXXTests: XCTestCase {
 
     // Run the type checker.
     var checker = TypeChecker(program: ScopedProgram(ast), isBuiltinModuleVisible: true)
-    _ = checker.check(module: ast.corelib!)
+    checker.check(module: ast.corelib!)
 
     let typedProgram = TypedProgram(
       annotating: checker.program,
