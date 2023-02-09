@@ -3,16 +3,11 @@ import Core
 /// The lifetime pass.
 public struct LifetimePass {
 
-  /// The program from which the analyzed IR was lowered.
-  public let program: TypedProgram
-
-  /// Creates an instance that analyzes IR lowered from `program`.
-  public init(program: TypedProgram) {
-    self.program = program
-  }
+  /// Creates an instance.
+  public init() {}
 
   /// Inserts `end_borrow` instructions after the last use of each `borrow` instruction in `f`,
-  /// where `f` is in `module` and `module` is in `self.program`.
+  /// where `f` is in `module`.
   public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
     for blockIndex in module[f].blocks.indices {
       let block = Block.ID(function: f, address: blockIndex.address)

@@ -28,8 +28,8 @@ public struct PassPipeline {
   public init(withMandatoryPassesForModulesLoweredFrom p: TypedProgram) {
     self.init([
       ImplicitReturnInsertionPass().run,
-      DefiniteInitializationPass(program: p).run,
-      LifetimePass(program: p).run,
+      DefiniteInitializationPass().run,
+      LifetimePass().run,
     ])
   }
 

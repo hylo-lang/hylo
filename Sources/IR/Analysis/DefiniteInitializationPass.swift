@@ -8,16 +8,11 @@ import Utils
 /// use and deinitialized before their storage is reused or before they go and out scope.
 public struct DefiniteInitializationPass {
 
-  /// The program from which the analyzed IR was lowered.
-  private let program: TypedProgram
-
-  /// Creates an instance that analyzes IR lowered from `program`.
-  public init(program: TypedProgram) {
-    self.program = program
-  }
+  /// Creates an instance.
+  public init() {}
 
   /// Reports any use-before-initialization errors in `f` into `diagnostics`, where `f` is in
-  /// `module` and `module` is in `self.program`.
+  /// `module`.
   public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
 
     /// The control flow graph of the function to analyze.
@@ -135,7 +130,7 @@ public struct DefiniteInitializationPass {
     func assignObjectRegisters(createdBy i: InstructionID, in context: inout Context) {
       for (j, t) in module[i].types.enumerated() {
         context.locals[FunctionLocal(i, j)] = .init(
-          object: .full(.initialized), ofType: t.astType, definedIn: program)
+          object: .full(.initialized), ofType: t.astType, definedIn: module.program)
       }
     }
 
@@ -148,7 +143,7 @@ public struct DefiniteInitializationPass {
       // Update the context.
       context.memory[location] = Object(
         layout: AbstractTypeLayout(
-          of: (module[i] as! AllocStackInstruction).allocatedType, definedIn: program),
+          of: (module[i] as! AllocStackInstruction).allocatedType, definedIn: module.program),
         value: .full(.uninitialized))
       context.locals[FunctionLocal(i, 0)] = .locations([location])
     }
@@ -167,7 +162,7 @@ public struct DefiniteInitializationPass {
       }
 
       // Objects at each location have the same state unless DI or LoE has been broken.
-      let o = context.withObject(at: locations[0], typedIn: program, { $0 })
+      let o = context.withObject(at: locations[0], typedIn: module.program, { $0 })
 
       switch borrow.capability {
       case .let, .inout:
@@ -206,7 +201,7 @@ public struct DefiniteInitializationPass {
         // Deinitialize the object(s) at the location.
         let rootType = module.type(of: borrow.location).astType
         for path in initializedPaths {
-          let t = AbstractTypeLayout(of: rootType, definedIn: program)[path].type
+          let t = AbstractTypeLayout(of: rootType, definedIn: module.program)[path].type
           let o = module.insert(
             LoadInstruction(.object(t), from: borrow.location, at: path, site: borrow.site),
             before: i)[0]
@@ -217,7 +212,7 @@ public struct DefiniteInitializationPass {
 
         // Apply the effects of the new instructions.
         for l in locations {
-          context.withObject(at: l, typedIn: program, { $0.value = .full(.uninitialized) })
+          context.withObject(at: l, typedIn: module.program, { $0.value = .full(.uninitialized) })
         }
 
       case .yielded, .sink:
@@ -260,19 +255,21 @@ public struct DefiniteInitializationPass {
       let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
 
       // Make sure the memory at the deallocated location is consumed or uninitialized.
-      let initializedPaths: [SubobjectPath] = context.withObject(at: l, typedIn: program) { (o) in
-        switch o.value {
-        case .full(.initialized):
-          return [[]]
-        case .full(.uninitialized), .full(.consumed):
-          return []
-        case .partial:
-          return o.value.paths!.initialized
-        }
-      }
+      let initializedPaths: [SubobjectPath] = context.withObject(
+        at: l, typedIn: module.program,
+        { (o) in
+          switch o.value {
+          case .full(.initialized):
+            return [[]]
+          case .full(.uninitialized), .full(.consumed):
+            return []
+          case .partial:
+            return o.value.paths!.initialized
+          }
+        })
 
       for p in initializedPaths {
-        let t = AbstractTypeLayout(of: alloc.allocatedType, definedIn: program)[p]
+        let t = AbstractTypeLayout(of: alloc.allocatedType, definedIn: module.program)[p]
         let o = module.insert(
           LoadInstruction(.object(t.type), from: dealloc.location, at: p, site: dealloc.site),
           before: i)[0]
@@ -327,7 +324,7 @@ public struct DefiniteInitializationPass {
 
       // Object at target location must be initialized.
       for l in locations {
-        context.withObject(at: l, typedIn: program) { (o) in
+        context.withObject(at: l, typedIn: module.program) { (o) in
           switch o.value {
           case .full(.initialized):
             o.value = .full(.consumed(by: [i]))
@@ -382,7 +379,7 @@ public struct DefiniteInitializationPass {
       }
 
       for l in locations {
-        context.withObject(at: l, typedIn: program, { $0.value = .full(.initialized) })
+        context.withObject(at: l, typedIn: module.program, { $0.value = .full(.initialized) })
       }
     }
 
@@ -396,7 +393,7 @@ public struct DefiniteInitializationPass {
 
       // The entry block is a special case.
       if block == module[f].blocks.firstAddress {
-        let x = Context(entryOf: module[f], in: program)
+        let x = Context(entryOf: module[f], in: module.program)
         let y = afterContext(of: block, in: x)
         contexts[block] = (before: x, after: y)
         done.insert(block)
