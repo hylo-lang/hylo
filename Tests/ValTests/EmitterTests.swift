@@ -34,7 +34,8 @@ final class EmitterTests: XCTestCase {
           exprTypes: checker.exprTypes,
           implicitCaptures: checker.implicitCaptures,
           referredDecls: checker.referredDecls,
-          foldedSequenceExprs: checker.foldedSequenceExprs)
+          foldedSequenceExprs: checker.foldedSequenceExprs,
+          relations: checker.relations)
 
         // Emit Val's IR.
         var irModule = Module(module, in: typedProgram)

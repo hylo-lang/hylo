@@ -178,7 +178,8 @@ public struct ValCommand: ParsableCommand {
       exprTypes: checker.exprTypes,
       implicitCaptures: checker.implicitCaptures,
       referredDecls: checker.referredDecls,
-      foldedSequenceExprs: checker.foldedSequenceExprs)
+      foldedSequenceExprs: checker.foldedSequenceExprs,
+      relations: checker.relations)
 
     // *** IR Lowering ***
 
