@@ -13,7 +13,7 @@ final class TypeCheckerTests: XCTestCase {
       in: "TestCases/TypeChecking",
       { (source, diagnostics) in
         var ast = baseAST
-        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
+        let module = ast.insert(synthesized: ModuleDecl(source.baseName))
 
         _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 

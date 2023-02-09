@@ -3406,7 +3406,7 @@ extension AST {
     _ name: String, sourceCode: S, diagnostics: inout Diagnostics
   ) throws -> NodeID<ModuleDecl>
   where S.Element == SourceFile {
-    let newModule = self.insert(synthesized: ModuleDecl(name: name))
+    let newModule = self.insert(synthesized: ModuleDecl(name))
 
     for f in sourceCode {
       do {

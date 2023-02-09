@@ -7,7 +7,7 @@ public struct ModuleDecl: SingleEntityDecl, LexicalScope {
   /// The source files in the module.
   public private(set) var sources: [NodeID<TranslationUnit>] = []
 
-  public init(name: String) {
+  public init(_ name: String) {
     self.baseName = name
     self.site = SourceFile(synthesizedText: "/* module: \(name) */").wholeRange
   }

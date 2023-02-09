@@ -18,7 +18,7 @@ final class CXXTests: XCTestCase {
       { (source, cxxAnnotations, diagnostics) in
         // Create a module for the input.
         var ast = baseAST
-        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
+        let module = ast.insert(synthesized: ModuleDecl(source.baseName))
 
         // Parse the input.
         _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
