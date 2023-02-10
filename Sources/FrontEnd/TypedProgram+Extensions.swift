@@ -13,7 +13,7 @@ extension TypedProgram {
     tracingInferenceIn inferenceTracingRange: SourceRange? = nil,
     diagnostics: inout Diagnostics
   ) throws {
-    let fullSyntax = syntax.withCoreModule()
+    let fullSyntax = syntax.importingCoreModule()
 
     var checker = TypeChecker(
       program: ScopedProgram(fullSyntax),
