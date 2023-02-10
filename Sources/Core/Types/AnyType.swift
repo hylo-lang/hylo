@@ -130,28 +130,6 @@ public struct AnyType: TypeProtocol {
 
   public var skolemized: AnyType { base.skolemized }
 
-  /// Returns a copy of this type with generic parameters keying `subtitutions` replaced by their
-  /// corresponding value.
-  public func specialized(_ substitutions: [NodeID<GenericParameterDecl>: AnyType]) -> AnyType {
-    func _impl(type: AnyType) -> TypeTransformAction {
-      // Substitute parameters.
-      if let base = GenericTypeParameterType(type),
-        let decl = NodeID<GenericParameterDecl>(base.decl)
-      {
-        return .stepOver(substitutions[decl, default: type])
-      }
-
-      // Don't visit the interior of `type` if it doesn't contain generic type parameters.
-      if type[.hasGenericTypeParameter] {
-        return .stepInto(type)
-      } else {
-        return .stepOver(type)
-      }
-    }
-
-    return transform(_impl(type:))
-  }
-
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> AnyType {
     AnyType(wrapped.transformParts(transformer))
   }

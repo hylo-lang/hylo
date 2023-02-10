@@ -47,6 +47,36 @@ public struct TypeChecker {
 
   // MARK: Type system
 
+  /// Returns a copy of `genericType` where occurrences of generic parameters keying `subtitutions`
+  /// are replaced by their corresponding value, performing any necessary name lookup in `scope`.
+  private mutating func specialized(
+    _ genericType: AnyType,
+    applying substitutions: [NodeID<GenericParameterDecl>: AnyType],
+    in scope: AnyScopeID
+  ) -> AnyType {
+    func _impl(t: AnyType) -> TypeTransformAction {
+      switch t.base {
+      case let p as GenericTypeParameterType:
+        return .stepOver(substitutions[p.decl] ?? t)
+
+      case let t as AssociatedTypeType:
+        let d = t.domain.transform(_impl)
+
+        let candidates = lookup(program.ast[t.decl].baseName, memberOf: d, in: scope)
+        if let c = candidates.uniqueElement {
+          return .stepOver(MetatypeType(realize(decl: c))?.instance ?? .error)
+        } else {
+          return .stepOver(.error)
+        }
+
+      default:
+        return .stepInto(t)
+      }
+    }
+
+    return genericType.transform(_impl(t:))
+  }
+
   /// Returns whether `lhs` is canonically equivalent to `rhs`.
   public func areEquivalent(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
     canonicalize(type: lhs) == canonicalize(type: rhs)
@@ -845,7 +875,8 @@ public struct TypeChecker {
     to trait: TraitType
   ) -> Bool {
     let conformingType = realizeSelfTypeExpr(in: decl)!.instance
-    let selfType = ^GenericTypeParameterType(selfParameterOf: trait.decl, in: program.ast)
+    let specialization = [program.ast[trait.decl].selfParameterDecl: conformingType]
+
     var success = true
 
     // Get the set of generic parameters defined by `trait`.
@@ -865,67 +896,10 @@ public struct TypeChecker {
       case FunctionDecl.self:
         // Make sure the requirement is well-typed.
         let requirement = NodeID<FunctionDecl>(j)!
-        var requirementType = canonicalize(type: realize(functionDecl: requirement))
-
-        /// Substitute `Self` by the conforming type in `type`.
-        func substituteSelf(type: AnyType) -> TypeTransformAction {
-          switch type.base {
-          case selfType:
-            // `type` is `Self`.
-            return .stepOver(conformingType)
-
-          case let t as AssociatedTypeType:
-            // We only care about associated types rooted at `Self`. Others can be assumed to be
-            // rooted at some generic type parameter declared by the requirement.
-            let components = t.components
-            if components.last != selfType { return .stepOver(type) }
-
-            let scope = AnyScopeID(decl)
-            let replacement =
-              components
-              .dropLast(1)
-              .reversed()
-              .reduce(
-                into: conformingType,
-                { (r, c) in
-                  if r.isError { return }
-
-                  switch c.base {
-                  case let c as AssociatedTypeType:
-                    let candidates = lookup(
-                      program.ast[c.decl].baseName, memberOf: r, in: scope)
-
-                    // Name is ambiguous if there's more than one candidate.
-                    if candidates.count != 1 {
-                      r = .error
-                      return
-                    }
-
-                    // Name should refer to a type.
-                    let candidateValue = realize(decl: candidates.first!)
-                    guard let type = (candidateValue.base as? MetatypeType)?.instance else {
-                      r = .error
-                      return
-                    }
-
-                    // FIXME: If `type` is a bound generic type, substitute generic type parameters.
-                    r = type
-
-                  case is ConformanceLensType:
-                    fatalError("not implemented")
-
-                  default:
-                    unreachable()
-                  }
-                })
-            return .stepOver(replacement)
-
-          default:
-            return .stepInto(type)
-          }
-        }
-
-        requirementType = requirementType.transform(substituteSelf(type:))
+        let requirementType = specialized(
+          canonicalize(type: realize(functionDecl: requirement)),
+          applying: specialization,
+          in: AnyScopeID(decl))
         if requirementType.isError { continue }
 
         // Search for candidate implementations.
@@ -1819,9 +1793,6 @@ public struct TypeChecker {
       // Realize the type of the declaration.
       var targetType = realize(decl: match)
 
-      // Give up if the declaration has an error type.
-      if targetType.isError { continue }
-
       // Erase parameter conventions.
       if let t = ParameterType(targetType) {
         targetType = t.bareType
@@ -1849,9 +1820,14 @@ public struct TypeChecker {
         }
 
         // Apply the arguments.
-        let substitutions = Dictionary(uniqueKeysWithValues: zip(env.parameters, arguments))
-        targetType = targetType.specialized(substitutions)
+        targetType = specialized(
+          targetType,
+          applying: .init(uniqueKeysWithValues: zip(env.parameters, arguments)),
+          in: lookupScope)
       }
+
+      // Give up if the declaration has an error type.
+      if targetType.isError { continue }
 
       // Determine how the declaration is being referenced.
       let reference: DeclRef =
