@@ -3400,13 +3400,18 @@ extension ParserState {
 
 extension AST {
 
-  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics to
-  /// `diagnostics`.
+  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics
+  /// to `diagnostics`.
+  ///
+  /// - Parameter builtinModuleAccess: whether the module is allowed to access the builtin module.
   public mutating func makeModule<S: Sequence>(
-    _ name: String, sourceCode: S, diagnostics: inout Diagnostics
+    _ name: String, sourceCode: S,
+    builtinModuleAccess: Bool = false,
+    diagnostics: inout Diagnostics
   ) throws -> NodeID<ModuleDecl>
   where S.Element == SourceFile {
-    let newModule = self.insert(synthesized: ModuleDecl(name))
+    let newModule = self.insert(
+      synthesized: ModuleDecl(name, builtinModuleAccess: builtinModuleAccess))
 
     for f in sourceCode {
       do {
