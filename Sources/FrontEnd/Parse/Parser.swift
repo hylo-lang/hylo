@@ -3411,7 +3411,7 @@ extension AST {
   ) throws -> NodeID<ModuleDecl>
   where S.Element == SourceFile {
     let newModule = self.insert(
-      synthesized: ModuleDecl(name: name, builtinModuleAccess: builtinModuleAccess))
+      synthesized: ModuleDecl(name, builtinModuleAccess: builtinModuleAccess))
 
     for f in sourceCode {
       do {

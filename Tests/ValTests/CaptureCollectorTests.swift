@@ -7,7 +7,7 @@ final class CaptureCollectorTests: XCTestCase {
 
   func testFunctionBindings() throws {
     var ast = AST()
-    let module = ast.insert(synthesized: ModuleDecl(name: "main"))
+    let module = ast.insert(synthesized: ModuleDecl("main"))
     let source: SourceFile = """
       fun f<X, v: Void>[let c = ()](_ p: Any) {
         let _ = free   // captured

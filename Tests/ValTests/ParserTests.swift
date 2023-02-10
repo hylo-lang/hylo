@@ -13,7 +13,7 @@ final class ParserTests: XCTestCase {
       { (source, diagnostics) in
         // Create a module for the input.
         var ast = AST()
-        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
+        let module = ast.insert(synthesized: ModuleDecl(source.baseName))
 
         // Parse the input.
         _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
@@ -30,7 +30,7 @@ final class ParserTests: XCTestCase {
       """
 
     var program = AST()
-    let module = program.insert(synthesized: ModuleDecl(name: "Main"))
+    let module = program.insert(synthesized: ModuleDecl("Main"))
 
     var d = Diagnostics()
     _ = try Parser.parse(input, into: module, in: &program, diagnostics: &d)
@@ -50,7 +50,7 @@ final class ParserTests: XCTestCase {
       """
 
     var program = AST()
-    let module = program.insert(synthesized: ModuleDecl(name: "Main"))
+    let module = program.insert(synthesized: ModuleDecl("Main"))
     var d = Diagnostics()
     let translation = try Parser.parse(input, into: module, in: &program, diagnostics: &d)
 

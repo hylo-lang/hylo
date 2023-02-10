@@ -80,14 +80,20 @@ public struct TypeChecker {
         traits: t.traits,
         constraints: ConstraintSet(t.constraints.map(canonicalize(constraint:))))
 
+    case let t as MetatypeType:
+      return ^MetatypeType(of: canonicalize(type: t.instance))
+
+    case let t as SumType:
+      return ^SumType(Set(t.elements.map(canonicalize(type:))))
+
     case let t as TupleType:
       return ^TupleType(
         t.elements.map({ (e) -> TupleType.Element in
           .init(label: e.label, type: canonicalize(type: e.type))
         }))
 
-    case let t as SumType:
-      return ^SumType(Set(t.elements.map(canonicalize(type:))))
+    case let t as TypeAliasType:
+      return canonicalize(type: t.resolved.value)
 
     default:
       unreachable()
@@ -1966,8 +1972,18 @@ public struct TypeChecker {
       return lookup(baseName, memberOf: type, in: site)
 
     case TypeAliasDecl.self:
-      let type = ^TypeAliasType(NodeID(lookupContext)!, ast: program.ast)
-      return lookup(baseName, memberOf: type, in: site)
+      // We can't re-enter `realize(typeAliasDecl:)` if the aliased type of `d` is being resolved
+      // but its generic parameters can be lookep up already.
+      let d = NodeID<TypeAliasDecl>(lookupContext)!
+      if declRequests[d] == .typeRealizationStarted {
+        return names(introducedIn: d)[baseName, default: []]
+      }
+
+      if let t = MetatypeType(realize(typeAliasDecl: d))?.instance {
+        return t.isError ? [] : lookup(baseName, memberOf: t, in: site)
+      } else {
+        return []
+      }
 
     default:
       return names(introducedIn: lookupContext)[baseName, default: []]
@@ -2721,12 +2737,7 @@ public struct TypeChecker {
         })
 
     case TypeAliasDecl.self:
-      return _realize(
-        decl: id,
-        { (this, id) in
-          let instance = TypeAliasType(NodeID(id)!, ast: this.program.ast)
-          return ^MetatypeType(of: instance)
-        })
+      return realize(typeAliasDecl: NodeID(id)!)
 
     case VarDecl.self:
       let bindingDecl = program.varToBinding[NodeID(id)!]!
@@ -3128,6 +3139,19 @@ public struct TypeChecker {
       environment: ^environment,
       inputs: inputs,
       output: output)
+  }
+
+  private mutating func realize(typeAliasDecl d: NodeID<TypeAliasDecl>) -> AnyType {
+    _realize(decl: d, { (this, id) in this._realize(typeAliasDecl: d) })
+  }
+
+  private mutating func _realize(typeAliasDecl d: NodeID<TypeAliasDecl>) -> AnyType {
+    guard let resolved = realize(program.ast[d].aliasedType, in: AnyScopeID(d))?.instance else {
+      return .error
+    }
+
+    let instance = TypeAliasType(aliasing: resolved, declaredBy: NodeID(d)!, in: program.ast)
+    return ^MetatypeType(of: instance)
   }
 
   /// Realizes the explicit captures in `list`, writing the captured names in `explicitNames`, and

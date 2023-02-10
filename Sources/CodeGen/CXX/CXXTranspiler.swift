@@ -19,7 +19,16 @@ public struct CXXTranspiler {
   /// Returns a C++ AST implementing the semantics of `source`.
   public func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
     return CXXModule(
-      source: source, topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
+      name: source.baseName, isStdLib: false,
+      topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
+      entryPointBody: entryPointBody(module: source))
+  }
+
+  /// Returns a C++ AST implementing the semantics of `source`.
+  public func transpile(stdlib source: ModuleDecl.Typed) -> CXXModule {
+    return CXXModule(
+      name: "ValStdLib", isStdLib: true,
+      topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
       entryPointBody: entryPointBody(module: source))
   }
 
@@ -564,17 +573,45 @@ public struct CXXTranspiler {
       return cxx(typeExpr: type.bareType)
 
     case let type as BuiltinType:
-      // TODO
-      let _ = type
-      return CXXTypeExpr("builtin")
+      return cxx(builtinType: type)
 
     case let type as SumType:
-      // TODO
-      let _ = type
-      return CXXTypeExpr("sum_type")
+      if type.elements.isEmpty {
+        return CXXTypeExpr(isReturnType ? "void" : "std::monostate")
+      } else {
+        // TODO
+        fatalError("not implemented")
+      }
 
     default:
       fatalError("not implemented")
+    }
+  }
+  /// Returns a transpilation of `source`.
+  private func cxx(builtinType source: BuiltinType) -> CXXTypeExpr {
+    switch source {
+    case .i(let bitWidth) where bitWidth == 1:
+      return CXXTypeExpr(native: "bool")
+    case .i(let bitWidth) where bitWidth == 8:
+      return CXXTypeExpr(native: "int8_t")
+    case .i(let bitWidth) where bitWidth == 16:
+      return CXXTypeExpr(native: "int16_t")
+    case .i(let bitWidth) where bitWidth == 32:
+      return CXXTypeExpr(native: "int32_t")
+    case .i(let bitWidth) where bitWidth == 64:
+      return CXXTypeExpr(native: "int64_t")
+    case .half:
+      fatalError("half floats are not supported in C++")
+    case .float:
+      return CXXTypeExpr(native: "float")
+    case .double:
+      return CXXTypeExpr(native: "double")
+    case .fp128:
+      return CXXTypeExpr(native: "long double")
+    case .ptr:
+      return CXXTypeExpr(native: "intptr_t")
+    default:
+      fatalError("builtin type not implemented")
     }
   }
 

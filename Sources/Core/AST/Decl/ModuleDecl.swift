@@ -11,7 +11,7 @@ public struct ModuleDecl: SingleEntityDecl, LexicalScope {
   public let canAccessBuiltins: Bool
 
   /// Creates an instance with the given properties and no source files.
-  public init(name baseName: String, builtinModuleAccess canAccessBuiltins: Bool = false) {
+  public init(_ name baseName: String, builtinModuleAccess canAccessBuiltins: Bool = false) {
     self.baseName = baseName
     self.site = SourceFile(synthesizedText: "/* module: \(baseName) */").wholeRange
     self.canAccessBuiltins = canAccessBuiltins
