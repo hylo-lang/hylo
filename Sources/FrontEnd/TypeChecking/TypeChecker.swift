@@ -685,16 +685,14 @@ public struct TypeChecker {
 
     // Type check conformances.
     let container = program.scopeToParent[id]!
-    let traits: Set<TraitType>
-    if let ts = realize(conformances: program.ast[id].conformances, in: container) {
-      traits = ts
-    } else {
-      traits = []
-      success = false
-    }
-
-    for trait in traits {
-      success = check(conformanceOfProductDecl: id, to: trait) && success
+    for e in program.ast[id].conformances {
+      guard let rhs = realize(name: e, in: container)?.instance else { continue }
+      if let t = TraitType(rhs) {
+        success = checkConformance(of: id, to: t, at: program.ast[e].site) && success
+      } else {
+        diagnostics.insert(.error(conformanceToNonTraitType: rhs, at: program.ast[e].site))
+        success = false
+      }
     }
 
     // Type check extending declarations.
@@ -868,89 +866,77 @@ public struct TypeChecker {
     return success
   }
 
-  /// Type checks the conformance of the product type declared by `decl` to the trait `trait` and
-  /// returns whether that succeeded.
-  private mutating func check(
-    conformanceOfProductDecl decl: NodeID<ProductTypeDecl>,
-    to trait: TraitType
+  /// Returns true iff the type declared by `decl` satisfies the requirements of `trait`,
+  /// reporting errors at `site`.
+  private mutating func checkConformance(
+    of decl: NodeID<ProductTypeDecl>,
+    to trait: TraitType,
+    at site: SourceRange
   ) -> Bool {
     let conformingType = realizeSelfTypeExpr(in: decl)!.instance
     let specialization = [program.ast[trait.decl].selfParameterDecl: conformingType]
 
-    var success = true
+    var notes: [Diagnostic] = []
 
     // Get the set of generic parameters defined by `trait`.
-    for j in program.ast[trait.decl].members {
-      switch j.kind {
+    for requirement in program.ast[trait.decl].members {
+      let requirementType = specialized(
+        canonicalize(type: realize(decl: requirement)),
+        applying: specialization,
+        in: AnyScopeID(decl))
+      if requirementType.isError { continue }
+
+      switch requirement.kind {
       case GenericParameterDecl.self:
-        assert(j == program.ast[trait.decl].selfParameterDecl, "unexpected declaration")
+        assert(requirement == program.ast[trait.decl].selfParameterDecl, "unexpected declaration")
         continue
 
       case AssociatedTypeDecl.self:
         // TODO: Implement me.
         continue
 
-      case AssociatedValueDecl.self:
-        fatalError("not implemented")
-
       case FunctionDecl.self:
-        // Make sure the requirement is well-typed.
-        let requirement = NodeID<FunctionDecl>(j)!
-        let requirementType = specialized(
-          canonicalize(type: realize(functionDecl: requirement)),
-          applying: specialization,
-          in: AnyScopeID(decl))
-        if requirementType.isError { continue }
-
-        // Search for candidate implementations.
-        let stem = program.ast[requirement].identifier!.value
-        var candidates = lookup(stem, memberOf: conformingType, in: AnyScopeID(decl))
-        candidates.remove(AnyDeclID(requirement))
+        // Gather candidate implementations.
+        let n = Name(of: NodeID<FunctionDecl>(requirement)!, in: program.ast)!
+        let lookupResult = lookup(n.stem, memberOf: conformingType, in: AnyScopeID(decl))
 
         // Filter out the candidates with incompatible types.
-        candidates = candidates.filter({ (candidate) -> Bool in
-          let candidateType = realize(decl: candidate)
-          return canonicalize(type: candidateType) == requirementType
-        })
+        let candidates = lookupResult.compactMap { (c) -> AnyDeclID? in
+          guard
+            c != requirement,
+            let d = self.decl(in: c, named: n),
+            canonicalize(type: realize(decl: d)) == requirementType
+          else { return nil }
 
-        // TODO: Filter out the candidates with incompatible constraints.
-        //
-        // trait A {}
-        // type Foo<T> {}
-        // extension Foo where T: U { fun foo() }
-        // conformance Foo: A {} // <- should not consider `foo` in the extension
+          if let f = NodeID<FunctionDecl>(d), program.ast[f].body == nil { return nil }
+          if let f = NodeID<MethodImpl>(d), program.ast[f].body == nil { return nil }
 
-        // If there are several candidates, we have an ambiguous conformance.
-        if candidates.count > 1 {
-          fatalError("not implemented")
+          // TODO: Filter out the candidates with incompatible constraints.
+          // trait A {}
+          // type Foo<T> {}
+          // extension Foo where T: U { fun foo() }
+          // conformance Foo: A {} // <- should not consider `foo` in the extension
+
+          return d
         }
 
-        // If there's no candidate and the requirement doesn't have a default implementation, the
-        // conformance is not satisfied.
-        if candidates.isEmpty && (program.ast[requirement].body == nil) {
-          diagnostics.insert(
-            .error(
-              conformingType,
-              doesNotConformTo: trait,
-              at: program.ast[decl].identifier.site,
-              because: [
-                .error(
-                  traitRequiresMethod: Name(of: requirement, in: program.ast)!,
-                  withType: declTypes[requirement]!,
-                  at: program.ast[decl].identifier.site)
-              ]))
-          success = false
-        }
+        // TODO: Rank candidates
 
-      case SubscriptDecl.self:
-        fatalError("not implemented")
+        if candidates.count != 1 {
+          notes.append(.error(traitRequiresMethod: n, withType: requirementType, at: site))
+        }
 
       default:
-        unexpected("trait member", found: j, of: program.ast)
+        break
       }
     }
 
-    return success
+    if notes.isEmpty {
+      return true
+    } else {
+      diagnostics.insert(.error(conformingType, doesNotConformTo: trait, at: site, because: notes))
+      return false
+    }
   }
 
   /// Type checks the specified statement and returns whether that succeeded.
