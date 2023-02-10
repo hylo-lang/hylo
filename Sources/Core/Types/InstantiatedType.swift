@@ -19,16 +19,4 @@ public struct InstantiatedType: Hashable {
     self.constraints = constraints
   }
 
-  /// Returns a copy of this type with generic type parameters keying `subtitutions` replaced by
-  /// their corresponding value.
-  public func specialized(_ substitutions: [NodeID<GenericParameterDecl>: AnyType]) -> Self {
-    .init(
-      shape: shape.specialized(substitutions),
-      constraints:
-        ConstraintSet(
-          constraints.map({ (c) -> Constraint in
-            c.modifyingTypes({ $0.specialized(substitutions) })
-          })))
-  }
-
 }
