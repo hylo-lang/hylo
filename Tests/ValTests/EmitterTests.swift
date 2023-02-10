@@ -8,8 +8,7 @@ final class EmitterTests: XCTestCase {
 
   func testEmitter() throws {
     // Prepare an AST with the core module loaded.
-    var baseAST = AST()
-    baseAST.importCoreModule()
+    let baseAST = AST().importingCoreModule()
 
     try checkAnnotatedValFileDiagnostics(
       in: "TestCases/Lowering",

@@ -8,8 +8,7 @@ final class CXXTests: XCTestCase {
 
   func testTranspiler() throws {
     // Prepare an AST with the core module loaded.
-    var baseAST = AST()
-    baseAST.importCoreModule()
+    let baseAST = AST().importingCoreModule()
 
     try checkAnnotatedValFiles(
       in: "TestCases/CXX",
@@ -51,8 +50,7 @@ final class CXXTests: XCTestCase {
 
   func testStdLibGeneration() throws {
     // Build an AST with just the core module loaded.
-    var ast = AST()
-    ast.importCoreModule()
+    let ast = AST().importingCoreModule()
 
     // Run the type checker.
     var checker = TypeChecker(program: ScopedProgram(ast), isBuiltinModuleVisible: true)
