@@ -129,7 +129,7 @@ extension ScopedProgram {
     case VarDecl.self:
       visit(varDecl: NodeID(decl)!, withState: &state)
     default:
-      unexpected("declaration", found: decl, of: ast)
+      unexpected(decl, in: ast)
     }
   }
 
@@ -584,7 +584,7 @@ extension ScopedProgram {
     case WildcardExpr.self:
       break
     default:
-      unexpected("expression", found: expr, of: ast)
+      unexpected(expr, in: ast)
     }
   }
 
@@ -833,7 +833,7 @@ extension ScopedProgram {
     case WildcardPattern.self:
       break
     default:
-      unexpected("pattern", found: pattern, of: ast)
+      unexpected(pattern, in: ast)
     }
   }
 
@@ -903,7 +903,7 @@ extension ScopedProgram {
     case YieldStmt.self:
       visit(yieldStmt: NodeID(stmt)!, withState: &state)
     default:
-      unexpected("statement", found: stmt, of: ast)
+      unexpected(stmt, in: ast)
     }
   }
 
