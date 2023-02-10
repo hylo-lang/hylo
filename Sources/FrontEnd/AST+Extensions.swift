@@ -4,23 +4,24 @@ import ValModule
 
 extension AST {
 
-  /// An instance that includes the core module.
-  public static var coreModule: AST = {
-    var r = AST()
+  /// An instance that includes just the core module.
+  public static var coreModule = AST(withCoreModule: ())
+
+  /// Creates an instance that includes just the core module.
+  private init(withCoreModule: Void) {
+    self = AST()
     do {
       var diagnostics = Diagnostics()
-      r.corelib = try r.makeModule(
+      corelib = try makeModule(
         "Val",
         sourceCode: sourceFiles(in: [ValModule.core!]),
         builtinModuleAccess: true,
         diagnostics: &diagnostics)
 
-      assert(r.isCoreModuleLoaded)
+      assert(isCoreModuleLoaded)
     } catch let error {
       fatalError("Error parsing the core module:\n\(error.localizedDescription)")
     }
-
-    return r
-  }()
+  }
 
 }
