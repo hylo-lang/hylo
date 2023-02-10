@@ -51,13 +51,13 @@ public struct TypeChecker {
   /// are replaced by their corresponding value, performing any necessary name lookup in `scope`.
   private mutating func specialized(
     _ genericType: AnyType,
-    applying substitutions: [GenericTypeParameterType: AnyType],
+    applying substitutions: [NodeID<GenericParameterDecl>: AnyType],
     in scope: AnyScopeID
   ) -> AnyType {
     func _impl(t: AnyType) -> TypeTransformAction {
       switch t.base {
       case let p as GenericTypeParameterType:
-        return .stepOver(substitutions[p] ?? t)
+        return .stepOver(substitutions[p.decl] ?? t)
 
       case let t as AssociatedTypeType:
         let d = t.domain.transform(_impl)
@@ -875,8 +875,7 @@ public struct TypeChecker {
     to trait: TraitType
   ) -> Bool {
     let conformingType = realizeSelfTypeExpr(in: decl)!.instance
-    let g = GenericTypeParameterType(selfParameterOf: trait.decl, in: program.ast)
-    let specialization = [g: conformingType]
+    let specialization = [program.ast[trait.decl].selfParameterDecl: conformingType]
 
     var success = true
 
@@ -1794,9 +1793,6 @@ public struct TypeChecker {
       // Realize the type of the declaration.
       var targetType = realize(decl: match)
 
-      // Give up if the declaration has an error type.
-      if targetType.isError { continue }
-
       // Erase parameter conventions.
       if let t = ParameterType(targetType) {
         targetType = t.bareType
@@ -1824,9 +1820,14 @@ public struct TypeChecker {
         }
 
         // Apply the arguments.
-        let substitutions = Dictionary(uniqueKeysWithValues: zip(env.parameters, arguments))
-        targetType = targetType.specialized(substitutions)
+        targetType = specialized(
+          targetType,
+          applying: .init(uniqueKeysWithValues: zip(env.parameters, arguments)),
+          in: lookupScope)
       }
+
+      // Give up if the declaration has an error type.
+      if targetType.isError { continue }
 
       // Determine how the declaration is being referenced.
       let reference: DeclRef =
