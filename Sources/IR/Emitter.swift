@@ -968,18 +968,20 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     var v = emitL(expr: expr, meantFor: .let, into: &module)
-    v = module.append(
-      BorrowInstruction(.let, .address(BuiltinType.i(1)), from: v, at: [0], site: expr.site),
-      to: insertionBlock!)[0]
-    v = module.append(
-      CallInstruction(
-        returnType: .object(BuiltinType.i(1)),
-        calleeConvention: .let,
-        callee: .constant(.builtin(BuiltinFunction("copy_i1")!.reference)),
-        argumentConventions: [.let],
-        arguments: [v],
-        site: expr.site),
-      to: insertionBlock!)[0]
+    v =
+      module.append(
+        BorrowInstruction(.let, .address(BuiltinType.i(1)), from: v, at: [0], site: expr.site),
+        to: insertionBlock!)[0]
+    v =
+      module.append(
+        CallInstruction(
+          returnType: .object(BuiltinType.i(1)),
+          calleeConvention: .let,
+          callee: .constant(.builtin(BuiltinFunction("copy_i1")!.reference)),
+          argumentConventions: [.let],
+          arguments: [v],
+          site: expr.site),
+        to: insertionBlock!)[0]
     return v
   }
 

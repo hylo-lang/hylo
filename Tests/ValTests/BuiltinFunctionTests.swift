@@ -70,7 +70,7 @@ final class BuiltinFunctionTests: XCTestCase {
         ["sgt", "i64"],
         ["sge", "i64"],
         ["slt", "i64"],
-        ["sle", "i64"]
+        ["sle", "i64"],
       ],
       createInstanceWithType: expectedType)
   }
@@ -106,7 +106,7 @@ final class BuiltinFunctionTests: XCTestCase {
       parameterizedBy: [
         ["double"],
         ["fast", "double"],
-        ["ninf", "nnan", "double"]
+        ["ninf", "nnan", "double"],
       ],
       createInstanceWithType: expectedType)
   }
@@ -133,7 +133,7 @@ final class BuiltinFunctionTests: XCTestCase {
         ["true", "double"],
         ["false", "double"],
         ["fast", "false", "double"],
-        ["ninf", "nnan", "false", "double"]
+        ["ninf", "nnan", "false", "double"],
       ],
       createInstanceWithType: expectedType)
   }

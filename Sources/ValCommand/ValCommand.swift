@@ -140,7 +140,9 @@ public struct ValCommand: ParsableCommand {
 
     // Parse the source code.
     let newModule = try ast.makeModule(
-      productName, sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
+      productName, sourceCode: sourceFiles(in: inputs),
+      builtinModuleAccess: importBuiltinModule,
+      diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
@@ -150,10 +152,8 @@ public struct ValCommand: ParsableCommand {
       return
     }
 
-    let typedProgram = try ast.typeChecked(
-      standardLibrary: importBuiltinModule ? newModule : nil,
-      tracingInferenceIn: inferenceTracingRange,
-      diagnostics: &diagnostics)
+    let typedProgram = try TypedProgram(
+      ast, tracingInferenceIn: inferenceTracingRange, diagnostics: &diagnostics)
 
     // Exit if `--typecheck` is set.
     if typeCheckOnly { return }

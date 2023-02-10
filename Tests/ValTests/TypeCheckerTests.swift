@@ -18,7 +18,7 @@ final class TypeCheckerTests: XCTestCase {
         _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 
         // Run the type checker.
-        _ = try ast.typeChecked(standardLibrary: nil, diagnostics: &diagnostics)  
+        _ = try TypedProgram(ast, diagnostics: &diagnostics)
       })
   }
 }

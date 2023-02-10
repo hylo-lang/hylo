@@ -99,7 +99,7 @@ public struct BuiltinFunction: Hashable {
 
 }
 
-/// A function that parses an instance of `T` by consuming a prefix of `tokens`, or returns `nil` 
+/// A function that parses an instance of `T` by consuming a prefix of `tokens`, or returns `nil`
 /// if such instance cannot be parsed.
 ///
 /// - Note: a prefix of `tokens` may have been consumed even if the function returns `nil`.
