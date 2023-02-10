@@ -4,7 +4,7 @@ import ValModule
 
 extension AST {
 
-  /// Incorporates syntax for the core library into `self`.
+  /// Incorporates the core library into `self`.
   ///
   /// - Requires: The Core library must not have been already imported.
   public mutating func importCoreModule() {
