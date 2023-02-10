@@ -136,7 +136,7 @@ public struct ValCommand: ParsableCommand {
     let productName = makeProductName(inputs)
 
     /// The AST of the program being compiled.
-    var ast = AST()
+    var ast = AST.coreModule
 
     // Parse the source code.
     let newModule = try ast.makeModule(

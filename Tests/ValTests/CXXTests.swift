@@ -7,8 +7,6 @@ import XCTest
 final class CXXTests: XCTestCase {
 
   func testTranspiler() throws {
-    // Prepare an AST with the core module loaded.
-    let baseAST = AST().importingCoreModule()
 
     try checkAnnotatedValFiles(
       in: "TestCases/CXX",
@@ -16,7 +14,7 @@ final class CXXTests: XCTestCase {
 
       { (source, cxxAnnotations, diagnostics) in
         // Create a module for the input.
-        var ast = baseAST
+        var ast = AST.coreModule
         let module = ast.insert(synthesized: ModuleDecl(source.baseName))
 
         // Parse the input.
@@ -49,8 +47,7 @@ final class CXXTests: XCTestCase {
   }
 
   func testStdLibGeneration() throws {
-    // Build an AST with just the core module loaded.
-    let ast = AST().importingCoreModule()
+    let ast = AST.coreModule
 
     // Run the type checker.
     var checker = TypeChecker(program: ScopedProgram(ast), isBuiltinModuleVisible: true)

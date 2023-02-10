@@ -4,32 +4,23 @@ import ValModule
 
 extension AST {
 
-  /// Incorporates the core library into `self`.
-  ///
-  /// - Requires: The Core library must not have been already imported.
-  public mutating func importCoreModule() {
-    precondition(!isCoreModuleLoaded, "Core library is already loaded")
-
+  /// An instance that includes the core module.
+  public static var coreModule: AST = {
+    var r = AST()
     do {
       var diagnostics = Diagnostics()
-      corelib = try makeModule(
+      r.corelib = try r.makeModule(
         "Val",
         sourceCode: sourceFiles(in: [ValModule.core!]),
         builtinModuleAccess: true,
         diagnostics: &diagnostics)
 
-      assert(isCoreModuleLoaded)
+      assert(r.isCoreModuleLoaded)
     } catch let error {
       fatalError("Error parsing the core module:\n\(error.localizedDescription)")
     }
-  }
 
-  /// Returns `self`, with syntax for the core module included if it is not there already.
-  public func importingCoreModule() -> Self {
-    if isCoreModuleLoaded { return self }
-    var r = self
-    r.importCoreModule()
     return r
-  }
+  }()
 
 }

@@ -5,14 +5,10 @@ import XCTest
 final class TypeCheckerTests: XCTestCase {
 
   func testTypeChecker() throws {
-    // Prepare an AST with the core module loaded.
-    var baseAST = AST()
-    baseAST.importCoreModule()
-
     try checkAnnotatedValFileDiagnostics(
       in: "TestCases/TypeChecking",
       { (source, diagnostics) in
-        var ast = baseAST
+        var ast = AST.coreModule
         let module = ast.insert(synthesized: ModuleDecl(source.baseName))
 
         _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)

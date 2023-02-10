@@ -8,13 +8,12 @@ final class EmitterTests: XCTestCase {
 
   func testEmitter() throws {
     // Prepare an AST with the core module loaded.
-    let baseAST = AST().importingCoreModule()
 
     try checkAnnotatedValFileDiagnostics(
       in: "TestCases/Lowering",
       { (source, diagnostics) in
         // Create a module for the input.
-        var ast = baseAST
+        var ast = AST.coreModule
         let module = ast.insert(synthesized: ModuleDecl(source.baseName))
 
         // Parse the input.
