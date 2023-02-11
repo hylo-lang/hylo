@@ -1009,7 +1009,7 @@ extension TypeChecker {
       let argumentType: AnyType
       if let t = ParameterType(parameters[i].type)?.bareType {
         argumentType = inferType(of: argumentExpr, in: scope, expecting: t, updating: &state)
-        if areEquivalent(t, argumentType) { continue }
+        if relations.areEquivalent(t, argumentType) { continue }
       } else {
         argumentType = inferType(of: argumentExpr, in: scope, expecting: nil, updating: &state)
       }
