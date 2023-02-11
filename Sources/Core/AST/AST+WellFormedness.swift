@@ -104,7 +104,7 @@ extension AST {
       diagnostics.report(.error(unexpectedVarDecl: self[NodeID(decl)!]))
 
     default:
-      unexpected("declaration", found: decl, of: self)
+      unexpected(decl, in: self)
     }
 
   }
@@ -198,7 +198,7 @@ extension AST {
       diagnostics.report(.error(unexpectedVarDecl: self[NodeID(decl)!]))
 
     default:
-      unexpected("declaration", found: decl, of: self)
+      unexpected(decl, in: self)
     }
   }
 
