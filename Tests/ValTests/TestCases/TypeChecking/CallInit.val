@@ -1,6 +1,6 @@
 //! expect-failure
 
-type A {
+type A: Sinkable {
 
   var x: Int
 

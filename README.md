@@ -5,10 +5,6 @@ Val is a research programming language to explore the concepts of [mutable value
 This repository contains the sources of the reference implementation of Val.
 Please visit our [website](https://val-lang.dev) to get more information about the language itself.
 
-## Supported platforms
-
-The compiler is currently developed on Unix-like operating systems. While Windows is currently not supported, we would enthusiastically receive any contributions along these lines. See #45 if you'd like to pitch in.
-
 ## Installation
 
 This project is written in [Swift](https://www.swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).

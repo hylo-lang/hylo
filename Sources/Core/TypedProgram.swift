@@ -51,4 +51,5 @@ public struct TypedProgram: Program {
     self.referredDecls = referredDecls
     self.foldedSequenceExprs = foldedSequenceExprs
   }
+
 }

@@ -37,7 +37,7 @@ public struct DefiniteInitializationPass: TransformPass {
     /// The diagnostics reported by the pass.
     ///
     /// - TODO: This binding will should be removed once `TransformPass` is refactored.
-    var diagnostics1 = Diagnostics()
+    var diagnostics1 = DiagnosticSet()
 
     /// Returns `true` if `b` has been visited.
     func visited(_ b: Function.Blocks.Address) -> Bool {
@@ -171,15 +171,15 @@ public struct DefiniteInitializationPass: TransformPass {
         case .full(.initialized):
           break
         case .full(.uninitialized):
-          diagnostics1.report(.useOfUninitializedObject(at: borrow.site))
+          diagnostics1.insert(.useOfUninitializedObject(at: borrow.site))
         case .full(.consumed):
-          diagnostics1.report(.useOfConsumedObject(at: borrow.site))
+          diagnostics1.insert(.useOfConsumedObject(at: borrow.site))
         case .partial:
           let p = o.paths!
           if p.consumed.isEmpty {
-            diagnostics1.report(.useOfPartiallyInitializedObject(at: borrow.site))
+            diagnostics1.insert(.useOfPartiallyInitializedObject(at: borrow.site))
           } else {
-            diagnostics1.report(.useOfPartiallyConsumedObject(at: borrow.site))
+            diagnostics1.insert(.useOfPartiallyConsumedObject(at: borrow.site))
           }
         }
 
@@ -326,15 +326,15 @@ public struct DefiniteInitializationPass: TransformPass {
           case .full(.initialized):
             o = .full(.consumed(by: [i]))
           case .full(.uninitialized):
-            diagnostics1.report(.useOfUninitializedObject(at: load.site))
+            diagnostics1.insert(.useOfUninitializedObject(at: load.site))
           case .full(.consumed):
-            diagnostics1.report(.useOfConsumedObject(at: load.site))
+            diagnostics1.insert(.useOfConsumedObject(at: load.site))
           case .partial:
             let p = o.paths!
             if p.consumed.isEmpty {
-              diagnostics1.report(.useOfPartiallyInitializedObject(at: load.site))
+              diagnostics1.insert(.useOfPartiallyInitializedObject(at: load.site))
             } else {
-              diagnostics1.report(.useOfPartiallyConsumedObject(at: load.site))
+              diagnostics1.insert(.useOfPartiallyConsumedObject(at: load.site))
             }
           }
         }
@@ -429,8 +429,8 @@ public struct DefiniteInitializationPass: TransformPass {
       }
     }
 
-    diagnostics = Array(diagnostics1.log)
-    return !diagnostics1.errorReported
+    diagnostics = Array(diagnostics1.elements)
+    return !diagnostics1.containsError
   }
 
 }
@@ -880,7 +880,7 @@ extension DefiniteInitializationPass {
       _ o: Operand,
       with consumer: InstructionID,
       at site: SourceRange,
-      diagnostics: inout Diagnostics
+      diagnostics: inout DiagnosticSet
     ) {
       // Constants are never consumed.
       guard let k = FunctionLocal(operand: o) else { return }
@@ -888,7 +888,7 @@ extension DefiniteInitializationPass {
       if locals[k]!.unwrapObject()! == .full(.initialized) {
         locals[k]! = .object(.full(.consumed(by: [consumer])))
       } else {
-        diagnostics.report(.illegalMove(at: site))
+        diagnostics.insert(.illegalMove(at: site))
       }
     }
 

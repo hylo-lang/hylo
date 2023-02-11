@@ -37,8 +37,8 @@ extension StringProtocol {
     return r
   }
 
-  /// Replace any sucession of whitespace characters (including newlines and tabs) with a single white space charater.
-  /// This will actually keep the non-space characters ingoring how these are spaced out.
+  /// Replace any sucession of whitespace characters (including newlines and tabs) with a single
+  /// white space charater.
   public func canonicalize() -> String {
     var remaining = self[..<self.endIndex]
     var result: String = ""

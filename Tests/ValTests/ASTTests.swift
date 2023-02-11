@@ -6,11 +6,11 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
-    var diagnostics = Diagnostics()
-    let i = ast.insert(ModuleDecl(name: "Val"), diagnostics: &diagnostics)
+    var diagnostics = DiagnosticSet()
+    let i = ast.insert(ModuleDecl("Val"), diagnostics: &diagnostics)
     XCTAssert(ast.modules.contains(i))
-    XCTAssert(diagnostics.log.isEmpty)
-    let j = ast.insert(synthesized: ModuleDecl(name: "Val1"))
+    XCTAssert(diagnostics.elements.isEmpty)
+    let j = ast.insert(synthesized: ModuleDecl("Val1"))
     XCTAssert(ast.modules.contains(j))
   }
 
@@ -19,7 +19,7 @@ final class ASTTests: XCTestCase {
 
     // Create a module declarations.
     let input = SourceFile(synthesizedText: "")
-    let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
+    let module = ast.insert(synthesized: ModuleDecl("Val"))
 
     // Create a trait declaration.
     let decl = ast.insert(
@@ -42,7 +42,7 @@ final class ASTTests: XCTestCase {
 
     // Create a module declarations.
     let input = SourceFile(synthesizedText: "")
-    let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
+    let module = ast.insert(synthesized: ModuleDecl("Val"))
 
     let source = ast.insert(
       synthesized: TranslationUnit(
