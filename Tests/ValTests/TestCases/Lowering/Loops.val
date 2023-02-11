@@ -1,7 +1,13 @@
 //! expect-success
 
+fun foo() {}
+
 public fun main() {
   do {
     let x = true
   } while x
+
+  while true, true {
+    foo()
+  }
 }

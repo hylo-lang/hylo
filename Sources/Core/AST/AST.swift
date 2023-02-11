@@ -75,18 +75,13 @@ public struct AST {
   // MARK: Node access
 
   /// Accesses the node at `position`.
-  public subscript<T: Node>(position: NodeID<T>) -> T {
-    get { nodes[position.rawValue].node as! T }
-    _modify {
-      var n = nodes[position.rawValue].node as! T
-      defer { nodes[position.rawValue] = AnyNode(n) }
-      yield &n
-    }
+  public subscript<T: ConcreteNodeID>(position: T) -> T.Subject {
+    nodes[position.rawValue].node as! T.Subject
   }
 
   /// Accesses the node at `position`.
-  public subscript<T: Node>(position: NodeID<T>?) -> T? {
-    position.map({ nodes[$0.rawValue].node as! T })
+  public subscript<T: ConcreteNodeID>(position: T?) -> T.Subject? {
+    position.map({ nodes[$0.rawValue].node as! T.Subject })
   }
 
   /// Accesses the node at `position`.
@@ -99,20 +94,15 @@ public struct AST {
     position.map({ nodes[$0.rawValue].node })
   }
 
-  /// Accesses the node at `position`.
-  subscript(raw position: NodeID.RawValue) -> Node {
-    nodes[position].node
-  }
+  /// A sequence of concrete nodes projected from an AST.
+  public typealias ConcreteProjectedSequence<T> = LazyMapSequence<
+    LazySequence<T>.Elements,
+    T.Element.Subject
+  > where T: Sequence, T.Element: ConcreteNodeID
 
-  /// Applies `transform` to the node at `position`.
-  mutating func modify<T: Node>(at position: NodeID<T>, _ transform: (T) -> T) {
-    let newNode = transform(self[position])
-
-    var diagnostics = DiagnosticSet()
-    newNode.validateForm(in: self, into: &diagnostics)
-    assert(diagnostics.elements.isEmpty, "\(diagnostics)")
-
-    nodes[position.rawValue] = AnyNode(newNode)
+  /// Projects a sequence containing the nodes at `positions`.
+  public subscript<T: Sequence>(positions: T) -> ConcreteProjectedSequence<T> {
+    positions.lazy.map({ (n) in self[n] })
   }
 
   // MARK: Core library
@@ -166,10 +156,7 @@ public struct AST {
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: NodeID<ModuleDecl>) -> TopLevelDecls {
-    let a = self[module].sources.lazy
-      .map({ self[$0].decls })
-      .joined()
-    return a
+    self[self[module].sources].map(\.decls).joined()
   }
 
   /// Returns the IDs of the named patterns contained in `pattern`.

@@ -7,17 +7,13 @@ import XCTest
 final class EmitterTests: XCTestCase {
 
   func testEmitter() throws {
-    // Prepare an AST with the core module loaded.
-
     try checkAnnotatedValFileDiagnostics(
       in: "TestCases/Lowering",
       { (source, diagnostics) in
         // Create a module for the input.
         var ast = AST.coreModule
-        let module = ast.insert(synthesized: ModuleDecl(source.baseName))
-
-        // Parse the input.
-        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
+        let module = try ast.makeModule(
+          source.baseName, sourceCode: [source], diagnostics: &diagnostics)
 
         // Run the type checker
         // Note: built-in module is visible so that we can test built-in function calls.

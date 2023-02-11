@@ -3,8 +3,6 @@ import Core
 /// A transformation pass that inserts return instructions.
 public struct ImplicitReturnInsertionPass: TransformPass {
 
-  public static let name = "Implicit return insertion"
-
   public private(set) var diagnostics: [Diagnostic] = []
 
   /// Creates a new pass.
