@@ -131,13 +131,8 @@ final class ValCommandTests: XCTestCase {
     _ input: URL,
     with arguments: [String]
   ) throws -> CompilationResult {
-    // Create a temporary directory to write the output file.
-    let outputDirectory = try FileManager.default.url(
-      for: .itemReplacementDirectory,
-      in: .userDomainMask,
-      appropriateFor: input,
-      create: true)
-    let output = outputDirectory.appendingPathComponent("a.out")
+    // Create a temporary output.
+    let output = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).out")
 
     // Parse the command line's arguments.
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
