@@ -120,8 +120,8 @@ final class ValCommandTests: XCTestCase {
 
   /// Writes `s` to a temporary file and returns its URL.
   private func url(forFileContaining s: String) throws -> URL {
-    let f = try FileManager.default.temporaryFile()
-    try s.write(to: f, atomically: false, encoding: .utf8)
+    let f = FileManager.default.temporaryFile()
+    try s.write(to: f, atomically: true, encoding: .utf8)
     return f
   }
 
