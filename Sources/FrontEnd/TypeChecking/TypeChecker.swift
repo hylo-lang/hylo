@@ -632,12 +632,25 @@ public struct TypeChecker {
     let container = program.scopeToParent[id]!
     for e in program.ast[id].conformances {
       guard let rhs = realize(name: e, in: container)?.instance else { continue }
-      if let t = TraitType(rhs) {
-        success = checkConformance(of: id, to: t, at: program.ast[e].site) && success
-      } else {
+      guard let t = TraitType(rhs) else {
         diagnostics.insert(.error(conformanceToNonTraitType: rhs, at: program.ast[e].site))
         success = false
+        continue
       }
+
+      guard
+        let c = checkConformance(
+          of: realizeSelfTypeExpr(in: id)!.instance, to: t,
+          at: program.ast[e].site, in: AnyScopeID(id))
+      else {
+        // Diagnostics have been reported by `checkConformance`.
+        success = false
+        continue
+      }
+
+      let (inserted, _) = relations.insert(c, testingContainmentWith: program)
+      // TODO: Handle duplicate conformance declarations
+      assert(inserted, "Not implemented")
     }
 
     // Type check extending declarations.
@@ -880,24 +893,22 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns true iff the type declared by `decl` satisfies the requirements of `trait`,
-  /// reporting errors at `site`.
+  /// Returns the conformance `model` to `trait` in `scope` if it holds. Otherwise, reports missing
+  /// requirements at `site` and returns `nil`.
   private mutating func checkConformance(
-    of decl: NodeID<ProductTypeDecl>,
+    of model: AnyType,
     to trait: TraitType,
-    at site: SourceRange
-  ) -> Bool {
-    let conformingType = realizeSelfTypeExpr(in: decl)!.instance
-    let specialization = [program.ast[trait.decl].selfParameterDecl: conformingType]
-
+    at site: SourceRange,
+    in scope: AnyScopeID
+  ) -> Conformance? {
+    let specialization = [program.ast[trait.decl].selfParameterDecl: model]
+    var implementations = Conformance.ImplementationMap()
     var notes: [Diagnostic] = []
 
     // Get the set of generic parameters defined by `trait`.
     for requirement in program.ast[trait.decl].members {
       let requirementType = specialized(
-        relations.canonical(realize(decl: requirement)),
-        applying: specialization,
-        in: AnyScopeID(decl))
+        relations.canonical(realize(decl: requirement)), applying: specialization, in: scope)
       if requirementType.isError { continue }
 
       switch requirement.kind {
@@ -912,9 +923,11 @@ public struct TypeChecker {
       case FunctionDecl.self:
         let r = NodeID<FunctionDecl>(requirement)!
         let candidates = gatherCandidates(
-          implementing: r, withType: requirementType, for: conformingType, in: AnyScopeID(decl))
+          implementing: r, withType: requirementType, for: model, in: scope)
 
-        if candidates.count != 1 {
+        if let c = candidates.uniqueElement {
+          implementations[requirement] = c
+        } else {
           notes.append(
             .error(
               traitRequiresMethod: Name(of: r, in: program.ast)!, withType: requirementType,
@@ -924,9 +937,11 @@ public struct TypeChecker {
       case MethodDecl.self:
         let r = NodeID<MethodDecl>(requirement)!
         let candidates = gatherCandidates(
-          implementing: r, withType: requirementType, for: conformingType, in: AnyScopeID(decl))
+          implementing: r, withType: requirementType, for: model, in: scope)
 
-        if candidates.count != 1 {
+        if let c = candidates.uniqueElement {
+          implementations[requirement] = c
+        } else {
           notes.append(
             .error(
               traitRequiresMethod: Name(of: r, in: program.ast), withType: requirementType,
@@ -939,10 +954,12 @@ public struct TypeChecker {
     }
 
     if notes.isEmpty {
-      return true
+      return Conformance(
+        model: model, concept: trait, conditions: [], scope: scope,
+        implementations: implementations)
     } else {
-      diagnostics.insert(.error(conformingType, doesNotConformTo: trait, at: site, because: notes))
-      return false
+      diagnostics.insert(.error(model, doesNotConformTo: trait, at: site, because: notes))
+      return nil
     }
   }
 

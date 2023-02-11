@@ -3,8 +3,34 @@ import Utils
 /// A collection of relations between the types of a program.
 public struct TypeRelations {
 
+  /// A set of conformances represented to answer "does A conform to T in S" efficiently.
+  private var conformances: [AnyType: [TraitType: [Conformance]]] = [:]
+
   /// Creates an instance.
   public init() {}
+
+  /// Inserts `c` in the conformance relation if not already present, using `p` to test whether
+  /// scopes overlap.
+  ///
+  /// - Returns: `(true, c)` if no conformance describing how `c.model` satisfies `c.trait` in a
+  ///   scope overlapping with `c.scope` was already contained in the relation. Otherwise, returns
+  ///   `(false, other)`, where `other` is the existing conformance.
+  @discardableResult
+  public mutating func insert<P: Program>(
+    _ c: Conformance,
+    testingContainmentWith p: P
+  ) -> (inserted: Bool, conformanceAfterInsert: Conformance) {
+    modifying(&conformances[canonical(c.model), default: [:]]) { (traitToConformance) in
+      modifying(&traitToConformance[c.concept, default: []]) { (allConformances) in
+        if let x = allConformances.first(where: { p.areOverlapping($0.scope, c.scope) }) {
+          return (false, x)
+        } else {
+          allConformances.append(c)
+          return (true, c)
+        }
+      }
+    }
+  }
 
   /// Returns whether `lhs` is equivalent to `rhs`.
   public func areEquivalent(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
