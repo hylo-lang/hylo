@@ -18,7 +18,7 @@ final class CaptureCollectorTests: XCTestCase {
       }
       """
 
-    var diagnostics = Diagnostics()
+    var diagnostics = DiagnosticSet()
     _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 
     let fun = NodeID<FunctionDecl>(ast.topLevelDecls(module).first!)!

@@ -6,28 +6,28 @@ extension AST {
   /// Otherwise, returns `.failure` with the diagnostics of the broken invariants.
   func validateGlobalScopeMember(
     _ decl: AnyDeclID,
-    into diagnostics: inout Diagnostics,
+    into diagnostics: inout DiagnosticSet,
     atTopLevel: Bool
   ) {
     switch decl.kind {
     case AssociatedTypeDecl.self:
-      diagnostics.report(
+      diagnostics.insert(
         .error(unexpectedAssociatedTypeDecl: self[NodeID(decl)!]))
 
     case AssociatedValueDecl.self:
-      diagnostics.report(
+      diagnostics.insert(
         .error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
 
     case BindingDecl.self:
       let d = self[NodeID<BindingDecl>(decl)!]
       if let m = d.memberModifier {
-        diagnostics.report(.error(unexpectedMemberModifier: m))
+        diagnostics.insert(.error(unexpectedMemberModifier: m))
       }
       if self[d.pattern].introducer.value != .let {
-        diagnostics.report(.error(illegalGlobalBindingIntroducer: self[d.pattern].introducer))
+        diagnostics.insert(.error(illegalGlobalBindingIntroducer: self[d.pattern].introducer))
       }
       if (d.initializer == nil) && (self[d.pattern].annotation == nil) {
-        diagnostics.report(.error(missingTypeAnnotation: self[d.pattern], in: self))
+        diagnostics.insert(.error(missingTypeAnnotation: self[d.pattern], in: self))
       }
 
     case ConformanceDecl.self:
@@ -39,41 +39,41 @@ extension AST {
     case FunctionDecl.self:
       let d = self[NodeID<FunctionDecl>(decl)!]
       if let m = d.memberModifier {
-        diagnostics.report(.error(unexpectedMemberModifier: m))
+        diagnostics.insert(.error(unexpectedMemberModifier: m))
       }
       if d.identifier == nil {
-        diagnostics.report(.error(missingFunctionIdentifier: d))
+        diagnostics.insert(.error(missingFunctionIdentifier: d))
       }
 
     case GenericParameterDecl.self:
-      diagnostics.report(
+      diagnostics.insert(
         .error(unexpectedGenericParameterDecl: self[NodeID(decl)!]))
 
     case ImportDecl.self:
       if !atTopLevel {
-        diagnostics.report(.error(unexpectedImportDecl: self[NodeID(decl)!]))
+        diagnostics.insert(.error(unexpectedImportDecl: self[NodeID(decl)!]))
       }
 
     case InitializerDecl.self:
-      diagnostics.report(
+      diagnostics.insert(
         .error(unexpectedInitializerDecl: self[NodeID(decl)!]))
 
     case MethodDecl.self:
-      diagnostics.report(.error(unexpectedMethodDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedMethodDecl: self[NodeID(decl)!]))
 
     case MethodImpl.self:
-      diagnostics.report(.error(unexpectedMethodImpl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedMethodImpl: self[NodeID(decl)!]))
 
     case NamespaceDecl.self:
       break
 
     case OperatorDecl.self:
       if !atTopLevel {
-        diagnostics.report(.error(unexpectedOperatorDecl: self[NodeID(decl)!]))
+        diagnostics.insert(.error(unexpectedOperatorDecl: self[NodeID(decl)!]))
       }
 
     case ParameterDecl.self:
-      diagnostics.report(.error(unexpectedParameterDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedParameterDecl: self[NodeID(decl)!]))
 
     case ProductTypeDecl.self:
       break
@@ -81,17 +81,17 @@ extension AST {
     case SubscriptDecl.self:
       let d = self[NodeID<SubscriptDecl>(decl)!]
       if d.introducer.value != .subscript {
-        diagnostics.report(.error(unexpectedPropertyDecl: d))
+        diagnostics.insert(.error(unexpectedPropertyDecl: d))
       }
       if let m = d.memberModifier {
-        diagnostics.report(.error(unexpectedMemberModifier: m))
+        diagnostics.insert(.error(unexpectedMemberModifier: m))
       }
       if d.identifier == nil {
-        diagnostics.report(.error(missingSubscriptIdentifier: d))
+        diagnostics.insert(.error(missingSubscriptIdentifier: d))
       }
 
     case SubscriptImpl.self:
-      diagnostics.report(
+      diagnostics.insert(
         .error(unexpectedSubscriptImpl: self[NodeID(decl)!]))
 
     case TraitDecl.self:
@@ -101,23 +101,23 @@ extension AST {
       break
 
     case VarDecl.self:
-      diagnostics.report(.error(unexpectedVarDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedVarDecl: self[NodeID(decl)!]))
 
     default:
-      unexpected("declaration", found: decl, of: self)
+      unexpected(decl, in: self)
     }
 
   }
 
   /// Reports any well-formedness problems with `decl` into `diagnostics`.
-  func validateTypeMember(_ decl: AnyDeclID, into diagnostics: inout Diagnostics) {
+  func validateTypeMember(_ decl: AnyDeclID, into diagnostics: inout DiagnosticSet) {
     switch decl.kind {
     case AssociatedTypeDecl.self:
-      diagnostics.report(
+      diagnostics.insert(
         .error(unexpectedAssociatedTypeDecl: self[NodeID(decl)!]))
 
     case AssociatedValueDecl.self:
-      diagnostics.report(
+      diagnostics.insert(
         .error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
 
     case BindingDecl.self:
@@ -125,14 +125,14 @@ extension AST {
       let introducer = self[d.pattern].introducer
       if introducer.value != .let {
         if introducer.value != .var {
-          diagnostics.report(.error(illegalMemberBindingIntroducer: self[d.pattern].introducer))
+          diagnostics.insert(.error(illegalMemberBindingIntroducer: self[d.pattern].introducer))
         }
         if d.memberModifier?.value == .static {
-          diagnostics.report(.error(illegalGlobalBindingIntroducer: self[d.pattern].introducer))
+          diagnostics.insert(.error(illegalGlobalBindingIntroducer: self[d.pattern].introducer))
         }
       }
       if (d.initializer == nil) && (self[d.pattern].annotation == nil) {
-        diagnostics.report(.error(missingTypeAnnotation: self[d.pattern], in: self))
+        diagnostics.insert(.error(missingTypeAnnotation: self[d.pattern], in: self))
       }
 
     case ConformanceDecl.self:
@@ -144,21 +144,21 @@ extension AST {
     case FunctionDecl.self:
       let d = self[NodeID<FunctionDecl>(decl)!]
       if let m = d.memberModifier {
-        diagnostics.report(.error(unexpectedMemberModifier: m))
+        diagnostics.insert(.error(unexpectedMemberModifier: m))
       }
       if d.identifier == nil {
-        diagnostics.report(.error(missingFunctionIdentifier: d))
+        diagnostics.insert(.error(missingFunctionIdentifier: d))
       }
       if let c = d.explicitCaptures.first {
-        diagnostics.report(.error(unexpectedCapture: self[self[c].pattern]))
+        diagnostics.insert(.error(unexpectedCapture: self[self[c].pattern]))
       }
 
     case GenericParameterDecl.self:
-      diagnostics.report(
+      diagnostics.insert(
         .error(unexpectedGenericParameterDecl: self[NodeID(decl)!]))
 
     case ImportDecl.self:
-      diagnostics.report(.error(unexpectedImportDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedImportDecl: self[NodeID(decl)!]))
 
     case InitializerDecl.self:
       break
@@ -167,16 +167,16 @@ extension AST {
       break
 
     case MethodImpl.self:
-      diagnostics.report(.error(unexpectedMethodImpl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedMethodImpl: self[NodeID(decl)!]))
 
     case NamespaceDecl.self:
-      diagnostics.report(.error(unexpectedNamespaceDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedNamespaceDecl: self[NodeID(decl)!]))
 
     case OperatorDecl.self:
-      diagnostics.report(.error(unexpectedOperatorDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedOperatorDecl: self[NodeID(decl)!]))
 
     case ParameterDecl.self:
-      diagnostics.report(.error(unexpectedParameterDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedParameterDecl: self[NodeID(decl)!]))
 
     case ProductTypeDecl.self:
       break
@@ -185,20 +185,20 @@ extension AST {
       break
 
     case SubscriptImpl.self:
-      diagnostics.report(
+      diagnostics.insert(
         .error(unexpectedSubscriptImpl: self[NodeID(decl)!]))
 
     case TraitDecl.self:
-      diagnostics.report(.error(unexpectedTraitDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedTraitDecl: self[NodeID(decl)!]))
 
     case TypeAliasDecl.self:
       break
 
     case VarDecl.self:
-      diagnostics.report(.error(unexpectedVarDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedVarDecl: self[NodeID(decl)!]))
 
     default:
-      unexpected("declaration", found: decl, of: self)
+      unexpected(decl, in: self)
     }
   }
 

@@ -48,7 +48,7 @@ public struct CXXTranspiler {
     case TraitDecl.self:
       return CXXComment(comment: "trait decl")
     default:
-      unexpected("declaration", found: source)
+      unexpected(source)
     }
   }
 
@@ -123,7 +123,7 @@ public struct CXXTranspiler {
       return [.method]
 
     default:
-      unexpected("class member", found: source)
+      unexpected(source)
     }
   }
 
@@ -213,7 +213,7 @@ public struct CXXTranspiler {
     case YieldStmt.self:
       return cxx(yieldStmt: YieldStmt.Typed(source)!)
     default:
-      unexpected("statement", found: source)
+      unexpected(source)
     }
   }
 
@@ -228,7 +228,7 @@ public struct CXXTranspiler {
     case BindingDecl.self:
       return cxx(localBinding: BindingDecl.Typed(source.decl)!)
     default:
-      unexpected("declaration", found: source)
+      unexpected(source)
     }
   }
 
@@ -310,7 +310,7 @@ public struct CXXTranspiler {
     case CondExpr.self:
       return cxx(cond: CondExpr.Typed(source)!)
     default:
-      unexpected("expression", found: source)
+      unexpected(source)
     }
   }
 

@@ -43,7 +43,7 @@ public struct Emitter {
     case TraitDecl.self:
       break
     default:
-      unexpected("declaration", found: d)
+      unexpected(d)
     }
   }
 
@@ -287,7 +287,7 @@ public struct Emitter {
     case WhileStmt.self:
       emit(whileStmt: WhileStmt.Typed(stmt)!, into: &module)
     default:
-      unexpected("statement", found: stmt)
+      unexpected(stmt)
     }
   }
 
@@ -312,7 +312,7 @@ public struct Emitter {
     case BindingDecl.self:
       emit(localBindingDecl: BindingDecl.Typed(stmt.decl)!, into: &module)
     default:
-      unexpected("declaration", found: stmt.decl)
+      unexpected(stmt.decl)
     }
   }
 
@@ -428,7 +428,7 @@ public struct Emitter {
     case SequenceExpr.self:
       return emitR(sequenceExpr: SequenceExpr.Typed(expr)!, into: &module)
     default:
-      unexpected("expression", found: expr)
+      unexpected(expr)
     }
   }
 

@@ -117,8 +117,8 @@ public struct ValCommand: ParsableCommand {
   public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
     do {
       try execute1(loggingTo: &errorLog)
-    } catch let d as Diagnostics {
-      assert(d.errorReported, "Diagnostics containing no errors were thrown")
+    } catch let d as DiagnosticSet {
+      assert(d.containsError, "Diagnostics containing no errors were thrown")
       return ExitCode.failure
     }
     return ExitCode.success
@@ -126,7 +126,7 @@ public struct ValCommand: ParsableCommand {
 
   /// Executes the command, logging Val messages to `errorLog`.
   public func execute1<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
-    var diagnostics = Diagnostics()
+    var diagnostics = DiagnosticSet()
     defer { errorLog.log(diagnostics: diagnostics) }
 
     if compileInputAsModules {
@@ -136,11 +136,13 @@ public struct ValCommand: ParsableCommand {
     let productName = makeProductName(inputs)
 
     /// The AST of the program being compiled.
-    var ast = AST()
+    var ast = AST.coreModule
 
     // Parse the source code.
     let newModule = try ast.makeModule(
-      productName, sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
+      productName, sourceCode: sourceFiles(in: inputs),
+      builtinModuleAccess: importBuiltinModule,
+      diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
@@ -150,36 +152,11 @@ public struct ValCommand: ParsableCommand {
       return
     }
 
-    // Import the core library.
-    ast.importCoreModule()
-
-    // Initialize the type checker.
-    var checker = TypeChecker(
-      program: ScopedProgram(ast),
-      isBuiltinModuleVisible: true,
-      tracingInferenceIn: inferenceTracingRange)
-
-    // Type check the core library.
-    checker.check(module: checker.program.ast.corelib!)
-
-    // Type-check the input.
-    checker.isBuiltinModuleVisible = importBuiltinModule
-    checker.check(module: newModule)
-
-    diagnostics.report(checker.diagnostics)
-    try diagnostics.throwOnError()
+    let typedProgram = try TypedProgram(
+      ast, tracingInferenceIn: inferenceTracingRange, diagnostics: &diagnostics)
 
     // Exit if `--typecheck` is set.
     if typeCheckOnly { return }
-
-    let typedProgram = TypedProgram(
-      annotating: checker.program,
-      declTypes: checker.declTypes,
-      exprTypes: checker.exprTypes,
-      implicitCaptures: checker.implicitCaptures,
-      referredDecls: checker.referredDecls,
-      foldedSequenceExprs: checker.foldedSequenceExprs,
-      relations: checker.relations)
 
     // *** IR Lowering ***
 
@@ -205,7 +182,7 @@ public struct ValCommand: ParsableCommand {
       var passSuccess = true
       for f in 0 ..< irModule.functions.count {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
-        diagnostics.report(pipeline[i].diagnostics)
+        diagnostics.formUnion(pipeline[i].diagnostics)
       }
       if !passSuccess { return }
     }

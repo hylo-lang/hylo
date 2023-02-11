@@ -49,7 +49,7 @@ public struct AST {
   public init() {}
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
-  public mutating func insert<T: Node>(_ n: T, diagnostics: inout Diagnostics) -> NodeID<T> {
+  public mutating func insert<T: Node>(_ n: T, diagnostics: inout DiagnosticSet) -> NodeID<T> {
     n.validateForm(in: self, into: &diagnostics)
 
     let i = NodeID<T>(rawValue: nodes.count)
@@ -66,9 +66,9 @@ public struct AST {
   ///
   /// - Precondition: `n` is well formed.
   public mutating func insert<T: Node>(synthesized n: T) -> NodeID<T> {
-    var d = Diagnostics()
+    var d = DiagnosticSet()
     let r = insert(n, diagnostics: &d)
-    precondition(d.log.isEmpty, "ill-formed synthesized node \(n)\n\(d)")
+    precondition(d.elements.isEmpty, "ill-formed synthesized node \(n)\n\(d)")
     return r
   }
 
@@ -108,9 +108,9 @@ public struct AST {
   mutating func modify<T: Node>(at position: NodeID<T>, _ transform: (T) -> T) {
     let newNode = transform(self[position])
 
-    var diagnostics = Diagnostics()
+    var diagnostics = DiagnosticSet()
     newNode.validateForm(in: self, into: &diagnostics)
-    assert(diagnostics.log.isEmpty, "\(diagnostics)")
+    assert(diagnostics.elements.isEmpty, "\(diagnostics)")
 
     nodes[position.rawValue] = AnyNode(newNode)
   }
@@ -204,7 +204,7 @@ public struct AST {
         break
 
       default:
-        unexpected("pattern", found: pattern, of: self)
+        unexpected(pattern, in: self)
       }
     }
 

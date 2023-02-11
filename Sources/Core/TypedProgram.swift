@@ -56,4 +56,5 @@ public struct TypedProgram: Program {
     self.foldedSequenceExprs = foldedSequenceExprs
     self.relations = relations
   }
+
 }
