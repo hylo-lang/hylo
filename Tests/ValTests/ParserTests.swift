@@ -11,12 +11,8 @@ final class ParserTests: XCTestCase {
     try checkAnnotatedValFileDiagnostics(
       in: "TestCases/Parsing",
       { (source, diagnostics) in
-        // Create a module for the input.
         var ast = AST()
-        let module = ast.insert(synthesized: ModuleDecl(source.baseName))
-
-        // Parse the input.
-        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
+        _ = try ast.makeModule(source.baseName, sourceCode: [source], diagnostics: &diagnostics)
       })
   }
 
@@ -29,12 +25,10 @@ final class ParserTests: XCTestCase {
       }
       """
 
-    var program = AST()
-    let module = program.insert(synthesized: ModuleDecl("Main"))
-
-    var d = Diagnostics()
-    _ = try Parser.parse(input, into: module, in: &program, diagnostics: &d)
-    XCTAssert(d.log.isEmpty, "\n\(d)")
+    var a = AST()
+    var d = DiagnosticSet()
+    _ = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    XCTAssert(d.elements.isEmpty, "\n\(d)")
   }
 
   func testSourceFile() throws {
@@ -49,12 +43,10 @@ final class ParserTests: XCTestCase {
         public let y = 0;
       """
 
-    var program = AST()
-    let module = program.insert(synthesized: ModuleDecl("Main"))
-    var d = Diagnostics()
-    let translation = try Parser.parse(input, into: module, in: &program, diagnostics: &d)
-
-    XCTAssertEqual(program[translation].decls.count, 4)
+    var a = AST()
+    var d = DiagnosticSet()
+    let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    XCTAssertEqual(a[a[m].sources.first!].decls.count, 4)
   }
 
   // MARK: Declarations

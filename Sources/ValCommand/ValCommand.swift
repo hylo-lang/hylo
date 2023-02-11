@@ -117,8 +117,8 @@ public struct ValCommand: ParsableCommand {
   public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
     do {
       try execute1(loggingTo: &errorLog)
-    } catch let d as Diagnostics {
-      assert(d.errorReported, "Diagnostics containing no errors were thrown")
+    } catch let d as DiagnosticSet {
+      assert(d.containsError, "Diagnostics containing no errors were thrown")
       return ExitCode.failure
     }
     return ExitCode.success
@@ -126,7 +126,7 @@ public struct ValCommand: ParsableCommand {
 
   /// Executes the command, logging Val messages to `errorLog`.
   public func execute1<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
-    var diagnostics = Diagnostics()
+    var diagnostics = DiagnosticSet()
     defer { errorLog.log(diagnostics: diagnostics) }
 
     if compileInputAsModules {
@@ -170,21 +170,12 @@ public struct ValCommand: ParsableCommand {
       return
     }
 
-    // Run mandatory IR analysis and transformation passes.
-    var pipeline: [TransformPass] = [
-      ImplicitReturnInsertionPass(),
-      DefiniteInitializationPass(program: typedProgram),
-      LifetimePass(program: typedProgram),
-      // OwnershipPass(program: typedProgram),
-    ]
-
-    for i in 0 ..< pipeline.count {
-      var passSuccess = true
-      for f in 0 ..< irModule.functions.count {
-        passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
-        diagnostics.report(pipeline[i].diagnostics)
-      }
-      if !passSuccess { return }
+    do {
+      let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
+      try p.apply(&irModule, reportingDiagnosticsInto: &diagnostics)
+    } catch let d as DiagnosticSet {
+      diagnostics.formUnion(d)
+      return
     }
 
     // Handle `--emit ir`

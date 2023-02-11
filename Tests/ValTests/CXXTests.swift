@@ -7,18 +7,13 @@ import XCTest
 final class CXXTests: XCTestCase {
 
   func testTranspiler() throws {
-
     try checkAnnotatedValFiles(
-      in: "TestCases/CXX",
-      checkingAnnotationCommands: ["cpp", "h"],
-
+      in: "TestCases/CXX", checkingAnnotationCommands: ["cpp", "h"],
       { (source, cxxAnnotations, diagnostics) in
         // Create a module for the input.
         var ast = AST.coreModule
-        let module = ast.insert(synthesized: ModuleDecl(source.baseName))
-
-        // Parse the input.
-        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
+        let module = try ast.makeModule(
+          source.baseName, sourceCode: [source], diagnostics: &diagnostics)
 
         let typedProgram = try TypedProgram(ast, diagnostics: &diagnostics)
 
@@ -59,7 +54,8 @@ final class CXXTests: XCTestCase {
       exprTypes: checker.exprTypes,
       implicitCaptures: checker.implicitCaptures,
       referredDecls: checker.referredDecls,
-      foldedSequenceExprs: checker.foldedSequenceExprs)
+      foldedSequenceExprs: checker.foldedSequenceExprs,
+      relations: checker.relations)
 
     // Transpile the standard lib module.
     let transpiler = CXXTranspiler(typedProgram)

@@ -8,7 +8,7 @@ public struct TypeChecker {
   public internal(set) var program: ScopedProgram
 
   /// The diagnostics of the type errors.
-  public internal(set) var diagnostics: Set<Diagnostic> = []
+  public internal(set) var diagnostics: DiagnosticSet = []
 
   /// The overarching type of each declaration.
   public private(set) var declTypes = DeclProperty<AnyType>()
@@ -24,6 +24,9 @@ public struct TypeChecker {
 
   /// A map from sequence expressions to their evaluation order.
   public internal(set) var foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr] = [:]
+
+  /// The type relations of the program.
+  public internal(set) var relations = TypeRelations()
 
   /// Indicates whether the built-in symbols are visible.
   public var isBuiltinModuleVisible: Bool
@@ -75,64 +78,6 @@ public struct TypeChecker {
     }
 
     return genericType.transform(_impl(t:))
-  }
-
-  /// Returns whether `lhs` is canonically equivalent to `rhs`.
-  public func areEquivalent(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    canonicalize(type: lhs) == canonicalize(type: rhs)
-  }
-
-  /// Returns whether `lhs` is a strict subtype of `rhs`.
-  public func isStrictSubtype(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    // TODO: Implement me
-    return false
-  }
-
-  /// Returns the canonical form of `type`.
-  public func canonicalize(type: AnyType) -> AnyType {
-    if type[.isCanonical] { return type }
-
-    switch type.base {
-    case let t as BoundGenericType:
-      let base = canonicalize(type: t.base)
-      let arguments = t.arguments.map({ (a) -> BoundGenericType.Argument in
-        switch a {
-        case .type(let a):
-          return .type(canonicalize(type: a))
-        case .value:
-          fatalError("not implemented")
-        }
-      })
-      return ^BoundGenericType(base, arguments: arguments)
-
-    case let t as ExistentialType:
-      return ^ExistentialType(
-        traits: t.traits,
-        constraints: ConstraintSet(t.constraints.map(canonicalize(constraint:))))
-
-    case let t as MetatypeType:
-      return ^MetatypeType(of: canonicalize(type: t.instance))
-
-    case let t as SumType:
-      return ^SumType(Set(t.elements.map(canonicalize(type:))))
-
-    case let t as TupleType:
-      return ^TupleType(
-        t.elements.map({ (e) -> TupleType.Element in
-          .init(label: e.label, type: canonicalize(type: e.type))
-        }))
-
-    case let t as TypeAliasType:
-      return canonicalize(type: t.resolved.value)
-
-    default:
-      unreachable()
-    }
-  }
-
-  /// Returns the canonical form of `constraint`.
-  public func canonicalize(constraint: Constraint) -> Constraint {
-    constraint.modifyingTypes(canonicalize(type:))
   }
 
   /// Returns the set of traits to which `type` conforms in `scope`.
@@ -882,7 +827,7 @@ public struct TypeChecker {
       guard
         c != requirement,
         let d = self.decl(in: c, named: n),
-        canonicalize(type: realize(decl: d)) == requirementType
+        relations.canonical(realize(decl: d)) == requirementType
       else { return nil }
 
       if let f = NodeID<FunctionDecl>(d), program.ast[f].body == nil { return nil }
@@ -916,7 +861,7 @@ public struct TypeChecker {
       guard
         c != requirement,
         let d = self.decl(in: c, named: n),
-        canonicalize(type: realize(decl: d)) == requirementType
+        relations.canonical(realize(decl: d)) == requirementType
       else { return nil }
 
       if let f = NodeID<MethodDecl>(d) {
@@ -950,7 +895,7 @@ public struct TypeChecker {
     // Get the set of generic parameters defined by `trait`.
     for requirement in program.ast[trait.decl].members {
       let requirementType = specialized(
-        canonicalize(type: realize(decl: requirement)),
+        relations.canonical(realize(decl: requirement)),
         applying: specialization,
         in: AnyScopeID(decl))
       if requirementType.isError { continue }
@@ -1656,9 +1601,9 @@ public struct TypeChecker {
 
     // Run deferred queries.
     let success = deferredQueries.reduce(
-      !solution.diagnostics.errorReported, { (s, q) in q(&self, solution) && s })
+      !solution.diagnostics.containsError, { (s, q) in q(&self, solution) && s })
 
-    diagnostics.formUnion(solution.diagnostics.log)
+    diagnostics.formUnion(solution.diagnostics)
     return (succeeded: success, solution: solution)
   }
 
@@ -1780,8 +1725,9 @@ public struct TypeChecker {
       // Append the resolved component to the nominal prefix.
       resolvedPrefix.append(.init(component, candidates))
 
-      // Defer resolution of the suffix if there are multiple candidates.
-      if candidates.count > 1 { break }
+      // Defer resolution of the remaining name components if there are multiple candidates for
+      // the current component or if we found a type variable.
+      if (candidates.count > 1) || (candidates[0].type.shape.base is TypeVariable) { break }
 
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
@@ -2138,7 +2084,7 @@ public struct TypeChecker {
     exposedTo scope: S
   ) -> [AnyDeclID] {
     /// The canonical form of `subject`.
-    let canonicalSubject = canonicalize(type: subject)
+    let canonicalSubject = relations.canonical(subject)
     /// The declarations extending `subject`.
     var matches: [AnyDeclID] = []
     /// The module at the root of `scope`, when found.
@@ -2196,7 +2142,7 @@ public struct TypeChecker {
 
       // Check for matches.
       guard let extendedType = realize(decl: i).base as? MetatypeType else { continue }
-      if canonicalize(type: extendedType.instance) == subject {
+      if relations.canonical(extendedType.instance) == subject {
         matches.append(i)
       }
     }
@@ -2296,9 +2242,16 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the type of the function declaration underlying `expr`.
-  mutating func realize(underlyingDeclOf expr: NodeID<LambdaExpr>) -> AnyType? {
-    realize(functionDecl: program.ast[expr].decl)
+  /// Returns the realized type of the function declaration underlying `expr` requiring that its
+  /// parameters have the given `conventions`.
+  ///
+  /// - Requires: if supplied, `conventions` has as one element per parameter of the declaration
+  ///   underlying `expr`.
+  mutating func realize(
+    underlyingDeclOf expr: NodeID<LambdaExpr>,
+    with conventions: [AccessEffect]?
+  ) -> AnyType? {
+    realize(functionDecl: program.ast[expr].decl, with: conventions)
   }
 
   /// Realizes and returns a "magic" type expression.
@@ -2336,14 +2289,6 @@ public struct TypeChecker {
 
     case "Never":
       let type = MetatypeType(of: .never)
-      if arguments.count > 0 {
-        diagnostics.insert(.error(argumentToNonGenericType: type.instance, at: name.site))
-        return nil
-      }
-      return type
-
-    case "Void":
-      let type = MetatypeType(of: .void)
       if arguments.count > 0 {
         diagnostics.insert(.error(argumentToNonGenericType: type.instance, at: name.site))
         return nil
@@ -2550,7 +2495,7 @@ public struct TypeChecker {
       domain = d
 
       // Handle references to built-in types.
-      if d == .builtin(.module) {
+      if relations.areEquivalent(d, .builtin(.module)) {
         if let type = BuiltinType(name.value.stem) {
           return MetatypeType(of: .builtin(type))
         } else {
@@ -2780,49 +2725,58 @@ public struct TypeChecker {
     return declTypes[id]!
   }
 
-  private mutating func realize(functionDecl id: NodeID<FunctionDecl>) -> AnyType {
-    _realize(decl: id, { (this, id) in this._realize(functionDecl: id) })
+  /// Returns the realized type of `d` requiring that it be subtype of `supertype`.
+  ///
+  /// - Requires: if supplied, `conventions` has as one element per parameter of the declaration
+  ///   underlying `expr`.
+  private mutating func realize(
+    functionDecl d: NodeID<FunctionDecl>,
+    with conventions: [AccessEffect]? = nil
+  ) -> AnyType {
+    _realize(decl: d, { (this, d) in this._realize(functionDecl: d, with: conventions) })
   }
 
-  private mutating func _realize(functionDecl id: NodeID<FunctionDecl>) -> AnyType {
+  private mutating func _realize(
+    functionDecl id: NodeID<FunctionDecl>,
+    with conventions: [AccessEffect]? = nil
+  ) -> AnyType {
+    if let c = conventions {
+      precondition(c.count == program.ast[id].parameters.count)
+    }
     var success = true
 
     // Realize the input types.
     var inputs: [CallableTypeParameter] = []
-    for i in program.ast[id].parameters {
-      declRequests[i] = .typeCheckingStarted
+    for (i, p) in program.ast[id].parameters.enumerated() {
+      declRequests[p] = .typeCheckingStarted
 
-      if let annotation = program.ast[i].annotation {
-        if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
+      if let annotation = program.ast[p].annotation {
+        if let t = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
           // The annotation may not omit generic arguments.
-          if type[.hasVariable] {
+          if t[.hasVariable] {
             diagnostics.insert(
-              .error(
-                notEnoughContextToInferArgumentsAt: program.ast[annotation].site))
+              .error(notEnoughContextToInferArgumentsAt: program.ast[annotation].site))
             success = false
           }
 
-          declTypes[i] = type
-          declRequests[i] = .typeRealizationCompleted
-          inputs.append(CallableTypeParameter(label: program.ast[i].label?.value, type: type))
+          declTypes[p] = t
+          declRequests[p] = .typeRealizationCompleted
+          inputs.append(CallableTypeParameter(label: program.ast[p].label?.value, type: t))
         } else {
-          declTypes[i] = .error
-          declRequests[i] = .failure
+          declTypes[p] = .error
+          declRequests[p] = .failure
           success = false
         }
       } else {
         // Note: parameter type annotations may be elided if the declaration represents a lambda
         // expression. In that case, the unannotated parameters are associated with a fresh type
-        // so inference can proceed. The actual type of the parameter will be reified during type
-        // checking, when `checkPending` is called.
+        // variable, so inference can proceed.
         if program.ast[id].isInExprContext {
-          let parameterType = ^TypeVariable(node: AnyNodeID(i))
-          declTypes[i] = parameterType
-          declRequests[i] = .typeRealizationCompleted
-          inputs.append(
-            CallableTypeParameter(
-              label: program.ast[i].label?.value,
-              type: parameterType))
+          let t = ^ParameterType(
+            convention: (conventions?[i]) ?? .let, bareType: ^TypeVariable(node: AnyNodeID(p)))
+          declTypes[p] = t
+          declRequests[p] = .typeRealizationCompleted
+          inputs.append(CallableTypeParameter(label: program.ast[p].label?.value, type: t))
         } else {
           unreachable("expected type annotation")
         }
@@ -3049,13 +3003,12 @@ public struct TypeChecker {
     }
 
     // Create a method bundle.
-    let capabilities = Set(program.ast[id].impls.map({ program.ast[$0].introducer.value }))
+    let capabilities = Set(program.ast[program.ast[id].impls].map(\.introducer.value))
     if capabilities.contains(.inout) && (outputType != receiver) {
-      let range =
-        program.ast[id].output.map({ (output) in
-          program.ast[output].site
-        }) ?? program.ast[id].introducerSite
-      diagnostics.insert(.error(inoutCapableMethodBundleMustReturn: receiver, at: range))
+      diagnostics.insert(
+        .error(
+          inoutCapableMethodBundleMustReturn: receiver,
+          at: program.ast[program.ast[id].output]?.site ?? program.ast[id].introducerSite))
       return .error
     }
 
@@ -3156,7 +3109,7 @@ public struct TypeChecker {
     }
 
     // Create a subscript type.
-    let capabilities = Set(program.ast[id].impls.map({ program.ast[$0].introducer.value }))
+    let capabilities = Set(program.ast[program.ast[id].impls].map(\.introducer.value))
     return ^SubscriptType(
       isProperty: program.ast[id].parameters == nil,
       capabilities: capabilities,
@@ -3305,7 +3258,7 @@ public struct TypeChecker {
       // Capture-less local functions are not captured.
       if let d = NodeID<FunctionDecl>(captureDecl) {
         guard let lambda = realize(functionDecl: d).base as? LambdaType else { continue }
-        if lambda.environment == .void { continue }
+        if relations.areEquivalent(lambda.environment, .void) { continue }
       }
 
       // Other local declarations are captured.
@@ -3525,23 +3478,23 @@ public struct TypeChecker {
   private mutating func labels(_ d: AnyDeclID) -> [String?] {
     switch d.kind {
     case FunctionDecl.self:
-      return program.ast[NodeID<FunctionDecl>(d)!]
-        .parameters
-        .map({ (p) in program.ast[p].label?.value })
+      let i = NodeID<FunctionDecl>(d)!
+      return program.ast[program.ast[i].parameters].map(\.label?.value)
 
     case InitializerDecl.self:
-      return LambdaType(realize(initializerDecl: NodeID(d)!))
-        .map({ (t) in t.inputs.map(\.label) }) ?? []
+      if let t = LambdaType(realize(initializerDecl: NodeID(d)!)) {
+        return t.inputs.map(\.label)
+      } else {
+        return []
+      }
 
     case MethodDecl.self:
-      return program.ast[NodeID<MethodDecl>(d)!]
-        .parameters
-        .map({ (p) in program.ast[p].label?.value })
+      let i = NodeID<MethodDecl>(d)!
+      return program.ast[program.ast[i].parameters].map(\.label?.value)
 
     case SubscriptDecl.self:
-      return program.ast[NodeID<SubscriptDecl>(d)!]
-        .parameters
-        .map({ (ps) in ps.map({ (p) in program.ast[p].label?.value }) }) ?? []
+      let i = NodeID<SubscriptDecl>(d)!
+      return program.ast[program.ast[i].parameters ?? []].map(\.label?.value)
 
     default:
       return []
