@@ -94,6 +94,17 @@ public struct AST {
     position.map({ nodes[$0.rawValue].node })
   }
 
+  /// A sequence of concrete nodes projected from an AST.
+  public typealias ConcreteProjectedSequence<T> = LazyMapSequence<
+    LazySequence<T>.Elements,
+    T.Element.Subject
+  > where T: Sequence, T.Element: ConcreteNodeID
+
+  /// Projects a sequence containing the nodes at `positions`.
+  public subscript<T: Sequence>(positions: T) -> ConcreteProjectedSequence<T> {
+    positions.lazy.map({ (n) in self[n] })
+  }
+
   // MARK: Core library
 
   /// Indicates whether the Core library has been loaded.
@@ -145,10 +156,7 @@ public struct AST {
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: NodeID<ModuleDecl>) -> TopLevelDecls {
-    let a = self[module].sources.lazy
-      .map({ self[$0].decls })
-      .joined()
-    return a
+    self[self[module].sources].map(\.decls).joined()
   }
 
   /// Returns the IDs of the named patterns contained in `pattern`.

@@ -3018,13 +3018,12 @@ public struct TypeChecker {
     }
 
     // Create a method bundle.
-    let capabilities = Set(program.ast[id].impls.map({ program.ast[$0].introducer.value }))
+    let capabilities = Set(program.ast[program.ast[id].impls].map(\.introducer.value))
     if capabilities.contains(.inout) && (outputType != receiver) {
-      let range =
-        program.ast[id].output.map({ (output) in
-          program.ast[output].site
-        }) ?? program.ast[id].introducerSite
-      diagnostics.insert(.error(inoutCapableMethodBundleMustReturn: receiver, at: range))
+      diagnostics.insert(
+        .error(
+          inoutCapableMethodBundleMustReturn: receiver,
+          at: program.ast[program.ast[id].output]?.site ?? program.ast[id].introducerSite))
       return .error
     }
 
@@ -3125,7 +3124,7 @@ public struct TypeChecker {
     }
 
     // Create a subscript type.
-    let capabilities = Set(program.ast[id].impls.map({ program.ast[$0].introducer.value }))
+    let capabilities = Set(program.ast[program.ast[id].impls].map(\.introducer.value))
     return ^SubscriptType(
       isProperty: program.ast[id].parameters == nil,
       capabilities: capabilities,
@@ -3494,23 +3493,23 @@ public struct TypeChecker {
   private mutating func labels(_ d: AnyDeclID) -> [String?] {
     switch d.kind {
     case FunctionDecl.self:
-      return program.ast[NodeID<FunctionDecl>(d)!]
-        .parameters
-        .map({ (p) in program.ast[p].label?.value })
+      let i = NodeID<FunctionDecl>(d)!
+      return program.ast[program.ast[i].parameters].map(\.label?.value)
 
     case InitializerDecl.self:
-      return LambdaType(realize(initializerDecl: NodeID(d)!))
-        .map({ (t) in t.inputs.map(\.label) }) ?? []
+      if let t = LambdaType(realize(initializerDecl: NodeID(d)!)) {
+        return t.inputs.map(\.label)
+      } else {
+        return []
+      }
 
     case MethodDecl.self:
-      return program.ast[NodeID<MethodDecl>(d)!]
-        .parameters
-        .map({ (p) in program.ast[p].label?.value })
+      let i = NodeID<MethodDecl>(d)!
+      return program.ast[program.ast[i].parameters].map(\.label?.value)
 
     case SubscriptDecl.self:
-      return program.ast[NodeID<SubscriptDecl>(d)!]
-        .parameters
-        .map({ (ps) in ps.map({ (p) in program.ast[p].label?.value }) }) ?? []
+      let i = NodeID<SubscriptDecl>(d)!
+      return program.ast[program.ast[i].parameters ?? []].map(\.label?.value)
 
     default:
       return []
