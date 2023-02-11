@@ -46,6 +46,18 @@ public struct AbstractTypeLayout {
 
 }
 
+extension AbstractTypeLayout: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    type.hash(into: &hasher)
+  }
+
+  public static func == (l: Self, r: Self) -> Bool {
+    l.type == r.type
+  }
+
+}
+
 extension TypedProgram {
 
   /// Returns the names and types of the stored properties of `t`.

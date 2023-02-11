@@ -135,6 +135,14 @@ public struct DefiniteInitializationPass: TransformPass {
       return newContext
     }
 
+    /// Assigns in `context` a fully initialized object to each virtual register defined by `i`.
+    func assignObjectRegisters(createdBy i: InstructionID, in context: inout Context) {
+      for (j, t) in module[i].types.enumerated() {
+        context.locals[FunctionLocal(i, j)] = .init(
+          object: .full(.initialized), ofType: t.astType, definedIn: program)
+      }
+    }
+
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
       // Create an abstract location denoting the newly allocated memory.
@@ -142,9 +150,10 @@ public struct DefiniteInitializationPass: TransformPass {
       precondition(context.memory[location] == nil, "stack leak")
 
       // Update the context.
-      context.memory[location] = Context.Cell(
-        type: (module[i] as! AllocStackInstruction).allocatedType,
-        object: .full(.uninitialized))
+      context.memory[location] = Object(
+        layout: AbstractTypeLayout(
+          of: (module[i] as! AllocStackInstruction).allocatedType, definedIn: program),
+        value: .full(.uninitialized))
       context.locals[FunctionLocal(i, 0)] = .locations([location])
     }
 
@@ -167,7 +176,7 @@ public struct DefiniteInitializationPass: TransformPass {
       switch borrow.capability {
       case .let, .inout:
         // `let` and `inout` require the borrowed object to be initialized.
-        switch o {
+        switch o.value {
         case .full(.initialized):
           break
         case .full(.uninitialized):
@@ -175,7 +184,7 @@ public struct DefiniteInitializationPass: TransformPass {
         case .full(.consumed):
           diagnostics1.insert(.useOfConsumedObject(at: borrow.site))
         case .partial:
-          let p = o.paths!
+          let p = o.value.paths!
           if p.consumed.isEmpty {
             diagnostics1.insert(.useOfPartiallyInitializedObject(at: borrow.site))
           } else {
@@ -186,13 +195,13 @@ public struct DefiniteInitializationPass: TransformPass {
       case .set:
         // `set` requires the borrowed object to be uninitialized.
         let initializedPaths: [SubobjectPath]
-        switch o {
+        switch o.value {
         case .full(.initialized):
           initializedPaths = [borrow.path]
         case .full(.uninitialized), .full(.consumed):
           initializedPaths = []
         case .partial:
-          initializedPaths = o.paths!.initialized.map({ borrow.path + $0 })
+          initializedPaths = o.value.paths!.initialized.map({ borrow.path + $0 })
         }
 
         // Nothing to do if the location is already uninitialized.
@@ -212,7 +221,7 @@ public struct DefiniteInitializationPass: TransformPass {
 
         // Apply the effects of the new instructions.
         for l in locations {
-          context.withObject(at: l, typedIn: program, { $0 = .full(.uninitialized) })
+          context.withObject(at: l, typedIn: program, { $0.value = .full(.uninitialized) })
         }
 
       case .yielded, .sink:
@@ -241,7 +250,8 @@ public struct DefiniteInitializationPass: TransformPass {
           unreachable()
         }
       }
-      context.locals[FunctionLocal(i, 0)] = .object(.full(.initialized))
+
+      assignObjectRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -255,20 +265,20 @@ public struct DefiniteInitializationPass: TransformPass {
 
       // Make sure the memory at the deallocated location is consumed or uninitialized.
       let initializedPaths: [SubobjectPath] = context.withObject(at: l, typedIn: program) { (o) in
-        switch o {
+        switch o.value {
         case .full(.initialized):
           return [[]]
         case .full(.uninitialized), .full(.consumed):
           return []
         case .partial:
-          return o.paths!.initialized
+          return o.value.paths!.initialized
         }
       }
 
       for p in initializedPaths {
-        let t = AbstractTypeLayout(of: alloc.allocatedType, definedIn: program)[p].type
+        let t = AbstractTypeLayout(of: alloc.allocatedType, definedIn: program)[p]
         let o = module.insert(
-          LoadInstruction(.object(t), from: dealloc.location, at: p, site: dealloc.site),
+          LoadInstruction(.object(t.type), from: dealloc.location, at: p, site: dealloc.site),
           before: i)[0]
         module.insert(
           DeinitInstruction(o, site: dealloc.site), before: i)
@@ -277,7 +287,9 @@ public struct DefiniteInitializationPass: TransformPass {
         let consumer = InstructionID(
           i.function, i.block,
           module[i.function][i.block].instructions.address(before: i.address)!)
-        context.locals[FunctionLocal(i, 0)] = .object(.full(.consumed(by: [consumer])))
+
+        context.locals[FunctionLocal(i, 0)] = .object(
+          Object(layout: t, value: .full(.consumed(by: [consumer]))))
       }
 
       // Erase the deallocated memory from the context.
@@ -295,15 +307,13 @@ public struct DefiniteInitializationPass: TransformPass {
       let x = module[i] as! DestructureInstruction
       context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics1)
 
-      for j in 0 ..< x.types.count {
-        context.locals[FunctionLocal(i, j)] = .object(.full(.initialized))
-      }
+      assignObjectRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(llvm i: InstructionID, in context: inout Context) {
       // TODO: Check that operands are initialized.
-      context.locals[FunctionLocal(i, 0)] = .object(.full(.initialized))
+      assignObjectRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -322,15 +332,15 @@ public struct DefiniteInitializationPass: TransformPass {
       // Object at target location must be initialized.
       for l in locations {
         context.withObject(at: l, typedIn: program) { (o) in
-          switch o {
+          switch o.value {
           case .full(.initialized):
-            o = .full(.consumed(by: [i]))
+            o.value = .full(.consumed(by: [i]))
           case .full(.uninitialized):
             diagnostics1.insert(.useOfUninitializedObject(at: load.site))
           case .full(.consumed):
             diagnostics1.insert(.useOfConsumedObject(at: load.site))
           case .partial:
-            let p = o.paths!
+            let p = o.value.paths!
             if p.consumed.isEmpty {
               diagnostics1.insert(.useOfPartiallyInitializedObject(at: load.site))
             } else {
@@ -340,7 +350,7 @@ public struct DefiniteInitializationPass: TransformPass {
         }
       }
 
-      context.locals[FunctionLocal(i, 0)] = .object(.full(.initialized))
+      assignObjectRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -350,7 +360,7 @@ public struct DefiniteInitializationPass: TransformPass {
         context.consume(o, with: i, at: x.site, diagnostics: &diagnostics1)
       }
 
-      context.locals[FunctionLocal(i, 0)] = .object(.full(.initialized))
+      assignObjectRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -376,7 +386,7 @@ public struct DefiniteInitializationPass: TransformPass {
       }
 
       for l in locations {
-        context.withObject(at: l, typedIn: program, { $0 = .full(.initialized) })
+        context.withObject(at: l, typedIn: program, { $0.value = .full(.initialized) })
       }
     }
 
@@ -390,7 +400,7 @@ public struct DefiniteInitializationPass: TransformPass {
 
       // The entry block is a special case.
       if block == module[function].blocks.firstAddress {
-        let x = Context(entryOf: module[function])
+        let x = Context(entryOf: module[function], in: program)
         let y = afterContext(of: block, in: x)
         contexts[block] = (before: x, after: y)
         done.insert(block)
@@ -482,7 +492,7 @@ extension DefiniteInitializationPass {
   }
 
   /// An abstract object or aggregate of objects.
-  fileprivate enum Object: Equatable {
+  fileprivate struct Object: Equatable {
 
     /// A set of consumers.
     typealias Consumers = Set<InstructionID>
@@ -528,6 +538,120 @@ extension DefiniteInitializationPass {
 
     }
 
+    /// The value of an object, describing the initialization state of its parts.
+    enum Value: Equatable {
+
+      /// An object whose parts all have the same state.
+      case full(State)
+
+      /// An object whose parts may have different states.
+      ///
+      /// - Requires: The payload is not empty.
+      case partial([Value])
+
+      /// The canonical form of `self`.
+      var canonical: Value {
+        switch self {
+        case .full:
+          return self
+
+        case .partial(var subobjects):
+          var isUniform = true
+          subobjects[0] = subobjects[0].canonical
+          for i in 1 ..< subobjects.count {
+            subobjects[i] = subobjects[i].canonical
+            isUniform = isUniform && subobjects[i] == subobjects[0]
+          }
+          return isUniform ? subobjects[0] : .partial(subobjects)
+        }
+      }
+
+      /// If `self` is `.partial`, the paths to `self`'s parts; otherwise, `nil`.
+      var paths: PartPaths? {
+        if case .full = self { return nil }
+        var paths = PartPaths(initialized: [], uninitialized: [], consumed: [])
+        gatherSubobjectPaths(prefixedBy: [], into: &paths)
+        return paths
+      }
+
+      /// If `self` is `.partial`, inserts the paths to its parts into `paths`, prefixing each
+      /// inserted elemebt by `prefix`.
+      ///
+      /// - Requires: `self` is canonical.
+      private func gatherSubobjectPaths(
+        prefixedBy prefix: SubobjectPath,
+        into paths: inout PartPaths
+      ) {
+        guard case .partial(let subobjects) = self else { return }
+
+        for i in 0 ..< subobjects.count {
+          switch subobjects[i] {
+          case .full(.initialized):
+            paths.initialized.append(prefix + [i])
+          case .full(.uninitialized):
+            paths.uninitialized.append(prefix + [i])
+          case .full(.consumed(let c)):
+            paths.consumed.append((path: prefix + [i], consumers: c))
+          case .partial(let parts):
+            for p in parts {
+              p.gatherSubobjectPaths(prefixedBy: prefix + [i], into: &paths)
+            }
+          }
+        }
+      }
+
+      /// Returns `lhs` merged with `rhs`.
+      static func && (lhs: Self, rhs: Self) -> Self {
+        switch (lhs.canonical, rhs.canonical) {
+        case (.full(let lhs), .full(let rhs)):
+          return .full(lhs && rhs)
+
+        case (.partial(let lhs), .partial(let rhs)):
+          assert(lhs.count == rhs.count)
+          return .partial(zip(lhs, rhs).map(&&))
+
+        case (.partial(let lhs), _):
+          return .partial(lhs.map({ $0 && rhs }))
+
+        case (_, .partial(let rhs)):
+          return .partial(rhs.map({ lhs && $0 }))
+        }
+      }
+
+      /// Returns the paths of the parts that are initialized in `l` and either uninitialized or
+      /// consumed in `r`.
+      ///
+      /// - Requires: `lhs` and `rhs` are canonical and have the same layout
+      static func - (l: Self, r: Self) -> [SubobjectPath] {
+        switch (l, r) {
+        case (.full(.initialized), let rhs):
+          if let p = rhs.paths {
+            return p.uninitialized + p.consumed.map(\.path)
+          } else {
+            return []
+          }
+
+        case (.full, _):
+          return []
+
+        case (_, .full(.initialized)):
+          return [[]]
+
+        case (let lhs, .full):
+          return lhs.paths!.initialized
+
+        case (.partial(let lhs), .partial(let rhs)):
+          assert(lhs.count == rhs.count)
+          return (0 ..< lhs.count).reduce(
+            into: [],
+            { (result, i) in
+              result.append(contentsOf: (lhs[i] - rhs[i]).map({ [i] + $0 }))
+            })
+        }
+      }
+
+    }
+
     /// The paths to the initialized, uninitialized, and consumed parts of an object.
     struct PartPaths {
 
@@ -542,196 +666,81 @@ extension DefiniteInitializationPass {
 
     }
 
-    /// An object whose parts all have the same state.
-    case full(State)
+    /// The abstract layout of the object.
+    let layout: AbstractTypeLayout
 
-    /// An object whose parts may have different states.
-    ///
-    /// - Requires: The payload is not empty.
-    case partial([Object])
+    /// The value of the object.
+    var value: Value
 
-    /// The canonical form of `self`.
-    var canonical: Object {
-      switch self {
-      case .full:
-        return self
-
-      case .partial(var subobjects):
-        var isUniform = true
-        subobjects[0] = subobjects[0].canonical
-        for i in 1 ..< subobjects.count {
-          subobjects[i] = subobjects[i].canonical
-          isUniform = isUniform && subobjects[i] == subobjects[0]
-        }
-        return isUniform ? subobjects[0] : .partial(subobjects)
-      }
+    /// Creates an instance with the given properties.
+    init(layout: AbstractTypeLayout, value: Value) {
+      self.layout = layout
+      self.value = value.canonical
     }
 
-    /// Returns whether all parts have the same state.
-    var isFull: Bool {
-      if case .full = self { return true }
-      if case .full = canonical { return true }
-      return false
-    }
-
-    /// If `self` is `.partial`, the paths to its initialized and consumed parts; otherwise, `nil`.
-    var paths: PartPaths? {
-      if case .full = canonical { return nil }
-      var paths = PartPaths(initialized: [], uninitialized: [], consumed: [])
-      gatherSubobjectPaths(prefixedBy: [], into: &paths)
-      return paths
-    }
-
-    /// If `self` is `.partial`, inserts the paths to the initialized and consumed parts of `self`,
-    /// prefixing all paths by `prefix`.
-    ///
-    /// - Requires: `self` is canonical.
-    private func gatherSubobjectPaths(
-      prefixedBy prefix: SubobjectPath,
-      into paths: inout PartPaths
-    ) {
-      guard case .partial(let subobjects) = self else { return }
-
-      for i in 0 ..< subobjects.count {
-        switch subobjects[i] {
-        case .full(.initialized):
-          paths.initialized.append(prefix + [i])
-        case .full(.uninitialized):
-          paths.uninitialized.append(prefix + [i])
-        case .full(.consumed(let c)):
-          paths.consumed.append((path: prefix + [i], consumers: c))
-        case .partial(let parts):
-          for p in parts {
-            p.gatherSubobjectPaths(prefixedBy: prefix + [i], into: &paths)
-          }
-        }
-      }
-    }
-
-    /// Returns the result of calling `action` with the sub-object at index `i`, using `layout` to
-    /// partition `self`.
+    /// Returns the result of calling `action` with the sub-object at given `offset`.
     ///
     /// - Requires: `i` is a valid index in `layout`.
-    mutating func withSubobject<T>(
-      _ i: Int,
-      partitioningSelfWith layout: AbstractTypeLayout,
-      _ action: (inout Object) -> T
-    ) -> T {
+    mutating func withSubobject<T>(_ offset: Int, _ action: (inout Object) -> T) -> T {
       let n = layout.properties.count
       precondition(n != 0)
 
-      var parts: [Object]
-      if case .partial(let p) = self {
+      var parts: [Value]
+      if case .partial(let p) = value {
         parts = p
       } else {
-        parts = Array(repeating: self, count: n)
+        parts = Array(repeating: value, count: n)
       }
 
-      defer { self = .partial(parts).canonical }
-      return action(&parts[i])
+      var o = Object(layout: layout[offset], value: parts[offset])
+      defer {
+        parts[offset] = o.value
+        value = .partial(parts).canonical
+      }
+      return action(&o)
     }
 
-    /// Returns the result of calling `action` with the sub-object at given `path`, using `layout`
-    /// to partition `self` and `program` to compute object layouts.
+    /// Returns the result of calling `action` with the sub-object at given `path`.
     ///
-    /// - Requires: `path` is a valid path in `self`.
+    /// - Requires: `offsets` is a valid path in `self`.
     mutating func withSubobject<T, P: Collection>(
       at path: P,
-      typedIn program: TypedProgram,
-      partitioningSelfWith layout: AbstractTypeLayout,
       _ action: (inout Object) -> T
     ) -> T where P.Element == Int {
       guard let (i, t) = path.headAndTail else {
-        defer { self = self.canonical }
+        defer { value = value.canonical }
         return action(&self)
       }
 
       if t.isEmpty {
-        return withSubobject(i, partitioningSelfWith: layout, action)
+        return withSubobject(i, action)
       } else {
-        return withSubobject(at: t, typedIn: program, partitioningSelfWith: layout, action)
+        return withSubobject(at: t, action)
       }
     }
 
-    /// If `self` is `.partial([p1, ..., pn])`, returns `pi`.
-    ///
-    /// - Requires: `self` is `.partial`.
-    subscript(i: Int) -> Object {
-      get {
-        guard case .partial(let subobjects) = self else {
-          preconditionFailure("index out of range")
-        }
-        return subobjects[i]
-      }
-      _modify {
-        guard case .partial(var subobjects) = self else {
-          preconditionFailure("index out of range")
-        }
-        yield &subobjects[i]
-        self = .partial(subobjects)
-      }
-    }
-
-    /// Returns the paths of the parts that are initialized in `self` and either uninitialized or
-    /// consumed in `other`.
-    ///
-    /// - Requires: The types of `self` and `other` have the same object layout.
-    func difference(_ other: Object) -> [SubobjectPath] {
-      switch (self.canonical, other.canonical) {
-      case (.full(.initialized), let rhs):
-        if let p = rhs.paths {
-          return p.uninitialized + p.consumed.map(\.path)
-        } else {
-          return []
-        }
-
-      case (.full, _):
-        return []
-
-      case (_, .full(.initialized)):
-        return [[]]
-
-      case (let lhs, .full):
-        return lhs.paths!.initialized
-
-      case (.partial(let lhs), .partial(let rhs)):
-        assert(lhs.count == rhs.count)
-        return (0 ..< lhs.count).reduce(
-          into: [],
-          { (result, i) in
-            result.append(contentsOf: lhs[i].difference(rhs[i]).map({ [i] + $0 }))
-          })
-      }
-    }
-
-    /// Returns `lhs` merged with `rhs`.
-    static func && (lhs: Object, rhs: Object) -> Object {
-      switch (lhs.canonical, rhs.canonical) {
-      case (.full(let lhs), .full(let rhs)):
-        return .full(lhs && rhs)
-
-      case (.partial(let lhs), .partial(let rhs)):
-        assert(lhs.count == rhs.count)
-        return .partial(zip(lhs, rhs).map(&&))
-
-      case (.partial(let lhs), _):
-        return .partial(lhs.map({ $0 && rhs }))
-
-      case (_, .partial(let rhs)):
-        return .partial(rhs.map({ lhs && $0 }))
-      }
+    /// Returns `l` merged with `r`.
+    static func && (l: Self, r: Self) -> Self {
+      precondition(l.layout == r.layout)
+      return Object(layout: l.layout, value: l.value && r.value)
     }
 
   }
 
-  /// An abstract value.
-  fileprivate enum Value: Equatable {
+  /// The abstract value of a register.
+  fileprivate enum AbstractValue: Equatable {
 
     /// A non-empty set of locations.
     case locations(Set<MemoryLocation>)
 
     /// An object.
     case object(Object)
+
+    /// Creates a `.object` value with an object of given `value` and `type`, using `program` to
+    /// compute its layout.
+    init(object value: Object.Value, ofType type: AnyType, definedIn program: TypedProgram) {
+      self = .object(.init(layout: AbstractTypeLayout(of: type, definedIn: program), value: value))
+    }
 
     /// If `self` is `.locations(l)`, returns `l`; otherwise, returns `nil`.
     func unwrapLocations() -> Set<MemoryLocation>? {
@@ -751,13 +760,13 @@ extension DefiniteInitializationPass {
       }
     }
 
-    /// Returns `lhs` merged with `rhs`.
-    static func && (lhs: Value, rhs: Value) -> Value {
-      switch (lhs, rhs) {
-      case (.locations(let lhs), .locations(let rhs)):
-        return .locations(lhs.union(rhs))
-      case (.object(let lhs), .object(let rhs)):
-        return .object(lhs && rhs)
+    /// Returns `l` merged with `r`.
+    static func && (l: Self, r: Self) -> Self {
+      switch (l, r) {
+      case (.locations(let a), .locations(let b)):
+        return .locations(a.union(b))
+      case (.object(let a), .object(let b)):
+        return .object(a && b)
       default:
         unreachable()
       }
@@ -772,46 +781,38 @@ extension DefiniteInitializationPass {
   /// An abstract interpretation context.
   fileprivate struct Context: Equatable {
 
-    /// A memory cell.
-    struct Cell: Equatable {
-
-      /// The type of the object in the cell.
-      var type: AnyType
-
-      /// The object in the cell.
-      var object: Object
-
-    }
-
     /// The values of the locals.
-    var locals: [FunctionLocal: Value] = [:]
+    var locals: [FunctionLocal: AbstractValue] = [:]
 
     /// The state of the memory.
-    var memory: [MemoryLocation: Cell] = [:]
+    var memory: [MemoryLocation: Object] = [:]
 
     /// Creates an empty context.
     init() {}
 
     /// Creates the before-context `function`'s entry in `module`.
-    init(entryOf function: Function) {
+    init(entryOf function: Function, in program: TypedProgram) {
       let entryAddress = function.blocks.firstAddress!
 
       for i in 0 ..< function.inputs.count {
+        let (parameterConvention, parameterType) = function.inputs[i]
         let parameterKey = FunctionLocal.param(block: entryAddress, index: i)
-        let (c, t) = function.inputs[i]
-        switch c {
+        let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
+
+        switch parameterConvention {
         case .let, .inout:
           let l = MemoryLocation.argument(index: i)
           locals[parameterKey] = .locations([l])
-          memory[l] = Context.Cell(type: t.astType, object: .full(.initialized))
+          memory[l] = Object(layout: parameterLayout, value: .full(.initialized))
 
         case .set:
           let l = MemoryLocation.argument(index: i)
           locals[parameterKey] = .locations([l])
-          memory[l] = Context.Cell(type: t.astType, object: .full(.uninitialized))
+          memory[l] = Object(layout: parameterLayout, value: .full(.uninitialized))
 
         case .sink:
-          locals[parameterKey] = .object(.full(.initialized))
+          locals[parameterKey] = .object(
+            .init(layout: parameterLayout, value: .full(.initialized)))
 
         case .yielded:
           preconditionFailure("cannot represent instance of yielded type")
@@ -835,10 +836,7 @@ extension DefiniteInitializationPass {
       }
 
       // Merge the state of the objects in memory.
-      memory.merge(other.memory) { (lhs, rhs) in
-        assert(lhs.type == rhs.type)
-        return Context.Cell(type: lhs.type, object: lhs.object && rhs.object)
-      }
+      memory.merge(other.memory, uniquingKeysWith: &&)
     }
 
     /// Forms a context by merging the contexts in `others` into `self`.
@@ -858,18 +856,13 @@ extension DefiniteInitializationPass {
         preconditionFailure("null location")
 
       case .argument, .instruction:
-        return action(&memory[location]!.object)
+        return action(&memory[location]!)
 
       case .sublocation(let rootLocation, let path):
         if path.isEmpty {
-          return action(&memory[location]!.object)
+          return action(&memory[location]!)
         } else {
-          return modifying(&memory[rootLocation]!) { (root) in
-            root.object.withSubobject(
-              at: path, typedIn: program,
-              partitioningSelfWith: AbstractTypeLayout(of: root.type, definedIn: program),
-              action)
-          }
+          return modifying(&memory[rootLocation]!, { $0.withSubobject(at: path, action) })
         }
       }
     }
@@ -884,9 +877,11 @@ extension DefiniteInitializationPass {
     ) {
       // Constants are never consumed.
       guard let k = FunctionLocal(operand: o) else { return }
+      var o = locals[k]!.unwrapObject()!
 
-      if locals[k]!.unwrapObject()! == .full(.initialized) {
-        locals[k]! = .object(.full(.consumed(by: [consumer])))
+      if o.value == .full(.initialized) {
+        o.value = .full(.consumed(by: [consumer]))
+        locals[k]! = .object(o)
       } else {
         diagnostics.insert(.illegalMove(at: site))
       }
