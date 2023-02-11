@@ -44,6 +44,11 @@ extension Program {
     }
   }
 
+  /// Returns whether `l` overlaps with `r`.
+  public func areOverlapping(_ l: AnyScopeID, _ r: AnyScopeID) -> Bool {
+    isContained(l, in: r) || isContained(r, in: l)
+  }
+
   /// Returns the scope introducing `d`.
   public func scopeIntroducing(_ d: AnyDeclID) -> AnyScopeID {
     if d.kind == InitializerDecl.self {
