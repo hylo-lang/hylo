@@ -866,6 +866,75 @@ public struct TypeChecker {
     return success
   }
 
+  /// Returns an array of declaration implementing `requirement` with type `requirementType` that
+  /// are member of `conformingType` and visible in `scope`.
+  private mutating func gatherCandidates(
+    implementing requirement: NodeID<FunctionDecl>,
+    withType requirementType: AnyType,
+    for conformingType: AnyType,
+    in scope: AnyScopeID
+  ) -> [AnyDeclID] {
+    let n = Name(of: requirement, in: program.ast)!
+    let lookupResult = lookup(n.stem, memberOf: conformingType, in: scope)
+
+    // Filter out the candidates with incompatible types.
+    return lookupResult.compactMap { (c) -> AnyDeclID? in
+      guard
+        c != requirement,
+        let d = self.decl(in: c, named: n),
+        canonicalize(type: realize(decl: d)) == requirementType
+      else { return nil }
+
+      if let f = NodeID<FunctionDecl>(d), program.ast[f].body == nil { return nil }
+      if let f = NodeID<MethodImpl>(d), program.ast[f].body == nil { return nil }
+
+      // TODO: Filter out the candidates with incompatible constraints.
+      // trait A {}
+      // type Foo<T> {}
+      // extension Foo where T: U { fun foo() }
+      // conformance Foo: A {} // <- should not consider `foo` in the extension
+
+      // TODO: Rank candidates
+
+      return d
+    }
+  }
+
+  /// Returns an array of declaration implementing `requirement` with type `requirementType` that
+  /// are member of `conformingType` and visible in `scope`.
+  private mutating func gatherCandidates(
+    implementing requirement: NodeID<MethodDecl>,
+    withType requirementType: AnyType,
+    for conformingType: AnyType,
+    in scope: AnyScopeID
+  ) -> [AnyDeclID] {
+    let n = Name(of: requirement, in: program.ast)
+    let lookupResult = lookup(n.stem, memberOf: conformingType, in: scope)
+
+    // Filter out the candidates with incompatible types.
+    return lookupResult.compactMap { (c) -> AnyDeclID? in
+      guard
+        c != requirement,
+        let d = self.decl(in: c, named: n),
+        canonicalize(type: realize(decl: d)) == requirementType
+      else { return nil }
+
+      if let f = NodeID<MethodDecl>(d) {
+        if program.ast[f].impls.contains(where: ({ program.ast[$0].body == nil })) { return nil }
+      }
+
+      // TODO: Filter out the candidates with incompatible constraints.
+      // trait A {}
+      // type Foo<T> {}
+      // extension Foo where T: U { fun foo() }
+      // conformance Foo: A {} // <- should not consider `foo` in the extension
+
+      // TODO: Rank candidates
+
+      return d
+    }
+  }
+
   /// Returns true iff the type declared by `decl` satisfies the requirements of `trait`,
   /// reporting errors at `site`.
   private mutating func checkConformance(
@@ -896,34 +965,27 @@ public struct TypeChecker {
         continue
 
       case FunctionDecl.self:
-        // Gather candidate implementations.
-        let n = Name(of: NodeID<FunctionDecl>(requirement)!, in: program.ast)!
-        let lookupResult = lookup(n.stem, memberOf: conformingType, in: AnyScopeID(decl))
-
-        // Filter out the candidates with incompatible types.
-        let candidates = lookupResult.compactMap { (c) -> AnyDeclID? in
-          guard
-            c != requirement,
-            let d = self.decl(in: c, named: n),
-            canonicalize(type: realize(decl: d)) == requirementType
-          else { return nil }
-
-          if let f = NodeID<FunctionDecl>(d), program.ast[f].body == nil { return nil }
-          if let f = NodeID<MethodImpl>(d), program.ast[f].body == nil { return nil }
-
-          // TODO: Filter out the candidates with incompatible constraints.
-          // trait A {}
-          // type Foo<T> {}
-          // extension Foo where T: U { fun foo() }
-          // conformance Foo: A {} // <- should not consider `foo` in the extension
-
-          return d
-        }
-
-        // TODO: Rank candidates
+        let r = NodeID<FunctionDecl>(requirement)!
+        let candidates = gatherCandidates(
+          implementing: r, withType: requirementType, for: conformingType, in: AnyScopeID(decl))
 
         if candidates.count != 1 {
-          notes.append(.error(traitRequiresMethod: n, withType: requirementType, at: site))
+          notes.append(
+            .error(
+              traitRequiresMethod: Name(of: r, in: program.ast)!, withType: requirementType,
+              at: site))
+        }
+
+      case MethodDecl.self:
+        let r = NodeID<MethodDecl>(requirement)!
+        let candidates = gatherCandidates(
+          implementing: r, withType: requirementType, for: conformingType, in: AnyScopeID(decl))
+
+        if candidates.count != 1 {
+          notes.append(
+            .error(
+              traitRequiresMethod: Name(of: r, in: program.ast), withType: requirementType,
+              at: site))
         }
 
       default:
