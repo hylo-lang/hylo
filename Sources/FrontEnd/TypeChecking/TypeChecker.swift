@@ -8,7 +8,7 @@ public struct TypeChecker {
   public internal(set) var program: ScopedProgram
 
   /// The diagnostics of the type errors.
-  public internal(set) var diagnostics: Set<Diagnostic> = []
+  public internal(set) var diagnostics: DiagnosticSet = []
 
   /// The overarching type of each declaration.
   public private(set) var declTypes = DeclProperty<AnyType>()
@@ -1608,9 +1608,9 @@ public struct TypeChecker {
 
     // Run deferred queries.
     let success = deferredQueries.reduce(
-      !solution.diagnostics.errorReported, { (s, q) in q(&self, solution) && s })
+      !solution.diagnostics.containsError, { (s, q) in q(&self, solution) && s })
 
-    diagnostics.formUnion(solution.diagnostics.log)
+    diagnostics.formUnion(solution.diagnostics)
     return (succeeded: success, solution: solution)
   }
 
