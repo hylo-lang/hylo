@@ -21,8 +21,7 @@ extension StringProtocol {
     }
   }
 
-  /// Returns the indices of the start of each line, in order, always ending with `endIndex`, even
-  /// if there's no final newline.
+  /// Returns the indices of the start of each line, in order.
   public func lineBoundaries() -> [Index] {
     var r = [startIndex]
     var remainder = self[...]
@@ -30,9 +29,6 @@ extension StringProtocol {
       let j = index(after: i)
       r.append(j)
       remainder = remainder[j...]
-    }
-    if r.last != endIndex {
-      r.append(endIndex)
     }
     return r
   }

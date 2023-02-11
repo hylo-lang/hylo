@@ -38,7 +38,9 @@ public struct SourcePosition: Hashable {
   /// Returns the text of the line in which `self` resides.
   public func textOfLine() -> Substring {
     let l = lineAndColumn().line
-    return file.text[file.lineStarts[l - 1] ..< file.lineStarts[l]]
+    return l < file.lineStarts.count
+      ? file.text[file.lineStarts[l - 1] ..< file.lineStarts[l]]
+      : file.text[file.lineStarts.last!...]
   }
 }
 

@@ -22,9 +22,6 @@ public struct SourceFile {
   public var url: URL { storage.url }
 
   /// The start position of each line.
-  ///
-  /// - Invariant: always starts with `contents.startIndex` and ends with `contents.endIndex`, even
-  ///   if there's no final newline.
   public var lineStarts: [Index] { storage.lineStarts }
 
   /// Creates an instance representing the file at `filePath`.
@@ -254,9 +251,6 @@ extension SourceFile {
     fileprivate let text: String
 
     /// The start position of each line.
-    ///
-    /// - Invariant: always starts with `contents.startIndex` and ends with `contents.endIndex`, even
-    ///   if there's no final newline.
     fileprivate let lineStarts: [Index]
 
     /// Creates an instance with the given properties.
