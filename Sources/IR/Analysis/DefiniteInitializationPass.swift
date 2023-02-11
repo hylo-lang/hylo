@@ -13,7 +13,11 @@ public struct DefiniteInitializationPass {
 
   /// Reports any use-before-initialization errors in `f` into `diagnostics`, where `f` is in
   /// `module`.
-  public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
+  public func run(
+    function f: Function.ID,
+    module: inout Module,
+    diagnostics: inout DiagnosticSet
+  ) {
 
     /// The control flow graph of the function to analyze.
     let cfg = module[f].cfg
@@ -28,7 +32,7 @@ public struct DefiniteInitializationPass {
     var done: Set<Function.Blocks.Address> = []
 
     /// The state of the abstract interpreter before and after the visited basic blocks.
-    var contexts: [Function.Blocks.Address: (before: Context, after: Context)] = [:]
+    var contexts: Contexts = [:]
 
     /// Returns `true` if `b` has been visited.
     func visited(_ b: Function.Blocks.Address) -> Bool {
@@ -171,15 +175,15 @@ public struct DefiniteInitializationPass {
         case .full(.initialized):
           break
         case .full(.uninitialized):
-          diagnostics.report(.useOfUninitializedObject(at: borrow.site))
+          diagnostics.insert(.useOfUninitializedObject(at: borrow.site))
         case .full(.consumed):
-          diagnostics.report(.useOfConsumedObject(at: borrow.site))
+          diagnostics.insert(.useOfConsumedObject(at: borrow.site))
         case .partial:
           let p = o.value.paths!
           if p.consumed.isEmpty {
-            diagnostics.report(.useOfPartiallyInitializedObject(at: borrow.site))
+            diagnostics.insert(.useOfPartiallyInitializedObject(at: borrow.site))
           } else {
-            diagnostics.report(.useOfPartiallyConsumedObject(at: borrow.site))
+            diagnostics.insert(.useOfPartiallyConsumedObject(at: borrow.site))
           }
         }
 
@@ -329,15 +333,15 @@ public struct DefiniteInitializationPass {
           case .full(.initialized):
             o.value = .full(.consumed(by: [i]))
           case .full(.uninitialized):
-            diagnostics.report(.useOfUninitializedObject(at: load.site))
+            diagnostics.insert(.useOfUninitializedObject(at: load.site))
           case .full(.consumed):
-            diagnostics.report(.useOfConsumedObject(at: load.site))
+            diagnostics.insert(.useOfConsumedObject(at: load.site))
           case .partial:
             let p = o.value.paths!
             if p.consumed.isEmpty {
-              diagnostics.report(.useOfPartiallyInitializedObject(at: load.site))
+              diagnostics.insert(.useOfPartiallyInitializedObject(at: load.site))
             } else {
-              diagnostics.report(.useOfPartiallyConsumedObject(at: load.site))
+              diagnostics.insert(.useOfPartiallyConsumedObject(at: load.site))
             }
           }
         }
@@ -863,7 +867,7 @@ extension DefiniteInitializationPass {
       _ o: Operand,
       with consumer: InstructionID,
       at site: SourceRange,
-      diagnostics: inout Diagnostics
+      diagnostics: inout DiagnosticSet
     ) {
       // Constants are never consumed.
       guard let k = FunctionLocal(operand: o) else { return }
@@ -873,7 +877,7 @@ extension DefiniteInitializationPass {
         o.value = .full(.consumed(by: [consumer]))
         locals[k]! = .object(o)
       } else {
-        diagnostics.report(.illegalMove(at: site))
+        diagnostics.insert(.illegalMove(at: site))
       }
     }
 

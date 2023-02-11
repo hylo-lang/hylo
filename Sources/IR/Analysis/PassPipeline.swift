@@ -8,7 +8,7 @@ public struct PassPipeline {
   public typealias Pass = (
     _ function: Function.ID,
     _ module: inout Module,
-    _ log: inout Diagnostics
+    _ log: inout DiagnosticSet
   ) -> Void
 
   /// The passes to be applied.
@@ -35,7 +35,7 @@ public struct PassPipeline {
 
   /// Applies the passes of this instance to `m`, accumulating diagnostics into `log` and throwing
   /// if a pass reports an error.
-  public func apply(_ m: inout Module, reportingDiagnosticsInto log: inout Diagnostics) throws {
+  public func apply(_ m: inout Module, reportingDiagnosticsInto log: inout DiagnosticSet) throws {
     for p in passes {
       for f in m.functions.indices {
         p(f, &m, &log)

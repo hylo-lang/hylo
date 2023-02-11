@@ -1,7 +1,4 @@
 /*! h
-    class Point;
- */
-/*! cpp
     class Point {
     public:
     Int x;

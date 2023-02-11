@@ -66,8 +66,9 @@ extension TypedProgram {
     case let p as ProductType:
       return self[p.decl].members.reduce(into: []) { (r, m) in
         if let b = BindingDecl.Typed(m) {
-          r.append(contentsOf: b.pattern.names
-            .map({ (_, name) in (name.decl.baseName, name.decl.type) }))
+          r.append(
+            contentsOf: b.pattern.names
+              .map({ (_, name) in (name.decl.baseName, name.decl.type) }))
         }
       }
 

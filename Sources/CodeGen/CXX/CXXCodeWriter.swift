@@ -1,14 +1,20 @@
+import ValModule
+
 /// A type used to write the output CXX code from the given CXX AST.
 public struct CXXCodeWriter {
 
   /// Initializes the current object.
   public init() {}
 
+  /// Indicates if we are currently writing the standard library module.
+  private var isStdLib: Bool = false
+
   // MARK: API
 
   /// Returns the C++ code for a translation unit.
-  public func cxxCode(_ source: CXXModule) -> TranslationUnitCode {
-    TranslationUnitCode(
+  public mutating func cxxCode(_ source: CXXModule) -> TranslationUnitCode {
+    self.isStdLib = source.isStdLib
+    return TranslationUnitCode(
       headerCode: generateHeaderCode(source), sourceCode: generateSourceCode(source))
   }
 
@@ -26,13 +32,25 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Emit include clauses.
-    target.writeLine("#include <variant>")
+    if source.isStdLib {
+      target.writeLine("#include <variant>")
+      target.writeLine("#include <cstdint>")
+      target.writeLine("#include <cstdlib>")
+    } else {
+      target.writeLine("#include \"ValStdLib.h\"")
+    }
     target.writeNewline()
 
     // Create a namespace for the entire module.
     target.write("namespace \(source.name)")
     target.beginBrace()
     target.writeNewline()
+
+    // If we are not in the standard library, use the namespace corresponding to the standard lib.
+    if !source.isStdLib {
+      target.writeLine("using namespace ValStdLib;")
+      target.writeNewline()
+    }
 
     // Emit the C++ text needed for the header corresponding to the C++ declarations.
     for decl in source.topLevelDecls {
@@ -41,6 +59,15 @@ public struct CXXCodeWriter {
 
     target.writeNewline()
     target.endBrace()
+    target.writeNewline()
+
+    // Add extra native code to the stdlib header.
+    if source.isStdLib {
+      let fileToInclude = ValModule.cxxSupport!.appendingPathComponent("NativeCode.h")
+      if let text = try? String(contentsOf: fileToInclude) {
+        target.write(text)
+      }
+    }
 
     return target.code
   }
@@ -65,10 +92,18 @@ public struct CXXCodeWriter {
     }
 
     target.endBrace()
+    target.writeNewline()
+
+    // Add extra native code to the stdlib source file.
+    if source.isStdLib {
+      let fileToInclude = ValModule.cxxSupport!.appendingPathComponent("NativeCode.cpp")
+      if let text = try? String(contentsOf: fileToInclude) {
+        target.write(text)
+      }
+    }
 
     // Write a CXX `main` function if the module has an entry point.
     if source.entryPointBody != nil {
-      target.writeNewline()
       target.writeNewline()
       target.write("int main()")
       write(stmt: source.entryPointBody!, into: &target)
@@ -85,7 +120,8 @@ public struct CXXCodeWriter {
     case CXXFunctionDecl.self:
       writeSignature(function: decl as! CXXFunctionDecl, into: &target)
     case CXXClassDecl.self:
-      writeSignature(type: decl as! CXXClassDecl, into: &target)
+      // We write the class definition in the header file.
+      writeDefinition(type: decl as! CXXClassDecl, into: &target)
     case CXXComment.self:
       write(comment: decl as! CXXComment, into: &target)
     default:
@@ -99,7 +135,8 @@ public struct CXXCodeWriter {
     case CXXFunctionDecl.self:
       writeDefinition(function: decl as! CXXFunctionDecl, into: &target)
     case CXXClassDecl.self:
-      writeDefinition(type: decl as! CXXClassDecl, into: &target)
+      // TODO: write implementation of methods
+      break
     case CXXComment.self:
       write(comment: decl as! CXXComment, into: &target)
     default:
@@ -148,8 +185,39 @@ public struct CXXCodeWriter {
         target.writeLine("// constructor")
       }
     }
+    // Special code for stdlib types
+    if isStdLib {
+      // For standard value types try to generate implict conversion constructors from C++ literal types.
+      write(conversionCtor: decl, into: &target)
+    }
     target.endBrace()
     target.writeLine(";")
+  }
+
+  /// Writes to `target` the implicit conversion constructor for `source`, coverting from inner
+  /// attribute type.
+  ///
+  /// This only applies for classes have one data member, and its type is native.
+  private func write(conversionCtor source: CXXClassDecl, into target: inout CodeFormatter) {
+    let dataMembers = source.members.compactMap({ m in
+      switch m {
+      case .attribute(let dataMember):
+        return dataMember
+      default:
+        return nil
+      }
+    })
+
+    // We need to have just one class attribute in the type,
+    // and the type of the attribute needs to be native.
+    if dataMembers.count == 1 && dataMembers[0].type.isNative {
+      // Write implicit conversion constructor
+      target.write("\(source.name.description)(")
+      write(typeExpr: dataMembers[0].type, into: &target)
+      target.write(" v) : ")
+      write(identifier: dataMembers[0].name, into: &target)
+      target.writeLine("(v) {}")
+    }
   }
 
   private func write(classAttribute decl: CXXClassAttribute, into target: inout CodeFormatter) {

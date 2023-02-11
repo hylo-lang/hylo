@@ -8,7 +8,11 @@ public struct LifetimePass {
 
   /// Inserts `end_borrow` instructions after the last use of each `borrow` instruction in `f`,
   /// where `f` is in `module`.
-  public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
+  public func run(
+    function f: Function.ID,
+    module: inout Module,
+    diagnostics: inout DiagnosticSet
+  ) {
     for blockIndex in module[f].blocks.indices {
       let block = Block.ID(function: f, address: blockIndex.address)
 
@@ -22,7 +26,7 @@ public struct LifetimePass {
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
-              diagnostics.report(.unusedBinding(name: decl.baseName, at: borrow.site))
+              diagnostics.insert(.unusedBinding(name: decl.baseName, at: borrow.site))
             }
             module[block].instructions.remove(at: instruction.address)
             continue

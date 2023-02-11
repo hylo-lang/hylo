@@ -8,7 +8,11 @@ public struct ImplicitReturnInsertionPass {
 
   /// If `f` returns `Void`, inserts `return` instructions in all basic blocks without a terminator
   /// instruction. Otherwise, report missing return values. `f` is in `module`.
-  public func run(function f: Function.ID, module: inout Module, diagnostics: inout Diagnostics) {
+  public func run(
+    function f: Function.ID,
+    module: inout Module,
+    diagnostics: inout DiagnosticSet
+  ) {
     /// The expected return type of the function.
     let expectedReturnType = module[f].output.astType
 
@@ -34,12 +38,12 @@ extension Module {
     anchoredAt anchor: SourceRange,
     at i: InstructionIndex,
     inFunctionReturning returnType: AnyType,
-    diagnostics: inout Diagnostics
+    diagnostics: inout DiagnosticSet
   ) {
     if returnType == .void {
       insert(ReturnInstruction(site: anchor), at: i)
     } else {
-      diagnostics.report(.missingFunctionReturn(expectedReturnType: returnType, at: anchor))
+      diagnostics.insert(.missingFunctionReturn(expectedReturnType: returnType, at: anchor))
     }
   }
 
