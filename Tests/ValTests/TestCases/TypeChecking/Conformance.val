@@ -2,6 +2,7 @@
 
 trait P {
   fun f()
+  fun g() { let sink }
 }
 
 //! @+1 diagnostic type 'A' does not conform to trait 'P'
@@ -12,6 +13,15 @@ type B: P {
   fun f() -> Self { B() }
 }
 
+//! @+1 diagnostic type 'C' does not conform to trait 'P'
 type C: P {
   fun f() {}
+}
+
+type D: P {
+  fun f() {}
+  fun g() {
+    let  {}
+    sink {}
+  }
 }
