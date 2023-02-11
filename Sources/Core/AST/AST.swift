@@ -144,18 +144,8 @@ public struct AST {
 
   // MARK: Helpers
 
-  /// A collection that presents the top-level declarations of a module.
-  public typealias TopLevelDecls = LazySequence<
-    FlattenSequence<
-      LazyMapSequence<
-        LazySequence<[NodeID<TranslationUnit>]>.Elements,
-        [AnyDeclID]
-      >.Elements
-    >
-  >
-
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
-  public func topLevelDecls(_ module: NodeID<ModuleDecl>) -> TopLevelDecls {
+  public func topLevelDecls(_ module: NodeID<ModuleDecl>) -> some Collection<AnyDeclID> {
     self[self[module].sources].map(\.decls).joined()
   }
 
