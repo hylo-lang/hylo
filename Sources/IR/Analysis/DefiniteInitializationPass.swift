@@ -201,7 +201,7 @@ public struct DefiniteInitializationPass: TransformPass {
         // Deinitialize the object(s) at the location.
         let rootType = module.type(of: borrow.location).astType
         for path in initializedPaths {
-          let t = program.abstractLayout(of: rootType, at: path).type
+          let t = AbstractTypeLayout(of: rootType, definedIn: program)[path].type
           let o = module.insert(
             LoadInstruction(.object(t), from: borrow.location, at: path, site: borrow.site),
             before: i)[0]
@@ -266,12 +266,12 @@ public struct DefiniteInitializationPass: TransformPass {
       }
 
       for p in initializedPaths {
-        let objectType = program.abstractLayout(of: alloc.allocatedType, at: p).type
-        let object = module.insert(
-          LoadInstruction(.object(objectType), from: dealloc.location, at: p, site: dealloc.site),
+        let t = AbstractTypeLayout(of: alloc.allocatedType, definedIn: program)[p].type
+        let o = module.insert(
+          LoadInstruction(.object(t), from: dealloc.location, at: p, site: dealloc.site),
           before: i)[0]
         module.insert(
-          DeinitInstruction(object, site: dealloc.site), before: i)
+          DeinitInstruction(o, site: dealloc.site), before: i)
 
         // Apply the effects of the new instructions.
         let consumer = InstructionID(
@@ -617,7 +617,7 @@ extension DefiniteInitializationPass {
       partitioningSelfWith layout: AbstractTypeLayout,
       _ action: (inout Object) -> T
     ) -> T {
-      let n = layout.storedPropertiesTypes.count
+      let n = layout.properties.count
       precondition(n != 0)
 
       var parts: [Object]
@@ -867,7 +867,7 @@ extension DefiniteInitializationPass {
           return modifying(&memory[rootLocation]!) { (root) in
             root.object.withSubobject(
               at: path, typedIn: program,
-              partitioningSelfWith: program.abstractLayout(of: root.type),
+              partitioningSelfWith: AbstractTypeLayout(of: root.type, definedIn: program),
               action)
           }
         }
