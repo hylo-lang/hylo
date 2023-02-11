@@ -32,9 +32,9 @@ final class ParserTests: XCTestCase {
     var program = AST()
     let module = program.insert(synthesized: ModuleDecl("Main"))
 
-    var d = Diagnostics()
+    var d = DiagnosticSet()
     _ = try Parser.parse(input, into: module, in: &program, diagnostics: &d)
-    XCTAssert(d.log.isEmpty, "\n\(d)")
+    XCTAssert(d.elements.isEmpty, "\n\(d)")
   }
 
   func testSourceFile() throws {
@@ -51,7 +51,7 @@ final class ParserTests: XCTestCase {
 
     var program = AST()
     let module = program.insert(synthesized: ModuleDecl("Main"))
-    var d = Diagnostics()
+    var d = DiagnosticSet()
     let translation = try Parser.parse(input, into: module, in: &program, diagnostics: &d)
 
     XCTAssertEqual(program[translation].decls.count, 4)

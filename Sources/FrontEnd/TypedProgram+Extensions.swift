@@ -12,7 +12,7 @@ extension TypedProgram {
   public init(
     _ syntax: AST,
     tracingInferenceIn inferenceTracingRange: SourceRange? = nil,
-    diagnostics: inout Diagnostics
+    diagnostics: inout DiagnosticSet
   ) throws {
     precondition(syntax.isCoreModuleLoaded, "TypedProgram: No core module in AST.")
 
@@ -26,7 +26,7 @@ extension TypedProgram {
       checker.check(module: m)
     }
 
-    diagnostics.report(checker.diagnostics)
+    diagnostics.formUnion(checker.diagnostics)
     try diagnostics.throwOnError()
 
     self = .init(

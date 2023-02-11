@@ -6,10 +6,10 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
-    var diagnostics = Diagnostics()
+    var diagnostics = DiagnosticSet()
     let i = ast.insert(ModuleDecl("Val"), diagnostics: &diagnostics)
     XCTAssert(ast.modules.contains(i))
-    XCTAssert(diagnostics.log.isEmpty)
+    XCTAssert(diagnostics.elements.isEmpty)
     let j = ast.insert(synthesized: ModuleDecl("Val1"))
     XCTAssert(ast.modules.contains(j))
   }
