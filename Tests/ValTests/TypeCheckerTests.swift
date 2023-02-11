@@ -9,12 +9,9 @@ final class TypeCheckerTests: XCTestCase {
       in: "TestCases/TypeChecking",
       { (source, diagnostics) in
         var ast = AST.coreModule
-        let module = ast.insert(synthesized: ModuleDecl(source.baseName))
-
-        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
-
-        // Run the type checker.
+        _ = try ast.makeModule(source.baseName, sourceCode: [source], diagnostics: &diagnostics)
         _ = try TypedProgram(ast, diagnostics: &diagnostics)
       })
   }
+
 }

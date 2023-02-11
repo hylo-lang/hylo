@@ -3,6 +3,18 @@ import Utils
 
 extension TypeChecker {
 
+  /// A deferred type checking query on a node that should be applied after the types of its
+  /// constituent parts have been inferred.
+  ///
+  /// This type is meant to represent closures capturing the nodes on which they apply. For
+  /// example:
+  ///
+  ///     let n: NodeID<VarDecl> = foo()
+  ///     let deferredQuery: DeferredQuery = { (c, s) in
+  ///       c.checkDeferred(varDecl: n, s)
+  ///     }
+  typealias DeferredQuery = (_ checker: inout TypeChecker, _ solution: Solution) -> Bool
+
   /// The types inferred by constraint generation for the visited expressions, along with the
   /// constraints between these types.
   struct InferenceFacts {
@@ -80,7 +92,7 @@ extension TypeChecker {
   }
 
   /// The common state of all `inferTypes(...)` methods as they recursively visit the AST.
-  private typealias State = (facts: InferenceFacts, deferred: [AnyDeferredQuery])
+  private typealias State = (facts: InferenceFacts, deferred: [DeferredQuery])
 
   // MARK: Expressions
 
@@ -91,7 +103,7 @@ extension TypeChecker {
     of subject: AnyExprID,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?
-  ) -> (type: AnyType, facts: InferenceFacts, deferred: [AnyDeferredQuery]) {
+  ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
     var s: State
     if let t = exprTypes[subject] {
       s = (facts: .init(assigning: t, to: subject), deferred: [])
@@ -425,55 +437,58 @@ extension TypeChecker {
   ) -> AnyType {
     let syntax = program.ast[subject]
 
+    let subjectConventions: [AccessEffect]?
+    if let s = expectedType?.base as? LambdaType {
+      // Check that the underlying declaration is structurally compatible with the type.
+      let requiredLabels = program.ast[syntax.decl].parameters
+        .map({ (p) in program.ast[p].label?.value })
+      if requiredLabels.count != s.inputs.count {
+        addDiagnostic(
+          .error(
+            expectedLambdaParameterCount: s.inputs.count, found: requiredLabels.count,
+            at: program.ast[syntax.decl].introducerSite))
+        return state.facts.assignErrorType(to: subject)
+      }
+      if !requiredLabels.elementsEqual(s.inputs, by: { $0 == $1.label }) {
+        addDiagnostic(
+          .error(
+            labels: requiredLabels, incompatibleWith: s.inputs.map(\.label),
+            at: program.ast[syntax.decl].introducerSite))
+        return state.facts.assignErrorType(to: subject)
+      }
+
+      subjectConventions = s.inputs.map({ (p) in ParameterType(p.type)?.convention ?? .let })
+    } else {
+      subjectConventions = nil
+    }
+
     // Realize the type of the underlying declaration.
-    guard let declType = LambdaType(realize(underlyingDeclOf: subject)) else {
+    guard
+      let underlyingDeclType = LambdaType(
+        realize(underlyingDeclOf: subject, with: subjectConventions))
+    else {
       return state.facts.assignErrorType(to: subject)
     }
 
     // Schedule the underlying declaration to be type-checked.
-    state.deferred.append(
-      ^DeferredQuery(
-        on: subject,
-        executedWith: { (checker, e, s) in
-          checker.checkDeferred(lambdaExpr: e, s)
-        }))
+    state.deferred.append({ (checker, solution) in
+      checker.checkDeferred(lambdaExpr: subject, solution)
+    })
 
-    if let expectedType = LambdaType(expectedType!) {
-      // Check that the declaration defines the expected number of parameters.
-      if declType.inputs.count != expectedType.inputs.count {
-        addDiagnostic(
-          .error(
-            expectedLambdaParameterCount: expectedType.inputs.count,
-            found: declType.inputs.count,
-            at: syntax.site))
-        return state.facts.assignErrorType(to: subject)
-      }
-
-      // Check that the declaration defines the expected argument labels.
-      if !declType.inputs.elementsEqual(expectedType.inputs, by: { $0.label == $1.label }) {
-        addDiagnostic(
-          .error(
-            labels: declType.inputs.map(\.label),
-            incompatibleWith: expectedType.inputs.map(\.label),
-            at: syntax.site))
-        return state.facts.assignErrorType(to: subject)
-      }
-    } else if declType.output.base is TypeVariable {
+    // If the underlying declaration's return type is a unknown, infer it from the lambda's body.
+    if underlyingDeclType.output.base is TypeVariable {
       if case .expr(let body) = program.ast[syntax.decl].body {
-        // Infer the return type of the lambda from its body.
-        state.facts.assign(declType.output, to: body)
         _ = inferType(
           of: body, in: AnyScopeID(syntax.decl),
-          expecting: declType.output, updating: &state)
+          expecting: underlyingDeclType.output, updating: &state)
       } else {
-        // The system is underspecified.
         addDiagnostic(
           .error(cannotInferComplexReturnTypeAt: program.ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
       }
     }
 
-    return state.facts.constrain(subject, in: program.ast, toHaveType: declType)
+    return state.facts.constrain(subject, in: program.ast, toHaveType: underlyingDeclType)
   }
 
   private mutating func inferType(
@@ -805,7 +820,7 @@ extension TypeChecker {
     of subject: AnyPatternID,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?
-  ) -> (type: AnyType, facts: InferenceFacts, deferred: [AnyDeferredQuery]) {
+  ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
     var s: State = (facts: .init(), deferred: [])
     let t = inferType(
       of: subject, in: AnyScopeID(scope), expecting: expectedType, updating: &s)
@@ -893,12 +908,9 @@ extension TypeChecker {
     let nameDecl = program.ast[subject].decl
     let nameType = expectedType ?? ^TypeVariable(node: AnyNodeID(nameDecl))
     setInferredType(nameType, for: nameDecl)
-    state.deferred.append(
-      ^DeferredQuery(
-        on: nameDecl,
-        executedWith: { (checker, d, s) in
-          checker.checkDeferred(varDecl: d, s)
-        }))
+    state.deferred.append({ (checker, solution) in
+      checker.checkDeferred(varDecl: nameDecl, solution)
+    })
 
     return nameType
   }
@@ -994,16 +1006,17 @@ extension TypeChecker {
       let argumentExpr = arguments[i].value
 
       // Infer the type of the argument, expecting it's the same as the parameter's bare type.
-      let parameterType = ParameterType(parameters[i].type) ?? fatalError("invalid callee type")
-      let argumentType = inferType(
-        of: argumentExpr, in: scope, expecting: parameterType.bareType, updating: &state)
-
-      // Nothing to constrain if the parameter's type is equal to the argument's type.
-      if relations.areEquivalent(parameterType.bareType, argumentType) { continue }
+      let argumentType: AnyType
+      if let t = ParameterType(parameters[i].type)?.bareType {
+        argumentType = inferType(of: argumentExpr, in: scope, expecting: t, updating: &state)
+        if relations.areEquivalent(t, argumentType) { continue }
+      } else {
+        argumentType = inferType(of: argumentExpr, in: scope, expecting: nil, updating: &state)
+      }
 
       state.facts.append(
         ParameterConstraint(
-          argumentType, ^parameterType,
+          argumentType, parameters[i].type,
           because: ConstraintCause(.argument, at: program.ast[argumentExpr].site)))
     }
 

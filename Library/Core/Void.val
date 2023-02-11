@@ -1,1 +1,4 @@
-public conformance {}: Sinkable {}
+/// The type whose instance denote the absence of any specific value.
+public typealias Void = {}
+
+public conformance Void: Sinkable {}

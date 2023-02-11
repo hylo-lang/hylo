@@ -1,71 +1,80 @@
 import Core
 
-/// A helper object that provides information the abstract layout of a type.
+/// The astract layout of a type, describing the relative offsets of its stored properties.
 public struct AbstractTypeLayout {
 
-  /// The type for which the layout is being queried.
+  /// The name and type of a stored property.
+  public typealias StoredProperty = (name: String?, type: AnyType)
+
+  /// The program in which `type` is defined.
+  private let program: TypedProgram
+
+  /// The type of which this instance is the abstract layout.
   public let type: AnyType
 
-  /// Given `type` has a record layout, the indices of the stored properties.
-  public let storedPropertiesIndices: [String: Int]
+  /// The stored properties in `type`, in the order in which they are laid out.
+  public let properties: [StoredProperty]
 
-  /// Given `type` has a record layout, the type the member at the specified stored property index.
-  public let storedPropertiesTypes: [AnyType]
+  /// Creates the abstract layout of `t` defined in `p`.
+  public init(of t: AnyType, definedIn p: TypedProgram) {
+    self.program = p
+    self.type = t
+    self.properties = program.properties(of: t)
+  }
 
-  fileprivate init(
-    type: AnyType,
-    storedPropertiesIndices: [String: Int],
-    storedPropertiesTypes: [AnyType]
-  ) {
-    self.type = type
-    self.storedPropertiesIndices = storedPropertiesIndices
-    self.storedPropertiesTypes = storedPropertiesTypes
+  /// Accesses the layout of the stored property at given `offset`.
+  ///
+  /// - Requires: `offset` is a valid offset in this instance.
+  public subscript(offset: Int) -> AbstractTypeLayout {
+    AbstractTypeLayout(of: properties[offset].type, definedIn: program)
+  }
+
+  /// Accesses the layout of the stored property at given `offsets`.
+  public subscript<S: Sequence>(offsets: S) -> AbstractTypeLayout where S.Element == Int {
+    offsets.reduce(self, { (l, offset) in l[offset] })
+  }
+
+  /// Accesses the layout of the stored property named `n` or `nil` if no such property exists.
+  public subscript(n: String) -> AbstractTypeLayout? {
+    offset(of: n).map({ self[$0] })
+  }
+
+  /// Returns the offset of the stored poperty named `n` or `nil` if no such property exists.
+  public func offset(of n: String) -> Int? {
+    properties.firstIndex(where: { $0.name == n })
+  }
+
+}
+
+extension AbstractTypeLayout: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    type.hash(into: &hasher)
+  }
+
+  public static func == (l: Self, r: Self) -> Bool {
+    l.type == r.type
   }
 
 }
 
 extension TypedProgram {
 
-  /// Returns the abstract layout of an instance of `type`, or sub-object thereof.
-  ///
-  /// If `path` is empty, the method returns the layout of an instance of `type`. Otherwise, each
-  /// component is interpreter as the abstract offset of a stored property, leading to a sub-object
-  /// of an instance of `type`.
-  public func abstractLayout(of type: AnyType, at path: [Int] = []) -> AbstractTypeLayout {
-    let indicesAndTypes = storedPropertiesIndicesAndTypes(of: type)
-    var layout = AbstractTypeLayout(
-      type: type,
-      storedPropertiesIndices: indicesAndTypes.indices,
-      storedPropertiesTypes: indicesAndTypes.types)
-
-    for offset in path {
-      layout = abstractLayout(of: layout.storedPropertiesTypes[offset])
-    }
-    return layout
-  }
-
-  private func storedPropertiesIndicesAndTypes(
-    of type: AnyType
-  ) -> (indices: [String: Int], types: [AnyType]) {
-    var indices: [String: Int] = [:]
-    var types: [AnyType] = []
-
-    switch type.base {
-    case let type as ProductType:
-      let decl = self[type.decl]
-      for m in decl.members where m.kind == BindingDecl.self {
-        let binding = BindingDecl.Typed(m)!
-        for (_, name) in binding.pattern.names {
-          indices[name.decl.baseName] = types.count
-          types.append(name.decl.type)
+  /// Returns the names and types of the stored properties of `t`.
+  fileprivate func properties(of t: AnyType) -> [AbstractTypeLayout.StoredProperty] {
+    switch t.base {
+    case let p as ProductType:
+      return self[p.decl].members.reduce(into: []) { (r, m) in
+        if let b = BindingDecl.Typed(m) {
+          r.append(
+            contentsOf: b.pattern.names
+              .map({ (_, name) in (name.decl.baseName, name.decl.type) }))
         }
       }
 
     default:
-      break
+      return []
     }
-
-    return (indices, types)
   }
 
 }

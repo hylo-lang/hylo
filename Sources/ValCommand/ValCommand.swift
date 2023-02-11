@@ -170,21 +170,12 @@ public struct ValCommand: ParsableCommand {
       return
     }
 
-    // Run mandatory IR analysis and transformation passes.
-    var pipeline: [TransformPass] = [
-      ImplicitReturnInsertionPass(),
-      DefiniteInitializationPass(program: typedProgram),
-      LifetimePass(program: typedProgram),
-      // OwnershipPass(program: typedProgram),
-    ]
-
-    for i in 0 ..< pipeline.count {
-      var passSuccess = true
-      for f in 0 ..< irModule.functions.count {
-        passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
-        diagnostics.formUnion(pipeline[i].diagnostics)
-      }
-      if !passSuccess { return }
+    do {
+      let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
+      try p.apply(&irModule, reportingDiagnosticsInto: &diagnostics)
+    } catch let d as DiagnosticSet {
+      diagnostics.formUnion(d)
+      return
     }
 
     // Handle `--emit ir`

@@ -188,14 +188,14 @@ public struct Emitter {
           let subpath = Array(path[0 ..< i])
           if objects[subpath] != nil { continue }
 
-          let layout = program.abstractLayout(of: rhsType)
-          rhsType = layout.storedPropertiesTypes[i]
+          let layout = AbstractTypeLayout(of: rhsType, definedIn: program)
+          rhsType = layout[i].type
 
           let wholePath = Array(path[0 ..< (i - 1)])
           let whole = objects[wholePath]!
           let parts = module.append(
             DestructureInstruction(
-              whole, as: layout.storedPropertiesTypes.map(LoweredType.object(_:)),
+              whole, as: layout.properties.map({ .object($0.type) }),
               site: initializer.site),
             to: insertionBlock!)
 
@@ -1054,8 +1054,8 @@ public struct Emitter {
       switch decl.kind {
       case VarDecl.self:
         let varDecl = VarDecl.Typed(decl)!
-        let layout = program.abstractLayout(of: module.type(of: r).astType)
-        let memberIndex = layout.storedPropertiesIndices[varDecl.baseName]!
+        let layout = AbstractTypeLayout(of: module.type(of: r).astType, definedIn: program)
+        let memberIndex = layout.offset(of: varDecl.baseName)!
 
         // If the lowered receiver is a borrow instruction, modify it in place so that it targets
         // the requested stored member. Otherwise, emit a reborrow.
