@@ -999,7 +999,7 @@ extension TypeChecker {
         of: argumentExpr, in: scope, expecting: parameterType.bareType, updating: &state)
 
       // Nothing to constrain if the parameter's type is equal to the argument's type.
-      if areEquivalent(parameterType.bareType, argumentType) { continue }
+      if relations.areEquivalent(parameterType.bareType, argumentType) { continue }
 
       state.facts.append(
         ParameterConstraint(

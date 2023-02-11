@@ -59,7 +59,8 @@ final class CXXTests: XCTestCase {
       exprTypes: checker.exprTypes,
       implicitCaptures: checker.implicitCaptures,
       referredDecls: checker.referredDecls,
-      foldedSequenceExprs: checker.foldedSequenceExprs)
+      foldedSequenceExprs: checker.foldedSequenceExprs,
+      relations: checker.relations)
 
     // Transpile the standard lib module.
     let transpiler = CXXTranspiler(typedProgram)

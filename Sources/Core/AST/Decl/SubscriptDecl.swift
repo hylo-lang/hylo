@@ -78,11 +78,11 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration denotes a static subscript.
   public var isStatic: Bool { memberModifier?.value == .static }
 
-  public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
+  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
     for p in parameters ?? [] {
       if ast[p].annotation == nil {
-        diagnostics.report(.error(missingTypeAnnotation: ast[p], in: ast))
+        diagnostics.insert(.error(missingTypeAnnotation: ast[p], in: ast))
       }
     }
 

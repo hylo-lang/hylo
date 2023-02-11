@@ -43,7 +43,7 @@ extension Module {
     inFunctionReturning returnType: AnyType,
     diagnostics: inout [Diagnostic]
   ) {
-    if returnType == .void {
+    if program.relations.areEquivalent(returnType, .void) {
       insert(ReturnInstruction(site: anchor), at: i)
     } else {
       diagnostics.append(.missingFunctionReturn(expectedReturnType: returnType, at: anchor))

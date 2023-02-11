@@ -11,7 +11,7 @@ extension AST {
   private init(withCoreModule: Void) {
     self = AST()
     do {
-      var diagnostics = Diagnostics()
+      var diagnostics = DiagnosticSet()
       corelib = try makeModule(
         "Val",
         sourceCode: sourceFiles(in: [ValModule.core!]),

@@ -47,7 +47,7 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value != nil }
 
-  public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
+  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     for m in members {
       ast.validateTypeMember(m, into: &diagnostics)
     }

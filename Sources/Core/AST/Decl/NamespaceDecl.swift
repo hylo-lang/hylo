@@ -32,7 +32,7 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   public var baseName: String { identifier.value }
 
-  public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
+  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     for m in members {
       ast.validateGlobalScopeMember(m, into: &diagnostics, atTopLevel: false)
     }
