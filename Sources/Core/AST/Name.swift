@@ -53,7 +53,7 @@ public struct Name: Hashable, Codable {
     if let notation = ast[decl].notation?.value {
       self.init(stem: stem, notation: notation)
     } else {
-      self.init(stem: stem, labels: ast[decl].parameters.map({ ast[$0].label?.value }))
+      self.init(stem: stem, labels: ast[ast[decl].parameters].map(\.label?.value))
     }
   }
 

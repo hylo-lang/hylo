@@ -101,7 +101,7 @@ public struct DeclLocator: Hashable {
         return "E\(target)"
 
       case .function(let name, let labels, let notation):
-        let labels = labels.map({ $0.mangled }).joined()
+        let labels = labels.map(\.mangled).joined()
         if let n = notation {
           return "O\(String(describing: n).mangled)\(name.mangled)\(labels.count)\(labels)a"
         } else {
@@ -129,7 +129,7 @@ public struct DeclLocator: Hashable {
         return "P\(name.mangled)"
 
       case .subscript(let name, let labels):
-        let ls = labels.map({ $0.mangled }).joined()
+        let ls = labels.map(\.mangled).joined()
         return "S\(name.mangled)\(labels.count)\(ls)"
 
       case .subscriptImpl(let introducer):
@@ -168,7 +168,7 @@ public struct DeclLocator: Hashable {
 
   /// The locator's value encoded as a string.
   public var mangled: String {
-    components.lazy.map({ $0.mangled }).joined()
+    components.lazy.map(\.mangled).joined()
   }
 
 }
