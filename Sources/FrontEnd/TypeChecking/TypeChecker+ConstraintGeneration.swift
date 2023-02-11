@@ -3,6 +3,18 @@ import Utils
 
 extension TypeChecker {
 
+  /// A deferred type checking query on a node that should be applied after the types of its
+  /// constituent parts have been inferred.
+  ///
+  /// This type is meant to represent closures capturing the nodes on which they apply. For
+  /// example:
+  ///
+  ///     let n: NodeID<VarDecl> = foo()
+  ///     let deferredQuery: DeferredQuery = { (c, s) in
+  ///       c.checkDeferred(varDecl: n, s)
+  ///     }
+  typealias DeferredQuery = (_ checker: inout TypeChecker, _ solution: Solution) -> Bool
+
   /// The types inferred by constraint generation for the visited expressions, along with the
   /// constraints between these types.
   struct InferenceFacts {
@@ -80,7 +92,7 @@ extension TypeChecker {
   }
 
   /// The common state of all `inferTypes(...)` methods as they recursively visit the AST.
-  private typealias State = (facts: InferenceFacts, deferred: [AnyDeferredQuery])
+  private typealias State = (facts: InferenceFacts, deferred: [DeferredQuery])
 
   // MARK: Expressions
 
@@ -91,7 +103,7 @@ extension TypeChecker {
     of subject: AnyExprID,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?
-  ) -> (type: AnyType, facts: InferenceFacts, deferred: [AnyDeferredQuery]) {
+  ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
     var s: State
     if let t = exprTypes[subject] {
       s = (facts: .init(assigning: t, to: subject), deferred: [])
@@ -459,12 +471,9 @@ extension TypeChecker {
     }
 
     // Schedule the underlying declaration to be type-checked.
-    state.deferred.append(
-      ^DeferredQuery(
-        on: subject,
-        executedWith: { (checker, e, s) in
-          checker.checkDeferred(lambdaExpr: e, s)
-        }))
+    state.deferred.append({ (checker, solution) in
+      checker.checkDeferred(lambdaExpr: subject, solution)
+    })
 
     // If the underlying declaration's return type is a unknown, infer it from the lambda's body.
     if underlyingDeclType.output.base is TypeVariable {
@@ -811,7 +820,7 @@ extension TypeChecker {
     of subject: AnyPatternID,
     in scope: AnyScopeID,
     expecting expectedType: AnyType?
-  ) -> (type: AnyType, facts: InferenceFacts, deferred: [AnyDeferredQuery]) {
+  ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
     var s: State = (facts: .init(), deferred: [])
     let t = inferType(
       of: subject, in: AnyScopeID(scope), expecting: expectedType, updating: &s)
@@ -899,12 +908,9 @@ extension TypeChecker {
     let nameDecl = program.ast[subject].decl
     let nameType = expectedType ?? ^TypeVariable(node: AnyNodeID(nameDecl))
     setInferredType(nameType, for: nameDecl)
-    state.deferred.append(
-      ^DeferredQuery(
-        on: nameDecl,
-        executedWith: { (checker, d, s) in
-          checker.checkDeferred(varDecl: d, s)
-        }))
+    state.deferred.append({ (checker, solution) in
+      checker.checkDeferred(varDecl: nameDecl, solution)
+    })
 
     return nameType
   }
