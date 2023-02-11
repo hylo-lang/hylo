@@ -648,9 +648,15 @@ public struct TypeChecker {
         continue
       }
 
-      let (inserted, _) = relations.insert(c, testingContainmentWith: program)
-      // TODO: Handle duplicate conformance declarations
-      assert(inserted, "Not implemented")
+      let i = relations.insert(c, testingContainmentWith: program)
+      guard i.inserted else {
+        diagnostics.insert(
+          .error(
+            redundantConformance: c, at: program.ast[e].site,
+            alreadyDeclaredAt: i.conformanceAfterInsert.site))
+        success = false
+        continue
+      }
     }
 
     // Type check extending declarations.
@@ -893,8 +899,8 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the conformance `model` to `trait` in `scope` if it holds. Otherwise, reports missing
-  /// requirements at `site` and returns `nil`.
+  /// Returns the conformance of `model` to `trait` declared at `site` in `scope` if it holds.
+  /// Otherwise, reports missing requirements at `site` and returns `nil`.
   private mutating func checkConformance(
     of model: AnyType,
     to trait: TraitType,
@@ -956,7 +962,7 @@ public struct TypeChecker {
     if notes.isEmpty {
       return Conformance(
         model: model, concept: trait, conditions: [], scope: scope,
-        implementations: implementations)
+        implementations: implementations, site: site)
     } else {
       diagnostics.insert(.error(model, doesNotConformTo: trait, at: site, because: notes))
       return nil

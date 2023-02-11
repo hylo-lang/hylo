@@ -19,19 +19,24 @@ public struct Conformance {
   /// A map from requirement of `concept` to the declaration implementing it in `model`.
   public let implementations: ImplementationMap
 
+  /// The site at which the conformance is declared.
+  public let site: SourceRange
+
   /// Creates an instance with the given properties.
   public init(
     model: AnyType,
     concept: TraitType,
     conditions: [Constraint],
     scope: AnyScopeID,
-    implementations: ImplementationMap
+    implementations: ImplementationMap,
+    site: SourceRange
   ) {
     self.model = model
     self.concept = concept
     self.conditions = conditions
     self.scope = scope
     self.implementations = implementations
+    self.site = site
   }
 
 }

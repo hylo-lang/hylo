@@ -27,6 +27,18 @@ extension Diagnostic {
     .error("conformance to non-trait type '\(type)'", at: site)
   }
 
+  static func error(
+    redundantConformance c: Conformance,
+    at site: SourceRange,
+    alreadyDeclaredAt originalSite: SourceRange
+  ) -> Diagnostic {
+    .error(
+      "redundant conformance of '\(c.model)' to trait '\(c.concept)'", at: site,
+      notes: [
+        .error("conformance already declared here", at: originalSite)
+      ])
+  }
+
   static func error(declarationRequiresBodyAt site: SourceRange) -> Diagnostic {
     .error("declaration requires a body", at: site)
   }
