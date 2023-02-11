@@ -96,7 +96,7 @@ public struct Emitter {
 
     case .expr(let expr):
       // Emit the body of the function.
-      let value = emitR(expr: expr, into: &module)
+      let value = emitRValue(expr, into: &module)
 
       // Emit stack deallocation.
       emitStackDeallocs(in: &module, site: expr.site)
@@ -169,7 +169,7 @@ public struct Emitter {
 
     // Emit the initializer, if any.
     if let initializer = decl.initializer {
-      objects[[]] = emitR(expr: initializer, into: &module)
+      objects[[]] = emitRValue(initializer, into: &module)
     }
 
     // Allocate storage for each name introduced by the declaration.
@@ -236,10 +236,10 @@ public struct Emitter {
       let source: Operand
       if (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self) {
         // Emit the initializer as a l-value.
-        source = emitL(expr: initializer, meantFor: capability, into: &module)
+        source = emitLValue(initializer, meantFor: capability, into: &module)
       } else {
         // emit a r-value and store it into local storage.
-        let value = emitR(expr: initializer, into: &module)
+        let value = emitRValue(initializer, into: &module)
 
         let exprType = initializer.type
         let storage = module.append(
@@ -292,9 +292,9 @@ public struct Emitter {
   }
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed, into module: inout Module) {
-    let rhs = emitR(expr: stmt.right, into: &module)
+    let rhs = emitRValue(stmt.right, into: &module)
     // FIXME: Should request the capability 'set or inout'.
-    let lhs = emitL(expr: stmt.left, meantFor: .set, into: &module)
+    let lhs = emitLValue(stmt.left, meantFor: .set, into: &module)
     _ = module.append(StoreInstruction(rhs, to: lhs, site: stmt.site), to: insertionBlock!)
   }
 
@@ -344,13 +344,13 @@ public struct Emitter {
   }
 
   private mutating func emit(exprStmt stmt: ExprStmt.Typed, into module: inout Module) {
-    _ = emitR(expr: stmt.expr, into: &module)
+    _ = emitRValue(stmt.expr, into: &module)
   }
 
   private mutating func emit(returnStmt stmt: ReturnStmt.Typed, into module: inout Module) {
     let value: Operand
     if let expr = stmt.value {
-      value = emitR(expr: expr, into: &module)
+      value = emitRValue(expr, into: &module)
     } else {
       value = .constant(.void)
     }
@@ -402,8 +402,8 @@ public struct Emitter {
   // MARK: r-values
 
   /// Inserts the IR for the rvalue `expr` into `module` at the end of the current insertion block.
-  private mutating func emitR<ID: ExprID>(
-    expr: ID.TypedNode,
+  private mutating func emitRValue<ID: ExprID>(
+    _ expr: ID.TypedNode,
     into module: inout Module
   ) -> Operand {
     defer {
@@ -416,24 +416,24 @@ public struct Emitter {
 
     switch expr.kind {
     case BooleanLiteralExpr.self:
-      return emitR(booleanLiteralExpr: BooleanLiteralExpr.Typed(expr)!, into: &module)
+      return emitRValue(booleanLiteral: BooleanLiteralExpr.Typed(expr)!, into: &module)
     case CondExpr.self:
-      return emitR(conditionalExpr: CondExpr.Typed(expr)!, into: &module)
+      return emitRValue(conditional: CondExpr.Typed(expr)!, into: &module)
     case FunctionCallExpr.self:
-      return emitR(functionCallExpr: FunctionCallExpr.Typed(expr)!, into: &module)
+      return emitRValue(functionCall: FunctionCallExpr.Typed(expr)!, into: &module)
     case IntegerLiteralExpr.self:
-      return emitR(integerLiteralExpr: IntegerLiteralExpr.Typed(expr)!, into: &module)
+      return emitRValue(integerLiteral: IntegerLiteralExpr.Typed(expr)!, into: &module)
     case NameExpr.self:
-      return emitR(nameExpr: NameExpr.Typed(expr)!, into: &module)
+      return emitRValue(name: NameExpr.Typed(expr)!, into: &module)
     case SequenceExpr.self:
-      return emitR(sequenceExpr: SequenceExpr.Typed(expr)!, into: &module)
+      return emitRValue(sequence: SequenceExpr.Typed(expr)!, into: &module)
     default:
       unexpected(expr)
     }
   }
 
-  private mutating func emitR(
-    booleanLiteralExpr expr: BooleanLiteralExpr.Typed,
+  private mutating func emitRValue(
+    booleanLiteral expr: BooleanLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let value = Operand.constant(
@@ -445,8 +445,8 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
-  private mutating func emitR(
-    conditionalExpr expr: CondExpr.Typed,
+  private mutating func emitRValue(
+    conditional expr: CondExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let functionID = insertionBlock!.function
@@ -494,7 +494,7 @@ public struct Emitter {
     switch expr.success {
     case .expr(let thenExpr):
       frames.push()
-      let value = emitR(expr: program[thenExpr], into: &module)
+      let value = emitRValue(program[thenExpr], into: &module)
       if let target = resultStorage {
         let target = module.append(
           BorrowInstruction(
@@ -518,7 +518,7 @@ public struct Emitter {
     switch expr.failure {
     case .expr(let elseExpr):
       frames.push()
-      let value = emitR(expr: program[elseExpr], into: &module)
+      let value = emitRValue(program[elseExpr], into: &module)
       if let target = resultStorage {
         let target = module.append(
           BorrowInstruction(
@@ -551,14 +551,14 @@ public struct Emitter {
     }
   }
 
-  private mutating func emitR(
-    functionCallExpr expr: FunctionCallExpr.Typed,
+  private mutating func emitRValue(
+    functionCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
     if let n = NameExpr.Typed(expr.callee),
       case .builtinFunction(let f) = n.decl
     {
-      return emitR(builtinFunctionCallTo: f, with: expr.arguments, at: expr.site, into: &module)
+      return emit(builtinFunctionCallTo: f, with: expr.arguments, at: expr.site, into: &module)
     }
 
     // Determine the callee's convention.
@@ -626,7 +626,7 @@ public struct Emitter {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            let receiver = emitL(expr: receiverID, meantFor: type.capability, into: &module)
+            let receiver = emitLValue(receiverID, meantFor: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
 
           case .implicit:
@@ -645,7 +645,7 @@ public struct Emitter {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
+            arguments.insert(emitRValue(receiverID, into: &module), at: 0)
 
           case .implicit:
             unreachable()
@@ -669,11 +669,11 @@ public struct Emitter {
 
       default:
         // Evaluate the callee as a function object.
-        callee = emitR(expr: expr.callee, into: &module)
+        callee = emitRValue(expr.callee, into: &module)
       }
     } else {
       // Evaluate the callee as a function object.
-      callee = emitR(expr: expr.callee, into: &module)
+      callee = emitRValue(expr.callee, into: &module)
     }
 
     return module.append(
@@ -689,7 +689,7 @@ public struct Emitter {
 
   /// Emits the IR of a call to `f` with given `arguments` at `site` into `module`, inserting
   /// instructions at the end of `self.insertionBlock`.
-  private mutating func emitR(
+  private mutating func emit(
     builtinFunctionCallTo f: BuiltinFunction,
     with arguments: [LabeledArgument],
     at site: SourceRange,
@@ -698,13 +698,13 @@ public struct Emitter {
     return module.append(
       LLVMInstruction(
         applying: f,
-        to: arguments.map({ (a) in emitR(expr: program[a.value], into: &module) }),
+        to: arguments.map({ (a) in emitRValue(program[a.value], into: &module) }),
         at: site),
       to: insertionBlock!)[0]
   }
 
-  private mutating func emitR(
-    integerLiteralExpr expr: IntegerLiteralExpr.Typed,
+  private mutating func emitRValue(
+    integerLiteral expr: IntegerLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let type = expr.type.base as! ProductType
@@ -735,8 +735,8 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
-  private mutating func emitR(
-    nameExpr expr: NameExpr.Typed,
+  private mutating func emitRValue(
+    name expr: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
     switch expr.decl {
@@ -761,8 +761,8 @@ public struct Emitter {
     }
   }
 
-  private mutating func emitR(
-    sequenceExpr expr: SequenceExpr.Typed,
+  private mutating func emitRValue(
+    sequence expr: SequenceExpr.Typed,
     into module: inout Module
   ) -> Operand {
     emit(.sink, foldedSequenceExpr: expr.foldedSequenceExprs!, into: &module)
@@ -819,13 +819,13 @@ public struct Emitter {
     case .leaf(let expr):
       switch convention {
       case .let:
-        return emitL(expr: program[expr], meantFor: .let, into: &module)
+        return emitLValue(program[expr], meantFor: .let, into: &module)
       case .inout:
-        return emitL(expr: program[expr], meantFor: .inout, into: &module)
+        return emitLValue(program[expr], meantFor: .inout, into: &module)
       case .set:
-        return emitL(expr: program[expr], meantFor: .set, into: &module)
+        return emitLValue(program[expr], meantFor: .set, into: &module)
       case .sink:
-        return emitR(expr: program[expr], into: &module)
+        return emitRValue(program[expr], into: &module)
       case .yielded:
         fatalError("not implemented")
       }
@@ -839,13 +839,13 @@ public struct Emitter {
   ) -> Operand {
     switch parameterType.convention {
     case .let:
-      return emitL(expr: expr, meantFor: .let, into: &module)
+      return emitLValue(expr, meantFor: .let, into: &module)
     case .inout:
-      return emitL(expr: expr, meantFor: .inout, into: &module)
+      return emitLValue(expr, meantFor: .inout, into: &module)
     case .set:
-      return emitL(expr: expr, meantFor: .set, into: &module)
+      return emitLValue(expr, meantFor: .set, into: &module)
     case .sink:
-      return emitR(expr: expr, into: &module)
+      return emitRValue(expr, into: &module)
     case .yielded:
       fatalError("not implemented")
     }
@@ -908,7 +908,7 @@ public struct Emitter {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            let receiver = emitL(expr: receiverID, meantFor: type.capability, into: &module)
+            let receiver = emitLValue(receiverID, meantFor: type.capability, into: &module)
             arguments.insert(receiver, at: 0)
 
           case .implicit:
@@ -927,7 +927,7 @@ public struct Emitter {
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            arguments.insert(emitR(expr: receiverID, into: &module), at: 0)
+            arguments.insert(emitRValue(receiverID, into: &module), at: 0)
 
           case .implicit:
             unreachable()
@@ -956,7 +956,7 @@ public struct Emitter {
     }
 
     // Otherwise, by default, a callee is evaluated as a function object.
-    return emitR(expr: expr, into: &module)
+    return emitRValue(expr, into: &module)
   }
 
   /// Inserts the IR for branch condition `expr` into `module` at the end of the current insertion
@@ -967,7 +967,7 @@ public struct Emitter {
     _ expr: ID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    var v = emitL(expr: expr, meantFor: .let, into: &module)
+    var v = emitLValue(expr, meantFor: .let, into: &module)
     v =
       module.append(
         BorrowInstruction(.let, .address(BuiltinType.i(1)), from: v, at: [0], site: expr.site),
@@ -989,20 +989,20 @@ public struct Emitter {
 
   /// Inserts the IR for the lvalue `expr` meant for `capability` into `module` at the end of the
   /// current insertion block.
-  private mutating func emitL<ID: ExprID>(
-    expr: ID.TypedNode,
+  private mutating func emitLValue<ID: ExprID>(
+    _ expr: ID.TypedNode,
     meantFor capability: AccessEffect,
     into module: inout Module
   ) -> Operand {
     switch expr.kind {
     case NameExpr.self:
-      return emitL(nameExpr: NameExpr.Typed(expr)!, meantFor: capability, into: &module)
+      return emitLValue(name: NameExpr.Typed(expr)!, meantFor: capability, into: &module)
 
     case SubscriptCallExpr.self:
       fatalError("not implemented")
 
     default:
-      let value = emitR(expr: expr, into: &module)
+      let value = emitRValue(expr, into: &module)
       let storage = module.append(
         AllocStackInstruction(expr.type, site: expr.site),
         to: insertionBlock!)[0]
@@ -1021,8 +1021,8 @@ public struct Emitter {
     }
   }
 
-  private mutating func emitL(
-    nameExpr expr: NameExpr.Typed,
+  private mutating func emitLValue(
+    name expr: NameExpr.Typed,
     meantFor capability: AccessEffect,
     into module: inout Module
   ) -> Operand {
@@ -1047,7 +1047,7 @@ public struct Emitter {
       case .implicit:
         fatalError("not implemented")
       case .expr(let receiverID):
-        r = emitL(expr: receiverID, meantFor: capability, into: &module)
+        r = emitLValue(receiverID, meantFor: capability, into: &module)
       }
 
       // Emit the bound member.
