@@ -1,19 +1,20 @@
 import Core
 
 /// A transformation pass that inserts return instructions.
-public struct ImplicitReturnInsertionPass: TransformPass {
-
-  public private(set) var diagnostics: [Diagnostic] = []
+public struct ImplicitReturnInsertionPass {
 
   /// Creates a new pass.
   public init() {}
 
-  public mutating func run(function f: Function.ID, module: inout Module) -> Bool {
+  /// If `f` returns `Void`, inserts `return` instructions in all basic blocks without a terminator
+  /// instruction. Otherwise, report missing return values. `f` is in `module`.
+  public func run(
+    function f: Function.ID,
+    module: inout Module,
+    diagnostics: inout DiagnosticSet
+  ) {
     /// The expected return type of the function.
     let expectedReturnType = module[f].output.astType
-
-    // Reinitialize the internal state of the pass.
-    diagnostics.removeAll()
 
     for b in module[f].blocks.indices {
       let lastInstruction = module[f][b.address].instructions.last
@@ -25,8 +26,6 @@ public struct ImplicitReturnInsertionPass: TransformPass {
         inFunctionReturning: expectedReturnType,
         diagnostics: &diagnostics)
     }
-
-    return diagnostics.isEmpty
   }
 
 }
@@ -39,12 +38,12 @@ extension Module {
     anchoredAt anchor: SourceRange,
     at i: InstructionIndex,
     inFunctionReturning returnType: AnyType,
-    diagnostics: inout [Diagnostic]
+    diagnostics: inout DiagnosticSet
   ) {
     if returnType == .void {
       insert(ReturnInstruction(site: anchor), at: i)
     } else {
-      diagnostics.append(.missingFunctionReturn(expectedReturnType: returnType, at: anchor))
+      diagnostics.insert(.missingFunctionReturn(expectedReturnType: returnType, at: anchor))
     }
   }
 
