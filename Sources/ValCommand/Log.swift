@@ -52,6 +52,7 @@ extension Log {
     let site = diagnostic.site
     let line = site.first().textOfLine()
     write(String(line))
+    if !(line.last?.isNewline ?? false) { write("\n") }
 
     let padding = line.distance(from: line.startIndex, to: site.start)
     write(String(repeating: " ", count: padding))
