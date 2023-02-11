@@ -133,12 +133,9 @@ struct ConstraintSolver {
       missingTraits = constraint.traits.subtracting(
         [checker.program.ast.coreTrait(named: "Sinkable")!])
 
-    case is ProductType, is TupleType:
+    default:
       missingTraits = goal.traits.subtracting(
         checker.conformedTraits(of: goal.subject, in: scope) ?? [])
-
-    default:
-      fatalError("not implemented")
     }
 
     if !missingTraits.isEmpty {
