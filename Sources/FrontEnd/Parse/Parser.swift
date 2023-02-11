@@ -27,7 +27,7 @@ public enum Parser {
     _ input: SourceFile,
     in ast: inout AST,
     diagnostics: inout Diagnostics
-  ) throws -> NodeID<TopLevelDeclSet> {
+  ) throws -> NodeID<TranslationUnit> {
     // Temporarily stash the AST and diagnostics in the parser state, avoiding CoW costs
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input), diagnostics: diagnostics)
     defer { diagnostics = state.diagnostics }
@@ -91,7 +91,7 @@ public enum Parser {
     assert(state.peek() == nil, "expected EOF")
 
     let translation = state.insert(
-      TopLevelDeclSet(
+      TranslationUnit(
         decls: members,
         site: input.range(input.text.startIndex ..< input.text.endIndex)))
 
@@ -887,7 +887,7 @@ public enum Parser {
           in: &state,
           introducedBy: SourceRepresentable(
             value: .let,
-            range: state.emptyRange(at: state.ast[body.base].site.start)),
+            range: state.lexer.sourceCode.emptyRange(at: state.ast[body.base].site.start)),
           body: body,
           asNonStaticMember: isNonStaticMember)
         return [impl]
@@ -1069,7 +1069,7 @@ public enum Parser {
       if state.ast[m].introducer.value == .memberwiseInit { return m }
     }
 
-    let startOfTypeDecl = state.emptyRange(at: startIndex)
+    let startOfTypeDecl = state.lexer.sourceCode.emptyRange(at: startIndex)
     let receiver = state.insert(
       synthesized: ParameterDecl(
         identifier: SourceRepresentable(value: "self", range: startOfTypeDecl),
@@ -1119,7 +1119,7 @@ public enum Parser {
         accessModifier: prologue.accessModifiers.first,
         identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
-        body: .typeExpr(parts.1),
+        aliasedType: parts.1,
         site: state.range(from: prologue.startIndex)))
   }
 
@@ -2248,10 +2248,8 @@ public enum Parser {
     let output = try state.expect("type expression", using: parseExpr(in:))
 
     // Synthesize the environment as an empty tuple if we parsed `[]`.
-    let e =
-      environement
-      ?? AnyExprID(
-        state.insert(TupleTypeExpr(elements: [], site: state.emptyRange(at: opener.site.start))))
+    let s = state.lexer.sourceCode.emptyRange(at: opener.site.start)
+    let e = environement ?? AnyExprID(state.insert(TupleTypeExpr(elements: [], site: s)))
 
     let expr = state.insert(
       LambdaTypeExpr(
@@ -2926,7 +2924,7 @@ public enum Parser {
             convention: tree.0
               ?? SourceRepresentable(
                 value: .let,
-                range: state.emptyRange(at: s.start)),
+                range: state.lexer.sourceCode.emptyRange(at: s.start)),
             bareType: tree.1,
             site: s
           ))
@@ -3401,10 +3399,14 @@ extension AST {
 
   /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics
   /// to `diagnostics`.
+  ///
+  /// - Parameter builtinModuleAccess: whether the module is allowed to access the builtin module.
   public mutating func makeModule<S: Sequence>(
-    _ name: String, sourceCode: S, diagnostics: inout Diagnostics
+    _ name: String, sourceCode: S,
+    builtinModuleAccess: Bool = false,
+    diagnostics: inout Diagnostics
   ) throws -> NodeID<ModuleDecl> where S.Element == SourceFile {
-    var translations: [NodeID<TopLevelDeclSet>] = []
+    var translations: [NodeID<TranslationUnit>] = []
     for f in sourceCode {
       do {
         try translations.append(Parser.parse(f, in: &self, diagnostics: &diagnostics))
@@ -3413,7 +3415,9 @@ extension AST {
       }
     }
 
-    let m = insert(ModuleDecl(name: name, sources: translations), diagnostics: &diagnostics)
+    let m = insert(
+      ModuleDecl(name, sources: translations, builtinModuleAccess: builtinModuleAccess),
+      diagnostics: &diagnostics)
     try diagnostics.throwOnError()
     return m
   }

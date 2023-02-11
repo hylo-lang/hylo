@@ -303,6 +303,8 @@ public struct DefiniteInitializationPass: TransformPass {
         if !eval(deinit: instruction, id: id, module: &module) { return false }
       case let instruction as DestructureInstruction:
         if !eval(destructure: instruction, id: id, module: &module) { return false }
+      case let instruction as LLVMInstruction:
+        if !eval(llvm: instruction, id: id, module: &module) { return false }
       case let instruction as LoadInstruction:
         if !eval(load: instruction, id: id, module: &module) { return false }
       case let instruction as RecordInstruction:
@@ -550,6 +552,14 @@ public struct DefiniteInitializationPass: TransformPass {
     for i in 0 ..< instruction.types.count {
       currentContext.locals[FunctionLocal(id, i)] = .object(.full(.initialized))
     }
+    return true
+  }
+
+  private mutating func eval(
+    llvm instruction: LLVMInstruction, id: InstructionID, module: inout Module
+  ) -> Bool {
+    // TODO: Check that operands are initialized.
+    currentContext.locals[FunctionLocal(id, 0)] = .object(.full(.initialized))
     return true
   }
 

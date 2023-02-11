@@ -99,7 +99,6 @@ extension NodeKind {
     AssociatedTypeDecl.self,
     AssociatedValueDecl.self,
     BindingDecl.self,
-    BuiltinDecl.self,
     ConformanceDecl.self,
     ExtensionDecl.self,
     FunctionDecl.self,
@@ -174,7 +173,7 @@ extension NodeKind {
 
     // MARK: Others
     MatchCase.self,
-    TopLevelDeclSet.self,
+    TranslationUnit.self,
   ]
 
   static let indices = Dictionary(

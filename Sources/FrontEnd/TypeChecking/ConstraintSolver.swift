@@ -120,25 +120,32 @@ struct ConstraintSolver {
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
+    var missingTraits: Set<TraitType>
 
     switch goal.subject.base {
     case is TypeVariable:
       // Postpone the solving if `L` is still unknown.
       postpone(goal)
+      return
+
+    case is BuiltinType:
+      // Built-in types are `Sinkable`.
+      missingTraits = constraint.traits.subtracting(
+        [checker.program.ast.coreTrait(named: "Sinkable")!])
 
     case is ProductType, is TupleType:
-      let conformedTraits = checker.conformedTraits(of: goal.subject, in: scope) ?? []
-      let nonConforming = goal.traits.subtracting(conformedTraits)
-
-      if !nonConforming.isEmpty {
-        log("- fail")
-        for trait in nonConforming {
-          diagnostics.report(.error(goal.subject, doesNotConformTo: trait, at: goal.cause.site))
-        }
-      }
+      missingTraits = goal.traits.subtracting(
+        checker.conformedTraits(of: goal.subject, in: scope) ?? [])
 
     default:
       fatalError("not implemented")
+    }
+
+    if !missingTraits.isEmpty {
+      log("- fail")
+      for t in missingTraits {
+        diagnostics.report(.error(goal.subject, doesNotConformTo: t, at: goal.cause.site))
+      }
     }
   }
 
@@ -424,7 +431,7 @@ struct ConstraintSolver {
     }
 
     let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, in: scope)
-      .compactMap({ checker.decl($0, named: goal.memberName) })
+      .compactMap({ checker.decl(in: $0, named: goal.memberName) })
 
     // Generate the list of candidates.
     let candidates = matches.compactMap({ (match) -> OverloadConstraint.Candidate? in
@@ -570,7 +577,7 @@ struct ConstraintSolver {
       cause: .error(
         ambiguousUse: constraint.overloadedExpr,
         in: checker.program.ast,
-        candidates: results.map(\.choice.reference.decl)))
+        candidates: results.compactMap(\.choice.reference.decl)))
   }
 
   /// Solves the remaining constraint with each given choice and returns the best solutions.
@@ -895,8 +902,8 @@ extension TypeChecker {
 
       // Nothing to do if both functions have the binding.
       if lhsDeclRef == rhsDeclRef { continue }
-      let lhs = declTypes[lhsDeclRef.decl]!
-      let rhs = declTypes[rhsDeclRef.decl]!
+      let lhs = declTypes[lhsDeclRef.decl!]!
+      let rhs = declTypes[rhsDeclRef.decl!]!
 
       switch (lhs.base, rhs.base) {
       case (let l as CallableType, let r as CallableType):

@@ -1,8 +1,8 @@
 /*! h
-    int main();
+    void main();
  */
 /*! cpp
-    int main() {
+    void main() {
  */
 public fun main() {
 }

@@ -8,7 +8,7 @@ public struct AST {
   /// The stored representation of an AST; distinguished for encoding/decoding purposes.
   private struct Storage: Codable {
     /// The nodes in `self`.
-    public var nodes: [AnyNode] = [AnyNode(BuiltinDecl())]
+    public var nodes: [AnyNode] = []
 
     /// The indices of the modules.
     ///
@@ -48,12 +48,6 @@ public struct AST {
   /// Creates an empty AST.
   public init() {}
 
-  /// The ID of a node representing all built-in declarations in declaration references.
-  ///
-  /// The type checker uses this ID to represent declaration references to built-in symbols, since
-  /// those do not have any actual AST representation.
-  public var builtinDecl: NodeID<BuiltinDecl> { NodeID(rawValue: 0) }
-
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
   public mutating func insert<T: Node>(_ n: T, diagnostics: inout Diagnostics) -> NodeID<T> {
     n.validateForm(in: self, into: &diagnostics)
@@ -74,7 +68,7 @@ public struct AST {
   public mutating func insert<T: Node>(synthesized n: T) -> NodeID<T> {
     var d = Diagnostics()
     let r = insert(n, diagnostics: &d)
-    precondition(d.log.isEmpty, "ill-formed synthesized node \(n)")
+    precondition(d.log.isEmpty, "ill-formed synthesized node \(n)\n\(d)")
     return r
   }
 
@@ -143,7 +137,7 @@ public struct AST {
   public typealias TopLevelDecls = LazySequence<
     FlattenSequence<
       LazyMapSequence<
-        LazySequence<[NodeID<TopLevelDeclSet>]>.Elements,
+        LazySequence<[NodeID<TranslationUnit>]>.Elements,
         [AnyDeclID]
       >.Elements
     >
@@ -189,7 +183,7 @@ public struct AST {
         break
 
       default:
-        unreachable("unexpected pattern")
+        unexpected(pattern, in: self)
       }
     }
 

@@ -7,19 +7,16 @@ final class ASTTests: XCTestCase {
   func testAppendModule() throws {
     var ast = AST()
     var diagnostics = Diagnostics()
-    let i = ast.insert(ModuleDecl(name: "Val", sources: []), diagnostics: &diagnostics)
+    let i = ast.insert(ModuleDecl("Val", sources: []), diagnostics: &diagnostics)
     XCTAssert(ast.modules.contains(i))
     XCTAssert(diagnostics.log.isEmpty)
 
-    let j = ast.insert(synthesized: ModuleDecl(name: "Val1", sources: []))
+    let j = ast.insert(synthesized: ModuleDecl("Val1", sources: []))
     XCTAssert(ast.modules.contains(j))
   }
 
   func testDeclAccess() throws {
-    let input = testCode(
-      """
-      import T
-      """)
+    let input: SourceFile = "import T"
 
     var a = AST()
     var d = Diagnostics()
@@ -43,12 +40,11 @@ final class ASTTests: XCTestCase {
   }
 
   func testCodableRoundtrip() throws {
-    let input = testCode(
-      """
+    let input: SourceFile = """
       public fun main() {
         print("Hello, World!")
       }
-      """)
+      """
 
     var original = AST()
     var d = Diagnostics()

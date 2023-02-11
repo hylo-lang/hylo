@@ -47,6 +47,36 @@ public struct TypeChecker {
 
   // MARK: Type system
 
+  /// Returns a copy of `genericType` where occurrences of generic parameters keying `subtitutions`
+  /// are replaced by their corresponding value, performing any necessary name lookup in `scope`.
+  private mutating func specialized(
+    _ genericType: AnyType,
+    applying substitutions: [NodeID<GenericParameterDecl>: AnyType],
+    in scope: AnyScopeID
+  ) -> AnyType {
+    func _impl(t: AnyType) -> TypeTransformAction {
+      switch t.base {
+      case let p as GenericTypeParameterType:
+        return .stepOver(substitutions[p.decl] ?? t)
+
+      case let t as AssociatedTypeType:
+        let d = t.domain.transform(_impl)
+
+        let candidates = lookup(program.ast[t.decl].baseName, memberOf: d, in: scope)
+        if let c = candidates.uniqueElement {
+          return .stepOver(MetatypeType(realize(decl: c))?.instance ?? .error)
+        } else {
+          return .stepOver(.error)
+        }
+
+      default:
+        return .stepInto(t)
+      }
+    }
+
+    return genericType.transform(_impl(t:))
+  }
+
   /// Returns whether `lhs` is canonically equivalent to `rhs`.
   public func areEquivalent(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
     canonicalize(type: lhs) == canonicalize(type: rhs)
@@ -80,14 +110,20 @@ public struct TypeChecker {
         traits: t.traits,
         constraints: ConstraintSet(t.constraints.map(canonicalize(constraint:))))
 
+    case let t as MetatypeType:
+      return ^MetatypeType(of: canonicalize(type: t.instance))
+
+    case let t as SumType:
+      return ^SumType(Set(t.elements.map(canonicalize(type:))))
+
     case let t as TupleType:
       return ^TupleType(
         t.elements.map({ (e) -> TupleType.Element in
           .init(label: e.label, type: canonicalize(type: e.type))
         }))
 
-    case let t as SumType:
-      return ^SumType(Set(t.elements.map(canonicalize(type:))))
+    case let t as TypeAliasType:
+      return canonicalize(type: t.resolved.value)
 
     default:
       unreachable()
@@ -244,19 +280,17 @@ public struct TypeChecker {
     declRequests[d] = .typeRealizationCompleted
   }
 
-  /// Type checks the specified module and returns whether that succeeded.
+  /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
   ///
   /// - Requires: `id` is a valid ID in the type checker's AST.
-  public mutating func check(module id: NodeID<ModuleDecl>) -> Bool {
+  public mutating func check(module id: NodeID<ModuleDecl>) {
     // Build the type of the module.
     declTypes[id] = ^ModuleType(id, ast: program.ast)
 
     // Type check the declarations in the module.
-    var success = true
     for decl in program.ast.topLevelDecls(id) {
-      success = check(decl: decl) && success
+      _ = check(decl: decl)
     }
-    return success
   }
 
   /// Type checks the specified declaration and returns whether that succeeded.
@@ -291,7 +325,7 @@ public struct TypeChecker {
     case TypeAliasDecl.self:
       return check(typeAlias: NodeID(id)!)
     default:
-      unreachable("unexpected declaration")
+      unexpected(id, in: program.ast)
     }
   }
 
@@ -613,7 +647,7 @@ public struct TypeChecker {
   }
 
   private mutating func check(operator id: NodeID<OperatorDecl>) -> Bool {
-    let source = NodeID<TopLevelDeclSet>(program.declToScope[id]!)!
+    let source = NodeID<TranslationUnit>(program.declToScope[id]!)!
 
     // Look for duplicate operator declaration.
     for decl in program.ast[source].decls where decl.kind == OperatorDecl.self {
@@ -762,17 +796,8 @@ public struct TypeChecker {
 
   private mutating func _check(typeAlias id: NodeID<TypeAliasDecl>) -> Bool {
     // Realize the subject.
-    let subject: AnyType
-    switch program.ast[id].body {
-    case .typeExpr(let j):
-      if let s = realize(j, in: AnyScopeID(id))?.instance {
-        subject = s
-      } else {
-        return false
-      }
-
-    case .union:
-      fatalError("not implemented")
+    guard let subject = realize(program.ast[id].aliasedType, in: AnyScopeID(id))?.instance else {
+      return false
     }
 
     // Type-check the generic clause.
@@ -850,7 +875,8 @@ public struct TypeChecker {
     to trait: TraitType
   ) -> Bool {
     let conformingType = realizeSelfTypeExpr(in: decl)!.instance
-    let selfType = ^GenericTypeParameterType(selfParameterOf: trait.decl, in: program.ast)
+    let specialization = [program.ast[trait.decl].selfParameterDecl: conformingType]
+
     var success = true
 
     // Get the set of generic parameters defined by `trait`.
@@ -870,67 +896,10 @@ public struct TypeChecker {
       case FunctionDecl.self:
         // Make sure the requirement is well-typed.
         let requirement = NodeID<FunctionDecl>(j)!
-        var requirementType = canonicalize(type: realize(functionDecl: requirement))
-
-        /// Substitute `Self` by the conforming type in `type`.
-        func substituteSelf(type: AnyType) -> TypeTransformAction {
-          switch type.base {
-          case selfType:
-            // `type` is `Self`.
-            return .stepOver(conformingType)
-
-          case let t as AssociatedTypeType:
-            // We only care about associated types rooted at `Self`. Others can be assumed to be
-            // rooted at some generic type parameter declared by the requirement.
-            let components = t.components
-            if components.last != selfType { return .stepOver(type) }
-
-            let scope = AnyScopeID(decl)
-            let replacement =
-              components
-              .dropLast(1)
-              .reversed()
-              .reduce(
-                into: conformingType,
-                { (r, c) in
-                  if r.isError { return }
-
-                  switch c.base {
-                  case let c as AssociatedTypeType:
-                    let candidates = lookup(
-                      program.ast[c.decl].baseName, memberOf: r, in: scope)
-
-                    // Name is ambiguous if there's more than one candidate.
-                    if candidates.count != 1 {
-                      r = .error
-                      return
-                    }
-
-                    // Name should refer to a type.
-                    let candidateValue = realize(decl: candidates.first!)
-                    guard let type = (candidateValue.base as? MetatypeType)?.instance else {
-                      r = .error
-                      return
-                    }
-
-                    // FIXME: If `type` is a bound generic type, substitute generic type parameters.
-                    r = type
-
-                  case is ConformanceLensType:
-                    fatalError("not implemented")
-
-                  default:
-                    unreachable()
-                  }
-                })
-            return .stepOver(replacement)
-
-          default:
-            return .stepInto(type)
-          }
-        }
-
-        requirementType = requirementType.transform(substituteSelf(type:))
+        let requirementType = specialized(
+          canonicalize(type: realize(functionDecl: requirement)),
+          applying: specialization,
+          in: AnyScopeID(decl))
         if requirementType.isError { continue }
 
         // Search for candidate implementations.
@@ -977,7 +946,7 @@ public struct TypeChecker {
         fatalError("not implemented")
 
       default:
-        unreachable()
+        unexpected(j, in: program.ast)
       }
     }
 
@@ -1058,7 +1027,7 @@ public struct TypeChecker {
       return true
 
     default:
-      unreachable("unexpected statement")
+      unexpected(id, in: program.ast)
     }
   }
 
@@ -1080,10 +1049,15 @@ public struct TypeChecker {
       return false
     }
 
-    // Constrain the right to be subtype of the left.
+    // The type on the left must be `Sinkable`.
+    let lhsConstraint = ConformanceConstraint(
+      lhsType, conformsTo: [program.ast.coreTrait(named: "Sinkable")!],
+      because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].site))
+
+    // Constrain the right to be subtype on the left.
     let rhsType = exprTypes[program.ast[id].right].setIfNil(
       ^TypeVariable(node: program.ast[id].right.base))
-    let assignmentConstraint = SubtypingConstraint(
+    let rhsConstraint = SubtypingConstraint(
       rhsType, lhsType,
       because: ConstraintCause(.initializationOrAssignment, at: program.ast[id].site))
 
@@ -1092,7 +1066,7 @@ public struct TypeChecker {
       impliedBy: AnyExprID(program.ast[id].right),
       expecting: lhsType,
       in: lexicalContext,
-      initialConstraints: [assignmentConstraint])
+      initialConstraints: [lhsConstraint, rhsConstraint])
     return inference.succeeded
   }
 
@@ -1100,16 +1074,15 @@ public struct TypeChecker {
     doWhile subject: NodeID<DoWhileStmt>,
     in lexicalContext: S
   ) -> Bool {
-    let syntax = program.ast[subject]
+    let success = check(brace: program.ast[subject].body)
 
-    // Visit the condition(s).
+    // Visit the condition of the loop in the scope of the body.
     let boolType = AnyType(program.ast.coreType(named: "Bool")!)
     let inference = solveConstraints(
-      impliedBy: syntax.condition, expecting: boolType, in: lexicalContext)
-    if !inference.succeeded { return false }
+      impliedBy: program.ast[subject].condition, expecting: boolType,
+      in: program.ast[subject].body)
 
-    // Visit the body.
-    return check(brace: syntax.body)
+    return success && inference.succeeded
   }
 
   private mutating func check<S: ScopeID>(
@@ -1194,7 +1167,7 @@ public struct TypeChecker {
       &declTypes[d]!,
       { (t) in
         t = s.typeAssumptions.reify(t)
-        return t[.hasError]
+        return !t[.hasError]
       })
     declRequests[d] = success ? .success : .failure
     return success
@@ -1764,7 +1737,7 @@ public struct TypeChecker {
 
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
-      if isNominalTypeDecl(candidates[0].reference.decl) {
+      if let d = candidates[0].reference.decl, isNominalTypeDecl(d) {
         parentType = MetatypeType(candidates[0].type.shape)!.instance
       } else {
         parentType = candidates[0].type.shape
@@ -1785,8 +1758,9 @@ public struct TypeChecker {
   ) -> [NameResolutionResult.Candidate] {
     // Handle references to the built-in module.
     if (name.value.stem == "Builtin") && (parentType == nil) && isBuiltinModuleVisible {
-      let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
-      return [.init(reference: ref, type: .init(shape: ^BuiltinType.module, constraints: []))]
+      return [
+        .init(reference: .builtinType, type: .init(shape: ^BuiltinType.module, constraints: []))
+      ]
     }
 
     // Handle references to built-in symbols.
@@ -1798,10 +1772,10 @@ public struct TypeChecker {
     let matches: [AnyDeclID]
     if let t = parentType {
       matches = lookup(name.value.stem, memberOf: t, in: lookupScope)
-        .compactMap({ decl($0, named: name.value) })
+        .compactMap({ decl(in: $0, named: name.value) })
     } else {
       matches = lookup(unqualified: name.value.stem, in: lookupScope)
-        .compactMap({ decl($0, named: name.value) })
+        .compactMap({ decl(in: $0, named: name.value) })
     }
 
     // Diagnose undefined symbols.
@@ -1818,9 +1792,6 @@ public struct TypeChecker {
     for match in matches {
       // Realize the type of the declaration.
       var targetType = realize(decl: match)
-
-      // Give up if the declaration has an error type.
-      if targetType.isError { continue }
 
       // Erase parameter conventions.
       if let t = ParameterType(targetType) {
@@ -1849,9 +1820,14 @@ public struct TypeChecker {
         }
 
         // Apply the arguments.
-        let substitutions = Dictionary(uniqueKeysWithValues: zip(env.parameters, arguments))
-        targetType = targetType.specialized(substitutions)
+        targetType = specialized(
+          targetType,
+          applying: .init(uniqueKeysWithValues: zip(env.parameters, arguments)),
+          in: lookupScope)
       }
+
+      // Give up if the declaration has an error type.
+      if targetType.isError { continue }
 
       // Determine how the declaration is being referenced.
       let reference: DeclRef =
@@ -1860,11 +1836,24 @@ public struct TypeChecker {
         : .direct(match)
 
       // Instantiate the type of the declaration
-      let instantiatedType = instantiate(
-        targetType,
-        fromScopeIntroducing: reference.decl,
-        cause: ConstraintCause(.binding, at: name.site))
-      candidates.append(.init(reference: reference, type: instantiatedType))
+      let c = ConstraintCause(.binding, at: name.site)
+      switch reference {
+      case .direct(let d):
+        candidates.append(
+          .init(
+            reference: reference,
+            type: instantiate(targetType, in: program.scopeIntroducing(d), cause: c)))
+
+      case .member(let d):
+        candidates.append(
+          .init(
+            reference: reference,
+            type: instantiate(targetType, in: program.scopeIntroducing(d), cause: c)))
+
+      case .builtinFunction, .builtinType:
+        candidates.append(
+          .init(reference: reference, type: .init(shape: targetType, constraints: [])))
+      }
     }
 
     // If there are no candidates left, diagnose an error.
@@ -1884,13 +1873,11 @@ public struct TypeChecker {
 
   /// Resolves a reference to the built-in symbol named `name`.
   private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
-    let ref: DeclRef = .direct(AnyDeclID(program.ast.builtinDecl))
-
-    if let type = BuiltinSymbols[name.stem] {
-      return .init(reference: ref, type: .init(shape: ^type, constraints: []))
+    if let f = BuiltinFunction(name.stem) {
+      return .init(reference: .builtinFunction(f), type: .init(shape: ^f.type, constraints: []))
     }
-    if let type = BuiltinType(name.stem) {
-      return .init(reference: ref, type: .init(shape: ^type, constraints: []))
+    if let t = BuiltinType(name.stem) {
+      return .init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
     }
     return nil
   }
@@ -1907,7 +1894,7 @@ public struct TypeChecker {
         // We reached the module scope.
         root = NodeID<ModuleDecl>(scope)!
 
-      case TopLevelDeclSet.self:
+      case TranslationUnit.self:
         // Skip file scopes so that we don't search the same file twice.
         continue
 
@@ -1961,8 +1948,18 @@ public struct TypeChecker {
       return lookup(baseName, memberOf: type, in: site)
 
     case TypeAliasDecl.self:
-      let type = ^TypeAliasType(NodeID(lookupContext)!, ast: program.ast)
-      return lookup(baseName, memberOf: type, in: site)
+      // We can't re-enter `realize(typeAliasDecl:)` if the aliased type of `d` is being resolved
+      // but its generic parameters can be lookep up already.
+      let d = NodeID<TypeAliasDecl>(lookupContext)!
+      if declRequests[d] == .typeRealizationStarted {
+        return names(introducedIn: d)[baseName, default: []]
+      }
+
+      if let t = MetatypeType(realize(typeAliasDecl: d))?.instance {
+        return t.isError ? [] : lookup(baseName, memberOf: t, in: site)
+      } else {
+        return []
+      }
 
     default:
       return names(introducedIn: lookupContext)[baseName, default: []]
@@ -2111,7 +2108,7 @@ public struct TypeChecker {
           in: scope)
         root = module
 
-      case TopLevelDeclSet.self:
+      case TranslationUnit.self:
         continue
 
       default:
@@ -2210,7 +2207,7 @@ public struct TypeChecker {
         table[i, default: []].insert(id)
 
       default:
-        unreachable("unexpected declaration")
+        unexpected(id, in: program.ast)
       }
     }
 
@@ -2247,7 +2244,7 @@ public struct TypeChecker {
       return MetatypeType(of: TypeVariable(node: expr.base))
 
     default:
-      unreachable("unexpected expression")
+      unexpected(expr, in: program.ast)
     }
   }
 
@@ -2716,12 +2713,7 @@ public struct TypeChecker {
         })
 
     case TypeAliasDecl.self:
-      return _realize(
-        decl: id,
-        { (this, id) in
-          let instance = TypeAliasType(NodeID(id)!, ast: this.program.ast)
-          return ^MetatypeType(of: instance)
-        })
+      return realize(typeAliasDecl: NodeID(id)!)
 
     case VarDecl.self:
       let bindingDecl = program.varToBinding[NodeID(id)!]!
@@ -2731,7 +2723,7 @@ public struct TypeChecker {
         : declTypes[id]!
 
     default:
-      unreachable("unexpected declaration")
+      unexpected(id, in: program.ast)
     }
   }
 
@@ -2923,7 +2915,7 @@ public struct TypeChecker {
 
       // Parameters of initializers must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        unreachable("unexpected type expression")
+        unexpected(i, in: program.ast)
       }
 
       if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
@@ -2970,7 +2962,7 @@ public struct TypeChecker {
 
       // Parameters of methods must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        unreachable("unexpected type expression")
+        unexpected(i, in: program.ast)
       }
 
       if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
@@ -3057,7 +3049,7 @@ public struct TypeChecker {
 
       // Parameters of subscripts must have a type annotation.
       guard let annotation = program.ast[i].annotation else {
-        unreachable("unexpected type expression")
+        unexpected(i, in: program.ast)
       }
 
       if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
@@ -3123,6 +3115,19 @@ public struct TypeChecker {
       environment: ^environment,
       inputs: inputs,
       output: output)
+  }
+
+  private mutating func realize(typeAliasDecl d: NodeID<TypeAliasDecl>) -> AnyType {
+    _realize(decl: d, { (this, id) in this._realize(typeAliasDecl: d) })
+  }
+
+  private mutating func _realize(typeAliasDecl d: NodeID<TypeAliasDecl>) -> AnyType {
+    guard let resolved = realize(program.ast[d].aliasedType, in: AnyScopeID(d))?.instance else {
+      return .error
+    }
+
+    let instance = TypeAliasType(aliasing: resolved, declaredBy: NodeID(d)!, in: program.ast)
+    return ^MetatypeType(of: instance)
   }
 
   /// Realizes the explicit captures in `list`, writing the captured names in `explicitNames`, and
@@ -3418,28 +3423,6 @@ public struct TypeChecker {
     return InstantiatedType(shape: subject.transform(_impl(type:)), constraints: [])
   }
 
-  /// Instantiates `subject` from the scope introducing `decl` or, if that's an initializer, from
-  /// the scope introducing the type `decl` initializes.
-  func instantiate(
-    _ subject: AnyType,
-    fromScopeIntroducing decl: AnyDeclID,
-    cause: ConstraintCause
-  ) -> InstantiatedType {
-    // Identifiy the scope relative to which quantifiers should be eliminated.
-    let containingScope: AnyScopeID
-    switch decl.kind {
-    case BuiltinDecl.self:
-      return InstantiatedType(shape: subject, constraints: [])
-    case InitializerDecl.self:
-      containingScope = program.scopeToParent[program.declToScope[decl]!]!
-    default:
-      containingScope = program.declToScope[decl]!
-    }
-
-    // Eliminate quantifiers.
-    return instantiate(subject, in: containingScope, cause: cause)
-  }
-
   // MARK: Utils
 
   /// Returns whether `decl` is a nominal type declaration.
@@ -3467,7 +3450,7 @@ public struct TypeChecker {
   /// if no such implementation exists.
   ///
   /// - Requires: The base name of `d` is equal to `n.stem`
-  mutating func decl(_ d: AnyDeclID, named n: Name) -> AnyDeclID? {
+  mutating func decl(in d: AnyDeclID, named n: Name) -> AnyDeclID? {
     if !n.labels.isEmpty && (n.labels != labels(d)) {
       return nil
     }

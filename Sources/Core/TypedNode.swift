@@ -222,11 +222,21 @@ extension TypedNode where ID == NodeID<NameExpr> {
     /// A reference to a member declaration bound to `self`.
     case member(AnyDeclID.TypedNode)
 
-    /// Accesses the referred declaration.
-    public var decl: AnyDeclID.TypedNode {
+    /// A reference to a built-in function.
+    case builtinFunction(BuiltinFunction)
+
+    /// A reference to a built-in type.
+    case builtinType
+
+    /// Accesses the referred declaration  if `self` is `.direct` or `.member`.
+    public var decl: AnyDeclID.TypedNode? {
       switch self {
-      case .direct(let d): return d
-      case .member(let d): return d
+      case .direct(let d):
+        return d
+      case .member(let d):
+        return d
+      default:
+        return nil
       }
     }
 
@@ -235,10 +245,14 @@ extension TypedNode where ID == NodeID<NameExpr> {
   /// The declaration of this name.
   public var decl: DeclRef {
     switch program.referredDecls[id]! {
-    case .direct(let decl):
-      return .direct(program[decl])
-    case .member(let decl):
-      return .member(program[decl])
+    case .direct(let d):
+      return .direct(program[d])
+    case .member(let d):
+      return .member(program[d])
+    case .builtinFunction(let f):
+      return .builtinFunction(f)
+    case .builtinType:
+      return .builtinType
     }
   }
 
@@ -259,7 +273,7 @@ extension TypedNode where ID == NodeID<ModuleDecl> {
   public typealias TopLevelDecls = LazyMapSequence<
     FlattenSequence<
       LazyMapSequence<
-        [NodeID<TopLevelDeclSet>],
+        [NodeID<TranslationUnit>],
         [AnyDeclID]
       >
     >,

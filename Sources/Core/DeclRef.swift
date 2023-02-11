@@ -7,11 +7,21 @@ public enum DeclRef: Hashable {
   /// A reference to a member declaration bound to `self`.
   case member(AnyDeclID)
 
-  /// Accesses the referred declaration.
-  public var decl: AnyDeclID {
+  /// A reference to a built-in function.
+  case builtinFunction(BuiltinFunction)
+
+  /// A reference to a built-in type.
+  case builtinType
+
+  /// Accesses the referred declaration if `self` is `.direct` or `.member`.
+  public var decl: AnyDeclID? {
     switch self {
-    case .direct(let d): return d
-    case .member(let d): return d
+    case .direct(let d):
+      return d
+    case .member(let d):
+      return d
+    default:
+      return nil
     }
   }
 

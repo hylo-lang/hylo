@@ -6,8 +6,7 @@ import XCTest
 final class CaptureCollectorTests: XCTestCase {
 
   func testFunctionBindings() throws {
-    let source = testCode(
-      """
+    let source: SourceFile = """
       fun f<X, v: Void>[let c = ()](_ p: Any) {
         let _ = free   // captured
         let _ = X      // bound
@@ -15,7 +14,7 @@ final class CaptureCollectorTests: XCTestCase {
         let _ = c      // bound
         let _ = p      // bound
       }
-      """)
+      """
 
     var ast = AST()
     var diagnostics = Diagnostics()

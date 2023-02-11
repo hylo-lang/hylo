@@ -61,6 +61,11 @@ public struct SourceRange: Hashable {
     file.text[indices]
   }
 
+  /// Creates an empty range that starts and end at `p`.
+  public static func empty(at p: SourcePosition) -> Self {
+    SourceRange(p.index ..< p.index, in: p.file)
+  }
+
 }
 
 extension SourceRange: Codable {
