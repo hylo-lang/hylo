@@ -75,18 +75,13 @@ public struct AST {
   // MARK: Node access
 
   /// Accesses the node at `position`.
-  public subscript<T: Node>(position: NodeID<T>) -> T {
-    get { nodes[position.rawValue].node as! T }
-    _modify {
-      var n = nodes[position.rawValue].node as! T
-      defer { nodes[position.rawValue] = AnyNode(n) }
-      yield &n
-    }
+  public subscript<T: ConcreteNodeID>(position: T) -> T.Subject {
+    nodes[position.rawValue].node as! T.Subject
   }
 
   /// Accesses the node at `position`.
-  public subscript<T: Node>(position: NodeID<T>?) -> T? {
-    position.map({ nodes[$0.rawValue].node as! T })
+  public subscript<T: ConcreteNodeID>(position: T?) -> T.Subject? {
+    position.map({ nodes[$0.rawValue].node as! T.Subject })
   }
 
   /// Accesses the node at `position`.
@@ -97,22 +92,6 @@ public struct AST {
   /// Accesses the node at `position`.
   public subscript<T: NodeIDProtocol>(position: T?) -> Node? {
     position.map({ nodes[$0.rawValue].node })
-  }
-
-  /// Accesses the node at `position`.
-  subscript(raw position: NodeID.RawValue) -> Node {
-    nodes[position].node
-  }
-
-  /// Applies `transform` to the node at `position`.
-  mutating func modify<T: Node>(at position: NodeID<T>, _ transform: (T) -> T) {
-    let newNode = transform(self[position])
-
-    var diagnostics = DiagnosticSet()
-    newNode.validateForm(in: self, into: &diagnostics)
-    assert(diagnostics.elements.isEmpty, "\(diagnostics)")
-
-    nodes[position.rawValue] = AnyNode(newNode)
   }
 
   // MARK: Core library
