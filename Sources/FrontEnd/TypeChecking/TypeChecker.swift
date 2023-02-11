@@ -632,14 +632,25 @@ public struct TypeChecker {
     let container = program.scopeToParent[id]!
     for e in program.ast[id].conformances {
       guard let rhs = realize(name: e, in: container)?.instance else { continue }
-      if let t = TraitType(rhs) {
-        let m = realizeSelfTypeExpr(in: id)!.instance
-        let c = checkConformance(of: m, to: t, at: program.ast[e].site, in: AnyScopeID(id))
-        success = (c != nil) && success
-      } else {
+      guard let t = TraitType(rhs) else {
         diagnostics.insert(.error(conformanceToNonTraitType: rhs, at: program.ast[e].site))
         success = false
+        continue
       }
+
+      guard
+        let c = checkConformance(
+          of: realizeSelfTypeExpr(in: id)!.instance, to: t,
+          at: program.ast[e].site, in: AnyScopeID(id))
+      else {
+        // Diagnostics have been reported by `checkConformance`.
+        success = false
+        continue
+      }
+
+      let (inserted, _) = relations.insert(c, testingContainmentWith: program)
+      // TODO: Handle duplicate conformance declarations
+      assert(inserted, "Not implemented")
     }
 
     // Type check extending declarations.
