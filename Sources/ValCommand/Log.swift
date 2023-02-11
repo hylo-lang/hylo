@@ -23,8 +23,8 @@ extension Log {
   }
 
   /// Logs the contents of `diagnostics`.
-  mutating func log(diagnostics: Diagnostics) {
-    for d in diagnostics.log.sorted(by: Diagnostic.isLoggedBefore) {
+  mutating func log(diagnostics: DiagnosticSet) {
+    for d in diagnostics.elements.sorted(by: Diagnostic.isLoggedBefore) {
       log(diagnostic: d)
     }
   }

@@ -49,7 +49,7 @@ public struct AST {
   public init() {}
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
-  public mutating func insert<T: Node>(_ n: T, diagnostics: inout Diagnostics) -> NodeID<T> {
+  public mutating func insert<T: Node>(_ n: T, diagnostics: inout DiagnosticSet) -> NodeID<T> {
     n.validateForm(in: self, into: &diagnostics)
 
     let i = NodeID<T>(rawValue: nodes.count)
@@ -66,9 +66,9 @@ public struct AST {
   ///
   /// - Precondition: `n` is well formed.
   public mutating func insert<T: Node>(synthesized n: T) -> NodeID<T> {
-    var d = Diagnostics()
+    var d = DiagnosticSet()
     let r = insert(n, diagnostics: &d)
-    precondition(d.log.isEmpty, "ill-formed synthesized node \(n)\n\(d)")
+    precondition(d.elements.isEmpty, "ill-formed synthesized node \(n)\n\(d)")
     return r
   }
 

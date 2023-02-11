@@ -26,9 +26,9 @@ final class ParserTests: XCTestCase {
       """
 
     var a = AST()
-    var d = Diagnostics()
+    var d = DiagnosticSet()
     _ = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
-    XCTAssert(d.log.isEmpty, "\n\(d)")
+    XCTAssert(d.elements.isEmpty, "\n\(d)")
   }
 
   func testSourceFile() throws {
@@ -44,7 +44,7 @@ final class ParserTests: XCTestCase {
       """
 
     var a = AST()
-    var d = Diagnostics()
+    var d = DiagnosticSet()
     let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     XCTAssertEqual(a[a[m].sources.first!].decls.count, 4)
   }

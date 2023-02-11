@@ -6,10 +6,10 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
-    var diagnostics = Diagnostics()
+    var diagnostics = DiagnosticSet()
     let i = ast.insert(ModuleDecl("Val", sources: []), diagnostics: &diagnostics)
     XCTAssert(ast.modules.contains(i))
-    XCTAssert(diagnostics.log.isEmpty)
+    XCTAssert(diagnostics.elements.isEmpty)
 
     let j = ast.insert(synthesized: ModuleDecl("Val1", sources: []))
     XCTAssert(ast.modules.contains(j))
@@ -19,9 +19,9 @@ final class ASTTests: XCTestCase {
     let input: SourceFile = "import T"
 
     var a = AST()
-    var d = Diagnostics()
+    var d = DiagnosticSet()
     let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
-    XCTAssert(d.log.isEmpty, "\n\(d)")
+    XCTAssert(d.elements.isEmpty, "\n\(d)")
 
     // Note: we use `XCTUnwrap` when we're expecting a non-nil value produced by a subscript under
     // test. Otherwise, we use `!`.
@@ -47,7 +47,7 @@ final class ASTTests: XCTestCase {
       """
 
     var original = AST()
-    var d = Diagnostics()
+    var d = DiagnosticSet()
     let m = try original.makeModule("Main", sourceCode: [input], diagnostics: &d)
 
     // Serialize the AST.

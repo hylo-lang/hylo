@@ -17,7 +17,7 @@ final class CaptureCollectorTests: XCTestCase {
       """
 
     var ast = AST()
-    var diagnostics = Diagnostics()
+    var diagnostics = DiagnosticSet()
     let module = try ast.makeModule("Test", sourceCode: [source], diagnostics: &diagnostics)
 
     let fun = NodeID<FunctionDecl>(ast.topLevelDecls(module).first!)!

@@ -19,7 +19,7 @@ final class EmitterTests: XCTestCase {
         // Note: built-in module is visible so that we can test built-in function calls.
         var checker = TypeChecker(program: ScopedProgram(ast), isBuiltinModuleVisible: true)
         checker.check(module: module)
-        diagnostics.report(checker.diagnostics)
+        diagnostics.formUnion(checker.diagnostics)
         try diagnostics.throwOnError()
 
         let typedProgram = TypedProgram(
@@ -44,7 +44,7 @@ final class EmitterTests: XCTestCase {
         for i in 0 ..< pipeline.count {
           for f in 0 ..< irModule.functions.count {
             success = pipeline[i].run(function: f, module: &irModule) && success
-            diagnostics.report(pipeline[i].diagnostics)
+            diagnostics.formUnion(pipeline[i].diagnostics)
           }
           try diagnostics.throwOnError()
         }

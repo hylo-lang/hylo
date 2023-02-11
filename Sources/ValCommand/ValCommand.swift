@@ -117,8 +117,8 @@ public struct ValCommand: ParsableCommand {
   public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
     do {
       try execute1(loggingTo: &errorLog)
-    } catch let d as Diagnostics {
-      assert(d.errorReported, "Diagnostics containing no errors were thrown")
+    } catch let d as DiagnosticSet {
+      assert(d.containsError, "Diagnostics containing no errors were thrown")
       return ExitCode.failure
     }
     return ExitCode.success
@@ -126,7 +126,7 @@ public struct ValCommand: ParsableCommand {
 
   /// Executes the command, logging Val messages to `errorLog`.
   public func execute1<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
-    var diagnostics = Diagnostics()
+    var diagnostics = DiagnosticSet()
     defer { errorLog.log(diagnostics: diagnostics) }
 
     if compileInputAsModules {
@@ -182,7 +182,7 @@ public struct ValCommand: ParsableCommand {
       var passSuccess = true
       for f in 0 ..< irModule.functions.count {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
-        diagnostics.report(pipeline[i].diagnostics)
+        diagnostics.formUnion(pipeline[i].diagnostics)
       }
       if !passSuccess { return }
     }
