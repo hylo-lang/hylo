@@ -86,7 +86,7 @@ let package = Package(
     .target(
       name: "ValModule",
       path: "Library",
-      resources: [.copy("Core")],
+      resources: [.copy("Core"), .copy("CXX")],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(

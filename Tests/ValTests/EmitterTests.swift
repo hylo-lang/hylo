@@ -8,23 +8,22 @@ final class EmitterTests: XCTestCase {
 
   func testEmitter() throws {
     // Prepare an AST with the core module loaded.
-    var baseAST = AST()
-    baseAST.importCoreModule()
 
     try checkAnnotatedValFileDiagnostics(
       in: "TestCases/Lowering",
       { (source, diagnostics) in
         // Create a module for the input.
-        var ast = baseAST
-        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
+        var ast = AST.coreModule
+        let module = ast.insert(synthesized: ModuleDecl(source.baseName))
 
         // Parse the input.
         _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
 
-        // Run the type checker.
-        var checker = TypeChecker(program: ScopedProgram(ast))
-        _ = checker.check(module: module)
-        diagnostics.report(checker.diagnostics)
+        // Run the type checker
+        // Note: built-in module is visible so that we can test built-in function calls.
+        var checker = TypeChecker(program: ScopedProgram(ast), isBuiltinModuleVisible: true)
+        checker.check(module: module)
+        diagnostics.formUnion(checker.diagnostics)
         try diagnostics.throwOnError()
 
         let typedProgram = TypedProgram(
@@ -49,7 +48,7 @@ final class EmitterTests: XCTestCase {
         for i in 0 ..< pipeline.count {
           for f in 0 ..< irModule.functions.count {
             success = pipeline[i].run(function: f, module: &irModule) && success
-            diagnostics.report(pipeline[i].diagnostics)
+            diagnostics.formUnion(pipeline[i].diagnostics)
           }
           try diagnostics.throwOnError()
         }

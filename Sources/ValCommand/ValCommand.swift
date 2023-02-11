@@ -111,68 +111,52 @@ public struct ValCommand: ParsableCommand {
     ValCommand.exit(withError: try execute(loggingTo: &errorLog))
   }
 
-  /// Executes the command, logging messages to `errorLog`, and returns its exit status.
+  /// Executes the command, logging Val messages to `errorLog`, and returns its exit status.
+  ///
+  /// Propagates any thrown errors that are not Val diagnostics,
   public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
+    do {
+      try execute1(loggingTo: &errorLog)
+    } catch let d as DiagnosticSet {
+      assert(d.containsError, "Diagnostics containing no errors were thrown")
+      return ExitCode.failure
+    }
+    return ExitCode.success
+  }
+
+  /// Executes the command, logging Val messages to `errorLog`.
+  public func execute1<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
+    var diagnostics = DiagnosticSet()
+    defer { errorLog.log(diagnostics: diagnostics) }
+
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
     }
 
-    var diagnostics = Diagnostics()
-    let productName = "main"
+    let productName = makeProductName(inputs)
 
     /// The AST of the program being compiled.
-    var ast = AST()
+    var ast = AST.coreModule
 
     // Parse the source code.
-    let newModule: NodeID<ModuleDecl>
-    do {
-      newModule = try ast.makeModule(
-        "Main", sourceCode: sourceFiles(in: inputs), diagnostics: &diagnostics)
-    } catch _ as Diagnostics {
-      return finalize(logging: diagnostics, to: &errorLog)
-    }
+    let newModule = try ast.makeModule(
+      productName, sourceCode: sourceFiles(in: inputs),
+      builtinModuleAccess: importBuiltinModule,
+      diagnostics: &diagnostics)
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
-      let url = outputURL ?? URL(fileURLWithPath: "ast.json")
+      let url = outputURL ?? URL(fileURLWithPath: productName + ".ast.json")
       let encoder = JSONEncoder().forAST
       try encoder.encode(ast).write(to: url, options: .atomic)
-      return finalize(logging: diagnostics, to: &errorLog)
+      return
     }
 
-    // Import the core library.
-    ast.importCoreModule()
-
-    // Initialize the type checker.
-    var checker = TypeChecker(
-      program: ScopedProgram(ast),
-      isBuiltinModuleVisible: true,
-      tracingInferenceIn: inferenceTracingRange)
-    var typeCheckingSucceeded = true
-
-    // Type check the core library.
-    typeCheckingSucceeded = checker.check(module: checker.program.ast.corelib!)
-
-    // Type-check the input.
-    checker.isBuiltinModuleVisible = importBuiltinModule
-    typeCheckingSucceeded = checker.check(module: newModule) && typeCheckingSucceeded
-
-    // Report type-checking errors.
-    diagnostics.report(checker.diagnostics)
-    if !typeCheckingSucceeded {
-      return finalize(logging: diagnostics, to: &errorLog)
-    }
+    let typedProgram = try TypedProgram(
+      ast, tracingInferenceIn: inferenceTracingRange, diagnostics: &diagnostics)
 
     // Exit if `--typecheck` is set.
-    if typeCheckOnly { return finalize(logging: diagnostics, to: &errorLog) }
-
-    let typedProgram = TypedProgram(
-      annotating: checker.program,
-      declTypes: checker.declTypes,
-      exprTypes: checker.exprTypes,
-      implicitCaptures: checker.implicitCaptures,
-      referredDecls: checker.referredDecls,
-      foldedSequenceExprs: checker.foldedSequenceExprs)
+    if typeCheckOnly { return }
 
     // *** IR Lowering ***
 
@@ -183,7 +167,7 @@ public struct ValCommand: ParsableCommand {
     if outputType == .rawIR {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return finalize(logging: diagnostics, to: &errorLog)
+      return
     }
 
     // Run mandatory IR analysis and transformation passes.
@@ -198,39 +182,41 @@ public struct ValCommand: ParsableCommand {
       var passSuccess = true
       for f in 0 ..< irModule.functions.count {
         passSuccess = pipeline[i].run(function: f, module: &irModule) && passSuccess
-        diagnostics.report(pipeline[i].diagnostics)
+        diagnostics.formUnion(pipeline[i].diagnostics)
       }
-      if !passSuccess { return finalize(logging: diagnostics, to: &errorLog) }
+      if !passSuccess { return }
     }
 
     // Handle `--emit ir`
     if outputType == .ir {
       let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
       try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return finalize(logging: diagnostics, to: &errorLog)
+      return
     }
 
     // *** C++ Transpiling ***
 
     // Initialize the transpiler & code writer.
-    var transpiler = CXXTranspiler(program: typedProgram)
-    let codeWriter = CXXCodeWriter()
+    let transpiler = CXXTranspiler(typedProgram)
+    var codeWriter = CXXCodeWriter()
 
-    // Translate the module to C++ AST.
-    let cxxModule = transpiler.emit(module: typedProgram[newModule])
-
-    // Generate the C++ code, header & source.
-    let cxxHeaderCode = codeWriter.emitHeaderCode(cxxModule)
-    let cxxSourceCode = codeWriter.emitSourceCode(cxxModule)
+    // Generate C++ code: Val's StdLib + current module.
+    let cxxStdLibModule = transpiler.transpile(stdlib: typedProgram.corelib!)
+    let cxxStdLib = codeWriter.cxxCode(cxxStdLibModule)
+    let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[newModule]))
 
     // Handle `--emit cpp`.
     if outputType == .cpp {
-      let baseURL = outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
-      try cxxHeaderCode.write(
-        to: baseURL.appendingPathExtension("h"), atomically: true, encoding: .utf8)
-      try cxxSourceCode.write(
-        to: baseURL.appendingPathExtension("cpp"), atomically: true, encoding: .utf8)
-      return finalize(logging: diagnostics, to: &errorLog)
+      try write(
+        cxxStdLib,
+        to: outputURL?.deletingLastPathComponent().appendingPathComponent(cxxStdLibModule.name)
+          ?? URL(fileURLWithPath: cxxStdLibModule.name),
+        loggingTo: &errorLog)
+      try write(
+        cxxCode,
+        to: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName),
+        loggingTo: &errorLog)
+      return
     }
 
     // *** Machine code generation ***
@@ -243,12 +229,13 @@ public struct ValCommand: ParsableCommand {
       appropriateFor: currentDirectory,
       create: true)
 
-    // Compile the transpiled module.
-    let cxxHeaderURL = buildDirectoryURL.appendingPathComponent(productName + ".h")
-    try cxxHeaderCode.write(to: cxxHeaderURL, atomically: true, encoding: .utf8)
-
-    let cxxSourceURL = buildDirectoryURL.appendingPathComponent(productName + ".cpp")
-    try cxxSourceCode.write(to: cxxSourceURL, atomically: true, encoding: .utf8)
+    // Write the C++ code to the build directory.
+    try write(
+      cxxStdLib,
+      to: buildDirectoryURL.appendingPathComponent(cxxStdLibModule.name),
+      loggingTo: &errorLog)
+    try write(
+      cxxCode, to: buildDirectoryURL.appendingPathComponent(productName), loggingTo: &errorLog)
 
     let clang = try find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
@@ -257,18 +244,35 @@ public struct ValCommand: ParsableCommand {
       [
         "-o", binaryURL.path,
         "-I", buildDirectoryURL.path,
-        cxxSourceURL.path,
+        buildDirectoryURL.appendingPathComponent(productName + ".cpp").path,
       ],
       loggingTo: &errorLog)
-
-    return finalize(logging: diagnostics, to: &errorLog)
   }
 
-  /// Logs the given diagnostics to the standard error and returns a success code if none of them
-  /// is an error; otherwise, returns a failure code.
-  private func finalize<L: Log>(logging diagnostics: Diagnostics, to log: inout L) -> ExitCode {
-    log.log(diagnostics: diagnostics)
-    return diagnostics.errorReported ? ExitCode.failure : ExitCode.success
+  /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
+  /// `u` without any path extension and stripping all leading dots. Otherwise, returns "Main".
+  private func makeProductName(_ inputs: [URL]) -> String {
+    if let u = inputs.uniqueElement {
+      let n = u.deletingPathExtension().lastPathComponent.drop(while: { $0 == "." })
+      if !n.isEmpty { return String(n) }
+    }
+    return "Main"
+  }
+
+  /// Writes the code for a C++ translation unit to .h/.cpp files at `baseUrl`.
+  private func write<L: Log>(
+    _ source: TranslationUnitCode, to baseURL: URL, loggingTo log: inout L
+  ) throws {
+    try write(source.headerCode, toURL: baseURL.appendingPathExtension("h"), loggingTo: &log)
+    try write(source.sourceCode, toURL: baseURL.appendingPathExtension("cpp"), loggingTo: &log)
+  }
+
+  /// Writes `source` to the `filename`, possibly with verbose logging.
+  private func write<L: Log>(_ source: String, toURL url: URL, loggingTo log: inout L) throws {
+    if verbose {
+      log.log("Writing \(url)")
+    }
+    try source.write(to: url, atomically: true, encoding: .utf8)
   }
 
   /// Creates a module from the contents at `url` and adds it to the AST.
@@ -297,16 +301,27 @@ public struct ValCommand: ParsableCommand {
       return candidateURL.path
     }
 
-    // Search in the PATH.
-    let environmentPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
-    for base in environmentPath.split(separator: ":") {
-      candidateURL = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
-      if FileManager.default.fileExists(atPath: candidateURL.path) {
-        ValCommand.executableLocationCache[executable] = candidateURL.path
-        return candidateURL.path
+    // Search in the PATH(for Windows).
+    #if os(Windows)
+      let environmentPath = ProcessInfo.processInfo.environment["Path"] ?? ""
+      for base in environmentPath.split(separator: ";") {
+        candidateURL = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+        if FileManager.default.fileExists(atPath: candidateURL.path + ".exe") {
+          ValCommand.executableLocationCache[executable] = candidateURL.path
+          return candidateURL.path
+        }
       }
-    }
-
+    // Search in the PATH(for Linux and MacOS).
+    #else
+      let environmentPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
+      for base in environmentPath.split(separator: ":") {
+        candidateURL = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+        if FileManager.default.fileExists(atPath: candidateURL.path) {
+          ValCommand.executableLocationCache[executable] = candidateURL.path
+          return candidateURL.path
+        }
+      }
+    #endif
     throw EnvironmentError(message: "executable not found: \(executable)")
   }
 

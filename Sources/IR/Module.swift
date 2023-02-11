@@ -146,6 +146,7 @@ public struct Module {
     let function = Function(
       name: locator.mangled,
       debugName: locator.description,
+      anchor: decl.introducerSite.first(),
       linkage: decl.isPublic ? .external : .module,
       inputs: inputs,
       output: output,
@@ -153,7 +154,7 @@ public struct Module {
     functions.append(function)
 
     // Determine if the new function is the module's entry.
-    if decl.scope.kind == TopLevelDeclSet.self,
+    if decl.scope.kind == TranslationUnit.self,
       decl.isPublic,
       decl.identifier?.value == "main"
     {

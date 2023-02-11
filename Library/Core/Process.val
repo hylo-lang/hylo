@@ -1,4 +1,8 @@
 /// Terminates the program abnormally.
+@_lowered_name("abort")
+public fun abort() -> Never
+
+/// Terminates the program abnormally.
 public fun fatal_error() -> Never {
-  Builtin.terminate()
+  abort()
 }

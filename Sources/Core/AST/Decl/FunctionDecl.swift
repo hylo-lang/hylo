@@ -109,12 +109,12 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     attributes.contains(where: { $0.value.name.value == "@_lowered_name" })
   }
 
-  public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
+  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     if !isInExprContext {
       // Parameter declarations must have a type annotation.
       for p in parameters {
         if ast[p].annotation == nil {
-          diagnostics.report(.error(missingTypeAnnotation: ast[p], in: ast))
+          diagnostics.insert(.error(missingTypeAnnotation: ast[p], in: ast))
         }
       }
     }

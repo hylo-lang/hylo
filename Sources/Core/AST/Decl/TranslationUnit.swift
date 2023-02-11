@@ -1,9 +1,9 @@
-/// A set of declarations at the top-level of a source file.
-public struct TopLevelDeclSet: Node, LexicalScope {
+/// A collection of declarations at the top-level of a source file.
+public struct TranslationUnit: Node, LexicalScope {
 
   public let site: SourceRange
 
-  /// The declarations in the set.
+  /// The declarations in this unit.
   public private(set) var decls: [AnyDeclID]
 
   /// Creates an instance with the given properties.
@@ -12,7 +12,7 @@ public struct TopLevelDeclSet: Node, LexicalScope {
     self.site = site
   }
 
-  public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
+  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     for d in decls {
       ast.validateGlobalScopeMember(d, into: &diagnostics, atTopLevel: true)
     }

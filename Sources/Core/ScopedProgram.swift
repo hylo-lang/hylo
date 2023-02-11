@@ -92,8 +92,6 @@ extension ScopedProgram {
       visit(associatedValueDecl: NodeID(decl)!, withState: &state)
     case BindingDecl.self:
       visit(bindingDecl: NodeID(decl)!, withState: &state)
-    case BuiltinDecl.self:
-      break
     case ConformanceDecl.self:
       visit(conformanceDecl: NodeID(decl)!, withState: &state)
     case ExtensionDecl.self:
@@ -131,7 +129,7 @@ extension ScopedProgram {
     case VarDecl.self:
       visit(varDecl: NodeID(decl)!, withState: &state)
     default:
-      unreachable("unexpected declaration")
+      unexpected(decl, in: ast)
     }
   }
 
@@ -498,15 +496,7 @@ extension ScopedProgram {
         if let clause = this.ast[decl].genericClause?.value {
           this.visit(genericClause: clause, withState: &state)
         }
-        switch this.ast[decl].body {
-        case .typeExpr(let expr):
-          this.visit(expr: expr, withState: &state)
-
-        case .union(let union):
-          for element in union {
-            this.visit(productTypeDecl: element, withState: &state)
-          }
-        }
+        this.visit(expr: this.ast[decl].aliasedType, withState: &state)
       })
   }
 
@@ -519,7 +509,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    topLevelDeclSet: NodeID<TopLevelDeclSet>,
+    topLevelDeclSet: NodeID<TranslationUnit>,
     withState state: inout VisitorState
   ) {
     nesting(
@@ -594,7 +584,7 @@ extension ScopedProgram {
     case WildcardExpr.self:
       break
     default:
-      unreachable("unexpected expression")
+      unexpected(expr, in: ast)
     }
   }
 
@@ -843,7 +833,7 @@ extension ScopedProgram {
     case WildcardPattern.self:
       break
     default:
-      unreachable("unexpected pattern")
+      unexpected(pattern, in: ast)
     }
   }
 
@@ -913,7 +903,7 @@ extension ScopedProgram {
     case YieldStmt.self:
       visit(yieldStmt: NodeID(stmt)!, withState: &state)
     default:
-      unreachable("unexpected statement")
+      unexpected(stmt, in: ast)
     }
   }
 

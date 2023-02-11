@@ -33,7 +33,7 @@ struct Solution {
   private var penalties: Int
 
   /// The diagnostics of the errors associated with the solution.
-  private(set) var diagnostics: [Diagnostic]
+  private(set) var diagnostics: DiagnosticSet
 
   /// Creates an empty solution.
   init() {
@@ -45,7 +45,7 @@ struct Solution {
     typeAssumptions: SubstitutionMap,
     bindingAssumptions: [NodeID<NameExpr>: DeclRef],
     penalties: Int,
-    diagnostics: [Diagnostic]
+    diagnostics: DiagnosticSet
   ) {
     self.typeAssumptions = typeAssumptions
     self.bindingAssumptions = bindingAssumptions
@@ -54,6 +54,6 @@ struct Solution {
   }
 
   /// The score of the solution.
-  var score: Score { Score(errorCount: diagnostics.count, penalties: penalties) }
+  var score: Score { Score(errorCount: diagnostics.elements.count, penalties: penalties) }
 
 }
