@@ -5,7 +5,7 @@ type A: Sinkable {
   var x: Int
 
   public init(value: sink Int) {
-    self = A(x: value)
+    &self = A(x: value)
   }
 
 }

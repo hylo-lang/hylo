@@ -7,7 +7,7 @@ public type Int {
 
   /// Creates an instance with value `0`.
   public init() {
-    self.value = Builtin.zeroinitializer_i64()
+    &self.value = Builtin.zeroinitializer_i64()
   }
 
   /// Returns the sum of `self` and `other`.
