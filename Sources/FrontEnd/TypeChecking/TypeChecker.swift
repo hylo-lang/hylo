@@ -305,8 +305,7 @@ public struct TypeChecker {
 
     // Determine the shape of the declaration.
     let declScope = program.declToScope[AnyDeclID(id)]!
-    let shape = inferType(
-      of: AnyPatternID(syntax.pattern), in: declScope, expecting: nil)
+    let shape = inferredType(of: AnyPatternID(syntax.pattern), in: declScope, shapedBy: nil)
     assert(shape.facts.inferredTypes.storage.isEmpty, "expression in binding pattern")
 
     if shape.type.isError {
@@ -1588,8 +1587,8 @@ public struct TypeChecker {
     }
 
     // Generate constraints.
-    let (inferredType, facts, deferredQueries) = inferType(
-      of: subject, in: AnyScopeID(scope), expecting: expectedType)
+    let (subjectType, facts, deferredQueries) = inferredType(
+      of: subject, shapedBy: shape, in: AnyScopeID(scope))
 
     // Bail out if constraint generation failed.
     if facts.foundConflict {
@@ -1600,7 +1599,7 @@ public struct TypeChecker {
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
       fresh: initialConstraints + facts.constraints,
-      comparingSolutionsWith: inferredType,
+      comparingSolutionsWith: subjectType,
       loggingTrace: shouldLogTrace)
     let solution = solver.apply(using: &self)
 
