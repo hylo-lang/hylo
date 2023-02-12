@@ -132,7 +132,7 @@ final class ValCommandTests: XCTestCase {
     with arguments: [String]
   ) throws -> CompilationResult {
     // Create a temporary output.
-    let output = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).out")
+    let output = FileManager.default.temporaryFile()
 
     // Parse the command line's arguments.
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
@@ -149,7 +149,7 @@ extension FileManager {
 
   /// Returns the URL of a temporary file.
   func temporaryFile() -> URL {
-    temporaryDirectory.appendingPathComponent(ProcessInfo().globallyUniqueString)
+    temporaryDirectory.appendingPathComponent("\(UUID())")
   }
 
 }
