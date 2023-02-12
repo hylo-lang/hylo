@@ -141,6 +141,11 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
           output.write("destructure ")
           output.write(describe(operand: instruction.object))
 
+        case let instruction as ElementAddrInstruction:
+          output.write("element_addr ")
+          output.write(describe(operand: instruction.base))
+          output.write(", \(list: instruction.elementPath, joinedBy: ", ")")
+
         case let instruction as LoadInstruction:
           output.write("load ")
           output.write(describe(operand: instruction.source))
