@@ -1019,23 +1019,33 @@ public struct Emitter {
       fatalError("not implemented")
 
     default:
-      let value = emitRValue(expr, into: &module)
-      let storage = module.append(
-        AllocStackInstruction(expr.type, site: expr.site),
-        to: insertionBlock!)[0]
-      frames.top.allocs.append(storage)
-
-      let target = module.append(
-        BorrowInstruction(.set, .address(expr.type), from: storage, site: expr.site),
-        to: insertionBlock!)[0]
-      module.append(
-        StoreInstruction(value, to: target, site: expr.site),
-        to: insertionBlock!)
-
-      return module.append(
-        BorrowInstruction(capability, .address(expr.type), from: storage, site: expr.site),
-        to: insertionBlock!)[0]
+      return emitLValue(convertingRValue: expr, meantFor: capability, into: &module)
     }
+  }
+
+  /// Inserts the IR for the rvalue `expr` converted as a lvalue meant for `capability` into
+  /// `module` at the end of the current insertion block.
+  private mutating func emitLValue<ID: ExprID>(
+    convertingRValue expr: ID.TypedNode,
+    meantFor capability: AccessEffect,
+    into module: inout Module
+  ) -> Operand {
+    let value = emitRValue(expr, into: &module)
+    let storage = module.append(
+      AllocStackInstruction(expr.type, site: expr.site),
+      to: insertionBlock!)[0]
+    frames.top.allocs.append(storage)
+
+    let target = module.append(
+      BorrowInstruction(.set, .address(expr.type), from: storage, site: expr.site),
+      to: insertionBlock!)[0]
+    module.append(
+      StoreInstruction(value, to: target, site: expr.site),
+      to: insertionBlock!)
+
+    return module.append(
+      BorrowInstruction(capability, .address(expr.type), from: storage, site: expr.site),
+      to: insertionBlock!)[0]
   }
 
   private mutating func emitLValue(
