@@ -51,8 +51,8 @@ public struct TypeChecker {
   /// The AST of the program being type checked.
   public var ast: AST { program.ast }
 
-  /// Adds the given diagnostic.
-  mutating func addDiagnostic(_ d: Diagnostic) {
+  /// Reports the given diagnostic.
+  mutating func report(_ d: Diagnostic) {
     diagnostics.insert(d)
   }
 

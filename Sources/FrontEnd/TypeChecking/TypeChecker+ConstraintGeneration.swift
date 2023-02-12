@@ -385,7 +385,7 @@ extension TypeChecker {
     }
 
     // Case 3c
-    addDiagnostic(
+    report(
       .error(
         nonCallableType: state.facts.inferredTypes[syntax.callee]!,
         at: ast[syntax.callee].site))
@@ -441,14 +441,14 @@ extension TypeChecker {
       // Check that the underlying declaration is structurally compatible with the type.
       let requiredLabels = ast[ast[syntax.decl].parameters].map(\.label?.value)
       if requiredLabels.count != s.inputs.count {
-        addDiagnostic(
+        report(
           .error(
             expectedLambdaParameterCount: s.inputs.count, found: requiredLabels.count,
             at: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
       }
       if !requiredLabels.elementsEqual(s.inputs, by: { $0 == $1.label }) {
-        addDiagnostic(
+        report(
           .error(
             labels: Array(requiredLabels), incompatibleWith: s.inputs.map(\.label),
             at: ast[syntax.decl].introducerSite))
@@ -480,8 +480,7 @@ extension TypeChecker {
           of: body, in: AnyScopeID(syntax.decl),
           expecting: underlyingDeclType.output, updating: &state)
       } else {
-        addDiagnostic(
-          .error(cannotInferComplexReturnTypeAt: ast[syntax.decl].introducerSite))
+        report(.error(cannotInferComplexReturnTypeAt: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
       }
     }
@@ -716,7 +715,7 @@ extension TypeChecker {
 
       // Buffer type expressions shall have exactly one argument.
       if syntax.arguments.count != 1 {
-        addDiagnostic(.error(invalidBufferTypeExprArgumentCount: subject, in: ast))
+        report(.error(invalidBufferTypeExprArgumentCount: subject, in: ast))
         return state.facts.assignErrorType(to: subject)
       }
 
@@ -729,7 +728,7 @@ extension TypeChecker {
       "[]", memberOf: state.facts.inferredTypes[syntax.callee]!, in: scope)
     switch candidates.count {
     case 0:
-      addDiagnostic(
+      report(
         .error(
           noUnnamedSubscriptsIn: state.facts.inferredTypes[syntax.callee]!,
           at: ast[syntax.callee].site))
@@ -924,7 +923,7 @@ extension TypeChecker {
       // The pattern and the expected have a tuple shape.
       if t.elements.count != ast[subject].elements.count {
         // Invalid destructuring.
-        addDiagnostic(.error(invalidDestructuringOfType: expectedType!, at: ast[subject].site))
+        report(.error(invalidDestructuringOfType: expectedType!, at: ast[subject].site))
         return .error
       }
 
@@ -941,7 +940,7 @@ extension TypeChecker {
 
       // Check that labels match.
       if lhs != rhs {
-        addDiagnostic(.error(labels: lhs, incompatibleWith: rhs, at: ast[subject].site))
+        report(.error(labels: lhs, incompatibleWith: rhs, at: ast[subject].site))
         return .error
       }
 
@@ -953,7 +952,7 @@ extension TypeChecker {
 
     case .some:
       // If the expected type doesn't have a tuple shape, the pattern cannot match.
-      addDiagnostic(.error(invalidDestructuringOfType: expectedType!, at: ast[subject].site))
+      report(.error(invalidDestructuringOfType: expectedType!, at: ast[subject].site))
       return .error
 
     case nil:
@@ -988,11 +987,8 @@ extension TypeChecker {
 
     // Check that the labels inferred from the callee are consistent with that of the call.
     if argumentLabels != parameterLabels {
-      addDiagnostic(
-        .error(
-          labels: argumentLabels,
-          incompatibleWith: parameterLabels,
-          at: ast[callee].site))
+      report(
+        .error(labels: argumentLabels, incompatibleWith: parameterLabels, at: ast[callee].site))
       return false
     }
 
@@ -1107,7 +1103,7 @@ extension TypeChecker {
 
       switch candidates.count {
       case 0:
-        addDiagnostic(.error(undefinedOperator: operatorStem, at: ast[tail[i].operator].site))
+        report(.error(undefinedOperator: operatorStem, at: ast[tail[i].operator].site))
         accumulator.append(
           operator: (expr: tail[i].operator, precedence: nil),
           right: tail[i].operand)
