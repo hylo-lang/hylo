@@ -1050,31 +1050,25 @@ public struct TypeChecker {
   }
 
   private mutating func check<S: ScopeID>(
-    assign id: NodeID<AssignStmt>,
-    in lexicalContext: S
+    assign s: NodeID<AssignStmt>,
+    in scope: S
   ) -> Bool {
-    // Infer the type on the left.
-    guard let lhsType = checkedType(of: ast[id].left, in: lexicalContext) else {
-      return false
-    }
-
-    // The type on the left must be `Sinkable`.
+    // Target type must be `Sinkable`.
+    guard let targetType = checkedType(of: ast[s].left, in: scope) else { return false }
     let lhsConstraint = ConformanceConstraint(
-      lhsType, conformsTo: [ast.coreTrait(named: "Sinkable")!],
-      because: ConstraintCause(.initializationOrAssignment, at: ast[id].site))
+      targetType, conformsTo: [ast.coreTrait(named: "Sinkable")!],
+      because: ConstraintCause(.initializationOrAssignment, at: ast[s].site))
 
-    // Constrain the right to be subtype on the left.
-    let rhsType = exprTypes[ast[id].right]
-      .setIfNil(^TypeVariable(node: program.ast[id].right.base))
+    // Source type must be subtype of the target type.
+    let sourceType = exprTypes[ast[s].right]
+      .setIfNil(^TypeVariable(node: program.ast[s].right.base))
     let rhsConstraint = SubtypingConstraint(
-      rhsType, lhsType,
-      because: ConstraintCause(.initializationOrAssignment, at: ast[id].site))
+      sourceType, targetType,
+      because: ConstraintCause(.initializationOrAssignment, at: ast[s].site))
 
-    // Infer the type on the right.
+    // Note: Type information flows strictly from left to right.
     let inference = solutionTyping(
-      AnyExprID(ast[id].right),
-      shapedBy: lhsType,
-      in: lexicalContext,
+      ast[s].right, shapedBy: targetType, in: scope,
       initialConstraints: [lhsConstraint, rhsConstraint])
     return inference.succeeded
   }
