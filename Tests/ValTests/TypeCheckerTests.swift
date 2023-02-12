@@ -9,7 +9,9 @@ final class TypeCheckerTests: XCTestCase {
       in: "TestCases/TypeChecking",
       { (source, diagnostics) in
         var ast = AST.coreModule
-        _ = try ast.makeModule(source.baseName, sourceCode: [source], diagnostics: &diagnostics)
+        _ = try ast.makeModule(
+          source.baseName, sourceCode: [source], builtinModuleAccess: true,
+          diagnostics: &diagnostics)
         _ = try TypedProgram(ast, diagnostics: &diagnostics)
       })
   }
