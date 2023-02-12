@@ -2686,13 +2686,11 @@ public struct TypeChecker {
       return realize(bindingDecl: NodeID(id)!)
 
     case ConformanceDecl.self, ExtensionDecl.self:
-      return _realize(
-        decl: id,
-        { (this, id) in
-          let decl = this.program.ast[id] as! TypeExtendingDecl
-          let type = this.realize(decl.subject, in: this.program.declToScope[id]!)
-          return type.flatMap(AnyType.init(_:))
-        })
+      return _realize(decl: id) { (this, d) in
+        let s = (this.program.ast[id] as! TypeExtendingDecl).subject
+        let t = this.realize(s, in: this.program.declToScope[d]!)
+        return t.map(AnyType.init(_:)) ?? .error
+      }
 
     case FunctionDecl.self:
       return realize(functionDecl: NodeID(id)!)
@@ -3301,7 +3299,7 @@ public struct TypeChecker {
   /// result before returning it.
   private mutating func _realize<T: DeclID>(
     decl id: T,
-    _ action: (inout Self, T) -> AnyType?
+    _ action: (inout Self, T) -> AnyType
   ) -> AnyType {
     // Check if a type realization request has already been received.
     switch declRequests[id] {
