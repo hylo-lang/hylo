@@ -177,7 +177,7 @@ extension TypeChecker {
         ofTupleExpr: NodeID(subject)!, in: scope,
         expecting: expectedType, updating: &state)
     default:
-      unexpected(subject, in: program.ast)
+      unexpected(subject, in: ast)
     }
   }
 
@@ -187,8 +187,7 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    state.facts.constrain(
-      subject, in: program.ast, toHaveType: program.ast.coreType(named: "Bool")!)
+    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "Bool")!)
   }
 
   private mutating func inferType(
@@ -197,7 +196,7 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let syntax = program.ast[subject]
+    let syntax = ast[subject]
 
     // Realize the type to which the left operand should be converted.
     guard let target = realize(syntax.right, in: scope)?.instance else {
@@ -233,7 +232,7 @@ extension TypeChecker {
     }
 
     // In any case, the expression is assumed to have the type denoted by the right operand.
-    return state.facts.constrain(subject, in: program.ast, toHaveType: rhs.shape)
+    return state.facts.constrain(subject, in: ast, toHaveType: rhs.shape)
   }
 
   private mutating func inferType(
@@ -242,10 +241,10 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let syntax = program.ast[subject]
+    let syntax = ast[subject]
 
     // Visit the condition(s).
-    let boolType = AnyType(program.ast.coreType(named: "Bool")!)
+    let boolType = AnyType(ast.coreType(named: "Bool")!)
     for item in syntax.condition {
       switch item {
       case .expr(let expr):
@@ -281,7 +280,7 @@ extension TypeChecker {
           EqualityConstraint(
             successType, failureType,
             because: ConstraintCause(.branchMerge, at: syntax.site)))
-        return state.facts.constrain(subject, in: program.ast, toHaveType: successType)
+        return state.facts.constrain(subject, in: ast, toHaveType: successType)
       }
 
     case .block(let branch):
@@ -291,7 +290,7 @@ extension TypeChecker {
       break
     }
 
-    return state.facts.constrain(subject, in: program.ast, toHaveType: AnyType.void)
+    return state.facts.constrain(subject, in: ast, toHaveType: AnyType.void)
   }
 
   private mutating func inferType(
@@ -300,7 +299,7 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let syntax = program.ast[subject]
+    let syntax = ast[subject]
 
     // Infer the type of the callee.
     let calleeType = inferType(of: syntax.callee, in: scope, expecting: nil, updating: &state)
@@ -329,9 +328,9 @@ extension TypeChecker {
       state.facts.append(
         FunctionCallConstraint(
           calleeType, takes: parameters, andReturns: returnType,
-          because: ConstraintCause(.callee, at: program.ast[syntax.callee].site)))
+          because: ConstraintCause(.callee, at: ast[syntax.callee].site)))
 
-      return state.facts.constrain(subject, in: program.ast, toHaveType: returnType)
+      return state.facts.constrain(subject, in: ast, toHaveType: returnType)
     }
 
     // Case 3a
@@ -340,7 +339,7 @@ extension TypeChecker {
         arguments: syntax.arguments, of: syntax.callee, in: scope,
         expecting: callable.inputs, updating: &state)
       {
-        return state.facts.constrain(subject, in: program.ast, toHaveType: callable.output)
+        return state.facts.constrain(subject, in: ast, toHaveType: callable.output)
       } else {
         return state.facts.assignErrorType(to: subject)
       }
@@ -354,7 +353,7 @@ extension TypeChecker {
       let instanceType = MetatypeType(calleeType)!.instance
       let initName = SourceRepresentable(
         value: Name(stem: "init", labels: ["self"] + syntax.arguments.map(\.label?.value)),
-        range: program.ast[c].name.site)
+        range: ast[c].name.site)
       let initCandidates = resolve(
         initName, withArguments: [], memberOf: instanceType, from: scope)
 
@@ -376,7 +375,7 @@ extension TypeChecker {
           arguments: syntax.arguments, of: syntax.callee, in: scope,
           expecting: ctorType.inputs, updating: &state)
         {
-          return state.facts.constrain(subject, in: program.ast, toHaveType: ctorType.output)
+          return state.facts.constrain(subject, in: ast, toHaveType: ctorType.output)
         } else {
           return state.facts.assignErrorType(to: subject)
         }
@@ -389,7 +388,7 @@ extension TypeChecker {
     addDiagnostic(
       .error(
         nonCallableType: state.facts.inferredTypes[syntax.callee]!,
-        at: program.ast[syntax.callee].site))
+        at: ast[syntax.callee].site))
     return state.facts.assignErrorType(to: subject)
   }
 
@@ -399,11 +398,11 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let syntax = program.ast[subject]
+    let syntax = ast[subject]
     let subjectType = inferType(
       of: syntax.subject, in: scope,
       expecting: expectedType, updating: &state)
-    return state.facts.constrain(subject, in: program.ast, toHaveType: subjectType)
+    return state.facts.constrain(subject, in: ast, toHaveType: subjectType)
   }
 
   private mutating func inferType(
@@ -412,20 +411,20 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let syntax = program.ast[subject]
+    let syntax = ast[subject]
 
-    let defaultType = AnyType(program.ast.coreType(named: "Int")!)
+    let defaultType = AnyType(ast.coreType(named: "Int")!)
     let cause = ConstraintCause(.literal, at: syntax.site)
 
     // If there's an expected type, constrain it to conform to `ExpressibleByIntegerLiteral`.
     // Otherwise, constraint the literal to have type `Int`.
     if let e = expectedType {
-      let literalTrait = program.ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
+      let literalTrait = ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
       state.facts.append(
         LiteralConstraint(e, defaultsTo: defaultType, conformsTo: literalTrait, because: cause))
-      return state.facts.constrain(subject, in: program.ast, toHaveType: e)
+      return state.facts.constrain(subject, in: ast, toHaveType: e)
     } else {
-      return state.facts.constrain(subject, in: program.ast, toHaveType: defaultType)
+      return state.facts.constrain(subject, in: ast, toHaveType: defaultType)
     }
   }
 
@@ -435,25 +434,24 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let syntax = program.ast[subject]
+    let syntax = ast[subject]
 
     let subjectConventions: [AccessEffect]?
     if let s = expectedType?.base as? LambdaType {
       // Check that the underlying declaration is structurally compatible with the type.
-      let requiredLabels = program.ast[syntax.decl].parameters
-        .map({ (p) in program.ast[p].label?.value })
+      let requiredLabels = ast[ast[syntax.decl].parameters].map(\.label?.value)
       if requiredLabels.count != s.inputs.count {
         addDiagnostic(
           .error(
             expectedLambdaParameterCount: s.inputs.count, found: requiredLabels.count,
-            at: program.ast[syntax.decl].introducerSite))
+            at: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
       }
       if !requiredLabels.elementsEqual(s.inputs, by: { $0 == $1.label }) {
         addDiagnostic(
           .error(
-            labels: requiredLabels, incompatibleWith: s.inputs.map(\.label),
-            at: program.ast[syntax.decl].introducerSite))
+            labels: Array(requiredLabels), incompatibleWith: s.inputs.map(\.label),
+            at: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
       }
 
@@ -477,18 +475,18 @@ extension TypeChecker {
 
     // If the underlying declaration's return type is a unknown, infer it from the lambda's body.
     if underlyingDeclType.output.base is TypeVariable {
-      if case .expr(let body) = program.ast[syntax.decl].body {
+      if case .expr(let body) = ast[syntax.decl].body {
         _ = inferType(
           of: body, in: AnyScopeID(syntax.decl),
           expecting: underlyingDeclType.output, updating: &state)
       } else {
         addDiagnostic(
-          .error(cannotInferComplexReturnTypeAt: program.ast[syntax.decl].introducerSite))
+          .error(cannotInferComplexReturnTypeAt: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
       }
     }
 
-    return state.facts.constrain(subject, in: program.ast, toHaveType: underlyingDeclType)
+    return state.facts.constrain(subject, in: ast, toHaveType: underlyingDeclType)
   }
 
   private mutating func inferType(
@@ -497,7 +495,7 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let syntax = program.ast[subject]
+    let syntax = ast[subject]
 
     // Visit the subject of the match.
     let subjectType = inferType(of: syntax.subject, in: scope, expecting: nil, updating: &state)
@@ -508,7 +506,7 @@ extension TypeChecker {
     for c in syntax.cases {
       // Each pattern is expected to have the same type as the subject.
       let caseType = inferType(
-        of: program.ast[c].pattern, in: scope,
+        of: ast[c].pattern, in: scope,
         expecting: subjectType, updating: &state)
 
       if caseType.isError {
@@ -516,7 +514,7 @@ extension TypeChecker {
       }
     }
 
-    return state.facts.constrain(subject, in: program.ast, toHaveType: AnyType.void)
+    return state.facts.constrain(subject, in: ast, toHaveType: AnyType.void)
   }
 
   private mutating func inferType(
@@ -534,7 +532,8 @@ extension TypeChecker {
     if let e = expectedType {
       state.facts.append(
         EqualityConstraint(
-          nameType, e, because: ConstraintCause(.binding, at: program.ast[subject].site)))
+          nameType, e,
+          because: ConstraintCause(.binding, at: ast[subject].site)))
     }
 
     return nameType
@@ -554,7 +553,7 @@ extension TypeChecker {
       return state.facts.assignErrorType(to: subject)
 
     case .inexecutable(let suffix):
-      if case .expr(let domainExpr) = program.ast[subject].domain {
+      if case .expr(let domainExpr) = ast[subject].domain {
         lastVisitedComponentType = inferType(
           of: domainExpr, in: scope, expecting: nil, updating: &state)
       } else {
@@ -577,10 +576,9 @@ extension TypeChecker {
       state.facts.append(
         MemberConstraint(
           lastVisitedComponentType!, hasMemberReferredToBy: component, ofType: memberType,
-          in: program.ast,
-          because: ConstraintCause(.member, at: program.ast[component].site)))
-      lastVisitedComponentType = state.facts.constrain(
-        component, in: program.ast, toHaveType: memberType)
+          in: ast,
+          because: ConstraintCause(.member, at: ast[component].site)))
+      lastVisitedComponentType = state.facts.constrain(component, in: ast, toHaveType: memberType)
     }
 
     return lastVisitedComponentType!
@@ -600,7 +598,7 @@ extension TypeChecker {
     let rootType = inferType(
       ofSequenceExpr: foldedSequence, in: scope,
       expecting: expectedType, updating: &state)
-    return state.facts.constrain(subject, in: program.ast, toHaveType: rootType)
+    return state.facts.constrain(subject, in: ast, toHaveType: rootType)
   }
 
   private mutating func inferType(
@@ -626,7 +624,7 @@ extension TypeChecker {
       state.facts.append(
         ParameterConstraint(
           rhsType, parameterType,
-          because: ConstraintCause(.argument, at: program.ast.site(of: rhs))))
+          because: ConstraintCause(.argument, at: ast.site(of: rhs))))
 
       let outputType = ^TypeVariable()
       let calleeType = LambdaType(
@@ -640,8 +638,8 @@ extension TypeChecker {
       state.facts.append(
         MemberConstraint(
           lhsType, hasMemberReferredToBy: callee.expr, ofType: ^calleeType,
-          in: program.ast,
-          because: ConstraintCause(.member, at: program.ast[callee.expr].site)))
+          in: ast,
+          because: ConstraintCause(.member, at: ast[callee.expr].site)))
 
       return outputType
 
@@ -656,7 +654,7 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let syntax = program.ast[subject]
+    let syntax = ast[subject]
 
     // Infer the type of the callee.
     let calleeType = inferType(of: syntax.callee, in: scope, expecting: nil, updating: &state)
@@ -692,9 +690,9 @@ extension TypeChecker {
       state.facts.append(
         EqualityConstraint(
           calleeType, ^assumedCalleeType,
-          because: ConstraintCause(.callee, at: program.ast[syntax.callee].site)))
+          because: ConstraintCause(.callee, at: ast[syntax.callee].site)))
 
-      return state.facts.constrain(subject, in: program.ast, toHaveType: returnType)
+      return state.facts.constrain(subject, in: ast, toHaveType: returnType)
     }
 
     // Case 3a
@@ -703,7 +701,7 @@ extension TypeChecker {
         arguments: syntax.arguments, of: syntax.callee, in: scope,
         expecting: callable.inputs, updating: &state)
       {
-        return state.facts.constrain(subject, in: program.ast, toHaveType: callable.output)
+        return state.facts.constrain(subject, in: ast, toHaveType: callable.output)
       } else {
         return state.facts.assignErrorType(to: subject)
       }
@@ -718,7 +716,7 @@ extension TypeChecker {
 
       // Buffer type expressions shall have exactly one argument.
       if syntax.arguments.count != 1 {
-        addDiagnostic(.error(invalidBufferTypeExprArgumentCount: subject, in: program.ast))
+        addDiagnostic(.error(invalidBufferTypeExprArgumentCount: subject, in: ast))
         return state.facts.assignErrorType(to: subject)
       }
 
@@ -734,7 +732,7 @@ extension TypeChecker {
       addDiagnostic(
         .error(
           noUnnamedSubscriptsIn: state.facts.inferredTypes[syntax.callee]!,
-          at: program.ast[syntax.callee].site))
+          at: ast[syntax.callee].site))
       return state.facts.assignErrorType(to: subject)
 
     case 1:
@@ -751,7 +749,7 @@ extension TypeChecker {
       // Contextualize the type of the referred declaration.
       let instantiatedType = instantiate(
         declType, in: scope,
-        cause: ConstraintCause(.callee, at: program.ast[syntax.callee].site))
+        cause: ConstraintCause(.callee, at: ast[syntax.callee].site))
 
       // Visit the arguments.
       let calleeType = SubscriptType(instantiatedType.shape)!
@@ -767,7 +765,7 @@ extension TypeChecker {
           referredDecls[c] = .member(decl)
         }
 
-        return state.facts.constrain(subject, in: program.ast, toHaveType: calleeType.output)
+        return state.facts.constrain(subject, in: ast, toHaveType: calleeType.output)
       } else {
         return state.facts.assignErrorType(to: subject)
       }
@@ -784,7 +782,7 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let elements = program.ast[subject].elements
+    let elements = ast[subject].elements
     var elementTypes: [TupleType.Element] = []
 
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
@@ -808,7 +806,7 @@ extension TypeChecker {
       }
     }
 
-    return state.facts.constrain(subject, in: program.ast, toHaveType: TupleType(elementTypes))
+    return state.facts.constrain(subject, in: ast, toHaveType: TupleType(elementTypes))
   }
 
   // MARK: Patterns
@@ -870,13 +868,13 @@ extension TypeChecker {
     // that case, the type denoted by the annotation is used to infer the type of the sub-pattern
     // and constrained to be a subtype of the expected type, if any.
     var subpatternType = expectedType
-    if let a = program.ast[subject].annotation {
+    if let a = ast[subject].annotation {
       if let subjectType = realize(a, in: scope)?.instance {
         if let t = expectedType {
           state.facts.append(
             SubtypingConstraint(
               subjectType, t,
-              because: ConstraintCause(.annotation, at: program.ast[subject].site)))
+              because: ConstraintCause(.annotation, at: ast[subject].site)))
 
         }
         subpatternType = subjectType
@@ -886,7 +884,7 @@ extension TypeChecker {
     }
 
     return inferType(
-      of: program.ast[subject].subpattern, in: scope,
+      of: ast[subject].subpattern, in: scope,
       expecting: subpatternType, updating: &state)
   }
 
@@ -896,7 +894,7 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    inferType(of: program.ast[subject].expr, in: scope, expecting: expectedType, updating: &state)
+    inferType(of: ast[subject].expr, in: scope, expecting: expectedType, updating: &state)
   }
 
   private mutating func inferType(
@@ -905,7 +903,7 @@ extension TypeChecker {
     expecting expectedType: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let nameDecl = program.ast[subject].decl
+    let nameDecl = ast[subject].decl
     let nameType = expectedType ?? ^TypeVariable(node: AnyNodeID(nameDecl))
     setInferredType(nameType, for: nameDecl)
     state.deferred.append({ (checker, solution) in
@@ -924,28 +922,27 @@ extension TypeChecker {
     switch expectedType?.base {
     case let t as TupleType:
       // The pattern and the expected have a tuple shape.
-      if t.elements.count != program.ast[subject].elements.count {
+      if t.elements.count != ast[subject].elements.count {
         // Invalid destructuring.
         diagnostics.insert(
-          .error(invalidDestructuringOfType: expectedType!, at: program.ast[subject].site))
+          .error(invalidDestructuringOfType: expectedType!, at: ast[subject].site))
         return .error
       }
 
-      var lLabels: [String?] = []
-      var rLabels: [String?] = []
+      var lhs: [String?] = []
+      var rhs: [String?] = []
 
       // Visit the elements pairwise.
-      for (a, b) in zip(program.ast[subject].elements, t.elements) {
+      for (a, b) in zip(ast[subject].elements, t.elements) {
         let elementType = inferType(of: a.pattern, in: scope, expecting: b.type, updating: &state)
         if elementType.isError { return .error }
-        lLabels.append(a.label?.value)
-        rLabels.append(b.label)
+        lhs.append(a.label?.value)
+        rhs.append(b.label)
       }
 
       // Check that labels match.
-      if lLabels != rLabels {
-        diagnostics.insert(
-          .error(labels: lLabels, incompatibleWith: rLabels, at: program.ast[subject].site))
+      if lhs != rhs {
+        diagnostics.insert(.error(labels: lhs, incompatibleWith: rhs, at: ast[subject].site))
         return .error
       }
 
@@ -957,14 +954,13 @@ extension TypeChecker {
 
     case .some:
       // If the expected type doesn't have a tuple shape, the pattern cannot match.
-      diagnostics.insert(
-        .error(invalidDestructuringOfType: expectedType!, at: program.ast[subject].site))
+      diagnostics.insert(.error(invalidDestructuringOfType: expectedType!, at: ast[subject].site))
       return .error
 
     case nil:
       // Infer the shape of the expected type.
       var elements: [TupleType.Element] = []
-      for a in program.ast[subject].elements {
+      for a in ast[subject].elements {
         let elementType = inferType(
           of: a.pattern, in: scope,
           expecting: nil, updating: &state)
@@ -997,7 +993,7 @@ extension TypeChecker {
         .error(
           labels: argumentLabels,
           incompatibleWith: parameterLabels,
-          at: program.ast[callee].site))
+          at: ast[callee].site))
       return false
     }
 
@@ -1017,7 +1013,7 @@ extension TypeChecker {
       state.facts.append(
         ParameterConstraint(
           argumentType, parameters[i].type,
-          because: ConstraintCause(.argument, at: program.ast[argumentExpr].site)))
+          because: ConstraintCause(.argument, at: ast[argumentExpr].site)))
     }
 
     return true
@@ -1044,7 +1040,7 @@ extension TypeChecker {
       state.facts.append(
         ParameterConstraint(
           argumentType, parameterType,
-          because: ConstraintCause(.argument, at: program.ast[argumentExpr].site)))
+          because: ConstraintCause(.argument, at: ast[argumentExpr].site)))
 
       let argumentLabel = arguments[i].label?.value
       parameters.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
@@ -1067,7 +1063,7 @@ extension TypeChecker {
       // Bind the component to the resolved declaration and store its type.
       referredDecls[name] = candidate.reference
       state.facts.append(candidate.type.constraints)
-      return state.facts.constrain(name, in: program.ast, toHaveType: candidate.type.shape)
+      return state.facts.constrain(name, in: ast, toHaveType: candidate.type.shape)
     } else {
       // Create an overload set.
       let overloads: [OverloadConstraint.Candidate] = candidates.map({ (candidate) in
@@ -1083,8 +1079,8 @@ extension TypeChecker {
       state.facts.append(
         OverloadConstraint(
           name, withType: nameType, refersToOneOf: overloads,
-          because: ConstraintCause(.binding, at: program.ast[name].site)))
-      return state.facts.constrain(name, in: program.ast, toHaveType: nameType)
+          because: ConstraintCause(.binding, at: ast[name].site)))
+      return state.facts.constrain(name, in: ast, toHaveType: nameType)
     }
   }
 
@@ -1093,7 +1089,7 @@ extension TypeChecker {
     sequenceExpr expr: NodeID<SequenceExpr>,
     in scope: AnyScopeID
   ) -> FoldedSequenceExpr {
-    let syntax = program.ast[expr]
+    let syntax = ast[expr]
     return fold(sequenceExprTail: syntax.tail[0...], into: .leaf(syntax.head), in: scope)
   }
 
@@ -1107,19 +1103,18 @@ extension TypeChecker {
 
     for i in tail.indices {
       // Search for the operator declaration.
-      let operatorStem = program.ast[tail[i].operator].name.value.stem
+      let operatorStem = ast[tail[i].operator].name.value.stem
       let candidates = lookup(operator: operatorStem, notation: .infix, in: scope)
 
       switch candidates.count {
       case 0:
-        addDiagnostic(
-          .error(undefinedOperator: operatorStem, at: program.ast[tail[i].operator].site))
+        addDiagnostic(.error(undefinedOperator: operatorStem, at: ast[tail[i].operator].site))
         accumulator.append(
           operator: (expr: tail[i].operator, precedence: nil),
           right: tail[i].operand)
 
       case 1:
-        let precedence = program.ast[candidates[0]].precedenceGroup?.value
+        let precedence = ast[candidates[0]].precedenceGroup?.value
         accumulator.append(
           operator: (expr: tail[i].operator, precedence: precedence),
           right: tail[i].operand)
