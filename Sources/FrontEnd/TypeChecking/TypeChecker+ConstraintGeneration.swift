@@ -937,13 +937,12 @@ extension TypeChecker {
 
     case nil:
       // Infer the shape of the expected type.
-      var elements: [TupleType.Element] = []
-      for a in ast[subject].elements {
-        let t = inferredType(of: a.pattern, shapedBy: nil, in: scope, updating: &state)
-        if t.isError { return .error }
-        elements.append(.init(label: a.label?.value, type: t))
-      }
-      return ^TupleType(elements)
+      return ^TupleType(
+        ast[subject].elements.map { (a) in
+          .init(
+            label: a.label?.value,
+            type: inferredType(of: a.pattern, shapedBy: nil, in: scope, updating: &state))
+        })
     }
   }
 

@@ -308,7 +308,7 @@ public struct TypeChecker {
     let shape = inferredType(of: AnyPatternID(syntax.pattern), in: declScope, shapedBy: nil)
     assert(shape.facts.inferredTypes.storage.isEmpty, "expression in binding pattern")
 
-    if shape.type.isError {
+    if shape.type[.hasError] {
       declTypes[id] = .error
       declRequests[id] = .failure
       return false
