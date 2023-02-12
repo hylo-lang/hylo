@@ -97,7 +97,7 @@ let package = Package(
     // Test targets.
     .target(
       name: "TestUtils",
-      dependencies: ["Utils", "Core"],
+      dependencies: ["Utils", "Core", "FrontEnd"],
       path: "Tests/TestUtils",
       swiftSettings: allTargetsSwiftSettings),
     .testTarget(
