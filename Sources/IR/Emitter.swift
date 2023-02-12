@@ -21,18 +21,35 @@ public struct Emitter {
   /// The receiver of the function or subscript currently being lowered, if any.
   private var receiver: ParameterDecl.Typed?
 
+  /// The diagnostics of lowering errors.
+  private var diagnostics: DiagnosticSet = []
+
   /// Creates an emitter with a well-typed AST.
   public init(program: TypedProgram) {
     self.program = program
   }
 
+  /// Reports the given diagnostic.
+  private mutating func report(_ d: Diagnostic) {
+    diagnostics.insert(d)
+  }
+
   // MARK: Declarations
 
-  /// Inserts the IR for the top-level declaration `d` into `module`.
+  /// Inserts the IR for the top-level declaration `d` into `module`, reporting errors and warnings
+  /// to `diagnostics`.
   ///
   /// - Requires: `d` is at module scope.
-  mutating func emit(topLevel d: AnyDeclID.TypedNode, into module: inout Module) {
+  mutating func emit(
+    topLevel d: AnyDeclID.TypedNode,
+    into module: inout Module,
+    diagnostics: inout DiagnosticSet
+  ) {
     precondition(d.scope.kind == TranslationUnit.self)
+
+    swap(&self.diagnostics, &diagnostics)
+    defer { swap(&self.diagnostics, &diagnostics) }
+
     switch d.kind {
     case FunctionDecl.self:
       emit(functionDecl: FunctionDecl.Typed(d)!, into: &module)

@@ -32,7 +32,7 @@ final class EmitterTests: XCTestCase {
           relations: checker.relations)
 
         // Emit Val's IR.
-        var irModule = Module(module, in: typedProgram)
+        var irModule = try Module(lowering: module, in: typedProgram, diagnostics: &diagnostics)
 
         // Run mandatory IR analysis and transformation passes.
         let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
