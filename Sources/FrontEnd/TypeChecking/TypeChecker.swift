@@ -340,9 +340,9 @@ public struct TypeChecker {
       let names = ast.names(in: syntax.pattern).map({ AnyDeclID(ast[$0.pattern].decl) })
 
       bindingsUnderChecking.formUnion(names)
-      let inference = solveConstraints(
-        impliedBy: initializer,
-        expecting: shape.type,
+      let inference = solutionTyping(
+        initializer,
+        shapedBy: shape.type,
         in: declScope,
         initialConstraints: initializerConstraints)
       bindingsUnderChecking.subtract(names)
@@ -575,9 +575,9 @@ public struct TypeChecker {
       let defaultValueType = exprTypes[defaultValue].setIfNil(
         ^TypeVariable(node: defaultValue.base))
 
-      let inference = solveConstraints(
-        impliedBy: defaultValue,
-        expecting: parameterType.bareType,
+      let inference = solutionTyping(
+        defaultValue,
+        shapedBy: parameterType.bareType,
         in: program.declToScope[id]!,
         initialConstraints: [
           ParameterConstraint(
@@ -1071,9 +1071,9 @@ public struct TypeChecker {
       because: ConstraintCause(.initializationOrAssignment, at: ast[id].site))
 
     // Infer the type on the right.
-    let inference = solveConstraints(
-      impliedBy: AnyExprID(ast[id].right),
-      expecting: lhsType,
+    let inference = solutionTyping(
+      AnyExprID(ast[id].right),
+      shapedBy: lhsType,
       in: lexicalContext,
       initialConstraints: [lhsConstraint, rhsConstraint])
     return inference.succeeded
@@ -1087,8 +1087,8 @@ public struct TypeChecker {
 
     // Visit the condition of the loop in the scope of the body.
     let boolType = AnyType(ast.coreType(named: "Bool")!)
-    let inference = solveConstraints(
-      impliedBy: ast[subject].condition, expecting: boolType,
+    let inference = solutionTyping(
+      ast[subject].condition, shapedBy: boolType,
       in: ast[subject].body)
 
     return success && inference.succeeded
@@ -1105,9 +1105,9 @@ public struct TypeChecker {
       // The type of the return value must be subtype of the expected return type.
       let inferredReturnType = exprTypes[returnValue].setIfNil(
         ^TypeVariable(node: returnValue.base))
-      let inference = solveConstraints(
-        impliedBy: returnValue,
-        expecting: expectedType,
+      let inference = solutionTyping(
+        returnValue,
+        shapedBy: expectedType,
         in: lexicalContext,
         initialConstraints: [
           SubtypingConstraint(
@@ -1135,8 +1135,8 @@ public struct TypeChecker {
       switch item {
       case .expr(let expr):
         // Condition must be Boolean.
-        let inference = solveConstraints(
-          impliedBy: expr, expecting: boolType, in: lexicalContext)
+        let inference = solutionTyping(
+          expr, shapedBy: boolType, in: lexicalContext)
         if !inference.succeeded { return false }
 
       case .decl(let binding):
@@ -1158,9 +1158,9 @@ public struct TypeChecker {
     // The type of the return value must be subtype of the expected return type.
     let inferredReturnType = exprTypes[ast[id].value].setIfNil(
       ^TypeVariable(node: program.ast[id].value.base))
-    let inference = solveConstraints(
-      impliedBy: ast[id].value,
-      expecting: expectedType,
+    let inference = solutionTyping(
+      ast[id].value,
+      shapedBy: expectedType,
       in: lexicalContext,
       initialConstraints: [
         SubtypingConstraint(
@@ -1555,14 +1555,14 @@ public struct TypeChecker {
       : nil
   }
 
-  /// Returns the best solution satisfying `initialConstraints` and describing how to assign types
-  /// to `subject` and its sub-expressions and knowing it occurs in `scope` and is expected to have
-  /// a type compatible with `expectedType`.
+  /// Returns the best solution satisfying `initialConstraints` and describing the types of
+  /// `subject` and its sub-expressions, knowing `subject` occurs in `scope` and is shaped by
+  /// `shape`.
   ///
   /// - Parameters:
   ///   - subject: The expression whose constituent types should be deduced.
-  ///   - expectedType: The type `subject` is expected to have given the context it which it
-  ///     occurs, or `nil` if no such type exists.
+  ///   - shape: The shape of the type `subject` is expected to have given top-bottom information
+  ///     flow, or `nil` of such shape is unknown.
   ///   - scope: The innermost scope containing `subject`.
   ///   - initialConstraints: A collection of constraints on constituent types of `subject`.
   mutating func solutionTyping<S: ScopeID>(
