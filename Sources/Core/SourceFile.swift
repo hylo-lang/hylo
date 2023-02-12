@@ -55,16 +55,20 @@ public struct SourceFile {
   }
 
   /// Returns the contents of the file in the specified range.
+  ///
+  /// - Requires: The bounds of `range` are valid positions in `self`.
   public subscript(_ range: SourceRange) -> Substring {
-    precondition(range.file.url == url, "invalid site")
+    precondition(range.file.url == url, "invalid range")
     return text[range.start ..< range.end]
   }
 
-  /// The contents of the line in which `location` is defined.
-  public func lineContents(at location: SourcePosition) -> Substring {
-    precondition(location.file == self, "invalid location")
+  /// The contents of the line in which `p` is defined.
+  ///
+  /// - Requires: `p` is a valid position in `self`.
+  public func lineContents(at p: SourcePosition) -> Substring {
+    precondition(p.file == self, "invalid position")
 
-    var lower = location.index
+    var lower = p.index
     while lower > text.startIndex {
       let predecessor = text.index(before: lower)
       if text[predecessor].isNewline {
@@ -74,7 +78,7 @@ public struct SourceFile {
       }
     }
 
-    var upper = location.index
+    var upper = p.index
     while upper < text.endIndex && !text[upper].isNewline {
       upper = text.index(after: upper)
     }
@@ -82,30 +86,30 @@ public struct SourceFile {
     return text[lower ..< upper]
   }
 
-  /// Returns the location corresponding to `i` in `text`.
+  /// Returns the position corresponding to `i` in `text`.
   ///
-  /// - Precondition: `i` is a valid index in `text`.
+  /// - Requires: `i` is a valid index in `text`.
   public func position(_ i: Index) -> SourcePosition {
     SourcePosition(i, in: self)
   }
 
-  /// Returns the location corresponding to the given 1-based line and column indices.
+  /// Returns the position corresponding to the given 1-based line and column indices.
   ///
-  /// - Precondition: the line and column exist in `self`.
+  /// - Requires: the line and column exist in `self`.
   public func position(line: Int, column: Int) -> SourcePosition {
     SourcePosition(line: line, column: column, in: self)
   }
 
   /// Returns the region of `self` corresponding to `r`.
   ///
-  /// - Precondition: `r` is a valid range in `self`.
+  /// - Requires: `r` is a valid range in `self`.
   public func range(_ r: Range<Index>) -> SourceRange {
     SourceRange(r, in: self)
   }
 
   /// Returns the 1-based line and column numbers corresponding to `i`.
   ///
-  /// - Precondition: `i` is a valid index in `contents`.
+  /// - Requires: `i` is a valid index in `contents`.
   func lineAndColumn(_ i: Index) -> (line: Int, column: Int) {
     let lineNumber = lineStarts.partitioningIndex(where: { $0 > i })
     let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: i) + 1
@@ -114,7 +118,7 @@ public struct SourceFile {
 
   /// Returns the index in `text` corresponding to `line` and `column`.
   ///
-  /// - Precondition: `line` and `column` describe a valid location in `self`.
+  /// - Requires: `line` and `column` describe a valid position in `self`.
   func index(line: Int, column: Int) -> Index {
     return text.index(lineStarts[line - 1], offsetBy: column - 1)
   }
