@@ -34,7 +34,7 @@ extension XCTestCase {
   /// - Parameter `testCaseDirectory`: where the test files are searched.
   /// - Parameter `process`: applies some compilation phases to `file`, updating `diagnostics`
   ///   with any generated diagnostics. Throws an `Error` if any phases failed.
-  func checkAnnotatedValFileDiagnostics(
+  public func checkAnnotatedValFileDiagnostics(
     in testCaseDirectory: URL,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
