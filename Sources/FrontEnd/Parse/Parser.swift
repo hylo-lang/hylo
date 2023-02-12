@@ -1414,21 +1414,23 @@ public enum Parser {
 
     // Append infix tails.
     while state.hasLeadingWhitespace {
-      if try !(appendCastTail(to: &lhs, in: &state) || appendInfixTail(to: &lhs, in: &state)) {
-        break
-      }
+      guard
+        let e = try
+          (appendingCastTail(to: lhs, in: &state) ?? appendingInfixTail(to: lhs, in: &state))
+      else { break }
+      lhs = e
     }
 
     return lhs
   }
 
-  /// If the next token is a cast operator, parses an expression, assigns `lhs` to a `CastExpr` and
-  /// returns `true`. Otherwise, returns `false`.
-  private static func appendCastTail(
-    to lhs: inout AnyExprID,
+  /// If the next token is a cast operator, parses an expression and returns a `CastExpr` appending
+  /// it to `lhs`. Otherwise, returns `nil`.
+  private static func appendingCastTail(
+    to lhs: AnyExprID,
     in state: inout ParserState
-  ) throws -> Bool {
-    guard let infixOperator = state.take(.cast) else { return false }
+  ) throws -> AnyExprID? {
+    guard let infixOperator = state.take(.cast) else { return nil }
     if !state.hasLeadingWhitespace {
       state.diagnostics.insert(.error(infixOperatorRequiresWhitespacesAt: infixOperator.site))
     }
@@ -1446,22 +1448,21 @@ public enum Parser {
     }
 
     let rhs = try state.expect("type expression", using: parseExpr(in:))
-    let expr = state.insert(
-      CastExpr(
-        left: lhs,
-        right: rhs,
-        kind: castKind,
-        site: state.ast[lhs].site.extended(upTo: state.currentIndex)))
-    lhs = AnyExprID(expr)
-    return true
+    return AnyExprID(
+      state.insert(
+        CastExpr(
+          left: lhs,
+          right: rhs,
+          kind: castKind,
+          site: state.ast[lhs].site.extended(upTo: state.currentIndex))))
   }
 
-  /// Parses pairs of infix operators and prefix expressions and, if at least one pair was parsed,
-  /// assigns `lhs` to a `SequenceExpr` and returns `true`. Otherwise, returns `false.
-  private static func appendInfixTail(
-    to lhs: inout AnyExprID,
+  /// Parses pairs of infix operators and prefix expressions and, if one or more pairs were parsed,
+  /// returns a `SequenceExpr` appending them to `lhs`. Otherwise, returns `nil`.
+  private static func appendingInfixTail(
+    to lhs: AnyExprID,
     in state: inout ParserState
-  ) throws -> Bool {
+  ) throws -> AnyExprID? {
     var tail: [SequenceExpr.TailElement] = []
 
     while true {
@@ -1488,7 +1489,7 @@ public enum Parser {
       // If we can't parse an operand, the tail is empty.
       guard let operand = try parsePrefixExpr(in: &state) else {
         state.restore(from: backup)
-        return false
+        return nil
       }
 
       let `operator` = state.insert(
@@ -1500,15 +1501,14 @@ public enum Parser {
     }
 
     // Nothing to transform if the tail is empty.
-    if tail.isEmpty { return false }
+    if tail.isEmpty { return nil }
 
-    let expr = state.insert(
-      SequenceExpr(
-        head: lhs,
-        tail: tail,
-        site: state.ast[lhs].site.extended(upTo: state.currentIndex)))
-    lhs = AnyExprID(expr)
-    return true
+    return AnyExprID(
+      state.insert(
+        SequenceExpr(
+          head: lhs,
+          tail: tail,
+          site: state.ast[lhs].site.extended(upTo: state.currentIndex))))
   }
 
   private static func parsePrefixExpr(in state: inout ParserState) throws -> AnyExprID? {
