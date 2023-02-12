@@ -393,10 +393,10 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    let syntax = ast[subject]
-    return state.facts.constrain(
+    state.facts.constrain(
       subject, in: ast,
-      toHaveType: inferredType(of: syntax.subject, shapedBy: shape, in: scope, updating: &state))
+      toHaveType: inferredType(
+        of: ast[subject].subject, shapedBy: shape, in: scope, updating: &state))
   }
 
   private mutating func inferredType(

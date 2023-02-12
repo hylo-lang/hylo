@@ -309,6 +309,11 @@ public struct Emitter {
   }
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed, into module: inout Module) {
+    guard stmt.left.kind != InoutExpr.self else {
+      report(.error(assignmentLHSMustBeMarkedForMutationAt: .empty(at: stmt.left.site.first())))
+      return
+    }
+
     let rhs = emitRValue(stmt.right, into: &module)
     // FIXME: Should request the capability 'set or inout'.
     let lhs = emitLValue(stmt.left, meantFor: .set, into: &module)
@@ -1012,30 +1017,46 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch expr.kind {
+    case InoutExpr.self:
+      return emitLValue(inoutExpr: InoutExpr.Typed(expr)!, meantFor: capability, into: &module)
     case NameExpr.self:
       return emitLValue(name: NameExpr.Typed(expr)!, meantFor: capability, into: &module)
-
-    case SubscriptCallExpr.self:
-      fatalError("not implemented")
-
     default:
-      let value = emitRValue(expr, into: &module)
-      let storage = module.append(
-        AllocStackInstruction(expr.type, site: expr.site),
-        to: insertionBlock!)[0]
-      frames.top.allocs.append(storage)
-
-      let target = module.append(
-        BorrowInstruction(.set, .address(expr.type), from: storage, site: expr.site),
-        to: insertionBlock!)[0]
-      module.append(
-        StoreInstruction(value, to: target, site: expr.site),
-        to: insertionBlock!)
-
-      return module.append(
-        BorrowInstruction(capability, .address(expr.type), from: storage, site: expr.site),
-        to: insertionBlock!)[0]
+      return emitLValue(convertingRValue: expr, meantFor: capability, into: &module)
     }
+  }
+
+  /// Inserts the IR for the rvalue `expr` converted as a lvalue meant for `capability` into
+  /// `module` at the end of the current insertion block.
+  private mutating func emitLValue<ID: ExprID>(
+    convertingRValue expr: ID.TypedNode,
+    meantFor capability: AccessEffect,
+    into module: inout Module
+  ) -> Operand {
+    let value = emitRValue(expr, into: &module)
+    let storage = module.append(
+      AllocStackInstruction(expr.type, site: expr.site),
+      to: insertionBlock!)[0]
+    frames.top.allocs.append(storage)
+
+    let target = module.append(
+      BorrowInstruction(.set, .address(expr.type), from: storage, site: expr.site),
+      to: insertionBlock!)[0]
+    module.append(
+      StoreInstruction(value, to: target, site: expr.site),
+      to: insertionBlock!)
+
+    return module.append(
+      BorrowInstruction(capability, .address(expr.type), from: storage, site: expr.site),
+      to: insertionBlock!)[0]
+  }
+
+  private mutating func emitLValue(
+    inoutExpr expr: InoutExpr.Typed,
+    meantFor capability: AccessEffect,
+    into module: inout Module
+  ) -> Operand {
+    return emitLValue(expr.subject, meantFor: capability, into: &module)
   }
 
   private mutating func emitLValue(
@@ -1174,6 +1195,14 @@ extension Emitter {
       return frames.removeLast()
     }
 
+  }
+
+}
+
+extension Diagnostic {
+
+  static func error(assignmentLHSMustBeMarkedForMutationAt site: SourceRange) -> Diagnostic {
+    .error("left-hand side of assignment must be marked for mutation", at: site)
   }
 
 }
