@@ -8,7 +8,7 @@ import XCTest
 #if !os(macOS)
 
   /// An object that represents a test failure.
-  struct XCTIssue {
+  public struct XCTIssue {
 
     /// Constants that indicate types of test failures.
     enum IssueType: Int {
@@ -44,7 +44,7 @@ import XCTest
 
   /// An object that contains a file URL and line number that represents a distinct location in
   /// source code.
-  final class XCTSourceCodeLocation: Hashable {
+  public final class XCTSourceCodeLocation: Hashable {
 
     /// A file URL that represents the file-system location of the source code file.
     var fileURL: URL
