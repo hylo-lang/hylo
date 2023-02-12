@@ -228,12 +228,6 @@ extension AnyType: CustomStringConvertible {
 
 }
 
-extension AnyType: CustomReflectable {
-
-  public var customMirror: Mirror { Mirror(reflecting: base) }
-
-}
-
 /// Creates a type-erased container wrapping the given instance.
 public prefix func ^ <T: TypeProtocol>(_ base: T) -> AnyType {
   AnyType(base)

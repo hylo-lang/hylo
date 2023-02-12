@@ -83,12 +83,3 @@ extension SourcePosition: CustomStringConvertible {
   }
 
 }
-
-extension SourcePosition: CustomReflectable {
-
-  public var customMirror: Mirror {
-    let (line, column) = lineAndColumn()
-    return Mirror(self, children: ["sourceURL": file.url, "line": line, "column": column])
-  }
-
-}

@@ -134,9 +134,3 @@ extension SubstitutionMap: CustomStringConvertible {
   var description: String { String(describing: storage) }
 
 }
-
-extension SubstitutionMap: CustomReflectable {
-
-  var customMirror: Mirror { storage.customMirror }
-
-}
