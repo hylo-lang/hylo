@@ -7,7 +7,7 @@ trait P {
 
 trait Q {}
 
-type A: P, Q {
+type A0: P, Q {
   fun f() {}
   fun g() {
     let  {}
@@ -15,18 +15,21 @@ type A: P, Q {
   }
 }
 
-//! @+1 diagnostic type 'B' does not conform to trait 'P'
-type B: P {}
+//! @+1 diagnostic conformance to non-trait type 'Int'
+type A1: Int {}
 
-//! @+1 diagnostic type 'C' does not conform to trait 'P'
-type C: P {
-  fun f() -> Self { B() }
+//! @+1 diagnostic type 'A2' does not conform to trait 'P'
+type A2: P {}
+
+//! @+1 diagnostic type 'A3' does not conform to trait 'P'
+type A3: P {
+  fun f() -> Self { A3() }
 }
 
-//! @+1 diagnostic type 'D' does not conform to trait 'P'
-type D: P {
+//! @+1 diagnostic type 'A4' does not conform to trait 'P'
+type A4: P {
   fun f() {}
 }
 
-//! @+1 diagnostic redundant conformance of 'E' to trait 'Q'
-type E: Q, Q {}
+//! @+1 diagnostic redundant conformance of 'A5' to trait 'Q'
+type A5: Q, Q {}

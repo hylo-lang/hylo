@@ -1,6 +1,0 @@
-//! expect-failure
-
-type Foo {}
-
-//! @+1 diagnostic conformance to non-trait type 'Foo'
-type Bar: Foo {}
