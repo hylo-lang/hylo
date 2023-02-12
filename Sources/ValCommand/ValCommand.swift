@@ -161,7 +161,7 @@ public struct ValCommand: ParsableCommand {
     // *** IR Lowering ***
 
     // Initialize the IR emitter.
-    var irModule = Module(newModule, in: typedProgram)
+    var irModule = try Module(lowering: newModule, in: typedProgram, diagnostics: &diagnostics)
 
     // Handle `--emit raw-ir`.
     if outputType == .rawIR {
