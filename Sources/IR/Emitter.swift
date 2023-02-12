@@ -1017,12 +1017,10 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch expr.kind {
+    case InoutExpr.self:
+      return emitLValue(inoutExpr: InoutExpr.Typed(expr)!, meantFor: capability, into: &module)
     case NameExpr.self:
       return emitLValue(name: NameExpr.Typed(expr)!, meantFor: capability, into: &module)
-
-    case SubscriptCallExpr.self:
-      fatalError("not implemented")
-
     default:
       return emitLValue(convertingRValue: expr, meantFor: capability, into: &module)
     }
@@ -1051,6 +1049,14 @@ public struct Emitter {
     return module.append(
       BorrowInstruction(capability, .address(expr.type), from: storage, site: expr.site),
       to: insertionBlock!)[0]
+  }
+
+  private mutating func emitLValue(
+    inoutExpr expr: InoutExpr.Typed,
+    meantFor capability: AccessEffect,
+    into module: inout Module
+  ) -> Operand {
+    return emitLValue(expr.subject, meantFor: capability, into: &module)
   }
 
   private mutating func emitLValue(
