@@ -249,6 +249,8 @@ public struct TypeChecker {
       return check(binding: NodeID(id)!)
     case ConformanceDecl.self:
       return check(conformance: NodeID(id)!)
+    case ExtensionDecl.self:
+      return check(extension: NodeID(id)!)
     case FunctionDecl.self:
       return check(function: NodeID(id)!)
     case GenericParameterDecl.self:
@@ -279,11 +281,6 @@ public struct TypeChecker {
   }
 
   private mutating func check(associatedValue: NodeID<AssociatedValueDecl>) -> Bool {
-    return true
-  }
-
-  private mutating func check(conformance: NodeID<ConformanceDecl>) -> Bool {
-    // FIXME: implement me.
     return true
   }
 
@@ -372,12 +369,34 @@ public struct TypeChecker {
     return success
   }
 
-  private mutating func check(conformance: ConformanceDecl) -> Bool {
-    fatalError("not implemented")
+  private mutating func check(conformance d: NodeID<ConformanceDecl>) -> Bool {
+    guard let s = realize(program.ast[d].subject, in: AnyScopeID(d))?.instance else {
+      return false
+    }
+
+    // Built-in types can't be extended.
+    if let b = BuiltinType(s) {
+      diagnostics.insert(.error(cannotExtend: b, at: program.ast[program.ast[d].subject].site))
+      return false
+    }
+
+    // FIXME: implement me.
+    return true
   }
 
-  private mutating func check(extension: ExtensionDecl) -> Bool {
-    fatalError("not implemented")
+  private mutating func check(extension d: NodeID<ExtensionDecl>) -> Bool {
+    guard let s = realize(program.ast[d].subject, in: AnyScopeID(d))?.instance else {
+      return false
+    }
+
+    // Built-in types can't be extended.
+    if let b = BuiltinType(s) {
+      diagnostics.insert(.error(cannotExtend: b, at: program.ast[program.ast[d].subject].site))
+      return false
+    }
+
+    // FIXME: implement me.
+    return true
   }
 
   /// Type checks the specified function declaration and returns whether that succeeded.
@@ -2200,6 +2219,7 @@ public struct TypeChecker {
 
       case BindingDecl.self,
         ConformanceDecl.self,
+        ExtensionDecl.self,
         MethodImpl.self,
         OperatorDecl.self,
         SubscriptImpl.self:
