@@ -131,7 +131,7 @@ struct ConstraintSolver {
     case is BuiltinType:
       // Built-in types are `Sinkable`.
       missingTraits = constraint.traits.subtracting(
-        [checker.program.ast.coreTrait(named: "Sinkable")!])
+        [checker.ast.coreTrait(named: "Sinkable")!])
 
     default:
       missingTraits = goal.traits.subtracting(
@@ -581,7 +581,7 @@ struct ConstraintSolver {
       results,
       cause: .error(
         ambiguousUse: constraint.overloadedExpr,
-        in: checker.program.ast,
+        in: checker.ast,
         candidates: results.compactMap(\.choice.reference.decl)))
   }
 
