@@ -1414,21 +1414,23 @@ public enum Parser {
 
     // Append infix tails.
     while state.hasLeadingWhitespace {
-      if try !(appendCastTail(to: &lhs, in: &state) || appendInfixTail(to: &lhs, in: &state)) {
-        break
-      }
+      guard
+        let e = try
+          (appendingCastTail(to: lhs, in: &state) ?? appendingInfixTail(to: lhs, in: &state))
+      else { break }
+      lhs = e
     }
 
     return lhs
   }
 
-  /// If the next token is a cast operator, parses an expression, assigns `lhs` to a `CastExpr` and
-  /// returns `true`. Otherwise, returns `false`.
-  private static func appendCastTail(
-    to lhs: inout AnyExprID,
+  /// If the next token is a cast operator, parses an expression and returns a `CastExpr` appending
+  /// it to `lhs`. Otherwise, returns `nil`.
+  private static func appendingCastTail(
+    to lhs: AnyExprID,
     in state: inout ParserState
-  ) throws -> Bool {
-    guard let infixOperator = state.take(.cast) else { return false }
+  ) throws -> AnyExprID? {
+    guard let infixOperator = state.take(.cast) else { return nil }
     if !state.hasLeadingWhitespace {
       state.diagnostics.insert(.error(infixOperatorRequiresWhitespacesAt: infixOperator.site))
     }
@@ -1446,22 +1448,21 @@ public enum Parser {
     }
 
     let rhs = try state.expect("type expression", using: parseExpr(in:))
-    let expr = state.insert(
-      CastExpr(
-        left: lhs,
-        right: rhs,
-        kind: castKind,
-        site: state.ast[lhs].site.extended(upTo: state.currentIndex)))
-    lhs = AnyExprID(expr)
-    return true
+    return AnyExprID(
+      state.insert(
+        CastExpr(
+          left: lhs,
+          right: rhs,
+          kind: castKind,
+          site: state.ast[lhs].site.extended(upTo: state.currentIndex))))
   }
 
-  /// Parses pairs of infix operators and prefix expressions and, if at least one pair was parsed,
-  /// assigns `lhs` to a `SequenceExpr` and returns `true`. Otherwise, returns `false.
-  private static func appendInfixTail(
-    to lhs: inout AnyExprID,
+  /// Parses pairs of infix operators and prefix expressions and, if one or more pairs were parsed,
+  /// returns a `SequenceExpr` appending them to `lhs`. Otherwise, returns `nil`.
+  private static func appendingInfixTail(
+    to lhs: AnyExprID,
     in state: inout ParserState
-  ) throws -> Bool {
+  ) throws -> AnyExprID? {
     var tail: [SequenceExpr.TailElement] = []
 
     while true {
@@ -1488,7 +1489,7 @@ public enum Parser {
       // If we can't parse an operand, the tail is empty.
       guard let operand = try parsePrefixExpr(in: &state) else {
         state.restore(from: backup)
-        return false
+        return nil
       }
 
       let `operator` = state.insert(
@@ -1500,15 +1501,14 @@ public enum Parser {
     }
 
     // Nothing to transform if the tail is empty.
-    if tail.isEmpty { return false }
+    if tail.isEmpty { return nil }
 
-    let expr = state.insert(
-      SequenceExpr(
-        head: lhs,
-        tail: tail,
-        site: state.ast[lhs].site.extended(upTo: state.currentIndex)))
-    lhs = AnyExprID(expr)
-    return true
+    return AnyExprID(
+      state.insert(
+        SequenceExpr(
+          head: lhs,
+          tail: tail,
+          site: state.ast[lhs].site.extended(upTo: state.currentIndex))))
   }
 
   private static func parsePrefixExpr(in state: inout ParserState) throws -> AnyExprID? {
@@ -1539,25 +1539,6 @@ public enum Parser {
           arguments: [],
           site: state.ast[callee].site))
       return AnyExprID(call)
-    }
-
-    // Attempt to parse an inout expression.
-    if let op = state.take(.ampersand) {
-      // Parse an operand.
-      let isSeparated = state.hasLeadingWhitespace
-      let operand = try state.expect("expression", using: parsePostfixExpr(in:))
-
-      // There must be no space before the next expression.
-      if isSeparated {
-        state.diagnostics.insert(.error(separatedMutationMarkerAt: op.site))
-      }
-
-      let expr = state.insert(
-        InoutExpr(
-          operatorSite: op.site,
-          subject: operand,
-          site: state.range(from: op.site.start)))
-      return AnyExprID(expr)
     }
 
     // Fall back to a postfix expression.
@@ -1595,36 +1576,14 @@ public enum Parser {
   }
 
   private static func parseCompoundExpr(in state: inout ParserState) throws -> AnyExprID? {
-    // Parse a primary expression.
-    guard var head = try parsePrimaryExpr(in: &state) else { return nil }
+    guard var head = try parseCompoundExprHead(in: &state) else { return nil }
     let headOrigin = state.ast[head].site
 
     // Parse the components to append to the base expression.
     while true {
-      // Handle tuple member and name expressions.
-      if state.take(.dot) != nil {
-        if let index = state.takeMemberIndex() {
-          let expr = state.insert(
-            TupleMemberExpr(
-              tuple: head,
-              index: index,
-              site: state.range(from: headOrigin.start)))
-          head = AnyExprID(expr)
-          continue
-        }
-
-        if let component = try parseNameExprComponent(in: &state) {
-          let expr = state.insert(
-            NameExpr(
-              domain: .expr(head),
-              name: component.name,
-              arguments: component.arguments,
-              site: state.range(from: headOrigin.start)))
-          head = AnyExprID(expr)
-          continue
-        }
-
-        throw [.error(expected: "member name", at: state.currentLocation)] as DiagnosticSet
+      if let e = try appendingNameComponent(to: head, in: &state) {
+        head = e
+        continue
       }
 
       // Handle conformance lens expressions.
@@ -1674,13 +1633,54 @@ public enum Parser {
     return head
   }
 
-  private static func parseNameExpr(in state: inout ParserState) throws -> NodeID<NameExpr>? {
-    guard let expr = try parseCompoundExpr(in: &state) else { return nil }
-    if let converted = NodeID<NameExpr>(expr) {
-      return converted
-    } else {
-      throw [.error(expected: "name", at: state.ast[expr].site.first())] as DiagnosticSet
+  private static func parseCompoundExprHead(in state: inout ParserState) throws -> AnyExprID? {
+    guard let op = state.take(.ampersand) else {
+      return try parsePrimaryExpr(in: &state)
     }
+
+    let isSeparated = state.hasLeadingWhitespace
+    var operand = try state.expect("expression", using: parsePrimaryExpr(in:))
+    if isSeparated {
+      state.diagnostics.insert(.error(separatedMutationMarkerAt: op.site))
+    }
+
+    while let e = try appendingNameComponent(to: operand, in: &state) { operand = e }
+    return AnyExprID(
+      state.insert(
+        InoutExpr(
+          operatorSite: op.site,
+          subject: operand,
+          site: state.range(from: op.site.start))))
+  }
+
+  /// If the next token is a dot, parses a tuple or name components, and returns respectively a
+  /// `TupleMemberExpr` or `NameExpr` appending it to `head`. Otherwise, returns `nil`.
+  private static func appendingNameComponent(
+    to head: AnyExprID,
+    in state: inout ParserState
+  ) throws -> AnyExprID? {
+    guard state.take(.dot) != nil else { return nil }
+
+    if let index = state.takeMemberIndex() {
+      let e = state.insert(
+        TupleMemberExpr(
+          tuple: head,
+          index: index,
+          site: state.range(from: state.ast[head].site.start)))
+      return AnyExprID(e)
+    }
+
+    if let component = try parseNameExprComponent(in: &state) {
+      let e = state.insert(
+        NameExpr(
+          domain: .expr(head),
+          name: component.name,
+          arguments: component.arguments,
+          site: state.range(from: state.ast[head].site.start)))
+      return AnyExprID(e)
+    }
+
+    throw [.error(expected: "member name", at: state.currentLocation)] as DiagnosticSet
   }
 
   private static func parsePrimaryExpr(in state: inout ParserState) throws -> AnyExprID? {
@@ -2883,7 +2883,16 @@ public enum Parser {
 
   // MARK: Type expressions
 
-  private static let nameTypeExpr = Apply(parseNameExpr(in:))
+  private static let nameTypeExpr = Apply(parseNameTypeExpr(in:))
+
+  private static func parseNameTypeExpr(in state: inout ParserState) throws -> NodeID<NameExpr>? {
+    guard let expr = try parseCompoundExpr(in: &state) else { return nil }
+    if let converted = NodeID<NameExpr>(expr) {
+      return converted
+    } else {
+      throw [.error(expected: "name", at: state.ast[expr].site.first())] as DiagnosticSet
+    }
+  }
 
   private static func parseLambdaParameter(
     in state: inout ParserState
@@ -2954,7 +2963,7 @@ public enum Parser {
 
   static let typeConstraint =
     (Apply<ParserState, SourceRepresentable<WhereClause.ConstraintExpr>>({ (state) in
-      guard let lhs = try parseNameExpr(in: &state) else { return nil }
+      guard let lhs = try parseNameTypeExpr(in: &state) else { return nil }
 
       // equality-constraint
       if state.take(.equal) != nil {
