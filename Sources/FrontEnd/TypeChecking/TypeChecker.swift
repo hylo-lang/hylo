@@ -561,14 +561,6 @@ public struct TypeChecker {
     return success
   }
 
-  private mutating func check(methodImpl: MethodImpl) -> Bool {
-    fatalError("not implemented")
-  }
-
-  private mutating func check(namespace: NamespaceDecl) -> Bool {
-    fatalError("not implemented")
-  }
-
   /// Inserts in `siblingNames` the name of the parameter declaration identified by `id` and
   /// returns whether that declaration type checks.
   private mutating func check(
@@ -743,10 +735,6 @@ public struct TypeChecker {
     return success
   }
 
-  private mutating func check(subscriptImpl: SubscriptImpl) -> Bool {
-    fatalError("not implemented")
-  }
-
   private mutating func check(trait id: NodeID<TraitDecl>) -> Bool {
     _check(decl: id, { (this, id) in this._check(trait: id) })
   }
@@ -792,10 +780,6 @@ public struct TypeChecker {
     // TODO: Check the conformances
 
     return success
-  }
-
-  private mutating func check(`var`: VarDecl) -> Bool {
-    fatalError("not implemented")
   }
 
   /// Returns whether `decl` is well-typed from the cache, or calls `action` to type check it
