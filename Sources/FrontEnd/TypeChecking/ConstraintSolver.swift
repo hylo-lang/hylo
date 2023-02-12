@@ -29,7 +29,7 @@ struct ConstraintSolver {
   private var penalties: Int = 0
 
   /// The diagnostics of the errors the solver encountered.
-  private var diagnostics: Diagnostics = []
+  private var diagnostics: DiagnosticSet = []
 
   /// The score of the best solution computed so far.
   private var best = Solution.Score.worst
@@ -56,7 +56,7 @@ struct ConstraintSolver {
 
   /// The current score of the solver's solution.
   private var score: Solution.Score {
-    Solution.Score(errorCount: diagnostics.log.count, penalties: penalties)
+    Solution.Score(errorCount: diagnostics.elements.count, penalties: penalties)
   }
 
   /// Applies `self` to solve its constraints using `checker` to resolve names and realize types.
@@ -120,25 +120,29 @@ struct ConstraintSolver {
     log("actions:")
 
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
+    var missingTraits: Set<TraitType>
 
     switch goal.subject.base {
     case is TypeVariable:
       // Postpone the solving if `L` is still unknown.
       postpone(goal)
+      return
 
-    case is ProductType, is TupleType:
-      let conformedTraits = checker.conformedTraits(of: goal.subject, in: scope) ?? []
-      let nonConforming = goal.traits.subtracting(conformedTraits)
-
-      if !nonConforming.isEmpty {
-        log("- fail")
-        for trait in nonConforming {
-          diagnostics.report(.error(goal.subject, doesNotConformTo: trait, at: goal.cause.site))
-        }
-      }
+    case is BuiltinType:
+      // Built-in types are `Sinkable`.
+      missingTraits = constraint.traits.subtracting(
+        [checker.ast.coreTrait(named: "Sinkable")!])
 
     default:
-      fatalError("not implemented")
+      missingTraits = goal.traits.subtracting(
+        checker.conformedTraits(of: goal.subject, in: scope) ?? [])
+    }
+
+    if !missingTraits.isEmpty {
+      log("- fail")
+      for t in missingTraits {
+        diagnostics.insert(.error(goal.subject, doesNotConformTo: t, at: goal.cause.site))
+      }
     }
   }
 
@@ -156,7 +160,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // The constraint is trivially solved if `L` is equal to `D`.
-    if checker.areEquivalent(goal.subject, goal.defaultSubject) { return }
+    if checker.relations.areEquivalent(goal.subject, goal.defaultSubject) { return }
 
     // Check that `L` conforms to `T` or postpone if it's still unknown.
     if goal.subject.base is TypeVariable {
@@ -169,7 +173,7 @@ struct ConstraintSolver {
         penalties += 1
       } else {
         log("- fail")
-        diagnostics.report(
+        diagnostics.insert(
           .error(goal.subject, doesNotConformTo: goal.literalTrait, at: goal.cause.site))
       }
     }
@@ -188,7 +192,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Handle trivially satisified constraints.
-    if checker.areEquivalent(goal.left, goal.right) { return }
+    if checker.relations.areEquivalent(goal.left, goal.right) { return }
 
     switch (goal.left.base, goal.right.base) {
     case (let tau as TypeVariable, _):
@@ -215,7 +219,7 @@ struct ConstraintSolver {
       // Parameter labels must match.
       if l.inputs.map(\.label) != r.inputs.map(\.label) {
         log("- fail")
-        diagnostics.report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+        diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
       }
 
@@ -233,14 +237,14 @@ struct ConstraintSolver {
       // Parameter labels must match.
       if l.inputs.map(\.label) != r.inputs.map(\.label) {
         log("- fail")
-        diagnostics.report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+        diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
       }
 
       // Capabilities must match.
       if l.capabilities != r.capabilities {
         log("- fail")
-        diagnostics.report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+        diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
       }
 
@@ -251,9 +255,17 @@ struct ConstraintSolver {
       solve(equality: .init(l.output, r.output, because: goal.cause), using: &checker)
       solve(equality: .init(l.receiver, r.receiver, because: goal.cause), using: &checker)
 
+    case (let l as ParameterType, let r as ParameterType):
+      if l.convention != r.convention {
+        log("- fail")
+        diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+        return
+      }
+      solve(equality: .init(l.bareType, r.bareType, because: goal.cause), using: &checker)
+
     default:
       log("- fail")
-      diagnostics.report(
+      diagnostics.insert(
         .error(type: goal.left, incompatibleWith: goal.right, at: goal.cause.site))
     }
   }
@@ -272,10 +284,10 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Handle cases where `L` is equal to `R`.
-    if checker.areEquivalent(goal.left, goal.right) {
+    if checker.relations.areEquivalent(goal.left, goal.right) {
       if goal.isStrict {
         log("- fail")
-        diagnostics.report(
+        diagnostics.insert(
           .error(goal.left, isNotStrictSubtypeOf: goal.right, at: goal.cause.site))
       }
       return
@@ -318,7 +330,7 @@ struct ConstraintSolver {
       // Parameter labels must match.
       if l.inputs.map(\.label) != r.inputs.map(\.label) {
         log("- fail")
-        diagnostics.report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+        diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
       }
 
@@ -337,7 +349,7 @@ struct ConstraintSolver {
     case (_, let r as SumType):
       // If `R` is a sum type and `L` isn't, then `L` must be contained in `R`.
       for e in r.elements {
-        if checker.areEquivalent(goal.left, e) { return }
+        if checker.relations.areEquivalent(goal.left, e) { return }
       }
 
       // Postpone the constraint if either `L` or `R` contains variables. Otherwise, `L` is not
@@ -363,11 +375,11 @@ struct ConstraintSolver {
     let errorOrigin = goal.cause.site
     switch goal.cause.kind {
     case .initializationWithHint:
-      diagnostics.report(.error(cannotInitialize: goal.left, with: goal.right, at: errorOrigin))
+      diagnostics.insert(.error(cannotInitialize: goal.left, with: goal.right, at: errorOrigin))
     case .initializationWithPattern:
-      diagnostics.report(.error(goal.left, doesNotMatchPatternAt: errorOrigin))
+      diagnostics.insert(.error(goal.left, doesNotMatchPatternAt: errorOrigin))
     default:
-      diagnostics.report(.error(goal.left, isNotSubtypeOf: goal.right, at: errorOrigin))
+      diagnostics.insert(.error(goal.left, isNotSubtypeOf: goal.right, at: errorOrigin))
     }
   }
 
@@ -385,7 +397,7 @@ struct ConstraintSolver {
     let goal = constraint.modifyingTypes({ typeAssumptions[$0] })
 
     // Handle trivially satisified constraints.
-    if checker.areEquivalent(goal.left, goal.right) { return }
+    if checker.relations.areEquivalent(goal.left, goal.right) { return }
 
     switch goal.right.base {
     case is TypeVariable:
@@ -399,7 +411,7 @@ struct ConstraintSolver {
 
     default:
       log("- fail")
-      diagnostics.report(.error(invalidParameterType: goal.right, at: goal.cause.site))
+      diagnostics.insert(.error(invalidParameterType: goal.right, at: goal.cause.site))
     }
   }
 
@@ -444,7 +456,7 @@ struct ConstraintSolver {
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
       log("- fail")
-      diagnostics.report(.error(undefinedName: "\(goal.memberName)", at: goal.cause.site))
+      diagnostics.insert(.error(undefinedName: "\(goal.memberName)", at: goal.cause.site))
       return
     }
 
@@ -486,7 +498,7 @@ struct ConstraintSolver {
     // Make sure `F` is callable.
     guard let callee = goal.calleeType.base as? CallableType else {
       log("- fail")
-      diagnostics.report(.error(nonCallableType: goal.calleeType, at: goal.cause.site))
+      diagnostics.insert(.error(nonCallableType: goal.calleeType, at: goal.cause.site))
       return
     }
 
@@ -569,7 +581,7 @@ struct ConstraintSolver {
       results,
       cause: .error(
         ambiguousUse: constraint.overloadedExpr,
-        in: checker.program.ast,
+        in: checker.ast,
         candidates: results.compactMap(\.choice.reference.decl)))
   }
 
@@ -648,7 +660,7 @@ struct ConstraintSolver {
     var i = 0
     while i < bestResults.count {
       let rhs = bestResults[i].solution.typeAssumptions.reify(comparator)
-      if checker.areEquivalent(lhs, rhs) {
+      if checker.relations.areEquivalent(lhs, rhs) {
         // Check if the new solution binds name expressions to more specialized declarations.
         let comparison = checker.compareSolutionBindings(
           newResult.solution, bestResults[0].solution, scope: scope)
@@ -668,7 +680,7 @@ struct ConstraintSolver {
           i += 1
           shouldInsert = true
         }
-      } else if checker.isStrictSubtype(lhs, rhs) {
+      } else if checker.relations.isStrictSubtype(lhs, rhs) {
         // The new solution is finer; keep it and discard the old one.
         bestResults.remove(at: i)
         shouldInsert = true
@@ -746,7 +758,7 @@ struct ConstraintSolver {
   private mutating func finalize() -> Solution {
     assert(fresh.isEmpty)
 
-    diagnostics.report(stale.map(Diagnostic.error(staleConstraint:)))
+    diagnostics.formUnion(stale.map(Diagnostic.error(staleConstraint:)))
     return Solution(
       typeAssumptions: typeAssumptions.optimized(),
       bindingAssumptions: bindingAssumptions,
@@ -763,7 +775,7 @@ struct ConstraintSolver {
     var bindings = results[0].solution.bindingAssumptions
     var penalties = results[0].solution.score.penalties
     var diagnostics = results[0].solution.diagnostics
-    diagnostics.report(cause)
+    diagnostics.insert(cause)
 
     for result in results.dropFirst() {
       types.formIntersection(result.solution.typeAssumptions)
@@ -787,12 +799,12 @@ struct ConstraintSolver {
     cause: ConstraintCause
   ) -> Bool {
     if lhs.count != rhs.count {
-      diagnostics.report(.error(incompatibleParameterCountAt: cause.site))
+      diagnostics.insert(.error(incompatibleParameterCountAt: cause.site))
       return false
     }
 
     if zip(lhs, rhs).contains(where: { (a, b) in a.label != b.label }) {
-      diagnostics.report(
+      diagnostics.insert(
         .error(
           labels: lhs.map(\.label), incompatibleWith: rhs.map(\.label),
           at: cause.site))
@@ -810,12 +822,12 @@ struct ConstraintSolver {
     cause: ConstraintCause
   ) -> Bool {
     if lhs.elements.count != rhs.elements.count {
-      diagnostics.report(.error(incompatibleTupleLengthsAt: cause.site))
+      diagnostics.insert(.error(incompatibleTupleLengthsAt: cause.site))
       return false
     }
 
     if zip(lhs.elements, rhs.elements).contains(where: { (a, b) in a.label != b.label }) {
-      diagnostics.report(
+      diagnostics.insert(
         .error(
           labels: lhs.elements.map(\.label), incompatibleWith: rhs.elements.map(\.label),
           at: cause.site))
@@ -975,7 +987,7 @@ extension TypeChecker {
     // Solve the constraint system.
     var solver = ConstraintSolver(
       scope: scope, fresh: constraints, comparingSolutionsWith: .void, loggingTrace: false)
-    return !solver.apply(using: &self).diagnostics.errorReported
+    return !solver.apply(using: &self).diagnostics.containsError
   }
 
 }

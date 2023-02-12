@@ -12,7 +12,7 @@ public struct TranslationUnit: Node, LexicalScope {
     self.site = site
   }
 
-  public func validateForm(in ast: AST, into diagnostics: inout Diagnostics) {
+  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     for d in decls {
       ast.validateGlobalScopeMember(d, into: &diagnostics, atTopLevel: true)
     }

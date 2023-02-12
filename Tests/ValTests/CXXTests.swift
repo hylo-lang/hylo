@@ -8,35 +8,16 @@ import XCTest
 final class CXXTests: XCTestCase {
 
   func testTranspiler() throws {
-    // Prepare an AST with the core module loaded.
-    var baseAST = AST()
-    baseAST.importCoreModule()
-
     try checkAnnotatedValFiles(
       in: Bundle.module.url(forResource: "TestCases/CXX", withExtension: nil)!,
       checkingAnnotationCommands: ["cpp", "h"],
-
       { (source, cxxAnnotations, diagnostics) in
         // Create a module for the input.
-        var ast = baseAST
-        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
+        var ast = AST.coreModule
+        let module = try ast.makeModule(
+          source.baseName, sourceCode: [source], diagnostics: &diagnostics)
 
-        // Parse the input.
-        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
-
-        // Run the type checker.
-        var checker = TypeChecker(program: ScopedProgram(ast))
-        _ = checker.check(module: module)
-        diagnostics.report(checker.diagnostics)
-        try diagnostics.throwOnError()
-
-        let typedProgram = TypedProgram(
-          annotating: checker.program,
-          declTypes: checker.declTypes,
-          exprTypes: checker.exprTypes,
-          implicitCaptures: checker.implicitCaptures,
-          referredDecls: checker.referredDecls,
-          foldedSequenceExprs: checker.foldedSequenceExprs)
+        let typedProgram = try TypedProgram(ast, diagnostics: &diagnostics)
 
         // TODO: Run IR transform passes
 
@@ -63,13 +44,11 @@ final class CXXTests: XCTestCase {
   }
 
   func testStdLibGeneration() throws {
-    // Build an AST with just the core module loaded.
-    var ast = AST()
-    ast.importCoreModule()
+    let ast = AST.coreModule
 
     // Run the type checker.
     var checker = TypeChecker(program: ScopedProgram(ast), isBuiltinModuleVisible: true)
-    _ = checker.check(module: ast.corelib!)
+    checker.check(module: ast.corelib!)
 
     let typedProgram = TypedProgram(
       annotating: checker.program,
@@ -77,7 +56,8 @@ final class CXXTests: XCTestCase {
       exprTypes: checker.exprTypes,
       implicitCaptures: checker.implicitCaptures,
       referredDecls: checker.referredDecls,
-      foldedSequenceExprs: checker.foldedSequenceExprs)
+      foldedSequenceExprs: checker.foldedSequenceExprs,
+      relations: checker.relations)
 
     // Transpile the standard lib module.
     let transpiler = CXXTranspiler(typedProgram)

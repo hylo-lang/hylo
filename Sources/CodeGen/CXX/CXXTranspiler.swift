@@ -47,8 +47,10 @@ public struct CXXTranspiler {
       return CXXComment(comment: "conformance decl")
     case TraitDecl.self:
       return CXXComment(comment: "trait decl")
+    case TypeAliasDecl.self:
+      return CXXComment(comment: "type alias decl")
     default:
-      unexpected("declaration", found: source)
+      unexpected(source)
     }
   }
 
@@ -123,7 +125,7 @@ public struct CXXTranspiler {
       return [.method]
 
     default:
-      unexpected("class member", found: source)
+      unexpected(source)
     }
   }
 
@@ -213,7 +215,7 @@ public struct CXXTranspiler {
     case YieldStmt.self:
       return cxx(yieldStmt: YieldStmt.Typed(source)!)
     default:
-      unexpected("statement", found: source)
+      unexpected(source)
     }
   }
 
@@ -228,7 +230,7 @@ public struct CXXTranspiler {
     case BindingDecl.self:
       return cxx(localBinding: BindingDecl.Typed(source.decl)!)
     default:
-      unexpected("declaration", found: source)
+      unexpected(source)
     }
   }
 
@@ -310,7 +312,7 @@ public struct CXXTranspiler {
     case CondExpr.self:
       return cxx(cond: CondExpr.Typed(source)!)
     default:
-      unexpected("expression", found: source)
+      unexpected(source)
     }
   }
 
@@ -427,18 +429,18 @@ public struct CXXTranspiler {
       fatalError("not implemented")
     }
     // TODO: better checks if we need an expression or a statement
-    if source.type != .void {
-      // We result in an expression
-      // TODO: do we need to return an l-value?
-      return CXXConditionalExpr(
-        condition: condition, trueExpr: cxx(condBodyExpr: source.success),
-        falseExpr: cxx(condBodyExpr: source.failure))
-    } else {
+    if wholeValProgram.relations.areEquivalent(source.type, .void) {
       // We result in a statement, and we wrap the statement into an expression
       return CXXStmtExpr(
         stmt: CXXIfStmt(
           condition: condition, trueStmt: cxx(condBodyStmt: source.success)!,
           falseStmt: cxx(condBodyStmt: source.failure)))
+    } else {
+      // We result in an expression
+      // TODO: do we need to return an l-value?
+      return CXXConditionalExpr(
+        condition: condition, trueExpr: cxx(condBodyExpr: source.success),
+        falseExpr: cxx(condBodyExpr: source.failure))
     }
   }
   /// Returns a transpilation of `source` as an expression.
@@ -559,10 +561,11 @@ public struct CXXTranspiler {
   // MARK: miscelaneous
 
   /// Returns a transpilation of `source`.
-  private func cxx(typeExpr source: AnyType, asReturnType isReturnType: Bool = false) -> CXXTypeExpr
-  {
-    switch source.base {
-    case AnyType.void:
+  private func cxx(
+    typeExpr source: AnyType, asReturnType isReturnType: Bool = false
+  ) -> CXXTypeExpr {
+    switch wholeValProgram.relations.canonical(source).base {
+    case .void:
       return CXXTypeExpr(isReturnType ? "void" : "std::monostate")
 
     case let type as ProductType:
@@ -678,7 +681,8 @@ public struct CXXTranspiler {
 
     // Foward function result if the result type is Int32.
     let resultType = (source.type.base as! LambdaType).output
-    let forwardReturn = resultType == wholeValProgram.ast.coreType(named: "Int32")!
+    let forwardReturn = wholeValProgram.relations.areEquivalent(
+      resultType, ^wholeValProgram.ast.coreType(named: "Int32")!)
 
     // Build the body of the CXX entry-point function.
     var bodyContent: [CXXStmt] = []

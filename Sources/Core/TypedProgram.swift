@@ -26,6 +26,9 @@ public struct TypedProgram: Program {
   /// A map from sequence expressions to their evaluation order.
   public let foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr]
 
+  /// The type relations of the program.
+  public let relations: TypeRelations
+
   /// The Val standard library module.
   public var corelib: ModuleDecl.Typed? {
     ast.corelib.map({ self[$0] })
@@ -38,7 +41,8 @@ public struct TypedProgram: Program {
     exprTypes: ExprProperty<AnyType>,
     implicitCaptures: DeclProperty<[ImplicitCapture]>,
     referredDecls: [NodeID<NameExpr>: DeclRef],
-    foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr]
+    foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr],
+    relations: TypeRelations
   ) {
     self.ast = program.ast
     self.scopeToParent = program.scopeToParent
@@ -50,5 +54,7 @@ public struct TypedProgram: Program {
     self.implicitCaptures = implicitCaptures
     self.referredDecls = referredDecls
     self.foldedSequenceExprs = foldedSequenceExprs
+    self.relations = relations
   }
+
 }

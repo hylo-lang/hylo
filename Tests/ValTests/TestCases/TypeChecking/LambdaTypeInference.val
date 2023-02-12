@@ -1,19 +1,32 @@
 //! expect-failure
 
+fun check<T>(_ x: T) {}
+
 public fun main() {
-  let f = fun () { 42 }
-  let _: []() -> Int = f
+  let f0 = fun () { 42 }
+  check<[]() -> Int>(f0)
 
-  let g = fun (x: sink Int) { x }
-  let _: [](x: sink Int) -> Int = g
+  let f1 = fun (x: sink Int) { x }
+  check<[](x: sink Int) -> Int>(f1)
 
-  let _: [](x: sink Int) -> Int = fun (x) { x }
+  let f2: [](x: sink Int) -> Int = fun (x) { x }
+  check<[](x: sink Int) -> Int>(f2)
 
-  let _ = fun (x: sink Int) -> Int {
+  let f3 = fun (x: sink Int) -> Int {
     let y = x
     return y
   }
+  check<[](x: sink Int) -> Int>(f3)
+
+  let x0 = (fun (_ x) { x.copy() })(42)
+  check<Int>(x0)
 
   //! @+1 diagnostic cannot infer complex return type; add an explicit return type annotation
   let _ = fun (x: sink Int) {}
+
+  //! @+1 diagnostic contextual lambda type requires 1 argument(s), found 0
+  let _: [](x: Int) -> Int = fun () { 42 }
+
+  //! @+1 diagnostic incompatible labels: found '(y:)', expected '(x:)'
+  let _: [](x: Int) -> Int = fun (y: Int) { 42 }
 }

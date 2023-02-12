@@ -1,27 +1,15 @@
-import Utils
-
-/// Reports an unexpected node kind, causing a fatal error, marking this execution path as unreachable.
+/// Causes a fatal error reporting an unexpected `n`.
 public func unexpected<ID: NodeIDProtocol>(
-  _ entity: String,
-  found: TypedNode<ID>,
+  _ n: TypedNode<ID>,
   file: StaticString = #file, line: UInt = #line
 ) -> Never {
-  let (l, c) = found.site.first().lineAndColumn()
-  let location = "\(found.site.file.url):\(l):\(c)"
-  fatalError(
-    "unexpected \(entity), found \(found.kind.description) at location: \(location)",
-    file: file, line: line)
+  fatalError("unexpected \(n.kind) at location: \(n.site.first())", file: file, line: line)
 }
 
-/// Reports an unexpected node kind, causing a fatal error, marking this execution path as unreachable.
+/// Causes a fatal error reporting an unexpected `n`, where `n` is a node in `nodes`.
 public func unexpected<ID: NodeIDProtocol>(
-  _ entity: String,
-  found: ID, of nodes: AST,
+  _ n: ID, in nodes: AST,
   file: StaticString = #file, line: UInt = #line
 ) -> Never {
-  let (l, c) = nodes[found].site.first().lineAndColumn()
-  let location = "\(nodes[found].site.file.url):\(l):\(c)"
-  fatalError(
-    "unexpected \(entity), found \(found.kind.description) at location: \(location)",
-    file: file, line: line)
+  fatalError("unexpected \(n.kind) at location: \(nodes[n].site.first())", file: file, line: line)
 }

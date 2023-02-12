@@ -6,23 +6,15 @@ import XCTest
 final class TypeCheckerTests: XCTestCase {
 
   func testTypeChecker() throws {
-    // Prepare an AST with the core module loaded.
-    var baseAST = AST()
-    baseAST.importCoreModule()
-
     try checkAnnotatedValFileDiagnostics(
       in: Bundle.module.url(forResource: "TestCases/TypeChecking", withExtension: nil)!,
       { (source, diagnostics) in
-        var ast = baseAST
-        let module = ast.insert(synthesized: ModuleDecl(name: source.baseName))
-
-        _ = try Parser.parse(source, into: module, in: &ast, diagnostics: &diagnostics)
-
-        // Run the type checker.
-        var checker = TypeChecker(program: ScopedProgram(ast))
-        _ = checker.check(module: module)
-        diagnostics.report(checker.diagnostics)
-        try diagnostics.throwOnError()
+        var ast = AST.coreModule
+        _ = try ast.makeModule(
+          source.baseName, sourceCode: [source], builtinModuleAccess: true,
+          diagnostics: &diagnostics)
+        _ = try TypedProgram(ast, diagnostics: &diagnostics)
       })
   }
+
 }

@@ -5,18 +5,23 @@ public struct ModuleDecl: SingleEntityDecl, LexicalScope {
   public let baseName: String
 
   /// The source files in the module.
-  public private(set) var sources: [NodeID<TranslationUnit>] = []
+  public let sources: [NodeID<TranslationUnit>]
 
-  public init(name: String) {
-    self.baseName = name
-    self.site = SourceFile(synthesizedText: "/* module: \(name) */").wholeRange
-  }
+  /// True iff this module has access to the Builtin module.
+  public let canAccessBuiltins: Bool
 
   public let site: SourceRange
 
-  /// Adds the given source file to our list of sources.
-  public mutating func addSourceFile(_ s: NodeID<TranslationUnit>) {
-    sources.append(s)
+  /// Creates an instance with the given properties and no source files.
+  public init(
+    _ baseName: String,
+    sources: [NodeID<TranslationUnit>],
+    builtinModuleAccess canAccessBuiltins: Bool = false
+  ) {
+    self.baseName = baseName
+    self.sources = sources
+    self.canAccessBuiltins = canAccessBuiltins
+    self.site = SourceFile(synthesizedText: "/* module: \(baseName) */").wholeRange
   }
 
 }

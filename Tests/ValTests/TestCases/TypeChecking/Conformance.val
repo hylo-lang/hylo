@@ -2,16 +2,34 @@
 
 trait P {
   fun f()
+  fun g() { let sink }
 }
 
-//! @+1 diagnostic type 'A' does not conform to trait 'P'
-type A: P {}
+trait Q {}
 
-//! @+1 diagnostic type 'B' does not conform to trait 'P'
-type B: P {
-  fun f() -> Self { B() }
+type A0: P, Q {
+  fun f() {}
+  fun g() {
+    let  {}
+    sink {}
+  }
 }
 
-type C: P {
+//! @+1 diagnostic conformance to non-trait type 'Int'
+type A1: Int {}
+
+//! @+1 diagnostic type 'A2' does not conform to trait 'P'
+type A2: P {}
+
+//! @+1 diagnostic type 'A3' does not conform to trait 'P'
+type A3: P {
+  fun f() -> Self { A3() }
+}
+
+//! @+1 diagnostic type 'A4' does not conform to trait 'P'
+type A4: P {
   fun f() {}
 }
+
+//! @+1 diagnostic redundant conformance of 'A5' to trait 'Q'
+type A5: Q, Q {}

@@ -6,67 +6,61 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
-    var diagnostics = Diagnostics()
-    let i = ast.insert(ModuleDecl(name: "Val"), diagnostics: &diagnostics)
+    var diagnostics = DiagnosticSet()
+    let i = ast.insert(ModuleDecl("Val", sources: []), diagnostics: &diagnostics)
     XCTAssert(ast.modules.contains(i))
-    XCTAssert(diagnostics.log.isEmpty)
-    let j = ast.insert(synthesized: ModuleDecl(name: "Val1"))
+    XCTAssert(diagnostics.elements.isEmpty)
+
+    let j = ast.insert(synthesized: ModuleDecl("Val1", sources: []))
     XCTAssert(ast.modules.contains(j))
   }
 
   func testDeclAccess() throws {
-    var ast = AST()
+    let input: SourceFile = "import T"
 
-    // Create a module declarations.
-    let input = SourceFile(synthesizedText: "")
-    let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
+    var a = AST()
+    var d = DiagnosticSet()
+    let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    XCTAssert(d.elements.isEmpty, "\n\(d)")
 
-    // Create a trait declaration.
-    let decl = ast.insert(
-      synthesized: ImportDecl(
-        introducerSite: input.wholeRange,
-        identifier: SourceRepresentable(value: "T", range: input.wholeRange),
-        site: input.wholeRange))
+    // Note: we use `XCTUnwrap` when we're expecting a non-nil value produced by a subscript under
+    // test. Otherwise, we use `!`.
 
-    // Create a source declaration set.
-    let source = ast.insert(
-      synthesized: TranslationUnit(decls: [AnyDeclID(decl)], site: input.wholeRange))
-    ast[module].addSourceFile(source)
+    // Test `AST.subscript<T: ConcreteNodeID>(T)`
+    let s = a[m].sources.first
 
-    // Subscript the AST for reading with a type-erased ID.
-    XCTAssert(ast[ast[ast[module].sources.first!].decls.first!] is ImportDecl)
+    // Test `AST.subscript<T: ConcreteNodeID>(T?)`
+    let allDecls = try XCTUnwrap(a[s]?.decls)
+
+    // Test `AST.subscript<T: NodeIDProtocol>(T)`
+    XCTAssert(a[allDecls.first!] is ImportDecl)
+
+    // Test `AST.subscript<T: NodeIDProtocol>(T?)`
+    XCTAssert(a[allDecls.first] is ImportDecl)
   }
 
   func testCodableRoundtrip() throws {
-    var ast = AST()
+    let input: SourceFile = """
+      public fun main() {
+        print("Hello, World!")
+      }
+      """
 
-    // Create a module declarations.
-    let input = SourceFile(synthesizedText: "")
-    let module = ast.insert(synthesized: ModuleDecl(name: "Val"))
-
-    let source = ast.insert(
-      synthesized: TranslationUnit(
-        decls: [
-          AnyDeclID(
-            ast.insert(
-              synthesized: FunctionDecl(
-                introducerSite: input.wholeRange,
-                identifier: SourceRepresentable(value: "foo", range: input.wholeRange),
-                site: input.wholeRange)))
-        ],
-        site: input.wholeRange))
-    ast[module].addSourceFile(source)
+    var original = AST()
+    var d = DiagnosticSet()
+    let m = try original.makeModule("Main", sourceCode: [input], diagnostics: &d)
 
     // Serialize the AST.
     let encoder = JSONEncoder().forAST
-    let serialized = try encoder.encode(ast)
+    let serialized = try encoder.encode(original)
 
     // Deserialize the AST.
     let decoder = JSONDecoder().forAST
     let deserialized = try decoder.decode(AST.self, from: serialized)
 
-    // Deserialized AST should containt a function `foo`.
-    XCTAssertEqual(deserialized[source].decls.first?.kind, NodeKind(FunctionDecl.self))
+    // Deserialized AST should contain a `main` function.
+    let s = deserialized[m].sources.first!
+    XCTAssertEqual(deserialized[s].decls.first?.kind, NodeKind(FunctionDecl.self))
   }
 
 }
