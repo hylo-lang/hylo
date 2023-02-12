@@ -93,6 +93,13 @@ public struct SourceFile {
     SourcePosition(i, in: self)
   }
 
+  /// Returns the position immediately before `p`.
+  ///
+  /// - Requires: `p` is a valid position in `self`.
+  public func position(before p: SourcePosition) -> SourcePosition {
+    SourcePosition(text.index(before: p.index), in: self)
+  }
+
   /// Returns the position corresponding to the given 1-based line and column indices.
   ///
   /// - Requires: the line and column exist in `self`.
