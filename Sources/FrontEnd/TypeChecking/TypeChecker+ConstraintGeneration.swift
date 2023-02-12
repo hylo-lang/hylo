@@ -924,8 +924,7 @@ extension TypeChecker {
       // The pattern and the expected have a tuple shape.
       if t.elements.count != ast[subject].elements.count {
         // Invalid destructuring.
-        diagnostics.insert(
-          .error(invalidDestructuringOfType: expectedType!, at: ast[subject].site))
+        addDiagnostic(.error(invalidDestructuringOfType: expectedType!, at: ast[subject].site))
         return .error
       }
 
@@ -942,7 +941,7 @@ extension TypeChecker {
 
       // Check that labels match.
       if lhs != rhs {
-        diagnostics.insert(.error(labels: lhs, incompatibleWith: rhs, at: ast[subject].site))
+        addDiagnostic(.error(labels: lhs, incompatibleWith: rhs, at: ast[subject].site))
         return .error
       }
 
@@ -954,7 +953,7 @@ extension TypeChecker {
 
     case .some:
       // If the expected type doesn't have a tuple shape, the pattern cannot match.
-      diagnostics.insert(.error(invalidDestructuringOfType: expectedType!, at: ast[subject].site))
+      addDiagnostic(.error(invalidDestructuringOfType: expectedType!, at: ast[subject].site))
       return .error
 
     case nil:

@@ -5,10 +5,10 @@ import Utils
 public struct TypeChecker {
 
   /// The program being type checked.
-  public internal(set) var program: ScopedProgram
+  public let program: ScopedProgram
 
   /// The diagnostics of the type errors.
-  public internal(set) var diagnostics: DiagnosticSet = []
+  public private(set) var diagnostics: DiagnosticSet = []
 
   /// The overarching type of each declaration.
   public private(set) var declTypes = DeclProperty<AnyType>()
@@ -26,7 +26,7 @@ public struct TypeChecker {
   public internal(set) var foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr] = [:]
 
   /// The type relations of the program.
-  public internal(set) var relations = TypeRelations()
+  public private(set) var relations = TypeRelations()
 
   /// Indicates whether the built-in symbols are visible.
   public var isBuiltinModuleVisible: Bool
@@ -50,6 +50,11 @@ public struct TypeChecker {
 
   /// The AST of the program being type checked.
   public var ast: AST { program.ast }
+
+  /// Adds the given diagnostic.
+  mutating func addDiagnostic(_ d: Diagnostic) {
+    diagnostics.insert(d)
+  }
 
   // MARK: Type system
 
@@ -209,11 +214,6 @@ public struct TypeChecker {
 
   /// The bindings whose initializers are being currently visited.
   private var bindingsUnderChecking: DeclSet = []
-
-  /// Adds the given diagnostic.
-  mutating func addDiagnostic(_ d: Diagnostic) {
-    diagnostics.insert(d)
-  }
 
   /// Sets the realized type of `d` to `type`.
   ///
