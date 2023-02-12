@@ -309,6 +309,11 @@ public struct Emitter {
   }
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed, into module: inout Module) {
+    guard stmt.left.kind != InoutExpr.self else {
+      report(.error(assignmentLHSMustBeMarkedForMutationAt: .empty(at: stmt.left.site.first())))
+      return
+    }
+
     let rhs = emitRValue(stmt.right, into: &module)
     // FIXME: Should request the capability 'set or inout'.
     let lhs = emitLValue(stmt.left, meantFor: .set, into: &module)
@@ -1184,6 +1189,14 @@ extension Emitter {
       return frames.removeLast()
     }
 
+  }
+
+}
+
+extension Diagnostic {
+
+  static func error(assignmentLHSMustBeMarkedForMutationAt site: SourceRange) -> Diagnostic {
+    .error("left-hand side of assignment must be marked for mutation", at: site)
   }
 
 }
