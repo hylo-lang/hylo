@@ -1414,31 +1414,24 @@ public enum Parser {
 
     // Append infix tails.
     while state.hasLeadingWhitespace {
-      // type-casting-tail
-      if let infixOperator = state.take(.cast) {
-        try appendInfixTail(to: &lhs, forCastOperator: infixOperator, in: &state)
-        continue
+      if try !(appendCastTail(to: &lhs, in: &state) || appendInfixTail(to: &lhs, in: &state)) {
+        break
       }
-
-      // infix-operator-tail
-      if try !appendInfixTail(to: &lhs, in: &state) { break }
     }
 
     return lhs
   }
 
-  /// Parses a type expression from the stream, then transforms `lhs` into a `CastExpr`, using
-  /// `infixOperator` to determine the cast kind.
-  private static func appendInfixTail(
+  /// If the next token is a cast operator, parses an expression, assigns `lhs` to a `CastExpr` and
+  /// returns `true`. Otherwise, returns `false`.
+  private static func appendCastTail(
     to lhs: inout AnyExprID,
-    forCastOperator infixOperator: Token,
     in state: inout ParserState
-  ) throws {
+  ) throws -> Bool {
+    guard let infixOperator = state.take(.cast) else { return false }
     if !state.hasLeadingWhitespace {
       state.diagnostics.insert(.error(infixOperatorRequiresWhitespacesAt: infixOperator.site))
     }
-
-    let rhs = try state.expect("type expression", using: parseExpr(in:))
 
     let castKind: CastExpr.Kind
     switch state.lexer.sourceCode[infixOperator.site] {
@@ -1452,6 +1445,7 @@ public enum Parser {
       unreachable()
     }
 
+    let rhs = try state.expect("type expression", using: parseExpr(in:))
     let expr = state.insert(
       CastExpr(
         left: lhs,
@@ -1459,11 +1453,11 @@ public enum Parser {
         kind: castKind,
         site: state.ast[lhs].site.extended(upTo: state.currentIndex)))
     lhs = AnyExprID(expr)
+    return true
   }
 
-  /// Parses a sequence of pairs of infix operators and prefix expressions from the stream. If the
-  /// sequence isn't empty, transforms `lhs` into a `SequenceExpr` and returns `true`. Otherwise,
-  /// returns `false.
+  /// Parses pairs of infix operators and prefix expressions and, if at least one pair was parsed,
+  /// assigns `lhs` to a `SequenceExpr` and returns `true`. Otherwise, returns `false.
   private static func appendInfixTail(
     to lhs: inout AnyExprID,
     in state: inout ParserState
