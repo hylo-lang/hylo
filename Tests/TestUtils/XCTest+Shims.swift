@@ -58,12 +58,12 @@ import XCTest
       self.lineNumber = lineNumber
     }
 
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
       hasher.combine(fileURL)
       hasher.combine(lineNumber)
     }
 
-    static func == (l: XCTSourceCodeLocation, r: XCTSourceCodeLocation) -> Bool {
+    public static func == (l: XCTSourceCodeLocation, r: XCTSourceCodeLocation) -> Bool {
       (l.fileURL == r.fileURL) && (l.lineNumber == r.lineNumber)
     }
 
