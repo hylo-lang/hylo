@@ -635,19 +635,19 @@ public struct Emitter {
         // Add the receiver to the arguments.
         if let type = RemoteType(receiverType) {
           // The receiver as a borrowing convention.
-          argumentConventions.insert(type.capability, at: 0)
+          argumentConventions.insert(type.access, at: 0)
 
           switch calleeNameExpr.domain {
           case .none:
             let receiver = module.append(
               BorrowInstruction(
-                type.capability, .address(type.bareType), from: frames[receiver!]!,
+                type.access, .address(type.bareType), from: frames[receiver!]!,
                 site: expr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            let receiver = emitLValue(receiverID, meantFor: type.capability, into: &module)
+            let receiver = emitLValue(receiverID, meantFor: type.access, into: &module)
             arguments.insert(receiver, at: 0)
 
           case .implicit:
@@ -805,7 +805,7 @@ public struct Emitter {
       let lhsConvention: AccessEffect
       let lhsOperand: Operand
       if let lhsType = RemoteType(calleeType.captures[0].type) {
-        lhsConvention = lhsType.capability
+        lhsConvention = lhsType.access
         lhsOperand = emit(lhsConvention, foldedSequenceExpr: lhs, into: &module)
       } else {
         lhsConvention = .sink
@@ -917,19 +917,19 @@ public struct Emitter {
         // Add the receiver to the arguments.
         if let type = RemoteType(receiverType) {
           // The receiver has a borrowing convention.
-          conventions.insert(type.capability, at: 1)
+          conventions.insert(type.access, at: 1)
 
           switch nameExpr.domain {
           case .none:
             let receiver = module.append(
               BorrowInstruction(
-                type.capability, .address(type.bareType), from: frames[receiver!]!,
+                type.access, .address(type.bareType), from: frames[receiver!]!,
                 site: nameExpr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            let receiver = emitLValue(receiverID, meantFor: type.capability, into: &module)
+            let receiver = emitLValue(receiverID, meantFor: type.access, into: &module)
             arguments.insert(receiver, at: 0)
 
           case .implicit:

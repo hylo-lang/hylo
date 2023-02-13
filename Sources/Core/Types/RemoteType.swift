@@ -2,7 +2,7 @@
 public struct RemoteType: TypeProtocol {
 
   /// The capabilities of the projection.
-  public let capability: AccessEffect
+  public let access: AccessEffect
 
   /// The type of the projected object.
   public let bareType: AnyType
@@ -10,14 +10,14 @@ public struct RemoteType: TypeProtocol {
   public let flags: TypeFlags
 
   /// Creates an instance with the given properties.
-  public init(_ capability: AccessEffect, _ bareType: AnyType) {
-    self.capability = capability
+  public init(_ access: AccessEffect, _ bareType: AnyType) {
+    self.access = access
     self.bareType = bareType
     self.flags = bareType.flags.inserting(.hasRemoteType)
   }
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    RemoteType(capability, bareType.transform(transformer))
+    RemoteType(access, bareType.transform(transformer))
   }
 
 }
@@ -25,7 +25,7 @@ public struct RemoteType: TypeProtocol {
 extension RemoteType: CustomStringConvertible {
 
   public var description: String {
-    return "remote \(capability) \(bareType)"
+    return "remote \(access) \(bareType)"
   }
 
 }
