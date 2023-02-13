@@ -159,16 +159,16 @@ public struct DefiniteInitializationPass {
       let borrow = module[i] as! BorrowInstruction
 
       // Operand must a location.
-      let locations: [MemoryLocation]
+      let locations: Set<MemoryLocation>
       if let k = FunctionLocal(operand: borrow.location) {
-        locations = context.locals[k]!.unwrapLocations()!.map({ $0.appending(borrow.path) })
+        locations = context.locals[k]!.unwrapLocations()!
       } else {
         // Operand is a constant.
         fatalError("not implemented")
       }
 
       // Objects at each location have the same state unless DI or LoE has been broken.
-      let o = context.withObject(at: locations[0], typedIn: module.program, { $0 })
+      let o = context.withObject(at: locations.first!, typedIn: module.program, { $0 })
 
       switch borrow.capability {
       case .let, .inout:
@@ -194,11 +194,11 @@ public struct DefiniteInitializationPass {
         let initializedPaths: [SubobjectPath]
         switch o.value {
         case .full(.initialized):
-          initializedPaths = [borrow.path]
+          initializedPaths = [[]]
         case .full(.uninitialized), .full(.consumed):
           initializedPaths = []
         case .partial:
-          initializedPaths = o.value.paths!.initialized.map({ borrow.path + $0 })
+          initializedPaths = o.value.paths!.initialized
         }
 
         // Nothing to do if the location is already uninitialized.
