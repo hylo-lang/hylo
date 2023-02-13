@@ -236,12 +236,14 @@ public struct DefiniteInitializationPass {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) {
       let call = module[i] as! CallInstruction
-      for (c, o) in zip(call.conventions, call.operands) {
-        switch c {
+      let calleeType = LambdaType(module.type(of: call.callee).astType)!
+
+      for (p, a) in zip(calleeType.inputs, call.operands) {
+        switch ParameterType(p.type)!.access {
         case .let, .inout, .set:
           continue
         case .sink:
-          context.consume(o, with: i, at: call.site, diagnostics: &diagnostics)
+          context.consume(a, with: i, at: call.site, diagnostics: &diagnostics)
         case .yielded:
           unreachable()
         }
