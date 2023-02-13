@@ -125,8 +125,8 @@ public struct Module {
       for capture in declType.captures {
         switch capture.type.base {
         case let type as RemoteType:
-          precondition(type.capability != .yielded, "cannot lower yielded parameter")
-          inputs.append((convention: type.capability, type: .address(type.base)))
+          precondition(type.access != .yielded, "cannot lower yielded parameter")
+          inputs.append((convention: type.access, type: .address(type.bareType)))
 
         case let type:
           precondition(declType.receiverEffect != .yielded, "cannot lower yielded parameter")
