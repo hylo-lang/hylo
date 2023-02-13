@@ -606,10 +606,10 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     return module.append(
-      LLVMInstruction(
+      module.makeLLVM(
         applying: f,
         to: arguments.map({ (a) in emitRValue(program[a.value], into: &module) }),
-        at: site),
+        anchoredAt: site),
       to: insertionBlock!)[0]
   }
 
