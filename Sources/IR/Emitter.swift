@@ -575,15 +575,12 @@ public struct Emitter {
     functionCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    if let n = NameExpr.Typed(expr.callee),
-      case .builtinFunction(let f) = n.decl
-    {
+    if case .builtinFunction(let f) = NameExpr.Typed(expr.callee)?.decl {
       return emit(builtinFunctionCallTo: f, with: expr.arguments, at: expr.site, into: &module)
     }
 
-    // Determine the callee's convention.
+    // Callee must have a lambda type.
     let calleeType = LambdaType(expr.callee.type)!
-    let calleeConvention = calleeType.receiverEffect ?? .let
 
     // Arguments are evaluated first, from left to right.
     var argumentConventions: [AccessEffect] = []
@@ -595,109 +592,13 @@ public struct Emitter {
       arguments.append(emit(argument: program[argument.value], to: parameterType, into: &module))
     }
 
-    // If the callee is a name expression referring to the declaration of a function capture-less
-    // function, it is interpreted as a direct function reference. Otherwise, it is evaluated as a
-    // function object the arguments.
-    let callee: Operand
-
-    if let calleeNameExpr = NameExpr.Typed(expr.callee) {
-      switch calleeNameExpr.decl {
-      case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        // Callee is a direct reference to a function or initializer declaration.
-        // TODO: handle captures
-        callee = .constant(
-          .function(
-            FunctionRef(
-              name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
-              type: .address(calleeType))))
-
-      case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
-        switch InitializerDecl.Typed(calleeDecl)!.introducer.value {
-        case .`init`:
-          // TODO: The function is a custom initializer.
-          fatalError("not implemented")
-
-        case .memberwiseInit:
-          // The function is a memberwise initializer. In that case, the whole call expression is
-          // lowered as a `record` instruction.
-          return module.append(
-            RecordInstruction(
-              objectType: .object(expr.type), operands: arguments,
-              site: expr.site),
-            to: insertionBlock!)[0]
-        }
-
-      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        // Callee is a member reference to a function or method.
-        let receiverType = calleeType.captures[0].type
-
-        // Add the receiver to the arguments.
-        if let type = RemoteType(receiverType) {
-          // The receiver as a borrowing convention.
-          argumentConventions.insert(type.capability, at: 0)
-
-          switch calleeNameExpr.domain {
-          case .none:
-            let receiver = module.append(
-              module.makeBorrow(type.capability, from: frames[receiver!]!, anchoredAt: expr.site),
-              to: insertionBlock!)[0]
-            arguments.insert(receiver, at: 0)
-
-          case .expr(let receiverID):
-            let receiver = emitLValue(receiverID, meantFor: type.capability, into: &module)
-            arguments.insert(receiver, at: 0)
-
-          case .implicit:
-            unreachable()
-          }
-        } else {
-          // The receiver is consumed.
-          argumentConventions.insert(.sink, at: 0)
-
-          switch calleeNameExpr.domain {
-          case .none:
-            let receiver = module.append(
-              LoadInstruction(
-                .object(receiverType), from: frames[receiver!]!, site: expr.site),
-              to: insertionBlock!)[0]
-            arguments.insert(receiver, at: 0)
-
-          case .expr(let receiverID):
-            arguments.insert(emitRValue(receiverID, into: &module), at: 0)
-
-          case .implicit:
-            unreachable()
-          }
-        }
-
-        // Emit the function reference.
-        callee = .constant(
-          .function(
-            FunctionRef(
-              name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
-              type: .address(calleeType))))
-
-      case .builtinFunction:
-        // Already handled.
-        unreachable()
-
-      case .builtinType:
-        // Built-in types are never called.
-        unreachable()
-
-      default:
-        // Evaluate the callee as a function object.
-        callee = emitRValue(expr.callee, into: &module)
-      }
-    } else {
-      // Evaluate the callee as a function object.
-      callee = emitRValue(expr.callee, into: &module)
-    }
+    let callee = emitCallee(
+      expr.callee, conventions: &argumentConventions, arguments: &arguments, into: &module)
 
     return module.append(
       CallInstruction(
         returnType: .object(expr.type),
-        calleeConvention: calleeConvention,
+        calleeConvention: calleeType.receiverEffect ?? .let,
         callee: callee,
         argumentConventions: argumentConventions,
         arguments: arguments,
