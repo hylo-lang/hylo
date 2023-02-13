@@ -1015,8 +1015,10 @@ public struct Emitter {
 
   /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
   private mutating func emitStackDeallocs(in module: inout Module, site: SourceRange) {
-    while let alloc = frames.top.allocs.popLast() {
-      module.append(DeallocStackInstruction(alloc, site: site), to: insertionBlock!)
+    while let a = frames.top.allocs.popLast() {
+      module.append(
+        module.makeDeallocStack(for: a, anchoredAt: site),
+        to: insertionBlock!)
     }
   }
 

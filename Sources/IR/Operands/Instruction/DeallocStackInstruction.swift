@@ -8,7 +8,8 @@ public struct DeallocStackInstruction: Instruction {
 
   public let site: SourceRange
 
-  init(_ location: Operand, site: SourceRange) {
+  /// Creates an instance with the given properties.
+  fileprivate init(location: Operand, site: SourceRange) {
     self.location = location
     self.site = site
   }
@@ -23,6 +24,23 @@ public struct DeallocStackInstruction: Instruction {
     /// The location operand denotes the result of an `alloc_stack` instruction.
     guard let l = location.instruction else { return false }
     return module[l] is AllocStackInstruction
+  }
+
+}
+
+extension Module {
+
+  /// Creates a `dealloc_stack` anchored at `anchor` that deallocates memory previously allocated
+  /// by `alloc`.
+  ///
+  /// - Parameters:
+  ///   - alloc: The address of the memory to deallocate. Must be the result of `alloc`.
+  func makeDeallocStack(
+    for alloc: Operand,
+    anchoredAt anchor: SourceRange
+  ) -> DeallocStackInstruction {
+    precondition(alloc.instruction.map({ self[$0] is AllocStackInstruction }) ?? false)
+    return DeallocStackInstruction(location: alloc, site: anchor)
   }
 
 }
