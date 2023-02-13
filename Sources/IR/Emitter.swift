@@ -838,18 +838,9 @@ public struct Emitter {
         to: insertionBlock!)[0]
 
     case .leaf(let expr):
-      switch convention {
-      case .let:
-        return emitLValue(program[expr], meantFor: .let, into: &module)
-      case .inout:
-        return emitLValue(program[expr], meantFor: .inout, into: &module)
-      case .set:
-        return emitLValue(program[expr], meantFor: .set, into: &module)
-      case .sink:
-        return emitRValue(program[expr], into: &module)
-      case .yielded:
-        fatalError("not implemented")
-      }
+      return (convention == .sink)
+        ? emitRValue(program[expr], into: &module)
+        : emitLValue(program[expr], meantFor: convention, into: &module)
     }
   }
 
@@ -984,14 +975,18 @@ public struct Emitter {
   /// block.
   ///
   /// - Requires: `expr.type` is `Val.Bool`
-  private mutating func emitBranchCondition<ID: ExprID>(
-    _ expr: ID.TypedNode,
+  private mutating func emitBranchCondition(
+    _ expr: AnyExprID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    var v = emitLValue(expr, meantFor: .let, into: &module)
+    var v = emitLValue(expr, into: &module)
     v =
       module.append(
-        BorrowInstruction(.let, .address(BuiltinType.i(1)), from: v, at: [0], site: expr.site),
+        ElementAddrInstruction(v, at: [0], withType: .address(BuiltinType.i(1)), site: expr.site),
+        to: insertionBlock!)[0]
+    v =
+      module.append(
+        BorrowInstruction(.let, .address(BuiltinType.i(1)), from: v, site: expr.site),
         to: insertionBlock!)[0]
     v =
       module.append(
@@ -1010,111 +1005,90 @@ public struct Emitter {
 
   /// Inserts the IR for the lvalue `expr` meant for `capability` into `module` at the end of the
   /// current insertion block.
-  private mutating func emitLValue<ID: ExprID>(
-    _ expr: ID.TypedNode,
+  private mutating func emitLValue(
+    _ syntax: AnyExprID.TypedNode,
     meantFor capability: AccessEffect,
     into module: inout Module
   ) -> Operand {
-    switch expr.kind {
+    let s = emitLValue(syntax, into: &module)
+    return module.append(
+      BorrowInstruction(capability, .address(syntax.type), from: s, site: syntax.site),
+      to: insertionBlock!)[0]
+  }
+
+  /// Inserts the IR for the lvalue `syntax` into `module` at the end of the current insertion
+  /// block.
+  private mutating func emitLValue(
+    _ syntax: AnyExprID.TypedNode,
+    into module: inout Module
+  ) -> Operand {
+    switch syntax.kind {
     case InoutExpr.self:
-      return emitLValue(inoutExpr: InoutExpr.Typed(expr)!, meantFor: capability, into: &module)
+      return emitLValue(inoutExpr: InoutExpr.Typed(syntax)!, into: &module)
     case NameExpr.self:
-      return emitLValue(name: NameExpr.Typed(expr)!, meantFor: capability, into: &module)
+      return emitLValue(name: NameExpr.Typed(syntax)!, into: &module)
     default:
-      return emitLValue(convertingRValue: expr, meantFor: capability, into: &module)
+      return emitLValue(convertingRValue: syntax, into: &module)
     }
   }
 
-  /// Inserts the IR for the rvalue `expr` converted as a lvalue meant for `capability` into
-  /// `module` at the end of the current insertion block.
-  private mutating func emitLValue<ID: ExprID>(
-    convertingRValue expr: ID.TypedNode,
-    meantFor capability: AccessEffect,
+  /// Inserts the IR for the rvalue `syntax` converted as a lvalue into `module` at the end of the
+  /// current insertion block.
+  private mutating func emitLValue(
+    convertingRValue syntax: AnyExprID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    let value = emitRValue(expr, into: &module)
+    let rvalueType = program.relations.canonical(syntax.type)
+
+    let value = emitRValue(syntax, into: &module)
     let storage = module.append(
-      AllocStackInstruction(expr.type, site: expr.site),
+      AllocStackInstruction(rvalueType, site: syntax.site),
       to: insertionBlock!)[0]
     frames.top.allocs.append(storage)
 
     let target = module.append(
-      BorrowInstruction(.set, .address(expr.type), from: storage, site: expr.site),
+      BorrowInstruction(.set, .address(rvalueType), from: storage, site: syntax.site),
       to: insertionBlock!)[0]
     module.append(
-      StoreInstruction(value, to: target, site: expr.site),
+      StoreInstruction(value, to: target, site: syntax.site),
       to: insertionBlock!)
 
-    return module.append(
-      BorrowInstruction(capability, .address(expr.type), from: storage, site: expr.site),
-      to: insertionBlock!)[0]
+    return storage
   }
 
   private mutating func emitLValue(
-    inoutExpr expr: InoutExpr.Typed,
-    meantFor capability: AccessEffect,
+    inoutExpr syntax: InoutExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    return emitLValue(expr.subject, meantFor: capability, into: &module)
+    return emitLValue(syntax.subject, into: &module)
   }
 
   private mutating func emitLValue(
-    name expr: NameExpr.Typed,
-    meantFor capability: AccessEffect,
+    name syntax: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch expr.decl {
-    case .direct(let decl):
-      // Lookup for a local symbol.
-      if let source = frames[decl] {
-        return module.append(
-          BorrowInstruction(capability, .address(expr.type), from: source, site: expr.site),
-          to: insertionBlock!)[0]
+    switch syntax.decl {
+    case .direct(let d):
+      if let s = frames[d] {
+        return s
+      } else {
+        fatalError("not implemented")
       }
 
-      fatalError("not implemented")
-
-    case .member(let decl):
-      // Emit the receiver.
-      let r: Operand
-
-      switch expr.domain {
+    case .member(let d):// Emit the receiver.
+      let receiverAddress: Operand
+      switch syntax.domain {
       case .none:
-        r = frames[receiver!]!
+        receiverAddress = frames[receiver!]!
       case .implicit:
         fatalError("not implemented")
-      case .expr(let receiverID):
-        r = emitLValue(receiverID, meantFor: capability, into: &module)
+      case .expr(let e):
+        receiverAddress = emitLValue(e, into: &module)
       }
 
-      // Emit the bound member.
-      switch decl.kind {
-      case VarDecl.self:
-        let varDecl = VarDecl.Typed(decl)!
-        let layout = AbstractTypeLayout(of: module.type(of: r).astType, definedIn: program)
-        let memberIndex = layout.offset(of: varDecl.baseName)!
+      return addressOfMember(
+        boundTo: receiverAddress, declaredBy: d, into: &module, at: syntax.site)
 
-        // If the lowered receiver is a borrow instruction, modify it in place so that it targets
-        // the requested stored member. Otherwise, emit a reborrow.
-        if let id = r.instruction,
-          let receiverInstruction = module[id] as? BorrowInstruction
-        {
-          module[id] = BorrowInstruction(
-            capability, .address(expr.type), from: receiverInstruction.location,
-            at: receiverInstruction.path + [memberIndex],
-            site: expr.site)
-          return r
-        } else {
-          let member = BorrowInstruction(
-            capability, .address(expr.type), from: r,
-            at: [memberIndex],
-            site: expr.site)
-          return module.append(member, to: insertionBlock!)[0]
-        }
-
-      default:
-        fatalError("not implemented")
-      }
 
     case .builtinFunction, .builtinType:
       // Built-in functions and types are never used as l-value.
@@ -1122,6 +1096,30 @@ public struct Emitter {
     }
 
     fatalError()
+  }
+
+  /// Returns the address of the member declared by `decl` and bound to `receiverAddress`,
+  /// inserting IR anchored at `anchor` into `module`.
+  private mutating func addressOfMember(
+    boundTo receiverAddress: Operand,
+    declaredBy decl: AnyDeclID.TypedNode,
+    into module: inout Module,
+    at anchor: SourceRange
+  ) -> Operand {
+    switch decl.kind {
+    case VarDecl.self:
+      let receiverLayout = AbstractTypeLayout(
+        of: module.type(of: receiverAddress).astType, definedIn: program)
+
+      let i = receiverLayout.offset(of: VarDecl.Typed(decl)!.baseName)!
+      return module.append(
+        ElementAddrInstruction(
+          receiverAddress, at: [i], withType: .address(receiverLayout[i].type), site: anchor),
+        to: insertionBlock!)[0]
+
+    default:
+      fatalError("not implemented")
+    }
   }
 
   // MARK: Helpers
