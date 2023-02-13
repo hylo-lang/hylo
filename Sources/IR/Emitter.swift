@@ -211,9 +211,7 @@ public struct Emitter {
           let wholePath = Array(path[0 ..< (i - 1)])
           let whole = objects[wholePath]!
           let parts = module.append(
-            DestructureInstruction(
-              whole, as: layout.properties.map({ .object($0.type) }),
-              site: initializer.site),
+            module.makeDestructure(whole, anchoredAt: initializer.site),
             to: insertionBlock!)
 
           for j in 0 ..< parts.count {

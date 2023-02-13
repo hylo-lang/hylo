@@ -136,7 +136,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
         case let instruction as DestructureInstruction:
           output.write("destructure ")
-          output.write(describe(operand: instruction.object))
+          output.write(describe(operand: instruction.whole))
 
         case let instruction as ElementAddrInstruction:
           output.write("element_addr ")

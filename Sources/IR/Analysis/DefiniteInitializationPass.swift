@@ -317,7 +317,7 @@ public struct DefiniteInitializationPass {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(destructure i: InstructionID, in context: inout Context) {
       let x = module[i] as! DestructureInstruction
-      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
+      context.consume(x.whole, with: i, at: x.site, diagnostics: &diagnostics)
 
       assignObjectRegisters(createdBy: i, in: &context)
     }
