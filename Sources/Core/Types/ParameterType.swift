@@ -20,7 +20,7 @@ public struct ParameterType: TypeProtocol {
 
   /// Creates an instance converting `t`.
   public init(_ t: RemoteType) {
-    self.init(t.capability, t.base)
+    self.init(t.capability, t.bareType)
   }
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {

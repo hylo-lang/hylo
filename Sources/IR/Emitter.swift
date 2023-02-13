@@ -641,7 +641,7 @@ public struct Emitter {
           case .none:
             let receiver = module.append(
               BorrowInstruction(
-                type.capability, .address(type.base), from: frames[receiver!]!,
+                type.capability, .address(type.bareType), from: frames[receiver!]!,
                 site: expr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
@@ -923,7 +923,7 @@ public struct Emitter {
           case .none:
             let receiver = module.append(
               BorrowInstruction(
-                type.capability, .address(type.base), from: frames[receiver!]!,
+                type.capability, .address(type.bareType), from: frames[receiver!]!,
                 site: nameExpr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)

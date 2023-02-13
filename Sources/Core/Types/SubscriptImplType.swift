@@ -58,7 +58,7 @@ public struct SubscriptImplType: TypeProtocol {
   private static func makeTransformer() -> (AnyType) -> TypeTransformAction {
     { (t) in
       if let type = RemoteType(t), type.capability == .yielded {
-        return .stepInto(^RemoteType(.let, type.base))
+        return .stepInto(^RemoteType(.let, type.bareType))
       } else {
         return .stepInto(t)
       }

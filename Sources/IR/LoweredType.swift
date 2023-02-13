@@ -23,7 +23,7 @@ public struct LoweredType: Hashable {
     switch type.base {
     case let ty as RemoteType:
       precondition(ty.capability != .yielded, "cannot lower yielded type")
-      self.astType = ty.base
+      self.astType = ty.bareType
       self.isAddress = true
 
     case let ty as ParameterType:

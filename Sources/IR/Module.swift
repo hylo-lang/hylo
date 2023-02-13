@@ -126,7 +126,7 @@ public struct Module {
         switch capture.type.base {
         case let type as RemoteType:
           precondition(type.capability != .yielded, "cannot lower yielded parameter")
-          inputs.append((convention: type.capability, type: .address(type.base)))
+          inputs.append((convention: type.capability, type: .address(type.bareType)))
 
         case let type:
           precondition(declType.receiverEffect != .yielded, "cannot lower yielded parameter")

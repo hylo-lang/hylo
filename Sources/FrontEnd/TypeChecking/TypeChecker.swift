@@ -3214,7 +3214,7 @@ public struct TypeChecker {
           // Update the mutability of the capture.
           captures[i] = ImplicitCapture(
             name: captures[i].name,
-            type: RemoteType(.inout, captures[i].type.base),
+            type: RemoteType(.inout, captures[i].type.bareType),
             decl: captures[i].decl)
         } else {
           // Resolve the implicit reference to `self`.
