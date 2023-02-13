@@ -976,14 +976,18 @@ public struct Emitter {
   /// block.
   ///
   /// - Requires: `expr.type` is `Val.Bool`
-  private mutating func emitBranchCondition<ID: ExprID>(
-    _ expr: ID.TypedNode,
+  private mutating func emitBranchCondition(
+    _ expr: AnyExprID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    var v = emitLValue(expr, meantFor: .let, into: &module)
+    var v = emitLValue(expr, into: &module)
     v =
       module.append(
-        BorrowInstruction(.let, .address(BuiltinType.i(1)), from: v, at: [0], site: expr.site),
+        ElementAddrInstruction(v, at: [0], withType: .address(BuiltinType.i(1)), site: expr.site),
+        to: insertionBlock!)[0]
+    v =
+      module.append(
+        BorrowInstruction(.let, .address(BuiltinType.i(1)), from: v, site: expr.site),
         to: insertionBlock!)[0]
     v =
       module.append(
