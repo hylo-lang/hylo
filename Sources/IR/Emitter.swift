@@ -699,9 +699,7 @@ public struct Emitter {
       return module.append(
         CallInstruction(
           returnType: .object(calleeType.output),
-          calleeConvention: .let,
           callee: calleeOperand,
-          argumentConventions: [lhsConvention, rhsType.access],
           arguments: [lhsOperand, rhsOperand],
           site: program.ast.site(of: expr)),
         to: insertionBlock!)[0]
@@ -844,9 +842,7 @@ public struct Emitter {
       module.append(
         CallInstruction(
           returnType: .object(BuiltinType.i(1)),
-          calleeConvention: .let,
           callee: .constant(.builtin(BuiltinFunction("copy_i1")!.reference)),
-          argumentConventions: [.let],
           arguments: [v],
           site: expr.site),
         to: insertionBlock!)[0]

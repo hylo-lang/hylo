@@ -10,9 +10,6 @@ public struct CallInstruction: Instruction {
   /// The type if the return value.
   public let returnType: LoweredType
 
-  /// The passing conventions of the instruction's operands.
-  public let conventions: [AccessEffect]
-
   /// The arguments of the call.
   public let operands: [Operand]
 
@@ -21,14 +18,11 @@ public struct CallInstruction: Instruction {
   /// Creates an instance with the given properties.
   public init(
     returnType: LoweredType,
-    calleeConvention: AccessEffect,
     callee: Operand,
-    argumentConventions: [AccessEffect],
     arguments: [Operand],
     site: SourceRange
   ) {
     self.returnType = returnType
-    self.conventions = [calleeConvention] + argumentConventions
     self.operands = [callee] + arguments
     self.site = site
   }
@@ -83,12 +77,9 @@ extension Module {
       }
     }
 
-    let argumentConventions = calleeType.inputs.map({ ParameterType($0.type)!.access })
     return CallInstruction(
       returnType: .object(program.relations.canonical(calleeType.output)),
-      calleeConvention: calleeType.receiverEffect,
       callee: callee,
-      argumentConventions: argumentConventions,
       arguments: arguments,
       site: anchor)
   }

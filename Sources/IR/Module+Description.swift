@@ -105,9 +105,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
           output.write(blockNames[instruction.target]!)
 
         case let instruction as CallInstruction:
-          output.write("call [")
-          output.write(instruction.conventions.descriptions())
-          output.write("] ")
+          output.write("call ")
           output.write(describe(operand: instruction.callee))
           for operand in instruction.arguments {
             output.write(", ")
