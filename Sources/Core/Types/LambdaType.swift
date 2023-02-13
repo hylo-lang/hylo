@@ -88,9 +88,6 @@ public struct LambdaType: TypeProtocol, CallableType {
     return LambdaType(inputs: Array(inputs[1...]), output: receiverType.bareType)
   }
 
-  /// Indicates whether `self` has an empty environment.
-  public var isThin: Bool { environment == .void }
-
   /// Accesses the individual elements of the lambda's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
