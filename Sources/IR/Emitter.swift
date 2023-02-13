@@ -359,9 +359,8 @@ public struct Emitter {
     emitStackDeallocs(in: &module, site: stmt.site)
     frames.pop()
     module.append(
-      CondBranchInstruction(
-        condition: c, targetIfTrue: loopBody, targetIfFalse: loopTail,
-        site: stmt.condition.site),
+      module.makeCondBranch(
+        if: c, then: loopBody, else: loopTail, anchoredAt: stmt.condition.site),
       to: insertionBlock!)
 
     insertionBlock = loopTail
@@ -394,7 +393,7 @@ public struct Emitter {
     insertionBlock = loopHead
 
     for item in stmt.condition {
-      let b = module.createBasicBlock(atEndOf: insertionBlock!.function)
+      let next = module.createBasicBlock(atEndOf: insertionBlock!.function)
 
       frames.push()
       defer { frames.pop() }
@@ -405,11 +404,9 @@ public struct Emitter {
         let c = emitBranchCondition(e, into: &module)
         emitStackDeallocs(in: &module, site: e.site)
         module.append(
-          CondBranchInstruction(
-            condition: c, targetIfTrue: b, targetIfFalse: loopTail,
-            site: e.site),
+          module.makeCondBranch(if: c, then: next, else: loopTail, anchoredAt: e.site),
           to: insertionBlock!)
-        insertionBlock = b
+        insertionBlock = next
 
       case .decl:
         fatalError("not implemented")
@@ -498,11 +495,7 @@ public struct Emitter {
         // Evaluate the condition in the current block.
         let c = emitBranchCondition(program[itemExpr], into: &module)
         module.append(
-          CondBranchInstruction(
-            condition: c,
-            targetIfTrue: success,
-            targetIfFalse: failure,
-            site: expr.site),
+          module.makeCondBranch(if: c, then: success, else: failure, anchoredAt: expr.site),
           to: insertionBlock!)
         insertionBlock = success
 
