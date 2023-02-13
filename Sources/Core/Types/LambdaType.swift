@@ -42,40 +42,19 @@ public struct LambdaType: TypeProtocol, CallableType {
       output: ^output)
   }
 
-  /// Creates the type of the `let` implementation of `method`; fails if `method` doesn't have a
-  /// let capability.
-  public init?(letImplOf method: MethodType) {
-    if !method.capabilities.contains(.let) { return nil }
+  /// Creates the type of variant in `bundle` corresponding to `access` or fails if `bundle`
+  /// doesn't offer that capability.
+  ///
+  /// - Requires: `effect` is not `yielded`.
+  public init?(_ bundle: MethodType, for effect: AccessEffect) {
+    precondition(effect != .yielded)
+    if !bundle.capabilities.contains(effect) { return nil }
 
-    let projectedReceiver = ^RemoteType(.let, method.receiver)
+    let e = (effect == .sink)
+      ? TupleType(labelsAndTypes: [("self", bundle.receiver)])
+      : TupleType(labelsAndTypes: [("self", ^RemoteType(effect, bundle.receiver))])
     self.init(
-      environment: ^TupleType(labelsAndTypes: [("self", projectedReceiver)]),
-      inputs: method.inputs,
-      output: method.output)
-  }
-
-  /// Creates the type of the `inout` implementation of `method`; fails if `method` doesn't have an
-  /// inout capability.
-  public init?(inoutImplOf method: MethodType) {
-    if !method.capabilities.contains(.inout) && !method.capabilities.contains(.sink) { return nil }
-
-    let projectedReceiver = ^RemoteType(.inout, method.receiver)
-    self.init(
-      environment: ^TupleType(labelsAndTypes: [("self", projectedReceiver)]),
-      inputs: method.inputs,
-      output: method.output)
-  }
-
-  /// Creates the type of the `sink` implementation of `method`; fails if `method` doesn't have a
-  /// sink capability.
-  public init?(sinkImplOf method: MethodType) {
-    if !method.capabilities.contains(.inout) && !method.capabilities.contains(.sink) { return nil }
-
-    self.init(
-      receiverEffect: .sink,
-      environment: ^TupleType(labelsAndTypes: [("self", method.receiver)]),
-      inputs: method.inputs,
-      output: method.output)
+      receiverEffect: effect, environment: ^e, inputs: bundle.inputs, output: bundle.output)
   }
 
   /// Transforms `self` into a constructor type if `self` has the shape of an initializer type.
