@@ -192,7 +192,7 @@ public struct Emitter {
     // Allocate storage for each name introduced by the declaration.
     for (path, name) in decl.pattern.subpattern.names {
       let storage = module.append(
-        AllocStackInstruction(name.decl.type, site: name.site),
+        module.makeAllocStack(name.decl.type, for: name.decl.id, anchoredAt: name.site),
         to: insertionBlock!)[0]
       frames.top.allocs.append(storage)
       frames[name.decl] = storage
@@ -260,7 +260,7 @@ public struct Emitter {
 
         let exprType = initializer.type
         let storage = module.append(
-          AllocStackInstruction(exprType, site: pattern.site),
+          module.makeAllocStack(exprType, anchoredAt: pattern.site),
           to: insertionBlock!)[0]
         frames.top.allocs.append(storage)
         source = storage
@@ -480,7 +480,7 @@ public struct Emitter {
     if expr.type != .void {
       resultStorage =
         module.append(
-          AllocStackInstruction(expr.type, site: expr.site),
+          module.makeAllocStack(expr.type, anchoredAt: expr.site),
           to: insertionBlock!)[0]
       frames.top.allocs.append(resultStorage!)
     }
@@ -1038,7 +1038,7 @@ public struct Emitter {
 
     let value = emitRValue(syntax, into: &module)
     let storage = module.append(
-      AllocStackInstruction(rvalueType, site: syntax.site),
+      module.makeAllocStack(rvalueType, anchoredAt: syntax.site),
       to: insertionBlock!)[0]
     frames.top.allocs.append(storage)
 
