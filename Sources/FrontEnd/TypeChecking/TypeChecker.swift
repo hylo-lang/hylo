@@ -226,14 +226,19 @@ public struct TypeChecker {
 
   /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
   ///
-  /// - Requires: `id` is a valid ID in the type checker's AST.
-  public mutating func check(module id: NodeID<ModuleDecl>) {
+  /// - Requires: `m` is a valid ID in the type checker's AST.
+  public mutating func check(module m: NodeID<ModuleDecl>) {
     // Build the type of the module.
-    declTypes[id] = ^ModuleType(id, ast: ast)
+    declTypes[m] = ^ModuleType(m, ast: ast)
+    declRequests[m] = .typeRealizationStarted
 
     // Type check the declarations in the module.
-    for decl in ast.topLevelDecls(id) {
-      _ = check(decl: decl)
+    let s = ast.topLevelDecls(m).reduce(true, { (s, d) in check(decl: d) && s })
+    if s {
+      declRequests[m] = .success
+    } else {
+      declTypes[m] = .error
+      declRequests[m] = .failure
     }
   }
 
