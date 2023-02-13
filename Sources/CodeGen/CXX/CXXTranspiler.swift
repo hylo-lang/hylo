@@ -634,12 +634,7 @@ public struct CXXTranspiler {
       return MethodDecl.Typed(source)!.identifier.value
 
     case MethodImpl.self:
-      switch MethodImpl.Typed(source)!.introducer.value {
-      case .let: return "let"
-      case .inout: return "inout"
-      case .set: return "set"
-      case .sink: return "sink"
-      }
+      return String(describing: MethodImpl.Typed(source)!.introducer.value)
 
     case ProductTypeDecl.self:
       return ProductTypeDecl.Typed(source)!.baseName

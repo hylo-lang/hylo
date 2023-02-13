@@ -585,7 +585,7 @@ public struct Emitter {
     return module.append(
       CallInstruction(
         returnType: .object(expr.type),
-        calleeConvention: calleeType.receiverEffect ?? .let,
+        calleeConvention: calleeType.receiverEffect,
         callee: callee,
         argumentConventions: argumentConventions,
         arguments: arguments,
