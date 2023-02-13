@@ -16,7 +16,7 @@ public struct MethodImpl: Decl, LexicalScope {
   public let site: SourceRange
 
   /// The introducer of the method.
-  public let introducer: SourceRepresentable<ImplIntroducer>
+  public let introducer: SourceRepresentable<AccessEffect>
 
   /// The declaration of the implicit receiver parameter.
   public let receiver: NodeID<ParameterDecl>
@@ -26,7 +26,7 @@ public struct MethodImpl: Decl, LexicalScope {
 
   /// Creates an instance with the given properties and no `receiver`.
   public init(
-    introducer: SourceRepresentable<ImplIntroducer>,
+    introducer: SourceRepresentable<AccessEffect>,
     receiver: NodeID<ParameterDecl>,
     body: Body? = nil,
     site: SourceRange
