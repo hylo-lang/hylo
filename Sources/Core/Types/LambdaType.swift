@@ -38,7 +38,7 @@ public struct LambdaType: TypeProtocol, CallableType {
   /// Creates the type of a function accepting `inputs` as `let` parameters and returning `output`.
   public init(_ inputs: AnyType..., to output: AnyType) {
     self.init(
-      inputs: inputs.map({ (t) in .init(type: ^ParameterType(convention: .let, bareType: t)) }),
+      inputs: inputs.map({ (t) in .init(type: ^ParameterType(.let, t)) }),
       output: ^output)
   }
 
@@ -47,7 +47,7 @@ public struct LambdaType: TypeProtocol, CallableType {
   /// - Requires: `initializer` is an initializer type of the form `[](set A, B...) -> Void`.
   public init(constructorFormOf initializer: LambdaType) {
     let r = ParameterType(initializer.inputs.first!.type)!
-    precondition(r.convention == .set)
+    precondition(r.access == .set)
 
     self.init(
       receiverEffect: .set, environment: .void,
@@ -62,7 +62,8 @@ public struct LambdaType: TypeProtocol, CallableType {
     precondition(effect != .yielded)
     if !bundle.capabilities.contains(effect) { return nil }
 
-    let e = (effect == .sink)
+    let e =
+      (effect == .sink)
       ? TupleType(labelsAndTypes: [("self", bundle.receiver)])
       : TupleType(labelsAndTypes: [("self", ^RemoteType(effect, bundle.receiver))])
     self.init(

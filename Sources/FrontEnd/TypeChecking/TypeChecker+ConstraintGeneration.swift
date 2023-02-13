@@ -449,7 +449,7 @@ extension TypeChecker {
         return state.facts.assignErrorType(to: subject)
       }
 
-      subjectConventions = s.inputs.map({ (p) in ParameterType(p.type)?.convention ?? .let })
+      subjectConventions = s.inputs.map({ (p) in ParameterType(p.type)?.access ?? .let })
     } else {
       subjectConventions = nil
     }

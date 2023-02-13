@@ -575,7 +575,7 @@ public struct Emitter {
 
     for (parameter, argument) in zip(calleeType.inputs, expr.arguments) {
       let parameterType = parameter.type.base as! ParameterType
-      argumentConventions.append(parameterType.convention)
+      argumentConventions.append(parameterType.access)
       arguments.append(emit(argument: program[argument.value], to: parameterType, into: &module))
     }
 
@@ -682,12 +682,12 @@ public struct Emitter {
 
       // Emit the operands, starting with RHS.
       let rhsType = calleeType.inputs[0].type.base as! ParameterType
-      let rhsOperand = emit(rhsType.convention, foldedSequenceExpr: rhs, into: &module)
+      let rhsOperand = emit(rhsType.access, foldedSequenceExpr: rhs, into: &module)
 
       let lhsConvention: AccessEffect
       let lhsOperand: Operand
       if let lhsType = RemoteType(calleeType.captures[0].type) {
-        lhsConvention = lhsType.capability
+        lhsConvention = lhsType.access
         lhsOperand = emit(lhsConvention, foldedSequenceExpr: lhs, into: &module)
       } else {
         lhsConvention = .sink
@@ -714,7 +714,7 @@ public struct Emitter {
           returnType: .object(calleeType.output),
           calleeConvention: .let,
           callee: calleeOperand,
-          argumentConventions: [lhsConvention, rhsType.convention],
+          argumentConventions: [lhsConvention, rhsType.access],
           arguments: [lhsOperand, rhsOperand],
           site: program.ast.site(of: expr)),
         to: insertionBlock!)[0]
@@ -731,7 +731,7 @@ public struct Emitter {
     to parameterType: ParameterType,
     into module: inout Module
   ) -> Operand {
-    switch parameterType.convention {
+    switch parameterType.access {
     case .let:
       return emitLValue(expr, meantFor: .let, into: &module)
     case .inout:
@@ -790,18 +790,17 @@ public struct Emitter {
         // Add the receiver to the arguments.
         if let type = RemoteType(receiverType) {
           // The receiver has a borrowing convention.
-          conventions.insert(type.capability, at: 1)
+          conventions.insert(type.access, at: 1)
 
           switch nameExpr.domain {
           case .none:
             let receiver = module.append(
-              module.makeBorrow(
-                type.capability, from: frames[receiver!]!, anchoredAt: nameExpr.site),
+              module.makeBorrow(type.access, from: frames[receiver!]!, anchoredAt: nameExpr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 
           case .expr(let receiverID):
-            let receiver = emitLValue(receiverID, meantFor: type.capability, into: &module)
+            let receiver = emitLValue(receiverID, meantFor: type.access, into: &module)
             arguments.insert(receiver, at: 0)
 
           case .implicit:

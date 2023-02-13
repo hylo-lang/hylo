@@ -256,7 +256,7 @@ struct ConstraintSolver {
       solve(equality: .init(l.receiver, r.receiver, because: goal.cause), using: &checker)
 
     case (let l as ParameterType, let r as ParameterType):
-      if l.convention != r.convention {
+      if l.access != r.access {
         log("- fail")
         diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return

@@ -4,28 +4,33 @@ import Utils
 public struct ParameterType: TypeProtocol {
 
   /// The passing convention of the parameter.
-  public let convention: AccessEffect
+  public let access: AccessEffect
 
-  /// The bare type.
+  /// The type of the parameter's value.
   public let bareType: AnyType
 
   public let flags: TypeFlags
 
   /// Creates an instance with the given properties.
-  public init(convention: AccessEffect, bareType: AnyType) {
-    self.convention = convention
+  public init(_ access: AccessEffect, _ bareType: AnyType) {
+    self.access = access
     self.bareType = bareType
     self.flags = bareType.flags
   }
 
+  /// Creates an instance converting `t`.
+  public init(_ t: RemoteType) {
+    self.init(t.access, t.bareType)
+  }
+
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    ParameterType(convention: convention, bareType: bareType.transform(transformer))
+    ParameterType(access, bareType.transform(transformer))
   }
 
 }
 
 extension ParameterType: CustomStringConvertible {
 
-  public var description: String { "\(convention) \(bareType)" }
+  public var description: String { "\(access) \(bareType)" }
 
 }
