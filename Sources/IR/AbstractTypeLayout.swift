@@ -16,10 +16,10 @@ public struct AbstractTypeLayout {
   public let properties: [StoredProperty]
 
   /// Creates the abstract layout of `t` defined in `p`.
-  public init(of t: AnyType, definedIn p: TypedProgram) {
+  public init<T: TypeProtocol>(of t: T, definedIn p: TypedProgram) {
     self.program = p
-    self.type = t
-    self.properties = program.properties(of: t)
+    self.type = ^t
+    self.properties = program.properties(of: self.type)
   }
 
   /// Accesses the layout of the stored property at given `offset`.
