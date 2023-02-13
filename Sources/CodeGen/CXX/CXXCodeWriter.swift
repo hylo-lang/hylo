@@ -4,12 +4,12 @@ import ValModule
 public struct CXXCodeWriter {
 
   /// Initializes the current object.
-  public init(formatter: CXXCodeFormatter) {
+  public init(formatter: @escaping CodeTransform = identity()) {
     self.formatter = formatter
   }
 
   /// Object used to format output C++ code.
-  private let formatter: CXXCodeFormatter
+  private let formatter: CodeTransform
 
   /// Indicates if we are currently writing the standard library module.
   private var isStdLib: Bool = false
@@ -74,7 +74,7 @@ public struct CXXCodeWriter {
       }
     }
 
-    return formatter.format(target.code)
+    return formatter(target.code)
   }
 
   /// Returns the C++ code for `source` that needs to be present in the source file.
@@ -115,7 +115,7 @@ public struct CXXCodeWriter {
       target.writeNewline()
     }
 
-    return formatter.format(target.code)
+    return formatter(target.code)
   }
 
   // MARK: Declarations
