@@ -553,10 +553,8 @@ public struct Emitter {
 
     // Emit the value of the expression.
     insertionBlock = continuation
-    if let source = resultStorage {
-      return module.append(
-        LoadInstruction(LoweredType(lowering: expr.type), from: source, site: expr.site),
-        to: insertionBlock!)[0]
+    if let s = resultStorage {
+      return module.append(module.makeLoad(s, anchoredAt: expr.site), to: insertionBlock!)[0]
     } else {
       return .constant(.void)
     }
@@ -652,10 +650,8 @@ public struct Emitter {
     switch expr.decl {
     case .direct(let declID):
       // Lookup for a local symbol.
-      if let source = frames[declID] {
-        return module.append(
-          LoadInstruction(.object(expr.type), from: source, site: expr.site),
-          to: insertionBlock!)[0]
+      if let s = frames[declID] {
+        return module.append(module.makeLoad(s, anchoredAt: expr.site), to: insertionBlock!)[0]
       }
 
       fatalError("not implemented")
@@ -821,8 +817,7 @@ public struct Emitter {
           switch nameExpr.domain {
           case .none:
             let receiver = module.append(
-              LoadInstruction(
-                .object(receiverType), from: frames[receiver!]!, site: nameExpr.site),
+              module.makeLoad(frames[receiver!]!, anchoredAt: nameExpr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 

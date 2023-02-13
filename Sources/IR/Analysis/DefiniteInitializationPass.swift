@@ -205,14 +205,12 @@ public struct DefiniteInitializationPass {
         if initializedPaths.isEmpty { break }
 
         // Deinitialize the object(s) at the location.
-        let rootType = module.type(of: borrow.location).astType
         for path in initializedPaths {
           let s = module.insert(
             module.makeElementAddr(borrow.location, at: path, anchoredAt: borrow.site),
             before: i)[0]
-          let t = AbstractTypeLayout(of: rootType, definedIn: module.program)[path].type
           let o = module.insert(
-            LoadInstruction(.object(t), from: s, site: borrow.site),
+            module.makeLoad(s, anchoredAt: borrow.site),
             before: i)[0]
           module.insert(module.makeDeinit(o, anchoredAt: borrow.site), before: i)
         }
@@ -279,9 +277,8 @@ public struct DefiniteInitializationPass {
         let s = module.insert(
           module.makeElementAddr(dealloc.location, at: p, anchoredAt: dealloc.site),
           before: i)[0]
-        let t = AbstractTypeLayout(of: alloc.allocatedType, definedIn: module.program)[p]
         let o = module.insert(
-          LoadInstruction(.object(t.type), from: s, site: dealloc.site),
+          module.makeLoad(s, anchoredAt: dealloc.site),
           before: i)[0]
         module.insert(module.makeDeinit(o, anchoredAt: dealloc.site), before: i)
 
@@ -290,8 +287,9 @@ public struct DefiniteInitializationPass {
           i.function, i.block,
           module[i.function][i.block].instructions.address(before: i.address)!)
 
+        let l = AbstractTypeLayout(of: alloc.allocatedType, definedIn: module.program)[p]
         context.locals[FunctionLocal(i, 0)] = .object(
-          Object(layout: t, value: .full(.consumed(by: [consumer]))))
+          Object(layout: l, value: .full(.consumed(by: [consumer]))))
       }
 
       // Erase the deallocated memory from the context.
