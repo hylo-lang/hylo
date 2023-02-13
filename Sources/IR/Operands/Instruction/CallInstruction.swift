@@ -12,10 +12,12 @@ public struct CallInstruction: Instruction {
   /// The passing conventions of the instruction's operands.
   public let conventions: [AccessEffect]
 
+  /// The arguments of the call.
   public let operands: [Operand]
 
   public let site: SourceRange
 
+  /// Creates an instance with the given properties.
   public init(
     returnType: LoweredType,
     calleeConvention: AccessEffect,
@@ -114,6 +116,34 @@ public struct CallInstruction: Instruction {
     }
 
     return true
+  }
+
+}
+
+extension Module {
+
+  /// Creates a `call` anchored at `anchor` applies `callee` using convention `calleeConvention` on
+  /// `arguments` using `argumentConventions`.
+  ///
+  /// - Parameters:
+  ///   - callee: The function to call. Must have a thin lambda type.
+  ///   - arguments: The arguments of the call; one of each input of `callee`'s type.
+  func makeCall(
+    applying callee: Operand,
+    to arguments: [Operand],
+    anchoredAt anchor: SourceRange
+  ) -> CallInstruction {
+    let calleeType = LambdaType(type(of: callee).astType)!
+    precondition(calleeType.environment == .void)
+
+    let argumentConventions = calleeType.inputs.map({ ParameterType($0.type)!.access })
+    return CallInstruction(
+      returnType: .object(program.relations.canonical(calleeType.output)),
+      calleeConvention: calleeType.receiverEffect,
+      callee: callee,
+      argumentConventions: argumentConventions,
+      arguments: arguments,
+      site: anchor)
   }
 
 }
