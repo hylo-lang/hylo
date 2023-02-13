@@ -108,6 +108,8 @@ public struct DefiniteInitializationPass {
           interpret(deinit: user, in: &newContext)
         case is DestructureInstruction:
           interpret(destructure: user, in: &newContext)
+        case is ElementAddrInstruction:
+          interpret(elementAddr: user, in: &newContext)
         case is EndBorrowInstruction:
           continue
         case is LLVMInstruction:
@@ -297,6 +299,22 @@ public struct DefiniteInitializationPass {
     func interpret(deinit i: InstructionID, in context: inout Context) {
       let x = module[i] as! DeinitInstruction
       context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(elementAddr i: InstructionID, in context: inout Context) {
+      let addr = module[i] as! ElementAddrInstruction
+
+      // Operand must a location.
+      let locations: [MemoryLocation]
+      if let k = FunctionLocal(operand: addr.base) {
+        locations = context.locals[k]!.unwrapLocations()!.map({ $0.appending(addr.elementPath) })
+      } else {
+        // Operand is a constant.
+        fatalError("not implemented")
+      }
+
+      context.locals[FunctionLocal(i, 0)] = .locations(Set(locations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
