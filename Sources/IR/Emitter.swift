@@ -460,7 +460,7 @@ public struct Emitter {
 
     let boolType = program.ast.coreType(named: "Bool")!
     return module.append(
-      RecordInstruction(objectType: .object(boolType), operands: [value], site: expr.site),
+      module.makeRecord(boolType, aggregating: [value], anchoredAt: expr.site),
       to: insertionBlock!)[0]
   }
 
@@ -638,8 +638,7 @@ public struct Emitter {
     // Emit the constant integer.
     let value = IntegerConstant(bits, bitWidth: bitWidth)
     return module.append(
-      RecordInstruction(
-        objectType: .object(type), operands: [.constant(.integer(value))], site: expr.site),
+      module.makeRecord(type, aggregating: [.constant(.integer(value))], anchoredAt: expr.site),
       to: insertionBlock!)[0]
   }
 
