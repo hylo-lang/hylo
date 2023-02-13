@@ -665,43 +665,29 @@ public struct Emitter {
   ) -> Operand {
     switch expr {
     case .infix(let callee, let lhs, let rhs):
-      let calleeType = program.exprTypes[callee.expr]!.base as! LambdaType
+      let calleeType = LambdaType(program.relations.canonical(program.exprTypes[callee.expr]!))!
+        .lifted
 
       // Emit the operands, starting with RHS.
-      let rhsType = calleeType.inputs[0].type.base as! ParameterType
-      let rhsOperand = emit(rhsType.access, foldedSequenceExpr: rhs, into: &module)
+      let r = emit(
+        ParameterType(calleeType.inputs[1].type)!.access, foldedSequenceExpr: rhs, into: &module)
+      let l = emit(
+        ParameterType(calleeType.inputs[0].type)!.access, foldedSequenceExpr: lhs, into: &module)
 
-      let lhsConvention: AccessEffect
-      let lhsOperand: Operand
-      if let lhsType = RemoteType(calleeType.captures[0].type) {
-        lhsConvention = lhsType.access
-        lhsOperand = emit(lhsConvention, foldedSequenceExpr: lhs, into: &module)
-      } else {
-        lhsConvention = .sink
-        lhsOperand = emit(.sink, foldedSequenceExpr: lhs, into: &module)
-      }
-
-      // Create the callee's value.
-      let calleeOperand: Operand
-      switch program.referredDecls[callee.expr] {
-      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        calleeOperand = .constant(
-          .function(
-            FunctionRef(
-              name: DeclLocator(identifying: calleeDecl, in: program).mangled,
-              type: .address(calleeType))))
-
-      default:
+      // Emit the callee.
+      guard case .member(let calleeDecl) = program.referredDecls[callee.expr] else {
         unreachable()
       }
+      assert(calleeDecl.kind == FunctionDecl.self)
+      let c = Operand.constant(
+        .function(
+          FunctionRef(
+            name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+            type: .address(calleeType))))
 
       // Emit the call.
       return module.append(
-        CallInstruction(
-          returnType: .object(calleeType.output),
-          callee: calleeOperand,
-          arguments: [lhsOperand, rhsOperand],
-          site: program.ast.site(of: expr)),
+        module.makeCall(applying: c, to: [r, l], anchoredAt: program.ast.site(of: expr)),
         to: insertionBlock!)[0]
 
     case .leaf(let expr):
