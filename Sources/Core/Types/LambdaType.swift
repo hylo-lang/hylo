@@ -38,7 +38,7 @@ public struct LambdaType: TypeProtocol, CallableType {
   /// Creates the type of a function accepting `inputs` as `let` parameters and returning `output`.
   public init(_ inputs: AnyType..., to output: AnyType) {
     self.init(
-      inputs: inputs.map({ (t) in .init(type: ^ParameterType(convention: .let, bareType: t)) }),
+      inputs: inputs.map({ (t) in .init(type: ^ParameterType(.let, t)) }),
       output: ^output)
   }
 

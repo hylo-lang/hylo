@@ -6,13 +6,13 @@ public struct ParameterType: TypeProtocol {
   /// The passing convention of the parameter.
   public let convention: AccessEffect
 
-  /// The bare type.
+  /// The type of the parameter's value.
   public let bareType: AnyType
 
   public let flags: TypeFlags
 
   /// Creates an instance with the given properties.
-  public init(convention: AccessEffect, bareType: AnyType) {
+  public init(_ convention: AccessEffect, _ bareType: AnyType) {
     self.convention = convention
     self.bareType = bareType
     self.flags = bareType.flags
@@ -20,11 +20,11 @@ public struct ParameterType: TypeProtocol {
 
   /// Creates an instance converting `t`.
   public init(_ t: RemoteType) {
-    self.init(convention: t.capability, bareType: t.base)
+    self.init(t.capability, t.base)
   }
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    ParameterType(convention: convention, bareType: bareType.transform(transformer))
+    ParameterType(convention, bareType.transform(transformer))
   }
 
 }

@@ -432,9 +432,7 @@ public struct TypeChecker {
       } else {
         // `sink` member functions capture their receiver.
         assert(ast[id].isSink)
-        declTypes[receiverDecl] = ^ParameterType(
-          convention: .sink,
-          bareType: functionType.environment)
+        declTypes[receiverDecl] = ^ParameterType(.sink, functionType.environment)
       }
 
       declRequests[receiverDecl] = .success
@@ -531,9 +529,7 @@ public struct TypeChecker {
 
     for impl in ast[id].impls {
       // Set the type of the implicit receiver declaration.
-      declTypes[ast[impl].receiver] = ^ParameterType(
-        convention: ast[impl].introducer.value,
-        bareType: type.receiver)
+      declTypes[ast[impl].receiver] = ^ParameterType(ast[impl].introducer.value, type.receiver)
       declRequests[ast[impl].receiver] = .success
 
       // Type check method's implementations, if any.
@@ -2588,7 +2584,7 @@ public struct TypeChecker {
     let node = ast[id]
 
     guard let bareType = realize(node.bareType, in: scope)?.instance else { return nil }
-    return MetatypeType(of: ParameterType(convention: node.convention.value, bareType: bareType))
+    return MetatypeType(of: ParameterType(node.convention.value, bareType))
   }
 
   private mutating func realize(
@@ -2771,8 +2767,7 @@ public struct TypeChecker {
         // expression. In that case, the unannotated parameters are associated with a fresh type
         // variable, so inference can proceed.
         if ast[id].isInExprContext {
-          let t = ^ParameterType(
-            convention: (conventions?[i]) ?? .let, bareType: ^TypeVariable(node: AnyNodeID(p)))
+          let t = ^ParameterType((conventions?[i]) ?? .let, ^TypeVariable(node: AnyNodeID(p)))
           declTypes[p] = t
           declRequests[p] = .typeRealizationCompleted
           inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
@@ -2943,7 +2938,7 @@ public struct TypeChecker {
     let receiverType = realizeSelfTypeExpr(in: program.declToScope[id]!)!.instance
     let receiverParameterType = CallableTypeParameter(
       label: "self",
-      type: ^ParameterType(convention: .set, bareType: receiverType))
+      type: ^ParameterType(.set, receiverType))
     inputs.insert(receiverParameterType, at: 0)
     return ^LambdaType(environment: .void, inputs: inputs, output: .void)
   }
@@ -3304,10 +3299,7 @@ public struct TypeChecker {
 
     // Synthesize the receiver type.
     let receiver = realizeSelfTypeExpr(in: decl)!.instance
-    inputs.append(
-      CallableTypeParameter(
-        label: "self",
-        type: ^ParameterType(convention: .set, bareType: receiver)))
+    inputs.append(.init(label: "self", type: ^ParameterType(.set, receiver)))
 
     // List and realize the type of all stored bindings.
     for m in ast[decl].members {
@@ -3316,10 +3308,7 @@ public struct TypeChecker {
 
       for (_, name) in ast.names(in: ast[member].pattern) {
         let d = ast[name].decl
-        inputs.append(
-          CallableTypeParameter(
-            label: ast[d].baseName,
-            type: ^ParameterType(convention: .sink, bareType: declTypes[d]!)))
+        inputs.append(.init(label: ast[d].baseName, type: ^ParameterType(.sink, declTypes[d]!)))
       }
     }
 
