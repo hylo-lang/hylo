@@ -168,7 +168,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
         case let instruction as ReturnInstruction:
           output.write("return ")
-          output.write(describe(operand: instruction.value))
+          output.write(describe(operand: instruction.object))
 
         case let instruction as StoreInstruction:
           output.write("store ")

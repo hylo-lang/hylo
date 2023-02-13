@@ -120,9 +120,7 @@ public struct Emitter {
 
       // Emit the implicit return statement.
       if expr.type != .never {
-        module.append(
-          ReturnInstruction(value: value, site: expr.site),
-          to: insertionBlock!)
+        module.append(module.makeReturn(value, anchoredAt: expr.site), to: insertionBlock!)
       }
     }
 
@@ -377,7 +375,7 @@ public struct Emitter {
     }
 
     emitStackDeallocs(in: &module, site: stmt.site)
-    module.append(ReturnInstruction(value: value, site: stmt.site), to: insertionBlock!)
+    module.append(module.makeReturn(value, anchoredAt: stmt.site), to: insertionBlock!)
   }
 
   private mutating func emit(whileStmt stmt: WhileStmt.Typed, into module: inout Module) {
