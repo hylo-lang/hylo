@@ -344,7 +344,7 @@ public struct Emitter {
     let loopBody = module.createBasicBlock(atEndOf: insertionBlock!.function)
     let loopTail = module.createBasicBlock(atEndOf: insertionBlock!.function)
     module.append(
-      BranchInstruction(target: loopBody, site: .empty(at: stmt.site.first())),
+      module.makeBranch(to: loopBody, anchoredAt: .empty(at: stmt.site.first())),
       to: insertionBlock!)
     insertionBlock = loopBody
 
@@ -389,7 +389,7 @@ public struct Emitter {
 
     // Emit the condition(s).
     module.append(
-      BranchInstruction(target: loopHead, site: .empty(at: stmt.site.first())),
+      module.makeBranch(to: loopHead, anchoredAt: .empty(at: stmt.site.first())),
       to: insertionBlock!)
     insertionBlock = loopHead
 
@@ -418,7 +418,7 @@ public struct Emitter {
 
     emit(braceStmt: stmt.body, into: &module)
     module.append(
-      BranchInstruction(target: loopHead, site: .empty(at: stmt.site.first())),
+      module.makeBranch(to: loopHead, anchoredAt: .empty(at: stmt.site.first())),
       to: insertionBlock!)
     insertionBlock = loopTail
   }
@@ -533,7 +533,7 @@ public struct Emitter {
     case .block:
       fatalError("not implemented")
     }
-    module.append(BranchInstruction(target: continuation, site: expr.site), to: insertionBlock!)
+    module.append(module.makeBranch(to: continuation, anchoredAt: expr.site), to: insertionBlock!)
 
     // Emit the failure branch.
     insertionBlock = alt
@@ -558,7 +558,7 @@ public struct Emitter {
     case nil:
       break
     }
-    module.append(BranchInstruction(target: continuation, site: expr.site), to: insertionBlock!)
+    module.append(module.makeBranch(to: continuation, anchoredAt: expr.site), to: insertionBlock!)
 
     // Emit the value of the expression.
     insertionBlock = continuation
