@@ -42,6 +42,18 @@ public struct LambdaType: TypeProtocol, CallableType {
       output: ^output)
   }
 
+  /// Given an initializer type `initializer`, creates the corresponding constructor type.
+  ///
+  /// - Requires: `initializer` is an initializer type of the form `[](set A, B...) -> Void`.
+  public init(constructorFormOf initializer: LambdaType) {
+    let r = ParameterType(initializer.inputs.first!.type)!
+    precondition(r.convention == .set)
+
+    self.init(
+      receiverEffect: .set, environment: .void,
+      inputs: Array(initializer.inputs[1...]), output: r.bareType)
+  }
+
   /// Creates the type of variant in `bundle` corresponding to `access` or fails if `bundle`
   /// doesn't offer that capability.
   ///
@@ -55,16 +67,6 @@ public struct LambdaType: TypeProtocol, CallableType {
       : TupleType(labelsAndTypes: [("self", ^RemoteType(effect, bundle.receiver))])
     self.init(
       receiverEffect: effect, environment: ^e, inputs: bundle.inputs, output: bundle.output)
-  }
-
-  /// Transforms `self` into a constructor type if `self` has the shape of an initializer type.
-  /// Otherwise, returns `nil`.
-  public func ctor() -> LambdaType? {
-    guard (environment == .void) && (output == .void),
-      let receiverType = ParameterType(inputs.first?.type),
-      receiverType.convention == .set
-    else { return nil }
-    return LambdaType(inputs: Array(inputs[1...]), output: receiverType.bareType)
   }
 
   /// Accesses the individual elements of the lambda's environment.
