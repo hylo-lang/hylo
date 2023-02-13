@@ -34,16 +34,6 @@ public struct ElementAddrInstruction: Instruction {
 
   public var isTerminator: Bool { false }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    // Instruction result has an address type.
-    if !elementType.isAddress { return false }
-
-    // Operand has an address type.
-    if !module.type(of: base).isAddress { return false }
-
-    return true
-  }
-
 }
 
 extension Module {

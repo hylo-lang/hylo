@@ -20,16 +20,6 @@ public struct DeinitInstruction: Instruction {
 
   public var isTerminator: Bool { false }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    // Operand has an object type.
-    if module.type(of: object).isAddress { return false }
-
-    // Operand is register.
-    if object.instruction == nil { return false }
-
-    return true
-  }
-
 }
 
 extension Module {

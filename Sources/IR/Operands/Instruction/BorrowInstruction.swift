@@ -38,19 +38,6 @@ public struct BorrowInstruction: Instruction {
 
   public var isTerminator: Bool { false }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    // Capability may not be `sink`.
-    if capability == .sink { return false }
-
-    // Instruction result has an address type.
-    if !borrowedType.isAddress { return false }
-
-    // Operand has an address type.
-    if !module.type(of: location).isAddress { return false }
-
-    return true
-  }
-
 }
 
 extension Module {

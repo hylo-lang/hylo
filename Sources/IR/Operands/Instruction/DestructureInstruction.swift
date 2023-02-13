@@ -22,21 +22,6 @@ public struct DestructureInstruction: Instruction {
 
   public var isTerminator: Bool { false }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    // Instruction results have object types.
-    for output in types {
-      if output.isAddress { return false }
-    }
-
-    // Operand has an object type.
-    if module.type(of: whole).isAddress { return false }
-
-    // Operand has a record layout.
-    if !module.type(of: whole).astType.hasRecordLayout { return false }
-
-    return true
-  }
-
 }
 
 extension Module {

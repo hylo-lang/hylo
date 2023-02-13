@@ -22,11 +22,6 @@ public struct RecordInstruction: Instruction {
 
   public var isTerminator: Bool { false }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    // Instruction result has an object type.
-    return !objectType.isAddress
-  }
-
 }
 
 extension Module {

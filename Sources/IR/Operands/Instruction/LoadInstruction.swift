@@ -24,19 +24,6 @@ public struct LoadInstruction: Instruction {
 
   public var isTerminator: Bool { false }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    // Instruction result has an object type.
-    if objectType.isAddress { return false }
-
-    // Source jas an address type.
-    if !module.type(of: source).isAddress { return false }
-
-    // Type of the instruction matches the type of the operand.
-    if module.type(of: source).astType != objectType.astType { return false }
-
-    return true
-  }
-
 }
 
 extension Module {

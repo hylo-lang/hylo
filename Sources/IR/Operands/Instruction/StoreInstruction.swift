@@ -24,10 +24,6 @@ public struct StoreInstruction: Instruction {
 
   public var isTerminator: Bool { false }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    true
-  }
-
 }
 
 extension Module {

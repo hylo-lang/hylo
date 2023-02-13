@@ -20,10 +20,6 @@ public struct BranchInstruction: Instruction {
 
   public var isTerminator: Bool { true }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    true
-  }
-
 }
 
 extension Module {

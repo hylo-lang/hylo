@@ -33,11 +33,6 @@ public struct CondBranchInstruction: Instruction {
 
   public var isTerminator: Bool { true }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    /// The condition operand has an object type.
-    return !module.type(of: condition).isAddress
-  }
-
 }
 
 extension Module {
