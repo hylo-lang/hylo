@@ -27,34 +27,29 @@ public struct CXXCodeWriter {
 
   /// The C++ code for `module` that needs to be present in the header file.
   private func generateHeaderCode(_ source: CXXModule) -> String {
-    var target = CodeFormatter()
+    var target: String = ""
 
     // Emit the header guard.
     // "#pragma once" is non-standard, but implemented by all major compilers,
     // and it typically does a better job
     // (more efficiently treated in the compiler, and reduces probability of accidents)
-    target.writeLine("#pragma once")
-    target.writeNewline()
+    target.write("#pragma once\n")
 
     // Emit include clauses.
     if source.isStdLib {
-      target.writeLine("#include <variant>")
-      target.writeLine("#include <cstdint>")
-      target.writeLine("#include <cstdlib>")
+      target.write("#include <variant>\n")
+      target.write("#include <cstdint>\n")
+      target.write("#include <cstdlib>\n")
     } else {
-      target.writeLine("#include \"ValStdLib.h\"")
+      target.write("#include \"ValStdLib.h\"\n")
     }
-    target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(source.name)")
-    target.beginBrace()
-    target.writeNewline()
+    target.write("namespace \(source.name) {\n")
 
     // If we are not in the standard library, use the namespace corresponding to the standard lib.
     if !source.isStdLib {
-      target.writeLine("using namespace ValStdLib;")
-      target.writeNewline()
+      target.write("using namespace ValStdLib;\n")
     }
 
     // Emit the C++ text needed for the header corresponding to the C++ declarations.
@@ -62,9 +57,7 @@ public struct CXXCodeWriter {
       writeInterface(topLevel: decl, into: &target)
     }
 
-    target.writeNewline()
-    target.endBrace()
-    target.writeNewline()
+    target.write("\n}\n")
 
     // Add extra native code to the stdlib header.
     if source.isStdLib {
@@ -74,30 +67,26 @@ public struct CXXCodeWriter {
       }
     }
 
-    return formatter(target.code)
+    return formatter(target)
   }
 
   /// Returns the C++ code for `source` that needs to be present in the source file.
   private func generateSourceCode(_ source: CXXModule) -> String {
-    var target = CodeFormatter()
+    var target: String = ""
 
     // Emit include clauses.
-    target.writeLine("#include \"\(source.name).h\"")
-    target.writeNewline()
+    target.write("#include \"\(source.name).h\"\n")
 
     // Create a namespace for the entire module.
-    target.write("namespace \(source.name)")
-    target.beginBrace()
-    target.writeNewline()
+    target.write("namespace \(source.name) {\n")
 
     // Emit the C++ text needed for the source file corresponding to the C++ declarations.
     for decl in source.topLevelDecls {
       writeDefinition(topLevel: decl, into: &target)
-      target.writeNewline()
+      target.write("\n")
     }
 
-    target.endBrace()
-    target.writeNewline()
+    target.write("}\n")
 
     // Add extra native code to the stdlib source file.
     if source.isStdLib {
@@ -109,18 +98,17 @@ public struct CXXCodeWriter {
 
     // Write a CXX `main` function if the module has an entry point.
     if source.entryPointBody != nil {
-      target.writeNewline()
       target.write("int main()")
       write(stmt: source.entryPointBody!, into: &target)
-      target.writeNewline()
+      target.write("\n")
     }
 
-    return formatter(target.code)
+    return formatter(target)
   }
 
   // MARK: Declarations
 
-  private func writeInterface(topLevel decl: CXXTopLevelDecl, into target: inout CodeFormatter) {
+  private func writeInterface(topLevel decl: CXXTopLevelDecl, into target: inout String) {
     switch type(of: decl).kind {
     case CXXFunctionDecl.self:
       writeSignature(function: decl as! CXXFunctionDecl, into: &target)
@@ -132,10 +120,10 @@ public struct CXXCodeWriter {
     default:
       fatalError("unexpected top-level declaration")
     }
-    target.writeLine(";")
+    target.write(";\n")
   }
 
-  private func writeDefinition(topLevel decl: CXXTopLevelDecl, into target: inout CodeFormatter) {
+  private func writeDefinition(topLevel decl: CXXTopLevelDecl, into target: inout String) {
     switch type(of: decl).kind {
     case CXXFunctionDecl.self:
       writeDefinition(function: decl as! CXXFunctionDecl, into: &target)
@@ -149,45 +137,44 @@ public struct CXXCodeWriter {
     }
   }
 
-  private func writeSignature(function decl: CXXFunctionDecl, into target: inout CodeFormatter) {
+  private func writeSignature(function decl: CXXFunctionDecl, into target: inout String) {
     write(typeExpr: decl.output, into: &target)
-    target.writeSpace()
+    target.write(" ")
     write(identifier: decl.identifier, into: &target)
     target.write("(")
     for i in 0 ..< decl.parameters.count {
       if i != 0 { target.write(", ") }
       write(typeExpr: decl.parameters[i].type, into: &target)
-      target.writeSpace()
+      target.write(" ")
       write(identifier: decl.parameters[i].name, into: &target)
     }
     target.write(")")
   }
-  private func writeDefinition(function decl: CXXFunctionDecl, into target: inout CodeFormatter) {
+  private func writeDefinition(function decl: CXXFunctionDecl, into target: inout String) {
     writeSignature(function: decl, into: &target)
     if decl.body != nil {
-      target.writeSpace()
+      target.write(" ")
       write(stmt: decl.body!, into: &target)
     } else {
-      target.writeLine(";")
+      target.write(";\n")
     }
   }
 
-  private func writeSignature(type decl: CXXClassDecl, into target: inout CodeFormatter) {
+  private func writeSignature(type decl: CXXClassDecl, into target: inout String) {
     target.write("class ")
     write(identifier: decl.name, into: &target)
   }
-  private func writeDefinition(type decl: CXXClassDecl, into target: inout CodeFormatter) {
+  private func writeDefinition(type decl: CXXClassDecl, into target: inout String) {
     writeSignature(type: decl, into: &target)
-    target.beginBrace()
-    target.writeLine("public:")
+    target.write(" {\npublic:\n")
     for member in decl.members {
       switch member {
       case .attribute(let attribute):
         write(classAttribute: attribute, into: &target)
       case .method:
-        target.writeLine("// method")
+        target.write("// method\n")
       case .constructor:
-        target.writeLine("// constructor")
+        target.write("// constructor\n")
       }
     }
     // Special code for stdlib types
@@ -195,15 +182,14 @@ public struct CXXCodeWriter {
       // For standard value types try to generate implict conversion constructors from C++ literal types.
       write(conversionCtor: decl, into: &target)
     }
-    target.endBrace()
-    target.writeLine(";")
+    target.write("};\n")
   }
 
   /// Writes to `target` the implicit conversion constructor for `source`, coverting from inner
   /// attribute type.
   ///
   /// This only applies for classes have one data member, and its type is native.
-  private func write(conversionCtor source: CXXClassDecl, into target: inout CodeFormatter) {
+  private func write(conversionCtor source: CXXClassDecl, into target: inout String) {
     let dataMembers = source.members.compactMap({ m in
       switch m {
       case .attribute(let dataMember):
@@ -221,35 +207,35 @@ public struct CXXCodeWriter {
       write(typeExpr: dataMembers[0].type, into: &target)
       target.write(" v) : ")
       write(identifier: dataMembers[0].name, into: &target)
-      target.writeLine("(v) {}")
+      target.write("(v) {}\n")
     }
   }
 
-  private func write(classAttribute decl: CXXClassAttribute, into target: inout CodeFormatter) {
+  private func write(classAttribute decl: CXXClassAttribute, into target: inout String) {
     write(typeExpr: decl.type, into: &target)
-    target.writeSpace()
+    target.write(" ")
     write(identifier: decl.name, into: &target)
     if let value = decl.initializer {
       target.write(" = ")
       write(expr: value, into: &target)
     }
-    target.writeLine(";")
+    target.write(";\n")
   }
 
-  private func write(localVar decl: CXXLocalVarDecl, into target: inout CodeFormatter) {
+  private func write(localVar decl: CXXLocalVarDecl, into target: inout String) {
     write(typeExpr: decl.type, into: &target)
-    target.writeSpace()
+    target.write(" ")
     write(identifier: decl.name, into: &target)
     if let value = decl.initializer {
       target.write(" = ")
       write(expr: value, into: &target)
     }
-    target.writeLine(";")
+    target.write(";\n")
   }
 
   // MARK: Statements
 
-  private func write(stmt: CXXStmt, into target: inout CodeFormatter) {
+  private func write(stmt: CXXStmt, into target: inout String) {
     switch type(of: stmt).kind {
     case CXXScopedBlock.self:
       write(scopedBlock: stmt as! CXXScopedBlock, into: &target)
@@ -276,27 +262,26 @@ public struct CXXCodeWriter {
     }
   }
 
-  private func write(scopedBlock stmt: CXXScopedBlock, into target: inout CodeFormatter) {
-    target.beginBrace()
+  private func write(scopedBlock stmt: CXXScopedBlock, into target: inout String) {
+    target.write("{\n")
     for s in stmt.stmts {
       write(stmt: s, into: &target)
     }
-    target.endBrace()
-    target.writeNewline()
+    target.write("}\n")
   }
-  private func write(exprStmt stmt: CXXExprStmt, into target: inout CodeFormatter) {
+  private func write(exprStmt stmt: CXXExprStmt, into target: inout String) {
     write(expr: stmt.expr, into: &target)
-    target.writeLine(";")
+    target.write(";\n")
   }
-  private func write(returnStmt stmt: CXXReturnStmt, into target: inout CodeFormatter) {
+  private func write(returnStmt stmt: CXXReturnStmt, into target: inout String) {
     target.write("return")
     if stmt.expr != nil {
-      target.writeSpace()
+      target.write(" ")
       write(expr: stmt.expr!, into: &target)
     }
-    target.writeLine(";")
+    target.write(";\n")
   }
-  private func write(ifStmt stmt: CXXIfStmt, into target: inout CodeFormatter) {
+  private func write(ifStmt stmt: CXXIfStmt, into target: inout String) {
     target.write("if ( ")
     write(expr: stmt.condition, into: &target)
     target.write(" ) ")
@@ -306,29 +291,29 @@ public struct CXXCodeWriter {
       write(stmt: stmt.falseStmt!, into: &target)
     }
   }
-  private func write(whileStmt stmt: CXXWhileStmt, into target: inout CodeFormatter) {
+  private func write(whileStmt stmt: CXXWhileStmt, into target: inout String) {
     target.write("while ( ")
     write(expr: stmt.condition, into: &target)
     target.write(" ) ")
     write(stmt: stmt.body, into: &target)
   }
-  private func write(doWhileStmt stmt: CXXDoWhileStmt, into target: inout CodeFormatter) {
+  private func write(doWhileStmt stmt: CXXDoWhileStmt, into target: inout String) {
     target.write("do ")
     write(stmt: stmt.body, into: &target)
     target.write("while ( ")
     write(expr: stmt.condition, into: &target)
-    target.writeLine(" );")
+    target.write(" );\n")
   }
-  private func write(breakStmt stmt: CXXBreakStmt, into target: inout CodeFormatter) {
-    target.writeLine("break;")
+  private func write(breakStmt stmt: CXXBreakStmt, into target: inout String) {
+    target.write("break;\n")
   }
-  private func write(continueStmt stmt: CXXContinueStmt, into target: inout CodeFormatter) {
-    target.writeLine("continue;")
+  private func write(continueStmt stmt: CXXContinueStmt, into target: inout String) {
+    target.write("continue;\n")
   }
 
   // MARK: Expressions
 
-  private func write(expr: CXXExpr, into target: inout CodeFormatter) {
+  private func write(expr: CXXExpr, into target: inout String) {
     switch type(of: expr).kind {
     case CXXBooleanLiteralExpr.self:
       write(booleanLiteralExpr: expr as! CXXBooleanLiteralExpr, into: &target)
@@ -362,70 +347,68 @@ public struct CXXCodeWriter {
   }
 
   private func write(
-    booleanLiteralExpr expr: CXXBooleanLiteralExpr, into target: inout CodeFormatter
+    booleanLiteralExpr expr: CXXBooleanLiteralExpr, into target: inout String
   ) {
     target.write(expr.value ? "true" : "false")
   }
   private func write(
-    integerLiteralExpr expr: CXXIntegerLiteralExpr, into target: inout CodeFormatter
+    integerLiteralExpr expr: CXXIntegerLiteralExpr, into target: inout String
   ) {
     target.write(expr.value)
   }
-  private func write(identifier expr: CXXIdentifier, into target: inout CodeFormatter) {
+  private func write(identifier expr: CXXIdentifier, into target: inout String) {
     target.write(expr.description)
   }
-  private func write(receiverExpr expr: CXXReceiverExpr, into target: inout CodeFormatter) {
+  private func write(receiverExpr expr: CXXReceiverExpr, into target: inout String) {
     target.write("this")
   }
-  private func write(typeExpr expr: CXXTypeExpr, into target: inout CodeFormatter) {
+  private func write(typeExpr expr: CXXTypeExpr, into target: inout String) {
     target.write(expr.text)
   }
-  private func write(infixExpr expr: CXXInfixExpr, into target: inout CodeFormatter) {
+  private func write(infixExpr expr: CXXInfixExpr, into target: inout String) {
     // TODO: handle precedence and associativity; as of writing this comment, infix operators cannot be properly tested.
     write(expr: expr.lhs, into: &target)
-    target.writeSpace()
     switch expr.oper {
-    case .scopeResolution: target.write("::")
-    case .dotAccess: target.write(".")
-    case .ptrAccess: target.write("->")
-    case .dotPtrToMember: target.write(".*")
-    case .ptrToMember: target.write("->*")
-    case .multiplication: target.write("*")
-    case .division: target.write("/")
-    case .remainder: target.write("%")
-    case .addition: target.write("+")
-    case .subtraction: target.write("-")
-    case .leftShift: target.write("<<")
-    case .rightShift: target.write(">>")
-    case .spaceship: target.write("<=>")
-    case .lessThan: target.write("<")
-    case .lessEqual: target.write("<=")
-    case .greaterThan: target.write(">")
-    case .greaterEqual: target.write(">=")
-    case .equality: target.write("==")
-    case .inequality: target.write("==")
-    case .bitwiseAnd: target.write("&")
-    case .bitwiseXor: target.write("^")
-    case .bitwiseOr: target.write("|")
-    case .logicalAnd: target.write("&&")
-    case .logicalOr: target.write("||")
-    case .assignment: target.write("=")
-    case .addAssignment: target.write("+=")
-    case .subAssignment: target.write("-=")
-    case .mulAssignment: target.write("*=")
-    case .divAssignment: target.write("/=")
-    case .remAssignment: target.write("%=")
-    case .shiftLeftAssignment: target.write("<<=")
-    case .shiftRightAssignment: target.write(">>=")
-    case .bitwiseAndAssignment: target.write("&=")
-    case .bitwiseXorAssignment: target.write("^=")
-    case .bitwiseOrAssignment: target.write("|=")
-    case .comma: target.write(",")
+    case .scopeResolution: target.write(" :: ")
+    case .dotAccess: target.write(" . ")
+    case .ptrAccess: target.write(" -> ")
+    case .dotPtrToMember: target.write(" .* ")
+    case .ptrToMember: target.write(" ->* ")
+    case .multiplication: target.write(" * ")
+    case .division: target.write(" / ")
+    case .remainder: target.write(" % ")
+    case .addition: target.write(" + ")
+    case .subtraction: target.write(" - ")
+    case .leftShift: target.write(" << ")
+    case .rightShift: target.write(" >> ")
+    case .spaceship: target.write(" <=> ")
+    case .lessThan: target.write(" < ")
+    case .lessEqual: target.write(" <= ")
+    case .greaterThan: target.write(" > ")
+    case .greaterEqual: target.write(" >= ")
+    case .equality: target.write(" == ")
+    case .inequality: target.write(" == ")
+    case .bitwiseAnd: target.write(" & ")
+    case .bitwiseXor: target.write(" ^ ")
+    case .bitwiseOr: target.write(" | ")
+    case .logicalAnd: target.write(" && ")
+    case .logicalOr: target.write(" || ")
+    case .assignment: target.write(" = ")
+    case .addAssignment: target.write(" += ")
+    case .subAssignment: target.write(" -= ")
+    case .mulAssignment: target.write(" *= ")
+    case .divAssignment: target.write(" /= ")
+    case .remAssignment: target.write(" %= ")
+    case .shiftLeftAssignment: target.write(" <<= ")
+    case .shiftRightAssignment: target.write(" >>= ")
+    case .bitwiseAndAssignment: target.write(" &= ")
+    case .bitwiseXorAssignment: target.write(" ^= ")
+    case .bitwiseOrAssignment: target.write(" |= ")
+    case .comma: target.write(" , ")
     }
-    target.writeSpace()
     write(expr: expr.rhs, into: &target)
   }
-  private func write(prefixExpr expr: CXXPrefixExpr, into target: inout CodeFormatter) {
+  private func write(prefixExpr expr: CXXPrefixExpr, into target: inout String) {
     // TODO: handle precedence and associativity; as of writing this comment, prefix operators cannot be properly tested.
     switch expr.oper {
     case .prefixIncrement: target.write("++")
@@ -443,7 +426,7 @@ public struct CXXCodeWriter {
     }
     write(expr: expr.base, into: &target)
   }
-  private func write(postfixExpr expr: CXXPostfixExpr, into target: inout CodeFormatter) {
+  private func write(postfixExpr expr: CXXPostfixExpr, into target: inout String) {
     // TODO: handle precedence and associativity; as of writing this comment, postfix operators cannot be properly tested.
     write(expr: expr.base, into: &target)
     switch expr.oper {
@@ -451,7 +434,7 @@ public struct CXXCodeWriter {
     case .suffixDecrement: target.write("--")
     }
   }
-  private func write(functionCallExpr expr: CXXFunctionCallExpr, into target: inout CodeFormatter) {
+  private func write(functionCallExpr expr: CXXFunctionCallExpr, into target: inout String) {
     write(expr: expr.callee, into: &target)
     target.write("(")
     for (i, argument) in expr.arguments.enumerated() {
@@ -462,28 +445,28 @@ public struct CXXCodeWriter {
     }
     target.write(")")
   }
-  private func write(voidCast expr: CXXVoidCast, into target: inout CodeFormatter) {
+  private func write(voidCast expr: CXXVoidCast, into target: inout String) {
     target.write("(void) ")
     write(expr: expr.baseExpr, into: &target)
   }
-  private func write(conditionalExpr expr: CXXConditionalExpr, into target: inout CodeFormatter) {
+  private func write(conditionalExpr expr: CXXConditionalExpr, into target: inout String) {
     write(expr: expr.condition, into: &target)
     target.write(" ? ")
     write(expr: expr.trueExpr, into: &target)
     target.write(" : ")
     write(expr: expr.falseExpr, into: &target)
   }
-  private func write(stmtExpr expr: CXXStmtExpr, into target: inout CodeFormatter) {
+  private func write(stmtExpr expr: CXXStmtExpr, into target: inout String) {
     write(stmt: expr.stmt, into: &target)
   }
 
   // MARK: Miscellaneous
 
-  private func write(comment c: CXXComment, into target: inout CodeFormatter) {
+  private func write(comment c: CXXComment, into target: inout String) {
     if c.comment.contains("\n") {
       target.write("/* \(c.comment) */")
     } else {
-      target.writeLine("// \(c.comment)")
+      target.write("// \(c.comment)\n")
     }
   }
 }
