@@ -6,24 +6,18 @@ public struct LoadInstruction: Instruction {
   /// The type of the object being loaded.
   public let objectType: LoweredType
 
-  /// The location of the object is being loaded, or the root location of the object from which a
-  /// sub-object is being loaded.
+  /// The location of the object is being loaded.
   public let source: Operand
-
-  /// A sequence of indices identifying a sub-location of `location`.
-  public let path: [Int]
 
   public let site: SourceRange
 
   init(
     _ objectType: LoweredType,
     from source: Operand,
-    at path: [Int] = [],
     site: SourceRange
   ) {
     self.objectType = objectType
     self.source = source
-    self.path = path
     self.site = site
   }
 

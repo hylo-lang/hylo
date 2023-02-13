@@ -146,9 +146,6 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         case let instruction as LoadInstruction:
           output.write("load ")
           output.write(describe(operand: instruction.source))
-          if !instruction.path.isEmpty {
-            output.write(", \(instruction.path.descriptions())")
-          }
 
         case let instruction as LLVMInstruction:
           output.write("\(instruction.function.llvmInstruction)")

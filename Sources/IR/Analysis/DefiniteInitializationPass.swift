@@ -207,9 +207,12 @@ public struct DefiniteInitializationPass {
         // Deinitialize the object(s) at the location.
         let rootType = module.type(of: borrow.location).astType
         for path in initializedPaths {
+          let s = module.insert(
+            module.makeElementAddr(borrow.location, at: path, anchoredAt: borrow.site),
+            before: i)[0]
           let t = AbstractTypeLayout(of: rootType, definedIn: module.program)[path].type
           let o = module.insert(
-            LoadInstruction(.object(t), from: borrow.location, at: path, site: borrow.site),
+            LoadInstruction(.object(t), from: s, site: borrow.site),
             before: i)[0]
           module.insert(module.makeDeinit(o, anchoredAt: borrow.site), before: i)
         }
@@ -273,9 +276,12 @@ public struct DefiniteInitializationPass {
         })
 
       for p in initializedPaths {
+        let s = module.insert(
+          module.makeElementAddr(dealloc.location, at: p, anchoredAt: dealloc.site),
+          before: i)[0]
         let t = AbstractTypeLayout(of: alloc.allocatedType, definedIn: module.program)[p]
         let o = module.insert(
-          LoadInstruction(.object(t.type), from: dealloc.location, at: p, site: dealloc.site),
+          LoadInstruction(.object(t.type), from: s, site: dealloc.site),
           before: i)[0]
         module.insert(module.makeDeinit(o, anchoredAt: dealloc.site), before: i)
 
@@ -333,9 +339,9 @@ public struct DefiniteInitializationPass {
       let load = module[i] as! LoadInstruction
 
       // Operand must be a location.
-      let locations: [MemoryLocation]
+      let locations: Set<MemoryLocation>
       if let k = FunctionLocal(operand: load.source) {
-        locations = context.locals[k]!.unwrapLocations()!.map({ $0.appending(load.path) })
+        locations = context.locals[k]!.unwrapLocations()!
       } else {
         // Operand is a constant.
         fatalError("not implemented")
