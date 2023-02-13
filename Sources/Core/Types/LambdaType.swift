@@ -7,10 +7,6 @@ public struct LambdaType: TypeProtocol, CallableType {
   public let receiverEffect: AccessEffect?
 
   /// The environment of the lambda.
-  ///
-  /// - Note: Environments are represented as tuples whose individual elements correspond to the
-  ///   lambda's captures. Thus, this property must be assigned to either a tuple type, a type
-  ///   variable or the error type.
   public let environment: AnyType
 
   /// The input labels and types of the lambda.
@@ -28,13 +24,6 @@ public struct LambdaType: TypeProtocol, CallableType {
     inputs: [CallableTypeParameter],
     output: AnyType
   ) {
-    switch environment.base {
-    case is TupleType, is TypeVariable, is ErrorType:
-      break
-    default:
-      preconditionFailure("invalid environment type")
-    }
-
     self.receiverEffect = receiverEffect
     self.environment = environment
     self.inputs = inputs
