@@ -47,7 +47,7 @@ public struct LambdaType: TypeProtocol, CallableType {
   /// - Requires: `initializer` is an initializer type of the form `[](set A, B...) -> Void`.
   public init(constructorFormOf initializer: LambdaType) {
     let r = ParameterType(initializer.inputs.first!.type)!
-    precondition(r.convention == .set)
+    precondition(r.access == .set)
 
     self.init(
       receiverEffect: .set, environment: .void,

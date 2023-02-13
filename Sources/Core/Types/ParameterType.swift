@@ -4,7 +4,7 @@ import Utils
 public struct ParameterType: TypeProtocol {
 
   /// The passing convention of the parameter.
-  public let convention: AccessEffect
+  public let access: AccessEffect
 
   /// The type of the parameter's value.
   public let bareType: AnyType
@@ -12,8 +12,8 @@ public struct ParameterType: TypeProtocol {
   public let flags: TypeFlags
 
   /// Creates an instance with the given properties.
-  public init(_ convention: AccessEffect, _ bareType: AnyType) {
-    self.convention = convention
+  public init(_ access: AccessEffect, _ bareType: AnyType) {
+    self.access = access
     self.bareType = bareType
     self.flags = bareType.flags
   }
@@ -24,13 +24,13 @@ public struct ParameterType: TypeProtocol {
   }
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    ParameterType(convention, bareType.transform(transformer))
+    ParameterType(access, bareType.transform(transformer))
   }
 
 }
 
 extension ParameterType: CustomStringConvertible {
 
-  public var description: String { "\(convention) \(bareType)" }
+  public var description: String { "\(access) \(bareType)" }
 
 }

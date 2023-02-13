@@ -592,7 +592,7 @@ public struct Emitter {
 
     for (parameter, argument) in zip(calleeType.inputs, expr.arguments) {
       let parameterType = parameter.type.base as! ParameterType
-      argumentConventions.append(parameterType.convention)
+      argumentConventions.append(parameterType.access)
       arguments.append(emit(argument: program[argument.value], to: parameterType, into: &module))
     }
 
@@ -800,7 +800,7 @@ public struct Emitter {
 
       // Emit the operands, starting with RHS.
       let rhsType = calleeType.inputs[0].type.base as! ParameterType
-      let rhsOperand = emit(rhsType.convention, foldedSequenceExpr: rhs, into: &module)
+      let rhsOperand = emit(rhsType.access, foldedSequenceExpr: rhs, into: &module)
 
       let lhsConvention: AccessEffect
       let lhsOperand: Operand
@@ -832,7 +832,7 @@ public struct Emitter {
           returnType: .object(calleeType.output),
           calleeConvention: .let,
           callee: calleeOperand,
-          argumentConventions: [lhsConvention, rhsType.convention],
+          argumentConventions: [lhsConvention, rhsType.access],
           arguments: [lhsOperand, rhsOperand],
           site: program.ast.site(of: expr)),
         to: insertionBlock!)[0]
@@ -858,7 +858,7 @@ public struct Emitter {
     to parameterType: ParameterType,
     into module: inout Module
   ) -> Operand {
-    switch parameterType.convention {
+    switch parameterType.access {
     case .let:
       return emitLValue(expr, meantFor: .let, into: &module)
     case .inout:

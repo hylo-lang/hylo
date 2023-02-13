@@ -28,7 +28,7 @@ public struct LoweredType: Hashable {
 
     case let ty as ParameterType:
       self.astType = ty.bareType
-      switch ty.convention {
+      switch ty.access {
       case .let, .inout, .set:
         self.isAddress = true
       case .sink:
