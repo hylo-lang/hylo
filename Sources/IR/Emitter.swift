@@ -427,7 +427,7 @@ public struct Emitter {
       // Mark the execution path unreachable if the computed value has type `Never`.
       if program.relations.areEquivalent(expr.type, .never) {
         emitStackDeallocs(in: &module, site: expr.site)
-        module.append(UnrechableInstruction(site: expr.site), to: insertionBlock!)
+        module.append(module.makeUnreachable(anchoredAt: expr.site), to: insertionBlock!)
       }
     }
 

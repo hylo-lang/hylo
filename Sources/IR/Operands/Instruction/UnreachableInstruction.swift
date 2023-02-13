@@ -5,8 +5,9 @@ public struct UnrechableInstruction: Instruction {
 
   public var site: SourceRange
 
-  init(site: SourceRange) {
-    self.site = site
+  /// Creates an instance anchored at `anchor`.
+  fileprivate init(anchoredAt anchor: SourceRange) {
+    self.site = anchor
   }
 
   public var types: [LoweredType] { [] }
@@ -17,6 +18,15 @@ public struct UnrechableInstruction: Instruction {
 
   public func isWellFormed(in module: Module) -> Bool {
     true
+  }
+
+}
+
+extension Module {
+
+  /// Creates an `unreachable` anchored at `anchor` that marks the execution path unreachable.
+  func makeUnreachable(anchoredAt anchor: SourceRange) -> UnrechableInstruction {
+    UnrechableInstruction(anchoredAt: anchor)
   }
 
 }
