@@ -223,7 +223,7 @@ public struct Emitter {
 
         // Borrow the storage for initialization corresponding to the current name.
         let target = module.append(
-          BorrowInstruction(.set, .address(name.decl.type), from: storage, site: name.site),
+          module.makeBorrow(.set, from: storage, anchoredAt: name.site),
           to: insertionBlock!)[0]
 
         // Store the corresponding (part of) the initializer.
@@ -266,7 +266,7 @@ public struct Emitter {
         source = storage
 
         let target = module.append(
-          BorrowInstruction(.set, .address(exprType), from: storage, site: pattern.site),
+          module.makeBorrow(.set, from: storage, anchoredAt: pattern.site),
           to: insertionBlock!)[0]
         module.append(
           StoreInstruction(value, to: target, site: pattern.site),
@@ -274,11 +274,13 @@ public struct Emitter {
       }
 
       for (path, name) in pattern.subpattern.names {
+        let s =
+          module.append(
+            module.makeElementAddr(source, at: path, anchoredAt: name.decl.site),
+            to: insertionBlock!)[0]
         frames[name.decl] =
           module.append(
-            BorrowInstruction(
-              capability, .address(name.decl.type), from: source, at: path, binding: name.decl,
-              site: name.decl.site),
+            module.makeBorrow(capability, from: s, anchoredAt: name.decl.site),
             to: insertionBlock!)[0]
       }
     }
@@ -317,7 +319,7 @@ public struct Emitter {
     let rhs = emitRValue(stmt.right, into: &module)
     // FIXME: Should request the capability 'set or inout'.
     let lhs = emitLValue(stmt.left, meantFor: .set, into: &module)
-    _ = module.append(StoreInstruction(rhs, to: lhs, site: stmt.site), to: insertionBlock!)
+    module.append(StoreInstruction(rhs, to: lhs, site: stmt.site), to: insertionBlock!)
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
@@ -519,9 +521,7 @@ public struct Emitter {
       let value = emitRValue(program[thenExpr], into: &module)
       if let target = resultStorage {
         let target = module.append(
-          BorrowInstruction(
-            .set, .address(expr.type), from: target,
-            site: program[thenExpr].site),
+          module.makeBorrow(.set, from: target, anchoredAt: program[thenExpr].site),
           to: insertionBlock!)[0]
         module.append(
           StoreInstruction(value, to: target, site: program[thenExpr].site),
@@ -543,9 +543,7 @@ public struct Emitter {
       let value = emitRValue(program[elseExpr], into: &module)
       if let target = resultStorage {
         let target = module.append(
-          BorrowInstruction(
-            .set, .address(expr.type), from: target,
-            site: program[elseExpr].site),
+          module.makeBorrow(.set, from: target, anchoredAt: program[elseExpr].site),
           to: insertionBlock!)[0]
         module.append(
           StoreInstruction(value, to: target, site: program[elseExpr].site),
@@ -641,9 +639,7 @@ public struct Emitter {
           switch calleeNameExpr.domain {
           case .none:
             let receiver = module.append(
-              BorrowInstruction(
-                type.capability, .address(type.base), from: frames[receiver!]!,
-                site: expr.site),
+              module.makeBorrow(type.capability, from: frames[receiver!]!, anchoredAt: expr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -914,9 +910,8 @@ public struct Emitter {
           switch nameExpr.domain {
           case .none:
             let receiver = module.append(
-              BorrowInstruction(
-                type.capability, .address(type.base), from: frames[receiver!]!,
-                site: nameExpr.site),
+              module.makeBorrow(
+                type.capability, from: frames[receiver!]!, anchoredAt: nameExpr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -983,11 +978,11 @@ public struct Emitter {
     var v = emitLValue(expr, into: &module)
     v =
       module.append(
-        ElementAddrInstruction(v, at: [0], withType: .address(BuiltinType.i(1)), site: expr.site),
+        module.makeElementAddr(v, at: [0], anchoredAt: expr.site),
         to: insertionBlock!)[0]
     v =
       module.append(
-        BorrowInstruction(.let, .address(BuiltinType.i(1)), from: v, site: expr.site),
+        module.makeBorrow(.let, from: v, anchoredAt: expr.site),
         to: insertionBlock!)[0]
     v =
       module.append(
@@ -1013,7 +1008,7 @@ public struct Emitter {
   ) -> Operand {
     let s = emitLValue(syntax, into: &module)
     return module.append(
-      BorrowInstruction(capability, .address(syntax.type), from: s, site: syntax.site),
+      module.makeBorrow(capability, from: s, anchoredAt: syntax.site),
       to: insertionBlock!)[0]
   }
 
@@ -1048,7 +1043,7 @@ public struct Emitter {
     frames.top.allocs.append(storage)
 
     let target = module.append(
-      BorrowInstruction(.set, .address(rvalueType), from: storage, site: syntax.site),
+      module.makeBorrow(.set, from: storage, anchoredAt: syntax.site),
       to: insertionBlock!)[0]
     module.append(
       StoreInstruction(value, to: target, site: syntax.site),
@@ -1114,8 +1109,7 @@ public struct Emitter {
 
       let i = receiverLayout.offset(of: VarDecl.Typed(decl)!.baseName)!
       return module.append(
-        ElementAddrInstruction(
-          receiverAddress, at: [i], withType: .address(receiverLayout[i].type), site: anchor),
+        module.makeElementAddr(receiverAddress, at: [i], anchoredAt: anchor),
         to: insertionBlock!)[0]
 
     default:

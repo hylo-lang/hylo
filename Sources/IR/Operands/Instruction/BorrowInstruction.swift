@@ -20,11 +20,12 @@ public struct BorrowInstruction: Instruction {
 
   public let site: SourceRange
 
-  init(
-    _ capability: AccessEffect,
-    _ borrowedType: LoweredType,
-    from location: Operand,
-    at path: [Int] = [],
+  /// Creates an instance with the given properties.
+  fileprivate init(
+    borrowedType: LoweredType,
+    capability: AccessEffect,
+    location: Operand,
+    path: [Int] = [],
     binding: VarDecl.Typed? = nil,
     site: SourceRange
   ) {
@@ -53,6 +54,25 @@ public struct BorrowInstruction: Instruction {
     if !module.type(of: location).isAddress { return false }
 
     return true
+  }
+
+}
+
+extension Module {
+
+  /// Creates a `borrow` anchored at `anchor` that takes `capability` from `source`.
+  func makeBorrow(
+    _ capability: AccessEffect,
+    from source: Operand,
+    anchoredAt anchor: SourceRange
+  ) -> BorrowInstruction {
+    let i = BorrowInstruction(
+      borrowedType: type(of: source),
+      capability: capability,
+      location: source,
+      site: anchor)
+    precondition(i.isWellFormed(in: self))
+    return i
   }
 
 }
