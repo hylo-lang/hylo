@@ -130,7 +130,7 @@ public struct Module {
 
         case let type:
           precondition(declType.receiverEffect != .yielded, "cannot lower yielded parameter")
-          inputs.append((convention: declType.receiverEffect ?? .let, type: .address(type)))
+          inputs.append((convention: declType.receiverEffect, type: .address(type)))
         }
       }
 

@@ -2463,7 +2463,7 @@ public struct TypeChecker {
 
     return MetatypeType(
       of: LambdaType(
-        receiverEffect: node.receiverEffect?.value,
+        receiverEffect: node.receiverEffect?.value ?? .let,
         environment: environment,
         inputs: inputs,
         output: output))
@@ -2819,7 +2819,7 @@ public struct TypeChecker {
 
     if isNonStaticMember {
       // Create a lambda bound to a receiver.
-      let effect: AccessEffect?
+      let effect: AccessEffect
       if ast[id].isInout {
         receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.inout, receiver!))])
         effect = .inout
@@ -2828,7 +2828,7 @@ public struct TypeChecker {
         effect = .sink
       } else {
         receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.let, receiver!))])
-        effect = nil
+        effect = .let
       }
 
       return ^LambdaType(

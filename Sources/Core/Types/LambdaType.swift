@@ -3,8 +3,8 @@ import Utils
 /// The type of a lambda.
 public struct LambdaType: TypeProtocol, CallableType {
 
-  /// The property of the lambda's call operator.
-  public let receiverEffect: AccessEffect?
+  /// The effect of the lambda's call operator.
+  public let receiverEffect: AccessEffect
 
   /// The environment of the lambda.
   public let environment: AnyType
@@ -19,7 +19,7 @@ public struct LambdaType: TypeProtocol, CallableType {
 
   /// Creates an instance with the given properties.
   public init(
-    receiverEffect: AccessEffect? = nil,
+    receiverEffect: AccessEffect = .let,
     environment: AnyType = .void,
     inputs: [CallableTypeParameter],
     output: AnyType
@@ -81,7 +81,7 @@ public struct LambdaType: TypeProtocol, CallableType {
   /// Transforms `self` into a constructor type if `self` has the shape of an initializer type.
   /// Otherwise, returns `nil`.
   public func ctor() -> LambdaType? {
-    guard (receiverEffect == nil) && (environment == .void) && (output == .void),
+    guard (environment == .void) && (output == .void),
       let receiverType = ParameterType(inputs.first?.type),
       receiverType.convention == .set
     else { return nil }
@@ -109,11 +109,7 @@ public struct LambdaType: TypeProtocol, CallableType {
 extension LambdaType: CustomStringConvertible {
 
   public var description: String {
-    if let fx = receiverEffect {
-      return "[\(environment)] (\(list: inputs)) \(fx) -> \(output)"
-    } else {
-      return "[\(environment)] (\(list: inputs)) -> \(output)"
-    }
+    "[\(environment)] (\(list: inputs)) \(receiverEffect) -> \(output)"
   }
 
 }

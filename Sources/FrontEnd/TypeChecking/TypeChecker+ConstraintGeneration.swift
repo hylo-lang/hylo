@@ -617,7 +617,7 @@ extension TypeChecker {
 
       let outputType = ^TypeVariable()
       let calleeType = LambdaType(
-        receiverEffect: nil,
+        receiverEffect: .let,
         environment: ^TupleType(labelsAndTypes: [("self", ^RemoteType(.let, lhsType))]),
         inputs: [CallableTypeParameter(type: parameterType)],
         output: outputType)

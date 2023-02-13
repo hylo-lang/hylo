@@ -585,7 +585,6 @@ public struct Emitter {
 
     // Determine the callee's convention.
     let calleeType = LambdaType(expr.callee.type)!
-    let calleeConvention = calleeType.receiverEffect ?? .let
 
     // Arguments are evaluated first, from left to right.
     var argumentConventions: [AccessEffect] = []
@@ -701,7 +700,7 @@ public struct Emitter {
     return module.append(
       CallInstruction(
         returnType: .object(expr.type),
-        calleeConvention: calleeConvention,
+        calleeConvention: calleeType.receiverEffect,
         callee: callee,
         argumentConventions: argumentConventions,
         arguments: arguments,
