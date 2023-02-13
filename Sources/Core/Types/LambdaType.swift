@@ -62,7 +62,8 @@ public struct LambdaType: TypeProtocol, CallableType {
     precondition(effect != .yielded)
     if !bundle.capabilities.contains(effect) { return nil }
 
-    let e = (effect == .sink)
+    let e =
+      (effect == .sink)
       ? TupleType(labelsAndTypes: [("self", bundle.receiver)])
       : TupleType(labelsAndTypes: [("self", ^RemoteType(effect, bundle.receiver))])
     self.init(
