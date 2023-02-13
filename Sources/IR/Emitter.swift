@@ -224,7 +224,7 @@ public struct Emitter {
 
         // Store the corresponding (part of) the initializer.
         module.append(
-          StoreInstruction(objects[path]!, to: target, site: name.site),
+          module.makeStore(objects[path]!, at: target, anchoredAt: name.site),
           to: insertionBlock!)
       }
     }
@@ -265,7 +265,7 @@ public struct Emitter {
           module.makeBorrow(.set, from: storage, anchoredAt: pattern.site),
           to: insertionBlock!)[0]
         module.append(
-          StoreInstruction(value, to: target, site: pattern.site),
+          module.makeStore(value, at: target, anchoredAt: pattern.site),
           to: insertionBlock!)
       }
 
@@ -315,7 +315,7 @@ public struct Emitter {
     let rhs = emitRValue(stmt.right, into: &module)
     // FIXME: Should request the capability 'set or inout'.
     let lhs = emitLValue(stmt.left, meantFor: .set, into: &module)
-    module.append(StoreInstruction(rhs, to: lhs, site: stmt.site), to: insertionBlock!)
+    module.append(module.makeStore(rhs, at: lhs, anchoredAt: stmt.site), to: insertionBlock!)
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
@@ -513,7 +513,7 @@ public struct Emitter {
           module.makeBorrow(.set, from: target, anchoredAt: program[thenExpr].site),
           to: insertionBlock!)[0]
         module.append(
-          StoreInstruction(value, to: target, site: program[thenExpr].site),
+          module.makeStore(value, at: target, anchoredAt: program[thenExpr].site),
           to: insertionBlock!)
       }
       emitStackDeallocs(in: &module, site: expr.site)
@@ -535,7 +535,7 @@ public struct Emitter {
           module.makeBorrow(.set, from: target, anchoredAt: program[elseExpr].site),
           to: insertionBlock!)[0]
         module.append(
-          StoreInstruction(value, to: target, site: program[elseExpr].site),
+          module.makeStore(value, at: target, anchoredAt: program[elseExpr].site),
           to: insertionBlock!)
       }
       emitStackDeallocs(in: &module, site: expr.site)
@@ -930,7 +930,7 @@ public struct Emitter {
       module.makeBorrow(.set, from: storage, anchoredAt: syntax.site),
       to: insertionBlock!)[0]
     module.append(
-      StoreInstruction(value, to: target, site: syntax.site),
+      module.makeStore(value, at: target, anchoredAt: syntax.site),
       to: insertionBlock!)
 
     return storage
