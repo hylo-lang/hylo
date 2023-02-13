@@ -226,14 +226,19 @@ public struct TypeChecker {
 
   /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
   ///
-  /// - Requires: `id` is a valid ID in the type checker's AST.
-  public mutating func check(module id: NodeID<ModuleDecl>) {
+  /// - Requires: `m` is a valid ID in the type checker's AST.
+  public mutating func check(module m: NodeID<ModuleDecl>) {
     // Build the type of the module.
-    declTypes[id] = ^ModuleType(id, ast: ast)
+    declTypes[m] = ^ModuleType(m, ast: ast)
+    declRequests[m] = .typeRealizationStarted
 
     // Type check the declarations in the module.
-    for decl in ast.topLevelDecls(id) {
-      _ = check(decl: decl)
+    let s = ast.topLevelDecls(m).reduce(true, { (s, d) in check(decl: d) && s })
+    if s {
+      declRequests[m] = .success
+    } else {
+      declTypes[m] = .error
+      declRequests[m] = .failure
     }
   }
 
@@ -422,14 +427,12 @@ public struct TypeChecker {
       let functionType = declTypes[id]!.base as! LambdaType
       let receiverDecl = ast[id].receiver!
 
-      if let type = functionType.captures.first?.type.base as? RemoteType {
-        declTypes[receiverDecl] = ^ParameterType(convention: type.capability, bareType: type.base)
+      if let t = RemoteType(functionType.captures.first?.type) {
+        declTypes[receiverDecl] = ^ParameterType(t)
       } else {
         // `sink` member functions capture their receiver.
         assert(ast[id].isSink)
-        declTypes[receiverDecl] = ^ParameterType(
-          convention: .sink,
-          bareType: functionType.environment)
+        declTypes[receiverDecl] = ^ParameterType(.sink, functionType.environment)
       }
 
       declRequests[receiverDecl] = .success
@@ -526,9 +529,7 @@ public struct TypeChecker {
 
     for impl in ast[id].impls {
       // Set the type of the implicit receiver declaration.
-      declTypes[ast[impl].receiver] = ^ParameterType(
-        convention: ast[impl].introducer.value.convention,
-        bareType: type.receiver)
+      declTypes[ast[impl].receiver] = ^ParameterType(ast[impl].introducer.value, type.receiver)
       declRequests[ast[impl].receiver] = .success
 
       // Type check method's implementations, if any.
@@ -695,12 +696,10 @@ public struct TypeChecker {
     for impl in ast[id].impls {
       // Set the type of the implicit receiver declaration if necessary.
       if program.isNonStaticMember(id) {
-        let receiverType = declType.captures.first!.type.base as! RemoteType
+        let receiverType = RemoteType(declType.captures.first!.type)!
         let receiverDecl = ast[impl].receiver!
 
-        declTypes[receiverDecl] = ^ParameterType(
-          convention: ast[impl].introducer.value.convention,
-          bareType: receiverType.base)
+        declTypes[receiverDecl] = ^ParameterType(receiverType)
         declRequests[receiverDecl] = .success
       }
 
@@ -2463,7 +2462,7 @@ public struct TypeChecker {
 
     return MetatypeType(
       of: LambdaType(
-        receiverEffect: node.receiverEffect?.value,
+        receiverEffect: node.receiverEffect?.value ?? .let,
         environment: environment,
         inputs: inputs,
         output: output))
@@ -2585,7 +2584,7 @@ public struct TypeChecker {
     let node = ast[id]
 
     guard let bareType = realize(node.bareType, in: scope)?.instance else { return nil }
-    return MetatypeType(of: ParameterType(convention: node.convention.value, bareType: bareType))
+    return MetatypeType(of: ParameterType(node.convention.value, bareType))
   }
 
   private mutating func realize(
@@ -2768,8 +2767,7 @@ public struct TypeChecker {
         // expression. In that case, the unannotated parameters are associated with a fresh type
         // variable, so inference can proceed.
         if ast[id].isInExprContext {
-          let t = ^ParameterType(
-            convention: (conventions?[i]) ?? .let, bareType: ^TypeVariable(node: AnyNodeID(p)))
+          let t = ^ParameterType((conventions?[i]) ?? .let, ^TypeVariable(node: AnyNodeID(p)))
           declTypes[p] = t
           declRequests[p] = .typeRealizationCompleted
           inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
@@ -2819,7 +2817,7 @@ public struct TypeChecker {
 
     if isNonStaticMember {
       // Create a lambda bound to a receiver.
-      let effect: AccessEffect?
+      let effect: AccessEffect
       if ast[id].isInout {
         receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.inout, receiver!))])
         effect = .inout
@@ -2828,7 +2826,7 @@ public struct TypeChecker {
         effect = .sink
       } else {
         receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.let, receiver!))])
-        effect = nil
+        effect = .let
       }
 
       return ^LambdaType(
@@ -2940,7 +2938,7 @@ public struct TypeChecker {
     let receiverType = realizeSelfTypeExpr(in: program.declToScope[id]!)!.instance
     let receiverParameterType = CallableTypeParameter(
       label: "self",
-      type: ^ParameterType(convention: .set, bareType: receiverType))
+      type: ^ParameterType(.set, receiverType))
     inputs.insert(receiverParameterType, at: 0)
     return ^LambdaType(environment: .void, inputs: inputs, output: .void)
   }
@@ -3216,7 +3214,7 @@ public struct TypeChecker {
           // Update the mutability of the capture.
           captures[i] = ImplicitCapture(
             name: captures[i].name,
-            type: RemoteType(.inout, captures[i].type.base),
+            type: RemoteType(.inout, captures[i].type.bareType),
             decl: captures[i].decl)
         } else {
           // Resolve the implicit reference to `self`.
@@ -3301,10 +3299,7 @@ public struct TypeChecker {
 
     // Synthesize the receiver type.
     let receiver = realizeSelfTypeExpr(in: decl)!.instance
-    inputs.append(
-      CallableTypeParameter(
-        label: "self",
-        type: ^ParameterType(convention: .set, bareType: receiver)))
+    inputs.append(.init(label: "self", type: ^ParameterType(.set, receiver)))
 
     // List and realize the type of all stored bindings.
     for m in ast[decl].members {
@@ -3313,10 +3308,7 @@ public struct TypeChecker {
 
       for (_, name) in ast.names(in: ast[member].pattern) {
         let d = ast[name].decl
-        inputs.append(
-          CallableTypeParameter(
-            label: ast[d].baseName,
-            type: ^ParameterType(convention: .sink, bareType: declTypes[d]!)))
+        inputs.append(.init(label: ast[d].baseName, type: ^ParameterType(.sink, declTypes[d]!)))
       }
     }
 

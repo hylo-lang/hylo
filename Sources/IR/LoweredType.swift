@@ -22,13 +22,13 @@ public struct LoweredType: Hashable {
   public init(lowering type: AnyType) {
     switch type.base {
     case let ty as RemoteType:
-      precondition(ty.capability != .yielded, "cannot lower yielded type")
-      self.astType = ty.base
+      precondition(ty.access != .yielded, "cannot lower yielded type")
+      self.astType = ty.bareType
       self.isAddress = true
 
     case let ty as ParameterType:
       self.astType = ty.bareType
-      switch ty.convention {
+      switch ty.access {
       case .let, .inout, .set:
         self.isAddress = true
       case .sink:
