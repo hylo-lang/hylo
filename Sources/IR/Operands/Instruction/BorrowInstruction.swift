@@ -1,6 +1,6 @@
 import Core
 
-// Borrows an access on an object.
+/// Borrows an access on an object.
 public struct BorrowInstruction: Instruction {
 
   /// The capability being borrowed.
@@ -56,18 +56,23 @@ public struct BorrowInstruction: Instruction {
 extension Module {
 
   /// Creates a `borrow` anchored at `anchor` that takes `capability` from `source`.
+  ///
+  /// - Parameters:
+  ///   - capability: The capability being borrowed. Must be `.let`, `.inout`, or `.set`.
+  ///   - source: The address from which the capability is borrowed. Must have an address type.
   func makeBorrow(
     _ capability: AccessEffect,
     from source: Operand,
     anchoredAt anchor: SourceRange
   ) -> BorrowInstruction {
-    let i = BorrowInstruction(
+    precondition((capability == .let) || (capability == .inout) || (capability == .set))
+    precondition(type(of: source).isAddress)
+
+    return BorrowInstruction(
       borrowedType: type(of: source),
       capability: capability,
       location: source,
       site: anchor)
-    precondition(i.isWellFormed(in: self))
-    return i
   }
 
 }
