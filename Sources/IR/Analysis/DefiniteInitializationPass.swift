@@ -211,9 +211,7 @@ public struct DefiniteInitializationPass {
           let o = module.insert(
             LoadInstruction(.object(t), from: borrow.location, at: path, site: borrow.site),
             before: i)[0]
-          module.insert(
-            DeinitInstruction(o, site: borrow.site),
-            before: i)
+          module.insert(module.makeDeinit(o, anchoredAt: borrow.site), before: i)
         }
 
         // Apply the effects of the new instructions.
@@ -279,8 +277,7 @@ public struct DefiniteInitializationPass {
         let o = module.insert(
           LoadInstruction(.object(t.type), from: dealloc.location, at: p, site: dealloc.site),
           before: i)[0]
-        module.insert(
-          DeinitInstruction(o, site: dealloc.site), before: i)
+        module.insert(module.makeDeinit(o, anchoredAt: dealloc.site), before: i)
 
         // Apply the effects of the new instructions.
         let consumer = InstructionID(
