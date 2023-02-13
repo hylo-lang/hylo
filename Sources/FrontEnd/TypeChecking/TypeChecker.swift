@@ -527,7 +527,7 @@ public struct TypeChecker {
     for impl in ast[id].impls {
       // Set the type of the implicit receiver declaration.
       declTypes[ast[impl].receiver] = ^ParameterType(
-        convention: ast[impl].introducer.value.convention,
+        convention: ast[impl].introducer.value,
         bareType: type.receiver)
       declRequests[ast[impl].receiver] = .success
 
@@ -699,7 +699,7 @@ public struct TypeChecker {
         let receiverDecl = ast[impl].receiver!
 
         declTypes[receiverDecl] = ^ParameterType(
-          convention: ast[impl].introducer.value.convention,
+          convention: ast[impl].introducer.value,
           bareType: receiverType.base)
         declRequests[receiverDecl] = .success
       }

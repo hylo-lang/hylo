@@ -7,7 +7,7 @@ public struct SubscriptType: TypeProtocol {
   public let isProperty: Bool
 
   /// The capabilities of the subscript.
-  public let capabilities: Set<ImplIntroducer>
+  public let capabilities: Set<AccessEffect>
 
   /// The environment of the subscript implementation.
   public let environment: AnyType
@@ -23,7 +23,7 @@ public struct SubscriptType: TypeProtocol {
   /// Creates an instance with the given properties.
   public init(
     isProperty: Bool,
-    capabilities: Set<ImplIntroducer>,
+    capabilities: Set<AccessEffect>,
     environment: AnyType = .void,
     inputs: [CallableTypeParameter],
     output: AnyType

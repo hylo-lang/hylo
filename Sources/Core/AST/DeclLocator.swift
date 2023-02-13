@@ -12,7 +12,7 @@ public struct DeclLocator: Hashable {
 
     case function(name: String, labels: [String], notation: OperatorNotation?)
 
-    case methodImpl(ImplIntroducer)
+    case methodImpl(AccessEffect)
 
     case module(String)
 
@@ -24,7 +24,7 @@ public struct DeclLocator: Hashable {
 
     case `subscript`(name: String, labels: [String])
 
-    case subscriptImpl(ImplIntroducer)
+    case subscriptImpl(AccessEffect)
 
     case trait(String)
 
@@ -114,6 +114,7 @@ public struct DeclLocator: Hashable {
         case .inout: return "Ii"
         case .set: return "Ia"
         case .sink: return "Is"
+        case .yielded: return "Iy"
         }
 
       case .module(let name):
@@ -138,6 +139,7 @@ public struct DeclLocator: Hashable {
         case .inout: return "Ii"
         case .set: return "Ia"
         case .sink: return "Is"
+        case .yielded: return "Iy"
         }
 
       case .trait(let name):
