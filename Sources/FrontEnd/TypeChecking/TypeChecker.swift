@@ -427,8 +427,8 @@ public struct TypeChecker {
       let functionType = declTypes[id]!.base as! LambdaType
       let receiverDecl = ast[id].receiver!
 
-      if let type = functionType.captures.first?.type.base as? RemoteType {
-        declTypes[receiverDecl] = ^ParameterType(convention: type.capability, bareType: type.base)
+      if let t = RemoteType(functionType.captures.first?.type) {
+        declTypes[receiverDecl] = ^ParameterType(t)
       } else {
         // `sink` member functions capture their receiver.
         assert(ast[id].isSink)
@@ -700,12 +700,10 @@ public struct TypeChecker {
     for impl in ast[id].impls {
       // Set the type of the implicit receiver declaration if necessary.
       if program.isNonStaticMember(id) {
-        let receiverType = declType.captures.first!.type.base as! RemoteType
+        let receiverType = RemoteType(declType.captures.first!.type)!
         let receiverDecl = ast[impl].receiver!
 
-        declTypes[receiverDecl] = ^ParameterType(
-          convention: ast[impl].introducer.value,
-          bareType: receiverType.base)
+        declTypes[receiverDecl] = ^ParameterType(receiverType)
         declRequests[receiverDecl] = .success
       }
 

@@ -18,6 +18,11 @@ public struct ParameterType: TypeProtocol {
     self.flags = bareType.flags
   }
 
+  /// Creates an instance converting `t`.
+  public init(_ t: RemoteType) {
+    self.init(convention: t.capability, bareType: t.base)
+  }
+
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     ParameterType(convention: convention, bareType: bareType.transform(transformer))
   }
