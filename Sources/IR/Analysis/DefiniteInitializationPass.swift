@@ -238,6 +238,10 @@ public struct DefiniteInitializationPass {
       let call = module[i] as! CallInstruction
       let calleeType = LambdaType(module.type(of: call.callee).astType)!
 
+      if calleeType.receiverEffect == .sink {
+        context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
+      }
+
       for (p, a) in zip(calleeType.inputs, call.operands) {
         switch ParameterType(p.type)!.access {
         case .let, .inout, .set:
