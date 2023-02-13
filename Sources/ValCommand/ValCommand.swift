@@ -187,9 +187,15 @@ public struct ValCommand: ParsableCommand {
 
     // *** C++ Transpiling ***
 
+    let clangFormat = try? find("clang-format")
+    let codeFormatter: CXXCodeFormatter =
+      clangFormat != nil
+      ? ClangFormatFormatter(URL(fileURLWithPath: clangFormat!))
+      : IdentityFormatter()
+
     // Initialize the transpiler & code writer.
     let transpiler = CXXTranspiler(typedProgram)
-    var codeWriter = CXXCodeWriter()
+    var codeWriter = CXXCodeWriter(formatter: codeFormatter)
 
     // Generate C++ code: Val's StdLib + current module.
     let cxxStdLibModule = transpiler.transpile(stdlib: typedProgram.corelib!)

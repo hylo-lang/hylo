@@ -21,7 +21,7 @@ final class CXXTests: XCTestCase {
 
         // Transpile the module.
         let transpiler = CXXTranspiler(typedProgram)
-        var codeWriter = CXXCodeWriter()
+        var codeWriter = CXXCodeWriter(formatter: IdentityFormatter())
         let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[module]))
 
         return cxxAnnotations.compactMap { a in
@@ -59,7 +59,7 @@ final class CXXTests: XCTestCase {
 
     // Transpile the standard lib module.
     let transpiler = CXXTranspiler(typedProgram)
-    var codeWriter = CXXCodeWriter()
+    var codeWriter = CXXCodeWriter(formatter: IdentityFormatter())
     let cxxCode = codeWriter.cxxCode(transpiler.transpile(stdlib: typedProgram[ast.corelib!]))
 
     // Read test cases; use .val files just for convenience.
