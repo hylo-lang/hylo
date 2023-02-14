@@ -1,0 +1,17 @@
+//! expect-failure
+
+public fun main() {
+  let _: Int = 1
+  let _: Int = 1_2__34__
+  let _: Int = 0b1
+  let _: Int = 0o1
+  let _: Int = 0x1
+
+  let _: Int32 = 1
+
+  let _: Double = 1
+  let _: Double = 1.0
+
+  let _: Float = 1
+  let _: Float = 1.0
+}
