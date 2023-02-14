@@ -124,8 +124,8 @@ extension TypeChecker {
     return (t, s.facts, s.deferred)
   }
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type
-  /// along, updating `state` with inference facts and deferred type checking requests.
+  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type,
+  /// updating `state` with inference facts and deferred type checking requests.
   private mutating func inferredType(
     of subject: AnyExprID,
     shapedBy shape: AnyType?,
@@ -834,8 +834,8 @@ extension TypeChecker {
 
   // MARK: Patterns
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type
-  /// along, updating `state` with inference facts and deferred type checking requests.
+  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type,
+  /// updating `state` with inference facts and deferred type checking requests.
   mutating func inferredType(
     of subject: AnyPatternID,
     in scope: AnyScopeID,
