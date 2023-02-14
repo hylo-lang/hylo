@@ -16,7 +16,7 @@ public struct CallInstruction: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  public init(
+  fileprivate init(
     returnType: LoweredType,
     callee: Operand,
     arguments: [Operand],

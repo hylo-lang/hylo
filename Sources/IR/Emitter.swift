@@ -815,24 +815,11 @@ public struct Emitter {
     _ expr: AnyExprID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    var v = emitLValue(expr, into: &module)
-    v =
-      module.append(
-        module.makeElementAddr(v, at: [0], anchoredAt: expr.site),
-        to: insertionBlock!)[0]
-    v =
-      module.append(
-        module.makeBorrow(.let, from: v, anchoredAt: expr.site),
-        to: insertionBlock!)[0]
-    v =
-      module.append(
-        CallInstruction(
-          returnType: .object(BuiltinType.i(1)),
-          callee: .constant(.builtin(BuiltinFunction("copy_i1")!.reference)),
-          arguments: [v],
-          site: expr.site),
-        to: insertionBlock!)[0]
-    return v
+    precondition(program.relations.canonical(expr.type) == program.ast.coreType(named: "Bool")!)
+    let b = emitRValue(expr, into: &module)
+    return module.append(
+      module.makeDestructure(b, anchoredAt: expr.site),
+      to: insertionBlock!)[0]
   }
 
   // MARK: l-values
