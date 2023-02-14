@@ -146,44 +146,18 @@ public struct ValCommand: ParsableCommand {
 
     // Handle `--emit raw-ast`.
     if outputType == .rawAST {
-      let url = outputURL ?? URL(fileURLWithPath: productName + ".ast.json")
-      let encoder = JSONEncoder().forAST
-      try encoder.encode(ast).write(to: url, options: .atomic)
+      try emit(ast, baseName: productName)
       return
     }
 
     let typedProgram = try TypedProgram(
       ast, tracingInferenceIn: inferenceTracingRange, diagnostics: &diagnostics)
 
-    // Exit if `--typecheck` is set.
-    if typeCheckOnly { return }
-
-    // *** IR Lowering ***
-
-    // Initialize the IR emitter.
-    var irModule = try Module(lowering: newModule, in: typedProgram, diagnostics: &diagnostics)
-
-    // Handle `--emit raw-ir`.
-    if outputType == .rawIR {
-      let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
-      try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return
-    }
-
-    do {
-      let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
-      try p.apply(&irModule, reportingDiagnosticsInto: &diagnostics)
-    } catch let d as DiagnosticSet {
-      diagnostics.formUnion(d)
-      return
-    }
-
-    // Handle `--emit ir`
-    if outputType == .ir {
-      let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
-      try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return
-    }
+    try emitIR(
+      newModule: newModule, baseName: productName,
+      typedProgram: typedProgram, diagnostics: &diagnostics)
+    
+    if outputType == .ir || outputType == .rawIR { return }
 
     // *** C++ Transpiling ***
 
@@ -340,5 +314,40 @@ public struct ValCommand: ParsableCommand {
 
   /// A map from executable name to path of the named binary.
   private static var executableLocationCache: [String: String] = [:]
+
+  func emit(_ syntax: AST, baseName: String) throws {
+    let url = outputURL ?? URL(fileURLWithPath: baseName + ".ast.json")
+    let encoder = JSONEncoder().forAST
+    try encoder.encode(syntax).write(to: url, options: .atomic)
+  }
+
+  func emitIR(
+    newModule: NodeID<ModuleDecl>, baseName: String,
+    typedProgram: TypedProgram, diagnostics: inout DiagnosticSet
+  ) throws {
+    var irModule = try Module(lowering: newModule, in: typedProgram, diagnostics: &diagnostics)
+
+    // Handle `--emit raw-ir`.
+    if outputType == .rawIR {
+      let url = outputURL ?? URL(fileURLWithPath: baseName + ".vir")
+      try irModule.description.write(to: url, atomically: true, encoding: .utf8)
+      return
+    }
+
+    do {
+      let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
+      try p.apply(&irModule, reportingDiagnosticsInto: &diagnostics)
+    } catch let d as DiagnosticSet {
+      diagnostics.formUnion(d)
+      return
+    }
+
+    // Handle `--emit ir`
+    if outputType == .ir {
+      let url = outputURL ?? URL(fileURLWithPath: baseName + ".vir")
+      try irModule.description.write(to: url, atomically: true, encoding: .utf8)
+      return
+    }
+  }
 
 }
