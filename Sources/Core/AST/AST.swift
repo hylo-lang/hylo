@@ -142,6 +142,21 @@ public struct AST {
     return nil
   }
 
+  /// Returns the trait describing types whose instances are expressible by this literal or `nil`
+  /// if it does not exist.
+  ///
+  /// - Requires: The core library must be loaded and assigned to `self.corelib`.
+  public func coreTrait<T: Expr>(forTypesExpressibleBy literal: T.Type) -> TraitType? {
+    switch literal.kind {
+    case FloatLiteralExpr.self:
+      return coreTrait(named: "ExpressibleByFloatLiteral")
+    case IntegerLiteralExpr.self:
+      return coreTrait(named: "ExpressibleByIntegerLiteral")
+    default:
+      return nil
+    }
+  }
+
   // MARK: Helpers
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
