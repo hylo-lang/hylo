@@ -444,6 +444,8 @@ public struct Emitter {
       return emitRValue(name: NameExpr.Typed(expr)!, into: &module)
     case SequenceExpr.self:
       return emitRValue(sequence: SequenceExpr.Typed(expr)!, into: &module)
+    case TupleExpr.self:
+      return emitRValue(tuple: TupleExpr.Typed(expr)!, into: &module)
     default:
       unexpected(expr)
     }
@@ -695,6 +697,21 @@ public struct Emitter {
         ? emitRValue(program[expr], into: &module)
         : emitLValue(program[expr], meantFor: convention, into: &module)
     }
+  }
+
+  private mutating func emitRValue(
+    tuple syntax: TupleExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    if syntax.elements.isEmpty { return .constant(.void) }
+
+    var elements: [Operand] = []
+    for e in syntax.elements {
+      elements.append(emitRValue(program[e.value], into: &module))
+    }
+    return module.append(
+      module.makeRecord(syntax.type, aggregating: elements, anchoredAt: syntax.site),
+      to: insertionBlock!)[0]
   }
 
   /// Inserts the IR for the argument `expr` passed to a parameter of type `parameterType` into
