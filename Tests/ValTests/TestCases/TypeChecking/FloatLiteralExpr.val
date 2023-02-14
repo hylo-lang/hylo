@@ -9,5 +9,10 @@ public fun main() {
   let x1: Double = 4.2
   check<Double>(x0)
 
-  let _: Bool = 4.2 //! diagnostic type 'Bool' does not conform to trait 'ExpressibleByFloatLiteral'
+  let x2: Float = 4.2
+  check<Float>(x2)
+
+  let _: Double = x2  //! diagnostic incompatible types 'Float' and 'Double'
+
+  let _: Bool = 4.2   //! diagnostic type 'Bool' does not conform to trait 'ExpressibleByFloatLiteral'
 }
