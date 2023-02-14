@@ -144,6 +144,9 @@ extension TypeChecker {
     case CondExpr.self:
       return inferredType(
         ofConditionalExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+    case FloatLiteralExpr.self:
+      return inferredType(
+        ofFloatLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
     case FunctionCallExpr.self:
       return inferredType(
         ofFunctionCallExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
@@ -286,6 +289,15 @@ extension TypeChecker {
     }
 
     return state.facts.constrain(subject, in: ast, toHaveType: AnyType.void)
+  }
+
+  private mutating func inferredType(
+    ofFloatLiteralExpr subject: NodeID<FloatLiteralExpr>,
+    shapedBy shape: AnyType?,
+    in scope: AnyScopeID,
+    updating state: inout State
+  ) -> AnyType {
+    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "Double")!)
   }
 
   private mutating func inferredType(
