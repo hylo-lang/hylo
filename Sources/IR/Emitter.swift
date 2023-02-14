@@ -602,31 +602,10 @@ public struct Emitter {
     integerLiteral expr: IntegerLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let type = expr.type.base as! ProductType
-
-    // Determine the bit width of the value.
-    let bitWidth: Int
-    switch type.name.value {
-    case "Int": bitWidth = 64
-    case "Int32": bitWidth = 32
-    default:
-      unreachable("unexpected numeric type")
-    }
-
-    // Convert the literal into a bit pattern.
-    let bits: BigUInt
-    let s = expr.value
-    if s.starts(with: "0x") {
-      bits = BigUInt(s.dropFirst(2), radix: 16)!
-    } else {
-      bits = BigUInt(s.dropFirst(2))!
-    }
-
-    // Emit the constant integer.
-    let value = IntegerConstant(bits, bitWidth: bitWidth)
-    return module.append(
-      module.makeRecord(type, aggregating: [.constant(.integer(value))], anchoredAt: expr.site),
-      to: insertionBlock!)[0]
+    emitNumericLiteral(
+      expr.value, withType: program.relations.canonical(expr.type),
+      anchoredAt: expr.site,
+      into: &module)
   }
 
   private mutating func emitRValue(
@@ -839,6 +818,80 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
+  /// Inserts the IR for numeric literal `s` with type `literalType` into `module` at the end of
+  /// the current insertion, anchoring instructions at `anchor`.
+  ///
+  /// - Requires `literalType` must be one of the core numeric types.
+  private mutating func emitNumericLiteral(
+    _ s: String,
+    withType literalType: AnyType,
+    anchoredAt anchor: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    switch literalType {
+    case program.ast.coreType(named: "Double")!:
+      let v = Constant.floatingPoint(.double(s))
+      return module.append(
+        module.makeRecord(literalType, aggregating: [.constant(v)], anchoredAt: anchor),
+        to: insertionBlock!)[0]
+
+    case program.ast.coreType(named: "Float")!:
+      let v = Constant.floatingPoint(.float(s))
+      return module.append(
+        module.makeRecord(literalType, aggregating: [.constant(v)], anchoredAt: anchor),
+        to: insertionBlock!)[0]
+
+    default:
+      return emitIntegerLiteral(s, withType: literalType, anchoredAt: anchor, into: &module)
+    }
+  }
+
+  /// Inserts the IR for numeric literal `s` with type `literalType` into `module` at the end of
+  /// the current insertion, anchoring instructions at `anchor`.
+  ///
+  /// - Requires `literalType` must be one of the core integer types.
+  private mutating func emitIntegerLiteral(
+    _ s: String,
+    withType literalType: AnyType,
+    anchoredAt anchor: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    // Convert the literal into a bit pattern.
+    let bits: BigUInt
+    if s.starts(with: "0b") {
+      bits = BigUInt(s.dropFirst(2), radix: 2)!
+    } else if s.starts(with: "0o") {
+      bits = BigUInt(s.dropFirst(2), radix: 8)!
+    } else if s.starts(with: "0x") {
+      bits = BigUInt(s.dropFirst(2), radix: 16)!
+    } else {
+      bits = BigUInt(s)!
+    }
+
+    // Determine the bit width the value.
+    let bitWidth: Int
+    switch literalType {
+    case program.ast.coreType(named: "Int")!:
+      bitWidth = 64
+    case program.ast.coreType(named: "Int32")!:
+      bitWidth = 32
+    default:
+      return emitIntegerLiteral(s, withType: literalType, anchoredAt: anchor, into: &module)
+    }
+
+    if bits.bitWidth > bitWidth {
+      diagnostics.insert(
+        .error(integerLiterl: s, overflowsWhenStoredInto: literalType, at: anchor))
+      return .constant(.poison(PoisonConstant(type: .object(literalType))))
+    }
+
+    // Emit the constant integer.
+    let i = IntegerConstant(bits, bitWidth: bitWidth)
+    return module.append(
+      module.makeRecord(literalType, aggregating: [.constant(.integer(i))], anchoredAt: anchor),
+      to: insertionBlock!)[0]
+  }
+
   // MARK: l-values
 
   /// Inserts the IR for the lvalue `expr` meant for `capability` into `module` at the end of the
@@ -1039,6 +1092,13 @@ extension Diagnostic {
 
   static func error(assignmentLHSMustBeMarkedForMutationAt site: SourceRange) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
+  }
+
+  static func error(
+    integerLiterl s: String, overflowsWhenStoredInto t: AnyType,
+    at site: SourceRange
+  ) -> Diagnostic {
+    .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
   }
 
 }
