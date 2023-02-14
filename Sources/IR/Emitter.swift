@@ -436,6 +436,8 @@ public struct Emitter {
       return emitRValue(booleanLiteral: BooleanLiteralExpr.Typed(expr)!, into: &module)
     case CondExpr.self:
       return emitRValue(conditional: CondExpr.Typed(expr)!, into: &module)
+    case FloatLiteralExpr.self:
+      return emitRValue(floatLiteral: FloatLiteralExpr.Typed(expr)!, into: &module)
     case FunctionCallExpr.self:
       return emitRValue(functionCall: FunctionCallExpr.Typed(expr)!, into: &module)
     case IntegerLiteralExpr.self:
@@ -558,6 +560,16 @@ public struct Emitter {
     } else {
       return .constant(.void)
     }
+  }
+
+  private mutating func emitRValue(
+    floatLiteral expr: FloatLiteralExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    emitNumericLiteral(
+      expr.value, withType: program.relations.canonical(expr.type),
+      anchoredAt: expr.site,
+      into: &module)
   }
 
   private mutating func emitRValue(
