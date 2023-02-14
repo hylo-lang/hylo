@@ -360,7 +360,7 @@ extension TypeChecker {
 
       if let pick = initCandidates.uniqueElement {
         // Rebind the callee and constrain its type.
-        let ctorType = LambdaType(pick.type.shape)!.ctor()!
+        let ctorType = LambdaType(constructorFormOf: .init(pick.type.shape)!)
         referredDecls[c] = pick.reference
         state.facts.assign(^ctorType, to: c)
         state.facts.append(pick.type.constraints)
@@ -449,7 +449,7 @@ extension TypeChecker {
         return state.facts.assignErrorType(to: subject)
       }
 
-      subjectConventions = s.inputs.map({ (p) in ParameterType(p.type)?.convention ?? .let })
+      subjectConventions = s.inputs.map({ (p) in ParameterType(p.type)?.access ?? .let })
     } else {
       subjectConventions = nil
     }
@@ -617,7 +617,7 @@ extension TypeChecker {
 
       let outputType = ^TypeVariable()
       let calleeType = LambdaType(
-        receiverEffect: nil,
+        receiverEffect: .let,
         environment: ^TupleType(labelsAndTypes: [("self", ^RemoteType(.let, lhsType))]),
         inputs: [CallableTypeParameter(type: parameterType)],
         output: outputType)

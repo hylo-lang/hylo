@@ -4,7 +4,7 @@ import Utils
 public struct MethodType: TypeProtocol, CallableType {
 
   /// The capabilities of the subscript.
-  public let capabilities: Set<ImplIntroducer>
+  public let capabilities: Set<AccessEffect>
 
   /// The type of the receiver.
   public let receiver: AnyType
@@ -19,7 +19,7 @@ public struct MethodType: TypeProtocol, CallableType {
 
   /// Creates an instance with the given properties.
   public init(
-    capabilities: Set<ImplIntroducer>,
+    capabilities: Set<AccessEffect>,
     receiver: AnyType,
     inputs: [CallableTypeParameter],
     output: AnyType

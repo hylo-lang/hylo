@@ -901,8 +901,8 @@ public enum Parser {
 
     // Parse the subscript implementations.
     var impls: [NodeID<SubscriptImpl>] = []
-    var introducers: Set<ImplIntroducer> = []
-    var duplicateIntroducer: SourceRepresentable<ImplIntroducer>? = nil
+    var introducers: Set<AccessEffect> = []
+    var duplicateIntroducer: SourceRepresentable<AccessEffect>? = nil
 
     while true {
       // Exit if we find the right delimiter.
@@ -942,7 +942,7 @@ public enum Parser {
   /// - Requires: if `introducer` is `nil`, body is non-`nil`.
   private static func buildSubscriptImpl(
     in state: inout ParserState,
-    introducedBy introducer: SourceRepresentable<ImplIntroducer>,
+    introducedBy introducer: SourceRepresentable<AccessEffect>,
     body: SubscriptImpl.Body?,
     asNonStaticMember isNonStaticMember: Bool
   ) throws -> NodeID<SubscriptImpl> {
@@ -1189,8 +1189,8 @@ public enum Parser {
   static let methodDeclBody =
     (take(.lBrace).and(methodImpl+).and(take(.rBrace))
       .map({ (state, tree) -> [NodeID<MethodImpl>] in
-        var introducers: Set<ImplIntroducer> = []
-        var duplicateIntroducer: SourceRepresentable<ImplIntroducer>? = nil
+        var introducers: Set<AccessEffect> = []
+        var duplicateIntroducer: SourceRepresentable<AccessEffect>? = nil
         for implID in tree.0.1 {
           let introducer = state.ast[implID].introducer
           if !introducers.insert(introducer.value).inserted { duplicateIntroducer = introducer }
@@ -1204,7 +1204,7 @@ public enum Parser {
       }))
 
   static let methodImpl =
-    (methodIntroducer.and(maybe(methodImplBody))
+    (implIntroducer.and(maybe(methodImplBody))
       .map({ (state, tree) -> NodeID<MethodImpl> in
         let receiver = state.insert(
           ParameterDecl(
@@ -1226,11 +1226,11 @@ public enum Parser {
       .map({ (state, id) -> MethodImpl.Body in .block(id) })
   )
 
-  static let methodIntroducer = translate([
-    .let: ImplIntroducer.let,
-    .inout: ImplIntroducer.inout,
-    .set: ImplIntroducer.set,
-    .sink: ImplIntroducer.sink,
+  static let implIntroducer = translate([
+    .let: AccessEffect.let,
+    .inout: AccessEffect.inout,
+    .set: AccessEffect.set,
+    .sink: AccessEffect.sink,
   ])
 
   static let initDeclBody = inContext(.functionBody, apply: braceStmt)
@@ -1279,7 +1279,7 @@ public enum Parser {
     return SubscriptDeclSignature(parameters: parameters, output: output)
   }
 
-  static let subscriptImpl = (subscriptIntroducer.and(maybe(subscriptImplBody)))
+  static let subscriptImpl = (implIntroducer.and(maybe(subscriptImplBody)))
 
   static let subscriptImplBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
@@ -1288,13 +1288,6 @@ public enum Parser {
       braceStmt
       .map({ (state, id) -> SubscriptImpl.Body in .block(id) })
   )
-
-  static let subscriptIntroducer = translate([
-    .let: ImplIntroducer.let,
-    .inout: ImplIntroducer.inout,
-    .set: ImplIntroducer.set,
-    .sink: ImplIntroducer.sink,
-  ])
 
   static let bindingDecl =
     (Apply<ParserState, NodeID<BindingDecl>>({ (state) -> NodeID<BindingDecl>? in
@@ -1926,11 +1919,11 @@ public enum Parser {
     }
 
     // Parse the method introducer, if any.
-    let introducer: SourceRepresentable<ImplIntroducer>?
+    let introducer: SourceRepresentable<AccessEffect>?
     if state.peek()?.kind == .dot {
       let backup = state.backup()
       _ = state.take()
-      if let i = try methodIntroducer.parse(&state) {
+      if let i = try implIntroducer.parse(&state) {
         introducer = i
       } else {
         state.restore(from: backup)
