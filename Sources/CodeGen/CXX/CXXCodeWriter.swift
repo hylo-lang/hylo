@@ -1,32 +1,29 @@
 import ValModule
 
-/// A type used to write the output CXX code from the given CXX AST.
-public struct CXXCodeWriter {
+extension CXXModule {
 
-  /// Initializes the current object.
-  public init(formatter: @escaping CodeTransform = identity()) {
-    self.formatter = formatter
+  /// Returns the C++ code for `self`.
+  public func code(withFormatter formatter: @escaping CodeTransform = identity())
+    -> TranslationUnitCode
+  {
+    let writer = CXXCodeWriter(isStdLib: self.isStdLib)
+    return TranslationUnitCode(
+      headerCode: formatter(writer.generateHeaderCode(self)),
+      sourceCode: formatter(writer.generateSourceCode(self)))
   }
 
-  /// Object used to format output C++ code.
-  private let formatter: CodeTransform
+}
+
+/// A type used to write the output CXX code from the given CXX AST.
+private struct CXXCodeWriter {
 
   /// Indicates if we are currently writing the standard library module.
-  private var isStdLib: Bool = false
-
-  // MARK: API
-
-  /// Returns the C++ code for a translation unit.
-  public mutating func cxxCode(_ source: CXXModule) -> TranslationUnitCode {
-    self.isStdLib = source.isStdLib
-    return TranslationUnitCode(
-      headerCode: generateHeaderCode(source), sourceCode: generateSourceCode(source))
-  }
+  var isStdLib: Bool = false
 
   // MARK: File type specific logic
 
   /// The C++ code for `module` that needs to be present in the header file.
-  private func generateHeaderCode(_ source: CXXModule) -> String {
+  func generateHeaderCode(_ source: CXXModule) -> String {
     var target: String = ""
 
     // Emit the header guard.
@@ -67,11 +64,11 @@ public struct CXXCodeWriter {
       }
     }
 
-    return formatter(target)
+    return target
   }
 
   /// Returns the C++ code for `source` that needs to be present in the source file.
-  private func generateSourceCode(_ source: CXXModule) -> String {
+  func generateSourceCode(_ source: CXXModule) -> String {
     var target: String = ""
 
     // Emit include clauses.
@@ -103,12 +100,12 @@ public struct CXXCodeWriter {
       target.write("\n")
     }
 
-    return formatter(target)
+    return target
   }
 
   // MARK: Declarations
 
-  private func writeInterface(topLevel decl: CXXTopLevelDecl, into target: inout String) {
+  func writeInterface(topLevel decl: CXXTopLevelDecl, into target: inout String) {
     switch type(of: decl).kind {
     case CXXFunctionDecl.self:
       writeSignature(function: decl as! CXXFunctionDecl, into: &target)
@@ -123,7 +120,7 @@ public struct CXXCodeWriter {
     target.write(";\n")
   }
 
-  private func writeDefinition(topLevel decl: CXXTopLevelDecl, into target: inout String) {
+  func writeDefinition(topLevel decl: CXXTopLevelDecl, into target: inout String) {
     switch type(of: decl).kind {
     case CXXFunctionDecl.self:
       writeDefinition(function: decl as! CXXFunctionDecl, into: &target)
@@ -137,7 +134,7 @@ public struct CXXCodeWriter {
     }
   }
 
-  private func writeSignature(function decl: CXXFunctionDecl, into target: inout String) {
+  func writeSignature(function decl: CXXFunctionDecl, into target: inout String) {
     write(typeExpr: decl.output, into: &target)
     target.write(" ")
     write(identifier: decl.identifier, into: &target)
@@ -150,7 +147,7 @@ public struct CXXCodeWriter {
     }
     target.write(")")
   }
-  private func writeDefinition(function decl: CXXFunctionDecl, into target: inout String) {
+  func writeDefinition(function decl: CXXFunctionDecl, into target: inout String) {
     writeSignature(function: decl, into: &target)
     if decl.body != nil {
       target.write(" ")
@@ -160,11 +157,11 @@ public struct CXXCodeWriter {
     }
   }
 
-  private func writeSignature(type decl: CXXClassDecl, into target: inout String) {
+  func writeSignature(type decl: CXXClassDecl, into target: inout String) {
     target.write("class ")
     write(identifier: decl.name, into: &target)
   }
-  private func writeDefinition(type decl: CXXClassDecl, into target: inout String) {
+  func writeDefinition(type decl: CXXClassDecl, into target: inout String) {
     writeSignature(type: decl, into: &target)
     target.write(" {\npublic:\n")
     for member in decl.members {
@@ -189,7 +186,7 @@ public struct CXXCodeWriter {
   /// attribute type.
   ///
   /// This only applies for classes have one data member, and its type is native.
-  private func write(conversionCtor source: CXXClassDecl, into target: inout String) {
+  func write(conversionCtor source: CXXClassDecl, into target: inout String) {
     let dataMembers = source.members.compactMap({ m in
       switch m {
       case .attribute(let dataMember):
@@ -211,7 +208,7 @@ public struct CXXCodeWriter {
     }
   }
 
-  private func write(classAttribute decl: CXXClassAttribute, into target: inout String) {
+  func write(classAttribute decl: CXXClassAttribute, into target: inout String) {
     write(typeExpr: decl.type, into: &target)
     target.write(" ")
     write(identifier: decl.name, into: &target)
@@ -222,7 +219,7 @@ public struct CXXCodeWriter {
     target.write(";\n")
   }
 
-  private func write(localVar decl: CXXLocalVarDecl, into target: inout String) {
+  func write(localVar decl: CXXLocalVarDecl, into target: inout String) {
     write(typeExpr: decl.type, into: &target)
     target.write(" ")
     write(identifier: decl.name, into: &target)
@@ -235,7 +232,7 @@ public struct CXXCodeWriter {
 
   // MARK: Statements
 
-  private func write(stmt: CXXStmt, into target: inout String) {
+  func write(stmt: CXXStmt, into target: inout String) {
     switch type(of: stmt).kind {
     case CXXScopedBlock.self:
       write(scopedBlock: stmt as! CXXScopedBlock, into: &target)
@@ -262,18 +259,18 @@ public struct CXXCodeWriter {
     }
   }
 
-  private func write(scopedBlock stmt: CXXScopedBlock, into target: inout String) {
+  func write(scopedBlock stmt: CXXScopedBlock, into target: inout String) {
     target.write("{\n")
     for s in stmt.stmts {
       write(stmt: s, into: &target)
     }
     target.write("}\n")
   }
-  private func write(exprStmt stmt: CXXExprStmt, into target: inout String) {
+  func write(exprStmt stmt: CXXExprStmt, into target: inout String) {
     write(expr: stmt.expr, into: &target)
     target.write(";\n")
   }
-  private func write(returnStmt stmt: CXXReturnStmt, into target: inout String) {
+  func write(returnStmt stmt: CXXReturnStmt, into target: inout String) {
     target.write("return")
     if stmt.expr != nil {
       target.write(" ")
@@ -281,7 +278,7 @@ public struct CXXCodeWriter {
     }
     target.write(";\n")
   }
-  private func write(ifStmt stmt: CXXIfStmt, into target: inout String) {
+  func write(ifStmt stmt: CXXIfStmt, into target: inout String) {
     target.write("if ( ")
     write(expr: stmt.condition, into: &target)
     target.write(" ) ")
@@ -291,29 +288,29 @@ public struct CXXCodeWriter {
       write(stmt: stmt.falseStmt!, into: &target)
     }
   }
-  private func write(whileStmt stmt: CXXWhileStmt, into target: inout String) {
+  func write(whileStmt stmt: CXXWhileStmt, into target: inout String) {
     target.write("while ( ")
     write(expr: stmt.condition, into: &target)
     target.write(" ) ")
     write(stmt: stmt.body, into: &target)
   }
-  private func write(doWhileStmt stmt: CXXDoWhileStmt, into target: inout String) {
+  func write(doWhileStmt stmt: CXXDoWhileStmt, into target: inout String) {
     target.write("do ")
     write(stmt: stmt.body, into: &target)
     target.write("while ( ")
     write(expr: stmt.condition, into: &target)
     target.write(" );\n")
   }
-  private func write(breakStmt stmt: CXXBreakStmt, into target: inout String) {
+  func write(breakStmt stmt: CXXBreakStmt, into target: inout String) {
     target.write("break;\n")
   }
-  private func write(continueStmt stmt: CXXContinueStmt, into target: inout String) {
+  func write(continueStmt stmt: CXXContinueStmt, into target: inout String) {
     target.write("continue;\n")
   }
 
   // MARK: Expressions
 
-  private func write(expr: CXXExpr, into target: inout String) {
+  func write(expr: CXXExpr, into target: inout String) {
     switch type(of: expr).kind {
     case CXXBooleanLiteralExpr.self:
       write(booleanLiteralExpr: expr as! CXXBooleanLiteralExpr, into: &target)
@@ -346,26 +343,26 @@ public struct CXXCodeWriter {
     }
   }
 
-  private func write(
+  func write(
     booleanLiteralExpr expr: CXXBooleanLiteralExpr, into target: inout String
   ) {
     target.write(expr.value ? "true" : "false")
   }
-  private func write(
+  func write(
     integerLiteralExpr expr: CXXIntegerLiteralExpr, into target: inout String
   ) {
     target.write(expr.value)
   }
-  private func write(identifier expr: CXXIdentifier, into target: inout String) {
+  func write(identifier expr: CXXIdentifier, into target: inout String) {
     target.write(expr.description)
   }
-  private func write(receiverExpr expr: CXXReceiverExpr, into target: inout String) {
+  func write(receiverExpr expr: CXXReceiverExpr, into target: inout String) {
     target.write("this")
   }
-  private func write(typeExpr expr: CXXTypeExpr, into target: inout String) {
+  func write(typeExpr expr: CXXTypeExpr, into target: inout String) {
     target.write(expr.text)
   }
-  private func write(infixExpr expr: CXXInfixExpr, into target: inout String) {
+  func write(infixExpr expr: CXXInfixExpr, into target: inout String) {
     // TODO: handle precedence and associativity; as of writing this comment, infix operators cannot be properly tested.
     write(expr: expr.lhs, into: &target)
     switch expr.oper {
@@ -408,7 +405,7 @@ public struct CXXCodeWriter {
     }
     write(expr: expr.rhs, into: &target)
   }
-  private func write(prefixExpr expr: CXXPrefixExpr, into target: inout String) {
+  func write(prefixExpr expr: CXXPrefixExpr, into target: inout String) {
     // TODO: handle precedence and associativity; as of writing this comment, prefix operators cannot be properly tested.
     switch expr.oper {
     case .prefixIncrement: target.write("++")
@@ -426,7 +423,7 @@ public struct CXXCodeWriter {
     }
     write(expr: expr.base, into: &target)
   }
-  private func write(postfixExpr expr: CXXPostfixExpr, into target: inout String) {
+  func write(postfixExpr expr: CXXPostfixExpr, into target: inout String) {
     // TODO: handle precedence and associativity; as of writing this comment, postfix operators cannot be properly tested.
     write(expr: expr.base, into: &target)
     switch expr.oper {
@@ -434,7 +431,7 @@ public struct CXXCodeWriter {
     case .suffixDecrement: target.write("--")
     }
   }
-  private func write(functionCallExpr expr: CXXFunctionCallExpr, into target: inout String) {
+  func write(functionCallExpr expr: CXXFunctionCallExpr, into target: inout String) {
     write(expr: expr.callee, into: &target)
     target.write("(")
     for (i, argument) in expr.arguments.enumerated() {
@@ -445,24 +442,24 @@ public struct CXXCodeWriter {
     }
     target.write(")")
   }
-  private func write(voidCast expr: CXXVoidCast, into target: inout String) {
+  func write(voidCast expr: CXXVoidCast, into target: inout String) {
     target.write("(void) ")
     write(expr: expr.baseExpr, into: &target)
   }
-  private func write(conditionalExpr expr: CXXConditionalExpr, into target: inout String) {
+  func write(conditionalExpr expr: CXXConditionalExpr, into target: inout String) {
     write(expr: expr.condition, into: &target)
     target.write(" ? ")
     write(expr: expr.trueExpr, into: &target)
     target.write(" : ")
     write(expr: expr.falseExpr, into: &target)
   }
-  private func write(stmtExpr expr: CXXStmtExpr, into target: inout String) {
+  func write(stmtExpr expr: CXXStmtExpr, into target: inout String) {
     write(stmt: expr.stmt, into: &target)
   }
 
   // MARK: Miscellaneous
 
-  private func write(comment c: CXXComment, into target: inout String) {
+  func write(comment c: CXXComment, into target: inout String) {
     if c.comment.contains("\n") {
       target.write("/* \(c.comment) */")
     } else {

@@ -195,12 +195,11 @@ public struct ValCommand: ParsableCommand {
 
     // Initialize the transpiler & code writer.
     let transpiler = CXXTranspiler(typedProgram)
-    var codeWriter = CXXCodeWriter(formatter: codeFormatter)
 
     // Generate C++ code: Val's StdLib + current module.
     let cxxStdLibModule = transpiler.transpile(stdlib: typedProgram.corelib!)
-    let cxxStdLib = codeWriter.cxxCode(cxxStdLibModule)
-    let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[newModule]))
+    let cxxStdLib = cxxStdLibModule.code(withFormatter: codeFormatter)
+    let cxxCode = transpiler.transpile(typedProgram[newModule]).code(withFormatter: codeFormatter)
 
     // Handle `--emit cpp`.
     if outputType == .cpp {
