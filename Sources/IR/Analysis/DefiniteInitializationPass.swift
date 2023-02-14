@@ -205,15 +205,14 @@ public struct DefiniteInitializationPass {
         if initializedPaths.isEmpty { break }
 
         // Deinitialize the object(s) at the location.
-        let rootType = module.type(of: borrow.location).astType
         for path in initializedPaths {
-          let t = AbstractTypeLayout(of: rootType, definedIn: module.program)[path].type
-          let o = module.insert(
-            LoadInstruction(.object(t), from: borrow.location, at: path, site: borrow.site),
+          let s = module.insert(
+            module.makeElementAddr(borrow.location, at: path, anchoredAt: borrow.site),
             before: i)[0]
-          module.insert(
-            DeinitInstruction(o, site: borrow.site),
-            before: i)
+          let o = module.insert(
+            module.makeLoad(s, anchoredAt: borrow.site),
+            before: i)[0]
+          module.insert(module.makeDeinit(o, anchoredAt: borrow.site), before: i)
         }
 
         // Apply the effects of the new instructions.
@@ -275,20 +274,22 @@ public struct DefiniteInitializationPass {
         })
 
       for p in initializedPaths {
-        let t = AbstractTypeLayout(of: alloc.allocatedType, definedIn: module.program)[p]
-        let o = module.insert(
-          LoadInstruction(.object(t.type), from: dealloc.location, at: p, site: dealloc.site),
+        let s = module.insert(
+          module.makeElementAddr(dealloc.location, at: p, anchoredAt: dealloc.site),
           before: i)[0]
-        module.insert(
-          DeinitInstruction(o, site: dealloc.site), before: i)
+        let o = module.insert(
+          module.makeLoad(s, anchoredAt: dealloc.site),
+          before: i)[0]
+        module.insert(module.makeDeinit(o, anchoredAt: dealloc.site), before: i)
 
         // Apply the effects of the new instructions.
         let consumer = InstructionID(
           i.function, i.block,
           module[i.function][i.block].instructions.address(before: i.address)!)
 
+        let l = AbstractTypeLayout(of: alloc.allocatedType, definedIn: module.program)[p]
         context.locals[FunctionLocal(i, 0)] = .object(
-          Object(layout: t, value: .full(.consumed(by: [consumer]))))
+          Object(layout: l, value: .full(.consumed(by: [consumer]))))
       }
 
       // Erase the deallocated memory from the context.
@@ -320,7 +321,7 @@ public struct DefiniteInitializationPass {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(destructure i: InstructionID, in context: inout Context) {
       let x = module[i] as! DestructureInstruction
-      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
+      context.consume(x.whole, with: i, at: x.site, diagnostics: &diagnostics)
 
       assignObjectRegisters(createdBy: i, in: &context)
     }
@@ -336,9 +337,9 @@ public struct DefiniteInitializationPass {
       let load = module[i] as! LoadInstruction
 
       // Operand must be a location.
-      let locations: [MemoryLocation]
+      let locations: Set<MemoryLocation>
       if let k = FunctionLocal(operand: load.source) {
-        locations = context.locals[k]!.unwrapLocations()!.map({ $0.appending(load.path) })
+        locations = context.locals[k]!.unwrapLocations()!
       } else {
         // Operand is a constant.
         fatalError("not implemented")
@@ -381,7 +382,7 @@ public struct DefiniteInitializationPass {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) {
       let x = module[i] as! ReturnInstruction
-      context.consume(x.value, with: i, at: x.site, diagnostics: &diagnostics)
+      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.

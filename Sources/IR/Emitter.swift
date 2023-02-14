@@ -120,9 +120,7 @@ public struct Emitter {
 
       // Emit the implicit return statement.
       if expr.type != .never {
-        module.append(
-          ReturnInstruction(value: value, site: expr.site),
-          to: insertionBlock!)
+        module.append(module.makeReturn(value, anchoredAt: expr.site), to: insertionBlock!)
       }
     }
 
@@ -192,7 +190,7 @@ public struct Emitter {
     // Allocate storage for each name introduced by the declaration.
     for (path, name) in decl.pattern.subpattern.names {
       let storage = module.append(
-        AllocStackInstruction(name.decl.type, site: name.site),
+        module.makeAllocStack(name.decl.type, for: name.decl.id, anchoredAt: name.site),
         to: insertionBlock!)[0]
       frames.top.allocs.append(storage)
       frames[name.decl] = storage
@@ -211,9 +209,7 @@ public struct Emitter {
           let wholePath = Array(path[0 ..< (i - 1)])
           let whole = objects[wholePath]!
           let parts = module.append(
-            DestructureInstruction(
-              whole, as: layout.properties.map({ .object($0.type) }),
-              site: initializer.site),
+            module.makeDestructure(whole, anchoredAt: initializer.site),
             to: insertionBlock!)
 
           for j in 0 ..< parts.count {
@@ -228,7 +224,7 @@ public struct Emitter {
 
         // Store the corresponding (part of) the initializer.
         module.append(
-          StoreInstruction(objects[path]!, to: target, site: name.site),
+          module.makeStore(objects[path]!, at: target, anchoredAt: name.site),
           to: insertionBlock!)
       }
     }
@@ -260,7 +256,7 @@ public struct Emitter {
 
         let exprType = initializer.type
         let storage = module.append(
-          AllocStackInstruction(exprType, site: pattern.site),
+          module.makeAllocStack(exprType, anchoredAt: pattern.site),
           to: insertionBlock!)[0]
         frames.top.allocs.append(storage)
         source = storage
@@ -269,7 +265,7 @@ public struct Emitter {
           module.makeBorrow(.set, from: storage, anchoredAt: pattern.site),
           to: insertionBlock!)[0]
         module.append(
-          StoreInstruction(value, to: target, site: pattern.site),
+          module.makeStore(value, at: target, anchoredAt: pattern.site),
           to: insertionBlock!)
       }
 
@@ -319,7 +315,7 @@ public struct Emitter {
     let rhs = emitRValue(stmt.right, into: &module)
     // FIXME: Should request the capability 'set or inout'.
     let lhs = emitLValue(stmt.left, meantFor: .set, into: &module)
-    module.append(StoreInstruction(rhs, to: lhs, site: stmt.site), to: insertionBlock!)
+    module.append(module.makeStore(rhs, at: lhs, anchoredAt: stmt.site), to: insertionBlock!)
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
@@ -344,7 +340,7 @@ public struct Emitter {
     let loopBody = module.createBasicBlock(atEndOf: insertionBlock!.function)
     let loopTail = module.createBasicBlock(atEndOf: insertionBlock!.function)
     module.append(
-      BranchInstruction(target: loopBody, site: .empty(at: stmt.site.first())),
+      module.makeBranch(to: loopBody, anchoredAt: .empty(at: stmt.site.first())),
       to: insertionBlock!)
     insertionBlock = loopBody
 
@@ -359,9 +355,8 @@ public struct Emitter {
     emitStackDeallocs(in: &module, site: stmt.site)
     frames.pop()
     module.append(
-      CondBranchInstruction(
-        condition: c, targetIfTrue: loopBody, targetIfFalse: loopTail,
-        site: stmt.condition.site),
+      module.makeCondBranch(
+        if: c, then: loopBody, else: loopTail, anchoredAt: stmt.condition.site),
       to: insertionBlock!)
 
     insertionBlock = loopTail
@@ -380,7 +375,7 @@ public struct Emitter {
     }
 
     emitStackDeallocs(in: &module, site: stmt.site)
-    module.append(ReturnInstruction(value: value, site: stmt.site), to: insertionBlock!)
+    module.append(module.makeReturn(value, anchoredAt: stmt.site), to: insertionBlock!)
   }
 
   private mutating func emit(whileStmt stmt: WhileStmt.Typed, into module: inout Module) {
@@ -389,12 +384,12 @@ public struct Emitter {
 
     // Emit the condition(s).
     module.append(
-      BranchInstruction(target: loopHead, site: .empty(at: stmt.site.first())),
+      module.makeBranch(to: loopHead, anchoredAt: .empty(at: stmt.site.first())),
       to: insertionBlock!)
     insertionBlock = loopHead
 
     for item in stmt.condition {
-      let b = module.createBasicBlock(atEndOf: insertionBlock!.function)
+      let next = module.createBasicBlock(atEndOf: insertionBlock!.function)
 
       frames.push()
       defer { frames.pop() }
@@ -405,11 +400,9 @@ public struct Emitter {
         let c = emitBranchCondition(e, into: &module)
         emitStackDeallocs(in: &module, site: e.site)
         module.append(
-          CondBranchInstruction(
-            condition: c, targetIfTrue: b, targetIfFalse: loopTail,
-            site: e.site),
+          module.makeCondBranch(if: c, then: next, else: loopTail, anchoredAt: e.site),
           to: insertionBlock!)
-        insertionBlock = b
+        insertionBlock = next
 
       case .decl:
         fatalError("not implemented")
@@ -418,7 +411,7 @@ public struct Emitter {
 
     emit(braceStmt: stmt.body, into: &module)
     module.append(
-      BranchInstruction(target: loopHead, site: .empty(at: stmt.site.first())),
+      module.makeBranch(to: loopHead, anchoredAt: .empty(at: stmt.site.first())),
       to: insertionBlock!)
     insertionBlock = loopTail
   }
@@ -434,7 +427,7 @@ public struct Emitter {
       // Mark the execution path unreachable if the computed value has type `Never`.
       if program.relations.areEquivalent(expr.type, .never) {
         emitStackDeallocs(in: &module, site: expr.site)
-        module.append(UnrechableInstruction(site: expr.site), to: insertionBlock!)
+        module.append(module.makeUnreachable(anchoredAt: expr.site), to: insertionBlock!)
       }
     }
 
@@ -465,7 +458,7 @@ public struct Emitter {
 
     let boolType = program.ast.coreType(named: "Bool")!
     return module.append(
-      RecordInstruction(objectType: .object(boolType), operands: [value], site: expr.site),
+      module.makeRecord(boolType, aggregating: [value], anchoredAt: expr.site),
       to: insertionBlock!)[0]
   }
 
@@ -480,7 +473,7 @@ public struct Emitter {
     if expr.type != .void {
       resultStorage =
         module.append(
-          AllocStackInstruction(expr.type, site: expr.site),
+          module.makeAllocStack(expr.type, anchoredAt: expr.site),
           to: insertionBlock!)[0]
       frames.top.allocs.append(resultStorage!)
     }
@@ -498,11 +491,7 @@ public struct Emitter {
         // Evaluate the condition in the current block.
         let c = emitBranchCondition(program[itemExpr], into: &module)
         module.append(
-          CondBranchInstruction(
-            condition: c,
-            targetIfTrue: success,
-            targetIfFalse: failure,
-            site: expr.site),
+          module.makeCondBranch(if: c, then: success, else: failure, anchoredAt: expr.site),
           to: insertionBlock!)
         insertionBlock = success
 
@@ -524,7 +513,7 @@ public struct Emitter {
           module.makeBorrow(.set, from: target, anchoredAt: program[thenExpr].site),
           to: insertionBlock!)[0]
         module.append(
-          StoreInstruction(value, to: target, site: program[thenExpr].site),
+          module.makeStore(value, at: target, anchoredAt: program[thenExpr].site),
           to: insertionBlock!)
       }
       emitStackDeallocs(in: &module, site: expr.site)
@@ -533,7 +522,7 @@ public struct Emitter {
     case .block:
       fatalError("not implemented")
     }
-    module.append(BranchInstruction(target: continuation, site: expr.site), to: insertionBlock!)
+    module.append(module.makeBranch(to: continuation, anchoredAt: expr.site), to: insertionBlock!)
 
     // Emit the failure branch.
     insertionBlock = alt
@@ -546,7 +535,7 @@ public struct Emitter {
           module.makeBorrow(.set, from: target, anchoredAt: program[elseExpr].site),
           to: insertionBlock!)[0]
         module.append(
-          StoreInstruction(value, to: target, site: program[elseExpr].site),
+          module.makeStore(value, at: target, anchoredAt: program[elseExpr].site),
           to: insertionBlock!)
       }
       emitStackDeallocs(in: &module, site: expr.site)
@@ -558,14 +547,12 @@ public struct Emitter {
     case nil:
       break
     }
-    module.append(BranchInstruction(target: continuation, site: expr.site), to: insertionBlock!)
+    module.append(module.makeBranch(to: continuation, anchoredAt: expr.site), to: insertionBlock!)
 
     // Emit the value of the expression.
     insertionBlock = continuation
-    if let source = resultStorage {
-      return module.append(
-        LoadInstruction(LoweredType(lowering: expr.type), from: source, site: expr.site),
-        to: insertionBlock!)[0]
+    if let s = resultStorage {
+      return module.append(module.makeLoad(s, anchoredAt: expr.site), to: insertionBlock!)[0]
     } else {
       return .constant(.void)
     }
@@ -575,13 +562,11 @@ public struct Emitter {
     functionCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    if let n = NameExpr.Typed(expr.callee),
-      case .builtinFunction(let f) = n.decl
-    {
+    if case .builtinFunction(let f) = NameExpr.Typed(expr.callee)?.decl {
       return emit(builtinFunctionCallTo: f, with: expr.arguments, at: expr.site, into: &module)
     }
 
-    // Determine the callee's convention.
+    // Callee must have a lambda type.
     let calleeType = LambdaType(expr.callee.type)!
 
     // Arguments are evaluated first, from left to right.
@@ -594,104 +579,8 @@ public struct Emitter {
       arguments.append(emit(argument: program[argument.value], to: parameterType, into: &module))
     }
 
-    // If the callee is a name expression referring to the declaration of a function capture-less
-    // function, it is interpreted as a direct function reference. Otherwise, it is evaluated as a
-    // function object the arguments.
-    let callee: Operand
-
-    if let calleeNameExpr = NameExpr.Typed(expr.callee) {
-      switch calleeNameExpr.decl {
-      case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        // Callee is a direct reference to a function or initializer declaration.
-        // TODO: handle captures
-        callee = .constant(
-          .function(
-            FunctionRef(
-              name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
-              type: .address(calleeType))))
-
-      case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
-        switch InitializerDecl.Typed(calleeDecl)!.introducer.value {
-        case .`init`:
-          // TODO: The function is a custom initializer.
-          fatalError("not implemented")
-
-        case .memberwiseInit:
-          // The function is a memberwise initializer. In that case, the whole call expression is
-          // lowered as a `record` instruction.
-          return module.append(
-            RecordInstruction(
-              objectType: .object(expr.type), operands: arguments,
-              site: expr.site),
-            to: insertionBlock!)[0]
-        }
-
-      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        // Callee is a member reference to a function or method.
-        let receiverType = calleeType.captures[0].type
-
-        // Add the receiver to the arguments.
-        if let type = RemoteType(receiverType) {
-          // The receiver as a borrowing convention.
-          argumentConventions.insert(type.access, at: 0)
-
-          switch calleeNameExpr.domain {
-          case .none:
-            let receiver = module.append(
-              module.makeBorrow(type.access, from: frames[receiver!]!, anchoredAt: expr.site),
-              to: insertionBlock!)[0]
-            arguments.insert(receiver, at: 0)
-
-          case .expr(let receiverID):
-            let receiver = emitLValue(receiverID, meantFor: type.access, into: &module)
-            arguments.insert(receiver, at: 0)
-
-          case .implicit:
-            unreachable()
-          }
-        } else {
-          // The receiver is consumed.
-          argumentConventions.insert(.sink, at: 0)
-
-          switch calleeNameExpr.domain {
-          case .none:
-            let receiver = module.append(
-              LoadInstruction(
-                .object(receiverType), from: frames[receiver!]!, site: expr.site),
-              to: insertionBlock!)[0]
-            arguments.insert(receiver, at: 0)
-
-          case .expr(let receiverID):
-            arguments.insert(emitRValue(receiverID, into: &module), at: 0)
-
-          case .implicit:
-            unreachable()
-          }
-        }
-
-        // Emit the function reference.
-        callee = .constant(
-          .function(
-            FunctionRef(
-              name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
-              type: .address(calleeType))))
-
-      case .builtinFunction:
-        // Already handled.
-        unreachable()
-
-      case .builtinType:
-        // Built-in types are never called.
-        unreachable()
-
-      default:
-        // Evaluate the callee as a function object.
-        callee = emitRValue(expr.callee, into: &module)
-      }
-    } else {
-      // Evaluate the callee as a function object.
-      callee = emitRValue(expr.callee, into: &module)
-    }
+    let callee = emitCallee(
+      expr.callee, conventions: &argumentConventions, arguments: &arguments, into: &module)
 
     return module.append(
       CallInstruction(
@@ -713,10 +602,10 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     return module.append(
-      LLVMInstruction(
+      module.makeLLVM(
         applying: f,
         to: arguments.map({ (a) in emitRValue(program[a.value], into: &module) }),
-        at: site),
+        anchoredAt: site),
       to: insertionBlock!)[0]
   }
 
@@ -747,8 +636,7 @@ public struct Emitter {
     // Emit the constant integer.
     let value = IntegerConstant(bits, bitWidth: bitWidth)
     return module.append(
-      RecordInstruction(
-        objectType: .object(type), operands: [.constant(.integer(value))], site: expr.site),
+      module.makeRecord(type, aggregating: [.constant(.integer(value))], anchoredAt: expr.site),
       to: insertionBlock!)[0]
   }
 
@@ -759,10 +647,8 @@ public struct Emitter {
     switch expr.decl {
     case .direct(let declID):
       // Lookup for a local symbol.
-      if let source = frames[declID] {
-        return module.append(
-          LoadInstruction(.object(expr.type), from: source, site: expr.site),
-          to: insertionBlock!)[0]
+      if let s = frames[declID] {
+        return module.append(module.makeLoad(s, anchoredAt: expr.site), to: insertionBlock!)[0]
       }
 
       fatalError("not implemented")
@@ -927,8 +813,7 @@ public struct Emitter {
           switch nameExpr.domain {
           case .none:
             let receiver = module.append(
-              LoadInstruction(
-                .object(receiverType), from: frames[receiver!]!, site: nameExpr.site),
+              module.makeLoad(frames[receiver!]!, anchoredAt: nameExpr.site),
               to: insertionBlock!)[0]
             arguments.insert(receiver, at: 0)
 
@@ -1036,7 +921,7 @@ public struct Emitter {
 
     let value = emitRValue(syntax, into: &module)
     let storage = module.append(
-      AllocStackInstruction(rvalueType, site: syntax.site),
+      module.makeAllocStack(rvalueType, anchoredAt: syntax.site),
       to: insertionBlock!)[0]
     frames.top.allocs.append(storage)
 
@@ -1044,7 +929,7 @@ public struct Emitter {
       module.makeBorrow(.set, from: storage, anchoredAt: syntax.site),
       to: insertionBlock!)[0]
     module.append(
-      StoreInstruction(value, to: target, site: syntax.site),
+      module.makeStore(value, at: target, anchoredAt: syntax.site),
       to: insertionBlock!)
 
     return storage
@@ -1119,8 +1004,10 @@ public struct Emitter {
 
   /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
   private mutating func emitStackDeallocs(in module: inout Module, site: SourceRange) {
-    while let alloc = frames.top.allocs.popLast() {
-      module.append(DeallocStackInstruction(alloc, site: site), to: insertionBlock!)
+    while let a = frames.top.allocs.popLast() {
+      module.append(
+        module.makeDeallocStack(for: a, anchoredAt: site),
+        to: insertionBlock!)
     }
   }
 

@@ -43,6 +43,9 @@ public struct LoweredType: Hashable {
     }
   }
 
+  /// Indicates whether this is an object type.
+  public var isObject: Bool { !isAddress }
+
   /// Creates an object type.
   public static func object<T: TypeProtocol>(_ type: T) -> Self {
     LoweredType(astType: type, isAddress: false)

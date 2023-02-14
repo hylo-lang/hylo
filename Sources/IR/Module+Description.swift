@@ -136,7 +136,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
         case let instruction as DestructureInstruction:
           output.write("destructure ")
-          output.write(describe(operand: instruction.object))
+          output.write(describe(operand: instruction.whole))
 
         case let instruction as ElementAddrInstruction:
           output.write("element_addr ")
@@ -146,9 +146,6 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         case let instruction as LoadInstruction:
           output.write("load ")
           output.write(describe(operand: instruction.source))
-          if !instruction.path.isEmpty {
-            output.write(", \(instruction.path.descriptions())")
-          }
 
         case let instruction as LLVMInstruction:
           output.write("\(instruction.function.llvmInstruction)")
@@ -171,7 +168,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
         case let instruction as ReturnInstruction:
           output.write("return ")
-          output.write(describe(operand: instruction.value))
+          output.write(describe(operand: instruction.object))
 
         case let instruction as StoreInstruction:
           output.write("store ")

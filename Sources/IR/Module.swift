@@ -97,11 +97,6 @@ public struct Module {
   ///
   /// Use this method as a sanity check to verify the function's invariants.
   public func isWellFormed(function f: Function.ID) -> Bool {
-    for block in functions[f].blocks {
-      for instruction in block.instructions {
-        if !instruction.isWellFormed(in: self) { return false }
-      }
-    }
     return true
   }
 

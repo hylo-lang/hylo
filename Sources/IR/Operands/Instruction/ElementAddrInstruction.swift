@@ -34,35 +34,30 @@ public struct ElementAddrInstruction: Instruction {
 
   public var isTerminator: Bool { false }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    // Instruction result has an address type.
-    if !elementType.isAddress { return false }
-
-    // Operand has an address type.
-    if !module.type(of: base).isAddress { return false }
-
-    return true
-  }
-
 }
 
 extension Module {
 
   /// Creates an `element_addr` anchored at `anchor` that computes the address of the property at
   /// `path` rooted at `base`.
+  ///
+  /// - Note: `base` is returned unchanced if `elementPath` is empty.
+  /// - Parameters:
+  ///   - base: The base address used for the computation.
+  ///   - elementPath: An array of of indices identifying a sub-location in `base`.
   func makeElementAddr(
     _ base: Operand,
     at elementPath: [Int],
     anchoredAt anchor: SourceRange
   ) -> ElementAddrInstruction {
+    precondition(type(of: base).isAddress)
+
     let l = AbstractTypeLayout(of: type(of: base).astType, definedIn: program)
-    let i = ElementAddrInstruction(
+    return ElementAddrInstruction(
       base: base,
       elementPath: elementPath,
       elementType: .address(l[elementPath].type),
       site: anchor)
-    precondition(i.isWellFormed(in: self))
-    return i
   }
 
 }
