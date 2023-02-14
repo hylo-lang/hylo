@@ -1,0 +1,13 @@
+//! expect-failure
+
+fun check<T>(_ x: T) {}
+
+public fun main() {
+  let x0 = 4.2
+  check<Double>(x0)
+
+  let x1: Double = 4.2
+  check<Double>(x0)
+
+  let _: Bool = 4.2 //! diagnostic type 'Bool' does not conform to trait 'ExpressibleByFloatLiteral'
+}
