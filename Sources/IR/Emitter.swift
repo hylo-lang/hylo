@@ -570,26 +570,13 @@ public struct Emitter {
     let calleeType = LambdaType(expr.callee.type)!
 
     // Arguments are evaluated first, from left to right.
-    var argumentConventions: [AccessEffect] = []
-    var arguments: [Operand] = []
-
-    for (parameter, argument) in zip(calleeType.inputs, expr.arguments) {
-      let parameterType = parameter.type.base as! ParameterType
-      argumentConventions.append(parameterType.access)
-      arguments.append(emit(argument: program[argument.value], to: parameterType, into: &module))
+    let arguments: [Operand] = zip(calleeType.inputs, expr.arguments).map { (p, a) in
+      emit(argument: program[a.value], to: ParameterType(p.type)!, into: &module)
     }
-
-    let callee = emitCallee(
-      expr.callee, conventions: &argumentConventions, arguments: &arguments, into: &module)
+    let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
 
     return module.append(
-      CallInstruction(
-        returnType: .object(expr.type),
-        calleeConvention: calleeType.receiverEffect,
-        callee: callee,
-        argumentConventions: argumentConventions,
-        arguments: arguments,
-        site: expr.site),
+      module.makeCall(applying: callee, to: liftedArguments + arguments, anchoredAt: expr.site),
       to: insertionBlock!)[0]
   }
 
@@ -678,45 +665,29 @@ public struct Emitter {
   ) -> Operand {
     switch expr {
     case .infix(let callee, let lhs, let rhs):
-      let calleeType = program.exprTypes[callee.expr]!.base as! LambdaType
+      let calleeType = LambdaType(program.relations.canonical(program.exprTypes[callee.expr]!))!
+        .lifted
 
       // Emit the operands, starting with RHS.
-      let rhsType = calleeType.inputs[0].type.base as! ParameterType
-      let rhsOperand = emit(rhsType.access, foldedSequenceExpr: rhs, into: &module)
+      let r = emit(
+        ParameterType(calleeType.inputs[1].type)!.access, foldedSequenceExpr: rhs, into: &module)
+      let l = emit(
+        ParameterType(calleeType.inputs[0].type)!.access, foldedSequenceExpr: lhs, into: &module)
 
-      let lhsConvention: AccessEffect
-      let lhsOperand: Operand
-      if let lhsType = RemoteType(calleeType.captures[0].type) {
-        lhsConvention = lhsType.access
-        lhsOperand = emit(lhsConvention, foldedSequenceExpr: lhs, into: &module)
-      } else {
-        lhsConvention = .sink
-        lhsOperand = emit(.sink, foldedSequenceExpr: lhs, into: &module)
-      }
-
-      // Create the callee's value.
-      let calleeOperand: Operand
-      switch program.referredDecls[callee.expr] {
-      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        calleeOperand = .constant(
-          .function(
-            FunctionRef(
-              name: DeclLocator(identifying: calleeDecl, in: program).mangled,
-              type: .address(calleeType))))
-
-      default:
+      // Emit the callee.
+      guard case .member(let calleeDecl) = program.referredDecls[callee.expr] else {
         unreachable()
       }
+      assert(calleeDecl.kind == FunctionDecl.self)
+      let c = Operand.constant(
+        .function(
+          FunctionRef(
+            name: DeclLocator(identifying: calleeDecl, in: program).mangled,
+            type: .address(calleeType))))
 
       // Emit the call.
       return module.append(
-        CallInstruction(
-          returnType: .object(calleeType.output),
-          calleeConvention: .let,
-          callee: calleeOperand,
-          argumentConventions: [lhsConvention, rhsType.access],
-          arguments: [lhsOperand, rhsOperand],
-          site: program.ast.site(of: expr)),
+        module.makeCall(applying: c, to: [r, l], anchoredAt: program.ast.site(of: expr)),
         to: insertionBlock!)[0]
 
     case .leaf(let expr):
@@ -726,128 +697,114 @@ public struct Emitter {
     }
   }
 
+  /// Inserts the IR for the argument `expr` passed to a parameter of type `parameterType` into
+  /// `module` at the end of the current insertion block.
   private mutating func emit(
     argument expr: AnyExprID.TypedNode,
     to parameterType: ParameterType,
     into module: inout Module
   ) -> Operand {
     switch parameterType.access {
-    case .let:
-      return emitLValue(expr, meantFor: .let, into: &module)
-    case .inout:
-      return emitLValue(expr, meantFor: .inout, into: &module)
-    case .set:
-      return emitLValue(expr, meantFor: .set, into: &module)
+    case .let, .inout, .set:
+      let s = emitLValue(expr, into: &module)
+      return module.append(
+        module.makeBorrow(parameterType.access, from: s, anchoredAt: expr.site),
+        to: insertionBlock!)[0]
+
     case .sink:
       return emitRValue(expr, into: &module)
-    case .yielded:
+
+    default:
       fatalError("not implemented")
     }
   }
 
-  /// Inserts the IR for the callee `expr` into `module` at the end of the current insertion block,
-  /// inserting into `conventions` and `arguments` the passing convention and value of the callee's
-  /// receiver if `expr` refers to a bound member function.
+  /// Inserts the IR for given `callee` into `module` at the end of the current insertion block and
+  /// returns `(c, a)`, where `c` is the callee's value and `a` are arguments to lifted parameters.
   ///
-  /// - Requires: `expr` has a lambda type.
+  /// Lifted arguments are produced if `callee` is a reference to a function with captures, such as
+  /// a bound member function or a local function declaration with a non-empty environment.
+  ///
+  /// - Requires: `callee` has a lambda type.
   private mutating func emitCallee(
-    _ expr: AnyExprID.TypedNode,
-    conventions: inout [AccessEffect],
-    arguments: inout [Operand],
+    _ callee: AnyExprID.TypedNode,
     into module: inout Module
-  ) -> Operand {
-    let calleeType = expr.type.base as! LambdaType
-
-    // If the callee is a name expression referring to the declaration of a capture-less function,
-    // it is interpreted as a direct function reference.
-    if let nameExpr = NameExpr.Typed(expr) {
-      switch nameExpr.decl {
-      case .direct(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        // Callee is a direct reference to a function or initializer declaration.
-        // TODO: handle captures
-        return .constant(
-          .function(
-            FunctionRef(
-              name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
-              type: .address(calleeType))))
-
-      case .direct(let calleeDecl) where calleeDecl.kind == InitializerDecl.self:
-        let d = InitializerDecl.Typed(nameExpr)!
-        switch d.introducer.value {
-        case .`init`:
-          // The function is a custom initializer.
-          fatalError("not implemented")
-
-        case .memberwiseInit:
-          // The function is a memberwise initializer.
-          fatalError("not implemented")
-        }
-
-      case .member(let calleeDecl) where calleeDecl.kind == FunctionDecl.self:
-        // Callee is a member reference to a function or method.
-        let receiverType = calleeType.captures[0].type
-
-        // Add the receiver to the arguments.
-        if let type = RemoteType(receiverType) {
-          // The receiver has a borrowing convention.
-          conventions.insert(type.access, at: 1)
-
-          switch nameExpr.domain {
-          case .none:
-            let receiver = module.append(
-              module.makeBorrow(type.access, from: frames[receiver!]!, anchoredAt: nameExpr.site),
-              to: insertionBlock!)[0]
-            arguments.insert(receiver, at: 0)
-
-          case .expr(let receiverID):
-            let receiver = emitLValue(receiverID, meantFor: type.access, into: &module)
-            arguments.insert(receiver, at: 0)
-
-          case .implicit:
-            unreachable()
-          }
-        } else {
-          // The receiver is consumed.
-          conventions.insert(.sink, at: 1)
-
-          switch nameExpr.domain {
-          case .none:
-            let receiver = module.append(
-              module.makeLoad(frames[receiver!]!, anchoredAt: nameExpr.site),
-              to: insertionBlock!)[0]
-            arguments.insert(receiver, at: 0)
-
-          case .expr(let receiverID):
-            arguments.insert(emitRValue(receiverID, into: &module), at: 0)
-
-          case .implicit:
-            unreachable()
-          }
-        }
-
-        // Emit the function reference.
-        return .constant(
-          .function(
-            FunctionRef(
-              name: DeclLocator(identifying: calleeDecl.id, in: program).mangled,
-              type: .address(calleeType))))
-
-      case .builtinFunction(let f):
-        // Callee refers to a built-in function.
-        return .constant(.builtin(f.reference))
-
-      case .builtinType:
-        // Built-in types are never called.
-        unreachable()
-
-      default:
-        // Callee is a lambda.
-        break
-      }
+  ) -> (callee: Operand, liftedArguments: [Operand]) {
+    if let e = NameExpr.Typed(callee) {
+      return emitNamedCallee(e, into: &module)
+    } else {
+      return (emitRValue(callee, into: &module), [])
     }
+  }
 
-    // Otherwise, by default, a callee is evaluated as a function object.
-    return emitRValue(expr, into: &module)
+  /// Inserts the IR for given `callee` into `module` at the end of the current insertion block and
+  /// returns `(c, a)`, where `c` is the callee's value and `a` are arguments to lifted parameters.
+  ///
+  /// - Requires: `callee` has a lambda type.
+  private mutating func emitNamedCallee(
+    _ callee: NameExpr.Typed,
+    into module: inout Module
+  ) -> (callee: Operand, liftedArguments: [Operand]) {
+    let calleeType = LambdaType(program.relations.canonical(callee.type))!
+
+    switch callee.decl {
+    case .direct(let d) where d.kind == FunctionDecl.self:
+      // Callee is a direct reference to a function declaration.
+      guard calleeType.environment == .void else {
+        fatalError("not implemented")
+      }
+
+      let c = Operand.constant(
+        .function(
+          FunctionRef(
+            name: DeclLocator(identifying: d.id, in: program).mangled,
+            type: .address(calleeType))))
+      return (c, [])
+
+    case .direct(let d) where d.kind == InitializerDecl.self:
+      // Callee is a direct reference to an initializer declaration.
+      fatalError("not implemented")
+
+    case .member(let d) where d.kind == FunctionDecl.self:
+      // Callee is a member reference to a function or method.
+      let c = Operand.constant(
+        .function(
+          FunctionRef(
+            name: DeclLocator(identifying: d.id, in: program).mangled,
+            type: .address(calleeType.lifted))))
+
+      // Emit the location of the receiver.
+      let receiver: Operand
+      switch callee.domain {
+      case .none:
+        receiver = frames[self.receiver!]!
+      case .expr(let e):
+        receiver = emitLValue(e, into: &module)
+      case .implicit:
+        unreachable()
+      }
+
+      // Load or borrow the receiver.
+      if let t = RemoteType(calleeType.captures[0].type) {
+        let i = module.append(
+          module.makeBorrow(t.access, from: receiver, anchoredAt: callee.site),
+          to: insertionBlock!)
+        return (c, i)
+      } else {
+        let i = module.append(
+          module.makeLoad(receiver, anchoredAt: callee.site),
+          to: insertionBlock!)
+        return (c, i)
+      }
+
+    case .builtinFunction, .builtinType:
+      // Calls to built-ins should have been handled already.
+      unreachable()
+
+    default:
+      // Callee is a lambda.
+      return (emitRValue(callee, into: &module), [])
+    }
   }
 
   /// Inserts the IR for branch condition `expr` into `module` at the end of the current insertion
@@ -871,9 +828,7 @@ public struct Emitter {
       module.append(
         CallInstruction(
           returnType: .object(BuiltinType.i(1)),
-          calleeConvention: .let,
           callee: .constant(.builtin(BuiltinFunction("copy_i1")!.reference)),
-          argumentConventions: [.let],
           arguments: [v],
           site: expr.site),
         to: insertionBlock!)[0]
@@ -954,7 +909,8 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
-    case .member(let d):// Emit the receiver.
+    case .member(let d):
+      // Emit the receiver.
       let receiverAddress: Operand
       switch syntax.domain {
       case .none:
@@ -967,7 +923,6 @@ public struct Emitter {
 
       return addressOfMember(
         boundTo: receiverAddress, declaredBy: d, into: &module, at: syntax.site)
-
 
     case .builtinFunction, .builtinType:
       // Built-in functions and types are never used as l-value.
