@@ -9,6 +9,9 @@ public fun main() {
   let i32: Int32 = 42
   check<Int32>(i32)
 
+  let i8: Int8 = 42
+  check<Int8>(i8)
+
   let d: Double = 42
   check<Double>(d)
 
