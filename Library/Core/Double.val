@@ -12,7 +12,7 @@ public type Double {
 
 }
 
-public conformance Double: ExpressibleByIntegerLiteral {}
+public conformance Double: ExpressibleByFloatLiteral {}
 
 public conformance Double: ExpressibleByIntegerLiteral {}
 
