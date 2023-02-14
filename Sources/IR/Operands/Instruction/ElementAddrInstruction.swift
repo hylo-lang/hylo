@@ -15,7 +15,13 @@ public struct ElementAddrInstruction: Instruction {
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
-  init(_ base: Operand, at path: [Int], withType type: LoweredType, site: SourceRange) {
+  /// Creates an instance with the given properties.
+  fileprivate init(
+    base: Operand,
+    elementPath path: [Int],
+    elementType type: LoweredType,
+    site: SourceRange
+  ) {
     self.base = base
     self.elementPath = path
     self.elementType = type
@@ -36,6 +42,27 @@ public struct ElementAddrInstruction: Instruction {
     if !module.type(of: base).isAddress { return false }
 
     return true
+  }
+
+}
+
+extension Module {
+
+  /// Creates an `element_addr` anchored at `anchor` that computes the address of the property at
+  /// `path` rooted at `base`.
+  func makeElementAddr(
+    _ base: Operand,
+    at elementPath: [Int],
+    anchoredAt anchor: SourceRange
+  ) -> ElementAddrInstruction {
+    let l = AbstractTypeLayout(of: type(of: base).astType, definedIn: program)
+    let i = ElementAddrInstruction(
+      base: base,
+      elementPath: elementPath,
+      elementType: .address(l[elementPath].type),
+      site: anchor)
+    precondition(i.isWellFormed(in: self))
+    return i
   }
 
 }

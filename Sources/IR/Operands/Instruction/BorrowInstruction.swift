@@ -1,6 +1,6 @@
 import Core
 
-// Borrows an access on an object or sub-object.
+// Borrows an access on an object.
 public struct BorrowInstruction: Instruction {
 
   /// The capability being borrowed.
@@ -12,26 +12,22 @@ public struct BorrowInstruction: Instruction {
   /// The location of the root object on which an access is borrowed.
   public let location: Operand
 
-  /// A sequence of indices identifying a sub-location of `location`.
-  public let path: [Int]
-
   /// The binding in source program to which the instruction corresponds, if any.
   public let binding: VarDecl.Typed?
 
   public let site: SourceRange
 
-  init(
-    _ capability: AccessEffect,
-    _ borrowedType: LoweredType,
-    from location: Operand,
-    at path: [Int] = [],
+  /// Creates an instance with the given properties.
+  fileprivate init(
+    borrowedType: LoweredType,
+    capability: AccessEffect,
+    location: Operand,
     binding: VarDecl.Typed? = nil,
     site: SourceRange
   ) {
     self.borrowedType = borrowedType
     self.capability = capability
     self.location = location
-    self.path = path
     self.binding = binding
     self.site = site
   }
@@ -53,6 +49,25 @@ public struct BorrowInstruction: Instruction {
     if !module.type(of: location).isAddress { return false }
 
     return true
+  }
+
+}
+
+extension Module {
+
+  /// Creates a `borrow` anchored at `anchor` that takes `capability` from `source`.
+  func makeBorrow(
+    _ capability: AccessEffect,
+    from source: Operand,
+    anchoredAt anchor: SourceRange
+  ) -> BorrowInstruction {
+    let i = BorrowInstruction(
+      borrowedType: type(of: source),
+      capability: capability,
+      location: source,
+      site: anchor)
+    precondition(i.isWellFormed(in: self))
+    return i
   }
 
 }
