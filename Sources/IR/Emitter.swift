@@ -868,39 +868,27 @@ public struct Emitter {
     anchoredAt anchor: SourceRange,
     into module: inout Module
   ) -> Operand {
-    // Convert the literal into a bit pattern.
-    let bits: BigUInt
-    if s.starts(with: "0b") {
-      bits = BigUInt(s.dropFirst(2), radix: 2)!
-    } else if s.starts(with: "0o") {
-      bits = BigUInt(s.dropFirst(2), radix: 8)!
-    } else if s.starts(with: "0x") {
-      bits = BigUInt(s.dropFirst(2), radix: 16)!
-    } else {
-      bits = BigUInt(s)!
-    }
-
-    // Determine the bit width the value.
-    let bitWidth: Int
+    let bits: WideUInt?
     switch literalType {
     case program.ast.coreType(named: "Int")!:
-      bitWidth = 64
+      bits = .init(valLiteral: s, signed: true, bitWidth: 64)
     case program.ast.coreType(named: "Int32")!:
-      bitWidth = 32
+      bits = .init(valLiteral: s, signed: true, bitWidth: 32)
+    case program.ast.coreType(named: "Int8")!:
+      bits = .init(valLiteral: s, signed: true, bitWidth: 8)
     default:
-      return emitIntegerLiteral(s, withType: literalType, anchoredAt: anchor, into: &module)
+      unreachable("unexpected numeric type")
     }
 
-    if bits.bitWidth > bitWidth {
+    guard let b = bits else {
       diagnostics.insert(
         .error(integerLiterl: s, overflowsWhenStoredInto: literalType, at: anchor))
       return .constant(.poison(PoisonConstant(type: .object(literalType))))
     }
 
-    // Emit the constant integer.
-    let i = IntegerConstant(bits, bitWidth: bitWidth)
     return module.append(
-      module.makeRecord(literalType, aggregating: [.constant(.integer(i))], anchoredAt: anchor),
+      module.makeRecord(
+        literalType, aggregating: [.constant(.integer(IntegerConstant(b)))], anchoredAt: anchor),
       to: insertionBlock!)[0]
   }
 
