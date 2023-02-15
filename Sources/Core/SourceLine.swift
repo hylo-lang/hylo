@@ -21,7 +21,6 @@ public struct SourceLine: Hashable {
   /// The bounds of this line, including any trailing newline.
   public var bounds: SourceRange { file.bounds(of: self) }
 
-
 }
 
 extension SourceLine: CustomStringConvertible {
