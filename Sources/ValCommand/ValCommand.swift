@@ -174,16 +174,14 @@ public struct ValCommand: ParsableCommand {
 
     assert(outputType == .binary)
 
-    let buildDirectoryURL = FileManager.default.temporaryDirectory
+    let buildDirectory = FileManager.default.temporaryDirectory
 
-    // Write the C++ code to the build directory.
     try write(
-      cxx.corelib.text,
-      to: buildDirectoryURL.appendingPathComponent(CXXTranspiler.coreLibModuleName),
+      cxx.corelib.text, to: buildDirectory.appendingPathComponent(CXXTranspiler.coreLibModuleName),
       loggingTo: &errorLog)
 
     try write(
-      cxx.newModule.text, to: buildDirectoryURL.appendingPathComponent(productName),
+      cxx.newModule.text, to: buildDirectory.appendingPathComponent(productName),
       loggingTo: &errorLog)
 
     let clang = try find("clang++")
@@ -192,8 +190,8 @@ public struct ValCommand: ParsableCommand {
       clang,
       [
         "-o", binaryURL.path,
-        "-I", buildDirectoryURL.path,
-        buildDirectoryURL.appendingPathComponent(productName + ".cpp").path,
+        "-I", buildDirectory.path,
+        buildDirectory.appendingPathComponent(productName + ".cpp").path,
       ],
       loggingTo: &errorLog)
   }
@@ -351,6 +349,7 @@ public struct ValCommand: ParsableCommand {
 }
 
 extension TypedProgram {
+
   typealias CXX = (syntax: CXXModule, text: TranslationUnitCode)
 
   func cxx(_ m: ModuleDecl.Typed) -> CXX {
