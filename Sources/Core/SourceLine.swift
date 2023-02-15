@@ -1,6 +1,6 @@
 import Foundation
 
-/// A line if a source file.
+/// A line of a source file.
 public struct SourceLine: Hashable {
 
   /// The source file containing the position.
