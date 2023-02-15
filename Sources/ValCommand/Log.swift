@@ -34,7 +34,7 @@ extension Log {
     // Log the location
     let siteFirst = diagnostic.site.first()
     let path = siteFirst.file.url.relativePath
-    let (lineFirst, column) = siteFirst.lineAndColumn()
+    let (lineFirst, column) = siteFirst.lineAndColumn
     write("\(path):\(lineFirst):\(column): ", in: [.bold])
 
     // Log the level.

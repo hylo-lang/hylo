@@ -8,7 +8,7 @@ extension Diagnostic {
   var expectation: TestAnnotation {
     TestAnnotation(
       in: site.file.url,
-      atLine: site.first().lineAndColumn().line,
+      atLine: site.first().line.index,
       parsing: "diagnostic " + message
     )
   }

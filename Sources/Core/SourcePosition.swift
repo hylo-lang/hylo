@@ -24,8 +24,8 @@ public struct SourcePosition: Hashable {
   /// The line which `self` resides.
   public var line: SourceLine { file.line(containing: index) }
 
-  /// Returns the line and column number of this position.
-  public func lineAndColumn() -> (line: Int, column: Int) {
+  /// The line and column number of this position.
+  public var lineAndColumn: (line: Int, column: Int) {
     let r = file.lineAndColumn(index)
     return (r.line, r.column)
   }
@@ -76,7 +76,7 @@ extension SourcePosition: Codable {
 extension SourcePosition: CustomStringConvertible {
 
   public var description: String {
-    let (line, column) = lineAndColumn()
+    let (line, column) = lineAndColumn
     return "\(file.url.relativePath):\(line):\(column)"
   }
 
