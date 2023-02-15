@@ -53,8 +53,7 @@ extension BidirectionalCollection {
   /// Returns the slice of self that remains after dropping leading and trailing whitespace.
   public func strippingWhitespace() -> SubSequence
   where Element == Character {
-    return self.drop { c in c.isWhitespace }
-      .dropLast { c in c.isWhitespace }
+    self.drop(while: { $0.isWhitespace }).dropLast(while: { $0.isWhitespace })
   }
 
 }
