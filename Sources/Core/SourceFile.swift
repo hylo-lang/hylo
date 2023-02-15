@@ -62,7 +62,7 @@ public struct SourceFile {
     return text[range.start ..< range.end]
   }
 
-  /// The contents of the line in which `p` is defined.
+  /// The contents of the line in which `p` is defined, sans trailing newline if any.
   ///
   /// - Requires: `p` is a valid position in `self`.
   public func lineContents(at p: SourcePosition) -> Substring {
@@ -117,6 +117,7 @@ public struct SourceFile {
   /// Returns the 1-based line and column numbers corresponding to `i`.
   ///
   /// - Requires: `i` is a valid index in `contents`.
+  /// - Complexity: O(N) where N is the distance from `i` to the start of its line.
   func lineAndColumn(_ i: Index) -> (line: Int, column: Int) {
     let lineNumber = lineStarts.partitioningIndex(where: { $0 > i })
     let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: i) + 1
