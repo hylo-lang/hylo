@@ -96,6 +96,11 @@ let package = Package(
 
     // Test targets.
     .testTarget(
+      name: "UtilsTests",
+      dependencies: ["Utils"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
       name: "ValTests",
       dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR"],
       resources: [.copy("TestCases")],

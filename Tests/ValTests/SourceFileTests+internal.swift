@@ -18,7 +18,7 @@ final class SourceFileTestsInternal: XCTestCase {
     ) {
       let x = s.lineAndColumn(i)
 
-      XCTAssertEqual(x.line, s.line(containing: i), file: testFile, line: testLine)
+      XCTAssertEqual(x.line, s.line(containing: i).number, file: testFile, line: testLine)
 
       XCTAssert(
         x == (line, column),
@@ -26,7 +26,7 @@ final class SourceFileTestsInternal: XCTestCase {
 
       XCTAssertEqual(s.index(line: line, column: column), i)
 
-      let t = s.textOfLine(s.line(containing: i))
+      let t = s.line(containing: i).text
       XCTAssertEqual(String(t), lineText, file: testFile, line: testLine)
     }
 

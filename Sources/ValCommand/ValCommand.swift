@@ -75,7 +75,7 @@ public struct ValCommand: ParsableCommand {
     help: ArgumentHelp(
       "Enable tracing of type inference requests at the given line.",
       valueName: "file:line"))
-  private var inferenceTracingRange: SourceRange?
+  private var inferenceTracingSite: SourceLine?
 
   @Option(
     name: [.customLong("emit")],
@@ -153,7 +153,7 @@ public struct ValCommand: ParsableCommand {
     }
 
     let typedProgram = try TypedProgram(
-      ast, tracingInferenceIn: inferenceTracingRange, diagnostics: &diagnostics)
+      ast, tracingInferenceIn: inferenceTracingSite, diagnostics: &diagnostics)
 
     // Exit if `--typecheck` is set.
     if typeCheckOnly { return }

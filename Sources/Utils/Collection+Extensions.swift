@@ -15,6 +15,19 @@ extension Collection {
 
 }
 
+extension BidirectionalCollection where Element: Equatable {
+
+  /// Returns `(head: a, tail: b)` where `a` is the prefix up to the last occurrence of `element`
+  /// and `b` contains the remaining elements. `a` is empty if `element` is not in `self`.
+  ///
+  /// - Complexity: O(*n*), where *n* is the length of the collection.
+  public func split(atLastIndexOf element: Element) -> (head: SubSequence, tail: SubSequence) {
+    let i = lastIndex(of: element) ?? startIndex
+    return (prefix(upTo: i), suffix(from: i))
+  }
+
+}
+
 extension RangeReplaceableCollection {
 
   /// Filters this collection to keep only the elements satisfying `isIncluded`.
