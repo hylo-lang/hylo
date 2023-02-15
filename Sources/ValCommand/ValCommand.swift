@@ -9,6 +9,8 @@ import ValModule
 
 public struct ValCommand: ParsableCommand {
 
+  typealias CXX = (stdlib: TranslationUnitCode, newModule: TranslationUnitCode)
+
   /// The type of the output files to generate.
   private enum OutputType: ExpressibleByArgument {
 
@@ -159,28 +161,13 @@ public struct ValCommand: ParsableCommand {
     
     if outputType == .ir || outputType == .rawIR { return }
 
-    // *** C++ Transpiling ***
-
-    // Initialize the transpiler & code writer.
-    let transpiler = CXXTranspiler(typedProgram)
-    var codeWriter = CXXCodeWriter()
-
-    // Generate C++ code: Val's StdLib + current module.
-    let cxxStdLibModule = transpiler.transpile(stdlib: typedProgram.corelib!)
-    let cxxStdLib = codeWriter.cxxCode(cxxStdLibModule)
-    let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[newModule]))
-
-    // Handle `--emit cpp`.
+    let cxx = emitCXX(typedProgram: typedProgram)
     if outputType == .cpp {
-      try write(
-        cxxStdLib,
-        to: outputURL?.deletingLastPathComponent().appendingPathComponent(cxxStdLibModule.name)
+      writeCXXFiles(
+        cxx,
+        stdlib: outputURL?.deletingLastPathComponent().appendingPathComponent(cxxStdLibModule.name)
           ?? URL(fileURLWithPath: cxxStdLibModule.name),
-        loggingTo: &errorLog)
-      try write(
-        cxxCode,
-        to: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName),
-        loggingTo: &errorLog)
+        newModule: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName))
       return
     }
 
@@ -350,4 +337,21 @@ public struct ValCommand: ParsableCommand {
     }
   }
 
+  func emitCXX(typedProgram: TypedProgram) -> CXX {
+    // Initialize the transpiler & code writer.
+    let transpiler = CXXTranspiler(typedProgram)
+    var codeWriter = CXXCodeWriter()
+
+    // Generate C++ code: Val's StdLib + current module.
+    let cxxStdLibModule = transpiler.transpile(stdlib: typedProgram.corelib!)
+    let cxxStdLib = codeWriter.cxxCode(cxxStdLibModule)
+    let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[newModule]))
+
+    return (stdlib: cxxStdLib, newModule: cxxCode)
+  }
+
+  func writeCXXFiles(_ cxx: CXX, stdlib: URL, newModule: URL) throws {
+    try write(cxx.stdLib, to: stdlib, loggingTo: &errorLog)
+    try write(cxx.newModule, to: newModule, loggingTo: &errorLog)
+  }
 }
