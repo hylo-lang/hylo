@@ -9,9 +9,10 @@ extension SourceLine: ExpressibleByArgument {
 
     guard
       let file = try? SourceFile(contentsOf: URL(fileURLWithPath: String(x.head))),
-      let line = Int(x.tail.dropFirst()).map(file.line(at:))
+      let lineNumber = Int(x.tail.dropFirst()),
+      lineNumber > 0 && lineNumber <= file.lineCount
     else { return nil }
-    self = line
+    self = file.line(at: lineNumber)
   }
 
 }

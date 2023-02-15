@@ -41,6 +41,9 @@ public struct SourceFile {
     url.deletingPathExtension().lastPathComponent
   }
 
+  /// The number of lines in the file.
+  public var lineCount: Int { storage.lineStarts.count }
+
   /// A range covering the whole contents of this instance.
   public var wholeRange: SourceRange {
     range(text.startIndex ..< text.endIndex)
