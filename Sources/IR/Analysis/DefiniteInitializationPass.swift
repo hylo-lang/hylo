@@ -466,9 +466,6 @@ public struct DefiniteInitializationPass {
 
 extension DefiniteInitializationPass {
 
-  /// A sequence of property offsets identifying a sub-object.
-  fileprivate typealias SubobjectPath = [Int]
-
   /// An abstract memory location.
   fileprivate enum MemoryLocation: Hashable {
 
