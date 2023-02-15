@@ -179,10 +179,8 @@ public struct Emitter {
     precondition(program.isLocal(decl.id))
     precondition(reading(decl.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
-    /// A map from object path to its corresponding (sub-)object during destruction.
+    /// A map from object path to its corresponding (sub-)object during destructuring.
     var objects: [[Int]: Operand] = [:]
-
-    // Emit the initializer, if any.
     if let initializer = decl.initializer {
       objects[[]] = emitRValue(initializer, into: &module)
     }
@@ -196,35 +194,27 @@ public struct Emitter {
       frames[name.decl] = storage
 
       if let initializer = decl.initializer {
-        // Determine the object corresponding to the current name.
-        var rhsType = initializer.type
+        // Determine the (sub-)object corresponding to the current name.
         for i in 0 ..< path.count {
           // Make sure the initializer has been destructured deeply enough.
-          let subpath = Array(path[0 ..< i])
-          if objects[subpath] != nil { continue }
+          if objects[Array(path[...i])] != nil { continue }
 
-          let layout = AbstractTypeLayout(of: rhsType, definedIn: program)
-          rhsType = layout[i].type
-
-          let wholePath = Array(path[0 ..< (i - 1)])
-          let whole = objects[wholePath]!
-          let parts = module.append(
-            module.makeDestructure(whole, anchoredAt: initializer.site),
+          // Destructure the (sub-)object.
+          let subobject = Array(path[0 ..< i])
+          let subobjectParts = module.append(
+            module.makeDestructure(objects[subobject]!, anchoredAt: initializer.site),
             to: insertionBlock!)
-
-          for j in 0 ..< parts.count {
-            objects[wholePath + [j]] = parts[j]
+          for j in 0 ..< subobjectParts.count {
+            objects[subobject + [j]] = subobjectParts[j]
           }
         }
 
-        // Borrow the storage for initialization corresponding to the current name.
-        let target = module.append(
+        // Initialize the (sub-)object.
+        let s = module.append(
           module.makeBorrow(.set, from: storage, anchoredAt: name.site),
           to: insertionBlock!)[0]
-
-        // Store the corresponding (part of) the initializer.
         module.append(
-          module.makeStore(objects[path]!, at: target, anchoredAt: name.site),
+          module.makeStore(objects[path]!, at: s, anchoredAt: name.site),
           to: insertionBlock!)
       }
     }

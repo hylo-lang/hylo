@@ -24,3 +24,13 @@ public fun main() {
   read(x1)              //! diagnostic use of consumed object
   consume(x1)           //! diagnostic use of consumed object
 }
+
+fun more_di() {
+  let (a0, b0) = (-1, (true, 1.0))
+  read(a0)
+  read(b0)
+
+  var (a1, b1) = (-1, (true, 1.0))
+  read(a1)
+  read(b1)
+}
