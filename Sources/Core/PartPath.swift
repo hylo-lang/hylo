@@ -7,4 +7,4 @@
 /// - `[0]` denotes `foo`,
 /// - `[1, 0]` denotes `bar`, and
 /// - `[]` denotes `self`.
-typealias PartPath = [Int]
+public typealias PartPath = [Int]

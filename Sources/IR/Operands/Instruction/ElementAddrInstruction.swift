@@ -7,7 +7,7 @@ public struct ElementAddrInstruction: Instruction {
   public let base: Operand
 
   /// A sequence of indices identifying a part of the value at `base`.
-  public let elementPath: [Int]
+  public let elementPath: PartPath
 
   /// The type of the derived address.
   public let elementType: LoweredType
@@ -18,7 +18,7 @@ public struct ElementAddrInstruction: Instruction {
   /// Creates an instance with the given properties.
   fileprivate init(
     base: Operand,
-    elementPath path: [Int],
+    elementPath path: PartPath,
     elementType type: LoweredType,
     site: SourceRange
   ) {
@@ -47,7 +47,7 @@ extension Module {
   ///   - elementPath: An array of of indices identifying a sub-location in `base`.
   func makeElementAddr(
     _ base: Operand,
-    at elementPath: [Int],
+    at elementPath: PartPath,
     anchoredAt anchor: SourceRange
   ) -> ElementAddrInstruction {
     precondition(type(of: base).isAddress)
