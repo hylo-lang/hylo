@@ -11,50 +11,67 @@ final class SourceFileTestsInternal: XCTestCase {
     var i1 = s1.text.startIndex
     var i2 = s2.text.startIndex
 
-    func expectCorrespondence(
-      _ i: SourceFile.Index, in s: SourceFile, isAt line: Int, _ column: Int,
+    func expect(
+      _ i: inout SourceFile.Index, in s: SourceFile, line: Int, column: Int, lineText: String,
       testFile: StaticString = #filePath, testLine: UInt = #line
     ) {
       let x = s.lineAndColumn(i)
+
+      XCTAssertEqual(x.line, s.line(containing: i), file: testFile, line: testLine)
 
       XCTAssert(
         x == (line, column),
         "\(x) == \((line, column)) failed", file: testFile, line: testLine)
 
       XCTAssertEqual(s.index(line: line, column: column), i)
+
+      let t = s.textOfLine(s.line(containing: i))
+      XCTAssertEqual(String(t), lineText, file: testFile, line: testLine)
     }
 
-    func expect2(
-      line: Int, column: Int, lineContents: String, testFile: StaticString = #filePath,
-      testLine: UInt = #line
-    ) {
-      expectCorrespondence(i1, in: s1, isAt: line, column, testFile: testFile, testLine: testLine)
-      expectCorrespondence(i2, in: s2, isAt: line, column, testFile: testFile, testLine: testLine)
-      XCTAssertEqual(
-        String(s1.lineContents(at: s1.position(i1))), lineContents, file: testFile, line: testLine)
-      XCTAssertEqual(
-        String(s2.lineContents(at: s2.position(i2))), lineContents, file: testFile, line: testLine)
-
+    func advance2() {
       s1.text.formIndex(after: &i1)
       s2.text.formIndex(after: &i2)
     }
 
-    expect2(line: 1, column: 1, lineContents: "a")
-    expect2(line: 1, column: 2, lineContents: "a")
+    func expectAndAdvance2(
+      line: Int, column: Int, lineText: String, testFile: StaticString = #filePath,
+      testLine: UInt = #line
+    ) {
+      expect(
+        &i1, in: s1, line: line, column: column, lineText: lineText,
+        testFile: testFile, testLine: testLine)
 
-    expect2(line: 2, column: 1, lineContents: "bc")
-    expect2(line: 2, column: 2, lineContents: "bc")
-    expect2(line: 2, column: 3, lineContents: "bc")
+      expect(
+        &i2, in: s2, line: line, column: column, lineText: lineText,
+        testFile: testFile, testLine: testLine)
+      advance2()
+    }
 
-    expect2(line: 3, column: 1, lineContents: "def")
-    expect2(line: 3, column: 2, lineContents: "def")
-    expect2(line: 3, column: 3, lineContents: "def")
+    expectAndAdvance2(line: 1, column: 1, lineText: "a\n")
+    expectAndAdvance2(line: 1, column: 2, lineText: "a\n")
 
-    expectCorrespondence(i1, in: s1, isAt: 4, 1)
+    expectAndAdvance2(line: 2, column: 1, lineText: "bc\n")
+    expectAndAdvance2(line: 2, column: 2, lineText: "bc\n")
+    expectAndAdvance2(line: 2, column: 3, lineText: "bc\n")
 
-    expectCorrespondence(i2, in: s2, isAt: 3, 4)
+    expect(&i1, in: s1, line: 3, column: 1, lineText: "def")
+    expect(&i2, in: s2, line: 3, column: 1, lineText: "def\n")
+    advance2()
+
+    expect(&i1, in: s1, line: 3, column: 2, lineText: "def")
+    expect(&i2, in: s2, line: 3, column: 2, lineText: "def\n")
+    advance2()
+
+    expect(&i1, in: s1, line: 3, column: 3, lineText: "def")
+    expect(&i2, in: s2, line: 3, column: 3, lineText: "def\n")
+    advance2()
+
+    expect(&i1, in: s1, line: 4, column: 1, lineText: "")
+    expect(&i2, in: s2, line: 3, column: 4, lineText: "def\n")
     s2.text.formIndex(after: &i2)
-    expectCorrespondence(i2, in: s2, isAt: 4, 1)
+    expect(&i2, in: s2, line: 4, column: 1, lineText: "")
+
     XCTAssertEqual(i1, s1.text.endIndex)
     XCTAssertEqual(i2, s2.text.endIndex)
   }
