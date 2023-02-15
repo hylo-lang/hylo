@@ -15,6 +15,9 @@ public struct SourceLine: Hashable {
     self.index = index
   }
 
+  /// The source text contained in this line.
+  public var text: Substring { file[bounds] }
+
 }
 
 extension SourceLine: CustomStringConvertible {

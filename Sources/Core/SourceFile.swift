@@ -310,3 +310,13 @@ extension SourceFile {
   }
 
 }
+
+extension SourceLine {
+
+  /// The bounds of this line, including any trailing newline.
+  public var bounds: SourceRange {
+    let end = index < file.lineStarts.count ? file.lineStarts[index] : file.text.endIndex
+    return file.range(file.lineStarts[index - 1] ..< end)
+  }
+
+}
