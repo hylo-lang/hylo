@@ -167,8 +167,9 @@ public struct ValCommand: ParsableCommand {
     if outputType == .cpp {
       try write(
         cxx.corelib.text,
-        to: outputURL?.deletingLastPathComponent().appendingPathComponent(cxx.corelib.syntax.name)
-          ?? URL(fileURLWithPath: cxx.corelib.syntax.name), loggingTo: &errorLog)
+        to: outputURL?.deletingLastPathComponent()
+          .appendingPathComponent(CXXTranspiler.coreLibModuleName)
+          ?? URL(fileURLWithPath: CXXTranspiler.coreLibModuleName), loggingTo: &errorLog)
 
       try write(
         cxx.newModule.text,
@@ -186,7 +187,7 @@ public struct ValCommand: ParsableCommand {
     // Write the C++ code to the build directory.
     try write(
       cxx.corelib.text,
-      to: buildDirectoryURL.appendingPathComponent(cxx.corelib.syntax.name),
+      to: buildDirectoryURL.appendingPathComponent(CXXTranspiler.coreLibModuleName),
       loggingTo: &errorLog)
 
     try write(

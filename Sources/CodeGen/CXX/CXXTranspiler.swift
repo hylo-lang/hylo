@@ -6,6 +6,8 @@ import Utils
 /// The conversion of typed Val module AST into corresponding C++ AST.
 public struct CXXTranspiler {
 
+  public static let coreLibModuleName = "ValStdLib"
+
   /// The Val typed nodes.
   ///
   /// This property is used when we need access to the contents of a node from its ID.
@@ -21,7 +23,7 @@ public struct CXXTranspiler {
   public func cxx(_ source: ModuleDecl.Typed) -> CXXModule {
     let isCoreLib = source.id == wholeValProgram.corelib?.id
     return CXXModule(
-      name: isCoreLib ? "ValStdLib" : source.baseName,
+      name: isCoreLib ? Self.coreLibModuleName : source.baseName,
       isStdLib: isCoreLib,
       topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
       entryPointBody: entryPointBody(module: source))
