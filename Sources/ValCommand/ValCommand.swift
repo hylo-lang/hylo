@@ -165,16 +165,8 @@ public struct ValCommand: ParsableCommand {
     )
 
     if outputType == .cpp {
-      try write(
-        cxx.corelib.text,
-        to: outputURL?.deletingLastPathComponent()
-          .appendingPathComponent(CXXTranspiler.coreLibModuleName)
-          ?? URL(fileURLWithPath: CXXTranspiler.coreLibModuleName), loggingTo: &errorLog)
-
-      try write(
-        cxx.newModule.text,
-        to: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName),
-        loggingTo: &errorLog)
+      try write(cxx.corelib.text, to: coreLibCXXOutput, loggingTo: &errorLog)
+      try write(cxx.newModule.text, to: newModuleCXXOutput(productName), loggingTo: &errorLog)
       return
     }
 
@@ -345,6 +337,17 @@ public struct ValCommand: ParsableCommand {
       return
     }
   }
+
+  var coreLibCXXOutput: URL {
+    outputURL?.deletingLastPathComponent()
+      .appendingPathComponent(CXXTranspiler.coreLibModuleName)
+      ?? URL(fileURLWithPath: CXXTranspiler.coreLibModuleName)
+  }
+
+  func newModuleCXXOutput(_ baseName: String) -> URL {
+    outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: baseName)
+  }
+
 }
 
 extension TypedProgram {
