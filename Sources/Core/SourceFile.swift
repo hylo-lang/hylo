@@ -22,7 +22,7 @@ public struct SourceFile {
   public var url: URL { storage.url }
 
   /// The start position of each line.
-  private var lineStarts: [Index] { storage.lineStarts }
+  fileprivate var lineStarts: [Index] { storage.lineStarts }
 
   /// Creates an instance representing the file at `filePath`.
   public init(contentsOf filePath: URL) throws {
@@ -91,6 +91,16 @@ public struct SourceFile {
   /// - Requires: `r` is a valid range in `self`.
   public func range(_ r: Range<Index>) -> SourceRange {
     SourceRange(r, in: self)
+  }
+
+  /// Returns the line containing `i`.
+  public func line1(containing i: Index) -> SourceLine {
+    SourceLine(lineStarts.partitioningIndex(where: { $0 > i }), in: self)
+  }
+
+  /// Returns the line at 1-based index `lineNumber`.
+  public func line1(at lineNumber: Int) -> SourceLine {
+    SourceLine(lineNumber, in: self)
   }
 
   /// Returns the 1-based line and column numbers corresponding to `i`.
