@@ -9,6 +9,9 @@ public fun main() {
 
   let _: Int32 = 1
 
+  let _: Int8 = 1
+  let _: Int8 = 128   //! diagnostic integer literal '128' overflows when stored into 'Int8'
+
   let _: Double = 1
   let _: Double = 1.0
 
