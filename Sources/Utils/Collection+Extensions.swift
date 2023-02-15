@@ -13,6 +13,50 @@ extension Collection {
     return (head: self[startIndex], tail: self[index(after: startIndex)...])
   }
 
+  /// Returns the index of the first element in the collection that matches the predicate.
+  ///
+  /// The collection must already be partitioned according to the predicate, as if
+  /// `self.partition(by: predicate)` had already been called.
+  ///
+  /// - Complexity: At most log(N) invocations of `predicate`, where N is the length of `self`;
+  ///   at most log(N) index offsetting operations if `self` conforms to `RandomAccessCollection`;
+  ///   at most N such operations otherwise.
+  public func partitioningIndex(
+    where predicate: (Element) throws -> Bool
+  ) rethrows -> Index {
+    var n = distance(from: startIndex, to: endIndex)
+    var l = startIndex
+
+    while n > 0 {
+      let half = n / 2
+      let mid = index(l, offsetBy: half)
+      if try predicate(self[mid]) {
+        n = half
+      } else {
+        l = index(after: mid)
+        n -= half + 1
+      }
+    }
+    return l
+  }
+
+}
+
+extension BidirectionalCollection {
+
+  /// Returns `self` sans any suffix elements satisfying `predicate`.
+  public func dropLast(while predicate: (Element) throws -> Bool) rethrows -> Self.SubSequence {
+    let head = try self.reversed().drop(while: predicate)
+    return self[head.endIndex.base ..< head.startIndex.base]
+  }
+
+  /// Returns the slice of self that remains after dropping leading and trailing whitespace.
+  public func strippingWhitespace() -> SubSequence
+  where Element == Character {
+    return self.drop { c in c.isWhitespace }
+      .dropLast { c in c.isWhitespace }
+  }
+
 }
 
 extension BidirectionalCollection where Element: Equatable {
