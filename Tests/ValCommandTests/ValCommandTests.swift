@@ -1,6 +1,6 @@
 import ArgumentParser
-import ValCommand
 import Utils
+import ValCommand
 import XCTest
 
 final class ValCommandTests: XCTestCase {

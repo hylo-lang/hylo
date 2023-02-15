@@ -12,7 +12,7 @@ public struct DeclLocator: Hashable {
 
     case function(name: String, labels: [String], notation: OperatorNotation?)
 
-    case methodImpl(ImplIntroducer)
+    case methodImpl(AccessEffect)
 
     case module(String)
 
@@ -24,7 +24,7 @@ public struct DeclLocator: Hashable {
 
     case `subscript`(name: String, labels: [String])
 
-    case subscriptImpl(ImplIntroducer)
+    case subscriptImpl(AccessEffect)
 
     case trait(String)
 
@@ -101,7 +101,7 @@ public struct DeclLocator: Hashable {
         return "E\(target)"
 
       case .function(let name, let labels, let notation):
-        let labels = labels.map({ $0.mangled }).joined()
+        let labels = labels.map(\.mangled).joined()
         if let n = notation {
           return "O\(String(describing: n).mangled)\(name.mangled)\(labels.count)\(labels)a"
         } else {
@@ -114,6 +114,7 @@ public struct DeclLocator: Hashable {
         case .inout: return "Ii"
         case .set: return "Ia"
         case .sink: return "Is"
+        case .yielded: return "Iy"
         }
 
       case .module(let name):
@@ -129,7 +130,7 @@ public struct DeclLocator: Hashable {
         return "P\(name.mangled)"
 
       case .subscript(let name, let labels):
-        let ls = labels.map({ $0.mangled }).joined()
+        let ls = labels.map(\.mangled).joined()
         return "S\(name.mangled)\(labels.count)\(ls)"
 
       case .subscriptImpl(let introducer):
@@ -138,6 +139,7 @@ public struct DeclLocator: Hashable {
         case .inout: return "Ii"
         case .set: return "Ia"
         case .sink: return "Is"
+        case .yielded: return "Iy"
         }
 
       case .trait(let name):
@@ -168,7 +170,7 @@ public struct DeclLocator: Hashable {
 
   /// The locator's value encoded as a string.
   public var mangled: String {
-    components.lazy.map({ $0.mangled }).joined()
+    components.lazy.map(\.mangled).joined()
   }
 
 }

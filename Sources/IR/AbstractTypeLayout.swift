@@ -16,10 +16,10 @@ public struct AbstractTypeLayout {
   public let properties: [StoredProperty]
 
   /// Creates the abstract layout of `t` defined in `p`.
-  public init(of t: AnyType, definedIn p: TypedProgram) {
+  public init<T: TypeProtocol>(of t: T, definedIn p: TypedProgram) {
     self.program = p
-    self.type = t
-    self.properties = program.properties(of: t)
+    self.type = ^t
+    self.properties = program.properties(of: self.type)
   }
 
   /// Accesses the layout of the stored property at given `offset`.
@@ -64,12 +64,17 @@ extension TypedProgram {
   fileprivate func properties(of t: AnyType) -> [AbstractTypeLayout.StoredProperty] {
     switch t.base {
     case let p as ProductType:
-      return self[p.decl].members.reduce(into: []) { (r, m) in
+      return self[p.decl].members.reduce(into: []) { (result, m) in
         if let b = BindingDecl.Typed(m) {
-          r.append(
+          result.append(
             contentsOf: b.pattern.names
               .map({ (_, name) in (name.decl.baseName, name.decl.type) }))
         }
+      }
+
+    case let p as TupleType:
+      return p.elements.reduce(into: []) { (result, e) in
+        result.append((e.label, e.type))
       }
 
     default:

@@ -35,6 +35,8 @@ public struct TypedProgram: Program {
   }
 
   /// Creates a typed program from a scoped program and property maps describing type annotations.
+  ///
+  /// - Requires: All modules in `program` have been typed checked.
   public init(
     annotating program: ScopedProgram,
     declTypes: DeclProperty<AnyType>,
@@ -44,6 +46,8 @@ public struct TypedProgram: Program {
     foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr],
     relations: TypeRelations
   ) {
+    precondition(program.ast.modules.allSatisfy({ declTypes[$0]?.base is ModuleType }))
+
     self.ast = program.ast
     self.scopeToParent = program.scopeToParent
     self.scopeToDecls = program.scopeToDecls

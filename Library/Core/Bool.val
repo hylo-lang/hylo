@@ -7,7 +7,7 @@ public type Bool {
 
   /// Creates an instance with value `false`.
   public init() {
-    self.value = Builtin.zeroinitializer_i1()
+    &self.value = Builtin.zeroinitializer_i1()
   }
 
 }

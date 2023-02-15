@@ -22,7 +22,7 @@ public struct SourceFile {
   public var url: URL { storage.url }
 
   /// The start position of each line.
-  public var lineStarts: [Index] { storage.lineStarts }
+  private var lineStarts: [Index] { storage.lineStarts }
 
   /// Creates an instance representing the file at `filePath`.
   public init(contentsOf filePath: URL) throws {
@@ -52,66 +52,70 @@ public struct SourceFile {
   }
 
   /// Returns the contents of the file in the specified range.
+  ///
+  /// - Requires: The bounds of `range` are valid positions in `self`.
   public subscript(_ range: SourceRange) -> Substring {
-    precondition(range.file.url == url, "invalid site")
+    precondition(range.file.url == url, "invalid range")
     return text[range.start ..< range.end]
   }
 
-  /// The contents of the line in which `location` is defined.
-  public func lineContents(at location: SourcePosition) -> Substring {
-    precondition(location.file == self, "invalid location")
-
-    var lower = location.index
-    while lower > text.startIndex {
-      let predecessor = text.index(before: lower)
-      if text[predecessor].isNewline {
-        break
-      } else {
-        lower = predecessor
-      }
-    }
-
-    var upper = location.index
-    while upper < text.endIndex && !text[upper].isNewline {
-      upper = text.index(after: upper)
-    }
-
-    return text[lower ..< upper]
+  /// The text of (1-based) line number `l`, including any trailing newline.
+  public func textOfLine(_ l: Int) -> Substring {
+    let end = l < lineStarts.count ? lineStarts[l] : text.endIndex
+    return text[lineStarts[l - 1] ..< end]
   }
 
-  /// Returns the location corresponding to `i` in `text`.
+  /// Returns the position corresponding to `i` in `text`.
   ///
-  /// - Precondition: `i` is a valid index in `text`.
+  /// - Requires: `i` is a valid index in `text`.
   public func position(_ i: Index) -> SourcePosition {
     SourcePosition(i, in: self)
   }
 
-  /// Returns the location corresponding to the given 1-based line and column indices.
+  /// Returns the position immediately before `p`.
   ///
-  /// - Precondition: the line and column exist in `self`.
+  /// - Requires: `p` is a valid position in `self`.
+  public func position(before p: SourcePosition) -> SourcePosition {
+    SourcePosition(text.index(before: p.index), in: self)
+  }
+
+  /// Returns the position corresponding to the given 1-based line and column indices.
+  ///
+  /// - Requires: the line and column exist in `self`.
   public func position(line: Int, column: Int) -> SourcePosition {
     SourcePosition(line: line, column: column, in: self)
   }
 
   /// Returns the region of `self` corresponding to `r`.
   ///
-  /// - Precondition: `r` is a valid range in `self`.
+  /// - Requires: `r` is a valid range in `self`.
   public func range(_ r: Range<Index>) -> SourceRange {
     SourceRange(r, in: self)
   }
 
   /// Returns the 1-based line and column numbers corresponding to `i`.
   ///
-  /// - Precondition: `i` is a valid index in `contents`.
+  /// - Requires: `i` is a valid index in `contents`.
+  /// - Complexity: O(log N) where N is the number of lines in `self`.
+  public func line(containing i: Index) -> Int {
+    lineStarts.partitioningIndex(where: { $0 > i })
+  }
+
+  /// Returns the 1-based line and column numbers corresponding to `i`.
+  ///
+  /// - Requires: `i` is a valid index in `contents`.
+  ///
+  /// - Complexity: O(log N) + O(C) where N is the number of lines in `self` and C is the returned
+  ///   column number.
   func lineAndColumn(_ i: Index) -> (line: Int, column: Int) {
-    let lineNumber = lineStarts.partitioningIndex(where: { $0 > i })
+    let lineNumber = line(containing: i)
     let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: i) + 1
     return (lineNumber, columnNumber)
   }
 
   /// Returns the index in `text` corresponding to `line` and `column`.
   ///
-  /// - Precondition: `line` and `column` describe a valid location in `self`.
+  /// - Requires: `line` and `column` describe a valid position in `self`.
   func index(line: Int, column: Int) -> Index {
     return text.index(lineStarts[line - 1], offsetBy: column - 1)
   }

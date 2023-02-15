@@ -3,14 +3,10 @@ import Utils
 /// The type of a lambda.
 public struct LambdaType: TypeProtocol, CallableType {
 
-  /// The property of the lambda's call operator.
-  public let receiverEffect: AccessEffect?
+  /// The effect of the lambda's call operator.
+  public let receiverEffect: AccessEffect
 
   /// The environment of the lambda.
-  ///
-  /// - Note: Environments are represented as tuples whose individual elements correspond to the
-  ///   lambda's captures. Thus, this property must be assigned to either a tuple type, a type
-  ///   variable or the error type.
   public let environment: AnyType
 
   /// The input labels and types of the lambda.
@@ -23,18 +19,11 @@ public struct LambdaType: TypeProtocol, CallableType {
 
   /// Creates an instance with the given properties.
   public init(
-    receiverEffect: AccessEffect? = nil,
+    receiverEffect: AccessEffect = .let,
     environment: AnyType = .void,
     inputs: [CallableTypeParameter],
     output: AnyType
   ) {
-    switch environment.base {
-    case is TupleType, is TypeVariable, is ErrorType:
-      break
-    default:
-      preconditionFailure("invalid environment type")
-    }
-
     self.receiverEffect = receiverEffect
     self.environment = environment
     self.inputs = inputs
@@ -49,58 +38,51 @@ public struct LambdaType: TypeProtocol, CallableType {
   /// Creates the type of a function accepting `inputs` as `let` parameters and returning `output`.
   public init(_ inputs: AnyType..., to output: AnyType) {
     self.init(
-      inputs: inputs.map({ (t) in .init(type: ^ParameterType(convention: .let, bareType: t)) }),
+      inputs: inputs.map({ (t) in .init(type: ^ParameterType(.let, t)) }),
       output: ^output)
   }
 
-  /// Creates the type of the `let` implementation of `method`; fails if `method` doesn't have a
-  /// let capability.
-  public init?(letImplOf method: MethodType) {
-    if !method.capabilities.contains(.let) { return nil }
-
-    let projectedReceiver = ^RemoteType(.let, method.receiver)
-    self.init(
-      environment: ^TupleType(labelsAndTypes: [("self", projectedReceiver)]),
-      inputs: method.inputs,
-      output: method.output)
-  }
-
-  /// Creates the type of the `inout` implementation of `method`; fails if `method` doesn't have an
-  /// inout capability.
-  public init?(inoutImplOf method: MethodType) {
-    if !method.capabilities.contains(.inout) && !method.capabilities.contains(.sink) { return nil }
-
-    let projectedReceiver = ^RemoteType(.inout, method.receiver)
-    self.init(
-      environment: ^TupleType(labelsAndTypes: [("self", projectedReceiver)]),
-      inputs: method.inputs,
-      output: method.output)
-  }
-
-  /// Creates the type of the `sink` implementation of `method`; fails if `method` doesn't have a
-  /// sink capability.
-  public init?(sinkImplOf method: MethodType) {
-    if !method.capabilities.contains(.inout) && !method.capabilities.contains(.sink) { return nil }
+  /// Given an initializer type `initializer`, creates the corresponding constructor type.
+  ///
+  /// - Requires: `initializer` is an initializer type of the form `[](set A, B...) -> Void`.
+  public init(constructorFormOf initializer: LambdaType) {
+    let r = ParameterType(initializer.inputs.first!.type)!
+    precondition(r.access == .set)
 
     self.init(
-      receiverEffect: .sink,
-      environment: ^TupleType(labelsAndTypes: [("self", method.receiver)]),
-      inputs: method.inputs,
-      output: method.output)
+      receiverEffect: .set, environment: .void,
+      inputs: Array(initializer.inputs[1...]), output: r.bareType)
   }
 
-  /// Transforms `self` into a constructor type if `self` has the shape of an initializer type.
-  /// Otherwise, returns `nil`.
-  public func ctor() -> LambdaType? {
-    guard (receiverEffect == nil) && (environment == .void) && (output == .void),
-      let receiverType = ParameterType(inputs.first?.type),
-      receiverType.convention == .set
-    else { return nil }
-    return LambdaType(inputs: Array(inputs[1...]), output: receiverType.bareType)
+  /// Creates the type of variant in `bundle` corresponding to `access` or fails if `bundle`
+  /// doesn't offer that capability.
+  ///
+  /// - Requires: `effect` is not `yielded`.
+  public init?(_ bundle: MethodType, for effect: AccessEffect) {
+    precondition(effect != .yielded)
+    if !bundle.capabilities.contains(effect) { return nil }
+
+    let e =
+      (effect == .sink)
+      ? TupleType(labelsAndTypes: [("self", bundle.receiver)])
+      : TupleType(labelsAndTypes: [("self", ^RemoteType(effect, bundle.receiver))])
+    self.init(
+      receiverEffect: effect, environment: ^e, inputs: bundle.inputs, output: bundle.output)
   }
 
-  /// Indicates whether `self` has an empty environment.
-  public var isThin: Bool { environment == .void }
+  /// Returns a thin type accepting `self`'s environment as parameters.
+  ///
+  /// - Requires: `environment` is a `TupleType`.
+  public var lifted: LambdaType {
+    let p = TupleType(environment)!.elements.map { (e) -> CallableTypeParameter in
+      if let t = RemoteType(e.type) {
+        return .init(label: e.label, type: ^ParameterType(t))
+      } else {
+        return .init(label: e.label, type: ^ParameterType(receiverEffect, e.type))
+      }
+    }
+    return .init(receiverEffect: .let, environment: .void, inputs: p + inputs, output: output)
+  }
 
   /// Accesses the individual elements of the lambda's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
@@ -120,11 +102,7 @@ public struct LambdaType: TypeProtocol, CallableType {
 extension LambdaType: CustomStringConvertible {
 
   public var description: String {
-    if let fx = receiverEffect {
-      return "[\(environment)] (\(list: inputs)) \(fx) -> \(output)"
-    } else {
-      return "[\(environment)] (\(list: inputs)) -> \(output)"
-    }
+    "[\(environment)] (\(list: inputs)) \(receiverEffect) -> \(output)"
   }
 
 }

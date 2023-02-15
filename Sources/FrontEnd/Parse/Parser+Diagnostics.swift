@@ -54,9 +54,9 @@ extension Diagnostic {
     .error("duplicate access modifier '\(m.value)'", at: m.site)
   }
 
-  static func error(duplicateImplementationIntroducer i: SourceRepresentable<ImplIntroducer>)
-    -> Diagnostic
-  {
+  static func error(
+    duplicateImplementationIntroducer i: SourceRepresentable<AccessEffect>
+  ) -> Diagnostic {
     .error("duplicate implementation introducer '\(i.value)'", at: i.site)
   }
 

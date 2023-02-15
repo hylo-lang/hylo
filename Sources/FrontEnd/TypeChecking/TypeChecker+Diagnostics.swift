@@ -313,4 +313,8 @@ extension Diagnostic {
     return .error("ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site, notes: notes)
   }
 
+  static func error(cannotExtend t: BuiltinType, at site: SourceRange) -> Diagnostic {
+    .error("cannot extend built-in type '\(t)'", at: site)
+  }
+
 }

@@ -131,7 +131,7 @@ struct ConstraintSolver {
     case is BuiltinType:
       // Built-in types are `Sinkable`.
       missingTraits = constraint.traits.subtracting(
-        [checker.program.ast.coreTrait(named: "Sinkable")!])
+        [checker.ast.coreTrait(named: "Sinkable")!])
 
     default:
       missingTraits = goal.traits.subtracting(
@@ -256,7 +256,7 @@ struct ConstraintSolver {
       solve(equality: .init(l.receiver, r.receiver, because: goal.cause), using: &checker)
 
     case (let l as ParameterType, let r as ParameterType):
-      if l.convention != r.convention {
+      if l.access != r.access {
         log("- fail")
         diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
@@ -581,7 +581,7 @@ struct ConstraintSolver {
       results,
       cause: .error(
         ambiguousUse: constraint.overloadedExpr,
-        in: checker.program.ast,
+        in: checker.ast,
         candidates: results.compactMap(\.choice.reference.decl)))
   }
 

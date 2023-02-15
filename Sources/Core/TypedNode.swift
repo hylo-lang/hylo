@@ -269,19 +269,8 @@ extension TypedNode where ID: PatternID {
 
 extension TypedNode where ID == NodeID<ModuleDecl> {
 
-  /// Collection of (typed) top-level declarations of the module.
-  public typealias TopLevelDecls = LazyMapSequence<
-    FlattenSequence<
-      LazyMapSequence<
-        [NodeID<TranslationUnit>],
-        [AnyDeclID]
-      >
-    >,
-    AnyDeclID.TypedNode
-  >
-
   /// The top-level declarations in the module.
-  public var topLevelDecls: TopLevelDecls {
+  public var topLevelDecls: some Collection<TypedNode<AnyDeclID>> {
     program.ast.topLevelDecls(id).map({ program[$0] })
   }
 

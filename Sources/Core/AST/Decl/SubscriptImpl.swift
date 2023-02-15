@@ -27,7 +27,7 @@ public struct SubscriptImpl: Decl, LexicalScope {
   public let site: SourceRange
 
   /// The introducer of the subscript.
-  public let introducer: SourceRepresentable<ImplIntroducer>
+  public let introducer: SourceRepresentable<AccessEffect>
 
   /// The declaration of the implicit receiver parameter, if any.
   public let receiver: NodeID<ParameterDecl>?
@@ -36,7 +36,7 @@ public struct SubscriptImpl: Decl, LexicalScope {
   public let body: Body?
 
   public init(
-    introducer: SourceRepresentable<ImplIntroducer>,
+    introducer: SourceRepresentable<AccessEffect>,
     receiver: NodeID<ParameterDecl>?,
     body: Body?,
     site: SourceRange

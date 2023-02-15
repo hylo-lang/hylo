@@ -13,7 +13,7 @@ public struct Name: Hashable, Codable {
   /// The method introducer of the referred entity, given that it is a method implementation.
   ///
   /// The introducer, if any, is incorporated during parsing, after the original `Name` is created.
-  public let introducer: ImplIntroducer?
+  public let introducer: AccessEffect?
 
   /// Creates a new name.
   public init(
@@ -53,7 +53,7 @@ public struct Name: Hashable, Codable {
     if let notation = ast[decl].notation?.value {
       self.init(stem: stem, notation: notation)
     } else {
-      self.init(stem: stem, labels: ast[decl].parameters.map({ ast[$0].label?.value }))
+      self.init(stem: stem, labels: ast[ast[decl].parameters].map(\.label?.value))
     }
   }
 
@@ -62,7 +62,7 @@ public struct Name: Hashable, Codable {
     stem: Identifier,
     labels: [String?],
     notation: OperatorNotation? = nil,
-    introducer: ImplIntroducer? = nil
+    introducer: AccessEffect? = nil
   ) {
     self.stem = stem
     self.labels = labels
@@ -109,7 +109,7 @@ extension Name {
   /// Returns `self` with `newIntroducer` incorporated into its value.
   ///
   /// - Precondition: `self` has no introducer.`
-  func introduced(by newIntroducer: ImplIntroducer) -> Self {
+  func introduced(by newIntroducer: AccessEffect) -> Self {
     precondition(self.introducer == nil)
     return Name(stem: stem, labels: labels, notation: notation, introducer: newIntroducer)
   }
@@ -121,7 +121,7 @@ extension SourceRepresentable where Part == Name {
   /// Returns `self` with `introducer` incorporated into its value.
   ///
   /// - Precondition: `self` has no introducer.`
-  func introduced(by introducer: SourceRepresentable<ImplIntroducer>) -> Self {
+  func introduced(by introducer: SourceRepresentable<AccessEffect>) -> Self {
     return .init(
       value: self.value.introduced(by: introducer.value),
       range: self.site.extended(upTo: introducer.site.end))

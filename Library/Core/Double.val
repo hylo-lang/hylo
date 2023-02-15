@@ -7,10 +7,12 @@ public type Double {
 
   /// Creates an instance with value `0.0`.
   public init() {
-    self.value = Builtin.zeroinitializer_double()
+    &self.value = Builtin.zeroinitializer_double()
   }
 
 }
+
+public conformance Double: ExpressibleByFloatLiteral {}
 
 public conformance Double: ExpressibleByIntegerLiteral {}
 

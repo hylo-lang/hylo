@@ -1,5 +1,0 @@
-//! expect-success
-
-trait Foo {}
-
-type Bar: Foo {}

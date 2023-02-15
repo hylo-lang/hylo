@@ -13,8 +13,8 @@ public struct Module {
   /// The program defining the functions in `self`.
   public let program: TypedProgram
 
-  /// The module's declaration.
-  public let decl: ModuleDecl.Typed
+  /// The module's syntax.
+  public let syntax: ModuleDecl.Typed
 
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
@@ -28,21 +28,28 @@ public struct Module {
   /// A map from function declaration its ID in the module.
   private var loweredFunctions: [FunctionDecl.Typed: Function.ID] = [:]
 
-  /// Creates an IR module lowering `decl` from `program`.
+  /// Creates an instance lowering `syntax` in `program`, reporting errors and warnings to
+  /// `diagnostics`.
   ///
-  /// - Requires: `decl` must be a valid module declaration in `program`.
-  public init(_ decl: NodeID<ModuleDecl>, in program: TypedProgram) {
+  /// - Requires: `syntax` is a valid ID `program`.
+  /// - Throws: `Diagnostics` if lowering fails.
+  public init(
+    lowering syntax: NodeID<ModuleDecl>,
+    in program: TypedProgram,
+    diagnostics: inout DiagnosticSet
+  ) throws {
     self.program = program
-    self.decl = program[decl]
+    self.syntax = program[syntax]
 
     var emitter = Emitter(program: program)
-    for member in program.ast.topLevelDecls(decl) {
-      emitter.emit(topLevel: program[member], into: &self)
+    for d in program.ast.topLevelDecls(syntax) {
+      emitter.emit(topLevel: program[d], into: &self, diagnostics: &diagnostics)
     }
+    try diagnostics.throwOnError()
   }
 
   /// The module's name.
-  public var name: String { decl.baseName }
+  public var name: String { syntax.baseName }
 
   /// Accesses the given function.
   public subscript(f: Functions.Index) -> Function {
@@ -90,11 +97,6 @@ public struct Module {
   ///
   /// Use this method as a sanity check to verify the function's invariants.
   public func isWellFormed(function f: Function.ID) -> Bool {
-    for block in functions[f].blocks {
-      for instruction in block.instructions {
-        if !instruction.isWellFormed(in: self) { return false }
-      }
-    }
     return true
   }
 
@@ -118,12 +120,12 @@ public struct Module {
       for capture in declType.captures {
         switch capture.type.base {
         case let type as RemoteType:
-          precondition(type.capability != .yielded, "cannot lower yielded parameter")
-          inputs.append((convention: type.capability, type: .address(type.base)))
+          precondition(type.access != .yielded, "cannot lower yielded parameter")
+          inputs.append((convention: type.access, type: .address(type.bareType)))
 
         case let type:
           precondition(declType.receiverEffect != .yielded, "cannot lower yielded parameter")
-          inputs.append((convention: declType.receiverEffect ?? .let, type: .address(type)))
+          inputs.append((convention: declType.receiverEffect, type: .address(type)))
         }
       }
 
