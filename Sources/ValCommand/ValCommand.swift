@@ -178,6 +178,16 @@ public struct ValCommand: ParsableCommand {
 
     assert(outputType == .binary)
 
+    try writeExecutableCode(cxxModules, productName: productName, loggingTo: &errorLog)
+  }
+
+  /// Given the transpiled core and source modules and the product name (whatever that means),
+  /// generates a binary product into a temporary build directory, logging errors to `errorLog`.
+  func writeExecutableCode<L: Log>(
+    _ cxxModules: (core: TypedProgram.CXXModule, source: TypedProgram.CXXModule),
+    productName: String,
+    loggingTo errorLog: inout L
+  ) throws {
     let buildDirectory = FileManager.default.temporaryDirectory
 
     try write(
