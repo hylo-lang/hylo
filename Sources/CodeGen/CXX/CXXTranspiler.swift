@@ -16,18 +16,13 @@ public struct CXXTranspiler {
     self.wholeValProgram = wholeValProgram
   }
 
-  /// Returns a C++ AST implementing the semantics of `source`.
-  public func transpile(_ source: ModuleDecl.Typed) -> CXXModule {
+  /// Returns a C++ AST implementing the semantics of `source`; treating `source` as the Val core
+  /// library iff `asCoreLib == true`.
+  public func cxx(_ source: ModuleDecl.Typed) -> CXXModule {
+    let isCoreLib = source.id == wholeValProgram.corelib?.id
     return CXXModule(
-      name: source.baseName, isStdLib: false,
-      topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
-      entryPointBody: entryPointBody(module: source))
-  }
-
-  /// Returns a C++ AST implementing the semantics of `source`.
-  public func transpile(stdlib source: ModuleDecl.Typed) -> CXXModule {
-    return CXXModule(
-      name: "ValStdLib", isStdLib: true,
+      name: isCoreLib ? "ValStdLib" : source.baseName,
+      isStdLib: isCoreLib,
       topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
       entryPointBody: entryPointBody(module: source))
   }

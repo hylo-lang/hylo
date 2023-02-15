@@ -9,8 +9,6 @@ import ValModule
 
 public struct ValCommand: ParsableCommand {
 
-  typealias CXX = (stdlib: TranslationUnitCode, newModule: TranslationUnitCode)
-
   /// The type of the output files to generate.
   private enum OutputType: ExpressibleByArgument {
 
@@ -158,16 +156,24 @@ public struct ValCommand: ParsableCommand {
     try emitIR(
       newModule: newModule, baseName: productName,
       typedProgram: typedProgram, diagnostics: &diagnostics)
-    
+
     if outputType == .ir || outputType == .rawIR { return }
 
-    let cxx = emitCXX(typedProgram: typedProgram)
+    let cxx = (
+      corelib: typedProgram.cxx(typedProgram.corelib!),
+      newModule: typedProgram.cxx(typedProgram[newModule])
+    )
+
     if outputType == .cpp {
-      writeCXXFiles(
-        cxx,
-        stdlib: outputURL?.deletingLastPathComponent().appendingPathComponent(cxxStdLibModule.name)
-          ?? URL(fileURLWithPath: cxxStdLibModule.name),
-        newModule: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName))
+      try write(
+        cxx.corelib.text,
+        to: outputURL?.deletingLastPathComponent().appendingPathComponent(cxx.corelib.syntax.name)
+          ?? URL(fileURLWithPath: cxx.corelib.syntax.name), loggingTo: &errorLog)
+
+      try write(
+        cxx.newModule.text,
+        to: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName),
+        loggingTo: &errorLog)
       return
     }
 
@@ -179,11 +185,13 @@ public struct ValCommand: ParsableCommand {
 
     // Write the C++ code to the build directory.
     try write(
-      cxxStdLib,
-      to: buildDirectoryURL.appendingPathComponent(cxxStdLibModule.name),
+      cxx.corelib.text,
+      to: buildDirectoryURL.appendingPathComponent(cxx.corelib.syntax.name),
       loggingTo: &errorLog)
+
     try write(
-      cxxCode, to: buildDirectoryURL.appendingPathComponent(productName), loggingTo: &errorLog)
+      cxx.newModule.text, to: buildDirectoryURL.appendingPathComponent(productName),
+      loggingTo: &errorLog)
 
     let clang = try find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
@@ -336,22 +344,15 @@ public struct ValCommand: ParsableCommand {
       return
     }
   }
+}
 
-  func emitCXX(typedProgram: TypedProgram) -> CXX {
-    // Initialize the transpiler & code writer.
-    let transpiler = CXXTranspiler(typedProgram)
-    var codeWriter = CXXCodeWriter()
+extension TypedProgram {
+  typealias CXX = (syntax: CXXModule, text: TranslationUnitCode)
 
-    // Generate C++ code: Val's StdLib + current module.
-    let cxxStdLibModule = transpiler.transpile(stdlib: typedProgram.corelib!)
-    let cxxStdLib = codeWriter.cxxCode(cxxStdLibModule)
-    let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[newModule]))
-
-    return (stdlib: cxxStdLib, newModule: cxxCode)
+  func cxx(_ m: ModuleDecl.Typed) -> CXX {
+    let x = CXXTranspiler(self).cxx(m)
+    var w = CXXCodeWriter()
+    return (syntax: x, text: w.cxxCode(x))
   }
 
-  func writeCXXFiles(_ cxx: CXX, stdlib: URL, newModule: URL) throws {
-    try write(cxx.stdLib, to: stdlib, loggingTo: &errorLog)
-    try write(cxx.newModule, to: newModule, loggingTo: &errorLog)
-  }
 }

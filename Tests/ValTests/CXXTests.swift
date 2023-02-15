@@ -22,7 +22,7 @@ final class CXXTests: XCTestCase {
         // Transpile the module.
         let transpiler = CXXTranspiler(typedProgram)
         var codeWriter = CXXCodeWriter()
-        let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[module]))
+        let cxxCode = codeWriter.cxxCode(transpiler.cxx(typedProgram[module]))
 
         return cxxAnnotations.compactMap { a in
           let expectedCXX = a.argument!.removingTrailingNewlines()
@@ -60,7 +60,7 @@ final class CXXTests: XCTestCase {
     // Transpile the standard lib module.
     let transpiler = CXXTranspiler(typedProgram)
     var codeWriter = CXXCodeWriter()
-    let cxxCode = codeWriter.cxxCode(transpiler.transpile(stdlib: typedProgram[ast.corelib!]))
+    let cxxCode = codeWriter.cxxCode(transpiler.cxx(typedProgram[ast.corelib!]))
 
     // Read test cases; use .val files just for convenience.
     try checkAnnotatedValFiles(
