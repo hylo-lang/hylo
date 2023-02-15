@@ -3,7 +3,7 @@ import XCTest
 
 final class SourceFileTests: XCTestCase {
 
-  func testLocationConversion() {
+  func testPositionConversion() {
     let source: SourceFile = """
       import Greetings
 
@@ -23,6 +23,14 @@ final class SourceFileTests: XCTestCase {
     let source: SourceFile = "abc"
     let p = source.position(line: 1, column: 2)
     XCTAssertEqual(source.position(before: p), source.position(line: 1, column: 1))
+  }
+
+  func testLineContaining() {
+    let source: SourceFile = "1 \n 2 \n 3"
+    XCTAssertEqual(source.line(containing: source.text.firstIndex(of: "1")!).number, 1)
+    XCTAssertEqual(source.line(containing: source.text.firstIndex(of: "2")!).number, 2)
+    XCTAssertEqual(source.line(containing: source.text.firstIndex(of: "3")!).number, 3)
+    XCTAssertEqual(source.line(containing: source.text.endIndex).number, 3)
   }
 
 }
