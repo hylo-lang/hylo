@@ -94,21 +94,16 @@ public struct SourceFile {
   }
 
   /// Returns the line containing `i`.
-  public func line1(containing i: Index) -> SourceLine {
+  ///
+  /// - Requires: `i` is a valid index in `contents`.
+  /// - Complexity: O(log N) where N is the number of lines in `self`.
+  public func line(containing i: Index) -> SourceLine {
     SourceLine(lineStarts.partitioningIndex(where: { $0 > i }), in: self)
   }
 
   /// Returns the line at 1-based index `lineNumber`.
-  public func line1(at lineNumber: Int) -> SourceLine {
+  public func line(at lineNumber: Int) -> SourceLine {
     SourceLine(lineNumber, in: self)
-  }
-
-  /// Returns the 1-based line and column numbers corresponding to `i`.
-  ///
-  /// - Requires: `i` is a valid index in `contents`.
-  /// - Complexity: O(log N) where N is the number of lines in `self`.
-  public func line(containing i: Index) -> Int {
-    lineStarts.partitioningIndex(where: { $0 > i })
   }
 
   /// Returns the 1-based line and column numbers corresponding to `i`.
@@ -118,7 +113,7 @@ public struct SourceFile {
   /// - Complexity: O(log N) + O(C) where N is the number of lines in `self` and C is the returned
   ///   column number.
   func lineAndColumn(_ i: Index) -> (line: Int, column: Int) {
-    let lineNumber = line(containing: i)
+    let lineNumber = line(containing: i).index
     let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: i) + 1
     return (lineNumber, columnNumber)
   }
