@@ -1,4 +1,5 @@
 import ArgumentParser
+import Utils
 import ValCommand
 import XCTest
 
@@ -70,6 +71,20 @@ final class ValCommandTests: XCTestCase {
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
+  func testParseFailure() throws {
+    let input = try url(forFileContaining: "fun x")
+    let result = try compile(input, with: [])
+    XCTAssertFalse(result.status.isSuccess)
+    XCTAssertEqual(
+      result.stderr,
+      """
+      \(input.relativePath):1:6: error: expected function signature
+      fun x
+           ^
+
+      """)
+  }
+
   func testTypeCheckSuccess() throws {
     let input = try url(forSourceNamed: "Success")
     let result = try compile(input, with: ["--typecheck"])
@@ -101,6 +116,13 @@ final class ValCommandTests: XCTestCase {
       Bundle.module.url(forResource: n, withExtension: ".val", subdirectory: "Inputs"),
       "No inputs",
       file: file, line: line)
+  }
+
+  /// Writes `s` to a temporary file and returns its URL.
+  private func url(forFileContaining s: String) throws -> URL {
+    let f = FileManager.default.temporaryFile()
+    try s.write(to: f, atomically: true, encoding: .utf8)
+    return f
   }
 
   /// Compiles `input` with the given arguments and returns the compiler's exit status, the URL of
