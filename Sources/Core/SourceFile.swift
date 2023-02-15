@@ -22,7 +22,7 @@ public struct SourceFile {
   public var url: URL { storage.url }
 
   /// The start position of each line.
-  fileprivate var lineStarts: [Index] { storage.lineStarts }
+  private var lineStarts: [Index] { storage.lineStarts }
 
   /// Creates an instance representing the file at `filePath`.
   public init(contentsOf filePath: URL) throws {
@@ -101,6 +101,12 @@ public struct SourceFile {
   /// Returns the line at 1-based index `lineNumber`.
   public func line(at lineNumber: Int) -> SourceLine {
     SourceLine(lineNumber, in: self)
+  }
+
+  /// The bounds of given `line`, including any trailing newline.
+  public func bounds(of line: SourceLine) -> SourceRange {
+    let end = line.number < lineStarts.count ? lineStarts[line.number] : text.endIndex
+    return range(lineStarts[line.number - 1] ..< end)
   }
 
   /// Returns the 1-based line and column numbers corresponding to `i`.
@@ -299,16 +305,6 @@ extension SourceFile {
       try container.encode(Encoding(url: url, text: text))
     }
 
-  }
-
-}
-
-extension SourceLine {
-
-  /// The bounds of this line, including any trailing newline.
-  public var bounds: SourceRange {
-    let end = number < file.lineStarts.count ? file.lineStarts[number] : file.text.endIndex
-    return file.range(file.lineStarts[number - 1] ..< end)
   }
 
 }
