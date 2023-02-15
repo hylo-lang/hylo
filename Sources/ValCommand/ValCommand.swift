@@ -75,7 +75,7 @@ public struct ValCommand: ParsableCommand {
     help: ArgumentHelp(
       "Enable tracing of type inference requests at the given line.",
       valueName: "file:line"))
-  private var inferenceTracingRange: SourceRange?
+  private var inferenceTracingRange: SourceLine?
 
   @Option(
     name: [.customLong("emit")],

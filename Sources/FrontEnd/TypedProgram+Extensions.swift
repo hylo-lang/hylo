@@ -11,7 +11,7 @@ extension TypedProgram {
   /// - Precondition: `syntax` includes the core module.
   public init(
     _ syntax: AST,
-    tracingInferenceIn inferenceTracingRange: SourceRange? = nil,
+    tracingInferenceIn inferenceTracingRange: SourceLine? = nil,
     diagnostics: inout DiagnosticSet
   ) throws {
     precondition(syntax.isCoreModuleLoaded, "TypedProgram: No core module in AST.")
