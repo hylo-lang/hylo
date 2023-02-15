@@ -2,5 +2,5 @@
 
 fun main() {
   var foo = ()
-  fun local() { foo = () }
+  fun local() { &foo = () }
 }

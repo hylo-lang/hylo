@@ -12,15 +12,11 @@ extension SourceRange: ExpressibleByArgument {
       let source = try? SourceFile(contentsOf: URL(fileURLWithPath: String(s)))
     else { return nil }
 
-    // Make sure the line index is in range.
-    guard line <= source.lineStarts.count else { return nil }
+    guard line > 0 && line <= source.line(containing: source.text.endIndex)
+    else { return nil }
 
-    // Create a range covering the given line.
-    let startIndex = source.lineStarts[line - 1]
-    let endIndex = source.text
-      .suffix(from: startIndex)
-      .firstIndex(where: { $0.isNewline })
-    self = source.range(startIndex ..< (endIndex ?? source.text.endIndex))
+    let r = source.textOfLine(line).removingTrailingNewlines()
+    self = source.range(r.startIndex ..< r.endIndex)
   }
 
 }

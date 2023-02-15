@@ -96,16 +96,3 @@ extension SourceRange: Codable {
   }
 
 }
-
-extension SourceRange: CustomReflectable {
-
-  public var customMirror: Mirror {
-    Mirror(
-      self,
-      children: [
-        "start": file.position(start),
-        "end": file.position(end),
-      ])
-  }
-
-}

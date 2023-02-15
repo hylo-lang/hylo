@@ -1,7 +1,7 @@
 import Utils
 
 /// A tuple type.
-public struct TupleType: TypeProtocol, Hashable {
+public struct TupleType: TypeProtocol {
 
   /// An element in a tuple type.
   public struct Element: Hashable {

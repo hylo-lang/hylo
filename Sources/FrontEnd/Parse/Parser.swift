@@ -901,8 +901,8 @@ public enum Parser {
 
     // Parse the subscript implementations.
     var impls: [NodeID<SubscriptImpl>] = []
-    var introducers: Set<ImplIntroducer> = []
-    var duplicateIntroducer: SourceRepresentable<ImplIntroducer>? = nil
+    var introducers: Set<AccessEffect> = []
+    var duplicateIntroducer: SourceRepresentable<AccessEffect>? = nil
 
     while true {
       // Exit if we find the right delimiter.
@@ -942,7 +942,7 @@ public enum Parser {
   /// - Requires: if `introducer` is `nil`, body is non-`nil`.
   private static func buildSubscriptImpl(
     in state: inout ParserState,
-    introducedBy introducer: SourceRepresentable<ImplIntroducer>,
+    introducedBy introducer: SourceRepresentable<AccessEffect>,
     body: SubscriptImpl.Body?,
     asNonStaticMember isNonStaticMember: Bool
   ) throws -> NodeID<SubscriptImpl> {
@@ -1189,8 +1189,8 @@ public enum Parser {
   static let methodDeclBody =
     (take(.lBrace).and(methodImpl+).and(take(.rBrace))
       .map({ (state, tree) -> [NodeID<MethodImpl>] in
-        var introducers: Set<ImplIntroducer> = []
-        var duplicateIntroducer: SourceRepresentable<ImplIntroducer>? = nil
+        var introducers: Set<AccessEffect> = []
+        var duplicateIntroducer: SourceRepresentable<AccessEffect>? = nil
         for implID in tree.0.1 {
           let introducer = state.ast[implID].introducer
           if !introducers.insert(introducer.value).inserted { duplicateIntroducer = introducer }
@@ -1204,7 +1204,7 @@ public enum Parser {
       }))
 
   static let methodImpl =
-    (methodIntroducer.and(maybe(methodImplBody))
+    (implIntroducer.and(maybe(methodImplBody))
       .map({ (state, tree) -> NodeID<MethodImpl> in
         let receiver = state.insert(
           ParameterDecl(
@@ -1226,11 +1226,11 @@ public enum Parser {
       .map({ (state, id) -> MethodImpl.Body in .block(id) })
   )
 
-  static let methodIntroducer = translate([
-    .let: ImplIntroducer.let,
-    .inout: ImplIntroducer.inout,
-    .set: ImplIntroducer.set,
-    .sink: ImplIntroducer.sink,
+  static let implIntroducer = translate([
+    .let: AccessEffect.let,
+    .inout: AccessEffect.inout,
+    .set: AccessEffect.set,
+    .sink: AccessEffect.sink,
   ])
 
   static let initDeclBody = inContext(.functionBody, apply: braceStmt)
@@ -1279,7 +1279,7 @@ public enum Parser {
     return SubscriptDeclSignature(parameters: parameters, output: output)
   }
 
-  static let subscriptImpl = (subscriptIntroducer.and(maybe(subscriptImplBody)))
+  static let subscriptImpl = (implIntroducer.and(maybe(subscriptImplBody)))
 
   static let subscriptImplBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
@@ -1288,13 +1288,6 @@ public enum Parser {
       braceStmt
       .map({ (state, id) -> SubscriptImpl.Body in .block(id) })
   )
-
-  static let subscriptIntroducer = translate([
-    .let: ImplIntroducer.let,
-    .inout: ImplIntroducer.inout,
-    .set: ImplIntroducer.set,
-    .sink: ImplIntroducer.sink,
-  ])
 
   static let bindingDecl =
     (Apply<ParserState, NodeID<BindingDecl>>({ (state) -> NodeID<BindingDecl>? in
@@ -1414,31 +1407,26 @@ public enum Parser {
 
     // Append infix tails.
     while state.hasLeadingWhitespace {
-      // type-casting-tail
-      if let infixOperator = state.take(.cast) {
-        try appendInfixTail(to: &lhs, forCastOperator: infixOperator, in: &state)
-        continue
-      }
-
-      // infix-operator-tail
-      if try !appendInfixTail(to: &lhs, in: &state) { break }
+      guard
+        let e = try
+          (appendingCastTail(to: lhs, in: &state) ?? appendingInfixTail(to: lhs, in: &state))
+      else { break }
+      lhs = e
     }
 
     return lhs
   }
 
-  /// Parses a type expression from the stream, then transforms `lhs` into a `CastExpr`, using
-  /// `infixOperator` to determine the cast kind.
-  private static func appendInfixTail(
-    to lhs: inout AnyExprID,
-    forCastOperator infixOperator: Token,
+  /// If the next token is a cast operator, parses an expression and returns a `CastExpr` appending
+  /// it to `lhs`. Otherwise, returns `nil`.
+  private static func appendingCastTail(
+    to lhs: AnyExprID,
     in state: inout ParserState
-  ) throws {
+  ) throws -> AnyExprID? {
+    guard let infixOperator = state.take(.cast) else { return nil }
     if !state.hasLeadingWhitespace {
       state.diagnostics.insert(.error(infixOperatorRequiresWhitespacesAt: infixOperator.site))
     }
-
-    let rhs = try state.expect("type expression", using: parseExpr(in:))
 
     let castKind: CastExpr.Kind
     switch state.lexer.sourceCode[infixOperator.site] {
@@ -1452,22 +1440,22 @@ public enum Parser {
       unreachable()
     }
 
-    let expr = state.insert(
-      CastExpr(
-        left: lhs,
-        right: rhs,
-        kind: castKind,
-        site: state.ast[lhs].site.extended(upTo: state.currentIndex)))
-    lhs = AnyExprID(expr)
+    let rhs = try state.expect("type expression", using: parseExpr(in:))
+    return AnyExprID(
+      state.insert(
+        CastExpr(
+          left: lhs,
+          right: rhs,
+          kind: castKind,
+          site: state.ast[lhs].site.extended(upTo: state.currentIndex))))
   }
 
-  /// Parses a sequence of pairs of infix operators and prefix expressions from the stream. If the
-  /// sequence isn't empty, transforms `lhs` into a `SequenceExpr` and returns `true`. Otherwise,
-  /// returns `false.
-  private static func appendInfixTail(
-    to lhs: inout AnyExprID,
+  /// Parses pairs of infix operators and prefix expressions and, if one or more pairs were parsed,
+  /// returns a `SequenceExpr` appending them to `lhs`. Otherwise, returns `nil`.
+  private static func appendingInfixTail(
+    to lhs: AnyExprID,
     in state: inout ParserState
-  ) throws -> Bool {
+  ) throws -> AnyExprID? {
     var tail: [SequenceExpr.TailElement] = []
 
     while true {
@@ -1494,7 +1482,7 @@ public enum Parser {
       // If we can't parse an operand, the tail is empty.
       guard let operand = try parsePrefixExpr(in: &state) else {
         state.restore(from: backup)
-        return false
+        return nil
       }
 
       let `operator` = state.insert(
@@ -1506,15 +1494,14 @@ public enum Parser {
     }
 
     // Nothing to transform if the tail is empty.
-    if tail.isEmpty { return false }
+    if tail.isEmpty { return nil }
 
-    let expr = state.insert(
-      SequenceExpr(
-        head: lhs,
-        tail: tail,
-        site: state.ast[lhs].site.extended(upTo: state.currentIndex)))
-    lhs = AnyExprID(expr)
-    return true
+    return AnyExprID(
+      state.insert(
+        SequenceExpr(
+          head: lhs,
+          tail: tail,
+          site: state.ast[lhs].site.extended(upTo: state.currentIndex))))
   }
 
   private static func parsePrefixExpr(in state: inout ParserState) throws -> AnyExprID? {
@@ -1545,25 +1532,6 @@ public enum Parser {
           arguments: [],
           site: state.ast[callee].site))
       return AnyExprID(call)
-    }
-
-    // Attempt to parse an inout expression.
-    if let op = state.take(.ampersand) {
-      // Parse an operand.
-      let isSeparated = state.hasLeadingWhitespace
-      let operand = try state.expect("expression", using: parsePostfixExpr(in:))
-
-      // There must be no space before the next expression.
-      if isSeparated {
-        state.diagnostics.insert(.error(separatedMutationMarkerAt: op.site))
-      }
-
-      let expr = state.insert(
-        InoutExpr(
-          operatorSite: op.site,
-          subject: operand,
-          site: state.range(from: op.site.start)))
-      return AnyExprID(expr)
     }
 
     // Fall back to a postfix expression.
@@ -1601,36 +1569,14 @@ public enum Parser {
   }
 
   private static func parseCompoundExpr(in state: inout ParserState) throws -> AnyExprID? {
-    // Parse a primary expression.
-    guard var head = try parsePrimaryExpr(in: &state) else { return nil }
+    guard var head = try parseCompoundExprHead(in: &state) else { return nil }
     let headOrigin = state.ast[head].site
 
     // Parse the components to append to the base expression.
     while true {
-      // Handle tuple member and name expressions.
-      if state.take(.dot) != nil {
-        if let index = state.takeMemberIndex() {
-          let expr = state.insert(
-            TupleMemberExpr(
-              tuple: head,
-              index: index,
-              site: state.range(from: headOrigin.start)))
-          head = AnyExprID(expr)
-          continue
-        }
-
-        if let component = try parseNameExprComponent(in: &state) {
-          let expr = state.insert(
-            NameExpr(
-              domain: .expr(head),
-              name: component.name,
-              arguments: component.arguments,
-              site: state.range(from: headOrigin.start)))
-          head = AnyExprID(expr)
-          continue
-        }
-
-        throw [.error(expected: "member name", at: state.currentLocation)] as DiagnosticSet
+      if let e = try appendingNameComponent(to: head, in: &state) {
+        head = e
+        continue
       }
 
       // Handle conformance lens expressions.
@@ -1680,13 +1626,54 @@ public enum Parser {
     return head
   }
 
-  private static func parseNameExpr(in state: inout ParserState) throws -> NodeID<NameExpr>? {
-    guard let expr = try parseCompoundExpr(in: &state) else { return nil }
-    if let converted = NodeID<NameExpr>(expr) {
-      return converted
-    } else {
-      throw [.error(expected: "name", at: state.ast[expr].site.first())] as DiagnosticSet
+  private static func parseCompoundExprHead(in state: inout ParserState) throws -> AnyExprID? {
+    guard let op = state.take(.ampersand) else {
+      return try parsePrimaryExpr(in: &state)
     }
+
+    let isSeparated = state.hasLeadingWhitespace
+    var operand = try state.expect("expression", using: parsePrimaryExpr(in:))
+    if isSeparated {
+      state.diagnostics.insert(.error(separatedMutationMarkerAt: op.site))
+    }
+
+    while let e = try appendingNameComponent(to: operand, in: &state) { operand = e }
+    return AnyExprID(
+      state.insert(
+        InoutExpr(
+          operatorSite: op.site,
+          subject: operand,
+          site: state.range(from: op.site.start))))
+  }
+
+  /// If the next token is a dot, parses a tuple or name components, and returns respectively a
+  /// `TupleMemberExpr` or `NameExpr` appending it to `head`. Otherwise, returns `nil`.
+  private static func appendingNameComponent(
+    to head: AnyExprID,
+    in state: inout ParserState
+  ) throws -> AnyExprID? {
+    guard state.take(.dot) != nil else { return nil }
+
+    if let index = state.takeMemberIndex() {
+      let e = state.insert(
+        TupleMemberExpr(
+          tuple: head,
+          index: index,
+          site: state.range(from: state.ast[head].site.start)))
+      return AnyExprID(e)
+    }
+
+    if let component = try parseNameExprComponent(in: &state) {
+      let e = state.insert(
+        NameExpr(
+          domain: .expr(head),
+          name: component.name,
+          arguments: component.arguments,
+          site: state.range(from: state.ast[head].site.start)))
+      return AnyExprID(e)
+    }
+
+    throw [.error(expected: "member name", at: state.currentLocation)] as DiagnosticSet
   }
 
   private static func parsePrimaryExpr(in state: inout ParserState) throws -> AnyExprID? {
@@ -1932,11 +1919,11 @@ public enum Parser {
     }
 
     // Parse the method introducer, if any.
-    let introducer: SourceRepresentable<ImplIntroducer>?
+    let introducer: SourceRepresentable<AccessEffect>?
     if state.peek()?.kind == .dot {
       let backup = state.backup()
       _ = state.take()
-      if let i = try methodIntroducer.parse(&state) {
+      if let i = try implIntroducer.parse(&state) {
         introducer = i
       } else {
         state.restore(from: backup)
@@ -2889,7 +2876,16 @@ public enum Parser {
 
   // MARK: Type expressions
 
-  private static let nameTypeExpr = Apply(parseNameExpr(in:))
+  private static let nameTypeExpr = Apply(parseNameTypeExpr(in:))
+
+  private static func parseNameTypeExpr(in state: inout ParserState) throws -> NodeID<NameExpr>? {
+    guard let expr = try parseCompoundExpr(in: &state) else { return nil }
+    if let converted = NodeID<NameExpr>(expr) {
+      return converted
+    } else {
+      throw [.error(expected: "name", at: state.ast[expr].site.first())] as DiagnosticSet
+    }
+  }
 
   private static func parseLambdaParameter(
     in state: inout ParserState
@@ -2960,7 +2956,7 @@ public enum Parser {
 
   static let typeConstraint =
     (Apply<ParserState, SourceRepresentable<WhereClause.ConstraintExpr>>({ (state) in
-      guard let lhs = try parseNameExpr(in: &state) else { return nil }
+      guard let lhs = try parseNameTypeExpr(in: &state) else { return nil }
 
       // equality-constraint
       if state.take(.equal) != nil {

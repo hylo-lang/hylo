@@ -35,10 +35,9 @@ public struct SourcePosition: Hashable {
     return l.file.range(l.index ..< r.index)
   }
 
-  /// Returns the text of the line in which `self` resides.
+  /// Returns the text of the line in which `self` resides, including any trailing newline.
   public func textOfLine() -> Substring {
-    let l = lineAndColumn().line
-    return file.text[file.lineStarts[l - 1] ..< file.lineStarts[l]]
+    file.textOfLine(file.line(containing: index))
   }
 }
 
@@ -80,15 +79,6 @@ extension SourcePosition: CustomStringConvertible {
   public var description: String {
     let (line, column) = lineAndColumn()
     return "\(file.url.relativePath):\(line):\(column)"
-  }
-
-}
-
-extension SourcePosition: CustomReflectable {
-
-  public var customMirror: Mirror {
-    let (line, column) = lineAndColumn()
-    return Mirror(self, children: ["sourceURL": file.url, "line": line, "column": column])
   }
 
 }

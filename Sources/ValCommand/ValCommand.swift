@@ -161,7 +161,7 @@ public struct ValCommand: ParsableCommand {
     // *** IR Lowering ***
 
     // Initialize the IR emitter.
-    var irModule = Module(newModule, in: typedProgram)
+    var irModule = try Module(lowering: newModule, in: typedProgram, diagnostics: &diagnostics)
 
     // Handle `--emit raw-ir`.
     if outputType == .rawIR {
@@ -214,11 +214,7 @@ public struct ValCommand: ParsableCommand {
 
     assert(outputType == .binary)
 
-    let buildDirectoryURL = try FileManager.default.url(
-      for: .itemReplacementDirectory,
-      in: .userDomainMask,
-      appropriateFor: currentDirectory,
-      create: true)
+    let buildDirectoryURL = FileManager.default.temporaryDirectory
 
     // Write the C++ code to the build directory.
     try write(
@@ -295,8 +291,8 @@ public struct ValCommand: ParsableCommand {
     // Search in the PATH(for Windows).
     #if os(Windows)
       let environmentPath = ProcessInfo.processInfo.environment["Path"] ?? ""
-      for base in environmentPath.split(separator: ";") {
-        candidateURL = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+      for bareType in environmentPath.split(separator: ";") {
+        candidateURL = URL(fileURLWithPath: String(bareType)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidateURL.path + ".exe") {
           ValCommand.executableLocationCache[executable] = candidateURL.path
           return candidateURL.path
@@ -305,8 +301,8 @@ public struct ValCommand: ParsableCommand {
     // Search in the PATH(for Linux and MacOS).
     #else
       let environmentPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
-      for base in environmentPath.split(separator: ":") {
-        candidateURL = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+      for bareType in environmentPath.split(separator: ":") {
+        candidateURL = URL(fileURLWithPath: String(bareType)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidateURL.path) {
           ValCommand.executableLocationCache[executable] = candidateURL.path
           return candidateURL.path

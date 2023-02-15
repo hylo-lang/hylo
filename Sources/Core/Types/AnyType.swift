@@ -195,8 +195,7 @@ extension AnyType: Equatable {
 
   /// Returns whether `subject` matches `pattern`.
   ///
-  /// This custom matching operator cab be used in switch statements that match the wrapped value
-  /// of an `AnyType` container.
+  /// This operator is used in switch statements to match the wrapped value of an `AnyType`.
   ///
   ///     func foo(_ x: AnyType) {
   ///       switch x.base {
@@ -209,6 +208,11 @@ extension AnyType: Equatable {
   ///       }
   ///     }
   public static func ~= (pattern: Self, subject: any TypeProtocol) -> Bool {
+    pattern == subject
+  }
+
+  /// Returns whether `subject` matches `pattern`.
+  public static func ~= <T: TypeProtocol>(pattern: T, subject: Self) -> Bool {
     pattern == subject
   }
 
@@ -225,12 +229,6 @@ extension AnyType: Hashable {
 extension AnyType: CustomStringConvertible {
 
   public var description: String { String(describing: base) }
-
-}
-
-extension AnyType: CustomReflectable {
-
-  public var customMirror: Mirror { Mirror(reflecting: base) }
 
 }
 

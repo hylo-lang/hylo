@@ -7,13 +7,8 @@ func compile(
   _ input: URL,
   with arguments: [String]
 ) throws -> CompilationResult {
-  // Create a temporary directory to write the output file.
-  let outputDirectory = try FileManager.default.url(
-    for: .itemReplacementDirectory,
-    in: .userDomainMask,
-    appropriateFor: input,
-    create: true)
-  let output = outputDirectory.appendingPathComponent("a.out")
+  // Create a temporary output.
+  let output = FileManager.default.temporaryFile()
 
   // Parse the command line's arguments.
   let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
@@ -22,4 +17,13 @@ func compile(
   var stderr = ""
   let status = try cli.execute(loggingTo: &stderr)
   return CompilationResult(status: status, output: output, stderr: stderr)
+}
+
+extension FileManager {
+
+  /// Returns the URL of a temporary file.
+  func temporaryFile() -> URL {
+    temporaryDirectory.appendingPathComponent("\(UUID())")
+  }
+
 }

@@ -19,4 +19,10 @@ final class SourceFileTests: XCTestCase {
     }
   }
 
+  func testPositionBefore() {
+    let source: SourceFile = "abc"
+    let p = source.position(line: 1, column: 2)
+    XCTAssertEqual(source.position(before: p), source.position(line: 1, column: 1))
+  }
+
 }

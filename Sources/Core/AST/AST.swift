@@ -126,7 +126,7 @@ public struct AST {
     return nil
   }
 
-  /// Returns the trait named `name` defined in the core library or `nil` if it doesn not exist.
+  /// Returns the trait named `name` defined in the core library or `nil` if it does not exist.
   ///
   /// - Requires: The core library must be loaded and assigned to `self.corelib`.
   public func coreTrait(named name: String) -> TraitType? {
@@ -140,6 +140,21 @@ public struct AST {
     }
 
     return nil
+  }
+
+  /// Returns the trait describing types whose instances are expressible by this literal or `nil`
+  /// if it does not exist.
+  ///
+  /// - Requires: The core library must be loaded and assigned to `self.corelib`.
+  public func coreTrait<T: Expr>(forTypesExpressibleBy literal: T.Type) -> TraitType? {
+    switch literal.kind {
+    case FloatLiteralExpr.self:
+      return coreTrait(named: "ExpressibleByFloatLiteral")
+    case IntegerLiteralExpr.self:
+      return coreTrait(named: "ExpressibleByIntegerLiteral")
+    default:
+      return nil
+    }
   }
 
   // MARK: Helpers

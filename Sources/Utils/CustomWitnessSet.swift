@@ -134,11 +134,3 @@ extension CustomWitnessedSet: CustomStringConvertible {
   public var description: String { String(describing: contents) }
 
 }
-
-extension CustomWitnessedSet: CustomReflectable {
-
-  public var customMirror: Mirror {
-    Mirror(reflecting: contents)
-  }
-
-}

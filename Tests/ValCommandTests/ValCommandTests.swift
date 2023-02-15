@@ -1,4 +1,5 @@
 import ArgumentParser
+import Utils
 import ValCommand
 import XCTest
 
@@ -49,6 +50,20 @@ final class ValCommandTests: XCTestCase {
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
+  func testParseFailure() throws {
+    let input = try url(forFileContaining: "fun x")
+    let result = try compile(input, with: [])
+    XCTAssertFalse(result.status.isSuccess)
+    XCTAssertEqual(
+      result.stderr,
+      """
+      \(input.relativePath):1:6: error: expected function signature
+      fun x
+           ^
+
+      """)
+  }
+
   func testTypeCheckSuccess() throws {
     let input = try url(forSourceNamed: "Success")
     let result = try compile(input, with: ["--typecheck"])
@@ -56,17 +71,17 @@ final class ValCommandTests: XCTestCase {
   }
 
   func testTypeCheckFailure() throws {
-    let input = try url(forSourceNamed: "Failure")
+    let input = try url(forFileContaining: "public fun main() { foo() }")
     let result = try compile(input, with: ["--typecheck"])
     XCTAssertFalse(result.status.isSuccess)
-
-    let expectedStandardError = """
-      \(input.relativePath):2:11: error: undefined name 'foo' in this scope
-        let x = foo()
-                ~~~
-
+    XCTAssertEqual(
+      result.stderr,
       """
-    XCTAssertEqual(expectedStandardError, result.stderr)
+      \(input.relativePath):1:21: error: undefined name 'foo' in this scope
+      public fun main() { foo() }
+                          ~~~
+
+      """)
   }
 
   /// Returns the URL of the Val source file named `n`.
@@ -79,6 +94,13 @@ final class ValCommandTests: XCTestCase {
       Bundle.module.url(forResource: n, withExtension: ".val", subdirectory: "Inputs"),
       "No inputs",
       file: file, line: line)
+  }
+
+  /// Writes `s` to a temporary file and returns its URL.
+  private func url(forFileContaining s: String) throws -> URL {
+    let f = FileManager.default.temporaryFile()
+    try s.write(to: f, atomically: true, encoding: .utf8)
+    return f
   }
 
 }

@@ -839,7 +839,7 @@ final class ParserTests: XCTestCase {
   }
 
   func testInoutExpr() throws {
-    let input: SourceFile = "&foo"
+    let input: SourceFile = "&foo.bar.ham"
     let (exprID, _) = try input.parse(with: Parser.parseExpr(in:))
     XCTAssertEqual(exprID?.kind, .init(InoutExpr.self))
   }

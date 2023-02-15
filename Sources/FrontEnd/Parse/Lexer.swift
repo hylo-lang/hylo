@@ -159,67 +159,9 @@ public struct Lexer: IteratorProtocol, Sequence {
       return token
     }
 
-    // Scan numeric literls
-    if head.isDecDigit {
-      token.kind = .int
-
-      // Check if the literal is non-decimal.
-      if let i = take("0") {
-        switch peek() {
-        case "x":
-          discard()
-          if let c = peek(), c.isHexDigit {
-            _ = take(while: { $0.isHexDigit })
-            token.site.extend(upTo: index)
-            return token
-          }
-
-        case "o":
-          discard()
-          if let c = peek(), c.isOctDigit {
-            _ = take(while: { $0.isOctDigit })
-            token.site.extend(upTo: index)
-            return token
-          }
-
-        case "b":
-          discard()
-          if let c = peek(), c.isBinDigit {
-            _ = take(while: { $0.isBinDigit })
-            token.site.extend(upTo: index)
-            return token
-          }
-
-        default:
-          break
-        }
-
-        index = i
-      }
-
-      // Consume the integer part.
-      _ = take(while: { $0.isDecDigit })
-
-      // Consume the floating-point part, if any.
-      if let i = take(".") {
-        if (peek() != "_") && !take(while: { $0.isDecDigit }).isEmpty {
-          token.kind = .float
-        } else {
-          index = i
-        }
-      }
-
-      // Consume the exponent, if any.
-      if let i = take("e") ?? take("E") {
-        _ = take("+") ?? take("-")
-
-        if (peek() != "_") && !take(while: { $0.isDecDigit }).isEmpty {
-          token.kind = .float
-        } else {
-          index = i
-        }
-      }
-
+    // Scan numeric literals.
+    if let k = scanNumericLiteral() {
+      token.kind = k
       token.site.extend(upTo: index)
       return token
     }
@@ -372,6 +314,73 @@ public struct Lexer: IteratorProtocol, Sequence {
     }
 
     return sourceCode.text[start ..< index]
+  }
+
+  /// Consumes a numeric literal and returns its kind, or returns `nil` if the stream starts with a
+  /// different token.
+  private mutating func scanNumericLiteral() -> Token.Kind? {
+    let i = take("-") ?? index
+    guard let head = peek(), head.isDecDigit else {
+      index = i
+      return nil
+    }
+
+    // Check if the literal is non-decimal.
+    if let i = take("0") {
+      switch peek() {
+      case "x":
+        discard()
+        if let c = peek(), c.isHexDigit {
+          _ = take(while: { $0.isHexDigit })
+          return .int
+        }
+
+      case "o":
+        discard()
+        if let c = peek(), c.isOctDigit {
+          _ = take(while: { $0.isOctDigit })
+          return .int
+        }
+
+      case "b":
+        discard()
+        if let c = peek(), c.isBinDigit {
+          _ = take(while: { $0.isBinDigit })
+          return .int
+        }
+
+      default:
+        break
+      }
+
+      index = i
+    }
+
+    // Consume the integer part.
+    var kind = Token.Kind.int
+    _ = take(while: { $0.isDecDigit })
+
+    // Consume the floating-point part, if any.
+    if let i = take(".") {
+      if (peek() != "_") && !take(while: { $0.isDecDigit }).isEmpty {
+        kind = .float
+      } else {
+        index = i
+      }
+    }
+
+    // Consume the exponent, if any.
+    if let i = take("e") ?? take("E") {
+      _ = take("+") ?? take("-")
+
+      if (peek() != "_") && !take(while: { $0.isDecDigit }).isEmpty {
+        kind = .float
+      } else {
+        index = i
+      }
+    }
+
+    return kind
   }
 
 }

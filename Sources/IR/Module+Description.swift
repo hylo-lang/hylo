@@ -99,18 +99,13 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         case let instruction as BorrowInstruction:
           output.write("borrow [\(instruction.capability)] ")
           output.write(describe(operand: instruction.location))
-          if !instruction.path.isEmpty {
-            output.write(", \(instruction.path.descriptions())")
-          }
 
         case let instruction as BranchInstruction:
           output.write("branch ")
           output.write(blockNames[instruction.target]!)
 
         case let instruction as CallInstruction:
-          output.write("call [")
-          output.write(instruction.conventions.descriptions())
-          output.write("] ")
+          output.write("call ")
           output.write(describe(operand: instruction.callee))
           for operand in instruction.arguments {
             output.write(", ")
@@ -139,14 +134,16 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
         case let instruction as DestructureInstruction:
           output.write("destructure ")
-          output.write(describe(operand: instruction.object))
+          output.write(describe(operand: instruction.whole))
+
+        case let instruction as ElementAddrInstruction:
+          output.write("element_addr ")
+          output.write(describe(operand: instruction.base))
+          output.write(", \(list: instruction.elementPath, joinedBy: ", ")")
 
         case let instruction as LoadInstruction:
           output.write("load ")
           output.write(describe(operand: instruction.source))
-          if !instruction.path.isEmpty {
-            output.write(", \(instruction.path.descriptions())")
-          }
 
         case let instruction as LLVMInstruction:
           output.write("\(instruction.function.llvmInstruction)")
@@ -169,7 +166,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
         case let instruction as ReturnInstruction:
           output.write("return ")
-          output.write(describe(operand: instruction.value))
+          output.write(describe(operand: instruction.object))
 
         case let instruction as StoreInstruction:
           output.write("store ")

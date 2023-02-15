@@ -5,10 +5,10 @@ import Utils
 public struct TypeChecker {
 
   /// The program being type checked.
-  public internal(set) var program: ScopedProgram
+  public let program: ScopedProgram
 
   /// The diagnostics of the type errors.
-  public internal(set) var diagnostics: DiagnosticSet = []
+  public private(set) var diagnostics: DiagnosticSet = []
 
   /// The overarching type of each declaration.
   public private(set) var declTypes = DeclProperty<AnyType>()
@@ -26,7 +26,7 @@ public struct TypeChecker {
   public internal(set) var foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr] = [:]
 
   /// The type relations of the program.
-  public internal(set) var relations = TypeRelations()
+  public private(set) var relations = TypeRelations()
 
   /// Indicates whether the built-in symbols are visible.
   public var isBuiltinModuleVisible: Bool
@@ -50,6 +50,11 @@ public struct TypeChecker {
 
   /// The AST of the program being type checked.
   public var ast: AST { program.ast }
+
+  /// Reports the given diagnostic.
+  mutating func report(_ d: Diagnostic) {
+    diagnostics.insert(d)
+  }
 
   // MARK: Type system
 
@@ -210,11 +215,6 @@ public struct TypeChecker {
   /// The bindings whose initializers are being currently visited.
   private var bindingsUnderChecking: DeclSet = []
 
-  /// Adds the given diagnostic.
-  mutating func addDiagnostic(_ d: Diagnostic) {
-    diagnostics.insert(d)
-  }
-
   /// Sets the realized type of `d` to `type`.
   ///
   /// - Requires: `d` has not gone through type realization yet.
@@ -226,14 +226,19 @@ public struct TypeChecker {
 
   /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
   ///
-  /// - Requires: `id` is a valid ID in the type checker's AST.
-  public mutating func check(module id: NodeID<ModuleDecl>) {
+  /// - Requires: `m` is a valid ID in the type checker's AST.
+  public mutating func check(module m: NodeID<ModuleDecl>) {
     // Build the type of the module.
-    declTypes[id] = ^ModuleType(id, ast: ast)
+    declTypes[m] = ^ModuleType(m, ast: ast)
+    declRequests[m] = .typeRealizationStarted
 
     // Type check the declarations in the module.
-    for decl in ast.topLevelDecls(id) {
-      _ = check(decl: decl)
+    let s = ast.topLevelDecls(m).reduce(true, { (s, d) in check(decl: d) && s })
+    if s {
+      declRequests[m] = .success
+    } else {
+      declTypes[m] = .error
+      declRequests[m] = .failure
     }
   }
 
@@ -305,11 +310,10 @@ public struct TypeChecker {
 
     // Determine the shape of the declaration.
     let declScope = program.declToScope[AnyDeclID(id)]!
-    let shape = inferType(
-      of: AnyPatternID(syntax.pattern), in: declScope, expecting: nil)
+    let shape = inferredType(of: AnyPatternID(syntax.pattern), in: declScope, shapedBy: nil)
     assert(shape.facts.inferredTypes.storage.isEmpty, "expression in binding pattern")
 
-    if shape.type.isError {
+    if shape.type[.hasError] {
       declTypes[id] = .error
       declRequests[id] = .failure
       return false
@@ -341,9 +345,9 @@ public struct TypeChecker {
       let names = ast.names(in: syntax.pattern).map({ AnyDeclID(ast[$0.pattern].decl) })
 
       bindingsUnderChecking.formUnion(names)
-      let inference = solveConstraints(
-        impliedBy: initializer,
-        expecting: shape.type,
+      let inference = solutionTyping(
+        initializer,
+        shapedBy: shape.type,
         in: declScope,
         initialConstraints: initializerConstraints)
       bindingsUnderChecking.subtract(names)
@@ -423,14 +427,12 @@ public struct TypeChecker {
       let functionType = declTypes[id]!.base as! LambdaType
       let receiverDecl = ast[id].receiver!
 
-      if let type = functionType.captures.first?.type.base as? RemoteType {
-        declTypes[receiverDecl] = ^ParameterType(convention: type.capability, bareType: type.base)
+      if let t = RemoteType(functionType.captures.first?.type) {
+        declTypes[receiverDecl] = ^ParameterType(t)
       } else {
         // `sink` member functions capture their receiver.
         assert(ast[id].isSink)
-        declTypes[receiverDecl] = ^ParameterType(
-          convention: .sink,
-          bareType: functionType.environment)
+        declTypes[receiverDecl] = ^ParameterType(.sink, functionType.environment)
       }
 
       declRequests[receiverDecl] = .success
@@ -446,8 +448,8 @@ public struct TypeChecker {
       if (ast[id].output == nil) && ast[id].isInExprContext { return success }
 
       // Otherwise, it's expected to have the realized return type.
-      let t = deduceType(
-        of: expr, expecting: LambdaType(declTypes[id]!)!.output.skolemized, in: id)
+      let t = checkedType(
+        of: expr, shapedBy: LambdaType(declTypes[id]!)!.output.skolemized, in: id)
       return (t != nil) && success
 
     case nil:
@@ -527,9 +529,7 @@ public struct TypeChecker {
 
     for impl in ast[id].impls {
       // Set the type of the implicit receiver declaration.
-      declTypes[ast[impl].receiver] = ^ParameterType(
-        convention: ast[impl].introducer.value.convention,
-        bareType: type.receiver)
+      declTypes[ast[impl].receiver] = ^ParameterType(ast[impl].introducer.value, type.receiver)
       declRequests[ast[impl].receiver] = .success
 
       // Type check method's implementations, if any.
@@ -539,8 +539,7 @@ public struct TypeChecker {
           ast[impl].introducer.value == .inout
           ? AnyType.void
           : outputType
-        let inferredType = deduceType(of: expr, expecting: expectedType, in: impl)
-        success = (inferredType != nil) && success
+        success = (checkedType(of: expr, shapedBy: expectedType, in: impl) != nil) && success
 
       case .block(let stmt):
         success = check(brace: stmt) && success
@@ -577,9 +576,9 @@ public struct TypeChecker {
       let defaultValueType = exprTypes[defaultValue].setIfNil(
         ^TypeVariable(node: defaultValue.base))
 
-      let inference = solveConstraints(
-        impliedBy: defaultValue,
-        expecting: parameterType.bareType,
+      let inference = solutionTyping(
+        defaultValue,
+        shapedBy: parameterType.bareType,
         in: program.declToScope[id]!,
         initialConstraints: [
           ParameterConstraint(
@@ -697,19 +696,17 @@ public struct TypeChecker {
     for impl in ast[id].impls {
       // Set the type of the implicit receiver declaration if necessary.
       if program.isNonStaticMember(id) {
-        let receiverType = declType.captures.first!.type.base as! RemoteType
+        let receiverType = RemoteType(declType.captures.first!.type)!
         let receiverDecl = ast[impl].receiver!
 
-        declTypes[receiverDecl] = ^ParameterType(
-          convention: ast[impl].introducer.value.convention,
-          bareType: receiverType.base)
+        declTypes[receiverDecl] = ^ParameterType(receiverType)
         declRequests[receiverDecl] = .success
       }
 
       // Type checks the body of the implementation.
       switch ast[impl].body {
       case .expr(let expr):
-        success = (deduceType(of: expr, expecting: outputType, in: impl) != nil) && success
+        success = (checkedType(of: expr, shapedBy: outputType, in: impl) != nil) && success
 
       case .block(let stmt):
         success = check(brace: stmt) && success
@@ -975,7 +972,7 @@ public struct TypeChecker {
 
     case ExprStmt.self:
       let stmt = ast[NodeID<ExprStmt>(id)!]
-      if let type = deduceType(of: stmt.expr, in: lexicalContext) {
+      if let type = checkedType(of: stmt.expr, in: lexicalContext) {
         // Issue a warning if the type of the expression isn't void.
         if type != .void {
           diagnostics.insert(
@@ -994,7 +991,7 @@ public struct TypeChecker {
 
     case DiscardStmt.self:
       let stmt = ast[NodeID<DiscardStmt>(id)!]
-      return deduceType(of: stmt.expr, in: lexicalContext) != nil
+      return checkedType(of: stmt.expr, in: lexicalContext) != nil
 
     case DoWhileStmt.self:
       return check(doWhile: NodeID(id)!, in: lexicalContext)
@@ -1016,7 +1013,7 @@ public struct TypeChecker {
         switch cond {
         case .expr(let condExpr):
           success =
-            (deduceType(of: condExpr, expecting: nil, in: lexicalContext) != nil) && success
+            (checkedType(of: condExpr, shapedBy: nil, in: lexicalContext) != nil) && success
         default:
           success = false
         }
@@ -1030,7 +1027,7 @@ public struct TypeChecker {
       var success = true
       success = check(brace: stmt.body) && success
       success =
-        (deduceType(of: stmt.condition, expecting: nil, in: lexicalContext) != nil) && success
+        (checkedType(of: stmt.condition, shapedBy: nil, in: lexicalContext) != nil) && success
       return success
 
     case ForStmt.self, BreakStmt.self, ContinueStmt.self:
@@ -1052,31 +1049,25 @@ public struct TypeChecker {
   }
 
   private mutating func check<S: ScopeID>(
-    assign id: NodeID<AssignStmt>,
-    in lexicalContext: S
+    assign s: NodeID<AssignStmt>,
+    in scope: S
   ) -> Bool {
-    // Infer the type on the left.
-    guard let lhsType = deduceType(of: ast[id].left, in: lexicalContext) else {
-      return false
-    }
-
-    // The type on the left must be `Sinkable`.
+    // Target type must be `Sinkable`.
+    guard let targetType = checkedType(of: ast[s].left, in: scope) else { return false }
     let lhsConstraint = ConformanceConstraint(
-      lhsType, conformsTo: [ast.coreTrait(named: "Sinkable")!],
-      because: ConstraintCause(.initializationOrAssignment, at: ast[id].site))
+      targetType, conformsTo: [ast.coreTrait(named: "Sinkable")!],
+      because: ConstraintCause(.initializationOrAssignment, at: ast[s].site))
 
-    // Constrain the right to be subtype on the left.
-    let rhsType = exprTypes[ast[id].right]
-      .setIfNil(^TypeVariable(node: program.ast[id].right.base))
+    // Source type must be subtype of the target type.
+    let sourceType = exprTypes[ast[s].right]
+      .setIfNil(^TypeVariable(node: program.ast[s].right.base))
     let rhsConstraint = SubtypingConstraint(
-      rhsType, lhsType,
-      because: ConstraintCause(.initializationOrAssignment, at: ast[id].site))
+      sourceType, targetType,
+      because: ConstraintCause(.initializationOrAssignment, at: ast[s].site))
 
-    // Infer the type on the right.
-    let inference = solveConstraints(
-      impliedBy: AnyExprID(ast[id].right),
-      expecting: lhsType,
-      in: lexicalContext,
+    // Note: Type information flows strictly from left to right.
+    let inference = solutionTyping(
+      ast[s].right, shapedBy: targetType, in: scope,
       initialConstraints: [lhsConstraint, rhsConstraint])
     return inference.succeeded
   }
@@ -1089,8 +1080,8 @@ public struct TypeChecker {
 
     // Visit the condition of the loop in the scope of the body.
     let boolType = AnyType(ast.coreType(named: "Bool")!)
-    let inference = solveConstraints(
-      impliedBy: ast[subject].condition, expecting: boolType,
+    let inference = solutionTyping(
+      ast[subject].condition, shapedBy: boolType,
       in: ast[subject].body)
 
     return success && inference.succeeded
@@ -1107,9 +1098,9 @@ public struct TypeChecker {
       // The type of the return value must be subtype of the expected return type.
       let inferredReturnType = exprTypes[returnValue].setIfNil(
         ^TypeVariable(node: returnValue.base))
-      let inference = solveConstraints(
-        impliedBy: returnValue,
-        expecting: expectedType,
+      let inference = solutionTyping(
+        returnValue,
+        shapedBy: expectedType,
         in: lexicalContext,
         initialConstraints: [
           SubtypingConstraint(
@@ -1137,8 +1128,8 @@ public struct TypeChecker {
       switch item {
       case .expr(let expr):
         // Condition must be Boolean.
-        let inference = solveConstraints(
-          impliedBy: expr, expecting: boolType, in: lexicalContext)
+        let inference = solutionTyping(
+          expr, shapedBy: boolType, in: lexicalContext)
         if !inference.succeeded { return false }
 
       case .decl(let binding):
@@ -1160,9 +1151,9 @@ public struct TypeChecker {
     // The type of the return value must be subtype of the expected return type.
     let inferredReturnType = exprTypes[ast[id].value].setIfNil(
       ^TypeVariable(node: program.ast[id].value.base))
-    let inference = solveConstraints(
-      impliedBy: ast[id].value,
-      expecting: expectedType,
+    let inference = solutionTyping(
+      ast[id].value,
+      shapedBy: expectedType,
       in: lexicalContext,
       initialConstraints: [
         SubtypingConstraint(
@@ -1539,37 +1530,37 @@ public struct TypeChecker {
 
   // MARK: Type inference
 
-  /// Returns the type of `subject` knowing it occurs in `scope` and is expected to have a type
-  /// compatible with `expectedType`.
+  /// Returns the type of `subject` knowing it occurs in `scope` and is shaped by `shape`, or `nil`
+  /// if such type couldn't be deduced.
   ///
   /// - Parameters:
   ///   - subject: The expression whose type should be deduced.
-  ///   - expectedType: The type `subject` is expected to have using top-bottom information flow
-  ///     or `nil` of such type is unknown.
+  ///   - shape: The shape of the type `subject` is expected to have given top-bottom information
+  ///     flow, or `nil` of such shape is unknown.
   ///   - scope: The innermost scope containing `subject`.
-  private mutating func deduceType<S: ScopeID>(
+  private mutating func checkedType<S: ScopeID>(
     of subject: AnyExprID,
-    expecting expectedType: AnyType? = nil,
+    shapedBy shape: AnyType? = nil,
     in scope: S
   ) -> AnyType? {
-    solveConstraints(impliedBy: subject, expecting: expectedType, in: scope).succeeded
+    solutionTyping(subject, shapedBy: shape, in: scope).succeeded
       ? exprTypes[subject]!
       : nil
   }
 
-  /// Returns the best solution satisfying `initialConstraints` and describing how to assign types
-  /// to `subject` and its sub-expressions and knowing it occurs in `scope` and is expected to have
-  /// a type compatible with `expectedType`.
+  /// Returns the best solution satisfying `initialConstraints` and describing the types of
+  /// `subject` and its sub-expressions, knowing `subject` occurs in `scope` and is shaped by
+  /// `shape`.
   ///
   /// - Parameters:
   ///   - subject: The expression whose constituent types should be deduced.
-  ///   - expectedType: The type `subject` is expected to have given the context it which it
-  ///     occurs, or `nil` if no such type exists.
+  ///   - shape: The shape of the type `subject` is expected to have given top-bottom information
+  ///     flow, or `nil` of such shape is unknown.
   ///   - scope: The innermost scope containing `subject`.
   ///   - initialConstraints: A collection of constraints on constituent types of `subject`.
-  mutating func solveConstraints<S: ScopeID>(
-    impliedBy subject: AnyExprID,
-    expecting expectedType: AnyType?,
+  mutating func solutionTyping<S: ScopeID>(
+    _ subject: AnyExprID,
+    shapedBy shape: AnyType?,
     in scope: S,
     initialConstraints: [Constraint] = []
   ) -> (succeeded: Bool, solution: Solution) {
@@ -1589,8 +1580,8 @@ public struct TypeChecker {
     }
 
     // Generate constraints.
-    let (inferredType, facts, deferredQueries) = inferType(
-      of: subject, in: AnyScopeID(scope), expecting: expectedType)
+    let (subjectType, facts, deferredQueries) = inferredType(
+      of: subject, shapedBy: shape, in: AnyScopeID(scope))
 
     // Bail out if constraint generation failed.
     if facts.foundConflict {
@@ -1601,7 +1592,7 @@ public struct TypeChecker {
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
       fresh: initialConstraints + facts.constraints,
-      comparingSolutionsWith: inferredType,
+      comparingSolutionsWith: subjectType,
       loggingTrace: shouldLogTrace)
     let solution = solver.apply(using: &self)
 
@@ -2471,7 +2462,7 @@ public struct TypeChecker {
 
     return MetatypeType(
       of: LambdaType(
-        receiverEffect: node.receiverEffect?.value,
+        receiverEffect: node.receiverEffect?.value ?? .let,
         environment: environment,
         inputs: inputs,
         output: output))
@@ -2593,7 +2584,7 @@ public struct TypeChecker {
     let node = ast[id]
 
     guard let bareType = realize(node.bareType, in: scope)?.instance else { return nil }
-    return MetatypeType(of: ParameterType(convention: node.convention.value, bareType: bareType))
+    return MetatypeType(of: ParameterType(node.convention.value, bareType))
   }
 
   private mutating func realize(
@@ -2776,8 +2767,7 @@ public struct TypeChecker {
         // expression. In that case, the unannotated parameters are associated with a fresh type
         // variable, so inference can proceed.
         if ast[id].isInExprContext {
-          let t = ^ParameterType(
-            convention: (conventions?[i]) ?? .let, bareType: ^TypeVariable(node: AnyNodeID(p)))
+          let t = ^ParameterType((conventions?[i]) ?? .let, ^TypeVariable(node: AnyNodeID(p)))
           declTypes[p] = t
           declRequests[p] = .typeRealizationCompleted
           inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
@@ -2827,7 +2817,7 @@ public struct TypeChecker {
 
     if isNonStaticMember {
       // Create a lambda bound to a receiver.
-      let effect: AccessEffect?
+      let effect: AccessEffect
       if ast[id].isInout {
         receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.inout, receiver!))])
         effect = .inout
@@ -2836,7 +2826,7 @@ public struct TypeChecker {
         effect = .sink
       } else {
         receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.let, receiver!))])
-        effect = nil
+        effect = .let
       }
 
       return ^LambdaType(
@@ -2948,7 +2938,7 @@ public struct TypeChecker {
     let receiverType = realizeSelfTypeExpr(in: program.declToScope[id]!)!.instance
     let receiverParameterType = CallableTypeParameter(
       label: "self",
-      type: ^ParameterType(convention: .set, bareType: receiverType))
+      type: ^ParameterType(.set, receiverType))
     inputs.insert(receiverParameterType, at: 0)
     return ^LambdaType(environment: .void, inputs: inputs, output: .void)
   }
@@ -3224,7 +3214,7 @@ public struct TypeChecker {
           // Update the mutability of the capture.
           captures[i] = ImplicitCapture(
             name: captures[i].name,
-            type: RemoteType(.inout, captures[i].type.base),
+            type: RemoteType(.inout, captures[i].type.bareType),
             decl: captures[i].decl)
         } else {
           // Resolve the implicit reference to `self`.
@@ -3309,10 +3299,7 @@ public struct TypeChecker {
 
     // Synthesize the receiver type.
     let receiver = realizeSelfTypeExpr(in: decl)!.instance
-    inputs.append(
-      CallableTypeParameter(
-        label: "self",
-        type: ^ParameterType(convention: .set, bareType: receiver)))
+    inputs.append(.init(label: "self", type: ^ParameterType(.set, receiver)))
 
     // List and realize the type of all stored bindings.
     for m in ast[decl].members {
@@ -3321,10 +3308,7 @@ public struct TypeChecker {
 
       for (_, name) in ast.names(in: ast[member].pattern) {
         let d = ast[name].decl
-        inputs.append(
-          CallableTypeParameter(
-            label: ast[d].baseName,
-            type: ^ParameterType(convention: .sink, bareType: declTypes[d]!)))
+        inputs.append(.init(label: ast[d].baseName, type: ^ParameterType(.sink, declTypes[d]!)))
       }
     }
 

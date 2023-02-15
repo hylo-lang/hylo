@@ -35,8 +35,7 @@ public struct LifetimePass {
           // Insert `end_borrow` after the instruction's last users.
           for lastUse in borrowLifetime.maximalElements {
             module.insert(
-              EndBorrowInstruction(
-                borrow: borrowID, site: module[lastUse.user].site),
+              module.makeEndBorrow(borrowID, anchoredAt: module[lastUse.user].site),
               after: lastUse.user)
           }
 
