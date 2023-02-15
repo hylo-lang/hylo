@@ -100,6 +100,34 @@ public struct Module {
     return true
   }
 
+  /// Applies all mandatory passes in this module, accumulating diagnostics into `log` and throwing
+  /// if a pass reports an error.
+  public mutating func applyMandatoryPasses(
+    reportingDiagnosticsInto log: inout DiagnosticSet
+  ) throws {
+    for p in Self.mandatoryPasses {
+      for f in functions.indices {
+        p(f, &self, &log)
+      }
+      try log.throwOnError()
+    }
+  }
+
+  /// A analysis and/or transformation pass that applies `function` in `module`, accumulating
+  /// diagnostics into `log`.
+  private typealias Pass = (
+    _ function: Function.ID,
+    _ module: inout Module,
+    _ log: inout DiagnosticSet
+  ) -> Void
+
+  /// The pipeline with mandatory IR passes.
+  private static let mandatoryPasses: [Pass] = [
+    ImplicitReturnInsertionPass().run,
+    DefiniteInitializationPass().run,
+    LifetimePass().run,
+  ]
+
   /// Returns the identifier of the Val IR function corresponding to `decl`.
   mutating func getOrCreateFunction(
     correspondingTo decl: FunctionDecl.Typed,

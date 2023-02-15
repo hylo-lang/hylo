@@ -171,8 +171,7 @@ public struct ValCommand: ParsableCommand {
     }
 
     do {
-      let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
-      try p.apply(&irModule, reportingDiagnosticsInto: &diagnostics)
+      try irModule.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
     } catch let d as DiagnosticSet {
       diagnostics.formUnion(d)
       return
