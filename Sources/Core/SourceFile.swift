@@ -107,7 +107,7 @@ public struct SourceFile {
   /// - Complexity: O(log N) + O(C) where N is the number of lines in `self` and C is the returned
   ///   column number.
   func lineAndColumn(_ i: Index) -> (line: Int, column: Int) {
-    let lineNumber = line(containing: i).index
+    let lineNumber = line(containing: i).number
     let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: i) + 1
     return (lineNumber, columnNumber)
   }
@@ -304,8 +304,8 @@ extension SourceLine {
 
   /// The bounds of this line, including any trailing newline.
   public var bounds: SourceRange {
-    let end = index < file.lineStarts.count ? file.lineStarts[index] : file.text.endIndex
-    return file.range(file.lineStarts[index - 1] ..< end)
+    let end = number < file.lineStarts.count ? file.lineStarts[number] : file.text.endIndex
+    return file.range(file.lineStarts[number - 1] ..< end)
   }
 
 }

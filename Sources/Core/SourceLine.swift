@@ -7,12 +7,12 @@ public struct SourceLine: Hashable {
   public let file: SourceFile
 
   /// The 1-based index of the line in `file`.
-  public let index: Int
+  public let number: Int
 
   /// Creates an instance representing the line at `index` in `url`.
   init(_ index: Int, in file: SourceFile) {
     self.file = file
-    self.index = index
+    self.number = index
   }
 
   /// The source text contained in this line.
@@ -22,6 +22,6 @@ public struct SourceLine: Hashable {
 
 extension SourceLine: CustomStringConvertible {
 
-  public var description: String { "\(file.url.relativePath):\(index)" }
+  public var description: String { "\(file.url.relativePath):\(number)" }
 
 }

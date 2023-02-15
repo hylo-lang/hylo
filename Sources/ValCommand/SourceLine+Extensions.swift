@@ -11,7 +11,7 @@ extension SourceLine: ExpressibleByArgument {
       let source = try? SourceFile(contentsOf: URL(fileURLWithPath: String(s)))
     else { return nil }
 
-    guard line > 0 && line <= source.line(containing: source.text.endIndex).index
+    guard line > 0 && line <= source.line(containing: source.text.endIndex).number
     else { return nil }
 
     self = source.line(at: line)
