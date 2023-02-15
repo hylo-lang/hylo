@@ -30,6 +30,11 @@ public struct SourceFile {
     self.storage = storage
   }
 
+  /// Creates an instance representing the at `filePath`.
+  public init<S: StringProtocol>(path filePath: S) throws {
+    try self.init(contentsOf: URL(fileURLWithPath: String(filePath)))
+  }
+
   /// Creates a source file with the specified contents and a unique random `url`.
   public init(synthesizedText text: String) {
     let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text }
