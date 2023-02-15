@@ -6,12 +6,12 @@ extension TypedProgram {
   ///
   /// - Throws: `Diagnostics` if type-checking fails.
   /// - Parameters
-  ///   - inferenceTracingRange: the region in which to trace type inference, if any.
+  ///   - inferenceTracingSite: the region in which to trace type inference, if any.
   ///   - diagnostics: a channel for errors and warnings.
   /// - Precondition: `syntax` includes the core module.
   public init(
     _ syntax: AST,
-    tracingInferenceIn inferenceTracingRange: SourceLine? = nil,
+    tracingInferenceIn inferenceTracingSite: SourceLine? = nil,
     diagnostics: inout DiagnosticSet
   ) throws {
     precondition(syntax.isCoreModuleLoaded, "TypedProgram: No core module in AST.")
@@ -19,7 +19,7 @@ extension TypedProgram {
     var checker = TypeChecker(
       program: ScopedProgram(syntax),
       isBuiltinModuleVisible: true,
-      tracingInferenceIn: inferenceTracingRange)
+      tracingInferenceIn: inferenceTracingSite)
 
     for m in syntax.modules {
       checker.isBuiltinModuleVisible = syntax[m].canAccessBuiltins
