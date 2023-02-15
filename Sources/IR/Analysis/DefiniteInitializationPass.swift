@@ -191,7 +191,7 @@ public struct DefiniteInitializationPass {
 
       case .set:
         // `set` requires the borrowed object to be uninitialized.
-        let initializedPaths: [SubobjectPath]
+        let initializedPaths: [PartPath]
         switch o.value {
         case .full(.initialized):
           initializedPaths = [[]]
@@ -266,7 +266,7 @@ public struct DefiniteInitializationPass {
       let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
 
       // Make sure the memory at the deallocated location is consumed or uninitialized.
-      let initializedPaths: [SubobjectPath] = context.withObject(
+      let initializedPaths: [PartPath] = context.withObject(
         at: l, typedIn: module.program,
         { (o) in
           switch o.value {
@@ -487,12 +487,12 @@ extension DefiniteInitializationPass {
     ///
     /// - Note: Use `appending(_:)` to create instances of this case.
     /// - Requires: `root` is `.argument` or `.instruction` and `path` is not empty.
-    indirect case sublocation(root: MemoryLocation, path: SubobjectPath)
+    indirect case sublocation(root: MemoryLocation, path: PartPath)
 
     /// Returns a new locating created by appending `suffix` to this one.
     ///
     /// - Requires: `self` is not `.null`.
-    func appending(_ suffix: SubobjectPath) -> MemoryLocation {
+    func appending(_ suffix: PartPath) -> MemoryLocation {
       if suffix.isEmpty { return self }
 
       switch self {
@@ -595,7 +595,7 @@ extension DefiniteInitializationPass {
       ///
       /// - Requires: `self` is canonical.
       private func gatherSubobjectPaths(
-        prefixedBy prefix: SubobjectPath,
+        prefixedBy prefix: PartPath,
         into paths: inout PartPaths
       ) {
         guard case .partial(let subobjects) = self else { return }
@@ -638,7 +638,7 @@ extension DefiniteInitializationPass {
       /// consumed in `r`.
       ///
       /// - Requires: `lhs` and `rhs` are canonical and have the same layout
-      static func - (l: Self, r: Self) -> [SubobjectPath] {
+      static func - (l: Self, r: Self) -> [PartPath] {
         switch (l, r) {
         case (.full(.initialized), let rhs):
           if let p = rhs.paths {
@@ -672,13 +672,13 @@ extension DefiniteInitializationPass {
     struct PartPaths {
 
       /// The paths to the initialized parts.
-      var initialized: [SubobjectPath]
+      var initialized: [PartPath]
 
       /// The paths to the uninitialized parts.
-      var uninitialized: [SubobjectPath]
+      var uninitialized: [PartPath]
 
       /// The paths to the consumed parts, along with the users that consumed them.
-      var consumed: [(path: SubobjectPath, consumers: Consumers)]
+      var consumed: [(path: PartPath, consumers: Consumers)]
 
     }
 

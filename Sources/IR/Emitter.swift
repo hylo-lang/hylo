@@ -180,7 +180,7 @@ public struct Emitter {
     precondition(reading(decl.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
     /// A map from object path to its corresponding (sub-)object during destructuring.
-    var objects: [SubobjectPath: Operand] = [:]
+    var objects: [PartPath: Operand] = [:]
     if let initializer = decl.initializer {
       objects[[]] = emitRValue(initializer, into: &module)
     }
@@ -197,10 +197,10 @@ public struct Emitter {
         // Initialize (sub-)object corresponding to the current name.
         for i in 0 ..< path.count {
           // Make sure the initializer has been destructured deeply enough.
-          if objects[SubobjectPath(path[...i])] != nil { continue }
+          if objects[PartPath(path[...i])] != nil { continue }
 
           // Destructure the (sub-)object.
-          let subobject = SubobjectPath(path[..<i])
+          let subobject = PartPath(path[..<i])
           let subobjectParts = module.append(
             module.makeDestructure(objects[subobject]!, anchoredAt: initializer.site),
             to: insertionBlock!)
