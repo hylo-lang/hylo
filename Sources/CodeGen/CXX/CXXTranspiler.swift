@@ -18,8 +18,7 @@ public struct CXXTranspiler {
     self.wholeValProgram = wholeValProgram
   }
 
-  /// Returns a C++ AST implementing the semantics of `source`; treating `source` as the Val core
-  /// library iff `asCoreLib == true`.
+  /// Returns a C++ AST implementing the semantics of `source`.
   public func cxx(_ source: ModuleDecl.Typed) -> CXXModule {
     let isCoreLib = source.id == wholeValProgram.corelib?.id
     return CXXModule(
