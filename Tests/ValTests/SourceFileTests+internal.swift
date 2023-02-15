@@ -5,6 +5,7 @@ import XCTest
 final class SourceFileTestsInternal: XCTestCase {
 
   func testLineMapping() {
+
     let s1: SourceFile = "a\nbc\ndef"
     let s2: SourceFile = "a\nbc\ndef\n"
 
@@ -12,7 +13,7 @@ final class SourceFileTestsInternal: XCTestCase {
     var i2 = s2.text.startIndex
 
     func expect(
-      _ i: inout SourceFile.Index, in s: SourceFile, line: Int, column: Int, lineText: String,
+      _ i: SourceFile.Index, in s: SourceFile, line: Int, column: Int, lineText: String,
       testFile: StaticString = #filePath, testLine: UInt = #line
     ) {
       let x = s.lineAndColumn(i)
@@ -29,6 +30,9 @@ final class SourceFileTestsInternal: XCTestCase {
       XCTAssertEqual(String(t), lineText, file: testFile, line: testLine)
     }
 
+    let s0: SourceFile = ""
+    expect(s0.text.startIndex, in: s0, line: 1, column: 1, lineText: "")
+
     func advance2() {
       s1.text.formIndex(after: &i1)
       s2.text.formIndex(after: &i2)
@@ -39,11 +43,11 @@ final class SourceFileTestsInternal: XCTestCase {
       testLine: UInt = #line
     ) {
       expect(
-        &i1, in: s1, line: line, column: column, lineText: lineText,
+        i1, in: s1, line: line, column: column, lineText: lineText,
         testFile: testFile, testLine: testLine)
 
       expect(
-        &i2, in: s2, line: line, column: column, lineText: lineText,
+        i2, in: s2, line: line, column: column, lineText: lineText,
         testFile: testFile, testLine: testLine)
       advance2()
     }
@@ -55,22 +59,22 @@ final class SourceFileTestsInternal: XCTestCase {
     expectAndAdvance2(line: 2, column: 2, lineText: "bc\n")
     expectAndAdvance2(line: 2, column: 3, lineText: "bc\n")
 
-    expect(&i1, in: s1, line: 3, column: 1, lineText: "def")
-    expect(&i2, in: s2, line: 3, column: 1, lineText: "def\n")
+    expect(i1, in: s1, line: 3, column: 1, lineText: "def")
+    expect(i2, in: s2, line: 3, column: 1, lineText: "def\n")
     advance2()
 
-    expect(&i1, in: s1, line: 3, column: 2, lineText: "def")
-    expect(&i2, in: s2, line: 3, column: 2, lineText: "def\n")
+    expect(i1, in: s1, line: 3, column: 2, lineText: "def")
+    expect(i2, in: s2, line: 3, column: 2, lineText: "def\n")
     advance2()
 
-    expect(&i1, in: s1, line: 3, column: 3, lineText: "def")
-    expect(&i2, in: s2, line: 3, column: 3, lineText: "def\n")
+    expect(i1, in: s1, line: 3, column: 3, lineText: "def")
+    expect(i2, in: s2, line: 3, column: 3, lineText: "def\n")
     advance2()
 
-    expect(&i1, in: s1, line: 3, column: 4, lineText: "def")
-    expect(&i2, in: s2, line: 3, column: 4, lineText: "def\n")
+    expect(i1, in: s1, line: 3, column: 4, lineText: "def")
+    expect(i2, in: s2, line: 3, column: 4, lineText: "def\n")
     s2.text.formIndex(after: &i2)
-    expect(&i2, in: s2, line: 4, column: 1, lineText: "")
+    expect(i2, in: s2, line: 4, column: 1, lineText: "")
 
     XCTAssertEqual(i1, s1.text.endIndex)
     XCTAssertEqual(i2, s2.text.endIndex)
