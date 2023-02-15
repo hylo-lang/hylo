@@ -30,6 +30,11 @@ public struct SourceFile {
     self.storage = storage
   }
 
+  /// Creates an instance representing the at `filePath`.
+  public init<S: StringProtocol>(path filePath: S) throws {
+    try self.init(contentsOf: URL(fileURLWithPath: String(filePath)))
+  }
+
   /// Creates a source file with the specified contents and a unique random `url`.
   public init(synthesizedText text: String) {
     let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text }
@@ -40,6 +45,9 @@ public struct SourceFile {
   public var baseName: String {
     url.deletingPathExtension().lastPathComponent
   }
+
+  /// The number of lines in the file.
+  public var lineCount: Int { storage.lineStarts.count }
 
   /// A range covering the whole contents of this instance.
   public var wholeRange: SourceRange {
@@ -57,12 +65,6 @@ public struct SourceFile {
   public subscript(_ range: SourceRange) -> Substring {
     precondition(range.file.url == url, "invalid range")
     return text[range.start ..< range.end]
-  }
-
-  /// The text of (1-based) line number `l`, including any trailing newline.
-  public func textOfLine(_ l: Int) -> Substring {
-    let end = l < lineStarts.count ? lineStarts[l] : text.endIndex
-    return text[lineStarts[l - 1] ..< end]
   }
 
   /// Returns the position corresponding to `i` in `text`.
@@ -93,12 +95,23 @@ public struct SourceFile {
     SourceRange(r, in: self)
   }
 
-  /// Returns the 1-based line and column numbers corresponding to `i`.
+  /// Returns the line containing `i`.
   ///
   /// - Requires: `i` is a valid index in `contents`.
   /// - Complexity: O(log N) where N is the number of lines in `self`.
-  public func line(containing i: Index) -> Int {
-    lineStarts.partitioningIndex(where: { $0 > i })
+  public func line(containing i: Index) -> SourceLine {
+    SourceLine(lineStarts.partitioningIndex(where: { $0 > i }), in: self)
+  }
+
+  /// Returns the line at 1-based index `lineNumber`.
+  public func line(_ lineNumber: Int) -> SourceLine {
+    SourceLine(lineNumber, in: self)
+  }
+
+  /// The bounds of given `line`, including any trailing newline.
+  public func bounds(of line: SourceLine) -> SourceRange {
+    let end = line.number < lineStarts.count ? lineStarts[line.number] : text.endIndex
+    return range(lineStarts[line.number - 1] ..< end)
   }
 
   /// Returns the 1-based line and column numbers corresponding to `i`.
@@ -108,7 +121,7 @@ public struct SourceFile {
   /// - Complexity: O(log N) + O(C) where N is the number of lines in `self` and C is the returned
   ///   column number.
   func lineAndColumn(_ i: Index) -> (line: Int, column: Int) {
-    let lineNumber = line(containing: i)
+    let lineNumber = line(containing: i).number
     let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: i) + 1
     return (lineNumber, columnNumber)
   }

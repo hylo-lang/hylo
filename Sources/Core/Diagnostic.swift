@@ -60,7 +60,7 @@ extension Diagnostic: CustomStringConvertible {
   public var description: String {
     let prefix: String
     let l = site.first()
-    let (line, column) = l.lineAndColumn()
+    let (line, column) = l.lineAndColumn
     prefix = "\(l.file.url):\(line):\(column): "
     return prefix + "\(level): \(message)"
   }
