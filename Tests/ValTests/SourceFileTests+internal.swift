@@ -19,12 +19,15 @@ final class SourceFileTestsInternal: XCTestCase {
 
       XCTAssert(
         x == (line, column),
-        "\(x) == \((line, column)) failed",  file: testFile, line: testLine)
+        "\(x) == \((line, column)) failed", file: testFile, line: testLine)
 
       XCTAssertEqual(s.index(line: line, column: column), i)
     }
 
-    func expect2(line: Int, column: Int, lineContents: String, testFile: StaticString = #filePath, testLine: UInt = #line) {
+    func expect2(
+      line: Int, column: Int, lineContents: String, testFile: StaticString = #filePath,
+      testLine: UInt = #line
+    ) {
       expectCorrespondence(i1, in: s1, isAt: line, column, testFile: testFile, testLine: testLine)
       expectCorrespondence(i2, in: s2, isAt: line, column, testFile: testFile, testLine: testLine)
       XCTAssertEqual(
