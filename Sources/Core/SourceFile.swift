@@ -59,12 +59,6 @@ public struct SourceFile {
     return text[range.start ..< range.end]
   }
 
-  /// The text of (1-based) line number `l`, including any trailing newline.
-  public func textOfLine(_ l: Int) -> Substring {
-    let end = l < lineStarts.count ? lineStarts[l] : text.endIndex
-    return text[lineStarts[l - 1] ..< end]
-  }
-
   /// Returns the position corresponding to `i` in `text`.
   ///
   /// - Requires: `i` is a valid index in `text`.
