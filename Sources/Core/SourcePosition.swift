@@ -21,6 +21,9 @@ public struct SourcePosition: Hashable {
     self.index = file.index(line: line, column: column)
   }
 
+  /// The line which `self` resides.
+  public var line: SourceLine { file.line(containing: index) }
+
   /// Returns the line and column number of this position.
   public func lineAndColumn() -> (line: Int, column: Int) {
     let r = file.lineAndColumn(index)
@@ -33,11 +36,6 @@ public struct SourcePosition: Hashable {
   public static func ..< (l: Self, r: Self) -> SourceRange {
     precondition(l.file == r.file, "incompatible locations")
     return l.file.range(l.index ..< r.index)
-  }
-
-  /// Returns the text of the line in which `self` resides, including any trailing newline.
-  public func textOfLine() -> Substring {
-    file.line(containing: index).text
   }
 
 }

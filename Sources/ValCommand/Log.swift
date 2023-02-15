@@ -50,7 +50,7 @@ extension Log {
 
     // Log the window
     let site = diagnostic.site
-    let line = site.first().textOfLine()
+    let line = site.first().line.text
     write(String(line))
     if !(line.last?.isNewline ?? false) { write("\n") }
 
