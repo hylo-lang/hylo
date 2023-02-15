@@ -214,11 +214,7 @@ public struct ValCommand: ParsableCommand {
 
     assert(outputType == .binary)
 
-    let buildDirectoryURL = try FileManager.default.url(
-      for: .itemReplacementDirectory,
-      in: .userDomainMask,
-      appropriateFor: currentDirectory,
-      create: true)
+    let buildDirectoryURL = FileManager.default.temporaryDirectory
 
     // Write the C++ code to the build directory.
     try write(

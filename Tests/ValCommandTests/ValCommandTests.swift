@@ -93,17 +93,17 @@ final class ValCommandTests: XCTestCase {
   }
 
   func testTypeCheckFailure() throws {
-    let input = try url(forSourceNamed: "Failure")
+    let input = try url(forFileContaining: "public fun main() { foo() }")
     let result = try compile(input, with: ["--typecheck"])
     XCTAssertFalse(result.status.isSuccess)
-
-    let expectedStandardError = """
-      \(input.relativePath):2:11: error: undefined name 'foo' in this scope
-        let x = foo()
-                ~~~
-
+    XCTAssertEqual(
+      result.stderr,
       """
-    XCTAssertEqual(expectedStandardError, result.stderr)
+      \(input.relativePath):1:21: error: undefined name 'foo' in this scope
+      public fun main() { foo() }
+                          ~~~
+
+      """)
   }
 
   /// Returns the URL of the Val source file named `n`.
@@ -131,13 +131,8 @@ final class ValCommandTests: XCTestCase {
     _ input: URL,
     with arguments: [String]
   ) throws -> CompilationResult {
-    // Create a temporary directory to write the output file.
-    let outputDirectory = try FileManager.default.url(
-      for: .itemReplacementDirectory,
-      in: .userDomainMask,
-      appropriateFor: input,
-      create: true)
-    let output = outputDirectory.appendingPathComponent("a.out")
+    // Create a temporary output.
+    let output = FileManager.default.temporaryFile()
 
     // Parse the command line's arguments.
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
@@ -146,6 +141,15 @@ final class ValCommandTests: XCTestCase {
     var stderr = ""
     let status = try cli.execute(loggingTo: &stderr)
     return CompilationResult(status: status, output: output, stderr: stderr)
+  }
+
+}
+
+extension FileManager {
+
+  /// Returns the URL of a temporary file.
+  func temporaryFile() -> URL {
+    temporaryDirectory.appendingPathComponent("\(UUID())")
   }
 
 }
