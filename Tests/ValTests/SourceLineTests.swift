@@ -11,11 +11,11 @@ final class SourceLineTests: XCTestCase {
         print("Hello, World!")
       }
       """
-    XCTAssertEqual(source.line(at: 1).text, "import Greetings\n")
-    XCTAssertEqual(source.line(at: 2).text, "\n")
-    XCTAssertEqual(source.line(at: 3).text, "public fun main() {\n")
-    XCTAssertEqual(source.line(at: 4).text, "  print(\"Hello, World!\")\n")
-    XCTAssertEqual(source.line(at: 5).text, "}")
+    XCTAssertEqual(source.line(1).text, "import Greetings\n")
+    XCTAssertEqual(source.line(2).text, "\n")
+    XCTAssertEqual(source.line(3).text, "public fun main() {\n")
+    XCTAssertEqual(source.line(4).text, "  print(\"Hello, World!\")\n")
+    XCTAssertEqual(source.line(5).text, "}")
   }
 
   func testDescription() {

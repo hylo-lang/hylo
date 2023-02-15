@@ -99,7 +99,7 @@ public struct SourceFile {
   }
 
   /// Returns the line at 1-based index `lineNumber`.
-  public func line(at lineNumber: Int) -> SourceLine {
+  public func line(_ lineNumber: Int) -> SourceLine {
     SourceLine(lineNumber, in: self)
   }
 

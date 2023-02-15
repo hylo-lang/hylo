@@ -12,7 +12,7 @@ extension SourceLine: ExpressibleByArgument {
       let lineNumber = Int(x.tail.dropFirst()),
       lineNumber > 0 && lineNumber <= file.lineCount
     else { return nil }
-    self = file.line(at: lineNumber)
+    self = file.line(lineNumber)
   }
 
 }
