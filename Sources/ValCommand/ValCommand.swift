@@ -147,14 +147,14 @@ public struct ValCommand: ParsableCommand {
       return
     }
 
-    let p = try TypedProgram(
+    let program = try TypedProgram(
       ast, tracingInferenceIn: inferenceTracingRange, diagnostics: &diagnostics)
 
     // IR
 
-    var sourceIR = try IR.Module(lowering: sourceModule, in: p, diagnostics: &diagnostics)
+    var sourceIR = try IR.Module(lowering: sourceModule, in: program, diagnostics: &diagnostics)
     if outputType != .rawIR {
-      let pipeline = PassPipeline(withMandatoryPassesForModulesLoweredFrom: p)
+      let pipeline = PassPipeline(withMandatoryPassesForModulesLoweredFrom: program)
       try pipeline.apply(&sourceIR, reportingDiagnosticsInto: &diagnostics)
     }
     if outputType == .ir || outputType == .rawIR {
@@ -164,7 +164,9 @@ public struct ValCommand: ParsableCommand {
 
     // C++
 
-    let cxxModules = (core: p.cxx(p.corelib!), source: p.cxx(p[sourceModule]))
+    let cxxModules = (
+      core: program.cxx(program.corelib!), source: program.cxx(program[sourceModule])
+    )
 
     if outputType == .cpp {
       try write(cxxModules.core, to: coreLibCXXOutputBase, loggingTo: &errorLog)
@@ -208,9 +210,11 @@ public struct ValCommand: ParsableCommand {
     return "Main"
   }
 
-  /// Writes the code for `m` to .h/.cpp files having the given base path.
-  private func write<L: Log>(_ m: TypedProgram.CXX, to basePath: URL, loggingTo log: inout L) throws
-  {
+  /// Writes the code for `m` to .h/.cpp files having the given `basePath`, logging diagnostics to
+  /// `log`.
+  private func write<L: Log>(
+    _ m: TypedProgram.CXXModule, to basePath: URL, loggingTo log: inout L
+  ) throws {
     try write(m.text.headerCode, toURL: basePath.appendingPathExtension("h"), loggingTo: &log)
     try write(m.text.sourceCode, toURL: basePath.appendingPathExtension("cpp"), loggingTo: &log)
   }
@@ -302,7 +306,7 @@ public struct ValCommand: ParsableCommand {
   /// A map from executable name to path of the named binary.
   private static var executableLocationCache: [String: String] = [:]
 
-  /// Wrotes a textual descriptioni of `input` to the given `output` file.
+  /// Writes a textual descriptioni of `input` to the given `output` file.
   func write(_ input: AST, to output: URL) throws {
     let encoder = JSONEncoder().forAST
     try encoder.encode(input).write(to: output, options: .atomic)
@@ -339,9 +343,11 @@ public struct ValCommand: ParsableCommand {
 
 extension TypedProgram {
 
-  typealias CXX = (syntax: CXXModule, text: TranslationUnitCode)
+  /// The bundle of products resulting from transpiling a module to C++.
+  typealias CXXModule = (syntax: CodeGenCXX.CXXModule, text: TranslationUnitCode)
 
-  func cxx(_ m: ModuleDecl.Typed) -> CXX {
+  /// Returns the C++ Transpilation of `m`.
+  func cxx(_ m: ModuleDecl.Typed) -> CXXModule {
     let x = CXXTranspiler(self).cxx(m)
     var w = CXXCodeWriter()
     return (syntax: x, text: w.cxxCode(x))
