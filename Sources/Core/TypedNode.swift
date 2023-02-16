@@ -261,7 +261,7 @@ extension TypedNode where ID == NodeID<NameExpr> {
 extension TypedNode where ID: PatternID {
 
   /// The names associated with this pattern.
-  public var names: [(path: [Int], pattern: NamePattern.Typed)] {
+  public var names: [(path: PartPath, pattern: NamePattern.Typed)] {
     program.ast.names(in: id).map({ (path: $0.path, pattern: program[$0.pattern]) })
   }
 
