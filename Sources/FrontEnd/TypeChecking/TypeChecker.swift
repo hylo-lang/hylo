@@ -2875,44 +2875,16 @@ public struct TypeChecker {
       }
     }
 
-    var success = true
-
-    // Realize the input types.
-    var inputs: [CallableTypeParameter] = []
-    for i in ast[d].parameters {
-      declRequests[i] = .typeCheckingStarted
-
-      // Parameters of initializers must have a type annotation.
-      guard let annotation = ast[i].annotation else {
-        unexpected(i, in: ast)
-      }
-
-      if let type = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
-        // The annotation may not omit generic arguments.
-        if type[.hasVariable] {
-          diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
-          success = false
-        }
-
-        declTypes[i] = type
-        declRequests[i] = .typeRealizationCompleted
-        inputs.append(CallableTypeParameter(label: ast[i].label?.value, type: type))
-      } else {
-        declTypes[i] = .error
-        declRequests[i] = .failure
-        success = false
-      }
+    guard var inputs = realize(parameterList: ast[d].parameters, in: AnyScopeID(d)) else {
+      return .error
     }
 
-    // Bail out if the parameters could not be realized.
-    if !success { return .error }
-
     // Initializers are global functions.
-    let receiverType = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
-    let receiverParameterType = CallableTypeParameter(
+    let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
+    let receiverParameter = CallableTypeParameter(
       label: "self",
-      type: ^ParameterType(.set, receiverType))
-    inputs.insert(receiverParameterType, at: 0)
+      type: ^ParameterType(.set, receiver))
+    inputs.insert(receiverParameter, at: 0)
     return ^LambdaType(environment: .void, inputs: inputs, output: .void)
   }
 
@@ -2922,37 +2894,9 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(methodDecl d: NodeID<MethodDecl>) -> AnyType {
-    var success = true
-
-    // Realize the input types.
-    var inputs: [CallableTypeParameter] = []
-    for i in ast[d].parameters {
-      declRequests[i] = .typeCheckingStarted
-
-      // Parameters of methods must have a type annotation.
-      guard let annotation = ast[i].annotation else {
-        unexpected(i, in: ast)
-      }
-
-      if let type = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
-        // The annotation may not omit generic arguments.
-        if type[.hasVariable] {
-          diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
-          success = false
-        }
-
-        declTypes[i] = type
-        declRequests[i] = .typeRealizationCompleted
-        inputs.append(.init(label: ast[i].label?.value, type: type))
-      } else {
-        declTypes[i] = .error
-        declRequests[i] = .failure
-        success = false
-      }
+    guard let inputs = realize(parameterList: ast[d].parameters, in: AnyScopeID(d)) else {
+      return .error
     }
-
-    // Bail out if the parameters could not be realized.
-    if !success { return .error }
 
     // Realize the method's receiver if necessary.
     let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
@@ -3000,6 +2944,39 @@ public struct TypeChecker {
     case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:
       return declTypes[d]!
     }
+  }
+
+  /// Returns the labels and types of given `parameters` or `nil` if one or more declarations
+  /// contains an error.
+  ///
+  /// All declarations in `parameters` are visited.
+  private mutating func realize(
+    parameterList parameters: [NodeID<ParameterDecl>],
+    in containingDecl: AnyScopeID
+  ) -> [CallableTypeParameter]? {
+    typealias R = (inputs: [CallableTypeParameter], containsError: Bool)
+    let result: R = parameters.reduce(into: ([], false)) { (result, d) in
+      declRequests[d] = .typeCheckingStarted
+
+      let a = ast[d].annotation ?? preconditionFailure("no type annotation")
+      if let parameterType = realize(parameter: a, in: containingDecl)?.instance {
+        // The annotation may not omit generic arguments.
+        if parameterType[.hasVariable] {
+          diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[a].site))
+          result.containsError = true
+        }
+
+        declTypes[d] = parameterType
+        declRequests[d] = .typeRealizationCompleted
+        result.inputs.append(.init(label: ast[d].label?.value, type: parameterType))
+      } else {
+        declTypes[d] = .error
+        declRequests[d] = .failure
+        result.containsError = true
+      }
+    }
+
+    return result.containsError ? nil : result.inputs
   }
 
   /// Returns the overarching type of `d`.
