@@ -3110,6 +3110,14 @@ public struct TypeChecker {
   }
 
   /// Returns the overarching type of `d`.
+  private mutating func realize<T: TypeExtendingDecl>(typeExtendingDecl d: NodeID<T>) -> AnyType {
+    return _realize(decl: d) { (this, d) in
+      let t = this.realize(this.ast[d].subject, in: this.program.declToScope[d]!)
+      return t.map(AnyType.init(_:)) ?? .error
+    }
+  }
+
+  /// Returns the overarching type of `d`.
   private mutating func realize(varDecl d: NodeID<VarDecl>) -> AnyType {
     // `declTypes[d]` is set by the realization of the containing binding declaration.
     return _realize(decl: d) { (this, d) in
@@ -3157,13 +3165,6 @@ public struct TypeChecker {
     }
 
     return success ? captures : nil
-  }
-
-  private mutating func realize<T: TypeExtendingDecl>(typeExtendingDecl d: NodeID<T>) -> AnyType {
-    return _realize(decl: d) { (this, d) in
-      let t = this.realize(this.ast[d].subject, in: this.program.declToScope[d]!)
-      return t.map(AnyType.init(_:)) ?? .error
-    }
   }
 
   /// Realizes the implicit captures found in the body of `decl` and returns their types and
