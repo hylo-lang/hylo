@@ -8,7 +8,8 @@ public struct DeinitInstruction: Instruction {
 
   public let site: SourceRange
 
-  init(_ object: Operand, site: SourceRange) {
+  /// Creates an instance with the given properties.
+  fileprivate init(object: Operand, site: SourceRange) {
     self.object = object
     self.site = site
   }
@@ -19,14 +20,22 @@ public struct DeinitInstruction: Instruction {
 
   public var isTerminator: Bool { false }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    // Operand has an object type.
-    if module.type(of: object).isAddress { return false }
+}
 
-    // Operand is register.
-    if object.instruction == nil { return false }
+extension Module {
 
-    return true
+  /// Creates a `deinit` anchored at `anchor` that deinitializes `object`.
+  ///
+  /// - Parameters:
+  ///   - object: The object to deinitialize. Must be a local register with an object type.
+  func makeDeinit(
+    _ object: Operand,
+    anchoredAt anchor: SourceRange
+  ) -> DeinitInstruction {
+    precondition(type(of: object).isObject)
+    precondition(object.instruction != nil)
+
+    return DeinitInstruction(object: object, site: anchor)
   }
 
 }

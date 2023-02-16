@@ -17,6 +17,11 @@ public struct IntegerConstant: ConstantProtocol, Hashable {
     self.value = WideUInt(exactly: x, bitWidth: bitWidth)!
   }
 
+  /// Creates a new Val IR constant with given `value`.
+  public init(_ value: WideUInt) {
+    self.value = value
+  }
+
   public var type: LoweredType { .object(BuiltinType.i(value.bitWidth)) }
 
 }

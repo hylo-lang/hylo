@@ -124,8 +124,8 @@ extension TypeChecker {
     return (t, s.facts, s.deferred)
   }
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type
-  /// along, updating `state` with inference facts and deferred type checking requests.
+  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type,
+  /// updating `state` with inference facts and deferred type checking requests.
   private mutating func inferredType(
     of subject: AnyExprID,
     shapedBy shape: AnyType?,
@@ -144,6 +144,9 @@ extension TypeChecker {
     case CondExpr.self:
       return inferredType(
         ofConditionalExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+    case FloatLiteralExpr.self:
+      return inferredType(
+        ofFloatLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
     case FunctionCallExpr.self:
       return inferredType(
         ofFunctionCallExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
@@ -289,6 +292,18 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
+    ofFloatLiteralExpr subject: NodeID<FloatLiteralExpr>,
+    shapedBy shape: AnyType?,
+    in scope: AnyScopeID,
+    updating state: inout State
+  ) -> AnyType {
+    let defaultType = ^ast.coreType(named: "Double")!
+    return inferredType(
+      ofLiteralExpr: subject, shapedBy: shape, defaultingTo: defaultType,
+      in: scope, updating: &state)
+  }
+
+  private mutating func inferredType(
     ofFunctionCallExpr subject: NodeID<FunctionCallExpr>,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
@@ -405,21 +420,10 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    let syntax = ast[subject]
-
-    let defaultType = AnyType(ast.coreType(named: "Int")!)
-    let cause = ConstraintCause(.literal, at: syntax.site)
-
-    // If there's an expected type, constrain it to conform to `ExpressibleByIntegerLiteral`.
-    // Otherwise, constraint the literal to have type `Int`.
-    if let e = shape {
-      let literalTrait = ast.coreTrait(named: "ExpressibleByIntegerLiteral")!
-      state.facts.append(
-        LiteralConstraint(e, defaultsTo: defaultType, conformsTo: literalTrait, because: cause))
-      return state.facts.constrain(subject, in: ast, toHaveType: e)
-    } else {
-      return state.facts.constrain(subject, in: ast, toHaveType: defaultType)
-    }
+    let defaultType = ^ast.coreType(named: "Int")!
+    return inferredType(
+      ofLiteralExpr: subject, shapedBy: shape, defaultingTo: defaultType,
+      in: scope, updating: &state)
   }
 
   private mutating func inferredType(
@@ -449,7 +453,7 @@ extension TypeChecker {
         return state.facts.assignErrorType(to: subject)
       }
 
-      subjectConventions = s.inputs.map({ (p) in ParameterType(p.type)?.convention ?? .let })
+      subjectConventions = s.inputs.map({ (p) in ParameterType(p.type)?.access ?? .let })
     } else {
       subjectConventions = nil
     }
@@ -796,10 +800,42 @@ extension TypeChecker {
     return state.facts.constrain(subject, in: ast, toHaveType: TupleType(elementTypes))
   }
 
+  /// Returns the inferred type of `literal`, updating `state` with inference facts and deferred
+  /// type checking requests.
+  ///
+  /// - Parameters:
+  ///   - literal: A literal expression.
+  ///   - shape: The shape of the type `subject` is expected to have given top-bottom information.
+  ///   - defaultType: The type inferred for `literal` if the context isn't sufficient to deduce
+  ///     another type.
+  ///   - scope: The innermost scope in which `literal` occurs.
+  ///   - state: A collection of inference facts and deferred type checking requests.
+  ///
+  /// - Requires: `subject` is a literal expression.
+  private mutating func inferredType<T: Expr>(
+    ofLiteralExpr subject: NodeID<T>,
+    shapedBy shape: AnyType?,
+    defaultingTo defaultType: AnyType,
+    in scope: AnyScopeID,
+    updating state: inout State
+  ) -> AnyType {
+    // If there's shape, it must conform to `ExpressibleBy***Literal`. Otherwise, constrain the
+    // subject to its default type.
+    let cause = ConstraintCause(.literal, at: ast[subject].site)
+    if let e = shape {
+      let literalTrait = ast.coreTrait(forTypesExpressibleBy: T.self)!
+      state.facts.append(
+        LiteralConstraint(e, defaultsTo: defaultType, conformsTo: literalTrait, because: cause))
+      return state.facts.constrain(subject, in: ast, toHaveType: e)
+    } else {
+      return state.facts.constrain(subject, in: ast, toHaveType: defaultType)
+    }
+  }
+
   // MARK: Patterns
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type
-  /// along, updating `state` with inference facts and deferred type checking requests.
+  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type,
+  /// updating `state` with inference facts and deferred type checking requests.
   mutating func inferredType(
     of subject: AnyPatternID,
     in scope: AnyScopeID,

@@ -22,15 +22,17 @@ public struct SourceFile {
   public var url: URL { storage.url }
 
   /// The start position of each line.
-  ///
-  /// - Invariant: always starts with `contents.startIndex` and ends with `contents.endIndex`, even
-  ///   if there's no final newline.
-  public var lineStarts: [Index] { storage.lineStarts }
+  private var lineStarts: [Index] { storage.lineStarts }
 
   /// Creates an instance representing the file at `filePath`.
   public init(contentsOf filePath: URL) throws {
     let storage = try Storage(filePath) { try String(contentsOf: filePath) }
     self.storage = storage
+  }
+
+  /// Creates an instance representing the at `filePath`.
+  public init<S: StringProtocol>(path filePath: S) throws {
+    try self.init(contentsOf: URL(fileURLWithPath: String(filePath)))
   }
 
   /// Creates a source file with the specified contents and a unique random `url`.
@@ -43,6 +45,9 @@ public struct SourceFile {
   public var baseName: String {
     url.deletingPathExtension().lastPathComponent
   }
+
+  /// The number of lines in the file.
+  public var lineCount: Int { storage.lineStarts.count }
 
   /// A range covering the whole contents of this instance.
   public var wholeRange: SourceRange {
@@ -60,30 +65,6 @@ public struct SourceFile {
   public subscript(_ range: SourceRange) -> Substring {
     precondition(range.file.url == url, "invalid range")
     return text[range.start ..< range.end]
-  }
-
-  /// The contents of the line in which `p` is defined.
-  ///
-  /// - Requires: `p` is a valid position in `self`.
-  public func lineContents(at p: SourcePosition) -> Substring {
-    precondition(p.file == self, "invalid position")
-
-    var lower = p.index
-    while lower > text.startIndex {
-      let predecessor = text.index(before: lower)
-      if text[predecessor].isNewline {
-        break
-      } else {
-        lower = predecessor
-      }
-    }
-
-    var upper = p.index
-    while upper < text.endIndex && !text[upper].isNewline {
-      upper = text.index(after: upper)
-    }
-
-    return text[lower ..< upper]
   }
 
   /// Returns the position corresponding to `i` in `text`.
@@ -114,11 +95,33 @@ public struct SourceFile {
     SourceRange(r, in: self)
   }
 
+  /// Returns the line containing `i`.
+  ///
+  /// - Requires: `i` is a valid index in `contents`.
+  /// - Complexity: O(log N) where N is the number of lines in `self`.
+  public func line(containing i: Index) -> SourceLine {
+    SourceLine(lineStarts.partitioningIndex(where: { $0 > i }), in: self)
+  }
+
+  /// Returns the line at 1-based index `lineNumber`.
+  public func line(_ lineNumber: Int) -> SourceLine {
+    SourceLine(lineNumber, in: self)
+  }
+
+  /// The bounds of given `line`, including any trailing newline.
+  public func bounds(of line: SourceLine) -> SourceRange {
+    let end = line.number < lineStarts.count ? lineStarts[line.number] : text.endIndex
+    return range(lineStarts[line.number - 1] ..< end)
+  }
+
   /// Returns the 1-based line and column numbers corresponding to `i`.
   ///
   /// - Requires: `i` is a valid index in `contents`.
+  ///
+  /// - Complexity: O(log N) + O(C) where N is the number of lines in `self` and C is the returned
+  ///   column number.
   func lineAndColumn(_ i: Index) -> (line: Int, column: Int) {
-    let lineNumber = lineStarts.partitioningIndex(where: { $0 > i })
+    let lineNumber = line(containing: i).number
     let columnNumber = text.distance(from: lineStarts[lineNumber - 1], to: i) + 1
     return (lineNumber, columnNumber)
   }
@@ -265,9 +268,6 @@ extension SourceFile {
     fileprivate let text: String
 
     /// The start position of each line.
-    ///
-    /// - Invariant: always starts with `contents.startIndex` and ends with `contents.endIndex`, even
-    ///   if there's no final newline.
     fileprivate let lineStarts: [Index]
 
     /// Creates an instance with the given properties.

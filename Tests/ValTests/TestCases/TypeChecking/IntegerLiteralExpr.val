@@ -1,16 +1,24 @@
 //! expect-failure
 
-fun use<T>(_ x: T) {}
+fun check<T>(_ x: T) {}
 
 public fun main() {
-  let x = 42
-  let _: Int = x
+  let i = 42
+  check<Int>(i)
 
-  let y: Double = 42
-  let _: Double = y
+  let i32: Int32 = 42
+  check<Int32>(i32)
 
-  let z: Int32 = 42
-  let _: Double = z //! diagnostic incompatible types 'Int32' and 'Double'
+  let i8: Int8 = 42
+  check<Int8>(i8)
 
-  let _: Bool = 42  //! diagnostic type 'Bool' does not conform to trait 'ExpressibleByIntegerLiteral'
+  let d: Double = 42
+  check<Double>(d)
+
+  let f: Float = 42
+  check<Float>(f)
+
+  let _: Double = i   //! diagnostic incompatible types 'Int' and 'Double'
+
+  let _: Bool = 42    //! diagnostic type 'Bool' does not conform to trait 'ExpressibleByIntegerLiteral'
 }

@@ -28,22 +28,20 @@ public struct Module {
   /// A map from function declaration its ID in the module.
   private var loweredFunctions: [FunctionDecl.Typed: Function.ID] = [:]
 
-  /// Creates an instance lowering `syntax` in `program`, reporting errors and warnings to
+  /// Creates an instance lowering `m` in `p`, reporting errors and warnings to
   /// `diagnostics`.
   ///
-  /// - Requires: `syntax` is a valid ID `program`.
+  /// - Requires: `m` is a valid ID in `p`.
   /// - Throws: `Diagnostics` if lowering fails.
   public init(
-    lowering syntax: NodeID<ModuleDecl>,
-    in program: TypedProgram,
-    diagnostics: inout DiagnosticSet
+    lowering m: NodeID<ModuleDecl>, in p: TypedProgram, diagnostics: inout DiagnosticSet
   ) throws {
-    self.program = program
-    self.syntax = program[syntax]
+    self.program = p
+    self.syntax = program[m]
 
     var emitter = Emitter(program: program)
-    for d in program.ast.topLevelDecls(syntax) {
-      emitter.emit(topLevel: program[d], into: &self, diagnostics: &diagnostics)
+    for d in program.ast.topLevelDecls(m) {
+      emitter.emit(topLevel: p[d], into: &self, diagnostics: &diagnostics)
     }
     try diagnostics.throwOnError()
   }
@@ -97,11 +95,6 @@ public struct Module {
   ///
   /// Use this method as a sanity check to verify the function's invariants.
   public func isWellFormed(function f: Function.ID) -> Bool {
-    for block in functions[f].blocks {
-      for instruction in block.instructions {
-        if !instruction.isWellFormed(in: self) { return false }
-      }
-    }
     return true
   }
 
@@ -125,8 +118,8 @@ public struct Module {
       for capture in declType.captures {
         switch capture.type.base {
         case let type as RemoteType:
-          precondition(type.capability != .yielded, "cannot lower yielded parameter")
-          inputs.append((convention: type.capability, type: .address(type.base)))
+          precondition(type.access != .yielded, "cannot lower yielded parameter")
+          inputs.append((convention: type.access, type: .address(type.bareType)))
 
         case let type:
           precondition(declType.receiverEffect != .yielded, "cannot lower yielded parameter")

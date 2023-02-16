@@ -75,7 +75,7 @@ public struct ValCommand: ParsableCommand {
     help: ArgumentHelp(
       "Enable tracing of type inference requests at the given line.",
       valueName: "file:line"))
-  private var inferenceTracingRange: SourceRange?
+  private var inferenceTracingSite: SourceLine?
 
   @Option(
     name: [.customLong("emit")],
@@ -135,57 +135,35 @@ public struct ValCommand: ParsableCommand {
 
     let productName = makeProductName(inputs)
 
-    /// The AST of the program being compiled.
     var ast = AST.coreModule
 
-    // Parse the source code.
-    let newModule = try ast.makeModule(
+    // The module whose Val files were given on the command-line
+    let sourceModule = try ast.makeModule(
       productName, sourceCode: sourceFiles(in: inputs),
-      builtinModuleAccess: importBuiltinModule,
-      diagnostics: &diagnostics)
+      builtinModuleAccess: importBuiltinModule, diagnostics: &diagnostics)
 
-    // Handle `--emit raw-ast`.
     if outputType == .rawAST {
-      let url = outputURL ?? URL(fileURLWithPath: productName + ".ast.json")
-      let encoder = JSONEncoder().forAST
-      try encoder.encode(ast).write(to: url, options: .atomic)
+      try write(ast, to: astFile(productName))
       return
     }
 
-    let typedProgram = try TypedProgram(
-      ast, tracingInferenceIn: inferenceTracingRange, diagnostics: &diagnostics)
-
-    // Exit if `--typecheck` is set.
+    let program = try TypedProgram(
+      ast, tracingInferenceIn: inferenceTracingSite, diagnostics: &diagnostics)
     if typeCheckOnly { return }
 
-    // *** IR Lowering ***
+    // IR
 
-    // Initialize the IR emitter.
-    var irModule = try Module(lowering: newModule, in: typedProgram, diagnostics: &diagnostics)
-
-    // Handle `--emit raw-ir`.
-    if outputType == .rawIR {
-      let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
-      try irModule.description.write(to: url, atomically: true, encoding: .utf8)
+    var sourceIR = try IR.Module(lowering: sourceModule, in: program, diagnostics: &diagnostics)
+    if outputType != .rawIR {
+      let pipeline = PassPipeline(withMandatoryPassesForModulesLoweredFrom: program)
+      try pipeline.apply(&sourceIR, reportingDiagnosticsInto: &diagnostics)
+    }
+    if outputType == .ir || outputType == .rawIR {
+      try sourceIR.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
 
-    do {
-      let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
-      try p.apply(&irModule, reportingDiagnosticsInto: &diagnostics)
-    } catch let d as DiagnosticSet {
-      diagnostics.formUnion(d)
-      return
-    }
-
-    // Handle `--emit ir`
-    if outputType == .ir {
-      let url = outputURL ?? URL(fileURLWithPath: productName + ".vir")
-      try irModule.description.write(to: url, atomically: true, encoding: .utf8)
-      return
-    }
-
-    // *** C++ Transpiling ***
+    // C++
 
     let clangFormat = try? find("clang-format")
     let codeFormatter: CodeTransform =
@@ -193,46 +171,40 @@ public struct ValCommand: ParsableCommand {
       ? clangFormatTransformation(URL(fileURLWithPath: clangFormat!))
       : identity()
 
-    // Initialize the transpiler & code writer.
-    let transpiler = CXXTranspiler(typedProgram)
-    var codeWriter = CXXCodeWriter(formatter: codeFormatter)
+    let cxxModules = (
+      core: program.cxx(program.corelib!, withFormatter: codeFormatter),
+      source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
+    )
 
-    // Generate C++ code: Val's StdLib + current module.
-    let cxxStdLibModule = transpiler.transpile(stdlib: typedProgram.corelib!)
-    let cxxStdLib = codeWriter.cxxCode(cxxStdLibModule)
-    let cxxCode = codeWriter.cxxCode(transpiler.transpile(typedProgram[newModule]))
-
-    // Handle `--emit cpp`.
     if outputType == .cpp {
-      try write(
-        cxxStdLib,
-        to: outputURL?.deletingLastPathComponent().appendingPathComponent(cxxStdLibModule.name)
-          ?? URL(fileURLWithPath: cxxStdLibModule.name),
-        loggingTo: &errorLog)
-      try write(
-        cxxCode,
-        to: outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName),
-        loggingTo: &errorLog)
+      try write(cxxModules.core, to: coreLibCXXOutputBase, loggingTo: &errorLog)
+      try write(cxxModules.source, to: sourceModuleCXXOutputBase(productName), loggingTo: &errorLog)
       return
     }
 
-    // *** Machine code generation ***
+    // Executables
 
     assert(outputType == .binary)
 
-    let buildDirectoryURL = try FileManager.default.url(
-      for: .itemReplacementDirectory,
-      in: .userDomainMask,
-      appropriateFor: currentDirectory,
-      create: true)
+    try writeExecutableCode(cxxModules, productName: productName, loggingTo: &errorLog)
+  }
 
-    // Write the C++ code to the build directory.
+  /// Given the transpiled core and source modules and the product name (whatever that means),
+  /// generates a binary product into a temporary build directory, logging errors to `errorLog`.
+  func writeExecutableCode<L: Log>(
+    _ cxxModules: (core: TypedProgram.CXXModule, source: TypedProgram.CXXModule),
+    productName: String,
+    loggingTo errorLog: inout L
+  ) throws {
+    let buildDirectory = FileManager.default.temporaryDirectory
+
     try write(
-      cxxStdLib,
-      to: buildDirectoryURL.appendingPathComponent(cxxStdLibModule.name),
+      cxxModules.core, to: buildDirectory.appendingPathComponent(CXXTranspiler.coreLibModuleName),
       loggingTo: &errorLog)
+
     try write(
-      cxxCode, to: buildDirectoryURL.appendingPathComponent(productName), loggingTo: &errorLog)
+      cxxModules.source, to: buildDirectory.appendingPathComponent(productName),
+      loggingTo: &errorLog)
 
     let clang = try find("clang++")
     let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
@@ -240,8 +212,8 @@ public struct ValCommand: ParsableCommand {
       clang,
       [
         "-o", binaryURL.path,
-        "-I", buildDirectoryURL.path,
-        buildDirectoryURL.appendingPathComponent(productName + ".cpp").path,
+        "-I", buildDirectory.path,
+        buildDirectory.appendingPathComponent(productName + ".cpp").path,
       ],
       loggingTo: &errorLog)
   }
@@ -256,12 +228,13 @@ public struct ValCommand: ParsableCommand {
     return "Main"
   }
 
-  /// Writes the code for a C++ translation unit to .h/.cpp files at `baseUrl`.
+  /// Writes the code for `m` to .h/.cpp files having the given `basePath`, logging diagnostics to
+  /// `log`.
   private func write<L: Log>(
-    _ source: TranslationUnitCode, to baseURL: URL, loggingTo log: inout L
+    _ m: TypedProgram.CXXModule, to basePath: URL, loggingTo log: inout L
   ) throws {
-    try write(source.headerCode, toURL: baseURL.appendingPathExtension("h"), loggingTo: &log)
-    try write(source.sourceCode, toURL: baseURL.appendingPathExtension("cpp"), loggingTo: &log)
+    try write(m.text.headerCode, toURL: basePath.appendingPathExtension("h"), loggingTo: &log)
+    try write(m.text.sourceCode, toURL: basePath.appendingPathExtension("cpp"), loggingTo: &log)
   }
 
   /// Writes `source` to the `filename`, possibly with verbose logging.
@@ -301,8 +274,8 @@ public struct ValCommand: ParsableCommand {
     // Search in the PATH(for Windows).
     #if os(Windows)
       let environmentPath = ProcessInfo.processInfo.environment["Path"] ?? ""
-      for base in environmentPath.split(separator: ";") {
-        candidateURL = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+      for bareType in environmentPath.split(separator: ";") {
+        candidateURL = URL(fileURLWithPath: String(bareType)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidateURL.path + ".exe") {
           ValCommand.executableLocationCache[executable] = candidateURL.path
           return candidateURL.path
@@ -311,8 +284,8 @@ public struct ValCommand: ParsableCommand {
     // Search in the PATH(for Linux and MacOS).
     #else
       let environmentPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
-      for base in environmentPath.split(separator: ":") {
-        candidateURL = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+      for bareType in environmentPath.split(separator: ":") {
+        candidateURL = URL(fileURLWithPath: String(bareType)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidateURL.path) {
           ValCommand.executableLocationCache[executable] = candidateURL.path
           return candidateURL.path
@@ -350,5 +323,52 @@ public struct ValCommand: ParsableCommand {
 
   /// A map from executable name to path of the named binary.
   private static var executableLocationCache: [String: String] = [:]
+
+  /// Writes a textual descriptioni of `input` to the given `output` file.
+  func write(_ input: AST, to output: URL) throws {
+    let encoder = JSONEncoder().forAST
+    try encoder.encode(input).write(to: output, options: .atomic)
+  }
+
+  /// Given the product name (whatever that means), returns the file to write when "raw-ast" is
+  /// selected as the output type.
+  private func astFile(_ productName: String) -> URL {
+    outputURL ?? URL(fileURLWithPath: productName + ".ast.json")
+  }
+
+  /// Given the product name (whatever that means), returns the file to write when "ir" or "raw-ir"
+  /// is selected as the output type.
+  private func irFile(_ productName: String) -> URL {
+    outputURL ?? URL(fileURLWithPath: productName + ".vir")
+  }
+
+  /// The base path (sans extension) of the `.cpp` and `.h` files representing the core library when
+  /// "cpp" is selected as the output type.
+  private var coreLibCXXOutputBase: URL {
+    outputURL?.deletingLastPathComponent()
+      .appendingPathComponent(CXXTranspiler.coreLibModuleName)
+      ?? URL(fileURLWithPath: CXXTranspiler.coreLibModuleName)
+  }
+
+  /// Given the product name (whatever that means), returns the base path (sans extension) of the
+  /// `.cpp` and `.h` files representing the module whose files are given on the command-line, when
+  /// "cpp" is selected as the output type.
+  private func sourceModuleCXXOutputBase(_ productName: String) -> URL {
+    outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
+  }
+
+}
+
+extension TypedProgram {
+
+  /// The bundle of products resulting from transpiling a module to C++.
+  typealias CXXModule = (syntax: CodeGenCXX.CXXModule, text: TranslationUnitCode)
+
+  /// Returns the C++ Transpilation of `m`.
+  func cxx(_ m: ModuleDecl.Typed, withFormatter formatter: @escaping CodeTransform) -> CXXModule {
+    let x = CXXTranspiler(self).cxx(m)
+    var w = CXXCodeWriter(formatter: formatter)
+    return (syntax: x, text: w.cxxCode(x))
+  }
 
 }

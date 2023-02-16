@@ -1,4 +1,4 @@
-/// A 32-bit signed integer value type.
+/// A 32-bit signed integer value.
 public type Int32 {
 
   var value: Builtin.i32

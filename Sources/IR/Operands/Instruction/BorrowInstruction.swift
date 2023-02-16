@@ -1,6 +1,6 @@
 import Core
 
-// Borrows an access on an object or sub-object.
+/// Borrows an access on an object.
 public struct BorrowInstruction: Instruction {
 
   /// The capability being borrowed.
@@ -12,26 +12,22 @@ public struct BorrowInstruction: Instruction {
   /// The location of the root object on which an access is borrowed.
   public let location: Operand
 
-  /// A sequence of indices identifying a sub-location of `location`.
-  public let path: [Int]
-
   /// The binding in source program to which the instruction corresponds, if any.
   public let binding: VarDecl.Typed?
 
   public let site: SourceRange
 
-  init(
-    _ capability: AccessEffect,
-    _ borrowedType: LoweredType,
-    from location: Operand,
-    at path: [Int] = [],
+  /// Creates an instance with the given properties.
+  fileprivate init(
+    borrowedType: LoweredType,
+    capability: AccessEffect,
+    location: Operand,
     binding: VarDecl.Typed? = nil,
     site: SourceRange
   ) {
     self.borrowedType = borrowedType
     self.capability = capability
     self.location = location
-    self.path = path
     self.binding = binding
     self.site = site
   }
@@ -42,17 +38,28 @@ public struct BorrowInstruction: Instruction {
 
   public var isTerminator: Bool { false }
 
-  public func isWellFormed(in module: Module) -> Bool {
-    // Capability may not be `sink`.
-    if capability == .sink { return false }
+}
 
-    // Instruction result has an address type.
-    if !borrowedType.isAddress { return false }
+extension Module {
 
-    // Operand has an address type.
-    if !module.type(of: location).isAddress { return false }
+  /// Creates a `borrow` anchored at `anchor` that takes `capability` from `source`.
+  ///
+  /// - Parameters:
+  ///   - capability: The capability being borrowed. Must be `.let`, `.inout`, or `.set`.
+  ///   - source: The address from which the capability is borrowed. Must have an address type.
+  func makeBorrow(
+    _ capability: AccessEffect,
+    from source: Operand,
+    anchoredAt anchor: SourceRange
+  ) -> BorrowInstruction {
+    precondition((capability == .let) || (capability == .inout) || (capability == .set))
+    precondition(type(of: source).isAddress)
 
-    return true
+    return BorrowInstruction(
+      borrowedType: type(of: source),
+      capability: capability,
+      location: source,
+      site: anchor)
   }
 
 }

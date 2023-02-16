@@ -21,8 +21,11 @@ public struct SourcePosition: Hashable {
     self.index = file.index(line: line, column: column)
   }
 
-  /// Returns the line and column number of this position.
-  public func lineAndColumn() -> (line: Int, column: Int) {
+  /// The line which `self` resides.
+  public var line: SourceLine { file.line(containing: index) }
+
+  /// The line and column number of this position.
+  public var lineAndColumn: (line: Int, column: Int) {
     let r = file.lineAndColumn(index)
     return (r.line, r.column)
   }
@@ -35,11 +38,6 @@ public struct SourcePosition: Hashable {
     return l.file.range(l.index ..< r.index)
   }
 
-  /// Returns the text of the line in which `self` resides.
-  public func textOfLine() -> Substring {
-    let l = lineAndColumn().line
-    return file.text[file.lineStarts[l - 1] ..< file.lineStarts[l]]
-  }
 }
 
 extension SourcePosition: Comparable {
@@ -78,7 +76,7 @@ extension SourcePosition: Codable {
 extension SourcePosition: CustomStringConvertible {
 
   public var description: String {
-    let (line, column) = lineAndColumn()
+    let (line, column) = lineAndColumn
     return "\(file.url.relativePath):\(line):\(column)"
   }
 

@@ -1,4 +1,5 @@
 import ArgumentParser
+import Utils
 import ValCommand
 import XCTest
 
@@ -70,25 +71,41 @@ final class ValCommandTests: XCTestCase {
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
+  func testParseFailure() throws {
+    let input = try url(forFileContaining: "fun x")
+    let result = try compile(input, with: [])
+    XCTAssertFalse(result.status.isSuccess)
+    XCTAssertEqual(
+      result.stderr,
+      """
+      \(input.relativePath):1:6: error: expected function signature
+      fun x
+           ^
+
+      """)
+  }
+
   func testTypeCheckSuccess() throws {
     let input = try url(forSourceNamed: "Success")
     let result = try compile(input, with: ["--typecheck"])
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testTypeCheckFailure() throws {
-    let input = try url(forSourceNamed: "Failure")
+    let input = try url(forFileContaining: "public fun main() { foo() }")
     let result = try compile(input, with: ["--typecheck"])
     XCTAssertFalse(result.status.isSuccess)
-
-    let expectedStandardError = """
-      \(input.relativePath):2:11: error: undefined name 'foo' in this scope
-        let x = foo()
-                ~~~
-
+    XCTAssertEqual(
+      result.stderr,
       """
-    XCTAssertEqual(expectedStandardError, result.stderr)
+      \(input.relativePath):1:21: error: undefined name 'foo' in this scope
+      public fun main() { foo() }
+                          ~~~
+
+      """)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   /// Returns the URL of the Val source file named `n`.
@@ -103,19 +120,21 @@ final class ValCommandTests: XCTestCase {
       file: file, line: line)
   }
 
+  /// Writes `s` to a temporary file and returns its URL.
+  private func url(forFileContaining s: String) throws -> URL {
+    let f = FileManager.default.temporaryFile()
+    try s.write(to: f, atomically: true, encoding: .utf8)
+    return f
+  }
+
   /// Compiles `input` with the given arguments and returns the compiler's exit status, the URL of
   /// the output file, and the contents of the standard error.
   private func compile(
     _ input: URL,
     with arguments: [String]
   ) throws -> CompilationResult {
-    // Create a temporary directory to write the output file.
-    let outputDirectory = try FileManager.default.url(
-      for: .itemReplacementDirectory,
-      in: .userDomainMask,
-      appropriateFor: input,
-      create: true)
-    let output = outputDirectory.appendingPathComponent("a.out")
+    // Create a temporary output.
+    let output = FileManager.default.temporaryFile()
 
     // Parse the command line's arguments.
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
@@ -124,6 +143,15 @@ final class ValCommandTests: XCTestCase {
     var stderr = ""
     let status = try cli.execute(loggingTo: &stderr)
     return CompilationResult(status: status, output: output, stderr: stderr)
+  }
+
+}
+
+extension FileManager {
+
+  /// Returns the URL of a temporary file.
+  func temporaryFile() -> URL {
+    temporaryDirectory.appendingPathComponent("\(UUID())")
   }
 
 }

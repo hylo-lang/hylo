@@ -108,6 +108,8 @@ public struct DefiniteInitializationPass {
           interpret(deinit: user, in: &newContext)
         case is DestructureInstruction:
           interpret(destructure: user, in: &newContext)
+        case is ElementAddrInstruction:
+          interpret(elementAddr: user, in: &newContext)
         case is EndBorrowInstruction:
           continue
         case is LLVMInstruction:
@@ -157,16 +159,16 @@ public struct DefiniteInitializationPass {
       let borrow = module[i] as! BorrowInstruction
 
       // Operand must a location.
-      let locations: [MemoryLocation]
+      let locations: Set<MemoryLocation>
       if let k = FunctionLocal(operand: borrow.location) {
-        locations = context.locals[k]!.unwrapLocations()!.map({ $0.appending(borrow.path) })
+        locations = context.locals[k]!.unwrapLocations()!
       } else {
         // Operand is a constant.
         fatalError("not implemented")
       }
 
       // Objects at each location have the same state unless DI or LoE has been broken.
-      let o = context.withObject(at: locations[0], typedIn: module.program, { $0 })
+      let o = context.withObject(at: locations.first!, typedIn: module.program, { $0 })
 
       switch borrow.capability {
       case .let, .inout:
@@ -189,29 +191,28 @@ public struct DefiniteInitializationPass {
 
       case .set:
         // `set` requires the borrowed object to be uninitialized.
-        let initializedPaths: [SubobjectPath]
+        let initializedPaths: [PartPath]
         switch o.value {
         case .full(.initialized):
-          initializedPaths = [borrow.path]
+          initializedPaths = [[]]
         case .full(.uninitialized), .full(.consumed):
           initializedPaths = []
         case .partial:
-          initializedPaths = o.value.paths!.initialized.map({ borrow.path + $0 })
+          initializedPaths = o.value.paths!.initialized
         }
 
         // Nothing to do if the location is already uninitialized.
         if initializedPaths.isEmpty { break }
 
         // Deinitialize the object(s) at the location.
-        let rootType = module.type(of: borrow.location).astType
         for path in initializedPaths {
-          let t = AbstractTypeLayout(of: rootType, definedIn: module.program)[path].type
-          let o = module.insert(
-            LoadInstruction(.object(t), from: borrow.location, at: path, site: borrow.site),
+          let s = module.insert(
+            module.makeElementAddr(borrow.location, at: path, anchoredAt: borrow.site),
             before: i)[0]
-          module.insert(
-            DeinitInstruction(o, site: borrow.site),
-            before: i)
+          let o = module.insert(
+            module.makeLoad(s, anchoredAt: borrow.site),
+            before: i)[0]
+          module.insert(module.makeDeinit(o, anchoredAt: borrow.site), before: i)
         }
 
         // Apply the effects of the new instructions.
@@ -235,12 +236,18 @@ public struct DefiniteInitializationPass {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) {
       let call = module[i] as! CallInstruction
-      for (c, o) in zip(call.conventions, call.operands) {
-        switch c {
+      let calleeType = LambdaType(module.type(of: call.callee).astType)!
+
+      if calleeType.receiverEffect == .sink {
+        context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
+      }
+
+      for (p, a) in zip(calleeType.inputs, call.operands) {
+        switch ParameterType(p.type)!.access {
         case .let, .inout, .set:
           continue
         case .sink:
-          context.consume(o, with: i, at: call.site, diagnostics: &diagnostics)
+          context.consume(a, with: i, at: call.site, diagnostics: &diagnostics)
         case .yielded:
           unreachable()
         }
@@ -259,7 +266,7 @@ public struct DefiniteInitializationPass {
       let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
 
       // Make sure the memory at the deallocated location is consumed or uninitialized.
-      let initializedPaths: [SubobjectPath] = context.withObject(
+      let initializedPaths: [PartPath] = context.withObject(
         at: l, typedIn: module.program,
         { (o) in
           switch o.value {
@@ -273,20 +280,22 @@ public struct DefiniteInitializationPass {
         })
 
       for p in initializedPaths {
-        let t = AbstractTypeLayout(of: alloc.allocatedType, definedIn: module.program)[p]
-        let o = module.insert(
-          LoadInstruction(.object(t.type), from: dealloc.location, at: p, site: dealloc.site),
+        let s = module.insert(
+          module.makeElementAddr(dealloc.location, at: p, anchoredAt: dealloc.site),
           before: i)[0]
-        module.insert(
-          DeinitInstruction(o, site: dealloc.site), before: i)
+        let o = module.insert(
+          module.makeLoad(s, anchoredAt: dealloc.site),
+          before: i)[0]
+        module.insert(module.makeDeinit(o, anchoredAt: dealloc.site), before: i)
 
         // Apply the effects of the new instructions.
         let consumer = InstructionID(
           i.function, i.block,
           module[i.function][i.block].instructions.address(before: i.address)!)
 
+        let l = AbstractTypeLayout(of: alloc.allocatedType, definedIn: module.program)[p]
         context.locals[FunctionLocal(i, 0)] = .object(
-          Object(layout: t, value: .full(.consumed(by: [consumer]))))
+          Object(layout: l, value: .full(.consumed(by: [consumer]))))
       }
 
       // Erase the deallocated memory from the context.
@@ -300,9 +309,25 @@ public struct DefiniteInitializationPass {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(elementAddr i: InstructionID, in context: inout Context) {
+      let addr = module[i] as! ElementAddrInstruction
+
+      // Operand must a location.
+      let locations: [MemoryLocation]
+      if let k = FunctionLocal(operand: addr.base) {
+        locations = context.locals[k]!.unwrapLocations()!.map({ $0.appending(addr.elementPath) })
+      } else {
+        // Operand is a constant.
+        fatalError("not implemented")
+      }
+
+      context.locals[FunctionLocal(i, 0)] = .locations(Set(locations))
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(destructure i: InstructionID, in context: inout Context) {
       let x = module[i] as! DestructureInstruction
-      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
+      context.consume(x.whole, with: i, at: x.site, diagnostics: &diagnostics)
 
       assignObjectRegisters(createdBy: i, in: &context)
     }
@@ -318,9 +343,9 @@ public struct DefiniteInitializationPass {
       let load = module[i] as! LoadInstruction
 
       // Operand must be a location.
-      let locations: [MemoryLocation]
+      let locations: Set<MemoryLocation>
       if let k = FunctionLocal(operand: load.source) {
-        locations = context.locals[k]!.unwrapLocations()!.map({ $0.appending(load.path) })
+        locations = context.locals[k]!.unwrapLocations()!
       } else {
         // Operand is a constant.
         fatalError("not implemented")
@@ -363,7 +388,7 @@ public struct DefiniteInitializationPass {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) {
       let x = module[i] as! ReturnInstruction
-      context.consume(x.value, with: i, at: x.site, diagnostics: &diagnostics)
+      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -441,9 +466,6 @@ public struct DefiniteInitializationPass {
 
 extension DefiniteInitializationPass {
 
-  /// A sequence of property offsets identifying a sub-object.
-  fileprivate typealias SubobjectPath = [Int]
-
   /// An abstract memory location.
   fileprivate enum MemoryLocation: Hashable {
 
@@ -465,12 +487,12 @@ extension DefiniteInitializationPass {
     ///
     /// - Note: Use `appending(_:)` to create instances of this case.
     /// - Requires: `root` is `.argument` or `.instruction` and `path` is not empty.
-    indirect case sublocation(root: MemoryLocation, path: SubobjectPath)
+    indirect case sublocation(root: MemoryLocation, path: PartPath)
 
     /// Returns a new locating created by appending `suffix` to this one.
     ///
     /// - Requires: `self` is not `.null`.
-    func appending(_ suffix: SubobjectPath) -> MemoryLocation {
+    func appending(_ suffix: PartPath) -> MemoryLocation {
       if suffix.isEmpty { return self }
 
       switch self {
@@ -573,7 +595,7 @@ extension DefiniteInitializationPass {
       ///
       /// - Requires: `self` is canonical.
       private func gatherSubobjectPaths(
-        prefixedBy prefix: SubobjectPath,
+        prefixedBy prefix: PartPath,
         into paths: inout PartPaths
       ) {
         guard case .partial(let subobjects) = self else { return }
@@ -616,7 +638,7 @@ extension DefiniteInitializationPass {
       /// consumed in `r`.
       ///
       /// - Requires: `lhs` and `rhs` are canonical and have the same layout
-      static func - (l: Self, r: Self) -> [SubobjectPath] {
+      static func - (l: Self, r: Self) -> [PartPath] {
         switch (l, r) {
         case (.full(.initialized), let rhs):
           if let p = rhs.paths {
@@ -650,13 +672,13 @@ extension DefiniteInitializationPass {
     struct PartPaths {
 
       /// The paths to the initialized parts.
-      var initialized: [SubobjectPath]
+      var initialized: [PartPath]
 
       /// The paths to the uninitialized parts.
-      var uninitialized: [SubobjectPath]
+      var uninitialized: [PartPath]
 
       /// The paths to the consumed parts, along with the users that consumed them.
-      var consumed: [(path: SubobjectPath, consumers: Consumers)]
+      var consumed: [(path: PartPath, consumers: Consumers)]
 
     }
 

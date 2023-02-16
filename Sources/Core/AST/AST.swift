@@ -126,7 +126,7 @@ public struct AST {
     return nil
   }
 
-  /// Returns the trait named `name` defined in the core library or `nil` if it doesn not exist.
+  /// Returns the trait named `name` defined in the core library or `nil` if it does not exist.
   ///
   /// - Requires: The core library must be loaded and assigned to `self.corelib`.
   public func coreTrait(named name: String) -> TraitType? {
@@ -142,6 +142,21 @@ public struct AST {
     return nil
   }
 
+  /// Returns the trait describing types whose instances are expressible by this literal or `nil`
+  /// if it does not exist.
+  ///
+  /// - Requires: The core library must be loaded and assigned to `self.corelib`.
+  public func coreTrait<T: Expr>(forTypesExpressibleBy literal: T.Type) -> TraitType? {
+    switch literal.kind {
+    case FloatLiteralExpr.self:
+      return coreTrait(named: "ExpressibleByFloatLiteral")
+    case IntegerLiteralExpr.self:
+      return coreTrait(named: "ExpressibleByIntegerLiteral")
+    default:
+      return nil
+    }
+  }
+
   // MARK: Helpers
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
@@ -149,30 +164,29 @@ public struct AST {
     self[self[module].sources].map(\.decls).joined()
   }
 
-  /// Returns the IDs of the named patterns contained in `pattern`.
-  public func names<T: PatternID>(in pattern: T) -> [(path: [Int], pattern: NodeID<NamePattern>)] {
+  /// Returns the paths and IDs of the named patterns contained in `p`.
+  public func names<T: PatternID>(in p: T) -> [(path: PartPath, pattern: NodeID<NamePattern>)] {
     func visit(
       pattern: AnyPatternID,
-      path: [Int],
-      result: inout [(path: [Int], pattern: NodeID<NamePattern>)]
+      path: PartPath,
+      result: inout [(path: PartPath, pattern: NodeID<NamePattern>)]
     ) {
       switch pattern.kind {
       case BindingPattern.self:
-        let p = NodeID<BindingPattern>(pattern)!
-        visit(pattern: self[p].subpattern, path: path, result: &result)
+        let x = NodeID<BindingPattern>(pattern)!
+        visit(pattern: self[x].subpattern, path: path, result: &result)
 
       case ExprPattern.self:
         break
 
       case NamePattern.self:
-        let p = NodeID<NamePattern>(pattern)!
-        result.append((path: path, pattern: p))
+        result.append((path: path, pattern: NodeID<NamePattern>(pattern)!))
 
       case TuplePattern.self:
-        let p = NodeID<TuplePattern>(pattern)!
-        for i in 0 ..< self[p].elements.count {
+        let x = NodeID<TuplePattern>(pattern)!
+        for i in 0 ..< self[x].elements.count {
           visit(
-            pattern: self[p].elements[i].pattern,
+            pattern: self[x].elements[i].pattern,
             path: path + [i],
             result: &result)
         }
@@ -185,8 +199,8 @@ public struct AST {
       }
     }
 
-    var result: [(path: [Int], pattern: NodeID<NamePattern>)] = []
-    visit(pattern: AnyPatternID(pattern), path: [], result: &result)
+    var result: [(path: PartPath, pattern: NodeID<NamePattern>)] = []
+    visit(pattern: AnyPatternID(p), path: [], result: &result)
     return result
   }
 
