@@ -149,6 +149,7 @@ public struct ValCommand: ParsableCommand {
 
     let program = try TypedProgram(
       ast, tracingInferenceIn: inferenceTracingSite, diagnostics: &diagnostics)
+    if typeCheckOnly { return }
 
     // IR
 
