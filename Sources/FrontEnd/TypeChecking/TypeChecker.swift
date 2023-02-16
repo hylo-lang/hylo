@@ -2931,18 +2931,21 @@ public struct TypeChecker {
 
   /// Returns the overarching type of `d`.
   ///
-  /// - Requires: The containing function or subscript declaration must have been realized.
+  /// - Requires: `d` has atype annotation.
   private mutating func realize(parameterDecl d: NodeID<ParameterDecl>) -> AnyType {
-    switch declRequests[d] {
-    case nil:
-      preconditionFailure()
+    _realize(decl: d) { (this, d) in
+      let a = this.ast[d].annotation ?? preconditionFailure("no type annotation")
+      let s = this.program.declToScope[d]!
+      guard let parameterType = this.realize(parameter: a, in: s)?.instance else {
+        return .error
+      }
 
-    case .typeRealizationStarted:
-      diagnostics.insert(.error(circularDependencyAt: ast[d].site))
-      return .error
-
-    case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:
-      return declTypes[d]!
+      // The annotation may not omit generic arguments.
+      if parameterType[.hasVariable] {
+        this.diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: this.ast[a].site))
+        return .error
+      }
+      return parameterType
     }
   }
 
@@ -2956,26 +2959,13 @@ public struct TypeChecker {
   ) -> [CallableTypeParameter]? {
     typealias R = (inputs: [CallableTypeParameter], containsError: Bool)
     let result: R = parameters.reduce(into: ([], false)) { (result, d) in
-      declRequests[d] = .typeCheckingStarted
-
-      let a = ast[d].annotation ?? preconditionFailure("no type annotation")
-      if let parameterType = realize(parameter: a, in: containingDecl)?.instance {
-        // The annotation may not omit generic arguments.
-        if parameterType[.hasVariable] {
-          diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[a].site))
-          result.containsError = true
-        }
-
-        declTypes[d] = parameterType
-        declRequests[d] = .typeRealizationCompleted
-        result.inputs.append(.init(label: ast[d].label?.value, type: parameterType))
+      let t = realize(parameterDecl: d)
+      if !t[.hasError] {
+        result.inputs.append(.init(label: ast[d].label?.value, type: t))
       } else {
-        declTypes[d] = .error
-        declRequests[d] = .failure
         result.containsError = true
       }
     }
-
     return result.containsError ? nil : result.inputs
   }
 
