@@ -2711,49 +2711,23 @@ public struct TypeChecker {
     functionDecl d: NodeID<FunctionDecl>,
     with conventions: [AccessEffect]? = nil
   ) -> AnyType {
-    if let requiredParameterConventions = conventions {
-      precondition(requiredParameterConventions.count == ast[d].parameters.count)
-    }
-    var success = true
-
     // Realize the input types.
     var inputs: [CallableTypeParameter] = []
     for (i, p) in ast[d].parameters.enumerated() {
-      declRequests[p] = .typeCheckingStarted
-
-      if let annotation = ast[p].annotation {
-        if let t = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
-          // The annotation may not omit generic arguments.
-          if t[.hasVariable] {
-            diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
-            success = false
-          }
-
-          declTypes[p] = t
-          declRequests[p] = .typeRealizationCompleted
-          inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
-        } else {
-          declTypes[p] = .error
-          declRequests[p] = .failure
-          success = false
-        }
+      let t: AnyType
+      if ast[p].annotation != nil {
+        t = realize(parameterDecl: p)
+      } else if ast[d].isInExprContext {
+        // Annotations may be elided in lambda expressions. In that case, unannotated parameters
+        // are given a fresh type variable so that inference can proceed.
+        t = ^ParameterType(conventions?[i] ?? .let, ^TypeVariable(node: AnyNodeID(p)))
+        declTypes[p] = t
+        declRequests[p] = .typeRealizationCompleted
       } else {
-        // Note: parameter type annotations may be elided if the declaration represents a lambda
-        // expression. In that case, the unannotated parameters are associated with a fresh type
-        // variable, so inference can proceed.
-        if ast[d].isInExprContext {
-          let t = ^ParameterType((conventions?[i]) ?? .let, ^TypeVariable(node: AnyNodeID(p)))
-          declTypes[p] = t
-          declRequests[p] = .typeRealizationCompleted
-          inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
-        } else {
-          unreachable("expected type annotation")
-        }
+        unreachable("expected type annotation")
       }
+      inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
     }
-
-    // Bail out if the parameters could not be realized.
-    if !success { return .error }
 
     // Collect captures.
     var explicitCaptureNames: Set<Name> = []
