@@ -224,6 +224,15 @@ public struct TypeChecker {
     declRequests[d] = .typeRealizationCompleted
   }
 
+  /// Mark that type checking failed for `d`.
+  ///
+  /// - Requires: `d` has not gone through type checking yet.
+  mutating func setFailed<T: DeclID>(_ d: T) {
+    precondition((declRequests[d] != .success) && (declRequests[d] != .failure))
+    declTypes[d] = .error
+    declRequests[d] = .failure
+  }
+
   /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
   ///
   /// - Requires: `m` is a valid ID in the type checker's AST.
@@ -565,7 +574,7 @@ public struct TypeChecker {
   ) -> Bool {
     // Check for duplicate parameter names.
     if !siblingNames.insert(ast[id].baseName).inserted {
-      diagnostics.insert(.diganose(duplicateParameterNamed: ast[id].baseName, at: ast[id].site))
+      diagnostics.insert(.error(duplicateParameterNamed: ast[id].baseName, at: ast[id].site))
       declRequests[id] = .failure
       return false
     }
@@ -2645,7 +2654,7 @@ public struct TypeChecker {
     case MethodDecl.self:
       return realize(methodDecl: NodeID(d)!)
     case MethodImpl.self:
-      return realize(methodDecl: NodeID(program.declToScope[d]!)!)
+      return realize(methodImpl: NodeID(d)!)
     case ParameterDecl.self:
       return realize(parameterDecl: NodeID(d)!)
     case ProductTypeDecl.self:
@@ -2882,9 +2891,8 @@ public struct TypeChecker {
       outputType = .void
     }
 
-    // Create a method bundle.
-    let capabilities = Set(ast[ast[d].impls].map(\.introducer.value))
-    if capabilities.contains(.inout) && (outputType != receiver) {
+    var variants = Set(ast[ast[d].impls].map(\.introducer.value))
+    if variants.contains(.inout) && (outputType != receiver) {
       diagnostics.insert(
         .error(
           inoutCapableMethodBundleMustReturn: receiver,
@@ -2892,11 +2900,33 @@ public struct TypeChecker {
       return .error
     }
 
-    return ^MethodType(
-      capabilities: capabilities,
+    let m = MethodType(
+      capabilities: variants,
       receiver: receiver,
       inputs: inputs,
       output: outputType)
+
+    for v in ast[d].impls {
+      let x = ast[v].introducer.value
+      if variants.remove(x) == nil {
+        diagnostics.insert(.error(duplicateVariant: x, at: ast[v].introducer.site))
+        setFailed(v)
+      } else {
+        declRequests[v] = .typeRealizationCompleted
+        declTypes[v] = ^LambdaType(m, for: x)!
+      }
+    }
+
+    return ^m
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(methodImpl d: NodeID<MethodImpl>) -> AnyType {
+    // `declTypes[d]` is set by the realization of the containing method declaration.
+    _realize(decl: d) { (this, d) in
+      _ = this.realize(methodDecl: NodeID(this.program.declToScope[d]!)!)
+      return this.declTypes[d] ?? .error
+    }
   }
 
   /// Returns the overarching type of `d`.

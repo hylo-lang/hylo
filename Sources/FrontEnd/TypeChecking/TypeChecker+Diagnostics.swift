@@ -51,8 +51,12 @@ extension Diagnostic {
     .error("duplicate operator declaration '\(name)'", at: site)
   }
 
-  static func diganose(duplicateParameterNamed name: String, at site: SourceRange) -> Diagnostic {
+  static func error(duplicateParameterNamed name: String, at site: SourceRange) -> Diagnostic {
     .error("duplicate parameter name '\(name)'", at: site)
+  }
+
+  static func error(duplicateVariant v: AccessEffect, at site: SourceRange) -> Diagnostic {
+    .error("duplicate variant '\(v)'", at: site)
   }
 
   static func error(nameRefersToValue expr: NodeID<NameExpr>, in ast: AST) -> Diagnostic {
@@ -68,10 +72,10 @@ extension Diagnostic {
       "memberwise initializer declaration may only appear in product type declaration", at: site)
   }
 
-  static func error(illegalParameterConvention convention: AccessEffect, at site: SourceRange)
-    -> Diagnostic
-  {
-    .error("'\(convention)' may only be used on parameters", at: site)
+  static func error(
+    illegalParameterConvention c: AccessEffect, at site: SourceRange
+  ) -> Diagnostic {
+    .error("'\(c)' may only be used on parameters", at: site)
   }
 
   static func error(
@@ -146,9 +150,9 @@ extension Diagnostic {
     .error("type '\(type)' does not conform to trait '\(trait)'", at: site, notes: notes)
   }
 
-  static func error(invalidConformanceConstraintTo type: AnyType, at site: SourceRange)
-    -> Diagnostic
-  {
+  static func error(
+    invalidConformanceConstraintTo type: AnyType, at site: SourceRange
+  ) -> Diagnostic {
     .error(
       """
       type '\(type)' in conformance constraint does not refers to a generic parameter or \
