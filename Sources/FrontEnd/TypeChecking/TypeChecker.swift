@@ -2901,7 +2901,7 @@ public struct TypeChecker {
 
   /// Returns the overarching type of `d`.
   ///
-  /// - Requires: `d` has atype annotation.
+  /// - Requires: `d` has a type annotation.
   private mutating func realize(parameterDecl d: NodeID<ParameterDecl>) -> AnyType {
     _realize(decl: d) { (this, d) in
       let a = this.ast[d].annotation ?? preconditionFailure("no type annotation")
