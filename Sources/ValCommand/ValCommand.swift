@@ -165,11 +165,9 @@ public struct ValCommand: ParsableCommand {
 
     // C++
 
-    let clangFormat = try? find("clang-format")
-    let codeFormatter: CodeTransform =
-      clangFormat != nil
-      ? clangFormatTransformation(URL(fileURLWithPath: clangFormat!))
-      : identity()
+    let codeFormatter: CodeTransform? = (try? find("clang-format")).map({
+      clangFormatter(URL(fileURLWithPath: $0))
+    })
 
     let cxxModules = (
       core: program.cxx(program.corelib!, withFormatter: codeFormatter),
@@ -365,7 +363,7 @@ extension TypedProgram {
   typealias CXXModule = (syntax: CodeGenCXX.CXXModule, text: TranslationUnitCode)
 
   /// Returns the C++ Transpilation of `m`.
-  func cxx(_ m: ModuleDecl.Typed, withFormatter formatter: @escaping CodeTransform) -> CXXModule {
+  func cxx(_ m: ModuleDecl.Typed, withFormatter formatter: CodeTransform?) -> CXXModule {
     let x = CXXTranspiler(self).cxx(m)
     var w = CXXCodeWriter(formatter: formatter)
     return (syntax: x, text: w.cxxCode(x))
