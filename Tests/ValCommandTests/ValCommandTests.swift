@@ -68,6 +68,7 @@ final class ValCommandTests: XCTestCase {
     let input = try url(forSourceNamed: "Success")
     let result = try compile(input, with: ["--typecheck"])
     result.assertSuccess(checkOutput: false)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testTypeCheckFailure() throws {
@@ -82,6 +83,7 @@ final class ValCommandTests: XCTestCase {
                           ~~~
 
       """)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   /// Returns the URL of the Val source file named `n`.

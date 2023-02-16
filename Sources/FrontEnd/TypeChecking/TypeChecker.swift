@@ -32,7 +32,7 @@ public struct TypeChecker {
   public var isBuiltinModuleVisible: Bool
 
   /// The site for which type inference tracing is enabled, if any.
-  public let inferenceTracingRange: SourceRange?
+  public let inferenceTracingSite: SourceLine?
 
   /// Creates a new type checker for the specified program.
   ///
@@ -41,11 +41,11 @@ public struct TypeChecker {
   public init(
     program: ScopedProgram,
     isBuiltinModuleVisible: Bool = false,
-    tracingInferenceIn inferenceTracingRange: SourceRange? = nil
+    tracingInferenceIn inferenceTracingSite: SourceLine? = nil
   ) {
     self.program = program
     self.isBuiltinModuleVisible = isBuiltinModuleVisible
-    self.inferenceTracingRange = inferenceTracingRange
+    self.inferenceTracingSite = inferenceTracingSite
   }
 
   /// The AST of the program being type checked.
@@ -1566,8 +1566,8 @@ public struct TypeChecker {
   ) -> (succeeded: Bool, solution: Solution) {
     // Determine whether tracing should be enabled.
     let shouldLogTrace: Bool
-    if let tracingSite = inferenceTracingRange,
-      tracingSite.contains(ast[subject].site.first())
+    if let tracingSite = inferenceTracingSite,
+      tracingSite.bounds.contains(ast[subject].site.first())
     {
       let subjectSite = ast[subject].site
       shouldLogTrace = true

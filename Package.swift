@@ -101,6 +101,11 @@ let package = Package(
       path: "Tests/TestUtils",
       swiftSettings: allTargetsSwiftSettings),
     .testTarget(
+      name: "UtilsTests",
+      dependencies: ["Utils"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
       name: "ValTests",
       dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR", "TestUtils"],
       resources: [.copy("TestCases")],

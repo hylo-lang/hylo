@@ -179,10 +179,8 @@ public struct Emitter {
     precondition(program.isLocal(decl.id))
     precondition(reading(decl.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
-    /// A map from object path to its corresponding (sub-)object during destruction.
-    var objects: [[Int]: Operand] = [:]
-
-    // Emit the initializer, if any.
+    /// A map from object path to its corresponding (sub-)object during destructuring.
+    var objects: [PartPath: Operand] = [:]
     if let initializer = decl.initializer {
       objects[[]] = emitRValue(initializer, into: &module)
     }
@@ -196,36 +194,21 @@ public struct Emitter {
       frames[name.decl] = storage
 
       if let initializer = decl.initializer {
-        // Determine the object corresponding to the current name.
-        var rhsType = initializer.type
+        // Initialize (sub-)object corresponding to the current name.
         for i in 0 ..< path.count {
           // Make sure the initializer has been destructured deeply enough.
-          let subpath = Array(path[0 ..< i])
-          if objects[subpath] != nil { continue }
+          if objects[PartPath(path[...i])] != nil { continue }
 
-          let layout = AbstractTypeLayout(of: rhsType, definedIn: program)
-          rhsType = layout[i].type
-
-          let wholePath = Array(path[0 ..< (i - 1)])
-          let whole = objects[wholePath]!
-          let parts = module.append(
-            module.makeDestructure(whole, anchoredAt: initializer.site),
+          // Destructure the (sub-)object.
+          let subobject = PartPath(path[..<i])
+          let subobjectParts = module.append(
+            module.makeDestructure(objects[subobject]!, anchoredAt: initializer.site),
             to: insertionBlock!)
-
-          for j in 0 ..< parts.count {
-            objects[wholePath + [j]] = parts[j]
+          for j in 0 ..< subobjectParts.count {
+            objects[subobject + [j]] = subobjectParts[j]
           }
         }
-
-        // Borrow the storage for initialization corresponding to the current name.
-        let target = module.append(
-          module.makeBorrow(.set, from: storage, anchoredAt: name.site),
-          to: insertionBlock!)[0]
-
-        // Store the corresponding (part of) the initializer.
-        module.append(
-          module.makeStore(objects[path]!, at: target, anchoredAt: name.site),
-          to: insertionBlock!)
+        emitInitialization(of: storage, to: objects[path]!, anchoredAt: name.site, into: &module)
       }
     }
   }
@@ -261,12 +244,7 @@ public struct Emitter {
         frames.top.allocs.append(storage)
         source = storage
 
-        let target = module.append(
-          module.makeBorrow(.set, from: storage, anchoredAt: pattern.site),
-          to: insertionBlock!)[0]
-        module.append(
-          module.makeStore(value, at: target, anchoredAt: pattern.site),
-          to: insertionBlock!)
+        emitInitialization(of: source, to: value, anchoredAt: pattern.site, into: &module)
       }
 
       for (path, name) in pattern.subpattern.names {
@@ -512,13 +490,8 @@ public struct Emitter {
     case .expr(let thenExpr):
       frames.push()
       let value = emitRValue(program[thenExpr], into: &module)
-      if let target = resultStorage {
-        let target = module.append(
-          module.makeBorrow(.set, from: target, anchoredAt: program[thenExpr].site),
-          to: insertionBlock!)[0]
-        module.append(
-          module.makeStore(value, at: target, anchoredAt: program[thenExpr].site),
-          to: insertionBlock!)
+      if let s = resultStorage {
+        emitInitialization(of: s, to: value, anchoredAt: program[thenExpr].site, into: &module)
       }
       emitStackDeallocs(in: &module, site: expr.site)
       frames.pop()
@@ -534,13 +507,8 @@ public struct Emitter {
     case .expr(let elseExpr):
       frames.push()
       let value = emitRValue(program[elseExpr], into: &module)
-      if let target = resultStorage {
-        let target = module.append(
-          module.makeBorrow(.set, from: target, anchoredAt: program[elseExpr].site),
-          to: insertionBlock!)[0]
-        module.append(
-          module.makeStore(value, at: target, anchoredAt: program[elseExpr].site),
-          to: insertionBlock!)
+      if let s = resultStorage {
+        emitInitialization(of: s, to: value, anchoredAt: program[elseExpr].site, into: &module)
       }
       emitStackDeallocs(in: &module, site: expr.site)
       frames.pop()
@@ -937,13 +905,7 @@ public struct Emitter {
       to: insertionBlock!)[0]
     frames.top.allocs.append(storage)
 
-    let target = module.append(
-      module.makeBorrow(.set, from: storage, anchoredAt: syntax.site),
-      to: insertionBlock!)[0]
-    module.append(
-      module.makeStore(value, at: target, anchoredAt: syntax.site),
-      to: insertionBlock!)
-
+    emitInitialization(of: storage, to: value, anchoredAt: syntax.site, into: &module)
     return storage
   }
 
@@ -1013,6 +975,22 @@ public struct Emitter {
   }
 
   // MARK: Helpers
+
+  /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
+  /// block, anchoring new instructions at `anchor`.
+  private mutating func emitInitialization(
+    of storage: Operand,
+    to value: Operand,
+    anchoredAt anchor: SourceRange,
+    into module: inout Module
+  ) {
+    let s = module.append(
+      module.makeBorrow(.set, from: storage, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeStore(value, at: s, anchoredAt: anchor),
+      to: insertionBlock!)
+  }
 
   /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
   private mutating func emitStackDeallocs(in module: inout Module, site: SourceRange) {
