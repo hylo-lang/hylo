@@ -1,4 +1,4 @@
-import TestUtils
+import TestSupport
 import XCTest
 
 extension TestAnnotation {

@@ -1,7 +1,7 @@
 import CodeGenCXX
 import Core
 import FrontEnd
-import TestUtils
+import TestSupport
 import Utils
 import XCTest
 

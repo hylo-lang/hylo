@@ -96,10 +96,11 @@ let package = Package(
 
     // Test targets.
     .target(
-      name: "TestUtils",
+      name: "TestSupport",
       dependencies: ["Utils", "Core", "FrontEnd"],
-      path: "Tests/TestUtils",
+      path: "Tests/TestSupport",
       swiftSettings: allTargetsSwiftSettings),
+
     .testTarget(
       name: "UtilsTests",
       dependencies: ["Utils"],
@@ -107,13 +108,13 @@ let package = Package(
 
     .testTarget(
       name: "ValTests",
-      dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR", "TestUtils"],
+      dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR", "TestSupport"],
       resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "ValCommandTests",
-      dependencies: ["ValCommand", "TestUtils"],
+      dependencies: ["ValCommand", "TestSupport"],
       resources: [.copy("Inputs"), .copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
   ])
