@@ -117,12 +117,6 @@ extension Diagnostic {
       """, at: site)
   }
 
-  static func error(
-    inoutCapableMethodBundleMustReturn expectedReturnType: AnyType, at site: SourceRange
-  ) -> Diagnostic {
-    .error("inout-capable method bundle must return '\(expectedReturnType)'", at: site)
-  }
-
   static func error(invalidDestructuringOfType type: AnyType, at site: SourceRange) -> Diagnostic {
     .error("invalid destructuring of type '\(type)'", at: site)
   }

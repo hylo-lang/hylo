@@ -2892,14 +2892,6 @@ public struct TypeChecker {
     }
 
     var variants = Set(ast[ast[d].impls].map(\.introducer.value))
-    if variants.contains(.inout) && (outputType != receiver) {
-      diagnostics.insert(
-        .error(
-          inoutCapableMethodBundleMustReturn: receiver,
-          at: ast[ast[d].output]?.site ?? ast[d].introducerSite))
-      return .error
-    }
-
     let m = MethodType(
       capabilities: variants,
       receiver: receiver,
