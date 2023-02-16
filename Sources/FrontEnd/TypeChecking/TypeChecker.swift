@@ -3109,6 +3109,15 @@ public struct TypeChecker {
     return ^MetatypeType(of: instance)
   }
 
+  /// Returns the overarching type of `d`.
+  private mutating func realize(varDecl d: NodeID<VarDecl>) -> AnyType {
+    // `declTypes[d]` is set by the realization of the containing binding declaration.
+    return _realize(decl: d) { (this, d) in
+      _ = this.realize(bindingDecl: this.program.varToBinding[d]!)
+      return this.declTypes[d] ?? .error
+    }
+  }
+
   /// Realizes the explicit captures in `list`, writing the captured names in `explicitNames`, and
   /// returns their types if they are semantically well-typed. Otherwise, returns `nil`.
   private mutating func realize(
@@ -3155,12 +3164,6 @@ public struct TypeChecker {
       let t = this.realize(this.ast[d].subject, in: this.program.declToScope[d]!)
       return t.map(AnyType.init(_:)) ?? .error
     }
-  }
-
-  private mutating func realize(varDecl d: NodeID<VarDecl>) -> AnyType {
-    // `declTypes[d]` is set by the realization of the containing binding declaration.
-    let t = realize(bindingDecl: program.varToBinding[d]!)
-    return t.isError ? t : declTypes[d]!
   }
 
   /// Realizes the implicit captures found in the body of `decl` and returns their types and
