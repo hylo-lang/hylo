@@ -2623,108 +2623,83 @@ public struct TypeChecker {
     return traits
   }
 
-  /// Returns the overarching type of the specified declaration.
-  mutating func realize<T: DeclID>(decl id: T) -> AnyType {
-    switch id.kind {
+  /// Returns the overarching type of `d`.
+  mutating func realize<T: DeclID>(decl d: T) -> AnyType {
+    switch d.kind {
     case AssociatedTypeDecl.self:
-      return _realize(
-        decl: id,
-        { (this, id) in
-          // Parent scope must be a trait declaration.
-          let traitDecl = NodeID<TraitDecl>(this.program.declToScope[id]!)!
-
-          let instance = AssociatedTypeType(
-            NodeID(id)!,
-            domain: ^GenericTypeParameterType(selfParameterOf: traitDecl, in: this.ast),
-            ast: this.ast)
-          return ^MetatypeType(of: instance)
-        })
-
+      return realize(associatedTypeDecl: NodeID(d)!)
     case AssociatedValueDecl.self:
-      return _realize(
-        decl: id,
-        { (this, id) in
-          // Parent scope must be a trait declaration.
-          let traitDecl = NodeID<TraitDecl>(this.program.declToScope[id]!)!
-
-          let instance = AssociatedValueType(
-            NodeID(id)!,
-            domain: ^GenericTypeParameterType(selfParameterOf: traitDecl, in: this.ast),
-            ast: this.program.ast)
-          return ^MetatypeType(of: instance)
-        })
-
+      return realize(associatedValueDecl: NodeID(d)!)
     case GenericParameterDecl.self:
-      return realize(genericParameterDecl: NodeID(id)!)
-
+      return realize(genericParameterDecl: NodeID(d)!)
     case BindingDecl.self:
-      return realize(bindingDecl: NodeID(id)!)
-
-    case ConformanceDecl.self, ExtensionDecl.self:
-      return _realize(decl: id) { (this, d) in
-        let s = (this.ast[id] as! TypeExtendingDecl).subject
-        let t = this.realize(s, in: this.program.declToScope[d]!)
-        return t.map(AnyType.init(_:)) ?? .error
-      }
-
+      return realize(bindingDecl: NodeID(d)!)
+    case ConformanceDecl.self:
+      return realize(typeExtendingDecl: NodeID<ConformanceDecl>(d)!)
+    case ExtensionDecl.self:
+      return realize(typeExtendingDecl: NodeID<ExtensionDecl>(d)!)
     case FunctionDecl.self:
-      return realize(functionDecl: NodeID(id)!)
-
+      return realize(functionDecl: NodeID(d)!)
     case InitializerDecl.self:
-      return realize(initializerDecl: NodeID(id)!)
-
+      return realize(initializerDecl: NodeID(d)!)
     case MethodDecl.self:
-      return realize(methodDecl: NodeID(id)!)
-
+      return realize(methodDecl: NodeID(d)!)
     case MethodImpl.self:
-      return realize(methodDecl: NodeID(program.declToScope[id]!)!)
-
+      return realize(methodDecl: NodeID(program.declToScope[d]!)!)
     case ParameterDecl.self:
-      return realize(parameterDecl: NodeID(id)!)
-
+      return realize(parameterDecl: NodeID(d)!)
     case ProductTypeDecl.self:
-      return _realize(
-        decl: id,
-        { (this, id) in
-          let instance = ProductType(NodeID(id)!, ast: this.ast)
-          return ^MetatypeType(of: instance)
-        })
-
+      return realize(productTypeDecl: NodeID(d)!)
     case SubscriptDecl.self:
-      return realize(subscriptDecl: NodeID(id)!)
-
+      return realize(subscriptDecl: NodeID(d)!)
     case TraitDecl.self:
-      return _realize(
-        decl: id,
-        { (this, id) in
-          let instance = TraitType(NodeID(id)!, ast: this.ast)
-          return ^MetatypeType(of: instance)
-        })
-
+      return realize(traitDecl: NodeID(d)!)
     case TypeAliasDecl.self:
-      return realize(typeAliasDecl: NodeID(id)!)
-
+      return realize(typeAliasDecl: NodeID(d)!)
     case VarDecl.self:
-      let bindingDecl = program.varToBinding[NodeID(id)!]!
-      let bindingType = realize(bindingDecl: bindingDecl)
-      return bindingType.isError
-        ? bindingType
-        : declTypes[id]!
-
+      return realize(varDecl: NodeID(d)!)
     default:
-      unexpected(id, in: ast)
+      unexpected(d, in: ast)
     }
   }
 
-  private mutating func realize(bindingDecl id: NodeID<BindingDecl>) -> AnyType {
-    _ = check(binding: NodeID(id)!)
-    return declTypes[id]!
+  /// Returns the overarching type of `d`.
+  private mutating func realize(associatedTypeDecl d: NodeID<AssociatedTypeDecl>) -> AnyType {
+    _realize(decl: d) { (this, d) in
+      // Parent scope must be a trait declaration.
+      let traitDecl = NodeID<TraitDecl>(this.program.declToScope[d]!)!
+
+      let instance = AssociatedTypeType(
+        NodeID(d)!,
+        domain: ^GenericTypeParameterType(selfParameterOf: traitDecl, in: this.ast),
+        ast: this.ast)
+      return ^MetatypeType(of: instance)
+    }
   }
 
-  /// Returns the realized type of `d` requiring that it be subtype of `supertype`.
+  /// Returns the overarching type of `d`.
+  private mutating func realize(associatedValueDecl d: NodeID<AssociatedValueDecl>) -> AnyType {
+    _realize(decl: d) { (this, d) in
+      // Parent scope must be a trait declaration.
+      let traitDecl = NodeID<TraitDecl>(this.program.declToScope[d]!)!
+
+      let instance = AssociatedValueType(
+        NodeID(d)!,
+        domain: ^GenericTypeParameterType(selfParameterOf: traitDecl, in: this.ast),
+        ast: this.program.ast)
+      return ^MetatypeType(of: instance)
+    }
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(bindingDecl d: NodeID<BindingDecl>) -> AnyType {
+    _ = check(binding: NodeID(d)!)
+    return declTypes[d]!
+  }
+
+  /// Returns the overarching type of `d`, requiring that its parameters have given `conventions`.
   ///
-  /// - Requires: if supplied, `conventions` has as one element per parameter of the declaration
-  ///   underlying `expr`.
+  /// - Requires: if supplied, `conventions` has as many elements as `d` has parameters.
   private mutating func realize(
     functionDecl d: NodeID<FunctionDecl>,
     with conventions: [AccessEffect]? = nil
@@ -2733,21 +2708,21 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(
-    functionDecl id: NodeID<FunctionDecl>,
+    functionDecl d: NodeID<FunctionDecl>,
     with conventions: [AccessEffect]? = nil
   ) -> AnyType {
-    if let c = conventions {
-      precondition(c.count == ast[id].parameters.count)
+    if let requiredParameterConventions = conventions {
+      precondition(requiredParameterConventions.count == ast[d].parameters.count)
     }
     var success = true
 
     // Realize the input types.
     var inputs: [CallableTypeParameter] = []
-    for (i, p) in ast[id].parameters.enumerated() {
+    for (i, p) in ast[d].parameters.enumerated() {
       declRequests[p] = .typeCheckingStarted
 
       if let annotation = ast[p].annotation {
-        if let t = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
+        if let t = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
           // The annotation may not omit generic arguments.
           if t[.hasVariable] {
             diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
@@ -2766,7 +2741,7 @@ public struct TypeChecker {
         // Note: parameter type annotations may be elided if the declaration represents a lambda
         // expression. In that case, the unannotated parameters are associated with a fresh type
         // variable, so inference can proceed.
-        if ast[id].isInExprContext {
+        if ast[d].isInExprContext {
           let t = ^ParameterType((conventions?[i]) ?? .let, ^TypeVariable(node: AnyNodeID(p)))
           declTypes[p] = t
           declRequests[p] = .typeRealizationCompleted
@@ -2784,30 +2759,30 @@ public struct TypeChecker {
     var explicitCaptureNames: Set<Name> = []
     guard
       let explicitCaptureTypes = realize(
-        explicitCaptures: ast[id].explicitCaptures,
+        explicitCaptures: ast[d].explicitCaptures,
         collectingNamesIn: &explicitCaptureNames)
     else { return .error }
 
     let implicitCaptures: [ImplicitCapture] =
-      program.isLocal(id)
-      ? realize(implicitCapturesIn: id, ignoring: explicitCaptureNames)
+      program.isLocal(d)
+      ? realize(implicitCapturesIn: d, ignoring: explicitCaptureNames)
       : []
-    self.implicitCaptures[id] = implicitCaptures
+    self.implicitCaptures[d] = implicitCaptures
 
     // Realize the function's receiver if necessary.
-    let isNonStaticMember = program.isNonStaticMember(id)
+    let isNonStaticMember = program.isNonStaticMember(d)
     var receiver: AnyType? =
       isNonStaticMember
-      ? realizeSelfTypeExpr(in: program.declToScope[id]!)!.instance
+      ? realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
       : nil
 
     // Realize the output type.
     let outputType: AnyType
-    if let o = ast[id].output {
+    if let o = ast[d].output {
       // Use the explicit return annotation.
-      guard let type = realize(o, in: AnyScopeID(id))?.instance else { return .error }
+      guard let type = realize(o, in: AnyScopeID(d))?.instance else { return .error }
       outputType = type
-    } else if ast[id].isInExprContext {
+    } else if ast[d].isInExprContext {
       // Infer the return type from the body in expression contexts.
       outputType = ^TypeVariable()
     } else {
@@ -2818,10 +2793,10 @@ public struct TypeChecker {
     if isNonStaticMember {
       // Create a lambda bound to a receiver.
       let effect: AccessEffect
-      if ast[id].isInout {
+      if ast[d].isInout {
         receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.inout, receiver!))])
         effect = .inout
-      } else if ast[id].isSink {
+      } else if ast[d].isSink {
         receiver = ^TupleType([.init(label: "self", type: receiver!)])
         effect = .sink
       } else {
@@ -2850,27 +2825,24 @@ public struct TypeChecker {
     }
   }
 
-  public mutating func realize(
-    genericParameterDecl id: NodeID<GenericParameterDecl>
-  ) -> AnyType {
-    _realize(decl: id, { (this, id) in this._realize(genericParameterDecl: id) })
+  /// Returns the overarching type of `d`.
+  public mutating func realize(genericParameterDecl d: NodeID<GenericParameterDecl>) -> AnyType {
+    _realize(decl: d, { (this, d) in this._realize(genericParameterDecl: d) })
   }
 
-  private mutating func _realize(
-    genericParameterDecl id: NodeID<GenericParameterDecl>
-  ) -> AnyType {
+  private mutating func _realize(genericParameterDecl d: NodeID<GenericParameterDecl>) -> AnyType {
     // The declaration introduces a generic *type* parameter the first annotation refers to a
     // trait. Otherwise, it denotes a generic *value* parameter.
-    if let annotation = ast[id].conformances.first {
+    if let annotation = ast[d].conformances.first {
       // Bail out if we can't evaluate the annotation.
-      guard let type = realize(name: annotation, in: program.declToScope[id]!) else {
+      guard let type = realize(name: annotation, in: program.declToScope[d]!) else {
         return .error
       }
 
       if !(type.instance.base is TraitType) {
         // Value parameters shall not have more than one type annotation.
-        if ast[id].conformances.count > 1 {
-          let diagnosticOrigin = ast[ast[id].conformances[1]].site
+        if ast[d].conformances.count > 1 {
+          let diagnosticOrigin = ast[ast[d].conformances[1]].site
           diagnostics.insert(
             .error(tooManyAnnotationsOnGenericValueParametersAt: diagnosticOrigin))
           return .error
@@ -2883,18 +2855,19 @@ public struct TypeChecker {
 
     // If the declaration has no annotations or its first annotation does not refer to a trait,
     // assume it declares a generic type parameter.
-    let instance = GenericTypeParameterType(id, ast: ast)
+    let instance = GenericTypeParameterType(d, ast: ast)
     return ^MetatypeType(of: instance)
   }
 
-  private mutating func realize(initializerDecl id: NodeID<InitializerDecl>) -> AnyType {
-    _realize(decl: id, { (this, id) in this._realize(initializerDecl: id) })
+  /// Returns the overarching type of `d`.
+  private mutating func realize(initializerDecl d: NodeID<InitializerDecl>) -> AnyType {
+    _realize(decl: d, { (this, d) in this._realize(initializerDecl: d) })
   }
 
-  private mutating func _realize(initializerDecl id: NodeID<InitializerDecl>) -> AnyType {
+  private mutating func _realize(initializerDecl d: NodeID<InitializerDecl>) -> AnyType {
     // Handle memberwise initializers.
-    if ast[id].introducer.value == .memberwiseInit {
-      let productTypeDecl = NodeID<ProductTypeDecl>(program.declToScope[id]!)!
+    if ast[d].introducer.value == .memberwiseInit {
+      let productTypeDecl = NodeID<ProductTypeDecl>(program.declToScope[d]!)!
       if let lambda = memberwiseInitType(of: productTypeDecl) {
         return ^lambda
       } else {
@@ -2906,7 +2879,7 @@ public struct TypeChecker {
 
     // Realize the input types.
     var inputs: [CallableTypeParameter] = []
-    for i in ast[id].parameters {
+    for i in ast[d].parameters {
       declRequests[i] = .typeCheckingStarted
 
       // Parameters of initializers must have a type annotation.
@@ -2914,7 +2887,7 @@ public struct TypeChecker {
         unexpected(i, in: ast)
       }
 
-      if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
+      if let type = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
         // The annotation may not omit generic arguments.
         if type[.hasVariable] {
           diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
@@ -2935,7 +2908,7 @@ public struct TypeChecker {
     if !success { return .error }
 
     // Initializers are global functions.
-    let receiverType = realizeSelfTypeExpr(in: program.declToScope[id]!)!.instance
+    let receiverType = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
     let receiverParameterType = CallableTypeParameter(
       label: "self",
       type: ^ParameterType(.set, receiverType))
@@ -2943,16 +2916,17 @@ public struct TypeChecker {
     return ^LambdaType(environment: .void, inputs: inputs, output: .void)
   }
 
-  private mutating func realize(methodDecl id: NodeID<MethodDecl>) -> AnyType {
-    _realize(decl: id, { (this, id) in this._realize(methodDecl: id) })
+  /// Returns the overarching type of `d`.
+  private mutating func realize(methodDecl d: NodeID<MethodDecl>) -> AnyType {
+    _realize(decl: d, { (this, d) in this._realize(methodDecl: d) })
   }
 
-  private mutating func _realize(methodDecl id: NodeID<MethodDecl>) -> AnyType {
+  private mutating func _realize(methodDecl d: NodeID<MethodDecl>) -> AnyType {
     var success = true
 
     // Realize the input types.
     var inputs: [CallableTypeParameter] = []
-    for i in ast[id].parameters {
+    for i in ast[d].parameters {
       declRequests[i] = .typeCheckingStarted
 
       // Parameters of methods must have a type annotation.
@@ -2960,7 +2934,7 @@ public struct TypeChecker {
         unexpected(i, in: ast)
       }
 
-      if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
+      if let type = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
         // The annotation may not omit generic arguments.
         if type[.hasVariable] {
           diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
@@ -2981,13 +2955,13 @@ public struct TypeChecker {
     if !success { return .error }
 
     // Realize the method's receiver if necessary.
-    let receiver = realizeSelfTypeExpr(in: program.declToScope[id]!)!.instance
+    let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
 
     // Realize the output type.
     let outputType: AnyType
-    if let o = ast[id].output {
+    if let o = ast[d].output {
       // Use the explicit return annotation.
-      guard let type = realize(o, in: AnyScopeID(id))?.instance else { return .error }
+      guard let type = realize(o, in: AnyScopeID(d))?.instance else { return .error }
       outputType = type
     } else {
       // Default to `Void`.
@@ -2995,12 +2969,12 @@ public struct TypeChecker {
     }
 
     // Create a method bundle.
-    let capabilities = Set(ast[ast[id].impls].map(\.introducer.value))
+    let capabilities = Set(ast[ast[d].impls].map(\.introducer.value))
     if capabilities.contains(.inout) && (outputType != receiver) {
       diagnostics.insert(
         .error(
           inoutCapableMethodBundleMustReturn: receiver,
-          at: ast[ast[id].output]?.site ?? ast[id].introducerSite))
+          at: ast[ast[d].output]?.site ?? ast[d].introducerSite))
       return .error
     }
 
@@ -3011,33 +2985,39 @@ public struct TypeChecker {
       output: outputType)
   }
 
-  /// Returns the overarching type of the specified parameter declaration.
+  /// Returns the overarching type of `d`.
   ///
   /// - Requires: The containing function or subscript declaration must have been realized.
-  private mutating func realize(parameterDecl id: NodeID<ParameterDecl>) -> AnyType {
-    switch declRequests[id] {
+  private mutating func realize(parameterDecl d: NodeID<ParameterDecl>) -> AnyType {
+    switch declRequests[d] {
     case nil:
       preconditionFailure()
 
     case .typeRealizationStarted:
-      diagnostics.insert(.error(circularDependencyAt: ast[id].site))
+      diagnostics.insert(.error(circularDependencyAt: ast[d].site))
       return .error
 
     case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:
-      return declTypes[id]!
+      return declTypes[d]!
     }
   }
 
-  private mutating func realize(subscriptDecl id: NodeID<SubscriptDecl>) -> AnyType {
-    _realize(decl: id, { (this, id) in this._realize(subscriptDecl: id) })
+  /// Returns the overarching type of `d`.
+  private mutating func realize(productTypeDecl d: NodeID<ProductTypeDecl>) -> AnyType {
+    _realize(decl: d) { (this, d) in ^MetatypeType(of: ProductType(d, ast: this.ast)) }
   }
 
-  private mutating func _realize(subscriptDecl id: NodeID<SubscriptDecl>) -> AnyType {
+  /// Returns the overarching type of `d`.
+  private mutating func realize(subscriptDecl d: NodeID<SubscriptDecl>) -> AnyType {
+    _realize(decl: d, { (this, d) in this._realize(subscriptDecl: d) })
+  }
+
+  private mutating func _realize(subscriptDecl d: NodeID<SubscriptDecl>) -> AnyType {
     var success = true
 
     // Realize the input types.
     var inputs: [CallableTypeParameter] = []
-    for i in ast[id].parameters ?? [] {
+    for i in ast[d].parameters ?? [] {
       declRequests[i] = .typeCheckingStarted
 
       // Parameters of subscripts must have a type annotation.
@@ -3045,7 +3025,7 @@ public struct TypeChecker {
         unexpected(i, in: ast)
       }
 
-      if let type = realize(parameter: annotation, in: AnyScopeID(id))?.instance {
+      if let type = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
         // The annotation may not omit generic arguments.
         if type[.hasVariable] {
           diagnostics.insert(
@@ -3070,20 +3050,20 @@ public struct TypeChecker {
     var explicitCaptureNames: Set<Name> = []
     guard
       let explicitCaptureTypes = realize(
-        explicitCaptures: ast[id].explicitCaptures,
+        explicitCaptures: ast[d].explicitCaptures,
         collectingNamesIn: &explicitCaptureNames)
     else { return .error }
 
     let implicitCaptures: [ImplicitCapture] =
-      program.isLocal(id)
-      ? realize(implicitCapturesIn: id, ignoring: explicitCaptureNames)
+      program.isLocal(d)
+      ? realize(implicitCapturesIn: d, ignoring: explicitCaptureNames)
       : []
-    self.implicitCaptures[id] = implicitCaptures
+    self.implicitCaptures[d] = implicitCaptures
 
     // Build the subscript's environment.
     let environment: TupleType
-    if program.isNonStaticMember(id) {
-      let receiver = realizeSelfTypeExpr(in: program.declToScope[id]!)!.instance
+    if program.isNonStaticMember(d) {
+      let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
       environment = TupleType([.init(label: "self", type: ^RemoteType(.yielded, receiver))])
     } else {
       environment = TupleType(
@@ -3096,20 +3076,26 @@ public struct TypeChecker {
     }
 
     // Realize the ouput type.
-    guard let output = realize(ast[id].output, in: AnyScopeID(id))?.instance else {
+    guard let output = realize(ast[d].output, in: AnyScopeID(d))?.instance else {
       return .error
     }
 
     // Create a subscript type.
-    let capabilities = Set(ast[ast[id].impls].map(\.introducer.value))
+    let capabilities = Set(ast[ast[d].impls].map(\.introducer.value))
     return ^SubscriptType(
-      isProperty: ast[id].parameters == nil,
+      isProperty: ast[d].parameters == nil,
       capabilities: capabilities,
       environment: ^environment,
       inputs: inputs,
       output: output)
   }
 
+  /// Returns the overarching type of `d`.
+  private mutating func realize(traitDecl d: NodeID<TraitDecl>) -> AnyType {
+    _realize(decl: d) { (this, d) in ^MetatypeType(of: TraitType(d, ast: this.ast)) }
+  }
+
+  /// Returns the overarching type of `d`.
   private mutating func realize(typeAliasDecl d: NodeID<TypeAliasDecl>) -> AnyType {
     _realize(decl: d, { (this, id) in this._realize(typeAliasDecl: d) })
   }
@@ -3162,6 +3148,19 @@ public struct TypeChecker {
     }
 
     return success ? captures : nil
+  }
+
+  private mutating func realize<T: TypeExtendingDecl>(typeExtendingDecl d: NodeID<T>) -> AnyType {
+    return _realize(decl: d) { (this, d) in
+      let t = this.realize(this.ast[d].subject, in: this.program.declToScope[d]!)
+      return t.map(AnyType.init(_:)) ?? .error
+    }
+  }
+
+  private mutating func realize(varDecl d: NodeID<VarDecl>) -> AnyType {
+    // `declTypes[d]` is set by the realization of the containing binding declaration.
+    let t = realize(bindingDecl: program.varToBinding[d]!)
+    return t.isError ? t : declTypes[d]!
   }
 
   /// Realizes the implicit captures found in the body of `decl` and returns their types and
