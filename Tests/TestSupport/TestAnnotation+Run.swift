@@ -1,10 +1,9 @@
-import TestSupport
 import XCTest
 
 extension TestAnnotation {
 
   //! Run `executable` with `arguments`, and fails if the exit code isn't zero.
-  func run(_ executable: URL, with arguments: [String] = []) -> XCTIssue? {
+  public func run(_ executable: URL, with arguments: [String] = []) -> XCTIssue? {
     // Run the executable.
     let task = Process()
     task.executableURL = executable

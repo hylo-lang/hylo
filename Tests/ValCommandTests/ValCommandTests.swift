@@ -1,4 +1,5 @@
 import ArgumentParser
+import TestSupport
 import Utils
 import ValCommand
 import XCTest
@@ -103,6 +104,49 @@ final class ValCommandTests: XCTestCase {
     let f = FileManager.default.temporaryFile()
     try s.write(to: f, atomically: true, encoding: .utf8)
     return f
+  }
+
+  /// The result of a compiler invokation.
+  struct CompilationResult {
+
+    /// The exit status of the compiler.
+    let status: ExitCode
+
+    /// The URL of the output file.
+    let output: URL
+
+    /// The contents of the standard error.
+    let stderr: String
+
+    /// Check that the compilation was successful.
+    func assertSuccess(checkOutput: Bool = true) {
+      XCTAssert(status.isSuccess, "Compilation failed with exit code \(status)")
+      XCTAssert(stderr.isEmpty, "Compilation contains errors: \(stderr)")
+      if checkOutput {
+        XCTAssert(
+          FileManager.default.fileExists(atPath: output.relativePath),
+          "Compilation output file not found: \(output.relativePath)")
+      }
+    }
+
+  }
+
+  /// Compiles `input` with the given arguments and returns the compiler's exit status, the URL of
+  /// the output file, and the contents of the standard error.
+  func compile(
+    _ input: URL,
+    with arguments: [String]
+  ) throws -> CompilationResult {
+    // Create a temporary output.
+    let output = FileManager.default.temporaryFile()
+
+    // Parse the command line's arguments.
+    let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
+
+    // Execute the command.
+    var stderr = ""
+    let status = try cli.execute(loggingTo: &stderr)
+    return CompilationResult(status: status, output: output, stderr: stderr)
   }
 
 }

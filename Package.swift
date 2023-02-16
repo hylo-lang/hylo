@@ -115,6 +115,12 @@ let package = Package(
     .testTarget(
       name: "ValCommandTests",
       dependencies: ["ValCommand", "TestSupport"],
-      resources: [.copy("Inputs"), .copy("TestCases")],
+      resources: [.copy("Inputs")],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
+      name: "EndToEndTests",
+      dependencies: ["ValCommand", "TestSupport"],
+      resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
   ])
