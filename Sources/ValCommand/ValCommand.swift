@@ -155,8 +155,7 @@ public struct ValCommand: ParsableCommand {
 
     var sourceIR = try IR.Module(lowering: sourceModule, in: program, diagnostics: &diagnostics)
     if outputType != .rawIR {
-      let pipeline = PassPipeline(withMandatoryPassesForModulesLoweredFrom: program)
-      try pipeline.apply(&sourceIR, reportingDiagnosticsInto: &diagnostics)
+      try sourceIR.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
     }
     if outputType == .ir || outputType == .rawIR {
       try sourceIR.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
