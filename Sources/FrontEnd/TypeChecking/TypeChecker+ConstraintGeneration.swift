@@ -924,6 +924,7 @@ extension TypeChecker {
     })
 
     if let t = declTypes[nameDecl] {
+      // We can only get here if we're visiting the containing pattern more than once.
       return t
     } else {
       let nameType = shape ?? ^TypeVariable(node: AnyNodeID(nameDecl))

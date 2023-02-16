@@ -215,13 +215,12 @@ public struct TypeChecker {
   /// The bindings whose initializers are being currently visited.
   private var bindingsUnderChecking: DeclSet = []
 
-  /// Sets the realized type of `d` to `type`.
+  /// Sets the inferred type of `d` to `type`.
   ///
-  /// - Requires: `d` has not gone through type realization yet.
+  /// - Requires: `d` has been assigned to a type yet.
   mutating func setInferredType(_ type: AnyType, for d: NodeID<VarDecl>) {
-    precondition(declRequests[d] == nil)
+    precondition(declTypes[d] == nil)
     declTypes[d] = type
-    declRequests[d] = .typeRealizationCompleted
   }
 
   /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
