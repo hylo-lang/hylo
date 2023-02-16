@@ -224,15 +224,6 @@ public struct TypeChecker {
     declRequests[d] = .typeRealizationCompleted
   }
 
-  /// Mark that type checking failed for `d`.
-  ///
-  /// - Requires: `d` has not gone through type checking yet.
-  mutating func setFailed<T: DeclID>(_ d: T) {
-    precondition((declRequests[d] != .success) && (declRequests[d] != .failure))
-    declTypes[d] = .error
-    declRequests[d] = .failure
-  }
-
   /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
   ///
   /// - Requires: `m` is a valid ID in the type checker's AST.
@@ -2891,22 +2882,15 @@ public struct TypeChecker {
       outputType = .void
     }
 
-    var variants = Set(ast[ast[d].impls].map(\.introducer.value))
     let m = MethodType(
-      capabilities: variants,
+      capabilities: Set(ast[ast[d].impls].map(\.introducer.value)),
       receiver: receiver,
       inputs: inputs,
       output: outputType)
 
     for v in ast[d].impls {
-      let x = ast[v].introducer.value
-      if variants.remove(x) == nil {
-        diagnostics.insert(.error(duplicateVariant: x, at: ast[v].introducer.site))
-        setFailed(v)
-      } else {
-        declRequests[v] = .typeRealizationCompleted
-        declTypes[v] = ^LambdaType(m, for: x)!
-      }
+      declRequests[v] = .typeRealizationCompleted
+      declTypes[v] = ^LambdaType(m, for: ast[v].introducer.value)!
     }
 
     return ^m

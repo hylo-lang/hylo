@@ -55,10 +55,6 @@ extension Diagnostic {
     .error("duplicate parameter name '\(name)'", at: site)
   }
 
-  static func error(duplicateVariant v: AccessEffect, at site: SourceRange) -> Diagnostic {
-    .error("duplicate variant '\(v)'", at: site)
-  }
-
   static func error(nameRefersToValue expr: NodeID<NameExpr>, in ast: AST) -> Diagnostic {
     .error("expected type but '\(ast[expr].name.value)' refers to a value", at: ast[expr].site)
   }

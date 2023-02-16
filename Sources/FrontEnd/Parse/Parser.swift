@@ -902,8 +902,6 @@ public enum Parser {
     // Parse the subscript implementations.
     var impls: [NodeID<SubscriptImpl>] = []
     var introducers: Set<AccessEffect> = []
-    var duplicateIntroducer: SourceRepresentable<AccessEffect>? = nil
-
     while true {
       // Exit if we find the right delimiter.
       if state.take(.rBrace) != nil { break }
@@ -917,18 +915,16 @@ public enum Parser {
           asNonStaticMember: isNonStaticMember)
         impls.append(impl)
 
-        if !introducers.insert(introducer.value).inserted { duplicateIntroducer = introducer }
+        if !introducers.insert(introducer.value).inserted {
+          state.diagnostics.insert(.error(duplicateImplementationIntroducer: introducer))
+        }
       } else {
         state.diagnostics.insert(.error(expected: .rBrace, at: state.currentLocation))
         break
       }
     }
 
-    if let introducer = duplicateIntroducer {
-      throw [.error(duplicateImplementationIntroducer: introducer)] as DiagnosticSet
-    } else {
-      return impls
-    }
+    return impls
   }
 
   /// Inserts a subscript having the given `introducer` and `body` into `state.ast` and returns its
@@ -1190,17 +1186,13 @@ public enum Parser {
     (take(.lBrace).and(methodImpl+).and(take(.rBrace))
       .map({ (state, tree) -> [NodeID<MethodImpl>] in
         var introducers: Set<AccessEffect> = []
-        var duplicateIntroducer: SourceRepresentable<AccessEffect>? = nil
         for implID in tree.0.1 {
           let introducer = state.ast[implID].introducer
-          if !introducers.insert(introducer.value).inserted { duplicateIntroducer = introducer }
+          if !introducers.insert(introducer.value).inserted {
+            state.diagnostics.insert(.error(duplicateImplementationIntroducer: introducer))
+          }
         }
-
-        if let introducer = duplicateIntroducer {
-          throw [.error(duplicateImplementationIntroducer: introducer)] as DiagnosticSet
-        } else {
-          return tree.0.1
-        }
+        return tree.0.1
       }))
 
   static let methodImpl =
