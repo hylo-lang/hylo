@@ -2786,12 +2786,8 @@ public struct TypeChecker {
     } else {
       // Create a regular lambda.
       let environment = TupleType(
-        explicitCaptureTypes.map({ (t) -> TupleType.Element in
-          .init(label: nil, type: t)
-        })
-          + implicitCaptures.map({ (c) -> TupleType.Element in
-            .init(label: nil, type: ^c.type)
-          }))
+        explicitCaptureTypes.map({ (t) in TupleType.Element(label: nil, type: t) })
+          + implicitCaptures.map({ (c) in TupleType.Element(label: nil, type: ^c.type) }))
 
       // TODO: Determine if the lambda is mutating.
 
@@ -2849,8 +2845,8 @@ public struct TypeChecker {
       }
     }
 
-    guard var inputs = realize(parameterList: ast[d].parameters, in: AnyScopeID(d)) else {
-      return .error
+    var inputs: [CallableTypeParameter] = ast[d].parameters.reduce(into: []) { (result, d) in
+      result.append(.init(label: ast[d].label?.value, type: realize(parameterDecl: d)))
     }
 
     // Initializers are global functions.
@@ -2868,8 +2864,8 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(methodDecl d: NodeID<MethodDecl>) -> AnyType {
-    guard let inputs = realize(parameterList: ast[d].parameters, in: AnyScopeID(d)) else {
-      return .error
+    let inputs: [CallableTypeParameter] = ast[d].parameters.reduce(into: []) { (result, d) in
+      result.append(.init(label: ast[d].label?.value, type: realize(parameterDecl: d)))
     }
 
     // Realize the method's receiver if necessary.
@@ -2923,26 +2919,6 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the labels and types of given `parameters` or `nil` if one or more declarations
-  /// contains an error.
-  ///
-  /// All declarations in `parameters` are visited.
-  private mutating func realize(
-    parameterList parameters: [NodeID<ParameterDecl>],
-    in containingDecl: AnyScopeID
-  ) -> [CallableTypeParameter]? {
-    typealias R = (inputs: [CallableTypeParameter], containsError: Bool)
-    let result: R = parameters.reduce(into: ([], false)) { (result, d) in
-      let t = realize(parameterDecl: d)
-      if !t[.hasError] {
-        result.inputs.append(.init(label: ast[d].label?.value, type: t))
-      } else {
-        result.containsError = true
-      }
-    }
-    return result.containsError ? nil : result.inputs
-  }
-
   /// Returns the overarching type of `d`.
   private mutating func realize(productTypeDecl d: NodeID<ProductTypeDecl>) -> AnyType {
     _realize(decl: d) { (this, d) in ^MetatypeType(of: ProductType(d, ast: this.ast)) }
@@ -2954,38 +2930,11 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(subscriptDecl d: NodeID<SubscriptDecl>) -> AnyType {
-    var success = true
-
-    // Realize the input types.
-    var inputs: [CallableTypeParameter] = []
-    for i in ast[d].parameters ?? [] {
-      declRequests[i] = .typeCheckingStarted
-
-      // Parameters of subscripts must have a type annotation.
-      guard let annotation = ast[i].annotation else {
-        unexpected(i, in: ast)
-      }
-
-      if let type = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
-        // The annotation may not omit generic arguments.
-        if type[.hasVariable] {
-          diagnostics.insert(
-            .error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
-          success = false
-        }
-
-        declTypes[i] = type
-        declRequests[i] = .typeRealizationCompleted
-        inputs.append(CallableTypeParameter(label: ast[i].label?.value, type: type))
-      } else {
-        declTypes[i] = .error
-        declRequests[i] = .failure
-        success = false
+    let inputs = ast[d].parameters.map(default: []) { (p) -> [CallableTypeParameter] in
+      p.reduce(into: []) { (result, d) in
+        result.append(.init(label: ast[d].label?.value, type: realize(parameterDecl: d)))
       }
     }
-
-    // Bail out if the parameters could not be realized.
-    if !success { return .error }
 
     // Collect captures.
     var explicitCaptureNames: Set<Name> = []
@@ -3008,12 +2957,8 @@ public struct TypeChecker {
       environment = TupleType([.init(label: "self", type: ^RemoteType(.yielded, receiver))])
     } else {
       environment = TupleType(
-        explicitCaptureTypes.map({ (t) -> TupleType.Element in
-          .init(label: nil, type: t)
-        })
-          + implicitCaptures.map({ (c) -> TupleType.Element in
-            .init(label: nil, type: ^c.type)
-          }))
+        explicitCaptureTypes.map({ (t) in TupleType.Element(label: nil, type: t) })
+          + implicitCaptures.map({ (c) in TupleType.Element(label: nil, type: ^c.type) }))
     }
 
     // Realize the ouput type.
