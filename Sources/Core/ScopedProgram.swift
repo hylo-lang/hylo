@@ -871,6 +871,8 @@ extension ScopedProgram {
       break
     case CondBindingStmt.self:
       visit(condBindingStmt: NodeID(stmt)!, withState: &state)
+    case ConditionalStmt.self:
+      visit(conditionalStmt: NodeID(stmt)!, withState: &state)
     case ContinueStmt.self:
       break
     case DeclStmt.self:
@@ -925,6 +927,27 @@ extension ScopedProgram {
       visit(expr: i, withState: &state)
     case .exit(let i):
       visit(stmt: i, withState: &state)
+    }
+  }
+
+  private mutating func visit(
+    conditionalStmt stmt: NodeID<ConditionalStmt>,
+    withState state: inout VisitorState
+  ) {
+    nesting(in: stmt, withState: &state) { (this, state) in
+      for item in this.ast[stmt].condition {
+        switch item {
+        case let .expr(i):
+          this.visit(expr: i, withState: &state)
+        case let .decl(i):
+          this.visit(bindingDecl: i, withState: &state)
+        }
+      }
+
+      this.visit(braceStmt: this.ast[stmt].success, withState: &state)
+      if let s = this.ast[stmt].failure {
+        this.visit(stmt: s, withState: &state)
+      }
     }
   }
 

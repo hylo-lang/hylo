@@ -970,6 +970,9 @@ public struct TypeChecker {
     case BraceStmt.self:
       return check(brace: NodeID(id)!)
 
+    case ConditionalStmt.self:
+      return check(conditional: NodeID(id)!, in: lexicalContext)
+
     case ExprStmt.self:
       let stmt = ast[NodeID<ExprStmt>(id)!]
       if let type = checkedType(of: stmt.expr, in: lexicalContext) {
@@ -1020,15 +1023,6 @@ public struct TypeChecker {
       success = check(brace: stmt.body) && success
       return success
 
-    case DoWhileStmt.self:
-      // TODO: properly implement this
-      let stmt = ast[NodeID<DoWhileStmt>(id)!]
-      var success = true
-      success = check(brace: stmt.body) && success
-      success =
-        (checkedType(of: stmt.condition, shapedBy: nil, in: lexicalContext) != nil) && success
-      return success
-
     case ForStmt.self, BreakStmt.self, ContinueStmt.self:
       // TODO: implement checks for these statements
       return true
@@ -1069,6 +1063,29 @@ public struct TypeChecker {
       ast[s].right, shapedBy: targetType, in: scope,
       initialConstraints: [lhsConstraint, rhsConstraint])
     return inference.succeeded
+  }
+
+  private mutating func check<S: ScopeID>(
+    conditional s: NodeID<ConditionalStmt>,
+    in lexicalContext: S
+  ) -> Bool {
+    var success = true
+
+    let boolType = AnyType(ast.coreType(named: "Bool")!)
+    for c in ast[s].condition {
+      switch c {
+      case .expr(let e):
+        success = (checkedType(of: e, shapedBy: boolType, in: lexicalContext) != nil) && success
+      default:
+        fatalError("not implemented")
+      }
+    }
+
+    success = check(brace: ast[s].success) && success
+    if let b = ast[s].failure {
+      success = check(stmt: b, in: lexicalContext) && success
+    }
+    return success
   }
 
   private mutating func check<S: ScopeID>(
