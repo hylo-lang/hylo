@@ -213,8 +213,7 @@ extension TypeChecker {
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      let lhsType = inferredType(
-        of: lhs, shapedBy: ^TypeVariable(node: lhs.base), in: scope, updating: &state)
+      let lhsType = inferredType(of: lhs, shapedBy: ^TypeVariable(), in: scope, updating: &state)
       state.facts.append(
         SubtypingConstraint(
           lhsType, rhs.shape,
@@ -255,7 +254,7 @@ extension TypeChecker {
       }
     }
 
-    let t = ^TypeVariable(node: AnyNodeID(subject))
+    let t = ^TypeVariable()
     let firstBranch = inferredType(
       of: syntax.success, shapedBy: shape, in: scope, updating: &state)
     state.facts.append(
@@ -311,7 +310,7 @@ extension TypeChecker {
     // Case 2
     if calleeType.base is TypeVariable {
       let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &state)
-      let returnType = shape ?? ^TypeVariable(node: AnyNodeID(subject))
+      let returnType = shape ?? ^TypeVariable()
 
       state.facts.append(
         FunctionCallConstraint(
@@ -524,7 +523,7 @@ extension TypeChecker {
 
     // Create the necessary constraints to let the solver resolve the remaining components.
     for component in unresolvedComponents {
-      let memberType = AnyType(TypeVariable(node: AnyNodeID(component)))
+      let memberType = ^TypeVariable()
       state.facts.append(
         MemberConstraint(
           lastVisitedComponentType!, hasMemberReferredToBy: component, ofType: memberType,
@@ -633,7 +632,7 @@ extension TypeChecker {
     // Case 2
     if calleeType.base is TypeVariable {
       let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &state)
-      let returnType = shape ?? ^TypeVariable(node: AnyNodeID(subject))
+      let returnType = shape ?? ^TypeVariable()
       let assumedCalleeType = SubscriptImplType(
         isProperty: false,
         receiverEffect: nil,
@@ -882,7 +881,7 @@ extension TypeChecker {
     updating state: inout State
   ) -> AnyType {
     let nameDecl = ast[subject].decl
-    let nameType = shape ?? ^TypeVariable(node: AnyNodeID(nameDecl))
+    let nameType = shape ?? ^TypeVariable()
     setInferredType(nameType, for: nameDecl)
     state.deferred.append({ (checker, solution) in
       checker.checkDeferred(varDecl: nameDecl, solution)
@@ -1022,8 +1021,7 @@ extension TypeChecker {
 
       // Infer the type of the argument bottom-up.
       let argumentType = inferredType(
-        of: argumentExpr, shapedBy: ^TypeVariable(node: AnyNodeID(argumentExpr)), in: scope,
-        updating: &state)
+        of: argumentExpr, shapedBy: ^TypeVariable(), in: scope, updating: &state)
 
       state.facts.append(
         ParameterConstraint(
@@ -1063,7 +1061,7 @@ extension TypeChecker {
       })
 
       // Constrain the name to refer to one of the overloads.
-      let nameType = AnyType(TypeVariable(node: AnyNodeID(name)))
+      let nameType = ^TypeVariable()
       state.facts.append(
         OverloadConstraint(
           name, withType: nameType, refersToOneOf: overloads,

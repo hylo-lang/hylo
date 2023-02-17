@@ -325,7 +325,7 @@ public struct TypeChecker {
     // Type check the initializer, if any.
     var success = true
     if let initializer = syntax.initializer {
-      let initializerType = exprTypes[initializer].setIfNil(^TypeVariable(node: initializer.base))
+      let initializerType = exprTypes[initializer].setIfNil(^TypeVariable())
       var initializerConstraints: [Constraint] = shape.facts.constraints
 
       // The type of the initializer may be a subtype of the pattern's
@@ -574,7 +574,7 @@ public struct TypeChecker {
     if let defaultValue = ast[id].defaultValue {
       let parameterType = declTypes[id]!.base as! ParameterType
       let defaultValueType = exprTypes[defaultValue].setIfNil(
-        ^TypeVariable(node: defaultValue.base))
+        ^TypeVariable())
 
       let inference = solutionTyping(
         defaultValue,
@@ -1052,8 +1052,7 @@ public struct TypeChecker {
       because: ConstraintCause(.initializationOrAssignment, at: ast[s].site))
 
     // Source type must be subtype of the target type.
-    let sourceType = exprTypes[ast[s].right]
-      .setIfNil(^TypeVariable(node: program.ast[s].right.base))
+    let sourceType = exprTypes[ast[s].right].setIfNil(^TypeVariable())
     let rhsConstraint = SubtypingConstraint(
       sourceType, targetType,
       because: ConstraintCause(.initializationOrAssignment, at: ast[s].site))
@@ -1112,8 +1111,7 @@ public struct TypeChecker {
 
     if let returnValue = ast[id].value {
       // The type of the return value must be subtype of the expected return type.
-      let inferredReturnType = exprTypes[returnValue].setIfNil(
-        ^TypeVariable(node: returnValue.base))
+      let inferredReturnType = exprTypes[returnValue].setIfNil(^TypeVariable())
       let inference = solutionTyping(
         returnValue,
         shapedBy: expectedType,
@@ -1165,8 +1163,7 @@ public struct TypeChecker {
     let expectedType = expectedOutputType(in: lexicalContext)!
 
     // The type of the return value must be subtype of the expected return type.
-    let inferredReturnType = exprTypes[ast[id].value].setIfNil(
-      ^TypeVariable(node: program.ast[id].value.base))
+    let inferredReturnType = exprTypes[ast[id].value].setIfNil(^TypeVariable())
     let inference = solutionTyping(
       ast[id].value,
       shapedBy: expectedType,
@@ -2253,7 +2250,7 @@ public struct TypeChecker {
       return realize(tuple: NodeID(expr)!, in: scope)
 
     case WildcardExpr.self:
-      return MetatypeType(of: TypeVariable(node: expr.base))
+      return MetatypeType(of: TypeVariable())
 
     default:
       unexpected(expr, in: ast)
@@ -2759,7 +2756,7 @@ public struct TypeChecker {
         // expression. In that case, the unannotated parameters are associated with a fresh type
         // variable, so inference can proceed.
         if ast[d].isInExprContext {
-          let t = ^ParameterType((conventions?[i]) ?? .let, ^TypeVariable(node: AnyNodeID(p)))
+          let t = ^ParameterType((conventions?[i]) ?? .let, ^TypeVariable())
           declTypes[p] = t
           declRequests[p] = .typeRealizationCompleted
           inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
