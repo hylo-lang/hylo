@@ -531,8 +531,8 @@ extension ScopedProgram {
       visit(bufferLiteralExpr: NodeID(expr)!, withState: &state)
     case CastExpr.self:
       visit(castExpr: NodeID(expr)!, withState: &state)
-    case CondExpr.self:
-      visit(condExpr: NodeID(expr)!, withState: &state)
+    case ConditionalExpr.self:
+      visit(conditionalExpr: NodeID(expr)!, withState: &state)
     case ConformanceLensTypeExpr.self:
       visit(conformanceLensTypeExpr: NodeID(expr)!, withState: &state)
     case ErrorExpr.self:
@@ -606,7 +606,7 @@ extension ScopedProgram {
   }
 
   private mutating func visit(
-    condExpr expr: NodeID<CondExpr>,
+    conditionalExpr expr: NodeID<ConditionalExpr>,
     withState state: inout VisitorState
   ) {
     nesting(

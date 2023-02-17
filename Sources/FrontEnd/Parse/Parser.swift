@@ -1993,8 +1993,9 @@ public enum Parser {
         .map({ (state, id) -> FunctionDecl.Body in .block(id) })
     ))
 
-  private static func parseConditionalExpr(in state: inout ParserState) throws -> NodeID<CondExpr>?
-  {
+  private static func parseConditionalExpr(
+    in state: inout ParserState
+  ) throws -> NodeID<ConditionalExpr>? {
     // Parse the introducer.
     guard let introducer = state.take(.if) else { return nil }
 
@@ -2003,7 +2004,7 @@ public enum Parser {
     let body = try state.expect("body", using: conditionalExprBody)
 
     // Parse the 'else' clause, if any.
-    let elseClause: CondExpr.Body?
+    let elseClause: ConditionalExpr.Body?
     if state.take(.else) != nil {
       if let e = try parseConditionalExpr(in: &state) {
         elseClause = .expr(AnyExprID(e))
@@ -2015,7 +2016,7 @@ public enum Parser {
     }
 
     return state.insert(
-      CondExpr(
+      ConditionalExpr(
         condition: condition,
         success: body,
         failure: elseClause,
@@ -2024,10 +2025,10 @@ public enum Parser {
 
   private static let conditionalExprBody = TryCatch(
     trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> CondExpr.Body in .expr(tree.0.1) }),
+      .map({ (state, tree) -> ConditionalExpr.Body in .expr(tree.0.1) }),
     orCatchingAndApplying:
       braceStmt
-      .map({ (state, id) -> CondExpr.Body in .block(id) })
+      .map({ (state, id) -> ConditionalExpr.Body in .block(id) })
   )
 
   private static func parseMatchExpr(in state: inout ParserState) throws -> NodeID<MatchExpr>? {

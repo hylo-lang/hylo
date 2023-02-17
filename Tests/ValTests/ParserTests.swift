@@ -1159,21 +1159,21 @@ final class ParserTests: XCTestCase {
   func testConditionalExpr() throws {
     let input: SourceFile = "if true { }"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ConditionalExpr)
     XCTAssertEqual(expr.condition.count, 1)
   }
 
   func testConditionalExprWithMultipleConditions() throws {
     let input: SourceFile = "if let x = foo, x > 0 { }"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ConditionalExpr)
     XCTAssertEqual(expr.condition.count, 2)
   }
 
   func testConditionalExprBlockThenNoElse() throws {
     let input: SourceFile = "if true { }"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ConditionalExpr)
 
     if case .block = expr.success {
     } else {
@@ -1186,7 +1186,7 @@ final class ParserTests: XCTestCase {
   func testConditionalExprBlockThenBlockElse() throws {
     let input: SourceFile = "if true { } else { }"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ConditionalExpr)
 
     if case .block = expr.success {
     } else {
@@ -1202,7 +1202,7 @@ final class ParserTests: XCTestCase {
   func testConditionalExprExprThenExprElse() throws {
     let input: SourceFile = "if true { 1 } else { 2 }"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ConditionalExpr)
 
     if case .expr = expr.success {
     } else {
@@ -1218,10 +1218,10 @@ final class ParserTests: XCTestCase {
   func testConditionalExprExprElseIfElse() throws {
     let input: SourceFile = "if true { 1 } else if false { 2 } else { 3 }"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ConditionalExpr)
 
     if case .expr(let elseID) = expr.failure {
-      XCTAssertEqual(elseID.kind, .init(CondExpr.self))
+      XCTAssertEqual(elseID.kind, .init(ConditionalExpr.self))
     } else {
       XCTFail()
     }

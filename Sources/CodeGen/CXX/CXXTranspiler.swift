@@ -305,8 +305,8 @@ public struct CXXTranspiler {
       return cxx(sequence: SequenceExpr.Typed(source)!)
     case FunctionCallExpr.self:
       return cxx(functionCall: FunctionCallExpr.Typed(source)!)
-    case CondExpr.self:
-      return cxx(cond: CondExpr.Typed(source)!)
+    case ConditionalExpr.self:
+      return cxx(cond: ConditionalExpr.Typed(source)!)
     default:
       unexpected(source)
     }
@@ -410,7 +410,7 @@ public struct CXXTranspiler {
   ///
   /// As much as possible, this will be converted into a ternary operator (CXXConditionalExpr).
   /// There are, however, in wich this needs to be translated into an if statment, then trasformed into an expression.
-  private func cxx(cond source: CondExpr.Typed) -> CXXExpr {
+  private func cxx(cond source: ConditionalExpr.Typed) -> CXXExpr {
     // TODO: multiple conditions
     // TODO: bindings in conditions
     let condition: CXXExpr
@@ -440,7 +440,7 @@ public struct CXXTranspiler {
     }
   }
   /// Returns a transpilation of `source` as an expression.
-  private func cxx(condBodyExpr source: CondExpr.Body?) -> CXXExpr {
+  private func cxx(condBodyExpr source: ConditionalExpr.Body?) -> CXXExpr {
     switch source {
     case .expr(let alternativeDetails):
       return cxx(expr: wholeValProgram[alternativeDetails])
@@ -451,7 +451,7 @@ public struct CXXTranspiler {
     }
   }
   /// Returns a transpilation of `source` as a statement.
-  private func cxx(condBodyStmt source: CondExpr.Body?) -> CXXStmt? {
+  private func cxx(condBodyStmt source: ConditionalExpr.Body?) -> CXXStmt? {
     switch source {
     case .expr(let alternativeDetails):
       return CXXExprStmt(

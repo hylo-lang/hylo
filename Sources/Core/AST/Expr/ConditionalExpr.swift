@@ -1,5 +1,5 @@
 /// A conditional expression.
-public struct CondExpr: Expr, LexicalScope {
+public struct ConditionalExpr: Expr, LexicalScope {
 
   public enum Body: Codable {
 
@@ -26,8 +26,8 @@ public struct CondExpr: Expr, LexicalScope {
 
   public init(
     condition: [ConditionItem],
-    success: CondExpr.Body,
-    failure: CondExpr.Body?,
+    success: Body,
+    failure: Body?,
     site: SourceRange
   ) {
     precondition(condition.count > 0)

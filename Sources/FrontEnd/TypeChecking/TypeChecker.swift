@@ -1011,9 +1011,8 @@ public struct TypeChecker {
       var success = true
       for cond in stmt.condition {
         switch cond {
-        case .expr(let condExpr):
-          success =
-            (checkedType(of: condExpr, shapedBy: nil, in: lexicalContext) != nil) && success
+        case .expr(let e):
+          success = (checkedType(of: e, shapedBy: nil, in: lexicalContext) != nil) && success
         default:
           success = false
         }

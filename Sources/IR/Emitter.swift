@@ -412,8 +412,8 @@ public struct Emitter {
     switch expr.kind {
     case BooleanLiteralExpr.self:
       return emitRValue(booleanLiteral: BooleanLiteralExpr.Typed(expr)!, into: &module)
-    case CondExpr.self:
-      return emitRValue(conditional: CondExpr.Typed(expr)!, into: &module)
+    case ConditionalExpr.self:
+      return emitRValue(conditional: ConditionalExpr.Typed(expr)!, into: &module)
     case FloatLiteralExpr.self:
       return emitRValue(floatLiteral: FloatLiteralExpr.Typed(expr)!, into: &module)
     case FunctionCallExpr.self:
@@ -445,7 +445,7 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(
-    conditional expr: CondExpr.Typed,
+    conditional expr: ConditionalExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let functionID = insertionBlock!.function

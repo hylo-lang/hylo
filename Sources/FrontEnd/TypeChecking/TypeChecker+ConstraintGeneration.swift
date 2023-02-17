@@ -141,7 +141,7 @@ extension TypeChecker {
     case CastExpr.self:
       return inferredType(
         ofCastExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
-    case CondExpr.self:
+    case ConditionalExpr.self:
       return inferredType(
         ofConditionalExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
     case FloatLiteralExpr.self:
@@ -234,7 +234,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofConditionalExpr subject: NodeID<CondExpr>,
+    ofConditionalExpr subject: NodeID<ConditionalExpr>,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State

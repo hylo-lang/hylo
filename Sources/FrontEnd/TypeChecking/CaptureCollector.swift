@@ -180,9 +180,9 @@ struct CaptureCollector {
         into: &captures,
         inMutatingContext: isContextMutating)
 
-    case CondExpr.self:
+    case ConditionalExpr.self:
       collectCaptures(
-        ofCond: NodeID(id)!,
+        ofConditional: NodeID(id)!,
         into: &captures,
         inMutatingContext: isContextMutating)
 
@@ -237,7 +237,7 @@ struct CaptureCollector {
   }
 
   private mutating func collectCaptures(
-    ofCond id: NodeID<CondExpr>,
+    ofConditional id: NodeID<ConditionalExpr>,
     into captures: inout FreeSet,
     inMutatingContext isContextMutating: Bool
   ) {

@@ -54,7 +54,7 @@ The header of a transpiled unit exposes the public symbols of the module through
 | `BooleanLiteralExpr` | `CXXBooleanLiteralExpr` | |
 | `BufferLiteralExpr` | `CXXBracedInitListExpr` | |
 | `CastExpr` | `CXXStaticCastExpr` | TODO: investigate possible casts |
-| `CondExpr` | `CXXCondExpr`, `CXXIfStmt` + `CXXStmtExpr` | If `CondExpr` is used in expression contexts, then the result is `CXXCondExpr`. Otherwhise, we use a `CXXIfStmt`, and wrap the statements in a `CXXStmtExpr` to transform them into an expression. |
+| `ConditionalExpr` | `CXXCondExpr`, `CXXIfStmt` + `CXXStmtExpr` | If `ConditionalExpr` is used in expression contexts, then the result is `CXXCondExpr`. Otherwhise, we use a `CXXIfStmt`, and wrap the statements in a `CXXStmtExpr` to transform them into an expression. |
 | `ConformanceLensTypeExpr` | TODO | |
 | `ErrorExpr` | N/A | |
 | `ExistentialTypeExpr` | TODO | |
