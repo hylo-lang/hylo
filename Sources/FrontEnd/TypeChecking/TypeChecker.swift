@@ -1184,6 +1184,7 @@ public struct TypeChecker {
     let success = modifying(
       &declTypes[d]!,
       { (t) in
+        // TODO: Diagnose reification failures
         t = s.typeAssumptions.reify(t)
         return !t[.hasError]
       })
