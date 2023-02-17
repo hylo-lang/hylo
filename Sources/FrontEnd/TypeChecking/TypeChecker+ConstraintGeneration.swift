@@ -255,11 +255,18 @@ extension TypeChecker {
       }
     }
 
+    let t = ^TypeVariable(node: AnyNodeID(subject))
     let firstBranch = inferredType(
       of: syntax.success, shapedBy: shape, in: scope, updating: &state)
-    _ = inferredType(
-      of: syntax.failure, shapedBy: firstBranch, in: scope, updating: &state)
-    return state.facts.constrain(subject, in: ast, toHaveType: firstBranch)
+    state.facts.append(
+      SubtypingConstraint(firstBranch, t, because: .init(.branchMerge, at: ast[subject].site)))
+
+    let secondBranch = inferredType(
+      of: syntax.failure, shapedBy: shape, in: scope, updating: &state)
+    state.facts.append(
+      SubtypingConstraint(secondBranch, t, because: .init(.branchMerge, at: ast[subject].site)))
+
+    return state.facts.constrain(subject, in: ast, toHaveType: t)
   }
 
   private mutating func inferredType(
