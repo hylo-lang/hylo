@@ -122,7 +122,7 @@ extension NodeKind {
     BooleanLiteralExpr.self,
     BufferLiteralExpr.self,
     CastExpr.self,
-    CondExpr.self,
+    ConditionalExpr.self,
     ConformanceLensTypeExpr.self,
     ErrorExpr.self,
     ExistentialTypeExpr.self,
