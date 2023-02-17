@@ -54,22 +54,6 @@ public struct LambdaType: TypeProtocol, CallableType {
       inputs: Array(initializer.inputs[1...]), output: r.bareType)
   }
 
-  /// Creates the type of variant in `bundle` corresponding to `access` or fails if `bundle`
-  /// doesn't offer that capability.
-  ///
-  /// - Requires: `effect` is not `yielded`.
-  public init?(_ bundle: MethodType, for effect: AccessEffect) {
-    precondition(effect != .yielded)
-    if !bundle.capabilities.contains(effect) { return nil }
-
-    let e =
-      (effect == .sink)
-      ? TupleType(labelsAndTypes: [("self", bundle.receiver)])
-      : TupleType(labelsAndTypes: [("self", ^RemoteType(effect, bundle.receiver))])
-    self.init(
-      receiverEffect: effect, environment: ^e, inputs: bundle.inputs, output: bundle.output)
-  }
-
   /// Returns a thin type accepting `self`'s environment as parameters.
   ///
   /// - Requires: `environment` is a `TupleType`.

@@ -2889,8 +2889,10 @@ public struct TypeChecker {
       output: outputType)
 
     for v in ast[d].impls {
+      let t = variantType(
+        in: m, for: ast[v].introducer.value, reportingDiagnosticsAt: ast[v].introducer.site)
+      declTypes[v] = t.map(AnyType.init(_:)) ?? .error
       declRequests[v] = .typeRealizationCompleted
-      declTypes[v] = ^LambdaType(m, for: ast[v].introducer.value)!
     }
 
     return ^m
@@ -3208,6 +3210,43 @@ public struct TypeChecker {
     }
 
     return LambdaType(environment: .void, inputs: inputs, output: .void)
+  }
+
+  /// Returns the type of variant `v` given a method with type `bundle` or returns `nil` if such
+  /// variant is incompatible with `bundle`, reporting diagnostics at `site`.
+  ///
+  /// - Requires `v` is in `bundle.capabilities`.
+  private mutating func variantType(
+    in bundle: MethodType, for v: AccessEffect, reportingDiagnosticsAt site: SourceRange
+  ) -> LambdaType? {
+    precondition(bundle.capabilities.contains(v))
+
+    let environment =
+      (v == .sink)
+      ? ^TupleType(labelsAndTypes: [("self", bundle.receiver)])
+      : ^TupleType(labelsAndTypes: [("self", ^RemoteType(v, bundle.receiver))])
+
+    let output: AnyType
+    if (v == .inout) || (v == .set) {
+      guard
+        let o = TupleType(relations.canonical(bundle.output)),
+        o.elements.count == 2,
+        o.elements[0].type == relations.canonical(bundle.receiver)
+      else {
+        let t = TupleType([
+          .init(label: "self", type: bundle.receiver),
+          .init(label: nil, type: bundle.output),
+        ])
+        diagnostics.insert(.error(mutatingBundleMustReturn: t, at: site))
+        return nil
+      }
+      output = ^o
+    } else {
+      output = bundle.output
+    }
+
+    return LambdaType(
+      receiverEffect: v, environment: environment, inputs: bundle.inputs, output: output)
   }
 
   // MARK: Type role determination

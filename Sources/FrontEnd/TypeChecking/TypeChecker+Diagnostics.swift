@@ -311,4 +311,8 @@ extension Diagnostic {
     .error("cannot extend built-in type '\(t)'", at: site)
   }
 
+  static func error(mutatingBundleMustReturn t: TupleType, at site: SourceRange) -> Diagnostic {
+    .error("mutating bundle must return '\(t)'", at: site)
+  }
+
 }
