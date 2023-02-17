@@ -61,3 +61,11 @@ public struct ConstraintCause: Hashable {
   }
 
 }
+
+extension ConstraintCause: CustomStringConvertible {
+
+  public var description: String {
+    "\(kind)@\(site)"
+  }
+
+}
