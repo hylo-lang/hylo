@@ -198,6 +198,8 @@ public struct CXXTranspiler {
       return cxx(assignStmt: AssignStmt.Typed(source)!)
     case ReturnStmt.self:
       return cxx(returnStmt: ReturnStmt.Typed(source)!)
+    case ConditionalStmt.self:
+      return cxx(conditionalStmt: ConditionalStmt.Typed(source)!)
     case WhileStmt.self:
       return cxx(whileStmt: WhileStmt.Typed(source)!)
     case DoWhileStmt.self:
@@ -250,22 +252,18 @@ public struct CXXTranspiler {
   }
 
   /// Returns a transpilation of `source`.
+  private func cxx(conditionalStmt source: ConditionalStmt.Typed) -> CXXIfStmt {
+    CXXIfStmt(
+      condition: cxx(condition: source.condition),
+      trueStmt: cxx(brace: source.success),
+      falseStmt: source.failure.map({ cxx(stmt: $0) }))
+  }
+
+  /// Returns a transpilation of `source`.
   private func cxx(whileStmt source: WhileStmt.Typed) -> CXXWhileStmt {
-    // TODO: multiple conditions
-    // TODO: bindings in conditions
-    let condition: CXXExpr
-    if source.condition.count == 1 {
-      switch source.condition[0] {
-      case .expr(let conditionDetails):
-        condition = cxx(expr: wholeValProgram[conditionDetails])
-      case .decl(_):
-        condition = CXXComment(comment: "binding condition")
-      }
-    } else {
-      fatalError("not implemented")
-    }
-    return CXXWhileStmt(
-      condition: condition, body: cxx(stmt: source.body))
+    CXXWhileStmt(
+      condition: cxx(condition: source.condition),
+      body: cxx(stmt: source.body))
   }
   /// Returns a transpilation of `source`.
   private func cxx(doWhileStmt source: DoWhileStmt.Typed) -> CXXDoWhileStmt {
@@ -288,6 +286,22 @@ public struct CXXTranspiler {
   /// Returns a transpilation of `source`.
   private func cxx(yieldStmt source: YieldStmt.Typed) -> CXXStmt {
     return CXXComment(comment: "YieldStmt")
+  }
+
+  /// Returns a transpilation of `condition`.
+  private func cxx(condition: [ConditionItem]) -> CXXExpr {
+    // TODO: multiple conditions
+    // TODO: bindings in conditions
+    if let c = condition.uniqueElement {
+      switch c {
+      case .expr(let e):
+        return cxx(expr: wholeValProgram[e])
+      case .decl(_):
+        return CXXComment(comment: "binding condition")
+      }
+    } else {
+      fatalError("not implemented")
+    }
   }
 
   // MARK: Expressions
@@ -410,26 +424,11 @@ public struct CXXTranspiler {
   ///
   /// A conditional expression is transpiled using a ternary operator (see `CXXConditionalExpr`)
   /// whenever possible. Otherwise, it is transpiled as a local variable initialized in a an `if`
-  /// statement.
+  /// statement (see `CXXIfStmt`).
   private func cxx(cond source: ConditionalExpr.Typed) -> CXXExpr {
-    // TODO: multiple conditions
-    // TODO: bindings in conditions
-    let condition: CXXExpr
-    if source.condition.count == 1 {
-      switch source.condition[0] {
-      case .expr(let conditionDetails):
-        condition = cxx(expr: wholeValProgram[conditionDetails])
-      case .decl(_):
-        condition = CXXComment(comment: "binding condition")
-      }
-    } else {
-      fatalError("not implemented")
-    }
-
-    // TODO: do we need to return an l-value?
-    // kyouko-taiga: Yep
-    return CXXConditionalExpr(
-      condition: condition, trueExpr: cxx(expr: source.success),
+    CXXConditionalExpr(
+      condition: cxx(condition: source.condition),
+      trueExpr: cxx(expr: source.success),
       falseExpr: cxx(expr: source.failure))
   }
 
