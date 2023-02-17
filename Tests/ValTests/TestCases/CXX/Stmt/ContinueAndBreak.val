@@ -1,19 +1,18 @@
 /*! cpp
-    Int lengthForCollatzSequence(Int n) {
-    Int count = 0;
-    while ( true ) {
-    if ( atTheEndOfCollatzSequence(n) ) {
-    break;
+Int lengthForCollatzSequence(Int n)  {
+  Int count = 0;
+  while ( true )  {
+    if ( atTheEndOfCollatzSequence(n) )  {
+      break;
     }
-    ;
     n = nextCollatz(n);
     inc(count);
     continue;
     inc(count);
-    }
-    return count;
-    }
- */
+  }
+  return count;
+}
+*/
 
 fun nextCollatz(_ n: Int) -> Int {
     1
