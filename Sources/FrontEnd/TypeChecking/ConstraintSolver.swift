@@ -847,9 +847,15 @@ struct ConstraintSolver {
   private func logState() {
     if !isLoggingEnabled { return }
     log("fresh:")
-    for c in fresh { log("- \"\(c)\"") }
+    for c in fresh {
+      log("- - \"\(c)\"")
+      log("  - \"\(c.cause)\"")
+    }
     log("stale:")
-    for c in stale { log("- \"\(c)\"") }
+    for c in stale {
+      log("- - \"\(c)\"")
+      log("  - \"\(c.cause)\"")
+    }
   }
 
 }
