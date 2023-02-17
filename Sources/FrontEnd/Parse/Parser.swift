@@ -2003,9 +2003,11 @@ public enum Parser {
     let c = try state.expect("condition", using: conditionalClause)
     let a = try state.expect("'{'", using: parseBracedExpr(in:))
     _ = try state.expect("'else'", using: { $0.take(.else) })
-    let b: AnyExprID = try state.expect("expression", using: { (s) in
-      try parseConditionalExpr(in: &s).map(AnyExprID.init(_:)) ?? parseBracedExpr(in: &s)
-    })
+    let b: AnyExprID = try state.expect(
+      "expression",
+      using: { (s) in
+        try parseConditionalExpr(in: &s).map(AnyExprID.init(_:)) ?? parseBracedExpr(in: &s)
+      })
 
     return state.insert(
       ConditionalExpr(
