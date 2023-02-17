@@ -20,7 +20,8 @@ import Utils
 /// A namespace for the routines of Val's parser.
 public enum Parser {
 
-  /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to `diagnostics`.
+  /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to
+  /// `diagnostics`.
   ///
   /// - Throws: Diagnostics if syntax errors were encountered.
   public static func parse(
@@ -2692,6 +2693,7 @@ public enum Parser {
     (oneOf([
       anyStmt(braceStmt),
       anyStmt(discardStmt),
+      anyStmt(Apply(parseConditionalStmt(in:))),
       anyStmt(doWhileStmt),
       anyStmt(whileStmt),
       anyStmt(forStmt),
@@ -2720,6 +2722,28 @@ public enum Parser {
         state.insert(
           DiscardStmt(expr: tree.1, site: tree.0.0.site.extended(upTo: state.currentIndex)))
       }))
+
+  /// Parses a conditional statement.
+  private static func parseConditionalStmt(
+    in state: inout ParserState
+  ) throws -> NodeID<ConditionalStmt>? {
+    guard let introducer = state.take(.if) else { return nil }
+
+    let c = try state.expect("condition", using: conditionalClause)
+    let s = try state.expect("'{'", using: braceStmt)
+    let f = try state.take(.else).map({ _ in
+      if let s = try parseConditionalStmt(in: &state) {
+        return AnyStmtID(s)
+      } else {
+        return AnyStmtID(try state.expect("'{'", using: braceStmt))
+      }
+    })
+
+    return state.insert(
+      ConditionalStmt(
+        condition: c, success: s, failure: f,
+        site: state.range(from: introducer.site.start)))
+  }
 
   static let doWhileStmt =
     (take(.do).and(loopBody).and(take(.while)).and(expr)
