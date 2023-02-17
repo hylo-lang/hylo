@@ -1,37 +1,32 @@
 /// A conditional expression.
 public struct ConditionalExpr: Expr, LexicalScope {
 
-  public enum Body: Codable {
-
-    /// An expression body.
-    case expr(AnyExprID)
-
-    /// A block body.
-    case block(NodeID<BraceStmt>)
-
-  }
-
   public let site: SourceRange
+
+  /// The site of the `if` keyword.
+  public let introducerSite: SourceRange
 
   /// The condition of the expression.
   ///
   /// - Requires: `condition.count > 0`
   public let condition: [ConditionItem]
 
-  /// The body of the expression that's executed if the condition holds.
-  public let success: Body
+  /// The expression that's executed if the condition holds.
+  public let success: AnyExprID
 
-  /// The body of the expression that's executed if the condition does not hold.
-  public let failure: Body?
+  /// The the expression that's executed if the condition does not hold.
+  public let failure: AnyExprID
 
   public init(
+    introducerSite: SourceRange,
     condition: [ConditionItem],
-    success: Body,
-    failure: Body?,
+    success: AnyExprID,
+    failure: AnyExprID,
     site: SourceRange
   ) {
     precondition(condition.count > 0)
 
+    self.introducerSite = introducerSite
     self.site = site
     self.condition = condition
     self.success = success

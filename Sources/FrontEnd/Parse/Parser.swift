@@ -1994,43 +1994,36 @@ public enum Parser {
         .map({ (state, id) -> FunctionDecl.Body in .block(id) })
     ))
 
+  /// Parses a conditional expression.
   private static func parseConditionalExpr(
     in state: inout ParserState
   ) throws -> NodeID<ConditionalExpr>? {
-    // Parse the introducer.
     guard let introducer = state.take(.if) else { return nil }
 
-    // Parse the parts of the expression.
-    let condition = try state.expect("condition", using: conditionalClause)
-    let body = try state.expect("body", using: conditionalExprBody)
-
-    // Parse the 'else' clause, if any.
-    let elseClause: ConditionalExpr.Body?
-    if state.take(.else) != nil {
-      if let e = try parseConditionalExpr(in: &state) {
-        elseClause = .expr(AnyExprID(e))
-      } else {
-        elseClause = try state.expect("body", using: conditionalExprBody)
-      }
-    } else {
-      elseClause = nil
-    }
+    let c = try state.expect("condition", using: conditionalClause)
+    let a = try state.expect("'{'", using: parseBracedExpr(in:))
+    _ = try state.expect("'else'", using: { $0.take(.else) })
+    let b: AnyExprID = try state.expect("expression", using: { (s) in
+      try parseConditionalExpr(in: &s).map(AnyExprID.init(_:)) ?? parseBracedExpr(in: &s)
+    })
 
     return state.insert(
       ConditionalExpr(
-        condition: condition,
-        success: body,
-        failure: elseClause,
+        introducerSite: introducer.site, condition: c, success: a, failure: b,
         site: state.range(from: introducer.site.start)))
   }
 
-  private static let conditionalExprBody = TryCatch(
-    trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> ConditionalExpr.Body in .expr(tree.0.1) }),
-    orCatchingAndApplying:
-      braceStmt
-      .map({ (state, id) -> ConditionalExpr.Body in .block(id) })
-  )
+  /// Parses a single expression enclosed in curly braces.
+  private static func parseBracedExpr(
+    in state: inout ParserState
+  ) throws -> AnyExprID? {
+    guard let opener = state.take(.lBrace) else { return nil }
+    let body = try state.expect("expression", using: parseExpr(in:))
+    if state.take(.rBrace) == nil {
+      state.diagnostics.insert(.error(expected: "}", matching: opener, in: state))
+    }
+    return body
+  }
 
   private static func parseMatchExpr(in state: inout ParserState) throws -> NodeID<MatchExpr>? {
     // Parse the introducer.
@@ -2730,8 +2723,8 @@ public enum Parser {
     guard let introducer = state.take(.if) else { return nil }
 
     let c = try state.expect("condition", using: conditionalClause)
-    let s = try state.expect("'{'", using: braceStmt)
-    let f = try state.take(.else).map({ _ in
+    let a = try state.expect("'{'", using: braceStmt)
+    let b = try state.take(.else).map({ _ in
       if let s = try parseConditionalStmt(in: &state) {
         return AnyStmtID(s)
       } else {
@@ -2741,7 +2734,7 @@ public enum Parser {
 
     return state.insert(
       ConditionalStmt(
-        condition: c, success: s, failure: f,
+        condition: c, success: a, failure: b,
         site: state.range(from: introducer.site.start)))
   }
 

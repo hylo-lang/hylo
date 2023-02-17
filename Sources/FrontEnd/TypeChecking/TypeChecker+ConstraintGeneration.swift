@@ -255,40 +255,11 @@ extension TypeChecker {
       }
     }
 
-    // Assume the node represents an expression if both branches are single expressions.
-    let successType: AnyType?
-
-    // Visit the success branch.
-    switch syntax.success {
-    case .expr(let expr):
-      successType = inferredType(of: expr, shapedBy: shape, in: scope, updating: &state)
-
-    case .block(let branch):
-      if !check(brace: branch) { state.facts.setConflictFound() }
-      successType = nil
-    }
-
-    // Visit the failure branch.
-    switch syntax.failure {
-    case .expr(let expr):
-      let failureType = inferredType(of: expr, shapedBy: shape, in: scope, updating: &state)
-      if let successType = successType {
-        // Both branches are single expressions.
-        state.facts.append(
-          EqualityConstraint(
-            successType, failureType,
-            because: ConstraintCause(.branchMerge, at: syntax.site)))
-        return state.facts.constrain(subject, in: ast, toHaveType: successType)
-      }
-
-    case .block(let branch):
-      if !check(brace: branch) { state.facts.setConflictFound() }
-
-    case nil:
-      break
-    }
-
-    return state.facts.constrain(subject, in: ast, toHaveType: AnyType.void)
+    let firstBranch = inferredType(
+      of: syntax.success, shapedBy: shape, in: scope, updating: &state)
+    _ = inferredType(
+      of: syntax.failure, shapedBy: firstBranch, in: scope, updating: &state)
+    return state.facts.constrain(subject, in: ast, toHaveType: firstBranch)
   }
 
   private mutating func inferredType(

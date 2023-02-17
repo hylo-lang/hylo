@@ -408,8 +408,9 @@ public struct CXXTranspiler {
 
   /// Returns a transpilation of `source`.
   ///
-  /// As much as possible, this will be converted into a ternary operator (CXXConditionalExpr).
-  /// There are, however, in wich this needs to be translated into an if statment, then trasformed into an expression.
+  /// A conditional expression is transpiled using a ternary operator (see `CXXConditionalExpr`)
+  /// whenever possible. Otherwise, it is transpiled as a local variable initialized in a an `if`
+  /// statement.
   private func cxx(cond source: ConditionalExpr.Typed) -> CXXExpr {
     // TODO: multiple conditions
     // TODO: bindings in conditions
@@ -424,43 +425,12 @@ public struct CXXTranspiler {
     } else {
       fatalError("not implemented")
     }
-    // TODO: better checks if we need an expression or a statement
-    if wholeValProgram.relations.areEquivalent(source.type, .void) {
-      // We result in a statement, and we wrap the statement into an expression
-      return CXXStmtExpr(
-        stmt: CXXIfStmt(
-          condition: condition, trueStmt: cxx(condBodyStmt: source.success)!,
-          falseStmt: cxx(condBodyStmt: source.failure)))
-    } else {
-      // We result in an expression
-      // TODO: do we need to return an l-value?
-      return CXXConditionalExpr(
-        condition: condition, trueExpr: cxx(condBodyExpr: source.success),
-        falseExpr: cxx(condBodyExpr: source.failure))
-    }
-  }
-  /// Returns a transpilation of `source` as an expression.
-  private func cxx(condBodyExpr source: ConditionalExpr.Body?) -> CXXExpr {
-    switch source {
-    case .expr(let alternativeDetails):
-      return cxx(expr: wholeValProgram[alternativeDetails])
-    case .block:
-      fatalError("not implemented")
-    case .none:
-      return CXXComment(comment: "missing alternative")
-    }
-  }
-  /// Returns a transpilation of `source` as a statement.
-  private func cxx(condBodyStmt source: ConditionalExpr.Body?) -> CXXStmt? {
-    switch source {
-    case .expr(let alternativeDetails):
-      return CXXExprStmt(
-        expr: CXXVoidCast(baseExpr: cxx(expr: wholeValProgram[alternativeDetails])))
-    case .block(let alternativeDetails):
-      return cxx(stmt: wholeValProgram[alternativeDetails])
-    case .none:
-      return nil
-    }
+
+    // TODO: do we need to return an l-value?
+    // kyouko-taiga: Yep
+    return CXXConditionalExpr(
+      condition: condition, trueExpr: cxx(expr: source.success),
+      falseExpr: cxx(expr: source.failure))
   }
 
   // MARK: names

@@ -486,39 +486,24 @@ public struct Emitter {
 
     // Emit the success branch.
     // Note: the insertion pointer is already set in the corresponding block.
-    switch expr.success {
-    case .expr(let thenExpr):
-      frames.push()
-      let value = emitRValue(program[thenExpr], into: &module)
-      if let s = resultStorage {
-        emitInitialization(of: s, to: value, anchoredAt: program[thenExpr].site, into: &module)
-      }
-      emitStackDeallocs(in: &module, site: expr.site)
-      frames.pop()
-
-    case .block:
-      fatalError("not implemented")
+    frames.push()
+    let a = emitRValue(program[expr.success], into: &module)
+    if let s = resultStorage {
+      emitInitialization(of: s, to: a, anchoredAt: program[expr.success].site, into: &module)
     }
+    emitStackDeallocs(in: &module, site: expr.site)
+    frames.pop()
     module.append(module.makeBranch(to: continuation, anchoredAt: expr.site), to: insertionBlock!)
 
     // Emit the failure branch.
     insertionBlock = alt
-    switch expr.failure {
-    case .expr(let elseExpr):
-      frames.push()
-      let value = emitRValue(program[elseExpr], into: &module)
-      if let s = resultStorage {
-        emitInitialization(of: s, to: value, anchoredAt: program[elseExpr].site, into: &module)
-      }
-      emitStackDeallocs(in: &module, site: expr.site)
-      frames.pop()
-
-    case .block:
-      fatalError("not implemented")
-
-    case nil:
-      break
+    frames.push()
+    let b = emitRValue(program[expr.failure], into: &module)
+    if let s = resultStorage {
+      emitInitialization(of: s, to: b, anchoredAt: program[expr.failure].site, into: &module)
     }
+    emitStackDeallocs(in: &module, site: expr.site)
+    frames.pop()
     module.append(module.makeBranch(to: continuation, anchoredAt: expr.site), to: insertionBlock!)
 
     // Emit the value of the expression.

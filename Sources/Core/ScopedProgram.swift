@@ -621,21 +621,8 @@ extension ScopedProgram {
           }
         }
 
-        switch this.ast[expr].success {
-        case let .expr(i):
-          this.visit(expr: i, withState: &state)
-        case let .block(i):
-          this.visit(braceStmt: i, withState: &state)
-        }
-
-        switch this.ast[expr].failure {
-        case let .expr(i):
-          this.visit(expr: i, withState: &state)
-        case let .block(i):
-          this.visit(braceStmt: i, withState: &state)
-        case nil:
-          break
-        }
+        this.visit(expr: this.ast[expr].success, withState: &state)
+        this.visit(expr: this.ast[expr].failure, withState: &state)
       })
   }
 

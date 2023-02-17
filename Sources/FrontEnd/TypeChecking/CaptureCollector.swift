@@ -253,26 +253,10 @@ struct CaptureCollector {
       }
     }
 
-    // Visit the then branch.
-    switch ast[id].success {
-    case .block(let stmt):
-      collectCaptures(ofBrace: stmt, into: &captures)
-    case .expr(let expr):
-      collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: isContextMutating)
-    }
-
     // Bindings declared in the condition are not in scope for the else branch.
+    collectCaptures(ofExpr: ast[id].success, into: &captures, inMutatingContext: isContextMutating)
     boundNames.removeLast()
-
-    // Visit the else branch, if any.
-    switch ast[id].failure {
-    case .block(let stmt):
-      collectCaptures(ofBrace: stmt, into: &captures)
-    case .expr(let expr):
-      collectCaptures(ofExpr: expr, into: &captures, inMutatingContext: isContextMutating)
-    case nil:
-      break
-    }
+    collectCaptures(ofExpr: ast[id].failure, into: &captures, inMutatingContext: isContextMutating)
   }
 
   private mutating func collectCaptures(
