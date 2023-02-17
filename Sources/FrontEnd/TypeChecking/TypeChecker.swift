@@ -514,10 +514,6 @@ public struct TypeChecker {
   }
 
   private mutating func _check(method id: NodeID<MethodDecl>) -> Bool {
-    // The type of the declaration must have been realized.
-    let type = declTypes[id]!.base as! MethodType
-    let outputType = type.output.skolemized
-
     // Type check the generic constraints.
     var success = environment(of: id) != nil
 
@@ -527,30 +523,25 @@ public struct TypeChecker {
       success = check(parameter: parameter, siblingNames: &parameterNames) && success
     }
 
-    for impl in ast[id].impls {
-      // Set the type of the implicit receiver declaration.
-      declTypes[ast[impl].receiver] = ^ParameterType(ast[impl].introducer.value, type.receiver)
-      declRequests[ast[impl].receiver] = .success
+    // Type check the bodies.
+    let bundle = MethodType(declTypes[id])!
+    for v in ast[id].impls {
+      declTypes[ast[v].receiver] = ^ParameterType(ast[v].introducer.value, bundle.receiver)
+      declRequests[ast[v].receiver] = .success
 
-      // Type check method's implementations, if any.
-      switch ast[impl].body {
+      switch ast[v].body {
       case .expr(let expr):
-        let expectedType =
-          ast[impl].introducer.value == .inout
-          ? AnyType.void
-          : outputType
-        success = (checkedType(of: expr, shapedBy: expectedType, in: impl) != nil) && success
+        let t = LambdaType(declTypes[v])!
+        success = (checkedType(of: expr, shapedBy: t.output, in: v) != nil) && success
 
       case .block(let stmt):
         success = check(brace: stmt) && success
 
       case nil:
-        // Requirements can be without a body.
-        if program.isRequirement(id) { continue }
-
-        // Declaration requires a body.
-        diagnostics.insert(.error(declarationRequiresBodyAt: ast[id].introducerSite))
-        success = false
+        if !program.isRequirement(id) {
+          diagnostics.insert(.error(declarationRequiresBodyAt: ast[id].introducerSite))
+          success = false
+        }
       }
     }
 
@@ -1196,31 +1187,14 @@ public struct TypeChecker {
   /// Returns the expected output type in `lexicalContext`, or `nil` if `lexicalContext` is not
   /// nested in a function or subscript declaration.
   private func expectedOutputType<S: ScopeID>(in lexicalContext: S) -> AnyType? {
-    for parent in program.scopes(from: lexicalContext) {
-      switch parent.kind {
+    for s in program.scopes(from: lexicalContext) {
+      switch s.kind {
       case MethodImpl.self:
-        // `lexicalContext` is nested in a method implementation.
-        let decl = NodeID<MethodImpl>(parent)!
-        if ast[decl].introducer.value == .inout {
-          return .void
-        } else {
-          let methodDecl = NodeID<FunctionDecl>(program.scopeToParent[decl]!)!
-          let methodType = declTypes[methodDecl]!.base as! MethodType
-          return methodType.output.skolemized
-        }
-
+        return LambdaType(declTypes[NodeID<MethodImpl>(s)!])?.output.skolemized
       case FunctionDecl.self:
-        // `lexicalContext` is nested in a function.
-        let decl = NodeID<FunctionDecl>(parent)!
-        let funType = declTypes[decl]!.base as! LambdaType
-        return funType.output.skolemized
-
+        return LambdaType(declTypes[NodeID<FunctionDecl>(s)!])?.output.skolemized
       case SubscriptDecl.self:
-        // `lexicalContext` is nested in a subscript implementation.
-        let decl = NodeID<SubscriptDecl>(parent)!
-        let subscriptType = declTypes[decl]!.base as! SubscriptType
-        return subscriptType.output.skolemized
-
+        return SubscriptType(declTypes[NodeID<SubscriptDecl>(s)!])?.output.skolemized
       default:
         continue
       }
@@ -3240,7 +3214,7 @@ public struct TypeChecker {
         diagnostics.insert(.error(mutatingBundleMustReturn: t, at: site))
         return nil
       }
-      output = ^o
+      output = o.elements[1].type
     } else {
       output = bundle.output
     }
