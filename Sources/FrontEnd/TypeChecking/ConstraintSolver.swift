@@ -7,9 +7,6 @@ struct ConstraintSolver {
   /// The solution of an exploration given a particular choice.
   private typealias ExploratinResult<T> = (choice: T, solution: Solution)
 
-  /// A type that's used to compare competing solutions.
-  public let comparator: AnyType
-
   /// The scope in which the constraints are solved.
   private let scope: AnyScopeID
 
@@ -40,15 +37,12 @@ struct ConstraintSolver {
   /// The current indentation level for logging messages.
   private var indentation = 0
 
-  /// Creates an instance that solves the constraints in `fresh` in `scope`, using `comparator` to
-  /// choose between competing solutions.
+  /// Creates an instance that solves the constraints in `fresh` in `scope`.
   init<S: Sequence>(
     scope: AnyScopeID,
     fresh: S,
-    comparingSolutionsWith comparator: AnyType,
     loggingTrace isLoggingEnabled: Bool
   ) where S.Element == Constraint {
-    self.comparator = comparator
     self.scope = scope
     self.fresh = Array(fresh)
     self.isLoggingEnabled = isLoggingEnabled
@@ -638,20 +632,9 @@ struct ConstraintSolver {
     into bestResults: inout [ExploratinResult<T>],
     using checker: inout TypeChecker
   ) {
-
-    // This algorithms has three steps. The first simply picks the solution with the best score.
-    //
-    // If multiple solutions have the same score, the second step attempts to use a "comparator"
-    // type to decide if a solution refines another. In most cases, it's picked as the root type
-    // being inferred. The rationale is that if we're inferring the type of `e` and get two
-    // competing solutions `s1` and `s2`, `s1` refines `s2` if the type it assigns to `e` is
-    // subtype of the one `s2` assigns to `e`.
-    //
-    // If the comparator cannot distinguish solutions, the last step is to rank the them based on
-    // the name bindings they make. `s1` refines `s2` iff it makes at least one more specific
-    // binding than `s2` and no binding less specific than `s2`.
-
-    // Ignore worse solutions.
+    // Rank solutions based on the name bindings they make. `s1` refines `s2` iff it has a better
+    // score than `s2` or if it has the same score but makes at least one more specific binding
+    // than `s2` and no binding less specific than `s2`.
     if newResult.solution.score > best { return }
 
     // Fast path: if the new solution has a better score, discard all others.
@@ -663,36 +646,23 @@ struct ConstraintSolver {
 
     // Slow path: inspect how the new solution compares with the ones we have.
     var shouldInsert = false
-    let lhs = newResult.solution.typeAssumptions.reify(comparator)
-
     var i = 0
     while i < bestResults.count {
-      let rhs = bestResults[i].solution.typeAssumptions.reify(comparator)
-      if checker.relations.areEquivalent(lhs, rhs) {
-        // Check if the new solution binds name expressions to more specialized declarations.
-        let comparison = checker.compareSolutionBindings(
-          newResult.solution, bestResults[0].solution, scope: scope)
-        switch comparison {
-        case .comparable(.equal):
-          // The new solution is equal; discard it.
-          return
-        case .comparable(.coarser):
-          // The new solution is coarser; discard it unless it's better than another one.
-          i += 1
-        case .comparable(.finer):
-          // The new solution is finer; keep it and discard the old one.
-          bestResults.remove(at: i)
-          shouldInsert = true
-        case .incomparable:
-          // The new solution is incomparable; keep it.
-          i += 1
-          shouldInsert = true
-        }
-      } else if checker.relations.isStrictSubtype(lhs, rhs) {
+      // Check if the new solution binds name expressions to more specialized declarations.
+      let comparison = checker.compareSolutionBindings(
+        newResult.solution, bestResults[0].solution, scope: scope)
+      switch comparison {
+      case .comparable(.equal):
+        // The new solution is equal; discard it.
+        return
+      case .comparable(.coarser):
+        // The new solution is coarser; discard it unless it's better than another one.
+        i += 1
+      case .comparable(.finer):
         // The new solution is finer; keep it and discard the old one.
         bestResults.remove(at: i)
         shouldInsert = true
-      } else {
+      case .incomparable:
         // The new solution is incomparable; keep it.
         i += 1
         shouldInsert = true
@@ -999,8 +969,7 @@ extension TypeChecker {
     }
 
     // Solve the constraint system.
-    var solver = ConstraintSolver(
-      scope: scope, fresh: constraints, comparingSolutionsWith: .void, loggingTrace: false)
+    var solver = ConstraintSolver(scope: scope, fresh: constraints, loggingTrace: false)
     return !solver.apply(using: &self).diagnostics.containsError
   }
 

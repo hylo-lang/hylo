@@ -1597,7 +1597,7 @@ public struct TypeChecker {
     }
 
     // Generate constraints.
-    let (subjectType, facts, deferredQueries) = inferredType(
+    let (_, facts, deferredQueries) = inferredType(
       of: subject, shapedBy: shape, in: AnyScopeID(scope))
 
     // Bail out if constraint generation failed.
@@ -1609,7 +1609,6 @@ public struct TypeChecker {
     var solver = ConstraintSolver(
       scope: AnyScopeID(scope),
       fresh: initialConstraints + facts.constraints,
-      comparingSolutionsWith: subjectType,
       loggingTrace: shouldLogTrace)
     let solution = solver.apply(using: &self)
 
