@@ -1,0 +1,8 @@
+type A0 {
+
+  property m5: Void {
+    let {}
+    let {} //! diagnostic duplicate implementation introducer 'let'
+  }
+
+}
