@@ -183,7 +183,7 @@ public struct ValCommand: ParsableCommand {
 
   /// Returns the path for executable file.
   /// Use `productName` to generate executable file location if `outputURL` is nil.
-  private func executablePath(_ outputURL: URL?, _ name: productName) -> String {
+  private func executablePath(_ outputURL: URL?, _ productName: String) -> String {
     var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).path
 
     //Generate binary programs with `.exe` suffix in windows
