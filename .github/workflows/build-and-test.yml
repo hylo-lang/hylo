@@ -3,8 +3,14 @@ name: Build and test
 on:
   push:
     branches: [ main, rewrite ]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
   pull_request:
     branches: [ "**" ]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
 
 jobs:
   build:
