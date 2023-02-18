@@ -449,11 +449,11 @@ extension TypeChecker {
     })
 
     // If the underlying declaration's return type is a unknown, infer it from the lambda's body.
-    if underlyingDeclType.output.base is TypeVariable {
+    let o = underlyingDeclType.output
+    if o.base is TypeVariable {
       if case .expr(let body) = ast[syntax.decl].body {
-        _ = inferredType(
-          of: body, shapedBy: underlyingDeclType.output, in: AnyScopeID(syntax.decl),
-          updating: &state)
+        let e = inferredType(of: body, shapedBy: o, in: AnyScopeID(syntax.decl), updating: &state)
+        state.facts.append(SubtypingConstraint(e, o, because: .init(.return, at: ast[body].site)))
       } else {
         report(.error(cannotInferComplexReturnTypeAt: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
@@ -532,11 +532,6 @@ extension TypeChecker {
       lastVisitedComponentType = state.facts.constrain(component, in: ast, toHaveType: memberType)
     }
 
-    if let e = shape {
-      appendEquality(
-        lastVisitedComponentType!, e, causedBy: .init(.binding, at: ast[subject].site),
-        to: &state.facts)
-    }
     return lastVisitedComponentType!
   }
 
@@ -945,23 +940,6 @@ extension TypeChecker {
   }
 
   // MARK: Helpers
-
-  /// Adds an equality constraint between `l` and `r` caused by `c` to `facts`.
-  private mutating func appendEquality(
-    _ l: AnyType, _ r: AnyType, causedBy c: ConstraintCause,
-    to facts: inout InferenceFacts
-  ) {
-    let a = relations.canonical(l)
-    let b = relations.canonical(r)
-    if a == b {
-      return
-    } else if !a[.hasVariable] && !b[.hasVariable] {
-      report(.error(type: l, incompatibleWith: r, at: c.site))
-      facts.setConflictFound()
-    } else {
-      facts.append(EqualityConstraint(l, r, because: c))
-    }
-  }
 
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
   /// to generate their type constraints assuming they have the corresponding type in `parameters`

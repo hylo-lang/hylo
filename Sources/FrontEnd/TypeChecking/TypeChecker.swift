@@ -443,14 +443,15 @@ public struct TypeChecker {
     case .block(let stmt):
       return check(brace: stmt) && success
 
-    case .expr(let expr):
+    case .expr(let body):
       // If `expr` has been used to infer the return type, there's no need to visit it again.
       if (ast[id].output == nil) && ast[id].isInExprContext { return success }
 
-      // Otherwise, it's expected to have the realized return type.
-      let t = checkedType(
-        of: expr, shapedBy: LambdaType(declTypes[id]!)!.output.skolemized, in: id)
-      return (t != nil) && success
+      // Inline functions may return `Never` regardless of their return type.
+      let r = LambdaType(declTypes[id]!)!.output.skolemized
+      let c = constraintOnSingleExprBody(body, ofFunctionReturning: r)
+      return solutionTyping(
+        body, shapedBy: r, in: id, initialConstraints: [c]).succeeded && success
 
     case nil:
       // Requirements and FFIs can be without a body.
@@ -459,6 +460,31 @@ public struct TypeChecker {
       // Declaration requires a body.
       diagnostics.insert(.error(declarationRequiresBodyAt: ast[id].introducerSite))
       return false
+    }
+  }
+
+  /// Returns the type constraint placed on the body `e` of a single-expression function returning
+  /// instances of `r`.
+  ///
+  /// Use this method to create initial constraints passed to `solutionTyping` to type check the
+  /// body of a single-expression function. The returned constraint allows this body to have type
+  /// `Never` even if the function declares a different return type.
+  private mutating func constraintOnSingleExprBody(
+    _ e: AnyExprID, ofFunctionReturning r: AnyType
+  ) -> Constraint {
+    let l = exprTypes[e].setIfNil(^TypeVariable())
+    let c = ConstraintCause(.return, at: ast[e].site)
+    let constrainToNever = EqualityConstraint(l, .never, because: c)
+
+    if relations.areEquivalent(r, .never) {
+      return constrainToNever
+    } else {
+      return DisjunctionConstraint(
+        choices: [
+          .init(constraints: [SubtypingConstraint(l, r, because: c)], penalties: 0),
+          .init(constraints: [constrainToNever], penalties: 1),
+        ],
+        because: c)
     }
   }
 
@@ -539,7 +565,7 @@ public struct TypeChecker {
           ast[impl].introducer.value == .inout
           ? AnyType.void
           : outputType
-        success = (checkedType(of: expr, shapedBy: expectedType, in: impl) != nil) && success
+        success = (checkedType(of: expr, subtypeOf: expectedType, in: impl) != nil) && success
 
       case .block(let stmt):
         success = check(brace: stmt) && success
@@ -706,7 +732,7 @@ public struct TypeChecker {
       // Type checks the body of the implementation.
       switch ast[impl].body {
       case .expr(let expr):
-        success = (checkedType(of: expr, shapedBy: outputType, in: impl) != nil) && success
+        success = (checkedType(of: expr, subtypeOf: outputType, in: impl) != nil) && success
 
       case .block(let stmt):
         success = check(brace: stmt) && success
@@ -1015,7 +1041,7 @@ public struct TypeChecker {
       for cond in stmt.condition {
         switch cond {
         case .expr(let e):
-          success = (checkedType(of: e, shapedBy: nil, in: lexicalContext) != nil) && success
+          success = (checkedType(of: e, subtypeOf: nil, in: lexicalContext) != nil) && success
         default:
           success = false
         }
@@ -1074,7 +1100,7 @@ public struct TypeChecker {
     for c in ast[s].condition {
       switch c {
       case .expr(let e):
-        success = (checkedType(of: e, shapedBy: boolType, in: lexicalContext) != nil) && success
+        success = (checkedType(of: e, subtypeOf: boolType, in: lexicalContext) != nil) && success
       default:
         fatalError("not implemented")
       }
@@ -1095,34 +1121,18 @@ public struct TypeChecker {
 
     // Visit the condition of the loop in the scope of the body.
     let boolType = AnyType(ast.coreType(named: "Bool")!)
-    let inference = solutionTyping(
-      ast[subject].condition, shapedBy: boolType,
-      in: ast[subject].body)
-
-    return success && inference.succeeded
+    let t = checkedType(of: ast[subject].condition, subtypeOf: boolType, in: ast[subject].body)
+    return success && (t != nil)
   }
 
   private mutating func check<S: ScopeID>(
     return id: NodeID<ReturnStmt>,
     in lexicalContext: S
   ) -> Bool {
-    // Retreive the expected output type.
-    let expectedType = expectedOutputType(in: lexicalContext)!
-
-    if let returnValue = ast[id].value {
-      // The type of the return value must be subtype of the expected return type.
-      let inferredReturnType = exprTypes[returnValue].setIfNil(^TypeVariable())
-      let inference = solutionTyping(
-        returnValue,
-        shapedBy: expectedType,
-        in: lexicalContext,
-        initialConstraints: [
-          SubtypingConstraint(
-            inferredReturnType, expectedType,
-            because: ConstraintCause(.return, at: ast[returnValue].site))
-        ])
-      return inference.succeeded
-    } else if expectedType != .void {
+    let o = expectedOutputType(in: lexicalContext)!
+    if let v = ast[id].value {
+      return checkedType(of: v, subtypeOf: o, in: lexicalContext) != nil
+    } else if !relations.areEquivalent(o, .void) {
       diagnostics.insert(.error(missingReturnValueAt: ast[id].site))
       return false
     } else {
@@ -1142,9 +1152,8 @@ public struct TypeChecker {
       switch item {
       case .expr(let expr):
         // Condition must be Boolean.
-        let inference = solutionTyping(
-          expr, shapedBy: boolType, in: lexicalContext)
-        if !inference.succeeded { return false }
+        let t = checkedType(of: expr, subtypeOf: boolType, in: lexicalContext)
+        if t == nil { return false }
 
       case .decl(let binding):
         if !check(binding: binding) { return false }
@@ -1159,21 +1168,8 @@ public struct TypeChecker {
     yield id: NodeID<YieldStmt>,
     in lexicalContext: S
   ) -> Bool {
-    // Retreive the expected output type.
-    let expectedType = expectedOutputType(in: lexicalContext)!
-
-    // The type of the return value must be subtype of the expected return type.
-    let inferredReturnType = exprTypes[ast[id].value].setIfNil(^TypeVariable())
-    let inference = solutionTyping(
-      ast[id].value,
-      shapedBy: expectedType,
-      in: lexicalContext,
-      initialConstraints: [
-        SubtypingConstraint(
-          inferredReturnType, expectedType,
-          because: ConstraintCause(.yield, at: ast[ast[id].value].site))
-      ])
-    return inference.succeeded
+    let o = expectedOutputType(in: lexicalContext)!
+    return checkedType(of: ast[id].value, subtypeOf: o, in: lexicalContext) != nil
   }
 
   /// Returns whether `d` is well-typed, reading type inference results from `s`.
@@ -1191,6 +1187,7 @@ public struct TypeChecker {
 
   /// Returns whether `e` is well-typed, reading type inference results from `s`.
   mutating func checkDeferred(lambdaExpr e: NodeID<LambdaExpr>, _ s: Solution) -> Bool {
+    // TODO: Diagnose reification failures
     guard
       let declType = exprTypes[e]?.base as? LambdaType,
       !declType[.hasError]
@@ -1554,12 +1551,17 @@ public struct TypeChecker {
   ///   - scope: The innermost scope containing `subject`.
   private mutating func checkedType<S: ScopeID>(
     of subject: AnyExprID,
-    shapedBy shape: AnyType? = nil,
+    subtypeOf supertype: AnyType? = nil,
     in scope: S
   ) -> AnyType? {
-    solutionTyping(subject, shapedBy: shape, in: scope).succeeded
-      ? exprTypes[subject]!
-      : nil
+    var c: [Constraint] = []
+    if let t = supertype {
+      let u = exprTypes[subject].setIfNil(^TypeVariable())
+      c.append(SubtypingConstraint(u, t, because: .init(.structural, at: ast[subject].site)))
+    }
+
+    let i = solutionTyping(subject, shapedBy: supertype, in: scope, initialConstraints: c)
+    return i.succeeded ? exprTypes[subject]! : nil
   }
 
   /// Returns the best solution satisfying `initialConstraints` and describing the types of
