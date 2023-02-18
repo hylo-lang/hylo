@@ -18,7 +18,7 @@ jobs:
           { type: windows, os: windows-latest },
         ]
         swift: [
-          { version: "5.7", windows-branch: "swift-5.8-branch", windows-tag: "5.8-DEVELOPMENT-SNAPSHOT-2023-02-09-a" }
+          { version: "5.7", windows-branch: "development", windows-tag: "DEVELOPMENT-SNAPSHOT-2023-02-14-a" }
         ]
     runs-on: ${{ matrix.host.os }}
     steps:
