@@ -42,6 +42,54 @@ extension Collection {
 
 }
 
+extension Collection where Index == Int {
+
+
+  /// Returns the index `i` that partitions `self` in two halves so that elements in `self[..<i]`
+  /// and `self[i...]` are ordered before and after `pivot`, respectively.
+  ///
+  /// - Complexity: O(log *n*) where *n* is the length of `self`.
+  /// - Requires: For any pair of indices `(i, j)` in `self`, `i < j` implies that
+  ///   `areInIncreasingOrder(self[i], self[j])` is true.
+  /// - Returns: `self.firstIndex(where: { areInIncreasingOrder(pivot, e) })`
+  public func partitioningIndex(
+    at pivot: Element,
+    orderedBy areInIncreasingOrder: (Element, Element) throws -> Bool
+  ) rethrows -> Int {
+    var lower = 0
+    var upper = count
+
+    while lower < upper {
+      let middle = (lower + upper) / 2
+      if try areInIncreasingOrder(pivot, self[middle]) {
+        upper = middle
+      } else {
+        lower = middle + 1
+      }
+    }
+
+    return lower
+  }
+
+}
+
+extension Collection where Index == Int, Element: Comparable {
+
+  /// Returns the index `i` that partitions `self` in two halves so that elements in `self[..<i]`
+  /// and `self[i...]` are ordered before and after `pivot`, respectively.
+  ///
+  /// If `pivot` is contained in `self`, this method returns the index after that of last
+  /// occurrence of `pivot`.
+  ///
+  /// - Complexity: O(log *n*) where *n* is the length of `self`.
+  /// - Requires: For any pair of indices `(i, j)` in `self`, `i < j` implies `self[i] < self[j]`.
+  /// - Returns: `self.firstIndex(where: { pivot < e }) ?? self.endIndex`
+  public func partitioningIndex(at pivot: Element) -> Int {
+    partitioningIndex(at: pivot, orderedBy: <)
+  }
+
+}
+
 extension BidirectionalCollection {
 
   /// Returns `self` sans any suffix elements satisfying `predicate`.
