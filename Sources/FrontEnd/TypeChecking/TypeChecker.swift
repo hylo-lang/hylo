@@ -333,12 +333,12 @@ public struct TypeChecker {
         initializerConstraints.append(
           SubtypingConstraint(
             initializerType, shape.type,
-            because: ConstraintCause(.initializationWithHint, at: syntax.site)))
+            because: ConstraintCause(.initializationWithHint, at: ast[initializer].site)))
       } else {
         initializerConstraints.append(
           EqualityConstraint(
             initializerType, shape.type,
-            because: ConstraintCause(.initializationWithPattern, at: syntax.site)))
+            because: ConstraintCause(.initializationWithPattern, at: ast[initializer].site)))
       }
 
       // Infer the type of the initializer
