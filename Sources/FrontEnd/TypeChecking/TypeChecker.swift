@@ -1610,7 +1610,7 @@ public struct TypeChecker {
       scope: AnyScopeID(scope),
       fresh: initialConstraints + facts.constraints,
       loggingTrace: shouldLogTrace)
-    let solution = solver.apply(using: &self)
+    let solution = solver.solution(&self)
 
     if shouldLogTrace {
       print(solution)

@@ -53,14 +53,16 @@ struct ConstraintSolver {
     Solution.Score(errorCount: diagnostics.elements.count, penalties: penalties)
   }
 
-  /// Applies `self` to solve its constraints using `checker` to resolve names and realize types.
-  mutating func apply(using checker: inout TypeChecker) -> Solution {
-    solve(using: &checker)!
+  /// Returns the best solution solving the constraints in `self` using `checker` to query type
+  /// relations and resolve names.
+  mutating func solution(_ checker: inout TypeChecker) -> Solution {
+    solveConstraints(&checker)!
   }
 
-  /// Solves the constraints and returns the best solution, or `nil` if a better solution has
-  /// already been computed.
-  private mutating func solve(using checker: inout TypeChecker) -> Solution? {
+  /// Returns the best solution solving the constraints in `self` using `checker` to query type
+  /// relations and resolve names, or `nil` if no solution with a score better than `self.best`
+  /// can be found.
+  private mutating func solveConstraints(_ checker: inout TypeChecker) -> Solution? {
     logState()
     log("steps:")
 
@@ -592,7 +594,7 @@ struct ConstraintSolver {
       // Explore the result of this choice.
       var subSolver = self
       configureSubSolver(&subSolver, choice)
-      guard let newSolution = subSolver.solve(using: &checker) else { continue }
+      guard let newSolution = subSolver.solveConstraints(&checker) else { continue }
 
       // Insert the new result.
       insert((choice, newSolution), into: &results, using: &checker)
@@ -958,7 +960,7 @@ extension TypeChecker {
 
     // Solve the constraint system.
     var solver = ConstraintSolver(scope: scope, fresh: constraints, loggingTrace: false)
-    return !solver.apply(using: &self).diagnostics.containsError
+    return !solver.solution(&self).diagnostics.containsError
   }
 
 }
