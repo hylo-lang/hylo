@@ -143,7 +143,7 @@ public struct Emitter {
         emit(functionDecl: FunctionDecl.Typed(member)!, into: &module)
 
       case InitializerDecl.self:
-        if InitializerDecl.Typed(member)!.introducer.value == .memberwiseInit { continue }
+        if InitializerDecl.Typed(member)!.isMemberwise { continue }
         fatalError("not implemented")
 
       case SubscriptDecl.self:

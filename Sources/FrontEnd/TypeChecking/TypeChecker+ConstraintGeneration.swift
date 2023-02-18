@@ -288,8 +288,14 @@ extension TypeChecker {
   ) -> AnyType {
     let syntax = ast[subject]
 
-    // Infer the type of the callee.
-    let calleeType = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
+    let calleeType: AnyType
+    if let callee = NodeID<NameExpr>(syntax.callee) {
+      let l = ast[subject].arguments.map(\.label?.value)
+      calleeType = inferredType(
+        ofNameExpr: callee, appliedWithLabels: l, shapedBy: nil, in: scope, updating: &state)
+    } else {
+      calleeType = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
+    }
 
     // The following cases must be considered:
     //
@@ -337,12 +343,11 @@ extension TypeChecker {
       let d = referredDecls[c]?.decl,
       isNominalTypeDecl(d)
     {
-      let instanceType = MetatypeType(calleeType)!.instance
+      let instance = MetatypeType(calleeType)!.instance
       let initName = SourceRepresentable(
         value: Name(stem: "init", labels: ["self"] + syntax.arguments.map(\.label?.value)),
         range: ast[c].name.site)
-      let initCandidates = resolve(
-        initName, withArguments: [], memberOf: instanceType, from: scope)
+      let initCandidates = resolve(initName, withArguments: [], memberOf: instance, from: scope)
 
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {
@@ -492,11 +497,12 @@ extension TypeChecker {
 
   private mutating func inferredType(
     ofNameExpr subject: NodeID<NameExpr>,
+    appliedWithLabels labels: [String?]? = nil,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    let resolution = resolve(nominalPrefixOf: subject, from: scope)
+    let resolution = resolveNominalPrefix(of: subject, in: scope)
     let unresolvedComponents: [NodeID<NameExpr>]
     var lastVisitedComponentType: AnyType?
 
@@ -505,20 +511,17 @@ extension TypeChecker {
       return state.facts.assignErrorType(to: subject)
 
     case .inexecutable(let suffix):
-      if case .expr(let domainExpr) = ast[subject].domain {
-        lastVisitedComponentType = inferredType(
-          of: domainExpr, shapedBy: nil, in: scope, updating: &state)
+      if case .expr(let e) = ast[subject].domain {
+        lastVisitedComponentType = inferredType(of: e, shapedBy: nil, in: scope, updating: &state)
       } else {
         fatalError("not implemented")
       }
       unresolvedComponents = suffix
 
     case .done(let prefix, let suffix):
-      assert(!prefix.isEmpty, "at least one name component should have been resolved")
-      for p in prefix {
-        lastVisitedComponentType = bind(p.component, to: p.candidates, updating: &state)
-      }
       unresolvedComponents = suffix
+      lastVisitedComponentType =
+        bind(prefix, appliedWithLabels: suffix.isEmpty ? labels : nil, updating: &state)
     }
 
     // Create the necessary constraints to let the solver resolve the remaining components.
@@ -1011,6 +1014,35 @@ extension TypeChecker {
     }
 
     return parameters
+  }
+
+  /// Constrains the name expressions in `path` to references to either of their corresponding
+  /// resolution candidations, using `labels` to filter overloaded candidates.
+  ///
+  /// - Parameters:
+  ///   - path: A sequence of resolved components returned by `TypeChecker.resolveNominalPrefix`.
+  ///   - labels: the labels of a call expression if `path` denotes all the components of a name
+  ///     expression used as the callee of the call.
+  private mutating func bind(
+    _ path: [NameResolutionResult.ResolvedComponent],
+    appliedWithLabels labels: [String?]?,
+    updating state: inout State
+  ) -> AnyType {
+    for p in path.dropLast() {
+      _ = bind(p.component, to: p.candidates, updating: &state)
+    }
+
+    let lastVisited = path.last!
+    let c: [NameResolutionResult.Candidate]
+    if lastVisited.candidates.count > 1, let l = labels {
+      let y = lastVisited.candidates.filter { (z) in
+        z.reference.decl.map({ self.labels($0) == l }) ?? false
+      }
+      c = y.isEmpty ? lastVisited.candidates : y
+    } else {
+      c = lastVisited.candidates
+    }
+    return bind(lastVisited.component, to: c, updating: &state)
   }
 
   /// Constrains `name` to be a reference to either of the declarations in `candidates`.

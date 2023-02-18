@@ -306,9 +306,9 @@ extension Diagnostic {
     .error("type '\(subtype)' is not strict subtype of '\(supertype)'", at: site)
   }
 
-  static func error(ambiguousUse expr: NodeID<NameExpr>, in ast: AST, candidates: [AnyDeclID] = [])
-    -> Diagnostic
-  {
+  static func error(
+    ambiguousUse expr: NodeID<NameExpr>, in ast: AST, candidates: [AnyDeclID] = []
+  ) -> Diagnostic {
     let notes = candidates.map { Diagnostic.error("candidate here", at: ast[$0].site) }
     return .error("ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site, notes: notes)
   }
