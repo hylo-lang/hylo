@@ -199,13 +199,14 @@ public struct ValCommand: ParsableCommand {
       loggingTo: &errorLog)
 
     let clang = try find("clang++")
-    let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
-    var binaryPath = binaryURL.path
+    var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).path
+
     #if os(Windows)
       if !binaryPath.hasSuffix(".exe") {
         binaryPath += ".exe"
       }
     #endif
+
     try runCommandLine(
       clang,
       [
