@@ -213,8 +213,7 @@ extension TypeChecker {
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      let lhsType = inferredType(
-        of: lhs, shapedBy: ^TypeVariable(node: lhs.base), in: scope, updating: &state)
+      let lhsType = inferredType(of: lhs, shapedBy: ^TypeVariable(), in: scope, updating: &state)
       state.facts.append(
         SubtypingConstraint(
           lhsType, rhs.shape,
@@ -255,7 +254,7 @@ extension TypeChecker {
       }
     }
 
-    let t = ^TypeVariable(node: AnyNodeID(subject))
+    let t = ^TypeVariable()
     let firstBranch = inferredType(
       of: syntax.success, shapedBy: shape, in: scope, updating: &state)
     state.facts.append(
@@ -311,7 +310,7 @@ extension TypeChecker {
     // Case 2
     if calleeType.base is TypeVariable {
       let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &state)
-      let returnType = shape ?? ^TypeVariable(node: AnyNodeID(subject))
+      let returnType = shape ?? ^TypeVariable()
 
       state.facts.append(
         FunctionCallConstraint(
@@ -450,11 +449,11 @@ extension TypeChecker {
     })
 
     // If the underlying declaration's return type is a unknown, infer it from the lambda's body.
-    if underlyingDeclType.output.base is TypeVariable {
+    let o = underlyingDeclType.output
+    if o.base is TypeVariable {
       if case .expr(let body) = ast[syntax.decl].body {
-        _ = inferredType(
-          of: body, shapedBy: underlyingDeclType.output, in: AnyScopeID(syntax.decl),
-          updating: &state)
+        let e = inferredType(of: body, shapedBy: o, in: AnyScopeID(syntax.decl), updating: &state)
+        state.facts.append(SubtypingConstraint(e, o, because: .init(.return, at: ast[body].site)))
       } else {
         report(.error(cannotInferComplexReturnTypeAt: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
@@ -524,7 +523,7 @@ extension TypeChecker {
 
     // Create the necessary constraints to let the solver resolve the remaining components.
     for component in unresolvedComponents {
-      let memberType = AnyType(TypeVariable(node: AnyNodeID(component)))
+      let memberType = ^TypeVariable()
       state.facts.append(
         MemberConstraint(
           lastVisitedComponentType!, hasMemberReferredToBy: component, ofType: memberType,
@@ -533,11 +532,6 @@ extension TypeChecker {
       lastVisitedComponentType = state.facts.constrain(component, in: ast, toHaveType: memberType)
     }
 
-    if let e = shape {
-      appendEquality(
-        lastVisitedComponentType!, e, causedBy: .init(.binding, at: ast[subject].site),
-        to: &state.facts)
-    }
     return lastVisitedComponentType!
   }
 
@@ -633,7 +627,7 @@ extension TypeChecker {
     // Case 2
     if calleeType.base is TypeVariable {
       let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &state)
-      let returnType = shape ?? ^TypeVariable(node: AnyNodeID(subject))
+      let returnType = shape ?? ^TypeVariable()
       let assumedCalleeType = SubscriptImplType(
         isProperty: false,
         receiverEffect: nil,
@@ -882,7 +876,7 @@ extension TypeChecker {
     updating state: inout State
   ) -> AnyType {
     let nameDecl = ast[subject].decl
-    let nameType = shape ?? ^TypeVariable(node: AnyNodeID(nameDecl))
+    let nameType = shape ?? ^TypeVariable()
     setInferredType(nameType, for: nameDecl)
     state.deferred.append({ (checker, solution) in
       checker.checkDeferred(varDecl: nameDecl, solution)
@@ -947,23 +941,6 @@ extension TypeChecker {
 
   // MARK: Helpers
 
-  /// Adds an equality constraint between `l` and `r` caused by `c` to `facts`.
-  private mutating func appendEquality(
-    _ l: AnyType, _ r: AnyType, causedBy c: ConstraintCause,
-    to facts: inout InferenceFacts
-  ) {
-    let a = relations.canonical(l)
-    let b = relations.canonical(r)
-    if a == b {
-      return
-    } else if !a[.hasVariable] && !b[.hasVariable] {
-      report(.error(type: l, incompatibleWith: r, at: c.site))
-      facts.setConflictFound()
-    } else {
-      facts.append(EqualityConstraint(l, r, because: c))
-    }
-  }
-
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
   /// to generate their type constraints assuming they have the corresponding type in `parameters`
   /// and returns `true`. Otherwise, returns `false`.
@@ -1022,8 +999,7 @@ extension TypeChecker {
 
       // Infer the type of the argument bottom-up.
       let argumentType = inferredType(
-        of: argumentExpr, shapedBy: ^TypeVariable(node: AnyNodeID(argumentExpr)), in: scope,
-        updating: &state)
+        of: argumentExpr, shapedBy: ^TypeVariable(), in: scope, updating: &state)
 
       state.facts.append(
         ParameterConstraint(
@@ -1063,7 +1039,7 @@ extension TypeChecker {
       })
 
       // Constrain the name to refer to one of the overloads.
-      let nameType = AnyType(TypeVariable(node: AnyNodeID(name)))
+      let nameType = ^TypeVariable()
       state.facts.append(
         OverloadConstraint(
           name, withType: nameType, refersToOneOf: overloads,
