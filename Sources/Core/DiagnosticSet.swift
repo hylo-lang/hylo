@@ -23,7 +23,7 @@ public struct DiagnosticSet {
   }
 
   /// Inserts the elements of `batch`.
-  public mutating func formUnion<B: Collection<Diagnostic>>(_ batch: B) {
+  public mutating func formUnion<B: Sequence<Diagnostic>>(_ batch: B) {
     for d in batch { insert(d) }
   }
 
