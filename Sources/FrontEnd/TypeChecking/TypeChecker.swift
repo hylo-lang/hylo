@@ -451,7 +451,8 @@ public struct TypeChecker {
       let r = LambdaType(declTypes[id]!)!.output.skolemized
       let c = constraintOnSingleExprBody(body, ofFunctionReturning: r)
       return solutionTyping(
-        body, shapedBy: r, in: id, initialConstraints: [c]).succeeded && success
+        body, shapedBy: r, in: id, initialConstraints: [c]
+      ).succeeded && success
 
     case nil:
       // Requirements and FFIs can be without a body.
