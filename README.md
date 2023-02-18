@@ -4,12 +4,18 @@ Val is a research programming language to explore the concepts of [mutable value
 
 This repository contains the sources of the reference implementation of Val.
 Please visit our [website](https://val-lang.dev) to get more information about the language itself.
+
 Related video and audio:
+
 [Lightning Talk: An Object Model for Safety and Efficiency by Definition - Dave Abrahams CppNorth 22](https://www.youtube.com/watch?v=KGL02mSaplE)
+
 [Keynote: A Future of Value Semantics and Generic Programming Part 1 - Dave Abrahams - CppNow 2022](https://www.youtube.com/watch?v=4Ri8bly-dJs)
+
 [Keynote: A Future of Value Semantics and Generic Programming Part 2 - Dave Abrahams - CppNow 2022](https://www.youtube.com/watch?v=GsxYnEAZoNI)
+
 [Value Semantics: Safety, Independence, Projection, & Future of Programming - Dave Abrahams CppCon 22](https://www.youtube.com/watch?v=QthAU-t3PQ4)
-[Val and Mutable Value Semantics](https://cppcast.com/val-and-mutable-value-semantics/) 
+
+[Val and Mutable Value Semantics - Dimi Racordon](https://cppcast.com/val-and-mutable-value-semantics) 
 
 ## Installation
 
