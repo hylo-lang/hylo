@@ -1704,15 +1704,17 @@ public struct TypeChecker {
 
   }
 
-  /// Resolves the name components of `nameExpr` from left to right until multiple candidate
-  /// declarations are found for a single component, or name resolution failed.
-  mutating func resolve(
-    nominalPrefixOf nameExpr: NodeID<NameExpr>,
-    from lookupScope: AnyScopeID
+  /// Resolves the non-overloaded name components of `name` from left to right in `scope`.
+  ///
+  /// - Postcondition: If the method returns `.done(resolved: r, unresolved: u)`, `r` is not empty
+  ///   and `r[i].candidates` has a single element for `0 < i < r.count`.
+  mutating func resolveNominalPrefix(
+    of name: NodeID<NameExpr>,
+    in lookupScope: AnyScopeID
   ) -> NameResolutionResult {
     // Build a stack with the nominal comonents of `nameExpr` or exit if its qualification is
     // either implicit or prefixed by an expression.
-    var unresolvedComponents = [nameExpr]
+    var unresolvedComponents = [name]
     loop: while true {
       switch ast[unresolvedComponents.last!].domain {
       case .implicit:
@@ -1764,6 +1766,7 @@ public struct TypeChecker {
       }
     }
 
+    precondition(!resolvedPrefix.isEmpty)
     return .done(resolved: resolvedPrefix, unresolved: unresolvedComponents)
   }
 
@@ -3311,11 +3314,9 @@ public struct TypeChecker {
 
   /// Returns the type of `decl`'s memberwise initializer.
   private mutating func memberwiseInitType(of decl: NodeID<ProductTypeDecl>) -> LambdaType? {
-    var inputs: [CallableTypeParameter] = []
-
     // Synthesize the receiver type.
     let receiver = realizeSelfTypeExpr(in: decl)!.instance
-    inputs.append(.init(label: "self", type: ^ParameterType(.set, receiver)))
+    var inputs = [CallableTypeParameter(label: "self", type: ^ParameterType(.set, receiver))]
 
     // List and realize the type of all stored bindings.
     for m in ast[decl].members {
@@ -3475,29 +3476,34 @@ public struct TypeChecker {
   ///
   /// Only function, method, or subscript declarations may have labels. This method returns `[]`
   /// for any other declaration.
-  private mutating func labels(_ d: AnyDeclID) -> [String?] {
+  func labels(_ d: AnyDeclID) -> [String?] {
     switch d.kind {
     case FunctionDecl.self:
-      let i = NodeID<FunctionDecl>(d)!
-      return ast[ast[i].parameters].map(\.label?.value)
-
+      return ast[ast[NodeID<FunctionDecl>(d)!].parameters].map(\.label?.value)
     case InitializerDecl.self:
-      if let t = LambdaType(realize(initializerDecl: NodeID(d)!)) {
-        return t.inputs.map(\.label)
-      } else {
-        return []
-      }
-
+      return labels(NodeID<InitializerDecl>(d)!)
     case MethodDecl.self:
-      let i = NodeID<MethodDecl>(d)!
-      return ast[ast[i].parameters].map(\.label?.value)
-
+      return ast[ast[NodeID<MethodDecl>(d)!].parameters].map(\.label?.value)
     case SubscriptDecl.self:
-      let i = NodeID<SubscriptDecl>(d)!
-      return ast[ast[i].parameters ?? []].map(\.label?.value)
-
+      return ast[ast[NodeID<SubscriptDecl>(d)!].parameters ?? []].map(\.label?.value)
     default:
       return []
+    }
+  }
+
+  /// Returns the labels of `d`s name.
+  func labels(_ d: NodeID<InitializerDecl>) -> [String?] {
+    if let t = LambdaType(declTypes[d]) {
+      return t.inputs.map(\.label)
+    } else if !ast[d].isMemberwise {
+      return ["self"] + ast[ast[d].parameters].map(\.label?.value)
+    } else {
+      let p = NodeID<ProductTypeDecl>(program.declToScope[d]!)!
+      return ast[p].members.reduce(into: ["self"]) { (l, m) in
+        guard let b = NodeID<BindingDecl>(m) else { return }
+        l.append(
+          contentsOf: ast.names(in: ast[b].pattern).map({ ast[ast[$0.pattern].decl].baseName }))
+      }
     }
   }
 
