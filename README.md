@@ -5,18 +5,6 @@ Val is a research programming language to explore the concepts of [mutable value
 This repository contains the sources of the reference implementation of Val.
 Please visit our [website](https://val-lang.dev) to get more information about the language itself.
 
-Related video and audio:
-
-[Lightning Talk: An Object Model for Safety and Efficiency by Definition - Dave Abrahams CppNorth 22](https://www.youtube.com/watch?v=KGL02mSaplE)
-
-[Keynote: A Future of Value Semantics and Generic Programming Part 1 - Dave Abrahams - CppNow 2022](https://www.youtube.com/watch?v=4Ri8bly-dJs)
-
-[Keynote: A Future of Value Semantics and Generic Programming Part 2 - Dave Abrahams & Dimi Racordon - CppNow 2022](https://www.youtube.com/watch?v=GsxYnEAZoNI)
-
-[Value Semantics: Safety, Independence, Projection, & Future of Programming - Dave Abrahams CppCon 22](https://www.youtube.com/watch?v=QthAU-t3PQ4)
-
-[Val and Mutable Value Semantics - Dimi Racordon](https://cppcast.com/val-and-mutable-value-semantics) 
-
 ## Installation
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
@@ -55,6 +43,18 @@ You can select how deep the compiler should go through the pipeline with the fol
 For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
 
 A more detailed description of the current implementation status is available on our [roadmap page](https://www.val-lang.dev/pages/implementation-status.html).
+
+## Related video and audio
+
+[Lightning Talk: An Object Model for Safety and Efficiency by Definition - Dave Abrahams CppNorth 22](https://www.youtube.com/watch?v=KGL02mSaplE)
+
+[Keynote: A Future of Value Semantics and Generic Programming Part 1 - Dave Abrahams - CppNow 2022](https://www.youtube.com/watch?v=4Ri8bly-dJs)
+
+[Keynote: A Future of Value Semantics and Generic Programming Part 2 - Dave Abrahams & Dimi Racordon - CppNow 2022](https://www.youtube.com/watch?v=GsxYnEAZoNI)
+
+[Value Semantics: Safety, Independence, Projection, & Future of Programming - Dave Abrahams CppCon 22](https://www.youtube.com/watch?v=QthAU-t3PQ4)
+
+[Val and Mutable Value Semantics - Dimi Racordon](https://cppcast.com/val-and-mutable-value-semantics) 
 
 ## Contributing
 
