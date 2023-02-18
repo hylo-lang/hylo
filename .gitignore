@@ -16,4 +16,5 @@
 !/Sources/Parser/Val.g4
 !/Sources/Parser/ValParser+Extensions.swift
 
+# Windows
 **.exe
