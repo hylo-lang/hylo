@@ -150,8 +150,7 @@ extension SourceFile: Hashable {
   }
 
   public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
-    return lhs.url == rhs.url
-      || lhs.url.scheme == "synthesized" && rhs.url.scheme == "synthesized"
+    return lhs.storage === rhs.storage
   }
 
 }
