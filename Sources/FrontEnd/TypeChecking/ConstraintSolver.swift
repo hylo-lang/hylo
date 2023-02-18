@@ -44,7 +44,7 @@ struct ConstraintSolver {
     loggingTrace isLoggingEnabled: Bool
   ) where S.Element == Constraint {
     self.scope = scope
-    self.fresh = Array(fresh)
+    self.fresh = fresh.sorted(by: { (a, b) in !a.simpler(than: b) })
     self.isLoggingEnabled = isLoggingEnabled
   }
 
@@ -691,7 +691,8 @@ struct ConstraintSolver {
 
   /// Inserts `constraint` into the fresh set.
   private mutating func insert(fresh constraint: Constraint) {
-    fresh.append(constraint)
+    let i = fresh.partitioningIndex(at: constraint, orderedBy: { (a, b) in !a.simpler(than: b) })
+    fresh.insert(constraint, at: i)
   }
 
   /// Inserts `constraint` into the stale set.

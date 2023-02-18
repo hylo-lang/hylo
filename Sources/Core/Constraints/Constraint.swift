@@ -30,6 +30,24 @@ extension Constraint {
     return copy
   }
 
+  /// Returns whether `self` is heuristically simpler to solve than `other`.
+  public func simpler(than other: Constraint) -> Bool {
+    switch self {
+    case is EqualityConstraint:
+      return !(other is EqualityConstraint)
+
+    case let l as ForkingConstraint:
+      if let r = other as? ForkingConstraint {
+        return l.forks < r.forks
+      } else {
+        return false
+      }
+
+    default:
+      return false
+    }
+  }
+
 }
 
 extension Constraint where Self: Equatable {
@@ -42,5 +60,24 @@ extension Constraint where Self: Equatable {
       return false
     }
   }
+
+}
+
+/// A type constraint that may cause forking constraint solving.
+private protocol ForkingConstraint {
+
+  var forks: Int { get }
+
+}
+
+extension DisjunctionConstraint: ForkingConstraint {
+
+  var forks: Int { choices.count }
+
+}
+
+extension OverloadConstraint: ForkingConstraint {
+
+  var forks: Int { choices.count }
 
 }
