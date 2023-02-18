@@ -3,12 +3,22 @@ name: Build and test
 on:
   push:
     branches: [ main, rewrite ]
+    paths-ignore:
+      - "Docs/**"
+      - "**.md"
+      - "README.md"
+      - "LICENSE"
   pull_request:
     branches: [ "**" ]
+    paths-ignore:
+      - "Docs/**"
+      - "**.md"
+      - "README.md"
+      - "LICENSE"
 
 jobs:
   build:
-    name: Swift ${{ matrix.swift.version }} on ${{ matrix.host.os }}
+    name: Swift 5 on ${{ matrix.host.os }}
     strategy:
       fail-fast: false
       matrix:
