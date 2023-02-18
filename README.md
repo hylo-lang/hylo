@@ -11,7 +11,7 @@ Related video and audio:
 
 [Keynote: A Future of Value Semantics and Generic Programming Part 1 - Dave Abrahams - CppNow 2022](https://www.youtube.com/watch?v=4Ri8bly-dJs)
 
-[Keynote: A Future of Value Semantics and Generic Programming Part 2 - Dave Abrahams - CppNow 2022](https://www.youtube.com/watch?v=GsxYnEAZoNI)
+[Keynote: A Future of Value Semantics and Generic Programming Part 2 - Dave Abrahams & Dimi Racordon - CppNow 2022](https://www.youtube.com/watch?v=GsxYnEAZoNI)
 
 [Value Semantics: Safety, Independence, Projection, & Future of Programming - Dave Abrahams CppCon 22](https://www.youtube.com/watch?v=QthAU-t3PQ4)
 
