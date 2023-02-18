@@ -1,10 +1,11 @@
 import Foundation
 import Utils
 
-/// A Val source file.
+/// A Val source file, a synthesized fragment of Val source, or a "source file" embedded in a Swift
+/// string literal.
 ///
-/// - Note: two source files are equal if and only if they have the same path in the filesystem, or
-///   are both synthesized.
+/// - Note: Serialization of SourceFiles derived from Swift string literals is not currently
+///   supported.
 public struct SourceFile {
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
@@ -16,7 +17,9 @@ public struct SourceFile {
   public typealias Index = String.Index
 
   /// The contents of the source file.
-  public var text: String { storage.text }
+  ///
+  /// - Note: except for
+  public var text: Substring { storage.text }
 
   /// The URL of the source file.
   public var url: URL { storage.url }
@@ -26,7 +29,26 @@ public struct SourceFile {
 
   /// Creates an instance representing the file at `filePath`.
   public init(contentsOf filePath: URL) throws {
-    let storage = try Storage(filePath) { try String(contentsOf: filePath) }
+    let storage = try Storage(filePath) { try String(contentsOf: filePath)[...] }
+    self.storage = storage
+  }
+
+  /// Creates an instance for the given `text` embedded in a multiline string literal in the given
+  /// `swiftFile` at `startLine`.
+  ///
+  /// The actual text processed will be what's read from the file, regardless of what's in `text`.
+  /// That means if you're going to use any special characters in the literal, the literal should be
+  /// a raw string literal to avoid confusion.
+  public init(literal text: String, swiftFile: String = #filePath, startLine: Int = #line) throws {
+    let wholeFile = try SourceFile(contentsOf: URL(fileURLWithPath: swiftFile))
+    let endLine = startLine + text.lazy.filter(\.isNewline).count
+    let fragment = URL(string: "\(wholeFile.url.absoluteString)#L\(startLine)-L\(endLine)")!
+
+    let storage = Storage(fragment) {
+      wholeFile.text[
+        wholeFile.index(line: startLine, column: 1)
+          ..< wholeFile.index(line: endLine + 1, column: 1)]
+    }
     self.storage = storage
   }
 
@@ -37,7 +59,7 @@ public struct SourceFile {
 
   /// Creates a source file with the specified contents and a unique random `url`.
   public init(synthesizedText text: String) {
-    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text }
+    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text[...] }
     self.storage = storage
   }
 
@@ -146,7 +168,7 @@ extension SourceFile: ExpressibleByStringLiteral {
 extension SourceFile: Hashable {
 
   public func hash(into hasher: inout Hasher) {
-    hasher.combine(url.scheme == "synthesized" ? URL(string: "synthesized://") : url)
+    hasher.combine(ObjectIdentifier(storage))
   }
 
   public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
@@ -265,13 +287,13 @@ extension SourceFile {
     fileprivate let url: URL
 
     /// The contents of the source file.
-    fileprivate let text: String
+    fileprivate let text: Substring
 
     /// The start position of each line.
     fileprivate let lineStarts: [Index]
 
     /// Creates an instance with the given properties.
-    private init(url: URL, text: String) {
+    private init(url: URL, text: Substring) {
       self.url = url
       self.text = text
       self.lineStarts = text.lineBoundaries()
@@ -282,7 +304,7 @@ extension SourceFile {
 
     /// Creates an alias to the instance with the given `url` if it exists, or creates a new
     /// instance having the given `url` and the text resulting from `makeText()`.
-    fileprivate convenience init(_ url: URL, makeText: () throws -> String) rethrows {
+    fileprivate convenience init(_ url: URL, makeText: () throws -> Substring) rethrows {
       self.init(
         aliasing: try Self.allInstances.modify { (c: inout [URL: Storage]) -> Storage in
           try modifying(&c[url]) { v in
@@ -302,12 +324,17 @@ extension SourceFile {
     public required convenience init(from decoder: Decoder) throws {
       let container = try decoder.singleValueContainer()
       let e = try container.decode(Encoding.self)
-      self.init(e.url) { e.text }
+      self.init(e.url) { e.text[...] }
     }
 
     public func encode(to encoder: Encoder) throws {
       var container = encoder.singleValueContainer()
-      try container.encode(Encoding(url: url, text: text))
+      // This could be supported, with caveats, but it's not necessarily a good idea.
+      precondition(
+        text.startIndex == text.base.startIndex && text.endIndex == text.base.endIndex,
+        "Serialization of Val source embedded in Swift string literals is not supported."
+      )
+      try container.encode(Encoding(url: url, text: text.base))
     }
 
   }
