@@ -58,10 +58,6 @@ ${WORKSPACE_PATH}/../../../Tools/run-swift-format.sh fix
 
 ## Source files
 
-### File encoding
-
-All source files are encoded in UTF-8.
-
 ### File names
 
 All Swift source files end with the extension `.swift` and all Val source files end with the extension `.val`.
@@ -100,41 +96,151 @@ Exactly one empty line is added after each member of a type, protocol, or trait 
 For example:
 
 ```swift
-struct Foo {
+/// A 2-dimensional vector.
+public struct Vector2 {
 
-  let bar: Int
+  /// The length of the vector along the x-axis.
+  public var x: Double = 0.0
   
-  let ham: Int
+  /// The length of the vector along the y-axis.
+  public var y: Double = 0.0
 
 }
 ```
 
-Nested types are declared first, then static members, then non-static members.
-Properties are declared before other members.
-Initializers are declared before deinitializers and member functions.
-Deinitializers are declared before member functions.
+Prefer declaring core type aliases first, followed by stored properties or enum cases, followed by core initializers, followed other members.
+Prefer declaring conformances separately unless they are synthesizable (e.g., `Equatable`).
 For example:
 
 ```swift
-struct Foo {
+/// A 2-dimensional matrix.
+struct Matrix2: Equatable {
 
-  struct Index {
+  /// A column in a 2-dimensional matrix.
+  public typealias Column = Vector2
 
-    let value: Int
+  /// The elements of the matrix.
+  private var elements: (Column, Column)
 
+  // Creates a matrix filled with zeros.
+  public init() { ... }
+
+  /// Creates scaling matrix with given scale `factors`.
+  public init(scalingBy factors: Vector2) { ... }
+
+  /// The determinant of `self`.
+  public var determinant: Double { ... }
+
+  /// Returns a transposed copy of `self`.
+  public func transposed() -> Self { ... }
+
+  /// The identity matrix.
+  public static var identity: Matrix2 = ...
+
+}
+
+extension Matrix2: CustomStringConvertible {
+
+  public var description: String { ... }
+
+}
+```
+
+Conformances requiring custom implementations should be declared separately unless it would break encapsulation.
+For example:
+
+```swift
+/// The figure formed by two rays sharing a common endpoint.
+struct Angle {
+
+  /// The value of the angle in radians.
+  public var radians: Double
+
+  /// Creates an instance with given value in `radians`.
+  public init(radians) {
+    self.radians = radians
   }
 
-  static let default = Foo(bar: 0)
-
-  var bar: Int
-
-  init(bar: Int) {
-    self.bar = bar
+  /// `self` wrapped within the interval `0 ..< 2π`.
+  public var wrapped: Double {
+    let x = radians.truncatingRemainder(dividingBy: 2 * .pi)
+    return x < 0 ? Angle(radians: x + 360) : Angle(radians: x)
   }
 
-  mutating func hammify() {
-    self.bar += 1
+}
+
+extension Angle: Equatable {
+
+  public static func == (l: Self, r: Self) -> Bool {
+    lhs.wrapped.radians == rhs.wrapped.radians
   }
 
+}
+
+extension Angle: Hashable {
+
+  public func hash(into hasher: inout Hasher) { hasher.combine(wrapped) }
+
+}
+```
+
+Use `self` when referring to stored properties in an initializer, even if the names of these properties doesn't clash with any of the initializer's parameters.
+For example:
+
+```swift
+/// A figure whose boundary consists of points equidistant from a fixed center.
+public struct Circle {
+
+  /// The center of the circle.
+  var center: Vector2
+
+  /// The distance from `center` to any point in the circle's boundary.
+  var radius: Double
+
+  /// Creates a vector with given `radius` centered at the origin.
+  init(radius: Double) {
+    self.center = .init()
+    self.radious = radius
+  }
+
+}
+```
+
+In Swift, declare operators as static members rather than free functions.
+For example:
+
+```swift
+/// A 2-dimensional vector.
+extension Vector2 {
+
+  /// Returns the component-wise addition of `l` with `r`.
+  static func + (l: Self, r: Self) -> Self { ... }
+
+}
+```
+
+## Formatting function declarations
+
+Omit needless return statements.
+
+In Swift, use parentheses to declare closure parameters and only use `$0` for simple closures that fit a single line.
+For example:
+
+```swift
+/// Returns `polygon` translated by `d`.
+func translate(polygon: [Vector2], by d: Vector2) -> [Vector2] {
+  polygon.map({ $0 + d })
+}
+
+/// Returns the edges of `polygon` clipped in `area`.
+func clamp(_ polygon: [Vector2], to area: Circle) -> [Vector2] {
+  polygon.map { (p) in
+    if area.contains(p) {
+      return p
+    } else {
+      let v = (p - area.center).magnitude
+      return area.center + v * area.radius
+    }
+  }
 }
 ```
