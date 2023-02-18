@@ -111,8 +111,8 @@ extension XCTestCase {
   ) -> [XCTIssue] {
     var testFailures = processing.testFailures
 
-    var diagnosticsByExpectation
-      = Dictionary(grouping: processing.diagnostics.elements, by: \.expectation)
+    var diagnosticsByExpectation = Dictionary(
+      grouping: processing.diagnostics.elements, by: \.expectation)
 
     func fail(_ expectation: TestAnnotation, _ message: String) {
       testFailures.append(expectation.failure(message))

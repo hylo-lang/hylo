@@ -141,7 +141,7 @@ extension TypeChecker {
     case CastExpr.self:
       return inferredType(
         ofCastExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
-    case CondExpr.self:
+    case ConditionalExpr.self:
       return inferredType(
         ofConditionalExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
     case FloatLiteralExpr.self:
@@ -234,7 +234,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofConditionalExpr subject: NodeID<CondExpr>,
+    ofConditionalExpr subject: NodeID<ConditionalExpr>,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -255,40 +255,18 @@ extension TypeChecker {
       }
     }
 
-    // Assume the node represents an expression if both branches are single expressions.
-    let successType: AnyType?
+    let t = ^TypeVariable(node: AnyNodeID(subject))
+    let firstBranch = inferredType(
+      of: syntax.success, shapedBy: shape, in: scope, updating: &state)
+    state.facts.append(
+      SubtypingConstraint(firstBranch, t, because: .init(.branchMerge, at: ast[subject].site)))
 
-    // Visit the success branch.
-    switch syntax.success {
-    case .expr(let expr):
-      successType = inferredType(of: expr, shapedBy: shape, in: scope, updating: &state)
+    let secondBranch = inferredType(
+      of: syntax.failure, shapedBy: shape, in: scope, updating: &state)
+    state.facts.append(
+      SubtypingConstraint(secondBranch, t, because: .init(.branchMerge, at: ast[subject].site)))
 
-    case .block(let branch):
-      if !check(brace: branch) { state.facts.setConflictFound() }
-      successType = nil
-    }
-
-    // Visit the failure branch.
-    switch syntax.failure {
-    case .expr(let expr):
-      let failureType = inferredType(of: expr, shapedBy: shape, in: scope, updating: &state)
-      if let successType = successType {
-        // Both branches are single expressions.
-        state.facts.append(
-          EqualityConstraint(
-            successType, failureType,
-            because: ConstraintCause(.branchMerge, at: syntax.site)))
-        return state.facts.constrain(subject, in: ast, toHaveType: successType)
-      }
-
-    case .block(let branch):
-      if !check(brace: branch) { state.facts.setConflictFound() }
-
-    case nil:
-      break
-    }
-
-    return state.facts.constrain(subject, in: ast, toHaveType: AnyType.void)
+    return state.facts.constrain(subject, in: ast, toHaveType: t)
   }
 
   private mutating func inferredType(
@@ -519,30 +497,9 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    // Resolve the nominal prefix of the expression.
     let resolution = resolve(nominalPrefixOf: subject, from: scope)
-    let nameType = inferredType(
-      ofNameExpr: subject, in: scope, withNameResolutionResult: resolution,
-      updating: &state)
-
-    if let e = shape {
-      state.facts.append(
-        EqualityConstraint(
-          nameType, e,
-          because: ConstraintCause(.binding, at: ast[subject].site)))
-    }
-
-    return nameType
-  }
-
-  private mutating func inferredType(
-    ofNameExpr subject: NodeID<NameExpr>,
-    in scope: AnyScopeID,
-    withNameResolutionResult resolution: TypeChecker.NameResolutionResult,
-    updating state: inout State
-  ) -> AnyType {
-    var lastVisitedComponentType: AnyType?
     let unresolvedComponents: [NodeID<NameExpr>]
+    var lastVisitedComponentType: AnyType?
 
     switch resolution {
     case .failed:
@@ -562,7 +519,6 @@ extension TypeChecker {
       for p in prefix {
         lastVisitedComponentType = bind(p.component, to: p.candidates, updating: &state)
       }
-
       unresolvedComponents = suffix
     }
 
@@ -577,6 +533,11 @@ extension TypeChecker {
       lastVisitedComponentType = state.facts.constrain(component, in: ast, toHaveType: memberType)
     }
 
+    if let e = shape {
+      appendEquality(
+        lastVisitedComponentType!, e, causedBy: .init(.binding, at: ast[subject].site),
+        to: &state.facts)
+    }
     return lastVisitedComponentType!
   }
 
@@ -823,9 +784,11 @@ extension TypeChecker {
     // subject to its default type.
     let cause = ConstraintCause(.literal, at: ast[subject].site)
     if let e = shape {
-      let literalTrait = ast.coreTrait(forTypesExpressibleBy: T.self)!
-      state.facts.append(
-        LiteralConstraint(e, defaultsTo: defaultType, conformsTo: literalTrait, because: cause))
+      if !relations.areEquivalent(defaultType, e) {
+        let literalTrait = ast.coreTrait(forTypesExpressibleBy: T.self)!
+        state.facts.append(
+          LiteralConstraint(e, defaultsTo: defaultType, conformsTo: literalTrait, because: cause))
+      }
       return state.facts.constrain(subject, in: ast, toHaveType: e)
     } else {
       return state.facts.constrain(subject, in: ast, toHaveType: defaultType)
@@ -983,6 +946,23 @@ extension TypeChecker {
   }
 
   // MARK: Helpers
+
+  /// Adds an equality constraint between `l` and `r` caused by `c` to `facts`.
+  private mutating func appendEquality(
+    _ l: AnyType, _ r: AnyType, causedBy c: ConstraintCause,
+    to facts: inout InferenceFacts
+  ) {
+    let a = relations.canonical(l)
+    let b = relations.canonical(r)
+    if a == b {
+      return
+    } else if !a[.hasVariable] && !b[.hasVariable] {
+      report(.error(type: l, incompatibleWith: r, at: c.site))
+      facts.setConflictFound()
+    } else {
+      facts.append(EqualityConstraint(l, r, because: c))
+    }
+  }
 
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
   /// to generate their type constraints assuming they have the corresponding type in `parameters`
