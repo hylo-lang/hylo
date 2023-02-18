@@ -1,13 +1,19 @@
 # Val
 
-Val is a research programming language to explore the concepts of [mutable value semantics](http://www.jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://www.fm2gp.com) for high-level systems programming.
+Val is a research programming language to explore the concepts of [mutable value semantics](http://jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
 
 This repository contains the sources of the reference implementation of Val.
 Please visit our [website](https://val-lang.dev) to get more information about the language itself.
+Related video and audio:
+[Lightning Talk: An Object Model for Safety and Efficiency by Definition - Dave Abrahams CppNorth 22](https://www.youtube.com/watch?v=KGL02mSaplE)
+[Keynote: A Future of Value Semantics and Generic Programming Part 1 - Dave Abrahams - CppNow 2022](https://www.youtube.com/watch?v=4Ri8bly-dJs)
+[Keynote: A Future of Value Semantics and Generic Programming Part 2 - Dave Abrahams - CppNow 2022](https://www.youtube.com/watch?v=GsxYnEAZoNI)
+[Value Semantics: Safety, Independence, Projection, & Future of Programming - Dave Abrahams CppCon 22](https://www.youtube.com/watch?v=QthAU-t3PQ4)
+[Val and Mutable Value Semantics](https://cppcast.com/val-and-mutable-value-semantics/) 
 
 ## Installation
 
-This project is written in [Swift](https://www.swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
+This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.6 or higher to build the compiler from sources.
 
 You may compile Val's compiler with the following commands:
@@ -38,7 +44,7 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--emit raw-ir`: Lower the typed AST into Val IR and output the result in a file.
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
 - `--emit cpp`: Produce a C++ source file.
-- `--emit binary` (default): Produce an executable.
+- `--emit binary` (default): Produce an executable (Clang is required for now).
 
 For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
 
