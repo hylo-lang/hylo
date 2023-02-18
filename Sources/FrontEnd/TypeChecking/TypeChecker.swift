@@ -504,7 +504,7 @@ public struct TypeChecker {
 
   private mutating func _check(initializer id: NodeID<InitializerDecl>) -> Bool {
     // Memberwize initializers always type check.
-    if ast[id].introducer.value == .memberwiseInit {
+    if ast[id].isMemberwise {
       return true
     }
 
@@ -2883,7 +2883,7 @@ public struct TypeChecker {
 
   private mutating func _realize(initializerDecl d: NodeID<InitializerDecl>) -> AnyType {
     // Handle memberwise initializers.
-    if ast[d].introducer.value == .memberwiseInit {
+    if ast[d].isMemberwise {
       let productTypeDecl = NodeID<ProductTypeDecl>(program.declToScope[d]!)!
       if let lambda = memberwiseInitType(of: productTypeDecl) {
         return ^lambda

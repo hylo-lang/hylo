@@ -1067,7 +1067,7 @@ public enum Parser {
   ) -> NodeID<InitializerDecl> {
     for member in members where member.kind == InitializerDecl.self {
       let m = NodeID<InitializerDecl>(member)!
-      if state.ast[m].introducer.value == .memberwiseInit { return m }
+      if state.ast[m].isMemberwise { return m }
     }
 
     let startOfTypeDecl = state.lexer.sourceCode.emptyRange(at: startIndex)
