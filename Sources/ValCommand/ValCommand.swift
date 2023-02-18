@@ -181,6 +181,21 @@ public struct ValCommand: ParsableCommand {
     try writeExecutableCode(cxxModules, productName: productName, loggingTo: &errorLog)
   }
 
+  /// Returns the path for executable file.
+  /// Use `productName` to generate executable file location if `outputURL` is nil.
+  private func executablePath(_ outputURL: URL?, _ productName: String) -> String {
+    var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).path
+
+    //Generate binary programs with `.exe` suffix in windows
+    #if os(Windows)
+      if !binaryPath.hasSuffix(".exe") {
+        binaryPath += ".exe"
+      }
+    #endif
+
+    return binaryPath
+  }
+
   /// Given the transpiled core and source modules and the product name (whatever that means),
   /// generates a binary product into a temporary build directory, logging errors to `errorLog`.
   func writeExecutableCode<L: Log>(
@@ -199,11 +214,13 @@ public struct ValCommand: ParsableCommand {
       loggingTo: &errorLog)
 
     let clang = try find("clang++")
-    let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
+
+    let binaryPath = executablePath(outputURL, productName)
+
     try runCommandLine(
       clang,
       [
-        "-o", binaryURL.path,
+        "-o", binaryPath,
         "-I", buildDirectory.path,
         buildDirectory.appendingPathComponent(productName + ".cpp").path,
       ],
