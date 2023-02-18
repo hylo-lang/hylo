@@ -18,7 +18,7 @@ on:
 
 jobs:
   build:
-    name: Swift ${{ matrix.swift.version }} on ${{ matrix.host.os }}
+    name: Swift 5 on ${{ matrix.host.os }}
     strategy:
       fail-fast: false
       matrix:
