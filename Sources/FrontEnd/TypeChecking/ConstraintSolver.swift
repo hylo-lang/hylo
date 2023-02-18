@@ -73,7 +73,6 @@ struct ConstraintSolver {
         return nil
       }
 
-      // Solve the constraint.
       switch constraint {
       case let c as ConformanceConstraint:
         solve(conformance: c, using: &checker)
@@ -97,7 +96,6 @@ struct ConstraintSolver {
         unreachable()
       }
 
-      // Attempt to refresh stale literal constraints.
       if fresh.isEmpty { refreshLiteralConstraints() }
     }
 
