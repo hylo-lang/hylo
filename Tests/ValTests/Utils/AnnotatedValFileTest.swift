@@ -38,7 +38,7 @@ extension XCTestCase {
   ///     generated diagnostics. Throws an `Error` if any phases failed.
   func checkAnnotatedValFileDiagnostics(
     inSuiteAt suitePath: String,
-    relativeTo swiftFile: StaticString = #file,
+    relativeTo swiftFile: StaticString = #filePath,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
     try checkAnnotatedValFiles(
@@ -66,7 +66,7 @@ extension XCTestCase {
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
   func checkAnnotatedValFiles(
     inSuiteAt suitePath: String,
-    relativeTo swiftFile: StaticString = #file,
+    relativeTo swiftFile: StaticString = #filePath,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
     _ processAndCheck: (
       _ file: SourceFile,
