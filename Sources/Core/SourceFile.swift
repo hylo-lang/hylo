@@ -34,14 +34,17 @@ public struct SourceFile {
   }
 
   /// Creates an instance for the given `text` embedded in a multiline string literal in the given
-  /// `swiftFile` at `startLine`.
+  /// `swiftFile` at `swiftLine`.
   ///
   /// The actual text processed will be what's read from the file, regardless of what's in `text`.
   /// That means if you're going to use any special characters in the literal, the literal should be
   /// a raw string literal to avoid confusion.
-  fileprivate init(literal text: String, swiftFile: String = #filePath, startLine: Int = #line)
+  fileprivate init(
+    diagnosableLiteral text: String, swiftFile: String = #filePath, swiftLine: Int = #line
+  )
     throws
   {
+    let startLine = swiftLine + 2  // Account for typical source code formatting
     let wholeFile = try SourceFile(contentsOf: URL(fileURLWithPath: swiftFile))
     let endLine = startLine + text.lazy.filter(\.isNewline).count
     let fragment = URL(string: "\(wholeFile.url.absoluteString)#L\(startLine)-L\(endLine)")!
@@ -161,10 +164,12 @@ public struct SourceFile {
 
 extension SourceFile {
 
-  public static func diagnosable(
-    _ text: String, swiftFile: String = #filePath, startLine: Int = #line
+  /// Returns a SourceFile containing the given text of a multiline string literal, such that
+  /// diagnostics produced in processing that file will point back to the original Swift source.
+  public static func diagnosableLiteral(
+    _ multilineLiteralText: String, swiftFile: String = #filePath, startLine: Int = #line
   ) -> SourceFile {
-    try! .init(literal: text, swiftFile: swiftFile, startLine: startLine)
+    try! .init(diagnosableLiteral: multilineLiteralText, swiftFile: swiftFile, swiftLine: startLine)
   }
 
 }
