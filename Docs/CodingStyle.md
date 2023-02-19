@@ -232,7 +232,7 @@ func translate(polygon: [Vector2], by d: Vector2) -> [Vector2] {
   polygon.map({ $0 + d })
 }
 
-/// Returns the edges of `polygon` clipped in `area`.
+/// Returns the edges of `polygon` clipped to `area`.
 func clamp(_ polygon: [Vector2], to area: Circle) -> [Vector2] {
   polygon.map { (p) in
     if area.contains(p) {
