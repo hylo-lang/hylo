@@ -51,7 +51,7 @@ extension Diagnostic {
     .error("duplicate operator declaration '\(name)'", at: site)
   }
 
-  static func diganose(duplicateParameterNamed name: String, at site: SourceRange) -> Diagnostic {
+  static func error(duplicateParameterNamed name: String, at site: SourceRange) -> Diagnostic {
     .error("duplicate parameter name '\(name)'", at: site)
   }
 
@@ -69,9 +69,9 @@ extension Diagnostic {
   }
 
   static func error(
-    illegalParameterConvention convention: AccessEffect, at site: SourceRange
+    illegalParameterConvention c: AccessEffect, at site: SourceRange
   ) -> Diagnostic {
-    .error("'\(convention)' may only be used on parameters", at: site)
+    .error("'\(c)' may only be used on parameters", at: site)
   }
 
   static func error<S1: Sequence<String?>, S2: Sequence<String?>>(
@@ -109,12 +109,6 @@ extension Diagnostic {
       """, at: site)
   }
 
-  static func error(
-    inoutCapableMethodBundleMustReturn expectedReturnType: AnyType, at site: SourceRange
-  ) -> Diagnostic {
-    .error("inout-capable method bundle must return '\(expectedReturnType)'", at: site)
-  }
-
   static func error(invalidDestructuringOfType type: AnyType, at site: SourceRange) -> Diagnostic {
     .error("invalid destructuring of type '\(type)'", at: site)
   }
@@ -142,9 +136,9 @@ extension Diagnostic {
     .error("type '\(type)' does not conform to trait '\(trait)'", at: site, notes: notes)
   }
 
-  static func error(invalidConformanceConstraintTo type: AnyType, at site: SourceRange)
-    -> Diagnostic
-  {
+  static func error(
+    invalidConformanceConstraintTo type: AnyType, at site: SourceRange
+  ) -> Diagnostic {
     .error(
       """
       type '\(type)' in conformance constraint does not refers to a generic parameter or \
@@ -311,6 +305,10 @@ extension Diagnostic {
 
   static func error(cannotExtend t: BuiltinType, at site: SourceRange) -> Diagnostic {
     .error("cannot extend built-in type '\(t)'", at: site)
+  }
+
+  static func error(mutatingBundleMustReturn t: TupleType, at site: SourceRange) -> Diagnostic {
+    .error("mutating bundle must return '\(t)'", at: site)
   }
 
 }

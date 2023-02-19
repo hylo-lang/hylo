@@ -540,10 +540,6 @@ public struct TypeChecker {
   }
 
   private mutating func _check(method id: NodeID<MethodDecl>) -> Bool {
-    // The type of the declaration must have been realized.
-    let type = declTypes[id]!.base as! MethodType
-    let outputType = type.output.skolemized
-
     // Type check the generic constraints.
     var success = environment(of: id) != nil
 
@@ -553,30 +549,25 @@ public struct TypeChecker {
       success = check(parameter: parameter, siblingNames: &parameterNames) && success
     }
 
-    for impl in ast[id].impls {
-      // Set the type of the implicit receiver declaration.
-      declTypes[ast[impl].receiver] = ^ParameterType(ast[impl].introducer.value, type.receiver)
-      declRequests[ast[impl].receiver] = .success
+    // Type check the bodies.
+    let bundle = MethodType(declTypes[id])!
+    for v in ast[id].impls {
+      declTypes[ast[v].receiver] = ^ParameterType(ast[v].introducer.value, bundle.receiver)
+      declRequests[ast[v].receiver] = .success
 
-      // Type check method's implementations, if any.
-      switch ast[impl].body {
+      switch ast[v].body {
       case .expr(let expr):
-        let expectedType =
-          ast[impl].introducer.value == .inout
-          ? AnyType.void
-          : outputType
-        success = (checkedType(of: expr, subtypeOf: expectedType, in: impl) != nil) && success
+        let t = LambdaType(declTypes[v])!
+        success = (checkedType(of: expr, subtypeOf: t.output, in: v) != nil) && success
 
       case .block(let stmt):
         success = check(brace: stmt) && success
 
       case nil:
-        // Requirements can be without a body.
-        if program.isRequirement(id) { continue }
-
-        // Declaration requires a body.
-        diagnostics.insert(.error(declarationRequiresBodyAt: ast[id].introducerSite))
-        success = false
+        if !program.isRequirement(id) {
+          diagnostics.insert(.error(declarationRequiresBodyAt: ast[id].introducerSite))
+          success = false
+        }
       }
     }
 
@@ -591,7 +582,7 @@ public struct TypeChecker {
   ) -> Bool {
     // Check for duplicate parameter names.
     if !siblingNames.insert(ast[id].baseName).inserted {
-      diagnostics.insert(.diganose(duplicateParameterNamed: ast[id].baseName, at: ast[id].site))
+      diagnostics.insert(.error(duplicateParameterNamed: ast[id].baseName, at: ast[id].site))
       declRequests[id] = .failure
       return false
     }
@@ -1207,31 +1198,14 @@ public struct TypeChecker {
   /// Returns the expected output type in `lexicalContext`, or `nil` if `lexicalContext` is not
   /// nested in a function or subscript declaration.
   private func expectedOutputType<S: ScopeID>(in lexicalContext: S) -> AnyType? {
-    for parent in program.scopes(from: lexicalContext) {
-      switch parent.kind {
+    for s in program.scopes(from: lexicalContext) {
+      switch s.kind {
       case MethodImpl.self:
-        // `lexicalContext` is nested in a method implementation.
-        let decl = NodeID<MethodImpl>(parent)!
-        if ast[decl].introducer.value == .inout {
-          return .void
-        } else {
-          let methodDecl = NodeID<FunctionDecl>(program.scopeToParent[decl]!)!
-          let methodType = declTypes[methodDecl]!.base as! MethodType
-          return methodType.output.skolemized
-        }
-
+        return LambdaType(declTypes[NodeID<MethodImpl>(s)!])?.output.skolemized
       case FunctionDecl.self:
-        // `lexicalContext` is nested in a function.
-        let decl = NodeID<FunctionDecl>(parent)!
-        let funType = declTypes[decl]!.base as! LambdaType
-        return funType.output.skolemized
-
+        return LambdaType(declTypes[NodeID<FunctionDecl>(s)!])?.output.skolemized
       case SubscriptDecl.self:
-        // `lexicalContext` is nested in a subscript implementation.
-        let decl = NodeID<SubscriptDecl>(parent)!
-        let subscriptType = declTypes[decl]!.base as! SubscriptType
-        return subscriptType.output.skolemized
-
+        return SubscriptType(declTypes[NodeID<SubscriptDecl>(s)!])?.output.skolemized
       default:
         continue
       }
@@ -2663,7 +2637,7 @@ public struct TypeChecker {
     case MethodDecl.self:
       return realize(methodDecl: NodeID(d)!)
     case MethodImpl.self:
-      return realize(methodDecl: NodeID(program.declToScope[d]!)!)
+      return realize(methodImpl: NodeID(d)!)
     case ParameterDecl.self:
       return realize(parameterDecl: NodeID(d)!)
     case ProductTypeDecl.self:
@@ -2900,21 +2874,29 @@ public struct TypeChecker {
       outputType = .void
     }
 
-    // Create a method bundle.
-    let capabilities = Set(ast[ast[d].impls].map(\.introducer.value))
-    if capabilities.contains(.inout) && (outputType != receiver) {
-      diagnostics.insert(
-        .error(
-          inoutCapableMethodBundleMustReturn: receiver,
-          at: ast[ast[d].output]?.site ?? ast[d].introducerSite))
-      return .error
-    }
-
-    return ^MethodType(
-      capabilities: capabilities,
+    let m = MethodType(
+      capabilities: Set(ast[ast[d].impls].map(\.introducer.value)),
       receiver: receiver,
       inputs: inputs,
       output: outputType)
+
+    for v in ast[d].impls {
+      let t = variantType(
+        in: m, for: ast[v].introducer.value, reportingDiagnosticsAt: ast[v].introducer.site)
+      declTypes[v] = t.map(AnyType.init(_:)) ?? .error
+      declRequests[v] = .typeRealizationCompleted
+    }
+
+    return ^m
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(methodImpl d: NodeID<MethodImpl>) -> AnyType {
+    // `declTypes[d]` is set by the realization of the containing method declaration.
+    _realize(decl: d) { (this, d) in
+      _ = this.realize(methodDecl: NodeID(this.program.declToScope[d]!)!)
+      return this.declTypes[d] ?? .error
+    }
   }
 
   /// Returns the overarching type of `d`.
@@ -3218,6 +3200,43 @@ public struct TypeChecker {
     }
 
     return LambdaType(environment: .void, inputs: inputs, output: .void)
+  }
+
+  /// Returns the type of variant `v` given a method with type `bundle` or returns `nil` if such
+  /// variant is incompatible with `bundle`, reporting diagnostics at `site`.
+  ///
+  /// - Requires `v` is in `bundle.capabilities`.
+  private mutating func variantType(
+    in bundle: MethodType, for v: AccessEffect, reportingDiagnosticsAt site: SourceRange
+  ) -> LambdaType? {
+    precondition(bundle.capabilities.contains(v))
+
+    let environment =
+      (v == .sink)
+      ? ^TupleType(labelsAndTypes: [("self", bundle.receiver)])
+      : ^TupleType(labelsAndTypes: [("self", ^RemoteType(v, bundle.receiver))])
+
+    let output: AnyType
+    if (v == .inout) || (v == .set) {
+      guard
+        let o = TupleType(relations.canonical(bundle.output)),
+        o.elements.count == 2,
+        o.elements[0].type == relations.canonical(bundle.receiver)
+      else {
+        let t = TupleType([
+          .init(label: "self", type: bundle.receiver),
+          .init(label: nil, type: bundle.output),
+        ])
+        diagnostics.insert(.error(mutatingBundleMustReturn: t, at: site))
+        return nil
+      }
+      output = o.elements[1].type
+    } else {
+      output = bundle.output
+    }
+
+    return LambdaType(
+      receiverEffect: v, environment: environment, inputs: bundle.inputs, output: output)
   }
 
   // MARK: Type role determination
