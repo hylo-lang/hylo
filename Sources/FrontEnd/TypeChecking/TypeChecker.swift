@@ -215,13 +215,12 @@ public struct TypeChecker {
   /// The bindings whose initializers are being currently visited.
   private var bindingsUnderChecking: DeclSet = []
 
-  /// Sets the realized type of `d` to `type`.
+  /// Sets the inferred type of `d` to `type`.
   ///
-  /// - Requires: `d` has not gone through type realization yet.
+  /// - Requires: `d` has been assigned to a type yet.
   mutating func setInferredType(_ type: AnyType, for d: NodeID<VarDecl>) {
-    precondition(declRequests[d] == nil)
+    precondition(declTypes[d] == nil)
     declTypes[d] = type
-    declRequests[d] = .typeRealizationCompleted
   }
 
   /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
@@ -2730,49 +2729,23 @@ public struct TypeChecker {
     functionDecl d: NodeID<FunctionDecl>,
     with conventions: [AccessEffect]? = nil
   ) -> AnyType {
-    if let requiredParameterConventions = conventions {
-      precondition(requiredParameterConventions.count == ast[d].parameters.count)
-    }
-    var success = true
-
     // Realize the input types.
     var inputs: [CallableTypeParameter] = []
     for (i, p) in ast[d].parameters.enumerated() {
-      declRequests[p] = .typeCheckingStarted
-
-      if let annotation = ast[p].annotation {
-        if let t = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
-          // The annotation may not omit generic arguments.
-          if t[.hasVariable] {
-            diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
-            success = false
-          }
-
-          declTypes[p] = t
-          declRequests[p] = .typeRealizationCompleted
-          inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
-        } else {
-          declTypes[p] = .error
-          declRequests[p] = .failure
-          success = false
-        }
+      let t: AnyType
+      if ast[p].annotation != nil {
+        t = realize(parameterDecl: p)
+      } else if ast[d].isInExprContext {
+        // Annotations may be elided in lambda expressions. In that case, unannotated parameters
+        // are given a fresh type variable so that inference can proceed.
+        t = ^ParameterType(conventions?[i] ?? .let, ^TypeVariable())
+        declTypes[p] = t
+        declRequests[p] = .typeRealizationCompleted
       } else {
-        // Note: parameter type annotations may be elided if the declaration represents a lambda
-        // expression. In that case, the unannotated parameters are associated with a fresh type
-        // variable, so inference can proceed.
-        if ast[d].isInExprContext {
-          let t = ^ParameterType((conventions?[i]) ?? .let, ^TypeVariable())
-          declTypes[p] = t
-          declRequests[p] = .typeRealizationCompleted
-          inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
-        } else {
-          unreachable("expected type annotation")
-        }
+        unreachable("expected type annotation")
       }
+      inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
     }
-
-    // Bail out if the parameters could not be realized.
-    if !success { return .error }
 
     // Collect captures.
     var explicitCaptureNames: Set<Name> = []
@@ -2831,12 +2804,8 @@ public struct TypeChecker {
     } else {
       // Create a regular lambda.
       let environment = TupleType(
-        explicitCaptureTypes.map({ (t) -> TupleType.Element in
-          .init(label: nil, type: t)
-        })
-          + implicitCaptures.map({ (c) -> TupleType.Element in
-            .init(label: nil, type: ^c.type)
-          }))
+        explicitCaptureTypes.map({ (t) in TupleType.Element(label: nil, type: t) })
+          + implicitCaptures.map({ (c) in TupleType.Element(label: nil, type: ^c.type) }))
 
       // TODO: Determine if the lambda is mutating.
 
@@ -2894,44 +2863,16 @@ public struct TypeChecker {
       }
     }
 
-    var success = true
-
-    // Realize the input types.
-    var inputs: [CallableTypeParameter] = []
-    for i in ast[d].parameters {
-      declRequests[i] = .typeCheckingStarted
-
-      // Parameters of initializers must have a type annotation.
-      guard let annotation = ast[i].annotation else {
-        unexpected(i, in: ast)
-      }
-
-      if let type = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
-        // The annotation may not omit generic arguments.
-        if type[.hasVariable] {
-          diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
-          success = false
-        }
-
-        declTypes[i] = type
-        declRequests[i] = .typeRealizationCompleted
-        inputs.append(CallableTypeParameter(label: ast[i].label?.value, type: type))
-      } else {
-        declTypes[i] = .error
-        declRequests[i] = .failure
-        success = false
-      }
+    var inputs: [CallableTypeParameter] = ast[d].parameters.reduce(into: []) { (result, d) in
+      result.append(.init(label: ast[d].label?.value, type: realize(parameterDecl: d)))
     }
 
-    // Bail out if the parameters could not be realized.
-    if !success { return .error }
-
     // Initializers are global functions.
-    let receiverType = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
-    let receiverParameterType = CallableTypeParameter(
+    let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
+    let receiverParameter = CallableTypeParameter(
       label: "self",
-      type: ^ParameterType(.set, receiverType))
-    inputs.insert(receiverParameterType, at: 0)
+      type: ^ParameterType(.set, receiver))
+    inputs.insert(receiverParameter, at: 0)
     return ^LambdaType(environment: .void, inputs: inputs, output: .void)
   }
 
@@ -2941,37 +2882,9 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(methodDecl d: NodeID<MethodDecl>) -> AnyType {
-    var success = true
-
-    // Realize the input types.
-    var inputs: [CallableTypeParameter] = []
-    for i in ast[d].parameters {
-      declRequests[i] = .typeCheckingStarted
-
-      // Parameters of methods must have a type annotation.
-      guard let annotation = ast[i].annotation else {
-        unexpected(i, in: ast)
-      }
-
-      if let type = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
-        // The annotation may not omit generic arguments.
-        if type[.hasVariable] {
-          diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
-          success = false
-        }
-
-        declTypes[i] = type
-        declRequests[i] = .typeRealizationCompleted
-        inputs.append(.init(label: ast[i].label?.value, type: type))
-      } else {
-        declTypes[i] = .error
-        declRequests[i] = .failure
-        success = false
-      }
+    let inputs: [CallableTypeParameter] = ast[d].parameters.reduce(into: []) { (result, d) in
+      result.append(.init(label: ast[d].label?.value, type: realize(parameterDecl: d)))
     }
-
-    // Bail out if the parameters could not be realized.
-    if !success { return .error }
 
     // Realize the method's receiver if necessary.
     let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
@@ -3006,18 +2919,21 @@ public struct TypeChecker {
 
   /// Returns the overarching type of `d`.
   ///
-  /// - Requires: The containing function or subscript declaration must have been realized.
+  /// - Requires: `d` has a type annotation.
   private mutating func realize(parameterDecl d: NodeID<ParameterDecl>) -> AnyType {
-    switch declRequests[d] {
-    case nil:
-      preconditionFailure()
+    _realize(decl: d) { (this, d) in
+      let a = this.ast[d].annotation ?? preconditionFailure("no type annotation")
+      let s = this.program.declToScope[d]!
+      guard let parameterType = this.realize(parameter: a, in: s)?.instance else {
+        return .error
+      }
 
-    case .typeRealizationStarted:
-      diagnostics.insert(.error(circularDependencyAt: ast[d].site))
-      return .error
-
-    case .typeRealizationCompleted, .typeCheckingStarted, .success, .failure:
-      return declTypes[d]!
+      // The annotation may not omit generic arguments.
+      if parameterType[.hasVariable] {
+        this.diagnostics.insert(.error(notEnoughContextToInferArgumentsAt: this.ast[a].site))
+        return .error
+      }
+      return parameterType
     }
   }
 
@@ -3032,38 +2948,11 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(subscriptDecl d: NodeID<SubscriptDecl>) -> AnyType {
-    var success = true
-
-    // Realize the input types.
-    var inputs: [CallableTypeParameter] = []
-    for i in ast[d].parameters ?? [] {
-      declRequests[i] = .typeCheckingStarted
-
-      // Parameters of subscripts must have a type annotation.
-      guard let annotation = ast[i].annotation else {
-        unexpected(i, in: ast)
-      }
-
-      if let type = realize(parameter: annotation, in: AnyScopeID(d))?.instance {
-        // The annotation may not omit generic arguments.
-        if type[.hasVariable] {
-          diagnostics.insert(
-            .error(notEnoughContextToInferArgumentsAt: ast[annotation].site))
-          success = false
-        }
-
-        declTypes[i] = type
-        declRequests[i] = .typeRealizationCompleted
-        inputs.append(CallableTypeParameter(label: ast[i].label?.value, type: type))
-      } else {
-        declTypes[i] = .error
-        declRequests[i] = .failure
-        success = false
+    let inputs = ast[d].parameters.map(default: []) { (p) -> [CallableTypeParameter] in
+      p.reduce(into: []) { (result, d) in
+        result.append(.init(label: ast[d].label?.value, type: realize(parameterDecl: d)))
       }
     }
-
-    // Bail out if the parameters could not be realized.
-    if !success { return .error }
 
     // Collect captures.
     var explicitCaptureNames: Set<Name> = []
@@ -3086,12 +2975,8 @@ public struct TypeChecker {
       environment = TupleType([.init(label: "self", type: ^RemoteType(.yielded, receiver))])
     } else {
       environment = TupleType(
-        explicitCaptureTypes.map({ (t) -> TupleType.Element in
-          .init(label: nil, type: t)
-        })
-          + implicitCaptures.map({ (c) -> TupleType.Element in
-            .init(label: nil, type: ^c.type)
-          }))
+        explicitCaptureTypes.map({ (t) in TupleType.Element(label: nil, type: t) })
+          + implicitCaptures.map({ (c) in TupleType.Element(label: nil, type: ^c.type) }))
     }
 
     // Realize the ouput type.
@@ -3126,6 +3011,23 @@ public struct TypeChecker {
 
     let instance = TypeAliasType(aliasing: resolved, declaredBy: NodeID(d)!, in: ast)
     return ^MetatypeType(of: instance)
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize<T: TypeExtendingDecl>(typeExtendingDecl d: NodeID<T>) -> AnyType {
+    return _realize(decl: d) { (this, d) in
+      let t = this.realize(this.ast[d].subject, in: this.program.declToScope[d]!)
+      return t.map(AnyType.init(_:)) ?? .error
+    }
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(varDecl d: NodeID<VarDecl>) -> AnyType {
+    // `declTypes[d]` is set by the realization of the containing binding declaration.
+    return _realize(decl: d) { (this, d) in
+      _ = this.realize(bindingDecl: this.program.varToBinding[d]!)
+      return this.declTypes[d] ?? .error
+    }
   }
 
   /// Realizes the explicit captures in `list`, writing the captured names in `explicitNames`, and
@@ -3167,19 +3069,6 @@ public struct TypeChecker {
     }
 
     return success ? captures : nil
-  }
-
-  private mutating func realize<T: TypeExtendingDecl>(typeExtendingDecl d: NodeID<T>) -> AnyType {
-    return _realize(decl: d) { (this, d) in
-      let t = this.realize(this.ast[d].subject, in: this.program.declToScope[d]!)
-      return t.map(AnyType.init(_:)) ?? .error
-    }
-  }
-
-  private mutating func realize(varDecl d: NodeID<VarDecl>) -> AnyType {
-    // `declTypes[d]` is set by the realization of the containing binding declaration.
-    let t = realize(bindingDecl: program.varToBinding[d]!)
-    return t.isError ? t : declTypes[d]!
   }
 
   /// Realizes the implicit captures found in the body of `decl` and returns their types and

@@ -879,13 +879,18 @@ extension TypeChecker {
     updating state: inout State
   ) -> AnyType {
     let nameDecl = ast[subject].decl
-    let nameType = shape ?? ^TypeVariable()
-    setInferredType(nameType, for: nameDecl)
     state.deferred.append({ (checker, solution) in
       checker.checkDeferred(varDecl: nameDecl, solution)
     })
 
-    return nameType
+    if let t = declTypes[nameDecl] {
+      // We can only get here if we're visiting the containing pattern more than once.
+      return t
+    } else {
+      let nameType = shape ?? ^TypeVariable()
+      setInferredType(nameType, for: nameDecl)
+      return nameType
+    }
   }
 
   private mutating func inferredType(
