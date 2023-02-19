@@ -193,7 +193,10 @@ struct ConstraintSolver {
 
     case (let l as TupleType, let r as TupleType):
       // Make sure `L` and `R` are structurally compatible.
-      guard checkStructuralCompatibility(l, r, cause: goal.cause) else { return }
+      if !l.labels.elementsEqual(r.labels) {
+        report(.error(type: goal.left, incompatibleWith: goal.right, at: goal.cause.site))
+        return
+      }
 
       // Break down the constraint.
       for i in 0 ..< l.elements.count {
@@ -204,7 +207,7 @@ struct ConstraintSolver {
 
     case (let l as LambdaType, let r as LambdaType):
       // Parameter labels must match.
-      if l.inputs.map(\.label) != r.inputs.map(\.label) {
+      if !l.labels.elementsEqual(r.labels) {
         report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
       }
@@ -221,7 +224,7 @@ struct ConstraintSolver {
 
     case (let l as MethodType, let r as MethodType):
       // Parameter labels must match.
-      if l.inputs.map(\.label) != r.inputs.map(\.label) {
+      if !l.labels.elementsEqual(r.labels) {
         report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
       }
@@ -273,9 +276,7 @@ struct ConstraintSolver {
 
     // Handle cases where `L` is equal to `R`.
     if checker.relations.areEquivalent(goal.left, goal.right) {
-      if goal.isStrict {
-        report(.error(goal.left, isNotStrictSubtypeOf: goal.right, at: goal.cause.site))
-      }
+      if goal.isStrict { diagnoseFailureToSove(goal) }
       return
     }
 
@@ -314,8 +315,8 @@ struct ConstraintSolver {
         using: &checker)
 
       // Parameter labels must match.
-      if l.inputs.map(\.label) != r.inputs.map(\.label) {
-        report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+      if !l.labels.elementsEqual(r.labels) {
+        diagnoseFailureToSove(goal)
         return
       }
 
@@ -356,14 +357,19 @@ struct ConstraintSolver {
 
   /// Diagnoses a failure to solve `goal`.
   private mutating func diagnoseFailureToSove(_ goal: SubtypingConstraint) {
-    let s = goal.cause.site
     switch goal.cause.kind {
     case .initializationWithHint:
-      report(.error(cannotInitialize: goal.left, with: goal.right, at: s))
+      report(.error(cannotInitialize: goal.left, with: goal.right, at: goal.cause.site))
+
     case .initializationWithPattern:
-      report(.error(goal.left, doesNotMatchPatternAt: s))
+      report(.error(goal.left, doesNotMatchPatternAt: goal.cause.site))
+
     default:
-      report(.error(goal.left, isNotSubtypeOf: goal.right, at: s))
+      if goal.isStrict {
+        report(.error(goal.left, isNotStrictSubtypeOf: goal.right, at: goal.cause.site))
+      } else {
+        report(.error(goal.left, isNotSubtypeOf: goal.right, at: goal.cause.site))
+      }
     }
   }
 
@@ -484,9 +490,13 @@ struct ConstraintSolver {
     }
 
     // Make sure `F` structurally matches the given parameter list.
-    guard checkStructuralCompatibility(
-      found: constraint.parameters, expected: callee.inputs, cause: goal.cause)
-    else { return }
+    if goal.labels.count != callee.labels.count {
+      report(.error(incompatibleParameterCountAt: goal.cause.site))
+      return
+    } else if !goal.labels.elementsEqual(callee.labels) {
+      report(.error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.cause.site))
+      return
+    }
 
     // Break down the constraint.
     for (l, r) in zip(callee.inputs, goal.parameters) {
@@ -743,52 +753,6 @@ struct ConstraintSolver {
       bindingAssumptions: bindings,
       penalties: penalties,
       diagnostics: diagnostics)
-  }
-
-  /// Returns `true` if `lhs` is structurally compatible with `rhs`. Otherwise, generates the
-  /// appropriate diagnostic(s) and returns `false`.
-  private mutating func checkStructuralCompatibility(
-    found lhs: [CallableTypeParameter],
-    expected rhs: [CallableTypeParameter],
-    cause: ConstraintCause
-  ) -> Bool {
-    if lhs.count != rhs.count {
-      report(.error(incompatibleParameterCountAt: cause.site))
-      return false
-    }
-
-    if zip(lhs, rhs).contains(where: { (a, b) in a.label != b.label }) {
-      report(
-        .error(
-          labels: lhs.map(\.label), incompatibleWith: rhs.map(\.label),
-          at: cause.site))
-      return false
-    }
-
-    return true
-  }
-
-  /// Returns `true` if `l` is structurally compatible with `r` . Otherwise, generates the
-  /// appropriate diagnostic(s) and returns `false`.
-  private mutating func checkStructuralCompatibility(
-    _ lhs: TupleType,
-    _ rhs: TupleType,
-    cause: ConstraintCause
-  ) -> Bool {
-    if lhs.elements.count != rhs.elements.count {
-      report(.error(incompatibleTupleLengthsAt: cause.site))
-      return false
-    }
-
-    if zip(lhs.elements, rhs.elements).contains(where: { (a, b) in a.label != b.label }) {
-      report(
-        .error(
-          labels: lhs.elements.map(\.label), incompatibleWith: rhs.elements.map(\.label),
-          at: cause.site))
-      return false
-    }
-
-    return true
   }
 
   /// Adds `d` to `self.diagnostics`.

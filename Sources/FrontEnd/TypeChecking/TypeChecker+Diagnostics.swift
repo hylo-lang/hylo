@@ -68,9 +68,9 @@ extension Diagnostic {
       "memberwise initializer declaration may only appear in product type declaration", at: site)
   }
 
-  static func error(illegalParameterConvention convention: AccessEffect, at site: SourceRange)
-    -> Diagnostic
-  {
+  static func error(
+    illegalParameterConvention convention: AccessEffect, at site: SourceRange
+  ) -> Diagnostic {
     .error("'\(convention)' may only be used on parameters", at: site)
   }
 
@@ -88,13 +88,9 @@ extension Diagnostic {
     .error("incompatible number of parameters", at: site)
   }
 
-  static func error(incompatibleTupleLengthsAt site: SourceRange) -> Diagnostic {
-    .error("tuples have different lengths", at: site)
-  }
-
-  static func error(type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange)
-    -> Diagnostic
-  {
+  static func error(
+    type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange
+  ) -> Diagnostic {
     .error("incompatible types '\(l)' and '\(r)'", at: site)
   }
 
