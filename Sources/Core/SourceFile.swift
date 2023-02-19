@@ -146,7 +146,7 @@ extension SourceFile: ExpressibleByStringLiteral {
 extension SourceFile: Hashable {
 
   public func hash(into hasher: inout Hasher) {
-    hasher.combine(url.scheme == "synthesized" ? URL(string: "synthesized://") : url)
+    hasher.combine(ObjectIdentifier(storage))
   }
 
   public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
