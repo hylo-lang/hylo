@@ -27,19 +27,22 @@ extension XCTestCase {
     diagnostics: DiagnosticSet
   )
 
-  /// Applies `process` to each ".val" file in `sourceDirectory` and reports XCTest failures where
-  /// the effects of processing don't match the file's diagnostic annotation commands ("diagnostic",
-  /// "expect-failure", and "expect-success").
+  /// Applies `process` to each ".val" file in `sourceDirectory` relative to `swiftFile` and
+  /// reports XCTest failures where the effects of processing don't match the file's diagnostic
+  /// annotation commands ("diagnostic", "expect-failure", and "expect-success").
   ///
-  /// - Parameter `sourceDirectory`: a path relative to the ValTests/ directory of this project.
-  /// - Parameter `process`: applies some compilation phases to `file`, updating `diagnostics`
-  ///   with any generated diagnostics. Throws an `Error` if any phases failed.
+  /// - Parameters:
+  ///   - sourceDirectory: a path relative to the `swiftFile`.
+  ///   - swiftFile: the path of the file calling this function.
+  ///   - process: applies some compilation phases to `file`, updating `diagnostics` with any
+  ///     generated diagnostics. Throws an `Error` if any phases failed.
   func checkAnnotatedValFileDiagnostics(
     in sourceDirectory: String,
+    relativeTo swiftFile: StaticString = #file,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
     try checkAnnotatedValFiles(
-      in: sourceDirectory, checkingAnnotationCommands: [],
+      in: sourceDirectory, relativeTo: swiftFile, checkingAnnotationCommands: [],
       { (file, annotationsToHandle, diagnostics) in
         assert(annotationsToHandle.isEmpty)
         try process(file, &diagnostics)
@@ -48,30 +51,31 @@ extension XCTestCase {
     )
   }
 
-  /// Applies `processAndCheck` to each ".val" file in `sourceDirectory` along with the subset of
-  /// that file's annotations whose commands match `checkedCommands`, and reports resulting XCTest
-  /// failures, along with any additional failures where the effects of processing don't match the
-  /// file's diagnostic annotation commands ("diagnostic", "expect-failure", and "expect-success").
+  /// Applies `processAndCheck` to each ".val" file in `sourceDirectory` relative to `swiftFile`
+  /// along with the subset of that file's annotations whose commands match `checkedCommands`, and
+  /// reports resulting XCTest failures, along with any additional failures where the effects of
+  /// processing don't match the file's diagnostic annotation commands ("diagnostic",
+  /// "expect-failure", and "expect-success").
   ///
   /// - Parameters:
-  ///   - `sourceDirectory`: a path relative to the ValTests/ directory of this project.
-  ///   - `checkedCommands`: the annnotation commands to be validated by `processAndCheck`.
-  ///   - `processAndCheck`: applies some compilation phases to `file`, updating `diagnostics`
+  ///   - sourceDirectory: a path relative to the `swiftFile`.
+  ///   - swiftFile: the path of the file calling this function.
+  ///   - checkedCommands: the annnotation commands to be validated by `processAndCheck`.
+  ///   - processAndCheck: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
   func checkAnnotatedValFiles(
     in sourceDirectory: String,
+    relativeTo swiftFile: StaticString = #file,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
-
     _ processAndCheck: (
       _ file: SourceFile,
       _ annotationsToCheck: ArraySlice<TestAnnotation>,
       _ diagnostics: inout DiagnosticSet
     ) throws -> [XCTIssue]
   ) throws {
-    let testCaseDirectory = try XCTUnwrap(
-      Bundle.module.url(forResource: sourceDirectory, withExtension: nil),
-      "No test cases")
+    let testCaseDirectory = URL(
+      fileURLWithPath: sourceDirectory, relativeTo: URL(fileURLWithPath: String(swiftFile)))
 
     for file in try sourceFiles(in: [testCaseDirectory]) {
       var annotations = TestAnnotation.parseAll(from: file)
