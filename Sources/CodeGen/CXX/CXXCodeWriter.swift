@@ -42,7 +42,7 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(source.name)")
+    target.write("namespace \(cxx: source.name)")
     target.beginBrace()
     target.writeNewline()
 
@@ -81,7 +81,7 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(source.name)")
+    target.write("namespace \(cxx: source.name)")
     target.beginBrace()
     target.writeNewline()
 
@@ -147,13 +147,13 @@ public struct CXXCodeWriter {
   private func writeSignature(function decl: CXXFunctionDecl, into target: inout CodeFormatter) {
     write(typeExpr: decl.output, into: &target)
     target.writeSpace()
-    write(identifier: decl.identifier, into: &target)
+    target.write(decl.identifier)
     target.write("(")
     for i in 0 ..< decl.parameters.count {
       if i != 0 { target.write(", ") }
       write(typeExpr: decl.parameters[i].type, into: &target)
       target.writeSpace()
-      write(identifier: decl.parameters[i].name, into: &target)
+      target.write(decl.parameters[i].name)
     }
     target.write(")")
   }
@@ -169,7 +169,7 @@ public struct CXXCodeWriter {
 
   private func writeSignature(type decl: CXXClassDecl, into target: inout CodeFormatter) {
     target.write("class ")
-    write(identifier: decl.name, into: &target)
+    target.write(decl.name.description)
   }
   private func writeDefinition(type decl: CXXClassDecl, into target: inout CodeFormatter) {
     writeSignature(type: decl, into: &target)
@@ -212,10 +212,10 @@ public struct CXXCodeWriter {
     // and the type of the attribute needs to be native.
     if dataMembers.count == 1 && dataMembers[0].type.isNative {
       // Write implicit conversion constructor
-      target.write("\(source.name.description)(")
+      target.write("\(source.name)(")
       write(typeExpr: dataMembers[0].type, into: &target)
       target.write(" v) : ")
-      write(identifier: dataMembers[0].name, into: &target)
+      target.write(dataMembers[0].name)
       target.writeLine("(v) {}")
     }
   }
@@ -223,7 +223,7 @@ public struct CXXCodeWriter {
   private func write(classAttribute decl: CXXClassAttribute, into target: inout CodeFormatter) {
     write(typeExpr: decl.type, into: &target)
     target.writeSpace()
-    write(identifier: decl.name, into: &target)
+    target.write(decl.name)
     if let value = decl.initializer {
       target.write(" = ")
       write(expr: value, into: &target)
@@ -234,7 +234,7 @@ public struct CXXCodeWriter {
   private func write(localVar decl: CXXLocalVarDecl, into target: inout CodeFormatter) {
     write(typeExpr: decl.type, into: &target)
     target.writeSpace()
-    write(identifier: decl.name, into: &target)
+    target.write(decl.name)
     if let value = decl.initializer {
       target.write(" = ")
       write(expr: value, into: &target)
@@ -330,7 +330,7 @@ public struct CXXCodeWriter {
     case CXXIntegerLiteralExpr.self:
       write(integerLiteralExpr: expr as! CXXIntegerLiteralExpr, into: &target)
     case CXXIdentifier.self:
-      write(identifier: expr as! CXXIdentifier, into: &target)
+      target.write(expr as! CXXIdentifier)
     case CXXReceiverExpr.self:
       write(receiverExpr: expr as! CXXReceiverExpr, into: &target)
     case CXXTypeExpr.self:
@@ -361,20 +361,21 @@ public struct CXXCodeWriter {
   ) {
     target.write(expr.value ? "true" : "false")
   }
+
   private func write(
     integerLiteralExpr expr: CXXIntegerLiteralExpr, into target: inout CodeFormatter
   ) {
     target.write(expr.value)
   }
-  private func write(identifier expr: CXXIdentifier, into target: inout CodeFormatter) {
-    target.write(expr.description)
-  }
+
   private func write(receiverExpr expr: CXXReceiverExpr, into target: inout CodeFormatter) {
     target.write("this")
   }
+
   private func write(typeExpr expr: CXXTypeExpr, into target: inout CodeFormatter) {
     target.write(expr.text)
   }
+
   private func write(infixExpr expr: CXXInfixExpr, into target: inout CodeFormatter) {
     // TODO: handle precedence and associativity; as of writing this comment, infix operators cannot be properly tested.
     write(expr: expr.lhs, into: &target)
