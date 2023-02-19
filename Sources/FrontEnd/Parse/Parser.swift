@@ -2466,8 +2466,8 @@ public enum Parser {
   ) throws -> [C.Element]? where C.Context == ParserState {
     guard let result = try parser.parse(&state) else { return nil }
 
-    if let separator = result.trailingSeparator {
-      state.diagnostics.insert(.error(unexpectedToken: separator))
+    if let s = result.trailingSeparator, result.closer != nil {
+      state.diagnostics.insert(.error(unexpectedToken: s))
     }
 
     return result.elements
@@ -3255,54 +3255,48 @@ struct DelimitedCommaSeparatedList<E: Combinator>: Combinator where E.Context ==
     guard let opener = state.take(openerKind) else { return nil }
 
     // Parse the elements.
+    var elementWasParsed = false
     var elements: [E.Element] = []
     var trailingSeparator: Token? = nil
     var closer: Token? = nil
 
     while true {
       // Parse one element.
+      let h = state.peek()
       if let element = try elementParser.parse(&state) {
-        elements.append(element)
+        if !elements.isEmpty && trailingSeparator == nil {
+          state.diagnostics.insert(.error(expected: "',' separator", at: h!.site.first()))
+        }
 
-        // Look for a separator.
+        elements.append(element)
+        elementWasParsed = true
         trailingSeparator = nil
+
         if let t = state.take(.comma) {
           trailingSeparator = t
           continue
         }
+      } else {
+        elementWasParsed = false
       }
 
-      // If we get here, we either parsed an element not followed by a separator (1), or we got a
-      // soft failure and didn't consume anything from the stream (2). In both case, we should
-      // expect the right delimiter.
+      // If we get here, we either parsed an element not followed by a separator (1), or we didn't
+      // consume any token (2). In both case, we should expect the closing delimiter next.
       if let t = state.take(closerKind) {
         closer = t
         break
       }
 
-      // If we got here by (2) but didn't parse any element yet, diagnose a missing delimiter and
-      // exit the loop.
-      if elements.isEmpty {
-        state.diagnostics.insert(
-          .error(expected: closerDescription, matching: opener, in: state))
+      // If we got here by (2) but didn't parse any element, diagnose a missing delimiter and exit.
+      if !elementWasParsed {
+        state.diagnostics.insert(.error(expected: closerDescription, matching: opener, in: state))
         break
       }
 
-      // If we got here by (1), diagnose a missing separator and try to parse the next element
-      // unless we reached EOF. Otherwise, diagnose a missing expression and exit.
-      if trailingSeparator == nil {
-        if let head = state.peek() {
-          state.diagnostics.insert(
-            .error(expected: "',' separator", at: head.site.first()))
-          continue
-        } else {
-          state.diagnostics.insert(
-            .error(expected: closerDescription, matching: opener, in: state))
-          break
-        }
-      } else {
-        state.diagnostics.insert(
-          .error(expected: "expression", at: state.currentLocation))
+      // If we got here by (1) and reached EOF, diagnose a missing delimiter and exit. Otherwise,
+      // try to parse another element.
+      if state.peek() == nil {
+        state.diagnostics.insert(.error(expected: closerDescription, matching: opener, in: state))
         break
       }
     }
