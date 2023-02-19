@@ -18,8 +18,9 @@ final class CaptureCollectorTests: XCTestCase {
       """)
 
     var ast = AST()
-    var diagnostics = DiagnosticSet()
-    let module = try ast.makeModule("Test", sourceCode: [source], diagnostics: &diagnostics)
+    let module = try checkNoDiagnostic { diagnostics in
+      try ast.makeModule("Test", sourceCode: [source], diagnostics: &diagnostics)
+    }
 
     let fun = NodeID<FunctionDecl>(ast.topLevelDecls(module).first!)!
     var collector = CaptureCollector(ast: ast)
