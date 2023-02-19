@@ -38,7 +38,7 @@ public struct OverloadConstraint: Constraint, Hashable {
   /// The choices of the disjunction.
   public private(set) var choices: [Candidate]
 
-  public let cause: ConstraintCause
+  public let cause: ConstraintOrigin
 
   /// Creates an instance with the given properties.
   ///
@@ -47,7 +47,7 @@ public struct OverloadConstraint: Constraint, Hashable {
     _ expr: NodeID<NameExpr>,
     withType type: AnyType,
     refersToOneOf choices: [Candidate],
-    because cause: ConstraintCause
+    because cause: ConstraintOrigin
   ) {
     precondition(choices.count >= 2)
 

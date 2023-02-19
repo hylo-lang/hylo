@@ -1,8 +1,8 @@
-/// An object describing the cause of a constraint.
-public struct ConstraintCause: Hashable {
+/// The site from which a constraint originates and the reason why it was formed.
+public struct ConstraintOrigin: Hashable {
 
-  /// The kind of a constraint cause.
-  public enum Kind {
+  /// The reason why a constraint was formed.
+  public enum Kind: Hashable {
 
     /// The constraint is caused by a type annotation.
     case annotation
@@ -48,7 +48,7 @@ public struct ConstraintCause: Hashable {
 
   }
 
-  /// The kind this cause.
+  /// The reason of the constraint.
   public let kind: Kind
 
   /// The site from which the constraint originates.
@@ -62,7 +62,7 @@ public struct ConstraintCause: Hashable {
 
 }
 
-extension ConstraintCause: CustomStringConvertible {
+extension ConstraintOrigin: CustomStringConvertible {
 
   public var description: String {
     "\(kind)@\(site)"

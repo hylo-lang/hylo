@@ -25,12 +25,12 @@ public struct DisjunctionConstraint: Constraint, Hashable {
   /// The choices of the disjunction.
   public private(set) var choices: [Choice]
 
-  public let cause: ConstraintCause
+  public let cause: ConstraintOrigin
 
   /// Creates an instance with two or more minterms.
   ///
   /// - Requires: `choices.count >= 2`
-  public init(choices: [Choice], because cause: ConstraintCause) {
+  public init(choices: [Choice], because cause: ConstraintOrigin) {
     precondition(choices.count >= 2)
     self.choices = choices
     self.cause = cause

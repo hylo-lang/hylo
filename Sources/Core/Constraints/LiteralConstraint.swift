@@ -12,7 +12,7 @@ public struct LiteralConstraint: Constraint, Hashable {
   /// The trait to which `subject` must conform.
   public let literalTrait: TraitType
 
-  public let cause: ConstraintCause
+  public let cause: ConstraintOrigin
 
   /// Creates an instance with the given properties.
   ///
@@ -22,7 +22,7 @@ public struct LiteralConstraint: Constraint, Hashable {
     _ subject: AnyType,
     defaultsTo defaultSubject: AnyType,
     conformsTo literalTrait: TraitType,
-    because cause: ConstraintCause
+    because cause: ConstraintOrigin
   ) {
     self.subject = subject
     self.defaultSubject = defaultSubject

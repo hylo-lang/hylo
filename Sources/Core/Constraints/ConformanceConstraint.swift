@@ -9,13 +9,13 @@ public struct ConformanceConstraint: Constraint, Hashable {
   /// The traits to which `subject` must conform.
   public let traits: Set<TraitType>
 
-  public let cause: ConstraintCause
+  public let cause: ConstraintOrigin
 
   /// Creates an instance with the given properties.
   public init(
     _ subject: AnyType,
     conformsTo traits: Set<TraitType>,
-    because cause: ConstraintCause
+    because cause: ConstraintOrigin
   ) {
     self.subject = subject
     self.traits = traits

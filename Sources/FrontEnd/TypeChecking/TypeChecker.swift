@@ -332,12 +332,12 @@ public struct TypeChecker {
         initializerConstraints.append(
           SubtypingConstraint(
             initializerType, shape.type,
-            because: ConstraintCause(.initializationWithHint, at: ast[initializer].site)))
+            because: ConstraintOrigin(.initializationWithHint, at: ast[initializer].site)))
       } else {
         initializerConstraints.append(
           EqualityConstraint(
             initializerType, shape.type,
-            because: ConstraintCause(.initializationWithPattern, at: ast[initializer].site)))
+            because: ConstraintOrigin(.initializationWithPattern, at: ast[initializer].site)))
       }
 
       // Infer the type of the initializer
@@ -473,7 +473,7 @@ public struct TypeChecker {
     _ e: AnyExprID, ofFunctionReturning r: AnyType
   ) -> Constraint {
     let l = exprTypes[e].setIfNil(^TypeVariable())
-    let c = ConstraintCause(.return, at: ast[e].site)
+    let c = ConstraintOrigin(.return, at: ast[e].site)
     let constrainToNever = EqualityConstraint(l, .never, because: c)
 
     if relations.areEquivalent(r, .never) {
@@ -600,7 +600,7 @@ public struct TypeChecker {
         initialConstraints: [
           ParameterConstraint(
             defaultValueType, ^parameterType,
-            because: ConstraintCause(.argument, at: ast[id].site))
+            because: ConstraintOrigin(.argument, at: ast[id].site))
         ])
 
       if !inference.succeeded {
@@ -1066,13 +1066,13 @@ public struct TypeChecker {
     guard let targetType = checkedType(of: ast[s].left, in: scope) else { return false }
     let lhsConstraint = ConformanceConstraint(
       targetType, conformsTo: [ast.coreTrait(named: "Sinkable")!],
-      because: ConstraintCause(.initializationOrAssignment, at: ast[s].site))
+      because: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
 
     // Source type must be subtype of the target type.
     let sourceType = exprTypes[ast[s].right].setIfNil(^TypeVariable())
     let rhsConstraint = SubtypingConstraint(
       sourceType, targetType,
-      because: ConstraintCause(.initializationOrAssignment, at: ast[s].site))
+      because: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
 
     // Note: Type information flows strictly from left to right.
     let inference = solutionTyping(
@@ -1281,7 +1281,7 @@ public struct TypeChecker {
       else { return nil }
 
       if !traits.isEmpty {
-        let cause = ConstraintCause(.annotation, at: ast[list[0]].site)
+        let cause = ConstraintOrigin(.annotation, at: ast[list[0]].site)
         constraints.append(ConformanceConstraint(lhs, conformsTo: traits, because: cause))
       }
     }
@@ -1395,7 +1395,7 @@ public struct TypeChecker {
     constraints.append(
       ConformanceConstraint(
         ^selfType, conformsTo: [declaredTrait],
-        because: ConstraintCause(.structural, at: ast[id].identifier.site)))
+        because: ConstraintOrigin(.structural, at: ast[id].identifier.site)))
 
     let e = GenericEnvironment(
       decl: id, parameters: [selfDecl], constraints: constraints, into: &self)
@@ -1423,7 +1423,7 @@ public struct TypeChecker {
     else { return false }
 
     if !traits.isEmpty {
-      let cause = ConstraintCause(.annotation, at: ast[list[0]].site)
+      let cause = ConstraintOrigin(.annotation, at: ast[list[0]].site)
       constraints.append(ConformanceConstraint(lhs, conformsTo: traits, because: cause))
     }
 
@@ -1484,7 +1484,7 @@ public struct TypeChecker {
         return nil
       }
 
-      return EqualityConstraint(a, b, because: ConstraintCause(.structural, at: expr.site))
+      return EqualityConstraint(a, b, because: ConstraintOrigin(.structural, at: expr.site))
 
     case .conformance(let l, let traits):
       guard let a = realize(name: l, in: scope)?.instance else { return nil }
@@ -1505,11 +1505,11 @@ public struct TypeChecker {
       }
 
       return ConformanceConstraint(
-        a, conformsTo: b, because: ConstraintCause(.structural, at: expr.site))
+        a, conformsTo: b, because: ConstraintOrigin(.structural, at: expr.site))
 
     case .value(let e):
       // TODO: Symbolic execution
-      return PredicateConstraint(e, because: ConstraintCause(.structural, at: expr.site))
+      return PredicateConstraint(e, because: ConstraintOrigin(.structural, at: expr.site))
     }
   }
 
@@ -1831,7 +1831,7 @@ public struct TypeChecker {
         : .direct(match)
 
       // Instantiate the type of the declaration
-      let c = ConstraintCause(.binding, at: name.site)
+      let c = ConstraintOrigin(.binding, at: name.site)
       switch reference {
       case .direct(let d):
         candidates.append(
@@ -3284,7 +3284,7 @@ public struct TypeChecker {
   func instantiate<S: ScopeID>(
     _ subject: AnyType,
     in scope: S,
-    cause: ConstraintCause
+    cause: ConstraintOrigin
   ) -> InstantiatedType {
     /// A map from generic parameter type to its opened type.
     var openedParameters: [AnyType: AnyType] = [:]

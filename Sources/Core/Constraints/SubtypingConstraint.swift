@@ -15,14 +15,14 @@ public struct SubtypingConstraint: Constraint, Hashable {
   /// Indicates whether `left` must be a strict subtype of `right`.
   public let isStrict: Bool
 
-  public let cause: ConstraintCause
+  public let cause: ConstraintOrigin
 
   /// Creates an instance with the given properties.
   public init(
     _ left: AnyType,
     _ right: AnyType,
     strictly isStrict: Bool = false,
-    because cause: ConstraintCause
+    because cause: ConstraintOrigin
   ) {
     self.left = left
     self.right = right

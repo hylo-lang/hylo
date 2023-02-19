@@ -8,7 +8,7 @@ import Utils
 public protocol Constraint {
 
   /// The cause of the constraint.
-  var cause: ConstraintCause { get }
+  var cause: ConstraintOrigin { get }
 
   /// Applies `transform` on constituent types of `self`.
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType)

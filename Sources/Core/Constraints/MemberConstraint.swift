@@ -15,7 +15,7 @@ public struct MemberConstraint: Constraint, Hashable {
   /// The right operand.
   public private(set) var memberType: AnyType
 
-  public let cause: ConstraintCause
+  public let cause: ConstraintOrigin
 
   /// Creates a constraint requiring `subject` to have a member of type `memberType` and whose
   /// name is expressed by `memberExpr` in the AST.
@@ -24,7 +24,7 @@ public struct MemberConstraint: Constraint, Hashable {
     hasMemberReferredToBy memberExpr: NodeID<NameExpr>,
     ofType member: AnyType,
     in ast: AST,
-    because cause: ConstraintCause
+    because cause: ConstraintOrigin
   ) {
     self.subject = subject
     self.memberExpr = memberExpr

@@ -13,7 +13,7 @@ public struct FunctionCallConstraint: Constraint, Hashable {
   /// The expected return type of `callee`.
   public private(set) var returnType: AnyType
 
-  public let cause: ConstraintCause
+  public let cause: ConstraintOrigin
 
   /// Creates a constraint requiring `calleeType` to be the type of a callable object with the
   /// given parameters and return type.
@@ -21,7 +21,7 @@ public struct FunctionCallConstraint: Constraint, Hashable {
     _ calleeType: AnyType,
     takes parameters: [CallableTypeParameter],
     andReturns returnType: AnyType,
-    because cause: ConstraintCause
+    because cause: ConstraintOrigin
   ) {
     self.calleeType = calleeType
     self.parameters = parameters

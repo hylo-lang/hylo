@@ -917,7 +917,7 @@ extension TypeChecker {
       else { return false }
 
       constraints.insert(
-        SubtypingConstraint(bareLHS, bareRHS, because: ConstraintCause(.binding, at: site)))
+        SubtypingConstraint(bareLHS, bareRHS, because: ConstraintOrigin(.binding, at: site)))
     }
 
     // Solve the constraint system.
@@ -935,7 +935,7 @@ extension TypeChecker {
 private func inferenceConstraint(
   _ subtype: AnyType,
   isSubtypeOf supertype: AnyType,
-  because cause: ConstraintCause
+  because cause: ConstraintOrigin
 ) -> Constraint {
   // If there aren't any type variable in neither `subtype` nor `supertype`, there's nothing to
   // infer and we can return a regular subtyping constraints.

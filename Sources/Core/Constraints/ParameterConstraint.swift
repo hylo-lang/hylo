@@ -13,10 +13,10 @@ public struct ParameterConstraint: Constraint, Hashable {
   /// The right operand.
   public private(set) var right: AnyType
 
-  public let cause: ConstraintCause
+  public let cause: ConstraintOrigin
 
   /// Creates an instance with the given properties.
-  public init(_ left: AnyType, _ right: AnyType, because cause: ConstraintCause) {
+  public init(_ left: AnyType, _ right: AnyType, because cause: ConstraintOrigin) {
     self.left = left
     self.right = right
     self.cause = cause
