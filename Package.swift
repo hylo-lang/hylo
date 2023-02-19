@@ -103,7 +103,7 @@ let package = Package(
     .testTarget(
       name: "ValTests",
       dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR"],
-      exclude: ["TestCases"],
+      resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
