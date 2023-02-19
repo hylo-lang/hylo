@@ -51,6 +51,11 @@ public struct TupleType: TypeProtocol {
     self.init(types.map({ Element(label: nil, type: $0) }))
   }
 
+  /// The labels of the tuple.
+  public var labels: LazyMapSequence<[Element], String?> {
+    elements.lazy.map(\.label)
+  }
+
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     let newElements = elements.map({ (e) -> Element in
       .init(label: e.label, type: e.type.transform(transformer))

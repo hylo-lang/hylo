@@ -427,10 +427,10 @@ extension TypeChecker {
             at: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
       }
-      if !requiredLabels.elementsEqual(s.inputs, by: { $0 == $1.label }) {
+      if !requiredLabels.elementsEqual(s.labels) {
         report(
           .error(
-            labels: Array(requiredLabels), incompatibleWith: s.inputs.map(\.label),
+            labels: Array(requiredLabels), incompatibleWith: s.labels,
             at: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
       }

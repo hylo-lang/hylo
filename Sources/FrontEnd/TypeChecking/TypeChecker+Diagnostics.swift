@@ -74,8 +74,8 @@ extension Diagnostic {
     .error("'\(convention)' may only be used on parameters", at: site)
   }
 
-  static func error(
-    labels found: [String?], incompatibleWith expected: [String?], at site: SourceRange
+  static func error<S1: Sequence<String?>, S2: Sequence<String?>>(
+    labels found: S1, incompatibleWith expected: S2, at site: SourceRange
   ) -> Diagnostic {
     .error(
       """

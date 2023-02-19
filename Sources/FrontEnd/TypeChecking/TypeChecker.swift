@@ -3493,7 +3493,7 @@ public struct TypeChecker {
   /// Returns the labels of `d`s name.
   func labels(_ d: NodeID<InitializerDecl>) -> [String?] {
     if let t = LambdaType(declTypes[d]) {
-      return t.inputs.map(\.label)
+      return Array(t.labels)
     } else if !ast[d].isMemberwise {
       return ["self"] + ast[ast[d].parameters].map(\.label?.value)
     } else {
