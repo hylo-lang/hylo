@@ -1,0 +1,11 @@
+//! expect-failure
+
+public fun main() {
+  ; foo(1 1)  //! diagnostic expected ',' separator
+  ; foo(      //! diagnostic expected ')'
+  ; foo(1     //! diagnostic expected ')'
+  ; foo(1,    //! diagnostic expected ')'
+  ; foo(1, 1  //! diagnostic expected ')'
+  ; foo(1,)   //! diagnostic unexpected token 'comma'
+}
+

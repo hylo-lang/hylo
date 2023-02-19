@@ -11,3 +11,12 @@ public protocol CallableType {
   var output: AnyType { get }
 
 }
+
+extension CallableType {
+
+  /// The labels of the type.
+  public var labels: LazyMapSequence<[CallableTypeParameter], String?> {
+    inputs.lazy.map(\.label)
+  }
+
+}

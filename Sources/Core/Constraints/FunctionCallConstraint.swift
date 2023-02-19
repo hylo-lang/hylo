@@ -29,6 +29,11 @@ public struct FunctionCallConstraint: Constraint, Hashable {
     self.cause = cause
   }
 
+  /// The expected labels of `callee`.
+  public var labels: LazyMapSequence<[CallableTypeParameter], String?> {
+    parameters.lazy.map(\.label)
+  }
+
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     modify(&calleeType, with: transform)
     modify(&returnType, with: transform)

@@ -1,61 +1,58 @@
-/*! cpp
-    void test_if_then_else() {
-    if ( mooing() ) (void) fooing();
-    else (void) baring();
-    ;
-    erring();
-    }
- */
-/*! cpp
-    void test_if_then_else_blocks() {
-    if ( mooing() ) {
-    fooing();
-    fooing();
-    }
-    else {
-    baring();
-    baring();
-    }
-    ;
-    erring();
-    }
- */
-/*! cpp
-    void test_if_no_else() {
-    if ( mooing() ) (void) fooing();
-    ;
-    erring();
-    }
- */
 fun fooing() {}
 fun baring() {}
 fun mooing() -> Bool { true }
-fun erring() {}
+fun use(_ x: Int) {}
 
+// Conditional statements:
+
+/*! cpp
+void test_if()  {
+  if ( true )  {
+    fooing();
+    baring();
+  }
+  use(1);
+}
+*/
+fun test_if() {
+  if true {
+    fooing()
+    baring()
+  }
+  use(1)
+}
+
+/*! cpp
+void test_if_then_else()  {
+  if ( mooing() )  {
+    fooing();
+  }
+  else  {
+    fooing();
+    baring();
+  }
+  use(1);
+}
+*/
 fun test_if_then_else() {
-    if mooing() {
-        fooing()
-    } else {
-        baring()
-    }
-    erring()
+  if mooing() {
+    fooing()
+  } else {
+    fooing()
+    baring()
+  }
+  use(1)
 }
 
-fun test_if_then_else_blocks() {
-    if mooing() {
-        fooing()
-        fooing()
-    } else {
-        baring()
-        baring()
-    }
-    erring()
-}
+// Conditional expressions:
 
-fun test_if_no_else() {
-    if mooing() {
-        fooing()
-    }
-    erring()
+/*! cpp
+void test_if_expression()  {
+  Int x = mooing() ? 1 : 2;
+  use(x);
 }
-
+*/
+fun test_if_expression() {
+  let x = if mooing() { 1 } else { 2 }
+  use(x)
+}

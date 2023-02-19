@@ -23,8 +23,7 @@ final class EmitterTests: XCTestCase {
         var irModule = try Module(lowering: module, in: typedProgram, diagnostics: &diagnostics)
 
         // Run mandatory IR analysis and transformation passes.
-        let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
-        try p.apply(&irModule, reportingDiagnosticsInto: &diagnostics)
+        try irModule.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
       })
   }
 

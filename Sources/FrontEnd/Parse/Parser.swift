@@ -20,7 +20,8 @@ import Utils
 /// A namespace for the routines of Val's parser.
 public enum Parser {
 
-  /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to `diagnostics`.
+  /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to
+  /// `diagnostics`.
   ///
   /// - Throws: Diagnostics if syntax errors were encountered.
   public static func parse(
@@ -879,24 +880,8 @@ public enum Parser {
     state.contexts.append(.subscriptBody)
     defer { state.contexts.removeLast() }
 
-    // Attempt to parse a subscript implementation body and fall back to a bundle.
-    let backup = state.backup()
-    do {
-      if let body = try subscriptImplBody.parse(&state) {
-        let impl = try buildSubscriptImpl(
-          in: &state,
-          introducedBy: SourceRepresentable(
-            value: .let,
-            range: state.lexer.sourceCode.emptyRange(at: state.ast[body.base].site.start)),
-          body: body,
-          asNonStaticMember: isNonStaticMember)
-        return [impl]
-      }
-    } catch {
-      state.restore(from: backup)
-    }
-
     // Parse the left delimiter.
+    let backup = state.backup()
     if state.take(.lBrace) == nil { return nil }
 
     // Parse the subscript implementations.
@@ -924,7 +909,19 @@ public enum Parser {
       }
     }
 
-    return impls
+    if !impls.isEmpty { return impls }
+
+    // Fall back to a single body.
+    state.restore(from: backup)
+    guard let body = try subscriptImplBody.parse(&state) else { return nil }
+    let i = try buildSubscriptImpl(
+      in: &state,
+      introducedBy: SourceRepresentable(
+        value: .let,
+        range: state.lexer.sourceCode.emptyRange(at: state.ast[body.base].site.start)),
+      body: body,
+      asNonStaticMember: isNonStaticMember)
+    return [i]
   }
 
   /// Inserts a subscript having the given `introducer` and `body` into `state.ast` and returns its
@@ -1062,7 +1059,7 @@ public enum Parser {
   ) -> NodeID<InitializerDecl> {
     for member in members where member.kind == InitializerDecl.self {
       let m = NodeID<InitializerDecl>(member)!
-      if state.ast[m].introducer.value == .memberwiseInit { return m }
+      if state.ast[m].isMemberwise { return m }
     }
 
     let startOfTypeDecl = state.lexer.sourceCode.emptyRange(at: startIndex)
@@ -1985,42 +1982,38 @@ public enum Parser {
         .map({ (state, id) -> FunctionDecl.Body in .block(id) })
     ))
 
-  private static func parseConditionalExpr(in state: inout ParserState) throws -> NodeID<CondExpr>?
-  {
-    // Parse the introducer.
+  /// Parses a conditional expression.
+  private static func parseConditionalExpr(
+    in state: inout ParserState
+  ) throws -> NodeID<ConditionalExpr>? {
     guard let introducer = state.take(.if) else { return nil }
 
-    // Parse the parts of the expression.
-    let condition = try state.expect("condition", using: conditionalClause)
-    let body = try state.expect("body", using: conditionalExprBody)
-
-    // Parse the 'else' clause, if any.
-    let elseClause: CondExpr.Body?
-    if state.take(.else) != nil {
-      if let e = try parseConditionalExpr(in: &state) {
-        elseClause = .expr(AnyExprID(e))
-      } else {
-        elseClause = try state.expect("body", using: conditionalExprBody)
-      }
-    } else {
-      elseClause = nil
-    }
+    let c = try state.expect("condition", using: conditionalClause)
+    let a = try state.expect("'{'", using: parseBracedExpr(in:))
+    _ = try state.expect("'else'", using: { $0.take(.else) })
+    let b: AnyExprID = try state.expect(
+      "expression",
+      using: { (s) in
+        try parseConditionalExpr(in: &s).map(AnyExprID.init(_:)) ?? parseBracedExpr(in: &s)
+      })
 
     return state.insert(
-      CondExpr(
-        condition: condition,
-        success: body,
-        failure: elseClause,
+      ConditionalExpr(
+        introducerSite: introducer.site, condition: c, success: a, failure: b,
         site: state.range(from: introducer.site.start)))
   }
 
-  private static let conditionalExprBody = TryCatch(
-    trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> CondExpr.Body in .expr(tree.0.1) }),
-    orCatchingAndApplying:
-      braceStmt
-      .map({ (state, id) -> CondExpr.Body in .block(id) })
-  )
+  /// Parses a single expression enclosed in curly braces.
+  private static func parseBracedExpr(
+    in state: inout ParserState
+  ) throws -> AnyExprID? {
+    guard let opener = state.take(.lBrace) else { return nil }
+    let body = try state.expect("expression", using: parseExpr(in:))
+    if state.take(.rBrace) == nil {
+      state.diagnostics.insert(.error(expected: "}", matching: opener, in: state))
+    }
+    return body
+  }
 
   private static func parseMatchExpr(in state: inout ParserState) throws -> NodeID<MatchExpr>? {
     // Parse the introducer.
@@ -2469,8 +2462,8 @@ public enum Parser {
   ) throws -> [C.Element]? where C.Context == ParserState {
     guard let result = try parser.parse(&state) else { return nil }
 
-    if let separator = result.trailingSeparator {
-      state.diagnostics.insert(.error(unexpectedToken: separator))
+    if let s = result.trailingSeparator, result.closer != nil {
+      state.diagnostics.insert(.error(unexpectedToken: s))
     }
 
     return result.elements
@@ -2683,6 +2676,7 @@ public enum Parser {
     (oneOf([
       anyStmt(braceStmt),
       anyStmt(discardStmt),
+      anyStmt(Apply(parseConditionalStmt(in:))),
       anyStmt(doWhileStmt),
       anyStmt(whileStmt),
       anyStmt(forStmt),
@@ -2711,6 +2705,28 @@ public enum Parser {
         state.insert(
           DiscardStmt(expr: tree.1, site: tree.0.0.site.extended(upTo: state.currentIndex)))
       }))
+
+  /// Parses a conditional statement.
+  private static func parseConditionalStmt(
+    in state: inout ParserState
+  ) throws -> NodeID<ConditionalStmt>? {
+    guard let introducer = state.take(.if) else { return nil }
+
+    let c = try state.expect("condition", using: conditionalClause)
+    let a = try state.expect("'{'", using: braceStmt)
+    let b = try state.take(.else).map({ _ in
+      if let s = try parseConditionalStmt(in: &state) {
+        return AnyStmtID(s)
+      } else {
+        return AnyStmtID(try state.expect("'{'", using: braceStmt))
+      }
+    })
+
+    return state.insert(
+      ConditionalStmt(
+        condition: c, success: a, failure: b,
+        site: state.range(from: introducer.site.start)))
+  }
 
   static let doWhileStmt =
     (take(.do).and(loopBody).and(take(.while)).and(expr)
@@ -3235,54 +3251,48 @@ struct DelimitedCommaSeparatedList<E: Combinator>: Combinator where E.Context ==
     guard let opener = state.take(openerKind) else { return nil }
 
     // Parse the elements.
+    var elementWasParsed = false
     var elements: [E.Element] = []
     var trailingSeparator: Token? = nil
     var closer: Token? = nil
 
     while true {
       // Parse one element.
+      let h = state.peek()
       if let element = try elementParser.parse(&state) {
-        elements.append(element)
+        if !elements.isEmpty && trailingSeparator == nil {
+          state.diagnostics.insert(.error(expected: "',' separator", at: h!.site.first()))
+        }
 
-        // Look for a separator.
+        elements.append(element)
+        elementWasParsed = true
         trailingSeparator = nil
+
         if let t = state.take(.comma) {
           trailingSeparator = t
           continue
         }
+      } else {
+        elementWasParsed = false
       }
 
-      // If we get here, we either parsed an element not followed by a separator (1), or we got a
-      // soft failure and didn't consume anything from the stream (2). In both case, we should
-      // expect the right delimiter.
+      // If we get here, we either parsed an element not followed by a separator (1), or we didn't
+      // consume any token (2). In both case, we should expect the closing delimiter next.
       if let t = state.take(closerKind) {
         closer = t
         break
       }
 
-      // If we got here by (2) but didn't parse any element yet, diagnose a missing delimiter and
-      // exit the loop.
-      if elements.isEmpty {
-        state.diagnostics.insert(
-          .error(expected: closerDescription, matching: opener, in: state))
+      // If we got here by (2) but didn't parse any element, diagnose a missing delimiter and exit.
+      if !elementWasParsed {
+        state.diagnostics.insert(.error(expected: closerDescription, matching: opener, in: state))
         break
       }
 
-      // If we got here by (1), diagnose a missing separator and try to parse the next element
-      // unless we reached EOF. Otherwise, diagnose a missing expression and exit.
-      if trailingSeparator == nil {
-        if let head = state.peek() {
-          state.diagnostics.insert(
-            .error(expected: "',' separator", at: head.site.first()))
-          continue
-        } else {
-          state.diagnostics.insert(
-            .error(expected: closerDescription, matching: opener, in: state))
-          break
-        }
-      } else {
-        state.diagnostics.insert(
-          .error(expected: "expression", at: state.currentLocation))
+      // If we got here by (1) and reached EOF, diagnose a missing delimiter and exit. Otherwise,
+      // try to parse another element.
+      if state.peek() == nil {
+        state.diagnostics.insert(.error(expected: closerDescription, matching: opener, in: state))
         break
       }
     }
