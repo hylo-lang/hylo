@@ -277,24 +277,34 @@ extension SourceFile: CustomStringConvertible {
 /// the actual source files to process.
 ///
 /// Paths of files in `sourcePaths` are unconditionally treated as Val source files. Paths of
-/// directories are recursively searched for `.val` files, which are considered Val `sourceFiles`;
+/// directories are recursively searched for `.val` files, which are considered Val source files;
 /// all others are treated as non-source files and are ignored.
-public func sourceFiles<S: Collection>(in sourcePaths: S) throws -> [SourceFile]
-where S.Element == URL {
+public func sourceFiles<S: Sequence<URL>>(in sourcePaths: S) throws -> [SourceFile] {
   try sourcePaths.reduce(into: []) { (result, f) in
     if !f.hasDirectoryPath {
       try result.append(SourceFile(contentsOf: f))
-      return
-    }
-
-    let e = FileManager.default.enumerator(
-      at: f,
-      includingPropertiesForKeys: [.isRegularFileKey],
-      options: [.skipsHiddenFiles, .skipsPackageDescendants])!
-    for case let f as URL in e where f.pathExtension == "val" {
-      try result.append(SourceFile(contentsOf: f))
+    } else {
+      try result.append(contentsOf: sourceFiles(in: f))
     }
   }
+}
+
+/// Returns the Val source source files in `directory`.
+///
+/// `directory` is recursively searched for `.val` files, which are considered Val source files;
+/// all others are treated as non-source files and are ignored. If `directory` is a filename, the
+/// function returns `[]`.
+public func sourceFiles(in directory: URL) throws -> [SourceFile] {
+  let e = FileManager.default.enumerator(
+    at: directory,
+    includingPropertiesForKeys: [.isRegularFileKey],
+    options: [.skipsHiddenFiles, .skipsPackageDescendants])!
+
+  var result: [SourceFile] = []
+  for case let f as URL in e where f.pathExtension == "val" {
+    try result.append(SourceFile(contentsOf: f))
+  }
+  return result
 }
 
 extension SourceFile {
