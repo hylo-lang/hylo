@@ -39,12 +39,14 @@ public struct SourceFile {
   /// The actual text processed will be what's read from the file, regardless of what's in `text`.
   /// That means if you're going to use any special characters in the literal, the literal should be
   /// a raw string literal to avoid confusion.
-  public init(literal text: String, swiftFile: String = #filePath, startLine: Int = #line) throws {
+  fileprivate init(literal text: String, swiftFile: String = #filePath, startLine: Int = #line)
+    throws
+  {
     let wholeFile = try SourceFile(contentsOf: URL(fileURLWithPath: swiftFile))
     let endLine = startLine + text.lazy.filter(\.isNewline).count
     let fragment = URL(string: "\(wholeFile.url.absoluteString)#L\(startLine)-L\(endLine)")!
 
-    let storage = Storage(fragment) {
+    let storage = Storage(fragment, lineStarts: wholeFile.lineStarts) {
       wholeFile.text[
         wholeFile.index(line: startLine, column: 1)
           ..< wholeFile.index(line: endLine + 1, column: 1)]
@@ -153,6 +155,16 @@ public struct SourceFile {
   /// - Requires: `line` and `column` describe a valid position in `self`.
   func index(line: Int, column: Int) -> Index {
     return text.index(lineStarts[line - 1], offsetBy: column - 1)
+  }
+
+}
+
+extension SourceFile {
+
+  public static func diagnosable(
+    _ text: String, swiftFile: String = #filePath, startLine: Int = #line
+  ) -> SourceFile {
+    try! .init(literal: text, swiftFile: swiftFile, startLine: startLine)
   }
 
 }
@@ -292,11 +304,12 @@ extension SourceFile {
     /// The start position of each line.
     fileprivate let lineStarts: [Index]
 
-    /// Creates an instance with the given properties.
-    private init(url: URL, text: Substring) {
+    /// Creates an instance with the given properties; `self.lineStarts` will be computed if
+    /// lineStarts is `nil`.
+    private init(url: URL, lineStarts: [Index]?, text: Substring) {
       self.url = url
       self.text = text
-      self.lineStarts = text.lineBoundaries()
+      self.lineStarts = lineStarts ?? text.lineBoundaries()
     }
 
     /// The owner of all instances of `Storage`.
@@ -304,11 +317,13 @@ extension SourceFile {
 
     /// Creates an alias to the instance with the given `url` if it exists, or creates a new
     /// instance having the given `url` and the text resulting from `makeText()`.
-    fileprivate convenience init(_ url: URL, makeText: () throws -> Substring) rethrows {
+    fileprivate convenience init(
+      _ url: URL, lineStarts: [Index]? = nil, makeText: () throws -> Substring
+    ) rethrows {
       self.init(
         aliasing: try Self.allInstances.modify { (c: inout [URL: Storage]) -> Storage in
           try modifying(&c[url]) { v in
-            let r = try v ?? Storage(url: url, text: makeText())
+            let r = try v ?? Storage(url: url, lineStarts: lineStarts, text: makeText())
             v = r
             return r
           }
