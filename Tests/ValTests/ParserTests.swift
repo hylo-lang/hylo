@@ -19,11 +19,12 @@ final class ParserTests: XCTestCase {
   // MARK: Unit tests
 
   func testParse() throws {
-    let input: SourceFile = """
+    let input = SourceFile.diagnosableLiteral(
+      """
       public fun main() {
         print("Hello, World!")
       }
-      """
+      """)
 
     var a = AST()
     var d = DiagnosticSet()
@@ -32,7 +33,8 @@ final class ParserTests: XCTestCase {
   }
 
   func testSourceFile() throws {
-    let input: SourceFile = """
+    let input = SourceFile.diagnosableLiteral(
+      """
         ;;
         import Foo
 
@@ -41,7 +43,7 @@ final class ParserTests: XCTestCase {
 
         let x = "Hello!"
         public let y = 0;
-      """
+      """)
 
     var a = AST()
     var d = DiagnosticSet()

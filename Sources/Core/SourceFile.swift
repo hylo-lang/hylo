@@ -1,10 +1,8 @@
 import Foundation
 import Utils
 
-/// A Val source file.
-///
-/// - Note: two source files are equal if and only if they have the same path in the filesystem, or
-///   are both synthesized.
+/// A Val source file, a synthesized fragment of Val source, or a fragment of Val source embedded in
+/// a Swift string literal.
 public struct SourceFile {
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
@@ -16,7 +14,7 @@ public struct SourceFile {
   public typealias Index = String.Index
 
   /// The contents of the source file.
-  public var text: String { storage.text }
+  public var text: Substring { storage.text }
 
   /// The URL of the source file.
   public var url: URL { storage.url }
@@ -26,7 +24,29 @@ public struct SourceFile {
 
   /// Creates an instance representing the file at `filePath`.
   public init(contentsOf filePath: URL) throws {
-    let storage = try Storage(filePath) { try String(contentsOf: filePath) }
+    let storage = try Storage(filePath) { try String(contentsOf: filePath)[...] }
+    self.storage = storage
+  }
+
+  /// Creates an instance for the `text` given by a multiline string literal in the given
+  /// `swiftFile`, the literal's textual content (the line after the opening quotes) being
+  /// startLine.
+  ///
+  /// The text of the instance will literally be what's in the Swift file, including its
+  /// indentation and any embedded special characters, even if the literal itself is not a raw
+  /// literal or has had indentation stripped by the Swift compiler.
+  fileprivate init(
+    diagnosableLiteral text: String, swiftFile: String, startLine: Int
+  ) throws {
+    let wholeFile = try SourceFile(contentsOf: URL(fileURLWithPath: swiftFile))
+    let endLine = startLine + text.lazy.filter(\.isNewline).count
+    let fragment = URL(string: "\(wholeFile.url.absoluteString)#L\(startLine)-L\(endLine)")!
+
+    let storage = Storage(fragment, lineStarts: wholeFile.lineStarts) {
+      wholeFile.text[
+        wholeFile.index(line: startLine, column: 1)
+          ..< wholeFile.index(line: endLine + 1, column: 1)]
+    }
     self.storage = storage
   }
 
@@ -37,7 +57,7 @@ public struct SourceFile {
 
   /// Creates a source file with the specified contents and a unique random `url`.
   public init(synthesizedText text: String) {
-    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text }
+    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text[...] }
     self.storage = storage
   }
 
@@ -131,6 +151,31 @@ public struct SourceFile {
   /// - Requires: `line` and `column` describe a valid position in `self`.
   func index(line: Int, column: Int) -> Index {
     return text.index(lineStarts[line - 1], offsetBy: column - 1)
+  }
+
+}
+
+extension SourceFile {
+
+  /// Returns a SourceFile containing the given text of a multiline string literal, such that
+  /// diagnostics produced in processing that file will point back to the original Swift source.
+  ///
+  /// The text of the result will literally be what's in the Swift file, including its
+  /// indentation and any embedded special characters, even if the literal itself is not a raw
+  /// literal or has had indentation stripped by the Swift compiler. It is assumed that the first
+  /// line of the string literal's content is two lines below `invocationLine`, which is consistent
+  /// with this project's formatting standard.
+  ///
+  /// - Warning:
+  ///   - Do not insert a blank line between the opening parenthesis of the invocation and the
+  ///     opening quotation mark.
+  ///   - Only use this function with multiline string literals.
+  ///   - Serialization of the result is not supported.
+  public static func diagnosableLiteral(
+    _ multilineLiteralText: String, swiftFile: String = #filePath, invocationLine: Int = #line
+  ) -> SourceFile {
+    try! .init(
+      diagnosableLiteral: multilineLiteralText, swiftFile: swiftFile, startLine: invocationLine + 2)
   }
 
 }
@@ -264,16 +309,17 @@ extension SourceFile {
     fileprivate let url: URL
 
     /// The contents of the source file.
-    fileprivate let text: String
+    fileprivate let text: Substring
 
     /// The start position of each line.
     fileprivate let lineStarts: [Index]
 
-    /// Creates an instance with the given properties.
-    private init(url: URL, text: String) {
+    /// Creates an instance with the given properties; `self.lineStarts` will be computed if
+    /// lineStarts is `nil`.
+    private init(url: URL, lineStarts: [Index]?, text: Substring) {
       self.url = url
       self.text = text
-      self.lineStarts = text.lineBoundaries()
+      self.lineStarts = lineStarts ?? text.lineBoundaries()
     }
 
     /// The owner of all instances of `Storage`.
@@ -281,11 +327,13 @@ extension SourceFile {
 
     /// Creates an alias to the instance with the given `url` if it exists, or creates a new
     /// instance having the given `url` and the text resulting from `makeText()`.
-    fileprivate convenience init(_ url: URL, makeText: () throws -> String) rethrows {
+    fileprivate convenience init(
+      _ url: URL, lineStarts: [Index]? = nil, makeText: () throws -> Substring
+    ) rethrows {
       self.init(
         aliasing: try Self.allInstances.modify { (c: inout [URL: Storage]) -> Storage in
           try modifying(&c[url]) { v in
-            let r = try v ?? Storage(url: url, text: makeText())
+            let r = try v ?? Storage(url: url, lineStarts: lineStarts, text: makeText())
             v = r
             return r
           }
@@ -301,12 +349,17 @@ extension SourceFile {
     public required convenience init(from decoder: Decoder) throws {
       let container = try decoder.singleValueContainer()
       let e = try container.decode(Encoding.self)
-      self.init(e.url) { e.text }
+      self.init(e.url) { e.text[...] }
     }
 
     public func encode(to encoder: Encoder) throws {
       var container = encoder.singleValueContainer()
-      try container.encode(Encoding(url: url, text: text))
+      // This could be supported, with caveats, but it's not necessarily a good idea.
+      precondition(
+        text.startIndex == text.base.startIndex && text.endIndex == text.base.endIndex,
+        "Serialization of SourceFile.diagnosableLiteral results is not supported."
+      )
+      try container.encode(Encoding(url: url, text: text.base))
     }
 
   }
