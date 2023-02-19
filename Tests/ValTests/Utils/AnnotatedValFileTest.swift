@@ -108,8 +108,9 @@ extension XCTestCase {
   /// Returns the Val test cases in the suite at `path` relative to `swiftFile` or `nil` if no
   /// such suite could be located.
   ///
-  /// The suite is searched at `path` relative to `swiftFile`. If no such directory exists, `path`
-  /// is searched in the root of the resource bundle associated with the current Swift module.
+  /// The suite is sought at `path` relative to `swiftFile`. If no such directory exists, the
+  /// suite is sought at `path` relative to the root of the resource bundle associated with the
+  /// current Swift module.
   fileprivate func testSuite(
     at path: String, relativeTo swiftFile: StaticString
   ) throws -> [SourceFile]? {
