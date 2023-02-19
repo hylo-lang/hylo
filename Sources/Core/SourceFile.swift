@@ -1,11 +1,8 @@
 import Foundation
 import Utils
 
-/// A Val source file, a synthesized fragment of Val source, or a "source file" embedded in a Swift
-/// string literal.
-///
-/// - Note: Serialization of SourceFiles derived from Swift string literals is not currently
-///   supported.
+/// A Val source file, a synthesized fragment of Val source, or a fragment of Val source embedded in
+/// a Swift string literal.
 public struct SourceFile {
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
