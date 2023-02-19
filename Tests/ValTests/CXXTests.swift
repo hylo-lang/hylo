@@ -42,25 +42,11 @@ final class CXXTests: XCTestCase {
   }
 
   func testStdLibGeneration() throws {
-    let ast = AST.coreModule
+    let typedProgram = try checkNoDiagnostic { d in
+      try TypedProgram.init(AST.coreModule, diagnostics: &d)
+    }
 
-    // Run the type checker.
-    var checker = TypeChecker(program: ScopedProgram(ast), isBuiltinModuleVisible: true)
-    checker.check(module: ast.corelib!)
-
-    let typedProgram = TypedProgram(
-      annotating: checker.program,
-      declTypes: checker.declTypes,
-      exprTypes: checker.exprTypes,
-      implicitCaptures: checker.implicitCaptures,
-      referredDecls: checker.referredDecls,
-      foldedSequenceExprs: checker.foldedSequenceExprs,
-      relations: checker.relations)
-
-    // Transpile the standard lib module.
-    let transpiler = CXXTranspiler(typedProgram)
-    var codeWriter = CXXCodeWriter()
-    let cxxCode = codeWriter.cxxCode(transpiler.cxx(typedProgram[ast.corelib!]))
+    let cxxCode = typedProgram.cxx(typedProgram[AST.coreModule.corelib!]).text
 
     // Read test cases; use .val files just for convenience.
     try checkAnnotatedValFiles(
