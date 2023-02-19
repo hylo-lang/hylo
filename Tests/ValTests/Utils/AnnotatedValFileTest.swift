@@ -27,22 +27,22 @@ extension XCTestCase {
     diagnostics: DiagnosticSet
   )
 
-  /// Applies `process` to each ".val" file in `sourceDirectory` relative to `swiftFile` and
-  /// reports XCTest failures where the effects of processing don't match the file's diagnostic
-  /// annotation commands ("diagnostic", "expect-failure", and "expect-success").
+  /// Applies `process` to each ".val" file in the test suite located at `suitePath` relative to
+  /// `swiftFile` and reports XCTest failures where the effects of processing don't match the
+  /// file's diagnostic annotation commands ("diagnostic", "expect-failure", and "expect-success").
   ///
   /// - Parameters:
-  ///   - sourceDirectory: a path relative to the `swiftFile`.
+  ///   - suitePath: a path relative to the `swiftFile`.
   ///   - swiftFile: the path of the file calling this function.
   ///   - process: applies some compilation phases to `file`, updating `diagnostics` with any
   ///     generated diagnostics. Throws an `Error` if any phases failed.
   func checkAnnotatedValFileDiagnostics(
-    in sourceDirectory: String,
+    inSuiteAt suitePath: String,
     relativeTo swiftFile: StaticString = #file,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
     try checkAnnotatedValFiles(
-      in: sourceDirectory, relativeTo: swiftFile, checkingAnnotationCommands: [],
+      inSuiteAt: suitePath, relativeTo: swiftFile, checkingAnnotationCommands: [],
       { (file, annotationsToHandle, diagnostics) in
         assert(annotationsToHandle.isEmpty)
         try process(file, &diagnostics)
@@ -51,21 +51,21 @@ extension XCTestCase {
     )
   }
 
-  /// Applies `processAndCheck` to each ".val" file in `sourceDirectory` relative to `swiftFile`
-  /// along with the subset of that file's annotations whose commands match `checkedCommands`, and
-  /// reports resulting XCTest failures, along with any additional failures where the effects of
-  /// processing don't match the file's diagnostic annotation commands ("diagnostic",
-  /// "expect-failure", and "expect-success").
+  /// Applies `processAndCheck` to each ".val" file in the test suite located at `suitePath`
+  /// relative to `swiftFile` along with the subset of that file's annotations whose commands match
+  /// `checkedCommands`, and reports resulting XCTest failures, along with any additional failures
+  /// where the effects of processing don't match the file's diagnostic annotation commands
+  /// ("diagnostic", "expect-failure", and "expect-success").
   ///
   /// - Parameters:
-  ///   - sourceDirectory: a path relative to the `swiftFile`.
+  ///   - suitePath: a path relative to the `swiftFile`.
   ///   - swiftFile: the path of the file calling this function.
   ///   - checkedCommands: the annnotation commands to be validated by `processAndCheck`.
   ///   - processAndCheck: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
   func checkAnnotatedValFiles(
-    in sourceDirectory: String,
+    inSuiteAt suitePath: String,
     relativeTo swiftFile: StaticString = #file,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
     _ processAndCheck: (
@@ -74,10 +74,8 @@ extension XCTestCase {
       _ diagnostics: inout DiagnosticSet
     ) throws -> [XCTIssue]
   ) throws {
-    let testCaseDirectory = URL(
-      fileURLWithPath: sourceDirectory, relativeTo: URL(fileURLWithPath: String(swiftFile)))
-
-    for file in try sourceFiles(in: [testCaseDirectory]) {
+    let testCases = try XCTUnwrap(testSuite(at: suitePath, relativeTo: swiftFile), "No test cases")
+    for file in testCases {
       var annotations = TestAnnotation.parseAll(from: file)
 
       // Separate the annotations to be checked by default diagnostic annotation checking from
@@ -104,6 +102,26 @@ extension XCTestCase {
       for f in failures {
         record(f)
       }
+    }
+  }
+
+  /// Returns the Val test cases in the suite at `path` relative to `swiftFile` or `nil` if no
+  /// such suite could be located.
+  ///
+  /// The suite is searched at `path` relative to `swiftFile`. If no such directory exists, `path`
+  /// is searched in the root of the resource bundle associated with the current Swift module.
+  fileprivate func testSuite(
+    at path: String, relativeTo swiftFile: StaticString
+  ) throws -> [SourceFile]? {
+    let suiteDirectoryRelativeToSwiftFile = URL(
+      fileURLWithPath: path, relativeTo: URL(fileURLWithPath: String(swiftFile)))
+
+    if suiteDirectoryRelativeToSwiftFile.hasDirectoryPath {
+      return try sourceFiles(in: [suiteDirectoryRelativeToSwiftFile])
+    } else if let s = Bundle.module.url(forResource: path, withExtension: nil) {
+      return try sourceFiles(in: [s])
+    } else {
+      return nil
     }
   }
 

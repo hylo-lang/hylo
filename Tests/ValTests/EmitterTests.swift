@@ -8,7 +8,7 @@ final class EmitterTests: XCTestCase {
 
   func testEmitter() throws {
     try checkAnnotatedValFileDiagnostics(
-      in: "TestCases/Lowering",
+      inSuiteAt: "TestCases/Lowering",
       { (source, diagnostics) in
         // Note: built-in module is visible so that we can test built-in function calls.
         var ast = AST.coreModule

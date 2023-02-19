@@ -8,7 +8,7 @@ final class CXXTests: XCTestCase {
 
   func testTranspiler() throws {
     try checkAnnotatedValFiles(
-      in: "TestCases/CXX", checkingAnnotationCommands: ["cpp", "h"],
+      inSuiteAt: "TestCases/CXX", checkingAnnotationCommands: ["cpp", "h"],
       { (source, cxxAnnotations, diagnostics) in
         // Create a module for the input.
         var ast = AST.coreModule
@@ -64,7 +64,7 @@ final class CXXTests: XCTestCase {
 
     // Read test cases; use .val files just for convenience.
     try checkAnnotatedValFiles(
-      in: "TestCases/CXXStdLib",
+      inSuiteAt: "TestCases/CXXStdLib",
       checkingAnnotationCommands: ["cpp", "h"],
       { (source, cxxAnnotations, diagnostics) in
         return cxxAnnotations.compactMap { a in
