@@ -18,3 +18,7 @@
 
 # Windows
 **.exe
+
+# Misc
+/Examples/**.vir
+/Examples/**.json

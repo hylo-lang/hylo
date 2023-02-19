@@ -116,7 +116,7 @@ public struct ValCommand: ParsableCommand {
   /// Propagates any thrown errors that are not Val diagnostics,
   public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
     do {
-      try execute1(loggingTo: &errorLog)
+      try executeCommand(loggingTo: &errorLog)
     } catch let d as DiagnosticSet {
       assert(d.containsError, "Diagnostics containing no errors were thrown")
       return ExitCode.failure
@@ -125,7 +125,7 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Executes the command, logging Val messages to `errorLog`.
-  public func execute1<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
+  private func executeCommand<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
     var diagnostics = DiagnosticSet()
     defer { errorLog.log(diagnostics: diagnostics) }
 
