@@ -7,9 +7,6 @@ struct ConstraintSolver {
   /// The solution of an exploration given a particular choice.
   private typealias ExploratinResult<T> = (choice: T, solution: Solution)
 
-  /// A type that's used to compare competing solutions.
-  public let comparator: AnyType
-
   /// The scope in which the constraints are solved.
   private let scope: AnyScopeID
 
@@ -40,15 +37,12 @@ struct ConstraintSolver {
   /// The current indentation level for logging messages.
   private var indentation = 0
 
-  /// Creates an instance that solves the constraints in `fresh` in `scope`, using `comparator` to
-  /// choose between competing solutions.
+  /// Creates an instance that solves the constraints in `fresh` in `scope`.
   init<S: Sequence>(
     scope: AnyScopeID,
     fresh: S,
-    comparingSolutionsWith comparator: AnyType,
     loggingTrace isLoggingEnabled: Bool
   ) where S.Element == Constraint {
-    self.comparator = comparator
     self.scope = scope
     self.fresh = Array(fresh)
     self.isLoggingEnabled = isLoggingEnabled
@@ -59,14 +53,16 @@ struct ConstraintSolver {
     Solution.Score(errorCount: diagnostics.elements.count, penalties: penalties)
   }
 
-  /// Applies `self` to solve its constraints using `checker` to resolve names and realize types.
-  mutating func apply(using checker: inout TypeChecker) -> Solution {
-    solve(using: &checker)!
+  /// Returns the best solution solving the constraints in `self` using `checker` to query type
+  /// relations and resolve names.
+  mutating func solution(_ checker: inout TypeChecker) -> Solution {
+    solveConstraints(&checker)!
   }
 
-  /// Solves the constraints and returns the best solution, or `nil` if a better solution has
-  /// already been computed.
-  private mutating func solve(using checker: inout TypeChecker) -> Solution? {
+  /// Returns the best solution solving the constraints in `self` using `checker` to query type
+  /// relations and resolve names, or `nil` if no solution with a score better than `self.best`
+  /// can be found.
+  private mutating func solveConstraints(_ checker: inout TypeChecker) -> Solution? {
     logState()
     log("steps:")
 
@@ -77,7 +73,6 @@ struct ConstraintSolver {
         return nil
       }
 
-      // Solve the constraint.
       switch constraint {
       case let c as ConformanceConstraint:
         solve(conformance: c, using: &checker)
@@ -101,7 +96,6 @@ struct ConstraintSolver {
         unreachable()
       }
 
-      // Attempt to refresh stale literal constraints.
       if fresh.isEmpty { refreshLiteralConstraints() }
     }
 
@@ -139,10 +133,8 @@ struct ConstraintSolver {
     }
 
     if !missingTraits.isEmpty {
-      log("- fail")
-      for t in missingTraits {
-        diagnostics.insert(.error(goal.subject, doesNotConformTo: t, at: goal.cause.site))
-      }
+      report(
+        missingTraits.map({ .error(goal.subject, doesNotConformTo: $0, at: goal.cause.site) }))
     }
   }
 
@@ -172,9 +164,7 @@ struct ConstraintSolver {
         // Add a penalty if `L` isn't `D`.
         penalties += 1
       } else {
-        log("- fail")
-        diagnostics.insert(
-          .error(goal.subject, doesNotConformTo: goal.literalTrait, at: goal.cause.site))
+        report(.error(goal.subject, doesNotConformTo: goal.literalTrait, at: goal.cause.site))
       }
     }
   }
@@ -203,8 +193,8 @@ struct ConstraintSolver {
 
     case (let l as TupleType, let r as TupleType):
       // Make sure `L` and `R` are structurally compatible.
-      if !checkStructuralCompatibility(l, r, cause: goal.cause) {
-        log("- fail")
+      if !l.labels.elementsEqual(r.labels) {
+        report(.error(type: goal.left, incompatibleWith: goal.right, at: goal.cause.site))
         return
       }
 
@@ -217,9 +207,8 @@ struct ConstraintSolver {
 
     case (let l as LambdaType, let r as LambdaType):
       // Parameter labels must match.
-      if l.inputs.map(\.label) != r.inputs.map(\.label) {
-        log("- fail")
-        diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+      if !l.labels.elementsEqual(r.labels) {
+        report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
       }
 
@@ -235,16 +224,14 @@ struct ConstraintSolver {
 
     case (let l as MethodType, let r as MethodType):
       // Parameter labels must match.
-      if l.inputs.map(\.label) != r.inputs.map(\.label) {
-        log("- fail")
-        diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+      if !l.labels.elementsEqual(r.labels) {
+        report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
       }
 
       // Capabilities must match.
       if l.capabilities != r.capabilities {
-        log("- fail")
-        diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+        report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
       }
 
@@ -257,16 +244,20 @@ struct ConstraintSolver {
 
     case (let l as ParameterType, let r as ParameterType):
       if l.access != r.access {
-        log("- fail")
-        diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+        report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+        return
+      }
+      solve(equality: .init(l.bareType, r.bareType, because: goal.cause), using: &checker)
+
+    case (let l as RemoteType, let r as RemoteType):
+      if l.access != r.access {
+        report(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
         return
       }
       solve(equality: .init(l.bareType, r.bareType, because: goal.cause), using: &checker)
 
     default:
-      log("- fail")
-      diagnostics.insert(
-        .error(type: goal.left, incompatibleWith: goal.right, at: goal.cause.site))
+      report(.error(type: goal.left, incompatibleWith: goal.right, at: goal.cause.site))
     }
   }
 
@@ -285,11 +276,7 @@ struct ConstraintSolver {
 
     // Handle cases where `L` is equal to `R`.
     if checker.relations.areEquivalent(goal.left, goal.right) {
-      if goal.isStrict {
-        log("- fail")
-        diagnostics.insert(
-          .error(goal.left, isNotStrictSubtypeOf: goal.right, at: goal.cause.site))
-      }
+      if goal.isStrict { diagnoseFailureToSove(goal) }
       return
     }
 
@@ -328,9 +315,8 @@ struct ConstraintSolver {
         using: &checker)
 
       // Parameter labels must match.
-      if l.inputs.map(\.label) != r.inputs.map(\.label) {
-        log("- fail")
-        diagnostics.insert(.error(type: ^l, incompatibleWith: ^r, at: goal.cause.site))
+      if !l.labels.elementsEqual(r.labels) {
+        diagnoseFailureToSove(goal)
         return
       }
 
@@ -371,15 +357,19 @@ struct ConstraintSolver {
 
   /// Diagnoses a failure to solve `goal`.
   private mutating func diagnoseFailureToSove(_ goal: SubtypingConstraint) {
-    log("- fail")
-    let errorOrigin = goal.cause.site
     switch goal.cause.kind {
     case .initializationWithHint:
-      diagnostics.insert(.error(cannotInitialize: goal.left, with: goal.right, at: errorOrigin))
+      report(.error(cannotInitialize: goal.left, with: goal.right, at: goal.cause.site))
+
     case .initializationWithPattern:
-      diagnostics.insert(.error(goal.left, doesNotMatchPatternAt: errorOrigin))
+      report(.error(goal.left, doesNotMatchPatternAt: goal.cause.site))
+
     default:
-      diagnostics.insert(.error(goal.left, isNotSubtypeOf: goal.right, at: errorOrigin))
+      if goal.isStrict {
+        report(.error(goal.left, isNotStrictSubtypeOf: goal.right, at: goal.cause.site))
+      } else {
+        report(.error(goal.left, isNotSubtypeOf: goal.right, at: goal.cause.site))
+      }
     }
   }
 
@@ -410,8 +400,7 @@ struct ConstraintSolver {
       schedule(SubtypingConstraint(goal.left, p.bareType, because: goal.cause))
 
     default:
-      log("- fail")
-      diagnostics.insert(.error(invalidParameterType: goal.right, at: goal.cause.site))
+      report(.error(invalidParameterType: goal.right, at: goal.cause.site))
     }
   }
 
@@ -455,8 +444,7 @@ struct ConstraintSolver {
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
-      log("- fail")
-      diagnostics.insert(.error(undefinedName: "\(goal.memberName)", at: goal.cause.site))
+      report(.error(undefinedName: "\(goal.memberName)", at: goal.cause.site))
       return
     }
 
@@ -497,16 +485,16 @@ struct ConstraintSolver {
 
     // Make sure `F` is callable.
     guard let callee = goal.calleeType.base as? CallableType else {
-      log("- fail")
-      diagnostics.insert(.error(nonCallableType: goal.calleeType, at: goal.cause.site))
+      report(.error(nonCallableType: goal.calleeType, at: goal.cause.site))
       return
     }
 
     // Make sure `F` structurally matches the given parameter list.
-    if !checkStructuralCompatibility(
-      found: constraint.parameters, expected: callee.inputs, cause: goal.cause)
-    {
-      log("- fail")
+    if goal.labels.count != callee.labels.count {
+      report(.error(incompatibleParameterCountAt: goal.cause.site))
+      return
+    } else if !goal.labels.elementsEqual(callee.labels) {
+      report(.error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.cause.site))
       return
     }
 
@@ -614,7 +602,7 @@ struct ConstraintSolver {
       // Explore the result of this choice.
       var subSolver = self
       configureSubSolver(&subSolver, choice)
-      guard let newSolution = subSolver.solve(using: &checker) else { continue }
+      guard let newSolution = subSolver.solveConstraints(&checker) else { continue }
 
       // Insert the new result.
       insert((choice, newSolution), into: &results, using: &checker)
@@ -630,20 +618,9 @@ struct ConstraintSolver {
     into bestResults: inout [ExploratinResult<T>],
     using checker: inout TypeChecker
   ) {
-
-    // This algorithms has three steps. The first simply picks the solution with the best score.
-    //
-    // If multiple solutions have the same score, the second step attempts to use a "comparator"
-    // type to decide if a solution refines another. In most cases, it's picked as the root type
-    // being inferred. The rationale is that if we're inferring the type of `e` and get two
-    // competing solutions `s1` and `s2`, `s1` refines `s2` if the type it assigns to `e` is
-    // subtype of the one `s2` assigns to `e`.
-    //
-    // If the comparator cannot distinguish solutions, the last step is to rank the them based on
-    // the name bindings they make. `s1` refines `s2` iff it makes at least one more specific
-    // binding than `s2` and no binding less specific than `s2`.
-
-    // Ignore worse solutions.
+    // Rank solutions based on the name bindings they make. `s1` refines `s2` iff it has a better
+    // score than `s2` or if it has the same score but makes at least one more specific binding
+    // than `s2` and no binding less specific than `s2`.
     if newResult.solution.score > best { return }
 
     // Fast path: if the new solution has a better score, discard all others.
@@ -655,36 +632,23 @@ struct ConstraintSolver {
 
     // Slow path: inspect how the new solution compares with the ones we have.
     var shouldInsert = false
-    let lhs = newResult.solution.typeAssumptions.reify(comparator)
-
     var i = 0
     while i < bestResults.count {
-      let rhs = bestResults[i].solution.typeAssumptions.reify(comparator)
-      if checker.relations.areEquivalent(lhs, rhs) {
-        // Check if the new solution binds name expressions to more specialized declarations.
-        let comparison = checker.compareSolutionBindings(
-          newResult.solution, bestResults[0].solution, scope: scope)
-        switch comparison {
-        case .comparable(.equal):
-          // The new solution is equal; discard it.
-          return
-        case .comparable(.coarser):
-          // The new solution is coarser; discard it unless it's better than another one.
-          i += 1
-        case .comparable(.finer):
-          // The new solution is finer; keep it and discard the old one.
-          bestResults.remove(at: i)
-          shouldInsert = true
-        case .incomparable:
-          // The new solution is incomparable; keep it.
-          i += 1
-          shouldInsert = true
-        }
-      } else if checker.relations.isStrictSubtype(lhs, rhs) {
+      // Check if the new solution binds name expressions to more specialized declarations.
+      let comparison = checker.compareSolutionBindings(
+        newResult.solution, bestResults[0].solution, scope: scope)
+      switch comparison {
+      case .comparable(.equal):
+        // The new solution is equal; discard it.
+        return
+      case .comparable(.coarser):
+        // The new solution is coarser; discard it unless it's better than another one.
+        i += 1
+      case .comparable(.finer):
         // The new solution is finer; keep it and discard the old one.
         bestResults.remove(at: i)
         shouldInsert = true
-      } else {
+      case .incomparable:
         // The new solution is incomparable; keep it.
         i += 1
         shouldInsert = true
@@ -791,50 +755,16 @@ struct ConstraintSolver {
       diagnostics: diagnostics)
   }
 
-  /// Returns `true` if `lhs` is structurally compatible with `rhs`. Otherwise, generates the
-  /// appropriate diagnostic(s) and returns `false`.
-  private mutating func checkStructuralCompatibility(
-    found lhs: [CallableTypeParameter],
-    expected rhs: [CallableTypeParameter],
-    cause: ConstraintCause
-  ) -> Bool {
-    if lhs.count != rhs.count {
-      diagnostics.insert(.error(incompatibleParameterCountAt: cause.site))
-      return false
-    }
-
-    if zip(lhs, rhs).contains(where: { (a, b) in a.label != b.label }) {
-      diagnostics.insert(
-        .error(
-          labels: lhs.map(\.label), incompatibleWith: rhs.map(\.label),
-          at: cause.site))
-      return false
-    }
-
-    return true
+  /// Adds `d` to `self.diagnostics`.
+  private mutating func report(_ d: Diagnostic) {
+    log("- fail")
+    diagnostics.insert(d)
   }
 
-  /// Returns `true` if `l` is structurally compatible with `r` . Otherwise, generates the
-  /// appropriate diagnostic(s) and returns `false`.
-  private mutating func checkStructuralCompatibility(
-    _ lhs: TupleType,
-    _ rhs: TupleType,
-    cause: ConstraintCause
-  ) -> Bool {
-    if lhs.elements.count != rhs.elements.count {
-      diagnostics.insert(.error(incompatibleTupleLengthsAt: cause.site))
-      return false
-    }
-
-    if zip(lhs.elements, rhs.elements).contains(where: { (a, b) in a.label != b.label }) {
-      diagnostics.insert(
-        .error(
-          labels: lhs.elements.map(\.label), incompatibleWith: rhs.elements.map(\.label),
-          at: cause.site))
-      return false
-    }
-
-    return true
+  /// Adds `batch` to `self.diagnostics`.
+  private mutating func report<S: Sequence<Diagnostic>>(_ batch: S) {
+    log("- fail")
+    diagnostics.formUnion(batch)
   }
 
   /// Logs a line of text in the standard output.
@@ -847,9 +777,15 @@ struct ConstraintSolver {
   private func logState() {
     if !isLoggingEnabled { return }
     log("fresh:")
-    for c in fresh { log("- \"\(c)\"") }
+    for c in fresh {
+      log("- - \"\(c)\"")
+      log("  - \"\(c.cause)\"")
+    }
     log("stale:")
-    for c in stale { log("- \"\(c)\"") }
+    for c in stale {
+      log("- - \"\(c)\"")
+      log("  - \"\(c.cause)\"")
+    }
   }
 
 }
@@ -985,9 +921,8 @@ extension TypeChecker {
     }
 
     // Solve the constraint system.
-    var solver = ConstraintSolver(
-      scope: scope, fresh: constraints, comparingSolutionsWith: .void, loggingTrace: false)
-    return !solver.apply(using: &self).diagnostics.containsError
+    var solver = ConstraintSolver(scope: scope, fresh: constraints, loggingTrace: false)
+    return !solver.solution(&self).diagnostics.containsError
   }
 
 }

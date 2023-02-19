@@ -111,11 +111,8 @@ extension XCTestCase {
   ) -> [XCTIssue] {
     var testFailures = processing.testFailures
 
-    // If two diagnostics get two diagnostics that would be matched by the same expectation, we'll
-    // throw one of them. We can adjust the code to deal with that if it comes up.
     var diagnosticsByExpectation = Dictionary(
-      zip(processing.diagnostics.elements.lazy.map(\.expectation), processing.diagnostics.elements),
-      uniquingKeysWith: { (a, _) in a })
+      grouping: processing.diagnostics.elements, by: \.expectation)
 
     func fail(_ expectation: TestAnnotation, _ message: String) {
       testFailures.append(expectation.failure(message))
@@ -124,8 +121,7 @@ extension XCTestCase {
     for a in unhandledAnnotations {
       switch a.command {
       case "diagnostic":
-        if let i = diagnosticsByExpectation.index(forKey: a) {
-          diagnosticsByExpectation.remove(at: i)
+        if diagnosticsByExpectation[a]?.popLast() != nil {
         } else {
           fail(a, "missing expected diagnostic\(a.argument.map({": '\($0)'"}) ?? "")")
         }
@@ -142,7 +138,7 @@ extension XCTestCase {
       }
     }
 
-    testFailures += diagnosticsByExpectation.values.lazy.map {
+    testFailures += diagnosticsByExpectation.values.joined().lazy.map {
       XCTIssue(.error("unexpected diagnostic: '\($0.message)'", at: $0.site, notes: $0.notes))
     }
     return testFailures

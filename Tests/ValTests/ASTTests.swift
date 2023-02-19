@@ -6,10 +6,10 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
-    var diagnostics = DiagnosticSet()
-    let i = ast.insert(ModuleDecl("Val", sources: []), diagnostics: &diagnostics)
+    let i = checkNoDiagnostic { diagnostics in
+      ast.insert(ModuleDecl("Val", sources: []), diagnostics: &diagnostics)
+    }
     XCTAssert(ast.modules.contains(i))
-    XCTAssert(diagnostics.elements.isEmpty)
 
     let j = ast.insert(synthesized: ModuleDecl("Val1", sources: []))
     XCTAssert(ast.modules.contains(j))
@@ -19,9 +19,10 @@ final class ASTTests: XCTestCase {
     let input: SourceFile = "import T"
 
     var a = AST()
-    var d = DiagnosticSet()
-    let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
-    XCTAssert(d.elements.isEmpty, "\n\(d)")
+
+    let m = try checkNoDiagnostic { d in
+      try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    }
 
     // Note: we use `XCTUnwrap` when we're expecting a non-nil value produced by a subscript under
     // test. Otherwise, we use `!`.

@@ -68,7 +68,12 @@ final class ValCommandTests: XCTestCase {
     let result = try compile(input, with: ["--emit", "binary"])
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
-    XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
+
+    #if os(Windows)
+      XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath + ".exe"))
+    #else
+      XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
+    #endif
   }
 
   func testParseFailure() throws {

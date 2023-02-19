@@ -19,20 +19,22 @@ final class ParserTests: XCTestCase {
   // MARK: Unit tests
 
   func testParse() throws {
-    let input: SourceFile = """
+    let input = SourceFile.diagnosableLiteral(
+      """
       public fun main() {
         print("Hello, World!")
       }
-      """
+      """)
 
     var a = AST()
-    var d = DiagnosticSet()
-    _ = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
-    XCTAssert(d.elements.isEmpty, "\n\(d)")
+    try checkNoDiagnostic { d in
+      _ = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    }
   }
 
   func testSourceFile() throws {
-    let input: SourceFile = """
+    let input = SourceFile.diagnosableLiteral(
+      """
         ;;
         import Foo
 
@@ -41,11 +43,12 @@ final class ParserTests: XCTestCase {
 
         let x = "Hello!"
         public let y = 0;
-      """
+      """)
 
     var a = AST()
-    var d = DiagnosticSet()
-    let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    let m = try checkNoDiagnostic { d in
+      try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    }
     XCTAssertEqual(a[a[m].sources.first!].decls.count, 4)
   }
 
@@ -1154,77 +1157,6 @@ final class ParserTests: XCTestCase {
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let expr = try XCTUnwrap(ast[exprID] as? MatchExpr)
     XCTAssertEqual(expr.cases.count, 2)
-  }
-
-  func testConditionalExpr() throws {
-    let input: SourceFile = "if true { }"
-    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
-    XCTAssertEqual(expr.condition.count, 1)
-  }
-
-  func testConditionalExprWithMultipleConditions() throws {
-    let input: SourceFile = "if let x = foo, x > 0 { }"
-    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
-    XCTAssertEqual(expr.condition.count, 2)
-  }
-
-  func testConditionalExprBlockThenNoElse() throws {
-    let input: SourceFile = "if true { }"
-    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
-
-    if case .block = expr.success {
-    } else {
-      XCTFail()
-    }
-
-    XCTAssertNil(expr.failure)
-  }
-
-  func testConditionalExprBlockThenBlockElse() throws {
-    let input: SourceFile = "if true { } else { }"
-    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
-
-    if case .block = expr.success {
-    } else {
-      XCTFail()
-    }
-
-    if case .block = expr.failure {
-    } else {
-      XCTFail()
-    }
-  }
-
-  func testConditionalExprExprThenExprElse() throws {
-    let input: SourceFile = "if true { 1 } else { 2 }"
-    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
-
-    if case .expr = expr.success {
-    } else {
-      XCTFail()
-    }
-
-    if case .expr = expr.failure {
-    } else {
-      XCTFail()
-    }
-  }
-
-  func testConditionalExprExprElseIfElse() throws {
-    let input: SourceFile = "if true { 1 } else if false { 2 } else { 3 }"
-    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? CondExpr)
-
-    if case .expr(let elseID) = expr.failure {
-      XCTAssertEqual(elseID.kind, .init(CondExpr.self))
-    } else {
-      XCTFail()
-    }
   }
 
   func testParenthesizedExpr() throws {

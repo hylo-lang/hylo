@@ -68,14 +68,14 @@ extension Diagnostic {
       "memberwise initializer declaration may only appear in product type declaration", at: site)
   }
 
-  static func error(illegalParameterConvention convention: AccessEffect, at site: SourceRange)
-    -> Diagnostic
-  {
+  static func error(
+    illegalParameterConvention convention: AccessEffect, at site: SourceRange
+  ) -> Diagnostic {
     .error("'\(convention)' may only be used on parameters", at: site)
   }
 
-  static func error(
-    labels found: [String?], incompatibleWith expected: [String?], at site: SourceRange
+  static func error<S1: Sequence<String?>, S2: Sequence<String?>>(
+    labels found: S1, incompatibleWith expected: S2, at site: SourceRange
   ) -> Diagnostic {
     .error(
       """
@@ -88,13 +88,9 @@ extension Diagnostic {
     .error("incompatible number of parameters", at: site)
   }
 
-  static func error(incompatibleTupleLengthsAt site: SourceRange) -> Diagnostic {
-    .error("tuples have different lengths", at: site)
-  }
-
-  static func error(type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange)
-    -> Diagnostic
-  {
+  static func error(
+    type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange
+  ) -> Diagnostic {
     .error("incompatible types '\(l)' and '\(r)'", at: site)
   }
 
@@ -306,9 +302,9 @@ extension Diagnostic {
     .error("type '\(subtype)' is not strict subtype of '\(supertype)'", at: site)
   }
 
-  static func error(ambiguousUse expr: NodeID<NameExpr>, in ast: AST, candidates: [AnyDeclID] = [])
-    -> Diagnostic
-  {
+  static func error(
+    ambiguousUse expr: NodeID<NameExpr>, in ast: AST, candidates: [AnyDeclID] = []
+  ) -> Diagnostic {
     let notes = candidates.map { Diagnostic.error("candidate here", at: ast[$0].site) }
     return .error("ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site, notes: notes)
   }

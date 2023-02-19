@@ -4,23 +4,38 @@ struct CXXIdentifier: CXXExpr {
   /// The value of the identifier.
   let description: String
 
-  init(_ identifier: String) {
-    description = CXXIdentifier.sanitize(identifier)
+  /// Creates an instance sanitizing `n` for use as a C++ identifier.
+  ///
+  /// - Requires: `n` is not empty.
+  init<S: StringProtocol>(_ n: S) {
+    description = CXXIdentifier.sanitize(n)
   }
 
-  var precedence: Int {
-    0
-  }
+  var precedence: Int { 0 }
+
   var isLeftToRight: Bool {
     true  // doesn't really matter
   }
 
-  /// Sanitizes `identifier` and returns a valid C++ identifier.
-  static func sanitize(_ identifier: String) -> String {
-    // Append an underscore to reserved identifiers.
-    reserved.contains(identifier)
-      ? identifier + "_"
-      : identifier
+  /// Returns a copy of `n` sanitized for use as a C++ identifier.
+  ///
+  /// - Requires: `n` is not empty.
+  static func sanitize<S: StringProtocol>(_ n: S) -> String {
+    let s = n.reduce(into: "") { (s, c) in
+      if c.isAllowedInCXXIdentitifer {
+        s.append(c)
+      } else {
+        s.append(c.utf16.reduce(into: "u") { (u, point) in u += String(point, radix: 16) })
+      }
+    }
+
+    if s.first!.isNumber {
+      return "a" + s
+    } else if reserved.contains(s) {
+      return "_" + s
+    } else {
+      return s
+    }
   }
 
   /// The set of reserved keywords in C++.
@@ -36,5 +51,31 @@ struct CXXIdentifier: CXXExpr {
     "try", "typedef", "union", "unsigned",
     "virtual", "void", "volatile", "while",
   ])
+
+}
+
+extension CXXIdentifier: CustomStringConvertible {}
+
+extension String.StringInterpolation {
+
+  /// Appends a copy of `n` sanitized for use as a C++ identifier.
+  ///
+  /// - Requires: `n` is not empty.
+  public mutating func appendInterpolation<S: StringProtocol>(cxx n: S) {
+    appendLiteral(CXXIdentifier(n).description)
+  }
+
+}
+
+extension Character {
+
+  /// Indicates whether the character is allowed to appear in a C/C++ identifier.
+  fileprivate var isAllowedInCXXIdentitifer: Bool {
+    guard let code = asciiValue else { return false }
+    return (0x5f == code)  // underscore
+      || (0x61 ... 0x7a).contains(code)  // a ... z
+      || (0x41 ... 0x5a).contains(code)  // A ... Z
+      || (0x30 ... 0x39).contains(code)  // 0 ... 9
+  }
 
 }
