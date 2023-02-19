@@ -21,6 +21,6 @@ public struct TypeVariable: TypeProtocol {
 
 extension TypeVariable: CustomStringConvertible {
 
-  public var description: String { "%\(id)" }
+  public var description: String { "_" }
 
 }
