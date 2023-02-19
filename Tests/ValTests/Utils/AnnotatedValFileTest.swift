@@ -74,7 +74,7 @@ extension XCTestCase {
       _ diagnostics: inout DiagnosticSet
     ) throws -> [XCTIssue]
   ) throws {
-    let testCases = try XCTUnwrap(testSuite(at: suitePath, relativeTo: swiftFile), "No test cases")
+    let testCases = try testSuite(at: suitePath, relativeTo: swiftFile)
     for file in testCases {
       var annotations = TestAnnotation.parseAll(from: file)
 
@@ -105,24 +105,22 @@ extension XCTestCase {
     }
   }
 
-  /// Returns the Val test cases in the suite at `path` relative to `swiftFile` or `nil` if no
-  /// such suite could be located.
+  /// Returns the Val test cases in the suite at `path` relative to `swiftFile`.
   ///
   /// The suite is sought at `path` relative to `swiftFile`. If no such directory exists, the
   /// suite is sought at `path` relative to the root of the resource bundle associated with the
   /// current Swift module.
   fileprivate func testSuite(
     at path: String, relativeTo swiftFile: StaticString
-  ) throws -> [SourceFile]? {
+  ) throws -> [SourceFile] {
     let suiteDirectoryRelativeToSwiftFile = URL(
       fileURLWithPath: path, relativeTo: URL(fileURLWithPath: String(swiftFile)))
 
     if suiteDirectoryRelativeToSwiftFile.hasDirectoryPath {
       return try sourceFiles(in: [suiteDirectoryRelativeToSwiftFile])
-    } else if let s = Bundle.module.url(forResource: path, withExtension: nil) {
-      return try sourceFiles(in: [s])
     } else {
-      return nil
+      let s = Bundle.module.url(forResource: path, withExtension: nil)!
+      return try sourceFiles(in: [s])
     }
   }
 
