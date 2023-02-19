@@ -33,18 +33,16 @@ public struct SourceFile {
     self.storage = storage
   }
 
-  /// Creates an instance for the given `text` embedded in a multiline string literal in the given
-  /// `swiftFile` at `swiftLine`.
+  /// Creates an instance for the `text` given by a multiline string literal in the given
+  /// `swiftFile`, the literal's textual content (the line after the opening quotes) being
+  /// startLine.
   ///
-  /// The actual text processed will be what's read from the file, regardless of what's in `text`.
-  /// That means if you're going to use any special characters in the literal, the literal should be
-  /// a raw string literal to avoid confusion.
-  fileprivate init(
-    diagnosableLiteral text: String, swiftFile: String = #filePath, swiftLine: Int = #line
-  )
+  /// N.B. The text of the instance will literally be what's in the Swift file, including its
+  /// indentation and any embedded special characters, even if the literal itself is not a raw
+  /// literal or has had indentation stripped by the Swift compiler.
+  fileprivate init(diagnosableLiteral text: String, swiftFile: String, startLine: Int)
     throws
   {
-    let startLine = swiftLine + 2  // Account for typical source code formatting
     let wholeFile = try SourceFile(contentsOf: URL(fileURLWithPath: swiftFile))
     let endLine = startLine + text.lazy.filter(\.isNewline).count
     let fragment = URL(string: "\(wholeFile.url.absoluteString)#L\(startLine)-L\(endLine)")!
@@ -166,10 +164,23 @@ extension SourceFile {
 
   /// Returns a SourceFile containing the given text of a multiline string literal, such that
   /// diagnostics produced in processing that file will point back to the original Swift source.
+  ///
+  /// N.B. The text of the result will literally be what's in the Swift file, including its
+  /// indentation and any embedded special characters, even if the literal itself is not a raw
+  /// literal or has had indentation stripped by the Swift compiler.  It is assumed that the first
+  /// line of the string literal's content is two lines below `invocationLine`, which is consistent
+  /// with this project's formatting standard.
+  ///
+  /// - Warning:
+  ///   - Do not insert a blank line between the opening parenthesis of the invocation and the
+  ///     opening quotation mark.
+  ///   - Only use this function with multiline string literals.
+  ///   - Serialization of the result is not supported.
   public static func diagnosableLiteral(
-    _ multilineLiteralText: String, swiftFile: String = #filePath, startLine: Int = #line
+    _ multilineLiteralText: String, swiftFile: String = #filePath, invocationLine: Int = #line
   ) -> SourceFile {
-    try! .init(diagnosableLiteral: multilineLiteralText, swiftFile: swiftFile, swiftLine: startLine)
+    try! .init(
+      diagnosableLiteral: multilineLiteralText, swiftFile: swiftFile, startLine: invocationLine + 2)
   }
 
 }
