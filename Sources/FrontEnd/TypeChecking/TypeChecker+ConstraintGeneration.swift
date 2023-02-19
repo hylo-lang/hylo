@@ -213,8 +213,7 @@ extension TypeChecker {
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      let lhsType = inferredType(
-        of: lhs, shapedBy: ^TypeVariable(node: lhs.base), in: scope, updating: &state)
+      let lhsType = inferredType(of: lhs, shapedBy: ^TypeVariable(), in: scope, updating: &state)
       state.facts.append(
         SubtypingConstraint(
           lhsType, rhs.shape,
@@ -255,7 +254,7 @@ extension TypeChecker {
       }
     }
 
-    let t = ^TypeVariable(node: AnyNodeID(subject))
+    let t = ^TypeVariable()
     let firstBranch = inferredType(
       of: syntax.success, shapedBy: shape, in: scope, updating: &state)
     state.facts.append(
@@ -289,8 +288,14 @@ extension TypeChecker {
   ) -> AnyType {
     let syntax = ast[subject]
 
-    // Infer the type of the callee.
-    let calleeType = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
+    let calleeType: AnyType
+    if let callee = NodeID<NameExpr>(syntax.callee) {
+      let l = ast[subject].arguments.map(\.label?.value)
+      calleeType = inferredType(
+        ofNameExpr: callee, appliedWithLabels: l, shapedBy: nil, in: scope, updating: &state)
+    } else {
+      calleeType = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
+    }
 
     // The following cases must be considered:
     //
@@ -311,7 +316,7 @@ extension TypeChecker {
     // Case 2
     if calleeType.base is TypeVariable {
       let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &state)
-      let returnType = shape ?? ^TypeVariable(node: AnyNodeID(subject))
+      let returnType = shape ?? ^TypeVariable()
 
       state.facts.append(
         FunctionCallConstraint(
@@ -338,12 +343,11 @@ extension TypeChecker {
       let d = referredDecls[c]?.decl,
       isNominalTypeDecl(d)
     {
-      let instanceType = MetatypeType(calleeType)!.instance
+      let instance = MetatypeType(calleeType)!.instance
       let initName = SourceRepresentable(
         value: Name(stem: "init", labels: ["self"] + syntax.arguments.map(\.label?.value)),
         range: ast[c].name.site)
-      let initCandidates = resolve(
-        initName, withArguments: [], memberOf: instanceType, from: scope)
+      let initCandidates = resolve(initName, withArguments: [], memberOf: instance, from: scope)
 
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {
@@ -450,11 +454,11 @@ extension TypeChecker {
     })
 
     // If the underlying declaration's return type is a unknown, infer it from the lambda's body.
-    if underlyingDeclType.output.base is TypeVariable {
+    let o = underlyingDeclType.output
+    if o.base is TypeVariable {
       if case .expr(let body) = ast[syntax.decl].body {
-        _ = inferredType(
-          of: body, shapedBy: underlyingDeclType.output, in: AnyScopeID(syntax.decl),
-          updating: &state)
+        let e = inferredType(of: body, shapedBy: o, in: AnyScopeID(syntax.decl), updating: &state)
+        state.facts.append(SubtypingConstraint(e, o, because: .init(.return, at: ast[body].site)))
       } else {
         report(.error(cannotInferComplexReturnTypeAt: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
@@ -493,11 +497,12 @@ extension TypeChecker {
 
   private mutating func inferredType(
     ofNameExpr subject: NodeID<NameExpr>,
+    appliedWithLabels labels: [String?]? = nil,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    let resolution = resolve(nominalPrefixOf: subject, from: scope)
+    let resolution = resolveNominalPrefix(of: subject, in: scope)
     let unresolvedComponents: [NodeID<NameExpr>]
     var lastVisitedComponentType: AnyType?
 
@@ -506,25 +511,22 @@ extension TypeChecker {
       return state.facts.assignErrorType(to: subject)
 
     case .inexecutable(let suffix):
-      if case .expr(let domainExpr) = ast[subject].domain {
-        lastVisitedComponentType = inferredType(
-          of: domainExpr, shapedBy: nil, in: scope, updating: &state)
+      if case .expr(let e) = ast[subject].domain {
+        lastVisitedComponentType = inferredType(of: e, shapedBy: nil, in: scope, updating: &state)
       } else {
         fatalError("not implemented")
       }
       unresolvedComponents = suffix
 
     case .done(let prefix, let suffix):
-      assert(!prefix.isEmpty, "at least one name component should have been resolved")
-      for p in prefix {
-        lastVisitedComponentType = bind(p.component, to: p.candidates, updating: &state)
-      }
       unresolvedComponents = suffix
+      lastVisitedComponentType =
+        bind(prefix, appliedWithLabels: suffix.isEmpty ? labels : nil, updating: &state)
     }
 
     // Create the necessary constraints to let the solver resolve the remaining components.
     for component in unresolvedComponents {
-      let memberType = AnyType(TypeVariable(node: AnyNodeID(component)))
+      let memberType = ^TypeVariable()
       state.facts.append(
         MemberConstraint(
           lastVisitedComponentType!, hasMemberReferredToBy: component, ofType: memberType,
@@ -533,11 +535,6 @@ extension TypeChecker {
       lastVisitedComponentType = state.facts.constrain(component, in: ast, toHaveType: memberType)
     }
 
-    if let e = shape {
-      appendEquality(
-        lastVisitedComponentType!, e, causedBy: .init(.binding, at: ast[subject].site),
-        to: &state.facts)
-    }
     return lastVisitedComponentType!
   }
 
@@ -633,7 +630,7 @@ extension TypeChecker {
     // Case 2
     if calleeType.base is TypeVariable {
       let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &state)
-      let returnType = shape ?? ^TypeVariable(node: AnyNodeID(subject))
+      let returnType = shape ?? ^TypeVariable()
       let assumedCalleeType = SubscriptImplType(
         isProperty: false,
         receiverEffect: nil,
@@ -882,7 +879,7 @@ extension TypeChecker {
     updating state: inout State
   ) -> AnyType {
     let nameDecl = ast[subject].decl
-    let nameType = shape ?? ^TypeVariable(node: AnyNodeID(nameDecl))
+    let nameType = shape ?? ^TypeVariable()
     setInferredType(nameType, for: nameDecl)
     state.deferred.append({ (checker, solution) in
       checker.checkDeferred(varDecl: nameDecl, solution)
@@ -947,23 +944,6 @@ extension TypeChecker {
 
   // MARK: Helpers
 
-  /// Adds an equality constraint between `l` and `r` caused by `c` to `facts`.
-  private mutating func appendEquality(
-    _ l: AnyType, _ r: AnyType, causedBy c: ConstraintCause,
-    to facts: inout InferenceFacts
-  ) {
-    let a = relations.canonical(l)
-    let b = relations.canonical(r)
-    if a == b {
-      return
-    } else if !a[.hasVariable] && !b[.hasVariable] {
-      report(.error(type: l, incompatibleWith: r, at: c.site))
-      facts.setConflictFound()
-    } else {
-      facts.append(EqualityConstraint(l, r, because: c))
-    }
-  }
-
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
   /// to generate their type constraints assuming they have the corresponding type in `parameters`
   /// and returns `true`. Otherwise, returns `false`.
@@ -1022,8 +1002,7 @@ extension TypeChecker {
 
       // Infer the type of the argument bottom-up.
       let argumentType = inferredType(
-        of: argumentExpr, shapedBy: ^TypeVariable(node: AnyNodeID(argumentExpr)), in: scope,
-        updating: &state)
+        of: argumentExpr, shapedBy: ^TypeVariable(), in: scope, updating: &state)
 
       state.facts.append(
         ParameterConstraint(
@@ -1035,6 +1014,35 @@ extension TypeChecker {
     }
 
     return parameters
+  }
+
+  /// Constrains the name expressions in `path` to references to either of their corresponding
+  /// resolution candidations, using `labels` to filter overloaded candidates.
+  ///
+  /// - Parameters:
+  ///   - path: A sequence of resolved components returned by `TypeChecker.resolveNominalPrefix`.
+  ///   - labels: the labels of a call expression if `path` denotes all the components of a name
+  ///     expression used as the callee of the call.
+  private mutating func bind(
+    _ path: [NameResolutionResult.ResolvedComponent],
+    appliedWithLabels labels: [String?]?,
+    updating state: inout State
+  ) -> AnyType {
+    for p in path.dropLast() {
+      _ = bind(p.component, to: p.candidates, updating: &state)
+    }
+
+    let lastVisited = path.last!
+    let c: [NameResolutionResult.Candidate]
+    if lastVisited.candidates.count > 1, let l = labels {
+      let y = lastVisited.candidates.filter { (z) in
+        z.reference.decl.map({ self.labels($0) == l }) ?? false
+      }
+      c = y.isEmpty ? lastVisited.candidates : y
+    } else {
+      c = lastVisited.candidates
+    }
+    return bind(lastVisited.component, to: c, updating: &state)
   }
 
   /// Constrains `name` to be a reference to either of the declarations in `candidates`.
@@ -1063,7 +1071,7 @@ extension TypeChecker {
       })
 
       // Constrain the name to refer to one of the overloads.
-      let nameType = AnyType(TypeVariable(node: AnyNodeID(name)))
+      let nameType = ^TypeVariable()
       state.facts.append(
         OverloadConstraint(
           name, withType: nameType, refersToOneOf: overloads,

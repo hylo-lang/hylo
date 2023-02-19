@@ -880,31 +880,13 @@ public enum Parser {
     state.contexts.append(.subscriptBody)
     defer { state.contexts.removeLast() }
 
-    // Attempt to parse a subscript implementation body and fall back to a bundle.
-    let backup = state.backup()
-    do {
-      if let body = try subscriptImplBody.parse(&state) {
-        let impl = try buildSubscriptImpl(
-          in: &state,
-          introducedBy: SourceRepresentable(
-            value: .let,
-            range: state.lexer.sourceCode.emptyRange(at: state.ast[body.base].site.start)),
-          body: body,
-          asNonStaticMember: isNonStaticMember)
-        return [impl]
-      }
-    } catch {
-      state.restore(from: backup)
-    }
-
     // Parse the left delimiter.
+    let backup = state.backup()
     if state.take(.lBrace) == nil { return nil }
 
     // Parse the subscript implementations.
     var impls: [NodeID<SubscriptImpl>] = []
     var introducers: Set<AccessEffect> = []
-    var duplicateIntroducer: SourceRepresentable<AccessEffect>? = nil
-
     while true {
       // Exit if we find the right delimiter.
       if state.take(.rBrace) != nil { break }
@@ -918,18 +900,28 @@ public enum Parser {
           asNonStaticMember: isNonStaticMember)
         impls.append(impl)
 
-        if !introducers.insert(introducer.value).inserted { duplicateIntroducer = introducer }
+        if !introducers.insert(introducer.value).inserted {
+          state.diagnostics.insert(.error(duplicateImplementationIntroducer: introducer))
+        }
       } else {
         state.diagnostics.insert(.error(expected: .rBrace, at: state.currentLocation))
         break
       }
     }
 
-    if let introducer = duplicateIntroducer {
-      throw [.error(duplicateImplementationIntroducer: introducer)] as DiagnosticSet
-    } else {
-      return impls
-    }
+    if !impls.isEmpty { return impls }
+
+    // Fall back to a single body.
+    state.restore(from: backup)
+    guard let body = try subscriptImplBody.parse(&state) else { return nil }
+    let i = try buildSubscriptImpl(
+      in: &state,
+      introducedBy: SourceRepresentable(
+        value: .let,
+        range: state.lexer.sourceCode.emptyRange(at: state.ast[body.base].site.start)),
+      body: body,
+      asNonStaticMember: isNonStaticMember)
+    return [i]
   }
 
   /// Inserts a subscript having the given `introducer` and `body` into `state.ast` and returns its
@@ -1067,7 +1059,7 @@ public enum Parser {
   ) -> NodeID<InitializerDecl> {
     for member in members where member.kind == InitializerDecl.self {
       let m = NodeID<InitializerDecl>(member)!
-      if state.ast[m].introducer.value == .memberwiseInit { return m }
+      if state.ast[m].isMemberwise { return m }
     }
 
     let startOfTypeDecl = state.lexer.sourceCode.emptyRange(at: startIndex)
