@@ -604,18 +604,20 @@ extension CXXFunctionCallExpr: WriteableInContext {
 extension CXXVoidCast: WriteableInContext {
 
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    output.write("(void) ")
-    output.write(ExprWriteable(baseExpr), inContext: c)
+    output.write(["(void) ", ExprWriteable(baseExpr)], inContext: c)
   }
 }
 extension CXXConditionalExpr: WriteableInContext {
 
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    output.write(ExprWriteable(condition), inContext: c)
-    output.write(" ? ")
-    output.write(ExprWriteable(trueExpr), inContext: c)
-    output.write(" : ")
-    output.write(ExprWriteable(falseExpr), inContext: c)
+    output.write(
+      [
+        ExprWriteable(condition),
+        " ? ",
+        ExprWriteable(trueExpr),
+        " : ",
+        ExprWriteable(falseExpr),
+      ], inContext: c)
   }
 }
 extension CXXStmtExpr: WriteableInContext {
@@ -674,6 +676,27 @@ extension TextOutputStream {
     source.write(to: &self, inContext: c)
   }
 
+  /// Writes `source` to `self`.
+  fileprivate mutating func write(_ source: [WriteableInContext], inContext c: WriteContext) {
+    for element in source {
+      element.write(to: &self, inContext: c)
+    }
+  }
+
+}
+
+extension TextOutputStreamable where Self: WriteableInContext {
+
+  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+    output.write(self)
+  }
+
+}
+
+extension String: WriteableInContext {
+  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+    output.write(self)
+  }
 }
 
 extension WriteableInContext {
