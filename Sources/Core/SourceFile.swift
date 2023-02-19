@@ -14,8 +14,6 @@ public struct SourceFile {
   public typealias Index = String.Index
 
   /// The contents of the source file.
-  ///
-  /// - Note: except for
   public var text: Substring { storage.text }
 
   /// The URL of the source file.
@@ -34,12 +32,12 @@ public struct SourceFile {
   /// `swiftFile`, the literal's textual content (the line after the opening quotes) being
   /// startLine.
   ///
-  /// N.B. The text of the instance will literally be what's in the Swift file, including its
+  /// The text of the instance will literally be what's in the Swift file, including its
   /// indentation and any embedded special characters, even if the literal itself is not a raw
   /// literal or has had indentation stripped by the Swift compiler.
-  fileprivate init(diagnosableLiteral text: String, swiftFile: String, startLine: Int)
-    throws
-  {
+  fileprivate init(
+    diagnosableLiteral text: String, swiftFile: String, startLine: Int
+  ) throws {
     let wholeFile = try SourceFile(contentsOf: URL(fileURLWithPath: swiftFile))
     let endLine = startLine + text.lazy.filter(\.isNewline).count
     let fragment = URL(string: "\(wholeFile.url.absoluteString)#L\(startLine)-L\(endLine)")!
@@ -162,9 +160,9 @@ extension SourceFile {
   /// Returns a SourceFile containing the given text of a multiline string literal, such that
   /// diagnostics produced in processing that file will point back to the original Swift source.
   ///
-  /// N.B. The text of the result will literally be what's in the Swift file, including its
+  /// The text of the result will literally be what's in the Swift file, including its
   /// indentation and any embedded special characters, even if the literal itself is not a raw
-  /// literal or has had indentation stripped by the Swift compiler.  It is assumed that the first
+  /// literal or has had indentation stripped by the Swift compiler. It is assumed that the first
   /// line of the string literal's content is two lines below `invocationLine`, which is consistent
   /// with this project's formatting standard.
   ///
