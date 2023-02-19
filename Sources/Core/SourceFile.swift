@@ -358,7 +358,7 @@ extension SourceFile {
       // This could be supported, with caveats, but it's not necessarily a good idea.
       precondition(
         text.startIndex == text.base.startIndex && text.endIndex == text.base.endIndex,
-        "Serialization of Val source embedded in Swift string literals is not supported."
+        "Serialization of SourceFile.diagnosableLiteral results is not supported."
       )
       try container.encode(Encoding(url: url, text: text.base))
     }
