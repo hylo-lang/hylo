@@ -172,15 +172,10 @@ private struct FunctionSignature: WriteableInContext {
   }
 
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    output.write(source.output)
-    output.write(" ")
-    output.write(source.identifier)
-    output.write("(")
-    for i in 0 ..< source.parameters.count {
+    output.write([source.output, " ", source.identifier, "("])
+    for (i, parameter) in source.parameters.enumerated() {
       if i != 0 { output.write(", ") }
-      output.write(source.parameters[i].type)
-      output.write(" ")
-      output.write(source.parameters[i].name)
+      output.write([parameter.type, " ", parameter.name])
     }
     output.write(")")
   }
