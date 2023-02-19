@@ -24,32 +24,32 @@ final class ValCommandTests: XCTestCase {
   }
 
   func testRawAST() throws {
-    let input = try url(forSourceNamed: "Success")
-    let result = try compile(input, with: ["--emit", "raw-ast"])
+    let i = try url(forFileContaining: "public fun main() {}")
+    let result = try compile(i, with: ["--emit", "raw-ast"])
     XCTAssert(result.status.isSuccess)
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
     XCTAssert(result.stderr.isEmpty)
   }
 
   func testRawIR() throws {
-    let input = try url(forSourceNamed: "Success")
-    let result = try compile(input, with: ["--emit", "raw-ir"])
+    let i = try url(forFileContaining: "public fun main() {}")
+    let result = try compile(i, with: ["--emit", "raw-ir"])
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testIR() throws {
-    let input = try url(forSourceNamed: "Success")
-    let result = try compile(input, with: ["--emit", "ir"])
+    let i = try url(forFileContaining: "public fun main() {}")
+    let result = try compile(i, with: ["--emit", "ir"])
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testCPP() throws {
-    let input = try url(forSourceNamed: "Success")
-    let result = try compile(input, with: ["--emit", "cpp"])
+    let i = try url(forFileContaining: "public fun main() {}")
+    let result = try compile(i, with: ["--emit", "cpp"])
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
 
@@ -61,11 +61,8 @@ final class ValCommandTests: XCTestCase {
   }
 
   func testBinary() throws {
-    let input = try XCTUnwrap(
-      Bundle.module.url(forResource: "Success", withExtension: ".val", subdirectory: "Inputs"),
-      "No inputs")
-
-    let result = try compile(input, with: ["--emit", "binary"])
+    let i = try url(forFileContaining: "public fun main() {}")
+    let result = try compile(i, with: ["--emit", "binary"])
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
 
@@ -77,13 +74,13 @@ final class ValCommandTests: XCTestCase {
   }
 
   func testParseFailure() throws {
-    let input = try url(forFileContaining: "fun x")
-    let result = try compile(input, with: [])
+    let i = try url(forFileContaining: "fun x")
+    let result = try compile(i, with: [])
     XCTAssertFalse(result.status.isSuccess)
     XCTAssertEqual(
       result.stderr,
       """
-      \(input.relativePath):1:6: error: expected function signature
+      \(i.relativePath):1:6: error: expected function signature
       fun x
            ^
 
@@ -91,38 +88,26 @@ final class ValCommandTests: XCTestCase {
   }
 
   func testTypeCheckSuccess() throws {
-    let input = try url(forSourceNamed: "Success")
-    let result = try compile(input, with: ["--typecheck"])
+    let i = try url(forFileContaining: "public fun main() {}")
+    let result = try compile(i, with: ["--typecheck"])
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
     XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testTypeCheckFailure() throws {
-    let input = try url(forFileContaining: "public fun main() { foo() }")
-    let result = try compile(input, with: ["--typecheck"])
+    let i = try url(forFileContaining: "public fun main() { foo() }")
+    let result = try compile(i, with: ["--typecheck"])
     XCTAssertFalse(result.status.isSuccess)
     XCTAssertEqual(
       result.stderr,
       """
-      \(input.relativePath):1:21: error: undefined name 'foo' in this scope
+      \(i.relativePath):1:21: error: undefined name 'foo' in this scope
       public fun main() { foo() }
                           ~~~
 
       """)
     XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
-  }
-
-  /// Returns the URL of the Val source file named `n`.
-  private func url(
-    forSourceNamed n: String,
-    file: StaticString = #file,
-    line: UInt = #line
-  ) throws -> URL {
-    try XCTUnwrap(
-      Bundle.module.url(forResource: n, withExtension: ".val", subdirectory: "Inputs"),
-      "No inputs",
-      file: file, line: line)
   }
 
   /// Writes `s` to a temporary file and returns its URL.
