@@ -176,7 +176,7 @@ private struct FunctionSignature: WriteableInContext {
     output.write(" ")
     output.write(source.identifier)
     output.write("(")
-    for i in 0..<source.parameters.count {
+    for i in 0 ..< source.parameters.count {
       if i != 0 { output.write(", ") }
       output.write(source.parameters[i].type)
       output.write(" ")
@@ -278,9 +278,7 @@ private struct ConversionConstructor: WriteableInContext {
 extension CXXClassAttribute: WriteableInContext {
 
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    output.write(type)
-    output.write(" ")
-    output.write(name)
+    output.write([type, " ", name])
     if let value = initializer {
       output.write(" = ")
       output.write(ExprWriteable(value), inContext: c)
@@ -293,9 +291,7 @@ extension CXXClassAttribute: WriteableInContext {
 extension CXXLocalVarDecl: WriteableInContext {
 
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    output.write(type)
-    output.write(" ")
-    output.write(name)
+    output.write([type, " ", name])
     if let value = initializer {
       output.write(" = ")
       output.write(ExprWriteable(value), inContext: c)
@@ -653,7 +649,7 @@ struct WriteContext {
 
 }
 
-fileprivate protocol WriteableInContext {
+private protocol WriteableInContext {
 
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext)
 
@@ -661,12 +657,19 @@ fileprivate protocol WriteableInContext {
 
 extension TextOutputStream {
 
-  /// Writes `self` to `source`.
+  /// Writes `source` to `self`.
   fileprivate mutating func write<T: TextOutputStreamable>(_ source: T) {
     source.write(to: &self)
   }
 
-  /// Writes `self` to `source`.
+  /// Writes `source` to `self`.
+  fileprivate mutating func write(_ source: [TextOutputStreamable]) {
+    for element in source {
+      element.write(to: &self)
+    }
+  }
+
+  /// Writes `source` to `self`.
   fileprivate mutating func write<T: WriteableInContext>(_ source: T, inContext c: WriteContext) {
     source.write(to: &self, inContext: c)
   }
