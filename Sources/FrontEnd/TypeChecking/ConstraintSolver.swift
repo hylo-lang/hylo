@@ -1037,19 +1037,3 @@ private func inferenceConstraint(
     ],
     because: cause)
 }
-
-typealias ThreeValuedBit = Bool?
-
-extension ThreeValuedBit {
-
-  static func && (l: Self, r: Self) -> Self {
-    if let a = l {
-      return a ? r : false
-    }
-    if let b = r {
-      return b ? l : false
-    }
-    return nil
-  }
-
-}
