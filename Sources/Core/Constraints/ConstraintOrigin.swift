@@ -41,7 +41,7 @@ public struct ConstraintOrigin: Hashable {
     case structural
 
     /// The constraint is caused by another constraint.
-    indirect case subordinate(parent: ConstraintOrigin, id: Int)
+    indirect case subordinate(parent: ConstraintOrigin)
 
     /// The constraint is caused by a return statement.
     case `return`
@@ -65,7 +65,7 @@ public struct ConstraintOrigin: Hashable {
 
   /// Returns the parent of this instance if it has kind `.subordinate`.
   public var parent: ConstraintOrigin? {
-    if case .subordinate(let p, _) = kind {
+    if case .subordinate(let p) = kind {
       return p
     } else {
       return nil
@@ -73,8 +73,8 @@ public struct ConstraintOrigin: Hashable {
   }
 
   /// Returns a subordinate of this instance with given `id`.
-  public func subordinate(_ id: Int) -> ConstraintOrigin {
-    ConstraintOrigin(.subordinate(parent: self, id: id), at: site)
+  public func subordinate() -> ConstraintOrigin {
+    .init(.subordinate(parent: self), at: site)
   }
 
 }

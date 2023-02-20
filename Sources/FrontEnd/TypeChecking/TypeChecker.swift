@@ -1423,8 +1423,9 @@ public struct TypeChecker {
     else { return false }
 
     if !traits.isEmpty {
-      let cause = ConstraintOrigin(.annotation, at: ast[list[0]].site)
-      constraints.append(ConformanceConstraint(lhs, conformsTo: traits, because: cause))
+      constraints.append(
+        ConformanceConstraint(
+          lhs, conformsTo: traits, because: .init(.annotation, at: ast[list[0]].site)))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.

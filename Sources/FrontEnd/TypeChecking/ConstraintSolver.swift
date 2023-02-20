@@ -7,11 +7,17 @@ struct ConstraintSolver {
   /// The solution of an exploration given a particular choice.
   private typealias Exploration<T> = (choice: T, solution: Solution)
 
+  /// The identity of a constraint in an instance of `ConstraintSolver`.
+  private typealias ConstraintIdentity = Int
+
+  /// A map from constraint identity to the outcome of its solving.
+  private typealias OutcomeMap = [ConstraintIdentity: Outcome]
+
   /// A closure diagnosing the failure of a constraint, using `m` to reify types and reading the
   /// outcome of constraint solving from `o`.
   private typealias DiagnoseFailure = (
     _ m: SubstitutionMap,
-    _ o: [ConstraintOrigin: Outcome]
+    _ o: OutcomeMap
   ) -> Diagnostic
 
   /// The outcome of the solving of a type constraint.
@@ -33,7 +39,7 @@ struct ConstraintSolver {
     /// The payload is a non-empty array of subordinate constraints along with a closure that
     /// generates a diagnostic will be used to generate a diagnostic in case one of the
     /// subordinate constraints is unsatisfiable.
-    case product([ConstraintOrigin], DiagnoseFailure)
+    case product([ConstraintIdentity], DiagnoseFailure)
 
     /// Returns the diagnosis constructor of `.failure` or `.product` payload.
     var dianoseFailure: DiagnoseFailure? {
@@ -52,13 +58,17 @@ struct ConstraintSolver {
   /// The scope in which the constraints are solved.
   private let scope: AnyScopeID
 
+  /// The constraints in the system.
+  private var constraints: [Constraint] = []
+
   /// The fresh constraints to solve.
-  private var fresh: [Constraint] = []
+  private var fresh: [ConstraintIdentity] = []
 
   /// The constraints that are currently stale.ß
-  private var stale: [Constraint] = []
+  private var stale: [ConstraintIdentity] = []
 
-  private var results: [ConstraintOrigin: Outcome] = [:]
+  /// A map from constraint identity to the outcome of its solving.
+  private var outcomes: OutcomeMap = [:]
 
   /// The type assumptions of the solver.
   private var typeAssumptions = SubstitutionMap()
@@ -85,7 +95,8 @@ struct ConstraintSolver {
     loggingTrace isLoggingEnabled: Bool
   ) where S.Element == Constraint {
     self.scope = scope
-    self.fresh = Array(fresh)
+    self.constraints = Array(fresh)
+    self.fresh = Array(constraints.indices)
     self.isLoggingEnabled = isLoggingEnabled
   }
 
@@ -102,35 +113,36 @@ struct ConstraintSolver {
     logState()
     log("steps:")
 
-    while let constraint = fresh.popLast() {
+    while let c = fresh.popLast() {
       // Make sure the current solution is still worth exploring.
       if score() > bestScore {
         log("- abort")
         return nil
       }
 
-      log("- solve: \"\(constraint)\"")
+      constraints[c].modifyTypes({ typeAssumptions[$0] })
+      log("- solve: \"\(constraints[c])\"")
       indentation += 1; defer { indentation -= 1 }
       log("actions:")
 
-      switch constraint {
-      case let c as ConformanceConstraint:
-        setOutcome(solve(conformance: c, using: &checker), for: c.cause)
-      case let c as LiteralConstraint:
-        setOutcome(solve(literal: c, using: &checker), for: c.cause)
-      case let c as EqualityConstraint:
-        setOutcome(solve(equality: c, using: &checker), for: c.cause)
-      case let c as SubtypingConstraint:
-        setOutcome(solve(subtyping: c, using: &checker), for: c.cause)
-      case let c as ParameterConstraint:
-        setOutcome(solve(parameter: c, using: &checker), for: c.cause)
-      case let c as MemberConstraint:
-        setOutcome(solve(member: c, using: &checker), for: c.cause)
-      case let c as FunctionCallConstraint:
-        setOutcome(solve(functionCall: c, using: &checker), for: c.cause)
-      case let c as DisjunctionConstraint:
+      switch constraints[c] {
+      case is ConformanceConstraint:
+        setOutcome(solve(conformance: c, using: &checker), for: c)
+      case is LiteralConstraint:
+        setOutcome(solve(literal: c, using: &checker), for: c)
+      case is EqualityConstraint:
+        setOutcome(solve(equality: c, using: &checker), for: c)
+      case is SubtypingConstraint:
+        setOutcome(solve(subtyping: c, using: &checker), for: c)
+      case is ParameterConstraint:
+        setOutcome(solve(parameter: c, using: &checker), for: c)
+      case is MemberConstraint:
+        setOutcome(solve(member: c, using: &checker), for: c)
+      case is FunctionCallConstraint:
+        setOutcome(solve(functionCall: c, using: &checker), for: c)
+      case is DisjunctionConstraint:
         return solve(disjunction: c, using: &checker)
-      case let c as OverloadConstraint:
+      case is OverloadConstraint:
         return solve(overload: c, using: &checker)
       default:
         unreachable()
@@ -146,18 +158,20 @@ struct ConstraintSolver {
   ///
   /// The cost of a solution increases monotonically when a constraint is eliminated.
   private func score() -> Solution.Score {
-    .init(errorCount: results.keys.elementCount(where: iFailureRoot), penalties: penalties)
+    .init(
+      errorCount: outcomes.keys.elementCount(where: iFailureRoot),
+      penalties: penalties)
   }
 
-  /// Returns `true` iff the constraint originating at `o` failed and isn't subordinate.
-  private func iFailureRoot(_ o: ConstraintOrigin) -> Bool {
-    (o.parent == nil) && (succeeded(o) == false)
+  /// Returns `true` iff the constraint `c` failed and isn't subordinate.
+  private func iFailureRoot(_ c: ConstraintIdentity) -> Bool {
+    (constraints[c].cause.parent == nil) && (succeeded(c) == false)
   }
 
-  /// Returns whether the constraint originating at `o` succeeded; `.none` indicates that the
-  /// outcome of the constraint hasn't been computed yet.
-  private func succeeded(_ o: ConstraintOrigin) -> ThreeValuedBit {
-    switch results[o] {
+  /// Returns whether the constraint `c` succeeded; `.none` indicates that the outcome of the
+  /// constraint hasn't been computed yet.
+  private func succeeded(_ c: ConstraintIdentity) -> ThreeValuedBit {
+    switch outcomes[c] {
     case nil:
       return nil
     case .some(.success):
@@ -169,8 +183,8 @@ struct ConstraintSolver {
     }
   }
 
-  /// Records the outcome `value` for the constraint originating at `key`.
-  private mutating func setOutcome(_ value: Outcome?, for key: ConstraintOrigin) {
+  /// Records the outcome `value` for the constraint `key`.
+  private mutating func setOutcome(_ value: Outcome?, for key: ConstraintIdentity) {
     switch value {
     case nil:
       log("- defer")
@@ -181,26 +195,28 @@ struct ConstraintSolver {
     case .some(.product):
       log("- break")
     }
-    results[key] = value
+
+    assert(outcomes[key] == nil)
+    outcomes[key] = value
   }
 
   /// Returns either `.success` if `c.subject` conforms to `c.traits`, `.failure` if it doesn't, or
   /// `nil` if neither of these outcomes can be be determined yet.
   private mutating func solve(
-    conformance c: ConformanceConstraint,
+    conformance c: ConstraintIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = c.modifyingTypes({ typeAssumptions[$0] })
+    let goal = constraints[c] as! ConformanceConstraint
 
     var missingTraits: Set<TraitType>
     switch goal.subject.base {
     case is TypeVariable:
-      postpone(goal)
+      postpone(c)
       return nil
 
     case is BuiltinType:
       // Built-in types are `Sinkable`.
-      missingTraits = c.traits.subtracting(
+      missingTraits = goal.traits.subtracting(
         [checker.ast.coreTrait(named: "Sinkable")!])
 
     default:
@@ -211,32 +227,25 @@ struct ConstraintSolver {
     if missingTraits.isEmpty {
       return .success
     } else {
-      var subordinates: [ConstraintOrigin] = []
-      for (i, t) in missingTraits.enumerated() {
-        let s = c.cause.subordinate(i)
-        let o = Outcome.failure { (m, _) in
-          .error(m.reify(c.subject), doesNotConformTo: t, at: c.cause.site)
-        }
-        setOutcome(o, for: s)
-        subordinates.append(s)
+      return .failure { (m, _) in
+        .error(m.reify(goal.subject), doesNotConformTo: missingTraits.first!, at: goal.cause.site)
       }
-      return .product(subordinates) { (_, _) in fatalError() }
     }
   }
 
   /// Returns either `.success` if `c.subject` conforms to `c.literalTrait`, `.failure` if it
   /// doesn't, or `nil` if neither of these outcomes can be determined yet.
   private mutating func solve(
-    literal c: LiteralConstraint,
+    literal c: ConstraintIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = c.modifyingTypes({ typeAssumptions[$0] })
+    let goal = constraints[c] as! LiteralConstraint
     if checker.relations.areEquivalent(goal.subject, goal.defaultSubject) {
       return .success
     }
 
     if goal.subject.base is TypeVariable {
-      postpone(goal)
+      postpone(c)
       return nil
     }
 
@@ -247,22 +256,23 @@ struct ConstraintSolver {
       return .success
     } else {
       return .failure { (m, _) in
-        .error(m.reify(c.subject), doesNotConformTo: c.literal, at: c.cause.site)
+        .error(m.reify(goal.subject), doesNotConformTo: goal.literal, at: goal.cause.site)
       }
     }
   }
 
   /// Returns eiteher `.success` if `c.left` is unifiable with `c.right` or `.failure` otherwise.
   private mutating func solve(
-    equality c: EqualityConstraint,
+    equality c: ConstraintIdentity,
     using checker: inout TypeChecker
   ) -> Outcome {
-    if unify(c.left, c.right, querying: checker.relations) {
+    let goal = constraints[c] as! EqualityConstraint
+    if unify(goal.left, goal.right, querying: checker.relations) {
       return .success
     } else {
       return .failure { (m, _) in
-        let (l, r) = (m.reify(c.left), m.reify(c.right))
-        return .error(type: l, incompatibleWith: r, at: c.cause.site)
+        let (l, r) = (m.reify(goal.left), m.reify(goal.right))
+        return .error(type: l, incompatibleWith: r, at: goal.cause.site)
       }
     }
   }
@@ -271,12 +281,12 @@ struct ConstraintSolver {
   /// isn't, `.product` if `c` must be broken down to smaller constraints, or `nil` if that can't
   /// be determined yet.
   private mutating func solve(
-    subtyping c: SubtypingConstraint,
+    subtyping c: ConstraintIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = c.modifyingTypes({ typeAssumptions[$0] })
+    let goal = constraints[c] as! SubtypingConstraint
     if checker.relations.areEquivalent(goal.left, goal.right) {
-      return goal.isStrict ? .failure(failureToSolve(c)) : .success
+      return goal.isStrict ? .failure(failureToSolve(goal)) : .success
     }
 
     switch (goal.left.base, goal.right.base) {
@@ -285,7 +295,7 @@ struct ConstraintSolver {
       // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
       // choice but to postpone the constraint.
       if goal.isStrict {
-        postpone(goal)
+        postpone(c)
       } else {
         schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, because: goal.cause))
       }
@@ -298,9 +308,9 @@ struct ConstraintSolver {
       if goal.right.isLeaf {
         return unify(goal.left, goal.right, querying: checker.relations)
           ? .success
-          : .failure(failureToSolve(c))
+          : .failure(failureToSolve(goal))
       } else if goal.isStrict {
-        postpone(goal)
+        postpone(c)
         return nil
       } else {
         schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, because: goal.cause))
@@ -314,31 +324,30 @@ struct ConstraintSolver {
 
     case (let l as LambdaType, let r as LambdaType):
       if !l.labels.elementsEqual(r.labels) {
-        return .failure(failureToSolve(c))
+        return .failure(failureToSolve(goal))
       }
       if !unify(l.environment, r.environment, querying: checker.relations) {
-        return .failure(failureToSolve(c))
+        return .failure(failureToSolve(goal))
       }
 
       // Parameters are contravariant; return types are covariant.
-      var subordinates: [ConstraintOrigin] = []
-      for i in 0 ..< l.inputs.count {
-        let (a, b) = (r.inputs[i].type, l.inputs[i].type)
+      var subordinates: [ConstraintIdentity] = []
+      for (a, b) in zip(l.inputs, r.inputs) {
         subordinates.append(
-          schedule(SubtypingConstraint(a, b, because: c.cause.subordinate(i + 1))))
+          schedule(SubtypingConstraint(b.type, a.type, because: goal.cause.subordinate())))
       }
       subordinates.append(
-        schedule(SubtypingConstraint(l.output, r.output, because: c.cause.subordinate(0))))
-      return .product(subordinates, failureToSolve(c))
+        schedule(SubtypingConstraint(l.output, r.output, because: goal.cause.subordinate())))
+      return .product(subordinates, failureToSolve(goal))
 
     case (let l as SumType, _ as SumType):
       // If both types are sums, all elements in `L` must be contained in `R`.
-      var subordinates: [ConstraintOrigin] = []
-      for (i, e) in l.elements.enumerated() {
+      var subordinates: [ConstraintIdentity] = []
+      for e in l.elements {
         subordinates.append(
-          schedule(SubtypingConstraint(e, goal.right, because: c.cause.subordinate(i))))
+          schedule(SubtypingConstraint(e, goal.right, because: goal.cause.subordinate())))
       }
-      return .product(subordinates, failureToSolve(c))
+      return .product(subordinates, failureToSolve(goal))
 
     case (_, let r as SumType):
       // If `R` is a sum type and `L` isn't, then `L` must be contained in `R`.
@@ -349,19 +358,19 @@ struct ConstraintSolver {
       // Postpone the constraint if either `L` or `R` contains variables. Otherwise, `L` is not
       // subtype of `R`.
       if goal.left[.hasVariable] || goal.right[.hasVariable] {
-        postpone(goal)
+        postpone(c)
         return nil
       } else {
-        return .failure(failureToSolve(c))
+        return .failure(failureToSolve(goal))
       }
 
     default:
       if goal.isStrict {
-        return .failure(failureToSolve(c))
+        return .failure(failureToSolve(goal))
       } else {
         return unify(goal.left, goal.right, querying: checker.relations)
           ? .success
-          : .failure(failureToSolve(c))
+          : .failure(failureToSolve(goal))
       }
     }
   }
@@ -388,10 +397,10 @@ struct ConstraintSolver {
   /// Returns either `.success` if instances of `c.left` can be passed to a parameter `c.right`,
   /// `.failure` if they can't, or `nil` if neither of these outcomes can be determined yet.
   private mutating func solve(
-    parameter c: ParameterConstraint,
+    parameter c: ConstraintIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = c.modifyingTypes({ typeAssumptions[$0] })
+    let goal = constraints[c] as! ParameterConstraint
     if checker.relations.areEquivalent(goal.left, goal.right) {
       return .success
     }
@@ -399,20 +408,22 @@ struct ConstraintSolver {
     switch goal.right.base {
     case is TypeVariable:
       // Postpone the constraint until we can infer the parameter passing convention of `R`.
-      postpone(goal)
+      postpone(c)
       return nil
 
     case let p as ParameterType:
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
-      let s = schedule(SubtypingConstraint(goal.left, p.bareType, because: c.cause.subordinate(0)))
+      let s = schedule(
+        SubtypingConstraint(goal.left, p.bareType, because: goal.cause.subordinate()))
       return .product([s], { (m, r) in
-        .error(cannotPass: m.reify(c.left), toParameter: m.reify(c.right), at: c.cause.site)
+        let (a, b) = (m.reify(goal.left), m.reify(goal.right))
+        return .error(cannotPass: a, toParameter: b, at: goal.cause.site)
       })
 
     default:
       return .failure { (m, _) in
-        .error(invalidParameterType: m.reify(c.right), at: c.cause.site)
+        .error(invalidParameterType: m.reify(goal.right), at: goal.cause.site)
       }
     }
   }
@@ -421,13 +432,13 @@ struct ConstraintSolver {
   /// `.failure` if it doesn't, `.product` if `c` must be broken down to smaller constraints, or
   /// `nil` if neither of these outcomes can be determined yet.
   private mutating func solve(
-    member c: MemberConstraint,
+    member c: ConstraintIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = c.modifyingTypes({ typeAssumptions[$0] })
+    let goal = constraints[c] as! MemberConstraint
 
     if goal.subject.base is TypeVariable {
-      postpone(goal)
+      postpone(c)
       return nil
     }
 
@@ -451,7 +462,7 @@ struct ConstraintSolver {
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
       return .failure { (m, _) in
-        .error(undefinedName: c.memberName, in: m.reify(c.memberType), at: c.cause.site)
+        .error(undefinedName: goal.memberName, in: m.reify(goal.memberType), at: goal.cause.site)
       }
     }
 
@@ -460,8 +471,8 @@ struct ConstraintSolver {
       assert(pick.constraints.isEmpty, "not implemented")
       guard unify(pick.type, goal.memberType, querying: checker.relations) else {
         return .failure { (m, _) in
-          let (l, r) = (m.reify(pick.type), m.reify(c.memberType))
-          return .error(type: l, incompatibleWith: r, at: c.cause.site)
+          let (l, r) = (m.reify(pick.type), m.reify(goal.memberType))
+          return .error(type: l, incompatibleWith: r, at: goal.cause.site)
         }
       }
 
@@ -474,7 +485,7 @@ struct ConstraintSolver {
     let s = schedule(
       OverloadConstraint(
         goal.memberExpr, withType: goal.memberType, refersToOneOf: candidates,
-        because: c.cause.subordinate(0)))
+        because: goal.cause.subordinate()))
     return .product([s], { (m, r) in r[s]!.dianoseFailure!(m, r) })
   }
 
@@ -482,62 +493,62 @@ struct ConstraintSolver {
   /// and return type `c.returnType`, `.failure` if it doesn't, `.product` if `c` must be broken
   /// down to smaller constraints, or `nil` if neither of these outcomes can be determined yet.
   private mutating func solve(
-    functionCall c: FunctionCallConstraint,
+    functionCall c: ConstraintIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = c.modifyingTypes({ typeAssumptions[$0] })
+    let goal = constraints[c] as! FunctionCallConstraint
 
     if goal.calleeType.base is TypeVariable {
-      postpone(goal)
+      postpone(c)
       return nil
     }
 
     guard let callee = goal.calleeType.base as? CallableType else {
       return .failure { (m, _) in
-        .error(nonCallableType: m.reify(c.calleeType), at: c.cause.site)
+        .error(nonCallableType: m.reify(goal.calleeType), at: goal.cause.site)
       }
     }
 
     // Make sure `F` structurally matches the given parameter list.
     if goal.labels.count != callee.labels.count {
       return .failure { (m, _) in
-        .error(incompatibleParameterCountAt: c.cause.site)
+        .error(incompatibleParameterCountAt: goal.cause.site)
       }
     } else if !goal.labels.elementsEqual(callee.labels) {
       return .failure { (m, _) in
-        .error(labels: c.labels, incompatibleWith: callee.labels, at: c.cause.site)
+        .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.cause.site)
       }
     }
 
     // Break down the constraint.
-    var subordinates: [ConstraintOrigin] = []
-    for i in 0 ..< callee.inputs.count {
-      let (a, b) = (callee.inputs[i].type, goal.parameters[i].type)
+    var subordinates: [ConstraintIdentity] = []
+    for (a, b) in zip(callee.inputs, goal.parameters) {
       subordinates.append(
-        schedule(EqualityConstraint(a, b, because: c.cause.subordinate(i + 1))))
+        schedule(EqualityConstraint(a.type, b.type, because: goal.cause.subordinate())))
     }
     subordinates.append(
       schedule(
-        EqualityConstraint(callee.output, goal.returnType, because: c.cause.subordinate(0))))
+        EqualityConstraint(callee.output, goal.returnType, because: goal.cause.subordinate())))
     return .product(subordinates, { (m, _) in
-      .error(function: m.reify(c.calleeType), notCallableWith: c.parameters, at: c.cause.site)
+      .error(
+        function: m.reify(goal.calleeType), notCallableWith: goal.parameters, at: goal.cause.site)
     })
   }
 
   /// Attempts to solve the remaining constraints for each individual choice in `disjunction` and
   /// returns the best solution.
   private mutating func solve(
-    disjunction constraint: DisjunctionConstraint,
+    disjunction c: ConstraintIdentity,
     using checker: inout TypeChecker
   ) -> Solution? {
+    let goal = constraints[c] as! DisjunctionConstraint
+
     let results = explore(
-      constraint.choices,
+      goal.choices,
       using: &checker,
       configuringSubSolversWith: { (solver, choice) in
         solver.penalties += choice.penalties
-        for c in choice.constraints {
-          solver.insert(fresh: c)
-        }
+        solver.insert(fresh: choice.constraints)
       })
 
     if let pick = results.uniqueElement?.solution {
@@ -547,25 +558,24 @@ struct ConstraintSolver {
     }
 
     return formAmbiguousSolution(
-      results,
-      diagnosedBy: .error(ambiguousDisjunctionAt: constraint.cause.site))
+      results, diagnosedBy: .error(ambiguousDisjunctionAt: goal.cause.site))
   }
 
   /// Attempts to solve the remaining constraints with each individual choice in `overload` and
   /// returns the best solution.
   private mutating func solve(
-    overload constraint: OverloadConstraint,
+    overload c: ConstraintIdentity,
     using checker: inout TypeChecker
   ) -> Solution? {
+    let goal = constraints[c] as! OverloadConstraint
+
     let results = explore(
-      constraint.choices,
+      goal.choices,
       using: &checker,
       configuringSubSolversWith: { (solver, choice) in
         solver.penalties += choice.penalties
-        solver.bindingAssumptions[constraint.overloadedExpr] = choice.reference
-        for c in choice.constraints {
-          solver.insert(fresh: c)
-        }
+        solver.bindingAssumptions[goal.overloadedExpr] = choice.reference
+        solver.insert(fresh: choice.constraints)
       })
 
     if let pick = results.uniqueElement?.solution {
@@ -577,7 +587,7 @@ struct ConstraintSolver {
     return formAmbiguousSolution(
       results,
       diagnosedBy: .error(
-        ambiguousUse: constraint.overloadedExpr,
+        ambiguousUse: goal.overloadedExpr,
         in: checker.ast,
         candidates: results.compactMap(\.choice.reference.decl)))
   }
@@ -589,8 +599,7 @@ struct ConstraintSolver {
     configuringSubSolversWith configureSubSolver: (inout Self, Choices.Element) -> Void
   ) -> [Exploration<Choices.Element>] where Choices.Element: Choice {
     log("- fork:")
-    indentation += 1
-    defer { indentation -= 1 }
+    indentation += 1; defer { indentation -= 1 }
 
     /// The results of the exploration.
     var results: [Exploration<Choices.Element>] = []
@@ -605,8 +614,7 @@ struct ConstraintSolver {
       }
 
       log("- pick: \"\(choice)\"")
-      indentation += 1
-      defer { indentation -= 1 }
+      indentation += 1; defer { indentation -= 1 }
 
       // Explore the result of this choice.
       var subSolver = self
@@ -669,31 +677,40 @@ struct ConstraintSolver {
     }
   }
 
-  /// Schedules `constraint` to be solved in the future and returns its origin.
+  /// Schedules `constraint` to be solved in the future and returns its identity.
   @discardableResult
-  private mutating func schedule(_ constraint: Constraint) -> ConstraintOrigin {
+  private mutating func schedule(_ constraint: Constraint) -> ConstraintIdentity {
     log("- schedule: \"\(constraint)\"")
-    insert(fresh: constraint)
-    return constraint.cause
+    return insert(fresh: constraint)
   }
 
-  /// Schedules `constraint` to be solved only once the solver has inferred more information about
-  /// at least one of its type variables.
+  /// Inserts `c` into the fresh set and returns its identity.
+  @discardableResult
+  private mutating func insert(fresh c: Constraint) -> ConstraintIdentity {
+    let newIdentity: ConstraintIdentity
+    if let i = constraints.firstIndex(where: { $0.equals(c) }) {
+      newIdentity = i
+    } else {
+      newIdentity = constraints.count
+      constraints.append(c)
+    }
+    fresh.append(newIdentity)
+    return newIdentity
+  }
+
+  /// Inserts `batch` into the fresh set.
+  private mutating func insert<S: Sequence<Constraint>>(fresh batch: S) {
+    for c in batch {
+      insert(fresh: c)
+    }
+  }
+
+  /// Schedules `c` to be solved only once the solver has inferred more information about at least
+  /// one of its type variables.
   ///
-  /// - Requires: `constraint` must involve type variables.
-  private mutating func postpone(_ constraint: Constraint) {
-    log("- postpone: \"\(constraint)\"")
-    insert(stale: constraint)
-  }
-
-  /// Inserts `constraint` into the fresh set.
-  private mutating func insert(fresh constraint: Constraint) {
-    fresh.append(constraint)
-  }
-
-  /// Inserts `constraint` into the stale set.
-  private mutating func insert(stale constraint: Constraint) {
-    stale.append(constraint)
+  /// - Requires: `c` must involve type variables.
+  private mutating func postpone(_ c: ConstraintIdentity) {
+    stale.append(c)
   }
 
   /// Unifies `lhs` with `rhs` using `relations` to check for equivalence, returning `true` if
@@ -703,13 +720,12 @@ struct ConstraintSolver {
   /// algorithm recursively visits both types in lockstep, updating `self.typeAssumptions` every
   /// time either side is a type variable for which no substitution has been made yet.
   private mutating func unify(
-    _ lhs: AnyType, _ rhs: AnyType,
-    querying relations: TypeRelations
+    _ lhs: AnyType, _ rhs: AnyType, querying relations: TypeRelations
   ) -> Bool {
-    let (lhs, rhs) = (typeAssumptions[lhs], typeAssumptions[rhs])
-    if relations.areEquivalent(lhs, rhs) { return true }
+    let (a, b) = (typeAssumptions[lhs], typeAssumptions[rhs])
+    if relations.areEquivalent(a, b) { return true }
 
-    switch (lhs.base, rhs.base) {
+    switch (a.base, b.base) {
     case (let v as TypeVariable, _):
       assume(v, equals: rhs)
       return true
@@ -783,16 +799,15 @@ struct ConstraintSolver {
     // Refresh stale constraints.
     for i in (0 ..< stale.count).reversed() {
       var changed = false
-      let updated = stale[i].modifyingTypes({ (type) in
+      constraints[stale[i]].modifyTypes({ (type) in
         let u = typeAssumptions.reify(type, withVariables: .keep)
         changed = changed || (type != u)
         return u
       })
 
       if changed {
-        log("- refresh \(stale[i])")
-        stale.remove(at: i)
-        fresh.append(updated)
+        log("- refresh \(constraints[stale[i]])")
+        fresh.append(stale.remove(at: i))
       }
     }
   }
@@ -800,10 +815,11 @@ struct ConstraintSolver {
   /// Transforms the stale literal constraints to equality constraints.
   private mutating func refreshLiteralConstraints() {
     for i in (0 ..< stale.count).reversed() {
-      if let c = stale[i] as? LiteralConstraint {
-        log("- refresh \(stale[i])")
-        fresh.append(EqualityConstraint(c.subject, c.defaultSubject, because: c.cause))
-        stale.remove(at: i)
+      if let l = constraints[stale[i]] as? LiteralConstraint {
+        let e = EqualityConstraint(l.subject, l.defaultSubject, because: l.cause)
+        log("- decay \(l) => \(e)")
+        constraints[stale[i]] = e
+        fresh.append(stale.remove(at: i))
       }
     }
   }
@@ -813,9 +829,9 @@ struct ConstraintSolver {
     assert(fresh.isEmpty)
     let m = typeAssumptions.optimized()
 
-    var d = DiagnosticSet(stale.map(Diagnostic.error(staleConstraint:)))
-    for (k, v) in results where iFailureRoot(k) {
-      d.insert(v.dianoseFailure!(m, results))
+    var d = DiagnosticSet(stale.map({ Diagnostic.error(staleConstraint: constraints[$0]) }))
+    for (k, v) in outcomes where iFailureRoot(k) {
+      d.insert(v.dianoseFailure!(m, outcomes))
     }
 
     return Solution(
@@ -845,13 +861,13 @@ struct ConstraintSolver {
     if !isLoggingEnabled { return }
     log("fresh:")
     for c in fresh {
-      log("- - \"\(c)\"")
-      log("  - \"\(c.cause)\"")
+      log("- - \"\(constraints[c])\"")
+      log("  - \"\(constraints[c].cause)\"")
     }
     log("stale:")
     for c in stale {
-      log("- - \"\(c)\"")
-      log("  - \"\(c.cause)\"")
+      log("- - \"\(constraints[c])\"")
+      log("  - \"\(constraints[c].cause)\"")
     }
   }
 
@@ -965,31 +981,21 @@ extension TypeChecker {
     in scope: AnyScopeID,
     anchoringConstraintsAt site: SourceRange
   ) -> Bool {
-    // Skolemize the left operand.
-    let skolemizedLeft = l.skolemized
-
     // Open the right operand.
     let openedRight = open(type: r)
     var constraints = openedRight.constraints
 
     // Create pairwise subtyping constraints on the parameters.
-    let lhs = skolemizedLeft.base as! CallableType
+    let lhs = l.skolemized.base as! CallableType
     let rhs = openedRight.shape.base as! CallableType
 
-    for i in 0 ..< lhs.inputs.count {
-      // Ignore the passing conventions.
-      guard
-        let bareLHS = ParameterType(lhs.inputs[i].type)?.bareType,
-        let bareRHS = ParameterType(rhs.inputs[i].type)?.bareType
-      else { return false }
-
-      constraints.insert(
-        SubtypingConstraint(bareLHS, bareRHS, because: ConstraintOrigin(.binding, at: site)))
+    for (a, b) in zip(lhs.inputs, rhs.inputs) {
+      constraints.insert(SubtypingConstraint(a.type, b.type, because: .init(.binding, at: site)))
     }
 
     // Solve the constraint system.
-    var solver = ConstraintSolver(scope: scope, fresh: constraints, loggingTrace: false)
-    return !solver.solution(&self).diagnostics.containsError
+    var s = ConstraintSolver(scope: scope, fresh: constraints, loggingTrace: false)
+    return !s.solution(&self).diagnostics.containsError
   }
 
 }

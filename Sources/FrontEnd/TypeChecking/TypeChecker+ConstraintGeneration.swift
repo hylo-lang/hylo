@@ -63,8 +63,7 @@ extension TypeChecker {
         if ty != inferredType {
           constraints.append(
             EqualityConstraint(
-              ^inferredType, ty,
-              because: ConstraintOrigin(.structural, at: ast[subject].site)))
+              ^inferredType, ty, because: .init(.structural, at: ast[subject].site)))
         }
         return ty
       } else {
