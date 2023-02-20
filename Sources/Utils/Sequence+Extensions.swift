@@ -19,4 +19,12 @@ extension Sequence {
     return nil
   }
 
+  /// Returns the number of elements for which `predicate` holds.
+  ///
+  /// - Complexity: O(*n*) where *n* is the length of `self`.
+  /// - Returns: `self.filter(predicate).count`
+  public func elementCount(where predicate: (Element) throws -> Bool) rethrows -> Int {
+    try reduce(0, { (s, e) in try predicate(e) ? s + 1 : s })
+  }
+
 }
