@@ -1112,8 +1112,9 @@ public struct TypeChecker {
 
     // Visit the condition of the loop in the scope of the body.
     let boolType = AnyType(ast.coreType(named: "Bool")!)
-    let t = checkedType(of: ast[subject].condition, subtypeOf: boolType, in: ast[subject].body)
-    return success && (t != nil)
+    return check(
+      ast[subject].condition, in: ast[subject].body, hasType: boolType, cause: .structural)
+      && success
   }
 
   private mutating func check<S: ScopeID>(
@@ -1141,10 +1142,11 @@ public struct TypeChecker {
     let boolType = AnyType(ast.coreType(named: "Bool")!)
     for item in syntax.condition {
       switch item {
-      case .expr(let expr):
+      case .expr(let e):
         // Condition must be Boolean.
-        let t = checkedType(of: expr, subtypeOf: boolType, in: lexicalContext)
-        if t == nil { return false }
+        if !check(e, in: lexicalContext, hasType: boolType, cause: .structural) {
+          return false
+        }
 
       case .decl(let binding):
         if !check(binding: binding) { return false }
@@ -1515,6 +1517,17 @@ public struct TypeChecker {
   }
 
   // MARK: Type inference
+
+  /// Retutns `true` iff `e`, which occurs in `scope`,  has type `t` due to `c`.
+  private mutating func check<S: ScopeID>(
+    _ e: AnyExprID, in scope: S, hasType t: AnyType, cause c: ConstraintOrigin.Kind
+  ) -> Bool {
+    let u = exprTypes[e].setIfNil(^TypeVariable())
+    let i = solutionTyping(
+      e, shapedBy: t, in: scope,
+      initialConstraints: [EqualityConstraint(u, t, because: .init(c, at: ast[e].site))])
+    return i.succeeded
+  }
 
   /// Returns the type of `subject` knowing it occurs in `scope` and is shaped by `shape`, or `nil`
   /// if such type couldn't be deduced.
