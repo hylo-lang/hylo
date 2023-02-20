@@ -12,6 +12,6 @@ public fun main() {
   //! @+1 diagnostic type 'Bool' does not conform to trait 'ExpressibleByIntegerLiteral'
   let x2 = if true { 1 } else { false }
 
-  //! @+1 diagnostic incompatible types 'Int' and 'Double'
+  //! @+1 diagnostic 'Int' is not subtype of 'Double'
   let x3 = if true { x0 } else { x1 }
 }

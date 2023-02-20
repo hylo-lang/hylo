@@ -7,6 +7,6 @@ public struct ErrorType: TypeProtocol {
 
 extension ErrorType: CustomStringConvertible {
 
-  public var description: String { "%error%" }
+  public var description: String { "_" }
 
 }
