@@ -168,7 +168,7 @@ struct ConstraintSolver {
 
   /// Returns `true` iff the constraint `c` failed and isn't subordinate.
   private func iFailureRoot(_ c: ConstraintIdentity) -> Bool {
-    (constraints[c].cause.parent == nil) && (succeeded(c) == false)
+    (constraints[c].origin.parent == nil) && (succeeded(c) == false)
   }
 
   /// Returns whether the constraint `c` succeeded; `.none` indicates that the outcome of the
@@ -231,7 +231,7 @@ struct ConstraintSolver {
       return .success
     } else {
       return .failure { (m, _) in
-        .error(m.reify(goal.subject), doesNotConformTo: missingTraits.first!, at: goal.cause.site)
+        .error(m.reify(goal.subject), doesNotConformTo: missingTraits.first!, at: goal.origin.site)
       }
     }
   }
@@ -259,7 +259,7 @@ struct ConstraintSolver {
       return .success
     } else {
       return .failure { (m, _) in
-        .error(m.reify(goal.subject), doesNotConformTo: goal.literal, at: goal.cause.site)
+        .error(m.reify(goal.subject), doesNotConformTo: goal.literal, at: goal.origin.site)
       }
     }
   }
@@ -275,7 +275,7 @@ struct ConstraintSolver {
     } else {
       return .failure { (m, _) in
         let (l, r) = (m.reify(goal.left), m.reify(goal.right))
-        return .error(type: l, incompatibleWith: r, at: goal.cause.site)
+        return .error(type: l, incompatibleWith: r, at: goal.origin.site)
       }
     }
   }
@@ -300,7 +300,7 @@ struct ConstraintSolver {
       if goal.isStrict {
         postpone(c)
       } else {
-        schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, because: goal.cause))
+        schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
       }
       return nil
 
@@ -316,7 +316,7 @@ struct ConstraintSolver {
         postpone(c)
         return nil
       } else {
-        schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, because: goal.cause))
+        schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
         return nil
       }
 
@@ -337,10 +337,10 @@ struct ConstraintSolver {
       var subordinates: [ConstraintIdentity] = []
       for (a, b) in zip(l.inputs, r.inputs) {
         subordinates.append(
-          schedule(SubtypingConstraint(b.type, a.type, because: goal.cause.subordinate())))
+          schedule(SubtypingConstraint(b.type, a.type, origin: goal.origin.subordinate())))
       }
       subordinates.append(
-        schedule(SubtypingConstraint(l.output, r.output, because: goal.cause.subordinate())))
+        schedule(SubtypingConstraint(l.output, r.output, origin: goal.origin.subordinate())))
       return .product(subordinates, failureToSolve(goal))
 
     case (let l as SumType, _ as SumType):
@@ -348,7 +348,7 @@ struct ConstraintSolver {
       var subordinates: [ConstraintIdentity] = []
       for e in l.elements {
         subordinates.append(
-          schedule(SubtypingConstraint(e, goal.right, because: goal.cause.subordinate())))
+          schedule(SubtypingConstraint(e, goal.right, origin: goal.origin.subordinate())))
       }
       return .product(subordinates, failureToSolve(goal))
 
@@ -382,16 +382,16 @@ struct ConstraintSolver {
   private mutating func failureToSolve(_ c: SubtypingConstraint) -> DiagnoseFailure {
     { (m, _) in
       let (l, r) = (m.reify(c.left), m.reify(c.right))
-      switch c.cause.kind {
+      switch c.origin.kind {
       case .initializationWithHint:
-        return .error(cannotInitialize: l, with: r, at: c.cause.site)
+        return .error(cannotInitialize: l, with: r, at: c.origin.site)
       case .initializationWithPattern:
-        return .error(l, doesNotMatch: r, at: c.cause.site)
+        return .error(l, doesNotMatch: r, at: c.origin.site)
       default:
         if c.isStrict {
-          return .error(l, isNotStrictSubtypeOf: r, at: c.cause.site)
+          return .error(l, isNotStrictSubtypeOf: r, at: c.origin.site)
         } else {
-          return .error(l, isNotSubtypeOf: r, at: c.cause.site)
+          return .error(l, isNotSubtypeOf: r, at: c.origin.site)
         }
       }
     }
@@ -418,15 +418,15 @@ struct ConstraintSolver {
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
       let s = schedule(
-        SubtypingConstraint(goal.left, p.bareType, because: goal.cause.subordinate()))
+        SubtypingConstraint(goal.left, p.bareType, origin: goal.origin.subordinate()))
       return .product([s], { (m, r) in
         let (a, b) = (m.reify(goal.left), m.reify(goal.right))
-        return .error(cannotPass: a, toParameter: b, at: goal.cause.site)
+        return .error(cannotPass: a, toParameter: b, at: goal.origin.site)
       })
 
     default:
       return .failure { (m, _) in
-        .error(invalidParameterType: m.reify(goal.right), at: goal.cause.site)
+        .error(invalidParameterType: m.reify(goal.right), at: goal.origin.site)
       }
     }
   }
@@ -465,7 +465,7 @@ struct ConstraintSolver {
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
       return .failure { (m, _) in
-        .error(undefinedName: goal.memberName, in: m.reify(goal.memberType), at: goal.cause.site)
+        .error(undefinedName: goal.memberName, in: m.reify(goal.memberType), at: goal.origin.site)
       }
     }
 
@@ -475,7 +475,7 @@ struct ConstraintSolver {
       guard unify(pick.type, goal.memberType, querying: checker.relations) else {
         return .failure { (m, _) in
           let (l, r) = (m.reify(pick.type), m.reify(goal.memberType))
-          return .error(type: l, incompatibleWith: r, at: goal.cause.site)
+          return .error(type: l, incompatibleWith: r, at: goal.origin.site)
         }
       }
 
@@ -488,7 +488,7 @@ struct ConstraintSolver {
     let s = schedule(
       OverloadConstraint(
         goal.memberExpr, withType: goal.memberType, refersToOneOf: candidates,
-        because: goal.cause.subordinate()))
+        origin: goal.origin.subordinate()))
     return .product([s], { (m, r) in r[s]!.dianoseFailure!(m, r) })
   }
 
@@ -508,18 +508,18 @@ struct ConstraintSolver {
 
     guard let callee = goal.calleeType.base as? CallableType else {
       return .failure { (m, _) in
-        .error(nonCallableType: m.reify(goal.calleeType), at: goal.cause.site)
+        .error(nonCallableType: m.reify(goal.calleeType), at: goal.origin.site)
       }
     }
 
     // Make sure `F` structurally matches the given parameter list.
     if goal.labels.count != callee.labels.count {
       return .failure { (m, _) in
-        .error(incompatibleParameterCountAt: goal.cause.site)
+        .error(incompatibleParameterCountAt: goal.origin.site)
       }
     } else if !goal.labels.elementsEqual(callee.labels) {
       return .failure { (m, _) in
-        .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.cause.site)
+        .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.origin.site)
       }
     }
 
@@ -527,14 +527,14 @@ struct ConstraintSolver {
     var subordinates: [ConstraintIdentity] = []
     for (a, b) in zip(callee.inputs, goal.parameters) {
       subordinates.append(
-        schedule(EqualityConstraint(a.type, b.type, because: goal.cause.subordinate())))
+        schedule(EqualityConstraint(a.type, b.type, origin: goal.origin.subordinate())))
     }
     subordinates.append(
       schedule(
-        EqualityConstraint(callee.output, goal.returnType, because: goal.cause.subordinate())))
+        EqualityConstraint(callee.output, goal.returnType, origin: goal.origin.subordinate())))
     return .product(subordinates, { (m, _) in
       .error(
-        function: m.reify(goal.calleeType), notCallableWith: goal.parameters, at: goal.cause.site)
+        function: m.reify(goal.calleeType), notCallableWith: goal.parameters, at: goal.origin.site)
     })
   }
 
@@ -561,7 +561,7 @@ struct ConstraintSolver {
     }
 
     return formAmbiguousSolution(
-      results, diagnosedBy: .error(ambiguousDisjunctionAt: goal.cause.site))
+      results, diagnosedBy: .error(ambiguousDisjunctionAt: goal.origin.site))
   }
 
   /// Attempts to solve the remaining constraints with each individual choice in `overload` and
@@ -819,7 +819,7 @@ struct ConstraintSolver {
   private mutating func refreshLiteralConstraints() {
     for i in (0 ..< stale.count).reversed() {
       if let l = constraints[stale[i]] as? LiteralConstraint {
-        let e = EqualityConstraint(l.subject, l.defaultSubject, because: l.cause)
+        let e = EqualityConstraint(l.subject, l.defaultSubject, origin: l.origin)
         log("- decay \(l) => \(e)")
         constraints[stale[i]] = e
         fresh.append(stale.remove(at: i))
@@ -865,12 +865,12 @@ struct ConstraintSolver {
     log("fresh:")
     for c in fresh {
       log("- - \"\(constraints[c])\"")
-      log("  - \"\(constraints[c].cause)\"")
+      log("  - \"\(constraints[c].origin)\"")
     }
     log("stale:")
     for c in stale {
       log("- - \"\(constraints[c])\"")
-      log("  - \"\(constraints[c].cause)\"")
+      log("  - \"\(constraints[c].origin)\"")
     }
   }
 
@@ -993,7 +993,7 @@ extension TypeChecker {
     let rhs = openedRight.shape.base as! CallableType
 
     for (a, b) in zip(lhs.inputs, rhs.inputs) {
-      constraints.insert(SubtypingConstraint(a.type, b.type, because: .init(.binding, at: site)))
+      constraints.insert(SubtypingConstraint(a.type, b.type, origin: .init(.binding, at: site)))
     }
 
     // Solve the constraint system.
@@ -1011,12 +1011,12 @@ extension TypeChecker {
 private func inferenceConstraint(
   _ subtype: AnyType,
   isSubtypeOf supertype: AnyType,
-  because cause: ConstraintOrigin
+  origin: ConstraintOrigin
 ) -> Constraint {
   // If there aren't any type variable in neither `subtype` nor `supertype`, there's nothing to
   // infer and we can return a regular subtyping constraints.
   if !subtype[.hasVariable] && !supertype[.hasVariable] {
-    return SubtypingConstraint(subtype, supertype, because: cause)
+    return SubtypingConstraint(subtype, supertype, origin: origin)
   }
 
   // In other cases, we'll need two explorations. The first will unify `subtype` and `supertype`
@@ -1024,16 +1024,16 @@ private func inferenceConstraint(
   let alternative: Constraint
   if supertype.isLeaf {
     // If the supertype is a leaf, the subtype can only the same type or `Never`.
-    alternative = EqualityConstraint(subtype, .never, because: cause)
+    alternative = EqualityConstraint(subtype, .never, origin: origin)
   } else {
     // Otherwise, the subtype can be any type upper-bounded by the supertype.
-    alternative = SubtypingConstraint(subtype, supertype, strictly: true, because: cause)
+    alternative = SubtypingConstraint(subtype, supertype, strictly: true, origin: origin)
   }
 
   return DisjunctionConstraint(
     choices: [
-      .init(constraints: [EqualityConstraint(subtype, supertype, because: cause)], penalties: 0),
+      .init(constraints: [EqualityConstraint(subtype, supertype, origin: origin)], penalties: 0),
       .init(constraints: [alternative], penalties: 1),
     ],
-    because: cause)
+    origin: origin)
 }

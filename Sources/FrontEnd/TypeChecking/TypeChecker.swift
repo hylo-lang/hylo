@@ -332,12 +332,12 @@ public struct TypeChecker {
         initializerConstraints.append(
           SubtypingConstraint(
             initializerType, shape.type,
-            because: ConstraintOrigin(.initializationWithHint, at: ast[initializer].site)))
+            origin: ConstraintOrigin(.initializationWithHint, at: ast[initializer].site)))
       } else {
         initializerConstraints.append(
           EqualityConstraint(
             initializerType, shape.type,
-            because: ConstraintOrigin(.initializationWithPattern, at: ast[initializer].site)))
+            origin: ConstraintOrigin(.initializationWithPattern, at: ast[initializer].site)))
       }
 
       // Infer the type of the initializer
@@ -474,17 +474,17 @@ public struct TypeChecker {
   ) -> Constraint {
     let l = exprTypes[e].setIfNil(^TypeVariable())
     let c = ConstraintOrigin(.return, at: ast[e].site)
-    let constrainToNever = EqualityConstraint(l, .never, because: c)
+    let constrainToNever = EqualityConstraint(l, .never, origin: c)
 
     if relations.areEquivalent(r, .never) {
       return constrainToNever
     } else {
       return DisjunctionConstraint(
         choices: [
-          .init(constraints: [SubtypingConstraint(l, r, because: c)], penalties: 0),
+          .init(constraints: [SubtypingConstraint(l, r, origin: c)], penalties: 0),
           .init(constraints: [constrainToNever], penalties: 1),
         ],
-        because: c)
+        origin: c)
     }
   }
 
@@ -600,7 +600,7 @@ public struct TypeChecker {
         initialConstraints: [
           ParameterConstraint(
             defaultValueType, ^parameterType,
-            because: ConstraintOrigin(.argument, at: ast[id].site))
+            origin: ConstraintOrigin(.argument, at: ast[id].site))
         ])
 
       if !inference.succeeded {
@@ -1066,13 +1066,13 @@ public struct TypeChecker {
     guard let targetType = checkedType(of: ast[s].left, in: scope) else { return false }
     let lhsConstraint = ConformanceConstraint(
       targetType, conformsTo: [ast.coreTrait(named: "Sinkable")!],
-      because: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
+      origin: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
 
     // Source type must be subtype of the target type.
     let sourceType = exprTypes[ast[s].right].setIfNil(^TypeVariable())
     let rhsConstraint = SubtypingConstraint(
       sourceType, targetType,
-      because: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
+      origin: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
 
     // Note: Type information flows strictly from left to right.
     let inference = solutionTyping(
@@ -1284,7 +1284,7 @@ public struct TypeChecker {
 
       if !traits.isEmpty {
         let cause = ConstraintOrigin(.annotation, at: ast[list[0]].site)
-        constraints.append(ConformanceConstraint(lhs, conformsTo: traits, because: cause))
+        constraints.append(ConformanceConstraint(lhs, conformsTo: traits, origin: cause))
       }
     }
 
@@ -1397,7 +1397,7 @@ public struct TypeChecker {
     constraints.append(
       ConformanceConstraint(
         ^selfType, conformsTo: [declaredTrait],
-        because: ConstraintOrigin(.structural, at: ast[id].identifier.site)))
+        origin: ConstraintOrigin(.structural, at: ast[id].identifier.site)))
 
     let e = GenericEnvironment(
       decl: id, parameters: [selfDecl], constraints: constraints, into: &self)
@@ -1427,7 +1427,7 @@ public struct TypeChecker {
     if !traits.isEmpty {
       constraints.append(
         ConformanceConstraint(
-          lhs, conformsTo: traits, because: .init(.annotation, at: ast[list[0]].site)))
+          lhs, conformsTo: traits, origin: .init(.annotation, at: ast[list[0]].site)))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
@@ -1487,7 +1487,7 @@ public struct TypeChecker {
         return nil
       }
 
-      return EqualityConstraint(a, b, because: ConstraintOrigin(.structural, at: expr.site))
+      return EqualityConstraint(a, b, origin: ConstraintOrigin(.structural, at: expr.site))
 
     case .conformance(let l, let traits):
       guard let a = realize(name: l, in: scope)?.instance else { return nil }
@@ -1508,11 +1508,11 @@ public struct TypeChecker {
       }
 
       return ConformanceConstraint(
-        a, conformsTo: b, because: ConstraintOrigin(.structural, at: expr.site))
+        a, conformsTo: b, origin: ConstraintOrigin(.structural, at: expr.site))
 
     case .value(let e):
       // TODO: Symbolic execution
-      return PredicateConstraint(e, because: ConstraintOrigin(.structural, at: expr.site))
+      return PredicateConstraint(e, origin: ConstraintOrigin(.structural, at: expr.site))
     }
   }
 
@@ -1525,7 +1525,7 @@ public struct TypeChecker {
     let u = exprTypes[e].setIfNil(^TypeVariable())
     let i = solutionTyping(
       e, shapedBy: t, in: scope,
-      initialConstraints: [EqualityConstraint(u, t, because: .init(c, at: ast[e].site))])
+      initialConstraints: [EqualityConstraint(u, t, origin: .init(c, at: ast[e].site))])
     return i.succeeded
   }
 
@@ -1545,7 +1545,7 @@ public struct TypeChecker {
     var c: [Constraint] = []
     if let t = supertype {
       let u = exprTypes[subject].setIfNil(^TypeVariable())
-      c.append(SubtypingConstraint(u, t, because: .init(.structural, at: ast[subject].site)))
+      c.append(SubtypingConstraint(u, t, origin: .init(.structural, at: ast[subject].site)))
     }
 
     let i = solutionTyping(subject, shapedBy: supertype, in: scope, initialConstraints: c)

@@ -13,13 +13,13 @@ public struct ParameterConstraint: Constraint, Hashable {
   /// The right operand.
   public private(set) var right: AnyType
 
-  public let cause: ConstraintOrigin
+  public let origin: ConstraintOrigin
 
   /// Creates an instance with the given properties.
-  public init(_ left: AnyType, _ right: AnyType, because cause: ConstraintOrigin) {
+  public init(_ left: AnyType, _ right: AnyType, origin: ConstraintOrigin) {
     self.left = left
     self.right = right
-    self.cause = cause
+    self.origin = origin
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {

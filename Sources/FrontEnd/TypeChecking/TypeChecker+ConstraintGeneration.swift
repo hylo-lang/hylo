@@ -63,7 +63,7 @@ extension TypeChecker {
         if ty != inferredType {
           constraints.append(
             EqualityConstraint(
-              ^inferredType, ty, because: .init(.structural, at: ast[subject].site)))
+              ^inferredType, ty, origin: .init(.structural, at: ast[subject].site)))
         }
         return ty
       } else {
@@ -216,7 +216,7 @@ extension TypeChecker {
       state.facts.append(
         SubtypingConstraint(
           lhsType, rhs.shape,
-          because: ConstraintOrigin(.cast, at: syntax.site)))
+          origin: ConstraintOrigin(.cast, at: syntax.site)))
 
     case .builtinPointerConversion:
       // The type of the left operand must be `Builtin.Pointer`.
@@ -224,7 +224,7 @@ extension TypeChecker {
       state.facts.append(
         EqualityConstraint(
           lhsType, .builtin(.ptr),
-          because: ConstraintOrigin(.cast, at: syntax.site)))
+          origin: ConstraintOrigin(.cast, at: syntax.site)))
     }
 
     // In any case, the expression is assumed to have the type denoted by the right operand.
@@ -257,12 +257,12 @@ extension TypeChecker {
     let firstBranch = inferredType(
       of: syntax.success, shapedBy: shape, in: scope, updating: &state)
     state.facts.append(
-      SubtypingConstraint(firstBranch, t, because: .init(.branchMerge, at: ast[subject].site)))
+      SubtypingConstraint(firstBranch, t, origin: .init(.branchMerge, at: ast[subject].site)))
 
     let secondBranch = inferredType(
       of: syntax.failure, shapedBy: shape, in: scope, updating: &state)
     state.facts.append(
-      SubtypingConstraint(secondBranch, t, because: .init(.branchMerge, at: ast[subject].site)))
+      SubtypingConstraint(secondBranch, t, origin: .init(.branchMerge, at: ast[subject].site)))
 
     return state.facts.constrain(subject, in: ast, toHaveType: t)
   }
@@ -320,7 +320,7 @@ extension TypeChecker {
       state.facts.append(
         FunctionCallConstraint(
           calleeType, takes: parameters, andReturns: returnType,
-          because: ConstraintOrigin(.callee, at: ast[syntax.callee].site)))
+          origin: ConstraintOrigin(.callee, at: ast[syntax.callee].site)))
 
       return state.facts.constrain(subject, in: ast, toHaveType: returnType)
     }
@@ -457,7 +457,7 @@ extension TypeChecker {
     if o.base is TypeVariable {
       if case .expr(let body) = ast[syntax.decl].body {
         let e = inferredType(of: body, shapedBy: o, in: AnyScopeID(syntax.decl), updating: &state)
-        state.facts.append(SubtypingConstraint(e, o, because: .init(.return, at: ast[body].site)))
+        state.facts.append(SubtypingConstraint(e, o, origin: .init(.return, at: ast[body].site)))
       } else {
         report(.error(cannotInferComplexReturnTypeAt: ast[syntax.decl].introducerSite))
         return state.facts.assignErrorType(to: subject)
@@ -530,7 +530,7 @@ extension TypeChecker {
         MemberConstraint(
           lastVisitedComponentType!, hasMemberReferredToBy: component, ofType: memberType,
           in: ast,
-          because: ConstraintOrigin(.member, at: ast[component].site)))
+          origin: ConstraintOrigin(.member, at: ast[component].site)))
       lastVisitedComponentType = state.facts.constrain(component, in: ast, toHaveType: memberType)
     }
 
@@ -574,7 +574,7 @@ extension TypeChecker {
       state.facts.append(
         ParameterConstraint(
           rhsType, parameterType,
-          because: ConstraintOrigin(.argument, at: ast.site(of: rhs))))
+          origin: ConstraintOrigin(.argument, at: ast.site(of: rhs))))
 
       let outputType = ^TypeVariable()
       let calleeType = LambdaType(
@@ -589,7 +589,7 @@ extension TypeChecker {
         MemberConstraint(
           lhsType, hasMemberReferredToBy: callee.expr, ofType: ^calleeType,
           in: ast,
-          because: ConstraintOrigin(.member, at: ast[callee.expr].site)))
+          origin: ConstraintOrigin(.member, at: ast[callee.expr].site)))
 
       return outputType
 
@@ -640,7 +640,7 @@ extension TypeChecker {
       state.facts.append(
         EqualityConstraint(
           calleeType, ^assumedCalleeType,
-          because: ConstraintOrigin(.callee, at: ast[syntax.callee].site)))
+          origin: ConstraintOrigin(.callee, at: ast[syntax.callee].site)))
 
       return state.facts.constrain(subject, in: ast, toHaveType: returnType)
     }
@@ -783,7 +783,7 @@ extension TypeChecker {
       if !relations.areEquivalent(defaultType, e) {
         let literalTrait = ast.coreTrait(forTypesExpressibleBy: T.self)!
         state.facts.append(
-          LiteralConstraint(e, defaultsTo: defaultType, conformsTo: literalTrait, because: cause))
+          LiteralConstraint(e, defaultsTo: defaultType, conformsTo: literalTrait, origin: cause))
       }
       return state.facts.constrain(subject, in: ast, toHaveType: e)
     } else {
@@ -849,7 +849,7 @@ extension TypeChecker {
           state.facts.append(
             SubtypingConstraint(
               subjectType, t,
-              because: ConstraintOrigin(.annotation, at: ast[subject].site)))
+              origin: ConstraintOrigin(.annotation, at: ast[subject].site)))
 
         }
         subpatternType = subjectType
@@ -985,7 +985,7 @@ extension TypeChecker {
       state.facts.append(
         ParameterConstraint(
           argumentType, parameters[i].type,
-          because: ConstraintOrigin(.argument, at: ast[argumentExpr].site)))
+          origin: ConstraintOrigin(.argument, at: ast[argumentExpr].site)))
     }
 
     return true
@@ -1011,7 +1011,7 @@ extension TypeChecker {
       state.facts.append(
         ParameterConstraint(
           argumentType, parameterType,
-          because: ConstraintOrigin(.argument, at: ast[argumentExpr].site)))
+          origin: ConstraintOrigin(.argument, at: ast[argumentExpr].site)))
 
       let argumentLabel = arguments[i].label?.value
       parameters.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
@@ -1079,7 +1079,7 @@ extension TypeChecker {
       state.facts.append(
         OverloadConstraint(
           name, withType: nameType, refersToOneOf: overloads,
-          because: ConstraintOrigin(.binding, at: ast[name].site)))
+          origin: ConstraintOrigin(.binding, at: ast[name].site)))
       return state.facts.constrain(name, in: ast, toHaveType: nameType)
     }
   }

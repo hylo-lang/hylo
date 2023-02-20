@@ -183,7 +183,7 @@ extension Diagnostic {
   }
 
   static func error(staleConstraint c: any Constraint) -> Diagnostic {
-    .error("stale constraint '\(c)'", at: c.cause.site)
+    .error("stale constraint '\(c)'", at: c.origin.site)
   }
 
   static func error(
