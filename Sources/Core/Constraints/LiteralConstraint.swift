@@ -10,23 +10,23 @@ public struct LiteralConstraint: Constraint, Hashable {
   public private(set) var defaultSubject: AnyType
 
   /// The trait to which `subject` must conform.
-  public let literalTrait: TraitType
+  public let literal: TraitType
 
   public let cause: ConstraintOrigin
 
   /// Creates an instance with the given properties.
   ///
-  /// - Requires: `literalTrait` must be one of the `ExpressibleBy***Literal` in the core library
-  ///   and `defaultSubject` must conform to `literalTrait`.
+  /// - Requires: `literal` must be one of the `ExpressibleBy***Literal` in the core library and
+  ///  `defaultSubject` must conform to `literal`.
   public init(
     _ subject: AnyType,
     defaultsTo defaultSubject: AnyType,
-    conformsTo literalTrait: TraitType,
+    conformsTo literal: TraitType,
     because cause: ConstraintOrigin
   ) {
     self.subject = subject
     self.defaultSubject = defaultSubject
-    self.literalTrait = literalTrait
+    self.literal = literal
     self.cause = cause
   }
 
@@ -40,7 +40,7 @@ public struct LiteralConstraint: Constraint, Hashable {
 extension LiteralConstraint: CustomStringConvertible {
 
   public var description: String {
-    "(\(subject) ?? \(defaultSubject)) : \(literalTrait)"
+    "(\(subject) ?? \(defaultSubject)) : \(literal)"
   }
 
 }
