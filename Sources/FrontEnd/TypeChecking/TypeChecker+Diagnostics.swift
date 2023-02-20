@@ -183,7 +183,7 @@ extension Diagnostic {
   }
 
   static func error(staleConstraint c: any Constraint) -> Diagnostic {
-    .error("stale constraint '\(c)'", at: c.cause.site)
+    .error("stale constraint '\(c)'", at: c.origin.site)
   }
 
   static func error(
@@ -286,8 +286,10 @@ extension Diagnostic {
       at: site)
   }
 
-  static func error(_ valueType: AnyType, doesNotMatchPatternAt site: SourceRange) -> Diagnostic {
-    .error("value of type '\(valueType)' does not match binding pattern", at: site)
+  static func error(
+    _ l: AnyType, doesNotMatch pattern: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .error("value of type '\(l)' does not match pattern '\(pattern)'", at: site)
   }
 
   static func error(
@@ -309,6 +311,18 @@ extension Diagnostic {
 
   static func error(mutatingBundleMustReturn t: TupleType, at site: SourceRange) -> Diagnostic {
     .error("mutating bundle must return '\(t)'", at: site)
+  }
+
+  static func error(
+    function c: AnyType, notCallableWith a: [CallableTypeParameter], at site: SourceRange
+  ) -> Diagnostic {
+    .error("function '\(c)' is not callable with arguments of type \(a)", at: site)
+  }
+
+  static func error(
+    cannotPass t: AnyType, toParameter u: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .error("cannot pass value of type '\(t)' to parameter '\(u)'", at: site)
   }
 
 }

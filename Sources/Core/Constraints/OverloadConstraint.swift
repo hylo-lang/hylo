@@ -38,7 +38,7 @@ public struct OverloadConstraint: Constraint, Hashable {
   /// The choices of the disjunction.
   public private(set) var choices: [Candidate]
 
-  public let cause: ConstraintCause
+  public let origin: ConstraintOrigin
 
   /// Creates an instance with the given properties.
   ///
@@ -47,21 +47,20 @@ public struct OverloadConstraint: Constraint, Hashable {
     _ expr: NodeID<NameExpr>,
     withType type: AnyType,
     refersToOneOf choices: [Candidate],
-    because cause: ConstraintCause
+    origin: ConstraintOrigin
   ) {
     precondition(choices.count >= 2)
 
     // Insert an equality constraint in all candidates.
     self.choices = choices.map({ (c) -> Candidate in
-      var constraints = c.constraints
-      constraints.insert(EqualityConstraint(type, c.type, because: cause))
-      return .init(
-        reference: c.reference, type: c.type, constraints: constraints, penalties: c.penalties)
+      var a = c.constraints
+      a.insert(EqualityConstraint(type, c.type, origin: origin))
+      return .init(reference: c.reference, type: c.type, constraints: a, penalties: c.penalties)
     })
 
     self.overloadedExpr = expr
     self.overloadedExprType = type
-    self.cause = cause
+    self.origin = origin
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {

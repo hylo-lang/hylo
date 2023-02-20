@@ -1,8 +1,8 @@
-/// An object describing the cause of a constraint.
-public struct ConstraintCause: Hashable {
+/// The site from which a constraint originates and the reason why it was formed.
+public struct ConstraintOrigin: Hashable {
 
-  /// The kind of a constraint cause.
-  public enum Kind {
+  /// The reason why a constraint was formed.
+  public enum Kind: Hashable {
 
     /// The constraint is caused by a type annotation.
     case annotation
@@ -40,6 +40,9 @@ public struct ConstraintCause: Hashable {
     /// The constraint is caused by some structural property of the AST.
     case structural
 
+    /// The constraint is caused by another constraint.
+    indirect case subordinate(parent: ConstraintOrigin)
+
     /// The constraint is caused by a return statement.
     case `return`
 
@@ -48,7 +51,7 @@ public struct ConstraintCause: Hashable {
 
   }
 
-  /// The kind this cause.
+  /// The reason of the constraint.
   public let kind: Kind
 
   /// The site from which the constraint originates.
@@ -60,12 +63,24 @@ public struct ConstraintCause: Hashable {
     self.site = site
   }
 
+  /// Returns the parent of this instance if it has kind `.subordinate`.
+  public var parent: ConstraintOrigin? {
+    if case .subordinate(let p) = kind {
+      return p
+    } else {
+      return nil
+    }
+  }
+
+  /// Returns a subordinate of this instance with given `id`.
+  public func subordinate() -> ConstraintOrigin {
+    .init(.subordinate(parent: self), at: site)
+  }
+
 }
 
-extension ConstraintCause: CustomStringConvertible {
+extension ConstraintOrigin: CustomStringConvertible {
 
-  public var description: String {
-    "\(kind)@\(site)"
-  }
+  public var description: String { .init(describing: kind) }
 
 }
