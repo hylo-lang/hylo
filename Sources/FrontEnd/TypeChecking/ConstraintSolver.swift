@@ -11,7 +11,7 @@ struct ConstraintSolver {
   private typealias ConstraintIdentity = Int
 
   /// A map from constraint identity to the outcome of its solving.
-  private typealias OutcomeMap = [ConstraintIdentity: Outcome]
+  private typealias OutcomeMap = [Outcome?]
 
   /// A closure diagnosing the failure of a constraint, using `m` to reify types and reading the
   /// outcome of constraint solving from `o`.
@@ -58,17 +58,19 @@ struct ConstraintSolver {
   /// The scope in which the constraints are solved.
   private let scope: AnyScopeID
 
-  /// The constraints in the system.
+  /// The constraints in the system, along with their outcome.
   private var constraints: [Constraint] = []
+
+  /// A map from constraint identity to the outcome of its solving.
+  ///
+  /// - Invariant: This array has the same length as `this.constraints`.
+  private var outcomes: OutcomeMap = []
 
   /// The fresh constraints to solve.
   private var fresh: [ConstraintIdentity] = []
 
   /// The constraints that are currently stale.ß
   private var stale: [ConstraintIdentity] = []
-
-  /// A map from constraint identity to the outcome of its solving.
-  private var outcomes: OutcomeMap = [:]
 
   /// The type assumptions of the solver.
   private var typeAssumptions = SubstitutionMap()
@@ -96,6 +98,7 @@ struct ConstraintSolver {
   ) where S.Element == Constraint {
     self.scope = scope
     self.constraints = Array(fresh)
+    self.outcomes = Array(repeating: nil, count: constraints.count)
     self.fresh = Array(constraints.indices)
     self.isLoggingEnabled = isLoggingEnabled
   }
@@ -159,7 +162,7 @@ struct ConstraintSolver {
   /// The cost of a solution increases monotonically when a constraint is eliminated.
   private func score() -> Solution.Score {
     .init(
-      errorCount: outcomes.keys.elementCount(where: iFailureRoot),
+      errorCount: constraints.indices.elementCount(where: iFailureRoot),
       penalties: penalties)
   }
 
@@ -687,13 +690,13 @@ struct ConstraintSolver {
   /// Inserts `c` into the fresh set and returns its identity.
   @discardableResult
   private mutating func insert(fresh c: Constraint) -> ConstraintIdentity {
-    let newIdentity: ConstraintIdentity
-    if let i = constraints.firstIndex(where: { $0.equals(c) }) {
-      newIdentity = i
-    } else {
-      newIdentity = constraints.count
-      constraints.append(c)
-    }
+    // Note: It could be worth looking for the index of a constraint equal to `c` rather than
+    // appending it so that we don't solve the same constraint twice. However, efficient lookup
+    // would require a set while we need constraint indices to be stable identities. One solution
+    // would be to implement `contraints` and `outcomes` as persistent data structures.
+    let newIdentity = constraints.count
+    constraints.append(c)
+    outcomes.append(nil)
     fresh.append(newIdentity)
     return newIdentity
   }
@@ -830,8 +833,8 @@ struct ConstraintSolver {
     let m = typeAssumptions.optimized()
 
     var d = DiagnosticSet(stale.map({ Diagnostic.error(staleConstraint: constraints[$0]) }))
-    for (k, v) in outcomes where iFailureRoot(k) {
-      d.insert(v.dianoseFailure!(m, outcomes))
+    for (k, v) in zip(constraints.indices, outcomes) where iFailureRoot(k) {
+      d.insert(v!.dianoseFailure!(m, outcomes))
     }
 
     return Solution(
