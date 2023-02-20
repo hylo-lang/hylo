@@ -40,6 +40,9 @@ public struct ConstraintOrigin: Hashable {
     /// The constraint is caused by some structural property of the AST.
     case structural
 
+    /// The constraint is caused by another constraint.
+    indirect case subordinate(parent: ConstraintOrigin, id: Int)
+
     /// The constraint is caused by a return statement.
     case `return`
 
@@ -60,12 +63,24 @@ public struct ConstraintOrigin: Hashable {
     self.site = site
   }
 
+  /// Returns the parent of this instance if it has kind `.subordinate`.
+  public var parent: ConstraintOrigin? {
+    if case .subordinate(let p, _) = kind {
+      return p
+    } else {
+      return nil
+    }
+  }
+
+  /// Returns a subordinate of this instance with given `id`.
+  public func subordinate(_ id: Int) -> ConstraintOrigin {
+    ConstraintOrigin(.subordinate(parent: self, id: id), at: site)
+  }
+
 }
 
 extension ConstraintOrigin: CustomStringConvertible {
 
-  public var description: String {
-    "\(kind)@\(site)"
-  }
+  public var description: String { .init(describing: kind) }
 
 }
