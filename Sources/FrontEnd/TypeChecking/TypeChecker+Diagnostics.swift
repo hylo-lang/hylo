@@ -319,4 +319,10 @@ extension Diagnostic {
     .error("function '\(c)' is not callable with arguments of type \(a)", at: site)
   }
 
+  static func error(
+    cannotPass t: AnyType, toParameter u: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .error("cannot pass value of type '\(t)' to parameter '\(u)'", at: site)
+  }
+
 }

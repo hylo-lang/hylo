@@ -405,7 +405,10 @@ struct ConstraintSolver {
     case let p as ParameterType:
       // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
       // arguments passed mutably is verified after type inference.
-      return solve(subtyping: .init(goal.left, p.bareType, because: goal.cause), using: &checker)
+      let s = schedule(SubtypingConstraint(goal.left, p.bareType, because: c.cause.subordinate(0)))
+      return .product([s], { (m, r) in
+        .error(cannotPass: m.reify(c.left), toParameter: m.reify(c.right), at: c.cause.site)
+      })
 
     default:
       return .failure { (m, _) in
