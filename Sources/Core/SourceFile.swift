@@ -277,22 +277,31 @@ extension SourceFile: CustomStringConvertible {
 /// the actual source files to process.
 ///
 /// Paths of files in `sourcePaths` are unconditionally treated as Val source files. Paths of
-/// directories are recursively searched for `.val` files, which are considered Val `sourceFiles`;
+/// directories are recursively searched for `.val` files, which are considered Val source files;
 /// all others are treated as non-source files and are ignored.
-public func sourceFiles<S: Collection>(in sourcePaths: S) throws -> [SourceFile]
-where S.Element == URL {
-  let explicitSourcePaths = sourcePaths.filter { !$0.hasDirectoryPath }
-  let sourceDirectoryPaths = sourcePaths.filter { $0.hasDirectoryPath }
-
-  // Recursively search the directory paths, adding .val files to `sourceFiles`
-  var result = try explicitSourcePaths.map(SourceFile.init)
-  for d in sourceDirectoryPaths {
-    try withFiles(in: d) { f in
-      if f.pathExtension == "val" {
-        try result.append(SourceFile(contentsOf: f))
-      }
-      return true
+public func sourceFiles<S: Sequence<URL>>(in sourcePaths: S) throws -> [SourceFile] {
+  try sourcePaths.reduce(into: []) { (result, f) in
+    if !f.hasDirectoryPath {
+      try result.append(SourceFile(contentsOf: f))
+    } else {
+      try result.append(contentsOf: sourceFiles(in: f, withExtension: "val"))
     }
+  }
+}
+
+/// Returns the source source files in `directory`.
+///
+/// `directory` is recursively searched for files with extension `e`; all others are treated as
+/// non-source files and are ignored. If `directory` is a filename, the function returns `[]`.
+public func sourceFiles(in directory: URL, withExtension e: String) throws -> [SourceFile] {
+  let allFiles = FileManager.default.enumerator(
+    at: directory,
+    includingPropertiesForKeys: [.isRegularFileKey],
+    options: [.skipsHiddenFiles, .skipsPackageDescendants])!
+
+  var result: [SourceFile] = []
+  for case let f as URL in allFiles where f.pathExtension == e {
+    try result.append(SourceFile(contentsOf: f))
   }
   return result
 }
