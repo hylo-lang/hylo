@@ -1,45 +1,45 @@
 import Core
 import Utils
 
-/// A constraint system solver.
-struct ConstraintSolver {
+/// A collection of constraints over a set of open type variables and a set of unresolved name
+/// expressions.
+struct ConstraintSystem {
 
   /// The solution of an exploration given a particular choice.
   private typealias Exploration<T> = (choice: T, solution: Solution)
 
-  /// The identity of a constraint in an instance of `ConstraintSolver`.
-  private typealias ConstraintIdentity = Int
+  /// The identity of a gaol in an instance of `ConstraintSystem`.
+  private typealias GoalIdentity = Int
 
-  /// A map from constraint identity to the outcome of its solving.
+  /// A map from goal to its outcome.
   private typealias OutcomeMap = [Outcome?]
 
-  /// A closure diagnosing the failure of a constraint, using `m` to reify types and reading the
-  /// outcome of constraint solving from `o`.
+  /// A closure diagnosing the failure of a goal, using `m` to reify types and reading the outcome
+  /// of other goals from `o`.
   private typealias DiagnoseFailure = (
     _ m: SubstitutionMap,
     _ o: OutcomeMap
   ) -> Diagnostic
 
-  /// The outcome of the solving of a type constraint.
+  /// The outcome of a goal.
   private enum Outcome {
 
-    /// The constraint was solved.
+    /// The goal was solved.
     ///
-    /// Information inferred from the constraint has been stored in the solver's state.
+    /// Information inferred from the goal has been stored in the solver's state.
     case success
 
-    /// The constraint was unsatisfiable.
+    /// The goal was unsatisfiable.
     ///
-    /// The constraint was in conflict with the information inferred by the solver. The payload
-    /// is a closure that generates a diagnostic of the conflict.
+    /// The goal was in conflict with the information inferred by the solver. The payload is a
+    /// closure that generates a diagnostic of the conflict.
     case failure(DiagnoseFailure)
 
-    /// The constraint was broken into subordinate constraints.
+    /// The goal was broken into subordinate goal.
     ///
-    /// The payload is a non-empty array of subordinate constraints along with a closure that
-    /// generates a diagnostic will be used to generate a diagnostic in case one of the
-    /// subordinate constraints is unsatisfiable.
-    case product([ConstraintIdentity], DiagnoseFailure)
+    /// The payload is a non-empty array of subordinate goals along with a closure that's used to
+    /// generate a diagnostic in case one of the subordinate goals are unsatisfiable.
+    case product([GoalIdentity], DiagnoseFailure)
 
     /// Returns the diagnosis constructor of `.failure` or `.product` payload.
     var dianoseFailure: DiagnoseFailure? {
@@ -55,30 +55,41 @@ struct ConstraintSolver {
 
   }
 
-  /// The scope in which the constraints are solved.
+  /// The scope in which the goals are solved.
   private let scope: AnyScopeID
 
-  /// The constraints in the system, along with their outcome.
-  private var constraints: [Constraint] = []
+  /// The goals in the system.
+  private var goals: [Constraint] = []
 
-  /// A map from constraint identity to the outcome of its solving.
+  /// A map from goal its outcome.
   ///
-  /// - Invariant: This array has the same length as `this.constraints`.
+  /// - Invariant: This array has the same length as `this.goals`.
   private var outcomes: OutcomeMap = []
 
-  /// The fresh constraints to solve.
-  private var fresh: [ConstraintIdentity] = []
+  /// The fresh goals to solve.
+  private var fresh: [GoalIdentity] = []
 
-  /// The constraints that are currently stale.ß
-  private var stale: [ConstraintIdentity] = []
+  /// The goals that are currently stale.
+  private var stale: [GoalIdentity] = []
 
-  /// The type assumptions of the solver.
+  /// A map from open type variable to its assignment.
+  ///
+  /// This map is monotonically extended during constraint solving to assign a type to each open
+  /// variable in the constraint system. A system is complete if it can be used to derive a
+  /// complete substitution map w.r.t. its open type variables.
   private var typeAssumptions = SubstitutionMap()
 
-  /// The binding assumptions of the solver.
+  /// A map from name expression to its referred declaration.
+  ///
+  /// This map is monotonically extended during constraint solving to assign a declaration to each
+  /// unresolved name expression in the constraint system. A system is complete if it can be used
+  /// to derive a complete name binding map w.r.t. its unresolved name expressions.
   private var bindingAssumptions: [NodeID<NameExpr>: DeclRef] = [:]
 
-  /// The current penalties of the solver's solution.
+  /// The penalties associated with the constraint system.
+  ///
+  /// This value serves to prune explorations that cannot produce a better solution than one
+  /// already computed.
   private var penalties: Int = 0
 
   /// The score of the best solution computed so far.
@@ -90,63 +101,60 @@ struct ConstraintSolver {
   /// The current indentation level for logging messages.
   private var indentation = 0
 
-  /// Creates an instance that solves the constraints in `fresh` in `scope`.
-  init<S: Sequence>(
-    scope: AnyScopeID,
-    fresh: S,
-    loggingTrace isLoggingEnabled: Bool
-  ) where S.Element == Constraint {
+  /// Creates an instance with given `constraints` defined in `scope`.
+  init<S: Sequence<Constraint>>(
+    _ constraints: S, in scope: AnyScopeID, loggingTrace isLoggingEnabled: Bool
+  ) {
     self.scope = scope
-    self.constraints = Array(fresh)
-    self.outcomes = Array(repeating: nil, count: constraints.count)
-    self.fresh = Array(constraints.indices)
+    self.goals = Array(constraints)
+    self.outcomes = Array(repeating: nil, count: goals.count)
+    self.fresh = Array(goals.indices)
     self.isLoggingEnabled = isLoggingEnabled
   }
 
-  /// Returns the best solution solving the constraints in `self` using `checker` to query type
-  /// relations and resolve names.
+  /// Solves this instance using `checker` to query type relations and resolve names, returning the
+  /// best solution.
   mutating func solution(_ checker: inout TypeChecker) -> Solution {
-    solveConstraints(&checker)!
+    betterSolution(&checker)!
   }
 
-  /// Returns the best solution solving the constraints in `self` using `checker` to query type
-  /// relations and resolve names or `nil` if no solution with a score better than `self.bestScore`
-  /// can be found.
-  private mutating func solveConstraints(_ checker: inout TypeChecker) -> Solution? {
+  /// Solves this instance using `checker` to query type relations and resolve names, returning the
+  /// best solution or `nil` if no solution with a score better than `self.bestScore` can be found.
+  private mutating func betterSolution(_ checker: inout TypeChecker) -> Solution? {
     logState()
     log("steps:")
 
-    while let c = fresh.popLast() {
+    while let g = fresh.popLast() {
       // Make sure the current solution is still worth exploring.
       if score() > bestScore {
         log("- abort")
         return nil
       }
 
-      constraints[c].modifyTypes({ typeAssumptions[$0] })
-      log("- solve: \"\(constraints[c])\"")
+      goals[g].modifyTypes({ typeAssumptions[$0] })
+      log("- solve: \"\(goals[g])\"")
       indentation += 1; defer { indentation -= 1 }
       log("actions:")
 
-      switch constraints[c] {
+      switch goals[g] {
       case is ConformanceConstraint:
-        setOutcome(solve(conformance: c, using: &checker), for: c)
+        setOutcome(solve(conformance: g, using: &checker), for: g)
       case is LiteralConstraint:
-        setOutcome(solve(literal: c, using: &checker), for: c)
+        setOutcome(solve(literal: g, using: &checker), for: g)
       case is EqualityConstraint:
-        setOutcome(solve(equality: c, using: &checker), for: c)
+        setOutcome(solve(equality: g, using: &checker), for: g)
       case is SubtypingConstraint:
-        setOutcome(solve(subtyping: c, using: &checker), for: c)
+        setOutcome(solve(subtyping: g, using: &checker), for: g)
       case is ParameterConstraint:
-        setOutcome(solve(parameter: c, using: &checker), for: c)
+        setOutcome(solve(parameter: g, using: &checker), for: g)
       case is MemberConstraint:
-        setOutcome(solve(member: c, using: &checker), for: c)
+        setOutcome(solve(member: g, using: &checker), for: g)
       case is FunctionCallConstraint:
-        setOutcome(solve(functionCall: c, using: &checker), for: c)
+        setOutcome(solve(functionCall: g, using: &checker), for: g)
       case is DisjunctionConstraint:
-        return solve(disjunction: c, using: &checker)
+        return solve(disjunction: g, using: &checker)
       case is OverloadConstraint:
-        return solve(overload: c, using: &checker)
+        return solve(overload: g, using: &checker)
       default:
         unreachable()
       }
@@ -162,19 +170,18 @@ struct ConstraintSolver {
   /// The cost of a solution increases monotonically when a constraint is eliminated.
   private func score() -> Solution.Score {
     .init(
-      errorCount: constraints.indices.elementCount(where: iFailureRoot),
+      errorCount: goals.indices.elementCount(where: iFailureRoot),
       penalties: penalties)
   }
 
-  /// Returns `true` iff the constraint `c` failed and isn't subordinate.
-  private func iFailureRoot(_ c: ConstraintIdentity) -> Bool {
-    (constraints[c].origin.parent == nil) && (succeeded(c) == false)
+  /// Returns `true` iff the solving `g` failed and `g` isn't subordinate.
+  private func iFailureRoot(_ g: GoalIdentity) -> Bool {
+    (goals[g].origin.parent == nil) && (succeeded(g) == false)
   }
 
-  /// Returns whether the constraint `c` succeeded; `.none` indicates that the outcome of the
-  /// constraint hasn't been computed yet.
-  private func succeeded(_ c: ConstraintIdentity) -> ThreeValuedBit {
-    switch outcomes[c] {
+  /// Returns whether the solving `g` succeeded or `.none` if outcome has been computed yet.
+  private func succeeded(_ g: GoalIdentity) -> ThreeValuedBit {
+    switch outcomes[g] {
     case nil:
       return nil
     case .some(.success):
@@ -186,8 +193,8 @@ struct ConstraintSolver {
     }
   }
 
-  /// Records the outcome `value` for the constraint `key`.
-  private mutating func setOutcome(_ value: Outcome?, for key: ConstraintIdentity) {
+  /// Records the outcome `value` for the goal `key`.
+  private mutating func setOutcome(_ value: Outcome?, for key: GoalIdentity) {
     switch value {
     case nil:
       log("- defer")
@@ -203,18 +210,18 @@ struct ConstraintSolver {
     outcomes[key] = value
   }
 
-  /// Returns either `.success` if `c.subject` conforms to `c.traits`, `.failure` if it doesn't, or
+  /// Returns either `.success` if `g.subject` conforms to `g.traits`, `.failure` if it doesn't, or
   /// `nil` if neither of these outcomes can be be determined yet.
   private mutating func solve(
-    conformance c: ConstraintIdentity,
+    conformance g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = constraints[c] as! ConformanceConstraint
+    let goal = goals[g] as! ConformanceConstraint
 
     var missingTraits: Set<TraitType>
     switch goal.subject.base {
     case is TypeVariable:
-      postpone(c)
+      postpone(g)
       return nil
 
     case is BuiltinType:
@@ -236,19 +243,19 @@ struct ConstraintSolver {
     }
   }
 
-  /// Returns either `.success` if `c.subject` conforms to `c.literalTrait`, `.failure` if it
+  /// Returns either `.success` if `g.subject` conforms to `g.literalTrait`, `.failure` if it
   /// doesn't, or `nil` if neither of these outcomes can be determined yet.
   private mutating func solve(
-    literal c: ConstraintIdentity,
+    literal g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = constraints[c] as! LiteralConstraint
+    let goal = goals[g] as! LiteralConstraint
     if checker.relations.areEquivalent(goal.subject, goal.defaultSubject) {
       return .success
     }
 
     if goal.subject.base is TypeVariable {
-      postpone(c)
+      postpone(g)
       return nil
     }
 
@@ -264,12 +271,12 @@ struct ConstraintSolver {
     }
   }
 
-  /// Returns eiteher `.success` if `c.left` is unifiable with `c.right` or `.failure` otherwise.
+  /// Returns eiteher `.success` if `g.left` is unifiable with `g.right` or `.failure` otherwise.
   private mutating func solve(
-    equality c: ConstraintIdentity,
+    equality g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Outcome {
-    let goal = constraints[c] as! EqualityConstraint
+    let goal = goals[g] as! EqualityConstraint
     if unify(goal.left, goal.right, querying: checker.relations) {
       return .success
     } else {
@@ -280,14 +287,14 @@ struct ConstraintSolver {
     }
   }
 
-  /// Returns either `.success` if `c.left` is (strictly) subtype of `c.right`, `.failure` if it
-  /// isn't, `.product` if `c` must be broken down to smaller constraints, or `nil` if that can't
-  /// be determined yet.
+  /// Returns either `.success` if `g.left` is (strictly) subtype of `g.right`, `.failure` if it
+  /// isn't, `.product` if `g` must be broken down to smaller goals, or `nil` if that can't be
+  /// determined yet.
   private mutating func solve(
-    subtyping c: ConstraintIdentity,
+    subtyping g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = constraints[c] as! SubtypingConstraint
+    let goal = goals[g] as! SubtypingConstraint
     if checker.relations.areEquivalent(goal.left, goal.right) {
       return goal.isStrict ? .failure(failureToSolve(goal)) : .success
     }
@@ -296,9 +303,9 @@ struct ConstraintSolver {
     case (_, _ as TypeVariable):
       // The type variable is above a more concrete type. We should compute the "join" of all types
       // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
-      // choice but to postpone the constraint.
+      // choice but to postpone the goal.
       if goal.isStrict {
-        postpone(c)
+        postpone(g)
       } else {
         schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
       }
@@ -307,13 +314,13 @@ struct ConstraintSolver {
     case (_ as TypeVariable, _):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
       // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
-      // If it isn't, we have no choice but to postpone the constraint.
+      // If it isn't, we have no choice but to postpone the goal.
       if goal.right.isLeaf {
         return unify(goal.left, goal.right, querying: checker.relations)
           ? .success
           : .failure(failureToSolve(goal))
       } else if goal.isStrict {
-        postpone(c)
+        postpone(g)
         return nil
       } else {
         schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
@@ -334,7 +341,7 @@ struct ConstraintSolver {
       }
 
       // Parameters are contravariant; return types are covariant.
-      var subordinates: [ConstraintIdentity] = []
+      var subordinates: [GoalIdentity] = []
       for (a, b) in zip(l.inputs, r.inputs) {
         subordinates.append(
           schedule(SubtypingConstraint(b.type, a.type, origin: goal.origin.subordinate())))
@@ -345,7 +352,7 @@ struct ConstraintSolver {
 
     case (let l as SumType, _ as SumType):
       // If both types are sums, all elements in `L` must be contained in `R`.
-      var subordinates: [ConstraintIdentity] = []
+      var subordinates: [GoalIdentity] = []
       for e in l.elements {
         subordinates.append(
           schedule(SubtypingConstraint(e, goal.right, origin: goal.origin.subordinate())))
@@ -358,10 +365,10 @@ struct ConstraintSolver {
         return .success
       }
 
-      // Postpone the constraint if either `L` or `R` contains variables. Otherwise, `L` is not
-      // subtype of `R`.
+      // Postpone the goal if either `L` or `R` contains variables. Otherwise, `L` is not subtype
+      // of `R`.
       if goal.left[.hasVariable] || goal.right[.hasVariable] {
-        postpone(c)
+        postpone(g)
         return nil
       } else {
         return .failure(failureToSolve(goal))
@@ -378,40 +385,40 @@ struct ConstraintSolver {
     }
   }
 
-  /// Returns a failure to solve `c`.
-  private mutating func failureToSolve(_ c: SubtypingConstraint) -> DiagnoseFailure {
+  /// Returns a failure to solve `g`.
+  private mutating func failureToSolve(_ g: SubtypingConstraint) -> DiagnoseFailure {
     { (m, _) in
-      let (l, r) = (m.reify(c.left), m.reify(c.right))
-      switch c.origin.kind {
+      let (l, r) = (m.reify(g.left), m.reify(g.right))
+      switch g.origin.kind {
       case .initializationWithHint:
-        return .error(cannotInitialize: l, with: r, at: c.origin.site)
+        return .error(cannotInitialize: l, with: r, at: g.origin.site)
       case .initializationWithPattern:
-        return .error(l, doesNotMatch: r, at: c.origin.site)
+        return .error(l, doesNotMatch: r, at: g.origin.site)
       default:
-        if c.isStrict {
-          return .error(l, isNotStrictSubtypeOf: r, at: c.origin.site)
+        if g.isStrict {
+          return .error(l, isNotStrictSubtypeOf: r, at: g.origin.site)
         } else {
-          return .error(l, isNotSubtypeOf: r, at: c.origin.site)
+          return .error(l, isNotSubtypeOf: r, at: g.origin.site)
         }
       }
     }
   }
 
-  /// Returns either `.success` if instances of `c.left` can be passed to a parameter `c.right`,
+  /// Returns either `.success` if instances of `g.left` can be passed to a parameter `g.right`,
   /// `.failure` if they can't, or `nil` if neither of these outcomes can be determined yet.
   private mutating func solve(
-    parameter c: ConstraintIdentity,
+    parameter g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = constraints[c] as! ParameterConstraint
+    let goal = goals[g] as! ParameterConstraint
     if checker.relations.areEquivalent(goal.left, goal.right) {
       return .success
     }
 
     switch goal.right.base {
     case is TypeVariable:
-      // Postpone the constraint until we can infer the parameter passing convention of `R`.
-      postpone(c)
+      // Postpone the goal until we can infer the parameter passing convention of `R`.
+      postpone(g)
       return nil
 
     case let p as ParameterType:
@@ -431,17 +438,17 @@ struct ConstraintSolver {
     }
   }
 
-  /// Returns either `.success` if `c.subject` has a member `c.memberName` of type `c.memberType`,
-  /// `.failure` if it doesn't, `.product` if `c` must be broken down to smaller constraints, or
-  /// `nil` if neither of these outcomes can be determined yet.
+  /// Returns either `.success` if `g.subject` has a member `g.memberName` of type `g.memberType`,
+  /// `.failure` if it doesn't, `.product` if `g` must be broken down to smaller goals, or `nil` if
+  /// if neither of these outcomes can be determined yet.
   private mutating func solve(
-    member c: ConstraintIdentity,
+    member g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = constraints[c] as! MemberConstraint
+    let goal = goals[g] as! MemberConstraint
 
     if goal.subject.base is TypeVariable {
-      postpone(c)
+      postpone(g)
       return nil
     }
 
@@ -492,17 +499,17 @@ struct ConstraintSolver {
     return .product([s], { (m, r) in r[s]!.dianoseFailure!(m, r) })
   }
 
-  /// Returns either `.success` if `c.callee` is a callable type with parameters `c.parameters`
-  /// and return type `c.returnType`, `.failure` if it doesn't, `.product` if `c` must be broken
-  /// down to smaller constraints, or `nil` if neither of these outcomes can be determined yet.
+  /// Returns either `.success` if `g.callee` is a callable type with parameters `g.parameters`
+  /// and return type `g.returnType`, `.failure` if it doesn't, `.product` if `g` must be broken
+  /// down to smaller goals, or `nil` if neither of these outcomes can be determined yet.
   private mutating func solve(
-    functionCall c: ConstraintIdentity,
+    functionCall g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = constraints[c] as! FunctionCallConstraint
+    let goal = goals[g] as! FunctionCallConstraint
 
     if goal.calleeType.base is TypeVariable {
-      postpone(c)
+      postpone(g)
       return nil
     }
 
@@ -523,8 +530,8 @@ struct ConstraintSolver {
       }
     }
 
-    // Break down the constraint.
-    var subordinates: [ConstraintIdentity] = []
+    // Break down the goal.
+    var subordinates: [GoalIdentity] = []
     for (a, b) in zip(callee.inputs, goal.parameters) {
       subordinates.append(
         schedule(EqualityConstraint(a.type, b.type, origin: goal.origin.subordinate())))
@@ -538,18 +545,17 @@ struct ConstraintSolver {
     })
   }
 
-  /// Attempts to solve the remaining constraints for each individual choice in `disjunction` and
-  /// returns the best solution.
+  /// Solves the remaining goals separately for each choice in `g` and returns the best solution.
   private mutating func solve(
-    disjunction c: ConstraintIdentity,
+    disjunction g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Solution? {
-    let goal = constraints[c] as! DisjunctionConstraint
+    let goal = goals[g] as! DisjunctionConstraint
 
     let results = explore(
       goal.choices,
       using: &checker,
-      configuringSubSolversWith: { (solver, choice) in
+      configuringSubSystemWith: { (solver, choice) in
         solver.penalties += choice.penalties
         solver.insert(fresh: choice.constraints)
       })
@@ -564,18 +570,17 @@ struct ConstraintSolver {
       results, diagnosedBy: .error(ambiguousDisjunctionAt: goal.origin.site))
   }
 
-  /// Attempts to solve the remaining constraints with each individual choice in `overload` and
-  /// returns the best solution.
+  /// Solves the remaining goals separately for each choice in `g` and returns the best solution.
   private mutating func solve(
-    overload c: ConstraintIdentity,
+    overload g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Solution? {
-    let goal = constraints[c] as! OverloadConstraint
+    let goal = goals[g] as! OverloadConstraint
 
     let results = explore(
       goal.choices,
       using: &checker,
-      configuringSubSolversWith: { (solver, choice) in
+      configuringSubSystemWith: { (solver, choice) in
         solver.penalties += choice.penalties
         solver.bindingAssumptions[goal.overloadedExpr] = choice.reference
         solver.insert(fresh: choice.constraints)
@@ -595,11 +600,13 @@ struct ConstraintSolver {
         candidates: results.compactMap(\.choice.reference.decl)))
   }
 
-  /// Solves the remaining constraint with each given choice and returns the best solutions.
+  /// Solves the remaining goals in separate constraint systems for each choice in `choices`, using
+  /// `configureSubSystem` to initialize to initialize them. Returns a collection of explorations
+  /// describing the best solution associated with each choice.
   private mutating func explore<Choices: Collection>(
     _ choices: Choices,
     using checker: inout TypeChecker,
-    configuringSubSolversWith configureSubSolver: (inout Self, Choices.Element) -> Void
+    configuringSubSystemWith configureSubSystem: (inout Self, Choices.Element) -> Void
   ) -> [Exploration<Choices.Element>] where Choices.Element: Choice {
     log("- fork:")
     indentation += 1; defer { indentation -= 1 }
@@ -620,9 +627,9 @@ struct ConstraintSolver {
       indentation += 1; defer { indentation -= 1 }
 
       // Explore the result of this choice.
-      var subSolver = self
-      configureSubSolver(&subSolver, choice)
-      guard let newSolution = subSolver.solveConstraints(&checker) else { continue }
+      var s = self
+      configureSubSystem(&s, choice)
+      guard let newSolution = s.betterSolution(&checker) else { continue }
 
       // Insert the new result.
       insert((choice, newSolution), into: &results, using: &checker)
@@ -680,22 +687,22 @@ struct ConstraintSolver {
     }
   }
 
-  /// Schedules `constraint` to be solved in the future and returns its identity.
+  /// Schedules `g` to be solved in the future and returns its identity.
   @discardableResult
-  private mutating func schedule(_ constraint: Constraint) -> ConstraintIdentity {
-    log("- schedule: \"\(constraint)\"")
-    return insert(fresh: constraint)
+  private mutating func schedule(_ g: Constraint) -> GoalIdentity {
+    log("- schedule: \"\(g)\"")
+    return insert(fresh: g)
   }
 
-  /// Inserts `c` into the fresh set and returns its identity.
+  /// Inserts `g` into the fresh set and returns its identity.
   @discardableResult
-  private mutating func insert(fresh c: Constraint) -> ConstraintIdentity {
-    // Note: It could be worth looking for the index of a constraint equal to `c` rather than
-    // appending it so that we don't solve the same constraint twice. However, efficient lookup
-    // would require a set while we need constraint indices to be stable identities. One solution
-    // would be to implement `contraints` and `outcomes` as persistent data structures.
-    let newIdentity = constraints.count
-    constraints.append(c)
+  private mutating func insert(fresh g: Constraint) -> GoalIdentity {
+    // Note: It could be worth looking for the index of a goal equal to `g` rather than appending
+    // it unconditionally so that we don't solve the same constraint twice. However, efficient
+    // lookup would require a set while we need constraint indices to be stable identities. One
+    // solution would be to implement `goals` and `outcomes` as persistent data structures.
+    let newIdentity = goals.count
+    goals.append(g)
     outcomes.append(nil)
     fresh.append(newIdentity)
     return newIdentity
@@ -708,12 +715,12 @@ struct ConstraintSolver {
     }
   }
 
-  /// Schedules `c` to be solved only once the solver has inferred more information about at least
+  /// Schedules `g` to be solved only once the solver has inferred more information about at least
   /// one of its type variables.
   ///
-  /// - Requires: `c` must involve type variables.
-  private mutating func postpone(_ c: ConstraintIdentity) {
-    stale.append(c)
+  /// - Requires: `g` must involve type variables.
+  private mutating func postpone(_ g: GoalIdentity) {
+    stale.append(g)
   }
 
   /// Unifies `lhs` with `rhs` using `relations` to check for equivalence, returning `true` if
@@ -802,14 +809,14 @@ struct ConstraintSolver {
     // Refresh stale constraints.
     for i in (0 ..< stale.count).reversed() {
       var changed = false
-      constraints[stale[i]].modifyTypes({ (type) in
+      goals[stale[i]].modifyTypes({ (type) in
         let u = typeAssumptions.reify(type, withVariables: .keep)
         changed = changed || (type != u)
         return u
       })
 
       if changed {
-        log("- refresh \(constraints[stale[i]])")
+        log("- refresh \(goals[stale[i]])")
         fresh.append(stale.remove(at: i))
       }
     }
@@ -818,10 +825,10 @@ struct ConstraintSolver {
   /// Transforms the stale literal constraints to equality constraints.
   private mutating func refreshLiteralConstraints() {
     for i in (0 ..< stale.count).reversed() {
-      if let l = constraints[stale[i]] as? LiteralConstraint {
+      if let l = goals[stale[i]] as? LiteralConstraint {
         let e = EqualityConstraint(l.subject, l.defaultSubject, origin: l.origin)
         log("- decay \(l) => \(e)")
-        constraints[stale[i]] = e
+        goals[stale[i]] = e
         fresh.append(stale.remove(at: i))
       }
     }
@@ -832,8 +839,8 @@ struct ConstraintSolver {
     assert(fresh.isEmpty)
     let m = typeAssumptions.optimized()
 
-    var d = DiagnosticSet(stale.map({ Diagnostic.error(staleConstraint: constraints[$0]) }))
-    for (k, v) in zip(constraints.indices, outcomes) where iFailureRoot(k) {
+    var d = DiagnosticSet(stale.map({ Diagnostic.error(staleConstraint: goals[$0]) }))
+    for (k, v) in zip(goals.indices, outcomes) where iFailureRoot(k) {
       d.insert(v!.dianoseFailure!(m, outcomes))
     }
 
@@ -863,14 +870,14 @@ struct ConstraintSolver {
   private func logState() {
     if !isLoggingEnabled { return }
     log("fresh:")
-    for c in fresh {
-      log("- - \"\(constraints[c])\"")
-      log("  - \"\(constraints[c].origin)\"")
+    for g in fresh {
+      log("- - \"\(goals[g])\"")
+      log("  - \"\(goals[g].origin)\"")
     }
     log("stale:")
-    for c in stale {
-      log("- - \"\(constraints[c])\"")
-      log("  - \"\(constraints[c].origin)\"")
+    for g in stale {
+      log("- - \"\(goals[g])\"")
+      log("  - \"\(goals[g].origin)\"")
     }
   }
 
@@ -997,7 +1004,7 @@ extension TypeChecker {
     }
 
     // Solve the constraint system.
-    var s = ConstraintSolver(scope: scope, fresh: constraints, loggingTrace: false)
+    var s = ConstraintSystem(constraints, in: scope, loggingTrace: false)
     return !s.solution(&self).diagnostics.containsError
   }
 

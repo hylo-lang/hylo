@@ -1593,11 +1593,10 @@ public struct TypeChecker {
     }
 
     // Solve the constraints.
-    var solver = ConstraintSolver(
-      scope: AnyScopeID(scope),
-      fresh: initialConstraints + facts.constraints,
+    var s = ConstraintSystem(
+      initialConstraints + facts.constraints, in: AnyScopeID(scope),
       loggingTrace: shouldLogTrace)
-    let solution = solver.solution(&self)
+    let solution = s.solution(&self)
 
     if shouldLogTrace {
       print(solution)
