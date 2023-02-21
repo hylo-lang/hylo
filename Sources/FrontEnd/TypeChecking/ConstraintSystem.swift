@@ -665,17 +665,17 @@ struct ConstraintSystem {
       let comparison = checker.compareSolutionBindings(
         newResult.solution, bestResults[0].solution, scope: scope)
       switch comparison {
-      case .comparable(.equal):
+      case .some(.equal):
         // The new solution is equal; discard it.
         return
-      case .comparable(.coarser):
+      case .some(.coarser):
         // The new solution is coarser; discard it unless it's better than another one.
         i += 1
-      case .comparable(.finer):
+      case .some(.finer):
         // The new solution is finer; keep it and discard the old one.
         bestResults.remove(at: i)
         shouldInsert = true
-      case .incomparable:
+      case nil:
         // The new solution is incomparable; keep it.
         i += 1
         shouldInsert = true
@@ -898,36 +898,41 @@ extension DisjunctionConstraint.Choice: Choice {}
 
 extension OverloadConstraint.Candidate: Choice {}
 
-extension TypeChecker {
+extension Solution {
 
-  fileprivate enum SolutionBingindsComparison {
+  /// The ranking of a solution relative to another.
+  fileprivate enum Ranking: Int8, Comparable {
 
-    enum Ranking: Int8, Comparable {
+    /// The solution is finer than the other.
+    ///
+    /// `s1` is finer than `s2` iff it has a better core than `s2` or if it has the same score but
+    ///  makes at least one more specific binding than `s2` and no binding less specific than `s2`.
+    case finer = -1
 
-      case finer = -1
+    /// The solution is equal to the other.
+    case equal = 0
 
-      case equal = 0
+    /// The solution is coarser than the other.
+    ///
+    /// `s1` is coarser than `s2` iff `s2` is finer than `s1`.
+    case coarser = 1
 
-      case coarser = 1
-
-      static func < (l: Self, r: Self) -> Bool {
-        l.rawValue < r.rawValue
-      }
-
+    static func < (l: Self, r: Self) -> Bool {
+      l.rawValue < r.rawValue
     }
 
-    case incomparable
-
-    case comparable(Ranking)
-
   }
+
+}
+
+extension TypeChecker {
 
   fileprivate mutating func compareSolutionBindings(
     _ lhs: Solution,
     _ rhs: Solution,
     scope: AnyScopeID
-  ) -> SolutionBingindsComparison {
-    var ranking: SolutionBingindsComparison.Ranking = .equal
+  ) -> Solution.Ranking? {
+    var ranking: Solution.Ranking = .equal
     var namesInCommon = 0
 
     for (n, lhsDeclRef) in lhs.bindingAssumptions {
@@ -945,44 +950,44 @@ extension TypeChecker {
         guard
           l.inputs.count == r.inputs.count,
           l.inputs.elementsEqual(r.inputs, by: { $0.label == $1.label })
-        else { return .incomparable }
+        else { return nil }
 
         // Rank the candidates.
         let lRefinesR = refines(lhs, rhs, in: scope, anchoringConstraintsAt: program.ast[n].site)
         let rRefinesL = refines(rhs, lhs, in: scope, anchoringConstraintsAt: program.ast[n].site)
         switch (lRefinesR, rRefinesL) {
         case (true, false):
-          if ranking > .equal { return .incomparable }
+          if ranking > .equal { return nil }
           ranking = .finer
         case (false, true):
-          if ranking < .equal { return .incomparable }
+          if ranking < .equal { return nil }
           ranking = .coarser
         default:
-          return .incomparable
+          return nil
         }
 
       default:
-        return .incomparable
+        return nil
       }
     }
 
     if lhs.bindingAssumptions.count < rhs.bindingAssumptions.count {
       if namesInCommon == lhs.bindingAssumptions.count {
-        return ranking >= .equal ? .comparable(.coarser) : .incomparable
+        return ranking >= .equal ? .coarser : nil
       } else {
-        return .incomparable
+        return nil
       }
     }
 
     if lhs.bindingAssumptions.count > rhs.bindingAssumptions.count {
       if namesInCommon == rhs.bindingAssumptions.count {
-        return ranking <= .equal ? .comparable(.finer) : .incomparable
+        return ranking <= .equal ? .finer : nil
       } else {
-        return .incomparable
+        return nil
       }
     }
 
-    return namesInCommon == lhs.bindingAssumptions.count ? .comparable(ranking) : .incomparable
+    return namesInCommon == lhs.bindingAssumptions.count ? ranking : nil
   }
 
   fileprivate mutating func refines(
