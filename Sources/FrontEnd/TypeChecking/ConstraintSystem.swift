@@ -5,9 +5,6 @@ import Utils
 /// expressions.
 struct ConstraintSystem {
 
-  /// The solution of an exploration given a particular choice.
-  private typealias Exploration<T> = (choice: T, solution: Solution)
-
   /// The identity of a gaol in an instance of `ConstraintSystem`.
   private typealias GoalIdentity = Int
 
@@ -229,10 +226,10 @@ struct ConstraintSystem {
 
   /// Creates an ambiguous solution.
   private func formAmbiguousSolution<T>(
-    _ results: [Exploration<T>],
+    _ results: Explorations<T>,
     diagnosedBy d: Diagnostic
   ) -> Solution {
-    var s = results.dropFirst().reduce(into: results[0].solution) { (s, r) in
+    var s = results.elements.dropFirst().reduce(into: results.elements[0].solution) { (s, r) in
       s.merge(r.solution)
     }
     s.incorporate(d)
@@ -607,9 +604,9 @@ struct ConstraintSystem {
         solver.insert(fresh: choice.constraints)
       })
 
-    if let pick = results.uniqueElement?.solution {
+    if let pick = results.elements.uniqueElement?.solution {
       return pick
-    } else if results.isEmpty {
+    } else if results.elements.isEmpty {
       return nil
     }
 
@@ -633,9 +630,9 @@ struct ConstraintSystem {
         solver.insert(fresh: choice.constraints)
       })
 
-    if let pick = results.uniqueElement?.solution {
+    if let pick = results.elements.uniqueElement?.solution {
       return pick
-    } else if results.isEmpty {
+    } else if results.elements.isEmpty {
       return nil
     }
 
@@ -644,7 +641,7 @@ struct ConstraintSystem {
       diagnosedBy: .error(
         ambiguousUse: goal.overloadedExpr,
         in: checker.ast,
-        candidates: results.compactMap(\.choice.reference.decl)))
+        candidates: results.elements.compactMap(\.choice.reference.decl)))
   }
 
   /// Solves the remaining goals in separate constraint systems for each choice in `choices`, using
@@ -654,14 +651,12 @@ struct ConstraintSystem {
     _ c: T,
     using checker: inout TypeChecker,
     configuringSubSystemWith configureSubSystem: (inout Self, T.Predicate) -> Void
-  ) -> [Exploration<T.Predicate>] {
+  ) -> Explorations<T> {
     log("- fork:")
     indentation += 1
     defer { indentation -= 1 }
 
-    /// The results of the exploration.
-    var results: [Exploration<T.Predicate>] = []
-
+    var results = Explorations<T>()
     for choice in c.choices {
       // Don't bother if there's no chance to find a better solution.
       var underestimatedChoiceScore = score()
@@ -681,56 +676,12 @@ struct ConstraintSystem {
       guard let newSolution = s.betterSolution(&checker) else { continue }
 
       // Insert the new result.
-      insert((choice, newSolution), into: &results, using: &checker)
+      results.insert(
+        (choice, newSolution),
+        rankingSolutionWith: { (a, b) in rank(a, b, querying: &checker) })
     }
 
     return results
-  }
-
-  /// Inserts `newResult` into `bestResults` if its solution is better than or incomparable to any
-  /// of sthe latter's elements.
-  private mutating func insert<T>(
-    _ newResult: Exploration<T>,
-    into bestResults: inout [Exploration<T>],
-    using checker: inout TypeChecker
-  ) {
-    // Rank solutions based on the name bindings they make. `s1` refines `s2` iff it has a better
-    // score than `s2` or if it has the same score but makes at least one more specific binding
-    // than `s2` and no binding less specific than `s2`.
-    if newResult.solution.score > bestScore { return }
-
-    // Fast path: if the new solution has a better score, discard all others.
-    if bestResults.isEmpty || (newResult.solution.score < bestScore) {
-      bestScore = newResult.solution.score
-      bestResults = [newResult]
-      return
-    }
-
-    // Slow path: inspect how the new solution compares with the ones we have.
-    var shouldInsert = false
-    var i = 0
-    while i < bestResults.count {
-      switch rank(newResult.solution, bestResults[0].solution, querying: &checker) {
-      case .some(.equal):
-        // The new solution is equal; discard it.
-        return
-      case .some(.descending):
-        // The new solution is coarser; discard it unless it's better than another one.
-        i += 1
-      case .some(.ascending):
-        // The new solution is finer; keep it and discard the old one.
-        bestResults.remove(at: i)
-        shouldInsert = true
-      case nil:
-        // The new solution is incomparable; keep it.
-        i += 1
-        shouldInsert = true
-      }
-    }
-
-    if shouldInsert {
-      bestResults.append(newResult)
-    }
   }
 
   /// Schedules `g` to be solved in the future and returns its identity.
@@ -1002,6 +953,69 @@ struct ConstraintSystem {
     for g in stale {
       log("- - \"\(goals[g])\"")
       log("  - \"\(goals[g].origin)\"")
+    }
+  }
+
+}
+
+/// A set of constraint system solutions resulting from the explorations of the different choices
+/// of a disjunctive constraint.
+private struct Explorations<T: DisjunctiveConstraintProtocol> {
+
+  /// The solution of an exploration for a particular choice.
+  typealias Element = (choice: T.Predicate, solution: Solution)
+
+  /// The results of the exploration.
+  private(set) var elements: [Element] = []
+
+  /// The score of the solutions in this set.
+  private var score = Solution.Score.worst
+
+  /// Creates an empty set.
+  init() {}
+
+  /// Inserts `newResult` into this set if its solution is better than or incomparable to any
+  /// of the solutions currently in the set, ranking solutions with `rank`.
+  mutating func insert(
+    _ newResult: Element,
+    rankingSolutionWith rank: (Solution, Solution) -> StrictPartialOrdering
+  ) {
+    // Rank solutions based on the name bindings they make. `s1` refines `s2` iff it has a better
+    // score than `s2` or if it has the same score but makes at least one more specific binding
+    // than `s2` and no binding less specific than `s2`.
+    if newResult.solution.score > score { return }
+
+    // Fast path: if the new solution has a better score, discard all others.
+    if elements.isEmpty || (newResult.solution.score < score) {
+      score = newResult.solution.score
+      elements = [newResult]
+      return
+    }
+
+    // Slow path: inspect how the new solution compares with the ones we have.
+    var shouldInsert = false
+    var i = 0
+    while i < elements.count {
+      switch rank(newResult.solution, elements[i].solution) {
+      case .some(.equal):
+        // The new solution is equal; discard it.
+        return
+      case .some(.descending):
+        // The new solution is coarser; discard it unless it's better than another one.
+        i += 1
+      case .some(.ascending):
+        // The new solution is finer; keep it and discard the old one.
+        elements.remove(at: i)
+        shouldInsert = true
+      case nil:
+        // The new solution is incomparable; keep it.
+        i += 1
+        shouldInsert = true
+      }
+    }
+
+    if shouldInsert {
+      elements.append(newResult)
     }
   }
 
