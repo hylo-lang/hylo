@@ -1065,7 +1065,7 @@ extension TypeChecker {
       return state.facts.constrain(name, in: ast, toHaveType: candidate.type.shape)
     } else {
       // Create an overload set.
-      let overloads: [OverloadConstraint.Candidate] = candidates.map({ (candidate) in
+      let overloads: [OverloadConstraint.Predicate] = candidates.map({ (candidate) in
         return .init(
           reference: candidate.reference,
           type: candidate.type.shape,

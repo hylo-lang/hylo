@@ -484,14 +484,14 @@ struct ConstraintSystem {
     // Generate the list of candidates.
     let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, in: scope)
       .compactMap({ checker.decl(in: $0, named: goal.memberName) })
-    let candidates = matches.compactMap({ (match) -> OverloadConstraint.Candidate? in
+    let candidates = matches.compactMap({ (match) -> OverloadConstraint.Predicate? in
       // Realize the type of the declaration and skip it if that fails.
       let matchType = checker.realize(decl: match)
       if matchType.isError { return nil }
 
       // TODO: Handle bound generic typess
 
-      return OverloadConstraint.Candidate(
+      return OverloadConstraint.Predicate(
         reference: .member(match),
         type: matchType,
         constraints: [],
@@ -599,8 +599,8 @@ struct ConstraintSystem {
   ) -> Solution? {
     let goal = goals[g] as! DisjunctionConstraint
 
-    let results = explore(
-      goal.choices,
+    let results = solveInSubsytems(
+      goal,
       using: &checker,
       configuringSubSystemWith: { (solver, choice) in
         solver.penalties += choice.penalties
@@ -624,8 +624,8 @@ struct ConstraintSystem {
   ) -> Solution? {
     let goal = goals[g] as! OverloadConstraint
 
-    let results = explore(
-      goal.choices,
+    let results = solveInSubsytems(
+      goal,
       using: &checker,
       configuringSubSystemWith: { (solver, choice) in
         solver.penalties += choice.penalties
@@ -650,19 +650,19 @@ struct ConstraintSystem {
   /// Solves the remaining goals in separate constraint systems for each choice in `choices`, using
   /// `configureSubSystem` to initialize to initialize them. Returns a collection of explorations
   /// describing the best solution associated with each choice.
-  private mutating func explore<Choices: Collection>(
-    _ choices: Choices,
+  private mutating func solveInSubsytems<T: DisjunctiveConstraintProtocol>(
+    _ c: T,
     using checker: inout TypeChecker,
-    configuringSubSystemWith configureSubSystem: (inout Self, Choices.Element) -> Void
-  ) -> [Exploration<Choices.Element>] where Choices.Element: Choice {
+    configuringSubSystemWith configureSubSystem: (inout Self, T.Predicate) -> Void
+  ) -> [Exploration<T.Predicate>] {
     log("- fork:")
     indentation += 1
     defer { indentation -= 1 }
 
     /// The results of the exploration.
-    var results: [Exploration<Choices.Element>] = []
+    var results: [Exploration<T.Predicate>] = []
 
-    for choice in choices {
+    for choice in c.choices {
       // Don't bother if there's no chance to find a better solution.
       var underestimatedChoiceScore = score()
       underestimatedChoiceScore.penalties += choice.penalties
@@ -1006,21 +1006,6 @@ struct ConstraintSystem {
   }
 
 }
-
-/// A type representing a choice during constraint solving.
-private protocol Choice {
-
-  /// The set of constraints associated with this choice.
-  var constraints: ConstraintSet { get }
-
-  /// The penalties associated with this choice.
-  var penalties: Int { get }
-
-}
-
-extension DisjunctionConstraint.Choice: Choice {}
-
-extension OverloadConstraint.Candidate: Choice {}
 
 /// Creates a constraint, suitable for type inference, requiring `subtype` to be a subtype of
 /// `supertype`.
