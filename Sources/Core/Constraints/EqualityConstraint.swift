@@ -1,8 +1,6 @@
 import Utils
 
 /// A constraint `L == R` specifying that `L` is exactly the same type as `R`.
-///
-/// - Note: Equality constraints are commutative.
 public struct EqualityConstraint: Constraint, Hashable {
 
   /// The left operand.

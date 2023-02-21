@@ -325,4 +325,14 @@ extension Diagnostic {
     .error("cannot pass value of type '\(t)' to parameter '\(u)'", at: site)
   }
 
+  static func error(
+    conditionalHasMismatchingTypes t: [AnyType], at site: SourceRange
+  ) -> Diagnostic {
+    let s =
+      (t.count == 2)
+      ? "'\(t[0])' and '\(t[1])'"
+      : t.map({ "'\($0)'" }).joined(separator: ", ")
+    return .error("conditional expression has mismatching types \(s)", at: site)
+  }
+
 }

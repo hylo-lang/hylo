@@ -253,17 +253,16 @@ extension TypeChecker {
       }
     }
 
-    let t = ^TypeVariable()
     let firstBranch = inferredType(
       of: syntax.success, shapedBy: shape, in: scope, updating: &state)
-    state.facts.append(
-      SubtypingConstraint(firstBranch, t, origin: .init(.branchMerge, at: ast[subject].site)))
-
     let secondBranch = inferredType(
       of: syntax.failure, shapedBy: shape, in: scope, updating: &state)
-    state.facts.append(
-      SubtypingConstraint(secondBranch, t, origin: .init(.branchMerge, at: ast[subject].site)))
 
+    let t = ^TypeVariable()
+    state.facts.append(
+      MergingConstraint(
+        t, [firstBranch, secondBranch],
+        origin: .init(.branchMerge, at: ast[subject].introducerSite)))
     return state.facts.constrain(subject, in: ast, toHaveType: t)
   }
 

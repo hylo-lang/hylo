@@ -133,7 +133,8 @@ struct ConstraintSystem {
 
       goals[g].modifyTypes({ typeAssumptions[$0] })
       log("- solve: \"\(goals[g])\"")
-      indentation += 1; defer { indentation -= 1 }
+      indentation += 1
+      defer { indentation -= 1 }
       log("actions:")
 
       switch goals[g] {
@@ -151,6 +152,8 @@ struct ConstraintSystem {
         setOutcome(solve(member: g, using: &checker), for: g)
       case is FunctionCallConstraint:
         setOutcome(solve(functionCall: g, using: &checker), for: g)
+      case is MergingConstraint:
+        setOutcome(solve(merging: g, using: &checker), for: g)
       case is DisjunctionConstraint:
         return solve(disjunction: g, using: &checker)
       case is OverloadConstraint:
@@ -452,10 +455,10 @@ struct ConstraintSystem {
       // arguments passed mutably is verified after type inference.
       let s = schedule(
         SubtypingConstraint(goal.left, p.bareType, origin: goal.origin.subordinate()))
-      return .product([s], { (m, r) in
+      return .product([s]) { (m, r) in
         let (a, b) = (m.reify(goal.left), m.reify(goal.right))
         return .error(cannotPass: a, toParameter: b, at: goal.origin.site)
-      })
+      }
 
     default:
       return .failure { (m, _) in
@@ -565,10 +568,28 @@ struct ConstraintSystem {
     subordinates.append(
       schedule(
         EqualityConstraint(callee.output, goal.returnType, origin: goal.origin.subordinate())))
-    return .product(subordinates, { (m, _) in
+    return .product(subordinates) { (m, _) in
       .error(
         function: m.reify(goal.calleeType), notCallableWith: goal.parameters, at: goal.origin.site)
-    })
+    }
+  }
+
+  private mutating func solve(
+    merging g: GoalIdentity,
+    using checker: inout TypeChecker
+  ) -> Outcome? {
+    let goal = goals[g] as! MergingConstraint
+    guard !goal.branches.isEmpty else { return .success }
+
+    var subordinates: [GoalIdentity] = []
+    for b in goal.branches {
+      subordinates.append(
+        schedule(SubtypingConstraint(goal.supertype, b, origin: goal.origin.subordinate())))
+    }
+    return .product(subordinates) { (m, _) in
+      let t = goal.branches.map({ m.reify($0) })
+      return .error(conditionalHasMismatchingTypes: t, at: goal.origin.site)
+    }
   }
 
   /// Solves the remaining goals separately for each choice in `g` and returns the best solution.
@@ -635,7 +656,8 @@ struct ConstraintSystem {
     configuringSubSystemWith configureSubSystem: (inout Self, Choices.Element) -> Void
   ) -> [Exploration<Choices.Element>] where Choices.Element: Choice {
     log("- fork:")
-    indentation += 1; defer { indentation -= 1 }
+    indentation += 1
+    defer { indentation -= 1 }
 
     /// The results of the exploration.
     var results: [Exploration<Choices.Element>] = []
@@ -650,7 +672,8 @@ struct ConstraintSystem {
       }
 
       log("- pick: \"\(choice)\"")
-      indentation += 1; defer { indentation -= 1 }
+      indentation += 1
+      defer { indentation -= 1 }
 
       // Explore the result of this choice.
       var s = self

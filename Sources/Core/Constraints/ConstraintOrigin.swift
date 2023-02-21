@@ -40,14 +40,17 @@ public struct ConstraintOrigin: Hashable {
     /// The constraint is caused by some structural property of the AST.
     case structural
 
-    /// The constraint is caused by another constraint.
-    indirect case subordinate(parent: ConstraintOrigin)
-
     /// The constraint is caused by a return statement.
     case `return`
 
     /// The constraint is caused by a yield statement.
     case `yield`
+
+    /// The constraint is caused by another constraint.
+    ///
+    /// - Warning: Do not use this kind outside of constraint solving. It is meant to be used by
+    ///   a `ConstraintSystem` to keep track of dependencies.
+    indirect case subordinate(parent: ConstraintOrigin)
 
   }
 
