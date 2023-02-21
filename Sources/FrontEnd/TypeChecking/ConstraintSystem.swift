@@ -210,6 +210,32 @@ struct ConstraintSystem {
     outcomes[key] = value
   }
 
+  /// Creates a solution from the current state.
+  private mutating func formSolution() -> Solution {
+    assert(fresh.isEmpty)
+    let m = typeAssumptions.optimized()
+
+    var d = DiagnosticSet(stale.map({ Diagnostic.error(staleConstraint: goals[$0]) }))
+    for (k, v) in zip(goals.indices, outcomes) where iFailureRoot(k) {
+      d.insert(v!.dianoseFailure!(m, outcomes))
+    }
+
+    return Solution(
+      substitutions: m, bindings: bindingAssumptions, penalties: penalties, diagnostics: d)
+  }
+
+  /// Creates an ambiguous solution.
+  private func formAmbiguousSolution<T>(
+    _ results: [Exploration<T>],
+    diagnosedBy d: Diagnostic
+  ) -> Solution {
+    var s = results.dropFirst().reduce(into: results[0].solution) { (s, r) in
+      s.merge(r.solution)
+    }
+    s.incorporate(d)
+    return s
+  }
+
   /// Returns either `.success` if `g.subject` conforms to `g.traits`, `.failure` if it doesn't, or
   /// `nil` if neither of these outcomes can be be determined yet.
   private mutating func solve(
@@ -661,21 +687,18 @@ struct ConstraintSystem {
     var shouldInsert = false
     var i = 0
     while i < bestResults.count {
-      // Check if the new solution binds name expressions to more specialized declarations.
-      let comparison = checker.compareSolutionBindings(
-        newResult.solution, bestResults[0].solution, scope: scope)
-      switch comparison {
-      case .comparable(.equal):
+      switch rank(newResult.solution, bestResults[0].solution, querying: &checker) {
+      case .some(.equal):
         // The new solution is equal; discard it.
         return
-      case .comparable(.coarser):
+      case .some(.descending):
         // The new solution is coarser; discard it unless it's better than another one.
         i += 1
-      case .comparable(.finer):
+      case .some(.ascending):
         // The new solution is finer; keep it and discard the old one.
         bestResults.remove(at: i)
         shouldInsert = true
-      case .incomparable:
+      case nil:
         // The new solution is incomparable; keep it.
         i += 1
         shouldInsert = true
@@ -834,30 +857,108 @@ struct ConstraintSystem {
     }
   }
 
-  /// Creates a solution from the current state.
-  private mutating func formSolution() -> Solution {
-    assert(fresh.isEmpty)
-    let m = typeAssumptions.optimized()
+  /// Returns the rank of `lhs` relative ro `rhs` comparing types using `checker` to query type
+  /// relations and resolve names.
+  private func rank(
+    _ lhs: Solution,
+    _ rhs: Solution,
+    querying checker: inout TypeChecker
+  ) -> StrictPartialOrdering {
+    var ranking: StrictPartialOrdering = .equal
+    var namesInCommon = 0
 
-    var d = DiagnosticSet(stale.map({ Diagnostic.error(staleConstraint: goals[$0]) }))
-    for (k, v) in zip(goals.indices, outcomes) where iFailureRoot(k) {
-      d.insert(v!.dianoseFailure!(m, outcomes))
+    for (n, lhsDeclRef) in lhs.bindingAssumptions {
+      guard let rhsDeclRef = rhs.bindingAssumptions[n] else { continue }
+      namesInCommon += 1
+
+      // Nothing to do if both functions have the binding.
+      if lhsDeclRef == rhsDeclRef { continue }
+      let lhs = checker.declTypes[lhsDeclRef.decl!]!
+      let rhs = checker.declTypes[rhsDeclRef.decl!]!
+
+      switch compareSpecificity(lhs, rhs, at: checker.ast[n].site, querying: &checker) {
+      case .ascending:
+        if ranking == .descending { return nil }
+        ranking = .ascending
+      case .descending:
+        if ranking == .ascending { return nil }
+        ranking = .descending
+      default:
+        return nil
+      }
     }
 
-    return Solution(
-      substitutions: m, bindings: bindingAssumptions, penalties: penalties, diagnostics: d)
+    if lhs.bindingAssumptions.count < rhs.bindingAssumptions.count {
+      if namesInCommon == lhs.bindingAssumptions.count {
+        return ranking != .ascending ? .descending : nil
+      } else {
+        return nil
+      }
+    }
+
+    if lhs.bindingAssumptions.count > rhs.bindingAssumptions.count {
+      if namesInCommon == rhs.bindingAssumptions.count {
+        return ranking != .descending ? .ascending : nil
+      } else {
+        return nil
+      }
+    }
+
+    return namesInCommon == lhs.bindingAssumptions.count ? ranking : nil
   }
 
-  /// Creates an ambiguous solution.
-  private func formAmbiguousSolution<T>(
-    _ results: [Exploration<T>],
-    diagnosedBy d: Diagnostic
-  ) -> Solution {
-    var s = results.dropFirst().reduce(into: results[0].solution) { (s, r) in
-      s.merge(r.solution)
+  /// Compares `lhs` and `rhs` and returns whether one is more specific than the other.
+  ///
+  /// `t1` is more specific than `t2` if both are callable types with the same labels and `t1`
+  /// accepts stricly less arguments than `t2`.
+  private func compareSpecificity(
+    _ lhs: AnyType, _ rhs: AnyType, at site: SourceRange, querying checker: inout TypeChecker
+  ) -> StrictPartialOrdering {
+    guard
+      let l = lhs.base as? CallableType,
+      let r = rhs.base as? CallableType
+    else { return nil }
+
+    guard
+      l.inputs.count == r.inputs.count,
+      l.inputs.elementsEqual(r.inputs, by: { $0.label == $1.label })
+    else { return nil }
+
+    let lRefinesR = isMoreSpecific(lhs, rhs, at: site, querying: &checker)
+    let rRefinesL = isMoreSpecific(rhs, lhs, at: site, querying: &checker)
+
+    if lRefinesR {
+      return rRefinesL ? nil : .ascending
     }
-    s.incorporate(d)
-    return s
+    if rRefinesL {
+      return lRefinesR ? nil : .descending
+    }
+    return nil
+  }
+
+  /// Returns `true` iff `lhs` is more specific than `rhs`.
+  ///
+  /// - Requires: `lhs` and `rhs` are `CallableType`s.
+  private func isMoreSpecific(
+    _ lhs: AnyType,
+    _ rhs: AnyType,
+    at site: SourceRange,
+    querying checker: inout TypeChecker
+  ) -> Bool {
+    // Open the right operand.
+    let openedRight = checker.open(type: rhs)
+    var constraints = openedRight.constraints
+
+    // Create pairwise subtyping constraints on the parameters.
+    let l = lhs.skolemized.base as! CallableType
+    let r = openedRight.shape.base as! CallableType
+    for (a, b) in zip(l.inputs, r.inputs) {
+      constraints.insert(SubtypingConstraint(a.type, b.type, origin: .init(.binding, at: site)))
+    }
+
+    // Solve the constraint system.
+    var s = ConstraintSystem(constraints, in: scope, loggingTrace: isLoggingEnabled)
+    return !s.solution(&checker).diagnostics.containsError
   }
 
   /// Logs a line of text in the standard output.
@@ -897,118 +998,6 @@ private protocol Choice {
 extension DisjunctionConstraint.Choice: Choice {}
 
 extension OverloadConstraint.Candidate: Choice {}
-
-extension TypeChecker {
-
-  fileprivate enum SolutionBingindsComparison {
-
-    enum Ranking: Int8, Comparable {
-
-      case finer = -1
-
-      case equal = 0
-
-      case coarser = 1
-
-      static func < (l: Self, r: Self) -> Bool {
-        l.rawValue < r.rawValue
-      }
-
-    }
-
-    case incomparable
-
-    case comparable(Ranking)
-
-  }
-
-  fileprivate mutating func compareSolutionBindings(
-    _ lhs: Solution,
-    _ rhs: Solution,
-    scope: AnyScopeID
-  ) -> SolutionBingindsComparison {
-    var ranking: SolutionBingindsComparison.Ranking = .equal
-    var namesInCommon = 0
-
-    for (n, lhsDeclRef) in lhs.bindingAssumptions {
-      guard let rhsDeclRef = rhs.bindingAssumptions[n] else { continue }
-      namesInCommon += 1
-
-      // Nothing to do if both functions have the binding.
-      if lhsDeclRef == rhsDeclRef { continue }
-      let lhs = declTypes[lhsDeclRef.decl!]!
-      let rhs = declTypes[rhsDeclRef.decl!]!
-
-      switch (lhs.base, rhs.base) {
-      case (let l as CallableType, let r as CallableType):
-        // Candidates must accept the same number of arguments and have the same labels.
-        guard
-          l.inputs.count == r.inputs.count,
-          l.inputs.elementsEqual(r.inputs, by: { $0.label == $1.label })
-        else { return .incomparable }
-
-        // Rank the candidates.
-        let lRefinesR = refines(lhs, rhs, in: scope, anchoringConstraintsAt: program.ast[n].site)
-        let rRefinesL = refines(rhs, lhs, in: scope, anchoringConstraintsAt: program.ast[n].site)
-        switch (lRefinesR, rRefinesL) {
-        case (true, false):
-          if ranking > .equal { return .incomparable }
-          ranking = .finer
-        case (false, true):
-          if ranking < .equal { return .incomparable }
-          ranking = .coarser
-        default:
-          return .incomparable
-        }
-
-      default:
-        return .incomparable
-      }
-    }
-
-    if lhs.bindingAssumptions.count < rhs.bindingAssumptions.count {
-      if namesInCommon == lhs.bindingAssumptions.count {
-        return ranking >= .equal ? .comparable(.coarser) : .incomparable
-      } else {
-        return .incomparable
-      }
-    }
-
-    if lhs.bindingAssumptions.count > rhs.bindingAssumptions.count {
-      if namesInCommon == rhs.bindingAssumptions.count {
-        return ranking <= .equal ? .comparable(.finer) : .incomparable
-      } else {
-        return .incomparable
-      }
-    }
-
-    return namesInCommon == lhs.bindingAssumptions.count ? .comparable(ranking) : .incomparable
-  }
-
-  fileprivate mutating func refines(
-    _ l: AnyType,
-    _ r: AnyType,
-    in scope: AnyScopeID,
-    anchoringConstraintsAt site: SourceRange
-  ) -> Bool {
-    // Open the right operand.
-    let openedRight = open(type: r)
-    var constraints = openedRight.constraints
-
-    // Create pairwise subtyping constraints on the parameters.
-    let lhs = l.skolemized.base as! CallableType
-    let rhs = openedRight.shape.base as! CallableType
-
-    for (a, b) in zip(lhs.inputs, rhs.inputs) {
-      constraints.insert(SubtypingConstraint(a.type, b.type, origin: .init(.binding, at: site)))
-    }
-
-    // Solve the constraint system.
-    var s = ConstraintSystem(constraints, in: scope, loggingTrace: false)
-    return !s.solution(&self).diagnostics.containsError
-  }
-
-}
 
 /// Creates a constraint, suitable for type inference, requiring `subtype` to be a subtype of
 /// `supertype`.
