@@ -328,7 +328,8 @@ extension Diagnostic {
   static func error(
     conditionalHasMismatchingTypes t: [AnyType], at site: SourceRange
   ) -> Diagnostic {
-    let s = (t.count == 2)
+    let s =
+      (t.count == 2)
       ? "'\(t[0])' and '\(t[1])'"
       : t.map({ "'\($0)'" }).joined(separator: ", ")
     return .error("conditional expression has mismatching types \(s)", at: site)
