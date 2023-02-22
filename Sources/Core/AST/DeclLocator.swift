@@ -18,7 +18,7 @@ public struct DeclLocator: Hashable {
 
     case namespace(String)
 
-    case lambda(NodeID<FunctionDecl>)
+    case lambda(FunctionDecl.ID)
 
     case product(String)
 
@@ -35,7 +35,7 @@ public struct DeclLocator: Hashable {
         fatalError("not implemented")
 
       case FunctionDecl.self:
-        let decl = NodeID<FunctionDecl>(decl)!
+        let decl = FunctionDecl.ID(decl)!
 
         let labels: [String]
         switch program.declTypes[decl]!.base {
@@ -52,7 +52,7 @@ public struct DeclLocator: Hashable {
         }
 
       case InitializerDecl.self:
-        let decl = NodeID<InitializerDecl>(decl)!
+        let decl = InitializerDecl.ID(decl)!
 
         let labels: [String]
         switch program.declTypes[decl]!.base {
@@ -65,7 +65,7 @@ public struct DeclLocator: Hashable {
         self = .function(name: "init", labels: labels, notation: nil)
 
       case MethodDecl.self:
-        let decl = NodeID<MethodDecl>(decl)!
+        let decl = MethodDecl.ID(decl)!
 
         let labels: [String]
         switch program.declTypes[decl]!.base {
@@ -79,11 +79,11 @@ public struct DeclLocator: Hashable {
         self = .function(name: name, labels: labels, notation: program.ast[decl].notation?.value)
 
       case MethodImpl.self:
-        let decl = NodeID<MethodImpl>(decl)!
+        let decl = MethodImpl.ID(decl)!
         self = .methodImpl(program.ast[decl].introducer.value)
 
       case ProductTypeDecl.self:
-        let decl = NodeID<ProductTypeDecl>(decl)!
+        let decl = ProductTypeDecl.ID(decl)!
         self = .product(program.ast[decl].baseName)
 
       default:
@@ -95,17 +95,17 @@ public struct DeclLocator: Hashable {
     public var mangled: String {
       switch self {
       case .conformance(let target, let trait):
-        return "C\(target)\(trait.mangled)"
+        return "C\(target)\(trait)"
 
       case .extension(let target):
         return "E\(target)"
 
       case .function(let name, let labels, let notation):
-        let labels = labels.map(\.mangled).joined()
+        let labels = labels.joined()
         if let n = notation {
-          return "O\(String(describing: n).mangled)\(name.mangled)\(labels.count)\(labels)a"
+          return "O\(n)\(name)\(labels.count)\(labels)a"
         } else {
-          return "F\(name.mangled)\(labels.count)\(labels)a"
+          return "F\(name)\(labels.count)\(labels)a"
         }
 
       case .methodImpl(let introducer):
@@ -118,20 +118,20 @@ public struct DeclLocator: Hashable {
         }
 
       case .module(let name):
-        return "M\(name.mangled)"
+        return "M\(name)"
 
       case .namespace(let name):
-        return "N\(name.mangled)"
+        return "N\(name)"
 
       case .lambda(let discriminator):
         return "L\(discriminator.rawValue)"
 
       case .product(let name):
-        return "P\(name.mangled)"
+        return "P\(name)"
 
       case .subscript(let name, let labels):
-        let ls = labels.map(\.mangled).joined()
-        return "S\(name.mangled)\(labels.count)\(ls)"
+        let ls = labels.joined()
+        return "S\(name)\(labels.count)\(ls)"
 
       case .subscriptImpl(let introducer):
         switch introducer {
@@ -143,7 +143,7 @@ public struct DeclLocator: Hashable {
         }
 
       case .trait(let name):
-        return "N\(name.mangled)"
+        return "N\(name)"
       }
     }
 
@@ -229,44 +229,6 @@ extension DeclLocator.Component: CustomStringConvertible {
     case .trait(let name):
       return name
     }
-  }
-
-}
-
-extension String {
-
-  fileprivate var mangled: String {
-    // Substitute non alphanumeric character.
-    var result = ""
-    result.reserveCapacity(count)
-
-    for character in self {
-      if character.isMangledAllowed {
-        result.append(character)
-      } else {
-        result.append(
-          character.utf16.reduce(
-            into: "u",
-            { (u, point) in
-              u += String(point, radix: 16)
-            }))
-      }
-    }
-
-    return String(describing: result.count) + result
-  }
-
-}
-
-extension Character {
-
-  /// Indicates whether the character is allowed to appear in a mangled identifier.
-  fileprivate var isMangledAllowed: Bool {
-    guard let code = asciiValue else { return false }
-    return (0x61 ... 0x7a).contains(code)  // a ... z
-      || (0x41 ... 0x5a).contains(code)  // A ... Z
-      || (0x30 ... 0x39).contains(code)  // 0 ... 9
-      || (0x5f == code)  // _
   }
 
 }

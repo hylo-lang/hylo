@@ -6,7 +6,8 @@ import XCTest
 final class CaptureCollectorTests: XCTestCase {
 
   func testFunctionBindings() throws {
-    let source: SourceFile = """
+    let source = SourceFile.diagnosableLiteral(
+      """
       fun f<X, v: Void>[let c = ()](_ p: Any) {
         let _ = free   // captured
         let _ = X      // bound
@@ -14,13 +15,14 @@ final class CaptureCollectorTests: XCTestCase {
         let _ = c      // bound
         let _ = p      // bound
       }
-      """
+      """)
 
     var ast = AST()
-    var diagnostics = DiagnosticSet()
-    let module = try ast.makeModule("Test", sourceCode: [source], diagnostics: &diagnostics)
+    let module = try checkNoDiagnostic { diagnostics in
+      try ast.makeModule("Test", sourceCode: [source], diagnostics: &diagnostics)
+    }
 
-    let fun = NodeID<FunctionDecl>(ast.topLevelDecls(module).first!)!
+    let fun = FunctionDecl.ID(ast.topLevelDecls(module).first!)!
     var collector = CaptureCollector(ast: ast)
     let captures = collector.freeNames(in: fun)
 

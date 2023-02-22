@@ -5,7 +5,7 @@ import Utils
 struct GenericEnvironment {
 
   /// The declaration of the generic parameters introduced in this environment.
-  public let parameters: [NodeID<GenericParameterDecl>]
+  public let parameters: [GenericParameterDecl.ID]
 
   /// The uninstantiated type constraints.
   public let constraints: [Constraint]
@@ -26,7 +26,7 @@ struct GenericEnvironment {
   ///   - checker: The type checker used to check the constraints.
   init?<T: DeclID>(
     decl: T,
-    parameters: [NodeID<GenericParameterDecl>],
+    parameters: [GenericParameterDecl.ID],
     constraints: [Constraint],
     into checker: inout TypeChecker
   ) {

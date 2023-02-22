@@ -10,7 +10,7 @@ public struct SubscriptImpl: Decl, LexicalScope {
     case expr(AnyExprID)
 
     /// A block body.
-    case block(NodeID<BraceStmt>)
+    case block(BraceStmt.ID)
 
     /// The node wrapped by this instance.
     public var base: AnyNodeID {
@@ -30,14 +30,14 @@ public struct SubscriptImpl: Decl, LexicalScope {
   public let introducer: SourceRepresentable<AccessEffect>
 
   /// The declaration of the implicit receiver parameter, if any.
-  public let receiver: NodeID<ParameterDecl>?
+  public let receiver: ParameterDecl.ID?
 
   /// The body of the subscript, if any.
   public let body: Body?
 
   public init(
     introducer: SourceRepresentable<AccessEffect>,
-    receiver: NodeID<ParameterDecl>?,
+    receiver: ParameterDecl.ID?,
     body: Body?,
     site: SourceRange
   ) {

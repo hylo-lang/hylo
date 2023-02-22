@@ -6,7 +6,7 @@ final class TypeCheckerTests: XCTestCase {
 
   func testTypeChecker() throws {
     try checkAnnotatedValFileDiagnostics(
-      in: "TestCases/TypeChecking",
+      inSuiteAt: "TestCases/TypeChecking",
       { (source, diagnostics) in
         var ast = AST.coreModule
         _ = try ast.makeModule(

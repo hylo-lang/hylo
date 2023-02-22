@@ -51,11 +51,11 @@ extension Diagnostic {
     .error("duplicate operator declaration '\(name)'", at: site)
   }
 
-  static func diganose(duplicateParameterNamed name: String, at site: SourceRange) -> Diagnostic {
+  static func error(duplicateParameterNamed name: String, at site: SourceRange) -> Diagnostic {
     .error("duplicate parameter name '\(name)'", at: site)
   }
 
-  static func error(nameRefersToValue expr: NodeID<NameExpr>, in ast: AST) -> Diagnostic {
+  static func error(nameRefersToValue expr: NameExpr.ID, in ast: AST) -> Diagnostic {
     .error("expected type but '\(ast[expr].name.value)' refers to a value", at: ast[expr].site)
   }
 
@@ -68,14 +68,14 @@ extension Diagnostic {
       "memberwise initializer declaration may only appear in product type declaration", at: site)
   }
 
-  static func error(illegalParameterConvention convention: AccessEffect, at site: SourceRange)
-    -> Diagnostic
-  {
-    .error("'\(convention)' may only be used on parameters", at: site)
+  static func error(
+    illegalParameterConvention c: AccessEffect, at site: SourceRange
+  ) -> Diagnostic {
+    .error("'\(c)' may only be used on parameters", at: site)
   }
 
-  static func error(
-    labels found: [String?], incompatibleWith expected: [String?], at site: SourceRange
+  static func error<S1: Sequence<String?>, S2: Sequence<String?>>(
+    labels found: S1, incompatibleWith expected: S2, at site: SourceRange
   ) -> Diagnostic {
     .error(
       """
@@ -88,13 +88,9 @@ extension Diagnostic {
     .error("incompatible number of parameters", at: site)
   }
 
-  static func error(incompatibleTupleLengthsAt site: SourceRange) -> Diagnostic {
-    .error("tuples have different lengths", at: site)
-  }
-
-  static func error(type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange)
-    -> Diagnostic
-  {
+  static func error(
+    type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange
+  ) -> Diagnostic {
     .error("incompatible types '\(l)' and '\(r)'", at: site)
   }
 
@@ -111,12 +107,6 @@ extension Diagnostic {
       """
       contextual lambda type requires \(expectedLambdaParameterCount) argument(s), found \(found)
       """, at: site)
-  }
-
-  static func error(
-    inoutCapableMethodBundleMustReturn expectedReturnType: AnyType, at site: SourceRange
-  ) -> Diagnostic {
-    .error("inout-capable method bundle must return '\(expectedReturnType)'", at: site)
   }
 
   static func error(invalidDestructuringOfType type: AnyType, at site: SourceRange) -> Diagnostic {
@@ -146,9 +136,9 @@ extension Diagnostic {
     .error("type '\(type)' does not conform to trait '\(trait)'", at: site, notes: notes)
   }
 
-  static func error(invalidConformanceConstraintTo type: AnyType, at site: SourceRange)
-    -> Diagnostic
-  {
+  static func error(
+    invalidConformanceConstraintTo type: AnyType, at site: SourceRange
+  ) -> Diagnostic {
     .error(
       """
       type '\(type)' in conformance constraint does not refers to a generic parameter or \
@@ -193,7 +183,7 @@ extension Diagnostic {
   }
 
   static func error(staleConstraint c: any Constraint) -> Diagnostic {
-    .error("stale constraint '\(c)'", at: c.cause.site)
+    .error("stale constraint '\(c)'", at: c.origin.site)
   }
 
   static func error(
@@ -248,7 +238,7 @@ extension Diagnostic {
     .error("only one annotation is allowed on generic value parameter declarations", at: site)
   }
 
-  static func error(invalidBufferTypeExprArgumentCount expr: NodeID<SubscriptCallExpr>, in ast: AST)
+  static func error(invalidBufferTypeExprArgumentCount expr: SubscriptCallExpr.ID, in ast: AST)
     -> Diagnostic
   {
     .error("buffer type expression requires exactly one argument", at: ast[ast[expr].callee].site)
@@ -296,8 +286,10 @@ extension Diagnostic {
       at: site)
   }
 
-  static func error(_ valueType: AnyType, doesNotMatchPatternAt site: SourceRange) -> Diagnostic {
-    .error("value of type '\(valueType)' does not match binding pattern", at: site)
+  static func error(
+    _ l: AnyType, doesNotMatch pattern: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .error("value of type '\(l)' does not match pattern '\(pattern)'", at: site)
   }
 
   static func error(
@@ -306,15 +298,41 @@ extension Diagnostic {
     .error("type '\(subtype)' is not strict subtype of '\(supertype)'", at: site)
   }
 
-  static func error(ambiguousUse expr: NodeID<NameExpr>, in ast: AST, candidates: [AnyDeclID] = [])
-    -> Diagnostic
-  {
+  static func error(
+    ambiguousUse expr: NameExpr.ID, in ast: AST, candidates: [AnyDeclID] = []
+  ) -> Diagnostic {
     let notes = candidates.map { Diagnostic.error("candidate here", at: ast[$0].site) }
     return .error("ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site, notes: notes)
   }
 
   static func error(cannotExtend t: BuiltinType, at site: SourceRange) -> Diagnostic {
     .error("cannot extend built-in type '\(t)'", at: site)
+  }
+
+  static func error(mutatingBundleMustReturn t: TupleType, at site: SourceRange) -> Diagnostic {
+    .error("mutating bundle must return '\(t)'", at: site)
+  }
+
+  static func error(
+    function c: AnyType, notCallableWith a: [CallableTypeParameter], at site: SourceRange
+  ) -> Diagnostic {
+    .error("function '\(c)' is not callable with arguments of type \(a)", at: site)
+  }
+
+  static func error(
+    cannotPass t: AnyType, toParameter u: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .error("cannot pass value of type '\(t)' to parameter '\(u)'", at: site)
+  }
+
+  static func error(
+    conditionalHasMismatchingTypes t: [AnyType], at site: SourceRange
+  ) -> Diagnostic {
+    let s =
+      (t.count == 2)
+      ? "'\(t[0])' and '\(t[1])'"
+      : t.map({ "'\($0)'" }).joined(separator: ", ")
+    return .error("conditional expression has mismatching types \(s)", at: site)
   }
 
 }

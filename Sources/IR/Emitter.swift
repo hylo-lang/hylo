@@ -143,7 +143,7 @@ public struct Emitter {
         emit(functionDecl: FunctionDecl.Typed(member)!, into: &module)
 
       case InitializerDecl.self:
-        if InitializerDecl.Typed(member)!.introducer.value == .memberwiseInit { continue }
+        if InitializerDecl.Typed(member)!.isMemberwise { continue }
         fatalError("not implemented")
 
       case SubscriptDecl.self:
@@ -179,10 +179,8 @@ public struct Emitter {
     precondition(program.isLocal(decl.id))
     precondition(reading(decl.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
-    /// A map from object path to its corresponding (sub-)object during destruction.
-    var objects: [[Int]: Operand] = [:]
-
-    // Emit the initializer, if any.
+    /// A map from object path to its corresponding (sub-)object during destructuring.
+    var objects: [PartPath: Operand] = [:]
     if let initializer = decl.initializer {
       objects[[]] = emitRValue(initializer, into: &module)
     }
@@ -196,36 +194,21 @@ public struct Emitter {
       frames[name.decl] = storage
 
       if let initializer = decl.initializer {
-        // Determine the object corresponding to the current name.
-        var rhsType = initializer.type
+        // Initialize (sub-)object corresponding to the current name.
         for i in 0 ..< path.count {
           // Make sure the initializer has been destructured deeply enough.
-          let subpath = Array(path[0 ..< i])
-          if objects[subpath] != nil { continue }
+          if objects[PartPath(path[...i])] != nil { continue }
 
-          let layout = AbstractTypeLayout(of: rhsType, definedIn: program)
-          rhsType = layout[i].type
-
-          let wholePath = Array(path[0 ..< (i - 1)])
-          let whole = objects[wholePath]!
-          let parts = module.append(
-            module.makeDestructure(whole, anchoredAt: initializer.site),
+          // Destructure the (sub-)object.
+          let subobject = PartPath(path[..<i])
+          let subobjectParts = module.append(
+            module.makeDestructure(objects[subobject]!, anchoredAt: initializer.site),
             to: insertionBlock!)
-
-          for j in 0 ..< parts.count {
-            objects[wholePath + [j]] = parts[j]
+          for j in 0 ..< subobjectParts.count {
+            objects[subobject + [j]] = subobjectParts[j]
           }
         }
-
-        // Borrow the storage for initialization corresponding to the current name.
-        let target = module.append(
-          module.makeBorrow(.set, from: storage, anchoredAt: name.site),
-          to: insertionBlock!)[0]
-
-        // Store the corresponding (part of) the initializer.
-        module.append(
-          module.makeStore(objects[path]!, at: target, anchoredAt: name.site),
-          to: insertionBlock!)
+        emitInitialization(of: storage, to: objects[path]!, anchoredAt: name.site, into: &module)
       }
     }
   }
@@ -261,12 +244,7 @@ public struct Emitter {
         frames.top.allocs.append(storage)
         source = storage
 
-        let target = module.append(
-          module.makeBorrow(.set, from: storage, anchoredAt: pattern.site),
-          to: insertionBlock!)[0]
-        module.append(
-          module.makeStore(value, at: target, anchoredAt: pattern.site),
-          to: insertionBlock!)
+        emitInitialization(of: source, to: value, anchoredAt: pattern.site, into: &module)
       }
 
       for (path, name) in pattern.subpattern.names {
@@ -291,6 +269,8 @@ public struct Emitter {
       emit(assignStmt: AssignStmt.Typed(stmt)!, into: &module)
     case BraceStmt.self:
       emit(braceStmt: BraceStmt.Typed(stmt)!, into: &module)
+    case ConditionalStmt.self:
+      emit(conditionalStmt: ConditionalStmt.Typed(stmt)!, into: &module)
     case DeclStmt.self:
       emit(declStmt: DeclStmt.Typed(stmt)!, into: &module)
     case DoWhileStmt.self:
@@ -325,6 +305,27 @@ public struct Emitter {
     }
     emitStackDeallocs(in: &module, site: stmt.site)
     frames.pop()
+  }
+
+  private mutating func emit(
+    conditionalStmt stmt: ConditionalStmt.Typed, into module: inout Module
+  ) {
+    let (firstBranch, secondBranch) = emitTest(condition: stmt.condition, into: &module)
+    let tail: Block.ID
+
+    insertionBlock = firstBranch
+    emit(braceStmt: stmt.success, into: &module)
+    if let s = stmt.failure {
+      tail = module.createBasicBlock(atEndOf: insertionBlock!.function)
+      module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
+      insertionBlock = secondBranch
+      emit(stmt: s, into: &module)
+    } else {
+      tail = secondBranch
+    }
+
+    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
+    insertionBlock = tail
   }
 
   private mutating func emit(declStmt stmt: DeclStmt.Typed, into module: inout Module) {
@@ -434,8 +435,8 @@ public struct Emitter {
     switch expr.kind {
     case BooleanLiteralExpr.self:
       return emitRValue(booleanLiteral: BooleanLiteralExpr.Typed(expr)!, into: &module)
-    case CondExpr.self:
-      return emitRValue(conditional: CondExpr.Typed(expr)!, into: &module)
+    case ConditionalExpr.self:
+      return emitRValue(conditional: ConditionalExpr.Typed(expr)!, into: &module)
     case FloatLiteralExpr.self:
       return emitRValue(floatLiteral: FloatLiteralExpr.Typed(expr)!, into: &module)
     case FunctionCallExpr.self:
@@ -467,11 +468,9 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(
-    conditional expr: CondExpr.Typed,
+    conditional expr: ConditionalExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let functionID = insertionBlock!.function
-
     // If the expression is supposed to return a value, allocate storage for it.
     var resultStorage: Operand?
     if expr.type != .void {
@@ -482,79 +481,33 @@ public struct Emitter {
       frames.top.allocs.append(resultStorage!)
     }
 
-    // Emit the condition(s).
-    var alt: Block.ID?
-
-    for item in expr.condition {
-      let success = module.createBasicBlock(atEndOf: functionID)
-      let failure = module.createBasicBlock(atEndOf: functionID)
-      alt = failure
-
-      switch item {
-      case .expr(let itemExpr):
-        // Evaluate the condition in the current block.
-        let c = emitBranchCondition(program[itemExpr], into: &module)
-        module.append(
-          module.makeCondBranch(if: c, then: success, else: failure, anchoredAt: expr.site),
-          to: insertionBlock!)
-        insertionBlock = success
-
-      case .decl:
-        fatalError("not implemented")
-      }
-    }
-
-    let continuation = module.createBasicBlock(atEndOf: functionID)
+    let (firstBranch, secondBranch) = emitTest(condition: expr.condition, into: &module)
+    let tail = module.createBasicBlock(atEndOf: insertionBlock!.function)
 
     // Emit the success branch.
-    // Note: the insertion pointer is already set in the corresponding block.
-    switch expr.success {
-    case .expr(let thenExpr):
-      frames.push()
-      let value = emitRValue(program[thenExpr], into: &module)
-      if let target = resultStorage {
-        let target = module.append(
-          module.makeBorrow(.set, from: target, anchoredAt: program[thenExpr].site),
-          to: insertionBlock!)[0]
-        module.append(
-          module.makeStore(value, at: target, anchoredAt: program[thenExpr].site),
-          to: insertionBlock!)
-      }
-      emitStackDeallocs(in: &module, site: expr.site)
-      frames.pop()
-
-    case .block:
-      fatalError("not implemented")
+    insertionBlock = firstBranch
+    frames.push()
+    let a = emitRValue(program[expr.success], into: &module)
+    if let s = resultStorage {
+      emitInitialization(of: s, to: a, anchoredAt: program[expr.success].site, into: &module)
     }
-    module.append(module.makeBranch(to: continuation, anchoredAt: expr.site), to: insertionBlock!)
+    emitStackDeallocs(in: &module, site: expr.site)
+    frames.pop()
+    module.append(module.makeBranch(to: tail, anchoredAt: expr.site), to: insertionBlock!)
 
     // Emit the failure branch.
-    insertionBlock = alt
-    switch expr.failure {
-    case .expr(let elseExpr):
-      frames.push()
-      let value = emitRValue(program[elseExpr], into: &module)
-      if let target = resultStorage {
-        let target = module.append(
-          module.makeBorrow(.set, from: target, anchoredAt: program[elseExpr].site),
-          to: insertionBlock!)[0]
-        module.append(
-          module.makeStore(value, at: target, anchoredAt: program[elseExpr].site),
-          to: insertionBlock!)
-      }
-      emitStackDeallocs(in: &module, site: expr.site)
-      frames.pop()
-
-    case .block:
-      fatalError("not implemented")
-
-    case nil:
-      break
+    insertionBlock = secondBranch
+    frames.push()
+    let b = emitRValue(program[expr.failure], into: &module)
+    if let s = resultStorage {
+      emitInitialization(of: s, to: b, anchoredAt: program[expr.failure].site, into: &module)
     }
-    module.append(module.makeBranch(to: continuation, anchoredAt: expr.site), to: insertionBlock!)
+    emitStackDeallocs(in: &module, site: expr.site)
+    frames.pop()
+    module.append(module.makeBranch(to: tail, anchoredAt: expr.site), to: insertionBlock!)
 
     // Emit the value of the expression.
-    insertionBlock = continuation
+    insertionBlock = tail
     if let s = resultStorage {
       return module.append(module.makeLoad(s, anchoredAt: expr.site), to: insertionBlock!)[0]
     } else {
@@ -815,6 +768,31 @@ public struct Emitter {
     }
   }
 
+  /// Returns `(success: a, failure: b)` where `a` is the basic block reached if all items in
+  /// `condition` hold and `b` is the basic block reached otherwise, inserting new instructions
+  /// at the end of the current insertion block.
+  private mutating func emitTest(
+    condition: [ConditionItem], into module: inout Module
+  ) -> (success: Block.ID, failure: Block.ID) {
+    let failure = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let success = condition.reduce(insertionBlock!) { (b, c) -> Block.ID in
+      switch c {
+      case .expr(let e):
+        let test = emitBranchCondition(program[e], into: &module)
+        let next = module.createBasicBlock(atEndOf: b.function)
+        module.append(
+          module.makeCondBranch(if: test, then: next, else: failure, anchoredAt: program[e].site),
+          to: b)
+        return next
+
+      case .decl:
+        fatalError("not implemented")
+      }
+    }
+
+    return (success: success, failure: failure)
+  }
+
   /// Inserts the IR for branch condition `expr` into `module` at the end of the current insertion
   /// block.
   ///
@@ -937,13 +915,7 @@ public struct Emitter {
       to: insertionBlock!)[0]
     frames.top.allocs.append(storage)
 
-    let target = module.append(
-      module.makeBorrow(.set, from: storage, anchoredAt: syntax.site),
-      to: insertionBlock!)[0]
-    module.append(
-      module.makeStore(value, at: target, anchoredAt: syntax.site),
-      to: insertionBlock!)
-
+    emitInitialization(of: storage, to: value, anchoredAt: syntax.site, into: &module)
     return storage
   }
 
@@ -1013,6 +985,22 @@ public struct Emitter {
   }
 
   // MARK: Helpers
+
+  /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
+  /// block, anchoring new instructions at `anchor`.
+  private mutating func emitInitialization(
+    of storage: Operand,
+    to value: Operand,
+    anchoredAt anchor: SourceRange,
+    into module: inout Module
+  ) {
+    let s = module.append(
+      module.makeBorrow(.set, from: storage, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeStore(value, at: s, anchoredAt: anchor),
+      to: insertionBlock!)
+  }
 
   /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
   private mutating func emitStackDeallocs(in module: inout Module, site: SourceRange) {

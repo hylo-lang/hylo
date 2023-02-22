@@ -28,22 +28,20 @@ public struct Module {
   /// A map from function declaration its ID in the module.
   private var loweredFunctions: [FunctionDecl.Typed: Function.ID] = [:]
 
-  /// Creates an instance lowering `syntax` in `program`, reporting errors and warnings to
+  /// Creates an instance lowering `m` in `p`, reporting errors and warnings to
   /// `diagnostics`.
   ///
-  /// - Requires: `syntax` is a valid ID `program`.
+  /// - Requires: `m` is a valid ID in `p`.
   /// - Throws: `Diagnostics` if lowering fails.
   public init(
-    lowering syntax: NodeID<ModuleDecl>,
-    in program: TypedProgram,
-    diagnostics: inout DiagnosticSet
+    lowering m: ModuleDecl.ID, in p: TypedProgram, diagnostics: inout DiagnosticSet
   ) throws {
-    self.program = program
-    self.syntax = program[syntax]
+    self.program = p
+    self.syntax = program[m]
 
     var emitter = Emitter(program: program)
-    for d in program.ast.topLevelDecls(syntax) {
-      emitter.emit(topLevel: program[d], into: &self, diagnostics: &diagnostics)
+    for d in program.ast.topLevelDecls(m) {
+      emitter.emit(topLevel: p[d], into: &self, diagnostics: &diagnostics)
     }
     try diagnostics.throwOnError()
   }
@@ -99,6 +97,34 @@ public struct Module {
   public func isWellFormed(function f: Function.ID) -> Bool {
     return true
   }
+
+  /// Applies all mandatory passes in this module, accumulating diagnostics into `log` and throwing
+  /// if a pass reports an error.
+  public mutating func applyMandatoryPasses(
+    reportingDiagnosticsInto log: inout DiagnosticSet
+  ) throws {
+    for p in Self.mandatoryPasses {
+      for f in functions.indices {
+        p(f, &self, &log)
+      }
+      try log.throwOnError()
+    }
+  }
+
+  /// A analysis and/or transformation pass that applies `function` in `module`, accumulating
+  /// diagnostics into `log`.
+  private typealias Pass = (
+    _ function: Function.ID,
+    _ module: inout Module,
+    _ log: inout DiagnosticSet
+  ) -> Void
+
+  /// The pipeline with mandatory IR passes.
+  private static let mandatoryPasses: [Pass] = [
+    ImplicitReturnInsertionPass().run,
+    DefiniteInitializationPass().run,
+    LifetimePass().run,
+  ]
 
   /// Returns the identifier of the Val IR function corresponding to `decl`.
   mutating func getOrCreateFunction(

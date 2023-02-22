@@ -10,7 +10,7 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
   public let identifier: SourceRepresentable<Identifier>
 
   /// The conformances listed in the declaration.
-  public let conformances: [NodeID<NameExpr>]
+  public let conformances: [NameExpr.ID]
 
   /// The where clause of the declaration, if any.
   public let whereClause: SourceRepresentable<WhereClause>?
@@ -22,7 +22,7 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
   public init(
     introducerSite: SourceRange,
     identifier: SourceRepresentable<Identifier>,
-    conformances: [NodeID<NameExpr>],
+    conformances: [NameExpr.ID],
     whereClause: SourceRepresentable<WhereClause>?,
     defaultValue: AnyTypeExprID?,
     site: SourceRange

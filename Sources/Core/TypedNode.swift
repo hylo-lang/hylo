@@ -44,7 +44,7 @@ public struct TypedNode<ID: NodeIDProtocol>: Hashable {
 extension AST.Node {
 
   /// Type describing the current node with type information.
-  public typealias Typed = TypedNode<NodeID<Self>>
+  public typealias Typed = TypedNode<ID>
 
 }
 
@@ -75,7 +75,7 @@ extension TypedNode where ID: ConcreteNodeID {
 
   /// The corresponding AST node.
   private var syntax: ID.Subject {
-    program.ast[NodeID<ID.Subject>(id)!]
+    program.ast[id]
   }
 
   /// Accesses the given member of the corresponding AST node.
@@ -108,9 +108,8 @@ extension TypedNode where ID: ConcreteNodeID {
 
   /// Creates an instance denoting the same node as `s`, or fails if `s` does not refer to a
   /// `Target` node.
-  public init?<SourceID, Target>(_ s: TypedNode<SourceID>)
-  where ID == NodeID<Target> {
-    guard let myID = NodeID<ID.Subject>(s.id) else { return nil }
+  public init?<SourceID, Target>(_ s: TypedNode<SourceID>) where ID == NodeID<Target> {
+    guard let myID = ID(s.id) else { return nil }
     program = s.program
     id = myID
   }
@@ -158,7 +157,7 @@ extension TypedNode where ID: DeclID {
 
 }
 
-extension TypedNode where ID == NodeID<VarDecl> {
+extension TypedNode where ID == VarDecl.ID {
 
   /// The binding decl containing this var.
   public var binding: BindingDecl.Typed {
@@ -176,7 +175,7 @@ extension TypedNode where ID: ExprID {
 
 }
 
-extension TypedNode where ID == NodeID<NameExpr> {
+extension TypedNode where ID == NameExpr.ID {
 
   public enum Domain: Equatable {
 
@@ -261,13 +260,13 @@ extension TypedNode where ID == NodeID<NameExpr> {
 extension TypedNode where ID: PatternID {
 
   /// The names associated with this pattern.
-  public var names: [(path: [Int], pattern: NamePattern.Typed)] {
+  public var names: [(path: PartPath, pattern: NamePattern.Typed)] {
     program.ast.names(in: id).map({ (path: $0.path, pattern: program[$0.pattern]) })
   }
 
 }
 
-extension TypedNode where ID == NodeID<ModuleDecl> {
+extension TypedNode where ID == ModuleDecl.ID {
 
   /// The top-level declarations in the module.
   public var topLevelDecls: some Collection<TypedNode<AnyDeclID>> {
@@ -276,7 +275,7 @@ extension TypedNode where ID == NodeID<ModuleDecl> {
 
 }
 
-extension TypedNode where ID == NodeID<FunctionDecl> {
+extension TypedNode where ID == FunctionDecl.ID {
 
   /// The body of the function, containing typed information
   public enum Body {
@@ -305,7 +304,7 @@ extension TypedNode where ID == NodeID<FunctionDecl> {
 
 }
 
-extension TypedNode where ID == NodeID<SequenceExpr> {
+extension TypedNode where ID == SequenceExpr.ID {
 
   /// A map from (typed) sequence expressions to their evaluation order.
   public var foldedSequenceExprs: FoldedSequenceExpr? {

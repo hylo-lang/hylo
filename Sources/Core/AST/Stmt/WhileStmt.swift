@@ -9,9 +9,9 @@ public struct WhileStmt: Stmt, LexicalScope {
   public let condition: [ConditionItem]
 
   /// The body of the loop.
-  public let body: NodeID<BraceStmt>
+  public let body: BraceStmt.ID
 
-  public init(condition: [ConditionItem], body: NodeID<BraceStmt>, site: SourceRange) {
+  public init(condition: [ConditionItem], body: BraceStmt.ID, site: SourceRange) {
     precondition(condition.count > 0)
 
     self.site = site

@@ -24,13 +24,13 @@ public struct MethodDecl: GenericDecl, GenericScope {
   /// The parameters of the method.
   ///
   /// These declarations must have a type annotation.
-  public let parameters: [NodeID<ParameterDecl>]
+  public let parameters: [ParameterDecl.ID]
 
   /// The return type annotation of the method, if any.
   public let output: AnyTypeExprID?
 
   /// The implementations of the method.
-  public let impls: [NodeID<MethodImpl>]
+  public let impls: [MethodImpl.ID]
 
   /// Creates an instance with the given properties.
   public init(
@@ -40,9 +40,9 @@ public struct MethodDecl: GenericDecl, GenericScope {
     notation: SourceRepresentable<OperatorNotation>?,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
-    parameters: [NodeID<ParameterDecl>],
+    parameters: [ParameterDecl.ID],
     output: AnyTypeExprID?,
-    impls: [NodeID<MethodImpl>],
+    impls: [MethodImpl.ID],
     site: SourceRange
   ) {
     self.site = site

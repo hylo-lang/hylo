@@ -38,7 +38,7 @@ public struct Name: Hashable, Codable {
   }
 
   /// Creates the name introduced by `decl` in `ast`.
-  public init?(of decl: NodeID<FunctionDecl>, in ast: AST) {
+  public init?(of decl: FunctionDecl.ID, in ast: AST) {
     guard let stem = ast[decl].identifier?.value else { return nil }
     if let notation = ast[decl].notation?.value {
       self.init(stem: stem, notation: notation)
@@ -48,7 +48,7 @@ public struct Name: Hashable, Codable {
   }
 
   /// Creates the name introduced by `decl` in `ast`.
-  public init(of decl: NodeID<MethodDecl>, in ast: AST) {
+  public init(of decl: MethodDecl.ID, in ast: AST) {
     let stem = ast[decl].identifier.value
     if let notation = ast[decl].notation?.value {
       self.init(stem: stem, notation: notation)
@@ -71,7 +71,7 @@ public struct Name: Hashable, Codable {
   }
 
   /// Returns a textual description of `labels`.
-  public static func describe(labels: [String?]) -> String {
+  public static func describe<S: Sequence<String?>>(labels: S) -> String {
     labels.map({ "\($0 ?? "_"):" }).joined()
   }
 

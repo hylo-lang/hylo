@@ -4,9 +4,9 @@ public struct NamePattern: Pattern {
   public let site: SourceRange
 
   /// The variable declaration introducing the pattern's name.
-  public let decl: NodeID<VarDecl>
+  public let decl: VarDecl.ID
 
-  public init(decl: NodeID<VarDecl>, site: SourceRange) {
+  public init(decl: VarDecl.ID, site: SourceRange) {
     self.site = site
     self.decl = decl
   }

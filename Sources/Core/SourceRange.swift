@@ -96,3 +96,12 @@ extension SourceRange: Codable {
   }
 
 }
+
+extension SourceRange: CustomStringConvertible {
+
+  public var description: String {
+    let (l, c) = file.position(indices.upperBound).lineAndColumn
+    return "\(first())-\(l):\(c)"
+  }
+
+}

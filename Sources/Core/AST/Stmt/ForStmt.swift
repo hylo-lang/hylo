@@ -4,7 +4,7 @@ public struct ForStmt: Stmt, LexicalScope {
   public let site: SourceRange
 
   /// The conditional binding of the loop.
-  public let binding: NodeID<BindingDecl>
+  public let binding: BindingDecl.ID
 
   /// The iteration domain of the loop.
   public let domain: AnyExprID
@@ -13,14 +13,14 @@ public struct ForStmt: Stmt, LexicalScope {
   public let filter: AnyExprID?
 
   /// The body of the loop.
-  public let body: NodeID<BraceStmt>
+  public let body: BraceStmt.ID
 
   /// Creates an instance having the given properties.
   public init(
-    binding: NodeID<BindingDecl>,
+    binding: BindingDecl.ID,
     domain: AnyExprID,
     filter: AnyExprID?,
-    body: NodeID<BraceStmt>,
+    body: BraceStmt.ID,
     site: SourceRange
   ) {
     self.site = site

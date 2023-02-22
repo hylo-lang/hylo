@@ -8,7 +8,7 @@ final class EmitterTests: XCTestCase {
 
   func testEmitter() throws {
     try checkAnnotatedValFileDiagnostics(
-      in: "TestCases/Lowering",
+      inSuiteAt: "TestCases/Lowering",
       { (source, diagnostics) in
         // Note: built-in module is visible so that we can test built-in function calls.
         var ast = AST.coreModule
@@ -23,8 +23,7 @@ final class EmitterTests: XCTestCase {
         var irModule = try Module(lowering: module, in: typedProgram, diagnostics: &diagnostics)
 
         // Run mandatory IR analysis and transformation passes.
-        let p = PassPipeline(withMandatoryPassesForModulesLoweredFrom: typedProgram)
-        try p.apply(&irModule, reportingDiagnosticsInto: &diagnostics)
+        try irModule.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
       })
   }
 
