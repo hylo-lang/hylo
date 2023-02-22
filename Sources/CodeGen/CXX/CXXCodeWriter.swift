@@ -6,14 +6,14 @@ public struct CXXCodeWriter {
   /// Initializes the current object.
   public init() {}
 
-  /// Indicates if we are currently writing the standard library module.
-  private var isStdLib: Bool = false
+  /// Indicates if we are currently writing the core library module.
+  private var isCoreLibrary: Bool = false
 
   // MARK: API
 
   /// Returns the C++ code for a translation unit.
   public mutating func cxxCode(_ source: CXXModule) -> TranslationUnitCode {
-    self.isStdLib = source.isStdLib
+    self.isCoreLibrary = source.isCoreLibrary
     return TranslationUnitCode(
       headerCode: generateHeaderCode(source), sourceCode: generateSourceCode(source))
   }
@@ -32,23 +32,27 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Emit include clauses.
-    if source.isStdLib {
+    if source.isCoreLibrary {
       target.writeLine("#include <variant>")
       target.writeLine("#include <cstdint>")
       target.writeLine("#include <cstdlib>")
     } else {
-      target.writeLine("#include \"ValStdLib.h\"")
+      target.writeLine("#include \"ValCore.h\"")
     }
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(cxx: source.name)")
+    if source.isCoreLibrary {
+      target.write("namespace Val")
+    } else {
+      target.write("namespace \(cxx: source.name)")
+    }
     target.beginBrace()
     target.writeNewline()
 
     // If we are not in the standard library, use the namespace corresponding to the standard lib.
-    if !source.isStdLib {
-      target.writeLine("using namespace ValStdLib;")
+    if !source.isCoreLibrary {
+      target.writeLine("using namespace Val;")
       target.writeNewline()
     }
 
@@ -62,7 +66,7 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Add extra native code to the stdlib header.
-    if source.isStdLib {
+    if source.isCoreLibrary {
       let fileToInclude = ValModule.cxxSupport!.appendingPathComponent("NativeCode.h")
       if let text = try? String(contentsOf: fileToInclude) {
         target.write(text)
@@ -81,7 +85,11 @@ public struct CXXCodeWriter {
     target.writeNewline()
 
     // Create a namespace for the entire module.
-    target.write("namespace \(cxx: source.name)")
+    if isCoreLibrary {
+      target.write("namespace Val")
+    } else {
+      target.write("namespace \(cxx: source.name)")
+    }
     target.beginBrace()
     target.writeNewline()
 
@@ -94,8 +102,8 @@ public struct CXXCodeWriter {
     target.endBrace()
     target.writeNewline()
 
-    // Add extra native code to the stdlib source file.
-    if source.isStdLib {
+    // Add extra native code to the core library source file.
+    if source.isCoreLibrary {
       let fileToInclude = ValModule.cxxSupport!.appendingPathComponent("NativeCode.cpp")
       if let text = try? String(contentsOf: fileToInclude) {
         target.write(text)
@@ -185,11 +193,13 @@ public struct CXXCodeWriter {
         target.writeLine("// constructor")
       }
     }
-    // Special code for stdlib types
-    if isStdLib {
-      // For standard value types try to generate implict conversion constructors from C++ literal types.
+
+    // Special code for core library types
+    if isCoreLibrary {
+      // Try to generate implict conversion constructors from C++ literal types.
       write(conversionCtor: decl, into: &target)
     }
+
     target.endBrace()
     target.writeLine(";")
   }
