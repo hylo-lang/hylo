@@ -41,16 +41,16 @@ final class CXXTests: XCTestCase {
       })
   }
 
-  func testStdLibGeneration() throws {
+  func testCoreLibraryGeneration() throws {
     let typedProgram = try checkNoDiagnostic { d in
       try TypedProgram.init(AST.coreModule, diagnostics: &d)
     }
 
-    let cxxCode = typedProgram.cxx(typedProgram[AST.coreModule.corelib!]).text
+    let cxxCode = typedProgram.cxx(typedProgram[AST.coreModule.coreLibrary!]).text
 
     // Read test cases; use .val files just for convenience.
     try checkAnnotatedValFiles(
-      inSuiteAt: "TestCases/CXXStdLib",
+      inSuiteAt: "TestCases/CXXCoreLibrary",
       checkingAnnotationCommands: ["cpp", "h"],
       { (source, cxxAnnotations, diagnostics) in
         return cxxAnnotations.compactMap { a in
@@ -69,4 +69,5 @@ final class CXXTests: XCTestCase {
         }
       })
   }
+
 }

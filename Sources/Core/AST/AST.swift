@@ -16,7 +16,7 @@ public struct AST {
     public var modules: [NodeID<ModuleDecl>] = []
 
     /// The ID of the module containing Val's core library, if any.
-    public var corelib: NodeID<ModuleDecl>?
+    public var coreLibrary: NodeID<ModuleDecl>?
   }
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
@@ -39,10 +39,10 @@ public struct AST {
   }
 
   /// The ID of the module containing Val's core library, if any.
-  public var corelib: NodeID<ModuleDecl>? {
-    get { storage.corelib }
-    set { storage.corelib = newValue }
-    _modify { yield &storage.corelib }
+  public var coreLibrary: NodeID<ModuleDecl>? {
+    get { storage.coreLibrary }
+    set { storage.coreLibrary = newValue }
+    _modify { yield &storage.coreLibrary }
   }
 
   /// Creates an empty AST.
@@ -108,7 +108,7 @@ public struct AST {
   // MARK: Core library
 
   /// Indicates whether the Core library has been loaded.
-  public var isCoreModuleLoaded: Bool { corelib != nil }
+  public var isCoreModuleLoaded: Bool { coreLibrary != nil }
 
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
   ///
@@ -116,7 +116,7 @@ public struct AST {
   public func coreType(named name: String) -> ProductType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(corelib!) where id.kind == ProductTypeDecl.self {
+    for id in topLevelDecls(coreLibrary!) where id.kind == ProductTypeDecl.self {
       let id = NodeID<ProductTypeDecl>(id)!
       if self[id].baseName == name {
         return ProductType(id, ast: self)
@@ -128,11 +128,11 @@ public struct AST {
 
   /// Returns the trait named `name` defined in the core library or `nil` if it does not exist.
   ///
-  /// - Requires: The core library must be loaded and assigned to `self.corelib`.
+  /// - Requires: The core library must be loaded and assigned to `self.coreLibrary`.
   public func coreTrait(named name: String) -> TraitType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(corelib!) where id.kind == TraitDecl.self {
+    for id in topLevelDecls(coreLibrary!) where id.kind == TraitDecl.self {
       let id = NodeID<TraitDecl>(id)!
       if self[id].baseName == name {
         return TraitType(id, ast: self)
@@ -145,7 +145,7 @@ public struct AST {
   /// Returns the trait describing types whose instances are expressible by this literal or `nil`
   /// if it does not exist.
   ///
-  /// - Requires: The core library must be loaded and assigned to `self.corelib`.
+  /// - Requires: The core library must be loaded and assigned to `self.coreLibrary`.
   public func coreTrait<T: Expr>(forTypesExpressibleBy literal: T.Type) -> TraitType? {
     switch literal.kind {
     case FloatLiteralExpr.self:
