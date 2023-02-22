@@ -104,10 +104,8 @@ struct ConstraintSystem {
     _ constraints: S, in scope: AnyScopeID, loggingTrace isLoggingEnabled: Bool
   ) {
     self.scope = scope
-    self.goals = Array(constraints)
-    self.outcomes = Array(repeating: nil, count: goals.count)
-    self.fresh = Array(goals.indices)
     self.isLoggingEnabled = isLoggingEnabled
+    _ = insert(fresh: constraints)
   }
 
   /// Solves this instance using `checker` to query type relations and resolve names, returning the
@@ -715,7 +713,11 @@ struct ConstraintSystem {
     let newIdentity = goals.count
     goals.append(g)
     outcomes.append(nil)
-    fresh.append(newIdentity)
+
+    let i = fresh.partitioningIndex(
+      at: newIdentity,
+      orderedBy: { (a, b) in !goals[a].simpler(than: goals[b]) })
+    fresh.insert(newIdentity, at: i)
     return newIdentity
   }
 
@@ -1028,6 +1030,34 @@ private struct Explorations<T: DisjunctiveConstraintProtocol> {
 
     if shouldInsert {
       elements.append(newResult)
+    }
+  }
+
+}
+
+extension Constraint {
+
+  /// Returns whether `self` is heuristically simpler to solve than `other`.
+  fileprivate func simpler(than other: Constraint) -> Bool {
+    switch self {
+    case is EqualityConstraint:
+      return !(other is EqualityConstraint)
+
+    case let l as any DisjunctiveConstraintProtocol:
+      if let r = other as? any DisjunctiveConstraintProtocol {
+        if l.choices.count == r.choices.count {
+          let x = l.choices.reduce(0, { $0 + $1.constraints.count })
+          let y = r.choices.reduce(0, { $0 + $1.constraints.count })
+          return x < y
+        } else {
+          return (l.choices.count < r.choices.count)
+        }
+      } else {
+        return false
+      }
+
+    default:
+      return other is (any DisjunctiveConstraintProtocol)
     }
   }
 
