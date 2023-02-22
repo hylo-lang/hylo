@@ -176,10 +176,24 @@ extension AST {
     n.forEach({ walk(AnyNodeID($0), notifying: &o) })
   }
 
-  public func walk<O: ASTWalkObserver>(
-    conditionItems i: [ConditionItem], notifying o: inout O
-  ) {
-    i.forEach({ traverse(conditionItem: $0, notifying: &o) })
+  public func walk<O: ASTWalkObserver>(conditionItems i: [ConditionItem], notifying o: inout O) {
+    for x in i {
+      switch x {
+      case let .expr(e):
+        walk(e, notifying: &o)
+      case let .decl(d):
+        walk(d, notifying: &o)
+      }
+    }
+  }
+
+  public func walk<O: ASTWalkObserver>(functionBody b: FunctionBody, notifying o: inout O) {
+    switch b {
+    case .expr(let e):
+      walk(e, notifying: &o)
+    case .block(let s):
+      walk(s, notifying: &o)
+    }
   }
 
   // MARK: Declarations
@@ -231,7 +245,7 @@ extension AST {
     walk(n.parameters, notifying: &o)
     walk(n.receiver, notifying: &o)
     walk(n.output, notifying: &o)
-    n.body.map({ traverse(functionBody: $0, notifying: &o) })
+    n.body.map({ walk(functionBody: $0, notifying: &o) })
   }
 
   public func traverse<O: ASTWalkObserver>(
@@ -267,7 +281,7 @@ extension AST {
     _ n: MethodImpl, notifying o: inout O
   ) {
     walk(n.receiver, notifying: &o)
-    n.body.map({ traverse(functionBody: $0, notifying: &o) })
+    n.body.map({ walk(functionBody: $0, notifying: &o) })
   }
 
   public func traverse<O: ASTWalkObserver>(
@@ -315,7 +329,7 @@ extension AST {
     _ n: SubscriptImpl, notifying o: inout O
   ) {
     walk(n.receiver, notifying: &o)
-    n.body.map({ traverse(functionBody: $0, notifying: &o) })
+    n.body.map({ walk(functionBody: $0, notifying: &o) })
   }
 
   public func traverse<O: ASTWalkObserver>(
@@ -648,24 +662,6 @@ extension AST {
     _ n: TranslationUnit, notifying o: inout O
   ) {
     walk(n.decls, notifying: &o)
-  }
-
-  public func traverse<O: ASTWalkObserver>(conditionItem i: ConditionItem, notifying o: inout O) {
-    switch i {
-    case let .expr(e):
-      walk(e, notifying: &o)
-    case let .decl(d):
-      walk(d, notifying: &o)
-    }
-  }
-
-  public func traverse<O: ASTWalkObserver>(functionBody b: FunctionBody, notifying o: inout O) {
-    switch b {
-    case .expr(let e):
-      walk(e, notifying: &o)
-    case .block(let s):
-      walk(s, notifying: &o)
-    }
   }
 
   public func traverse<O: ASTWalkObserver>(genericClause c: GenericClause, notifying o: inout O) {
