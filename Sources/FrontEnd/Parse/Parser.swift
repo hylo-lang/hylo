@@ -2328,53 +2328,26 @@ public enum Parser {
   }
 
   private static func parseCompoundLiteral(in state: inout ParserState) throws -> AnyExprID? {
+
     let backup = state.backup()
 
-    // Attempt to parse a map literal.
-    do {
-      if let expr = try mapLiteral.parse(&state) { return AnyExprID(expr) }
-    } catch {}
+    if let map = try parseMapLiteral(in: &state) {
+      let expr = state.insert(map)
+      return AnyExprID(expr)
+    }
 
-    // Backtrack and parse a buffer literal.
     state.restore(from: backup)
-    return try bufferLiteral.parse(&state).map(AnyExprID.init)
+
+    if let buffer = try bufferLiteral.parse(&state) {
+      let expr = state.insert(BufferLiteralExpr(
+        elements: buffer.elements,
+        site: state.range(from: buffer.opener.site.start)))
+      return AnyExprID(expr)
+    }
+
+    return nil
+
   }
-
-  private static let bufferLiteral =
-    (take(.lBrack).and(maybe(bufferComponentListContents)).and(take(.rBrack))
-      .map({ (state, tree) -> NodeID<BufferLiteralExpr> in
-        state.insert(
-          BufferLiteralExpr(
-            elements: tree.0.1 ?? [],
-            site: tree.0.0.site.extended(upTo: state.currentIndex)))
-      }))
-
-  private static let bufferComponentListContents =
-    (expr.and(zeroOrMany(take(.comma).and(expr).second))
-      .map({ (state, tree) -> [AnyExprID] in [tree.0] + tree.1 }))
-
-  private static let mapLiteral =
-    (take(.lBrack).and(mapComponentListContents.or(mapComponentEmptyContents)).and(take(.rBrack))
-      .map({ (state, tree) -> NodeID<MapLiteralExpr> in
-        state.insert(
-          MapLiteralExpr(
-            elements: tree.0.1,
-            site: tree.0.0.site.extended(upTo: state.currentIndex)))
-      }))
-
-  private static let mapComponentEmptyContents =
-    (take(.colon)
-      .map({ (_, _) -> [MapLiteralExpr.Element] in [] }))
-
-  private static let mapComponentListContents =
-    (mapComponent.and(zeroOrMany(take(.comma).and(mapComponent).second))
-      .map({ (state, tree) -> [MapLiteralExpr.Element] in [tree.0] + tree.1 }))
-
-  private static let mapComponent =
-    (expr.and(take(.colon)).and(expr)
-      .map({ (_, tree) -> MapLiteralExpr.Element in
-        MapLiteralExpr.Element(key: tree.0.0, value: tree.1)
-      }))
 
   private static let callArgument = Apply(parseArgument(in:))
 
@@ -2495,6 +2468,56 @@ public enum Parser {
     closerKind: .rBrace,
     closerDescription: "}",
     elementParser: Apply(parseTupleTypeExprElement(in:)))
+
+  private static let bufferLiteral = DelimitedCommaSeparatedList(
+    openerKind: .lBrack,
+    closerKind: .rBrack,
+    closerDescription: "]",
+    elementParser: Apply(parseExpr(in:)))
+
+  private static let nonemptyMapLiteral = DelimitedCommaSeparatedList(
+    openerKind: .lBrack,
+    closerKind: .rBrack,
+    closerDescription: "]",
+    elementParser: Apply(parseMapComponent(in:)))
+
+  private static func parseMapComponent(in state: inout ParserState) throws -> MapLiteralExpr.Element? {
+
+    let backup = state.backup()
+
+    if let lhs = try parseExpr(in: &state) {
+      if state.take(.colon) != nil {
+        if let rhs = try parseExpr(in: &state) {
+          return MapLiteralExpr.Element(key: AnyExprID(lhs), value: AnyExprID(rhs))
+        }
+      }
+    }
+
+    state.restore(from: backup)
+    return nil
+  }
+
+  private static func parseMapLiteral(in state: inout ParserState) throws -> MapLiteralExpr? {
+    let backup = state.backup()
+
+    // Attempt to parse an empty map literal `[:]`
+    if let lBracket = state.take(.lBrack) {
+      if let _ = state.take(.colon) {
+        if let _ = state.take(.rBrack) {
+          return MapLiteralExpr(elements: [], site: lBracket.site)
+        }
+      }
+    }
+
+    state.restore(from: backup)
+
+    if let expr = try nonemptyMapLiteral.parse(&state) {
+      return MapLiteralExpr(elements: expr.elements, site: expr.opener.site)
+    }
+
+    return nil
+
+  }
 
   // MARK: Patterns
 
@@ -3293,6 +3316,10 @@ struct DelimitedCommaSeparatedList<E: Combinator>: Combinator where E.Context ==
           .error(expected: "expression", at: state.currentLocation))
         break
       }
+    }
+
+    if closer == nil {
+      return nil
     }
 
     return Element(

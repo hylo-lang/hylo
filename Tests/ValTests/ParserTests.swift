@@ -1102,6 +1102,13 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.elements.count, 3)
   }
 
+  func testBufferLiteralWithTrailingComma() throws {
+    let input: SourceFile = "[a, b, c,]"
+    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
+    let expr = try XCTUnwrap(ast[exprID] as? BufferLiteralExpr)
+    XCTAssertEqual(expr.elements.count, 3)
+  }
+
   func testMapLiteral() throws {
     let input: SourceFile = "[:]"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
@@ -1111,6 +1118,13 @@ final class ParserTests: XCTestCase {
 
   func testMapLiteralWithMultipleElements() throws {
     let input: SourceFile = "[a: 0, b: 1, c: 2]"
+    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
+    let expr = try XCTUnwrap(ast[exprID] as? MapLiteralExpr)
+    XCTAssertEqual(expr.elements.count, 3)
+  }
+
+  func testMapLiteralWithTrailingComma() throws {
+    let input: SourceFile = "[a: 0, b: 1, c: 2,]"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let expr = try XCTUnwrap(ast[exprID] as? MapLiteralExpr)
     XCTAssertEqual(expr.elements.count, 3)
