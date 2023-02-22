@@ -9,7 +9,7 @@ public struct TypedProgram: Program {
 
   public let declToScope: DeclProperty<AnyScopeID>
 
-  public let varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>]
+  public let varToBinding: [VarDecl.ID: BindingDecl.ID]
 
   /// The overarching type of each declaration.
   public let declTypes: DeclProperty<AnyType>
@@ -21,10 +21,10 @@ public struct TypedProgram: Program {
   public let implicitCaptures: DeclProperty<[ImplicitCapture]>
 
   /// A map from name expression to its referred declaration.
-  public let referredDecls: [NodeID<NameExpr>: DeclRef]
+  public let referredDecls: [NameExpr.ID: DeclRef]
 
   /// A map from sequence expressions to their evaluation order.
-  public let foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr]
+  public let foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr]
 
   /// The type relations of the program.
   public let relations: TypeRelations
@@ -42,8 +42,8 @@ public struct TypedProgram: Program {
     declTypes: DeclProperty<AnyType>,
     exprTypes: ExprProperty<AnyType>,
     implicitCaptures: DeclProperty<[ImplicitCapture]>,
-    referredDecls: [NodeID<NameExpr>: DeclRef],
-    foldedSequenceExprs: [NodeID<SequenceExpr>: FoldedSequenceExpr],
+    referredDecls: [NameExpr.ID: DeclRef],
+    foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr],
     relations: TypeRelations
   ) {
     precondition(program.ast.modules.allSatisfy({ declTypes[$0]?.base is ModuleType }))

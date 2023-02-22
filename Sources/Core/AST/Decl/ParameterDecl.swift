@@ -10,7 +10,7 @@ public struct ParameterDecl: SingleEntityDecl {
   public let identifier: SourceRepresentable<Identifier>
 
   /// The type annotation of the declaration, if any.
-  public let annotation: NodeID<ParameterTypeExpr>?
+  public let annotation: ParameterTypeExpr.ID?
 
   /// The default value of the declaration, if any.
   public let defaultValue: AnyExprID?
@@ -18,7 +18,7 @@ public struct ParameterDecl: SingleEntityDecl {
   public init(
     label: SourceRepresentable<Identifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
-    annotation: NodeID<ParameterTypeExpr>? = nil,
+    annotation: ParameterTypeExpr.ID? = nil,
     defaultValue: AnyExprID? = nil,
     site: SourceRange
   ) {

@@ -7,7 +7,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     case expr(AnyExprID)
 
     /// A block body.
-    case block(NodeID<BraceStmt>)
+    case block(BraceStmt.ID)
 
   }
 
@@ -38,15 +38,15 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The explicit capture declarations of the function.
-  public let explicitCaptures: [NodeID<BindingDecl>]
+  public let explicitCaptures: [BindingDecl.ID]
 
   /// The parameters of the function.
   ///
   /// These declarations must have a type annotation unless `self.isInExprContext` is `true`.
-  public let parameters: [NodeID<ParameterDecl>]
+  public let parameters: [ParameterDecl.ID]
 
   /// The declaration of the implicit receiver parameter, if any.
-  public let receiver: NodeID<ParameterDecl>?
+  public let receiver: ParameterDecl.ID?
 
   /// The return type annotation of the function, if any.
   public let output: AnyTypeExprID?
@@ -67,9 +67,9 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     notation: SourceRepresentable<OperatorNotation>? = nil,
     identifier: SourceRepresentable<Identifier>? = nil,
     genericClause: SourceRepresentable<GenericClause>? = nil,
-    explicitCaptures: [NodeID<BindingDecl>] = [],
-    parameters: [NodeID<ParameterDecl>] = [],
-    receiver: NodeID<ParameterDecl>? = nil,
+    explicitCaptures: [BindingDecl.ID] = [],
+    parameters: [ParameterDecl.ID] = [],
+    receiver: ParameterDecl.ID? = nil,
     output: AnyTypeExprID? = nil,
     body: Body? = nil,
     isInExprContext: Bool = false,

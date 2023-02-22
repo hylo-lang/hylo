@@ -8,9 +8,9 @@ public struct LambdaTypeExpr: Expr {
     public var label: SourceRepresentable<Identifier>?
 
     /// The type of the parameter.
-    public let type: NodeID<ParameterTypeExpr>
+    public let type: ParameterTypeExpr.ID
 
-    public init(label: SourceRepresentable<String>? = nil, type: NodeID<ParameterTypeExpr>) {
+    public init(label: SourceRepresentable<String>? = nil, type: ParameterTypeExpr.ID) {
       self.label = label
       self.type = type
     }

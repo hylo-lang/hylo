@@ -4,7 +4,7 @@ import Utils
 public struct AssociatedValueType: TypeProtocol {
 
   /// The declaration that introduces the associated value in the parent trait.
-  public let decl: NodeID<AssociatedValueDecl>
+  public let decl: AssociatedValueDecl.ID
 
   /// The domain of an associated value.
   ///
@@ -17,7 +17,7 @@ public struct AssociatedValueType: TypeProtocol {
   /// Creates an instance denoting the associated value declared by `decl` as a member of `domain`.
   ///
   /// - Requires: `domain` is an associated type, conformance lens, or generic type parameter.
-  public init(_ decl: NodeID<AssociatedValueDecl>, domain: AnyType, ast: AST) {
+  public init(_ decl: AssociatedValueDecl.ID, domain: AnyType, ast: AST) {
     switch domain.base {
     case is AssociatedTypeType, is ConformanceLensType, is GenericTypeParameterType:
       self.domain = domain

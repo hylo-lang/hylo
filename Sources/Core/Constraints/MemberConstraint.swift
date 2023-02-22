@@ -7,7 +7,7 @@ public struct MemberConstraint: Constraint, Hashable {
   public private(set) var subject: AnyType
 
   /// The expression referring to `subject`'s member in the AST.
-  public let memberExpr: NodeID<NameExpr>
+  public let memberExpr: NameExpr.ID
 
   /// The name of the member in `subject` that must have type `memberType`.
   public let memberName: Name
@@ -21,7 +21,7 @@ public struct MemberConstraint: Constraint, Hashable {
   /// name is expressed by `memberExpr` in the AST.
   public init(
     _ subject: AnyType,
-    hasMemberReferredToBy memberExpr: NodeID<NameExpr>,
+    hasMemberReferredToBy memberExpr: NameExpr.ID,
     ofType member: AnyType,
     in ast: AST,
     origin: ConstraintOrigin

@@ -10,7 +10,7 @@ public struct ConformanceDecl: TypeExtendingDecl {
   public let subject: AnyTypeExprID
 
   /// The names of traits to which conformance is declared.
-  public let conformances: [NodeID<NameExpr>]
+  public let conformances: [NameExpr.ID]
 
   /// The condition of the conformance, if any.
   public let whereClause: SourceRepresentable<WhereClause>?
@@ -22,7 +22,7 @@ public struct ConformanceDecl: TypeExtendingDecl {
   public init(
     accessModifier: SourceRepresentable<AccessModifier>?,
     subject: AnyTypeExprID,
-    conformances: [NodeID<NameExpr>],
+    conformances: [NameExpr.ID],
     whereClause: SourceRepresentable<WhereClause>?,
     members: [AnyDeclID],
     site: SourceRange

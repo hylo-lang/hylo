@@ -4,7 +4,7 @@ import Utils
 public struct GenericValueParameter: CompileTimeValue {
 
   /// The declaration that introduces the binding.
-  public let decl: NodeID<GenericParameterDecl>
+  public let decl: GenericParameterDecl.ID
 
   /// The compile-time type of the binding.
   public let staticType: AnyType
@@ -15,7 +15,7 @@ public struct GenericValueParameter: CompileTimeValue {
   /// Creates an instance denoting a generic value of type `staticType` declared by `decl`.
   public init(
     ofType staticType: AnyType,
-    declaredBy decl: NodeID<GenericParameterDecl>,
+    declaredBy decl: GenericParameterDecl.ID,
     in ast: AST
   ) {
     self.decl = decl

@@ -13,10 +13,10 @@ public struct AST {
     /// The indices of the modules.
     ///
     /// - Invariant: All referred modules have a different name.
-    public var modules: [NodeID<ModuleDecl>] = []
+    public var modules: [ModuleDecl.ID] = []
 
     /// The ID of the module containing Val's core library, if any.
-    public var coreLibrary: NodeID<ModuleDecl>?
+    public var coreLibrary: ModuleDecl.ID?
   }
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
@@ -32,14 +32,14 @@ public struct AST {
   /// The indices of the modules.
   ///
   /// - Invariant: All referred modules have a different name.
-  public private(set) var modules: [NodeID<ModuleDecl>] {
+  public private(set) var modules: [ModuleDecl.ID] {
     get { storage.modules }
     set { storage.modules = newValue }
     _modify { yield &storage.modules }
   }
 
   /// The ID of the module containing Val's core library, if any.
-  public var coreLibrary: NodeID<ModuleDecl>? {
+  public var coreLibrary: ModuleDecl.ID? {
     get { storage.coreLibrary }
     set { storage.coreLibrary = newValue }
     _modify { yield &storage.coreLibrary }
@@ -49,14 +49,14 @@ public struct AST {
   public init() {}
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
-  public mutating func insert<T: Node>(_ n: T, diagnostics: inout DiagnosticSet) -> NodeID<T> {
+  public mutating func insert<T: Node>(_ n: T, diagnostics: inout DiagnosticSet) -> T.ID {
     n.validateForm(in: self, into: &diagnostics)
 
-    let i = NodeID<T>(rawValue: nodes.count)
+    let i = T.ID(rawValue: nodes.count)
     if let n = n as? ModuleDecl {
       precondition(
         !modules.contains(where: { self[$0].baseName == n.baseName }), "duplicate module")
-      modules.append(i as! NodeID<ModuleDecl>)
+      modules.append(i as! ModuleDecl.ID)
     }
     nodes.append(AnyNode(n))
     return i
@@ -65,7 +65,7 @@ public struct AST {
   /// Inserts `n` into `self`.
   ///
   /// - Precondition: `n` is well formed.
-  public mutating func insert<T: Node>(synthesized n: T) -> NodeID<T> {
+  public mutating func insert<T: Node>(synthesized n: T) -> T.ID {
     var d = DiagnosticSet()
     let r = insert(n, diagnostics: &d)
     precondition(d.elements.isEmpty, "ill-formed synthesized node \(n)\n\(d)")
@@ -117,7 +117,7 @@ public struct AST {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(coreLibrary!) where id.kind == ProductTypeDecl.self {
-      let id = NodeID<ProductTypeDecl>(id)!
+      let id = ProductTypeDecl.ID(id)!
       if self[id].baseName == name {
         return ProductType(id, ast: self)
       }
@@ -133,7 +133,7 @@ public struct AST {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(coreLibrary!) where id.kind == TraitDecl.self {
-      let id = NodeID<TraitDecl>(id)!
+      let id = TraitDecl.ID(id)!
       if self[id].baseName == name {
         return TraitType(id, ast: self)
       }
@@ -160,35 +160,31 @@ public struct AST {
   // MARK: Helpers
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
-  public func topLevelDecls(_ module: NodeID<ModuleDecl>) -> some Collection<AnyDeclID> {
+  public func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
     self[self[module].sources].map(\.decls).joined()
   }
 
   /// Returns the paths and IDs of the named patterns contained in `p`.
-  public func names<T: PatternID>(in p: T) -> [(path: PartPath, pattern: NodeID<NamePattern>)] {
+  public func names<T: PatternID>(in p: T) -> [(path: PartPath, pattern: NamePattern.ID)] {
     func visit(
       pattern: AnyPatternID,
       path: PartPath,
-      result: inout [(path: PartPath, pattern: NodeID<NamePattern>)]
+      result: inout [(path: PartPath, pattern: NamePattern.ID)]
     ) {
       switch pattern.kind {
       case BindingPattern.self:
-        let x = NodeID<BindingPattern>(pattern)!
-        visit(pattern: self[x].subpattern, path: path, result: &result)
+        visit(pattern: self[BindingPattern.ID(pattern)!].subpattern, path: path, result: &result)
 
       case ExprPattern.self:
         break
 
       case NamePattern.self:
-        result.append((path: path, pattern: NodeID<NamePattern>(pattern)!))
+        result.append((path: path, pattern: NamePattern.ID(pattern)!))
 
       case TuplePattern.self:
-        let x = NodeID<TuplePattern>(pattern)!
+        let x = TuplePattern.ID(pattern)!
         for i in 0 ..< self[x].elements.count {
-          visit(
-            pattern: self[x].elements[i].pattern,
-            path: path + [i],
-            result: &result)
+          visit(pattern: self[x].elements[i].pattern, path: path + [i], result: &result)
         }
 
       case WildcardPattern.self:
@@ -199,7 +195,7 @@ public struct AST {
       }
     }
 
-    var result: [(path: PartPath, pattern: NodeID<NamePattern>)] = []
+    var result: [(path: PartPath, pattern: NamePattern.ID)] = []
     visit(pattern: AnyPatternID(p), path: [], result: &result)
     return result
   }
