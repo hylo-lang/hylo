@@ -33,7 +33,6 @@ private struct HeaderFile: WriteableInContext {
     // (more efficiently treated in the compiler, and reduces probability of accidents)
     output.write("#pragma once\n")
 
-    // Emit include clauses.
     if source.isStdLib {
       output.write("#include <variant>\n")
       output.write("#include <cstdint>\n")
@@ -41,28 +40,16 @@ private struct HeaderFile: WriteableInContext {
     } else {
       output.write("#include \"ValStdLib.h\"\n")
     }
-
-    // Create a namespace for the entire module.
     output.write("namespace \(source.name) {\n")
-
-    // If we are not in the standard library, use the namespace corresponding to the standard lib.
     if !source.isStdLib {
       output.write("using namespace ValStdLib;\n")
     }
-
-    // Emit the C++ text needed for the header corresponding to the C++ declarations.
-    for decl in source.topLevelDecls {
-      output.write(TopLevelInterface(decl), inContext: c)
-    }
-
+    output.write(source.topLevelDecls.map({ decl in TopLevelInterface(decl) }), inContext: c)
     output.write("\n}\n")
 
     // Add extra native code to the stdlib header.
     if source.isStdLib {
-      let fileToInclude = ValModule.cxxSupport!.appendingPathComponent("NativeCode.h")
-      if let text = try? String(contentsOf: fileToInclude) {
-        output.write(text)
-      }
+      output.write(AdditionalFileContent("NativeCode.h"))
     }
   }
 
@@ -79,26 +66,14 @@ private struct SourceFile: WriteableInContext {
 
   /// Writes 'self' to 'output'.
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    // Emit include clauses.
     output.write("#include \"\(source.name).h\"\n")
-
-    // Create a namespace for the entire module.
     output.write("namespace \(source.name) {\n")
-
-    // Emit the C++ text needed for the source file corresponding to the C++ declarations.
-    for decl in source.topLevelDecls {
-      output.write(TopLevelDefinition(decl), inContext: c)
-      output.write("\n")
-    }
-
+    output.write(source.topLevelDecls.map({ decl in TopLevelDefinition(decl) }), inContext: c)
     output.write("}\n")
 
     // Add extra native code to the stdlib source file.
     if source.isStdLib {
-      let fileToInclude = ValModule.cxxSupport!.appendingPathComponent("NativeCode.cpp")
-      if let text = try? String(contentsOf: fileToInclude) {
-        output.write(text)
-      }
+      output.write(AdditionalFileContent("NativeCode.cpp"))
     }
 
     // Write a CXX `main` function if the module has an entry point.
@@ -106,6 +81,24 @@ private struct SourceFile: WriteableInContext {
       output.write("int main()")
       output.write(StmtWriteable(source.entryPointBody!), inContext: c)
       output.write("\n")
+    }
+  }
+
+}
+
+/// Knows how to write additional file content from ValModule
+private struct AdditionalFileContent: TextOutputStreamable {
+
+  let fileName: String
+
+  init(_ fileName: String) {
+    self.fileName = fileName
+  }
+
+  /// Writes 'self' to 'output'.
+  func write<Target: TextOutputStream>(to output: inout Target) {
+    if let text = try? String(contentsOf: ValModule.cxxSupport!.appendingPathComponent(fileName)) {
+      output.write(text)
     }
   }
 
