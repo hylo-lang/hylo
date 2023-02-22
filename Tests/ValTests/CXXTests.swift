@@ -46,7 +46,7 @@ final class CXXTests: XCTestCase {
       try TypedProgram.init(AST.coreModule, diagnostics: &d)
     }
 
-    let cxxCode = typedProgram.cxx(typedProgram[AST.coreModule.corelib!]).text
+    let cxxCode = typedProgram.cxx(typedProgram[AST.coreModule.coreLibrary!]).text
 
     // Read test cases; use .val files just for convenience.
     try checkAnnotatedValFiles(

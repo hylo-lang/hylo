@@ -20,7 +20,7 @@ public struct CXXTranspiler {
 
   /// Returns a C++ AST implementing the semantics of `source`.
   public func cxx(_ source: ModuleDecl.Typed) -> CXXModule {
-    let isCoreLibrary = source.id == wholeValProgram.corelib?.id
+    let isCoreLibrary = source.id == wholeValProgram.coreLibrary?.id
     return CXXModule(
       name: isCoreLibrary ? Self.coreLibModuleName : source.baseName,
       isCoreLibrary: isCoreLibrary,

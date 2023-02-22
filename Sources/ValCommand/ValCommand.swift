@@ -165,7 +165,7 @@ public struct ValCommand: ParsableCommand {
     // C++
 
     let cxxModules = (
-      core: program.cxx(program.corelib!), source: program.cxx(program[sourceModule])
+      core: program.cxx(program.coreLibrary!), source: program.cxx(program[sourceModule])
     )
 
     if outputType == .cpp {
