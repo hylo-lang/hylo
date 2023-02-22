@@ -1,6 +1,26 @@
 import Utils
 import XCTest
 
+final class CollectionExtensionsTests: XCTestCase {
+
+  func testPartitionIndexAt() {
+    XCTAssertEqual([].partitioningIndex(at: 42), 0)
+
+    XCTAssertEqual([0].partitioningIndex(at: 0), 1)
+    XCTAssertEqual([0].partitioningIndex(at: 1), 1)
+
+    XCTAssertEqual([1].partitioningIndex(at: 0), 0)
+    XCTAssertEqual([1].partitioningIndex(at: 1), 1)
+
+    XCTAssertEqual([0, 2].partitioningIndex(at: 0), 1)
+    XCTAssertEqual([0, 2].partitioningIndex(at: 1), 1)
+    XCTAssertEqual([0, 2].partitioningIndex(at: 2), 2)
+    XCTAssertEqual([0, 2].partitioningIndex(at: 3), 2)
+  }
+
+}
+
+
 final class BidirectionalCollectionExtensionsTests: XCTestCase {
 
   func testSplitAtLastIndexOf() {

@@ -5,21 +5,19 @@ import Utils
 /// expressions.
 struct ConstraintSystem {
 
-  /// The solution of an exploration given a particular choice.
-  private typealias Exploration<T> = (choice: T, solution: Solution)
-
   /// The identity of a gaol in an instance of `ConstraintSystem`.
   private typealias GoalIdentity = Int
 
   /// A map from goal to its outcome.
   private typealias OutcomeMap = [Outcome?]
 
-  /// A closure diagnosing the failure of a goal, using `m` to reify types and reading the outcome
-  /// of other goals from `o`.
+  /// A closure reporting the diagnostics of a goal's failure into `d`, using `m` to reify types
+  /// and reading the outcome of other goals from `o`.
   private typealias DiagnoseFailure = (
+    _ d: inout DiagnosticSet,
     _ m: SubstitutionMap,
     _ o: OutcomeMap
-  ) -> Diagnostic
+  ) -> Void
 
   /// The outcome of a goal.
   private enum Outcome {
@@ -106,10 +104,8 @@ struct ConstraintSystem {
     _ constraints: S, in scope: AnyScopeID, loggingTrace isLoggingEnabled: Bool
   ) {
     self.scope = scope
-    self.goals = Array(constraints)
-    self.outcomes = Array(repeating: nil, count: goals.count)
-    self.fresh = Array(goals.indices)
     self.isLoggingEnabled = isLoggingEnabled
+    _ = insert(fresh: constraints)
   }
 
   /// Solves this instance using `checker` to query type relations and resolve names, returning the
@@ -216,11 +212,12 @@ struct ConstraintSystem {
   /// Creates a solution from the current state.
   private mutating func formSolution() -> Solution {
     assert(fresh.isEmpty)
-    let m = typeAssumptions.optimized()
+    assert(outcomes.enumerated().allSatisfy({ (i, o) in (o != nil) || stale.contains(i) }))
 
+    let m = typeAssumptions.optimized()
     var d = DiagnosticSet(stale.map({ Diagnostic.error(staleConstraint: goals[$0]) }))
     for (k, v) in zip(goals.indices, outcomes) where iFailureRoot(k) {
-      d.insert(v!.dianoseFailure!(m, outcomes))
+      v!.dianoseFailure!(&d, m, outcomes)
     }
 
     return Solution(
@@ -229,10 +226,10 @@ struct ConstraintSystem {
 
   /// Creates an ambiguous solution.
   private func formAmbiguousSolution<T>(
-    _ results: [Exploration<T>],
+    _ results: Explorations<T>,
     diagnosedBy d: Diagnostic
   ) -> Solution {
-    var s = results.dropFirst().reduce(into: results[0].solution) { (s, r) in
+    var s = results.elements.dropFirst().reduce(into: results.elements[0].solution) { (s, r) in
       s.merge(r.solution)
     }
     s.incorporate(d)
@@ -266,8 +263,9 @@ struct ConstraintSystem {
     if missingTraits.isEmpty {
       return .success
     } else {
-      return .failure { (m, _) in
-        .error(m.reify(goal.subject), doesNotConformTo: missingTraits.first!, at: goal.origin.site)
+      return .failure { (d, m, _) in
+        let t = m.reify(goal.subject)
+        d.formUnion(missingTraits.map({.error(t, doesNotConformTo: $0, at: goal.origin.site) }))
       }
     }
   }
@@ -294,8 +292,9 @@ struct ConstraintSystem {
       penalties += 1
       return .success
     } else {
-      return .failure { (m, _) in
-        .error(m.reify(goal.subject), doesNotConformTo: goal.literal, at: goal.origin.site)
+      return .failure { (d, m, _) in
+        d.insert(
+          .error(m.reify(goal.subject), doesNotConformTo: goal.literal, at: goal.origin.site))
       }
     }
   }
@@ -309,9 +308,9 @@ struct ConstraintSystem {
     if unify(goal.left, goal.right, querying: checker.relations) {
       return .success
     } else {
-      return .failure { (m, _) in
+      return .failure { (d, m, _) in
         let (l, r) = (m.reify(goal.left), m.reify(goal.right))
-        return .error(type: l, incompatibleWith: r, at: goal.origin.site)
+        d.insert(.error(type: l, incompatibleWith: r, at: goal.origin.site))
       }
     }
   }
@@ -335,10 +334,12 @@ struct ConstraintSystem {
       // choice but to postpone the goal.
       if goal.isStrict {
         postpone(g)
+        return nil
       } else {
-        schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
+        let s = schedule(
+          inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
+        return delegate(to: [s])
       }
-      return nil
 
     case (_ as TypeVariable, _):
       // The type variable is below a more concrete type. We should compute the "meet" of all types
@@ -352,8 +353,9 @@ struct ConstraintSystem {
         postpone(g)
         return nil
       } else {
-        schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
-        return nil
+        let s = schedule(
+          inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
+        return delegate(to: [s])
       }
 
     case (_, _ as ExistentialType):
@@ -414,20 +416,20 @@ struct ConstraintSystem {
     }
   }
 
-  /// Returns a failure to solve `g`.
+  /// Returns a clousre diagnosing a failure to solve `g`.
   private mutating func failureToSolve(_ g: SubtypingConstraint) -> DiagnoseFailure {
-    { (m, _) in
+    { (d, m, _) in
       let (l, r) = (m.reify(g.left), m.reify(g.right))
       switch g.origin.kind {
       case .initializationWithHint:
-        return .error(cannotInitialize: l, with: r, at: g.origin.site)
+        d.insert(.error(cannotInitialize: l, with: r, at: g.origin.site))
       case .initializationWithPattern:
-        return .error(l, doesNotMatch: r, at: g.origin.site)
+        d.insert(.error(l, doesNotMatch: r, at: g.origin.site))
       default:
         if g.isStrict {
-          return .error(l, isNotStrictSubtypeOf: r, at: g.origin.site)
+          d.insert(.error(l, isNotStrictSubtypeOf: r, at: g.origin.site))
         } else {
-          return .error(l, isNotSubtypeOf: r, at: g.origin.site)
+          d.insert(.error(l, isNotSubtypeOf: r, at: g.origin.site))
         }
       }
     }
@@ -455,14 +457,14 @@ struct ConstraintSystem {
       // arguments passed mutably is verified after type inference.
       let s = schedule(
         SubtypingConstraint(goal.left, p.bareType, origin: goal.origin.subordinate()))
-      return .product([s]) { (m, r) in
-        let (a, b) = (m.reify(goal.left), m.reify(goal.right))
-        return .error(cannotPass: a, toParameter: b, at: goal.origin.site)
+      return .product([s]) { (d, m, r) in
+        let (l, r) = (m.reify(goal.left), m.reify(goal.right))
+        d.insert(.error(cannotPass: l, toParameter: r, at: goal.origin.site))
       }
 
     default:
-      return .failure { (m, _) in
-        .error(invalidParameterType: m.reify(goal.right), at: goal.origin.site)
+      return .failure { (d, m, _) in
+        d.insert(.error(invalidParameterType: m.reify(goal.right), at: goal.origin.site))
       }
     }
   }
@@ -484,14 +486,14 @@ struct ConstraintSystem {
     // Generate the list of candidates.
     let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, in: scope)
       .compactMap({ checker.decl(in: $0, named: goal.memberName) })
-    let candidates = matches.compactMap({ (match) -> OverloadConstraint.Candidate? in
+    let candidates = matches.compactMap({ (match) -> OverloadConstraint.Predicate? in
       // Realize the type of the declaration and skip it if that fails.
       let matchType = checker.realize(decl: match)
       if matchType.isError { return nil }
 
       // TODO: Handle bound generic typess
 
-      return OverloadConstraint.Candidate(
+      return OverloadConstraint.Predicate(
         reference: .member(match),
         type: matchType,
         constraints: [],
@@ -500,8 +502,9 @@ struct ConstraintSystem {
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
-      return .failure { (m, _) in
-        .error(undefinedName: goal.memberName, in: m.reify(goal.memberType), at: goal.origin.site)
+      return .failure { (d, m, _) in
+        let t = m.reify(goal.memberType)
+        d.insert(.error(undefinedName: goal.memberName, in: t, at: goal.origin.site))
       }
     }
 
@@ -509,9 +512,9 @@ struct ConstraintSystem {
     if let pick = candidates.uniqueElement {
       assert(pick.constraints.isEmpty, "not implemented")
       guard unify(pick.type, goal.memberType, querying: checker.relations) else {
-        return .failure { (m, _) in
+        return .failure { (d, m, _) in
           let (l, r) = (m.reify(pick.type), m.reify(goal.memberType))
-          return .error(type: l, incompatibleWith: r, at: goal.origin.site)
+          d.insert(.error(type: l, incompatibleWith: r, at: goal.origin.site))
         }
       }
 
@@ -525,7 +528,7 @@ struct ConstraintSystem {
       OverloadConstraint(
         goal.memberExpr, withType: goal.memberType, refersToOneOf: candidates,
         origin: goal.origin.subordinate()))
-    return .product([s], { (m, r) in r[s]!.dianoseFailure!(m, r) })
+    return delegate(to: [s])
   }
 
   /// Returns either `.success` if `g.callee` is a callable type with parameters `g.parameters`
@@ -543,19 +546,20 @@ struct ConstraintSystem {
     }
 
     guard let callee = goal.calleeType.base as? CallableType else {
-      return .failure { (m, _) in
-        .error(nonCallableType: m.reify(goal.calleeType), at: goal.origin.site)
+      return .failure { (d, m, _) in
+        d.insert(.error(nonCallableType: m.reify(goal.calleeType), at: goal.origin.site))
       }
     }
 
     // Make sure `F` structurally matches the given parameter list.
     if goal.labels.count != callee.labels.count {
-      return .failure { (m, _) in
-        .error(incompatibleParameterCountAt: goal.origin.site)
+      return .failure { (d, m, _) in
+        d.insert(.error(incompatibleParameterCountAt: goal.origin.site))
       }
     } else if !goal.labels.elementsEqual(callee.labels) {
-      return .failure { (m, _) in
-        .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.origin.site)
+      return .failure { (d, m, _) in
+        d.insert(
+          .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.origin.site))
       }
     }
 
@@ -568,10 +572,7 @@ struct ConstraintSystem {
     subordinates.append(
       schedule(
         EqualityConstraint(callee.output, goal.returnType, origin: goal.origin.subordinate())))
-    return .product(subordinates) { (m, _) in
-      .error(
-        function: m.reify(goal.calleeType), notCallableWith: goal.parameters, at: goal.origin.site)
-    }
+    return delegate(to: subordinates)
   }
 
   private mutating func solve(
@@ -586,9 +587,9 @@ struct ConstraintSystem {
       subordinates.append(
         schedule(SubtypingConstraint(goal.supertype, b, origin: goal.origin.subordinate())))
     }
-    return .product(subordinates) { (m, _) in
+    return .product(subordinates) { (d, m, _) in
       let t = goal.branches.map({ m.reify($0) })
-      return .error(conditionalHasMismatchingTypes: t, at: goal.origin.site)
+      d.insert(.error(conditionalHasMismatchingTypes: t, at: goal.origin.site))
     }
   }
 
@@ -599,17 +600,16 @@ struct ConstraintSystem {
   ) -> Solution? {
     let goal = goals[g] as! DisjunctionConstraint
 
-    let results = explore(
-      goal.choices,
-      using: &checker,
+    let results: Explorations<DisjunctionConstraint> = explore(
+      g, using: &checker,
       configuringSubSystemWith: { (solver, choice) in
         solver.penalties += choice.penalties
-        solver.insert(fresh: choice.constraints)
+        return solver.insert(fresh: choice.constraints)
       })
 
-    if let pick = results.uniqueElement?.solution {
+    if let pick = results.elements.uniqueElement?.solution {
       return pick
-    } else if results.isEmpty {
+    } else if results.elements.isEmpty {
       return nil
     }
 
@@ -624,18 +624,17 @@ struct ConstraintSystem {
   ) -> Solution? {
     let goal = goals[g] as! OverloadConstraint
 
-    let results = explore(
-      goal.choices,
-      using: &checker,
+    let results: Explorations<OverloadConstraint> = explore(
+      g, using: &checker,
       configuringSubSystemWith: { (solver, choice) in
         solver.penalties += choice.penalties
         solver.bindingAssumptions[goal.overloadedExpr] = choice.reference
-        solver.insert(fresh: choice.constraints)
+        return solver.insert(fresh: choice.constraints)
       })
 
-    if let pick = results.uniqueElement?.solution {
+    if let pick = results.elements.uniqueElement?.solution {
       return pick
-    } else if results.isEmpty {
+    } else if results.elements.isEmpty {
       return nil
     }
 
@@ -644,25 +643,28 @@ struct ConstraintSystem {
       diagnosedBy: .error(
         ambiguousUse: goal.overloadedExpr,
         in: checker.ast,
-        candidates: results.compactMap(\.choice.reference.decl)))
+        candidates: results.elements.compactMap(\.choice.reference.decl)))
   }
 
-  /// Solves the remaining goals in separate constraint systems for each choice in `choices`, using
-  /// `configureSubSystem` to initialize to initialize them. Returns a collection of explorations
-  /// describing the best solution associated with each choice.
-  private mutating func explore<Choices: Collection>(
-    _ choices: Choices,
+  /// Solves the remaining goals in `self` exploring each choice in `g` with a separate constraint
+  /// systems configured with `configureSubSystem` returns the best solution of each exploration.
+  ///
+  /// - Parameters:
+  ///   - g: the goal whose choices whould be explored; must denote a constraint of type `T`.
+  ///   - checker: an instance used to query type relations and resolve names.
+  ///   - configureSubSystem: A closure that prepares a constraint system using one of `g`'s
+  ///     choices and returns the identities of the goals added to that system.
+  private mutating func explore<T: DisjunctiveConstraintProtocol>(
+    _ g: GoalIdentity,
     using checker: inout TypeChecker,
-    configuringSubSystemWith configureSubSystem: (inout Self, Choices.Element) -> Void
-  ) -> [Exploration<Choices.Element>] where Choices.Element: Choice {
+    configuringSubSystemWith configureSubSystem: (inout Self, T.Predicate) -> [GoalIdentity]
+  ) -> Explorations<T> {
     log("- fork:")
     indentation += 1
     defer { indentation -= 1 }
 
-    /// The results of the exploration.
-    var results: [Exploration<Choices.Element>] = []
-
-    for choice in choices {
+    var results = Explorations<T>()
+    for choice in (goals[g] as! T).choices {
       // Don't bother if there's no chance to find a better solution.
       var underestimatedChoiceScore = score()
       underestimatedChoiceScore.penalties += choice.penalties
@@ -676,72 +678,33 @@ struct ConstraintSystem {
       defer { indentation -= 1 }
 
       // Explore the result of this choice.
-      var s = self
-      configureSubSystem(&s, choice)
-      guard let newSolution = s.betterSolution(&checker) else { continue }
+      var exploration = self
+      let s = configureSubSystem(&exploration, choice)
+      exploration.setOutcome(s.isEmpty ? .success : delegate(to: s), for: g)
+      guard let newSolution = exploration.betterSolution(&checker) else { continue }
 
       // Insert the new result.
-      insert((choice, newSolution), into: &results, using: &checker)
+      results.insert(
+        (choice, newSolution),
+        rankingSolutionWith: { (a, b) in rank(a, b, querying: &checker) })
     }
 
     return results
   }
 
-  /// Inserts `newResult` into `bestResults` if its solution is better than or incomparable to any
-  /// of sthe latter's elements.
-  private mutating func insert<T>(
-    _ newResult: Exploration<T>,
-    into bestResults: inout [Exploration<T>],
-    using checker: inout TypeChecker
-  ) {
-    // Rank solutions based on the name bindings they make. `s1` refines `s2` iff it has a better
-    // score than `s2` or if it has the same score but makes at least one more specific binding
-    // than `s2` and no binding less specific than `s2`.
-    if newResult.solution.score > bestScore { return }
-
-    // Fast path: if the new solution has a better score, discard all others.
-    if bestResults.isEmpty || (newResult.solution.score < bestScore) {
-      bestScore = newResult.solution.score
-      bestResults = [newResult]
-      return
-    }
-
-    // Slow path: inspect how the new solution compares with the ones we have.
-    var shouldInsert = false
-    var i = 0
-    while i < bestResults.count {
-      switch rank(newResult.solution, bestResults[0].solution, querying: &checker) {
-      case .some(.equal):
-        // The new solution is equal; discard it.
-        return
-      case .some(.descending):
-        // The new solution is coarser; discard it unless it's better than another one.
-        i += 1
-      case .some(.ascending):
-        // The new solution is finer; keep it and discard the old one.
-        bestResults.remove(at: i)
-        shouldInsert = true
-      case nil:
-        // The new solution is incomparable; keep it.
-        i += 1
-        shouldInsert = true
-      }
-    }
-
-    if shouldInsert {
-      bestResults.append(newResult)
-    }
+  /// Returns an outcome indicating that a goal has been broken into given `subordinates` and
+  /// forwards their diagnostics.
+  private func delegate(to s: [GoalIdentity]) -> Outcome {
+    .product(s, { (d, m, r) in s.forEach({ r[$0]!.dianoseFailure?(&d, m, r) }) })
   }
 
   /// Schedules `g` to be solved in the future and returns its identity.
-  @discardableResult
   private mutating func schedule(_ g: Constraint) -> GoalIdentity {
     log("- schedule: \"\(g)\"")
     return insert(fresh: g)
   }
 
   /// Inserts `g` into the fresh set and returns its identity.
-  @discardableResult
   private mutating func insert(fresh g: Constraint) -> GoalIdentity {
     // Note: It could be worth looking for the index of a goal equal to `g` rather than appending
     // it unconditionally so that we don't solve the same constraint twice. However, efficient
@@ -750,15 +713,17 @@ struct ConstraintSystem {
     let newIdentity = goals.count
     goals.append(g)
     outcomes.append(nil)
-    fresh.append(newIdentity)
+
+    let i = fresh.partitioningIndex(
+      at: newIdentity,
+      orderedBy: { (a, b) in !goals[a].simpler(than: goals[b]) })
+    fresh.insert(newIdentity, at: i)
     return newIdentity
   }
 
   /// Inserts `batch` into the fresh set.
-  private mutating func insert<S: Sequence<Constraint>>(fresh batch: S) {
-    for c in batch {
-      insert(fresh: c)
-    }
+  private mutating func insert<S: Sequence<Constraint>>(fresh batch: S) -> [GoalIdentity] {
+    batch.reduce(into: [], { (s, g) in s.append(insert(fresh: g)) })
   }
 
   /// Schedules `g` to be solved only once the solver has inferred more information about at least
@@ -1007,20 +972,96 @@ struct ConstraintSystem {
 
 }
 
-/// A type representing a choice during constraint solving.
-private protocol Choice {
+/// A set of constraint system solutions resulting from the explorations of the different choices
+/// of a disjunctive constraint.
+private struct Explorations<T: DisjunctiveConstraintProtocol> {
 
-  /// The set of constraints associated with this choice.
-  var constraints: ConstraintSet { get }
+  /// The solution of an exploration for a particular choice.
+  typealias Element = (choice: T.Predicate, solution: Solution)
 
-  /// The penalties associated with this choice.
-  var penalties: Int { get }
+  /// The results of the exploration.
+  private(set) var elements: [Element] = []
+
+  /// The score of the solutions in this set.
+  private var score = Solution.Score.worst
+
+  /// Creates an empty set.
+  init() {}
+
+  /// Inserts `newResult` into this set if its solution is better than or incomparable to any
+  /// of the solutions currently in the set, ranking solutions with `rank`.
+  mutating func insert(
+    _ newResult: Element,
+    rankingSolutionWith rank: (Solution, Solution) -> StrictPartialOrdering
+  ) {
+    // Rank solutions based on the name bindings they make. `s1` refines `s2` iff it has a better
+    // score than `s2` or if it has the same score but makes at least one more specific binding
+    // than `s2` and no binding less specific than `s2`.
+    if newResult.solution.score > score { return }
+
+    // Fast path: if the new solution has a better score, discard all others.
+    if elements.isEmpty || (newResult.solution.score < score) {
+      score = newResult.solution.score
+      elements = [newResult]
+      return
+    }
+
+    // Slow path: inspect how the new solution compares with the ones we have.
+    var shouldInsert = false
+    var i = 0
+    while i < elements.count {
+      switch rank(newResult.solution, elements[i].solution) {
+      case .some(.equal):
+        // The new solution is equal; discard it.
+        return
+      case .some(.descending):
+        // The new solution is coarser; discard it unless it's better than another one.
+        i += 1
+      case .some(.ascending):
+        // The new solution is finer; keep it and discard the old one.
+        elements.remove(at: i)
+        shouldInsert = true
+      case nil:
+        // The new solution is incomparable; keep it.
+        i += 1
+        shouldInsert = true
+      }
+    }
+
+    if shouldInsert {
+      elements.append(newResult)
+    }
+  }
 
 }
 
-extension DisjunctionConstraint.Choice: Choice {}
+extension Constraint {
 
-extension OverloadConstraint.Candidate: Choice {}
+  /// Returns whether `self` is heuristically simpler to solve than `other`.
+  fileprivate func simpler(than other: Constraint) -> Bool {
+    switch self {
+    case is EqualityConstraint:
+      return !(other is EqualityConstraint)
+
+    case let l as any DisjunctiveConstraintProtocol:
+      if let r = other as? any DisjunctiveConstraintProtocol {
+        if l.choices.count == r.choices.count {
+          let x = l.choices.reduce(0, { $0 + $1.constraints.count })
+          let y = r.choices.reduce(0, { $0 + $1.constraints.count })
+          return x < y
+        } else {
+          return (l.choices.count < r.choices.count)
+        }
+      } else {
+        return false
+      }
+
+    default:
+      return other is (any DisjunctiveConstraintProtocol)
+    }
+  }
+
+}
 
 /// Creates a constraint, suitable for type inference, requiring `subtype` to be a subtype of
 /// `supertype`.
