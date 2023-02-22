@@ -13,7 +13,16 @@ public struct AnyDeclID: DeclID {
 
   /// Creates a type-erased ID from a declaration ID.
   public init<T: DeclID>(_ other: T) {
-    base = AnyNodeID(other)
+    self.base = AnyNodeID(other)
+  }
+
+  /// Creates an instance with the same raw value as `x` failing iff `!(x.kind is Decl)`.
+  public init?<T: NodeIDProtocol>(_ x: T) {
+    if x.kind.value is Decl.Type {
+      self.base = AnyNodeID(x)
+    } else {
+      return nil
+    }
   }
 
   public var rawValue: Int { base.rawValue }
