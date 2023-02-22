@@ -9,7 +9,7 @@ public struct MethodImpl: Decl, LexicalScope {
     case expr(AnyExprID)
 
     /// A block body.
-    case block(NodeID<BraceStmt>)
+    case block(BraceStmt.ID)
 
   }
 
@@ -19,7 +19,7 @@ public struct MethodImpl: Decl, LexicalScope {
   public let introducer: SourceRepresentable<AccessEffect>
 
   /// The declaration of the implicit receiver parameter.
-  public let receiver: NodeID<ParameterDecl>
+  public let receiver: ParameterDecl.ID
 
   /// The body of the method, if any.
   public let body: Body?
@@ -27,7 +27,7 @@ public struct MethodImpl: Decl, LexicalScope {
   /// Creates an instance with the given properties and no `receiver`.
   public init(
     introducer: SourceRepresentable<AccessEffect>,
-    receiver: NodeID<ParameterDecl>,
+    receiver: ParameterDecl.ID,
     body: Body? = nil,
     site: SourceRange
   ) {

@@ -18,7 +18,7 @@ public struct DeclLocator: Hashable {
 
     case namespace(String)
 
-    case lambda(NodeID<FunctionDecl>)
+    case lambda(FunctionDecl.ID)
 
     case product(String)
 
@@ -35,7 +35,7 @@ public struct DeclLocator: Hashable {
         fatalError("not implemented")
 
       case FunctionDecl.self:
-        let decl = NodeID<FunctionDecl>(decl)!
+        let decl = FunctionDecl.ID(decl)!
 
         let labels: [String]
         switch program.declTypes[decl]!.base {
@@ -52,7 +52,7 @@ public struct DeclLocator: Hashable {
         }
 
       case InitializerDecl.self:
-        let decl = NodeID<InitializerDecl>(decl)!
+        let decl = InitializerDecl.ID(decl)!
 
         let labels: [String]
         switch program.declTypes[decl]!.base {
@@ -65,7 +65,7 @@ public struct DeclLocator: Hashable {
         self = .function(name: "init", labels: labels, notation: nil)
 
       case MethodDecl.self:
-        let decl = NodeID<MethodDecl>(decl)!
+        let decl = MethodDecl.ID(decl)!
 
         let labels: [String]
         switch program.declTypes[decl]!.base {
@@ -79,11 +79,11 @@ public struct DeclLocator: Hashable {
         self = .function(name: name, labels: labels, notation: program.ast[decl].notation?.value)
 
       case MethodImpl.self:
-        let decl = NodeID<MethodImpl>(decl)!
+        let decl = MethodImpl.ID(decl)!
         self = .methodImpl(program.ast[decl].introducer.value)
 
       case ProductTypeDecl.self:
-        let decl = NodeID<ProductTypeDecl>(decl)!
+        let decl = ProductTypeDecl.ID(decl)!
         self = .product(program.ast[decl].baseName)
 
       default:

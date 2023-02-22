@@ -9,7 +9,7 @@ extension TypeChecker {
   /// This type is meant to represent closures capturing the nodes on which they apply. For
   /// example:
   ///
-  ///     let n: NodeID<VarDecl> = foo()
+  ///     let n: VarDecl.ID = foo()
   ///     let deferredQuery: DeferredQuery = { (c, s) in
   ///       c.checkDeferred(varDecl: n, s)
   ///     }
@@ -179,7 +179,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofBooleanLiteralExpr subject: NodeID<BooleanLiteralExpr>,
+    ofBooleanLiteralExpr subject: BooleanLiteralExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -188,7 +188,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofCastExpr subject: NodeID<CastExpr>,
+    ofCastExpr subject: CastExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -232,7 +232,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofConditionalExpr subject: NodeID<ConditionalExpr>,
+    ofConditionalExpr subject: ConditionalExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -267,7 +267,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofFloatLiteralExpr subject: NodeID<FloatLiteralExpr>,
+    ofFloatLiteralExpr subject: FloatLiteralExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -279,7 +279,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofFunctionCallExpr subject: NodeID<FunctionCallExpr>,
+    ofFunctionCallExpr subject: FunctionCallExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -287,7 +287,7 @@ extension TypeChecker {
     let syntax = ast[subject]
 
     let calleeType: AnyType
-    if let callee = NodeID<NameExpr>(syntax.callee) {
+    if let callee = NameExpr.ID(syntax.callee) {
       let l = ast[subject].arguments.map(\.label?.value)
       calleeType = inferredType(
         ofNameExpr: callee, appliedWithLabels: l, shapedBy: nil, in: scope, updating: &state)
@@ -337,7 +337,7 @@ extension TypeChecker {
     }
 
     // Case 3b
-    if let c = NodeID<NameExpr>(syntax.callee),
+    if let c = NameExpr.ID(syntax.callee),
       let d = referredDecls[c]?.decl,
       isNominalTypeDecl(d)
     {
@@ -383,7 +383,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofInoutExpr subject: NodeID<InoutExpr>,
+    ofInoutExpr subject: InoutExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -395,7 +395,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofIntegerLiteralExpr subject: NodeID<IntegerLiteralExpr>,
+    ofIntegerLiteralExpr subject: IntegerLiteralExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -407,7 +407,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofLambdaExpr subject: NodeID<LambdaExpr>,
+    ofLambdaExpr subject: LambdaExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -467,7 +467,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofMatchExpr subject: NodeID<MatchExpr>,
+    ofMatchExpr subject: MatchExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -494,14 +494,14 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofNameExpr subject: NodeID<NameExpr>,
+    ofNameExpr subject: NameExpr.ID,
     appliedWithLabels labels: [String?]? = nil,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
     let resolution = resolveNominalPrefix(of: subject, in: scope)
-    let unresolvedComponents: [NodeID<NameExpr>]
+    let unresolvedComponents: [NameExpr.ID]
     var lastVisitedComponentType: AnyType?
 
     switch resolution {
@@ -537,7 +537,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofSequenceExpr subject: NodeID<SequenceExpr>,
+    ofSequenceExpr subject: SequenceExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -598,7 +598,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofSubscriptCallExpr subject: NodeID<SubscriptCallExpr>,
+    ofSubscriptCallExpr subject: SubscriptCallExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -657,7 +657,7 @@ extension TypeChecker {
     }
 
     // Case 3b
-    if let c = NodeID<NameExpr>(syntax.callee),
+    if let c = NameExpr.ID(syntax.callee),
       let d = referredDecls[c]?.decl,
       isNominalTypeDecl(d)
     {
@@ -710,7 +710,7 @@ extension TypeChecker {
         state.facts.append(instantiatedType.constraints)
 
         // Update the referred declaration map if necessary.
-        if let c = NodeID<NameExpr>(syntax.callee) {
+        if let c = NameExpr.ID(syntax.callee) {
           referredDecls[c] = .member(decl)
         }
 
@@ -726,7 +726,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofTupleExpr subject: NodeID<TupleExpr>,
+    ofTupleExpr subject: TupleExpr.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -769,7 +769,7 @@ extension TypeChecker {
   ///
   /// - Requires: `subject` is a literal expression.
   private mutating func inferredType<T: Expr>(
-    ofLiteralExpr subject: NodeID<T>,
+    ofLiteralExpr subject: T.ID,
     shapedBy shape: AnyType?,
     defaultingTo defaultType: AnyType,
     in scope: AnyScopeID,
@@ -833,7 +833,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofBindingPattern subject: NodeID<BindingPattern>,
+    ofBindingPattern subject: BindingPattern.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -862,7 +862,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofExprPattern subject: NodeID<ExprPattern>,
+    ofExprPattern subject: ExprPattern.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -871,7 +871,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofNamePattern subject: NodeID<NamePattern>,
+    ofNamePattern subject: NamePattern.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -892,7 +892,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofTuplePattern subject: NodeID<TuplePattern>,
+    ofTuplePattern subject: TuplePattern.ID,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -1052,7 +1052,7 @@ extension TypeChecker {
   ///
   /// - Requires: `candidates` is not empty
   private mutating func bind(
-    _ name: NodeID<NameExpr>,
+    _ name: NameExpr.ID,
     to candidates: [TypeChecker.NameResolutionResult.Candidate],
     updating state: inout State
   ) -> AnyType {
@@ -1085,7 +1085,7 @@ extension TypeChecker {
 
   /// Folds a sequence of binary expressions.
   private mutating func fold(
-    sequenceExpr expr: NodeID<SequenceExpr>,
+    sequenceExpr expr: SequenceExpr.ID,
     in scope: AnyScopeID
   ) -> FoldedSequenceExpr {
     let syntax = ast[expr]

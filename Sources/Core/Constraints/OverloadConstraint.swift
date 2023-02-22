@@ -5,7 +5,7 @@ import Utils
 public struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
 
   /// The overloaded expression.
-  public let overloadedExpr: NodeID<NameExpr>
+  public let overloadedExpr: NameExpr.ID
 
   /// The type of `self.overloadedExpr`.
   public private(set) var overloadedExprType: AnyType
@@ -19,7 +19,7 @@ public struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
   ///
   /// - Requires: `candidates.count >= 2`
   public init(
-    _ expr: NodeID<NameExpr>,
+    _ expr: NameExpr.ID,
     withType type: AnyType,
     refersToOneOf choices: [Predicate],
     origin: ConstraintOrigin

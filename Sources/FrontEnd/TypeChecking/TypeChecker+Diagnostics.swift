@@ -55,7 +55,7 @@ extension Diagnostic {
     .error("duplicate parameter name '\(name)'", at: site)
   }
 
-  static func error(nameRefersToValue expr: NodeID<NameExpr>, in ast: AST) -> Diagnostic {
+  static func error(nameRefersToValue expr: NameExpr.ID, in ast: AST) -> Diagnostic {
     .error("expected type but '\(ast[expr].name.value)' refers to a value", at: ast[expr].site)
   }
 
@@ -238,7 +238,7 @@ extension Diagnostic {
     .error("only one annotation is allowed on generic value parameter declarations", at: site)
   }
 
-  static func error(invalidBufferTypeExprArgumentCount expr: NodeID<SubscriptCallExpr>, in ast: AST)
+  static func error(invalidBufferTypeExprArgumentCount expr: SubscriptCallExpr.ID, in ast: AST)
     -> Diagnostic
   {
     .error("buffer type expression requires exactly one argument", at: ast[ast[expr].callee].site)
@@ -299,7 +299,7 @@ extension Diagnostic {
   }
 
   static func error(
-    ambiguousUse expr: NodeID<NameExpr>, in ast: AST, candidates: [AnyDeclID] = []
+    ambiguousUse expr: NameExpr.ID, in ast: AST, candidates: [AnyDeclID] = []
   ) -> Diagnostic {
     let notes = candidates.map { Diagnostic.error("candidate here", at: ast[$0].site) }
     return .error("ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site, notes: notes)

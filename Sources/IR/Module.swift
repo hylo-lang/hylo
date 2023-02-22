@@ -34,7 +34,7 @@ public struct Module {
   /// - Requires: `m` is a valid ID in `p`.
   /// - Throws: `Diagnostics` if lowering fails.
   public init(
-    lowering m: NodeID<ModuleDecl>, in p: TypedProgram, diagnostics: inout DiagnosticSet
+    lowering m: ModuleDecl.ID, in p: TypedProgram, diagnostics: inout DiagnosticSet
   ) throws {
     self.program = p
     self.syntax = program[m]

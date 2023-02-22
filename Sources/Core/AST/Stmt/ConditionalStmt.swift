@@ -12,7 +12,7 @@ public struct ConditionalStmt: Stmt, LexicalScope {
   public let condition: [ConditionItem]
 
   /// The branch that's executed if the condition holds.
-  public let success: NodeID<BraceStmt>
+  public let success: BraceStmt.ID
 
   /// The branch that's executed if the condition does not hold.
   ///
@@ -21,7 +21,7 @@ public struct ConditionalStmt: Stmt, LexicalScope {
 
   public init(
     condition: [ConditionItem],
-    success: NodeID<BraceStmt>,
+    success: BraceStmt.ID,
     failure: AnyStmtID?,
     site: SourceRange
   ) {

@@ -5,12 +5,12 @@ public struct SequenceExpr: Expr {
   public struct TailElement: Codable {
 
     /// The operator.
-    public var `operator`: NodeID<NameExpr>
+    public var `operator`: NameExpr.ID
 
     /// The right operand.
     public var operand: AnyExprID
 
-    public init(operator: NodeID<NameExpr>, operand: AnyExprID) {
+    public init(operator: NameExpr.ID, operand: AnyExprID) {
       self.operator = `operator`
       self.operand = operand
     }

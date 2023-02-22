@@ -29,13 +29,13 @@ public struct InitializerDecl: GenericDecl, GenericScope {
   /// The parameters of the initializer.
   ///
   /// These declarations must have a type annotation.
-  public let parameters: [NodeID<ParameterDecl>]
+  public let parameters: [ParameterDecl.ID]
 
   /// The declaration of the implicit receiver parameter.
-  public let receiver: NodeID<ParameterDecl>
+  public let receiver: ParameterDecl.ID
 
   /// The body of the declaration, if any.
-  public let body: NodeID<BraceStmt>?
+  public let body: BraceStmt.ID?
 
   /// Creates an instance with the given properties.
   public init(
@@ -43,9 +43,9 @@ public struct InitializerDecl: GenericDecl, GenericScope {
     attributes: [SourceRepresentable<Attribute>],
     accessModifier: SourceRepresentable<AccessModifier>?,
     genericClause: SourceRepresentable<GenericClause>?,
-    parameters: [NodeID<ParameterDecl>],
-    receiver: NodeID<ParameterDecl>,
-    body: NodeID<BraceStmt>?,
+    parameters: [ParameterDecl.ID],
+    receiver: ParameterDecl.ID,
+    body: BraceStmt.ID?,
     site: SourceRange
   ) {
     precondition((introducer.value == .`init`) || (body == nil))

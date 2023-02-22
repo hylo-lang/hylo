@@ -5,7 +5,7 @@ public struct ModuleDecl: SingleEntityDecl, LexicalScope {
   public let baseName: String
 
   /// The source files in the module.
-  public let sources: [NodeID<TranslationUnit>]
+  public let sources: [TranslationUnit.ID]
 
   /// True iff this module has access to the Builtin module.
   public let canAccessBuiltins: Bool
@@ -15,7 +15,7 @@ public struct ModuleDecl: SingleEntityDecl, LexicalScope {
   /// Creates an instance with the given properties and no source files.
   public init(
     _ baseName: String,
-    sources: [NodeID<TranslationUnit>],
+    sources: [TranslationUnit.ID],
     builtinModuleAccess canAccessBuiltins: Bool = false
   ) {
     self.baseName = baseName
