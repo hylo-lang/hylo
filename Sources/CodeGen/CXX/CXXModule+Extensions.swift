@@ -193,8 +193,7 @@ private struct FunctionDefinition: WriteableInContext {
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
     output.write(FunctionSignature(source), inContext: c)
     if source.body != nil {
-      output.write(" ")
-      output.write(StmtWriteable(source.body!), inContext: c)
+      output.write([" ", StmtWriteable(source.body!)], inContext: c)
     } else {
       output.write(";\n")
     }
@@ -213,9 +212,7 @@ private struct ClassDefinition: WriteableInContext {
 
   /// Writes 'self' to 'output'.
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    output.write("class ")
-    output.write(source.name)
-    output.write(" {\npublic:\n")
+    output.write(["class ", source.name, " {\npublic:\n"])
     for member in source.members {
       switch member {
       case .attribute(let attribute):
@@ -226,7 +223,6 @@ private struct ClassDefinition: WriteableInContext {
         output.write("// constructor\n")
       }
     }
-    // Special code for stdlib types
     if c.isStdLib {
       // For standard value types try to generate implict conversion constructors from C++ literal types.
       output.write(ConversionConstructor(source), inContext: c)
@@ -261,12 +257,10 @@ private struct ConversionConstructor: WriteableInContext {
     // and the type of the attribute needs to be native.
     if dataMembers.count == 1 && dataMembers[0].type.isNative {
       // Write implicit conversion constructor
-      output.write(parentClass.name.description)
-      output.write("(")
-      output.write(dataMembers[0].type)
-      output.write(" v) : ")
-      output.write(dataMembers[0].name)
-      output.write("(v) {}\n")
+      output.write([
+        parentClass.name.description, "(", dataMembers[0].type, " v) : ",
+        dataMembers[0].name, "(v) {}\n",
+      ])
     }
   }
 }
@@ -277,8 +271,7 @@ extension CXXClassAttribute: WriteableInContext {
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
     output.write([type, " ", name])
     if let value = initializer {
-      output.write(" = ")
-      output.write(ExprWriteable(value), inContext: c)
+      output.write([" = ", ExprWriteable(value)], inContext: c)
     }
     output.write(";\n")
   }
@@ -291,8 +284,7 @@ extension CXXLocalVarDecl: WriteableInContext {
   func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
     output.write([type, " ", name])
     if let value = initializer {
-      output.write(" = ")
-      output.write(ExprWriteable(value), inContext: c)
+      output.write([" = ", ExprWriteable(value)], inContext: c)
     }
     output.write(";\n")
   }
