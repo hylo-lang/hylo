@@ -1,15 +1,56 @@
 import Utils
 
+/// A type that is notified when nodes are entered and left during an AST traversal.
+///
+/// Use this protocol to implement algorithms that must traverse all or most AST nodes and perform
+/// similar operations on each of them. Instances of types implementing this protocol are meant to
+/// be passed as argument to `AST.walk(_:notifying:)`.
+///
+/// For example:
+///
+///     struct V: ASTWalkObserver {
+///       var outermostFunctions: [FunctionDecl.ID] = []
+///       mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
+///         if let d = FunctionDecl.ID(n) {
+///           outermostFunctions.append(d)
+///           return false
+///         } else {
+///           return true
+///         }
+///       }
+///     }
+///     var v = V()
+///     ast.modules.forEach({ ast.walk($0, notifying: &v) })
+///     print(v.outermostFunctions)
+///
+/// This program prints the IDs of the outermost function declarations in `ast`.
 public protocol ASTWalkObserver {
 
-  mutating func willEnter(_ node: AnyNodeID, in ast: AST) -> Bool
+  /// Called when `n`, which is in `ast`, is about to be entered; returns `false` if traversal
+  /// should skip `n`.
+  ///
+  /// Use this method to perform actions before a node is being traversed and/or customize how the
+  /// AST is traversed. If the method returns `true`, `willEnter` will be before each child of `n`
+  /// is entered and `willExit` will be called when `n` is left. If it returns `false`, neither
+  /// `willEnter` nor `willExit` will be called for `n` and its children.
+  mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool
 
-  mutating func willExit(_ node: AnyNodeID, in ast: AST)
+  /// Called when `n`, which is in `ast`, is about to be left.
+  mutating func willExit(_ n: AnyNodeID, in ast: AST)
+
+}
+
+extension ASTWalkObserver {
+
+  func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool { true }
+
+  func willExit(_ n: AnyNodeID, in ast: AST) {}
 
 }
 
 extension AST {
 
+  /// Visits `n` and its children in pre-order, notifying `o` when a node is entered or left.
   public func walk<O: ASTWalkObserver>(_ n: AnyNodeID, notifying o: inout O) {
     guard o.willEnter(n, in: self) else { return }
     switch n.kind {
@@ -164,18 +205,24 @@ extension AST {
     o.willExit(n, in: self)
   }
 
+  /// Visits `n` and its children in pre-order, notifying `o` when a node is entered or left.
   public func walk<T: NodeIDProtocol, O: ASTWalkObserver>(_ n: T, notifying o: inout O) {
     walk(AnyNodeID(n), notifying: &o)
   }
 
+  /// Visits `n` and its children in pre-order, notifying `o` when a node is entered or left.
   public func walk<T: NodeIDProtocol, O: ASTWalkObserver>(_ n: T?, notifying o: inout O) {
     n.map({ walk(AnyNodeID($0), notifying: &o) })
   }
 
-  public func walk<T: NodeIDProtocol, O: ASTWalkObserver>(_ n: [T], notifying o: inout O) {
-    n.forEach({ walk(AnyNodeID($0), notifying: &o) })
+  /// Visits all nodes in `roots` and their children in pre-order, notifying `o` when a node is
+  /// entered or left.
+  public func walk<T: NodeIDProtocol, O: ASTWalkObserver>(roots: [T], notifying o: inout O) {
+    roots.forEach({ walk(AnyNodeID($0), notifying: &o) })
   }
 
+  /// Visits all condition items in `i` and their children in pre-order, notifying `o` when a node
+  /// is entered or left.
   public func walk<O: ASTWalkObserver>(conditionItems i: [ConditionItem], notifying o: inout O) {
     for x in i {
       switch x {
@@ -187,6 +234,7 @@ extension AST {
     }
   }
 
+  /// Visits `b` and its children in pre-order, notifying `o` when a node is entered or left.
   public func walk<O: ASTWalkObserver>(functionBody b: FunctionBody, notifying o: inout O) {
     switch b {
     case .expr(let e):
@@ -198,14 +246,16 @@ extension AST {
 
   // MARK: Declarations
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: AssociatedTypeDecl, notifying o: inout O
   ) {
-    walk(n.conformances, notifying: &o)
+    walk(roots: n.conformances, notifying: &o)
     walk(n.defaultValue, notifying: &o)
     n.whereClause.map({ traverse(whereClause: $0.value, notifying: &o) })
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: AssociatedValueDecl, notifying o: inout O
   ) {
@@ -213,6 +263,7 @@ extension AST {
     n.whereClause.map({ traverse(whereClause: $0.value, notifying: &o) })
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: BindingDecl, notifying o: inout O
   ) {
@@ -220,63 +271,71 @@ extension AST {
     walk(n.initializer, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ConformanceDecl, notifying o: inout O
   ) {
     walk(n.subject, notifying: &o)
-    walk(n.conformances, notifying: &o)
+    walk(roots: n.conformances, notifying: &o)
     n.whereClause.map({ traverse(whereClause: $0.value, notifying: &o) })
-    walk(n.members, notifying: &o)
+    walk(roots: n.members, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ExtensionDecl, notifying o: inout O
   ) {
     walk(n.subject, notifying: &o)
     n.whereClause.map({ traverse(whereClause: $0.value, notifying: &o) })
-    walk(n.members, notifying: &o)
+    walk(roots: n.members, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: FunctionDecl, notifying o: inout O
   ) {
     n.genericClause.map({ traverse(genericClause: $0.value, notifying: &o) })
-    walk(n.explicitCaptures, notifying: &o)
-    walk(n.parameters, notifying: &o)
+    walk(roots: n.explicitCaptures, notifying: &o)
+    walk(roots: n.parameters, notifying: &o)
     walk(n.receiver, notifying: &o)
     walk(n.output, notifying: &o)
     n.body.map({ walk(functionBody: $0, notifying: &o) })
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: GenericParameterDecl, notifying o: inout O
   ) {
-    walk(n.conformances, notifying: &o)
+    walk(roots: n.conformances, notifying: &o)
     walk(n.defaultValue, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ImportDecl, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: InitializerDecl, notifying o: inout O
   ) {
     n.genericClause.map({ traverse(genericClause: $0.value, notifying: &o) })
-    walk(n.parameters, notifying: &o)
+    walk(roots: n.parameters, notifying: &o)
     walk(n.receiver, notifying: &o)
     walk(n.body, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: MethodDecl, notifying o: inout O
   ) {
     n.genericClause.map({ traverse(genericClause: $0.value, notifying: &o) })
-    walk(n.parameters, notifying: &o)
+    walk(roots: n.parameters, notifying: &o)
     walk(n.output, notifying: &o)
-    walk(n.impls, notifying: &o)
+    walk(roots: n.impls, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: MethodImpl, notifying o: inout O
   ) {
@@ -284,22 +343,26 @@ extension AST {
     n.body.map({ walk(functionBody: $0, notifying: &o) })
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ModuleDecl, notifying o: inout O
   ) {
-    walk(n.sources, notifying: &o)
+    walk(roots: n.sources, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: NamespaceDecl, notifying o: inout O
   ) {
-    walk(n.members, notifying: &o)
+    walk(roots: n.members, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: OperatorDecl, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ParameterDecl, notifying o: inout O
   ) {
@@ -307,24 +370,27 @@ extension AST {
     walk(n.defaultValue, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ProductTypeDecl, notifying o: inout O
   ) {
     n.genericClause.map({ traverse(genericClause: $0.value, notifying: &o) })
-    walk(n.conformances, notifying: &o)
-    walk(n.members, notifying: &o)
+    walk(roots: n.conformances, notifying: &o)
+    walk(roots: n.members, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: SubscriptDecl, notifying o: inout O
   ) {
     n.genericClause.map({ traverse(genericClause: $0.value, notifying: &o) })
-    walk(n.explicitCaptures, notifying: &o)
-    walk(n.parameters ?? [], notifying: &o)
+    walk(roots: n.explicitCaptures, notifying: &o)
+    walk(roots: n.parameters ?? [], notifying: &o)
     walk(n.output, notifying: &o)
-    walk(n.impls, notifying: &o)
+    walk(roots: n.impls, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: SubscriptImpl, notifying o: inout O
   ) {
@@ -332,13 +398,15 @@ extension AST {
     n.body.map({ walk(functionBody: $0, notifying: &o) })
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: TraitDecl, notifying o: inout O
   ) {
-    walk(n.refinements, notifying: &o)
-    walk(n.members, notifying: &o)
+    walk(roots: n.refinements, notifying: &o)
+    walk(roots: n.members, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: TypeAliasDecl, notifying o: inout O
   ) {
@@ -346,22 +414,26 @@ extension AST {
     walk(n.aliasedType, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: VarDecl, notifying o: inout O
   ) {}
 
   // MARK: Expressions
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: BooleanLiteralExpr, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: BufferLiteralExpr, notifying o: inout O
   ) {
-    walk(n.elements, notifying: &o)
+    walk(roots: n.elements, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: CastExpr, notifying o: inout O
   ) {
@@ -369,6 +441,7 @@ extension AST {
     walk(n.right, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ConditionalExpr, notifying o: inout O
   ) {
@@ -377,6 +450,7 @@ extension AST {
     walk(n.failure, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ConformanceLensTypeExpr, notifying o: inout O
   ) {
@@ -384,52 +458,61 @@ extension AST {
     walk(n.lens, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ErrorExpr, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ExistentialTypeExpr, notifying o: inout O
   ) {
-    walk(n.traits, notifying: &o)
+    walk(roots: n.traits, notifying: &o)
     n.whereClause.map({ traverse(whereClause: $0.value, notifying: &o) })
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: FloatLiteralExpr, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: FunctionCallExpr, notifying o: inout O
   ) {
     walk(n.callee, notifying: &o)
-    walk(n.arguments.map(\.value), notifying: &o)
+    walk(roots: n.arguments.map(\.value), notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: InoutExpr, notifying o: inout O
   ) {
     walk(n.subject, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: IntegerLiteralExpr, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: LambdaExpr, notifying o: inout O
   ) {
     walk(n.decl, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: LambdaTypeExpr, notifying o: inout O
   ) {
     walk(n.environment, notifying: &o)
-    walk(n.parameters.map(\.type), notifying: &o)
+    walk(roots: n.parameters.map(\.type), notifying: &o)
     walk(n.output, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: MapLiteralExpr, notifying o: inout O
   ) {
@@ -439,36 +522,42 @@ extension AST {
     }
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: MatchExpr, notifying o: inout O
   ) {
     walk(n.subject, notifying: &o)
-    walk(n.cases, notifying: &o)
+    walk(roots: n.cases, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: NameExpr, notifying o: inout O
   ) {
     if case .expr(let e) = n.domain { walk(e, notifying: &o) }
-    walk(n.arguments.map(\.value), notifying: &o)
+    walk(roots: n.arguments.map(\.value), notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: NilLiteralExpr, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ParameterTypeExpr, notifying o: inout O
   ) {
     walk(n.bareType, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: RemoteTypeExpr, notifying o: inout O
   ) {
     walk(n.operand, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: SequenceExpr, notifying o: inout O
   ) {
@@ -479,51 +568,60 @@ extension AST {
     }
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: SpawnExpr, notifying o: inout O
   ) {
     walk(n.decl, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: StringLiteralExpr, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: SubscriptCallExpr, notifying o: inout O
   ) {
     walk(n.callee, notifying: &o)
-    walk(n.arguments.map(\.value), notifying: &o)
+    walk(roots: n.arguments.map(\.value), notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: TupleExpr, notifying o: inout O
   ) {
-    walk(n.elements.map(\.value), notifying: &o)
+    walk(roots: n.elements.map(\.value), notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: TupleTypeExpr, notifying o: inout O
   ) {
-    walk(n.elements.map(\.type), notifying: &o)
+    walk(roots: n.elements.map(\.type), notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: UnicodeScalarLiteralExpr, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: UnionTypeExpr, notifying o: inout O
   ) {
-    walk(n.elements, notifying: &o)
+    walk(roots: n.elements, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: WildcardExpr, notifying o: inout O
   ) {}
 
   // MARK: Patterns
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: BindingPattern, notifying o: inout O
   ) {
@@ -531,30 +629,35 @@ extension AST {
     walk(n.annotation, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ExprPattern, notifying o: inout O
   ) {
     walk(n.expr, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: NamePattern, notifying o: inout O
   ) {
     walk(n.decl, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: TuplePattern, notifying o: inout O
   ) {
-    walk(n.elements.map(\.pattern), notifying: &o)
+    walk(roots: n.elements.map(\.pattern), notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: WildcardPattern, notifying o: inout O
   ) {}
 
   // MARK: Statements
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: AssignStmt, notifying o: inout O
   ) {
@@ -562,22 +665,26 @@ extension AST {
     walk(n.right, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: BraceStmt, notifying o: inout O
   ) {
-    walk(n.stmts, notifying: &o)
+    walk(roots: n.stmts, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: BreakStmt, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: CondBindingStmt, notifying o: inout O
   ) {
     walk(n.binding, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ConditionalStmt, notifying o: inout O
   ) {
@@ -586,22 +693,26 @@ extension AST {
     walk(n.failure, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ContinueStmt, notifying o: inout O
   ) {}
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: DeclStmt, notifying o: inout O
   ) {
     walk(n.decl, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: DiscardStmt, notifying o: inout O
   ) {
     walk(n.expr, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: DoWhileStmt, notifying o: inout O
   ) {
@@ -609,12 +720,14 @@ extension AST {
     walk(n.condition, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ExprStmt, notifying o: inout O
   ) {
     walk(n.expr, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ForStmt, notifying o: inout O
   ) {
@@ -624,12 +737,14 @@ extension AST {
     walk(n.body, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: ReturnStmt, notifying o: inout O
   ) {
     walk(n.value, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: WhileStmt, notifying o: inout O
   ) {
@@ -637,6 +752,7 @@ extension AST {
     walk(n.body, notifying: &o)
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: YieldStmt, notifying o: inout O
   ) {
@@ -645,6 +761,7 @@ extension AST {
 
   // MARK: Others
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: MatchCase, notifying o: inout O
   ) {
@@ -658,21 +775,25 @@ extension AST {
     }
   }
 
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     _ n: TranslationUnit, notifying o: inout O
   ) {
-    walk(n.decls, notifying: &o)
+    walk(roots: n.decls, notifying: &o)
   }
 
+  /// Visits the children of `c` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(genericClause c: GenericClause, notifying o: inout O) {
-    walk(c.parameters, notifying: &o)
+    walk(roots: c.parameters, notifying: &o)
     c.whereClause.map({ traverse(whereClause: $0.value, notifying: &o) })
   }
 
+  /// Visits the children of `c` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(whereClause c: WhereClause, notifying o: inout O) {
     c.constraints.forEach({ traverse(constraintExpr: $0.value, notifying: &o) })
   }
 
+  /// Visits the children of `c` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
     constraintExpr c: WhereClause.ConstraintExpr, notifying o: inout O
   ) {

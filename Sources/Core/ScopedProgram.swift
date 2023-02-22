@@ -158,7 +158,7 @@ private struct ScopeVisitor: ASTWalkObserver {
   private mutating func visit(doWhileStmt s: DoWhileStmt.ID, in ast: AST) -> Bool {
     scopeToParent[ast[s].body] = innermost
     innermost = AnyScopeID(ast[s].body)
-    ast.walk(ast[ast[s].body].stmts, notifying: &self)
+    ast.walk(roots: ast[ast[s].body].stmts, notifying: &self)
 
     // The condition is in the same scope as the body.
     ast.walk(ast[s].condition, notifying: &self)
