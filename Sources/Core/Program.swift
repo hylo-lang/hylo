@@ -10,8 +10,11 @@ public protocol Program {
   /// A map from scope to the declarations directly contained in them.
   var scopeToDecls: ASTProperty<[AnyDeclID]> { get }
 
-  /// A map from declaration to its scope.
+  /// A map from declaration to the innermost scope that contains it.
   var declToScope: DeclProperty<AnyScopeID> { get }
+
+  /// A map from name expression to the innermost scope that contains it.
+  var exprToScope: [NameExpr.ID: AnyScopeID] { get }
 
   /// A map from variable declaration its containing binding declaration.
   var varToBinding: [VarDecl.ID: BindingDecl.ID] { get }

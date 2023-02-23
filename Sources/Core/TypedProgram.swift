@@ -9,6 +9,8 @@ public struct TypedProgram: Program {
 
   public let declToScope: DeclProperty<AnyScopeID>
 
+  public let exprToScope: [NameExpr.ID: AnyScopeID]
+
   public let varToBinding: [VarDecl.ID: BindingDecl.ID]
 
   /// The overarching type of each declaration.
@@ -52,6 +54,7 @@ public struct TypedProgram: Program {
     self.scopeToParent = program.scopeToParent
     self.scopeToDecls = program.scopeToDecls
     self.declToScope = program.declToScope
+    self.exprToScope = program.exprToScope
     self.varToBinding = program.varToBinding
     self.declTypes = declTypes
     self.exprTypes = exprTypes
