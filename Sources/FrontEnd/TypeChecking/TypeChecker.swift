@@ -1,4 +1,5 @@
 import Core
+import OrderedCollections
 import Utils
 
 /// Val's type checker.
@@ -3071,98 +3072,70 @@ public struct TypeChecker {
     implicitCapturesIn decl: T.ID,
     ignoring explictNames: Set<Name>
   ) -> [ImplicitCapture] {
-    // Process implicit captures.
-    var captures: [ImplicitCapture] = []
-    var receiverIndex: Int? = nil
+    var captures: OrderedDictionary<Name, ImplicitCapture> = [:]
+    for u in uses(in: AnyDeclID(decl)) {
+      var n = ast[u.name].name.value
+      if explictNames.contains(n) { continue }
 
-    var collector = CaptureCollector(ast: ast)
-    for (name, uses) in collector.freeNames(in: decl) {
-      // Explicit captures are already accounted for.
-      if explictNames.contains(name) { continue }
+      let candidates = lookup(unqualified: n.stem, in: program.exprToScope[u.name]!)
+        .filter({ isCaptured(referenceTo: $0, occuringIn: decl) })
+      if candidates.isEmpty { continue }
 
-      // Resolve the name.
-      let matches = lookup(unqualified: name.stem, in: program.declToScope[decl]!)
-
-      // If there are multiple matches, attempt to filter them using the name's argument labels or
-      // operator notation. If that fails, complain about an ambiguous implicit capture.
-      let captureDecl: AnyDeclID
-      switch matches.count {
-      case 0:
-        continue
-      case 1:
-        captureDecl = matches.first!
-      default:
+      guard var c = candidates.uniqueElement else {
+        // Ambiguous capture.
         fatalError("not implemented")
       }
 
-      // Global declarations are not captured.
-      if program.isGlobal(captureDecl) { continue }
+      if program.isMember(c) {
+        n = .init(stem: "self")
+        c = lookup(unqualified: "self", in: AnyScopeID(decl)).uniqueElement!
+      }
 
-      // References to member declarations implicitly capture of their receiver.
-      if program.isMember(captureDecl) {
-        // If the function refers to a member declaration, it must be nested in a type scope.
-        let innermostTypeScope =
-          program
-          .scopes(from: program.scopeToParent[decl]!)
-          .first(where: { $0.kind.value is TypeScope.Type })!
-
-        // Ignore illegal implicit references to foreign receiver.
-        if program.isContained(innermostTypeScope, in: program.scopeToParent[captureDecl]!) {
-          continue
-        }
-
-        if let i = receiverIndex, uses.capability != .let {
-          // Update the mutability of the capture.
-          captures[i] = ImplicitCapture(
-            name: captures[i].name,
-            type: RemoteType(.inout, captures[i].type.bareType),
-            decl: captures[i].decl)
-        } else {
-          // Resolve the implicit reference to `self`.
-          let receiverMatches = lookup(unqualified: "self", in: program.scopeToParent[decl]!)
-          let receiverDecl: AnyDeclID
-          switch receiverMatches.count {
-          case 0:
-            continue
-          case 1:
-            receiverDecl = matches.first!
-          default:
-            unreachable()
+      modifying(&captures[n], { (x) -> Void in
+        let a: AccessEffect = u.isMutable ? .inout : .let
+        if let existing = x {
+          if (existing.type.access == .let) && (a == .inout) {
+            x = existing.mutable()
           }
-
-          // Realize the type of `self`.
-          let receiverType = realize(decl: receiverDecl)
-          if receiverType.isError { continue }
-
-          // Register the capture of `self`.
-          receiverIndex = captures.count
-          captures.append(
-            ImplicitCapture(
-              name: Name(stem: "self"),
-              type: RemoteType(uses.capability, receiverType.skolemized),
-              decl: receiverDecl))
+        } else {
+          x = .init(name: n, type: .init(a, realize(decl: c).skolemized), decl: c)
         }
+      })
+    }
+    return Array(captures.values)
+  }
 
-        continue
+  /// Returns the names that are used in `n` along with a list of their occurrences and a flag
+  /// indicating whether they are used mutably.
+  private func uses(in n: AnyDeclID) -> [(name: NameExpr.ID, isMutable: Bool)] {
+    var v = CaptureVisitor()
+    ast.walk(n, notifying: &v)
+    return v.uses
+  }
+
+  /// Returns `true` if references to `c` are captured if they occur in `d`.
+  private mutating func isCaptured<T: Decl & LexicalScope>(
+    referenceTo c: AnyDeclID, occuringIn d: T.ID
+  ) -> Bool {
+    if program.isContained(program.declToScope[c]!, in: d) { return false }
+    if program.isGlobal(c) { return false }
+    if program.isMember(c) {
+      // Since the use collector doesn't visit type scopes, if `c` is member then we know that `d`
+      // is also a member. If `c` and `d` don't belong to the same type, then the capture is an
+      // illegal reference to a foreign receiver.
+      assert(program.isMember(d))
+      if program.innermostType(containing: c) != program.innermostType(containing: AnyDeclID(d)) {
+        return false
       }
-
-      // Capture-less local functions are not captured.
-      if let d = FunctionDecl.ID(captureDecl) {
-        guard let lambda = realize(functionDecl: d).base as? LambdaType else { continue }
-        if relations.areEquivalent(lambda.environment, .void) { continue }
-      }
-
-      // Other local declarations are captured.
-      let captureType = realize(decl: captureDecl).skolemized
-      if captureType.isError { continue }
-      captures.append(
-        ImplicitCapture(
-          name: name,
-          type: RemoteType(uses.capability, captureType),
-          decl: captureDecl))
     }
 
-    return captures
+    // Capture-less functions are not captured.
+    if let f = FunctionDecl.ID(c) {
+      guard let t = LambdaType(realize(functionDecl: f)) else { return false }
+      return !relations.areEquivalent(t.environment, .void)
+    }
+
+    return true
   }
 
   /// Returns the type of `decl` from the cache, or calls `action` to compute it and caches the
@@ -3360,13 +3333,6 @@ public struct TypeChecker {
     }
   }
 
-  /// Resets `self` to an empty state, returning `self`'s old value.
-  mutating func release() -> Self {
-    var r: Self = .init(program: program)
-    swap(&r, &self)
-    return r
-  }
-
   /// Returns `d` if it has name `n`, otherwise the implementation of `d` with name `n` or `nil`
   /// if no such implementation exists.
   ///
@@ -3437,6 +3403,59 @@ public struct TypeChecker {
 
     default:
       return nil
+    }
+  }
+
+}
+
+/// The state of the visitor collecting captures.
+private struct CaptureVisitor: ASTWalkObserver {
+
+  /// A map from name to its uses and known mutability.
+  private(set) var uses: [(name: NameExpr.ID, isMutable: Bool)] = []
+
+  /// Records a use of `n` that is known mutable iff `isMutable` is `true`.
+  private mutating func recordOccurence(_ n: NameExpr.ID, mutable isMutable: Bool) {
+    uses.append((n, isMutable))
+  }
+
+  /// Returns the name at the root of the given `lvalue`.
+  private func root(_ lvalue: AnyExprID, in ast: AST) -> NameExpr.ID? {
+    switch lvalue.kind {
+    case NameExpr.self:
+      return NameExpr.ID(lvalue)!
+    case SubscriptCallExpr.self:
+      return root(ast[SubscriptCallExpr.ID(lvalue)!].callee, in: ast)
+    default:
+      return nil
+    }
+  }
+
+  mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
+    if let e = InoutExpr.ID(n) {
+      return visit(inoutExpr: e, in: ast)
+    }
+    if let e = NameExpr.ID(n) {
+      return visit(nameExpr: e, in: ast)
+    }
+    return !(n.kind.value is TypeScope)
+  }
+
+  private mutating func visit(inoutExpr e: InoutExpr.ID, in ast: AST) -> Bool {
+    if let x = root(ast[e].subject, in: ast) {
+      uses.append((x, true))
+      return false
+    } else {
+      return true
+    }
+  }
+
+  private mutating func visit(nameExpr e: NameExpr.ID, in ast: AST) -> Bool {
+    if ast[e].domain == .none {
+      uses.append((e, false))
+      return false
+    } else {
+      return true
     }
   }
 

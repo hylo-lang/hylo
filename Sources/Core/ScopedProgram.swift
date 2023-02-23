@@ -11,6 +11,8 @@ public struct ScopedProgram: Program {
 
   public let declToScope: DeclProperty<AnyScopeID>
 
+  public let exprToScope: [NameExpr.ID: AnyScopeID]
+
   public let varToBinding: [VarDecl.ID: BindingDecl.ID]
 
   /// Creates a scoped program from an AST.
@@ -25,6 +27,7 @@ public struct ScopedProgram: Program {
     self.scopeToParent = s.scopeToParent
     self.scopeToDecls = s.scopeToDecls
     self.declToScope = s.declToScope
+    self.exprToScope = s.exprToScope
     self.varToBinding = s.varToBinding
   }
 
@@ -39,8 +42,11 @@ private struct ScopeVisitor: ASTWalkObserver {
   /// A map from scope to the declarations directly contained in them.
   var scopeToDecls = ASTProperty<[AnyDeclID]>()
 
-  /// A map from declaration to its scope.
+  /// A map from declaration to the innermost scope that contains it.
   var declToScope = DeclProperty<AnyScopeID>()
+
+  /// A map from name expression to the innermost scope that contains it.
+  var exprToScope: [NameExpr.ID: AnyScopeID] = [:]
 
   /// A map from variable declaration its containing binding declaration.
   var varToBinding: [VarDecl.ID: BindingDecl.ID] = [:]
@@ -69,6 +75,11 @@ private struct ScopeVisitor: ASTWalkObserver {
     scopeToDecls[scope, default: []].append(child)
   }
 
+  /// Inserts `child` into `scope`.
+  private mutating func insert(child: NameExpr.ID, into scope: AnyScopeID) {
+    exprToScope[child] = scope
+  }
+
   mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
     switch n.kind {
     case BindingDecl.self:
@@ -79,6 +90,8 @@ private struct ScopeVisitor: ASTWalkObserver {
       return visit(varDecl: NodeID(n)!, in: ast)
     case ConditionalExpr.self:
       return visit(conditionalExpr: NodeID(n)!, in: ast)
+    case NameExpr.self:
+      return visit(nameExpr: NodeID(n)!, in: ast)
     case ConditionalStmt.self:
       return visit(conditionalStmt: NodeID(n)!, in: ast)
     case DoWhileStmt.self:
@@ -141,6 +154,11 @@ private struct ScopeVisitor: ASTWalkObserver {
     innermost = scopeToParent[e]!
     ast.walk(ast[e].failure, notifying: &self)
     return false
+  }
+
+  private mutating func visit(nameExpr e: NameExpr.ID, in ast: AST) -> Bool {
+    insert(child: e, into: innermost!)
+    return true
   }
 
   private mutating func visit(conditionalStmt s: ConditionalStmt.ID, in ast: AST) -> Bool {

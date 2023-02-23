@@ -10,8 +10,11 @@ public protocol Program {
   /// A map from scope to the declarations directly contained in them.
   var scopeToDecls: ASTProperty<[AnyDeclID]> { get }
 
-  /// A map from declaration to its scope.
+  /// A map from declaration to the innermost scope that contains it.
   var declToScope: DeclProperty<AnyScopeID> { get }
+
+  /// A map from name expression to the innermost scope that contains it.
+  var exprToScope: [NameExpr.ID: AnyScopeID] { get }
 
   /// A map from variable declaration its containing binding declaration.
   var varToBinding: [VarDecl.ID: BindingDecl.ID] { get }
@@ -186,6 +189,11 @@ extension Program {
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
   public func scopes<S: ScopeID>(from scope: S) -> LexicalScopeSequence {
     LexicalScopeSequence(scopeToParent: scopeToParent, current: AnyScopeID(scope))
+  }
+
+  /// Returns the innermost type scope containing `d`.
+  public func innermostType(containing d: AnyDeclID) -> AnyScopeID? {
+    scopes(from: declToScope[d]!).first(where: { $0.kind.value is TypeScope.Type })
   }
 
   /// Returns the module containing `scope`.
