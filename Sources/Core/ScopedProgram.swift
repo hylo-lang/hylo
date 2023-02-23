@@ -59,7 +59,7 @@ private struct ScopeVisitor: ASTWalkObserver {
 
   /// Inserts `child` into `scope`.
   private mutating func insert(child: AnyDeclID, into scope: AnyScopeID) {
-    // FIXME: precondition(child.kind != ModuleDecl.self)
+    precondition(child.kind != ModuleDecl.self)
     if let parent = declToScope[child] {
       if parent == scope {
         // The relation is already established, we're done.

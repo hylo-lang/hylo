@@ -287,7 +287,7 @@ public struct Emitter {
   }
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed, into module: inout Module) {
-    guard stmt.left.kind != InoutExpr.self else {
+    guard stmt.left.kind == InoutExpr.self else {
       report(.error(assignmentLHSMustBeMarkedForMutationAt: .empty(at: stmt.left.site.first())))
       return
     }

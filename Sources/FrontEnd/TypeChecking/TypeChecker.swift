@@ -59,12 +59,12 @@ public struct TypeChecker {
 
   // MARK: Type system
 
-  /// Returns a copy of `genericType` where occurrences of generic parameters keying `subtitutions`
-  /// are replaced by their corresponding value, performing any necessary name lookup in `scope`.
+  /// Returns a copy of `genericType` where occurrences of parameters keying `subtitutions` are
+  /// replaced by their corresponding value, performing necessary name lookups from `lookupScope`.
   private mutating func specialized(
     _ genericType: AnyType,
     applying substitutions: [GenericParameterDecl.ID: AnyType],
-    in scope: AnyScopeID
+    in lookupScope: AnyScopeID
   ) -> AnyType {
     func _impl(t: AnyType) -> TypeTransformAction {
       switch t.base {
@@ -74,7 +74,7 @@ public struct TypeChecker {
       case let t as AssociatedTypeType:
         let d = t.domain.transform(_impl)
 
-        let candidates = lookup(ast[t.decl].baseName, memberOf: d, in: scope)
+        let candidates = lookup(ast[t.decl].baseName, memberOf: d, in: lookupScope)
         if let c = candidates.uniqueElement {
           return .stepOver(MetatypeType(realize(decl: c))?.instance ?? .error)
         } else {
@@ -89,10 +89,10 @@ public struct TypeChecker {
     return genericType.transform(_impl(t:))
   }
 
-  /// Returns the set of traits to which `type` conforms in `scope`.
+  /// Returns the set of traits to which `type` conforms in `lookupScope`.
   ///
   /// - Note: If `type` is a trait, it is always contained in the returned set.
-  mutating func conformedTraits<S: ScopeID>(of type: AnyType, in scope: S) -> Set<TraitType>? {
+  mutating func conformedTraits(of type: AnyType, in scope: AnyScopeID) -> Set<TraitType>? {
     var result: Set<TraitType> = []
 
     switch type.base {
@@ -103,29 +103,23 @@ public struct TypeChecker {
       }
 
       // Conformances of other generic parameters are stored in generic environments.
-      for scope in program.scopes(from: scope) where scope.kind.value is GenericScope.Type {
-        guard let e = environment(of: scope) else { continue }
+      for s in program.scopes(from: scope) where scope.kind.value is GenericScope.Type {
+        guard let e = environment(of: s) else { continue }
         result.formUnion(e.conformedTraits(of: type))
       }
 
     case let t as ProductType:
-      let parentScope = program.declToScope[t.decl]!
-      guard let traits = realize(conformances: ast[t.decl].conformances, in: parentScope)
-      else { return nil }
-
+      let s = program.declToScope[t.decl]!
+      guard let traits = realize(conformances: ast[t.decl].conformances, in: s) else { return nil }
       for trait in traits {
-        guard let bases = conformedTraits(of: ^trait, in: parentScope)
+        guard let bases = conformedTraits(of: ^trait, in: s)
         else { return nil }
         result.formUnion(bases)
       }
 
     case let t as TraitType:
-      // Gather the conformances defined at declaration.
-      guard
-        var work = realize(
-          conformances: ast[t.decl].refinements, in: program.declToScope[t.decl]!)
-      else { return nil }
-
+      let s = program.declToScope[t.decl]!
+      guard var work = realize(conformances: ast[t.decl].refinements, in: s) else { return nil }
       while let base = work.popFirst() {
         if base == t {
           diagnostics.insert(.error(circularRefinementAt: ast[t.decl].identifier.site))
@@ -441,7 +435,7 @@ public struct TypeChecker {
     // Type check the body, if any.
     switch ast[id].body {
     case .block(let stmt):
-      return check(brace: stmt) && success
+      return check(braceStmt: stmt) && success
 
     case .expr(let body):
       // If `expr` has been used to infer the return type, there's no need to visit it again.
@@ -527,7 +521,7 @@ public struct TypeChecker {
 
     // Type check the body, if any.
     if let body = ast[id].body {
-      return check(brace: body) && success
+      return check(braceStmt: body) && success
     } else if program.isRequirement(id) {
       return success
     } else {
@@ -562,7 +556,7 @@ public struct TypeChecker {
         success = (checkedType(of: expr, subtypeOf: t.output, in: v) != nil) && success
 
       case .block(let stmt):
-        success = check(brace: stmt) && success
+        success = check(braceStmt: stmt) && success
 
       case nil:
         if !program.isRequirement(id) {
@@ -659,8 +653,8 @@ public struct TypeChecker {
 
       guard
         let c = checkConformance(
-          of: realizeSelfTypeExpr(in: id)!.instance, to: t,
-          at: ast[e].site, in: AnyScopeID(id))
+          of: realizeSelfTypeExpr(in: id)!.instance, to: t, declaredAt: ast[e].site,
+          in: AnyScopeID(id))
       else {
         // Diagnostics have been reported by `checkConformance`.
         success = false
@@ -726,7 +720,7 @@ public struct TypeChecker {
         success = (checkedType(of: expr, subtypeOf: outputType, in: impl) != nil) && success
 
       case .block(let stmt):
-        success = check(brace: stmt) && success
+        success = check(braceStmt: stmt) && success
 
       case nil:
         // Requirements can be without a body.
@@ -839,13 +833,13 @@ public struct TypeChecker {
     return success
   }
 
-  /// Returns an array of declaration implementing `requirement` with type `requirementType` that
-  /// are member of `conformingType` and visible in `scope`.
+  /// Returns an array of declarations implementing `requirement` with type `requirementType` that
+  /// are member of `conformingType` and exposed to `scope`.
   private mutating func gatherCandidates(
     implementing requirement: FunctionDecl.ID,
     withType requirementType: AnyType,
     for conformingType: AnyType,
-    in scope: AnyScopeID
+    exposedTo scope: AnyScopeID
   ) -> [AnyDeclID] {
     let n = Name(of: requirement, in: ast)!
     let lookupResult = lookup(n.stem, memberOf: conformingType, in: scope)
@@ -873,13 +867,13 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns an array of declaration implementing `requirement` with type `requirementType` that
-  /// are member of `conformingType` and visible in `scope`.
+  /// Returns an array of declarations implementing `requirement` with type `requirementType` that
+  /// are member of `conformingType` and exposed in `scope`.
   private mutating func gatherCandidates(
     implementing requirement: MethodDecl.ID,
     withType requirementType: AnyType,
     for conformingType: AnyType,
-    in scope: AnyScopeID
+    exposedTo scope: AnyScopeID
   ) -> [AnyDeclID] {
     let n = Name(of: requirement, in: ast)
     let lookupResult = lookup(n.stem, memberOf: conformingType, in: scope)
@@ -908,13 +902,13 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the conformance of `model` to `trait` declared at `site` in `scope` if it holds.
-  /// Otherwise, reports missing requirements at `site` and returns `nil`.
+  /// Returns the conformance of `model` to `trait` declared at `declSite` in `declScope` if it
+  /// holds. Otherwise, reports missing requirements and returns `nil`.
   private mutating func checkConformance(
     of model: AnyType,
     to trait: TraitType,
-    at site: SourceRange,
-    in scope: AnyScopeID
+    declaredAt declSite: SourceRange,
+    in declScope: AnyScopeID
   ) -> Conformance? {
     let specialization = [ast[trait.decl].selfParameterDecl: model]
     var implementations = Conformance.ImplementationMap()
@@ -923,7 +917,7 @@ public struct TypeChecker {
     // Get the set of generic parameters defined by `trait`.
     for requirement in ast[trait.decl].members {
       let requirementType = specialized(
-        relations.canonical(realize(decl: requirement)), applying: specialization, in: scope)
+        relations.canonical(realize(decl: requirement)), applying: specialization, in: declScope)
       if requirementType.isError { continue }
 
       switch requirement.kind {
@@ -938,7 +932,7 @@ public struct TypeChecker {
       case FunctionDecl.self:
         let r = FunctionDecl.ID(requirement)!
         let candidates = gatherCandidates(
-          implementing: r, withType: requirementType, for: model, in: scope)
+          implementing: r, withType: requirementType, for: model, exposedTo: declScope)
 
         if let c = candidates.uniqueElement {
           implementations[requirement] = c
@@ -946,13 +940,13 @@ public struct TypeChecker {
           notes.append(
             .error(
               traitRequiresMethod: Name(of: r, in: ast)!, withType: requirementType,
-              at: site))
+              at: declSite))
         }
 
       case MethodDecl.self:
         let r = MethodDecl.ID(requirement)!
         let candidates = gatherCandidates(
-          implementing: r, withType: requirementType, for: model, in: scope)
+          implementing: r, withType: requirementType, for: model, exposedTo: declScope)
 
         if let c = candidates.uniqueElement {
           implementations[requirement] = c
@@ -960,7 +954,7 @@ public struct TypeChecker {
           notes.append(
             .error(
               traitRequiresMethod: Name(of: r, in: ast), withType: requirementType,
-              at: site))
+              at: declSite))
         }
 
       default:
@@ -970,29 +964,29 @@ public struct TypeChecker {
 
     if notes.isEmpty {
       return Conformance(
-        model: model, concept: trait, conditions: [], scope: scope,
-        implementations: implementations, site: site)
+        model: model, concept: trait, conditions: [], scope: declScope,
+        implementations: implementations, site: declSite)
     } else {
-      diagnostics.insert(.error(model, doesNotConformTo: trait, at: site, because: notes))
+      diagnostics.insert(.error(model, doesNotConformTo: trait, at: declSite, because: notes))
       return nil
     }
   }
 
   /// Type checks the specified statement and returns whether that succeeded.
-  private mutating func check<T: StmtID, S: ScopeID>(stmt id: T, in lexicalContext: S) -> Bool {
+  private mutating func check<T: StmtID>(stmt id: T, in scope: AnyScopeID) -> Bool {
     switch id.kind {
     case AssignStmt.self:
-      return check(assign: NodeID(id)!, in: lexicalContext)
+      return check(assign: NodeID(id)!, in: scope)
 
     case BraceStmt.self:
-      return check(brace: NodeID(id)!)
+      return check(braceStmt: NodeID(id)!)
 
     case ConditionalStmt.self:
-      return check(conditional: NodeID(id)!, in: lexicalContext)
+      return check(conditional: NodeID(id)!, in: scope)
 
     case ExprStmt.self:
       let stmt = ast[ExprStmt.ID(id)!]
-      if let type = checkedType(of: stmt.expr, in: lexicalContext) {
+      if let type = checkedType(of: stmt.expr, in: scope) {
         // Issue a warning if the type of the expression isn't void.
         if type != .void {
           diagnostics.insert(
@@ -1011,19 +1005,19 @@ public struct TypeChecker {
 
     case DiscardStmt.self:
       let stmt = ast[DiscardStmt.ID(id)!]
-      return checkedType(of: stmt.expr, in: lexicalContext) != nil
+      return checkedType(of: stmt.expr, in: scope) != nil
 
     case DoWhileStmt.self:
-      return check(doWhile: NodeID(id)!, in: lexicalContext)
+      return check(doWhile: NodeID(id)!, in: scope)
 
     case ReturnStmt.self:
-      return check(return: NodeID(id)!, in: lexicalContext)
+      return check(return: NodeID(id)!, in: scope)
 
     case WhileStmt.self:
-      return check(while: NodeID(id)!, in: lexicalContext)
+      return check(while: NodeID(id)!, in: scope)
 
     case YieldStmt.self:
-      return check(yield: NodeID(id)!, in: lexicalContext)
+      return check(yield: NodeID(id)!, in: scope)
 
     case WhileStmt.self:
       // TODO: properly implement this
@@ -1032,12 +1026,12 @@ public struct TypeChecker {
       for cond in stmt.condition {
         switch cond {
         case .expr(let e):
-          success = (checkedType(of: e, subtypeOf: nil, in: lexicalContext) != nil) && success
+          success = (checkedType(of: e, subtypeOf: nil, in: scope) != nil) && success
         default:
           success = false
         }
       }
-      success = check(brace: stmt.body) && success
+      success = check(braceStmt: stmt.body) && success
       return success
 
     case ForStmt.self, BreakStmt.self, ContinueStmt.self:
@@ -1050,17 +1044,15 @@ public struct TypeChecker {
   }
 
   /// - Note: Method is internal because it may be called during constraint generation.
-  mutating func check(brace id: BraceStmt.ID) -> Bool {
-    var success = true
-    for stmt in ast[id].stmts {
-      success = check(stmt: stmt, in: id) && success
+  mutating func check(braceStmt s: BraceStmt.ID) -> Bool {
+    let context = AnyScopeID(s)
+    return ast[s].stmts.reduce(true) { (r, x) in
+      check(stmt: x, in: context) && r
     }
-    return success
   }
 
-  private mutating func check<S: ScopeID>(
-    assign s: AssignStmt.ID,
-    in scope: S
+  private mutating func check(
+    assign s: AssignStmt.ID, in scope: AnyScopeID
   ) -> Bool {
     // Target type must be `Sinkable`.
     guard let targetType = checkedType(of: ast[s].left, in: scope) else { return false }
@@ -1081,9 +1073,8 @@ public struct TypeChecker {
     return inference.succeeded
   }
 
-  private mutating func check<S: ScopeID>(
-    conditional s: ConditionalStmt.ID,
-    in lexicalContext: S
+  private mutating func check(
+    conditional s: ConditionalStmt.ID, in scope: AnyScopeID
   ) -> Bool {
     var success = true
 
@@ -1091,24 +1082,24 @@ public struct TypeChecker {
     for c in ast[s].condition {
       switch c {
       case .expr(let e):
-        success = (checkedType(of: e, subtypeOf: boolType, in: lexicalContext) != nil) && success
+        success = (checkedType(of: e, subtypeOf: boolType, in: scope) != nil) && success
       default:
         fatalError("not implemented")
       }
     }
 
-    success = check(brace: ast[s].success) && success
+    success = check(braceStmt: ast[s].success) && success
     if let b = ast[s].failure {
-      success = check(stmt: b, in: lexicalContext) && success
+      success = check(stmt: b, in: scope) && success
     }
     return success
   }
 
-  private mutating func check<S: ScopeID>(
+  private mutating func check(
     doWhile subject: DoWhileStmt.ID,
-    in lexicalContext: S
+    in scope: AnyScopeID
   ) -> Bool {
-    let success = check(brace: ast[subject].body)
+    let success = check(braceStmt: ast[subject].body)
 
     // Visit the condition of the loop in the scope of the body.
     let boolType = AnyType(ast.coreType(named: "Bool")!)
@@ -1117,13 +1108,12 @@ public struct TypeChecker {
       && success
   }
 
-  private mutating func check<S: ScopeID>(
-    return id: ReturnStmt.ID,
-    in lexicalContext: S
+  private mutating func check(
+    return id: ReturnStmt.ID, in scope: AnyScopeID
   ) -> Bool {
-    let o = expectedOutputType(in: lexicalContext)!
+    let o = expectedOutputType(in: scope)!
     if let v = ast[id].value {
-      return checkedType(of: v, subtypeOf: o, in: lexicalContext) != nil
+      return checkedType(of: v, subtypeOf: o, in: scope) != nil
     } else if !relations.areEquivalent(o, .void) {
       diagnostics.insert(.error(missingReturnValueAt: ast[id].site))
       return false
@@ -1132,9 +1122,8 @@ public struct TypeChecker {
     }
   }
 
-  private mutating func check<S: ScopeID>(
-    while subject: WhileStmt.ID,
-    in lexicalContext: S
+  private mutating func check(
+    while subject: WhileStmt.ID, in scope: AnyScopeID
   ) -> Bool {
     let syntax = ast[subject]
 
@@ -1144,7 +1133,7 @@ public struct TypeChecker {
       switch item {
       case .expr(let e):
         // Condition must be Boolean.
-        if !check(e, in: lexicalContext, hasType: boolType, cause: .structural) {
+        if !check(e, in: scope, hasType: boolType, cause: .structural) {
           return false
         }
 
@@ -1154,15 +1143,14 @@ public struct TypeChecker {
     }
 
     // Visit the body.
-    return check(brace: syntax.body)
+    return check(braceStmt: syntax.body)
   }
 
-  private mutating func check<S: ScopeID>(
-    yield id: YieldStmt.ID,
-    in lexicalContext: S
+  private mutating func check(
+    yield id: YieldStmt.ID, in scope: AnyScopeID
   ) -> Bool {
-    let o = expectedOutputType(in: lexicalContext)!
-    return checkedType(of: ast[id].value, subtypeOf: o, in: lexicalContext) != nil
+    let o = expectedOutputType(in: scope)!
+    return checkedType(of: ast[id].value, subtypeOf: o, in: scope) != nil
   }
 
   /// Returns whether `d` is well-typed, reading type inference results from `s`.
@@ -1695,7 +1683,7 @@ public struct TypeChecker {
   ///   and `r[i].candidates` has a single element for `0 < i < r.count`.
   mutating func resolveNominalPrefix(
     of name: NameExpr.ID,
-    in lookupScope: AnyScopeID
+    in scope: AnyScopeID
   ) -> NameResolutionResult {
     // Build a stack with the nominal comonents of `nameExpr` or exit if its qualification is
     // either implicit or prefixed by an expression.
@@ -1723,14 +1711,14 @@ public struct TypeChecker {
       // Evaluate the static argument list.
       var arguments: [AnyType] = []
       for a in ast[component].arguments {
-        guard let type = realize(a.value, in: lookupScope)?.instance else { return .failed }
+        guard let type = realize(a.value, in: scope)?.instance else { return .failed }
         arguments.append(type)
       }
 
       // Resolve the component.
       let componentSyntax = ast[component]
       let candidates = resolve(
-        componentSyntax.name, withArguments: arguments, memberOf: parentType, from: lookupScope)
+        componentSyntax.name, withArguments: arguments, memberOf: parentType, from: scope)
 
       // Fail resolution we didn't find any candidate.
       if candidates.isEmpty { return .failed }
@@ -2031,23 +2019,16 @@ public struct TypeChecker {
 
     // Look for members declared inherited by conformance/refinement.
     guard let traits = conformedTraits(of: type, in: scope) else { return matches }
-    for trait in traits {
-      if type == trait { continue }
-
+    for trait in traits where type != trait {
       // TODO: Read source of conformance to disambiguate associated names
       let newMatches = lookup(baseName, memberOf: ^trait, in: scope)
-      switch type.base {
-      case is AssociatedTypeType,
-        is GenericTypeParameterType,
-        is TraitType:
-        matches.formUnion(newMatches)
 
+      // Associated type and value declarations are not inherited by conformance.
+      switch type.base {
+      case is AssociatedTypeType, is GenericTypeParameterType, is TraitType:
+        matches.formUnion(newMatches)
       default:
-        // Associated type and value declarations are not inherited by conformance.
-        matches.formUnion(
-          newMatches.filter({
-            $0.kind != AssociatedTypeDecl.self && $0.kind != AssociatedValueDecl.self
-          }))
+        matches.formUnion(newMatches.filter(program.isRequirement(_:)))
       }
     }
 
@@ -3091,7 +3072,7 @@ public struct TypeChecker {
         c = lookup(unqualified: "self", in: AnyScopeID(decl)).uniqueElement!
       }
 
-      modifying(&captures[n], { (x) -> Void in
+      modifying(&captures[n]) { (x) -> Void in
         let a: AccessEffect = u.isMutable ? .inout : .let
         if let existing = x {
           if (existing.type.access == .let) && (a == .inout) {
@@ -3100,7 +3081,7 @@ public struct TypeChecker {
         } else {
           x = .init(name: n, type: .init(a, realize(decl: c).skolemized), decl: c)
         }
-      })
+      }
     }
     return Array(captures.values)
   }

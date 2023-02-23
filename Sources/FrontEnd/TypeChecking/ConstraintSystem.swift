@@ -265,7 +265,7 @@ struct ConstraintSystem {
     } else {
       return .failure { (d, m, _) in
         let t = m.reify(goal.subject)
-        d.formUnion(missingTraits.map({.error(t, doesNotConformTo: $0, at: goal.origin.site) }))
+        d.formUnion(missingTraits.map({ .error(t, doesNotConformTo: $0, at: goal.origin.site) }))
       }
     }
   }
