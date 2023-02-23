@@ -191,6 +191,11 @@ extension Program {
     LexicalScopeSequence(scopeToParent: scopeToParent, current: AnyScopeID(scope))
   }
 
+  /// Returns the innermost type scope containing `d`.
+  public func innermostType(containing d: AnyDeclID) -> AnyScopeID? {
+    scopes(from: declToScope[d]!).first(where: { $0.kind.value is TypeScope.Type })
+  }
+
   /// Returns the module containing `scope`.
   public func module<S: ScopeID>(containing scope: S) -> ModuleDecl.ID? {
     var last = AnyScopeID(scope)
