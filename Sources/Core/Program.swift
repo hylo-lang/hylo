@@ -171,16 +171,12 @@ extension Program {
     switch scope.kind {
     case FunctionDecl.self:
       return isNonStaticMember(FunctionDecl.ID(scope)!)
-
     case SubscriptDecl.self:
       return isNonStaticMember(SubscriptDecl.ID(scope)!)
-
     case MethodDecl.self, InitializerDecl.self:
       return true
-
     case ModuleDecl.self:
       return false
-
     default:
       return isMemberContext(scopeToParent[scope]!)
     }

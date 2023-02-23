@@ -20,7 +20,6 @@ final class CollectionExtensionsTests: XCTestCase {
 
 }
 
-
 final class BidirectionalCollectionExtensionsTests: XCTestCase {
 
   func testSplitAtLastIndexOf() {

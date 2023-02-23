@@ -44,7 +44,6 @@ extension Collection {
 
 extension Collection where Index == Int {
 
-
   /// Returns the index `i` that partitions `self` in two halves so that elements in `self[..<i]`
   /// and `self[i...]` are ordered before and after `pivot`, respectively.
   ///
@@ -134,7 +133,7 @@ extension MutableCollection {
   @discardableResult
   public mutating func rotate(_ r: Range<Index>, toStartAt m: Index) -> Index {
     precondition(r.contains(m))
-    if (m == r.lowerBound) {
+    if m == r.lowerBound {
       return m
     }
 

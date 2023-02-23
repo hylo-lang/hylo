@@ -3072,7 +3072,7 @@ public struct TypeChecker {
         c = lookup(unqualified: "self", in: AnyScopeID(decl)).uniqueElement!
       }
 
-      modifying(&captures[n], { (x) -> Void in
+      modifying(&captures[n]) { (x) -> Void in
         let a: AccessEffect = u.isMutable ? .inout : .let
         if let existing = x {
           if (existing.type.access == .let) && (a == .inout) {
@@ -3081,7 +3081,7 @@ public struct TypeChecker {
         } else {
           x = .init(name: n, type: .init(a, realize(decl: c).skolemized), decl: c)
         }
-      })
+      }
     }
     return Array(captures.values)
   }
