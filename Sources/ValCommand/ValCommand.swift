@@ -212,21 +212,22 @@ public struct ValCommand: ParsableCommand {
     try write(
       cxxModules.source, to: buildDirectory.appendingPathComponent(productName),
       loggingTo: &errorLog)
-
+      
     let clang = try find("clang++")
-
+    
     let binaryPath = executablePath(outputURL, productName)
 
-    try runCommandLine(
-      clang,
+    if compiler!.contains("clang++") || compiler!.contains("g++"){
+      try runCommandLine(
+      compiler!,
       [
         "-o", binaryPath,
         "-I", buildDirectory.path,
         buildDirectory.appendingPathComponent(productName + ".cpp").path,
       ],
       loggingTo: &errorLog)
+    } 
   }
-
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
   /// `u` without any path extension and stripping all leading dots. Otherwise, returns "Main".
   private func makeProductName(_ inputs: [URL]) -> String {
@@ -285,9 +286,16 @@ public struct ValCommand: ParsableCommand {
       let environmentPath = ProcessInfo.processInfo.environment["Path"] ?? ""
       for bareType in environmentPath.split(separator: ";") {
         candidateURL = URL(fileURLWithPath: String(bareType)).appendingPathComponent(executable)
-        if FileManager.default.fileExists(atPath: candidateURL.path + ".exe") {
-          ValCommand.executableLocationCache[executable] = candidateURL.path
-          return candidateURL.path
+        if executable.contains(".") {
+          if FileManager.default.fileExists(atPath: candidateURL.path) {
+            ValCommand.executableLocationCache[executable] = candidateURL.path
+            return candidateURL.path
+          }
+        } else {
+          if FileManager.default.fileExists(atPath: candidateURL.path + ".exe") {
+            ValCommand.executableLocationCache[executable] = candidateURL.path
+            return candidateURL.path
+          }
         }
       }
     // Search in the PATH(for Linux and MacOS).
