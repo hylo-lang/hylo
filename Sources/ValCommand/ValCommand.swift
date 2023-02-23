@@ -213,15 +213,28 @@ public struct ValCommand: ParsableCommand {
       cxxModules.source, to: buildDirectory.appendingPathComponent(productName),
       loggingTo: &errorLog)
       
-    var compiler = try? find("clang++")
-    if compiler == nil {
-      compiler = try? find("g++")
+        let whichCompiler = ProcessInfo.processInfo.environment["ValCXXCompiler"] ?? ""
+
+    var compiler: String? = nil
+    if whichCompiler == "" {
+      compiler = try? find("clang++")
       if compiler == nil {
+        compiler = try? find("g++")
+        if compiler == nil {
           compiler = try? find("cl")
+        }
       }
-    }
-    if compiler == nil {
-      throw EnvironmentError(message: "executable not found CXX Compiler")
+      if compiler == nil {
+        throw EnvironmentError(message: "executable not found CXX Compiler")
+      }
+    } else {
+      if whichCompiler.lowercased() == "clang" || whichCompiler.lowercased() == "clang++"{
+        compiler = try find("clang++")
+      } else if whichCompiler.lowercased() == "gcc" || whichCompiler.lowercased() == "g++" {
+        compiler = try find("g++")
+      } else if whichCompiler.lowercased() == "msvc" || whichCompiler.lowercased() == "cl" {
+        compiler = try find("cl")
+      }
     }
     
     let binaryPath = executablePath(outputURL, productName)
