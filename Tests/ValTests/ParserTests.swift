@@ -506,7 +506,7 @@ final class ParserTests: XCTestCase {
 
   func testFunctionDeclBodyBlock() throws {
     let input: SourceFile = "{}"
-    let (body, _) = try apply(Parser.functionDeclBody, on: input)
+    let (body, _) = try apply(Parser.functionBody, on: input)
     if case .block = body {
     } else {
       XCTFail()
@@ -515,7 +515,7 @@ final class ParserTests: XCTestCase {
 
   func testFunctionDeclBodyExpr() throws {
     let input: SourceFile = "{ 0x2a }"
-    let (body, _) = try apply(Parser.functionDeclBody, on: input)
+    let (body, _) = try apply(Parser.functionBody, on: input)
     if case .expr = body {
     } else {
       XCTFail()

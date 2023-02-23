@@ -1,16 +1,6 @@
 /// A function declaration.
 public struct FunctionDecl: GenericDecl, GenericScope {
 
-  public enum Body: Codable {
-
-    /// An expression body.
-    case expr(AnyExprID)
-
-    /// A block body.
-    case block(BraceStmt.ID)
-
-  }
-
   public let site: SourceRange
 
   /// The site of the `fun` introducer.
@@ -52,7 +42,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   public let output: AnyTypeExprID?
 
   /// The body of the declaration, if any.
-  public let body: Body?
+  public let body: FunctionBody?
 
   /// Indicates whether the declaration appears in an expression context.
   public let isInExprContext: Bool
@@ -71,7 +61,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     parameters: [ParameterDecl.ID] = [],
     receiver: ParameterDecl.ID? = nil,
     output: AnyTypeExprID? = nil,
-    body: Body? = nil,
+    body: FunctionBody? = nil,
     isInExprContext: Bool = false,
     site: SourceRange
   ) {

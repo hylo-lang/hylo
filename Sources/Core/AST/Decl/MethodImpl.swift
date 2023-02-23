@@ -3,16 +3,6 @@
 /// Instances of this type represent individual variant inside a method declaration.
 public struct MethodImpl: Decl, LexicalScope {
 
-  public enum Body: Codable {
-
-    /// An expression body.
-    case expr(AnyExprID)
-
-    /// A block body.
-    case block(BraceStmt.ID)
-
-  }
-
   public let site: SourceRange
 
   /// The introducer of the method.
@@ -22,13 +12,13 @@ public struct MethodImpl: Decl, LexicalScope {
   public let receiver: ParameterDecl.ID
 
   /// The body of the method, if any.
-  public let body: Body?
+  public let body: FunctionBody?
 
   /// Creates an instance with the given properties and no `receiver`.
   public init(
     introducer: SourceRepresentable<AccessEffect>,
     receiver: ParameterDecl.ID,
-    body: Body? = nil,
+    body: FunctionBody?,
     site: SourceRange
   ) {
     self.site = site

@@ -557,7 +557,7 @@ public enum Parser {
     prologue: DeclPrologue,
     head: FunctionDeclHead,
     signature: FunctionDeclSignature,
-    body: FunctionDecl.Body?,
+    body: FunctionBody?,
     in state: inout ParserState
   ) throws -> FunctionDecl.ID {
     // Non-static member function declarations require an implicit receiver parameter.
@@ -913,7 +913,7 @@ public enum Parser {
 
     // Fall back to a single body.
     state.restore(from: backup)
-    guard let body = try subscriptImplBody.parse(&state) else { return nil }
+    guard let body = try functionBody.parse(&state) else { return nil }
     let i = try buildSubscriptImpl(
       in: &state,
       introducedBy: SourceRepresentable(
@@ -936,7 +936,7 @@ public enum Parser {
   private static func buildSubscriptImpl(
     in state: inout ParserState,
     introducedBy introducer: SourceRepresentable<AccessEffect>,
-    body: SubscriptImpl.Body?,
+    body: FunctionBody?,
     asNonStaticMember isNonStaticMember: Bool
   ) throws -> SubscriptImpl.ID {
     // Non-static member subscript declarations require an implicit receiver parameter.
@@ -1165,18 +1165,18 @@ public enum Parser {
       methodDeclBody
       .map({ (state, body) -> FunctionOrMethodDeclBody in .method(body) }),
     orCatchingAndApplying:
-      functionDeclBody
+      functionBody
       .map({ (state, body) -> FunctionOrMethodDeclBody in .function(body) })
   )
 
-  static let functionDeclBody = inContext(
+  static let functionBody = inContext(
     .functionBody,
     apply: TryCatch(
       trying: take(.lBrace).and(expr).and(take(.rBrace))
-        .map({ (state, tree) -> FunctionDecl.Body in .expr(tree.0.1) }),
+        .map({ (state, tree) -> FunctionBody in .expr(tree.0.1) }),
       orCatchingAndApplying:
         braceStmt
-        .map({ (state, id) -> FunctionDecl.Body in .block(id) })
+        .map({ (state, id) -> FunctionBody in .block(id) })
     ))
 
   static let methodDeclBody =
@@ -1193,7 +1193,7 @@ public enum Parser {
       }))
 
   static let methodImpl =
-    (implIntroducer.and(maybe(methodImplBody))
+    (implIntroducer.and(maybe(functionBody))
       .map({ (state, tree) -> MethodImpl.ID in
         let receiver = state.insert(
           ParameterDecl(
@@ -1206,14 +1206,6 @@ public enum Parser {
             body: tree.1,
             site: tree.0.site.extended(upTo: state.currentIndex)))
       }))
-
-  static let methodImplBody = TryCatch(
-    trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> MethodImpl.Body in .expr(tree.0.1) }),
-    orCatchingAndApplying:
-      braceStmt
-      .map({ (state, id) -> MethodImpl.Body in .block(id) })
-  )
 
   static let implIntroducer = translate([
     .let: AccessEffect.let,
@@ -1268,15 +1260,7 @@ public enum Parser {
     return SubscriptDeclSignature(parameters: parameters, output: output)
   }
 
-  static let subscriptImpl = (implIntroducer.and(maybe(subscriptImplBody)))
-
-  static let subscriptImplBody = TryCatch(
-    trying: take(.lBrace).and(expr).and(take(.rBrace))
-      .map({ (state, tree) -> SubscriptImpl.Body in .expr(tree.0.1) }),
-    orCatchingAndApplying:
-      braceStmt
-      .map({ (state, id) -> SubscriptImpl.Body in .block(id) })
-  )
+  static let subscriptImpl = (implIntroducer.and(maybe(functionBody)))
 
   static let bindingDecl =
     (Apply<ParserState, BindingDecl.ID>({ (state) -> BindingDecl.ID? in
@@ -1976,10 +1960,10 @@ public enum Parser {
     .functionBody,
     apply: TryCatch(
       trying: take(.lBrace).and(expr).and(take(.rBrace))
-        .map({ (state, tree) -> FunctionDecl.Body in .expr(tree.0.1) }),
+        .map({ (state, tree) -> FunctionBody in .expr(tree.0.1) }),
       orCatchingAndApplying:
         braceStmt
-        .map({ (state, id) -> FunctionDecl.Body in .block(id) })
+        .map({ (state, id) -> FunctionBody in .block(id) })
     ))
 
   /// Parses a conditional expression.
@@ -2095,7 +2079,7 @@ public enum Parser {
     let effect = try receiverEffect.parse(&state)
 
     let output: AnyExprID?
-    let body: FunctionDecl.Body
+    let body: FunctionBody
     if state.take(.arrow) != nil {
       output = try state.expect("expression", using: parseExpr(in:))
       body = try state.expect("function body", using: lambdaBody)
@@ -3097,7 +3081,7 @@ struct FunctionDeclSignature {
 /// The body of a function or method declaration.
 enum FunctionOrMethodDeclBody {
 
-  case function(FunctionDecl.Body)
+  case function(FunctionBody)
 
   case method([MethodImpl.ID])
 
