@@ -213,7 +213,7 @@ public struct ValCommand: ParsableCommand {
       cxxModules.source, to: buildDirectory.appendingPathComponent(productName),
       loggingTo: &errorLog)
       
-        let whichCompiler = ProcessInfo.processInfo.environment["ValCXXCompiler"] ?? ""
+    let whichCompiler = ProcessInfo.processInfo.environment["ValCXXCompiler"] ?? ""
 
     var compiler: String? = nil
     if whichCompiler == "" {
