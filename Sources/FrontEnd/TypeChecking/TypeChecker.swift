@@ -2019,23 +2019,16 @@ public struct TypeChecker {
 
     // Look for members declared inherited by conformance/refinement.
     guard let traits = conformedTraits(of: type, in: scope) else { return matches }
-    for trait in traits {
-      if type == trait { continue }
-
+    for trait in traits where type != trait {
       // TODO: Read source of conformance to disambiguate associated names
       let newMatches = lookup(baseName, memberOf: ^trait, in: scope)
-      switch type.base {
-      case is AssociatedTypeType,
-        is GenericTypeParameterType,
-        is TraitType:
-        matches.formUnion(newMatches)
 
+      // Associated type and value declarations are not inherited by conformance.
+      switch type.base {
+      case is AssociatedTypeType, is GenericTypeParameterType, is TraitType:
+        matches.formUnion(newMatches)
       default:
-        // Associated type and value declarations are not inherited by conformance.
-        matches.formUnion(
-          newMatches.filter({
-            $0.kind != AssociatedTypeDecl.self && $0.kind != AssociatedValueDecl.self
-          }))
+        matches.formUnion(newMatches.filter(program.isRequirement(_:)))
       }
     }
 
