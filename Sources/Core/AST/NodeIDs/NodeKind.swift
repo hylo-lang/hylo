@@ -95,7 +95,6 @@ extension NodeKind: CustomStringConvertible {
 extension NodeKind {
 
   static let allValues: [Node.Type] = [
-    // MARK: Declarations
     AssociatedTypeDecl.self,
     AssociatedValueDecl.self,
     BindingDecl.self,
@@ -118,7 +117,6 @@ extension NodeKind {
     TypeAliasDecl.self,
     VarDecl.self,
 
-    // MARK: Expressions
     BooleanLiteralExpr.self,
     BufferLiteralExpr.self,
     CastExpr.self,
@@ -149,14 +147,12 @@ extension NodeKind {
     WildcardExpr.self,
     UnionTypeExpr.self,
 
-    // MARK: Patterns
     BindingPattern.self,
     ExprPattern.self,
     NamePattern.self,
     TuplePattern.self,
     WildcardPattern.self,
 
-    // MARK: Statements
     AssignStmt.self,
     BraceStmt.self,
     BreakStmt.self,
@@ -171,7 +167,6 @@ extension NodeKind {
     WhileStmt.self,
     YieldStmt.self,
 
-    // MARK: Others
     MatchCase.self,
     TranslationUnit.self,
   ]
