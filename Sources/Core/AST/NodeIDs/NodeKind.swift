@@ -40,7 +40,7 @@ public struct NodeKind: Codable, Equatable, Hashable {
 
   /// Returns true iff `l` and `r` do not denote the same node type.
   public static func != (l: Self, r: Node.Type) -> Bool {
-    return l.value == r
+    return l.value != r
   }
 
   /// Returns true iff `l` and `r` denote the same node type.
@@ -70,7 +70,7 @@ extension Optional where Wrapped == NodeKind {
 
   /// Returns true iff `l` and `r` do not denote the same node type.
   static func != (l: Self, r: Node.Type) -> Bool {
-    return l?.value == r
+    return l?.value != r
   }
 
   /// Returns true iff `l` and `r` denote the same node type.
