@@ -23,7 +23,7 @@ public struct NodeKind: Codable, Equatable, Hashable {
     value = Self.allValues[index]
   }
 
-  /// Returns true iff `l` and `r` denote the same node type.
+  /// Returns `true` iff `l` and `r` denote the same node type.
   public static func == (l: Self, r: Self) -> Bool {
     l.value == r.value
   }
@@ -33,27 +33,27 @@ public struct NodeKind: Codable, Equatable, Hashable {
     ObjectIdentifier(value).hash(into: &h)
   }
 
-  /// Returns true iff `l` and `r` denote the same node type.
+  /// Returns `true` iff `l` and `r` denote the same node type.
   public static func == (l: Self, r: Node.Type) -> Bool {
     l.value == r
   }
 
-  /// Returns true iff `l` and `r` do not denote the same node type.
+  /// Returns `true` iff `l` and `r` do not denote the same node type.
   public static func != (l: Self, r: Node.Type) -> Bool {
     l.value != r
   }
 
-  /// Returns true iff `l` and `r` denote the same node type.
+  /// Returns `true` iff `l` and `r` denote the same node type.
   public static func == (l: Node.Type, r: Self) -> Bool {
     l == r.value
   }
 
-  /// Returns true iff `l` and `r` do not denote the same node type.
+  /// Returns `true` iff `l` and `r` do not denote the same node type.
   public static func != (l: Node.Type, r: Self) -> Bool {
     l != r.value
   }
 
-  /// Returns true iff `me` and `pattern` denote the same node type.
+  /// Returns `true` iff `me` and `pattern` denote the same node type.
   public static func ~= (pattern: Node.Type, me: Self) -> Bool {
     me == pattern
   }
@@ -63,22 +63,22 @@ public struct NodeKind: Codable, Equatable, Hashable {
 /// Extend heterogeneous equality comparison with Node.Type to Optional<NodeKind>.
 extension Optional where Wrapped == NodeKind {
 
-  /// Returns true iff `l` and `r` denote the same node type.
+  /// Returns `true` iff `l` and `r` denote the same node type.
   static func == (l: Self, r: Node.Type) -> Bool {
     l?.value == r
   }
 
-  /// Returns true iff `l` and `r` do not denote the same node type.
+  /// Returns `true` iff `l` and `r` do not denote the same node type.
   static func != (l: Self, r: Node.Type) -> Bool {
     l?.value != r
   }
 
-  /// Returns true iff `l` and `r` denote the same node type.
+  /// Returns `true` iff `l` and `r` denote the same node type.
   static func == (l: Node.Type, r: Self) -> Bool {
     l == r?.value
   }
 
-  /// Returns true iff `l` and `r` do not denote the same node type.
+  /// Returns `true` iff `l` and `r` do not denote the same node type.
   static func != (l: Node.Type, r: Self) -> Bool {
     l != r?.value
   }
