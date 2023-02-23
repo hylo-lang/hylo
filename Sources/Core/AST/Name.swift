@@ -70,6 +70,13 @@ public struct Name: Hashable, Codable {
     }
   }
 
+  /// Returns `self` appending `x` or `nil` if `self` already has an introducer.
+  public func appending(_ x: AccessEffect) -> Name? {
+    introducer == nil
+      ? Name(stem: stem, labels: labels, notation: notation, introducer: x)
+      : nil
+  }
+
   /// Returns a textual description of `labels`.
   public static func describe<S: Sequence<String?>>(labels: S) -> String {
     labels.map({ "\($0 ?? "_"):" }).joined()
