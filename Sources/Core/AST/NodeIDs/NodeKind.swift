@@ -2,7 +2,7 @@ import Utils
 
 /// The type of an AST node; a nominal wrapper for `Node.Type` that adds conformances and
 /// convenience APIs.
-public struct NodeKind: Codable, Equatable, Hashable {
+public struct NodeKind: Codable {
 
   /// The underlying value.
   public let value: Node.Type
@@ -23,14 +23,22 @@ public struct NodeKind: Codable, Equatable, Hashable {
     value = Self.allValues[index]
   }
 
-  /// Returns `true` iff `l` and `r` denote the same node type.
-  public static func == (l: Self, r: Self) -> Bool {
-    l.value == r.value
-  }
+}
+
+extension NodeKind: Hashable {
 
   /// Incorporates the value of `self` into `h`.
   public func hash(into h: inout Hasher) {
     ObjectIdentifier(value).hash(into: &h)
+  }
+
+}
+
+extension NodeKind: Equatable {
+
+  /// Returns `true` iff `l` and `r` denote the same node type.
+  public static func == (l: Self, r: Self) -> Bool {
+    l.value == r.value
   }
 
   /// Returns `true` iff `l` and `r` denote the same node type.
