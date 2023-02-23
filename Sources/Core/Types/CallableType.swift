@@ -1,7 +1,7 @@
 /// A type whose instances are callable entities.
 ///
-/// Do not declare new conformances to `CallableType`. Only the `LambdaType` and `MethodType` are
-/// are valid conforming types.
+/// Do not declare new conformances to `CallableType`. Only `LambdaType` and `MethodType` are valid
+/// conforming types.
 public protocol CallableType {
 
   /// The parameters of the callable value.
