@@ -2,7 +2,27 @@
 public struct Conformance {
 
   /// A map from requirement to their implementation.
-  public typealias ImplementationMap = DeclProperty<AnyDeclID>
+  public typealias ImplementationMap = DeclProperty<Implementation>
+
+  /// The implementation of a conformance.
+  public enum Implementation: Hashable {
+
+    /// Concrete implementation.
+    case concrete(AnyDeclID)
+
+    /// Synthesized implementation.
+    case synthetic
+
+    /// The payload of `.concrete` or `nil` if `self == .synthetic`.
+    public var decl: AnyDeclID? {
+      if case .concrete(let d) = self {
+        return d
+      } else {
+        return nil
+      }
+    }
+
+  }
 
   /// The type on the left-hand side of this conformance.
   public let model: AnyType

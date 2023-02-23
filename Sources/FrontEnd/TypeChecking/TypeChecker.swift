@@ -833,27 +833,118 @@ public struct TypeChecker {
     return success
   }
 
-  /// Returns an array of declarations implementing `requirement` with type `requirementType` that
-  /// are member of `conformingType` and exposed to `scope`.
-  private mutating func gatherCandidates(
-    implementing requirement: FunctionDecl.ID,
-    withType requirementType: AnyType,
-    for conformingType: AnyType,
+  /// Returns the conformance of `model` to `trait` declared at `declSite` in `declScope` if it
+  /// holds. Otherwise, reports missing requirements and returns `nil`.
+  private mutating func checkConformance(
+    of model: AnyType,
+    to trait: TraitType,
+    declaredAt declSite: SourceRange,
+    in declScope: AnyScopeID
+  ) -> Conformance? {
+    let specializations = [ast[trait.decl].selfParameterDecl: model]
+    var implementations = Conformance.ImplementationMap()
+    var notes: DiagnosticSet = []
+
+    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
+    /// reporting a diagnostic in `notes` otherwise.
+    func checkSatisfied(function d: FunctionDecl.ID) {
+      let t = specialized(
+        relations.canonical(realize(decl: d)), applying: specializations, in: declScope)
+      guard !t[.hasError] else { return }
+
+      let n = Name(of: d, in: ast)!
+      if let c = implementation(
+        of: n, in: model,
+        withCallableType: LambdaType(t)!, specializedWith: specializations,
+        exposedTo: declScope)
+      {
+        implementations[d] = .concrete(c)
+      } else if program.isSynthesizable(d) {
+        implementations[d] = .synthetic
+      } else {
+        notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
+      }
+    }
+
+    /// Checks if requirement `d` of a method bunde named `m` is satisfied by `model`, extending
+    /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
+    func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
+      let t = specialized(
+        relations.canonical(realize(decl: d)), applying: specializations, in: declScope)
+      guard !t[.hasError] else { return }
+
+      if let c = implementation(
+        of: m, in: model,
+        withCallableType: LambdaType(t)!, specializedWith: specializations,
+        exposedTo: declScope)
+      {
+        implementations[d] = .concrete(c)
+      } else if program.isSynthesizable(d) {
+        implementations[d] = .synthetic
+      } else {
+        let n = m.appending(ast[d].introducer.value)!
+        notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
+      }
+    }
+
+    // Get the set of generic parameters defined by `trait`.
+    for m in ast[trait.decl].members {
+      switch m.kind {
+      case GenericParameterDecl.self:
+        assert(m == ast[trait.decl].selfParameterDecl, "unexpected declaration")
+        continue
+
+      case AssociatedTypeDecl.self:
+        // TODO: Implement me.
+        continue
+
+      case AssociatedValueDecl.self:
+        // TODO: Implement me.
+        continue
+
+      case FunctionDecl.self:
+        checkSatisfied(function: FunctionDecl.ID(m)!)
+
+      case MethodDecl.self:
+        let r = MethodDecl.ID(m)!
+        let n = Name(of: r, in: ast)
+        ast[r].impls.forEach({ checkSatisfied(variant: $0, inMethod: n) })
+
+      case SubscriptDecl.self:
+        // TODO: Implement me.
+        continue
+
+      default:
+        unreachable()
+      }
+    }
+
+    if !notes.containsError {
+      return Conformance(
+        model: model, concept: trait, conditions: [], scope: declScope,
+        implementations: implementations, site: declSite)
+    } else {
+      diagnostics.insert(.error(model, doesNotConformTo: trait, at: declSite, because: notes))
+      return nil
+    }
+  }
+
+  private mutating func implementation(
+    of requirementName: Name,
+    in model: AnyType,
+    withCallableType requirementType: LambdaType,
+    specializedWith specializations: [GenericParameterDecl.ID: AnyType],
     exposedTo scope: AnyScopeID
-  ) -> [AnyDeclID] {
-    let n = Name(of: requirement, in: ast)!
-    let lookupResult = lookup(n.stem, memberOf: conformingType, in: scope)
+  ) -> AnyDeclID? {
+    /// Returns `true` if candidate `d` has `requirementType`.
+    func hasRequiredType<T: Decl>(_ d: T.ID) -> Bool {
+      let t = specialized(
+        relations.canonical(realize(decl: d)), applying: specializations, in: scope)
+      return t == requirementType
+    }
 
-    // Filter out the candidates with incompatible types.
-    return lookupResult.compactMap { (c) -> AnyDeclID? in
-      guard
-        c != requirement,
-        let d = self.decl(in: c, named: n),
-        relations.canonical(realize(decl: d)) == requirementType
-      else { return nil }
-
-      if let f = FunctionDecl.ID(d), ast[f].body == nil { return nil }
-      if let f = MethodImpl.ID(d), ast[f].body == nil { return nil }
+    let allCandidates = lookup(requirementName.stem, memberOf: model, in: scope)
+    let viableCandidates = allCandidates.compactMap { (c) -> AnyDeclID? in
 
       // TODO: Filter out the candidates with incompatible constraints.
       // trait A {}
@@ -861,10 +952,28 @@ public struct TypeChecker {
       // extension Foo where T: U { fun foo() }
       // conformance Foo: A {} // <- should not consider `foo` in the extension
 
-      // TODO: Rank candidates
+      switch c.kind {
+      case FunctionDecl.self:
+        let d = FunctionDecl.ID(c)!
+        return ((ast[d].body != nil) && hasRequiredType(d)) ? c : nil
 
-      return d
+      case MethodDecl.self:
+        for d in ast[MethodDecl.ID(c)!].impls where ast[d].body != nil {
+          if hasRequiredType(d) { return c }
+        }
+        return nil
+
+      default:
+        return nil
+      }
     }
+
+    if viableCandidates.count > 1 {
+      // TODO: Rank candidates
+      fatalError("not implemented")
+    }
+
+    return viableCandidates.uniqueElement
   }
 
   /// Returns an array of declarations implementing `requirement` with type `requirementType` that
@@ -899,76 +1008,6 @@ public struct TypeChecker {
       // TODO: Rank candidates
 
       return d
-    }
-  }
-
-  /// Returns the conformance of `model` to `trait` declared at `declSite` in `declScope` if it
-  /// holds. Otherwise, reports missing requirements and returns `nil`.
-  private mutating func checkConformance(
-    of model: AnyType,
-    to trait: TraitType,
-    declaredAt declSite: SourceRange,
-    in declScope: AnyScopeID
-  ) -> Conformance? {
-    let specialization = [ast[trait.decl].selfParameterDecl: model]
-    var implementations = Conformance.ImplementationMap()
-    var notes: [Diagnostic] = []
-
-    // Get the set of generic parameters defined by `trait`.
-    for requirement in ast[trait.decl].members {
-      let requirementType = specialized(
-        relations.canonical(realize(decl: requirement)), applying: specialization, in: declScope)
-      if requirementType.isError { continue }
-
-      switch requirement.kind {
-      case GenericParameterDecl.self:
-        assert(requirement == ast[trait.decl].selfParameterDecl, "unexpected declaration")
-        continue
-
-      case AssociatedTypeDecl.self:
-        // TODO: Implement me.
-        continue
-
-      case FunctionDecl.self:
-        let r = FunctionDecl.ID(requirement)!
-        let candidates = gatherCandidates(
-          implementing: r, withType: requirementType, for: model, exposedTo: declScope)
-
-        if let c = candidates.uniqueElement {
-          implementations[requirement] = c
-        } else {
-          notes.append(
-            .error(
-              traitRequiresMethod: Name(of: r, in: ast)!, withType: requirementType,
-              at: declSite))
-        }
-
-      case MethodDecl.self:
-        let r = MethodDecl.ID(requirement)!
-        let candidates = gatherCandidates(
-          implementing: r, withType: requirementType, for: model, exposedTo: declScope)
-
-        if let c = candidates.uniqueElement {
-          implementations[requirement] = c
-        } else {
-          notes.append(
-            .error(
-              traitRequiresMethod: Name(of: r, in: ast), withType: requirementType,
-              at: declSite))
-        }
-
-      default:
-        break
-      }
-    }
-
-    if notes.isEmpty {
-      return Conformance(
-        model: model, concept: trait, conditions: [], scope: declScope,
-        implementations: implementations, site: declSite)
-    } else {
-      diagnostics.insert(.error(model, doesNotConformTo: trait, at: declSite, because: notes))
-      return nil
     }
   }
 
