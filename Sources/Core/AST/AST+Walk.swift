@@ -42,9 +42,9 @@ public protocol ASTWalkObserver {
 
 extension ASTWalkObserver {
 
-  func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool { true }
+  public func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool { true }
 
-  func willExit(_ n: AnyNodeID, in ast: AST) {}
+  public func willExit(_ n: AnyNodeID, in ast: AST) {}
 
 }
 
