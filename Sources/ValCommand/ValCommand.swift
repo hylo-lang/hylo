@@ -219,9 +219,9 @@ public struct ValCommand: ParsableCommand {
     if whichCompiler == "" {
       compiler = try? find("clang++")
       if compiler == nil {
-        compiler = try? find("g++")
+        compiler = try? find("cl")
         if compiler == nil {
-          compiler = try? find("cl")
+          compiler = try? find("g++")
         }
       }
       if compiler == nil {
