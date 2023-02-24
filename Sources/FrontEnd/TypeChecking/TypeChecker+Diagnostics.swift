@@ -131,9 +131,11 @@ extension Diagnostic {
 
   static func error(
     _ type: AnyType, doesNotConformTo trait: TraitType, at site: SourceRange,
-    because notes: [Diagnostic] = []
+    because notes: DiagnosticSet = []
   ) -> Diagnostic {
-    .error("type '\(type)' does not conform to trait '\(trait)'", at: site, notes: notes)
+    .error(
+      "type '\(type)' does not conform to trait '\(trait)'", at: site,
+      notes: Array(notes.elements))
   }
 
   static func error(
@@ -177,9 +179,9 @@ extension Diagnostic {
   }
 
   static func error(
-    traitRequiresMethod name: Name, withType type: AnyType, at site: SourceRange
+    trait x: TraitType, requiresMethod m: Name, withType t: AnyType, at site: SourceRange
   ) -> Diagnostic {
-    .error("trait requires method '\(name)' with type '\(type)'", at: site)
+    .error("trait '\(x)' requires method '\(m)' with type '\(t)'", at: site)
   }
 
   static func error(staleConstraint c: any Constraint) -> Diagnostic {
