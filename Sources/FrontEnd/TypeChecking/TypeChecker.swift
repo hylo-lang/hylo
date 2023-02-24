@@ -223,11 +223,16 @@ public struct TypeChecker {
 
   /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
   ///
+  /// This method is idempotent. After the first call for a module `m`, `self.declTypes[m]` is
+  /// assigned to an instance of `ModuleType` if type checking succeeds or `.error` otherwise.
+  /// Subsequent calls have no effect on `self`.
+  ///
   /// - Requires: `m` is a valid ID in the type checker's AST.
   public mutating func check(module m: ModuleDecl.ID) {
-    _ = _check(decl: m) { (this, m) in
+    let s = _check(decl: m) { (this, m) in
       this.ast[m].sources.reduce(true, { (s, u) in this.check(translationUnit: u) && s })
     }
+    if !s { declTypes[m] = .error }
   }
 
   /// Type checks all declarations in `u`, returns `true` iff all are well-typed.
