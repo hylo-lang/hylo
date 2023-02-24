@@ -22,3 +22,5 @@
 # Misc
 /Examples/**.vir
 /Examples/**.json
+/Examples/**.cpp
+/Examples/**.h
