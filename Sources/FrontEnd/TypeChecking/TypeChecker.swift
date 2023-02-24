@@ -379,9 +379,8 @@ public struct TypeChecker {
     }
 
     // TODO: Handle generics
-    // TODO: Check conformances
 
-    var success = true
+    var success = check(conformanceList: ast[d].conformances, partOf: d)
     for m in ast[d].members {
       success = check(decl: m) && success
     }
