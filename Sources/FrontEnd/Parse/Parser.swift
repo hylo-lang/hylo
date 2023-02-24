@@ -2313,7 +2313,6 @@ public enum Parser {
   }
 
   private static func parseCompoundLiteral(in state: inout ParserState) throws -> AnyExprID? {
-
     let backup = state.backup()
 
     if let map = try parseMapLiteral(in: &state) {
