@@ -330,16 +330,9 @@ public struct ValCommand: ParsableCommand {
       let environmentPath = ProcessInfo.processInfo.environment["Path"] ?? ""
       for bareType in environmentPath.split(separator: ";") {
         candidateURL = URL(fileURLWithPath: String(bareType)).appendingPathComponent(executable)
-        if executable.contains(".") {
-          if FileManager.default.fileExists(atPath: candidateURL.path) {
-            ValCommand.executableLocationCache[executable] = candidateURL.path
-            return candidateURL.path
-          }
-        } else {
-          if FileManager.default.fileExists(atPath: candidateURL.path + ".exe") {
-            ValCommand.executableLocationCache[executable] = candidateURL.path
-            return candidateURL.path
-          }
+        if FileManager.default.fileExists(atPath: candidateURL.path + ".exe") {
+          ValCommand.executableLocationCache[executable] = candidateURL.path
+          return candidateURL.path
         }
       }
     // Search in the PATH(for Linux and MacOS).
