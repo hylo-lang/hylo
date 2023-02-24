@@ -49,14 +49,14 @@ public struct ValCommand: ParsableCommand {
 
     case clang
 
-    case unrecognizable
-
     init?(argument: String) {
       switch argument {
       case "gcc": self = .gcc
-      case "msvc": self = .msvc
+      #if os(Windows)
+        case "msvc": self = .msvc
+      #endif
       case "clang": self = .clang
-      default: self = .unrecognizable
+      default: return nil
       }
     }
   }
@@ -108,8 +108,8 @@ public struct ValCommand: ParsableCommand {
   @Option(
     name: [.customLong("CXXCompiler")],
     help: ArgumentHelp(
-      "Customize the CXXCompiler used by the Val backend",
-      valueName: "customize-CXXCompiler"))
+      "Customize the CXXCompiler used by the Val backend. From: clang, gcc, msvc(Windows only)",
+      valueName: "CXXCompiler"))
   private var customizeCXXCompiler: CXXCompiler = .clang
 
   @Option(
@@ -245,14 +245,7 @@ public struct ValCommand: ParsableCommand {
     switch customizeCXXCompiler {
       case .clang: compiler = try find("clang++")
       case .gcc: compiler = try find("g++")
-      #if os(Windows) 
-        case .msvc: compiler = try find("cl")
-        case .unrecognizable: throw EnvironmentError(message: 
-          "The custom CXXCompiler are not compliant(Please select clang, msvc or gcc)")
-      #else
-        case .unrecognizable: throw EnvironmentError(message: 
-          "The custom CXXCompiler are not compliant(Please select clang or gcc)")
-      #endif
+      case .msvc: compiler = try find("cl")
     }
     
     let binaryPath = executablePath(outputURL, productName)
