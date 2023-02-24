@@ -2467,7 +2467,6 @@ public enum Parser {
     elementParser: Apply(parseMapElement(in:)))
 
   private static func parseMapElement(in state: inout ParserState) throws -> MapLiteralExpr.Element? {
-
     let backup = state.backup()
 
     if let lhs = try parseExpr(in: &state) {
@@ -2483,7 +2482,6 @@ public enum Parser {
   }
 
   private static func parseMapLiteral(in state: inout ParserState) throws -> MapLiteralExpr? {
-
     if let mapLiteral = state.take(.lBrack, .colon, .rBrack) {
       return MapLiteralExpr(elements: [], site: mapLiteral.first!.site)
     }
