@@ -40,6 +40,27 @@ public struct ValCommand: ParsableCommand {
 
   }
 
+  /// CXXCompiler that can be choose
+  private enum CXXCompiler: ExpressibleByArgument {
+
+    case gcc
+
+    case msvc
+
+    case clang
+
+    case unrecognizable
+
+    init?(argument: String) {
+      switch argument {
+      case "gcc": self = .gcc
+      case "msvc": self = .msvc
+      case "clang": self = .clang
+      default: self = .unrecognizable
+      }
+    }
+  }
+
   /// An error indicating that the compiler's environment is not properly configured.
   fileprivate struct EnvironmentError: Error {
 
@@ -83,6 +104,13 @@ public struct ValCommand: ParsableCommand {
       "Emit the specified type output files. From: raw-ast, raw-ir, ir, cpp, binary",
       valueName: "output-type"))
   private var outputType: OutputType = .binary
+
+  @Option(
+    name: [.customLong("CXXCompiler")],
+    help: ArgumentHelp(
+      "Customize the CXXCompiler used by the Val backend",
+      valueName: "customize-CXXCompiler"))
+  private var customizeCXXCompiler: CXXCompiler = .clang
 
   @Option(
     name: [.customShort("o")],
@@ -213,51 +241,43 @@ public struct ValCommand: ParsableCommand {
       cxxModules.source, to: buildDirectory.appendingPathComponent(productName),
       loggingTo: &errorLog)
       
-    let whichCompiler = ProcessInfo.processInfo.environment["ValCXXCompiler"] ?? ""
-
-    var compiler: String? = nil
-    if whichCompiler == "" {
-      compiler = try? find("clang++")
-      if compiler == nil {
-        compiler = try? find("cl")
-        if compiler == nil {
-          compiler = try? find("g++")
-        }
-      }
-      if compiler == nil {
-        throw EnvironmentError(message: "executable not found CXX Compiler")
-      }
-    } else {
-      if whichCompiler.lowercased() == "clang" || whichCompiler.lowercased() == "clang++"{
-        compiler = try find("clang++")
-      } else if whichCompiler.lowercased() == "gcc" || whichCompiler.lowercased() == "g++" {
-        compiler = try find("g++")
-      } else if whichCompiler.lowercased() == "msvc" || whichCompiler.lowercased() == "cl" {
-        compiler = try find("cl")
-      }
+    var compiler = ""
+    switch customizeCXXCompiler {
+      case .clang: compiler = try find("clang++")
+      case .gcc: compiler = try find("g++")
+      #if os(Windows) 
+        case .msvc: compiler = try find("cl")
+        case .unrecognizable: throw EnvironmentError(message: 
+          "The custom CXXCompiler are not compliant(Please select clang, msvc or gcc)")
+      #else
+        case .unrecognizable: throw EnvironmentError(message: 
+          "The custom CXXCompiler are not compliant(Please select clang or gcc)")
+      #endif
     }
     
     let binaryPath = executablePath(outputURL, productName)
 
-    if compiler!.contains("clang++") || compiler!.contains("g++"){
-      try runCommandLine(
-      compiler!,
-      [
-        "-o", binaryPath,
-        "-I", buildDirectory.path,
-        buildDirectory.appendingPathComponent(productName + ".cpp").path,
-      ],
-      loggingTo: &errorLog)
-    } else if compiler!.contains("cl") {
-      try runCommandLine(
-      compiler!,
-      [
-        buildDirectory.appendingPathComponent(productName + ".cpp").path,
-        "/link",
-        "/out:" + binaryPath
-      ],
-      loggingTo: &errorLog)
-    }
+    #if os(Windows)
+      if customizeCXXCompiler == .msvc {
+        try runCommandLine(
+        compiler,
+        [
+          buildDirectory.appendingPathComponent(productName + ".cpp").path,
+          "/link",
+          "/out:" + binaryPath
+        ],
+        loggingTo: &errorLog)
+        return
+      } 
+    #endif
+    try runCommandLine(
+    compiler,
+    [
+      "-o", binaryPath,
+      "-I", buildDirectory.path,
+      buildDirectory.appendingPathComponent(productName + ".cpp").path,
+    ],
+    loggingTo: &errorLog)
   }
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
   /// `u` without any path extension and stripping all leading dots. Otherwise, returns "Main".
