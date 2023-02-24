@@ -1923,7 +1923,7 @@ public struct TypeChecker {
 
   /// Returns the declarations that introduce a name whose stem is `baseName` in the declaration
   /// space of `lookupContext`.
-  mutating func lookup<T: ScopeID>(
+  private mutating func lookup<T: ScopeID>(
     _ baseName: String,
     introducedInDeclSpaceOf lookupContext: T,
     in site: AnyScopeID
@@ -1936,6 +1936,22 @@ public struct TypeChecker {
     case TraitDecl.self:
       let t = ^TraitType(NodeID(lookupContext)!, ast: ast)
       return lookup(baseName, memberOf: t, in: site)
+
+    case ConformanceDecl.self:
+      let d = ConformanceDecl.ID(lookupContext)!
+      if let t = MetatypeType(realize(typeExtendingDecl: d))?.instance {
+        return t.isError ? [] : lookup(baseName, memberOf: t, in: site)
+      } else {
+        return names(introducedIn: d)[baseName, default: []]
+      }
+
+    case ExtensionDecl.self:
+      let d = ExtensionDecl.ID(lookupContext)!
+      if let t = MetatypeType(realize(typeExtendingDecl: d))?.instance {
+        return t.isError ? [] : lookup(baseName, memberOf: t, in: site)
+      } else {
+        return names(introducedIn: d)[baseName, default: []]
+      }
 
     case TypeAliasDecl.self:
       // We can't re-enter `realize(typeAliasDecl:)` if the aliased type of `d` is being resolved
