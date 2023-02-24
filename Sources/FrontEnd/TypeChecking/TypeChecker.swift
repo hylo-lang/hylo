@@ -222,55 +222,56 @@ public struct TypeChecker {
   ///
   /// - Requires: `m` is a valid ID in the type checker's AST.
   public mutating func check(module m: ModuleDecl.ID) {
-    // Build the type of the module.
-    declTypes[m] = ^ModuleType(m, ast: ast)
-    declRequests[m] = .typeRealizationStarted
-
-    // Type check the declarations in the module.
-    let s = ast.topLevelDecls(m).reduce(true, { (s, d) in check(decl: d) && s })
-    if s {
-      declRequests[m] = .success
-    } else {
-      declTypes[m] = .error
-      declRequests[m] = .failure
+    _ = _check(decl: m) { (this, m) in
+      this.ast[m].sources.reduce(true, { (s, u) in this.check(translationUnit: u) && s })
     }
   }
 
-  /// Type checks the specified declaration and returns whether that succeeded.
-  private mutating func check<T: DeclID>(decl id: T) -> Bool {
-    switch id.kind {
+  /// Type checks all declarations in `u`, returns `true` iff all are well-typed.
+  private mutating func check(translationUnit u: TranslationUnit.ID) -> Bool {
+    check(all: ast[u].decls)
+  }
+
+  /// Type checks all declarations in `batch`, returning `true` iff all are well-typed.
+  private mutating func check<S: Sequence<AnyDeclID>>(all batch: S) -> Bool {
+    batch.reduce(true, { (s, d) in check(decl: d) && s })
+  }
+
+  /// Returns `true` iff `d` is well-typed.
+  private mutating func check<T: DeclID>(decl d: T) -> Bool {
+    switch d.kind {
     case AssociatedTypeDecl.self:
-      return check(associatedType: NodeID(id)!)
+      return check(associatedType: NodeID(d)!)
     case AssociatedValueDecl.self:
-      return check(associatedValue: NodeID(id)!)
+      return check(associatedValue: NodeID(d)!)
     case BindingDecl.self:
-      return check(binding: NodeID(id)!)
+      return check(binding: NodeID(d)!)
     case ConformanceDecl.self:
-      return check(conformance: NodeID(id)!)
+      return check(conformance: NodeID(d)!)
     case ExtensionDecl.self:
-      return check(extension: NodeID(id)!)
+      return check(extension: NodeID(d)!)
     case FunctionDecl.self:
-      return check(function: NodeID(id)!)
+      return check(function: NodeID(d)!)
     case GenericParameterDecl.self:
-      return check(genericParameter: NodeID(id)!)
+      return check(genericParameter: NodeID(d)!)
     case InitializerDecl.self:
-      return check(initializer: NodeID(id)!)
+      return check(initializer: NodeID(d)!)
     case MethodDecl.self:
-      return check(method: NodeID(id)!)
+      return check(method: NodeID(d)!)
     case MethodImpl.self:
-      return check(method: NodeID(program.declToScope[id]!)!)
+      return check(method: NodeID(program.declToScope[d]!)!)
     case OperatorDecl.self:
-      return check(operator: NodeID(id)!)
+      return check(operator: NodeID(d)!)
     case ProductTypeDecl.self:
-      return check(productType: NodeID(id)!)
+      return check(productType: NodeID(d)!)
     case SubscriptDecl.self:
-      return check(subscript: NodeID(id)!)
+      return check(subscript: NodeID(d)!)
     case TraitDecl.self:
-      return check(trait: NodeID(id)!)
+      return check(trait: NodeID(d)!)
     case TypeAliasDecl.self:
-      return check(typeAlias: NodeID(id)!)
+      return check(typeAlias: NodeID(d)!)
     default:
-      unexpected(id, in: ast)
+      unexpected(d, in: ast)
     }
   }
 
@@ -2720,6 +2721,8 @@ public struct TypeChecker {
       return realize(methodDecl: NodeID(d)!)
     case MethodImpl.self:
       return realize(methodImpl: NodeID(d)!)
+    case ModuleDecl.self:
+      return realize(moduleDecl: NodeID(d)!)
     case ParameterDecl.self:
       return realize(parameterDecl: NodeID(d)!)
     case ProductTypeDecl.self:
@@ -2979,6 +2982,11 @@ public struct TypeChecker {
       _ = this.realize(methodDecl: NodeID(this.program.declToScope[d]!)!)
       return this.declTypes[d] ?? .error
     }
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(moduleDecl d: ModuleDecl.ID) -> AnyType {
+    _realize(decl: d, { (this, d) in ^ModuleType(d, ast: this.ast) })
   }
 
   /// Returns the overarching type of `d`.
