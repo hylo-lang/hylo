@@ -642,6 +642,7 @@ public struct TypeChecker {
     }
 
     // Type check conformances.
+    let receiver = realizeSelfTypeExpr(in: id)!.instance
     let container = program.scopeToParent[id]!
     for e in ast[id].conformances {
       guard let rhs = realize(name: e, in: container)?.instance else { continue }
@@ -651,25 +652,9 @@ public struct TypeChecker {
         continue
       }
 
-      guard
-        let c = checkConformance(
-          of: realizeSelfTypeExpr(in: id)!.instance, to: t, declaredAt: ast[e].site,
-          in: AnyScopeID(id))
-      else {
-        // Diagnostics have been reported by `checkConformance`.
-        success = false
-        continue
-      }
-
-      let i = relations.insert(c, testingContainmentWith: program)
-      guard i.inserted else {
-        diagnostics.insert(
-          .error(
-            redundantConformance: c, at: ast[e].site,
-            alreadyDeclaredAt: i.conformanceAfterInsert.site))
-        success = false
-        continue
-      }
+      let x = checkAndRegisterConformance(
+        of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(id)) && success
+      success = success && x
     }
 
     // Type check extending declarations.
@@ -677,8 +662,6 @@ public struct TypeChecker {
     for j in extendingDecls(of: type, exposedTo: container) {
       success = check(decl: j) && success
     }
-
-    // TODO: Check the conformances
 
     return success
   }
@@ -833,8 +816,32 @@ public struct TypeChecker {
     return success
   }
 
-  /// Returns the conformance of `model` to `trait` declared at `declSite` in `declScope` if it
-  /// holds. Otherwise, reports missing requirements and returns `nil`.
+  /// Returns `true` if the conformance of `model` to `trait` in `declScope` is satisfied and got
+  /// registered in `relations`. Otherwise, reports diagnostics at `declSite` and returns `false`.
+  private mutating func checkAndRegisterConformance(
+    of model: AnyType,
+    to trait: TraitType,
+    declaredAt declSite: SourceRange,
+    in declScope: AnyScopeID
+  ) -> Bool {
+    guard let c = checkConformance(of: model, to: trait, declaredAt: declSite, in: declScope)
+    else {
+      // Diagnostics have been reported by `checkConformance`.
+      return false
+    }
+
+    let (inserted, x) = relations.insert(c, testingContainmentWith: program)
+    if inserted {
+      return true
+    } else {
+      diagnostics.insert(
+        .error(redundantConformance: c, at: declSite, alreadyDeclaredAt: x.site))
+      return false
+    }
+  }
+
+  /// Returns the conformance of `model` to `trait` in `declScope` if it'ss satisfied. Otherwise,
+  /// reports missing requirements at `declSite` and returns `nil`.
   private mutating func checkConformance(
     of model: AnyType,
     to trait: TraitType,
