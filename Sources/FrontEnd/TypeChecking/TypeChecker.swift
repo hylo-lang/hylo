@@ -1880,9 +1880,20 @@ public struct TypeChecker {
 
   /// Returns the declarations that expose `baseName` without qualification in `scope`.
   mutating func lookup(unqualified baseName: String, in scope: AnyScopeID) -> DeclSet {
-    let site = scope
+    let useSite = scope
     var matches = DeclSet()
     var root: ModuleDecl.ID? = nil
+
+    /// Inserts `newMatch` in `matches` and returns `nil` if `newMatch` is overloadable. Otherwise,
+    /// returns `matches` if it's not empty or a singleton containing `newMatch` if it is.
+    func add(_ newMatch: AnyDeclID) -> DeclSet? {
+      if !(newMatch.kind.value as! Decl.Type).isOverloadable {
+        return matches.isEmpty ? [newMatch] : matches
+      } else {
+        matches.insert(newMatch)
+        return nil
+      }
+    }
 
     // Skip file scopes so that we don't search the same file twice.
     for scope in program.scopes(from: scope) where scope.kind != TranslationUnit.self {
@@ -1890,23 +1901,16 @@ public struct TypeChecker {
 
       // Gather declarations of the identifier in the current scope; we can assume we've got no
       // no non-overloadable candidate.
-      let newMatches = lookup(baseName, introducedInDeclSpaceOf: scope, in: site)
+      let newMatches = lookup(baseName, introducedInDeclSpaceOf: scope, in: useSite)
         .subtracting(bindingsUnderChecking)
-
-      // We're done if we found at least one non-overloadable match.
-      if let d = newMatches.first(where: { !($0.kind.value as! Decl.Type).isOverloadable }) {
-        return matches.isEmpty ? [d] : matches
-      } else {
-        matches.formUnion(newMatches)
+      for d in newMatches {
+        if let result = add(d) { return result }
       }
     }
 
-    // We're done if we found at least one match.
-    if !matches.isEmpty { return matches }
-
     // Check if the identifier refers to the module containing `scope`.
     if ast[root]?.baseName == baseName {
-      return [AnyDeclID(root!)]
+      if let result = add(AnyDeclID(root!)) { return result }
     }
 
     // Search for the identifier in imported modules.
