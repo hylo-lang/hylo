@@ -178,6 +178,30 @@ struct ParserState {
     }
   }
 
+  /// Adds up to `count` tokens from the lexer into the lookahead buffer, and returns the number of added tokens.
+  @discardableResult private mutating func advanceLookahead(_ count: Int) -> Int {
+    for i in 0 ..< count {
+      guard let token = lexer.next() else { return i }
+      lookahead.append(token)
+    }
+
+    return count
+  }
+
+  /// Consumes and returns the first `kinds.count` tokens if they have the specified kinds.
+  mutating func take(_ kinds: Token.Kind...) -> [Token]? {
+    advanceLookahead(kinds.count)
+
+    if (lookahead.starts(with: kinds, by: {(token, kind) in token.kind == kind })) {
+      let tokens = lookahead.prefix(upTo: kinds.count)
+      lookahead.removeFirst(kinds.count)
+      currentIndex = tokens.last!.site.end
+      return Array(tokens)
+    }
+
+    return nil
+  }
+
   /// Consumes and returns the next token, only if it has the specified kind and if it is not
   /// preceeded by any whitespace.
   mutating func takeWithoutSkippingWhitespace(_ kind: Token.Kind) -> Token? {

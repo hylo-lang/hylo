@@ -2464,9 +2464,9 @@ public enum Parser {
     openerKind: .lBrack,
     closerKind: .rBrack,
     closerDescription: "]",
-    elementParser: Apply(parseMapComponent(in:)))
+    elementParser: Apply(parseMapElement(in:)))
 
-  private static func parseMapComponent(in state: inout ParserState) throws -> MapLiteralExpr.Element? {
+  private static func parseMapElement(in state: inout ParserState) throws -> MapLiteralExpr.Element? {
 
     let backup = state.backup()
 
@@ -2483,20 +2483,12 @@ public enum Parser {
   }
 
   private static func parseMapLiteral(in state: inout ParserState) throws -> MapLiteralExpr? {
-    let backup = state.backup()
 
-    // Attempt to parse an empty map literal `[:]`
-    if let lBracket = state.take(.lBrack) {
-      if let _ = state.take(.colon) {
-        if let _ = state.take(.rBrack) {
-          return MapLiteralExpr(elements: [], site: lBracket.site)
-        }
-      }
+    if let mapLiteral = state.take(.lBrack, .colon, .rBrack) {
+      return MapLiteralExpr(elements: [], site: mapLiteral.first!.site)
     }
 
-    state.restore(from: backup)
-
-    if let expr = try nonemptyMapLiteral.parse(&state) {
+    if let expr = try nonemptyMapLiteral.parse(&state), expr.closer != nil {
       return MapLiteralExpr(elements: expr.elements, site: expr.opener.site)
     }
 
@@ -3318,10 +3310,6 @@ struct DelimitedCommaSeparatedList<E: Combinator>: Combinator where E.Context ==
         state.diagnostics.insert(.error(expected: closerDescription, matching: opener, in: state))
         break
       }
-    }
-
-    if closer == nil {
-      return nil
     }
 
     return Element(
