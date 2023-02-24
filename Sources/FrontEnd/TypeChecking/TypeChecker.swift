@@ -9,31 +9,31 @@ public struct TypeChecker {
   public let program: ScopedProgram
 
   /// The diagnostics of the type errors.
-  public private(set) var diagnostics: DiagnosticSet = []
+  private(set) var diagnostics: DiagnosticSet = []
 
   /// The overarching type of each declaration.
-  public private(set) var declTypes = DeclProperty<AnyType>()
+  private(set) var declTypes = DeclProperty<AnyType>()
 
   /// The type of each expression.
-  public private(set) var exprTypes = ExprProperty<AnyType>()
+  private(set) var exprTypes = ExprProperty<AnyType>()
 
   /// A map from function and subscript declarations to their implicit captures.
-  public private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
+  private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
 
   /// A map from name expression to its referred declaration.
-  public internal(set) var referredDecls: BindingMap = [:]
+  var referredDecls: BindingMap = [:]
 
   /// A map from sequence expressions to their evaluation order.
-  public internal(set) var foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr] = [:]
+  var foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr] = [:]
 
   /// The type relations of the program.
-  public private(set) var relations = TypeRelations()
+  private(set) var relations = TypeRelations()
 
   /// Indicates whether the built-in symbols are visible.
-  public var isBuiltinModuleVisible: Bool
+  var isBuiltinModuleVisible: Bool
 
   /// The site for which type inference tracing is enabled, if any.
-  public let inferenceTracingSite: SourceLine?
+  private let inferenceTracingSite: SourceLine?
 
   /// Creates a new type checker for the specified program.
   ///
