@@ -253,24 +253,24 @@ public struct ValCommand: ParsableCommand {
     #if os(Windows)
       if customizeCXXCompiler == .msvc {
         try runCommandLine(
-        compiler,
-        [
-          buildDirectory.appendingPathComponent(productName + ".cpp").path,
-          "/link",
-          "/out:" + binaryPath
-        ],
-        loggingTo: &errorLog)
+          compiler,
+          [
+            buildDirectory.appendingPathComponent(productName + ".cpp").path,
+            "/link",
+            "/out:" + binaryPath
+          ],
+          loggingTo: &errorLog)
         return
       } 
     #endif
     try runCommandLine(
-    compiler,
-    [
-      "-o", binaryPath,
-      "-I", buildDirectory.path,
-      buildDirectory.appendingPathComponent(productName + ".cpp").path,
-    ],
-    loggingTo: &errorLog)
+      compiler,
+      [
+        "-o", binaryPath,
+        "-I", buildDirectory.path,
+        buildDirectory.appendingPathComponent(productName + ".cpp").path,
+      ],
+      loggingTo: &errorLog)
   }
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
   /// `u` without any path extension and stripping all leading dots. Otherwise, returns "Main".
