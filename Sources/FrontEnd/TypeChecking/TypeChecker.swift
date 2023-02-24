@@ -365,20 +365,22 @@ public struct TypeChecker {
   }
 
   private mutating func check(conformance d: ConformanceDecl.ID) -> Bool {
-    guard let s = realize(ast[d].subject, in: AnyScopeID(d))?.instance else {
-      return false
-    }
+    _check(decl: d, { (this, d) in this._check(conformance: d) })
+  }
+
+  private mutating func _check(conformance d: ConformanceDecl.ID) -> Bool {
+    let s = AnyScopeID(d)
+    guard let receiver = realize(ast[d].subject, in: s)?.instance else { return false }
 
     // Built-in types can't be extended.
-    if let b = BuiltinType(s) {
+    if let b = BuiltinType(receiver) {
       diagnostics.insert(.error(cannotExtend: b, at: ast[ast[d].subject].site))
       return false
     }
 
     // TODO: Handle generics
-    // TODO: Check conformances
 
-    var success = true
+    var success = check(conformanceList: ast[d].conformances, partOf: d)
     for m in ast[d].members {
       success = check(decl: m) && success
     }
@@ -386,6 +388,10 @@ public struct TypeChecker {
   }
 
   private mutating func check(extension d: ExtensionDecl.ID) -> Bool {
+    _check(decl: d, { (this, d) in this._check(extension: d) })
+  }
+
+  private mutating func _check(extension d: ExtensionDecl.ID) -> Bool {
     guard let s = realize(ast[d].subject, in: AnyScopeID(d))?.instance else {
       return false
     }
@@ -653,43 +659,12 @@ public struct TypeChecker {
     }
 
     // Type check conformances.
-    let container = program.scopeToParent[id]!
-    for e in ast[id].conformances {
-      guard let rhs = realize(name: e, in: container)?.instance else { continue }
-      guard let t = TraitType(rhs) else {
-        diagnostics.insert(.error(conformanceToNonTraitType: rhs, at: ast[e].site))
-        success = false
-        continue
-      }
-
-      guard
-        let c = checkConformance(
-          of: realizeSelfTypeExpr(in: id)!.instance, to: t, declaredAt: ast[e].site,
-          in: AnyScopeID(id))
-      else {
-        // Diagnostics have been reported by `checkConformance`.
-        success = false
-        continue
-      }
-
-      let i = relations.insert(c, testingContainmentWith: program)
-      guard i.inserted else {
-        diagnostics.insert(
-          .error(
-            redundantConformance: c, at: ast[e].site,
-            alreadyDeclaredAt: i.conformanceAfterInsert.site))
-        success = false
-        continue
-      }
-    }
+    success = check(conformanceList: ast[id].conformances, partOf: id) && success
 
     // Type check extending declarations.
-    let type = declTypes[id]!
-    for j in extendingDecls(of: type, exposedTo: container) {
-      success = check(decl: j) && success
+    for d in extendingDecls(of: declTypes[id]!, exposedTo: program.scopeToParent[id]!) {
+      success = check(decl: d) && success
     }
-
-    // TODO: Check the conformances
 
     return success
   }
@@ -799,53 +774,103 @@ public struct TypeChecker {
     decl id: T,
     _ action: (inout Self, T) -> Bool
   ) -> Bool {
-    // Check if a type checking request has already been received.
-    while true {
-      switch declRequests[id] {
-      case nil:
-        /// The the overarching type of the declaration is available after type realization.
-        defer { assert(declRequests[id] != nil) }
+    if let s = ensureRealized(id) { return s }
 
-        // Realize the type of the declaration before starting type checking.
-        if realize(decl: id).isError {
-          // Type checking fails if type realization did.
-          declRequests[id] = .failure
-          return false
-        } else {
-          // Note: Because the type realization of certain declarations may escalate to type
-          // checking perform type checking, we should re-check the status of the request.
-          continue
-        }
-
-      case .typeRealizationCompleted:
-        declRequests[id] = .typeCheckingStarted
-
-      case .typeRealizationStarted, .typeCheckingStarted:
-        // Note: The request status will be updated when the request that caused the circular
-        // dependency handles the failure.
-        diagnostics.insert(.error(circularDependencyAt: ast[id].site))
-        return false
-
-      case .success:
-        return true
-
-      case .failure:
-        return false
-      }
-
-      break
-    }
-
-    // Process the request.
     let success = action(&self, id)
-
-    // Update the request status.
     declRequests[id] = success ? .success : .failure
     return success
   }
 
-  /// Returns the conformance of `model` to `trait` declared at `declSite` in `declScope` if it
-  /// holds. Otherwise, reports missing requirements and returns `nil`.
+  /// Ensures that the overarching type of `d` has been realized, returning whether type checking
+  /// succeeded for `d` or `nil` if it `d` hasn't been checked yet.
+  private mutating func ensureRealized<T: DeclID>(_ d: T) -> Bool? {
+    switch declRequests[d] {
+    case nil:
+      // The the overarching type of the declaration is available after type realization.
+      defer { assert(declRequests[d] != nil) }
+
+      // Realize the type of the declaration before starting type checking.
+      if realize(decl: d).isError {
+        // Type checking fails if type realization did.
+        declRequests[d] = .failure
+        return false
+      } else {
+        // Note: Because the type realization of certain declarations may escalate to type
+        // checking perform type checking, we should re-check the status of the request.
+        return ensureRealized(d)
+      }
+
+    case .typeRealizationCompleted:
+      declRequests[d] = .typeCheckingStarted
+      return nil
+
+    case .typeRealizationStarted, .typeCheckingStarted:
+      // Request status is updated when the request that caused the circular dependency handles
+      // the failure.
+      diagnostics.insert(.error(circularDependencyAt: ast[d].site))
+      return false
+
+    case .success:
+      return true
+
+    case .failure:
+      return false
+    }
+  }
+
+  /// Type check the conformance list `traits` that's part of declaration `d`, returning `true`
+  /// iff all expressions in `traits` resolve to a trait and the type introduced or extended by
+  /// `d` conforms to all of them.
+  private mutating func check<T: Decl & LexicalScope>(
+    conformanceList traits: [NameExpr.ID],
+    partOf d: T.ID
+  ) -> Bool {
+    var success = true
+
+    let receiver = realizeSelfTypeExpr(in: d)!.instance
+    let scopeContainingDecl = program.scopeToParent[d]!
+    for e in traits {
+      guard let rhs = realize(name: e, in: scopeContainingDecl)?.instance else { continue }
+      guard let t = TraitType(rhs) else {
+        diagnostics.insert(.error(conformanceToNonTraitType: rhs, at: ast[e].site))
+        success = false
+        continue
+      }
+
+      success =
+        checkAndRegisterConformance(
+          of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(d)) && success
+    }
+
+    return success
+  }
+
+  /// Returns `true` if the conformance of `model` to `trait` in `declScope` is satisfied and got
+  /// registered in `relations`. Otherwise, reports diagnostics at `declSite` and returns `false`.
+  private mutating func checkAndRegisterConformance(
+    of model: AnyType,
+    to trait: TraitType,
+    declaredAt declSite: SourceRange,
+    in declScope: AnyScopeID
+  ) -> Bool {
+    guard let c = checkConformance(of: model, to: trait, declaredAt: declSite, in: declScope)
+    else {
+      // Diagnostics have been reported by `checkConformance`.
+      return false
+    }
+
+    let (inserted, x) = relations.insert(c, testingContainmentWith: program)
+    if inserted {
+      return true
+    } else {
+      diagnostics.insert(
+        .error(redundantConformance: c, at: declSite, alreadyDeclaredAt: x.site))
+      return false
+    }
+  }
+
+  /// Returns the conformance of `model` to `trait` in `declScope` if it'ss satisfied. Otherwise,
+  /// reports missing requirements at `declSite` and returns `nil`.
   private mutating func checkConformance(
     of model: AnyType,
     to trait: TraitType,
@@ -940,10 +965,13 @@ public struct TypeChecker {
     }
   }
 
+  /// Returns the declaration exposed to `scope` of a callable member in `model` that introduces
+  /// `requirementName` with type `requiredType`, using `specializations` to subsititute
+  /// associated types and values. Returns `nil` if zero or more than 1 candidates were found.
   private mutating func implementation(
     of requirementName: Name,
     in model: AnyType,
-    withCallableType requirementType: LambdaType,
+    withCallableType requiredType: LambdaType,
     specializedWith specializations: [GenericParameterDecl.ID: AnyType],
     exposedTo scope: AnyScopeID
   ) -> AnyDeclID? {
@@ -951,7 +979,7 @@ public struct TypeChecker {
     func hasRequiredType<T: Decl>(_ d: T.ID) -> Bool {
       let t = specialized(
         relations.canonical(realize(decl: d)), applying: specializations, in: scope)
-      return t == requirementType
+      return t == requiredType
     }
 
     let allCandidates = lookup(requirementName.stem, memberOf: model, in: scope)
