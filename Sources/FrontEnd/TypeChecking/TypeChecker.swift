@@ -1881,33 +1881,23 @@ public struct TypeChecker {
   /// Returns the declarations that expose `baseName` without qualification in `scope`.
   mutating func lookup(unqualified baseName: String, in scope: AnyScopeID) -> DeclSet {
     let site = scope
-
     var matches = DeclSet()
     var root: ModuleDecl.ID? = nil
-    for scope in program.scopes(from: scope) {
-      switch scope.kind {
-      case ModuleDecl.self:
-        // We reached the module scope.
-        root = ModuleDecl.ID(scope)!
 
-      case TranslationUnit.self:
-        // Skip file scopes so that we don't search the same file twice.
-        continue
+    // Skip file scopes so that we don't search the same file twice.
+    for scope in program.scopes(from: scope) where scope.kind != TranslationUnit.self {
+      if let r = ModuleDecl.ID(scope) { root = r }
 
-      default:
-        break
-      }
-
-      // Search for the identifier in the current scope.
+      // Gather declarations of the identifier in the current scope; we can assume we've got no
+      // no non-overloadable candidate.
       let newMatches = lookup(baseName, introducedInDeclSpaceOf: scope, in: site)
         .subtracting(bindingsUnderChecking)
 
-      // We can assume the matches are either empty or all overloadable.
-      matches.formUnion(newMatches)
-
       // We're done if we found at least one non-overloadable match.
-      if newMatches.contains(where: { (i) in !(ast[i] is FunctionDecl) }) {
-        return matches
+      if let d = newMatches.first(where: { !($0.kind.value as! Decl.Type).isOverloadable }) {
+        return matches.isEmpty ? [d] : matches
+      } else {
+        matches.formUnion(newMatches)
       }
     }
 
