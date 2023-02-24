@@ -1,5 +1,7 @@
 //! expect-failure
 
+trait T {}
+
 //! @+1 diagnostic cannot extend built-in type 'i64'
 conformance Builtin.i64: T {}
 

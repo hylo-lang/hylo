@@ -375,8 +375,14 @@ public struct TypeChecker {
       return false
     }
 
-    // FIXME: implement me.
-    return true
+    // TODO: Handle generics
+    // TODO: Check conformances
+
+    var success = true
+    for m in ast[d].members {
+      success = check(decl: m) && success
+    }
+    return success
   }
 
   private mutating func check(extension d: ExtensionDecl.ID) -> Bool {
@@ -390,8 +396,13 @@ public struct TypeChecker {
       return false
     }
 
-    // FIXME: implement me.
-    return true
+    // TODO: Handle generics
+
+    var success = true
+    for m in ast[d].members {
+      success = check(decl: m) && success
+    }
+    return success
   }
 
   /// Type checks the specified function declaration and returns whether that succeeded.
@@ -1919,43 +1930,37 @@ public struct TypeChecker {
 
   /// Returns the declarations that expose `baseName` without qualification in `scope`.
   mutating func lookup(unqualified baseName: String, in scope: AnyScopeID) -> DeclSet {
-    let site = scope
-
+    let useSite = scope
     var matches = DeclSet()
     var root: ModuleDecl.ID? = nil
-    for scope in program.scopes(from: scope) {
-      switch scope.kind {
-      case ModuleDecl.self:
-        // We reached the module scope.
-        root = ModuleDecl.ID(scope)!
 
-      case TranslationUnit.self:
-        // Skip file scopes so that we don't search the same file twice.
-        continue
-
-      default:
-        break
-      }
-
-      // Search for the identifier in the current scope.
-      let newMatches = lookup(baseName, introducedInDeclSpaceOf: scope, in: site)
-        .subtracting(bindingsUnderChecking)
-
-      // We can assume the matches are either empty or all overloadable.
-      matches.formUnion(newMatches)
-
-      // We're done if we found at least one non-overloadable match.
-      if newMatches.contains(where: { (i) in !(ast[i] is FunctionDecl) }) {
-        return matches
+    /// Inserts `newMatch` in `matches` and returns `nil` if `newMatch` is overloadable. Otherwise,
+    /// returns `matches` if it's not empty or a singleton containing `newMatch` if it is.
+    func add(_ newMatch: AnyDeclID) -> DeclSet? {
+      if !(newMatch.kind.value as! Decl.Type).isOverloadable {
+        return matches.isEmpty ? [newMatch] : matches
+      } else {
+        matches.insert(newMatch)
+        return nil
       }
     }
 
-    // We're done if we found at least one match.
-    if !matches.isEmpty { return matches }
+    // Skip file scopes so that we don't search the same file twice.
+    for scope in program.scopes(from: scope) where scope.kind != TranslationUnit.self {
+      if let r = ModuleDecl.ID(scope) { root = r }
+
+      // Gather declarations of the identifier in the current scope; we can assume we've got no
+      // no non-overloadable candidate.
+      let newMatches = lookup(baseName, introducedInDeclSpaceOf: scope, in: useSite)
+        .subtracting(bindingsUnderChecking)
+      for d in newMatches {
+        if let result = add(d) { return result }
+      }
+    }
 
     // Check if the identifier refers to the module containing `scope`.
     if ast[root]?.baseName == baseName {
-      return [AnyDeclID(root!)]
+      if let result = add(AnyDeclID(root!)) { return result }
     }
 
     // Search for the identifier in imported modules.
@@ -1968,7 +1973,7 @@ public struct TypeChecker {
 
   /// Returns the declarations that introduce a name whose stem is `baseName` in the declaration
   /// space of `lookupContext`.
-  mutating func lookup<T: ScopeID>(
+  private mutating func lookup<T: ScopeID>(
     _ baseName: String,
     introducedInDeclSpaceOf lookupContext: T,
     in site: AnyScopeID
@@ -1981,6 +1986,22 @@ public struct TypeChecker {
     case TraitDecl.self:
       let t = ^TraitType(NodeID(lookupContext)!, ast: ast)
       return lookup(baseName, memberOf: t, in: site)
+
+    case ConformanceDecl.self:
+      let d = ConformanceDecl.ID(lookupContext)!
+      if let t = MetatypeType(realize(typeExtendingDecl: d))?.instance {
+        return t.isError ? [] : lookup(baseName, memberOf: t, in: site)
+      } else {
+        return names(introducedIn: d)[baseName, default: []]
+      }
+
+    case ExtensionDecl.self:
+      let d = ExtensionDecl.ID(lookupContext)!
+      if let t = MetatypeType(realize(typeExtendingDecl: d))?.instance {
+        return t.isError ? [] : lookup(baseName, memberOf: t, in: site)
+      } else {
+        return names(introducedIn: d)[baseName, default: []]
+      }
 
     case TypeAliasDecl.self:
       // We can't re-enter `realize(typeAliasDecl:)` if the aliased type of `d` is being resolved
@@ -2418,7 +2439,7 @@ public struct TypeChecker {
         return realize(ast[decl].subject, in: scope)
 
       case ExtensionDecl.self:
-        let decl = ConformanceDecl.ID(scope)!
+        let decl = ExtensionDecl.ID(scope)!
         return realize(ast[decl].subject, in: scope)
 
       case TypeAliasDecl.self:
