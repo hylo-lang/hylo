@@ -40,7 +40,7 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--emit cpp`: Produce a C++ source file.
 - `--emit binary` (default): Produce an executable 
   - `Clang` / `MSVC` / `GCC` is required for now. But only Clang has received the most formal support.
-  - The default is `Clang`
+  - The default CXXCompiler is `Clang`
   - If you want to customize the C++ compiler, please use `--CXXCompiler gcc` or `--CXXCompiler msvc`
   - If you use MSVC, be sure to use Developer Command Prompt or Developer PowerShell
 
