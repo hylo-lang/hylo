@@ -264,6 +264,8 @@ public struct TypeChecker {
       return check(function: NodeID(d)!)
     case GenericParameterDecl.self:
       return check(genericParameter: NodeID(d)!)
+    case ImportDecl.self:
+      return check(importDecl: NodeID(d)!)
     case InitializerDecl.self:
       return check(initializer: NodeID(d)!)
     case MethodDecl.self:
@@ -510,6 +512,10 @@ public struct TypeChecker {
   private mutating func _check(genericParameter id: GenericParameterDecl.ID) -> Bool {
     // TODO: Type check default values.
     return true
+  }
+
+  private mutating func check(importDecl d: ImportDecl.ID) -> Bool {
+    _check(decl: d, { (_, _) in true })
   }
 
   private mutating func check(initializer id: InitializerDecl.ID) -> Bool {
@@ -2207,6 +2213,7 @@ public struct TypeChecker {
       case AssociatedValueDecl.self,
         AssociatedTypeDecl.self,
         GenericParameterDecl.self,
+        ImportDecl.self,
         NamespaceDecl.self,
         ParameterDecl.self,
         ProductTypeDecl.self,
@@ -2676,6 +2683,8 @@ public struct TypeChecker {
       return realize(typeExtendingDecl: ExtensionDecl.ID(d)!)
     case FunctionDecl.self:
       return realize(functionDecl: NodeID(d)!)
+    case ImportDecl.self:
+      return realize(importDecl: NodeID(d)!)
     case InitializerDecl.self:
       return realize(initializerDecl: NodeID(d)!)
     case MethodDecl.self:
@@ -2865,6 +2874,23 @@ public struct TypeChecker {
     // assume it declares a generic type parameter.
     let instance = GenericTypeParameterType(d, ast: ast)
     return ^MetatypeType(of: instance)
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(importDecl d: ImportDecl.ID) -> AnyType {
+    _realize(decl: d, { (this, d) in this._realize(importDecl: d) })
+  }
+
+  private mutating func _realize(importDecl d: ImportDecl.ID) -> AnyType {
+    guard let m = ast.modules.first(where: { ast[$0].baseName == ast[d].baseName }) else {
+      diagnostics.insert(.error(noSuchModule: ast[d].baseName, at: ast[d].identifier.site))
+      return .error
+    }
+    if program.module(containing: program.declToScope[d]!) == m {
+      diagnostics.insert(
+        .warning(sourceFileIsPartOf: ast[d].baseName, importedAt: ast[d].introducerSite))
+    }
+    return ^ModuleType(m, ast: ast)
   }
 
   /// Returns the overarching type of `d`.
