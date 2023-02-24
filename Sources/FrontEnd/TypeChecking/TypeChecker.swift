@@ -642,25 +642,11 @@ public struct TypeChecker {
     }
 
     // Type check conformances.
-    let receiver = realizeSelfTypeExpr(in: id)!.instance
-    let container = program.scopeToParent[id]!
-    for e in ast[id].conformances {
-      guard let rhs = realize(name: e, in: container)?.instance else { continue }
-      guard let t = TraitType(rhs) else {
-        diagnostics.insert(.error(conformanceToNonTraitType: rhs, at: ast[e].site))
-        success = false
-        continue
-      }
-
-      let x = checkAndRegisterConformance(
-        of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(id)) && success
-      success = success && x
-    }
+    success = check(conformanceList: ast[id].conformances, partOf: id) && success
 
     // Type check extending declarations.
-    let type = declTypes[id]!
-    for j in extendingDecls(of: type, exposedTo: container) {
-      success = check(decl: j) && success
+    for d in extendingDecls(of: declTypes[id]!, exposedTo: program.scopeToParent[id]!) {
+      success = check(decl: d) && success
     }
 
     return success
@@ -816,6 +802,33 @@ public struct TypeChecker {
     return success
   }
 
+  /// Type check the conformance list `traits` that's part of declaration `d`, returning `true`
+  /// iff all expressions in `traits` resolve to a trait and the type introduced or extended by
+  /// `d` conforms to all of them.
+  private mutating func check<T: Decl & LexicalScope>(
+    conformanceList traits: [NameExpr.ID],
+    partOf d: T.ID
+  ) -> Bool {
+    var success = true
+
+    let receiver = realizeSelfTypeExpr(in: d)!.instance
+    let scopeContainingDecl = program.scopeToParent[d]!
+    for e in traits {
+      guard let rhs = realize(name: e, in: scopeContainingDecl)?.instance else { continue }
+      guard let t = TraitType(rhs) else {
+        diagnostics.insert(.error(conformanceToNonTraitType: rhs, at: ast[e].site))
+        success = false
+        continue
+      }
+
+      success =
+        checkAndRegisterConformance(
+          of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(d)) && success
+    }
+
+    return success
+  }
+
   /// Returns `true` if the conformance of `model` to `trait` in `declScope` is satisfied and got
   /// registered in `relations`. Otherwise, reports diagnostics at `declSite` and returns `false`.
   private mutating func checkAndRegisterConformance(
@@ -936,10 +949,13 @@ public struct TypeChecker {
     }
   }
 
+  /// Returns the declaration exposed to `scope` of a callable member in `model` that introduces
+  /// `requirementName` with type `requiredType`, using `specializations` to subsititute
+  /// associated types and values. Returns `nil` if zero or more than 1 candidates were found.
   private mutating func implementation(
     of requirementName: Name,
     in model: AnyType,
-    withCallableType requirementType: LambdaType,
+    withCallableType requiredType: LambdaType,
     specializedWith specializations: [GenericParameterDecl.ID: AnyType],
     exposedTo scope: AnyScopeID
   ) -> AnyDeclID? {
@@ -947,7 +963,7 @@ public struct TypeChecker {
     func hasRequiredType<T: Decl>(_ d: T.ID) -> Bool {
       let t = specialized(
         relations.canonical(realize(decl: d)), applying: specializations, in: scope)
-      return t == requirementType
+      return t == requiredType
     }
 
     let allCandidates = lookup(requirementName.stem, memberOf: model, in: scope)
