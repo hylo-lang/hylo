@@ -11,6 +11,9 @@ public struct TypeChecker {
   /// The diagnostics of the type errors.
   private(set) var diagnostics: DiagnosticSet = []
 
+  /// A map from translation unit to its imports.
+  private(set) var imports: [TranslationUnit.ID: Set<ModuleDecl.ID>] = [:]
+
   /// The overarching type of each declaration.
   private(set) var declTypes = DeclProperty<AnyType>()
 
@@ -229,7 +232,9 @@ public struct TypeChecker {
 
   /// Type checks all declarations in `u`, returns `true` iff all are well-typed.
   private mutating func check(translationUnit u: TranslationUnit.ID) -> Bool {
-    check(all: ast[u].decls)
+    // The core library is always implicitly imported.
+    if let m = ast.coreLibrary { imports[u, default: []].insert(m) }
+    return check(all: ast[u].decls)
   }
 
   /// Type checks all declarations in `batch`, returning `true` iff all are well-typed.
