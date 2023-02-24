@@ -178,7 +178,7 @@ struct ParserState {
     }
   }
 
-  /// Adds up to `count` tokens from the lexer into the lookahead buffer, and returns the number of added tokens.
+  /// Adds up to `count` tokens from the lexer into the lookahead buffer and returns the number of added tokens.
   @discardableResult private mutating func advanceLookahead(_ count: Int) -> Int {
     for i in 0 ..< count {
       guard let token = lexer.next() else { return i }
