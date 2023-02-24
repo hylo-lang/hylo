@@ -768,49 +768,48 @@ public struct TypeChecker {
     decl id: T,
     _ action: (inout Self, T) -> Bool
   ) -> Bool {
-    // Check if a type checking request has already been received.
-    while true {
-      switch declRequests[id] {
-      case nil:
-        /// The the overarching type of the declaration is available after type realization.
-        defer { assert(declRequests[id] != nil) }
+    if let s = ensureRealized(id) { return s }
 
-        // Realize the type of the declaration before starting type checking.
-        if realize(decl: id).isError {
-          // Type checking fails if type realization did.
-          declRequests[id] = .failure
-          return false
-        } else {
-          // Note: Because the type realization of certain declarations may escalate to type
-          // checking perform type checking, we should re-check the status of the request.
-          continue
-        }
-
-      case .typeRealizationCompleted:
-        declRequests[id] = .typeCheckingStarted
-
-      case .typeRealizationStarted, .typeCheckingStarted:
-        // Note: The request status will be updated when the request that caused the circular
-        // dependency handles the failure.
-        diagnostics.insert(.error(circularDependencyAt: ast[id].site))
-        return false
-
-      case .success:
-        return true
-
-      case .failure:
-        return false
-      }
-
-      break
-    }
-
-    // Process the request.
     let success = action(&self, id)
-
-    // Update the request status.
     declRequests[id] = success ? .success : .failure
     return success
+  }
+
+  /// Ensures that the overarching type of `d` has been realized, returning whether type checking
+  /// succeeded for `d` or `nil` if it `d` hasn't been checked yet.
+  private mutating func ensureRealized<T: DeclID>(_ d: T) -> Bool? {
+    switch declRequests[d] {
+    case nil:
+      // The the overarching type of the declaration is available after type realization.
+      defer { assert(declRequests[d] != nil) }
+
+      // Realize the type of the declaration before starting type checking.
+      if realize(decl: d).isError {
+        // Type checking fails if type realization did.
+        declRequests[d] = .failure
+        return false
+      } else {
+        // Note: Because the type realization of certain declarations may escalate to type
+        // checking perform type checking, we should re-check the status of the request.
+        return ensureRealized(d)
+      }
+
+    case .typeRealizationCompleted:
+      declRequests[d] = .typeCheckingStarted
+      return nil
+
+    case .typeRealizationStarted, .typeCheckingStarted:
+      // Request status is updated when the request that caused the circular dependency handles
+      // the failure.
+      diagnostics.insert(.error(circularDependencyAt: ast[d].site))
+      return false
+
+    case .success:
+      return true
+
+    case .failure:
+      return false
+    }
   }
 
   /// Type check the conformance list `traits` that's part of declaration `d`, returning `true`
