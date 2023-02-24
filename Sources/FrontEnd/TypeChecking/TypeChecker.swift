@@ -365,12 +365,15 @@ public struct TypeChecker {
   }
 
   private mutating func check(conformance d: ConformanceDecl.ID) -> Bool {
-    guard let s = realize(ast[d].subject, in: AnyScopeID(d))?.instance else {
-      return false
-    }
+    _check(decl: d, { (this, d) in this._check(conformance: d) })
+  }
+
+  private mutating func _check(conformance d: ConformanceDecl.ID) -> Bool {
+    let s = AnyScopeID(d)
+    guard let receiver = realize(ast[d].subject, in: s)?.instance else { return false }
 
     // Built-in types can't be extended.
-    if let b = BuiltinType(s) {
+    if let b = BuiltinType(receiver) {
       diagnostics.insert(.error(cannotExtend: b, at: ast[ast[d].subject].site))
       return false
     }
@@ -386,6 +389,10 @@ public struct TypeChecker {
   }
 
   private mutating func check(extension d: ExtensionDecl.ID) -> Bool {
+    _check(decl: d, { (this, d) in this._check(extension: d) })
+  }
+
+  private mutating func _check(extension d: ExtensionDecl.ID) -> Bool {
     guard let s = realize(ast[d].subject, in: AnyScopeID(d))?.instance else {
       return false
     }
