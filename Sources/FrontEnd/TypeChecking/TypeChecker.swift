@@ -2400,7 +2400,7 @@ public struct TypeChecker {
         return realize(ast[decl].subject, in: scope)
 
       case ExtensionDecl.self:
-        let decl = ConformanceDecl.ID(scope)!
+        let decl = ExtensionDecl.ID(scope)!
         return realize(ast[decl].subject, in: scope)
 
       case TypeAliasDecl.self:
