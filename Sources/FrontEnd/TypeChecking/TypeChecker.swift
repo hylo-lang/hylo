@@ -375,8 +375,14 @@ public struct TypeChecker {
       return false
     }
 
-    // FIXME: implement me.
-    return true
+    // TODO: Handle generics
+    // TODO: Check conformances
+
+    var success = true
+    for m in ast[d].members {
+      success = check(decl: m) && success
+    }
+    return success
   }
 
   private mutating func check(extension d: ExtensionDecl.ID) -> Bool {
@@ -390,8 +396,13 @@ public struct TypeChecker {
       return false
     }
 
-    // FIXME: implement me.
-    return true
+    // TODO: Handle generics
+
+    var success = true
+    for m in ast[d].members {
+      success = check(decl: m) && success
+    }
+    return success
   }
 
   /// Type checks the specified function declaration and returns whether that succeeded.
