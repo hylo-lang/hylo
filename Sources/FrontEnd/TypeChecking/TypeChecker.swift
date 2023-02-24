@@ -9,31 +9,31 @@ public struct TypeChecker {
   public let program: ScopedProgram
 
   /// The diagnostics of the type errors.
-  public private(set) var diagnostics: DiagnosticSet = []
+  private(set) var diagnostics: DiagnosticSet = []
 
   /// The overarching type of each declaration.
-  public private(set) var declTypes = DeclProperty<AnyType>()
+  private(set) var declTypes = DeclProperty<AnyType>()
 
   /// The type of each expression.
-  public private(set) var exprTypes = ExprProperty<AnyType>()
+  private(set) var exprTypes = ExprProperty<AnyType>()
 
   /// A map from function and subscript declarations to their implicit captures.
-  public private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
+  private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
 
   /// A map from name expression to its referred declaration.
-  public internal(set) var referredDecls: BindingMap = [:]
+  var referredDecls: BindingMap = [:]
 
   /// A map from sequence expressions to their evaluation order.
-  public internal(set) var foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr] = [:]
+  var foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr] = [:]
 
   /// The type relations of the program.
-  public private(set) var relations = TypeRelations()
+  private(set) var relations = TypeRelations()
 
   /// Indicates whether the built-in symbols are visible.
-  public var isBuiltinModuleVisible: Bool
+  var isBuiltinModuleVisible: Bool
 
   /// The site for which type inference tracing is enabled, if any.
-  public let inferenceTracingSite: SourceLine?
+  private let inferenceTracingSite: SourceLine?
 
   /// Creates a new type checker for the specified program.
   ///
@@ -222,55 +222,56 @@ public struct TypeChecker {
   ///
   /// - Requires: `m` is a valid ID in the type checker's AST.
   public mutating func check(module m: ModuleDecl.ID) {
-    // Build the type of the module.
-    declTypes[m] = ^ModuleType(m, ast: ast)
-    declRequests[m] = .typeRealizationStarted
-
-    // Type check the declarations in the module.
-    let s = ast.topLevelDecls(m).reduce(true, { (s, d) in check(decl: d) && s })
-    if s {
-      declRequests[m] = .success
-    } else {
-      declTypes[m] = .error
-      declRequests[m] = .failure
+    _ = _check(decl: m) { (this, m) in
+      this.ast[m].sources.reduce(true, { (s, u) in this.check(translationUnit: u) && s })
     }
   }
 
-  /// Type checks the specified declaration and returns whether that succeeded.
-  private mutating func check<T: DeclID>(decl id: T) -> Bool {
-    switch id.kind {
+  /// Type checks all declarations in `u`, returns `true` iff all are well-typed.
+  private mutating func check(translationUnit u: TranslationUnit.ID) -> Bool {
+    check(all: ast[u].decls)
+  }
+
+  /// Type checks all declarations in `batch`, returning `true` iff all are well-typed.
+  private mutating func check<S: Sequence<AnyDeclID>>(all batch: S) -> Bool {
+    batch.reduce(true, { (s, d) in check(decl: d) && s })
+  }
+
+  /// Returns `true` iff `d` is well-typed.
+  private mutating func check<T: DeclID>(decl d: T) -> Bool {
+    switch d.kind {
     case AssociatedTypeDecl.self:
-      return check(associatedType: NodeID(id)!)
+      return check(associatedType: NodeID(d)!)
     case AssociatedValueDecl.self:
-      return check(associatedValue: NodeID(id)!)
+      return check(associatedValue: NodeID(d)!)
     case BindingDecl.self:
-      return check(binding: NodeID(id)!)
+      return check(binding: NodeID(d)!)
     case ConformanceDecl.self:
-      return check(conformance: NodeID(id)!)
+      return check(conformance: NodeID(d)!)
     case ExtensionDecl.self:
-      return check(extension: NodeID(id)!)
+      return check(extension: NodeID(d)!)
     case FunctionDecl.self:
-      return check(function: NodeID(id)!)
+      return check(function: NodeID(d)!)
     case GenericParameterDecl.self:
-      return check(genericParameter: NodeID(id)!)
+      return check(genericParameter: NodeID(d)!)
     case InitializerDecl.self:
-      return check(initializer: NodeID(id)!)
+      return check(initializer: NodeID(d)!)
     case MethodDecl.self:
-      return check(method: NodeID(id)!)
+      return check(method: NodeID(d)!)
     case MethodImpl.self:
-      return check(method: NodeID(program.declToScope[id]!)!)
+      return check(method: NodeID(program.declToScope[d]!)!)
     case OperatorDecl.self:
-      return check(operator: NodeID(id)!)
+      return check(operator: NodeID(d)!)
     case ProductTypeDecl.self:
-      return check(productType: NodeID(id)!)
+      return check(productType: NodeID(d)!)
     case SubscriptDecl.self:
-      return check(subscript: NodeID(id)!)
+      return check(subscript: NodeID(d)!)
     case TraitDecl.self:
-      return check(trait: NodeID(id)!)
+      return check(trait: NodeID(d)!)
     case TypeAliasDecl.self:
-      return check(typeAlias: NodeID(id)!)
+      return check(typeAlias: NodeID(d)!)
     default:
-      unexpected(id, in: ast)
+      unexpected(d, in: ast)
     }
   }
 
@@ -380,11 +381,7 @@ public struct TypeChecker {
 
     // TODO: Handle generics
 
-    var success = check(conformanceList: ast[d].conformances, partOf: d)
-    for m in ast[d].members {
-      success = check(decl: m) && success
-    }
-    return success
+    return check(conformanceList: ast[d].conformances, partOf: d) & check(all: ast[d].members)
   }
 
   private mutating func check(extension d: ExtensionDecl.ID) -> Bool {
@@ -404,11 +401,7 @@ public struct TypeChecker {
 
     // TODO: Handle generics
 
-    var success = true
-    for m in ast[d].members {
-      success = check(decl: m) && success
-    }
-    return success
+    return check(all: ast[d].members)
   }
 
   /// Type checks the specified function declaration and returns whether that succeeded.
@@ -430,7 +423,7 @@ public struct TypeChecker {
     // Type check the parameters.
     var parameterNames: Set<String> = []
     for parameter in ast[id].parameters {
-      success = check(parameter: parameter, siblingNames: &parameterNames) && success
+      success &= check(parameter: parameter, siblingNames: &parameterNames)
     }
 
     // Set the type of the implicit receiver declaration if necessary.
@@ -528,7 +521,7 @@ public struct TypeChecker {
     // Type check the parameters.
     var parameterNames: Set<String> = []
     for parameter in ast[id].parameters {
-      success = check(parameter: parameter, siblingNames: &parameterNames) && success
+      success &= check(parameter: parameter, siblingNames: &parameterNames)
     }
 
     // Set the type of the implicit receiver declaration.
@@ -558,7 +551,7 @@ public struct TypeChecker {
     // Type check the parameters.
     var parameterNames: Set<String> = []
     for parameter in ast[id].parameters {
-      success = check(parameter: parameter, siblingNames: &parameterNames) && success
+      success &= check(parameter: parameter, siblingNames: &parameterNames)
     }
 
     // Type check the bodies.
@@ -570,10 +563,10 @@ public struct TypeChecker {
       switch ast[v].body {
       case .expr(let expr):
         let t = LambdaType(declTypes[v])!
-        success = (checkedType(of: expr, subtypeOf: t.output, in: v) != nil) && success
+        success &= (checkedType(of: expr, subtypeOf: t.output, in: v) != nil)
 
       case .block(let stmt):
-        success = check(braceStmt: stmt) && success
+        success &= check(braceStmt: stmt)
 
       case nil:
         if !program.isRequirement(id) {
@@ -647,26 +640,10 @@ public struct TypeChecker {
   }
 
   private mutating func _check(productType id: ProductTypeDecl.ID) -> Bool {
-    // Type check the memberwise initializer.
-    var success = check(initializer: ast[id].memberwiseInit)
-
-    // Type check the generic constraints.
-    success = (environment(of: id) != nil) && success
-
-    // Type check the type's direct members.
-    for j in ast[id].members {
-      success = check(decl: j) && success
-    }
-
-    // Type check conformances.
-    success = check(conformanceList: ast[id].conformances, partOf: id) && success
-
-    // Type check extending declarations.
-    for d in extendingDecls(of: declTypes[id]!, exposedTo: program.scopeToParent[id]!) {
-      success = check(decl: d) && success
-    }
-
-    return success
+    check(initializer: ast[id].memberwiseInit)
+      & (environment(of: id) != nil)
+      & check(all: ast[id].members)
+      & check(conformanceList: ast[id].conformances, partOf: id)
   }
 
   private mutating func check(subscript id: SubscriptDecl.ID) -> Bool {
@@ -685,7 +662,7 @@ public struct TypeChecker {
     if let parameters = ast[id].parameters {
       var parameterNames: Set<String> = []
       for parameter in parameters {
-        success = check(parameter: parameter, siblingNames: &parameterNames) && success
+        success &= check(parameter: parameter, siblingNames: &parameterNames)
       }
     }
 
@@ -703,10 +680,10 @@ public struct TypeChecker {
       // Type checks the body of the implementation.
       switch ast[impl].body {
       case .expr(let expr):
-        success = (checkedType(of: expr, subtypeOf: outputType, in: impl) != nil) && success
+        success &= (checkedType(of: expr, subtypeOf: outputType, in: impl) != nil)
 
       case .block(let stmt):
-        success = check(braceStmt: stmt) && success
+        success &= check(braceStmt: stmt)
 
       case nil:
         // Requirements can be without a body.
@@ -721,64 +698,43 @@ public struct TypeChecker {
     return success
   }
 
-  private mutating func check(trait id: TraitDecl.ID) -> Bool {
-    _check(decl: id, { (this, id) in this._check(trait: id) })
+  private mutating func check(trait d: TraitDecl.ID) -> Bool {
+    _check(decl: d, { (this, d) in this._check(trait: d) })
   }
 
-  private mutating func _check(trait id: TraitDecl.ID) -> Bool {
-    // Type check the generic constraints.
-    var success = environment(ofTraitDecl: id) != nil
+  private mutating func _check(trait d: TraitDecl.ID) -> Bool {
+    guard let t = MetatypeType(declTypes[d]!)?.instance else { return false }
+    return (environment(ofTraitDecl: d) != nil)
+      & check(all: ast[d].members)
+      & check(all: extendingDecls(of: t, exposedTo: program.declToScope[d]!))
 
-    // Type check the type's direct members.
-    for j in ast[id].members {
-      success = check(decl: j) && success
-    }
-
-    // Type check extending declarations.
-    let type = declTypes[id]!
-    for j in extendingDecls(of: type, exposedTo: program.declToScope[id]!) {
-      success = check(decl: j) && success
-    }
-
-    // TODO: Check the conformances
-
-    return success
+    // TODO: Check refinements
   }
 
-  private mutating func check(typeAlias id: TypeAliasDecl.ID) -> Bool {
-    _check(decl: id, { (this, id) in this._check(typeAlias: id) })
+  private mutating func check(typeAlias d: TypeAliasDecl.ID) -> Bool {
+    _check(decl: d, { (this, id) in this._check(typeAlias: id) })
   }
 
-  private mutating func _check(typeAlias id: TypeAliasDecl.ID) -> Bool {
-    // Realize the subject.
-    guard let subject = realize(ast[id].aliasedType, in: AnyScopeID(id))?.instance else {
-      return false
-    }
+  private mutating func _check(typeAlias d: TypeAliasDecl.ID) -> Bool {
+    guard let t = MetatypeType(declTypes[d]!)?.instance else { return false }
+    return (environment(of: d) != nil)
+      & check(all: extendingDecls(of: t, exposedTo: program.declToScope[d]!))
 
-    // Type-check the generic clause.
-    var success = environment(of: id) != nil
-
-    // Type check extending declarations.
-    for j in extendingDecls(of: subject, exposedTo: program.declToScope[id]!) {
-      success = check(decl: j) && success
-    }
-
-    // TODO: Check the conformances
-
-    return success
+    // TODO: Check conformances
   }
 
-  /// Returns whether `decl` is well-typed from the cache, or calls `action` to type check it
-  /// and caches the result before returning it.
+  /// Returns `true` if `d` is well-typed calling `check` to type check the first time and then
+  /// returning a memoized results.
+  ///
+  /// - Postcondition: `declRequests[d]` is either `.success` or `.failure`.
   private mutating func _check<T: DeclID>(
-    decl id: T,
-    _ action: (inout Self, T) -> Bool
+    decl d: T,
+    _ check: (inout Self, T) -> Bool
   ) -> Bool {
-    if let s = ensureRealized(id) { return s }
-
-    let success = action(&self, id)
-    declRequests[id] = success ? .success : .failure
-    return success
+    if let s = ensureRealized(d) { return s }
+    let s = check(&self, d)
+    declRequests[d] = s ? .success : .failure
+    return s
   }
 
   /// Ensures that the overarching type of `d` has been realized, returning whether type checking
@@ -837,9 +793,8 @@ public struct TypeChecker {
         continue
       }
 
-      success =
-        checkAndRegisterConformance(
-          of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(d)) && success
+      success &= checkAndRegisterConformance(
+        of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(d))
     }
 
     return success
@@ -1104,13 +1059,12 @@ public struct TypeChecker {
       for cond in stmt.condition {
         switch cond {
         case .expr(let e):
-          success = (checkedType(of: e, subtypeOf: nil, in: scope) != nil) && success
+          success &= checkedType(of: e, subtypeOf: nil, in: scope) != nil
         default:
           success = false
         }
       }
-      success = check(braceStmt: stmt.body) && success
-      return success
+      return check(braceStmt: stmt.body) && success
 
     case ForStmt.self, BreakStmt.self, ContinueStmt.self:
       // TODO: implement checks for these statements
@@ -1160,15 +1114,15 @@ public struct TypeChecker {
     for c in ast[s].condition {
       switch c {
       case .expr(let e):
-        success = (checkedType(of: e, subtypeOf: boolType, in: scope) != nil) && success
+        success &= checkedType(of: e, subtypeOf: boolType, in: scope) != nil
       default:
         fatalError("not implemented")
       }
     }
 
-    success = check(braceStmt: ast[s].success) && success
+    success &= check(braceStmt: ast[s].success)
     if let b = ast[s].failure {
-      success = check(stmt: b, in: scope) && success
+      success &= check(stmt: b, in: scope)
     }
     return success
   }
@@ -1436,14 +1390,12 @@ public struct TypeChecker {
     for member in ast[id].members {
       switch member.kind {
       case AssociatedTypeDecl.self:
-        success =
-          associatedConstraints(
-            ofType: NodeID(member)!, ofTrait: id, into: &constraints) && success
+        success &= associatedConstraints(
+          ofType: NodeID(member)!, ofTrait: id, into: &constraints)
 
       case AssociatedValueDecl.self:
-        success =
-          associatedConstraints(
-            ofValue: NodeID(member)!, ofTrait: id, into: &constraints) && success
+        success &= associatedConstraints(
+          ofValue: NodeID(member)!, ofTrait: id, into: &constraints)
 
       default:
         continue
@@ -2720,6 +2672,8 @@ public struct TypeChecker {
       return realize(methodDecl: NodeID(d)!)
     case MethodImpl.self:
       return realize(methodImpl: NodeID(d)!)
+    case ModuleDecl.self:
+      return realize(moduleDecl: NodeID(d)!)
     case ParameterDecl.self:
       return realize(parameterDecl: NodeID(d)!)
     case ProductTypeDecl.self:
@@ -2979,6 +2933,11 @@ public struct TypeChecker {
       _ = this.realize(methodDecl: NodeID(this.program.declToScope[d]!)!)
       return this.declTypes[d] ?? .error
     }
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(moduleDecl d: ModuleDecl.ID) -> AnyType {
+    _realize(decl: d, { (this, d) in ^ModuleType(d, ast: this.ast) })
   }
 
   /// Returns the overarching type of `d`.
@@ -3527,5 +3486,15 @@ private struct CaptureVisitor: ASTWalkObserver {
       return true
     }
   }
+
+}
+
+extension Bool {
+
+  /// Non-short-circuit version of `&&`.
+  fileprivate static func & (l: Bool, r: Bool) -> Bool { l && r }
+
+  /// Assigns `l` to the result of `l & r`.
+  fileprivate static func &= (l: inout Bool, r: Bool) { l = l & r }
 
 }
