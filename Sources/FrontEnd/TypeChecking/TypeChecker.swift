@@ -92,21 +92,21 @@ public struct TypeChecker {
     return genericType.transform(_impl(t:))
   }
 
-  /// Returns the set of traits to which `type` conforms in `lookupScope`.
+  /// Returns the set of traits to which `type` conforms in `useScope`.
   ///
   /// - Note: If `type` is a trait, it is always contained in the returned set.
-  mutating func conformedTraits(of type: AnyType, in scope: AnyScopeID) -> Set<TraitType>? {
+  mutating func conformedTraits(of type: AnyType, in useScope: AnyScopeID) -> Set<TraitType>? {
     var result: Set<TraitType> = []
 
     switch type.base {
     case let t as GenericTypeParameterType:
       // Generic parameters declared at trait scope conform to that trait.
       if let decl = TraitDecl.ID(program.declToScope[t.decl]!) {
-        return conformedTraits(of: ^TraitType(decl, ast: ast), in: scope)
+        return conformedTraits(of: ^TraitType(decl, ast: ast), in: useScope)
       }
 
       // Conformances of other generic parameters are stored in generic environments.
-      for s in program.scopes(from: scope) where scope.kind.value is GenericScope.Type {
+      for s in program.scopes(from: useScope) where useScope.kind.value is GenericScope.Type {
         guard let e = environment(of: s) else { continue }
         result.formUnion(e.conformedTraits(of: type))
       }
@@ -150,7 +150,7 @@ public struct TypeChecker {
     }
 
     // Collect traits declared in conformance declarations.
-    for i in extendingDecls(of: type, exposedTo: scope) where i.kind == ConformanceDecl.self {
+    for i in extendingDecls(of: type, exposedTo: useScope) where i.kind == ConformanceDecl.self {
       let d = ConformanceDecl.ID(i)!
       let s = program.declToScope[i]!
       guard let traits = realize(conformances: ast[d].conformances, in: s)
@@ -814,17 +814,20 @@ public struct TypeChecker {
     var success = true
 
     let receiver = realizeSelfTypeExpr(in: d)!.instance
-    let scopeContainingDecl = program.scopeToParent[d]!
+    let declContainer = program.scopeToParent[d]!
     for e in traits {
-      guard let rhs = realize(name: e, in: scopeContainingDecl)?.instance else { continue }
-      guard let t = TraitType(rhs) else {
+      guard let rhs = realize(name: e, in: declContainer)?.instance else { continue }
+      guard rhs.base is TraitType else {
         diagnostics.insert(.error(conformanceToNonTraitType: rhs, at: ast[e].site))
         success = false
         continue
       }
 
-      success &= checkAndRegisterConformance(
-        of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(d))
+      let allTraits = conformedTraits(of: rhs, in: declContainer) ?? []
+      for t in allTraits {
+        success &= checkAndRegisterConformance(
+          of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(d))
+      }
     }
 
     return success
