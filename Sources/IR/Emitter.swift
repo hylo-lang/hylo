@@ -67,16 +67,15 @@ public struct Emitter {
   /// Inserts the IR for `decl` into `module`.
   private mutating func emit(functionDecl decl: FunctionDecl.Typed, into module: inout Module) {
     // Declare the function in the module if necessary.
-    let functionID = module.getOrCreateFunction(correspondingTo: decl, program: program)
+    let f = module.getOrCreateFunction(correspondingTo: decl, program: program)
 
     // Nothing else to do if the function has no body.
     guard let body = decl.body else { return }
 
     // Create the function entry.
-    assert(module.functions[functionID].blocks.isEmpty)
+    assert(module.functions[f]!.blocks.isEmpty)
     let entryID = module.createBasicBlock(
-      accepting: module.functions[functionID].inputs.map(\.type),
-      atEndOf: functionID)
+      accepting: module.functions[f]!.inputs.map(\.type), atEndOf: f)
     insertionBlock = entryID
 
     // Configure the locals.
@@ -624,16 +623,12 @@ public struct Emitter {
       guard case .member(let calleeDecl) = program.referredDecls[callee.expr] else {
         unreachable()
       }
-      assert(calleeDecl.kind == FunctionDecl.self)
-      let c = Operand.constant(
-        .function(
-          FunctionRef(
-            name: DeclLocator(identifying: calleeDecl, in: program).mangled,
-            type: .address(calleeType))))
+      let ref = FunctionRef(to: .init(FunctionDecl.ID(calleeDecl)!), type: .address(calleeType))
+      let f = Operand.constant(.function(ref))
 
       // Emit the call.
       return module.append(
-        module.makeCall(applying: c, to: [r, l], anchoredAt: program.ast.site(of: expr)),
+        module.makeCall(applying: f, to: [r, l], anchoredAt: program.ast.site(of: expr)),
         to: insertionBlock!)[0]
 
     case .leaf(let expr):
@@ -715,12 +710,8 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
-      let c = Operand.constant(
-        .function(
-          FunctionRef(
-            name: DeclLocator(identifying: d.id, in: program).mangled,
-            type: .address(calleeType))))
-      return (c, [])
+      let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType))
+      return (.constant(.function(ref)), [])
 
     case .direct(let d) where d.kind == InitializerDecl.self:
       // Callee is a direct reference to an initializer declaration.
@@ -728,11 +719,8 @@ public struct Emitter {
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
-      let c = Operand.constant(
-        .function(
-          FunctionRef(
-            name: DeclLocator(identifying: d.id, in: program).mangled,
-            type: .address(calleeType.lifted))))
+      let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType.lifted))
+      let fun = Operand.constant(.function(ref))
 
       // Emit the location of the receiver.
       let receiver: Operand
@@ -750,12 +738,12 @@ public struct Emitter {
         let i = module.append(
           module.makeBorrow(t.access, from: receiver, anchoredAt: callee.site),
           to: insertionBlock!)
-        return (c, i)
+        return (fun, i)
       } else {
         let i = module.append(
           module.makeLoad(receiver, anchoredAt: callee.site),
           to: insertionBlock!)
-        return (c, i)
+        return (fun, i)
       }
 
     case .builtinFunction, .builtinType:
