@@ -40,11 +40,8 @@ struct GenericEnvironment {
         registerEquivalence(l: equality.left, r: equality.right)
 
       case let conformance as ConformanceConstraint:
-        var allTraits: Set<TraitType> = []
-        for trait in conformance.traits {
-          guard let bases = checker.conformedTraits(of: ^trait, in: scope)
-          else { return nil }
-          allTraits.formUnion(bases)
+        let allTraits: Set<TraitType> = conformance.traits.reduce(into: []) { (r, t) in
+          r.formUnion(checker.conformedTraits(of: ^t, in: scope))
         }
         registerConformance(l: conformance.subject, traits: allTraits)
 

@@ -257,7 +257,7 @@ struct ConstraintSystem {
 
     default:
       missingTraits = goal.traits.subtracting(
-        checker.conformedTraits(of: goal.subject, in: scope) ?? [])
+        checker.conformedTraits(of: goal.subject, in: scope))
     }
 
     if missingTraits.isEmpty {
@@ -286,8 +286,7 @@ struct ConstraintSystem {
       return nil
     }
 
-    let t = checker.conformedTraits(of: goal.subject, in: scope) ?? []
-    if t.contains(goal.literal) {
+    if checker.conformedTraits(of: goal.subject, in: scope).contains(goal.literal) {
       // Add a penalty if `L` isn't `D`.
       penalties += 1
       return .success
