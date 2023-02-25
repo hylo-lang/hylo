@@ -163,9 +163,10 @@ extension Diagnostic {
       "not enough contextual information to infer the arguments to generic parameters", at: site)
   }
 
-  static func error(notEnoughContextToResolveMember name: Name, at site: SourceRange) -> Diagnostic
-  {
-    .error("not enough contextual information to resolve member '\(name)'", at: site)
+  static func error(
+    notEnoughContextToResolveMember name: SourceRepresentable<Name>
+  ) -> Diagnostic {
+    .error("not enough contextual information to resolve member '\(name.value)'", at: name.site)
   }
 
   static func error(noType name: Name, in domain: AnyType? = nil, at site: SourceRange)

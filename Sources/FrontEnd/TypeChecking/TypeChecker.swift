@@ -2545,8 +2545,7 @@ public struct TypeChecker {
       matches = lookup(name.value.stem, memberOf: domain!, in: scope)
 
     case .implicit:
-      diagnostics.insert(
-        .error(notEnoughContextToResolveMember: name.value, at: name.site))
+      diagnostics.insert(.error(notEnoughContextToResolveMember: name))
       return nil
     }
 
