@@ -238,8 +238,22 @@ public struct TypeChecker {
   /// Type checks all declarations in `u`, returns `true` iff all are well-typed.
   private mutating func check(translationUnit u: TranslationUnit.ID) -> Bool {
     // The core library is always implicitly imported.
-    if let m = ast.coreLibrary { imports[u, default: []].insert(m) }
+    if let m = ast.coreLibrary { imports[u] = [m] }
+    for d in program.scopeToDecls[u]!.lazy.compactMap(ImportDecl.ID.init(_:)) {
+      registerImport(d, in: u)
+    }
+
     return check(all: ast[u].decls)
+  }
+
+  /// Register the import declared by `d` in translation unit `u`.
+  private mutating func registerImport(_ d: ImportDecl.ID, in u: TranslationUnit.ID) {
+    guard let m = ModuleType(realize(importDecl: d))?.decl else { return }
+    if program.module(containing: u) != m {
+      imports[u, default: []].insert(m)
+    } else {
+      diagnostics.insert(.warning(needlessImport: d, in: ast))
+    }
   }
 
   /// Type checks all declarations in `batch`, returning `true` iff all are well-typed.
@@ -2862,10 +2876,6 @@ public struct TypeChecker {
     guard let m = ast.modules.first(where: { ast[$0].baseName == ast[d].baseName }) else {
       diagnostics.insert(.error(noSuchModule: ast[d].baseName, at: ast[d].identifier.site))
       return .error
-    }
-    if program.module(containing: program.declToScope[d]!) == m {
-      diagnostics.insert(
-        .warning(sourceFileIsPartOf: ast[d].baseName, importedAt: ast[d].introducerSite))
     }
     return ^ModuleType(m, ast: ast)
   }

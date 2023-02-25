@@ -342,11 +342,9 @@ extension Diagnostic {
     .error("no such module '\(n)'", at: site)
   }
 
-  static func warning(
-    sourceFileIsPartOf module: String, importedAt site: SourceRange
-  ) -> Diagnostic {
-    // File 'TypeChecker+Diagnostics.swift' is part of module 'FrontEnd'; ignoring import
-    .warning("needless import: source file is part of '\(module)'", at: site)
+  static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {
+    let s = ast[d].identifier
+    return .warning("needless import: source file is part of '\(s.value)'", at: s.site)
   }
 
 }
