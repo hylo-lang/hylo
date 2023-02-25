@@ -862,14 +862,19 @@ public struct TypeChecker {
       }
     }
 
-    if !notes.containsError {
-      return Conformance(
-        model: model, concept: trait, conditions: [], scope: declScope,
-        implementations: implementations, site: declSite)
-    } else {
+    if notes.containsError {
       diagnostics.insert(.error(model, doesNotConformTo: trait, at: declSite, because: notes))
       return nil
     }
+
+    // Conformances at file scope are exposed in the whole module. Other conformances are exposed
+    // in their containing scope.
+    let expositionScope = reading(program.scopeToParent[declScope]!) { (s) in
+      (s.kind == TranslationUnit.self) ? AnyScopeID(program.module(containing: s)) : s
+    }
+    return Conformance(
+      model: model, concept: trait, conditions: [], scope: expositionScope,
+      implementations: implementations, site: declSite)
   }
 
   /// Returns the declaration exposed to `scope` of a callable member in `model` that introduces
