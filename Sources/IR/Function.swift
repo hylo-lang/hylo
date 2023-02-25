@@ -1,11 +1,9 @@
 import Core
 import Utils
+import Foundation
 
 /// A collection of basic blocks representing a lowered function.
 public struct Function {
-
-  /// The ID of a `Function` in its `Module`.
-  public typealias ID = Module.Functions.Index
 
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
@@ -71,5 +69,47 @@ public struct Function {
 extension Function: CustomStringConvertible {
 
   public var description: String { "@\(name)" }
+
+}
+
+
+extension Function {
+
+  /// The global identity of an IR function.
+  public struct ID: Hashable {
+
+    /// The value of a function IR identity.
+    private enum Value: Hashable {
+
+      /// The identity of a lowered Val function or method variant.
+      case val(AnyNodeID)
+
+      /// The identity of a synthesized IR function.
+      case synthetic(UUID)
+
+    }
+
+    /// The value of this identity.
+    private let value: Value
+
+    /// Creates the identity of the lowered form of `f`.
+    public init(_ f: FunctionDecl.ID) {
+      self.value = .val(AnyNodeID(f))
+    }
+
+  }
+
+}
+
+extension Function.ID: CustomStringConvertible {
+
+  public var description: String {
+    switch value {
+    case .val(let id):
+      return "\(id).lowered"
+    case .synthetic(let uuid):
+      return uuid.description
+    }
+  }
 
 }
