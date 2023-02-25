@@ -92,9 +92,11 @@ public struct TypeChecker {
     return genericType.transform(_impl(t:))
   }
 
-  /// Returns the set of traits to which `type` conforms in `useScope`.
+  /// Returns the set of traits to which `type` conforms in `useScope`, visiting all conformance
+  /// and refinement declarations recursively.
   ///
-  /// - Note: If `type` is a trait, it is always contained in the returned set.
+  /// The returned set only contains traits whose expressions could be evaluated. A diagnostic is
+  /// reported for all other expressions. `type` is contained in the returned set if it's a trait.
   mutating func conformedTraits(of type: AnyType, in useScope: AnyScopeID) -> Set<TraitType>? {
     var result: Set<TraitType> = []
 
@@ -113,8 +115,7 @@ public struct TypeChecker {
 
     case let t as ProductType:
       let s = program.declToScope[t.decl]!
-      guard let traits = realize(conformances: ast[t.decl].conformances, in: s) else { return nil }
-      for trait in traits {
+      for trait in realize(conformances: ast[t.decl].conformances, in: s) {
         guard let bases = conformedTraits(of: ^trait, in: s)
         else { return nil }
         result.formUnion(bases)
@@ -122,17 +123,15 @@ public struct TypeChecker {
 
     case let t as TraitType:
       let s = program.declToScope[t.decl]!
-      guard var work = realize(conformances: ast[t.decl].refinements, in: s) else { return nil }
+      var work = realize(conformances: ast[t.decl].refinements, in: s)
       while let base = work.popFirst() {
         if base == t {
           diagnostics.insert(.error(circularRefinementAt: ast[t.decl].identifier.site))
           return nil
         } else if result.insert(base).inserted {
-          let s = program.scopeToParent[base.decl]!
-          guard
-            let traits = realize(conformances: ast[base.decl].refinements, in: s)
-          else { return nil }
-          work.formUnion(traits)
+          let newTraits = realize(
+            conformances: ast[base.decl].refinements, in: program.scopeToParent[base.decl]!)
+          work.formUnion(newTraits)
         }
       }
 
@@ -151,13 +150,9 @@ public struct TypeChecker {
 
     // Collect traits declared in conformance declarations.
     for i in extendingDecls(of: type, exposedTo: useScope) where i.kind == ConformanceDecl.self {
-      let d = ConformanceDecl.ID(i)!
       let s = program.declToScope[i]!
-      guard let traits = realize(conformances: ast[d].conformances, in: s)
-      else { return nil }
-
-      for trait in traits {
-        guard let bases = conformedTraits(of: ^trait, in: s)
+      for t in realize(conformances: ast[ConformanceDecl.ID(i)!].conformances, in: s) {
+        guard let bases = conformedTraits(of: ^t, in: s)
         else { return nil }
         result.formUnion(bases)
       }
@@ -1323,21 +1318,19 @@ public struct TypeChecker {
       guard
         let lhs = MetatypeType(parameterType)?.instance,
         lhs.base is GenericTypeParameterType
-      else {
-        continue
-      }
+      else { continue }
 
       // Synthesize the sugared conformance constraint, if any.
-      let list = ast[p].conformances
-      guard
-        let traits = realize(
-          conformances: list,
-          in: program.scopeToParent[AnyScopeID(id)!]!)
-      else { return nil }
+      let rhs = ast[p].conformances
+      let requiredTraits = realize(conformances: rhs, in: program.scopeToParent[AnyScopeID(id)!]!)
 
-      if !traits.isEmpty {
-        let cause = ConstraintOrigin(.annotation, at: ast[list[0]].site)
-        constraints.append(ConformanceConstraint(lhs, conformsTo: traits, origin: cause))
+      if requiredTraits.count != rhs.count {
+        return nil
+      } else if !requiredTraits.isEmpty {
+        let constraintSite = ast[p].identifier.site
+        constraints.append(
+          ConformanceConstraint(
+            lhs, conformsTo: requiredTraits, origin: .init(.annotation, at: constraintSite)))
       }
     }
 
@@ -1456,8 +1449,8 @@ public struct TypeChecker {
     return e
   }
 
-  // Evaluates the constraints declared in `associatedType`, stores them in `constraints` and
-  // returns whether they are all well-typed.
+  /// Evaluates the valid constraints declared in `associatedType`, stores them in `constraints`,
+  /// and returns whether they are all well-typed.
   private mutating func associatedConstraints(
     ofType associatedType: AssociatedTypeDecl.ID,
     ofTrait trait: TraitDecl.ID,
@@ -1468,17 +1461,16 @@ public struct TypeChecker {
     if lhs.isError { return false }
 
     // Synthesize the sugared conformance constraint, if any.
-    let list = ast[associatedType].conformances
-    guard
-      let traits = realize(
-        conformances: list,
-        in: AnyScopeID(trait))
-    else { return false }
+    let rhs = ast[associatedType].conformances
+    let requiredTraits = realize(conformances: rhs, in: AnyScopeID(trait))
 
-    if !traits.isEmpty {
+    if requiredTraits.count != rhs.count {
+      return false
+    } else if !requiredTraits.isEmpty {
+      let constraintSite = ast[associatedType].identifier.site
       constraints.append(
         ConformanceConstraint(
-          lhs, conformsTo: traits, origin: .init(.annotation, at: ast[list[0]].site)))
+          lhs, conformsTo: requiredTraits, origin: .init(.annotation, at: constraintSite)))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
@@ -2644,25 +2636,21 @@ public struct TypeChecker {
     return MetatypeType(of: TupleType(elements))
   }
 
-  /// Realizes and returns the traits of the specified conformance list, or `nil` if at least one
-  /// of them is ill-typed.
+  /// Realizes and returns the traits denoted by each valid trait expression in `conformances`.
   private mutating func realize(
     conformances: [NameExpr.ID],
     in scope: AnyScopeID
-  ) -> Set<TraitType>? {
-    // Realize the traits in the conformance list.
-    var traits: Set<TraitType> = []
+  ) -> Set<TraitType> {
+    var result: Set<TraitType> = []
     for expr in conformances {
-      guard let rhs = realize(name: expr, in: scope)?.instance else { return nil }
-      if let trait = rhs.base as? TraitType {
-        traits.insert(trait)
+      guard let rhs = realize(name: expr, in: scope)?.instance else { continue }
+      if let t = TraitType(rhs) {
+        result.insert(t)
       } else {
         diagnostics.insert(.error(conformanceToNonTraitType: rhs, at: ast[expr].site))
-        return nil
       }
     }
-
-    return traits
+    return result
   }
 
   /// Returns the overarching type of `d`.
