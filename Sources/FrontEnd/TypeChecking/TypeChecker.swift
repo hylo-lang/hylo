@@ -3336,13 +3336,3 @@ extension TypeChecker.DeclSet {
   }
 
 }
-
-extension Bool {
-
-  /// Non-short-circuit version of `&&`.
-  fileprivate static func & (l: Bool, r: Bool) -> Bool { l && r }
-
-  /// Assigns `l` to the result of `l & r`.
-  fileprivate static func &= (l: inout Bool, r: Bool) { l = l & r }
-
-}
