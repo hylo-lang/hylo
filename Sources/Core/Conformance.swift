@@ -33,7 +33,7 @@ public struct Conformance {
   /// The conditions under which this conformance holds.
   public let conditions: [Constraint]
 
-  /// The outermost scope in which this conformance holds.
+  /// The outermost scope in which this conformance is exposed.
   public let scope: AnyScopeID
 
   /// A map from requirement of `concept` to the declaration implementing it in `model`.
