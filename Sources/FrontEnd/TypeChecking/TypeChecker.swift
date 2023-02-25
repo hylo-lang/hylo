@@ -1938,33 +1938,38 @@ public struct TypeChecker {
     return nil
   }
 
-  /// Returns the declarations that expose `baseName` without qualification in `scope`.
-  mutating func lookup(unqualified baseName: String, in scope: AnyScopeID) -> DeclSet {
-    let useSite = scope
+  /// Returns the declarations that expose `baseName` without qualification in `useScope`.
+  mutating func lookup(unqualified baseName: String, in useScope: AnyScopeID) -> DeclSet {
     var matches = DeclSet()
-    var root: ModuleDecl.ID? = nil
+    var containingFile: TranslationUnit.ID? = nil
+    var containingModule: ModuleDecl.ID? = nil
 
-    // Skip file scopes so that we don't search the same file twice.
-    for scope in program.scopes(from: scope) where scope.kind != TranslationUnit.self {
-      if let r = ModuleDecl.ID(scope) { root = r }
+    for s in program.scopes(from: useScope) {
+      if let u = TranslationUnit.ID(s) {
+        containingFile = u
+      } else if let m = ModuleDecl.ID(s) {
+        containingModule = m
+      }
 
       // Gather declarations of the identifier in the current scope; we can assume we've got no
       // no non-overloadable candidate.
-      let newMatches = lookup(baseName, introducedInDeclSpaceOf: scope, in: useSite)
+      let newMatches = lookup(baseName, introducedInDeclSpaceOf: s, in: useScope)
         .subtracting(bindingsUnderChecking)
       for d in newMatches {
         if let result = matches.inserting(d) { return result }
       }
     }
 
-    // Check if the identifier refers to the module containing `scope`.
-    if ast[root]?.baseName == baseName {
-      if let result = matches.inserting(AnyDeclID(root!)) { return result }
+    // Handle references to the containing module.
+    if ast[containingModule]?.baseName == baseName {
+      if let result = matches.inserting(containingModule!) { return result }
     }
 
-    // Search for the identifier in imported modules.
-    for module in ast.modules where module != root {
-      matches.formUnion(names(introducedIn: module)[baseName, default: []])
+    // Handle references to imported symbols.
+    if let u = containingFile, let fileImports = imports[u] {
+      for m in fileImports {
+        matches.formUnion(names(introducedIn: m)[baseName, default: []])
+      }
     }
 
     return matches
@@ -3516,11 +3521,11 @@ extension TypeChecker.DeclSet {
 
   /// Inserts `newMatch` in `self` and returns `nil` if `newMatch` is overloadable. Otherwise,
   /// returns `self` if it's not empty or a singleton containing `newMatch` if it is.
-  fileprivate mutating func inserting(_ newMatch: AnyDeclID) -> Self? {
+  fileprivate mutating func inserting<T: DeclID>(_ newMatch: T) -> Self? {
     if !newMatch.isOverloadable {
-      return isEmpty ? [newMatch] : self
+      return isEmpty ? [AnyDeclID(newMatch)] : self
     } else {
-      insert(newMatch)
+      insert(AnyDeclID(newMatch))
       return nil
     }
   }
