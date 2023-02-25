@@ -1416,12 +1416,12 @@ public struct TypeChecker {
     for member in ast[id].members {
       switch member.kind {
       case AssociatedTypeDecl.self:
-        success &= associatedConstraints(
-          ofType: NodeID(member)!, ofTrait: id, into: &constraints)
+        success &= appendAssociatedTypeConstraints(
+          of: NodeID(member)!, declaredIn: id, to: &constraints)
 
       case AssociatedValueDecl.self:
-        success &= associatedConstraints(
-          ofValue: NodeID(member)!, ofTrait: id, into: &constraints)
+        success &= appendAssociatedValueConstraints(
+          of: NodeID(member)!, declaredIn: id, to: &constraints)
 
       default:
         continue
@@ -1449,12 +1449,12 @@ public struct TypeChecker {
     return e
   }
 
-  /// Evaluates the valid constraints declared in `associatedType`, stores them in `constraints`,
+  /// Evaluates the valid constraints declared in `associatedType`, adds them to `constraints`,
   /// and returns whether they are all well-typed.
-  private mutating func associatedConstraints(
-    ofType associatedType: AssociatedTypeDecl.ID,
-    ofTrait trait: TraitDecl.ID,
-    into constraints: inout [Constraint]
+  private mutating func appendAssociatedTypeConstraints(
+    of associatedType: AssociatedTypeDecl.ID,
+    declaredIn trait: TraitDecl.ID,
+    to constraints: inout [Constraint]
   ) -> Bool {
     // Realize the LHS of the constraint.
     let lhs = realize(decl: associatedType)
@@ -1488,12 +1488,12 @@ public struct TypeChecker {
     return success
   }
 
-  // Evaluates the constraints declared in `associatedValue`, stores them in `constraints` and
-  // returns whether they are all well-typed.
-  private mutating func associatedConstraints(
-    ofValue associatedValue: AssociatedValueDecl.ID,
-    ofTrait trait: TraitDecl.ID,
-    into constraints: inout [Constraint]
+  /// Evaluates the valid constraints declared in `associatedValue`, adds them to `constraints`,
+  /// and returns whether they are all well-typed.
+  private mutating func appendAssociatedValueConstraints(
+    of associatedValue: AssociatedValueDecl.ID,
+    declaredIn trait: TraitDecl.ID,
+    to constraints: inout [Constraint]
   ) -> Bool {
     // Realize the LHS of the constraint.
     if realize(decl: associatedValue).isError { return false }
