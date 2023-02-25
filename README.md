@@ -39,7 +39,6 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
 - `--emit cpp`: Produce a C++ source file.
 - `--emit binary` (default): Produce an executable 
-  - `Clang` / `MSVC` / `GCC` is required for now. But only `Clang` has received the formal support.
   - The default CXXCompiler is `Clang`
   - If you want to use a compiler other than `Clang`, please use `--CXXCompiler gcc` or `--CXXCompiler msvc`
   - If you want to use MSVC, be sure to use Visual Studio Developer Command Prompt or Visual Studio Developer PowerShell
