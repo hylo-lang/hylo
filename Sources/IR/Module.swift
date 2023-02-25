@@ -7,9 +7,6 @@ import Utils
 /// designated as its entry point (i.e., the `main` function of a Val program).
 public struct Module {
 
-  /// The form in which a `Module` exposes all its lowered functions.
-  public typealias Functions = [Function]
-
   /// The program defining the functions in `self`.
   public let program: TypedProgram
 
@@ -20,7 +17,7 @@ public struct Module {
   public private(set) var uses: [Operand: [Use]] = [:]
 
   /// The functions in the module.
-  public private(set) var functions: Functions = []
+  public private(set) var functions: [Function.ID: Function] = [:]
 
   /// The ID of the module's entry function, if any.
   public private(set) var entryFunctionID: Function.ID?
@@ -50,31 +47,31 @@ public struct Module {
   public var name: String { syntax.baseName }
 
   /// Accesses the given function.
-  public subscript(f: Functions.Index) -> Function {
-    _read { yield functions[f] }
-    _modify { yield &functions[f] }
+  public subscript(f: Function.ID) -> Function {
+    _read { yield functions[f]! }
+    _modify { yield &functions[f]! }
   }
 
   /// Accesses the given block.
   public subscript(b: Block.ID) -> Block {
-    _read { yield functions[b.function].blocks[b.address] }
-    _modify { yield &functions[b.function].blocks[b.address] }
+    _read { yield functions[b.function]!.blocks[b.address] }
+    _modify { yield &functions[b.function]!.blocks[b.address] }
   }
 
   /// Accesses the given instruction.
   public subscript(i: InstructionID) -> Instruction {
-    _read { yield functions[i.function].blocks[i.block].instructions[i.address] }
-    _modify { yield &functions[i.function].blocks[i.block].instructions[i.address] }
+    _read { yield functions[i.function]!.blocks[i.block].instructions[i.address] }
+    _modify { yield &functions[i.function]!.blocks[i.block].instructions[i.address] }
   }
 
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> LoweredType {
     switch operand {
     case .result(let instruction, let index):
-      return functions[instruction.function][instruction.block][instruction.address].types[index]
+      return functions[instruction.function]![instruction.block][instruction.address].types[index]
 
     case .parameter(let block, let index):
-      return functions[block.function][block.address].inputs[index]
+      return functions[block.function]![block.address].inputs[index]
 
     case .constant(let constant):
       return constant.type
@@ -85,8 +82,8 @@ public struct Module {
   ///
   /// Use this method as a sanity check to verify the module's invariants.
   public func isWellFormed() -> Bool {
-    for i in 0 ..< functions.count {
-      if !isWellFormed(function: i) { return false }
+    for f in functions.keys {
+      if !isWellFormed(function: f) { return false }
     }
     return true
   }
@@ -104,7 +101,7 @@ public struct Module {
     reportingDiagnosticsInto log: inout DiagnosticSet
   ) throws {
     for p in Self.mandatoryPasses {
-      for f in functions.indices {
+      for f in functions.keys {
         p(f, &self, &log)
       }
       try log.throwOnError()
@@ -132,6 +129,7 @@ public struct Module {
     program: TypedProgram
   ) -> Function.ID {
     if let id = loweredFunctions[decl] { return id }
+    precondition(decl.module == syntax)
 
     // Determine the type of the function.
     var inputs: [Function.Input] = []
@@ -169,30 +167,26 @@ public struct Module {
     }
 
     // Declare a new function in the module.
-    let loweredID = functions.count
-    let locator = DeclLocator(identifying: decl.id, in: program)
-    let function = Function(
-      name: locator.mangled,
-      debugName: locator.description,
+    let f = Function.ID(decl.id)
+    assert(functions[f] == nil)
+    functions[f] = Function(
+      name: "",
+      debugName: decl.identifier?.value,
       anchor: decl.introducerSite.first(),
       linkage: decl.isPublic ? .external : .module,
       inputs: inputs,
       output: output,
       blocks: [])
-    functions.append(function)
 
     // Determine if the new function is the module's entry.
-    if decl.scope.kind == TranslationUnit.self,
-      decl.isPublic,
-      decl.identifier?.value == "main"
-    {
+    if decl.scope.kind == TranslationUnit.self, decl.isPublic, decl.identifier?.value == "main" {
       assert(entryFunctionID == nil)
-      entryFunctionID = loweredID
+      entryFunctionID = f
     }
 
     // Update the cache and return the ID of the newly created function.
-    loweredFunctions[decl] = loweredID
-    return loweredID
+    loweredFunctions[decl] = f
+    return f
   }
 
   /// Creates a basic block at the end of the specified function and returns its identifier.
@@ -201,19 +195,19 @@ public struct Module {
     accepting inputs: [LoweredType] = [],
     atEndOf function: Function.ID
   ) -> Block.ID {
-    let address = functions[function].blocks.append(Block(inputs: inputs))
+    let address = functions[function]!.blocks.append(Block(inputs: inputs))
     return Block.ID(function: function, address: address)
   }
 
   /// Returns the global "past the end" position of `block`.
   func globalEndIndex(of block: Block.ID) -> InstructionIndex {
     InstructionIndex(
-      block, functions[block.function].blocks[block.address].instructions.endIndex)
+      block, functions[block.function]!.blocks[block.address].instructions.endIndex)
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.
   func terminator(of block: Block.ID) -> InstructionID? {
-    if let a = functions[block.function].blocks[block.address].instructions.lastAddress {
+    if let a = functions[block.function]!.blocks[block.address].instructions.lastAddress {
       return InstructionID(block, a)
     } else {
       return nil
@@ -235,22 +229,18 @@ public struct Module {
 
   /// Inserts `newInstruction` at `position` and returns the identities of its return values.
   ///
-  /// The instruction is inserted before the instruction currently at `insertionPoint`. You can
-  /// pass a "past the end" position to append at the end of a block.
+  /// The instruction is inserted before the instruction currently at `position`. You can pass a
+  /// "past the end" position to append at the end of a block.
   @discardableResult
   mutating func insert<I: Instruction>(
     _ newInstruction: I,
-    at insertionPoint: InstructionIndex
+    at position: InstructionIndex
   ) -> [Operand] {
-    insert(
-      newInstruction,
-      with: { (m, i) in
-        let address =
-          m
-          .functions[insertionPoint.function].blocks[insertionPoint.block].instructions
-          .insert(newInstruction, at: insertionPoint.index)
-        return InstructionID(insertionPoint.function, insertionPoint.block, address)
-      })
+    insert(newInstruction) { (m, i) in
+      let address = m.functions[position.function]!.blocks[position.block].instructions
+        .insert(newInstruction, at: position.index)
+      return InstructionID(position.function, position.block, address)
+    }
   }
 
   /// Inserts `newInstruction` before the instruction identified by `successor` and returns the
@@ -260,13 +250,11 @@ public struct Module {
     _ newInstruction: I,
     before successor: InstructionID
   ) -> [Operand] {
-    insert(
-      newInstruction,
-      with: { (m, i) in
-        let address = m.functions[successor.function].blocks[successor.block].instructions
-          .insert(newInstruction, before: successor.address)
-        return InstructionID(successor.function, successor.block, address)
-      })
+    insert(newInstruction) { (m, i) in
+      let address = m.functions[successor.function]!.blocks[successor.block].instructions
+        .insert(newInstruction, before: successor.address)
+      return InstructionID(successor.function, successor.block, address)
+    }
   }
 
   /// Inserts `newInstruction` after the instruction identified by `predecessor` and returns the
@@ -276,13 +264,11 @@ public struct Module {
     _ newInstruction: I,
     after predecessor: InstructionID
   ) -> [Operand] {
-    insert(
-      newInstruction,
-      with: { (m, i) in
-        let address = m.functions[predecessor.function].blocks[predecessor.block].instructions
-          .insert(newInstruction, after: predecessor.address)
-        return InstructionID(predecessor.function, predecessor.block, address)
-      })
+    insert(newInstruction) { (m, i) in
+      let address = m.functions[predecessor.function]!.blocks[predecessor.block].instructions
+        .insert(newInstruction, after: predecessor.address)
+      return InstructionID(predecessor.function, predecessor.block, address)
+    }
   }
 
   /// Inserts `newInstruction` with `impl` and returns the identities of its return values.
