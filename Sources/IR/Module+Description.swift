@@ -16,33 +16,32 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
   }
 
   public func write<Target: TextOutputStream>(to output: inout Target) {
-    for i in 0 ..< functions.count {
-      if i > 0 {
+    var isFirst = true
+    for f in functions.keys {
+      if isFirst {
         output.write("\n\n")
+        isFirst = false
       }
-      write(function: i, to: &output)
+      write(function: f, to: &output)
     }
   }
 
   /// Writes a textual representation of the specified function into `output`.
-  public func write<Target: TextOutputStream>(
-    function functionID: Function.ID,
-    to output: inout Target
-  ) {
-    let function = functions[functionID]
+  public func write<Target: TextOutputStream>(function f: Function.ID, to output: inout Target) {
+    let function = functions[f]!
 
     // Generate unique names for all the basic blocks, parameters, and instructions.
     var blockNames: [Block.ID: String] = [:]
     var operandNames: [Operand: String] = [:]
     for i in function.blocks.indices {
-      let blockID = Block.ID(function: functionID, address: i.address)
+      let blockID = Block.ID(function: f, address: i.address)
       blockNames[blockID] = "bb\(blockNames.count)"
 
       for j in 0 ..< function[i.address].inputs.count {
         operandNames[.parameter(block: blockID, index: j)] = "%\(operandNames.count)"
       }
       for j in function[i.address].instructions.indices {
-        let instID = InstructionID(functionID, i.address, j.address)
+        let instID = InstructionID(f, i.address, j.address)
         for k in 0 ..< function[i.address][j.address].types.count {
           operandNames[.result(instruction: instID, index: k)] = "%\(operandNames.count)"
         }
@@ -69,7 +68,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     output.write(") -> \(function.output) {\n")
 
     for i in function.blocks.indices {
-      let blockID = Block.ID(function: functionID, address: i.address)
+      let blockID = Block.ID(function: f, address: i.address)
       let block = function[i.address]
 
       output.write(blockNames[blockID]!)
@@ -81,7 +80,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       output.write("):\n")
 
       for j in block.instructions.indices {
-        let instID = InstructionID(functionID, i.address, j.address)
+        let instID = InstructionID(f, i.address, j.address)
 
         output.write("  ")
         if !block[j.address].types.isEmpty {

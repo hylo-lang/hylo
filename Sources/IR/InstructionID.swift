@@ -6,7 +6,7 @@ import Utils
 public struct InstructionID: Hashable {
 
   /// The function containing the instruction.
-  public let function: Module.Functions.Index
+  public let function: Function.ID
 
   /// The block containing the instruction.
   public let block: Function.Blocks.Address
@@ -16,7 +16,7 @@ public struct InstructionID: Hashable {
 
   /// Creates an instance with the given properties.
   public init(
-    _ function: Module.Functions.Index,
+    _ function: Function.ID,
     _ block: Function.Blocks.Address,
     _ address: Block.Instructions.Address
   ) {

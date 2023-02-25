@@ -93,7 +93,7 @@ extension Module {
       { (blocks, use) in blocks.insert(use.user.block) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
-    let cfg = functions[site.function].cfg
+    let cfg = functions[site.function]!.cfg
     var approximateCoverage: [Function.Blocks.Address: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
     while true {
       guard let occurence = occurences.popFirst() else { break }
@@ -155,7 +155,7 @@ extension Module {
         return lhs.index < rhs.index ? rhs : lhs
       }
 
-      let block = functions[lhs.user.function][lhs.user.block]
+      let block = functions[lhs.user.function]![lhs.user.block]
       if lhs.user.address.precedes(rhs.user.address, in: block.instructions) {
         return rhs
       } else {
@@ -188,7 +188,7 @@ extension Module {
 
   /// Returns the last use of `operand` in `block`.
   private func lastUse(of operand: Operand, in block: Block.ID) -> Use? {
-    let instructions = functions[block.function][block.address].instructions
+    let instructions = functions[block.function]![block.address].instructions
     for i in instructions.indices.reversed() {
       if let operandIndex = instructions[i].operands.lastIndex(of: operand) {
         return Use(

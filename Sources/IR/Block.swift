@@ -10,7 +10,7 @@ public struct Block {
   public struct ID: Hashable {
 
     /// The ID of the function containing the block.
-    public var function: Module.Functions.Index
+    public var function: Function.ID
 
     /// The address of the block in the containing function.
     public var address: Function.Blocks.Address
