@@ -102,7 +102,7 @@ public struct Emitter {
     }
 
     // Emit the body.
-    frames.push(Frame(locals: locals))
+    frames.push(.init(scope: AnyScopeID(decl.id), locals: locals))
     var receiverDecl = decl.receiver
     swap(&receiverDecl, &self.receiver)
 
@@ -299,7 +299,7 @@ public struct Emitter {
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
-    frames.push()
+    frames.push(.init(scope: AnyScopeID(stmt.id)))
     for s in stmt.stmts {
       emit(stmt: s, into: &module)
     }
@@ -347,7 +347,7 @@ public struct Emitter {
 
     // Note: we're not using `emit(braceStmt:into:)` because we need to evaluate the loop
     // condition before exiting the scope.
-    frames.push()
+    frames.push(.init(scope: AnyScopeID(stmt.body.id)))
     for s in stmt.body.stmts {
       emit(stmt: s, into: &module)
     }
@@ -392,7 +392,7 @@ public struct Emitter {
     for item in stmt.condition {
       let next = module.createBasicBlock(atEndOf: insertionBlock!.function)
 
-      frames.push()
+      frames.push(.init(scope: AnyScopeID(stmt.id)))
       defer { frames.pop() }
 
       switch item {
@@ -486,7 +486,7 @@ public struct Emitter {
 
     // Emit the success branch.
     insertionBlock = firstBranch
-    frames.push()
+    frames.push(.init(scope: AnyScopeID(expr.id)))
     let a = emitRValue(program[expr.success], into: &module)
     if let s = resultStorage {
       emitInitialization(of: s, to: a, anchoredAt: program[expr.success].site, into: &module)
@@ -497,13 +497,16 @@ public struct Emitter {
 
     // Emit the failure branch.
     insertionBlock = secondBranch
-    frames.push()
+    let i = frames.top.allocs.count
     let b = emitRValue(program[expr.failure], into: &module)
     if let s = resultStorage {
       emitInitialization(of: s, to: b, anchoredAt: program[expr.failure].site, into: &module)
     }
-    emitStackDeallocs(in: &module, site: expr.site)
-    frames.pop()
+    for a in frames.top.allocs[i...] {
+      module.append(module.makeDeallocStack(for: a, anchoredAt: expr.site), to: insertionBlock!)
+    }
+    frames.top.allocs.removeSubrange(i...)
+
     module.append(module.makeBranch(to: tail, anchoredAt: expr.site), to: insertionBlock!)
 
     // Emit the value of the expression.
@@ -1018,6 +1021,9 @@ extension Emitter {
   /// The local variables and allocations of a lexical scope.
   fileprivate struct Frame {
 
+    /// The lexical scope corresponding this this frame.
+    let scope: AnyScopeID
+
     /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = TypedDeclProperty<Operand>()
 
@@ -1059,7 +1065,7 @@ extension Emitter {
     }
 
     /// Pushes `newFrame` on the stack.
-    mutating func push(_ newFrame: Frame = Frame()) {
+    mutating func push(_ newFrame: Frame) {
       frames.append(newFrame)
     }
 
