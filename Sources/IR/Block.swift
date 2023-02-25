@@ -15,9 +15,9 @@ public struct Block {
     /// The address of the block in the containing function.
     public var address: Function.Blocks.Address
 
-    /// The ID of the instruction at `instAddress` in the block identified by `self`.
-    public func id(at instAddress: Block.Instructions.Address) -> InstructionID {
-      InstructionID(function, address, instAddress)
+    /// The ID of the instruction at `instructionAddress` in the block identified by `self`.
+    public func appending(_ instructionAddress: Block.Instructions.Address) -> InstructionID {
+      InstructionID(function, address, instructionAddress)
     }
 
     /// The ID of the `index`-th parameter of the block.
@@ -25,10 +25,10 @@ public struct Block {
       .parameter(block: self, index: index)
     }
 
-    /// The operand denoting the `index`-th result of the instruction at `instAddress` in the block
-    /// identified by `self`.
-    public func result(at instAddress: Block.Instructions.Address, index: Int) -> Operand {
-      .result(instruction: id(at: instAddress), index: index)
+    /// The operand denoting the `index`-th result of the instruction at `instructionAddress` in
+    /// the block identified by `self`.
+    public func result(at instructionAddress: Block.Instructions.Address, index: Int) -> Operand {
+      .result(instruction: appending(instructionAddress), index: index)
     }
 
   }
