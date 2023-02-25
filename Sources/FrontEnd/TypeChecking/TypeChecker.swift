@@ -1903,9 +1903,7 @@ public struct TypeChecker {
     in scope: AnyScopeID
   ) -> [OperatorDecl.ID] {
     let currentModule = program.module(containing: scope)
-    if let module = currentModule,
-      let oper = lookup(operator: operatorName, notation: notation, in: module)
-    {
+    if let oper = lookup(operator: operatorName, notation: notation, in: currentModule) {
       return [oper]
     }
 
