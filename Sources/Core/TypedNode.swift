@@ -135,6 +135,11 @@ extension TypedNode where ID: ScopeID {
     program.scopeToDecls[id, default: []].lazy.map { .init($0, in: program) }
   }
 
+  /// The module containing this scope.
+  public var module: ModuleDecl.Typed {
+    .init(program.module(containing: id)!, in: program)
+  }
+
 }
 
 extension TypedNode where ID: DeclID {
