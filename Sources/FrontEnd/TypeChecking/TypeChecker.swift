@@ -360,7 +360,8 @@ public struct TypeChecker {
       let result = complete(inference.solution.typeAssumptions.reify(shape.type))
 
       // Run deferred queries.
-      shape.deferred.forEach({ _ = $0(&self, inference.solution) })
+      let s = shape.deferred.reduce(true, { $1(&self, inference.solution) && $0 })
+      assert(s || diagnostics.containsError)
       return result
     } else if hasTypeHint {
       return complete(shape.type)
@@ -586,7 +587,7 @@ public struct TypeChecker {
       let parameterType = ParameterType(declTypes[d]!)!
       let defaultValueType = exprTypes[defaultValue].setIfNil(^TypeVariable())
 
-      let i = solutionTyping(
+      _ = solutionTyping(
         defaultValue,
         shapedBy: parameterType.bareType,
         in: program.declToScope[d]!,
@@ -595,7 +596,6 @@ public struct TypeChecker {
             defaultValueType, ^parameterType,
             origin: ConstraintOrigin(.argument, at: ast[d].site))
         ])
-      assert(i.succeeded || diagnostics.containsError)
     }
 
     declRequests[d] = .typeRealizationCompleted
@@ -1386,10 +1386,9 @@ public struct TypeChecker {
     _ e: AnyExprID, in scope: S, hasType t: AnyType, cause c: ConstraintOrigin.Kind
   ) {
     let u = exprTypes[e].setIfNil(^TypeVariable())
-    let i = solutionTyping(
+    _ = solutionTyping(
       e, shapedBy: t, in: scope,
       initialConstraints: [EqualityConstraint(u, t, origin: .init(c, at: ast[e].site))])
-    assert(i.succeeded || diagnostics.containsError)
   }
 
   /// Returns the type of `subject` knowing it occurs in `scope` and is shaped by `shape`, or `nil`
@@ -1478,6 +1477,7 @@ public struct TypeChecker {
       !solution.diagnostics.containsError, { (s, q) in q(&self, solution) && s })
 
     diagnostics.formUnion(solution.diagnostics)
+    assert(success || diagnostics.containsError)
     return (succeeded: success, solution: solution)
   }
 
