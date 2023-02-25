@@ -262,7 +262,7 @@ public struct ValCommand: ParsableCommand {
         var arguments =  [ buildDirectory.appendingPathComponent(productName + ".cpp").path,
           "/link", "/out:" + binaryPath]
 
-        for i in (0..<ccFlags.count) {
+        for i in (0 ..< ccFlags.count) {
           arguments.append("-" +  ccFlags[i])
         } 
 
@@ -277,7 +277,7 @@ public struct ValCommand: ParsableCommand {
     var arguments = ["-o", binaryPath, "-I", buildDirectory.path, 
       buildDirectory.appendingPathComponent(productName + ".cpp").path]
       
-    for i in (0..<ccFlags.count) {
+    for i in (0 ..< ccFlags.count) {
         arguments.append("-" +  ccFlags[i])
     } 
 
