@@ -106,11 +106,18 @@ public struct ValCommand: ParsableCommand {
   private var outputType: OutputType = .binary
 
   @Option(
-    name: [.customLong("CXXCompiler")],
+    name: [.customLong("cc")],
     help: ArgumentHelp(
-      "Customize the CXXCompiler used by the Val backend. From: clang, gcc, msvc(Windows only)",
+      "Customize the CXX compiler used by the Val backend. From: clang, gcc, msvc(Windows only)",
       valueName: "CXXCompiler"))
   private var customizeCXXCompiler: CXXCompiler = .clang
+
+  @Option(
+    name: [.customLong("cc-flags")],
+    help: ArgumentHelp(
+      "Specify flags for the CXX compiler to use",
+      valueName: "CXXCompilerFlags"))
+  private var ccFlags: [String]
 
   @Option(
     name: [.customShort("o")],
@@ -252,24 +259,31 @@ public struct ValCommand: ParsableCommand {
 
     #if os(Windows)
       if customizeCXXCompiler == .msvc {
+        var arguments =  [ buildDirectory.appendingPathComponent(productName + ".cpp").path,
+          "/link", "/out:" + binaryPath]
+
+        for i in (0..<ccFlags.count) {
+          arguments.append("-" +  ccFlags[i])
+        } 
+
         try runCommandLine(
           compiler,
-          [
-            buildDirectory.appendingPathComponent(productName + ".cpp").path,
-            "/link",
-            "/out:" + binaryPath
-          ],
+          arguments,
           loggingTo: &errorLog)
         return
       } 
     #endif
+
+    var arguments = ["-o", binaryPath, "-I", buildDirectory.path, 
+      buildDirectory.appendingPathComponent(productName + ".cpp").path]
+      
+    for i in (0..<ccFlags.count) {
+        arguments.append("-" +  ccFlags[i])
+    } 
+
     try runCommandLine(
       compiler,
-      [
-        "-o", binaryPath,
-        "-I", buildDirectory.path,
-        buildDirectory.appendingPathComponent(productName + ".cpp").path,
-      ],
+      arguments,
       loggingTo: &errorLog)
   }
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of

@@ -40,7 +40,10 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--emit cpp`: Produce a C++ source file.
 - `--emit binary` (default): Produce an executable 
   - Note: by default, C++ files will be compiled with `Clang`. Use `--cc {CXX compiler}` to use another compiler.
-  - Note: You can specify parameters for the CXX compiler to use. like `--cc-flags -O3`.
+  - Note: You can specify parameters for the CXX compiler to use. like `--cc-flags O3`.
+    - Note: Don't add an extraneous `-`, please use `O3` instead of `-O3`. 
+    - You can also add more than one such parameter.
+    - If you want to specify output file name or something like that, please use the Val command line argument instead of `--cc-flags`.
   - Note to MSVC users: be sure to use Visual Studio Developer Command Prompt or Visual Studio Developer PowerShell.
 
 For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
