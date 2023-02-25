@@ -6,8 +6,7 @@ extension TypeChecker {
   /// A deferred type checking query on a node that should be applied after the types of its
   /// constituent parts have been inferred.
   ///
-  /// This type is meant to represent closures capturing the nodes on which they apply. For
-  /// example:
+  /// This type is represents closures capturing the nodes on which they apply. For example:
   ///
   ///     let n: VarDecl.ID = foo()
   ///     let deferredQuery: DeferredQuery = { (c, s) in
@@ -249,7 +248,7 @@ extension TypeChecker {
         _ = inferredType(of: expr, shapedBy: boolType, in: scope, updating: &state)
 
       case .decl(let binding):
-        if !check(binding: binding) { state.facts.setConflictFound() }
+        if check(binding: binding).isError { state.facts.setConflictFound() }
       }
     }
 
