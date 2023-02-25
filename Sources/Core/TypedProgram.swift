@@ -38,7 +38,7 @@ public struct TypedProgram: Program {
 
   /// Creates a typed program from a scoped program and property maps describing type annotations.
   ///
-  /// - Requires: All modules in `program` have been typed checked.
+  /// - Requires: All modules in `program` have been sucessfully typed checked.
   public init(
     annotating program: ScopedProgram,
     declTypes: DeclProperty<AnyType>,
