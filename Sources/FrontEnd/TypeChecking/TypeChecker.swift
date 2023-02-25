@@ -1930,17 +1930,6 @@ public struct TypeChecker {
     var matches = DeclSet()
     var root: ModuleDecl.ID? = nil
 
-    /// Inserts `newMatch` in `matches` and returns `nil` if `newMatch` is overloadable. Otherwise,
-    /// returns `matches` if it's not empty or a singleton containing `newMatch` if it is.
-    func add(_ newMatch: AnyDeclID) -> DeclSet? {
-      if !(newMatch.kind.value as! Decl.Type).isOverloadable {
-        return matches.isEmpty ? [newMatch] : matches
-      } else {
-        matches.insert(newMatch)
-        return nil
-      }
-    }
-
     // Skip file scopes so that we don't search the same file twice.
     for scope in program.scopes(from: scope) where scope.kind != TranslationUnit.self {
       if let r = ModuleDecl.ID(scope) { root = r }
@@ -1950,13 +1939,13 @@ public struct TypeChecker {
       let newMatches = lookup(baseName, introducedInDeclSpaceOf: scope, in: useSite)
         .subtracting(bindingsUnderChecking)
       for d in newMatches {
-        if let result = add(d) { return result }
+        if let result = matches.inserting(d) { return result }
       }
     }
 
     // Check if the identifier refers to the module containing `scope`.
     if ast[root]?.baseName == baseName {
-      if let result = add(AnyDeclID(root!)) { return result }
+      if let result = matches.inserting(AnyDeclID(root!)) { return result }
     }
 
     // Search for the identifier in imported modules.
@@ -3508,6 +3497,21 @@ private struct CaptureVisitor: ASTWalkObserver {
       return false
     } else {
       return true
+    }
+  }
+
+}
+
+extension TypeChecker.DeclSet {
+
+  /// Inserts `newMatch` in `self` and returns `nil` if `newMatch` is overloadable. Otherwise,
+  /// returns `self` if it's not empty or a singleton containing `newMatch` if it is.
+  fileprivate mutating func inserting(_ newMatch: AnyDeclID) -> Self? {
+    if !newMatch.isOverloadable {
+      return isEmpty ? [newMatch] : self
+    } else {
+      insert(newMatch)
+      return nil
     }
   }
 
