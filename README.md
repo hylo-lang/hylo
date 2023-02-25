@@ -39,9 +39,9 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
 - `--emit cpp`: Produce a C++ source file.
 - `--emit binary` (default): Produce an executable 
-  - The default CXXCompiler is `Clang`
-  - If you want to use a compiler other than `Clang`, please use `--CXXCompiler gcc` or `--CXXCompiler msvc`
-  - If you want to use MSVC, be sure to use Visual Studio Developer Command Prompt or Visual Studio Developer PowerShell
+  - Note: by default, C++ files will be compiled with `Clang`. Use `--cc {CXX compiler}` to use another compiler.
+  - Note: You can specify parameters for the CXX compiler to use. like `--cc-flags -O3`.
+  - Note to MSVC users: be sure to use Visual Studio Developer Command Prompt or Visual Studio Developer PowerShell.
 
 For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
 
