@@ -1066,11 +1066,12 @@ extension TypeChecker {
     } else {
       // Create an overload set.
       let overloads: [OverloadConstraint.Predicate] = candidates.map({ (candidate) in
+        let p = candidate.reference.decl.map({ program.isRequirement($0) ? 1 : 0 }) ?? 0
         return .init(
           reference: candidate.reference,
           type: candidate.type.shape,
           constraints: candidate.type.constraints,
-          penalties: 0)
+          penalties: p)
       })
 
       // Constrain the name to refer to one of the overloads.

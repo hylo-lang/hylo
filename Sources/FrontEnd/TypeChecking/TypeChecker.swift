@@ -2041,36 +2041,21 @@ public struct TypeChecker {
     case let t as BoundGenericType:
       matches = lookup(baseName, memberOf: t.base, in: scope)
       return matches
-
     case let t as ProductType:
       matches = names(introducedIn: t.decl)[baseName, default: []]
-      if baseName == "init" {
-        matches.insert(AnyDeclID(ast[t.decl].memberwiseInit))
-      }
-
+    case let t as ModuleType:
+      matches = names(introducedIn: t.decl)[baseName, default: []]
     case let t as TraitType:
       matches = names(introducedIn: t.decl)[baseName, default: []]
-
     case let t as TypeAliasType:
       matches = names(introducedIn: t.decl)[baseName, default: []]
-
     default:
       matches = DeclSet()
-    }
-
-    // We're done if we found at least one non-overloadable match.
-    if matches.contains(where: { i in !(ast[i] is FunctionDecl) }) {
-      return matches
     }
 
     // Look for members declared in extensions.
     for i in extendingDecls(of: type, exposedTo: scope) {
       matches.formUnion(names(introducedIn: i)[baseName, default: []])
-    }
-
-    // We're done if we found at least one non-overloadable match.
-    if matches.contains(where: { i in !(ast[i] is FunctionDecl) }) {
-      return matches
     }
 
     // Look for members declared inherited by conformance/refinement.
@@ -2515,6 +2500,9 @@ public struct TypeChecker {
     name id: NameExpr.ID,
     in scope: AnyScopeID
   ) -> MetatypeType? {
+    // Note: This function has become pretty hacky but it may not be worth refactoring before we
+    // tackle the evaluation of compile-time expressions properly.
+
     let name = ast[id].name
     let domain: AnyType?
     let matches: DeclSet
@@ -2522,34 +2510,39 @@ public struct TypeChecker {
     // Realize the name's domain, if any.
     switch ast[id].domain {
     case .none:
-      // Name expression has no domain.
+      // Name expression has no domain; gather declarations with an unqualified lookup or try to
+      // evaluate the name as a "magic" type expression if there are no candidates.
       domain = nil
-
-      // Search for the referred type declaration with an unqualified lookup.
       matches = lookup(unqualified: name.value.stem, in: scope)
-
-      // If there are no matches, check for magic symbols.
       if matches.isEmpty {
         return realizeMagicTypeExpr(id, in: scope)
       }
 
     case .expr(let j):
-      // The domain is a type expression.
-      guard let d = realize(j, in: scope)?.instance else { return nil }
-      domain = d
+      // Hack to handle cases where the domain refers to a module.
+      if let n = NameExpr.ID(j), ast[n].domain == .none,
+        let d = lookup(unqualified: ast[n].name.value.stem, in: scope).uniqueElement,
+        let t = ModuleType(realize(decl: d))
+      {
+        domain = ^t
+      } else if let t = realize(j, in: scope)?.instance {
+        domain = t
+      } else {
+        return nil
+      }
 
       // Handle references to built-in types.
-      if relations.areEquivalent(d, .builtin(.module)) {
-        if let type = BuiltinType(name.value.stem) {
-          return MetatypeType(of: .builtin(type))
+      if relations.areEquivalent(domain!, .builtin(.module)) {
+        if let t = BuiltinType(name.value.stem) {
+          return MetatypeType(of: .builtin(t))
         } else {
           diagnostics.insert(.error(noType: name.value, in: domain, at: name.site))
           return nil
         }
       }
 
-      // Search for the referred type declaration with a qualified lookup.
-      matches = lookup(name.value.stem, memberOf: d, in: scope)
+      // Gather declarations with a qualified lookup.
+      matches = lookup(name.value.stem, memberOf: domain!, in: scope)
 
     case .implicit:
       diagnostics.insert(
@@ -2571,7 +2564,6 @@ public struct TypeChecker {
 
     // Realize the referred type.
     let referredType: MetatypeType
-
     if match.kind == AssociatedTypeDecl.self {
       let decl = AssociatedTypeDecl.ID(match)!
 
@@ -2579,8 +2571,7 @@ public struct TypeChecker {
       case is AssociatedTypeType,
         is ConformanceLensType,
         is GenericTypeParameterType:
-        referredType = MetatypeType(
-          of: AssociatedTypeType(decl, domain: domain!, ast: ast))
+        referredType = MetatypeType(of: AssociatedTypeType(decl, domain: domain!, ast: ast))
 
       case nil:
         // Assume that `Self` in `scope` resolves to an implicit generic parameter of a trait
@@ -2595,10 +2586,10 @@ public struct TypeChecker {
         return nil
       }
     } else {
-      let declType = realize(decl: match)
-      if let instance = declType.base as? MetatypeType {
-        referredType = instance
-      } else {
+      switch realize(decl: match).base {
+      case let t as MetatypeType:
+        referredType = t
+      default:
         diagnostics.insert(.error(nameRefersToValue: id, in: ast))
         return nil
       }
@@ -2609,13 +2600,11 @@ public struct TypeChecker {
       return referredType
     } else {
       var arguments: [BoundGenericType.Argument] = []
-
       for a in ast[id].arguments {
         // TODO: Symbolic execution
         guard let type = realize(a.value, in: scope)?.instance else { return nil }
         arguments.append(.type(type))
       }
-
       return MetatypeType(of: BoundGenericType(referredType.instance, arguments: arguments))
     }
   }
