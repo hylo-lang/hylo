@@ -20,7 +20,7 @@ on:
 
 jobs:
   build:
-    name: Swift 5 on ${{ matrix.host.os }} with Clang backend
+    name: Swift 5 on ${{ matrix.host.os }}
     strategy:
       fail-fast: false
       matrix:
