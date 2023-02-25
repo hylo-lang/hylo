@@ -56,3 +56,9 @@ fun f1() {
   x.m1.let()
   x.m1.sink()
 }
+
+fun f2() {
+  // Note: `NameLookup` is the name of the containing module
+  let x = NameLookup.A()
+  check<A>(x)
+}
