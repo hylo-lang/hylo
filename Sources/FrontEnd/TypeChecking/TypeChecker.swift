@@ -97,7 +97,7 @@ public struct TypeChecker {
   ///
   /// The returned set only contains traits whose expressions could be evaluated. A diagnostic is
   /// reported for all other expressions. `type` is contained in the returned set if it's a trait.
-  mutating func conformedTraits(of type: AnyType, in useScope: AnyScopeID) -> Set<TraitType>? {
+  mutating func conformedTraits(of type: AnyType, in useScope: AnyScopeID) -> Set<TraitType> {
     var result: Set<TraitType> = []
 
     switch type.base {
@@ -115,19 +115,18 @@ public struct TypeChecker {
 
     case let t as ProductType:
       let s = program.declToScope[t.decl]!
-      for trait in realize(conformances: ast[t.decl].conformances, in: s) {
-        guard let bases = conformedTraits(of: ^trait, in: s)
-        else { return nil }
-        result.formUnion(bases)
+      for t in realize(conformances: ast[t.decl].conformances, in: s) {
+        result.formUnion(conformedTraits(of: ^t, in: s))
       }
 
     case let t as TraitType:
+      result.insert(t)
+
       let s = program.declToScope[t.decl]!
       var work = realize(conformances: ast[t.decl].refinements, in: s)
       while let base = work.popFirst() {
         if base == t {
           diagnostics.insert(.error(circularRefinementAt: ast[t.decl].identifier.site))
-          return nil
         } else if result.insert(base).inserted {
           let newTraits = realize(
             conformances: ast[base.decl].refinements, in: program.scopeToParent[base.decl]!)
@@ -135,14 +134,8 @@ public struct TypeChecker {
         }
       }
 
-      // Add the trait to its own conformance set.
-      result.insert(t)
-
       // Traits can't be refined in extensions; we're done.
       return result
-
-    case is TypeAliasType:
-      break
 
     default:
       break
@@ -152,9 +145,7 @@ public struct TypeChecker {
     for i in extendingDecls(of: type, exposedTo: useScope) where i.kind == ConformanceDecl.self {
       let s = program.declToScope[i]!
       for t in realize(conformances: ast[ConformanceDecl.ID(i)!].conformances, in: s) {
-        guard let bases = conformedTraits(of: ^t, in: s)
-        else { return nil }
-        result.formUnion(bases)
+        result.formUnion(conformedTraits(of: ^t, in: s))
       }
     }
 
@@ -818,8 +809,7 @@ public struct TypeChecker {
         continue
       }
 
-      let allTraits = conformedTraits(of: rhs, in: declContainer) ?? []
-      for t in allTraits {
+      for t in conformedTraits(of: rhs, in: declContainer) {
         success &= checkAndRegisterConformance(
           of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(d))
       }
@@ -2062,8 +2052,7 @@ public struct TypeChecker {
     }
 
     // Look for members declared inherited by conformance/refinement.
-    guard let traits = conformedTraits(of: type, in: scope) else { return matches }
-    for trait in traits where type != trait {
+    for trait in conformedTraits(of: type, in: scope) where type != trait {
       // TODO: Read source of conformance to disambiguate associated names
       let newMatches = lookup(baseName, memberOf: ^trait, in: scope)
 
@@ -2453,11 +2442,8 @@ public struct TypeChecker {
 
     // The subject must conform to the lens.
     guard let subject = realize(node.subject, in: scope)?.instance else { return nil }
-    guard let traits = conformedTraits(of: subject, in: scope),
-      traits.contains(lensTrait)
-    else {
-      diagnostics.insert(
-        .error(subject, doesNotConformTo: lensTrait, at: ast[node.lens].site))
+    if !conformedTraits(of: subject, in: scope).contains(lensTrait) {
+      diagnostics.insert(.error(subject, doesNotConformTo: lensTrait, at: ast[node.lens].site))
       return nil
     }
 
