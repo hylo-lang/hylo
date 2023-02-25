@@ -11,6 +11,9 @@ public struct TypeChecker {
   /// The diagnostics of the type errors.
   private(set) var diagnostics: DiagnosticSet = []
 
+  /// A map from translation unit to its imports.
+  private(set) var imports: [TranslationUnit.ID: Set<ModuleDecl.ID>] = [:]
+
   /// The overarching type of each declaration.
   private(set) var declTypes = DeclProperty<AnyType>()
 
@@ -220,16 +223,37 @@ public struct TypeChecker {
 
   /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
   ///
+  /// This method is idempotent. After the first call for a module `m`, `self.declTypes[m]` is
+  /// assigned to an instance of `ModuleType` if type checking succeeds or `.error` otherwise.
+  /// Subsequent calls have no effect on `self`.
+  ///
   /// - Requires: `m` is a valid ID in the type checker's AST.
   public mutating func check(module m: ModuleDecl.ID) {
-    _ = _check(decl: m) { (this, m) in
+    let s = _check(decl: m) { (this, m) in
       this.ast[m].sources.reduce(true, { (s, u) in this.check(translationUnit: u) && s })
     }
+    if !s { declTypes[m] = .error }
   }
 
   /// Type checks all declarations in `u`, returns `true` iff all are well-typed.
   private mutating func check(translationUnit u: TranslationUnit.ID) -> Bool {
-    check(all: ast[u].decls)
+    // The core library is always implicitly imported.
+    if let m = ast.coreLibrary { imports[u] = [m] }
+    for d in program.scopeToDecls[u]!.lazy.compactMap(ImportDecl.ID.init(_:)) {
+      registerImport(d, in: u)
+    }
+
+    return check(all: ast[u].decls)
+  }
+
+  /// Register the import declared by `d` in translation unit `u`.
+  private mutating func registerImport(_ d: ImportDecl.ID, in u: TranslationUnit.ID) {
+    guard let m = ModuleType(realize(importDecl: d))?.decl else { return }
+    if program.module(containing: u) != m {
+      imports[u, default: []].insert(m)
+    } else {
+      diagnostics.insert(.warning(needlessImport: d, in: ast))
+    }
   }
 
   /// Type checks all declarations in `batch`, returning `true` iff all are well-typed.
@@ -254,6 +278,8 @@ public struct TypeChecker {
       return check(function: NodeID(d)!)
     case GenericParameterDecl.self:
       return check(genericParameter: NodeID(d)!)
+    case ImportDecl.self:
+      return check(importDecl: NodeID(d)!)
     case InitializerDecl.self:
       return check(initializer: NodeID(d)!)
     case MethodDecl.self:
@@ -500,6 +526,10 @@ public struct TypeChecker {
   private mutating func _check(genericParameter id: GenericParameterDecl.ID) -> Bool {
     // TODO: Type check default values.
     return true
+  }
+
+  private mutating func check(importDecl d: ImportDecl.ID) -> Bool {
+    _check(decl: d, { (_, _) in true })
   }
 
   private mutating func check(initializer id: InitializerDecl.ID) -> Bool {
@@ -1908,44 +1938,38 @@ public struct TypeChecker {
     return nil
   }
 
-  /// Returns the declarations that expose `baseName` without qualification in `scope`.
-  mutating func lookup(unqualified baseName: String, in scope: AnyScopeID) -> DeclSet {
-    let useSite = scope
+  /// Returns the declarations that expose `baseName` without qualification in `useScope`.
+  mutating func lookup(unqualified baseName: String, in useScope: AnyScopeID) -> DeclSet {
     var matches = DeclSet()
-    var root: ModuleDecl.ID? = nil
+    var containingFile: TranslationUnit.ID? = nil
+    var containingModule: ModuleDecl.ID? = nil
 
-    /// Inserts `newMatch` in `matches` and returns `nil` if `newMatch` is overloadable. Otherwise,
-    /// returns `matches` if it's not empty or a singleton containing `newMatch` if it is.
-    func add(_ newMatch: AnyDeclID) -> DeclSet? {
-      if !(newMatch.kind.value as! Decl.Type).isOverloadable {
-        return matches.isEmpty ? [newMatch] : matches
-      } else {
-        matches.insert(newMatch)
-        return nil
+    for s in program.scopes(from: useScope) {
+      if let u = TranslationUnit.ID(s) {
+        containingFile = u
+      } else if let m = ModuleDecl.ID(s) {
+        containingModule = m
       }
-    }
-
-    // Skip file scopes so that we don't search the same file twice.
-    for scope in program.scopes(from: scope) where scope.kind != TranslationUnit.self {
-      if let r = ModuleDecl.ID(scope) { root = r }
 
       // Gather declarations of the identifier in the current scope; we can assume we've got no
       // no non-overloadable candidate.
-      let newMatches = lookup(baseName, introducedInDeclSpaceOf: scope, in: useSite)
+      let newMatches = lookup(baseName, introducedInDeclSpaceOf: s, in: useScope)
         .subtracting(bindingsUnderChecking)
       for d in newMatches {
-        if let result = add(d) { return result }
+        if let result = matches.inserting(d) { return result }
       }
     }
 
-    // Check if the identifier refers to the module containing `scope`.
-    if ast[root]?.baseName == baseName {
-      if let result = add(AnyDeclID(root!)) { return result }
+    // Handle references to the containing module.
+    if ast[containingModule]?.baseName == baseName {
+      if let result = matches.inserting(containingModule!) { return result }
     }
 
-    // Search for the identifier in imported modules.
-    for module in ast.modules where module != root {
-      matches.formUnion(names(introducedIn: module)[baseName, default: []])
+    // Handle references to imported symbols.
+    if let u = containingFile, let fileImports = imports[u] {
+      for m in fileImports {
+        matches.formUnion(names(introducedIn: m)[baseName, default: []])
+      }
     }
 
     return matches
@@ -2025,36 +2049,21 @@ public struct TypeChecker {
     case let t as BoundGenericType:
       matches = lookup(baseName, memberOf: t.base, in: scope)
       return matches
-
     case let t as ProductType:
       matches = names(introducedIn: t.decl)[baseName, default: []]
-      if baseName == "init" {
-        matches.insert(AnyDeclID(ast[t.decl].memberwiseInit))
-      }
-
+    case let t as ModuleType:
+      matches = names(introducedIn: t.decl)[baseName, default: []]
     case let t as TraitType:
       matches = names(introducedIn: t.decl)[baseName, default: []]
-
     case let t as TypeAliasType:
       matches = names(introducedIn: t.decl)[baseName, default: []]
-
     default:
       matches = DeclSet()
-    }
-
-    // We're done if we found at least one non-overloadable match.
-    if matches.contains(where: { i in !(ast[i] is FunctionDecl) }) {
-      return matches
     }
 
     // Look for members declared in extensions.
     for i in extendingDecls(of: type, exposedTo: scope) {
       matches.formUnion(names(introducedIn: i)[baseName, default: []])
-    }
-
-    // We're done if we found at least one non-overloadable match.
-    if matches.contains(where: { i in !(ast[i] is FunctionDecl) }) {
-      return matches
     }
 
     // Look for members declared inherited by conformance/refinement.
@@ -2197,6 +2206,7 @@ public struct TypeChecker {
       case AssociatedValueDecl.self,
         AssociatedTypeDecl.self,
         GenericParameterDecl.self,
+        ImportDecl.self,
         NamespaceDecl.self,
         ParameterDecl.self,
         ProductTypeDecl.self,
@@ -2498,6 +2508,9 @@ public struct TypeChecker {
     name id: NameExpr.ID,
     in scope: AnyScopeID
   ) -> MetatypeType? {
+    // Note: This function has become pretty hacky but it may not be worth refactoring before we
+    // tackle the evaluation of compile-time expressions properly.
+
     let name = ast[id].name
     let domain: AnyType?
     let matches: DeclSet
@@ -2505,38 +2518,42 @@ public struct TypeChecker {
     // Realize the name's domain, if any.
     switch ast[id].domain {
     case .none:
-      // Name expression has no domain.
+      // Name expression has no domain; gather declarations with an unqualified lookup or try to
+      // evaluate the name as a "magic" type expression if there are no candidates.
       domain = nil
-
-      // Search for the referred type declaration with an unqualified lookup.
       matches = lookup(unqualified: name.value.stem, in: scope)
-
-      // If there are no matches, check for magic symbols.
       if matches.isEmpty {
         return realizeMagicTypeExpr(id, in: scope)
       }
 
     case .expr(let j):
-      // The domain is a type expression.
-      guard let d = realize(j, in: scope)?.instance else { return nil }
-      domain = d
+      // Hack to handle cases where the domain refers to a module.
+      if let n = NameExpr.ID(j), ast[n].domain == .none,
+        let d = lookup(unqualified: ast[n].name.value.stem, in: scope).uniqueElement,
+        let t = ModuleType(realize(decl: d))
+      {
+        domain = ^t
+      } else if let t = realize(j, in: scope)?.instance {
+        domain = t
+      } else {
+        return nil
+      }
 
       // Handle references to built-in types.
-      if relations.areEquivalent(d, .builtin(.module)) {
-        if let type = BuiltinType(name.value.stem) {
-          return MetatypeType(of: .builtin(type))
+      if relations.areEquivalent(domain!, .builtin(.module)) {
+        if let t = BuiltinType(name.value.stem) {
+          return MetatypeType(of: .builtin(t))
         } else {
           diagnostics.insert(.error(noType: name.value, in: domain, at: name.site))
           return nil
         }
       }
 
-      // Search for the referred type declaration with a qualified lookup.
-      matches = lookup(name.value.stem, memberOf: d, in: scope)
+      // Gather declarations with a qualified lookup.
+      matches = lookup(name.value.stem, memberOf: domain!, in: scope)
 
     case .implicit:
-      diagnostics.insert(
-        .error(notEnoughContextToResolveMember: name.value, at: name.site))
+      diagnostics.insert(.error(notEnoughContextToResolveMember: name))
       return nil
     }
 
@@ -2554,7 +2571,6 @@ public struct TypeChecker {
 
     // Realize the referred type.
     let referredType: MetatypeType
-
     if match.kind == AssociatedTypeDecl.self {
       let decl = AssociatedTypeDecl.ID(match)!
 
@@ -2562,8 +2578,7 @@ public struct TypeChecker {
       case is AssociatedTypeType,
         is ConformanceLensType,
         is GenericTypeParameterType:
-        referredType = MetatypeType(
-          of: AssociatedTypeType(decl, domain: domain!, ast: ast))
+        referredType = MetatypeType(of: AssociatedTypeType(decl, domain: domain!, ast: ast))
 
       case nil:
         // Assume that `Self` in `scope` resolves to an implicit generic parameter of a trait
@@ -2578,10 +2593,10 @@ public struct TypeChecker {
         return nil
       }
     } else {
-      let declType = realize(decl: match)
-      if let instance = declType.base as? MetatypeType {
-        referredType = instance
-      } else {
+      switch realize(decl: match).base {
+      case let t as MetatypeType:
+        referredType = t
+      default:
         diagnostics.insert(.error(nameRefersToValue: id, in: ast))
         return nil
       }
@@ -2592,13 +2607,11 @@ public struct TypeChecker {
       return referredType
     } else {
       var arguments: [BoundGenericType.Argument] = []
-
       for a in ast[id].arguments {
         // TODO: Symbolic execution
         guard let type = realize(a.value, in: scope)?.instance else { return nil }
         arguments.append(.type(type))
       }
-
       return MetatypeType(of: BoundGenericType(referredType.instance, arguments: arguments))
     }
   }
@@ -2666,6 +2679,8 @@ public struct TypeChecker {
       return realize(typeExtendingDecl: ExtensionDecl.ID(d)!)
     case FunctionDecl.self:
       return realize(functionDecl: NodeID(d)!)
+    case ImportDecl.self:
+      return realize(importDecl: NodeID(d)!)
     case InitializerDecl.self:
       return realize(initializerDecl: NodeID(d)!)
     case MethodDecl.self:
@@ -2855,6 +2870,19 @@ public struct TypeChecker {
     // assume it declares a generic type parameter.
     let instance = GenericTypeParameterType(d, ast: ast)
     return ^MetatypeType(of: instance)
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(importDecl d: ImportDecl.ID) -> AnyType {
+    _realize(decl: d, { (this, d) in this._realize(importDecl: d) })
+  }
+
+  private mutating func _realize(importDecl d: ImportDecl.ID) -> AnyType {
+    guard let m = ast.modules.first(where: { ast[$0].baseName == ast[d].baseName }) else {
+      diagnostics.insert(.error(noSuchModule: ast[d].baseName, at: ast[d].identifier.site))
+      return .error
+    }
+    return ^ModuleType(m, ast: ast)
   }
 
   /// Returns the overarching type of `d`.
@@ -3484,6 +3512,21 @@ private struct CaptureVisitor: ASTWalkObserver {
       return false
     } else {
       return true
+    }
+  }
+
+}
+
+extension TypeChecker.DeclSet {
+
+  /// Inserts `newMatch` in `self` and returns `nil` if `newMatch` is overloadable. Otherwise,
+  /// returns `self` if it's not empty or a singleton containing `newMatch` if it is.
+  fileprivate mutating func inserting<T: DeclID>(_ newMatch: T) -> Self? {
+    if !newMatch.isOverloadable {
+      return isEmpty ? [AnyDeclID(newMatch)] : self
+    } else {
+      insert(AnyDeclID(newMatch))
+      return nil
     }
   }
 

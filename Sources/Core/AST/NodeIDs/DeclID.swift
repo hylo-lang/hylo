@@ -3,6 +3,20 @@ import Utils
 /// The ID of a declaration.
 public protocol DeclID: NodeIDProtocol {}
 
+extension DeclID {
+
+  /// Indicates whether `self` denotes an overloadable declaration.
+  public var isOverloadable: Bool {
+    switch kind {
+    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
+      return true
+    default:
+      return false
+    }
+  }
+
+}
+
 extension NodeID: DeclID where Subject: Decl {}
 
 /// The type-erased ID of a declaration.

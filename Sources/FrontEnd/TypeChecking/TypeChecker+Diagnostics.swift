@@ -163,9 +163,10 @@ extension Diagnostic {
       "not enough contextual information to infer the arguments to generic parameters", at: site)
   }
 
-  static func error(notEnoughContextToResolveMember name: Name, at site: SourceRange) -> Diagnostic
-  {
-    .error("not enough contextual information to resolve member '\(name)'", at: site)
+  static func error(
+    notEnoughContextToResolveMember name: SourceRepresentable<Name>
+  ) -> Diagnostic {
+    .error("not enough contextual information to resolve member '\(name.value)'", at: name.site)
   }
 
   static func error(noType name: Name, in domain: AnyType? = nil, at site: SourceRange)
@@ -335,6 +336,15 @@ extension Diagnostic {
       ? "'\(t[0])' and '\(t[1])'"
       : t.map({ "'\($0)'" }).joined(separator: ", ")
     return .error("conditional expression has mismatching types \(s)", at: site)
+  }
+
+  static func error(noSuchModule n: String, at site: SourceRange) -> Diagnostic {
+    .error("no such module '\(n)'", at: site)
+  }
+
+  static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {
+    let s = ast[d].identifier
+    return .warning("needless import: source file is part of '\(s.value)'", at: s.site)
   }
 
 }
