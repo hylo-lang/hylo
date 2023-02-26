@@ -394,7 +394,7 @@ public struct TypeChecker {
     _check(decl: d, { (this, d) in this._check(extension: d) })
   }
 
-  private mutating func _check(extension d: ExtensionDecl.ID){
+  private mutating func _check(extension d: ExtensionDecl.ID) {
     let s = AnyScopeID(d)
     guard let receiver = realize(ast[d].subject, in: s)?.instance else { return }
 
@@ -763,7 +763,7 @@ public struct TypeChecker {
     to trait: TraitType,
     declaredAt declSite: SourceRange,
     in declScope: AnyScopeID
-  )  {
+  ) {
     guard let c = checkConformance(of: model, to: trait, declaredAt: declSite, in: declScope)
     else {
       // Diagnostics have been reported by `checkConformance`.

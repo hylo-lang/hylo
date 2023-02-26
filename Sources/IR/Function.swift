@@ -71,7 +71,6 @@ extension Function: CustomStringConvertible {
 
 }
 
-
 extension Function {
 
   /// The global identity of an IR function.
