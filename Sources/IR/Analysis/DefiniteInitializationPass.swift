@@ -242,7 +242,7 @@ public struct DefiniteInitializationPass {
         context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
       }
 
-      for (p, a) in zip(calleeType.inputs, call.operands) {
+      for (p, a) in zip(calleeType.inputs, call.arguments) {
         switch ParameterType(p.type)!.access {
         case .let, .inout, .set:
           continue
