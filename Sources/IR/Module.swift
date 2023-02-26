@@ -100,9 +100,14 @@ public struct Module {
   public mutating func applyMandatoryPasses(
     reportingDiagnosticsInto log: inout DiagnosticSet
   ) throws {
-    functions.keys.forEach({ insertImplicitReturns(in: $0, diagnostics: &log) })
-    functions.keys.forEach({ normalizeObjectStates(in: $0, diagnostics: &log) })
-    functions.keys.forEach({ closeBorrows(in: $0, diagnostics: &log) })
+    func run(_ pass: (Function.ID) -> Void) throws {
+      functions.keys.forEach(pass)
+      try log.throwOnError()
+    }
+
+    try run({ insertImplicitReturns(in: $0, diagnostics: &log) })
+    try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
+    try run({ closeBorrows(in: $0, diagnostics: &log) })
   }
 
   /// Returns the identifier of the Val IR function corresponding to `decl`.
