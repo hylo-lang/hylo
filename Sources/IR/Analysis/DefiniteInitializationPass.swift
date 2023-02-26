@@ -20,10 +20,10 @@ public struct DefiniteInitializationPass {
   ) {
 
     /// The control flow graph of the function to analyze.
-    let cfg = module[f].cfg
+    var cfg = module[f].cfg()
 
     /// The dominator tree of the function to analyze.
-    let dominatorTree = DominatorTree(function: f, cfg: cfg, in: module)
+    var dominatorTree = DominatorTree(function: f, cfg: cfg, in: module)
 
     /// A FILO list of blocks to visit.
     var work = Deque(dominatorTree.bfs)

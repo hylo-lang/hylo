@@ -45,8 +45,8 @@ public struct Function {
     _modify { yield &blocks[address] }
   }
 
-  /// The control flow graph of `self`.
-  var cfg: ControlFlowGraph {
+  /// Returns the control flow graph of `self`.
+  func cfg() -> ControlFlowGraph {
     var result = ControlFlowGraph()
 
     for source in blocks.indices {

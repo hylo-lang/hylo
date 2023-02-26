@@ -37,7 +37,7 @@ struct DominatorTree {
   /// Creates the dominator tree of the specified function.
   init(function functionID: Function.ID, cfg: ControlFlowGraph? = nil, in module: Module) {
     let function = module[functionID]
-    let cfg = cfg ?? function.cfg
+    let cfg = cfg ?? function.cfg()
 
     root = function.blocks.firstAddress!
     immediateDominators = [:]
