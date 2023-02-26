@@ -55,13 +55,13 @@ public struct Module {
   /// Accesses the given block.
   public subscript(b: Block.ID) -> Block {
     _read { yield functions[b.function]!.blocks[b.address] }
-    _modify { yield &functions[b.function]!.blocks[b.address] }
+    _modify { yield &functions[b.function]![b.address] }
   }
 
   /// Accesses the given instruction.
   public subscript(i: InstructionID) -> Instruction {
     _read { yield functions[i.function]!.blocks[i.block].instructions[i.address] }
-    _modify { yield &functions[i.function]!.blocks[i.block].instructions[i.address] }
+    _modify { yield &functions[i.function]![i.block].instructions[i.address] }
   }
 
   /// Returns the type of `operand`.
@@ -189,13 +189,13 @@ public struct Module {
     return f
   }
 
-  /// Creates a basic block at the end of the specified function and returns its identifier.
+  /// Appends a basic block to specified function and returns its identifier.
   @discardableResult
-  mutating func createBasicBlock(
-    accepting inputs: [LoweredType] = [],
-    atEndOf function: Function.ID
+  mutating func appendBlock(
+    taking parameters: [LoweredType] = [],
+    to function: Function.ID
   ) -> Block.ID {
-    let address = functions[function]!.blocks.append(Block(inputs: inputs))
+    let address = functions[function]!.appendBlock(taking: parameters)
     return Block.ID(function: function, address: address)
   }
 
@@ -237,7 +237,7 @@ public struct Module {
     at position: InstructionIndex
   ) -> [Operand] {
     insert(newInstruction) { (m, i) in
-      let address = m.functions[position.function]!.blocks[position.block].instructions
+      let address = m.functions[position.function]![position.block].instructions
         .insert(newInstruction, at: position.index)
       return InstructionID(position.function, position.block, address)
     }
@@ -251,7 +251,7 @@ public struct Module {
     before successor: InstructionID
   ) -> [Operand] {
     insert(newInstruction) { (m, i) in
-      let address = m.functions[successor.function]!.blocks[successor.block].instructions
+      let address = m.functions[successor.function]![successor.block].instructions
         .insert(newInstruction, before: successor.address)
       return InstructionID(successor.function, successor.block, address)
     }
@@ -265,7 +265,7 @@ public struct Module {
     after predecessor: InstructionID
   ) -> [Operand] {
     insert(newInstruction) { (m, i) in
-      let address = m.functions[predecessor.function]!.blocks[predecessor.block].instructions
+      let address = m.functions[predecessor.function]![predecessor.block].instructions
         .insert(newInstruction, after: predecessor.address)
       return InstructionID(predecessor.function, predecessor.block, address)
     }
@@ -285,9 +285,7 @@ public struct Module {
     }
 
     // Return the identities of the instruction's results.
-    return (0 ..< newInstruction.types.count).map({ (k) -> Operand in
-      .result(instruction: user, index: k)
-    })
+    return (0 ..< newInstruction.types.count).map({ .result(instruction: user, index: $0) })
   }
 
 }

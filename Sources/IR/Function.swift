@@ -30,9 +30,7 @@ public struct Function {
   public let output: LoweredType
 
   /// The blocks in the function.
-  ///
-  /// The first block of the array is the function's entry.
-  public internal(set) var blocks: Blocks
+  public private(set) var blocks: Blocks
 
   /// The entry of the function.
   public var entry: Block? { blocks.first }
@@ -43,6 +41,14 @@ public struct Function {
   public subscript(_ address: Blocks.Address) -> Block {
     get { blocks[address] }
     _modify { yield &blocks[address] }
+  }
+
+  /// Appends to `self` a basic block accepting given `parameters` and returns its address.
+  ///
+  /// The new block will become the function's entry if `self` contains no block before
+  /// `appendBlock` is called.
+  mutating func appendBlock(taking parameters: [LoweredType]) -> Blocks.Address {
+    blocks.append(Block(inputs: parameters))
   }
 
   /// Returns the control flow graph of `self`.

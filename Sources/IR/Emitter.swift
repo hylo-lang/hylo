@@ -74,8 +74,8 @@ public struct Emitter {
 
     // Create the function entry.
     assert(module.functions[f]!.blocks.isEmpty)
-    let entryID = module.createBasicBlock(
-      accepting: module.functions[f]!.inputs.map(\.type), atEndOf: f)
+    let entryID = module.appendBlock(
+      taking: module.functions[f]!.inputs.map(\.type), to: f)
     insertionBlock = entryID
 
     // Configure the locals.
@@ -300,9 +300,9 @@ public struct Emitter {
     }
 
     let c = program.conformance(of: l, to: program.ast.sinkableTrait, exposedTo: frames.top.scope)!
-    let assign = module.createBasicBlock(atEndOf: insertionBlock!.function)
-    let initialize = module.createBasicBlock(atEndOf: insertionBlock!.function)
-    let tail = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let assign = module.appendBlock(to: insertionBlock!.function)
+    let initialize = module.appendBlock(to: insertionBlock!.function)
+    let tail = module.appendBlock(to: insertionBlock!.function)
 
     // static_branch initialized(%lhs), assign, initialize
     module.append(
@@ -348,7 +348,7 @@ public struct Emitter {
     insertionBlock = firstBranch
     emit(braceStmt: stmt.success, into: &module)
     if let s = stmt.failure {
-      tail = module.createBasicBlock(atEndOf: insertionBlock!.function)
+      tail = module.appendBlock(to: insertionBlock!.function)
       module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
       insertionBlock = secondBranch
       emit(stmt: s, into: &module)
@@ -370,8 +370,8 @@ public struct Emitter {
   }
 
   private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed, into module: inout Module) {
-    let loopBody = module.createBasicBlock(atEndOf: insertionBlock!.function)
-    let loopTail = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let loopBody = module.appendBlock(to: insertionBlock!.function)
+    let loopTail = module.appendBlock(to: insertionBlock!.function)
     module.append(
       module.makeBranch(to: loopBody, anchoredAt: .empty(at: stmt.site.first())),
       to: insertionBlock!)
@@ -412,8 +412,8 @@ public struct Emitter {
   }
 
   private mutating func emit(whileStmt stmt: WhileStmt.Typed, into module: inout Module) {
-    let loopHead = module.createBasicBlock(atEndOf: insertionBlock!.function)
-    let loopTail = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let loopHead = module.appendBlock(to: insertionBlock!.function)
+    let loopTail = module.appendBlock(to: insertionBlock!.function)
 
     // Emit the condition(s).
     module.append(
@@ -422,7 +422,7 @@ public struct Emitter {
     insertionBlock = loopHead
 
     for item in stmt.condition {
-      let next = module.createBasicBlock(atEndOf: insertionBlock!.function)
+      let next = module.appendBlock(to: insertionBlock!.function)
 
       frames.push(.init(scope: AnyScopeID(stmt.id)))
       defer { frames.pop() }
@@ -514,7 +514,7 @@ public struct Emitter {
     }
 
     let (firstBranch, secondBranch) = emitTest(condition: expr.condition, into: &module)
-    let tail = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let tail = module.appendBlock(to: insertionBlock!.function)
 
     // Emit the success branch.
     insertionBlock = firstBranch
@@ -798,12 +798,12 @@ public struct Emitter {
   private mutating func emitTest(
     condition: [ConditionItem], into module: inout Module
   ) -> (success: Block.ID, failure: Block.ID) {
-    let failure = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let failure = module.appendBlock(to: insertionBlock!.function)
     let success = condition.reduce(insertionBlock!) { (b, c) -> Block.ID in
       switch c {
       case .expr(let e):
         let test = emitBranchCondition(program[e], into: &module)
-        let next = module.createBasicBlock(atEndOf: b.function)
+        let next = module.appendBlock(to: b.function)
         module.append(
           module.makeCondBranch(if: test, then: next, else: failure, anchoredAt: program[e].site),
           to: b)
