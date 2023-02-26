@@ -23,7 +23,7 @@ let package = Package(
       from: "0.4.0"),
     .package(
       url: "https://github.com/apple/swift-collections.git",
-      from: "1.0.0"),
+      from: "1.0.4"),
     .package(
       url: "https://github.com/val-lang/Durian.git",
       from: "1.2.0"),
