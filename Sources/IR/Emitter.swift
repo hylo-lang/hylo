@@ -247,14 +247,11 @@ public struct Emitter {
       }
 
       for (path, name) in pattern.subpattern.names {
-        let s =
-          module.append(
-            module.makeElementAddr(source, at: path, anchoredAt: name.decl.site),
-            to: insertionBlock!)[0]
-        frames[name.decl] =
-          module.append(
-            module.makeBorrow(capability, from: s, anchoredAt: name.decl.site),
-            to: insertionBlock!)[0]
+        let s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+        let b = module.append(
+          module.makeBorrow(capability, from: s, anchoredAt: name.decl.site),
+          to: insertionBlock!)[0]
+        frames[name.decl] = b
       }
     }
   }
@@ -986,6 +983,21 @@ public struct Emitter {
   }
 
   // MARK: Helpers
+
+  /// Appends the IR for computing the address of the property at `path` rooted at `base` into
+  /// `module`, anchoring new at `anchor`.
+  ///
+  /// - Returns: The result of `element_addr base, path` instruction if `path` is not empty;
+  ///   otherwise, returns `base` unchanged.
+  private mutating func emitElementAddr(
+    _ base: Operand, at path: PartPath,
+    anchoredAt anchor: SourceRange, into module: inout Module
+  ) -> Operand {
+    if path.isEmpty { return base }
+    return module.append(
+      module.makeElementAddr(base, at: path, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+  }
 
   /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
   /// block, anchoring new instructions at `anchor` into `module`.
