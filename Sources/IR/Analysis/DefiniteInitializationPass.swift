@@ -246,10 +246,18 @@ public struct DefiniteInitializationPass {
 
       for (p, a) in zip(calleeType.inputs, call.arguments) {
         switch ParameterType(p.type)!.access {
-        case .let, .inout, .set:
+        case .let, .inout:
           continue
+
+        case .set:
+          let locations = context.locals[FunctionLocal(operand: a)!]!.unwrapLocations()!
+          for l in locations {
+            context.withObject(at: l, typedIn: module.program, { $0.value = .full(.initialized) })
+          }
+
         case .sink:
           context.consume(a, with: i, at: call.site, diagnostics: &diagnostics)
+
         case .yielded:
           unreachable()
         }
