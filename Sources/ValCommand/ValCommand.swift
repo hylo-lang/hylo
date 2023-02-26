@@ -259,11 +259,7 @@ public struct ValCommand: ParsableCommand {
 
     #if os(Windows)
       if cxxCompiler == .msvc {
-        var arguments: [String] =  []
-        
-        for i in (0 ..< ccFlags.count) {
-          arguments.append("/" +  ccFlags[i])
-        } 
+        var arguments = ccFlags.map({ "/\($0)" })
         
         arguments += [buildDirectory.appendingPathComponent(productName + ".cpp").path,
           "/link", "/out:" + binaryPath]
