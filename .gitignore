@@ -17,11 +17,11 @@
 !/Sources/Parser/ValParser+Extensions.swift
 
 # Windows
-**.exe
+/Examples/**.exe
+/Examples/**.obj
 
 # Misc
 /Examples/**.vir
 /Examples/**.json
 /Examples/**.cpp
 /Examples/**.h
-/Examples/**.obj
