@@ -288,6 +288,7 @@ public struct Emitter {
       return
     }
 
+    // The RHS is evaluated before the LHS.
     let rhs = emitRValue(stmt.right, into: &module)
     let lhs = emitLValue(stmt.left, into: &module)
 
@@ -299,9 +300,34 @@ public struct Emitter {
     }
 
     let c = program.conformance(of: l, to: program.ast.sinkableTrait, exposedTo: frames.top.scope)!
+    let assign = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let initialize = module.createBasicBlock(atEndOf: insertionBlock!.function)
+    let tail = module.createBasicBlock(atEndOf: insertionBlock!.function)
+
+    // static_branch initialized(%lhs), assign, initialize
+    module.append(
+      module.makeStaticBranch(
+        if: lhs, is: .initialized, then: assign, else: initialize,
+        anchoredAt: stmt.site),
+      to: insertionBlock!)
+
+    // %x0 = borrow [inout] %lhs
+    // %x1 = call @T.take_value.inout, %x0, %rhs
+    insertionBlock = assign
+    emitMove(
+      .inout, of: lhs, to: rhs, withSinkableConformance: c,
+      anchoredAt: stmt.site, into: &module)
+    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
+
+    // %y0 = borrow [set] %lhs
+    // %y1 = call @T.take_value.set, %y0, %rhs
+    insertionBlock = initialize
     emitMove(
       .set, of: lhs, to: rhs, withSinkableConformance: c,
       anchoredAt: stmt.site, into: &module)
+    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
+
+    insertionBlock = tail
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
