@@ -167,6 +167,14 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
           output.write("return ")
           output.write(describe(operand: instruction.object))
 
+        case let instruction as StaticBranchInstruction:
+          output.write("static_branch \(instruction.predicate)(")
+          output.write(describe(operand: instruction.subject))
+          output.write("), ")
+          output.write(blockNames[instruction.targetIfTrue]!)
+          output.write(", ")
+          output.write(blockNames[instruction.targetIfFalse]!)
+
         case let instruction as StoreInstruction:
           output.write("store ")
           output.write(describe(operand: instruction.object))

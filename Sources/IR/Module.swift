@@ -55,13 +55,13 @@ public struct Module {
   /// Accesses the given block.
   public subscript(b: Block.ID) -> Block {
     _read { yield functions[b.function]!.blocks[b.address] }
-    _modify { yield &functions[b.function]!.blocks[b.address] }
+    _modify { yield &functions[b.function]![b.address] }
   }
 
   /// Accesses the given instruction.
   public subscript(i: InstructionID) -> Instruction {
     _read { yield functions[i.function]!.blocks[i.block].instructions[i.address] }
-    _modify { yield &functions[i.function]!.blocks[i.block].instructions[i.address] }
+    _modify { yield &functions[i.function]![i.block].instructions[i.address] }
   }
 
   /// Returns the type of `operand`.
@@ -171,14 +171,20 @@ public struct Module {
     return f
   }
 
-  /// Creates a basic block at the end of the specified function and returns its identifier.
+  /// Appends a basic block to specified function and returns its identifier.
   @discardableResult
-  mutating func createBasicBlock(
-    accepting inputs: [LoweredType] = [],
-    atEndOf function: Function.ID
+  mutating func appendBlock(
+    taking parameters: [LoweredType] = [],
+    to function: Function.ID
   ) -> Block.ID {
-    let address = functions[function]!.blocks.append(Block(inputs: inputs))
+    let address = functions[function]!.appendBlock(taking: parameters)
     return Block.ID(function: function, address: address)
+  }
+
+  /// Removes `block` from its function.
+  @discardableResult
+  mutating func removeBlock(_ block: Block.ID) -> Block {
+    functions[block.function]!.removeBlock(block.address)
   }
 
   /// Returns the global "past the end" position of `block`.
@@ -193,6 +199,22 @@ public struct Module {
       return InstructionID(block, a)
     } else {
       return nil
+    }
+  }
+
+  /// Swaps `old` by `new` and returns the identities of the latter's return values.
+  ///
+  /// `oldInstruction` is removed from to module. The def-use chains are updated.
+  @discardableResult
+  mutating func replace<I: Instruction>(_ old: InstructionID, by new: I) -> [Operand] {
+    // Remove `oldInstruction` for all def-use chains.
+    for o in self[old].operands {
+      uses[o]?.removeAll(where: { $0.user == old })
+    }
+
+    return insert(new) { (m, i) in
+      m[old] = i
+      return old
     }
   }
 
@@ -219,7 +241,7 @@ public struct Module {
     at position: InstructionIndex
   ) -> [Operand] {
     insert(newInstruction) { (m, i) in
-      let address = m.functions[position.function]!.blocks[position.block].instructions
+      let address = m.functions[position.function]![position.block].instructions
         .insert(newInstruction, at: position.index)
       return InstructionID(position.function, position.block, address)
     }
@@ -233,7 +255,7 @@ public struct Module {
     before successor: InstructionID
   ) -> [Operand] {
     insert(newInstruction) { (m, i) in
-      let address = m.functions[successor.function]!.blocks[successor.block].instructions
+      let address = m.functions[successor.function]![successor.block].instructions
         .insert(newInstruction, before: successor.address)
       return InstructionID(successor.function, successor.block, address)
     }
@@ -247,7 +269,7 @@ public struct Module {
     after predecessor: InstructionID
   ) -> [Operand] {
     insert(newInstruction) { (m, i) in
-      let address = m.functions[predecessor.function]!.blocks[predecessor.block].instructions
+      let address = m.functions[predecessor.function]![predecessor.block].instructions
         .insert(newInstruction, after: predecessor.address)
       return InstructionID(predecessor.function, predecessor.block, address)
     }
@@ -267,9 +289,7 @@ public struct Module {
     }
 
     // Return the identities of the instruction's results.
-    return (0 ..< newInstruction.types.count).map({ (k) -> Operand in
-      .result(instruction: user, index: k)
-    })
+    return (0 ..< newInstruction.types.count).map({ .result(instruction: user, index: $0) })
   }
 
 }
