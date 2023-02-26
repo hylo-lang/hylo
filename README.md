@@ -38,7 +38,14 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--emit raw-ir`: Lower the typed AST into Val IR and output the result in a file.
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
 - `--emit cpp`: Produce a C++ source file.
-- `--emit binary` (default): Produce an executable (Clang is required for now).
+- `--emit binary` (default): Produce an executable 
+  - Note: by default, C++ files will be compiled with `Clang`. Use `--cc {CXX compiler}` to use another compiler.
+  - Note: You can specify parameters for the CXX compiler to use (e.g., `--cc-flags O3`).
+    - Note: Don't add an extraneous `-`, please use `O3` instead of `-O3`. 
+    - Note to MSVC users: Don't add an extraneous `/`, please use `O1` instead of `/O1`. 
+    - Note: You can also add more than one such option (e.g., `--cc-flags O1 --cc-flags g`).
+    - Note: Do not use `--cc-flags` to specify output locations; use `-o` instead.
+  - Note to MSVC users: be sure to use Visual Studio Developer Command Prompt or Visual Studio Developer PowerShell.
 
 For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
 

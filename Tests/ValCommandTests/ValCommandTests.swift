@@ -68,6 +68,18 @@ final class ValCommandTests: XCTestCase {
     #endif
   }
 
+  func testBinaryWithCCFlags() throws {
+    let result = try compile(["--emit", "binary", "--cc-flags", "O3"], newFile(containing: "public fun main() {}"))
+    XCTAssert(result.status.isSuccess)
+    XCTAssert(result.stderr.isEmpty)
+
+    #if os(Windows)
+      XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath + ".exe"))
+    #else
+      XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
+    #endif
+  }
+
   func testParseFailure() throws {
     let valSource = try newFile(containing: "fun x")
     let result = try compile([], valSource)

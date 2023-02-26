@@ -40,6 +40,27 @@ public struct ValCommand: ParsableCommand {
 
   }
 
+  /// CXXCompiler that can be choose
+  private enum CXXCompiler: ExpressibleByArgument {
+
+    case gcc
+
+    case msvc
+
+    case clang
+
+    init?(argument: String) {
+      switch argument {
+      case "gcc": self = .gcc
+      #if os(Windows)
+        case "msvc": self = .msvc
+      #endif
+      case "clang": self = .clang
+      default: return nil
+      }
+    }
+  }
+
   /// An error indicating that the compiler's environment is not properly configured.
   fileprivate struct EnvironmentError: Error {
 
@@ -83,6 +104,20 @@ public struct ValCommand: ParsableCommand {
       "Emit the specified type output files. From: raw-ast, raw-ir, ir, cpp, binary",
       valueName: "output-type"))
   private var outputType: OutputType = .binary
+
+  @Option(
+    name: [.customLong("cc")],
+    help: ArgumentHelp(
+      "Customize the CXX compiler used by the Val backend. From: clang, gcc, msvc(Windows only)",
+      valueName: "CXXCompiler"))
+  private var cxxCompiler: CXXCompiler = .clang
+
+  @Option(
+    name: [.customLong("cc-flags")],
+    help: ArgumentHelp(
+      "Specify flags for the CXX compiler to use",
+      valueName: "CXXCompilerFlags"))
+  private var ccFlags: [String] = []
 
   @Option(
     name: [.customShort("o")],
@@ -212,21 +247,41 @@ public struct ValCommand: ParsableCommand {
     try write(
       cxxModules.source, to: buildDirectory.appendingPathComponent(productName),
       loggingTo: &errorLog)
-
-    let clang = try find("clang++")
-
+      
+    var compiler = ""
+    switch cxxCompiler {
+      case .clang: compiler = try find("clang++")
+      case .gcc: compiler = try find("g++")
+      case .msvc: compiler = try find("cl")
+    }
+    
     let binaryPath = executablePath(outputURL, productName)
 
+    #if os(Windows)
+      if cxxCompiler == .msvc {
+        var arguments = ccFlags.map({ "/\($0)" })
+        
+        arguments += [buildDirectory.appendingPathComponent(productName + ".cpp").path,
+          "/link", "/out:" + binaryPath]
+
+        try runCommandLine(
+          compiler,
+          arguments,
+          loggingTo: &errorLog)
+        return
+      } 
+    #endif
+
+    var arguments = ["-o", binaryPath, "-I", buildDirectory.path, 
+      buildDirectory.appendingPathComponent(productName + ".cpp").path]
+    
+    arguments += ccFlags.map({ "-\($0)" })
+
     try runCommandLine(
-      clang,
-      [
-        "-o", binaryPath,
-        "-I", buildDirectory.path,
-        buildDirectory.appendingPathComponent(productName + ".cpp").path,
-      ],
+      compiler,
+      arguments,
       loggingTo: &errorLog)
   }
-
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
   /// `u` without any path extension and stripping all leading dots. Otherwise, returns "Main".
   private func makeProductName(_ inputs: [URL]) -> String {
