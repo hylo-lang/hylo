@@ -10,8 +10,8 @@ public struct Conformance {
     /// Concrete implementation.
     case concrete(AnyDeclID)
 
-    /// Synthesized implementation.
-    case synthetic
+    /// Synthesized implementation with given type.
+    case synthetic(AnyType)
 
     /// The payload of `.concrete` or `nil` if `self == .synthetic`.
     public var decl: AnyDeclID? {
@@ -33,7 +33,7 @@ public struct Conformance {
   /// The conditions under which this conformance holds.
   public let conditions: [Constraint]
 
-  /// The outermost scope in which this conformance holds.
+  /// The outermost scope in which this conformance is exposed.
   public let scope: AnyScopeID
 
   /// A map from requirement of `concept` to the declaration implementing it in `model`.

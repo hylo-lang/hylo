@@ -137,7 +137,7 @@ extension TypedNode where ID: ScopeID {
 
   /// The module containing this scope.
   public var module: ModuleDecl.Typed {
-    .init(program.module(containing: id)!, in: program)
+    .init(program.module(containing: id), in: program)
   }
 
 }

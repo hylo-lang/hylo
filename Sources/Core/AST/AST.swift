@@ -128,7 +128,7 @@ public struct AST {
 
   /// Returns the trait named `name` defined in the core library or `nil` if it does not exist.
   ///
-  /// - Requires: The core library must be loaded and assigned to `self.coreLibrary`.
+  /// - Requires: The Core library must have been loaded.
   public func coreTrait(named name: String) -> TraitType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
@@ -145,7 +145,7 @@ public struct AST {
   /// Returns the trait describing types whose instances are expressible by this literal or `nil`
   /// if it does not exist.
   ///
-  /// - Requires: The core library must be loaded and assigned to `self.coreLibrary`.
+  /// - Requires: The Core library must have been loaded.
   public func coreTrait<T: Expr>(forTypesExpressibleBy literal: T.Type) -> TraitType? {
     switch literal.kind {
     case FloatLiteralExpr.self:
@@ -156,6 +156,11 @@ public struct AST {
       return nil
     }
   }
+
+  /// `Val.Sinkable` trait from the Core library.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public var sinkableTrait: TraitType { coreTrait(named: "Sinkable")! }
 
   // MARK: Helpers
 

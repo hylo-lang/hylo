@@ -13,6 +13,9 @@ public struct TypedProgram: Program {
 
   public let varToBinding: [VarDecl.ID: BindingDecl.ID]
 
+  /// A map from translation unit to its imports.
+  public let imports: [TranslationUnit.ID: Set<ModuleDecl.ID>]
+
   /// The overarching type of each declaration.
   public let declTypes: DeclProperty<AnyType>
 
@@ -41,6 +44,7 @@ public struct TypedProgram: Program {
   /// - Requires: All modules in `program` have been sucessfully typed checked.
   public init(
     annotating program: ScopedProgram,
+    imports: [TranslationUnit.ID: Set<ModuleDecl.ID>],
     declTypes: DeclProperty<AnyType>,
     exprTypes: ExprProperty<AnyType>,
     implicitCaptures: DeclProperty<[ImplicitCapture]>,
@@ -56,6 +60,7 @@ public struct TypedProgram: Program {
     self.declToScope = program.declToScope
     self.exprToScope = program.exprToScope
     self.varToBinding = program.varToBinding
+    self.imports = imports
     self.declTypes = declTypes
     self.exprTypes = exprTypes
     self.implicitCaptures = implicitCaptures

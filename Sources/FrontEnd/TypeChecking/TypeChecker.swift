@@ -394,7 +394,7 @@ public struct TypeChecker {
     _check(decl: d, { (this, d) in this._check(extension: d) })
   }
 
-  private mutating func _check(extension d: ExtensionDecl.ID){
+  private mutating func _check(extension d: ExtensionDecl.ID) {
     let s = AnyScopeID(d)
     guard let receiver = realize(ast[d].subject, in: s)?.instance else { return }
 
@@ -763,7 +763,7 @@ public struct TypeChecker {
     to trait: TraitType,
     declaredAt declSite: SourceRange,
     in declScope: AnyScopeID
-  )  {
+  ) {
     guard let c = checkConformance(of: model, to: trait, declaredAt: declSite, in: declScope)
     else {
       // Diagnostics have been reported by `checkConformance`.
@@ -803,7 +803,7 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else if program.isSynthesizable(d) {
-        implementations[d] = .synthetic
+        implementations[d] = .synthetic(t)
       } else {
         notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
       }
@@ -823,7 +823,7 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else if program.isSynthesizable(d) {
-        implementations[d] = .synthetic
+        implementations[d] = .synthetic(t)
       } else {
         let n = m.appending(ast[d].introducer.value)!
         notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
@@ -862,14 +862,19 @@ public struct TypeChecker {
       }
     }
 
-    if !notes.containsError {
-      return Conformance(
-        model: model, concept: trait, conditions: [], scope: declScope,
-        implementations: implementations, site: declSite)
-    } else {
+    if notes.containsError {
       diagnostics.insert(.error(model, doesNotConformTo: trait, at: declSite, because: notes))
       return nil
     }
+
+    // Conformances at file scope are exposed in the whole module. Other conformances are exposed
+    // in their containing scope.
+    let expositionScope = reading(program.scopeToParent[declScope]!) { (s) in
+      (s.kind == TranslationUnit.self) ? AnyScopeID(program.module(containing: s)) : s
+    }
+    return Conformance(
+      model: model, concept: trait, conditions: [], scope: expositionScope,
+      implementations: implementations, site: declSite)
   }
 
   /// Returns the declaration exposed to `scope` of a callable member in `model` that introduces
@@ -1903,9 +1908,7 @@ public struct TypeChecker {
     in scope: AnyScopeID
   ) -> [OperatorDecl.ID] {
     let currentModule = program.module(containing: scope)
-    if let module = currentModule,
-      let oper = lookup(operator: operatorName, notation: notation, in: module)
-    {
+    if let oper = lookup(operator: operatorName, notation: notation, in: currentModule) {
       return [oper]
     }
 

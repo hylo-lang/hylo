@@ -72,7 +72,6 @@ extension Function: CustomStringConvertible {
 
 }
 
-
 extension Function {
 
   /// The global identity of an IR function.
@@ -82,10 +81,13 @@ extension Function {
     private enum Value: Hashable {
 
       /// The identity of a lowered Val function or method variant.
-      case val(AnyNodeID)
+      case lowered(AnyNodeID)
 
-      /// The identity of a synthesized IR function.
-      case synthetic(UUID)
+      /// The identity of a requirement synthesized for some type.
+      ///
+      /// The payload is a pair (D, U) where D is the declaration of a requirement and T is a type
+      /// conforming to the trait defining D.
+      case synthesized(AnyNodeID, for: AnyType)
 
     }
 
@@ -94,7 +96,12 @@ extension Function {
 
     /// Creates the identity of the lowered form of `f`.
     public init(_ f: FunctionDecl.ID) {
-      self.value = .val(AnyNodeID(f))
+      self.value = .lowered(AnyNodeID(f))
+    }
+
+    /// Creates the identity of synthesized requirement `r` for type `t`.
+    public init(synthesized r: MethodImpl.ID, for t: AnyType) {
+      self.value = .synthesized(AnyNodeID(r), for: t)
     }
 
   }
@@ -105,10 +112,10 @@ extension Function.ID: CustomStringConvertible {
 
   public var description: String {
     switch value {
-    case .val(let id):
+    case .lowered(let id):
       return "\(id).lowered"
-    case .synthetic(let uuid):
-      return uuid.description
+    case .synthesized(let r, let t):
+      return "\"synthesized \(r) for \(t)\""
     }
   }
 

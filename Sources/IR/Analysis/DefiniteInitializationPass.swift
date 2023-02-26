@@ -242,7 +242,7 @@ public struct DefiniteInitializationPass {
         context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
       }
 
-      for (p, a) in zip(calleeType.inputs, call.operands) {
+      for (p, a) in zip(calleeType.inputs, call.arguments) {
         switch ParameterType(p.type)!.access {
         case .let, .inout, .set:
           continue
@@ -812,7 +812,7 @@ extension DefiniteInitializationPass {
 
       for i in 0 ..< function.inputs.count {
         let (parameterConvention, parameterType) = function.inputs[i]
-        let parameterKey = FunctionLocal.param(block: entryAddress, index: i)
+        let parameterKey = FunctionLocal.parameter(block: entryAddress, index: i)
         let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
 
         switch parameterConvention {

@@ -205,7 +205,7 @@ extension Program {
 
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
   public func scopes<S: ScopeID>(from scope: S) -> LexicalScopeSequence {
-    LexicalScopeSequence(scopeToParent: scopeToParent, current: AnyScopeID(scope))
+    LexicalScopeSequence(scopeToParent: scopeToParent, from: scope)
   }
 
   /// Returns the innermost type scope containing `d`.
@@ -214,12 +214,15 @@ extension Program {
   }
 
   /// Returns the module containing `scope`.
-  public func module<S: ScopeID>(containing scope: S) -> ModuleDecl.ID? {
-    var last = AnyScopeID(scope)
-    while let parent = scopeToParent[last] {
-      last = parent
-    }
-    return NodeID(last)
+  public func module<S: ScopeID>(containing scope: S) -> ModuleDecl.ID {
+    scopes(from: scope).first(ModuleDecl.self)!
+  }
+
+  /// Returns the translation unit containing `scope`.
+  ///
+  /// - Requires:`scope` is not a module.
+  public func source<S: ScopeID>(containing scope: S) -> TranslationUnit.ID {
+    scopes(from: scope).first(TranslationUnit.self)!
   }
 
 }
