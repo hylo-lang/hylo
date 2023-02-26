@@ -117,7 +117,7 @@ public struct ValCommand: ParsableCommand {
     help: ArgumentHelp(
       "Specify flags for the CXX compiler to use",
       valueName: "CXXCompilerFlags"))
-  private var ccFlags: [String]
+  private var ccFlags: [String] = ["Empty"]
 
   @Option(
     name: [.customShort("o")],
@@ -261,9 +261,11 @@ public struct ValCommand: ParsableCommand {
       if customizeCXXCompiler == .msvc {
         var arguments =  [ buildDirectory.appendingPathComponent(productName + ".cpp").path,
           "/link", "/out:" + binaryPath]
-
-        for i in (0 ..< ccFlags.count) {
-          arguments.append("-" +  ccFlags[i])
+        debugPrint(ccFlags)
+        if ccFlags != ["Empty"] {
+          for i in (0 ..< ccFlags.count) {
+            arguments.append("-" +  ccFlags[i])
+          } 
         } 
 
         try runCommandLine(
@@ -276,9 +278,11 @@ public struct ValCommand: ParsableCommand {
 
     var arguments = ["-o", binaryPath, "-I", buildDirectory.path, 
       buildDirectory.appendingPathComponent(productName + ".cpp").path]
-      
-    for i in (0 ..< ccFlags.count) {
+    
+    if ccFlags != ["Empty"] {
+      for i in (0 ..< ccFlags.count) {
         arguments.append("-" +  ccFlags[i])
+      } 
     } 
 
     try runCommandLine(
