@@ -1,6 +1,8 @@
 import Core
 
 /// Branches depending on a condition evaluated statically during flow-sensitive analysis.
+///
+/// - Invariant: The successor blocks of this instruction must be immediately dominated by it.
 public struct StaticBranchInstruction: Instruction {
 
   /// The property expected on the operand of a static branch.
@@ -71,7 +73,7 @@ extension Module {
     }
 
     return StaticBranchInstruction(
-      if: subject, is: predicate, then: targetIfTrue, else: targetIfTrue,
+      if: subject, is: predicate, then: targetIfTrue, else: targetIfFalse,
       anchoredAt: anchor)
   }
 
