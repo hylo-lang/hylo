@@ -93,7 +93,7 @@ extension Module {
       { (blocks, use) in blocks.insert(use.user.block) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
-    let cfg = functions[site.function]!.cfg
+    let cfg = functions[site.function]!.cfg()
     var approximateCoverage: [Function.Blocks.Address: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
     while true {
       guard let occurence = occurences.popFirst() else { break }

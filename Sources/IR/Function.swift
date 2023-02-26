@@ -30,9 +30,7 @@ public struct Function {
   public let output: LoweredType
 
   /// The blocks in the function.
-  ///
-  /// The first block of the array is the function's entry.
-  public internal(set) var blocks: Blocks
+  public private(set) var blocks: Blocks
 
   /// The entry of the function.
   public var entry: Block? { blocks.first }
@@ -45,17 +43,34 @@ public struct Function {
     _modify { yield &blocks[address] }
   }
 
-  /// The control flow graph of `self`.
-  var cfg: ControlFlowGraph {
+  /// Appends to `self` a basic block accepting given `parameters` and returns its address.
+  ///
+  /// The new block will become the function's entry if `self` contains no block before
+  /// `appendBlock` is called.
+  mutating func appendBlock(taking parameters: [LoweredType]) -> Blocks.Address {
+    blocks.append(Block(inputs: parameters))
+  }
+
+  /// Removes the block at `address`.
+  @discardableResult
+  mutating func removeBlock(_ address: Blocks.Address) -> Block {
+    blocks.remove(at: address)
+  }
+
+  /// Returns the control flow graph of `self`.
+  func cfg() -> ControlFlowGraph {
     var result = ControlFlowGraph()
 
     for source in blocks.indices {
       switch blocks[source.address].instructions.last {
-      case let instruction as BranchInstruction:
-        result.define(source.address, predecessorOf: instruction.target.address)
-      case let instruction as CondBranchInstruction:
-        result.define(source.address, predecessorOf: instruction.targetIfTrue.address)
-        result.define(source.address, predecessorOf: instruction.targetIfFalse.address)
+      case let s as BranchInstruction:
+        result.define(source.address, predecessorOf: s.target.address)
+      case let s as CondBranchInstruction:
+        result.define(source.address, predecessorOf: s.targetIfTrue.address)
+        result.define(source.address, predecessorOf: s.targetIfFalse.address)
+      case let s as StaticBranchInstruction:
+        result.define(source.address, predecessorOf: s.targetIfTrue.address)
+        result.define(source.address, predecessorOf: s.targetIfFalse.address)
       default:
         break
       }

@@ -20,10 +20,10 @@ public struct DefiniteInitializationPass {
   ) {
 
     /// The control flow graph of the function to analyze.
-    let cfg = module[f].cfg
+    var cfg = module[f].cfg()
 
     /// The dominator tree of the function to analyze.
-    let dominatorTree = DominatorTree(function: f, cfg: cfg, in: module)
+    var dominatorTree = DominatorTree(function: f, cfg: cfg, in: module)
 
     /// A FILO list of blocks to visit.
     var work = Deque(dominatorTree.bfs)
@@ -120,6 +120,8 @@ public struct DefiniteInitializationPass {
           interpret(record: user, in: &newContext)
         case is ReturnInstruction:
           interpret(return: user, in: &newContext)
+        case is StaticBranchInstruction:
+          interpret(staticBranch: user, in: &newContext)
         case is StoreInstruction:
           interpret(store: user, in: &newContext)
         case is UnrechableInstruction:
@@ -244,10 +246,18 @@ public struct DefiniteInitializationPass {
 
       for (p, a) in zip(calleeType.inputs, call.arguments) {
         switch ParameterType(p.type)!.access {
-        case .let, .inout, .set:
+        case .let, .inout:
           continue
+
+        case .set:
+          let locations = context.locals[FunctionLocal(operand: a)!]!.unwrapLocations()!
+          for l in locations {
+            context.withObject(at: l, typedIn: module.program, { $0.value = .full(.initialized) })
+          }
+
         case .sink:
           context.consume(a, with: i, at: call.site, diagnostics: &diagnostics)
+
         case .yielded:
           unreachable()
         }
@@ -389,6 +399,43 @@ public struct DefiniteInitializationPass {
     func interpret(return i: InstructionID, in context: inout Context) {
       let x = module[i] as! ReturnInstruction
       context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(staticBranch i: InstructionID, in context: inout Context) {
+      let s = module[i] as! StaticBranchInstruction
+      if s.predicate != .initialized { fatalError("not implemented") }
+
+      // Subject must be a location.
+      let locations: Set<MemoryLocation>
+      if let k = FunctionLocal(operand: s.subject) {
+        locations = context.locals[k]!.unwrapLocations()!
+      } else {
+        // Operand is a constant.
+        fatalError("not implemented")
+      }
+
+      let v = context.memory[locations.first!]?.value
+      assert(locations.allSatisfy({ context.memory[$0]?.value == v }), "bad context")
+
+      switch v {
+      case .full(.initialized):
+        module.removeBlock(s.targetIfFalse)
+        module.replace(i, by: module.makeBranch(to: s.targetIfTrue, anchoredAt: s.site))
+        work.remove(at: work.firstIndex(of: s.targetIfFalse.address)!)
+
+      case .full(.uninitialized):
+        module.removeBlock(s.targetIfTrue)
+        module.replace(i, by: module.makeBranch(to: s.targetIfFalse, anchoredAt: s.site))
+        work.remove(at: work.firstIndex(of: s.targetIfTrue.address)!)
+
+      default:
+        fatalError("not implemented")
+      }
+
+      // Recompute the control flow graph and dominator tree.
+      cfg = module.functions[f]!.cfg()
+      dominatorTree = .init(function: f, cfg: cfg, in: module)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
