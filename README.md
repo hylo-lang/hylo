@@ -44,7 +44,7 @@ You can select how deep the compiler should go through the pipeline with the fol
     - Note: Don't add an extraneous `-`, please use `O3` instead of `-O3`. 
     - Note to MSVC users: Don't add an extraneous `/`, please use `O1` instead of `/O1`. 
     - You can also add more than one such parameter.
-    - If you want to specify output file name or something like that, please use the Val command line argument instead of `--cc-flags`.
+    - Note: Do not use `--cc-flags` to specify output locations; use `-o` instead.
   - Note to MSVC users: be sure to use Visual Studio Developer Command Prompt or Visual Studio Developer PowerShell.
 
 For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
