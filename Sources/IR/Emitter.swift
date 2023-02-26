@@ -292,9 +292,19 @@ public struct Emitter {
     }
 
     let rhs = emitRValue(stmt.right, into: &module)
-    // FIXME: Should request the capability 'set or inout'.
-    let lhs = emitLValue(stmt.left, meantFor: .set, into: &module)
-    module.append(module.makeStore(rhs, at: lhs, anchoredAt: stmt.site), to: insertionBlock!)
+    let lhs = emitLValue(stmt.left, into: &module)
+
+    // Built-in types do not require deinitialization.
+    let l = program.relations.canonical(stmt.left.type)
+    if l.base is BuiltinType {
+      emitInitialization(of: lhs, to: rhs, anchoredAt: stmt.site, into: &module)
+      return
+    }
+
+    let c = program.conformance(of: l, to: program.ast.sinkableTrait, exposedTo: frames.top.scope)!
+    emitMove(
+      .set, of: lhs, to: rhs, withSinkableConformance: c,
+      anchoredAt: stmt.site, into: &module)
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
@@ -978,7 +988,7 @@ public struct Emitter {
   // MARK: Helpers
 
   /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
-  /// block, anchoring new instructions at `anchor`.
+  /// block, anchoring new instructions at `anchor` into `module`.
   private mutating func emitInitialization(
     of storage: Operand,
     to value: Operand,
@@ -991,6 +1001,41 @@ public struct Emitter {
     module.append(
       module.makeStore(value, at: s, anchoredAt: anchor),
       to: insertionBlock!)
+  }
+
+  /// Appends the IR for a call to move-initialize/assign `storage` with `value` into `module`,
+  /// using conformance `c` to identify the implementations of these operations and anchoring new
+  /// instructions at `anchor`.
+  ///
+  /// Use pass `.set` or `.inout` to `access` to use the move-initialization or move-assignment,
+  /// respectively.
+  private mutating func emitMove(
+    _ access: AccessEffect,
+    of storage: Operand,
+    to value: Operand,
+    withSinkableConformance c: Conformance,
+    anchoredAt anchor: SourceRange,
+    into module: inout Module
+  ) {
+    let moveInit = program.moveDecl(.set)
+    switch c.implementations[moveInit]! {
+    case .concrete:
+      fatalError("not implemented")
+
+    case .synthetic(let t):
+      let calleeType = LambdaType(t)!.lifted
+      let ref = FunctionRef(
+        to: .init(synthesized: program.moveDecl(access), for: module.type(of: storage).astType),
+        type: .address(calleeType))
+      let fun = Operand.constant(.function(ref))
+
+      let receiver = module.append(
+        module.makeBorrow(access, from: storage, anchoredAt: anchor),
+        to: insertionBlock!)[0]
+      module.append(
+        module.makeCall(applying: fun, to: [receiver, value], anchoredAt: anchor),
+        to: insertionBlock!)
+    }
   }
 
   /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
@@ -1081,6 +1126,47 @@ extension Diagnostic {
     at site: SourceRange
   ) -> Diagnostic {
     .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
+  }
+
+}
+
+extension TypedProgram {
+
+  /// Returns the conformance of `model` to `concept` exposed to `useSite` or `nil` if no such
+  /// conformance exists.
+  fileprivate func conformance(
+    of model: AnyType, to concept: TraitType, exposedTo useSite: AnyScopeID
+  ) -> Conformance? {
+    guard
+      let allConformances = relations.conformances[relations.canonical(model)],
+      let conformancesToConcept = allConformances[concept]
+    else { return nil }
+
+    // Return the first conformance exposed to `useSite`,
+    let fileImports = imports[source(containing: useSite), default: []]
+    return conformancesToConcept.first { (c) in
+      if let m = ModuleDecl.ID(c.scope), fileImports.contains(m) {
+        return true
+      } else {
+        return isContained(useSite, in: c.scope)
+      }
+    }
+  }
+
+  /// Returns the declaration of `Sinkable.take_value`'s requirement for given `access`.
+  ///
+  /// Use the access `.set` or `.inout` to get the declaration of the move-initialization or
+  /// move-assignment, respectively.
+  ///
+  /// - Requires: `access` is either `.set` or `.inout`.
+  fileprivate func moveDecl(_ access: AccessEffect) -> MethodImpl.ID {
+    ast[ast.sinkableTrait.decl].members.first { (m) -> MethodImpl.ID? in
+      guard
+        let d = MethodDecl.ID(m),
+        ast[d].identifier.value == "take_value"
+      else { return nil }
+      return ast[d].impls.first(where: { ast[$0].introducer.value == access })
+    }!
   }
 
 }
