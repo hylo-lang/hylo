@@ -110,7 +110,7 @@ public struct ValCommand: ParsableCommand {
     help: ArgumentHelp(
       "Customize the CXX compiler used by the Val backend. From: clang, gcc, msvc(Windows only)",
       valueName: "CXXCompiler"))
-  private var customizeCXXCompiler: CXXCompiler = .clang
+  private var cxxCompiler: CXXCompiler = .clang
 
   @Option(
     name: [.customLong("cc-flags")],
@@ -249,7 +249,7 @@ public struct ValCommand: ParsableCommand {
       loggingTo: &errorLog)
       
     var compiler = ""
-    switch customizeCXXCompiler {
+    switch cxxCompiler {
       case .clang: compiler = try find("clang++")
       case .gcc: compiler = try find("g++")
       case .msvc: compiler = try find("cl")
@@ -258,13 +258,15 @@ public struct ValCommand: ParsableCommand {
     let binaryPath = executablePath(outputURL, productName)
 
     #if os(Windows)
-      if customizeCXXCompiler == .msvc {
-        var arguments =  [ buildDirectory.appendingPathComponent(productName + ".cpp").path,
-          "/link", "/out:" + binaryPath]
+      if cxxCompiler == .msvc {
+        var arguments: [String] =  []
         
         for i in (0 ..< ccFlags.count) {
-          arguments.append("-" +  ccFlags[i])
+          arguments.append("/" +  ccFlags[i])
         } 
+        
+        arguments += [buildDirectory.appendingPathComponent(productName + ".cpp").path,
+          "/link", "/out:" + binaryPath]
 
         try runCommandLine(
           compiler,
