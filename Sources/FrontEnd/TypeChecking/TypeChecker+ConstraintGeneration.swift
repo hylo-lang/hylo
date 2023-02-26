@@ -674,7 +674,7 @@ extension TypeChecker {
 
     // Case 3c
     let candidates = lookup(
-      "[]", memberOf: state.facts.inferredTypes[syntax.callee]!, in: scope)
+      "[]", memberOf: state.facts.inferredTypes[syntax.callee]!, exposedTo: scope)
     switch candidates.count {
     case 0:
       report(
@@ -1103,7 +1103,7 @@ extension TypeChecker {
     for i in tail.indices {
       // Search for the operator declaration.
       let operatorStem = ast[tail[i].operator].name.value.stem
-      let candidates = lookup(operator: operatorStem, notation: .infix, in: scope)
+      let candidates = lookup(operator: operatorStem, notation: .infix, exposedTo: scope)
 
       switch candidates.count {
       case 0:
