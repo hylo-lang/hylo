@@ -1,20 +1,5 @@
 import Core
 
-/// The lifetime pass.
-public struct LifetimePass {
-
-  /// Inserts `end_borrow` instructions after the last use of each `borrow` instruction in `f`,
-  /// where `f` is in `module`.
-  public func run(
-    function f: Function.ID,
-    module: inout Module,
-    diagnostics: inout DiagnosticSet
-  ) {
-    module.closeBorrows(in: f, diagnostics: &diagnostics)
-  }
-
-}
-
 extension Module {
 
   /// Inserts `end_borrow` instructions after the last use of each `borrow` instruction in `f`,

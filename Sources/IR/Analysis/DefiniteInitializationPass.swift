@@ -2,20 +2,6 @@ import Core
 import DequeModule
 import Utils
 
-public struct DefiniteInitializationPass {
-
-  /// Reports any use-before-initialization errors in `f` into `diagnostics`, where `f` is in
-  /// `module`.
-  public func run(
-    function f: Function.ID,
-    module: inout Module,
-    diagnostics: inout DiagnosticSet
-  ) {
-    module.normalizeObjectStates(in: f, diagnostics: &diagnostics)
-  }
-
-}
-
 extension Module {
 
   /// Ensures that objects in `f` are initialized before use and deinitialized after last use,

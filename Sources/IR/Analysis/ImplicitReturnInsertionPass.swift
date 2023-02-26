@@ -1,23 +1,5 @@
 import Core
 
-/// A transformation pass that inserts return instructions.
-public struct ImplicitReturnInsertionPass {
-
-  /// Creates a new pass.
-  public init() {}
-
-  /// If `f` returns `Void`, inserts `return` instructions in all basic blocks without a terminator
-  /// instruction. Otherwise, report missing return values. `f` is in `module`.
-  public func run(
-    function f: Function.ID,
-    module: inout Module,
-    diagnostics: inout DiagnosticSet
-  ) {
-    module.insertImplicitReturns(in: f, diagnostics: &diagnostics)
-  }
-
-}
-
 extension Module {
 
   /// If `f` returns `Void`, inserts `return` instructions in all basic blocks without a terminator
