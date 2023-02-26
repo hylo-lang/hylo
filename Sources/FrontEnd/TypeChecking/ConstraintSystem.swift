@@ -483,7 +483,7 @@ struct ConstraintSystem {
     }
 
     // Generate the list of candidates.
-    let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, in: scope)
+    let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, exposedTo: scope)
       .compactMap({ checker.decl(in: $0, named: goal.memberName) })
     let candidates = matches.compactMap({ (match) -> OverloadConstraint.Predicate? in
       // Realize the type of the declaration and skip it if that fails.

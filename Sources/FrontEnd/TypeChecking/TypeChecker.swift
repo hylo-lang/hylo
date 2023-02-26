@@ -77,7 +77,7 @@ public struct TypeChecker {
       case let t as AssociatedTypeType:
         let d = t.domain.transform(_impl)
 
-        let candidates = lookup(ast[t.decl].baseName, memberOf: d, in: lookupScope)
+        let candidates = lookup(ast[t.decl].baseName, memberOf: d, exposedTo: lookupScope)
         if let c = candidates.uniqueElement {
           return .stepOver(MetatypeType(realize(decl: c))?.instance ?? .error)
         } else {
@@ -894,7 +894,7 @@ public struct TypeChecker {
       return t == requiredType
     }
 
-    let allCandidates = lookup(requirementName.stem, memberOf: model, in: scope)
+    let allCandidates = lookup(requirementName.stem, memberOf: model, exposedTo: scope)
     let viableCandidates = allCandidates.compactMap { (c) -> AnyDeclID? in
 
       // TODO: Filter out the candidates with incompatible constraints.
@@ -936,7 +936,7 @@ public struct TypeChecker {
     exposedTo scope: AnyScopeID
   ) -> [AnyDeclID] {
     let n = Name(of: requirement, in: ast)
-    let lookupResult = lookup(n.stem, memberOf: conformingType, in: scope)
+    let lookupResult = lookup(n.stem, memberOf: conformingType, exposedTo: scope)
 
     // Filter out the candidates with incompatible types.
     return lookupResult.compactMap { (c) -> AnyDeclID? in
@@ -1647,7 +1647,7 @@ public struct TypeChecker {
     // Gather declarations qualified by `parentType` if it isn't `nil` or unqualified otherwise.
     let matches: [AnyDeclID]
     if let t = parentType {
-      matches = lookup(name.value.stem, memberOf: t, in: lookupScope)
+      matches = lookup(name.value.stem, memberOf: t, exposedTo: lookupScope)
         .compactMap({ decl(in: $0, named: name.value) })
     } else {
       matches = lookup(unqualified: name.value.stem, in: lookupScope)
@@ -1756,7 +1756,8 @@ public struct TypeChecker {
     return nil
   }
 
-  /// Returns the declarations that expose `baseName` without qualification in `useScope`.
+  /// Returns the declarations exposing a name with given `stem` to `useScope` without
+  /// qualification.
   mutating func lookup(unqualified baseName: String, in useScope: AnyScopeID) -> DeclSet {
     var matches = DeclSet()
     var containingFile: TranslationUnit.ID? = nil
@@ -1771,7 +1772,7 @@ public struct TypeChecker {
 
       // Gather declarations of the identifier in the current scope; we can assume we've got no
       // no non-overloadable candidate.
-      let newMatches = lookup(baseName, introducedInDeclSpaceOf: s, in: useScope)
+      let newMatches = lookup(baseName, introducedInDeclSpaceOf: s, exposedTo: useScope)
         .subtracting(bindingsUnderChecking)
       for d in newMatches {
         if let result = matches.inserting(d) { return result }
@@ -1793,36 +1794,36 @@ public struct TypeChecker {
     return matches
   }
 
-  /// Returns the declarations that introduce a name whose stem is `baseName` in the declaration
-  /// space of `lookupContext`.
+  /// Returns the declarations introducing a name with given `stem` in the declaration space of
+  /// `lookupContext` and exposed to `useScope`.
   private mutating func lookup<T: ScopeID>(
-    _ baseName: String,
+    _ stem: String,
     introducedInDeclSpaceOf lookupContext: T,
-    in site: AnyScopeID
+    exposedTo useScope: AnyScopeID
   ) -> DeclSet {
     switch lookupContext.kind {
     case ProductTypeDecl.self:
       let t = ^ProductType(NodeID(lookupContext)!, ast: ast)
-      return lookup(baseName, memberOf: t, in: site)
+      return lookup(stem, memberOf: t, exposedTo: useScope)
 
     case TraitDecl.self:
       let t = ^TraitType(NodeID(lookupContext)!, ast: ast)
-      return lookup(baseName, memberOf: t, in: site)
+      return lookup(stem, memberOf: t, exposedTo: useScope)
 
     case ConformanceDecl.self:
       let d = ConformanceDecl.ID(lookupContext)!
       if let t = MetatypeType(realize(typeExtendingDecl: d))?.instance {
-        return t.isError ? [] : lookup(baseName, memberOf: t, in: site)
+        return t.isError ? [] : lookup(stem, memberOf: t, exposedTo: useScope)
       } else {
-        return names(introducedIn: d)[baseName, default: []]
+        return names(introducedIn: d)[stem, default: []]
       }
 
     case ExtensionDecl.self:
       let d = ExtensionDecl.ID(lookupContext)!
       if let t = MetatypeType(realize(typeExtendingDecl: d))?.instance {
-        return t.isError ? [] : lookup(baseName, memberOf: t, in: site)
+        return t.isError ? [] : lookup(stem, memberOf: t, exposedTo: useScope)
       } else {
-        return names(introducedIn: d)[baseName, default: []]
+        return names(introducedIn: d)[stem, default: []]
       }
 
     case TypeAliasDecl.self:
@@ -1830,67 +1831,67 @@ public struct TypeChecker {
       // but its generic parameters can be lookep up already.
       let d = TypeAliasDecl.ID(lookupContext)!
       if declRequests[d] == .typeRealizationStarted {
-        return names(introducedIn: d)[baseName, default: []]
+        return names(introducedIn: d)[stem, default: []]
       }
 
       if let t = MetatypeType(realize(typeAliasDecl: d))?.instance {
-        return t.isError ? [] : lookup(baseName, memberOf: t, in: site)
+        return t.isError ? [] : lookup(stem, memberOf: t, exposedTo: useScope)
       } else {
         return []
       }
 
     default:
-      return names(introducedIn: lookupContext)[baseName, default: []]
+      return names(introducedIn: lookupContext)[stem, default: []]
     }
   }
 
-  /// Returns the declarations that introduce a name whose stem is `baseName` as a member of `type`
-  /// in `scope`.
+  /// Returns the declarations introducing a name with given `stem` as a member of `domain` and
+  /// exposed to `useScope`.
   mutating func lookup(
-    _ baseName: String,
-    memberOf type: AnyType,
-    in scope: AnyScopeID
+    _ stem: String,
+    memberOf domain: AnyType,
+    exposedTo useScope: AnyScopeID
   ) -> DeclSet {
-    if let t = type.base as? ConformanceLensType {
-      return lookup(baseName, memberOf: ^t.lens, in: scope)
+    if let t = domain.base as? ConformanceLensType {
+      return lookup(stem, memberOf: ^t.lens, exposedTo: useScope)
     }
 
-    let key = MemberLookupKey(type: type, scope: scope)
-    if let m = memberLookupTables[key]?[baseName] {
+    let key = MemberLookupKey(type: domain, scope: useScope)
+    if let m = memberLookupTables[key]?[stem] {
       return m
     }
 
     var matches: DeclSet
-    defer { memberLookupTables[key, default: [:]][baseName] = matches }
+    defer { memberLookupTables[key, default: [:]][stem] = matches }
 
-    switch type.base {
+    switch domain.base {
     case let t as BoundGenericType:
-      matches = lookup(baseName, memberOf: t.base, in: scope)
+      matches = lookup(stem, memberOf: t.base, exposedTo: useScope)
       return matches
     case let t as ProductType:
-      matches = names(introducedIn: t.decl)[baseName, default: []]
+      matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as ModuleType:
-      matches = names(introducedIn: t.decl)[baseName, default: []]
+      matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as TraitType:
-      matches = names(introducedIn: t.decl)[baseName, default: []]
+      matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as TypeAliasType:
-      matches = names(introducedIn: t.decl)[baseName, default: []]
+      matches = names(introducedIn: t.decl)[stem, default: []]
     default:
       matches = DeclSet()
     }
 
     // Look for members declared in extensions.
-    for i in extendingDecls(of: type, exposedTo: scope) {
-      matches.formUnion(names(introducedIn: i)[baseName, default: []])
+    for i in extendingDecls(of: domain, exposedTo: useScope) {
+      matches.formUnion(names(introducedIn: i)[stem, default: []])
     }
 
     // Look for members declared inherited by conformance/refinement.
-    for trait in conformedTraits(of: type, in: scope) where type != trait {
+    for trait in conformedTraits(of: domain, in: useScope) where domain != trait {
       // TODO: Read source of conformance to disambiguate associated names
-      let newMatches = lookup(baseName, memberOf: ^trait, in: scope)
+      let newMatches = lookup(stem, memberOf: ^trait, exposedTo: useScope)
 
       // Associated type and value declarations are not inherited by conformance.
-      switch type.base {
+      switch domain.base {
       case is AssociatedTypeType, is GenericTypeParameterType, is TraitType:
         matches.formUnion(newMatches)
       default:
@@ -1901,13 +1902,13 @@ public struct TypeChecker {
     return matches
   }
 
-  /// Returns the declaration(s) of the specified operator that are visible in `scope`.
+  /// Returns the declaration(s) of the specified operator that are visible in `useScope`.
   func lookup(
     operator operatorName: Identifier,
     notation: OperatorNotation,
-    in scope: AnyScopeID
+    exposedTo useScope: AnyScopeID
   ) -> [OperatorDecl.ID] {
-    let currentModule = program.module(containing: scope)
+    let currentModule = program.module(containing: useScope)
     if let oper = lookup(operator: operatorName, notation: notation, in: currentModule) {
       return [oper]
     }
@@ -1933,12 +1934,12 @@ public struct TypeChecker {
     return nil
   }
 
-  /// Returns the extending declarations of `subject` exposed to `scope`.
+  /// Returns the extending declarations of `subject` visible in `useScope`.
   ///
   /// - Note: The declarations referred by the returned IDs conform to `TypeExtendingDecl`.
   private mutating func extendingDecls<S: ScopeID>(
     of subject: AnyType,
-    exposedTo scope: S
+    exposedTo useScope: S
   ) -> [AnyDeclID] {
     /// The canonical form of `subject`.
     let canonicalSubject = relations.canonical(subject)
@@ -1948,7 +1949,7 @@ public struct TypeChecker {
     var root: ModuleDecl.ID? = nil
 
     // Look for extension declarations in all visible scopes.
-    for scope in program.scopes(from: scope) {
+    for scope in program.scopes(from: useScope) {
       switch scope.kind {
       case ModuleDecl.self:
         let module = ModuleDecl.ID(scope)!
@@ -2362,7 +2363,7 @@ public struct TypeChecker {
       }
 
       // Gather declarations with a qualified lookup.
-      matches = lookup(name.value.stem, memberOf: domain!, in: scope)
+      matches = lookup(name.value.stem, memberOf: domain!, exposedTo: scope)
 
     case .implicit:
       diagnostics.insert(.error(notEnoughContextToResolveMember: name))
