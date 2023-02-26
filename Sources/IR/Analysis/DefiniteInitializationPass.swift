@@ -907,6 +907,83 @@ extension DefiniteInitializationPass {
 
 }
 
+extension DefiniteInitializationPass.Context: CustomStringConvertible {
+
+  var description: String {
+    """
+    locals:
+    \(locals.map({ "- \($0): \($1)" }).joined(separator: "\n"))
+    memory:
+    \(memory.map({ "- \($0): \($1)" }).joined(separator: "\n"))
+    """
+  }
+
+}
+
+extension DefiniteInitializationPass.AbstractValue: CustomStringConvertible {
+
+  var description: String {
+    switch self {
+    case .locations(let v):
+      return String(describing: v)
+    case .object(let v):
+      return String(describing: v)
+    }
+  }
+
+}
+
+extension DefiniteInitializationPass.MemoryLocation: CustomStringConvertible {
+
+  var description: String {
+    switch self {
+    case .null:
+      return "Null"
+    case .argument(let i):
+      return "A(\(i)"
+    case .instruction(let b, let i):
+      return "L(\(b.rawValue), \(i.rawValue))"
+    case .sublocation(let root, let path):
+      return "\(root).\(list: path, joinedBy: ".")"
+    }
+  }
+
+}
+
+extension DefiniteInitializationPass.Object: CustomStringConvertible {
+
+  var description: String { "\(layout.type)(\(value))" }
+
+}
+
+extension DefiniteInitializationPass.Object.Value: CustomStringConvertible {
+
+  var description: String {
+    switch self {
+    case .full(let s):
+      return String(describing: s)
+    case .partial(let s):
+      return "{\(list: s, joinedBy: ", ")}"
+    }
+  }
+
+}
+
+extension DefiniteInitializationPass.Object.State: CustomStringConvertible {
+
+  var description: String {
+    switch self {
+    case .initialized:
+      return "\u{23Fa}"
+    case .uninitialized:
+      return "\u{25cb}"
+    case .consumed(let consumers):
+      return "←\(consumers)"
+    }
+  }
+
+}
+
 extension Diagnostic {
 
   fileprivate static func illegalMove(at site: SourceRange) -> Diagnostic {

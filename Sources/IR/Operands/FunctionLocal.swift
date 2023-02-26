@@ -36,3 +36,16 @@ enum FunctionLocal: Hashable {
   }
 
 }
+
+extension FunctionLocal: CustomStringConvertible {
+
+  var description: String {
+    switch self {
+    case .register(let b, let a, let i):
+      return "Register(\(b.rawValue), \(a.rawValue), \(i))"
+    case .parameter(let b, let i):
+      return "Parameter(\(b.rawValue), \(i))"
+    }
+  }
+
+}

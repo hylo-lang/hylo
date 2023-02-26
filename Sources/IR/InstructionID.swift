@@ -33,3 +33,11 @@ public struct InstructionID: Hashable {
   }
 
 }
+
+extension InstructionID: CustomStringConvertible {
+
+  public var description: String {
+    "Instruction(\(function), \(block), \(address))"
+  }
+
+}
