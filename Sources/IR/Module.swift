@@ -220,6 +220,22 @@ public struct Module {
     }
   }
 
+  /// Swaps `old` by `new` and returns the identities of the latter's return values.
+  ///
+  /// `oldInstruction` is removed from to module. The def-use chains are updated.
+  @discardableResult
+  mutating func replace<I: Instruction>(_ old: InstructionID, by new: I) -> [Operand] {
+    // Remove `oldInstruction` for all def-use chains.
+    for o in self[old].operands {
+      uses[o]?.removeAll(where: { $0.user == old })
+    }
+
+    return insert(new) { (m, i) in
+      m[old] = i
+      return old
+    }
+  }
+
   /// Adds `newInstruction` at the end of `block` and returns the identities of its return values.
   @discardableResult
   mutating func append<I: Instruction>(
