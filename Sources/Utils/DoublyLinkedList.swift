@@ -8,7 +8,7 @@ public struct DoublyLinkedList<Element> {
   /// The address of an element in a doubly linked list.
   public struct Address: Hashable {
 
-    fileprivate var rawValue: Int
+    public fileprivate(set) var rawValue: Int
 
     fileprivate init(_ rawValue: Int) {
       self.rawValue = rawValue
@@ -292,7 +292,7 @@ extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
     /// The address corresponding to that index.
     public let address: Address
 
-    fileprivate let offset: Int
+    public let offset: Int
 
     public func hash(into hasher: inout Hasher) {
       hasher.combine(offset)
@@ -374,8 +374,6 @@ extension DoublyLinkedList: ExpressibleByArrayLiteral {
 
 extension DoublyLinkedList: CustomStringConvertible {
 
-  public var description: String {
-    String(describing: Array(self))
-  }
+  public var description: String { "[\(list: self, joinedBy: ", ")]" }
 
 }
