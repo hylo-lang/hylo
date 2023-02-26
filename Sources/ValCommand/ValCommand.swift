@@ -279,9 +279,7 @@ public struct ValCommand: ParsableCommand {
     var arguments = ["-o", binaryPath, "-I", buildDirectory.path, 
       buildDirectory.appendingPathComponent(productName + ".cpp").path]
     
-    for i in (0 ..< ccFlags.count) {
-      arguments.append("-" +  ccFlags[i])
-    } 
+    arguments += ccFlags.map({ "-\($0)" })
 
     try runCommandLine(
       compiler,
