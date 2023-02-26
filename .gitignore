@@ -25,3 +25,5 @@
 /Examples/**.json
 /Examples/**.cpp
 /Examples/**.h
+/Examples/**.ilk
+/Examples/**.pdb
