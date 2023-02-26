@@ -199,6 +199,12 @@ public struct Module {
     return Block.ID(function: function, address: address)
   }
 
+  /// Removes `block` from its function.
+  @discardableResult
+  mutating func removeBlock(_ block: Block.ID) -> Block {
+    functions[block.function]!.removeBlock(block.address)
+  }
+
   /// Returns the global "past the end" position of `block`.
   func globalEndIndex(of block: Block.ID) -> InstructionIndex {
     InstructionIndex(

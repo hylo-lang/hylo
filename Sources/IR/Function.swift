@@ -51,6 +51,12 @@ public struct Function {
     blocks.append(Block(inputs: parameters))
   }
 
+  /// Removes the block at `address`.
+  @discardableResult
+  mutating func removeBlock(_ address: Blocks.Address) -> Block {
+    blocks.remove(at: address)
+  }
+
   /// Returns the control flow graph of `self`.
   func cfg() -> ControlFlowGraph {
     var result = ControlFlowGraph()
