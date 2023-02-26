@@ -803,7 +803,7 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else if program.isSynthesizable(d) {
-        implementations[d] = .synthetic
+        implementations[d] = .synthetic(t)
       } else {
         notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
       }
@@ -823,7 +823,7 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else if program.isSynthesizable(d) {
-        implementations[d] = .synthetic
+        implementations[d] = .synthetic(t)
       } else {
         let n = m.appending(ast[d].introducer.value)!
         notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
