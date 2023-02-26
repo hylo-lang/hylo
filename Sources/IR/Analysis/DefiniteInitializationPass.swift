@@ -812,7 +812,7 @@ extension DefiniteInitializationPass {
 
       for i in 0 ..< function.inputs.count {
         let (parameterConvention, parameterType) = function.inputs[i]
-        let parameterKey = FunctionLocal.param(block: entryAddress, index: i)
+        let parameterKey = FunctionLocal.parameter(block: entryAddress, index: i)
         let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
 
         switch parameterConvention {
