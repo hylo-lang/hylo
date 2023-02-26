@@ -261,7 +261,7 @@ public struct ValCommand: ParsableCommand {
       if customizeCXXCompiler == .msvc {
         var arguments =  [ buildDirectory.appendingPathComponent(productName + ".cpp").path,
           "/link", "/out:" + binaryPath]
-        debugPrint(ccFlags)
+        
         if ccFlags != ["Empty"] {
           for i in (0 ..< ccFlags.count) {
             arguments.append("-" +  ccFlags[i])
