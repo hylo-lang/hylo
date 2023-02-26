@@ -43,7 +43,7 @@ You can select how deep the compiler should go through the pipeline with the fol
   - Note: You can specify parameters for the CXX compiler to use (e.g., `--cc-flags O3`).
     - Note: Don't add an extraneous `-`, please use `O3` instead of `-O3`. 
     - Note to MSVC users: Don't add an extraneous `/`, please use `O1` instead of `/O1`. 
-    - You can also add more than one such parameter.
+    - Note: You can also add more than one such option (e.g., `--cc-flags O1 --cc-flags g`).
     - Note: Do not use `--cc-flags` to specify output locations; use `-o` instead.
   - Note to MSVC users: be sure to use Visual Studio Developer Command Prompt or Visual Studio Developer PowerShell.
 
