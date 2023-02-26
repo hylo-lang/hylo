@@ -3,9 +3,6 @@ import Core
 /// The lifetime pass.
 public struct LifetimePass {
 
-  /// Creates an instance.
-  public init() {}
-
   /// Inserts `end_borrow` instructions after the last use of each `borrow` instruction in `f`,
   /// where `f` is in `module`.
   public func run(
@@ -13,29 +10,41 @@ public struct LifetimePass {
     module: inout Module,
     diagnostics: inout DiagnosticSet
   ) {
-    for blockIndex in module[f].blocks.indices {
+    module.closeBorrows(in: f, diagnostics: &diagnostics)
+  }
+
+}
+
+extension Module {
+
+  /// Inserts `end_borrow` instructions after the last use of each `borrow` instruction in `f`,
+  /// reporting errors and warnings to `diagnostics`.
+  ///
+  /// - Requires: `f` is in `self`.
+  public mutating func closeBorrows(in f: Function.ID, diagnostics: inout DiagnosticSet) {
+    for blockIndex in self[f].blocks.indices {
       let block = Block.ID(function: f, address: blockIndex.address)
 
-      for instruction in module[block].instructions.indices {
-        switch module[block][instruction.address] {
+      for instruction in self[block].instructions.indices {
+        switch self[block][instruction.address] {
         case let borrow as BorrowInstruction:
           // Compute the live-range of the instruction.
           let borrowID = block.result(at: instruction.address, index: 0)
-          let borrowLifetime = lifetime(of: borrowID, in: module)
+          let borrowLifetime = lifetime(of: borrowID, in: self)
 
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
               diagnostics.insert(.unusedBinding(name: decl.baseName, at: borrow.site))
             }
-            module[block].instructions.remove(at: instruction.address)
+            self[block].instructions.remove(at: instruction.address)
             continue
           }
 
           // Insert `end_borrow` after the instruction's last users.
           for lastUse in borrowLifetime.maximalElements {
-            module.insert(
-              module.makeEndBorrow(borrowID, anchoredAt: module[lastUse.user].site),
+            insert(
+              makeEndBorrow(borrowID, anchoredAt: self[lastUse.user].site),
               after: lastUse.user)
           }
 
@@ -55,7 +64,7 @@ public struct LifetimePass {
 
     // Extend the lifetime with that of its borrows.
     for use in uses {
-      switch module[use.user] {
+      switch self[use.user] {
       case is BorrowInstruction:
         result = module.extend(
           lifetime: result, with: lifetime(of: .result(instruction: use.user, index: 0), in: module)
