@@ -41,7 +41,7 @@ extension Module {
   /// Creates an `element_addr` anchored at `anchor` that computes the address of the property at
   /// `path` rooted at `base`.
   ///
-  /// - Note: `base` is returned unchanced if `elementPath` is empty.
+  /// - Note: `base` is returned unchanged if `elementPath` is empty.
   /// - Parameters:
   ///   - base: The base address used for the computation.
   ///   - elementPath: An array of of indices identifying a sub-location in `base`.

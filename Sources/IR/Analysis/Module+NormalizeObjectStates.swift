@@ -127,14 +127,6 @@ extension Module {
       return newContext
     }
 
-    /// Assigns in `context` a fully initialized object to each virtual register defined by `i`.
-    func initializeRegisters(createdBy i: InstructionID, in context: inout Context) {
-      for (j, t) in self[i].types.enumerated() {
-        context.locals[FunctionLocal(i, j)] = .init(
-          object: .full(.initialized), ofType: t.astType, definedIn: program)
-      }
-    }
-
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
       // Create an abstract location denoting the newly allocated memory.
@@ -176,8 +168,7 @@ extension Module {
         case .full(.consumed):
           diagnostics.insert(.useOfConsumedObject(at: borrow.site))
         case .partial:
-          let p = o.value.paths!
-          if p.consumed.isEmpty {
+          if o.value.paths!.consumed.isEmpty {
             diagnostics.insert(.useOfPartiallyInitializedObject(at: borrow.site))
           } else {
             diagnostics.insert(.useOfPartiallyConsumedObject(at: borrow.site))
@@ -186,31 +177,10 @@ extension Module {
 
       case .set:
         // `set` requires the borrowed object to be uninitialized.
-        let initializedPaths: [PartPath]
-        switch o.value {
-        case .full(.initialized):
-          initializedPaths = [[]]
-        case .full(.uninitialized), .full(.consumed):
-          initializedPaths = []
-        case .partial:
-          initializedPaths = o.value.paths!.initialized
-        }
+        let p = o.value.initializedPaths
+        if p.isEmpty { break }
 
-        // Nothing to do if the location is already uninitialized.
-        if initializedPaths.isEmpty { break }
-
-        // Deinitialize the object(s) at the location.
-        for path in initializedPaths {
-          let s = insert(
-            makeElementAddr(borrow.location, at: path, anchoredAt: borrow.site),
-            before: i)[0]
-          let o = insert(
-            makeLoad(s, anchoredAt: borrow.site),
-            before: i)[0]
-          insert(makeDeinit(o, anchoredAt: borrow.site), before: i)
-        }
-
-        // Apply the effects of the new instructions.
+        insertDeinitialization(of: borrow.location, at: p, before: i, anchoredAt: borrow.site)
         for l in locations {
           context.withObject(at: l, { $0.value = .full(.uninitialized) })
         }
@@ -235,17 +205,19 @@ extension Module {
 
       if calleeType.receiverEffect == .sink {
         context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
+      } else {
+        assert(isBorrowOrConstant(call.callee))
       }
 
       for (p, a) in zip(calleeType.inputs, call.arguments) {
         switch ParameterType(p.type)!.access {
         case .let, .inout:
-          continue
+          assert(isBorrowOrConstant(call.callee))
 
         case .set:
-          let locations = context.locals[FunctionLocal(operand: a)!]!.unwrapLocations()!
-          for l in locations {
-            context.withObject(at: l, { $0.value = .full(.initialized) })
+          context.forEachObject(at: FunctionLocal(operand: a)!) { (o) in
+            assert(o.value.initializedPaths.isEmpty || o.layout.type.base is BuiltinType)
+            o.value = .full(.initialized)
           }
 
         case .sink:
@@ -261,45 +233,14 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) {
-      // The location operand is the result an `alloc_stack` instruction.
       let dealloc = self[i] as! DeallocStackInstruction
-      let alloc = self[dealloc.location.instruction!] as! AllocStackInstruction
-
       let k = FunctionLocal(dealloc.location.instruction!, 0)
       let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
 
-      // Make sure the memory at the deallocated location is consumed or uninitialized.
-      let initializedPaths: [PartPath] = context.withObject(at: l) { (o) in
-        switch o.value {
-        case .full(.initialized):
-          return [[]]
-        case .full(.uninitialized), .full(.consumed):
-          return []
-        case .partial:
-          return o.value.paths!.initialized
-        }
-      }
-
-      for p in initializedPaths {
-        let s = insert(
-          makeElementAddr(dealloc.location, at: p, anchoredAt: dealloc.site),
-          before: i)[0]
-        let o = insert(
-          makeLoad(s, anchoredAt: dealloc.site),
-          before: i)[0]
-        insert(makeDeinit(o, anchoredAt: dealloc.site), before: i)
-
-        // Apply the effects of the new instructions.
-        let consumer = InstructionID(
-          i.function, i.block,
-          self[i.function][i.block].instructions.address(before: i.address)!)
-
-        let l = AbstractTypeLayout(of: alloc.allocatedType, definedIn: program)[p]
-        context.locals[FunctionLocal(i, 0)] = .object(
-          Object(layout: l, value: .full(.consumed(by: [consumer]))))
-      }
-
-      // Erase the deallocated memory from the context.
+      // Make sure the memory at the deallocated location is consumed or uninitialized before
+      // erasing the deallocated memory from the context.
+      let p = context.withObject(at: l, \.value.initializedPaths)
+      insertDeinitialization(of: dealloc.location, at: p, before: i, anchoredAt: dealloc.site)
       context.memory[l] = nil
     }
 
@@ -432,21 +373,10 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(store i: InstructionID, in context: inout Context) {
       let store = self[i] as! StoreInstruction
-
-      // Consume the object operand.
       context.consume(store.object, with: i, at: store.site, diagnostics: &diagnostics)
-
-      // Target operand must be a location.
-      let locations: Set<MemoryLocation>
-      if let k = FunctionLocal(operand: store.target) {
-        locations = context.locals[k]!.unwrapLocations()!
-      } else {
-        // Operand is a constant.
-        fatalError("not implemented")
-      }
-
-      for l in locations {
-        context.withObject(at: l, { $0.value = .full(.initialized) })
+      context.forEachObject(at: FunctionLocal(operand: store.target)!) { (o) in
+        assert(o.value.initializedPaths.isEmpty || o.layout.type.base is BuiltinType)
+        o.value = .full(.initialized)
       }
     }
 
@@ -497,6 +427,45 @@ extension Module {
       } else {
         work.append(block)
       }
+    }
+  }
+
+  /// Returns `true` iff `o` is the result of a borrow instruction or a constant value.
+  private func isBorrowOrConstant(_ o: Operand) -> Bool {
+    switch o {
+    case .constant:
+      return true
+    case .parameter:
+      return false
+    case .result(let i, _):
+      return self[i] is BorrowInstruction
+    }
+  }
+
+  /// Assigns in `context` a fully initialized object to each virtual register defined by `i`.
+  private func initializeRegisters(createdBy i: InstructionID, in context: inout Context) {
+    for (j, t) in self[i].types.enumerated() {
+      context.locals[FunctionLocal(i, j)] = .init(
+        object: .full(.initialized), ofType: t.astType, definedIn: program)
+    }
+  }
+
+  /// Inserts IR for the deinitialization of `root` at given `initializedPaths` before
+  /// instruction `i`, anchoring instructions at `anchor`
+  private mutating func insertDeinitialization(
+    of root: Operand,
+    at initializedPaths: [PartPath],
+    before i: InstructionID,
+    anchoredAt anchor: SourceRange
+  ) {
+    for path in initializedPaths {
+      let s = insert(
+        makeElementAddr(root, at: path, anchoredAt: anchor),
+        before: i)[0]
+      let o = insert(
+        makeLoad(s, anchoredAt: anchor),
+        before: i)[0]
+      insert(makeDeinit(o, anchoredAt: anchor), before: i)
     }
   }
 
@@ -622,6 +591,18 @@ extension Module {
         var paths = PartPaths(initialized: [], uninitialized: [], consumed: [])
         gatherSubobjectPaths(prefixedBy: [], into: &paths)
         return paths
+      }
+
+      /// The paths to `self`'s initialized parts.
+      var initializedPaths: [PartPath] {
+        switch self {
+        case .full(.initialized):
+          return [[]]
+        case .full(.uninitialized), .full(.consumed):
+          return []
+        case .partial:
+          return paths!.initialized
+        }
       }
 
       /// If `self` is `.partial`, inserts the paths to its parts into `paths`, prefixing each
@@ -892,6 +873,15 @@ extension Module {
     /// Forms a context by merging the contexts in `others` into `self`.
     func merging<S: Sequence>(_ others: S) -> Self where S.Element == Self {
       others.reduce(into: self, { (l, r) in l.merge(r) })
+    }
+
+    /// Calls `action` with a projection of the objects at the locations assigned to `local`.
+    ///
+    /// - Requires: `locals[k]` is `.locations`.
+    mutating func forEachObject(at k: FunctionLocal, _ action: (inout Object) -> Void) {
+      for l in locals[k]!.unwrapLocations()! {
+        withObject(at: l, action)
+      }
     }
 
     /// Returns the result calling `action` with a projection of the object at `location`.
