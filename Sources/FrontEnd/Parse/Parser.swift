@@ -2313,14 +2313,10 @@ public enum Parser {
   }
 
   private static func parseCompoundLiteral(in state: inout ParserState) throws -> AnyExprID? {
-    let backup = state.backup()
-
     if let map = try parseMapLiteral(in: &state) {
       let expr = state.insert(map)
       return AnyExprID(expr)
     }
-
-    state.restore(from: backup)
 
     if let buffer = try bufferLiteral.parse(&state) {
       let expr = state.insert(BufferLiteralExpr(
@@ -2485,12 +2481,15 @@ public enum Parser {
       return MapLiteralExpr(elements: [], site: mapLiteral.first!.site)
     }
 
+    let backup = state.backup()
+
     if let expr = try nonemptyMapLiteral.parse(&state), expr.closer != nil {
       return MapLiteralExpr(elements: expr.elements, site: expr.opener.site)
     }
 
-    return nil
+    state.restore(from: backup)
 
+    return nil
   }
 
   // MARK: Patterns
