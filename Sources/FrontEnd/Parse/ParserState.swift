@@ -191,7 +191,7 @@ struct ParserState {
   mutating func take(_ kinds: Token.Kind...) -> [Token]? {
     let tokens = peek(kinds.count)
 
-    if tokens.elementsEqual(kinds, by: {(a, b) in a.kind == b }) {
+    if tokens.elementsEqual(kinds, by: { (a, b) in a.kind == b }) {
       lookahead.removeFirst(kinds.count)
       currentIndex = tokens.last!.site.end
       return Array(tokens)

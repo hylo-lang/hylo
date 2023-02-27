@@ -2319,9 +2319,10 @@ public enum Parser {
     }
 
     if let buffer = try bufferLiteral.parse(&state) {
-      let expr = state.insert(BufferLiteralExpr(
-        elements: buffer.elements,
-        site: state.range(from: buffer.opener.site.start)))
+      let expr = state.insert(
+        BufferLiteralExpr(
+          elements: buffer.elements,
+          site: state.range(from: buffer.opener.site.start)))
       return AnyExprID(expr)
     }
 
@@ -2461,7 +2462,8 @@ public enum Parser {
     closerDescription: "]",
     elementParser: Apply(parseMapElement(in:)))
 
-  private static func parseMapElement(in state: inout ParserState) throws -> MapLiteralExpr.Element? {
+  private static func parseMapElement(in state: inout ParserState) throws -> MapLiteralExpr.Element?
+  {
     let backup = state.backup()
 
     if let lhs = try parseExpr(in: &state) {
