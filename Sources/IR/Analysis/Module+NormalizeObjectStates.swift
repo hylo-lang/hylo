@@ -2,28 +2,19 @@ import Core
 import DequeModule
 import Utils
 
-/// The definite initialization pass.
-///
-/// Definite initialization is a mendatory IR pass ensuiring that objects are initialized before
-/// use and deinitialized before their storage is reused or before they go and out scope.
-public struct DefiniteInitializationPass {
+extension Module {
 
-  /// Creates an instance.
-  public init() {}
-
-  /// Reports any use-before-initialization errors in `f` into `diagnostics`, where `f` is in
-  /// `module`.
-  public func run(
-    function f: Function.ID,
-    module: inout Module,
-    diagnostics: inout DiagnosticSet
-  ) {
+  /// Ensures that objects in `f` are initialized before use and deinitialized after last use,
+  /// reporting errors and warnings to `diagnostics`.
+  ///
+  /// - Requires: `f` is in `self`.
+  public mutating func normalizeObjectStates(in f: Function.ID, diagnostics: inout DiagnosticSet) {
 
     /// The control flow graph of the function to analyze.
-    var cfg = module[f].cfg()
+    var cfg = self[f].cfg()
 
     /// The dominator tree of the function to analyze.
-    var dominatorTree = DominatorTree(function: f, cfg: cfg, in: module)
+    var dominatorTree = DominatorTree(function: f, cfg: cfg, in: self)
 
     /// A FILO list of blocks to visit.
     var work = Deque(dominatorTree.bfs)
@@ -74,7 +65,7 @@ public struct DefiniteInitializationPass {
     }
 
     /// Returns the after-context of `b` formed by interpreting it in `initialContext`, inserting
-    /// instructions into `module` to deinitialize objects whose storage is reused or deallocated
+    /// instructions into `self` to deinitialize objects whose storage is reused or deallocated
     /// and reporting violations of definite initialization in `diagnostics`.
     ///
     /// This function implements an abstract interpreter that keeps track of the initialization
@@ -87,7 +78,7 @@ public struct DefiniteInitializationPass {
     ) -> Context {
       var newContext = initialContext
 
-      let blockInstructions = module[f][b].instructions
+      let blockInstructions = self[f][b].instructions
       for i in blockInstructions.indices {
         let user = InstructionID(f, b, i.address)
 
@@ -136,9 +127,9 @@ public struct DefiniteInitializationPass {
 
     /// Assigns in `context` a fully initialized object to each virtual register defined by `i`.
     func assignObjectRegisters(createdBy i: InstructionID, in context: inout Context) {
-      for (j, t) in module[i].types.enumerated() {
+      for (j, t) in self[i].types.enumerated() {
         context.locals[FunctionLocal(i, j)] = .init(
-          object: .full(.initialized), ofType: t.astType, definedIn: module.program)
+          object: .full(.initialized), ofType: t.astType, definedIn: program)
       }
     }
 
@@ -151,14 +142,14 @@ public struct DefiniteInitializationPass {
       // Update the context.
       context.memory[location] = Object(
         layout: AbstractTypeLayout(
-          of: (module[i] as! AllocStackInstruction).allocatedType, definedIn: module.program),
+          of: (self[i] as! AllocStackInstruction).allocatedType, definedIn: program),
         value: .full(.uninitialized))
       context.locals[FunctionLocal(i, 0)] = .locations([location])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(borrow i: InstructionID, in context: inout Context) {
-      let borrow = module[i] as! BorrowInstruction
+      let borrow = self[i] as! BorrowInstruction
 
       // Operand must a location.
       let locations: Set<MemoryLocation>
@@ -170,7 +161,7 @@ public struct DefiniteInitializationPass {
       }
 
       // Objects at each location have the same state unless DI or LoE has been broken.
-      let o = context.withObject(at: locations.first!, typedIn: module.program, { $0 })
+      let o = context.withObject(at: locations.first!, typedIn: program, { $0 })
 
       switch borrow.capability {
       case .let, .inout:
@@ -208,18 +199,18 @@ public struct DefiniteInitializationPass {
 
         // Deinitialize the object(s) at the location.
         for path in initializedPaths {
-          let s = module.insert(
-            module.makeElementAddr(borrow.location, at: path, anchoredAt: borrow.site),
+          let s = insert(
+            makeElementAddr(borrow.location, at: path, anchoredAt: borrow.site),
             before: i)[0]
-          let o = module.insert(
-            module.makeLoad(s, anchoredAt: borrow.site),
+          let o = insert(
+            makeLoad(s, anchoredAt: borrow.site),
             before: i)[0]
-          module.insert(module.makeDeinit(o, anchoredAt: borrow.site), before: i)
+          insert(makeDeinit(o, anchoredAt: borrow.site), before: i)
         }
 
         // Apply the effects of the new instructions.
         for l in locations {
-          context.withObject(at: l, typedIn: module.program, { $0.value = .full(.uninitialized) })
+          context.withObject(at: l, typedIn: program, { $0.value = .full(.uninitialized) })
         }
 
       case .yielded, .sink:
@@ -231,14 +222,14 @@ public struct DefiniteInitializationPass {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(condBranch i: InstructionID, in context: inout Context) {
-      let branch = module[i] as! CondBranchInstruction
+      let branch = self[i] as! CondBranchInstruction
       context.consume(branch.condition, with: i, at: branch.site, diagnostics: &diagnostics)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) {
-      let call = module[i] as! CallInstruction
-      let calleeType = LambdaType(module.type(of: call.callee).astType)!
+      let call = self[i] as! CallInstruction
+      let calleeType = LambdaType(type(of: call.callee).astType)!
 
       if calleeType.receiverEffect == .sink {
         context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
@@ -252,7 +243,7 @@ public struct DefiniteInitializationPass {
         case .set:
           let locations = context.locals[FunctionLocal(operand: a)!]!.unwrapLocations()!
           for l in locations {
-            context.withObject(at: l, typedIn: module.program, { $0.value = .full(.initialized) })
+            context.withObject(at: l, typedIn: program, { $0.value = .full(.initialized) })
           }
 
         case .sink:
@@ -269,41 +260,39 @@ public struct DefiniteInitializationPass {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) {
       // The location operand is the result an `alloc_stack` instruction.
-      let dealloc = module[i] as! DeallocStackInstruction
-      let alloc = module[dealloc.location.instruction!] as! AllocStackInstruction
+      let dealloc = self[i] as! DeallocStackInstruction
+      let alloc = self[dealloc.location.instruction!] as! AllocStackInstruction
 
       let k = FunctionLocal(dealloc.location.instruction!, 0)
       let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
 
       // Make sure the memory at the deallocated location is consumed or uninitialized.
-      let initializedPaths: [PartPath] = context.withObject(
-        at: l, typedIn: module.program,
-        { (o) in
-          switch o.value {
-          case .full(.initialized):
-            return [[]]
-          case .full(.uninitialized), .full(.consumed):
-            return []
-          case .partial:
-            return o.value.paths!.initialized
-          }
-        })
+      let initializedPaths: [PartPath] = context.withObject(at: l, typedIn: program) { (o) in
+        switch o.value {
+        case .full(.initialized):
+          return [[]]
+        case .full(.uninitialized), .full(.consumed):
+          return []
+        case .partial:
+          return o.value.paths!.initialized
+        }
+      }
 
       for p in initializedPaths {
-        let s = module.insert(
-          module.makeElementAddr(dealloc.location, at: p, anchoredAt: dealloc.site),
+        let s = insert(
+          makeElementAddr(dealloc.location, at: p, anchoredAt: dealloc.site),
           before: i)[0]
-        let o = module.insert(
-          module.makeLoad(s, anchoredAt: dealloc.site),
+        let o = insert(
+          makeLoad(s, anchoredAt: dealloc.site),
           before: i)[0]
-        module.insert(module.makeDeinit(o, anchoredAt: dealloc.site), before: i)
+        insert(makeDeinit(o, anchoredAt: dealloc.site), before: i)
 
         // Apply the effects of the new instructions.
         let consumer = InstructionID(
           i.function, i.block,
-          module[i.function][i.block].instructions.address(before: i.address)!)
+          self[i.function][i.block].instructions.address(before: i.address)!)
 
-        let l = AbstractTypeLayout(of: alloc.allocatedType, definedIn: module.program)[p]
+        let l = AbstractTypeLayout(of: alloc.allocatedType, definedIn: program)[p]
         context.locals[FunctionLocal(i, 0)] = .object(
           Object(layout: l, value: .full(.consumed(by: [consumer]))))
       }
@@ -314,13 +303,13 @@ public struct DefiniteInitializationPass {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deinit i: InstructionID, in context: inout Context) {
-      let x = module[i] as! DeinitInstruction
+      let x = self[i] as! DeinitInstruction
       context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(elementAddr i: InstructionID, in context: inout Context) {
-      let addr = module[i] as! ElementAddrInstruction
+      let addr = self[i] as! ElementAddrInstruction
 
       // Operand must a location.
       let locations: [MemoryLocation]
@@ -336,7 +325,7 @@ public struct DefiniteInitializationPass {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(destructure i: InstructionID, in context: inout Context) {
-      let x = module[i] as! DestructureInstruction
+      let x = self[i] as! DestructureInstruction
       context.consume(x.whole, with: i, at: x.site, diagnostics: &diagnostics)
 
       assignObjectRegisters(createdBy: i, in: &context)
@@ -350,7 +339,7 @@ public struct DefiniteInitializationPass {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(load i: InstructionID, in context: inout Context) {
-      let load = module[i] as! LoadInstruction
+      let load = self[i] as! LoadInstruction
 
       // Operand must be a location.
       let locations: Set<MemoryLocation>
@@ -363,7 +352,7 @@ public struct DefiniteInitializationPass {
 
       // Object at target location must be initialized.
       for l in locations {
-        context.withObject(at: l, typedIn: module.program) { (o) in
+        context.withObject(at: l, typedIn: program) { (o) in
           switch o.value {
           case .full(.initialized):
             o.value = .full(.consumed(by: [i]))
@@ -387,7 +376,7 @@ public struct DefiniteInitializationPass {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(record i: InstructionID, in context: inout Context) {
-      let x = module[i] as! RecordInstruction
+      let x = self[i] as! RecordInstruction
       for o in x.operands {
         context.consume(o, with: i, at: x.site, diagnostics: &diagnostics)
       }
@@ -397,13 +386,13 @@ public struct DefiniteInitializationPass {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) {
-      let x = module[i] as! ReturnInstruction
+      let x = self[i] as! ReturnInstruction
       context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(staticBranch i: InstructionID, in context: inout Context) {
-      let s = module[i] as! StaticBranchInstruction
+      let s = self[i] as! StaticBranchInstruction
       if s.predicate != .initialized { fatalError("not implemented") }
 
       // Subject must be a location.
@@ -420,13 +409,13 @@ public struct DefiniteInitializationPass {
 
       switch v {
       case .full(.initialized):
-        module.removeBlock(s.targetIfFalse)
-        module.replace(i, by: module.makeBranch(to: s.targetIfTrue, anchoredAt: s.site))
+        removeBlock(s.targetIfFalse)
+        replace(i, by: makeBranch(to: s.targetIfTrue, anchoredAt: s.site))
         work.remove(at: work.firstIndex(of: s.targetIfFalse.address)!)
 
       case .full(.uninitialized):
-        module.removeBlock(s.targetIfTrue)
-        module.replace(i, by: module.makeBranch(to: s.targetIfFalse, anchoredAt: s.site))
+        removeBlock(s.targetIfTrue)
+        replace(i, by: makeBranch(to: s.targetIfFalse, anchoredAt: s.site))
         work.remove(at: work.firstIndex(of: s.targetIfTrue.address)!)
 
       default:
@@ -434,13 +423,13 @@ public struct DefiniteInitializationPass {
       }
 
       // Recompute the control flow graph and dominator tree.
-      cfg = module.functions[f]!.cfg()
-      dominatorTree = .init(function: f, cfg: cfg, in: module)
+      cfg = functions[f]!.cfg()
+      dominatorTree = .init(function: f, cfg: cfg, in: self)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(store i: InstructionID, in context: inout Context) {
-      let store = module[i] as! StoreInstruction
+      let store = self[i] as! StoreInstruction
 
       // Consume the object operand.
       context.consume(store.object, with: i, at: store.site, diagnostics: &diagnostics)
@@ -455,7 +444,7 @@ public struct DefiniteInitializationPass {
       }
 
       for l in locations {
-        context.withObject(at: l, typedIn: module.program, { $0.value = .full(.initialized) })
+        context.withObject(at: l, typedIn: program, { $0.value = .full(.initialized) })
       }
     }
 
@@ -468,8 +457,8 @@ public struct DefiniteInitializationPass {
       }
 
       // The entry block is a special case.
-      if block == module[f].blocks.firstAddress {
-        let x = Context(entryOf: module[f], in: module.program)
+      if block == self[f].blocks.firstAddress {
+        let x = Context(entryOf: self[f], in: program)
         let y = afterContext(of: block, in: x)
         contexts[block] = (before: x, after: y)
         done.insert(block)
@@ -508,10 +497,6 @@ public struct DefiniteInitializationPass {
       }
     }
   }
-
-}
-
-extension DefiniteInitializationPass {
 
   /// An abstract memory location.
   fileprivate enum MemoryLocation: Hashable {
@@ -954,7 +939,7 @@ extension DefiniteInitializationPass {
 
 }
 
-extension DefiniteInitializationPass.Context: CustomStringConvertible {
+extension Module.Context: CustomStringConvertible {
 
   var description: String {
     """
@@ -967,7 +952,7 @@ extension DefiniteInitializationPass.Context: CustomStringConvertible {
 
 }
 
-extension DefiniteInitializationPass.AbstractValue: CustomStringConvertible {
+extension Module.AbstractValue: CustomStringConvertible {
 
   var description: String {
     switch self {
@@ -980,7 +965,7 @@ extension DefiniteInitializationPass.AbstractValue: CustomStringConvertible {
 
 }
 
-extension DefiniteInitializationPass.MemoryLocation: CustomStringConvertible {
+extension Module.MemoryLocation: CustomStringConvertible {
 
   var description: String {
     switch self {
@@ -997,13 +982,13 @@ extension DefiniteInitializationPass.MemoryLocation: CustomStringConvertible {
 
 }
 
-extension DefiniteInitializationPass.Object: CustomStringConvertible {
+extension Module.Object: CustomStringConvertible {
 
   var description: String { "\(layout.type)(\(value))" }
 
 }
 
-extension DefiniteInitializationPass.Object.Value: CustomStringConvertible {
+extension Module.Object.Value: CustomStringConvertible {
 
   var description: String {
     switch self {
@@ -1016,7 +1001,7 @@ extension DefiniteInitializationPass.Object.Value: CustomStringConvertible {
 
 }
 
-extension DefiniteInitializationPass.Object.State: CustomStringConvertible {
+extension Module.Object.State: CustomStringConvertible {
 
   var description: String {
     switch self {
