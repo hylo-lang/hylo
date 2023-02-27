@@ -78,6 +78,8 @@ extension Module {
     ) -> Context {
       var newContext = initialContext
 
+      // We can safely iterate over the current indices of the block because instructions are
+      // always inserted the currently visited address.
       let blockInstructions = self[f][b].instructions
       for i in blockInstructions.indices {
         let user = InstructionID(f, b, i.address)
