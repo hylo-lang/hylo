@@ -126,7 +126,7 @@ extension Module {
     }
 
     /// Assigns in `context` a fully initialized object to each virtual register defined by `i`.
-    func assignObjectRegisters(createdBy i: InstructionID, in context: inout Context) {
+    func initializeRegisters(createdBy i: InstructionID, in context: inout Context) {
       for (j, t) in self[i].types.enumerated() {
         context.locals[FunctionLocal(i, j)] = .init(
           object: .full(.initialized), ofType: t.astType, definedIn: program)
@@ -254,7 +254,7 @@ extension Module {
         }
       }
 
-      assignObjectRegisters(createdBy: i, in: &context)
+      initializeRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -328,13 +328,13 @@ extension Module {
       let x = self[i] as! DestructureInstruction
       context.consume(x.whole, with: i, at: x.site, diagnostics: &diagnostics)
 
-      assignObjectRegisters(createdBy: i, in: &context)
+      initializeRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(llvm i: InstructionID, in context: inout Context) {
       // TODO: Check that operands are initialized.
-      assignObjectRegisters(createdBy: i, in: &context)
+      initializeRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -371,7 +371,7 @@ extension Module {
         }
       }
 
-      assignObjectRegisters(createdBy: i, in: &context)
+      initializeRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -381,7 +381,7 @@ extension Module {
         context.consume(o, with: i, at: x.site, diagnostics: &diagnostics)
       }
 
-      assignObjectRegisters(createdBy: i, in: &context)
+      initializeRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
