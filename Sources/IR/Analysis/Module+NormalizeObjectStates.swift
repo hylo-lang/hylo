@@ -161,7 +161,7 @@ extension Module {
       }
 
       // Objects at each location have the same state unless DI or LoE has been broken.
-      let o = context.withObject(at: locations.first!, typedIn: program, { $0 })
+      let o = context.withObject(at: locations.first!, { $0 })
 
       switch borrow.capability {
       case .let, .inout:
@@ -210,7 +210,7 @@ extension Module {
 
         // Apply the effects of the new instructions.
         for l in locations {
-          context.withObject(at: l, typedIn: program, { $0.value = .full(.uninitialized) })
+          context.withObject(at: l, { $0.value = .full(.uninitialized) })
         }
 
       case .yielded, .sink:
@@ -243,7 +243,7 @@ extension Module {
         case .set:
           let locations = context.locals[FunctionLocal(operand: a)!]!.unwrapLocations()!
           for l in locations {
-            context.withObject(at: l, typedIn: program, { $0.value = .full(.initialized) })
+            context.withObject(at: l, { $0.value = .full(.initialized) })
           }
 
         case .sink:
@@ -267,7 +267,7 @@ extension Module {
       let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
 
       // Make sure the memory at the deallocated location is consumed or uninitialized.
-      let initializedPaths: [PartPath] = context.withObject(at: l, typedIn: program) { (o) in
+      let initializedPaths: [PartPath] = context.withObject(at: l) { (o) in
         switch o.value {
         case .full(.initialized):
           return [[]]
@@ -352,7 +352,7 @@ extension Module {
 
       // Object at target location must be initialized.
       for l in locations {
-        context.withObject(at: l, typedIn: program) { (o) in
+        context.withObject(at: l) { (o) in
           switch o.value {
           case .full(.initialized):
             o.value = .full(.consumed(by: [i]))
@@ -444,7 +444,7 @@ extension Module {
       }
 
       for l in locations {
-        context.withObject(at: l, typedIn: program, { $0.value = .full(.initialized) })
+        context.withObject(at: l, { $0.value = .full(.initialized) })
       }
     }
 
@@ -892,13 +892,8 @@ extension Module {
       others.reduce(into: self, { (l, r) in l.merge(r) })
     }
 
-    /// Returns the result calling `action` with a projection of the object at `location`, using
-    /// `program` to compute object layouts.
-    mutating func withObject<T>(
-      at location: MemoryLocation,
-      typedIn program: TypedProgram,
-      _ action: (inout Object) -> T
-    ) -> T {
+    /// Returns the result calling `action` with a projection of the object at `location`.
+    mutating func withObject<T>(at location: MemoryLocation, _ action: (inout Object) -> T) -> T {
       switch location {
       case .null:
         preconditionFailure("null location")
