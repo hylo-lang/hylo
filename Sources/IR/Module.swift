@@ -207,6 +207,12 @@ public struct Module {
     }
   }
 
+  /// Returns the global identity of the instruction before `i`.
+  func instruction(before i: InstructionID) -> InstructionID? {
+    functions[i.function]![i.block].instructions.address(before: i.address)
+      .map({ InstructionID(i.function, i.block, $0) })
+  }
+
   /// Swaps `old` by `new` and returns the identities of the latter's return values.
   ///
   /// `oldInstruction` is removed from to module. The def-use chains are updated.

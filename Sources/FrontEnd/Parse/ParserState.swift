@@ -139,6 +139,15 @@ struct ParserState {
     return token
   }
 
+  /// Fills the lookahead buffer until it contains `n` tokens, or fewer if the lexer is exhausted.
+  mutating func peek(_ n: Int) -> Deque<Token>.SubSequence {
+    while lookahead.count < n {
+      guard let t = lexer.next() else { break }
+      lookahead.append(t)
+    }
+    return lookahead.prefix(upTo: min(n, lookahead.count))
+  }
+
   /// Returns whether a token of the given `kind` is next in the input.
   mutating func isNext(_ kind: Token.Kind) -> Bool {
     peek()?.kind == kind
@@ -176,6 +185,19 @@ struct ParserState {
     } else {
       return nil
     }
+  }
+
+  /// Consumes and returns the first `kinds.count` tokens if they have the specified kinds.
+  mutating func take(_ kinds: Token.Kind...) -> [Token]? {
+    let tokens = peek(kinds.count)
+
+    if tokens.elementsEqual(kinds, by: { (a, b) in a.kind == b }) {
+      lookahead.removeFirst(kinds.count)
+      currentIndex = tokens.last!.site.end
+      return Array(tokens)
+    }
+
+    return nil
   }
 
   /// Consumes and returns the next token, only if it has the specified kind and if it is not

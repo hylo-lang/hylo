@@ -249,7 +249,6 @@ public struct ValCommand: ParsableCommand {
       loggingTo: &errorLog)
 
     let binaryPath = executableOutputPath(outputURL, default: productName)
-
     var arguments: [String] = []
     if cxxCompiler == .msvc {
       arguments = ccFlags.map({ "/\($0)" })
