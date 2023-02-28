@@ -125,9 +125,7 @@ struct DominatorTree {
     default:
       // If `node` has multiple direct predecessors, its immediate dominator is is the closest
       // common immediate dominator of all its direct predecessors.
-      let d = cfg
-        .paths(to: node, from: root)
-        .firstCommonAncestor()
+      let d = cfg.paths(to: node, from: root).firstCommonAncestor()
       immediateDominators[node] = .some(d)
       return d
     }

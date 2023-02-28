@@ -84,4 +84,3 @@ extension DirectedGraph<Int, String>.Edge {
   }
 
 }
-
