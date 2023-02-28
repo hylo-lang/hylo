@@ -722,7 +722,7 @@ struct ConstraintSystem {
 
   /// Inserts `batch` into the fresh set.
   private mutating func insert<S: Sequence<Constraint>>(fresh batch: S) -> [GoalIdentity] {
-    batch.reduce(into: [], { (s, g) in s.append(insert(fresh: g)) })
+    batch.map { (g) in insert(fresh: g) }
   }
 
   /// Schedules `g` to be solved only once the solver has inferred more information about at least
