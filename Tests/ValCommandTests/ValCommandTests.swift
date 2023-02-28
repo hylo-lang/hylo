@@ -69,7 +69,8 @@ final class ValCommandTests: XCTestCase {
   }
 
   func testBinaryWithCCFlags() throws {
-    let result = try compile(["--emit", "binary", "--cc-flags", "O3"], newFile(containing: "public fun main() {}"))
+    let result = try compile(
+      ["--emit", "binary", "--cc-flags", "O3"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
 

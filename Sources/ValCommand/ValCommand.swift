@@ -247,34 +247,38 @@ public struct ValCommand: ParsableCommand {
     try write(
       cxxModules.source, to: buildDirectory.appendingPathComponent(productName),
       loggingTo: &errorLog)
-      
+
     var compiler = ""
     switch cxxCompiler {
-      case .clang: compiler = try find("clang++")
-      case .gcc: compiler = try find("g++")
-      case .msvc: compiler = try find("cl")
+    case .clang: compiler = try find("clang++")
+    case .gcc: compiler = try find("g++")
+    case .msvc: compiler = try find("cl")
     }
-    
+
     let binaryPath = executablePath(outputURL, productName)
 
     #if os(Windows)
       if cxxCompiler == .msvc {
         var arguments = ccFlags.map({ "/\($0)" })
-        
-        arguments += [buildDirectory.appendingPathComponent(productName + ".cpp").path,
-          "/link", "/out:" + binaryPath]
+
+        arguments += [
+          buildDirectory.appendingPathComponent(productName + ".cpp").path,
+          "/link", "/out:" + binaryPath,
+        ]
 
         try runCommandLine(
           compiler,
           arguments,
           loggingTo: &errorLog)
         return
-      } 
+      }
     #endif
 
-    var arguments = ["-o", binaryPath, "-I", buildDirectory.path, 
-      buildDirectory.appendingPathComponent(productName + ".cpp").path]
-    
+    var arguments = [
+      "-o", binaryPath, "-I", buildDirectory.path,
+      buildDirectory.appendingPathComponent(productName + ".cpp").path,
+    ]
+
     arguments += ccFlags.map({ "-\($0)" })
 
     try runCommandLine(
