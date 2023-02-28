@@ -71,4 +71,57 @@ struct ControlFlowGraph {
     })
   }
 
+  /// A collection where the vertex at index `i + 1` is predecessor of the vertex at index `i`.
+  typealias PredecessorPath = [Vertex]
+
+  /// Returns the paths originating at `ancestor` and reaching `destination` excluding those that
+  /// contain `destination`.
+  func paths(to destination: Vertex, from ancestor: Vertex) -> [PredecessorPath] {
+    var v: Set = [destination]
+    var c: [Vertex: [PredecessorPath]] = [:]
+    return pathsToEntry(to: destination, from: ancestor, notContaining: &v, cachingResultsTo: &c)
+  }
+
+  /// Returns the paths originating at `ancestor` and reaching `destination` excluding those that
+  /// contain the vertices in `visited`.
+  private func pathsToEntry(
+    to destination: Vertex, from ancestor: Vertex, notContaining visited: inout Set<Vertex>,
+    cachingResultsTo cache: inout [Vertex: [PredecessorPath]]
+  ) -> [PredecessorPath] {
+    if destination == ancestor { return [[]] }
+    if let r = cache[destination] { return r }
+
+    var result: [PredecessorPath] = []
+    visited.insert(destination)
+    for p in predecessors(of: destination) where !visited.contains(p) {
+      let s = pathsToEntry(
+        to: p, from: ancestor, notContaining: &visited, cachingResultsTo: &cache)
+      result.append(contentsOf: s.map({ [p] + $0 }))
+    }
+    visited.remove(destination)
+
+    cache[destination] = result
+    return result
+  }
+
+}
+
+extension Array where Element == ControlFlowGraph.PredecessorPath {
+
+  /// Given `self` is a collection of predecessor paths starting from one node, returns the first
+  /// common ancestor of all paths, if any.
+  func firstCommonAncestor() -> ControlFlowGraph.Vertex? {
+    guard var (firstPath, otherPaths) = map({ $0[...] }).headAndTail else { return nil }
+    if otherPaths.isEmpty { return firstPath.first }
+
+    var result: ControlFlowGraph.Vertex? = nil
+    while let n = firstPath.popLast() {
+      for i in otherPaths.indices {
+        if otherPaths[i].popLast() != n { return result }
+      }
+      result = n
+    }
+    return result
+  }
+
 }
