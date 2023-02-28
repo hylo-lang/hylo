@@ -11,7 +11,7 @@ public struct Function {
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
 
-  /// A parameter's type and convention (`let`, `inout`, `sink`).
+  /// A parameter's type and convention (`let`, `inout`, `sink`, `yielded`).
   public typealias Parameter = (convention: AccessEffect, type: LoweredType)
 
   /// The mangled name of the function.
