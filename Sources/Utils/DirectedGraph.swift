@@ -18,6 +18,13 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
     outgoingEdges = [:]
   }
 
+  /// The edges of the graph.
+  public var edges: some Sequence<Edge> {
+    outgoingEdges.lazy
+      .map({ (s, o) in o.lazy.map({ (t, l) in (source: s, label: l, target: t) }) })
+      .joined()
+  }
+
   /// Inserts an edge from `source` to `target`, labeled by `label`.
   ///
   /// - Returns: `(true, label)` if there was no edge between `source` and `target`. Otherwise,
