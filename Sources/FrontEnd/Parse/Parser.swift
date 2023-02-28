@@ -2314,8 +2314,7 @@ public enum Parser {
 
   private static func parseCompoundLiteral(in state: inout ParserState) throws -> AnyExprID? {
     if let map = try parseMapLiteral(in: &state) {
-      let expr = state.insert(map)
-      return AnyExprID(expr)
+      return AnyExprID(state.insert(map))
     }
 
     if let buffer = try bufferLiteral.parse(&state) {
