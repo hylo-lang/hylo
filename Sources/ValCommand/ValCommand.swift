@@ -40,25 +40,23 @@ public struct ValCommand: ParsableCommand {
 
   }
 
-  /// CXXCompiler that can be choose
-  private enum CXXCompiler: ExpressibleByArgument {
+  /// The identifier of a C++ compiler.
+  private enum CXXCompiler: String, ExpressibleByArgument, RawRepresentable {
+
+    case clang
 
     case gcc
 
     case msvc
 
-    case clang
-
     init?(argument: String) {
-      switch argument {
-      case "gcc": self = .gcc
-      #if os(Windows)
-        case "msvc": self = .msvc
+      guard let s = CXXCompiler(rawValue: argument) else { return nil }
+      #if !os(Windows)
+        if s == .msvc { return nil }
       #endif
-      case "clang": self = .clang
-      default: return nil
-      }
+      self = s
     }
+
   }
 
   /// An error indicating that the compiler's environment is not properly configured.
@@ -108,7 +106,7 @@ public struct ValCommand: ParsableCommand {
   @Option(
     name: [.customLong("cc")],
     help: ArgumentHelp(
-      "Customize the CXX compiler used by the Val backend. From: clang, gcc, msvc(Windows only)",
+      "Select the C++ compiler used by the Val backend. From: clang, gcc, msvc (Windows only)",
       valueName: "CXXCompiler"))
   private var cxxCompiler: CXXCompiler = .clang
 
@@ -212,22 +210,18 @@ public struct ValCommand: ParsableCommand {
     // Executables
 
     assert(outputType == .binary)
-
     try writeExecutableCode(cxxModules, productName: productName, loggingTo: &errorLog)
   }
 
-  /// Returns the path for executable file.
-  /// Use `productName` to generate executable file location if `outputURL` is nil.
-  private func executablePath(_ outputURL: URL?, _ productName: String) -> String {
+  /// Returns `outputURL` transformed as a suitable executable file path, using `productName` as
+  /// a default name if `outputURL` is `nil`.
+  ///
+  /// The returned path has a `.exe` extension on Windows.
+  private func executableOutputPath(_ outputURL: URL?, default productName: String) -> String {
     var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).path
-
-    //Generate binary programs with `.exe` suffix in windows
     #if os(Windows)
-      if !binaryPath.hasSuffix(".exe") {
-        binaryPath += ".exe"
-      }
+      if !binaryPath.hasSuffix(".exe") { binaryPath += ".exe" }
     #endif
-
     return binaryPath
   }
 
@@ -247,41 +241,28 @@ public struct ValCommand: ParsableCommand {
     try write(
       cxxModules.source, to: buildDirectory.appendingPathComponent(productName),
       loggingTo: &errorLog)
-      
-    var compiler = ""
-    switch cxxCompiler {
-      case .clang: compiler = try find("clang++")
-      case .gcc: compiler = try find("g++")
-      case .msvc: compiler = try find("cl")
+
+    let binaryPath = executableOutputPath(outputURL, default: productName)
+
+    var arguments: [String] = []
+    if cxxCompiler == .msvc {
+      arguments = ccFlags.map({ "/\($0)" })
+      arguments += [
+        buildDirectory.appendingPathComponent(productName + ".cpp").path,
+        "/link",
+        "/out:" + binaryPath,
+      ]
+    } else {
+      arguments = ccFlags.map({ "-\($0)" })
+      arguments += [
+        "-o", binaryPath,
+        "-I", buildDirectory.path,
+        buildDirectory.appendingPathComponent(productName + ".cpp").path,
+      ]
     }
-    
-    let binaryPath = executablePath(outputURL, productName)
-
-    #if os(Windows)
-      if cxxCompiler == .msvc {
-        var arguments = ccFlags.map({ "/\($0)" })
-        
-        arguments += [buildDirectory.appendingPathComponent(productName + ".cpp").path,
-          "/link", "/out:" + binaryPath]
-
-        try runCommandLine(
-          compiler,
-          arguments,
-          loggingTo: &errorLog)
-        return
-      } 
-    #endif
-
-    var arguments = ["-o", binaryPath, "-I", buildDirectory.path, 
-      buildDirectory.appendingPathComponent(productName + ".cpp").path]
-    
-    arguments += ccFlags.map({ "-\($0)" })
-
-    try runCommandLine(
-      compiler,
-      arguments,
-      loggingTo: &errorLog)
+    try runCommandLine(find(cxxCompiler), arguments, loggingTo: &errorLog)
   }
+
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
   /// `u` without any path extension and stripping all leading dots. Otherwise, returns "Main".
   private func makeProductName(_ inputs: [URL]) -> String {
@@ -314,6 +295,18 @@ public struct ValCommand: ParsableCommand {
   /// - Requires: `url` must denote a directly.
   private func addModule(url: URL) {
     fatalError("not implemented")
+  }
+
+  /// Returns the path of the specified C++ compiler's executable.
+  private func find(_ compiler: CXXCompiler) throws -> String {
+    switch compiler {
+    case .clang:
+      return try find("clang++")
+    case .gcc:
+      return try find("g++")
+    case .msvc:
+      return try find("cl")
+    }
   }
 
   /// Returns the path of the specified executable.
