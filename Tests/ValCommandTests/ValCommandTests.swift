@@ -75,7 +75,7 @@ final class ValCommandTests: XCTestCase {
     XCTAssert(result.stderr.isEmpty)
 
     #if os(Windows)
-      XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath + ".exe"))
+      XCTAssert(FileManager.default.fileExists(atPath: result.outputFile.relativePath + ".exe"))
     #else
       XCTAssert(FileManager.default.fileExists(atPath: result.outputFile.relativePath))
     #endif
