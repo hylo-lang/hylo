@@ -225,7 +225,7 @@ public struct ValCommand: ParsableCommand {
     return binaryPath
   }
 
-  /// Given the transpiled core and source modules and the product name (whatever that means),
+  /// Given the transpiled core and source modules and the desired name of compiler's product,
   /// generates a binary product into a temporary build directory, logging errors to `errorLog`.
   func writeExecutableCode<L: Log>(
     _ cxxModules: (core: TypedProgram.CXXModule, source: TypedProgram.CXXModule),
@@ -387,14 +387,14 @@ public struct ValCommand: ParsableCommand {
     try encoder.encode(input).write(to: output, options: .atomic)
   }
 
-  /// Given the product name (whatever that means), returns the file to write when "raw-ast" is
+  /// Given the desired name of the compiler's product, returns the file to write when "raw-ast" is
   /// selected as the output type.
   private func astFile(_ productName: String) -> URL {
     outputURL ?? URL(fileURLWithPath: productName + ".ast.json")
   }
 
-  /// Given the product name (whatever that means), returns the file to write when "ir" or "raw-ir"
-  /// is selected as the output type.
+  /// Given the desired name of the compiler's product, returns the file to write when "ir" or
+  /// "raw-ir" is selected as the output type.
   private func irFile(_ productName: String) -> URL {
     outputURL ?? URL(fileURLWithPath: productName + ".vir")
   }
@@ -407,9 +407,9 @@ public struct ValCommand: ParsableCommand {
       ?? URL(fileURLWithPath: CXXTranspiler.coreLibModuleName)
   }
 
-  /// Given the product name (whatever that means), returns the base path (sans extension) of the
-  /// `.cpp` and `.h` files representing the module whose files are given on the command-line, when
-  /// "cpp" is selected as the output type.
+  /// Given the desired name of the compiler's product, returns the base path (sans extension) of
+  /// the `.cpp` and `.h` files representing the module whose files are given on the command-line,
+  /// when "cpp" is selected as the output type.
   private func sourceModuleCXXOutputBase(_ productName: String) -> URL {
     outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
   }
