@@ -134,3 +134,21 @@ struct DominatorTree {
   }
 
 }
+
+extension DominatorTree: CustomStringConvertible {
+
+  /// The Graphviz (dot) representation of the tree.
+  var description: String {
+    var result = "strict digraph D {\n\n"
+    for (a, immediateDominator) in immediateDominators {
+      if let b = immediateDominator {
+        result.write("\(a) -> \(b);\n")
+      } else {
+        result.write("\(a);\n")
+      }
+    }
+    result.write("\n}")
+    return result
+  }
+
+}
