@@ -9,7 +9,7 @@ public struct InstructionID: Hashable {
   public let function: Function.ID
 
   /// The block containing the instruction.
-  public let block: Function.Blocks.Address
+  public let block: Function.BlockID
 
   /// The identity of the instruction in its block.
   public let address: Block.Instructions.Address
@@ -17,7 +17,7 @@ public struct InstructionID: Hashable {
   /// Creates an instance with the given properties.
   public init(
     _ function: Function.ID,
-    _ block: Function.Blocks.Address,
+    _ block: Function.BlockID,
     _ address: Block.Instructions.Address
   ) {
     self.function = function
@@ -28,7 +28,7 @@ public struct InstructionID: Hashable {
   /// Creates an instance with the given properties.
   public init(_ block: Block.ID, _ address: Block.Instructions.Address) {
     self.function = block.function
-    self.block = block.address
+    self.block = block.blockInFunction
     self.address = address
   }
 

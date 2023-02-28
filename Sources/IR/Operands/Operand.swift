@@ -19,7 +19,7 @@ public enum Operand: Hashable {
   var block: Block.ID? {
     switch self {
     case .result(let instruction, _):
-      return Block.ID(function: instruction.function, address: instruction.block)
+      return Block.ID(function: instruction.function, blockInFunction: instruction.block)
     case .parameter(let block, _):
       return block
     case .constant(_):

@@ -9,15 +9,15 @@ public struct Block {
   /// The ID of a basic block.
   public struct ID: Hashable {
 
-    /// The ID of the function containing the block.
+    /// The function containing the identified block.
     public var function: Function.ID
 
-    /// The address of the block in the containing function.
-    public var address: Function.Blocks.Address
+    /// The identified block in `function`.
+    public var blockInFunction: Function.BlockID
 
     /// The ID of the instruction at `instructionAddress` in the block identified by `self`.
     public func appending(_ instructionAddress: Block.Instructions.Address) -> InstructionID {
-      InstructionID(function, address, instructionAddress)
+      InstructionID(function, blockInFunction, instructionAddress)
     }
 
     /// The ID of the `index`-th parameter of the block.

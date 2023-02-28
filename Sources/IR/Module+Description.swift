@@ -34,7 +34,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     var blockNames: [Block.ID: String] = [:]
     var operandNames: [Operand: String] = [:]
     for i in function.blocks.indices {
-      let blockID = Block.ID(function: f, address: i.address)
+      let blockID = Block.ID(function: f, blockInFunction: i.address)
       blockNames[blockID] = "bb\(blockNames.count)"
 
       for j in 0 ..< function[i.address].inputs.count {
@@ -68,7 +68,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     output.write(") -> \(function.output) {\n")
 
     for i in function.blocks.indices {
-      let blockID = Block.ID(function: f, address: i.address)
+      let blockID = Block.ID(function: f, blockInFunction: i.address)
       let block = function[i.address]
 
       output.write(blockNames[blockID]!)

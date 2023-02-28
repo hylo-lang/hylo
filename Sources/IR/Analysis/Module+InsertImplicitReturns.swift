@@ -16,7 +16,7 @@ extension Module {
 
       insertReturnVoidInstruction(
         anchoredAt: lastInstruction?.site ?? .empty(at: self[f].anchor),
-        at: globalEndIndex(of: Block.ID(function: f, address: b.address)),
+        at: globalEndIndex(of: Block.ID(function: f, blockInFunction: b.address)),
         inFunctionReturning: expectedReturnType,
         diagnostics: &diagnostics)
     }

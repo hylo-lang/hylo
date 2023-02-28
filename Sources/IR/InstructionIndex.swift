@@ -14,7 +14,7 @@ public struct InstructionIndex: Hashable {
   public let function: Function.ID
 
   /// The block containing the instruction.
-  public let block: Function.Blocks.Address
+  public let block: Function.BlockID
 
   /// The position of the instruction in its block.
   public let index: Block.Instructions.Index
@@ -22,7 +22,7 @@ public struct InstructionIndex: Hashable {
   /// Creates an index with the given properties.
   public init(
     _ function: Function.ID,
-    _ block: Function.Blocks.Address,
+    _ block: Function.BlockID,
     _ index: Block.Instructions.Index
   ) {
     self.function = function
@@ -33,7 +33,7 @@ public struct InstructionIndex: Hashable {
   /// Creates an index with the given properties.
   public init(_ block: Block.ID, _ index: Block.Instructions.Index) {
     self.function = block.function
-    self.block = block.address
+    self.block = block.blockInFunction
     self.index = index
   }
 

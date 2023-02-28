@@ -20,13 +20,13 @@ extension Module {
     var work = Deque(dominatorTree.bfs)
 
     /// The set of blocks that no longer need to be visited.
-    var done: Set<Function.Blocks.Address> = []
+    var done: Set<Function.BlockID> = []
 
     /// The state of the abstract interpreter before and after the visited basic blocks.
     var contexts: Contexts = [:]
 
     /// Returns `true` if `b` has been visited.
-    func visited(_ b: Function.Blocks.Address) -> Bool {
+    func visited(_ b: Function.BlockID) -> Bool {
       contexts[b] != nil
     }
 
@@ -36,7 +36,7 @@ extension Module {
     /// defined its (transitive) predecessors. Because a definition must dominate all its uses, we
     /// can assume the predecessors dominated by `b` don't define variables used in `b`. Hence, `b`
     /// can be visited iff all its predecessors have been visited or are dominated by `b`.
-    func isVisitable(_ b: Function.Blocks.Address) -> Bool {
+    func isVisitable(_ b: Function.BlockID) -> Bool {
       if let d = dominatorTree.immediateDominator(of: b) {
         return visited(d)
           && cfg.predecessors(of: b).allSatisfy({ (p) in
@@ -52,7 +52,7 @@ extension Module {
     /// after-contexts of all `b`'s predecessors.
     ///
     /// - Requires: `isVisitable(b)` is `true`
-    func beforeContext(of b: Function.Blocks.Address) -> (context: Context, isPartial: Bool) {
+    func beforeContext(of b: Function.BlockID) -> (context: Context, isPartial: Bool) {
       let p = cfg.predecessors(of: b)
       let availableAfterContexts = p.compactMap({ (p) in contexts[p]?.after })
       let isPartial = p.count != availableAfterContexts.count
@@ -73,7 +73,7 @@ extension Module {
     ///
     /// - Note: This function is idempotent.
     func afterContext(
-      of b: Function.Blocks.Address,
+      of b: Function.BlockID,
       in initialContext: Context
     ) -> Context {
       var newContext = initialContext
@@ -354,12 +354,12 @@ extension Module {
       case .full(.initialized):
         removeBlock(s.targetIfFalse)
         replace(i, by: makeBranch(to: s.targetIfTrue, anchoredAt: s.site))
-        work.remove(at: work.firstIndex(of: s.targetIfFalse.address)!)
+        work.remove(at: work.firstIndex(of: s.targetIfFalse.blockInFunction)!)
 
       case .full(.uninitialized):
         removeBlock(s.targetIfTrue)
         replace(i, by: makeBranch(to: s.targetIfFalse, anchoredAt: s.site))
-        work.remove(at: work.firstIndex(of: s.targetIfTrue.address)!)
+        work.remove(at: work.firstIndex(of: s.targetIfTrue.blockInFunction)!)
 
       default:
         fatalError("not implemented")
@@ -479,7 +479,7 @@ extension Module {
     case argument(index: Int)
 
     /// A location produced by an instruction.
-    case instruction(block: Function.Blocks.Address, address: Block.Instructions.Address)
+    case instruction(block: Function.BlockID, address: Block.Instructions.Address)
 
     /// A sub-location rooted at an argument or instruction.
     ///
@@ -807,7 +807,7 @@ extension Module {
 
   /// A map fron function block to the context of the abstract interpreter before and after the
   /// evaluation of its instructions.
-  fileprivate typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
+  fileprivate typealias Contexts = [Function.BlockID: (before: Context, after: Context)]
 
   /// An abstract interpretation context.
   fileprivate struct Context: Equatable {

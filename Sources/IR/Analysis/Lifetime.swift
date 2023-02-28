@@ -7,7 +7,7 @@ import Utils
 /// part of its lifetime.
 struct Lifetime {
 
-  fileprivate typealias Coverage = [Function.Blocks.Address: BlockCoverage]
+  fileprivate typealias Coverage = [Function.BlockID: BlockCoverage]
 
   /// A data structure encoding how a block covers the lifetime.
   enum BlockCoverage {
@@ -89,17 +89,17 @@ extension Module {
 
     // Find all blocks in which the operand is being used.
     var occurences = uses[operand, default: []].reduce(
-      into: Set<Function.Blocks.Address>(),
+      into: Set<Function.BlockID>(),
       { (blocks, use) in blocks.insert(use.user.block) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
     let cfg = functions[site.function]!.cfg()
-    var approximateCoverage: [Function.Blocks.Address: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
+    var approximateCoverage: [Function.BlockID: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
     while true {
       guard let occurence = occurences.popFirst() else { break }
 
       // `occurence` is the defining block.
-      if site.address == occurence { continue }
+      if site.blockInFunction == occurence { continue }
 
       // We already propagated liveness to the block's live-in set.
       if approximateCoverage[occurence]?.isLiveIn ?? false { continue }
@@ -117,7 +117,7 @@ extension Module {
 
     // If the operand isn't live out of its defining block, its last use is in that block.
     if approximateCoverage.isEmpty {
-      coverage[site.address] = .closed(lastUse: lastUse(of: operand, in: site))
+      coverage[site.blockInFunction] = .closed(lastUse: lastUse(of: operand, in: site))
       return Lifetime(operand: operand, coverage: coverage)
     }
 
@@ -129,7 +129,7 @@ extension Module {
       case (false, true):
         coverage[block] = .liveOut
       case (true, false):
-        let id = Block.ID(function: site.function, address: block)
+        let id = Block.ID(function: site.function, blockInFunction: block)
         coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: id))
       case (false, false):
         continue
@@ -188,11 +188,11 @@ extension Module {
 
   /// Returns the last use of `operand` in `block`.
   private func lastUse(of operand: Operand, in block: Block.ID) -> Use? {
-    let instructions = functions[block.function]![block.address].instructions
+    let instructions = functions[block.function]![block.blockInFunction].instructions
     for i in instructions.indices.reversed() {
       if let operandIndex = instructions[i].operands.lastIndex(of: operand) {
         return Use(
-          user: InstructionID(block.function, block.address, i.address),
+          user: InstructionID(block.function, block.blockInFunction, i.address),
           index: operandIndex)
       }
     }

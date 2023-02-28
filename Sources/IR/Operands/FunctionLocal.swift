@@ -2,10 +2,10 @@
 enum FunctionLocal: Hashable {
 
   /// The result of an instruction.
-  case register(block: Function.Blocks.Address, address: Block.Instructions.Address, index: Int)
+  case register(block: Function.BlockID, address: Block.Instructions.Address, index: Int)
 
   /// A block parameter.
-  case parameter(block: Function.Blocks.Address, index: Int)
+  case parameter(block: Function.BlockID, index: Int)
 
   /// Given `operand` is an instruction ID or a parameter, creates the corresponding key.
   /// Otherwise, returns `nil`.
@@ -14,7 +14,7 @@ enum FunctionLocal: Hashable {
     case .result(let instruction, let index):
       self = .register(block: instruction.block, address: instruction.address, index: index)
     case .parameter(let block, let index):
-      self = .parameter(block: block.address, index: index)
+      self = .parameter(block: block.blockInFunction, index: index)
     case .constant:
       return nil
     }
@@ -31,7 +31,7 @@ enum FunctionLocal: Hashable {
     case .register(let b, let i, let k):
       return .result(instruction: InstructionID(function, b, i), index: k)
     case .parameter(let b, let k):
-      return .parameter(block: Block.ID(function: function, address: b), index: k)
+      return .parameter(block: Block.ID(function: function, blockInFunction: b), index: k)
     }
   }
 

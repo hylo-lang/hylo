@@ -54,8 +54,8 @@ public struct Module {
 
   /// Accesses the given block.
   public subscript(b: Block.ID) -> Block {
-    _read { yield functions[b.function]!.blocks[b.address] }
-    _modify { yield &functions[b.function]![b.address] }
+    _read { yield functions[b.function]!.blocks[b.blockInFunction] }
+    _modify { yield &functions[b.function]![b.blockInFunction] }
   }
 
   /// Accesses the given instruction.
@@ -71,7 +71,7 @@ public struct Module {
       return functions[instruction.function]![instruction.block][instruction.address].types[index]
 
     case .parameter(let block, let index):
-      return functions[block.function]![block.address].inputs[index]
+      return functions[block.function]![block.blockInFunction].inputs[index]
 
     case .constant(let constant):
       return constant.type
@@ -183,24 +183,24 @@ public struct Module {
     to function: Function.ID
   ) -> Block.ID {
     let address = functions[function]!.appendBlock(taking: parameters)
-    return Block.ID(function: function, address: address)
+    return Block.ID(function: function, blockInFunction: address)
   }
 
   /// Removes `block` from its function.
   @discardableResult
   mutating func removeBlock(_ block: Block.ID) -> Block {
-    functions[block.function]!.removeBlock(block.address)
+    functions[block.function]!.removeBlock(block.blockInFunction)
   }
 
   /// Returns the global "past the end" position of `block`.
   func globalEndIndex(of block: Block.ID) -> InstructionIndex {
     InstructionIndex(
-      block, functions[block.function]!.blocks[block.address].instructions.endIndex)
+      block, functions[block.function]!.blocks[block.blockInFunction].instructions.endIndex)
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.
   func terminator(of block: Block.ID) -> InstructionID? {
-    if let a = functions[block.function]!.blocks[block.address].instructions.lastAddress {
+    if let a = functions[block.function]!.blocks[block.blockInFunction].instructions.lastAddress {
       return InstructionID(block, a)
     } else {
       return nil

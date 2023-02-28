@@ -8,6 +8,9 @@ public struct Function {
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
 
+  /// A stable identifier for a block in this function.
+  public typealias BlockID = Blocks.Address
+
   /// The profile of a IR function input.
   public typealias Input = (convention: AccessEffect, type: LoweredType)
 
@@ -35,26 +38,26 @@ public struct Function {
   /// The entry of the function.
   public var entry: Blocks.Address? { blocks.firstAddress }
 
-  /// Accesses the basic block at `address`.
+  /// Accesses the basic block identified by `b`.
   ///
-  /// - Requires: `address` must be a valid address in `self`.
-  public subscript(_ address: Blocks.Address) -> Block {
-    get { blocks[address] }
-    _modify { yield &blocks[address] }
+  /// - Requires: `b` identifies a block in `self`.
+  public subscript(_ b: BlockID) -> Block {
+    get { blocks[b] }
+    _modify { yield &blocks[b] }
   }
 
-  /// Appends to `self` a basic block accepting given `parameters` and returns its address.
+  /// Appends to `self` a basic block accepting given `parameters` and returns its (local) ID.
   ///
   /// The new block will become the function's entry if `self` contains no block before
   /// `appendBlock` is called.
-  mutating func appendBlock(taking parameters: [LoweredType]) -> Blocks.Address {
+  mutating func appendBlock(taking parameters: [LoweredType]) -> Function.BlockID {
     blocks.append(Block(inputs: parameters))
   }
 
-  /// Removes the block at `address`.
+  /// Removes `b`.
   @discardableResult
-  mutating func removeBlock(_ address: Blocks.Address) -> Block {
-    blocks.remove(at: address)
+  mutating func removeBlock(_ b: BlockID) -> Block {
+    blocks.remove(at: b)
   }
 
   /// Returns the control flow graph of `self`.
@@ -64,13 +67,13 @@ public struct Function {
     for source in blocks.indices {
       switch blocks[source.address].instructions.last {
       case let s as BranchInstruction:
-        result.define(source.address, predecessorOf: s.target.address)
+        result.define(source.address, predecessorOf: s.target.blockInFunction)
       case let s as CondBranchInstruction:
-        result.define(source.address, predecessorOf: s.targetIfTrue.address)
-        result.define(source.address, predecessorOf: s.targetIfFalse.address)
+        result.define(source.address, predecessorOf: s.targetIfTrue.blockInFunction)
+        result.define(source.address, predecessorOf: s.targetIfFalse.blockInFunction)
       case let s as StaticBranchInstruction:
-        result.define(source.address, predecessorOf: s.targetIfTrue.address)
-        result.define(source.address, predecessorOf: s.targetIfFalse.address)
+        result.define(source.address, predecessorOf: s.targetIfTrue.blockInFunction)
+        result.define(source.address, predecessorOf: s.targetIfFalse.blockInFunction)
       default:
         break
       }

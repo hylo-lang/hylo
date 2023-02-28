@@ -14,7 +14,7 @@ import Utils
 struct DominatorTree {
 
   /// A node in the tree.
-  typealias Node = Function.Blocks.Address
+  typealias Node = Function.BlockID
 
   /// The root of the tree.
   let root: Node
