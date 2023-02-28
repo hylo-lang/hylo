@@ -1055,7 +1055,7 @@ public struct Emitter {
     anchoredAt anchor: SourceRange,
     into module: inout Module
   ) {
-    let moveInit = program.moveDecl(.set)
+    let moveInit = program.moveDecl(access)
     switch c.implementations[moveInit]! {
     case .concrete:
       fatalError("not implemented")
