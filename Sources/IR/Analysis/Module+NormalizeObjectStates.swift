@@ -389,7 +389,7 @@ extension Module {
       }
 
       // The entry block is a special case.
-      if block == self[f].blocks.firstAddress {
+      if block == self[f].entry {
         let x = Context(entryOf: self[f], in: program)
         let y = afterContext(of: block, in: x)
         contexts[block] = (before: x, after: y)
@@ -823,11 +823,9 @@ extension Module {
 
     /// Creates the before-context `function`'s entry in `module`.
     init(entryOf function: Function, in program: TypedProgram) {
-      let entryAddress = function.blocks.firstAddress!
-
       for i in 0 ..< function.inputs.count {
         let (parameterConvention, parameterType) = function.inputs[i]
-        let parameterKey = FunctionLocal.parameter(block: entryAddress, index: i)
+        let parameterKey = FunctionLocal.parameter(block: function.entry!, index: i)
         let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
 
         switch parameterConvention {

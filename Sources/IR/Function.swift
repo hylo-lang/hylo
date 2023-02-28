@@ -33,7 +33,7 @@ public struct Function {
   public private(set) var blocks: Blocks
 
   /// The entry of the function.
-  public var entry: Block? { blocks.first }
+  public var entry: Blocks.Address? { blocks.firstAddress }
 
   /// Accesses the basic block at `address`.
   ///
