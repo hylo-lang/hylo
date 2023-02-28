@@ -60,7 +60,7 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// An error indicating that the compiler's environment is not properly configured.
-  fileprivate struct EnvironmentError: Error {
+  private struct EnvironmentError: Error {
 
     /// The error's message.
     let message: String
