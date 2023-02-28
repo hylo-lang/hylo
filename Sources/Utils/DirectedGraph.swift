@@ -8,7 +8,18 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   public typealias EdgeTip = (target: Vertex, label: Label)
 
   /// An edge between two vertices.
-  public typealias Edge = (source: Vertex, label: Label, target: Vertex)
+  public struct Edge {
+
+    /// The vertex at the base of the edge.
+    public let source: Vertex
+
+    /// The label of the vertex.
+    public let label: Label
+
+    /// The vertex at the tip of the edge.
+    public let target: Vertex
+
+  }
 
   /// A table from a vertex to its outgoing edges.
   private var outgoingEdges: [Vertex: [Vertex: Label]]
@@ -19,9 +30,9 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   }
 
   /// The edges of the graph.
-  public var edges: some Sequence<Edge> {
+  public var edges: some Collection<Edge> {
     outgoingEdges.lazy
-      .map({ (s, o) in o.lazy.map({ (t, l) in (source: s, label: l, target: t) }) })
+      .map({ (s, o) in o.lazy.map({ (t, l) in .init(source: s, label: l, target: t) }) })
       .joined()
   }
 
@@ -130,6 +141,20 @@ extension DirectedGraph: Hashable where Label: Hashable {
       h ^= _hasher.finalize()
     }
     hasher.combine(h)
+  }
+
+}
+
+extension DirectedGraph.Edge: Equatable where Label: Equatable {}
+
+extension DirectedGraph.Edge: Comparable where Vertex: Comparable, Label: Comparable {
+
+  public static func < (l: Self, r: Self) -> Bool {
+    if l.source == r.source {
+      return (l.label == r.label) ? (l.target < r.target) : (l.label < r.label)
+    } else {
+      return l.source < r.source
+    }
   }
 
 }
