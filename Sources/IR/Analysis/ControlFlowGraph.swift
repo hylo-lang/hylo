@@ -7,7 +7,7 @@ import Utils
 /// edge from `A` to `B` if the former's terminator points to the latter.
 struct ControlFlowGraph {
 
-  /// A vertex.
+  /// A node in the graph.
   typealias Vertex = Function.Blocks.Address
 
   /// An control edge label.
@@ -24,8 +24,11 @@ struct ControlFlowGraph {
 
   }
 
+  /// The way a control-flow relation is represeted internally.
+  private typealias Relation = DirectedGraph<Vertex, Label>
+
   /// The relation encoded by the graph.
-  fileprivate var relation: DirectedGraph<Vertex, Label>
+  private var relation: Relation
 
   /// Creates an empty control flow graph.
   init() {
@@ -101,6 +104,28 @@ struct ControlFlowGraph {
     visited.remove(destination)
 
     cache[destination] = result
+    return result
+  }
+
+}
+
+extension ControlFlowGraph: CustomStringConvertible {
+
+  /// The Graphviz (dot) representation of the graph.
+  var description: String {
+    var result = "strict digraph CFG {\n\n"
+    for e in relation.edges {
+      switch e.label {
+      case .forward:
+        result.write("\(e.source) -> \(e.target);\n")
+      case .bidirectional:
+        result.write("\(e.source) -> \(e.target);\n")
+        result.write("\(e.target) -> \(e.source);\n")
+      case .backward:
+        continue
+      }
+    }
+    result.write("\n}")
     return result
   }
 
