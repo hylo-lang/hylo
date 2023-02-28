@@ -3,8 +3,9 @@ import Foundation
 import Utils
 
 // FIXME: it's a point of confusion for me that we have things named "Function" and "Module" and
-// FIXME: they happen to be in the IR, wihthout something like IRFunction.  One possibility is that
-// FIXME: we start qualifying these names at their use sites.
+// FIXME: they happen to be in the IR, without seeing a distinguishing prefix like IRFunction.  One
+// FIXME:  possibility is thatwe start qualifying these names at their use sites.
+
 /// A collection of basic blocks representing a lowered function.
 public struct Function {
 
@@ -20,7 +21,8 @@ public struct Function {
   /// The debug name of the function, if any.
   public let debugName: String?
 
-  // DWA FIXME: what does it mean for a function to be ”anchored“ somewhere?
+  // DWA FIXME: what does it mean for a function to be "anchored" somewhere?
+
   // Is this just "site?" Shouldn't we store the whole source range though the closing brace?
   /// The position in source code at which the function is anchored.
   public let anchor: SourcePosition
