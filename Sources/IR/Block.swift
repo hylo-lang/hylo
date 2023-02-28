@@ -2,7 +2,7 @@ import Utils
 
 /// A basic block in a Val IR function.
 ///
-/// A basic blocks is sequence of instructions free of conditional control flow. It may also accept
+/// A basic block is a sequence of instructions free of conditional control flow. It may also accept
 /// arguments representing values that are notionally defined before its first instruction.
 public struct Block {
 
@@ -10,17 +10,17 @@ public struct Block {
   public struct ID: Hashable {
 
     /// The ID of the function containing the block.
-    public var function: Function.ID
+    public var owner: Function.ID
 
     /// The address of the block in the containing function.
     public var address: Function.Blocks.Address
 
     /// The ID of the instruction at `instructionAddress` in the block identified by `self`.
     public func appending(_ instructionAddress: Block.Instructions.Address) -> InstructionID {
-      InstructionID(function, address, instructionAddress)
+      InstructionID(owner, address, instructionAddress)
     }
 
-    /// The ID of the `index`-th parameter of the block.
+    /// Returns the ID of the `index`-th parameter of the block.
     public func parameter(_ index: Int) -> Operand {
       .parameter(block: self, index: index)
     }

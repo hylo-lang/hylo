@@ -31,7 +31,7 @@ enum FunctionLocal: Hashable {
     case .register(let b, let i, let k):
       return .result(instruction: InstructionID(function, b, i), index: k)
     case .parameter(let b, let k):
-      return .parameter(block: Block.ID(function: function, address: b), index: k)
+      return .parameter(block: Block.ID(owner: function, address: b), index: k)
     }
   }
 

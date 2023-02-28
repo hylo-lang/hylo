@@ -11,8 +11,8 @@ final class ValCommandTests: XCTestCase {
     /// The exit status of the compiler.
     let status: ExitCode
 
-    /// The URL of the output file.
-    let output: URL
+    /// The file or directory that was written by the compiler.
+    let outputFile: URL
 
     /// The contents of the standard error.
     let stderr: String
@@ -26,7 +26,7 @@ final class ValCommandTests: XCTestCase {
   func testRawAST() throws {
     let result = try compile(["--emit", "raw-ast"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
+    XCTAssert(FileManager.default.fileExists(atPath: result.outputFile.relativePath))
     XCTAssert(result.stderr.isEmpty)
   }
 
@@ -34,14 +34,14 @@ final class ValCommandTests: XCTestCase {
     let result = try compile(["--emit", "raw-ir"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
-    XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
+    XCTAssert(FileManager.default.fileExists(atPath: result.outputFile.relativePath))
   }
 
   func testIR() throws {
     let result = try compile(["--emit", "ir"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
-    XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
+    XCTAssert(FileManager.default.fileExists(atPath: result.outputFile.relativePath))
   }
 
   func testCPP() throws {
@@ -49,7 +49,7 @@ final class ValCommandTests: XCTestCase {
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
 
-    let baseURL = result.output.deletingPathExtension()
+    let baseURL = result.outputFile.deletingPathExtension()
     XCTAssert(
       FileManager.default.fileExists(atPath: baseURL.appendingPathExtension("h").relativePath))
     XCTAssert(
@@ -62,9 +62,9 @@ final class ValCommandTests: XCTestCase {
     XCTAssert(result.stderr.isEmpty)
 
     #if os(Windows)
-      XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath + ".exe"))
+      XCTAssert(FileManager.default.fileExists(atPath: result.outputFile.relativePath + ".exe"))
     #else
-      XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
+      XCTAssert(FileManager.default.fileExists(atPath: result.outputFile.relativePath))
     #endif
   }
 
@@ -98,7 +98,7 @@ final class ValCommandTests: XCTestCase {
     let result = try compile(["--typecheck"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
-    XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
+    XCTAssertFalse(FileManager.default.fileExists(atPath: result.outputFile.relativePath))
   }
 
   func testTypeCheckFailure() throws {
@@ -113,7 +113,7 @@ final class ValCommandTests: XCTestCase {
                           ~~~
 
       """)
-    XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
+    XCTAssertFalse(FileManager.default.fileExists(atPath: result.outputFile.relativePath))
   }
 
   /// Writes `s` to a temporary file and returns its URL.
@@ -138,7 +138,7 @@ final class ValCommandTests: XCTestCase {
     // Execute the command.
     var stderr = ""
     let status = try cli.execute(loggingTo: &stderr)
-    return CompilationResult(status: status, output: output, stderr: stderr)
+    return CompilationResult(status: status, outputFile: output, stderr: stderr)
   }
 
 }

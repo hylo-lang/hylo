@@ -842,8 +842,8 @@ extension Module {
     init(entryOf function: Function, in program: TypedProgram) {
       let entryAddress = function.blocks.firstAddress!
 
-      for i in 0 ..< function.inputs.count {
-        let (parameterConvention, parameterType) = function.inputs[i]
+      for i in 0 ..< function.parameters.count {
+        let (parameterConvention, parameterType) = function.parameters[i]
         let parameterKey = FunctionLocal.parameter(block: entryAddress, index: i)
         let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
 

@@ -27,7 +27,7 @@ public struct InstructionID: Hashable {
 
   /// Creates an instance with the given properties.
   public init(_ block: Block.ID, _ address: Block.Instructions.Address) {
-    self.function = block.function
+    self.function = block.owner
     self.block = block.address
     self.address = address
   }

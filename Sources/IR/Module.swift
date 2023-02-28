@@ -54,8 +54,8 @@ public struct Module {
 
   /// Accesses the given block.
   public subscript(b: Block.ID) -> Block {
-    _read { yield functions[b.function]!.blocks[b.address] }
-    _modify { yield &functions[b.function]![b.address] }
+    _read { yield functions[b.owner]!.blocks[b.address] }
+    _modify { yield &functions[b.owner]![b.address] }
   }
 
   /// Accesses the given instruction.
@@ -71,7 +71,7 @@ public struct Module {
       return functions[instruction.function]![instruction.block][instruction.address].types[index]
 
     case .parameter(let block, let index):
-      return functions[block.function]![block.address].inputs[index]
+      return functions[block.owner]![block.address].inputs[index]
 
     case .constant(let constant):
       return constant.type
@@ -119,7 +119,7 @@ public struct Module {
     precondition(decl.module == syntax)
 
     // Determine the type of the function.
-    var inputs: [Function.Input] = []
+    var inputs: [Function.Parameter] = []
     let output: LoweredType
 
     switch decl.type.base {
@@ -161,8 +161,8 @@ public struct Module {
       debugName: decl.identifier?.value,
       anchor: decl.introducerSite.first(),
       linkage: decl.isPublic ? .external : .module,
-      inputs: inputs,
-      output: output,
+      parameters: inputs,
+      returnType: output,
       blocks: [])
 
     // Determine if the new function is the module's entry.
@@ -183,7 +183,7 @@ public struct Module {
     to function: Function.ID
   ) -> Block.ID {
     let address = functions[function]!.appendBlock(taking: parameters)
-    return Block.ID(function: function, address: address)
+    return Block.ID(owner: function, address: address)
   }
 
   /// Removes `block` from its function.
@@ -195,12 +195,12 @@ public struct Module {
   /// Returns the global "past the end" position of `block`.
   func globalEndIndex(of block: Block.ID) -> InstructionIndex {
     InstructionIndex(
-      block, functions[block.function]!.blocks[block.address].instructions.endIndex)
+      block, functions[block.owner]!.blocks[block.address].instructions.endIndex)
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.
   func terminator(of block: Block.ID) -> InstructionID? {
-    if let a = functions[block.function]!.blocks[block.address].instructions.lastAddress {
+    if let a = functions[block.owner]!.blocks[block.address].instructions.lastAddress {
       return InstructionID(block, a)
     } else {
       return nil
