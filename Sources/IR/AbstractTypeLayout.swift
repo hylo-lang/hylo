@@ -1,6 +1,6 @@
 import Core
 
-/// The astract layout of a type, describing the relative offsets of its stored properties.
+/// The storage order of a type's stored properties.
 public struct AbstractTypeLayout {
 
   /// The name and type of a stored property.
