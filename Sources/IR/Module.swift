@@ -189,7 +189,7 @@ public struct Module {
   /// Removes `block` from its function.
   @discardableResult
   mutating func removeBlock(_ block: Block.ID) -> Block {
-    functions[block.function]!.removeBlock(block.address)
+    functions[block.owner]!.removeBlock(block.address)
   }
 
   /// Returns the global "past the end" position of `block`.

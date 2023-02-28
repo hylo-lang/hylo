@@ -300,9 +300,9 @@ public struct Emitter {
     }
 
     let c = program.conformance(of: l, to: program.ast.sinkableTrait, exposedTo: frames.top.scope)!
-    let assign = module.appendBlock(to: insertionBlock!.function)
-    let initialize = module.appendBlock(to: insertionBlock!.function)
-    let tail = module.appendBlock(to: insertionBlock!.function)
+    let assign = module.appendBlock(to: insertionBlock!.owner)
+    let initialize = module.appendBlock(to: insertionBlock!.owner)
+    let tail = module.appendBlock(to: insertionBlock!.owner)
 
     // static_branch initialized(%lhs), assign, initialize
     module.append(
