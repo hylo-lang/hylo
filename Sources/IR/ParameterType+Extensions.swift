@@ -2,7 +2,7 @@ import Core
 
 extension ParameterType {
   /// Returns `self` as an input to an IR function.
-  func asIRFunctionInput() -> Function.Input {
+  func asIRFunctionInput() -> Function.Parameter {
     switch access {
     case .let, .inout, .set:
       return (convention: access, type: .address(bareType))

@@ -8,7 +8,7 @@ extension Module {
   /// - Requires: `f` is in `self`.
   public mutating func closeBorrows(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     for blockIndex in self[f].blocks.indices {
-      let block = Block.ID(function: f, address: blockIndex.address)
+      let block = Block.ID(owner: f, address: blockIndex.address)
 
       for instruction in self[block].instructions.indices {
         switch self[block][instruction.address] {

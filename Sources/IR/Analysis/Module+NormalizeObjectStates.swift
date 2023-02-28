@@ -823,8 +823,8 @@ extension Module {
 
     /// Creates the before-context `function`'s entry in `module`.
     init(entryOf function: Function, in program: TypedProgram) {
-      for i in 0 ..< function.inputs.count {
-        let (parameterConvention, parameterType) = function.inputs[i]
+      for i in 0 ..< function.parameters.count {
+        let (parameterConvention, parameterType) = function.parameters[i]
         let parameterKey = FunctionLocal.parameter(block: function.entry!, index: i)
         let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
 

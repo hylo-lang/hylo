@@ -2,14 +2,17 @@ import Core
 import Foundation
 import Utils
 
+// FIXME: it's a point of confusion for me that we have things named "Function" and "Module" and
+// FIXME: they happen to be in the IR, wihthout something like IRFunction.  One possibility is that
+// FIXME: we start qualifying these names at their use sites.
 /// A collection of basic blocks representing a lowered function.
 public struct Function {
 
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
 
-  /// The profile of a IR function input.
-  public typealias Input = (convention: AccessEffect, type: LoweredType)
+  /// A parameter's type and convention (`let`, `inout`, `sink`).
+  public typealias Parameter = (convention: AccessEffect, type: LoweredType)
 
   /// The mangled name of the function.
   public let name: String
@@ -17,17 +20,19 @@ public struct Function {
   /// The debug name of the function, if any.
   public let debugName: String?
 
+  // DWA FIXME: what does it mean for a function to be ”anchored“ somewhere?
+  // Is this just "site?" Shouldn't we store the whole source range though the closing brace?
   /// The position in source code at which the function is anchored.
   public let anchor: SourcePosition
 
   /// The linkage of the function.
   public let linkage: Linkage
 
-  /// The types of the function's parameters.
-  public let inputs: [Input]
+  /// The  function's parameters.
+  public let parameters: [Parameter]
 
   /// The type of the function's output.
-  public let output: LoweredType
+  public let returnType: LoweredType
 
   /// The blocks in the function.
   public private(set) var blocks: Blocks

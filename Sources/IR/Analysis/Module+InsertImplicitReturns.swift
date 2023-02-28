@@ -8,7 +8,7 @@ extension Module {
   /// - Requires: `f` is in `self`.
   public mutating func insertImplicitReturns(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     /// The expected return type of the function.
-    let expectedReturnType = self[f].output.astType
+    let expectedReturnType = self[f].returnType.astType
 
     for b in self[f].blocks.indices {
       let lastInstruction = self[f][b.address].instructions.last
@@ -16,7 +16,7 @@ extension Module {
 
       insertReturnVoidInstruction(
         anchoredAt: lastInstruction?.site ?? .empty(at: self[f].anchor),
-        at: globalEndIndex(of: Block.ID(function: f, address: b.address)),
+        at: globalEndIndex(of: Block.ID(owner: f, address: b.address)),
         inFunctionReturning: expectedReturnType,
         diagnostics: &diagnostics)
     }

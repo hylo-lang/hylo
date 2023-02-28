@@ -10,16 +10,17 @@ public enum Operand: Hashable {
   /// A constant value.
   case constant(Constant)
 
+  // FIXME: this is just used for a precondition check.  Worth defining?
   /// The ID of the function in which the operand is defined, if any.
-  var function: Function.ID? {
-    block?.function
+  var owner: Function.ID? {
+    block?.owner
   }
 
   /// The ID of the block in which the operand is defined, if any.
   var block: Block.ID? {
     switch self {
     case .result(let instruction, _):
-      return Block.ID(function: instruction.function, address: instruction.block)
+      return Block.ID(owner: instruction.function, address: instruction.block)
     case .parameter(let block, _):
       return block
     case .constant(_):

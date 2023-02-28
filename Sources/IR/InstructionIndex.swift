@@ -32,7 +32,7 @@ public struct InstructionIndex: Hashable {
 
   /// Creates an index with the given properties.
   public init(_ block: Block.ID, _ index: Block.Instructions.Index) {
-    self.function = block.function
+    self.function = block.owner
     self.block = block.address
     self.index = index
   }

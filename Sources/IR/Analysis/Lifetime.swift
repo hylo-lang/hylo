@@ -93,7 +93,7 @@ extension Module {
       { (blocks, use) in blocks.insert(use.user.block) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
-    let cfg = functions[site.function]!.cfg()
+    let cfg = functions[site.owner]!.cfg()
     var approximateCoverage: [Function.Blocks.Address: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
     while true {
       guard let occurence = occurences.popFirst() else { break }
@@ -129,7 +129,7 @@ extension Module {
       case (false, true):
         coverage[block] = .liveOut
       case (true, false):
-        let id = Block.ID(function: site.function, address: block)
+        let id = Block.ID(owner: site.owner, address: block)
         coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: id))
       case (false, false):
         continue
@@ -144,7 +144,7 @@ extension Module {
   /// - Requires: `left` and `right` must be defined in the same function, which must be defined in
   ///   `self`. The operand for which `right` is defined must be in `left`.
   func extend(lifetime left: Lifetime, with right: Lifetime) -> Lifetime {
-    precondition(left.operand.function! == right.operand.function!)
+    precondition(left.operand.owner! == right.operand.owner!)
 
     /// Returns the use that executes last.
     func last(_ lhs: Use?, _ rhs: Use?) -> Use? {
@@ -188,11 +188,11 @@ extension Module {
 
   /// Returns the last use of `operand` in `block`.
   private func lastUse(of operand: Operand, in block: Block.ID) -> Use? {
-    let instructions = functions[block.function]![block.address].instructions
+    let instructions = functions[block.owner]![block.address].instructions
     for i in instructions.indices.reversed() {
       if let operandIndex = instructions[i].operands.lastIndex(of: operand) {
         return Use(
-          user: InstructionID(block.function, block.address, i.address),
+          user: InstructionID(block.owner, block.address, i.address),
           index: operandIndex)
       }
     }
