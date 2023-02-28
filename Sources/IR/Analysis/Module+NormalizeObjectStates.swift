@@ -959,7 +959,7 @@ extension Module.MemoryLocation: CustomStringConvertible {
     case .argument(let i):
       return "A(\(i)"
     case .instruction(let b, let i):
-      return "L(\(b.rawValue), \(i.rawValue))"
+      return "L(\(b), \(i))"
     case .sublocation(let root, let path):
       return "\(root).\(list: path, joinedBy: ".")"
     }

@@ -42,9 +42,9 @@ extension FunctionLocal: CustomStringConvertible {
   var description: String {
     switch self {
     case .register(let b, let a, let i):
-      return "Register(\(b.rawValue), \(a.rawValue), \(i))"
+      return "Register(\(b), \(a), \(i))"
     case .parameter(let b, let i):
-      return "Parameter(\(b.rawValue), \(i))"
+      return "Parameter(\(b), \(i))"
     }
   }
 

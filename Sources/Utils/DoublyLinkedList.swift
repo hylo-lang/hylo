@@ -377,3 +377,9 @@ extension DoublyLinkedList: CustomStringConvertible {
   public var description: String { "[\(list: self, joinedBy: ", ")]" }
 
 }
+
+extension DoublyLinkedList.Address: CustomStringConvertible {
+
+  public var description: String { String(describing: rawValue) }
+
+}
