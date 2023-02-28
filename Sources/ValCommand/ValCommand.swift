@@ -29,12 +29,18 @@ public struct ValCommand: ParsableCommand {
 
     init?(argument: String) {
       switch argument {
-      case "raw-ast": self = .rawAST
-      case "raw-ir": self = .rawIR
-      case "ir": self = .ir
-      case "cpp": self = .cpp
-      case "binary": self = .binary
-      default: return nil
+      case "raw-ast":
+        self = .rawAST
+      case "raw-ir":
+        self = .rawIR
+      case "ir":
+        self = .ir
+      case "cpp":
+        self = .cpp
+      case "binary":
+        self = .binary
+      default:
+        return nil
       }
     }
 
