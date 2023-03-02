@@ -25,7 +25,8 @@ jobs:
     steps:
     - name: Setup swift
       uses: swift-actions/setup-swift@v1
-      swift-version: "5.7"
+      with:
+        swift-version: "5.7"
 
     - uses: actions/checkout@v3
 
