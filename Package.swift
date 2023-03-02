@@ -32,7 +32,7 @@ let package = Package(
       from: "5.3.0"),
     .package(
       url: "https://github.com/val-lang/swift-format",
-      branch: "stable-builds"),
+      branch: "main"),
   ],
 
   targets: [
