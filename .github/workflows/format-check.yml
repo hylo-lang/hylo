@@ -1,0 +1,39 @@
+name: Format check
+
+on:
+  push:
+    branches: [ main, swift-format-work ]
+    paths-ignore:
+      - "Docs/**"
+      - "**.md"
+      - "README.md"
+      - "LICENSE"
+      - ".gitignore"
+  pull_request:
+    branches: [ "**" ]
+    paths-ignore:
+      - "Docs/**"
+      - "**.md"
+      - "README.md"
+      - "LICENSE"
+      - ".gitignore"
+
+jobs:
+  build:
+    name: Format check
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup swift
+      uses: swift-actions/setup-swift@v1
+      swift-version: "5.7"
+
+    - uses: actions/checkout@v3
+
+    - name: Swift version
+      run: swift --version
+
+    - name: Build swift-format (Debug)
+      run: swift build -v -c debug swift-format
+
+    - name: Check code format
+      run: swift package plugin lint-source-code --configuration .swift-format.json --target CLI --target ValTests --target UtilsTests
