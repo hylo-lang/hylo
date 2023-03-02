@@ -34,7 +34,7 @@ jobs:
       run: swift --version
 
     - name: Build swift-format (Debug)
-      run: swift build -v -c debug swift-format
+      run: swift build -v -c debug --target swift-format
 
     - name: Check code format
       run: swift package plugin lint-source-code --configuration .swift-format.json --target CLI --target ValTests --target UtilsTests
