@@ -5,29 +5,24 @@ The Swift source code in this repository is meant to be checked with `swift-form
 Contributors are asked to format all the code they submit to the repo.
 There is a CI job that checks the formatting; this job will not auto-correct the formatting, it will just ensure that the formatting is correct.
 
-At this point we use the version `swift-format` at commit SHA 0bc2f0381c72d66a949254af22208a81377cf717.
+We use the version `swift-format` that is forked in our group: https://github.com/val-lang/swift-format.
+
 
 ## Manually Running `swift-format`
 
 To check the style for the Swift code in the repository, run from root directory:
 ```bash
-Tools/run-swift-format.sh lint
+swift package plugin lint-source-code --configuration .swift-format.json --target CLI --target ValTests --target UtilsTests
 ```
+
+(Add all targets for which you want to check formatting)
 
 To automatically format the code, please run
 ```bash
-Tools/run-swift-format.sh fix
+swift package plugin --allow-writing-to-package-directory format-source-code --configuration .swift-format.json --target CLI --target ValTests --target UtilsTests
 ```
 
 Please note that this may not bring all the code to be properly formatted; some code needs to be formatted by hand.
-
-This tool requires for `swift-format` to be in PATH, or to be found at `/usr/local/bin/swift-format`.
-
-## Obtaining `swift-format`
-The best way to get `swift-format` is to obtain it from the [official repository](https://github.com/apple/swift-format) and compile it by hand.
-
-**Warning:** please make sure to use only the version specified above.
-Different versions of `swift-format` may produce different results, and CI builds may fail.
 
 ## Configuration in IDE
 
@@ -40,12 +35,4 @@ The default keyboard shortcut for running the formatter for the open document is
 
 ### XCode
 
-XCode doesn't provide a good way to install custom code formatters.
-Here is a workaround to fix formatting while building the project:
-* Go to `Product` → `Scheme` → `Edit Scheme...` in the XCode menu
-* Under `Build`, select `Post-build actions`
-* Click on `+` button, then select `New Run Script Action`
-* In the box corresponding to the script, paste the following:
-```bash
-${WORKSPACE_PATH}/../../../Tools/run-swift-format.sh fix
-```
+The `lint-source-code` and `format-source-code` can be directly applied from XCode. Right-click on the `val` package in the "Project navigator" tab, and select "Lint Source Code" or "Format Source Code". Ensure to add `--configuration .swift-format.json` inside "Arguments" expansion area, select the targets to run on, and then hit "Run".
