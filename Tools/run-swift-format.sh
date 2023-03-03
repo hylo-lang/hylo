@@ -60,7 +60,7 @@ esac
 SWIFT_FORMAT="${PROJECT_DIR}/.build/${SWIFT_FORMAT_BUILD_MODE}/swift-format"
 if [ ! -f ${SWIFT_FORMAT} ]; then
     echo "Building: ${SWIFT_FORMAT}"
-    swift build -c ${SWIFT_FORMAT_BUILD_MODE} swift-format
+    swift build -c ${SWIFT_FORMAT_BUILD_MODE} --target swift-format
 fi
 if [ ! -f ${SWIFT_FORMAT} ]; then
     echo "Cannot build ${SWIFT_FORMAT}"
