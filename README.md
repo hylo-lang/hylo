@@ -63,6 +63,8 @@ A more detailed description of the current implementation status is available on
 
 [Val and Mutable Value Semantics - Dimi Racordon](https://cppcast.com/val-and-mutable-value-semantics) 
 
+[Val: A Safe Language to Interoperate with C++ - Dimi Racordon - CppCon 2022](https://www.youtube.com/watch?v=ws-Z8xKbP4w)
+
 ## Contributing
 
 We welcome contributions to Val.
