@@ -12,17 +12,22 @@ We use the version `swift-format` that is forked in our group: https://github.co
 
 To check the style for the Swift code in the repository, run from root directory:
 ```bash
-swift package plugin lint-source-code --configuration .swift-format.json --target CLI --target ValTests --target UtilsTests
+Tools/run-swift-format.sh lint
 ```
 
 (Add all targets for which you want to check formatting)
 
 To automatically format the code, please run
 ```bash
-swift package plugin --allow-writing-to-package-directory format-source-code --configuration .swift-format.json --target CLI --target ValTests --target UtilsTests
+Tools/run-swift-format.sh fix
 ```
 
 Please note that this may not bring all the code to be properly formatted; some code needs to be formatted by hand.
+
+To attempt an automatic fix, then to check the formatting, run from root directory:
+```bash
+Tools/run-swift-format.sh fix_lint
+```
 
 ## Configuration in IDE
 
@@ -35,4 +40,6 @@ The default keyboard shortcut for running the formatter for the open document is
 
 ### XCode
 
-The `lint-source-code` and `format-source-code` can be directly applied from XCode. Right-click on the `val` package in the "Project navigator" tab, and select "Lint Source Code" or "Format Source Code". Ensure to add `--configuration .swift-format.json` inside "Arguments" expansion area, select the targets to run on, and then hit "Run".
+The `lint-source-code` and `format-source-code` commands can be directly applied from XCode.
+Right-click on the `val` package in the "Project navigator" tab, and select "Lint Source Code" or "Format Source Code".
+Ensure to add `--configuration .swift-format.json` inside "Arguments" expansion area, select the targets to run on, and then hit "Run".

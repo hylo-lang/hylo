@@ -34,4 +34,4 @@ jobs:
       run: swift --version
 
     - name: Check code format
-      run: swift package plugin lint-source-code --configuration .swift-format.json --target CLI --target ValTests --target UtilsTests
+      run: Tools/run-swift-format.sh lint
