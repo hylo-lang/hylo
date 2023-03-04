@@ -7,29 +7,27 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func closeBorrows(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    for blockIndex in self[f].blocks.indices {
-      let block = Block.ID(function: f, address: blockIndex.address)
-
-      for instruction in self[block].instructions.indices {
-        switch self[block][instruction.address] {
+    for blockToProcess in blocks(in: f) {
+      for i in instructions(in: blockToProcess) {
+        switch self[i] {
         case let borrow as BorrowInstruction:
           // Compute the live-range of the instruction.
-          let borrowID = block.result(at: instruction.address, index: 0)
-          let borrowLifetime = lifetime(of: borrowID, in: self)
+          let borrowResult = Operand.result(instruction: i, index: 0)
+          let borrowLifetime = lifetime(of: borrowResult, in: self)
 
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
               diagnostics.insert(.unusedBinding(name: decl.baseName, at: borrow.site))
             }
-            self[block].instructions.remove(at: instruction.address)
+            removeInstruction(i)
             continue
           }
 
           // Insert `end_borrow` after the instruction's last users.
           for lastUse in borrowLifetime.maximalElements {
             insert(
-              makeEndBorrow(borrowID, anchoredAt: self[lastUse.user].site),
+              makeEndBorrow(borrowResult, anchoredAt: self[lastUse.user].site),
               after: lastUse.user)
           }
 

@@ -78,6 +78,49 @@ public struct Module {
     }
   }
 
+  /// Returns the IDs of the blocks in `f`.
+  ///
+  /// The element of the returned collection is the function's entry; other elements are in no
+  /// particular order.
+  public func blocks(
+    in f: Function.ID
+  ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID>  {
+    self[f].blocks.indices.lazy.map({ .init(function: f, address: $0.address) })
+  }
+
+  /// Returns the IDs of the instructions in `b`, in order.
+  public func instructions(
+    in b: Block.ID
+  ) -> LazyMapSequence<Block.Instructions.Indices, InstructionID> {
+    self[b].instructions.indices.lazy.map({ .init(b.function, b.address, $0.address) })
+  }
+
+  /// Returns the ID the instruction before `i`.
+  func instruction(before i: InstructionID) -> InstructionID? {
+    functions[i.function]![i.block].instructions.address(before: i.address)
+      .map({ InstructionID(i.function, i.block, $0) })
+  }
+
+  /// Returns the global identity of `block`'s terminator, if it exists.
+  func terminator(of block: Block.ID) -> InstructionID? {
+    if let a = functions[block.function]!.blocks[block.address].instructions.lastAddress {
+      return InstructionID(block, a)
+    } else {
+      return nil
+    }
+  }
+
+  /// Returns the global "past the end" position of `block`.
+  func endIndex(of block: Block.ID) -> InstructionIndex {
+    InstructionIndex(
+      block, functions[block.function]!.blocks[block.address].instructions.endIndex)
+  }
+
+  /// Returns the registers asssigned by `i`.
+  func results(of i: InstructionID) -> [Operand] {
+    (0 ..< self[i].types.count).map({ .result(instruction: i, index: $0) })
+  }
+
   /// Returns whether the IR in `self` is well-formed.
   ///
   /// Use this method as a sanity check to verify the module's invariants.
@@ -186,43 +229,27 @@ public struct Module {
     return Block.ID(function: function, address: address)
   }
 
-  /// Removes `block` from its function.
+  /// Removes `block` and updates def-use chains.
+  ///
+  /// - Requires: No instruction in `block` is used by an instruction outside of `block`.
   @discardableResult
   mutating func removeBlock(_ block: Block.ID) -> Block {
-    functions[block.function]!.removeBlock(block.address)
-  }
-
-  /// Returns the global "past the end" position of `block`.
-  func globalEndIndex(of block: Block.ID) -> InstructionIndex {
-    InstructionIndex(
-      block, functions[block.function]!.blocks[block.address].instructions.endIndex)
-  }
-
-  /// Returns the global identity of `block`'s terminator, if it exists.
-  func terminator(of block: Block.ID) -> InstructionID? {
-    if let a = functions[block.function]!.blocks[block.address].instructions.lastAddress {
-      return InstructionID(block, a)
-    } else {
-      return nil
+    for i in instructions(in: block) {
+      precondition(allUses(of: i).allSatisfy({ $0.user.block == block.address }))
+      removeUsesMadeBy(i)
     }
-  }
-
-  /// Returns the global identity of the instruction before `i`.
-  func instruction(before i: InstructionID) -> InstructionID? {
-    functions[i.function]![i.block].instructions.address(before: i.address)
-      .map({ InstructionID(i.function, i.block, $0) })
+    return functions[block.function]!.removeBlock(block.address)
   }
 
   /// Swaps `old` by `new` and returns the identities of the latter's return values.
   ///
-  /// `oldInstruction` is removed from to module. The def-use chains are updated.
+  /// `old` is removed from to module and the def-use chains are updated.
+  ///
+  /// - Requires: `new` produces results with the same types as `old`.
   @discardableResult
   mutating func replace<I: Instruction>(_ old: InstructionID, by new: I) -> [Operand] {
-    // Remove `oldInstruction` for all def-use chains.
-    for o in self[old].operands {
-      uses[o]?.removeAll(where: { $0.user == old })
-    }
-
+    precondition(self[old].types == new.types)
+    removeUsesMadeBy(old)
     return insert(new) { (m, i) in
       m[old] = i
       return old
@@ -299,8 +326,28 @@ public struct Module {
       uses[newInstruction.operands[i], default: []].append(Use(user: user, index: i))
     }
 
-    // Return the identities of the instruction's results.
-    return (0 ..< newInstruction.types.count).map({ .result(instruction: user, index: $0) })
+    return results(of: user)
+  }
+
+  /// Removes instruction `i` and updates def-use chains.
+  ///
+  /// - Requires: The results of `i` have no users.
+  mutating func removeInstruction(_ i: InstructionID) {
+    precondition(results(of: i).allSatisfy({ uses[$0, default: []].isEmpty }))
+    removeUsesMadeBy(i)
+    self[i.function][i.block].instructions.remove(at: i.address)
+  }
+
+  /// Returns the uses of all the registers assigned by `i`.
+  private func allUses(of i: InstructionID) -> FlattenSequence<[[Use]]> {
+    results(of: i).compactMap({ uses[$0] }).joined()
+  }
+
+  /// Removes `i` from the def-use chains of its operands.
+  private mutating func removeUsesMadeBy(_ i: InstructionID) {
+    for o in self[i].operands {
+      uses[o]?.removeAll(where: { $0.user == i })
+    }
   }
 
 }
