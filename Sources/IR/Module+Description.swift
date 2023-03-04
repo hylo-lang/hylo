@@ -31,14 +31,11 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     let function = functions[f]!
 
     // Generate unique names for all the basic blocks, parameters, and instructions.
-    var blockNames: [Block.ID: String] = [:]
     var operandNames: [Operand: String] = [:]
     for i in function.blocks.indices {
-      let blockID = Block.ID(function: f, address: i.address)
-      blockNames[blockID] = "bb\(blockNames.count)"
-
+      let b = Block.ID(function: f, address: i.address)
       for j in 0 ..< function[i.address].inputs.count {
-        operandNames[.parameter(block: blockID, index: j)] = "%\(operandNames.count)"
+        operandNames[.parameter(block: b, index: j)] = "%\(operandNames.count)"
       }
       for j in function[i.address].instructions.indices {
         let instID = InstructionID(f, i.address, j.address)
@@ -71,7 +68,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       let blockID = Block.ID(function: f, address: i.address)
       let block = function[i.address]
 
-      output.write(blockNames[blockID]!)
+      output.write(blockID)
       output.write("(")
       output.write(
         block.inputs.enumerated().lazy
@@ -99,9 +96,9 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
           output.write("borrow [\(instruction.capability)] ")
           output.write(describe(operand: instruction.location))
 
-        case let instruction as BranchInstruction:
+        case is BranchInstruction:
           output.write("branch ")
-          output.write(blockNames[instruction.target]!)
+          output.write(blockID)
 
         case let instruction as CallInstruction:
           output.write("call ")
@@ -115,9 +112,9 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
           output.write("cond_branch ")
           output.write(describe(operand: instruction.condition))
           output.write(", ")
-          output.write(blockNames[instruction.targetIfTrue]!)
+          output.write(instruction.targetIfTrue)
           output.write(", ")
-          output.write(blockNames[instruction.targetIfFalse]!)
+          output.write(instruction.targetIfFalse)
 
         case let instruction as EndBorrowInstruction:
           output.write("end_borrow ")
@@ -171,9 +168,9 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
           output.write("static_branch \(instruction.predicate)(")
           output.write(describe(operand: instruction.subject))
           output.write("), ")
-          output.write(blockNames[instruction.targetIfTrue]!)
+          output.write(instruction.targetIfTrue)
           output.write(", ")
-          output.write(blockNames[instruction.targetIfFalse]!)
+          output.write(instruction.targetIfFalse)
 
         case let instruction as StoreInstruction:
           output.write("store ")
@@ -193,6 +190,14 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     }
 
     output.write("}")
+  }
+
+}
+
+extension TextOutputStream {
+
+  fileprivate mutating func write(_ b: Block.ID) {
+    write("bb\(b.address)")
   }
 
 }
