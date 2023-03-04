@@ -41,11 +41,11 @@ extension Module {
         continue
       }
 
-      let (newBefore, isNewContextPartial) = beforeContext(of: blockToProcess)
+      let (newBefore, sources) = beforeContext(of: blockToProcess)
       let newAfter: Context
       if contexts[blockToProcess]?.before != newBefore {
         newAfter = afterContext(of: blockToProcess, in: newBefore)
-      } else if isNewContextPartial {
+      } else if sources.count != cfg.predecessors(of: blockToProcess).count {
         newAfter = contexts[blockToProcess]!.after
       } else {
         done.insert(blockToProcess)
@@ -96,20 +96,15 @@ extension Module {
       }
     }
 
-    /// Returns the before-context of `b` and a Boolean that's `false` iff it was formed using the
-    /// after-contexts of all `b`'s predecessors.
+    /// Returns the before-context of `b` and the predecessors from which it's been computed.
     ///
     /// - Requires: `isVisitable(b)` is `true`
-    func beforeContext(of b: Function.Blocks.Address) -> (context: Context, isPartial: Bool) {
+    func beforeContext(
+      of b: Function.Blocks.Address
+    ) -> (context: Context, sources: [Function.Blocks.Address]) {
       let p = cfg.predecessors(of: b)
-      let availableAfterContexts = p.compactMap({ contexts[$0]?.after })
-      let isPartial = p.count != availableAfterContexts.count
-
-      if let (h, t) = availableAfterContexts.headAndTail {
-        return (h.merging(t), isPartial)
-      } else {
-        return (Context(), isPartial)
-      }
+      let sources = p.filter({ contexts[$0] != nil })
+      return (.init(merging: sources.lazy.map({ contexts[$0]!.after })), sources)
     }
 
     /// Returns the after-context of `b` formed by interpreting it in `initialContext`, inserting
@@ -850,6 +845,15 @@ extension Module {
 
     }
 
+    /// Forms a context by merging the contexts in `batch`.
+    init<C: Collection<Self>>(merging batch: C) {
+      if let (h, t) = batch.headAndTail {
+        self = t.reduce(into: h, { $0.merge($1) })
+      } else {
+        self.init()
+      }
+    }
+
     /// Merges `other` into `self`.
     mutating func merge(_ other: Self) {
       // Merge the locals.
@@ -866,11 +870,6 @@ extension Module {
 
       // Merge the state of the objects in memory.
       memory.merge(other.memory, uniquingKeysWith: &&)
-    }
-
-    /// Forms a context by merging the contexts in `others` into `self`.
-    func merging<S: Sequence>(_ others: S) -> Self where S.Element == Self {
-      others.reduce(into: self, { (l, r) in l.merge(r) })
     }
 
     /// Calls `action` with a projection of the objects at the locations assigned to `local`.
