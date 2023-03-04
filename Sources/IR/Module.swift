@@ -230,9 +230,15 @@ public struct Module {
   }
 
   /// Removes `block` and updates def-use chains.
+  ///
+  /// - Requires: No instruction in `block` is used by an instruction outside of `block`.
   @discardableResult
   mutating func removeBlock(_ block: Block.ID) -> Block {
-    functions[block.function]!.removeBlock(block.address)
+    for i in instructions(in: block) {
+      precondition(allUses(of: i).allSatisfy({ $0.user.block == block.address }))
+      removeUsesMadeBy(i)
+    }
+    return functions[block.function]!.removeBlock(block.address)
   }
 
   /// Swaps `old` by `new` and returns the identities of the latter's return values.
@@ -243,7 +249,7 @@ public struct Module {
   @discardableResult
   mutating func replace<I: Instruction>(_ old: InstructionID, by new: I) -> [Operand] {
     precondition(self[old].types == new.types)
-    removeUses(of: old)
+    removeUsesMadeBy(old)
     return insert(new) { (m, i) in
       m[old] = i
       return old
@@ -328,12 +334,17 @@ public struct Module {
   /// - Requires: The results of `i` have no users.
   mutating func removeInstruction(_ i: InstructionID) {
     precondition(results(of: i).allSatisfy({ uses[$0, default: []].isEmpty }))
-    removeUses(of: i)
+    removeUsesMadeBy(i)
     self[i.function][i.block].instructions.remove(at: i.address)
   }
 
+  /// Returns the uses of all the registers assigned by `i`.
+  private func allUses(of i: InstructionID) -> FlattenSequence<[[Use]]> {
+    results(of: i).compactMap({ uses[$0] }).joined()
+  }
+
   /// Removes `i` from the def-use chains of its operands.
-  private mutating func removeUses(of i: InstructionID) {
+  private mutating func removeUsesMadeBy(_ i: InstructionID) {
     for o in self[i].operands {
       uses[o]?.removeAll(where: { $0.user == i })
     }
