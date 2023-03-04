@@ -52,6 +52,10 @@ extension Module {
         let x = lifetime(of: results(of: use.user).uniqueElement!)
         result = extend(lifetime: result, with: x)
 
+      case is ElementAddrInstruction where use.index == 0:
+        let x = lifetime(of: results(of: use.user).uniqueElement!)
+        result = extend(lifetime: result, with: x)
+
       default:
         continue
       }
