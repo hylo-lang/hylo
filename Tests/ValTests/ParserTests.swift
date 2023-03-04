@@ -901,7 +901,7 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "foo.12"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let expr = try XCTUnwrap(ast[exprID] as? TupleMemberExpr)
-    XCTAssertEqual(expr.index, 12)
+    XCTAssertEqual(expr.index.value, 12)
 
     let parentExpr = try XCTUnwrap(ast[expr.tuple] as? NameExpr)
     XCTAssertEqual(parentExpr.name.value.stem, "foo")
