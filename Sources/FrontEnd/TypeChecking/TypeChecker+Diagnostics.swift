@@ -195,10 +195,6 @@ extension Diagnostic {
     .error("static member '\(name)' cannot be used on instance of '\(onInstanceOf)'", at: site)
   }
 
-  static func error(undefinedName: String, at site: SourceRange) -> Diagnostic {
-    .error("undefined name '\(undefinedName)' in this scope", at: site)
-  }
-
   static func error(undefinedOperator name: String, at site: SourceRange) -> Diagnostic {
     .error("undefined operator '\(name)'", at: site)
   }
