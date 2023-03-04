@@ -2,9 +2,11 @@ import Utils
 
 /// The lifetime of an operand.
 ///
-/// A lifetime is a partially ordered set of instructions, whose order relation is the function's
-/// evaluation order. The definition of the operand whose lifetime is being represented is *not*
-/// part of its lifetime.
+/// The lifetime of an operand `o` is the set containing all instructions using `o`, partially
+/// ordered by the function's evaluation order. The maximal elements of `o`'s lifetime are the its
+/// last users.
+///
+/// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
 struct Lifetime {
 
   fileprivate typealias Coverage = [Function.Blocks.Address: BlockCoverage]
@@ -59,20 +61,18 @@ struct Lifetime {
     return true
   }
 
-  /// The maximal elements the lifetime.
-  var maximalElements: [Use] {
-    coverage.values.reduce(
-      into: [],
-      { (uses, blockCoverage) in
-        switch blockCoverage {
-        case .liveIn(.some(let use)):
-          uses.append(use)
-        case .closed(.some(let use)):
-          uses.append(use)
-        default:
-          break
-        }
-      })
+  /// Returns the instructions in `self` that do not preceed any other instruction in `self`.
+  func maximalElements() -> [Use] {
+    coverage.values.compactMap() { (blockCoverage) in
+      switch blockCoverage {
+      case .liveIn(let use):
+        return use
+      case .closed(let use):
+        return use
+      default:
+        return nil
+      }
+    }
   }
 
 }
