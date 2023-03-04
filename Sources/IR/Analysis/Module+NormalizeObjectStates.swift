@@ -26,51 +26,50 @@ extension Module {
     var contexts: Contexts = [:]
 
     // Interpret the function until we reach a fixed point.
-    while let block = work.popFirst() {
-      // Pick another block if we can't process this one yet.
-      guard isVisitable(block) else {
-        work.append(block)
+    while let blockToProcess = work.popFirst() {
+      guard isVisitable(blockToProcess) else {
+        work.append(blockToProcess)
         continue
       }
 
       // The entry block is a special case.
-      if block == self[f].entry {
+      if blockToProcess == self[f].entry {
         let x = Context(entryOf: self[f], in: program)
-        let y = afterContext(of: block, in: x)
-        contexts[block] = (before: x, after: y)
-        done.insert(block)
+        let y = afterContext(of: blockToProcess, in: x)
+        contexts[blockToProcess] = (before: x, after: y)
+        done.insert(blockToProcess)
         continue
       }
 
-      let (newBefore, isNewContextPartial) = beforeContext(of: block)
+      let (newBefore, isNewContextPartial) = beforeContext(of: blockToProcess)
       let newAfter: Context
-      if contexts[block]?.before != newBefore {
-        newAfter = afterContext(of: block, in: newBefore)
+      if contexts[blockToProcess]?.before != newBefore {
+        newAfter = afterContext(of: blockToProcess, in: newBefore)
       } else if isNewContextPartial {
-        newAfter = contexts[block]!.after
+        newAfter = contexts[blockToProcess]!.after
       } else {
-        done.insert(block)
+        done.insert(blockToProcess)
         continue
       }
 
       // We're done with the current block if ...
       let isBlockDone: Bool = {
         // 1) we're done with all of the block's predecessors.
-        let pending = cfg.predecessors(of: block).filter({ !done.contains($0) })
+        let pending = cfg.predecessors(of: blockToProcess).filter({ !done.contains($0) })
         if pending.isEmpty { return true }
 
         // 2) the only predecessor left is the block itself, yet the after-context didn't change.
         return (pending.count == 1)
-          && (pending[0] == block)
-          && (contexts[block]?.after == newAfter)
+          && (pending[0] == blockToProcess)
+          && (contexts[blockToProcess]?.after == newAfter)
       }()
 
       // Update the before/after-context pair for the current block and move to the next one.
-      contexts[block] = (before: newBefore, after: newAfter)
+      contexts[blockToProcess] = (before: newBefore, after: newAfter)
       if isBlockDone {
-        done.insert(block)
+        done.insert(blockToProcess)
       } else {
-        work.append(block)
+        work.append(blockToProcess)
       }
     }
 
@@ -103,7 +102,7 @@ extension Module {
     /// - Requires: `isVisitable(b)` is `true`
     func beforeContext(of b: Function.Blocks.Address) -> (context: Context, isPartial: Bool) {
       let p = cfg.predecessors(of: b)
-      let availableAfterContexts = p.compactMap({ (p) in contexts[p]?.after })
+      let availableAfterContexts = p.compactMap({ contexts[$0]?.after })
       let isPartial = p.count != availableAfterContexts.count
 
       if let (h, t) = availableAfterContexts.headAndTail {
