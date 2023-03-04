@@ -462,6 +462,8 @@ public struct Emitter {
       return emitRValue(sequence: SequenceExpr.Typed(expr)!, into: &module)
     case TupleExpr.self:
       return emitRValue(tuple: TupleExpr.Typed(expr)!, into: &module)
+    case TupleMemberExpr.self:
+      return emitRValue(tuple: TupleMemberExpr.Typed(expr)!, into: &module)
     default:
       unexpected(expr)
     }
@@ -667,6 +669,19 @@ public struct Emitter {
     }
     return module.append(
       module.makeRecord(syntax.type, aggregating: elements, anchoredAt: syntax.site),
+      to: insertionBlock!)[0]
+  }
+
+  private mutating func emitRValue(
+    tuple syntax: TupleMemberExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let base = emitLValue(syntax.tuple, into: &module)
+    let element = module.append(
+      module.makeElementAddr(base, at: [syntax.index.value], anchoredAt: syntax.index.site),
+      to: insertionBlock!)[0]
+    return module.append(
+      module.makeLoad(element, anchoredAt: syntax.index.site),
       to: insertionBlock!)[0]
   }
 
@@ -901,6 +916,8 @@ public struct Emitter {
       return emitLValue(inoutExpr: InoutExpr.Typed(syntax)!, into: &module)
     case NameExpr.self:
       return emitLValue(name: NameExpr.Typed(syntax)!, into: &module)
+    case TupleMemberExpr.self:
+      return emitLValue(name: TupleMemberExpr.Typed(syntax)!, into: &module)
     default:
       return emitLValue(convertingRValue: syntax, into: &module)
     }
@@ -964,6 +981,16 @@ public struct Emitter {
     }
 
     fatalError()
+  }
+
+  private mutating func emitLValue(
+    name syntax: TupleMemberExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let base = emitLValue(syntax.tuple, into: &module)
+    return module.append(
+      module.makeElementAddr(base, at: [syntax.index.value], anchoredAt: syntax.index.site),
+      to: insertionBlock!)[0]
   }
 
   /// Returns the address of the member declared by `decl` and bound to `receiverAddress`,

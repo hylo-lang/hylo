@@ -2710,8 +2710,8 @@ public struct TypeChecker {
       }
     }
 
-    var inputs: [CallableTypeParameter] = ast[d].parameters.reduce(into: []) { (result, d) in
-      result.append(.init(label: ast[d].label?.value, type: realize(parameterDecl: d)))
+    var inputs: [CallableTypeParameter] = ast[d].parameters.map { (d) in
+      .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
     }
 
     // Initializers are global functions.
@@ -2729,8 +2729,8 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(methodDecl d: MethodDecl.ID) -> AnyType {
-    let inputs: [CallableTypeParameter] = ast[d].parameters.reduce(into: []) { (result, d) in
-      result.append(.init(label: ast[d].label?.value, type: realize(parameterDecl: d)))
+    let inputs: [CallableTypeParameter] = ast[d].parameters.map { (d) in
+      .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
     }
 
     // Realize the method's receiver if necessary.
@@ -2809,8 +2809,8 @@ public struct TypeChecker {
 
   private mutating func _realize(subscriptDecl d: SubscriptDecl.ID) -> AnyType {
     let inputs = ast[d].parameters.map(default: []) { (p) -> [CallableTypeParameter] in
-      p.reduce(into: []) { (result, d) in
-        result.append(.init(label: ast[d].label?.value, type: realize(parameterDecl: d)))
+      p.map { (d) in
+        .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
       }
     }
 

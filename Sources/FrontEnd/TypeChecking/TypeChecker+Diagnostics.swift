@@ -195,10 +195,6 @@ extension Diagnostic {
     .error("static member '\(name)' cannot be used on instance of '\(onInstanceOf)'", at: site)
   }
 
-  static func error(undefinedName: String, at site: SourceRange) -> Diagnostic {
-    .error("undefined name '\(undefinedName)' in this scope", at: site)
-  }
-
   static func error(undefinedOperator name: String, at site: SourceRange) -> Diagnostic {
     .error("undefined operator '\(name)'", at: site)
   }
@@ -255,14 +251,20 @@ extension Diagnostic {
     .error("type '\(domain)' has no unnamed subscripts", at: site)
   }
 
-  static func error(undefinedName name: Name, in domain: AnyType? = nil, at site: SourceRange)
-    -> Diagnostic
-  {
+  static func error(
+    undefinedName name: Name, in domain: AnyType? = nil, at site: SourceRange
+  ) -> Diagnostic {
     if let domain = domain {
       return .error("type '\(domain)' has no member '\(name)'", at: site)
     } else {
       return .error("undefined name '\(name.stem)' in this scope", at: site)
     }
+  }
+
+  static func error(
+    undefinedName name: Int, in domain: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .error("type '\(domain)' has no member '\(name)'", at: site)
   }
 
   static func warning(sumTypeWithZeroElementsAt site: SourceRange) -> Diagnostic {
