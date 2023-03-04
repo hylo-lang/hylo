@@ -2,9 +2,11 @@ import Utils
 
 /// The lifetime of an operand.
 ///
-/// A lifetime is a partially ordered set of instructions, whose order relation is the function's
-/// evaluation order. The definition of the operand whose lifetime is being represented is *not*
-/// part of its lifetime.
+/// The lifetime of an operand `o` is the set containing all instructions using `o`, partially
+/// ordered by the function's evaluation order. The maximal elements of `o`'s lifetime are the its
+/// last users.
+///
+/// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
 struct Lifetime {
 
   fileprivate typealias Coverage = [Function.Blocks.Address: BlockCoverage]
@@ -59,20 +61,18 @@ struct Lifetime {
     return true
   }
 
-  /// The maximal elements the lifetime.
-  var maximalElements: [Use] {
-    coverage.values.reduce(
-      into: [],
-      { (uses, blockCoverage) in
-        switch blockCoverage {
-        case .liveIn(.some(let use)):
-          uses.append(use)
-        case .closed(.some(let use)):
-          uses.append(use)
-        default:
-          break
-        }
-      })
+  /// Returns the instructions in `self` that do not preceed any other instruction in `self`.
+  func maximalElements() -> [Use] {
+    coverage.values.compactMap() { (blockCoverage) in
+      switch blockCoverage {
+      case .liveIn(let use):
+        return use
+      case .closed(let use):
+        return use
+      default:
+        return nil
+      }
+    }
   }
 
 }
@@ -83,9 +83,10 @@ extension Module {
   ///
   /// The live-range `L` of an operand `x` in a function `f` is the minimal lifetime such that for
   /// for all instructions `i` in `f`, if `i` uses `x` then `i` is in `L`.
-  func liveSite(of operand: Operand, definedIn site: Block.ID) -> Lifetime {
-    // Note: the search implements a variant of Appel's path exploration algorithm, found in
-    // "Computing Liveness Sets for SSA-Form Programs" by Brandner et al.
+  func liveRange(of operand: Operand, definedIn site: Block.ID) -> Lifetime {
+
+    // This implementation is a variant of Appel's path exploration algorithm found in Brandner et
+    // al.'s "Computing Liveness Sets for SSA-Form Programs".
 
     // Find all blocks in which the operand is being used.
     var occurences = uses[operand, default: []].reduce(

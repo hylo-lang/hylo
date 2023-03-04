@@ -249,7 +249,8 @@ public struct Emitter {
       for (path, name) in pattern.subpattern.names {
         let s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
         let b = module.append(
-          module.makeBorrow(capability, from: s, anchoredAt: name.decl.site),
+          module.makeBorrow(
+            capability, from: s, correspondingTo: name.decl, anchoredAt: name.decl.site),
           to: insertionBlock!)[0]
         frames[name.decl] = b
       }

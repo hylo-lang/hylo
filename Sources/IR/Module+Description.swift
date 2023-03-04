@@ -96,9 +96,9 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
           output.write("borrow [\(instruction.capability)] ")
           output.write(describe(operand: instruction.location))
 
-        case is BranchInstruction:
+        case let instruction as BranchInstruction:
           output.write("branch ")
-          output.write(blockID)
+          output.write(instruction.target)
 
         case let instruction as CallInstruction:
           output.write("call ")

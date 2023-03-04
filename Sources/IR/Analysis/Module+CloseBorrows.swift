@@ -13,7 +13,7 @@ extension Module {
         case let borrow as BorrowInstruction:
           // Compute the live-range of the instruction.
           let borrowResult = Operand.result(instruction: i, index: 0)
-          let borrowLifetime = lifetime(of: borrowResult, in: self)
+          let borrowLifetime = lifetime(of: borrowResult)
 
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
@@ -25,7 +25,7 @@ extension Module {
           }
 
           // Insert `end_borrow` after the instruction's last users.
-          for lastUse in borrowLifetime.maximalElements {
+          for lastUse in borrowLifetime.maximalElements() {
             insert(
               makeEndBorrow(borrowResult, anchoredAt: self[lastUse.user].site),
               after: lastUse.user)
@@ -38,20 +38,24 @@ extension Module {
     }
   }
 
-  private func lifetime(of operand: Operand, in module: Module) -> Lifetime {
+  private func lifetime(of operand: Operand) -> Lifetime {
     // Nothing to do if the operand has no use.
-    guard let uses = module.uses[operand] else { return Lifetime(operand: operand) }
+    guard let uses = uses[operand] else { return Lifetime(operand: operand) }
 
     // Compute the live-range of the operand.
-    var result = module.liveSite(of: operand, definedIn: operand.block!)
+    var result = liveRange(of: operand, definedIn: operand.block!)
 
     // Extend the lifetime with that of its borrows.
     for use in uses {
       switch self[use.user] {
       case is BorrowInstruction:
-        result = module.extend(
-          lifetime: result, with: lifetime(of: .result(instruction: use.user, index: 0), in: module)
-        )
+        let x = lifetime(of: results(of: use.user).uniqueElement!)
+        result = extend(lifetime: result, with: x)
+
+      case is ElementAddrInstruction where use.index == 0:
+        let x = lifetime(of: results(of: use.user).uniqueElement!)
+        result = extend(lifetime: result, with: x)
+
       default:
         continue
       }
