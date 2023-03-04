@@ -145,6 +145,8 @@ extension AST {
       traverse(self[n] as! SubscriptCallExpr, notifying: &o)
     case TupleExpr.self:
       traverse(self[n] as! TupleExpr, notifying: &o)
+    case TupleMemberExpr.self:
+      traverse(self[n] as! TupleMemberExpr, notifying: &o)
     case TupleTypeExpr.self:
       traverse(self[n] as! TupleTypeExpr, notifying: &o)
     case UnicodeScalarLiteralExpr.self:
@@ -593,6 +595,13 @@ extension AST {
     _ n: TupleExpr, notifying o: inout O
   ) {
     walk(roots: n.elements.map(\.value), notifying: &o)
+  }
+
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
+  public func traverse<O: ASTWalkObserver>(
+    _ n: TupleMemberExpr, notifying o: inout O
+  ) {
+    walk(n.tuple, notifying: &o)
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
