@@ -43,7 +43,7 @@ extension Module {
     guard let uses = module.uses[operand] else { return Lifetime(operand: operand) }
 
     // Compute the live-range of the operand.
-    var result = module.liveSite(of: operand, definedIn: operand.block!)
+    var result = module.liveRange(of: operand, definedIn: operand.block!)
 
     // Extend the lifetime with that of its borrows.
     for use in uses {
