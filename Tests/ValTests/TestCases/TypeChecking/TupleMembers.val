@@ -1,4 +1,4 @@
-//! expect-success
+//! expect-failure
 
 fun check<T>(_ x: T) {}
 
@@ -11,5 +11,7 @@ public fun main() {
   check<Double>(x1)
   let x2 = s.2
   check<Bool>(x2)
-}
 
+  //! @+1 diagnostic type '{first: Int, second: Double, Bool}' has no member '3'
+  let y0 = s.3
+}
