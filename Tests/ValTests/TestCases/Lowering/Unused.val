@@ -1,0 +1,6 @@
+//! expect-success
+
+public fun main() {
+  //! @+1 diagnostic binding 'x' was never used
+  let x = ()
+}
