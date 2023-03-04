@@ -280,7 +280,7 @@ extension SourceFile: CustomStringConvertible {
 /// directories are recursively searched for `.val` files, which are considered Val source files;
 /// all others are treated as non-source files and are ignored.
 public func sourceFiles<S: Sequence<URL>>(in sourcePaths: S) throws -> [SourceFile] {
-  try sourcePaths.flatMap { p in
+  try sourcePaths.flatMap { (p) in
     try p.hasDirectoryPath ? sourceFiles(in: p, withExtension: "val") : [SourceFile(contentsOf: p)]
   }
 }

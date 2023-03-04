@@ -64,7 +64,7 @@ extension TypedProgram {
   fileprivate func properties(of t: AnyType) -> [AbstractTypeLayout.StoredProperty] {
     switch t.base {
     case let p as ProductType:
-      return self[p.decl].members.flatMap { m in
+      return self[p.decl].members.flatMap { (m) in
         BindingDecl.Typed(m).map { b in
           b.pattern.names.lazy.map({ (_, name) in (name.decl.baseName, name.decl.type) })
         } ?? []
