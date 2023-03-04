@@ -3,4 +3,8 @@
 public fun main() {
   //! @+1 diagnostic binding 'x' was never used
   let x = ()
+
+  //! @+2 diagnostic binding 'z0' was never used
+  var z = ()
+  inout z0 = &z
 }
