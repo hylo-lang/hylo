@@ -1,0 +1,15 @@
+//! expect-success
+
+fun check<T>(_ x: T) {}
+
+public fun main() {
+  let s = (first: 1, second: 2.0, true)
+
+  let x0 = s.0
+  check<Int>(x0)
+  let x1 = s.1
+  check<Double>(x1)
+  let x2 = s.2
+  check<Bool>(x2)
+}
+
