@@ -173,7 +173,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
       // Create an abstract location denoting the newly allocated memory.
-      let location = MemoryLocation.instruction(block: i.block, address: i.address)
+      let location = AbstractLocation.instruction(block: i.block, address: i.address)
       precondition(context.memory[location] == nil, "stack leak")
 
       // Update the context.
@@ -189,7 +189,7 @@ extension Module {
       let borrow = self[i] as! BorrowInstruction
 
       // Operand must a location.
-      let locations: Set<MemoryLocation>
+      let locations: Set<AbstractLocation>
       if let k = FunctionLocal(operand: borrow.location) {
         locations = context.locals[k]!.unwrapLocations()!
       } else {
@@ -298,7 +298,7 @@ extension Module {
       let addr = self[i] as! ElementAddrInstruction
 
       // Operand must a location.
-      let locations: [MemoryLocation]
+      let locations: [AbstractLocation]
       if let k = FunctionLocal(operand: addr.base) {
         locations = context.locals[k]!.unwrapLocations()!.map({ $0.appending(addr.elementPath) })
       } else {
@@ -328,7 +328,7 @@ extension Module {
       let load = self[i] as! LoadInstruction
 
       // Operand must be a location.
-      let locations: Set<MemoryLocation>
+      let locations: Set<AbstractLocation>
       if let k = FunctionLocal(operand: load.source) {
         locations = context.locals[k]!.unwrapLocations()!
       } else {
@@ -382,7 +382,7 @@ extension Module {
       if s.predicate != .initialized { fatalError("not implemented") }
 
       // Subject must be a location.
-      let locations: Set<MemoryLocation>
+      let locations: Set<AbstractLocation>
       if let k = FunctionLocal(operand: s.subject) {
         locations = context.locals[k]!.unwrapLocations()!
       } else {
@@ -462,47 +462,6 @@ extension Module {
         before: i)[0]
       insert(makeDeinit(o, anchoredAt: anchor), before: i)
     }
-  }
-
-  /// An abstract memory location.
-  fileprivate enum MemoryLocation: Hashable {
-
-    /// The null location.
-    case null
-
-    /// The location of an argument to a `let`, `inout`, or `set` parameter.
-    case argument(index: Int)
-
-    /// A location produced by an instruction.
-    case instruction(block: Function.Blocks.Address, address: Block.Instructions.Address)
-
-    /// A sub-location rooted at an argument or instruction.
-    ///
-    /// `path[i]` denotes the index of a property in the abstract layout of the object stored at
-    /// `.sublocation(root: r, path: path.prefix(upTo: i))`. For example, if `r` is the location
-    /// identifying storage of type `{{A, B}, C}`, then `sublocation(root: r, path: [0, 1])` is a
-    /// location identifying storage of type `B`.
-    ///
-    /// - Note: Use `appending(_:)` to create instances of this case.
-    /// - Requires: `root` is `.argument` or `.instruction` and `path` is not empty.
-    indirect case sublocation(root: MemoryLocation, path: PartPath)
-
-    /// Returns a new locating created by appending `suffix` to this one.
-    ///
-    /// - Requires: `self` is not `.null`.
-    func appending(_ suffix: PartPath) -> MemoryLocation {
-      if suffix.isEmpty { return self }
-
-      switch self {
-      case .null:
-        preconditionFailure("null location")
-      case .argument, .instruction:
-        return .sublocation(root: self, path: suffix)
-      case .sublocation(let root, let prefix):
-        return .sublocation(root: root, path: prefix + suffix)
-      }
-    }
-
   }
 
   /// An abstract object or aggregate of objects.
@@ -757,7 +716,7 @@ extension Module {
   fileprivate enum AbstractValue: Equatable {
 
     /// A non-empty set of locations.
-    case locations(Set<MemoryLocation>)
+    case locations(Set<AbstractLocation>)
 
     /// An object.
     case object(Object)
@@ -769,7 +728,7 @@ extension Module {
     }
 
     /// If `self` is `.locations(l)`, returns `l`; otherwise, returns `nil`.
-    func unwrapLocations() -> Set<MemoryLocation>? {
+    func unwrapLocations() -> Set<AbstractLocation>? {
       if case .locations(let ls) = self {
         return ls
       } else {
@@ -811,7 +770,7 @@ extension Module {
     var locals: [FunctionLocal: AbstractValue] = [:]
 
     /// The state of the memory.
-    var memory: [MemoryLocation: Object] = [:]
+    var memory: [AbstractLocation: Object] = [:]
 
     /// Creates an empty context.
     init() {}
@@ -825,12 +784,12 @@ extension Module {
 
         switch parameterConvention {
         case .let, .inout:
-          let l = MemoryLocation.argument(index: i)
+          let l = AbstractLocation.argument(index: i)
           locals[parameterKey] = .locations([l])
           memory[l] = Object(layout: parameterLayout, value: .full(.initialized))
 
         case .set:
-          let l = MemoryLocation.argument(index: i)
+          let l = AbstractLocation.argument(index: i)
           locals[parameterKey] = .locations([l])
           memory[l] = Object(layout: parameterLayout, value: .full(.uninitialized))
 
@@ -882,7 +841,10 @@ extension Module {
     }
 
     /// Returns the result calling `action` with a projection of the object at `location`.
-    mutating func withObject<T>(at location: MemoryLocation, _ action: (inout Object) -> T) -> T {
+    mutating func withObject<T>(
+      at location: AbstractLocation,
+      _ action: (inout Object) -> T
+    ) -> T {
       switch location {
       case .null:
         preconditionFailure("null location")
@@ -949,22 +911,6 @@ extension Module.AbstractValue: CustomStringConvertible {
 
 }
 
-extension Module.MemoryLocation: CustomStringConvertible {
-
-  var description: String {
-    switch self {
-    case .null:
-      return "Null"
-    case .argument(let i):
-      return "A(\(i)"
-    case .instruction(let b, let i):
-      return "L(\(b), \(i))"
-    case .sublocation(let root, let path):
-      return "\(root).\(list: path, joinedBy: ".")"
-    }
-  }
-
-}
 
 extension Module.Object: CustomStringConvertible {
 
