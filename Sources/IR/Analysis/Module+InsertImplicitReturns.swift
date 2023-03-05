@@ -10,13 +10,13 @@ extension Module {
     /// The expected return type of the function.
     let expectedReturnType = self[f].output.astType
 
-    for b in self[f].blocks.indices {
-      let lastInstruction = self[f][b.address].instructions.last
+    for blockToProcess in blocks(in: f) {
+      let lastInstruction = self[blockToProcess].instructions.last
       if let l = lastInstruction, l.isTerminator { continue }
 
       insertReturnVoidInstruction(
         anchoredAt: lastInstruction?.site ?? .empty(at: self[f].anchor),
-        at: globalEndIndex(of: Block.ID(function: f, address: b.address)),
+        at: endIndex(of: blockToProcess),
         inFunctionReturning: expectedReturnType,
         diagnostics: &diagnostics)
     }

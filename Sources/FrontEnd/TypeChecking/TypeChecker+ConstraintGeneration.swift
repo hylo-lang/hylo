@@ -172,6 +172,9 @@ extension TypeChecker {
     case TupleExpr.self:
       return inferredType(
         ofTupleExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+    case TupleMemberExpr.self:
+      return inferredType(
+        ofTupleMemberExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
     default:
       unexpected(subject, in: ast)
     }
@@ -753,6 +756,20 @@ extension TypeChecker {
     }
 
     return state.facts.constrain(subject, in: ast, toHaveType: TupleType(elementTypes))
+  }
+
+  private mutating func inferredType(
+    ofTupleMemberExpr subject: TupleMemberExpr.ID,
+    shapedBy shape: AnyType?,
+    in scope: AnyScopeID,
+    updating state: inout State
+  ) -> AnyType {
+    let s = inferredType(of: ast[subject].tuple, shapedBy: nil, in: scope, updating: &state)
+    let t = ^TypeVariable()
+    let i = ast[subject].index
+    state.facts.append(
+      TupleMemberConstraint(s, at: i.value, hasType: t, origin: .init(.member, at: i.site)))
+    return state.facts.constrain(subject, in: ast, toHaveType: t)
   }
 
   /// Returns the inferred type of `literal`, updating `state` with inference facts and deferred

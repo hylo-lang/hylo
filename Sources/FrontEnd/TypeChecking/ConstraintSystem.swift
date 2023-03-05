@@ -146,6 +146,8 @@ struct ConstraintSystem {
         setOutcome(solve(parameter: g, using: &checker), for: g)
       case is MemberConstraint:
         setOutcome(solve(member: g, using: &checker), for: g)
+      case is TupleMemberConstraint:
+        setOutcome(solve(tupleMember: g, using: &checker), for: g)
       case is FunctionCallConstraint:
         setOutcome(solve(functionCall: g, using: &checker), for: g)
       case is MergingConstraint:
@@ -530,6 +532,44 @@ struct ConstraintSystem {
     return delegate(to: [s])
   }
 
+  /// Returns either `.success` if `g.subject` is a tuple type whose `g.elementIndex`-th element
+  /// has type `g.elementType`, `.failure` if it doesn't, `.product` if `g` must be broken down to
+  /// smaller goals, or `nil` if if neither of these outcomes can be determined yet.
+  private mutating func solve(
+    tupleMember g: GoalIdentity,
+    using checker: inout TypeChecker
+  ) -> Outcome? {
+    let goal = goals[g] as! TupleMemberConstraint
+
+    switch goal.subject.base {
+    case is TypeVariable:
+      postpone(g)
+      return nil
+
+    case let s as TupleType:
+      guard goal.elementIndex < s.elements.count else { break }
+
+      let t = s.elements[goal.elementIndex].type
+      if unify(t, goal.elementType, querying: checker.relations) {
+        return .success
+      } else {
+        return .failure { (d, m, _) in
+          let (l, r) = (m.reify(t), m.reify(goal.elementType))
+          d.insert(.error(type: l, incompatibleWith: r, at: goal.origin.site))
+        }
+      }
+
+    default:
+      // TODO: Handle bound generic typess
+      break
+    }
+
+    return .failure { (d, m, _) in
+      let s = m.reify(goal.subject)
+      d.insert(.error(undefinedName: goal.elementIndex, in: s, at: goal.origin.site))
+    }
+  }
+
   /// Returns either `.success` if `g.callee` is a callable type with parameters `g.parameters`
   /// and return type `g.returnType`, `.failure` if it doesn't, `.product` if `g` must be broken
   /// down to smaller goals, or `nil` if neither of these outcomes can be determined yet.
@@ -722,7 +762,7 @@ struct ConstraintSystem {
 
   /// Inserts `batch` into the fresh set.
   private mutating func insert<S: Sequence<Constraint>>(fresh batch: S) -> [GoalIdentity] {
-    batch.reduce(into: [], { (s, g) in s.append(insert(fresh: g)) })
+    batch.map { (g) in insert(fresh: g) }
   }
 
   /// Schedules `g` to be solved only once the solver has inferred more information about at least

@@ -38,7 +38,7 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--emit raw-ir`: Lower the typed AST into Val IR and output the result in a file.
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
 - `--emit cpp`: Produce a C++ source file.
-- `--emit binary` (default): Produce an executable 
+- `--emit binary` (default): Produce an executable (currently by compiling transpiled C++ files)
   - Note: by default, C++ files will be compiled with `Clang`. Use `--cc {CXX compiler}` to use another compiler.
   - Note: You can specify parameters for the CXX compiler to use (e.g., `--cc-flags O3`).
     - Note: Don't add an extraneous `-`, please use `O3` instead of `-O3`. 
@@ -62,6 +62,8 @@ A more detailed description of the current implementation status is available on
 [Value Semantics: Safety, Independence, Projection, & Future of Programming - Dave Abrahams CppCon 22](https://www.youtube.com/watch?v=QthAU-t3PQ4)
 
 [Val and Mutable Value Semantics - Dimi Racordon](https://cppcast.com/val-and-mutable-value-semantics) 
+
+[Val: A Safe Language to Interoperate with C++ - Dimi Racordon - CppCon 2022](https://www.youtube.com/watch?v=ws-Z8xKbP4w)
 
 ## Contributing
 

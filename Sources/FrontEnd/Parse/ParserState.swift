@@ -256,9 +256,9 @@ struct ParserState {
   }
 
   /// Consumes and returns the value of a member index.
-  mutating func takeMemberIndex() -> Int? {
+  mutating func takeMemberIndex() -> SourceRepresentable<Int>? {
     if let index = take(if: isMemberIndex(_:)) {
-      return Int(lexer.sourceCode[index.site])!
+      return SourceRepresentable(value: Int(lexer.sourceCode[index.site])!, range: index.site)
     } else {
       return nil
     }

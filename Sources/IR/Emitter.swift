@@ -223,36 +223,17 @@ public struct Emitter {
     precondition(program.isLocal(decl.id))
     precondition(reading(decl.pattern.introducer.value, { ($0 != .var) && ($0 != .sinklet) }))
 
-    /// The pattern of the binding being emitted.
-    let pattern = decl.pattern
-
     // There's nothing to do if there's no initializer.
-    if let initializer = decl.initializer {
-      let source: Operand
-      if (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self) {
-        // Emit the initializer as a l-value.
-        source = emitLValue(initializer, meantFor: capability, into: &module)
-      } else {
-        // emit a r-value and store it into local storage.
-        let value = emitRValue(initializer, into: &module)
+    guard let initializer = decl.initializer else { return }
 
-        let exprType = initializer.type
-        let storage = module.append(
-          module.makeAllocStack(exprType, anchoredAt: pattern.site),
-          to: insertionBlock!)[0]
-        frames.top.allocs.append(storage)
-        source = storage
-
-        emitInitialization(of: source, to: value, anchoredAt: pattern.site, into: &module)
-      }
-
-      for (path, name) in pattern.subpattern.names {
-        let s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
-        let b = module.append(
-          module.makeBorrow(capability, from: s, anchoredAt: name.decl.site),
-          to: insertionBlock!)[0]
-        frames[name.decl] = b
-      }
+    let source = emitLValue(initializer, into: &module)
+    for (path, name) in decl.pattern.subpattern.names {
+      let s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+      let b = module.append(
+        module.makeBorrow(
+          capability, from: s, correspondingTo: name.decl, anchoredAt: name.decl.site),
+        to: insertionBlock!)[0]
+      frames[name.decl] = b
     }
   }
 
@@ -481,6 +462,8 @@ public struct Emitter {
       return emitRValue(sequence: SequenceExpr.Typed(expr)!, into: &module)
     case TupleExpr.self:
       return emitRValue(tuple: TupleExpr.Typed(expr)!, into: &module)
+    case TupleMemberExpr.self:
+      return emitRValue(tuple: TupleMemberExpr.Typed(expr)!, into: &module)
     default:
       unexpected(expr)
     }
@@ -686,6 +669,19 @@ public struct Emitter {
     }
     return module.append(
       module.makeRecord(syntax.type, aggregating: elements, anchoredAt: syntax.site),
+      to: insertionBlock!)[0]
+  }
+
+  private mutating func emitRValue(
+    tuple syntax: TupleMemberExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let base = emitLValue(syntax.tuple, into: &module)
+    let element = module.append(
+      module.makeElementAddr(base, at: [syntax.index.value], anchoredAt: syntax.index.site),
+      to: insertionBlock!)[0]
+    return module.append(
+      module.makeLoad(element, anchoredAt: syntax.index.site),
       to: insertionBlock!)[0]
   }
 
@@ -920,6 +916,8 @@ public struct Emitter {
       return emitLValue(inoutExpr: InoutExpr.Typed(syntax)!, into: &module)
     case NameExpr.self:
       return emitLValue(name: NameExpr.Typed(syntax)!, into: &module)
+    case TupleMemberExpr.self:
+      return emitLValue(name: TupleMemberExpr.Typed(syntax)!, into: &module)
     default:
       return emitLValue(convertingRValue: syntax, into: &module)
     }
@@ -983,6 +981,16 @@ public struct Emitter {
     }
 
     fatalError()
+  }
+
+  private mutating func emitLValue(
+    name syntax: TupleMemberExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let base = emitLValue(syntax.tuple, into: &module)
+    return module.append(
+      module.makeElementAddr(base, at: [syntax.index.value], anchoredAt: syntax.index.site),
+      to: insertionBlock!)[0]
   }
 
   /// Returns the address of the member declared by `decl` and bound to `receiverAddress`,

@@ -64,18 +64,14 @@ extension TypedProgram {
   fileprivate func properties(of t: AnyType) -> [AbstractTypeLayout.StoredProperty] {
     switch t.base {
     case let p as ProductType:
-      return self[p.decl].members.reduce(into: []) { (result, m) in
-        if let b = BindingDecl.Typed(m) {
-          result.append(
-            contentsOf: b.pattern.names
-              .map({ (_, name) in (name.decl.baseName, name.decl.type) }))
-        }
+      return self[p.decl].members.flatMap { (m) in
+        BindingDecl.Typed(m).map { b in
+          b.pattern.names.lazy.map({ (_, name) in (name.decl.baseName, name.decl.type) })
+        } ?? []
       }
 
     case let p as TupleType:
-      return p.elements.reduce(into: []) { (result, e) in
-        result.append((e.label, e.type))
-      }
+      return p.elements.map { ($0.label, $0.type) }
 
     default:
       return []

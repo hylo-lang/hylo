@@ -25,6 +25,54 @@ extension Module {
     /// The state of the abstract interpreter before and after the visited basic blocks.
     var contexts: Contexts = [:]
 
+    // Interpret the function until we reach a fixed point.
+    while let blockToProcess = work.popFirst() {
+      guard isVisitable(blockToProcess) else {
+        work.append(blockToProcess)
+        continue
+      }
+
+      // The entry block is a special case.
+      if blockToProcess == self[f].entry {
+        let x = Context(entryOf: self[f], in: program)
+        let y = afterContext(of: blockToProcess, in: x)
+        contexts[blockToProcess] = (before: x, after: y)
+        done.insert(blockToProcess)
+        continue
+      }
+
+      let (newBefore, sources) = beforeContext(of: blockToProcess)
+      let newAfter: Context
+      if contexts[blockToProcess]?.before != newBefore {
+        newAfter = afterContext(of: blockToProcess, in: newBefore)
+      } else if sources.count != cfg.predecessors(of: blockToProcess).count {
+        newAfter = contexts[blockToProcess]!.after
+      } else {
+        done.insert(blockToProcess)
+        continue
+      }
+
+      // We're done with the current block if ...
+      let isBlockDone: Bool = {
+        // 1) we're done with all of the block's predecessors.
+        let pending = cfg.predecessors(of: blockToProcess).filter({ !done.contains($0) })
+        if pending.isEmpty { return true }
+
+        // 2) the only predecessor left is the block itself, yet the after-context didn't change.
+        return (pending.count == 1)
+          && (pending[0] == blockToProcess)
+          && (contexts[blockToProcess]?.after == newAfter)
+      }()
+
+      // Update the before/after-context pair for the current block and move to the next one.
+      contexts[blockToProcess] = (before: newBefore, after: newAfter)
+      if isBlockDone {
+        done.insert(blockToProcess)
+      } else {
+        work.append(blockToProcess)
+      }
+    }
+
     /// Returns `true` if `b` has been visited.
     func visited(_ b: Function.Blocks.Address) -> Bool {
       contexts[b] != nil
@@ -48,20 +96,15 @@ extension Module {
       }
     }
 
-    /// Returns the before-context of `b` and a Boolean that's `false` iff it was formed using the
-    /// after-contexts of all `b`'s predecessors.
+    /// Returns the before-context of `b` and the predecessors from which it's been computed.
     ///
     /// - Requires: `isVisitable(b)` is `true`
-    func beforeContext(of b: Function.Blocks.Address) -> (context: Context, isPartial: Bool) {
+    func beforeContext(
+      of b: Function.Blocks.Address
+    ) -> (context: Context, sources: [Function.Blocks.Address]) {
       let p = cfg.predecessors(of: b)
-      let availableAfterContexts = p.compactMap({ (p) in contexts[p]?.after })
-      let isPartial = p.count != availableAfterContexts.count
-
-      if let (h, t) = availableAfterContexts.headAndTail {
-        return (h.merging(t), isPartial)
-      } else {
-        return (Context(), isPartial)
-      }
+      let sources = p.filter({ contexts[$0] != nil })
+      return (.init(merging: sources.lazy.map({ contexts[$0]!.after })), sources)
     }
 
     /// Returns the after-context of `b` formed by interpreting it in `initialContext`, inserting
@@ -380,54 +423,6 @@ extension Module {
       }
     }
 
-    // Interpret the function until we reach a fixed point.
-    while let block = work.popFirst() {
-      // Pick another block if we can't process this one yet.
-      guard isVisitable(block) else {
-        work.append(block)
-        continue
-      }
-
-      // The entry block is a special case.
-      if block == self[f].entry {
-        let x = Context(entryOf: self[f], in: program)
-        let y = afterContext(of: block, in: x)
-        contexts[block] = (before: x, after: y)
-        done.insert(block)
-        continue
-      }
-
-      let (newBefore, isNewContextPartial) = beforeContext(of: block)
-      let newAfter: Context
-      if contexts[block]?.before != newBefore {
-        newAfter = afterContext(of: block, in: newBefore)
-      } else if isNewContextPartial {
-        newAfter = contexts[block]!.after
-      } else {
-        done.insert(block)
-        continue
-      }
-
-      // We're done with the current block if ...
-      let isBlockDone: Bool = {
-        // 1) we're done with all of the block's predecessors.
-        let pending = cfg.predecessors(of: block).filter({ !done.contains($0) })
-        if pending.isEmpty { return true }
-
-        // 2) the only predecessor left is the block itself, yet the after-context didn't change.
-        return (pending.count == 1)
-          && (pending[0] == block)
-          && (contexts[block]?.after == newAfter)
-      }()
-
-      // Update the before/after-context pair for the current block and move to the next one.
-      contexts[block] = (before: newBefore, after: newAfter)
-      if isBlockDone {
-        done.insert(block)
-      } else {
-        work.append(block)
-      }
-    }
   }
 
   /// Returns `true` iff `o` is the result of a borrow instruction or a constant value.
@@ -850,6 +845,15 @@ extension Module {
 
     }
 
+    /// Forms a context by merging the contexts in `batch`.
+    init<C: Collection<Self>>(merging batch: C) {
+      if let (h, t) = batch.headAndTail {
+        self = t.reduce(into: h, { $0.merge($1) })
+      } else {
+        self.init()
+      }
+    }
+
     /// Merges `other` into `self`.
     mutating func merge(_ other: Self) {
       // Merge the locals.
@@ -866,11 +870,6 @@ extension Module {
 
       // Merge the state of the objects in memory.
       memory.merge(other.memory, uniquingKeysWith: &&)
-    }
-
-    /// Forms a context by merging the contexts in `others` into `self`.
-    func merging<S: Sequence>(_ others: S) -> Self where S.Element == Self {
-      others.reduce(into: self, { (l, r) in l.merge(r) })
     }
 
     /// Calls `action` with a projection of the objects at the locations assigned to `local`.
