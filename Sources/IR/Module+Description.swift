@@ -19,8 +19,9 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     var isFirst = true
     for f in functions.keys {
       if isFirst {
-        output.write("\n\n")
         isFirst = false
+      } else {
+        output.write("\n\n")
       }
       write(function: f, to: &output)
     }

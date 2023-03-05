@@ -223,37 +223,17 @@ public struct Emitter {
     precondition(program.isLocal(decl.id))
     precondition(reading(decl.pattern.introducer.value, { ($0 != .var) && ($0 != .sinklet) }))
 
-    /// The pattern of the binding being emitted.
-    let pattern = decl.pattern
-
     // There's nothing to do if there's no initializer.
-    if let initializer = decl.initializer {
-      let source: Operand
-      if (initializer.kind == NameExpr.self) || (initializer.kind == SubscriptCallExpr.self) {
-        // Emit the initializer as a l-value.
-        source = emitLValue(initializer, meantFor: capability, into: &module)
-      } else {
-        // emit a r-value and store it into local storage.
-        let value = emitRValue(initializer, into: &module)
+    guard let initializer = decl.initializer else { return }
 
-        let exprType = initializer.type
-        let storage = module.append(
-          module.makeAllocStack(exprType, anchoredAt: pattern.site),
-          to: insertionBlock!)[0]
-        frames.top.allocs.append(storage)
-        source = storage
-
-        emitInitialization(of: source, to: value, anchoredAt: pattern.site, into: &module)
-      }
-
-      for (path, name) in pattern.subpattern.names {
-        let s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
-        let b = module.append(
-          module.makeBorrow(
-            capability, from: s, correspondingTo: name.decl, anchoredAt: name.decl.site),
-          to: insertionBlock!)[0]
-        frames[name.decl] = b
-      }
+    let source = emitLValue(initializer, into: &module)
+    for (path, name) in decl.pattern.subpattern.names {
+      let s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+      let b = module.append(
+        module.makeBorrow(
+          capability, from: s, correspondingTo: name.decl, anchoredAt: name.decl.site),
+        to: insertionBlock!)[0]
+      frames[name.decl] = b
     }
   }
 

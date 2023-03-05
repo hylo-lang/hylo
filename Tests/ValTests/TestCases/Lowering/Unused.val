@@ -6,6 +6,10 @@ public fun main() {
   //! @+1 diagnostic binding 'x' was never used
   let x = ()
 
+  //! @+2 diagnostic binding 'z0' was never used
+  var z = ()
+  inout z0 = &z
+
   let s = (1, (a: 2, b: 3))
   let x0 = s.0
   use(x0)
