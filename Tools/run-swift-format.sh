@@ -56,19 +56,15 @@ case $MODE in
         exit 1
 esac
 
-# Check the swift-format executable
-SWIFT_FORMAT="${PROJECT_DIR}/.build/${SWIFT_FORMAT_BUILD_MODE}/swift-format"
-if [ ! -f ${SWIFT_FORMAT} ]; then
-    echo "Building: ${SWIFT_FORMAT}"
-    swift build -c ${SWIFT_FORMAT_BUILD_MODE} --target swift-format
-fi
-if [ ! -f ${SWIFT_FORMAT} ]; then
-    echo "Cannot build ${SWIFT_FORMAT}"
-    exit 1
+# Check the swift-format executable.
+# If we find the executable at the expected location, use it directly;
+# otherwise, use it through `swift run`.
+SWIFT_FORMAT="swift run -c ${SWIFT_FORMAT_BUILD_MODE} swift-format"
+if [ -f "${PROJECT_DIR}/.build/${SWIFT_FORMAT_BUILD_MODE}/swift-format" ]; then
+    SWIFT_FORMAT="${PROJECT_DIR}/.build/${SWIFT_FORMAT_BUILD_MODE}/swift-format"
 fi
 
 COMMON_ARGS="--configuration ${PROJECT_DIR}/.swift-format.json -r -p ${PROJECT_DIR}/Sources ${PROJECT_DIR}/Tests ${PROJECT_DIR}/*.swift"
-${SWIFT_FORMAT} -i ${COMMON_ARGS}
 
 [ $SHOULD_FIX -eq 1 ] && ${SWIFT_FORMAT} -i ${COMMON_ARGS} && echo "Formatted the source code."
 [ $SHOULD_LINT -eq 1 ] && ${SWIFT_FORMAT} lint -s ${COMMON_ARGS} && echo "Linted the source code."
