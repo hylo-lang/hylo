@@ -26,7 +26,7 @@ private struct HeaderFile: WriteableInContext {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     // Emit the header guard.
     // "#pragma once" is non-standard, but implemented by all major compilers,
     // and it typically does a better job
@@ -65,7 +65,7 @@ private struct SourceFile: WriteableInContext {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write("#include \"\(source.name).h\"\n")
     output.write("namespace \(source.name) {\n")
     output.write(source.topLevelDecls.map({ decl in TopLevelDefinition(decl) }), inContext: c)
@@ -87,7 +87,7 @@ private struct SourceFile: WriteableInContext {
 }
 
 /// Knows how to write additional file content from ValModule
-private struct AdditionalFileContent: TextOutputStreamable {
+private struct AdditionalFileContent: Writeable {
 
   let fileName: String
 
@@ -96,7 +96,7 @@ private struct AdditionalFileContent: TextOutputStreamable {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target) {
+  func write(to output: inout String) {
     if let text = try? String(contentsOf: ValModule.cxxSupport!.appendingPathComponent(fileName)) {
       output.write(text)
     }
@@ -116,7 +116,7 @@ private struct TopLevelInterface: WriteableInContext {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     switch type(of: source).kind {
     case CXXFunctionDecl.self:
       output.write(FunctionSignature(source as! CXXFunctionDecl), inContext: c)
@@ -143,7 +143,7 @@ private struct TopLevelDefinition: WriteableInContext {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     switch type(of: source).kind {
     case CXXFunctionDecl.self:
       output.write(FunctionDefinition(source as! CXXFunctionDecl), inContext: c)
@@ -169,11 +169,16 @@ private struct FunctionSignature: WriteableInContext {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    output.write([source.output, " ", source.identifier, "("])
+  func write(to output: inout String, inContext c: WriteContext) {
+    output.write(source.output)
+    output.write(" ")
+    output.write(source.identifier)
+    output.write("(")
     for (i, parameter) in source.parameters.enumerated() {
       if i != 0 { output.write(", ") }
-      output.write([parameter.type, " ", parameter.name])
+      output.write(parameter.type)
+      output.write(" ")
+      output.write(parameter.name)
     }
     output.write(")")
   }
@@ -190,7 +195,7 @@ private struct FunctionDefinition: WriteableInContext {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write(FunctionSignature(source), inContext: c)
     if source.body != nil {
       output.write([" ", StmtWriteable(source.body!)], inContext: c)
@@ -211,8 +216,10 @@ private struct ClassDefinition: WriteableInContext {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    output.write(["class ", source.name, " {\npublic:\n"])
+  func write(to output: inout String, inContext c: WriteContext) {
+    output.write("class ")
+    output.write(source.name)
+    output.write(" {\npublic:\n")
     for member in source.members {
       switch member {
       case .attribute(let attribute):
@@ -243,7 +250,7 @@ private struct ConversionConstructor: WriteableInContext {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     let dataMembers = parentClass.members.compactMap({ m in
       switch m {
       case .attribute(let dataMember):
@@ -257,10 +264,12 @@ private struct ConversionConstructor: WriteableInContext {
     // and the type of the attribute needs to be native.
     if dataMembers.count == 1 && dataMembers[0].type.isNative {
       // Write implicit conversion constructor
-      output.write([
-        parentClass.name.description, "(", dataMembers[0].type, " v) : ",
-        dataMembers[0].name, "(v) {}\n",
-      ])
+      output.write(parentClass.name.description)
+      output.write("(")
+      output.write(dataMembers[0].type)
+      output.write(" v) : ")
+      output.write(dataMembers[0].name)
+      output.write("(v) {}\n")
     }
   }
 }
@@ -268,10 +277,13 @@ private struct ConversionConstructor: WriteableInContext {
 extension CXXClassAttribute: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    output.write([type, " ", name])
+  func write(to output: inout String, inContext c: WriteContext) {
+    output.write(type)
+    output.write(" ")
+    output.write(name)
     if let value = initializer {
-      output.write([" = ", ExprWriteable(value)], inContext: c)
+      output.write(" = ", inContext: c)
+      output.write(ExprWriteable(value), inContext: c)
     }
     output.write(";\n")
   }
@@ -281,8 +293,10 @@ extension CXXClassAttribute: WriteableInContext {
 extension CXXLocalVarDecl: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
-    output.write([type, " ", name])
+  func write(to output: inout String, inContext c: WriteContext) {
+    output.write(type)
+    output.write(" ")
+    output.write(name)
     if let value = initializer {
       output.write([" = ", ExprWriteable(value)], inContext: c)
     }
@@ -301,7 +315,7 @@ private struct StmtWriteable: WriteableInContext {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     switch type(of: source).kind {
     case CXXScopedBlock.self:
       output.write(source as! CXXScopedBlock, inContext: c)
@@ -332,7 +346,7 @@ private struct StmtWriteable: WriteableInContext {
 extension CXXScopedBlock: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write("{\n")
     for s in stmts {
       output.write(StmtWriteable(s), inContext: c)
@@ -345,7 +359,7 @@ extension CXXScopedBlock: WriteableInContext {
 extension CXXExprStmt: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write(ExprWriteable(expr), inContext: c)
     output.write(";\n")
   }
@@ -355,7 +369,7 @@ extension CXXExprStmt: WriteableInContext {
 extension CXXReturnStmt: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write("return")
     if expr != nil {
       output.write(" ")
@@ -369,7 +383,7 @@ extension CXXReturnStmt: WriteableInContext {
 extension CXXIfStmt: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write("if ( ")
     output.write(ExprWriteable(condition), inContext: c)
     output.write(" ) ")
@@ -385,7 +399,7 @@ extension CXXIfStmt: WriteableInContext {
 extension CXXWhileStmt: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write("while ( ")
     output.write(ExprWriteable(condition), inContext: c)
     output.write(" ) ")
@@ -397,7 +411,7 @@ extension CXXWhileStmt: WriteableInContext {
 extension CXXDoWhileStmt: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write("do ")
     output.write(StmtWriteable(body), inContext: c)
     output.write("while ( ")
@@ -407,19 +421,19 @@ extension CXXDoWhileStmt: WriteableInContext {
 
 }
 
-extension CXXBreakStmt: TextOutputStreamable {
+extension CXXBreakStmt: Writeable {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target) {
+  func write(to output: inout String) {
     output.write("break;\n")
   }
 
 }
 
-extension CXXContinueStmt: TextOutputStreamable {
+extension CXXContinueStmt: Writeable {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target) {
+  func write(to output: inout String) {
     output.write("continue;\n")
   }
 
@@ -436,7 +450,7 @@ private struct ExprWriteable: WriteableInContext {
   }
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     switch type(of: source).kind {
     case CXXBooleanLiteralExpr.self:
       output.write(source as! CXXBooleanLiteralExpr)
@@ -471,42 +485,42 @@ private struct ExprWriteable: WriteableInContext {
 
 }
 
-extension CXXBooleanLiteralExpr: TextOutputStreamable {
+extension CXXBooleanLiteralExpr: Writeable {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target) {
+  func write(to output: inout String) {
     output.write(value ? "true" : "false")
   }
 
 }
-extension CXXIntegerLiteralExpr: TextOutputStreamable {
+extension CXXIntegerLiteralExpr: Writeable {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target) {
+  func write(to output: inout String) {
     output.write(value)
   }
 
 }
-extension CXXIdentifier: TextOutputStreamable {
+extension CXXIdentifier: Writeable {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target) {
+  func write(to output: inout String) {
     output.write(description)
   }
 
 }
-extension CXXReceiverExpr: TextOutputStreamable {
+extension CXXReceiverExpr: Writeable {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target) {
+  func write(to output: inout String) {
     output.write("this")
   }
 
 }
-extension CXXTypeExpr: TextOutputStreamable {
+extension CXXTypeExpr: Writeable {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target) {
+  func write(to output: inout String) {
     output.write(text)
   }
 
@@ -514,7 +528,7 @@ extension CXXTypeExpr: TextOutputStreamable {
 extension CXXInfixExpr: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     // TODO: handle precedence and associativity; as of writing this comment, infix operators cannot be properly tested.
     output.write(ExprWriteable(lhs), inContext: c)
     switch oper {
@@ -562,7 +576,7 @@ extension CXXInfixExpr: WriteableInContext {
 extension CXXPrefixExpr: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     // TODO: handle precedence and associativity; as of writing this comment, prefix operators cannot be properly tested.
     switch oper {
     case .prefixIncrement: output.write("++")
@@ -585,7 +599,7 @@ extension CXXPrefixExpr: WriteableInContext {
 extension CXXPostfixExpr: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     // TODO: handle precedence and associativity; as of writing this comment, postfix operators cannot be properly tested.
     output.write(ExprWriteable(base), inContext: c)
     switch oper {
@@ -598,7 +612,7 @@ extension CXXPostfixExpr: WriteableInContext {
 extension CXXFunctionCallExpr: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write(ExprWriteable(callee), inContext: c)
     output.write("(")
     for (i, argument) in arguments.enumerated() {
@@ -613,14 +627,14 @@ extension CXXFunctionCallExpr: WriteableInContext {
 extension CXXVoidCast: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write(["(void) ", ExprWriteable(baseExpr)], inContext: c)
   }
 }
 extension CXXConditionalExpr: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write(
       [
         ExprWriteable(condition),
@@ -634,17 +648,17 @@ extension CXXConditionalExpr: WriteableInContext {
 extension CXXStmtExpr: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write(StmtWriteable(stmt), inContext: c)
   }
 }
 
 // MARK: Miscellaneous
 
-extension CXXComment: TextOutputStreamable {
+extension CXXComment: Writeable {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target) {
+  func write(to output: inout String) {
     if comment.contains("\n") {
       output.write("/* \(comment) */")
     } else {
@@ -664,25 +678,25 @@ struct WriteContext {
 
 }
 
-private protocol WriteableInContext {
+private protocol Writeable {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext)
+  func write(to output: inout String)
 
 }
 
-extension TextOutputStream {
+private protocol WriteableInContext {
+
+  /// Writes 'self' to 'output'.
+  func write(to output: inout String, inContext c: WriteContext)
+
+}
+
+extension String {
 
   /// Writes `source` to `self`.
-  fileprivate mutating func write<T: TextOutputStreamable>(_ source: T) {
+  fileprivate mutating func write<T: Writeable>(_ source: T) {
     source.write(to: &self)
-  }
-
-  /// Writes `source` to `self`.
-  fileprivate mutating func write(_ source: [TextOutputStreamable]) {
-    for element in source {
-      element.write(to: &self)
-    }
   }
 
   /// Writes `source` to `self`.
@@ -702,7 +716,7 @@ extension TextOutputStream {
 extension String: WriteableInContext {
 
   /// Writes 'self' to 'output'.
-  func write<Target: TextOutputStream>(to output: inout Target, inContext c: WriteContext) {
+  func write(to output: inout String, inContext c: WriteContext) {
     output.write(self)
   }
 
