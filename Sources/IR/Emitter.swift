@@ -225,12 +225,16 @@ public struct Emitter {
 
     // Borrowed binding requires an initializer.
     guard let initializer = decl.initializer else {
-      diagnostics.insert(
-        .error(binding: capability, requiresInitializerAt: decl.pattern.introducer.site))
+      report(.error(binding: capability, requiresInitializerAt: decl.pattern.introducer.site))
       for (_, name) in decl.pattern.subpattern.names {
         frames[name.decl] = .constant(.poison(PoisonConstant(type: .address(name.decl.type))))
       }
       return
+    }
+
+    // Initializing inout bindings requires a mutation marker.
+    if (capability == .inout) && (initializer.kind != InoutExpr.self) {
+      report(.error(inoutBindingRequiresMutationMarkerAt: .empty(at: initializer.site.first())))
     }
 
     let source = emitLValue(initializer, into: &module)
@@ -272,7 +276,7 @@ public struct Emitter {
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed, into module: inout Module) {
     guard stmt.left.kind == InoutExpr.self else {
-      report(.error(assignmentLHSMustBeMarkedForMutationAt: .empty(at: stmt.left.site.first())))
+      report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: stmt.left.site.first())))
       return
     }
 
@@ -1170,8 +1174,12 @@ extension Emitter {
 
 extension Diagnostic {
 
-  static func error(assignmentLHSMustBeMarkedForMutationAt site: SourceRange) -> Diagnostic {
+  static func error(assignmentLHSRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
+  }
+
+  static func error(inoutBindingRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
+    .error("initialization of inout binding must be marked for mutation", at: site)
   }
 
   static func error(
