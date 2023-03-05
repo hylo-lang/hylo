@@ -527,126 +527,59 @@ extension Module {
   fileprivate typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
 
   /// An abstract interpretation context.
-  fileprivate struct Context: Equatable {
+  fileprivate typealias Context = AbstractContext<State>
 
-    /// The values of the locals.
-    var locals: [FunctionLocal: AbstractValue<State>] = [:]
+}
 
-    /// The state of the memory.
-    var memory: [AbstractLocation: AbstractObject<State>] = [:]
+extension AbstractContext where Domain == Module.State {
 
-    /// Creates an empty context.
-    init() {}
+  /// Creates the before-context `function`'s entry in `module`.
+  fileprivate init(entryOf function: Function, in program: TypedProgram) {
+    for i in 0 ..< function.inputs.count {
+      let (parameterConvention, parameterType) = function.inputs[i]
+      let parameterKey = FunctionLocal.parameter(block: function.entry!, index: i)
+      let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
 
-    /// Creates the before-context `function`'s entry in `module`.
-    init(entryOf function: Function, in program: TypedProgram) {
-      for i in 0 ..< function.inputs.count {
-        let (parameterConvention, parameterType) = function.inputs[i]
-        let parameterKey = FunctionLocal.parameter(block: function.entry!, index: i)
-        let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
+      switch parameterConvention {
+      case .let, .inout:
+        let l = AbstractLocation.argument(index: i)
+        locals[parameterKey] = .locations([l])
+        memory[l] = .init(layout: parameterLayout, value: .full(.initialized))
 
-        switch parameterConvention {
-        case .let, .inout:
-          let l = AbstractLocation.argument(index: i)
-          locals[parameterKey] = .locations([l])
-          memory[l] = .init(layout: parameterLayout, value: .full(.initialized))
+      case .set:
+        let l = AbstractLocation.argument(index: i)
+        locals[parameterKey] = .locations([l])
+        memory[l] = .init(layout: parameterLayout, value: .full(.uninitialized))
 
-        case .set:
-          let l = AbstractLocation.argument(index: i)
-          locals[parameterKey] = .locations([l])
-          memory[l] = .init(layout: parameterLayout, value: .full(.uninitialized))
+      case .sink:
+        locals[parameterKey] = .object(
+          .init(layout: parameterLayout, value: .full(.initialized)))
 
-        case .sink:
-          locals[parameterKey] = .object(
-            .init(layout: parameterLayout, value: .full(.initialized)))
-
-        case .yielded:
-          preconditionFailure("cannot represent instance of yielded type")
-        }
-      }
-
-    }
-
-    /// Forms a context by merging the contexts in `batch`.
-    init<C: Collection<Self>>(merging batch: C) {
-      if let (h, t) = batch.headAndTail {
-        self = t.reduce(into: h, { $0.merge($1) })
-      } else {
-        self.init()
+      case .yielded:
+        preconditionFailure("cannot represent instance of yielded type")
       }
     }
 
-    /// Merges `other` into `self`.
-    mutating func merge(_ other: Self) {
-      // Merge the locals.
-      for (key, lhs) in locals {
-        // Ignore definitions that don't dominate the block.
-        guard let rhs = other.locals[key] else {
-          locals[key] = nil
-          continue
-        }
+  }
 
-        // Merge both values conservatively.
-        locals[key] = lhs && rhs
-      }
+  /// Updates the state of the `o` to mark it consumed by `consumer` at `site`, or report a
+  /// diagnostic in `diagnostics` explaining why `o` can't be consumed.
+  fileprivate mutating func consume(
+    _ o: Operand,
+    with consumer: InstructionID,
+    at site: SourceRange,
+    diagnostics: inout DiagnosticSet
+  ) {
+    // Constants are never consumed.
+    guard let k = FunctionLocal(operand: o) else { return }
+    var o = locals[k]!.unwrapObject()!
 
-      // Merge the state of the objects in memory.
-      memory.merge(other.memory, uniquingKeysWith: &&)
+    if o.value == .full(.initialized) {
+      o.value = .full(.consumed(by: [consumer]))
+      locals[k]! = .object(o)
+    } else {
+      diagnostics.insert(.illegalMove(at: site))
     }
-
-    /// Calls `action` with a projection of the objects at the locations assigned to `local`.
-    ///
-    /// - Requires: `locals[k]` is `.locations`.
-    mutating func forEachObject(
-      at k: FunctionLocal,
-      _ action: (inout AbstractObject<State>) -> Void
-    ) {
-      for l in locals[k]!.unwrapLocations()! {
-        withObject(at: l, action)
-      }
-    }
-
-    /// Returns the result calling `action` with a projection of the object at `location`.
-    mutating func withObject<T>(
-      at location: AbstractLocation,
-      _ action: (inout AbstractObject<State>) -> T
-    ) -> T {
-      switch location {
-      case .null:
-        preconditionFailure("null location")
-
-      case .argument, .instruction:
-        return action(&memory[location]!)
-
-      case .sublocation(let rootLocation, let path):
-        if path.isEmpty {
-          return action(&memory[location]!)
-        } else {
-          return modifying(&memory[rootLocation]!, { $0.withSubobject(at: path, action) })
-        }
-      }
-    }
-
-    /// Updates the state of the `o` to mark it consumed by `consumer` at `site`, or report a
-    /// diagnostic in `diagnostics` explaining why `o` can't be consumed.
-    mutating func consume(
-      _ o: Operand,
-      with consumer: InstructionID,
-      at site: SourceRange,
-      diagnostics: inout DiagnosticSet
-    ) {
-      // Constants are never consumed.
-      guard let k = FunctionLocal(operand: o) else { return }
-      var o = locals[k]!.unwrapObject()!
-
-      if o.value == .full(.initialized) {
-        o.value = .full(.consumed(by: [consumer]))
-        locals[k]! = .object(o)
-      } else {
-        diagnostics.insert(.illegalMove(at: site))
-      }
-    }
-
   }
 
 }
@@ -747,19 +680,6 @@ extension AbstractObject.Value where Domain == Module.State {
           result.append(contentsOf: (lhs[i] - rhs[i]).map({ [i] + $0 }))
         })
     }
-  }
-
-}
-
-extension Module.Context: CustomStringConvertible {
-
-  var description: String {
-    """
-    locals:
-    \(locals.map({ "- \($0): \($1)" }).joined(separator: "\n"))
-    memory:
-    \(memory.map({ "- \($0): \($1)" }).joined(separator: "\n"))
-    """
   }
 
 }
