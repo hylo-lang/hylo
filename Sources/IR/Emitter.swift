@@ -887,7 +887,7 @@ public struct Emitter {
 
     guard let b = bits else {
       diagnostics.insert(
-        .error(integerLiterl: s, overflowsWhenStoredInto: literalType, at: anchor))
+        .error(integerLiteral: s, overflowsWhenStoredInto: literalType, at: anchor))
       return .constant(.poison(PoisonConstant(type: .object(literalType))))
     }
 
@@ -1181,7 +1181,7 @@ extension Diagnostic {
   }
 
   static func error(
-    integerLiterl s: String, overflowsWhenStoredInto t: AnyType,
+    integerLiteral s: String, overflowsWhenStoredInto t: AnyType,
     at site: SourceRange
   ) -> Diagnostic {
     .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
