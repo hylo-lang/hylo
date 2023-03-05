@@ -170,15 +170,10 @@ private struct FunctionSignature: WriteableInContext {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout String, inContext c: WriteContext) {
-    output.write(source.output)
-    output.write(" ")
-    output.write(source.identifier)
-    output.write("(")
+    output.write(source.output, " ", source.identifier, "(")
     for (i, parameter) in source.parameters.enumerated() {
       if i != 0 { output.write(", ") }
-      output.write(parameter.type)
-      output.write(" ")
-      output.write(parameter.name)
+      output.write(parameter.type, " ", parameter.name)
     }
     output.write(")")
   }
@@ -198,7 +193,7 @@ private struct FunctionDefinition: WriteableInContext {
   func write(to output: inout String, inContext c: WriteContext) {
     output.write(FunctionSignature(source), inContext: c)
     if source.body != nil {
-      output.write([" ", StmtWriteable(source.body!)], inContext: c)
+      output.write(" ", StmtWriteable(source.body!), inContext: c)
     } else {
       output.write(";\n")
     }
@@ -217,9 +212,7 @@ private struct ClassDefinition: WriteableInContext {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout String, inContext c: WriteContext) {
-    output.write("class ")
-    output.write(source.name)
-    output.write(" {\npublic:\n")
+    output.write("class ", source.name, " {\npublic:\n")
     for member in source.members {
       switch member {
       case .attribute(let attribute):
@@ -264,12 +257,9 @@ private struct ConversionConstructor: WriteableInContext {
     // and the type of the attribute needs to be native.
     if dataMembers.count == 1 && dataMembers[0].type.isNative {
       // Write implicit conversion constructor
-      output.write(parentClass.name.description)
-      output.write("(")
-      output.write(dataMembers[0].type)
-      output.write(" v) : ")
-      output.write(dataMembers[0].name)
-      output.write("(v) {}\n")
+      output.write(
+        parentClass.name.description, "(", dataMembers[0].type, " v) : ", dataMembers[0].name,
+        "(v) {}\n")
     }
   }
 }
@@ -278,9 +268,7 @@ extension CXXClassAttribute: WriteableInContext {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout String, inContext c: WriteContext) {
-    output.write(type)
-    output.write(" ")
-    output.write(name)
+    output.write(type, " ", name)
     if let value = initializer {
       output.write(" = ", inContext: c)
       output.write(ExprWriteable(value), inContext: c)
@@ -294,11 +282,9 @@ extension CXXLocalVarDecl: WriteableInContext {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout String, inContext c: WriteContext) {
-    output.write(type)
-    output.write(" ")
-    output.write(name)
+    output.write(type, " ", name)
     if let value = initializer {
-      output.write([" = ", ExprWriteable(value)], inContext: c)
+      output.write(" = ", ExprWriteable(value), inContext: c)
     }
     output.write(";\n")
   }
@@ -628,7 +614,7 @@ extension CXXVoidCast: WriteableInContext {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout String, inContext c: WriteContext) {
-    output.write(["(void) ", ExprWriteable(baseExpr)], inContext: c)
+    output.write("(void) ", ExprWriteable(baseExpr), inContext: c)
   }
 }
 extension CXXConditionalExpr: WriteableInContext {
@@ -692,6 +678,9 @@ private protocol WriteableInContext {
 
 }
 
+/// String is also a Writeable
+extension String: Writeable {}
+
 extension String {
 
   /// Writes `source` to `self`.
@@ -700,8 +689,22 @@ extension String {
   }
 
   /// Writes `source` to `self`.
+  fileprivate mutating func write(_ source: Writeable...) {
+    for element in source {
+      element.write(to: &self)
+    }
+  }
+
+  /// Writes `source` to `self`.
   fileprivate mutating func write<T: WriteableInContext>(_ source: T, inContext c: WriteContext) {
     source.write(to: &self, inContext: c)
+  }
+
+  /// Writes `source` to `self`.
+  fileprivate mutating func write(_ source: WriteableInContext..., inContext c: WriteContext) {
+    for element in source {
+      element.write(to: &self, inContext: c)
+    }
   }
 
   /// Writes `source` to `self`.
