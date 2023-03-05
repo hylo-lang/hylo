@@ -464,74 +464,89 @@ extension Module {
     }
   }
 
-  /// The initialization state of an object or sub-object.
+}
+
+/// An abstract interpretation context.
+private typealias Context = AbstractContext<State>
+
+/// A map fron function block to the context of the abstract interpreter before and after the
+/// evaluation of its instructions.
+private typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
+
+/// The initialization state of an object or sub-object.
+///
+/// The values of this type form a lattice whose supremum is `.initialized` and infimum is
+/// `.consumed(by: s)` where `s` is the set of all instructions. The meet of two elements
+/// represents the conservative superposition of two initialization states.
+private enum State: AbstractDomain {
+
+  /// A set of consumers.
+  typealias Consumers = Set<InstructionID>
+
+  /// Object is initialized.
+  case initialized
+
+  /// Object is uninitialized.
+  case uninitialized
+
+  /// Object was consumed the users in the payload.
   ///
-  /// The values of this type form a lattice whose supremum is `.initialized` and infimum is
-  /// `.consumed(by: s)` where `s` is the set of all instructions. The meet of two elements
-  /// represents the conservative superposition of two initialization states.
-  fileprivate enum State: AbstractDomain {
+  /// An object can be consumed by multiple users after merging after-contexts in which it's been
+  /// consumed by different users.
+  ///
+  /// - Requires: The payload is not empty.
+  case consumed(by: Consumers)
 
-    /// A set of consumers.
-    typealias Consumers = Set<InstructionID>
+  /// Forms a new state by merging `lhs` with `rhs`.
+  static func && (lhs: State, rhs: State) -> State {
+    switch lhs {
+    case .initialized:
+      return rhs
 
-    /// Object is initialized.
-    case initialized
+    case .uninitialized:
+      return rhs == .initialized ? lhs : rhs
 
-    /// Object is uninitialized.
-    case uninitialized
-
-    /// Object was consumed the users in the payload.
-    ///
-    /// An object can be consumed by multiple users after merging after-contexts in which it's
-    /// been consumed by different users.
-    ///
-    /// - Requires: The payload is not empty.
-    case consumed(by: Consumers)
-
-    /// Forms a new state by merging `lhs` with `rhs`.
-    static func && (lhs: State, rhs: State) -> State {
-      switch lhs {
-      case .initialized:
-        return rhs
-
-      case .uninitialized:
-        return rhs == .initialized ? lhs : rhs
-
-      case .consumed(let a):
-        if case .consumed(let b) = rhs {
-          return .consumed(by: a.union(b))
-        } else {
-          return .consumed(by: a)
-        }
+    case .consumed(let a):
+      if case .consumed(let b) = rhs {
+        return .consumed(by: a.union(b))
+      } else {
+        return .consumed(by: a)
       }
     }
-
   }
-
-  /// The paths to the initialized, uninitialized, and consumed parts of an object.
-  fileprivate struct PartPaths {
-
-    /// The paths to the initialized parts.
-    var initialized: [PartPath]
-
-    /// The paths to the uninitialized parts.
-    var uninitialized: [PartPath]
-
-    /// The paths to the consumed parts, along with the users that consumed them.
-    var consumed: [(path: PartPath, consumers: State.Consumers)]
-
-  }
-
-  /// A map fron function block to the context of the abstract interpreter before and after the
-  /// evaluation of its instructions.
-  fileprivate typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
-
-  /// An abstract interpretation context.
-  fileprivate typealias Context = AbstractContext<State>
 
 }
 
-extension AbstractContext where Domain == Module.State {
+extension State: CustomStringConvertible {
+
+  var description: String {
+    switch self {
+    case .initialized:
+      return "\u{23Fa}"
+    case .uninitialized:
+      return "\u{25cb}"
+    case .consumed(let consumers):
+      return "←\(consumers)"
+    }
+  }
+
+}
+
+/// The paths to the initialized, uninitialized, and consumed parts of an object.
+private struct PartPaths {
+
+  /// The paths to the initialized parts.
+  var initialized: [PartPath]
+
+  /// The paths to the uninitialized parts.
+  var uninitialized: [PartPath]
+
+  /// The paths to the consumed parts, along with the users that consumed them.
+  var consumed: [(path: PartPath, consumers: State.Consumers)]
+
+}
+
+extension AbstractContext where Domain == State {
 
   /// Creates the before-context `function`'s entry in `module`.
   fileprivate init(entryOf function: Function, in program: TypedProgram) {
@@ -584,12 +599,12 @@ extension AbstractContext where Domain == Module.State {
 
 }
 
-extension AbstractObject.Value where Domain == Module.State {
+extension AbstractObject.Value where Domain == State {
 
   /// If `self` is `.partial`, the paths to `self`'s parts; otherwise, `nil`.
-  fileprivate var paths: Module.PartPaths? {
+  fileprivate var paths: PartPaths? {
     if case .full = self { return nil }
-    var paths = Module.PartPaths(initialized: [], uninitialized: [], consumed: [])
+    var paths = PartPaths(initialized: [], uninitialized: [], consumed: [])
     gatherSubobjectPaths(prefixedBy: [], into: &paths)
     return paths
   }
@@ -606,13 +621,13 @@ extension AbstractObject.Value where Domain == Module.State {
     }
   }
 
-  /// If `self` is `.partial`, inserts the paths to its parts into `paths`, prefixing each
-  /// inserted elemebt by `prefix`.
+  /// If `self` is `.partial`, inserts the paths to its parts into `paths`, prefixing each inserted
+  /// element by `prefix`.
   ///
   /// - Requires: `self` is canonical.
   private func gatherSubobjectPaths(
     prefixedBy prefix: PartPath,
-    into paths: inout Module.PartPaths
+    into paths: inout PartPaths
   ) {
     guard case .partial(let subobjects) = self else { return }
 
@@ -633,7 +648,7 @@ extension AbstractObject.Value where Domain == Module.State {
   }
 
   /// Returns `lhs` merged with `rhs`.
-  static func && (lhs: Self, rhs: Self) -> Self {
+  fileprivate static func && (lhs: Self, rhs: Self) -> Self {
     switch (lhs.canonical, rhs.canonical) {
     case (.full(let lhs), .full(let rhs)):
       return .full(lhs && rhs)
@@ -654,7 +669,7 @@ extension AbstractObject.Value where Domain == Module.State {
   /// consumed in `r`.
   ///
   /// - Requires: `lhs` and `rhs` are canonical and have the same layout
-  static func - (l: Self, r: Self) -> [PartPath] {
+  fileprivate static func - (l: Self, r: Self) -> [PartPath] {
     switch (l, r) {
     case (.full(.initialized), let rhs):
       if let p = rhs.paths {
@@ -679,21 +694,6 @@ extension AbstractObject.Value where Domain == Module.State {
         { (result, i) in
           result.append(contentsOf: (lhs[i] - rhs[i]).map({ [i] + $0 }))
         })
-    }
-  }
-
-}
-
-extension Module.State: CustomStringConvertible {
-
-  var description: String {
-    switch self {
-    case .initialized:
-      return "\u{23Fa}"
-    case .uninitialized:
-      return "\u{25cb}"
-    case .consumed(let consumers):
-      return "←\(consumers)"
     }
   }
 
