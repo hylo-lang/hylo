@@ -33,5 +33,8 @@ jobs:
     - name: Swift version
       run: swift --version
 
+    - name: Build swift format
+      run: build -c debug --target swift-format && find . -name swift-format
+
     - name: Check code format
       run: Tools/run-swift-format.sh -d lint
