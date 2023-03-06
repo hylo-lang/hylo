@@ -54,7 +54,7 @@ fun f2() {
 fun f3() {
   var s = (0, 0)
 
-  // Project a part of `s` immutable.
+  // Project a part of `s` immutably.
   let t = s.0
 
   // Overlapping immutable projection is illegal.
