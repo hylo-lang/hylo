@@ -5,9 +5,12 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// An abstract interpretation context.
   typealias Context = AbstractContext<Domain>
 
+  /// The knowledge of the abstract interpreter about a single block.
+  typealias BlockState = (sources: Set<Function.Blocks.Address>, before: Context, after: Context)
+
   /// A map fron function block to the context of the abstract interpreter before and after the
   /// evaluation of its instructions.
-  typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
+  typealias State = [Function.Blocks.Address: BlockState]
 
   /// A closure that processes `block` in `context`, given an abstract `machine`.
   typealias Interpret = (
@@ -26,7 +29,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   private var dominatorTree: DominatorTree
 
   /// The state of the abstract interpreter before and after the visited basic blocks.
-  private var contexts: Contexts = [:]
+  private var state: State = [:]
 
   /// A FILO list of blocks to visit.
   private var work: Deque<Function.Blocks.Address>
@@ -43,7 +46,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
     self.subject = f
     self.cfg = m[f].cfg()
     self.dominatorTree = DominatorTree(function: f, cfg: cfg, in: m)
-    self.contexts = [m[f].entry!: (before: entryContext, after: Context())]
+    self.state = [m[f].entry!: (sources: [], before: entryContext, after: Context())]
     self.work = Deque(dominatorTree.bfs)
     self.done = []
   }
@@ -72,33 +75,19 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
         continue
       }
 
-      let (before, sources) = beforeContext(of: blockToProcess)
-
-      let after: Context
-      if (blockToProcess == dominatorTree.root) || (contexts[blockToProcess]?.before != before) {
-        after = afterContext(of: blockToProcess, in: before, processingBlockWith: interpret)
-      } else if sources.count != cfg.predecessors(of: blockToProcess).count {
-        after = contexts[blockToProcess]!.after
-      } else {
+      // Interpret the block's IR unless we already reached a fixed point.
+      let (sources, before) = beforeContext(of: blockToProcess)
+      if let s = state[blockToProcess],
+        blockToProcess != dominatorTree.root,
+        s.sources == sources && s.before == before
+      {
         done.insert(blockToProcess)
         continue
       }
 
-      // We're done with the current block if ...
-      let isBlockDone: Bool = {
-        // 1) we're done with all of the block's predecessors.
-        let pending = cfg.predecessors(of: blockToProcess).filter({ !done.contains($0) })
-        if pending.isEmpty { return true }
-
-        // 2) the only predecessor left is the block itself, yet the after-context didn't change.
-        return (pending.count == 1)
-          && (pending[0] == blockToProcess)
-          && (contexts[blockToProcess]?.after == after)
-      }()
-
-      // Update the before/after-context pair for the current block and move to the next one.
-      contexts[blockToProcess] = (before: before, after: after)
-      if isBlockDone {
+      let after = afterContext(of: blockToProcess, in: before, processingBlockWith: interpret)
+      state[blockToProcess] = (sources: sources, before: before, after: after)
+      if sources.count == cfg.predecessors(of: blockToProcess).count {
         done.insert(blockToProcess)
       } else {
         work.append(blockToProcess)
@@ -108,7 +97,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
 
   /// Returns `true` if `b` has been visited.
   private func visited(_ b: Function.Blocks.Address) -> Bool {
-    contexts[b] != nil
+    state[b] != nil
   }
 
   /// Returns `true` if `b` is ready to be visited.
@@ -134,14 +123,13 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// - Requires: `isVisitable(b)` is `true`
   private func beforeContext(
     of b: Function.Blocks.Address
-  ) -> (context: Context, sources: [Function.Blocks.Address]) {
+  ) -> (sources: Set<Function.Blocks.Address>, before: Context) {
     if b == dominatorTree.root {
-      return (contexts[b]!.before, [])
+      return ([], state[b]!.before)
     }
 
-    let p = cfg.predecessors(of: b)
-    let sources = p.filter({ contexts[$0] != nil })
-    return (.init(merging: sources.lazy.map({ contexts[$0]!.after })), sources)
+    let sources = Set(cfg.predecessors(of: b).filter({ state[$0] != nil }))
+    return (sources, .init(merging: sources.lazy.map({ state[$0]!.after })))
   }
 
   /// Returns the after-context of `b` by processing it with `interpret` in `initialContext`.
