@@ -78,7 +78,7 @@ private struct SourceFile: Writeable {
 
     // Write a CXX `main` function if the module has an entry point.
     if let body = source.entryPointBody {
-      output << "int main()" << StmtWriteable(body) << "\n"
+      output << "int main()" << AnyStmt(body) << "\n"
     }
   }
 
@@ -188,7 +188,7 @@ private struct FunctionDefinition: Writeable {
   func write(to output: inout CXXStream) {
     output << FunctionSignature(source)
     if let body = source.body {
-      output << " " << StmtWriteable(body)
+      output << " " << AnyStmt(body)
     } else {
       output << ";\n"
     }
@@ -266,7 +266,7 @@ extension CXXClassAttribute: Writeable {
   func write(to output: inout CXXStream) {
     output << type << " " << name
     if let value = initializer {
-      output << " = " << ExprWriteable(value)
+      output << " = " << AnyExpr(value)
     }
     output << ";\n"
   }
@@ -279,7 +279,7 @@ extension CXXLocalVarDecl: Writeable {
   func write(to output: inout CXXStream) {
     output << type << " " << name
     if let value = initializer {
-      output << " = " << ExprWriteable(value)
+      output << " = " << AnyExpr(value)
     }
     output << ";\n"
   }
@@ -288,7 +288,7 @@ extension CXXLocalVarDecl: Writeable {
 
 // MARK: Statements
 
-private struct StmtWriteable: Writeable {
+private struct AnyStmt: Writeable {
   let source: CXXStmt
 
   init(_ source: CXXStmt) {
@@ -330,7 +330,7 @@ extension CXXScopedBlock: Writeable {
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
     output << "{\n"
-    output.write(stmts.lazy.map({ element in StmtWriteable(element) }))
+    output.write(stmts.lazy.map({ element in AnyStmt(element) }))
     output << "}\n"
   }
 
@@ -340,7 +340,7 @@ extension CXXExprStmt: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << ExprWriteable(expr) << ";\n"
+    output << AnyExpr(expr) << ";\n"
   }
 
 }
@@ -351,7 +351,7 @@ extension CXXReturnStmt: Writeable {
   func write(to output: inout CXXStream) {
     output << "return"
     if let value = expr {
-      output << " " << ExprWriteable(value)
+      output << " " << AnyExpr(value)
     }
     output << ";\n"
   }
@@ -362,9 +362,9 @@ extension CXXIfStmt: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << "if ( " << ExprWriteable(condition) << " ) " << StmtWriteable(trueStmt)
+    output << "if ( " << AnyExpr(condition) << " ) " << AnyStmt(trueStmt)
     if let alternative = falseStmt {
-      output << "else " << StmtWriteable(alternative)
+      output << "else " << AnyStmt(alternative)
     }
   }
 
@@ -374,7 +374,7 @@ extension CXXWhileStmt: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << "while ( " << ExprWriteable(condition) << " ) " << StmtWriteable(body)
+    output << "while ( " << AnyExpr(condition) << " ) " << AnyStmt(body)
   }
 
 }
@@ -383,7 +383,7 @@ extension CXXDoWhileStmt: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << "do " << StmtWriteable(body) << "while ( " << ExprWriteable(condition) << " );\n"
+    output << "do " << AnyStmt(body) << "while ( " << AnyExpr(condition) << " );\n"
   }
 
 }
@@ -408,7 +408,7 @@ extension CXXContinueStmt: Writeable {
 
 // MARK: Expressions
 
-private struct ExprWriteable: Writeable {
+private struct AnyExpr: Writeable {
 
   let source: CXXExpr
 
@@ -535,7 +535,7 @@ extension CXXInfixExpr: Writeable {
       Operator.bitwiseOrAssignment: " |= ",
       Operator.comma: " , ",
     ]
-    output << ExprWriteable(lhs) << translation[oper]! << ExprWriteable(rhs)
+    output << AnyExpr(lhs) << translation[oper]! << AnyExpr(rhs)
   }
 
 }
@@ -559,7 +559,7 @@ extension CXXPrefixExpr: Writeable {
       Operator.throwOp: "throw ",
       Operator.coYield: "co_yield ",
     ]
-    output << translation[oper]! << ExprWriteable(base)
+    output << translation[oper]! << AnyExpr(base)
   }
 
 }
@@ -573,7 +573,7 @@ extension CXXPostfixExpr: Writeable {
       Operator.suffixIncrement: "++",
       Operator.suffixDecrement: "--",
     ]
-    output << ExprWriteable(base) << translation[oper]!
+    output << AnyExpr(base) << translation[oper]!
   }
 
 }
@@ -582,8 +582,8 @@ extension CXXFunctionCallExpr: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << ExprWriteable(callee) << "("
-    output.write(arguments.lazy.map({ a in ExprWriteable(a) }), joinedBy: ", ")
+    output << AnyExpr(callee) << "("
+    output.write(arguments.lazy.map({ a in AnyExpr(a) }), joinedBy: ", ")
     output << ")"
   }
 
@@ -592,7 +592,7 @@ extension CXXVoidCast: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << "(void) " << ExprWriteable(baseExpr)
+    output << "(void) " << AnyExpr(baseExpr)
   }
 
 }
@@ -600,8 +600,8 @@ extension CXXConditionalExpr: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << ExprWriteable(condition) << " ? " << ExprWriteable(trueExpr) << " : "
-      << ExprWriteable(falseExpr)
+    output << AnyExpr(condition) << " ? " << AnyExpr(trueExpr) << " : "
+      << AnyExpr(falseExpr)
   }
 
 }
@@ -609,7 +609,7 @@ extension CXXStmtExpr: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << StmtWriteable(stmt)
+    output << AnyStmt(stmt)
   }
 
 }
