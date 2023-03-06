@@ -9,6 +9,7 @@ final class StringExtensionsTests: XCTestCase {
     XCTAssertEqual(String("abc".removingSuffix("bc")), "a")
     XCTAssertEqual(String("abc".removingSuffix("abc")), "")
     XCTAssertEqual(String("abc".removingSuffix("ab")), "abc")
+    XCTAssertEqual(String("abc".removingSuffix("abde")), "abc")
   }
 
   func testSnakeCase() {
