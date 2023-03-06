@@ -266,6 +266,8 @@ public struct DoublyLinkedList<Element> {
 
     storage[storage[address.rawValue].previousOffset].nextOffset =
       storage[address.rawValue].nextOffset
+    storage[storage[address.rawValue].nextOffset].previousOffset =
+      storage[address.rawValue].previousOffset
     storage[address.rawValue].nextOffset = freeOffset
 
     count -= 1
