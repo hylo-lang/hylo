@@ -47,10 +47,10 @@ extension AbstractLocation: CustomStringConvertible {
     switch self {
     case .null:
       return "Null"
-    case .argument(let i):
-      return "A(\(i)"
+    case .argument(let k):
+      return "a\(k)"
     case .instruction(let b, let i):
-      return "L(\(b), \(i))"
+      return "i\(b).\(i)"
     case .sublocation(let root, let path):
       return "\(root).\(list: path, joinedBy: ".")"
     }
