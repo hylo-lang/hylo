@@ -67,7 +67,7 @@ public struct Module {
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> LoweredType {
     switch operand {
-    case .result(let instruction, let index):
+    case .register(let instruction, let index):
       return functions[instruction.function]![instruction.block][instruction.address].types[index]
 
     case .parameter(let block, let index):
@@ -118,7 +118,7 @@ public struct Module {
 
   /// Returns the registers asssigned by `i`.
   func results(of i: InstructionID) -> [Operand] {
-    (0 ..< self[i].types.count).map({ .result(instruction: i, index: $0) })
+    (0 ..< self[i].types.count).map({ .register(instruction: i, index: $0) })
   }
 
   /// Returns whether the IR in `self` is well-formed.

@@ -4,7 +4,9 @@ import Utils
 struct AbstractContext<Domain: AbstractDomain>: Equatable {
 
   /// The values of the locals.
-  var locals: [FunctionLocal: AbstractValue<Domain>] = [:]
+  ///
+  /// - Invariant: The keys of the table are `.register` or `.parameter`.
+  var locals: [Operand: AbstractValue<Domain>] = [:]
 
   /// The state of the memory.
   var memory: [AbstractLocation: AbstractObject<Domain>] = [:]
@@ -43,7 +45,7 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
   ///
   /// - Requires: If defined, `locals[k]` is `.locations`.
   mutating func forEachObject(
-    at k: FunctionLocal,
+    at k: Operand,
     _ action: (inout AbstractObject<Domain>) -> Void
   ) {
     for l in locals[k]!.unwrapLocations()! {
@@ -60,14 +62,14 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
     case .null:
       preconditionFailure("null location")
 
-    case .argument, .instruction:
+    case .root:
       return action(&memory[location]!)
 
-    case .sublocation(let rootLocation, let path):
+    case .sublocation(let root, let path):
       if path.isEmpty {
         return action(&memory[location]!)
       } else {
-        return modifying(&memory[rootLocation]!, { $0.withSubobject(at: path, action) })
+        return modifying(&memory[.root(root)]!, { $0.withSubobject(at: path, action) })
       }
     }
   }

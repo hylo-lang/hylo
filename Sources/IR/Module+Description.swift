@@ -41,7 +41,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       for j in function[i.address].instructions.indices {
         let instID = InstructionID(f, i.address, j.address)
         for k in 0 ..< function[i.address][j.address].types.count {
-          operandNames[.result(instruction: instID, index: k)] = "%\(operandNames.count)"
+          operandNames[.register(instruction: instID, index: k)] = "%\(operandNames.count)"
         }
       }
     }
@@ -49,7 +49,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     /// Returns a human-readable representation of `operand`.
     func describe(operand: Operand) -> String {
       switch operand {
-      case .result, .parameter:
+      case .register, .parameter:
         return operandNames[operand]!
       case .constant(let value):
         return String(describing: value)
@@ -84,7 +84,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         if !block[j.address].types.isEmpty {
           output.write(
             (0 ..< block[j.address].types.count)
-              .map({ k in operandNames[.result(instruction: instID, index: k)]! })
+              .map({ k in operandNames[.register(instruction: instID, index: k)]! })
               .joined(separator: ", "))
           output.write(" = ")
         }

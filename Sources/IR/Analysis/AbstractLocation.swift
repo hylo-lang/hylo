@@ -6,11 +6,8 @@ enum AbstractLocation: Hashable {
   /// The null location.
   case null
 
-  /// The location of an argument to a `let`, `inout`, or `set` parameter.
-  case argument(index: Int)
-
-  /// A location produced by an instruction.
-  case instruction(block: Function.Blocks.Address, address: Block.Instructions.Address)
+  /// A root location.
+  case root(Operand)
 
   /// A sub-location rooted at an argument or instruction.
   ///
@@ -20,8 +17,7 @@ enum AbstractLocation: Hashable {
   /// location identifying storage of type `B`.
   ///
   /// - Note: Use `appending(_:)` to create instances of this case.
-  /// - Requires: `root` is `.argument` or `.instruction` and `path` is not empty.
-  indirect case sublocation(root: AbstractLocation, path: PartPath)
+  indirect case sublocation(root: Operand, path: PartPath)
 
   /// Returns a new locating created by appending `suffix` to this one.
   ///
@@ -32,8 +28,8 @@ enum AbstractLocation: Hashable {
     switch self {
     case .null:
       preconditionFailure("null location")
-    case .argument, .instruction:
-      return .sublocation(root: self, path: suffix)
+    case .root(let root):
+      return .sublocation(root: root, path: suffix)
     case .sublocation(let root, let prefix):
       return .sublocation(root: root, path: prefix + suffix)
     }
@@ -47,10 +43,8 @@ extension AbstractLocation: CustomStringConvertible {
     switch self {
     case .null:
       return "Null"
-    case .argument(let i):
-      return "A(\(i)"
-    case .instruction(let b, let i):
-      return "L(\(b), \(i))"
+    case .root(let r):
+      return String(describing: r)
     case .sublocation(let root, let path):
       return "\(root).\(list: path, joinedBy: ".")"
     }

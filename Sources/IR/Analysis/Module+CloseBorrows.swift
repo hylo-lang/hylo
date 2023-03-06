@@ -12,7 +12,7 @@ extension Module {
         switch self[i] {
         case let borrow as BorrowInstruction:
           // Compute the live-range of the instruction.
-          let borrowResult = Operand.result(instruction: i, index: 0)
+          let borrowResult = Operand.register(instruction: i, index: 0)
           let borrowLifetime = lifetime(of: borrowResult)
 
           // Delete the borrow if it's never used.

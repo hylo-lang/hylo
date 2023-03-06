@@ -37,30 +37,30 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
-      let l = AbstractLocation.instruction(block: i.block, address: i.address)
+      let l = AbstractLocation.root(.register(instruction: i, index: 0))
       precondition(context.memory[l] == nil, "stack leak")
 
       context.memory[l] = .init(
         layout: AbstractTypeLayout(
           of: (self[i] as! AllocStackInstruction).allocatedType, definedIn: program),
         value: .full(.unique))
-      context.locals[FunctionLocal(i, 0)] = .locations([l])
+      context.locals[.register(instruction: i, index: 0)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(borrow i: InstructionID, in context: inout Context) {
       let borrow = self[i] as! BorrowInstruction
-      guard let k = FunctionLocal(operand: borrow.location) else {
+      if case .constant = borrow.location {
         // Operand is a constant.
         fatalError("not implemented")
       }
 
       // Skip the instruction if an error occured upstream.
-      guard context.locals[k] != nil else { return }
+      guard context.locals[borrow.location] != nil else { return }
 
       let former = reborrowedSource(borrow)
       var hasConflict = false
-      context.forEachObject(at: k) { (o) in
+      context.forEachObject(at: borrow.location) { (o) in
         // We can always create new borrows if there aren't any.
         // TODO: immutable sources
         let borrowers = o.value.borrowers
@@ -98,14 +98,14 @@ extension Module {
 
       // Don't set the locals if an error occured to avoid cascading errors downstream.
       if !hasConflict {
-        context.locals[FunctionLocal(i, 0)] = context.locals[k]!
+        context.locals[.register(instruction: i, index: 0)] = context.locals[borrow.location]!
       }
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) {
       let x = self[i] as! DeallocStackInstruction
-      let k = FunctionLocal(x.location.instruction!, 0)
+      let k = Operand.register(instruction: x.location.instruction!, index: 0)
       let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
       context.memory[l] = nil
     }
@@ -113,16 +113,16 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(elementAddr i: InstructionID, in context: inout Context) {
       let elementAddr = self[i] as! ElementAddrInstruction
-      guard let k = FunctionLocal(operand: elementAddr.base) else {
+      if case .constant = elementAddr.base {
         // Operand is a constant.
         fatalError("not implemented")
       }
 
       // Skip the instruction if an error occured upstream.
-      guard let s = context.locals[k] else { return }
+      guard let s = context.locals[elementAddr.base] else { return }
 
       let newLocations = s.unwrapLocations()!.map({ $0.appending(elementAddr.elementPath) })
-      context.locals[FunctionLocal(i, 0)] = .locations(Set(newLocations))
+      context.locals[.register(instruction: i, index: 0)] = .locations(Set(newLocations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -130,15 +130,14 @@ extension Module {
       let end = self[i] as! EndBorrowInstruction
 
       // Skip the instruction if an error occured upstream.
-      let k = FunctionLocal(operand: end.borrow)!
-      guard context.locals[k] != nil else { return }
+      guard context.locals[end.borrow] != nil else { return }
 
       // Remove the ended borrow from the objects' borrowers, putting the borrowed source back in
       // case the ended borrow was a reborrow.
       let borrowID = end.borrow.instruction!
       let borrow = self[borrowID] as! BorrowInstruction
       let former = reborrowedSource(borrow)
-      context.forEachObject(at: k) { (o) in
+      context.forEachObject(at: end.borrow) { (o) in
         if !o.value.removeBorrower(borrowID) { return }
         if let s = former {
           switch borrow.capability {
@@ -160,14 +159,15 @@ extension Module {
     let function = self[f]
     var result = Context()
 
+    let b = Block.ID(function: f, address: function.entry!)
     for i in function.inputs.indices {
       let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterKey = FunctionLocal.parameter(block: function.entry!, index: i)
+      let parameterKey = Operand.parameter(block: b, index: i)
       let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
 
       switch parameterConvention {
       case .let, .inout, .set:
-        let l = AbstractLocation.argument(index: i)
+        let l = AbstractLocation.root(.parameter(block: b, index: i))
         result.locals[parameterKey] = .locations([l])
         result.memory[l] = .init(layout: parameterLayout, value: .full(.unique))
 
@@ -214,7 +214,7 @@ extension Module {
   ///
   /// - Requires: `o` denotes a location.
   private func accessSource(_ o: Operand) -> Operand {
-    if case .result(let i, _) = o, let a = self[i] as? ElementAddrInstruction {
+    if case .register(let i, _) = o, let a = self[i] as? ElementAddrInstruction {
       return accessSource(a.base)
     } else {
       return o
