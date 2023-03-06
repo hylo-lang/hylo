@@ -648,36 +648,9 @@ struct CXXStream {
   /// True if we are translating the standard library.
   let context: WriteContext
 
+  /// Writes `source` to `self`.
   mutating func write(_ source: String) {
     output.write(source)
-  }
-
-}
-
-extension CXXStream {
-
-  /// Writes `source` to `self`.
-  fileprivate mutating func write<T: Writeable>(_ source: T) {
-    source.write(to: &self)
-  }
-
-  /// Writes `source` to `self`.
-  fileprivate mutating func write<S: Sequence>(_ source: S) where S.Element: Writeable {
-    for element in source {
-      element.write(to: &self)
-    }
-  }
-
-  fileprivate mutating func write<S: Sequence>(_ items: S, joinedBy separator: String)
-  where S.Element: Writeable {
-    var isFirst = true
-    for i in items {
-      if !isFirst {
-        output.write(separator)
-        isFirst = false
-      }
-      i.write(to: &self)
-    }
   }
 
 }
@@ -699,23 +672,54 @@ extension String: Writeable {
 
 }
 
+extension CXXStream {
+
+  /// Write `items` to `self`.
+  fileprivate mutating func write<S: Sequence>(_ items: S) where S.Element: Writeable {
+    for i in items {
+      i.write(to: &self)
+    }
+  }
+
+  /// Write `items` to `self`, separated by `separator`.
+  fileprivate mutating func write<S: Sequence>(_ items: S, joinedBy separator: String)
+  where S.Element: Writeable {
+    var isFirst = true
+    for i in items {
+      if !isFirst {
+        output.write(separator)
+        isFirst = false
+      }
+      i.write(to: &self)
+    }
+  }
+
+}
+
 precedencegroup StreamPrecendence {
   associativity: right
 }
-
+/// Define operator for concatenating `Writeable` objects and writing them to `CXXStream`.
 infix operator << : StreamPrecendence
 
+/// Writes `rhs` to `lhs`.
 private func << <T: Writeable>(lhs: inout CXXStream, rhs: T) {
   rhs.write(to: &lhs)
 }
 
+/// Builds a Writeable object from the concatenation of `lhs` and `rhs`.
 private func << <T, U: Writeable>(lhs: T, rhs: U) -> Pair<T, U> {
   return Pair<T, U>(first: lhs, second: rhs)
 }
 
+/// A pair of writeable elements.
+///
+/// This is a writeable type, thus allowing to build chains of writeable objects.
 private struct Pair<T: Writeable, U: Writeable>: Writeable {
 
+  /// The first writeable object (head).
   let first: T
+  /// The second writeable object (rest).
   let second: U
 
   /// Writes 'self' to 'output'.
@@ -731,7 +735,7 @@ extension Writeable {
   /// Returns the C++ code string corresponding to `self`.
   fileprivate func code(inContext c: WriteContext) -> String {
     var output = CXXStream(output: "", context: c)
-    output.write(self)
+    output << self
     return output.output
   }
 
