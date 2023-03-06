@@ -2,10 +2,10 @@
 public enum Operand: Hashable {
 
   /// The `index`-th result of `instruction`.
-  case register(instruction: InstructionID, index: Int)
+  case register(InstructionID, Int)
 
   /// The `index`-th parameter of `block`.
-  case parameter(block: Block.ID, index: Int)
+  case parameter(Block.ID, Int)
 
   /// A constant value.
   case constant(Constant)

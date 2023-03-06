@@ -36,12 +36,12 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     for i in function.blocks.indices {
       let b = Block.ID(function: f, address: i.address)
       for j in 0 ..< function[i.address].inputs.count {
-        operandNames[.parameter(block: b, index: j)] = "%\(operandNames.count)"
+        operandNames[.parameter(b, j)] = "%\(operandNames.count)"
       }
       for j in function[i.address].instructions.indices {
         let instID = InstructionID(f, i.address, j.address)
         for k in 0 ..< function[i.address][j.address].types.count {
-          operandNames[.register(instruction: instID, index: k)] = "%\(operandNames.count)"
+          operandNames[.register(instID, k)] = "%\(operandNames.count)"
         }
       }
     }
@@ -73,7 +73,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       output.write("(")
       output.write(
         block.inputs.enumerated().lazy
-          .map({ (j, t) in operandNames[.parameter(block: blockID, index: j)]! + " : \(t)" })
+          .map({ (j, t) in operandNames[.parameter(blockID, j)]! + " : \(t)" })
           .joined(separator: ", "))
       output.write("):\n")
 
@@ -84,7 +84,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         if !block[j.address].types.isEmpty {
           output.write(
             (0 ..< block[j.address].types.count)
-              .map({ k in operandNames[.register(instruction: instID, index: k)]! })
+              .map({ k in operandNames[.register(instID, k)]! })
               .joined(separator: ", "))
           output.write(" = ")
         }

@@ -37,14 +37,14 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
-      let l = AbstractLocation.root(.register(instruction: i, index: 0))
+      let l = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[l] == nil, "stack leak")
 
       context.memory[l] = .init(
         layout: AbstractTypeLayout(
           of: (self[i] as! AllocStackInstruction).allocatedType, definedIn: program),
         value: .full(.unique))
-      context.locals[.register(instruction: i, index: 0)] = .locations([l])
+      context.locals[.register(i, 0)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -98,14 +98,14 @@ extension Module {
 
       // Don't set the locals if an error occured to avoid cascading errors downstream.
       if !hasConflict {
-        context.locals[.register(instruction: i, index: 0)] = context.locals[borrow.location]!
+        context.locals[.register(i, 0)] = context.locals[borrow.location]!
       }
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) {
       let x = self[i] as! DeallocStackInstruction
-      let k = Operand.register(instruction: x.location.instruction!, index: 0)
+      let k = Operand.register(x.location.instruction!, 0)
       let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
       context.memory[l] = nil
     }
@@ -122,7 +122,7 @@ extension Module {
       guard let s = context.locals[elementAddr.base] else { return }
 
       let newLocations = s.unwrapLocations()!.map({ $0.appending(elementAddr.elementPath) })
-      context.locals[.register(instruction: i, index: 0)] = .locations(Set(newLocations))
+      context.locals[.register(i, 0)] = .locations(Set(newLocations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -162,17 +162,16 @@ extension Module {
     let b = Block.ID(function: f, address: function.entry!)
     for i in function.inputs.indices {
       let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterKey = Operand.parameter(block: b, index: i)
       let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
 
       switch parameterConvention {
       case .let, .inout, .set:
-        let l = AbstractLocation.root(.parameter(block: b, index: i))
-        result.locals[parameterKey] = .locations([l])
+        let l = AbstractLocation.root(.parameter(b, i))
+        result.locals[.parameter(b, i)] = .locations([l])
         result.memory[l] = .init(layout: parameterLayout, value: .full(.unique))
 
       case .sink:
-        result.locals[parameterKey] = .object(
+        result.locals[.parameter(b, i)] = .object(
           .init(layout: parameterLayout, value: .full(.unique)))
 
       case .yielded:
