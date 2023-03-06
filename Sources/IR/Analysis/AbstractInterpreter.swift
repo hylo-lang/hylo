@@ -9,23 +9,30 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// evaluation of its instructions.
   typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
 
+  /// A closure that processes `block` in `context`, given an abstract `machine`.
+  typealias Interpret = (
+    _ block: Function.Blocks.Address,
+    _ machine: inout Self,
+    _ context: inout Context
+  ) -> Void
+
   /// The function being interpreted.
-  let subject: Function.ID
+  private let subject: Function.ID
 
   /// The control flow graph of the function being interpreted.
-  var cfg: ControlFlowGraph
+  private var cfg: ControlFlowGraph
 
   /// The dominator tree of the function being interpreted.
-  var dominatorTree: DominatorTree
+  private var dominatorTree: DominatorTree
 
   /// A FILO list of blocks to visit.
-  var work: Deque<Function.Blocks.Address>
+  private var work: Deque<Function.Blocks.Address>
 
   /// The set of blocks that no longer need to be visited.
-  var done: Set<Function.Blocks.Address>
+  private var done: Set<Function.Blocks.Address>
 
   /// The state of the abstract interpreter before and after the visited basic blocks.
-  var contexts: Contexts = [:]
+  private var contexts: Contexts = [:]
 
   /// The context of `subject`'s entry.
   private let entryContext: Context
@@ -45,8 +52,24 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
     self.entryContext = entryContext
   }
 
+  /// Recomputes the CFG of the function being interpreted.
+  ///
+  /// Call this method to update the control-flow information used by this instance to guide
+  /// abstract interpretation.
+  mutating func recomputeControlFlow(_ m: Module) {
+    cfg = m[subject].cfg()
+    dominatorTree = .init(function: subject, cfg: cfg, in: m)
+  }
+
+  /// Removes `b` from the work list.
+  ///
+  /// - Requires: `b` is in the work list.
+  mutating func removeWork(_ b: Function.Blocks.Address) {
+    work.remove(at: work.firstIndex(of: b)!)
+  }
+
   /// Runs this instance using `interpret` to interpret basic blocks.
-  mutating func fixedPoint(_ interpret: (Function.Blocks.Address, inout Context) -> Void) {
+  mutating func fixedPoint(_ interpret: Interpret) {
     while let blockToProcess = work.popFirst() {
       guard isVisitable(blockToProcess) else {
         work.append(blockToProcess)
@@ -126,13 +149,13 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   }
 
   /// Returns the after-context of `b` by processing it with `interpret` in `initialContext`.
-  func afterContext(
+  mutating func afterContext(
     of b: Function.Blocks.Address,
     in initialContext: Context,
-    processingBlockWith interpret: (Function.Blocks.Address, inout Context) -> Void
+    processingBlockWith interpret: Interpret
   ) -> Context {
     var newContext = initialContext
-    interpret(b, &newContext)
+    interpret(b, &self, &newContext)
     return newContext
   }
   

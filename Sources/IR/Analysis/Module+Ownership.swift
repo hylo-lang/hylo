@@ -10,11 +10,10 @@ extension Module {
   /// - Requires: `f` is in `self`.
   public func ensureExclusivity(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     var machine = AbstractInterpreter(analyzing: f, in: self, entryContext: entryContext(of: f))
-    machine.fixedPoint(process(_:in:))
 
-    /// Verifies that the borrow instructions in `b` satisfy the Law of Exclusivity in `context`,
-    /// reporting violations of exclusivity in `diagnostics`.
-    func process(_ b: Function.Blocks.Address, in context: inout Context) {
+    // Verify that the borrow instructions in `b` satisfy the Law of Exclusivity given `context`,
+    // reporting violations of exclusivity in `diagnostics`.
+    machine.fixedPoint { (b, _, context) in
       let blockInstructions = self[f][b].instructions
       for i in blockInstructions.indices {
         let user = InstructionID(f, b, i.address)
@@ -156,6 +155,7 @@ extension Module {
 
   }
 
+  /// Returns the initial context in which `f` should be interpreted.
   private func entryContext(of f: Function.ID) -> Context {
     let function = self[f]
     var result = Context()
