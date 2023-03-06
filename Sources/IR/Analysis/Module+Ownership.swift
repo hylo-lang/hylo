@@ -302,6 +302,15 @@ extension Module {
     }
   }
 
+  /// Returns `true` iff `i` is a `borrow` instruction taking the `let` capability.
+  private func isImmutableBorrow(_ i: InstructionID) -> Bool {
+    if let borrow = self[i] as? BorrowInstruction {
+      return borrow.capability == .let
+    } else {
+      return false
+    }
+  }
+
   /// Returns the borrowed instruction from which `b` reborrows, if any.
   private func reborrowedSource(_ b: BorrowInstruction) -> InstructionID? {
     if let s = accessSource(b.location).instruction, self[s] is BorrowInstruction {
