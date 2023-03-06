@@ -214,17 +214,28 @@ public struct Emitter {
 
   /// Inserts the IR for the local binding `decl` into `module`.
   ///
-  /// - Requires: `decl` is a local local `let`, `inout`, or `set` binding.
+  /// - Requires: `decl` is a local local `let` or `inout` binding.
   private mutating func emit(
     localBindingDecl decl: BindingDecl.Typed,
     borrowing capability: AccessEffect,
     into module: inout Module
   ) {
     precondition(program.isLocal(decl.id))
-    precondition(reading(decl.pattern.introducer.value, { ($0 != .var) && ($0 != .sinklet) }))
+    precondition(reading(decl.pattern.introducer.value, { ($0 == .let) || ($0 == .inout) }))
 
-    // There's nothing to do if there's no initializer.
-    guard let initializer = decl.initializer else { return }
+    // Borrowed binding requires an initializer.
+    guard let initializer = decl.initializer else {
+      report(.error(binding: capability, requiresInitializerAt: decl.pattern.introducer.site))
+      for (_, name) in decl.pattern.subpattern.names {
+        frames[name.decl] = .constant(.poison(PoisonConstant(type: .address(name.decl.type))))
+      }
+      return
+    }
+
+    // Initializing inout bindings requires a mutation marker.
+    if (capability == .inout) && (initializer.kind != InoutExpr.self) {
+      report(.error(inoutBindingRequiresMutationMarkerAt: .empty(at: initializer.site.first())))
+    }
 
     let source = emitLValue(initializer, into: &module)
     for (path, name) in decl.pattern.subpattern.names {
@@ -265,7 +276,7 @@ public struct Emitter {
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed, into module: inout Module) {
     guard stmt.left.kind == InoutExpr.self else {
-      report(.error(assignmentLHSMustBeMarkedForMutationAt: .empty(at: stmt.left.site.first())))
+      report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: stmt.left.site.first())))
       return
     }
 
@@ -880,7 +891,7 @@ public struct Emitter {
 
     guard let b = bits else {
       diagnostics.insert(
-        .error(integerLiterl: s, overflowsWhenStoredInto: literalType, at: anchor))
+        .error(integerLiteral: s, overflowsWhenStoredInto: literalType, at: anchor))
       return .constant(.poison(PoisonConstant(type: .object(literalType))))
     }
 
@@ -1163,12 +1174,22 @@ extension Emitter {
 
 extension Diagnostic {
 
-  static func error(assignmentLHSMustBeMarkedForMutationAt site: SourceRange) -> Diagnostic {
+  static func error(assignmentLHSRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
   }
 
+  static func error(inoutBindingRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
+    .error("initialization of inout binding must be marked for mutation", at: site)
+  }
+
   static func error(
-    integerLiterl s: String, overflowsWhenStoredInto t: AnyType,
+    binding a: AccessEffect, requiresInitializerAt site: SourceRange
+  ) -> Diagnostic {
+    .error("declaration of \(a) binding requires an initializer", at: site)
+  }
+
+  static func error(
+    integerLiteral s: String, overflowsWhenStoredInto t: AnyType,
     at site: SourceRange
   ) -> Diagnostic {
     .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
