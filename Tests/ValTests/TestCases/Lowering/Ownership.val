@@ -57,7 +57,7 @@ fun f3() {
   // Project a part of `s` immutably.
   let t = s.0
 
-  // Overlapping immutable projection is illegal.
+  // Overlapping immutable projection is legal.
   let u = s
   read(u)
   read(t)
