@@ -149,8 +149,8 @@ public struct Module {
     }
 
     try run({ insertImplicitReturns(in: $0, diagnostics: &log) })
-    try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
     try run({ closeBorrows(in: $0, diagnostics: &log) })
+    try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
   }
 
   /// Returns the identifier of the Val IR function corresponding to `decl`.
