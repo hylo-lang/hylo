@@ -20,8 +20,6 @@ public struct DestructureInstruction: Instruction {
 
   public var operands: [Operand] { [whole] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {

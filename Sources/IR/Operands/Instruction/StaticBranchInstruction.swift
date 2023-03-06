@@ -3,7 +3,7 @@ import Core
 /// Branches depending on a condition evaluated statically during flow-sensitive analysis.
 ///
 /// - Invariant: The successor blocks of this instruction must be immediately dominated by it.
-public struct StaticBranchInstruction: Instruction {
+public struct StaticBranchInstruction: Terminator {
 
   /// The property expected on the operand of a static branch.
   public enum Predicate {
@@ -46,7 +46,7 @@ public struct StaticBranchInstruction: Instruction {
 
   public var operands: [Operand] { [subject] }
 
-  public var isTerminator: Bool { true }
+  public var successors: [Block.ID] { [targetIfTrue, targetIfFalse] }
 
 }
 

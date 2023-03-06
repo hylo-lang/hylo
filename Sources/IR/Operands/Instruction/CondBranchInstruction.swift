@@ -1,7 +1,7 @@
 import Core
 
 /// Branches conditionally to the start of a basic block.
-public struct CondBranchInstruction: Instruction {
+public struct CondBranchInstruction: Terminator {
 
   /// A Boolean condition.
   public let condition: Operand
@@ -31,7 +31,7 @@ public struct CondBranchInstruction: Instruction {
 
   public var operands: [Operand] { [condition] }
 
-  public var isTerminator: Bool { true }
+  public var successors: [Block.ID] { [targetIfTrue, targetIfFalse] }
 
 }
 

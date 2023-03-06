@@ -22,8 +22,6 @@ public struct AllocStackInstruction: Instruction {
 
   public var operands: [Operand] { [] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {

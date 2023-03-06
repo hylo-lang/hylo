@@ -32,8 +32,6 @@ public struct ElementAddrInstruction: Instruction {
 
   public var operands: [Operand] { [base] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {

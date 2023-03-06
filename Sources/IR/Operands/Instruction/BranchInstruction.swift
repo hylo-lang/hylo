@@ -1,7 +1,7 @@
 import Core
 
 /// Branches unconditionally to the start of a basic block.
-public struct BranchInstruction: Instruction {
+public struct BranchInstruction: Terminator {
 
   /// The target of the branch.
   public let target: Block.ID
@@ -18,7 +18,7 @@ public struct BranchInstruction: Instruction {
 
   public var operands: [Operand] { [] }
 
-  public var isTerminator: Bool { true }
+  public var successors: [Block.ID] { [target] }
 
 }
 
