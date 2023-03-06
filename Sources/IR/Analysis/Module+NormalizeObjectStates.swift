@@ -475,9 +475,9 @@ private typealias Contexts = [Function.Blocks.Address: (before: Context, after: 
 
 /// The initialization state of an object or sub-object.
 ///
-/// The values of this type form a lattice whose supremum is `.initialized` and infimum is
-/// `.consumed(by: s)` where `s` is the set of all instructions. The meet of two elements
-/// represents the conservative superposition of two initialization states.
+/// Instances form a lattice whose supremum is `.initialized` and infimum is `.consumed(by: s)`
+/// where `s` is the set of all instructions. The meet of two elements denotes the conservative
+/// superposition of two initialization states.
 private enum State: AbstractDomain {
 
   /// A set of consumers.
@@ -574,7 +574,6 @@ extension AbstractContext where Domain == State {
         preconditionFailure("cannot represent instance of yielded type")
       }
     }
-
   }
 
   /// Updates the state of the `o` to mark it consumed by `consumer` at `site`, or report a
