@@ -39,9 +39,9 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
     memory.merge(other.memory, uniquingKeysWith: &&)
   }
 
-  /// Calls `action` with a projection of the objects at the locations assigned to `local`.
+  /// Calls `action` with a projection of the objects at the locations assigned to `locals[k]`.
   ///
-  /// - Requires: `locals[k]` is `.locations`.
+  /// - Requires: If defined, `locals[k]` is `.locations`.
   mutating func forEachObject(
     at k: FunctionLocal,
     _ action: (inout AbstractObject<Domain>) -> Void
