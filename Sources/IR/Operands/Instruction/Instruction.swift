@@ -1,7 +1,8 @@
 import Core
+import Utils
 
 /// A Val IR instruction.
-public protocol Instruction {
+public protocol Instruction: CustomStringConvertible {
 
   /// The types of the instruction's results (empty for instructions with no result).
   var types: [LoweredType] { get }
@@ -17,5 +18,14 @@ public protocol Instruction {
   /// A "terminator" is an instruction that indicates which block should be executed after the
   /// current block is finished, returns a value, or yields control.
   var isTerminator: Bool { get }
+
+}
+
+extension Instruction {
+
+  public var description: String {
+    let n = String(describing: type(of: self)).removingSuffix("Instruction").snakeCased()
+    return operands.isEmpty ? String(n) : "\(n) \(list: operands)"
+  }
 
 }

@@ -50,6 +50,14 @@ public struct StaticBranchInstruction: Instruction {
 
 }
 
+extension StaticBranchInstruction: CustomStringConvertible {
+
+  public var description: String {
+    "static_branch \(predicate)(\(subject)), \(targetIfTrue), \(targetIfFalse)"
+  }
+
+}
+
 extension Module {
 
   /// Creates a `static_branch` anchored at `anchor` that jumps to `targetIfTrue` if `predicate`

@@ -40,6 +40,14 @@ public struct BorrowInstruction: Instruction {
 
 }
 
+extension BorrowInstruction: CustomStringConvertible {
+
+  public var description: String {
+    "borrow [\(capability)] \(location)"
+  }
+
+}
+
 extension Module {
 
   /// Creates a `borrow` anchored at `anchor` that takes `capability` from `source`.

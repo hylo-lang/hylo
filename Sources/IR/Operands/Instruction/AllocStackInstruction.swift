@@ -26,6 +26,14 @@ public struct AllocStackInstruction: Instruction {
 
 }
 
+extension AllocStackInstruction: CustomStringConvertible {
+
+  public var description: String {
+    "alloc_stack \(allocatedType)"
+  }
+
+}
+
 extension Module {
 
   /// Creates an `alloc_stack` anchored at `anchor` that allocates storage of type `storageType`,
