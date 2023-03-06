@@ -232,7 +232,7 @@ extension Module {
         unreachable()
       }
 
-      context.locals[FunctionLocal(i, 0)] = .locations(Set(locations))
+      context.locals[FunctionLocal(i, 0)] = .locations(locations)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
