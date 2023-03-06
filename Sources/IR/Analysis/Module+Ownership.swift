@@ -107,22 +107,13 @@ extension Module {
       return (.init(merging: sources.lazy.map({ contexts[$0]!.after })), sources)
     }
 
-    /// Returns the after-context of `b` formed by interpreting it in `initialContext`, inserting
-    /// instructions into `self` to deinitialize objects whose storage is reused or deallocated
-    /// and reporting violations of definite initialization in `diagnostics`.
-    ///
-    /// This function implements an abstract interpreter that keeps track of the initialization
-    /// state of the objects in registers and memory.
-    ///
-    /// - Note: This function is idempotent.
+    /// Returns the after-context of `b` formed by interpreting it in `initialContext`, reporting
+    /// violations of exclusivity in `diagnostics`.
     func afterContext(
       of b: Function.Blocks.Address,
       in initialContext: Context
     ) -> Context {
       var newContext = initialContext
-
-      // We can safely iterate over the current indices of the block because instructions are
-      // always inserted the currently visited address.
       let blockInstructions = self[f][b].instructions
       for i in blockInstructions.indices {
         let user = InstructionID(f, b, i.address)
@@ -344,7 +335,7 @@ private typealias Contexts = [Function.Blocks.Address: (before: Context, after: 
 ///
 /// Instances form a lattice whose supremum is `.unique` and infimum is `.shared(by: s)`
 /// where `s` is the set of all instructions. The meet of two elements denotes the conservative
-/// superposition of two initialization states.
+/// superposition of two ownership states.
 private enum State: AbstractDomain {
 
   /// Object is unique.
