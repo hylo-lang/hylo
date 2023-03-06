@@ -170,10 +170,10 @@ private struct FunctionSignature: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output.write(source.output, " ", source.identifier, "(")
+    output << source.output << " " << source.identifier << "("
     for (i, parameter) in source.parameters.enumerated() {
       if i != 0 { output.write(", ") }
-      output.write(parameter.type, " ", parameter.name)
+      output << parameter.type << " " << parameter.name
     }
     output.write(")")
   }
@@ -193,7 +193,7 @@ private struct FunctionDefinition: Writeable {
   func write(to output: inout CXXStream) {
     output.write(FunctionSignature(source))
     if source.body != nil {
-      output.write(" ", StmtWriteable(source.body!))
+      output << " " << StmtWriteable(source.body!)
     } else {
       output.write(";\n")
     }
@@ -212,7 +212,7 @@ private struct ClassDefinition: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output.write("class ", source.name, " {\npublic:\n")
+    output << "class " << source.name << " {\npublic:\n"
     for member in source.members {
       switch member {
       case .attribute(let attribute):
@@ -257,9 +257,7 @@ private struct ConversionConstructor: Writeable {
     // and the type of the attribute needs to be native.
     if dataMembers.count == 1 && dataMembers[0].type.isNative {
       // Write implicit conversion constructor
-      output.write(
-        parentClass.name.description, "(", dataMembers[0].type, " v) : ", dataMembers[0].name,
-        "(v) {}\n")
+      output << parentClass.name.description << "(" << dataMembers[0].type << " v) : " << dataMembers[0].name << "(v) {}\n"
     }
   }
 }
@@ -268,10 +266,9 @@ extension CXXClassAttribute: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output.write(type, " ", name)
+    output << type << " " << name
     if let value = initializer {
-      output.write(" = ")
-      output.write(ExprWriteable(value))
+      output << " = " << ExprWriteable(value)
     }
     output.write(";\n")
   }
@@ -282,9 +279,9 @@ extension CXXLocalVarDecl: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output.write(type, " ", name)
+    output << type << " " << name
     if let value = initializer {
-      output.write(" = ", ExprWriteable(value))
+      output << " = " << ExprWriteable(value)
     }
     output.write(";\n")
   }
@@ -614,7 +611,7 @@ extension CXXVoidCast: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output.write("(void) ", ExprWriteable(baseExpr))
+    output << "(void) " << ExprWriteable(baseExpr)
   }
 }
 extension CXXConditionalExpr: Writeable {
@@ -673,6 +670,10 @@ struct CXXStream {
   /// True if we are translating the standard library.
   let context: WriteContext
 
+  mutating func write(_ source: String) {
+    output.write(source)
+  }
+
 }
 
 extension CXXStream {
@@ -680,13 +681,6 @@ extension CXXStream {
   /// Writes `source` to `self`.
   fileprivate mutating func write<T: Writeable>(_ source: T) {
     source.write(to: &self)
-  }
-
-  /// Writes `source` to `self`.
-  fileprivate mutating func write(_ source: Writeable...) {
-    for element in source {
-      element.write(to: &self)
-    }
   }
 
   /// Writes `source` to `self`.
@@ -714,6 +708,35 @@ extension String: Writeable {
   }
 
 }
+
+precedencegroup StreamPrecendence {
+  associativity: right
+}
+
+infix operator << : StreamPrecendence
+
+fileprivate func << <T: Writeable>(lhs: inout CXXStream, rhs: T) {
+  rhs.write(to: &lhs)
+}
+
+fileprivate func << <T, U: Writeable>(lhs: T, rhs: U) -> Pair<T, U> {
+  return Pair<T, U>(first: lhs, second: rhs)
+}
+
+fileprivate struct Pair<T: Writeable, U: Writeable>: Writeable {
+
+  let first: T
+  let second: U
+
+  /// Writes 'self' to 'output'.
+  func write(to output: inout CXXStream) {
+    first.write(to: &output)
+    second.write(to: &output)
+  }
+
+}
+
+
 
 extension Writeable {
 
