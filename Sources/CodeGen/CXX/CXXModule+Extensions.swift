@@ -44,7 +44,7 @@ private struct HeaderFile: Writeable {
     if !source.isStdLib {
       output.write("using namespace ValStdLib;\n")
     }
-    output.write(source.topLevelDecls.map({ decl in TopLevelInterface(decl) }))
+    output.write(source.topLevelDecls.lazy.map({ decl in TopLevelInterface(decl) }))
     output.write("\n}\n")
 
     // Add extra native code to the stdlib header.
@@ -68,7 +68,7 @@ private struct SourceFile: Writeable {
   func write(to output: inout CXXStream) {
     output.write("#include \"\(source.name).h\"\n")
     output.write("namespace \(source.name) {\n")
-    output.write(source.topLevelDecls.map({ decl in TopLevelDefinition(decl) }))
+    output.write(source.topLevelDecls.lazy.map({ decl in TopLevelDefinition(decl) }))
     output.write("}\n")
 
     // Add extra native code to the stdlib source file.
@@ -618,14 +618,7 @@ extension CXXConditionalExpr: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output.write(
-      [
-        ExprWriteable(condition),
-        " ? ",
-        ExprWriteable(trueExpr),
-        " : ",
-        ExprWriteable(falseExpr),
-      ])
+    output << ExprWriteable(condition) << " ? " << ExprWriteable(trueExpr) << " : " << ExprWriteable(falseExpr)
   }
 }
 extension CXXStmtExpr: Writeable {
@@ -684,7 +677,7 @@ extension CXXStream {
   }
 
   /// Writes `source` to `self`.
-  fileprivate mutating func write(_ source: [Writeable]) {
+  fileprivate mutating func write<S: Sequence>(_ source: S) where S.Element: Writeable {
     for element in source {
       element.write(to: &self)
     }
