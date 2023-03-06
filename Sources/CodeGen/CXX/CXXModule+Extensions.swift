@@ -77,8 +77,8 @@ private struct SourceFile: Writeable {
     }
 
     // Write a CXX `main` function if the module has an entry point.
-    if source.entryPointBody != nil {
-      output << "int main()" << StmtWriteable(source.entryPointBody!) << "\n"
+    if let body = source.entryPointBody {
+      output << "int main()" << StmtWriteable(body) << "\n"
     }
   }
 
@@ -187,8 +187,8 @@ private struct FunctionDefinition: Writeable {
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
     output << FunctionSignature(source)
-    if source.body != nil {
-      output << " " << StmtWriteable(source.body!)
+    if let body = source.body {
+      output << " " << StmtWriteable(body)
     } else {
       output << ";\n"
     }
@@ -224,6 +224,7 @@ private struct ClassDefinition: Writeable {
     }
     output << "};\n"
   }
+
 }
 
 /// Knows how to write a conversion constructor for a class.
@@ -256,6 +257,7 @@ private struct ConversionConstructor: Writeable {
         << dataMembers[0].name << "(v) {}\n"
     }
   }
+
 }
 
 extension CXXClassAttribute: Writeable {
@@ -320,6 +322,7 @@ private struct StmtWriteable: Writeable {
       fatalError("unexpected statement")
     }
   }
+
 }
 
 extension CXXScopedBlock: Writeable {
@@ -327,7 +330,7 @@ extension CXXScopedBlock: Writeable {
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
     output << "{\n"
-    output.write(stmts.lazy.map({element in StmtWriteable(element)}))
+    output.write(stmts.lazy.map({ element in StmtWriteable(element) }))
     output << "}\n"
   }
 
@@ -347,8 +350,8 @@ extension CXXReturnStmt: Writeable {
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
     output << "return"
-    if expr != nil {
-      output << " " << ExprWriteable(expr!)
+    if let value = expr {
+      output << " " << ExprWriteable(value)
     }
     output << ";\n"
   }
@@ -360,8 +363,8 @@ extension CXXIfStmt: Writeable {
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
     output << "if ( " << ExprWriteable(condition) << " ) " << StmtWriteable(trueStmt)
-    if falseStmt != nil {
-      output << "else " << StmtWriteable(falseStmt!)
+    if let alternative = falseStmt {
+      output << "else " << StmtWriteable(alternative)
     }
   }
 
@@ -494,47 +497,47 @@ extension CXXInfixExpr: Writeable {
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
     // TODO: handle precedence and associativity; as of writing this comment, infix operators cannot be properly tested.
-    output << ExprWriteable(lhs)
-    switch oper {
-    case .scopeResolution: output << " :: "
-    case .dotAccess: output << " . "
-    case .ptrAccess: output << " -> "
-    case .dotPtrToMember: output << " .* "
-    case .ptrToMember: output << " ->* "
-    case .multiplication: output << " * "
-    case .division: output << " / "
-    case .remainder: output << " % "
-    case .addition: output << " + "
-    case .subtraction: output << " - "
-    case .leftShift: output << " << "
-    case .rightShift: output << " >> "
-    case .spaceship: output << " <=> "
-    case .lessThan: output << " < "
-    case .lessEqual: output << " <= "
-    case .greaterThan: output << " > "
-    case .greaterEqual: output << " >= "
-    case .equality: output << " == "
-    case .inequality: output << " == "
-    case .bitwiseAnd: output << " & "
-    case .bitwiseXor: output << " ^ "
-    case .bitwiseOr: output << " | "
-    case .logicalAnd: output << " && "
-    case .logicalOr: output << " || "
-    case .assignment: output << " = "
-    case .addAssignment: output << " += "
-    case .subAssignment: output << " -= "
-    case .mulAssignment: output << " *= "
-    case .divAssignment: output << " /= "
-    case .remAssignment: output << " %= "
-    case .shiftLeftAssignment: output << " <<= "
-    case .shiftRightAssignment: output << " >>= "
-    case .bitwiseAndAssignment: output << " &= "
-    case .bitwiseXorAssignment: output << " ^= "
-    case .bitwiseOrAssignment: output << " |= "
-    case .comma: output << " , "
-    }
-    output << ExprWriteable(rhs)
+    let translation = [
+      Operator.scopeResolution: " :: ",
+      Operator.dotAccess: " . ",
+      Operator.ptrAccess: " -> ",
+      Operator.dotPtrToMember: " .* ",
+      Operator.ptrToMember: " ->* ",
+      Operator.multiplication: " * ",
+      Operator.division: " / ",
+      Operator.remainder: " % ",
+      Operator.addition: " + ",
+      Operator.subtraction: " - ",
+      Operator.leftShift: " << ",
+      Operator.rightShift: " >> ",
+      Operator.spaceship: " <=> ",
+      Operator.lessThan: " < ",
+      Operator.lessEqual: " <= ",
+      Operator.greaterThan: " > ",
+      Operator.greaterEqual: " >= ",
+      Operator.equality: " == ",
+      Operator.inequality: " == ",
+      Operator.bitwiseAnd: " & ",
+      Operator.bitwiseXor: " ^ ",
+      Operator.bitwiseOr: " | ",
+      Operator.logicalAnd: " && ",
+      Operator.logicalOr: " || ",
+      Operator.assignment: " = ",
+      Operator.addAssignment: " += ",
+      Operator.subAssignment: " -= ",
+      Operator.mulAssignment: " *= ",
+      Operator.divAssignment: " /= ",
+      Operator.remAssignment: " %= ",
+      Operator.shiftLeftAssignment: " <<= ",
+      Operator.shiftRightAssignment: " >>= ",
+      Operator.bitwiseAndAssignment: " &= ",
+      Operator.bitwiseXorAssignment: " ^= ",
+      Operator.bitwiseOrAssignment: " |= ",
+      Operator.comma: " , ",
+    ]
+    output << ExprWriteable(lhs) << translation[oper]! << ExprWriteable(rhs)
   }
+
 }
 
 extension CXXPrefixExpr: Writeable {
@@ -542,22 +545,23 @@ extension CXXPrefixExpr: Writeable {
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
     // TODO: handle precedence and associativity; as of writing this comment, prefix operators cannot be properly tested.
-    switch oper {
-    case .prefixIncrement: output << "++"
-    case .prefixDecrement: output << "--"
-    case .unaryPlus: output << "+"
-    case .unaryMinus: output << "-"
-    case .logicalNot: output << "!"
-    case .bitwiseNot: output << "~"
-    case .dereference: output << "*"
-    case .addressOf: output << "&"
-    case .sizeOf: output << "sizeof "
-    case .coAwait: output << "co_await "
-    case .throwOp: output << "throw "
-    case .coYield: output << "co_yield "
-    }
-    output << ExprWriteable(base)
+    let translation = [
+      Operator.prefixIncrement: "++",
+      Operator.prefixDecrement: "--",
+      Operator.unaryPlus: "+",
+      Operator.unaryMinus: "-",
+      Operator.logicalNot: "!",
+      Operator.bitwiseNot: "~",
+      Operator.dereference: "*",
+      Operator.addressOf: "&",
+      Operator.sizeOf: "sizeof ",
+      Operator.coAwait: "co_await ",
+      Operator.throwOp: "throw ",
+      Operator.coYield: "co_yield ",
+    ]
+    output << translation[oper]! << ExprWriteable(base)
   }
+
 }
 
 extension CXXPostfixExpr: Writeable {
@@ -565,12 +569,13 @@ extension CXXPostfixExpr: Writeable {
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
     // TODO: handle precedence and associativity; as of writing this comment, postfix operators cannot be properly tested.
-    output << ExprWriteable(base)
-    switch oper {
-    case .suffixIncrement: output << "++"
-    case .suffixDecrement: output << "--"
-    }
+    let translation = [
+      Operator.suffixIncrement: "++",
+      Operator.suffixDecrement: "--",
+    ]
+    output << ExprWriteable(base) << translation[oper]!
   }
+
 }
 
 extension CXXFunctionCallExpr: Writeable {
@@ -581,6 +586,7 @@ extension CXXFunctionCallExpr: Writeable {
     output.write(arguments.lazy.map({ a in ExprWriteable(a) }), joinedBy: ", ")
     output << ")"
   }
+
 }
 extension CXXVoidCast: Writeable {
 
@@ -588,6 +594,7 @@ extension CXXVoidCast: Writeable {
   func write(to output: inout CXXStream) {
     output << "(void) " << ExprWriteable(baseExpr)
   }
+
 }
 extension CXXConditionalExpr: Writeable {
 
@@ -596,6 +603,7 @@ extension CXXConditionalExpr: Writeable {
     output << ExprWriteable(condition) << " ? " << ExprWriteable(trueExpr) << " : "
       << ExprWriteable(falseExpr)
   }
+
 }
 extension CXXStmtExpr: Writeable {
 
@@ -603,6 +611,7 @@ extension CXXStmtExpr: Writeable {
   func write(to output: inout CXXStream) {
     output << StmtWriteable(stmt)
   }
+
 }
 
 // MARK: Miscellaneous
