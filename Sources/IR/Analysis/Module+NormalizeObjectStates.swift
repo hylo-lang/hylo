@@ -567,32 +567,38 @@ extension AbstractObject.Value where Domain == State {
   /// Returns the paths of the parts that are initialized in `l` and either uninitialized or
   /// consumed in `r`.
   ///
-  /// - Requires: `lhs` and `rhs` are canonical and have the same layout
-  fileprivate static func - (l: Self, r: Self) -> [PartPath] {
+  /// - Requires: `l` and `r` are canonical and have the same layout
+  static func - (l: Self, r: Self) -> [PartPath] {
     switch (l, r) {
-    case (.full(.initialized), let rhs):
-      if let p = rhs.paths {
-        return p.uninitialized + p.consumed.map(\.path)
+    case (_, .full(.initialized)):
+      // No part of LHS is not initialized in RHS.
+      return []
+
+    case (let lhs, .full):
+      // RHS is fully consumed or uninitialized.
+      if let p = lhs.paths {
+        return p.initialized
+      } else if lhs == .full(.initialized) {
+        return [[]]
       } else {
         return []
       }
 
+    case (.full(.initialized), let rhs):
+      // RHS is partially initialized.
+      let p = rhs.paths!
+      return p.uninitialized + p.consumed.map(\.path)
+
     case (.full, _):
+      // LHS is fully consumed or uninitialized.
       return []
 
-    case (_, .full(.initialized)):
-      return [[]]
-
-    case (let lhs, .full):
-      return lhs.paths!.initialized
-
     case (.partial(let lhs), .partial(let rhs)):
+      // LHS and RHS are partially initialized.
       assert(lhs.count == rhs.count)
-      return (0 ..< lhs.count).reduce(
-        into: [],
-        { (result, i) in
-          result.append(contentsOf: (lhs[i] - rhs[i]).map({ [i] + $0 }))
-        })
+      return (0 ..< lhs.count).reduce(into: []) { (result, i) in
+        result.append(contentsOf: (lhs[i] - rhs[i]).map({ [i] + $0 }))
+      }
     }
   }
 
