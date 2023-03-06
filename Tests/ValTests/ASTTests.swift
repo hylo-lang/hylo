@@ -6,10 +6,10 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
-    var diagnostics = DiagnosticSet()
-    let i = ast.insert(ModuleDecl("Val", sources: []), diagnostics: &diagnostics)
+    let i = checkNoDiagnostic { (d) in
+      ast.insert(ModuleDecl("Val", sources: []), diagnostics: &d)
+    }
     XCTAssert(ast.modules.contains(i))
-    XCTAssert(diagnostics.elements.isEmpty)
 
     let j = ast.insert(synthesized: ModuleDecl("Val1", sources: []))
     XCTAssert(ast.modules.contains(j))
@@ -19,9 +19,9 @@ final class ASTTests: XCTestCase {
     let input: SourceFile = "import T"
 
     var a = AST()
-    var d = DiagnosticSet()
-    let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
-    XCTAssert(d.elements.isEmpty, "\n\(d)")
+    let m = try checkNoDiagnostic { (d) in
+      try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    }
 
     // Note: we use `XCTUnwrap` when we're expecting a non-nil value produced by a subscript under
     // test. Otherwise, we use `!`.
@@ -47,8 +47,9 @@ final class ASTTests: XCTestCase {
       """
 
     var original = AST()
-    var d = DiagnosticSet()
-    let m = try original.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    let m = try checkNoDiagnostic { (d) in
+      try original.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    }
 
     // Serialize the AST.
     let encoder = JSONEncoder().forAST
@@ -61,6 +62,39 @@ final class ASTTests: XCTestCase {
     // Deserialized AST should contain a `main` function.
     let s = deserialized[m].sources.first!
     XCTAssertEqual(deserialized[s].decls.first?.kind, NodeKind(FunctionDecl.self))
+  }
+
+  func testWalk() throws {
+    let input: SourceFile = """
+      fun f() -> Int { fun ff() {}; return 42 }
+      type A {
+        fun g() {}
+      }
+      """
+
+    var a = AST()
+    let m = try checkNoDiagnostic { (d) in
+      try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    }
+
+    struct V: ASTWalkObserver {
+
+      var outermostFunctions: [FunctionDecl.ID] = []
+
+      mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
+        if let d = FunctionDecl.ID(n) {
+          outermostFunctions.append(d)
+          return false
+        } else {
+          return true
+        }
+      }
+
+    }
+
+    var v = V()
+    a.walk(m, notifying: &v)
+    XCTAssertEqual(v.outermostFunctions.count, 2)
   }
 
 }

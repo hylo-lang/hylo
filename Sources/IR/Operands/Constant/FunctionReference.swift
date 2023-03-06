@@ -1,17 +1,22 @@
 /// A Val IR reference to a user function.
 public struct FunctionRef: ConstantProtocol, Hashable {
 
-  /// The name of the function.
-  public let name: String
+  /// The ID of the referred IR function.
+  public let function: Function.ID
 
+  /// The type of the referred IR function.
   public let type: LoweredType
+
+  /// Creates an instance with the given properties.
+  public init(to function: Function.ID, type: LoweredType) {
+    self.function = function
+    self.type = type
+  }
 
 }
 
 extension FunctionRef: CustomStringConvertible {
 
-  public var description: String {
-    "@\(name)"
-  }
+  public var description: String { "@\(function)" }
 
 }

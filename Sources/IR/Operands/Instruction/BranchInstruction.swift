@@ -22,6 +22,14 @@ public struct BranchInstruction: Instruction {
 
 }
 
+extension BranchInstruction: CustomStringConvertible {
+
+  public var description: String {
+    "branch \(target)"
+  }
+
+}
+
 extension Module {
 
   /// Creates a `branch` anchored at `anchor` that unconditionally jumps at the start of a block.

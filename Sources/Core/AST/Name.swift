@@ -37,26 +37,6 @@ public struct Name: Hashable, Codable {
     self.introducer = nil
   }
 
-  /// Creates the name introduced by `decl` in `ast`.
-  public init?(of decl: NodeID<FunctionDecl>, in ast: AST) {
-    guard let stem = ast[decl].identifier?.value else { return nil }
-    if let notation = ast[decl].notation?.value {
-      self.init(stem: stem, notation: notation)
-    } else {
-      self.init(stem: stem, labels: ast[ast[decl].parameters].map(\.label?.value))
-    }
-  }
-
-  /// Creates the name introduced by `decl` in `ast`.
-  public init(of decl: NodeID<MethodDecl>, in ast: AST) {
-    let stem = ast[decl].identifier.value
-    if let notation = ast[decl].notation?.value {
-      self.init(stem: stem, notation: notation)
-    } else {
-      self.init(stem: stem, labels: ast[ast[decl].parameters].map(\.label?.value))
-    }
-  }
-
   /// Creates an instance with the given properties.
   public init(
     stem: Identifier,
@@ -70,8 +50,35 @@ public struct Name: Hashable, Codable {
     self.introducer = introducer
   }
 
+  /// Creates the name introduced by `decl` in `ast`.
+  public init?(of d: FunctionDecl.ID, in ast: AST) {
+    guard let stem = ast[d].identifier?.value else { return nil }
+    if let notation = ast[d].notation?.value {
+      self.init(stem: stem, notation: notation)
+    } else {
+      self.init(stem: stem, labels: ast[ast[d].parameters].map(\.label?.value))
+    }
+  }
+
+  /// Creates the name introduced by `decl` in `ast`.
+  public init(of d: MethodDecl.ID, in ast: AST) {
+    let stem = ast[d].identifier.value
+    if let notation = ast[d].notation?.value {
+      self.init(stem: stem, notation: notation)
+    } else {
+      self.init(stem: stem, labels: ast[ast[d].parameters].map(\.label?.value))
+    }
+  }
+
+  /// Returns `self` appending `x` or `nil` if `self` already has an introducer.
+  public func appending(_ x: AccessEffect) -> Name? {
+    introducer == nil
+      ? Name(stem: stem, labels: labels, notation: notation, introducer: x)
+      : nil
+  }
+
   /// Returns a textual description of `labels`.
-  public static func describe(labels: [String?]) -> String {
+  public static func describe<S: Sequence<String?>>(labels: S) -> String {
     labels.map({ "\($0 ?? "_"):" }).joined()
   }
 

@@ -7,12 +7,12 @@ public struct AllocStackInstruction: Instruction {
   public let allocatedType: AnyType
 
   /// The binding in source program to which the instruction corresponds, if any.
-  public let binding: NodeID<VarDecl>?
+  public let binding: VarDecl.ID?
 
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(allocatedType: AnyType, binding: NodeID<VarDecl>?, site: SourceRange) {
+  fileprivate init(allocatedType: AnyType, binding: VarDecl.ID?, site: SourceRange) {
     self.allocatedType = allocatedType
     self.binding = binding
     self.site = site
@@ -26,6 +26,14 @@ public struct AllocStackInstruction: Instruction {
 
 }
 
+extension AllocStackInstruction: CustomStringConvertible {
+
+  public var description: String {
+    "alloc_stack \(allocatedType)"
+  }
+
+}
+
 extension Module {
 
   /// Creates an `alloc_stack` anchored at `anchor` that allocates storage of type `storageType`,
@@ -36,7 +44,7 @@ extension Module {
   ///   - storageDecl: The declaration to associated with the returned instruction, if any.
   func makeAllocStack(
     _ storageType: AnyType,
-    for storageDecl: NodeID<VarDecl>? = nil,
+    for storageDecl: VarDecl.ID? = nil,
     anchoredAt anchor: SourceRange
   ) -> AllocStackInstruction {
     return AllocStackInstruction(

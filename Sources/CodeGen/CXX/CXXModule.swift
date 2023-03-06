@@ -8,8 +8,8 @@ public struct CXXModule {
   /// The module's name
   public let name: String
 
-  /// True if this represents C++ translation of Val standard library.
-  let isStdLib: Bool
+  /// True if this represents C++ translation of Val core library.
+  let isCoreLibrary: Bool
 
   /// The C++ top-level declarations for this module
   let topLevelDecls: [CXXTopLevelDecl]

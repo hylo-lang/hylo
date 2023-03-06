@@ -38,3 +38,18 @@ public enum Operand: Hashable {
   }
 
 }
+
+extension Operand: CustomStringConvertible {
+
+  public var description: String {
+    switch self {
+    case .result(let i, let k):
+      return "%\(i)#\(k)"
+    case .parameter(let b, let k):
+      return "%\(b)#\(k)"
+    case .constant(let c):
+      return c.description
+    }
+  }
+
+}

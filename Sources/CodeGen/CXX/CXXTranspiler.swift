@@ -6,7 +6,7 @@ import Utils
 /// The conversion of typed Val module AST into corresponding C++ AST.
 public struct CXXTranspiler {
 
-  public static let coreLibModuleName = "ValStdLib"
+  public static let coreLibModuleName = "ValCore"
 
   /// The Val typed nodes.
   ///
@@ -20,10 +20,10 @@ public struct CXXTranspiler {
 
   /// Returns a C++ AST implementing the semantics of `source`.
   public func cxx(_ source: ModuleDecl.Typed) -> CXXModule {
-    let isCoreLib = source.id == wholeValProgram.corelib?.id
+    let isCoreLibrary = source.id == wholeValProgram.coreLibrary?.id
     return CXXModule(
-      name: isCoreLib ? Self.coreLibModuleName : source.baseName,
-      isStdLib: isCoreLib,
+      name: isCoreLibrary ? Self.coreLibModuleName : source.baseName,
+      isCoreLibrary: isCoreLibrary,
       topLevelDecls: source.topLevelDecls.map({ cxx(topLevel: $0) }),
       entryPointBody: entryPointBody(module: source))
   }
@@ -198,6 +198,8 @@ public struct CXXTranspiler {
       return cxx(assignStmt: AssignStmt.Typed(source)!)
     case ReturnStmt.self:
       return cxx(returnStmt: ReturnStmt.Typed(source)!)
+    case ConditionalStmt.self:
+      return cxx(conditionalStmt: ConditionalStmt.Typed(source)!)
     case WhileStmt.self:
       return cxx(whileStmt: WhileStmt.Typed(source)!)
     case DoWhileStmt.self:
@@ -250,22 +252,18 @@ public struct CXXTranspiler {
   }
 
   /// Returns a transpilation of `source`.
+  private func cxx(conditionalStmt source: ConditionalStmt.Typed) -> CXXIfStmt {
+    CXXIfStmt(
+      condition: cxx(condition: source.condition),
+      trueStmt: cxx(brace: source.success),
+      falseStmt: source.failure.map({ cxx(stmt: $0) }))
+  }
+
+  /// Returns a transpilation of `source`.
   private func cxx(whileStmt source: WhileStmt.Typed) -> CXXWhileStmt {
-    // TODO: multiple conditions
-    // TODO: bindings in conditions
-    let condition: CXXExpr
-    if source.condition.count == 1 {
-      switch source.condition[0] {
-      case .expr(let conditionDetails):
-        condition = cxx(expr: wholeValProgram[conditionDetails])
-      case .decl(_):
-        condition = CXXComment(comment: "binding condition")
-      }
-    } else {
-      fatalError("not implemented")
-    }
-    return CXXWhileStmt(
-      condition: condition, body: cxx(stmt: source.body))
+    CXXWhileStmt(
+      condition: cxx(condition: source.condition),
+      body: cxx(stmt: source.body))
   }
   /// Returns a transpilation of `source`.
   private func cxx(doWhileStmt source: DoWhileStmt.Typed) -> CXXDoWhileStmt {
@@ -290,6 +288,22 @@ public struct CXXTranspiler {
     return CXXComment(comment: "YieldStmt")
   }
 
+  /// Returns a transpilation of `condition`.
+  private func cxx(condition: [ConditionItem]) -> CXXExpr {
+    // TODO: multiple conditions
+    // TODO: bindings in conditions
+    if let c = condition.uniqueElement {
+      switch c {
+      case .expr(let e):
+        return cxx(expr: wholeValProgram[e])
+      case .decl(_):
+        return CXXComment(comment: "binding condition")
+      }
+    } else {
+      fatalError("not implemented")
+    }
+  }
+
   // MARK: Expressions
 
   /// Returns a transpilation of `source`.
@@ -305,8 +319,8 @@ public struct CXXTranspiler {
       return cxx(sequence: SequenceExpr.Typed(source)!)
     case FunctionCallExpr.self:
       return cxx(functionCall: FunctionCallExpr.Typed(source)!)
-    case CondExpr.self:
-      return cxx(cond: CondExpr.Typed(source)!)
+    case ConditionalExpr.self:
+      return cxx(cond: ConditionalExpr.Typed(source)!)
     default:
       unexpected(source)
     }
@@ -408,59 +422,14 @@ public struct CXXTranspiler {
 
   /// Returns a transpilation of `source`.
   ///
-  /// As much as possible, this will be converted into a ternary operator (CXXConditionalExpr).
-  /// There are, however, in wich this needs to be translated into an if statment, then trasformed into an expression.
-  private func cxx(cond source: CondExpr.Typed) -> CXXExpr {
-    // TODO: multiple conditions
-    // TODO: bindings in conditions
-    let condition: CXXExpr
-    if source.condition.count == 1 {
-      switch source.condition[0] {
-      case .expr(let conditionDetails):
-        condition = cxx(expr: wholeValProgram[conditionDetails])
-      case .decl(_):
-        condition = CXXComment(comment: "binding condition")
-      }
-    } else {
-      fatalError("not implemented")
-    }
-    // TODO: better checks if we need an expression or a statement
-    if wholeValProgram.relations.areEquivalent(source.type, .void) {
-      // We result in a statement, and we wrap the statement into an expression
-      return CXXStmtExpr(
-        stmt: CXXIfStmt(
-          condition: condition, trueStmt: cxx(condBodyStmt: source.success)!,
-          falseStmt: cxx(condBodyStmt: source.failure)))
-    } else {
-      // We result in an expression
-      // TODO: do we need to return an l-value?
-      return CXXConditionalExpr(
-        condition: condition, trueExpr: cxx(condBodyExpr: source.success),
-        falseExpr: cxx(condBodyExpr: source.failure))
-    }
-  }
-  /// Returns a transpilation of `source` as an expression.
-  private func cxx(condBodyExpr source: CondExpr.Body?) -> CXXExpr {
-    switch source {
-    case .expr(let alternativeDetails):
-      return cxx(expr: wholeValProgram[alternativeDetails])
-    case .block:
-      fatalError("not implemented")
-    case .none:
-      return CXXComment(comment: "missing alternative")
-    }
-  }
-  /// Returns a transpilation of `source` as a statement.
-  private func cxx(condBodyStmt source: CondExpr.Body?) -> CXXStmt? {
-    switch source {
-    case .expr(let alternativeDetails):
-      return CXXExprStmt(
-        expr: CXXVoidCast(baseExpr: cxx(expr: wholeValProgram[alternativeDetails])))
-    case .block(let alternativeDetails):
-      return cxx(stmt: wholeValProgram[alternativeDetails])
-    case .none:
-      return nil
-    }
+  /// A conditional expression is transpiled using a ternary operator (see `CXXConditionalExpr`)
+  /// whenever possible. Otherwise, it is transpiled as a local variable initialized in a an `if`
+  /// statement (see `CXXIfStmt`).
+  private func cxx(cond source: ConditionalExpr.Typed) -> CXXExpr {
+    CXXConditionalExpr(
+      condition: cxx(condition: source.condition),
+      trueExpr: cxx(expr: source.success),
+      falseExpr: cxx(expr: source.failure))
   }
 
   // MARK: names

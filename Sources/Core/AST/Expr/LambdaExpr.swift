@@ -4,9 +4,9 @@ public struct LambdaExpr: Expr {
   public let site: SourceRange
 
   /// The declaration of the underlying anonymous function.
-  public let decl: NodeID<FunctionDecl>
+  public let decl: FunctionDecl.ID
 
-  public init(decl: NodeID<FunctionDecl>, site: SourceRange) {
+  public init(decl: FunctionDecl.ID, site: SourceRange) {
     self.site = site
     self.decl = decl
   }

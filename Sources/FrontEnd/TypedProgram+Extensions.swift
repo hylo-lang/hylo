@@ -31,6 +31,7 @@ extension TypedProgram {
 
     self = .init(
       annotating: checker.program,
+      imports: checker.imports,
       declTypes: checker.declTypes,
       exprTypes: checker.exprTypes,
       implicitCaptures: checker.implicitCaptures,

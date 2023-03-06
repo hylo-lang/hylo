@@ -23,6 +23,11 @@ struct CodeFormatter: TextOutputStream {
     code.write(text)
   }
 
+  /// Adds `n` to the output code.
+  mutating func write(_ n: CXXIdentifier) {
+    write(n.description)
+  }
+
   /// Adds new text to the output code, with a new line at the end
   mutating func writeLine(_ text: String) {
     writeIndentationAtLineStart()

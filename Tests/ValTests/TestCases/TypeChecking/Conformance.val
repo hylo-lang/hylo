@@ -33,3 +33,19 @@ type A4: P {
 
 //! @+1 diagnostic redundant conformance of 'A5' to trait 'Q'
 type A5: Q, Q {}
+
+trait R {
+  fun f() { let }
+}
+
+trait S {
+  fun g()
+}
+
+type B: R, S {
+  fun f() {}
+  fun g() {
+    let  {}
+    sink {}
+  }
+}

@@ -139,6 +139,15 @@ struct ParserState {
     return token
   }
 
+  /// Fills the lookahead buffer until it contains `n` tokens, or fewer if the lexer is exhausted.
+  mutating func peek(_ n: Int) -> Deque<Token>.SubSequence {
+    while lookahead.count < n {
+      guard let t = lexer.next() else { break }
+      lookahead.append(t)
+    }
+    return lookahead.prefix(upTo: min(n, lookahead.count))
+  }
+
   /// Returns whether a token of the given `kind` is next in the input.
   mutating func isNext(_ kind: Token.Kind) -> Bool {
     peek()?.kind == kind
@@ -176,6 +185,19 @@ struct ParserState {
     } else {
       return nil
     }
+  }
+
+  /// Consumes and returns the first `kinds.count` tokens if they have the specified kinds.
+  mutating func take(_ kinds: Token.Kind...) -> [Token]? {
+    let tokens = peek(kinds.count)
+
+    if tokens.elementsEqual(kinds, by: { (a, b) in a.kind == b }) {
+      lookahead.removeFirst(kinds.count)
+      currentIndex = tokens.last!.site.end
+      return Array(tokens)
+    }
+
+    return nil
   }
 
   /// Consumes and returns the next token, only if it has the specified kind and if it is not
@@ -234,9 +256,9 @@ struct ParserState {
   }
 
   /// Consumes and returns the value of a member index.
-  mutating func takeMemberIndex() -> Int? {
+  mutating func takeMemberIndex() -> SourceRepresentable<Int>? {
     if let index = take(if: isMemberIndex(_:)) {
-      return Int(lexer.sourceCode[index.site])!
+      return SourceRepresentable(value: Int(lexer.sourceCode[index.site])!, range: index.site)
     } else {
       return nil
     }
@@ -278,14 +300,14 @@ struct ParserState {
   }
 
   /// Inserts `n` into `self.ast`, accumulating any diagnostics into `self.diagnostics`.
-  mutating func insert<T: Node>(_ n: T) -> NodeID<T> {
+  mutating func insert<T: Node>(_ n: T) -> T.ID {
     ast.insert(n, diagnostics: &diagnostics)
   }
 
   /// Inserts `n` into `self.ast`
   ///
   /// - Precondition: `n` is well-formed.
-  mutating func insert<T: Node>(synthesized n: T) -> NodeID<T> {
+  mutating func insert<T: Node>(synthesized n: T) -> T.ID {
     ast.insert(synthesized: n)
   }
 }

@@ -29,19 +29,44 @@ public struct ValCommand: ParsableCommand {
 
     init?(argument: String) {
       switch argument {
-      case "raw-ast": self = .rawAST
-      case "raw-ir": self = .rawIR
-      case "ir": self = .ir
-      case "cpp": self = .cpp
-      case "binary": self = .binary
-      default: return nil
+      case "raw-ast":
+        self = .rawAST
+      case "raw-ir":
+        self = .rawIR
+      case "ir":
+        self = .ir
+      case "cpp":
+        self = .cpp
+      case "binary":
+        self = .binary
+      default:
+        return nil
       }
     }
 
   }
 
+  /// The identifier of a C++ compiler.
+  private enum CXXCompiler: String, ExpressibleByArgument, RawRepresentable {
+
+    case clang
+
+    case gcc
+
+    case msvc
+
+    init?(argument: String) {
+      guard let s = CXXCompiler(rawValue: argument) else { return nil }
+      #if !os(Windows)
+        if s == .msvc { return nil }
+      #endif
+      self = s
+    }
+
+  }
+
   /// An error indicating that the compiler's environment is not properly configured.
-  fileprivate struct EnvironmentError: Error {
+  private struct EnvironmentError: Error {
 
     /// The error's message.
     let message: String
@@ -85,6 +110,20 @@ public struct ValCommand: ParsableCommand {
   private var outputType: OutputType = .binary
 
   @Option(
+    name: [.customLong("cc")],
+    help: ArgumentHelp(
+      "Select the C++ compiler used by the Val backend. From: clang, gcc, msvc (Windows only)",
+      valueName: "CXXCompiler"))
+  private var cxxCompiler: CXXCompiler = .clang
+
+  @Option(
+    name: [.customLong("cc-flags")],
+    help: ArgumentHelp(
+      "Specify flags for the CXX compiler to use",
+      valueName: "CXXCompilerFlags"))
+  private var ccFlags: [String] = []
+
+  @Option(
     name: [.customShort("o")],
     help: ArgumentHelp("Write output to <file>.", valueName: "file"),
     transform: URL.init(fileURLWithPath:))
@@ -116,7 +155,7 @@ public struct ValCommand: ParsableCommand {
   /// Propagates any thrown errors that are not Val diagnostics,
   public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
     do {
-      try execute1(loggingTo: &errorLog)
+      try executeCommand(loggingTo: &errorLog)
     } catch let d as DiagnosticSet {
       assert(d.containsError, "Diagnostics containing no errors were thrown")
       return ExitCode.failure
@@ -125,7 +164,7 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Executes the command, logging Val messages to `errorLog`.
-  public func execute1<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
+  private func executeCommand<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
     var diagnostics = DiagnosticSet()
     defer { errorLog.log(diagnostics: diagnostics) }
 
@@ -155,8 +194,7 @@ public struct ValCommand: ParsableCommand {
 
     var sourceIR = try IR.Module(lowering: sourceModule, in: program, diagnostics: &diagnostics)
     if outputType != .rawIR {
-      let pipeline = PassPipeline(withMandatoryPassesForModulesLoweredFrom: program)
-      try pipeline.apply(&sourceIR, reportingDiagnosticsInto: &diagnostics)
+      try sourceIR.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
     }
     if outputType == .ir || outputType == .rawIR {
       try sourceIR.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
@@ -169,8 +207,13 @@ public struct ValCommand: ParsableCommand {
       clangFormatter(URL(fileURLWithPath: $0))
     })
 
+    //       core: program.cxx(program.corelib!, withFormatter: codeFormatter),
+    //       source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
+    // =======
+    //       core: program.cxx(program.coreLibrary!), source: program.cxx(program[sourceModule])
+    // >>>>>>> upstream/main
     let cxxModules = (
-      core: program.cxx(program.corelib!, withFormatter: codeFormatter),
+      core: program.cxx(program.coreLibrary!, withFormatter: codeFormatter),
       source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
     )
 
@@ -183,11 +226,22 @@ public struct ValCommand: ParsableCommand {
     // Executables
 
     assert(outputType == .binary)
-
     try writeExecutableCode(cxxModules, productName: productName, loggingTo: &errorLog)
   }
 
-  /// Given the transpiled core and source modules and the product name (whatever that means),
+  /// Returns `outputURL` transformed as a suitable executable file path, using `productName` as
+  /// a default name if `outputURL` is `nil`.
+  ///
+  /// The returned path has a `.exe` extension on Windows.
+  private func executableOutputPath(_ outputURL: URL?, default productName: String) -> String {
+    var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).path
+    #if os(Windows)
+      if !binaryPath.hasSuffix(".exe") { binaryPath += ".exe" }
+    #endif
+    return binaryPath
+  }
+
+  /// Given the transpiled core and source modules and the desired name of compiler's product,
   /// generates a binary product into a temporary build directory, logging errors to `errorLog`.
   func writeExecutableCode<L: Log>(
     _ cxxModules: (core: TypedProgram.CXXModule, source: TypedProgram.CXXModule),
@@ -204,16 +258,24 @@ public struct ValCommand: ParsableCommand {
       cxxModules.source, to: buildDirectory.appendingPathComponent(productName),
       loggingTo: &errorLog)
 
-    let clang = try find("clang++")
-    let binaryURL = outputURL ?? URL(fileURLWithPath: productName)
-    try runCommandLine(
-      clang,
-      [
-        "-o", binaryURL.path,
+    let binaryPath = executableOutputPath(outputURL, default: productName)
+    var arguments: [String] = []
+    if cxxCompiler == .msvc {
+      arguments = ccFlags.map({ "/\($0)" })
+      arguments += [
+        buildDirectory.appendingPathComponent(productName + ".cpp").path,
+        "/link",
+        "/out:" + binaryPath,
+      ]
+    } else {
+      arguments = ccFlags.map({ "-\($0)" })
+      arguments += [
+        "-o", binaryPath,
         "-I", buildDirectory.path,
         buildDirectory.appendingPathComponent(productName + ".cpp").path,
-      ],
-      loggingTo: &errorLog)
+      ]
+    }
+    try runCommandLine(find(cxxCompiler), arguments, loggingTo: &errorLog)
   }
 
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
@@ -248,6 +310,18 @@ public struct ValCommand: ParsableCommand {
   /// - Requires: `url` must denote a directly.
   private func addModule(url: URL) {
     fatalError("not implemented")
+  }
+
+  /// Returns the path of the specified C++ compiler's executable.
+  private func find(_ compiler: CXXCompiler) throws -> String {
+    switch compiler {
+    case .clang:
+      return try find("clang++")
+    case .gcc:
+      return try find("g++")
+    case .msvc:
+      return try find("cl")
+    }
   }
 
   /// Returns the path of the specified executable.
@@ -328,14 +402,14 @@ public struct ValCommand: ParsableCommand {
     try encoder.encode(input).write(to: output, options: .atomic)
   }
 
-  /// Given the product name (whatever that means), returns the file to write when "raw-ast" is
+  /// Given the desired name of the compiler's product, returns the file to write when "raw-ast" is
   /// selected as the output type.
   private func astFile(_ productName: String) -> URL {
     outputURL ?? URL(fileURLWithPath: productName + ".ast.json")
   }
 
-  /// Given the product name (whatever that means), returns the file to write when "ir" or "raw-ir"
-  /// is selected as the output type.
+  /// Given the desired name of the compiler's product, returns the file to write when "ir" or
+  /// "raw-ir" is selected as the output type.
   private func irFile(_ productName: String) -> URL {
     outputURL ?? URL(fileURLWithPath: productName + ".vir")
   }
@@ -348,9 +422,9 @@ public struct ValCommand: ParsableCommand {
       ?? URL(fileURLWithPath: CXXTranspiler.coreLibModuleName)
   }
 
-  /// Given the product name (whatever that means), returns the base path (sans extension) of the
-  /// `.cpp` and `.h` files representing the module whose files are given on the command-line, when
-  /// "cpp" is selected as the output type.
+  /// Given the desired name of the compiler's product, returns the base path (sans extension) of
+  /// the `.cpp` and `.h` files representing the module whose files are given on the command-line,
+  /// when "cpp" is selected as the output type.
   private func sourceModuleCXXOutputBase(_ productName: String) -> URL {
     outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
   }

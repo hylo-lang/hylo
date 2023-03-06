@@ -12,21 +12,21 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
   public let identifier: SourceRepresentable<Identifier>
 
   /// The names of traits which the trait refines.
-  public let refinements: [NodeID<NameExpr>]
+  public let refinements: [NameExpr.ID]
 
   /// The member declarations in the lexical scope of the trait.
   public let members: [AnyDeclID]
 
   /// The declaration of the trait's `Self` parameter.
-  public let selfParameterDecl: NodeID<GenericParameterDecl>
+  public let selfParameterDecl: GenericParameterDecl.ID
 
   /// Creates an instance with the given properties.
   public init(
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
-    refinements: [NodeID<NameExpr>],
+    refinements: [NameExpr.ID],
     members: [AnyDeclID],
-    selfParameterDecl: NodeID<GenericParameterDecl>,
+    selfParameterDecl: GenericParameterDecl.ID,
     site: SourceRange
   ) {
     precondition(members.contains(AnyDeclID(selfParameterDecl)))

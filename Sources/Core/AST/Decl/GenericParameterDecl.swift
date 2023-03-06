@@ -11,14 +11,14 @@ public struct GenericParameterDecl: SingleEntityDecl {
   /// If this list contains exactly one name referring to a type, then `self` declares a value
   /// parameter of that type. Otherwise, it declares a generic type parameter and the names of
   /// this list refer to the traits to which it must conform.
-  public let conformances: [NodeID<NameExpr>]
+  public let conformances: [NameExpr.ID]
 
   /// The default value of the declaration, if any.
   public let defaultValue: AnyExprID?
 
   public init(
     identifier: SourceRepresentable<Identifier>,
-    conformances: [NodeID<NameExpr>] = [],
+    conformances: [NameExpr.ID] = [],
     defaultValue: AnyExprID? = nil,
     site: SourceRange
   ) {

@@ -13,6 +13,6 @@ public fun main() {
   //! @+1 diagnostic invalid destructuring of type '{Int,}'
   let (x2, y2): {Int,}
   
-  //! @+1 diagnostic tuples have different lengths
+  //! @+1 diagnostic incompatible types '{Int,}' and '{_, _}'
   let (x3, y3) = (1,)
 }

@@ -11,7 +11,7 @@ import Utils
 public struct InstructionIndex: Hashable {
 
   /// The function containing the instruction.
-  public let function: Module.Functions.Index
+  public let function: Function.ID
 
   /// The block containing the instruction.
   public let block: Function.Blocks.Address
@@ -21,7 +21,7 @@ public struct InstructionIndex: Hashable {
 
   /// Creates an index with the given properties.
   public init(
-    _ function: Module.Functions.Index,
+    _ function: Function.ID,
     _ block: Function.Blocks.Address,
     _ index: Block.Instructions.Index
   ) {

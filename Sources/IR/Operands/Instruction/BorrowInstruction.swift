@@ -22,7 +22,7 @@ public struct BorrowInstruction: Instruction {
     borrowedType: LoweredType,
     capability: AccessEffect,
     location: Operand,
-    binding: VarDecl.Typed? = nil,
+    binding: VarDecl.Typed?,
     site: SourceRange
   ) {
     self.borrowedType = borrowedType
@@ -40,6 +40,14 @@ public struct BorrowInstruction: Instruction {
 
 }
 
+extension BorrowInstruction: CustomStringConvertible {
+
+  public var description: String {
+    "borrow [\(capability)] \(location)"
+  }
+
+}
+
 extension Module {
 
   /// Creates a `borrow` anchored at `anchor` that takes `capability` from `source`.
@@ -47,9 +55,11 @@ extension Module {
   /// - Parameters:
   ///   - capability: The capability being borrowed. Must be `.let`, `.inout`, or `.set`.
   ///   - source: The address from which the capability is borrowed. Must have an address type.
+  ///   - binding: The declaration of the binding to which the borrow corresponds, if any.
   func makeBorrow(
     _ capability: AccessEffect,
     from source: Operand,
+    correspondingTo binding: VarDecl.Typed? = nil,
     anchoredAt anchor: SourceRange
   ) -> BorrowInstruction {
     precondition((capability == .let) || (capability == .inout) || (capability == .set))
@@ -59,6 +69,7 @@ extension Module {
       borrowedType: type(of: source),
       capability: capability,
       location: source,
+      binding: binding,
       site: anchor)
   }
 
