@@ -9,132 +9,31 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public func ensureExclusivity(in f: Function.ID, diagnostics: inout DiagnosticSet) {
+    var machine = AbstractInterpreter(analyzing: f, in: self, entryContext: entryContext(of: f))
+    machine.fixedPoint(process(_:in:))
 
-    /// The control flow graph of the function to analyze.
-    let cfg = self[f].cfg()
-
-    /// The dominator tree of the function to analyze.
-    let dominatorTree = DominatorTree(function: f, cfg: cfg, in: self)
-
-    /// A FILO list of blocks to visit.
-    var work = Deque(dominatorTree.bfs)
-
-    /// The set of blocks that no longer need to be visited.
-    var done: Set<Function.Blocks.Address> = []
-
-    /// The state of the abstract interpreter before and after the visited basic blocks.
-    var contexts: Contexts = [:]
-
-    // Interpret the function until we reach a fixed point.
-    while let blockToProcess = work.popFirst() {
-      guard isVisitable(blockToProcess) else {
-        work.append(blockToProcess)
-        continue
-      }
-      
-      // The entry block is a special case.
-      if blockToProcess == self[f].entry {
-        let x = entryContext(of: f)
-        let y = afterContext(of: blockToProcess, in: x)
-        contexts[blockToProcess] = (before: x, after: y)
-        done.insert(blockToProcess)
-        continue
-      }
-
-      let (newBefore, sources) = beforeContext(of: blockToProcess)
-      let newAfter: Context
-      if contexts[blockToProcess]?.before != newBefore {
-        newAfter = afterContext(of: blockToProcess, in: newBefore)
-      } else if sources.count != cfg.predecessors(of: blockToProcess).count {
-        newAfter = contexts[blockToProcess]!.after
-      } else {
-        done.insert(blockToProcess)
-        continue
-      }
-
-      // We're done with the current block if ...
-      let isBlockDone: Bool = {
-        // 1) we're done with all of the block's predecessors.
-        let pending = cfg.predecessors(of: blockToProcess).filter({ !done.contains($0) })
-        if pending.isEmpty { return true }
-
-        // 2) the only predecessor left is the block itself, yet the after-context didn't change.
-        return (pending.count == 1)
-          && (pending[0] == blockToProcess)
-          && (contexts[blockToProcess]?.after == newAfter)
-      }()
-
-      // Update the before/after-context pair for the current block and move to the next one.
-      contexts[blockToProcess] = (before: newBefore, after: newAfter)
-      if isBlockDone {
-        done.insert(blockToProcess)
-      } else {
-        work.append(blockToProcess)
-      }
-    }
-
-    /// Returns `true` if `b` has been visited.
-    func visited(_ b: Function.Blocks.Address) -> Bool {
-      contexts[b] != nil
-    }
-
-    /// Returns `true` if `b` is ready to be visited.
-    ///
-    /// Computing the before-context of `b` requires knowing the state of all uses in `b` that are
-    /// defined its (transitive) predecessors. Because a definition must dominate all its uses, we
-    /// can assume the predecessors dominated by `b` don't define variables used in `b`. Hence, `b`
-    /// can be visited iff all its predecessors have been visited or are dominated by `b`.
-    func isVisitable(_ b: Function.Blocks.Address) -> Bool {
-      if let d = dominatorTree.immediateDominator(of: b) {
-        return visited(d)
-          && cfg.predecessors(of: b).allSatisfy({ (p) in
-            visited(p) || dominatorTree.dominates(b, p)
-          })
-      } else {
-        // No predecessor.
-        return true
-      }
-    }
-
-    /// Returns the before-context of `b` and the predecessors from which it's been computed.
-    ///
-    /// - Requires: `isVisitable(b)` is `true`
-    func beforeContext(
-      of b: Function.Blocks.Address
-    ) -> (context: Context, sources: [Function.Blocks.Address]) {
-      let p = cfg.predecessors(of: b)
-      let sources = p.filter({ contexts[$0] != nil })
-      return (.init(merging: sources.lazy.map({ contexts[$0]!.after })), sources)
-    }
-
-    /// Returns the after-context of `b` formed by interpreting it in `initialContext`, reporting
-    /// violations of exclusivity in `diagnostics`.
-    func afterContext(
-      of b: Function.Blocks.Address,
-      in initialContext: Context
-    ) -> Context {
-      var newContext = initialContext
+    /// Verifies that the borrow instructions in `b` satisfy the Law of Exclusivity in `context`,
+    /// reporting violations of exclusivity in `diagnostics`.
+    func process(_ b: Function.Blocks.Address, in context: inout Context) {
       let blockInstructions = self[f][b].instructions
       for i in blockInstructions.indices {
         let user = InstructionID(f, b, i.address)
 
         switch blockInstructions[i] {
         case is AllocStackInstruction:
-          interpret(allocStack: user, in: &newContext)
+          interpret(allocStack: user, in: &context)
         case is BorrowInstruction:
-          interpret(borrow: user, in: &newContext)
+          interpret(borrow: user, in: &context)
         case is DeallocStackInstruction:
-          interpret(deallocStack: user, in: &newContext)
+          interpret(deallocStack: user, in: &context)
         case is ElementAddrInstruction:
-          interpret(elementAddr: user, in: &newContext)
+          interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
-          interpret(endBorrow: user, in: &newContext)
+          interpret(endBorrow: user, in: &context)
         default:
           continue
         }
       }
-
-      return newContext
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -326,10 +225,6 @@ extension Module {
 
 /// An abstract interpretation context.
 private typealias Context = AbstractContext<State>
-
-/// A map fron function block to the context of the abstract interpreter before and after the
-/// evaluation of its instructions.
-private typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
 
 /// The ownership state of an object or sub-object.
 ///
