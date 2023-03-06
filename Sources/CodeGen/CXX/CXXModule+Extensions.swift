@@ -171,10 +171,7 @@ private struct FunctionSignature: Writeable {
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
     output << source.output << " " << source.identifier << "("
-    for (i, parameter) in source.parameters.enumerated() {
-      if i != 0 { output.write(", ") }
-      output << parameter.type << " " << parameter.name
-    }
+    output.write(source.parameters.lazy.map({p in p.type << " " << p.name}), joinedBy: ", ")
     output.write(")")
   }
 
@@ -598,12 +595,7 @@ extension CXXFunctionCallExpr: Writeable {
   func write(to output: inout CXXStream) {
     output.write(ExprWriteable(callee))
     output.write("(")
-    for (i, argument) in arguments.enumerated() {
-      if i > 0 {
-        output.write(", ")
-      }
-      output.write(ExprWriteable(argument))
-    }
+    output.write(arguments.lazy.map({a in ExprWriteable(a)}), joinedBy: ", ")
     output.write(")")
   }
 }
@@ -680,6 +672,16 @@ extension CXXStream {
   fileprivate mutating func write<S: Sequence>(_ source: S) where S.Element: Writeable {
     for element in source {
       element.write(to: &self)
+    }
+  }
+
+  fileprivate mutating func write<S: Sequence>(_ items: S, joinedBy separator: String)
+  where S.Element: Writeable
+  {
+    var isFirst = true
+    for i in items {
+      if !isFirst { output.write(separator); isFirst = false }
+      i.write(to: &self)
     }
   }
 
