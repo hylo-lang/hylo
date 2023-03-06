@@ -63,7 +63,7 @@ struct Lifetime {
 
   /// Returns the instructions in `self` that do not preceed any other instruction in `self`.
   func maximalElements() -> [Use] {
-    coverage.values.compactMap() { (blockCoverage) in
+    coverage.values.compactMap { (blockCoverage) in
       switch blockCoverage {
       case .liveIn(let use):
         return use

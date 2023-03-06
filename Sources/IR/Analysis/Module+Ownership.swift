@@ -31,7 +31,7 @@ extension Module {
         work.append(blockToProcess)
         continue
       }
-      
+
       // The entry block is a special case.
       if blockToProcess == self[f].entry {
         let x = entryContext(of: f)
@@ -360,7 +360,7 @@ private enum State: AbstractDomain {
       }
     }
   }
-  
+
 }
 
 extension State: CustomStringConvertible {
