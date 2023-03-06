@@ -25,17 +25,14 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// The dominator tree of the function being interpreted.
   private var dominatorTree: DominatorTree
 
+  /// The state of the abstract interpreter before and after the visited basic blocks.
+  private var contexts: Contexts = [:]
+
   /// A FILO list of blocks to visit.
   private var work: Deque<Function.Blocks.Address>
 
   /// The set of blocks that no longer need to be visited.
   private var done: Set<Function.Blocks.Address>
-
-  /// The state of the abstract interpreter before and after the visited basic blocks.
-  private var contexts: Contexts = [:]
-
-  /// The context of `subject`'s entry.
-  private let entryContext: Context
 
   /// Creates an interpreter analyzing `f` which is in `m`, starting with `entryContext`.
   init(
@@ -46,10 +43,9 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
     self.subject = f
     self.cfg = m[f].cfg()
     self.dominatorTree = DominatorTree(function: f, cfg: cfg, in: m)
+    self.contexts = [m[f].entry!: (before: entryContext, after: Context())]
     self.work = Deque(dominatorTree.bfs)
     self.done = []
-    self.contexts = [:]
-    self.entryContext = entryContext
   }
 
   /// Recomputes the CFG of the function being interpreted.
@@ -76,13 +72,13 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
         continue
       }
 
-      let (newBefore, sources) = beforeContext(of: blockToProcess)
+      let (before, sources) = beforeContext(of: blockToProcess)
 
-      let newAfter: Context
-      if contexts[blockToProcess]?.before != newBefore {
-        newAfter = afterContext(of: blockToProcess, in: newBefore, processingBlockWith: interpret)
+      let after: Context
+      if (blockToProcess == dominatorTree.root) || (contexts[blockToProcess]?.before != before) {
+        after = afterContext(of: blockToProcess, in: before, processingBlockWith: interpret)
       } else if sources.count != cfg.predecessors(of: blockToProcess).count {
-        newAfter = contexts[blockToProcess]!.after
+        after = contexts[blockToProcess]!.after
       } else {
         done.insert(blockToProcess)
         continue
@@ -97,11 +93,11 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
         // 2) the only predecessor left is the block itself, yet the after-context didn't change.
         return (pending.count == 1)
           && (pending[0] == blockToProcess)
-          && (contexts[blockToProcess]?.after == newAfter)
+          && (contexts[blockToProcess]?.after == after)
       }()
 
       // Update the before/after-context pair for the current block and move to the next one.
-      contexts[blockToProcess] = (before: newBefore, after: newAfter)
+      contexts[blockToProcess] = (before: before, after: after)
       if isBlockDone {
         done.insert(blockToProcess)
       } else {
@@ -140,7 +136,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
     of b: Function.Blocks.Address
   ) -> (context: Context, sources: [Function.Blocks.Address]) {
     if b == dominatorTree.root {
-      return (entryContext, [])
+      return (contexts[b]!.before, [])
     }
 
     let p = cfg.predecessors(of: b)
