@@ -9,118 +9,11 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func normalizeObjectStates(in f: Function.ID, diagnostics: inout DiagnosticSet) {
+    var machine = AbstractInterpreter(analyzing: f, in: self, entryContext: entryContext(of: f))
 
-    /// The control flow graph of the function to analyze.
-    var cfg = self[f].cfg()
-
-    /// The dominator tree of the function to analyze.
-    var dominatorTree = DominatorTree(function: f, cfg: cfg, in: self)
-
-    /// A FILO list of blocks to visit.
-    var work = Deque(dominatorTree.bfs)
-
-    /// The set of blocks that no longer need to be visited.
-    var done: Set<Function.Blocks.Address> = []
-
-    /// The state of the abstract interpreter before and after the visited basic blocks.
-    var contexts: Contexts = [:]
-
-    // Interpret the function until we reach a fixed point.
-    while let blockToProcess = work.popFirst() {
-      guard isVisitable(blockToProcess) else {
-        work.append(blockToProcess)
-        continue
-      }
-
-      // The entry block is a special case.
-      if blockToProcess == self[f].entry {
-        let x = Context(entryOf: self[f], in: program)
-        let y = afterContext(of: blockToProcess, in: x)
-        contexts[blockToProcess] = (before: x, after: y)
-        done.insert(blockToProcess)
-        continue
-      }
-
-      let (newBefore, sources) = beforeContext(of: blockToProcess)
-      let newAfter: Context
-      if contexts[blockToProcess]?.before != newBefore {
-        newAfter = afterContext(of: blockToProcess, in: newBefore)
-      } else if sources.count != cfg.predecessors(of: blockToProcess).count {
-        newAfter = contexts[blockToProcess]!.after
-      } else {
-        done.insert(blockToProcess)
-        continue
-      }
-
-      // We're done with the current block if ...
-      let isBlockDone: Bool = {
-        // 1) we're done with all of the block's predecessors.
-        let pending = cfg.predecessors(of: blockToProcess).filter({ !done.contains($0) })
-        if pending.isEmpty { return true }
-
-        // 2) the only predecessor left is the block itself, yet the after-context didn't change.
-        return (pending.count == 1)
-          && (pending[0] == blockToProcess)
-          && (contexts[blockToProcess]?.after == newAfter)
-      }()
-
-      // Update the before/after-context pair for the current block and move to the next one.
-      contexts[blockToProcess] = (before: newBefore, after: newAfter)
-      if isBlockDone {
-        done.insert(blockToProcess)
-      } else {
-        work.append(blockToProcess)
-      }
-    }
-
-    /// Returns `true` if `b` has been visited.
-    func visited(_ b: Function.Blocks.Address) -> Bool {
-      contexts[b] != nil
-    }
-
-    /// Returns `true` if `b` is ready to be visited.
-    ///
-    /// Computing the before-context of `b` requires knowing the state of all uses in `b` that are
-    /// defined its (transitive) predecessors. Because a definition must dominate all its uses, we
-    /// can assume the predecessors dominated by `b` don't define variables used in `b`. Hence, `b`
-    /// can be visited iff all its predecessors have been visited or are dominated by `b`.
-    func isVisitable(_ b: Function.Blocks.Address) -> Bool {
-      if let d = dominatorTree.immediateDominator(of: b) {
-        return visited(d)
-          && cfg.predecessors(of: b).allSatisfy({ (p) in
-            visited(p) || dominatorTree.dominates(b, p)
-          })
-      } else {
-        // No predecessor.
-        return true
-      }
-    }
-
-    /// Returns the before-context of `b` and the predecessors from which it's been computed.
-    ///
-    /// - Requires: `isVisitable(b)` is `true`
-    func beforeContext(
-      of b: Function.Blocks.Address
-    ) -> (context: Context, sources: [Function.Blocks.Address]) {
-      let p = cfg.predecessors(of: b)
-      let sources = p.filter({ contexts[$0] != nil })
-      return (.init(merging: sources.lazy.map({ contexts[$0]!.after })), sources)
-    }
-
-    /// Returns the after-context of `b` formed by interpreting it in `initialContext`, inserting
-    /// instructions into `self` to deinitialize objects whose storage is reused or deallocated
-    /// and reporting violations of definite initialization in `diagnostics`.
-    ///
-    /// This function implements an abstract interpreter that keeps track of the initialization
-    /// state of the objects in registers and memory.
-    ///
-    /// - Note: This function is idempotent.
-    func afterContext(
-      of b: Function.Blocks.Address,
-      in initialContext: Context
-    ) -> Context {
-      var newContext = initialContext
-
+    // Verify that object states are properly initialized/deinitialized in `b` given `context`,
+    // updating `self` as necessary and reporting violations in `diagnostics`.
+    machine.fixedPoint { (b, machine, context) in
       // We can safely iterate over the current indices of the block because instructions are
       // always inserted the currently visited address.
       let blockInstructions = self[f][b].instructions
@@ -129,45 +22,43 @@ extension Module {
 
         switch blockInstructions[i] {
         case is AllocStackInstruction:
-          interpret(allocStack: user, in: &newContext)
+          interpret(allocStack: user, in: &context)
         case is BorrowInstruction:
-          interpret(borrow: user, in: &newContext)
+          interpret(borrow: user, in: &context)
         case is BranchInstruction:
           continue
         case is CondBranchInstruction:
-          interpret(condBranch: user, in: &newContext)
+          interpret(condBranch: user, in: &context)
         case is CallInstruction:
-          interpret(call: user, in: &newContext)
+          interpret(call: user, in: &context)
         case is DeallocStackInstruction:
-          interpret(deallocStack: user, in: &newContext)
+          interpret(deallocStack: user, in: &context)
         case is DeinitInstruction:
-          interpret(deinit: user, in: &newContext)
+          interpret(deinit: user, in: &context)
         case is DestructureInstruction:
-          interpret(destructure: user, in: &newContext)
+          interpret(destructure: user, in: &context)
         case is ElementAddrInstruction:
-          interpret(elementAddr: user, in: &newContext)
+          interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
           continue
         case is LLVMInstruction:
-          interpret(llvm: user, in: &newContext)
+          interpret(llvm: user, in: &context)
         case is LoadInstruction:
-          interpret(load: user, in: &newContext)
+          interpret(load: user, in: &context)
         case is RecordInstruction:
-          interpret(record: user, in: &newContext)
+          interpret(record: user, in: &context)
         case is ReturnInstruction:
-          interpret(return: user, in: &newContext)
+          interpret(return: user, in: &context)
         case is StaticBranchInstruction:
-          interpret(staticBranch: user, in: &newContext)
+          interpret(staticBranch: user, updating: &machine, in: &context)
         case is StoreInstruction:
-          interpret(store: user, in: &newContext)
+          interpret(store: user, in: &context)
         case is UnrechableInstruction:
           continue
         default:
           unreachable("unexpected instruction")
         }
       }
-
-      return newContext
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -376,8 +267,13 @@ extension Module {
       context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
     }
 
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(staticBranch i: InstructionID, in context: inout Context) {
+    /// Interprets `i` in `context`, updating the state of `machine` and reporting violations into
+    /// `diagnostics`.
+    func interpret(
+      staticBranch i: InstructionID,
+      updating machine: inout AbstractInterpreter<State>,
+      in context: inout Context
+    ) {
       let s = self[i] as! StaticBranchInstruction
       if s.predicate != .initialized { fatalError("not implemented") }
 
@@ -397,20 +293,19 @@ extension Module {
       case .full(.initialized):
         removeBlock(s.targetIfFalse)
         replace(i, by: makeBranch(to: s.targetIfTrue, anchoredAt: s.site))
-        work.remove(at: work.firstIndex(of: s.targetIfFalse.address)!)
+        machine.removeWork(s.targetIfFalse.address)
 
       case .full(.uninitialized):
         removeBlock(s.targetIfTrue)
         replace(i, by: makeBranch(to: s.targetIfFalse, anchoredAt: s.site))
-        work.remove(at: work.firstIndex(of: s.targetIfTrue.address)!)
+        machine.removeWork(s.targetIfTrue.address)
 
       default:
         fatalError("not implemented")
       }
 
       // Recompute the control flow graph and dominator tree.
-      cfg = functions[f]!.cfg()
-      dominatorTree = .init(function: f, cfg: cfg, in: self)
+      machine.recomputeControlFlow(self)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -423,6 +318,39 @@ extension Module {
       }
     }
 
+  }
+
+  /// Returns the initial context in which `f` should be interpreted.
+  private func entryContext(of f: Function.ID) -> Context {
+    let function = self[f]
+    var result = Context()
+
+    for i in function.inputs.indices {
+      let (parameterConvention, parameterType) = function.inputs[i]
+      let parameterKey = FunctionLocal.parameter(block: function.entry!, index: i)
+      let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
+
+      switch parameterConvention {
+      case .let, .inout:
+        let l = AbstractLocation.argument(index: i)
+        result.locals[parameterKey] = .locations([l])
+        result.memory[l] = .init(layout: parameterLayout, value: .full(.initialized))
+
+      case .set:
+        let l = AbstractLocation.argument(index: i)
+        result.locals[parameterKey] = .locations([l])
+        result.memory[l] = .init(layout: parameterLayout, value: .full(.uninitialized))
+
+      case .sink:
+        result.locals[parameterKey] = .object(
+          .init(layout: parameterLayout, value: .full(.initialized)))
+
+      case .yielded:
+        preconditionFailure("cannot represent instance of yielded type")
+      }
+    }
+
+    return result
   }
 
   /// Returns `true` iff `o` is the result of a borrow instruction or a constant value.
@@ -548,34 +476,6 @@ private struct PartPaths {
 
 extension AbstractContext where Domain == State {
 
-  /// Creates the before-context `function`'s entry in `module`.
-  fileprivate init(entryOf function: Function, in program: TypedProgram) {
-    for i in 0 ..< function.inputs.count {
-      let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterKey = FunctionLocal.parameter(block: function.entry!, index: i)
-      let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
-
-      switch parameterConvention {
-      case .let, .inout:
-        let l = AbstractLocation.argument(index: i)
-        locals[parameterKey] = .locations([l])
-        memory[l] = .init(layout: parameterLayout, value: .full(.initialized))
-
-      case .set:
-        let l = AbstractLocation.argument(index: i)
-        locals[parameterKey] = .locations([l])
-        memory[l] = .init(layout: parameterLayout, value: .full(.uninitialized))
-
-      case .sink:
-        locals[parameterKey] = .object(
-          .init(layout: parameterLayout, value: .full(.initialized)))
-
-      case .yielded:
-        preconditionFailure("cannot represent instance of yielded type")
-      }
-    }
-  }
-
   /// Updates the state of the `o` to mark it consumed by `consumer` at `site`, or report a
   /// diagnostic in `diagnostics` explaining why `o` can't be consumed.
   fileprivate mutating func consume(
@@ -667,32 +567,38 @@ extension AbstractObject.Value where Domain == State {
   /// Returns the paths of the parts that are initialized in `l` and either uninitialized or
   /// consumed in `r`.
   ///
-  /// - Requires: `lhs` and `rhs` are canonical and have the same layout
-  fileprivate static func - (l: Self, r: Self) -> [PartPath] {
+  /// - Requires: `l` and `r` are canonical and have the same layout
+  static func - (l: Self, r: Self) -> [PartPath] {
     switch (l, r) {
-    case (.full(.initialized), let rhs):
-      if let p = rhs.paths {
-        return p.uninitialized + p.consumed.map(\.path)
+    case (_, .full(.initialized)):
+      // No part of LHS is not initialized in RHS.
+      return []
+
+    case (let lhs, .full):
+      // RHS is fully consumed or uninitialized.
+      if let p = lhs.paths {
+        return p.initialized
+      } else if lhs == .full(.initialized) {
+        return [[]]
       } else {
         return []
       }
 
+    case (.full(.initialized), let rhs):
+      // RHS is partially initialized.
+      let p = rhs.paths!
+      return p.uninitialized + p.consumed.map(\.path)
+
     case (.full, _):
+      // LHS is fully consumed or uninitialized.
       return []
 
-    case (_, .full(.initialized)):
-      return [[]]
-
-    case (let lhs, .full):
-      return lhs.paths!.initialized
-
     case (.partial(let lhs), .partial(let rhs)):
+      // LHS and RHS are partially initialized.
       assert(lhs.count == rhs.count)
-      return (0 ..< lhs.count).reduce(
-        into: [],
-        { (result, i) in
-          result.append(contentsOf: (lhs[i] - rhs[i]).map({ [i] + $0 }))
-        })
+      return (0 ..< lhs.count).reduce(into: []) { (result, i) in
+        result.append(contentsOf: (lhs[i] - rhs[i]).map({ [i] + $0 }))
+      }
     }
   }
 
