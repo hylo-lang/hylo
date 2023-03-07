@@ -51,3 +51,9 @@ public struct Block {
   }
 
 }
+
+extension Block.ID: CustomStringConvertible {
+
+  public var description: String { "b\(address)" }
+
+}

@@ -20,7 +20,7 @@ public struct StoreInstruction: Instruction {
 
   public var types: [LoweredType] { [] }
 
-  public var operands: [Operand] { [target] }
+  public var operands: [Operand] { [object, target] }
 
   public var isTerminator: Bool { false }
 

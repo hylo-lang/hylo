@@ -35,6 +35,14 @@ public struct CondBranchInstruction: Instruction {
 
 }
 
+extension CondBranchInstruction: CustomStringConvertible {
+
+  public var description: String {
+    "cond_branch \(condition), \(targetIfTrue), \(targetIfFalse)"
+  }
+
+}
+
 extension Module {
 
   /// Creates a `cond_branch` anchored at `anchor` that jumps to `targetIfTrue` if `condition` is

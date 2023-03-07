@@ -254,7 +254,7 @@ private enum State: AbstractDomain {
       }
     }
   }
-  
+
 }
 
 extension State: CustomStringConvertible {

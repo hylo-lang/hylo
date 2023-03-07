@@ -21,6 +21,17 @@ extension StringProtocol {
     }
   }
 
+  /// If `self` ends with `suffix`, `self` sans that `suffix`. Otherwise, returns `self`.
+  public func removingSuffix<S: Collection<Character>>(_ suffix: S) -> Self.SubSequence {
+    if let i = index(endIndex, offsetBy: -suffix.count, limitedBy: startIndex),
+      self[i...].elementsEqual(suffix)
+    {
+      return self[..<i]
+    } else {
+      return self[...]
+    }
+  }
+
   /// Returns the indices of the start of each line, in order.
   public func lineBoundaries() -> [Index] {
     var r = [startIndex]
@@ -57,4 +68,34 @@ extension StringProtocol {
 
     return result
   }
+
+  /// Returns `self` in snake_case, given it is in PascalCase or camelCase.
+  public func snakeCased() -> String {
+    var result: String = ""
+    var i = startIndex
+    while i != endIndex {
+      if !self[i].isUppercase {
+        result.append(self[i])
+        i = index(after: i)
+        continue
+      }
+
+      let s = self[i...].prefix(while: \.isUppercase)
+      if s.count > 1 {
+        result.append(contentsOf: s.dropLast().lowercased())
+        result.append("_")
+        result.append(s.last!.lowercased())
+        i = s.endIndex
+        continue
+      }
+
+      if (i != startIndex) && (self[index(before: i)] != "_") {
+        result.append("_")
+      }
+      result.append(self[i].lowercased())
+      i = index(after: i)
+    }
+    return result
+  }
+
 }
