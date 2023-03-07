@@ -7,7 +7,7 @@ import Utils
 /// edge from `A` to `B` if the former's terminator points to the latter.
 struct ControlFlowGraph {
 
-  /// A vertex.
+  /// A node in the graph.
   typealias Vertex = Function.Blocks.Address
 
   /// An control edge label.
@@ -24,8 +24,11 @@ struct ControlFlowGraph {
 
   }
 
+  /// The way a control-flow relation is represeted internally.
+  private typealias Relation = DirectedGraph<Vertex, Label>
+
   /// The relation encoded by the graph.
-  fileprivate var relation: DirectedGraph<Vertex, Label>
+  private var relation: Relation
 
   /// Creates an empty control flow graph.
   init() {
@@ -69,6 +72,61 @@ struct ControlFlowGraph {
     relation[from: target].compactMap({ tip in
       tip.value != .forward ? tip.key : nil
     })
+  }
+
+  /// A collection where the vertex at index `i + 1` is predecessor of the vertex at index `i`.
+  typealias PredecessorPath = [Vertex]
+
+  /// Returns the paths originating at `ancestor` and reaching `destination` excluding those that
+  /// contain `destination`.
+  func paths(to destination: Vertex, from ancestor: Vertex) -> [PredecessorPath] {
+    var v: Set = [destination]
+    var c: [Vertex: [PredecessorPath]] = [:]
+    return pathsToEntry(to: destination, from: ancestor, notContaining: &v, cachingResultsTo: &c)
+  }
+
+  /// Returns the paths originating at `ancestor` and reaching `destination` excluding those that
+  /// contain the vertices in `visited`.
+  private func pathsToEntry(
+    to destination: Vertex, from ancestor: Vertex, notContaining visited: inout Set<Vertex>,
+    cachingResultsTo cache: inout [Vertex: [PredecessorPath]]
+  ) -> [PredecessorPath] {
+    if destination == ancestor { return [[]] }
+    if let r = cache[destination] { return r }
+
+    var result: [PredecessorPath] = []
+    visited.insert(destination)
+    for p in predecessors(of: destination) where !visited.contains(p) {
+      let s = pathsToEntry(
+        to: p, from: ancestor, notContaining: &visited, cachingResultsTo: &cache)
+      result.append(contentsOf: s.map({ [p] + $0 }))
+    }
+    visited.remove(destination)
+
+    cache[destination] = result
+    return result
+  }
+
+}
+
+extension ControlFlowGraph: CustomStringConvertible {
+
+  /// The Graphviz (dot) representation of the graph.
+  var description: String {
+    var result = "strict digraph CFG {\n\n"
+    for e in relation.edges {
+      switch e.label {
+      case .forward:
+        result.write("\(e.source) -> \(e.target);\n")
+      case .bidirectional:
+        result.write("\(e.source) -> \(e.target);\n")
+        result.write("\(e.target) -> \(e.source);\n")
+      case .backward:
+        continue
+      }
+    }
+    result.write("\n}")
+    return result
   }
 
 }

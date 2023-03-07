@@ -52,10 +52,6 @@ public struct BuiltinFunction: Hashable {
     // The first token is the LLVM instruction name.
     guard let instruction = tokens.popFirst().map(String.init(_:)) else { return nil }
     switch instruction {
-    case "copy":
-      guard let t = builtinType(&tokens) else { return nil }
-      self = make(instruction, [], LambdaType(^t, to: ^t))
-
     case "add", "sub", "mul", "shl":
       guard let (p, t) = integerArithmeticParameters(&tokens) else { return nil }
       self = make(instruction, [p.0, p.1].compactMap({ $0 }), LambdaType(^t, ^t, to: ^t))

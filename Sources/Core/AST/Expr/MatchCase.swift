@@ -7,7 +7,7 @@ public struct MatchCase: Node, LexicalScope {
     case expr(AnyExprID)
 
     /// A block body.
-    case block(NodeID<BraceStmt>)
+    case block(BraceStmt.ID)
 
   }
 

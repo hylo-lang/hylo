@@ -4,21 +4,21 @@ import ValModule
 public struct CXXCodeWriter {
 
   /// Initializes the current object.
-  public init(formatter: @escaping CodeTransform = identity()) {
+  public init(formatter: CodeTransform? = nil) {
     self.formatter = formatter
   }
 
   /// Object used to format output C++ code.
-  private let formatter: CodeTransform
+  private let formatter: CodeTransform?
 
-  /// Indicates if we are currently writing the standard library module.
-  private var isStdLib: Bool = false
+  /// Indicates if we are currently writing the core library module.
+  private var isCoreLibrary: Bool = false
 
   // MARK: API
 
   /// Returns the C++ code for a translation unit.
   public mutating func cxxCode(_ source: CXXModule) -> TranslationUnitCode {
-    self.isStdLib = source.isStdLib
+    self.isCoreLibrary = source.isCoreLibrary
     return TranslationUnitCode(
       headerCode: generateHeaderCode(source), sourceCode: generateSourceCode(source))
   }
@@ -36,20 +36,20 @@ public struct CXXCodeWriter {
     target.write("#pragma once\n")
 
     // Emit include clauses.
-    if source.isStdLib {
+    if source.isCoreLibrary {
       target.write("#include <variant>\n")
       target.write("#include <cstdint>\n")
       target.write("#include <cstdlib>\n")
     } else {
-      target.write("#include \"ValStdLib.h\"\n")
+      target.write("#include \"ValCore.h\"\n")
     }
 
     // Create a namespace for the entire module.
-    target.write("namespace \(source.name) {\n")
-
-    // If we are not in the standard library, use the namespace corresponding to the standard lib.
-    if !source.isStdLib {
-      target.write("using namespace ValStdLib;\n")
+    if source.isCoreLibrary {
+      target.write("namespace Val {\n")
+    } else {
+      target.write("namespace \(cxx: source.name) {\n")
+      target.write("using namespace Val;\n")
     }
 
     // Emit the C++ text needed for the header corresponding to the C++ declarations.
@@ -60,14 +60,14 @@ public struct CXXCodeWriter {
     target.write("\n}\n")
 
     // Add extra native code to the stdlib header.
-    if source.isStdLib {
+    if source.isCoreLibrary {
       let fileToInclude = ValModule.cxxSupport!.appendingPathComponent("NativeCode.h")
       if let text = try? String(contentsOf: fileToInclude) {
         target.write(text)
       }
     }
 
-    return formatter(target)
+    return formatter?(target) ?? target
   }
 
   /// Returns the C++ code for `source` that needs to be present in the source file.
@@ -78,7 +78,11 @@ public struct CXXCodeWriter {
     target.write("#include \"\(source.name).h\"\n")
 
     // Create a namespace for the entire module.
-    target.write("namespace \(source.name) {\n")
+    if isCoreLibrary {
+      target.write("namespace Val {\n")
+    } else {
+      target.write("namespace \(cxx: source.name) {\n")
+    }
 
     // Emit the C++ text needed for the source file corresponding to the C++ declarations.
     for decl in source.topLevelDecls {
@@ -88,8 +92,8 @@ public struct CXXCodeWriter {
 
     target.write("}\n")
 
-    // Add extra native code to the stdlib source file.
-    if source.isStdLib {
+    // Add extra native code to the core library source file.
+    if source.isCoreLibrary {
       let fileToInclude = ValModule.cxxSupport!.appendingPathComponent("NativeCode.cpp")
       if let text = try? String(contentsOf: fileToInclude) {
         target.write(text)
@@ -103,7 +107,7 @@ public struct CXXCodeWriter {
       target.write("\n")
     }
 
-    return formatter(target)
+    return formatter?(target) ?? target
   }
 
   // MARK: Declarations
@@ -140,13 +144,13 @@ public struct CXXCodeWriter {
   private func writeSignature(function decl: CXXFunctionDecl, into target: inout String) {
     write(typeExpr: decl.output, into: &target)
     target.write(" ")
-    write(identifier: decl.identifier, into: &target)
+    target.write(decl.identifier)
     target.write("(")
     for i in 0 ..< decl.parameters.count {
       if i != 0 { target.write(", ") }
       write(typeExpr: decl.parameters[i].type, into: &target)
       target.write(" ")
-      write(identifier: decl.parameters[i].name, into: &target)
+      target.write(decl.parameters[i].name)
     }
     target.write(")")
   }
@@ -162,7 +166,7 @@ public struct CXXCodeWriter {
 
   private func writeSignature(type decl: CXXClassDecl, into target: inout String) {
     target.write("class ")
-    write(identifier: decl.name, into: &target)
+    target.write(decl.name.description)
   }
   private func writeDefinition(type decl: CXXClassDecl, into target: inout String) {
     writeSignature(type: decl, into: &target)
@@ -177,11 +181,13 @@ public struct CXXCodeWriter {
         target.write("// constructor\n")
       }
     }
-    // Special code for stdlib types
-    if isStdLib {
-      // For standard value types try to generate implict conversion constructors from C++ literal types.
+
+    // Special code for core library types
+    if isCoreLibrary {
+      // Try to generate implict conversion constructors from C++ literal types.
       write(conversionCtor: decl, into: &target)
     }
+
     target.write("};\n")
   }
 
@@ -203,10 +209,10 @@ public struct CXXCodeWriter {
     // and the type of the attribute needs to be native.
     if dataMembers.count == 1 && dataMembers[0].type.isNative {
       // Write implicit conversion constructor
-      target.write("\(source.name.description)(")
+      target.write("\(source.name)(")
       write(typeExpr: dataMembers[0].type, into: &target)
       target.write(" v) : ")
-      write(identifier: dataMembers[0].name, into: &target)
+      target.write(dataMembers[0].name)
       target.write("(v) {}\n")
     }
   }
@@ -214,7 +220,7 @@ public struct CXXCodeWriter {
   private func write(classAttribute decl: CXXClassAttribute, into target: inout String) {
     write(typeExpr: decl.type, into: &target)
     target.write(" ")
-    write(identifier: decl.name, into: &target)
+    target.write(decl.name)
     if let value = decl.initializer {
       target.write(" = ")
       write(expr: value, into: &target)
@@ -225,7 +231,7 @@ public struct CXXCodeWriter {
   private func write(localVar decl: CXXLocalVarDecl, into target: inout String) {
     write(typeExpr: decl.type, into: &target)
     target.write(" ")
-    write(identifier: decl.name, into: &target)
+    target.write(decl.name)
     if let value = decl.initializer {
       target.write(" = ")
       write(expr: value, into: &target)
@@ -320,7 +326,7 @@ public struct CXXCodeWriter {
     case CXXIntegerLiteralExpr.self:
       write(integerLiteralExpr: expr as! CXXIntegerLiteralExpr, into: &target)
     case CXXIdentifier.self:
-      write(identifier: expr as! CXXIdentifier, into: &target)
+      target.write(expr as! CXXIdentifier)
     case CXXReceiverExpr.self:
       write(receiverExpr: expr as! CXXReceiverExpr, into: &target)
     case CXXTypeExpr.self:
@@ -351,20 +357,21 @@ public struct CXXCodeWriter {
   ) {
     target.write(expr.value ? "true" : "false")
   }
+
   private func write(
     integerLiteralExpr expr: CXXIntegerLiteralExpr, into target: inout String
   ) {
     target.write(expr.value)
   }
-  private func write(identifier expr: CXXIdentifier, into target: inout String) {
-    target.write(expr.description)
-  }
+
   private func write(receiverExpr expr: CXXReceiverExpr, into target: inout String) {
     target.write("this")
   }
+
   private func write(typeExpr expr: CXXTypeExpr, into target: inout String) {
     target.write(expr.text)
   }
+
   private func write(infixExpr expr: CXXInfixExpr, into target: inout String) {
     // TODO: handle precedence and associativity; as of writing this comment, infix operators cannot be properly tested.
     write(expr: expr.lhs, into: &target)
@@ -469,4 +476,13 @@ public struct CXXCodeWriter {
       target.write("// \(c.comment)\n")
     }
   }
+}
+
+extension String {
+
+  /// Adds `n` to the output code.
+  mutating func write(_ n: CXXIdentifier) {
+    write(n.description)
+  }
+
 }

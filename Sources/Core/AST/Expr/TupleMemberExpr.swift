@@ -7,9 +7,9 @@ public struct TupleMemberExpr: Expr {
   public let tuple: AnyExprID
 
   /// The member's index.
-  public let index: Int
+  public let index: SourceRepresentable<Int>
 
-  public init(tuple: AnyExprID, index: Int, site: SourceRange) {
+  public init(tuple: AnyExprID, index: SourceRepresentable<Int>, site: SourceRange) {
     self.site = site
     self.tuple = tuple
     self.index = index

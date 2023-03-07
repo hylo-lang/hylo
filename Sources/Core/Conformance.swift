@@ -2,7 +2,27 @@
 public struct Conformance {
 
   /// A map from requirement to their implementation.
-  public typealias ImplementationMap = DeclProperty<AnyDeclID>
+  public typealias ImplementationMap = DeclProperty<Implementation>
+
+  /// The implementation of a conformance.
+  public enum Implementation: Hashable {
+
+    /// Concrete implementation.
+    case concrete(AnyDeclID)
+
+    /// Synthesized implementation with given type.
+    case synthetic(AnyType)
+
+    /// The payload of `.concrete` or `nil` if `self == .synthetic`.
+    public var decl: AnyDeclID? {
+      if case .concrete(let d) = self {
+        return d
+      } else {
+        return nil
+      }
+    }
+
+  }
 
   /// The type on the left-hand side of this conformance.
   public let model: AnyType
@@ -13,7 +33,7 @@ public struct Conformance {
   /// The conditions under which this conformance holds.
   public let conditions: [Constraint]
 
-  /// The outermost scope in which this conformance holds.
+  /// The outermost scope in which this conformance is exposed.
   public let scope: AnyScopeID
 
   /// A map from requirement of `concept` to the declaration implementing it in `model`.

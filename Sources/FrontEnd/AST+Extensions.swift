@@ -12,7 +12,7 @@ extension AST {
     self = AST()
     do {
       var diagnostics = DiagnosticSet()
-      corelib = try makeModule(
+      coreLibrary = try makeModule(
         "Val",
         sourceCode: sourceFiles(in: [ValModule.core!]),
         builtinModuleAccess: true,

@@ -7,7 +7,7 @@
 public indirect enum FoldedSequenceExpr {
 
   /// The expression of an operator in the AST together with its precedence.
-  public typealias Operator = (expr: NodeID<NameExpr>, precedence: PrecedenceGroup?)
+  public typealias Operator = (expr: NameExpr.ID, precedence: PrecedenceGroup?)
 
   /// The application of an infix operator to its `left` and `right` operands.
   case infix(Operator, left: FoldedSequenceExpr, right: FoldedSequenceExpr)

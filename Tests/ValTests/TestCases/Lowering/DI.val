@@ -23,4 +23,18 @@ public fun main() {
   consume(x1)
   read(x1)              //! diagnostic use of consumed object
   consume(x1)           //! diagnostic use of consumed object
+
+  var x2: Int
+  &x2 = 11
+  &x2 = 22
+}
+
+fun more_di() {
+  let (a0, b0) = (-1, (true, 1.0))
+  read(a0)
+  read(b0)
+
+  var (a1, b1) = (-1, (true, 1.0))
+  read(a1)
+  read(b1)
 }

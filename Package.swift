@@ -20,7 +20,7 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/apple/swift-argument-parser.git",
-      from: "0.4.0"),
+      from: "1.1.4"),
     .package(
       url: "https://github.com/apple/swift-collections.git",
       from: "1.0.0"),
@@ -30,6 +30,9 @@ let package = Package(
     .package(
       url: "https://github.com/attaswift/BigInt.git",
       from: "5.3.0"),
+    .package(
+      url: "https://github.com/val-lang/swift-format",
+      branch: "main"),
   ],
 
   targets: [
@@ -96,6 +99,11 @@ let package = Package(
 
     // Test targets.
     .testTarget(
+      name: "UtilsTests",
+      dependencies: ["Utils"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
       name: "ValTests",
       dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR"],
       resources: [.copy("TestCases")],
@@ -104,6 +112,5 @@ let package = Package(
     .testTarget(
       name: "ValCommandTests",
       dependencies: ["ValCommand"],
-      resources: [.copy("Inputs")],
       swiftSettings: allTargetsSwiftSettings),
   ])

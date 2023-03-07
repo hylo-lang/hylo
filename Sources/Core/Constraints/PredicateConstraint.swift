@@ -4,12 +4,12 @@ public struct PredicateConstraint: Constraint, Hashable {
   /// The expression of the constraint.
   let expr: AnyExprID
 
-  public let cause: ConstraintCause
+  public let origin: ConstraintOrigin
 
   /// Creates an instance with the given properties.
-  public init(_ expr: AnyExprID, because cause: ConstraintCause) {
+  public init(_ expr: AnyExprID, origin: ConstraintOrigin) {
     self.expr = expr
-    self.cause = cause
+    self.origin = origin
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {}

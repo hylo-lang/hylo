@@ -1,0 +1,2 @@
+/// A type that can be initialized with a float.
+trait ExpressibleByFloatLiteral {}

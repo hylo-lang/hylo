@@ -38,7 +38,7 @@ public struct LambdaType: TypeProtocol, CallableType {
   /// Creates the type of a function accepting `inputs` as `let` parameters and returning `output`.
   public init(_ inputs: AnyType..., to output: AnyType) {
     self.init(
-      inputs: inputs.map({ (t) in .init(type: ^ParameterType(convention: .let, bareType: t)) }),
+      inputs: inputs.map({ (t) in .init(type: ^ParameterType(.let, t)) }),
       output: ^output)
   }
 
@@ -47,26 +47,25 @@ public struct LambdaType: TypeProtocol, CallableType {
   /// - Requires: `initializer` is an initializer type of the form `[](set A, B...) -> Void`.
   public init(constructorFormOf initializer: LambdaType) {
     let r = ParameterType(initializer.inputs.first!.type)!
-    precondition(r.convention == .set)
+    precondition(r.access == .set)
 
     self.init(
       receiverEffect: .set, environment: .void,
       inputs: Array(initializer.inputs[1...]), output: r.bareType)
   }
 
-  /// Creates the type of variant in `bundle` corresponding to `access` or fails if `bundle`
-  /// doesn't offer that capability.
+  /// Returns a thin type accepting `self`'s environment as parameters.
   ///
-  /// - Requires: `effect` is not `yielded`.
-  public init?(_ bundle: MethodType, for effect: AccessEffect) {
-    precondition(effect != .yielded)
-    if !bundle.capabilities.contains(effect) { return nil }
-
-    let e = (effect == .sink)
-      ? TupleType(labelsAndTypes: [("self", bundle.receiver)])
-      : TupleType(labelsAndTypes: [("self", ^RemoteType(effect, bundle.receiver))])
-    self.init(
-      receiverEffect: effect, environment: ^e, inputs: bundle.inputs, output: bundle.output)
+  /// - Requires: `environment` is a `TupleType`.
+  public var lifted: LambdaType {
+    let p = TupleType(environment)!.elements.map { (e) -> CallableTypeParameter in
+      if let t = RemoteType(e.type) {
+        return .init(label: e.label, type: ^ParameterType(t))
+      } else {
+        return .init(label: e.label, type: ^ParameterType(receiverEffect, e.type))
+      }
+    }
+    return .init(receiverEffect: .let, environment: .void, inputs: p + inputs, output: output)
   }
 
   /// Accesses the individual elements of the lambda's environment.

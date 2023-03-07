@@ -2,7 +2,7 @@ import Utils
 
 /// The type of an AST node; a nominal wrapper for `Node.Type` that adds conformances and
 /// convenience APIs.
-public struct NodeKind: Codable, Equatable, Hashable {
+public struct NodeKind: Codable {
 
   /// The underlying value.
   public let value: Node.Type
@@ -23,37 +23,45 @@ public struct NodeKind: Codable, Equatable, Hashable {
     value = Self.allValues[index]
   }
 
-  /// Returns true iff `l` and `r` denote the same node type.
-  public static func == (l: Self, r: Self) -> Bool {
-    return l.value == r.value
-  }
+}
+
+extension NodeKind: Hashable {
 
   /// Incorporates the value of `self` into `h`.
   public func hash(into h: inout Hasher) {
     ObjectIdentifier(value).hash(into: &h)
   }
 
-  /// Returns true iff `l` and `r` denote the same node type.
+}
+
+extension NodeKind: Equatable {
+
+  /// Returns `true` iff `l` and `r` denote the same node type.
+  public static func == (l: Self, r: Self) -> Bool {
+    l.value == r.value
+  }
+
+  /// Returns `true` iff `l` and `r` denote the same node type.
   public static func == (l: Self, r: Node.Type) -> Bool {
-    return l.value == r
+    l.value == r
   }
 
-  /// Returns true iff `l` and `r` do not denote the same node type.
+  /// Returns `true` iff `l` and `r` do not denote the same node type.
   public static func != (l: Self, r: Node.Type) -> Bool {
-    return l.value == r
+    l.value != r
   }
 
-  /// Returns true iff `l` and `r` denote the same node type.
+  /// Returns `true` iff `l` and `r` denote the same node type.
   public static func == (l: Node.Type, r: Self) -> Bool {
-    return l == r.value
+    l == r.value
   }
 
-  /// Returns true iff `l` and `r` do not denote the same node type.
+  /// Returns `true` iff `l` and `r` do not denote the same node type.
   public static func != (l: Node.Type, r: Self) -> Bool {
-    return l != r.value
+    l != r.value
   }
 
-  /// Returns true iff `me` and `pattern` denote the same node type.
+  /// Returns `true` iff `me` and `pattern` denote the same node type.
   public static func ~= (pattern: Node.Type, me: Self) -> Bool {
     me == pattern
   }
@@ -63,24 +71,24 @@ public struct NodeKind: Codable, Equatable, Hashable {
 /// Extend heterogeneous equality comparison with Node.Type to Optional<NodeKind>.
 extension Optional where Wrapped == NodeKind {
 
-  /// Returns true iff `l` and `r` denote the same node type.
+  /// Returns `true` iff `l` and `r` denote the same node type.
   static func == (l: Self, r: Node.Type) -> Bool {
-    return l?.value == r
+    l?.value == r
   }
 
-  /// Returns true iff `l` and `r` do not denote the same node type.
+  /// Returns `true` iff `l` and `r` do not denote the same node type.
   static func != (l: Self, r: Node.Type) -> Bool {
-    return l?.value == r
+    l?.value != r
   }
 
-  /// Returns true iff `l` and `r` denote the same node type.
+  /// Returns `true` iff `l` and `r` denote the same node type.
   static func == (l: Node.Type, r: Self) -> Bool {
-    return l == r?.value
+    l == r?.value
   }
 
-  /// Returns true iff `l` and `r` do not denote the same node type.
+  /// Returns `true` iff `l` and `r` do not denote the same node type.
   static func != (l: Node.Type, r: Self) -> Bool {
-    return l != r?.value
+    l != r?.value
   }
 
 }
@@ -95,7 +103,6 @@ extension NodeKind: CustomStringConvertible {
 extension NodeKind {
 
   static let allValues: [Node.Type] = [
-    // MARK: Declarations
     AssociatedTypeDecl.self,
     AssociatedValueDecl.self,
     BindingDecl.self,
@@ -118,11 +125,10 @@ extension NodeKind {
     TypeAliasDecl.self,
     VarDecl.self,
 
-    // MARK: Expressions
     BooleanLiteralExpr.self,
     BufferLiteralExpr.self,
     CastExpr.self,
-    CondExpr.self,
+    ConditionalExpr.self,
     ConformanceLensTypeExpr.self,
     ErrorExpr.self,
     ExistentialTypeExpr.self,
@@ -149,14 +155,12 @@ extension NodeKind {
     WildcardExpr.self,
     UnionTypeExpr.self,
 
-    // MARK: Patterns
     BindingPattern.self,
     ExprPattern.self,
     NamePattern.self,
     TuplePattern.self,
     WildcardPattern.self,
 
-    // MARK: Statements
     AssignStmt.self,
     BraceStmt.self,
     BreakStmt.self,
@@ -171,7 +175,6 @@ extension NodeKind {
     WhileStmt.self,
     YieldStmt.self,
 
-    // MARK: Others
     MatchCase.self,
     TranslationUnit.self,
   ]

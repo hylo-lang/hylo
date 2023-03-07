@@ -18,4 +18,9 @@ type A0 {
   //! @+1 diagnostic explicit capture is not allowed here
   fun m4[sink let n = 0]() -> Self { let {} }
 
+  fun m5() {
+    let {}
+    let {} //! diagnostic duplicate implementation introducer 'let'
+  }
+
 }

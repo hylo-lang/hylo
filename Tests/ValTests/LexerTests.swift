@@ -16,7 +16,7 @@ final class LexerTests: XCTestCase {
   }
 
   func testDecimalInteger() {
-    let input: SourceFile = "0 001 42 00 1_234 1_2__34__"
+    let input: SourceFile = "0 001 42 00 1_234 1_2__34__ -1 -a"
     assert(
       tokenize(input),
       matches: [
@@ -26,12 +26,15 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.int, "00"),
         TokenSpecification(.int, "1_234"),
         TokenSpecification(.int, "1_2__34__"),
+        TokenSpecification(.int, "-1"),
+        TokenSpecification(.oper, "-"),
+        TokenSpecification(.name, "a"),
       ],
       in: input)
   }
 
   func testHexadecimalInteger() {
-    let input: SourceFile = "0x0123 0xabcdef 0x__0_a_ 0xg 0x"
+    let input: SourceFile = "0x0123 0xabcdef 0x__0_a_ 0xg 0x -0x1"
     assert(
       tokenize(input),
       matches: [
@@ -42,12 +45,13 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.name, "xg"),
         TokenSpecification(.int, "0"),
         TokenSpecification(.name, "x"),
+        TokenSpecification(.int, "-0x1"),
       ],
       in: input)
   }
 
   func testOctalInteger() {
-    let input: SourceFile = "0o0123 0o__0_6_ 0o8 0o"
+    let input: SourceFile = "0o0123 0o__0_6_ 0o8 0o -0o1"
     assert(
       tokenize(input),
       matches: [
@@ -57,12 +61,13 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.name, "o8"),
         TokenSpecification(.int, "0"),
         TokenSpecification(.name, "o"),
+        TokenSpecification(.int, "-0o1"),
       ],
       in: input)
   }
 
   func testBinaryInteger() {
-    let input: SourceFile = "0b01 0b__0_1_ 0b8 0b"
+    let input: SourceFile = "0b01 0b__0_1_ 0b8 0b -0b1"
     assert(
       tokenize(input),
       matches: [
@@ -72,12 +77,13 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.name, "b8"),
         TokenSpecification(.int, "0"),
         TokenSpecification(.name, "b"),
+        TokenSpecification(.int, "-0b1"),
       ],
       in: input)
   }
 
   func testFloatingPoint() {
-    let input: SourceFile = "0.0 001.00 0.1_2__34__ 1e1_000 1.12e+123 3.45E-6 1. 1e"
+    let input: SourceFile = "0.0 001.00 0.1_2__34__ 1e1_000 1.12e+123 3.45E-6 1. 1e -1e2"
     assert(
       tokenize(input),
       matches: [
@@ -91,6 +97,7 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.dot, "."),
         TokenSpecification(.int, "1"),
         TokenSpecification(.name, "e"),
+        TokenSpecification(.float, "-1e2"),
       ],
       in: input)
   }

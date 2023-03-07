@@ -4,7 +4,7 @@ import Utils
 public struct AssociatedTypeType: TypeProtocol {
 
   /// The declaration that introduces the associated type in the parent trait.
-  public let decl: NodeID<AssociatedTypeDecl>
+  public let decl: AssociatedTypeDecl.ID
 
   /// The type whose `self` is member.
   ///
@@ -17,7 +17,7 @@ public struct AssociatedTypeType: TypeProtocol {
   /// Creates an instance denoting the associated type declared by `decl` as a member of `domain`.
   ///
   /// - Requires: `domain` is an associated type, conformance lens, or generic type parameter.
-  public init(_ decl: NodeID<AssociatedTypeDecl>, domain: AnyType, ast: AST) {
+  public init(_ decl: AssociatedTypeDecl.ID, domain: AnyType, ast: AST) {
     switch domain.base {
     case is AssociatedTypeType, is ConformanceLensType, is GenericTypeParameterType:
       self.domain = domain

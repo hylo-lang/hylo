@@ -8,7 +8,7 @@ public struct DoublyLinkedList<Element> {
   /// The address of an element in a doubly linked list.
   public struct Address: Hashable {
 
-    fileprivate var rawValue: Int
+    public fileprivate(set) var rawValue: Int
 
     fileprivate init(_ rawValue: Int) {
       self.rawValue = rawValue
@@ -24,6 +24,17 @@ public struct DoublyLinkedList<Element> {
         current = next
       }
       return false
+    }
+
+  }
+
+  /// A collection with the addresses of a doubly-linked list.
+  public struct Addresses {
+
+    private var base: DoublyLinkedList.Indices
+
+    fileprivate init(_ base: DoublyLinkedList) {
+      self.base = base.indices
     }
 
   }
@@ -111,6 +122,9 @@ public struct DoublyLinkedList<Element> {
     if address == firstAddress { return nil }
     return Address(storage[address.rawValue].previousOffset)
   }
+
+  /// The addresses in the list.
+  public var addresses: Addresses { Addresses(self) }
 
   /// Accesses the element at `address`.
   public subscript(address: Address) -> Element {
@@ -266,6 +280,8 @@ public struct DoublyLinkedList<Element> {
 
     storage[storage[address.rawValue].previousOffset].nextOffset =
       storage[address.rawValue].nextOffset
+    storage[storage[address.rawValue].nextOffset].previousOffset =
+      storage[address.rawValue].previousOffset
     storage[address.rawValue].nextOffset = freeOffset
 
     count -= 1
@@ -292,7 +308,7 @@ extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
     /// The address corresponding to that index.
     public let address: Address
 
-    fileprivate let offset: Int
+    public let offset: Int
 
     public func hash(into hasher: inout Hasher) {
       hasher.combine(offset)
@@ -374,8 +390,36 @@ extension DoublyLinkedList: ExpressibleByArrayLiteral {
 
 extension DoublyLinkedList: CustomStringConvertible {
 
-  public var description: String {
-    String(describing: Array(self))
+  public var description: String { "[\(list: self, joinedBy: ", ")]" }
+
+}
+
+extension DoublyLinkedList.Address: CustomStringConvertible {
+
+  public var description: String { String(describing: rawValue) }
+
+}
+
+extension DoublyLinkedList.Addresses: BidirectionalCollection {
+
+  public typealias Index = DoublyLinkedList.Indices.Index
+
+  public typealias Element = DoublyLinkedList.Address
+
+  public var startIndex: Index { base.startIndex }
+
+  public var endIndex: Index { base.endIndex }
+
+  public func index(after i: Index) -> Index {
+    base.index(after: i)
+  }
+
+  public func index(before i: Index) -> Index {
+    base.index(before: i)
+  }
+
+  public subscript(position: Index) -> DoublyLinkedList.Address {
+    base[position].address
   }
 
 }
