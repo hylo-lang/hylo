@@ -64,15 +64,15 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
       // Create an abstract location denoting the newly allocated memory.
-      let location = AbstractLocation.root(.register(i, 0))
-      precondition(context.memory[location] == nil, "stack leak")
+      let l = AbstractLocation.root(.register(i, 0))
+      precondition(context.memory[l] == nil, "stack leak")
 
       // Update the context.
-      context.memory[location] = .init(
+      context.memory[l] = .init(
         layout: AbstractTypeLayout(
           of: (self[i] as! AllocStackInstruction).allocatedType, definedIn: program),
         value: .full(.uninitialized))
-      context.locals[.register(i, 0)] = .locations([location])
+      context.locals[.register(i, 0)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -168,8 +168,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) {
       let dealloc = self[i] as! DeallocStackInstruction
-      let k = Operand.register(dealloc.location.instruction!, 0)
-      let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
+      let l = context.locals[dealloc.location]!.unwrapLocations()!.uniqueElement!
 
       // Make sure the memory at the deallocated location is consumed or uninitialized before
       // erasing the deallocated memory from the context.
