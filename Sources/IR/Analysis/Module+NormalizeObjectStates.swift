@@ -64,7 +64,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
       // Create an abstract location denoting the newly allocated memory.
-      let location = AbstractLocation.instruction(block: i.block, address: i.address)
+      let location = AbstractLocation.root(.register(instruction: i, index: 0))
       precondition(context.memory[location] == nil, "stack leak")
 
       // Update the context.
@@ -72,7 +72,7 @@ extension Module {
         layout: AbstractTypeLayout(
           of: (self[i] as! AllocStackInstruction).allocatedType, definedIn: program),
         value: .full(.uninitialized))
-      context.locals[FunctionLocal(i, 0)] = .locations([location])
+      context.locals[.register(instruction: i, index: 0)] = .locations([location])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -81,11 +81,11 @@ extension Module {
 
       // Operand must a location.
       let locations: Set<AbstractLocation>
-      if let k = FunctionLocal(operand: borrow.location) {
-        locations = context.locals[k]!.unwrapLocations()!
-      } else {
+      if case .constant = borrow.location {
         // Operand is a constant.
         fatalError("not implemented")
+      } else {
+        locations = context.locals[borrow.location]!.unwrapLocations()!
       }
 
       // Objects at each location have the same state unless DI or LoE has been broken.
@@ -123,7 +123,7 @@ extension Module {
         unreachable()
       }
 
-      context.locals[FunctionLocal(i, 0)] = .locations(locations)
+      context.locals[.register(instruction: i, index: 0)] = .locations(locations)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -149,7 +149,7 @@ extension Module {
           assert(isBorrowOrConstant(call.callee))
 
         case .set:
-          context.forEachObject(at: FunctionLocal(operand: a)!) { (o) in
+          context.forEachObject(at: a) { (o) in
             assert(o.value.initializedPaths.isEmpty || o.layout.type.base is BuiltinType)
             o.value = .full(.initialized)
           }
@@ -168,7 +168,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) {
       let dealloc = self[i] as! DeallocStackInstruction
-      let k = FunctionLocal(dealloc.location.instruction!, 0)
+      let k = Operand.register(instruction: dealloc.location.instruction!, index: 0)
       let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
 
       // Make sure the memory at the deallocated location is consumed or uninitialized before
@@ -190,14 +190,15 @@ extension Module {
 
       // Operand must a location.
       let locations: [AbstractLocation]
-      if let k = FunctionLocal(operand: addr.base) {
-        locations = context.locals[k]!.unwrapLocations()!.map({ $0.appending(addr.elementPath) })
-      } else {
+      if case .constant = addr.base {
         // Operand is a constant.
         fatalError("not implemented")
+      } else {
+        locations =
+          context.locals[addr.base]!.unwrapLocations()!.map({ $0.appending(addr.elementPath) })
       }
 
-      context.locals[FunctionLocal(i, 0)] = .locations(Set(locations))
+      context.locals[.register(instruction: i, index: 0)] = .locations(Set(locations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -220,11 +221,11 @@ extension Module {
 
       // Operand must be a location.
       let locations: Set<AbstractLocation>
-      if let k = FunctionLocal(operand: load.source) {
-        locations = context.locals[k]!.unwrapLocations()!
-      } else {
+      if case .constant = load.source {
         // Operand is a constant.
         fatalError("not implemented")
+      } else {
+        locations = context.locals[load.source]!.unwrapLocations()!
       }
 
       // Object at target location must be initialized.
@@ -279,11 +280,11 @@ extension Module {
 
       // Subject must be a location.
       let locations: Set<AbstractLocation>
-      if let k = FunctionLocal(operand: s.subject) {
-        locations = context.locals[k]!.unwrapLocations()!
-      } else {
+      if case .constant = s.subject {
         // Operand is a constant.
         fatalError("not implemented")
+      } else {
+        locations = context.locals[s.subject]!.unwrapLocations()!
       }
 
       let v = context.memory[locations.first!]?.value
@@ -312,7 +313,7 @@ extension Module {
     func interpret(store i: InstructionID, in context: inout Context) {
       let store = self[i] as! StoreInstruction
       context.consume(store.object, with: i, at: store.site, diagnostics: &diagnostics)
-      context.forEachObject(at: FunctionLocal(operand: store.target)!) { (o) in
+      context.forEachObject(at: store.target) { (o) in
         assert(o.value.initializedPaths.isEmpty || o.layout.type.base is BuiltinType)
         o.value = .full(.initialized)
       }
@@ -325,19 +326,20 @@ extension Module {
     let function = self[f]
     var result = Context()
 
+    let b = Block.ID(function: f, address: function.entry!)
     for i in function.inputs.indices {
       let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterKey = FunctionLocal.parameter(block: function.entry!, index: i)
+      let parameterKey = Operand.parameter(block: b, index: i)
       let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
 
       switch parameterConvention {
       case .let, .inout:
-        let l = AbstractLocation.argument(index: i)
+        let l = AbstractLocation.root(.parameter(block: b, index: i))
         result.locals[parameterKey] = .locations([l])
         result.memory[l] = .init(layout: parameterLayout, value: .full(.initialized))
 
       case .set:
-        let l = AbstractLocation.argument(index: i)
+        let l = AbstractLocation.root(.parameter(block: b, index: i))
         result.locals[parameterKey] = .locations([l])
         result.memory[l] = .init(layout: parameterLayout, value: .full(.uninitialized))
 
@@ -360,7 +362,7 @@ extension Module {
       return true
     case .parameter:
       return false
-    case .result(let i, _):
+    case .register(let i, _):
       return self[i] is BorrowInstruction
     }
   }
@@ -368,7 +370,7 @@ extension Module {
   /// Assigns in `context` a fully initialized object to each virtual register defined by `i`.
   private func initializeRegisters(createdBy i: InstructionID, in context: inout Context) {
     for (j, t) in self[i].types.enumerated() {
-      context.locals[FunctionLocal(i, j)] = .object(
+      context.locals[.register(instruction: i, index: j)] = .object(
         .init(layout: .init(of: t.astType, definedIn: program), value: .full(.initialized)))
     }
   }
@@ -485,12 +487,12 @@ extension AbstractContext where Domain == State {
     diagnostics: inout DiagnosticSet
   ) {
     // Constants are never consumed.
-    guard let k = FunctionLocal(operand: o) else { return }
-    var o = locals[k]!.unwrapObject()!
+    if case .constant = o { return }
+    var v = locals[o]!.unwrapObject()!
 
-    if o.value == .full(.initialized) {
-      o.value = .full(.consumed(by: [consumer]))
-      locals[k]! = .object(o)
+    if v.value == .full(.initialized) {
+      v.value = .full(.consumed(by: [consumer]))
+      locals[o]! = .object(v)
     } else {
       diagnostics.insert(.illegalMove(at: site))
     }

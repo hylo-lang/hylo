@@ -52,7 +52,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
         output.write("  ")
         if !self[j].types.isEmpty {
           let r = self[j].types.indices
-            .map({ (k) in Operand.result(instruction: j, index: k).description })
+            .map({ (k) in Operand.register(instruction: j, index: k).description })
           output.write("\(list: r) = ")
         }
         output.write("\(self[j])\n")
