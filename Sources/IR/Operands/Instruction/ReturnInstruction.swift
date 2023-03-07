@@ -1,7 +1,7 @@
 import Core
 
 /// A return instruction.
-public struct ReturnInstruction: Instruction {
+public struct ReturnInstruction: Terminator {
 
   /// The returned value.
   public let object: Operand
@@ -18,7 +18,11 @@ public struct ReturnInstruction: Instruction {
 
   public var operands: [Operand] { [object] }
 
-  public var isTerminator: Bool { true }
+  public var successors: [Block.ID] { [] }
+
+  func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+    false
+  }
 
 }
 

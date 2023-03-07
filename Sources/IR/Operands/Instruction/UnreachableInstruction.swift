@@ -1,7 +1,7 @@
 import Core
 
 /// Marks this execution path as unreachable, causing a fatal error otherwise.
-public struct UnrechableInstruction: Instruction {
+public struct UnrechableInstruction: Terminator {
 
   public var site: SourceRange
 
@@ -14,7 +14,11 @@ public struct UnrechableInstruction: Instruction {
 
   public var operands: [Operand] { [] }
 
-  public var isTerminator: Bool { true }
+  public var successors: [Block.ID] { [] }
+
+  func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+    false
+  }
 
 }
 

@@ -18,8 +18,6 @@ public struct DeallocStackInstruction: Instruction {
 
   public var operands: [Operand] { [location] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {

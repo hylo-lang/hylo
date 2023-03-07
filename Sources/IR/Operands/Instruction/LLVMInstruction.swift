@@ -20,8 +20,6 @@ public struct LLVMInstruction: Instruction {
 
   public var types: [LoweredType] { [.object(function.type.output)] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {

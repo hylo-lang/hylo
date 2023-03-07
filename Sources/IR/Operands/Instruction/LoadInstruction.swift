@@ -22,8 +22,6 @@ public struct LoadInstruction: Instruction {
 
   public var operands: [Operand] { [source] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {

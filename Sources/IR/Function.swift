@@ -60,19 +60,10 @@ public struct Function {
   /// Returns the control flow graph of `self`.
   func cfg() -> ControlFlowGraph {
     var result = ControlFlowGraph()
-
     for source in blocks.indices {
-      switch blocks[source.address].instructions.last {
-      case let s as BranchInstruction:
-        result.define(source.address, predecessorOf: s.target.address)
-      case let s as CondBranchInstruction:
-        result.define(source.address, predecessorOf: s.targetIfTrue.address)
-        result.define(source.address, predecessorOf: s.targetIfFalse.address)
-      case let s as StaticBranchInstruction:
-        result.define(source.address, predecessorOf: s.targetIfTrue.address)
-        result.define(source.address, predecessorOf: s.targetIfFalse.address)
-      default:
-        break
+      guard let s = blocks[source.address].instructions.last as? Terminator else { continue }
+      for target in s.successors {
+        result.define(source.address, predecessorOf: target.address)
       }
     }
 
