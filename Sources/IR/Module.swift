@@ -118,7 +118,7 @@ public struct Module {
 
   /// Returns the registers asssigned by `i`.
   func results(of i: InstructionID) -> [Operand] {
-    (0 ..< self[i].types.count).map({ .register(instruction: i, index: $0) })
+    (0 ..< self[i].types.count).map({ .register(i, $0) })
   }
 
   /// Returns whether the IR in `self` is well-formed.

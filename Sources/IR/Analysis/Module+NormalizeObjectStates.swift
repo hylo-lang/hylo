@@ -64,7 +64,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
       // Create an abstract location denoting the newly allocated memory.
-      let location = AbstractLocation.root(.register(instruction: i, index: 0))
+      let location = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[location] == nil, "stack leak")
 
       // Update the context.
@@ -72,7 +72,7 @@ extension Module {
         layout: AbstractTypeLayout(
           of: (self[i] as! AllocStackInstruction).allocatedType, definedIn: program),
         value: .full(.uninitialized))
-      context.locals[.register(instruction: i, index: 0)] = .locations([location])
+      context.locals[.register(i, 0)] = .locations([location])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -123,7 +123,7 @@ extension Module {
         unreachable()
       }
 
-      context.locals[.register(instruction: i, index: 0)] = .locations(locations)
+      context.locals[.register(i, 0)] = .locations(locations)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -168,7 +168,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) {
       let dealloc = self[i] as! DeallocStackInstruction
-      let k = Operand.register(instruction: dealloc.location.instruction!, index: 0)
+      let k = Operand.register(dealloc.location.instruction!, 0)
       let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
 
       // Make sure the memory at the deallocated location is consumed or uninitialized before
@@ -198,7 +198,7 @@ extension Module {
           context.locals[addr.base]!.unwrapLocations()!.map({ $0.appending(addr.elementPath) })
       }
 
-      context.locals[.register(instruction: i, index: 0)] = .locations(Set(locations))
+      context.locals[.register(i, 0)] = .locations(Set(locations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -329,22 +329,21 @@ extension Module {
     let b = Block.ID(function: f, address: function.entry!)
     for i in function.inputs.indices {
       let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterKey = Operand.parameter(block: b, index: i)
       let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
 
       switch parameterConvention {
       case .let, .inout:
-        let l = AbstractLocation.root(.parameter(block: b, index: i))
-        result.locals[parameterKey] = .locations([l])
+        let l = AbstractLocation.root(.parameter(b, i))
+        result.locals[.parameter(b, i)] = .locations([l])
         result.memory[l] = .init(layout: parameterLayout, value: .full(.initialized))
 
       case .set:
-        let l = AbstractLocation.root(.parameter(block: b, index: i))
-        result.locals[parameterKey] = .locations([l])
+        let l = AbstractLocation.root(.parameter(b, i))
+        result.locals[.parameter(b, i)] = .locations([l])
         result.memory[l] = .init(layout: parameterLayout, value: .full(.uninitialized))
 
       case .sink:
-        result.locals[parameterKey] = .object(
+        result.locals[.parameter(b, i)] = .object(
           .init(layout: parameterLayout, value: .full(.initialized)))
 
       case .yielded:
@@ -370,7 +369,7 @@ extension Module {
   /// Assigns in `context` a fully initialized object to each virtual register defined by `i`.
   private func initializeRegisters(createdBy i: InstructionID, in context: inout Context) {
     for (j, t) in self[i].types.enumerated() {
-      context.locals[.register(instruction: i, index: j)] = .object(
+      context.locals[.register(i, j)] = .object(
         .init(layout: .init(of: t.astType, definedIn: program), value: .full(.initialized)))
     }
   }

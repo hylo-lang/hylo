@@ -83,21 +83,21 @@ public struct Emitter {
 
     let explicitCaptures = decl.explicitCaptures
     for (i, capture) in explicitCaptures.enumerated() {
-      locals[capture] = .parameter(block: entryID, index: i)
+      locals[capture] = .parameter(entryID, i)
     }
 
     for (i, capture) in decl.implicitCaptures!.enumerated() {
-      locals[program[capture.decl]] = .parameter(block: entryID, index: i + explicitCaptures.count)
+      locals[program[capture.decl]] = .parameter(entryID, i + explicitCaptures.count)
     }
 
     var implicitParameterCount = explicitCaptures.count + decl.implicitCaptures!.count
     if let receiver = decl.receiver {
-      locals[receiver] = .parameter(block: entryID, index: implicitParameterCount)
+      locals[receiver] = .parameter(entryID, implicitParameterCount)
       implicitParameterCount += 1
     }
 
     for (i, parameter) in decl.parameters.enumerated() {
-      locals[parameter] = .parameter(block: entryID, index: i + implicitParameterCount)
+      locals[parameter] = .parameter(entryID, i + implicitParameterCount)
     }
 
     // Emit the body.
