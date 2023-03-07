@@ -23,13 +23,13 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   private let subject: Function.ID
 
   /// The control flow graph of the function being interpreted.
-  private var cfg: ControlFlowGraph
+  private(set) var cfg: ControlFlowGraph
 
   /// The dominator tree of the function being interpreted.
-  private var dominatorTree: DominatorTree
+  private(set) var dominatorTree: DominatorTree
 
   /// The state of the abstract interpreter before and after the visited basic blocks.
-  private var state: State = [:]
+  private(set) var state: State = [:]
 
   /// A FILO list of blocks to visit.
   private var work: Deque<Function.Blocks.Address>

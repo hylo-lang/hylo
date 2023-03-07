@@ -14,6 +14,8 @@ extension Module {
     // Verify that object states are properly initialized/deinitialized in `b` given `context`,
     // updating `self` as necessary and reporting violations in `diagnostics`.
     machine.fixedPoint { (b, machine, context) in
+      adaptPredecessors(of: .init(function: f, address: b), to: context, in: &machine)
+
       // We can safely iterate over the current indices of the block because instructions are
       // always inserted the currently visited address.
       let blockInstructions = self[f][b].instructions
@@ -390,6 +392,73 @@ extension Module {
         before: i)[0]
       insert(makeDeinit(o, anchoredAt: anchor), before: i)
     }
+  }
+
+  /// Ensures the after-contexts of `b`'s predecessors, read from `machine`' state, are consistent
+  /// with `merged`, inserting IR for deinitializing objects if necessary.
+  ///
+  /// Let *p1* and *p2* be two predecessors of a basic block *b*. If an object (or parts thereof)
+  /// stored at a memory location *l* is initialized at the exit of *p1* but uninitialized at the
+  /// exit of *p2*, then it should be implicitly deinitialized before control flow reaches *b*.
+  /// The IR of the implicit deinitialization is added to a new basic block inserted between *p1*
+  /// and *b*.
+  private mutating func adaptPredecessors(
+    of b: Block.ID,
+    to merged: Context,
+    in machine: inout AbstractInterpreter<State>
+  ) {
+    // Nothing to do if `merged` isn' the result of more than one predecessors.
+    let predecessors = machine.cfg.predecessors(of: b.address).compactMap { (p) in
+      machine.state[p].map({ (Block.ID(function: b.function, address: p), $0.after) })
+    }
+    if predecessors.count <= 1 { return }
+
+    // Ensure each predecessor has a memory state consistent with `merged`.
+    var controlFlowChanged = false
+    for p in predecessors {
+      guard let patch = adaptPredecessor(p, of: b, to: merged) else { continue }
+      machine.addWork(patch.address)
+      controlFlowChanged = true
+    }
+    if controlFlowChanged { machine.recomputeControlFlow(self) }
+  }
+
+  /// Ensures the after-context of the given predecessor is consistent with `merged`, inserting IR
+  /// for deinitializing objects in a new basic block if necessary and returning the identity of
+  /// that basic block.
+  private mutating func adaptPredecessor(
+    _ predecessor: (id: Block.ID, afterContext: Context),
+    of b: Block.ID,
+    to merged: Context
+  ) -> Block.ID? {
+    var patch: Block.ID?
+
+    for (l, o) in merged.memory {
+      let pathsToDeinitialize = predecessor.afterContext.memory[l]!.value - o.value
+      if pathsToDeinitialize.isEmpty { continue }
+
+      // Create a new block to insert deinitialization.
+      if patch == nil {
+        patch = appendBlock(to: predecessor.id.function)
+        modify(&self[terminator(of: predecessor.id)!]) { (s) in
+          var t = s as! Terminator
+          t.replaceSuccessor(b, patch!)
+          return t
+        }
+      }
+
+      // Emit deinitialization.
+      guard case .root(let root) = l else { unreachable() }
+      let anchor = self[terminator(of: predecessor.id)!].site
+      for path in pathsToDeinitialize {
+        let s = append(makeElementAddr(root, at: path, anchoredAt: anchor), to: patch!)[0]
+        let o = append(makeLoad(s, anchoredAt: anchor), to: patch!)[0]
+        append(makeDeinit(o, anchoredAt: anchor), to: patch!)
+      }
+      append(makeBranch(to: b, anchoredAt: anchor), to: patch!)
+    }
+
+    return patch
   }
 
 }
