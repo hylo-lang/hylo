@@ -104,9 +104,8 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) {
-      let x = self[i] as! DeallocStackInstruction
-      let k = Operand.register(x.location.instruction!, 0)
-      let l = context.locals[k]!.unwrapLocations()!.uniqueElement!
+      let dealloc = self[i] as! DeallocStackInstruction
+      let l = context.locals[dealloc.location]!.unwrapLocations()!.uniqueElement!
       context.memory[l] = nil
     }
 
