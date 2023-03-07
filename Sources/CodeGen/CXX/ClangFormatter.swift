@@ -1,10 +1,8 @@
 import Foundation
 
 /// Returns a C++ code formatter that invokes external `clang-format` to perform the job.
-public func clangFormatter(_ executable: URL, style: String = "llvm") -> (
-  (String) -> String
-) {
-  return { code in
+public func clangFormatter(_ executable: URL, style: String = "llvm") -> (String) -> String {
+  return { (code) in
     let pipeIn = Pipe()
     let pipeOut = Pipe()
     // Run clang-format to format the C++ code.

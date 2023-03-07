@@ -207,11 +207,6 @@ public struct ValCommand: ParsableCommand {
       clangFormatter(URL(fileURLWithPath: $0))
     })
 
-    //       core: program.cxx(program.corelib!, withFormatter: codeFormatter),
-    //       source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
-    // =======
-    //       core: program.cxx(program.coreLibrary!), source: program.cxx(program[sourceModule])
-    // >>>>>>> upstream/main
     let cxxModules = (
       core: program.cxx(program.coreLibrary!, withFormatter: codeFormatter),
       source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
