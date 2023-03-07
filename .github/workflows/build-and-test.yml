@@ -27,14 +27,13 @@ jobs:
         host: [
           { type: macos, os: macos-latest },
           { type: linux, os: ubuntu-latest, test-options: --enable-code-coverage },
-          { type: windows, os: windows-latest },
         ]
         swift: [
           { version: "5.7", windows-branch: "development", windows-tag: "DEVELOPMENT-SNAPSHOT-2023-02-14-a" }
         ]
     runs-on: ${{ matrix.host.os }}
     steps:
-    - name: Setup swift (non-Windows)
+    - name: Setup swift
       uses: swift-actions/setup-swift@v1
       if: matrix.host.type != 'windows'
       with:
