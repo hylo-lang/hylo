@@ -20,10 +20,10 @@ public struct StaticBranchInstruction: Terminator {
   public let predicate: Predicate
 
   /// The target of the branch if `predicate` holds on `subject`.
-  public let targetIfTrue: Block.ID
+  public private(set) var targetIfTrue: Block.ID
 
   /// The target of the branch if `predicate` does not hold on `subject`.
-  public let targetIfFalse: Block.ID
+  public private(set) var targetIfFalse: Block.ID
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
@@ -47,6 +47,18 @@ public struct StaticBranchInstruction: Terminator {
   public var operands: [Operand] { [subject] }
 
   public var successors: [Block.ID] { [targetIfTrue, targetIfFalse] }
+
+  mutating func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+    if targetIfTrue == old {
+      targetIfTrue = new
+      return true
+    } else if targetIfFalse == old {
+      targetIfFalse = new
+      return true
+    } else {
+      return false
+    }
+  }
 
 }
 

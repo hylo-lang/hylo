@@ -7,10 +7,10 @@ public struct CondBranchInstruction: Terminator {
   public let condition: Operand
 
   /// The target of the branch if `condition` is true.
-  public let targetIfTrue: Block.ID
+  public private(set) var targetIfTrue: Block.ID
 
   /// The target of the branch if `condition` is false.
-  public let targetIfFalse: Block.ID
+  public private(set) var targetIfFalse: Block.ID
 
   public let site: SourceRange
 
@@ -33,6 +33,19 @@ public struct CondBranchInstruction: Terminator {
 
   public var successors: [Block.ID] { [targetIfTrue, targetIfFalse] }
 
+  mutating func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+    precondition(new.function == targetIfTrue.function)
+    if targetIfTrue == old {
+      targetIfTrue = new
+      return true
+    } else if targetIfFalse == old {
+      targetIfFalse = new
+      return true
+    } else {
+      return false
+    }
+  }
+
 }
 
 extension Module {
@@ -52,6 +65,7 @@ extension Module {
     anchoredAt anchor: SourceRange
   ) -> CondBranchInstruction {
     precondition(type(of: condition) == .object(BuiltinType.i(1)))
+    precondition(targetIfTrue.function == targetIfFalse.function)
 
     return CondBranchInstruction(
       condition: condition,

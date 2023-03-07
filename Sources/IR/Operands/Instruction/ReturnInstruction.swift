@@ -20,6 +20,10 @@ public struct ReturnInstruction: Terminator {
 
   public var successors: [Block.ID] { [] }
 
+  func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+    false
+  }
+
 }
 
 extension Module {
