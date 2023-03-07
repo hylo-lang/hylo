@@ -1,0 +1,14 @@
+//! expect-success
+
+fun main() {
+  var x: Int
+
+  // Note: as `x` is either initialized or deinitialized at the loop's entry, implicit
+  // deinitialization must take place at the end of the loop's body.
+  while true {
+    &x = 0
+  }
+
+  &x = 1
+}
+
