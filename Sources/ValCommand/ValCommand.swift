@@ -203,8 +203,13 @@ public struct ValCommand: ParsableCommand {
 
     // C++
 
+    let codeFormatter: CodeTransform? = (try? find("clang-format")).map({
+      clangFormatter(URL(fileURLWithPath: $0))
+    })
+
     let cxxModules = (
-      core: program.cxx(program.coreLibrary!), source: program.cxx(program[sourceModule])
+      core: program.cxx(program.coreLibrary!, withFormatter: codeFormatter),
+      source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
     )
 
     if outputType == .cpp {
@@ -417,6 +422,20 @@ public struct ValCommand: ParsableCommand {
   /// when "cpp" is selected as the output type.
   private func sourceModuleCXXOutputBase(_ productName: String) -> URL {
     outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
+  }
+
+}
+
+extension TypedProgram {
+
+  /// The bundle of products resulting from transpiling a module to C++.
+  typealias CXXModule = (syntax: CodeGenCXX.CXXModule, text: TranslationUnitCode)
+
+  /// Returns the C++ Transpilation of `m`.
+  func cxx(_ m: ModuleDecl.Typed, withFormatter formatter: CodeTransform?) -> CXXModule {
+    let x = CXXTranspiler(self).cxx(m)
+    var w = CXXCodeWriter(formatter: formatter)
+    return (syntax: x, text: w.cxxCode(x))
   }
 
 }
