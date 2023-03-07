@@ -28,6 +28,17 @@ public struct DoublyLinkedList<Element> {
 
   }
 
+  /// A collection with the addresses of a doubly-linked list.
+  public struct Addresses {
+
+    private var base: DoublyLinkedList.Indices
+
+    fileprivate init(_ base: DoublyLinkedList) {
+      self.base = base.indices
+    }
+
+  }
+
   /// A bucket in the internal storage of a doubly linked list.
   ///
   /// - Note: A bucket is said to be used if its element is not `nil`.
@@ -111,6 +122,9 @@ public struct DoublyLinkedList<Element> {
     if address == firstAddress { return nil }
     return Address(storage[address.rawValue].previousOffset)
   }
+
+  /// The addresses in the list.
+  public var addresses: Addresses { Addresses(self) }
 
   /// Accesses the element at `address`.
   public subscript(address: Address) -> Element {
@@ -383,5 +397,29 @@ extension DoublyLinkedList: CustomStringConvertible {
 extension DoublyLinkedList.Address: CustomStringConvertible {
 
   public var description: String { String(describing: rawValue) }
+
+}
+
+extension DoublyLinkedList.Addresses: BidirectionalCollection {
+
+  public typealias Index = DoublyLinkedList.Indices.Index
+
+  public typealias Element = DoublyLinkedList.Address
+
+  public var startIndex: Index { base.startIndex }
+
+  public var endIndex: Index { base.endIndex }
+
+  public func index(after i: Index) -> Index {
+    base.index(after: i)
+  }
+
+  public func index(before i: Index) -> Index {
+    base.index(before: i)
+  }
+
+  public subscript(position: Index) -> DoublyLinkedList.Address {
+    base[position].address
+  }
 
 }
