@@ -22,17 +22,33 @@ struct DominatorTree {
   /// The immediate dominators of each basic block.
   private var immediateDominators: [Node: Node?]
 
-  /// Creates the dominator tree of the specified function.
-  init(function functionID: Function.ID, cfg: ControlFlowGraph? = nil, in module: Module) {
-    let function = module[functionID]
-    let cfg = cfg ?? function.cfg()
+  /// Creates the dominator tree of `f`, which is in `m`, using the given `cfg`.
+  init(function f: Function.ID, cfg: ControlFlowGraph, in m: Module) {
+    // The following is an implementation of Cooper et al.'s fast dominance iterative algorithm
+    // (see "A Simple, Fast Dominance Algorithm", 2001). First, build any spanning tree rooted at
+    // the function's entry.
+    var t = SpanningTree(of: cfg, rootedAt: m[f].entry!)
 
-    root = function.entry!
-    immediateDominators = [:]
-    immediateDominators.reserveCapacity(function.blocks.count)
-    for i in function.blocks.indices {
-      _ = immediateDominator(of: i.address, in: cfg)
+    // Then, until a fixed point is reached, for each block `v` that has a predecessor `u` that
+    // isn't `v`'s parent in the tree, assign `v`'s parent to the least common ancestor of `u` and
+    // its current parent.
+    var changed = true
+    while changed {
+      changed = false
+      for v in m[f].blocks.addresses {
+        for u in cfg.predecessors(of: v) where t.parent(v) != u {
+          let lca = t.lowestCommonAncestor(u, t.parent(v)!)
+          if lca != t.parent(v) {
+            t.setParent(lca, forChild: v)
+            changed = true
+          }
+        }
+      }
     }
+
+    // The resulting tree encodes the immediate dominators.
+    root = m[f].entry!
+    immediateDominators = t.parents
   }
 
   /// A collection containing the blocks in this tree in breadth-first order.
@@ -104,33 +120,6 @@ struct DominatorTree {
     return dominates(definition.block, use.user.block)
   }
 
-  private mutating func immediateDominator(
-    of node: Node,
-    in cfg: ControlFlowGraph
-  ) -> Node? {
-    if let dominator = immediateDominators[node] { return dominator }
-
-    let predecessors = cfg.predecessors(of: node)
-    switch predecessors.count {
-    case 0:
-      // If `node` has no predecessors, it has no dominator.
-      immediateDominators[node] = .some(nil)
-      return nil
-
-    case 1:
-      // If `node` has one single predecessor, its immediate dominator is that predecessor.
-      immediateDominators[node] = .some(predecessors[0])
-      return predecessors[0]
-
-    default:
-      // If `node` has multiple direct predecessors, its immediate dominator is is the closest
-      // common immediate dominator of all its direct predecessors.
-      let d = cfg.paths(to: node, from: root).firstCommonAncestor()
-      immediateDominators[node] = .some(d)
-      return d
-    }
-  }
-
 }
 
 extension DominatorTree: CustomStringConvertible {
@@ -147,6 +136,74 @@ extension DominatorTree: CustomStringConvertible {
     }
     result.write("\n}")
     return result
+  }
+
+}
+
+/// A spanning tree of a control flow graph.
+private struct SpanningTree {
+
+  /// A node in the tree.
+  typealias Node = Function.Blocks.Address
+
+  /// A map from node to its parent.
+  private(set) var parents: [Node: Node?]
+
+  /// Creates a spanning tree of `cfg` rooted at `root`.
+  init(of cfg: ControlFlowGraph, rootedAt root: Node) {
+    parents = [:]
+    var work: [(vertex: Node, parent: Node??)] = [(root, .some(nil))]
+    while let (v, parent) = work.popLast() {
+      parents[v] = parent
+      let children = cfg.successors(of: v).filter({ parents[$0] == nil })
+      work.append(contentsOf: children.map({ ($0, .some(v)) }))
+    }
+  }
+
+  /// Returns the parent of `v`.
+  ///
+  /// - Requires: `v` is in the tree.
+  /// - Complexity: O(1).
+  func parent(_ v: Node) -> Node? {
+    parents[v]!
+  }
+
+  /// Sets `newParent` as `v`'s parent.
+  ///
+  /// - Requires: `v` and `newParent` are in the tree and distinct; `v` isn't the root.
+  /// - Complexity: O(1).
+  mutating func setParent(_ newParent: Node, forChild v: Node) {
+    parents[v] = .some(newParent)
+  }
+
+  /// Returns collection containing `v` followed by all its ancestor, ordered by depth.
+  ///
+  /// - Requires: `v` is in the tree.
+  /// - Complexity: O(*h*) where *h* is the height of `self`.
+  func ancestors(_ v: Node) -> [Node] {
+    var result = [v]
+    while let parent = parents[result.last!]! { result.append(parent) }
+    return result
+  }
+
+  /// Returns the deepest vertex that is ancestor of both `v` and `u`.
+  ///
+  /// - Requires: `v` and `u` are in the tree.
+  /// - Complexity: O(*h*) where *h* is the height of `self`.
+  func lowestCommonAncestor(_ v: Node, _ u: Node) -> Node {
+    var x = ancestors(v)[...]
+    var y = ancestors(u)[...]
+    while x.count > y.count {
+      x.removeFirst()
+    }
+    while y.count > x.count {
+      y.removeFirst()
+    }
+    while x.first != y.first {
+      x.removeFirst()
+      y.removeFirst()
+    }
+    return x.first!
   }
 
 }
