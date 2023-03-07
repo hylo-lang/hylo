@@ -84,7 +84,7 @@ public struct Module {
   /// particular order.
   public func blocks(
     in f: Function.ID
-  ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID>  {
+  ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
     self[f].blocks.indices.lazy.map({ .init(function: f, address: $0.address) })
   }
 

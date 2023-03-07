@@ -142,5 +142,5 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
     interpret(b, &self, &newContext)
     return newContext
   }
-  
+
 }

@@ -36,8 +36,6 @@ public struct InstructionID: Hashable {
 
 extension InstructionID: CustomStringConvertible {
 
-  public var description: String {
-    "Instruction(\(function), \(block), \(address))"
-  }
+  public var description: String { "i\(block).\(address)" }
 
 }
