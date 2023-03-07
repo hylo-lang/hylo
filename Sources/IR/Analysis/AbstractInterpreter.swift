@@ -47,7 +47,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
     self.cfg = m[f].cfg()
     self.dominatorTree = DominatorTree(function: f, cfg: cfg, in: m)
     self.state = [m[f].entry!: (sources: [], before: entryContext, after: Context())]
-    self.work = Deque(dominatorTree.bfs)
+    self.work = Deque(dominatorTree.bfs.dropFirst())
     self.done = []
   }
 
@@ -67,27 +67,44 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
     work.remove(at: work.firstIndex(of: b)!)
   }
 
+  /// Adds `b` to the work list.
+  ///
+  /// - Requires: `b` is a basic block of the function being analyzed.
+  mutating func addWork(_ b: Function.Blocks.Address) {
+    work.append(b)
+    done.remove(b)
+  }
+
   /// Runs this instance using `interpret` to interpret basic blocks.
   mutating func fixedPoint(_ interpret: Interpret) {
+    // Process the entry.
+    let entry = dominatorTree.root
+    state[entry]!.after = afterContext(
+      of: entry, in: state[entry]!.before, processingBlockWith: interpret)
+    done.insert(entry)
+
+    // Search for a fixed pointer.
     while let blockToProcess = work.popFirst() {
       guard isVisitable(blockToProcess) else {
         work.append(blockToProcess)
         continue
       }
 
-      // Interpret the block's IR unless we already reached a fixed point.
       let (sources, before) = beforeContext(of: blockToProcess)
-      if let s = state[blockToProcess],
-        blockToProcess != dominatorTree.root,
-        s.sources == sources && s.before == before
-      {
-        done.insert(blockToProcess)
-        continue
+      let after: Context
+      let changed: Bool
+
+      // Interpret the block's IR unless we already reached a fixed point.
+      if let s = state[blockToProcess], (s.sources == sources) && (s.before == before) {
+        after = s.after
+        changed = false
+      } else {
+        after = afterContext(of: blockToProcess, in: before, processingBlockWith: interpret)
+        state[blockToProcess] = (sources: sources, before: before, after: after)
+        changed = true
       }
 
-      let after = afterContext(of: blockToProcess, in: before, processingBlockWith: interpret)
-      state[blockToProcess] = (sources: sources, before: before, after: after)
-      if sources.count == cfg.predecessors(of: blockToProcess).count {
+      if !changed && (sources.count == cfg.predecessors(of: blockToProcess).count) {
         done.insert(blockToProcess)
       } else {
         work.append(blockToProcess)
