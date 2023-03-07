@@ -283,7 +283,7 @@ extension Module {
       if case .constant = s.subject {
         // Operand is a constant.
         fatalError("not implemented")
-      } else{
+      } else {
         locations = context.locals[s.subject]!.unwrapLocations()!
       }
 

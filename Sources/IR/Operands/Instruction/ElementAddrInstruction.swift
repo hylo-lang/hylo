@@ -36,6 +36,15 @@ public struct ElementAddrInstruction: Instruction {
 
 }
 
+extension ElementAddrInstruction: CustomStringConvertible {
+
+  public var description: String {
+    let s = "element_addr \(base)"
+    return elementPath.isEmpty ? s : "\(s), \(list: elementPath)"
+  }
+
+}
+
 extension Module {
 
   /// Creates an `element_addr` anchored at `anchor` that computes the address of the property at

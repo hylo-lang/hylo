@@ -130,23 +130,3 @@ extension ControlFlowGraph: CustomStringConvertible {
   }
 
 }
-
-extension Array where Element == ControlFlowGraph.PredecessorPath {
-
-  /// Given `self` is a collection of predecessor paths starting from one node, returns the first
-  /// common ancestor of all paths, if any.
-  func firstCommonAncestor() -> ControlFlowGraph.Vertex? {
-    guard var (firstPath, otherPaths) = map({ $0[...] }).headAndTail else { return nil }
-    if otherPaths.isEmpty { return firstPath.first }
-
-    var result: ControlFlowGraph.Vertex? = nil
-    while let n = firstPath.popLast() {
-      for i in otherPaths.indices {
-        if otherPaths[i].popLast() != n { return result }
-      }
-      result = n
-    }
-    return result
-  }
-
-}
