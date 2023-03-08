@@ -1,5 +1,5 @@
-import Core
 import ArgumentParser
+import Core
 import ValCommand
 import XCTest
 
@@ -12,7 +12,9 @@ final class ExecutionTests: XCTestCase {
       let output = try compile(testFile.url, with: ["--emit", "binary"])
       do {
         let exitCode = try run(output)
-        XCTAssertEqual(exitCode, 0, "Execution of binary for test \(testFile.baseName) failed with exit code \(exitCode)")
+        XCTAssertEqual(
+          exitCode, 0,
+          "Execution of binary for test \(testFile.baseName) failed with exit code \(exitCode)")
       } catch {
         XCTFail("While testing \(testFile.baseName), cannot execute: \(output)")
       }
