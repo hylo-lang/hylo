@@ -165,7 +165,6 @@ public struct ValCommand: ParsableCommand {
     }
 
     let productName = makeProductName(inputs)
-
     var ast = AST.coreModule
 
     // The module whose Val files were given on the command-line
@@ -184,12 +183,18 @@ public struct ValCommand: ParsableCommand {
 
     // IR
 
-    var sourceIR = try IR.Module(lowering: sourceModule, in: program, diagnostics: &diagnostics)
-    if outputType != .rawIR {
-      try sourceIR.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
+    var irProgram: [ModuleDecl.ID: IR.Module] = [:]
+    for m in ast.modules {
+      var ir = try IR.Module(lowering: m, in: program, diagnostics: &diagnostics)
+      if outputType != .rawIR {
+        try ir.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
+      }
+      irProgram[m] = ir
     }
+
     if outputType == .ir || outputType == .rawIR {
-      try sourceIR.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
+      try irProgram[sourceModule]!.description
+        .write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
 
