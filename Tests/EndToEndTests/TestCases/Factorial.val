@@ -2,7 +2,8 @@ fun factorial(_ n: Int) -> Int {
   if n < 2 { 1 } else { n * factorial(n - 1) }
 }
 
-public fun main() {
+public fun main() -> Int32 {
   let _ = factorial(6)
   // TODO: assert the result value is correct
+  return 0
 }

@@ -648,7 +648,10 @@ public struct CXXTranspiler {
     var bodyContent: [CXXStmt] = []
     if forwardReturn {
       // Forward the result of the function as the exit code.
-      bodyContent = [CXXReturnStmt(expr: callToMain)]
+      bodyContent = [
+        CXXReturnStmt(
+          expr: CXXInfixExpr(oper: .dotAccess, lhs: callToMain, rhs: CXXIdentifier("value")))
+      ]
     } else {
       // Make a plain function call, discarding the result
       bodyContent = [CXXExprStmt(expr: CXXVoidCast(baseExpr: callToMain))]
