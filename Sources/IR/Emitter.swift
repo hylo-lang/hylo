@@ -588,15 +588,16 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     if case .builtinFunction(let f) = NameExpr.Typed(expr.callee)?.decl {
-      return emit(builtinFunctionCallTo: f, with: expr.arguments, at: expr.site, into: &module)
+      return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
     }
 
     // Callee must have a lambda type.
     let calleeType = LambdaType(expr.callee.type)!
 
     // Arguments are evaluated first, from left to right.
-    let arguments: [Operand] = zip(calleeType.inputs, expr.arguments).map { (p, a) in
-      emit(argument: program[a.value], to: ParameterType(p.type)!, into: &module)
+    var arguments: [Operand] = []
+    for (p, a) in zip(calleeType.inputs, expr.arguments) {
+      arguments.append(emit(argument: program[a.value], to: ParameterType(p.type)!, into: &module))
     }
     let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
 
@@ -608,17 +609,15 @@ public struct Emitter {
   /// Emits the IR of a call to `f` with given `arguments` at `site` into `module`, inserting
   /// instructions at the end of `self.insertionBlock`.
   private mutating func emit(
-    builtinFunctionCallTo f: BuiltinFunction,
-    with arguments: [LabeledArgument],
+    apply f: BuiltinFunction,
+    to arguments: [LabeledArgument],
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
+    var a: [Operand] = []
+    for e in arguments { a.append(emitRValue(program[e.value], into: &module)) }
     return module.append(
-      module.makeLLVM(
-        applying: f,
-        to: arguments.map({ (a) in emitRValue(program[a.value], into: &module) }),
-        anchoredAt: site),
-      to: insertionBlock!)[0]
+      module.makeLLVM(applying: f, to: a, anchoredAt: site), to: insertionBlock!)[0]
   }
 
   private mutating func emitRValue(
