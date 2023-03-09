@@ -90,6 +90,12 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
+      name: "CodeGenLLVM",
+      dependencies: ["FrontEnd", "Utils", .product(name: "LLVM", package: "Swifty-LLVM")],
+      path: "Sources/CodeGen/LLVM",
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
       name: "ValModule",
       path: "Library",
       resources: [.copy("Core"), .copy("CXX")],
