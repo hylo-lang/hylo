@@ -128,6 +128,34 @@ public struct Emitter {
     assert(frames.isEmpty)
   }
 
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(
+    initializerDecl d: InitializerDecl.Typed,
+    into module: inout Module
+  ) {
+    let f = module.initializerDeclaration(lowering: d)
+
+    assert(module.functions[f]!.blocks.isEmpty)
+    let entry = module.appendBlock(taking: module.functions[f]!.inputs.map(\.type), to: f)
+    insertionBlock = entry
+
+    // Configure the locals.
+    var locals = TypedDeclProperty<Operand>()
+    locals[d.receiver] = .parameter(entry, 0)
+    for (i, parameter) in d.parameters.enumerated() {
+      locals[parameter] = .parameter(entry, i + 1)
+    }
+
+    // Emit the body.
+    frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
+    var currentFunctionReceiver: Optional = program[d.receiver]
+    swap(&currentFunctionReceiver, &receiver)
+    emit(stmt: d.body!, into: &module)
+    swap(&currentFunctionReceiver, &self.receiver)
+    frames.pop()
+    assert(frames.isEmpty)
+  }
+
   /// Inserts the IR for `decl` into `module`.
   private mutating func emit(subscriptDecl decl: SubscriptDecl.Typed, into module: inout Module) {
     fatalError("not implemented")
@@ -142,8 +170,9 @@ public struct Emitter {
         emit(functionDecl: FunctionDecl.Typed(member)!, into: &module)
 
       case InitializerDecl.self:
-        if InitializerDecl.Typed(member)!.isMemberwise { continue }
-        fatalError("not implemented")
+        let d = InitializerDecl.Typed(member)!
+        if d.isMemberwise { continue }
+        emit(initializerDecl: d, into: &module)
 
       case SubscriptDecl.self:
         emit(subscriptDecl: SubscriptDecl.Typed(member)!, into: &module)

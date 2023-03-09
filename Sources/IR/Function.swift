@@ -105,6 +105,11 @@ extension Function {
       self.value = .lowered(AnyNodeID(f))
     }
 
+    /// Creates the identity of the lowered form of `f`.
+    public init(_ f: InitializerDecl.ID) {
+      self.value = .lowered(AnyNodeID(f))
+    }
+
     /// Creates the identity of synthesized requirement `r` for type `t`.
     public init(synthesized r: MethodImpl.ID, for t: AnyType) {
       self.value = .synthesized(AnyNodeID(r), for: t)

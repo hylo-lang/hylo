@@ -23,7 +23,7 @@ public struct Module {
   public private(set) var entryFunctionID: Function.ID?
 
   /// A map from function declaration its ID in the module.
-  private var loweredFunctions: [FunctionDecl.Typed: Function.ID] = [:]
+  private var loweredFunctions = DeclProperty<Function.ID>()
 
   /// Creates an instance lowering `m` in `p`, reporting errors and warnings to
   /// `diagnostics`.
@@ -159,7 +159,7 @@ public struct Module {
     correspondingTo decl: FunctionDecl.Typed,
     program: TypedProgram
   ) -> Function.ID {
-    if let id = loweredFunctions[decl] { return id }
+    if let id = loweredFunctions[decl.id] { return id }
     precondition(decl.module == syntax)
 
     // Determine the type of the function.
@@ -216,7 +216,32 @@ public struct Module {
     }
 
     // Update the cache and return the ID of the newly created function.
-    loweredFunctions[decl] = f
+    loweredFunctions[decl.id] = f
+    return f
+  }
+
+  /// Returns the identifier of the Val IR initializer corresponding to `d`.
+  mutating func initializerDeclaration(lowering d: InitializerDecl.Typed) -> Function.ID {
+    if let id = loweredFunctions[d.id] { return id }
+    precondition(d.module == syntax)
+    precondition(!d.isMemberwise)
+
+    let declType = LambdaType(d.type)!
+    let parameters = declType.inputs.map({ ParameterType($0.type)!.asIRFunctionInput() })
+
+    let f = Function.ID(d.id)
+    assert(functions[f] == nil)
+    functions[f] = Function(
+      name: "",
+      debugName: "init",
+      anchor: d.introducer.site.first(),
+      linkage: d.isPublic ? .external : .module,
+      inputs: parameters,
+      output: LoweredType(lowering: declType.output),
+      blocks: [])
+
+    // Update the cache and return the ID of the newly created function.
+    loweredFunctions[d.id] = f
     return f
   }
 
