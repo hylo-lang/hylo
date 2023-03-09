@@ -631,20 +631,16 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(
-    name expr: NameExpr.Typed,
+    name e: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch expr.decl {
-    case .direct(let declID):
-      // Lookup for a local symbol.
-      if let s = frames[declID] {
-        return module.append(module.makeLoad(s, anchoredAt: expr.site), to: insertionBlock!)[0]
-      }
+    switch e.decl {
+    case .direct(let d):
+      guard let s = frames[d] else { fatalError("not implemented") }
+      return module.append(module.makeLoad(s, anchoredAt: e.site), to: insertionBlock!)[0]
 
-      fatalError("not implemented")
-
-    case .member:
-      fatalError("not implemented")
+    case .member(let d):
+      return emitRValue(memberExpr: e, declaredBy: d, into: &module)
 
     case .builtinFunction:
       fatalError("not implemented")
@@ -652,6 +648,51 @@ public struct Emitter {
     case .builtinType:
       fatalError("not implemented")
     }
+  }
+
+  private mutating func emitRValue(
+    memberExpr e: NameExpr.Typed,
+    declaredBy d: AnyDeclID.TypedNode,
+    into module: inout Module
+  ) -> Operand {
+    switch d.kind {
+    case VarDecl.self:
+      return emitRValue(memberBinding: e, declaredBy: .init(d)!, into: &module)
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Emits the IR for consuming a stored binding `e` at the end of `self.insertionBlock`.
+  ///
+  /// - Requires: `m.decl` is a `VarDecl`.
+  private mutating func emitRValue(
+    memberBinding e: NameExpr.Typed,
+    declaredBy d: VarDecl.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let base: Operand
+    let propertyIndex: Int
+
+    // Member reference without a domain expression are implicitly bound to `self`.
+    if let domain = e.domainExpr {
+      base = emitLValue(domain, into: &module)
+      propertyIndex = AbstractTypeLayout(of: domain.type, definedIn: program)
+        .offset(of: d.baseName)!
+    } else {
+      base = frames[receiver!]!
+
+      let receiverType = ParameterType(receiver!.type)!
+      propertyIndex = AbstractTypeLayout(of: receiverType.bareType, definedIn: program)
+        .offset(of: d.baseName)!
+    }
+
+    let s = module.append(
+      module.makeElementAddr(base, at: [propertyIndex], anchoredAt: e.site),
+      to: insertionBlock!)[0]
+    return module.append(
+      module.makeLoad(s, anchoredAt: e.site),
+      to: insertionBlock!)[0]
   }
 
   private mutating func emitRValue(
