@@ -229,7 +229,7 @@ public struct Module {
     let declType = LambdaType(d.type)!
     let parameters = declType.inputs.map({ ParameterType($0.type)!.asIRFunctionInput() })
 
-    let f = Function.ID(d.id)
+    let f = Function.ID(initializer: d.id)
     assert(functions[f] == nil)
     functions[f] = Function(
       name: "",

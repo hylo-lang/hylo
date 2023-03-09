@@ -827,7 +827,8 @@ public struct Emitter {
 
     case .direct(let d) where d.kind == InitializerDecl.self:
       // Callee is a direct reference to an initializer declaration.
-      fatalError("not implemented")
+      let ref = FunctionRef(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
+      return (.constant(.function(ref)), [])
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.

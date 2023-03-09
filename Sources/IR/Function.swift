@@ -86,8 +86,11 @@ extension Function {
     /// The value of a function IR identity.
     private enum Value: Hashable {
 
-      /// The identity of a lowered Val function or method variant.
+      /// The identity of a lowered Val function, initializer, or method variant.
       case lowered(AnyNodeID)
+
+      /// The identity of an initializer's constructor form.
+      case constructor(InitializerDecl.ID)
 
       /// The identity of a requirement synthesized for some type.
       ///
@@ -105,9 +108,14 @@ extension Function {
       self.value = .lowered(AnyNodeID(f))
     }
 
-    /// Creates the identity of the lowered form of `f`.
-    public init(_ f: InitializerDecl.ID) {
+    /// Creates the identity of the lowered form of `f` used as an initializer.
+    public init(initializer f: InitializerDecl.ID) {
       self.value = .lowered(AnyNodeID(f))
+    }
+
+    /// Creates the identity of the lowered form of `f` used as a constructor.
+    public init(constructor f: InitializerDecl.ID) {
+      self.value = .constructor(f)
     }
 
     /// Creates the identity of synthesized requirement `r` for type `t`.
@@ -123,8 +131,10 @@ extension Function.ID: CustomStringConvertible {
 
   public var description: String {
     switch value {
-    case .lowered(let id):
-      return "\(id).lowered"
+    case .lowered(let d):
+      return "\(d).lowered"
+    case .constructor(let d):
+      return "\(d).constructor"
     case .synthesized(let r, let t):
       return "\"synthesized \(r) for \(t)\""
     }
