@@ -31,6 +31,9 @@ let package = Package(
       url: "https://github.com/attaswift/BigInt.git",
       from: "5.3.0"),
     .package(
+      url: "https://github.com/val-lang/Swifty-LLVM",
+      branch: "main"),
+    .package(
       url: "https://github.com/val-lang/swift-format",
       branch: "main"),
   ],
