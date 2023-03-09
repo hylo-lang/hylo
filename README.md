@@ -8,7 +8,7 @@ Please visit our [website](https://val-lang.dev) to get more information about t
 ## Installation
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
-You will need Swift 5.6 or higher to build the compiler from sources.
+You will need Swift 5.7 or higher to build the compiler from sources.
 
 *Note to Windows users: although this project is **not** Unix-specific, Windows support has been put on hold due to the instability of continuous integration (see https://github.com/val-lang/val/issues/252).*
 
