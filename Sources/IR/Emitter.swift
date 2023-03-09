@@ -52,7 +52,7 @@ public struct Emitter {
 
     switch d.kind {
     case ConformanceDecl.self:
-      break
+      emit(conformanceDecl: ConformanceDecl.Typed(d)!, into: &module)
     case FunctionDecl.self:
       emit(functionDecl: FunctionDecl.Typed(d)!, into: &module)
     case OperatorDecl.self:
@@ -65,6 +65,22 @@ public struct Emitter {
       break
     default:
       unexpected(d)
+    }
+  }
+
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(conformanceDecl d: ConformanceDecl.Typed, into module: inout Module) {
+    for member in d.members {
+      switch member.kind {
+      case FunctionDecl.self:
+        emit(functionDecl: .init(member)!, into: &module)
+      case InitializerDecl.self:
+        emit(initializerDecl: .init(member)!, into: &module)
+      case SubscriptDecl.self:
+        emit(subscriptDecl: .init(member)!, into: &module)
+      default:
+        continue
+      }
     }
   }
 
@@ -137,6 +153,7 @@ public struct Emitter {
     initializerDecl d: InitializerDecl.Typed,
     into module: inout Module
   ) {
+    if d.isMemberwise { return }
     let f = module.initializerDeclaration(lowering: d)
 
     assert(module.functions[f]!.blocks.isEmpty)
@@ -168,19 +185,13 @@ public struct Emitter {
   /// Inserts the IR for `decl` into `module`.
   private mutating func emit(productDecl decl: ProductTypeDecl.Typed, into module: inout Module) {
     for member in decl.members {
-      // Emit the member functions and subscripts of the type declaration.
       switch member.kind {
       case FunctionDecl.self:
-        emit(functionDecl: FunctionDecl.Typed(member)!, into: &module)
-
+        emit(functionDecl: .init(member)!, into: &module)
       case InitializerDecl.self:
-        let d = InitializerDecl.Typed(member)!
-        if d.isMemberwise { continue }
-        emit(initializerDecl: d, into: &module)
-
+        emit(initializerDecl: .init(member)!, into: &module)
       case SubscriptDecl.self:
-        emit(subscriptDecl: SubscriptDecl.Typed(member)!, into: &module)
-
+        emit(subscriptDecl: .init(member)!, into: &module)
       default:
         continue
       }
