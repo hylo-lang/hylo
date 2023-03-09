@@ -17,11 +17,7 @@ final class CXXTests: XCTestCase {
 
         let typedProgram = try TypedProgram(ast, diagnostics: &diagnostics)
 
-        // TODO: Run IR transform passes
-
-        // Transpile the module.
-        let transpiler = CXXTranspiler(typedProgram)
-        let cxxCode = transpiler.cxx(typedProgram[module]).code()
+        let cxxCode = typedProgram.cxx(typedProgram[module]).text
 
         return cxxAnnotations.compactMap { a in
           let expectedCXX = a.argument!.removingTrailingNewlines()
