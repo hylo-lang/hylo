@@ -51,6 +51,8 @@ public struct Emitter {
     defer { swap(&self.diagnostics, &diagnostics) }
 
     switch d.kind {
+    case ConformanceDecl.self:
+      break
     case FunctionDecl.self:
       emit(functionDecl: FunctionDecl.Typed(d)!, into: &module)
     case OperatorDecl.self:
@@ -58,6 +60,8 @@ public struct Emitter {
     case ProductTypeDecl.self:
       emit(productDecl: ProductTypeDecl.Typed(d)!, into: &module)
     case TraitDecl.self:
+      break
+    case TypeAliasDecl.self:
       break
     default:
       unexpected(d)
