@@ -51,6 +51,8 @@ public struct Emitter {
     defer { swap(&self.diagnostics, &diagnostics) }
 
     switch d.kind {
+    case ConformanceDecl.self:
+      break
     case FunctionDecl.self:
       emit(functionDecl: FunctionDecl.Typed(d)!, into: &module)
     case OperatorDecl.self:
@@ -58,6 +60,8 @@ public struct Emitter {
     case ProductTypeDecl.self:
       emit(productDecl: ProductTypeDecl.Typed(d)!, into: &module)
     case TraitDecl.self:
+      break
+    case TypeAliasDecl.self:
       break
     default:
       unexpected(d)
@@ -128,6 +132,34 @@ public struct Emitter {
     assert(frames.isEmpty)
   }
 
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(
+    initializerDecl d: InitializerDecl.Typed,
+    into module: inout Module
+  ) {
+    let f = module.initializerDeclaration(lowering: d)
+
+    assert(module.functions[f]!.blocks.isEmpty)
+    let entry = module.appendBlock(taking: module.functions[f]!.inputs.map(\.type), to: f)
+    insertionBlock = entry
+
+    // Configure the locals.
+    var locals = TypedDeclProperty<Operand>()
+    locals[d.receiver] = .parameter(entry, 0)
+    for (i, parameter) in d.parameters.enumerated() {
+      locals[parameter] = .parameter(entry, i + 1)
+    }
+
+    // Emit the body.
+    frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
+    var currentFunctionReceiver: Optional = program[d.receiver]
+    swap(&currentFunctionReceiver, &receiver)
+    emit(stmt: d.body!, into: &module)
+    swap(&currentFunctionReceiver, &self.receiver)
+    frames.pop()
+    assert(frames.isEmpty)
+  }
+
   /// Inserts the IR for `decl` into `module`.
   private mutating func emit(subscriptDecl decl: SubscriptDecl.Typed, into module: inout Module) {
     fatalError("not implemented")
@@ -142,8 +174,9 @@ public struct Emitter {
         emit(functionDecl: FunctionDecl.Typed(member)!, into: &module)
 
       case InitializerDecl.self:
-        if InitializerDecl.Typed(member)!.isMemberwise { continue }
-        fatalError("not implemented")
+        let d = InitializerDecl.Typed(member)!
+        if d.isMemberwise { continue }
+        emit(initializerDecl: d, into: &module)
 
       case SubscriptDecl.self:
         emit(subscriptDecl: SubscriptDecl.Typed(member)!, into: &module)
@@ -559,15 +592,16 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     if case .builtinFunction(let f) = NameExpr.Typed(expr.callee)?.decl {
-      return emit(builtinFunctionCallTo: f, with: expr.arguments, at: expr.site, into: &module)
+      return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
     }
 
     // Callee must have a lambda type.
     let calleeType = LambdaType(expr.callee.type)!
 
     // Arguments are evaluated first, from left to right.
-    let arguments: [Operand] = zip(calleeType.inputs, expr.arguments).map { (p, a) in
-      emit(argument: program[a.value], to: ParameterType(p.type)!, into: &module)
+    var arguments: [Operand] = []
+    for (p, a) in zip(calleeType.inputs, expr.arguments) {
+      arguments.append(emit(argument: program[a.value], to: ParameterType(p.type)!, into: &module))
     }
     let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
 
@@ -579,17 +613,15 @@ public struct Emitter {
   /// Emits the IR of a call to `f` with given `arguments` at `site` into `module`, inserting
   /// instructions at the end of `self.insertionBlock`.
   private mutating func emit(
-    builtinFunctionCallTo f: BuiltinFunction,
-    with arguments: [LabeledArgument],
+    apply f: BuiltinFunction,
+    to arguments: [LabeledArgument],
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
+    var a: [Operand] = []
+    for e in arguments { a.append(emitRValue(program[e.value], into: &module)) }
     return module.append(
-      module.makeLLVM(
-        applying: f,
-        to: arguments.map({ (a) in emitRValue(program[a.value], into: &module) }),
-        anchoredAt: site),
-      to: insertionBlock!)[0]
+      module.makeLLVM(applying: f, to: a, anchoredAt: site), to: insertionBlock!)[0]
   }
 
   private mutating func emitRValue(
@@ -603,20 +635,16 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(
-    name expr: NameExpr.Typed,
+    name e: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch expr.decl {
-    case .direct(let declID):
-      // Lookup for a local symbol.
-      if let s = frames[declID] {
-        return module.append(module.makeLoad(s, anchoredAt: expr.site), to: insertionBlock!)[0]
-      }
+    switch e.decl {
+    case .direct(let d):
+      guard let s = frames[d] else { fatalError("not implemented") }
+      return module.append(module.makeLoad(s, anchoredAt: e.site), to: insertionBlock!)[0]
 
-      fatalError("not implemented")
-
-    case .member:
-      fatalError("not implemented")
+    case .member(let d):
+      return emitRValue(memberExpr: e, declaredBy: d, into: &module)
 
     case .builtinFunction:
       fatalError("not implemented")
@@ -624,6 +652,51 @@ public struct Emitter {
     case .builtinType:
       fatalError("not implemented")
     }
+  }
+
+  private mutating func emitRValue(
+    memberExpr e: NameExpr.Typed,
+    declaredBy d: AnyDeclID.TypedNode,
+    into module: inout Module
+  ) -> Operand {
+    switch d.kind {
+    case VarDecl.self:
+      return emitRValue(memberBinding: e, declaredBy: .init(d)!, into: &module)
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Emits the IR for consuming a stored binding `e` at the end of `self.insertionBlock`.
+  ///
+  /// - Requires: `m.decl` is a `VarDecl`.
+  private mutating func emitRValue(
+    memberBinding e: NameExpr.Typed,
+    declaredBy d: VarDecl.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let base: Operand
+    let propertyIndex: Int
+
+    // Member reference without a domain expression are implicitly bound to `self`.
+    if let domain = e.domainExpr {
+      base = emitLValue(domain, into: &module)
+      propertyIndex = AbstractTypeLayout(of: domain.type, definedIn: program)
+        .offset(of: d.baseName)!
+    } else {
+      base = frames[receiver!]!
+
+      let receiverType = ParameterType(receiver!.type)!
+      propertyIndex = AbstractTypeLayout(of: receiverType.bareType, definedIn: program)
+        .offset(of: d.baseName)!
+    }
+
+    let s = module.append(
+      module.makeElementAddr(base, at: [propertyIndex], anchoredAt: e.site),
+      to: insertionBlock!)[0]
+    return module.append(
+      module.makeLoad(s, anchoredAt: e.site),
+      to: insertionBlock!)[0]
   }
 
   private mutating func emitRValue(
@@ -758,7 +831,8 @@ public struct Emitter {
 
     case .direct(let d) where d.kind == InitializerDecl.self:
       // Callee is a direct reference to an initializer declaration.
-      fatalError("not implemented")
+      let ref = FunctionRef(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
+      return (.constant(.function(ref)), [])
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.

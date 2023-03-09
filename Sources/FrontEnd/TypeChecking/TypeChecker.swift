@@ -1705,29 +1705,20 @@ public struct TypeChecker {
 
       // Determine how the declaration is being referenced.
       let reference: DeclRef =
-        isInMemberContext && program.isMember(match)
+        isInMemberContext && program.isNonStaticMember(match)
         ? .member(match)
         : .direct(match)
 
       // Instantiate the type of the declaration
       let c = ConstraintOrigin(.binding, at: name.site)
+      let t: InstantiatedType
       switch reference {
-      case .direct(let d):
-        candidates.append(
-          .init(
-            reference: reference,
-            type: instantiate(targetType, in: program.scopeIntroducing(d), cause: c)))
-
-      case .member(let d):
-        candidates.append(
-          .init(
-            reference: reference,
-            type: instantiate(targetType, in: program.scopeIntroducing(d), cause: c)))
-
+      case .direct(let d), .member(let d):
+        t = instantiate(targetType, in: program.scopeIntroducing(d), cause: c)
       case .builtinFunction, .builtinType:
-        candidates.append(
-          .init(reference: reference, type: .init(shape: targetType, constraints: [])))
+        t = .init(shape: targetType, constraints: [])
       }
+      candidates.append(.init(reference: reference, type: t))
     }
 
     // If there are no candidates left, diagnose an error.
