@@ -144,7 +144,9 @@ public struct Module {
     reportingDiagnosticsInto log: inout DiagnosticSet
   ) throws {
     func run(_ pass: (Function.ID) -> Void) throws {
-      functions.keys.forEach(pass)
+      for (k, f) in functions where f.entry != nil {
+        pass(k)
+      }
       try log.throwOnError()
     }
 
