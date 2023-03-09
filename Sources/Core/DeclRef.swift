@@ -4,7 +4,7 @@ public enum DeclRef: Hashable {
   /// A direct reference.
   case direct(AnyDeclID)
 
-  /// A reference to a member declaration bound to `self`.
+  /// A reference to a declaration bound to a receiver.
   case member(AnyDeclID)
 
   /// A reference to a built-in function.

@@ -65,14 +65,6 @@ public struct ValCommand: ParsableCommand {
 
   }
 
-  /// An error indicating that the compiler's environment is not properly configured.
-  private struct EnvironmentError: Error {
-
-    /// The error's message.
-    let message: String
-
-  }
-
   public static let configuration = CommandConfiguration(commandName: "valc")
 
   @Flag(
@@ -173,7 +165,6 @@ public struct ValCommand: ParsableCommand {
     }
 
     let productName = makeProductName(inputs)
-
     var ast = AST.coreModule
 
     // The module whose Val files were given on the command-line
@@ -192,12 +183,18 @@ public struct ValCommand: ParsableCommand {
 
     // IR
 
-    var sourceIR = try IR.Module(lowering: sourceModule, in: program, diagnostics: &diagnostics)
-    if outputType != .rawIR {
-      try sourceIR.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
+    var irProgram: [ModuleDecl.ID: IR.Module] = [:]
+    for m in ast.modules {
+      var ir = try IR.Module(lowering: m, in: program, diagnostics: &diagnostics)
+      if outputType != .rawIR {
+        try ir.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
+      }
+      irProgram[m] = ir
     }
+
     if outputType == .ir || outputType == .rawIR {
-      try sourceIR.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
+      try irProgram[sourceModule]!.description
+        .write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
 
@@ -321,45 +318,37 @@ public struct ValCommand: ParsableCommand {
 
   /// Returns the path of the specified executable.
   private func find(_ executable: String) throws -> String {
-    // Nothing to do if `executable` is a path
-    if executable.contains("/") {
-      return executable
-    }
-
-    // Check the cache.
-    if let path = ValCommand.executableLocationCache[executable] {
-      return path
-    }
+    if let path = ValCommand.executableLocationCache[executable] { return path }
 
     // Search in the current working directory.
-    var candidateURL = currentDirectory.appendingPathComponent(executable)
-    if FileManager.default.fileExists(atPath: candidateURL.path) {
-      ValCommand.executableLocationCache[executable] = candidateURL.path
-      return candidateURL.path
+    var candidate = currentDirectory.appendingPathComponent(executable)
+    if FileManager.default.fileExists(atPath: candidate.path) {
+      ValCommand.executableLocationCache[executable] = candidate.path
+      return candidate.path
     }
 
-    // Search in the PATH(for Windows).
+    // Search in the PATH.
     #if os(Windows)
-      let environmentPath = ProcessInfo.processInfo.environment["Path"] ?? ""
-      for bareType in environmentPath.split(separator: ";") {
-        candidateURL = URL(fileURLWithPath: String(bareType)).appendingPathComponent(executable)
-        if FileManager.default.fileExists(atPath: candidateURL.path + ".exe") {
-          ValCommand.executableLocationCache[executable] = candidateURL.path
-          return candidateURL.path
+      let environment = ProcessInfo.processInfo.environment["Path"] ?? ""
+      for base in environment.split(separator: ";") {
+        candidate = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+        if FileManager.default.fileExists(atPath: candidate.path + ".exe") {
+          cache[executable] = candidate.path
+          return candidate.path
         }
       }
-    // Search in the PATH(for Linux and MacOS).
     #else
-      let environmentPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
-      for bareType in environmentPath.split(separator: ":") {
-        candidateURL = URL(fileURLWithPath: String(bareType)).appendingPathComponent(executable)
-        if FileManager.default.fileExists(atPath: candidateURL.path) {
-          ValCommand.executableLocationCache[executable] = candidateURL.path
-          return candidateURL.path
+      let environment = ProcessInfo.processInfo.environment["PATH"] ?? ""
+      for base in environment.split(separator: ":") {
+        candidate = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+        if FileManager.default.fileExists(atPath: candidate.path) {
+          ValCommand.executableLocationCache[executable] = candidate.path
+          return candidate.path
         }
       }
     #endif
-    throw EnvironmentError(message: "executable not found: \(executable)")
+
+    throw EnvironmentError("executable not found: \(executable)")
   }
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
