@@ -185,19 +185,13 @@ public struct Emitter {
   /// Inserts the IR for `decl` into `module`.
   private mutating func emit(productDecl decl: ProductTypeDecl.Typed, into module: inout Module) {
     for member in decl.members {
-      // Emit the member functions and subscripts of the type declaration.
       switch member.kind {
       case FunctionDecl.self:
-        emit(functionDecl: FunctionDecl.Typed(member)!, into: &module)
-
+        emit(functionDecl: .init(member)!, into: &module)
       case InitializerDecl.self:
-        let d = InitializerDecl.Typed(member)!
-        if d.isMemberwise { continue }
-        emit(initializerDecl: d, into: &module)
-
+        emit(initializerDecl: .init(member)!, into: &module)
       case SubscriptDecl.self:
-        emit(subscriptDecl: SubscriptDecl.Typed(member)!, into: &module)
-
+        emit(subscriptDecl: .init(member)!, into: &module)
       default:
         continue
       }
