@@ -1,20 +1,28 @@
 //! expect-failure
 
-fun f<X>(_ x0: sink X, _ x1: sink { b: X }) {}
+fun f<X, Y>(_ x: sink X, _ y: sink Y) -> X { x }
 
-fun g<X, Y>(_ x: sink X, _ y: sink Y) -> X { x }
+fun g<X>(_ a: X, _ b: X) -> X {}
 
-fun h<X>(_ a: X, _ b: X) -> X {}
+fun h<X>(_ x0: sink X, _ x1: sink { b: X }) {}
+
+fun check<T>(_ x: T) {}
 
 public fun main() {
-  f((), (b: ()))
-  f((a: ()), (b: ())) //! diagnostic tuples have different lengths
+  let x0 = f(true, 42)
+  check<Bool>(x0)
 
-  g(true, 42)         //! diagnostic unused result of type 'Bool'
-  g(42, true)         //! diagnostic unused result of type 'Int'
+  let x1 = f(42, true)
+  check<Int>(x1)
 
-  let x0 = h(0, 42 as Double)
-  let x1: Double = x0
+  let x2 = g(0, 42 as Double)
+  check<Double>(x2)
 
-  f<Int>(0, (b: x1))  //! diagnostic incompatible types 'Double' and 'Int'
+  h((), (b: ()))
+
+  //! @+1 diagnostic cannot pass value of type '{a: {}}' to parameter 'sink {}'
+  h((a: ()), (b: ()))
+
+  //! @+1 diagnostic cannot pass value of type '{b: Double}' to parameter 'sink {b: Int}'
+  h<Int>(0, (b: x2))
 }

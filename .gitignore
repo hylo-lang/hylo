@@ -15,3 +15,15 @@
 /Sources/Parser/**
 !/Sources/Parser/Val.g4
 !/Sources/Parser/ValParser+Extensions.swift
+
+# Windows
+/Examples/**.exe
+/Examples/**.obj
+
+# Misc
+/Examples/**.vir
+/Examples/**.json
+/Examples/**.cpp
+/Examples/**.h
+/Examples/**.ilk
+/Examples/**.pdb

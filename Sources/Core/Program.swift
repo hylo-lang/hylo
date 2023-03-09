@@ -10,11 +10,14 @@ public protocol Program {
   /// A map from scope to the declarations directly contained in them.
   var scopeToDecls: ASTProperty<[AnyDeclID]> { get }
 
-  /// A map from declaration to its scope.
+  /// A map from declaration to the innermost scope that contains it.
   var declToScope: DeclProperty<AnyScopeID> { get }
 
+  /// A map from name expression to the innermost scope that contains it.
+  var exprToScope: [NameExpr.ID: AnyScopeID] { get }
+
   /// A map from variable declaration its containing binding declaration.
-  var varToBinding: [NodeID<VarDecl>: NodeID<BindingDecl>] { get }
+  var varToBinding: [VarDecl.ID: BindingDecl.ID] { get }
 
 }
 
@@ -51,9 +54,12 @@ extension Program {
 
   /// Returns the scope introducing `d`.
   public func scopeIntroducing(_ d: AnyDeclID) -> AnyScopeID {
-    if d.kind == InitializerDecl.self {
+    switch d.kind {
+    case InitializerDecl.self:
       return scopeToParent[declToScope[d]!]!
-    } else {
+    case ModuleDecl.self:
+      return AnyScopeID(ModuleDecl.ID(d)!)
+    default:
       return declToScope[d]!
     }
   }
@@ -97,16 +103,16 @@ extension Program {
     // Static member declarations and initializers are global.
     switch decl.kind {
     case BindingDecl.self:
-      return ast[NodeID<BindingDecl>(decl)!].isStatic
+      return ast[BindingDecl.ID(decl)!].isStatic
 
     case FunctionDecl.self:
-      return ast[NodeID<FunctionDecl>(decl)!].isStatic
+      return ast[FunctionDecl.ID(decl)!].isStatic
 
     case InitializerDecl.self:
       return true
 
     case SubscriptDecl.self:
-      return ast[NodeID<SubscriptDecl>(decl)!].isStatic
+      return ast[SubscriptDecl.ID(decl)!].isStatic
 
     default:
       return false
@@ -135,12 +141,12 @@ extension Program {
   }
 
   /// Returns whether `decl` is a non-static member of a type declaration.
-  public func isNonStaticMember(_ decl: NodeID<FunctionDecl>) -> Bool {
+  public func isNonStaticMember(_ decl: FunctionDecl.ID) -> Bool {
     !ast[decl].isStatic && isMember(decl)
   }
 
   /// Returns whether `decl` is a non-static member of a type declaration.
-  public func isNonStaticMember(_ decl: NodeID<SubscriptDecl>) -> Bool {
+  public func isNonStaticMember(_ decl: SubscriptDecl.ID) -> Bool {
     !ast[decl].isStatic && isMember(decl)
   }
 
@@ -155,9 +161,27 @@ extension Program {
     case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
       return declToScope[decl]!.kind == TraitDecl.self
     case MethodImpl.self:
-      return isRequirement(NodeID<MethodDecl>(declToScope[decl]!)!)
+      return isRequirement(MethodDecl.ID(declToScope[decl]!)!)
     case SubscriptImpl.self:
-      return isRequirement(NodeID<SubscriptDecl>(declToScope[decl]!)!)
+      return isRequirement(SubscriptDecl.ID(declToScope[decl]!)!)
+    default:
+      return false
+    }
+  }
+
+  /// Returns whether requirement `requirement` is a synthesizable.
+  ///
+  /// Only the requirements of the core `Sinkable` and `Copyable` traits are synthesizable.
+  public func isSynthesizable<T: DeclID>(_ requirement: T) -> Bool {
+    guard let s = innermostType(containing: requirement).map(TraitDecl.ID.init(_:)) else {
+      return false
+    }
+
+    switch s {
+    case ast.coreTrait(named: "Sinkable")?.decl:
+      return true
+    case ast.coreTrait(named: "Copyable")?.decl:
+      return true
     default:
       return false
     }
@@ -167,17 +191,13 @@ extension Program {
   public func isMemberContext<S: ScopeID>(_ scope: S) -> Bool {
     switch scope.kind {
     case FunctionDecl.self:
-      return isNonStaticMember(NodeID<FunctionDecl>(scope)!)
-
+      return isNonStaticMember(FunctionDecl.ID(scope)!)
     case SubscriptDecl.self:
-      return isNonStaticMember(NodeID<SubscriptDecl>(scope)!)
-
+      return isNonStaticMember(SubscriptDecl.ID(scope)!)
     case MethodDecl.self, InitializerDecl.self:
       return true
-
     case ModuleDecl.self:
       return false
-
     default:
       return isMemberContext(scopeToParent[scope]!)
     }
@@ -185,16 +205,24 @@ extension Program {
 
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
   public func scopes<S: ScopeID>(from scope: S) -> LexicalScopeSequence {
-    LexicalScopeSequence(scopeToParent: scopeToParent, current: AnyScopeID(scope))
+    LexicalScopeSequence(scopeToParent: scopeToParent, from: scope)
+  }
+
+  /// Returns the innermost type scope containing `d`.
+  public func innermostType<T: DeclID>(containing d: T) -> AnyScopeID? {
+    scopes(from: declToScope[d]!).first(where: { $0.kind.value is TypeScope.Type })
   }
 
   /// Returns the module containing `scope`.
-  public func module<S: ScopeID>(containing scope: S) -> NodeID<ModuleDecl>? {
-    var last = AnyScopeID(scope)
-    while let parent = scopeToParent[last] {
-      last = parent
-    }
-    return NodeID(last)
+  public func module<S: ScopeID>(containing scope: S) -> ModuleDecl.ID {
+    scopes(from: scope).first(ModuleDecl.self)!
+  }
+
+  /// Returns the translation unit containing `scope`.
+  ///
+  /// - Requires:`scope` is not a module.
+  public func source<S: ScopeID>(containing scope: S) -> TranslationUnit.ID {
+    scopes(from: scope).first(TranslationUnit.self)!
   }
 
 }

@@ -13,22 +13,22 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
   public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The names of traits to which the type conforms.
-  public let conformances: [NodeID<NameExpr>]
+  public let conformances: [NameExpr.ID]
 
   /// The member declarations in the lexical scope of the trait.
   public let members: [AnyDeclID]
 
   /// The memberwise initializer of the type.
-  public let memberwiseInit: NodeID<InitializerDecl>
+  public let memberwiseInit: InitializerDecl.ID
 
   /// Creates an instance with the given properties.
   public init(
     accessModifier: SourceRepresentable<AccessModifier>?,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
-    conformances: [NodeID<NameExpr>],
+    conformances: [NameExpr.ID],
     members: [AnyDeclID],
-    memberwiseInit: NodeID<InitializerDecl>,
+    memberwiseInit: InitializerDecl.ID,
     site: SourceRange
   ) {
     precondition(members.contains(AnyDeclID(memberwiseInit)))

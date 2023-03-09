@@ -6,16 +6,12 @@ public struct TypeVariable: TypeProtocol {
   /// The identifier of the variable.
   public let id: Int
 
-  /// The AST node associated with this type variable, if any.
-  public let node: Incidental<AnyNodeID?>
-
   public let flags: TypeFlags = [.isCanonical, .hasVariable]
 
-  /// Creates a new type variable, optionally associated with the specified node.
-  public init(node: AnyNodeID? = nil) {
+  /// Creates a new type variable.
+  public init() {
     defer { TypeVariable.nextID += 1 }
     self.id = TypeVariable.nextID
-    self.node = Incidental(node)
   }
 
   /// The next type variable identifier.

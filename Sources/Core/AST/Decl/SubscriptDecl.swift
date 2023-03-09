@@ -32,18 +32,18 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   public let genericClause: SourceRepresentable<GenericClause>?
 
   /// The explicit capture declarations of the subscript.
-  public let explicitCaptures: [NodeID<BindingDecl>]
+  public let explicitCaptures: [BindingDecl.ID]
 
   /// The parameters of the subscript, unless the declaration denotes a computed property.
   ///
   /// These declarations must have a type annotation.
-  public let parameters: [NodeID<ParameterDecl>]?
+  public let parameters: [ParameterDecl.ID]?
 
   /// The output type annotation of the subscript.
   public let output: AnyTypeExprID
 
   /// The implementations of the subscript.
-  public let impls: [NodeID<SubscriptImpl>]
+  public let impls: [SubscriptImpl.ID]
 
   /// Creates an instance with the given properties.
   public init(
@@ -53,10 +53,10 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     memberModifier: SourceRepresentable<MemberModifier>?,
     identifier: SourceRepresentable<Identifier>?,
     genericClause: SourceRepresentable<GenericClause>?,
-    explicitCaptures: [NodeID<BindingDecl>],
-    parameters: [NodeID<ParameterDecl>]?,
+    explicitCaptures: [BindingDecl.ID],
+    parameters: [ParameterDecl.ID]?,
     output: AnyTypeExprID,
-    impls: [NodeID<SubscriptImpl>],
+    impls: [SubscriptImpl.ID],
     site: SourceRange
   ) {
     self.site = site

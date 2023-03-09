@@ -13,10 +13,10 @@ public struct AST {
     /// The indices of the modules.
     ///
     /// - Invariant: All referred modules have a different name.
-    public var modules: [NodeID<ModuleDecl>] = []
+    public var modules: [ModuleDecl.ID] = []
 
     /// The ID of the module containing Val's core library, if any.
-    public var corelib: NodeID<ModuleDecl>?
+    public var coreLibrary: ModuleDecl.ID?
   }
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
@@ -32,31 +32,31 @@ public struct AST {
   /// The indices of the modules.
   ///
   /// - Invariant: All referred modules have a different name.
-  public private(set) var modules: [NodeID<ModuleDecl>] {
+  public private(set) var modules: [ModuleDecl.ID] {
     get { storage.modules }
     set { storage.modules = newValue }
     _modify { yield &storage.modules }
   }
 
   /// The ID of the module containing Val's core library, if any.
-  public var corelib: NodeID<ModuleDecl>? {
-    get { storage.corelib }
-    set { storage.corelib = newValue }
-    _modify { yield &storage.corelib }
+  public var coreLibrary: ModuleDecl.ID? {
+    get { storage.coreLibrary }
+    set { storage.coreLibrary = newValue }
+    _modify { yield &storage.coreLibrary }
   }
 
   /// Creates an empty AST.
   public init() {}
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
-  public mutating func insert<T: Node>(_ n: T, diagnostics: inout DiagnosticSet) -> NodeID<T> {
+  public mutating func insert<T: Node>(_ n: T, diagnostics: inout DiagnosticSet) -> T.ID {
     n.validateForm(in: self, into: &diagnostics)
 
-    let i = NodeID<T>(rawValue: nodes.count)
+    let i = T.ID(rawValue: nodes.count)
     if let n = n as? ModuleDecl {
       precondition(
         !modules.contains(where: { self[$0].baseName == n.baseName }), "duplicate module")
-      modules.append(i as! NodeID<ModuleDecl>)
+      modules.append(i as! ModuleDecl.ID)
     }
     nodes.append(AnyNode(n))
     return i
@@ -65,7 +65,7 @@ public struct AST {
   /// Inserts `n` into `self`.
   ///
   /// - Precondition: `n` is well formed.
-  public mutating func insert<T: Node>(synthesized n: T) -> NodeID<T> {
+  public mutating func insert<T: Node>(synthesized n: T) -> T.ID {
     var d = DiagnosticSet()
     let r = insert(n, diagnostics: &d)
     precondition(d.elements.isEmpty, "ill-formed synthesized node \(n)\n\(d)")
@@ -108,7 +108,7 @@ public struct AST {
   // MARK: Core library
 
   /// Indicates whether the Core library has been loaded.
-  public var isCoreModuleLoaded: Bool { corelib != nil }
+  public var isCoreModuleLoaded: Bool { coreLibrary != nil }
 
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
   ///
@@ -116,8 +116,8 @@ public struct AST {
   public func coreType(named name: String) -> ProductType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(corelib!) where id.kind == ProductTypeDecl.self {
-      let id = NodeID<ProductTypeDecl>(id)!
+    for id in topLevelDecls(coreLibrary!) where id.kind == ProductTypeDecl.self {
+      let id = ProductTypeDecl.ID(id)!
       if self[id].baseName == name {
         return ProductType(id, ast: self)
       }
@@ -126,14 +126,14 @@ public struct AST {
     return nil
   }
 
-  /// Returns the trait named `name` defined in the core library or `nil` if it doesn not exist.
+  /// Returns the trait named `name` defined in the core library or `nil` if it does not exist.
   ///
-  /// - Requires: The core library must be loaded and assigned to `self.corelib`.
+  /// - Requires: The Core library must have been loaded.
   public func coreTrait(named name: String) -> TraitType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(corelib!) where id.kind == TraitDecl.self {
-      let id = NodeID<TraitDecl>(id)!
+    for id in topLevelDecls(coreLibrary!) where id.kind == TraitDecl.self {
+      let id = TraitDecl.ID(id)!
       if self[id].baseName == name {
         return TraitType(id, ast: self)
       }
@@ -142,39 +142,54 @@ public struct AST {
     return nil
   }
 
+  /// Returns the trait describing types whose instances are expressible by this literal or `nil`
+  /// if it does not exist.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public func coreTrait<T: Expr>(forTypesExpressibleBy literal: T.Type) -> TraitType? {
+    switch literal.kind {
+    case FloatLiteralExpr.self:
+      return coreTrait(named: "ExpressibleByFloatLiteral")
+    case IntegerLiteralExpr.self:
+      return coreTrait(named: "ExpressibleByIntegerLiteral")
+    default:
+      return nil
+    }
+  }
+
+  /// `Val.Sinkable` trait from the Core library.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public var sinkableTrait: TraitType { coreTrait(named: "Sinkable")! }
+
   // MARK: Helpers
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
-  public func topLevelDecls(_ module: NodeID<ModuleDecl>) -> some Collection<AnyDeclID> {
+  public func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
     self[self[module].sources].map(\.decls).joined()
   }
 
-  /// Returns the IDs of the named patterns contained in `pattern`.
-  public func names<T: PatternID>(in pattern: T) -> [(path: [Int], pattern: NodeID<NamePattern>)] {
+  /// Returns the paths and IDs of the named patterns contained in `p`.
+  public func names<T: PatternID>(in p: T) -> [(path: PartPath, pattern: NamePattern.ID)] {
     func visit(
       pattern: AnyPatternID,
-      path: [Int],
-      result: inout [(path: [Int], pattern: NodeID<NamePattern>)]
+      path: PartPath,
+      result: inout [(path: PartPath, pattern: NamePattern.ID)]
     ) {
       switch pattern.kind {
       case BindingPattern.self:
-        let p = NodeID<BindingPattern>(pattern)!
-        visit(pattern: self[p].subpattern, path: path, result: &result)
+        visit(pattern: self[BindingPattern.ID(pattern)!].subpattern, path: path, result: &result)
 
       case ExprPattern.self:
         break
 
       case NamePattern.self:
-        let p = NodeID<NamePattern>(pattern)!
-        result.append((path: path, pattern: p))
+        result.append((path: path, pattern: NamePattern.ID(pattern)!))
 
       case TuplePattern.self:
-        let p = NodeID<TuplePattern>(pattern)!
-        for i in 0 ..< self[p].elements.count {
-          visit(
-            pattern: self[p].elements[i].pattern,
-            path: path + [i],
-            result: &result)
+        let x = TuplePattern.ID(pattern)!
+        for i in 0 ..< self[x].elements.count {
+          visit(pattern: self[x].elements[i].pattern, path: path + [i], result: &result)
         }
 
       case WildcardPattern.self:
@@ -185,8 +200,8 @@ public struct AST {
       }
     }
 
-    var result: [(path: [Int], pattern: NodeID<NamePattern>)] = []
-    visit(pattern: AnyPatternID(pattern), path: [], result: &result)
+    var result: [(path: PartPath, pattern: NamePattern.ID)] = []
+    visit(pattern: AnyPatternID(p), path: [], result: &result)
     return result
   }
 

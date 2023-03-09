@@ -8,7 +8,7 @@ final class CXXTests: XCTestCase {
 
   func testTranspiler() throws {
     try checkAnnotatedValFiles(
-      in: "TestCases/CXX", checkingAnnotationCommands: ["cpp", "h"],
+      inSuiteAt: "TestCases/CXX", checkingAnnotationCommands: ["cpp", "h"],
       { (source, cxxAnnotations, diagnostics) in
         // Create a module for the input.
         var ast = AST.coreModule
@@ -21,7 +21,7 @@ final class CXXTests: XCTestCase {
 
         // Transpile the module.
         let transpiler = CXXTranspiler(typedProgram)
-        let cxxCode = transpiler.transpile(typedProgram[module]).code()
+        let cxxCode = transpiler.cxx(typedProgram[module]).code()
 
         return cxxAnnotations.compactMap { a in
           let expectedCXX = a.argument!.removingTrailingNewlines()
@@ -40,29 +40,16 @@ final class CXXTests: XCTestCase {
       })
   }
 
-  func testStdLibGeneration() throws {
-    let ast = AST.coreModule
+  func testCoreLibraryGeneration() throws {
+    let typedProgram = try checkNoDiagnostic { d in
+      try TypedProgram.init(AST.coreModule, diagnostics: &d)
+    }
 
-    // Run the type checker.
-    var checker = TypeChecker(program: ScopedProgram(ast), isBuiltinModuleVisible: true)
-    checker.check(module: ast.corelib!)
-
-    let typedProgram = TypedProgram(
-      annotating: checker.program,
-      declTypes: checker.declTypes,
-      exprTypes: checker.exprTypes,
-      implicitCaptures: checker.implicitCaptures,
-      referredDecls: checker.referredDecls,
-      foldedSequenceExprs: checker.foldedSequenceExprs,
-      relations: checker.relations)
-
-    // Transpile the standard lib module.
-    let transpiler = CXXTranspiler(typedProgram)
-    let cxxCode = transpiler.transpile(stdlib: typedProgram[ast.corelib!]).code()
+    let cxxCode = typedProgram.cxx(typedProgram[AST.coreModule.coreLibrary!]).text
 
     // Read test cases; use .val files just for convenience.
     try checkAnnotatedValFiles(
-      in: "TestCases/CXXStdLib",
+      inSuiteAt: "TestCases/CXXCoreLibrary",
       checkingAnnotationCommands: ["cpp", "h"],
       { (source, cxxAnnotations, diagnostics) in
         return cxxAnnotations.compactMap { a in
@@ -81,4 +68,5 @@ final class CXXTests: XCTestCase {
         }
       })
   }
+
 }

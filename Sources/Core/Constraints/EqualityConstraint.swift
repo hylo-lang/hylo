@@ -1,8 +1,6 @@
 import Utils
 
 /// A constraint `L == R` specifying that `L` is exactly the same type as `R`.
-///
-/// - Note: Equality constraints are commutative.
 public struct EqualityConstraint: Constraint, Hashable {
 
   /// The left operand.
@@ -11,20 +9,20 @@ public struct EqualityConstraint: Constraint, Hashable {
   /// The right operand.
   public private(set) var right: AnyType
 
-  public let cause: ConstraintCause
+  public let origin: ConstraintOrigin
 
   /// Creates an instance with the given properties.
-  public init(_ left: AnyType, _ right: AnyType, because cause: ConstraintCause) {
+  public init(_ left: AnyType, _ right: AnyType, origin: ConstraintOrigin) {
     self.left = left
     self.right = right
-    self.cause = cause
+    self.origin = origin
   }
 
   /// Creates an instance transforming by `constraint`.
   public init(_ constraint: SubtypingConstraint) {
     self.left = constraint.left
     self.right = constraint.right
-    self.cause = constraint.cause
+    self.origin = constraint.origin
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {

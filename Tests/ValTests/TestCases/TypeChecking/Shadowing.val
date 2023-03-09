@@ -6,3 +6,7 @@ fun bar(_ y: Int) {
   let y: Bool = foo(y)  // OK: binds to the parameter
   let z = foo(z)        //! diagnostic undefined name 'z' in this scope
 }
+
+type A {
+  fun foo() { let { _ = foo(2) } }
+}

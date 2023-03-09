@@ -13,7 +13,7 @@ public struct BindingDecl: Decl {
   public let memberModifier: SourceRepresentable<MemberModifier>?
 
   /// The pattern of the declaration.
-  public let pattern: NodeID<BindingPattern>
+  public let pattern: BindingPattern.ID
 
   /// The initializer of the declaration, if any.
   public let initializer: AnyExprID?
@@ -23,7 +23,7 @@ public struct BindingDecl: Decl {
     attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>? = nil,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
-    pattern: NodeID<BindingPattern>,
+    pattern: BindingPattern.ID,
     initializer: AnyExprID?,
     site: SourceRange
   ) {

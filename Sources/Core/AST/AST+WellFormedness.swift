@@ -19,7 +19,7 @@ extension AST {
         .error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
 
     case BindingDecl.self:
-      let d = self[NodeID<BindingDecl>(decl)!]
+      let d = self[BindingDecl.ID(decl)!]
       if let m = d.memberModifier {
         diagnostics.insert(.error(unexpectedMemberModifier: m))
       }
@@ -37,7 +37,7 @@ extension AST {
       break
 
     case FunctionDecl.self:
-      let d = self[NodeID<FunctionDecl>(decl)!]
+      let d = self[FunctionDecl.ID(decl)!]
       if let m = d.memberModifier {
         diagnostics.insert(.error(unexpectedMemberModifier: m))
       }
@@ -79,7 +79,7 @@ extension AST {
       break
 
     case SubscriptDecl.self:
-      let d = self[NodeID<SubscriptDecl>(decl)!]
+      let d = self[SubscriptDecl.ID(decl)!]
       if d.introducer.value != .subscript {
         diagnostics.insert(.error(unexpectedPropertyDecl: d))
       }
@@ -121,7 +121,7 @@ extension AST {
         .error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
 
     case BindingDecl.self:
-      let d = self[NodeID<BindingDecl>(decl)!]
+      let d = self[BindingDecl.ID(decl)!]
       let introducer = self[d.pattern].introducer
       if introducer.value != .let {
         if introducer.value != .var {
@@ -142,7 +142,7 @@ extension AST {
       break
 
     case FunctionDecl.self:
-      let d = self[NodeID<FunctionDecl>(decl)!]
+      let d = self[FunctionDecl.ID(decl)!]
       if let m = d.memberModifier {
         diagnostics.insert(.error(unexpectedMemberModifier: m))
       }

@@ -5,6 +5,6 @@ public enum ConditionItem: Codable {
   case expr(AnyExprID)
 
   /// A conditional binding declaration.
-  case decl(NodeID<BindingDecl>)
+  case decl(BindingDecl.ID)
 
 }

@@ -1,11 +1,9 @@
 import Core
+import Foundation
 import Utils
 
 /// A collection of basic blocks representing a lowered function.
 public struct Function {
-
-  /// The ID of a `Function` in its `Module`.
-  public typealias ID = Module.Functions.Index
 
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
@@ -32,12 +30,10 @@ public struct Function {
   public let output: LoweredType
 
   /// The blocks in the function.
-  ///
-  /// The first block of the array is the function's entry.
-  public internal(set) var blocks: Blocks
+  public private(set) var blocks: Blocks
 
   /// The entry of the function.
-  public var entry: Block? { blocks.first }
+  public var entry: Blocks.Address? { blocks.firstAddress }
 
   /// Accesses the basic block at `address`.
   ///
@@ -47,19 +43,27 @@ public struct Function {
     _modify { yield &blocks[address] }
   }
 
-  /// The control flow graph of `self`.
-  var cfg: ControlFlowGraph {
-    var result = ControlFlowGraph()
+  /// Appends to `self` a basic block accepting given `parameters` and returns its address.
+  ///
+  /// The new block will become the function's entry if `self` contains no block before
+  /// `appendBlock` is called.
+  mutating func appendBlock(taking parameters: [LoweredType]) -> Blocks.Address {
+    blocks.append(Block(inputs: parameters))
+  }
 
+  /// Removes the block at `address`.
+  @discardableResult
+  mutating func removeBlock(_ address: Blocks.Address) -> Block {
+    blocks.remove(at: address)
+  }
+
+  /// Returns the control flow graph of `self`.
+  func cfg() -> ControlFlowGraph {
+    var result = ControlFlowGraph()
     for source in blocks.indices {
-      switch blocks[source.address].instructions.last {
-      case let instruction as BranchInstruction:
-        result.define(source.address, predecessorOf: instruction.target.address)
-      case let instruction as CondBranchInstruction:
-        result.define(source.address, predecessorOf: instruction.targetIfTrue.address)
-        result.define(source.address, predecessorOf: instruction.targetIfFalse.address)
-      default:
-        break
+      guard let s = blocks[source.address].instructions.last as? Terminator else { continue }
+      for target in s.successors {
+        result.define(source.address, predecessorOf: target.address)
       }
     }
 
@@ -71,5 +75,54 @@ public struct Function {
 extension Function: CustomStringConvertible {
 
   public var description: String { "@\(name)" }
+
+}
+
+extension Function {
+
+  /// The global identity of an IR function.
+  public struct ID: Hashable {
+
+    /// The value of a function IR identity.
+    private enum Value: Hashable {
+
+      /// The identity of a lowered Val function or method variant.
+      case lowered(AnyNodeID)
+
+      /// The identity of a requirement synthesized for some type.
+      ///
+      /// The payload is a pair (D, U) where D is the declaration of a requirement and T is a type
+      /// conforming to the trait defining D.
+      case synthesized(AnyNodeID, for: AnyType)
+
+    }
+
+    /// The value of this identity.
+    private let value: Value
+
+    /// Creates the identity of the lowered form of `f`.
+    public init(_ f: FunctionDecl.ID) {
+      self.value = .lowered(AnyNodeID(f))
+    }
+
+    /// Creates the identity of synthesized requirement `r` for type `t`.
+    public init(synthesized r: MethodImpl.ID, for t: AnyType) {
+      self.value = .synthesized(AnyNodeID(r), for: t)
+    }
+
+  }
+
+}
+
+extension Function.ID: CustomStringConvertible {
+
+  public var description: String {
+    switch value {
+    case .lowered(let id):
+      return "\(id).lowered"
+    case .synthesized(let r, let t):
+      return "\"synthesized \(r) for \(t)\""
+    }
+  }
 
 }

@@ -24,26 +24,26 @@ struct Solution {
   }
 
   /// The type assumptions made by the solver.
-  let typeAssumptions: SubstitutionMap
+  private(set) var typeAssumptions: SubstitutionMap
 
   /// The name binding assumptions made by the solver.
-  let bindingAssumptions: BindingMap
+  private(set) var bindingAssumptions: BindingMap
 
   /// The penalties of the solution.
-  private var penalties: Int
+  private(set) var penalties: Int
 
   /// The diagnostics of the errors associated with the solution.
   private(set) var diagnostics: DiagnosticSet
 
   /// Creates an empty solution.
   init() {
-    self.init(typeAssumptions: [:], bindingAssumptions: [:], penalties: 0, diagnostics: [])
+    self.init(substitutions: [:], bindings: [:], penalties: 0, diagnostics: [])
   }
 
   /// Creates an instance with the given properties.
   init(
-    typeAssumptions: SubstitutionMap,
-    bindingAssumptions: [NodeID<NameExpr>: DeclRef],
+    substitutions typeAssumptions: SubstitutionMap,
+    bindings bindingAssumptions: [NameExpr.ID: DeclRef],
     penalties: Int,
     diagnostics: DiagnosticSet
   ) {
@@ -55,5 +55,19 @@ struct Solution {
 
   /// The score of the solution.
   var score: Score { Score(errorCount: diagnostics.elements.count, penalties: penalties) }
+
+  /// Incorporates `d` into `self`.
+  mutating func incorporate(_ d: Diagnostic) {
+    diagnostics.insert(d)
+  }
+
+  /// Removes the type and binding assumptions that aren't in `other` and incorporate the
+  /// penalties and diagnostics of `other` into `self`.
+  mutating func merge(_ other: Self) {
+    typeAssumptions.formIntersection(other.typeAssumptions)
+    bindingAssumptions.formIntersection(other.bindingAssumptions)
+    penalties = max(penalties, other.penalties)
+    diagnostics.formUnion(other.diagnostics)
+  }
 
 }

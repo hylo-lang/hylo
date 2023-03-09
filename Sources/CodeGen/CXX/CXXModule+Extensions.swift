@@ -3,13 +3,13 @@ import ValModule
 extension CXXModule {
 
   /// Returns the C++ code for `self`.
-  public func code(withFormatter formatter: @escaping CodeTransform = identity())
+  public func code(withFormatter formatter: CodeTransform? = nil)
     -> TranslationUnitCode
   {
-    let c = WriteContext(isStdLib: self.isStdLib)
+    let c = WriteContext(isCoreLibrary: self.isCoreLibrary)
     return TranslationUnitCode(
-      headerCode: formatter(HeaderFile(self).code(inContext: c)),
-      sourceCode: formatter(SourceFile(self).code(inContext: c)))
+      headerCode: HeaderFile(self).code(inContext: c, withFormatter: formatter),
+      sourceCode: SourceFile(self).code(inContext: c, withFormatter: formatter))
   }
 
 }
@@ -33,22 +33,21 @@ private struct HeaderFile: Writeable {
     // (more efficiently treated in the compiler, and reduces probability of accidents)
     output << "#pragma once\n"
 
-    if source.isStdLib {
+    if source.isCoreLibrary {
       output << "#include <variant>\n"
       output << "#include <cstdint>\n"
       output << "#include <cstdlib>\n"
+      output << "namespace Val {\n"
     } else {
-      output << "#include \"ValStdLib.h\"\n"
-    }
-    output << "namespace \(source.name) {\n"
-    if !source.isStdLib {
-      output << "using namespace ValStdLib;\n"
+      output << "#include \"ValCore.h\"\n"
+      output << "namespace \(cxx: source.name) {\n"
+      output << "using namespace Val;\n"
     }
     output.write(source.topLevelDecls.lazy.map({ decl in TopLevelInterface(decl) }))
     output << "\n}\n"
 
     // Add extra native code to the stdlib header.
-    if source.isStdLib {
+    if source.isCoreLibrary {
       output << AdditionalFileContent("NativeCode.h")
     }
   }
@@ -66,13 +65,18 @@ private struct SourceFile: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << "#include \"\(source.name).h\"\n"
-    output << "namespace \(source.name) {\n"
+    if source.isCoreLibrary {
+      output << "#include \"ValCore.h\"\n"
+      output << "namespace Val {\n"
+    } else {
+      output << "#include \"\(source.name).h\"\n"
+      output << "namespace \(cxx: source.name) {\n"
+    }
     output.write(source.topLevelDecls.lazy.map({ decl in TopLevelDefinition(decl) }))
     output << "}\n"
 
-    // Add extra native code to the stdlib source file.
-    if source.isStdLib {
+    // Add extra native code to the core library source file.
+    if source.isCoreLibrary {
       output << AdditionalFileContent("NativeCode.cpp")
     }
 
@@ -218,7 +222,7 @@ private struct ClassDefinition: Writeable {
         output << "// constructor\n"
       }
     }
-    if output.context.isStdLib {
+    if output.context.isCoreLibrary {
       // For standard value types try to generate implict conversion constructors from C++ literal types.
       output << ConversionConstructor(source)
     }
@@ -635,7 +639,7 @@ extension CXXComment: Writeable {
 struct WriteContext {
 
   /// True if we are translating the standard library.
-  let isStdLib: Bool
+  let isCoreLibrary: Bool
 
 }
 
@@ -733,10 +737,12 @@ private struct Pair<T: Writeable, U: Writeable>: Writeable {
 extension Writeable {
 
   /// Returns the C++ code string corresponding to `self`.
-  fileprivate func code(inContext c: WriteContext) -> String {
+  fileprivate func code(inContext c: WriteContext, withFormatter formatter: CodeTransform?)
+    -> String
+  {
     var output = CXXStream(output: "", context: c)
     output << self
-    return output.output
+    return formatter?(output.output) ?? output.output
   }
 
 }

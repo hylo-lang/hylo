@@ -1,15 +1,29 @@
 //! expect-failure
 
 type A {
-
   var foo: Int
   var bar: Int
-
   public memberwise init
-
 }
 
+type B<X, Y> {
+  var foo: X
+  var bar: Y
+  public memberwise init
+}
+
+fun check<T>(_ x: T) {}
+
 public fun main() {
-  let _ = A(foo: 42, bar: 0)
-  let _ = A(foo: (), bar: 2) //! diagnostic incompatible types '{}' and 'Int'
+  let a0 = A(foo: 42, bar: 0)
+  check<A>(a0)
+
+  //! @+1 diagnostic cannot pass value of type '{}' to parameter 'sink Int'
+  let _ = A(foo: (), bar: 2)
+
+  let b0 = B(foo: 42, bar: true)
+  check<B<Int, Bool>>(b0)
+
+  let b1 = B(foo: true, bar: 42)
+  check<B<Bool, Int>>(b1)
 }

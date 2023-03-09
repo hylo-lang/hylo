@@ -7,8 +7,8 @@ import Utils
 /// type information from the structure of the program.
 public protocol Constraint {
 
-  /// The cause of the constraint.
-  var cause: ConstraintCause { get }
+  /// The site from which a constraint originates and the reason why it was formed.
+  var origin: ConstraintOrigin { get }
 
   /// Applies `transform` on constituent types of `self`.
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType)

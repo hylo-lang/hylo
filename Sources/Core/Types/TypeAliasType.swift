@@ -4,7 +4,7 @@ import Utils
 public struct TypeAliasType: TypeProtocol {
 
   /// The declaration that introduces the alias.
-  public let decl: NodeID<TypeAliasDecl>
+  public let decl: TypeAliasDecl.ID
 
   /// The name of the alias.
   public let name: Incidental<String>
@@ -15,7 +15,7 @@ public struct TypeAliasType: TypeProtocol {
   public let flags: TypeFlags
 
   /// Creates a type alias resolving to `resolved` and declared by `d` in `ast`.
-  public init(aliasing resolved: AnyType, declaredBy d: NodeID<TypeAliasDecl>, in ast: AST) {
+  public init(aliasing resolved: AnyType, declaredBy d: TypeAliasDecl.ID, in ast: AST) {
     self.decl = d
     self.name = Incidental(ast[decl].baseName)
     self.resolved = Incidental(resolved)
