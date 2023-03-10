@@ -9,6 +9,6 @@ public func modifying<T, U>(_ value: inout T, _ action: (inout T) throws -> U) r
 }
 
 /// Assigns `value` to the result of applying `transform` on it.
-public func modify<T>(_ value: inout T, with transform: (T) throws -> T) rethrows {
+public func assign<T>(_ value: inout T, to transform: (T) throws -> T) rethrows {
   value = try transform(value)
 }

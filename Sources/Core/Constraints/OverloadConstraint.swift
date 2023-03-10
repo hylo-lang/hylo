@@ -39,7 +39,7 @@ public struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
-    modify(&overloadedExprType, with: transform)
+    assign(&overloadedExprType, to: transform)
 
     for i in 0 ..< choices.count {
       choices[i] = Predicate(

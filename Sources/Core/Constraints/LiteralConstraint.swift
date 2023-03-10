@@ -31,8 +31,8 @@ public struct LiteralConstraint: Constraint, Hashable {
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
-    modify(&subject, with: transform)
-    modify(&defaultSubject, with: transform)
+    assign(&subject, to: transform)
+    assign(&defaultSubject, to: transform)
   }
 
 }

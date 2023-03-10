@@ -34,8 +34,8 @@ public struct MemberConstraint: Constraint, Hashable {
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
-    modify(&subject, with: transform)
-    modify(&memberType, with: transform)
+    assign(&subject, to: transform)
+    assign(&memberType, to: transform)
   }
 
 }
