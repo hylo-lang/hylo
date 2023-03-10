@@ -53,6 +53,7 @@ let package = Package(
         "FrontEnd",
         "IR",
         "CodeGenCXX",
+        "CodeGenLLVM",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: allTargetsSwiftSettings),
@@ -91,7 +92,12 @@ let package = Package(
 
     .target(
       name: "CodeGenLLVM",
-      dependencies: ["FrontEnd", "Utils", .product(name: "LLVM", package: "Swifty-LLVM")],
+      dependencies: [
+        "Core",
+        "IR",
+        "Utils",
+        .product(name: "LLVM", package: "Swifty-LLVM"),
+      ],
       path: "Sources/CodeGen/LLVM",
       swiftSettings: allTargetsSwiftSettings),
 

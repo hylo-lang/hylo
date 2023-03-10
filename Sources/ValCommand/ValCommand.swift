@@ -1,5 +1,6 @@
 import ArgumentParser
 import CodeGenCXX
+import CodeGenLLVM
 import Core
 import Foundation
 import FrontEnd
@@ -218,7 +219,10 @@ public struct ValCommand: ParsableCommand {
     // Executables
 
     assert(outputType == .binary)
-    try writeExecutableCode(cxxModules, productName: productName, loggingTo: &errorLog)
+    let llvmProgram = LLVMProgram(irProgram)
+    print(llvmProgram)
+
+    // try writeExecutableCode(cxxModules, productName: productName, loggingTo: &errorLog)
   }
 
   /// Returns `outputURL` transformed as a suitable executable file path, using `productName` as
