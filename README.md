@@ -39,7 +39,7 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--typecheck`: Run the type checker on the input.
 - `--emit raw-ir`: Lower the typed AST into Val IR and output the result in a file.
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
-- `--emit cpp`: Produce a C++ source file.
+- `--emit cpp`: Produce a C++ source file(use `clang-format` to format the output C++ code).
 - `--emit binary` (default): Produce an executable (currently by compiling transpiled C++ files)
   - Note: by default, C++ files will be compiled with `Clang`. Use `--cc {CXX compiler}` to use another compiler.
   - Note: You can specify parameters for the CXX compiler to use (e.g., `--cc-flags O3`).
