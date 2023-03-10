@@ -652,7 +652,11 @@ public struct Emitter {
     switch e.decl {
     case .direct(let d):
       guard let s = frames[d] else { fatalError("not implemented") }
-      return module.append(module.makeLoad(s, anchoredAt: e.site), to: insertionBlock!)[0]
+      if module.type(of: s).isObject {
+        return s
+      } else {
+        return module.append(module.makeLoad(s, anchoredAt: e.site), to: insertionBlock!)[0]
+      }
 
     case .member(let d):
       return emitRValue(memberExpr: e, declaredBy: d, into: &module)
