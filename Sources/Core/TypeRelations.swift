@@ -20,8 +20,8 @@ public struct TypeRelations {
     _ c: Conformance,
     testingContainmentWith p: P
   ) -> (inserted: Bool, conformanceAfterInsert: Conformance) {
-    modifying(&conformances[canonical(c.model), default: [:]]) { (traitToConformance) in
-      modifying(&traitToConformance[c.concept, default: []]) { (allConformances) in
+    modify(&conformances[canonical(c.model), default: [:]]) { (traitToConformance) in
+      modify(&traitToConformance[c.concept, default: []]) { (allConformances) in
         if let x = allConformances.first(where: { p.areOverlapping($0.scope, c.scope) }) {
           return (false, x)
         } else {

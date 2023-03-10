@@ -249,11 +249,11 @@ extension SourceFile: Codable {
   public func encode(to encoder: Encoder) throws {
     var container = encoder.singleValueContainer()
 
-    try modifying(&encoder[state: AST.EncodingState.self]) { state in
+    try modify(&encoder[state: AST.EncodingState.self]) { (state) in
       // provisional ID in case `storage` isn't found in `state`.
       var id = state.allInstances.count
 
-      try modifying(&state.allInstances[ObjectIdentifier(storage)]) { v in
+      try modify(&state.allInstances[ObjectIdentifier(storage)]) { (v) in
         if let v1 = v {
           id = v1.id  // found: revise the ID.
         } else {
@@ -337,7 +337,7 @@ extension SourceFile {
     ) rethrows {
       self.init(
         aliasing: try Self.allInstances.modify { (c: inout [URL: Storage]) -> Storage in
-          try modifying(&c[url]) { v in
+          try modify(&c[url]) { (v) in
             let r = try v ?? Storage(url: url, lineStarts: lineStarts, text: makeText())
             v = r
             return r
