@@ -80,8 +80,8 @@ public struct Module {
 
   /// Returns the IDs of the blocks in `f`.
   ///
-  /// The element of the returned collection is the function's entry; other elements are in no
-  /// particular order.
+  /// The first element of the returned collection is the function's entry; other elements are in
+  /// no particular order.
   public func blocks(
     in f: Function.ID
   ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
