@@ -85,7 +85,7 @@ public struct Module {
   public func blocks(
     in f: Function.ID
   ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
-    self[f].blocks.indices.lazy.map({ .init(function: f, address: $0.address) })
+    self[f].blocks.indices.lazy.map({ .init(f, $0.address) })
   }
 
   /// Returns the IDs of the instructions in `b`, in order.
@@ -254,7 +254,7 @@ public struct Module {
     to function: Function.ID
   ) -> Block.ID {
     let address = functions[function]!.appendBlock(taking: parameters)
-    return Block.ID(function: function, address: address)
+    return Block.ID(function, address)
   }
 
   /// Removes `block` and updates def-use chains.
