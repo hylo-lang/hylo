@@ -1,0 +1,6 @@
+//! expect-success
+
+type A {
+  var value: Double
+  public init(_ v: Double) { &self.value = v }
+}
