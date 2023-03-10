@@ -113,4 +113,10 @@ let package = Package(
       name: "ValCommandTests",
       dependencies: ["ValCommand"],
       swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
+      name: "EndToEndTests",
+      dependencies: ["ValCommand"],
+      resources: [.copy("TestCases")],
+      swiftSettings: allTargetsSwiftSettings),
   ])
