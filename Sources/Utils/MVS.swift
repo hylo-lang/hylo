@@ -9,6 +9,18 @@ public func modify<T, U>(_ value: inout T, _ action: (inout T) throws -> U) reth
 }
 
 /// Returns a copy of `value` modified by `transform`.
+///
+/// Use this function to initialize values with an imperative algorithm. For example:
+///
+///      let sieve = modified(Array(repeating: true, count: 100)) { (n) in
+///        var i = 2
+///        while i * i < n.count {
+///          if n[i] {
+///            for j in stride(from: i * i, to: n.count, by: i) { n[j] = false }
+///          }
+///          i += 1
+///        }
+///      }
 public func modified<T>(_ value: T, _ transform: (inout T) throws -> Void) rethrows -> T {
   var v = value
   try transform(&v)
