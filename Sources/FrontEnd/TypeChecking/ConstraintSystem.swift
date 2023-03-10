@@ -485,21 +485,24 @@ struct ConstraintSystem {
     }
 
     // Generate the list of candidates.
-    let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, exposedTo: scope)
-      .compactMap({ checker.decl(in: $0, named: goal.memberName) })
-    let candidates = matches.compactMap({ (match) -> OverloadConstraint.Predicate? in
-      // Realize the type of the declaration and skip it if that fails.
-      let matchType = checker.realize(decl: match)
-      if matchType.isError { return nil }
+    let candidates: [OverloadConstraint.Predicate] = modified([]) { (candidates) in
+      let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, exposedTo: scope)
+      for m in matches {
+        guard let d = checker.decl(in: m, named: goal.memberName) else { continue }
 
-      // TODO: Handle bound generic typess
+        let matchType = checker.realize(decl: d)
+        if matchType.isError { continue }
 
-      return OverloadConstraint.Predicate(
-        reference: .member(match),
-        type: matchType,
-        constraints: [],
-        penalties: checker.program.isRequirement(match) ? 1 : 0)
-    })
+        // TODO: Handle bound generic typess
+
+        candidates.append(
+          .init(
+            reference: .member(d),
+            type: matchType,
+            constraints: [],
+            penalties: checker.program.isRequirement(d) ? 1 : 0))
+      }
+    }
 
     // Fail if we couldn't find any candidate.
     if candidates.isEmpty {
@@ -762,7 +765,7 @@ struct ConstraintSystem {
 
   /// Inserts `batch` into the fresh set.
   private mutating func insert<S: Sequence<Constraint>>(fresh batch: S) -> [GoalIdentity] {
-    batch.map { (g) in insert(fresh: g) }
+    batch.map(mutating: &self, { (s, g) in s.insert(fresh: g) })
   }
 
   /// Schedules `g` to be solved only once the solver has inferred more information about at least

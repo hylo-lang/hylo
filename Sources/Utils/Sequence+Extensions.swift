@@ -27,4 +27,30 @@ extension Sequence {
     try reduce(0, { (s, e) in try predicate(e) ? s + 1 : s })
   }
 
+  /// Returns an array containing the results of `transform` applied on a mutable projection of
+  /// `environment` and each of the sequence’s elements.
+  public func map<E, T>(
+    mutating environment: inout E, _ transform: (inout E, Element) throws -> T
+  ) rethrows -> [T] {
+    try modified([]) { (transformed) in
+      transformed.reserveCapacity(underestimatedCount)
+      for e in self {
+        try transformed.append(transform(&environment, e))
+      }
+    }
+  }
+
+  /// Returns an array containing the non-`nil` results of `transform` applied on a mutable
+  /// projection of `environment` and each of the sequence’s elements.
+  public func compactMap<E, T>(
+    mutating environment: inout E, _ transform: (inout E, Element) throws -> T?
+  ) rethrows -> [T] {
+    try modified([]) { (transformed) in
+      transformed.reserveCapacity(underestimatedCount)
+      for e in self {
+        if let x = try transform(&environment, e) { transformed.append(x) }
+      }
+    }
+  }
+
 }

@@ -894,8 +894,7 @@ public struct TypeChecker {
       return t == requiredType
     }
 
-    let allCandidates = lookup(requirementName.stem, memberOf: model, exposedTo: scope)
-    let viableCandidates = allCandidates.compactMap { (c) -> AnyDeclID? in
+    let candidates: [AnyDeclID] = modified([]) { (candidates) in
 
       // TODO: Filter out the candidates with incompatible constraints.
       // trait A {}
@@ -903,28 +902,30 @@ public struct TypeChecker {
       // extension Foo where T: U { fun foo() }
       // conformance Foo: A {} // <- should not consider `foo` in the extension
 
-      switch c.kind {
-      case FunctionDecl.self:
-        let d = FunctionDecl.ID(c)!
-        return ((ast[d].body != nil) && hasRequiredType(d)) ? c : nil
-
-      case MethodDecl.self:
-        for d in ast[MethodDecl.ID(c)!].impls where ast[d].body != nil {
-          if hasRequiredType(d) { return c }
+      for c in lookup(requirementName.stem, memberOf: model, exposedTo: scope) {
+        if let d = FunctionDecl.ID(c) {
+          if (ast[d].body != nil) && hasRequiredType(d) {
+            candidates.append(c)
+          }
+          continue
         }
-        return nil
 
-      default:
-        return nil
+        guard let d = MethodDecl.ID(c) else { continue }
+        for v in ast[d].impls where ast[v].body != nil {
+          if hasRequiredType(v) {
+            candidates.append(c)
+            break
+          }
+        }
       }
     }
 
-    if viableCandidates.count > 1 {
+    if candidates.count > 1 {
       // TODO: Rank candidates
       fatalError("not implemented")
     }
 
-    return viableCandidates.uniqueElement
+    return candidates.uniqueElement
   }
 
   /// Returns an array of declarations implementing `requirement` with type `requirementType` that
@@ -939,15 +940,15 @@ public struct TypeChecker {
     let lookupResult = lookup(n.stem, memberOf: conformingType, exposedTo: scope)
 
     // Filter out the candidates with incompatible types.
-    return lookupResult.compactMap { (c) -> AnyDeclID? in
+    return lookupResult.compactMap(mutating: &self) { (this, c) -> AnyDeclID? in
       guard
         c != requirement,
-        let d = self.decl(in: c, named: n),
-        relations.canonical(realize(decl: d)) == requirementType
+        let d = this.decl(in: c, named: n),
+        this.relations.canonical(this.realize(decl: d)) == requirementType
       else { return nil }
 
       if let f = MethodDecl.ID(d) {
-        if ast[f].impls.contains(where: ({ ast[$0].body == nil })) { return nil }
+        if this.ast[f].impls.contains(where: ({ this.ast[$0].body == nil })) { return nil }
       }
 
       // TODO: Filter out the candidates with incompatible constraints.
@@ -1648,10 +1649,10 @@ public struct TypeChecker {
     let matches: [AnyDeclID]
     if let t = parentType {
       matches = lookup(name.value.stem, memberOf: t, exposedTo: lookupScope)
-        .compactMap({ decl(in: $0, named: name.value) })
+        .compactMap(mutating: &self, { $0.decl(in: $1, named: name.value) })
     } else {
       matches = lookup(unqualified: name.value.stem, in: lookupScope)
-        .compactMap({ decl(in: $0, named: name.value) })
+        .compactMap(mutating: &self, { $0.decl(in: $1, named: name.value) })
     }
 
     // Diagnose undefined symbols.
@@ -2701,8 +2702,9 @@ public struct TypeChecker {
       }
     }
 
-    var inputs: [CallableTypeParameter] = ast[d].parameters.map { (d) in
-      .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
+    var inputs: [CallableTypeParameter] = []
+    for d in ast[d].parameters {
+      inputs.append(.init(label: ast[d].label?.value, type: realize(parameterDecl: d)))
     }
 
     // Initializers are global functions.
@@ -2720,8 +2722,8 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(methodDecl d: MethodDecl.ID) -> AnyType {
-    let inputs: [CallableTypeParameter] = ast[d].parameters.map { (d) in
-      .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
+    let inputs: [CallableTypeParameter] = ast[d].parameters.map(mutating: &self) { (this, d) in
+      .init(label: this.ast[d].label?.value, type: this.realize(parameterDecl: d))
     }
 
     // Realize the method's receiver if necessary.
@@ -2799,10 +2801,13 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(subscriptDecl d: SubscriptDecl.ID) -> AnyType {
-    let inputs = ast[d].parameters.map(default: []) { (p) -> [CallableTypeParameter] in
-      p.map { (d) in
-        .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
+    let inputs: [CallableTypeParameter]
+    if let parameters = ast[d].parameters {
+      inputs = parameters.map(mutating: &self) { (this, p) in
+        .init(label: this.ast[p].label?.value, type: this.realize(parameterDecl: p))
       }
+    } else {
+      inputs = []
     }
 
     // Collect captures.

@@ -24,7 +24,7 @@ final class CXXTests: XCTestCase {
         var codeWriter = CXXCodeWriter()
         let cxxCode = codeWriter.cxxCode(transpiler.cxx(typedProgram[module]))
 
-        return cxxAnnotations.compactMap { a in
+        return cxxAnnotations.compactMap { (a) in
           let expectedCXX = a.argument!.removingTrailingNewlines()
           let cxxSourceToSearch = a.command == "cpp" ? cxxCode.sourceCode : cxxCode.headerCode
 
@@ -53,7 +53,7 @@ final class CXXTests: XCTestCase {
       inSuiteAt: "TestCases/CXXCoreLibrary",
       checkingAnnotationCommands: ["cpp", "h"],
       { (source, cxxAnnotations, diagnostics) in
-        return cxxAnnotations.compactMap { a in
+        return cxxAnnotations.compactMap { (a) in
           let expectedCXX = a.argument!.removingTrailingNewlines()
           let cxxSourceToSearch = a.command == "cpp" ? cxxCode.sourceCode : cxxCode.headerCode
 

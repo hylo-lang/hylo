@@ -62,14 +62,14 @@ struct ControlFlowGraph {
 
   /// Returns the successors of `source`.
   func successors(of source: Vertex) -> [Vertex] {
-    relation[from: source].compactMap({ tip in
+    relation[from: source].compactMap({ (tip) in
       tip.value != .backward ? tip.key : nil
     })
   }
 
   /// Returns the predecessors of `target`.
   func predecessors(of target: Vertex) -> [Vertex] {
-    relation[from: target].compactMap({ tip in
+    relation[from: target].compactMap({ (tip) in
       tip.value != .forward ? tip.key : nil
     })
   }

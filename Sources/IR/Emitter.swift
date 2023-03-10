@@ -630,7 +630,9 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     var a: [Operand] = []
-    for e in arguments { a.append(emitRValue(program[e.value], into: &module)) }
+    for e in arguments {
+      a.append(emitRValue(program[e.value], into: &module))
+    }
     return module.append(
       module.makeLLVM(applying: f, to: a, anchoredAt: site), to: insertionBlock!)[0]
   }
