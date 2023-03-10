@@ -1,5 +1,5 @@
 /// Returns the result of calling `action` with an immutable projection of `value`.
-public func reading<T, U>(_ value: T, _ action: (T) throws -> U) rethrows -> U {
+public func read<T, U>(_ value: T, _ action: (T) throws -> U) rethrows -> U {
   try action(value)
 }
 

@@ -869,7 +869,7 @@ public struct TypeChecker {
 
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
-    let expositionScope = reading(program.scopeToParent[declScope]!) { (s) in
+    let expositionScope = read(program.scopeToParent[declScope]!) { (s) in
       (s.kind == TranslationUnit.self) ? AnyScopeID(program.module(containing: s)) : s
     }
     return Conformance(
