@@ -286,8 +286,10 @@ extension Module {
         locations = context.locals[s.subject]!.unwrapLocations()!
       }
 
-      let v = context.memory[locations.first!]?.value
-      assert(locations.allSatisfy({ context.memory[$0]?.value == v }), "bad context")
+      let v = context.withObject(at: locations.first!, \.value)
+      assert(
+        locations.allSatisfy({ (l) in context.withObject(at: l, { $0.value == v }) }),
+        "bad context")
 
       switch v {
       case .full(.initialized):
