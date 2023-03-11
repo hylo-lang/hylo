@@ -414,17 +414,3 @@ public struct ValCommand: ParsableCommand {
   }
 
 }
-
-extension TypedProgram {
-
-  /// The bundle of products resulting from transpiling a module to C++.
-  typealias CXXModule = (syntax: CodeGenCXX.CXXModule, text: TranslationUnitCode)
-
-  /// Returns the C++ Transpilation of `m`.
-  func cxx(_ m: ModuleDecl.Typed, withFormatter formatter: CodeTransform?) -> CXXModule {
-    let x = CXXTranspiler(self).cxx(m)
-    var w = CXXCodeWriter(formatter: formatter)
-    return (syntax: x, text: w.cxxCode(x))
-  }
-
-}
