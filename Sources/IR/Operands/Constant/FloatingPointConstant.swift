@@ -4,7 +4,7 @@ import Core
 public struct FloatingPointConstant: ConstantProtocol, Hashable {
 
   /// The serialized value of this constant.
-  private var value: String
+  public let value: String
 
   /// The Val IR type of this instance.
   public let type: LoweredType
