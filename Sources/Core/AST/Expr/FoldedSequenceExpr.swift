@@ -33,12 +33,12 @@ public indirect enum FoldedSequenceExpr {
       if let l = lhsOperator.precedence {
         if let r = `operator`.precedence {
           // Both operators are in groups.
-          if (l < r) || (l == r && l.associativity == .left) {
+          if (l > r) || (l == r && l.associativity == .left) {
             self = .infix(`operator`, left: self, right: .leaf(right))
             return
           }
 
-          if (l > r) || (l == r && l.associativity == .right) {
+          if (l < r) || (l == r && l.associativity == .right) {
             lhsRight.append(operator: `operator`, right: right)
             self = .infix(lhsOperator, left: lhsLeft, right: lhsRight)
             return

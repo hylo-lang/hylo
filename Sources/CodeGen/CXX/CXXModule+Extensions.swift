@@ -412,14 +412,22 @@ extension CXXContinueStmt: Writeable {
 
 private struct AnyExpr: Writeable {
 
+  /// The C++ expression to write to the output C++ stream.
   let source: CXXExpr
 
-  init(_ source: CXXExpr) {
+  /// True if we need to write the expression in parentheses.
+  let writeParentheses: Bool
+
+  init(_ source: CXXExpr, withParentheses p: Bool = false) {
     self.source = source
+    self.writeParentheses = p
   }
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
+    if writeParentheses {
+      output << "("
+    }
     switch type(of: source).kind {
     case CXXBooleanLiteralExpr.self:
       output << (source as! CXXBooleanLiteralExpr)
@@ -449,6 +457,9 @@ private struct AnyExpr: Writeable {
       output << (source as! CXXComment)
     default:
       fatalError("unexpected expressions")
+    }
+    if writeParentheses {
+      output << ")"
     }
   }
 
@@ -537,7 +548,11 @@ extension CXXInfixExpr: Writeable {
       Operator.bitwiseOrAssignment: " |= ",
       Operator.comma: " , ",
     ]
-    output << AnyExpr(lhs) << translation[oper]! << AnyExpr(rhs)
+    let lhsNeedsParentheses = lhs.precedence > self.precedence
+    let rhsNeedsParentheses = rhs.precedence > self.precedence
+    output << AnyExpr(lhs, withParentheses: lhsNeedsParentheses)
+      << translation[oper]!
+      << AnyExpr(rhs, withParentheses: rhsNeedsParentheses)
   }
 
 }
