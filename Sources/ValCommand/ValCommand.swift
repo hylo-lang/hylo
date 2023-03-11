@@ -322,20 +322,20 @@ public struct ValCommand: ParsableCommand {
   /// - Throws: `EnvironmentError` if the executable can't be found.
   private func find(_ executableBaseName: String) throws -> String {
     if let r = ValCommand.executableLocationCache.wrapped[executableBaseName] { return r }
-    
+
     #if os(Windows)
-    let pathSeparator: Character = ";"
-    let executableFileName = executableBaseName + ".exe"
+      let pathSeparator: Character = ";"
+      let executableFileName = executableBaseName + ".exe"
     #else
-    let pathSeparator: Character = ":"
-    let executableFileName = executableBaseName
+      let pathSeparator: Character = ":"
+      let executableFileName = executableBaseName
     #endif
 
-    
-    let searchSpace = [currentDirectory.path]
+    let searchSpace =
+      [currentDirectory.path]
       + (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: pathSeparator)
-        .lazy.map(String.init)
-    
+      .lazy.map(String.init)
+
     for d in searchSpace {
       let p = URL(fileURLWithPath: d).appendingPathComponent(executableFileName).path
       if FileManager.default.fileExists(atPath: p) {
@@ -343,7 +343,7 @@ public struct ValCommand: ParsableCommand {
         return p
       }
     }
-    
+
     throw EnvironmentError("executable not found: \(executableBaseName)")
   }
 
