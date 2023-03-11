@@ -333,7 +333,7 @@ public struct ValCommand: ParsableCommand {
       for base in environment.split(separator: ";") {
         candidate = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidate.path + ".exe") {
-          cache[executable] = candidate.path
+          ValCommand.executableLocationCache[executable] = candidate.path
           return candidate.path
         }
       }
