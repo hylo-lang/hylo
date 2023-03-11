@@ -1,10 +1,10 @@
 import Core
 
 /// Branches unconditionally to the start of a basic block.
-public struct BranchInstruction: Instruction {
+public struct BranchInstruction: Terminator {
 
   /// The target of the branch.
-  public let target: Block.ID
+  public private(set) var target: Block.ID
 
   public let site: SourceRange
 
@@ -18,7 +18,17 @@ public struct BranchInstruction: Instruction {
 
   public var operands: [Operand] { [] }
 
-  public var isTerminator: Bool { true }
+  public var successors: [Block.ID] { [target] }
+
+  mutating func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+    precondition(new.function == target.function)
+    if target == old {
+      target = new
+      return true
+    } else {
+      return false
+    }
+  }
 
 }
 

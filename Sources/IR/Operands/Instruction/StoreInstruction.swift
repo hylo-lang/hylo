@@ -22,8 +22,6 @@ public struct StoreInstruction: Instruction {
 
   public var operands: [Operand] { [object, target] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {

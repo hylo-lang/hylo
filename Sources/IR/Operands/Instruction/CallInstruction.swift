@@ -44,8 +44,6 @@ public struct CallInstruction: Instruction {
 
   public var types: [LoweredType] { [returnType] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {

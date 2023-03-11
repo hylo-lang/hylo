@@ -18,8 +18,6 @@ public struct EndBorrowInstruction: Instruction {
 
   public var operands: [Operand] { [borrow] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {

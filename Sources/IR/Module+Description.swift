@@ -44,15 +44,14 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       output.write("\(i)(")
       output.write(
         self[i].inputs.enumerated().lazy
-          .map({ (j, t) in "\(Operand.parameter(block: i, index: j)) : \(t)" })
+          .map({ (j, t) in "\(Operand.parameter(i, j)) : \(t)" })
           .joined(separator: ", "))
       output.write("):\n")
 
       for j in instructions(in: i) {
         output.write("  ")
         if !self[j].types.isEmpty {
-          let r = self[j].types.indices
-            .map({ (k) in Operand.register(instruction: j, index: k).description })
+          let r = self[j].types.indices.map({ (k) in Operand.register(j, k).description })
           output.write("\(list: r) = ")
         }
         output.write("\(self[j])\n")

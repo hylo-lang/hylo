@@ -20,8 +20,6 @@ public struct RecordInstruction: Instruction {
 
   public var types: [LoweredType] { [objectType] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {

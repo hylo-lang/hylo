@@ -12,7 +12,7 @@ extension Module {
 
     for blockToProcess in blocks(in: f) {
       let lastInstruction = self[blockToProcess].instructions.last
-      if let l = lastInstruction, l.isTerminator { continue }
+      if let l = lastInstruction, l is Terminator { continue }
 
       insertReturnVoidInstruction(
         anchoredAt: lastInstruction?.site ?? .empty(at: self[f].anchor),

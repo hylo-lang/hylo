@@ -60,19 +60,10 @@ public struct Function {
   /// Returns the control flow graph of `self`.
   func cfg() -> ControlFlowGraph {
     var result = ControlFlowGraph()
-
     for source in blocks.indices {
-      switch blocks[source.address].instructions.last {
-      case let s as BranchInstruction:
-        result.define(source.address, predecessorOf: s.target.address)
-      case let s as CondBranchInstruction:
-        result.define(source.address, predecessorOf: s.targetIfTrue.address)
-        result.define(source.address, predecessorOf: s.targetIfFalse.address)
-      case let s as StaticBranchInstruction:
-        result.define(source.address, predecessorOf: s.targetIfTrue.address)
-        result.define(source.address, predecessorOf: s.targetIfFalse.address)
-      default:
-        break
+      guard let s = blocks[source.address].instructions.last as? Terminator else { continue }
+      for target in s.successors {
+        result.define(source.address, predecessorOf: target.address)
       }
     }
 
@@ -95,8 +86,11 @@ extension Function {
     /// The value of a function IR identity.
     private enum Value: Hashable {
 
-      /// The identity of a lowered Val function or method variant.
+      /// The identity of a lowered Val function, initializer, or method variant.
       case lowered(AnyNodeID)
+
+      /// The identity of an initializer's constructor form.
+      case constructor(InitializerDecl.ID)
 
       /// The identity of a requirement synthesized for some type.
       ///
@@ -114,6 +108,16 @@ extension Function {
       self.value = .lowered(AnyNodeID(f))
     }
 
+    /// Creates the identity of the lowered form of `f` used as an initializer.
+    public init(initializer f: InitializerDecl.ID) {
+      self.value = .lowered(AnyNodeID(f))
+    }
+
+    /// Creates the identity of the lowered form of `f` used as a constructor.
+    public init(constructor f: InitializerDecl.ID) {
+      self.value = .constructor(f)
+    }
+
     /// Creates the identity of synthesized requirement `r` for type `t`.
     public init(synthesized r: MethodImpl.ID, for t: AnyType) {
       self.value = .synthesized(AnyNodeID(r), for: t)
@@ -127,8 +131,10 @@ extension Function.ID: CustomStringConvertible {
 
   public var description: String {
     switch value {
-    case .lowered(let id):
-      return "\(id).lowered"
+    case .lowered(let d):
+      return "\(d).lowered"
+    case .constructor(let d):
+      return "\(d).constructor"
     case .synthesized(let r, let t):
       return "\"synthesized \(r) for \(t)\""
     }

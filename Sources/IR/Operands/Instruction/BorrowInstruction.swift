@@ -36,8 +36,6 @@ public struct BorrowInstruction: Instruction {
 
   public var operands: [Operand] { [location] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension BorrowInstruction: CustomStringConvertible {

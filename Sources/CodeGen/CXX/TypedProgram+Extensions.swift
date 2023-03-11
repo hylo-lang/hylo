@@ -6,10 +6,10 @@ extension TypedProgram {
   public typealias CXXModule = (syntax: CodeGenCXX.CXXModule, text: TranslationUnitCode)
 
   /// Returns the C++ Transpilation of `m`.
-  public func cxx(_ m: ModuleDecl.Typed) -> CXXModule {
+  public func cxx(_ m: ModuleDecl.Typed, withFormatter formatter: CodeTransform? = nil) -> CXXModule
+  {
     let x = CXXTranspiler(self).cxx(m)
-    var w = CXXCodeWriter()
-    return (syntax: x, text: w.cxxCode(x))
+    return (syntax: x, text: x.code(formatter: formatter))
   }
 
 }

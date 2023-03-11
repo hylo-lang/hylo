@@ -42,16 +42,21 @@ public struct LambdaType: TypeProtocol, CallableType {
       output: ^output)
   }
 
-  /// Given an initializer type `initializer`, creates the corresponding constructor type.
+  /// Given an initializer type `t`, creates the corresponding constructor type.
   ///
-  /// - Requires: `initializer` is an initializer type of the form `[](set A, B...) -> Void`.
-  public init(constructorFormOf initializer: LambdaType) {
-    let r = ParameterType(initializer.inputs.first!.type)!
+  /// - Requires: `t` is an initializer type of the form `[](self: set A, B...) -> Void`.
+  public init(constructorFormOf t: LambdaType) {
+    let r = ParameterType(t.inputs.first!.type)!
     precondition(r.access == .set)
+    self.init(inputs: Array(t.inputs[1...]), output: r.bareType)
+  }
 
-    self.init(
-      receiverEffect: .set, environment: .void,
-      inputs: Array(initializer.inputs[1...]), output: r.bareType)
+  /// Given an constructor type `t`, creates the corresponding initializer type.
+  ///
+  /// - Requires: `t` is a constructor type of the form `[](A...) -> B`.
+  public init(initializerFormOf t: LambdaType) {
+    let r = CallableTypeParameter(label: "self", type: ^ParameterType(.set, t.output))
+    self.init(receiverEffect: .let, inputs: [r] + t.inputs, output: .void)
   }
 
   /// Returns a thin type accepting `self`'s environment as parameters.

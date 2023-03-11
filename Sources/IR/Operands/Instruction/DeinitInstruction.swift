@@ -18,8 +18,6 @@ public struct DeinitInstruction: Instruction {
 
   public var operands: [Operand] { [object] }
 
-  public var isTerminator: Bool { false }
-
 }
 
 extension Module {
