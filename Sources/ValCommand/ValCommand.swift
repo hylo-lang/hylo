@@ -333,8 +333,8 @@ public struct ValCommand: ParsableCommand {
 
     let searchSpace =
       [currentDirectory.path]
-      + (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: pathSeparator)
-      .lazy.map(String.init)
+      + (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: pathSeparator).lazy
+      .map(String.init)
 
     for d in searchSpace {
       let p = URL(fileURLWithPath: d).appendingPathComponent(executableFileName).path
