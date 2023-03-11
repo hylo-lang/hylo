@@ -80,7 +80,7 @@ private struct SourceFile: Writeable {
 
     // Write a CXX `main` function if the module has an entry point.
     if let body = source.entryPointBody {
-      output << "int main()" << AnyStmt(body) << "\n"
+      output << "int main() " << AnyStmt(body) << "\n"
     }
   }
 

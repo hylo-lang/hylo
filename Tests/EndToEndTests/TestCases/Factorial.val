@@ -3,7 +3,6 @@ fun factorial(_ n: Int) -> Int {
 }
 
 public fun main() -> Int32 {
-  let _ = factorial(6)
-  // TODO: assert the result value is correct
-  return 0
+  let r = factorial(6)
+  return if (r == 720) { 0 } else { 1 }
 }

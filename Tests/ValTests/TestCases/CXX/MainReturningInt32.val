@@ -1,6 +1,6 @@
 /*! cpp
 namespace MainReturningInt32 {
-Int32 main()  {
+Int32 main() {
 return 0;
 }
 }
