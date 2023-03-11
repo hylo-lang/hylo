@@ -548,8 +548,10 @@ extension CXXInfixExpr: Writeable {
       Operator.bitwiseOrAssignment: " |= ",
       Operator.comma: " , ",
     ]
-    let lhsNeedsParentheses = lhs.precedence > self.precedence
-    let rhsNeedsParentheses = rhs.precedence > self.precedence
+    let lhsNeedsParentheses =
+      lhs.precedence > self.precedence || (lhs.precedence == self.precedence && !self.isLeftToRight)
+    let rhsNeedsParentheses =
+      rhs.precedence > self.precedence || (rhs.precedence == self.precedence && self.isLeftToRight)
     output << AnyExpr(lhs, withParentheses: lhsNeedsParentheses)
       << translation[oper]!
       << AnyExpr(rhs, withParentheses: rhsNeedsParentheses)
@@ -617,8 +619,12 @@ extension CXXConditionalExpr: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << AnyExpr(condition) << " ? " << AnyExpr(trueExpr) << " : "
-      << AnyExpr(falseExpr)
+    let conditionNeedsParentheses = condition.precedence == self.precedence
+    let trueExprNeedsParentheses = trueExpr.precedence == self.precedence
+    let falseExprNeedsParentheses = falseExpr.precedence == self.precedence
+    output << AnyExpr(condition, withParentheses: conditionNeedsParentheses)
+      << " ? " << AnyExpr(trueExpr, withParentheses: trueExprNeedsParentheses)
+      << " : " << AnyExpr(falseExpr, withParentheses: falseExprNeedsParentheses)
   }
 
 }
