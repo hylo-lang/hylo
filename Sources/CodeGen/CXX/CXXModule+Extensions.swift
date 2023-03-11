@@ -3,8 +3,7 @@ import ValModule
 extension CXXModule {
 
   /// Returns the C++ code for `self`.
-  public func code(formatter: CodeTransform? = nil)    -> TranslationUnitCode
-  {
+  public func code(formatter: CodeTransform? = nil) -> TranslationUnitCode {
     let c = WriteContext(isCoreLibrary: self.isCoreLibrary)
     return TranslationUnitCode(
       headerCode: HeaderFile(self).code(inContext: c, withFormatter: formatter),
