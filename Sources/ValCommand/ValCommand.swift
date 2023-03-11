@@ -316,39 +316,35 @@ public struct ValCommand: ParsableCommand {
     }
   }
 
-  /// Returns the path of the specified executable.
-  private func find(_ executable: String) throws -> String {
-    if let path = ValCommand.executableLocationCache[executable] { return path }
-
-    // Search in the current working directory.
-    var candidate = currentDirectory.appendingPathComponent(executable)
-    if FileManager.default.fileExists(atPath: candidate.path) {
-      ValCommand.executableLocationCache[executable] = candidate.path
-      return candidate.path
-    }
-
-    // Search in the PATH.
+  /// Returns the absolute path of the first executable having the given base name found in the
+  /// current working directory, or failing that, the directories in the PATH environment variable.
+  ///
+  /// - Throws: `EnvironmentError` if the executable can't be found.
+  private func find(_ executableBaseName: String) throws -> String {
+    if let r = ValCommand.executableLocationCache.wrapped[executableBaseName] { return r }
+    
     #if os(Windows)
-      let environment = ProcessInfo.processInfo.environment["Path"] ?? ""
-      for base in environment.split(separator: ";") {
-        candidate = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
-        if FileManager.default.fileExists(atPath: candidate.path + ".exe") {
-          cache[executable] = candidate.path
-          return candidate.path
-        }
-      }
+    let pathSeparator: Character = ";"
+    let executableFileName = executableBaseName + ".exe"
     #else
-      let environment = ProcessInfo.processInfo.environment["PATH"] ?? ""
-      for base in environment.split(separator: ":") {
-        candidate = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
-        if FileManager.default.fileExists(atPath: candidate.path) {
-          ValCommand.executableLocationCache[executable] = candidate.path
-          return candidate.path
-        }
-      }
+    let pathSeparator: Character = ":"
+    let executableFileName = executableBaseName
     #endif
 
-    throw EnvironmentError("executable not found: \(executable)")
+    
+    let searchSpace = [currentDirectory.path]
+      + (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: pathSeparator)
+        .lazy.map(String.init)
+    
+    for d in searchSpace {
+      let p = URL(fileURLWithPath: d).appendingPathComponent(executableFileName).path
+      if FileManager.default.fileExists(atPath: p) {
+        ValCommand.executableLocationCache.wrapped[executableBaseName] = p
+        return p
+      }
+    }
+    
+    throw EnvironmentError("executable not found: \(executableBaseName)")
   }
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
@@ -378,7 +374,7 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// A map from executable name to path of the named binary.
-  private static var executableLocationCache: [String: String] = [:]
+  private static var executableLocationCache: SharedMutable<[String: String]> = .init([:])
 
   /// Writes a textual descriptioni of `input` to the given `output` file.
   func write(_ input: AST, to output: URL) throws {
