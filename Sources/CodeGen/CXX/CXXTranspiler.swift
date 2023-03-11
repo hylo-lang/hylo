@@ -500,7 +500,7 @@ public struct CXXTranspiler {
   }
   /// Returns a transpilation of `source`.
   private func cxx(nameOfInitializer source: InitializerDecl.Typed) -> CXXExpr {
-    fatalError("not implemented")
+    return CXXComment(comment: "name of inititializer")
   }
   /// Returns a transpilation of `source`.
   private func cxx(
