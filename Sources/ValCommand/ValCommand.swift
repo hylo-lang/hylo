@@ -201,16 +201,16 @@ public struct ValCommand: ParsableCommand {
 
     // C++
 
-    let codeFormatter: CodeTransform? = (try? find("clang-format")).map({
-      clangFormatter(URL(fileURLWithPath: $0))
-    })
-
-    let cxxModules = (
-      core: program.cxx(program.coreLibrary!, withFormatter: codeFormatter),
-      source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
-    )
-
     if outputType == .cpp {
+      let codeFormatter: CodeTransform? = (try? find("clang-format")).map({
+        clangFormatter(URL(fileURLWithPath: $0))
+      })
+
+      let cxxModules = (
+        core: program.cxx(program.coreLibrary!, withFormatter: codeFormatter),
+        source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
+      )
+
       try write(cxxModules.core, to: coreLibCXXOutputBase, loggingTo: &errorLog)
       try write(cxxModules.source, to: sourceModuleCXXOutputBase(productName), loggingTo: &errorLog)
       return
@@ -219,10 +219,8 @@ public struct ValCommand: ParsableCommand {
     // Executables
 
     assert(outputType == .binary)
-    let llvmProgram = LLVMProgram(irProgram)
+    let llvmProgram = try LLVMProgram([irProgram[sourceModule]!])
     print(llvmProgram)
-
-    // try writeExecutableCode(cxxModules, productName: productName, loggingTo: &errorLog)
   }
 
   /// Returns `outputURL` transformed as a suitable executable file path, using `productName` as
