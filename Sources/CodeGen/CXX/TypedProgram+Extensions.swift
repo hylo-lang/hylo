@@ -9,7 +9,7 @@ extension TypedProgram {
   public func cxx(_ m: ModuleDecl.Typed, withFormatter formatter: CodeTransform? = nil) -> CXXModule
   {
     let x = CXXTranspiler(self).cxx(m)
-    return (syntax: x, text: x.code(withFormatter: formatter))
+    return (syntax: x, text: x.code(formatter: formatter))
   }
 
 }
