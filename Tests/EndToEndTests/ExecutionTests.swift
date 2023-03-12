@@ -35,12 +35,12 @@ final class ExecutionTests: XCTestCase {
 
     #if os(Windows)
       XCTAssert(
-      FileManager.default.fileExists(atPath: output.relativePath + ".exe"),
-      "Compilation output file not found: \(output.relativePath)")
+        FileManager.default.fileExists(atPath: output.relativePath + ".exe"),
+        "Compilation output file not found: \(output.relativePath)")
     #else
-    XCTAssert(
-      FileManager.default.fileExists(atPath: output.relativePath),
-      "Compilation output file not found: \(output.relativePath)")
+      XCTAssert(
+        FileManager.default.fileExists(atPath: output.relativePath),
+        "Compilation output file not found: \(output.relativePath)")
     #endif
 
     return output
