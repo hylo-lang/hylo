@@ -118,7 +118,7 @@ public struct CXXTranspiler {
     assert(wholeValProgram.isGlobal(source.id))
     let r = CXXClassDecl(
       name: CXXIdentifier(source.identifier.value),
-      members: source.members.flatMap({ cxx(member: $0, ofType: source) }))
+      members: source.members.flatMap({ cxx(member: $0) }))
 
     // Pop `source` from the stack of parents.
     parents.pop(type: source)
@@ -127,16 +127,14 @@ public struct CXXTranspiler {
   }
 
   /// Returns a transpilation of `source`.
-  private func cxx(member source: AnyDeclID.TypedNode, ofType parent: ProductTypeDecl.Typed)
-    -> [CXXClassDecl.ClassMember]
-  {
+  private func cxx(member source: AnyDeclID.TypedNode) -> [CXXClassDecl.ClassMember] {
     switch source.kind {
     case BindingDecl.self:
       // One binding can expand into multiple class attributes
       return cxx(productTypeBinding: BindingDecl.Typed(source)!)
 
     case InitializerDecl.self:
-      return [cxx(initializer: InitializerDecl.Typed(source)!, forType: parent)]
+      return [cxx(initializer: InitializerDecl.Typed(source)!)]
 
     case MethodDecl.self, FunctionDecl.self:
       return [.method]
@@ -158,9 +156,8 @@ public struct CXXTranspiler {
     })
   }
   /// Returns a transpilation of `source`.
-  private func cxx(initializer source: InitializerDecl.Typed, forType parent: ProductTypeDecl.Typed)
-    -> CXXClassDecl.ClassMember
-  {
+  private func cxx(initializer source: InitializerDecl.Typed) -> CXXClassDecl.ClassMember {
+    let parentType = parents.enclosingType()!
     switch source.introducer.value {
     case .`init`:
       let parameters = source.parameters.map({ p in
@@ -170,7 +167,7 @@ public struct CXXTranspiler {
       })
       return .constructor(
         CXXConstructor(
-          name: CXXIdentifier(parent.identifier.value),
+          name: CXXIdentifier(parentType.baseName),
           parameters: Array(parameters),
           initializers: [],
           body: source.body != nil ? cxx(brace: source.body!) : nil))
@@ -178,7 +175,7 @@ public struct CXXTranspiler {
       // TODO: revisit this
       return .constructor(
         CXXConstructor(
-          name: CXXIdentifier(parent.identifier.value),
+          name: CXXIdentifier(parentType.baseName),
           parameters: [],
           initializers: [],
           body: nil))
