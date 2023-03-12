@@ -26,25 +26,18 @@ jobs:
       matrix:
         host: [
           { type: macos, os: macos-latest },
+          { type: windows, os: windows-10 },
           { type: linux, os: ubuntu-latest, test-options: --enable-code-coverage },
         ]
         swift: [
-          { version: "5.7", windows-branch: "development", windows-tag: "DEVELOPMENT-SNAPSHOT-2023-02-14-a" }
+          { version: "5.7" }
         ]
     runs-on: ${{ matrix.host.os }}
     steps:
     - name: Setup swift
       uses: swift-actions/setup-swift@v1
-      if: matrix.host.type != 'windows'
       with:
         swift-version: ${{ matrix.swift.version }}
-
-    - name: Setup swift (Windows)
-      uses: compnerd/gha-setup-swift@main
-      if: matrix.host.type == 'windows'
-      with:
-        branch: ${{ matrix.swift.windows-branch }}
-        tag: ${{ matrix.swift.windows-tag }}
 
     - run: |
         git config --global core.autocrlf input
@@ -55,6 +48,7 @@ jobs:
 
     - name: Build (Debug)
       run: swift build -v -c debug
+      
     - name: Test (Debug)
       run: swift test -v -c debug ${{matrix.host.test-options}}
     - name: Check code coverage (Debug)
@@ -66,6 +60,7 @@ jobs:
 
     - name: Build (Release)
       run: swift build -v -c release
+      
     - name: Test (Release)
       run: swift test -c release -Xswiftc -enable-testing ${{matrix.host.test-options}}
     - name: Check code coverage (Release)
