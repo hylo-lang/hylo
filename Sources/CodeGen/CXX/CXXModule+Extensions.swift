@@ -35,6 +35,7 @@ private struct HeaderFile: Writeable {
       output << "#include <variant>\n"
       output << "#include <cstdint>\n"
       output << "#include <cstdlib>\n"
+      output << AdditionalFileContent("NativeCodePreamble.h")
       output << "namespace Val {\n"
     } else {
       output << "#include \"ValCore.h\"\n"
@@ -279,10 +280,6 @@ extension CXXConstructor: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    // TODO: for now we skip generating constructors in core library
-    if output.context.isCoreLibrary {
-      output << "/*\n"
-    }
     if let b = body {
       output << name << "("
       output.write(parameters.lazy.map({ p in p.type << " " << p.name }), joinedBy: ", ")
@@ -295,10 +292,6 @@ extension CXXConstructor: Writeable {
       output << " " << AnyStmt(b)
     } else {
       output << "// constructor with no body\n"
-    }
-    // TODO: for now we skip generating constructors in core library
-    if output.context.isCoreLibrary {
-      output << "*/\n"
     }
   }
 }

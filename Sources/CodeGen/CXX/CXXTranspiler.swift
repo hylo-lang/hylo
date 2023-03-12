@@ -13,13 +13,16 @@ public struct CXXTranspiler {
   /// This property is used when we need access to the contents of a node from its ID.
   let wholeValProgram: TypedProgram
 
+  /// The stack of parent declarations at any point in the transpilation.
+  private var parents: ParentsStack = ParentsStack()
+
   /// Creates an instance.
   public init(_ wholeValProgram: TypedProgram) {
     self.wholeValProgram = wholeValProgram
   }
 
   /// Returns a C++ AST implementing the semantics of `source`.
-  public func cxx(_ source: ModuleDecl.Typed) -> CXXModule {
+  public mutating func cxx(_ source: ModuleDecl.Typed) -> CXXModule {
     let isCoreLibrary = source.id == wholeValProgram.coreLibrary?.id
     return CXXModule(
       name: isCoreLibrary ? Self.coreLibModuleName : source.baseName,
@@ -31,7 +34,7 @@ public struct CXXTranspiler {
   // MARK: Declarations
 
   /// Returns a transpilation of `source`.
-  func cxx(topLevel source: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
+  mutating func cxx(topLevel source: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
     switch source.kind {
     case FunctionDecl.self:
       return cxx(function: FunctionDecl.Typed(source)!)
@@ -51,16 +54,24 @@ public struct CXXTranspiler {
   }
 
   /// Returns a transpilation of `source`.
-  func cxx(function source: FunctionDecl.Typed) -> CXXFunctionDecl {
+  mutating func cxx(function source: FunctionDecl.Typed) -> CXXFunctionDecl {
     assert(wholeValProgram.isGlobal(source.id))
+
+    // Record `source` as a parent declaration.
+    parents.push(function: source)
 
     let functionName = source.identifier?.value ?? ""
 
-    return CXXFunctionDecl(
+    let r = CXXFunctionDecl(
       identifier: CXXIdentifier(functionName),
       output: cxxFunctionReturnType(source, with: functionName),
       parameters: cxxFunctionParameters(source),
       body: source.body != nil ? cxx(funBody: source.body!) : nil)
+
+    // Pop `source` from the stack of parents.
+    parents.pop(function: source)
+
+    return r
   }
 
   /// Returns a transpilation of the return type `source`.
@@ -100,11 +111,19 @@ public struct CXXTranspiler {
   }
 
   /// Returns a transpilation of `source`.
-  private func cxx(type source: ProductTypeDecl.Typed) -> CXXClassDecl {
+  private mutating func cxx(type source: ProductTypeDecl.Typed) -> CXXClassDecl {
+    // Record `source` as a parent declaration.
+    parents.push(type: source)
+
     assert(wholeValProgram.isGlobal(source.id))
-    return CXXClassDecl(
+    let r = CXXClassDecl(
       name: CXXIdentifier(source.identifier.value),
       members: source.members.flatMap({ cxx(member: $0, ofType: source) }))
+
+    // Pop `source` from the stack of parents.
+    parents.pop(type: source)
+
+    return r
   }
 
   /// Returns a transpilation of `source`.
@@ -470,6 +489,15 @@ public struct CXXTranspiler {
     case .direct(let callee) where callee.kind == InitializerDecl.self:
       return cxx(nameOfInitializer: InitializerDecl.Typed(callee)!)
 
+    case .direct(let callee) where callee.kind == ParameterDecl.self:
+      let name = nameOfDecl(callee)
+      if name == "self" {
+        // `self` -> `*this`
+        return CXXPrefixExpr(oper: .dereference, base: CXXReceiverExpr())
+      } else {
+        return CXXIdentifier(nameOfDecl(callee))
+      }
+
     case .direct(let callee):
       // For variables, and other declarations, just use the name of the declaration
       return CXXIdentifier(nameOfDecl(callee))
@@ -482,8 +510,10 @@ public struct CXXTranspiler {
       return CXXIdentifier(nameOfDecl(callee))
 
     case .builtinFunction(let f):
-      // Callee refers to a built-in function.
-      return CXXIdentifier(f.llvmInstruction)
+      // Decorate the function so that we can uniquely identify it.
+      // Example: `native_zeroinitializer_double`.
+      let cxxType = cxx(typeExpr: f.type.output)
+      return CXXIdentifier("native_\(f.llvmInstruction)_\(cxxType.text)")
 
     case .builtinType:
       unreachable()
@@ -525,7 +555,8 @@ public struct CXXTranspiler {
   }
   /// Returns a transpilation of `source`.
   private func cxx(nameOfInitializer source: InitializerDecl.Typed) -> CXXExpr {
-    return CXXComment(comment: "nameOfInitializer")
+    let enclosingClass = parents.enclosingType()!
+    return CXXIdentifier(nameOfDecl(enclosingClass))
   }
   /// Returns a transpilation of `source`.
   private func cxx(
@@ -682,6 +713,67 @@ public struct CXXTranspiler {
       bodyContent = [CXXExprStmt(expr: CXXVoidCast(baseExpr: callToMain))]
     }
     return CXXScopedBlock(stmts: bodyContent)
+  }
+
+  /// A stack of declarations that can act as parents hierarcy in the code.
+  ///
+  /// Used to get to the enclosing type or function.
+  private struct ParentsStack {
+
+    private enum ParentDecl: Equatable {
+      case type(ProductTypeDecl.Typed)
+      case function(FunctionDecl.Typed)
+    }
+
+    /// The stack of parent declarations.
+    private var stack: [ParentDecl] = []
+
+    /// Push `t` to our stack.
+    mutating func push(type t: ProductTypeDecl.Typed) {
+      stack.append(.type(t))
+    }
+    /// Push `f` to our stack.
+    mutating func push(function f: FunctionDecl.Typed) {
+      stack.append(.function(f))
+    }
+
+    /// Pop the last element from the stack, and ensure it's equal to `expected`.
+    mutating func pop(type expected: ProductTypeDecl.Typed) {
+      let element = stack.popLast()!
+      assert(element == .type(expected))
+    }
+    /// Pop the last element from the stack, and ensure it's equal to `expected`.
+    mutating func pop(function expected: FunctionDecl.Typed) {
+      let element = stack.popLast()!
+      assert(element == .function(expected))
+    }
+
+    /// Get the enclosing type from the stack.
+    func enclosingType() -> ProductTypeDecl.Typed? {
+      for element in stack.lazy.reversed() {
+        switch element {
+        case .type(let t):
+          return t
+        default:
+          break
+        }
+      }
+      return nil
+    }
+
+    /// Get the enclosing function from the stack.
+    func enclosingFunction() -> FunctionDecl.Typed? {
+      for element in stack.lazy.reversed() {
+        switch element {
+        case .function(let f):
+          return f
+        default:
+          break
+        }
+      }
+      return nil
+    }
+
   }
 
 }
