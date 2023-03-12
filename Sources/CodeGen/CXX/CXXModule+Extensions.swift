@@ -216,8 +216,8 @@ private struct ClassDefinition: Writeable {
         output << attribute
       case .method:
         output << "// method\n"
-      case .constructor:
-        output << "// constructor\n"
+      case .constructor(let constructor):
+        output << constructor
       }
     }
     if output.context.isCoreLibrary {
@@ -273,6 +273,34 @@ extension CXXClassAttribute: Writeable {
     output << ";\n"
   }
 
+}
+
+extension CXXConstructor: Writeable {
+
+  /// Writes 'self' to 'output'.
+  func write(to output: inout CXXStream) {
+    // TODO: for now we skip generating constructors in core library
+    if output.context.isCoreLibrary {
+      output << "/*\n"
+    }
+    if let b = body {
+      output << name << "("
+      output.write(parameters.lazy.map({ p in p.type << " " << p.name }), joinedBy: ", ")
+      output << ")"
+      if !initializers.isEmpty {
+        output << " : "
+        output.write(
+          initializers.lazy.map({ i in i.name << "(" << AnyExpr(i.value) << ")" }), joinedBy: ", ")
+      }
+      output << " " << AnyStmt(b)
+    } else {
+      output << "// constructor with no body\n"
+    }
+    // TODO: for now we skip generating constructors in core library
+    if output.context.isCoreLibrary {
+      output << "*/\n"
+    }
+  }
 }
 
 extension CXXLocalVarDecl: Writeable {
@@ -688,9 +716,10 @@ extension CXXStream {
   where S.Element: Writeable {
     var isFirst = true
     for i in items {
-      if !isFirst {
-        output.write(separator)
+      if isFirst {
         isFirst = false
+      } else {
+        output.write(separator)
       }
       i.write(to: &self)
     }

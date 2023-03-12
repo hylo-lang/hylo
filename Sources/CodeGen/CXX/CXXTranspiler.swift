@@ -104,18 +104,20 @@ public struct CXXTranspiler {
     assert(wholeValProgram.isGlobal(source.id))
     return CXXClassDecl(
       name: CXXIdentifier(source.identifier.value),
-      members: source.members.flatMap({ cxx(classMember: $0) }))
+      members: source.members.flatMap({ cxx(member: $0, ofType: source) }))
   }
 
   /// Returns a transpilation of `source`.
-  private func cxx(classMember source: AnyDeclID.TypedNode) -> [CXXClassDecl.ClassMember] {
+  private func cxx(member source: AnyDeclID.TypedNode, ofType parent: ProductTypeDecl.Typed)
+    -> [CXXClassDecl.ClassMember]
+  {
     switch source.kind {
     case BindingDecl.self:
       // One binding can expand into multiple class attributes
       return cxx(productTypeBinding: BindingDecl.Typed(source)!)
 
     case InitializerDecl.self:
-      return [cxx(productTypeInitialzer: InitializerDecl.Typed(source)!)]
+      return [cxx(initializer: InitializerDecl.Typed(source)!, forType: parent)]
 
     case MethodDecl.self, FunctionDecl.self:
       return [.method]
@@ -137,15 +139,30 @@ public struct CXXTranspiler {
     })
   }
   /// Returns a transpilation of `source`.
-  private func cxx(productTypeInitialzer source: InitializerDecl.Typed) -> CXXClassDecl.ClassMember
+  private func cxx(initializer source: InitializerDecl.Typed, forType parent: ProductTypeDecl.Typed)
+    -> CXXClassDecl.ClassMember
   {
     switch source.introducer.value {
     case .`init`:
-      // TODO: emit constructor
-      return .constructor
+      let parameters = source.parameters.map({ p in
+        // TODO: simplify this logic
+        let t = cxx(typeExpr: wholeValProgram.declTypes[p.id]!)
+        return CXXConstructor.Parameter(name: CXXIdentifier(p.baseName), type: t)
+      })
+      return .constructor(
+        CXXConstructor(
+          name: CXXIdentifier(parent.identifier.value),
+          parameters: Array(parameters),
+          initializers: [],
+          body: source.body != nil ? cxx(brace: source.body!) : nil))
     case .memberwiseInit:
-      // TODO: emit constructor
-      return .constructor
+      // TODO: revisit this
+      return .constructor(
+        CXXConstructor(
+          name: CXXIdentifier(parent.identifier.value),
+          parameters: [],
+          initializers: [],
+          body: nil))
     }
   }
 
@@ -321,6 +338,8 @@ public struct CXXTranspiler {
       return cxx(functionCall: FunctionCallExpr.Typed(source)!)
     case ConditionalExpr.self:
       return cxx(cond: ConditionalExpr.Typed(source)!)
+    case InoutExpr.self:
+      return cxx(`inout`: InoutExpr.Typed(source)!)
     default:
       unexpected(source)
     }
@@ -432,6 +451,11 @@ public struct CXXTranspiler {
       falseExpr: cxx(expr: source.failure))
   }
 
+  /// Returns a transpilation of `source`.
+  private func cxx(`inout` source: InoutExpr.Typed) -> CXXExpr {
+    return cxx(expr: source.subject)
+  }
+
   // MARK: names
 
   /// Returns a transpilation of `source`.
@@ -453,8 +477,9 @@ public struct CXXTranspiler {
     case .member(let callee) where callee.kind == FunctionDecl.self:
       return cxx(nameOfMemberFunction: FunctionDecl.Typed(callee)!, withDomain: source.domain)
 
-    case .member(_):
-      fatalError("not implemented")
+    case .member(let callee):
+      // TODO: revisit this
+      return CXXIdentifier(nameOfDecl(callee))
 
     case .builtinFunction(let f):
       // Callee refers to a built-in function.
@@ -500,7 +525,7 @@ public struct CXXTranspiler {
   }
   /// Returns a transpilation of `source`.
   private func cxx(nameOfInitializer source: InitializerDecl.Typed) -> CXXExpr {
-    fatalError("not implemented")
+    return CXXComment(comment: "nameOfInitializer")
   }
   /// Returns a transpilation of `source`.
   private func cxx(

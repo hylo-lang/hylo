@@ -16,7 +16,7 @@ struct CXXClassDecl: CXXTopLevelDecl {
     case method
 
     /// A CXX constructor
-    case constructor
+    case constructor(CXXConstructor)
 
   }
 
