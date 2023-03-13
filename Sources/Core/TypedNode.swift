@@ -307,6 +307,13 @@ extension TypedNode where ID == FunctionDecl.ID {
     }
   }
 
+  /// The parameters of the function.
+  public var parameters: [ParameterDecl.Typed] {
+    return syntax.parameters.lazy.map({
+      return program[$0]
+    })
+  }
+
 }
 
 extension TypedNode where ID == SequenceExpr.ID {

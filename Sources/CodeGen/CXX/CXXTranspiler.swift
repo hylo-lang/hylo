@@ -65,7 +65,9 @@ public struct CXXTranspiler {
     let r = CXXFunctionDecl(
       identifier: CXXIdentifier(functionName),
       output: cxxFunctionReturnType(source, with: functionName),
-      parameters: cxxFunctionParameters(source),
+      parameters: source.parameters.map {
+        CXXFunctionDecl.Parameter(CXXIdentifier($0.baseName), cxx(typeExpr: $0.type))
+      },
       body: source.body != nil ? cxx(funBody: source.body!) : nil)
 
     // Pop `source` from the stack of parents.
@@ -87,15 +89,6 @@ public struct CXXTranspiler {
 
     default:
       unreachable("unexpected type")
-    }
-  }
-
-  /// Returns a transpilation of the parameters of `source`.
-  private func cxxFunctionParameters(_ source: FunctionDecl.Typed) -> [CXXFunctionDecl.Parameter] {
-    let paramTypes = (source.type.base as! LambdaType).inputs
-    assert(paramTypes.count == source.parameters.count)
-    return zip(source.parameters, paramTypes).map { p, t in
-      CXXFunctionDecl.Parameter(CXXIdentifier(p.baseName), cxx(typeExpr: t.type))
     }
   }
 
@@ -160,31 +153,25 @@ public struct CXXTranspiler {
     let parentType = parents.enclosingType()!
     switch source.introducer.value {
     case .`init`:
-      let parameters = source.parameters.map({ p in
-        // TODO: simplify this logic
-        let t = cxx(typeExpr: wholeValProgram.declTypes[p.id]!)
-        return CXXConstructor.Parameter(name: CXXIdentifier(p.baseName), type: t)
-      })
       return .constructor(
         CXXConstructor(
           name: CXXIdentifier(parentType.baseName),
-          parameters: Array(parameters),
+          parameters: source.parameters.map {
+            CXXConstructor.Parameter(name: CXXIdentifier($0.baseName), type: cxx(typeExpr: $0.type))
+          },
           initializers: [],
           body: source.body != nil ? cxx(brace: source.body!) : nil))
     case .memberwiseInit:
       let attributes = nonStaticAttributes(parentType)
-      let parameters = attributes.map({
-        return (name: CXXIdentifier($0.name), type: cxx(typeExpr: $0.type))
-      })
-      let initializers = attributes.map({
-        return (name: CXXIdentifier($0.name), value: CXXIdentifier($0.name))
-      })
-      // TODO: revisit this
       return .constructor(
         CXXConstructor(
           name: CXXIdentifier(parentType.baseName),
-          parameters: parameters,
-          initializers: initializers,
+          parameters: attributes.map {
+            return (name: CXXIdentifier($0.name), type: cxx(typeExpr: $0.type))
+          },
+          initializers: attributes.map {
+            return (name: CXXIdentifier($0.name), value: CXXIdentifier($0.name))
+          },
           body: nil))
     }
   }
