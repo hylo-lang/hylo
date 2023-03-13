@@ -184,20 +184,21 @@ public struct ValCommand: ParsableCommand {
 
     // IR
 
-    var irProgram: [ModuleDecl.ID: IR.Module] = [:]
+    var irModules: [ModuleDecl.ID: IR.Module] = [:]
     for m in ast.modules {
       var ir = try IR.Module(lowering: m, in: program, diagnostics: &diagnostics)
       if outputType != .rawIR {
         try ir.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
       }
-      irProgram[m] = ir
+      irModules[m] = ir
     }
 
     if outputType == .ir || outputType == .rawIR {
-      try irProgram[sourceModule]!.description
+      try irModules[sourceModule]!.description
         .write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
+    let ir = LoweredProgram(syntax: program, modules: irModules)
 
     // C++
 
@@ -219,7 +220,7 @@ public struct ValCommand: ParsableCommand {
     // Executables
 
     assert(outputType == .binary)
-    let llvmProgram = try LLVMProgram([irProgram[sourceModule]!])
+    let llvmProgram = try LLVMProgram(ir, mainModule: sourceModule)
     print(llvmProgram)
   }
 

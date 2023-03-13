@@ -7,22 +7,21 @@ import Utils
 public struct LLVMProgram {
 
   /// The LLVM modules in the program.
-  private var llvmModules: [LLVM.Module] = []
+  private var llvmModules: [ModuleDecl.ID: LLVM.Module] = [:]
 
   /// Creates an empty program.
-  public init(_ irProgram: [IR.Module]) throws {
-    for m in irProgram {
-      let transpilation = transpiled(m)
-      try transpilation.verify()
-      llvmModules.append(transpilation)
-    }
+  public init(_ ir: LoweredProgram, mainModule: ModuleDecl.ID) throws {
+    let transpilation = transpiled(mainModule, from: ir)
+    try transpilation.verify()
+    llvmModules[mainModule] = transpilation
   }
 
   /// The LLVM transpilation of the Val IR module `ir`.
-  private func transpiled(_ ir: IR.Module) -> LLVM.Module {
-    var transpilation = LLVM.Module(ir.name)
-    for f in ir.functions.keys {
-      transpilation.incorporate(f, from: ir)
+  private func transpiled(_ module: ModuleDecl.ID, from ir: LoweredProgram) -> LLVM.Module {
+    let m = ir.modules[module]!
+    var transpilation = LLVM.Module(m.name)
+    for f in m.functions.keys {
+      transpilation.incorporate(f, of: m, from: ir)
     }
     return transpilation
   }
@@ -31,42 +30,49 @@ public struct LLVMProgram {
 
 extension LLVM.Module {
 
-  /// Transpiles and incorporates `f`, which is in `ir`.
-  mutating func incorporate(_ f: IR.Function.ID, from ir: IR.Module) {
-    let d = declare(f, from: ir)
-    transpile(f, from: ir, into: d)
+  /// Transpiles and incorporates `f`, which is a function of `m` in `ir`.
+  mutating func incorporate(_ f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram) {
+    let d = declare(f, of: m, from: ir)
+    transpile(contentsOf: f, of: m, from: ir, into: d)
   }
 
-  /// Inserts the declaration of the transpilation of `f`, which is in `ir`, and returns it.
-  private mutating func declare(_ f: IR.Function.ID, from ir: IR.Module) -> LLVM.Function {
+  /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
+  private mutating func declare(_ ref: IR.FunctionRef, from ir: LoweredProgram) -> LLVM.Function {
+    let ptr = LLVM.PointerType(in: &self)
+
+    // Parameters and return values are passed by reference.
+    let functionType = LambdaType(ref.type.astType)!
+    var parameters: [LLVM.IRType] = []
+    if functionType.output != .void {
+      parameters.append(ptr)
+    }
+    parameters.append(contentsOf: Array(repeating: ptr, count: functionType.inputs.count))
+    return declareFunction(ir.abiName(of: ref.function), .init(from: parameters, in: &self))
+  }
+
+  /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
+  private mutating func declare(
+    _ f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram
+  ) -> LLVM.Function {
     let ptr = LLVM.PointerType(in: &self)
 
     // Parameters and return values are passed by reference.
     var parameters: [LLVM.IRType] = []
-    if ir[f].output.astType != .void {
+    if m[f].output.astType != .void {
       parameters.append(ptr)
     }
-    parameters.append(contentsOf: Array(repeating: ptr, count: ir[f].inputs.count))
-
-    let n: String
-    switch f.value {
-    case .lowered(let d):
-      n = ir.program.abiName(of: d)
-    case .constructor(let d):
-      n = ir.program.abiName(of: d)
-    case .synthesized:
-      fatalError("not implemented")
-    }
-
-    return declareFunction(n, .init(from: parameters, in: &self))
+    parameters.append(contentsOf: Array(repeating: ptr, count: m[f].inputs.count))
+    return declareFunction(ir.abiName(of: f), .init(from: parameters, in: &self))
   }
 
   private mutating func transpile(
-    _ f: IR.Function.ID,
-    from ir: IR.Module,
+    contentsOf f: IR.Function.ID,
+    of m: IR.Module,
+    from ir: LoweredProgram,
     into transpilation: LLVM.Function
   ) {
-    guard let entry = ir[f].entry else { return }
+    /// The function's entry.
+    guard let entry = m[f].entry else { return }
 
     /// Where new LLVM IR instruction are inserted.
     var insertionPoint: LLVM.InsertionPoint!
@@ -80,25 +86,25 @@ extension LLVM.Module {
     let prologue = appendBlock(named: "prologue", to: transpilation)
     insertionPoint = endOf(prologue)
 
-    let parameterOffset = (ir[f].output.astType == .void) ? 0 : 1
-    for (i, p) in ir[f].inputs.enumerated() {
+    let parameterOffset = (m[f].output.astType == .void) ? 0 : 1
+    for (i, p) in m[f].inputs.enumerated() {
       let o = Operand.parameter(.init(f, entry), i)
       let s = transpilation.parameters[parameterOffset + i]
 
       if p.convention == .sink {
-        let t = ir.program.llvm(p.type.astType, in: &self)
+        let t = ir.syntax.llvm(p.type.astType, in: &self)
         register[o] = insertLoad(t, from: s, at: insertionPoint)
       } else {
         register[o] = s
       }
     }
 
-    for b in ir.blocks(in: f) {
+    for b in m.blocks(in: f) {
       let transpiledBlock = appendBlock(named: b.description, to: transpilation)
       block[b] = transpiledBlock
 
       insertionPoint = endOf(transpiledBlock)
-      for i in ir.instructions(in: b) {
+      for i in m.instructions(in: b) {
         insert(i)
       }
     }
@@ -107,7 +113,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(_ i: IR.InstructionID) {
-      switch ir[i] {
+      switch m[i] {
       case is IR.BorrowInstruction:
         insert(borrow: i)
       case is IR.CallInstruction:
@@ -129,25 +135,57 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(borrow i: IR.InstructionID) {
-      let s = ir[i] as! BorrowInstruction
+      let s = m[i] as! BorrowInstruction
       register[.register(i, 0)] = llvm(s.location)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(call i: IR.InstructionID) {
-      let s = ir[i] as! CallInstruction
-      let callee = llvm(s.callee)
+      let s = m[i] as! CallInstruction
 
-      print(callee)
+      // Callee is evaluated first.
+      let callee = llvm(s.callee)
+      var arguments: [LLVM.IRValue] = []
+
+      // Return value is passed by reference.
+      let returnType: LLVM.IRType?
+      if s.types[0].astType != .void {
+        returnType = ir.syntax.llvm(s.types[0].astType, in: &self)
+        arguments.append(insertAlloca(returnType!, atEntryOf: transpilation))
+      } else {
+        returnType = nil
+      }
+
+      // All arguments are passed by reference.
+      for a in s.arguments {
+        if m.type(of: a).isObject {
+          let t = ir.syntax.llvm(s.types[0].astType, in: &self)
+          let l = insertAlloca(t, atEntryOf: transpilation)
+          insertStore(llvm(a), to: l, at: insertionPoint)
+          arguments.append(l)
+        } else {
+          arguments.append(llvm(a))
+        }
+      }
+
+      // Note: the type of a function in Val IR typically doesn't match the type of its transpiled
+      // form. The latter always returns `void`, as non-void results are passed by reference.
+      let calleeType = LLVM.Function(callee).map(\.valueType) ?? callee.type
+      _ = insertCall(callee, typed: calleeType, on: arguments, at: insertionPoint)
+
+      // Load the return value if necessary.
+      if let t = returnType {
+        register[.register(i, 0)] = insertLoad(t, from: arguments[0], at: insertionPoint)
+      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(elementAddr i: IR.InstructionID) {
-      let s = ir[i] as! ElementAddrInstruction
+      let s = m[i] as! ElementAddrInstruction
       let t = LLVM.IntegerType(32, in: &self)
 
       let base = llvm(s.base)
-      let baseType = ir.program.llvm(ir.type(of: s.base).astType, in: &self)
+      let baseType = ir.syntax.llvm(m.type(of: s.base).astType, in: &self)
       let indices = [t.constant(0)] + s.elementPath.map({ t.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
@@ -156,10 +194,10 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(llvm i: IR.InstructionID) {
-      let s = ir[i] as! IR.LLVMInstruction
+      let s = m[i] as! IR.LLVMInstruction
       switch s.function.llvmInstruction {
       case "zeroinitializer":
-        let t = ir.program.llvm(s.types[0].astType, in: &self)
+        let t = ir.syntax.llvm(s.types[0].astType, in: &self)
         register[.register(i, 0)] = t.null
 
       default:
@@ -169,17 +207,16 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(return i: IR.InstructionID) {
-      let s = ir[i] as! IR.ReturnInstruction
-      if s.object == .constant(.void) {
-        insertReturn(at: insertionPoint)
-      } else {
-        insertReturn(llvm(s.object), at: insertionPoint)
+      let s = m[i] as! IR.ReturnInstruction
+      if s.object != .constant(.void) {
+        insertStore(llvm(s.object), to: transpilation.parameters[0], at: insertionPoint)
       }
+      insertReturn(at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(store i: IR.InstructionID) {
-      let s = ir[i] as! IR.StoreInstruction
+      let s = m[i] as! IR.StoreInstruction
       insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
     }
 
@@ -189,16 +226,21 @@ extension LLVM.Module {
         return register[o]!
       }
 
-      let t = ir.program.llvm(c.type.astType, in: &self)
       switch c {
       case .integer(let n):
         guard n.value.bitWidth <= 64 else { fatalError("not implemented") }
-        return LLVM.IntegerType(t)!.constant(UInt64(n.value.words[0]))
+        let t = LLVM.IntegerType(n.value.bitWidth, in: &self)
+        return t.constant(UInt64(n.value.words[0]))
 
       case .floatingPoint(let n):
-        return LLVM.FloatingPointType(t)!.constant(parsing: n.value)
+        let t = LLVM.FloatingPointType(ir.syntax.llvm(c.type.astType, in: &self))!
+        return t.constant(parsing: n.value)
+
+      case .function(let f):
+        return declare(f, from: ir)
 
       case .poison:
+        let t = ir.syntax.llvm(c.type.astType, in: &self)
         return LLVM.Poison(of: t)
 
       default:

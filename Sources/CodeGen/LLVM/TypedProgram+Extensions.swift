@@ -3,6 +3,28 @@ import IR
 import LLVM
 import Utils
 
+extension LoweredProgram {
+
+  /// Returns the name of `f` in the ABI.
+  func abiName(of f: IR.Function.ID) -> String {
+    switch f.value {
+    case .lowered(let d):
+      return abiName(of: d)
+    case .constructor(let d):
+      return abiName(of: d)
+    case .synthesized:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Returns the name of `d` in the ABI.
+  func abiName<T: DeclID>(of d: T) -> String {
+    let m = syntax.module(containing: syntax.declToScope[d]!)
+    return "_V\(m.rawValue)_\(d.rawValue)"
+  }
+
+}
+
 extension TypedProgram {
 
   /// Returns the name of `d` in the ABI.
