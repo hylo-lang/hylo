@@ -415,7 +415,7 @@ private struct AnyExpr: Writeable {
   /// The C++ expression to write to the output C++ stream.
   let source: CXXExpr
 
-  /// True if we need to write the expression in parentheses.
+  /// `true` iff we need to write the expression in parentheses.
   let writeParentheses: Bool
 
   init(_ source: CXXExpr, withParentheses p: Bool = false) {
