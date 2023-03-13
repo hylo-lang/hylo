@@ -32,9 +32,16 @@ final class ExecutionTests: XCTestCase {
 
     XCTAssert(status.isSuccess, "Compilation of \(input) failed with exit code \(status.rawValue)")
     XCTAssert(stderr.isEmpty, "Compilation of \(input) contains errors: \(stderr)")
-    XCTAssert(
-      FileManager.default.fileExists(atPath: output.relativePath),
-      "Compilation output file not found: \(output.relativePath)")
+
+    #if os(Windows)
+      XCTAssert(
+        FileManager.default.fileExists(atPath: output.relativePath + ".exe"),
+        "Compilation output file not found: \(output.relativePath)")
+    #else
+      XCTAssert(
+        FileManager.default.fileExists(atPath: output.relativePath),
+        "Compilation output file not found: \(output.relativePath)")
+    #endif
 
     return output
   }
