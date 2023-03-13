@@ -4,6 +4,7 @@ type MyInt {
   //! h Int value;
   var value: Int
 
+  //! h MyInt(Int value) : value(value) {}
   memberwise init
 
   //! h MyInt() {

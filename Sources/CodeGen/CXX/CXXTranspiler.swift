@@ -172,14 +172,40 @@ public struct CXXTranspiler {
           initializers: [],
           body: source.body != nil ? cxx(brace: source.body!) : nil))
     case .memberwiseInit:
+      let attributes = nonStaticAttributes(parentType)
+      let parameters = attributes.map({
+        return (name: CXXIdentifier($0.name), type: cxx(typeExpr: $0.type))
+      })
+      let initializers = attributes.map({
+        return (name: CXXIdentifier($0.name), value: CXXIdentifier($0.name))
+      })
       // TODO: revisit this
       return .constructor(
         CXXConstructor(
           name: CXXIdentifier(parentType.baseName),
-          parameters: [],
-          initializers: [],
+          parameters: parameters,
+          initializers: initializers,
           body: nil))
     }
+  }
+
+  /// An attribute of a product type.
+  typealias Attribute = (name: String, type: AnyType)
+
+  /// Returns the list of non-statuc attributes for `source`.
+  private func nonStaticAttributes(_ source: ProductTypeDecl.Typed) -> [Attribute] {
+    return source.decls.lazy.flatMap({ (d) -> [Attribute] in
+      // First check for binding declarations inside the product type
+      guard let binding = BindingDecl.Typed(d) else {
+        return []
+      }
+      // Then, for each binding declaration iterate over the subpatterns to get the attributes.
+      let r = binding.pattern.subpattern.names.map({
+        Attribute(name: $0.pattern.decl.baseName, type: $0.pattern.decl.type)
+      })
+      return r
+    })
+
   }
 
   /// Returns a transpilation of `source`.
