@@ -80,7 +80,7 @@ private struct SourceFile: Writeable {
 
     // Write a CXX `main` function if the module has an entry point.
     if let body = source.entryPointBody {
-      output << "int main()" << AnyStmt(body) << "\n"
+      output << "int main() " << AnyStmt(body) << "\n"
     }
   }
 
@@ -412,14 +412,22 @@ extension CXXContinueStmt: Writeable {
 
 private struct AnyExpr: Writeable {
 
+  /// The C++ expression to write to the output C++ stream.
   let source: CXXExpr
 
-  init(_ source: CXXExpr) {
+  /// `true` iff we need to write the expression in parentheses.
+  let writeParentheses: Bool
+
+  init(_ source: CXXExpr, withParentheses p: Bool = false) {
     self.source = source
+    self.writeParentheses = p
   }
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
+    if writeParentheses {
+      output << "("
+    }
     switch type(of: source).kind {
     case CXXBooleanLiteralExpr.self:
       output << (source as! CXXBooleanLiteralExpr)
@@ -449,6 +457,9 @@ private struct AnyExpr: Writeable {
       output << (source as! CXXComment)
     default:
       fatalError("unexpected expressions")
+    }
+    if writeParentheses {
+      output << ")"
     }
   }
 
@@ -537,7 +548,13 @@ extension CXXInfixExpr: Writeable {
       Operator.bitwiseOrAssignment: " |= ",
       Operator.comma: " , ",
     ]
-    output << AnyExpr(lhs) << translation[oper]! << AnyExpr(rhs)
+    let lhsNeedsParentheses =
+      lhs.precedence > self.precedence || (lhs.precedence == self.precedence && !self.isLeftToRight)
+    let rhsNeedsParentheses =
+      rhs.precedence > self.precedence || (rhs.precedence == self.precedence && self.isLeftToRight)
+    output << AnyExpr(lhs, withParentheses: lhsNeedsParentheses)
+      << translation[oper]!
+      << AnyExpr(rhs, withParentheses: rhsNeedsParentheses)
   }
 
 }
@@ -602,8 +619,12 @@ extension CXXConditionalExpr: Writeable {
 
   /// Writes 'self' to 'output'.
   func write(to output: inout CXXStream) {
-    output << AnyExpr(condition) << " ? " << AnyExpr(trueExpr) << " : "
-      << AnyExpr(falseExpr)
+    let conditionNeedsParentheses = condition.precedence == self.precedence
+    let trueExprNeedsParentheses = trueExpr.precedence == self.precedence
+    let falseExprNeedsParentheses = falseExpr.precedence == self.precedence
+    output << AnyExpr(condition, withParentheses: conditionNeedsParentheses)
+      << " ? " << AnyExpr(trueExpr, withParentheses: trueExprNeedsParentheses)
+      << " : " << AnyExpr(falseExpr, withParentheses: falseExprNeedsParentheses)
   }
 
 }

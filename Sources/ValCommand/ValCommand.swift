@@ -255,6 +255,7 @@ public struct ValCommand: ParsableCommand {
     if cxxCompiler == .msvc {
       arguments = ccFlags.map({ "/\($0)" })
       arguments += [
+        buildDirectory.appendingPathComponent(cxxModules.core.syntax.name + ".cpp").path,
         buildDirectory.appendingPathComponent(productName + ".cpp").path,
         "/link",
         "/out:" + binaryPath,
@@ -264,6 +265,7 @@ public struct ValCommand: ParsableCommand {
       arguments += [
         "-o", binaryPath,
         "-I", buildDirectory.path,
+        buildDirectory.appendingPathComponent(cxxModules.core.syntax.name + ".cpp").path,
         buildDirectory.appendingPathComponent(productName + ".cpp").path,
       ]
     }
