@@ -5,10 +5,15 @@ import XCTest
 
 final class ExecutionTests: XCTestCase {
 
-  /// Compiles and executes all tests in `TestCases` directory, and ensures they return success.
+  /// End to end tests
   func testExecution() throws {
-    let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
-    for testFile in try! sourceFiles(in: [s]) {
+    try testVal("./TestCases/Factorial.val")
+  }
+  
+  /// Compiles and executes tests, and ensures they return success.
+  func testVal(_ fileURL: String) throws {
+    let s = Bundle.module.url(forResource: fileURL, withExtension: nil)!
+    for testFile in try sourceFiles(in: [s]) {
       let output = try compile(testFile.url, with: ["--emit", "binary"])
       do {
         let exitCode = try run(output)
