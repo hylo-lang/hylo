@@ -750,21 +750,20 @@ public struct TypeChecker {
       }
 
       for t in conformedTraits(of: rhs, in: declContainer) {
-        checkAndRegisterConformance(
-          of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(d))
+        checkAndRegisterConformance(of: receiver, to: t, declaredBy: d, at: ast[e].site)
       }
     }
   }
 
-  /// Registers the conformance of `model` to `trait` in `declScope` in `self.relations` if it is
-  /// satisfied. Otherwise, reports diagnostics at `declSite`.
-  private mutating func checkAndRegisterConformance(
+  /// Registers the conformance of `model` to `trait` declared by `source` in `self.relations` if
+  /// it is satisfied. Otherwise, reports diagnostics at `declSite`.
+  private mutating func checkAndRegisterConformance<T: Decl & LexicalScope>(
     of model: AnyType,
     to trait: TraitType,
-    declaredAt declSite: SourceRange,
-    in declScope: AnyScopeID
+    declaredBy source: T.ID,
+    at declSite: SourceRange
   ) {
-    guard let c = checkConformance(of: model, to: trait, declaredAt: declSite, in: declScope)
+    guard let c = checkConformance(of: model, to: trait, declaredBy: source, at: declSite)
     else {
       // Diagnostics have been reported by `checkConformance`.
       return
@@ -776,13 +775,13 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the conformance of `model` to `trait` in `declScope` if it'ss satisfied. Otherwise,
-  /// reports missing requirements at `declSite` and returns `nil`.
-  private mutating func checkConformance(
+  /// Returns the conformance of `model` to `trait` declared by `source` if it's satisfied.
+  /// Otherwise, reports missing requirements at `declSite` and returns `nil`.
+  private mutating func checkConformance<T: Decl & LexicalScope>(
     of model: AnyType,
     to trait: TraitType,
-    declaredAt declSite: SourceRange,
-    in declScope: AnyScopeID
+    declaredBy source: T.ID,
+    at declSite: SourceRange
   ) -> Conformance? {
     let specializations = [ast[trait.decl].selfParameterDecl: model]
     var implementations = Conformance.ImplementationMap()
@@ -792,14 +791,14 @@ public struct TypeChecker {
     /// reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(function d: FunctionDecl.ID) {
       let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: declScope)
+        relations.canonical(realize(decl: d)), applying: specializations, in: AnyScopeID(source))
       guard !t[.hasError] else { return }
 
       let n = Name(of: d, in: ast)!
       if let c = implementation(
         of: n, in: model,
         withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: declScope)
+        exposedTo: AnyScopeID(source))
       {
         implementations[d] = .concrete(c)
       } else if program.isSynthesizable(d) {
@@ -813,13 +812,13 @@ public struct TypeChecker {
     /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
       let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: declScope)
+        relations.canonical(realize(decl: d)), applying: specializations, in: AnyScopeID(source))
       guard !t[.hasError] else { return }
 
       if let c = implementation(
         of: m, in: model,
         withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: declScope)
+        exposedTo: AnyScopeID(source))
       {
         implementations[d] = .concrete(c)
       } else if program.isSynthesizable(d) {
@@ -869,12 +868,15 @@ public struct TypeChecker {
 
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
-    let expositionScope = reading(program.scopeToParent[declScope]!) { (s) in
+    let expositionScope = reading(program.scopeToParent[source]!) { (s) in
       (s.kind == TranslationUnit.self) ? AnyScopeID(program.module(containing: s)) : s
     }
+
     return Conformance(
-      model: model, concept: trait, conditions: [], scope: expositionScope,
-      implementations: implementations, site: declSite)
+      model: model, concept: trait, conditions: [],
+      source: AnyDeclID(source), scope: expositionScope,
+      implementations: implementations,
+      site: declSite)
   }
 
   /// Returns the declaration exposed to `scope` of a callable member in `model` that introduces
