@@ -9,7 +9,7 @@ final class ExecutionTests: XCTestCase {
   func testExecution() throws {
     try testVal("./TestCases/Factorial.val")
   }
-  
+
   /// Compiles and executes tests, and ensures they return success.
   func testVal(_ fileURL: String) throws {
     let s = Bundle.module.url(forResource: fileURL, withExtension: nil)!
