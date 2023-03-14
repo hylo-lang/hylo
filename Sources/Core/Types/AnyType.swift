@@ -212,6 +212,11 @@ extension AnyType: Equatable {
   }
 
   /// Returns whether `subject` matches `pattern`.
+  public static func ~= (pattern: Self, subject: Self) -> Bool {
+    pattern == subject
+  }
+
+  /// Returns whether `subject` matches `pattern`.
   public static func ~= <T: TypeProtocol>(pattern: T, subject: Self) -> Bool {
     pattern == subject
   }
