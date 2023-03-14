@@ -109,6 +109,13 @@ public struct AnyType: TypeProtocol {
     base is ErrorType
   }
 
+  /// Indicates whether `self` is Val's `Void` or `Never` type.
+  ///
+  /// - Requires: `self` is canonical.
+  public var isVoidOrNever: Bool {
+    (self == .void) || (self == .never)
+  }
+
   /// Indicates whether `self` is a generic type parameter or associated type.
   public var isTypeParam: Bool {
     (base is AssociatedTypeType) || (base is GenericTypeParameterType)
