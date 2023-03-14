@@ -34,6 +34,40 @@ extension LLVM.Module {
   mutating func incorporate(_ f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram) {
     let d = declare(f, of: m, from: ir)
     transpile(contentsOf: f, of: m, from: ir, into: d)
+
+    if f == m.entryFunctionID {
+      defineMain(calling: f, of: m, from: ir)
+    }
+  }
+
+  private mutating func defineMain(
+    calling f: IR.Function.ID,
+    of m: IR.Module,
+    from ir: LoweredProgram
+  ) {
+    let i32 = IntegerType(32, in: &self)
+    let main = declareFunction("main", FunctionType(from: [], to: i32, in: &self))
+
+    let b = appendBlock(to: main)
+    let p = endOf(b)
+
+    let transpilation = function(named: ir.abiName(of: f))!
+
+    let val32 = ir.syntax.ast.coreType(named: "Int32")!
+    switch m[f].output.astType {
+    case val32:
+      let t = StructType(ir.syntax.llvm(val32, in: &self))!
+      let s = insertAlloca(t, at: p)
+      _ = insertCall(transpilation, on: [s], at: p)
+
+      let statusPointer = insertGetStructElementPointer(of: s, typed: t, index: 0, at: p)
+      let status = insertLoad(i32, from: statusPointer, at: p)
+      insertReturn(status, at: p)
+
+    default:
+      _ = insertCall(transpilation, on: [], at: p)
+      insertReturn(i32.zero, at: p)
+    }
   }
 
   /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
