@@ -602,6 +602,7 @@ public struct Emitter {
     functionCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
+    // Handle built-in functions separately.
     if case .builtinFunction(let f) = NameExpr.Typed(expr.callee)?.decl {
       return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
     }
@@ -614,8 +615,17 @@ public struct Emitter {
     for (p, a) in zip(calleeType.inputs, expr.arguments) {
       arguments.append(emit(argument: program[a.value], to: ParameterType(p.type)!, into: &module))
     }
-    let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
 
+    // Handle memberwise initializer calls.
+    if case .direct(let d) = NameExpr.Typed(expr.callee)?.decl {
+      if InitializerDecl.Typed(d)?.isMemberwise ?? false {
+        return module.append(
+          module.makeRecord(calleeType.output, aggregating: arguments, anchoredAt: expr.site),
+          to: insertionBlock!)[0]
+      }
+    }
+
+    let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
     return module.append(
       module.makeCall(applying: callee, to: liftedArguments + arguments, anchoredAt: expr.site),
       to: insertionBlock!)[0]
