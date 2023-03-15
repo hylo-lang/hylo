@@ -162,6 +162,11 @@ public struct AST {
   /// - Requires: The Core library must have been loaded.
   public var sinkableTrait: TraitType { coreTrait(named: "Sinkable")! }
 
+  /// `Val.Copyable` trait from the Core library.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public var copyableTrait: TraitType { coreTrait(named: "Copyable")! }
+
   // MARK: Helpers
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
