@@ -21,7 +21,6 @@ on:
 jobs:
   build-and-test-on-macos-and-linux:
     name: Swift 5 on ${{ matrix.host.os }}
-    if: matrix.host.type != 'windows'
     strategy:
       fail-fast: false
       matrix:
@@ -70,7 +69,6 @@ jobs:
         
   build-and-test-on-windows:
     name: Swift 5 on ${{ matrix.host.os }}
-    if: matrix.host.type == 'windows'
     strategy:
       fail-fast: false
       matrix:
