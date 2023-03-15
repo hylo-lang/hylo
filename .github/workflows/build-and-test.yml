@@ -80,7 +80,7 @@ jobs:
         ]
     runs-on: ${{ matrix.host.os }}
     steps:
-    - name: Setup swift (Windows)
+    - name: Setup swift
       uses: compnerd/gha-setup-swift@main
       if: matrix.host.type == 'windows'
       with:
