@@ -23,6 +23,9 @@ public struct TypeChecker {
   /// A map from function and subscript declarations to their implicit captures.
   private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
 
+  /// A map from module to its synthesized declarations.
+  private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]] = [:]
+
   /// A map from name expression to its referred declaration.
   var referredDecls: BindingMap = [:]
 
@@ -801,8 +804,9 @@ public struct TypeChecker {
         exposedTo: AnyScopeID(source))
       {
         implementations[d] = .concrete(c)
-      } else if program.isSynthesizable(d) {
+      } else if let i = synthesizedImplementation(of: d, for: t, in: AnyScopeID(source)) {
         implementations[d] = .synthetic(t)
+        synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
         notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
       }
@@ -821,8 +825,9 @@ public struct TypeChecker {
         exposedTo: AnyScopeID(source))
       {
         implementations[d] = .concrete(c)
-      } else if program.isSynthesizable(d) {
+      } else if let i = synthesizedImplementation(of: d, for: t, in: AnyScopeID(source)) {
         implementations[d] = .synthetic(t)
+        synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
         let n = m.appending(ast[d].introducer.value)!
         notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
@@ -927,6 +932,39 @@ public struct TypeChecker {
     }
 
     return viableCandidates.uniqueElement
+  }
+
+  /// Returns the synthesized implementation of requirement `r` for type `t` in given `scope`, or
+  /// `nil` if `r` is not synthesizable.
+  private func synthesizedImplementation<T: DeclID>(
+    of r: T, for t: AnyType, in scope: AnyScopeID
+  ) -> SynthesizedDecl? {
+    guard let s = program.innermostType(containing: r).map(TraitDecl.ID.init(_:)) else {
+      return nil
+    }
+
+    // If the requirement is defined in `Sinkable`, it must be either the move-initialization or
+    // move-assignment method.
+    if s == ast.sinkableTrait.decl {
+      let d = MethodImpl.ID(r)!
+      switch ast[d].introducer.value {
+      case .set:
+        return .init(.moveInitialization, for: t, in: scope)
+      case .inout:
+        return .init(.moveAssignment, for: t, in: scope)
+      default:
+        unreachable()
+      }
+    }
+
+    // If the requirement is defined in `Copyable`, it must me the copy method.
+    if s == ast.copyableTrait.decl {
+      assert(r.kind == FunctionDecl.self)
+      return .init(.copy, for: t, in: scope)
+    }
+
+    // Requirement is not synthesizable.
+    return nil
   }
 
   /// Returns an array of declarations implementing `requirement` with type `requirementType` that

@@ -171,24 +171,6 @@ extension Program {
     }
   }
 
-  /// Returns whether requirement `requirement` is a synthesizable.
-  ///
-  /// Only the requirements of the core `Sinkable` and `Copyable` traits are synthesizable.
-  public func isSynthesizable<T: DeclID>(_ requirement: T) -> Bool {
-    guard let s = innermostType(containing: requirement).map(TraitDecl.ID.init(_:)) else {
-      return false
-    }
-
-    switch s {
-    case ast.coreTrait(named: "Sinkable")?.decl:
-      return true
-    case ast.coreTrait(named: "Copyable")?.decl:
-      return true
-    default:
-      return false
-    }
-  }
-
   /// Returns whether `scope` denotes a member context.
   public func isMemberContext<S: ScopeID>(_ scope: S) -> Bool {
     switch scope.kind {
