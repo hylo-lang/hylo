@@ -68,8 +68,14 @@ public struct TypeRelations {
     case let t as MetatypeType:
       return ^MetatypeType(of: canonical(t.instance))
 
+    case let t as ParameterType:
+      return ^ParameterType(t.access, canonical(t.bareType))
+
     case let t as SumType:
       return ^SumType(Set(t.elements.map(canonical(_:))))
+
+    case let t as RemoteType:
+      return ^RemoteType(t.access, canonical(t.bareType))
 
     case let t as TupleType:
       return ^TupleType(
