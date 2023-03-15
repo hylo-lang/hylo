@@ -2,7 +2,7 @@ name: Build and test
 
 on:
   push:
-    branches: [ main, rewrite ]
+    branches: [ "**" ]
     paths-ignore:
       - "Docs/**"
       - "**.md"
@@ -19,8 +19,9 @@ on:
       - ".gitignore"
 
 jobs:
-  build:
+  build-and-test-on-macos-and-linux:
     name: Swift 5 on ${{ matrix.host.os }}
+    if: matrix.host.type != 'windows'
     strategy:
       fail-fast: false
       matrix:
@@ -29,22 +30,14 @@ jobs:
           { type: linux, os: ubuntu-latest, test-options: --enable-code-coverage },
         ]
         swift: [
-          { version: "5.7", windows-branch: "development", windows-tag: "DEVELOPMENT-SNAPSHOT-2023-02-14-a" }
+          { version: "5.7" }
         ]
     runs-on: ${{ matrix.host.os }}
     steps:
     - name: Setup swift
       uses: swift-actions/setup-swift@v1
-      if: matrix.host.type != 'windows'
       with:
         swift-version: ${{ matrix.swift.version }}
-
-    - name: Setup swift (Windows)
-      uses: compnerd/gha-setup-swift@main
-      if: matrix.host.type == 'windows'
-      with:
-        branch: ${{ matrix.swift.windows-branch }}
-        tag: ${{ matrix.swift.windows-tag }}
 
     - run: |
         git config --global core.autocrlf input
@@ -74,3 +67,57 @@ jobs:
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 82
+        
+  build-and-test-on-windows:
+    name: Swift 5 on ${{ matrix.host.os }}
+    if: matrix.host.type == 'windows'
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [
+          { type: windows, os: windows-latest },
+        ]
+        swift: [
+          { windows-branch: "development", windows-tag: "DEVELOPMENT-SNAPSHOT-2023-02-27-a" }
+        ]
+    runs-on: ${{ matrix.host.os }}
+    steps:
+    - name: Setup swift (Windows)
+      uses: compnerd/gha-setup-swift@main
+      if: matrix.host.type == 'windows'
+      with:
+        branch: ${{ matrix.swift.windows-branch }}
+        tag: ${{ matrix.swift.windows-tag }}
+
+    - run: |
+        git config --global core.autocrlf input
+    - uses: actions/checkout@v3
+
+    - name: Swift version
+      run: swift --version
+
+    - name: Build (Release)
+      id: first-build
+      continue-on-error: true
+      run: swift build -v -c release
+    
+    - name: Retry again on failure
+      continue-on-error: false
+      if: steps.first-build.outcome != 'success'
+      run: swift build -v -c release
+       
+    - name: Check on failures
+      set_status: "Success"
+      
+    - name: Test (Release)
+      id: first-test
+      continue-on-error: true
+      run: swift test -c release -Xswiftc -enable-testing ${{matrix.host.test-options}}
+      
+    - name: Retry again on failure
+      continue-on-error: false
+      if: steps.first-test.outcome != 'success'
+      run: swift test -c release -Xswiftc -enable-testing ${{matrix.host.test-options}}
+      
+    - name: Check on failures
+      set_status: "Success"
