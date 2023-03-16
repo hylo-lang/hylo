@@ -1881,10 +1881,13 @@ public struct TypeChecker {
       // TODO: Read source of conformance to disambiguate associated names
       let newMatches = lookup(stem, memberOf: ^trait, exposedTo: useScope)
 
-      // Associated type and value declarations are not inherited by conformance.
+      // Associated type and value declarations are not inherited by conformance. Traits do not
+      // inherit the generic parameters.
       switch domain.base {
-      case is AssociatedTypeType, is GenericTypeParameterType, is TraitType:
+      case is AssociatedTypeType, is GenericTypeParameterType:
         matches.formUnion(newMatches)
+      case is TraitType:
+        matches.formUnion(newMatches.filter({ $0.kind != GenericParameterDecl.self }))
       default:
         matches.formUnion(newMatches.filter(program.isRequirement(_:)))
       }
@@ -1980,8 +1983,7 @@ public struct TypeChecker {
     decls: S,
     extending subject: AnyType,
     in scope: AnyScopeID
-  )
-  where S.Element == AnyDeclID {
+  ) where S.Element == AnyDeclID {
     precondition(subject[.isCanonical])
 
     for i in decls where i.kind == ConformanceDecl.self || i.kind == ExtensionDecl.self {
@@ -2062,25 +2064,19 @@ public struct TypeChecker {
     switch expr.kind {
     case ConformanceLensTypeExpr.self:
       return realize(conformanceLens: NodeID(expr)!, in: scope)
-
     case LambdaTypeExpr.self:
       return realize(lambda: NodeID(expr)!, in: scope)
-
     case NameExpr.self:
       return realize(name: NodeID(expr)!, in: scope)
-
     case ParameterTypeExpr.self:
       let id = ParameterTypeExpr.ID(expr)!
       diagnostics.insert(
         .error(illegalParameterConvention: ast[id].convention.value, at: ast[id].convention.site))
       return nil
-
     case TupleTypeExpr.self:
       return realize(tuple: NodeID(expr)!, in: scope)
-
     case WildcardExpr.self:
       return MetatypeType(of: TypeVariable())
-
     default:
       unexpected(expr, in: ast)
     }
