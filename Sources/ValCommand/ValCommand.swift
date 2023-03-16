@@ -258,6 +258,7 @@ public struct ValCommand: ParsableCommand {
     if cxxCompiler == .msvc {
       arguments = ccFlags.map({ "/\($0)" })
       arguments += [
+        buildDirectory.appendingPathComponent(cxxModules.core.syntax.name + ".cpp").path,
         buildDirectory.appendingPathComponent(productName + ".cpp").path,
         "/link",
         "/out:" + binaryPath,
@@ -267,6 +268,7 @@ public struct ValCommand: ParsableCommand {
       arguments += [
         "-o", binaryPath,
         "-I", buildDirectory.path,
+        buildDirectory.appendingPathComponent(cxxModules.core.syntax.name + ".cpp").path,
         buildDirectory.appendingPathComponent(productName + ".cpp").path,
       ]
     }
@@ -336,7 +338,7 @@ public struct ValCommand: ParsableCommand {
       for base in environment.split(separator: ";") {
         candidate = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidate.path + ".exe") {
-          cache[executable] = candidate.path
+          ValCommand.executableLocationCache[executable] = candidate.path
           return candidate.path
         }
       }
@@ -414,20 +416,6 @@ public struct ValCommand: ParsableCommand {
   /// when "cpp" is selected as the output type.
   private func sourceModuleCXXOutputBase(_ productName: String) -> URL {
     outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
-  }
-
-}
-
-extension TypedProgram {
-
-  /// The bundle of products resulting from transpiling a module to C++.
-  typealias CXXModule = (syntax: CodeGenCXX.CXXModule, text: TranslationUnitCode)
-
-  /// Returns the C++ Transpilation of `m`.
-  func cxx(_ m: ModuleDecl.Typed, withFormatter formatter: CodeTransform?) -> CXXModule {
-    let x = CXXTranspiler(self).cxx(m)
-    var w = CXXCodeWriter(formatter: formatter)
-    return (syntax: x, text: w.cxxCode(x))
   }
 
 }
