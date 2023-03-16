@@ -793,44 +793,48 @@ public struct TypeChecker {
     /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(function d: FunctionDecl.ID) {
-      let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: AnyScopeID(source))
-      guard !t[.hasError] else { return }
+      let useScope = AnyScopeID(source)
+      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
+      guard !requiredType[.hasError] else { return }
 
-      let n = Name(of: d, in: ast)!
+      let t = relations.canonical(requiredType)
+      let requiredName = Name(of: d, in: ast)!
       if let c = implementation(
-        of: n, in: model,
+        of: requiredName, in: model,
         withCallableType: LambdaType(t)!, specializedWith: specializations,
         exposedTo: AnyScopeID(source))
       {
         implementations[d] = .concrete(c)
-      } else if let i = synthesizedImplementation(of: d, for: t, in: AnyScopeID(source)) {
+      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
         implementations[d] = .synthetic(t)
         synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
-        notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
+        notes.insert(
+          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
       }
     }
 
     /// Checks if requirement `d` of a method bunde named `m` is satisfied by `model`, extending
     /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
-      let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: AnyScopeID(source))
-      guard !t[.hasError] else { return }
+      let useScope = AnyScopeID(source)
+      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
+      guard !requiredType[.hasError] else { return }
 
+      let t = relations.canonical(requiredType)
       if let c = implementation(
         of: m, in: model,
         withCallableType: LambdaType(t)!, specializedWith: specializations,
         exposedTo: AnyScopeID(source))
       {
         implementations[d] = .concrete(c)
-      } else if let i = synthesizedImplementation(of: d, for: t, in: AnyScopeID(source)) {
+      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
         implementations[d] = .synthetic(t)
         synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
-        let n = m.appending(ast[d].introducer.value)!
-        notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
+        let requiredName = m.appending(ast[d].introducer.value)!
+        notes.insert(
+          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
       }
     }
 
@@ -896,9 +900,9 @@ public struct TypeChecker {
   ) -> AnyDeclID? {
     /// Returns `true` if candidate `d` has `requirementType`.
     func hasRequiredType<T: Decl>(_ d: T.ID) -> Bool {
-      let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: scope)
-      return t == requiredType
+      relations.areEquivalent(
+        specialized(realize(decl: d), applying: specializations, in: scope),
+        ^requiredType)
     }
 
     let allCandidates = lookup(requirementName.stem, memberOf: model, exposedTo: scope)
