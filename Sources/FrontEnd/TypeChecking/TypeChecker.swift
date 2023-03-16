@@ -2068,11 +2068,6 @@ public struct TypeChecker {
       return realize(lambda: NodeID(expr)!, in: scope)
     case NameExpr.self:
       return realize(name: NodeID(expr)!, in: scope)
-    case ParameterTypeExpr.self:
-      let id = ParameterTypeExpr.ID(expr)!
-      diagnostics.insert(
-        .error(illegalParameterConvention: ast[id].convention.value, at: ast[id].convention.site))
-      return nil
     case TupleTypeExpr.self:
       return realize(tuple: NodeID(expr)!, in: scope)
     case WildcardExpr.self:
