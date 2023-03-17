@@ -2,7 +2,7 @@ name: Build and test
 
 on:
   push:
-    branches: [ "**" ]
+    branches: [ main, rewrite ]
     paths-ignore:
       - "Docs/**"
       - "**.md"
@@ -20,7 +20,7 @@ on:
 
 jobs:
   build-and-test-on-macos-and-linux:
-    name: Swift 5 on ${{ matrix.host.os }}
+    name: ${{ matrix.host.os }} / release / Swift 5.9-dev
     strategy:
       fail-fast: false
       matrix:
