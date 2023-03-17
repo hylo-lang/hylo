@@ -2,13 +2,14 @@
 
 * Abstract
 
-This document collects some examples that illustrate performance benefits of a language that
-enforces strict mutable value semantics. These examples were inspired from Fedor G Pikus's /The Art
-of Writing Efficient Programs/.
+This document collects some examples that illustrate performance benefits of a
+language that statically enforces mutable value semantics. We do this by
+exploring some C++ examples were inspired from Fedor G Pikus's /The Art of
+Writing Efficient Programs/.
 
 * Branch free optimization
 
-Consider the following two functions, ~f~ and ~g~.
+Consider the following two C++ functions, ~f~ and ~g~.
 
 #+begin_src C++
   void f(bool b, unsigned x, unsigned &s) {
@@ -129,8 +130,9 @@ doesn't help. Consider the following code:
 Since the compiler cannot, in general, see the implementation of ~g~ it needs to assume that
 something like this is possible.
 
-Again, in a strict mutable value semantic language, this isn't possible because only one piece of
-code has modification access which, by the way, implies global variables are not permitted.
+Again, in a statically enforced mutable value semantic language, this isn't
+possible because only one piece of code has modification access which, by the
+way, implies global variables are not permitted.
 
 * Conclusion
 
