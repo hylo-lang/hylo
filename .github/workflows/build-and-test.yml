@@ -20,7 +20,7 @@ on:
 
 jobs:
   build-and-test-on-macos-and-linux:
-    name: ${{ matrix.host.os }} / release / Swift 5.9-dev
+    name: Swift 5 on ${{ matrix.host.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -68,7 +68,7 @@ jobs:
         MINIMUM_COVERAGE: 82
         
   build-and-test-on-windows:
-    name: Swift 5 on ${{ matrix.host.os }}
+    name: ${{ matrix.host.os }} / release / Swift 5.9-dev
     strategy:
       fail-fast: false
       matrix:
