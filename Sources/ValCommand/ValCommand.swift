@@ -262,7 +262,7 @@ public struct ValCommand: ParsableCommand {
         "/link",
         "/out:" + binaryPath,
       ]
-    } else if cxxCompiler == .zig{
+    } else if cxxCompiler == .zig {
       arguments = ccFlags.map({ "-\($0)" })
       arguments += [
         "c++",
