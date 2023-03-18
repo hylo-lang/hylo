@@ -55,6 +55,8 @@ public struct ValCommand: ParsableCommand {
 
     case msvc
 
+    case zig
+
     init?(argument: String) {
       guard let s = CXXCompiler(rawValue: argument) else { return nil }
       #if !os(Windows)
@@ -260,6 +262,15 @@ public struct ValCommand: ParsableCommand {
         "/link",
         "/out:" + binaryPath,
       ]
+    } else if cxxCompiler == .zig{
+      arguments = ccFlags.map({ "-\($0)" })
+      arguments += [
+        "c++",
+        "-o", binaryPath,
+        "-I", buildDirectory.path,
+        buildDirectory.appendingPathComponent(cxxModules.core.syntax.name + ".cpp").path,
+        buildDirectory.appendingPathComponent(productName + ".cpp").path,
+      ]
     } else {
       arguments = ccFlags.map({ "-\($0)" })
       arguments += [
@@ -313,6 +324,8 @@ public struct ValCommand: ParsableCommand {
       return try find("clang++")
     case .gcc:
       return try find("g++")
+    case .zig:
+      return try find("zig")
     case .msvc:
       return try find("cl")
     }
