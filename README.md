@@ -10,7 +10,7 @@ Please visit our [website](https://val-lang.dev) to get more information about t
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.6 or higher to build the compiler from sources.
 
-*Note to Windows users: although this project is **not** Unix-specific, Windows support has been put on hold due to the instability of continuous integration (see https://github.com/val-lang/val/issues/252).*
+*Note to Windows users: although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see https://github.com/val-lang/val/issues/252).*
 
 You may compile Val's compiler with the following commands:
 
@@ -39,10 +39,10 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--typecheck`: Run the type checker on the input.
 - `--emit raw-ir`: Lower the typed AST into Val IR and output the result in a file.
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
-- `--emit cpp`: Produce a C++ source file.
+- `--emit cpp`: Produce a C++ source file (use `clang-format` to format the output C++ code).
 - `--emit binary` (default): Produce an executable (currently by compiling transpiled C++ files)
   - Note: by default, C++ files will be compiled with `Clang`. Use `--cc {CXX compiler}` to use another compiler.
-  - Note: You can specify parameters for the CXX compiler to use (e.g., `--cc-flags O3`).
+  - Note: You can specify parameters for the C++ compiler to use (e.g., `--cc-flags O3`).
     - Note: Don't add an extraneous `-`, please use `O3` instead of `-O3`. 
     - Note to MSVC users: Don't add an extraneous `/`, please use `O1` instead of `/O1`. 
     - Note: You can also add more than one such option (e.g., `--cc-flags O1 --cc-flags g`).

@@ -1,0 +1,140 @@
+#+TITLE: Performance Benefits of Mutable Value Semantics
+
+* Abstract
+
+This document collects some examples that illustrate performance benefits of a
+language that statically enforces mutable value semantics. We do this by
+exploring some C++ examples were inspired from Fedor G Pikus's /The Art of
+Writing Efficient Programs/.
+
+* Branch free optimization
+
+Consider the following two C++ functions, ~f~ and ~g~.
+
+#+begin_src C++
+  void f(bool b, unsigned x, unsigned &s) {
+    if( b )
+      s += x;
+  }
+  void g(bool b, unsigned x, unsigned &s) {
+    s += b*x;
+  }
+#+end_src
+
+At first glance these two functions do the same thing, but ~g~ does it without a branch which is
+potentially faster. Indeed the assembly code generated for the two confirm this assumption.
+
+#+begin_src asm
+f(bool, unsigned int, unsigned int&):
+        test    dil, dil
+        je      .L1
+        add     DWORD PTR [rdx], esi
+.L1:
+        ret
+
+g(bool, unsigned int, unsigned int&):
+        movzx   edi, dil
+        imul    edi, esi
+        add     DWORD PTR [rdx], edi
+        ret
+#+end_src
+
+One might wonder why the compiler itself doesn't optimize ~f~ into ~g~. The reason is because in
+C++, these two functions are semantically different. Consider the following code:
+
+#+begin_src C++
+  #include <thread>
+
+  int main() {
+    std::mutex m;
+    int s = 0;
+    std::jthread t1([&] {
+      const bool b = m.try_lock();
+      f( b, 2, s );
+      if( b ) m.unlock();
+    });
+    std::jthread t2([&] {
+      const bool b = m.try_lock();
+      f( b, 3, s );
+      if( b ) m.unlock();
+    });
+  }
+#+end_src
+
+This code, although weird, invokes no undefined behavior. Only one thread modifies or reads ~s~ at a
+time.
+
+If, on the other hand, ~g~ were called instead of ~f~ in this code, there is a potential data race.
+Whether or not ~b~ is true, the value of ~s~ is always read and this could happen simultaneously to
+a write.
+
+Even if you as a programmer know that there is not a possibility of there being a data race on ~s~,
+the compiler cannot assume this when generating the code for ~f~ and so it may not optimize it to
+the ~g~ branchless version.
+
+However, in a strict value semantic language there is the guarantee of exclusivity. The compiler
+enforces that ~f~'s third parameter is not writable in another context and is free to perform the
+optimization.
+
+* Unnecessary loop condition evaluations
+
+Consider the following function ~f~:
+
+#+begin_src C++
+  int g( int );
+
+  int f( const std::vector<int>& v, const bool &b ) {
+    int sum = 0;
+    for (int a : v) {
+      if( b ) sum += g(a);
+    }
+    return sum;
+  }
+#+end_src
+
+We'd like the compiler to optimize ~f~ to something like this:
+
+#+begin_src C++
+  int f( const std::vector<int>& v, const bool &b ) {
+    int sum = 0;
+    if( b ) {
+      for (int a : v) {
+        sum += g(a);
+      }
+    }
+    return sum;
+  }
+#+end_src
+
+This way the loop iteration happens only when ~b~ is ~true~.
+
+Unfortunately, the compiler cannot perform this optimization. The fact that ~b~ is a const reference
+doesn't help. Consider the following code:
+
+#+begin_src C++
+  bool flag;
+
+  int g(int a) {
+    flag = !flag;
+    return a+1;
+  }
+
+  int f( const std::vector<int>& v, const bool &b ) { /*...*/ }
+
+  int main()
+  {
+    f( {1, 2, 3}, flag );
+  }
+#+end_src
+
+Since the compiler cannot, in general, see the implementation of ~g~ it needs to assume that
+something like this is possible.
+
+Again, in a statically enforced mutable value semantic language, this isn't
+possible because only one piece of code has modification access which, by the
+way, implies global variables are not permitted.
+
+* Conclusion
+
+We've looked at a couple cases where strict mutable value semantics enables compilers to better
+optimize code due the sharing rules.
