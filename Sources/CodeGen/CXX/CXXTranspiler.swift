@@ -13,16 +13,13 @@ public struct CXXTranspiler {
   /// This property is used when we need access to the contents of a node from its ID.
   let wholeValProgram: TypedProgram
 
-  /// The stack of parent declarations at any point in the transpilation.
-  private var parents: ParentsStack = ParentsStack()
-
   /// Creates an instance.
   public init(_ wholeValProgram: TypedProgram) {
     self.wholeValProgram = wholeValProgram
   }
 
   /// Returns a C++ AST implementing the semantics of `source`.
-  public mutating func cxx(_ source: ModuleDecl.Typed) -> CXXModule {
+  public func cxx(_ source: ModuleDecl.Typed) -> CXXModule {
     let isCoreLibrary = source.id == wholeValProgram.coreLibrary?.id
     return CXXModule(
       name: isCoreLibrary ? Self.coreLibModuleName : source.baseName,
@@ -34,7 +31,7 @@ public struct CXXTranspiler {
   // MARK: Declarations
 
   /// Returns a transpilation of `source`.
-  mutating func cxx(topLevel source: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
+  func cxx(topLevel source: AnyDeclID.TypedNode) -> CXXTopLevelDecl {
     switch source.kind {
     case FunctionDecl.self:
       return cxx(function: FunctionDecl.Typed(source)!)
@@ -54,26 +51,18 @@ public struct CXXTranspiler {
   }
 
   /// Returns a transpilation of `source`.
-  mutating func cxx(function source: FunctionDecl.Typed) -> CXXFunctionDecl {
+  func cxx(function source: FunctionDecl.Typed) -> CXXFunctionDecl {
     assert(wholeValProgram.isGlobal(source.id))
-
-    // Record `source` as a parent declaration.
-    parents.push(function: source)
 
     let functionName = source.identifier?.value ?? ""
 
-    let r = CXXFunctionDecl(
+    return CXXFunctionDecl(
       identifier: CXXIdentifier(functionName),
       output: cxxFunctionReturnType(source, with: functionName),
       parameters: source.parameters.map {
         CXXFunctionDecl.Parameter(CXXIdentifier($0.baseName), cxx(typeExpr: $0.type))
       },
       body: source.body != nil ? cxx(funBody: source.body!) : nil)
-
-    // Pop `source` from the stack of parents.
-    parents.pop(function: source)
-
-    return r
   }
 
   /// Returns a transpilation of the return type `source`.
@@ -104,19 +93,11 @@ public struct CXXTranspiler {
   }
 
   /// Returns a transpilation of `source`.
-  private mutating func cxx(type source: ProductTypeDecl.Typed) -> CXXClassDecl {
-    // Record `source` as a parent declaration.
-    parents.push(type: source)
-
+  private func cxx(type source: ProductTypeDecl.Typed) -> CXXClassDecl {
     assert(wholeValProgram.isGlobal(source.id))
-    let r = CXXClassDecl(
+    return CXXClassDecl(
       name: CXXIdentifier(source.identifier.value),
       members: source.members.flatMap({ cxx(member: $0) }))
-
-    // Pop `source` from the stack of parents.
-    parents.pop(type: source)
-
-    return r
   }
 
   /// Returns a transpilation of `source`.
@@ -150,7 +131,7 @@ public struct CXXTranspiler {
   }
   /// Returns a transpilation of `source`.
   private func cxx(initializer source: InitializerDecl.Typed) -> CXXClassDecl.ClassMember {
-    let parentType = parents.enclosingType()!
+    let parentType = enclosingProductType(source)
     switch source.introducer.value {
     case .`init`:
       return .constructor(
@@ -565,8 +546,7 @@ public struct CXXTranspiler {
   }
   /// Returns a transpilation of `source`.
   private func cxx(nameOfInitializer source: InitializerDecl.Typed) -> CXXExpr {
-    let enclosingClass = parents.enclosingType()!
-    return CXXIdentifier(nameOfDecl(enclosingClass))
+    return CXXIdentifier(nameOfDecl(enclosingProductType(source)))
   }
   /// Returns a transpilation of `source`.
   private func cxx(
@@ -725,65 +705,14 @@ public struct CXXTranspiler {
     return CXXScopedBlock(stmts: bodyContent)
   }
 
-  /// A stack of declarations that can act as parents hierarcy in the code.
+  // MARK: misc
+
+  /// Returns the enclosing product type of `decl`.
   ///
-  /// Used to get to the enclosing type or function.
-  private struct ParentsStack {
-
-    private enum ParentDecl: Equatable {
-      case type(ProductTypeDecl.Typed)
-      case function(FunctionDecl.Typed)
-    }
-
-    /// The stack of parent declarations.
-    private var stack: [ParentDecl] = []
-
-    /// Push `t` to our stack.
-    mutating func push(type t: ProductTypeDecl.Typed) {
-      stack.append(.type(t))
-    }
-    /// Push `f` to our stack.
-    mutating func push(function f: FunctionDecl.Typed) {
-      stack.append(.function(f))
-    }
-
-    /// Pop the last element from the stack, and ensure it's equal to `expected`.
-    mutating func pop(type expected: ProductTypeDecl.Typed) {
-      let element = stack.popLast()!
-      assert(element == .type(expected))
-    }
-    /// Pop the last element from the stack, and ensure it's equal to `expected`.
-    mutating func pop(function expected: FunctionDecl.Typed) {
-      let element = stack.popLast()!
-      assert(element == .function(expected))
-    }
-
-    /// Get the enclosing type from the stack.
-    func enclosingType() -> ProductTypeDecl.Typed? {
-      for element in stack.lazy.reversed() {
-        switch element {
-        case .type(let t):
-          return t
-        default:
-          break
-        }
-      }
-      return nil
-    }
-
-    /// Get the enclosing function from the stack.
-    func enclosingFunction() -> FunctionDecl.Typed? {
-      for element in stack.lazy.reversed() {
-        switch element {
-        case .function(let f):
-          return f
-        default:
-          break
-        }
-      }
-      return nil
-    }
-
+  /// Fails if the source is nested by a `TypeScope` that is not a product type (trait or type alias).
+  private func enclosingProductType<ID: DeclID>(_ decl: TypedNode<ID>) -> ProductTypeDecl.Typed {
+    let parentScope = wholeValProgram.innermostType(containing: decl.id)!
+    return wholeValProgram[ProductTypeDecl.ID(parentScope)!]
   }
 
 }
