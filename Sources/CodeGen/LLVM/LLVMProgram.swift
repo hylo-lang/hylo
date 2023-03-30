@@ -1,4 +1,5 @@
 import Core
+import Foundation
 import IR
 import LLVM
 import Utils
@@ -21,6 +22,23 @@ public struct LLVMProgram {
       }
       llvmModules[m] = transpilation
     }
+  }
+
+  public func write(_ type: LLVM.CodeGenerationResultType, to directory: URL) throws -> [URL] {
+    precondition(directory.hasDirectoryPath)
+
+    let host = try LLVM.Target.host()
+    let machine = LLVM.TargetMachine(for: host)
+    var result: [URL] = []
+    for m in llvmModules.values {
+      let f = directory
+        .appendingPathComponent(m.name)
+        .appendingPathExtension("o")
+      try m.write(type, for: machine, to: f.path)
+      result.append(f)
+    }
+
+    return result
   }
 
   /// The LLVM transpilation of the Val IR module `ir`.

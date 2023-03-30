@@ -220,8 +220,23 @@ public struct ValCommand: ParsableCommand {
     // Executables
 
     assert(outputType == .binary)
+
     let llvmProgram = try LLVMProgram(ir, mainModule: sourceModule)
-    print(llvmProgram)
+    let buildDirectory = FileManager.default.temporaryDirectory
+    let objectFiles = try llvmProgram.write(.objectFile, to: buildDirectory)
+
+    #if os(macOS)
+      let xcrun = try find("xcrun")
+      let sdk = try runCommandLine(
+        xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &errorLog) ?? ""
+      let lib = sdk + "/usr/lib"
+      var arguments = ["-r", "ld", "-o", binaryFile(productName).path, "-L", "\(lib)", "-lSystem"]
+      arguments.append(contentsOf: objectFiles.map(\.path))
+      try runCommandLine(xcrun, arguments, loggingTo: &errorLog)
+    #else
+    _ = objectFiles
+    fatalError("not implemented")
+    #endif
   }
 
   /// Returns `outputURL` transformed as a suitable executable file path, using `productName` as
@@ -403,8 +418,14 @@ public struct ValCommand: ParsableCommand {
     outputURL ?? URL(fileURLWithPath: productName + ".vir")
   }
 
-  /// The base path (sans extension) of the `.cpp` and `.h` files representing the core library when
-  /// "cpp" is selected as the output type.
+  /// Given the desired name of the compiler's product, returns the file to write when "binary" is
+  /// selected as the output type.
+  private func binaryFile(_ productName: String) -> URL {
+    outputURL ?? URL(fileURLWithPath: productName)
+  }
+
+  /// The base path (sans extension) of the `.cpp` and `.h` files representing the core library
+  /// when "cpp" is selected as the output type.
   private var coreLibCXXOutputBase: URL {
     outputURL?.deletingLastPathComponent()
       .appendingPathComponent(CXXTranspiler.coreLibModuleName)
