@@ -36,19 +36,35 @@ public struct Emitter {
 
   // MARK: Declarations
 
-  /// Inserts the IR for the top-level declaration `d` into `module`, reporting errors and warnings
-  /// to `diagnostics`.
-  ///
-  /// - Requires: `d` is at module scope.
+  /// Inserts the IR for the top-level declarations of `d` into `module`, reporting errors and
+  /// warnings to `diagnostics`.
   mutating func emit(
-    topLevel d: AnyDeclID.TypedNode,
+    module d: ModuleDecl.ID,
     into module: inout Module,
     diagnostics: inout DiagnosticSet
   ) {
-    precondition(d.scope.kind == TranslationUnit.self)
-
     swap(&self.diagnostics, &diagnostics)
     defer { swap(&self.diagnostics, &diagnostics) }
+
+    // Lower the top-level declarations.
+    for u in program.ast.topLevelDecls(d) {
+      emit(topLevel: program[u], into: &module)
+    }
+
+    // Lower the synthesized implementations.
+    for i in program.synthesizedDecls[d, default: []] {
+      emit(synthesizedDecl: i, into: &module)
+    }
+  }
+
+  /// Inserts the IR for the top-level declaration `d` into `module`.
+  ///
+  /// - Requires: `d` is at module scope.
+  private mutating func emit(
+    topLevel d: AnyDeclID.TypedNode,
+    into module: inout Module
+  ) {
+    precondition(d.scope.kind == TranslationUnit.self)
 
     switch d.kind {
     case ConformanceDecl.self:
@@ -87,7 +103,7 @@ public struct Emitter {
   /// Inserts the IR for `decl` into `module`.
   private mutating func emit(functionDecl decl: FunctionDecl.Typed, into module: inout Module) {
     // Declare the function in the module if necessary.
-    let f = module.getOrCreateFunction(correspondingTo: decl, program: program)
+    let f = module.getOrCreateFunction(correspondingTo: decl)
 
     // Nothing else to do if the function has no body.
     guard let body = decl.body else { return }
@@ -292,6 +308,95 @@ public struct Emitter {
     }
   }
 
+  /// Inserts the IR for the top-level declaration `d` into `module`.
+  private mutating func emit(
+    synthesizedDecl d: SynthesizedDecl,
+    into module: inout Module
+  ) {
+    assert(program.module(containing: d.scope) == module.syntax.id)
+    switch d.kind {
+    case .moveInitialization:
+      emitMoveInitialization(typed: .init(d.type)!, in: d.scope, into: &module)
+    case .moveAssignment:
+      emitMoveAssignment(typed: .init(d.type)!, in: d.scope, into: &module)
+    case .copy:
+      fatalError("not implemented")
+    }
+  }
+
+  private mutating func emitMoveInitialization(
+    typed t: LambdaType,
+    in scope: AnyScopeID,
+    into module: inout Module
+  ) {
+    let anchor = module.syntax.site
+    let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
+    if !module.declareFunction(identifiedBy: f, typed: t, at: anchor) { return }
+
+    insertionBlock = module.appendBlock(taking: module.functions[f]!.inputs.map(\.type), to: f)
+    let receiver = Operand.parameter(insertionBlock!, 0)
+    let argument = Operand.parameter(insertionBlock!, 1)
+
+    switch t.output.base {
+    case is ProductType, is TupleType:
+      // Nothing to do if the receiver doesn't have any stored property.
+      let layout = AbstractTypeLayout(of: module.type(of: receiver).astType, definedIn: program)
+      if layout.properties.isEmpty { break }
+
+      // Move initialize each property.
+      let sources = module.append(
+        module.makeDestructure(argument, anchoredAt: anchor),
+        to: insertionBlock!)
+
+      for (i, p) in layout.properties.enumerated() {
+        let target = module.append(
+          module.makeElementAddr(receiver, at: [i], anchoredAt: anchor),
+          to: insertionBlock!)[0]
+
+        if p.type.base is BuiltinType {
+          module.append(
+            module.makeStore(sources[i], at: target, anchoredAt: anchor),
+            to: insertionBlock!)
+        } else {
+          let c = program.conformance(of: p.type, to: program.ast.sinkableTrait, exposedTo: scope)!
+          emitMove(
+            .set, of: sources[i], to: target, conformanceToSinkable: c,
+            anchoredAt: anchor, into: &module)
+        }
+      }
+
+    default:
+      fatalError("not implemented")
+    }
+
+    module.append(module.makeReturn(.constant(.void), anchoredAt: anchor), to: insertionBlock!)
+  }
+
+  private mutating func emitMoveAssignment(
+    typed t: LambdaType,
+    in scope: AnyScopeID,
+    into module: inout Module
+  ) {
+    let anchor = module.syntax.site
+    let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
+    if !module.declareFunction(identifiedBy: f, typed: t, at: anchor) { return }
+
+    insertionBlock = module.appendBlock(taking: module.functions[f]!.inputs.map(\.type), to: f)
+    let receiver = Operand.parameter(insertionBlock!, 0)
+    let argument = Operand.parameter(insertionBlock!, 1)
+
+    // Deinitialize the receiver and apply the move-initializer.
+    let o = module.append(module.makeLoad(receiver, anchoredAt: anchor), to: insertionBlock!)[0]
+    module.append(module.makeDeinit(o, anchoredAt: anchor), to: insertionBlock!)
+    let c = program.conformance(
+      of: module.type(of: receiver).astType, to: program.ast.sinkableTrait, exposedTo: scope)!
+    emitMove(
+      .set, of: argument, to: receiver, conformanceToSinkable: c,
+      anchoredAt: anchor, into: &module)
+
+    module.append(module.makeReturn(.constant(.void), anchoredAt: anchor), to: insertionBlock!)
+  }
+
   // MARK: Statements
 
   /// Inserts the IR for `stmt` into `module`.
@@ -351,7 +456,7 @@ public struct Emitter {
     // %x1 = call @T.take_value.inout, %x0, %rhs
     insertionBlock = assign
     emitMove(
-      .inout, of: lhs, to: rhs, withSinkableConformance: c,
+      .inout, of: rhs, to: lhs, conformanceToSinkable: c,
       anchoredAt: stmt.site, into: &module)
     module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
 
@@ -359,7 +464,7 @@ public struct Emitter {
     // %y1 = call @T.take_value.set, %y0, %rhs
     insertionBlock = initialize
     emitMove(
-      .set, of: lhs, to: rhs, withSinkableConformance: c,
+      .set, of: rhs, to: lhs, conformanceToSinkable: c,
       anchoredAt: stmt.site, into: &module)
     module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
 
@@ -756,7 +861,7 @@ public struct Emitter {
 
       // Emit the call.
       return module.append(
-        module.makeCall(applying: f, to: [r, l], anchoredAt: program.ast.site(of: expr)),
+        module.makeCall(applying: f, to: [l, r], anchoredAt: program.ast.site(of: expr)),
         to: insertionBlock!)[0]
 
     case .leaf(let expr):
@@ -1167,9 +1272,9 @@ public struct Emitter {
   /// respectively.
   private mutating func emitMove(
     _ access: AccessEffect,
-    of storage: Operand,
-    to value: Operand,
-    withSinkableConformance c: Conformance,
+    of value: Operand,
+    to storage: Operand,
+    conformanceToSinkable c: Conformance,
     anchoredAt anchor: SourceRange,
     into module: inout Module
   ) {
@@ -1179,10 +1284,12 @@ public struct Emitter {
       fatalError("not implemented")
 
     case .synthetic(let t):
-      let calleeType = LambdaType(t)!.lifted
+      assert(t[.isCanonical])
+
+      let callee = LambdaType(t)!.lifted
       let ref = FunctionRef(
-        to: .init(synthesized: program.moveDecl(access), for: module.type(of: storage).astType),
-        type: .address(calleeType))
+        to: .init(synthesized: program.moveDecl(access), for: t),
+        type: .address(callee))
       let fun = Operand.constant(.function(ref))
 
       let receiver = module.append(
@@ -1332,6 +1439,17 @@ extension TypedProgram {
         ast[d].identifier.value == "take_value"
       else { return nil }
       return ast[d].impls.first(where: { ast[$0].introducer.value == access })
+    }!
+  }
+
+  /// Returns the declaration of `Copyable.copy`'s requirement.
+  fileprivate func copyDecl() -> FunctionDecl.ID {
+    ast[ast.copyableTrait.decl].members.first { (m) -> FunctionDecl.ID? in
+      guard
+        let d = FunctionDecl.ID(m),
+        ast[d].identifier?.value == "copy"
+      else { return nil }
+      return d
     }!
   }
 

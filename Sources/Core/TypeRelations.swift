@@ -48,46 +48,10 @@ public struct TypeRelations {
     if type[.isCanonical] { return type }
 
     switch type.base {
-    case let t as BoundGenericType:
-      let base = canonical(t.base)
-      let arguments = t.arguments.map({ (a) -> BoundGenericType.Argument in
-        switch a {
-        case .type(let a):
-          return .type(canonical(a))
-        case .value:
-          fatalError("not implemented")
-        }
-      })
-      return ^BoundGenericType(base, arguments: arguments)
-
-    case let t as ExistentialType:
-      return ^ExistentialType(
-        traits: t.traits,
-        constraints: ConstraintSet(t.constraints.map(canonical(_:))))
-
-    case let t as MetatypeType:
-      return ^MetatypeType(of: canonical(t.instance))
-
-    case let t as ParameterType:
-      return ^ParameterType(t.access, canonical(t.bareType))
-
-    case let t as SumType:
-      return ^SumType(Set(t.elements.map(canonical(_:))))
-
-    case let t as RemoteType:
-      return ^RemoteType(t.access, canonical(t.bareType))
-
-    case let t as TupleType:
-      return ^TupleType(
-        t.elements.map({ (e) -> TupleType.Element in
-          .init(label: e.label, type: canonical(e.type))
-        }))
-
     case let t as TypeAliasType:
       return canonical(t.resolved.value)
-
     default:
-      unreachable()
+      return type.transformParts({ (t) in .stepOver(canonical(t)) })
     }
   }
 

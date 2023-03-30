@@ -7,13 +7,20 @@ import Utils
 public struct LLVMProgram {
 
   /// The LLVM modules in the program.
-  private var llvmModules: [ModuleDecl.ID: LLVM.Module] = [:]
+  public private(set) var llvmModules: [ModuleDecl.ID: LLVM.Module] = [:]
 
   /// Creates an empty program.
   public init(_ ir: LoweredProgram, mainModule: ModuleDecl.ID) throws {
-    let transpilation = transpiled(mainModule, from: ir)
-    try transpilation.verify()
-    llvmModules[mainModule] = transpilation
+    for m in ir.modules.keys {
+      let transpilation = transpiled(m, from: ir)
+      do {
+        try transpilation.verify()
+      } catch {
+        print(transpilation)
+        throw error
+      }
+      llvmModules[m] = transpilation
+    }
   }
 
   /// The LLVM transpilation of the Val IR module `ir`.
@@ -77,11 +84,22 @@ extension LLVM.Module {
     // Parameters and return values are passed by reference.
     let functionType = LambdaType(ref.type.astType)!
     var parameters: [LLVM.IRType] = []
-    if functionType.output != .void {
+    if !functionType.output.isVoidOrNever {
       parameters.append(ptr)
     }
     parameters.append(contentsOf: Array(repeating: ptr, count: functionType.inputs.count))
-    return declareFunction(ir.abiName(of: ref.function), .init(from: parameters, in: &self))
+
+    // Determine the name of the transpilation.
+    let name: String
+    if case .lowered(let d) = ref.function.value,
+      let n = ir.syntax.ast[FunctionDecl.ID(d)]?.foreignName
+    {
+      name = n
+    } else {
+      name = ir.abiName(of: ref.function)
+    }
+
+    return declareFunction(name, .init(from: parameters, in: &self))
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
@@ -92,11 +110,17 @@ extension LLVM.Module {
 
     // Parameters and return values are passed by reference.
     var parameters: [LLVM.IRType] = []
-    if m[f].output.astType != .void {
+    if !m[f].output.astType.isVoidOrNever {
       parameters.append(ptr)
     }
     parameters.append(contentsOf: Array(repeating: ptr, count: m[f].inputs.count))
-    return declareFunction(ir.abiName(of: f), .init(from: parameters, in: &self))
+    let result = declareFunction(ir.abiName(of: f), .init(from: parameters, in: &self))
+
+    if m[f].output.astType == .never {
+      addAttribute(.init(.noreturn, in: &self), to: result)
+    }
+
+    return result
   }
 
   private mutating func transpile(
@@ -120,7 +144,7 @@ extension LLVM.Module {
     let prologue = appendBlock(named: "prologue", to: transpilation)
     insertionPoint = endOf(prologue)
 
-    let parameterOffset = (m[f].output.astType == .void) ? 0 : 1
+    let parameterOffset = m[f].output.astType.isVoidOrNever ? 0 : 1
     for (i, p) in m[f].inputs.enumerated() {
       let o = Operand.parameter(.init(f, entry), i)
       let s = transpilation.parameters[parameterOffset + i]
@@ -134,10 +158,11 @@ extension LLVM.Module {
     }
 
     for b in m.blocks(in: f) {
-      let transpiledBlock = appendBlock(named: b.description, to: transpilation)
-      block[b] = transpiledBlock
+      block[b] = appendBlock(named: b.description, to: transpilation)
+    }
 
-      insertionPoint = endOf(transpiledBlock)
+    for b in m.blocks(in: f) {
+      insertionPoint = endOf(block[b]!)
       for i in m.instructions(in: b) {
         insert(i)
       }
@@ -148,29 +173,60 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(_ i: IR.InstructionID) {
       switch m[i] {
+      case is IR.AllocStackInstruction:
+        insert(allocStack: i)
       case is IR.BorrowInstruction:
         insert(borrow: i)
+      case is IR.BranchInstruction:
+        insert(branch: i)
       case is IR.CallInstruction:
         insert(call: i)
+      case is IR.CondBranchInstruction:
+        insert(condBranch: i)
+      case is IR.DeallocStackInstruction:
+        return
+      case is IR.DeinitInstruction:
+        return
+      case is IR.DestructureInstruction:
+        insert(destructure: i)
       case is IR.ElementAddrInstruction:
         insert(elementAddr: i)
       case is IR.EndBorrowInstruction:
         return
       case is IR.LLVMInstruction:
         insert(llvm: i)
+      case is IR.LoadInstruction:
+        insert(load: i)
+      case is IR.RecordInstruction:
+        insert(record: i)
       case is IR.ReturnInstruction:
         insert(return: i)
       case is IR.StoreInstruction:
         insert(store: i)
+      case is IR.UnrechableInstruction:
+        insert(unreachable: i)
       default:
         fatalError("not implemented")
       }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(allocStack i: IR.InstructionID) {
+      let s = m[i] as! AllocStackInstruction
+      let t = ir.syntax.llvm(s.allocatedType, in: &self)
+      register[.register(i, 0)] = insertAlloca(t, atEntryOf: transpilation)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(borrow i: IR.InstructionID) {
       let s = m[i] as! BorrowInstruction
       register[.register(i, 0)] = llvm(s.location)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(branch i: IR.InstructionID) {
+      let s = m[i] as! BranchInstruction
+      insertBr(to: block[s.target]!, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -183,11 +239,12 @@ extension LLVM.Module {
 
       // Return value is passed by reference.
       let returnType: LLVM.IRType?
-      if s.types[0].astType != .void {
+      switch s.types[0].astType {
+      case .void, .never:
+        returnType = nil
+      default:
         returnType = ir.syntax.llvm(s.types[0].astType, in: &self)
         arguments.append(insertAlloca(returnType!, atEntryOf: transpilation))
-      } else {
-        returnType = nil
       }
 
       // All arguments are passed by reference.
@@ -214,6 +271,24 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(condBranch i: IR.InstructionID) {
+      let s = m[i] as! CondBranchInstruction
+      let c = llvm(s.condition)
+      insertCondBr(
+        if: c, then: block[s.targetIfTrue]!, else: block[s.targetIfFalse]!,
+        at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(destructure i: IR.InstructionID) {
+      let s = m[i] as! DestructureInstruction
+      let whole = llvm(s.whole)
+      for j in s.types.indices {
+        register[.register(i, j)] = insertExtractValue(from: whole, at: j, at: insertionPoint)
+      }
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(elementAddr i: IR.InstructionID) {
       let s = m[i] as! ElementAddrInstruction
       let t = LLVM.IntegerType(32, in: &self)
@@ -230,6 +305,34 @@ extension LLVM.Module {
     func insert(llvm i: IR.InstructionID) {
       let s = m[i] as! IR.LLVMInstruction
       switch s.function.llvmInstruction {
+      case "add":
+        let (o, l, r) = integerArithmeticOperands(s)
+        register[.register(i, 0)] = insertAdd(overflow: o, l, r, at: insertionPoint)
+
+      case "sub":
+        let (o, l, r) = integerArithmeticOperands(s)
+        register[.register(i, 0)] = insertSub(overflow: o, l, r, at: insertionPoint)
+
+      case "mul":
+        let (o, l, r) = integerArithmeticOperands(s)
+        register[.register(i, 0)] = insertMul(overflow: o, l, r, at: insertionPoint)
+
+      case "icmp":
+        let p = LLVM.IntegerPredicate(s.function.genericParameters[0])!
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertIntegerComparison(p, l, r, at: insertionPoint)
+
+      case "trunc":
+        let target = ir.syntax.llvm(s.types[0].astType, in: &self)
+        let source = llvm(s.operands[0])
+        register[.register(i, 0)] = insertTrunc(source, to: target, at: insertionPoint)
+
+      case "fptrunc":
+        let target = ir.syntax.llvm(s.types[0].astType, in: &self)
+        let source = llvm(s.operands[0])
+        register[.register(i, 0)] = insertFPTrunc(source, to: target, at: insertionPoint)
+
       case "zeroinitializer":
         let t = ir.syntax.llvm(s.types[0].astType, in: &self)
         register[.register(i, 0)] = t.null
@@ -237,6 +340,36 @@ extension LLVM.Module {
       default:
         unreachable("unexpected LLVM instruction '\(s.function.llvmInstruction)'")
       }
+
+      /// Returns the overflow behavior and operands defined of `s`.
+      func integerArithmeticOperands(
+        _ s: IR.LLVMInstruction
+      ) -> (overflow: LLVM.OverflowBehavior, lhs: LLVM.IRValue, rhs: LLVM.IRValue) {
+        let o = LLVM.OverflowBehavior(s.function.genericParameters)!
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        return (o, l, r)
+      }
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(load i: IR.InstructionID) {
+      let s = m[i] as! LoadInstruction
+      let t = ir.syntax.llvm(s.objectType.astType, in: &self)
+      let source = llvm(s.source)
+      register[.register(i, 0)] = insertLoad(t, from: source, at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(record i: IR.InstructionID) {
+      let s = m[i] as! IR.RecordInstruction
+      let t = ir.syntax.llvm(s.objectType.astType, in: &self)
+      var record: LLVM.IRValue = LLVM.Undefined(of: t)
+      for (i, part) in s.operands.enumerated() {
+        let v = llvm(part)
+        record = insertInsertValue(v, at: i, into: record, at: insertionPoint)
+      }
+      register[.register(i, 0)] = record
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -252,6 +385,11 @@ extension LLVM.Module {
     func insert(store i: IR.InstructionID) {
       let s = m[i] as! IR.StoreInstruction
       insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
+    }
+
+    /// Returns the LLVM IR value corresponding to the Val IR operand `o`.
+    func insert(unreachable i: IR.InstructionID) {
+      insertUnreachable(at: insertionPoint)
     }
 
     /// Returns the LLVM IR value corresponding to the Val IR operand `o`.
@@ -288,5 +426,26 @@ extension LLVM.Module {
 extension LLVMProgram: CustomStringConvertible {
 
   public var description: String { "\(list: llvmModules, joinedBy: "\n")" }
+
+}
+
+extension LLVM.OverflowBehavior {
+
+  fileprivate init?(_ parameters: [String]) {
+    guard parameters.count <= 1 else { return nil }
+    guard let p = parameters.first else {
+      self = .ignore
+      return
+    }
+
+    switch p {
+    case "nsw":
+      self = .nsw
+    case "nuw":
+      self = .nuw
+    default:
+      return nil
+    }
+  }
 
 }

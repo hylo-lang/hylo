@@ -9,18 +9,12 @@ extension LoweredProgram {
   func abiName(of f: IR.Function.ID) -> String {
     switch f.value {
     case .lowered(let d):
-      return abiName(of: d)
+      return syntax.abiName(of: d)
     case .constructor(let d):
-      return abiName(of: d)
-    case .synthesized:
-      fatalError("not implemented")
+      return syntax.abiName(of: d)
+    case .synthesized(let d, let t):
+      return "\(d)\(t)"
     }
-  }
-
-  /// Returns the name of `d` in the ABI.
-  func abiName<T: DeclID>(of d: T) -> String {
-    let m = syntax.module(containing: syntax.declToScope[d]!)
-    return "_V\(m.rawValue)_\(d.rawValue)"
   }
 
 }
@@ -29,8 +23,7 @@ extension TypedProgram {
 
   /// Returns the name of `d` in the ABI.
   func abiName<T: DeclID>(of d: T) -> String {
-    let m = module(containing: declToScope[d]!)
-    return "_V\(m.rawValue)_\(d.rawValue)"
+    debugName(decl: d)
   }
 
   /// Returns the LLVM form of `val` in `module`.
@@ -47,7 +40,7 @@ extension TypedProgram {
     case let t as ProductType:
       return llvm(productType: t, in: &module)
     case let t as TupleType:
-      return llvm(t, in: &module)
+      return llvm(tupleType: t, in: &module)
     default:
       notLLVMRepresentable(val)
     }
