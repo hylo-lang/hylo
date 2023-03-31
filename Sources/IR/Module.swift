@@ -148,6 +148,7 @@ public struct Module {
       try log.throwOnError()
     }
 
+    try run({ removeDeadCode(in: $0, diagnostics: &log) })
     try run({ insertImplicitReturns(in: $0, diagnostics: &log) })
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
@@ -366,6 +367,16 @@ public struct Module {
     precondition(results(of: i).allSatisfy({ uses[$0, default: []].isEmpty }))
     removeUsesMadeBy(i)
     self[i.function][i.block].instructions.remove(at: i.address)
+  }
+
+  /// Removes all instructions after `i` in its containing block and updates def-use chains.
+  ///
+  /// - Requires: Let `S` be the set of removed instructions, all users of a result of `j` in `S`
+  ///   are also in `S`.
+  mutating func removeAllInstructionsAfter(_ i: InstructionID) {
+    while let a = self[i.function][i.block].instructions.lastAddress, a != i.address {
+      removeInstruction(.init(i.function, i.block, a))
+    }
   }
 
   /// Returns the uses of all the registers assigned by `i`.
