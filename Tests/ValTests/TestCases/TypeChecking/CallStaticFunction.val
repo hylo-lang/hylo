@@ -1,0 +1,20 @@
+//! expect-success
+
+type A {
+
+  public static fun make() -> A { A() }
+
+  public static fun make_overloaded() -> A { A() }
+  public static fun make_overloaded(_ x: Bool) -> A { A() }
+
+}
+
+fun check<T>(_ x: T) {}
+
+public fun main() {
+  let x = A.make()
+  check<A>(x)
+
+  let y = A.make_overloaded(true)
+  check<A>(y)
+}
