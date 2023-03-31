@@ -222,73 +222,46 @@ public struct ValCommand: ParsableCommand {
     assert(outputType == .binary)
 
     let llvmProgram = try LLVMProgram(ir, mainModule: sourceModule)
-    let buildDirectory = FileManager.default.temporaryDirectory
-    let objectFiles = try llvmProgram.write(.objectFile, to: buildDirectory)
+    let objectFiles = try llvmProgram.write(
+      .objectFile, to: FileManager.default.temporaryDirectory)
+    let binaryPath = executableOutputPath(default: productName)
 
     #if os(macOS)
-      let xcrun = try find("xcrun")
-      let sdk =
-        try runCommandLine(
-          xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &errorLog) ?? ""
-      let lib = sdk + "/usr/lib"
-      var arguments = ["-r", "ld", "-o", binaryFile(productName).path, "-L", "\(lib)", "-lSystem"]
-      arguments.append(contentsOf: objectFiles.map(\.path))
-      try runCommandLine(xcrun, arguments, loggingTo: &errorLog)
+      try makeMacOSExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #else
       _ = objectFiles
+      _ = binaryPath
       fatalError("not implemented")
     #endif
   }
 
-  /// Returns `outputURL` transformed as a suitable executable file path, using `productName` as
-  /// a default name if `outputURL` is `nil`.
+  /// Links the object files denoted by `files` and writes an an executable file at `binaryPath`,
+  /// logging diagnostics to `log`.
+  private func makeMacOSExecutable<L: Log>(
+    at binaryPath: String,
+    linking files: [URL],
+    loggingTo log: inout L
+  ) throws {
+    let xcrun = try find("xcrun")
+    let sdk =
+      try runCommandLine(
+        xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &log) ?? ""
+
+    var arguments = ["-r", "ld", "-o", binaryPath, "-L", "\(sdk)/usr/lib", "-lSystem"]
+    arguments.append(contentsOf: files.map(\.path))
+    try runCommandLine(xcrun, arguments, loggingTo: &log)
+  }
+
+  /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`
+  /// as a default name if `outputURL` is `nil`.
   ///
   /// The returned path has a `.exe` extension on Windows.
-  private func executableOutputPath(_ outputURL: URL?, default productName: String) -> String {
+  private func executableOutputPath(default productName: String) -> String {
     var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).path
     #if os(Windows)
       if !binaryPath.hasSuffix(".exe") { binaryPath += ".exe" }
     #endif
     return binaryPath
-  }
-
-  /// Given the transpiled core and source modules and the desired name of compiler's product,
-  /// generates a binary product into a temporary build directory, logging errors to `errorLog`.
-  func writeExecutableCode<L: Log>(
-    _ cxxModules: (core: TypedProgram.CXXModule, source: TypedProgram.CXXModule),
-    productName: String,
-    loggingTo errorLog: inout L
-  ) throws {
-    let buildDirectory = FileManager.default.temporaryDirectory
-
-    try write(
-      cxxModules.core, to: buildDirectory.appendingPathComponent(CXXTranspiler.coreLibModuleName),
-      loggingTo: &errorLog)
-
-    try write(
-      cxxModules.source, to: buildDirectory.appendingPathComponent(productName),
-      loggingTo: &errorLog)
-
-    let binaryPath = executableOutputPath(outputURL, default: productName)
-    var arguments: [String] = []
-    if cxxCompiler == .msvc {
-      arguments = ccFlags.map({ "/\($0)" })
-      arguments += [
-        buildDirectory.appendingPathComponent(cxxModules.core.syntax.name + ".cpp").path,
-        buildDirectory.appendingPathComponent(productName + ".cpp").path,
-        "/link",
-        "/out:" + binaryPath,
-      ]
-    } else {
-      arguments = ccFlags.map({ "-\($0)" })
-      arguments += [
-        "-o", binaryPath,
-        "-I", buildDirectory.path,
-        buildDirectory.appendingPathComponent(cxxModules.core.syntax.name + ".cpp").path,
-        buildDirectory.appendingPathComponent(productName + ".cpp").path,
-      ]
-    }
-    try runCommandLine(find(cxxCompiler), arguments, loggingTo: &errorLog)
   }
 
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
@@ -301,8 +274,8 @@ public struct ValCommand: ParsableCommand {
     return "Main"
   }
 
-  /// Writes the code for `m` to .h/.cpp files having the given `basePath`, logging diagnostics to
-  /// `log`.
+  /// Writes the code for `m` to `.h` and `.cpp` files having the given `basePath`, logging
+  /// diagnostics to `log`.
   private func write<L: Log>(
     _ m: TypedProgram.CXXModule, to basePath: URL, loggingTo log: inout L
   ) throws {
