@@ -10,7 +10,7 @@ public struct LoweredProgram {
   public let modules: [ModuleDecl.ID: IR.Module]
 
   /// Creates an instance with the given properties.
-  public init(syntax: TypedProgram, modules: [ModuleDecl.ID : IR.Module]) {
+  public init(syntax: TypedProgram, modules: [ModuleDecl.ID: IR.Module]) {
     precondition(modules.values.elementCount(where: { $0.entryFunctionID != nil }) <= 1)
     self.syntax = syntax
     self.modules = modules

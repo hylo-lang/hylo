@@ -96,11 +96,10 @@ extension TypedProgram {
     }
 
     let l = AbstractTypeLayout(of: val, definedIn: self)
-    let fields: [LLVM.IRType] = modified([], { (fields) in
-      for p in l.properties {
-        fields.append(llvm(p.type, in: &module))
-      }
-    })
+    var fields: [LLVM.IRType] = []
+    for p in l.properties {
+      fields.append(llvm(p.type, in: &module))
+    }
 
     return LLVM.StructType(named: n, fields, in: &module)
   }

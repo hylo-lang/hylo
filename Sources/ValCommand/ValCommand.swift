@@ -227,15 +227,16 @@ public struct ValCommand: ParsableCommand {
 
     #if os(macOS)
       let xcrun = try find("xcrun")
-      let sdk = try runCommandLine(
-        xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &errorLog) ?? ""
+      let sdk =
+        try runCommandLine(
+          xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &errorLog) ?? ""
       let lib = sdk + "/usr/lib"
       var arguments = ["-r", "ld", "-o", binaryFile(productName).path, "-L", "\(lib)", "-lSystem"]
       arguments.append(contentsOf: objectFiles.map(\.path))
       try runCommandLine(xcrun, arguments, loggingTo: &errorLog)
     #else
-    _ = objectFiles
-    fatalError("not implemented")
+      _ = objectFiles
+      fatalError("not implemented")
     #endif
   }
 

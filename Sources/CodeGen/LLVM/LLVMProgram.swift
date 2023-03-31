@@ -31,9 +31,7 @@ public struct LLVMProgram {
     let machine = LLVM.TargetMachine(for: host)
     var result: [URL] = []
     for m in llvmModules.values {
-      let f = directory
-        .appendingPathComponent(m.name)
-        .appendingPathExtension("o")
+      let f = directory.appendingPathComponent(m.name).appendingPathExtension("o")
       try m.write(type, for: machine, to: f.path)
       result.append(f)
     }
