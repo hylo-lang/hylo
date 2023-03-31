@@ -1082,11 +1082,12 @@ public struct TypeChecker {
   }
 
   private mutating func check(exprStmt s: ExprStmt.ID, in scope: AnyScopeID) {
-    guard let t = checkedType(of: ast[s].expr, in: scope) else { return }
+    guard let result = checkedType(of: ast[s].expr, in: scope) else { return }
 
-    // Issue a warning if the type of the expression isn't void.
-    if !relations.areEquivalent(t, .void) {
-      diagnostics.insert(.warning(unusedResultOfType: t, at: ast[ast[s].expr].site))
+    // Warn against unused result if the type of the expression is neither `Void` nor `Never`.
+    let t = relations.canonical(result)
+    if (t != .void) && (t != .never) {
+      diagnostics.insert(.warning(unusedResultOfType: result, at: ast[ast[s].expr].site))
     }
   }
 
