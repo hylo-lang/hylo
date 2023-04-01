@@ -60,10 +60,9 @@ public struct LambdaType: TypeProtocol, CallableType {
   }
 
   /// Returns a thin type accepting `self`'s environment as parameters.
-  ///
-  /// - Requires: `environment` is a `TupleType`.
   public var lifted: LambdaType {
-    let p = TupleType(environment)!.elements.map { (e) -> CallableTypeParameter in
+    let elements = TupleType(environment).map(\.elements) ?? [.init(label: nil, type: environment)]
+    let p = elements.map { (e) -> CallableTypeParameter in
       if let t = RemoteType(e.type) {
         return .init(label: e.label, type: ^ParameterType(t))
       } else {
@@ -71,6 +70,11 @@ public struct LambdaType: TypeProtocol, CallableType {
       }
     }
     return .init(receiverEffect: .let, environment: .void, inputs: p + inputs, output: output)
+  }
+
+  /// Returns `self` with a thin environment.
+  public var strippingEnvironment: LambdaType {
+    LambdaType(receiverEffect: receiverEffect, environment: .void, inputs: inputs, output: output)
   }
 
   /// Accesses the individual elements of the lambda's environment.
