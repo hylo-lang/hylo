@@ -292,12 +292,10 @@ struct ConstraintSystem {
       // Add a penalty if `L` isn't `D`.
       penalties += 1
       return .success
-    } else {
-      return .failure { (d, m, _) in
-        d.insert(
-          .error(m.reify(goal.subject), doesNotConformTo: goal.literal, at: goal.origin.site))
-      }
     }
+
+    let s = schedule(SubtypingConstraint(goal.defaultSubject, goal.subject, origin: goal.origin))
+    return delegate(to: [s])
   }
 
   /// Returns eiteher `.success` if `g.left` is unifiable with `g.right` or `.failure` otherwise.

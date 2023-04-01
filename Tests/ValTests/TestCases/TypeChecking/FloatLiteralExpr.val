@@ -14,5 +14,5 @@ public fun main() {
 
   let _: Double = x2  //! diagnostic cannot initialize object of type 'Float' with value of type 'Double'
 
-  let _: Bool = 4.2   //! diagnostic type 'Bool' does not conform to trait 'ExpressibleByFloatLiteral'
+  let _: Bool = 4.2   //! diagnostic 'Double' is not subtype of 'Bool'
 }
