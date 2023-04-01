@@ -1,4 +1,4 @@
-//! expect-success
+//! expect-failure
 
 type A {
 
@@ -17,4 +17,7 @@ public fun main() {
 
   let y = A.make_overloaded(true)
   check<A>(y)
+
+  //! @+1 diagnostic reference to member 'make' cannot be resolved without context
+  _ = .make()
 }
