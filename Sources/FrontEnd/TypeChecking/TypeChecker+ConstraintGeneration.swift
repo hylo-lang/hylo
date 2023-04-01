@@ -292,7 +292,8 @@ extension TypeChecker {
     if let callee = NameExpr.ID(syntax.callee) {
       let l = ast[subject].arguments.map(\.label?.value)
       calleeType = inferredType(
-        ofNameExpr: callee, appliedWithLabels: l, shapedBy: nil, in: scope, updating: &state)
+        ofNameExpr: callee, withImplicitDomain: shape, appliedWith: l, shapedBy: nil,
+        in: scope, updating: &state)
     } else {
       calleeType = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
     }
@@ -497,7 +498,8 @@ extension TypeChecker {
 
   private mutating func inferredType(
     ofNameExpr subject: NameExpr.ID,
-    appliedWithLabels labels: [String?]? = nil,
+    withImplicitDomain domain: AnyType? = nil,
+    appliedWith labels: [String?]? = nil,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -511,10 +513,20 @@ extension TypeChecker {
       return state.facts.assignErrorType(to: subject)
 
     case .inexecutable(let suffix):
-      if case .expr(let e) = ast[subject].domain {
+      switch ast[subject].domain {
+      case .implicit:
+        if let t = domain {
+          lastVisitedComponentType = t
+        } else {
+          report(.error(noContextToResolve: ast[subject].name.value, at: ast[subject].name.site))
+          return state.facts.assignErrorType(to: subject)
+        }
+
+      case .expr(let e):
         lastVisitedComponentType = inferredType(of: e, shapedBy: nil, in: scope, updating: &state)
-      } else {
-        fatalError("not implemented")
+
+      case .none:
+        unreachable()
       }
       unresolvedComponents = suffix
 
