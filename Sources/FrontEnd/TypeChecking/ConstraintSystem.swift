@@ -136,8 +136,6 @@ struct ConstraintSystem {
       switch goals[g] {
       case is ConformanceConstraint:
         setOutcome(solve(conformance: g, using: &checker), for: g)
-      case is LiteralConstraint:
-        setOutcome(solve(literal: g, using: &checker), for: g)
       case is EqualityConstraint:
         setOutcome(solve(equality: g, using: &checker), for: g)
       case is SubtypingConstraint:
@@ -159,8 +157,6 @@ struct ConstraintSystem {
       default:
         unreachable()
       }
-
-      if fresh.isEmpty { refreshLiteralConstraints() }
     }
 
     return formSolution()
@@ -275,32 +271,6 @@ struct ConstraintSystem {
         d.formUnion(missingTraits.map({ .error(t, doesNotConformTo: $0, at: goal.origin.site) }))
       }
     }
-  }
-
-  /// Returns either `.success` if `g.subject` conforms to `g.literalTrait`, `.failure` if it
-  /// doesn't, or `nil` if neither of these outcomes can be determined yet.
-  private mutating func solve(
-    literal g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome? {
-    let goal = goals[g] as! LiteralConstraint
-    if checker.relations.areEquivalent(goal.subject, goal.defaultSubject) {
-      return .success
-    }
-
-    if goal.subject.base is TypeVariable {
-      postpone(g)
-      return nil
-    }
-
-    if checker.conformedTraits(of: goal.subject, in: scope).contains(goal.literal) {
-      // Add a penalty if `L` isn't `D`.
-      penalties += 1
-      return .success
-    }
-
-    let s = schedule(SubtypingConstraint(goal.defaultSubject, goal.subject, origin: goal.origin))
-    return delegate(to: [s])
   }
 
   /// Returns eiteher `.success` if `g.left` is unifiable with `g.right` or `.failure` otherwise.
@@ -871,18 +841,6 @@ struct ConstraintSystem {
 
       if changed {
         log("- refresh \(goals[stale[i]])")
-        fresh.append(stale.remove(at: i))
-      }
-    }
-  }
-
-  /// Transforms the stale literal constraints to equality constraints.
-  private mutating func refreshLiteralConstraints() {
-    for i in (0 ..< stale.count).reversed() {
-      if let l = goals[stale[i]] as? LiteralConstraint {
-        let e = EqualityConstraint(l.subject, l.defaultSubject, origin: l.origin)
-        log("- decay \(l) => \(e)")
-        goals[stale[i]] = e
         fresh.append(stale.remove(at: i))
       }
     }
