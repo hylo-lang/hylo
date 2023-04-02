@@ -10,5 +10,11 @@ namespace Val {
   inline float native_fptrunc_float(double value) { return static_cast<float>(value); }
   inline int32_t native_trunc_int32_t(int value) { return static_cast<int32_t>(value); }
   inline int8_t native_trunc_int8_t(int value) { return static_cast<int8_t>(value); }
+  inline bool native_icmp_bool(bool lhs, bool rhs) { return lhs == rhs; }
+  inline int64_t native_add_int64_t(int64_t lhs, int64_t rhs) { return lhs + rhs; }
+  inline int64_t native_sub_int64_t(int64_t lhs, int64_t rhs) { return lhs - rhs; }
+  inline int64_t native_mul_int64_t(int64_t lhs, int64_t rhs) { return lhs * rhs; }
+
+  struct Bool;
 
 }
