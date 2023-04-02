@@ -807,12 +807,34 @@ extension TypeChecker {
     // subject to its default type.
     let cause = ConstraintOrigin(.literal, at: ast[subject].site)
     if let e = shape {
-      if !relations.areEquivalent(defaultType, e) {
-        let literalTrait = ast.coreTrait(forTypesExpressibleBy: T.self)!
-        state.facts.append(
-          LiteralConstraint(e, defaultsTo: defaultType, conformsTo: literalTrait, origin: cause))
+      // Fast path if `e` is the default type.
+      if relations.areEquivalent(defaultType, e) {
+        return state.facts.constrain(subject, in: ast, toHaveType: e)
       }
-      return state.facts.constrain(subject, in: ast, toHaveType: e)
+
+      // Assume the type of the subject is subtype of the default type. If it isn't, then assume it
+      // is expressible by the literal's trait.
+      let t = ^TypeVariable()
+      let p = ast.coreTrait(forTypesExpressibleBy: T.self)!
+
+      let preferred: ConstraintSet = [
+        EqualityConstraint(t, defaultType, origin: cause),
+        SubtypingConstraint(defaultType, e, origin: cause),
+      ]
+      let alternative: ConstraintSet = [
+        EqualityConstraint(t, e, origin: cause),
+        ConformanceConstraint(e, conformsTo: [p], origin: cause),
+      ]
+
+      state.facts.append(
+        DisjunctionConstraint(
+          choices: [
+            .init(constraints: preferred, penalties: 0),
+            .init(constraints: alternative, penalties: 1),
+          ],
+          origin: cause))
+
+      return state.facts.constrain(subject, in: ast, toHaveType: t)
     } else {
       return state.facts.constrain(subject, in: ast, toHaveType: defaultType)
     }
