@@ -216,9 +216,14 @@ struct ConstraintSystem {
     assert(fresh.isEmpty)
     assert(outcomes.enumerated().allSatisfy({ (i, o) in (o != nil) || stale.contains(i) }))
 
+    for g in stale {
+      let c = goals[g]
+      setOutcome(.failure({ (d, _, _) in d.insert(.error(staleConstraint: c)) }), for: g)
+    }
+
     let m = typeAssumptions.optimized()
-    var d = DiagnosticSet(stale.map({ Diagnostic.error(staleConstraint: goals[$0]) }))
-    for (k, v) in zip(goals.indices, outcomes) where iFailureRoot(k) {
+    var d = DiagnosticSet()
+    for (k, v) in zip(goals.indices, outcomes) where isFailureRoot(k) {
       v!.dianoseFailure!(&d, m, outcomes)
     }
 
