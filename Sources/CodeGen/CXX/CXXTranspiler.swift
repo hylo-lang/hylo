@@ -59,9 +59,7 @@ public struct CXXTranspiler {
     return CXXFunctionDecl(
       identifier: CXXIdentifier(functionName),
       output: cxxFunctionReturnType(source, with: functionName),
-      parameters: source.parameters.map {
-        CXXFunctionDecl.Parameter(CXXIdentifier($0.baseName), cxx(typeExpr: $0.type))
-      },
+      parameters: cxx(parameters: source.parameters),
       body: source.body != nil ? cxx(funBody: source.body!) : nil)
   }
 
@@ -78,6 +76,13 @@ public struct CXXTranspiler {
 
     default:
       unreachable("unexpected type")
+    }
+  }
+
+  /// Returns a transpilation of `source`.
+  private func cxx(parameters source: [ParameterDecl.Typed]) -> [CXXParameter] {
+    return source.map {
+      CXXParameter(CXXIdentifier($0.baseName), cxx(typeExpr: $0.type))
     }
   }
 
@@ -137,9 +142,7 @@ public struct CXXTranspiler {
       return .constructor(
         CXXConstructor(
           name: CXXIdentifier(parentType.baseName),
-          parameters: source.parameters.map {
-            CXXConstructor.Parameter(name: CXXIdentifier($0.baseName), type: cxx(typeExpr: $0.type))
-          },
+          parameters: cxx(parameters: source.parameters),
           initializers: [],
           body: source.body != nil ? cxx(brace: source.body!) : nil))
     case .memberwiseInit:
@@ -174,9 +177,7 @@ public struct CXXTranspiler {
       CXXMethod(
         name: CXXIdentifier(functionName),
         resultType: cxxFunctionReturnType(source, with: functionName),
-        parameters: source.parameters.map {
-          CXXFunctionDecl.Parameter(CXXIdentifier($0.baseName), cxx(typeExpr: $0.type))
-        },
+        parameters: cxx(parameters: source.parameters),
         isStatic: source.isStatic,
         body: source.body != nil ? cxx(funBody: source.body!) : nil))
   }

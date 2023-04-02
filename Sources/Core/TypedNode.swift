@@ -316,6 +316,17 @@ extension TypedNode where ID == FunctionDecl.ID {
 
 }
 
+extension TypedNode where ID == InitializerDecl.ID {
+
+  /// The parameters of the initializer.
+  public var parameters: [ParameterDecl.Typed] {
+    return syntax.parameters.lazy.map({
+      return program[$0]
+    })
+  }
+
+}
+
 extension TypedNode where ID == SequenceExpr.ID {
 
   /// A map from (typed) sequence expressions to their evaluation order.

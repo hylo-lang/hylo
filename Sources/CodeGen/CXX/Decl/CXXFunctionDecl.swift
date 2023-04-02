@@ -6,9 +6,6 @@ struct CXXFunctionDecl: CXXTopLevelDecl {
   /// The ID of a C++ function in its module.
   typealias ID = Int
 
-  /// A parameter in a C++ function declaration.
-  typealias Parameter = (name: CXXIdentifier, type: CXXTypeExpr)
-
   /// The identifier of the function.
   let identifier: CXXIdentifier
 
@@ -16,7 +13,7 @@ struct CXXFunctionDecl: CXXTopLevelDecl {
   let output: CXXTypeExpr
 
   /// The parameters of the function.
-  let parameters: [Parameter]
+  let parameters: [CXXParameter]
 
   /// The body of the function.
   let body: CXXStmt?
