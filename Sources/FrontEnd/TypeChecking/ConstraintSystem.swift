@@ -171,12 +171,12 @@ struct ConstraintSystem {
   /// The cost of a solution increases monotonically when a constraint is eliminated.
   private func score() -> Solution.Score {
     .init(
-      errorCount: goals.indices.elementCount(where: iFailureRoot),
+      errorCount: goals.indices.elementCount(where: isFailureRoot),
       penalties: penalties)
   }
 
   /// Returns `true` iff the solving `g` failed and `g` isn't subordinate.
-  private func iFailureRoot(_ g: GoalIdentity) -> Bool {
+  private func isFailureRoot(_ g: GoalIdentity) -> Bool {
     (goals[g].origin.parent == nil) && (succeeded(g) == false)
   }
 
