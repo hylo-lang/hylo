@@ -14,5 +14,5 @@ public fun main() {
   let a = A()
   let b: Int = a[0]
   let c: Double = a[0]
-  let d: Bool = a[0] //! diagnostic type 'Bool' does not conform to trait 'ExpressibleByIntegerLiteral'
+  let d: Bool = a[0] //! diagnostic 'Int' is not subtype of 'Bool'
 }

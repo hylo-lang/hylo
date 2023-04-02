@@ -9,7 +9,7 @@ public fun main() {
   let x1 = if true { 1 } else { 2 as Double }
   check<Double>(x1)
 
-  //! @+1 diagnostic type 'Bool' does not conform to trait 'ExpressibleByIntegerLiteral'
+  //! @+1 diagnostic 'Int' is not subtype of 'Bool'
   let x2 = if true { 1 } else { false }
 
   //! @+1 diagnostic conditional expression has mismatching types 'Int' and 'Double'
