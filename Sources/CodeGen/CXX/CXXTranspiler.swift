@@ -161,21 +161,65 @@ public struct CXXTranspiler {
   }
   /// Returns a transpilation of `source`.
   private func cxx(memberFunction source: FunctionDecl.Typed) -> CXXClassDecl.ClassMember {
-    // TODO: handle operators
-    let functionName: Identifier
-    switch source.notation?.value {
-    case .infix:
-      functionName = "operator_infix_" + source.identifier!.value
-    case .prefix:
-      functionName = "operator_prefix_" + source.identifier!.value
-    case .postfix:
-      functionName = "operator_postfix_" + source.identifier!.value
-    case nil:
-      functionName = source.identifier?.value ?? ""
+    let allowedCxxOperators = [
+      "<<",
+      ">>",
+      "*",
+      "/",
+      "%",
+      "+",
+      "-",
+      "==",
+      "!=",
+      "<",
+      "<=",
+      ">=",
+      ">",
+      "^",
+      "&",
+      "&&",
+      "|",
+      "||",
+      "<<=",
+      ">>=",
+      "*=",
+      "/=",
+      "%=",
+      "+=",
+      "-=",
+      "&=",
+      "++",
+      "--",
+      "+",
+      "-",
+      // "!", // special case for "!" operator; we translate it to a C++ operator only if it's a prefix operator
+    ]
+    let functionName = source.identifier?.value ?? ""
+    var functionId: CXXIdentifier
+    if source.notation != nil && allowedCxxOperators.contains(functionName) {
+      // we know we can translate this to a C++ operator.
+      functionId = CXXIdentifier(notSanitizing: "operator " + functionName)
+    } else {
+      // with the exception of prefix "!", we cannot translate this to a C++ operator.
+      switch source.notation?.value {
+      case .infix:
+        functionId = CXXIdentifier("infix_" + functionName)
+      case .prefix:
+        functionId =
+          functionName == "!"
+          // use "operator !" for prefix (and not for postfix)
+          ? CXXIdentifier(notSanitizing: "operator " + functionName)
+          : CXXIdentifier("prefix_" + functionName)
+      case .postfix:
+        functionId = CXXIdentifier("postfix_" + functionName)
+      case nil:
+        functionId = CXXIdentifier(functionName)
+      }
     }
+
     return .method(
       CXXMethod(
-        name: CXXIdentifier(functionName),
+        name: functionId,
         resultType: cxxFunctionReturnType(source, with: functionName),
         parameters: cxx(parameters: source.parameters),
         isStatic: source.isStatic,
