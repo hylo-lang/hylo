@@ -206,7 +206,7 @@ extension TypeChecker {
     state.facts.append(rhs.constraints)
 
     let lhs = syntax.left
-    switch syntax.kind {
+    switch syntax.direction {
     case .down:
       // Note: constraining the type of the left operand to be above the right operand wouldn't
       // contribute any useful information to the constraint system.
