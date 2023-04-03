@@ -18,8 +18,7 @@ type MyInt {
 
   //! h Int sumWith(MyInt x, MyInt y, MyInt z) {
   fun sumWith(x: MyInt, y: MyInt, z: MyInt) -> Int {
-    // TODO
-    //! h return value + value + value + value
+    //! h return value + x . value + y . value + z . value
     return value + x.value + y.value + z.value
   }
 

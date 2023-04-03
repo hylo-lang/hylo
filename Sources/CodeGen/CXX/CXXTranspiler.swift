@@ -514,16 +514,17 @@ public struct CXXTranspiler {
         return CXXIdentifier(nameOfDecl(callee))
       }
 
-    case .direct(let callee):
-      // For variables, and other declarations, just use the name of the declaration
-      return CXXIdentifier(nameOfDecl(callee))
+    case .direct(let callee), .member(let callee):
+      let r = CXXIdentifier(nameOfDecl(callee))
+      switch source.domain {
+      case .expr(let base):
+        return CXXInfixExpr(oper: .dotAccess, lhs: cxx(expr: base), rhs: r)
+      default:
+        return r
+      }
 
     case .member(let callee) where callee.kind == FunctionDecl.self:
       return cxx(nameOfMemberFunction: FunctionDecl.Typed(callee)!, withDomain: source.domain)
-
-    case .member(let callee):
-      // TODO: revisit this
-      return CXXIdentifier(nameOfDecl(callee))
 
     case .builtinFunction(let f):
       // Decorate the function so that we can uniquely identify it.
