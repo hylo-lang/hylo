@@ -503,6 +503,8 @@ public struct Emitter {
     switch expr.kind {
     case BooleanLiteralExpr.self:
       return emitRValue(booleanLiteral: BooleanLiteralExpr.Typed(expr)!, into: &module)
+    case CastExpr.self:
+      return emitRValue(cast: CastExpr.Typed(expr)!, into: &module)
     case ConditionalExpr.self:
       return emitRValue(conditional: ConditionalExpr.Typed(expr)!, into: &module)
     case FloatLiteralExpr.self:
@@ -535,6 +537,60 @@ public struct Emitter {
     return module.append(
       module.makeRecord(boolType, aggregating: [value], anchoredAt: expr.site),
       to: insertionBlock!)[0]
+  }
+
+  private mutating func emitRValue(
+    cast expr: CastExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    switch expr.direction {
+    case .up:
+      return emitRValue(upcast: expr, into: &module)
+    case .down:
+      return emitRValue(downcast: expr, into: &module)
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  private mutating func emitRValue(
+    upcast expr: CastExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    precondition(expr.direction == .up)
+
+    let lhs = emitRValue(expr.left, into: &module)
+    let rhs = MetatypeType(expr.right.type)!.instance
+
+    // Nothing to do if the LHS already has the desired type.
+    if program.relations.areEquivalent(expr.left.type, rhs) {
+      return lhs
+    }
+
+    fatalError("not implemented")
+  }
+
+  private mutating func emitRValue(
+    downcast expr: CastExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    precondition(expr.direction == .down)
+
+    let lhs = emitRValue(expr.left, into: &module)
+    let rhs = MetatypeType(expr.right.type)!.instance
+
+    // Nothing to do if the LHS already has the desired type.
+    if program.relations.areEquivalent(expr.left.type, rhs) {
+      return lhs
+    }
+
+    if expr.left.type.base is ExistentialType {
+      return module.append(
+        module.makeUnwrap(lhs, as: rhs, anchoredAt: expr.site),
+        to: insertionBlock!)[0]
+    }
+
+    fatalError("not implemented")
   }
 
   private mutating func emitRValue(
