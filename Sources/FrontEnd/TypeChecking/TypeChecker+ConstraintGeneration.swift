@@ -203,6 +203,7 @@ extension TypeChecker {
     }
 
     let rhs = instantiate(target, in: scope, cause: ConstraintOrigin(.cast, at: syntax.site))
+    _ = state.facts.constrain(syntax.right, in: ast, toHaveType: MetatypeType(of: rhs.shape))
     state.facts.append(rhs.constraints)
 
     let lhs = syntax.left
