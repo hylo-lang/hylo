@@ -283,7 +283,19 @@ public struct Emitter {
 
     let source = emitLValue(initializer, into: &module)
     for (path, name) in decl.pattern.subpattern.names {
-      let s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+      var s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+
+      if !program.relations.areEquivalent(name.decl.type, module.type(of: s).astType) {
+        if let u = ExistentialType(name.decl.type) {
+          s = module.append(
+            module.makeBorrow(capability, from: s, anchoredAt: name.decl.site),
+            to: insertionBlock!)[0]
+          s = module.append(
+            module.makeWrapAddr(s, as: u, anchoredAt: name.decl.site),
+            to: insertionBlock!)[0]
+        }
+      }
+
       let b = module.append(
         module.makeBorrow(
           capability, from: s, correspondingTo: name.decl, anchoredAt: name.decl.site),
