@@ -35,6 +35,7 @@ private struct HeaderFile: Writeable {
       output << "#include <variant>\n"
       output << "#include <cstdint>\n"
       output << "#include <cstdlib>\n"
+      output << AdditionalFileContent("NativeCodePreamble.h")
       output << "namespace Val {\n"
     } else {
       output << "#include \"ValCore.h\"\n"
@@ -216,48 +217,11 @@ private struct ClassDefinition: Writeable {
         output << attribute
       case .method:
         output << "// method\n"
-      case .constructor:
-        output << "// constructor\n"
+      case .constructor(let constructor):
+        output << constructor
       }
-    }
-    if output.context.isCoreLibrary {
-      // For standard value types try to generate implict conversion constructors from C++ literal types.
-      output << ConversionConstructor(source)
     }
     output << "};\n"
-  }
-
-}
-
-/// Knows how to write a conversion constructor for a class.
-///
-/// This only applies for classes have one data member, and its type is native.
-private struct ConversionConstructor: Writeable {
-
-  let parentClass: CXXClassDecl
-
-  init(_ parentClass: CXXClassDecl) {
-    self.parentClass = parentClass
-  }
-
-  /// Writes 'self' to 'output'.
-  func write(to output: inout CXXStream) {
-    let dataMembers = parentClass.members.compactMap({ m in
-      switch m {
-      case .attribute(let dataMember):
-        return dataMember
-      default:
-        return nil
-      }
-    })
-
-    // We need to have just one class attribute in the type,
-    // and the type of the attribute needs to be native.
-    if dataMembers.count == 1 && dataMembers[0].type.isNative {
-      // Write implicit conversion constructor
-      output << parentClass.name.description << "(" << dataMembers[0].type << " v) : "
-        << dataMembers[0].name << "(v) {}\n"
-    }
   }
 
 }
@@ -273,6 +237,26 @@ extension CXXClassAttribute: Writeable {
     output << ";\n"
   }
 
+}
+
+extension CXXConstructor: Writeable {
+
+  /// Writes 'self' to 'output'.
+  func write(to output: inout CXXStream) {
+    output << name << "("
+    output.write(parameters.lazy.map({ p in p.type << " " << p.name }), joinedBy: ", ")
+    output << ")"
+    if !initializers.isEmpty {
+      output << " : "
+      output.write(
+        initializers.lazy.map({ i in i.name << "(" << AnyExpr(i.value) << ")" }), joinedBy: ", ")
+    }
+    if let b = body {
+      output << " " << AnyStmt(b)
+    } else {
+      output << " {}\n"
+    }
+  }
 }
 
 extension CXXLocalVarDecl: Writeable {
@@ -709,9 +693,10 @@ extension CXXStream {
   where S.Element: Writeable {
     var isFirst = true
     for i in items {
-      if !isFirst {
-        output.write(separator)
+      if isFirst {
         isFirst = false
+      } else {
+        output.write(separator)
       }
       i.write(to: &self)
     }
