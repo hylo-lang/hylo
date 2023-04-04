@@ -292,7 +292,8 @@ extension TypeChecker {
     if let callee = NameExpr.ID(syntax.callee) {
       let l = ast[subject].arguments.map(\.label?.value)
       calleeType = inferredType(
-        ofNameExpr: callee, appliedWithLabels: l, shapedBy: nil, in: scope, updating: &state)
+        ofNameExpr: callee, withImplicitDomain: shape, appliedWith: l, shapedBy: nil,
+        in: scope, updating: &state)
     } else {
       calleeType = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
     }
@@ -497,7 +498,8 @@ extension TypeChecker {
 
   private mutating func inferredType(
     ofNameExpr subject: NameExpr.ID,
-    appliedWithLabels labels: [String?]? = nil,
+    withImplicitDomain domain: AnyType? = nil,
+    appliedWith labels: [String?]? = nil,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -511,10 +513,20 @@ extension TypeChecker {
       return state.facts.assignErrorType(to: subject)
 
     case .inexecutable(let suffix):
-      if case .expr(let e) = ast[subject].domain {
+      switch ast[subject].domain {
+      case .implicit:
+        if let t = domain {
+          lastVisitedComponentType = t
+        } else {
+          report(.error(noContextToResolve: ast[subject].name.value, at: ast[subject].name.site))
+          return state.facts.assignErrorType(to: subject)
+        }
+
+      case .expr(let e):
         lastVisitedComponentType = inferredType(of: e, shapedBy: nil, in: scope, updating: &state)
-      } else {
-        fatalError("not implemented")
+
+      case .none:
+        unreachable()
       }
       unresolvedComponents = suffix
 
@@ -795,12 +807,34 @@ extension TypeChecker {
     // subject to its default type.
     let cause = ConstraintOrigin(.literal, at: ast[subject].site)
     if let e = shape {
-      if !relations.areEquivalent(defaultType, e) {
-        let literalTrait = ast.coreTrait(forTypesExpressibleBy: T.self)!
-        state.facts.append(
-          LiteralConstraint(e, defaultsTo: defaultType, conformsTo: literalTrait, origin: cause))
+      // Fast path if `e` is the default type.
+      if relations.areEquivalent(defaultType, e) {
+        return state.facts.constrain(subject, in: ast, toHaveType: e)
       }
-      return state.facts.constrain(subject, in: ast, toHaveType: e)
+
+      // Assume the type of the subject is subtype of the default type. If it isn't, then assume it
+      // is expressible by the literal's trait.
+      let t = ^TypeVariable()
+      let p = ast.coreTrait(forTypesExpressibleBy: T.self)!
+
+      let preferred: ConstraintSet = [
+        EqualityConstraint(t, defaultType, origin: cause),
+        SubtypingConstraint(defaultType, e, origin: cause),
+      ]
+      let alternative: ConstraintSet = [
+        EqualityConstraint(t, e, origin: cause),
+        ConformanceConstraint(e, conformsTo: [p], origin: cause),
+      ]
+
+      state.facts.append(
+        DisjunctionConstraint(
+          choices: [
+            .init(constraints: preferred, penalties: 0),
+            .init(constraints: alternative, penalties: 1),
+          ],
+          origin: cause))
+
+      return state.facts.constrain(subject, in: ast, toHaveType: t)
     } else {
       return state.facts.constrain(subject, in: ast, toHaveType: defaultType)
     }

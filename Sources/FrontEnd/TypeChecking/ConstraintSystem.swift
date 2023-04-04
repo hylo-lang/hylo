@@ -136,8 +136,6 @@ struct ConstraintSystem {
       switch goals[g] {
       case is ConformanceConstraint:
         setOutcome(solve(conformance: g, using: &checker), for: g)
-      case is LiteralConstraint:
-        setOutcome(solve(literal: g, using: &checker), for: g)
       case is EqualityConstraint:
         setOutcome(solve(equality: g, using: &checker), for: g)
       case is SubtypingConstraint:
@@ -159,8 +157,6 @@ struct ConstraintSystem {
       default:
         unreachable()
       }
-
-      if fresh.isEmpty { refreshLiteralConstraints() }
     }
 
     return formSolution()
@@ -171,12 +167,12 @@ struct ConstraintSystem {
   /// The cost of a solution increases monotonically when a constraint is eliminated.
   private func score() -> Solution.Score {
     .init(
-      errorCount: goals.indices.elementCount(where: iFailureRoot),
+      errorCount: goals.indices.elementCount(where: isFailureRoot),
       penalties: penalties)
   }
 
   /// Returns `true` iff the solving `g` failed and `g` isn't subordinate.
-  private func iFailureRoot(_ g: GoalIdentity) -> Bool {
+  private func isFailureRoot(_ g: GoalIdentity) -> Bool {
     (goals[g].origin.parent == nil) && (succeeded(g) == false)
   }
 
@@ -216,9 +212,14 @@ struct ConstraintSystem {
     assert(fresh.isEmpty)
     assert(outcomes.enumerated().allSatisfy({ (i, o) in (o != nil) || stale.contains(i) }))
 
+    for g in stale {
+      let c = goals[g]
+      setOutcome(.failure({ (d, _, _) in d.insert(.error(staleConstraint: c)) }), for: g)
+    }
+
     let m = typeAssumptions.optimized()
-    var d = DiagnosticSet(stale.map({ Diagnostic.error(staleConstraint: goals[$0]) }))
-    for (k, v) in zip(goals.indices, outcomes) where iFailureRoot(k) {
+    var d = DiagnosticSet()
+    for (k, v) in zip(goals.indices, outcomes) where isFailureRoot(k) {
       v!.dianoseFailure!(&d, m, outcomes)
     }
 
@@ -268,34 +269,6 @@ struct ConstraintSystem {
       return .failure { (d, m, _) in
         let t = m.reify(goal.subject)
         d.formUnion(missingTraits.map({ .error(t, doesNotConformTo: $0, at: goal.origin.site) }))
-      }
-    }
-  }
-
-  /// Returns either `.success` if `g.subject` conforms to `g.literalTrait`, `.failure` if it
-  /// doesn't, or `nil` if neither of these outcomes can be determined yet.
-  private mutating func solve(
-    literal g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome? {
-    let goal = goals[g] as! LiteralConstraint
-    if checker.relations.areEquivalent(goal.subject, goal.defaultSubject) {
-      return .success
-    }
-
-    if goal.subject.base is TypeVariable {
-      postpone(g)
-      return nil
-    }
-
-    if checker.conformedTraits(of: goal.subject, in: scope).contains(goal.literal) {
-      // Add a penalty if `L` isn't `D`.
-      penalties += 1
-      return .success
-    } else {
-      return .failure { (d, m, _) in
-        d.insert(
-          .error(m.reify(goal.subject), doesNotConformTo: goal.literal, at: goal.origin.site))
       }
     }
   }
@@ -867,18 +840,6 @@ struct ConstraintSystem {
 
       if changed {
         log("- refresh \(goals[stale[i]])")
-        fresh.append(stale.remove(at: i))
-      }
-    }
-  }
-
-  /// Transforms the stale literal constraints to equality constraints.
-  private mutating func refreshLiteralConstraints() {
-    for i in (0 ..< stale.count).reversed() {
-      if let l = goals[stale[i]] as? LiteralConstraint {
-        let e = EqualityConstraint(l.subject, l.defaultSubject, origin: l.origin)
-        log("- decay \(l) => \(e)")
-        goals[stale[i]] = e
         fresh.append(stale.remove(at: i))
       }
     }

@@ -1,0 +1,22 @@
+//! h class MyInt {
+type MyInt {
+
+  //! h Int value;
+  var value: Int
+
+  //! h MyInt(Int value) : value(value) {}
+  memberwise init
+
+  //! h MyInt() {
+  public init() {
+    //! h value = 0;
+    &self.value = 0
+  }
+
+  //! h MyInt(Int a, Int b) {
+  public init(_ a: Int, _ b: Int) {
+    //! h value = a + b;
+    &self.value = a + b
+  }
+
+}

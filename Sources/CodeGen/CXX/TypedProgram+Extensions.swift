@@ -8,7 +8,8 @@ extension TypedProgram {
   /// Returns the C++ Transpilation of `m`.
   public func cxx(_ m: ModuleDecl.Typed, withFormatter formatter: CodeTransform? = nil) -> CXXModule
   {
-    let x = CXXTranspiler(self).cxx(m)
+    let t = CXXTranspiler(self)
+    let x = t.cxx(m)
     return (syntax: x, text: x.code(formatter: formatter))
   }
 
