@@ -270,7 +270,11 @@ extension CXXMethod: Writeable {
     if isStatic {
       output << "static "
     }
-    output << resultType << " " << name << "("
+    output << resultType << " "
+    if isOperator {
+      output << "operator "
+    }
+    output << name << "("
     output.write(parameters.lazy.map({ p in p.type << " " << p.name }), joinedBy: ", ")
     output << ")"
 

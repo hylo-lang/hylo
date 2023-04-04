@@ -161,69 +161,56 @@ public struct CXXTranspiler {
   }
   /// Returns a transpilation of `source`.
   private func cxx(memberFunction source: FunctionDecl.Typed) -> CXXClassDecl.ClassMember {
-    let allowedCxxOperators = [
-      "<<",
-      ">>",
-      "*",
-      "/",
-      "%",
-      "+",
-      "-",
-      "==",
-      "!=",
-      "<",
-      "<=",
-      ">=",
-      ">",
-      "^",
-      "&",
-      "&&",
-      "|",
-      "||",
-      "<<=",
-      ">>=",
-      "*=",
-      "/=",
-      "%=",
-      "+=",
-      "-=",
-      "&=",
-      "++",
-      "--",
-      "+",
-      "-",
-      // "!", // special case for "!" operator; we translate it to a C++ operator only if it's a prefix operator
-    ]
     let functionName = source.identifier?.value ?? ""
-    var functionId: CXXIdentifier
-    if source.notation != nil && allowedCxxOperators.contains(functionName) {
-      // we know we can translate this to a C++ operator.
-      functionId = CXXIdentifier(notSanitizing: "operator " + functionName)
-    } else {
-      // with the exception of prefix "!", we cannot translate this to a C++ operator.
-      switch source.notation?.value {
-      case .infix:
-        functionId = CXXIdentifier("infix_" + functionName)
-      case .prefix:
-        functionId =
-          functionName == "!"
-          // use "operator !" for prefix (and not for postfix)
-          ? CXXIdentifier(notSanitizing: "operator " + functionName)
-          : CXXIdentifier("prefix_" + functionName)
-      case .postfix:
-        functionId = CXXIdentifier("postfix_" + functionName)
-      case nil:
-        functionId = CXXIdentifier(functionName)
-      }
-    }
+    let (name, isOperator) = operatorOrMethodName(functionName, with: source.notation)
 
     return .method(
       CXXMethod(
-        name: functionId,
+        name: name,
         resultType: cxxFunctionReturnType(source, with: functionName),
         parameters: cxx(parameters: source.parameters),
         isStatic: source.isStatic,
+        isOperator: isOperator,
         body: source.body != nil ? cxx(funBody: source.body!) : nil))
+  }
+
+  private func operatorOrMethodName(
+    _ id: Identifier, with notation: SourceRepresentable<OperatorNotation>?
+  ) -> (name: CXXIdentifier, isOperator: Bool) {
+    let allowedCxxOperators = [
+      "<<", ">>",
+      "*", "/", "%", "+", "-",
+      "==", "!=", "<", "<=", ">=", ">",
+      "^", "&", "&&", "|", "||",
+      "<<=", ">>=", "*=", "/=", "%=", "+=", "-=", "&=",
+      "++", "--",
+      // special case for "!" operator; we translate it to a C++ operator only if it's a prefix operator
+    ]
+    var isOperator: Bool
+    var nameId: Identifier
+    if notation != nil && allowedCxxOperators.contains(id) {
+      // we know we can translate this to a C++ operator.
+      nameId = id
+      isOperator = true
+    } else if notation?.value == .prefix && id == "!" {
+      nameId = id
+      isOperator = true
+    } else {
+      // We cannot translate this to a C++ operator.
+      isOperator = false
+      switch notation?.value {
+      case .infix:
+        nameId = "infix_" + id
+      case .prefix:
+        nameId = "prefix_" + id
+      case .postfix:
+        nameId = "postfix_" + id
+      case nil:
+        nameId = id
+      }
+    }
+    let name = isOperator ? CXXIdentifier(notSanitizing: nameId) : CXXIdentifier(nameId)
+    return (name, isOperator)
   }
 
   /// An attribute of a product type.
