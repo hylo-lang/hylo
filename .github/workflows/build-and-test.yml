@@ -19,58 +19,64 @@ on:
       - ".gitignore"
 
 jobs:
-  build:
-    name: Swift 5 on ${{ matrix.host.os }}
+  build-devcontainer:
+    name: "Devcontainer: ${{ matrix.host.os }}/${{ matrix.configuration }}"
     strategy:
       fail-fast: false
       matrix:
         host: [
-          { type: macos, os: macos-latest },
-          { type: linux, os: ubuntu-latest, test-options: --enable-code-coverage },
+          { type: linux, os: ubuntu-latest, test-options: "-Xswiftc -enable-testing --enable-code-coverage" }
         ]
-        swift: [
-          { version: "5.7", windows-branch: "development", windows-tag: "DEVELOPMENT-SNAPSHOT-2023-02-14-a" }
-        ]
+        configuration: [ "debug", "release" ]
+
     runs-on: ${{ matrix.host.os }}
     steps:
+    - uses: actions/checkout@v3
+
+    - run: git config --global core.autocrlf input
+
+    - name: Build and run devcontainer task
+      uses: devcontainers/ci@v0.3
+      with:
+        runCmd: | 
+          swift build -v -c ${{ matrix.configuration }}
+          swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
+
+    - name: Check code coverage
+      uses: mattpolzin/swift-codecov-action@0.7.3
+      with:
+        SORT_ORDER: +cov
+        MINIMUM_COVERAGE: 82
+        CODECOV_JSON: .build/${{ matrix.configuration }}/codecov/*.json
+
+  build-native:
+    name: "Native: ${{ matrix.host.os }}/${{ matrix.configuration }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [
+          { type: macos, os: macos-latest, test-options: "-Xswiftc -enable-testing --enable-code-coverage" }
+        ]
+        swift: [
+          { version: "5.7" }
+        ]
+        configuration: [ "debug", "release" ]
+
+    runs-on: ${{ matrix.host.os }}
+    steps:
+    - uses: actions/checkout@v3
+
     - name: Setup swift
       uses: swift-actions/setup-swift@v1
-      if: matrix.host.type != 'windows'
       with:
         swift-version: ${{ matrix.swift.version }}
 
-    - name: Setup swift (Windows)
-      uses: compnerd/gha-setup-swift@main
-      if: matrix.host.type == 'windows'
-      with:
-        branch: ${{ matrix.swift.windows-branch }}
-        tag: ${{ matrix.swift.windows-tag }}
+    - run: git config --global core.autocrlf input
 
-    - run: |
-        git config --global core.autocrlf input
-    - uses: actions/checkout@v3
+    - run: swift --version
 
-    - name: Swift version
-      run: swift --version
+    - name: Build (${{ matrix.configuration }})
+      run: swift build -v -c ${{ matrix.configuration }}
 
-    - name: Build (Debug)
-      run: swift build -v -c debug
-    - name: Test (Debug)
-      run: swift test -v -c debug ${{matrix.host.test-options}}
-    - name: Check code coverage (Debug)
-      uses: mattpolzin/swift-codecov-action@0.7.3
-      if: matrix.host.type == 'linux'
-      with:
-        SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 82
-
-    - name: Build (Release)
-      run: swift build -v -c release
-    - name: Test (Release)
-      run: swift test -c release -Xswiftc -enable-testing ${{matrix.host.test-options}}
-    - name: Check code coverage (Release)
-      uses: mattpolzin/swift-codecov-action@0.7.3
-      if: matrix.host.type == 'linux'
-      with:
-        SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 82
+    - name: Test (${{ matrix.configuration }})
+      run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
