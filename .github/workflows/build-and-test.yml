@@ -38,7 +38,11 @@ jobs:
     - name: Build and run devcontainer task
       uses: devcontainers/ci@v0.3
       with:
-        runCmd: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
+        runCmd: | 
+          swift build -v -c ${{ matrix.configuration }}
+          swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
+
+    - uses: lhotari/action-upterm@v1
 
     - name: Check code coverage
       uses: mattpolzin/swift-codecov-action@0.7.3
