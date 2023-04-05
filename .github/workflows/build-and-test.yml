@@ -42,14 +42,12 @@ jobs:
           swift build -v -c ${{ matrix.configuration }}
           swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
 
-    - uses: lhotari/action-upterm@v1
-
     - name: Check code coverage
       uses: mattpolzin/swift-codecov-action@0.7.3
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 82
-        CODECOV_JSON: ./build/${{ matrix.configuration }}/codecov/*.json
+        CODECOV_JSON: .build/${{ matrix.configuration }}/codecov/*.json
 
   build-native:
     name: "Native: ${{ matrix.host.os }}/${{ matrix.configuration }}"
