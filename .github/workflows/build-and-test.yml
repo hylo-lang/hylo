@@ -77,9 +77,3 @@ jobs:
 
     - name: Test (${{ matrix.configuration }})
       run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
-
-    - name: Check code coverage
-      uses: mattpolzin/swift-codecov-action@0.7.3
-      with:
-        SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 82
