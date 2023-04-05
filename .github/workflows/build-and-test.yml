@@ -45,7 +45,7 @@ jobs:
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 82
-        CODECOV_JSON: ./build/${{configuration}}/codecov/*.json
+        CODECOV_JSON: ./build/${{ matrix.configuration }}/codecov/*.json
 
   build-native:
     name: "Native: ${{ matrix.host.os }}/${{ matrix.configuration }}"
