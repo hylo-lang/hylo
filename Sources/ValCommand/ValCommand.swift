@@ -52,25 +52,6 @@ public struct ValCommand: ParsableCommand {
 
   }
 
-  /// The identifier of a C++ compiler.
-  private enum CXXCompiler: String, ExpressibleByArgument, RawRepresentable {
-
-    case clang
-
-    case gcc
-
-    case msvc
-
-    init?(argument: String) {
-      guard let s = CXXCompiler(rawValue: argument) else { return nil }
-      #if !os(Windows)
-        if s == .msvc { return nil }
-      #endif
-      self = s
-    }
-
-  }
-
   public static let configuration = CommandConfiguration(commandName: "valc")
 
   @Flag(
@@ -106,20 +87,6 @@ public struct ValCommand: ParsableCommand {
       "Emit the specified type output files. From: raw-ast, raw-ir, ir, cpp, binary",
       valueName: "output-type"))
   private var outputType: OutputType = .binary
-
-  @Option(
-    name: [.customLong("cc")],
-    help: ArgumentHelp(
-      "Select the C++ compiler used by the Val backend. From: clang, gcc, msvc (Windows only)",
-      valueName: "CXXCompiler"))
-  private var cxxCompiler: CXXCompiler = .clang
-
-  @Option(
-    name: [.customLong("cc-flags")],
-    help: ArgumentHelp(
-      "Specify flags for the CXX compiler to use",
-      valueName: "CXXCompilerFlags"))
-  private var ccFlags: [String] = []
 
   @Option(
     name: [.customShort("o")],
@@ -310,18 +277,6 @@ public struct ValCommand: ParsableCommand {
   /// - Requires: `url` must denote a directly.
   private func addModule(url: URL) {
     fatalError("not implemented")
-  }
-
-  /// Returns the path of the specified C++ compiler's executable.
-  private func find(_ compiler: CXXCompiler) throws -> String {
-    switch compiler {
-    case .clang:
-      return try find("clang++")
-    case .gcc:
-      return try find("g++")
-    case .msvc:
-      return try find("cl")
-    }
   }
 
   /// Returns the path of the specified executable.
