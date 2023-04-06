@@ -25,6 +25,9 @@ public struct ValCommand: ParsableCommand {
     /// C++ code
     case cpp
 
+    /// LLVM IR
+    case llvm
+
     /// Executable binary.
     case binary
 
@@ -38,6 +41,8 @@ public struct ValCommand: ParsableCommand {
         self = .ir
       case "cpp":
         self = .cpp
+      case "llvm":
+        self = .llvm
       case "binary":
         self = .binary
       default:
@@ -194,8 +199,8 @@ public struct ValCommand: ParsableCommand {
     }
 
     if outputType == .ir || outputType == .rawIR {
-      try irModules[sourceModule]!.description
-        .write(to: irFile(productName), atomically: true, encoding: .utf8)
+      let m = irModules[sourceModule]!
+      try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
     let ir = LoweredProgram(syntax: program, modules: irModules)
@@ -217,11 +222,20 @@ public struct ValCommand: ParsableCommand {
       return
     }
 
+    // LLVM
+
+    let llvmProgram = try LLVMProgram(ir, mainModule: sourceModule)
+
+    if outputType == .llvm {
+      let m = llvmProgram.llvmModules[sourceModule]!
+      try m.description.write(to: llvmFile(productName), atomically: true, encoding: .utf8)
+      return
+    }
+
     // Executables
 
     assert(outputType == .binary)
 
-    let llvmProgram = try LLVMProgram(ir, mainModule: sourceModule)
     let objectFiles = try llvmProgram.write(
       .objectFile, to: FileManager.default.temporaryDirectory)
     let binaryPath = executableOutputPath(default: productName)
@@ -390,6 +404,12 @@ public struct ValCommand: ParsableCommand {
   /// "raw-ir" is selected as the output type.
   private func irFile(_ productName: String) -> URL {
     outputURL ?? URL(fileURLWithPath: productName + ".vir")
+  }
+
+  /// Given the desired name of the compiler's product, returns the file to write when "llvm" is
+  /// selected as the output type.
+  private func llvmFile(_ productName: String) -> URL {
+    outputURL ?? URL(fileURLWithPath: productName + ".ll")
   }
 
   /// Given the desired name of the compiler's product, returns the file to write when "binary" is
