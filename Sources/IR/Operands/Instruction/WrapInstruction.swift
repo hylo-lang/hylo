@@ -1,9 +1,9 @@
 import Core
 
 /// Creates existential container wrapping `witness` and exposing `interface`.
-public struct WrapAddrInstruction: Instruction {
+public struct WrapInstruction: Instruction {
 
-  /// The address wrapped in the existential container.
+  /// The object wrapped in the existential container.
   public let witness: Operand
 
   /// The type of the existential container.
@@ -24,10 +24,10 @@ public struct WrapAddrInstruction: Instruction {
 
 }
 
-extension WrapAddrInstruction: CustomStringConvertible {
+extension WrapInstruction: CustomStringConvertible {
 
   public var description: String {
-    "wrap_addr \(witness) as \(interface)"
+    "wrap \(witness) as \(interface)"
   }
 
 }
@@ -40,15 +40,15 @@ extension Module {
   /// - Parameters:
   ///   - witness: The object wrapped in the container. Its type must be subtype of `interface`.
   ///   - interface: The type of the container.
-  func makeWrapAddr(
+  func makeWrap(
     _ witness: Operand,
     as interface: ExistentialType,
     anchoredAt anchor: SourceRange
-  ) -> WrapAddrInstruction {
-    precondition(type(of: witness).isAddress)
+  ) -> WrapInstruction {
+    precondition(type(of: witness).isObject)
     return .init(
       witness: witness,
-      interface: .address(interface),
+      interface: .object(interface),
       site: anchor)
   }
 
