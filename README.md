@@ -21,6 +21,20 @@ swift build -c release
 That command will create an executable named `valc` in `.build/release`.
 That's Val compiler!
 
+### Building Val Devcontainer with VSCode
+
+While Val supports Linux natively, it also provides a [Devcontainer](https://containers.dev/) specification to develop for Linux on other platforms through a Docker container. Our [Linux CI](.github/workflows/build-and-test.yml) uses this specification; this makes it possible to run Linux CI locally on other operating systems like macOS. While this specification should work for any IDE that supports devcontainers, keep in mind this team only uses VSCode. 
+
+When opening the Val project in VSCode for the first time, you should be prompted to install the extension `recommendations` in `.vscode/extensions.json`. If you are not prompted, manually install the extensions by searching for the extension identifiers in the Extensions Marketplace.
+
+Then, build the Devcontainer with the VSCode command: `> Dev Containers: Rebuild and Reopen in Container`.
+
+Finally, open a new integrated terminal in VSCode and confirm that the shell user is `vscode`. You can run `whoami` to check this.
+
+That integrated terminal is connected to the Devcontainer, as if by ssh. You can now run `swift test -c release` to build and test for Linux. 
+
+The Val repository files are mounted into the container, so any changes made locally (in VSCode or in other editors) will be automatically propagated into the Devcontainer. However, if you need to modifiy any of the files in the `.devcontainer` directory, you will need to rebuild the container with `> Dev Containers: Rebuild and Reopen in Container`.
+
 ## Implementation status
 
 This project is under active development; expect things to break and APIs to change.
