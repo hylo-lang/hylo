@@ -19,43 +19,14 @@ on:
       - ".gitignore"
 
 jobs:
-  build-devcontainer:
-    name: "Devcontainer: ${{ matrix.host.os }}/${{ matrix.configuration }}"
+  build:
+    name: "${{ matrix.host.os }}/${{ matrix.configuration }}"
     strategy:
       fail-fast: false
       matrix:
         host: [
+          { type: macos, os: macos-latest, test-options: "-Xswiftc -enable-testing --enable-code-coverage" },
           { type: linux, os: ubuntu-latest, test-options: "-Xswiftc -enable-testing --enable-code-coverage" }
-        ]
-        configuration: [ "debug", "release" ]
-
-    runs-on: ${{ matrix.host.os }}
-    steps:
-    - uses: actions/checkout@v3
-
-    - run: git config --global core.autocrlf input
-
-    - name: Build and run devcontainer task
-      uses: devcontainers/ci@v0.3
-      with:
-        runCmd: | 
-          swift build -v -c ${{ matrix.configuration }}
-          swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
-
-    - name: Check code coverage
-      uses: mattpolzin/swift-codecov-action@0.7.3
-      with:
-        SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 82
-        CODECOV_JSON: .build/${{ matrix.configuration }}/codecov/*.json
-
-  build-native:
-    name: "Native: ${{ matrix.host.os }}/${{ matrix.configuration }}"
-    strategy:
-      fail-fast: false
-      matrix:
-        host: [
-          { type: macos, os: macos-latest, test-options: "-Xswiftc -enable-testing --enable-code-coverage" }
         ]
         swift: [
           { version: "5.7" }
@@ -80,3 +51,11 @@ jobs:
 
     - name: Test (${{ matrix.configuration }})
       run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
+
+    - name: Check code coverage
+      if: matrix.host.type == 'linux'
+      uses: mattpolzin/swift-codecov-action@0.7.3
+      with:
+        SORT_ORDER: +cov
+        MINIMUM_COVERAGE: 82
+        CODECOV_JSON: .build/${{ matrix.configuration }}/codecov/*.json
