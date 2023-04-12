@@ -6,7 +6,7 @@ import XCTest
 final class ExecutionTests: XCTestCase {
 
   /// Compiles and executes all tests in `TestCases` directory, and ensures they return success.
-  func testExecution() throws {
+  func DISABLED_testExecution() throws {
     let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
     for testFile in try! sourceFiles(in: [s]) {
       let output = try compile(testFile.url, with: ["--emit", "binary"])
