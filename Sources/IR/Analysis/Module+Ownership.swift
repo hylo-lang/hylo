@@ -169,7 +169,7 @@ extension Module {
     let function = self[f]
     var result = Context()
 
-    let b = Block.ID(function: f, address: function.entry!)
+    let b = Block.ID(f, function.entry!)
     for i in function.inputs.indices {
       let (parameterConvention, parameterType) = function.inputs[i]
       let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)

@@ -33,6 +33,9 @@ public struct Conformance {
   /// The conditions under which this conformance holds.
   public let conditions: [Constraint]
 
+  /// The declaration that establishes this conformance.
+  public let source: AnyDeclID
+
   /// The outermost scope in which this conformance is exposed.
   public let scope: AnyScopeID
 
@@ -47,6 +50,7 @@ public struct Conformance {
     model: AnyType,
     concept: TraitType,
     conditions: [Constraint],
+    source: AnyDeclID,
     scope: AnyScopeID,
     implementations: ImplementationMap,
     site: SourceRange
@@ -54,6 +58,7 @@ public struct Conformance {
     self.model = model
     self.concept = concept
     self.conditions = conditions
+    self.source = source
     self.scope = scope
     self.implementations = implementations
     self.site = site

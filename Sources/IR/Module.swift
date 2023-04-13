@@ -37,9 +37,7 @@ public struct Module {
     self.syntax = program[m]
 
     var emitter = Emitter(program: program)
-    for d in program.ast.topLevelDecls(m) {
-      emitter.emit(topLevel: p[d], into: &self, diagnostics: &diagnostics)
-    }
+    emitter.emit(module: m, into: &self, diagnostics: &diagnostics)
     try diagnostics.throwOnError()
   }
 
@@ -80,12 +78,12 @@ public struct Module {
 
   /// Returns the IDs of the blocks in `f`.
   ///
-  /// The element of the returned collection is the function's entry; other elements are in no
-  /// particular order.
+  /// The first element of the returned collection is the function's entry; other elements are in
+  /// no particular order.
   public func blocks(
     in f: Function.ID
   ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
-    self[f].blocks.indices.lazy.map({ .init(function: f, address: $0.address) })
+    self[f].blocks.indices.lazy.map({ .init(f, $0.address) })
   }
 
   /// Returns the IDs of the instructions in `b`, in order.
@@ -150,75 +148,80 @@ public struct Module {
       try log.throwOnError()
     }
 
+    try run({ removeDeadCode(in: $0, diagnostics: &log) })
     try run({ insertImplicitReturns(in: $0, diagnostics: &log) })
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
   }
 
-  /// Returns the identifier of the Val IR function corresponding to `decl`.
-  mutating func getOrCreateFunction(
-    correspondingTo decl: FunctionDecl.Typed,
-    program: TypedProgram
-  ) -> Function.ID {
-    if let id = loweredFunctions[decl.id] { return id }
-    precondition(decl.module == syntax)
+  /// Declares the function identified by `f` with type `t` and name `n` at given `site` if `f`.
+  ///
+  /// - Returns: `true` iff `f` wasn't already declared in `self`.
+  @discardableResult
+  mutating func declareFunction(
+    identifiedBy f: Function.ID,
+    typed t: LambdaType,
+    named n: String = "",
+    at site: SourceRange
+  ) -> Bool {
+    if functions[f] != nil { return false }
 
-    // Determine the type of the function.
     var inputs: [Function.Input] = []
-    let output: LoweredType
+    inputs.reserveCapacity(t.captures.count + t.inputs.count)
 
-    switch decl.type.base {
+    // Define inputs for the captures.
+    for capture in t.captures {
+      switch program.relations.canonical(capture.type).base {
+      case let p as RemoteType:
+        precondition(p.access != .yielded, "cannot lower yielded parameter")
+        inputs.append((convention: p.access, type: .address(p.bareType)))
+      case let p:
+        precondition(t.receiverEffect != .yielded, "cannot lower yielded parameter")
+        inputs.append((convention: t.receiverEffect, type: .address(p)))
+      }
+    }
+
+    // Define inputs for the parameters.
+    for p in t.inputs {
+      inputs.append(ParameterType(program.relations.canonical(p.type))!.asIRFunctionInput())
+    }
+
+    let output = LoweredType(lowering: program.relations.canonical(t.output))
+    functions[f] = Function(
+      name: n,
+      debugName: "",
+      anchor: site.first(),
+      linkage: .external,
+      inputs: inputs,
+      output: output,
+      blocks: [])
+    return true
+  }
+
+  /// Returns the identity of the Val IR function corresponding to `d`.
+  mutating func getOrCreateFunction(correspondingTo d: FunctionDecl.Typed) -> Function.ID {
+    if let f = loweredFunctions[d.id] { return f }
+    let f = Function.ID(d.id)
+    let n = program.debugName(decl: d.id)
+
+    switch d.type.base {
     case let declType as LambdaType:
-      output = LoweredType(lowering: declType.output)
-      inputs.reserveCapacity(declType.captures.count + declType.inputs.count)
-
-      // Define inputs for the captures.
-      for capture in declType.captures {
-        switch capture.type.base {
-        case let type as RemoteType:
-          precondition(type.access != .yielded, "cannot lower yielded parameter")
-          inputs.append((convention: type.access, type: .address(type.bareType)))
-
-        case let type:
-          precondition(declType.receiverEffect != .yielded, "cannot lower yielded parameter")
-          inputs.append((convention: declType.receiverEffect, type: .address(type)))
-        }
-      }
-
-      // Define inputs for the parameters.
-      for parameter in declType.inputs {
-        let parameterType = parameter.type.base as! ParameterType
-        inputs.append(parameterType.asIRFunctionInput())
-      }
-
+      declareFunction(identifiedBy: f, typed: declType, named: n, at: d.site)
     case is MethodType:
       fatalError("not implemented")
-
     default:
       unreachable()
     }
 
-    // Declare a new function in the module.
-    let f = Function.ID(decl.id)
-    assert(functions[f] == nil)
-    functions[f] = Function(
-      name: "",
-      debugName: decl.identifier?.value,
-      anchor: decl.introducerSite.first(),
-      linkage: decl.isPublic ? .external : .module,
-      inputs: inputs,
-      output: output,
-      blocks: [])
-
     // Determine if the new function is the module's entry.
-    if decl.scope.kind == TranslationUnit.self, decl.isPublic, decl.identifier?.value == "main" {
+    if d.scope.kind == TranslationUnit.self, d.isPublic, d.identifier?.value == "main" {
       assert(entryFunctionID == nil)
       entryFunctionID = f
     }
 
     // Update the cache and return the ID of the newly created function.
-    loweredFunctions[decl.id] = f
+    loweredFunctions[d.id] = f
     return f
   }
 
@@ -234,7 +237,7 @@ public struct Module {
     let f = Function.ID(initializer: d.id)
     assert(functions[f] == nil)
     functions[f] = Function(
-      name: "",
+      name: program.debugName(decl: d.id),
       debugName: "init",
       anchor: d.introducer.site.first(),
       linkage: d.isPublic ? .external : .module,
@@ -254,7 +257,7 @@ public struct Module {
     to function: Function.ID
   ) -> Block.ID {
     let address = functions[function]!.appendBlock(taking: parameters)
-    return Block.ID(function: function, address: address)
+    return Block.ID(function, address)
   }
 
   /// Removes `block` and updates def-use chains.
@@ -364,6 +367,16 @@ public struct Module {
     precondition(results(of: i).allSatisfy({ uses[$0, default: []].isEmpty }))
     removeUsesMadeBy(i)
     self[i.function][i.block].instructions.remove(at: i.address)
+  }
+
+  /// Removes all instructions after `i` in its containing block and updates def-use chains.
+  ///
+  /// - Requires: Let `S` be the set of removed instructions, all users of a result of `j` in `S`
+  ///   are also in `S`.
+  mutating func removeAllInstructionsAfter(_ i: InstructionID) {
+    while let a = self[i.function][i.block].instructions.lastAddress, a != i.address {
+      removeInstruction(.init(i.function, i.block, a))
+    }
   }
 
   /// Returns the uses of all the registers assigned by `i`.

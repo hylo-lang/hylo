@@ -84,10 +84,10 @@ extension Function {
   public struct ID: Hashable {
 
     /// The value of a function IR identity.
-    private enum Value: Hashable {
+    public enum Value: Hashable {
 
       /// The identity of a lowered Val function, initializer, or method variant.
-      case lowered(AnyNodeID)
+      case lowered(AnyDeclID)
 
       /// The identity of an initializer's constructor form.
       case constructor(InitializerDecl.ID)
@@ -96,21 +96,21 @@ extension Function {
       ///
       /// The payload is a pair (D, U) where D is the declaration of a requirement and T is a type
       /// conforming to the trait defining D.
-      case synthesized(AnyNodeID, for: AnyType)
+      case synthesized(AnyDeclID, for: AnyType)
 
     }
 
     /// The value of this identity.
-    private let value: Value
+    public let value: Value
 
     /// Creates the identity of the lowered form of `f`.
     public init(_ f: FunctionDecl.ID) {
-      self.value = .lowered(AnyNodeID(f))
+      self.value = .lowered(AnyDeclID(f))
     }
 
     /// Creates the identity of the lowered form of `f` used as an initializer.
     public init(initializer f: InitializerDecl.ID) {
-      self.value = .lowered(AnyNodeID(f))
+      self.value = .lowered(AnyDeclID(f))
     }
 
     /// Creates the identity of the lowered form of `f` used as a constructor.
@@ -119,8 +119,8 @@ extension Function {
     }
 
     /// Creates the identity of synthesized requirement `r` for type `t`.
-    public init(synthesized r: MethodImpl.ID, for t: AnyType) {
-      self.value = .synthesized(AnyNodeID(r), for: t)
+    public init<T: DeclID>(synthesized r: T, for t: AnyType) {
+      self.value = .synthesized(AnyDeclID(r), for: t)
     }
 
   }

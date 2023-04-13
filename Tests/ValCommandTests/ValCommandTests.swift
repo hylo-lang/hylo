@@ -56,21 +56,15 @@ final class ValCommandTests: XCTestCase {
       FileManager.default.fileExists(atPath: baseURL.appendingPathExtension("cpp").relativePath))
   }
 
-  func disabledTestBinary() throws {
-    let result = try compile(["--emit", "binary"], newFile(containing: "public fun main() {}"))
+  func testLLVM() throws {
+    let result = try compile(["--emit", "llvm"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
-
-    #if os(Windows)
-      XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath + ".exe"))
-    #else
-      XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
-    #endif
+    XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
-  func disabledTestBinaryWithCCFlags() throws {
-    let result = try compile(
-      ["--emit", "binary", "--cc-flags", "O3"], newFile(containing: "public fun main() {}"))
+  func testBinary() throws {
+    let result = try compile(["--emit", "binary"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     XCTAssert(result.stderr.isEmpty)
 

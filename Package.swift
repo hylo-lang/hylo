@@ -1,4 +1,4 @@
-// swift-tools-version:5.6
+// swift-tools-version:5.7
 import PackageDescription
 
 /// Settings to be passed to swiftc for all targets.
@@ -31,6 +31,9 @@ let package = Package(
       url: "https://github.com/attaswift/BigInt.git",
       from: "5.3.0"),
     .package(
+      url: "https://github.com/val-lang/Swifty-LLVM",
+      branch: "main"),
+    .package(
       url: "https://github.com/val-lang/swift-format",
       branch: "main"),
   ],
@@ -50,6 +53,7 @@ let package = Package(
         "FrontEnd",
         "IR",
         "CodeGenCXX",
+        "CodeGenLLVM",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: allTargetsSwiftSettings),
@@ -84,6 +88,17 @@ let package = Package(
       dependencies: ["FrontEnd", "Utils"],
       path: "Sources/CodeGen/CXX",
       exclude: ["README.md"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
+      name: "CodeGenLLVM",
+      dependencies: [
+        "Core",
+        "IR",
+        "Utils",
+        .product(name: "LLVM", package: "Swifty-LLVM"),
+      ],
+      path: "Sources/CodeGen/LLVM",
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
