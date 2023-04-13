@@ -209,6 +209,8 @@ public struct ValCommand: ParsableCommand {
 
     #if os(macOS)
       try makeMacOSExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+    #elseif os(Linux)
+      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #else
       _ = objectFiles
       _ = binaryPath
@@ -216,11 +218,11 @@ public struct ValCommand: ParsableCommand {
     #endif
   }
 
-  /// Links the object files denoted by `files` and writes an an executable file at `binaryPath`,
+  /// Combines the object files located at `objects` into an executable file at `binaryPath`,
   /// logging diagnostics to `log`.
   private func makeMacOSExecutable<L: Log>(
     at binaryPath: String,
-    linking files: [URL],
+    linking objects: [URL],
     loggingTo log: inout L
   ) throws {
     let xcrun = try find("xcrun")
@@ -229,8 +231,20 @@ public struct ValCommand: ParsableCommand {
         xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &log) ?? ""
 
     var arguments = ["-r", "ld", "-o", binaryPath, "-L", "\(sdk)/usr/lib", "-lSystem"]
-    arguments.append(contentsOf: files.map(\.path))
+    arguments.append(contentsOf: objects.map(\.path))
     try runCommandLine(xcrun, arguments, loggingTo: &log)
+  }
+
+  /// Combines the object files located at `objects` into an executable file at `binaryPath`,
+  /// logging diagnostics to `log`.
+  private func makeLinuxExecutable<L: Log>(
+    at binaryPath: String,
+    linking objects: [URL],
+    loggingTo log: inout L
+  ) throws {
+    var arguments = ["-o", binaryPath]
+    arguments.append(contentsOf: objects.map(\.path))
+    try runCommandLine(find("ld"), arguments, loggingTo: &log)
   }
 
   /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`
