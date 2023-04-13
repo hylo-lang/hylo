@@ -244,6 +244,9 @@ public struct ValCommand: ParsableCommand {
   ) throws {
     var arguments = ["-o", binaryPath]
     arguments.append(contentsOf: objects.map(\.path))
+
+    // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
+    // See https://stackoverflow.com/questions/51677440
     try runCommandLine(find("clang"), arguments, loggingTo: &log)
   }
 
