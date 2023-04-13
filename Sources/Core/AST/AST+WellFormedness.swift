@@ -143,9 +143,6 @@ extension AST {
 
     case FunctionDecl.self:
       let d = self[FunctionDecl.ID(decl)!]
-      if let m = d.memberModifier {
-        diagnostics.insert(.error(unexpectedMemberModifier: m))
-      }
       if d.identifier == nil {
         diagnostics.insert(.error(missingFunctionIdentifier: d))
       }

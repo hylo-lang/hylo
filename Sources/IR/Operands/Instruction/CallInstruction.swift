@@ -32,7 +32,7 @@ public struct CallInstruction: Instruction {
     if case .constant(.builtin) = callee {
       return true
     } else {
-      return true
+      return false
     }
   }
 

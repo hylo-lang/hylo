@@ -6,11 +6,15 @@ fun fn(x: Int) -> Int { fatal_error() }
 
 fun fn(x: Double) -> Double { fatal_error() }
 
+fun fn(x: Any) -> Any { fatal_error() }
+
 fun fn<T>(x: T) -> T { fatal_error() }
 
 fun fn<T>(_ x: T, _ y: T) -> T { fatal_error() }
 
 fun fn<T>(_ x: T, _ y: Int) -> T { fatal_error() }
+
+fun fn(_ x: Any, _ y: Any) -> Any { fatal_error() }
 
 public fun main() {
   let x0 = fn(x: 1)
@@ -27,6 +31,12 @@ public fun main() {
 
   let x4: Double = fn(1.0, 1.0)
   check<Double>(x4)
+
+  let x5 = fn(true, false)
+  check<Bool>(x5)
+
+  let x6 = fn(1, true)
+  check<Any>(x6)
 
   let a = 1
   fn(a, a)    //! diagnostic ambiguous use of 'fn'

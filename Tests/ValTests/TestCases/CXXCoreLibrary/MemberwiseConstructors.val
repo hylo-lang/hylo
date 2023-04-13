@@ -1,0 +1,9 @@
+//! h Int(int64_t value) : value(value) {}
+
+//! h Bool(bool value) : value(value) {}
+
+//! h Double(double value) : value(value) {}
+//! h Float(float value) : value(value) {}
+
+//! h Int32(int32_t value) : value(value) {}
+//! h Int8(int8_t value) : value(value) {}
