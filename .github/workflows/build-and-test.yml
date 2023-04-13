@@ -84,7 +84,10 @@ jobs:
     - run: llvm-config --version
 
     - name: Configure pkgconfig
-      run: sudo .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh /usr/local/lib/pkgconfig/llvm.pc
+      run: |
+        swift package resolve
+        sudo .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh /usr/local/lib/pkgconfig/llvm.pc
+        cat /usr/local/lib/pkgconfig/llvm.pc
 
     - name: Build (${{ matrix.configuration }})
       run: swift build -v -c ${{ matrix.configuration }}
