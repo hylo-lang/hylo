@@ -151,6 +151,17 @@ extension Module {
       }
     }
 
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(wrapAddr i: InstructionID, in context: inout Context) {
+      let s = self[i] as! WrapAddrInstruction
+      if case .constant = s.witness {
+        // Operand is a constant.
+        fatalError("not implemented")
+      }
+
+      context.locals[.register(i, 0)] = context.locals[s.witness]
+    }
+
   }
 
   /// Returns the initial context in which `f` should be interpreted.

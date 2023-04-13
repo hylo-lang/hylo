@@ -1401,7 +1401,7 @@ public enum Parser {
       state.diagnostics.insert(.error(infixOperatorRequiresWhitespacesAt: infixOperator.site))
     }
 
-    let castKind: CastExpr.Kind
+    let castKind: CastExpr.Direction
     switch state.lexer.sourceCode[infixOperator.site] {
     case "as":
       castKind = .up
@@ -1419,7 +1419,7 @@ public enum Parser {
         CastExpr(
           left: lhs,
           right: rhs,
-          kind: castKind,
+          direction: castKind,
           site: state.ast[lhs].site.extended(upTo: state.currentIndex))))
   }
 

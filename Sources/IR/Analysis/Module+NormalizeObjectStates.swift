@@ -55,6 +55,8 @@ extension Module {
           interpret(store: user, in: &context)
         case is UnrechableInstruction:
           continue
+        case is WrapAddrInstruction:
+          interpret(wrapAddr: user, in: &context)
         default:
           unreachable("unexpected instruction")
         }
@@ -318,6 +320,17 @@ extension Module {
         assert(o.value.initializedPaths.isEmpty || o.layout.type.base is BuiltinType)
         o.value = .full(.initialized)
       }
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(wrapAddr i: InstructionID, in context: inout Context) {
+      let s = self[i] as! WrapAddrInstruction
+      if case .constant = s.witness {
+        // Operand is a constant.
+        fatalError("not implemented")
+      }
+
+      context.locals[.register(i, 0)] = context.locals[s.witness]
     }
 
   }

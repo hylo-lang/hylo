@@ -203,10 +203,11 @@ extension TypeChecker {
     }
 
     let rhs = instantiate(target, in: scope, cause: ConstraintOrigin(.cast, at: syntax.site))
+    _ = state.facts.constrain(syntax.right, in: ast, toHaveType: MetatypeType(of: rhs.shape))
     state.facts.append(rhs.constraints)
 
     let lhs = syntax.left
-    switch syntax.kind {
+    switch syntax.direction {
     case .down:
       // Note: constraining the type of the left operand to be above the right operand wouldn't
       // contribute any useful information to the constraint system.

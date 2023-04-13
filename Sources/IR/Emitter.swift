@@ -283,7 +283,21 @@ public struct Emitter {
 
     let source = emitLValue(initializer, into: &module)
     for (path, name) in decl.pattern.subpattern.names {
-      let s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+      var s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+
+      if !program.relations.areEquivalent(name.decl.type, module.type(of: s).astType) {
+        if let u = ExistentialType(name.decl.type) {
+          s =
+            module.append(
+              module.makeBorrow(capability, from: s, anchoredAt: name.decl.site),
+              to: insertionBlock!)[0]
+          s =
+            module.append(
+              module.makeWrapAddr(s, as: u, anchoredAt: name.decl.site),
+              to: insertionBlock!)[0]
+        }
+      }
+
       let b = module.append(
         module.makeBorrow(
           capability, from: s, correspondingTo: name.decl, anchoredAt: name.decl.site),
@@ -503,6 +517,8 @@ public struct Emitter {
     switch expr.kind {
     case BooleanLiteralExpr.self:
       return emitRValue(booleanLiteral: BooleanLiteralExpr.Typed(expr)!, into: &module)
+    case CastExpr.self:
+      return emitRValue(cast: CastExpr.Typed(expr)!, into: &module)
     case ConditionalExpr.self:
       return emitRValue(conditional: ConditionalExpr.Typed(expr)!, into: &module)
     case FloatLiteralExpr.self:
@@ -535,6 +551,61 @@ public struct Emitter {
     return module.append(
       module.makeRecord(boolType, aggregating: [value], anchoredAt: expr.site),
       to: insertionBlock!)[0]
+  }
+
+  private mutating func emitRValue(
+    cast expr: CastExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    switch expr.direction {
+    case .up:
+      return emitRValue(upcast: expr, into: &module)
+    case .down:
+      return emitRValue(downcast: expr, into: &module)
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  private mutating func emitRValue(
+    upcast expr: CastExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    precondition(expr.direction == .up)
+
+    let lhs = emitRValue(expr.left, into: &module)
+    let rhs = MetatypeType(expr.right.type)!.instance
+
+    // Nothing to do if the LHS already has the desired type.
+    if program.relations.areEquivalent(expr.left.type, rhs) {
+      return lhs
+    }
+
+    fatalError("not implemented")
+  }
+
+  private mutating func emitRValue(
+    downcast expr: CastExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    precondition(expr.direction == .down)
+
+    let lhs = emitRValue(expr.left, into: &module)
+    let rhs = MetatypeType(expr.right.type)!.instance
+
+    // Nothing to do if the LHS already has the desired type.
+    if program.relations.areEquivalent(expr.left.type, rhs) {
+      return lhs
+    }
+
+    if expr.left.type.base is ExistentialType {
+      let x = module.append(
+        module.makeOpen(lhs, as: rhs, anchoredAt: expr.site), to: insertionBlock!)
+      emitGuard(x[1], at: expr.site, into: &module)
+      return module.append(module.makeLoad(x[0], anchoredAt: expr.site), to: insertionBlock!)[0]
+    }
+
+    fatalError("not implemented")
   }
 
   private mutating func emitRValue(
@@ -630,7 +701,9 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     var a: [Operand] = []
-    for e in arguments { a.append(emitRValue(program[e.value], into: &module)) }
+    for e in arguments {
+      a.append(emitRValue(program[e.value], into: &module))
+    }
     return module.append(
       module.makeLLVM(applying: f, to: a, anchoredAt: site), to: insertionBlock!)[0]
   }
@@ -1191,6 +1264,23 @@ public struct Emitter {
         module.makeDeallocStack(for: a, anchoredAt: site),
         to: insertionBlock!)
     }
+  }
+
+  /// Emits the IR trapping iff `predicate`, which is an object of type `i1`, into `module`,
+  /// anchoring new instructions at `anchor`.
+  private mutating func emitGuard(
+    _ predicate: Operand, at anchor: SourceRange, into module: inout Module
+  ) {
+    let failure = module.appendBlock(to: insertionBlock!.function)
+    let success = module.appendBlock(to: insertionBlock!.function)
+    module.append(
+      module.makeCondBranch(if: predicate, then: success, else: failure, anchoredAt: anchor),
+      to: insertionBlock!)
+
+    insertionBlock = failure
+    module.append(module.makeUnreachable(anchoredAt: anchor), to: insertionBlock!)
+
+    insertionBlock = success
   }
 
 }
