@@ -244,7 +244,7 @@ public struct ValCommand: ParsableCommand {
   ) throws {
     var arguments = ["-o", binaryPath]
     arguments.append(contentsOf: objects.map(\.path))
-    try runCommandLine(find("ld"), arguments, loggingTo: &log)
+    try runCommandLine(find("clang"), arguments, loggingTo: &log)
   }
 
   /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`
