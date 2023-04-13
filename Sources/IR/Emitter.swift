@@ -599,9 +599,10 @@ public struct Emitter {
     }
 
     if expr.left.type.base is ExistentialType {
-      return module.append(
-        module.makeUnwrap(lhs, as: rhs, anchoredAt: expr.site),
-        to: insertionBlock!)[0]
+      let x = module.append(
+        module.makeOpen(lhs, as: rhs, anchoredAt: expr.site), to: insertionBlock!)
+      emitGuard(x[1], at: expr.site, into: &module)
+      return module.append(module.makeLoad(x[0], anchoredAt: expr.site), to: insertionBlock!)[0]
     }
 
     fatalError("not implemented")
@@ -1263,6 +1264,23 @@ public struct Emitter {
         module.makeDeallocStack(for: a, anchoredAt: site),
         to: insertionBlock!)
     }
+  }
+
+  /// Emits the IR trapping iff `predicate`, which is an object of type `i1`, into `module`,
+  /// anchoring new instructions at `anchor`.
+  private mutating func emitGuard(
+    _ predicate: Operand, at anchor: SourceRange, into module: inout Module
+  ) {
+    let failure = module.appendBlock(to: insertionBlock!.function)
+    let success = module.appendBlock(to: insertionBlock!.function)
+    module.append(
+      module.makeCondBranch(if: predicate, then: success, else: failure, anchoredAt: anchor),
+      to: insertionBlock!)
+
+    insertionBlock = failure
+    module.append(module.makeUnreachable(anchoredAt: anchor), to: insertionBlock!)
+
+    insertionBlock = success
   }
 
 }
