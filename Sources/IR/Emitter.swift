@@ -344,9 +344,9 @@ public struct Emitter {
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let anchor = module.syntax.site
+    let site = module.syntax.site
     let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
-    if !module.declareFunction(identifiedBy: f, typed: t, at: anchor) { return }
+    if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
 
     let entry = module.appendBlock(
       taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
@@ -362,24 +362,27 @@ public struct Emitter {
       if layout.properties.isEmpty { break }
 
       // Move initialize each property.
-      let sources = module.append(
-        module.makeDestructure(argument, anchoredAt: anchor),
-        to: insertionBlock!)
-
       for (i, p) in layout.properties.enumerated() {
+        let source = module.append(
+          module.makeElementAddr(argument, at: [i], anchoredAt: site),
+          to: insertionBlock!)[0]
+        let part = module.append(
+          module.makeLoad(source, anchoredAt: site),
+          to: insertionBlock!)[0]
+
         let target = module.append(
-          module.makeElementAddr(receiver, at: [i], anchoredAt: anchor),
+          module.makeElementAddr(receiver, at: [i], anchoredAt: site),
           to: insertionBlock!)[0]
 
         if p.type.base is BuiltinType {
           module.append(
-            module.makeStore(sources[i], at: target, anchoredAt: anchor),
+            module.makeStore(part, at: target, anchoredAt: site),
             to: insertionBlock!)
         } else {
           let c = program.conformance(of: p.type, to: program.ast.sinkableTrait, exposedTo: scope)!
           emitMove(
-            .set, of: sources[i], to: target, conformanceToSinkable: c,
-            anchoredAt: anchor, into: &module)
+            .set, of: part, to: target, conformanceToSinkable: c,
+            anchoredAt: site, into: &module)
         }
       }
 
@@ -387,7 +390,7 @@ public struct Emitter {
       fatalError("not implemented")
     }
 
-    module.append(module.makeReturn(.constant(.void), anchoredAt: anchor), to: insertionBlock!)
+    module.append(module.makeReturn(.constant(.void), anchoredAt: site), to: insertionBlock!)
   }
 
   private mutating func emitMoveAssignment(
@@ -395,9 +398,9 @@ public struct Emitter {
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let anchor = module.syntax.site
+    let site = module.syntax.site
     let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
-    if !module.declareFunction(identifiedBy: f, typed: t, at: anchor) { return }
+    if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
 
     let entry = module.appendBlock(
       taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
@@ -406,16 +409,17 @@ public struct Emitter {
     let receiver = Operand.parameter(entry, 0)
     let argument = Operand.parameter(entry, 1)
 
-    // Deinitialize the receiver and apply the move-initializer.
-    let o = module.append(module.makeLoad(receiver, anchoredAt: anchor), to: insertionBlock!)[0]
-    module.append(module.makeDeinit(o, anchoredAt: anchor), to: insertionBlock!)
+    // Deinitialize the receiver.
+    let l = module.append(module.makeLoad(receiver, anchoredAt: site), to: insertionBlock!)[0]
+    module.append(module.makeDeinit(l, anchoredAt: site), to: insertionBlock!)
+
+    // Apply the move-initializer.
     let c = program.conformance(
       of: module.type(of: receiver).ast, to: program.ast.sinkableTrait, exposedTo: scope)!
-    emitMove(
-      .set, of: argument, to: receiver, conformanceToSinkable: c,
-      anchoredAt: anchor, into: &module)
+    let r = module.append(module.makeLoad(argument, anchoredAt: site), to: insertionBlock!)[0]
+    emitMove(.set, of: r, to: receiver, conformanceToSinkable: c, anchoredAt: site, into: &module)
 
-    module.append(module.makeReturn(.constant(.void), anchoredAt: anchor), to: insertionBlock!)
+    module.append(module.makeReturn(.constant(.void), anchoredAt: site), to: insertionBlock!)
   }
 
   // MARK: Statements
