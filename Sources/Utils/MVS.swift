@@ -8,13 +8,6 @@ public func modify<T, U>(_ value: inout T, _ action: (inout T) throws -> U) reth
   try action(&value)
 }
 
-/// Returns a copy of `value` modified by `transform`.
-public func modified<T>(_ value: T, _ transform: (inout T) throws -> Void) rethrows -> T {
-  var v = value
-  try transform(&v)
-  return v
-}
-
 /// Assigns `value` to the result of applying `transform` on it.
 public func update<T>(_ value: inout T, with transform: (T) throws -> T) rethrows {
   value = try transform(value)
