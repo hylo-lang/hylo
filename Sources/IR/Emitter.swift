@@ -236,7 +236,7 @@ public struct Emitter {
     into module: inout Module
   ) {
     precondition(program.isLocal(decl.id))
-    precondition(reading(decl.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
+    precondition(read(decl.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
     /// A map from object path to its corresponding (sub-)object during destructuring.
     var objects: [PartPath: Operand] = [:]
@@ -281,7 +281,7 @@ public struct Emitter {
     into module: inout Module
   ) {
     precondition(program.isLocal(decl.id))
-    precondition(reading(decl.pattern.introducer.value, { ($0 == .let) || ($0 == .inout) }))
+    precondition(read(decl.pattern.introducer.value, { ($0 == .let) || ($0 == .inout) }))
 
     // Borrowed binding requires an initializer.
     guard let initializer = decl.initializer else {

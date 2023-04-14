@@ -23,7 +23,7 @@ public struct ConformanceConstraint: Constraint, Hashable {
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
-    modify(&subject, with: transform)
+    update(&subject, with: transform)
   }
 
 }
