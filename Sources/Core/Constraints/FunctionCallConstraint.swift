@@ -35,10 +35,10 @@ public struct FunctionCallConstraint: Constraint, Hashable {
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
-    modify(&calleeType, with: transform)
-    modify(&returnType, with: transform)
+    update(&calleeType, with: transform)
+    update(&returnType, with: transform)
     for i in 0 ..< parameters.count {
-      modify(&parameters[i].type, with: transform)
+      update(&parameters[i].type, with: transform)
     }
   }
 

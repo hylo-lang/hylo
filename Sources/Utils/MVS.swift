@@ -16,6 +16,6 @@ public func modified<T>(_ value: T, _ transform: (inout T) throws -> Void) rethr
 }
 
 /// Assigns `value` to the result of applying `transform` on it.
-public func modify<T>(_ value: inout T, with transform: (T) throws -> T) rethrows {
+public func update<T>(_ value: inout T, with transform: (T) throws -> T) rethrows {
   value = try transform(value)
 }
