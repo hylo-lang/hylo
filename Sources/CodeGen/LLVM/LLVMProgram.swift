@@ -77,7 +77,7 @@ extension LLVM.Module {
     let transpilation = function(named: ir.abiName(of: f))!
 
     let val32 = ir.syntax.ast.coreType(named: "Int32")!
-    switch m[f].output.astType {
+    switch m[f].output.ast {
     case val32:
       let t = StructType(ir.syntax.llvm(val32, in: &self))!
       let s = insertAlloca(t, at: p)
@@ -98,7 +98,7 @@ extension LLVM.Module {
     let ptr = LLVM.PointerType(in: &self)
 
     // Parameters and return values are passed by reference.
-    let functionType = LambdaType(ref.type.astType)!
+    let functionType = LambdaType(ref.type.ast)!
     var parameters: [LLVM.IRType] = []
     if !functionType.output.isVoidOrNever {
       parameters.append(ptr)
@@ -126,13 +126,13 @@ extension LLVM.Module {
 
     // Parameters and return values are passed by reference.
     var parameters: [LLVM.IRType] = []
-    if !m[f].output.astType.isVoidOrNever {
+    if !m[f].output.ast.isVoidOrNever {
       parameters.append(ptr)
     }
     parameters.append(contentsOf: Array(repeating: ptr, count: m[f].inputs.count))
     let result = declareFunction(ir.abiName(of: f), .init(from: parameters, in: &self))
 
-    if m[f].output.astType == .never {
+    if m[f].output.ast == .never {
       addAttribute(.init(.noreturn, in: &self), to: result)
     }
 
@@ -160,13 +160,13 @@ extension LLVM.Module {
     let prologue = appendBlock(named: "prologue", to: transpilation)
     insertionPoint = endOf(prologue)
 
-    let parameterOffset = m[f].output.astType.isVoidOrNever ? 0 : 1
+    let parameterOffset = m[f].output.ast.isVoidOrNever ? 0 : 1
     for (i, p) in m[f].inputs.enumerated() {
       let o = Operand.parameter(.init(f, entry), i)
       let s = transpilation.parameters[parameterOffset + i]
 
       if p.convention == .sink {
-        let t = ir.syntax.llvm(p.type.astType, in: &self)
+        let t = ir.syntax.llvm(p.type.ast, in: &self)
         register[o] = insertLoad(t, from: s, at: insertionPoint)
       } else {
         register[o] = s
@@ -255,18 +255,18 @@ extension LLVM.Module {
 
       // Return value is passed by reference.
       let returnType: LLVM.IRType?
-      switch s.types[0].astType {
+      switch s.types[0].ast {
       case .void, .never:
         returnType = nil
       default:
-        returnType = ir.syntax.llvm(s.types[0].astType, in: &self)
+        returnType = ir.syntax.llvm(s.types[0].ast, in: &self)
         arguments.append(insertAlloca(returnType!, atEntryOf: transpilation))
       }
 
       // All arguments are passed by reference.
       for a in s.arguments {
         if m.type(of: a).isObject {
-          let t = ir.syntax.llvm(s.types[0].astType, in: &self)
+          let t = ir.syntax.llvm(s.types[0].ast, in: &self)
           let l = insertAlloca(t, atEntryOf: transpilation)
           insertStore(llvm(a), to: l, at: insertionPoint)
           arguments.append(l)
@@ -310,7 +310,7 @@ extension LLVM.Module {
       let t = LLVM.IntegerType(32, in: &self)
 
       let base = llvm(s.base)
-      let baseType = ir.syntax.llvm(m.type(of: s.base).astType, in: &self)
+      let baseType = ir.syntax.llvm(m.type(of: s.base).ast, in: &self)
       let indices = [t.constant(0)] + s.elementPath.map({ t.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
@@ -340,17 +340,17 @@ extension LLVM.Module {
         register[.register(i, 0)] = insertIntegerComparison(p, l, r, at: insertionPoint)
 
       case "trunc":
-        let target = ir.syntax.llvm(s.types[0].astType, in: &self)
+        let target = ir.syntax.llvm(s.types[0].ast, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i, 0)] = insertTrunc(source, to: target, at: insertionPoint)
 
       case "fptrunc":
-        let target = ir.syntax.llvm(s.types[0].astType, in: &self)
+        let target = ir.syntax.llvm(s.types[0].ast, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i, 0)] = insertFPTrunc(source, to: target, at: insertionPoint)
 
       case "zeroinitializer":
-        let t = ir.syntax.llvm(s.types[0].astType, in: &self)
+        let t = ir.syntax.llvm(s.types[0].ast, in: &self)
         register[.register(i, 0)] = t.null
 
       default:
@@ -371,7 +371,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(load i: IR.InstructionID) {
       let s = m[i] as! LoadInstruction
-      let t = ir.syntax.llvm(s.objectType.astType, in: &self)
+      let t = ir.syntax.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
       register[.register(i, 0)] = insertLoad(t, from: source, at: insertionPoint)
     }
@@ -379,7 +379,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(record i: IR.InstructionID) {
       let s = m[i] as! IR.RecordInstruction
-      let t = ir.syntax.llvm(s.objectType.astType, in: &self)
+      let t = ir.syntax.llvm(s.objectType.ast, in: &self)
       var record: LLVM.IRValue = LLVM.Undefined(of: t)
       for (i, part) in s.operands.enumerated() {
         let v = llvm(part)
@@ -421,14 +421,14 @@ extension LLVM.Module {
         return t.constant(UInt64(n.value.words[0]))
 
       case .floatingPoint(let n):
-        let t = LLVM.FloatingPointType(ir.syntax.llvm(c.type.astType, in: &self))!
+        let t = LLVM.FloatingPointType(ir.syntax.llvm(c.type.ast, in: &self))!
         return t.constant(parsing: n.value)
 
       case .function(let f):
         return declare(f, from: ir)
 
       case .poison:
-        let t = ir.syntax.llvm(c.type.astType, in: &self)
+        let t = ir.syntax.llvm(c.type.ast, in: &self)
         return LLVM.Poison(of: t)
 
       default:

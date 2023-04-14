@@ -172,7 +172,7 @@ extension Module {
     let b = Block.ID(f, function.entry!)
     for i in function.inputs.indices {
       let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
+      let parameterLayout = AbstractTypeLayout(of: parameterType.ast, definedIn: program)
 
       switch parameterConvention {
       case .let, .inout, .set:

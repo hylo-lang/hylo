@@ -40,7 +40,7 @@ extension Module {
     precondition(t.properties.count == parts.count)
     for (p, q) in zip(t.properties, parts) {
       let u = type(of: q)
-      precondition(u.isObject && program.relations.areEquivalent(p.type, type(of: q).astType))
+      precondition(u.isObject && program.relations.areEquivalent(p.type, type(of: q).ast))
     }
 
     return RecordInstruction(objectType: .object(recordType), operands: parts, site: anchor)

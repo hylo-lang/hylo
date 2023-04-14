@@ -59,7 +59,7 @@ extension Module {
   ) -> ElementAddrInstruction {
     precondition(type(of: base).isAddress)
 
-    let l = AbstractTypeLayout(of: type(of: base).astType, definedIn: program)
+    let l = AbstractTypeLayout(of: type(of: base).ast, definedIn: program)
     return ElementAddrInstruction(
       base: base,
       elementPath: elementPath,

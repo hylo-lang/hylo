@@ -59,7 +59,7 @@ extension Module {
     to arguments: [Operand],
     anchoredAt anchor: SourceRange
   ) -> CallInstruction {
-    let calleeType = LambdaType(type(of: callee).astType)!
+    let calleeType = LambdaType(type(of: callee).ast)!
     precondition(calleeType.environment == .void)
     precondition(calleeType.inputs.count == arguments.count)
 

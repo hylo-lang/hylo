@@ -4,17 +4,17 @@ import Core
 public struct LoweredType: Hashable {
 
   /// A high-level representation of the type.
-  public let astType: AnyType
+  public let ast: AnyType
 
   /// Indicates whether this is an address type.
   public let isAddress: Bool
 
   /// Creates a lowered type.
   ///
-  /// - Requires: `astType` must be canonical.
-  private init<T: TypeProtocol>(astType: T, isAddress: Bool) {
-    precondition(astType[.isCanonical], "source type is not canonical")
-    self.astType = ^astType
+  /// - Requires: `ast` must be canonical.
+  private init<T: TypeProtocol>(ast: T, isAddress: Bool) {
+    precondition(ast[.isCanonical], "source type is not canonical")
+    self.ast = ^ast
     self.isAddress = isAddress
   }
 
@@ -23,11 +23,11 @@ public struct LoweredType: Hashable {
     switch type.base {
     case let ty as RemoteType:
       precondition(ty.access != .yielded, "cannot lower yielded type")
-      self.astType = ty.bareType
+      self.ast = ty.bareType
       self.isAddress = true
 
     case let ty as ParameterType:
-      self.astType = ty.bareType
+      self.ast = ty.bareType
       switch ty.access {
       case .let, .inout, .set:
         self.isAddress = true
@@ -38,7 +38,7 @@ public struct LoweredType: Hashable {
       }
 
     default:
-      self.astType = type
+      self.ast = type
       self.isAddress = false
     }
   }
@@ -48,12 +48,12 @@ public struct LoweredType: Hashable {
 
   /// Creates an object type.
   public static func object<T: TypeProtocol>(_ type: T) -> Self {
-    LoweredType(astType: type, isAddress: false)
+    LoweredType(ast: type, isAddress: false)
   }
 
   /// Creates and address type.
   public static func address<T: TypeProtocol>(_ type: T) -> Self {
-    LoweredType(astType: type, isAddress: true)
+    LoweredType(ast: type, isAddress: true)
   }
 
 }
@@ -62,9 +62,9 @@ extension LoweredType: CustomStringConvertible {
 
   public var description: String {
     if isAddress {
-      return "&" + String(describing: astType)
+      return "&" + String(describing: ast)
     } else {
-      return String(describing: astType)
+      return String(describing: ast)
     }
   }
 

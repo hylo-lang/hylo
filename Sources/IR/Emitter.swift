@@ -301,7 +301,7 @@ public struct Emitter {
     for (path, name) in decl.pattern.subpattern.names {
       var s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
 
-      if !program.relations.areEquivalent(name.decl.type, module.type(of: s).astType) {
+      if !program.relations.areEquivalent(name.decl.type, module.type(of: s).ast) {
         if let u = ExistentialType(name.decl.type) {
           s =
             module.append(
@@ -354,7 +354,7 @@ public struct Emitter {
     switch t.output.base {
     case is ProductType, is TupleType:
       // Nothing to do if the receiver doesn't have any stored property.
-      let layout = AbstractTypeLayout(of: module.type(of: receiver).astType, definedIn: program)
+      let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
       if layout.properties.isEmpty { break }
 
       // Move initialize each property.
@@ -403,7 +403,7 @@ public struct Emitter {
     let o = module.append(module.makeLoad(receiver, anchoredAt: anchor), to: insertionBlock!)[0]
     module.append(module.makeDeinit(o, anchoredAt: anchor), to: insertionBlock!)
     let c = program.conformance(
-      of: module.type(of: receiver).astType, to: program.ast.sinkableTrait, exposedTo: scope)!
+      of: module.type(of: receiver).ast, to: program.ast.sinkableTrait, exposedTo: scope)!
     emitMove(
       .set, of: argument, to: receiver, conformanceToSinkable: c,
       anchoredAt: anchor, into: &module)
@@ -1292,7 +1292,7 @@ public struct Emitter {
     switch decl.kind {
     case VarDecl.self:
       let receiverLayout = AbstractTypeLayout(
-        of: module.type(of: receiverAddress).astType, definedIn: program)
+        of: module.type(of: receiverAddress).ast, definedIn: program)
 
       let i = receiverLayout.offset(of: VarDecl.Typed(decl)!.baseName)!
       return module.append(

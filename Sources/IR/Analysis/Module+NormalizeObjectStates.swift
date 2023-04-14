@@ -137,7 +137,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) {
       let call = self[i] as! CallInstruction
-      let calleeType = LambdaType(type(of: call.callee).astType)!
+      let calleeType = LambdaType(type(of: call.callee).ast)!
 
       if calleeType.receiverEffect == .sink {
         context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
@@ -343,7 +343,7 @@ extension Module {
     let b = Block.ID(f, function.entry!)
     for i in function.inputs.indices {
       let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
+      let parameterLayout = AbstractTypeLayout(of: parameterType.ast, definedIn: program)
 
       switch parameterConvention {
       case .let, .inout:
@@ -384,7 +384,7 @@ extension Module {
   private func initializeRegisters(createdBy i: InstructionID, in context: inout Context) {
     for (j, t) in self[i].types.enumerated() {
       context.locals[.register(i, j)] = .object(
-        .init(layout: .init(of: t.astType, definedIn: program), value: .full(.initialized)))
+        .init(layout: .init(of: t.ast, definedIn: program), value: .full(.initialized)))
     }
   }
 

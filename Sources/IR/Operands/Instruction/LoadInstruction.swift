@@ -36,7 +36,7 @@ extension Module {
   ) -> LoadInstruction {
     let t = type(of: source)
     precondition(t.isAddress)
-    return LoadInstruction(objectType: .object(t.astType), from: source, site: anchor)
+    return LoadInstruction(objectType: .object(t.ast), from: source, site: anchor)
   }
 
 }
