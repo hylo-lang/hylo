@@ -4,7 +4,7 @@ public func read<T, U>(_ value: T, _ action: (T) throws -> U) rethrows -> U {
 }
 
 /// Returns the result of calling `action` with a mutable projection of `value`.
-public func modifying<T, U>(_ value: inout T, _ action: (inout T) throws -> U) rethrows -> U {
+public func modify<T, U>(_ value: inout T, _ action: (inout T) throws -> U) rethrows -> U {
   try action(&value)
 }
 

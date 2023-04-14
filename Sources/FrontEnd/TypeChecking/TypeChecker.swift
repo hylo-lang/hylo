@@ -1132,7 +1132,7 @@ public struct TypeChecker {
 
   /// Returns whether `d` is well-typed, reading type inference results from `s`.
   mutating func checkDeferred(varDecl d: VarDecl.ID, _ s: Solution) -> Bool {
-    let s = modifying(&declTypes[d]!) { (t) in
+    let s = modify(&declTypes[d]!) { (t) in
       // TODO: Diagnose reification failures
       t = s.typeAssumptions.reify(t)
       return !t[.hasError]
@@ -2983,7 +2983,7 @@ public struct TypeChecker {
         c = lookup(unqualified: "self", in: AnyScopeID(decl)).uniqueElement!
       }
 
-      modifying(&captures[n]) { (x) -> Void in
+      modify(&captures[n]) { (x) -> Void in
         let a: AccessEffect = u.isMutable ? .inout : .let
         if let existing = x {
           if (existing.type.access == .let) && (a == .inout) {
