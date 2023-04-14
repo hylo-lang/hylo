@@ -137,7 +137,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) {
       let call = self[i] as! CallInstruction
-      let calleeType = LambdaType(type(of: call.callee).astType)!
+      let calleeType = LambdaType(type(of: call.callee).ast)!
 
       if calleeType.receiverEffect == .sink {
         context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
@@ -342,23 +342,18 @@ extension Module {
 
     let b = Block.ID(f, function.entry!)
     for i in function.inputs.indices {
-      let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
+      let l = AbstractTypeLayout(of: function.inputs[i].bareType, definedIn: program)
 
-      switch parameterConvention {
-      case .let, .inout:
-        let l = AbstractLocation.root(.parameter(b, i))
-        result.locals[.parameter(b, i)] = .locations([l])
-        result.memory[l] = .init(layout: parameterLayout, value: .full(.initialized))
+      switch function.inputs[i].access {
+      case .let, .inout, .sink:
+        let a = AbstractLocation.root(.parameter(b, i))
+        result.locals[.parameter(b, i)] = .locations([a])
+        result.memory[a] = .init(layout: l, value: .full(.initialized))
 
       case .set:
-        let l = AbstractLocation.root(.parameter(b, i))
-        result.locals[.parameter(b, i)] = .locations([l])
-        result.memory[l] = .init(layout: parameterLayout, value: .full(.uninitialized))
-
-      case .sink:
-        result.locals[.parameter(b, i)] = .object(
-          .init(layout: parameterLayout, value: .full(.initialized)))
+        let a = AbstractLocation.root(.parameter(b, i))
+        result.locals[.parameter(b, i)] = .locations([a])
+        result.memory[a] = .init(layout: l, value: .full(.uninitialized))
 
       case .yielded:
         preconditionFailure("cannot represent instance of yielded type")
@@ -384,7 +379,7 @@ extension Module {
   private func initializeRegisters(createdBy i: InstructionID, in context: inout Context) {
     for (j, t) in self[i].types.enumerated() {
       context.locals[.register(i, j)] = .object(
-        .init(layout: .init(of: t.astType, definedIn: program), value: .full(.initialized)))
+        .init(layout: .init(of: t.ast, definedIn: program), value: .full(.initialized)))
     }
   }
 

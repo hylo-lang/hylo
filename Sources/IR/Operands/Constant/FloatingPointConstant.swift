@@ -30,7 +30,7 @@ public struct FloatingPointConstant: ConstantProtocol, Hashable {
 extension FloatingPointConstant: CustomStringConvertible {
 
   public var description: String {
-    "\(type.astType)(\(value))"
+    "\(type.ast)(\(value))"
   }
 
 }

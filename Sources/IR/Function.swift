@@ -8,9 +8,6 @@ public struct Function {
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
 
-  /// The profile of a IR function input.
-  public typealias Input = (convention: AccessEffect, type: LoweredType)
-
   /// The mangled name of the function.
   public let name: String
 
@@ -24,7 +21,7 @@ public struct Function {
   public let linkage: Linkage
 
   /// The types of the function's parameters.
-  public let inputs: [Input]
+  public let inputs: [ParameterType]
 
   /// The type of the function's output.
   public let output: LoweredType

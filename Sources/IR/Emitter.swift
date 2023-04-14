@@ -110,30 +110,30 @@ public struct Emitter {
 
     // Create the function entry.
     assert(module.functions[f]!.blocks.isEmpty)
-    let entryID = module.appendBlock(
-      taking: module.functions[f]!.inputs.map(\.type), to: f)
-    insertionBlock = entryID
+    let entry = module.appendBlock(
+      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    insertionBlock = entry
 
     // Configure the locals.
     var locals = TypedDeclProperty<Operand>()
 
     let explicitCaptures = decl.explicitCaptures
     for (i, capture) in explicitCaptures.enumerated() {
-      locals[capture] = .parameter(entryID, i)
+      locals[capture] = .parameter(entry, i)
     }
 
     for (i, capture) in decl.implicitCaptures!.enumerated() {
-      locals[program[capture.decl]] = .parameter(entryID, i + explicitCaptures.count)
+      locals[program[capture.decl]] = .parameter(entry, i + explicitCaptures.count)
     }
 
     var implicitParameterCount = explicitCaptures.count + decl.implicitCaptures!.count
     if let receiver = decl.receiver {
-      locals[receiver] = .parameter(entryID, implicitParameterCount)
+      locals[receiver] = .parameter(entry, implicitParameterCount)
       implicitParameterCount += 1
     }
 
     for (i, parameter) in decl.parameters.enumerated() {
-      locals[parameter] = .parameter(entryID, i + implicitParameterCount)
+      locals[parameter] = .parameter(entry, i + implicitParameterCount)
     }
 
     // Emit the body.
@@ -173,7 +173,8 @@ public struct Emitter {
     let f = module.initializerDeclaration(lowering: d)
 
     assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(taking: module.functions[f]!.inputs.map(\.type), to: f)
+    let entry = module.appendBlock(
+      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
     insertionBlock = entry
 
     // Configure the locals.
@@ -301,7 +302,7 @@ public struct Emitter {
     for (path, name) in decl.pattern.subpattern.names {
       var s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
 
-      if !program.relations.areEquivalent(name.decl.type, module.type(of: s).astType) {
+      if !program.relations.areEquivalent(name.decl.type, module.type(of: s).ast) {
         if let u = ExistentialType(name.decl.type) {
           s =
             module.append(
@@ -343,39 +344,45 @@ public struct Emitter {
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let anchor = module.syntax.site
+    let site = module.syntax.site
     let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
-    if !module.declareFunction(identifiedBy: f, typed: t, at: anchor) { return }
+    if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
 
-    insertionBlock = module.appendBlock(taking: module.functions[f]!.inputs.map(\.type), to: f)
-    let receiver = Operand.parameter(insertionBlock!, 0)
-    let argument = Operand.parameter(insertionBlock!, 1)
+    let entry = module.appendBlock(
+      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    insertionBlock = entry
+
+    let receiver = Operand.parameter(entry, 0)
+    let argument = Operand.parameter(entry, 1)
 
     switch t.output.base {
     case is ProductType, is TupleType:
       // Nothing to do if the receiver doesn't have any stored property.
-      let layout = AbstractTypeLayout(of: module.type(of: receiver).astType, definedIn: program)
+      let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
       if layout.properties.isEmpty { break }
 
       // Move initialize each property.
-      let sources = module.append(
-        module.makeDestructure(argument, anchoredAt: anchor),
-        to: insertionBlock!)
-
       for (i, p) in layout.properties.enumerated() {
+        let source = module.append(
+          module.makeElementAddr(argument, at: [i], anchoredAt: site),
+          to: insertionBlock!)[0]
+        let part = module.append(
+          module.makeLoad(source, anchoredAt: site),
+          to: insertionBlock!)[0]
+
         let target = module.append(
-          module.makeElementAddr(receiver, at: [i], anchoredAt: anchor),
+          module.makeElementAddr(receiver, at: [i], anchoredAt: site),
           to: insertionBlock!)[0]
 
         if p.type.base is BuiltinType {
           module.append(
-            module.makeStore(sources[i], at: target, anchoredAt: anchor),
+            module.makeStore(part, at: target, anchoredAt: site),
             to: insertionBlock!)
         } else {
           let c = program.conformance(of: p.type, to: program.ast.sinkableTrait, exposedTo: scope)!
           emitMove(
-            .set, of: sources[i], to: target, conformanceToSinkable: c,
-            anchoredAt: anchor, into: &module)
+            .set, of: part, to: target, conformanceToSinkable: c,
+            anchoredAt: site, into: &module)
         }
       }
 
@@ -383,7 +390,7 @@ public struct Emitter {
       fatalError("not implemented")
     }
 
-    module.append(module.makeReturn(.constant(.void), anchoredAt: anchor), to: insertionBlock!)
+    module.append(module.makeReturn(.constant(.void), anchoredAt: site), to: insertionBlock!)
   }
 
   private mutating func emitMoveAssignment(
@@ -391,24 +398,28 @@ public struct Emitter {
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let anchor = module.syntax.site
+    let site = module.syntax.site
     let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
-    if !module.declareFunction(identifiedBy: f, typed: t, at: anchor) { return }
+    if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
 
-    insertionBlock = module.appendBlock(taking: module.functions[f]!.inputs.map(\.type), to: f)
-    let receiver = Operand.parameter(insertionBlock!, 0)
-    let argument = Operand.parameter(insertionBlock!, 1)
+    let entry = module.appendBlock(
+      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    insertionBlock = entry
 
-    // Deinitialize the receiver and apply the move-initializer.
-    let o = module.append(module.makeLoad(receiver, anchoredAt: anchor), to: insertionBlock!)[0]
-    module.append(module.makeDeinit(o, anchoredAt: anchor), to: insertionBlock!)
+    let receiver = Operand.parameter(entry, 0)
+    let argument = Operand.parameter(entry, 1)
+
+    // Deinitialize the receiver.
+    let l = module.append(module.makeLoad(receiver, anchoredAt: site), to: insertionBlock!)[0]
+    module.append(module.makeDeinit(l, anchoredAt: site), to: insertionBlock!)
+
+    // Apply the move-initializer.
     let c = program.conformance(
-      of: module.type(of: receiver).astType, to: program.ast.sinkableTrait, exposedTo: scope)!
-    emitMove(
-      .set, of: argument, to: receiver, conformanceToSinkable: c,
-      anchoredAt: anchor, into: &module)
+      of: module.type(of: receiver).ast, to: program.ast.sinkableTrait, exposedTo: scope)!
+    let r = module.append(module.makeLoad(argument, anchoredAt: site), to: insertionBlock!)[0]
+    emitMove(.set, of: r, to: receiver, conformanceToSinkable: c, anchoredAt: site, into: &module)
 
-    module.append(module.makeReturn(.constant(.void), anchoredAt: anchor), to: insertionBlock!)
+    module.append(module.makeReturn(.constant(.void), anchoredAt: site), to: insertionBlock!)
   }
 
   // MARK: Statements
@@ -1292,7 +1303,7 @@ public struct Emitter {
     switch decl.kind {
     case VarDecl.self:
       let receiverLayout = AbstractTypeLayout(
-        of: module.type(of: receiverAddress).astType, definedIn: program)
+        of: module.type(of: receiverAddress).ast, definedIn: program)
 
       let i = receiverLayout.offset(of: VarDecl.Typed(decl)!.baseName)!
       return module.append(
