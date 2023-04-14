@@ -32,7 +32,7 @@ public struct CallInstruction: Instruction {
     if case .constant(.builtin) = callee {
       return true
     } else {
-      return true
+      return false
     }
   }
 
@@ -59,20 +59,8 @@ extension Module {
     to arguments: [Operand],
     anchoredAt anchor: SourceRange
   ) -> CallInstruction {
-    let calleeType = LambdaType(type(of: callee).astType)!.strippingEnvironment
+    let calleeType = LambdaType(type(of: callee).ast)!.strippingEnvironment
     precondition(calleeType.inputs.count == arguments.count)
-
-    // Operand types must agree with passing convnetions.
-    for (p, a) in zip(calleeType.inputs, arguments) {
-      switch ParameterType(p.type)!.access {
-      case .let, .inout, .set:
-        precondition(type(of: a).isAddress)
-      case .sink:
-        precondition(type(of: a).isObject)
-      case .yielded:
-        unreachable()
-      }
-    }
 
     return CallInstruction(
       returnType: .object(program.relations.canonical(calleeType.output)),

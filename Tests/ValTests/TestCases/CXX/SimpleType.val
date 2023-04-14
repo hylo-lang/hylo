@@ -1,15 +1,12 @@
 /*! h
-    class Point {
-    public:
-    Int x;
-    Int y;
-    // constructor
-    };
- */
-
+class Point {
+public:
+*/
 public type Point {
-
+  
+  //! h Int x;
   var x: Int
+  //! h Int y;
   var y: Int
 
 }

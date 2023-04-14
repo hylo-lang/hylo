@@ -34,10 +34,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     // Dumps the function in the module.
     if let debugName = function.debugName { output.write("// \(debugName)\n") }
     output.write("@lowered fun \(function.name)(")
-    output.write(
-      function.inputs.lazy
-        .map({ (c, t) in "\(c) \(t)" })
-        .joined(separator: ", "))
+    output.write(function.inputs.lazy.descriptions())
     output.write(") -> \(function.output) {\n")
 
     for i in blocks(in: f) {

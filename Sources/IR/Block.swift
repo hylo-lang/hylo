@@ -15,6 +15,12 @@ public struct Block {
     /// The address of the block in the containing function.
     public var address: Function.Blocks.Address
 
+    /// Creates an instance with the given properties.
+    public init(_ function: Function.ID, _ address: Function.Blocks.Address) {
+      self.function = function
+      self.address = address
+    }
+
     /// The ID of the instruction at `instructionAddress` in the block identified by `self`.
     public func appending(_ instructionAddress: Block.Instructions.Address) -> InstructionID {
       InstructionID(function, address, instructionAddress)

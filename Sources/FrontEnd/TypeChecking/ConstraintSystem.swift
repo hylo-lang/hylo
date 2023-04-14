@@ -334,7 +334,10 @@ struct ConstraintSystem {
 
     case (_, _ as ExistentialType):
       // All types conform to any.
-      if goal.right == .any { return .success }
+      if goal.right == .any {
+        penalties += 1
+        return .success
+      }
       fatalError("not implemented")
 
     case (let l as LambdaType, let r as LambdaType):

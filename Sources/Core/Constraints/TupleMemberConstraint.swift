@@ -29,8 +29,8 @@ public struct TupleMemberConstraint: Constraint, Hashable {
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
-    modify(&subject, with: transform)
-    modify(&elementType, with: transform)
+    update(&subject, with: transform)
+    update(&elementType, with: transform)
   }
 
 }
