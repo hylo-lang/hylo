@@ -161,16 +161,10 @@ extension LLVM.Module {
     insertionPoint = endOf(prologue)
 
     let parameterOffset = m[f].output.ast.isVoidOrNever ? 0 : 1
-    for (i, p) in m[f].inputs.enumerated() {
+    for i in m[f].inputs.indices {
       let o = Operand.parameter(.init(f, entry), i)
       let s = transpilation.parameters[parameterOffset + i]
-
-      if p.convention == .sink {
-        let t = ir.syntax.llvm(p.type.ast, in: &self)
-        register[o] = insertLoad(t, from: s, at: insertionPoint)
-      } else {
-        register[o] = s
-      }
+      register[o] = s
     }
 
     for b in m.blocks(in: f) {

@@ -110,30 +110,30 @@ public struct Emitter {
 
     // Create the function entry.
     assert(module.functions[f]!.blocks.isEmpty)
-    let entryID = module.appendBlock(
-      taking: module.functions[f]!.inputs.map(\.type), to: f)
-    insertionBlock = entryID
+    let entry = module.appendBlock(
+      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    insertionBlock = entry
 
     // Configure the locals.
     var locals = TypedDeclProperty<Operand>()
 
     let explicitCaptures = decl.explicitCaptures
     for (i, capture) in explicitCaptures.enumerated() {
-      locals[capture] = .parameter(entryID, i)
+      locals[capture] = .parameter(entry, i)
     }
 
     for (i, capture) in decl.implicitCaptures!.enumerated() {
-      locals[program[capture.decl]] = .parameter(entryID, i + explicitCaptures.count)
+      locals[program[capture.decl]] = .parameter(entry, i + explicitCaptures.count)
     }
 
     var implicitParameterCount = explicitCaptures.count + decl.implicitCaptures!.count
     if let receiver = decl.receiver {
-      locals[receiver] = .parameter(entryID, implicitParameterCount)
+      locals[receiver] = .parameter(entry, implicitParameterCount)
       implicitParameterCount += 1
     }
 
     for (i, parameter) in decl.parameters.enumerated() {
-      locals[parameter] = .parameter(entryID, i + implicitParameterCount)
+      locals[parameter] = .parameter(entry, i + implicitParameterCount)
     }
 
     // Emit the body.
@@ -173,7 +173,8 @@ public struct Emitter {
     let f = module.initializerDeclaration(lowering: d)
 
     assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(taking: module.functions[f]!.inputs.map(\.type), to: f)
+    let entry = module.appendBlock(
+      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
     insertionBlock = entry
 
     // Configure the locals.
@@ -347,9 +348,12 @@ public struct Emitter {
     let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
     if !module.declareFunction(identifiedBy: f, typed: t, at: anchor) { return }
 
-    insertionBlock = module.appendBlock(taking: module.functions[f]!.inputs.map(\.type), to: f)
-    let receiver = Operand.parameter(insertionBlock!, 0)
-    let argument = Operand.parameter(insertionBlock!, 1)
+    let entry = module.appendBlock(
+      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    insertionBlock = entry
+
+    let receiver = Operand.parameter(entry, 0)
+    let argument = Operand.parameter(entry, 1)
 
     switch t.output.base {
     case is ProductType, is TupleType:
@@ -395,9 +399,12 @@ public struct Emitter {
     let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
     if !module.declareFunction(identifiedBy: f, typed: t, at: anchor) { return }
 
-    insertionBlock = module.appendBlock(taking: module.functions[f]!.inputs.map(\.type), to: f)
-    let receiver = Operand.parameter(insertionBlock!, 0)
-    let argument = Operand.parameter(insertionBlock!, 1)
+    let entry = module.appendBlock(
+      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    insertionBlock = entry
+
+    let receiver = Operand.parameter(entry, 0)
+    let argument = Operand.parameter(entry, 1)
 
     // Deinitialize the receiver and apply the move-initializer.
     let o = module.append(module.makeLoad(receiver, anchoredAt: anchor), to: insertionBlock!)[0]

@@ -171,18 +171,13 @@ extension Module {
 
     let b = Block.ID(f, function.entry!)
     for i in function.inputs.indices {
-      let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterLayout = AbstractTypeLayout(of: parameterType.ast, definedIn: program)
+      let l = AbstractTypeLayout(of: function.inputs[i].bareType, definedIn: program)
 
-      switch parameterConvention {
-      case .let, .inout, .set:
-        let l = AbstractLocation.root(.parameter(b, i))
-        result.locals[.parameter(b, i)] = .locations([l])
-        result.memory[l] = .init(layout: parameterLayout, value: .full(.unique))
-
-      case .sink:
-        result.locals[.parameter(b, i)] = .object(
-          .init(layout: parameterLayout, value: .full(.unique)))
+      switch function.inputs[i].access {
+      case .let, .inout, .set, .sink:
+        let a = AbstractLocation.root(.parameter(b, i))
+        result.locals[.parameter(b, i)] = .locations([a])
+        result.memory[a] = .init(layout: l, value: .full(.unique))
 
       case .yielded:
         preconditionFailure("cannot represent instance of yielded type")

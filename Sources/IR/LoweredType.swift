@@ -18,31 +18,6 @@ public struct LoweredType: Hashable {
     self.isAddress = isAddress
   }
 
-  /// Creates a lowered type from a high-level type.
-  public init(lowering type: AnyType) {
-    switch type.base {
-    case let ty as RemoteType:
-      precondition(ty.access != .yielded, "cannot lower yielded type")
-      self.ast = ty.bareType
-      self.isAddress = true
-
-    case let ty as ParameterType:
-      self.ast = ty.bareType
-      switch ty.access {
-      case .let, .inout, .set:
-        self.isAddress = true
-      case .sink:
-        self.isAddress = false
-      case .yielded:
-        preconditionFailure("cannot lower yielded type")
-      }
-
-    default:
-      self.ast = type
-      self.isAddress = false
-    }
-  }
-
   /// Indicates whether this is an object type.
   public var isObject: Bool { !isAddress }
 

@@ -167,33 +167,35 @@ public struct Module {
   ) -> Bool {
     if functions[f] != nil { return false }
 
-    var inputs: [Function.Input] = []
-    inputs.reserveCapacity(t.captures.count + t.inputs.count)
+    var parameters: [ParameterType] = []
+    parameters.reserveCapacity(t.captures.count + t.inputs.count)
 
     // Define inputs for the captures.
     for capture in t.captures {
       switch program.relations.canonical(capture.type).base {
       case let p as RemoteType:
         precondition(p.access != .yielded, "cannot lower yielded parameter")
-        inputs.append((convention: p.access, type: .address(p.bareType)))
+        parameters.append(ParameterType(p))
       case let p:
         precondition(t.receiverEffect != .yielded, "cannot lower yielded parameter")
-        inputs.append((convention: t.receiverEffect, type: .address(p)))
+        parameters.append(ParameterType(t.receiverEffect, ^p))
       }
     }
 
     // Define inputs for the parameters.
-    for p in t.inputs {
-      inputs.append(ParameterType(program.relations.canonical(p.type))!.asIRFunctionInput())
+    for i in t.inputs {
+      let p = ParameterType(program.relations.canonical(i.type))!
+      precondition(p.access != .yielded, "cannot lower yielded parameter")
+      parameters.append(p)
     }
 
-    let output = LoweredType(lowering: program.relations.canonical(t.output))
+    let output = LoweredType.object(program.relations.canonical(t.output))
     functions[f] = Function(
       name: n,
       debugName: "",
       anchor: site.first(),
       linkage: .external,
-      inputs: inputs,
+      inputs: parameters,
       output: output,
       blocks: [])
     return true
@@ -232,7 +234,7 @@ public struct Module {
     precondition(!d.isMemberwise)
 
     let declType = LambdaType(d.type)!
-    let parameters = declType.inputs.map({ ParameterType($0.type)!.asIRFunctionInput() })
+    let parameters = declType.inputs.map({ ParameterType($0.type)! })
 
     let f = Function.ID(initializer: d.id)
     assert(functions[f] == nil)
@@ -242,7 +244,7 @@ public struct Module {
       anchor: d.introducer.site.first(),
       linkage: d.isPublic ? .external : .module,
       inputs: parameters,
-      output: LoweredType(lowering: declType.output),
+      output: LoweredType.object(declType.output),
       blocks: [])
 
     // Update the cache and return the ID of the newly created function.
