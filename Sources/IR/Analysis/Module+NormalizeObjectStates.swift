@@ -45,6 +45,8 @@ extension Module {
           interpret(llvm: user, in: &context)
         case is LoadInstruction:
           interpret(load: user, in: &context)
+        case is PartialApplyInstruction:
+          interpret(partialApply: user, in: &context)
         case is RecordInstruction:
           interpret(record: user, in: &context)
         case is ReturnInstruction:
@@ -250,6 +252,13 @@ extension Module {
         }
       }
 
+      initializeRegisters(createdBy: i, in: &context)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(partialApply i: InstructionID, in context: inout Context) {
+      let x = self[i] as! PartialApplyInstruction
+      context.consume(x.environment, with: i, at: x.site, diagnostics: &diagnostics)
       initializeRegisters(createdBy: i, in: &context)
     }
 
