@@ -1709,7 +1709,6 @@ public struct TypeChecker {
     var candidates: [NameResolutionResult.Candidate] = []
     var invalidArgumentsDiagnostics: [Diagnostic] = []
 
-    let isInMemberContext = program.isMemberContext(lookupScope)
     for match in matches {
       // Realize the type of the declaration.
       var targetType = realize(decl: match)
@@ -1749,10 +1748,14 @@ public struct TypeChecker {
       if targetType.isError { continue }
 
       // Determine how the declaration is being referenced.
-      let reference: DeclRef =
-        isInMemberContext && program.isNonStaticMember(match)
-        ? .member(match)
-        : .direct(match)
+      let reference: DeclRef
+      if !program.isNonStaticMember(match) {
+        reference = .direct(match)
+      } else if parentType?.base is MetatypeType {
+        reference = .direct(match)
+      } else {
+        reference = .member(match)
+      }
 
       // Instantiate the type of the declaration
       let c = ConstraintOrigin(.binding, at: name.site)
