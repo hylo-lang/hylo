@@ -423,7 +423,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(return i: IR.InstructionID) {
       let s = m[i] as! IR.ReturnInstruction
-      if s.object != .constant(.void) {
+      if m.type(of: s.object).ast != .void {
         insertStore(llvm(s.object), to: transpilation.parameters[0], at: insertionPoint)
       }
       insertReturn(at: insertionPoint)
