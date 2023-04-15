@@ -100,68 +100,71 @@ public struct Emitter {
     }
   }
 
-  /// Inserts the IR for `decl` into `module`.
-  private mutating func emit(functionDecl decl: FunctionDecl.Typed, into module: inout Module) {
-    // Declare the function in the module if necessary.
-    let f = module.getOrCreateFunction(correspondingTo: decl)
+  /// Inserts the IR for `decl` into `module`, returning the ID of the lowered function.
+  @discardableResult
+  private mutating func emit(
+    functionDecl decl: FunctionDecl.Typed,
+    into module: inout Module
+  ) -> Function.ID {
+    withClearContext({ $0._emit(functionDecl: decl, into: &module) })
+  }
 
-    // Nothing else to do if the function has no body.
-    guard let body = decl.body else { return }
+  /// Inserts the IR for `decl` into `module`, returning the ID of the lowered function.
+  ///
+  /// - Precondition: `self` has a clear lowering context.
+  private mutating func _emit(
+    functionDecl d: FunctionDecl.Typed,
+    into module: inout Module
+  ) -> Function.ID {
+    let f = module.getOrCreateFunction(correspondingTo: d)
+    guard let b = d.body else { return f }
 
     // Create the function entry.
     assert(module.functions[f]!.blocks.isEmpty)
     let entry = module.appendBlock(
       taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
-    insertionBlock = entry
 
     // Configure the locals.
     var locals = TypedDeclProperty<Operand>()
 
-    let explicitCaptures = decl.explicitCaptures
-    for (i, capture) in explicitCaptures.enumerated() {
+    for (i, capture) in d.explicitCaptures.enumerated() {
       locals[capture] = .parameter(entry, i)
     }
 
-    for (i, capture) in decl.implicitCaptures!.enumerated() {
-      locals[program[capture.decl]] = .parameter(entry, i + explicitCaptures.count)
+    for (i, capture) in d.implicitCaptures!.enumerated() {
+      locals[program[capture.decl]] = .parameter(entry, i + d.explicitCaptures.count)
     }
 
-    var implicitParameterCount = explicitCaptures.count + decl.implicitCaptures!.count
-    if let receiver = decl.receiver {
+    var implicitParameterCount = d.explicitCaptures.count + d.implicitCaptures!.count
+    if let receiver = d.receiver {
       locals[receiver] = .parameter(entry, implicitParameterCount)
       implicitParameterCount += 1
     }
 
-    for (i, parameter) in decl.parameters.enumerated() {
+    for (i, parameter) in d.parameters.enumerated() {
       locals[parameter] = .parameter(entry, i + implicitParameterCount)
     }
 
+    insertionBlock = entry
+    receiver = d.receiver
+    frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
+
     // Emit the body.
-    frames.push(.init(scope: AnyScopeID(decl.id), locals: locals))
-    var receiverDecl = decl.receiver
-    swap(&receiverDecl, &self.receiver)
+    switch b {
+    case .block(let s):
+      emit(stmt: s, into: &module)
 
-    switch body {
-    case .block(let stmt):
-      // Emit the statements of the function.
-      emit(stmt: stmt, into: &module)
-
-    case .expr(let expr):
-      // Emit the body of the function.
-      let value = emitRValue(expr, into: &module)
-
-      // Emit stack deallocation.
-      emitStackDeallocs(in: &module, site: expr.site)
-
-      // Emit the implicit return statement.
-      if expr.type != .never {
-        module.append(module.makeReturn(value, anchoredAt: expr.site), to: insertionBlock!)
+    case .expr(let e):
+      let value = emitRValue(e, into: &module)
+      emitStackDeallocs(in: &module, site: e.site)
+      if e.type != .never {
+        module.append(module.makeReturn(value, anchoredAt: e.site), to: insertionBlock!)
       }
     }
 
-    swap(&receiverDecl, &self.receiver)
     frames.pop()
     assert(frames.isEmpty)
+    return f
   }
 
   /// Inserts the IR for `d` into `module`.
@@ -643,6 +646,8 @@ public struct Emitter {
       return emitRValue(functionCall: FunctionCallExpr.Typed(expr)!, into: &module)
     case IntegerLiteralExpr.self:
       return emitRValue(integerLiteral: IntegerLiteralExpr.Typed(expr)!, into: &module)
+    case LambdaExpr.self:
+      return emitRValue(lambda: LambdaExpr.Typed(expr)!, into: &module)
     case NameExpr.self:
       return emitRValue(name: NameExpr.Typed(expr)!, into: &module)
     case SequenceExpr.self:
@@ -845,6 +850,17 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(
+    lambda e: LambdaExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let d = emit(functionDecl: e.decl, into: &module)
+    let f = FunctionRef(to: d, type: .address(e.decl.type))
+    return module.append(
+      module.makePartialApply(wrapping: .function(f), with: .constant(.void), anchoredAt: e.site),
+      to: insertionBlock!)[0]
+  }
+
+  private mutating func emitRValue(
     name e: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
@@ -1018,9 +1034,10 @@ public struct Emitter {
   ) -> (callee: Operand, liftedArguments: [Operand]) {
     if let e = NameExpr.Typed(callee) {
       return emitNamedCallee(e, into: &module)
-    } else {
-      return (emitRValue(callee, into: &module), [])
     }
+
+    let f = emitLambdaCallee(callee, into: &module)
+    return (f, [])
   }
 
   /// Inserts the IR for given `callee` into `module` at the end of the current insertion block and
@@ -1083,7 +1100,33 @@ public struct Emitter {
 
     default:
       // Callee is a lambda.
-      return (emitRValue(callee, into: &module), [])
+      let f = emitLambdaCallee(.init(callee), into: &module)
+      return (f, [])
+    }
+  }
+
+  /// Inserts the IR for given `callee` into `module` at the end of the current insertion block and
+  /// returns its value.
+  ///
+  /// - Requires: `callee` has a lambda type.
+  private mutating func emitLambdaCallee(
+    _ callee: AnyExprID.TypedNode,
+    into module: inout Module
+  ) -> Operand {
+    switch LambdaType(callee.type)!.receiverEffect {
+    case .yielded:
+      unreachable()
+
+    case .set:
+      fatalError("not implemented")
+
+    case .sink:
+      return emitRValue(callee, into: &module)
+
+    case let k:
+      let l = emitLValue(callee, into: &module)
+      let b = module.makeBorrow(k, from: l, anchoredAt: callee.site)
+      return module.append(b, to: insertionBlock!)[0]
     }
   }
 
@@ -1409,6 +1452,24 @@ public struct Emitter {
     module.append(module.makeUnreachable(anchoredAt: anchor), to: insertionBlock!)
 
     insertionBlock = success
+  }
+
+  /// Returns the result of applying `action` to `self` in a copy of `self` whose insertion block,
+  /// frames, and receiver are clear.
+  private mutating func withClearContext<T>(_ action: (inout Self) throws -> T) rethrows -> T {
+    var b: Block.ID? = nil
+    var r: ParameterDecl.Typed? = nil
+    var f = Stack()
+
+    swap(&b, &insertionBlock)
+    swap(&r, &receiver)
+    swap(&f, &frames)
+    defer {
+      swap(&b, &insertionBlock)
+      swap(&r, &receiver)
+      swap(&f, &frames)
+    }
+    return try action(&self)
   }
 
 }
