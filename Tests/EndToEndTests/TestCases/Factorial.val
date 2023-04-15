@@ -3,8 +3,7 @@ fun factorial(_ n: Int) -> Int {
 }
 
 fun assert(_ b: Bool) {
-  // TODO: if !b {
-  if b == false {
+  if !b {
     let _ = fatal_error()
   }
 }
