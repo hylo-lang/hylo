@@ -52,15 +52,14 @@ extension Module {
   /// `arguments` using `argumentConventions`.
   ///
   /// - Parameters:
-  ///   - callee: The function to call. Must have a thin lambda type.
+  ///   - callee: The function to call.
   ///   - arguments: The arguments of the call; one of each input of `callee`'s type.
   func makeCall(
     applying callee: Operand,
     to arguments: [Operand],
     anchoredAt anchor: SourceRange
   ) -> CallInstruction {
-    let calleeType = LambdaType(type(of: callee).ast)!
-    precondition(calleeType.environment == .void)
+    let calleeType = LambdaType(type(of: callee).ast)!.strippingEnvironment
     precondition(calleeType.inputs.count == arguments.count)
 
     return CallInstruction(

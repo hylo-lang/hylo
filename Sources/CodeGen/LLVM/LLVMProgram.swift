@@ -93,18 +93,31 @@ extension LLVM.Module {
     }
   }
 
+  /// Returns the type of a transpiled function whose type in Val is `t`.
+  ///
+  /// - Note: the type of a function in Val IR typically doesn't match the type of its transpiled
+  ///   form 1-to-1, as return values are often passed by references.
+  private mutating func transpiledType(_ t: LambdaType) -> LLVM.FunctionType {
+    var parameters: Int = t.inputs.count
+
+    // Return values are passed by reference.
+    if !t.output.isVoidOrNever {
+      parameters += 1
+    }
+
+    // Environments are passed before explicit arguments.
+    if t.environment != .void {
+      parameters += 1
+    }
+
+    return .init(
+      from: Array(repeating: LLVM.PointerType(in: &self), count: parameters),
+      to: VoidType(in: &self),
+      in: &self)
+  }
+
   /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
   private mutating func declare(_ ref: IR.FunctionRef, from ir: LoweredProgram) -> LLVM.Function {
-    let ptr = LLVM.PointerType(in: &self)
-
-    // Parameters and return values are passed by reference.
-    let functionType = LambdaType(ref.type.ast)!
-    var parameters: [LLVM.IRType] = []
-    if !functionType.output.isVoidOrNever {
-      parameters.append(ptr)
-    }
-    parameters.append(contentsOf: Array(repeating: ptr, count: functionType.inputs.count))
-
     // Determine the name of the transpilation.
     let name: String
     if case .lowered(let d) = ref.function.value,
@@ -115,7 +128,8 @@ extension LLVM.Module {
       name = ir.abiName(of: ref.function)
     }
 
-    return declareFunction(name, .init(from: parameters, in: &self))
+    let t = transpiledType(LambdaType(ref.type.ast)!)
+    return declareFunction(name, t)
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
@@ -207,6 +221,8 @@ extension LLVM.Module {
         insert(llvm: i)
       case is IR.LoadInstruction:
         insert(load: i)
+      case is IR.PartialApplyInstruction:
+        insert(partialApply: i)
       case is IR.RecordInstruction:
         insert(record: i)
       case is IR.ReturnInstruction:
@@ -242,9 +258,6 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(call i: IR.InstructionID) {
       let s = m[i] as! CallInstruction
-
-      // Callee is evaluated first.
-      let callee = llvm(s.callee)
       var arguments: [LLVM.IRValue] = []
 
       // Return value is passed by reference.
@@ -255,6 +268,22 @@ extension LLVM.Module {
       default:
         returnType = ir.syntax.llvm(s.types[0].ast, in: &self)
         arguments.append(insertAlloca(returnType!, atEntryOf: transpilation))
+      }
+
+      // Callee is evaluated first.
+      let callee: LLVM.IRValue
+      let calleeType: LLVM.IRType
+      if case .constant(let f) = s.callee {
+        callee = llvm(f)
+        calleeType = LLVM.Function(callee)!.valueType
+      } else {
+        let c = unpackLambda(s.callee)
+        callee = c.function
+        calleeType = c.type
+
+        if let e = c.environment {
+          arguments.append(e)
+        }
       }
 
       // All arguments are passed by reference.
@@ -269,9 +298,6 @@ extension LLVM.Module {
         }
       }
 
-      // Note: the type of a function in Val IR typically doesn't match the type of its transpiled
-      // form. The latter always returns `void`, as non-void results are passed by reference.
-      let calleeType = LLVM.Function(callee).map(\.valueType) ?? callee.type
       _ = insertCall(callee, typed: calleeType, on: arguments, at: insertionPoint)
 
       // Load the return value if necessary.
@@ -371,6 +397,18 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(partialApply i: IR.InstructionID) {
+      let s = m[i] as! IR.PartialApplyInstruction
+      let t = LambdaType(s.function.type.ast)!
+
+      if t.environment == .void {
+        register[.register(i, 0)] = llvm(s.function)
+      } else {
+        fatalError("not implemented")
+      }
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(record i: IR.InstructionID) {
       let s = m[i] as! IR.RecordInstruction
       let t = ir.syntax.llvm(s.objectType.ast, in: &self)
@@ -404,10 +442,15 @@ extension LLVM.Module {
 
     /// Returns the LLVM IR value corresponding to the Val IR operand `o`.
     func llvm(_ o: IR.Operand) -> LLVM.IRValue {
-      guard case .constant(let c) = o else {
+      if case .constant(let c) = o {
+        return llvm(c)
+      } else {
         return register[o]!
       }
+    }
 
+    /// Returns the LLVM IR value corresponding to the Val IR constant `c`.
+    func llvm(_ c: IR.Constant) -> LLVM.IRValue {
       switch c {
       case .integer(let n):
         guard n.value.bitWidth <= 64 else { fatalError("not implemented") }
@@ -426,6 +469,27 @@ extension LLVM.Module {
         return LLVM.Poison(of: t)
 
       default:
+        fatalError("not implemented")
+      }
+    }
+
+    /// Returns the contents of the lambda `o`.
+    func unpackLambda(_ o: Operand) -> LambdaContents {
+      let virType = m.type(of: o)
+      let valType = LambdaType(virType.ast)!
+
+      let lambda: LLVM.IRValue
+      if virType.isObject {
+        lambda = llvm(o)
+      } else {
+        let t = LLVM.PointerType(in: &self)
+        lambda = insertLoad(t, from: llvm(o), at: insertionPoint)
+      }
+
+      let llvmType = transpiledType(valType)
+      if valType.environment == .void {
+        return .init(function: lambda, type: llvmType, environment: nil)
+      } else {
         fatalError("not implemented")
       }
     }
@@ -457,5 +521,19 @@ extension LLVM.OverflowBehavior {
       return nil
     }
   }
+
+}
+
+/// The contents of a lambda.
+private struct LambdaContents {
+
+  /// A pointer to the underlying thin function.
+  let function: LLVM.IRValue
+
+  /// The type `function`.
+  let type: LLVM.IRType
+
+  /// A pointer to the lambda's environment, if any.
+  let environment: LLVM.IRValue?
 
 }

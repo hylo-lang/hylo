@@ -344,12 +344,13 @@ struct ConstraintSystem {
       if !l.labels.elementsEqual(r.labels) {
         return .failure(failureToSolve(goal))
       }
-      if !unify(l.environment, r.environment, querying: checker.relations) {
-        return .failure(failureToSolve(goal))
-      }
+
+      var subordinates: [GoalIdentity] = []
+      subordinates.append(
+        schedule(
+          SubtypingConstraint(l.environment, r.environment, origin: goal.origin.subordinate())))
 
       // Parameters are contravariant; return types are covariant.
-      var subordinates: [GoalIdentity] = []
       for (a, b) in zip(l.inputs, r.inputs) {
         subordinates.append(
           schedule(SubtypingConstraint(b.type, a.type, origin: goal.origin.subordinate())))

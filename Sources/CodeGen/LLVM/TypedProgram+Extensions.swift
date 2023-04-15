@@ -73,14 +73,11 @@ extension TypedProgram {
   /// - Requires: `val` is representable in LLVM.
   func llvm(lambdaType val: LambdaType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
-
-    guard val.environment == .void else { notLLVMRepresentable(val) }
-    var parameters: [LLVM.IRType] = []
-    for p in val.inputs {
-      parameters.append(llvm(p.type, in: &module))
+    if val.environment == .void {
+      return LLVM.PointerType(in: &module)
+    } else {
+      fatalError("not implemented")
     }
-    let r = llvm(val.output, in: &module)
-    return LLVM.FunctionType(from: parameters, to: r, in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.
