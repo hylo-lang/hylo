@@ -111,7 +111,7 @@ extension LLVM.Module {
     }
 
     return .init(
-      from: Array(repeating:LLVM.PointerType(in: &self), count: parameters),
+      from: Array(repeating: LLVM.PointerType(in: &self), count: parameters),
       to: VoidType(in: &self),
       in: &self)
   }
@@ -525,7 +525,7 @@ extension LLVM.OverflowBehavior {
 }
 
 /// The contents of a lambda.
-fileprivate struct LambdaContents {
+private struct LambdaContents {
 
   /// A pointer to the underlying thin function.
   let function: LLVM.IRValue
