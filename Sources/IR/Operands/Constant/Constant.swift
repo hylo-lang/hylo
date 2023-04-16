@@ -9,6 +9,7 @@ public enum Constant: Hashable {
 
   case floatingPoint(FloatingPointConstant)
 
+  case buffer(BufferConstant)
 
   case pointer(PointerConstant)
 
@@ -26,6 +27,8 @@ public enum Constant: Hashable {
     case .integer(let c):
       return c
     case .floatingPoint(let c):
+      return c
+    case .buffer(let c):
       return c
     case .pointer(let c):
       return c
