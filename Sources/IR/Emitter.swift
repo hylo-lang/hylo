@@ -986,14 +986,13 @@ public struct Emitter {
   ) -> Operand {
     let bytes = syntax.value.data(using: .utf8)!
     let size = emitWord(bytes.count, at: syntax.site, into: &module)
-    let base = Operand.constant(.poison(.init(type: .object(BuiltinType.ptr))))
-    // let base = Operand.constant(.pointer(to: someGlobal))
 
-    let t = program.ast.coreType(named: "ConstantString")!
-    assert(syntax.type == t)
+    let p = PointerConstant(module.syntax.id, module.addGlobalBuffer(bytes))
+    let base = emitCoreInstance(
+      of: "RawPointer", aggregating: [.constant(.pointer(p))], at: syntax.site, into: &module)
 
-    let o = module.makeRecord(t, aggregating: [size, base], anchoredAt: syntax.site)
-    return module.append(o, to: insertionBlock!)[0]
+    return emitCoreInstance(
+      of: "ConstantString", aggregating: [size, base], at: syntax.site, into: &module)
   }
 
   private mutating func emitRValue(
@@ -1257,18 +1256,33 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
-  /// Inserts the IR for a numeric literal represented as a machine word with given `value` into
-  /// `module` at the end of the current insertion, anchoring instructions at `site`.
+  /// Inserts the IR for the construction of an instance of a core type named `n`with given `value`
+  /// into `module` at the end of the current insertion block, anchoring instructions at `site`.
+  ///
+  /// - precondition: `type` is a core type.
+  private mutating func emitCoreInstance(
+    of n: String,
+    aggregating parts: [Operand],
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let t = program.ast.coreType(named: n)!
+    let o = module.makeRecord(t, aggregating: parts, anchoredAt: site)
+    return module.append(o, to: insertionBlock!)[0]
+  }
+
+  /// Inserts the IR for the construction of a a machine word with given `value` into `module` at
+  /// the end of the current insertion block, anchoring instructions at `site`.
   private mutating func emitWord(
     _ value: Int,
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    let o = module.makeRecord(
-      program.ast.coreType(named: "Int")!,
+    emitCoreInstance(
+      of: "Int",
       aggregating: [.constant(.integer(IntegerConstant(value, bitWidth: 64)))],
-      anchoredAt: site)
-    return module.append(o, to: insertionBlock!)[0]
+      at: site,
+      into: &module)
   }
 
   // MARK: l-values
