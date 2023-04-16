@@ -1,0 +1,18 @@
+/// A Unicode string.
+public type ConstantString {
+
+  /// The contents of the string, encoded in UT8.
+  var ut8: RawPointer
+
+  /// The size of `contents` in bytes.
+  var size: Int
+
+}
+
+public conformance ConstantString: Copyable {
+
+  public fun copy() -> Self {
+    ConstantString(ut8: ut8.copy(), size: size.copy())
+  }
+
+}
