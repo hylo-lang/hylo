@@ -659,6 +659,8 @@ public struct Emitter {
       return emitRValue(name: NameExpr.Typed(expr)!, into: &module)
     case SequenceExpr.self:
       return emitRValue(sequence: SequenceExpr.Typed(expr)!, into: &module)
+    case StringLiteralExpr.self:
+      return emitRValue(stringLiteral: StringLiteralExpr.Typed(expr)!, into: &module)
     case TupleExpr.self:
       return emitRValue(tuple: TupleExpr.Typed(expr)!, into: &module)
     case TupleMemberExpr.self:
@@ -979,6 +981,22 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(
+    stringLiteral syntax: StringLiteralExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let bytes = syntax.value.data(using: .utf8)!
+    let size = emitWord(bytes.count, at: syntax.site, into: &module)
+    let base = Operand.constant(.poison(.init(type: .object(BuiltinType.ptr))))
+    // let base = Operand.constant(.pointer(to: someGlobal))
+
+    let t = program.ast.coreType(named: "ConstantString")!
+    assert(syntax.type == t)
+
+    let o = module.makeRecord(t, aggregating: [size, base], anchoredAt: syntax.site)
+    return module.append(o, to: insertionBlock!)[0]
+  }
+
+  private mutating func emitRValue(
     tuple syntax: TupleExpr.Typed,
     into module: inout Module
   ) -> Operand {
@@ -1237,6 +1255,20 @@ public struct Emitter {
       module.makeRecord(
         literalType, aggregating: [.constant(.integer(IntegerConstant(b)))], anchoredAt: anchor),
       to: insertionBlock!)[0]
+  }
+
+  /// Inserts the IR for a numeric literal represented as a machine word with given `value` into
+  /// `module` at the end of the current insertion, anchoring instructions at `site`.
+  private mutating func emitWord(
+    _ value: Int,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let o = module.makeRecord(
+      program.ast.coreType(named: "Int")!,
+      aggregating: [.constant(.integer(IntegerConstant(value, bitWidth: 64)))],
+      anchoredAt: site)
+    return module.append(o, to: insertionBlock!)[0]
   }
 
   // MARK: l-values
