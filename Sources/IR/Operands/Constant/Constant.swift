@@ -3,11 +3,14 @@ public enum Constant: Hashable {
 
   case builtin(BuiltinFunctionRef)
 
+  case function(FunctionRef)
+
   case integer(IntegerConstant)
 
   case floatingPoint(FloatingPointConstant)
 
-  case function(FunctionRef)
+
+  case pointer(PointerConstant)
 
   case poison(PoisonConstant)
 
@@ -18,11 +21,13 @@ public enum Constant: Hashable {
     switch self {
     case .builtin(let c):
       return c
+    case .function(let c):
+      return c
     case .integer(let c):
       return c
     case .floatingPoint(let c):
       return c
-    case .function(let c):
+    case .pointer(let c):
       return c
     case .poison(let c):
       return c
