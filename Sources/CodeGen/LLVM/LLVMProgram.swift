@@ -461,6 +461,9 @@ extension LLVM.Module {
         let t = LLVM.FloatingPointType(ir.syntax.llvm(c.type.ast, in: &self))!
         return t.constant(parsing: n.value)
 
+      case .pointer(let p):
+        return declareGlobalVariable(p.description, PointerType(in: &self))
+
       case .function(let f):
         return declare(f, from: ir)
 
