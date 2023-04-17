@@ -31,6 +31,8 @@ extension Module {
           interpret(condBranch: user, in: &context)
         case is CallInstruction:
           interpret(call: user, in: &context)
+        case is CallFIIInstruction:
+          interpret(callFFI: user, in: &context)
         case is DeallocStackInstruction:
           interpret(deallocStack: user, in: &context)
         case is DeinitInstruction:
@@ -166,6 +168,15 @@ extension Module {
         }
       }
 
+      initializeRegisters(createdBy: i, in: &context)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(callFFI i: InstructionID, in context: inout Context) {
+      let s = self[i] as! CallFIIInstruction
+      for a in s.operands {
+        context.consume(a, with: i, at: s.site, diagnostics: &diagnostics)
+      }
       initializeRegisters(createdBy: i, in: &context)
     }
 
