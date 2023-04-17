@@ -10,7 +10,7 @@ set -e
 
 # Compile the support library.
 mkdir -p ${BUILD_DIR}
-c++ -O2 -c -std=c++20 -o ${BUILD_DIR}/ValSupport.o ${PROJECT_DIR}/Sources/Support/src/io.cc
+clang++ -O2 -c -std=c++20 -o ${BUILD_DIR}/ValSupport.o ${PROJECT_DIR}/Sources/Support/src/io.cc
 ar -rv ${BUILD_DIR}/ValSupport.a ${BUILD_DIR}/ValSupport.o
 
 # Install the support library.

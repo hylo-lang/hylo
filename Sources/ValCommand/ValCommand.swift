@@ -252,7 +252,7 @@ public struct ValCommand: ParsableCommand {
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
-    try runCommandLine(find("clang"), arguments, loggingTo: &log)
+    try runCommandLine(find("clang++"), arguments, loggingTo: &log)
   }
 
   /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`
