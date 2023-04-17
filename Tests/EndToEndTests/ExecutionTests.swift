@@ -6,12 +6,31 @@ import XCTest
 final class ExecutionTests: XCTestCase {
 
   /// End to end tests
-  func testExecution() throws {
-    try testVal("./TestCases/Factorial.val")
-  }
-
-  /// Compiles and executes tests, and ensures they return success.
-  func testVal(_ fileURL: String) throws {
+  #if os(Windows)
+    func testExecution() throws {
+      try testValOnWindows("./TestCases/Factorial.val")
+      try testValOnWindows("./TestCases/Destroy.val")
+      try testValOnWindows("./TestCases/Lambda.val")
+    }
+  #else
+    /// Compiles and executes all tests in `TestCases` directory, and ensures they return success.
+    func testExecution() throws {
+      let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
+      for testFile in try! sourceFiles(in: [s]) {
+        let output = try compile(testFile.url, with: ["--emit", "binary"])
+        do {
+          let exitCode = try run(output)
+          XCTAssertEqual(
+            exitCode, 0,
+            "Execution of binary for test \(testFile.baseName) failed with exit code \(exitCode)")
+        } catch {
+          XCTFail("While testing \(testFile.baseName), cannot execute: \(output)")
+        }
+      }
+    }
+  #endif
+  /// Compiles and executes tests, and ensures they return success on Windows.
+  func testValOnWindows(_ fileURL: String) throws {
     let s = Bundle.module.url(forResource: fileURL, withExtension: nil)!
     for testFile in try sourceFiles(in: [s]) {
       let output = try compile(testFile.url, with: ["--emit", "binary"])
