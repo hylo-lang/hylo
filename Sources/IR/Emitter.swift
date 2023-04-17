@@ -1043,7 +1043,7 @@ public struct Emitter {
       of: "RawPointer", aggregating: [.constant(.pointer(p))], at: syntax.site, into: &module)
 
     return emitCoreInstance(
-      of: "ConstantString", aggregating: [size, base], at: syntax.site, into: &module)
+      of: "String", aggregating: [size, base], at: syntax.site, into: &module)
   }
 
   private mutating func emitRValue(

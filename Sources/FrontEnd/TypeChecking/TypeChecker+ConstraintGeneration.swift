@@ -621,7 +621,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "ConstantString")!)
+    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "String")!)
   }
 
   private mutating func inferredType(

@@ -1,5 +1,5 @@
 /// A Unicode string.
-public type ConstantString {
+public type String {
 
   /// The size of `contents` in bytes.
   public var size: Int
@@ -9,10 +9,10 @@ public type ConstantString {
 
 }
 
-public conformance ConstantString: Copyable {
+public conformance String: Copyable {
 
   public fun copy() -> Self {
-    ConstantString(size: size.copy(), utf8: utf8.copy())
+    String(size: size.copy(), utf8: utf8.copy())
   }
 
 }
