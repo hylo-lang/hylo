@@ -94,8 +94,8 @@ jobs:
 
     - name: Test (${{ matrix.configuration }})
       run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
-     
- build-and-test-on-windows:
+ 
+  build-and-test-on-windows:
     name: "Native: ${{ matrix.host.os }}/release"
     strategy:
       fail-fast: false
