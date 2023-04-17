@@ -9,9 +9,9 @@ TARGET_DIR="${1:-/usr/local/lib/}"
 set -e
 
 # Compile the support library.
-mkdir -p ${BUILD_DIR}
-clang++ -O2 -c -std=c++20 -o ${BUILD_DIR}/ValSupport.o ${PROJECT_DIR}/Sources/Support/src/io.cc
-ar -rv ${BUILD_DIR}/ValSupport.a ${BUILD_DIR}/ValSupport.o
+cd ${PROJECT_DIR}
+swift build -c release --target Support
+ar -rv ValSupport.a ${PROJECT_DIR}/.build/release/Support.build/src/io.cc.o
 
 # Install the support library.
-mv ${BUILD_DIR}/ValSupport.a ${TARGET_DIR}/.
+mv ValSupport.a ${TARGET_DIR}/.
