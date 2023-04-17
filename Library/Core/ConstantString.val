@@ -2,17 +2,17 @@
 public type ConstantString {
 
   /// The size of `contents` in bytes.
-  var size: Int
+  public var size: Int
 
-  /// The contents of the string, encoded in UT8.
-  var ut8: RawPointer
+  /// The contents of the string, encoded in UTF8.
+  public var utf8: RawPointer
 
 }
 
 public conformance ConstantString: Copyable {
 
   public fun copy() -> Self {
-    ConstantString(size: size.copy(), ut8: ut8.copy())
+    ConstantString(size: size.copy(), utf8: utf8.copy())
   }
 
 }
