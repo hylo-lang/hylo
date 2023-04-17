@@ -95,7 +95,7 @@ jobs:
     - name: Test (${{ matrix.configuration }})
       run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
  
-  build-and-test-on-windows:
+  build-on-windows:
     name: "Native: ${{ matrix.host.os }}/release"
     strategy:
       fail-fast: false
@@ -114,7 +114,14 @@ jobs:
       with:
         branch: ${{ matrix.swift.windows-branch }}
         tag: ${{ matrix.swift.windows-tag }}
-        
+
+    - run: |
+        git config --global core.autocrlf input
+    - uses: actions/checkout@v3
+
+    - name: Swift version
+      run: swift --version
+
     - name: Set up LLVM 15.0.6
       run: |
         curl.exe -L -O -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"https://github.com/c3lang/win-llvm/releases/download/llvm_15_0_6/llvm-15.0.6-windows-x86-msvc17-libcmt.7z
@@ -130,19 +137,12 @@ jobs:
       run: Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-libcmt\bin'
 
     - run: llvm-config --version
-    
-    - run: |
-        git config --global core.autocrlf input
-    - uses: actions/checkout@v3
-
-    - name: Swift version
-      run: swift --version
 
     - name: Build (Release)
       id: first-build
       continue-on-error: true
       run: swift build -v -c release
-    
+
     - name: Retry again on failure
       continue-on-error: false
       if: steps.first-build.outcome != 'success'
@@ -152,7 +152,7 @@ jobs:
       id: first-test
       continue-on-error: true
       run: swift test -c release -Xswiftc -enable-testing ${{matrix.host.test-options}}
-      
+
     - name: Retry again on failure
       continue-on-error: false
       if: steps.first-test.outcome != 'success'
