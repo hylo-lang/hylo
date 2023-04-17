@@ -264,10 +264,9 @@ extension LLVM.Module {
 
       // Return value is passed by reference.
       let returnType: LLVM.IRType?
-      switch s.types[0].ast {
-      case .void, .never:
+      if s.types[0].ast.isVoidOrNever {
         returnType = nil
-      default:
+      } else {
         returnType = ir.syntax.llvm(s.types[0].ast, in: &self)
         arguments.append(insertAlloca(returnType!, atEntryOf: transpilation))
       }
@@ -442,7 +441,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(return i: IR.InstructionID) {
       let s = m[i] as! IR.ReturnInstruction
-      if m.type(of: s.object).ast != .void {
+      if !m.type(of: s.object).ast.isVoidOrNever {
         insertStore(llvm(s.object), to: transpilation.parameters[0], at: insertionPoint)
       }
       insertReturn(at: insertionPoint)
