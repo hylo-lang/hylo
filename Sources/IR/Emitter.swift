@@ -438,6 +438,8 @@ public struct Emitter {
       emit(conditionalStmt: ConditionalStmt.Typed(stmt)!, into: &module)
     case DeclStmt.self:
       emit(declStmt: DeclStmt.Typed(stmt)!, into: &module)
+    case DiscardStmt.self:
+      emit(discardStmt: DiscardStmt.Typed(stmt)!, into: &module)
     case DoWhileStmt.self:
       emit(doWhileStmt: DoWhileStmt.Typed(stmt)!, into: &module)
     case ExprStmt.self:
@@ -536,6 +538,11 @@ public struct Emitter {
     default:
       unexpected(stmt.decl)
     }
+  }
+
+  private mutating func emit(discardStmt stmt: DiscardStmt.Typed, into module: inout Module) {
+    let v = emitRValue(stmt.expr, into: &module)
+    module.append(module.makeDeinit(v, anchoredAt: stmt.site), to: insertionBlock!)
   }
 
   private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed, into module: inout Module) {
