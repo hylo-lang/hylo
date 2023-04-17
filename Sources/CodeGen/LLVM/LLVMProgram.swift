@@ -43,6 +43,9 @@ public struct LLVMProgram {
   private func transpiled(_ module: ModuleDecl.ID, from ir: LoweredProgram) -> LLVM.Module {
     let m = ir.modules[module]!
     var transpilation = LLVM.Module(m.name)
+    for g in m.globals.indices {
+      transpilation.incorporate(g, of: m, from: ir)
+    }
     for f in m.functions.keys {
       transpilation.incorporate(f, of: m, from: ir)
     }
@@ -52,6 +55,14 @@ public struct LLVMProgram {
 }
 
 extension LLVM.Module {
+
+  /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
+  mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
+    let p = PointerConstant(m.syntax.id, g)
+    let v = transpiledConstant(m.globals[g], ir: ir)
+    var d = declareGlobalVariable(p.description, v.type)
+    d.initializer = v
+  }
 
   /// Transpiles and incorporates `f`, which is a function of `m` in `ir`.
   mutating func incorporate(_ f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram) {
@@ -116,20 +127,41 @@ extension LLVM.Module {
       in: &self)
   }
 
+  /// Returns the LLVM IR value corresponding to the Val IR constant `c`, using `ir` to transpile
+  /// Val types to LLVM.
+  private mutating func transpiledConstant(_ c: IR.Constant, ir: LoweredProgram) -> LLVM.IRValue {
+    switch c {
+    case .integer(let v):
+      guard v.value.bitWidth <= 64 else { fatalError("not implemented") }
+      let t = LLVM.IntegerType(v.value.bitWidth, in: &self)
+      return t.constant(UInt64(v.value.words[0]))
+
+    case .floatingPoint(let v):
+      let t = LLVM.FloatingPointType(ir.syntax.llvm(c.type.ast, in: &self))!
+      return t.constant(parsing: v.value)
+
+    case .buffer(let v):
+      return LLVM.ArrayConstant(bytes: v.contents, in: &self)
+
+    case .pointer(let v):
+      return global(named: v.description)!
+
+    case .function(let v):
+      return declare(v, from: ir)
+
+    case .poison:
+      let t = ir.syntax.llvm(c.type.ast, in: &self)
+      return LLVM.Poison(of: t)
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
   /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
   private mutating func declare(_ ref: IR.FunctionRef, from ir: LoweredProgram) -> LLVM.Function {
-    // Determine the name of the transpilation.
-    let name: String
-    if case .lowered(let d) = ref.function.value,
-      let n = ir.syntax.ast[FunctionDecl.ID(d)]?.foreignName
-    {
-      name = n
-    } else {
-      name = ir.abiName(of: ref.function)
-    }
-
     let t = transpiledType(LambdaType(ref.type.ast)!)
-    return declareFunction(name, t)
+    return declareFunction(ir.abiName(of: ref.function), t)
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
@@ -275,7 +307,7 @@ extension LLVM.Module {
       let callee: LLVM.IRValue
       let calleeType: LLVM.IRType
       if case .constant(let f) = s.callee {
-        callee = llvm(f)
+        callee = transpiledConstant(f, ir: ir)
         calleeType = LLVM.Function(callee)!.valueType
       } else {
         let c = unpackLambda(s.callee)
@@ -420,7 +452,7 @@ extension LLVM.Module {
       let t = LambdaType(s.function.type.ast)!
 
       if t.environment == .void {
-        register[.register(i, 0)] = llvm(s.function)
+        register[.register(i, 0)] = transpiledConstant(s.function, ir: ir)
       } else {
         fatalError("not implemented")
       }
@@ -461,36 +493,9 @@ extension LLVM.Module {
     /// Returns the LLVM IR value corresponding to the Val IR operand `o`.
     func llvm(_ o: IR.Operand) -> LLVM.IRValue {
       if case .constant(let c) = o {
-        return llvm(c)
+        return transpiledConstant(c, ir: ir)
       } else {
         return register[o]!
-      }
-    }
-
-    /// Returns the LLVM IR value corresponding to the Val IR constant `c`.
-    func llvm(_ c: IR.Constant) -> LLVM.IRValue {
-      switch c {
-      case .integer(let n):
-        guard n.value.bitWidth <= 64 else { fatalError("not implemented") }
-        let t = LLVM.IntegerType(n.value.bitWidth, in: &self)
-        return t.constant(UInt64(n.value.words[0]))
-
-      case .floatingPoint(let n):
-        let t = LLVM.FloatingPointType(ir.syntax.llvm(c.type.ast, in: &self))!
-        return t.constant(parsing: n.value)
-
-      case .pointer(let p):
-        return declareGlobalVariable(p.description, PointerType(in: &self))
-
-      case .function(let f):
-        return declare(f, from: ir)
-
-      case .poison:
-        let t = ir.syntax.llvm(c.type.ast, in: &self)
-        return LLVM.Poison(of: t)
-
-      default:
-        fatalError("not implemented")
       }
     }
 
