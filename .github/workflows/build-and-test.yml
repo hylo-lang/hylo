@@ -95,7 +95,7 @@ jobs:
     - name: Test (${{ matrix.configuration }})
       run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
      
-   build-and-test-on-windows:
+ build-and-test-on-windows:
     name: "Native: ${{ matrix.host.os }}/release"
     strategy:
       fail-fast: false
@@ -104,7 +104,7 @@ jobs:
           { type: windows, os: windows-latest },
         ]
         swift: [
-          { windows-branch: "development", windows-tag: "DEVELOPMENT-SNAPSHOT-2023-02-27-a" }
+          { windows-branch: "development", windows-tag: "DEVELOPMENT-SNAPSHOT-2023-04-01-a" }
         ]
     runs-on: ${{ matrix.host.os }}
     steps:
@@ -114,7 +114,23 @@ jobs:
       with:
         branch: ${{ matrix.swift.windows-branch }}
         tag: ${{ matrix.swift.windows-tag }}
+        
+    - name: Set up LLVM 15.0.6
+      run: |
+        curl.exe -L -O -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"https://github.com/c3lang/win-llvm/releases/download/llvm_15_0_6/llvm-15.0.6-windows-x86-msvc17-libcmt.7z
+        7z x llvm-15.0.6-windows-x86-msvc17-libcmt.7z -oC:\
+        
+    - name: Copy include in LLVM folder
+      run: xcopy c:\llvm-15.0.6-windows-x86-msvc17-libcmt\include\*.* c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\14.34.31933\include /s /h
 
+    - name: Copy lib in LLVM folder
+      run: xcopy c:\llvm-15.0.6-windows-x86-msvc17-libcmt\lib\*.* c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\14.34.31933\lib\x64 /s /h
+
+    - name: Add LLVM to Path
+      run: Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-libcmt\bin'
+
+    - run: llvm-config --version
+    
     - run: |
         git config --global core.autocrlf input
     - uses: actions/checkout@v3
