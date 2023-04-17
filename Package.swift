@@ -14,7 +14,7 @@ let package = Package(
   ],
 
   products: [
-    .executable(name: "valc", targets: ["CLI"]),
+    .executable(name: "valc", targets: ["CLI"])
   ],
 
   dependencies: [
