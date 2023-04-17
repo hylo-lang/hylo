@@ -54,6 +54,9 @@ public struct ValCommand: ParsableCommand {
 
   public static let configuration = CommandConfiguration(commandName: "valc")
 
+  /// The default search path for Val SDK.
+  private static let sdkDirectory = URL(fileURLWithPath: "/usr/local/lib")
+
   @Flag(
     name: [.customLong("modules")],
     help: "Compile inputs as separate modules.")
@@ -230,8 +233,9 @@ public struct ValCommand: ParsableCommand {
       try runCommandLine(
         xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &log) ?? ""
 
-    var arguments = ["-r", "ld", "-o", binaryPath, "-L", "\(sdk)/usr/lib", "-lSystem"]
+    var arguments = ["-r", "ld", "-o", binaryPath, "-L", "\(sdk)/usr/lib", "-lSystem", "-lc++"]
     arguments.append(contentsOf: objects.map(\.path))
+    arguments.append(ValCommand.sdkDirectory.appendingPathComponent("ValSupport.a").path)
     try runCommandLine(xcrun, arguments, loggingTo: &log)
   }
 
@@ -244,6 +248,7 @@ public struct ValCommand: ParsableCommand {
   ) throws {
     var arguments = ["-o", binaryPath]
     arguments.append(contentsOf: objects.map(\.path))
+    arguments.append(ValCommand.sdkDirectory.appendingPathComponent("ValSupport.a").path)
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
