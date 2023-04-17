@@ -1,0 +1,14 @@
+//! h Int() { value = native_zeroinitializer_int64_t(); }
+
+//! h Bool() { value = native_zeroinitializer_bool(); }
+
+//! h Double() { value = native_zeroinitializer_double(); }
+
+//! h Float() { value = native_zeroinitializer_float(); }
+//! h Float(Double other) { *this = Float(native_fptrunc_float(value)); }
+
+//! h Int32() { value = native_zeroinitializer_int32_t(); }
+//! h Int32(Int other) { *this = Int32(native_trunc_int32_t(value)); }
+
+//! h Int8() { value = native_zeroinitializer_int8_t(); }
+//! h Int8(Int other) { *this = Int8(native_trunc_int8_t(value)); }

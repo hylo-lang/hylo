@@ -267,6 +267,10 @@ extension Diagnostic {
     .error("type '\(domain)' has no member '\(name)'", at: site)
   }
 
+  static func error(noContextToResolve name: Name, at site: SourceRange) -> Diagnostic {
+    .error("reference to member '\(name)' cannot be resolved without context", at: site)
+  }
+
   static func warning(sumTypeWithZeroElementsAt site: SourceRange) -> Diagnostic {
     .warning("empty sum type is better expressed as 'Never'", at: site)
   }

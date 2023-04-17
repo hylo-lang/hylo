@@ -1,15 +1,3 @@
-/*! h
-namespace Val {
-*/
-
-/*! h
-Bool(bool v) : value(v) {}
-*/
-
-/*! h
-Double(double v) : value(v) {}
-*/
-
-/*! h
-Int32(int32_t v) : value(v) {}
-*/
+#include <cstdint>
+#include <cstdlib>
+#include <variant>

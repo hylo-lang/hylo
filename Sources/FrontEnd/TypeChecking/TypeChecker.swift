@@ -23,6 +23,9 @@ public struct TypeChecker {
   /// A map from function and subscript declarations to their implicit captures.
   private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
 
+  /// A map from module to its synthesized declarations.
+  private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]] = [:]
+
   /// A map from name expression to its referred declaration.
   var referredDecls: BindingMap = [:]
 
@@ -750,21 +753,20 @@ public struct TypeChecker {
       }
 
       for t in conformedTraits(of: rhs, in: declContainer) {
-        checkAndRegisterConformance(
-          of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(d))
+        checkAndRegisterConformance(of: receiver, to: t, declaredBy: d, at: ast[e].site)
       }
     }
   }
 
-  /// Registers the conformance of `model` to `trait` in `declScope` in `self.relations` if it is
-  /// satisfied. Otherwise, reports diagnostics at `declSite`.
-  private mutating func checkAndRegisterConformance(
+  /// Registers the conformance of `model` to `trait` declared by `source` in `self.relations` if
+  /// it is satisfied. Otherwise, reports diagnostics at `declSite`.
+  private mutating func checkAndRegisterConformance<T: Decl & LexicalScope>(
     of model: AnyType,
     to trait: TraitType,
-    declaredAt declSite: SourceRange,
-    in declScope: AnyScopeID
+    declaredBy source: T.ID,
+    at declSite: SourceRange
   ) {
-    guard let c = checkConformance(of: model, to: trait, declaredAt: declSite, in: declScope)
+    guard let c = checkConformance(of: model, to: trait, declaredBy: source, at: declSite)
     else {
       // Diagnostics have been reported by `checkConformance`.
       return
@@ -776,13 +778,13 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the conformance of `model` to `trait` in `declScope` if it'ss satisfied. Otherwise,
-  /// reports missing requirements at `declSite` and returns `nil`.
-  private mutating func checkConformance(
+  /// Returns the conformance of `model` to `trait` declared by `source` if it's satisfied.
+  /// Otherwise, reports missing requirements at `declSite` and returns `nil`.
+  private mutating func checkConformance<T: Decl & LexicalScope>(
     of model: AnyType,
     to trait: TraitType,
-    declaredAt declSite: SourceRange,
-    in declScope: AnyScopeID
+    declaredBy source: T.ID,
+    at declSite: SourceRange
   ) -> Conformance? {
     let specializations = [ast[trait.decl].selfParameterDecl: model]
     var implementations = Conformance.ImplementationMap()
@@ -791,42 +793,48 @@ public struct TypeChecker {
     /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(function d: FunctionDecl.ID) {
-      let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: declScope)
-      guard !t[.hasError] else { return }
+      let useScope = AnyScopeID(source)
+      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
+      guard !requiredType[.hasError] else { return }
 
-      let n = Name(of: d, in: ast)!
+      let t = relations.canonical(requiredType)
+      let requiredName = Name(of: d, in: ast)!
       if let c = implementation(
-        of: n, in: model,
+        of: requiredName, in: model,
         withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: declScope)
+        exposedTo: AnyScopeID(source))
       {
         implementations[d] = .concrete(c)
-      } else if program.isSynthesizable(d) {
+      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
         implementations[d] = .synthetic(t)
+        synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
-        notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
+        notes.insert(
+          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
       }
     }
 
     /// Checks if requirement `d` of a method bunde named `m` is satisfied by `model`, extending
     /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
-      let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: declScope)
-      guard !t[.hasError] else { return }
+      let useScope = AnyScopeID(source)
+      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
+      guard !requiredType[.hasError] else { return }
 
+      let t = relations.canonical(requiredType)
       if let c = implementation(
         of: m, in: model,
         withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: declScope)
+        exposedTo: AnyScopeID(source))
       {
         implementations[d] = .concrete(c)
-      } else if program.isSynthesizable(d) {
+      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
         implementations[d] = .synthetic(t)
+        synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
-        let n = m.appending(ast[d].introducer.value)!
-        notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
+        let requiredName = m.appending(ast[d].introducer.value)!
+        notes.insert(
+          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
       }
     }
 
@@ -869,12 +877,15 @@ public struct TypeChecker {
 
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
-    let expositionScope = reading(program.scopeToParent[declScope]!) { (s) in
+    let expositionScope = read(program.scopeToParent[source]!) { (s) in
       (s.kind == TranslationUnit.self) ? AnyScopeID(program.module(containing: s)) : s
     }
+
     return Conformance(
-      model: model, concept: trait, conditions: [], scope: expositionScope,
-      implementations: implementations, site: declSite)
+      model: model, concept: trait, conditions: [],
+      source: AnyDeclID(source), scope: expositionScope,
+      implementations: implementations,
+      site: declSite)
   }
 
   /// Returns the declaration exposed to `scope` of a callable member in `model` that introduces
@@ -889,9 +900,9 @@ public struct TypeChecker {
   ) -> AnyDeclID? {
     /// Returns `true` if candidate `d` has `requirementType`.
     func hasRequiredType<T: Decl>(_ d: T.ID) -> Bool {
-      let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: scope)
-      return t == requiredType
+      relations.areEquivalent(
+        specialized(realize(decl: d), applying: specializations, in: scope),
+        ^requiredType)
     }
 
     let allCandidates = lookup(requirementName.stem, memberOf: model, exposedTo: scope)
@@ -925,6 +936,39 @@ public struct TypeChecker {
     }
 
     return viableCandidates.uniqueElement
+  }
+
+  /// Returns the synthesized implementation of requirement `r` for type `t` in given `scope`, or
+  /// `nil` if `r` is not synthesizable.
+  private func synthesizedImplementation<T: DeclID>(
+    of r: T, for t: AnyType, in scope: AnyScopeID
+  ) -> SynthesizedDecl? {
+    guard let s = program.innermostType(containing: r).map(TraitDecl.ID.init(_:)) else {
+      return nil
+    }
+
+    // If the requirement is defined in `Sinkable`, it must be either the move-initialization or
+    // move-assignment method.
+    if s == ast.sinkableTrait.decl {
+      let d = MethodImpl.ID(r)!
+      switch ast[d].introducer.value {
+      case .set:
+        return .init(.moveInitialization, for: t, in: scope)
+      case .inout:
+        return .init(.moveAssignment, for: t, in: scope)
+      default:
+        unreachable()
+      }
+    }
+
+    // If the requirement is defined in `Copyable`, it must me the copy method.
+    if s == ast.copyableTrait.decl {
+      assert(r.kind == FunctionDecl.self)
+      return .init(.copy, for: t, in: scope)
+    }
+
+    // Requirement is not synthesizable.
+    return nil
   }
 
   /// Returns an array of declarations implementing `requirement` with type `requirementType` that
@@ -1038,11 +1082,12 @@ public struct TypeChecker {
   }
 
   private mutating func check(exprStmt s: ExprStmt.ID, in scope: AnyScopeID) {
-    guard let t = checkedType(of: ast[s].expr, in: scope) else { return }
+    guard let result = checkedType(of: ast[s].expr, in: scope) else { return }
 
-    // Issue a warning if the type of the expression isn't void.
-    if !relations.areEquivalent(t, .void) {
-      diagnostics.insert(.warning(unusedResultOfType: t, at: ast[ast[s].expr].site))
+    // Warn against unused result if the type of the expression is neither `Void` nor `Never`.
+    let t = relations.canonical(result)
+    if (t != .void) && (t != .never) {
+      diagnostics.insert(.warning(unusedResultOfType: result, at: ast[ast[s].expr].site))
     }
   }
 
@@ -1087,7 +1132,7 @@ public struct TypeChecker {
 
   /// Returns whether `d` is well-typed, reading type inference results from `s`.
   mutating func checkDeferred(varDecl d: VarDecl.ID, _ s: Solution) -> Bool {
-    let s = modifying(&declTypes[d]!) { (t) in
+    let s = modify(&declTypes[d]!) { (t) in
       // TODO: Diagnose reification failures
       t = s.typeAssumptions.reify(t)
       return !t[.hasError]
@@ -1664,7 +1709,6 @@ public struct TypeChecker {
     var candidates: [NameResolutionResult.Candidate] = []
     var invalidArgumentsDiagnostics: [Diagnostic] = []
 
-    let isInMemberContext = program.isMemberContext(lookupScope)
     for match in matches {
       // Realize the type of the declaration.
       var targetType = realize(decl: match)
@@ -1704,10 +1748,14 @@ public struct TypeChecker {
       if targetType.isError { continue }
 
       // Determine how the declaration is being referenced.
-      let reference: DeclRef =
-        isInMemberContext && program.isNonStaticMember(match)
-        ? .member(match)
-        : .direct(match)
+      let reference: DeclRef
+      if !program.isNonStaticMember(match) {
+        reference = .direct(match)
+      } else if parentType?.base is MetatypeType {
+        reference = .direct(match)
+      } else {
+        reference = .member(match)
+      }
 
       // Instantiate the type of the declaration
       let c = ConstraintOrigin(.binding, at: name.site)
@@ -1881,10 +1929,13 @@ public struct TypeChecker {
       // TODO: Read source of conformance to disambiguate associated names
       let newMatches = lookup(stem, memberOf: ^trait, exposedTo: useScope)
 
-      // Associated type and value declarations are not inherited by conformance.
+      // Associated type and value declarations are not inherited by conformance. Traits do not
+      // inherit the generic parameters.
       switch domain.base {
-      case is AssociatedTypeType, is GenericTypeParameterType, is TraitType:
+      case is AssociatedTypeType, is GenericTypeParameterType:
         matches.formUnion(newMatches)
+      case is TraitType:
+        matches.formUnion(newMatches.filter({ $0.kind != GenericParameterDecl.self }))
       default:
         matches.formUnion(newMatches.filter(program.isRequirement(_:)))
       }
@@ -1980,8 +2031,7 @@ public struct TypeChecker {
     decls: S,
     extending subject: AnyType,
     in scope: AnyScopeID
-  )
-  where S.Element == AnyDeclID {
+  ) where S.Element == AnyDeclID {
     precondition(subject[.isCanonical])
 
     for i in decls where i.kind == ConformanceDecl.self || i.kind == ExtensionDecl.self {
@@ -2062,25 +2112,14 @@ public struct TypeChecker {
     switch expr.kind {
     case ConformanceLensTypeExpr.self:
       return realize(conformanceLens: NodeID(expr)!, in: scope)
-
     case LambdaTypeExpr.self:
       return realize(lambda: NodeID(expr)!, in: scope)
-
     case NameExpr.self:
       return realize(name: NodeID(expr)!, in: scope)
-
-    case ParameterTypeExpr.self:
-      let id = ParameterTypeExpr.ID(expr)!
-      diagnostics.insert(
-        .error(illegalParameterConvention: ast[id].convention.value, at: ast[id].convention.site))
-      return nil
-
     case TupleTypeExpr.self:
       return realize(tuple: NodeID(expr)!, in: scope)
-
     case WildcardExpr.self:
       return MetatypeType(of: TypeVariable())
-
     default:
       unexpected(expr, in: ast)
     }
@@ -2947,7 +2986,7 @@ public struct TypeChecker {
         c = lookup(unqualified: "self", in: AnyScopeID(decl)).uniqueElement!
       }
 
-      modifying(&captures[n]) { (x) -> Void in
+      modify(&captures[n]) { (x) -> Void in
         let a: AccessEffect = u.isMutable ? .inout : .let
         if let existing = x {
           if (existing.type.access == .let) && (a == .inout) {

@@ -69,7 +69,7 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
       if path.isEmpty {
         return action(&memory[location]!)
       } else {
-        return modifying(&memory[.root(root)]!, { $0.withSubobject(at: path, action) })
+        return modify(&memory[.root(root)]!, { $0.withSubobject(at: path, action) })
       }
     }
   }

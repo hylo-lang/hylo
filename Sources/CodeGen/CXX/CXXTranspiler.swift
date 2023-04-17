@@ -59,7 +59,9 @@ public struct CXXTranspiler {
     return CXXFunctionDecl(
       identifier: CXXIdentifier(functionName),
       output: cxxFunctionReturnType(source, with: functionName),
-      parameters: cxxFunctionParameters(source),
+      parameters: source.parameters.map {
+        CXXFunctionDecl.Parameter(CXXIdentifier($0.baseName), cxx(typeExpr: $0.type))
+      },
       body: source.body != nil ? cxx(funBody: source.body!) : nil)
   }
 
@@ -79,15 +81,6 @@ public struct CXXTranspiler {
     }
   }
 
-  /// Returns a transpilation of the parameters of `source`.
-  private func cxxFunctionParameters(_ source: FunctionDecl.Typed) -> [CXXFunctionDecl.Parameter] {
-    let paramTypes = (source.type.base as! LambdaType).inputs
-    assert(paramTypes.count == source.parameters.count)
-    return zip(source.parameters, paramTypes).map { p, t in
-      CXXFunctionDecl.Parameter(CXXIdentifier(p.baseName), cxx(typeExpr: t.type))
-    }
-  }
-
   /// Returns a transpilation of `source`.
   private func cxx(funBody body: FunctionDecl.Typed.Body) -> CXXScopedBlock {
     switch body {
@@ -104,18 +97,18 @@ public struct CXXTranspiler {
     assert(wholeValProgram.isGlobal(source.id))
     return CXXClassDecl(
       name: CXXIdentifier(source.identifier.value),
-      members: source.members.flatMap({ cxx(classMember: $0) }))
+      members: source.members.flatMap({ cxx(member: $0) }))
   }
 
   /// Returns a transpilation of `source`.
-  private func cxx(classMember source: AnyDeclID.TypedNode) -> [CXXClassDecl.ClassMember] {
+  private func cxx(member source: AnyDeclID.TypedNode) -> [CXXClassDecl.ClassMember] {
     switch source.kind {
     case BindingDecl.self:
       // One binding can expand into multiple class attributes
       return cxx(productTypeBinding: BindingDecl.Typed(source)!)
 
     case InitializerDecl.self:
-      return [cxx(productTypeInitialzer: InitializerDecl.Typed(source)!)]
+      return [cxx(initializer: InitializerDecl.Typed(source)!)]
 
     case MethodDecl.self, FunctionDecl.self:
       return [.method]
@@ -137,16 +130,50 @@ public struct CXXTranspiler {
     })
   }
   /// Returns a transpilation of `source`.
-  private func cxx(productTypeInitialzer source: InitializerDecl.Typed) -> CXXClassDecl.ClassMember
-  {
+  private func cxx(initializer source: InitializerDecl.Typed) -> CXXClassDecl.ClassMember {
+    let parentType = enclosingProductType(source)
     switch source.introducer.value {
     case .`init`:
-      // TODO: emit constructor
-      return .constructor
+      return .constructor(
+        CXXConstructor(
+          name: CXXIdentifier(parentType.baseName),
+          parameters: source.parameters.map {
+            CXXConstructor.Parameter(name: CXXIdentifier($0.baseName), type: cxx(typeExpr: $0.type))
+          },
+          initializers: [],
+          body: source.body != nil ? cxx(brace: source.body!) : nil))
     case .memberwiseInit:
-      // TODO: emit constructor
-      return .constructor
+      let attributes = nonStaticAttributes(parentType)
+      return .constructor(
+        CXXConstructor(
+          name: CXXIdentifier(parentType.baseName),
+          parameters: attributes.map {
+            return (name: CXXIdentifier($0.name), type: cxx(typeExpr: $0.type))
+          },
+          initializers: attributes.map {
+            return (name: CXXIdentifier($0.name), value: CXXIdentifier($0.name))
+          },
+          body: nil))
     }
+  }
+
+  /// An attribute of a product type.
+  typealias Attribute = (name: String, type: AnyType)
+
+  /// Returns the list of non-statuc attributes for `source`.
+  private func nonStaticAttributes(_ source: ProductTypeDecl.Typed) -> [Attribute] {
+    return source.decls.lazy.flatMap({ (d) -> [Attribute] in
+      // First check for binding declarations inside the product type
+      guard let binding = BindingDecl.Typed(d) else {
+        return []
+      }
+      // Then, for each binding declaration iterate over the subpatterns to get the attributes.
+      let r = binding.pattern.subpattern.names.map({
+        Attribute(name: $0.pattern.decl.baseName, type: $0.pattern.decl.type)
+      })
+      return r
+    })
+
   }
 
   /// Returns a transpilation of `source`.
@@ -321,6 +348,8 @@ public struct CXXTranspiler {
       return cxx(functionCall: FunctionCallExpr.Typed(source)!)
     case ConditionalExpr.self:
       return cxx(cond: ConditionalExpr.Typed(source)!)
+    case InoutExpr.self:
+      return cxx(`inout`: InoutExpr.Typed(source)!)
     default:
       unexpected(source)
     }
@@ -432,6 +461,11 @@ public struct CXXTranspiler {
       falseExpr: cxx(expr: source.failure))
   }
 
+  /// Returns a transpilation of `source`.
+  private func cxx(`inout` source: InoutExpr.Typed) -> CXXExpr {
+    return cxx(expr: source.subject)
+  }
+
   // MARK: names
 
   /// Returns a transpilation of `source`.
@@ -440,11 +474,19 @@ public struct CXXTranspiler {
   private func cxx(name source: NameExpr.Typed) -> CXXExpr {
     switch source.decl {
     case .direct(let callee) where callee.kind == FunctionDecl.self:
-      return cxx(
-        nameOfFunction: FunctionDecl.Typed(callee)!, withDomainExpr: source.domainExpr)
+      return cxx(nameOfFunction: FunctionDecl.Typed(callee)!)
 
     case .direct(let callee) where callee.kind == InitializerDecl.self:
       return cxx(nameOfInitializer: InitializerDecl.Typed(callee)!)
+
+    case .direct(let callee) where callee.kind == ParameterDecl.self:
+      let name = nameOfDecl(callee)
+      if name == "self" {
+        // `self` -> `*this`
+        return CXXPrefixExpr(oper: .dereference, base: CXXReceiverExpr())
+      } else {
+        return CXXIdentifier(nameOfDecl(callee))
+      }
 
     case .direct(let callee):
       // For variables, and other declarations, just use the name of the declaration
@@ -453,12 +495,15 @@ public struct CXXTranspiler {
     case .member(let callee) where callee.kind == FunctionDecl.self:
       return cxx(nameOfMemberFunction: FunctionDecl.Typed(callee)!, withDomain: source.domain)
 
-    case .member(_):
-      fatalError("not implemented")
+    case .member(let callee):
+      // TODO: revisit this
+      return CXXIdentifier(nameOfDecl(callee))
 
     case .builtinFunction(let f):
-      // Callee refers to a built-in function.
-      return CXXIdentifier(f.llvmInstruction)
+      // Decorate the function so that we can uniquely identify it.
+      // Example: `native_zeroinitializer_double`.
+      let cxxType = cxx(typeExpr: f.type.output)
+      return CXXIdentifier("native_\(f.llvmInstruction)_\(cxxType.text)")
 
     case .builtinType:
       unreachable()
@@ -467,44 +512,21 @@ public struct CXXTranspiler {
 
   /// Returns a transpilation of `source`.
   ///
-  /// Usually this translates to an identifier, but it can translate to pre-/post-fix operator calls.
-  private func cxx(
-    nameOfFunction source: FunctionDecl.Typed, withDomainExpr domainExpr: AnyExprID.TypedNode?
-  ) -> CXXExpr {
-    // Check for prefix && postfix operator calls
-    if source.notation != nil && source.notation!.value == .prefix {
-      let prefixMapping: [String: CXXPrefixExpr.Operator] = [
-        "++": .prefixIncrement,
-        "--": .prefixDecrement,
-        "+": .unaryPlus,
-        "-": .unaryMinus,
-        "!": .logicalNot,
-      ]
-      if let cxxPrefixOperator = prefixMapping[nameOfDecl(source)] {
-        return CXXPrefixExpr(
-          oper: cxxPrefixOperator, base: cxx(expr: domainExpr!))
-      }
-    } else if source.notation != nil && source.notation!.value == .postfix {
-      let postfixMapping: [String: CXXPostfixExpr.Operator] = [
-        "++": .suffixIncrement,
-        "--": .suffixDecrement,
-      ]
-      if let cxxPostfixOperator = postfixMapping[nameOfDecl(source)] {
-        return CXXPostfixExpr(
-          oper: cxxPostfixOperator, base: cxx(expr: domainExpr!))
-      }
-    }
-
+  /// Typically translates to an identifier, but may translate to pre-/post-fix operator calls.
+  private func cxx(nameOfFunction source: FunctionDecl.Typed) -> CXXExpr {
     // TODO: handle captures
     return CXXIdentifier(nameOfDecl(source))
   }
+
   /// Returns a transpilation of `source`.
   private func cxx(nameOfInitializer source: InitializerDecl.Typed) -> CXXExpr {
-    fatalError("not implemented")
+    return CXXIdentifier(nameOfDecl(enclosingProductType(source)))
   }
+
   /// Returns a transpilation of `source`.
   private func cxx(
-    nameOfMemberFunction source: FunctionDecl.Typed, withDomain domain: NameExpr.Typed.Domain
+    nameOfMemberFunction source: FunctionDecl.Typed,
+    withDomain domain: NameExpr.Typed.Domain
   ) -> CXXExpr {
 
     // TODO: revisit this whole function; simplify it, and check for correctness
@@ -517,6 +539,28 @@ public struct CXXTranspiler {
       receiver = cxx(expr: domainDetails)
     case .implicit:
       fatalError("not implemented")
+    }
+
+    // Check for prefix && postfix operator calls
+    if source.notation != nil && source.notation!.value == .prefix {
+      let prefixMapping: [String: CXXPrefixExpr.Operator] = [
+        "++": .prefixIncrement,
+        "--": .prefixDecrement,
+        "+": .unaryPlus,
+        "-": .unaryMinus,
+        "!": .logicalNot,
+      ]
+      if let cxxPrefixOperator = prefixMapping[nameOfDecl(source)] {
+        return CXXPrefixExpr(oper: cxxPrefixOperator, base: receiver)
+      }
+    } else if source.notation != nil && source.notation!.value == .postfix {
+      let postfixMapping: [String: CXXPostfixExpr.Operator] = [
+        "++": .suffixIncrement,
+        "--": .suffixDecrement,
+      ]
+      if let cxxPostfixOperator = postfixMapping[nameOfDecl(source)] {
+        return CXXPostfixExpr(oper: cxxPostfixOperator, base: receiver)
+      }
     }
 
     // Emit the function reference.
@@ -648,12 +692,25 @@ public struct CXXTranspiler {
     var bodyContent: [CXXStmt] = []
     if forwardReturn {
       // Forward the result of the function as the exit code.
-      bodyContent = [CXXReturnStmt(expr: callToMain)]
+      bodyContent = [
+        CXXReturnStmt(
+          expr: CXXInfixExpr(oper: .dotAccess, lhs: callToMain, rhs: CXXIdentifier("value")))
+      ]
     } else {
       // Make a plain function call, discarding the result
       bodyContent = [CXXExprStmt(expr: CXXVoidCast(baseExpr: callToMain))]
     }
     return CXXScopedBlock(stmts: bodyContent)
+  }
+
+  // MARK: misc
+
+  /// Returns the enclosing product type of `decl`.
+  ///
+  /// Fails if the source is nested by a `TypeScope` that is not a product type (trait or type alias).
+  private func enclosingProductType<ID: DeclID>(_ decl: TypedNode<ID>) -> ProductTypeDecl.Typed {
+    let parentScope = wholeValProgram.innermostType(containing: decl.id)!
+    return wholeValProgram[ProductTypeDecl.ID(parentScope)!]
   }
 
 }

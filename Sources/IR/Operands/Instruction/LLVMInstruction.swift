@@ -37,7 +37,7 @@ extension Module {
     precondition(
       operands.allSatisfy { (o) in
         let t = type(of: o)
-        return t.isObject && (t.astType.base is BuiltinType)
+        return t.isObject && (t.ast.base is BuiltinType)
       })
 
     return LLVMInstruction(applying: f, to: operands, site: anchor)
