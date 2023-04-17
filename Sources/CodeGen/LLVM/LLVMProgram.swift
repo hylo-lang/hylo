@@ -205,6 +205,8 @@ extension LLVM.Module {
         insert(branch: i)
       case is IR.CallInstruction:
         insert(call: i)
+      case is IR.CallFIIInstruction:
+        insert(callFFI: i)
       case is IR.CondBranchInstruction:
         insert(condBranch: i)
       case is IR.DeallocStackInstruction:
@@ -304,6 +306,23 @@ extension LLVM.Module {
       if let t = returnType {
         register[.register(i, 0)] = insertLoad(t, from: arguments[0], at: insertionPoint)
       }
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(callFFI i: IR.InstructionID) {
+      let s = m[i] as! CallFIIInstruction
+      let parameters = s.operands.map({ ir.syntax.llvm(m.type(of: $0).ast, in: &self) })
+
+      let returnType: IRType
+      if s.returnType.ast.isVoidOrNever {
+        returnType = LLVM.VoidType(in: &self)
+      } else {
+        returnType = ir.syntax.llvm(s.returnType.ast, in: &self)
+      }
+
+      let callee = declareFunction(s.callee, .init(from: parameters, to: returnType, in: &self))
+      let arguments = s.operands.map({ llvm($0) })
+      register[.register(i, 0)] = insertCall(callee, on: arguments, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
