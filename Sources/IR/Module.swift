@@ -162,11 +162,10 @@ public struct Module {
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
   }
 
-  /// Adds a global buffer with given `contents` and returns its identity.
-  @discardableResult
-  mutating func addGlobalBuffer(_ contents: Data) -> GlobalID {
+  /// Adds a global constant and returns its identity.
+  mutating func addGlobal(_ value: Constant) -> GlobalID {
     let id = globals.count
-    globals.append(.buffer(.init(contents)))
+    globals.append(value)
     return id
   }
 

@@ -1038,7 +1038,7 @@ public struct Emitter {
     let bytes = syntax.value.data(using: .utf8)!
     let size = emitWord(bytes.count, at: syntax.site, into: &module)
 
-    let p = PointerConstant(module.syntax.id, module.addGlobalBuffer(bytes))
+    let p = PointerConstant(module.syntax.id, module.addGlobal(.buffer(.init(bytes))))
     let base = emitCoreInstance(
       of: "RawPointer", aggregating: [.constant(.pointer(p))], at: syntax.site, into: &module)
 
