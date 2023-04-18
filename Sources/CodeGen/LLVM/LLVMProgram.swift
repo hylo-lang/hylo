@@ -13,7 +13,7 @@ public struct LLVMProgram {
   /// Creates an empty program.
   public init(_ ir: LoweredProgram, mainModule: ModuleDecl.ID) throws {
     for m in ir.modules.keys {
-      let transpilation = transpiled(m, from: ir)
+      let transpilation = ir.transpile(m)
       do {
         try transpilation.verify()
       } catch {
