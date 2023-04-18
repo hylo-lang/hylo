@@ -354,24 +354,30 @@ public struct Emitter {
 
     let source = emitLValue(initializer, into: &module)
     for (path, name) in decl.pattern.subpattern.names {
-      var s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+      var part = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+      let partType = program.relations.canonical(module.type(of: part).ast)
 
-      if !program.relations.areEquivalent(name.decl.type, module.type(of: s).ast) {
+      if !program.relations.areEquivalent(name.decl.type, partType) {
         if let u = ExistentialType(name.decl.type) {
-          s =
+          let witnessTable = PointerConstant(
+            module.syntax.id,
+            module.addGlobal(.witnessTable(.init(describing: partType))))
+          part =
             module.append(
-              module.makeBorrow(capability, from: s, anchoredAt: name.decl.site),
+              module.makeBorrow(capability, from: part, anchoredAt: name.decl.site),
               to: insertionBlock!)[0]
-          s =
+          part =
             module.append(
-              module.makeWrapAddr(s, as: u, anchoredAt: name.decl.site),
+              module.makeWrapAddr(
+                part, .constant(.pointer(witnessTable)), as: u,
+                anchoredAt: name.decl.site),
               to: insertionBlock!)[0]
         }
       }
 
       let b = module.append(
         module.makeBorrow(
-          capability, from: s, correspondingTo: name.decl, anchoredAt: name.decl.site),
+          capability, from: part, correspondingTo: name.decl, anchoredAt: name.decl.site),
         to: insertionBlock!)[0]
       frames[name.decl] = b
     }
