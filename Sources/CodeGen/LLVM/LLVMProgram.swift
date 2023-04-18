@@ -23,6 +23,10 @@ public struct LLVMProgram {
     }
   }
 
+  /// Compile the contents of this program to products of given `type` and writes theses products
+  /// to `directory`, returning the URL of each written file.
+  ///
+  /// - Returns: The URL of each written product, one for each module in `self`.
   public func write(_ type: LLVM.CodeGenerationResultType, to directory: URL) throws -> [URL] {
     precondition(directory.hasDirectoryPath)
 
