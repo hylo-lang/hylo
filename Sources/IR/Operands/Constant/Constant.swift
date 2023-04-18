@@ -11,6 +11,8 @@ public enum Constant: Hashable {
 
   case buffer(BufferConstant)
 
+  case witnessTable(WitnessTable)
+
   case pointer(PointerConstant)
 
   case poison(PoisonConstant)
@@ -29,6 +31,8 @@ public enum Constant: Hashable {
     case .floatingPoint(let c):
       return c
     case .buffer(let c):
+      return c
+    case .witnessTable(let c):
       return c
     case .pointer(let c):
       return c
