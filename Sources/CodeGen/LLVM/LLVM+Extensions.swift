@@ -9,8 +9,8 @@ extension LLVM.Module {
   mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
     let p = PointerConstant(m.syntax.id, g)
     let v = transpiledConstant(m.globals[g], ir: ir)
-    var d = declareGlobalVariable(p.description, v.type)
-    d.initializer = v
+    let d = declareGlobalVariable(p.description, v.type)
+    setInitializer(v, for: d)
   }
 
   /// Transpiles and incorporates `f`, which is a function of `m` in `ir`.
