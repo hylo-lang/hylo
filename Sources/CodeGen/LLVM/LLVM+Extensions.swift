@@ -279,6 +279,8 @@ extension LLVM.Module {
         insert(store: i)
       case is IR.UnrechableInstruction:
         insert(unreachable: i)
+      case is IR.WrapAddrInstruction:
+        insert(wrapAddr: i)
       default:
         fatalError("not implemented")
       }
@@ -504,6 +506,15 @@ extension LLVM.Module {
       insertUnreachable(at: insertionPoint)
     }
 
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(wrapAddr i: IR.InstructionID) {
+      let s = m[i] as! IR.WrapAddrInstruction
+      let t = containerType()
+      let a = insertAlloca(t, atEntryOf: transpilation)
+      insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)
+      register[.register(i, 0)] = a
+    }
+
     /// Returns the LLVM IR value corresponding to the Val IR operand `o`.
     func llvm(_ o: IR.Operand) -> LLVM.IRValue {
       if case .constant(let c) = o {
@@ -532,6 +543,15 @@ extension LLVM.Module {
       } else {
         fatalError("not implemented")
       }
+    }
+
+    /// Returns an existential container wrapping the given `witness` and witness `table`.
+    func container(witness: Operand, table: Operand) -> LLVM.IRValue {
+      let t = containerType()
+      var v = t.null
+      v = insertInsertValue(llvm(witness), at: 0, into: v, at: insertionPoint)
+      v = insertInsertValue(llvm(table), at: 1, into: v, at: insertionPoint)
+      return v
     }
   }
 
