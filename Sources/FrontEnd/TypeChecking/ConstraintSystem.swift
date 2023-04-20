@@ -400,7 +400,7 @@ struct ConstraintSystem {
       let (l, r) = (m.reify(g.left), m.reify(g.right))
       switch g.origin.kind {
       case .initializationWithHint:
-        d.insert(.error(cannotInitialize: l, with: r, at: g.origin.site))
+        d.insert(.error(cannotInitialize: r, with: l, at: g.origin.site))
       case .initializationWithPattern:
         d.insert(.error(l, doesNotMatch: r, at: g.origin.site))
       default:
