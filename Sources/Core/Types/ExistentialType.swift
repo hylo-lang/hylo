@@ -40,19 +40,19 @@ public struct ExistentialType: TypeProtocol {
   }
 
   /// Creates a new existential type bound by an unparameterized generic type and constraints.
-  public init(unparameterized generic: AnyType, constraints: ConstraintSet) {
-    precondition(isValidInterface(generic))
+  public init(unparameterized t: AnyType, constraints: ConstraintSet) {
+    precondition(t[.isGeneric])
     for c in constraints {
       precondition(
         (c is EqualityConstraint) || (c is ConformanceConstraint),
         "type may only be constrained by equality or conformance")
     }
 
-    self.interface = .generic(generic)
+    self.interface = .generic(t)
     self.constraints = constraints
 
     // FIXME: Consider the types in the cosntraints?
-    self.flags = generic.flags
+    self.flags = t.flags.removing(.isGeneric)
   }
 
 }
@@ -81,14 +81,4 @@ extension ExistentialType: CustomStringConvertible {
     }
   }
 
-}
-
-/// Returns `true` iff `t` is a valid interface for an existential type.
-private func isValidInterface(_ t: AnyType) -> Bool {
-  switch t.base {
-  case is ProductType, is TypeAliasType:
-    return t[.hasGenericTypeParameter] || t[.hasGenericValueParameter]
-  default:
-    return false
-  }
 }
