@@ -255,6 +255,7 @@ public struct Emitter {
 
   /// Inserts the IR for `decl` into `module`.
   private mutating func emit(productDecl decl: ProductTypeDecl.Typed, into module: inout Module) {
+    _ = module.addGlobal(.metatype(.init(MetatypeType(decl.type)!)))
     for member in decl.members {
       switch member.kind {
       case FunctionDecl.self:
