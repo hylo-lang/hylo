@@ -66,7 +66,7 @@ public struct TypeFlags: Hashable {
     return newFlags
   }
 
-  /// The type is canonical from.
+  /// The type is in canonical from.
   public static let isCanonical = TypeFlags(universal: 1 << 0, existential: 0)
 
   /// The type is generic.
