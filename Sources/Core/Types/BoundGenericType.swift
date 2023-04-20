@@ -46,6 +46,7 @@ public struct BoundGenericType: TypeProtocol {
       }
     }
 
+    // TODO: Determine if all generic parameters are bound
     self.arguments = args
     self.flags = flags
   }
