@@ -1718,16 +1718,7 @@ public struct TypeChecker {
     }
 
     // Gather declarations qualified by `parentType` if it isn't `nil` or unqualified otherwise.
-    let matches: [AnyDeclID]
-    if let t = parentType {
-      matches = lookup(name.value.stem, memberOf: t, exposedTo: lookupScope)
-        .compactMap({ decl(in: $0, named: name.value) })
-    } else {
-      matches = lookup(unqualified: name.value.stem, in: lookupScope)
-        .compactMap({ decl(in: $0, named: name.value) })
-    }
-
-    // Diagnose undefined symbols.
+    let matches = lookup(name, memberOf: parentType, exposedTo: lookupScope)
     if matches.isEmpty {
       diagnostics.insert(.error(undefinedName: name.value, in: parentType, at: name.site))
       return []
@@ -1745,31 +1736,12 @@ public struct TypeChecker {
     }
 
     for match in matches {
-      // Realize the type of the declaration.
-      var targetType = realize(decl: match)
-
-      // Erase parameter conventions.
-      if let t = ParameterType(targetType) {
-        targetType = t.bareType
-      }
-
-      // Apply the static arguments, if any.
-      var allArguments = parentArguments
-      if !arguments.isEmpty {
-        guard
-          let a = associateParameters(
-            of: name, declaredBy: match, to: arguments,
-            reportingErrorsTo: &invalidArgumentsDiagnostics)
-        else { continue }
-        allArguments.merge(a, uniquingKeysWith: { (_, _) in unreachable() })
-      }
-
-      if !allArguments.isEmpty {
-        targetType = specialized(targetType, applying: allArguments, in: lookupScope)
-      }
-
-      // Give up if the declaration has an error type.
-      if targetType.isError { continue }
+      guard
+        let targetType = resolve(
+          typeOf: name, withArguments: arguments,
+          declaredBy: match, specializedWith: parentArguments, exposedTo: lookupScope,
+          reportingErrorsTo: &invalidArgumentsDiagnostics)
+      else { continue }
 
       // Determine how the declaration is being referenced.
       let reference: DeclRef
@@ -1806,6 +1778,54 @@ public struct TypeChecker {
     }
 
     return candidates
+  }
+
+  /// Returns the type of `name` assuming it accpets `arguments`, is declared by `decl` which is
+  /// exposed to `useScope` and whose type is specialized with, or `nil` if the name is invalud,
+  /// reporting errors to `diagnostics`.
+  private mutating func resolve(
+    typeOf name: SourceRepresentable<Name>,
+    withArguments arguments: [any CompileTimeValue],
+    declaredBy decl: AnyDeclID,
+    specializedWith parentArguments: GenericArguments,
+    exposedTo useScope: AnyScopeID,
+    reportingErrorsTo diagnostics: inout [Diagnostic]
+  ) -> AnyType? {
+    // Realize the type of the declaration.
+    var targetType = realize(decl: decl)
+
+    // Erase parameter conventions.
+    if let t = ParameterType(targetType) {
+      targetType = t.bareType
+    }
+
+    // Apply the static arguments, if any.
+    var allArguments = parentArguments
+    if !arguments.isEmpty {
+      guard
+        let a = associateParameters(
+          of: name, declaredBy: decl, to: arguments, reportingErrorsTo: &diagnostics)
+      else { return nil }
+      allArguments.merge(a, uniquingKeysWith: { (_, _) in unreachable() })
+    }
+
+    if !allArguments.isEmpty {
+      targetType = specialized(targetType, applying: allArguments, in: useScope)
+    }
+
+    // Give up if the declaration has an error type.
+    return targetType.isError ? nil : targetType
+  }
+
+  /// Resolves a reference to the built-in symbol named `name`.
+  private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
+    if let f = BuiltinFunction(name.stem) {
+      return .init(reference: .builtinFunction(f), type: .init(shape: ^f.type, constraints: []))
+    }
+    if let t = BuiltinType(name.stem) {
+      return .init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
+    }
+    return nil
   }
 
   /// Returns a table mapping the generic parameters introduced by `d`, which declares `name`, to
@@ -1851,17 +1871,6 @@ public struct TypeChecker {
       uniqueKeysWithValues: e.parameters.map({ (p) in
         (key: p, value: substitutions[p] ?? AnyType.error)
       }))
-  }
-
-  /// Resolves a reference to the built-in symbol named `name`.
-  private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
-    if let f = BuiltinFunction(name.stem) {
-      return .init(reference: .builtinFunction(f), type: .init(shape: ^f.type, constraints: []))
-    }
-    if let t = BuiltinType(name.stem) {
-      return .init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
-    }
-    return nil
   }
 
   /// Returns the declarations exposing a name with given `stem` to `useScope` without
@@ -2013,6 +2022,22 @@ public struct TypeChecker {
     }
 
     return matches
+  }
+
+  /// Returns the declarations introducing `name` in the declaration space that are exposed to
+  /// `useScope` and are member of `parentType` unless it is `nil`.
+  private mutating func lookup(
+    _ name: SourceRepresentable<Name>,
+    memberOf parentType: AnyType?,
+    exposedTo useScope: AnyScopeID
+  ) -> [AnyDeclID] {
+    if let t = parentType {
+      return lookup(name.value.stem, memberOf: t, exposedTo: useScope)
+        .compactMap({ decl(in: $0, named: name.value) })
+    } else {
+      return lookup(unqualified: name.value.stem, in: useScope)
+        .compactMap({ decl(in: $0, named: name.value) })
+    }
   }
 
   /// Returns the declaration(s) of the specified operator that are visible in `useScope`.
