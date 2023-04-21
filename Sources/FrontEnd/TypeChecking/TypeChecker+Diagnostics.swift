@@ -138,6 +138,10 @@ extension Diagnostic {
       notes: Array(notes.elements))
   }
 
+  static func error(tooManyExistentialBoundsAt site: SourceRange) -> Diagnostic {
+    .error("existential generic type may have only one bound", at: site)
+  }
+
   static func error(
     invalidConformanceConstraintTo type: AnyType, at site: SourceRange
   ) -> Diagnostic {

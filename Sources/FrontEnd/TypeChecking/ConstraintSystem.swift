@@ -332,13 +332,28 @@ struct ConstraintSystem {
         return delegate(to: [s])
       }
 
-    case (_, _ as ExistentialType):
-      // All types conform to any.
-      if goal.right == .any {
-        penalties += 1
-        return .success
+    case (_, let r as ExistentialType):
+      guard r.constraints.isEmpty else { fatalError("not implemented") }
+
+      // Penalize type coercion.
+      penalties += 1
+
+      switch r.interface {
+      case .traits(let traits):
+        if traits.isEmpty {
+          // All types conform to `Any`.
+          return .success
+        } else {
+          let s = schedule(
+            ConformanceConstraint(goal.left, conformsTo: traits, origin: goal.origin))
+          return delegate(to: [s])
+        }
+
+      case .generic(let d):
+        let r = checker.openForUnification(d)
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin))
+        return delegate(to: [s])
       }
-      fatalError("not implemented")
 
     case (let l as LambdaType, let r as LambdaType):
       if !l.labels.elementsEqual(r.labels) {

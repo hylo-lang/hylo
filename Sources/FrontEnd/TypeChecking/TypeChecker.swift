@@ -2208,6 +2208,8 @@ public struct TypeChecker {
     switch expr.kind {
     case ConformanceLensTypeExpr.self:
       return realize(conformanceLens: NodeID(expr)!, in: scope)
+    case ExistentialTypeExpr.self:
+      return realize(existentialType: NodeID(expr)!, in: scope)
     case LambdaTypeExpr.self:
       return realize(lambda: NodeID(expr)!, in: scope)
     case NameExpr.self:
@@ -2407,6 +2409,43 @@ public struct TypeChecker {
     }
 
     return MetatypeType(of: ConformanceLensType(viewing: subject, through: lensTrait))
+  }
+
+  private mutating func realize(
+    existentialType e: ExistentialTypeExpr.ID,
+    in scope: AnyScopeID
+  ) -> MetatypeType? {
+    assert(!ast[e].traits.isEmpty, "existential type with no interface")
+
+    // Realize the interface.
+    var interface: [AnyType] = []
+    for n in ast[e].traits {
+      guard let i = realize(name: n, in: scope)?.instance else { return nil }
+      interface.append(i)
+    }
+
+    // TODO: Process where clauses
+    guard ast[e].whereClause == nil else { fatalError("not implemented") }
+
+    // Interface must be either a single type or a set of traits.
+    if let t = TraitType(interface[0]) {
+      var traits = Set([t])
+      for i in 1 ..< interface.count {
+        if let u = TraitType(interface[i]) {
+          traits.insert(u)
+        } else {
+          diagnostics.insert(.error(notATrait: interface[i], at: ast[ast[e].traits[i]].site))
+          return nil
+        }
+      }
+
+      return MetatypeType(of: ExistentialType(traits: traits, constraints: []))
+    } else if let t = interface.uniqueElement {
+      return MetatypeType(of: ExistentialType(unparameterized: t, constraints: []))
+    } else {
+      diagnostics.insert(.error(tooManyExistentialBoundsAt: ast[ast[e].traits[1]].site))
+      return nil
+    }
   }
 
   private mutating func realize(
@@ -3269,6 +3308,27 @@ public struct TypeChecker {
     }
 
     return InstantiatedType(shape: type.transform(_impl(type:)), constraints: [])
+  }
+
+  /// Returns the type declared by `d` bound to open variables for each generic parameter
+  /// introduced by `d`.
+  ///
+  /// - Requires: `d` is a a generic product type or type alias declaration.
+  func openForUnification(_ d: AnyDeclID) -> BoundGenericType {
+    let parameters: [GenericParameterDecl.ID]
+    if let decl = ProductTypeDecl.ID(d) {
+      parameters = ast[decl].genericClause!.value.parameters
+    } else if let decl = TypeAliasDecl.ID(d) {
+      parameters = ast[decl].genericClause!.value.parameters
+    } else {
+      preconditionFailure()
+    }
+
+    let b = MetatypeType(declTypes[d])!.instance
+    let a = BoundGenericType.Arguments(
+      uniqueKeysWithValues: parameters.map({ (key: $0, value: ^TypeVariable()) }))
+
+    return BoundGenericType(b, arguments: a)
   }
 
   /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the
