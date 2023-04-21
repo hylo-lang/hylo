@@ -54,8 +54,14 @@ public struct ValCommand: ParsableCommand {
 
   public static let configuration = CommandConfiguration(commandName: "valc")
 
-  /// The default search path for Val SDK.
-  private static let sdkDirectory = URL(fileURLWithPath: "/usr/local/lib")
+  /// The default location of Val's SDK.
+  private static func defaultValSDK() -> URL {
+    #if os(Windows)
+      fatalError()
+    #else
+      return URL(fileURLWithPath: "/usr/local/lib/val")
+    #endif
+  }
 
   @Flag(
     name: [.customLong("modules")],
@@ -71,6 +77,12 @@ public struct ValCommand: ParsableCommand {
     name: [.customLong("no-std")],
     help: "Do not include the standard library.")
   private var noStandardLibrary: Bool = false
+
+  @Option(
+    name: [.customLong("sdk")],
+    help: ArgumentHelp("Val's software development kit", valueName: "directory"),
+    transform: URL.init(fileURLWithPath:))
+  private var valSDK: URL = Self.defaultValSDK()
 
   @Flag(
     name: [.customLong("typecheck")],
@@ -233,9 +245,13 @@ public struct ValCommand: ParsableCommand {
       try runCommandLine(
         xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &log) ?? ""
 
-    var arguments = ["-r", "ld", "-o", binaryPath, "-L", "\(sdk)/usr/lib", "-lSystem", "-lc++"]
+    var arguments = [
+      "-r", "ld", "-o", binaryPath,
+      "-L\(sdk)/usr/lib",
+      "-L\(valSDK.appendingPathComponent("lib").path)",
+      "-lval_support", "-lSystem", "-lc++",
+    ]
     arguments.append(contentsOf: objects.map(\.path))
-    arguments.append(ValCommand.sdkDirectory.appendingPathComponent("ValSupport.a").path)
     try runCommandLine(xcrun, arguments, loggingTo: &log)
   }
 
@@ -246,9 +262,12 @@ public struct ValCommand: ParsableCommand {
     linking objects: [URL],
     loggingTo log: inout L
   ) throws {
-    var arguments = ["-o", binaryPath]
+    var arguments = [
+      "-o", binaryPath,
+      "-L\(valSDK.appendingPathComponent("lib").path)",
+      "-lval_support",
+    ]
     arguments.append(contentsOf: objects.map(\.path))
-    arguments.append(ValCommand.sdkDirectory.appendingPathComponent("ValSupport.a").path)
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
