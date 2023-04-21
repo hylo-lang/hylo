@@ -26,4 +26,7 @@ public fun main() {
 
   let b1 = B(foo: true, bar: 42)
   check<B<Bool, Int>>(b1)
+
+  //! @+1 diagnostic cannot initialize object of type 'B<Bool, Bool>' with value of type 'B<Bool, Int>'
+  let _: B<Bool, Bool> = B(foo: true, bar: 42)
 }
