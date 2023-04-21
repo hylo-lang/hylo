@@ -69,7 +69,7 @@ public struct TypeChecker {
   /// replaced by their corresponding value, performing necessary name lookups from `lookupScope`.
   private mutating func specialized(
     _ genericType: AnyType,
-    applying substitutions: [GenericParameterDecl.ID: any CompileTimeValue],
+    applying substitutions: GenericArguments,
     in lookupScope: AnyScopeID
   ) -> AnyType {
     func _impl(t: AnyType) -> TypeTransformAction {
@@ -1737,7 +1737,7 @@ public struct TypeChecker {
     var candidates: [NameResolutionResult.Candidate] = []
     var invalidArgumentsDiagnostics: [Diagnostic] = []
 
-    var parentArguments: [GenericParameterDecl.ID: any CompileTimeValue] = [:]
+    var parentArguments: GenericArguments = [:]
     if let p = parentType.flatMap(BoundGenericType.init(_:)) {
       for (k, v) in p.arguments {
         parentArguments[k] = v
@@ -1817,7 +1817,7 @@ public struct TypeChecker {
     declaredBy d: AnyDeclID,
     to arguments: [any CompileTimeValue],
     reportingErrorsTo diagnostics: inout [Diagnostic]
-  ) -> [GenericParameterDecl.ID: any CompileTimeValue]? {
+  ) -> GenericArguments? {
     // Declaration must accept the given arguments.
     guard d.kind.value is GenericScope.Type else {
       diagnostics.append(
@@ -1843,7 +1843,7 @@ public struct TypeChecker {
   /// in `substitutions`, or `nil` if `d` doesn't introduce any generic parameter.
   private mutating func associateParameters<T: GenericDecl>(
     of d: T.ID,
-    to substitutions: [GenericParameterDecl.ID: any CompileTimeValue]
+    to substitutions: GenericArguments
   ) -> BoundGenericType.Arguments? {
     let e = environment(of: d)
     if e.parameters.isEmpty { return nil }
