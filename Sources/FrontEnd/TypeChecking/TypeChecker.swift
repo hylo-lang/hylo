@@ -91,6 +91,30 @@ public struct TypeChecker {
           return .stepOver(.error)
         }
 
+      case let u as ProductType:
+        if let a = associateParameters(of: u.decl, to: substitutions) {
+          return .stepOver(^BoundGenericType(u, arguments: a))
+        } else {
+          return .stepOver(t)
+        }
+
+      case let u as TypeAliasType:
+        if let a = associateParameters(of: u.decl, to: substitutions) {
+          return .stepOver(^BoundGenericType(u, arguments: a))
+        } else {
+          return .stepOver(t)
+        }
+
+      case let u as BoundGenericType:
+        let updatedArguments = u.arguments.mapValues { (v) -> any CompileTimeValue in
+          if let w = v as? AnyType {
+            return specialized(w, applying: substitutions, in: lookupScope)
+          } else {
+            return v
+          }
+        }
+        return .stepOver(^BoundGenericType(u.base, arguments: updatedArguments))
+
       default:
         return .stepInto(t)
       }
@@ -1815,6 +1839,20 @@ public struct TypeChecker {
     return .init(uniqueKeysWithValues: zip(e.parameters, arguments))
   }
 
+  /// Returns a table mapping the generic parameters introduced by `d` to their corresponding value
+  /// in `substitutions`, or `nil` if `d` doesn't introduce any generic parameter.
+  private mutating func associateParameters<T: GenericDecl>(
+    of d: T.ID,
+    to substitutions: [GenericParameterDecl.ID: any CompileTimeValue]
+  ) -> BoundGenericType.Arguments? {
+    let e = environment(of: d)
+    if e.parameters.isEmpty { return nil }
+    return BoundGenericType.Arguments(
+      uniqueKeysWithValues: e.parameters.map({ (p) in
+        (key: p, value: substitutions[p] ?? AnyType.error)
+      }))
+  }
+
   /// Resolves a reference to the built-in symbol named `name`.
   private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
     if let f = BuiltinFunction(name.stem) {
@@ -1922,8 +1960,13 @@ public struct TypeChecker {
     memberOf domain: AnyType,
     exposedTo useScope: AnyScopeID
   ) -> DeclSet {
-    if let t = domain.base as? ConformanceLensType {
+    switch domain.base {
+    case let t as BoundGenericType:
+      return lookup(stem, memberOf: t.base, exposedTo: useScope)
+    case let t as ConformanceLensType:
       return lookup(stem, memberOf: ^t.lens, exposedTo: useScope)
+    default:
+      break
     }
 
     let key = MemberLookupKey(type: domain, scope: useScope)
@@ -1935,9 +1978,6 @@ public struct TypeChecker {
     defer { memberLookupTables[key, default: [:]][stem] = matches }
 
     switch domain.base {
-    case let t as BoundGenericType:
-      matches = lookup(stem, memberOf: t.base, exposedTo: useScope)
-      return matches
     case let t as ProductType:
       matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as ModuleType:
