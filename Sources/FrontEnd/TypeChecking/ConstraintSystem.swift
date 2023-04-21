@@ -400,7 +400,7 @@ struct ConstraintSystem {
       let (l, r) = (m.reify(g.left), m.reify(g.right))
       switch g.origin.kind {
       case .initializationWithHint:
-        d.insert(.error(cannotInitialize: l, with: r, at: g.origin.site))
+        d.insert(.error(cannotInitialize: r, with: l, at: g.origin.site))
       case .initializationWithPattern:
         d.insert(.error(l, doesNotMatch: r, at: g.origin.site))
       default:
@@ -770,6 +770,24 @@ struct ConstraintSystem {
     case (_, let v as TypeVariable):
       assume(v, equals: lhs)
       return true
+
+    case (let l as BoundGenericType, let r as BoundGenericType):
+      guard
+        unify(l.base, r.base, querying: relations),
+        l.arguments.count == r.arguments.count
+      else { return false }
+
+      var result = true
+      for (a, b) in zip(l.arguments, r.arguments) {
+        result = (a.key == b.key) && result
+        switch (a.value, b.value) {
+        case (let vl as AnyType, let vr as AnyType):
+          result = unify(vl, vr, querying: relations) && result
+        default:
+          result = a.value.equals(b.value) && result
+        }
+      }
+      return result
 
     case (let l as TupleType, let r as TupleType):
       if !l.labels.elementsEqual(r.labels) {

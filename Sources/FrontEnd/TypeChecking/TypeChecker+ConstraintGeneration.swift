@@ -359,17 +359,17 @@ extension TypeChecker {
 
       if let pick = initCandidates.uniqueElement {
         // Rebind the callee and constrain its type.
-        let ctorType = LambdaType(constructorFormOf: .init(pick.type.shape)!)
+        let ctor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
         referredDecls[c] = pick.reference
-        state.facts.assign(^ctorType, to: c)
+        state.facts.assign(^ctor, to: c)
         state.facts.append(pick.type.constraints)
 
         // Visit the arguments.
         if parametersMatching(
           arguments: syntax.arguments, of: syntax.callee, in: scope,
-          shapedBy: ctorType.inputs, updating: &state)
+          shapedBy: ctor.inputs, updating: &state)
         {
-          return state.facts.constrain(subject, in: ast, toHaveType: ctorType.output)
+          return state.facts.constrain(subject, in: ast, toHaveType: ctor.output)
         } else {
           return state.facts.assignErrorType(to: subject)
         }
