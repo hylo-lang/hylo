@@ -9,8 +9,8 @@ public struct ExistentialType: TypeProtocol {
     /// The traits to which the witness is known to conform.
     case traits(Set<TraitType>)
 
-    /// The unparameterized generic type of the witness.
-    case generic(AnyType)
+    /// The declaration of the unparameterized generic type of the witness.
+    case generic(AnyDeclID)
 
   }
 
@@ -41,14 +41,20 @@ public struct ExistentialType: TypeProtocol {
 
   /// Creates a new existential type bound by an unparameterized generic type and constraints.
   public init(unparameterized t: AnyType, constraints: ConstraintSet) {
-    precondition(t[.isGeneric])
+    switch t.base {
+    case let u as ProductType:
+      self.interface = .generic(AnyDeclID(u.decl))
+    case let u as TypeAliasType:
+      self.interface = .generic(AnyDeclID(u.decl))
+    default:
+      preconditionFailure()
+    }
+
     for c in constraints {
       precondition(
         (c is EqualityConstraint) || (c is ConformanceConstraint),
         "type may only be constrained by equality or conformance")
     }
-
-    self.interface = .generic(t)
     self.constraints = constraints
 
     // FIXME: Consider the types in the cosntraints?
