@@ -69,18 +69,22 @@ public struct TypeChecker {
   /// replaced by their corresponding value, performing necessary name lookups from `lookupScope`.
   private mutating func specialized(
     _ genericType: AnyType,
-    applying substitutions: [GenericParameterDecl.ID: AnyType],
+    applying substitutions: [GenericParameterDecl.ID: any CompileTimeValue],
     in lookupScope: AnyScopeID
   ) -> AnyType {
     func _impl(t: AnyType) -> TypeTransformAction {
       switch t.base {
-      case let p as GenericTypeParameterType:
-        return .stepOver(substitutions[p.decl] ?? t)
+      case let u as GenericTypeParameterType:
+        if let v = substitutions[u.decl] {
+          return .stepOver((v as? AnyType) ?? .error)
+        } else {
+          return .stepOver(t)
+        }
 
-      case let t as AssociatedTypeType:
-        let d = t.domain.transform(_impl)
+      case let u as AssociatedTypeType:
+        let d = u.domain.transform(_impl)
 
-        let candidates = lookup(ast[t.decl].baseName, memberOf: d, exposedTo: lookupScope)
+        let candidates = lookup(ast[u.decl].baseName, memberOf: d, exposedTo: lookupScope)
         if let c = candidates.uniqueElement {
           return .stepOver(MetatypeType(realize(decl: c))?.instance ?? .error)
         } else {
@@ -1673,7 +1677,7 @@ public struct TypeChecker {
   /// lookup otherwise.
   mutating func resolve(
     _ name: SourceRepresentable<Name>,
-    withArguments arguments: [AnyType],
+    withArguments arguments: [any CompileTimeValue],
     memberOf parentType: AnyType?,
     from lookupScope: AnyScopeID
   ) -> [NameResolutionResult.Candidate] {
@@ -1709,6 +1713,13 @@ public struct TypeChecker {
     var candidates: [NameResolutionResult.Candidate] = []
     var invalidArgumentsDiagnostics: [Diagnostic] = []
 
+    var parentArguments: [GenericParameterDecl.ID: any CompileTimeValue] = [:]
+    if let p = parentType.flatMap(BoundGenericType.init(_:)) {
+      for (k, v) in p.arguments {
+        parentArguments[k] = v
+      }
+    }
+
     for match in matches {
       // Realize the type of the declaration.
       var targetType = realize(decl: match)
@@ -1719,29 +1730,18 @@ public struct TypeChecker {
       }
 
       // Apply the static arguments, if any.
+      var allArguments = parentArguments
       if !arguments.isEmpty {
-        // Declaration must accept the given arguments.
-        // TODO: Check labels
-        guard match.kind.value is GenericScope.Type else {
-          invalidArgumentsDiagnostics.append(
-            .error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 0))
-          continue
-        }
+        guard
+          let a = associateParameters(
+            of: name, declaredBy: match, to: arguments,
+            reportingErrorsTo: &invalidArgumentsDiagnostics)
+        else { continue }
+        allArguments.merge(a, uniquingKeysWith: { (_, _) in unreachable() })
+      }
 
-        let env = environment(of: match)
-        guard env.parameters.count == arguments.count else {
-          invalidArgumentsDiagnostics.append(
-            .error(
-              invalidGenericArgumentCountTo: name,
-              found: arguments.count, expected: env.parameters.count))
-          continue
-        }
-
-        // Apply the arguments.
-        targetType = specialized(
-          targetType,
-          applying: .init(uniqueKeysWithValues: zip(env.parameters, arguments)),
-          in: lookupScope)
+      if !allArguments.isEmpty {
+        targetType = specialized(targetType, applying: allArguments, in: lookupScope)
       }
 
       // Give up if the declaration has an error type.
@@ -1782,6 +1782,37 @@ public struct TypeChecker {
     }
 
     return candidates
+  }
+
+  /// Returns a table mapping the generic parameters introduced by `d`, which declares `name`, to
+  /// their corresponding argument in `arguments`, reporting errors to `diagnostics`.
+  ///
+  /// - Requires: `arguments` is not empty.
+  private mutating func associateParameters(
+    of name: SourceRepresentable<Name>,
+    declaredBy d: AnyDeclID,
+    to arguments: [any CompileTimeValue],
+    reportingErrorsTo diagnostics: inout [Diagnostic]
+  ) -> [GenericParameterDecl.ID: any CompileTimeValue]? {
+    // Declaration must accept the given arguments.
+    guard d.kind.value is GenericScope.Type else {
+      diagnostics.append(
+        .error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 0))
+      return nil
+    }
+
+    let e = environment(of: d)
+    guard e.parameters.count == arguments.count else {
+      diagnostics.append(
+        .error(
+          invalidGenericArgumentCountTo: name,
+          found: arguments.count, expected: e.parameters.count))
+      return nil
+    }
+
+    // TODO: Check labels
+
+    return .init(uniqueKeysWithValues: zip(e.parameters, arguments))
   }
 
   /// Resolves a reference to the built-in symbol named `name`.
@@ -2154,11 +2185,11 @@ public struct TypeChecker {
     }
 
     // Evaluate the static argument list.
-    var arguments: [(value: BoundGenericType.Argument, site: SourceRange)] = []
+    var arguments: [(value: any CompileTimeValue, site: SourceRange)] = []
     for a in ast[expr].arguments {
       // TODO: Symbolic execution
-      guard let type = realize(a.value, in: scope)?.instance else { return nil }
-      arguments.append((value: .type(type), site: ast[a.value].site))
+      guard let v = realize(a.value, in: scope)?.instance else { return nil }
+      arguments.append((value: v, site: ast[a.value].site))
     }
 
     switch name.value.stem {
@@ -2193,7 +2224,7 @@ public struct TypeChecker {
       if arguments.count != 1 {
         diagnostics.insert(.error(metatypeRequiresOneArgumentAt: name.site))
       }
-      if case .type(let a) = arguments.first!.value {
+      if let a = arguments.first!.value as? AnyType {
         return MetatypeType(of: MetatypeType(of: a))
       } else {
         fatalError("not implemented")
@@ -2262,9 +2293,10 @@ public struct TypeChecker {
 
         // Synthesize arguments to generic parameters if necessary.
         if let parameters = ast[decl].genericClause?.value.parameters {
-          let arguments = parameters.map({ (p) -> BoundGenericType.Argument in
-            .type(^GenericTypeParameterType(p, ast: ast))
-          })
+          let arguments = BoundGenericType.Arguments(
+            uniqueKeysWithValues: parameters.map({ (p) in
+              (key: p, value: ^GenericTypeParameterType(p, ast: ast))
+            }))
           return MetatypeType(of: BoundGenericType(unparameterized, arguments: arguments))
         } else {
           return MetatypeType(of: unparameterized)
@@ -2445,18 +2477,33 @@ public struct TypeChecker {
       }
     }
 
-    // Evaluate the arguments of the referred type, if any.
     if ast[id].arguments.isEmpty {
       return referredType
-    } else {
-      var arguments: [BoundGenericType.Argument] = []
-      for a in ast[id].arguments {
-        // TODO: Symbolic execution
-        guard let type = realize(a.value, in: scope)?.instance else { return nil }
-        arguments.append(.type(type))
-      }
-      return MetatypeType(of: BoundGenericType(referredType.instance, arguments: arguments))
     }
+
+    guard let clause = (ast[match] as? GenericDecl)?.genericClause?.value else {
+      diagnostics.insert(
+        .error(
+          "non-generic type '\(referredType.instance)' has no generic parameters",
+          at: ast[ast[id].arguments[0].value].site))
+      return nil
+    }
+
+    guard ast[id].arguments.count == clause.parameters.count else {
+      diagnostics.insert(
+        .error(
+          invalidGenericArgumentCountTo: ast[id].name,
+          found: ast[id].arguments.count, expected: clause.parameters.count))
+      return nil
+    }
+
+    var arguments: BoundGenericType.Arguments = [:]
+    for (p, a) in zip(clause.parameters, ast[id].arguments) {
+      // TODO: Symbolic execution
+      guard let v = realize(a.value, in: scope)?.instance else { return nil }
+      arguments[p] = v
+    }
+    return MetatypeType(of: BoundGenericType(referredType.instance, arguments: arguments))
   }
 
   private mutating func realize(
