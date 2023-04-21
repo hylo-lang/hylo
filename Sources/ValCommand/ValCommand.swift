@@ -265,9 +265,9 @@ public struct ValCommand: ParsableCommand {
     var arguments = [
       "-o", binaryPath,
       "-L\(valSDK.appendingPathComponent("lib").path)",
-      "-lval_support",
     ]
     arguments.append(contentsOf: objects.map(\.path))
+    arguments.append("-lval_support")
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
