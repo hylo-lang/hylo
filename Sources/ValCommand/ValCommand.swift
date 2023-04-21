@@ -57,7 +57,7 @@ public struct ValCommand: ParsableCommand {
   /// The default location of Val's SDK.
   private static func defaultValSDK() -> URL {
     #if os(Windows)
-      fatalError()
+      return URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
     #else
       return URL(fileURLWithPath: "/usr/local/lib/val")
     #endif
