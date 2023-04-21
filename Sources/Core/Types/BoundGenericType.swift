@@ -16,7 +16,10 @@ public struct BoundGenericType: TypeProtocol {
   public let flags: TypeFlags
 
   /// Creates a bound generic type binding `base` to the given `arguments`.
+  ///
+  /// - Requires: `arguments` is not empty.
   public init<T: TypeProtocol>(_ base: T, arguments: Arguments) {
+    precondition(!arguments.isEmpty)
     self.base = ^base
     self.arguments = arguments
 
