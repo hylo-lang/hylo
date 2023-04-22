@@ -2288,13 +2288,16 @@ public struct TypeChecker {
       return type
 
     case "Metatype":
-      if arguments.count != 1 {
-        diagnostics.insert(.error(metatypeRequiresOneArgumentAt: name.site))
+      if arguments.count > 1 {
+        diagnostics.insert(
+          .error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 1))
+        return nil
       }
-      if let a = arguments.first!.value as? AnyType {
-        return MetatypeType(of: MetatypeType(of: a))
+      if let a = arguments.first {
+        let instance = (a.value as? AnyType) ?? fatalError("not implemented")
+        return MetatypeType(of: MetatypeType(of: instance))
       } else {
-        fatalError("not implemented")
+        return MetatypeType(of: TypeVariable())
       }
 
     case "Builtin" where isBuiltinModuleVisible:
