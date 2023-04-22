@@ -233,10 +233,6 @@ extension Diagnostic {
     .error("non-generic type '\(type)' has no generic parameters", at: site)
   }
 
-  static func error(metatypeRequiresOneArgumentAt site: SourceRange) -> Diagnostic {
-    .error("reference to 'Metatype' requires exacly one static argument", at: site)
-  }
-
   static func error(tooManyAnnotationsOnGenericValueParametersAt site: SourceRange) -> Diagnostic {
     .error("only one annotation is allowed on generic value parameter declarations", at: site)
   }
