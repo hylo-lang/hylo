@@ -15,6 +15,9 @@ public fun main() {
   let x2 : Metatype<_> = A
   check<Metatype<A>>(x2)
 
+  let x3 = A
+  check<Metatype<A>>(x3)
+
   //! @+1 diagnostic cannot initialize object of type 'Metatype<B>' with value of type 'Metatype<A>'
   let _ : Metatype<B> = A
 }
