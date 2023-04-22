@@ -1,0 +1,6 @@
+fun use(_ x: Any) {}
+
+public fun main() {
+  let x: Any = Int()
+  use(x)
+}
