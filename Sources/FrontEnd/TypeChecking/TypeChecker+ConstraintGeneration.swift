@@ -166,6 +166,9 @@ extension TypeChecker {
     case SequenceExpr.self:
       return inferredType(
         ofSequenceExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+    case StringLiteralExpr.self:
+      return inferredType(
+        ofStringLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
     case SubscriptCallExpr.self:
       return inferredType(
         ofSubscriptCallExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
@@ -610,6 +613,15 @@ extension TypeChecker {
     case .leaf(let expr):
       return inferredType(of: expr, shapedBy: shape, in: scope, updating: &state)
     }
+  }
+
+  private mutating func inferredType(
+    ofStringLiteralExpr subject: StringLiteralExpr.ID,
+    shapedBy shape: AnyType?,
+    in scope: AnyScopeID,
+    updating state: inout State
+  ) -> AnyType {
+    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "String")!)
   }
 
   private mutating func inferredType(

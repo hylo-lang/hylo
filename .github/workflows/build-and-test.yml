@@ -89,6 +89,9 @@ jobs:
         sudo .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh /usr/local/lib/pkgconfig/llvm.pc
         cat /usr/local/lib/pkgconfig/llvm.pc
 
+    - name: Install support library
+      run: ./Tools/install.sh /usr/local/lib/val
+
     - name: Build (${{ matrix.configuration }})
       run: swift build -v -c ${{ matrix.configuration }}
 

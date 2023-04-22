@@ -117,7 +117,11 @@ public struct Emitter {
     into module: inout Module
   ) -> Function.ID {
     let f = module.getOrCreateFunction(correspondingTo: d)
-    guard let b = d.body else { return f }
+
+    guard let b = d.body else {
+      if d.isFFI { emitFFI(d, into: &module) }
+      return f
+    }
 
     // Create the function entry.
     assert(module.functions[f]!.blocks.isEmpty)
@@ -165,6 +169,53 @@ public struct Emitter {
     frames.pop()
     assert(frames.isEmpty)
     return f
+  }
+
+  /// Inserts the IR for calling `d` into `module`.
+  private mutating func emitFFI(_ d: FunctionDecl.Typed, into module: inout Module) {
+    let f = module.getOrCreateFunction(correspondingTo: d)
+
+    // Create the function entry.
+    assert(module.functions[f]!.blocks.isEmpty)
+    let entry = module.appendBlock(
+      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    insertionBlock = entry
+
+    // Emit FFI call.
+    var arguments: [Operand] = []
+    for i in module[entry].inputs.indices {
+      arguments.append(emitFFIArgument(.parameter(entry, i), at: d.site, into: &module))
+    }
+
+    let v = module.append(
+      module.makeCallFII(
+        returning: module.functions[f]!.output,
+        applying: d.foreignName!,
+        to: arguments, anchoredAt: d.site),
+      to: insertionBlock!)[0]
+    module.append(module.makeReturn(v, anchoredAt: d.site), to: insertionBlock!)
+  }
+
+  /// Appends the IR to convert `o` to a FFI argument into `module` to the current insertion block,
+  /// anchoring new instructions at `site`.
+  private mutating func emitFFIArgument(
+    _ o: Operand,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let t = module.type(of: o).ast
+
+    let i = program.ast.coreType(named: "Int")!
+    let p = program.ast.coreType(named: "RawPointer")!
+    if (t == i) || (t == p) {
+      let s = module.append(
+        module.makeElementAddr(o, at: [0], anchoredAt: site), to: insertionBlock!)[0]
+      return module.append(
+        module.makeLoad(s, anchoredAt: site), to: insertionBlock!)[0]
+    }
+
+    // TODO: Handle other type conversion.
+    unreachable("unexpected FFI type \(t)")
   }
 
   /// Inserts the IR for `d` into `module`.
@@ -659,6 +710,8 @@ public struct Emitter {
       return emitRValue(name: NameExpr.Typed(expr)!, into: &module)
     case SequenceExpr.self:
       return emitRValue(sequence: SequenceExpr.Typed(expr)!, into: &module)
+    case StringLiteralExpr.self:
+      return emitRValue(stringLiteral: StringLiteralExpr.Typed(expr)!, into: &module)
     case TupleExpr.self:
       return emitRValue(tuple: TupleExpr.Typed(expr)!, into: &module)
     case TupleMemberExpr.self:
@@ -979,6 +1032,21 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(
+    stringLiteral syntax: StringLiteralExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let bytes = syntax.value.data(using: .utf8)!
+    let size = emitWord(bytes.count, at: syntax.site, into: &module)
+
+    let p = PointerConstant(module.syntax.id, module.addGlobalBuffer(bytes))
+    let base = emitCoreInstance(
+      of: "RawPointer", aggregating: [.constant(.pointer(p))], at: syntax.site, into: &module)
+
+    return emitCoreInstance(
+      of: "String", aggregating: [size, base], at: syntax.site, into: &module)
+  }
+
+  private mutating func emitRValue(
     tuple syntax: TupleExpr.Typed,
     into module: inout Module
   ) -> Operand {
@@ -1237,6 +1305,35 @@ public struct Emitter {
       module.makeRecord(
         literalType, aggregating: [.constant(.integer(IntegerConstant(b)))], anchoredAt: anchor),
       to: insertionBlock!)[0]
+  }
+
+  /// Inserts the IR for the construction of an instance of a core type named `n`with given `value`
+  /// into `module` at the end of the current insertion block, anchoring instructions at `site`.
+  ///
+  /// - precondition: `type` is a core type.
+  private mutating func emitCoreInstance(
+    of n: String,
+    aggregating parts: [Operand],
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let t = program.ast.coreType(named: n)!
+    let o = module.makeRecord(t, aggregating: parts, anchoredAt: site)
+    return module.append(o, to: insertionBlock!)[0]
+  }
+
+  /// Inserts the IR for the construction of a a machine word with given `value` into `module` at
+  /// the end of the current insertion block, anchoring instructions at `site`.
+  private mutating func emitWord(
+    _ value: Int,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    emitCoreInstance(
+      of: "Int",
+      aggregating: [.constant(.integer(IntegerConstant(value, bitWidth: 64)))],
+      at: site,
+      into: &module)
   }
 
   // MARK: l-values
