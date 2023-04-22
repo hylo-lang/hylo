@@ -143,30 +143,6 @@ public struct AnyType: TypeProtocol {
 
 }
 
-extension AnyType {
-
-  /// A value indicating that two types compared with `compare(_:reconcilingWith:)` are either
-  /// equal or inequal with some description of type `T`.
-  public enum ComparisonResult<T> {
-
-    /// Types are equal.
-    case equal
-
-    /// Types are inequal; the payload describes why.
-    case inequal(T)
-
-  }
-
-  /// Returns `.equal` if `self` is equal to `other`. Otherwise, returns `reconcile(self, other)`.
-  public func compare<T>(
-    _ other: AnyType,
-    reconcilingWith reconcile: (AnyType, AnyType) -> ComparisonResult<T>
-  ) -> ComparisonResult<T> {
-    self == other ? .equal : reconcile(self, other)
-  }
-
-}
-
 extension AnyType: CompileTimeValue {
 
   public var staticType: AnyType { ^MetatypeType(of: self) }

@@ -9,13 +9,19 @@ public struct ProductType: TypeProtocol {
   /// The name of the product type.
   public let name: Incidental<String>
 
+  public let flags: TypeFlags
+
   /// Creates an instance denoting the product type declared by `decl`.
   public init(_ decl: ProductTypeDecl.ID, ast: AST) {
     self.decl = decl
     self.name = Incidental(ast[decl].baseName)
-  }
 
-  public var flags: TypeFlags { .isCanonical }
+    var flags = TypeFlags.isCanonical
+    if ast[decl].genericClause != nil {
+      flags.insert(.isGeneric)
+    }
+    self.flags = flags
+  }
 
 }
 

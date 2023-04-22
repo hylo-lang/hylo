@@ -332,13 +332,28 @@ struct ConstraintSystem {
         return delegate(to: [s])
       }
 
-    case (_, _ as ExistentialType):
-      // All types conform to any.
-      if goal.right == .any {
-        penalties += 1
-        return .success
+    case (_, let r as ExistentialType):
+      guard r.constraints.isEmpty else { fatalError("not implemented") }
+
+      // Penalize type coercion.
+      penalties += 1
+
+      switch r.interface {
+      case .traits(let traits):
+        if traits.isEmpty {
+          // All types conform to `Any`.
+          return .success
+        } else {
+          let s = schedule(
+            ConformanceConstraint(goal.left, conformsTo: traits, origin: goal.origin))
+          return delegate(to: [s])
+        }
+
+      case .generic(let d):
+        let r = checker.openForUnification(d)
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin))
+        return delegate(to: [s])
       }
-      fatalError("not implemented")
 
     case (let l as LambdaType, let r as LambdaType):
       if !l.labels.elementsEqual(r.labels) {
@@ -400,7 +415,7 @@ struct ConstraintSystem {
       let (l, r) = (m.reify(g.left), m.reify(g.right))
       switch g.origin.kind {
       case .initializationWithHint:
-        d.insert(.error(cannotInitialize: l, with: r, at: g.origin.site))
+        d.insert(.error(cannotInitialize: r, with: l, at: g.origin.site))
       case .initializationWithPattern:
         d.insert(.error(l, doesNotMatch: r, at: g.origin.site))
       default:
@@ -770,6 +785,24 @@ struct ConstraintSystem {
     case (_, let v as TypeVariable):
       assume(v, equals: lhs)
       return true
+
+    case (let l as BoundGenericType, let r as BoundGenericType):
+      guard
+        unify(l.base, r.base, querying: relations),
+        l.arguments.count == r.arguments.count
+      else { return false }
+
+      var result = true
+      for (a, b) in zip(l.arguments, r.arguments) {
+        result = (a.key == b.key) && result
+        switch (a.value, b.value) {
+        case (let vl as AnyType, let vr as AnyType):
+          result = unify(vl, vr, querying: relations) && result
+        default:
+          result = a.value.equals(b.value) && result
+        }
+      }
+      return result
 
     case (let l as TupleType, let r as TupleType):
       if !l.labels.elementsEqual(r.labels) {
