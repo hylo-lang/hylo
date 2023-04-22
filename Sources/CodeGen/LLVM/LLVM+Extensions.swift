@@ -7,10 +7,9 @@ extension LLVM.Module {
 
   /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
   mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
-    let p = PointerConstant(m.syntax.id, g)
-    let v = transpiledConstant(m.globals[g], ir: ir)
-    var d = declareGlobalVariable(p.description, v.type)
-    d.initializer = v
+    let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
+    let d = declareGlobalVariable("\(m.syntax.id)\(g)", v.type)
+    setInitializer(v, for: d)
   }
 
   /// Transpiles and incorporates `f`, which is a function of `m` in `ir`.
@@ -53,6 +52,25 @@ extension LLVM.Module {
     }
   }
 
+  /// Returns the LLVM type of a metatype instance.
+  private mutating func metatypeType() -> LLVM.StructType {
+    if let t = type(named: "_val_metatype") {
+      return .init(t)!
+    }
+    let i64 = IntegerType(64, in: &self)
+    let ptr = PointerType(in: &self)
+    return StructType([i64, i64, ptr], in: &self)
+  }
+
+  /// Returns the LLVM type of an existential container.
+  private mutating func containerType() -> LLVM.StructType {
+    if let t = type(named: "_val_container") {
+      return .init(t)!
+    }
+    let ptr = PointerType(in: &self)
+    return StructType([ptr, ptr], in: &self)
+  }
+
   /// Returns the type of a transpiled function whose type in Val is `t`.
   ///
   /// - Note: the type of a function in Val IR typically doesn't match the type of its transpiled
@@ -76,9 +94,12 @@ extension LLVM.Module {
       in: &self)
   }
 
-  /// Returns the LLVM IR value corresponding to the Val IR constant `c`, using `ir` to transpile
-  /// Val types to LLVM.
-  private mutating func transpiledConstant(_ c: IR.Constant, ir: LoweredProgram) -> LLVM.IRValue {
+  /// Returns the LLVM IR value corresponding to the Val IR constant `c` when used in `m` in `ir`.
+  private mutating func transpiledConstant(
+    _ c: IR.Constant,
+    usedIn m: IR.Module,
+    from ir: LoweredProgram
+  ) -> LLVM.IRValue {
     switch c {
     case .integer(let v):
       guard v.value.bitWidth <= 64 else { fatalError("not implemented") }
@@ -92,8 +113,14 @@ extension LLVM.Module {
     case .buffer(let v):
       return LLVM.ArrayConstant(bytes: v.contents, in: &self)
 
+    case .metatype(let v):
+      return transpiledMetatype(of: v.value.instance, usedIn: m, from: ir)
+
+    case .witnessTable(let v):
+      return transpiledWitnessTable(v, usedIn: m, from: ir)
+
     case .pointer(let v):
-      return global(named: v.description)!
+      return global(named: "\(v.container)\(v.id)")!
 
     case .function(let v):
       return declare(v, from: ir)
@@ -102,9 +129,46 @@ extension LLVM.Module {
       let t = ir.syntax.llvm(c.type.ast, in: &self)
       return LLVM.Poison(of: t)
 
-    default:
+    case .void:
       fatalError("not implemented")
+
+    case .builtin:
+      unreachable()
     }
+  }
+
+  /// Returns the LLVM IR value of the witness table `t` used in `m` in `ir`.
+  private mutating func transpiledWitnessTable(
+    _ t: WitnessTable,
+    usedIn m: IR.Module,
+    from ir: LoweredProgram
+  ) -> LLVM.IRValue {
+    // TODO: Handle conformances.
+    transpiledMetatype(of: t.witness, usedIn: m, from: ir)
+  }
+
+  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
+  private mutating func transpiledMetatype(
+    of t: AnyType,
+    usedIn m: IR.Module,
+    from ir: LoweredProgram
+  ) -> LLVM.GlobalVariable {
+    let p = ProductType(t) ?? fatalError("not implemented")
+    let n = ir.syntax.abiName(of: p.decl) + ".metatype"
+
+    // Check if we already created the metatype's instance.
+    if let g = global(named: n) { return g }
+
+    // Create a new instance.
+    let metatype = metatypeType()
+    let instance = declareGlobalVariable(n, metatype)
+
+    // Initialize the instance if it's being used in the module defining `t`.
+    if m.syntax.id != ir.syntax.module(containing: p.decl) { return instance }
+
+    // TODO: compute size, alignment, and representation
+    setInitializer(metatype.null, for: instance)
+    return instance
   }
 
   /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
@@ -214,6 +278,8 @@ extension LLVM.Module {
         insert(store: i)
       case is IR.UnrechableInstruction:
         insert(unreachable: i)
+      case is IR.WrapAddrInstruction:
+        insert(wrapAddr: i)
       default:
         fatalError("not implemented")
       }
@@ -256,7 +322,7 @@ extension LLVM.Module {
       let callee: LLVM.IRValue
       let calleeType: LLVM.IRType
       if case .constant(let f) = s.callee {
-        callee = transpiledConstant(f, ir: ir)
+        callee = transpiledConstant(f, usedIn: m, from: ir)
         calleeType = LLVM.Function(callee)!.valueType
       } else {
         let c = unpackLambda(s.callee)
@@ -401,7 +467,7 @@ extension LLVM.Module {
       let t = LambdaType(s.function.type.ast)!
 
       if t.environment == .void {
-        register[.register(i, 0)] = transpiledConstant(s.function, ir: ir)
+        register[.register(i, 0)] = transpiledConstant(s.function, usedIn: m, from: ir)
       } else {
         fatalError("not implemented")
       }
@@ -434,15 +500,24 @@ extension LLVM.Module {
       insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
     }
 
-    /// Returns the LLVM IR value corresponding to the Val IR operand `o`.
+    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(unreachable i: IR.InstructionID) {
       insertUnreachable(at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(wrapAddr i: IR.InstructionID) {
+      let s = m[i] as! IR.WrapAddrInstruction
+      let t = containerType()
+      let a = insertAlloca(t, atEntryOf: transpilation)
+      insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)
+      register[.register(i, 0)] = a
     }
 
     /// Returns the LLVM IR value corresponding to the Val IR operand `o`.
     func llvm(_ o: IR.Operand) -> LLVM.IRValue {
       if case .constant(let c) = o {
-        return transpiledConstant(c, ir: ir)
+        return transpiledConstant(c, usedIn: m, from: ir)
       } else {
         return register[o]!
       }
@@ -467,6 +542,15 @@ extension LLVM.Module {
       } else {
         fatalError("not implemented")
       }
+    }
+
+    /// Returns an existential container wrapping the given `witness` and witness `table`.
+    func container(witness: Operand, table: Operand) -> LLVM.IRValue {
+      let t = containerType()
+      var v = t.null
+      v = insertInsertValue(llvm(witness), at: 0, into: v, at: insertionPoint)
+      v = insertInsertValue(llvm(table), at: 1, into: v, at: insertionPoint)
+      return v
     }
   }
 

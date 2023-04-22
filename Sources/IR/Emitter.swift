@@ -255,6 +255,7 @@ public struct Emitter {
 
   /// Inserts the IR for `decl` into `module`.
   private mutating func emit(productDecl decl: ProductTypeDecl.Typed, into module: inout Module) {
+    _ = module.addGlobal(.metatype(.init(MetatypeType(decl.type)!)))
     for member in decl.members {
       switch member.kind {
       case FunctionDecl.self:
@@ -354,24 +355,30 @@ public struct Emitter {
 
     let source = emitLValue(initializer, into: &module)
     for (path, name) in decl.pattern.subpattern.names {
-      var s = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+      var part = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
+      let partType = program.relations.canonical(module.type(of: part).ast)
 
-      if !program.relations.areEquivalent(name.decl.type, module.type(of: s).ast) {
+      if !program.relations.areEquivalent(name.decl.type, partType) {
         if let u = ExistentialType(name.decl.type) {
-          s =
+          let witnessTable = PointerConstant(
+            module.syntax.id,
+            module.addGlobal(.witnessTable(.init(describing: partType))))
+          part =
             module.append(
-              module.makeBorrow(capability, from: s, anchoredAt: name.decl.site),
+              module.makeBorrow(capability, from: part, anchoredAt: name.decl.site),
               to: insertionBlock!)[0]
-          s =
+          part =
             module.append(
-              module.makeWrapAddr(s, as: u, anchoredAt: name.decl.site),
+              module.makeWrapAddr(
+                part, .constant(.pointer(witnessTable)), as: u,
+                anchoredAt: name.decl.site),
               to: insertionBlock!)[0]
         }
       }
 
       let b = module.append(
         module.makeBorrow(
-          capability, from: s, correspondingTo: name.decl, anchoredAt: name.decl.site),
+          capability, from: part, correspondingTo: name.decl, anchoredAt: name.decl.site),
         to: insertionBlock!)[0]
       frames[name.decl] = b
     }
@@ -1038,7 +1045,7 @@ public struct Emitter {
     let bytes = syntax.value.data(using: .utf8)!
     let size = emitWord(bytes.count, at: syntax.site, into: &module)
 
-    let p = PointerConstant(module.syntax.id, module.addGlobalBuffer(bytes))
+    let p = PointerConstant(module.syntax.id, module.addGlobal(.buffer(.init(bytes))))
     let base = emitCoreInstance(
       of: "RawPointer", aggregating: [.constant(.pointer(p))], at: syntax.site, into: &module)
 
