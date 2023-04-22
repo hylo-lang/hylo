@@ -353,6 +353,11 @@ struct ConstraintSystem {
         let r = checker.openForUnification(d)
         let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin))
         return delegate(to: [s])
+
+      case .metatype:
+        let r = MetatypeType(of: TypeVariable())
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin))
+        return delegate(to: [s])
       }
 
     case (let l as LambdaType, let r as LambdaType):

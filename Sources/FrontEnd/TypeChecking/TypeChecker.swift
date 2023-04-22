@@ -2297,7 +2297,7 @@ public struct TypeChecker {
         let instance = (a.value as? AnyType) ?? fatalError("not implemented")
         return MetatypeType(of: MetatypeType(of: instance))
       } else {
-        return MetatypeType(of: TypeVariable())
+        return MetatypeType(of: MetatypeType(of: TypeVariable()))
       }
 
     case "Builtin" where isBuiltinModuleVisible:
