@@ -7,9 +7,8 @@ extension LLVM.Module {
 
   /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
   mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
-    let p = PointerConstant(m.syntax.id, g)
     let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
-    let d = declareGlobalVariable(p.description, v.type)
+    let d = declareGlobalVariable("\(m.syntax.id)\(g)", v.type)
     setInitializer(v, for: d)
   }
 
@@ -121,7 +120,7 @@ extension LLVM.Module {
       return transpiledWitnessTable(v, usedIn: m, from: ir)
 
     case .pointer(let v):
-      return global(named: v.description)!
+      return global(named: "\(v.container)\(v.id)")!
 
     case .function(let v):
       return declare(v, from: ir)
