@@ -44,10 +44,7 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
   /// Calls `action` with a projection of the objects at the locations assigned to `locals[k]`.
   ///
   /// - Requires: If defined, `locals[k]` is `.locations`.
-  mutating func forEachObject(
-    at k: Operand,
-    _ action: (inout AbstractObject<Domain>) -> Void
-  ) {
+  mutating func forEachObject(at k: Operand, _ action: (inout AbstractObject<Domain>) -> Void) {
     for l in locals[k]!.unwrapLocations()! {
       withObject(at: l, action)
     }
