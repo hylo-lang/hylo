@@ -804,6 +804,9 @@ struct ConstraintSystem {
       }
       return result
 
+    case (let l as MetatypeType, let r as MetatypeType):
+      return unify(l.instance, r.instance, querying: relations)
+
     case (let l as TupleType, let r as TupleType):
       if !l.labels.elementsEqual(r.labels) {
         return false
