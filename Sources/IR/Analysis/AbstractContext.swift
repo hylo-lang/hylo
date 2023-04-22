@@ -59,9 +59,6 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
     _ action: (inout AbstractObject<Domain>) -> T
   ) -> T {
     switch location {
-    case .null:
-      preconditionFailure("null location")
-
     case .root:
       return action(&memory[location]!)
 

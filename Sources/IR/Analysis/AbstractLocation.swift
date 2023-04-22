@@ -3,9 +3,6 @@ import Core
 /// A memory location in an abstract interpreter.
 enum AbstractLocation: Hashable {
 
-  /// The null location.
-  case null
-
   /// A root location.
   case root(Operand)
 
@@ -26,8 +23,6 @@ enum AbstractLocation: Hashable {
     if suffix.isEmpty { return self }
 
     switch self {
-    case .null:
-      preconditionFailure("null location")
     case .root(let root):
       return .sublocation(root: root, path: suffix)
     case .sublocation(let root, let prefix):
@@ -41,8 +36,6 @@ extension AbstractLocation: CustomStringConvertible {
 
   var description: String {
     switch self {
-    case .null:
-      return "Null"
     case .root(let r):
       return String(describing: r)
     case .sublocation(let root, let path):
