@@ -43,6 +43,8 @@ extension Module {
           interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
           continue
+        case is GlobalAddrInstruction:
+          interpret(globalAddr: user, in: &context)
         case is LLVMInstruction:
           interpret(llvm: user, in: &context)
         case is LoadInstruction:
@@ -221,6 +223,16 @@ extension Module {
       context.consume(x.whole, with: i, at: x.site, diagnostics: &diagnostics)
 
       initializeRegisters(createdBy: i, in: &context)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(globalAddr i: InstructionID, in context: inout Context) {
+      let l = AbstractLocation.root(.register(i, 0))
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(
+          of: (self[i] as! GlobalAddrInstruction).valueType, definedIn: program),
+        value: .full(.initialized))
+      context.locals[.register(i, 0)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
