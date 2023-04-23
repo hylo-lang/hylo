@@ -259,17 +259,17 @@ extension NativeInstruction: CustomStringConvertible {
 
 extension NativeInstruction.MathFlags: CustomStringConvertible {
 
-public var description: String {
-  var result: [String] = []
-  if self.contains(.afn) { result.append("afn") }
-  if self.contains(.arcp) { result.append("arcp") }
-  if self.contains(.contract) { result.append("contract") }
-  if self.contains(.fast) { result.append("fast") }
-  if self.contains(.ninf) { result.append("ninf") }
-  if self.contains(.nnan) { result.append("nnan") }
-  if self.contains(.nsz) { result.append("nsz") }
-  if self.contains(.reassoc) { result.append("reassoc") }
-  return result.joined(separator: "_")
-}
+  public var description: String {
+    var result: [String] = []
+    if self.contains(.afn) { result.append("afn") }
+    if self.contains(.arcp) { result.append("arcp") }
+    if self.contains(.contract) { result.append("contract") }
+    if self.contains(.fast) { result.append("fast") }
+    if self.contains(.ninf) { result.append("ninf") }
+    if self.contains(.nnan) { result.append("nnan") }
+    if self.contains(.nsz) { result.append("nsz") }
+    if self.contains(.reassoc) { result.append("reassoc") }
+    return result.joined(separator: "_")
+  }
 
 }

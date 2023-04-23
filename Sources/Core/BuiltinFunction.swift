@@ -13,15 +13,15 @@ public struct BuiltinFunction: Hashable {
 }
 
 extension BuiltinFunction {
-  
+
   /// The name of a built-in function.
   public enum Name: Hashable {
-    
+
     /// An LLVM instruction.
     case llvm(NativeInstruction)
-    
+
   }
-  
+
 }
 
 extension BuiltinFunction.Name: CustomStringConvertible {
