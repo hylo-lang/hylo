@@ -12,6 +12,9 @@ public struct ExistentialType: TypeProtocol {
     /// The declaration of the unparameterized generic type of the witness.
     case generic(AnyDeclID)
 
+    /// An unparameterized metatype.
+    case metatype
+
   }
 
   /// The interface of this type's instances.
@@ -26,6 +29,7 @@ public struct ExistentialType: TypeProtocol {
 
   /// Creates a new existential type bound by the given traits and constraints.
   public init(traits: Set<TraitType>, constraints: ConstraintSet) {
+    // TODO: Consider the flags of the types in the cosntraints?
     for c in constraints {
       precondition(
         (c is EqualityConstraint) || (c is ConformanceConstraint),
@@ -34,22 +38,12 @@ public struct ExistentialType: TypeProtocol {
 
     self.interface = .traits(traits)
     self.constraints = constraints
-
-    // FIXME: Consider the types in the cosntraints?
     self.flags = traits.reduce(into: TypeFlags.isCanonical, { (a, b) in a.merge(b.flags) })
   }
 
   /// Creates a new existential type bound by an unparameterized generic type and constraints.
   public init(unparameterized t: AnyType, constraints: ConstraintSet) {
-    switch t.base {
-    case let u as ProductType:
-      self.interface = .generic(AnyDeclID(u.decl))
-    case let u as TypeAliasType:
-      self.interface = .generic(AnyDeclID(u.decl))
-    default:
-      preconditionFailure()
-    }
-
+    // TODO: Consider the flags of the types in the cosntraints?
     for c in constraints {
       precondition(
         (c is EqualityConstraint) || (c is ConformanceConstraint),
@@ -57,8 +51,19 @@ public struct ExistentialType: TypeProtocol {
     }
     self.constraints = constraints
 
-    // FIXME: Consider the types in the cosntraints?
-    self.flags = t.flags.removing(.isGeneric)
+    switch t.base {
+    case let u as ProductType:
+      self.interface = .generic(AnyDeclID(u.decl))
+      self.flags = t.flags.removing(.isGeneric)
+    case let u as TypeAliasType:
+      self.interface = .generic(AnyDeclID(u.decl))
+      self.flags = t.flags.removing(.isGeneric)
+    case is MetatypeType:
+      self.interface = .metatype
+      self.flags = .isCanonical
+    default:
+      preconditionFailure()
+    }
   }
 
 }
@@ -78,6 +83,9 @@ extension ExistentialType: CustomStringConvertible {
 
     case .generic(let t):
       i = .init(describing: t)
+
+    case .metatype:
+      i = "Metatype"
     }
 
     if constraints.isEmpty {

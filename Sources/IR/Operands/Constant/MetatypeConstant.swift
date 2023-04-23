@@ -15,7 +15,7 @@ public struct MetatypeConstant: ConstantProtocol, Hashable {
   }
 
   /// The Val IR type of this instance.
-  public var type: LoweredType { .object(value) }
+  public var type: LoweredType { .object(MetatypeType(of: value)) }
 
 }
 

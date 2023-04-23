@@ -1407,33 +1407,53 @@ public struct Emitter {
   ) -> Operand {
     switch syntax.decl {
     case .direct(let d):
-      if let s = frames[d] {
-        return s
-      } else {
-        fatalError("not implemented")
-      }
+      return emitLValue(directReferenceTo: d, into: &module)
 
     case .member(let d):
-      // Emit the receiver.
-      let receiverAddress: Operand
-      switch syntax.domain {
-      case .none:
-        receiverAddress = frames[receiver!]!
-      case .implicit:
-        fatalError("not implemented")
-      case .expr(let e):
-        receiverAddress = emitLValue(e, into: &module)
-      }
-
-      return addressOfMember(
-        boundTo: receiverAddress, declaredBy: d, into: &module, at: syntax.site)
+      let r = emitLValue(receiverOf: syntax, into: &module)
+      return addressOfMember(boundTo: r, declaredBy: d, into: &module, at: syntax.site)
 
     case .builtinFunction, .builtinType:
       // Built-in functions and types are never used as l-value.
       unreachable()
     }
+  }
 
-    fatalError()
+  /// Inserts the IR denoting a direct reference to `d` at the end of the current insertion block.
+  private func emitLValue(
+    directReferenceTo d: AnyDeclID.TypedNode,
+    into module: inout Module
+  ) -> Operand {
+    // Check if `d` is a local.
+    if let s = frames[d] { return s }
+
+    switch d.kind {
+    case ProductTypeDecl.self:
+      let t = MetatypeType(of: d.type)
+      let g = module.addGlobal(.metatype(.init(MetatypeType(d.type)!)))
+      let s = module.makeGlobalAddr(
+        of: g, in: module.syntax.id, typed: ^MetatypeType(of: t), anchoredAt: d.site)
+      return module.append(s, to: insertionBlock!)[0]
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Inserts the IR denoting the domain of `syntax` into `module` at the end of the current
+  /// insertion block.
+  private mutating func emitLValue(
+    receiverOf syntax: NameExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    switch syntax.domain {
+    case .none:
+      return frames[receiver!]!
+    case .implicit:
+      fatalError("not implemented")
+    case .expr(let e):
+      return emitLValue(e, into: &module)
+    }
   }
 
   private mutating func emitLValue(
