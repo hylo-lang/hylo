@@ -1,3 +1,4 @@
+import LLVM
 import Utils
 
 /// A function representing an IR instruction in Val source code.
@@ -272,13 +273,27 @@ private func mathFlags(_ stream: inout ArraySlice<Substring>) -> NativeInstructi
   return result
 }
 
+/// Returns an overlflow behavior parsed from `stream` or `.ignore` if none can be parsed.
+private func overflowBehavior(_ stream: inout ArraySlice<Substring>) -> LLVM.OverflowBehavior {
+  switch stream.first {
+  case "nuw":
+    stream.removeFirst()
+    return .nuw
+  case "nsw":
+    stream.removeFirst()
+    return .nsw
+  default:
+    return .ignore
+  }
+}
+
 /// Parses the parameters and type of an integer arithmetic function instruction.
 private let integerArithmeticTail =
-  maybe(take(NativeInstruction.IntegerArithmeticParameter.self)) ++ builtinType
+  overflowBehavior ++ builtinType
 
 /// Parses the parameters and type of `icmp`.
 private let integerComparisonTail =
-  take(NativeInstruction.IntegerPredicate.self) ++ builtinType
+  take(LLVM.IntegerPredicate.self) ++ builtinType
 
 /// Parses the parameters and type of a floating-point arithmetic instruction.
 private let floatingPointArithmeticTail =
@@ -286,4 +301,4 @@ private let floatingPointArithmeticTail =
 
 /// Parses the parameters and type of `fcmp`.
 private let floatingPointComparisonTail =
-  mathFlags ++ take(NativeInstruction.FloatingPointPredicate.self) ++ builtinType
+  mathFlags ++ take(LLVM.FloatingPointPredicate.self) ++ builtinType

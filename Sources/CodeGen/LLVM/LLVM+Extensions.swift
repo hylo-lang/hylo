@@ -409,22 +409,22 @@ extension LLVM.Module {
       case .add(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertAdd(overflow: .init(p), l, r, at: insertionPoint)
+        register[.register(i, 0)] = insertAdd(overflow: p, l, r, at: insertionPoint)
 
       case .sub(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertSub(overflow: .init(p), l, r, at: insertionPoint)
+        register[.register(i, 0)] = insertSub(overflow: p, l, r, at: insertionPoint)
 
       case .mul(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertMul(overflow: .init(p), l, r, at: insertionPoint)
+        register[.register(i, 0)] = insertMul(overflow: p, l, r, at: insertionPoint)
 
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertIntegerComparison(.init(p), l, r, at: insertionPoint)
+        register[.register(i, 0)] = insertIntegerComparison(p, l, r, at: insertionPoint)
 
       case .trunc(_, let t):
         let target = ir.syntax.llvm(builtinType: t, in: &self)
@@ -550,40 +550,6 @@ extension LLVM.Module {
 extension LLVMProgram: CustomStringConvertible {
 
   public var description: String { "\(list: llvmModules, joinedBy: "\n")" }
-
-}
-
-extension LLVM.OverflowBehavior {
-
-  fileprivate init(_ p: NativeInstruction.IntegerArithmeticParameter?) {
-    switch p {
-    case .some(.nsw):
-      self = .nsw
-    case .some(.nuw):
-      self = .nuw
-    case .none:
-      self = .ignore
-    }
-  }
-
-}
-
-extension LLVM.IntegerPredicate {
-
-  fileprivate init(_ p: NativeInstruction.IntegerPredicate) {
-    switch p {
-    case .eq: self = .eq
-    case .ne: self = .ne
-    case .ugt: self = .ugt
-    case .uge: self = .uge
-    case .ult: self = .ult
-    case .ule: self = .ule
-    case .sgt: self = .sgt
-    case .sge: self = .sge
-    case .slt: self = .slt
-    case .sle: self = .sle
-    }
-  }
 
 }
 

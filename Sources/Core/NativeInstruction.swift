@@ -1,3 +1,5 @@
+import LLVM
+
 /// The name of an native instruction mapped to a built-in function.
 ///
 /// Native instructions implement basis operations on built-in types, such as `Builtin.i64`, with
@@ -25,13 +27,13 @@
 /// integral and floating-point numbers as well as conversions from and to these types.
 public enum NativeInstruction: Hashable {
 
-  case add(IntegerArithmeticParameter?, BuiltinType)
+  case add(LLVM.OverflowBehavior, BuiltinType)
 
-  case sub(IntegerArithmeticParameter?, BuiltinType)
+  case sub(LLVM.OverflowBehavior, BuiltinType)
 
-  case mul(IntegerArithmeticParameter?, BuiltinType)
+  case mul(LLVM.OverflowBehavior, BuiltinType)
 
-  case shl(IntegerArithmeticParameter?, BuiltinType)
+  case shl(LLVM.OverflowBehavior, BuiltinType)
 
   case udiv(exact: Bool, BuiltinType)
 
@@ -51,7 +53,7 @@ public enum NativeInstruction: Hashable {
 
   case xor(BuiltinType)
 
-  case icmp(IntegerPredicate, BuiltinType)
+  case icmp(LLVM.IntegerPredicate, BuiltinType)
 
   case trunc(BuiltinType, BuiltinType)
 
@@ -73,7 +75,7 @@ public enum NativeInstruction: Hashable {
 
   case frem(MathFlags, BuiltinType)
 
-  case fcmp(MathFlags, FloatingPointPredicate, BuiltinType)
+  case fcmp(MathFlags, LLVM.FloatingPointPredicate, BuiltinType)
 
   case fptrunc(BuiltinType, BuiltinType)
 
@@ -84,33 +86,6 @@ public enum NativeInstruction: Hashable {
   case fptosi(BuiltinType, BuiltinType)
 
   case zeroinitializer(BuiltinType)
-
-  /// A parameter of a integer arithmetic LLVM instruction.
-  public enum IntegerArithmeticParameter: String, CustomStringConvertible {
-
-    case nuw, nsw
-
-    public var description: String { rawValue }
-
-  }
-
-  /// A parameter of a integer comparison LLVM instruction.
-  public enum IntegerPredicate: String, CustomStringConvertible {
-
-    case eq, ne, ugt, uge, ult, ule, sgt, sge, slt, sle
-
-    public var description: String { rawValue }
-
-  }
-
-  /// A parameter of a floating-point comparison LLVM instruction.
-  public enum FloatingPointPredicate: String, CustomStringConvertible {
-
-    case oeq, ogt, oge, olt, ole, one, ord, ueq, ugt, uge, ult, ule, une, uno, `true`, `false`
-
-    public var description: String { rawValue }
-
-  }
 
   /// The parameters of a floating-point LLVM instruction.
   public struct MathFlags: OptionSet, Hashable {
@@ -218,13 +193,13 @@ extension NativeInstruction: CustomStringConvertible {
   public var description: String {
     switch self {
     case .add(let p, let t):
-      return (p != nil) ? "add_\(p!)_\(t)" : "add_\(t)"
+      return (p != .ignore) ? "add_\(p)_\(t)" : "add_\(t)"
     case .sub(let p, let t):
-      return (p != nil) ? "sub_\(p!)_\(t)" : "sub_\(t)"
+      return (p != .ignore) ? "sub_\(p)_\(t)" : "sub_\(t)"
     case .mul(let p, let t):
-      return (p != nil) ? "mul_\(p!)_\(t)" : "mul_\(t)"
+      return (p != .ignore) ? "mul_\(p)_\(t)" : "mul_\(t)"
     case .shl(let p, let t):
-      return (p != nil) ? "shl_\(p!)_\(t)" : "shl_\(t)"
+      return (p != .ignore) ? "shl_\(p)_\(t)" : "shl_\(t)"
     case .udiv(let e, let t):
       return e ? "udiv_exact_\(t)" : "udiv_\(t)"
     case .sdiv(let e, let t):
