@@ -221,32 +221,11 @@ private func maybe(_ s: String) -> Parser<String?> {
   }
 }
 
-/// Returns a parser that returns `.some(r)` where `r` is the result of `a`, guaranteeing `stream`
-/// is left unchanged if `a` returns `nil`.
-private func maybe<T>(_ a: @escaping Parser<T>) -> Parser<T?> {
-  { (stream: inout ArraySlice<Substring>) -> T?? in
-    let s = stream
-    if let r = a(&stream) {
-      return .some(r)
-    } else {
-      stream = s
-      return .some(nil)
-    }
-  }
-}
-
 /// Returns a parser that returns the result of applying `a` and then `b` or `nil` if either `a`
 /// or `b` returns `nil`.
 private func ++ <A, B>(_ a: @escaping Parser<A>, _ b: @escaping Parser<B>) -> Parser<(A, B)> {
   { (stream: inout ArraySlice<Substring>) -> (A, B)? in
     a(&stream).flatMap({ (x) in b(&stream).map({ (x, $0) }) })
-  }
-}
-
-/// Returns a parser that returns an elements in `choices` if an equal value can be consumed.
-private func one(of choices: [String]) -> Parser<String> {
-  { (stream: inout ArraySlice<Substring>) -> String? in
-    stream.popFirst().flatMap({ (x) in choices.first(where: { $0 == x }) })
   }
 }
 
