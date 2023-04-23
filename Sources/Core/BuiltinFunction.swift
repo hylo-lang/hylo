@@ -1,93 +1,199 @@
 import Utils
 
 /// A function representing an IR instruction in Val source code.
-///
-/// Built-in functions implement basis operations on built-in types, such as `Builtin.i64`, with
-/// the same semantics as their corresponding LLVM instruction.
-///
-/// LLVM instructions are "generic" in the sense that they can typically be parameterized by types
-/// and flags. For example, `add i32` and `add i64` represent the integer addition parameterized
-/// for 32-bit and 64-bit integer values, respectively. In Val, this parameterization is encoded
-/// directly into the name of a built-in function. For example, `Builtin.add_i64` corresponds to
-/// LLVM's `add i64` instruction.
-///
-/// The name of a built-in function is given by the name of its corresponding LLVM instruction
-/// concatenated with all its generic parameters, separated by underscores. For example:
-///
-///     add i64 -> Builtin.add_i64
-///     icmp ne i32 -> Builtin.icmp_ne_i32
-///     fmul fast double -> Builtin.fmul_fast_double
-///
-/// An exception is made for LLVM conversion instructions: we omit the keyword `to` that appears
-/// between the first argument and result type. For example:
-///
-///     trunc i64 ... to i32 -> Builtin.trunc_i64_i32
-///
-/// Supported operations include all LLVM arithmetic and comparison instructions on built-in integral
-/// and floating-point numbers as well as conversions from and to these types.
 public struct BuiltinFunction: Hashable {
 
-  /// The name of the notional generic function of which `self` is an instance.
-  public let llvmInstruction: String
-
-  /// The generic parameters of the function.
-  public let genericParameters: [String]
+  /// The name of the function.
+  public let name: Name
 
   /// The type of the function.
   public let type: LambdaType
 
-  /// Creates an instance with the given properties.
-  private init(llvmInstruction: String, genericParameters: [String], type: LambdaType) {
-    self.llvmInstruction = llvmInstruction
-    self.genericParameters = genericParameters
-    self.type = type
+}
+
+extension BuiltinFunction {
+  
+  /// The name of a built-in function.
+  public enum Name: Hashable {
+    
+    /// An LLVM instruction.
+    case llvm(NativeInstruction)
+    
+  }
+  
+}
+
+extension BuiltinFunction.Name: CustomStringConvertible {
+
+  public var description: String {
+    switch self {
+    case .llvm(let n):
+      return n.description
+    }
   }
 
-  /// Creates an instance by parsing it from `s` or returns `nil` if `s` isn't a valid built-in
+}
+
+// MARK: Parsing
+
+extension BuiltinFunction {
+
+  /// Creates an instance by parsing its name from `s`, returning `nil` if `s` isn't a valid
   /// function name.
   public init?(_ s: String) {
-    let make = Self.init(llvmInstruction:genericParameters:type:)
     var tokens = s.split(separator: "_")[...]
 
     // The first token is the LLVM instruction name.
     guard let instruction = tokens.popFirst().map(String.init(_:)) else { return nil }
     switch instruction {
-    case "add", "sub", "mul", "shl":
-      guard let (p, t) = integerArithmeticParameters(&tokens) else { return nil }
-      self = make(instruction, [p.0, p.1].compactMap({ $0 }), LambdaType(^t, ^t, to: ^t))
+    case "add":
+      guard let (p, t) = integerArithmeticTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.add(p, t)), type: .init(^t, ^t, to: ^t))
 
-    case "udiv", "sdiv", "lshr", "ashr":
+    case "sub":
+      guard let (p, t) = integerArithmeticTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.sub(p, t)), type: .init(^t, ^t, to: ^t))
+
+    case "mul":
+      guard let (p, t) = integerArithmeticTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.mul(p, t)), type: .init(^t, ^t, to: ^t))
+
+    case "shl":
+      guard let (p, t) = integerArithmeticTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.shl(p, t)), type: .init(^t, ^t, to: ^t))
+
+    case "udiv":
       guard let (p, t) = (maybe("exact") ++ builtinType)(&tokens) else { return nil }
-      self = make(instruction, p.map({ [$0] }) ?? [], LambdaType(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.udiv(exact: p != nil, t)), type: .init(^t, ^t, to: ^t))
 
-    case "urem", "srem", "and", "or", "xor":
+    case "sdiv":
+      guard let (p, t) = (maybe("exact") ++ builtinType)(&tokens) else { return nil }
+      self = .init(name: .llvm(.sdiv(exact: p != nil, t)), type: .init(^t, ^t, to: ^t))
+
+    case "lshr":
+      guard let (p, t) = (maybe("exact") ++ builtinType)(&tokens) else { return nil }
+      self = .init(name: .llvm(.lshr(exact: p != nil, t)), type: .init(^t, ^t, to: ^t))
+
+    case "ashr":
+      guard let (p, t) = (maybe("exact") ++ builtinType)(&tokens) else { return nil }
+      self = .init(name: .llvm(.ashr(exact: p != nil, t)), type: .init(^t, ^t, to: ^t))
+
+    case "urem":
       guard let t = builtinType(&tokens) else { return nil }
-      self = make(instruction, [], LambdaType(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.urem(t)), type: .init(^t, ^t, to: ^t))
+
+    case "srem":
+      guard let t = builtinType(&tokens) else { return nil }
+      self = .init(name: .llvm(.srem(t)), type: .init(^t, ^t, to: ^t))
+
+    case "and":
+      guard let t = builtinType(&tokens) else { return nil }
+      self = .init(name: .llvm(.and(t)), type: .init(^t, ^t, to: ^t))
+
+    case "or":
+      guard let t = builtinType(&tokens) else { return nil }
+      self = .init(name: .llvm(.or(t)), type: .init(^t, ^t, to: ^t))
+
+    case "xor":
+      guard let t = builtinType(&tokens) else { return nil }
+      self = .init(name: .llvm(.xor(t)), type: .init(^t, ^t, to: ^t))
 
     case "icmp":
-      guard let (p, t) = integerComparisonParameters(&tokens) else { return nil }
-      self = make(instruction, [p], LambdaType(^t, ^t, to: .builtin(.i(1))))
+      guard let (p, t) = integerComparisonTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.icmp(p, t)), type: .init(^t, ^t, to: .builtin(.i(1))))
 
-    case "trunc", "zext", "sext", "uitofp", "sitofp":
+    case "trunc":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = make(instruction, [], LambdaType(^s, to: ^d))
+      self = .init(name: .llvm(.trunc(s, d)), type: .init(^s, to: ^d))
 
-    case "fadd", "fsub", "fmul", "fdiv", "frem":
-      guard let (p, t) = floatingPointArithmeticParameters(&tokens) else { return nil }
-      self = make(instruction, p, LambdaType(^t, ^t, to: ^t))
+    case "zext":
+      guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
+      self = .init(name: .llvm(.zext(s, d)), type: .init(^s, to: ^d))
+
+    case "sext":
+      guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
+      self = .init(name: .llvm(.sext(s, d)), type: .init(^s, to: ^d))
+
+    case "uitofp":
+      guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
+      self = .init(name: .llvm(.uitofp(s, d)), type: .init(^s, to: ^d))
+
+    case "sitofp":
+      guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
+      self = .init(name: .llvm(.sitofp(s, d)), type: .init(^s, to: ^d))
+
+    case "fadd":
+      guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.fadd(p, t)), type: .init(^t, ^t, to: ^t))
+
+    case "fsub":
+      guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.fsub(p, t)), type: .init(^t, ^t, to: ^t))
+
+    case "fmul":
+      guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.fmul(p, t)), type: .init(^t, ^t, to: ^t))
+
+    case "fdiv":
+      guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.fdiv(p, t)), type: .init(^t, ^t, to: ^t))
+
+    case "frem":
+      guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.frem(p, t)), type: .init(^t, ^t, to: ^t))
 
     case "fcmp":
-      guard let (p, t) = floatingPointComparisonParameters(&tokens) else { return nil }
-      self = make(instruction, p.0 + [p.1], LambdaType(^t, ^t, to: .builtin(.i(1))))
+      guard let (p, t) = floatingPointComparisonTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.fcmp(p.0, p.1, t)), type: .init(^t, ^t, to: .builtin(.i(1))))
 
-    case "fptrunc", "fpext", "fptoui", "fptosi":
+    case "fptrunc":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = make(instruction, [], LambdaType(^s, to: ^d))
+      self = .init(name: .llvm(.fptrunc(s, d)), type: .init(^s, to: ^d))
+
+    case "fpext":
+      guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
+      self = .init(name: .llvm(.fpext(s, d)), type: .init(^s, to: ^d))
+
+    case "fptoui":
+      guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
+      self = .init(name: .llvm(.fptoui(s, d)), type: .init(^s, to: ^d))
+
+    case "fptosi":
+      guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
+      self = .init(name: .llvm(.fptosi(s, d)), type: .init(^s, to: ^d))
 
     case "zeroinitializer":
       guard let t = builtinType(&tokens) else { return nil }
-      self = make(instruction, [], LambdaType(to: ^t))
+      self = .init(name: .llvm(.zeroinitializer(t)), type: .init(to: ^t))
 
+    default:
+      return nil
+    }
+  }
+
+}
+
+extension NativeInstruction.MathFlags {
+
+  /// Creates the math flag described by `description`.
+  fileprivate init?(description: Substring) {
+    switch description {
+    case "afn":
+      self = .afn
+    case "arcp":
+      self = .arcp
+    case "contract":
+      self = .contract
+    case "fast":
+      self = .fast
+    case "ninf":
+      self = .ninf
+    case "nnan":
+      self = .nnan
+    case "nsz":
+      self = .nsz
+    case "reassoc":
+      self = .reassoc
     default:
       return nil
     }
@@ -114,6 +220,20 @@ private func maybe(_ s: String) -> Parser<String?> {
   }
 }
 
+/// Returns a parser that returns `.some(r)` where `r` is the result of `a`, guaranteeing `stream`
+/// is left unchanged if `a` returns `nil`.
+private func maybe<T>(_ a: @escaping Parser<T>) -> Parser<T?> {
+  { (stream: inout ArraySlice<Substring>) -> T?? in
+    let s = stream
+    if let r = a(&stream) {
+      return .some(r)
+    } else {
+      stream = s
+      return .some(nil)
+    }
+  }
+}
+
 /// Returns a parser that returns the result of applying `a` and then `b` or `nil` if either `a`
 /// or `b` returns `nil`.
 private func ++ <A, B>(_ a: @escaping Parser<A>, _ b: @escaping Parser<B>) -> Parser<(A, B)> {
@@ -129,41 +249,41 @@ private func one(of choices: [String]) -> Parser<String> {
   }
 }
 
+/// Returns a parser that returns an elements in `choices` if an equal value can be consumed.
+private func take<T: RawRepresentable>(_: T.Type) -> Parser<T> where T.RawValue == String {
+  { (stream: inout ArraySlice<Substring>) -> T? in
+    stream.popFirst().flatMap({ T(rawValue: .init($0)) })
+  }
+}
+
 /// Returns a built-in type parsed from `stream`.
 private func builtinType(_ stream: inout ArraySlice<Substring>) -> BuiltinType? {
   stream.popFirst().flatMap(BuiltinType.init(_:))
 }
 
 /// Returns the longest sequence of floating-point math flags that can be parsed from `stream`.
-private func mathFlags(_ stream: inout ArraySlice<Substring>) -> [String] {
-  var result: [String] = []
+private func mathFlags(_ stream: inout ArraySlice<Substring>) -> NativeInstruction.MathFlags {
+  var result: NativeInstruction.MathFlags = []
   while let x = stream.first {
-    guard
-      let y = ["afn", "arcp", "contract", "fast", "ninf", "nnan", "nsz", "reassoc"]
-        .first(where: { $0 == x })
-    else { break }
+    guard let y = NativeInstruction.MathFlags(description: x) else { break }
     stream.removeFirst()
-    result.append(y)
+    result.insert(y)
   }
   return result
 }
 
-/// Parses the generic parameters of an integer arithmetic function.
-private let integerArithmeticParameters = maybe("nuw") ++ maybe("nsw") ++ builtinType
+/// Parses the parameters and type of an integer arithmetic function instruction.
+private let integerArithmeticTail =
+  maybe(take(NativeInstruction.IntegerArithmeticParameter.self)) ++ builtinType
 
-/// Parses the generic parameters of `icmp`.
-private let integerComparisonParameters =
-  one(of: ["eq", "ne", "ugt", "uge", "ult", "ule", "sgt", "sge", "slt", "sle"])
-  ++ builtinType
+/// Parses the parameters and type of `icmp`.
+private let integerComparisonTail =
+  take(NativeInstruction.IntegerPredicate.self) ++ builtinType
 
-/// Parses the generic parameters of an floating-point arithmetic function.
-private let floatingPointArithmeticParameters = mathFlags ++ builtinType
+/// Parses the parameters and type of a floating-point arithmetic instruction.
+private let floatingPointArithmeticTail =
+  mathFlags ++ builtinType
 
-/// Parses the generic parameters of `fcmp`.
-private let floatingPointComparisonParameters =
-  mathFlags
-  ++ one(of: [
-    "oeq", "ogt", "oge", "olt", "ole", "one", "ord", "ueq", "ugt", "uge", "ult", "ule", "une",
-    "uno", "true", "false",
-  ])
-  ++ builtinType
+/// Parses the parameters and type of `fcmp`.
+private let floatingPointComparisonTail =
+  mathFlags ++ take(NativeInstruction.FloatingPointPredicate.self) ++ builtinType

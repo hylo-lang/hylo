@@ -405,51 +405,42 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(llvm i: IR.InstructionID) {
       let s = m[i] as! IR.LLVMInstruction
-      switch s.function.llvmInstruction {
-      case "add":
-        let (o, l, r) = integerArithmeticOperands(s)
-        register[.register(i, 0)] = insertAdd(overflow: o, l, r, at: insertionPoint)
-
-      case "sub":
-        let (o, l, r) = integerArithmeticOperands(s)
-        register[.register(i, 0)] = insertSub(overflow: o, l, r, at: insertionPoint)
-
-      case "mul":
-        let (o, l, r) = integerArithmeticOperands(s)
-        register[.register(i, 0)] = insertMul(overflow: o, l, r, at: insertionPoint)
-
-      case "icmp":
-        let p = LLVM.IntegerPredicate(s.function.genericParameters[0])!
+      switch s.instruction {
+      case .add(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertIntegerComparison(p, l, r, at: insertionPoint)
+        register[.register(i, 0)] = insertAdd(overflow: .init(p), l, r, at: insertionPoint)
 
-      case "trunc":
-        let target = ir.syntax.llvm(s.types[0].ast, in: &self)
+      case .sub(let p, _):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertSub(overflow: .init(p), l, r, at: insertionPoint)
+
+      case .mul(let p, _):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertMul(overflow: .init(p), l, r, at: insertionPoint)
+
+      case .icmp(let p, _):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertIntegerComparison(.init(p), l, r, at: insertionPoint)
+
+      case .trunc(_, let t):
+        let target = ir.syntax.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i, 0)] = insertTrunc(source, to: target, at: insertionPoint)
 
-      case "fptrunc":
-        let target = ir.syntax.llvm(s.types[0].ast, in: &self)
+      case .fptrunc(_, let t):
+        let target = ir.syntax.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i, 0)] = insertFPTrunc(source, to: target, at: insertionPoint)
 
-      case "zeroinitializer":
-        let t = ir.syntax.llvm(s.types[0].ast, in: &self)
-        register[.register(i, 0)] = t.null
+      case .zeroinitializer(let t):
+        register[.register(i, 0)] = ir.syntax.llvm(builtinType: t, in: &self).null
 
       default:
-        unreachable("unexpected LLVM instruction '\(s.function.llvmInstruction)'")
-      }
-
-      /// Returns the overflow behavior and operands defined of `s`.
-      func integerArithmeticOperands(
-        _ s: IR.LLVMInstruction
-      ) -> (overflow: LLVM.OverflowBehavior, lhs: LLVM.IRValue, rhs: LLVM.IRValue) {
-        let o = LLVM.OverflowBehavior(s.function.genericParameters)!
-        let l = llvm(s.operands[0])
-        let r = llvm(s.operands[1])
-        return (o, l, r)
+        unreachable("unexpected LLVM instruction '\(s.instruction)'")
       }
     }
 
@@ -564,20 +555,33 @@ extension LLVMProgram: CustomStringConvertible {
 
 extension LLVM.OverflowBehavior {
 
-  fileprivate init?(_ parameters: [String]) {
-    guard parameters.count <= 1 else { return nil }
-    guard let p = parameters.first else {
-      self = .ignore
-      return
-    }
-
+  fileprivate init(_ p: NativeInstruction.IntegerArithmeticParameter?) {
     switch p {
-    case "nsw":
+    case .some(.nsw):
       self = .nsw
-    case "nuw":
+    case .some(.nuw):
       self = .nuw
-    default:
-      return nil
+    case .none:
+      self = .ignore
+    }
+  }
+
+}
+
+extension LLVM.IntegerPredicate {
+
+  fileprivate init(_ p: NativeInstruction.IntegerPredicate) {
+    switch p {
+    case .eq: self = .eq
+    case .ne: self = .ne
+    case .ugt: self = .ugt
+    case .uge: self = .uge
+    case .ult: self = .ult
+    case .ule: self = .ule
+    case .sgt: self = .sgt
+    case .sge: self = .sge
+    case .slt: self = .slt
+    case .sle: self = .sle
     }
   }
 

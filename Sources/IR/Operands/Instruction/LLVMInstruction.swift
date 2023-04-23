@@ -3,8 +3,8 @@ import Core
 /// An instruction whose semantics is defined by LLVM.
 public struct LLVMInstruction: Instruction {
 
-  /// The built-in function representing this instruction.
-  public let function: BuiltinFunction
+  /// The LLVM instruction corresponding to this instance.
+  public let instruction: NativeInstruction
 
   /// The operands of the instruction.
   public let operands: [Operand]
@@ -12,13 +12,21 @@ public struct LLVMInstruction: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(applying f: BuiltinFunction, to operands: [Operand], site: SourceRange) {
-    self.function = f
+  fileprivate init(applying s: NativeInstruction, to operands: [Operand], site: SourceRange) {
+    self.instruction = s
     self.operands = operands
     self.site = site
   }
 
-  public var types: [LoweredType] { [.object(function.type.output)] }
+  public var types: [LoweredType] { [.object(instruction.output)] }
+
+}
+
+extension LLVMInstruction: CustomStringConvertible {
+
+  public var description: String {
+    operands.isEmpty ? "\(instruction)" : "\(instruction) \(list: operands)"
+  }
 
 }
 
@@ -30,7 +38,7 @@ extension Module {
   ///   - f: A built-in function.
   ///   - operands: A collection of built-in objects.
   func makeLLVM(
-    applying f: BuiltinFunction,
+    applying s: NativeInstruction,
     to operands: [Operand],
     anchoredAt anchor: SourceRange
   ) -> LLVMInstruction {
@@ -40,7 +48,7 @@ extension Module {
         return t.isObject && (t.ast.base is BuiltinType)
       })
 
-    return LLVMInstruction(applying: f, to: operands, site: anchor)
+    return LLVMInstruction(applying: s, to: operands, site: anchor)
   }
 
 }
