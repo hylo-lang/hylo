@@ -1,66 +1,46 @@
+import OrderedCollections
 import Utils
 
 /// A generic type bound to arguments.
 public struct BoundGenericType: TypeProtocol {
 
-  /// An argument of a bound generic type.
-  public enum Argument: Hashable {
-
-    /// A type argument.
-    case type(AnyType)
-
-    /// A value argument.
-    case value(AnyExprID)
-
-  }
+  /// The arguments of a bound generic type.
+  public typealias Arguments = OrderedDictionary<GenericParameterDecl.ID, any CompileTimeValue>
 
   /// The underlying generic type.
   public let base: AnyType
 
   /// The type and value arguments of the base type.
-  public let arguments: [Argument]
+  public let arguments: Arguments
 
   public let flags: TypeFlags
 
   /// Creates a bound generic type binding `base` to the given `arguments`.
-  public init<T: TypeProtocol, S: Sequence>(
-    _ instance: T,
-    arguments: S
-  ) where S.Element == Argument {
-    self.init(^instance, arguments: arguments)
-  }
+  ///
+  /// - Requires: `arguments` is not empty.
+  public init<T: TypeProtocol>(_ base: T, arguments: Arguments) {
+    precondition(!arguments.isEmpty)
+    self.base = ^base
+    self.arguments = arguments
 
-  /// Creates a bound generic type binding `base` to the given `arguments`.
-  public init<S: Sequence>(_ base: AnyType, arguments: S) where S.Element == Argument {
-    self.base = base
-
-    var args: [Argument] = []
     var flags: TypeFlags = base.flags
-    for a in arguments {
-      args.append(a)
-      switch a {
-      case .type(let t):
+    for (_, a) in arguments {
+      if let t = a as? AnyType {
         flags.merge(t.flags)
-      case .value:
+      } else {
         fatalError("not implemented")
       }
     }
-
-    self.arguments = args
     self.flags = flags
   }
 
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     BoundGenericType(
       base.transform(transformer),
-      arguments: arguments.map({ (a: Argument) -> Argument in
-        switch a {
-        case .type(let type):
-          // Argument is a type.
-          return .type(type.transform(transformer))
-
-        case .value:
-          // Argument is a value.
+      arguments: arguments.mapValues({ (a) -> any CompileTimeValue in
+        if let t = a as? AnyType {
+          return t.transform(transformer)
+        } else {
           fatalError("not implemented")
         }
       }))
@@ -68,21 +48,31 @@ public struct BoundGenericType: TypeProtocol {
 
 }
 
-extension BoundGenericType: CustomStringConvertible {
+extension BoundGenericType: Equatable {
 
-  public var description: String { "\(base)<\(list: arguments)>" }
+  public static func == (l: Self, r: Self) -> Bool {
+    guard l.base == r.base else { return false }
+    return l.arguments.elementsEqual(r.arguments) { (a, b) in
+      (a.key == b.key) && a.value.equals(b.value)
+    }
+  }
 
 }
 
-extension BoundGenericType.Argument: CustomStringConvertible {
+extension BoundGenericType: Hashable {
 
-  public var description: String {
-    switch self {
-    case .type(let a):
-      return String(describing: a)
-    case .value(let a):
-      return String(describing: a)
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(base)
+    for (k, v) in arguments {
+      hasher.combine(k)
+      hasher.combine(v)
     }
   }
+
+}
+
+extension BoundGenericType: CustomStringConvertible {
+
+  public var description: String { "\(base)<\(list: arguments.values)>" }
 
 }

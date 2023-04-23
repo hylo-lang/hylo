@@ -166,6 +166,9 @@ extension TypeChecker {
     case SequenceExpr.self:
       return inferredType(
         ofSequenceExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+    case StringLiteralExpr.self:
+      return inferredType(
+        ofStringLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
     case SubscriptCallExpr.self:
       return inferredType(
         ofSubscriptCallExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
@@ -359,17 +362,17 @@ extension TypeChecker {
 
       if let pick = initCandidates.uniqueElement {
         // Rebind the callee and constrain its type.
-        let ctorType = LambdaType(constructorFormOf: .init(pick.type.shape)!)
+        let ctor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
         referredDecls[c] = pick.reference
-        state.facts.assign(^ctorType, to: c)
+        state.facts.assign(^ctor, to: c)
         state.facts.append(pick.type.constraints)
 
         // Visit the arguments.
         if parametersMatching(
           arguments: syntax.arguments, of: syntax.callee, in: scope,
-          shapedBy: ctorType.inputs, updating: &state)
+          shapedBy: ctor.inputs, updating: &state)
         {
-          return state.facts.constrain(subject, in: ast, toHaveType: ctorType.output)
+          return state.facts.constrain(subject, in: ast, toHaveType: ctor.output)
         } else {
           return state.facts.assignErrorType(to: subject)
         }
@@ -610,6 +613,15 @@ extension TypeChecker {
     case .leaf(let expr):
       return inferredType(of: expr, shapedBy: shape, in: scope, updating: &state)
     }
+  }
+
+  private mutating func inferredType(
+    ofStringLiteralExpr subject: StringLiteralExpr.ID,
+    shapedBy shape: AnyType?,
+    in scope: AnyScopeID,
+    updating state: inout State
+  ) -> AnyType {
+    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "String")!)
   }
 
   private mutating func inferredType(

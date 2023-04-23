@@ -19,6 +19,13 @@ swift build -c release
 That command will create an executable named `valc` in `.build/release`.
 That's Val compiler!
 
+In order to compile Val programs, the compiler needs to locate Val's SDK.
+By default, `valc` will look for the SDK at `/usr/local/lib/val` on Unix system.
+On Wondows, it will look for a directory named `val` in the working directory.
+A custom location can be specified with the option `--valc`.
+
+On Unix system, you can use `./Tools/install.sh` to create and install Val's SDK.
+
 ### Building Val Devcontainer with VSCode
 
 While Val supports Linux natively, it also provides a [Devcontainer](https://containers.dev/) specification to develop for Linux on other platforms through a Docker container. Our [Linux CI](.github/workflows/build-and-test.yml) uses this specification; this makes it possible to run Linux CI locally on other operating systems like macOS. While this specification should work for any IDE that supports devcontainers, keep in mind this team only uses VSCode. 

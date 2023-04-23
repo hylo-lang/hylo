@@ -1,4 +1,5 @@
 import Core
+import Foundation
 import Utils
 
 /// A module lowered to Val IR.
@@ -6,6 +7,9 @@ import Utils
 /// An IR module is notionally composed of a collection of functions, one of which may be
 /// designated as its entry point (i.e., the `main` function of a Val program).
 public struct Module {
+
+  /// The identity of a global defined in a Val IR module.
+  public typealias GlobalID = Int
 
   /// The program defining the functions in `self`.
   public let program: TypedProgram
@@ -15,6 +19,9 @@ public struct Module {
 
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
+
+  /// The globals in the module.
+  public private(set) var globals: [Constant] = []
 
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
@@ -153,6 +160,13 @@ public struct Module {
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
+  }
+
+  /// Adds a global constant and returns its identity.
+  mutating func addGlobal(_ value: Constant) -> GlobalID {
+    let id = globals.count
+    globals.append(value)
+    return id
   }
 
   /// Declares the function identified by `f` with type `t` and name `n` at given `site` if `f`.

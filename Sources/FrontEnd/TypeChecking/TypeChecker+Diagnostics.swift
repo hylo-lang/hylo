@@ -138,6 +138,10 @@ extension Diagnostic {
       notes: Array(notes.elements))
   }
 
+  static func error(tooManyExistentialBoundsAt site: SourceRange) -> Diagnostic {
+    .error("existential generic type may have only one bound", at: site)
+  }
+
   static func error(
     invalidConformanceConstraintTo type: AnyType, at site: SourceRange
   ) -> Diagnostic {
@@ -227,10 +231,6 @@ extension Diagnostic {
 
   static func error(argumentToNonGenericType type: AnyType, at site: SourceRange) -> Diagnostic {
     .error("non-generic type '\(type)' has no generic parameters", at: site)
-  }
-
-  static func error(metatypeRequiresOneArgumentAt site: SourceRange) -> Diagnostic {
-    .error("reference to 'Metatype' requires exacly one static argument", at: site)
   }
 
   static func error(tooManyAnnotationsOnGenericValueParametersAt site: SourceRange) -> Diagnostic {

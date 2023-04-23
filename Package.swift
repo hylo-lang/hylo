@@ -102,14 +102,18 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
+      name: "Utils",
+      dependencies: [.product(name: "BigInt", package: "BigInt")],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
       name: "ValModule",
       path: "Library",
       resources: [.copy("Core"), .copy("CXX")],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
-      name: "Utils",
-      dependencies: [.product(name: "BigInt", package: "BigInt")],
+      name: "Support",
       swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.

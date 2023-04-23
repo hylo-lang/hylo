@@ -44,10 +44,7 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
   /// Calls `action` with a projection of the objects at the locations assigned to `locals[k]`.
   ///
   /// - Requires: If defined, `locals[k]` is `.locations`.
-  mutating func forEachObject(
-    at k: Operand,
-    _ action: (inout AbstractObject<Domain>) -> Void
-  ) {
+  mutating func forEachObject(at k: Operand, _ action: (inout AbstractObject<Domain>) -> Void) {
     for l in locals[k]!.unwrapLocations()! {
       withObject(at: l, action)
     }
@@ -59,9 +56,6 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
     _ action: (inout AbstractObject<Domain>) -> T
   ) -> T {
     switch location {
-    case .null:
-      preconditionFailure("null location")
-
     case .root:
       return action(&memory[location]!)
 
