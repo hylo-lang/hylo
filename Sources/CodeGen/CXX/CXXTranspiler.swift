@@ -500,10 +500,8 @@ public struct CXXTranspiler {
       return CXXIdentifier(nameOfDecl(callee))
 
     case .builtinFunction(let f):
-      // Decorate the function so that we can uniquely identify it.
-      // Example: `native_zeroinitializer_double`.
-      let cxxType = cxx(typeExpr: f.type.output)
-      return CXXIdentifier("native_\(f.llvmInstruction)_\(cxxType.text)")
+      guard case .llvm(let n) = f.name else { fatalError("not implemented") }
+      return CXXIdentifier("native_\(n)")
 
     case .builtinType:
       unreachable()

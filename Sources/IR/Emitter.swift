@@ -902,8 +902,12 @@ public struct Emitter {
     for e in arguments {
       a.append(emitRValue(program[e.value], into: &module))
     }
-    return module.append(
-      module.makeLLVM(applying: f, to: a, anchoredAt: site), to: insertionBlock!)[0]
+
+    switch f.name {
+    case .llvm(let n):
+      return module.append(
+        module.makeLLVM(applying: n, to: a, anchoredAt: site), to: insertionBlock!)[0]
+    }
   }
 
   private mutating func emitRValue(

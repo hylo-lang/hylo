@@ -74,7 +74,8 @@ let package = Package(
     .target(
       name: "Core",
       dependencies: [
-        "Utils"
+        "Utils",
+        .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 

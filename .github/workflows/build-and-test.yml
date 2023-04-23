@@ -58,7 +58,7 @@ jobs:
           { type: macos, os: macos-latest, test-options: "-Xswiftc -enable-testing --enable-code-coverage" }
         ]
         swift: [
-          { version: "5.7" }
+          { version: "5.8" }
         ]
         configuration: [ "debug", "release" ]
 

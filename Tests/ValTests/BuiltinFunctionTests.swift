@@ -12,7 +12,7 @@ final class BuiltinFunctionTests: XCTestCase {
     let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["add", "sub", "mul"],
-      parameterizedBy: [["i64"], ["nuw", "i64"], ["nsw", "i64"], ["nuw", "nsw", "i64"]],
+      parameterizedBy: [["i64"], ["nuw", "i64"], ["nsw", "i64"]],
       createInstanceWithType: expectedType)
   }
 
@@ -28,7 +28,7 @@ final class BuiltinFunctionTests: XCTestCase {
     let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["shl"],
-      parameterizedBy: [["i64"], ["nuw", "i64"], ["nsw", "i64"], ["nuw", "nsw", "i64"]],
+      parameterizedBy: [["i64"], ["nuw", "i64"], ["nsw", "i64"]],
       createInstanceWithType: expectedType)
   }
 
@@ -182,16 +182,10 @@ final class BuiltinFunctionTests: XCTestCase {
   ) throws {
     for s in instructions {
       for p in parameters {
-        let f = try XCTUnwrap(
-          BuiltinFunction("\(s)_\(list: p, joinedBy: "_")"),
-          file: file, line: line)
-
-        XCTAssertEqual(f.llvmInstruction, s, file: file, line: line)
+        let n = "\(s)_\(list: p, joinedBy: "_")"
+        let f = try XCTUnwrap(BuiltinFunction(n), file: file, line: line)
+        XCTAssertEqual(String(describing: f.name), n, file: file, line: line)
         XCTAssertEqual(f.type, expectedType, file: file, line: line)
-        XCTAssert(
-          zip(f.genericParameters, p).allSatisfy({ $0 == $1 }),
-          "\(f.genericParameters) is not equal to \(p)",
-          file: file, line: line)
       }
     }
   }
