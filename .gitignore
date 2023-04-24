@@ -4,6 +4,7 @@
 
 # IDEs
 /.swiftpm
+/.vscode
 
 # macOS
 .DS_Store

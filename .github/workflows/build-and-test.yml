@@ -97,7 +97,7 @@ jobs:
 
     - name: Test (${{ matrix.configuration }})
       run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
- 
+
   build-on-windows:
     name: "Native: ${{ matrix.host.os }}/release"
     strategy:
@@ -140,6 +140,9 @@ jobs:
       run: Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-libcmt\bin'
 
     - run: llvm-config --version
+
+    - name: Install support library
+      run: ./Tools/install.bat
 
     - name: Build (Release)
       id: first-build

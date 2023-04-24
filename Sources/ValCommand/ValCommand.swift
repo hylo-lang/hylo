@@ -57,7 +57,9 @@ public struct ValCommand: ParsableCommand {
   /// The default location of Val's SDK.
   private static func defaultValSDK() -> URL {
     #if os(Windows)
-      return URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+      //Get user directory
+      let environment = ProcessInfo.processInfo.environment["USERPROFILE"]!
+      return URL(fileURLWithPath: environment + "/.val")
     #else
       return URL(fileURLWithPath: "/usr/local/lib/val")
     #endif
@@ -225,6 +227,8 @@ public struct ValCommand: ParsableCommand {
     #if os(macOS)
       try makeMacOSExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #elseif os(Linux)
+      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+    #elseif os(Windows)
       try makeLinuxExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #else
       _ = objectFiles
