@@ -352,7 +352,8 @@ extension TypeChecker {
       let initName = SourceRepresentable(
         value: Name(stem: "init", labels: ["self"] + syntax.arguments.map(\.label?.value)),
         range: ast[c].name.site)
-      let initCandidates = resolve(initName, withArguments: [], memberOf: instance, from: scope)
+      let initCandidates = resolve(
+        initName, parameterizedBy: [], memberOf: instance, exposedTo: scope)
 
       // We're done if we couldn't find any initializer.
       if initCandidates.isEmpty {

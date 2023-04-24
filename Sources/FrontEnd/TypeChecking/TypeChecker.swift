@@ -1630,6 +1630,27 @@ public struct TypeChecker {
 
   }
 
+  /// Returns `(head, tail)` where `head` contains the nominal components of `name` from right to
+  /// left and `tail` is the non-nominal component of `name`, if any.
+  ///
+  /// Name expressions are rperesented as linked-list, whose elements are the components of a
+  /// name in reverse order. This method splits such lists at the first non-nominal component.
+  private func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain?) {
+    var suffix = [name]
+    while true {
+      let d = ast[suffix.last!].domain
+      switch d {
+      case .none:
+        return (suffix, nil)
+      case .implicit:
+        return (suffix, d)
+      case .expr(let e):
+        guard let p = NameExpr.ID(e) else { return (suffix, d) }
+        suffix.append(p)
+      }
+    }
+  }
+
   /// Resolves the non-overloaded name components of `name` from left to right in `scope`.
   ///
   /// - Postcondition: If the method returns `.done(resolved: r, unresolved: u)`, `r` is not empty
@@ -1638,21 +1659,9 @@ public struct TypeChecker {
     of name: NameExpr.ID,
     in scope: AnyScopeID
   ) -> NameResolutionResult {
-    // Build a stack with the nominal comonents of `nameExpr` or exit if its qualification is
-    // either implicit or prefixed by an expression.
-    var unresolvedComponents = [name]
-    loop: while true {
-      switch ast[unresolvedComponents.last!].domain {
-      case .implicit:
-        return .inexecutable(unresolvedComponents)
-
-      case .expr(let e):
-        guard let domain = NameExpr.ID(e) else { return .inexecutable(unresolvedComponents) }
-        unresolvedComponents.append(domain)
-
-      case .none:
-        break loop
-      }
+    var (unresolved, domain) = splitNominalComponents(of: name)
+    if domain != nil {
+      return .inexecutable(unresolved)
     }
 
     // Resolve the nominal components of `nameExpr` from left to right as long as we don't need
@@ -1660,7 +1669,7 @@ public struct TypeChecker {
     var resolvedPrefix: [NameResolutionResult.ResolvedComponent] = []
     var parentType: AnyType? = nil
 
-    while let component = unresolvedComponents.popLast() {
+    while let component = unresolved.popLast() {
       // Evaluate the static argument list.
       var arguments: [AnyType] = []
       for a in ast[component].arguments {
@@ -1671,7 +1680,7 @@ public struct TypeChecker {
       // Resolve the component.
       let componentSyntax = ast[component]
       let candidates = resolve(
-        componentSyntax.name, withArguments: arguments, memberOf: parentType, from: scope)
+        componentSyntax.name, parameterizedBy: arguments, memberOf: parentType, exposedTo: scope)
 
       // Fail resolution we didn't find any candidate.
       if candidates.isEmpty { return .failed }
@@ -1693,7 +1702,7 @@ public struct TypeChecker {
     }
 
     precondition(!resolvedPrefix.isEmpty)
-    return .done(resolved: resolvedPrefix, unresolved: unresolvedComponents)
+    return .done(resolved: resolvedPrefix, unresolved: unresolved)
   }
 
   /// Returns the declarations of `name` exposed to `lookupScope` and accepting `arguments`,
@@ -1701,9 +1710,9 @@ public struct TypeChecker {
   /// lookup otherwise.
   mutating func resolve(
     _ name: SourceRepresentable<Name>,
-    withArguments arguments: [any CompileTimeValue],
+    parameterizedBy arguments: [any CompileTimeValue],
     memberOf parentType: AnyType?,
-    from lookupScope: AnyScopeID
+    exposedTo useScope: AnyScopeID
   ) -> [NameResolutionResult.Candidate] {
     // Handle references to the built-in module.
     if (name.value.stem == "Builtin") && (parentType == nil) && isBuiltinModuleVisible {
@@ -1718,7 +1727,7 @@ public struct TypeChecker {
     }
 
     // Gather declarations qualified by `parentType` if it isn't `nil` or unqualified otherwise.
-    let matches = lookup(name, memberOf: parentType, exposedTo: lookupScope)
+    let matches = lookup(name, memberOf: parentType, exposedTo: useScope)
     if matches.isEmpty {
       diagnostics.insert(.error(undefinedName: name.value, in: parentType, at: name.site))
       return []
@@ -1739,7 +1748,7 @@ public struct TypeChecker {
       guard
         let targetType = resolve(
           typeOf: name, withArguments: arguments,
-          declaredBy: match, specializedWith: parentArguments, exposedTo: lookupScope,
+          declaredBy: match, specializedWith: parentArguments, exposedTo: useScope,
           reportingErrorsTo: &invalidArgumentsDiagnostics)
       else { continue }
 
