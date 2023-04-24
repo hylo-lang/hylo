@@ -1117,7 +1117,7 @@ extension TypeChecker {
   /// - Requires: `candidates` is not empty
   private mutating func bind(
     _ name: NameExpr.ID,
-    to candidates: [TypeChecker.NameResolutionResult.Candidate],
+    to candidates: [NameResolutionResult.Candidate],
     updating state: inout State
   ) -> AnyType {
     precondition(!candidates.isEmpty)
