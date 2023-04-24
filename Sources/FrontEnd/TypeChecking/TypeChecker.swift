@@ -1598,6 +1598,22 @@ public struct TypeChecker {
       /// The quantifier-free type of the declaration at its use site.
       let type: InstantiatedType
 
+      /// Creates an instance with the given properties.
+      init(reference: DeclRef, type: InstantiatedType) {
+        self.reference = reference
+        self.type = type
+      }
+
+      /// Creates an instance denoting a built-in function.
+      init(_ f: BuiltinFunction) {
+        self.init(reference: .builtinFunction(f), type: .init(shape: ^f.type(), constraints: []))
+      }
+
+      /// Creates an instance denoting a built-in type.
+      init(_ t: BuiltinType) {
+        self.init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
+      }
+
     }
 
     /// The resolut of name resolution for a single name component.
@@ -1666,7 +1682,7 @@ public struct TypeChecker {
 
     // Resolve the nominal components of `nameExpr` from left to right as long as we don't need
     // contextual information to resolve overload sets.
-    var resolvedPrefix: [NameResolutionResult.ResolvedComponent] = []
+    var resolved: [NameResolutionResult.ResolvedComponent] = []
     var parentType: AnyType? = nil
 
     while let component = unresolved.popLast() {
@@ -1678,15 +1694,14 @@ public struct TypeChecker {
       }
 
       // Resolve the component.
-      let componentSyntax = ast[component]
       let candidates = resolve(
-        componentSyntax.name, parameterizedBy: arguments, memberOf: parentType, exposedTo: scope)
+        ast[component].name, parameterizedBy: arguments, memberOf: parentType, exposedTo: scope)
 
       // Fail resolution we didn't find any candidate.
       if candidates.isEmpty { return .failed }
 
       // Append the resolved component to the nominal prefix.
-      resolvedPrefix.append(.init(component, candidates))
+      resolved.append(.init(component, candidates))
 
       // Defer resolution of the remaining name components if there are multiple candidates for
       // the current component or if we found a type variable.
@@ -1701,8 +1716,8 @@ public struct TypeChecker {
       }
     }
 
-    precondition(!resolvedPrefix.isEmpty)
-    return .done(resolved: resolvedPrefix, unresolved: unresolved)
+    precondition(!resolved.isEmpty)
+    return .done(resolved: resolved, unresolved: unresolved)
   }
 
   /// Returns the declarations of `name` exposed to `lookupScope` and accepting `arguments`,
@@ -1714,16 +1729,14 @@ public struct TypeChecker {
     memberOf parentType: AnyType?,
     exposedTo useScope: AnyScopeID
   ) -> [NameResolutionResult.Candidate] {
-    // Handle references to the built-in module.
-    if (name.value.stem == "Builtin") && (parentType == nil) && isBuiltinModuleVisible {
-      return [
-        .init(reference: .builtinType, type: .init(shape: ^BuiltinType.module, constraints: []))
-      ]
-    }
-
-    // Handle references to built-in symbols.
-    if parentType == .builtin(.module) {
-      return resolve(builtin: name.value).map({ [$0] }) ?? []
+    // Resolve references to the built-in symbols.
+    if isBuiltinModuleVisible {
+      if (parentType == nil) && (name.value.stem == "Builtin") {
+        return [.init(.module)]
+      }
+      if parentType == .builtin(.module) {
+        return resolve(builtin: name)
+      }
     }
 
     // Gather declarations qualified by `parentType` if it isn't `nil` or unqualified otherwise.
@@ -1826,15 +1839,18 @@ public struct TypeChecker {
     return targetType.isError ? nil : targetType
   }
 
-  /// Resolves a reference to the built-in symbol named `name`.
-  private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
-    if let f = BuiltinFunction(name.stem) {
-      return .init(reference: .builtinFunction(f), type: .init(shape: ^f.type(), constraints: []))
+  /// Resolves a reference to the built-in type or function named `name`.
+  private mutating func resolve(
+    builtin name: SourceRepresentable<Name>
+  ) -> [NameResolutionResult.Candidate] {
+    if let f = BuiltinFunction(name.value.stem) {
+      return [.init(f)]
     }
-    if let t = BuiltinType(name.stem) {
-      return .init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
+    if let t = BuiltinType(name.value.stem) {
+      return [.init(t)]
     }
-    return nil
+    diagnostics.insert(.error(undefinedName: name.value, in: .builtin(.module), at: name.site))
+    return []
   }
 
   /// Returns a table mapping the generic parameters introduced by `d`, which declares `name`, to
