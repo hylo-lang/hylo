@@ -10,6 +10,10 @@ public struct BuiltinFunction: Hashable {
   /// Returns the type of the function.
   public func type() -> LambdaType {
     switch self.name {
+    case .addressOf:
+      let p = ParameterType(.let, ^TypeVariable())
+      return .init(inputs: [.init(label: "of", type: ^p)], output: .builtin(.ptr))
+
     case .llvm(let s):
       return s.type
     }
@@ -25,6 +29,12 @@ extension BuiltinFunction {
     /// An LLVM instruction.
     case llvm(NativeInstruction)
 
+    /// `Builtin.address<T>(of v: T) -> Builtin.ptr`
+    ///
+    /// Returns a pointer to a value passed as a `let` or `inout` argument. The returned pointer
+    /// is only valid within the function in which `address_of` is being called.
+    case addressOf
+
   }
 
 }
@@ -35,6 +45,8 @@ extension BuiltinFunction.Name: CustomStringConvertible {
     switch self {
     case .llvm(let n):
       return n.description
+    case .addressOf:
+      return "address_of(_:)"
     }
   }
 
@@ -47,7 +59,7 @@ extension BuiltinFunction {
   /// Creates a built-in function named `n` or returns `nil` if `n` isn't a valid name.
   public init?(_ n: String) {
     switch n {
-    case "address_of":
+    case "address":
       self.init(name: .addressOf)
     default:
       self.init(native: n)

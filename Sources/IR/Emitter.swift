@@ -907,6 +907,9 @@ public struct Emitter {
     case .llvm(let n):
       return module.append(
         module.makeLLVM(applying: n, to: a, anchoredAt: site), to: insertionBlock!)[0]
+
+    case .addressOf:
+      fatalError("not implemented")
     }
   }
 
