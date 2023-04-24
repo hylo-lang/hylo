@@ -898,18 +898,19 @@ public struct Emitter {
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    var a: [Operand] = []
-    for e in arguments {
-      a.append(emitRValue(program[e.value], into: &module))
-    }
-
     switch f.name {
     case .llvm(let n):
+      var a: [Operand] = []
+      for e in arguments {
+        a.append(emitRValue(program[e.value], into: &module))
+      }
       return module.append(
         module.makeLLVM(applying: n, to: a, anchoredAt: site), to: insertionBlock!)[0]
 
     case .addressOf:
-      fatalError("not implemented")
+      let source = emitLValue(program[arguments[0].value], into: &module)
+      return module.append(
+        module.makeAddressToPointer(source, anchoredAt: site), to: insertionBlock!)[0]
     }
   }
 

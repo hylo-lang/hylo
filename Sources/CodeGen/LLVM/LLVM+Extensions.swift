@@ -239,6 +239,8 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(_ i: IR.InstructionID) {
       switch m[i] {
+      case is IR.AddressToPointerInstruction:
+        insert(addressToPointer: i)
       case is IR.AllocStackInstruction:
         insert(allocStack: i)
       case is IR.BorrowInstruction:
@@ -280,6 +282,12 @@ extension LLVM.Module {
       default:
         fatalError("not implemented")
       }
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(addressToPointer i: IR.InstructionID) {
+      let s = m[i] as! AddressToPointerInstruction
+      register[.register(i, 0)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
