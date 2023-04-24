@@ -131,9 +131,6 @@ extension LLVM.Module {
 
     case .void:
       fatalError("not implemented")
-
-    case .builtin:
-      unreachable()
     }
   }
 

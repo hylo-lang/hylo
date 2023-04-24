@@ -27,15 +27,6 @@ public struct CallInstruction: Instruction {
     self.site = site
   }
 
-  /// Returns whether the instruction is a call to a built-in function.
-  public var isBuiltinCall: Bool {
-    if case .constant(.builtin) = callee {
-      return true
-    } else {
-      return false
-    }
-  }
-
   /// The callee.
   public var callee: Operand { operands[0] }
 
