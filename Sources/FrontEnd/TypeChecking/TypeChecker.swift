@@ -1820,7 +1820,7 @@ public struct TypeChecker {
   /// Resolves a reference to the built-in symbol named `name`.
   private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
     if let f = BuiltinFunction(name.stem) {
-      return .init(reference: .builtinFunction(f), type: .init(shape: ^f.type, constraints: []))
+      return .init(reference: .builtinFunction(f), type: .init(shape: ^f.type(), constraints: []))
     }
     if let t = BuiltinType(name.stem) {
       return .init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
