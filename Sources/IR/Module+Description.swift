@@ -18,7 +18,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
   /// Writes a textual representation of this instance into `output`.
   public func write<Target: TextOutputStream>(to output: inout Target) {
     output.write(contentsOf: globals.enumerated(), separatedBy: "\n") { (s, e) in
-      s.write("@\(syntax.id).\(e.offset) = \(e.element)")
+      s.write("global @\(syntax.id).\(e.offset) = \(e.element)")
     }
     if !globals.isEmpty && !functions.isEmpty {
       output.write("\n")
@@ -33,7 +33,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     let function = functions[f]!
 
     // Dumps the function in the module.
-    output.write("@lowered fun \(function.name)(")
+    output.write("fun \(function.name)(")
     output.write(function.inputs.lazy.descriptions())
     output.write(") -> \(function.output) {\n")
 
