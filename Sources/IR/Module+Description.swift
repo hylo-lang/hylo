@@ -33,7 +33,6 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     let function = functions[f]!
 
     // Dumps the function in the module.
-    if let debugName = function.debugName { output.write("// \(debugName)\n") }
     output.write("@lowered fun \(function.name)(")
     output.write(function.inputs.lazy.descriptions())
     output.write(") -> \(function.output) {\n")

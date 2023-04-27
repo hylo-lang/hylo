@@ -11,9 +11,6 @@ public struct Function {
   /// The mangled name of the function.
   public let name: String
 
-  /// The debug name of the function, if any.
-  public let debugName: String?
-
   /// The position in source code at which the function is anchored.
   public let anchor: SourcePosition
 
