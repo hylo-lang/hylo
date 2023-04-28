@@ -489,8 +489,8 @@ public struct TypeChecker {
 
       // Inline functions may return `Never` regardless of their return type.
       let r = LambdaType(declTypes[id]!)!.output.skolemized
-      let c = constraintOnSingleExprBody(body, ofFunctionReturning: r)
-      _ = solutionTyping(body, shapedBy: r, in: id, initialConstraints: [c])
+      let (t, c) = typeAndConstraintOfBody(body, inFunctionReturning: r)
+      _ = solutionTyping(body, shapedBy: t, in: id, initialConstraints: [c])
 
     case nil:
       // Requirements and FFIs can be without a body.
@@ -501,28 +501,29 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the type constraint placed on the body `e` of a single-expression function returning
-  /// instances of `r`.
+  /// Returns `(t, c)` where `t` is the type of the body `e` of a single-expression function whose
+  /// return type is `r`, and `c` is the constraint placed on `t`.
   ///
   /// Use this method to create initial constraints passed to `solutionTyping` to type check the
   /// body of a single-expression function. The returned constraint allows this body to have type
   /// `Never` even if the function declares a different return type.
-  private mutating func constraintOnSingleExprBody(
-    _ e: AnyExprID, ofFunctionReturning r: AnyType
-  ) -> Constraint {
-    let l = exprTypes[e].setIfNil(^TypeVariable())
-    let c = ConstraintOrigin(.return, at: ast[e].site)
-    let constrainToNever = EqualityConstraint(l, .never, origin: c)
+  private mutating func typeAndConstraintOfBody(
+    _ e: AnyExprID, inFunctionReturning r: AnyType
+  ) -> (AnyType, Constraint) {
+    let t = exprTypes[e].setIfNil(^TypeVariable())
+    let o = ConstraintOrigin(.return, at: ast[e].site)
+    let constrainToNever = EqualityConstraint(t, .never, origin: o)
 
     if relations.areEquivalent(r, .never) {
-      return constrainToNever
+      return (t, constrainToNever)
     } else {
-      return DisjunctionConstraint(
+      let c = DisjunctionConstraint(
         choices: [
-          .init(constraints: [SubtypingConstraint(l, r, origin: c)], penalties: 0),
+          .init(constraints: [SubtypingConstraint(t, r, origin: o)], penalties: 0),
           .init(constraints: [constrainToNever], penalties: 1),
         ],
-        origin: c)
+        origin: o)
+      return (t, c)
     }
   }
 
