@@ -5,54 +5,6 @@ import Utils
 /// expressions.
 struct ConstraintSystem {
 
-  /// The identity of a gaol in an instance of `ConstraintSystem`.
-  private typealias GoalIdentity = Int
-
-  /// A map from goal to its outcome.
-  private typealias OutcomeMap = [Outcome?]
-
-  /// A closure reporting the diagnostics of a goal's failure into `d`, using `m` to reify types
-  /// and reading the outcome of other goals from `o`.
-  private typealias DiagnoseFailure = (
-    _ d: inout DiagnosticSet,
-    _ m: SubstitutionMap,
-    _ o: OutcomeMap
-  ) -> Void
-
-  /// The outcome of a goal.
-  private enum Outcome {
-
-    /// The goal was solved.
-    ///
-    /// Information inferred from the goal has been stored in the solver's state.
-    case success
-
-    /// The goal was unsatisfiable.
-    ///
-    /// The goal was in conflict with the information inferred by the solver. The payload is a
-    /// closure that generates a diagnostic of the conflict.
-    case failure(DiagnoseFailure)
-
-    /// The goal was broken into subordinate goal.
-    ///
-    /// The payload is a non-empty array of subordinate goals along with a closure that's used to
-    /// generate a diagnostic in case one of the subordinate goals are unsatisfiable.
-    case product([GoalIdentity], DiagnoseFailure)
-
-    /// Returns the diagnosis constructor of `.failure` or `.product` payload.
-    var dianoseFailure: DiagnoseFailure? {
-      switch self {
-      case .success:
-        return nil
-      case .failure(let f):
-        return f
-      case .product(_, let f):
-        return f
-      }
-    }
-
-  }
-
   /// The scope in which the goals are solved.
   private let scope: AnyScopeID
 
@@ -173,21 +125,7 @@ struct ConstraintSystem {
 
   /// Returns `true` iff the solving `g` failed and `g` isn't subordinate.
   private func isFailureRoot(_ g: GoalIdentity) -> Bool {
-    (goals[g].origin.parent == nil) && (succeeded(g) == false)
-  }
-
-  /// Returns whether the solving `g` succeeded or `.none` if outcome has been computed yet.
-  private func succeeded(_ g: GoalIdentity) -> ThreeValuedBit {
-    switch outcomes[g] {
-    case nil:
-      return nil
-    case .some(.success):
-      return true
-    case .some(.failure):
-      return false
-    case .some(.product(let s, _)):
-      return s.reduce(nil, { (r, k) in r && succeeded(k) })
-    }
+    (goals[g].origin.parent == nil) && (outcomes.succeeded(g) == false)
   }
 
   /// Records the outcome `value` for the goal `key`.
@@ -220,7 +158,7 @@ struct ConstraintSystem {
     let m = typeAssumptions.optimized()
     var d = DiagnosticSet()
     for (k, v) in zip(goals.indices, outcomes) where isFailureRoot(k) {
-      v!.dianoseFailure!(&d, m, outcomes)
+      v!.diagnoseFailure!(&d, m, outcomes)
     }
 
     return Solution(
@@ -588,11 +526,8 @@ struct ConstraintSystem {
     }
 
     // Make sure `F` structurally matches the given parameter list.
-    if goal.labels.count != callee.labels.count {
-      return .failure { (d, m, _) in
-        d.insert(.error(incompatibleParameterCountAt: goal.origin.site))
-      }
-    } else if !goal.labels.elementsEqual(callee.labels) {
+    // TODO: default arguments
+    if !goal.labels.elementsEqual(callee.labels) {
       return .failure { (d, m, _) in
         d.insert(
           .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.origin.site))
@@ -601,9 +536,9 @@ struct ConstraintSystem {
 
     // Break down the goal.
     var subordinates: [GoalIdentity] = []
-    for (a, b) in zip(callee.inputs, goal.parameters) {
-      subordinates.append(
-        schedule(EqualityConstraint(a.type, b.type, origin: goal.origin.subordinate())))
+    for (a, b) in zip(goal.arguments, callee.inputs) {
+      let o = ConstraintOrigin(.argument, at: a.site)
+      subordinates.append(schedule(ParameterConstraint(a.type, b.type, origin: o)))
     }
     subordinates.append(
       schedule(
@@ -731,7 +666,11 @@ struct ConstraintSystem {
   /// Returns an outcome indicating that a goal has been broken into given `subordinates` and
   /// forwards their diagnostics.
   private func delegate(to s: [GoalIdentity]) -> Outcome {
-    .product(s, { (d, m, r) in s.forEach({ r[$0]!.dianoseFailure?(&d, m, r) }) })
+    .product(s) { (d, m, r) in
+      for g in s where !(r.succeeded(g)!) {
+        r[g]!.diagnoseFailure?(&d, m, r)
+      }
+    }
   }
 
   /// Schedules `g` to be solved in the future and returns its identity.
@@ -1005,13 +944,77 @@ struct ConstraintSystem {
     if !isLoggingEnabled { return }
     log("fresh:")
     for g in fresh {
-      log("- - \"\(goals[g])\"")
-      log("  - \"\(goals[g].origin)\"")
+      log("- \"\(goals[g])\"")
     }
     log("stale:")
     for g in stale {
-      log("- - \"\(goals[g])\"")
-      log("  - \"\(goals[g].origin)\"")
+      log("- \"\(goals[g])\"")
+    }
+  }
+
+}
+
+/// A closure reporting the diagnostics of a goal's failure into `d`, using `m` to reify types
+/// and reading the outcome of other goals from `o`.
+private typealias DiagnoseFailure = (
+  _ d: inout DiagnosticSet,
+  _ m: SubstitutionMap,
+  _ o: OutcomeMap
+) -> Void
+
+/// The identity of a gaol in an instance of `ConstraintSystem`.
+private typealias GoalIdentity = Int
+
+/// A map from goal to its outcome.
+private typealias OutcomeMap = [Outcome?]
+
+/// The outcome of a goal.
+private enum Outcome {
+
+  /// The goal was solved.
+  ///
+  /// Information inferred from the goal has been stored in the solver's state.
+  case success
+
+  /// The goal was unsatisfiable.
+  ///
+  /// The goal was in conflict with the information inferred by the solver. The payload is a
+  /// closure that generates a diagnostic of the conflict.
+  case failure(DiagnoseFailure)
+
+  /// The goal was broken into subordinate goal.
+  ///
+  /// The payload is a non-empty array of subordinate goals along with a closure that's used to
+  /// generate a diagnostic in case one of the subordinate goals are unsatisfiable.
+  case product([GoalIdentity], DiagnoseFailure)
+
+  /// Returns the diagnosis constructor of `.failure` or `.product` payload.
+  var diagnoseFailure: DiagnoseFailure? {
+    switch self {
+    case .success:
+      return nil
+    case .failure(let f):
+      return f
+    case .product(_, let f):
+      return f
+    }
+  }
+
+}
+
+extension OutcomeMap {
+
+  /// Returns whether the solving `g` succeeded or `.none` if outcome has been computed yet.
+  fileprivate func succeeded(_ g: GoalIdentity) -> ThreeValuedBit {
+    switch self[g] {
+    case nil:
+      return nil
+    case .some(.success):
+      return true
+    case .some(.failure):
+      return false
+    case .some(.product(let s, _)):
+      return s.reduce(true, { (r, k) in r && succeeded(k) })
     }
   }
 
