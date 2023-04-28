@@ -142,27 +142,34 @@ jobs:
     - run: llvm-config --version
 
     - name: Build support library
+      id: build-support-library
+      continue-on-error: true
+      run: swift build -c release --target Support
+
+    - name: Retry again on failure
+      continue-on-error: false
+      if: steps.build-support-library != 'success'
       run: swift build -c release --target Support
       
     - name: Install support library
       run: ./Tools/install.bat
 
     - name: Build (Release)
-      id: first-build
+      id: build
       continue-on-error: true
       run: swift build -v -c release
 
     - name: Retry again on failure
       continue-on-error: false
-      if: steps.first-build.outcome != 'success'
+      if: steps.build.outcome != 'success'
       run: swift build -v -c release
 
     - name: Test (Release)
-      id: first-test
+      id: test
       continue-on-error: true
       run: swift test -c release -Xswiftc -enable-testing ${{matrix.host.test-options}}
 
     - name: Retry again on failure
       continue-on-error: false
-      if: steps.first-test.outcome != 'success'
+      if: steps.test.outcome != 'success'
       run: swift test -c release -Xswiftc -enable-testing ${{matrix.host.test-options}}
