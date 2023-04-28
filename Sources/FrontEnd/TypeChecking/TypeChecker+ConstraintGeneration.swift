@@ -294,10 +294,8 @@ extension TypeChecker {
 
     let calleeType: AnyType
     if let callee = NameExpr.ID(syntax.callee) {
-      let l = ast[subject].arguments.map(\.label?.value)
       calleeType = inferredType(
-        ofNameExpr: callee, withImplicitDomain: shape, appliedWith: l, shapedBy: nil,
-        in: scope, updating: &state)
+        ofNameExpr: callee, withImplicitDomain: shape, shapedBy: nil, in: scope, updating: &state)
     } else {
       calleeType = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
     }
@@ -504,7 +502,6 @@ extension TypeChecker {
   private mutating func inferredType(
     ofNameExpr subject: NameExpr.ID,
     withImplicitDomain domain: AnyType? = nil,
-    appliedWith labels: [String?]? = nil,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -537,8 +534,9 @@ extension TypeChecker {
 
     case .done(let prefix, let suffix):
       unresolvedComponents = suffix
-      lastVisitedComponentType =
-        bind(prefix, appliedWith: suffix.isEmpty ? labels : nil, updating: &state)
+      for p in prefix {
+        lastVisitedComponentType = bind(p.component, to: p.candidates, updating: &state)
+      }
     }
 
     // Create the necessary constraints to let the solver resolve the remaining components.
@@ -1081,35 +1079,6 @@ extension TypeChecker {
     }
 
     return parameters
-  }
-
-  /// Constrains the name expressions in `path` to references to either of their corresponding
-  /// resolution candidations, using `labels` to filter overloaded candidates.
-  ///
-  /// - Parameters:
-  ///   - path: A sequence of resolved components returned by `TypeChecker.resolveNominalPrefix`.
-  ///   - labels: the labels of a call expression if `path` denotes all the components of a name
-  ///     expression used as the callee of the call.
-  private mutating func bind(
-    _ path: [NameResolutionResult.ResolvedComponent],
-    appliedWith labels: [String?]?,
-    updating state: inout State
-  ) -> AnyType {
-    for p in path.dropLast() {
-      _ = bind(p.component, to: p.candidates, updating: &state)
-    }
-
-    let lastVisited = path.last!
-    let c: [NameResolutionResult.Candidate]
-    if lastVisited.candidates.count > 1, let l = labels {
-      let y = lastVisited.candidates.filter { (z) in
-        z.reference.decl.map({ self.labels($0) == l }) ?? false
-      }
-      c = y.isEmpty ? lastVisited.candidates : y
-    } else {
-      c = lastVisited.candidates
-    }
-    return bind(lastVisited.component, to: c, updating: &state)
   }
 
   /// Constrains `name` to be a reference to either of the declarations in `candidates`.
