@@ -538,7 +538,7 @@ extension TypeChecker {
     case .done(let prefix, let suffix):
       unresolvedComponents = suffix
       lastVisitedComponentType =
-        bind(prefix, appliedWithLabels: suffix.isEmpty ? labels : nil, updating: &state)
+        bind(prefix, appliedWith: suffix.isEmpty ? labels : nil, updating: &state)
     }
 
     // Create the necessary constraints to let the solver resolve the remaining components.
@@ -1092,7 +1092,7 @@ extension TypeChecker {
   ///     expression used as the callee of the call.
   private mutating func bind(
     _ path: [NameResolutionResult.ResolvedComponent],
-    appliedWithLabels labels: [String?]?,
+    appliedWith labels: [String?]?,
     updating state: inout State
   ) -> AnyType {
     for p in path.dropLast() {
