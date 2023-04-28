@@ -51,7 +51,11 @@ final class ExecutionTests: XCTestCase {
     let output = try compile(f, with: ["--emit", "binary", "-o", "hello"])
     let result = try run(output)
     XCTAssertEqual(result.status, 0, "Exit code is \(result.status)")
-    XCTAssertEqual(result.standardOutput, "Hello, World!\n")
+    #if os(Windows)
+      XCTAssertEqual(result.standardOutput, "Hello, World!\r\n")
+    #else
+      XCTAssertEqual(result.standardOutput, "Hello, World!\n")
+    #endif
   }
 
   /// Compiles `input` with the given arguments and returns the URL of the output file.

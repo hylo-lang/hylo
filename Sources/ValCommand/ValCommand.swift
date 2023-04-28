@@ -192,10 +192,13 @@ public struct ValCommand: ParsableCommand {
     // C++
 
     if outputType == .cpp {
-      let codeFormatter: CodeTransform? = (try? find("clang-format")).map({
-        clangFormatter(URL(fileURLWithPath: $0))
-      })
-
+      #if os(Windows)
+        let codeFormatter: CodeTransform? = nil
+      #else
+        let codeFormatter: CodeTransform? = (try? find("clang-format")).map({
+          clangFormatter(URL(fileURLWithPath: $0))
+        })
+      #endif
       let cxxModules = (
         core: program.cxx(program.coreLibrary!, withFormatter: codeFormatter),
         source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
