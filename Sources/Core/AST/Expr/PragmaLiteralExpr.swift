@@ -7,6 +7,9 @@ public struct PragmaLiteralExpr: Expr {
     /// The file in which the literal appears.
     case file
 
+    /// The line at which the literal appears.
+    case line
+
   }
 
   /// The site from which `self` was parsed.

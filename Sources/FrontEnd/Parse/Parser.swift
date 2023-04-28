@@ -1798,6 +1798,8 @@ public enum Parser {
     switch state.lexer.sourceCode[t.site].dropFirst() {
     case "file":
       result = .file
+    case "line":
+      result = .line
     case let n:
       throw [.error(unknownPragma: n, at: t.site)] as DiagnosticSet
     }

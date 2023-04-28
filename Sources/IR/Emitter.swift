@@ -1013,6 +1013,8 @@ public struct Emitter {
     switch program.ast[syntax.id].kind {
     case .file:
       return emitString(syntax.site.file.url.absoluteURL.path, at: syntax.site, into: &module)
+    case .line:
+      return emitInt(syntax.site.first().line.number, at: syntax.site, into: &module)
     }
   }
 
@@ -1263,6 +1265,19 @@ public struct Emitter {
     let base = emitCoreInstance(
       of: "RawPointer", aggregating: [.constant(.pointer(p))], at: site, into: &module)
     return emitCoreInstance(of: "String", aggregating: [size, base], at: site, into: &module)
+  }
+
+  /// Inserts the IR for integer `i` into `module` at the end of the current insertion block,
+  /// anchoring instructions at site.
+  private mutating func emitInt(
+    _ i: Int,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let t = program.ast.coreType(named: "Int")!
+    let s = module.makeRecord(
+      t, aggregating: [.constant(.integer(IntegerConstant(i, bitWidth: 64)))], anchoredAt: site)
+    return module.append(s, to: insertionBlock!)[0]
   }
 
   /// Inserts the IR for branch condition `expr` into `module` at the end of the current insertion

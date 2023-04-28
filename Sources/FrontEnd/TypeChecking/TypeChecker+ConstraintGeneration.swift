@@ -567,6 +567,8 @@ extension TypeChecker {
     switch program.ast[subject].kind {
     case .file:
       return state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "String")!)
+    case .line:
+      return state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "Int")!)
     }
   }
 
