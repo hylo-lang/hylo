@@ -1,8 +1,6 @@
 /// A constant Val IR value.
 public enum Constant: Hashable {
 
-  case builtin(BuiltinFunctionRef)
-
   case function(FunctionRef)
 
   case integer(IntegerConstant)
@@ -24,8 +22,6 @@ public enum Constant: Hashable {
   /// The associated value of this constant.
   public var base: ConstantProtocol {
     switch self {
-    case .builtin(let c):
-      return c
     case .function(let c):
       return c
     case .integer(let c):

@@ -7,8 +7,17 @@ public struct BuiltinFunction: Hashable {
   /// The name of the function.
   public let name: Name
 
-  /// The type of the function.
-  public let type: LambdaType
+  /// Returns the type of the function.
+  public func type() -> LambdaType {
+    switch self.name {
+    case .addressOf:
+      let p = ParameterType(.let, ^TypeVariable())
+      return .init(inputs: [.init(label: "of", type: ^p)], output: .builtin(.ptr))
+
+    case .llvm(let s):
+      return s.type
+    }
+  }
 
 }
 
@@ -20,6 +29,12 @@ extension BuiltinFunction {
     /// An LLVM instruction.
     case llvm(NativeInstruction)
 
+    /// `Builtin.address<T>(of v: T) -> Builtin.ptr`
+    ///
+    /// Returns a pointer to a value passed as a `let` or `inout` argument. The returned pointer
+    /// is only valid within the function in which `address_of` is being called.
+    case addressOf
+
   }
 
 }
@@ -30,6 +45,8 @@ extension BuiltinFunction.Name: CustomStringConvertible {
     switch self {
     case .llvm(let n):
       return n.description
+    case .addressOf:
+      return "address_of(_:)"
     }
   }
 
@@ -39,133 +56,143 @@ extension BuiltinFunction.Name: CustomStringConvertible {
 
 extension BuiltinFunction {
 
-  /// Creates an instance by parsing its name from `s`, returning `nil` if `s` isn't a valid
-  /// function name.
-  public init?(_ s: String) {
-    var tokens = s.split(separator: "_")[...]
+  /// Creates a built-in function named `n` or returns `nil` if `n` isn't a valid name.
+  public init?(_ n: String) {
+    switch n {
+    case "address":
+      self.init(name: .addressOf)
+    default:
+      self.init(native: n)
+    }
+  }
+
+  /// Creates a built-in function representing the native instruction nameed `n` or returns `nil`
+  /// if `n` isn't a valid native instruction name.
+  private init?(native n: String) {
+    var tokens = n.split(separator: "_")[...]
 
     // The first token is the LLVM instruction name.
     guard let instruction = tokens.popFirst().map(String.init(_:)) else { return nil }
     switch instruction {
     case "add":
       guard let (p, t) = integerArithmeticTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.add(p, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.add(p, t)))
 
     case "sub":
       guard let (p, t) = integerArithmeticTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.sub(p, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.sub(p, t)))
 
     case "mul":
       guard let (p, t) = integerArithmeticTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.mul(p, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.mul(p, t)))
 
     case "shl":
       guard let (p, t) = integerArithmeticTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.shl(p, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.shl(p, t)))
 
     case "udiv":
       guard let (p, t) = (maybe("exact") ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.udiv(exact: p != nil, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.udiv(exact: p != nil, t)))
 
     case "sdiv":
       guard let (p, t) = (maybe("exact") ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.sdiv(exact: p != nil, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.sdiv(exact: p != nil, t)))
 
     case "lshr":
       guard let (p, t) = (maybe("exact") ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.lshr(exact: p != nil, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.lshr(exact: p != nil, t)))
 
     case "ashr":
       guard let (p, t) = (maybe("exact") ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.ashr(exact: p != nil, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.ashr(exact: p != nil, t)))
 
     case "urem":
       guard let t = builtinType(&tokens) else { return nil }
-      self = .init(name: .llvm(.urem(t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.urem(t)))
 
     case "srem":
       guard let t = builtinType(&tokens) else { return nil }
-      self = .init(name: .llvm(.srem(t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.srem(t)))
 
     case "and":
       guard let t = builtinType(&tokens) else { return nil }
-      self = .init(name: .llvm(.and(t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.and(t)))
 
     case "or":
       guard let t = builtinType(&tokens) else { return nil }
-      self = .init(name: .llvm(.or(t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.or(t)))
 
     case "xor":
       guard let t = builtinType(&tokens) else { return nil }
-      self = .init(name: .llvm(.xor(t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.xor(t)))
 
     case "icmp":
       guard let (p, t) = integerComparisonTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.icmp(p, t)), type: .init(^t, ^t, to: .builtin(.i(1))))
+      self = .init(name: .llvm(.icmp(p, t)))
 
     case "trunc":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.trunc(s, d)), type: .init(^s, to: ^d))
+      self = .init(name: .llvm(.trunc(s, d)))
 
     case "zext":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.zext(s, d)), type: .init(^s, to: ^d))
+      self = .init(name: .llvm(.zext(s, d)))
 
     case "sext":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.sext(s, d)), type: .init(^s, to: ^d))
+      self = .init(name: .llvm(.sext(s, d)))
 
     case "uitofp":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.uitofp(s, d)), type: .init(^s, to: ^d))
+      self = .init(name: .llvm(.uitofp(s, d)))
 
     case "sitofp":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.sitofp(s, d)), type: .init(^s, to: ^d))
+      self = .init(name: .llvm(.sitofp(s, d)))
 
     case "fadd":
       guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.fadd(p, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.fadd(p, t)))
 
     case "fsub":
       guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.fsub(p, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.fsub(p, t)))
 
     case "fmul":
       guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.fmul(p, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.fmul(p, t)))
 
     case "fdiv":
       guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.fdiv(p, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.fdiv(p, t)))
 
     case "frem":
       guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.frem(p, t)), type: .init(^t, ^t, to: ^t))
+      self = .init(name: .llvm(.frem(p, t)))
 
     case "fcmp":
       guard let (p, t) = floatingPointComparisonTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.fcmp(p.0, p.1, t)), type: .init(^t, ^t, to: .builtin(.i(1))))
+      self = .init(name: .llvm(.fcmp(p.0, p.1, t)))
 
     case "fptrunc":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.fptrunc(s, d)), type: .init(^s, to: ^d))
+      self = .init(name: .llvm(.fptrunc(s, d)))
 
     case "fpext":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.fpext(s, d)), type: .init(^s, to: ^d))
+      self = .init(name: .llvm(.fpext(s, d)))
 
     case "fptoui":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.fptoui(s, d)), type: .init(^s, to: ^d))
+      self = .init(name: .llvm(.fptoui(s, d)))
 
     case "fptosi":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
-      self = .init(name: .llvm(.fptosi(s, d)), type: .init(^s, to: ^d))
+      self = .init(name: .llvm(.fptosi(s, d)))
 
     case "zeroinitializer":
       guard let t = builtinType(&tokens) else { return nil }
-      self = .init(name: .llvm(.zeroinitializer(t)), type: .init(to: ^t))
+      self = .init(name: .llvm(.zeroinitializer(t)))
 
     default:
       return nil

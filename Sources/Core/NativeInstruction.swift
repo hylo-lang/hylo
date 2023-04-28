@@ -120,69 +120,69 @@ public enum NativeInstruction: Hashable {
 
 extension NativeInstruction {
 
-  /// The return type of this instruction.
-  public var output: BuiltinType {
+  /// The type of this instruction when used as a function.
+  public var type: LambdaType {
     switch self {
-    case .add(_, let o):
-      return o
-    case .sub(_, let o):
-      return o
-    case .mul(_, let o):
-      return o
-    case .shl(_, let o):
-      return o
-    case .udiv(_, let o):
-      return o
-    case .sdiv(_, let o):
-      return o
-    case .lshr(_, let o):
-      return o
-    case .ashr(_, let o):
-      return o
-    case .urem(let o):
-      return o
-    case .srem(let o):
-      return o
-    case .and(let o):
-      return o
-    case .or(let o):
-      return o
-    case .xor(let o):
-      return o
-    case .icmp:
-      return .i(1)
-    case .trunc(_, let o):
-      return o
-    case .zext(_, let o):
-      return o
-    case .sext(_, let o):
-      return o
-    case .uitofp(_, let o):
-      return o
-    case .sitofp(_, let o):
-      return o
-    case .fadd(_, let o):
-      return o
-    case .fsub(_, let o):
-      return o
-    case .fmul(_, let o):
-      return o
-    case .fdiv(_, let o):
-      return o
-    case .frem(_, let o):
-      return o
-    case .fcmp:
-      return .i(1)
-    case .fptrunc(_, let o):
-      return o
-    case .fpext(_, let o):
-      return o
-    case .fptoui(_, let o):
-      return o
-    case .fptosi(_, let o):
-      return o
-    case .zeroinitializer(let o):
-      return o
+    case .add(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .sub(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .mul(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .shl(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .udiv(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .sdiv(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .lshr(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .ashr(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .urem(let t):
+      return .init(^t, ^t, to: ^t)
+    case .srem(let t):
+      return .init(^t, ^t, to: ^t)
+    case .and(let t):
+      return .init(^t, ^t, to: ^t)
+    case .or(let t):
+      return .init(^t, ^t, to: ^t)
+    case .xor(let t):
+      return .init(^t, ^t, to: ^t)
+    case .icmp(_, let t):
+      return .init(^t, ^t, to: .builtin(.i(1)))
+    case .trunc(let s, let d):
+      return .init(^s, to: ^d)
+    case .zext(let s, let d):
+      return .init(^s, to: ^d)
+    case .sext(let s, let d):
+      return .init(^s, to: ^d)
+    case .uitofp(let s, let d):
+      return .init(^s, to: ^d)
+    case .sitofp(let s, let d):
+      return .init(^s, to: ^d)
+    case .fadd(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .fsub(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .fmul(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .fdiv(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .frem(_, let t):
+      return .init(^t, ^t, to: ^t)
+    case .fcmp(_, _, let t):
+      return .init(^t, ^t, to: .builtin(.i(1)))
+    case .fptrunc(let s, let d):
+      return .init(^s, to: ^d)
+    case .fpext(let s, let d):
+      return .init(^s, to: ^d)
+    case .fptoui(let s, let d):
+      return .init(^s, to: ^d)
+    case .fptosi(let s, let d):
+      return .init(^s, to: ^d)
+    case .zeroinitializer(let t):
+      return .init(to: ^t)
     }
   }
 

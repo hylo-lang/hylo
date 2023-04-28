@@ -1586,48 +1586,25 @@ public struct TypeChecker {
   /// through qualified lookups into the extended type.
   private var extensionsUnderBinding = DeclSet()
 
-  /// The result of a name resolution request.
-  enum NameResolutionResult {
-
-    /// A candidate found by name resolution.
-    struct Candidate {
-
-      /// Declaration being referenced.
-      let reference: DeclRef
-
-      /// The quantifier-free type of the declaration at its use site.
-      let type: InstantiatedType
-
-    }
-
-    /// The resolut of name resolution for a single name component.
-    struct ResolvedComponent {
-
-      /// The resolved component.
-      let component: NameExpr.ID
-
-      /// The declarations to which the component may refer.
-      let candidates: [Candidate]
-
-      /// Creates an instance with the given properties.
-      init(_ component: NameExpr.ID, _ candidates: [Candidate]) {
-        self.component = component
-        self.candidates = candidates
+  /// Returns `(head, tail)` where `head` contains the nominal components of `name` from right to
+  /// left and `tail` is the non-nominal component of `name`, if any.
+  ///
+  /// Name expressions are rperesented as linked-list, whose elements are the components of a
+  /// name in reverse order. This method splits such lists at the first non-nominal component.
+  private func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain?) {
+    var suffix = [name]
+    while true {
+      let d = ast[suffix.last!].domain
+      switch d {
+      case .none:
+        return (suffix, nil)
+      case .implicit:
+        return (suffix, d)
+      case .expr(let e):
+        guard let p = NameExpr.ID(e) else { return (suffix, d) }
+        suffix.append(p)
       }
-
     }
-
-    /// Name resolution applied on the nominal prefix that doesn't require any overload resolution.
-    /// The payload contains the collections of resolved and unresolved components.
-    case done(resolved: [ResolvedComponent], unresolved: [NameExpr.ID])
-
-    /// Name resolution failed.
-    case failed
-
-    /// Name resolution couln't start because the first component of the expression isn't a name
-    /// The payload contains the collection of unresolved components, after the first one.
-    case inexecutable(_ components: [NameExpr.ID])
-
   }
 
   /// Resolves the non-overloaded name components of `name` from left to right in `scope`.
@@ -1638,29 +1615,17 @@ public struct TypeChecker {
     of name: NameExpr.ID,
     in scope: AnyScopeID
   ) -> NameResolutionResult {
-    // Build a stack with the nominal comonents of `nameExpr` or exit if its qualification is
-    // either implicit or prefixed by an expression.
-    var unresolvedComponents = [name]
-    loop: while true {
-      switch ast[unresolvedComponents.last!].domain {
-      case .implicit:
-        return .inexecutable(unresolvedComponents)
-
-      case .expr(let e):
-        guard let domain = NameExpr.ID(e) else { return .inexecutable(unresolvedComponents) }
-        unresolvedComponents.append(domain)
-
-      case .none:
-        break loop
-      }
+    var (unresolved, domain) = splitNominalComponents(of: name)
+    if domain != nil {
+      return .inexecutable(unresolved)
     }
 
     // Resolve the nominal components of `nameExpr` from left to right as long as we don't need
     // contextual information to resolve overload sets.
-    var resolvedPrefix: [NameResolutionResult.ResolvedComponent] = []
+    var resolved: [NameResolutionResult.ResolvedComponent] = []
     var parentType: AnyType? = nil
 
-    while let component = unresolvedComponents.popLast() {
+    while let component = unresolved.popLast() {
       // Evaluate the static argument list.
       var arguments: [AnyType] = []
       for a in ast[component].arguments {
@@ -1669,15 +1634,14 @@ public struct TypeChecker {
       }
 
       // Resolve the component.
-      let componentSyntax = ast[component]
       let candidates = resolve(
-        componentSyntax.name, withArguments: arguments, memberOf: parentType, from: scope)
+        ast[component].name, parameterizedBy: arguments, memberOf: parentType, exposedTo: scope)
 
       // Fail resolution we didn't find any candidate.
       if candidates.isEmpty { return .failed }
 
       // Append the resolved component to the nominal prefix.
-      resolvedPrefix.append(.init(component, candidates))
+      resolved.append(.init(component, candidates))
 
       // Defer resolution of the remaining name components if there are multiple candidates for
       // the current component or if we found a type variable.
@@ -1692,8 +1656,8 @@ public struct TypeChecker {
       }
     }
 
-    precondition(!resolvedPrefix.isEmpty)
-    return .done(resolved: resolvedPrefix, unresolved: unresolvedComponents)
+    precondition(!resolved.isEmpty)
+    return .done(resolved: resolved, unresolved: unresolved)
   }
 
   /// Returns the declarations of `name` exposed to `lookupScope` and accepting `arguments`,
@@ -1701,24 +1665,22 @@ public struct TypeChecker {
   /// lookup otherwise.
   mutating func resolve(
     _ name: SourceRepresentable<Name>,
-    withArguments arguments: [any CompileTimeValue],
+    parameterizedBy arguments: [any CompileTimeValue],
     memberOf parentType: AnyType?,
-    from lookupScope: AnyScopeID
+    exposedTo useScope: AnyScopeID
   ) -> [NameResolutionResult.Candidate] {
-    // Handle references to the built-in module.
-    if (name.value.stem == "Builtin") && (parentType == nil) && isBuiltinModuleVisible {
-      return [
-        .init(reference: .builtinType, type: .init(shape: ^BuiltinType.module, constraints: []))
-      ]
-    }
-
-    // Handle references to built-in symbols.
-    if parentType == .builtin(.module) {
-      return resolve(builtin: name.value).map({ [$0] }) ?? []
+    // Resolve references to the built-in symbols.
+    if isBuiltinModuleVisible {
+      if (parentType == nil) && (name.value.stem == "Builtin") {
+        return [.init(.module)]
+      }
+      if parentType == .builtin(.module) {
+        return resolve(builtin: name)
+      }
     }
 
     // Gather declarations qualified by `parentType` if it isn't `nil` or unqualified otherwise.
-    let matches = lookup(name, memberOf: parentType, exposedTo: lookupScope)
+    let matches = lookup(name, memberOf: parentType, exposedTo: useScope)
     if matches.isEmpty {
       diagnostics.insert(.error(undefinedName: name.value, in: parentType, at: name.site))
       return []
@@ -1739,7 +1701,7 @@ public struct TypeChecker {
       guard
         let targetType = resolve(
           typeOf: name, withArguments: arguments,
-          declaredBy: match, specializedWith: parentArguments, exposedTo: lookupScope,
+          declaredBy: match, specializedWith: parentArguments, exposedTo: useScope,
           reportingErrorsTo: &invalidArgumentsDiagnostics)
       else { continue }
 
@@ -1817,15 +1779,18 @@ public struct TypeChecker {
     return targetType.isError ? nil : targetType
   }
 
-  /// Resolves a reference to the built-in symbol named `name`.
-  private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
-    if let f = BuiltinFunction(name.stem) {
-      return .init(reference: .builtinFunction(f), type: .init(shape: ^f.type, constraints: []))
+  /// Resolves a reference to the built-in type or function named `name`.
+  private mutating func resolve(
+    builtin name: SourceRepresentable<Name>
+  ) -> [NameResolutionResult.Candidate] {
+    if let f = BuiltinFunction(name.value.stem) {
+      return [.init(f)]
     }
-    if let t = BuiltinType(name.stem) {
-      return .init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
+    if let t = BuiltinType(name.value.stem) {
+      return [.init(t)]
     }
-    return nil
+    diagnostics.insert(.error(undefinedName: name.value, in: .builtin(.module), at: name.site))
+    return []
   }
 
   /// Returns a table mapping the generic parameters introduced by `d`, which declares `name`, to

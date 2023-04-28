@@ -18,7 +18,7 @@ public struct LLVMInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [LoweredType] { [.object(instruction.output)] }
+  public var types: [LoweredType] { [.object(instruction.type.output)] }
 
 }
 
