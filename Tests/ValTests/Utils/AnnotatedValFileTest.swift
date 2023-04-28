@@ -113,9 +113,7 @@ extension XCTestCase {
   /// The suite is sought at `path` relative to `ValTests/`. If no such directory exists, the
   /// suite is sought at `path` relative to the root of the resource bundle associated with the
   /// current Swift module.
-  fileprivate func testSuite(
-    at path: String
-  ) throws -> [SourceFile] {
+  func testSuite(at path: String) throws -> [SourceFile] {
     let p = URL(fileURLWithPath: path, relativeTo: XCTestCase.valTests)
     if p.hasDirectoryPath {
       return try sourceFiles(in: [p])
