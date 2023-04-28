@@ -414,10 +414,14 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> BindingDecl.ID? {
     // Parse the parts of the declaration.
-    let parser =
-      (bindingPattern
-        .and(maybe(take(.assign).and(expr).second)))
-    guard let (pattern, initializer) = try parser.parse(&state) else { return nil }
+    guard let pattern = try parseBindingPattern(in: &state) else { return nil }
+
+    let initializer: AnyExprID?
+    if state.take(.assign) != nil {
+      initializer = try state.expect("initializer", using: parseExpr(in:))
+    } else {
+      initializer = nil
+    }
 
     // Create a new `BindingDecl`.
     assert(prologue.accessModifiers.count <= 1)
