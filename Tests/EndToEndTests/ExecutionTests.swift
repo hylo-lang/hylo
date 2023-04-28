@@ -8,8 +8,9 @@ final class ExecutionTests: XCTestCase {
   /// Compiles and executes all tests in `TestCases` directory, and ensures they return success.
   #if os(Windows)
     func testExecution() throws {
-      try testValOnWindows("./TestCases/Factorial.val")
       try testValOnWindows("./TestCases/Destroy.val")
+      try testValOnWindows("./TestCases/Existential.val")
+      try testValOnWindows("./TestCases/Factorial.val")
       try testValOnWindows("./TestCases/Lambda.val")
     }
     /// Compiles and executes tests, and ensures they return success on Windows.
