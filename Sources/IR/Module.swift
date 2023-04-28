@@ -206,7 +206,6 @@ public struct Module {
     let output = LoweredType.object(program.relations.canonical(t.output))
     functions[f] = Function(
       name: n,
-      debugName: "",
       anchor: site.first(),
       linkage: .external,
       inputs: parameters,
@@ -254,7 +253,6 @@ public struct Module {
     assert(functions[f] == nil)
     functions[f] = Function(
       name: program.debugName(decl: d.id),
-      debugName: "init",
       anchor: d.introducer.site.first(),
       linkage: d.isPublic ? .external : .module,
       inputs: parameters,
