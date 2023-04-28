@@ -65,6 +65,10 @@ public enum NativeInstruction: Hashable {
 
   case sitofp(BuiltinType, BuiltinType)
 
+  case inttoptr(BuiltinType)
+
+  case ptrtoint(BuiltinType)
+
   case fadd(MathFlags, BuiltinType)
 
   case fsub(MathFlags, BuiltinType)
@@ -161,6 +165,10 @@ extension NativeInstruction {
       return .init(^s, to: ^d)
     case .sitofp(let s, let d):
       return .init(^s, to: ^d)
+    case .inttoptr(let t):
+      return .init(^t, to: .builtin(.ptr))
+    case .ptrtoint(let t):
+      return .init(.builtin(.ptr), to: ^t)
     case .fadd(_, let t):
       return .init(^t, ^t, to: ^t)
     case .fsub(_, let t):
@@ -230,6 +238,10 @@ extension NativeInstruction: CustomStringConvertible {
       return "uitofp_\(l)_\(r)"
     case .sitofp(let l, let r):
       return "sitofp_\(l)_\(r)"
+    case .inttoptr(let t):
+      return "inttoptr_\(t)"
+    case .ptrtoint(let t):
+      return "ptrtoint_\(t)"
     case .fadd(let f, let t):
       return f.isEmpty ? "fadd_\(t)" : "fadd_\(f)_\(t)"
     case .fsub(let f, let t):
