@@ -1725,6 +1725,10 @@ public enum Parser {
       // Primary declaration reference.
       return try parsePrimaryDeclRefExpr(in: &state).map(AnyExprID.init)
 
+    case .pragmaLiteral:
+      // Pragma literal.
+      return try parsePragmaLiteralExpr(in: &state).map(AnyExprID.init)
+
     case .spawn:
       // Spawn expression.
       return try parseSpawnExpr(in: &state).map(AnyExprID.init)
@@ -1778,6 +1782,23 @@ public enum Parser {
         name: component.name,
         arguments: component.arguments,
         site: component.site))
+  }
+
+  /// Parses a pragma literal from `state`.
+  private static func parsePragmaLiteralExpr(
+    in state: inout ParserState
+  ) throws -> PragmaLiteralExpr.ID? {
+    guard let t = state.take(.pragmaLiteral) else { return nil }
+
+    let result: PragmaLiteralExpr.Kind
+    switch state.lexer.sourceCode[t.site].dropFirst() {
+    case "file":
+      result = .file
+    case let n:
+      throw [.error(unknownPragma: n, at: t.site)] as DiagnosticSet
+    }
+
+    return state.insert(PragmaLiteralExpr(result, at: t.site))
   }
 
   private static func parseImplicitMemberDeclRefExpr(
