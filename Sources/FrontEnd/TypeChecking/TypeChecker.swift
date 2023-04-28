@@ -2728,7 +2728,12 @@ public struct TypeChecker {
       } else {
         unreachable("expected type annotation")
       }
-      inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
+
+      let i = CallableTypeParameter(
+        label: ast[p].label?.value,
+        type: t,
+        hasDefault: ast[p].defaultValue != nil)
+      inputs.append(i)
     }
 
     // Collect captures.
@@ -2860,9 +2865,7 @@ public struct TypeChecker {
       }
     }
 
-    var inputs: [CallableTypeParameter] = ast[d].parameters.map { (d) in
-      .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
-    }
+    var inputs = realize(parameters: ast[d].parameters)
 
     // Initializers are global functions.
     let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
@@ -2879,11 +2882,9 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(methodDecl d: MethodDecl.ID) -> AnyType {
-    let inputs: [CallableTypeParameter] = ast[d].parameters.map { (d) in
-      .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
-    }
+    let inputs = realize(parameters: ast[d].parameters)
 
-    // Realize the method's receiver if necessary.
+    // Realize the method's receiver.
     let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
 
     // Realize the output type.
@@ -2927,6 +2928,21 @@ public struct TypeChecker {
     _realize(decl: d, { (this, d) in ^ModuleType(d, ast: this.ast) })
   }
 
+  /// Returns the realized types of `parameters`, which are the parameters of an initializer,
+  /// method, or subscript declaration.
+  private mutating func realize(parameters: [ParameterDecl.ID]) -> [CallableTypeParameter] {
+    var result: [CallableTypeParameter] = []
+    result.reserveCapacity(parameters.count)
+    for p in parameters {
+      let i = CallableTypeParameter(
+        label: ast[p].label?.value,
+        type: realize(parameterDecl: p),
+        hasDefault: ast[p].defaultValue != nil)
+      result.append(i)
+    }
+    return result
+  }
+
   /// Returns the overarching type of `d`.
   ///
   /// - Requires: `d` has a type annotation.
@@ -2958,11 +2974,7 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(subscriptDecl d: SubscriptDecl.ID) -> AnyType {
-    let inputs = ast[d].parameters.map(default: []) { (p) -> [CallableTypeParameter] in
-      p.map { (d) in
-        .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
-      }
-    }
+    let inputs = ast[d].parameters.map({ realize(parameters: $0) }) ?? []
 
     // Collect captures.
     var explicitCaptureNames: Set<Name> = []
