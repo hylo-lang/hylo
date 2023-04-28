@@ -292,12 +292,12 @@ extension TypeChecker {
   ) -> AnyType {
     let syntax = ast[subject]
 
-    let calleeType: AnyType
-    if let callee = NameExpr.ID(syntax.callee) {
-      calleeType = inferredType(
-        ofNameExpr: callee, withImplicitDomain: shape, shapedBy: nil, in: scope, updating: &state)
+    let callee: AnyType
+    if let e = NameExpr.ID(syntax.callee) {
+      callee = inferredType(
+        ofNameExpr: e, withImplicitDomain: shape, shapedBy: nil, in: scope, updating: &state)
     } else {
-      calleeType = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
+      callee = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
     }
 
     // The following cases must be considered:
@@ -312,25 +312,25 @@ extension TypeChecker {
     //   c. it's any other type. In that case the callee is not callable.
 
     // Case 1
-    if calleeType.isError {
+    if callee.isError {
       return state.facts.assignErrorType(to: subject)
     }
 
     // Case 2
-    if calleeType.base is TypeVariable {
+    if callee.base is TypeVariable {
       let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &state)
       let returnType = shape ?? ^TypeVariable()
 
       state.facts.append(
         FunctionCallConstraint(
-          calleeType, takes: parameters, andReturns: returnType,
+          callee, takes: parameters, andReturns: returnType,
           origin: ConstraintOrigin(.callee, at: ast[syntax.callee].site)))
 
       return state.facts.constrain(subject, in: ast, toHaveType: returnType)
     }
 
     // Case 3a
-    if let callable = calleeType.base as? CallableType {
+    if let callable = callee.base as? CallableType {
       if parametersMatching(
         arguments: syntax.arguments, of: syntax.callee, in: scope,
         shapedBy: callable.inputs, updating: &state)
@@ -346,7 +346,7 @@ extension TypeChecker {
       let d = referredDecls[c]?.decl,
       isNominalTypeDecl(d)
     {
-      let instance = MetatypeType(calleeType)!.instance
+      let instance = MetatypeType(callee)!.instance
       let initName = SourceRepresentable(
         value: Name(stem: "init", labels: ["self"] + syntax.arguments.map(\.label?.value)),
         range: ast[c].name.site)
