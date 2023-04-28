@@ -1,5 +1,5 @@
 /// Terminates the program abnormally.
-@_lowered_name("abort")
+@ffi("abort")
 public fun abort() -> Never
 
 /// Terminates the program abnormally.
