@@ -192,11 +192,17 @@ public struct Lexer: IteratorProtocol, Sequence {
     // Scan attributes.
     if head == "@" {
       discard()
-      token.kind =
-        take(while: { $0.isLetter || ($0 == "_") }).isEmpty
-        ? .invalid
-        : .attribute
+      token.kind = take(while: { $0.isLetter || ($0 == "_") }).isEmpty ? .invalid : .attribute
       token.site.extend(upTo: index)
+      return token
+    }
+
+    // Scan pragmas.
+    if head == "#" {
+      discard()
+      let tail = take(while: { $0.isLetter || ($0 == "_") })
+      token.site.extend(upTo: index)
+      token.kind = tail.isEmpty ? .invalid : .pragmaLiteral
       return token
     }
 
