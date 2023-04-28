@@ -163,6 +163,9 @@ extension TypeChecker {
     case NameExpr.self:
       return inferredType(
         ofNameExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+    case PragmaLiteralExpr.self:
+      return inferredType(
+        ofPragmaLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
     case SequenceExpr.self:
       return inferredType(
         ofSequenceExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
@@ -553,6 +556,18 @@ extension TypeChecker {
     }
 
     return lastVisitedComponentType!
+  }
+
+  private mutating func inferredType(
+    ofPragmaLiteralExpr subject: PragmaLiteralExpr.ID,
+    shapedBy shape: AnyType?,
+    in scope: AnyScopeID,
+    updating state: inout State
+  ) -> AnyType {
+    switch program.ast[subject].kind {
+    case .file:
+      return state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "String")!)
+    }
   }
 
   private mutating func inferredType(
