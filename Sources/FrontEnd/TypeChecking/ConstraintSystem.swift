@@ -576,14 +576,14 @@ struct ConstraintSystem {
   ) -> Outcome? {
     let goal = goals[g] as! FunctionCallConstraint
 
-    if goal.calleeType.base is TypeVariable {
+    if goal.callee.base is TypeVariable {
       postpone(g)
       return nil
     }
 
-    guard let callee = goal.calleeType.base as? CallableType else {
+    guard let callee = goal.callee.base as? CallableType else {
       return .failure { (d, m, _) in
-        d.insert(.error(nonCallableType: m.reify(goal.calleeType), at: goal.origin.site))
+        d.insert(.error(nonCallableType: m.reify(goal.callee), at: goal.origin.site))
       }
     }
 

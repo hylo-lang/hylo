@@ -317,7 +317,7 @@ extension TypeChecker {
     }
 
     // Case 2
-    if callee.base is TypeVariable {
+    if (callee.base is TypeVariable) || (callee.base is CallableType) {
       let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &state)
       let returnType = shape ?? ^TypeVariable()
 
