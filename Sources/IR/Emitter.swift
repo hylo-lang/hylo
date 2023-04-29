@@ -715,6 +715,8 @@ public struct Emitter {
       return emitRValue(lambda: LambdaExpr.Typed(expr)!, into: &module)
     case NameExpr.self:
       return emitRValue(name: NameExpr.Typed(expr)!, into: &module)
+    case PragmaLiteralExpr.self:
+      return emitRValue(pragma: PragmaLiteralExpr.Typed(expr)!, into: &module)
     case SequenceExpr.self:
       return emitRValue(sequence: SequenceExpr.Typed(expr)!, into: &module)
     case StringLiteralExpr.self:
@@ -1068,6 +1070,18 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(
+    pragma syntax: PragmaLiteralExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    switch program.ast[syntax.id].kind {
+    case .file:
+      return emitString(syntax.site.file.url.absoluteURL.path, at: syntax.site, into: &module)
+    case .line:
+      return emitInt(syntax.site.first().line.number, at: syntax.site, into: &module)
+    }
+  }
+
+  private mutating func emitRValue(
     sequence expr: SequenceExpr.Typed,
     into module: inout Module
   ) -> Operand {
@@ -1113,15 +1127,7 @@ public struct Emitter {
     stringLiteral syntax: StringLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let bytes = syntax.value.data(using: .utf8)!
-    let size = emitWord(bytes.count, at: syntax.site, into: &module)
-
-    let p = PointerConstant(module.syntax.id, module.addGlobal(.buffer(.init(bytes))))
-    let base = emitCoreInstance(
-      of: "RawPointer", aggregating: [.constant(.pointer(p))], at: syntax.site, into: &module)
-
-    return emitCoreInstance(
-      of: "String", aggregating: [size, base], at: syntax.site, into: &module)
+    emitString(syntax.value, at: syntax.site, into: &module)
   }
 
   private mutating func emitRValue(
@@ -1284,6 +1290,35 @@ public struct Emitter {
     }
 
     return (success: success, failure: failure)
+  }
+
+  /// Inserts the IR for string `s` into `module` at the end of the current insertion block,
+  /// anchoring instructions at site.
+  private mutating func emitString(
+    _ s: String,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let bytes = s.data(using: .utf8)!
+    let size = emitWord(bytes.count, at: site, into: &module)
+
+    let p = PointerConstant(module.syntax.id, module.addGlobal(.buffer(.init(bytes))))
+    let base = emitCoreInstance(
+      of: "RawPointer", aggregating: [.constant(.pointer(p))], at: site, into: &module)
+    return emitCoreInstance(of: "String", aggregating: [size, base], at: site, into: &module)
+  }
+
+  /// Inserts the IR for integer `i` into `module` at the end of the current insertion block,
+  /// anchoring instructions at site.
+  private mutating func emitInt(
+    _ i: Int,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let t = program.ast.coreType(named: "Int")!
+    let s = module.makeRecord(
+      t, aggregating: [.constant(.integer(IntegerConstant(i, bitWidth: 64)))], anchoredAt: site)
+    return module.append(s, to: insertionBlock!)[0]
   }
 
   /// Inserts the IR for branch condition `expr` into `module` at the end of the current insertion

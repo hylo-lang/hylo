@@ -1,3 +1,5 @@
+//! expect-failure
+
 type A0 {
 
   public static let x0 = 42

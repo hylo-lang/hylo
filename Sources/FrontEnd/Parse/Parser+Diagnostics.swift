@@ -95,4 +95,8 @@ extension Diagnostic {
       at: ast[p].introducer.site)
   }
 
+  static func error(unknownPragma n: Substring, at site: SourceRange) -> Diagnostic {
+    .error("unknown pragma '\(n)'", at: site)
+  }
+
 }
