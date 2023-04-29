@@ -176,6 +176,25 @@ public struct AST {
     self[self[module].sources].map(\.decls).joined()
   }
 
+  /// Returns a table mapping each parameter of `d` to its default argument if `d` is a function,
+  /// initializer, method or subscript declaration. Otherwise, returns `nil`.
+  public func defaultArguments(of d: AnyDeclID) -> [AnyExprID?]? {
+    let parameters: [ParameterDecl.ID]
+    switch d.kind {
+    case FunctionDecl.self:
+      parameters = self[FunctionDecl.ID(d)!].parameters
+    case InitializerDecl.self:
+      parameters = self[InitializerDecl.ID(d)!].parameters
+    case MethodDecl.self:
+      parameters = self[MethodDecl.ID(d)!].parameters
+    case SubscriptDecl.self:
+      parameters = self[SubscriptDecl.ID(d)!].parameters ?? []
+    default:
+      return nil
+    }
+    return self[parameters].map(\.defaultValue)
+  }
+
   /// Returns the paths and IDs of the named patterns contained in `p`.
   public func names<T: PatternID>(in p: T) -> [(path: PartPath, pattern: NamePattern.ID)] {
     func visit(

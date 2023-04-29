@@ -866,28 +866,91 @@ public struct Emitter {
       return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
     }
 
-    // Callee must have a lambda type.
-    let calleeType = LambdaType(expr.callee.type)!
+    // Handle memberwise initializer calls.
+    if expr.isMemberwiseInitialization {
+      return emitRValue(memberwiseInitCall: expr, into: &module)
+    }
 
     // Arguments are evaluated first, from left to right.
-    var arguments: [Operand] = []
-    for (p, a) in zip(calleeType.inputs, expr.arguments) {
-      arguments.append(emit(argument: program[a.value], to: ParameterType(p.type)!, into: &module))
-    }
-
-    // Handle memberwise initializer calls.
-    if case .direct(let d) = NameExpr.Typed(expr.callee)?.decl {
-      if InitializerDecl.Typed(d)?.isMemberwise ?? false {
-        return module.append(
-          module.makeRecord(calleeType.output, aggregating: arguments, anchoredAt: expr.site),
-          to: insertionBlock!)[0]
-      }
-    }
-
+    let arguments = emit(arguments: expr.arguments, to: expr.callee, into: &module)
     let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
     return module.append(
       module.makeCall(applying: callee, to: liftedArguments + arguments, anchoredAt: expr.site),
       to: insertionBlock!)[0]
+  }
+
+  /// Inserts the IR for the memberwise initializer call `expr` into `module` at the end of the
+  /// current insertion block.
+  ///
+  /// - Requires: The callee of `expr` is a direct reference to a memberwise initializer.
+  private mutating func emitRValue(
+    memberwiseInitCall expr: FunctionCallExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let callee = LambdaType(expr.callee.type)!
+    var arguments: [Operand] = []
+    for (p, e) in zip(callee.inputs, expr.arguments) {
+      let a = program[e.value]
+      arguments.append(emit(argument: a, to: ParameterType(p.type)!, into: &module))
+    }
+
+    let s = module.makeRecord(callee.output, aggregating: arguments, anchoredAt: expr.site)
+    return module.append(s, to: insertionBlock!)[0]
+  }
+
+  /// Inserts the IR for `arguments`, which is an argument passed to a function of type `callee`,
+  /// into `module` at the end of the current insertion block. `site` is used to anchor the IR for
+  /// default arguments.
+  private mutating func emit(
+    arguments: [LabeledArgument],
+    to callee: AnyExprID.TypedNode,
+    // at site: SourceRange,
+    into module: inout Module
+  ) -> [Operand] {
+    let calleeType = LambdaType(callee.type)!
+    let defaults = NameExpr.Typed(callee)?.decl.decl.flatMap { (d) in
+      program.ast.defaultArguments(of: d.id)
+    }
+
+    var result: [Operand] = []
+    var i = 0
+    for (j, p) in calleeType.inputs.enumerated() {
+      if (i < arguments.count) && (arguments[i].label?.value == p.label) {
+        let a = program[arguments[i].value]
+        result.append(emit(argument: a, to: ParameterType(p.type)!, into: &module))
+        i += 1
+      } else if let e = defaults?[j] {
+        let a = program[e]
+        result.append(emit(argument: a, to: ParameterType(p.type)!, into: &module))
+      } else {
+        unreachable()
+      }
+    }
+
+    assert(i == arguments.count)
+    return result
+  }
+
+  /// Inserts the IR for the argument `expr` passed to a parameter of type `parameterType` into
+  /// `module` at the end of the current insertion block.
+  private mutating func emit(
+    argument expr: AnyExprID.TypedNode,
+    to parameterType: ParameterType,
+    into module: inout Module
+  ) -> Operand {
+    switch parameterType.access {
+    case .let, .inout, .set:
+      let s = emitLValue(expr, into: &module)
+      return module.append(
+        module.makeBorrow(parameterType.access, from: s, anchoredAt: expr.site),
+        to: insertionBlock!)[0]
+
+    case .sink:
+      return emitRValue(expr, into: &module)
+
+    default:
+      fatalError("not implemented")
+    }
   }
 
   /// Emits the IR of a call to `f` with given `arguments` at `site` into `module`, inserting
@@ -1087,28 +1150,6 @@ public struct Emitter {
     return module.append(
       module.makeLoad(element, anchoredAt: syntax.index.site),
       to: insertionBlock!)[0]
-  }
-
-  /// Inserts the IR for the argument `expr` passed to a parameter of type `parameterType` into
-  /// `module` at the end of the current insertion block.
-  private mutating func emit(
-    argument expr: AnyExprID.TypedNode,
-    to parameterType: ParameterType,
-    into module: inout Module
-  ) -> Operand {
-    switch parameterType.access {
-    case .let, .inout, .set:
-      let s = emitLValue(expr, into: &module)
-      return module.append(
-        module.makeBorrow(parameterType.access, from: s, anchoredAt: expr.site),
-        to: insertionBlock!)[0]
-
-    case .sink:
-      return emitRValue(expr, into: &module)
-
-    default:
-      fatalError("not implemented")
-    }
   }
 
   /// Inserts the IR for given `callee` into `module` at the end of the current insertion block and
