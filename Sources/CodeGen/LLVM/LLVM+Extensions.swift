@@ -125,7 +125,7 @@ extension LLVM.Module {
     case let v as IR.FunctionRef:
       return declare(v, from: ir)
 
-    case is IR.PoisonConstant:
+    case is IR.Poison:
       let t = ir.syntax.llvm(c.type.ast, in: &self)
       return LLVM.Poison(of: t)
 

@@ -351,7 +351,7 @@ public struct Emitter {
     guard let initializer = decl.initializer else {
       report(.error(binding: capability, requiresInitializerAt: decl.pattern.introducer.site))
       for (_, name) in decl.pattern.subpattern.names {
-        frames[name.decl] = .constant(PoisonConstant(type: .address(name.decl.type)))
+        frames[name.decl] = .constant(Poison(type: .address(name.decl.type)))
       }
       return
     }
@@ -1431,7 +1431,7 @@ public struct Emitter {
     guard let b = bits else {
       diagnostics.insert(
         .error(integerLiteral: s, overflowsWhenStoredInto: literalType, at: anchor))
-      return .constant(PoisonConstant(type: .object(literalType)))
+      return .constant(Poison(type: .object(literalType)))
     }
 
     return module.append(
