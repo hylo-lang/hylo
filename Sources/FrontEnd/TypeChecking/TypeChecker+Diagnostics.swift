@@ -84,10 +84,6 @@ extension Diagnostic {
       """, at: site)
   }
 
-  static func error(incompatibleParameterCountAt site: SourceRange) -> Diagnostic {
-    .error("incompatible number of parameters", at: site)
-  }
-
   static func error(
     type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange
   ) -> Diagnostic {

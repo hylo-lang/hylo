@@ -4,9 +4,9 @@ import IR
 import Utils
 import XCTest
 
-final class EmitterTests: XCTestCase {
+final class LoweringTests: XCTestCase {
 
-  func testEmitter() throws {
+  func testLowering() throws {
     try checkAnnotatedValFileDiagnostics(
       inSuiteAt: "TestCases/Lowering",
       { (source, diagnostics) in

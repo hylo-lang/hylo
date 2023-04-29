@@ -74,7 +74,8 @@ let package = Package(
     .target(
       name: "Core",
       dependencies: [
-        "Utils"
+        "Utils",
+        .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
@@ -109,7 +110,7 @@ let package = Package(
     .target(
       name: "ValModule",
       path: "Library",
-      resources: [.copy("Core"), .copy("CXX")],
+      resources: [.copy("Val"), .copy("CXX")],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(

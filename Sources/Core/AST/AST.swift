@@ -7,6 +7,7 @@ public struct AST {
 
   /// The stored representation of an AST; distinguished for encoding/decoding purposes.
   private struct Storage: Codable {
+
     /// The nodes in `self`.
     public var nodes: [AnyNode] = []
 
@@ -17,6 +18,7 @@ public struct AST {
 
     /// The ID of the module containing Val's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
+
   }
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.

@@ -162,7 +162,7 @@ public struct ValCommand: ParsableCommand {
     }
 
     let productName = makeProductName(inputs)
-    var ast = AST.coreModule
+    var ast = noStandardLibrary ? AST.coreModule : AST.standardLibrary
 
     // The module whose Val files were given on the command-line
     let sourceModule = try ast.makeModule(

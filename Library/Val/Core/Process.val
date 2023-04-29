@@ -1,0 +1,3 @@
+/// Terminates the program abnormally.
+@ffi("abort")
+public fun fatal_error() -> Never

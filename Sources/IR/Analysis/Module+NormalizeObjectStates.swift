@@ -21,6 +21,8 @@ extension Module {
         let user = InstructionID(f, b, i.address)
 
         switch blockInstructions[i] {
+        case is AddressToPointerInstruction:
+          interpret(addressToPointer: user, in: &context)
         case is AllocStackInstruction:
           interpret(allocStack: user, in: &context)
         case is BorrowInstruction:
@@ -67,6 +69,11 @@ extension Module {
           unreachable("unexpected instruction")
         }
       }
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(addressToPointer i: InstructionID, in context: inout Context) {
+      initializeRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.

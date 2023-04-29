@@ -38,7 +38,7 @@ final class ParserTests: XCTestCase {
         ;;
         import Foo
 
-        @_lowered_name("_val_bar")
+        @ffi("_val_bar")
         fun _bar(x: Builtin.i64) -> Builtin.i64
 
         let x = "Hello!"

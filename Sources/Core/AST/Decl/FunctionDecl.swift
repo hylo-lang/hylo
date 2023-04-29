@@ -103,7 +103,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
 
   /// The name of this foreign function if this instance is a foreign function interface.
   public var foreignName: String? {
-    if let a = attributes.first(where: { $0.value.name.value == "@_lowered_name" }) {
+    if let a = attributes.first(where: { $0.value.name.value == "@ffi" }) {
       guard case .string(let n) = a.value.arguments[0] else { unreachable() }
       return n.value
     } else {
