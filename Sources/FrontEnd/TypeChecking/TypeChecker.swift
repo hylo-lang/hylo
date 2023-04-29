@@ -1968,6 +1968,8 @@ public struct TypeChecker {
       matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as ModuleType:
       matches = names(introducedIn: t.decl)[stem, default: []]
+    case let t as NamespaceType:
+      matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as TraitType:
       matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as TypeAliasType:
