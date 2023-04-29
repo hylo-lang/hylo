@@ -1,5 +1,5 @@
 /// A poison value.
-public struct PoisonConstant: ConstantProtocol, Hashable {
+public struct PoisonConstant: Constant, Hashable {
 
   /// The type of the poison.
   public let type: LoweredType

@@ -67,6 +67,8 @@ public struct Emitter {
     precondition(d.scope.kind == TranslationUnit.self)
 
     switch d.kind {
+    case BindingDecl.self:
+      emit(globalBindingDecl: .init(d)!, into: &module)
     case ConformanceDecl.self:
       emit(conformanceDecl: ConformanceDecl.Typed(d)!, into: &module)
     case FunctionDecl.self:
@@ -268,6 +270,12 @@ public struct Emitter {
         continue
       }
     }
+  }
+
+  /// Inserts the IR for `d` into `module`.
+  ///
+  /// - Requires: `d` is a global binding.
+  private mutating func emit(globalBindingDecl d: BindingDecl.Typed, into module: inout Module) {
   }
 
   /// Inserts the IR for the local binding `decl` into `module`.

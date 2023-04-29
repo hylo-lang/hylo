@@ -96,7 +96,7 @@ extension LLVM.Module {
 
   /// Returns the LLVM IR value corresponding to the Val IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
-    _ c: any IR.ConstantProtocol,
+    _ c: any IR.Constant,
     usedIn m: IR.Module,
     from ir: LoweredProgram
   ) -> LLVM.IRValue {

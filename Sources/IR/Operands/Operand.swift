@@ -8,7 +8,7 @@ public enum Operand {
   case parameter(Block.ID, Int)
 
   /// A constant value.
-  case constant(any ConstantProtocol)
+  case constant(any Constant)
 
   /// The void constant.
   public static let void: Operand = .constant(VoidConstant())

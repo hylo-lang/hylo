@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 /// A constant metatype value in Val IR.
-public struct MetatypeConstant: ConstantProtocol, Hashable {
+public struct MetatypeConstant: Constant, Hashable {
 
   /// The value of the constant.
   public let value: MetatypeType
