@@ -526,8 +526,7 @@ struct ConstraintSystem {
     }
 
     // Make sure `F` structurally matches the given parameter list.
-    // TODO: default arguments
-    if !goal.labels.elementsEqual(callee.labels) {
+    if !areLabelsAccepted(goal.labels, by: callee) {
       return .failure { (d, m, _) in
         d.insert(
           .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.origin.site))
@@ -544,6 +543,21 @@ struct ConstraintSystem {
       schedule(
         EqualityConstraint(callee.output, goal.returnType, origin: goal.origin.subordinate())))
     return delegate(to: subordinates)
+  }
+
+  /// Returns `true` iff `callee` accepts an argument list with given `labels`.
+  private func areLabelsAccepted<T: Collection>(_ labels: T, by callee: CallableType) -> Bool
+  where T.Element == String? {
+    var i = labels.startIndex
+    for j in callee.inputs.indices {
+      if (i != labels.endIndex) && (labels[i] == callee.inputs[j].label) {
+        i = labels.index(after: i)
+      } else if !callee.inputs[j].hasDefault {
+        return false
+      }
+    }
+
+    return i == labels.endIndex
   }
 
   private mutating func solve(

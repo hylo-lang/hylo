@@ -1,0 +1,30 @@
+//! expect-failure
+
+fun f0(a: {}, b: {} = ()) {}
+
+fun f1(a: {} = (), b: {}) {}
+
+//! @+1 diagnostic cannot pass value of type 'Bool' to parameter 'let {}'
+fun f2(a: {}, b: {} = true) {}
+
+type A {
+  public init(a: {} = ()) {}
+  public fun foo(a: {} = ()) {
+    let {}
+  }
+}
+
+public fun main() {
+  f0(a: ())
+  //! @+1 diagnostic incompatible labels: found '(b:)', expected '(a:b:)'
+  f0(b: ())
+  //! @+1 diagnostic incompatible labels: found '(a:_:)', expected '(a:b:)'
+  f0(a: (), ())
+
+  f1(b: ())
+  //! @+1 diagnostic incompatible labels: found '(a:)', expected '(a:b:)'
+  f1(a: ())
+
+  let x = A()
+  x.foo()
+}

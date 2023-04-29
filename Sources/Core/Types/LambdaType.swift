@@ -84,9 +84,7 @@ public struct LambdaType: TypeProtocol, CallableType {
     LambdaType(
       receiverEffect: receiverEffect,
       environment: environment.transform(transformer),
-      inputs: inputs.map({ (p) -> CallableTypeParameter in
-        .init(label: p.label, type: p.type.transform(transformer))
-      }),
+      inputs: inputs.map({ $0.transform(transformer) }),
       output: output.transform(transformer))
   }
 
