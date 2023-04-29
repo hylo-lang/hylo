@@ -237,9 +237,9 @@ public struct ValCommand: ParsableCommand {
     #if os(macOS)
       try makeMacOSExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #elseif os(Linux)
-      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+      try makeExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #elseif os(Windows)
-      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+      try makeExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #else
       _ = objectFiles
       _ = binaryPath
@@ -249,6 +249,7 @@ public struct ValCommand: ParsableCommand {
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
   /// logging diagnostics to `log`.
+  /// Make Val code executable on MacOS(C++ backend)
   private func makeMacOSExecutable<L: Log>(
     at binaryPath: String,
     linking objects: [URL],
@@ -271,7 +272,8 @@ public struct ValCommand: ParsableCommand {
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
   /// logging diagnostics to `log`.
-  private func makeLinuxExecutable<L: Log>(
+  /// Make Val code executable on Windows and Linux(C++ backend)
+  private func makeExecutable<L: Log>(
     at binaryPath: String,
     linking objects: [URL],
     loggingTo log: inout L
