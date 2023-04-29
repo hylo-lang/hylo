@@ -62,7 +62,7 @@ public struct ValCommand: ParsableCommand {
       if environment.contains("runneradmin") {
         return URL(
           fileURLWithPath:
-          "D:/a/val/val/.build/x86_64-unknown-windows-msvc/release/Support.build/src/.val")
+            "D:/a/val/val/.build/x86_64-unknown-windows-msvc/release/Support.build/src/.val")
       }
       //For user
       //Get user directory
