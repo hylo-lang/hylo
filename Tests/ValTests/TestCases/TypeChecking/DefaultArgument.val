@@ -1,30 +1,34 @@
 //! expect-failure
 
-fun f0(a: {}, b: {} = ()) {}
+type A { public memberwise init }
 
-fun f1(a: {} = (), b: {}) {}
+type B { public memberwise init }
 
-//! @+1 diagnostic cannot pass value of type 'Bool' to parameter 'let {}'
-fun f2(a: {}, b: {} = true) {}
-
-type A {
-  public init(a: {} = ()) {}
-  public fun foo(a: {} = ()) {
+type C {
+  public init(a: A = A()) {}
+  public fun foo(a: A = A()) {
     let {}
   }
 }
 
+fun f0(a: A, b: B = B()) {}
+
+fun f1(a: A = A(), b: B) {}
+
+//! @+1 diagnostic cannot pass value of type 'Bool' to parameter 'let B'
+fun g0(a: A, b: B = true) {}
+
 public fun main() {
-  f0(a: ())
+  f0(a: A())
   //! @+1 diagnostic incompatible labels: found '(b:)', expected '(a:b:)'
-  f0(b: ())
+  f0(b: B())
   //! @+1 diagnostic incompatible labels: found '(a:_:)', expected '(a:b:)'
-  f0(a: (), ())
+  f0(a: A(), B())
 
-  f1(b: ())
+  f1(b: B())
   //! @+1 diagnostic incompatible labels: found '(a:)', expected '(a:b:)'
-  f1(a: ())
+  f1(a: A())
 
-  let x = A()
+  let x = C()
   x.foo()
 }
