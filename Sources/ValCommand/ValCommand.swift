@@ -198,6 +198,7 @@ public struct ValCommand: ParsableCommand {
 
     if outputType == .cpp {
       #if os(Windows)
+        // Note: clang-format doesn't work on Windows.
         let codeFormatter: CodeTransform? = nil
       #else
         let codeFormatter: CodeTransform? = (try? find("clang-format")).map({
