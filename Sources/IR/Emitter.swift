@@ -64,8 +64,7 @@ public struct Emitter {
     topLevel d: AnyDeclID.TypedNode,
     into module: inout Module
   ) {
-    precondition(d.scope.kind == TranslationUnit.self)
-
+    precondition(program.isAtModuleScope(d.id))
     switch d.kind {
     case ConformanceDecl.self:
       emit(conformanceDecl: ConformanceDecl.Typed(d)!, into: &module)
