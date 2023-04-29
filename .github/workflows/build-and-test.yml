@@ -148,7 +148,7 @@ jobs:
 
     - name: Retry again on failure
       continue-on-error: false
-      if: steps.build-support-library != 'success'
+      if: steps.build-support-library.outcome != 'success'
       run: swift build -c release --target Support
       
     - name: Install support library
