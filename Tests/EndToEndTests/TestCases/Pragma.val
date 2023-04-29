@@ -1,3 +1,5 @@
+fun f(_ f: sink Int = #line) -> Int { f }
+
 public fun main() -> Int32 {
-  Int32(#line - 2)
+  Int32(f() - #line)
 }
