@@ -1,5 +1,4 @@
 import Core
-import Foundation
 
 /// A constant metatype value in Val IR.
 public struct MetatypeConstant: Constant, Hashable {
