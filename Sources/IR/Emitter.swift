@@ -874,7 +874,10 @@ public struct Emitter {
     }
 
     // Arguments are evaluated first, from left to right.
-    let arguments = emit(arguments: expr.arguments, to: expr.callee, into: &module)
+    let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
+    let arguments = emit(
+      arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
+      into: &module)
     let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
     return module.append(
       module.makeCall(applying: callee, to: liftedArguments + arguments, anchoredAt: expr.site),
@@ -901,12 +904,14 @@ public struct Emitter {
   }
 
   /// Inserts the IR for `arguments`, which is an argument passed to a function of type `callee`,
-  /// into `module` at the end of the current insertion block. `site` is used to anchor the IR for
-  /// default arguments.
+  /// into `module` at the end of the current insertion block.
+  ///
+  /// - Parameters:
+  ///   - syntheticSite: The site at which default pragma arguments are anchored.
   private mutating func emit(
     arguments: [LabeledArgument],
     to callee: AnyExprID.TypedNode,
-    // at site: SourceRange,
+    synthesizingDefaultArgumentsAt syntheticSite: SourceRange,
     into module: inout Module
   ) -> [Operand] {
     let calleeType = LambdaType(callee.type)!
@@ -917,38 +922,63 @@ public struct Emitter {
     var result: [Operand] = []
     var i = 0
     for (j, p) in calleeType.inputs.enumerated() {
+      let a: AnyExprID
       if (i < arguments.count) && (arguments[i].label?.value == p.label) {
-        let a = program[arguments[i].value]
-        result.append(emit(argument: a, to: ParameterType(p.type)!, into: &module))
+        a = arguments[i].value
         i += 1
       } else if let e = defaults?[j] {
-        let a = program[e]
-        result.append(emit(argument: a, to: ParameterType(p.type)!, into: &module))
+        a = e
       } else {
         unreachable()
       }
+
+      let v = emit(
+        argument: program[a], to: ParameterType(p.type)!, at: syntheticSite, into: &module)
+      result.append(v)
     }
 
     assert(i == arguments.count)
     return result
   }
 
-  /// Inserts the IR for the argument `expr` passed to a parameter of type `parameterType` into
+  /// Inserts the IR for the argument `expr` passed to a parameter of type `parameter` into
   /// `module` at the end of the current insertion block.
+  ///
+  /// - Parameters:
+  ///   - site: The source range in which `syntax` is being evaluated if it's a pragma literals.
+  ///     Defaults to `syntax.site`.
   private mutating func emit(
-    argument expr: AnyExprID.TypedNode,
-    to parameterType: ParameterType,
+    argument syntax: AnyExprID.TypedNode,
+    to parameter: ParameterType,
+    at site: SourceRange? = nil,
     into module: inout Module
   ) -> Operand {
-    switch parameterType.access {
+    if let e = PragmaLiteralExpr.Typed(syntax) {
+      let anchor = site ?? syntax.site
+      let v = emitRValue(pragma: e, at: anchor, into: &module)
+
+      switch parameter.access {
+      case .let, .inout, .set:
+        let s = emitLValue(converting: v, at: anchor, into: &module)
+        let b = module.makeBorrow(parameter.access, from: s, anchoredAt: anchor)
+        return module.append(b, to: insertionBlock!)[0]
+
+      case .sink:
+        return v
+
+      default:
+        fatalError("not implemented")
+      }
+    }
+
+    switch parameter.access {
     case .let, .inout, .set:
-      let s = emitLValue(expr, into: &module)
-      return module.append(
-        module.makeBorrow(parameterType.access, from: s, anchoredAt: expr.site),
-        to: insertionBlock!)[0]
+      let s = emitLValue(syntax, into: &module)
+      let b = module.makeBorrow(parameter.access, from: s, anchoredAt: syntax.site)
+      return module.append(b, to: insertionBlock!)[0]
 
     case .sink:
-      return emitRValue(expr, into: &module)
+      return emitRValue(syntax, into: &module)
 
     default:
       fatalError("not implemented")
@@ -1069,15 +1099,21 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
+  /// Inserts the IR `syntax` into `module`
+  ///
+  /// - Parameters:
+  ///   - site: The source range in which `syntax` is being evaluated. Defaults to `syntax.site`.
   private mutating func emitRValue(
     pragma syntax: PragmaLiteralExpr.Typed,
+    at site: SourceRange? = nil,
     into module: inout Module
   ) -> Operand {
+    let s = site ?? syntax.site
     switch program.ast[syntax.id].kind {
     case .file:
-      return emitString(syntax.site.file.url.absoluteURL.path, at: syntax.site, into: &module)
+      return emitString(s.file.url.absoluteURL.path, at: s, into: &module)
     case .line:
-      return emitInt(syntax.site.first().line.number, at: syntax.site, into: &module)
+      return emitInt(s.first().line.number, at: s, into: &module)
     }
   }
 
@@ -1456,25 +1492,31 @@ public struct Emitter {
     case TupleMemberExpr.self:
       return emitLValue(name: TupleMemberExpr.Typed(syntax)!, into: &module)
     default:
-      return emitLValue(convertingRValue: syntax, into: &module)
+      return emitLValue(converting: syntax, into: &module)
     }
   }
 
-  /// Inserts the IR for the rvalue `syntax` converted as a lvalue into `module` at the end of the
-  /// current insertion block.
+  /// Inserts the IR for `rvalue` converted as a lvalue into `module` at the end of the current
+  /// insertion block.
   private mutating func emitLValue(
-    convertingRValue syntax: AnyExprID.TypedNode,
+    converting rvalue: AnyExprID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    let rvalueType = program.relations.canonical(syntax.type)
+    let v = emitRValue(rvalue, into: &module)
+    return emitLValue(converting: v, at: rvalue.site, into: &module)
+  }
 
-    let value = emitRValue(syntax, into: &module)
+  /// Inserts the IR for converting `rvalue` as a lvalue at `site`.
+  private mutating func emitLValue(
+    converting rvalue: Operand,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
     let storage = module.append(
-      module.makeAllocStack(rvalueType, anchoredAt: syntax.site),
+      module.makeAllocStack(module.type(of: rvalue).ast, anchoredAt: site),
       to: insertionBlock!)[0]
     frames.top.allocs.append(storage)
-
-    emitInitialization(of: storage, to: value, anchoredAt: syntax.site, into: &module)
+    emitInitialization(of: storage, to: rvalue, anchoredAt: site, into: &module)
     return storage
   }
 
