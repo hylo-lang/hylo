@@ -152,7 +152,7 @@ jobs:
       run: swift build -c release --target Support
       
     - name: Install support library
-      run: ./Tools/install.bat
+      run: ./Tools/install_CI.bat
 
     - name: Build (Release)
       id: build
