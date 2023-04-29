@@ -294,6 +294,8 @@ public struct TypeChecker {
       check(method: NodeID(d)!)
     case MethodImpl.self:
       check(method: NodeID(program.declToScope[d]!)!)
+    case NamespaceDecl.self:
+      check(namespace: NodeID(d)!)
     case OperatorDecl.self:
       check(operator: NodeID(d)!)
     case ProductTypeDecl.self:
@@ -633,10 +635,19 @@ public struct TypeChecker {
     declRequests[d] = .typeRealizationCompleted
   }
 
-  private mutating func check(operator d: OperatorDecl.ID) {
-    let source = TranslationUnit.ID(program.declToScope[d]!)!
+  private mutating func check(namespace d: NamespaceDecl.ID) {
+    _check(decl: d, { (this, d) in this._check(namespace: d) })
+  }
 
+  private mutating func _check(namespace d: NamespaceDecl.ID) {
+    for m in ast[d].members {
+      check(decl: m)
+    }
+  }
+
+  private mutating func check(operator d: OperatorDecl.ID) {
     // Look for duplicate operator declaration.
+    let source = TranslationUnit.ID(program.declToScope[d]!)!
     for decl in ast[source].decls where decl.kind == OperatorDecl.self {
       let oper = OperatorDecl.ID(decl)!
       if oper != d,
@@ -2648,6 +2659,8 @@ public struct TypeChecker {
       return realize(methodImpl: NodeID(d)!)
     case ModuleDecl.self:
       return realize(moduleDecl: NodeID(d)!)
+    case NamespaceDecl.self:
+      return realize(namespaceDecl: NodeID(d)!)
     case ParameterDecl.self:
       return realize(parameterDecl: NodeID(d)!)
     case ProductTypeDecl.self:
@@ -2941,6 +2954,11 @@ public struct TypeChecker {
       result.append(i)
     }
     return result
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(namespaceDecl d: NamespaceDecl.ID) -> AnyType {
+    _realize(decl: d) { (this, d) in ^NamespaceType(d, ast: this.ast) }
   }
 
   /// Returns the overarching type of `d`.
