@@ -64,8 +64,6 @@ public struct ValCommand: ParsableCommand {
           fileURLWithPath:
             "D:/a/val/val/.build/x86_64-unknown-windows-msvc/release/Support.build/src/.val")
       }
-      //For user
-      //Get user directory
       return URL(fileURLWithPath: environment + "/.val")
     #else
       return URL(fileURLWithPath: "/usr/local/lib/val")
@@ -249,7 +247,6 @@ public struct ValCommand: ParsableCommand {
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
   /// logging diagnostics to `log`.
-  /// Make Val code executable on MacOS(C++ backend)
   private func makeMacOSExecutable<L: Log>(
     at binaryPath: String,
     linking objects: [URL],
@@ -270,9 +267,8 @@ public struct ValCommand: ParsableCommand {
     try runCommandLine(xcrun, arguments, loggingTo: &log)
   }
 
-  /// Combines the object files located at `objects` into an executable file at `binaryPath`,
-  /// logging diagnostics to `log`.
-  /// Make Val code executable on Windows and Linux(C++ backend)
+  /// Combines the object files located at `objects` into a Linux or Windows executable file at
+  /// `binaryPath`, logging diagnostics to `log`.
   private func makeExecutable<L: Log>(
     at binaryPath: String,
     linking objects: [URL],

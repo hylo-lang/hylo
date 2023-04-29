@@ -146,7 +146,7 @@ jobs:
       continue-on-error: true
       run: swift build -c release --target Support
 
-    - name: Retry again on failure
+    - name: Retry on failure
       continue-on-error: false
       if: steps.build-support-library.outcome != 'success'
       run: swift build -c release --target Support
@@ -159,7 +159,7 @@ jobs:
       continue-on-error: true
       run: swift build -v -c release
 
-    - name: Retry again on failure
+    - name: Retry on failure
       continue-on-error: false
       if: steps.build.outcome != 'success'
       run: swift build -v -c release
@@ -169,7 +169,7 @@ jobs:
       continue-on-error: true
       run: swift test -c release -Xswiftc -enable-testing ${{matrix.host.test-options}}
 
-    - name: Retry again on failure
+    - name: Retry on failure
       continue-on-error: false
       if: steps.test.outcome != 'success'
       run: swift test -c release -Xswiftc -enable-testing ${{matrix.host.test-options}}
