@@ -66,7 +66,6 @@ extension Program {
     }
   }
 
-
   /// Returns `true` iff `d` is at module scope.
   public func isAtModuleScope<T: DeclID>(_ d: T) -> Bool {
     switch declToScope[d]!.kind {
