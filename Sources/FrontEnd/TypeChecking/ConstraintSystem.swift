@@ -526,7 +526,7 @@ struct ConstraintSystem {
     }
 
     // Make sure `F` structurally matches the given parameter list.
-    if !areLabelsAccepted(goal.labels, by: callee) {
+    guard let argumentsToParameter = matchArgumentsToParameter(goal.labels, by: callee) else {
       return .failure { (d, m, _) in
         d.insert(
           .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.origin.site))
@@ -535,7 +535,8 @@ struct ConstraintSystem {
 
     // Break down the goal.
     var subordinates: [GoalIdentity] = []
-    for (a, b) in zip(goal.arguments, callee.inputs) {
+    for (a, j) in zip(goal.arguments, argumentsToParameter) {
+      let b = callee.inputs[j]
       let o = ConstraintOrigin(.argument, at: a.site)
       subordinates.append(schedule(ParameterConstraint(a.type, b.type, origin: o)))
     }
@@ -545,19 +546,29 @@ struct ConstraintSystem {
     return delegate(to: subordinates)
   }
 
-  /// Returns `true` iff `callee` accepts an argument list with given `labels`.
-  private func areLabelsAccepted<T: Collection>(_ labels: T, by callee: CallableType) -> Bool
+  /// Returns a table from argument position to its corresponding parameter position iff `callee`
+  /// accepts an argument list with given `labels`. Otherwise, returns `nil`.
+  ///
+  /// For example, given a callee whose parameters are `(x: Int, y: Int = 0, z: Int)` and an
+  /// argument list with labels `[x, z]`, this function returns `[0, 2]`.
+  private func matchArgumentsToParameter<T: Collection>(
+    _ labels: T,
+    by callee: CallableType
+  ) -> [Int]?
   where T.Element == String? {
+    var result: [Int] = []
     var i = labels.startIndex
-    for j in callee.inputs.indices {
-      if (i != labels.endIndex) && (labels[i] == callee.inputs[j].label) {
+
+    for (j, p) in callee.inputs.enumerated() {
+      if (i != labels.endIndex) && (labels[i] == p.label) {
+        result.append(j)
         i = labels.index(after: i)
-      } else if !callee.inputs[j].hasDefault {
-        return false
+      } else if !p.hasDefault {
+        return nil
       }
     }
 
-    return i == labels.endIndex
+    return (i == labels.endIndex) ? result : nil
   }
 
   private mutating func solve(
