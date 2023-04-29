@@ -31,7 +31,7 @@ extension Module {
     diagnostics: inout DiagnosticSet
   ) {
     if program.relations.areEquivalent(returnType, .void) {
-      insert(makeReturn(.constant(.void), anchoredAt: anchor), at: i)
+      insert(makeReturn(.void, anchoredAt: anchor), at: i)
     } else {
       diagnostics.insert(.missingFunctionReturn(expectedReturnType: returnType, at: anchor))
     }

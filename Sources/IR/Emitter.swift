@@ -255,7 +255,7 @@ public struct Emitter {
 
   /// Inserts the IR for `decl` into `module`.
   private mutating func emit(productDecl decl: ProductTypeDecl.Typed, into module: inout Module) {
-    _ = module.addGlobal(.metatype(.init(MetatypeType(decl.type)!)))
+    _ = module.addGlobal(MetatypeConstant(.init(decl.type)!))
     for member in decl.members {
       switch member.kind {
       case FunctionDecl.self:
@@ -343,7 +343,7 @@ public struct Emitter {
     guard let initializer = decl.initializer else {
       report(.error(binding: capability, requiresInitializerAt: decl.pattern.introducer.site))
       for (_, name) in decl.pattern.subpattern.names {
-        frames[name.decl] = .constant(.poison(PoisonConstant(type: .address(name.decl.type))))
+        frames[name.decl] = .constant(PoisonConstant(type: .address(name.decl.type)))
       }
       return
     }
@@ -362,7 +362,7 @@ public struct Emitter {
         if let u = ExistentialType(name.decl.type) {
           let witnessTable = PointerConstant(
             module.syntax.id,
-            module.addGlobal(.witnessTable(.init(describing: partType))))
+            module.addGlobal(WitnessTable(describing: partType)))
           part =
             module.append(
               module.makeBorrow(capability, from: part, anchoredAt: name.decl.site),
@@ -370,7 +370,7 @@ public struct Emitter {
           part =
             module.append(
               module.makeWrapAddr(
-                part, .constant(.pointer(witnessTable)), as: u,
+                part, .constant(witnessTable), as: u,
                 anchoredAt: name.decl.site),
               to: insertionBlock!)[0]
         }
@@ -451,7 +451,7 @@ public struct Emitter {
       fatalError("not implemented")
     }
 
-    module.append(module.makeReturn(.constant(.void), anchoredAt: site), to: insertionBlock!)
+    module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
   }
 
   private mutating func emitMoveAssignment(
@@ -480,7 +480,7 @@ public struct Emitter {
     let r = module.append(module.makeLoad(argument, anchoredAt: site), to: insertionBlock!)[0]
     emitMove(.set, of: r, to: receiver, conformanceToSinkable: c, anchoredAt: site, into: &module)
 
-    module.append(module.makeReturn(.constant(.void), anchoredAt: site), to: insertionBlock!)
+    module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
   }
 
   // MARK: Statements
@@ -638,7 +638,7 @@ public struct Emitter {
     if let expr = stmt.value {
       value = emitRValue(expr, into: &module)
     } else {
-      value = .constant(.void)
+      value = .void
     }
 
     emitStackDeallocs(in: &module, site: stmt.site)
@@ -734,9 +734,7 @@ public struct Emitter {
     booleanLiteral expr: BooleanLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let value = Operand.constant(
-      .integer(IntegerConstant(expr.value ? 1 : 0, bitWidth: 1)))
-
+    let value = Operand.constant(IntegerConstant(expr.value ? 1 : 0, bitWidth: 1))
     let boolType = program.ast.coreType(named: "Bool")!
     return module.append(
       module.makeRecord(boolType, aggregating: [value], anchoredAt: expr.site),
@@ -845,7 +843,7 @@ public struct Emitter {
     if let s = resultStorage {
       return module.append(module.makeLoad(s, anchoredAt: expr.site), to: insertionBlock!)[0]
     } else {
-      return .constant(.void)
+      return .void
     }
   }
 
@@ -1026,7 +1024,7 @@ public struct Emitter {
     let d = emit(functionDecl: e.decl, into: &module)
     let f = FunctionRef(to: d, type: .address(e.decl.type))
     return module.append(
-      module.makePartialApply(wrapping: .function(f), with: .constant(.void), anchoredAt: e.site),
+      module.makePartialApply(wrapping: f, with: .void, anchoredAt: e.site),
       to: insertionBlock!)[0]
   }
 
@@ -1144,8 +1142,8 @@ public struct Emitter {
       guard case .member(let calleeDecl) = program.referredDecls[callee.expr] else {
         unreachable()
       }
-      let ref = FunctionRef(to: .init(FunctionDecl.ID(calleeDecl)!), type: .address(calleeType))
-      let f = Operand.constant(.function(ref))
+      let f = Operand.constant(
+        FunctionRef(to: .init(FunctionDecl.ID(calleeDecl)!), type: .address(calleeType)))
 
       // Emit the call.
       return module.append(
@@ -1170,7 +1168,7 @@ public struct Emitter {
     tuple syntax: TupleExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    if syntax.elements.isEmpty { return .constant(.void) }
+    if syntax.elements.isEmpty { return .void }
 
     var elements: [Operand] = []
     for e in syntax.elements {
@@ -1231,17 +1229,17 @@ public struct Emitter {
       }
 
       let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType))
-      return (.constant(.function(ref)), [])
+      return (.constant(ref), [])
 
     case .direct(let d) where d.kind == InitializerDecl.self:
       // Callee is a direct reference to an initializer declaration.
       let ref = FunctionRef(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
-      return (.constant(.function(ref)), [])
+      return (.constant(ref), [])
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
       let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType.lifted))
-      let fun = Operand.constant(.function(ref))
+      let fun = Operand.constant(ref)
 
       // Emit the location of the receiver.
       let receiver: Operand
@@ -1338,9 +1336,9 @@ public struct Emitter {
     let bytes = s.data(using: .utf8)!
     let size = emitWord(bytes.count, at: site, into: &module)
 
-    let p = PointerConstant(module.syntax.id, module.addGlobal(.buffer(.init(bytes))))
+    let p = PointerConstant(module.syntax.id, module.addGlobal(BufferConstant(bytes)))
     let base = emitCoreInstance(
-      of: "RawPointer", aggregating: [.constant(.pointer(p))], at: site, into: &module)
+      of: "RawPointer", aggregating: [.constant(p)], at: site, into: &module)
     return emitCoreInstance(of: "String", aggregating: [size, base], at: site, into: &module)
   }
 
@@ -1353,7 +1351,7 @@ public struct Emitter {
   ) -> Operand {
     let t = program.ast.coreType(named: "Int")!
     let s = module.makeRecord(
-      t, aggregating: [.constant(.integer(IntegerConstant(i, bitWidth: 64)))], anchoredAt: site)
+      t, aggregating: [.constant(IntegerConstant(i, bitWidth: 64))], anchoredAt: site)
     return module.append(s, to: insertionBlock!)[0]
   }
 
@@ -1384,13 +1382,13 @@ public struct Emitter {
   ) -> Operand {
     switch literalType {
     case program.ast.coreType(named: "Double")!:
-      let v = Constant.floatingPoint(.double(s))
+      let v = FloatingPointConstant.double(s)
       return module.append(
         module.makeRecord(literalType, aggregating: [.constant(v)], anchoredAt: anchor),
         to: insertionBlock!)[0]
 
     case program.ast.coreType(named: "Float")!:
-      let v = Constant.floatingPoint(.float(s))
+      let v = FloatingPointConstant.float(s)
       return module.append(
         module.makeRecord(literalType, aggregating: [.constant(v)], anchoredAt: anchor),
         to: insertionBlock!)[0]
@@ -1425,12 +1423,12 @@ public struct Emitter {
     guard let b = bits else {
       diagnostics.insert(
         .error(integerLiteral: s, overflowsWhenStoredInto: literalType, at: anchor))
-      return .constant(.poison(PoisonConstant(type: .object(literalType))))
+      return .constant(PoisonConstant(type: .object(literalType)))
     }
 
     return module.append(
       module.makeRecord(
-        literalType, aggregating: [.constant(.integer(IntegerConstant(b)))], anchoredAt: anchor),
+        literalType, aggregating: [.constant(IntegerConstant(b))], anchoredAt: anchor),
       to: insertionBlock!)[0]
   }
 
@@ -1458,7 +1456,7 @@ public struct Emitter {
   ) -> Operand {
     emitCoreInstance(
       of: "Int",
-      aggregating: [.constant(.integer(IntegerConstant(value, bitWidth: 64)))],
+      aggregating: [.constant(IntegerConstant(value, bitWidth: 64))],
       at: site,
       into: &module)
   }
@@ -1556,7 +1554,7 @@ public struct Emitter {
     switch d.kind {
     case ProductTypeDecl.self:
       let t = MetatypeType(of: d.type)
-      let g = module.addGlobal(.metatype(.init(MetatypeType(d.type)!)))
+      let g = module.addGlobal(MetatypeConstant(MetatypeType(d.type)!))
       let s = module.makeGlobalAddr(
         of: g, in: module.syntax.id, typed: ^MetatypeType(of: t), anchoredAt: d.site)
       return module.append(s, to: insertionBlock!)[0]
@@ -1674,7 +1672,7 @@ public struct Emitter {
       let ref = FunctionRef(
         to: .init(synthesized: program.moveDecl(access), for: t),
         type: .address(callee))
-      let fun = Operand.constant(.function(ref))
+      let fun = Operand.constant(ref)
 
       let receiver = module.append(
         module.makeBorrow(access, from: storage, anchoredAt: anchor),

@@ -1,5 +1,5 @@
 /// An instruction operand.
-public enum Operand: Hashable {
+public enum Operand {
 
   /// The `index`-th result of `instruction`.
   case register(InstructionID, Int)
@@ -8,7 +8,10 @@ public enum Operand: Hashable {
   case parameter(Block.ID, Int)
 
   /// A constant value.
-  case constant(Constant)
+  case constant(any ConstantProtocol)
+
+  /// The void constant.
+  public static let void: Operand = .constant(VoidConstant())
 
   /// The ID of the function in which the operand is defined, if any.
   var function: Function.ID? {
@@ -39,6 +42,40 @@ public enum Operand: Hashable {
 
 }
 
+extension Operand: Equatable {
+
+  public static func == (l: Self, r: Self) -> Bool {
+    switch (l, r) {
+    case (.register(let l0, let l1), .register(let r0, let r1)):
+      return (l0 == r0) && (l1 == r1)
+    case (.parameter(let l0, let l1), .parameter(let r0, let r1)):
+      return (l0 == r0) && (l1 == r1)
+    case (.constant(let l0), .constant(let r0)):
+      return l0.equals(r0)
+    default:
+      return false
+    }
+  }
+
+}
+
+extension Operand: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    switch self {
+    case .register(let a, let b):
+      a.hash(into: &hasher)
+      b.hash(into: &hasher)
+    case .parameter(let a, let b):
+      a.hash(into: &hasher)
+      b.hash(into: &hasher)
+    case .constant(let a):
+      a.hash(into: &hasher)
+    }
+  }
+
+}
+
 extension Operand: CustomStringConvertible {
 
   public var description: String {
@@ -48,7 +85,7 @@ extension Operand: CustomStringConvertible {
     case .parameter(let b, let k):
       return "%\(b)#\(k)"
     case .constant(let c):
-      return c.description
+      return "\(c)"
     }
   }
 

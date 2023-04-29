@@ -96,41 +96,44 @@ extension LLVM.Module {
 
   /// Returns the LLVM IR value corresponding to the Val IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
-    _ c: IR.Constant,
+    _ c: any IR.ConstantProtocol,
     usedIn m: IR.Module,
     from ir: LoweredProgram
   ) -> LLVM.IRValue {
     switch c {
-    case .integer(let v):
+    case let v as IR.IntegerConstant:
       guard v.value.bitWidth <= 64 else { fatalError("not implemented") }
       let t = LLVM.IntegerType(v.value.bitWidth, in: &self)
       return t.constant(UInt64(v.value.words[0]))
 
-    case .floatingPoint(let v):
+    case let v as IR.FloatingPointConstant:
       let t = LLVM.FloatingPointType(ir.syntax.llvm(c.type.ast, in: &self))!
       return t.constant(parsing: v.value)
 
-    case .buffer(let v):
+    case let v as IR.BufferConstant:
       return LLVM.ArrayConstant(bytes: v.contents, in: &self)
 
-    case .metatype(let v):
+    case let v as IR.MetatypeConstant:
       return transpiledMetatype(of: v.value.instance, usedIn: m, from: ir)
 
-    case .witnessTable(let v):
+    case let v as IR.WitnessTable:
       return transpiledWitnessTable(v, usedIn: m, from: ir)
 
-    case .pointer(let v):
+    case let v as IR.PointerConstant:
       return global(named: "\(v.container)\(v.id)")!
 
-    case .function(let v):
+    case let v as IR.FunctionRef:
       return declare(v, from: ir)
 
-    case .poison:
+    case is IR.PoisonConstant:
       let t = ir.syntax.llvm(c.type.ast, in: &self)
       return LLVM.Poison(of: t)
 
-    case .void:
+    case is IR.VoidConstant:
       fatalError("not implemented")
+
+    default:
+      unreachable()
     }
   }
 
