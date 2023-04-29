@@ -72,6 +72,8 @@ public struct Emitter {
       emit(functionDecl: FunctionDecl.Typed(d)!, into: &module)
     case OperatorDecl.self:
       break
+    case NamespaceDecl.self:
+      emit(namespaceDecl: .init(d)!, into: &module)
     case ProductTypeDecl.self:
       emit(productDecl: ProductTypeDecl.Typed(d)!, into: &module)
     case TraitDecl.self:
@@ -250,6 +252,13 @@ public struct Emitter {
   /// Inserts the IR for `decl` into `module`.
   private mutating func emit(subscriptDecl decl: SubscriptDecl.Typed, into module: inout Module) {
     fatalError("not implemented")
+  }
+
+  /// Inserts the IR for `decl` into `module`.
+  private mutating func emit(namespaceDecl decl: NamespaceDecl.Typed, into module: inout Module) {
+    for m in decl.members {
+      emit(topLevel: m, into: &module)
+    }
   }
 
   /// Inserts the IR for `decl` into `module`.
