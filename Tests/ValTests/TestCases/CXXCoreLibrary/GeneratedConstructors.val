@@ -1,14 +1,14 @@
-//! h Int() { value = native_zeroinitializer_i64(); }
+//! h Int() { (*this) . value = native_zeroinitializer_i64(); }
 
-//! h Bool() { value = native_zeroinitializer_i1(); }
+//! h Bool() { (*this) . value = native_zeroinitializer_i1(); }
 
 //! h Double() { (*this) . value = native_zeroinitializer_double(); }
 
-//! h Float() { value = native_zeroinitializer_float(); }
-//! h Float(Double other) { *this = Float(native_fptrunc_double_float(value)); }
+//! h Float() { (*this) . value = native_zeroinitializer_float(); }
+//! h Float(Double other) { *this = Float(native_fptrunc_double_float(other . value)); }
 
-//! h Int32() { value = native_zeroinitializer_i32(); }
-//! h Int32(Int other) { *this = Int32(native_trunc_i64_i32(value)); }
+//! h Int32() { (*this) . value = native_zeroinitializer_i32(); }
+//! h Int32(Int other) { *this = Int32(native_trunc_i64_i32(other . value)); }
 
-//! h Int8() { value = native_zeroinitializer_i8(); }
-//! h Int8(Int other) { *this = Int8(native_trunc_i64_i8(value)); }
+//! h Int8() { (*this) . value = native_zeroinitializer_i8(); }
+//! h Int8(Int other) { *this = Int8(native_trunc_i64_i8(other . value)); }
