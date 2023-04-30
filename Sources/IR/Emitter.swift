@@ -278,6 +278,47 @@ public struct Emitter {
   private mutating func emit(globalBindingDecl d: BindingDecl.Typed, into module: inout Module) {
   }
 
+  /// Inserts the IR for `decl` into `module`, calling `allocateBinding` to allocate storage for
+  /// each introduced binding, and returning a map from variable declaration to its storage.
+  @discardableResult
+  private mutating func emit(
+    storedBindingDecl decl: BindingDecl.Typed,
+    into module: inout Module,
+    allocatingBindingsWith allocateBinding: (inout Emitter, VarDecl.Typed, inout Module) -> Operand
+  ) -> [VarDecl.ID: Operand] {
+    // Initialize a map from object path to its corresponding (sub-)object during destructuring.
+    var objects: [PartPath: Operand] = [:]
+    if let initializer = decl.initializer {
+      objects[[]] = emitRValue(initializer, into: &module)
+    }
+
+    var result: [VarDecl.ID: Operand] = [:]
+    for (path, name) in decl.pattern.subpattern.names {
+      // Allocate storage for `name`.
+      let storage = allocateBinding(&self, name.decl, &module)
+      result[name.decl.id] = storage
+      guard let initializer = decl.initializer else { continue }
+
+      // Make sure the initializer has been destructured deeply enough.
+      for i in 0 ..< path.count {
+        if objects[PartPath(path[...i])] != nil { continue }
+
+        let subobject = PartPath(path[..<i])
+        let subobjectParts = module.append(
+          module.makeDestructure(objects[subobject]!, anchoredAt: initializer.site),
+          to: insertionBlock!)
+        for j in 0 ..< subobjectParts.count {
+          objects[subobject + [j]] = subobjectParts[j]
+        }
+      }
+
+      // Initialize (sub-)object corresponding to `name`.
+      emitInitialization(of: storage, to: objects[path]!, anchoredAt: name.site, into: &module)
+    }
+
+    return result
+  }
+
   /// Inserts the IR for the local binding `decl` into `module`.
   ///
   /// - Requires: `decl` is a local binding.
@@ -302,37 +343,13 @@ public struct Emitter {
     precondition(program.isLocal(decl.id))
     precondition(read(decl.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
-    /// A map from object path to its corresponding (sub-)object during destructuring.
-    var objects: [PartPath: Operand] = [:]
-    if let initializer = decl.initializer {
-      objects[[]] = emitRValue(initializer, into: &module)
-    }
-
-    // Allocate storage for each name introduced by the declaration.
-    for (path, name) in decl.pattern.subpattern.names {
-      let storage = module.append(
-        module.makeAllocStack(name.decl.type, for: name.decl.id, anchoredAt: name.site),
-        to: insertionBlock!)[0]
-      frames.top.allocs.append(storage)
-      frames[name.decl] = storage
-
-      if let initializer = decl.initializer {
-        // Initialize (sub-)object corresponding to the current name.
-        for i in 0 ..< path.count {
-          // Make sure the initializer has been destructured deeply enough.
-          if objects[PartPath(path[...i])] != nil { continue }
-
-          // Destructure the (sub-)object.
-          let subobject = PartPath(path[..<i])
-          let subobjectParts = module.append(
-            module.makeDestructure(objects[subobject]!, anchoredAt: initializer.site),
-            to: insertionBlock!)
-          for j in 0 ..< subobjectParts.count {
-            objects[subobject + [j]] = subobjectParts[j]
-          }
-        }
-        emitInitialization(of: storage, to: objects[path]!, anchoredAt: name.site, into: &module)
-      }
+    emit(storedBindingDecl: decl, into: &module) { (this, b, m) in
+      let t = this.program.relations.canonical(b.type)
+      let a = m.makeAllocStack(t, for: b.id, anchoredAt: b.site)
+      let s = m.append(a, to: this.insertionBlock!)[0]
+      this.frames.top.allocs.append(s)
+      this.frames[b] = s
+      return s
     }
   }
 
