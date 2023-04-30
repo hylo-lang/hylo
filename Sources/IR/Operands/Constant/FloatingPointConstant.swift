@@ -1,7 +1,7 @@
 import Core
 
 /// A floating-point number Val IR constant.
-public struct FloatingPointConstant: ConstantProtocol, Hashable {
+public struct FloatingPointConstant: Constant, Hashable {
 
   /// The serialized value of this constant.
   public let value: String

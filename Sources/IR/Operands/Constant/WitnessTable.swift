@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 /// A constant buffer of bytes in Val IR.
-public struct WitnessTable: ConstantProtocol, Hashable {
+public struct WitnessTable: Constant, Hashable {
 
   /// The identifier of this table.
   public let id: UUID

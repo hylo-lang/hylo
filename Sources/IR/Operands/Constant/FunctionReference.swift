@@ -1,5 +1,5 @@
 /// A Val IR reference to a user function.
-public struct FunctionRef: ConstantProtocol, Hashable {
+public struct FunctionRef: Constant, Hashable {
 
   /// The ID of the referred IR function.
   public let function: Function.ID
