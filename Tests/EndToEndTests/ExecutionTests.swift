@@ -7,16 +7,17 @@ final class ExecutionTests: XCTestCase {
 
   /// Compiles and executes all tests in `TestCases` directory, and ensures they return success.
   #if os(Windows)
+    ///Test all the Val code in the TestCases folder
     func testExecution() throws {
       let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
       for testFile in try! sourceFiles(in: [s]) {
         let str = testFile.url.absoluteString
-        let range: Range = str.range(of: "/TestCases/")!
+        let range: Range = str.range(of: "TestCases")!
         let location = str.distance(from: range.lowerBound, to: str.endIndex)
-        try windowsValTest("." + str.suffix(location))
+        try windowsValTest("" + str.suffix(location))
       }
     }
-    /// Compiles and executes tests, and ensures they return success on Windows.
+
     func windowsValTest(_ fileURL: String) throws {
       let s = Bundle.module.url(forResource: fileURL, withExtension: nil)!
       for testFile in try sourceFiles(in: [s]) {
