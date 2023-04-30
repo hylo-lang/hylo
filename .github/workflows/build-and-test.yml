@@ -99,6 +99,8 @@ jobs:
       run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
 
   build-native-windows:
+    env:
+      set-env: VAL_SUPPORT_LIBRARY='D:\a\val\val\.build\x86_64-unknown-windows-msvc\release\Support.build\src'
     name: "Native: ${{ matrix.host.os }}/release"
     strategy:
       fail-fast: false
@@ -138,9 +140,6 @@ jobs:
 
     - name: Add LLVM to Path
       run: Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-libcmt\bin'
-
-    - name: Add LLVM to Path
-      run: Add-Content $env:VAL_SUPPORT_LIBRARY 'D:\a\val\val\.build\x86_64-unknown-windows-msvc\release\Support.build\src'
 
     - run: llvm-config --version
 
