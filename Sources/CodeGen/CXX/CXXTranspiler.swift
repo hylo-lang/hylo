@@ -59,9 +59,7 @@ public struct CXXTranspiler {
     return CXXFunctionDecl(
       identifier: CXXIdentifier(functionName),
       output: cxxFunctionReturnType(source, with: functionName),
-      parameters: source.parameters.map {
-        CXXFunctionDecl.Parameter(CXXIdentifier($0.baseName), cxx(typeExpr: $0.type))
-      },
+      parameters: cxx(parameters: source.parameters),
       body: source.body != nil ? cxx(funBody: source.body!) : nil)
   }
 
@@ -78,6 +76,13 @@ public struct CXXTranspiler {
 
     default:
       unreachable("unexpected type")
+    }
+  }
+
+  /// Returns a transpilation of `source`.
+  private func cxx(parameters source: [ParameterDecl.Typed]) -> [CXXParameter] {
+    return source.map {
+      CXXParameter(CXXIdentifier($0.baseName), cxx(typeExpr: $0.type))
     }
   }
 
@@ -110,8 +115,8 @@ public struct CXXTranspiler {
     case InitializerDecl.self:
       return [cxx(initializer: InitializerDecl.Typed(source)!)]
 
-    case MethodDecl.self, FunctionDecl.self:
-      return [.method]
+    case FunctionDecl.self:
+      return [cxx(memberFunction: FunctionDecl.Typed(source)!)]
 
     default:
       unexpected(source)
@@ -137,9 +142,7 @@ public struct CXXTranspiler {
       return .constructor(
         CXXConstructor(
           name: CXXIdentifier(parentType.baseName),
-          parameters: source.parameters.map {
-            CXXConstructor.Parameter(name: CXXIdentifier($0.baseName), type: cxx(typeExpr: $0.type))
-          },
+          parameters: cxx(parameters: source.parameters),
           initializers: [],
           body: source.body != nil ? cxx(brace: source.body!) : nil))
     case .memberwiseInit:
@@ -155,6 +158,28 @@ public struct CXXTranspiler {
           },
           body: nil))
     }
+  }
+  /// Returns a transpilation of `source`.
+  private func cxx(memberFunction source: FunctionDecl.Typed) -> CXXClassDecl.ClassMember {
+    // TODO: handle operators
+    let functionName: Identifier
+    switch source.notation?.value {
+    case .infix:
+      functionName = "operator_infix_" + source.identifier!.value
+    case .prefix:
+      functionName = "operator_prefix_" + source.identifier!.value
+    case .postfix:
+      functionName = "operator_postfix_" + source.identifier!.value
+    case nil:
+      functionName = source.identifier?.value ?? ""
+    }
+    return .method(
+      CXXMethod(
+        name: CXXIdentifier(functionName),
+        resultType: cxxFunctionReturnType(source, with: functionName),
+        parameters: cxx(parameters: source.parameters),
+        isStatic: source.isStatic,
+        body: source.body != nil ? cxx(funBody: source.body!) : nil))
   }
 
   /// An attribute of a product type.
