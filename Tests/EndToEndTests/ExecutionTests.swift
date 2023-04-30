@@ -20,7 +20,6 @@ final class ExecutionTests: XCTestCase {
     func windowsValTest(_ fileURL: String) throws {
       let s = Bundle.module.url(forResource: fileURL, withExtension: nil)!
       for testFile in try sourceFiles(in: [s]) {
-        debugPrint(testFile.url)
         let output = try compile(testFile.url, with: ["--emit", "binary"])
         do {
           let (status, _) = try run(output)
