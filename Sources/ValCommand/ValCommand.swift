@@ -57,10 +57,14 @@ public struct ValCommand: ParsableCommand {
   /// The default location of Val's SDK.
   private static func defaultValSDK() -> URL {
     #if os(Windows)
-      let environment =
-        ProcessInfo.processInfo.environment["VAL_SUPPORT_LIBRARY"]
-        ?? ProcessInfo.processInfo.environment["USERPROFILE"]!
-      return URL(fileURLWithPath: environment + "/.val")
+      var environment = ProcessInfo.processInfo.environment["USERPROFILE"]! + "/.val"
+      let environmentPath = ProcessInfo.processInfo.environment["Path"] ?? ""
+      for base in environmentPath.split(separator: ";") {
+        if base.contains(".val") {
+          environment = String(base)
+        }
+      }
+      return URL(fileURLWithPath: environment)
     #else
       return URL(fileURLWithPath: "/usr/local/lib/val")
     #endif
