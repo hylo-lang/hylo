@@ -4,8 +4,7 @@
 
 # IDEs
 /.swiftpm
-/.vscode
-
+/.vscode/launch.json
 # macOS
 .DS_Store
 

@@ -5,35 +5,49 @@ import XCTest
 
 final class ExecutionTests: XCTestCase {
 
-  /// The URL of the of the current target.
-  private static let targetURL = URL(fileURLWithPath: String(#filePath))
-
-  /// Returns the Val test cases of the current target.
-  private func testSuite() throws -> [SourceFile] {
-    let p = URL(fileURLWithPath: "TestCases", relativeTo: ExecutionTests.targetURL)
-    if p.hasDirectoryPath {
-      return try sourceFiles(in: [p])
-    } else {
-      let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
-      return try sourceFiles(in: [s])
-    }
-  }
-
   /// Compiles and executes all tests in `TestCases` directory, and ensures they return success.
-  func testExecution() throws {
-    for testFile in try testSuite() {
-      let output = try compile(testFile.url, with: ["--emit", "binary"])
-      do {
-        let (status, _) = try run(output)
-        XCTAssertEqual(
-          status, 0,
-          "Execution of binary for test \(testFile.baseName) failed with exit code \(status)")
-      } catch {
-        XCTFail("While testing \(testFile.baseName), cannot execute: \(output)")
+  #if os(Windows)
+    func testExecution() throws {
+      let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
+      for testFile in try! sourceFiles(in: [s]) {
+        let str = testFile.url.absoluteString
+        let range: Range = str.range(of: "/TestCases/")!
+        let location = str.distance(from: range.lowerBound, to: str.endIndex)
+        try windowsValTest("." + str.suffix(location))
       }
     }
-  }
-
+    /// Compiles and executes tests, and ensures they return success on Windows.
+    func windowsValTest(_ fileURL: String) throws {
+      let s = Bundle.module.url(forResource: fileURL, withExtension: nil)!
+      for testFile in try sourceFiles(in: [s]) {
+        debugPrint(testFile.url)
+        let output = try compile(testFile.url, with: ["--emit", "binary"])
+        do {
+          let (status, _) = try run(output)
+          XCTAssertEqual(
+            status, 0,
+            "Execution of binary for test \(testFile.baseName) failed with exit code \(status)")
+        } catch {
+          XCTFail("While testing \(testFile.baseName), cannot execute: \(output)")
+        }
+      }
+    }
+  #else
+    func testExecution() throws {
+      let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
+      for testFile in try! sourceFiles(in: [s]) {
+        let output = try compile(testFile.url, with: ["--emit", "binary"])
+        do {
+          let (status, _) = try run(output)
+          XCTAssertEqual(
+            status, 0,
+            "Execution of binary for test \(testFile.baseName) failed with exit code \(status)")
+        } catch {
+          XCTFail("While testing \(testFile.baseName), cannot execute: \(output)")
+        }
+      }
+    }
+  #endif
   func testHelloWorld() throws {
     let f = FileManager.default.temporaryFile()
     let s = #"public fun main() { print("Hello, World!") }"#
