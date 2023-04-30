@@ -99,9 +99,6 @@ jobs:
       run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
 
   build-native-windows:
-    defaults:
-      run:
-        shell: cmd
     name: "Native: ${{ matrix.host.os }}/release"
     strategy:
       fail-fast: false
