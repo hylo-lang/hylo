@@ -199,41 +199,6 @@ public struct Module {
     return true
   }
 
-  /// Declares a subscript identified by `s` with type `t`.
-  ///
-  /// - Parameters:
-  ///   - n: A human-readable name identifying the subscript.
-  ///   - site: The site in the Val sources to which the subscript is attached.
-  /// - Returns: `true` iff `s` wasn't already declared in `self`.
-  @discardableResult
-  mutating func declareSubscript(
-    identifiedBy f: Function.ID,
-    typed t: SubscriptImplType,
-    named n: String?,
-    at site: SourceRange
-  ) -> Bool {
-    if functions[f] != nil { return false }
-
-    var inputs: [ParameterType] = []
-    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
-    appendParameters(t.inputs, to: &inputs)
-
-    let output = program.relations.canonical(t.output)
-    let callback = LambdaType(
-      inputs: [.init(type: ^ParameterType(t.receiverEffect, output))],
-      output: .void)
-    inputs.append(.init(.let, ^callback))
-
-    functions[f] = Function(
-      name: n ?? "",
-      anchor: site.first(),
-      linkage: .external,
-      inputs: inputs,
-      output: .object(AnyType.void),
-      blocks: [])
-    return true
-  }
-
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
   private func appendCaptures(
     _ captures: [TupleType.Element],
@@ -287,9 +252,42 @@ public struct Module {
       entryFunctionID = f
     }
 
-    // Update the cache and return the ID of the newly created function.
     loweredFunctions[d.id] = f
     return f
+  }
+
+  /// Returns the identities of the Val IR functions corresponding to `d`.
+  mutating func getOrCreateSubscript(lowering d: SubscriptImpl.Typed) -> Subscript {
+    let opening = Function.ID(opening: d.id)
+    let closing = Function.ID(closing: d.id)
+    if functions[opening] != nil {
+      assert(functions[closing] != nil)
+      return Subscript(opening: opening, closing: closing)
+    }
+
+    let t = SubscriptImplType(d.type)!
+    let output = program.relations.canonical(t.output)
+    var inputs: [ParameterType] = []
+    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
+    appendParameters(t.inputs, to: &inputs)
+
+    functions[opening] = Function(
+      name: program.debugName(decl: d.id) + ".open",
+      anchor: d.site.first(),
+      linkage: .external,
+      inputs: inputs,
+      output: .object(^TupleType(types: [output, .builtin(.i(32))])),
+      blocks: [])
+
+    functions[closing] = Function(
+      name: program.debugName(decl: d.id) + ".close",
+      anchor: d.site.first(),
+      linkage: .external,
+      inputs: [ParameterType(.sink, .builtin(.i(32)))],
+      output: .object(AnyType.void),
+      blocks: [])
+
+    return Subscript(opening: opening, closing: closing)
   }
 
   /// Returns the identifier of the Val IR initializer corresponding to `d`.

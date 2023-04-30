@@ -83,6 +83,12 @@ extension Function {
       /// The identity of a lowered Val function, initializer, or method variant.
       case lowered(AnyDeclID)
 
+      /// The identity of an opening lowered subscript variant.
+      case openingSubscript(SubscriptImpl.ID)
+
+      /// The identity of an closing lowered subscript variant.
+      case closingSubscript(SubscriptImpl.ID)
+
       /// The identity of an initializer's constructor form.
       case constructor(InitializerDecl.ID)
 
@@ -100,6 +106,16 @@ extension Function {
     /// Creates the identity of the lowered form of `f`.
     public init(_ f: FunctionDecl.ID) {
       self.value = .lowered(AnyDeclID(f))
+    }
+
+    /// Creates the identity of the opening lowered form of `s`.
+    public init(opening s: SubscriptImpl.ID) {
+      self.value = .openingSubscript(s)
+    }
+
+    /// Creates the identity of the closing lowered form of `s`.
+    public init(closing s: SubscriptImpl.ID) {
+      self.value = .closingSubscript(s)
     }
 
     /// Creates the identity of the lowered form of `f` used as an initializer.
@@ -127,6 +143,10 @@ extension Function.ID: CustomStringConvertible {
     switch value {
     case .lowered(let d):
       return "\(d).lowered"
+    case .openingSubscript(let d):
+      return "\(d).opening"
+    case .closingSubscript(let d):
+      return "\(d).closing"
     case .constructor(let d):
       return "\(d).constructor"
     case .synthesized(let r, let t):

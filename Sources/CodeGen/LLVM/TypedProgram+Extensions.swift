@@ -10,6 +10,10 @@ extension LoweredProgram {
     switch f.value {
     case .lowered(let d):
       return syntax.abiName(of: d)
+    case .openingSubscript(let d):
+      return syntax.abiName(of: d) + ".open"
+    case .closingSubscript(let d):
+      return syntax.abiName(of: d) + ".close"
     case .constructor(let d):
       return syntax.abiName(of: d)
     case .synthesized(let d, let t):
