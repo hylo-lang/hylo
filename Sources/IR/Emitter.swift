@@ -122,7 +122,7 @@ public struct Emitter {
     let f = module.getOrCreateFunction(correspondingTo: d)
 
     guard let b = d.body else {
-      if d.isFFI { emitFFI(d, into: &module) }
+      if d.isForeignInterface { emitFFI(d, into: &module) }
       return f
     }
 

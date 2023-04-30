@@ -496,7 +496,7 @@ public struct TypeChecker {
 
     case nil:
       // Requirements and FFIs can be without a body.
-      if program.isRequirement(id) || ast[id].isFFI { return }
+      if program.isRequirement(id) || ast[id].isForeignInterface { return }
 
       // Declaration requires a body.
       diagnostics.insert(.error(declarationRequiresBodyAt: ast[id].introducerSite))
