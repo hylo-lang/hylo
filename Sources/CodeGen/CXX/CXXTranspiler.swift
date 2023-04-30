@@ -161,25 +161,56 @@ public struct CXXTranspiler {
   }
   /// Returns a transpilation of `source`.
   private func cxx(memberFunction source: FunctionDecl.Typed) -> CXXClassDecl.ClassMember {
-    // TODO: handle operators
-    let functionName: Identifier
-    switch source.notation?.value {
-    case .infix:
-      functionName = "operator_infix_" + source.identifier!.value
-    case .prefix:
-      functionName = "operator_prefix_" + source.identifier!.value
-    case .postfix:
-      functionName = "operator_postfix_" + source.identifier!.value
-    case nil:
-      functionName = source.identifier?.value ?? ""
-    }
+    let functionName = source.identifier?.value ?? ""
+    let (name, isOperator) = operatorOrMethodName(functionName, with: source.notation)
+
     return .method(
       CXXMethod(
-        name: CXXIdentifier(functionName),
+        name: name,
         resultType: cxxFunctionReturnType(source, with: functionName),
         parameters: cxx(parameters: source.parameters),
         isStatic: source.isStatic,
+        isOperator: isOperator,
         body: source.body != nil ? cxx(funBody: source.body!) : nil))
+  }
+
+  private func operatorOrMethodName(
+    _ id: Identifier, with notation: SourceRepresentable<OperatorNotation>?
+  ) -> (name: CXXIdentifier, isOperator: Bool) {
+    let allowedCxxOperators = [
+      "<<", ">>",
+      "*", "/", "%", "+", "-",
+      "==", "!=", "<", "<=", ">=", ">",
+      "^", "&", "&&", "|", "||",
+      "<<=", ">>=", "*=", "/=", "%=", "+=", "-=", "&=",
+      "++", "--",
+      // special case for "!" operator; we translate it to a C++ operator only if it's a prefix operator
+    ]
+    var isOperator: Bool
+    var nameId: Identifier
+    if notation != nil && allowedCxxOperators.contains(id) {
+      // we know we can translate this to a C++ operator.
+      nameId = id
+      isOperator = true
+    } else if notation?.value == .prefix && id == "!" {
+      nameId = id
+      isOperator = true
+    } else {
+      // We cannot translate this to a C++ operator.
+      isOperator = false
+      switch notation?.value {
+      case .infix:
+        nameId = "infix_" + id
+      case .prefix:
+        nameId = "prefix_" + id
+      case .postfix:
+        nameId = "postfix_" + id
+      case nil:
+        nameId = id
+      }
+    }
+    let name = isOperator ? CXXIdentifier(notSanitizing: nameId) : CXXIdentifier(nameId)
+    return (name, isOperator)
   }
 
   /// An attribute of a product type.

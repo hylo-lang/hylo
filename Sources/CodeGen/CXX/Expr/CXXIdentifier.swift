@@ -11,6 +11,13 @@ struct CXXIdentifier: CXXExpr {
     description = CXXIdentifier.sanitize(n)
   }
 
+  /// Creates an instance without sanitizing `n` for use as a C++ identifier.
+  ///
+  /// - Requires: `n` is not empty.
+  init(notSanitizing n: String) {
+    description = n
+  }
+
   var precedence: Int { 0 }
 
   var isLeftToRight: Bool {

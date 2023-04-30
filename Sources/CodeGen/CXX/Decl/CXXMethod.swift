@@ -18,6 +18,9 @@ struct CXXMethod: CXXDecl {
   /// True if `self` is a static class method.
   let isStatic: Bool
 
+  /// True if `self` is an operator definition.
+  let isOperator: Bool
+
   /// The body of the function.
   let body: CXXStmt?
 
