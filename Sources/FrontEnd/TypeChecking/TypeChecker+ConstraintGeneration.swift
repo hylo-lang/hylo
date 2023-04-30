@@ -671,7 +671,7 @@ extension TypeChecker {
       let returnType = shape ?? ^TypeVariable()
       let assumedCalleeType = SubscriptImplType(
         isProperty: false,
-        receiverEffect: nil,
+        receiverEffect: .let,
         environment: ^TypeVariable(),
         inputs: parameters,
         output: returnType)
