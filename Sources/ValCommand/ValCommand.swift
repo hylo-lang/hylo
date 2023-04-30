@@ -60,7 +60,7 @@ public struct ValCommand: ParsableCommand {
       var environment = ProcessInfo.processInfo.environment["USERPROFILE"]! + "/.val"
       let environmentPath = ProcessInfo.processInfo.environment["Path"] ?? ""
       for base in environmentPath.split(separator: ";") {
-        if base.contains(".val") {
+        if base.hasSuffix(".val") || base.hasSuffix(".val\\") {
           environment = String(base)
         }
       }
