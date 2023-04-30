@@ -9,8 +9,9 @@ final class ExecutionTests: XCTestCase {
   func testExecution() throws {
     let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
     for testFile in try! sourceFiles(in: [s]) {
-      let output = 
-        try compile(URL(fileURLWithPath: testFile.url.path), 
+      let output =
+        try compile(
+          URL(fileURLWithPath: testFile.url.path),
           with: ["--emit", "binary"])
       do {
         let (status, _) = try run(output)
@@ -22,7 +23,7 @@ final class ExecutionTests: XCTestCase {
       }
     }
   }
-    
+
   func testHelloWorld() throws {
     let f = FileManager.default.temporaryFile()
     let s = #"public fun main() { print("Hello, World!") }"#
