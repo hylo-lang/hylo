@@ -1,10 +1,10 @@
 import Core
 
 /// A floating-point number Val IR constant.
-public struct FloatingPointConstant: ConstantProtocol, Hashable {
+public struct FloatingPointConstant: Constant, Hashable {
 
   /// The serialized value of this constant.
-  private var value: String
+  public let value: String
 
   /// The Val IR type of this instance.
   public let type: LoweredType
@@ -30,7 +30,7 @@ public struct FloatingPointConstant: ConstantProtocol, Hashable {
 extension FloatingPointConstant: CustomStringConvertible {
 
   public var description: String {
-    "\(type.astType)(\(value))"
+    "\(type.ast)(\(value))"
   }
 
 }

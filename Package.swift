@@ -1,4 +1,4 @@
-// swift-tools-version:5.6
+// swift-tools-version:5.7
 import PackageDescription
 
 /// Settings to be passed to swiftc for all targets.
@@ -31,6 +31,9 @@ let package = Package(
       url: "https://github.com/attaswift/BigInt.git",
       from: "5.3.0"),
     .package(
+      url: "https://github.com/val-lang/Swifty-LLVM",
+      branch: "main"),
+    .package(
       url: "https://github.com/val-lang/swift-format",
       branch: "main"),
   ],
@@ -50,6 +53,7 @@ let package = Package(
         "FrontEnd",
         "IR",
         "CodeGenCXX",
+        "CodeGenLLVM",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: allTargetsSwiftSettings),
@@ -70,7 +74,8 @@ let package = Package(
     .target(
       name: "Core",
       dependencies: [
-        "Utils"
+        "Utils",
+        .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
@@ -87,14 +92,29 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
-      name: "ValModule",
-      path: "Library",
-      resources: [.copy("Core"), .copy("CXX")],
+      name: "CodeGenLLVM",
+      dependencies: [
+        "Core",
+        "IR",
+        "Utils",
+        .product(name: "LLVM", package: "Swifty-LLVM"),
+      ],
+      path: "Sources/CodeGen/LLVM",
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
       name: "Utils",
       dependencies: [.product(name: "BigInt", package: "BigInt")],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
+      name: "ValModule",
+      path: "Library",
+      resources: [.copy("Val"), .copy("CXX")],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
+      name: "Support",
       swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.

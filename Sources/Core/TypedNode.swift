@@ -180,6 +180,20 @@ extension TypedNode where ID: ExprID {
 
 }
 
+extension TypedNode where ID == FunctionCallExpr.ID {
+
+  /// `true` if `self` is a call to a memberwise initializer.
+  public var isMemberwiseInitialization: Bool {
+    guard
+      let callee = NameExpr.Typed(self.callee),
+      case .direct(let d) = callee.decl,
+      let i = InitializerDecl.Typed(d)
+    else { return false }
+    return i.isMemberwise
+  }
+
+}
+
 extension TypedNode where ID == NameExpr.ID {
 
   public enum Domain: Equatable {

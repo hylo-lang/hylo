@@ -84,10 +84,6 @@ extension Diagnostic {
       """, at: site)
   }
 
-  static func error(incompatibleParameterCountAt site: SourceRange) -> Diagnostic {
-    .error("incompatible number of parameters", at: site)
-  }
-
   static func error(
     type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange
   ) -> Diagnostic {
@@ -136,6 +132,10 @@ extension Diagnostic {
     .error(
       "type '\(type)' does not conform to trait '\(trait)'", at: site,
       notes: Array(notes.elements))
+  }
+
+  static func error(tooManyExistentialBoundsAt site: SourceRange) -> Diagnostic {
+    .error("existential generic type may have only one bound", at: site)
   }
 
   static func error(
@@ -227,10 +227,6 @@ extension Diagnostic {
 
   static func error(argumentToNonGenericType type: AnyType, at site: SourceRange) -> Diagnostic {
     .error("non-generic type '\(type)' has no generic parameters", at: site)
-  }
-
-  static func error(metatypeRequiresOneArgumentAt site: SourceRange) -> Diagnostic {
-    .error("reference to 'Metatype' requires exacly one static argument", at: site)
   }
 
   static func error(tooManyAnnotationsOnGenericValueParametersAt site: SourceRange) -> Diagnostic {

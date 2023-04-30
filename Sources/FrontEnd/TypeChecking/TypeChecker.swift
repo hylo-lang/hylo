@@ -23,6 +23,9 @@ public struct TypeChecker {
   /// A map from function and subscript declarations to their implicit captures.
   private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
 
+  /// A map from module to its synthesized declarations.
+  private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]] = [:]
+
   /// A map from name expression to its referred declaration.
   var referredDecls: BindingMap = [:]
 
@@ -66,23 +69,51 @@ public struct TypeChecker {
   /// replaced by their corresponding value, performing necessary name lookups from `lookupScope`.
   private mutating func specialized(
     _ genericType: AnyType,
-    applying substitutions: [GenericParameterDecl.ID: AnyType],
+    applying substitutions: GenericArguments,
     in lookupScope: AnyScopeID
   ) -> AnyType {
     func _impl(t: AnyType) -> TypeTransformAction {
       switch t.base {
-      case let p as GenericTypeParameterType:
-        return .stepOver(substitutions[p.decl] ?? t)
+      case let u as GenericTypeParameterType:
+        if let v = substitutions[u.decl] {
+          return .stepOver((v as? AnyType) ?? .error)
+        } else {
+          return .stepOver(t)
+        }
 
-      case let t as AssociatedTypeType:
-        let d = t.domain.transform(_impl)
+      case let u as AssociatedTypeType:
+        let d = u.domain.transform(_impl)
 
-        let candidates = lookup(ast[t.decl].baseName, memberOf: d, exposedTo: lookupScope)
+        let candidates = lookup(ast[u.decl].baseName, memberOf: d, exposedTo: lookupScope)
         if let c = candidates.uniqueElement {
           return .stepOver(MetatypeType(realize(decl: c))?.instance ?? .error)
         } else {
           return .stepOver(.error)
         }
+
+      case let u as ProductType:
+        if let a = associateParameters(of: u.decl, to: substitutions) {
+          return .stepOver(^BoundGenericType(u, arguments: a))
+        } else {
+          return .stepOver(t)
+        }
+
+      case let u as TypeAliasType:
+        if let a = associateParameters(of: u.decl, to: substitutions) {
+          return .stepOver(^BoundGenericType(u, arguments: a))
+        } else {
+          return .stepOver(t)
+        }
+
+      case let u as BoundGenericType:
+        let updatedArguments = u.arguments.mapValues { (v) -> any CompileTimeValue in
+          if let w = v as? AnyType {
+            return specialized(w, applying: substitutions, in: lookupScope)
+          } else {
+            return v
+          }
+        }
+        return .stepOver(^BoundGenericType(u.base, arguments: updatedArguments))
 
       default:
         return .stepInto(t)
@@ -263,6 +294,8 @@ public struct TypeChecker {
       check(method: NodeID(d)!)
     case MethodImpl.self:
       check(method: NodeID(program.declToScope[d]!)!)
+    case NamespaceDecl.self:
+      check(namespace: NodeID(d)!)
     case OperatorDecl.self:
       check(operator: NodeID(d)!)
     case ProductTypeDecl.self:
@@ -458,8 +491,8 @@ public struct TypeChecker {
 
       // Inline functions may return `Never` regardless of their return type.
       let r = LambdaType(declTypes[id]!)!.output.skolemized
-      let c = constraintOnSingleExprBody(body, ofFunctionReturning: r)
-      _ = solutionTyping(body, shapedBy: r, in: id, initialConstraints: [c])
+      let (t, c) = typeAndConstraintOfBody(body, inFunctionReturning: r)
+      _ = solutionTyping(body, shapedBy: t, in: id, initialConstraints: [c])
 
     case nil:
       // Requirements and FFIs can be without a body.
@@ -470,28 +503,29 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the type constraint placed on the body `e` of a single-expression function returning
-  /// instances of `r`.
+  /// Returns `(t, c)` where `t` is the type of the body `e` of a single-expression function whose
+  /// return type is `r`, and `c` is the constraint placed on `t`.
   ///
   /// Use this method to create initial constraints passed to `solutionTyping` to type check the
   /// body of a single-expression function. The returned constraint allows this body to have type
   /// `Never` even if the function declares a different return type.
-  private mutating func constraintOnSingleExprBody(
-    _ e: AnyExprID, ofFunctionReturning r: AnyType
-  ) -> Constraint {
-    let l = exprTypes[e].setIfNil(^TypeVariable())
-    let c = ConstraintOrigin(.return, at: ast[e].site)
-    let constrainToNever = EqualityConstraint(l, .never, origin: c)
+  private mutating func typeAndConstraintOfBody(
+    _ e: AnyExprID, inFunctionReturning r: AnyType
+  ) -> (AnyType, Constraint) {
+    let t = exprTypes[e].setIfNil(^TypeVariable())
+    let o = ConstraintOrigin(.return, at: ast[e].site)
+    let constrainToNever = EqualityConstraint(t, .never, origin: o)
 
     if relations.areEquivalent(r, .never) {
-      return constrainToNever
+      return (t, constrainToNever)
     } else {
-      return DisjunctionConstraint(
+      let c = DisjunctionConstraint(
         choices: [
-          .init(constraints: [SubtypingConstraint(l, r, origin: c)], penalties: 0),
+          .init(constraints: [SubtypingConstraint(t, r, origin: o)], penalties: 0),
           .init(constraints: [constrainToNever], penalties: 1),
         ],
-        origin: c)
+        origin: o)
+      return (t, c)
     }
   }
 
@@ -601,10 +635,19 @@ public struct TypeChecker {
     declRequests[d] = .typeRealizationCompleted
   }
 
-  private mutating func check(operator d: OperatorDecl.ID) {
-    let source = TranslationUnit.ID(program.declToScope[d]!)!
+  private mutating func check(namespace d: NamespaceDecl.ID) {
+    _check(decl: d, { (this, d) in this._check(namespace: d) })
+  }
 
+  private mutating func _check(namespace d: NamespaceDecl.ID) {
+    for m in ast[d].members {
+      check(decl: m)
+    }
+  }
+
+  private mutating func check(operator d: OperatorDecl.ID) {
     // Look for duplicate operator declaration.
+    let source = TranslationUnit.ID(program.declToScope[d]!)!
     for decl in ast[source].decls where decl.kind == OperatorDecl.self {
       let oper = OperatorDecl.ID(decl)!
       if oper != d,
@@ -750,21 +793,20 @@ public struct TypeChecker {
       }
 
       for t in conformedTraits(of: rhs, in: declContainer) {
-        checkAndRegisterConformance(
-          of: receiver, to: t, declaredAt: ast[e].site, in: AnyScopeID(d))
+        checkAndRegisterConformance(of: receiver, to: t, declaredBy: d, at: ast[e].site)
       }
     }
   }
 
-  /// Registers the conformance of `model` to `trait` in `declScope` in `self.relations` if it is
-  /// satisfied. Otherwise, reports diagnostics at `declSite`.
-  private mutating func checkAndRegisterConformance(
+  /// Registers the conformance of `model` to `trait` declared by `source` in `self.relations` if
+  /// it is satisfied. Otherwise, reports diagnostics at `declSite`.
+  private mutating func checkAndRegisterConformance<T: Decl & LexicalScope>(
     of model: AnyType,
     to trait: TraitType,
-    declaredAt declSite: SourceRange,
-    in declScope: AnyScopeID
+    declaredBy source: T.ID,
+    at declSite: SourceRange
   ) {
-    guard let c = checkConformance(of: model, to: trait, declaredAt: declSite, in: declScope)
+    guard let c = checkConformance(of: model, to: trait, declaredBy: source, at: declSite)
     else {
       // Diagnostics have been reported by `checkConformance`.
       return
@@ -776,13 +818,13 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the conformance of `model` to `trait` in `declScope` if it'ss satisfied. Otherwise,
-  /// reports missing requirements at `declSite` and returns `nil`.
-  private mutating func checkConformance(
+  /// Returns the conformance of `model` to `trait` declared by `source` if it's satisfied.
+  /// Otherwise, reports missing requirements at `declSite` and returns `nil`.
+  private mutating func checkConformance<T: Decl & LexicalScope>(
     of model: AnyType,
     to trait: TraitType,
-    declaredAt declSite: SourceRange,
-    in declScope: AnyScopeID
+    declaredBy source: T.ID,
+    at declSite: SourceRange
   ) -> Conformance? {
     let specializations = [ast[trait.decl].selfParameterDecl: model]
     var implementations = Conformance.ImplementationMap()
@@ -791,42 +833,48 @@ public struct TypeChecker {
     /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(function d: FunctionDecl.ID) {
-      let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: declScope)
-      guard !t[.hasError] else { return }
+      let useScope = AnyScopeID(source)
+      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
+      guard !requiredType[.hasError] else { return }
 
-      let n = Name(of: d, in: ast)!
+      let t = relations.canonical(requiredType)
+      let requiredName = Name(of: d, in: ast)!
       if let c = implementation(
-        of: n, in: model,
+        of: requiredName, in: model,
         withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: declScope)
+        exposedTo: AnyScopeID(source))
       {
         implementations[d] = .concrete(c)
-      } else if program.isSynthesizable(d) {
+      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
         implementations[d] = .synthetic(t)
+        synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
-        notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
+        notes.insert(
+          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
       }
     }
 
     /// Checks if requirement `d` of a method bunde named `m` is satisfied by `model`, extending
     /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
-      let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: declScope)
-      guard !t[.hasError] else { return }
+      let useScope = AnyScopeID(source)
+      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
+      guard !requiredType[.hasError] else { return }
 
+      let t = relations.canonical(requiredType)
       if let c = implementation(
         of: m, in: model,
         withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: declScope)
+        exposedTo: AnyScopeID(source))
       {
         implementations[d] = .concrete(c)
-      } else if program.isSynthesizable(d) {
+      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
         implementations[d] = .synthetic(t)
+        synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
-        let n = m.appending(ast[d].introducer.value)!
-        notes.insert(.error(trait: trait, requiresMethod: n, withType: t, at: declSite))
+        let requiredName = m.appending(ast[d].introducer.value)!
+        notes.insert(
+          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
       }
     }
 
@@ -869,12 +917,15 @@ public struct TypeChecker {
 
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
-    let expositionScope = reading(program.scopeToParent[declScope]!) { (s) in
+    let expositionScope = read(program.scopeToParent[source]!) { (s) in
       (s.kind == TranslationUnit.self) ? AnyScopeID(program.module(containing: s)) : s
     }
+
     return Conformance(
-      model: model, concept: trait, conditions: [], scope: expositionScope,
-      implementations: implementations, site: declSite)
+      model: model, concept: trait, conditions: [],
+      source: AnyDeclID(source), scope: expositionScope,
+      implementations: implementations,
+      site: declSite)
   }
 
   /// Returns the declaration exposed to `scope` of a callable member in `model` that introduces
@@ -889,9 +940,9 @@ public struct TypeChecker {
   ) -> AnyDeclID? {
     /// Returns `true` if candidate `d` has `requirementType`.
     func hasRequiredType<T: Decl>(_ d: T.ID) -> Bool {
-      let t = specialized(
-        relations.canonical(realize(decl: d)), applying: specializations, in: scope)
-      return t == requiredType
+      relations.areEquivalent(
+        specialized(realize(decl: d), applying: specializations, in: scope),
+        ^requiredType)
     }
 
     let allCandidates = lookup(requirementName.stem, memberOf: model, exposedTo: scope)
@@ -925,6 +976,39 @@ public struct TypeChecker {
     }
 
     return viableCandidates.uniqueElement
+  }
+
+  /// Returns the synthesized implementation of requirement `r` for type `t` in given `scope`, or
+  /// `nil` if `r` is not synthesizable.
+  private func synthesizedImplementation<T: DeclID>(
+    of r: T, for t: AnyType, in scope: AnyScopeID
+  ) -> SynthesizedDecl? {
+    guard let s = program.innermostType(containing: r).map(TraitDecl.ID.init(_:)) else {
+      return nil
+    }
+
+    // If the requirement is defined in `Sinkable`, it must be either the move-initialization or
+    // move-assignment method.
+    if s == ast.sinkableTrait.decl {
+      let d = MethodImpl.ID(r)!
+      switch ast[d].introducer.value {
+      case .set:
+        return .init(.moveInitialization, for: t, in: scope)
+      case .inout:
+        return .init(.moveAssignment, for: t, in: scope)
+      default:
+        unreachable()
+      }
+    }
+
+    // If the requirement is defined in `Copyable`, it must me the copy method.
+    if s == ast.copyableTrait.decl {
+      assert(r.kind == FunctionDecl.self)
+      return .init(.copy, for: t, in: scope)
+    }
+
+    // Requirement is not synthesizable.
+    return nil
   }
 
   /// Returns an array of declarations implementing `requirement` with type `requirementType` that
@@ -1038,11 +1122,12 @@ public struct TypeChecker {
   }
 
   private mutating func check(exprStmt s: ExprStmt.ID, in scope: AnyScopeID) {
-    guard let t = checkedType(of: ast[s].expr, in: scope) else { return }
+    guard let result = checkedType(of: ast[s].expr, in: scope) else { return }
 
-    // Issue a warning if the type of the expression isn't void.
-    if !relations.areEquivalent(t, .void) {
-      diagnostics.insert(.warning(unusedResultOfType: t, at: ast[ast[s].expr].site))
+    // Warn against unused result if the type of the expression is neither `Void` nor `Never`.
+    let t = relations.canonical(result)
+    if (t != .void) && (t != .never) {
+      diagnostics.insert(.warning(unusedResultOfType: result, at: ast[ast[s].expr].site))
     }
   }
 
@@ -1087,7 +1172,7 @@ public struct TypeChecker {
 
   /// Returns whether `d` is well-typed, reading type inference results from `s`.
   mutating func checkDeferred(varDecl d: VarDecl.ID, _ s: Solution) -> Bool {
-    let s = modifying(&declTypes[d]!) { (t) in
+    let s = modify(&declTypes[d]!) { (t) in
       // TODO: Diagnose reification failures
       t = s.typeAssumptions.reify(t)
       return !t[.hasError]
@@ -1513,48 +1598,25 @@ public struct TypeChecker {
   /// through qualified lookups into the extended type.
   private var extensionsUnderBinding = DeclSet()
 
-  /// The result of a name resolution request.
-  enum NameResolutionResult {
-
-    /// A candidate found by name resolution.
-    struct Candidate {
-
-      /// Declaration being referenced.
-      let reference: DeclRef
-
-      /// The quantifier-free type of the declaration at its use site.
-      let type: InstantiatedType
-
-    }
-
-    /// The resolut of name resolution for a single name component.
-    struct ResolvedComponent {
-
-      /// The resolved component.
-      let component: NameExpr.ID
-
-      /// The declarations to which the component may refer.
-      let candidates: [Candidate]
-
-      /// Creates an instance with the given properties.
-      init(_ component: NameExpr.ID, _ candidates: [Candidate]) {
-        self.component = component
-        self.candidates = candidates
+  /// Returns `(head, tail)` where `head` contains the nominal components of `name` from right to
+  /// left and `tail` is the non-nominal component of `name`, if any.
+  ///
+  /// Name expressions are rperesented as linked-list, whose elements are the components of a
+  /// name in reverse order. This method splits such lists at the first non-nominal component.
+  private func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain?) {
+    var suffix = [name]
+    while true {
+      let d = ast[suffix.last!].domain
+      switch d {
+      case .none:
+        return (suffix, nil)
+      case .implicit:
+        return (suffix, d)
+      case .expr(let e):
+        guard let p = NameExpr.ID(e) else { return (suffix, d) }
+        suffix.append(p)
       }
-
     }
-
-    /// Name resolution applied on the nominal prefix that doesn't require any overload resolution.
-    /// The payload contains the collections of resolved and unresolved components.
-    case done(resolved: [ResolvedComponent], unresolved: [NameExpr.ID])
-
-    /// Name resolution failed.
-    case failed
-
-    /// Name resolution couln't start because the first component of the expression isn't a name
-    /// The payload contains the collection of unresolved components, after the first one.
-    case inexecutable(_ components: [NameExpr.ID])
-
   }
 
   /// Resolves the non-overloaded name components of `name` from left to right in `scope`.
@@ -1565,29 +1627,17 @@ public struct TypeChecker {
     of name: NameExpr.ID,
     in scope: AnyScopeID
   ) -> NameResolutionResult {
-    // Build a stack with the nominal comonents of `nameExpr` or exit if its qualification is
-    // either implicit or prefixed by an expression.
-    var unresolvedComponents = [name]
-    loop: while true {
-      switch ast[unresolvedComponents.last!].domain {
-      case .implicit:
-        return .inexecutable(unresolvedComponents)
-
-      case .expr(let e):
-        guard let domain = NameExpr.ID(e) else { return .inexecutable(unresolvedComponents) }
-        unresolvedComponents.append(domain)
-
-      case .none:
-        break loop
-      }
+    var (unresolved, domain) = splitNominalComponents(of: name)
+    if domain != nil {
+      return .inexecutable(unresolved)
     }
 
     // Resolve the nominal components of `nameExpr` from left to right as long as we don't need
     // contextual information to resolve overload sets.
-    var resolvedPrefix: [NameResolutionResult.ResolvedComponent] = []
+    var resolved: [NameResolutionResult.ResolvedComponent] = []
     var parentType: AnyType? = nil
 
-    while let component = unresolvedComponents.popLast() {
+    while let component = unresolved.popLast() {
       // Evaluate the static argument list.
       var arguments: [AnyType] = []
       for a in ast[component].arguments {
@@ -1596,15 +1646,14 @@ public struct TypeChecker {
       }
 
       // Resolve the component.
-      let componentSyntax = ast[component]
       let candidates = resolve(
-        componentSyntax.name, withArguments: arguments, memberOf: parentType, from: scope)
+        ast[component].name, parameterizedBy: arguments, memberOf: parentType, exposedTo: scope)
 
       // Fail resolution we didn't find any candidate.
       if candidates.isEmpty { return .failed }
 
       // Append the resolved component to the nominal prefix.
-      resolvedPrefix.append(.init(component, candidates))
+      resolved.append(.init(component, candidates))
 
       // Defer resolution of the remaining name components if there are multiple candidates for
       // the current component or if we found a type variable.
@@ -1619,8 +1668,8 @@ public struct TypeChecker {
       }
     }
 
-    precondition(!resolvedPrefix.isEmpty)
-    return .done(resolved: resolvedPrefix, unresolved: unresolvedComponents)
+    precondition(!resolved.isEmpty)
+    return .done(resolved: resolved, unresolved: unresolved)
   }
 
   /// Returns the declarations of `name` exposed to `lookupScope` and accepting `arguments`,
@@ -1628,33 +1677,22 @@ public struct TypeChecker {
   /// lookup otherwise.
   mutating func resolve(
     _ name: SourceRepresentable<Name>,
-    withArguments arguments: [AnyType],
+    parameterizedBy arguments: [any CompileTimeValue],
     memberOf parentType: AnyType?,
-    from lookupScope: AnyScopeID
+    exposedTo useScope: AnyScopeID
   ) -> [NameResolutionResult.Candidate] {
-    // Handle references to the built-in module.
-    if (name.value.stem == "Builtin") && (parentType == nil) && isBuiltinModuleVisible {
-      return [
-        .init(reference: .builtinType, type: .init(shape: ^BuiltinType.module, constraints: []))
-      ]
-    }
-
-    // Handle references to built-in symbols.
-    if parentType == .builtin(.module) {
-      return resolve(builtin: name.value).map({ [$0] }) ?? []
+    // Resolve references to the built-in symbols.
+    if isBuiltinModuleVisible {
+      if (parentType == nil) && (name.value.stem == "Builtin") {
+        return [.init(.module)]
+      }
+      if parentType == .builtin(.module) {
+        return resolve(builtin: name)
+      }
     }
 
     // Gather declarations qualified by `parentType` if it isn't `nil` or unqualified otherwise.
-    let matches: [AnyDeclID]
-    if let t = parentType {
-      matches = lookup(name.value.stem, memberOf: t, exposedTo: lookupScope)
-        .compactMap({ decl(in: $0, named: name.value) })
-    } else {
-      matches = lookup(unqualified: name.value.stem, in: lookupScope)
-        .compactMap({ decl(in: $0, named: name.value) })
-    }
-
-    // Diagnose undefined symbols.
+    let matches = lookup(name, memberOf: parentType, exposedTo: useScope)
     if matches.isEmpty {
       diagnostics.insert(.error(undefinedName: name.value, in: parentType, at: name.site))
       return []
@@ -1664,50 +1702,30 @@ public struct TypeChecker {
     var candidates: [NameResolutionResult.Candidate] = []
     var invalidArgumentsDiagnostics: [Diagnostic] = []
 
-    let isInMemberContext = program.isMemberContext(lookupScope)
+    var parentArguments: GenericArguments = [:]
+    if let p = parentType.flatMap(BoundGenericType.init(_:)) {
+      for (k, v) in p.arguments {
+        parentArguments[k] = v
+      }
+    }
+
     for match in matches {
-      // Realize the type of the declaration.
-      var targetType = realize(decl: match)
-
-      // Erase parameter conventions.
-      if let t = ParameterType(targetType) {
-        targetType = t.bareType
-      }
-
-      // Apply the static arguments, if any.
-      if !arguments.isEmpty {
-        // Declaration must accept the given arguments.
-        // TODO: Check labels
-        guard match.kind.value is GenericScope.Type else {
-          invalidArgumentsDiagnostics.append(
-            .error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 0))
-          continue
-        }
-
-        let env = environment(of: match)
-        guard env.parameters.count == arguments.count else {
-          invalidArgumentsDiagnostics.append(
-            .error(
-              invalidGenericArgumentCountTo: name,
-              found: arguments.count, expected: env.parameters.count))
-          continue
-        }
-
-        // Apply the arguments.
-        targetType = specialized(
-          targetType,
-          applying: .init(uniqueKeysWithValues: zip(env.parameters, arguments)),
-          in: lookupScope)
-      }
-
-      // Give up if the declaration has an error type.
-      if targetType.isError { continue }
+      guard
+        let targetType = resolve(
+          typeOf: name, withArguments: arguments,
+          declaredBy: match, specializedWith: parentArguments, exposedTo: useScope,
+          reportingErrorsTo: &invalidArgumentsDiagnostics)
+      else { continue }
 
       // Determine how the declaration is being referenced.
-      let reference: DeclRef =
-        isInMemberContext && program.isNonStaticMember(match)
-        ? .member(match)
-        : .direct(match)
+      let reference: DeclRef
+      if !program.isNonStaticMember(match) {
+        reference = .direct(match)
+      } else if parentType?.base is MetatypeType {
+        reference = .direct(match)
+      } else {
+        reference = .member(match)
+      }
 
       // Instantiate the type of the declaration
       let c = ConstraintOrigin(.binding, at: name.site)
@@ -1736,15 +1754,100 @@ public struct TypeChecker {
     return candidates
   }
 
-  /// Resolves a reference to the built-in symbol named `name`.
-  private func resolve(builtin name: Name) -> NameResolutionResult.Candidate? {
-    if let f = BuiltinFunction(name.stem) {
-      return .init(reference: .builtinFunction(f), type: .init(shape: ^f.type, constraints: []))
+  /// Returns the type of `name` assuming it accpets `arguments`, is declared by `decl` which is
+  /// exposed to `useScope` and whose type is specialized with, or `nil` if the name is invalud,
+  /// reporting errors to `diagnostics`.
+  private mutating func resolve(
+    typeOf name: SourceRepresentable<Name>,
+    withArguments arguments: [any CompileTimeValue],
+    declaredBy decl: AnyDeclID,
+    specializedWith parentArguments: GenericArguments,
+    exposedTo useScope: AnyScopeID,
+    reportingErrorsTo diagnostics: inout [Diagnostic]
+  ) -> AnyType? {
+    // Realize the type of the declaration.
+    var targetType = realize(decl: decl)
+
+    // Erase parameter conventions.
+    if let t = ParameterType(targetType) {
+      targetType = t.bareType
     }
-    if let t = BuiltinType(name.stem) {
-      return .init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
+
+    // Apply the static arguments, if any.
+    var allArguments = parentArguments
+    if !arguments.isEmpty {
+      guard
+        let a = associateParameters(
+          of: name, declaredBy: decl, to: arguments, reportingErrorsTo: &diagnostics)
+      else { return nil }
+      allArguments.merge(a, uniquingKeysWith: { (_, _) in unreachable() })
     }
-    return nil
+
+    if !allArguments.isEmpty {
+      targetType = specialized(targetType, applying: allArguments, in: useScope)
+    }
+
+    // Give up if the declaration has an error type.
+    return targetType.isError ? nil : targetType
+  }
+
+  /// Resolves a reference to the built-in type or function named `name`.
+  private mutating func resolve(
+    builtin name: SourceRepresentable<Name>
+  ) -> [NameResolutionResult.Candidate] {
+    if let f = BuiltinFunction(name.value.stem) {
+      return [.init(f)]
+    }
+    if let t = BuiltinType(name.value.stem) {
+      return [.init(t)]
+    }
+    diagnostics.insert(.error(undefinedName: name.value, in: .builtin(.module), at: name.site))
+    return []
+  }
+
+  /// Returns a table mapping the generic parameters introduced by `d`, which declares `name`, to
+  /// their corresponding argument in `arguments`, reporting errors to `diagnostics`.
+  ///
+  /// - Requires: `arguments` is not empty.
+  private mutating func associateParameters(
+    of name: SourceRepresentable<Name>,
+    declaredBy d: AnyDeclID,
+    to arguments: [any CompileTimeValue],
+    reportingErrorsTo diagnostics: inout [Diagnostic]
+  ) -> GenericArguments? {
+    // Declaration must accept the given arguments.
+    guard d.kind.value is GenericScope.Type else {
+      diagnostics.append(
+        .error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 0))
+      return nil
+    }
+
+    let e = environment(of: d)
+    guard e.parameters.count == arguments.count else {
+      diagnostics.append(
+        .error(
+          invalidGenericArgumentCountTo: name,
+          found: arguments.count, expected: e.parameters.count))
+      return nil
+    }
+
+    // TODO: Check labels
+
+    return .init(uniqueKeysWithValues: zip(e.parameters, arguments))
+  }
+
+  /// Returns a table mapping the generic parameters introduced by `d` to their corresponding value
+  /// in `substitutions`, or `nil` if `d` doesn't introduce any generic parameter.
+  private mutating func associateParameters<T: GenericDecl>(
+    of d: T.ID,
+    to substitutions: GenericArguments
+  ) -> BoundGenericType.Arguments? {
+    let e = environment(of: d)
+    if e.parameters.isEmpty { return nil }
+    return BoundGenericType.Arguments(
+      uniqueKeysWithValues: e.parameters.map({ (p) in
+        (key: p, value: substitutions[p] ?? AnyType.error)
+      }))
   }
 
   /// Returns the declarations exposing a name with given `stem` to `useScope` without
@@ -1843,8 +1946,13 @@ public struct TypeChecker {
     memberOf domain: AnyType,
     exposedTo useScope: AnyScopeID
   ) -> DeclSet {
-    if let t = domain.base as? ConformanceLensType {
+    switch domain.base {
+    case let t as BoundGenericType:
+      return lookup(stem, memberOf: t.base, exposedTo: useScope)
+    case let t as ConformanceLensType:
       return lookup(stem, memberOf: ^t.lens, exposedTo: useScope)
+    default:
+      break
     }
 
     let key = MemberLookupKey(type: domain, scope: useScope)
@@ -1856,12 +1964,11 @@ public struct TypeChecker {
     defer { memberLookupTables[key, default: [:]][stem] = matches }
 
     switch domain.base {
-    case let t as BoundGenericType:
-      matches = lookup(stem, memberOf: t.base, exposedTo: useScope)
-      return matches
     case let t as ProductType:
       matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as ModuleType:
+      matches = names(introducedIn: t.decl)[stem, default: []]
+    case let t as NamespaceType:
       matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as TraitType:
       matches = names(introducedIn: t.decl)[stem, default: []]
@@ -1894,6 +2001,22 @@ public struct TypeChecker {
     }
 
     return matches
+  }
+
+  /// Returns the declarations introducing `name` in the declaration space that are exposed to
+  /// `useScope` and are member of `parentType` unless it is `nil`.
+  private mutating func lookup(
+    _ name: SourceRepresentable<Name>,
+    memberOf parentType: AnyType?,
+    exposedTo useScope: AnyScopeID
+  ) -> [AnyDeclID] {
+    if let t = parentType {
+      return lookup(name.value.stem, memberOf: t, exposedTo: useScope)
+        .compactMap({ decl(in: $0, named: name.value) })
+    } else {
+      return lookup(unqualified: name.value.stem, in: useScope)
+        .compactMap({ decl(in: $0, named: name.value) })
+    }
   }
 
   /// Returns the declaration(s) of the specified operator that are visible in `useScope`.
@@ -2064,6 +2187,8 @@ public struct TypeChecker {
     switch expr.kind {
     case ConformanceLensTypeExpr.self:
       return realize(conformanceLens: NodeID(expr)!, in: scope)
+    case ExistentialTypeExpr.self:
+      return realize(existentialType: NodeID(expr)!, in: scope)
     case LambdaTypeExpr.self:
       return realize(lambda: NodeID(expr)!, in: scope)
     case NameExpr.self:
@@ -2106,11 +2231,11 @@ public struct TypeChecker {
     }
 
     // Evaluate the static argument list.
-    var arguments: [(value: BoundGenericType.Argument, site: SourceRange)] = []
+    var arguments: [(value: any CompileTimeValue, site: SourceRange)] = []
     for a in ast[expr].arguments {
       // TODO: Symbolic execution
-      guard let type = realize(a.value, in: scope)?.instance else { return nil }
-      arguments.append((value: .type(type), site: ast[a.value].site))
+      guard let v = realize(a.value, in: scope)?.instance else { return nil }
+      arguments.append((value: v, site: ast[a.value].site))
     }
 
     switch name.value.stem {
@@ -2142,13 +2267,16 @@ public struct TypeChecker {
       return type
 
     case "Metatype":
-      if arguments.count != 1 {
-        diagnostics.insert(.error(metatypeRequiresOneArgumentAt: name.site))
+      if arguments.count > 1 {
+        diagnostics.insert(
+          .error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 1))
+        return nil
       }
-      if case .type(let a) = arguments.first!.value {
-        return MetatypeType(of: MetatypeType(of: a))
+      if let a = arguments.first {
+        let instance = (a.value as? AnyType) ?? fatalError("not implemented")
+        return MetatypeType(of: MetatypeType(of: instance))
       } else {
-        fatalError("not implemented")
+        return MetatypeType(of: MetatypeType(of: TypeVariable()))
       }
 
     case "Builtin" where isBuiltinModuleVisible:
@@ -2214,9 +2342,10 @@ public struct TypeChecker {
 
         // Synthesize arguments to generic parameters if necessary.
         if let parameters = ast[decl].genericClause?.value.parameters {
-          let arguments = parameters.map({ (p) -> BoundGenericType.Argument in
-            .type(^GenericTypeParameterType(p, ast: ast))
-          })
+          let arguments = BoundGenericType.Arguments(
+            uniqueKeysWithValues: parameters.map({ (p) in
+              (key: p, value: ^GenericTypeParameterType(p, ast: ast))
+            }))
           return MetatypeType(of: BoundGenericType(unparameterized, arguments: arguments))
         } else {
           return MetatypeType(of: unparameterized)
@@ -2262,6 +2391,43 @@ public struct TypeChecker {
     }
 
     return MetatypeType(of: ConformanceLensType(viewing: subject, through: lensTrait))
+  }
+
+  private mutating func realize(
+    existentialType e: ExistentialTypeExpr.ID,
+    in scope: AnyScopeID
+  ) -> MetatypeType? {
+    assert(!ast[e].traits.isEmpty, "existential type with no interface")
+
+    // Realize the interface.
+    var interface: [AnyType] = []
+    for n in ast[e].traits {
+      guard let i = realize(name: n, in: scope)?.instance else { return nil }
+      interface.append(i)
+    }
+
+    // TODO: Process where clauses
+    guard ast[e].whereClause == nil else { fatalError("not implemented") }
+
+    // Interface must be either a single type or a set of traits.
+    if let t = TraitType(interface[0]) {
+      var traits = Set([t])
+      for i in 1 ..< interface.count {
+        if let u = TraitType(interface[i]) {
+          traits.insert(u)
+        } else {
+          diagnostics.insert(.error(notATrait: interface[i], at: ast[ast[e].traits[i]].site))
+          return nil
+        }
+      }
+
+      return MetatypeType(of: ExistentialType(traits: traits, constraints: []))
+    } else if let t = interface.uniqueElement {
+      return MetatypeType(of: ExistentialType(unparameterized: t, constraints: []))
+    } else {
+      diagnostics.insert(.error(tooManyExistentialBoundsAt: ast[ast[e].traits[1]].site))
+      return nil
+    }
   }
 
   private mutating func realize(
@@ -2397,18 +2563,33 @@ public struct TypeChecker {
       }
     }
 
-    // Evaluate the arguments of the referred type, if any.
     if ast[id].arguments.isEmpty {
       return referredType
-    } else {
-      var arguments: [BoundGenericType.Argument] = []
-      for a in ast[id].arguments {
-        // TODO: Symbolic execution
-        guard let type = realize(a.value, in: scope)?.instance else { return nil }
-        arguments.append(.type(type))
-      }
-      return MetatypeType(of: BoundGenericType(referredType.instance, arguments: arguments))
     }
+
+    guard let clause = (ast[match] as? GenericDecl)?.genericClause?.value else {
+      diagnostics.insert(
+        .error(
+          "non-generic type '\(referredType.instance)' has no generic parameters",
+          at: ast[ast[id].arguments[0].value].site))
+      return nil
+    }
+
+    guard ast[id].arguments.count == clause.parameters.count else {
+      diagnostics.insert(
+        .error(
+          invalidGenericArgumentCountTo: ast[id].name,
+          found: ast[id].arguments.count, expected: clause.parameters.count))
+      return nil
+    }
+
+    var arguments: BoundGenericType.Arguments = [:]
+    for (p, a) in zip(clause.parameters, ast[id].arguments) {
+      // TODO: Symbolic execution
+      guard let v = realize(a.value, in: scope)?.instance else { return nil }
+      arguments[p] = v
+    }
+    return MetatypeType(of: BoundGenericType(referredType.instance, arguments: arguments))
   }
 
   private mutating func realize(
@@ -2480,6 +2661,8 @@ public struct TypeChecker {
       return realize(methodImpl: NodeID(d)!)
     case ModuleDecl.self:
       return realize(moduleDecl: NodeID(d)!)
+    case NamespaceDecl.self:
+      return realize(namespaceDecl: NodeID(d)!)
     case ParameterDecl.self:
       return realize(parameterDecl: NodeID(d)!)
     case ProductTypeDecl.self:
@@ -2560,7 +2743,12 @@ public struct TypeChecker {
       } else {
         unreachable("expected type annotation")
       }
-      inputs.append(CallableTypeParameter(label: ast[p].label?.value, type: t))
+
+      let i = CallableTypeParameter(
+        label: ast[p].label?.value,
+        type: t,
+        hasDefault: ast[p].defaultValue != nil)
+      inputs.append(i)
     }
 
     // Collect captures.
@@ -2692,9 +2880,7 @@ public struct TypeChecker {
       }
     }
 
-    var inputs: [CallableTypeParameter] = ast[d].parameters.map { (d) in
-      .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
-    }
+    var inputs = realize(parameters: ast[d].parameters)
 
     // Initializers are global functions.
     let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
@@ -2711,11 +2897,9 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(methodDecl d: MethodDecl.ID) -> AnyType {
-    let inputs: [CallableTypeParameter] = ast[d].parameters.map { (d) in
-      .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
-    }
+    let inputs = realize(parameters: ast[d].parameters)
 
-    // Realize the method's receiver if necessary.
+    // Realize the method's receiver.
     let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
 
     // Realize the output type.
@@ -2759,6 +2943,26 @@ public struct TypeChecker {
     _realize(decl: d, { (this, d) in ^ModuleType(d, ast: this.ast) })
   }
 
+  /// Returns the realized types of `parameters`, which are the parameters of an initializer,
+  /// method, or subscript declaration.
+  private mutating func realize(parameters: [ParameterDecl.ID]) -> [CallableTypeParameter] {
+    var result: [CallableTypeParameter] = []
+    result.reserveCapacity(parameters.count)
+    for p in parameters {
+      let i = CallableTypeParameter(
+        label: ast[p].label?.value,
+        type: realize(parameterDecl: p),
+        hasDefault: ast[p].defaultValue != nil)
+      result.append(i)
+    }
+    return result
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(namespaceDecl d: NamespaceDecl.ID) -> AnyType {
+    _realize(decl: d) { (this, d) in ^NamespaceType(d, ast: this.ast) }
+  }
+
   /// Returns the overarching type of `d`.
   ///
   /// - Requires: `d` has a type annotation.
@@ -2790,11 +2994,7 @@ public struct TypeChecker {
   }
 
   private mutating func _realize(subscriptDecl d: SubscriptDecl.ID) -> AnyType {
-    let inputs = ast[d].parameters.map(default: []) { (p) -> [CallableTypeParameter] in
-      p.map { (d) in
-        .init(label: ast[d].label?.value, type: realize(parameterDecl: d))
-      }
-    }
+    let inputs = ast[d].parameters.map({ realize(parameters: $0) }) ?? []
 
     // Collect captures.
     var explicitCaptureNames: Set<Name> = []
@@ -2938,7 +3138,7 @@ public struct TypeChecker {
         c = lookup(unqualified: "self", in: AnyScopeID(decl)).uniqueElement!
       }
 
-      modifying(&captures[n]) { (x) -> Void in
+      modify(&captures[n]) { (x) -> Void in
         let a: AccessEffect = u.isMutable ? .inout : .let
         if let existing = x {
           if (existing.type.access == .let) && (a == .inout) {
@@ -3109,6 +3309,27 @@ public struct TypeChecker {
     }
 
     return InstantiatedType(shape: type.transform(_impl(type:)), constraints: [])
+  }
+
+  /// Returns the type declared by `d` bound to open variables for each generic parameter
+  /// introduced by `d`.
+  ///
+  /// - Requires: `d` is a a generic product type or type alias declaration.
+  func openForUnification(_ d: AnyDeclID) -> BoundGenericType {
+    let parameters: [GenericParameterDecl.ID]
+    if let decl = ProductTypeDecl.ID(d) {
+      parameters = ast[decl].genericClause!.value.parameters
+    } else if let decl = TypeAliasDecl.ID(d) {
+      parameters = ast[decl].genericClause!.value.parameters
+    } else {
+      preconditionFailure()
+    }
+
+    let b = MetatypeType(declTypes[d])!.instance
+    let a = BoundGenericType.Arguments(
+      uniqueKeysWithValues: parameters.map({ (key: $0, value: ^TypeVariable()) }))
+
+    return BoundGenericType(b, arguments: a)
   }
 
   /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the

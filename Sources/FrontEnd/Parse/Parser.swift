@@ -414,10 +414,14 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> BindingDecl.ID? {
     // Parse the parts of the declaration.
-    let parser =
-      (bindingPattern
-        .and(maybe(take(.assign).and(expr).second)))
-    guard let (pattern, initializer) = try parser.parse(&state) else { return nil }
+    guard let pattern = try parseBindingPattern(in: &state) else { return nil }
+
+    let initializer: AnyExprID?
+    if state.take(.assign) != nil {
+      initializer = try state.expect("initializer", using: parseExpr(in:))
+    } else {
+      initializer = nil
+    }
 
     // Create a new `BindingDecl`.
     assert(prologue.accessModifiers.count <= 1)
@@ -1401,7 +1405,7 @@ public enum Parser {
       state.diagnostics.insert(.error(infixOperatorRequiresWhitespacesAt: infixOperator.site))
     }
 
-    let castKind: CastExpr.Kind
+    let castKind: CastExpr.Direction
     switch state.lexer.sourceCode[infixOperator.site] {
     case "as":
       castKind = .up
@@ -1419,7 +1423,7 @@ public enum Parser {
         CastExpr(
           left: lhs,
           right: rhs,
-          kind: castKind,
+          direction: castKind,
           site: state.ast[lhs].site.extended(upTo: state.currentIndex))))
   }
 
@@ -1725,6 +1729,10 @@ public enum Parser {
       // Primary declaration reference.
       return try parsePrimaryDeclRefExpr(in: &state).map(AnyExprID.init)
 
+    case .pragmaLiteral:
+      // Pragma literal.
+      return try parsePragmaLiteralExpr(in: &state).map(AnyExprID.init)
+
     case .spawn:
       // Spawn expression.
       return try parseSpawnExpr(in: &state).map(AnyExprID.init)
@@ -1778,6 +1786,25 @@ public enum Parser {
         name: component.name,
         arguments: component.arguments,
         site: component.site))
+  }
+
+  /// Parses a pragma literal from `state`.
+  private static func parsePragmaLiteralExpr(
+    in state: inout ParserState
+  ) throws -> PragmaLiteralExpr.ID? {
+    guard let t = state.take(.pragmaLiteral) else { return nil }
+
+    let result: PragmaLiteralExpr.Kind
+    switch state.lexer.sourceCode[t.site].dropFirst() {
+    case "file":
+      result = .file
+    case "line":
+      result = .line
+    case let n:
+      throw [.error(unknownPragma: n, at: t.site)] as DiagnosticSet
+    }
+
+    return state.insert(PragmaLiteralExpr(result, at: t.site))
   }
 
   private static func parseImplicitMemberDeclRefExpr(

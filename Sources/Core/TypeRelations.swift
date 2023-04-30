@@ -20,8 +20,8 @@ public struct TypeRelations {
     _ c: Conformance,
     testingContainmentWith p: P
   ) -> (inserted: Bool, conformanceAfterInsert: Conformance) {
-    modifying(&conformances[canonical(c.model), default: [:]]) { (traitToConformance) in
-      modifying(&traitToConformance[c.concept, default: []]) { (allConformances) in
+    modify(&conformances[canonical(c.model), default: [:]]) { (traitToConformance) in
+      modify(&traitToConformance[c.concept, default: []]) { (allConformances) in
         if let x = allConformances.first(where: { p.areOverlapping($0.scope, c.scope) }) {
           return (false, x)
         } else {
@@ -48,40 +48,10 @@ public struct TypeRelations {
     if type[.isCanonical] { return type }
 
     switch type.base {
-    case let t as BoundGenericType:
-      let base = canonical(t.base)
-      let arguments = t.arguments.map({ (a) -> BoundGenericType.Argument in
-        switch a {
-        case .type(let a):
-          return .type(canonical(a))
-        case .value:
-          fatalError("not implemented")
-        }
-      })
-      return ^BoundGenericType(base, arguments: arguments)
-
-    case let t as ExistentialType:
-      return ^ExistentialType(
-        traits: t.traits,
-        constraints: ConstraintSet(t.constraints.map(canonical(_:))))
-
-    case let t as MetatypeType:
-      return ^MetatypeType(of: canonical(t.instance))
-
-    case let t as SumType:
-      return ^SumType(Set(t.elements.map(canonical(_:))))
-
-    case let t as TupleType:
-      return ^TupleType(
-        t.elements.map({ (e) -> TupleType.Element in
-          .init(label: e.label, type: canonical(e.type))
-        }))
-
     case let t as TypeAliasType:
       return canonical(t.resolved.value)
-
     default:
-      unreachable()
+      return type.transformParts({ (t) in .stepOver(canonical(t)) })
     }
   }
 
