@@ -1,0 +1,8 @@
+//! expect-success
+
+fun use(_ x: Any) {}
+
+public fun main() {
+  let a: Any = 0
+  use(a)
+}

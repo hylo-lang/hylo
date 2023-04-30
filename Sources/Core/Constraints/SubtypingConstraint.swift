@@ -31,8 +31,8 @@ public struct SubtypingConstraint: Constraint, Hashable {
   }
 
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
-    modify(&left, with: transform)
-    modify(&right, with: transform)
+    update(&left, with: transform)
+    update(&right, with: transform)
   }
 
 }

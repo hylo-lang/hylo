@@ -33,7 +33,7 @@ extension Module {
     anchoredAt anchor: SourceRange
   ) -> DestructureInstruction {
     precondition(type(of: whole).isObject)
-    let parts = AbstractTypeLayout(of: type(of: whole).astType, definedIn: program)
+    let parts = AbstractTypeLayout(of: type(of: whole).ast, definedIn: program)
       .properties.map({ LoweredType.object($0.type) })
 
     return DestructureInstruction(

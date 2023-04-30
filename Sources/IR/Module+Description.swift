@@ -15,15 +15,16 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     return output
   }
 
+  /// Writes a textual representation of this instance into `output`.
   public func write<Target: TextOutputStream>(to output: inout Target) {
-    var isFirst = true
-    for f in functions.keys {
-      if isFirst {
-        isFirst = false
-      } else {
-        output.write("\n\n")
-      }
-      write(function: f, to: &output)
+    output.write(contentsOf: globals.enumerated(), separatedBy: "\n") { (s, e) in
+      s.write("global @\(syntax.id).\(e.offset) = \(e.element)")
+    }
+    if !globals.isEmpty && !functions.isEmpty {
+      output.write("\n")
+    }
+    output.write(contentsOf: functions.keys, separatedBy: "\n\n") { (s, f) in
+      write(function: f, to: &s)
     }
   }
 
@@ -32,12 +33,8 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     let function = functions[f]!
 
     // Dumps the function in the module.
-    if let debugName = function.debugName { output.write("// \(debugName)\n") }
-    output.write("@lowered fun \(function.name)(")
-    output.write(
-      function.inputs.lazy
-        .map({ (c, t) in "\(c) \(t)" })
-        .joined(separator: ", "))
+    output.write("fun \(function.name)(")
+    output.write(function.inputs.lazy.descriptions())
     output.write(") -> \(function.output) {\n")
 
     for i in blocks(in: f) {

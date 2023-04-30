@@ -6,7 +6,7 @@ import Utils
 extension WideUInt: UnsignedInteger {}
 
 /// An unsigned integer Val IR constant.
-public struct IntegerConstant: ConstantProtocol, Hashable {
+public struct IntegerConstant: Constant, Hashable {
 
   public let value: WideUInt
 
@@ -29,7 +29,7 @@ public struct IntegerConstant: ConstantProtocol, Hashable {
 extension IntegerConstant: CustomStringConvertible {
 
   public var description: String {
-    "\(type.astType)(0x\(String(value.value, radix: 16)))"
+    "\(type.ast)(0x\(String(value.value, radix: 16)))"
   }
 
 }

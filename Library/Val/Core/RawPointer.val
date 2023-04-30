@@ -1,0 +1,14 @@
+/// A raw pointer for accessing untyped data.
+public type RawPointer {
+
+  var value: Builtin.ptr
+
+}
+
+public conformance RawPointer: Copyable {
+
+  public fun copy() -> Self {
+    RawPointer(value: value)
+  }
+
+}

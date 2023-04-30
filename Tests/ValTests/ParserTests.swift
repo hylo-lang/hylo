@@ -38,7 +38,7 @@ final class ParserTests: XCTestCase {
         ;;
         import Foo
 
-        @_lowered_name("_val_bar")
+        @ffi("_val_bar")
         fun _bar(x: Builtin.i64) -> Builtin.i64
 
         let x = "Hello!"
@@ -824,21 +824,21 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "foo as T"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let cast = try XCTUnwrap(ast[exprID] as? CastExpr)
-    XCTAssertEqual(cast.kind, .up)
+    XCTAssertEqual(cast.direction, .up)
   }
 
   func testCastExprDown() throws {
     let input: SourceFile = "foo as! T"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let cast = try XCTUnwrap(ast[exprID] as? CastExpr)
-    XCTAssertEqual(cast.kind, .down)
+    XCTAssertEqual(cast.direction, .down)
   }
 
   func testCastExprBuiltinPointerConversion() throws {
     let input: SourceFile = "foo as!! T"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let cast = try XCTUnwrap(ast[exprID] as? CastExpr)
-    XCTAssertEqual(cast.kind, .builtinPointerConversion)
+    XCTAssertEqual(cast.direction, .builtinPointerConversion)
   }
 
   func testInoutExpr() throws {
@@ -1055,6 +1055,13 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "nil"
     let (exprID, _) = try input.parse(with: Parser.parseExpr(in:))
     XCTAssertEqual(exprID?.kind, .init(NilLiteralExpr.self))
+  }
+
+  func testPragmaLiteralExpr() throws {
+    let input: SourceFile = "#file"
+    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
+    let expr = try XCTUnwrap(ast[exprID] as? PragmaLiteralExpr)
+    XCTAssertEqual(expr.kind, .file)
   }
 
   func testSpawnExprInline() throws {

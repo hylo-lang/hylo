@@ -278,14 +278,24 @@ public struct DoublyLinkedList<Element> {
   public mutating func remove(at address: Address) -> Element {
     precondition(isInBounds(address), "address out of bounds")
 
-    storage[storage[address.rawValue].previousOffset].nextOffset =
-      storage[address.rawValue].nextOffset
-    storage[storage[address.rawValue].nextOffset].previousOffset =
-      storage[address.rawValue].previousOffset
+    let previous = storage[address.rawValue].previousOffset
+    if previous != -1 {
+      storage[previous].nextOffset = storage[address.rawValue].nextOffset
+    }
+
+    let next = storage[address.rawValue].nextOffset
+    if next != -1 {
+      storage[next].previousOffset = storage[address.rawValue].previousOffset
+    }
+
     storage[address.rawValue].nextOffset = freeOffset
 
     count -= 1
     freeOffset = address.rawValue
+    if address.rawValue == tailOffset {
+      tailOffset = previous
+    }
+
     return storage[address.rawValue].element.release()
   }
 

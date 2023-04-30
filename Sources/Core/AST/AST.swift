@@ -7,6 +7,7 @@ public struct AST {
 
   /// The stored representation of an AST; distinguished for encoding/decoding purposes.
   private struct Storage: Codable {
+
     /// The nodes in `self`.
     public var nodes: [AnyNode] = []
 
@@ -17,6 +18,7 @@ public struct AST {
 
     /// The ID of the module containing Val's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
+
   }
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
@@ -162,11 +164,35 @@ public struct AST {
   /// - Requires: The Core library must have been loaded.
   public var sinkableTrait: TraitType { coreTrait(named: "Sinkable")! }
 
+  /// `Val.Copyable` trait from the Core library.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public var copyableTrait: TraitType { coreTrait(named: "Copyable")! }
+
   // MARK: Helpers
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
     self[self[module].sources].map(\.decls).joined()
+  }
+
+  /// Returns a table mapping each parameter of `d` to its default argument if `d` is a function,
+  /// initializer, method or subscript declaration. Otherwise, returns `nil`.
+  public func defaultArguments(of d: AnyDeclID) -> [AnyExprID?]? {
+    let parameters: [ParameterDecl.ID]
+    switch d.kind {
+    case FunctionDecl.self:
+      parameters = self[FunctionDecl.ID(d)!].parameters
+    case InitializerDecl.self:
+      parameters = self[InitializerDecl.ID(d)!].parameters
+    case MethodDecl.self:
+      parameters = self[MethodDecl.ID(d)!].parameters
+    case SubscriptDecl.self:
+      parameters = self[SubscriptDecl.ID(d)!].parameters ?? []
+    default:
+      return nil
+    }
+    return self[parameters].map(\.defaultValue)
   }
 
   /// Returns the paths and IDs of the named patterns contained in `p`.

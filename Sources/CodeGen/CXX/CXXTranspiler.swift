@@ -499,8 +499,7 @@ public struct CXXTranspiler {
   private func cxx(name source: NameExpr.Typed) -> CXXExpr {
     switch source.decl {
     case .direct(let callee) where callee.kind == FunctionDecl.self:
-      return cxx(
-        nameOfFunction: FunctionDecl.Typed(callee)!, withDomainExpr: source.domainExpr)
+      return cxx(nameOfFunction: FunctionDecl.Typed(callee)!)
 
     case .direct(let callee) where callee.kind == InitializerDecl.self:
       return cxx(nameOfInitializer: InitializerDecl.Typed(callee)!)
@@ -526,10 +525,8 @@ public struct CXXTranspiler {
       return CXXIdentifier(nameOfDecl(callee))
 
     case .builtinFunction(let f):
-      // Decorate the function so that we can uniquely identify it.
-      // Example: `native_zeroinitializer_double`.
-      let cxxType = cxx(typeExpr: f.type.output)
-      return CXXIdentifier("native_\(f.llvmInstruction)_\(cxxType.text)")
+      guard case .llvm(let n) = f.name else { fatalError("not implemented") }
+      return CXXIdentifier("native_\(n)")
 
     case .builtinType:
       unreachable()
@@ -538,44 +535,21 @@ public struct CXXTranspiler {
 
   /// Returns a transpilation of `source`.
   ///
-  /// Usually this translates to an identifier, but it can translate to pre-/post-fix operator calls.
-  private func cxx(
-    nameOfFunction source: FunctionDecl.Typed, withDomainExpr domainExpr: AnyExprID.TypedNode?
-  ) -> CXXExpr {
-    // Check for prefix && postfix operator calls
-    if source.notation != nil && source.notation!.value == .prefix {
-      let prefixMapping: [String: CXXPrefixExpr.Operator] = [
-        "++": .prefixIncrement,
-        "--": .prefixDecrement,
-        "+": .unaryPlus,
-        "-": .unaryMinus,
-        "!": .logicalNot,
-      ]
-      if let cxxPrefixOperator = prefixMapping[nameOfDecl(source)] {
-        return CXXPrefixExpr(
-          oper: cxxPrefixOperator, base: cxx(expr: domainExpr!))
-      }
-    } else if source.notation != nil && source.notation!.value == .postfix {
-      let postfixMapping: [String: CXXPostfixExpr.Operator] = [
-        "++": .suffixIncrement,
-        "--": .suffixDecrement,
-      ]
-      if let cxxPostfixOperator = postfixMapping[nameOfDecl(source)] {
-        return CXXPostfixExpr(
-          oper: cxxPostfixOperator, base: cxx(expr: domainExpr!))
-      }
-    }
-
+  /// Typically translates to an identifier, but may translate to pre-/post-fix operator calls.
+  private func cxx(nameOfFunction source: FunctionDecl.Typed) -> CXXExpr {
     // TODO: handle captures
     return CXXIdentifier(nameOfDecl(source))
   }
+
   /// Returns a transpilation of `source`.
   private func cxx(nameOfInitializer source: InitializerDecl.Typed) -> CXXExpr {
     return CXXIdentifier(nameOfDecl(enclosingProductType(source)))
   }
+
   /// Returns a transpilation of `source`.
   private func cxx(
-    nameOfMemberFunction source: FunctionDecl.Typed, withDomain domain: NameExpr.Typed.Domain
+    nameOfMemberFunction source: FunctionDecl.Typed,
+    withDomain domain: NameExpr.Typed.Domain
   ) -> CXXExpr {
 
     // TODO: revisit this whole function; simplify it, and check for correctness
@@ -588,6 +562,28 @@ public struct CXXTranspiler {
       receiver = cxx(expr: domainDetails)
     case .implicit:
       fatalError("not implemented")
+    }
+
+    // Check for prefix && postfix operator calls
+    if source.notation != nil && source.notation!.value == .prefix {
+      let prefixMapping: [String: CXXPrefixExpr.Operator] = [
+        "++": .prefixIncrement,
+        "--": .prefixDecrement,
+        "+": .unaryPlus,
+        "-": .unaryMinus,
+        "!": .logicalNot,
+      ]
+      if let cxxPrefixOperator = prefixMapping[nameOfDecl(source)] {
+        return CXXPrefixExpr(oper: cxxPrefixOperator, base: receiver)
+      }
+    } else if source.notation != nil && source.notation!.value == .postfix {
+      let postfixMapping: [String: CXXPostfixExpr.Operator] = [
+        "++": .suffixIncrement,
+        "--": .suffixDecrement,
+      ]
+      if let cxxPostfixOperator = postfixMapping[nameOfDecl(source)] {
+        return CXXPostfixExpr(oper: cxxPostfixOperator, base: receiver)
+      }
     }
 
     // Emit the function reference.

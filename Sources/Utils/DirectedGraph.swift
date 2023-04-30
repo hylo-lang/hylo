@@ -46,7 +46,7 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   public mutating func insertEdge(
     from source: Vertex, to target: Vertex, labeledBy label: Label
   ) -> (inserted: Bool, labelAfterInsert: Label) {
-    modifying(
+    modify(
       &outgoingEdges[source, default: [:]],
       { tips in
         if let currentLabel = tips[target] {
@@ -65,7 +65,7 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   /// - Complexity: O(1).
   @discardableResult
   public mutating func removeEdge(from source: Vertex, to target: Vertex) -> Label? {
-    modifying(
+    modify(
       &outgoingEdges[source, default: [:]],
       { tips in
         if let i = tips.index(forKey: target) {

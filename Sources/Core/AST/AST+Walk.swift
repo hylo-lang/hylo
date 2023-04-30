@@ -133,6 +133,8 @@ extension AST {
       traverse(self[n] as! NilLiteralExpr, notifying: &o)
     case ParameterTypeExpr.self:
       traverse(self[n] as! ParameterTypeExpr, notifying: &o)
+    case PragmaLiteralExpr.self:
+      traverse(self[n] as! PragmaLiteralExpr, notifying: &o)
     case RemoteTypeExpr.self:
       traverse(self[n] as! RemoteTypeExpr, notifying: &o)
     case SequenceExpr.self:
@@ -551,6 +553,11 @@ extension AST {
   ) {
     walk(n.bareType, notifying: &o)
   }
+
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
+  public func traverse<O: ASTWalkObserver>(
+    _ n: PragmaLiteralExpr, notifying o: inout O
+  ) {}
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(

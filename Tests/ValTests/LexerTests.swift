@@ -214,6 +214,19 @@ final class LexerTests: XCTestCase {
       in: input)
   }
 
+  func testPragmas() {
+    let input: SourceFile = "#file #_foo #2"
+    assert(
+      tokenize(input),
+      matches: [
+        TokenSpecification(.pragmaLiteral, "#file"),
+        TokenSpecification(.pragmaLiteral, "#_foo"),
+        TokenSpecification(.invalid, "#"),
+        TokenSpecification(.int, "2"),
+      ],
+      in: input)
+  }
+
   func testOperators() {
     let input: SourceFile = "= -> * / % +- == != ~> >! <? >> &|^ ... ..< | &"
     assert(

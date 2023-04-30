@@ -5,54 +5,6 @@ import Utils
 /// expressions.
 struct ConstraintSystem {
 
-  /// The identity of a gaol in an instance of `ConstraintSystem`.
-  private typealias GoalIdentity = Int
-
-  /// A map from goal to its outcome.
-  private typealias OutcomeMap = [Outcome?]
-
-  /// A closure reporting the diagnostics of a goal's failure into `d`, using `m` to reify types
-  /// and reading the outcome of other goals from `o`.
-  private typealias DiagnoseFailure = (
-    _ d: inout DiagnosticSet,
-    _ m: SubstitutionMap,
-    _ o: OutcomeMap
-  ) -> Void
-
-  /// The outcome of a goal.
-  private enum Outcome {
-
-    /// The goal was solved.
-    ///
-    /// Information inferred from the goal has been stored in the solver's state.
-    case success
-
-    /// The goal was unsatisfiable.
-    ///
-    /// The goal was in conflict with the information inferred by the solver. The payload is a
-    /// closure that generates a diagnostic of the conflict.
-    case failure(DiagnoseFailure)
-
-    /// The goal was broken into subordinate goal.
-    ///
-    /// The payload is a non-empty array of subordinate goals along with a closure that's used to
-    /// generate a diagnostic in case one of the subordinate goals are unsatisfiable.
-    case product([GoalIdentity], DiagnoseFailure)
-
-    /// Returns the diagnosis constructor of `.failure` or `.product` payload.
-    var dianoseFailure: DiagnoseFailure? {
-      switch self {
-      case .success:
-        return nil
-      case .failure(let f):
-        return f
-      case .product(_, let f):
-        return f
-      }
-    }
-
-  }
-
   /// The scope in which the goals are solved.
   private let scope: AnyScopeID
 
@@ -136,8 +88,6 @@ struct ConstraintSystem {
       switch goals[g] {
       case is ConformanceConstraint:
         setOutcome(solve(conformance: g, using: &checker), for: g)
-      case is LiteralConstraint:
-        setOutcome(solve(literal: g, using: &checker), for: g)
       case is EqualityConstraint:
         setOutcome(solve(equality: g, using: &checker), for: g)
       case is SubtypingConstraint:
@@ -159,8 +109,6 @@ struct ConstraintSystem {
       default:
         unreachable()
       }
-
-      if fresh.isEmpty { refreshLiteralConstraints() }
     }
 
     return formSolution()
@@ -171,27 +119,13 @@ struct ConstraintSystem {
   /// The cost of a solution increases monotonically when a constraint is eliminated.
   private func score() -> Solution.Score {
     .init(
-      errorCount: goals.indices.elementCount(where: iFailureRoot),
+      errorCount: goals.indices.elementCount(where: isFailureRoot),
       penalties: penalties)
   }
 
   /// Returns `true` iff the solving `g` failed and `g` isn't subordinate.
-  private func iFailureRoot(_ g: GoalIdentity) -> Bool {
-    (goals[g].origin.parent == nil) && (succeeded(g) == false)
-  }
-
-  /// Returns whether the solving `g` succeeded or `.none` if outcome has been computed yet.
-  private func succeeded(_ g: GoalIdentity) -> ThreeValuedBit {
-    switch outcomes[g] {
-    case nil:
-      return nil
-    case .some(.success):
-      return true
-    case .some(.failure):
-      return false
-    case .some(.product(let s, _)):
-      return s.reduce(nil, { (r, k) in r && succeeded(k) })
-    }
+  private func isFailureRoot(_ g: GoalIdentity) -> Bool {
+    (goals[g].origin.parent == nil) && (outcomes.succeeded(g) == false)
   }
 
   /// Records the outcome `value` for the goal `key`.
@@ -216,10 +150,15 @@ struct ConstraintSystem {
     assert(fresh.isEmpty)
     assert(outcomes.enumerated().allSatisfy({ (i, o) in (o != nil) || stale.contains(i) }))
 
+    for g in stale {
+      let c = goals[g]
+      setOutcome(.failure({ (d, _, _) in d.insert(.error(staleConstraint: c)) }), for: g)
+    }
+
     let m = typeAssumptions.optimized()
-    var d = DiagnosticSet(stale.map({ Diagnostic.error(staleConstraint: goals[$0]) }))
-    for (k, v) in zip(goals.indices, outcomes) where iFailureRoot(k) {
-      v!.dianoseFailure!(&d, m, outcomes)
+    var d = DiagnosticSet()
+    for (k, v) in zip(goals.indices, outcomes) where isFailureRoot(k) {
+      v!.diagnoseFailure!(&d, m, outcomes)
     }
 
     return Solution(
@@ -270,32 +209,6 @@ struct ConstraintSystem {
         d.formUnion(missingTraits.map({ .error(t, doesNotConformTo: $0, at: goal.origin.site) }))
       }
     }
-  }
-
-  /// Returns either `.success` if `g.subject` conforms to `g.literalTrait`, `.failure` if it
-  /// doesn't, or `nil` if neither of these outcomes can be determined yet.
-  private mutating func solve(
-    literal g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome? {
-    let goal = goals[g] as! LiteralConstraint
-    if checker.relations.areEquivalent(goal.subject, goal.defaultSubject) {
-      return .success
-    }
-
-    if goal.subject.base is TypeVariable {
-      postpone(g)
-      return nil
-    }
-
-    if checker.conformedTraits(of: goal.subject, in: scope).contains(goal.literal) {
-      // Add a penalty if `L` isn't `D`.
-      penalties += 1
-      return .success
-    }
-
-    let s = schedule(SubtypingConstraint(goal.defaultSubject, goal.subject, origin: goal.origin))
-    return delegate(to: [s])
   }
 
   /// Returns eiteher `.success` if `g.left` is unifiable with `g.right` or `.failure` otherwise.
@@ -357,21 +270,45 @@ struct ConstraintSystem {
         return delegate(to: [s])
       }
 
-    case (_, _ as ExistentialType):
-      // All types conform to any.
-      if goal.right == .any { return .success }
-      fatalError("not implemented")
+    case (_, let r as ExistentialType):
+      guard r.constraints.isEmpty else { fatalError("not implemented") }
+
+      // Penalize type coercion.
+      penalties += 1
+
+      switch r.interface {
+      case .traits(let traits):
+        if traits.isEmpty {
+          // All types conform to `Any`.
+          return .success
+        } else {
+          let s = schedule(
+            ConformanceConstraint(goal.left, conformsTo: traits, origin: goal.origin))
+          return delegate(to: [s])
+        }
+
+      case .generic(let d):
+        let r = checker.openForUnification(d)
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin))
+        return delegate(to: [s])
+
+      case .metatype:
+        let r = MetatypeType(of: TypeVariable())
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin))
+        return delegate(to: [s])
+      }
 
     case (let l as LambdaType, let r as LambdaType):
       if !l.labels.elementsEqual(r.labels) {
         return .failure(failureToSolve(goal))
       }
-      if !unify(l.environment, r.environment, querying: checker.relations) {
-        return .failure(failureToSolve(goal))
-      }
+
+      var subordinates: [GoalIdentity] = []
+      subordinates.append(
+        schedule(
+          SubtypingConstraint(l.environment, r.environment, origin: goal.origin.subordinate())))
 
       // Parameters are contravariant; return types are covariant.
-      var subordinates: [GoalIdentity] = []
       for (a, b) in zip(l.inputs, r.inputs) {
         subordinates.append(
           schedule(SubtypingConstraint(b.type, a.type, origin: goal.origin.subordinate())))
@@ -421,7 +358,7 @@ struct ConstraintSystem {
       let (l, r) = (m.reify(g.left), m.reify(g.right))
       switch g.origin.kind {
       case .initializationWithHint:
-        d.insert(.error(cannotInitialize: l, with: r, at: g.origin.site))
+        d.insert(.error(cannotInitialize: r, with: l, at: g.origin.site))
       case .initializationWithPattern:
         d.insert(.error(l, doesNotMatch: r, at: g.origin.site))
       default:
@@ -577,23 +514,19 @@ struct ConstraintSystem {
   ) -> Outcome? {
     let goal = goals[g] as! FunctionCallConstraint
 
-    if goal.calleeType.base is TypeVariable {
+    if goal.callee.base is TypeVariable {
       postpone(g)
       return nil
     }
 
-    guard let callee = goal.calleeType.base as? CallableType else {
+    guard let callee = goal.callee.base as? CallableType else {
       return .failure { (d, m, _) in
-        d.insert(.error(nonCallableType: m.reify(goal.calleeType), at: goal.origin.site))
+        d.insert(.error(nonCallableType: m.reify(goal.callee), at: goal.origin.site))
       }
     }
 
     // Make sure `F` structurally matches the given parameter list.
-    if goal.labels.count != callee.labels.count {
-      return .failure { (d, m, _) in
-        d.insert(.error(incompatibleParameterCountAt: goal.origin.site))
-      }
-    } else if !goal.labels.elementsEqual(callee.labels) {
+    guard let argumentsToParameter = matchArgumentsToParameter(goal.labels, by: callee) else {
       return .failure { (d, m, _) in
         d.insert(
           .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.origin.site))
@@ -602,14 +535,40 @@ struct ConstraintSystem {
 
     // Break down the goal.
     var subordinates: [GoalIdentity] = []
-    for (a, b) in zip(callee.inputs, goal.parameters) {
-      subordinates.append(
-        schedule(EqualityConstraint(a.type, b.type, origin: goal.origin.subordinate())))
+    for (a, j) in zip(goal.arguments, argumentsToParameter) {
+      let b = callee.inputs[j]
+      let o = ConstraintOrigin(.argument, at: a.site)
+      subordinates.append(schedule(ParameterConstraint(a.type, b.type, origin: o)))
     }
     subordinates.append(
       schedule(
         EqualityConstraint(callee.output, goal.returnType, origin: goal.origin.subordinate())))
     return delegate(to: subordinates)
+  }
+
+  /// Returns a table from argument position to its corresponding parameter position iff `callee`
+  /// accepts an argument list with given `labels`. Otherwise, returns `nil`.
+  ///
+  /// For example, given a callee whose parameters are `(x: Int, y: Int = 0, z: Int)` and an
+  /// argument list with labels `[x, z]`, this function returns `[0, 2]`.
+  private func matchArgumentsToParameter<T: Collection>(
+    _ labels: T,
+    by callee: CallableType
+  ) -> [Int]?
+  where T.Element == String? {
+    var result: [Int] = []
+    var i = labels.startIndex
+
+    for (j, p) in callee.inputs.enumerated() {
+      if (i != labels.endIndex) && (labels[i] == p.label) {
+        result.append(j)
+        i = labels.index(after: i)
+      } else if !p.hasDefault {
+        return nil
+      }
+    }
+
+    return (i == labels.endIndex) ? result : nil
   }
 
   private mutating func solve(
@@ -732,7 +691,11 @@ struct ConstraintSystem {
   /// Returns an outcome indicating that a goal has been broken into given `subordinates` and
   /// forwards their diagnostics.
   private func delegate(to s: [GoalIdentity]) -> Outcome {
-    .product(s, { (d, m, r) in s.forEach({ r[$0]!.dianoseFailure?(&d, m, r) }) })
+    .product(s) { (d, m, r) in
+      for g in s where !(r.succeeded(g)!) {
+        r[g]!.diagnoseFailure?(&d, m, r)
+      }
+    }
   }
 
   /// Schedules `g` to be solved in the future and returns its identity.
@@ -791,6 +754,27 @@ struct ConstraintSystem {
     case (_, let v as TypeVariable):
       assume(v, equals: lhs)
       return true
+
+    case (let l as BoundGenericType, let r as BoundGenericType):
+      guard
+        unify(l.base, r.base, querying: relations),
+        l.arguments.count == r.arguments.count
+      else { return false }
+
+      var result = true
+      for (a, b) in zip(l.arguments, r.arguments) {
+        result = (a.key == b.key) && result
+        switch (a.value, b.value) {
+        case (let vl as AnyType, let vr as AnyType):
+          result = unify(vl, vr, querying: relations) && result
+        default:
+          result = a.value.equals(b.value) && result
+        }
+      }
+      return result
+
+    case (let l as MetatypeType, let r as MetatypeType):
+      return unify(l.instance, r.instance, querying: relations)
 
     case (let l as TupleType, let r as TupleType):
       if !l.labels.elementsEqual(r.labels) {
@@ -865,18 +849,6 @@ struct ConstraintSystem {
 
       if changed {
         log("- refresh \(goals[stale[i]])")
-        fresh.append(stale.remove(at: i))
-      }
-    }
-  }
-
-  /// Transforms the stale literal constraints to equality constraints.
-  private mutating func refreshLiteralConstraints() {
-    for i in (0 ..< stale.count).reversed() {
-      if let l = goals[stale[i]] as? LiteralConstraint {
-        let e = EqualityConstraint(l.subject, l.defaultSubject, origin: l.origin)
-        log("- decay \(l) => \(e)")
-        goals[stale[i]] = e
         fresh.append(stale.remove(at: i))
       }
     }
@@ -997,13 +969,77 @@ struct ConstraintSystem {
     if !isLoggingEnabled { return }
     log("fresh:")
     for g in fresh {
-      log("- - \"\(goals[g])\"")
-      log("  - \"\(goals[g].origin)\"")
+      log("- \"\(goals[g])\"")
     }
     log("stale:")
     for g in stale {
-      log("- - \"\(goals[g])\"")
-      log("  - \"\(goals[g].origin)\"")
+      log("- \"\(goals[g])\"")
+    }
+  }
+
+}
+
+/// A closure reporting the diagnostics of a goal's failure into `d`, using `m` to reify types
+/// and reading the outcome of other goals from `o`.
+private typealias DiagnoseFailure = (
+  _ d: inout DiagnosticSet,
+  _ m: SubstitutionMap,
+  _ o: OutcomeMap
+) -> Void
+
+/// The identity of a gaol in an instance of `ConstraintSystem`.
+private typealias GoalIdentity = Int
+
+/// A map from goal to its outcome.
+private typealias OutcomeMap = [Outcome?]
+
+/// The outcome of a goal.
+private enum Outcome {
+
+  /// The goal was solved.
+  ///
+  /// Information inferred from the goal has been stored in the solver's state.
+  case success
+
+  /// The goal was unsatisfiable.
+  ///
+  /// The goal was in conflict with the information inferred by the solver. The payload is a
+  /// closure that generates a diagnostic of the conflict.
+  case failure(DiagnoseFailure)
+
+  /// The goal was broken into subordinate goal.
+  ///
+  /// The payload is a non-empty array of subordinate goals along with a closure that's used to
+  /// generate a diagnostic in case one of the subordinate goals are unsatisfiable.
+  case product([GoalIdentity], DiagnoseFailure)
+
+  /// Returns the diagnosis constructor of `.failure` or `.product` payload.
+  var diagnoseFailure: DiagnoseFailure? {
+    switch self {
+    case .success:
+      return nil
+    case .failure(let f):
+      return f
+    case .product(_, let f):
+      return f
+    }
+  }
+
+}
+
+extension OutcomeMap {
+
+  /// Returns whether the solving `g` succeeded or `.none` if outcome has been computed yet.
+  fileprivate func succeeded(_ g: GoalIdentity) -> ThreeValuedBit {
+    switch self[g] {
+    case nil:
+      return nil
+    case .some(.success):
+      return true
+    case .some(.failure):
+      return false
+    case .some(.product(let s, _)):
+      return s.reduce(true, { (r, k) in r && succeeded(k) })
     }
   }
 

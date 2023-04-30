@@ -66,13 +66,13 @@ private struct ScopeVisitor: ASTWalkObserver {
         return
       } else {
         // Remove the existing edge scope container to containee.
-        scopeToDecls[scope]?.removeAll(where: { $0 == child })
+        scopeToDecls[scope]!.removeAll(where: { $0 == child })
       }
     }
 
     // Create the edges.
     declToScope[child] = scope
-    scopeToDecls[scope, default: []].append(child)
+    scopeToDecls[scope]!.append(child)
   }
 
   /// Inserts `child` into `scope`.
@@ -105,6 +105,7 @@ private struct ScopeVisitor: ASTWalkObserver {
     }
     if let s = AnyScopeID(n) {
       scopeToParent[s] = innermost
+      scopeToDecls[s] = []
       innermost = s
     }
 
@@ -131,6 +132,7 @@ private struct ScopeVisitor: ASTWalkObserver {
 
   private mutating func visit(moduleDecl d: ModuleDecl.ID, in ast: AST) -> Bool {
     assert(innermost == nil)
+    scopeToDecls[d] = []
     innermost = AnyScopeID(d)
     ast.traverse(ast[d], notifying: &self)
     innermost = nil
@@ -146,6 +148,7 @@ private struct ScopeVisitor: ASTWalkObserver {
 
   private mutating func visit(conditionalExpr e: ConditionalExpr.ID, in ast: AST) -> Bool {
     scopeToParent[e] = innermost
+    scopeToDecls[e] = []
     innermost = AnyScopeID(e)
     ast.walk(conditionItems: ast[e].condition, notifying: &self)
     ast.walk(ast[e].success, notifying: &self)
@@ -163,6 +166,7 @@ private struct ScopeVisitor: ASTWalkObserver {
 
   private mutating func visit(conditionalStmt s: ConditionalStmt.ID, in ast: AST) -> Bool {
     scopeToParent[s] = innermost
+    scopeToDecls[s] = []
     innermost = AnyScopeID(s)
     ast.walk(conditionItems: ast[s].condition, notifying: &self)
     ast.walk(ast[s].success, notifying: &self)
@@ -175,6 +179,7 @@ private struct ScopeVisitor: ASTWalkObserver {
 
   private mutating func visit(doWhileStmt s: DoWhileStmt.ID, in ast: AST) -> Bool {
     scopeToParent[ast[s].body] = innermost
+    scopeToDecls[ast[s].body] = []
     innermost = AnyScopeID(ast[s].body)
     ast.walk(roots: ast[ast[s].body].stmts, notifying: &self)
 

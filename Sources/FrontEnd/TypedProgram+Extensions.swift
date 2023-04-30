@@ -35,6 +35,7 @@ extension TypedProgram {
       declTypes: checker.declTypes,
       exprTypes: checker.exprTypes,
       implicitCaptures: checker.implicitCaptures,
+      synthesizedDecls: checker.synthesizedDecls,
       referredDecls: checker.referredDecls,
       foldedSequenceExprs: checker.foldedSequenceExprs,
       relations: checker.relations)

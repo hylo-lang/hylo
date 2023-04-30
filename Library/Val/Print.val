@@ -1,0 +1,9 @@
+/// Writes the textual representation of `item` to the standard output.
+public fun print(_ item: String) {
+  _print_utf8(count: item.size, from: item.utf8)
+}
+
+/// Writes `count` bytes from `base` to the standard output, interpreting read contents with UTF-8
+/// character encoding.
+@ffi("_valcore_print_utf8")
+fun _print_utf8(count: Int, from base: RawPointer)

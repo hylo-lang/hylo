@@ -21,6 +21,8 @@ extension Module {
         let user = InstructionID(f, b, i.address)
 
         switch blockInstructions[i] {
+        case is AddressToPointerInstruction:
+          interpret(addressToPointer: user, in: &context)
         case is AllocStackInstruction:
           interpret(allocStack: user, in: &context)
         case is BorrowInstruction:
@@ -31,6 +33,8 @@ extension Module {
           interpret(condBranch: user, in: &context)
         case is CallInstruction:
           interpret(call: user, in: &context)
+        case is CallFIIInstruction:
+          interpret(callFFI: user, in: &context)
         case is DeallocStackInstruction:
           interpret(deallocStack: user, in: &context)
         case is DeinitInstruction:
@@ -41,10 +45,14 @@ extension Module {
           interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
           continue
+        case is GlobalAddrInstruction:
+          interpret(globalAddr: user, in: &context)
         case is LLVMInstruction:
           interpret(llvm: user, in: &context)
         case is LoadInstruction:
           interpret(load: user, in: &context)
+        case is PartialApplyInstruction:
+          interpret(partialApply: user, in: &context)
         case is RecordInstruction:
           interpret(record: user, in: &context)
         case is ReturnInstruction:
@@ -55,10 +63,17 @@ extension Module {
           interpret(store: user, in: &context)
         case is UnrechableInstruction:
           continue
+        case is WrapAddrInstruction:
+          interpret(wrapAddr: user, in: &context)
         default:
           unreachable("unexpected instruction")
         }
       }
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(addressToPointer i: InstructionID, in context: inout Context) {
+      initializeRegisters(createdBy: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -135,7 +150,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) {
       let call = self[i] as! CallInstruction
-      let calleeType = LambdaType(type(of: call.callee).astType)!
+      let calleeType = LambdaType(type(of: call.callee).ast)!
 
       if calleeType.receiverEffect == .sink {
         context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
@@ -162,6 +177,15 @@ extension Module {
         }
       }
 
+      initializeRegisters(createdBy: i, in: &context)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(callFFI i: InstructionID, in context: inout Context) {
+      let s = self[i] as! CallFIIInstruction
+      for a in s.operands {
+        context.consume(a, with: i, at: s.site, diagnostics: &diagnostics)
+      }
       initializeRegisters(createdBy: i, in: &context)
     }
 
@@ -209,6 +233,16 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(globalAddr i: InstructionID, in context: inout Context) {
+      let l = AbstractLocation.root(.register(i, 0))
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(
+          of: (self[i] as! GlobalAddrInstruction).valueType, definedIn: program),
+        value: .full(.initialized))
+      context.locals[.register(i, 0)] = .locations([l])
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(llvm i: InstructionID, in context: inout Context) {
       // TODO: Check that operands are initialized.
       initializeRegisters(createdBy: i, in: &context)
@@ -248,6 +282,13 @@ extension Module {
         }
       }
 
+      initializeRegisters(createdBy: i, in: &context)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(partialApply i: InstructionID, in context: inout Context) {
+      let x = self[i] as! PartialApplyInstruction
+      context.consume(x.environment, with: i, at: x.site, diagnostics: &diagnostics)
       initializeRegisters(createdBy: i, in: &context)
     }
 
@@ -320,6 +361,17 @@ extension Module {
       }
     }
 
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(wrapAddr i: InstructionID, in context: inout Context) {
+      let s = self[i] as! WrapAddrInstruction
+      if case .constant = s.witness {
+        // Operand is a constant.
+        fatalError("not implemented")
+      }
+
+      context.locals[.register(i, 0)] = context.locals[s.witness]
+    }
+
   }
 
   /// Returns the initial context in which `f` should be interpreted.
@@ -327,25 +379,20 @@ extension Module {
     let function = self[f]
     var result = Context()
 
-    let b = Block.ID(function: f, address: function.entry!)
+    let b = Block.ID(f, function.entry!)
     for i in function.inputs.indices {
-      let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
+      let l = AbstractTypeLayout(of: function.inputs[i].bareType, definedIn: program)
 
-      switch parameterConvention {
-      case .let, .inout:
-        let l = AbstractLocation.root(.parameter(b, i))
-        result.locals[.parameter(b, i)] = .locations([l])
-        result.memory[l] = .init(layout: parameterLayout, value: .full(.initialized))
+      switch function.inputs[i].access {
+      case .let, .inout, .sink:
+        let a = AbstractLocation.root(.parameter(b, i))
+        result.locals[.parameter(b, i)] = .locations([a])
+        result.memory[a] = .init(layout: l, value: .full(.initialized))
 
       case .set:
-        let l = AbstractLocation.root(.parameter(b, i))
-        result.locals[.parameter(b, i)] = .locations([l])
-        result.memory[l] = .init(layout: parameterLayout, value: .full(.uninitialized))
-
-      case .sink:
-        result.locals[.parameter(b, i)] = .object(
-          .init(layout: parameterLayout, value: .full(.initialized)))
+        let a = AbstractLocation.root(.parameter(b, i))
+        result.locals[.parameter(b, i)] = .locations([a])
+        result.memory[a] = .init(layout: l, value: .full(.uninitialized))
 
       case .yielded:
         preconditionFailure("cannot represent instance of yielded type")
@@ -371,7 +418,7 @@ extension Module {
   private func initializeRegisters(createdBy i: InstructionID, in context: inout Context) {
     for (j, t) in self[i].types.enumerated() {
       context.locals[.register(i, j)] = .object(
-        .init(layout: .init(of: t.astType, definedIn: program), value: .full(.initialized)))
+        .init(layout: .init(of: t.ast, definedIn: program), value: .full(.initialized)))
     }
   }
 

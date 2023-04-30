@@ -8,7 +8,7 @@ extension Module {
   /// - Requires: `f` is in `self`.
   public mutating func insertImplicitReturns(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     /// The expected return type of the function.
-    let expectedReturnType = self[f].output.astType
+    let expectedReturnType = self[f].output.ast
 
     for blockToProcess in blocks(in: f) {
       let lastInstruction = self[blockToProcess].instructions.last
@@ -31,7 +31,7 @@ extension Module {
     diagnostics: inout DiagnosticSet
   ) {
     if program.relations.areEquivalent(returnType, .void) {
-      insert(makeReturn(.constant(.void), anchoredAt: anchor), at: i)
+      insert(makeReturn(.void, anchoredAt: anchor), at: i)
     } else {
       diagnostics.insert(.missingFunctionReturn(expectedReturnType: returnType, at: anchor))
     }

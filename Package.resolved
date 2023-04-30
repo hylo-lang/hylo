@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections.git",
       "state" : {
-        "revision" : "f504716c27d2e5d4144fa4794b12129301d17729",
-        "version" : "1.0.3"
+        "revision" : "937e904258d22af6e447a0b72c0bc67583ef64a2",
+        "version" : "1.0.4"
       }
     },
     {
@@ -42,7 +42,7 @@
       "location" : "https://github.com/val-lang/swift-format",
       "state" : {
         "branch" : "main",
-        "revision" : "f2b3e6c0c9b2ae8629a2aba0224a698ecfa8c6a7"
+        "revision" : "7fc9c9102e5eeb9e15489d0e1cb769e41cf21fbc"
       }
     },
     {
@@ -51,7 +51,7 @@
       "location" : "https://github.com/apple/swift-syntax.git",
       "state" : {
         "branch" : "main",
-        "revision" : "e1fb17ffaaf95b8228e7e11a37e58014730cc92a"
+        "revision" : "8212815c39c1c66d6400f32f72280f06ef94af83"
       }
     },
     {
@@ -70,6 +70,15 @@
       "state" : {
         "revision" : "284a41800b7c5565512ec6ae21ee818aac1f84ac",
         "version" : "0.4.0"
+      }
+    },
+    {
+      "identity" : "swifty-llvm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/val-lang/Swifty-LLVM",
+      "state" : {
+        "branch" : "main",
+        "revision" : "617cb57db7a792678da8505dad0d5ece1ed8f25a"
       }
     }
   ],

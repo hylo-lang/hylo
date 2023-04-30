@@ -12,7 +12,7 @@ public fun main() {
   let x2: Float = 4.2
   check<Float>(x2)
 
-  let _: Double = x2  //! diagnostic cannot initialize object of type 'Float' with value of type 'Double'
+  let _: Double = x2  //! diagnostic cannot initialize object of type 'Double' with value of type 'Float'
 
-  let _: Bool = 4.2   //! diagnostic 'Double' is not subtype of 'Bool'
+  let _: Bool = 4.2   //! diagnostic type 'Bool' does not conform to trait 'ExpressibleByFloatLiteral'
 }

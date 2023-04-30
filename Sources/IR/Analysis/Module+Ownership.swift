@@ -151,6 +151,17 @@ extension Module {
       }
     }
 
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(wrapAddr i: InstructionID, in context: inout Context) {
+      let s = self[i] as! WrapAddrInstruction
+      if case .constant = s.witness {
+        // Operand is a constant.
+        fatalError("not implemented")
+      }
+
+      context.locals[.register(i, 0)] = context.locals[s.witness]
+    }
+
   }
 
   /// Returns the initial context in which `f` should be interpreted.
@@ -158,20 +169,15 @@ extension Module {
     let function = self[f]
     var result = Context()
 
-    let b = Block.ID(function: f, address: function.entry!)
+    let b = Block.ID(f, function.entry!)
     for i in function.inputs.indices {
-      let (parameterConvention, parameterType) = function.inputs[i]
-      let parameterLayout = AbstractTypeLayout(of: parameterType.astType, definedIn: program)
+      let l = AbstractTypeLayout(of: function.inputs[i].bareType, definedIn: program)
 
-      switch parameterConvention {
-      case .let, .inout, .set:
-        let l = AbstractLocation.root(.parameter(b, i))
-        result.locals[.parameter(b, i)] = .locations([l])
-        result.memory[l] = .init(layout: parameterLayout, value: .full(.unique))
-
-      case .sink:
-        result.locals[.parameter(b, i)] = .object(
-          .init(layout: parameterLayout, value: .full(.unique)))
+      switch function.inputs[i].access {
+      case .let, .inout, .set, .sink:
+        let a = AbstractLocation.root(.parameter(b, i))
+        result.locals[.parameter(b, i)] = .locations([a])
+        result.memory[a] = .init(layout: l, value: .full(.unique))
 
       case .yielded:
         preconditionFailure("cannot represent instance of yielded type")

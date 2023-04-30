@@ -22,6 +22,9 @@ public struct TypedProgram: Program {
   /// The type of each expression.
   public let exprTypes: ExprProperty<AnyType>
 
+  /// A map from module to its synthesized declarations.
+  public let synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]]
+
   /// A map from function and subscript declarations to their implicit captures.
   public let implicitCaptures: DeclProperty<[ImplicitCapture]>
 
@@ -48,6 +51,7 @@ public struct TypedProgram: Program {
     declTypes: DeclProperty<AnyType>,
     exprTypes: ExprProperty<AnyType>,
     implicitCaptures: DeclProperty<[ImplicitCapture]>,
+    synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]],
     referredDecls: [NameExpr.ID: DeclRef],
     foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr],
     relations: TypeRelations
@@ -64,6 +68,7 @@ public struct TypedProgram: Program {
     self.declTypes = declTypes
     self.exprTypes = exprTypes
     self.implicitCaptures = implicitCaptures
+    self.synthesizedDecls = synthesizedDecls
     self.referredDecls = referredDecls
     self.foldedSequenceExprs = foldedSequenceExprs
     self.relations = relations

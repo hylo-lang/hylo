@@ -1,7 +1,7 @@
 import Core
 
 /// A void constant.
-public struct VoidConstant: ConstantProtocol, Hashable {
+public struct VoidConstant: Constant, Hashable {
 
   public init() {}
 
