@@ -1768,6 +1768,11 @@ public struct TypeChecker {
     // Realize the type of the declaration.
     var targetType = realize(decl: decl)
 
+    // Properties are not first-class.
+    if let s = SubscriptDecl.ID(decl), ast[s].isProperty {
+      targetType = SubscriptType(targetType)!.output
+    }
+
     // Erase parameter conventions.
     if let t = ParameterType(targetType) {
       targetType = t.bareType

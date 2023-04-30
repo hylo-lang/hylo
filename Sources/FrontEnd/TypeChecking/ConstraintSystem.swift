@@ -424,8 +424,13 @@ struct ConstraintSystem {
       .compactMap({ checker.decl(in: $0, named: goal.memberName) })
     let candidates = matches.compactMap({ (match) -> OverloadConstraint.Predicate? in
       // Realize the type of the declaration and skip it if that fails.
-      let matchType = checker.realize(decl: match)
+      var matchType = checker.realize(decl: match)
       if matchType.isError { return nil }
+
+      // Properties are not first-class.
+      if let s = SubscriptDecl.ID(match), checker.ast[s].isProperty {
+        matchType = SubscriptType(matchType)!.output
+      }
 
       // TODO: Handle bound generic typess
 
