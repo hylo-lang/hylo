@@ -169,14 +169,47 @@ public struct Module {
     return id
   }
 
-  /// Declares the function identified by `f` with type `t` and name `n` at given `site` if `f`.
+  /// Declares a function identified by `f` with type `t`.
   ///
+  /// - Parameters:
+  ///   - n: A human-readable name identifying the function.
+  ///   - site: The site in the Val sources to which the function is attached.
   /// - Returns: `true` iff `f` wasn't already declared in `self`.
   @discardableResult
   mutating func declareFunction(
     identifiedBy f: Function.ID,
     typed t: LambdaType,
-    named n: String = "",
+    named n: String? = nil,
+    at site: SourceRange
+  ) -> Bool {
+    if functions[f] != nil { return false }
+
+    let output = LoweredType.object(program.relations.canonical(t.output))
+    var inputs: [ParameterType] = []
+    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
+    appendParameters(t.inputs, to: &inputs)
+
+    functions[f] = Function(
+      name: n ?? "",
+      anchor: site.first(),
+      linkage: .external,
+      inputs: inputs,
+      output: output,
+      blocks: [])
+    return true
+  }
+
+  /// Declares a subscript identified by `s` with type `t`.
+  ///
+  /// - Parameters:
+  ///   - n: A human-readable name identifying the subscript.
+  ///   - site: The site in the Val sources to which the subscript is attached.
+  /// - Returns: `true` iff `s` wasn't already declared in `self`.
+  @discardableResult
+  mutating func declareSubscript(
+    identifiedBy f: Function.ID,
+    typed t: SubscriptImplType,
+    named n: String?,
     at site: SourceRange
   ) -> Bool {
     if functions[f] != nil { return false }
@@ -185,13 +218,18 @@ public struct Module {
     appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
     appendParameters(t.inputs, to: &inputs)
 
-    let output = LoweredType.object(program.relations.canonical(t.output))
+    let output = program.relations.canonical(t.output)
+    let callback = LambdaType(
+      inputs: [.init(type: ^ParameterType(t.receiverEffect, output))],
+      output: .void)
+    inputs.append(.init(.let, ^callback))
+
     functions[f] = Function(
-      name: n,
+      name: n ?? "",
       anchor: site.first(),
       linkage: .external,
       inputs: inputs,
-      output: output,
+      output: .object(AnyType.void),
       blocks: [])
     return true
   }
