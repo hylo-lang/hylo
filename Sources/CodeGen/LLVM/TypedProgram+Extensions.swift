@@ -12,6 +12,8 @@ extension LoweredProgram {
       return syntax.abiName(of: d)
     case .constructor(let d):
       return syntax.abiName(of: d)
+    case .globalAccessor(let d):
+      return syntax.abiName(of: d)
     case .globalInitializer(let d):
       return syntax.abiName(of: d)
     case .synthesized(let d, let t):

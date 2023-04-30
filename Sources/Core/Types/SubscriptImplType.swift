@@ -38,6 +38,12 @@ public struct SubscriptImplType: TypeProtocol {
     flags = fs
   }
 
+  /// Creates the type of a read-only property projecting `output`.
+  public init(property output: AnyType) {
+    self.init(
+      isProperty: true, receiverEffect: .let, environment: .void, inputs: [], output: ^output)
+  }
+
   /// Indicates whether `self` has an empty environment.
   public var isThin: Bool { environment == .void }
 

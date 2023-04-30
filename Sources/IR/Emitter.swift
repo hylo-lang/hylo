@@ -314,7 +314,7 @@ public struct Emitter {
 
     // Initialize the global bindings.
     insertionBlock = failure
-    emit(storedBindingDecl: d, into: &module) { (this, b, m) in
+    let storage = emit(storedBindingDecl: d, into: &module) { (this, b, m) in
       let t = this.program.relations.canonical(b.type)
       let g = m.addGlobal(UndefinedConstant(of: t))
       let a = m.makeGlobalAddr(
@@ -339,6 +339,31 @@ public struct Emitter {
     insertionBlock = nil
     frames.pop()
     assert(frames.isEmpty)
+
+    for binding in storage {
+      emitGlobalAccess(
+        to: program[binding.key],
+        storedAt: binding.value,
+        initializedBy: f,
+        into: &module)
+    }
+  }
+
+  private mutating func emitGlobalAccess(
+    to d: VarDecl.Typed,
+    storedAt storage: Operand,
+    initializedBy initializer: Function.ID,
+    into module: inout Module
+  ) {
+    let f = Function.ID(globalAccessor: d.id)
+    module.declareSubscript(identifiedBy: f, typed: .init(property: d.type), at: d.site)
+    insertionBlock = module.appendBlock(to: f)
+    frames.push(.init(scope: d.scope.id))
+
+    let i = FunctionRef(to: initializer, type: .address(^LambdaType(to: .void)))
+    module.append(
+      module.makeCall(applying: .constant(i), to: [], anchoredAt: d.site),
+      to: insertionBlock!)
   }
 
   /// Inserts the IR for `decl` into `module`, calling `allocateBinding` to allocate storage for

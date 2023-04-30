@@ -214,6 +214,34 @@ public struct Module {
     return true
   }
 
+  @discardableResult
+  mutating func declareSubscript(
+    identifiedBy f: Function.ID,
+    typed t: SubscriptImplType,
+    named n: String = "",
+    at site: SourceRange
+  ) -> Bool {
+    if functions[f] != nil { return false }
+
+    // TODO: Captures
+    var parameters: [ParameterType] = []
+    for i in t.inputs {
+      let p = ParameterType(program.relations.canonical(i.type))!
+      precondition(p.access != .yielded, "cannot lower yielded parameter")
+      parameters.append(p)
+    }
+
+    let output = LoweredType.address(program.relations.canonical(t.output))
+    functions[f] = Function(
+      name: n,
+      anchor: site.first(),
+      linkage: .external,
+      inputs: parameters,
+      output: output,
+      blocks: [])
+    return true
+  }
+
   /// Returns the identity of the Val IR function corresponding to `d`.
   mutating func getOrCreateFunction(correspondingTo d: FunctionDecl.Typed) -> Function.ID {
     if let f = loweredFunctions[d.id] { return f }

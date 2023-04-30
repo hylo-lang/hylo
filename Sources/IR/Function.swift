@@ -86,6 +86,9 @@ extension Function {
       /// An initializer's constructor form.
       case constructor(InitializerDecl.ID)
 
+      /// The accessor of a global binding.
+      case globalAccessor(VarDecl.ID)
+
       /// The initializer of a global binding declaration.
       case globalInitializer(BindingDecl.ID)
 
@@ -115,6 +118,11 @@ extension Function {
       self.value = .constructor(f)
     }
 
+    /// Creates the identity the global binding accessor of `d`.
+    public init(globalAccessor d: VarDecl.ID) {
+      self.value = .globalAccessor(d)
+    }
+
     /// Creates the identity of a global pattern binding initializer.
     public init(globalInitializerOf d: BindingDecl.ID) {
       self.value = .globalInitializer(d)
@@ -137,6 +145,8 @@ extension Function.ID: CustomStringConvertible {
       return "\(d).lowered"
     case .constructor(let d):
       return "\(d).constructor"
+    case .globalAccessor(let d):
+      return "\(d).accessor"
     case .globalInitializer(let d):
       return "\(d).initializer"
     case .synthesized(let r, let t):
