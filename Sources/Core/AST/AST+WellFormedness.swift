@@ -80,7 +80,7 @@ extension AST {
 
     case SubscriptDecl.self:
       let d = self[SubscriptDecl.ID(decl)!]
-      if d.introducer.value != .subscript {
+      if d.isProperty {
         diagnostics.insert(.error(unexpectedPropertyDecl: d))
       }
       if let m = d.memberModifier {
