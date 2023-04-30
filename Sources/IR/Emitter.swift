@@ -276,6 +276,69 @@ public struct Emitter {
   ///
   /// - Requires: `d` is a global binding.
   private mutating func emit(globalBindingDecl d: BindingDecl.Typed, into module: inout Module) {
+    // Nothing to do if the declaration doesn't introduce any name.
+    if program.ast.names(in: d.pattern.id).isEmpty { return }
+
+    // Global bindings are initialized lazily the first time they are accessed. Initialization is
+    // implemented by a function that evaluates the initializer of the binding declaration to set
+    // the value of each individual binding, along with a flag signaling that initialization took
+    // place. Access to an individual binding is represented by a subscript.
+
+    // global @is_initialized = i1(0)
+    let isInitializedBit = module.addGlobal(IntegerConstant(0, bitWidth: 1))
+
+    // fun () -> ()
+    let f = Function.ID(globalInitializerOf: d.id)
+    module.declareFunction(identifiedBy: f, typed: .init(to: .void), at: d.site)
+    insertionBlock = module.appendBlock(to: f)
+    frames.push(.init(scope: d.scope.id))
+
+    // %0 = global_addr @is_initialized
+    // %1 = load %0
+    let p = module.append(
+      module.makeGlobalAddr(
+        of: isInitializedBit, in: module.syntax.id, typed: .builtin(.i(1)),
+        anchoredAt: d.site),
+      to: insertionBlock!)[0]
+    let c = module.append(module.makeLoad(p, anchoredAt: d.site), to: insertionBlock!)[0]
+
+    // cond_branch %1, b1, b2
+    // b1:
+    // return void
+    let success = module.appendBlock(to: f)
+    let failure = module.appendBlock(to: f)
+    module.append(
+      module.makeCondBranch(if: c, then: success, else: failure, anchoredAt: d.site),
+      to: insertionBlock!)
+    module.append(module.makeReturn(.void, anchoredAt: d.site), to: success)
+
+    // Initialize the global bindings.
+    insertionBlock = failure
+    emit(storedBindingDecl: d, into: &module) { (this, b, m) in
+      let t = this.program.relations.canonical(b.type)
+      let g = m.addGlobal(UndefinedConstant(of: t))
+      let a = m.makeGlobalAddr(
+        of: g, in: m.syntax.id, typed: t, assumedInitialized: false, anchoredAt: b.site)
+      return m.append(a, to: this.insertionBlock!)[0]
+    }
+
+    // %2 = global_addr [uninitialized] @is_initialized
+    // %3 = borrow [set] %0
+    // store i1(0), %3
+    let q = module.append(
+      module.makeGlobalAddr(
+        of: isInitializedBit, in: module.syntax.id, typed: .builtin(.i(1)),
+        assumedInitialized: false, anchoredAt: d.site),
+      to: insertionBlock!)[0]
+    let s = module.append(
+      module.makeBorrow(.set, from: q, anchoredAt: d.site), to: insertionBlock!)[0]
+    module.append(
+      module.makeStore(.constant(IntegerConstant(1, bitWidth: 1)), at: s, anchoredAt: d.site),
+      to: insertionBlock!)
+
+    insertionBlock = nil
+    frames.pop()
+    assert(frames.isEmpty)
   }
 
   /// Inserts the IR for `decl` into `module`, calling `allocateBinding` to allocate storage for

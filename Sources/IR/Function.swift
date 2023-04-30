@@ -80,13 +80,16 @@ extension Function {
     /// The value of a function IR identity.
     public enum Value: Hashable {
 
-      /// The identity of a lowered Val function, initializer, or method variant.
+      /// A lowered Val function, initializer, or method variant.
       case lowered(AnyDeclID)
 
-      /// The identity of an initializer's constructor form.
+      /// An initializer's constructor form.
       case constructor(InitializerDecl.ID)
 
-      /// The identity of a requirement synthesized for some type.
+      /// The initializer of a global binding declaration.
+      case globalInitializer(BindingDecl.ID)
+
+      /// A requirement synthesized for some type.
       ///
       /// The payload is a pair (D, U) where D is the declaration of a requirement and T is a type
       /// conforming to the trait defining D.
@@ -112,6 +115,11 @@ extension Function {
       self.value = .constructor(f)
     }
 
+    /// Creates the identity of a global pattern binding initializer.
+    public init(globalInitializerOf d: BindingDecl.ID) {
+      self.value = .globalInitializer(d)
+    }
+
     /// Creates the identity of synthesized requirement `r` for type `t`.
     public init<T: DeclID>(synthesized r: T, for t: AnyType) {
       self.value = .synthesized(AnyDeclID(r), for: t)
@@ -129,6 +137,8 @@ extension Function.ID: CustomStringConvertible {
       return "\(d).lowered"
     case .constructor(let d):
       return "\(d).constructor"
+    case .globalInitializer(let d):
+      return "\(d).initializer"
     case .synthesized(let r, let t):
       return "\"synthesized \(r) for \(t)\""
     }
