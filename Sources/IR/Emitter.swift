@@ -119,7 +119,7 @@ public struct Emitter {
     functionDecl d: FunctionDecl.Typed,
     into module: inout Module
   ) -> Function.ID {
-    let f = module.getOrCreateFunction(correspondingTo: d)
+    let f = module.getOrCreateFunction(lowering: d)
 
     guard let b = d.body else {
       if d.isForeignInterface { emitFFI(d, into: &module) }
@@ -176,7 +176,7 @@ public struct Emitter {
 
   /// Inserts the IR for calling `d` into `module`.
   private mutating func emitFFI(_ d: FunctionDecl.Typed, into module: inout Module) {
-    let f = module.getOrCreateFunction(correspondingTo: d)
+    let f = module.getOrCreateFunction(lowering: d)
 
     // Create the function entry.
     assert(module.functions[f]!.blocks.isEmpty)

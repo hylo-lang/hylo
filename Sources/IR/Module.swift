@@ -267,7 +267,7 @@ public struct Module {
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func getOrCreateFunction(correspondingTo d: FunctionDecl.Typed) -> Function.ID {
+  mutating func getOrCreateFunction(lowering d: FunctionDecl.Typed) -> Function.ID {
     if let f = loweredFunctions[d.id] { return f }
     let f = Function.ID(d.id)
     let n = program.debugName(decl: d.id)
