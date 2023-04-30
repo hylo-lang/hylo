@@ -181,37 +181,51 @@ public struct Module {
   ) -> Bool {
     if functions[f] != nil { return false }
 
-    var parameters: [ParameterType] = []
-    parameters.reserveCapacity(t.captures.count + t.inputs.count)
-
-    // Define inputs for the captures.
-    for capture in t.captures {
-      switch program.relations.canonical(capture.type).base {
-      case let p as RemoteType:
-        precondition(p.access != .yielded, "cannot lower yielded parameter")
-        parameters.append(ParameterType(p))
-      case let p:
-        precondition(t.receiverEffect != .yielded, "cannot lower yielded parameter")
-        parameters.append(ParameterType(t.receiverEffect, ^p))
-      }
-    }
-
-    // Define inputs for the parameters.
-    for i in t.inputs {
-      let p = ParameterType(program.relations.canonical(i.type))!
-      precondition(p.access != .yielded, "cannot lower yielded parameter")
-      parameters.append(p)
-    }
+    var inputs: [ParameterType] = []
+    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
+    appendParameters(t.inputs, to: &inputs)
 
     let output = LoweredType.object(program.relations.canonical(t.output))
     functions[f] = Function(
       name: n,
       anchor: site.first(),
       linkage: .external,
-      inputs: parameters,
+      inputs: inputs,
       output: output,
       blocks: [])
     return true
+  }
+
+  /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
+  private func appendCaptures(
+    _ captures: [TupleType.Element],
+    passed effect: AccessEffect,
+    to inputs: inout [ParameterType]
+  ) {
+    inputs.reserveCapacity(captures.count)
+    for c in captures {
+      switch program.relations.canonical(c.type).base {
+      case let p as RemoteType:
+        precondition(p.access != .yielded, "cannot lower yielded parameter")
+        inputs.append(ParameterType(p))
+      case let p:
+        precondition(effect != .yielded, "cannot lower yielded parameter")
+        inputs.append(ParameterType(effect, ^p))
+      }
+    }
+  }
+
+  /// Appends `parameters` to `inputs`, ensuring that their types are canonical.
+  private func appendParameters(
+    _ parameters: [CallableTypeParameter],
+    to inputs: inout [ParameterType]
+  ) {
+    inputs.reserveCapacity(parameters.count)
+    for p in parameters {
+      let t = ParameterType(program.relations.canonical(p.type))!
+      precondition(t.access != .yielded, "cannot lower yielded parameter")
+      inputs.append(t)
+    }
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
