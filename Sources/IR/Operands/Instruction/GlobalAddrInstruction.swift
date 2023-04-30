@@ -12,6 +12,9 @@ public struct GlobalAddrInstruction: Instruction {
   /// The type of the global value.
   public let valueType: AnyType
 
+  /// `true` iff the pointed value is assumed initialized.
+  public let isValueInitialized: Bool
+
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
@@ -20,11 +23,13 @@ public struct GlobalAddrInstruction: Instruction {
     id: Module.GlobalID,
     container: ModuleDecl.ID,
     valueType: AnyType,
+    isValueInitialized: Bool,
     site: SourceRange
   ) {
     self.container = container
     self.id = id
     self.valueType = valueType
+    self.isValueInitialized = isValueInitialized
     self.site = site
   }
 
@@ -37,7 +42,11 @@ public struct GlobalAddrInstruction: Instruction {
 extension GlobalAddrInstruction: CustomStringConvertible {
 
   public var description: String {
-    "global_addr @\(container).\(id)"
+    if isValueInitialized {
+      return "global_addr @\(container).\(id)"
+    } else {
+      return "global_addr [uninitialized] @\(container).\(id)"
+    }
   }
 
 }
@@ -50,9 +59,13 @@ extension Module {
     of g: Module.GlobalID,
     in m: ModuleDecl.ID,
     typed t: AnyType,
+    assumedInitialized isValueInitialized: Bool = true,
     anchoredAt anchor: SourceRange
   ) -> GlobalAddrInstruction {
-    .init(id: g, container: m, valueType: t, site: anchor)
+    .init(
+      id: g, container: m, valueType: t,
+      isValueInitialized: isValueInitialized,
+      site: anchor)
   }
 
 }

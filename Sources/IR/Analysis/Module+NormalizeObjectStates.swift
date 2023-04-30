@@ -234,11 +234,11 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, in context: inout Context) {
+      let s = self[i] as! GlobalAddrInstruction
       let l = AbstractLocation.root(.register(i, 0))
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(
-          of: (self[i] as! GlobalAddrInstruction).valueType, definedIn: program),
-        value: .full(.initialized))
+        layout: AbstractTypeLayout(of: s.valueType, definedIn: program),
+        value: .full(s.isValueInitialized ? .initialized : .uninitialized))
       context.locals[.register(i, 0)] = .locations([l])
     }
 
