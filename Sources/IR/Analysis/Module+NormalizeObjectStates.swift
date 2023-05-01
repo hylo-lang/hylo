@@ -69,6 +69,8 @@ extension Module {
           continue
         case is WrapAddrInstruction:
           interpret(wrapAddr: user, in: &context)
+        case is YieldInstruction:
+          interpret(yield: user, in: &context)
         default:
           unreachable("unexpected instruction")
         }
@@ -386,6 +388,12 @@ extension Module {
       }
 
       context.locals[.register(i, 0)] = context.locals[s.witness]
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(yield i: InstructionID, in context: inout Context) {
+      let s = self[i] as! YieldInstruction
+      assert(isBorrowOrConstant(s.projection))
     }
 
   }
