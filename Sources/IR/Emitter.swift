@@ -184,7 +184,9 @@ public struct Emitter {
     // Emit FFI call.
     var arguments: [Operand] = []
     for i in module[entry].inputs.indices {
-      arguments.append(emitConvertToForeign(.parameter(entry, i), at: d.site, into: &module))
+      let a = emitConvertToForeign(
+        .parameter(entry, i), usedIn: d.scope.id, at: d.site, into: &module)
+      arguments.append(a)
     }
 
     let v = module.append(
@@ -1443,21 +1445,35 @@ public struct Emitter {
 
   /// Appends the IR to convert `o` to a FFI argument.
   private mutating func emitConvertToForeign(
-    _ o: Operand, at site: SourceRange, into module: inout Module
+    _ o: Operand,
+    usedIn useScope: AnyScopeID,
+    at site: SourceRange,
+    into module: inout Module
   ) -> Operand {
-    let t = module.type(of: o).ast
+    let t = module.type(of: o)
+    precondition(t.isAddress)
 
-    let i = program.ast.coreType("Int")!
-    let p = program.ast.coreType("RawPointer")!
-    if (t == i) || (t == p) {
-      let s = module.append(
-        module.makeElementAddr(o, at: [0], anchoredAt: site), to: insertionBlock!)[0]
-      return module.append(
-        module.makeLoad(s, anchoredAt: site), to: insertionBlock!)[0]
+    let foreignConvertible = program.ast.coreTrait("ForeignConvertible")!
+    let foreignConvertibleConformance = program.conformance(
+      of: t.ast, to: foreignConvertible, exposedTo: useScope)!
+    let r = program.ast.requirements("foreign_value", in: foreignConvertible.decl)[0]
+
+    // TODO: Handle cases where the foreign representation of `t` is not built-in
+
+    switch foreignConvertibleConformance.implementations[r]! {
+    case .concrete(let m):
+      let convert = FunctionRef(to: program[FunctionDecl.ID(m)!], in: &module)
+      let x0 = module.append(
+        module.makeBorrow(.let, from: o, anchoredAt: site),
+        to: insertionBlock!)
+      let x1 = module.append(
+        module.makeCall(applying: .constant(.function(convert)), to: x0, anchoredAt: site),
+        to: insertionBlock!)[0]
+      return x1
+
+    case .synthetic:
+      fatalError("not implemented")
     }
-
-    // TODO: Handle other type conversion.
-    unreachable("unexpected FFI type \(t)")
   }
 
   // MARK: l-values
