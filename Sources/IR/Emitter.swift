@@ -180,6 +180,11 @@ public struct Emitter {
     let entry = module.appendBlock(
       taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
     insertionBlock = entry
+    frames.push(.init(scope: AnyScopeID(d.id)))
+    defer {
+      frames.pop()
+      assert(frames.isEmpty)
+    }
 
     // Emit FFI call.
     var arguments: [Operand] = []
@@ -189,13 +194,26 @@ public struct Emitter {
       arguments.append(a)
     }
 
-    let v = module.append(
+    let foreignResult = module.append(
       module.makeCallFII(
         returning: module.functions[f]!.output,
         applying: d.foreignName!,
         to: arguments, anchoredAt: d.site),
       to: insertionBlock!)[0]
-    module.append(module.makeReturn(v, anchoredAt: d.site), to: insertionBlock!)
+
+    // Handle FFIs without return values.
+    let output = module.functions[f]!.output.ast
+    if output.isVoidOrNever {
+      module.append(module.makeReturn(.constant(.void), anchoredAt: d.site), to: insertionBlock!)
+      return
+    }
+
+    let v = emitConvert(
+      foreign: foreignResult, to: output, usedIn: d.scope.id, at: d.site, into: &module)
+    emitStackDeallocs(in: &module, site: d.site)
+    module.append(
+      module.makeReturn(v, anchoredAt: d.site),
+      to: insertionBlock!)
   }
 
   /// Inserts the IR for `d` into `module`.
@@ -1443,7 +1461,47 @@ public struct Emitter {
       into: &module)
   }
 
-  /// Appends the IR to convert `o` to a FFI argument.
+  /// Inserts the IR for converting `foreign` to a value of type `ir` when it's used in `useScope`.
+  private mutating func emitConvert(
+    foreign: Operand,
+    to ir: AnyType,
+    usedIn useScope: AnyScopeID,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    precondition(module.type(of: foreign).isObject)
+
+    let foreignConvertible = program.ast.coreTrait("ForeignConvertible")!
+    let foreignConvertibleConformance = program.conformance(
+      of: ir, to: foreignConvertible, exposedTo: useScope)!
+    let r = program.ast.requirements(
+      Name(stem: "init", labels: ["foreign_value"]), in: foreignConvertible.decl)[0]
+
+    switch foreignConvertibleConformance.implementations[r]! {
+    case .concrete(let m):
+      let convert = FunctionRef(to: program[InitializerDecl.ID(m)!], in: &module)
+      let x0 = module.append(
+        module.makeAllocStack(ir, anchoredAt: site),
+        to: insertionBlock!)[0]
+      frames.top.allocs.append(x0)
+      let x1 = module.append(
+        module.makeBorrow(.set, from: x0, anchoredAt: site),
+        to: insertionBlock!)[0]
+      module.append(
+        module.makeCall(
+          applying: .constant(.function(convert)), to: [x1, foreign], anchoredAt: site),
+        to: insertionBlock!)
+      let x3 = module.append(
+        module.makeLoad(x0, anchoredAt: site),
+        to: insertionBlock!)[0]
+      return x3
+
+    case .synthetic:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Appends the IR to convert `o` to a FFI argument when it's used in `useScope`.
   private mutating func emitConvertToForeign(
     _ o: Operand,
     usedIn useScope: AnyScopeID,
