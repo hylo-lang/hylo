@@ -184,7 +184,7 @@ public struct Emitter {
     // Emit FFI call.
     var arguments: [Operand] = []
     for i in module[entry].inputs.indices {
-      arguments.append(emitFFIArgument(.parameter(entry, i), at: d.site, into: &module))
+      arguments.append(emitConvertToForeign(.parameter(entry, i), at: d.site, into: &module))
     }
 
     let v = module.append(
@@ -194,28 +194,6 @@ public struct Emitter {
         to: arguments, anchoredAt: d.site),
       to: insertionBlock!)[0]
     module.append(module.makeReturn(v, anchoredAt: d.site), to: insertionBlock!)
-  }
-
-  /// Appends the IR to convert `o` to a FFI argument into `module` to the current insertion block,
-  /// anchoring new instructions at `site`.
-  private mutating func emitFFIArgument(
-    _ o: Operand,
-    at site: SourceRange,
-    into module: inout Module
-  ) -> Operand {
-    let t = module.type(of: o).ast
-
-    let i = program.ast.coreType(named: "Int")!
-    let p = program.ast.coreType(named: "RawPointer")!
-    if (t == i) || (t == p) {
-      let s = module.append(
-        module.makeElementAddr(o, at: [0], anchoredAt: site), to: insertionBlock!)[0]
-      return module.append(
-        module.makeLoad(s, anchoredAt: site), to: insertionBlock!)[0]
-    }
-
-    // TODO: Handle other type conversion.
-    unreachable("unexpected FFI type \(t)")
   }
 
   /// Inserts the IR for `d` into `module`.
@@ -1461,6 +1439,25 @@ public struct Emitter {
       aggregating: [.constant(.integer(IntegerConstant(value, bitWidth: 64)))],
       at: site,
       into: &module)
+  }
+
+  /// Appends the IR to convert `o` to a FFI argument.
+  private mutating func emitConvertToForeign(
+    _ o: Operand, at site: SourceRange, into module: inout Module
+  ) -> Operand {
+    let t = module.type(of: o).ast
+
+    let i = program.ast.coreType(named: "Int")!
+    let p = program.ast.coreType(named: "RawPointer")!
+    if (t == i) || (t == p) {
+      let s = module.append(
+        module.makeElementAddr(o, at: [0], anchoredAt: site), to: insertionBlock!)[0]
+      return module.append(
+        module.makeLoad(s, anchoredAt: site), to: insertionBlock!)[0]
+    }
+
+    // TODO: Handle other type conversion.
+    unreachable("unexpected FFI type \(t)")
   }
 
   // MARK: l-values
