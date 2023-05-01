@@ -13,6 +13,11 @@ public enum Operand {
   /// The void constant.
   public static let void: Operand = .constant(VoidConstant())
 
+  /// Returns a built-in Boolean constant.
+  public static func i1(_ v: Bool) -> Operand {
+    .constant(IntegerConstant(v ? 1 : 0, bitWidth: 1))
+  }
+
   /// The ID of the function in which the operand is defined, if any.
   var function: Function.ID? {
     block?.function

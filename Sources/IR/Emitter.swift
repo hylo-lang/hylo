@@ -750,11 +750,9 @@ public struct Emitter {
     booleanLiteral expr: BooleanLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let value = Operand.constant(IntegerConstant(expr.value ? 1 : 0, bitWidth: 1))
-    let boolType = program.ast.coreType(named: "Bool")!
-    return module.append(
-      module.makeRecord(boolType, aggregating: [value], anchoredAt: expr.site),
-      to: insertionBlock!)[0]
+    let bool = program.ast.coreType(named: "Bool")!
+    let s = module.makeRecord(bool, aggregating: [.i1(expr.value)], anchoredAt: expr.site)
+    return module.append(s, to: insertionBlock!)[0]
   }
 
   private mutating func emitRValue(
