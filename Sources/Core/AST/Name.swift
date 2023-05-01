@@ -16,10 +16,7 @@ public struct Name: Hashable, Codable {
   public let introducer: AccessEffect?
 
   /// Creates a new name.
-  public init(
-    stem: Identifier,
-    labels: [String?] = []
-  ) {
+  public init(stem: Identifier, labels: [String?] = []) {
     self.stem = stem
     self.labels = labels
     self.notation = nil
@@ -27,10 +24,7 @@ public struct Name: Hashable, Codable {
   }
 
   /// Creates a new operator name.
-  public init(
-    stem: Identifier,
-    notation: OperatorNotation
-  ) {
+  public init(stem: Identifier, notation: OperatorNotation ) {
     self.stem = stem
     self.labels = []
     self.notation = notation
@@ -60,12 +54,12 @@ public struct Name: Hashable, Codable {
     }
   }
 
-  /// Creates the name introduced by `decl` in `ast`.
+  /// Creates the name introduced by `d` in `ast`.
   public init(of d: InitializerDecl.ID, in ast: AST) {
     self.init(stem: "init", labels: ast[ast[d].parameters].map(\.label?.value))
   }
 
-  /// Creates the name introduced by `decl` in `ast`.
+  /// Creates the name introduced by `d` in `ast`.
   public init(of d: MethodDecl.ID, in ast: AST) {
     let stem = ast[d].identifier.value
     if let notation = ast[d].notation?.value {
@@ -75,11 +69,22 @@ public struct Name: Hashable, Codable {
     }
   }
 
+  /// Creates the name introduced by `d` in `ast`.
+  public init(of d: SubscriptDecl.ID, in ast: AST) {
+    let stem = ast[d].identifier?.value ?? "[]"
+    self.init(stem: stem, labels: ast[ast[d].parameters ?? []].map(\.label?.value))
+  }
+
   /// Returns `self` appending `x` or `nil` if `self` already has an introducer.
   public func appending(_ x: AccessEffect) -> Name? {
     introducer == nil
       ? Name(stem: stem, labels: labels, notation: notation, introducer: x)
       : nil
+  }
+
+  /// Returns `self` sans access effect.
+  public func removingIntroducer() -> Name {
+    Name(stem: stem, labels: labels, notation: notation)
   }
 
   /// Returns a textual description of `labels`.
