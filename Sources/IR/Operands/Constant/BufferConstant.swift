@@ -2,7 +2,7 @@ import Core
 import Foundation
 
 /// A constant buffer of bytes in Val IR.
-public struct BufferConstant: ConstantProtocol, Hashable {
+public struct BufferConstant: Constant, Hashable {
 
   /// The contents of this instance.
   public let contents: Data

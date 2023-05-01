@@ -1,7 +1,7 @@
 import Core
 
 /// A pointer to a global value in Val IR.
-public struct PointerConstant: ConstantProtocol, Hashable {
+public struct PointerConstant: Constant, Hashable {
 
   /// The module in which the global is defined.
   public let container: ModuleDecl.ID
