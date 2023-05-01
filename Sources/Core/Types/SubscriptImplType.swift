@@ -69,7 +69,7 @@ extension SubscriptImplType: CustomStringConvertible {
 
   public var description: String {
     if isProperty {
-      return "property [\(environment)] \(output) \(receiverEffect)"
+      return "property [\(environment)] \(receiverEffect) : \(output)"
     } else {
       return "subscript [\(environment)] (\(list: inputs)) \(receiverEffect) : \(output)"
     }
