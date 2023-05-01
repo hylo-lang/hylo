@@ -63,3 +63,17 @@ public conformance Int: Copyable {
   }
 
 }
+
+public conformance Int: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.i64
+
+  public init(foreign_value: Builtin.i64) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.i64 {
+    value
+  }
+
+}
