@@ -815,6 +815,7 @@ public struct TypeChecker {
     declaredBy source: T.ID,
     at declSite: SourceRange
   ) -> Conformance? {
+    let useScope = AnyScopeID(source)
     let specializations = [ast[trait.decl].selfParameterDecl: model]
     var implementations = Conformance.ImplementationMap()
     var notes: DiagnosticSet = []
@@ -835,7 +836,10 @@ public struct TypeChecker {
         continue
 
       case FunctionDecl.self:
-        checkSatisfied(function: FunctionDecl.ID(m)!)
+        checkSatisfied(function: .init(m)!)
+
+      case InitializerDecl.self:
+        checkSatisfied(initializer: .init(m)!)
 
       case MethodDecl.self:
         let r = MethodDecl.ID(m)!
@@ -870,8 +874,25 @@ public struct TypeChecker {
 
     /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
+    func checkSatisfied(initializer d: InitializerDecl.ID) {
+      let requiredType = relations.canonical(
+        specialized(realize(decl: d), applying: specializations, in: useScope))
+      guard !requiredType[.hasError] else { return }
+
+      if let c = implementation(
+        of: Name(of: d, in: ast), in: model,
+        withCallableType: LambdaType(requiredType)!, specializedWith: specializations,
+        exposedTo: useScope)
+      {
+        implementations[d] = .concrete(c)
+      } else {
+        notes.insert(.error(trait: trait, requiresInitializer: requiredType, at: declSite))
+      }
+    }
+
+    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
+    /// reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(function d: FunctionDecl.ID) {
-      let useScope = AnyScopeID(source)
       let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
       guard !requiredType[.hasError] else { return }
 
@@ -880,7 +901,7 @@ public struct TypeChecker {
       if let c = implementation(
         of: requiredName, in: model,
         withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: AnyScopeID(source))
+        exposedTo: useScope)
       {
         implementations[d] = .concrete(c)
       } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
@@ -895,7 +916,6 @@ public struct TypeChecker {
     /// Checks if requirement `d` of a method bunde named `m` is satisfied by `model`, extending
     /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
-      let useScope = AnyScopeID(source)
       let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
       guard !requiredType[.hasError] else { return }
 
@@ -903,7 +923,7 @@ public struct TypeChecker {
       if let c = implementation(
         of: m, in: model,
         withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: AnyScopeID(source))
+        exposedTo: useScope)
       {
         implementations[d] = .concrete(c)
       } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
@@ -946,6 +966,10 @@ public struct TypeChecker {
       switch c.kind {
       case FunctionDecl.self:
         let d = FunctionDecl.ID(c)!
+        return ((ast[d].body != nil) && hasRequiredType(d)) ? c : nil
+
+      case InitializerDecl.self:
+        let d = InitializerDecl.ID(c)!
         return ((ast[d].body != nil) && hasRequiredType(d)) ? c : nil
 
       case MethodDecl.self:

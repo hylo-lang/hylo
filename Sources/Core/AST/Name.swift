@@ -61,6 +61,11 @@ public struct Name: Hashable, Codable {
   }
 
   /// Creates the name introduced by `decl` in `ast`.
+  public init(of d: InitializerDecl.ID, in ast: AST) {
+    self.init(stem: "init", labels: ast[ast[d].parameters].map(\.label?.value))
+  }
+
+  /// Creates the name introduced by `decl` in `ast`.
   public init(of d: MethodDecl.ID, in ast: AST) {
     let stem = ast[d].identifier.value
     if let notation = ast[d].notation?.value {
