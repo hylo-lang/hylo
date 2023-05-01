@@ -741,7 +741,7 @@ public struct CXXTranspiler {
     // Foward function result if the result type is Int32.
     let resultType = (source.type.base as! LambdaType).output
     let forwardReturn = wholeValProgram.relations.areEquivalent(
-      resultType, ^wholeValProgram.ast.coreType(named: "Int32")!)
+      resultType, ^wholeValProgram.ast.coreType("Int32")!)
 
     // Build the body of the CXX entry-point function.
     var bodyContent: [CXXStmt] = []

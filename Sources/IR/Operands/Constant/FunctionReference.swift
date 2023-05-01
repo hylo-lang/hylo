@@ -1,3 +1,5 @@
+import Core
+
 /// A Val IR reference to a user function.
 public struct FunctionRef: Constant, Hashable {
 
@@ -11,6 +13,18 @@ public struct FunctionRef: Constant, Hashable {
   public init(to function: Function.ID, type: LoweredType) {
     self.function = function
     self.type = type
+  }
+
+  /// Creates a reference to the lowered form of `d` in `module`.
+  public init(to d: FunctionDecl.Typed, in module: inout Module) {
+    self.function = module.getOrCreateFunction(correspondingTo: d)
+    self.type = .address(LambdaType(d.type)!.lifted)
+  }
+
+  /// Creates a reference to the lowered form of `d` in `module`.
+  public init(to d: InitializerDecl.Typed, in module: inout Module) {
+    self.function = module.initializerDeclaration(lowering: d)
+    self.type = .address(LambdaType(d.type)!.lifted)
   }
 
 }

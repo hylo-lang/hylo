@@ -185,6 +185,12 @@ extension Diagnostic {
     .error("trait '\(x)' requires method '\(m)' with type '\(t)'", at: site)
   }
 
+  static func error(
+    trait x: TraitType, requiresInitializer t: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .error("trait '\(x)' requires initializer with type '\(t)'", at: site)
+  }
+
   static func error(staleConstraint c: any Constraint) -> Diagnostic {
     .error("stale constraint '\(c)'", at: c.origin.site)
   }
