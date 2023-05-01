@@ -11,9 +11,8 @@ extension Module {
       for i in instructions(in: blockToProcess) {
         switch self[i] {
         case let borrow as BorrowInstruction:
-          // Compute the live-range of the instruction.
-          let borrowResult = Operand.register(i, 0)
-          let borrowLifetime = lifetime(of: borrowResult)
+          let result = Operand.register(i, 0)
+          let borrowLifetime = lifetime(of: result)
 
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
@@ -26,9 +25,16 @@ extension Module {
 
           // Insert `end_borrow` after the instruction's last users.
           for lastUse in borrowLifetime.maximalElements() {
-            insert(
-              makeEndBorrow(borrowResult, anchoredAt: self[lastUse.user].site),
-              after: lastUse.user)
+            let s = makeEndBorrow(result, anchoredAt: self[lastUse.user].site)
+            insert(s, after: lastUse.user)
+          }
+
+        case is ProjectInstruction:
+          // Insert `end_project` after the instruction's last users.
+          let result = Operand.register(i, 0)
+          for lastUse in lifetime(of: result).maximalElements() {
+            let s = makeEndProject(result, anchoredAt: self[lastUse.user].site)
+            insert(s, after: lastUse.user)
           }
 
         default:
