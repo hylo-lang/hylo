@@ -115,7 +115,7 @@ public struct AST {
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
   ///
   /// - Requires: The Core library must have been loaded.
-  public func coreType(named name: String) -> ProductType? {
+  public func coreType(_ name: String) -> ProductType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(coreLibrary!) where id.kind == ProductTypeDecl.self {
@@ -131,7 +131,7 @@ public struct AST {
   /// Returns the trait named `name` defined in the core library or `nil` if it does not exist.
   ///
   /// - Requires: The Core library must have been loaded.
-  public func coreTrait(named name: String) -> TraitType? {
+  public func coreTrait(_ name: String) -> TraitType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(coreLibrary!) where id.kind == TraitDecl.self {
@@ -151,9 +151,9 @@ public struct AST {
   public func coreTrait<T: Expr>(forTypesExpressibleBy literal: T.Type) -> TraitType? {
     switch literal.kind {
     case FloatLiteralExpr.self:
-      return coreTrait(named: "ExpressibleByFloatLiteral")
+      return coreTrait("ExpressibleByFloatLiteral")
     case IntegerLiteralExpr.self:
-      return coreTrait(named: "ExpressibleByIntegerLiteral")
+      return coreTrait("ExpressibleByIntegerLiteral")
     default:
       return nil
     }
@@ -162,12 +162,12 @@ public struct AST {
   /// `Val.Sinkable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
-  public var sinkableTrait: TraitType { coreTrait(named: "Sinkable")! }
+  public var sinkableTrait: TraitType { coreTrait("Sinkable")! }
 
   /// `Val.Copyable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
-  public var copyableTrait: TraitType { coreTrait(named: "Copyable")! }
+  public var copyableTrait: TraitType { coreTrait("Copyable")! }
 
   // MARK: Helpers
 

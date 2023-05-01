@@ -1078,7 +1078,7 @@ public struct TypeChecker {
     // Target type must be `Sinkable`.
     guard let targetType = checkedType(of: ast[s].left, in: scope) else { return }
     let lhsConstraint = ConformanceConstraint(
-      targetType, conformsTo: [ast.coreTrait(named: "Sinkable")!],
+      targetType, conformsTo: [ast.coreTrait("Sinkable")!],
       origin: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
 
     // Source type must be subtype of the target type.
@@ -1094,7 +1094,7 @@ public struct TypeChecker {
   }
 
   private mutating func check(conditional s: ConditionalStmt.ID, in scope: AnyScopeID) {
-    let boolType = AnyType(ast.coreType(named: "Bool")!)
+    let boolType = AnyType(ast.coreType("Bool")!)
     for c in ast[s].condition {
       switch c {
       case .expr(let e):
@@ -1124,7 +1124,7 @@ public struct TypeChecker {
     check(braceStmt: ast[subject].body)
 
     // Visit the condition of the loop in the scope of the body.
-    let boolType = AnyType(ast.coreType(named: "Bool")!)
+    let boolType = AnyType(ast.coreType("Bool")!)
     check(ast[subject].condition, in: ast[subject].body, hasType: boolType, cause: .structural)
   }
 
@@ -1139,7 +1139,7 @@ public struct TypeChecker {
 
   private mutating func check(while s: WhileStmt.ID, in scope: AnyScopeID) {
     // Visit the condition(s).
-    let boolType = AnyType(ast.coreType(named: "Bool")!)
+    let boolType = AnyType(ast.coreType("Bool")!)
     for item in ast[s].condition {
       switch item {
       case .expr(let e):

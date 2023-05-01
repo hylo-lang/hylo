@@ -715,7 +715,7 @@ public struct Emitter {
     let value = Operand.constant(
       .integer(IntegerConstant(expr.value ? 1 : 0, bitWidth: 1)))
 
-    let boolType = program.ast.coreType(named: "Bool")!
+    let boolType = program.ast.coreType("Bool")!
     return module.append(
       module.makeRecord(boolType, aggregating: [value], anchoredAt: expr.site),
       to: insertionBlock!)[0]
@@ -1329,7 +1329,7 @@ public struct Emitter {
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    let t = program.ast.coreType(named: "Int")!
+    let t = program.ast.coreType("Int")!
     let s = module.makeRecord(
       t, aggregating: [.constant(.integer(IntegerConstant(i, bitWidth: 64)))], anchoredAt: site)
     return module.append(s, to: insertionBlock!)[0]
@@ -1343,7 +1343,7 @@ public struct Emitter {
     _ expr: AnyExprID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    precondition(program.relations.canonical(expr.type) == program.ast.coreType(named: "Bool")!)
+    precondition(program.relations.canonical(expr.type) == program.ast.coreType("Bool")!)
     let b = emitRValue(expr, into: &module)
     return module.append(
       module.makeDestructure(b, anchoredAt: expr.site),
@@ -1361,13 +1361,13 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch literalType {
-    case program.ast.coreType(named: "Double")!:
+    case program.ast.coreType("Double")!:
       let v = Constant.floatingPoint(.double(s))
       return module.append(
         module.makeRecord(literalType, aggregating: [.constant(v)], anchoredAt: anchor),
         to: insertionBlock!)[0]
 
-    case program.ast.coreType(named: "Float")!:
+    case program.ast.coreType("Float")!:
       let v = Constant.floatingPoint(.float(s))
       return module.append(
         module.makeRecord(literalType, aggregating: [.constant(v)], anchoredAt: anchor),
@@ -1390,11 +1390,11 @@ public struct Emitter {
   ) -> Operand {
     let bits: WideUInt?
     switch literalType {
-    case program.ast.coreType(named: "Int")!:
+    case program.ast.coreType("Int")!:
       bits = .init(valLiteral: s, signed: true, bitWidth: 64)
-    case program.ast.coreType(named: "Int32")!:
+    case program.ast.coreType("Int32")!:
       bits = .init(valLiteral: s, signed: true, bitWidth: 32)
-    case program.ast.coreType(named: "Int8")!:
+    case program.ast.coreType("Int8")!:
       bits = .init(valLiteral: s, signed: true, bitWidth: 8)
     default:
       unreachable("unexpected numeric type")
@@ -1422,7 +1422,7 @@ public struct Emitter {
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    let t = program.ast.coreType(named: n)!
+    let t = program.ast.coreType(n)!
     let o = module.makeRecord(t, aggregating: parts, anchoredAt: site)
     return module.append(o, to: insertionBlock!)[0]
   }
@@ -1447,8 +1447,8 @@ public struct Emitter {
   ) -> Operand {
     let t = module.type(of: o).ast
 
-    let i = program.ast.coreType(named: "Int")!
-    let p = program.ast.coreType(named: "RawPointer")!
+    let i = program.ast.coreType("Int")!
+    let p = program.ast.coreType("RawPointer")!
     if (t == i) || (t == p) {
       let s = module.append(
         module.makeElementAddr(o, at: [0], anchoredAt: site), to: insertionBlock!)[0]
