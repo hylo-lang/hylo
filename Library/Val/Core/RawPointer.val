@@ -19,7 +19,7 @@ public conformance RawPointer: ForeignConvertible {
 
   public typealias ForeignRepresentation = Builtin.ptr
 
-  public init(foreign_value: Builtin.ptr) {
+  public init(foreign_value: sink Builtin.ptr) {
     &self.value = foreign_value
   }
 

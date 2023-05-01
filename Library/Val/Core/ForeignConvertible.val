@@ -10,7 +10,7 @@ public trait ForeignConvertible {
   type ForeignRepresentation: ForeignConvertible
 
   /// Creates a new instance from its foreign representation.
-  init(foreign_value: ForeignRepresentation)
+  init(foreign_value: sink ForeignRepresentation)
 
   /// Returns the foreign representation of this instance.
   fun foreign_value() -> ForeignRepresentation
