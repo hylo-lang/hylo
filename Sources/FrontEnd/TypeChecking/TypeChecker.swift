@@ -3032,13 +3032,21 @@ public struct TypeChecker {
     }
 
     // Create a subscript type.
-    let capabilities = Set(ast[ast[d].impls].map(\.introducer.value))
-    return ^SubscriptType(
+    let m = SubscriptType(
       isProperty: ast[d].parameters == nil,
-      capabilities: capabilities,
+      capabilities: Set(ast[ast[d].impls].map(\.introducer.value)),
       environment: ^environment,
       inputs: inputs,
       output: output)
+
+    for v in ast[d].impls {
+      let t = variantType(
+        in: m, for: ast[v].introducer.value, reportingDiagnosticsAt: ast[v].introducer.site)
+      declTypes[v] = t.map(AnyType.init(_:)) ?? .error
+      declRequests[v] = .typeRealizationCompleted
+    }
+
+    return ^m
   }
 
   /// Returns the overarching type of `d`.
@@ -3274,6 +3282,32 @@ public struct TypeChecker {
 
     return LambdaType(
       receiverEffect: v, environment: environment, inputs: bundle.inputs, output: output)
+  }
+
+  /// Returns the type of variant `v` given a subscript with type `bundle` or returns `nil` if such
+  /// variant is incompatible with `bundle`, reporting diagnostics at `site`.
+  ///
+  /// - Requires `v` is in `bundle.capabilities`.
+  private mutating func variantType(
+    in bundle: SubscriptType, for v: AccessEffect, reportingDiagnosticsAt site: SourceRange
+  ) -> SubscriptImplType? {
+    precondition(bundle.capabilities.contains(v))
+
+    var inputs = bundle.inputs
+    for (i, p) in inputs.enumerated() {
+      let t = ParameterType(p.type)!
+      if t.access == .yielded {
+        let u = ParameterType(v, t.bareType)
+        inputs[i] = .init(label: p.label, type: ^u, hasDefault: p.hasDefault)
+      }
+    }
+
+    return SubscriptImplType(
+      isProperty: bundle.isProperty,
+      receiverEffect: v,
+      environment: bundle.environment,
+      inputs: inputs,
+      output: bundle.output)
   }
 
   // MARK: Type role determination
