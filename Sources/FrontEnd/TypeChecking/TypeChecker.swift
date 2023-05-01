@@ -294,6 +294,8 @@ public struct TypeChecker {
       check(method: NodeID(d)!)
     case MethodImpl.self:
       check(method: NodeID(program.declToScope[d]!)!)
+    case NamespaceDecl.self:
+      check(namespace: NodeID(d)!)
     case OperatorDecl.self:
       check(operator: NodeID(d)!)
     case ProductTypeDecl.self:
@@ -633,10 +635,19 @@ public struct TypeChecker {
     declRequests[d] = .typeRealizationCompleted
   }
 
-  private mutating func check(operator d: OperatorDecl.ID) {
-    let source = TranslationUnit.ID(program.declToScope[d]!)!
+  private mutating func check(namespace d: NamespaceDecl.ID) {
+    _check(decl: d, { (this, d) in this._check(namespace: d) })
+  }
 
+  private mutating func _check(namespace d: NamespaceDecl.ID) {
+    for m in ast[d].members {
+      check(decl: m)
+    }
+  }
+
+  private mutating func check(operator d: OperatorDecl.ID) {
     // Look for duplicate operator declaration.
+    let source = TranslationUnit.ID(program.declToScope[d]!)!
     for decl in ast[source].decls where decl.kind == OperatorDecl.self {
       let oper = OperatorDecl.ID(decl)!
       if oper != d,
@@ -815,57 +826,10 @@ public struct TypeChecker {
     declaredBy source: T.ID,
     at declSite: SourceRange
   ) -> Conformance? {
+    let useScope = AnyScopeID(source)
     let specializations = [ast[trait.decl].selfParameterDecl: model]
     var implementations = Conformance.ImplementationMap()
     var notes: DiagnosticSet = []
-
-    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
-    /// reporting a diagnostic in `notes` otherwise.
-    func checkSatisfied(function d: FunctionDecl.ID) {
-      let useScope = AnyScopeID(source)
-      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
-      guard !requiredType[.hasError] else { return }
-
-      let t = relations.canonical(requiredType)
-      let requiredName = Name(of: d, in: ast)!
-      if let c = implementation(
-        of: requiredName, in: model,
-        withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: AnyScopeID(source))
-      {
-        implementations[d] = .concrete(c)
-      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
-        implementations[d] = .synthetic(t)
-        synthesizedDecls[program.module(containing: d), default: []].append(i)
-      } else {
-        notes.insert(
-          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
-      }
-    }
-
-    /// Checks if requirement `d` of a method bunde named `m` is satisfied by `model`, extending
-    /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
-    func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
-      let useScope = AnyScopeID(source)
-      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
-      guard !requiredType[.hasError] else { return }
-
-      let t = relations.canonical(requiredType)
-      if let c = implementation(
-        of: m, in: model,
-        withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: AnyScopeID(source))
-      {
-        implementations[d] = .concrete(c)
-      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
-        implementations[d] = .synthetic(t)
-        synthesizedDecls[program.module(containing: d), default: []].append(i)
-      } else {
-        let requiredName = m.appending(ast[d].introducer.value)!
-        notes.insert(
-          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
-      }
-    }
 
     // Get the set of generic parameters defined by `trait`.
     for m in ast[trait.decl].members {
@@ -883,7 +847,10 @@ public struct TypeChecker {
         continue
 
       case FunctionDecl.self:
-        checkSatisfied(function: FunctionDecl.ID(m)!)
+        checkSatisfied(function: .init(m)!)
+
+      case InitializerDecl.self:
+        checkSatisfied(initializer: .init(m)!)
 
       case MethodDecl.self:
         let r = MethodDecl.ID(m)!
@@ -915,6 +882,70 @@ public struct TypeChecker {
       source: AnyDeclID(source), scope: expositionScope,
       implementations: implementations,
       site: declSite)
+
+    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
+    /// reporting a diagnostic in `notes` otherwise.
+    func checkSatisfied(initializer d: InitializerDecl.ID) {
+      let requiredType = relations.canonical(
+        specialized(realize(decl: d), applying: specializations, in: useScope))
+      guard !requiredType[.hasError] else { return }
+
+      if let c = implementation(
+        of: Name(of: d, in: ast), in: model,
+        withCallableType: LambdaType(requiredType)!, specializedWith: specializations,
+        exposedTo: useScope)
+      {
+        implementations[d] = .concrete(c)
+      } else {
+        notes.insert(.error(trait: trait, requiresInitializer: requiredType, at: declSite))
+      }
+    }
+
+    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
+    /// reporting a diagnostic in `notes` otherwise.
+    func checkSatisfied(function d: FunctionDecl.ID) {
+      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
+      guard !requiredType[.hasError] else { return }
+
+      let t = relations.canonical(requiredType)
+      let requiredName = Name(of: d, in: ast)!
+      if let c = implementation(
+        of: requiredName, in: model,
+        withCallableType: LambdaType(t)!, specializedWith: specializations,
+        exposedTo: useScope)
+      {
+        implementations[d] = .concrete(c)
+      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
+        implementations[d] = .synthetic(t)
+        synthesizedDecls[program.module(containing: d), default: []].append(i)
+      } else {
+        notes.insert(
+          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+      }
+    }
+
+    /// Checks if requirement `d` of a method bunde named `m` is satisfied by `model`, extending
+    /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
+    func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
+      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
+      guard !requiredType[.hasError] else { return }
+
+      let t = relations.canonical(requiredType)
+      if let c = implementation(
+        of: m, in: model,
+        withCallableType: LambdaType(t)!, specializedWith: specializations,
+        exposedTo: useScope)
+      {
+        implementations[d] = .concrete(c)
+      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
+        implementations[d] = .synthetic(t)
+        synthesizedDecls[program.module(containing: d), default: []].append(i)
+      } else {
+        let requiredName = m.appending(ast[d].introducer.value)!
+        notes.insert(
+          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+      }
+    }
   }
 
   /// Returns the declaration exposed to `scope` of a callable member in `model` that introduces
@@ -946,6 +977,10 @@ public struct TypeChecker {
       switch c.kind {
       case FunctionDecl.self:
         let d = FunctionDecl.ID(c)!
+        return ((ast[d].body != nil) && hasRequiredType(d)) ? c : nil
+
+      case InitializerDecl.self:
+        let d = InitializerDecl.ID(c)!
         return ((ast[d].body != nil) && hasRequiredType(d)) ? c : nil
 
       case MethodDecl.self:
@@ -1078,7 +1113,7 @@ public struct TypeChecker {
     // Target type must be `Sinkable`.
     guard let targetType = checkedType(of: ast[s].left, in: scope) else { return }
     let lhsConstraint = ConformanceConstraint(
-      targetType, conformsTo: [ast.coreTrait(named: "Sinkable")!],
+      targetType, conformsTo: [ast.coreTrait("Sinkable")!],
       origin: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
 
     // Source type must be subtype of the target type.
@@ -1094,7 +1129,7 @@ public struct TypeChecker {
   }
 
   private mutating func check(conditional s: ConditionalStmt.ID, in scope: AnyScopeID) {
-    let boolType = AnyType(ast.coreType(named: "Bool")!)
+    let boolType = AnyType(ast.coreType("Bool")!)
     for c in ast[s].condition {
       switch c {
       case .expr(let e):
@@ -1124,7 +1159,7 @@ public struct TypeChecker {
     check(braceStmt: ast[subject].body)
 
     // Visit the condition of the loop in the scope of the body.
-    let boolType = AnyType(ast.coreType(named: "Bool")!)
+    let boolType = AnyType(ast.coreType("Bool")!)
     check(ast[subject].condition, in: ast[subject].body, hasType: boolType, cause: .structural)
   }
 
@@ -1139,7 +1174,7 @@ public struct TypeChecker {
 
   private mutating func check(while s: WhileStmt.ID, in scope: AnyScopeID) {
     // Visit the condition(s).
-    let boolType = AnyType(ast.coreType(named: "Bool")!)
+    let boolType = AnyType(ast.coreType("Bool")!)
     for item in ast[s].condition {
       switch item {
       case .expr(let e):
@@ -1957,6 +1992,8 @@ public struct TypeChecker {
       matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as ModuleType:
       matches = names(introducedIn: t.decl)[stem, default: []]
+    case let t as NamespaceType:
+      matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as TraitType:
       matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as TypeAliasType:
@@ -2648,6 +2685,8 @@ public struct TypeChecker {
       return realize(methodImpl: NodeID(d)!)
     case ModuleDecl.self:
       return realize(moduleDecl: NodeID(d)!)
+    case NamespaceDecl.self:
+      return realize(namespaceDecl: NodeID(d)!)
     case ParameterDecl.self:
       return realize(parameterDecl: NodeID(d)!)
     case ProductTypeDecl.self:
@@ -2941,6 +2980,11 @@ public struct TypeChecker {
       result.append(i)
     }
     return result
+  }
+
+  /// Returns the overarching type of `d`.
+  private mutating func realize(namespaceDecl d: NamespaceDecl.ID) -> AnyType {
+    _realize(decl: d) { (this, d) in ^NamespaceType(d, ast: this.ast) }
   }
 
   /// Returns the overarching type of `d`.

@@ -115,7 +115,7 @@ public struct AST {
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
   ///
   /// - Requires: The Core library must have been loaded.
-  public func coreType(named name: String) -> ProductType? {
+  public func coreType(_ name: String) -> ProductType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(coreLibrary!) where id.kind == ProductTypeDecl.self {
@@ -131,7 +131,7 @@ public struct AST {
   /// Returns the trait named `name` defined in the core library or `nil` if it does not exist.
   ///
   /// - Requires: The Core library must have been loaded.
-  public func coreTrait(named name: String) -> TraitType? {
+  public func coreTrait(_ name: String) -> TraitType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(coreLibrary!) where id.kind == TraitDecl.self {
@@ -151,9 +151,9 @@ public struct AST {
   public func coreTrait<T: Expr>(forTypesExpressibleBy literal: T.Type) -> TraitType? {
     switch literal.kind {
     case FloatLiteralExpr.self:
-      return coreTrait(named: "ExpressibleByFloatLiteral")
+      return coreTrait("ExpressibleByFloatLiteral")
     case IntegerLiteralExpr.self:
-      return coreTrait(named: "ExpressibleByIntegerLiteral")
+      return coreTrait("ExpressibleByIntegerLiteral")
     default:
       return nil
     }
@@ -162,18 +162,65 @@ public struct AST {
   /// `Val.Sinkable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
-  public var sinkableTrait: TraitType { coreTrait(named: "Sinkable")! }
+  public var sinkableTrait: TraitType { coreTrait("Sinkable")! }
 
   /// `Val.Copyable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
-  public var copyableTrait: TraitType { coreTrait(named: "Copyable")! }
+  public var copyableTrait: TraitType { coreTrait("Copyable")! }
 
   // MARK: Helpers
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
     self[self[module].sources].map(\.decls).joined()
+  }
+
+  /// Returns the requirements named `n` in `t`.
+  ///
+  /// If `n` is overloaded, the requirements are returned in the order in which they are declared
+  /// in the source code.
+  public func requirements(_ n: Name, in t: TraitDecl.ID) -> [AnyDeclID] {
+    self[t].members.compactMap({ (m) -> AnyDeclID? in
+      switch m.kind {
+      case AssociatedValueDecl.self:
+        return (n == Name(stem: self[AssociatedValueDecl.ID(m)!].baseName)) ? m : nil
+
+      case AssociatedTypeDecl.self:
+        return (n == Name(stem: self[AssociatedTypeDecl.ID(m)!].baseName)) ? m : nil
+
+      case FunctionDecl.self:
+        return (n == Name(of: FunctionDecl.ID(m)!, in: self)) ? m : nil
+
+      case InitializerDecl.self:
+        return (n == Name(of: InitializerDecl.ID(m)!, in: self)) ? m : nil
+
+      case MethodDecl.self:
+        let d = MethodDecl.ID(m)!
+        if let i = n.introducer {
+          guard n.removingIntroducer() == Name(of: d, in: self) else { return nil }
+          return self[d].impls
+            .first(where: { self[$0].introducer.value == i })
+            .map(AnyDeclID.init(_:))
+        } else {
+          return (Name(of: d, in: self) == n) ? m : nil
+        }
+
+      case SubscriptDecl.self:
+        let d = SubscriptDecl.ID(m)!
+        if let i = n.introducer {
+          guard n.removingIntroducer() == Name(of: d, in: self) else { return nil }
+          return self[d].impls
+            .first(where: { self[$0].introducer.value == i })
+            .map(AnyDeclID.init(_:))
+        } else {
+          return (Name(of: d, in: self) == n) ? m : nil
+        }
+
+      default:
+        return nil
+      }
+    })
   }
 
   /// Returns a table mapping each parameter of `d` to its default argument if `d` is a function,

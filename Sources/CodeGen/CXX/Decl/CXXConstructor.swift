@@ -3,9 +3,6 @@ import Core
 /// A constructor of a C++ class.
 struct CXXConstructor: CXXDecl {
 
-  /// A parameter in a C++ constructor declaration.
-  typealias Parameter = (name: CXXIdentifier, type: CXXTypeExpr)
-
   /// An initializer for the class.
   typealias Initializer = (name: CXXIdentifier, value: CXXExpr)
 
@@ -13,7 +10,7 @@ struct CXXConstructor: CXXDecl {
   let name: CXXIdentifier
 
   /// The parameters of the constructor.
-  let parameters: [Parameter]
+  let parameters: [CXXParameter]
 
   /// The initializers of the constructor.
   let initializers: [Initializer]

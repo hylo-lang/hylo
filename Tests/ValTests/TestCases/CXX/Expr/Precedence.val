@@ -111,7 +111,6 @@ fun cxxPrecedenceTest() {
   let _ = (a | b) & c ^ d
 
   // ternary operator
-  //! cpp a + (value == 0 ? c : d)
+  //! cpp a + (b . value == 0 ? c : d)
   let _ = a + if (b.value == 0) { c } else { d }
-  // TODO: above we need to translate `b.value`, not just `value`
 }

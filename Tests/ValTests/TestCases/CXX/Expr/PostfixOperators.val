@@ -1,10 +1,11 @@
 /*! cpp
 void test() {
   MyInt a;
-  a = a++;
-  a = a--;
+  a = a . u2bu2b();
+  a = a . u2du2d();
 }
 */
+// TODO: postfix ++ and --
 
 type MyInt: Sinkable {
   let value: Int

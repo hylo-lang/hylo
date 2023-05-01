@@ -215,8 +215,8 @@ private struct ClassDefinition: Writeable {
       switch member {
       case .attribute(let attribute):
         output << attribute
-      case .method:
-        output << "// method\n"
+      case .method(let method):
+        output << method
       case .constructor(let constructor):
         output << constructor
       }
@@ -257,6 +257,37 @@ extension CXXConstructor: Writeable {
       output << " {}\n"
     }
   }
+}
+
+extension CXXMethod: Writeable {
+
+  /// Writes 'self' to 'output'.
+  func write(to output: inout CXXStream) {
+    // TODO: fix compilation of methods in core library
+    if output.context.isCoreLibrary {
+      output << "/*\n"
+    }
+    if isStatic {
+      output << "static "
+    }
+    output << resultType << " "
+    if isOperator {
+      output << "operator "
+    }
+    output << name << "("
+    output.write(parameters.lazy.map({ p in p.type << " " << p.name }), joinedBy: ", ")
+    output << ")"
+
+    if let b = body {
+      output << " " << AnyStmt(b)
+    } else {
+      output << " {}\n"
+    }
+    if output.context.isCoreLibrary {
+      output << "*/\n"
+    }
+  }
+
 }
 
 extension CXXLocalVarDecl: Writeable {
