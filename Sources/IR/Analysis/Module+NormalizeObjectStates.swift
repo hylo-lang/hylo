@@ -45,6 +45,8 @@ extension Module {
           interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
           continue
+        case is EndProjectInstruction:
+          continue
         case is GlobalAddrInstruction:
           interpret(globalAddr: user, in: &context)
         case is LLVMInstruction:
@@ -53,6 +55,8 @@ extension Module {
           interpret(load: user, in: &context)
         case is PartialApplyInstruction:
           interpret(partialApply: user, in: &context)
+        case is ProjectInstruction:
+          interpret(project: user, in: &context)
         case is RecordInstruction:
           interpret(record: user, in: &context)
         case is ReturnInstruction:
@@ -300,6 +304,18 @@ extension Module {
       }
 
       initializeRegisters(createdBy: i, in: &context)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(project i: InstructionID, in context: inout Context) {
+      // TODO: Process arguments
+
+      let s = self[i] as! ProjectInstruction
+      let l = AbstractLocation.root(.register(i, 0))
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: s.projectionType, definedIn: program),
+        value: .full(s.capability == .set ? .uninitialized : .initialized))
+      context.locals[.register(i, 0)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
