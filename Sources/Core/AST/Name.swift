@@ -24,7 +24,7 @@ public struct Name: Hashable, Codable {
   }
 
   /// Creates a new operator name.
-  public init(stem: Identifier, notation: OperatorNotation ) {
+  public init(stem: Identifier, notation: OperatorNotation) {
     self.stem = stem
     self.labels = []
     self.notation = notation
