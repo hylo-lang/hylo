@@ -1849,24 +1849,18 @@ extension TypedProgram {
   ///
   /// - Requires: `access` is either `.set` or `.inout`.
   fileprivate func moveDecl(_ access: AccessEffect) -> MethodImpl.ID {
-    ast[ast.sinkableTrait.decl].members.first { (m) -> MethodImpl.ID? in
-      guard
-        let d = MethodDecl.ID(m),
-        ast[d].identifier.value == "take_value"
-      else { return nil }
-      return ast[d].impls.first(where: { ast[$0].introducer.value == access })
-    }!
+    let d = ast.requirements(
+      Name(stem: "take_value", labels: ["from"], introducer: access),
+      in: ast.sinkableTrait.decl)
+    return MethodImpl.ID(d[0])!
   }
 
   /// Returns the declaration of `Copyable.copy`'s requirement.
   fileprivate func copyDecl() -> FunctionDecl.ID {
-    ast[ast.copyableTrait.decl].members.first { (m) -> FunctionDecl.ID? in
-      guard
-        let d = FunctionDecl.ID(m),
-        ast[d].identifier?.value == "copy"
-      else { return nil }
-      return d
-    }!
+    let d = ast.requirements(
+      Name(stem: "copy"),
+      in: ast.copyableTrait.decl)
+    return FunctionDecl.ID(d[0])!
   }
 
 }
