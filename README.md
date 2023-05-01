@@ -21,7 +21,7 @@ That's Val compiler!
 
 In order to compile Val programs, the compiler needs to locate Val's SDK.
 By default, `valc` will look for the SDK at `/usr/local/lib/val` on Unix system.
-On Windows, it will look for the `.val` directory in the user directory or you can add path like `C:\.val` to `Path` environment variables.
+On Windows, it will look for the `.val` directory in the user directory or path like `C:\.val` in the `Path` environment variables.
 A custom location can be specified with the option `--valc`.
 
 On Unix system, you can use `./Tools/install.sh` to create and install Val's SDK.
