@@ -64,15 +64,18 @@ public struct Emitter {
     topLevel d: AnyDeclID.TypedNode,
     into module: inout Module
   ) {
-    precondition(d.scope.kind == TranslationUnit.self)
-
+    precondition(program.isAtModuleScope(d.id))
     switch d.kind {
+    case BindingDecl.self:
+      emit(globalBindingDecl: .init(d)!, into: &module)
     case ConformanceDecl.self:
       emit(conformanceDecl: ConformanceDecl.Typed(d)!, into: &module)
     case FunctionDecl.self:
       emit(functionDecl: FunctionDecl.Typed(d)!, into: &module)
     case OperatorDecl.self:
       break
+    case NamespaceDecl.self:
+      emit(namespaceDecl: .init(d)!, into: &module)
     case ProductTypeDecl.self:
       emit(productDecl: ProductTypeDecl.Typed(d)!, into: &module)
     case TraitDecl.self:
@@ -254,8 +257,15 @@ public struct Emitter {
   }
 
   /// Inserts the IR for `decl` into `module`.
+  private mutating func emit(namespaceDecl decl: NamespaceDecl.Typed, into module: inout Module) {
+    for m in decl.members {
+      emit(topLevel: m, into: &module)
+    }
+  }
+
+  /// Inserts the IR for `decl` into `module`.
   private mutating func emit(productDecl decl: ProductTypeDecl.Typed, into module: inout Module) {
-    _ = module.addGlobal(.metatype(.init(MetatypeType(decl.type)!)))
+    _ = module.addGlobal(MetatypeConstant(.init(decl.type)!))
     for member in decl.members {
       switch member.kind {
       case FunctionDecl.self:
@@ -268,6 +278,12 @@ public struct Emitter {
         continue
       }
     }
+  }
+
+  /// Inserts the IR for `d` into `module`.
+  ///
+  /// - Requires: `d` is a global binding.
+  private mutating func emit(globalBindingDecl d: BindingDecl.Typed, into module: inout Module) {
   }
 
   /// Inserts the IR for the local binding `decl` into `module`.
@@ -343,7 +359,7 @@ public struct Emitter {
     guard let initializer = decl.initializer else {
       report(.error(binding: capability, requiresInitializerAt: decl.pattern.introducer.site))
       for (_, name) in decl.pattern.subpattern.names {
-        frames[name.decl] = .constant(.poison(PoisonConstant(type: .address(name.decl.type))))
+        frames[name.decl] = .constant(Poison(type: .address(name.decl.type)))
       }
       return
     }
@@ -362,7 +378,7 @@ public struct Emitter {
         if let u = ExistentialType(name.decl.type) {
           let witnessTable = PointerConstant(
             module.syntax.id,
-            module.addGlobal(.witnessTable(.init(describing: partType))))
+            module.addGlobal(WitnessTable(describing: partType)))
           part =
             module.append(
               module.makeBorrow(capability, from: part, anchoredAt: name.decl.site),
@@ -370,7 +386,7 @@ public struct Emitter {
           part =
             module.append(
               module.makeWrapAddr(
-                part, .constant(.pointer(witnessTable)), as: u,
+                part, .constant(witnessTable), as: u,
                 anchoredAt: name.decl.site),
               to: insertionBlock!)[0]
         }
@@ -451,7 +467,7 @@ public struct Emitter {
       fatalError("not implemented")
     }
 
-    module.append(module.makeReturn(.constant(.void), anchoredAt: site), to: insertionBlock!)
+    module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
   }
 
   private mutating func emitMoveAssignment(
@@ -480,7 +496,7 @@ public struct Emitter {
     let r = module.append(module.makeLoad(argument, anchoredAt: site), to: insertionBlock!)[0]
     emitMove(.set, of: r, to: receiver, conformanceToSinkable: c, anchoredAt: site, into: &module)
 
-    module.append(module.makeReturn(.constant(.void), anchoredAt: site), to: insertionBlock!)
+    module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
   }
 
   // MARK: Statements
@@ -638,7 +654,7 @@ public struct Emitter {
     if let expr = stmt.value {
       value = emitRValue(expr, into: &module)
     } else {
-      value = .constant(.void)
+      value = .void
     }
 
     emitStackDeallocs(in: &module, site: stmt.site)
@@ -715,6 +731,8 @@ public struct Emitter {
       return emitRValue(lambda: LambdaExpr.Typed(expr)!, into: &module)
     case NameExpr.self:
       return emitRValue(name: NameExpr.Typed(expr)!, into: &module)
+    case PragmaLiteralExpr.self:
+      return emitRValue(pragma: PragmaLiteralExpr.Typed(expr)!, into: &module)
     case SequenceExpr.self:
       return emitRValue(sequence: SequenceExpr.Typed(expr)!, into: &module)
     case StringLiteralExpr.self:
@@ -732,9 +750,7 @@ public struct Emitter {
     booleanLiteral expr: BooleanLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let value = Operand.constant(
-      .integer(IntegerConstant(expr.value ? 1 : 0, bitWidth: 1)))
-
+    let value = Operand.constant(IntegerConstant(expr.value ? 1 : 0, bitWidth: 1))
     let boolType = program.ast.coreType(named: "Bool")!
     return module.append(
       module.makeRecord(boolType, aggregating: [value], anchoredAt: expr.site),
@@ -843,7 +859,7 @@ public struct Emitter {
     if let s = resultStorage {
       return module.append(module.makeLoad(s, anchoredAt: expr.site), to: insertionBlock!)[0]
     } else {
-      return .constant(.void)
+      return .void
     }
   }
 
@@ -866,28 +882,121 @@ public struct Emitter {
       return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
     }
 
-    // Callee must have a lambda type.
-    let calleeType = LambdaType(expr.callee.type)!
+    // Handle memberwise initializer calls.
+    if expr.isMemberwiseInitialization {
+      return emitRValue(memberwiseInitCall: expr, into: &module)
+    }
 
     // Arguments are evaluated first, from left to right.
-    var arguments: [Operand] = []
-    for (p, a) in zip(calleeType.inputs, expr.arguments) {
-      arguments.append(emit(argument: program[a.value], to: ParameterType(p.type)!, into: &module))
-    }
-
-    // Handle memberwise initializer calls.
-    if case .direct(let d) = NameExpr.Typed(expr.callee)?.decl {
-      if InitializerDecl.Typed(d)?.isMemberwise ?? false {
-        return module.append(
-          module.makeRecord(calleeType.output, aggregating: arguments, anchoredAt: expr.site),
-          to: insertionBlock!)[0]
-      }
-    }
-
+    let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
+    let arguments = emit(
+      arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
+      into: &module)
     let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
     return module.append(
       module.makeCall(applying: callee, to: liftedArguments + arguments, anchoredAt: expr.site),
       to: insertionBlock!)[0]
+  }
+
+  /// Inserts the IR for the memberwise initializer call `expr` into `module` at the end of the
+  /// current insertion block.
+  ///
+  /// - Requires: The callee of `expr` is a direct reference to a memberwise initializer.
+  private mutating func emitRValue(
+    memberwiseInitCall expr: FunctionCallExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    let callee = LambdaType(expr.callee.type)!
+    var arguments: [Operand] = []
+    for (p, e) in zip(callee.inputs, expr.arguments) {
+      let a = program[e.value]
+      arguments.append(emit(argument: a, to: ParameterType(p.type)!, into: &module))
+    }
+
+    let s = module.makeRecord(callee.output, aggregating: arguments, anchoredAt: expr.site)
+    return module.append(s, to: insertionBlock!)[0]
+  }
+
+  /// Inserts the IR for `arguments`, which is an argument passed to a function of type `callee`,
+  /// into `module` at the end of the current insertion block.
+  ///
+  /// - Parameters:
+  ///   - syntheticSite: The site at which default pragma arguments are anchored.
+  private mutating func emit(
+    arguments: [LabeledArgument],
+    to callee: AnyExprID.TypedNode,
+    synthesizingDefaultArgumentsAt syntheticSite: SourceRange,
+    into module: inout Module
+  ) -> [Operand] {
+    let calleeType = LambdaType(callee.type)!
+    let defaults = NameExpr.Typed(callee)?.decl.decl.flatMap { (d) in
+      program.ast.defaultArguments(of: d.id)
+    }
+
+    var result: [Operand] = []
+    var i = 0
+    for (j, p) in calleeType.inputs.enumerated() {
+      let a: AnyExprID
+      if (i < arguments.count) && (arguments[i].label?.value == p.label) {
+        a = arguments[i].value
+        i += 1
+      } else if let e = defaults?[j] {
+        a = e
+      } else {
+        unreachable()
+      }
+
+      let v = emit(
+        argument: program[a], to: ParameterType(p.type)!, at: syntheticSite, into: &module)
+      result.append(v)
+    }
+
+    assert(i == arguments.count)
+    return result
+  }
+
+  /// Inserts the IR for the argument `expr` passed to a parameter of type `parameter` into
+  /// `module` at the end of the current insertion block.
+  ///
+  /// - Parameters:
+  ///   - site: The source range in which `syntax` is being evaluated if it's a pragma literals.
+  ///     Defaults to `syntax.site`.
+  private mutating func emit(
+    argument syntax: AnyExprID.TypedNode,
+    to parameter: ParameterType,
+    at site: SourceRange? = nil,
+    into module: inout Module
+  ) -> Operand {
+    if let e = PragmaLiteralExpr.Typed(syntax) {
+      let anchor = site ?? syntax.site
+      let v = emitRValue(pragma: e, at: anchor, into: &module)
+
+      switch parameter.access {
+      case .let, .inout, .set:
+        let s = emitLValue(converting: v, at: anchor, into: &module)
+        let b = module.makeBorrow(parameter.access, from: s, anchoredAt: anchor)
+        return module.append(b, to: insertionBlock!)[0]
+
+      case .sink:
+        return v
+
+      default:
+        fatalError("not implemented")
+      }
+    }
+
+    switch parameter.access {
+    case .let, .inout, .set:
+      let s = emitLValue(syntax, into: &module)
+      let b = module.makeBorrow(parameter.access, from: s, anchoredAt: syntax.site)
+      return module.append(b, to: insertionBlock!)[0]
+
+    case .sink:
+      return emitRValue(syntax, into: &module)
+
+    default:
+      fatalError("not implemented")
+    }
   }
 
   /// Emits the IR of a call to `f` with given `arguments` at `site` into `module`, inserting
@@ -931,7 +1040,7 @@ public struct Emitter {
     let d = emit(functionDecl: e.decl, into: &module)
     let f = FunctionRef(to: d, type: .address(e.decl.type))
     return module.append(
-      module.makePartialApply(wrapping: .function(f), with: .constant(.void), anchoredAt: e.site),
+      module.makePartialApply(wrapping: f, with: .void, anchoredAt: e.site),
       to: insertionBlock!)[0]
   }
 
@@ -1004,6 +1113,24 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
+  /// Inserts the IR `syntax` into `module`
+  ///
+  /// - Parameters:
+  ///   - site: The source range in which `syntax` is being evaluated. Defaults to `syntax.site`.
+  private mutating func emitRValue(
+    pragma syntax: PragmaLiteralExpr.Typed,
+    at site: SourceRange? = nil,
+    into module: inout Module
+  ) -> Operand {
+    let s = site ?? syntax.site
+    switch program.ast[syntax.id].kind {
+    case .file:
+      return emitString(s.file.url.absoluteURL.path, at: s, into: &module)
+    case .line:
+      return emitInt(s.first().line.number, at: s, into: &module)
+    }
+  }
+
   private mutating func emitRValue(
     sequence expr: SequenceExpr.Typed,
     into module: inout Module
@@ -1031,8 +1158,8 @@ public struct Emitter {
       guard case .member(let calleeDecl) = program.referredDecls[callee.expr] else {
         unreachable()
       }
-      let ref = FunctionRef(to: .init(FunctionDecl.ID(calleeDecl)!), type: .address(calleeType))
-      let f = Operand.constant(.function(ref))
+      let f = Operand.constant(
+        FunctionRef(to: .init(FunctionDecl.ID(calleeDecl)!), type: .address(calleeType)))
 
       // Emit the call.
       return module.append(
@@ -1050,22 +1177,14 @@ public struct Emitter {
     stringLiteral syntax: StringLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let bytes = syntax.value.data(using: .utf8)!
-    let size = emitWord(bytes.count, at: syntax.site, into: &module)
-
-    let p = PointerConstant(module.syntax.id, module.addGlobal(.buffer(.init(bytes))))
-    let base = emitCoreInstance(
-      of: "RawPointer", aggregating: [.constant(.pointer(p))], at: syntax.site, into: &module)
-
-    return emitCoreInstance(
-      of: "String", aggregating: [size, base], at: syntax.site, into: &module)
+    emitString(syntax.value, at: syntax.site, into: &module)
   }
 
   private mutating func emitRValue(
     tuple syntax: TupleExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    if syntax.elements.isEmpty { return .constant(.void) }
+    if syntax.elements.isEmpty { return .void }
 
     var elements: [Operand] = []
     for e in syntax.elements {
@@ -1087,28 +1206,6 @@ public struct Emitter {
     return module.append(
       module.makeLoad(element, anchoredAt: syntax.index.site),
       to: insertionBlock!)[0]
-  }
-
-  /// Inserts the IR for the argument `expr` passed to a parameter of type `parameterType` into
-  /// `module` at the end of the current insertion block.
-  private mutating func emit(
-    argument expr: AnyExprID.TypedNode,
-    to parameterType: ParameterType,
-    into module: inout Module
-  ) -> Operand {
-    switch parameterType.access {
-    case .let, .inout, .set:
-      let s = emitLValue(expr, into: &module)
-      return module.append(
-        module.makeBorrow(parameterType.access, from: s, anchoredAt: expr.site),
-        to: insertionBlock!)[0]
-
-    case .sink:
-      return emitRValue(expr, into: &module)
-
-    default:
-      fatalError("not implemented")
-    }
   }
 
   /// Inserts the IR for given `callee` into `module` at the end of the current insertion block and
@@ -1148,17 +1245,17 @@ public struct Emitter {
       }
 
       let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType))
-      return (.constant(.function(ref)), [])
+      return (.constant(ref), [])
 
     case .direct(let d) where d.kind == InitializerDecl.self:
       // Callee is a direct reference to an initializer declaration.
       let ref = FunctionRef(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
-      return (.constant(.function(ref)), [])
+      return (.constant(ref), [])
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
       let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType.lifted))
-      let fun = Operand.constant(.function(ref))
+      let fun = Operand.constant(ref)
 
       // Emit the location of the receiver.
       let receiver: Operand
@@ -1245,6 +1342,35 @@ public struct Emitter {
     return (success: success, failure: failure)
   }
 
+  /// Inserts the IR for string `s` into `module` at the end of the current insertion block,
+  /// anchoring instructions at site.
+  private mutating func emitString(
+    _ s: String,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let bytes = s.data(using: .utf8)!
+    let size = emitWord(bytes.count, at: site, into: &module)
+
+    let p = PointerConstant(module.syntax.id, module.addGlobal(BufferConstant(bytes)))
+    let base = emitCoreInstance(
+      of: "RawPointer", aggregating: [.constant(p)], at: site, into: &module)
+    return emitCoreInstance(of: "String", aggregating: [size, base], at: site, into: &module)
+  }
+
+  /// Inserts the IR for integer `i` into `module` at the end of the current insertion block,
+  /// anchoring instructions at site.
+  private mutating func emitInt(
+    _ i: Int,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let t = program.ast.coreType(named: "Int")!
+    let s = module.makeRecord(
+      t, aggregating: [.constant(IntegerConstant(i, bitWidth: 64))], anchoredAt: site)
+    return module.append(s, to: insertionBlock!)[0]
+  }
+
   /// Inserts the IR for branch condition `expr` into `module` at the end of the current insertion
   /// block.
   ///
@@ -1272,13 +1398,13 @@ public struct Emitter {
   ) -> Operand {
     switch literalType {
     case program.ast.coreType(named: "Double")!:
-      let v = Constant.floatingPoint(.double(s))
+      let v = FloatingPointConstant.double(s)
       return module.append(
         module.makeRecord(literalType, aggregating: [.constant(v)], anchoredAt: anchor),
         to: insertionBlock!)[0]
 
     case program.ast.coreType(named: "Float")!:
-      let v = Constant.floatingPoint(.float(s))
+      let v = FloatingPointConstant.float(s)
       return module.append(
         module.makeRecord(literalType, aggregating: [.constant(v)], anchoredAt: anchor),
         to: insertionBlock!)[0]
@@ -1313,12 +1439,12 @@ public struct Emitter {
     guard let b = bits else {
       diagnostics.insert(
         .error(integerLiteral: s, overflowsWhenStoredInto: literalType, at: anchor))
-      return .constant(.poison(PoisonConstant(type: .object(literalType))))
+      return .constant(Poison(type: .object(literalType)))
     }
 
     return module.append(
       module.makeRecord(
-        literalType, aggregating: [.constant(.integer(IntegerConstant(b)))], anchoredAt: anchor),
+        literalType, aggregating: [.constant(IntegerConstant(b))], anchoredAt: anchor),
       to: insertionBlock!)[0]
   }
 
@@ -1346,7 +1472,7 @@ public struct Emitter {
   ) -> Operand {
     emitCoreInstance(
       of: "Int",
-      aggregating: [.constant(.integer(IntegerConstant(value, bitWidth: 64)))],
+      aggregating: [.constant(IntegerConstant(value, bitWidth: 64))],
       at: site,
       into: &module)
   }
@@ -1380,25 +1506,31 @@ public struct Emitter {
     case TupleMemberExpr.self:
       return emitLValue(name: TupleMemberExpr.Typed(syntax)!, into: &module)
     default:
-      return emitLValue(convertingRValue: syntax, into: &module)
+      return emitLValue(converting: syntax, into: &module)
     }
   }
 
-  /// Inserts the IR for the rvalue `syntax` converted as a lvalue into `module` at the end of the
-  /// current insertion block.
+  /// Inserts the IR for `rvalue` converted as a lvalue into `module` at the end of the current
+  /// insertion block.
   private mutating func emitLValue(
-    convertingRValue syntax: AnyExprID.TypedNode,
+    converting rvalue: AnyExprID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    let rvalueType = program.relations.canonical(syntax.type)
+    let v = emitRValue(rvalue, into: &module)
+    return emitLValue(converting: v, at: rvalue.site, into: &module)
+  }
 
-    let value = emitRValue(syntax, into: &module)
+  /// Inserts the IR for converting `rvalue` as a lvalue at `site`.
+  private mutating func emitLValue(
+    converting rvalue: Operand,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
     let storage = module.append(
-      module.makeAllocStack(rvalueType, anchoredAt: syntax.site),
+      module.makeAllocStack(module.type(of: rvalue).ast, anchoredAt: site),
       to: insertionBlock!)[0]
     frames.top.allocs.append(storage)
-
-    emitInitialization(of: storage, to: value, anchoredAt: syntax.site, into: &module)
+    emitInitialization(of: storage, to: rvalue, anchoredAt: site, into: &module)
     return storage
   }
 
@@ -1438,7 +1570,7 @@ public struct Emitter {
     switch d.kind {
     case ProductTypeDecl.self:
       let t = MetatypeType(of: d.type)
-      let g = module.addGlobal(.metatype(.init(MetatypeType(d.type)!)))
+      let g = module.addGlobal(MetatypeConstant(MetatypeType(d.type)!))
       let s = module.makeGlobalAddr(
         of: g, in: module.syntax.id, typed: ^MetatypeType(of: t), anchoredAt: d.site)
       return module.append(s, to: insertionBlock!)[0]
@@ -1556,7 +1688,7 @@ public struct Emitter {
       let ref = FunctionRef(
         to: .init(synthesized: program.moveDecl(access), for: t),
         type: .address(callee))
-      let fun = Operand.constant(.function(ref))
+      let fun = Operand.constant(ref)
 
       let receiver = module.append(
         module.makeBorrow(access, from: storage, anchoredAt: anchor),

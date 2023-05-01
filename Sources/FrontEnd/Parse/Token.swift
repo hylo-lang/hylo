@@ -68,8 +68,11 @@ public struct Token {
     // Attributes
     case attribute = 4000
 
+    // Pragmas
+    case pragmaLiteral = 5000
+
     // Operators
-    case oper = 5000
+    case oper = 6000
     case ampersand
     case cast
     case arrow
@@ -78,14 +81,14 @@ public struct Token {
     case pipe
 
     // Punctuation
-    case comma = 6000
+    case comma = 7000
     case semi
     case dot
     case colon
     case twoColons
 
     // Delimiters
-    case lParen = 7000
+    case lParen = 8000
     case rParen
     case lBrace
     case rBrace

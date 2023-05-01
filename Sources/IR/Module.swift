@@ -21,7 +21,7 @@ public struct Module {
   public private(set) var uses: [Operand: [Use]] = [:]
 
   /// The globals in the module.
-  public private(set) var globals: [Constant] = []
+  public private(set) var globals: [any Constant] = []
 
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
@@ -163,7 +163,7 @@ public struct Module {
   }
 
   /// Adds a global constant and returns its identity.
-  mutating func addGlobal(_ value: Constant) -> GlobalID {
+  mutating func addGlobal<C: Constant>(_ value: C) -> GlobalID {
     let id = globals.count
     globals.append(value)
     return id

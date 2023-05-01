@@ -1,3 +1,5 @@
+//! expect-failure
+
 let x0: Int
 
 let x1 = 42

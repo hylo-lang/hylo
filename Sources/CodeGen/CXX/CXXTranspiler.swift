@@ -59,9 +59,7 @@ public struct CXXTranspiler {
     return CXXFunctionDecl(
       identifier: CXXIdentifier(functionName),
       output: cxxFunctionReturnType(source, with: functionName),
-      parameters: source.parameters.map {
-        CXXFunctionDecl.Parameter(CXXIdentifier($0.baseName), cxx(typeExpr: $0.type))
-      },
+      parameters: cxx(parameters: source.parameters),
       body: source.body != nil ? cxx(funBody: source.body!) : nil)
   }
 
@@ -78,6 +76,13 @@ public struct CXXTranspiler {
 
     default:
       unreachable("unexpected type")
+    }
+  }
+
+  /// Returns a transpilation of `source`.
+  private func cxx(parameters source: [ParameterDecl.Typed]) -> [CXXParameter] {
+    return source.map {
+      CXXParameter(CXXIdentifier($0.baseName), cxx(typeExpr: $0.type))
     }
   }
 
@@ -110,8 +115,8 @@ public struct CXXTranspiler {
     case InitializerDecl.self:
       return [cxx(initializer: InitializerDecl.Typed(source)!)]
 
-    case MethodDecl.self, FunctionDecl.self:
-      return [.method]
+    case FunctionDecl.self:
+      return [cxx(memberFunction: FunctionDecl.Typed(source)!)]
 
     default:
       unexpected(source)
@@ -137,9 +142,7 @@ public struct CXXTranspiler {
       return .constructor(
         CXXConstructor(
           name: CXXIdentifier(parentType.baseName),
-          parameters: source.parameters.map {
-            CXXConstructor.Parameter(name: CXXIdentifier($0.baseName), type: cxx(typeExpr: $0.type))
-          },
+          parameters: cxx(parameters: source.parameters),
           initializers: [],
           body: source.body != nil ? cxx(brace: source.body!) : nil))
     case .memberwiseInit:
@@ -155,6 +158,59 @@ public struct CXXTranspiler {
           },
           body: nil))
     }
+  }
+  /// Returns a transpilation of `source`.
+  private func cxx(memberFunction source: FunctionDecl.Typed) -> CXXClassDecl.ClassMember {
+    let functionName = source.identifier?.value ?? ""
+    let (name, isOperator) = operatorOrMethodName(functionName, with: source.notation)
+
+    return .method(
+      CXXMethod(
+        name: name,
+        resultType: cxxFunctionReturnType(source, with: functionName),
+        parameters: cxx(parameters: source.parameters),
+        isStatic: source.isStatic,
+        isOperator: isOperator,
+        body: source.body != nil ? cxx(funBody: source.body!) : nil))
+  }
+
+  private func operatorOrMethodName(
+    _ id: Identifier, with notation: SourceRepresentable<OperatorNotation>?
+  ) -> (name: CXXIdentifier, isOperator: Bool) {
+    let allowedCxxOperators = [
+      "<<", ">>",
+      "*", "/", "%", "+", "-",
+      "==", "!=", "<", "<=", ">=", ">",
+      "^", "&", "&&", "|", "||",
+      "<<=", ">>=", "*=", "/=", "%=", "+=", "-=", "&=",
+      "++", "--",
+      // special case for "!" operator; we translate it to a C++ operator only if it's a prefix operator
+    ]
+    var isOperator: Bool
+    var nameId: Identifier
+    if notation != nil && allowedCxxOperators.contains(id) {
+      // we know we can translate this to a C++ operator.
+      nameId = id
+      isOperator = true
+    } else if notation?.value == .prefix && id == "!" {
+      nameId = id
+      isOperator = true
+    } else {
+      // We cannot translate this to a C++ operator.
+      isOperator = false
+      switch notation?.value {
+      case .infix:
+        nameId = "infix_" + id
+      case .prefix:
+        nameId = "prefix_" + id
+      case .postfix:
+        nameId = "postfix_" + id
+      case nil:
+        nameId = id
+      }
+    }
+    let name = isOperator ? CXXIdentifier(notSanitizing: nameId) : CXXIdentifier(nameId)
+    return (name, isOperator)
   }
 
   /// An attribute of a product type.
@@ -488,16 +544,17 @@ public struct CXXTranspiler {
         return CXXIdentifier(nameOfDecl(callee))
       }
 
-    case .direct(let callee):
-      // For variables, and other declarations, just use the name of the declaration
-      return CXXIdentifier(nameOfDecl(callee))
+    case .direct(let callee), .member(let callee):
+      let r = CXXIdentifier(nameOfDecl(callee))
+      switch source.domain {
+      case .expr(let base):
+        return CXXInfixExpr(oper: .dotAccess, lhs: cxx(expr: base), rhs: r)
+      default:
+        return r
+      }
 
     case .member(let callee) where callee.kind == FunctionDecl.self:
       return cxx(nameOfMemberFunction: FunctionDecl.Typed(callee)!, withDomain: source.domain)
-
-    case .member(let callee):
-      // TODO: revisit this
-      return CXXIdentifier(nameOfDecl(callee))
 
     case .builtinFunction(let f):
       guard case .llvm(let n) = f.name else { fatalError("not implemented") }

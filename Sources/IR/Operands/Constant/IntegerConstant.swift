@@ -6,7 +6,7 @@ import Utils
 extension WideUInt: UnsignedInteger {}
 
 /// An unsigned integer Val IR constant.
-public struct IntegerConstant: ConstantProtocol, Hashable {
+public struct IntegerConstant: Constant, Hashable {
 
   public let value: WideUInt
 

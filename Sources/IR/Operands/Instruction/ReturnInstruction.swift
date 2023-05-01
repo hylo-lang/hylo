@@ -9,7 +9,7 @@ public struct ReturnInstruction: Terminator {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(value: Operand = .constant(.void), site: SourceRange) {
+  fileprivate init(value: Operand = .void, site: SourceRange) {
     self.object = value
     self.site = site
   }
