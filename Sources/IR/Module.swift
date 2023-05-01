@@ -190,6 +190,7 @@ public struct Module {
     appendParameters(t.inputs, to: &inputs)
 
     functions[f] = Function(
+      isSubscript: false,
       name: n ?? "",
       anchor: site.first(),
       linkage: .external,
@@ -256,38 +257,26 @@ public struct Module {
     return f
   }
 
-  /// Returns the identities of the Val IR functions corresponding to `d`.
-  mutating func getOrCreateSubscript(lowering d: SubscriptImpl.Typed) -> Subscript {
-    let opening = Function.ID(opening: d.id)
-    let closing = Function.ID(closing: d.id)
-    if functions[opening] != nil {
-      assert(functions[closing] != nil)
-      return Subscript(opening: opening, closing: closing)
-    }
+  /// Returns the identity of the Val IR function corresponding to `d`.
+  mutating func getOrCreateSubscript(lowering d: SubscriptImpl.Typed) -> Function.ID {
+    let f = Function.ID(d.id)
+    if functions[f] != nil { return f }
 
     let t = SubscriptImplType(d.type)!
-    let output = program.relations.canonical(t.output)
     var inputs: [ParameterType] = []
     appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
     appendParameters(t.inputs, to: &inputs)
 
-    functions[opening] = Function(
-      name: program.debugName(decl: d.id) + ".open",
+    functions[f] = Function(
+      isSubscript: true,
+      name: program.debugName(decl: d.id),
       anchor: d.site.first(),
       linkage: .external,
       inputs: inputs,
-      output: .object(^TupleType(types: [output, .builtin(.i(32))])),
-      blocks: [])
-
-    functions[closing] = Function(
-      name: program.debugName(decl: d.id) + ".close",
-      anchor: d.site.first(),
-      linkage: .external,
-      inputs: [ParameterType(.sink, .builtin(.i(32)))],
       output: .object(AnyType.void),
       blocks: [])
 
-    return Subscript(opening: opening, closing: closing)
+    return f
   }
 
   /// Returns the identifier of the Val IR initializer corresponding to `d`.
@@ -302,6 +291,7 @@ public struct Module {
     let f = Function.ID(initializer: d.id)
     assert(functions[f] == nil)
     functions[f] = Function(
+      isSubscript: false,
       name: program.debugName(decl: d.id),
       anchor: d.introducer.site.first(),
       linkage: d.isPublic ? .external : .module,
@@ -314,14 +304,24 @@ public struct Module {
     return f
   }
 
-  /// Appends a basic block to specified function and returns its identifier.
+  /// Appends an entry block to `f` and returns its identifier.
+  ///
+  /// - Requires: `f` is declared in `self` and doesn't have an entry block.
+  @discardableResult
+  mutating func appendEntry(to f: Function.ID) -> Block.ID {
+    appendBlock(taking: functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+  }
+
+  /// Appends a basic block taking `parameters` to `f` and returns its identifier.
+  ///
+  /// - Requires: `f` is declared in `self`.
   @discardableResult
   mutating func appendBlock(
     taking parameters: [LoweredType] = [],
-    to function: Function.ID
+    to f: Function.ID
   ) -> Block.ID {
-    let address = functions[function]!.appendBlock(taking: parameters)
-    return Block.ID(function, address)
+    let a = functions[f]!.appendBlock(taking: parameters)
+    return Block.ID(f, a)
   }
 
   /// Removes `block` and updates def-use chains.

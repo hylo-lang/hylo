@@ -8,6 +8,9 @@ public struct Function {
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
 
+  /// `true` iff the function implements a subscript.
+  public let isSubscript: Bool
+
   /// The mangled name of the function.
   public let name: String
 
@@ -83,11 +86,8 @@ extension Function {
       /// The identity of a lowered Val function, initializer, or method variant.
       case lowered(AnyDeclID)
 
-      /// The identity of an opening lowered subscript variant.
-      case openingSubscript(SubscriptImpl.ID)
-
-      /// The identity of an closing lowered subscript variant.
-      case closingSubscript(SubscriptImpl.ID)
+      /// The identity of a lowered subscript variant.
+      case loweredSubscript(SubscriptImpl.ID)
 
       /// The identity of an initializer's constructor form.
       case constructor(InitializerDecl.ID)
@@ -108,14 +108,9 @@ extension Function {
       self.value = .lowered(AnyDeclID(f))
     }
 
-    /// Creates the identity of the opening lowered form of `s`.
-    public init(opening s: SubscriptImpl.ID) {
-      self.value = .openingSubscript(s)
-    }
-
-    /// Creates the identity of the closing lowered form of `s`.
-    public init(closing s: SubscriptImpl.ID) {
-      self.value = .closingSubscript(s)
+    /// Creates the identity of the lowered form of `s`.
+    public init(_ s: SubscriptImpl.ID) {
+      self.value = .loweredSubscript(s)
     }
 
     /// Creates the identity of the lowered form of `f` used as an initializer.
@@ -143,10 +138,8 @@ extension Function.ID: CustomStringConvertible {
     switch value {
     case .lowered(let d):
       return "\(d).lowered"
-    case .openingSubscript(let d):
-      return "\(d).opening"
-    case .closingSubscript(let d):
-      return "\(d).closing"
+    case .loweredSubscript(let d):
+      return "\(d).lowered"
     case .constructor(let d):
       return "\(d).constructor"
     case .synthesized(let r, let t):
