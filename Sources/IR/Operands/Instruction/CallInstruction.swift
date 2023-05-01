@@ -10,7 +10,7 @@ public struct CallInstruction: Instruction {
   /// The type if the return value.
   public let returnType: LoweredType
 
-  /// The arguments of the call.
+  /// The callee and arguments of the call.
   public let operands: [Operand]
 
   public let site: SourceRange
