@@ -21,6 +21,12 @@ public struct FunctionRef: ConstantProtocol, Hashable {
     self.type = .address(LambdaType(d.type)!.lifted)
   }
 
+  /// Creates a reference to the lowered form of `d` in `module`.
+  public init(to d: InitializerDecl.Typed, in module: inout Module) {
+    self.function = module.initializerDeclaration(lowering: d)
+    self.type = .address(LambdaType(d.type)!.lifted)
+  }
+
 }
 
 extension FunctionRef: CustomStringConvertible {
