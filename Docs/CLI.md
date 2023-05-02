@@ -73,7 +73,7 @@ Emit the specified output type (default: `binary`).  Each type represents a stag
 | `raw-ast` | AST before type checking |
 | `raw-ir`  | Val IR before mandatory transformations |
 | `ir`      | Val IR |
-| `cpp`     | C++ code |
+| `llvm`    | LLVM IR |
 | `binary`  | Executable binary |
 
 **Example:**

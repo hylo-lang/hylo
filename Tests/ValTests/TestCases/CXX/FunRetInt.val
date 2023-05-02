@@ -1,9 +1,0 @@
-/*! cpp
-    Int myFun()
- */
-public fun myFun() -> Int {
-    return 0;
-}
-
-public fun main() {
-}
