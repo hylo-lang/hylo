@@ -3317,21 +3317,23 @@ public struct TypeChecker {
   ) -> SubscriptImplType? {
     precondition(bundle.capabilities.contains(v))
 
-    var inputs = bundle.inputs
-    for (i, p) in inputs.enumerated() {
-      let t = ParameterType(p.type)!
-      if t.access == .yielded {
-        let u = ParameterType(v, t.bareType)
-        inputs[i] = .init(label: p.label, type: ^u, hasDefault: p.hasDefault)
+    let transformed = bundle.transformParts { (t) in
+      switch t.base {
+      case let u as ParameterType where u.access == .yielded:
+        return .stepInto(^ParameterType(v, u.bareType))
+      case let u as RemoteType where u.access == .yielded:
+        return .stepInto(^RemoteType(v, u.bareType))
+      default:
+        return .stepInto(t)
       }
     }
 
     return SubscriptImplType(
-      isProperty: bundle.isProperty,
+      isProperty: transformed.isProperty,
       receiverEffect: v,
-      environment: bundle.environment,
-      inputs: inputs,
-      output: bundle.output)
+      environment: transformed.environment,
+      inputs: transformed.inputs,
+      output: transformed.output)
   }
 
   // MARK: Type role determination
