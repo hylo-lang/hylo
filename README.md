@@ -21,13 +21,6 @@ swift build -c release
 That command will create an executable named `valc` in `.build/release`.
 That's Val compiler!
 
-In order to compile Val programs, the compiler needs to locate Val's SDK.
-By default, `valc` will look for the SDK at `/usr/local/lib/val` on Unix system.
-On Wondows, it will look for a directory named `val` in the working directory.
-A custom location can be specified with the option `--valc`.
-
-On Unix system, you can use `./Tools/install.sh` to create and install Val's SDK.
-
 ### Building Val Devcontainer with VSCode
 
 While Val supports Linux natively, it also provides a [Devcontainer](https://containers.dev/) specification to develop for Linux on other platforms through a Docker container. Our [Linux CI](.github/workflows/build-and-test.yml) uses this specification; this makes it possible to run Linux CI locally on other operating systems like macOS. While this specification should work for any IDE that supports devcontainers, keep in mind this team only uses VSCode. 
@@ -60,7 +53,7 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--typecheck`: Run the type checker on the input.
 - `--emit raw-ir`: Lower the typed AST into Val IR and output the result in a file.
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
-- `--emit cpp`: Produce a C++ source file (use `clang-format` to format the output C++ code).
+- `--emit llvm`: Transpile the program to LLVM and output LLVM IR.
 - `--emit binary` (default): Produce an executable.
 
 For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
