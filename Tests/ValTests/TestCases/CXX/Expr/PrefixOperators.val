@@ -1,10 +1,11 @@
 /*! cpp
 void test() {
   Int a = 5;
-  a = +a;
-  a = -a;
+  a = a . u2b();
+  a = a . u2d();
 }
 */
+// TODO: fix prefix + and -
 
 fun test() {
   var a = 5

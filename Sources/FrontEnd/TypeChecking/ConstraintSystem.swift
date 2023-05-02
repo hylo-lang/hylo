@@ -192,9 +192,9 @@ struct ConstraintSystem {
       return nil
 
     case is BuiltinType:
-      // Built-in types are `Sinkable`.
+      // Built-in types are `Sinkable` and `ForeignConvertible`.
       missingTraits = goal.traits.subtracting(
-        [checker.ast.coreTrait(named: "Sinkable")!])
+        [checker.ast.coreTrait("Sinkable")!, checker.ast.coreTrait("ForeignConvertible")!])
 
     default:
       missingTraits = goal.traits.subtracting(

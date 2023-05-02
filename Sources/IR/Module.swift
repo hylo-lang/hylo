@@ -282,7 +282,6 @@ public struct Module {
   /// Returns the identifier of the Val IR initializer corresponding to `d`.
   mutating func initializerDeclaration(lowering d: InitializerDecl.Typed) -> Function.ID {
     if let id = loweredFunctions[d.id] { return id }
-    precondition(d.module == syntax)
     precondition(!d.isMemberwise)
 
     let declType = LambdaType(d.type)!
