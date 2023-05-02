@@ -1,5 +1,4 @@
 import ArgumentParser
-import CodeGenCXX
 import CodeGenLLVM
 import Core
 import Foundation
@@ -22,9 +21,6 @@ public struct ValCommand: ParsableCommand {
     /// Val IR.
     case ir
 
-    /// C++ code
-    case cpp
-
     /// LLVM IR
     case llvm
 
@@ -39,8 +35,6 @@ public struct ValCommand: ParsableCommand {
         self = .rawIR
       case "ir":
         self = .ir
-      case "cpp":
-        self = .cpp
       case "llvm":
         self = .llvm
       case "binary":
@@ -99,7 +93,7 @@ public struct ValCommand: ParsableCommand {
   @Option(
     name: [.customLong("emit")],
     help: ArgumentHelp(
-      "Emit the specified type output files. From: raw-ast, raw-ir, ir, cpp, binary",
+      "Emit the specified type output files. From: raw-ast, raw-ir, ir, llvm, binary",
       valueName: "output-type"))
   private var outputType: OutputType = .binary
 
@@ -186,23 +180,6 @@ public struct ValCommand: ParsableCommand {
       return
     }
     let ir = LoweredProgram(syntax: program, modules: irModules)
-
-    // C++
-
-    if outputType == .cpp {
-      let codeFormatter: CodeTransform? = (try? find("clang-format")).map({
-        clangFormatter(URL(fileURLWithPath: $0))
-      })
-
-      let cxxModules = (
-        core: program.cxx(program.coreLibrary!, withFormatter: codeFormatter),
-        source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
-      )
-
-      try write(cxxModules.core, to: coreLibCXXOutputBase, loggingTo: &errorLog)
-      try write(cxxModules.source, to: sourceModuleCXXOutputBase(productName), loggingTo: &errorLog)
-      return
-    }
 
     // LLVM
 
@@ -294,15 +271,6 @@ public struct ValCommand: ParsableCommand {
       if !n.isEmpty { return String(n) }
     }
     return "Main"
-  }
-
-  /// Writes the code for `m` to `.h` and `.cpp` files having the given `basePath`, logging
-  /// diagnostics to `log`.
-  private func write<L: Log>(
-    _ m: TypedProgram.CXXModule, to basePath: URL, loggingTo log: inout L
-  ) throws {
-    try write(m.text.headerCode, toURL: basePath.appendingPathExtension("h"), loggingTo: &log)
-    try write(m.text.sourceCode, toURL: basePath.appendingPathExtension("cpp"), loggingTo: &log)
   }
 
   /// Writes `source` to the `filename`, possibly with verbose logging.
@@ -412,21 +380,6 @@ public struct ValCommand: ParsableCommand {
   /// selected as the output type.
   private func binaryFile(_ productName: String) -> URL {
     outputURL ?? URL(fileURLWithPath: productName)
-  }
-
-  /// The base path (sans extension) of the `.cpp` and `.h` files representing the core library
-  /// when "cpp" is selected as the output type.
-  private var coreLibCXXOutputBase: URL {
-    outputURL?.deletingLastPathComponent()
-      .appendingPathComponent(CXXTranspiler.coreLibModuleName)
-      ?? URL(fileURLWithPath: CXXTranspiler.coreLibModuleName)
-  }
-
-  /// Given the desired name of the compiler's product, returns the base path (sans extension) of
-  /// the `.cpp` and `.h` files representing the module whose files are given on the command-line,
-  /// when "cpp" is selected as the output type.
-  private func sourceModuleCXXOutputBase(_ productName: String) -> URL {
-    outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
   }
 
 }

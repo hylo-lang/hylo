@@ -1,1 +1,0 @@
-// Additional C++ implementation.

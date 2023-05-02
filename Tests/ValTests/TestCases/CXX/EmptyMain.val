@@ -1,8 +1,0 @@
-/*! h
-    void main();
- */
-/*! cpp
-    void main() {
- */
-public fun main() {
-}
