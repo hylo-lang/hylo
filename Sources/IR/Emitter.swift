@@ -1083,8 +1083,8 @@ public struct Emitter {
     lambda e: LambdaExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let d = emit(functionDecl: e.decl, into: &module)
-    let f = FunctionRef(to: d, type: .address(e.decl.type))
+    _ = emit(functionDecl: e.decl, into: &module)
+    let f = FunctionReference(to: program[e.decl], in: &module)
     return module.append(
       module.makePartialApply(wrapping: f, with: .void, anchoredAt: e.site),
       to: insertionBlock!)[0]
@@ -1205,7 +1205,7 @@ public struct Emitter {
         unreachable()
       }
       let f = Operand.constant(
-        FunctionRef(to: .init(FunctionDecl.ID(calleeDecl)!), type: .address(calleeType)))
+        FunctionReference(to: program[FunctionDecl.ID(calleeDecl)!], in: &module))
 
       // Emit the call.
       return module.append(
@@ -1290,17 +1290,17 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
-      let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType))
+      let ref = FunctionReference(to: FunctionDecl.Typed(d)!, in: &module)
       return (.constant(ref), [])
 
     case .direct(let d) where d.kind == InitializerDecl.self:
       // Callee is a direct reference to an initializer declaration.
-      let ref = FunctionRef(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
+      let ref = FunctionReference(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
       return (.constant(ref), [])
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
-      let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType.lifted))
+      let ref = FunctionReference(to: FunctionDecl.Typed(d)!, in: &module)
       let fun = Operand.constant(ref)
 
       // Emit the location of the receiver.
@@ -1541,7 +1541,7 @@ public struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionRef(to: program[InitializerDecl.ID(m)!], in: &module)
+      let convert = FunctionReference(to: program[InitializerDecl.ID(m)!], in: &module)
       let x0 = module.append(
         module.makeAllocStack(ir, anchoredAt: site),
         to: insertionBlock!)[0]
@@ -1582,7 +1582,7 @@ public struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionRef(to: program[FunctionDecl.ID(m)!], in: &module)
+      let convert = FunctionReference(to: program[FunctionDecl.ID(m)!], in: &module)
       let x0 = module.append(
         module.makeBorrow(.let, from: o, anchoredAt: site),
         to: insertionBlock!)
@@ -1737,7 +1737,7 @@ public struct Emitter {
     case SubscriptDecl.self:
       // TODO: Handle mutable projections
       let i = SubscriptDecl.Typed(d)!.impls.first(where: { $0.introducer.value == .let })!
-      let c = FunctionRef(to: i, in: &module)
+      let c = FunctionReference(to: i, in: &module)
       return module.append(
         module.makeProject(
           .let, d.type, applying: .constant(c), to: [receiver], anchoredAt: anchor),
@@ -1812,7 +1812,7 @@ public struct Emitter {
       assert(t[.isCanonical])
 
       let callee = LambdaType(t)!.lifted
-      let ref = FunctionRef(
+      let ref = FunctionReference(
         to: .init(synthesized: program.moveDecl(access), for: t),
         type: .address(callee))
       let fun = Operand.constant(ref)

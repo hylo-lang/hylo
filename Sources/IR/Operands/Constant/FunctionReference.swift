@@ -1,7 +1,7 @@
 import Core
 
 /// A Val IR reference to a user function.
-public struct FunctionRef: Constant, Hashable {
+public struct FunctionReference: Constant, Hashable {
 
   /// The ID of the referred IR function.
   public let function: Function.ID
@@ -40,7 +40,7 @@ public struct FunctionRef: Constant, Hashable {
 
 }
 
-extension FunctionRef: CustomStringConvertible {
+extension FunctionReference: CustomStringConvertible {
 
   public var description: String { "@\(function)" }
 

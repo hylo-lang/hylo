@@ -122,7 +122,7 @@ extension LLVM.Module {
     case let v as IR.PointerConstant:
       return global(named: "\(v.container)\(v.id)")!
 
-    case let v as IR.FunctionRef:
+    case let v as IR.FunctionReference:
       return declare(v, from: ir)
 
     case is IR.Poison:
@@ -172,7 +172,9 @@ extension LLVM.Module {
   }
 
   /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
-  private mutating func declare(_ ref: IR.FunctionRef, from ir: LoweredProgram) -> LLVM.Function {
+  private mutating func declare(
+    _ ref: IR.FunctionReference, from ir: LoweredProgram
+  ) -> LLVM.Function {
     let t = transpiledType(LambdaType(ref.type.ast)!)
     return declareFunction(ir.abiName(of: ref.function), t)
   }
