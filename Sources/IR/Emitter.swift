@@ -1347,7 +1347,7 @@ public struct Emitter {
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    var bytes = s.data(using: .utf8)!
+    var bytes = s.unescaped.data(using: .utf8)!
     let size = emitWord(bytes.count, at: site, into: &module)
     bytes.append(contentsOf: [0])
 
