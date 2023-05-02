@@ -27,6 +27,17 @@ public struct FunctionRef: Constant, Hashable {
     self.type = .address(LambdaType(d.type)!.lifted)
   }
 
+  /// Creates a reference to the lowered form of `d` in `module`.
+  public init(to d: SubscriptImpl.Typed, in module: inout Module) {
+    let f = module.getOrCreateSubscript(lowering: d)
+    let t = LambdaType(
+      inputs: module.functions[f]!.inputs.map({ .init(type: ^$0) }),
+      output: .void)
+
+    self.function = f
+    self.type = .address(^t)
+  }
+
 }
 
 extension FunctionRef: CustomStringConvertible {
