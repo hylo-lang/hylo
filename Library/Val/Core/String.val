@@ -1,7 +1,7 @@
 /// A Unicode string.
 public type String {
 
-  /// The size of `contents` in bytes.
+  /// The size of `utf8` in bytes.
   public var size: Int
 
   /// The contents of the string, encoded in UTF8.
