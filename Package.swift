@@ -52,7 +52,6 @@ let package = Package(
       dependencies: [
         "FrontEnd",
         "IR",
-        "CodeGenCXX",
         "CodeGenLLVM",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
@@ -85,13 +84,6 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
-      name: "CodeGenCXX",
-      dependencies: ["FrontEnd", "Utils"],
-      path: "Sources/CodeGen/CXX",
-      exclude: ["README.md"],
-      swiftSettings: allTargetsSwiftSettings),
-
-    .target(
       name: "CodeGenLLVM",
       dependencies: [
         "Core",
@@ -110,7 +102,7 @@ let package = Package(
     .target(
       name: "ValModule",
       path: "Library",
-      resources: [.copy("Val"), .copy("CXX")],
+      resources: [.copy("Val")],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
@@ -125,7 +117,7 @@ let package = Package(
 
     .testTarget(
       name: "ValTests",
-      dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR"],
+      dependencies: ["FrontEnd", "Core", "IR"],
       resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
 

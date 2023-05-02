@@ -44,18 +44,6 @@ final class ValCommandTests: XCTestCase {
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
-  func testCPP() throws {
-    let result = try compile(["--emit", "cpp"], newFile(containing: "public fun main() {}"))
-    XCTAssert(result.status.isSuccess)
-    XCTAssert(result.stderr.isEmpty)
-
-    let baseURL = result.output.deletingPathExtension()
-    XCTAssert(
-      FileManager.default.fileExists(atPath: baseURL.appendingPathExtension("h").relativePath))
-    XCTAssert(
-      FileManager.default.fileExists(atPath: baseURL.appendingPathExtension("cpp").relativePath))
-  }
-
   func testLLVM() throws {
     let result = try compile(["--emit", "llvm"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
