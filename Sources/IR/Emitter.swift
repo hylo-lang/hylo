@@ -1725,22 +1725,30 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
-  /// Returns the address of the member declared by `decl` and bound to `receiverAddress`,
-  /// inserting IR anchored at `anchor` into `module`.
+  /// Returns the address of the member declared by `d` and bound to `receiver`, inserting IR
+  /// anchored at `anchor` into `module`.
   private mutating func addressOfMember(
-    boundTo receiverAddress: Operand,
-    declaredBy decl: AnyDeclID.TypedNode,
+    boundTo receiver: Operand,
+    declaredBy d: AnyDeclID.TypedNode,
     into module: inout Module,
     at anchor: SourceRange
   ) -> Operand {
-    switch decl.kind {
+    switch d.kind {
+    case SubscriptDecl.self:
+      // TODO: Handle mutable projections
+      let i = SubscriptDecl.Typed(d)!.impls.first(where: { $0.introducer.value == .let })!
+      let c = FunctionRef(to: i, in: &module)
+      return module.append(
+        module.makeProject(
+          .let, d.type, applying: .constant(c), to: [receiver], anchoredAt: anchor),
+        to: insertionBlock!)[0]
+
     case VarDecl.self:
       let receiverLayout = AbstractTypeLayout(
-        of: module.type(of: receiverAddress).ast, definedIn: program)
-
-      let i = receiverLayout.offset(of: VarDecl.Typed(decl)!.baseName)!
+        of: module.type(of: receiver).ast, definedIn: program)
+      let i = receiverLayout.offset(of: VarDecl.Typed(d)!.baseName)!
       return module.append(
-        module.makeElementAddr(receiverAddress, at: [i], anchoredAt: anchor),
+        module.makeElementAddr(receiver, at: [i], anchoredAt: anchor),
         to: insertionBlock!)[0]
 
     default:
