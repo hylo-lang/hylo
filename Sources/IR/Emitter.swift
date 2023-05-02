@@ -120,7 +120,6 @@ public struct Emitter {
     into module: inout Module
   ) -> Function.ID {
     let f = module.getOrCreateFunction(lowering: d)
-
     guard let b = d.body else {
       if d.isForeignInterface { emitFFI(d, into: &module) }
       return f
@@ -132,27 +131,27 @@ public struct Emitter {
     // Configure the locals.
     var locals = TypedDeclProperty<Operand>()
 
-    for (i, capture) in d.explicitCaptures.enumerated() {
-      locals[capture] = .parameter(entry, i)
+    for (i, c) in d.explicitCaptures.enumerated() {
+      locals[c] = .parameter(entry, i)
+    }
+    for (i, c) in d.implicitCaptures!.enumerated() {
+      locals[program[c.decl]] = .parameter(entry, i + d.explicitCaptures.count)
     }
 
-    for (i, capture) in d.implicitCaptures!.enumerated() {
-      locals[program[capture.decl]] = .parameter(entry, i + d.explicitCaptures.count)
+    var captureCount = d.explicitCaptures.count + d.implicitCaptures!.count
+    if let r = d.receiver {
+      locals[r] = .parameter(entry, captureCount)
+      captureCount += 1
     }
 
-    var implicitParameterCount = d.explicitCaptures.count + d.implicitCaptures!.count
-    if let receiver = d.receiver {
-      locals[receiver] = .parameter(entry, implicitParameterCount)
-      implicitParameterCount += 1
+    for (i, p) in d.parameters.enumerated() {
+      locals[p] = .parameter(entry, i + captureCount)
     }
 
-    for (i, parameter) in d.parameters.enumerated() {
-      locals[parameter] = .parameter(entry, i + implicitParameterCount)
-    }
-
-    insertionBlock = entry
-    receiver = d.receiver
-    frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
+    // Configure the emitter context.
+    self.insertionBlock = entry
+    self.receiver = d.receiver
+    self.frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
 
     // Emit the body.
     switch b {
@@ -240,9 +239,70 @@ public struct Emitter {
     assert(frames.isEmpty)
   }
 
-  /// Inserts the IR for `decl` into `module`.
-  private mutating func emit(subscriptDecl decl: SubscriptDecl.Typed, into module: inout Module) {
-    fatalError("not implemented")
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(subscriptDecl d: SubscriptDecl.Typed, into module: inout Module) {
+    for i in d.impls {
+      emit(subscriptImpl: i, into: &module)
+    }
+  }
+
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(subscriptImpl d: SubscriptImpl.Typed, into module: inout Module) {
+    let f = module.getOrCreateSubscript(lowering: d)
+    guard let b = d.body else { return }
+
+    // Create the function entry.
+    let entry = module.appendEntry(to: f)
+
+    // Configure the locals.
+    var locals = TypedDeclProperty<Operand>()
+
+    let bundle = SubscriptDecl.Typed(d.parent!)!
+    for (i, c) in bundle.explicitCaptures.enumerated() {
+      locals[c] = .parameter(entry, i)
+    }
+    for (i, c) in bundle.implicitCaptures!.enumerated() {
+      locals[program[c.decl]] = .parameter(entry, i + bundle.explicitCaptures.count)
+    }
+
+    var captureCount = bundle.explicitCaptures.count + bundle.implicitCaptures!.count
+    if let receiver = d.receiver {
+      locals[receiver] = .parameter(entry, captureCount)
+      captureCount += 1
+    }
+
+    if let parameters = bundle.parameters {
+      for (i, p) in parameters.enumerated() {
+        locals[program[p]] = .parameter(entry, i + captureCount)
+      }
+    }
+
+    // Configure the emitter context.
+    self.insertionBlock = entry
+    self.receiver = d.receiver
+    self.frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
+
+    // Emit the body.
+    switch b {
+    case .block(let s):
+      emit(stmt: program[s], into: &module)
+
+    case .expr(let e):
+      let s = emitLValue(program[e], into: &module)
+      let b = module.append(
+        module.makeBorrow(d.introducer.value, from: s, anchoredAt: program.ast[e].site),
+        to: insertionBlock!)[0]
+      module.append(
+        module.makeYield(d.introducer.value, b, anchoredAt: program.ast[e].site),
+        to: insertionBlock!)
+      emitStackDeallocs(in: &module, site: program.ast[e].site)
+      module.append(
+        module.makeReturn(.void, anchoredAt: program.ast[e].site),
+        to: insertionBlock!)
+    }
+
+    frames.pop()
+    assert(frames.isEmpty)
   }
 
   /// Inserts the IR for `decl` into `module`.
@@ -273,6 +333,7 @@ public struct Emitter {
   ///
   /// - Requires: `d` is a global binding.
   private mutating func emit(globalBindingDecl d: BindingDecl.Typed, into module: inout Module) {
+    fatalError("not implemented")
   }
 
   /// Inserts the IR for the local binding `decl` into `module`.
