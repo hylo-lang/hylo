@@ -127,9 +127,7 @@ public struct Emitter {
     }
 
     // Create the function entry.
-    assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
 
     // Configure the locals.
     var locals = TypedDeclProperty<Operand>()
@@ -177,11 +175,7 @@ public struct Emitter {
   /// Inserts the IR for calling `d` into `module`.
   private mutating func emitFFI(_ d: FunctionDecl.Typed, into module: inout Module) {
     let f = module.getOrCreateFunction(lowering: d)
-
-    // Create the function entry.
-    assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
     frames.push(.init(scope: AnyScopeID(d.id)))
     defer {
@@ -226,10 +220,7 @@ public struct Emitter {
   ) {
     if d.isMemberwise { return }
     let f = module.initializerDeclaration(lowering: d)
-
-    assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
     // Configure the locals.
@@ -423,8 +414,7 @@ public struct Emitter {
     let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
     if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
 
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
     let receiver = Operand.parameter(entry, 0)
@@ -477,8 +467,7 @@ public struct Emitter {
     let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
     if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
 
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
     let receiver = Operand.parameter(entry, 0)

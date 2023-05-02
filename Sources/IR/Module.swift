@@ -308,7 +308,8 @@ public struct Module {
   /// - Requires: `f` is declared in `self` and doesn't have an entry block.
   @discardableResult
   mutating func appendEntry(to f: Function.ID) -> Block.ID {
-    appendBlock(taking: functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    assert(functions[f]!.blocks.isEmpty)
+    return appendBlock(taking: functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
   }
 
   /// Appends a basic block taking `parameters` to `f` and returns its identifier.
