@@ -20,4 +20,8 @@ final class StringExtensionsTests: XCTestCase {
     XCTAssertEqual("URLResourceKey".snakeCased(), "url_resource_key")
   }
 
+  func testUnescaped() {
+    XCTAssertEqual("one\\ntwo".unescaped, "one\ntwo")
+  }
+
 }
