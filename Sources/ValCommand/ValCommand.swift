@@ -48,15 +48,6 @@ public struct ValCommand: ParsableCommand {
 
   public static let configuration = CommandConfiguration(commandName: "valc")
 
-  /// The default location of Val's SDK.
-  private static func defaultValSDK() -> URL {
-    #if os(Windows)
-      return URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
-    #else
-      return URL(fileURLWithPath: "/usr/local/lib/val")
-    #endif
-  }
-
   @Flag(
     name: [.customLong("modules")],
     help: "Compile inputs as separate modules.")
@@ -71,12 +62,6 @@ public struct ValCommand: ParsableCommand {
     name: [.customLong("no-std")],
     help: "Do not include the standard library.")
   private var noStandardLibrary: Bool = false
-
-  @Option(
-    name: [.customLong("sdk")],
-    help: ArgumentHelp("Val's software development kit", valueName: "directory"),
-    transform: URL.init(fileURLWithPath:))
-  private var valSDK: URL = Self.defaultValSDK()
 
   @Flag(
     name: [.customLong("typecheck")],
@@ -219,14 +204,12 @@ public struct ValCommand: ParsableCommand {
   ) throws {
     let xcrun = try find("xcrun")
     let sdk =
-      try runCommandLine(
-        xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &log) ?? ""
+      try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &log) ?? ""
 
     var arguments = [
       "-r", "ld", "-o", binaryPath,
       "-L\(sdk)/usr/lib",
-      "-L\(valSDK.appendingPathComponent("lib").path)",
-      "-lval_support", "-lSystem", "-lc++",
+      "-lSystem", "-lc++",
     ]
     arguments.append(contentsOf: objects.map(\.path))
     try runCommandLine(xcrun, arguments, loggingTo: &log)
@@ -241,10 +224,8 @@ public struct ValCommand: ParsableCommand {
   ) throws {
     var arguments = [
       "-o", binaryPath,
-      "-L\(valSDK.appendingPathComponent("lib").path)",
     ]
     arguments.append(contentsOf: objects.map(\.path))
-    arguments.append("-lval_support")
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440

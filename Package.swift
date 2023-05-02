@@ -105,10 +105,6 @@ let package = Package(
       resources: [.copy("Val")],
       swiftSettings: allTargetsSwiftSettings),
 
-    .target(
-      name: "Support",
-      swiftSettings: allTargetsSwiftSettings),
-
     // Test targets.
     .testTarget(
       name: "UtilsTests",
