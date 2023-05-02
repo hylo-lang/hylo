@@ -190,15 +190,15 @@ public struct Emitter {
       arguments.append(a)
     }
 
+    let output = module.functions[f]!.output
     let foreignResult = module.append(
       module.makeCallFII(
-        returning: module.functions[f]!.output,
+        returning: .object(output),
         applying: d.foreignName!,
         to: arguments, anchoredAt: d.site),
       to: insertionBlock!)[0]
 
     // Handle FFIs without return values.
-    let output = module.functions[f]!.output.ast
     if output.isVoidOrNever {
       module.append(module.makeReturn(.void, anchoredAt: d.site), to: insertionBlock!)
       return

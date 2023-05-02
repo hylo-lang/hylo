@@ -24,7 +24,7 @@ public struct Function {
   public let inputs: [ParameterType]
 
   /// The type of the function's output.
-  public let output: LoweredType
+  public let output: AnyType
 
   /// The blocks in the function.
   public private(set) var blocks: Blocks

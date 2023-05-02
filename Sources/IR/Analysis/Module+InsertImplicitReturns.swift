@@ -7,8 +7,8 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func insertImplicitReturns(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    /// The expected return type of the function.
-    let expectedReturnType = self[f].output.ast
+    // Note: subscript do not return any value.
+    let returnType: AnyType = self[f].isSubscript ? .void : self[f].output
 
     for blockToProcess in blocks(in: f) {
       let lastInstruction = self[blockToProcess].instructions.last
@@ -17,7 +17,7 @@ extension Module {
       insertReturnVoidInstruction(
         anchoredAt: lastInstruction?.site ?? .empty(at: self[f].anchor),
         at: endIndex(of: blockToProcess),
-        inFunctionReturning: expectedReturnType,
+        inFunctionReturning: returnType,
         diagnostics: &diagnostics)
     }
   }

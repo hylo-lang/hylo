@@ -184,7 +184,7 @@ public struct Module {
   ) -> Bool {
     if functions[f] != nil { return false }
 
-    let output = LoweredType.object(program.relations.canonical(t.output))
+    let output = program.relations.canonical(t.output)
     var inputs: [ParameterType] = []
     appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
     appendParameters(t.inputs, to: &inputs)
@@ -273,7 +273,7 @@ public struct Module {
       anchor: d.site.first(),
       linkage: .external,
       inputs: inputs,
-      output: .object(AnyType.void),
+      output: program.relations.canonical(t.output),
       blocks: [])
 
     return f
@@ -295,7 +295,7 @@ public struct Module {
       anchor: d.introducer.site.first(),
       linkage: d.isPublic ? .external : .module,
       inputs: parameters,
-      output: LoweredType.object(declType.output),
+      output: program.relations.canonical(declType.output),
       blocks: [])
 
     // Update the cache and return the ID of the newly created function.

@@ -36,7 +36,7 @@ extension LLVM.Module {
     let transpilation = function(named: ir.abiName(of: f))!
 
     let val32 = ir.syntax.ast.coreType("Int32")!
-    switch m[f].output.ast {
+    switch m[f].output {
     case val32:
       let t = StructType(ir.syntax.llvm(val32, in: &self))!
       let s = insertAlloca(t, at: p)
@@ -185,13 +185,13 @@ extension LLVM.Module {
 
     // Parameters and return values are passed by reference.
     var parameters: [LLVM.IRType] = []
-    if !m[f].output.ast.isVoidOrNever {
+    if !m[f].output.isVoidOrNever {
       parameters.append(ptr)
     }
     parameters.append(contentsOf: Array(repeating: ptr, count: m[f].inputs.count))
     let result = declareFunction(ir.abiName(of: f), .init(from: parameters, in: &self))
 
-    if m[f].output.ast == .never {
+    if m[f].output == .never {
       addAttribute(.init(.noreturn, in: &self), to: result)
     }
 
@@ -219,7 +219,7 @@ extension LLVM.Module {
     let prologue = appendBlock(named: "prologue", to: transpilation)
     insertionPoint = endOf(prologue)
 
-    let parameterOffset = m[f].output.ast.isVoidOrNever ? 0 : 1
+    let parameterOffset = m[f].output.isVoidOrNever ? 0 : 1
     for i in m[f].inputs.indices {
       let o = Operand.parameter(.init(f, entry), i)
       let s = transpilation.parameters[parameterOffset + i]
