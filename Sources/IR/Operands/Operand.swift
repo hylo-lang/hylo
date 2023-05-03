@@ -19,12 +19,12 @@ public enum Operand {
   }
 
   /// The ID of the function in which the operand is defined, if any.
-  var function: Function.ID? {
+  public var function: Function.ID? {
     block?.function
   }
 
   /// The ID of the block in which the operand is defined, if any.
-  var block: Block.ID? {
+  public var block: Block.ID? {
     switch self {
     case .register(let instruction, _):
       return Block.ID(instruction.function, instruction.block)
@@ -36,7 +36,7 @@ public enum Operand {
   }
 
   /// The ID of the instruction that produces this operand, if any.
-  var instruction: InstructionID? {
+  public var instruction: InstructionID? {
     switch self {
     case .register(let instruction, _):
       return instruction
