@@ -315,8 +315,8 @@ extension Module {
       let s = self[i] as! ProjectInstruction
       let l = AbstractLocation.root(.register(i, 0))
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.projectionType, definedIn: program),
-        value: .full(s.capability == .set ? .uninitialized : .initialized))
+        layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
+        value: .full(s.projection.access == .set ? .uninitialized : .initialized))
       context.locals[.register(i, 0)] = .locations([l])
     }
 

@@ -1737,11 +1737,13 @@ public struct Emitter {
     switch d.kind {
     case SubscriptDecl.self:
       // TODO: Handle mutable projections
+      // TODO: Handle generics
+
       let i = SubscriptDecl.Typed(d)!.impls.first(where: { $0.introducer.value == .let })!
-      let c = FunctionReference(to: i, in: &module)
+      let f = module.getOrCreateSubscript(lowering: i)
+      let t = RemoteType(.let, program.relations.canonical(SubscriptType(d.type)!.output))
       return module.append(
-        module.makeProject(
-          .let, d.type, applying: .constant(c), to: [receiver], anchoredAt: anchor),
+        module.makeProject(t, applying: f, to: [receiver], anchoredAt: anchor),
         to: insertionBlock!)[0]
 
     case VarDecl.self:

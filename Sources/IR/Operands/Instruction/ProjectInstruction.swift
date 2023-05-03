@@ -3,13 +3,16 @@ import Core
 /// Projects a value.
 public struct ProjectInstruction: Instruction {
 
-  /// The capability of the projected value.
-  public let capability: AccessEffect
-
   /// The type of the projected value.
-  public let projectionType: AnyType
+  public let projection: RemoteType
 
-  /// The callee and arguments of the call.
+  /// The subscript performing the projection.
+  ///
+  /// Subscripts, unlike functions, are not first-class values and are therefore not represented as
+  /// IR operands.
+  public let callee: Function.ID
+
+  /// The arguments of the call.
   public let operands: [Operand]
 
   /// The site of the code corresponding to that instruction.
@@ -17,33 +20,30 @@ public struct ProjectInstruction: Instruction {
 
   /// Creates an instance with the given properties.
   fileprivate init(
-    capability: AccessEffect,
-    projectionType: AnyType,
-    callee: Operand,
-    arguments: [Operand],
+    projection: RemoteType,
+    callee: Function.ID,
+    operands: [Operand],
     site: SourceRange
   ) {
-    self.capability = capability
-    self.projectionType = projectionType
-    self.operands = [callee] + arguments
+    self.projection = projection
+    self.callee = callee
+    self.operands = operands
     self.site = site
   }
 
-  /// The callee.
-  public var callee: Operand { operands[0] }
-
-  /// The arguments of the call.
-  public var arguments: ArraySlice<Operand> { operands[1...] }
-
   /// The types of the instruction's results.
-  public var types: [LoweredType] { [.address(projectionType)] }
+  public var types: [LoweredType] { [.address(projection.bareType)] }
 
 }
 
 extension ProjectInstruction: CustomStringConvertible {
 
   public var description: String {
-    "project [\(capability)] \(list: operands)"
+    if operands.isEmpty {
+      return "project \(callee)"
+    } else {
+      return "project \(callee), \(list: operands)"
+    }
   }
 
 }
@@ -51,20 +51,18 @@ extension ProjectInstruction: CustomStringConvertible {
 extension Module {
 
   /// Creates a `project` anchored at `anchor` that takes applies subscript `s` on `arguments` to
-  /// project a value of type `t` with capability `c`.
+  /// project a value of type `t`.
   ///
   /// - Parameters:
-  ///   - capability: The capability being borrowed. Must be `.let`, `.inout`, or `.set`.
   ///   - source: The address from which the capability is borrowed. Must have an address type.
   ///   - binding: The declaration of the binding to which the borrow corresponds, if any.
   func makeProject(
-    _ c: AccessEffect,
-    _ t: AnyType,
-    applying s: Operand,
+    _ t: RemoteType,
+    applying s: Function.ID,
     to arguments: [Operand],
     anchoredAt anchor: SourceRange
   ) -> ProjectInstruction {
-    .init(capability: c, projectionType: t, callee: s, arguments: arguments, site: anchor)
+    .init(projection: t, callee: s, operands: arguments, site: anchor)
   }
 
 }
