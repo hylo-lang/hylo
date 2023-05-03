@@ -256,7 +256,7 @@ extension Program {
       return s + ast[ProductTypeDecl.ID(d)!].baseName
     case SubscriptDecl.self:
       let n = ast[SubscriptDecl.ID(d)!].identifier?.value ?? "\(d.rawValue)"
-      return s + "\(s)\(n)#\(d.rawValue)"
+      return s + "\(n)#\(d.rawValue)"
     case SubscriptImpl.self:
       return s + String(describing: ast[SubscriptImpl.ID(d)!].introducer.value)
     case TraitDecl.self:
