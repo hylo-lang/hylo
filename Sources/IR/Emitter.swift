@@ -570,6 +570,8 @@ public struct Emitter {
       emit(returnStmt: ReturnStmt.Typed(stmt)!, into: &module)
     case WhileStmt.self:
       emit(whileStmt: WhileStmt.Typed(stmt)!, into: &module)
+    case YieldStmt.self:
+      emit(yieldStmt: YieldStmt.Typed(stmt)!, into: &module)
     default:
       unexpected(stmt)
     }
@@ -745,6 +747,18 @@ public struct Emitter {
       module.makeBranch(to: loopHead, anchoredAt: .empty(at: stmt.site.first())),
       to: insertionBlock!)
     insertionBlock = loopTail
+  }
+
+  private mutating func emit(yieldStmt stmt: YieldStmt.Typed, into module: inout Module) {
+    // TODO: Read mutability of current subscript
+
+    let s = emitLValue(program[stmt.value], into: &module)
+    let b = module.append(
+      module.makeBorrow(.let, from: s, anchoredAt: stmt.site),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeYield(.let, b, anchoredAt: stmt.site),
+      to: insertionBlock!)
   }
 
   // MARK: r-values
