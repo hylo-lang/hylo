@@ -4,6 +4,7 @@ import Core
 import Foundation
 import FrontEnd
 import IR
+import LLVM
 import Utils
 import ValModule
 
@@ -168,7 +169,8 @@ public struct ValCommand: ParsableCommand {
 
     // LLVM
 
-    var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule)
+    let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
+    var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
     llvmProgram.applyMandatoryPasses()
 
     if outputType == .llvm {
