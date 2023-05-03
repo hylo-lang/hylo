@@ -168,7 +168,8 @@ public struct ValCommand: ParsableCommand {
 
     // LLVM
 
-    let llvmProgram = try LLVMProgram(ir, mainModule: sourceModule)
+    var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule)
+    llvmProgram.applyMandatoryPasses()
 
     if outputType == .llvm {
       let m = llvmProgram.llvmModules[sourceModule]!
