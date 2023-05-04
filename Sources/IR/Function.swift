@@ -20,8 +20,8 @@ public struct Function {
   /// The linkage of the function.
   public let linkage: Linkage
 
-  /// The types of the function's parameters.
-  public let inputs: [ParameterType]
+  /// The the function's parameters.
+  public let inputs: [CallableParameterDecl]
 
   /// The type of the function's output.
   public let output: AnyType

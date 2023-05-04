@@ -169,6 +169,73 @@ public struct Module {
     return id
   }
 
+  /// Returns the identity of the Val IR function corresponding to `d`.
+  mutating func getOrCreateFunction(lowering d: FunctionDecl.Typed) -> Function.ID {
+    if let f = loweredFunctions[d.id] { return f }
+    let f = Function.ID(d.id)
+
+    let output = program.relations.canonical((d.type.base as! CallableType).output)
+    let inputs = program.liftedParameters(of: d.id)
+    functions[f] = Function(
+      isSubscript: false,
+      name: program.debugName(decl: d.id),
+      site: d.site,
+      linkage: .external,
+      inputs: inputs,
+      output: output,
+      blocks: [])
+
+    // Determine if the new function is the module's entry.
+    if d.scope.kind == TranslationUnit.self, d.isPublic, d.identifier?.value == "main" {
+      assert(entryFunctionID == nil)
+      entryFunctionID = f
+    }
+
+    loweredFunctions[d.id] = f
+    return f
+  }
+
+  /// Returns the identity of the Val IR function corresponding to `d`.
+  mutating func getOrCreateSubscript(lowering d: SubscriptImpl.Typed) -> Function.ID {
+    let f = Function.ID(d.id)
+    if functions[f] != nil { return f }
+
+    let output = program.relations.canonical((d.type.base as! CallableType).output)
+    let inputs = program.liftedParameters(of: d.id)
+    functions[f] = Function(
+      isSubscript: true,
+      name: program.debugName(decl: d.id),
+      site: d.site,
+      linkage: .external,
+      inputs: inputs,
+      output: output,
+      blocks: [])
+
+    return f
+  }
+
+  /// Returns the identifier of the Val IR initializer corresponding to `d`.
+  mutating func initializerDeclaration(lowering d: InitializerDecl.Typed) -> Function.ID {
+    precondition(!d.isMemberwise)
+
+    let f = Function.ID(initializer: d.id)
+    if functions[f] != nil { return f }
+
+    let inputs = program.liftedParameters(of: d.id)
+    functions[f] = Function(
+      isSubscript: false,
+      name: program.debugName(decl: d.id),
+      site: d.introducer.site,
+      linkage: .external,
+      inputs: inputs,
+      output: .void,
+      blocks: [])
+
+    // Update the cache and return the ID of the newly created function.
+    loweredFunctions[d.id] = f
+    return f
+  }
+
   /// Declares a synthetic function identified by `f` with type `t`.
   ///
   /// - Parameters:
@@ -185,7 +252,7 @@ public struct Module {
     if functions[f] != nil { return false }
 
     let output = program.relations.canonical(t.output)
-    var inputs: [ParameterType] = []
+    var inputs: [CallableParameterDecl] = []
     appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
     appendParameters(t.inputs, to: &inputs)
 
@@ -204,17 +271,17 @@ public struct Module {
   private func appendCaptures(
     _ captures: [TupleType.Element],
     passed effect: AccessEffect,
-    to inputs: inout [ParameterType]
+    to inputs: inout [CallableParameterDecl]
   ) {
     inputs.reserveCapacity(captures.count)
     for c in captures {
       switch program.relations.canonical(c.type).base {
       case let p as RemoteType:
         precondition(p.access != .yielded, "cannot lower yielded parameter")
-        inputs.append(ParameterType(p))
+        inputs.append(.init(decl: nil, type: ParameterType(p)))
       case let p:
         precondition(effect != .yielded, "cannot lower yielded parameter")
-        inputs.append(ParameterType(effect, ^p))
+        inputs.append(.init(decl: nil, type: ParameterType(effect, ^p)))
       }
     }
   }
@@ -222,85 +289,14 @@ public struct Module {
   /// Appends `parameters` to `inputs`, ensuring that their types are canonical.
   private func appendParameters(
     _ parameters: [CallableTypeParameter],
-    to inputs: inout [ParameterType]
+    to inputs: inout [CallableParameterDecl]
   ) {
     inputs.reserveCapacity(parameters.count)
     for p in parameters {
       let t = ParameterType(program.relations.canonical(p.type))!
       precondition(t.access != .yielded, "cannot lower yielded parameter")
-      inputs.append(t)
+      inputs.append(.init(decl: nil, type: t))
     }
-  }
-
-  /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func getOrCreateFunction(lowering d: FunctionDecl.Typed) -> Function.ID {
-    if let f = loweredFunctions[d.id] { return f }
-    let f = Function.ID(d.id)
-    let n = program.debugName(decl: d.id)
-
-    switch d.type.base {
-    case let declType as LambdaType:
-      declareFunction(identifiedBy: f, typed: declType, named: n, at: d.site)
-    case is MethodType:
-      fatalError("not implemented")
-    default:
-      unreachable()
-    }
-
-    // Determine if the new function is the module's entry.
-    if d.scope.kind == TranslationUnit.self, d.isPublic, d.identifier?.value == "main" {
-      assert(entryFunctionID == nil)
-      entryFunctionID = f
-    }
-
-    loweredFunctions[d.id] = f
-    return f
-  }
-
-  /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func getOrCreateSubscript(lowering d: SubscriptImpl.Typed) -> Function.ID {
-    let f = Function.ID(d.id)
-    if functions[f] != nil { return f }
-
-    let t = SubscriptImplType(d.type)!
-    var inputs: [ParameterType] = []
-    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
-    appendParameters(t.inputs, to: &inputs)
-
-    functions[f] = Function(
-      isSubscript: true,
-      name: program.debugName(decl: d.id),
-      site: d.site,
-      linkage: .external,
-      inputs: inputs,
-      output: program.relations.canonical(t.output),
-      blocks: [])
-
-    return f
-  }
-
-  /// Returns the identifier of the Val IR initializer corresponding to `d`.
-  mutating func initializerDeclaration(lowering d: InitializerDecl.Typed) -> Function.ID {
-    if let id = loweredFunctions[d.id] { return id }
-    precondition(!d.isMemberwise)
-
-    let declType = LambdaType(d.type)!
-    let parameters = declType.inputs.map({ ParameterType($0.type)! })
-
-    let f = Function.ID(initializer: d.id)
-    assert(functions[f] == nil)
-    functions[f] = Function(
-      isSubscript: false,
-      name: program.debugName(decl: d.id),
-      site: d.introducer.site,
-      linkage: d.isPublic ? .external : .module,
-      inputs: parameters,
-      output: program.relations.canonical(declType.output),
-      blocks: [])
-
-    // Update the cache and return the ID of the newly created function.
-    loweredFunctions[d.id] = f
-    return f
   }
 
   /// Appends an entry block to `f` and returns its identifier.
@@ -309,7 +305,7 @@ public struct Module {
   @discardableResult
   mutating func appendEntry(to f: Function.ID) -> Block.ID {
     assert(functions[f]!.blocks.isEmpty)
-    return appendBlock(taking: functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    return appendBlock(taking: functions[f]!.inputs.map({ .address($0.type.bareType) }), to: f)
   }
 
   /// Appends a basic block taking `parameters` to `f` and returns its identifier.

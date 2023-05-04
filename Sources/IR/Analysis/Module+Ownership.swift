@@ -219,9 +219,9 @@ extension Module {
 
     let b = Block.ID(f, function.entry!)
     for i in function.inputs.indices {
-      let l = AbstractTypeLayout(of: function.inputs[i].bareType, definedIn: program)
+      let l = AbstractTypeLayout(of: function.inputs[i].type.bareType, definedIn: program)
 
-      switch function.inputs[i].access {
+      switch function.inputs[i].type.access {
       case .let, .inout, .set, .sink:
         let a = AbstractLocation.root(.parameter(b, i))
         result.locals[.parameter(b, i)] = .locations([a])
