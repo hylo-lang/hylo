@@ -192,7 +192,7 @@ public struct Module {
     functions[f] = Function(
       isSubscript: false,
       name: n ?? "",
-      anchor: site.first(),
+      site: site,
       linkage: .external,
       inputs: inputs,
       output: output,
@@ -270,7 +270,7 @@ public struct Module {
     functions[f] = Function(
       isSubscript: true,
       name: program.debugName(decl: d.id),
-      anchor: d.site.first(),
+      site: d.site,
       linkage: .external,
       inputs: inputs,
       output: program.relations.canonical(t.output),
@@ -292,7 +292,7 @@ public struct Module {
     functions[f] = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
-      anchor: d.introducer.site.first(),
+      site: d.introducer.site,
       linkage: d.isPublic ? .external : .module,
       inputs: parameters,
       output: program.relations.canonical(declType.output),

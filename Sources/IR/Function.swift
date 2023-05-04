@@ -14,8 +14,8 @@ public struct Function {
   /// The mangled name of the function.
   public let name: String
 
-  /// The position in source code at which the function is anchored.
-  public let anchor: SourcePosition
+  /// The site in the source code to which the function corresponds..
+  public let site: SourceRange
 
   /// The linkage of the function.
   public let linkage: Linkage
