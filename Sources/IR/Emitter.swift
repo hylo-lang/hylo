@@ -458,15 +458,15 @@ public struct Emitter {
     assert(program.module(containing: d.scope) == module.syntax.id)
     switch d.kind {
     case .moveInitialization:
-      emitMoveInitialization(typed: .init(d.type)!, in: d.scope, into: &module)
+      emitSyntheticMoveInit(typed: .init(d.type)!, in: d.scope, into: &module)
     case .moveAssignment:
-      emitMoveAssignment(typed: .init(d.type)!, in: d.scope, into: &module)
+      emitSyntheticMoveAssign(typed: .init(d.type)!, in: d.scope, into: &module)
     case .copy:
       fatalError("not implemented")
     }
   }
 
-  private mutating func emitMoveInitialization(
+  private mutating func emitSyntheticMoveInit(
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
@@ -481,11 +481,22 @@ public struct Emitter {
     let receiver = Operand.parameter(entry, 0)
     let argument = Operand.parameter(entry, 1)
 
-    switch t.output.base {
+    switch program.relations.canonical(t.output).base {
     case is ProductType, is TupleType:
-      // Nothing to do if the receiver doesn't have any stored property.
       let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
-      if layout.properties.isEmpty { break }
+
+      // Emit a load/store of the argument if it doesn't have any stored property.
+      if layout.properties.isEmpty {
+        let v = module.append(
+          module.makeLoad(argument, anchoredAt: site),
+          to: insertionBlock!)[0]
+        module.append(
+          module.makeStore(v, at: receiver, anchoredAt: site),
+          to: insertionBlock!)
+        module.append(
+          module.makeReturn(.void, anchoredAt: site),
+          to: insertionBlock!)
+      }
 
       // Move initialize each property.
       for (i, p) in layout.properties.enumerated() {
@@ -519,7 +530,7 @@ public struct Emitter {
     module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
   }
 
-  private mutating func emitMoveAssignment(
+  private mutating func emitSyntheticMoveAssign(
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
