@@ -113,19 +113,19 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(elementAddr i: InstructionID, in context: inout Context) {
-      let elementAddr = self[i] as! ElementAddrInstruction
-      if case .constant = elementAddr.base {
+      let s = self[i] as! ElementAddrInstruction
+      if case .constant = s.base {
         // Operand is a constant.
         fatalError("not implemented")
       }
 
       // Skip the instruction if an error occured upstream.
-      guard let s = context.locals[elementAddr.base] else {
+      guard let base = context.locals[s.base] else {
         assert(diagnostics.containsError)
         return
       }
 
-      let newLocations = s.unwrapLocations()!.map({ $0.appending(elementAddr.elementPath) })
+      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.elementPath) })
       context.locals[.register(i, 0)] = .locations(Set(newLocations))
     }
 
