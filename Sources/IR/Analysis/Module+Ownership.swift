@@ -29,6 +29,8 @@ extension Module {
           interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
           interpret(endBorrow: user, in: &context)
+        case is ProjectInstruction:
+          interpret(project: user, in: &context)
         default:
           continue
         }
@@ -37,12 +39,12 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
+      let s = self[i] as! AllocStackInstruction
       let l = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[l] == nil, "stack leak")
 
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(
-          of: (self[i] as! AllocStackInstruction).allocatedType, definedIn: program),
+        layout: AbstractTypeLayout(of: s.allocatedType, definedIn: program),
         value: .full(.unique))
       context.locals[.register(i, 0)] = .locations([l])
     }
@@ -149,6 +151,18 @@ extension Module {
           }
         }
       }
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(project i: InstructionID, in context: inout Context) {
+      let s = self[i] as! ProjectInstruction
+      let l = AbstractLocation.root(.register(i, 0))
+      precondition(context.memory[l] == nil, "projection leak")
+
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
+        value: .full(.unique))
+      context.locals[.register(i, 0)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
