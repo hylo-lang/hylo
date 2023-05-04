@@ -3312,7 +3312,7 @@ public struct TypeChecker {
   /// variant is incompatible with `bundle`, reporting diagnostics at `site`.
   ///
   /// - Requires `v` is in `bundle.capabilities`.
-  private mutating func variantType(
+  private func variantType(
     in bundle: SubscriptType, for v: AccessEffect, reportingDiagnosticsAt site: SourceRange
   ) -> SubscriptImplType? {
     precondition(bundle.capabilities.contains(v))
