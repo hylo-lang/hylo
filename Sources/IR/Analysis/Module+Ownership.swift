@@ -33,6 +33,8 @@ extension Module {
           interpret(endProject: user, in: &context)
         case is ProjectInstruction:
           interpret(project: user, in: &context)
+        case is WrapAddrInstruction:
+          interpret(wrapAddr: user, in: &context)
         default:
           continue
         }
