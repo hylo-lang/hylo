@@ -52,13 +52,13 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(borrow i: InstructionID, in context: inout Context) {
       let borrow = self[i] as! BorrowInstruction
-      if case .constant = borrow.location {
-        // Operand is a constant.
-        fatalError("not implemented")
-      }
+      if case .constant = borrow.location { unreachable("borrowed source is a constant") }
 
       // Skip the instruction if an error occured upstream.
-      guard context.locals[borrow.location] != nil else { return }
+      guard context.locals[borrow.location] != nil else {
+        assert(diagnostics.containsError)
+        return
+      }
 
       let former = reborrowedSource(borrow)
       var hasConflict = false
@@ -120,7 +120,10 @@ extension Module {
       }
 
       // Skip the instruction if an error occured upstream.
-      guard let s = context.locals[elementAddr.base] else { return }
+      guard let s = context.locals[elementAddr.base] else {
+        assert(diagnostics.containsError)
+        return
+      }
 
       let newLocations = s.unwrapLocations()!.map({ $0.appending(elementAddr.elementPath) })
       context.locals[.register(i, 0)] = .locations(Set(newLocations))
@@ -131,7 +134,10 @@ extension Module {
       let end = self[i] as! EndBorrowInstruction
 
       // Skip the instruction if an error occured upstream.
-      guard context.locals[end.borrow] != nil else { return }
+      guard context.locals[end.borrow] != nil else {
+        assert(diagnostics.containsError)
+        return
+      }
 
       // Remove the ended borrow from the objects' borrowers, putting the borrowed source back in
       // case the ended borrow was a reborrow.
