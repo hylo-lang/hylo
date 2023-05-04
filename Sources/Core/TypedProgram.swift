@@ -1,3 +1,5 @@
+import Utils
+
 /// A data structure representing a typed Val program ready to be lowered.
 public struct TypedProgram: Program {
 
@@ -133,19 +135,38 @@ public struct TypedProgram: Program {
   /// during type checking. Formal parameters come last, from left to right.
   public func liftedParameters(of d: SubscriptImpl.ID) -> [CallableParameterDecl] {
     let bundle = SubscriptDecl.ID(declToScope[d]!)!
+    let captures = SubscriptImplType(declTypes[d]!)!.captures
+
     var result: [CallableParameterDecl] = []
     if let r = ast[d].receiver {
-      result.append(pairedWithType(parameter: r))
+      result.append(.init(AnyDeclID(r), capturedAs: captures[0].type))
     } else {
-      result.append(contentsOf: ast[bundle].explicitCaptures.map(pairedWithType(capture:)))
-      result.append(contentsOf: implicitCaptures[bundle]!.map { (c) in
-        .init(decl: c.decl, type: ParameterType(c.type))
-      })
+      let d = ast[bundle].explicitCaptures.lazy.map(AnyDeclID.init(_:))
+        .concatenated(with: implicitCaptures[bundle]!.map(\.decl))
+      result.append(contentsOf: zip(d, captures).map({ (c, e) in
+        .init(c, capturedAs: e.type)
+      }))
     }
+
     if let p = ast[bundle].parameters {
       result.append(contentsOf: p.map(pairedWithType(parameter:)))
     }
     return result
+  }
+
+}
+
+extension CallableParameterDecl {
+
+  fileprivate init(_ d: AnyDeclID, capturedAs t: AnyType) {
+    switch t.base {
+    case let u as ParameterType:
+      self.init(decl: d, type: u)
+    case let u as RemoteType:
+      self.init(decl: d, type: ParameterType(u))
+    default:
+      self.init(decl: d, type: ParameterType(.sink, t))
+    }
   }
 
 }

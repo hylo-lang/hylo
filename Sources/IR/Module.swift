@@ -200,7 +200,7 @@ public struct Module {
     let f = Function.ID(d.id)
     if functions[f] != nil { return f }
 
-    let output = program.relations.canonical((d.type.base as! CallableType).output)
+    let output = program.relations.canonical(SubscriptImplType(d.type)!.output)
     let inputs = program.liftedParameters(of: d.id)
     functions[f] = Function(
       isSubscript: true,
