@@ -150,7 +150,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(condBranch i: InstructionID, in context: inout Context) {
       let branch = self[i] as! CondBranchInstruction
-      context.consume(branch.condition, with: i, at: branch.site, diagnostics: &diagnostics)
+      consume(branch.condition, with: i, at: branch.site, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -159,7 +159,7 @@ extension Module {
       let calleeType = LambdaType(type(of: call.callee).ast)!
 
       if calleeType.receiverEffect == .sink {
-        context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
+        consume(call.callee, with: i, at: call.site, in: &context)
       } else {
         assert(isBorrowOrConstant(call.callee))
       }
@@ -176,7 +176,7 @@ extension Module {
           }
 
         case .sink:
-          context.consume(a, with: i, at: call.site, diagnostics: &diagnostics)
+          consume(a, with: i, at: call.site, in: &context)
 
         case .yielded:
           unreachable()
@@ -190,7 +190,7 @@ extension Module {
     func interpret(callFFI i: InstructionID, in context: inout Context) {
       let s = self[i] as! CallFIIInstruction
       for a in s.operands {
-        context.consume(a, with: i, at: s.site, diagnostics: &diagnostics)
+        consume(a, with: i, at: s.site, in: &context)
       }
       initializeRegisters(createdBy: i, in: &context)
     }
@@ -210,7 +210,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deinit i: InstructionID, in context: inout Context) {
       let x = self[i] as! DeinitInstruction
-      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
+      consume(x.object, with: i, at: x.site, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -233,8 +233,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(destructure i: InstructionID, in context: inout Context) {
       let x = self[i] as! DestructureInstruction
-      context.consume(x.whole, with: i, at: x.site, diagnostics: &diagnostics)
-
+      consume(x.whole, with: i, at: x.site, in: &context)
       initializeRegisters(createdBy: i, in: &context)
     }
 
@@ -272,7 +271,9 @@ extension Module {
         context.withObject(at: l) { (o) in
           switch o.value {
           case .full(.initialized):
-            o.value = .full(.consumed(by: [i]))
+            if !o.layout.type.isBuiltin {
+              o.value = .full(.consumed(by: [i]))
+            }
           case .full(.uninitialized):
             diagnostics.insert(.useOfUninitializedObject(at: load.site))
           case .full(.consumed):
@@ -294,7 +295,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(partialApply i: InstructionID, in context: inout Context) {
       let x = self[i] as! PartialApplyInstruction
-      context.consume(x.environment, with: i, at: x.site, diagnostics: &diagnostics)
+      consume(x.environment, with: i, at: x.site, in: &context)
       initializeRegisters(createdBy: i, in: &context)
     }
 
@@ -302,7 +303,7 @@ extension Module {
     func interpret(record i: InstructionID, in context: inout Context) {
       let x = self[i] as! RecordInstruction
       for o in x.operands {
-        context.consume(o, with: i, at: x.site, diagnostics: &diagnostics)
+        consume(o, with: i, at: x.site, in: &context)
       }
 
       initializeRegisters(createdBy: i, in: &context)
@@ -322,8 +323,8 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) {
-      let x = self[i] as! ReturnInstruction
-      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
+      let s = self[i] as! ReturnInstruction
+      consume(s.object, with: i, at: s.site, in: &context)
     }
 
     /// Interprets `i` in `context`, updating the state of `machine` and reporting violations into
@@ -372,9 +373,9 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(store i: InstructionID, in context: inout Context) {
       let store = self[i] as! StoreInstruction
-      context.consume(store.object, with: i, at: store.site, diagnostics: &diagnostics)
+      consume(store.object, with: i, at: store.site, in: &context)
       context.forEachObject(at: store.target) { (o) in
-        assert(o.value.initializedPaths.isEmpty || o.layout.type.base is BuiltinType)
+        assert(o.value.initializedPaths.isEmpty || o.layout.type.isBuiltin)
         o.value = .full(.initialized)
       }
     }
@@ -396,6 +397,26 @@ extension Module {
       assert(isBorrowOrConstant(s.projection))
     }
 
+    /// Updates the state of the `o` in `context` to mark it has been consumed by `consumer` at
+    /// `site` or reports a diagnostic explaining why `o` can't be consumed.
+    func consume(
+      _ o: Operand,
+      with consumer: InstructionID,
+      at site: SourceRange,
+      in context: inout Context
+    ) {
+      // Constant values are synthesized on demand. Built-ins are never consumed.
+      if case .constant = o { return }
+      if type(of: o).ast.isBuiltin { return }
+
+      var v = context.locals[o]!.unwrapObject()!
+      if v.value == .full(.initialized) {
+        v.value = .full(.consumed(by: [consumer]))
+        context.locals[o]! = .object(v)
+      } else {
+        diagnostics.insert(.illegalMove(at: site))
+      }
+    }
   }
 
   /// Returns the initial context in which `f` should be interpreted.
@@ -544,30 +565,6 @@ private struct PartPaths {
 
   /// The paths to the consumed parts, along with the users that consumed them.
   var consumed: [(path: PartPath, consumers: State.Consumers)]
-
-}
-
-extension AbstractContext where Domain == State {
-
-  /// Updates the state of the `o` to mark it consumed by `consumer` at `site`, or report a
-  /// diagnostic in `diagnostics` explaining why `o` can't be consumed.
-  fileprivate mutating func consume(
-    _ o: Operand,
-    with consumer: InstructionID,
-    at site: SourceRange,
-    diagnostics: inout DiagnosticSet
-  ) {
-    // Constants are never consumed.
-    if case .constant = o { return }
-    var v = locals[o]!.unwrapObject()!
-
-    if v.value == .full(.initialized) {
-      v.value = .full(.consumed(by: [consumer]))
-      locals[o]! = .object(v)
-    } else {
-      diagnostics.insert(.illegalMove(at: site))
-    }
-  }
 
 }
 

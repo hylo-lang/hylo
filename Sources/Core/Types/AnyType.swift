@@ -109,11 +109,20 @@ public struct AnyType: TypeProtocol {
     base is ErrorType
   }
 
+  /// Indicates whether `self` is a built-in type.
+  ///
+  /// - Requires: `self` is canonical.
+  public var isBuiltin: Bool {
+    precondition(self[.isCanonical])
+    return base is BuiltinType
+  }
+
   /// Indicates whether `self` is Val's `Void` or `Never` type.
   ///
   /// - Requires: `self` is canonical.
   public var isVoidOrNever: Bool {
-    (self == .void) || (self == .never)
+    precondition(self[.isCanonical])
+    return (self == .void) || (self == .never)
   }
 
   /// Indicates whether `self` is a generic type parameter or associated type.
