@@ -21,7 +21,7 @@ public struct Function {
   public let linkage: Linkage
 
   /// The the function's parameters.
-  public let inputs: [CallableParameterDecl]
+  public let inputs: [Parameter]
 
   /// The type of the function's output.
   public let output: AnyType

@@ -175,7 +175,7 @@ public struct Module {
     let f = Function.ID(d.id)
 
     let output = program.relations.canonical((d.type.base as! CallableType).output)
-    let inputs = program.liftedParameters(of: d.id)
+    let inputs = loweredParameters(of: d.id)
     functions[f] = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
@@ -201,7 +201,7 @@ public struct Module {
     if functions[f] != nil { return f }
 
     let output = program.relations.canonical(SubscriptImplType(d.type)!.output)
-    let inputs = program.liftedParameters(of: d.id)
+    let inputs = loweredParameters(of: d.id)
     functions[f] = Function(
       isSubscript: true,
       name: program.debugName(decl: d.id),
@@ -221,7 +221,7 @@ public struct Module {
     let f = Function.ID(initializer: d.id)
     if functions[f] != nil { return f }
 
-    let inputs = program.liftedParameters(of: d.id)
+    let inputs = loweredParameters(of: d.id)
     functions[f] = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
@@ -234,6 +234,51 @@ public struct Module {
     // Update the cache and return the ID of the newly created function.
     loweredFunctions[d.id] = f
     return f
+  }
+
+  /// Returns the lowered declarations of `d`'s parameters.
+  private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
+    let captures = LambdaType(program.declTypes[d]!)!.captures.lazy.map { (e) in
+      program.relations.canonical(e.type)
+    }
+    var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
+        .init(c, capturedAs: e)
+    })
+    result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
+    return result
+  }
+
+  /// Returns the lowered declarations of `d`'s parameters.
+  ///
+  /// `d`'s receiver comes first and is followed by `d`'s formal parameters, from left to right.
+  private func loweredParameters(of d: InitializerDecl.ID) -> [Parameter] {
+    var result: [Parameter] = []
+    result.append(pairedWithLoweredType(parameter: program.ast[d].receiver))
+    result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
+    return result
+  }
+
+  /// Returns the lowered declarations of `d`'s parameters.
+  private func loweredParameters(of d: SubscriptImpl.ID) -> [Parameter] {
+    let captures = SubscriptImplType(program.declTypes[d]!)!.captures.lazy.map { (e) in
+      program.relations.canonical(e.type)
+    }
+    var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
+        .init(c, capturedAs: e)
+    })
+
+    let bundle = SubscriptDecl.ID(program.declToScope[d]!)!
+    if let p = program.ast[bundle].parameters {
+      result.append(contentsOf: p.map(pairedWithLoweredType(parameter:)))
+    }
+
+    return result
+  }
+
+  /// Returns `d`, which declares a parameter, paired with its lowered type.
+  private func pairedWithLoweredType(parameter d: ParameterDecl.ID) -> Parameter {
+    let t = program.relations.canonical(program.declTypes[d]!)
+    return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
   }
 
   /// Declares a synthetic function identified by `f` with type `t`.
@@ -252,7 +297,7 @@ public struct Module {
     if functions[f] != nil { return false }
 
     let output = program.relations.canonical(t.output)
-    var inputs: [CallableParameterDecl] = []
+    var inputs: [Parameter] = []
     appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
     appendParameters(t.inputs, to: &inputs)
 
@@ -271,7 +316,7 @@ public struct Module {
   private func appendCaptures(
     _ captures: [TupleType.Element],
     passed effect: AccessEffect,
-    to inputs: inout [CallableParameterDecl]
+    to inputs: inout [Parameter]
   ) {
     inputs.reserveCapacity(captures.count)
     for c in captures {
@@ -289,7 +334,7 @@ public struct Module {
   /// Appends `parameters` to `inputs`, ensuring that their types are canonical.
   private func appendParameters(
     _ parameters: [CallableTypeParameter],
-    to inputs: inout [CallableParameterDecl]
+    to inputs: inout [Parameter]
   ) {
     inputs.reserveCapacity(parameters.count)
     for p in parameters {
