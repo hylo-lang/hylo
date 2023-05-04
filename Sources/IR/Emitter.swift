@@ -1756,8 +1756,11 @@ public struct Emitter {
       let i = SubscriptDecl.Typed(d)!.impls.first(where: { $0.introducer.value == .let })!
       let f = module.getOrCreateSubscript(lowering: i)
       let t = RemoteType(.let, program.relations.canonical(SubscriptType(d.type)!.output))
+      let r = module.append(
+        module.makeBorrow(.let, from: receiver, anchoredAt: anchor),
+        to: insertionBlock!)[0]
       return module.append(
-        module.makeProject(t, applying: f, to: [receiver], anchoredAt: anchor),
+        module.makeProject(t, applying: f, to: [r], anchoredAt: anchor),
         to: insertionBlock!)[0]
 
     case VarDecl.self:

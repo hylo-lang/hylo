@@ -29,6 +29,14 @@ extension Module {
           interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
           interpret(endBorrow: user, in: &context)
+        case is EndProjectInstruction:
+          interpret(endProject: user, in: &context)
+        case is GlobalAddrInstruction:
+          interpret(globalAddr: user, in: &context)
+        case is ProjectInstruction:
+          interpret(project: user, in: &context)
+        case is WrapAddrInstruction:
+          interpret(wrapAddr: user, in: &context)
         default:
           continue
         }
@@ -37,12 +45,12 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
+      let s = self[i] as! AllocStackInstruction
       let l = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[l] == nil, "stack leak")
 
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(
-          of: (self[i] as! AllocStackInstruction).allocatedType, definedIn: program),
+        layout: AbstractTypeLayout(of: s.allocatedType, definedIn: program),
         value: .full(.unique))
       context.locals[.register(i, 0)] = .locations([l])
     }
@@ -50,13 +58,13 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(borrow i: InstructionID, in context: inout Context) {
       let borrow = self[i] as! BorrowInstruction
-      if case .constant = borrow.location {
-        // Operand is a constant.
-        fatalError("not implemented")
-      }
+      if case .constant = borrow.location { unreachable("borrowed source is a constant") }
 
       // Skip the instruction if an error occured upstream.
-      guard context.locals[borrow.location] != nil else { return }
+      guard context.locals[borrow.location] != nil else {
+        assert(diagnostics.containsError)
+        return
+      }
 
       let former = reborrowedSource(borrow)
       var hasConflict = false
@@ -111,16 +119,19 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(elementAddr i: InstructionID, in context: inout Context) {
-      let elementAddr = self[i] as! ElementAddrInstruction
-      if case .constant = elementAddr.base {
+      let s = self[i] as! ElementAddrInstruction
+      if case .constant = s.base {
         // Operand is a constant.
         fatalError("not implemented")
       }
 
       // Skip the instruction if an error occured upstream.
-      guard let s = context.locals[elementAddr.base] else { return }
+      guard let base = context.locals[s.base] else {
+        assert(diagnostics.containsError)
+        return
+      }
 
-      let newLocations = s.unwrapLocations()!.map({ $0.appending(elementAddr.elementPath) })
+      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.elementPath) })
       context.locals[.register(i, 0)] = .locations(Set(newLocations))
     }
 
@@ -129,7 +140,10 @@ extension Module {
       let end = self[i] as! EndBorrowInstruction
 
       // Skip the instruction if an error occured upstream.
-      guard context.locals[end.borrow] != nil else { return }
+      guard context.locals[end.borrow] != nil else {
+        assert(diagnostics.containsError)
+        return
+      }
 
       // Remove the ended borrow from the objects' borrowers, putting the borrowed source back in
       // case the ended borrow was a reborrow.
@@ -149,6 +163,40 @@ extension Module {
           }
         }
       }
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(endProject i: InstructionID, in context: inout Context) {
+      let s = self[i] as! EndProjectInstruction
+
+      // Skip the instruction if an error occured upstream.
+      guard context.locals[s.projection] != nil else {
+        assert(diagnostics.containsError)
+        return
+      }
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(globalAddr i: InstructionID, in context: inout Context) {
+      let s = self[i] as! GlobalAddrInstruction
+      let l = AbstractLocation.root(.register(i, 0))
+
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: s.valueType, definedIn: program),
+        value: .full(.unique))
+      context.locals[.register(i, 0)] = .locations([l])
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(project i: InstructionID, in context: inout Context) {
+      let s = self[i] as! ProjectInstruction
+      let l = AbstractLocation.root(.register(i, 0))
+      precondition(context.memory[l] == nil, "projection leak")
+
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
+        value: .full(.unique))
+      context.locals[.register(i, 0)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.

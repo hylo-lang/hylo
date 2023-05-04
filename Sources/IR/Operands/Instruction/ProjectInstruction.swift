@@ -13,6 +13,9 @@ public struct ProjectInstruction: Instruction {
   public let callee: Function.ID
 
   /// The arguments of the call.
+  ///
+  /// Operands to non-`sink` inputs must be the result of a `borrow` instruction and have no use
+  /// before `project`.
   public let operands: [Operand]
 
   /// The site of the code corresponding to that instruction.
