@@ -493,9 +493,7 @@ public struct Emitter {
         module.append(
           module.makeStore(v, at: receiver, anchoredAt: site),
           to: insertionBlock!)
-        module.append(
-          module.makeReturn(.void, anchoredAt: site),
-          to: insertionBlock!)
+        break
       }
 
       // Move initialize each property.
