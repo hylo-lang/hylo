@@ -496,7 +496,7 @@ public struct TypeChecker {
 
     case nil:
       // Requirements and FFIs can be without a body.
-      if program.isRequirement(id) || ast[id].isFFI { return }
+      if program.isRequirement(id) || ast[id].isForeignInterface { return }
 
       // Declaration requires a body.
       diagnostics.insert(.error(declarationRequiresBodyAt: ast[id].introducerSite))
@@ -1792,6 +1792,11 @@ public struct TypeChecker {
     // Realize the type of the declaration.
     var targetType = realize(decl: decl)
 
+    // Properties are not first-class.
+    if let s = SubscriptDecl.ID(decl), ast[s].isProperty {
+      targetType = SubscriptType(targetType)!.output
+    }
+
     // Erase parameter conventions.
     if let t = ParameterType(targetType) {
       targetType = t.bareType
@@ -3051,13 +3056,21 @@ public struct TypeChecker {
     }
 
     // Create a subscript type.
-    let capabilities = Set(ast[ast[d].impls].map(\.introducer.value))
-    return ^SubscriptType(
+    let m = SubscriptType(
       isProperty: ast[d].parameters == nil,
-      capabilities: capabilities,
+      capabilities: Set(ast[ast[d].impls].map(\.introducer.value)),
       environment: ^environment,
       inputs: inputs,
       output: output)
+
+    for v in ast[d].impls {
+      let t = variantType(
+        in: m, for: ast[v].introducer.value, reportingDiagnosticsAt: ast[v].introducer.site)
+      declTypes[v] = t.map(AnyType.init(_:)) ?? .error
+      declRequests[v] = .typeRealizationCompleted
+    }
+
+    return ^m
   }
 
   /// Returns the overarching type of `d`.
@@ -3293,6 +3306,34 @@ public struct TypeChecker {
 
     return LambdaType(
       receiverEffect: v, environment: environment, inputs: bundle.inputs, output: output)
+  }
+
+  /// Returns the type of variant `v` given a subscript with type `bundle` or returns `nil` if such
+  /// variant is incompatible with `bundle`, reporting diagnostics at `site`.
+  ///
+  /// - Requires `v` is in `bundle.capabilities`.
+  private mutating func variantType(
+    in bundle: SubscriptType, for v: AccessEffect, reportingDiagnosticsAt site: SourceRange
+  ) -> SubscriptImplType? {
+    precondition(bundle.capabilities.contains(v))
+
+    let transformed = bundle.transformParts { (t) in
+      switch t.base {
+      case let u as ParameterType where u.access == .yielded:
+        return .stepInto(^ParameterType(v, u.bareType))
+      case let u as RemoteType where u.access == .yielded:
+        return .stepInto(^RemoteType(v, u.bareType))
+      default:
+        return .stepInto(t)
+      }
+    }
+
+    return SubscriptImplType(
+      isProperty: transformed.isProperty,
+      receiverEffect: v,
+      environment: transformed.environment,
+      inputs: transformed.inputs,
+      output: transformed.output)
   }
 
   // MARK: Type role determination

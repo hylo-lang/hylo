@@ -1,0 +1,12 @@
+//! expect-success
+
+type A {
+  public memberwise init
+  public property x: Int { let { 0 } }
+}
+
+fun check<T>(_ x: T) {}
+
+public fun main() {
+  check<Int>(A().x)
+}

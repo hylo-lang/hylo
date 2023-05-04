@@ -12,13 +12,17 @@ extension LLVM.Module {
     setInitializer(v, for: d)
   }
 
-  /// Transpiles and incorporates `f`, which is a function of `m` in `ir`.
+  /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
   mutating func incorporate(_ f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram) {
-    let d = declare(f, of: m, from: ir)
-    transpile(contentsOf: f, of: m, from: ir, into: d)
-
-    if f == m.entryFunctionID {
-      defineMain(calling: f, of: m, from: ir)
+    if m[f].isSubscript {
+      let d = declare(subscript: f, of: m, from: ir)
+      transpile(contentsOf: f, of: m, from: ir, into: d)
+    } else {
+      let d = declare(function: f, of: m, from: ir)
+      transpile(contentsOf: f, of: m, from: ir, into: d)
+      if f == m.entryFunctionID {
+        defineMain(calling: f, of: m, from: ir)
+      }
     }
   }
 
@@ -36,7 +40,7 @@ extension LLVM.Module {
     let transpilation = function(named: ir.abiName(of: f))!
 
     let val32 = ir.syntax.ast.coreType("Int32")!
-    switch m[f].output.ast {
+    switch m[f].output {
     case val32:
       let t = StructType(ir.syntax.llvm(val32, in: &self))!
       let s = insertAlloca(t, at: p)
@@ -69,6 +73,52 @@ extension LLVM.Module {
     }
     let ptr = PointerType(in: &self)
     return StructType([ptr, ptr], in: &self)
+  }
+
+  /// Returns the prototype of subscript slides.
+  private mutating func slidePrototype() -> LLVM.Function {
+    if let f = function(named: "_val_slide") {
+      return f
+    }
+
+    let f = declareFunction(
+      "_val_slide",
+      FunctionType(
+        from: [PointerType(in: &self), IntegerType(1, in: &self)],
+        to: VoidType(in: &self),
+        in: &self))
+    addAttribute(named: .zeroext, to: f.parameters[1])
+
+    return f
+  }
+
+  /// Returns the declaration of `malloc`.
+  private mutating func mallocPrototype() -> LLVM.Function {
+    if let f = function(named: "malloc") {
+      return f
+    }
+
+    let f = declareFunction(
+      "malloc",
+      FunctionType(from: [IntegerType(32, in: &self)], to: PointerType(in: &self), in: &self))
+    addAttribute(named: .noundef, to: f.parameters[0])
+    addAttribute(named: .noalias, to: f.returnValue)
+
+    return f
+  }
+
+  /// Returns the declaration of `free`.
+  private mutating func freePrototype() -> LLVM.Function {
+    if let f = function(named: "free") {
+      return f
+    }
+
+    let f = declareFunction(
+      "free",
+      FunctionType(from: [PointerType(in: &self)], to: VoidType(in: &self), in: &self))
+    addAttribute(named: .noundef, to: f.parameters[0])
+
+    return f
   }
 
   /// Returns the type of a transpiled function whose type in Val is `t`.
@@ -122,7 +172,7 @@ extension LLVM.Module {
     case let v as IR.PointerConstant:
       return global(named: "\(v.container)\(v.id)")!
 
-    case let v as IR.FunctionRef:
+    case let v as IR.FunctionReference:
       return declare(v, from: ir)
 
     case is IR.Poison:
@@ -172,32 +222,54 @@ extension LLVM.Module {
   }
 
   /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
-  private mutating func declare(_ ref: IR.FunctionRef, from ir: LoweredProgram) -> LLVM.Function {
+  private mutating func declare(
+    _ ref: IR.FunctionReference, from ir: LoweredProgram
+  ) -> LLVM.Function {
     let t = transpiledType(LambdaType(ref.type.ast)!)
     return declareFunction(ir.abiName(of: ref.function), t)
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
   private mutating func declare(
-    _ f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram
+    function f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram
   ) -> LLVM.Function {
-    let ptr = LLVM.PointerType(in: &self)
+    precondition(!m[f].isSubscript)
 
     // Parameters and return values are passed by reference.
+    let ptr = LLVM.PointerType(in: &self)
     var parameters: [LLVM.IRType] = []
-    if !m[f].output.ast.isVoidOrNever {
+    if !m[f].output.isVoidOrNever {
       parameters.append(ptr)
     }
     parameters.append(contentsOf: Array(repeating: ptr, count: m[f].inputs.count))
     let result = declareFunction(ir.abiName(of: f), .init(from: parameters, in: &self))
 
-    if m[f].output.ast == .never {
+    if m[f].output == .never {
       addAttribute(.init(.noreturn, in: &self), to: result)
     }
 
     return result
   }
 
+  /// Inserts and returns the transpiled declaration of `f`, which is a subscript of `m` in `ir`.
+  private mutating func declare(
+    subscript f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram
+  ) -> LLVM.Function {
+    precondition(m[f].isSubscript)
+
+    // Parameters are a buffer for the subscript frame followed by its declared parameters. Return
+    // type is a pair `(c, p)` where `c` points to a subscript slide and `p` is the address of the
+    // projected value.
+    let ptr = LLVM.PointerType(in: &self)
+    let ret = LLVM.StructType([ptr, ptr], in: &self)
+    let parameters = Array(repeating: ptr, count: m[f].inputs.count + 1)
+    let coroutine = declareFunction(ir.abiName(of: f), .init(from: parameters, to: ret, in: &self))
+
+    return coroutine
+  }
+
+  /// Inserts into `transpilation `the transpiled contents of `f`, which is a function or subscript
+  /// of `m` in `ir`.
   private mutating func transpile(
     contentsOf f: IR.Function.ID,
     of m: IR.Module,
@@ -216,10 +288,23 @@ extension LLVM.Module {
     /// A map from Val IR register to its LLVM counterpart.
     var register: [IR.Operand: LLVM.IRValue] = [:]
 
-    let prologue = appendBlock(named: "prologue", to: transpilation)
-    insertionPoint = endOf(prologue)
+    /// The address of the function's frame if `f` is a subscript. Otherwise, `nil`.
+    let frame: LLVM.IRValue?
 
-    let parameterOffset = m[f].output.ast.isVoidOrNever ? 0 : 1
+    /// The prologue of the transpiled function, which contains its stack allocations.
+    let prologue = appendBlock(named: "prologue", to: transpilation)
+
+    let parameterOffset: Int
+    if m[f].isSubscript {
+      // In subscripts, parameters are laid out after the frame buffer.
+      parameterOffset = 1
+      frame = insertSubscriptPrologue(into: transpilation)
+    } else {
+      // In functions, parameters are laid out after the return value.
+      parameterOffset = m[f].output.isVoidOrNever ? 0 : 1
+      frame = nil
+    }
+
     for i in m[f].inputs.indices {
       let o = Operand.parameter(.init(f, entry), i)
       let s = transpilation.parameters[parameterOffset + i]
@@ -266,12 +351,16 @@ extension LLVM.Module {
         insert(elementAddr: i)
       case is IR.EndBorrowInstruction:
         return
+      case is IR.EndProjectInstruction:
+        insert(endProjection: i)
       case is IR.LLVMInstruction:
         insert(llvm: i)
       case is IR.LoadInstruction:
         insert(load: i)
       case is IR.PartialApplyInstruction:
         insert(partialApply: i)
+      case is IR.ProjectInstruction:
+        insert(project: i)
       case is IR.RecordInstruction:
         insert(record: i)
       case is IR.ReturnInstruction:
@@ -282,6 +371,8 @@ extension LLVM.Module {
         insert(unreachable: i)
       case is IR.WrapAddrInstruction:
         insert(wrapAddr: i)
+      case is IR.YieldInstruction:
+        insert(yield: i)
       default:
         fatalError("not implemented")
       }
@@ -411,6 +502,23 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(endProjection i: IR.InstructionID) {
+      let s = m[i] as! EndProjectInstruction
+      let start = s.projection.instruction!
+      assert(m[start] is ProjectInstruction)
+
+      let i1 = LLVM.IntegerType(1, in: &self)
+      let t = LLVM.FunctionType(
+        from: [LLVM.PointerType(in: &self), i1],
+        to: LLVM.VoidType(in: &self),
+        in: &self)
+
+      let slide = register[.register(start, 1)]!
+      let buffer = register[.register(start, 2)]!
+      _ = insertCall(slide, typed: t, on: [buffer, i1.zero], at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(llvm i: IR.InstructionID) {
       let s = m[i] as! IR.LLVMInstruction
       switch s.instruction {
@@ -473,6 +581,41 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(project i: IR.InstructionID) {
+      let s = m[i] as! IR.ProjectInstruction
+
+      // %0 = alloca [8 x i8], align 8
+      let buffer = LLVM.ArrayType(8, LLVM.IntegerType(8, in: &self), in: &self)
+      let x0 = insertAlloca(buffer, at: insertionPoint)
+      setAlignment(8, for: x0)
+
+      // All arguments are passed by reference.
+      var arguments: [LLVM.IRValue] = [x0]
+      for a in s.operands {
+        if m.type(of: a).isObject {
+          let t = ir.syntax.llvm(s.types[0].ast, in: &self)
+          let l = insertAlloca(t, atEntryOf: transpilation)
+          insertStore(llvm(a), to: l, at: insertionPoint)
+          arguments.append(l)
+        } else {
+          arguments.append(llvm(a))
+        }
+      }
+
+      // %1 = call ptr @llvm.coro.prepare.retcon(ptr @s)
+      let f = declare(subscript: s.callee, of: m, from: ir)
+      let prepare = intrinsic(named: Intrinsic.llvm.coro.prepare.retcon)!
+      let x1 = insertCall(LLVM.Function(prepare)!, on: [f], at: insertionPoint)
+
+      // %2 = call {ptr, ptr} %1(...)
+      let x2 = insertCall(x1, typed: f.valueType, on: arguments, at: insertionPoint)
+
+      register[.register(i, 0)] = insertExtractValue(from: x2, at: 1, at: insertionPoint)
+      register[.register(i, 1)] = insertExtractValue(from: x2, at: 0, at: insertionPoint)
+      register[.register(i, 2)] = x0
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(record i: IR.InstructionID) {
       let s = m[i] as! IR.RecordInstruction
       let t = ir.syntax.llvm(s.objectType.ast, in: &self)
@@ -486,11 +629,19 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(return i: IR.InstructionID) {
-      let s = m[i] as! IR.ReturnInstruction
-      if !m.type(of: s.object).ast.isVoidOrNever {
-        insertStore(llvm(s.object), to: transpilation.parameters[0], at: insertionPoint)
+      if m[f].isSubscript {
+        _ = insertCall(
+          LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.end)!)!,
+          on: [frame!, IntegerType(1, in: &self).zero],
+          at: insertionPoint)
+        _ = insertUnreachable(at: insertionPoint)
+      } else {
+        let s = m[i] as! IR.ReturnInstruction
+        if !m.type(of: s.object).ast.isVoidOrNever {
+          insertStore(llvm(s.object), to: transpilation.parameters[0], at: insertionPoint)
+        }
+        insertReturn(at: insertionPoint)
       }
-      insertReturn(at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -511,6 +662,19 @@ extension LLVM.Module {
       let a = insertAlloca(t, atEntryOf: transpilation)
       insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)
       register[.register(i, 0)] = a
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(yield i: IR.InstructionID) {
+      let s = m[i] as! IR.YieldInstruction
+      let p = llvm(s.projection)
+
+      // The intrinsic will return a non-zero result if the subscript should resume abnormally.
+      let i1 = IntegerType(1, in: &self)
+      _ = insertCall(
+        LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.suspend.retcon, for: [i1])!)!,
+        on: [p],
+        at: insertionPoint)
     }
 
     /// Returns the LLVM IR value corresponding to the Val IR operand `o`.
@@ -551,6 +715,26 @@ extension LLVM.Module {
       v = insertInsertValue(llvm(table), at: 1, into: v, at: insertionPoint)
       return v
     }
+  }
+
+  /// Inserts the prologue of the subscript `transpilation` at the end of its entry and returns
+  /// a pointer to its stack frame.
+  fileprivate mutating func insertSubscriptPrologue(
+    into transpilation: LLVM.Function
+  ) -> IRValue {
+    let insertionPoint = endOf(transpilation.entry!)
+    let i32 = IntegerType(32, in: &self)
+    let id = insertCall(
+      LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.id.retcon.once)!)!,
+      on: [
+        i32.constant(8), i32.constant(8), transpilation.parameters[0],
+        slidePrototype(), mallocPrototype(), freePrototype(),
+      ],
+      at: insertionPoint)
+    return insertCall(
+      LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.begin)!)!,
+      on: [id, PointerType(in: &self).null],
+      at: insertionPoint)
   }
 
 }

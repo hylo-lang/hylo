@@ -119,42 +119,39 @@ public struct Emitter {
     functionDecl d: FunctionDecl.Typed,
     into module: inout Module
   ) -> Function.ID {
-    let f = module.getOrCreateFunction(correspondingTo: d)
-
+    let f = module.getOrCreateFunction(lowering: d)
     guard let b = d.body else {
-      if d.isFFI { emitFFI(d, into: &module) }
+      if d.isForeignInterface { emitFFI(d, into: &module) }
       return f
     }
 
     // Create the function entry.
-    assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
 
     // Configure the locals.
     var locals = TypedDeclProperty<Operand>()
 
-    for (i, capture) in d.explicitCaptures.enumerated() {
-      locals[capture] = .parameter(entry, i)
+    for (i, c) in d.explicitCaptures.enumerated() {
+      locals[c] = .parameter(entry, i)
+    }
+    for (i, c) in d.implicitCaptures!.enumerated() {
+      locals[program[c.decl]] = .parameter(entry, i + d.explicitCaptures.count)
     }
 
-    for (i, capture) in d.implicitCaptures!.enumerated() {
-      locals[program[capture.decl]] = .parameter(entry, i + d.explicitCaptures.count)
+    var captureCount = d.explicitCaptures.count + d.implicitCaptures!.count
+    if let r = d.receiver {
+      locals[r] = .parameter(entry, captureCount)
+      captureCount += 1
     }
 
-    var implicitParameterCount = d.explicitCaptures.count + d.implicitCaptures!.count
-    if let receiver = d.receiver {
-      locals[receiver] = .parameter(entry, implicitParameterCount)
-      implicitParameterCount += 1
+    for (i, p) in d.parameters.enumerated() {
+      locals[p] = .parameter(entry, i + captureCount)
     }
 
-    for (i, parameter) in d.parameters.enumerated() {
-      locals[parameter] = .parameter(entry, i + implicitParameterCount)
-    }
-
-    insertionBlock = entry
-    receiver = d.receiver
-    frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
+    // Configure the emitter context.
+    self.insertionBlock = entry
+    self.receiver = d.receiver
+    self.frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
 
     // Emit the body.
     switch b {
@@ -176,12 +173,8 @@ public struct Emitter {
 
   /// Inserts the IR for calling `d` into `module`.
   private mutating func emitFFI(_ d: FunctionDecl.Typed, into module: inout Module) {
-    let f = module.getOrCreateFunction(correspondingTo: d)
-
-    // Create the function entry.
-    assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let f = module.getOrCreateFunction(lowering: d)
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
     frames.push(.init(scope: AnyScopeID(d.id)))
     defer {
@@ -197,15 +190,15 @@ public struct Emitter {
       arguments.append(a)
     }
 
+    let output = module.functions[f]!.output
     let foreignResult = module.append(
       module.makeCallFII(
-        returning: module.functions[f]!.output,
+        returning: .object(output),
         applying: d.foreignName!,
         to: arguments, anchoredAt: d.site),
       to: insertionBlock!)[0]
 
     // Handle FFIs without return values.
-    let output = module.functions[f]!.output.ast
     if output.isVoidOrNever {
       module.append(module.makeReturn(.void, anchoredAt: d.site), to: insertionBlock!)
       return
@@ -226,10 +219,7 @@ public struct Emitter {
   ) {
     if d.isMemberwise { return }
     let f = module.initializerDeclaration(lowering: d)
-
-    assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
     // Configure the locals.
@@ -249,9 +239,70 @@ public struct Emitter {
     assert(frames.isEmpty)
   }
 
-  /// Inserts the IR for `decl` into `module`.
-  private mutating func emit(subscriptDecl decl: SubscriptDecl.Typed, into module: inout Module) {
-    fatalError("not implemented")
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(subscriptDecl d: SubscriptDecl.Typed, into module: inout Module) {
+    for i in d.impls {
+      emit(subscriptImpl: i, into: &module)
+    }
+  }
+
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(subscriptImpl d: SubscriptImpl.Typed, into module: inout Module) {
+    let f = module.getOrCreateSubscript(lowering: d)
+    guard let b = d.body else { return }
+
+    // Create the function entry.
+    let entry = module.appendEntry(to: f)
+
+    // Configure the locals.
+    var locals = TypedDeclProperty<Operand>()
+
+    let bundle = SubscriptDecl.Typed(d.parent!)!
+    for (i, c) in bundle.explicitCaptures.enumerated() {
+      locals[c] = .parameter(entry, i)
+    }
+    for (i, c) in bundle.implicitCaptures!.enumerated() {
+      locals[program[c.decl]] = .parameter(entry, i + bundle.explicitCaptures.count)
+    }
+
+    var captureCount = bundle.explicitCaptures.count + bundle.implicitCaptures!.count
+    if let receiver = d.receiver {
+      locals[receiver] = .parameter(entry, captureCount)
+      captureCount += 1
+    }
+
+    if let parameters = bundle.parameters {
+      for (i, p) in parameters.enumerated() {
+        locals[program[p]] = .parameter(entry, i + captureCount)
+      }
+    }
+
+    // Configure the emitter context.
+    self.insertionBlock = entry
+    self.receiver = d.receiver
+    self.frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
+
+    // Emit the body.
+    switch b {
+    case .block(let s):
+      emit(stmt: program[s], into: &module)
+
+    case .expr(let e):
+      let s = emitLValue(program[e], into: &module)
+      let b = module.append(
+        module.makeBorrow(d.introducer.value, from: s, anchoredAt: program.ast[e].site),
+        to: insertionBlock!)[0]
+      module.append(
+        module.makeYield(d.introducer.value, b, anchoredAt: program.ast[e].site),
+        to: insertionBlock!)
+      emitStackDeallocs(in: &module, site: program.ast[e].site)
+      module.append(
+        module.makeReturn(.void, anchoredAt: program.ast[e].site),
+        to: insertionBlock!)
+    }
+
+    frames.pop()
+    assert(frames.isEmpty)
   }
 
   /// Inserts the IR for `decl` into `module`.
@@ -282,6 +333,7 @@ public struct Emitter {
   ///
   /// - Requires: `d` is a global binding.
   private mutating func emit(globalBindingDecl d: BindingDecl.Typed, into module: inout Module) {
+    fatalError("not implemented")
   }
 
   /// Inserts the IR for the local binding `decl` into `module`.
@@ -423,8 +475,7 @@ public struct Emitter {
     let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
     if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
 
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
     let receiver = Operand.parameter(entry, 0)
@@ -477,8 +528,7 @@ public struct Emitter {
     let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
     if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
 
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
     let receiver = Operand.parameter(entry, 0)
@@ -520,6 +570,8 @@ public struct Emitter {
       emit(returnStmt: ReturnStmt.Typed(stmt)!, into: &module)
     case WhileStmt.self:
       emit(whileStmt: WhileStmt.Typed(stmt)!, into: &module)
+    case YieldStmt.self:
+      emit(yieldStmt: YieldStmt.Typed(stmt)!, into: &module)
     default:
       unexpected(stmt)
     }
@@ -697,6 +749,18 @@ public struct Emitter {
     insertionBlock = loopTail
   }
 
+  private mutating func emit(yieldStmt stmt: YieldStmt.Typed, into module: inout Module) {
+    // TODO: Read mutability of current subscript
+
+    let s = emitLValue(program[stmt.value], into: &module)
+    let b = module.append(
+      module.makeBorrow(.let, from: s, anchoredAt: stmt.site),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeYield(.let, b, anchoredAt: stmt.site),
+      to: insertionBlock!)
+  }
+
   // MARK: r-values
 
   /// Inserts the IR for the rvalue `expr` into `module` at the end of the current insertion block.
@@ -748,11 +812,9 @@ public struct Emitter {
     booleanLiteral expr: BooleanLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let value = Operand.constant(IntegerConstant(expr.value ? 1 : 0, bitWidth: 1))
-    let boolType = program.ast.coreType("Bool")!
-    return module.append(
-      module.makeRecord(boolType, aggregating: [value], anchoredAt: expr.site),
-      to: insertionBlock!)[0]
+    let bool = program.ast.coreType("Bool")!
+    let s = module.makeRecord(bool, aggregating: [.i1(expr.value)], anchoredAt: expr.site)
+    return module.append(s, to: insertionBlock!)[0]
   }
 
   private mutating func emitRValue(
@@ -1035,8 +1097,8 @@ public struct Emitter {
     lambda e: LambdaExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let d = emit(functionDecl: e.decl, into: &module)
-    let f = FunctionRef(to: d, type: .address(e.decl.type))
+    _ = emit(functionDecl: e.decl, into: &module)
+    let f = FunctionReference(to: program[e.decl], in: &module)
     return module.append(
       module.makePartialApply(wrapping: f, with: .void, anchoredAt: e.site),
       to: insertionBlock!)[0]
@@ -1157,7 +1219,7 @@ public struct Emitter {
         unreachable()
       }
       let f = Operand.constant(
-        FunctionRef(to: .init(FunctionDecl.ID(calleeDecl)!), type: .address(calleeType)))
+        FunctionReference(to: program[FunctionDecl.ID(calleeDecl)!], in: &module))
 
       // Emit the call.
       return module.append(
@@ -1242,17 +1304,17 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
-      let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType))
+      let ref = FunctionReference(to: FunctionDecl.Typed(d)!, in: &module)
       return (.constant(ref), [])
 
     case .direct(let d) where d.kind == InitializerDecl.self:
       // Callee is a direct reference to an initializer declaration.
-      let ref = FunctionRef(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
+      let ref = FunctionReference(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
       return (.constant(ref), [])
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
-      let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType.lifted))
+      let ref = FunctionReference(to: FunctionDecl.Typed(d)!, in: &module)
       let fun = Operand.constant(ref)
 
       // Emit the location of the receiver.
@@ -1494,7 +1556,7 @@ public struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionRef(to: program[InitializerDecl.ID(m)!], in: &module)
+      let convert = FunctionReference(to: program[InitializerDecl.ID(m)!], in: &module)
       let x0 = module.append(
         module.makeAllocStack(ir, anchoredAt: site),
         to: insertionBlock!)[0]
@@ -1535,7 +1597,7 @@ public struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionRef(to: program[FunctionDecl.ID(m)!], in: &module)
+      let convert = FunctionReference(to: program[FunctionDecl.ID(m)!], in: &module)
       let x0 = module.append(
         module.makeBorrow(.let, from: o, anchoredAt: site),
         to: insertionBlock!)
@@ -1678,22 +1740,32 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
-  /// Returns the address of the member declared by `decl` and bound to `receiverAddress`,
-  /// inserting IR anchored at `anchor` into `module`.
+  /// Returns the address of the member declared by `d` and bound to `receiver`, inserting IR
+  /// anchored at `anchor` into `module`.
   private mutating func addressOfMember(
-    boundTo receiverAddress: Operand,
-    declaredBy decl: AnyDeclID.TypedNode,
+    boundTo receiver: Operand,
+    declaredBy d: AnyDeclID.TypedNode,
     into module: inout Module,
     at anchor: SourceRange
   ) -> Operand {
-    switch decl.kind {
+    switch d.kind {
+    case SubscriptDecl.self:
+      // TODO: Handle mutable projections
+      // TODO: Handle generics
+
+      let i = SubscriptDecl.Typed(d)!.impls.first(where: { $0.introducer.value == .let })!
+      let f = module.getOrCreateSubscript(lowering: i)
+      let t = RemoteType(.let, program.relations.canonical(SubscriptType(d.type)!.output))
+      return module.append(
+        module.makeProject(t, applying: f, to: [receiver], anchoredAt: anchor),
+        to: insertionBlock!)[0]
+
     case VarDecl.self:
       let receiverLayout = AbstractTypeLayout(
-        of: module.type(of: receiverAddress).ast, definedIn: program)
-
-      let i = receiverLayout.offset(of: VarDecl.Typed(decl)!.baseName)!
+        of: module.type(of: receiver).ast, definedIn: program)
+      let i = receiverLayout.offset(of: VarDecl.Typed(d)!.baseName)!
       return module.append(
-        module.makeElementAddr(receiverAddress, at: [i], anchoredAt: anchor),
+        module.makeElementAddr(receiver, at: [i], anchoredAt: anchor),
         to: insertionBlock!)[0]
 
     default:
@@ -1757,7 +1829,7 @@ public struct Emitter {
       assert(t[.isCanonical])
 
       let callee = LambdaType(t)!.lifted
-      let ref = FunctionRef(
+      let ref = FunctionReference(
         to: .init(synthesized: program.moveDecl(access), for: t),
         type: .address(callee))
       let fun = Operand.constant(ref)

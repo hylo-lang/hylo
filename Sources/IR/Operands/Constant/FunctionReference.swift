@@ -1,7 +1,7 @@
 import Core
 
 /// A Val IR reference to a user function.
-public struct FunctionRef: Constant, Hashable {
+public struct FunctionReference: Constant, Hashable {
 
   /// The ID of the referred IR function.
   public let function: Function.ID
@@ -17,7 +17,7 @@ public struct FunctionRef: Constant, Hashable {
 
   /// Creates a reference to the lowered form of `d` in `module`.
   public init(to d: FunctionDecl.Typed, in module: inout Module) {
-    self.function = module.getOrCreateFunction(correspondingTo: d)
+    self.function = module.getOrCreateFunction(lowering: d)
     self.type = .address(LambdaType(d.type)!.lifted)
   }
 
@@ -29,7 +29,7 @@ public struct FunctionRef: Constant, Hashable {
 
 }
 
-extension FunctionRef: CustomStringConvertible {
+extension FunctionReference: CustomStringConvertible {
 
   public var description: String { "@\(function)" }
 

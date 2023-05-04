@@ -8,6 +8,9 @@ public struct Function {
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
 
+  /// `true` iff the function implements a subscript.
+  public let isSubscript: Bool
+
   /// The mangled name of the function.
   public let name: String
 
@@ -21,7 +24,7 @@ public struct Function {
   public let inputs: [ParameterType]
 
   /// The type of the function's output.
-  public let output: LoweredType
+  public let output: AnyType
 
   /// The blocks in the function.
   public private(set) var blocks: Blocks
@@ -83,6 +86,9 @@ extension Function {
       /// The identity of a lowered Val function, initializer, or method variant.
       case lowered(AnyDeclID)
 
+      /// The identity of a lowered subscript variant.
+      case loweredSubscript(SubscriptImpl.ID)
+
       /// The identity of an initializer's constructor form.
       case constructor(InitializerDecl.ID)
 
@@ -100,6 +106,11 @@ extension Function {
     /// Creates the identity of the lowered form of `f`.
     public init(_ f: FunctionDecl.ID) {
       self.value = .lowered(AnyDeclID(f))
+    }
+
+    /// Creates the identity of the lowered form of `s`.
+    public init(_ s: SubscriptImpl.ID) {
+      self.value = .loweredSubscript(s)
     }
 
     /// Creates the identity of the lowered form of `f` used as an initializer.
@@ -126,6 +137,8 @@ extension Function.ID: CustomStringConvertible {
   public var description: String {
     switch value {
     case .lowered(let d):
+      return "\(d).lowered"
+    case .loweredSubscript(let d):
       return "\(d).lowered"
     case .constructor(let d):
       return "\(d).constructor"

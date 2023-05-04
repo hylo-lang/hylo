@@ -45,6 +45,8 @@ extension Module {
           interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
           continue
+        case is EndProjectInstruction:
+          continue
         case is GlobalAddrInstruction:
           interpret(globalAddr: user, in: &context)
         case is LLVMInstruction:
@@ -53,6 +55,8 @@ extension Module {
           interpret(load: user, in: &context)
         case is PartialApplyInstruction:
           interpret(partialApply: user, in: &context)
+        case is ProjectInstruction:
+          interpret(project: user, in: &context)
         case is RecordInstruction:
           interpret(record: user, in: &context)
         case is ReturnInstruction:
@@ -65,6 +69,8 @@ extension Module {
           continue
         case is WrapAddrInstruction:
           interpret(wrapAddr: user, in: &context)
+        case is YieldInstruction:
+          interpret(yield: user, in: &context)
         default:
           unreachable("unexpected instruction")
         }
@@ -303,6 +309,18 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(project i: InstructionID, in context: inout Context) {
+      // TODO: Process arguments
+
+      let s = self[i] as! ProjectInstruction
+      let l = AbstractLocation.root(.register(i, 0))
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
+        value: .full(s.projection.access == .set ? .uninitialized : .initialized))
+      context.locals[.register(i, 0)] = .locations([l])
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) {
       let x = self[i] as! ReturnInstruction
       context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
@@ -370,6 +388,12 @@ extension Module {
       }
 
       context.locals[.register(i, 0)] = context.locals[s.witness]
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(yield i: InstructionID, in context: inout Context) {
+      let s = self[i] as! YieldInstruction
+      assert(isBorrowOrConstant(s.projection))
     }
 
   }

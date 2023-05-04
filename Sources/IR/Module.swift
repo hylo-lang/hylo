@@ -169,53 +169,71 @@ public struct Module {
     return id
   }
 
-  /// Declares the function identified by `f` with type `t` and name `n` at given `site` if `f`.
+  /// Declares a function identified by `f` with type `t`.
   ///
+  /// - Parameters:
+  ///   - n: A human-readable name identifying the function.
+  ///   - site: The site in the Val sources to which the function is attached.
   /// - Returns: `true` iff `f` wasn't already declared in `self`.
   @discardableResult
   mutating func declareFunction(
     identifiedBy f: Function.ID,
     typed t: LambdaType,
-    named n: String = "",
+    named n: String? = nil,
     at site: SourceRange
   ) -> Bool {
     if functions[f] != nil { return false }
 
-    var parameters: [ParameterType] = []
-    parameters.reserveCapacity(t.captures.count + t.inputs.count)
+    let output = program.relations.canonical(t.output)
+    var inputs: [ParameterType] = []
+    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
+    appendParameters(t.inputs, to: &inputs)
 
-    // Define inputs for the captures.
-    for capture in t.captures {
-      switch program.relations.canonical(capture.type).base {
-      case let p as RemoteType:
-        precondition(p.access != .yielded, "cannot lower yielded parameter")
-        parameters.append(ParameterType(p))
-      case let p:
-        precondition(t.receiverEffect != .yielded, "cannot lower yielded parameter")
-        parameters.append(ParameterType(t.receiverEffect, ^p))
-      }
-    }
-
-    // Define inputs for the parameters.
-    for i in t.inputs {
-      let p = ParameterType(program.relations.canonical(i.type))!
-      precondition(p.access != .yielded, "cannot lower yielded parameter")
-      parameters.append(p)
-    }
-
-    let output = LoweredType.object(program.relations.canonical(t.output))
     functions[f] = Function(
-      name: n,
+      isSubscript: false,
+      name: n ?? "",
       anchor: site.first(),
       linkage: .external,
-      inputs: parameters,
+      inputs: inputs,
       output: output,
       blocks: [])
     return true
   }
 
+  /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
+  private func appendCaptures(
+    _ captures: [TupleType.Element],
+    passed effect: AccessEffect,
+    to inputs: inout [ParameterType]
+  ) {
+    inputs.reserveCapacity(captures.count)
+    for c in captures {
+      switch program.relations.canonical(c.type).base {
+      case let p as RemoteType:
+        precondition(p.access != .yielded, "cannot lower yielded parameter")
+        inputs.append(ParameterType(p))
+      case let p:
+        precondition(effect != .yielded, "cannot lower yielded parameter")
+        inputs.append(ParameterType(effect, ^p))
+      }
+    }
+  }
+
+  /// Appends `parameters` to `inputs`, ensuring that their types are canonical.
+  private func appendParameters(
+    _ parameters: [CallableTypeParameter],
+    to inputs: inout [ParameterType]
+  ) {
+    inputs.reserveCapacity(parameters.count)
+    for p in parameters {
+      let t = ParameterType(program.relations.canonical(p.type))!
+      precondition(t.access != .yielded, "cannot lower yielded parameter")
+      inputs.append(t)
+    }
+  }
+
   /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func getOrCreateFunction(correspondingTo d: FunctionDecl.Typed) -> Function.ID {
+  mutating func getOrCreateFunction(lowering d: FunctionDecl.Typed) -> Function.ID {
     if let f = loweredFunctions[d.id] { return f }
     let f = Function.ID(d.id)
     let n = program.debugName(decl: d.id)
@@ -235,8 +253,29 @@ public struct Module {
       entryFunctionID = f
     }
 
-    // Update the cache and return the ID of the newly created function.
     loweredFunctions[d.id] = f
+    return f
+  }
+
+  /// Returns the identity of the Val IR function corresponding to `d`.
+  mutating func getOrCreateSubscript(lowering d: SubscriptImpl.Typed) -> Function.ID {
+    let f = Function.ID(d.id)
+    if functions[f] != nil { return f }
+
+    let t = SubscriptImplType(d.type)!
+    var inputs: [ParameterType] = []
+    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
+    appendParameters(t.inputs, to: &inputs)
+
+    functions[f] = Function(
+      isSubscript: true,
+      name: program.debugName(decl: d.id),
+      anchor: d.site.first(),
+      linkage: .external,
+      inputs: inputs,
+      output: program.relations.canonical(t.output),
+      blocks: [])
+
     return f
   }
 
@@ -251,11 +290,12 @@ public struct Module {
     let f = Function.ID(initializer: d.id)
     assert(functions[f] == nil)
     functions[f] = Function(
+      isSubscript: false,
       name: program.debugName(decl: d.id),
       anchor: d.introducer.site.first(),
       linkage: d.isPublic ? .external : .module,
       inputs: parameters,
-      output: LoweredType.object(declType.output),
+      output: program.relations.canonical(declType.output),
       blocks: [])
 
     // Update the cache and return the ID of the newly created function.
@@ -263,14 +303,25 @@ public struct Module {
     return f
   }
 
-  /// Appends a basic block to specified function and returns its identifier.
+  /// Appends an entry block to `f` and returns its identifier.
+  ///
+  /// - Requires: `f` is declared in `self` and doesn't have an entry block.
+  @discardableResult
+  mutating func appendEntry(to f: Function.ID) -> Block.ID {
+    assert(functions[f]!.blocks.isEmpty)
+    return appendBlock(taking: functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+  }
+
+  /// Appends a basic block taking `parameters` to `f` and returns its identifier.
+  ///
+  /// - Requires: `f` is declared in `self`.
   @discardableResult
   mutating func appendBlock(
     taking parameters: [LoweredType] = [],
-    to function: Function.ID
+    to f: Function.ID
   ) -> Block.ID {
-    let address = functions[function]!.appendBlock(taking: parameters)
-    return Block.ID(function, address)
+    let a = functions[f]!.appendBlock(taking: parameters)
+    return Block.ID(f, a)
   }
 
   /// Removes `block` and updates def-use chains.

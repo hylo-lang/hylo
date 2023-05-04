@@ -1,7 +1,0 @@
-{
-	// List of extensions which should be recommended for users of this workspace.
-	"recommendations": [
-		"sswg.swift-lang",
-		"ms-vscode-remote.remote-containers"
-	]
-}
