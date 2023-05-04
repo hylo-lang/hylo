@@ -169,14 +169,14 @@ public struct Module {
     return id
   }
 
-  /// Declares a function identified by `f` with type `t`.
+  /// Declares a synthetic function identified by `f` with type `t`.
   ///
   /// - Parameters:
   ///   - n: A human-readable name identifying the function.
   ///   - site: The site in the Val sources to which the function is attached.
   /// - Returns: `true` iff `f` wasn't already declared in `self`.
   @discardableResult
-  mutating func declareFunction(
+  mutating func declareSyntheticFunction(
     identifiedBy f: Function.ID,
     typed t: LambdaType,
     named n: String? = nil,

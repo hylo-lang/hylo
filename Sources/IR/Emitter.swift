@@ -473,7 +473,7 @@ public struct Emitter {
   ) {
     let site = module.syntax.site
     let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
-    if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
+    if !module.declareSyntheticFunction(identifiedBy: f, typed: t, at: site) { return }
 
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
@@ -535,7 +535,7 @@ public struct Emitter {
   ) {
     let site = module.syntax.site
     let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
-    if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
+    if !module.declareSyntheticFunction(identifiedBy: f, typed: t, at: site) { return }
 
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
