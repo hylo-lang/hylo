@@ -31,6 +31,8 @@ extension Module {
           interpret(endBorrow: user, in: &context)
         case is EndProjectInstruction:
           interpret(endProject: user, in: &context)
+        case is GlobalAddrInstruction:
+          interpret(globalAddr: user, in: &context)
         case is ProjectInstruction:
           interpret(project: user, in: &context)
         case is WrapAddrInstruction:
@@ -172,6 +174,17 @@ extension Module {
         assert(diagnostics.containsError)
         return
       }
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(globalAddr i: InstructionID, in context: inout Context) {
+      let s = self[i] as! GlobalAddrInstruction
+      let l = AbstractLocation.root(.register(i, 0))
+
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: s.valueType, definedIn: program),
+        value: .full(.unique))
+      context.locals[.register(i, 0)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
