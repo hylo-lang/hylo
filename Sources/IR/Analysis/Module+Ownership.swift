@@ -29,6 +29,8 @@ extension Module {
           interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
           interpret(endBorrow: user, in: &context)
+        case is EndProjectInstruction:
+          interpret(endProject: user, in: &context)
         case is ProjectInstruction:
           interpret(project: user, in: &context)
         default:
@@ -156,6 +158,17 @@ extension Module {
             unreachable()
           }
         }
+      }
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(endProject i: InstructionID, in context: inout Context) {
+      let s = self[i] as! EndProjectInstruction
+
+      // Skip the instruction if an error occured upstream.
+      guard context.locals[s.projection] != nil else {
+        assert(diagnostics.containsError)
+        return
       }
     }
 
