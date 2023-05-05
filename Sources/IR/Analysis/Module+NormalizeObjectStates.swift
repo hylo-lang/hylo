@@ -4,6 +4,9 @@ import Utils
 
 extension Module {
 
+  /// A "program counter" in the abstract machine.
+  private typealias PC = Block.Instructions.Address
+
   /// Ensures that objects in `f` are initialized before use and deinitialized after last use,
   /// reporting errors and warnings to `diagnostics`.
   ///
@@ -14,76 +17,82 @@ extension Module {
     // Verify that object states are properly initialized/deinitialized in `b` given `context`,
     // updating `self` as necessary and reporting violations in `diagnostics`.
     machine.fixedPoint { (b, machine, context) in
-      // We can safely iterate over the current indices of the block because instructions are
-      // always inserted the currently visited address.
-      let blockInstructions = self[f][b].instructions
-      for i in blockInstructions.indices {
-        let user = InstructionID(f, b, i.address)
+      var pc = self[f][b].instructions.firstAddress
+      while let a = pc {
+        let user = InstructionID(f, b, a)
 
-        switch blockInstructions[i] {
+        switch self[f][b].instructions[a] {
         case is AddressToPointerInstruction:
-          interpret(addressToPointer: user, in: &context)
+          pc = interpret(addressToPointer: user, in: &context)
         case is AllocStackInstruction:
-          interpret(allocStack: user, in: &context)
+          pc = interpret(allocStack: user, in: &context)
         case is BorrowInstruction:
-          interpret(borrow: user, in: &context)
+          pc = interpret(borrow: user, in: &context)
         case is BranchInstruction:
-          continue
+          pc = successor(of: user)
         case is CondBranchInstruction:
-          interpret(condBranch: user, in: &context)
+          pc = interpret(condBranch: user, in: &context)
         case is CallInstruction:
-          interpret(call: user, in: &context)
+          pc = interpret(call: user, in: &context)
         case is CallFIIInstruction:
-          interpret(callFFI: user, in: &context)
+          pc = interpret(callFFI: user, in: &context)
         case is DeallocStackInstruction:
-          interpret(deallocStack: user, in: &context)
+          pc = interpret(deallocStack: user, in: &context)
         case is DeinitInstruction:
-          interpret(deinit: user, in: &context)
+          pc = interpret(deinit: user, in: &context)
         case is DestructureInstruction:
-          interpret(destructure: user, in: &context)
+          pc = interpret(destructure: user, in: &context)
         case is ElementAddrInstruction:
-          interpret(elementAddr: user, in: &context)
+          pc = interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
-          continue
+          pc = successor(of: user)
         case is EndProjectInstruction:
-          continue
+          pc = successor(of: user)
         case is GlobalAddrInstruction:
-          interpret(globalAddr: user, in: &context)
+          pc = interpret(globalAddr: user, in: &context)
         case is LLVMInstruction:
-          interpret(llvm: user, in: &context)
+          pc = interpret(llvm: user, in: &context)
         case is LoadInstruction:
-          interpret(load: user, in: &context)
+          pc = interpret(load: user, in: &context)
+        case is MoveInstruction:
+          pc = interpret(move: user, in: &context)
         case is PartialApplyInstruction:
-          interpret(partialApply: user, in: &context)
+          pc = interpret(partialApply: user, in: &context)
         case is ProjectInstruction:
-          interpret(project: user, in: &context)
+          pc = interpret(project: user, in: &context)
         case is RecordInstruction:
-          interpret(record: user, in: &context)
+          pc = interpret(record: user, in: &context)
         case is ReturnInstruction:
-          interpret(return: user, in: &context)
+          pc = interpret(return: user, in: &context)
         case is StaticSwitchInstruction:
-          interpret(staticSwitch: user, updating: &machine, in: &context)
+          pc = interpret(staticSwitch: user, updating: &machine, in: &context)
         case is StoreInstruction:
-          interpret(store: user, in: &context)
+          pc = interpret(store: user, in: &context)
         case is UnrechableInstruction:
-          continue
+          pc = successor(of: user)
         case is WrapAddrInstruction:
-          interpret(wrapAddr: user, in: &context)
+          pc = interpret(wrapAddr: user, in: &context)
         case is YieldInstruction:
-          interpret(yield: user, in: &context)
+          pc = interpret(yield: user, in: &context)
         default:
           unreachable("unexpected instruction")
         }
       }
     }
 
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(addressToPointer i: InstructionID, in context: inout Context) {
-      initializeRegisters(createdBy: i, in: &context)
+    /// Returns the successor of `i`, if any.
+    func successor(of i: InstructionID) -> PC? {
+      self[i.function][i.block].instructions.address(after: i.address)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(allocStack i: InstructionID, in context: inout Context) {
+    func interpret(addressToPointer i: InstructionID, in context: inout Context) -> PC? {
+      initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
       // Create an abstract location denoting the newly allocated memory.
       let l = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[l] == nil, "stack leak")
@@ -94,10 +103,11 @@ extension Module {
           of: (self[i] as! AllocStackInstruction).allocatedType, definedIn: program),
         value: .full(.uninitialized))
       context.locals[.register(i, 0)] = .locations([l])
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(borrow i: InstructionID, in context: inout Context) {
+    func interpret(borrow i: InstructionID, in context: inout Context) -> PC? {
       let borrow = self[i] as! BorrowInstruction
 
       // Operand must a location.
@@ -145,16 +155,18 @@ extension Module {
       }
 
       context.locals[.register(i, 0)] = .locations(locations)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(condBranch i: InstructionID, in context: inout Context) {
+    func interpret(condBranch i: InstructionID, in context: inout Context) -> PC? {
       let branch = self[i] as! CondBranchInstruction
       consume(branch.condition, with: i, at: branch.site, in: &context)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(call i: InstructionID, in context: inout Context) {
+    func interpret(call i: InstructionID, in context: inout Context) -> PC? {
       let call = self[i] as! CallInstruction
       let calleeType = LambdaType(type(of: call.callee).ast)!
 
@@ -184,19 +196,21 @@ extension Module {
       }
 
       initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(callFFI i: InstructionID, in context: inout Context) {
+    func interpret(callFFI i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CallFIIInstruction
       for a in s.operands {
         consume(a, with: i, at: s.site, in: &context)
       }
       initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(deallocStack i: InstructionID, in context: inout Context) {
+    func interpret(deallocStack i: InstructionID, in context: inout Context) -> PC? {
       let dealloc = self[i] as! DeallocStackInstruction
       let l = context.locals[dealloc.location]!.unwrapLocations()!.uniqueElement!
 
@@ -205,16 +219,18 @@ extension Module {
       let p = context.withObject(at: l, \.value.initializedPaths)
       insertDeinitialization(of: dealloc.location, at: p, before: i, anchoredAt: dealloc.site)
       context.memory[l] = nil
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(deinit i: InstructionID, in context: inout Context) {
+    func interpret(deinit i: InstructionID, in context: inout Context) -> PC? {
       let x = self[i] as! DeinitInstruction
       consume(x.object, with: i, at: x.site, in: &context)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(elementAddr i: InstructionID, in context: inout Context) {
+    func interpret(elementAddr i: InstructionID, in context: inout Context) -> PC? {
       let addr = self[i] as! ElementAddrInstruction
 
       // Operand must a location.
@@ -228,43 +244,42 @@ extension Module {
       }
 
       context.locals[.register(i, 0)] = .locations(Set(locations))
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(destructure i: InstructionID, in context: inout Context) {
+    func interpret(destructure i: InstructionID, in context: inout Context) -> PC? {
       let x = self[i] as! DestructureInstruction
       consume(x.whole, with: i, at: x.site, in: &context)
       initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, in context: inout Context) {
+    func interpret(globalAddr i: InstructionID, in context: inout Context) -> PC? {
       let l = AbstractLocation.root(.register(i, 0))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(
           of: (self[i] as! GlobalAddrInstruction).valueType, definedIn: program),
         value: .full(.initialized))
       context.locals[.register(i, 0)] = .locations([l])
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(llvm i: InstructionID, in context: inout Context) {
+    func interpret(llvm i: InstructionID, in context: inout Context) -> PC? {
       // TODO: Check that operands are initialized.
       initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(load i: InstructionID, in context: inout Context) {
+    func interpret(load i: InstructionID, in context: inout Context) -> PC? {
       let load = self[i] as! LoadInstruction
+      if case .constant = load.source { unreachable("load source is a constant") }
 
       // Operand must be a location.
-      let locations: Set<AbstractLocation>
-      if case .constant = load.source {
-        // Operand is a constant.
-        fatalError("not implemented")
-      } else {
-        locations = context.locals[load.source]!.unwrapLocations()!
-      }
+      let locations = context.locals[load.source]!.unwrapLocations()!
 
       // Object at target location must be initialized.
       for l in locations {
@@ -290,27 +305,46 @@ extension Module {
       }
 
       initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(partialApply i: InstructionID, in context: inout Context) {
+    func interpret(move i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! MoveInstruction
+
+      let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
+      let f = getOrCreateMoveOperator(k, from: s.sinkable)
+      let callee = Operand.constant(FunctionReference(to: f, in: self))
+
+      let r = insert(makeBorrow(k, from: s.target, anchoredAt: s.site), before: i)[0]
+      insert(makeCall(applying: callee, to: [r, s.object], anchoredAt: s.site), before: i)
+      insert(makeEndBorrow(r, anchoredAt: s.site), before: i)
+      removeInstruction(i)
+
+      return r.instruction!.address
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(partialApply i: InstructionID, in context: inout Context) -> PC? {
       let x = self[i] as! PartialApplyInstruction
       consume(x.environment, with: i, at: x.site, in: &context)
       initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(record i: InstructionID, in context: inout Context) {
+    func interpret(record i: InstructionID, in context: inout Context) -> PC? {
       let x = self[i] as! RecordInstruction
       for o in x.operands {
         consume(o, with: i, at: x.site, in: &context)
       }
 
       initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(project i: InstructionID, in context: inout Context) {
+    func interpret(project i: InstructionID, in context: inout Context) -> PC? {
       // TODO: Process arguments
 
       let s = self[i] as! ProjectInstruction
@@ -319,10 +353,11 @@ extension Module {
         layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
         value: .full(s.projection.access == .set ? .uninitialized : .initialized))
       context.locals[.register(i, 0)] = .locations([l])
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(return i: InstructionID, in context: inout Context) {
+    func interpret(return i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! ReturnInstruction
       consume(s.object, with: i, at: s.site, in: &context)
 
@@ -346,6 +381,8 @@ extension Module {
             .illegalParameterEscape(consumedBy: o.value.consumers, in: self, at: parameterSite))
         }
       }
+
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, updating the state of `machine` and reporting violations into
@@ -354,7 +391,7 @@ extension Module {
       staticSwitch i: InstructionID,
       updating machine: inout AbstractInterpreter<State>,
       in context: inout Context
-    ) {
+    ) -> PC? {
       let s = self[i] as! StaticSwitchInstruction
 
       var filtered: [StaticSwitchInstruction.Predicate?] = []
@@ -381,20 +418,22 @@ extension Module {
 
       replace(i, by: makeBranch(to: s.cases[k]!, anchoredAt: s.site))
       machine.recomputeControlFlow(self)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(store i: InstructionID, in context: inout Context) {
+    func interpret(store i: InstructionID, in context: inout Context) -> PC? {
       let store = self[i] as! StoreInstruction
       consume(store.object, with: i, at: store.site, in: &context)
       context.forEachObject(at: store.target) { (o) in
         assert(o.value.initializedPaths.isEmpty || o.layout.type.isBuiltin)
         o.value = .full(.initialized)
       }
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapAddr i: InstructionID, in context: inout Context) {
+    func interpret(wrapAddr i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! WrapAddrInstruction
       if case .constant = s.witness {
         // Operand is a constant.
@@ -402,12 +441,14 @@ extension Module {
       }
 
       context.locals[.register(i, 0)] = context.locals[s.witness]
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(yield i: InstructionID, in context: inout Context) {
+    func interpret(yield i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! YieldInstruction
       assert(isBorrowOrConstant(s.projection))
+      return successor(of: i)
     }
 
     /// Updates the state of the `o` in `context` to mark it has been consumed by `consumer` at
