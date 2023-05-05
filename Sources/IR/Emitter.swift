@@ -608,9 +608,9 @@ public struct Emitter {
     let initialize = module.appendBlock(to: insertionBlock!.function)
     let tail = module.appendBlock(to: insertionBlock!.function)
 
-    // static_branch %lhs initialized => assign, default => initialize
+    // static_switch %lhs initialized => assign, default => initialize
     module.append(
-      module.makeStaticBranch(
+      module.makeStaticSwitch(
         switch: lhs, cases: [.initialized: assign, nil: initialize],
         anchoredAt: stmt.site),
       to: insertionBlock!)

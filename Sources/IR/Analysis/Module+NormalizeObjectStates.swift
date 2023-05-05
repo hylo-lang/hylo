@@ -61,8 +61,8 @@ extension Module {
           interpret(record: user, in: &context)
         case is ReturnInstruction:
           interpret(return: user, in: &context)
-        case is StaticBranchInstruction:
-          interpret(staticBranch: user, updating: &machine, in: &context)
+        case is StaticSwitchInstruction:
+          interpret(staticSwitch: user, updating: &machine, in: &context)
         case is StoreInstruction:
           interpret(store: user, in: &context)
         case is UnrechableInstruction:
@@ -351,13 +351,13 @@ extension Module {
     /// Interprets `i` in `context`, updating the state of `machine` and reporting violations into
     /// `diagnostics`.
     func interpret(
-      staticBranch i: InstructionID,
+      staticSwitch i: InstructionID,
       updating machine: inout AbstractInterpreter<State>,
       in context: inout Context
     ) {
-      let s = self[i] as! StaticBranchInstruction
+      let s = self[i] as! StaticSwitchInstruction
 
-      var filtered: [StaticBranchInstruction.Predicate?] = []
+      var filtered: [StaticSwitchInstruction.Predicate?] = []
       for k in s.cases.keys {
         guard let p = k else { continue }
         switch p {
