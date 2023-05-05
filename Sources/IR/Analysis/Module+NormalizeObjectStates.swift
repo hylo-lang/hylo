@@ -331,28 +331,19 @@ extension Module {
       for (i, p) in self[f].inputs.enumerated() where p.type.access != .sink {
         let a = AbstractLocation.root(.parameter(entry, i))
         context.withObject(at: a) { (o) in
-          switch o.value {
-          case .full(.initialized):
-            break
+          if o.value == .full(.initialized) { return }
+          let parameterSite = diagnosticSite(for: p, in: f)
 
-          case .full(.uninitialized):
-            if p.type.access == .set {
-              diagnostics.insert(.setParameterNotInitialized(at: s.site))
-            } else {
-              diagnostics.insert(.illegalParameterEscape(in: self, at: s.site))
-            }
-
-          case .full(.consumed(let consumers)):
-            let site = diagnosticSite(for: p, in: f)
-            diagnostics.insert(.illegalParameterEscape(consumedBy: consumers, in: self, at: site))
-
-          case .partial:
-            if p.type.access == .set {
-              diagnostics.insert(.setParameterNotInitialized(at: s.site))
-            } else {
-              diagnostics.insert(.illegalParameterEscape(in: self, at: s.site))
-            }
+          if p.type.access == .set {
+            diagnostics.insert(
+              .uninitializedSetParameter(beforeReturningFrom: f, in: self, at: parameterSite))
+            return
           }
+
+          // If the parameter is `let` or `inout`, it's been (partially) consumed since it was
+          // initialized in the entry context.
+          diagnostics.insert(
+            .illegalParameterEscape(consumedBy: o.value.consumers, in: self, at: parameterSite))
         }
       }
     }
@@ -657,6 +648,18 @@ extension AbstractObject.Value where Domain == State {
     }
   }
 
+  /// The consumers of the object.
+  fileprivate var consumers: State.Consumers {
+    switch self {
+    case .full(.initialized), .full(.uninitialized):
+      return []
+    case .full(.consumed(let c)):
+      return c
+    case .partial(let parts):
+      return parts.reduce(into: [], { (s, p) in s.formUnion(p.consumers) })
+    }
+  }
+
   /// Returns `lhs` merged with `rhs`.
   fileprivate static func && (lhs: Self, rhs: Self) -> Self {
     switch (lhs.canonical, rhs.canonical) {
@@ -734,8 +737,13 @@ extension Diagnostic {
     }
   }
 
-  fileprivate static func setParameterNotInitialized(at site: SourceRange) -> Diagnostic {
-    .error("'set' parameter not initialized when function returns", at: site)
+  fileprivate static func uninitializedSetParameter(
+    beforeReturningFrom f: Function.ID,
+    in module: Module,
+    at site: SourceRange
+  ) -> Diagnostic {
+    let e = module[f].isSubscript ? "subscript" : "function"
+    return .error("set parameter not initialized before \(e) returns", at: site)
   }
 
   fileprivate static func useOfConsumedObject(at site: SourceRange) -> Diagnostic {
