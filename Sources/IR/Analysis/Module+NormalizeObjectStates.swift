@@ -356,38 +356,30 @@ extension Module {
       in context: inout Context
     ) {
       let s = self[i] as! StaticBranchInstruction
-      if s.predicate != .initialized { fatalError("not implemented") }
 
-      // Subject must be a location.
-      let locations: Set<AbstractLocation>
-      if case .constant = s.subject {
-        // Operand is a constant.
-        fatalError("not implemented")
-      } else {
-        locations = context.locals[s.subject]!.unwrapLocations()!
+      var filtered: [StaticBranchInstruction.Predicate?] = []
+      for k in s.cases.keys {
+        guard let p = k else { continue }
+        switch p {
+        case .initialized:
+          if context.isStaticallyInitialized(s.subject) {
+            filtered.append(.initialized)
+          }
+        }
       }
 
-      let v = context.withObject(at: locations.first!, \.value)
-      assert(
-        locations.allSatisfy({ (l) in context.withObject(at: l, { $0.value == v }) }),
-        "bad context")
-
-      switch v {
-      case .full(.initialized):
-        removeBlock(s.targetIfFalse)
-        replace(i, by: makeBranch(to: s.targetIfTrue, anchoredAt: s.site))
-        machine.removeWork(s.targetIfFalse.address)
-
-      case .full(.uninitialized), .full(.consumed):
-        removeBlock(s.targetIfTrue)
-        replace(i, by: makeBranch(to: s.targetIfFalse, anchoredAt: s.site))
-        machine.removeWork(s.targetIfTrue.address)
-
-      default:
-        fatalError("not implemented")
+      if filtered.isEmpty {
+        precondition(s.cases[nil] != nil, "no satisfiable case")
+        filtered.append(nil)
       }
 
-      // Recompute the control flow graph and dominator tree.
+      guard let k = filtered.uniqueElement else { unreachable() }
+      for c in s.cases where c.key != k {
+        removeBlock(c.value)
+        machine.removeWork(c.value.address)
+      }
+
+      replace(i, by: makeBranch(to: s.cases[k]!, anchoredAt: s.site))
       machine.recomputeControlFlow(self)
     }
 
@@ -522,6 +514,30 @@ extension Module {
 
 /// An abstract interpretation context.
 private typealias Context = AbstractContext<State>
+
+extension Context {
+
+  /// Returns `true` iff the object at `a` is fully initialized.
+  fileprivate mutating func isStaticallyInitialized(_ a: Operand) -> Bool {
+    if case .constant = a { unreachable("operand is a constant") }
+    let locations = locals[a]!.unwrapLocations()!
+
+    let v = withObject(at: locations.first!, \.value)
+    assert(
+      locations.allSatisfy({ (l) in withObject(at: l, { $0.value == v }) }),
+      "bad context")
+
+    switch v {
+    case .full(.initialized):
+      return true
+    case .full(.uninitialized), .full(.consumed):
+      return false
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+}
 
 /// A map fron function block to the context of the abstract interpreter before and after the
 /// evaluation of its instructions.
