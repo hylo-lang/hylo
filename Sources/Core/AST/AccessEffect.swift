@@ -1,19 +1,19 @@
 /// An access effect, specifying how a parameter, receiver, or remote part is accessed
-public enum AccessEffect: Codable {
+public enum AccessEffect: UInt8, Codable {
 
   /// Value is accessed immutably.
-  case `let`
+  case `let` = 1
 
   /// Value is assigned but never read.
-  case `set`
+  case `set` = 2
 
   /// Value is accessed mutably.
-  case `inout`
+  case `inout` = 4
 
   /// Value is consumed.
-  case sink
+  case sink = 8
 
   /// Value may be accessed with any of the other effects, depending on the context.
-  case yielded
+  case yielded = 16
 
 }
