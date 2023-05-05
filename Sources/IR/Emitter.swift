@@ -472,7 +472,7 @@ public struct Emitter {
     into module: inout Module
   ) {
     let site = module.syntax.site
-    let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
+    let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
     if !module.declareSyntheticFunction(identifiedBy: f, typed: t, at: site) { return }
 
     let entry = module.appendEntry(to: f)
@@ -534,7 +534,7 @@ public struct Emitter {
     into module: inout Module
   ) {
     let site = module.syntax.site
-    let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
+    let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
     if !module.declareSyntheticFunction(identifiedBy: f, typed: t, at: site) { return }
 
     let entry = module.appendEntry(to: f)
@@ -2017,19 +2017,6 @@ extension TypedProgram {
         return isContained(useSite, in: c.scope)
       }
     }
-  }
-
-  /// Returns the declaration of `Sinkable.take_value`'s requirement for given `access`.
-  ///
-  /// Use the access `.set` or `.inout` to get the declaration of the move-initialization or
-  /// move-assignment, respectively.
-  ///
-  /// - Requires: `access` is either `.set` or `.inout`.
-  fileprivate func moveDecl(_ access: AccessEffect) -> MethodImpl.ID {
-    let d = ast.requirements(
-      Name(stem: "take_value", labels: ["from"], introducer: access),
-      in: ast.sinkableTrait.decl)
-    return MethodImpl.ID(d[0])!
   }
 
 }
