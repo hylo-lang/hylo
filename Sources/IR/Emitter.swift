@@ -604,34 +604,8 @@ public struct Emitter {
     }
 
     let c = program.conformance(of: l, to: program.ast.sinkableTrait, exposedTo: frames.top.scope)!
-    let assign = module.appendBlock(to: insertionBlock!.function)
-    let initialize = module.appendBlock(to: insertionBlock!.function)
-    let tail = module.appendBlock(to: insertionBlock!.function)
-
-    // static_switch %lhs initialized => assign, default => initialize
-    module.append(
-      module.makeStaticSwitch(
-        switch: lhs, cases: [.initialized: assign, nil: initialize],
-        anchoredAt: stmt.site),
-      to: insertionBlock!)
-
-    // %x0 = borrow [inout] %lhs
-    // %x1 = call @T.take_value.inout, %x0, %rhs
-    insertionBlock = assign
-    emitMove(
-      .inout, of: rhs, to: lhs, conformanceToSinkable: c,
-      anchoredAt: stmt.site, into: &module)
-    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
-
-    // %y0 = borrow [set] %lhs
-    // %y1 = call @T.take_value.set, %y0, %rhs
-    insertionBlock = initialize
-    emitMove(
-      .set, of: rhs, to: lhs, conformanceToSinkable: c,
-      anchoredAt: stmt.site, into: &module)
-    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
-
-    insertionBlock = tail
+    let m = module.makeMove(rhs, to: lhs, usingConformance: c, anchoredAt: stmt.site)
+    module.append(m, to: insertionBlock!)
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
