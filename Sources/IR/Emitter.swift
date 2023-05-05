@@ -420,6 +420,8 @@ public struct Emitter {
     }
 
     let source = emitLValue(initializer, into: &module)
+    let isSourceSinkable = module.isSinkable(source, in: insertionBlock!.function)
+
     for (path, name) in decl.pattern.subpattern.names {
       var part = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
       let partType = module.type(of: part).ast
@@ -432,11 +434,17 @@ public struct Emitter {
         }
       }
 
-      let b = module.append(
-        module.makeBorrow(
-          capability, from: part, correspondingTo: name.decl, anchoredAt: name.decl.site),
-        to: insertionBlock!)[0]
-      frames[name.decl] = b
+      if isSourceSinkable {
+        let b = module.makeAccess(
+          [.sink, capability], from: part, correspondingTo: name.decl,
+          anchoredAt: name.decl.site)
+        frames[name.decl] = module.append(b, to: insertionBlock!)[0]
+      } else {
+        let b = module.makeBorrow(
+          capability, from: part, correspondingTo: name.decl,
+          anchoredAt: name.decl.site)
+        frames[name.decl] = module.append(b, to: insertionBlock!)[0]
+      }
     }
   }
 
