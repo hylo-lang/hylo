@@ -9,3 +9,8 @@ fun f2(_ x: let Int) -> Int { x }
 
 //! @+1 diagnostic parameter was consumed
 fun f3(_ x: inout Int) -> Int { x }
+
+fun f4(_ x: inout Int) {
+  sink let y = f0(x)
+  &x = y
+}

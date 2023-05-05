@@ -378,7 +378,7 @@ extension Module {
         replace(i, by: makeBranch(to: s.targetIfTrue, anchoredAt: s.site))
         machine.removeWork(s.targetIfFalse.address)
 
-      case .full(.uninitialized):
+      case .full(.uninitialized), .full(.consumed):
         removeBlock(s.targetIfTrue)
         replace(i, by: makeBranch(to: s.targetIfFalse, anchoredAt: s.site))
         machine.removeWork(s.targetIfTrue.address)
