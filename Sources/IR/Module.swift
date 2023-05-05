@@ -206,7 +206,7 @@ public struct Module {
       fatalError("not implemented")
     case .synthetic(let t):
       let f = Function.ID(synthesized: d, for: t)
-      declareSyntheticFunction(identifiedBy: f, typed: LambdaType(t)!, at: syntax.site)
+      declareSyntheticFunction(identifiedBy: f, typed: LambdaType(t)!)
       return f
     }
   }
@@ -301,14 +301,12 @@ public struct Module {
   ///
   /// - Parameters:
   ///   - n: A human-readable name identifying the function.
-  ///   - site: The site in the Val sources to which the function is attached.
   /// - Returns: `true` iff `f` wasn't already declared in `self`.
   @discardableResult
   mutating func declareSyntheticFunction(
     identifiedBy f: Function.ID,
     typed t: LambdaType,
-    named n: String? = nil,
-    at site: SourceRange
+    named n: String? = nil
   ) -> Bool {
     if functions[f] != nil { return false }
 
@@ -320,7 +318,7 @@ public struct Module {
     functions[f] = Function(
       isSubscript: false,
       name: n ?? "",
-      site: site,
+      site: .empty(at: syntax.site.first()),
       linkage: .external,
       inputs: inputs,
       output: output,

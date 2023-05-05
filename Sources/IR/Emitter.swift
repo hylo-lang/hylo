@@ -471,10 +471,10 @@ public struct Emitter {
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let site = module.syntax.site
     let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
-    if !module.declareSyntheticFunction(identifiedBy: f, typed: t, at: site) { return }
+    if !module.declareSyntheticFunction(identifiedBy: f, typed: t) { return }
 
+    let site = module.syntax.site
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
@@ -533,10 +533,10 @@ public struct Emitter {
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let site = module.syntax.site
     let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
-    if !module.declareSyntheticFunction(identifiedBy: f, typed: t, at: site) { return }
+    if !module.declareSyntheticFunction(identifiedBy: f, typed: t) { return }
 
+    let site = module.syntax.site
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
