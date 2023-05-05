@@ -2032,12 +2032,4 @@ extension TypedProgram {
     return MethodImpl.ID(d[0])!
   }
 
-  /// Returns the declaration of `Copyable.copy`'s requirement.
-  fileprivate func copyDecl() -> FunctionDecl.ID {
-    let d = ast.requirements(
-      Name(stem: "copy"),
-      in: ast.copyableTrait.decl)
-    return FunctionDecl.ID(d[0])!
-  }
-
 }
