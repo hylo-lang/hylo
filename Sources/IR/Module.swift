@@ -344,6 +344,13 @@ public struct Module {
     }
   }
 
+  /// Returns the entry of `f`.
+  ///
+  /// - Requires: `f` is declared in `self`.
+  func entry(of f: Function.ID) -> Block.ID? {
+    functions[f]!.entry.map({ Block.ID(f, $0) })
+  }
+
   /// Appends an entry block to `f` and returns its identifier.
   ///
   /// - Requires: `f` is declared in `self` and doesn't have an entry block.
