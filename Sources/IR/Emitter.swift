@@ -472,7 +472,7 @@ public struct Emitter {
     into module: inout Module
   ) {
     let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
-    if !module.declareSyntheticFunction(identifiedBy: f, typed: t) { return }
+    if !module.declareSyntheticFunction(f, typed: t) { return }
 
     let site = module.syntax.site
     let entry = module.appendEntry(to: f)
@@ -534,7 +534,7 @@ public struct Emitter {
     into module: inout Module
   ) {
     let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
-    if !module.declareSyntheticFunction(identifiedBy: f, typed: t) { return }
+    if !module.declareSyntheticFunction(f, typed: t) { return }
 
     let site = module.syntax.site
     let entry = module.appendEntry(to: f)

@@ -206,7 +206,7 @@ public struct Module {
       fatalError("not implemented")
     case .synthetic(let t):
       let f = Function.ID(synthesized: d, for: t)
-      declareSyntheticFunction(identifiedBy: f, typed: LambdaType(t)!)
+      declareSyntheticFunction(f, typed: LambdaType(t)!)
       return f
     }
   }
@@ -297,17 +297,10 @@ public struct Module {
     return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
   }
 
-  /// Declares a synthetic function identified by `f` with type `t`.
-  ///
-  /// - Parameters:
-  ///   - n: A human-readable name identifying the function.
-  /// - Returns: `true` iff `f` wasn't already declared in `self`.
+  /// Declares a synthetic function identified by `f` with type `t`, returning `true` iff it
+  /// wasn't already declared.
   @discardableResult
-  mutating func declareSyntheticFunction(
-    identifiedBy f: Function.ID,
-    typed t: LambdaType,
-    named n: String? = nil
-  ) -> Bool {
+  mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) -> Bool {
     if functions[f] != nil { return false }
 
     let output = program.relations.canonical(t.output)
@@ -317,7 +310,7 @@ public struct Module {
 
     functions[f] = Function(
       isSubscript: false,
-      name: n ?? "",
+      name: "",
       site: .empty(at: syntax.site.first()),
       linkage: .external,
       inputs: inputs,
