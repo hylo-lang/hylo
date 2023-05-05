@@ -223,6 +223,19 @@ public struct AST {
     })
   }
 
+  /// Returns the declaration of `Sinkable.take_value`'s requirement for variant `access`.
+  ///
+  /// Use the `.set` or `.inout` access in order to get the declaration of the move-initialization
+  /// or move-assignment, respectively.
+  ///
+  /// - Requires: `access` is either `.set` or `.inout`.
+  public func moveRequirement(_ access: AccessEffect) -> MethodImpl.ID {
+    let d = requirements(
+      Name(stem: "take_value", labels: ["from"], introducer: access),
+      in: sinkableTrait.decl)
+    return MethodImpl.ID(d[0])!
+  }
+
   /// Returns a table mapping each parameter of `d` to its default argument if `d` is a function,
   /// initializer, method or subscript declaration. Otherwise, returns `nil`.
   public func defaultArguments(of d: AnyDeclID) -> [AnyExprID?]? {

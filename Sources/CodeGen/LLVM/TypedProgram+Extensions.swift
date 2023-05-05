@@ -12,8 +12,6 @@ extension LoweredProgram {
       return syntax.abiName(of: d)
     case .loweredSubscript(let d):
       return syntax.abiName(of: d)
-    case .constructor(let d):
-      return syntax.abiName(of: d)
     case .synthesized(let d, let t):
       return "\(d)\(t)"
     }

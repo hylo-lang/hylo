@@ -158,8 +158,8 @@ public struct Module {
     try run({ removeDeadCode(in: $0, diagnostics: &log) })
     try run({ insertImplicitReturns(in: $0, diagnostics: &log) })
     try run({ closeBorrows(in: $0, diagnostics: &log) })
-    try run({ ensureExclusivity(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
+    try run({ ensureExclusivity(in: $0, diagnostics: &log) })
   }
 
   /// Adds a global constant and returns its identity.
@@ -193,6 +193,22 @@ public struct Module {
 
     loweredFunctions[d.id] = f
     return f
+  }
+
+  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
+  /// defined in conformance `c`.
+  ///
+  /// - Requires: `k` is either `.set` or `.inout`
+  mutating func getOrCreateMoveOperator(_ k: AccessEffect, from c: Conformance) -> Function.ID {
+    let d = program.ast.moveRequirement(k)
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+    case .synthetic(let t):
+      let f = Function.ID(synthesized: d, for: t)
+      declareSyntheticFunction(f, typed: LambdaType(t)!)
+      return f
+    }
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
@@ -282,19 +298,8 @@ public struct Module {
   }
 
   /// Declares a synthetic function identified by `f` with type `t`.
-  ///
-  /// - Parameters:
-  ///   - n: A human-readable name identifying the function.
-  ///   - site: The site in the Val sources to which the function is attached.
-  /// - Returns: `true` iff `f` wasn't already declared in `self`.
-  @discardableResult
-  mutating func declareSyntheticFunction(
-    identifiedBy f: Function.ID,
-    typed t: LambdaType,
-    named n: String? = nil,
-    at site: SourceRange
-  ) -> Bool {
-    if functions[f] != nil { return false }
+  mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) {
+    if functions[f] != nil { return }
 
     let output = program.relations.canonical(t.output)
     var inputs: [Parameter] = []
@@ -303,13 +308,12 @@ public struct Module {
 
     functions[f] = Function(
       isSubscript: false,
-      name: n ?? "",
-      site: site,
+      name: "",
+      site: .empty(at: syntax.site.first()),
       linkage: .external,
       inputs: inputs,
       output: output,
       blocks: [])
-    return true
   }
 
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.

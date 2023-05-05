@@ -58,12 +58,17 @@ extension Program {
   public func scopeIntroducing(_ d: AnyDeclID) -> AnyScopeID {
     switch d.kind {
     case InitializerDecl.self:
-      return scopeToParent[declToScope[d]!]!
+      return scopeIntroducing(initializer: .init(d)!)
     case ModuleDecl.self:
       return AnyScopeID(ModuleDecl.ID(d)!)
     default:
       return declToScope[d]!
     }
+  }
+
+  /// Returns the scope introducing `d`.
+  public func scopeIntroducing(initializer d: InitializerDecl.ID) -> AnyScopeID {
+    scopeToParent[declToScope[d]!]!
   }
 
   /// Returns `true` iff `d` is at module scope.

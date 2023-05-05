@@ -370,7 +370,8 @@ extension TypeChecker {
     if let pick = initCandidates.uniqueElement {
       // Rebind the callee and constrain its type.
       let ctor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
-      referredDecls[callee] = pick.reference
+      guard case .direct(let d) = pick.reference else { unreachable() }
+      referredDecls[callee] = .constructor(.init(d)!)
       state.facts.assign(^ctor, to: callee)
       state.facts.append(pick.type.constraints)
 

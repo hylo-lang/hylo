@@ -9,10 +9,12 @@ public struct FunctionReference: Constant, Hashable {
   /// The type of the referred IR function.
   public let type: LoweredType
 
-  /// Creates an instance with the given properties.
-  public init(to function: Function.ID, type: LoweredType) {
-    self.function = function
-    self.type = type
+  /// Creates a reference to `f`, which is in `module`.
+  public init(to f: Function.ID, in module: Module) {
+    self.function = f
+    let v = module[f]
+    let t = LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
+    self.type = .address(t)
   }
 
   /// Creates a reference to the lowered form of `d` in `module`.

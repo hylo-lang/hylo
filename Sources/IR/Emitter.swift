@@ -475,23 +475,27 @@ public struct Emitter {
     assert(program.module(containing: d.scope) == module.syntax.id)
     switch d.kind {
     case .moveInitialization:
-      emitSyntheticMoveInit(typed: .init(d.type)!, in: d.scope, into: &module)
+      synthesizeMoveInitImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .moveAssignment:
-      emitSyntheticMoveAssign(typed: .init(d.type)!, in: d.scope, into: &module)
+      synthesizeMoveAssignImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .copy:
       fatalError("not implemented")
     }
   }
 
-  private mutating func emitSyntheticMoveInit(
+  /// Synthesize the implementation of `t`'s move initialization operator in `scope`.
+  private mutating func synthesizeMoveInitImplementation(
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let site = module.syntax.site
-    let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
-    if !module.declareSyntheticFunction(identifiedBy: f, typed: t, at: site) { return }
+    let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
+    module.declareSyntheticFunction(f, typed: t)
+    if module[f].entry != nil {
+      return
+    }
 
+    let site = module.syntax.site
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
@@ -545,15 +549,19 @@ public struct Emitter {
     module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
   }
 
-  private mutating func emitSyntheticMoveAssign(
+  /// Synthesize the implementation of `t`'s move assignment operator in `scope`.
+  private mutating func synthesizeMoveAssignImplementation(
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let site = module.syntax.site
-    let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
-    if !module.declareSyntheticFunction(identifiedBy: f, typed: t, at: site) { return }
+    let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
+    module.declareSyntheticFunction(f, typed: t)
+    if module[f].entry != nil {
+      return
+    }
 
+    let site = module.syntax.site
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
@@ -621,34 +629,8 @@ public struct Emitter {
     }
 
     let c = program.conformance(of: l, to: program.ast.sinkableTrait, exposedTo: frames.top.scope)!
-    let assign = module.appendBlock(to: insertionBlock!.function)
-    let initialize = module.appendBlock(to: insertionBlock!.function)
-    let tail = module.appendBlock(to: insertionBlock!.function)
-
-    // static_switch %lhs initialized => assign, default => initialize
-    module.append(
-      module.makeStaticSwitch(
-        switch: lhs, cases: [.initialized: assign, nil: initialize],
-        anchoredAt: stmt.site),
-      to: insertionBlock!)
-
-    // %x0 = borrow [inout] %lhs
-    // %x1 = call @T.take_value.inout, %x0, %rhs
-    insertionBlock = assign
-    emitMove(
-      .inout, of: rhs, to: lhs, conformanceToSinkable: c,
-      anchoredAt: stmt.site, into: &module)
-    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
-
-    // %y0 = borrow [set] %lhs
-    // %y1 = call @T.take_value.set, %y0, %rhs
-    insertionBlock = initialize
-    emitMove(
-      .set, of: rhs, to: lhs, conformanceToSinkable: c,
-      anchoredAt: stmt.site, into: &module)
-    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
-
-    insertionBlock = tail
+    let m = module.makeMove(rhs, to: lhs, usingConformance: c, anchoredAt: stmt.site)
+    module.append(m, to: insertionBlock!)
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
@@ -963,14 +945,16 @@ public struct Emitter {
     functionCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    // Handle built-in functions separately.
-    if case .builtinFunction(let f) = NameExpr.Typed(expr.callee)?.decl {
-      return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
-    }
-
-    // Handle memberwise initializer calls.
-    if expr.isMemberwiseInitialization {
-      return emitRValue(memberwiseInitCall: expr, into: &module)
+    // Handle built-ins and constructor calls.
+    if let n = NameExpr.Typed(expr.callee) {
+      switch n.declaration {
+      case .builtinFunction(let f):
+        return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
+      case .constructor(let d):
+        return emitRValue(constructorCall: expr, applying: d, into: &module)
+      default:
+        break
+      }
     }
 
     // Arguments are evaluated first, from left to right.
@@ -978,9 +962,49 @@ public struct Emitter {
     let arguments = emit(
       arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
       into: &module)
-    let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
+
+    // Callee and captures are evaluated next.
+    let (callee, captures) = emitCallee(expr.callee, into: &module)
+
+    // Call is evaluated last.
     return module.append(
-      module.makeCall(applying: callee, to: liftedArguments + arguments, anchoredAt: expr.site),
+      module.makeCall(applying: callee, to: captures + arguments, anchoredAt: expr.site),
+      to: insertionBlock!)[0]
+  }
+
+  private mutating func emitRValue(
+    constructorCall expr: FunctionCallExpr.Typed,
+    applying d: InitializerDecl.ID,
+    into module: inout Module
+  ) -> Operand {
+    // Handle memberwise constructor calls.
+    if program.ast[d].isMemberwise {
+      return emitRValue(memberwiseConstructorCall: expr, into: &module)
+    }
+
+    // Evaluate all arguments.
+    let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
+    let a = emit(
+      arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
+      into: &module)
+
+    // Allocate storage for the receiver.
+    let s = module.append(
+      module.makeAllocStack(program.relations.canonical(expr.type), anchoredAt: expr.site),
+      to: insertionBlock!)[0]
+    let r = module.append(
+      module.makeBorrow(.set, from: s, anchoredAt: expr.site),
+      to: insertionBlock!)[0]
+
+    // Initialize storage.
+    let f = FunctionReference(to: program[d], in: &module)
+    module.append(
+      module.makeCall(applying: .constant(f), to: [r] + a, anchoredAt: expr.site),
+      to: insertionBlock!)
+
+    // Load initialized storage.
+    return module.append(
+      module.makeLoad(s, anchoredAt: expr.site),
       to: insertionBlock!)[0]
   }
 
@@ -989,7 +1013,7 @@ public struct Emitter {
   ///
   /// - Requires: The callee of `expr` is a direct reference to a memberwise initializer.
   private mutating func emitRValue(
-    memberwiseInitCall expr: FunctionCallExpr.Typed,
+    memberwiseConstructorCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let callee = LambdaType(expr.callee.type)!
@@ -1015,9 +1039,8 @@ public struct Emitter {
     into module: inout Module
   ) -> [Operand] {
     let calleeType = LambdaType(callee.type)!
-    let defaults = NameExpr.Typed(callee)?.decl.decl.flatMap { (d) in
-      program.ast.defaultArguments(of: d.id)
-    }
+    let calleeDecl = NameExpr.Typed(callee)?.declaration.decl
+    let defaults = calleeDecl.flatMap(program.ast.defaultArguments(of:))
 
     var result: [Operand] = []
     var i = 0
@@ -1134,9 +1157,9 @@ public struct Emitter {
     name e: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch e.decl {
+    switch e.declaration {
     case .direct(let d):
-      guard let s = frames[d] else { fatalError("not implemented") }
+      guard let s = frames[program[d]] else { fatalError("not implemented") }
       if module.type(of: s).isObject {
         return s
       } else {
@@ -1144,7 +1167,10 @@ public struct Emitter {
       }
 
     case .member(let d):
-      return emitRValue(memberExpr: e, declaredBy: d, into: &module)
+      return emitRValue(memberExpr: e, declaredBy: program[d], into: &module)
+
+    case .constructor:
+      fatalError("not implemented")
 
     case .builtinFunction:
       fatalError("not implemented")
@@ -1323,24 +1349,19 @@ public struct Emitter {
   ) -> (callee: Operand, liftedArguments: [Operand]) {
     let calleeType = LambdaType(program.relations.canonical(callee.type))!
 
-    switch callee.decl {
+    switch callee.declaration {
     case .direct(let d) where d.kind == FunctionDecl.self:
       // Callee is a direct reference to a function declaration.
       guard calleeType.environment == .void else {
         fatalError("not implemented")
       }
 
-      let ref = FunctionReference(to: FunctionDecl.Typed(d)!, in: &module)
-      return (.constant(ref), [])
-
-    case .direct(let d) where d.kind == InitializerDecl.self:
-      // Callee is a direct reference to an initializer declaration.
-      let ref = FunctionReference(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
+      let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       return (.constant(ref), [])
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
-      let ref = FunctionReference(to: FunctionDecl.Typed(d)!, in: &module)
+      let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       let fun = Operand.constant(ref)
 
       // Emit the location of the receiver.
@@ -1705,13 +1726,16 @@ public struct Emitter {
     name syntax: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch syntax.decl {
+    switch syntax.declaration {
     case .direct(let d):
-      return emitLValue(directReferenceTo: d, into: &module)
+      return emitLValue(directReferenceTo: program[d], into: &module)
 
     case .member(let d):
       let r = emitLValue(receiverOf: syntax, into: &module)
-      return addressOfMember(boundTo: r, declaredBy: d, into: &module, at: syntax.site)
+      return addressOfMember(boundTo: r, declaredBy: program[d], into: &module, at: syntax.site)
+
+    case .constructor:
+      fatalError()
 
     case .builtinFunction, .builtinType:
       // Built-in functions and types are never used as l-value.
@@ -1849,27 +1873,15 @@ public struct Emitter {
     anchoredAt anchor: SourceRange,
     into module: inout Module
   ) {
-    let moveInit = program.moveDecl(access)
-    switch c.implementations[moveInit]! {
-    case .concrete:
-      fatalError("not implemented")
+    let f = module.getOrCreateMoveOperator(access, from: c)
+    let callee = FunctionReference(to: f, in: module)
 
-    case .synthetic(let t):
-      assert(t[.isCanonical])
-
-      let callee = LambdaType(t)!.lifted
-      let ref = FunctionReference(
-        to: .init(synthesized: program.moveDecl(access), for: t),
-        type: .address(callee))
-      let fun = Operand.constant(ref)
-
-      let receiver = module.append(
-        module.makeBorrow(access, from: storage, anchoredAt: anchor),
-        to: insertionBlock!)[0]
-      module.append(
-        module.makeCall(applying: fun, to: [receiver, value], anchoredAt: anchor),
-        to: insertionBlock!)
-    }
+    let r = module.append(
+      module.makeBorrow(access, from: storage, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeCall(applying: .constant(callee), to: [r, value], anchoredAt: anchor),
+      to: insertionBlock!)
   }
 
   /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
@@ -2030,27 +2042,6 @@ extension TypedProgram {
         return isContained(useSite, in: c.scope)
       }
     }
-  }
-
-  /// Returns the declaration of `Sinkable.take_value`'s requirement for given `access`.
-  ///
-  /// Use the access `.set` or `.inout` to get the declaration of the move-initialization or
-  /// move-assignment, respectively.
-  ///
-  /// - Requires: `access` is either `.set` or `.inout`.
-  fileprivate func moveDecl(_ access: AccessEffect) -> MethodImpl.ID {
-    let d = ast.requirements(
-      Name(stem: "take_value", labels: ["from"], introducer: access),
-      in: ast.sinkableTrait.decl)
-    return MethodImpl.ID(d[0])!
-  }
-
-  /// Returns the declaration of `Copyable.copy`'s requirement.
-  fileprivate func copyDecl() -> FunctionDecl.ID {
-    let d = ast.requirements(
-      Name(stem: "copy"),
-      in: ast.copyableTrait.decl)
-    return FunctionDecl.ID(d[0])!
   }
 
 }
