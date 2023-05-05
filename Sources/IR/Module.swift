@@ -195,6 +195,22 @@ public struct Module {
     return f
   }
 
+  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
+  /// defined in conformance `c`.
+  ///
+  /// - Requires: `k` is either `.set` or `.inout`
+  mutating func getOrCreateMoveOperator(_ k: AccessEffect, from c: Conformance) -> Function.ID {
+    let d = program.ast.moveRequirement(k)
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+    case .synthetic(let t):
+      let f = Function.ID(synthesized: d, for: t)
+      declareSyntheticFunction(identifiedBy: f, typed: LambdaType(t)!, at: syntax.site)
+      return f
+    }
+  }
+
   /// Returns the identity of the Val IR function corresponding to `d`.
   mutating func getOrCreateSubscript(lowering d: SubscriptImpl.Typed) -> Function.ID {
     let f = Function.ID(d.id)

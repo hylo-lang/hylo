@@ -1874,27 +1874,15 @@ public struct Emitter {
     anchoredAt anchor: SourceRange,
     into module: inout Module
   ) {
-    let moveInit = program.moveDecl(access)
-    switch c.implementations[moveInit]! {
-    case .concrete:
-      fatalError("not implemented")
+    let f = module.getOrCreateMoveOperator(access, from: c)
+    let callee = FunctionReference(to: f, in: module)
 
-    case .synthetic(let t):
-      assert(t[.isCanonical])
-
-      let callee = LambdaType(t)!.lifted
-      let ref = FunctionReference(
-        to: .init(synthesized: program.moveDecl(access), for: t),
-        type: .address(callee))
-      let fun = Operand.constant(ref)
-
-      let receiver = module.append(
-        module.makeBorrow(access, from: storage, anchoredAt: anchor),
-        to: insertionBlock!)[0]
-      module.append(
-        module.makeCall(applying: fun, to: [receiver, value], anchoredAt: anchor),
-        to: insertionBlock!)
-    }
+    let r = module.append(
+      module.makeBorrow(access, from: storage, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeCall(applying: .constant(callee), to: [r, value], anchoredAt: anchor),
+      to: insertionBlock!)
   }
 
   /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
