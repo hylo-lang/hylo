@@ -503,4 +503,46 @@ public struct Module {
     }
   }
 
+  /// Returns the operands from which the address denoted by `a` derives.
+  ///
+  /// The (static) provenances of an address denote the original operands from which it derives.
+  /// They form a set because an address computed by a projection depends on that projection's
+  /// arguments and because an address defined as a parameter of a basic block with multiple
+  /// predecessors depends on that bock's arguments.
+  func provenances(_ a: Operand) -> Set<Operand> {
+    // TODO: Block arguments
+    guard case .register(let i, _) = a else { return [a] }
+
+    switch self[i] {
+    case let s as BorrowInstruction:
+      return provenances(s.location)
+    case let s as ElementAddrInstruction:
+      return provenances(s.base)
+    case let s as ProjectInstruction:
+      return s.operands.reduce(
+        into: [],
+        { (p, o) in
+          if type(of: o).isAddress { p.formUnion(provenances(o)) }
+        })
+    case let s as WrapAddrInstruction:
+      return provenances(s.witness)
+    default:
+      return [a]
+    }
+  }
+
+  /// Returns `true` if `o` is sinkable in `f`.
+  ///
+  /// - Requires: `o` is defined in `f`.
+  func isSinkable(_ o: Operand, in f: Function.ID) -> Bool {
+    let e = entry(of: f)!
+    return provenances(o).allSatisfy { (p) -> Bool in
+      if case .parameter(e, let i) = p {
+        return self.functions[f]!.inputs[i].type.access == .sink
+      } else {
+        return true
+      }
+    }
+  }
+
 }
