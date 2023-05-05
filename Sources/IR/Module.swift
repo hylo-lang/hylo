@@ -242,7 +242,7 @@ public struct Module {
       program.relations.canonical(e.type)
     }
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
-        .init(c, capturedAs: e)
+      .init(c, capturedAs: e)
     })
     result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
     return result
@@ -264,7 +264,7 @@ public struct Module {
       program.relations.canonical(e.type)
     }
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
-        .init(c, capturedAs: e)
+      .init(c, capturedAs: e)
     })
 
     let bundle = SubscriptDecl.ID(program.declToScope[d]!)!
