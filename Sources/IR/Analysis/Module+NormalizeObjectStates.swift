@@ -64,8 +64,6 @@ extension Module {
           pc = interpret(record: user, in: &context)
         case is ReturnInstruction:
           pc = interpret(return: user, in: &context)
-        case is StaticSwitchInstruction:
-          pc = interpret(staticSwitch: user, updating: &machine, in: &context)
         case is StoreInstruction:
           pc = interpret(store: user, in: &context)
         case is UnrechableInstruction:
@@ -382,42 +380,6 @@ extension Module {
         }
       }
 
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, updating the state of `machine` and reporting violations into
-    /// `diagnostics`.
-    func interpret(
-      staticSwitch i: InstructionID,
-      updating machine: inout AbstractInterpreter<State>,
-      in context: inout Context
-    ) -> PC? {
-      let s = self[i] as! StaticSwitchInstruction
-
-      var filtered: [StaticSwitchInstruction.Predicate?] = []
-      for k in s.cases.keys {
-        guard let p = k else { continue }
-        switch p {
-        case .initialized:
-          if context.isStaticallyInitialized(s.subject) {
-            filtered.append(.initialized)
-          }
-        }
-      }
-
-      if filtered.isEmpty {
-        precondition(s.cases[nil] != nil, "no satisfiable case")
-        filtered.append(nil)
-      }
-
-      guard let k = filtered.uniqueElement else { unreachable() }
-      for c in s.cases where c.key != k {
-        removeBlock(c.value)
-        machine.removeWork(c.value.address)
-      }
-
-      replace(i, by: makeBranch(to: s.cases[k]!, anchoredAt: s.site))
-      machine.recomputeControlFlow(self)
       return successor(of: i)
     }
 
