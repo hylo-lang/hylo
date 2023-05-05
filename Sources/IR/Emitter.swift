@@ -458,15 +458,16 @@ public struct Emitter {
     assert(program.module(containing: d.scope) == module.syntax.id)
     switch d.kind {
     case .moveInitialization:
-      emitSyntheticMoveInit(typed: .init(d.type)!, in: d.scope, into: &module)
+      synthesizeMoveInitImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .moveAssignment:
-      emitSyntheticMoveAssign(typed: .init(d.type)!, in: d.scope, into: &module)
+      synthesizeMoveAssignImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .copy:
       fatalError("not implemented")
     }
   }
 
-  private mutating func emitSyntheticMoveInit(
+  /// Synthesize the implementation of `t`'s move initialization operator in `scope`.
+  private mutating func synthesizeMoveInitImplementation(
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
@@ -531,7 +532,8 @@ public struct Emitter {
     module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
   }
 
-  private mutating func emitSyntheticMoveAssign(
+  /// Synthesize the implementation of `t`'s move assignment operator in `scope`.
+  private mutating func synthesizeMoveAssignImplementation(
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
