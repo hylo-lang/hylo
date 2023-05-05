@@ -186,10 +186,9 @@ extension TypedNode where ID == FunctionCallExpr.ID {
   public var isMemberwiseInitialization: Bool {
     guard
       let callee = NameExpr.Typed(self.callee),
-      case .direct(let d) = callee.decl,
-      let i = InitializerDecl.Typed(d)
+      case .constructor(let d) = program.referredDecls[callee.id]!
     else { return false }
-    return i.isMemberwise
+    return program.ast[d].isMemberwise
   }
 
 }
@@ -231,49 +230,9 @@ extension TypedNode where ID == NameExpr.ID {
     }
   }
 
-  /// A reference to a declaration.
-  public enum DeclRef: Hashable {
-
-    /// A direct reference.
-    case direct(AnyDeclID.TypedNode)
-
-    /// A reference to a member declaration bound to a receiver.
-    case member(AnyDeclID.TypedNode)
-
-    /// A reference to a built-in function.
-    case builtinFunction(BuiltinFunction)
-
-    /// A reference to a built-in type.
-    case builtinType
-
-    /// Accesses the referred declaration  if `self` is `.direct` or `.member`.
-    public var decl: AnyDeclID.TypedNode? {
-      switch self {
-      case .direct(let d):
-        return d
-      case .member(let d):
-        return d
-      default:
-        return nil
-      }
-    }
-
-  }
-
-  /// The declaration of this name.
-  public var decl: DeclRef {
-    switch program.referredDecls[id]! {
-    case .direct(let d):
-      return .direct(program[d])
-    case .member(let d):
-      return .member(program[d])
-    case .constructor:
-      fatalError()
-    case .builtinFunction(let f):
-      return .builtinFunction(f)
-    case .builtinType:
-      return .builtinType
-    }
+  /// The declaration to which `self` refers.
+  public var declaration: DeclRef {
+    program.referredDecls[id]!
   }
 
 }

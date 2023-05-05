@@ -947,7 +947,7 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     // Handle built-in functions separately.
-    if case .builtinFunction(let f) = NameExpr.Typed(expr.callee)?.decl {
+    if case .builtinFunction(let f) = NameExpr.Typed(expr.callee)?.declaration {
       return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
     }
 
@@ -998,9 +998,8 @@ public struct Emitter {
     into module: inout Module
   ) -> [Operand] {
     let calleeType = LambdaType(callee.type)!
-    let defaults = NameExpr.Typed(callee)?.decl.decl.flatMap { (d) in
-      program.ast.defaultArguments(of: d.id)
-    }
+    let calleeDecl = NameExpr.Typed(callee)?.declaration.decl
+    let defaults = calleeDecl.flatMap(program.ast.defaultArguments(of:))
 
     var result: [Operand] = []
     var i = 0
@@ -1117,9 +1116,9 @@ public struct Emitter {
     name e: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch e.decl {
+    switch e.declaration {
     case .direct(let d):
-      guard let s = frames[d] else { fatalError("not implemented") }
+      guard let s = frames[program[d]] else { fatalError("not implemented") }
       if module.type(of: s).isObject {
         return s
       } else {
@@ -1127,7 +1126,10 @@ public struct Emitter {
       }
 
     case .member(let d):
-      return emitRValue(memberExpr: e, declaredBy: d, into: &module)
+      return emitRValue(memberExpr: e, declaredBy: program[d], into: &module)
+
+    case .constructor:
+      fatalError("not implemented")
 
     case .builtinFunction:
       fatalError("not implemented")
@@ -1306,24 +1308,24 @@ public struct Emitter {
   ) -> (callee: Operand, liftedArguments: [Operand]) {
     let calleeType = LambdaType(program.relations.canonical(callee.type))!
 
-    switch callee.decl {
+    switch callee.declaration {
     case .direct(let d) where d.kind == FunctionDecl.self:
       // Callee is a direct reference to a function declaration.
       guard calleeType.environment == .void else {
         fatalError("not implemented")
       }
 
-      let ref = FunctionReference(to: FunctionDecl.Typed(d)!, in: &module)
+      let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       return (.constant(ref), [])
 
     case .direct(let d) where d.kind == InitializerDecl.self:
       // Callee is a direct reference to an initializer declaration.
-      let ref = FunctionReference(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
+      let ref = FunctionReference(to: .init(constructor: .init(d)!), type: .address(calleeType))
       return (.constant(ref), [])
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
-      let ref = FunctionReference(to: FunctionDecl.Typed(d)!, in: &module)
+      let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       let fun = Operand.constant(ref)
 
       // Emit the location of the receiver.
@@ -1688,13 +1690,16 @@ public struct Emitter {
     name syntax: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch syntax.decl {
+    switch syntax.declaration {
     case .direct(let d):
-      return emitLValue(directReferenceTo: d, into: &module)
+      return emitLValue(directReferenceTo: program[d], into: &module)
 
     case .member(let d):
       let r = emitLValue(receiverOf: syntax, into: &module)
-      return addressOfMember(boundTo: r, declaredBy: d, into: &module, at: syntax.site)
+      return addressOfMember(boundTo: r, declaredBy: program[d], into: &module, at: syntax.site)
+
+    case .constructor:
+      fatalError()
 
     case .builtinFunction, .builtinType:
       // Built-in functions and types are never used as l-value.
