@@ -297,11 +297,9 @@ public struct Module {
     return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
   }
 
-  /// Declares a synthetic function identified by `f` with type `t`, returning `true` iff it
-  /// wasn't already declared.
-  @discardableResult
-  mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) -> Bool {
-    if functions[f] != nil { return false }
+  /// Declares a synthetic function identified by `f` with type `t`.
+  mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) {
+    if functions[f] != nil { return }
 
     let output = program.relations.canonical(t.output)
     var inputs: [Parameter] = []
@@ -316,7 +314,6 @@ public struct Module {
       inputs: inputs,
       output: output,
       blocks: [])
-    return true
   }
 
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
