@@ -325,6 +325,36 @@ extension Module {
     func interpret(return i: InstructionID, in context: inout Context) {
       let s = self[i] as! ReturnInstruction
       consume(s.object, with: i, at: s.site, in: &context)
+
+      // Make sure that all non-sink parameters are initialized on exit.
+      let entry = Block.ID(f, self[f].entry!)
+      for (i, p) in self[f].inputs.enumerated() where p.type.access != .sink {
+        let a = AbstractLocation.root(.parameter(entry, i))
+        context.withObject(at: a) { (o) in
+          switch o.value {
+          case .full(.initialized):
+            break
+
+          case .full(.uninitialized):
+            if p.type.access == .set {
+              diagnostics.insert(.setParameterNotInitialized(at: s.site))
+            } else {
+              diagnostics.insert(.illegalParameterEscape(in: self, at: s.site))
+            }
+
+          case .full(.consumed(let consumers)):
+            let site = diagnosticSite(for: p, in: f)
+            diagnostics.insert(.illegalParameterEscape(consumedBy: consumers, in: self, at: site))
+
+          case .partial:
+            if p.type.access == .set {
+              diagnostics.insert(.setParameterNotInitialized(at: s.site))
+            } else {
+              diagnostics.insert(.illegalParameterEscape(in: self, at: s.site))
+            }
+          }
+        }
+      }
     }
 
     /// Interprets `i` in `context`, updating the state of `machine` and reporting violations into
@@ -483,6 +513,17 @@ extension Module {
         makeLoad(s, anchoredAt: anchor),
         before: i)[0]
       insert(makeDeinit(o, anchoredAt: anchor), before: i)
+    }
+  }
+
+  /// Returns the site at which diagnostics related to the parameter `p` should be reported in `f`.
+  private func diagnosticSite(for p: Parameter, in f: Function.ID) -> SourceRange {
+    guard let d = p.decl else { return .empty(at: self[f].site.first()) }
+    switch d.kind {
+    case ParameterDecl.self:
+      return program.ast[ParameterDecl.ID(d)!].identifier.site
+    default:
+      return program.ast[d].site
     }
   }
 
@@ -678,6 +719,23 @@ extension Diagnostic {
 
   fileprivate static func illegalMove(at site: SourceRange) -> Diagnostic {
     .error("illegal move", at: site)
+  }
+
+  fileprivate static func illegalParameterEscape(
+    consumedBy consumers: State.Consumers? = nil,
+    in module: Module,
+    at site: SourceRange
+  ) -> Diagnostic {
+    if let c = consumers {
+      let notes = c.map({ Diagnostic.error("escape happens here", at: module[$0].site) })
+      return .error("parameter was consumed", at: site, notes: notes)
+    } else {
+      return .error("parameter was consumed", at: site)
+    }
+  }
+
+  fileprivate static func setParameterNotInitialized(at site: SourceRange) -> Diagnostic {
+    .error("'set' parameter not initialized when function returns", at: site)
   }
 
   fileprivate static func useOfConsumedObject(at site: SourceRange) -> Diagnostic {
