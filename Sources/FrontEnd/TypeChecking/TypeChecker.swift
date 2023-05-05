@@ -1757,6 +1757,8 @@ public struct TypeChecker {
       switch reference {
       case .direct(let d), .member(let d):
         t = instantiate(targetType, in: program.scopeIntroducing(d), cause: c)
+      case .constructor(let d):
+        t = instantiate(targetType, in: program.scopeIntroducing(initializer: d), cause: c)
       case .builtinFunction, .builtinType:
         t = .init(shape: targetType, constraints: [])
       }

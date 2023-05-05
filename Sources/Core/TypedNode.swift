@@ -237,7 +237,7 @@ extension TypedNode where ID == NameExpr.ID {
     /// A direct reference.
     case direct(AnyDeclID.TypedNode)
 
-    /// A reference to a member declaration bound to `self`.
+    /// A reference to a member declaration bound to a receiver.
     case member(AnyDeclID.TypedNode)
 
     /// A reference to a built-in function.
@@ -267,6 +267,8 @@ extension TypedNode where ID == NameExpr.ID {
       return .direct(program[d])
     case .member(let d):
       return .member(program[d])
+    case .constructor:
+      fatalError()
     case .builtinFunction(let f):
       return .builtinFunction(f)
     case .builtinType:
