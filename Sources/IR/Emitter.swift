@@ -458,23 +458,27 @@ public struct Emitter {
     assert(program.module(containing: d.scope) == module.syntax.id)
     switch d.kind {
     case .moveInitialization:
-      emitSyntheticMoveInit(typed: .init(d.type)!, in: d.scope, into: &module)
+      synthesizeMoveInitImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .moveAssignment:
-      emitSyntheticMoveAssign(typed: .init(d.type)!, in: d.scope, into: &module)
+      synthesizeMoveAssignImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .copy:
       fatalError("not implemented")
     }
   }
 
-  private mutating func emitSyntheticMoveInit(
+  /// Synthesize the implementation of `t`'s move initialization operator in `scope`.
+  private mutating func synthesizeMoveInitImplementation(
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let site = module.syntax.site
-    let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
-    if !module.declareSyntheticFunction(identifiedBy: f, typed: t, at: site) { return }
+    let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
+    module.declareSyntheticFunction(f, typed: t)
+    if module[f].entry != nil {
+      return
+    }
 
+    let site = module.syntax.site
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
@@ -528,15 +532,19 @@ public struct Emitter {
     module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
   }
 
-  private mutating func emitSyntheticMoveAssign(
+  /// Synthesize the implementation of `t`'s move assignment operator in `scope`.
+  private mutating func synthesizeMoveAssignImplementation(
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let site = module.syntax.site
-    let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
-    if !module.declareSyntheticFunction(identifiedBy: f, typed: t, at: site) { return }
+    let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
+    module.declareSyntheticFunction(f, typed: t)
+    if module[f].entry != nil {
+      return
+    }
 
+    let site = module.syntax.site
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
@@ -604,34 +612,8 @@ public struct Emitter {
     }
 
     let c = program.conformance(of: l, to: program.ast.sinkableTrait, exposedTo: frames.top.scope)!
-    let assign = module.appendBlock(to: insertionBlock!.function)
-    let initialize = module.appendBlock(to: insertionBlock!.function)
-    let tail = module.appendBlock(to: insertionBlock!.function)
-
-    // static_switch %lhs initialized => assign, default => initialize
-    module.append(
-      module.makeStaticSwitch(
-        switch: lhs, cases: [.initialized: assign, nil: initialize],
-        anchoredAt: stmt.site),
-      to: insertionBlock!)
-
-    // %x0 = borrow [inout] %lhs
-    // %x1 = call @T.take_value.inout, %x0, %rhs
-    insertionBlock = assign
-    emitMove(
-      .inout, of: rhs, to: lhs, conformanceToSinkable: c,
-      anchoredAt: stmt.site, into: &module)
-    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
-
-    // %y0 = borrow [set] %lhs
-    // %y1 = call @T.take_value.set, %y0, %rhs
-    insertionBlock = initialize
-    emitMove(
-      .set, of: rhs, to: lhs, conformanceToSinkable: c,
-      anchoredAt: stmt.site, into: &module)
-    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
-
-    insertionBlock = tail
+    let m = module.makeMove(rhs, to: lhs, usingConformance: c, anchoredAt: stmt.site)
+    module.append(m, to: insertionBlock!)
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
@@ -1874,27 +1856,15 @@ public struct Emitter {
     anchoredAt anchor: SourceRange,
     into module: inout Module
   ) {
-    let moveInit = program.moveDecl(access)
-    switch c.implementations[moveInit]! {
-    case .concrete:
-      fatalError("not implemented")
+    let f = module.getOrCreateMoveOperator(access, from: c)
+    let callee = FunctionReference(to: f, in: module)
 
-    case .synthetic(let t):
-      assert(t[.isCanonical])
-
-      let callee = LambdaType(t)!.lifted
-      let ref = FunctionReference(
-        to: .init(synthesized: program.moveDecl(access), for: t),
-        type: .address(callee))
-      let fun = Operand.constant(ref)
-
-      let receiver = module.append(
-        module.makeBorrow(access, from: storage, anchoredAt: anchor),
-        to: insertionBlock!)[0]
-      module.append(
-        module.makeCall(applying: fun, to: [receiver, value], anchoredAt: anchor),
-        to: insertionBlock!)
-    }
+    let r = module.append(
+      module.makeBorrow(access, from: storage, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeCall(applying: .constant(callee), to: [r, value], anchoredAt: anchor),
+      to: insertionBlock!)
   }
 
   /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
@@ -2055,27 +2025,6 @@ extension TypedProgram {
         return isContained(useSite, in: c.scope)
       }
     }
-  }
-
-  /// Returns the declaration of `Sinkable.take_value`'s requirement for given `access`.
-  ///
-  /// Use the access `.set` or `.inout` to get the declaration of the move-initialization or
-  /// move-assignment, respectively.
-  ///
-  /// - Requires: `access` is either `.set` or `.inout`.
-  fileprivate func moveDecl(_ access: AccessEffect) -> MethodImpl.ID {
-    let d = ast.requirements(
-      Name(stem: "take_value", labels: ["from"], introducer: access),
-      in: ast.sinkableTrait.decl)
-    return MethodImpl.ID(d[0])!
-  }
-
-  /// Returns the declaration of `Copyable.copy`'s requirement.
-  fileprivate func copyDecl() -> FunctionDecl.ID {
-    let d = ast.requirements(
-      Name(stem: "copy"),
-      in: ast.copyableTrait.decl)
-    return FunctionDecl.ID(d[0])!
   }
 
 }
