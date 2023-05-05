@@ -30,3 +30,9 @@ public struct Parameter {
   }
 
 }
+
+extension Parameter: CustomStringConvertible {
+
+  public var description: String { String(describing: type) }
+
+}
