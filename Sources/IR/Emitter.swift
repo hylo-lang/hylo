@@ -946,14 +946,16 @@ public struct Emitter {
     functionCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    // Handle built-in functions separately.
-    if case .builtinFunction(let f) = NameExpr.Typed(expr.callee)?.decl {
-      return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
-    }
-
-    // Handle memberwise initializer calls.
-    if expr.isMemberwiseInitialization {
-      return emitRValue(memberwiseInitCall: expr, into: &module)
+    // Handle built-ins and constructor calls.
+    if let n = NameExpr.Typed(expr.callee) {
+      switch n.declaration {
+      case .builtinFunction(let f):
+        return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
+      case .constructor(let d):
+        return emitRValue(constructorCall: expr, applying: d, into: &module)
+      default:
+        break
+      }
     }
 
     // Arguments are evaluated first, from left to right.
@@ -961,9 +963,49 @@ public struct Emitter {
     let arguments = emit(
       arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
       into: &module)
-    let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
+
+    // Callee and captures are evaluated next.
+    let (callee, captures) = emitCallee(expr.callee, into: &module)
+
+    // Call is evaluated last.
     return module.append(
-      module.makeCall(applying: callee, to: liftedArguments + arguments, anchoredAt: expr.site),
+      module.makeCall(applying: callee, to: captures + arguments, anchoredAt: expr.site),
+      to: insertionBlock!)[0]
+  }
+
+  private mutating func emitRValue(
+    constructorCall expr: FunctionCallExpr.Typed,
+    applying d: InitializerDecl.ID,
+    into module: inout Module
+  ) -> Operand {
+    // Handle memberwise constructor calls.
+    if program.ast[d].isMemberwise {
+      return emitRValue(memberwiseConstructorCall: expr, into: &module)
+    }
+
+    // Evaluate all arguments.
+    let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
+    let a = emit(
+      arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
+      into: &module)
+
+    // Allocate storage for the receiver.
+    let s = module.append(
+      module.makeAllocStack(program.relations.canonical(expr.type), anchoredAt: expr.site),
+      to: insertionBlock!)[0]
+    let r = module.append(
+      module.makeBorrow(.set, from: s, anchoredAt: expr.site),
+      to: insertionBlock!)[0]
+
+    // Initialize storage.
+    let f = FunctionReference(to: program[d], in: &module)
+    module.append(
+      module.makeCall(applying: .constant(f), to: [r] + a, anchoredAt: expr.site),
+      to: insertionBlock!)
+
+    // Load initialized storage.
+    return module.append(
+      module.makeLoad(s, anchoredAt: expr.site),
       to: insertionBlock!)[0]
   }
 
@@ -972,7 +1014,7 @@ public struct Emitter {
   ///
   /// - Requires: The callee of `expr` is a direct reference to a memberwise initializer.
   private mutating func emitRValue(
-    memberwiseInitCall expr: FunctionCallExpr.Typed,
+    memberwiseConstructorCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let callee = LambdaType(expr.callee.type)!
@@ -998,9 +1040,8 @@ public struct Emitter {
     into module: inout Module
   ) -> [Operand] {
     let calleeType = LambdaType(callee.type)!
-    let defaults = NameExpr.Typed(callee)?.decl.decl.flatMap { (d) in
-      program.ast.defaultArguments(of: d.id)
-    }
+    let calleeDecl = NameExpr.Typed(callee)?.declaration.decl
+    let defaults = calleeDecl.flatMap(program.ast.defaultArguments(of:))
 
     var result: [Operand] = []
     var i = 0
@@ -1117,9 +1158,9 @@ public struct Emitter {
     name e: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch e.decl {
+    switch e.declaration {
     case .direct(let d):
-      guard let s = frames[d] else { fatalError("not implemented") }
+      guard let s = frames[program[d]] else { fatalError("not implemented") }
       if module.type(of: s).isObject {
         return s
       } else {
@@ -1127,7 +1168,10 @@ public struct Emitter {
       }
 
     case .member(let d):
-      return emitRValue(memberExpr: e, declaredBy: d, into: &module)
+      return emitRValue(memberExpr: e, declaredBy: program[d], into: &module)
+
+    case .constructor:
+      fatalError("not implemented")
 
     case .builtinFunction:
       fatalError("not implemented")
@@ -1306,24 +1350,19 @@ public struct Emitter {
   ) -> (callee: Operand, liftedArguments: [Operand]) {
     let calleeType = LambdaType(program.relations.canonical(callee.type))!
 
-    switch callee.decl {
+    switch callee.declaration {
     case .direct(let d) where d.kind == FunctionDecl.self:
       // Callee is a direct reference to a function declaration.
       guard calleeType.environment == .void else {
         fatalError("not implemented")
       }
 
-      let ref = FunctionReference(to: FunctionDecl.Typed(d)!, in: &module)
-      return (.constant(ref), [])
-
-    case .direct(let d) where d.kind == InitializerDecl.self:
-      // Callee is a direct reference to an initializer declaration.
-      let ref = FunctionReference(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
+      let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       return (.constant(ref), [])
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
-      let ref = FunctionReference(to: FunctionDecl.Typed(d)!, in: &module)
+      let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       let fun = Operand.constant(ref)
 
       // Emit the location of the receiver.
@@ -1688,13 +1727,16 @@ public struct Emitter {
     name syntax: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch syntax.decl {
+    switch syntax.declaration {
     case .direct(let d):
-      return emitLValue(directReferenceTo: d, into: &module)
+      return emitLValue(directReferenceTo: program[d], into: &module)
 
     case .member(let d):
       let r = emitLValue(receiverOf: syntax, into: &module)
-      return addressOfMember(boundTo: r, declaredBy: d, into: &module, at: syntax.site)
+      return addressOfMember(boundTo: r, declaredBy: program[d], into: &module, at: syntax.site)
+
+    case .constructor:
+      fatalError()
 
     case .builtinFunction, .builtinType:
       // Built-in functions and types are never used as l-value.

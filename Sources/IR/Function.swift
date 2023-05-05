@@ -89,9 +89,6 @@ extension Function {
       /// The identity of a lowered subscript variant.
       case loweredSubscript(SubscriptImpl.ID)
 
-      /// The identity of an initializer's constructor form.
-      case constructor(InitializerDecl.ID)
-
       /// The identity of a requirement synthesized for some type.
       ///
       /// The payload is a pair (D, U) where D is the declaration of a requirement and T is a type
@@ -118,11 +115,6 @@ extension Function {
       self.value = .lowered(AnyDeclID(f))
     }
 
-    /// Creates the identity of the lowered form of `f` used as a constructor.
-    public init(constructor f: InitializerDecl.ID) {
-      self.value = .constructor(f)
-    }
-
     /// Creates the identity of synthesized requirement `r` for type `t`.
     public init<T: DeclID>(synthesized r: T, for t: AnyType) {
       self.value = .synthesized(AnyDeclID(r), for: t)
@@ -140,8 +132,6 @@ extension Function.ID: CustomStringConvertible {
       return "\(d).lowered"
     case .loweredSubscript(let d):
       return "\(d).lowered"
-    case .constructor(let d):
-      return "\(d).constructor"
     case .synthesized(let r, let t):
       return "\"synthesized \(r) for \(t)\""
     }
