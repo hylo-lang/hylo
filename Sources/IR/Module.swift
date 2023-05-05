@@ -169,83 +169,21 @@ public struct Module {
     return id
   }
 
-  /// Declares a function identified by `f` with type `t`.
-  ///
-  /// - Parameters:
-  ///   - n: A human-readable name identifying the function.
-  ///   - site: The site in the Val sources to which the function is attached.
-  /// - Returns: `true` iff `f` wasn't already declared in `self`.
-  @discardableResult
-  mutating func declareFunction(
-    identifiedBy f: Function.ID,
-    typed t: LambdaType,
-    named n: String? = nil,
-    at site: SourceRange
-  ) -> Bool {
-    if functions[f] != nil { return false }
-
-    let output = program.relations.canonical(t.output)
-    var inputs: [ParameterType] = []
-    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
-    appendParameters(t.inputs, to: &inputs)
-
-    functions[f] = Function(
-      isSubscript: false,
-      name: n ?? "",
-      anchor: site.first(),
-      linkage: .external,
-      inputs: inputs,
-      output: output,
-      blocks: [])
-    return true
-  }
-
-  /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
-  private func appendCaptures(
-    _ captures: [TupleType.Element],
-    passed effect: AccessEffect,
-    to inputs: inout [ParameterType]
-  ) {
-    inputs.reserveCapacity(captures.count)
-    for c in captures {
-      switch program.relations.canonical(c.type).base {
-      case let p as RemoteType:
-        precondition(p.access != .yielded, "cannot lower yielded parameter")
-        inputs.append(ParameterType(p))
-      case let p:
-        precondition(effect != .yielded, "cannot lower yielded parameter")
-        inputs.append(ParameterType(effect, ^p))
-      }
-    }
-  }
-
-  /// Appends `parameters` to `inputs`, ensuring that their types are canonical.
-  private func appendParameters(
-    _ parameters: [CallableTypeParameter],
-    to inputs: inout [ParameterType]
-  ) {
-    inputs.reserveCapacity(parameters.count)
-    for p in parameters {
-      let t = ParameterType(program.relations.canonical(p.type))!
-      precondition(t.access != .yielded, "cannot lower yielded parameter")
-      inputs.append(t)
-    }
-  }
-
   /// Returns the identity of the Val IR function corresponding to `d`.
   mutating func getOrCreateFunction(lowering d: FunctionDecl.Typed) -> Function.ID {
     if let f = loweredFunctions[d.id] { return f }
     let f = Function.ID(d.id)
-    let n = program.debugName(decl: d.id)
 
-    switch d.type.base {
-    case let declType as LambdaType:
-      declareFunction(identifiedBy: f, typed: declType, named: n, at: d.site)
-    case is MethodType:
-      fatalError("not implemented")
-    default:
-      unreachable()
-    }
+    let output = program.relations.canonical((d.type.base as! CallableType).output)
+    let inputs = loweredParameters(of: d.id)
+    functions[f] = Function(
+      isSubscript: false,
+      name: program.debugName(decl: d.id),
+      site: d.site,
+      linkage: .external,
+      inputs: inputs,
+      output: output,
+      blocks: [])
 
     // Determine if the new function is the module's entry.
     if d.scope.kind == TranslationUnit.self, d.isPublic, d.identifier?.value == "main" {
@@ -262,18 +200,15 @@ public struct Module {
     let f = Function.ID(d.id)
     if functions[f] != nil { return f }
 
-    let t = SubscriptImplType(d.type)!
-    var inputs: [ParameterType] = []
-    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
-    appendParameters(t.inputs, to: &inputs)
-
+    let output = program.relations.canonical(SubscriptImplType(d.type)!.output)
+    let inputs = loweredParameters(of: d.id)
     functions[f] = Function(
       isSubscript: true,
       name: program.debugName(decl: d.id),
-      anchor: d.site.first(),
+      site: d.site,
       linkage: .external,
       inputs: inputs,
-      output: program.relations.canonical(t.output),
+      output: output,
       blocks: [])
 
     return f
@@ -281,26 +216,132 @@ public struct Module {
 
   /// Returns the identifier of the Val IR initializer corresponding to `d`.
   mutating func initializerDeclaration(lowering d: InitializerDecl.Typed) -> Function.ID {
-    if let id = loweredFunctions[d.id] { return id }
     precondition(!d.isMemberwise)
 
-    let declType = LambdaType(d.type)!
-    let parameters = declType.inputs.map({ ParameterType($0.type)! })
-
     let f = Function.ID(initializer: d.id)
-    assert(functions[f] == nil)
+    if functions[f] != nil { return f }
+
+    let inputs = loweredParameters(of: d.id)
     functions[f] = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
-      anchor: d.introducer.site.first(),
-      linkage: d.isPublic ? .external : .module,
-      inputs: parameters,
-      output: program.relations.canonical(declType.output),
+      site: d.introducer.site,
+      linkage: .external,
+      inputs: inputs,
+      output: .void,
       blocks: [])
 
     // Update the cache and return the ID of the newly created function.
     loweredFunctions[d.id] = f
     return f
+  }
+
+  /// Returns the lowered declarations of `d`'s parameters.
+  private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
+    let captures = LambdaType(program.declTypes[d]!)!.captures.lazy.map { (e) in
+      program.relations.canonical(e.type)
+    }
+    var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
+      .init(c, capturedAs: e)
+    })
+    result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
+    return result
+  }
+
+  /// Returns the lowered declarations of `d`'s parameters.
+  ///
+  /// `d`'s receiver comes first and is followed by `d`'s formal parameters, from left to right.
+  private func loweredParameters(of d: InitializerDecl.ID) -> [Parameter] {
+    var result: [Parameter] = []
+    result.append(pairedWithLoweredType(parameter: program.ast[d].receiver))
+    result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
+    return result
+  }
+
+  /// Returns the lowered declarations of `d`'s parameters.
+  private func loweredParameters(of d: SubscriptImpl.ID) -> [Parameter] {
+    let captures = SubscriptImplType(program.declTypes[d]!)!.captures.lazy.map { (e) in
+      program.relations.canonical(e.type)
+    }
+    var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
+      .init(c, capturedAs: e)
+    })
+
+    let bundle = SubscriptDecl.ID(program.declToScope[d]!)!
+    if let p = program.ast[bundle].parameters {
+      result.append(contentsOf: p.map(pairedWithLoweredType(parameter:)))
+    }
+
+    return result
+  }
+
+  /// Returns `d`, which declares a parameter, paired with its lowered type.
+  private func pairedWithLoweredType(parameter d: ParameterDecl.ID) -> Parameter {
+    let t = program.relations.canonical(program.declTypes[d]!)
+    return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
+  }
+
+  /// Declares a synthetic function identified by `f` with type `t`.
+  ///
+  /// - Parameters:
+  ///   - n: A human-readable name identifying the function.
+  ///   - site: The site in the Val sources to which the function is attached.
+  /// - Returns: `true` iff `f` wasn't already declared in `self`.
+  @discardableResult
+  mutating func declareSyntheticFunction(
+    identifiedBy f: Function.ID,
+    typed t: LambdaType,
+    named n: String? = nil,
+    at site: SourceRange
+  ) -> Bool {
+    if functions[f] != nil { return false }
+
+    let output = program.relations.canonical(t.output)
+    var inputs: [Parameter] = []
+    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
+    appendParameters(t.inputs, to: &inputs)
+
+    functions[f] = Function(
+      isSubscript: false,
+      name: n ?? "",
+      site: site,
+      linkage: .external,
+      inputs: inputs,
+      output: output,
+      blocks: [])
+    return true
+  }
+
+  /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
+  private func appendCaptures(
+    _ captures: [TupleType.Element],
+    passed effect: AccessEffect,
+    to inputs: inout [Parameter]
+  ) {
+    inputs.reserveCapacity(captures.count)
+    for c in captures {
+      switch program.relations.canonical(c.type).base {
+      case let p as RemoteType:
+        precondition(p.access != .yielded, "cannot lower yielded parameter")
+        inputs.append(.init(decl: nil, type: ParameterType(p)))
+      case let p:
+        precondition(effect != .yielded, "cannot lower yielded parameter")
+        inputs.append(.init(decl: nil, type: ParameterType(effect, ^p)))
+      }
+    }
+  }
+
+  /// Appends `parameters` to `inputs`, ensuring that their types are canonical.
+  private func appendParameters(
+    _ parameters: [CallableTypeParameter],
+    to inputs: inout [Parameter]
+  ) {
+    inputs.reserveCapacity(parameters.count)
+    for p in parameters {
+      let t = ParameterType(program.relations.canonical(p.type))!
+      precondition(t.access != .yielded, "cannot lower yielded parameter")
+      inputs.append(.init(decl: nil, type: t))
+    }
   }
 
   /// Appends an entry block to `f` and returns its identifier.
@@ -309,7 +350,7 @@ public struct Module {
   @discardableResult
   mutating func appendEntry(to f: Function.ID) -> Block.ID {
     assert(functions[f]!.blocks.isEmpty)
-    return appendBlock(taking: functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    return appendBlock(taking: functions[f]!.inputs.map({ .address($0.type.bareType) }), to: f)
   }
 
   /// Appends a basic block taking `parameters` to `f` and returns its identifier.

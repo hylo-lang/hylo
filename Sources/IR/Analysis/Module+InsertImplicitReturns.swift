@@ -14,8 +14,9 @@ extension Module {
       let lastInstruction = self[blockToProcess].instructions.last
       if let l = lastInstruction, l is Terminator { continue }
 
+      let site = lastInstruction?.site ?? .empty(at: self[f].site.first())
       insertReturnVoidInstruction(
-        anchoredAt: lastInstruction?.site ?? .empty(at: self[f].anchor),
+        anchoredAt: site,
         at: endIndex(of: blockToProcess),
         inFunctionReturning: returnType,
         diagnostics: &diagnostics)

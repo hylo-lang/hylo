@@ -150,7 +150,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(condBranch i: InstructionID, in context: inout Context) {
       let branch = self[i] as! CondBranchInstruction
-      context.consume(branch.condition, with: i, at: branch.site, diagnostics: &diagnostics)
+      consume(branch.condition, with: i, at: branch.site, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -159,7 +159,7 @@ extension Module {
       let calleeType = LambdaType(type(of: call.callee).ast)!
 
       if calleeType.receiverEffect == .sink {
-        context.consume(call.callee, with: i, at: call.site, diagnostics: &diagnostics)
+        consume(call.callee, with: i, at: call.site, in: &context)
       } else {
         assert(isBorrowOrConstant(call.callee))
       }
@@ -176,7 +176,7 @@ extension Module {
           }
 
         case .sink:
-          context.consume(a, with: i, at: call.site, diagnostics: &diagnostics)
+          consume(a, with: i, at: call.site, in: &context)
 
         case .yielded:
           unreachable()
@@ -190,7 +190,7 @@ extension Module {
     func interpret(callFFI i: InstructionID, in context: inout Context) {
       let s = self[i] as! CallFIIInstruction
       for a in s.operands {
-        context.consume(a, with: i, at: s.site, diagnostics: &diagnostics)
+        consume(a, with: i, at: s.site, in: &context)
       }
       initializeRegisters(createdBy: i, in: &context)
     }
@@ -210,7 +210,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deinit i: InstructionID, in context: inout Context) {
       let x = self[i] as! DeinitInstruction
-      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
+      consume(x.object, with: i, at: x.site, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -233,8 +233,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(destructure i: InstructionID, in context: inout Context) {
       let x = self[i] as! DestructureInstruction
-      context.consume(x.whole, with: i, at: x.site, diagnostics: &diagnostics)
-
+      consume(x.whole, with: i, at: x.site, in: &context)
       initializeRegisters(createdBy: i, in: &context)
     }
 
@@ -272,7 +271,9 @@ extension Module {
         context.withObject(at: l) { (o) in
           switch o.value {
           case .full(.initialized):
-            o.value = .full(.consumed(by: [i]))
+            if !o.layout.type.isBuiltin {
+              o.value = .full(.consumed(by: [i]))
+            }
           case .full(.uninitialized):
             diagnostics.insert(.useOfUninitializedObject(at: load.site))
           case .full(.consumed):
@@ -294,7 +295,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(partialApply i: InstructionID, in context: inout Context) {
       let x = self[i] as! PartialApplyInstruction
-      context.consume(x.environment, with: i, at: x.site, diagnostics: &diagnostics)
+      consume(x.environment, with: i, at: x.site, in: &context)
       initializeRegisters(createdBy: i, in: &context)
     }
 
@@ -302,7 +303,7 @@ extension Module {
     func interpret(record i: InstructionID, in context: inout Context) {
       let x = self[i] as! RecordInstruction
       for o in x.operands {
-        context.consume(o, with: i, at: x.site, diagnostics: &diagnostics)
+        consume(o, with: i, at: x.site, in: &context)
       }
 
       initializeRegisters(createdBy: i, in: &context)
@@ -322,8 +323,29 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) {
-      let x = self[i] as! ReturnInstruction
-      context.consume(x.object, with: i, at: x.site, diagnostics: &diagnostics)
+      let s = self[i] as! ReturnInstruction
+      consume(s.object, with: i, at: s.site, in: &context)
+
+      // Make sure that all non-sink parameters are initialized on exit.
+      let entry = Block.ID(f, self[f].entry!)
+      for (i, p) in self[f].inputs.enumerated() where p.type.access != .sink {
+        let a = AbstractLocation.root(.parameter(entry, i))
+        context.withObject(at: a) { (o) in
+          if o.value == .full(.initialized) { return }
+          let parameterSite = diagnosticSite(for: p, in: f)
+
+          if p.type.access == .set {
+            diagnostics.insert(
+              .uninitializedSetParameter(beforeReturningFrom: f, in: self, at: parameterSite))
+            return
+          }
+
+          // If the parameter is `let` or `inout`, it's been (partially) consumed since it was
+          // initialized in the entry context.
+          diagnostics.insert(
+            .illegalParameterEscape(consumedBy: o.value.consumers, in: self, at: parameterSite))
+        }
+      }
     }
 
     /// Interprets `i` in `context`, updating the state of `machine` and reporting violations into
@@ -356,7 +378,7 @@ extension Module {
         replace(i, by: makeBranch(to: s.targetIfTrue, anchoredAt: s.site))
         machine.removeWork(s.targetIfFalse.address)
 
-      case .full(.uninitialized):
+      case .full(.uninitialized), .full(.consumed):
         removeBlock(s.targetIfTrue)
         replace(i, by: makeBranch(to: s.targetIfFalse, anchoredAt: s.site))
         machine.removeWork(s.targetIfTrue.address)
@@ -372,9 +394,9 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(store i: InstructionID, in context: inout Context) {
       let store = self[i] as! StoreInstruction
-      context.consume(store.object, with: i, at: store.site, diagnostics: &diagnostics)
+      consume(store.object, with: i, at: store.site, in: &context)
       context.forEachObject(at: store.target) { (o) in
-        assert(o.value.initializedPaths.isEmpty || o.layout.type.base is BuiltinType)
+        assert(o.value.initializedPaths.isEmpty || o.layout.type.isBuiltin)
         o.value = .full(.initialized)
       }
     }
@@ -396,6 +418,26 @@ extension Module {
       assert(isBorrowOrConstant(s.projection))
     }
 
+    /// Updates the state of the `o` in `context` to mark it has been consumed by `consumer` at
+    /// `site` or reports a diagnostic explaining why `o` can't be consumed.
+    func consume(
+      _ o: Operand,
+      with consumer: InstructionID,
+      at site: SourceRange,
+      in context: inout Context
+    ) {
+      // Constant values are synthesized on demand. Built-ins are never consumed.
+      if case .constant = o { return }
+      if type(of: o).ast.isBuiltin { return }
+
+      var v = context.locals[o]!.unwrapObject()!
+      if v.value == .full(.initialized) {
+        v.value = .full(.consumed(by: [consumer]))
+        context.locals[o]! = .object(v)
+      } else {
+        diagnostics.insert(.illegalMove(at: site))
+      }
+    }
   }
 
   /// Returns the initial context in which `f` should be interpreted.
@@ -405,9 +447,9 @@ extension Module {
 
     let b = Block.ID(f, function.entry!)
     for i in function.inputs.indices {
-      let l = AbstractTypeLayout(of: function.inputs[i].bareType, definedIn: program)
+      let l = AbstractTypeLayout(of: function.inputs[i].type.bareType, definedIn: program)
 
-      switch function.inputs[i].access {
+      switch function.inputs[i].type.access {
       case .let, .inout, .sink:
         let a = AbstractLocation.root(.parameter(b, i))
         result.locals[.parameter(b, i)] = .locations([a])
@@ -462,6 +504,17 @@ extension Module {
         makeLoad(s, anchoredAt: anchor),
         before: i)[0]
       insert(makeDeinit(o, anchoredAt: anchor), before: i)
+    }
+  }
+
+  /// Returns the site at which diagnostics related to the parameter `p` should be reported in `f`.
+  private func diagnosticSite(for p: Parameter, in f: Function.ID) -> SourceRange {
+    guard let d = p.decl else { return .empty(at: self[f].site.first()) }
+    switch d.kind {
+    case ParameterDecl.self:
+      return program.ast[ParameterDecl.ID(d)!].identifier.site
+    default:
+      return program.ast[d].site
     }
   }
 
@@ -547,30 +600,6 @@ private struct PartPaths {
 
 }
 
-extension AbstractContext where Domain == State {
-
-  /// Updates the state of the `o` to mark it consumed by `consumer` at `site`, or report a
-  /// diagnostic in `diagnostics` explaining why `o` can't be consumed.
-  fileprivate mutating func consume(
-    _ o: Operand,
-    with consumer: InstructionID,
-    at site: SourceRange,
-    diagnostics: inout DiagnosticSet
-  ) {
-    // Constants are never consumed.
-    if case .constant = o { return }
-    var v = locals[o]!.unwrapObject()!
-
-    if v.value == .full(.initialized) {
-      v.value = .full(.consumed(by: [consumer]))
-      locals[o]! = .object(v)
-    } else {
-      diagnostics.insert(.illegalMove(at: site))
-    }
-  }
-
-}
-
 extension AbstractObject.Value where Domain == State {
 
   /// If `self` is `.partial`, the paths to `self`'s parts; otherwise, `nil`.
@@ -616,6 +645,18 @@ extension AbstractObject.Value where Domain == State {
           p.gatherSubobjectPaths(prefixedBy: prefix + [i], into: &paths)
         }
       }
+    }
+  }
+
+  /// The consumers of the object.
+  fileprivate var consumers: State.Consumers {
+    switch self {
+    case .full(.initialized), .full(.uninitialized):
+      return []
+    case .full(.consumed(let c)):
+      return c
+    case .partial(let parts):
+      return parts.reduce(into: [], { (s, p) in s.formUnion(p.consumers) })
     }
   }
 
@@ -681,6 +722,28 @@ extension Diagnostic {
 
   fileprivate static func illegalMove(at site: SourceRange) -> Diagnostic {
     .error("illegal move", at: site)
+  }
+
+  fileprivate static func illegalParameterEscape(
+    consumedBy consumers: State.Consumers? = nil,
+    in module: Module,
+    at site: SourceRange
+  ) -> Diagnostic {
+    if let c = consumers {
+      let notes = c.map({ Diagnostic.error("escape happens here", at: module[$0].site) })
+      return .error("parameter was consumed", at: site, notes: notes)
+    } else {
+      return .error("parameter was consumed", at: site)
+    }
+  }
+
+  fileprivate static func uninitializedSetParameter(
+    beforeReturningFrom f: Function.ID,
+    in module: Module,
+    at site: SourceRange
+  ) -> Diagnostic {
+    let e = module[f].isSubscript ? "subscript" : "function"
+    return .error("set parameter not initialized before \(e) returns", at: site)
   }
 
   fileprivate static func useOfConsumedObject(at site: SourceRange) -> Diagnostic {
