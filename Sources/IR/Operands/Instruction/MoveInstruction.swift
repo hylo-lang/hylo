@@ -4,10 +4,10 @@ import Core
 public struct MoveInstruction: Instruction {
 
   /// The value moved into `target`.
-  public let object: Operand
+  public private(set) var object: Operand
 
   /// The location to initialize or assign.
-  public let target: Operand
+  public private(set) var target: Operand
 
   /// The conformance of `target`'s type to `Sinkable` implementing its move operators.
   public let sinkable: Conformance
@@ -26,6 +26,15 @@ public struct MoveInstruction: Instruction {
   public var types: [LoweredType] { [] }
 
   public var operands: [Operand] { [object, target] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    switch i {
+    case 0: object = new
+    case 1: target = new
+    default:
+      preconditionFailure()
+    }
+  }
 
 }
 

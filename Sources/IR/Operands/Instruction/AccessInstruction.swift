@@ -10,7 +10,7 @@ public struct AccessInstruction: Instruction {
   public let accessedType: AnyType
 
   /// The location of the root object on which an access is borrowed or consumed.
-  public let source: Operand
+  public private(set) var source: Operand
 
   /// The binding in source program to which the instruction corresponds, if any.
   public let binding: VarDecl.Typed?
@@ -36,6 +36,11 @@ public struct AccessInstruction: Instruction {
   public var types: [LoweredType] { [.address(accessedType)] }
 
   public var operands: [Operand] { [source] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    source = new
+  }
 
 }
 

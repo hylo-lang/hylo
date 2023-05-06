@@ -394,13 +394,37 @@ public struct Module {
   ///
   /// - Requires: `new` produces results with the same types as `old`.
   @discardableResult
-  mutating func replace<I: Instruction>(_ old: InstructionID, by new: I) -> [Operand] {
+  mutating func replace<I: Instruction>(_ old: InstructionID, with new: I) -> [Operand] {
     precondition(self[old].types == new.types)
     removeUsesMadeBy(old)
     return insert(new) { (m, i) in
       m[old] = i
       return old
     }
+  }
+
+  /// Swaps all uses of `old` in `f` by `new` and updates the def-use chains.
+  ///
+  /// - Requires: `new` as the same type as `old`. `f` is in `self`.
+  mutating func replaceUses(of old: Operand, with new: Operand, in f: Function.ID) {
+    precondition(old != new)
+    precondition(type(of: old) == type(of: new))
+
+    guard var oldUses = uses[old], !oldUses.isEmpty else { return }
+    var newUses = uses[new] ?? []
+
+    var end = oldUses.count
+    for i in oldUses.indices.reversed() where oldUses[i].user.function == f {
+      let u = oldUses[i]
+      self[u.user].replaceOperand(at: u.index, with: new)
+      newUses.append(u)
+      end -= 1
+      oldUses.swapAt(i, end)
+    }
+    oldUses.removeSubrange(end...)
+
+    uses[old] = oldUses
+    uses[new] = newUses
   }
 
   /// Adds `newInstruction` at the end of `block` and returns the identities of its return values.

@@ -4,10 +4,10 @@ import Core
 public struct WrapInstruction: Instruction {
 
   /// The address wrapped in the existential container.
-  public let witness: Operand
+  public private(set) var witness: Operand
 
   /// The witness table of the wrapped value.
-  public let table: Operand
+  public private(set) var table: Operand
 
   /// The type of the existential container.
   public let interface: LoweredType
@@ -24,7 +24,16 @@ public struct WrapInstruction: Instruction {
 
   public var types: [LoweredType] { [interface] }
 
-  public var operands: [Operand] { [witness] }
+  public var operands: [Operand] { [witness, table] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    switch i {
+    case 0: witness = new
+    case 1: table = new
+    default:
+      preconditionFailure()
+    }
+  }
 
 }
 

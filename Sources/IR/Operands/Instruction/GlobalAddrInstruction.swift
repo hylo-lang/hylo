@@ -32,6 +32,10 @@ public struct GlobalAddrInstruction: Instruction {
 
   public var operands: [Operand] { [] }
 
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    preconditionFailure()
+  }
+
 }
 
 extension GlobalAddrInstruction: CustomStringConvertible {

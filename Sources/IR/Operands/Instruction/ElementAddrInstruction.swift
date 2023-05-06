@@ -4,7 +4,7 @@ import Core
 public struct ElementAddrInstruction: Instruction {
 
   /// The address of a record.
-  public let base: Operand
+  public private(set) var base: Operand
 
   /// A sequence of indices identifying a part of the value at `base`.
   public let elementPath: PartPath
@@ -31,6 +31,11 @@ public struct ElementAddrInstruction: Instruction {
   public var types: [LoweredType] { [elementType] }
 
   public var operands: [Operand] { [base] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    base = new
+  }
 
 }
 
