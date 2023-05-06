@@ -36,12 +36,15 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     if function.isSubscript {
       output.write("subscript \(function.name)(")
       output.write(function.inputs.lazy.descriptions())
-      output.write("): \(function.output) {\n")
+      output.write("): \(function.output)")
     } else {
       output.write("fun \(function.name)(")
       output.write(function.inputs.lazy.descriptions())
-      output.write(") -> \(function.output) {\n")
+      output.write(") -> \(function.output)")
     }
+
+    if function.entry == nil { return }
+    output.write(" {\n")
 
     for i in blocks(in: f) {
       output.write("\(i)(")
