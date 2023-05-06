@@ -11,8 +11,8 @@ public struct ProjectBundleInstruction: Instruction {
 
   /// The arguments of the call.
   ///
-  /// In refined IR, operands to non-`sink` inputs must be the result of a `borrow` instruction and
-  /// have no use before `project`.
+  /// Operands to non-`sink` inputs must be the result of an `access` instruction requesting a
+  /// capability for each variant in `calle` and having no use before `project`.
   public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.

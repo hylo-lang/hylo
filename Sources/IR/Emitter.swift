@@ -1802,7 +1802,7 @@ public struct Emitter {
     switch d.kind {
     case SubscriptDecl.self:
       return emitComputedProperty(
-        boundTo: receiver, declaredBy: .init(d)!, into: &module, at: anchor)
+        boundTo: receiver, declaredByBundle: .init(d)!, into: &module, at: anchor)
 
     case VarDecl.self:
       let receiverLayout = AbstractTypeLayout(
@@ -1821,21 +1821,43 @@ public struct Emitter {
   /// inserting IR anchored at `anchor` into `module`.
   private mutating func emitComputedProperty(
     boundTo receiver: Operand,
-    declaredBy d: SubscriptDecl.Typed,
+    declaredByBundle d: SubscriptDecl.Typed,
     into module: inout Module,
     at anchor: SourceRange
   ) -> Operand {
-    // TODO: Handle mutable projections
     // TODO: Handle generics
 
-    let i = SubscriptDecl.Typed(d)!.impls.first(where: { $0.introducer.value == .let })!
-    let f = module.getOrCreateSubscript(lowering: i)
-    let t = RemoteType(.let, program.relations.canonical(SubscriptType(d.type)!.output))
+    if let i = d.impls.uniqueElement {
+      return emitComputedProperty(boundTo: receiver, declaredBy: i, into: &module, at: anchor)
+    }
+
+    let t = SubscriptType(d.type)!
+    let o = program.relations.canonical(t.output)
     let r = module.append(
-      module.makeBorrow(.let, from: receiver, anchoredAt: anchor),
+      module.makeAccess(t.capabilities, from: receiver, anchoredAt: anchor),
       to: insertionBlock!)[0]
     return module.append(
-      module.makeProject(t, applying: f, to: [r], anchoredAt: anchor),
+      module.makeProjectBundle(o, applying: d.id, to: [r], anchoredAt: anchor),
+      to: insertionBlock!)[0]
+  }
+
+  /// Returns the address of the computed property declared by `d` and bound to `receiver`,
+  /// inserting IR anchored at `anchor` into `module`.
+  private mutating func emitComputedProperty(
+    boundTo receiver: Operand,
+    declaredBy d: SubscriptImpl.Typed,
+    into module: inout Module,
+    at anchor: SourceRange
+  ) -> Operand {
+    let t = SubscriptImplType(d.type)!
+    let o = RemoteType(d.introducer.value, program.relations.canonical(t.output))
+    let r = module.append(
+      module.makeBorrow(o.access, from: receiver, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+
+    let f = module.getOrCreateSubscript(lowering: d)
+    return module.append(
+      module.makeProject(o, applying: f, to: [r], anchoredAt: anchor),
       to: insertionBlock!)[0]
   }
 
