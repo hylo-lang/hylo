@@ -6,7 +6,7 @@ public struct ProjectInstruction: Instruction {
   /// The type of the projected value.
   public let projection: RemoteType
 
-  /// The subscript performing the projection.
+  /// The subscript implementing the projection.
   ///
   /// Subscripts, unlike functions, are not first-class values and are therefore not represented as
   /// IR operands.
@@ -14,8 +14,8 @@ public struct ProjectInstruction: Instruction {
 
   /// The arguments of the call.
   ///
-  /// Operands to non-`sink` inputs must be the result of a `borrow` instruction and have no use
-  /// before `project`.
+  /// In refined IR, operands to non-`sink` inputs must be the result of a `borrow` instruction and
+  /// have no use before `project`.
   public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.
@@ -59,10 +59,6 @@ extension Module {
 
   /// Creates a `project` anchored at `anchor` that takes applies subscript `s` on `arguments` to
   /// project a value of type `t`.
-  ///
-  /// - Parameters:
-  ///   - source: The address from which the capability is borrowed. Must have an address type.
-  ///   - binding: The declaration of the binding to which the borrow corresponds, if any.
   func makeProject(
     _ t: RemoteType,
     applying s: Function.ID,
