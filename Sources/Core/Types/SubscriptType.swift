@@ -43,6 +43,20 @@ public struct SubscriptType: TypeProtocol {
   /// Accesses the individual elements of the subscript's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
+  /// Returns the type of the thin function corresponding to `self`.
+  public var pure: LambdaType {
+    let captures = TupleType(environment).map(\.elements) ?? [.init(label: nil, type: environment)]
+    let p = captures.map { (e) -> CallableTypeParameter in
+      if let t = RemoteType(e.type) {
+        return .init(label: e.label, type: ^ParameterType(t))
+      } else {
+        return .init(label: e.label, type: ^ParameterType(.yielded, e.type))
+      }
+    }
+    let o = RemoteType(.yielded, output)
+    return .init(receiverEffect: .let, environment: .void, inputs: p + inputs, output: ^o)
+  }
+
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     SubscriptType(
       isProperty: isProperty,
