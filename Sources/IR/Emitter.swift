@@ -69,15 +69,17 @@ public struct Emitter {
     case BindingDecl.self:
       emit(globalBindingDecl: .init(d)!, into: &module)
     case ConformanceDecl.self:
-      emit(conformanceDecl: ConformanceDecl.Typed(d)!, into: &module)
+      emit(conformanceDecl: .init(d)!, into: &module)
+    case ExtensionDecl.self:
+      emit(extensionDecl: .init(d)!, into: &module)
     case FunctionDecl.self:
-      emit(functionDecl: FunctionDecl.Typed(d)!, into: &module)
+      emit(functionDecl: .init(d)!, into: &module)
     case OperatorDecl.self:
       break
     case NamespaceDecl.self:
       emit(namespaceDecl: .init(d)!, into: &module)
     case ProductTypeDecl.self:
-      emit(productDecl: ProductTypeDecl.Typed(d)!, into: &module)
+      emit(productDecl: .init(d)!, into: &module)
     case TraitDecl.self:
       break
     case TypeAliasDecl.self:
@@ -89,18 +91,12 @@ public struct Emitter {
 
   /// Inserts the IR for `d` into `module`.
   private mutating func emit(conformanceDecl d: ConformanceDecl.Typed, into module: inout Module) {
-    for member in d.members {
-      switch member.kind {
-      case FunctionDecl.self:
-        emit(functionDecl: .init(member)!, into: &module)
-      case InitializerDecl.self:
-        emit(initializerDecl: .init(member)!, into: &module)
-      case SubscriptDecl.self:
-        emit(subscriptDecl: .init(member)!, into: &module)
-      default:
-        continue
-      }
-    }
+    emit(members: d.members, into: &module)
+  }
+
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(extensionDecl d: ExtensionDecl.Typed, into module: inout Module) {
+    emit(members: d.members, into: &module)
   }
 
   /// Inserts the IR for `decl` into `module`, returning the ID of the lowered function.
@@ -312,17 +308,22 @@ public struct Emitter {
     }
   }
 
-  /// Inserts the IR for `decl` into `module`.
-  private mutating func emit(productDecl decl: ProductTypeDecl.Typed, into module: inout Module) {
-    _ = module.addGlobal(MetatypeConstant(.init(decl.type)!))
-    for member in decl.members {
-      switch member.kind {
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(productDecl d: ProductTypeDecl.Typed, into module: inout Module) {
+    _ = module.addGlobal(MetatypeConstant(.init(d.type)!))
+    emit(members: d.members, into: &module)
+  }
+
+  /// Inserts the IR for given declaration `members` into `module`.
+  private mutating func emit(members: [AnyDeclID], into module: inout Module) {
+    for m in members {
+      switch m.kind {
       case FunctionDecl.self:
-        emit(functionDecl: .init(member)!, into: &module)
+        emit(functionDecl: .init(program[m])!, into: &module)
       case InitializerDecl.self:
-        emit(initializerDecl: .init(member)!, into: &module)
+        emit(initializerDecl: .init(program[m])!, into: &module)
       case SubscriptDecl.self:
-        emit(subscriptDecl: .init(member)!, into: &module)
+        emit(subscriptDecl: .init(program[m])!, into: &module)
       default:
         continue
       }
