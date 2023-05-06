@@ -1831,14 +1831,20 @@ public struct Emitter {
       return emitComputedProperty(boundTo: receiver, declaredBy: i, into: &module, at: anchor)
     }
 
-    let t = SubscriptType(d.type)!
-    let o = program.relations.canonical(t.output)
+    let t = SubscriptType(program.relations.canonical(d.type))!
     let r = module.append(
       module.makeAccess(t.capabilities, from: receiver, anchoredAt: anchor),
       to: insertionBlock!)[0]
-    return module.append(
-      module.makeProjectBundle(o, applying: d.id, to: [r], anchoredAt: anchor),
-      to: insertionBlock!)[0]
+
+    var variants: [AccessEffect: Function.ID] = [:]
+    for v in d.impls {
+      variants[v.introducer.value] = module.getOrCreateSubscript(lowering: v)
+    }
+
+    let p = module.makeProjectBundle(
+      applying: variants, of: d.id, typed: t, to: [r],
+      anchoredAt: anchor)
+    return module.append(p, to: insertionBlock!)[0]
   }
 
   /// Returns the address of the computed property declared by `d` and bound to `receiver`,

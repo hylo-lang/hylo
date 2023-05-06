@@ -7,9 +7,6 @@ public struct ProjectInstruction: Instruction {
   public let projection: RemoteType
 
   /// The subscript implementing the projection.
-  ///
-  /// Subscripts, unlike functions, are not first-class values and are therefore not represented as
-  /// IR operands.
   public let callee: Function.ID
 
   /// The arguments of the call.
@@ -35,7 +32,9 @@ public struct ProjectInstruction: Instruction {
   }
 
   /// The types of the instruction's results.
-  public var types: [LoweredType] { [.address(projection.bareType)] }
+  public var types: [LoweredType] {
+    [.address(projection.bareType)]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     operands[i] = new
@@ -57,8 +56,8 @@ extension ProjectInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `project` anchored at `anchor` that takes applies subscript `s` on `arguments` to
-  /// project a value of type `t`.
+  /// Creates a `project` anchored at `anchor` that projects a value of type `t` by applying `s`
+  /// on `arguments`.
   func makeProject(
     _ t: RemoteType,
     applying s: Function.ID,

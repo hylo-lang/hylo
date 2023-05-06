@@ -3,11 +3,14 @@ import Core
 /// Projects a value from a subscript bundle.
 public struct ProjectBundleInstruction: Instruction {
 
-  /// The type of the projected value.
-  public let projection: AnyType
-
   /// The subscript bundle implementing the projections.
-  public let callee: SubscriptDecl.ID
+  public let bundle: SubscriptDecl.ID
+
+  /// The pure functional type of the callee.
+  public let pureCalleeType: LambdaType
+
+  /// The subscripts implementing the projection.
+  public let variants: [AccessEffect: Function.ID]
 
   /// The arguments of the call.
   ///
@@ -20,19 +23,38 @@ public struct ProjectBundleInstruction: Instruction {
 
   /// Creates an instance with the given properties.
   fileprivate init(
-    projection: AnyType,
-    callee: SubscriptDecl.ID,
+    bundle: SubscriptDecl.ID,
+    pureCalleeType: LambdaType,
+    variants: [AccessEffect: Function.ID],
     operands: [Operand],
     site: SourceRange
   ) {
-    self.projection = projection
-    self.callee = callee
+    self.bundle = bundle
+    self.pureCalleeType = pureCalleeType
+    self.variants = variants
     self.operands = operands
     self.site = site
   }
 
+  /// The capabilities of the projected value.
+  public var capabilities: AccessEffectSet {
+    .init(variants.keys)
+  }
+
+  /// The type of the projected value.
+  public var projection: RemoteType {
+    RemoteType(pureCalleeType.output)!
+  }
+
+  /// The parameters of the projection.
+  public var parameters: LazyMapSequence<[CallableTypeParameter], ParameterType> {
+    pureCalleeType.inputs.lazy.map({ ParameterType($0.type)! })
+  }
+
   /// The types of the instruction's results.
-  public var types: [LoweredType] { [.address(projection)] }
+  public var types: [LoweredType] {
+    [.address(projection.bareType)]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     operands[i] = new
@@ -44,9 +66,9 @@ extension ProjectBundleInstruction: CustomStringConvertible {
 
   public var description: String {
     if operands.isEmpty {
-      return "project_bundle \(callee)"
+      return "project_bundle \(capabilities) \(bundle)"
     } else {
-      return "project_bundle \(callee), \(list: operands)"
+      return "project_bundle \(capabilities) \(bundle), \(list: operands)"
     }
   }
 
@@ -54,15 +76,25 @@ extension ProjectBundleInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `project_bundle` anchored at `anchor` that takes applies subscript `s` on
-  /// `arguments` to project a value of type `t`.
+  /// Creates a `project_bundle` anchored at `anchor` that projects a value by applying one of
+  /// the given `variants` on `arguments`. The variants are defined in `bundle`, which whose
+  /// declaration reference has type `bundleType`.
+  ///
+  /// - Requires: `bundleType` is canonical and `variants` is not empty.
   func makeProjectBundle(
-    _ t: AnyType,
-    applying s: SubscriptDecl.ID,
+    applying variants: [AccessEffect: Function.ID],
+    of bundle: SubscriptDecl.ID,
+    typed bundleType: SubscriptType,
     to arguments: [Operand],
     anchoredAt anchor: SourceRange
   ) -> ProjectBundleInstruction {
-    .init(projection: t, callee: s, operands: arguments, site: anchor)
+    precondition(bundleType[.isCanonical])
+    return .init(
+      bundle: bundle,
+      pureCalleeType: bundleType.pure,
+      variants: variants,
+      operands: arguments,
+      site: anchor)
   }
 
 }
