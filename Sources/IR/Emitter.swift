@@ -1331,13 +1331,19 @@ public struct Emitter {
   private mutating func emitCallee(
     _ callee: AnyExprID.TypedNode,
     into module: inout Module
-  ) -> (callee: Operand, liftedArguments: [Operand]) {
-    if let e = NameExpr.Typed(callee) {
-      return emitNamedCallee(e, into: &module)
-    }
+  ) -> (callee: Operand, captures: [Operand]) {
+    switch callee.kind {
+    case NameExpr.self:
+      return emitNamedCallee(.init(callee)!, into: &module)
 
-    let f = emitLambdaCallee(callee, into: &module)
-    return (f, [])
+    case InoutExpr.self:
+      // TODO: Handle the mutation marker, somehow.
+      return emitCallee(InoutExpr.Typed(callee)!.subject, into: &module)
+
+    default:
+      let f = emitLambdaCallee(callee, into: &module)
+      return (f, [])
+    }
   }
 
   /// Inserts the IR for given `callee` into `module` at the end of the current insertion block and
@@ -1347,7 +1353,7 @@ public struct Emitter {
   private mutating func emitNamedCallee(
     _ callee: NameExpr.Typed,
     into module: inout Module
-  ) -> (callee: Operand, liftedArguments: [Operand]) {
+  ) -> (callee: Operand, captures: [Operand]) {
     let calleeType = LambdaType(program.relations.canonical(callee.type))!
 
     switch callee.declaration {
