@@ -1,7 +1,7 @@
 import Utils
 
 /// A set of access effects.
-public struct AccessEffectSet: OptionSet {
+public struct AccessEffectSet: OptionSet, Hashable {
 
   public typealias RawValue = UInt8
 
