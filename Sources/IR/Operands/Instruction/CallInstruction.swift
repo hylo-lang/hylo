@@ -11,7 +11,7 @@ public struct CallInstruction: Instruction {
   public let returnType: LoweredType
 
   /// The callee and arguments of the call.
-  public let operands: [Operand]
+  public private(set) var operands: [Operand]
 
   public let site: SourceRange
 
@@ -34,6 +34,10 @@ public struct CallInstruction: Instruction {
   public var arguments: ArraySlice<Operand> { operands[1...] }
 
   public var types: [LoweredType] { [returnType] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    operands[i] = new
+  }
 
 }
 

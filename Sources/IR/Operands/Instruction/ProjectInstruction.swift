@@ -16,7 +16,7 @@ public struct ProjectInstruction: Instruction {
   ///
   /// Operands to non-`sink` inputs must be the result of a `borrow` instruction and have no use
   /// before `project`.
-  public let operands: [Operand]
+  public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
@@ -36,6 +36,10 @@ public struct ProjectInstruction: Instruction {
 
   /// The types of the instruction's results.
   public var types: [LoweredType] { [.address(projection.bareType)] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    operands[i] = new
+  }
 
 }
 

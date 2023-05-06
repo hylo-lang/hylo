@@ -420,34 +420,51 @@ public struct Emitter {
     }
 
     let source = emitLValue(initializer, into: &module)
+    let isSourceSinkable = module.isSinkable(source, in: insertionBlock!.function)
+
     for (path, name) in decl.pattern.subpattern.names {
       var part = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
-      let partType = program.relations.canonical(module.type(of: part).ast)
+      let partType = module.type(of: part).ast
 
       if !program.relations.areEquivalent(name.decl.type, partType) {
         if let u = ExistentialType(name.decl.type) {
-          let witnessTable = PointerConstant(
-            module.syntax.id,
-            module.addGlobal(WitnessTable(describing: partType)))
-          part =
-            module.append(
-              module.makeBorrow(capability, from: part, anchoredAt: name.decl.site),
-              to: insertionBlock!)[0]
-          part =
-            module.append(
-              module.makeWrapAddr(
-                part, .constant(witnessTable), as: u,
-                anchoredAt: name.decl.site),
-              to: insertionBlock!)[0]
+          let box = makeExistential(
+            u, borrowing: capability, from: part, at: name.decl.site, into: &module)
+          part = box
         }
       }
 
-      let b = module.append(
-        module.makeBorrow(
-          capability, from: part, correspondingTo: name.decl, anchoredAt: name.decl.site),
-        to: insertionBlock!)[0]
-      frames[name.decl] = b
+      if isSourceSinkable {
+        let b = module.makeAccess(
+          [.sink, capability], from: part, correspondingTo: name.decl,
+          anchoredAt: name.decl.site)
+        frames[name.decl] = module.append(b, to: insertionBlock!)[0]
+      } else {
+        let b = module.makeBorrow(
+          capability, from: part, correspondingTo: name.decl,
+          anchoredAt: name.decl.site)
+        frames[name.decl] = module.append(b, to: insertionBlock!)[0]
+      }
     }
+  }
+
+  /// Returns an existential container of type `t` borrowing `capability` from `witness`.
+  private func makeExistential(
+    _ t: ExistentialType,
+    borrowing capability: AccessEffect,
+    from witness: Operand,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let witnessTable = PointerConstant(
+      module.syntax.id,
+      module.addGlobal(WitnessTable(describing: module.type(of: witness).ast)))
+    let x0 = module.append(
+      module.makeBorrow(capability, from: witness, anchoredAt: site),
+      to: insertionBlock!)[0]
+    return module.append(
+      module.makeWrapAddr(x0, .constant(witnessTable), as: t, anchoredAt: site),
+      to: insertionBlock!)[0]
   }
 
   /// Inserts the IR for the top-level declaration `d` into `module`.

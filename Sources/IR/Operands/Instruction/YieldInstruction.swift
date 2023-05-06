@@ -7,7 +7,7 @@ public struct YieldInstruction: Instruction {
   public let capability: AccessEffect
 
   /// The returned address.
-  public let projection: Operand
+  public private(set) var projection: Operand
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
@@ -24,6 +24,11 @@ public struct YieldInstruction: Instruction {
   public var operands: [Operand] { [projection] }
 
   public var successors: [Block.ID] { [] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    projection = new
+  }
 
   func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
     false

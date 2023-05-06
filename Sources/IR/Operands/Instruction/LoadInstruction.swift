@@ -7,7 +7,7 @@ public struct LoadInstruction: Instruction {
   public let objectType: LoweredType
 
   /// The location of the object is being loaded.
-  public let source: Operand
+  public private(set) var source: Operand
 
   public let site: SourceRange
 
@@ -21,6 +21,11 @@ public struct LoadInstruction: Instruction {
   public var types: [LoweredType] { [objectType] }
 
   public var operands: [Operand] { [source] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    source = new
+  }
 
 }
 

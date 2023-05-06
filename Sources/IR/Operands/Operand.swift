@@ -45,6 +45,16 @@ public enum Operand {
     }
   }
 
+  /// The payload if `self` is `.constant`. Otherwise, `nil`.
+  public var constant: (any Constant)? {
+    switch self {
+    case .constant(let c):
+      return c
+    default:
+      return nil
+    }
+  }
+
 }
 
 extension Operand: Equatable {

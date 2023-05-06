@@ -4,7 +4,7 @@ import Core
 public struct DeinitInstruction: Instruction {
 
   /// The object being deinitialized.
-  public let object: Operand
+  public private(set) var object: Operand
 
   public let site: SourceRange
 
@@ -17,6 +17,11 @@ public struct DeinitInstruction: Instruction {
   public var types: [LoweredType] { [] }
 
   public var operands: [Operand] { [object] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    object = new
+  }
 
 }
 

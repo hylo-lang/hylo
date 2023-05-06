@@ -4,7 +4,7 @@ import Core
 public struct CondBranchInstruction: Terminator {
 
   /// A Boolean condition.
-  public let condition: Operand
+  public private(set) var condition: Operand
 
   /// The target of the branch if `condition` is true.
   public private(set) var targetIfTrue: Block.ID
@@ -33,7 +33,12 @@ public struct CondBranchInstruction: Terminator {
 
   public var successors: [Block.ID] { [targetIfTrue, targetIfFalse] }
 
-  mutating func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    condition = new
+  }
+
+  mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
     precondition(new.function == targetIfTrue.function)
     if targetIfTrue == old {
       targetIfTrue = new

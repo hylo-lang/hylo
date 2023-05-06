@@ -4,10 +4,10 @@ import Core
 public struct PartialApplyInstruction: Instruction {
 
   /// The address of the underlying function.
-  public let function: FunctionReference
+  public private(set) var function: FunctionReference
 
   /// The environment of the lambda.
-  public let environment: Operand
+  public private(set) var environment: Operand
 
   public let site: SourceRange
 
@@ -21,6 +21,20 @@ public struct PartialApplyInstruction: Instruction {
   public var types: [LoweredType] { [.object(function.type.ast)] }
 
   public var operands: [Operand] { [.constant(function), environment] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    switch i {
+    case 0:
+      guard let f = new.constant as? FunctionReference else {
+        preconditionFailure("invalid substitution")
+      }
+      function = f
+    case 1:
+      environment = new
+    default:
+      preconditionFailure()
+    }
+  }
 
 }
 

@@ -4,7 +4,7 @@ import Core
 public struct EndProjectInstruction: Instruction {
 
   /// The projection whose lifetime is ended.
-  public let projection: Operand
+  public private(set) var projection: Operand
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
@@ -18,6 +18,11 @@ public struct EndProjectInstruction: Instruction {
   public var types: [LoweredType] { [] }
 
   public var operands: [Operand] { [projection] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    projection = new
+  }
 
 }
 

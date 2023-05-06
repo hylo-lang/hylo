@@ -157,6 +157,7 @@ public struct Module {
 
     try run({ removeDeadCode(in: $0, diagnostics: &log) })
     try run({ insertImplicitReturns(in: $0, diagnostics: &log) })
+    try run({ reifyAccesses(in: $0, diagnostics: &log) })
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
@@ -348,6 +349,13 @@ public struct Module {
     }
   }
 
+  /// Returns the entry of `f`.
+  ///
+  /// - Requires: `f` is declared in `self`.
+  func entry(of f: Function.ID) -> Block.ID? {
+    functions[f]!.entry.map({ Block.ID(f, $0) })
+  }
+
   /// Appends an entry block to `f` and returns its identifier.
   ///
   /// - Requires: `f` is declared in `self` and doesn't have an entry block.
@@ -387,13 +395,37 @@ public struct Module {
   ///
   /// - Requires: `new` produces results with the same types as `old`.
   @discardableResult
-  mutating func replace<I: Instruction>(_ old: InstructionID, by new: I) -> [Operand] {
+  mutating func replace<I: Instruction>(_ old: InstructionID, with new: I) -> [Operand] {
     precondition(self[old].types == new.types)
     removeUsesMadeBy(old)
     return insert(new) { (m, i) in
       m[old] = i
       return old
     }
+  }
+
+  /// Swaps all uses of `old` in `f` by `new` and updates the def-use chains.
+  ///
+  /// - Requires: `new` as the same type as `old`. `f` is in `self`.
+  mutating func replaceUses(of old: Operand, with new: Operand, in f: Function.ID) {
+    precondition(old != new)
+    precondition(type(of: old) == type(of: new))
+
+    guard var oldUses = uses[old], !oldUses.isEmpty else { return }
+    var newUses = uses[new] ?? []
+
+    var end = oldUses.count
+    for i in oldUses.indices.reversed() where oldUses[i].user.function == f {
+      let u = oldUses[i]
+      self[u.user].replaceOperand(at: u.index, with: new)
+      newUses.append(u)
+      end -= 1
+      oldUses.swapAt(i, end)
+    }
+    oldUses.removeSubrange(end...)
+
+    uses[old] = oldUses
+    uses[new] = newUses
   }
 
   /// Adds `newInstruction` at the end of `block` and returns the identities of its return values.
@@ -497,6 +529,48 @@ public struct Module {
   private mutating func removeUsesMadeBy(_ i: InstructionID) {
     for o in self[i].operands {
       uses[o]?.removeAll(where: { $0.user == i })
+    }
+  }
+
+  /// Returns the operands from which the address denoted by `a` derives.
+  ///
+  /// The (static) provenances of an address denote the original operands from which it derives.
+  /// They form a set because an address computed by a projection depends on that projection's
+  /// arguments and because an address defined as a parameter of a basic block with multiple
+  /// predecessors depends on that bock's arguments.
+  func provenances(_ a: Operand) -> Set<Operand> {
+    // TODO: Block arguments
+    guard case .register(let i, _) = a else { return [a] }
+
+    switch self[i] {
+    case let s as BorrowInstruction:
+      return provenances(s.location)
+    case let s as ElementAddrInstruction:
+      return provenances(s.base)
+    case let s as ProjectInstruction:
+      return s.operands.reduce(
+        into: [],
+        { (p, o) in
+          if type(of: o).isAddress { p.formUnion(provenances(o)) }
+        })
+    case let s as WrapAddrInstruction:
+      return provenances(s.witness)
+    default:
+      return [a]
+    }
+  }
+
+  /// Returns `true` if `o` is sinkable in `f`.
+  ///
+  /// - Requires: `o` is defined in `f`.
+  func isSinkable(_ o: Operand, in f: Function.ID) -> Bool {
+    let e = entry(of: f)!
+    return provenances(o).allSatisfy { (p) -> Bool in
+      if case .parameter(e, let i) = p {
+        return self.functions[f]!.inputs[i].type.access == .sink
+      } else {
+        return true
+      }
     }
   }
 
