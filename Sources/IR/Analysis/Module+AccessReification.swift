@@ -4,8 +4,12 @@ import Utils
 
 extension Module {
 
-  /// Replace `access` instructions by a `borrow` or `load` depending on the least capability
-  /// actually required by their uses, reporting errors and warnings to `diagnostics`.
+  /// Replace uses of `access` instructions by either `borrow` or `load` depending on the weakest
+  /// capability required on the access, reporting errors and warnings to `diagnostics`.
+  ///
+  /// This pass uses def-use chains to identify the weakest capability required on an `access`. If
+  /// it is `sink`, the instruction is removed and its uses are replaced be uses of its source.
+  /// Otherwise, a `borrow` instruction is substitutde for the access.
   ///
   /// - Requires: `f` is in `self`.
   public mutating func reifyAccesses(in f: Function.ID, diagnostics: inout DiagnosticSet) {
