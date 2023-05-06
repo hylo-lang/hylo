@@ -18,6 +18,23 @@ public struct AccessEffectSet: OptionSet {
     (rawValue & member.rawValue) == member.rawValue
   }
 
+  /// The unique element in `self` if `self` is a singleton. Otherwise, `nil`.
+  public var uniqueElement: AccessEffect? {
+    (rawValue != 0) && (rawValue & (rawValue - 1) == 0) ? .init(rawValue: rawValue) : nil
+  }
+
+  /// The weakest capability in `self`, or `nil` if `self` is empty.
+  public var weakest: AccessEffect? {
+    var s = elements
+    return s.next()
+  }
+
+  /// Returns the strongest capability in `self` including `k`.
+  public func strongest(including k: AccessEffect) -> AccessEffect {
+    elements.reduce(k, max)
+  }
+
+  @discardableResult
   public mutating func insert(
     _ newMember: AccessEffect
   ) -> (inserted: Bool, memberAfterInsert: AccessEffect) {
