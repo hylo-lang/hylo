@@ -1733,7 +1733,7 @@ public struct Emitter {
 
     case .member(let d):
       let r = emitLValue(receiverOf: syntax, into: &module)
-      return addressOfMember(boundTo: r, declaredBy: program[d], into: &module, at: syntax.site)
+      return emitProperty(boundTo: r, declaredBy: program[d], into: &module, at: syntax.site)
 
     case .constructor:
       fatalError()
@@ -1793,7 +1793,7 @@ public struct Emitter {
 
   /// Returns the address of the member declared by `d` and bound to `receiver`, inserting IR
   /// anchored at `anchor` into `module`.
-  private mutating func addressOfMember(
+  private mutating func emitProperty(
     boundTo receiver: Operand,
     declaredBy d: AnyDeclID.TypedNode,
     into module: inout Module,
