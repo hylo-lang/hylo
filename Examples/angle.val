@@ -1,0 +1,23 @@
+type Angle {
+
+  public var radians: Double
+
+  public memberwise init
+
+  public property degrees: Double {
+    let { radians * 180.0 / Double.pi() }
+    inout {
+      var d = radians * 180.0 / Double.pi()
+      yield &d
+      &radians = d * Double.pi() / 180.0
+    }
+  }
+
+}
+
+public fun main() {
+  var a = Angle(radians: 0)
+  inout d = &a.degrees
+  &d = 180.0
+  precondition(a.radians == Double.pi())
+}
