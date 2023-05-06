@@ -2093,20 +2093,17 @@ public struct TypeChecker {
     let canonicalSubject = relations.canonical(subject)
     /// The declarations extending `subject`.
     var matches: [AnyDeclID] = []
-    /// The module at the root of `scope`, when found.
+    /// The module at the root of `useScope`, when found.
     var root: ModuleDecl.ID? = nil
 
     // Look for extension declarations in all visible scopes.
     for scope in program.scopes(from: useScope) {
       switch scope.kind {
       case ModuleDecl.self:
-        let module = ModuleDecl.ID(scope)!
-        insert(
-          into: &matches,
-          decls: ast.topLevelDecls(module),
-          extending: canonicalSubject,
-          in: scope)
-        root = module
+        let m = ModuleDecl.ID(scope)!
+        let symbols = ast.topLevelDecls(m)
+        insert(into: &matches, decls: symbols, extending: canonicalSubject, in: scope)
+        root = m
 
       case TranslationUnit.self:
         continue
@@ -2117,13 +2114,14 @@ public struct TypeChecker {
       }
     }
 
+    // Nowhere else to look if `useScope` is a module.
+    if useScope.kind == ModuleDecl.self { return matches }
+
     // Look for extension declarations in imported modules.
-    for module in ast.modules where module != root {
-      insert(
-        into: &matches,
-        decls: ast.topLevelDecls(module),
-        extending: canonicalSubject,
-        in: AnyScopeID(module))
+    let imports = self.imports[program.source(containing: useScope), default: []]
+    for m in imports where m != root {
+      let symbols = ast.topLevelDecls(m)
+      insert(into: &matches, decls: symbols, extending: canonicalSubject, in: AnyScopeID(m))
     }
 
     return matches
