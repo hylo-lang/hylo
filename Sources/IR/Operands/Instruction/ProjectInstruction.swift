@@ -6,16 +6,13 @@ public struct ProjectInstruction: Instruction {
   /// The type of the projected value.
   public let projection: RemoteType
 
-  /// The subscript performing the projection.
-  ///
-  /// Subscripts, unlike functions, are not first-class values and are therefore not represented as
-  /// IR operands.
+  /// The subscript implementing the projection.
   public let callee: Function.ID
 
   /// The arguments of the call.
   ///
-  /// Operands to non-`sink` inputs must be the result of a `borrow` instruction and have no use
-  /// before `project`.
+  /// Operands to non-`sink` inputs must be the result of a `borrow` instruction requesting the
+  /// same capability as `projection.access` and having no use before `project`.
   public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.
@@ -35,7 +32,9 @@ public struct ProjectInstruction: Instruction {
   }
 
   /// The types of the instruction's results.
-  public var types: [LoweredType] { [.address(projection.bareType)] }
+  public var types: [LoweredType] {
+    [.address(projection.bareType)]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     operands[i] = new
@@ -57,12 +56,8 @@ extension ProjectInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `project` anchored at `anchor` that takes applies subscript `s` on `arguments` to
-  /// project a value of type `t`.
-  ///
-  /// - Parameters:
-  ///   - source: The address from which the capability is borrowed. Must have an address type.
-  ///   - binding: The declaration of the binding to which the borrow corresponds, if any.
+  /// Creates a `project` anchored at `anchor` that projects a value of type `t` by applying `s`
+  /// on `arguments`.
   func makeProject(
     _ t: RemoteType,
     applying s: Function.ID,

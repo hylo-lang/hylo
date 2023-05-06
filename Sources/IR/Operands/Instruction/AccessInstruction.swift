@@ -10,6 +10,8 @@ import Core
 public struct AccessInstruction: Instruction {
 
   /// The capabilities of the access.
+  ///
+  /// - Requires: Must be non-empty.
   public let capabilities: AccessEffectSet
 
   /// The type of the accessed type.
@@ -60,7 +62,7 @@ extension AccessInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `borrow` anchored at `anchor` that takes `capability` from `source`.
+  /// Creates an `access` anchored at `anchor` that takes `capability` from `source`.
   ///
   /// - Parameters:
   ///   - capabilities: The capability being borrowed. Must not be empty.

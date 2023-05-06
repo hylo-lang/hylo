@@ -2943,7 +2943,7 @@ public struct TypeChecker {
     }
 
     let m = MethodType(
-      capabilities: Set(ast[ast[d].impls].map(\.introducer.value)),
+      capabilities: .init(ast[ast[d].impls].map(\.introducer.value)),
       receiver: receiver,
       inputs: inputs,
       output: outputType)
@@ -3058,7 +3058,7 @@ public struct TypeChecker {
     // Create a subscript type.
     let m = SubscriptType(
       isProperty: ast[d].parameters == nil,
-      capabilities: Set(ast[ast[d].impls].map(\.introducer.value)),
+      capabilities: .init(ast[ast[d].impls].map(\.introducer.value)),
       environment: ^environment,
       inputs: inputs,
       output: output)
