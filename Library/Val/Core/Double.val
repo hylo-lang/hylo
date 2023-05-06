@@ -10,6 +10,39 @@ public type Double {
     &self.value = Builtin.zeroinitializer_double()
   }
 
+  /// Returns the sum of `self` and `other`.
+  public fun infix+ (_ other: Self) -> Self {
+    Double(value: Builtin.fadd_double(value, other.value))
+  }
+
+  /// Returns `self` subtracted by `other`.
+  public fun infix- (_ other: Self) -> Self {
+    Double(value: Builtin.fsub_double(value, other.value))
+  }
+
+  /// Returns the quotient of dividing `self` by `other`, rounded to a representable value.
+  public fun infix/ (_ other: Self) -> Self {
+    Double(value: Builtin.fdiv_double(value, other.value))
+  }
+
+  /// Returns the product of `self` and `other`
+  public fun infix* (_ other: Self) -> Self {
+    Double(value: Builtin.fmul_double(value, other.value))
+  }
+
+  /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_oeq_double(value, other.value))
+  }
+
+  /// Returns `true` if `self` is not equal to `other`. Otherwise, returns `false`.
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_one_double(value, other.value))
+  }
+
+  /// The mathematical constant pi (π), approximately equal to 3.14159.
+  public static fun pi() -> Self { 3.14159265358979323846 }
+
 }
 
 public conformance Double: ExpressibleByFloatLiteral {}
