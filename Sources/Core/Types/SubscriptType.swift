@@ -7,7 +7,7 @@ public struct SubscriptType: TypeProtocol {
   public let isProperty: Bool
 
   /// The capabilities of the subscript.
-  public let capabilities: Set<AccessEffect>
+  public let capabilities: AccessEffectSet
 
   /// The environment of the subscript implementation.
   public let environment: AnyType
@@ -23,7 +23,7 @@ public struct SubscriptType: TypeProtocol {
   /// Creates an instance with the given properties.
   public init(
     isProperty: Bool,
-    capabilities: Set<AccessEffect>,
+    capabilities: AccessEffectSet,
     environment: AnyType = .void,
     inputs: [CallableTypeParameter],
     output: AnyType
@@ -57,12 +57,7 @@ public struct SubscriptType: TypeProtocol {
 extension SubscriptType: CustomStringConvertible {
 
   public var description: String {
-    let cs =
-      capabilities
-      .map(String.init(describing:))
-      .sorted()
-      .joined(separator: " ")
-
+    let cs = capabilities.elements.descriptions(joinedBy: " ")
     if isProperty {
       return "property [\(environment)] \(output) { \(cs) }"
     } else {
