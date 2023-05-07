@@ -10,11 +10,8 @@ public struct GenericArguments {
   /// A value in this map.
   public typealias Value = any CompileTimeValue
 
-  /// A value wrapped into an equatable box.
-  fileprivate typealias _Value = HashableBox<CompileTimeValueHashableWitness>
-
   /// The type of this map's contents.
-  fileprivate typealias Contents = OrderedDictionary<GenericParameterDecl.ID, _Value>
+  fileprivate typealias Contents = OrderedDictionary<GenericParameterDecl.ID, Value>
 
   /// The contents of `self`
   fileprivate var contents: Contents
@@ -31,23 +28,23 @@ public struct GenericArguments {
 
   /// Creates a new map from the key-value pairs in the given sequence.
   public init<S: Sequence>(uniqueKeysWithValues keysAndValues: S) where S.Element == (Key, Value) {
-    self.contents = .init(uniqueKeysWithValues: Self.adapt(keysAndValues))
+    self.contents = .init(uniqueKeysWithValues: keysAndValues)
   }
 
   /// A collection with the values of the arguments.
   public var values: some Collection<Value> {
-    contents.values.lazy.map(\.base)
+    contents.values
   }
 
   /// Accesses the value associated with the given key.
   public subscript(key: Key) -> Value? {
-    get { contents[key]?.base }
-    set { contents[key] = newValue.map(_Value.init(_:)) }
+    get { contents[key] }
+    set { contents[key] = newValue }
   }
 
   /// Returns a new map containing the keys of `self` with the values transformed `transform`.
   public func mapValues(_ transform: (Value) throws -> Value) rethrows -> Self {
-    return try .init(contents: contents.mapValues({ try _Value(transform($0.base)) }))
+    return try .init(contents: contents.mapValues(transform))
   }
 
   /// Returns this argument list appended with `suffix`.
@@ -55,20 +52,31 @@ public struct GenericArguments {
   /// - Requires: `self` does not define a value for any of the values defined in `suffix`.
   public func appending(_ suffix: Self) -> Self {
     // Note: `merging` perserves order.
-    let s = suffix.lazy.map({ (key: $0.key, value: _Value($0.value)) })
-    return .init(contents: contents.merging(s, uniquingKeysWith: { (_, _) in unreachable() }))
-  }
-
-  /// Returns a sequence containing the given `keysAndValues` with the values wrapped in `_Value`.
-  private static func adapt<S: Sequence>(
-    _ keysAndValues: S
-  ) -> LazyMapSequence<S, (Key, _Value)> where S.Element == (Key, Value) {
-    keysAndValues.lazy.map({ ($0, _Value($1)) })
+    let c = contents.merging(suffix.contents, uniquingKeysWith: { (_, _) in unreachable() })
+    return .init(contents: c)
   }
 
 }
 
-extension GenericArguments: Hashable {}
+extension GenericArguments: Equatable {
+
+  public static func == (l: Self, r: Self) -> Bool {
+    l.contents.elementsEqual(r.contents) { (a, b) in
+      (a.key == b.key) && a.value.equals(b.value)
+    }
+  }
+}
+
+extension GenericArguments: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    for (k, v) in contents {
+      k.hash(into: &hasher)
+      v.hash(into: &hasher)
+    }
+  }
+
+}
 
 extension GenericArguments: ExpressibleByDictionaryLiteral {
 
@@ -93,7 +101,7 @@ extension GenericArguments: Collection {
   }
 
   public subscript(position: Index) -> Element {
-    read(contents.elements[position], { (key: $0.key, value: $0.value.base) })
+    contents.elements[position]
   }
 
 }
