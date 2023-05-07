@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A map from generic parameter to its argument.
