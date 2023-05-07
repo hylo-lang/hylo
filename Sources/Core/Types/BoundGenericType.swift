@@ -83,3 +83,15 @@ extension BoundGenericType: CustomStringConvertible {
   }
 
 }
+
+extension BoundGenericType.Arguments {
+
+  /// Returns this argument list appended with `suffix`.
+  ///
+  /// - Requires: `self` does not define a value for any of the values defined in `suffix`.
+  public func appending(_ suffix: Self) -> Self {
+    // Note: `merging` perserves order.
+    self.merging(suffix, uniquingKeysWith: { (_, _) in unreachable() })
+  }
+
+}
