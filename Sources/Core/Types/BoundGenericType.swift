@@ -73,6 +73,13 @@ extension BoundGenericType: Hashable {
 
 extension BoundGenericType: CustomStringConvertible {
 
-  public var description: String { "\(base)<\(list: arguments.values)>" }
+  public var description: String {
+    switch base.base {
+    case is ProductType, is TypeAliasType:
+      return "\(base)<\(list: arguments.values)>"
+    default:
+      return "<\(list: arguments.values)>(\(base))"
+    }
+  }
 
 }
