@@ -69,15 +69,17 @@ public struct Emitter {
     case BindingDecl.self:
       emit(globalBindingDecl: .init(d)!, into: &module)
     case ConformanceDecl.self:
-      emit(conformanceDecl: ConformanceDecl.Typed(d)!, into: &module)
+      emit(conformanceDecl: .init(d)!, into: &module)
+    case ExtensionDecl.self:
+      emit(extensionDecl: .init(d)!, into: &module)
     case FunctionDecl.self:
-      emit(functionDecl: FunctionDecl.Typed(d)!, into: &module)
+      emit(functionDecl: .init(d)!, into: &module)
     case OperatorDecl.self:
       break
     case NamespaceDecl.self:
       emit(namespaceDecl: .init(d)!, into: &module)
     case ProductTypeDecl.self:
-      emit(productDecl: ProductTypeDecl.Typed(d)!, into: &module)
+      emit(productDecl: .init(d)!, into: &module)
     case TraitDecl.self:
       break
     case TypeAliasDecl.self:
@@ -89,18 +91,12 @@ public struct Emitter {
 
   /// Inserts the IR for `d` into `module`.
   private mutating func emit(conformanceDecl d: ConformanceDecl.Typed, into module: inout Module) {
-    for member in d.members {
-      switch member.kind {
-      case FunctionDecl.self:
-        emit(functionDecl: .init(member)!, into: &module)
-      case InitializerDecl.self:
-        emit(initializerDecl: .init(member)!, into: &module)
-      case SubscriptDecl.self:
-        emit(subscriptDecl: .init(member)!, into: &module)
-      default:
-        continue
-      }
-    }
+    emit(members: d.members, into: &module)
+  }
+
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(extensionDecl d: ExtensionDecl.Typed, into module: inout Module) {
+    emit(members: d.members, into: &module)
   }
 
   /// Inserts the IR for `decl` into `module`, returning the ID of the lowered function.
@@ -119,42 +115,39 @@ public struct Emitter {
     functionDecl d: FunctionDecl.Typed,
     into module: inout Module
   ) -> Function.ID {
-    let f = module.getOrCreateFunction(correspondingTo: d)
-
+    let f = module.getOrCreateFunction(lowering: d)
     guard let b = d.body else {
-      if d.isFFI { emitFFI(d, into: &module) }
+      if d.isForeignInterface { emitFFI(d, into: &module) }
       return f
     }
 
     // Create the function entry.
-    assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
 
     // Configure the locals.
     var locals = TypedDeclProperty<Operand>()
 
-    for (i, capture) in d.explicitCaptures.enumerated() {
-      locals[capture] = .parameter(entry, i)
+    for (i, c) in d.explicitCaptures.enumerated() {
+      locals[c] = .parameter(entry, i)
+    }
+    for (i, c) in d.implicitCaptures!.enumerated() {
+      locals[program[c.decl]] = .parameter(entry, i + d.explicitCaptures.count)
     }
 
-    for (i, capture) in d.implicitCaptures!.enumerated() {
-      locals[program[capture.decl]] = .parameter(entry, i + d.explicitCaptures.count)
+    var captureCount = d.explicitCaptures.count + d.implicitCaptures!.count
+    if let r = d.receiver {
+      locals[r] = .parameter(entry, captureCount)
+      captureCount += 1
     }
 
-    var implicitParameterCount = d.explicitCaptures.count + d.implicitCaptures!.count
-    if let receiver = d.receiver {
-      locals[receiver] = .parameter(entry, implicitParameterCount)
-      implicitParameterCount += 1
+    for (i, p) in d.parameters.enumerated() {
+      locals[p] = .parameter(entry, i + captureCount)
     }
 
-    for (i, parameter) in d.parameters.enumerated() {
-      locals[parameter] = .parameter(entry, i + implicitParameterCount)
-    }
-
-    insertionBlock = entry
-    receiver = d.receiver
-    frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
+    // Configure the emitter context.
+    self.insertionBlock = entry
+    self.receiver = d.receiver
+    self.frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
 
     // Emit the body.
     switch b {
@@ -176,49 +169,43 @@ public struct Emitter {
 
   /// Inserts the IR for calling `d` into `module`.
   private mutating func emitFFI(_ d: FunctionDecl.Typed, into module: inout Module) {
-    let f = module.getOrCreateFunction(correspondingTo: d)
-
-    // Create the function entry.
-    assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let f = module.getOrCreateFunction(lowering: d)
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
+    frames.push(.init(scope: AnyScopeID(d.id)))
+    defer {
+      frames.pop()
+      assert(frames.isEmpty)
+    }
 
     // Emit FFI call.
     var arguments: [Operand] = []
     for i in module[entry].inputs.indices {
-      arguments.append(emitFFIArgument(.parameter(entry, i), at: d.site, into: &module))
+      let a = emitConvertToForeign(
+        .parameter(entry, i), usedIn: d.scope.id, at: d.site, into: &module)
+      arguments.append(a)
     }
 
-    let v = module.append(
+    let output = module.functions[f]!.output
+    let foreignResult = module.append(
       module.makeCallFII(
-        returning: module.functions[f]!.output,
+        returning: .object(output),
         applying: d.foreignName!,
         to: arguments, anchoredAt: d.site),
       to: insertionBlock!)[0]
-    module.append(module.makeReturn(v, anchoredAt: d.site), to: insertionBlock!)
-  }
 
-  /// Appends the IR to convert `o` to a FFI argument into `module` to the current insertion block,
-  /// anchoring new instructions at `site`.
-  private mutating func emitFFIArgument(
-    _ o: Operand,
-    at site: SourceRange,
-    into module: inout Module
-  ) -> Operand {
-    let t = module.type(of: o).ast
-
-    let i = program.ast.coreType(named: "Int")!
-    let p = program.ast.coreType(named: "RawPointer")!
-    if (t == i) || (t == p) {
-      let s = module.append(
-        module.makeElementAddr(o, at: [0], anchoredAt: site), to: insertionBlock!)[0]
-      return module.append(
-        module.makeLoad(s, anchoredAt: site), to: insertionBlock!)[0]
+    // Handle FFIs without return values.
+    if output.isVoidOrNever {
+      module.append(module.makeReturn(.void, anchoredAt: d.site), to: insertionBlock!)
+      return
     }
 
-    // TODO: Handle other type conversion.
-    unreachable("unexpected FFI type \(t)")
+    let v = emitConvert(
+      foreign: foreignResult, to: output, usedIn: d.scope.id, at: d.site, into: &module)
+    emitStackDeallocs(in: &module, site: d.site)
+    module.append(
+      module.makeReturn(v, anchoredAt: d.site),
+      to: insertionBlock!)
   }
 
   /// Inserts the IR for `d` into `module`.
@@ -228,10 +215,7 @@ public struct Emitter {
   ) {
     if d.isMemberwise { return }
     let f = module.initializerDeclaration(lowering: d)
-
-    assert(module.functions[f]!.blocks.isEmpty)
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
     // Configure the locals.
@@ -251,9 +235,70 @@ public struct Emitter {
     assert(frames.isEmpty)
   }
 
-  /// Inserts the IR for `decl` into `module`.
-  private mutating func emit(subscriptDecl decl: SubscriptDecl.Typed, into module: inout Module) {
-    fatalError("not implemented")
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(subscriptDecl d: SubscriptDecl.Typed, into module: inout Module) {
+    for i in d.impls {
+      emit(subscriptImpl: i, into: &module)
+    }
+  }
+
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(subscriptImpl d: SubscriptImpl.Typed, into module: inout Module) {
+    let f = module.getOrCreateSubscript(lowering: d)
+    guard let b = d.body else { return }
+
+    // Create the function entry.
+    let entry = module.appendEntry(to: f)
+
+    // Configure the locals.
+    var locals = TypedDeclProperty<Operand>()
+
+    let bundle = SubscriptDecl.Typed(d.parent!)!
+    for (i, c) in bundle.explicitCaptures.enumerated() {
+      locals[c] = .parameter(entry, i)
+    }
+    for (i, c) in bundle.implicitCaptures!.enumerated() {
+      locals[program[c.decl]] = .parameter(entry, i + bundle.explicitCaptures.count)
+    }
+
+    var captureCount = bundle.explicitCaptures.count + bundle.implicitCaptures!.count
+    if let receiver = d.receiver {
+      locals[receiver] = .parameter(entry, captureCount)
+      captureCount += 1
+    }
+
+    if let parameters = bundle.parameters {
+      for (i, p) in parameters.enumerated() {
+        locals[program[p]] = .parameter(entry, i + captureCount)
+      }
+    }
+
+    // Configure the emitter context.
+    self.insertionBlock = entry
+    self.receiver = d.receiver
+    self.frames.push(.init(scope: AnyScopeID(d.id), locals: locals))
+
+    // Emit the body.
+    switch b {
+    case .block(let s):
+      emit(stmt: program[s], into: &module)
+
+    case .expr(let e):
+      let s = emitLValue(program[e], into: &module)
+      let b = module.append(
+        module.makeBorrow(d.introducer.value, from: s, anchoredAt: program.ast[e].site),
+        to: insertionBlock!)[0]
+      module.append(
+        module.makeYield(d.introducer.value, b, anchoredAt: program.ast[e].site),
+        to: insertionBlock!)
+      emitStackDeallocs(in: &module, site: program.ast[e].site)
+      module.append(
+        module.makeReturn(.void, anchoredAt: program.ast[e].site),
+        to: insertionBlock!)
+    }
+
+    frames.pop()
+    assert(frames.isEmpty)
   }
 
   /// Inserts the IR for `decl` into `module`.
@@ -263,17 +308,22 @@ public struct Emitter {
     }
   }
 
-  /// Inserts the IR for `decl` into `module`.
-  private mutating func emit(productDecl decl: ProductTypeDecl.Typed, into module: inout Module) {
-    _ = module.addGlobal(MetatypeConstant(.init(decl.type)!))
-    for member in decl.members {
-      switch member.kind {
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(productDecl d: ProductTypeDecl.Typed, into module: inout Module) {
+    _ = module.addGlobal(MetatypeConstant(.init(d.type)!))
+    emit(members: d.members, into: &module)
+  }
+
+  /// Inserts the IR for given declaration `members` into `module`.
+  private mutating func emit(members: [AnyDeclID], into module: inout Module) {
+    for m in members {
+      switch m.kind {
       case FunctionDecl.self:
-        emit(functionDecl: .init(member)!, into: &module)
+        emit(functionDecl: .init(program[m])!, into: &module)
       case InitializerDecl.self:
-        emit(initializerDecl: .init(member)!, into: &module)
+        emit(initializerDecl: .init(program[m])!, into: &module)
       case SubscriptDecl.self:
-        emit(subscriptDecl: .init(member)!, into: &module)
+        emit(subscriptDecl: .init(program[m])!, into: &module)
       default:
         continue
       }
@@ -284,6 +334,7 @@ public struct Emitter {
   ///
   /// - Requires: `d` is a global binding.
   private mutating func emit(globalBindingDecl d: BindingDecl.Typed, into module: inout Module) {
+    fatalError("not implemented")
   }
 
   /// Inserts the IR for the local binding `decl` into `module`.
@@ -370,34 +421,51 @@ public struct Emitter {
     }
 
     let source = emitLValue(initializer, into: &module)
+    let isSourceSinkable = module.isSinkable(source, in: insertionBlock!.function)
+
     for (path, name) in decl.pattern.subpattern.names {
       var part = emitElementAddr(source, at: path, anchoredAt: name.decl.site, into: &module)
-      let partType = program.relations.canonical(module.type(of: part).ast)
+      let partType = module.type(of: part).ast
 
       if !program.relations.areEquivalent(name.decl.type, partType) {
         if let u = ExistentialType(name.decl.type) {
-          let witnessTable = PointerConstant(
-            module.syntax.id,
-            module.addGlobal(WitnessTable(describing: partType)))
-          part =
-            module.append(
-              module.makeBorrow(capability, from: part, anchoredAt: name.decl.site),
-              to: insertionBlock!)[0]
-          part =
-            module.append(
-              module.makeWrapAddr(
-                part, .constant(witnessTable), as: u,
-                anchoredAt: name.decl.site),
-              to: insertionBlock!)[0]
+          let box = makeExistential(
+            u, borrowing: capability, from: part, at: name.decl.site, into: &module)
+          part = box
         }
       }
 
-      let b = module.append(
-        module.makeBorrow(
-          capability, from: part, correspondingTo: name.decl, anchoredAt: name.decl.site),
-        to: insertionBlock!)[0]
-      frames[name.decl] = b
+      if isSourceSinkable {
+        let b = module.makeAccess(
+          [.sink, capability], from: part, correspondingTo: name.decl,
+          anchoredAt: name.decl.site)
+        frames[name.decl] = module.append(b, to: insertionBlock!)[0]
+      } else {
+        let b = module.makeBorrow(
+          capability, from: part, correspondingTo: name.decl,
+          anchoredAt: name.decl.site)
+        frames[name.decl] = module.append(b, to: insertionBlock!)[0]
+      }
     }
+  }
+
+  /// Returns an existential container of type `t` borrowing `capability` from `witness`.
+  private func makeExistential(
+    _ t: ExistentialType,
+    borrowing capability: AccessEffect,
+    from witness: Operand,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let witnessTable = PointerConstant(
+      module.syntax.id,
+      module.addGlobal(WitnessTable(describing: module.type(of: witness).ast)))
+    let x0 = module.append(
+      module.makeBorrow(capability, from: witness, anchoredAt: site),
+      to: insertionBlock!)[0]
+    return module.append(
+      module.makeWrapAddr(x0, .constant(witnessTable), as: t, anchoredAt: site),
+      to: insertionBlock!)[0]
   }
 
   /// Inserts the IR for the top-level declaration `d` into `module`.
@@ -408,35 +476,47 @@ public struct Emitter {
     assert(program.module(containing: d.scope) == module.syntax.id)
     switch d.kind {
     case .moveInitialization:
-      emitMoveInitialization(typed: .init(d.type)!, in: d.scope, into: &module)
+      synthesizeMoveInitImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .moveAssignment:
-      emitMoveAssignment(typed: .init(d.type)!, in: d.scope, into: &module)
+      synthesizeMoveAssignImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .copy:
       fatalError("not implemented")
     }
   }
 
-  private mutating func emitMoveInitialization(
+  /// Synthesize the implementation of `t`'s move initialization operator in `scope`.
+  private mutating func synthesizeMoveInitImplementation(
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let site = module.syntax.site
-    let f = Function.ID(synthesized: program.moveDecl(.set), for: ^t)
-    if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
+    let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
+    module.declareSyntheticFunction(f, typed: t)
+    if module[f].entry != nil {
+      return
+    }
 
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let site = module.syntax.site
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
     let receiver = Operand.parameter(entry, 0)
     let argument = Operand.parameter(entry, 1)
 
-    switch t.output.base {
+    switch program.relations.canonical(t.output).base {
     case is ProductType, is TupleType:
-      // Nothing to do if the receiver doesn't have any stored property.
       let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
-      if layout.properties.isEmpty { break }
+
+      // Emit a load/store of the argument if it doesn't have any stored property.
+      if layout.properties.isEmpty {
+        let v = module.append(
+          module.makeLoad(argument, anchoredAt: site),
+          to: insertionBlock!)[0]
+        module.append(
+          module.makeStore(v, at: receiver, anchoredAt: site),
+          to: insertionBlock!)
+        break
+      }
 
       // Move initialize each property.
       for (i, p) in layout.properties.enumerated() {
@@ -470,17 +550,20 @@ public struct Emitter {
     module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
   }
 
-  private mutating func emitMoveAssignment(
+  /// Synthesize the implementation of `t`'s move assignment operator in `scope`.
+  private mutating func synthesizeMoveAssignImplementation(
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
   ) {
-    let site = module.syntax.site
-    let f = Function.ID(synthesized: program.moveDecl(.inout), for: ^t)
-    if !module.declareFunction(identifiedBy: f, typed: t, at: site) { return }
+    let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
+    module.declareSyntheticFunction(f, typed: t)
+    if module[f].entry != nil {
+      return
+    }
 
-    let entry = module.appendBlock(
-      taking: module.functions[f]!.inputs.map({ .address($0.bareType) }), to: f)
+    let site = module.syntax.site
+    let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
     let receiver = Operand.parameter(entry, 0)
@@ -522,6 +605,8 @@ public struct Emitter {
       emit(returnStmt: ReturnStmt.Typed(stmt)!, into: &module)
     case WhileStmt.self:
       emit(whileStmt: WhileStmt.Typed(stmt)!, into: &module)
+    case YieldStmt.self:
+      emit(yieldStmt: YieldStmt.Typed(stmt)!, into: &module)
     default:
       unexpected(stmt)
     }
@@ -545,34 +630,8 @@ public struct Emitter {
     }
 
     let c = program.conformance(of: l, to: program.ast.sinkableTrait, exposedTo: frames.top.scope)!
-    let assign = module.appendBlock(to: insertionBlock!.function)
-    let initialize = module.appendBlock(to: insertionBlock!.function)
-    let tail = module.appendBlock(to: insertionBlock!.function)
-
-    // static_branch initialized(%lhs), assign, initialize
-    module.append(
-      module.makeStaticBranch(
-        if: lhs, is: .initialized, then: assign, else: initialize,
-        anchoredAt: stmt.site),
-      to: insertionBlock!)
-
-    // %x0 = borrow [inout] %lhs
-    // %x1 = call @T.take_value.inout, %x0, %rhs
-    insertionBlock = assign
-    emitMove(
-      .inout, of: rhs, to: lhs, conformanceToSinkable: c,
-      anchoredAt: stmt.site, into: &module)
-    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
-
-    // %y0 = borrow [set] %lhs
-    // %y1 = call @T.take_value.set, %y0, %rhs
-    insertionBlock = initialize
-    emitMove(
-      .set, of: rhs, to: lhs, conformanceToSinkable: c,
-      anchoredAt: stmt.site, into: &module)
-    module.append(module.makeBranch(to: tail, anchoredAt: stmt.site), to: insertionBlock!)
-
-    insertionBlock = tail
+    let m = module.makeMove(rhs, to: lhs, usingConformance: c, anchoredAt: stmt.site)
+    module.append(m, to: insertionBlock!)
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed, into module: inout Module) {
@@ -699,6 +758,18 @@ public struct Emitter {
     insertionBlock = loopTail
   }
 
+  private mutating func emit(yieldStmt stmt: YieldStmt.Typed, into module: inout Module) {
+    // TODO: Read mutability of current subscript
+
+    let s = emitLValue(program[stmt.value], into: &module)
+    let b = module.append(
+      module.makeBorrow(.let, from: s, anchoredAt: stmt.site),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeYield(.let, b, anchoredAt: stmt.site),
+      to: insertionBlock!)
+  }
+
   // MARK: r-values
 
   /// Inserts the IR for the rvalue `expr` into `module` at the end of the current insertion block.
@@ -750,11 +821,9 @@ public struct Emitter {
     booleanLiteral expr: BooleanLiteralExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let value = Operand.constant(IntegerConstant(expr.value ? 1 : 0, bitWidth: 1))
-    let boolType = program.ast.coreType(named: "Bool")!
-    return module.append(
-      module.makeRecord(boolType, aggregating: [value], anchoredAt: expr.site),
-      to: insertionBlock!)[0]
+    let bool = program.ast.coreType("Bool")!
+    let s = module.makeRecord(bool, aggregating: [.i1(expr.value)], anchoredAt: expr.site)
+    return module.append(s, to: insertionBlock!)[0]
   }
 
   private mutating func emitRValue(
@@ -877,14 +946,16 @@ public struct Emitter {
     functionCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    // Handle built-in functions separately.
-    if case .builtinFunction(let f) = NameExpr.Typed(expr.callee)?.decl {
-      return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
-    }
-
-    // Handle memberwise initializer calls.
-    if expr.isMemberwiseInitialization {
-      return emitRValue(memberwiseInitCall: expr, into: &module)
+    // Handle built-ins and constructor calls.
+    if let n = NameExpr.Typed(expr.callee) {
+      switch n.declaration {
+      case .builtinFunction(let f):
+        return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
+      case .constructor(let d):
+        return emitRValue(constructorCall: expr, applying: d, into: &module)
+      default:
+        break
+      }
     }
 
     // Arguments are evaluated first, from left to right.
@@ -892,9 +963,49 @@ public struct Emitter {
     let arguments = emit(
       arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
       into: &module)
-    let (callee, liftedArguments) = emitCallee(expr.callee, into: &module)
+
+    // Callee and captures are evaluated next.
+    let (callee, captures) = emitCallee(expr.callee, into: &module)
+
+    // Call is evaluated last.
     return module.append(
-      module.makeCall(applying: callee, to: liftedArguments + arguments, anchoredAt: expr.site),
+      module.makeCall(applying: callee, to: captures + arguments, anchoredAt: expr.site),
+      to: insertionBlock!)[0]
+  }
+
+  private mutating func emitRValue(
+    constructorCall expr: FunctionCallExpr.Typed,
+    applying d: InitializerDecl.ID,
+    into module: inout Module
+  ) -> Operand {
+    // Handle memberwise constructor calls.
+    if program.ast[d].isMemberwise {
+      return emitRValue(memberwiseConstructorCall: expr, into: &module)
+    }
+
+    // Evaluate all arguments.
+    let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
+    let a = emit(
+      arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
+      into: &module)
+
+    // Allocate storage for the receiver.
+    let s = module.append(
+      module.makeAllocStack(program.relations.canonical(expr.type), anchoredAt: expr.site),
+      to: insertionBlock!)[0]
+    let r = module.append(
+      module.makeBorrow(.set, from: s, anchoredAt: expr.site),
+      to: insertionBlock!)[0]
+
+    // Initialize storage.
+    let f = FunctionReference(to: program[d], in: &module)
+    module.append(
+      module.makeCall(applying: .constant(f), to: [r] + a, anchoredAt: expr.site),
+      to: insertionBlock!)
+
+    // Load initialized storage.
+    return module.append(
+      module.makeLoad(s, anchoredAt: expr.site),
       to: insertionBlock!)[0]
   }
 
@@ -903,7 +1014,7 @@ public struct Emitter {
   ///
   /// - Requires: The callee of `expr` is a direct reference to a memberwise initializer.
   private mutating func emitRValue(
-    memberwiseInitCall expr: FunctionCallExpr.Typed,
+    memberwiseConstructorCall expr: FunctionCallExpr.Typed,
     into module: inout Module
   ) -> Operand {
     let callee = LambdaType(expr.callee.type)!
@@ -929,9 +1040,8 @@ public struct Emitter {
     into module: inout Module
   ) -> [Operand] {
     let calleeType = LambdaType(callee.type)!
-    let defaults = NameExpr.Typed(callee)?.decl.decl.flatMap { (d) in
-      program.ast.defaultArguments(of: d.id)
-    }
+    let calleeDecl = NameExpr.Typed(callee)?.declaration.decl
+    let defaults = calleeDecl.flatMap(program.ast.defaultArguments(of:))
 
     var result: [Operand] = []
     var i = 0
@@ -1037,8 +1147,8 @@ public struct Emitter {
     lambda e: LambdaExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    let d = emit(functionDecl: e.decl, into: &module)
-    let f = FunctionRef(to: d, type: .address(e.decl.type))
+    _ = emit(functionDecl: e.decl, into: &module)
+    let f = FunctionReference(to: program[e.decl], in: &module)
     return module.append(
       module.makePartialApply(wrapping: f, with: .void, anchoredAt: e.site),
       to: insertionBlock!)[0]
@@ -1048,9 +1158,9 @@ public struct Emitter {
     name e: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch e.decl {
+    switch e.declaration {
     case .direct(let d):
-      guard let s = frames[d] else { fatalError("not implemented") }
+      guard let s = frames[program[d]] else { fatalError("not implemented") }
       if module.type(of: s).isObject {
         return s
       } else {
@@ -1058,7 +1168,10 @@ public struct Emitter {
       }
 
     case .member(let d):
-      return emitRValue(memberExpr: e, declaredBy: d, into: &module)
+      return emitRValue(memberExpr: e, declaredBy: program[d], into: &module)
+
+    case .constructor:
+      fatalError("not implemented")
 
     case .builtinFunction:
       fatalError("not implemented")
@@ -1159,7 +1272,7 @@ public struct Emitter {
         unreachable()
       }
       let f = Operand.constant(
-        FunctionRef(to: .init(FunctionDecl.ID(calleeDecl)!), type: .address(calleeType)))
+        FunctionReference(to: program[FunctionDecl.ID(calleeDecl)!], in: &module))
 
       // Emit the call.
       return module.append(
@@ -1237,24 +1350,19 @@ public struct Emitter {
   ) -> (callee: Operand, liftedArguments: [Operand]) {
     let calleeType = LambdaType(program.relations.canonical(callee.type))!
 
-    switch callee.decl {
+    switch callee.declaration {
     case .direct(let d) where d.kind == FunctionDecl.self:
       // Callee is a direct reference to a function declaration.
       guard calleeType.environment == .void else {
         fatalError("not implemented")
       }
 
-      let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType))
-      return (.constant(ref), [])
-
-    case .direct(let d) where d.kind == InitializerDecl.self:
-      // Callee is a direct reference to an initializer declaration.
-      let ref = FunctionRef(to: .init(constructor: .init(d.id)!), type: .address(calleeType))
+      let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       return (.constant(ref), [])
 
     case .member(let d) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
-      let ref = FunctionRef(to: .init(FunctionDecl.ID(d.id)!), type: .address(calleeType.lifted))
+      let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       let fun = Operand.constant(ref)
 
       // Emit the location of the receiver.
@@ -1349,8 +1457,9 @@ public struct Emitter {
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    let bytes = s.data(using: .utf8)!
+    var bytes = s.unescaped.data(using: .utf8)!
     let size = emitWord(bytes.count, at: site, into: &module)
+    bytes.append(contentsOf: [0])
 
     let p = PointerConstant(module.syntax.id, module.addGlobal(BufferConstant(bytes)))
     let base = emitCoreInstance(
@@ -1365,7 +1474,7 @@ public struct Emitter {
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    let t = program.ast.coreType(named: "Int")!
+    let t = program.ast.coreType("Int")!
     let s = module.makeRecord(
       t, aggregating: [.constant(IntegerConstant(i, bitWidth: 64))], anchoredAt: site)
     return module.append(s, to: insertionBlock!)[0]
@@ -1379,7 +1488,7 @@ public struct Emitter {
     _ expr: AnyExprID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    precondition(program.relations.canonical(expr.type) == program.ast.coreType(named: "Bool")!)
+    precondition(program.relations.canonical(expr.type) == program.ast.coreType("Bool")!)
     let b = emitRValue(expr, into: &module)
     return module.append(
       module.makeDestructure(b, anchoredAt: expr.site),
@@ -1397,13 +1506,13 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch literalType {
-    case program.ast.coreType(named: "Double")!:
+    case program.ast.coreType("Double")!:
       let v = FloatingPointConstant.double(s)
       return module.append(
         module.makeRecord(literalType, aggregating: [.constant(v)], anchoredAt: anchor),
         to: insertionBlock!)[0]
 
-    case program.ast.coreType(named: "Float")!:
+    case program.ast.coreType("Float")!:
       let v = FloatingPointConstant.float(s)
       return module.append(
         module.makeRecord(literalType, aggregating: [.constant(v)], anchoredAt: anchor),
@@ -1426,11 +1535,11 @@ public struct Emitter {
   ) -> Operand {
     let bits: WideUInt?
     switch literalType {
-    case program.ast.coreType(named: "Int")!:
+    case program.ast.coreType("Int")!:
       bits = .init(valLiteral: s, signed: true, bitWidth: 64)
-    case program.ast.coreType(named: "Int32")!:
+    case program.ast.coreType("Int32")!:
       bits = .init(valLiteral: s, signed: true, bitWidth: 32)
-    case program.ast.coreType(named: "Int8")!:
+    case program.ast.coreType("Int8")!:
       bits = .init(valLiteral: s, signed: true, bitWidth: 8)
     default:
       unreachable("unexpected numeric type")
@@ -1458,7 +1567,7 @@ public struct Emitter {
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    let t = program.ast.coreType(named: n)!
+    let t = program.ast.coreType(n)!
     let o = module.makeRecord(t, aggregating: parts, anchoredAt: site)
     return module.append(o, to: insertionBlock!)[0]
   }
@@ -1475,6 +1584,79 @@ public struct Emitter {
       aggregating: [.constant(IntegerConstant(value, bitWidth: 64))],
       at: site,
       into: &module)
+  }
+
+  /// Inserts the IR for converting `foreign` to a value of type `ir` when it's used in `useScope`.
+  private mutating func emitConvert(
+    foreign: Operand,
+    to ir: AnyType,
+    usedIn useScope: AnyScopeID,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    precondition(module.type(of: foreign).isObject)
+
+    let foreignConvertible = program.ast.coreTrait("ForeignConvertible")!
+    let foreignConvertibleConformance = program.conformance(
+      of: ir, to: foreignConvertible, exposedTo: useScope)!
+    let r = program.ast.requirements(
+      Name(stem: "init", labels: ["foreign_value"]), in: foreignConvertible.decl)[0]
+
+    switch foreignConvertibleConformance.implementations[r]! {
+    case .concrete(let m):
+      let convert = FunctionReference(to: program[InitializerDecl.ID(m)!], in: &module)
+      let x0 = module.append(
+        module.makeAllocStack(ir, anchoredAt: site),
+        to: insertionBlock!)[0]
+      frames.top.allocs.append(x0)
+      let x1 = module.append(
+        module.makeBorrow(.set, from: x0, anchoredAt: site),
+        to: insertionBlock!)[0]
+      module.append(
+        module.makeCall(
+          applying: .constant(convert), to: [x1, foreign], anchoredAt: site),
+        to: insertionBlock!)
+      let x3 = module.append(
+        module.makeLoad(x0, anchoredAt: site),
+        to: insertionBlock!)[0]
+      return x3
+
+    case .synthetic:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Appends the IR to convert `o` to a FFI argument when it's used in `useScope`.
+  private mutating func emitConvertToForeign(
+    _ o: Operand,
+    usedIn useScope: AnyScopeID,
+    at site: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    let t = module.type(of: o)
+    precondition(t.isAddress)
+
+    let foreignConvertible = program.ast.coreTrait("ForeignConvertible")!
+    let foreignConvertibleConformance = program.conformance(
+      of: t.ast, to: foreignConvertible, exposedTo: useScope)!
+    let r = program.ast.requirements("foreign_value", in: foreignConvertible.decl)[0]
+
+    // TODO: Handle cases where the foreign representation of `t` is not built-in
+
+    switch foreignConvertibleConformance.implementations[r]! {
+    case .concrete(let m):
+      let convert = FunctionReference(to: program[FunctionDecl.ID(m)!], in: &module)
+      let x0 = module.append(
+        module.makeBorrow(.let, from: o, anchoredAt: site),
+        to: insertionBlock!)
+      let x1 = module.append(
+        module.makeCall(applying: .constant(convert), to: x0, anchoredAt: site),
+        to: insertionBlock!)[0]
+      return x1
+
+    case .synthetic:
+      fatalError("not implemented")
+    }
   }
 
   // MARK: l-values
@@ -1545,13 +1727,16 @@ public struct Emitter {
     name syntax: NameExpr.Typed,
     into module: inout Module
   ) -> Operand {
-    switch syntax.decl {
+    switch syntax.declaration {
     case .direct(let d):
-      return emitLValue(directReferenceTo: d, into: &module)
+      return emitLValue(directReferenceTo: program[d], into: &module)
 
     case .member(let d):
       let r = emitLValue(receiverOf: syntax, into: &module)
-      return addressOfMember(boundTo: r, declaredBy: d, into: &module, at: syntax.site)
+      return emitProperty(boundTo: r, declaredBy: program[d], into: &module, at: syntax.site)
+
+    case .constructor:
+      fatalError()
 
     case .builtinFunction, .builtinType:
       // Built-in functions and types are never used as l-value.
@@ -1606,27 +1791,80 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
-  /// Returns the address of the member declared by `decl` and bound to `receiverAddress`,
-  /// inserting IR anchored at `anchor` into `module`.
-  private mutating func addressOfMember(
-    boundTo receiverAddress: Operand,
-    declaredBy decl: AnyDeclID.TypedNode,
+  /// Returns the address of the member declared by `d` and bound to `receiver`, inserting IR
+  /// anchored at `anchor` into `module`.
+  private mutating func emitProperty(
+    boundTo receiver: Operand,
+    declaredBy d: AnyDeclID.TypedNode,
     into module: inout Module,
     at anchor: SourceRange
   ) -> Operand {
-    switch decl.kind {
+    switch d.kind {
+    case SubscriptDecl.self:
+      return emitComputedProperty(
+        boundTo: receiver, declaredByBundle: .init(d)!, into: &module, at: anchor)
+
     case VarDecl.self:
       let receiverLayout = AbstractTypeLayout(
-        of: module.type(of: receiverAddress).ast, definedIn: program)
-
-      let i = receiverLayout.offset(of: VarDecl.Typed(decl)!.baseName)!
+        of: module.type(of: receiver).ast, definedIn: program)
+      let i = receiverLayout.offset(of: VarDecl.Typed(d)!.baseName)!
       return module.append(
-        module.makeElementAddr(receiverAddress, at: [i], anchoredAt: anchor),
+        module.makeElementAddr(receiver, at: [i], anchoredAt: anchor),
         to: insertionBlock!)[0]
 
     default:
       fatalError("not implemented")
     }
+  }
+
+  /// Returns the address of the computed property declared by `d` and bound to `receiver`,
+  /// inserting IR anchored at `anchor` into `module`.
+  private mutating func emitComputedProperty(
+    boundTo receiver: Operand,
+    declaredByBundle d: SubscriptDecl.Typed,
+    into module: inout Module,
+    at anchor: SourceRange
+  ) -> Operand {
+    // TODO: Handle generics
+
+    if let i = d.impls.uniqueElement {
+      return emitComputedProperty(boundTo: receiver, declaredBy: i, into: &module, at: anchor)
+    }
+
+    let t = SubscriptType(program.relations.canonical(d.type))!
+    let r = module.append(
+      module.makeAccess(t.capabilities, from: receiver, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+
+    var variants: [AccessEffect: Function.ID] = [:]
+    for v in d.impls {
+      variants[v.introducer.value] = module.getOrCreateSubscript(lowering: v)
+    }
+
+    let p = module.makeProjectBundle(
+      applying: variants, of: d.id, typed: t, to: [r],
+      anchoredAt: anchor)
+    return module.append(p, to: insertionBlock!)[0]
+  }
+
+  /// Returns the address of the computed property declared by `d` and bound to `receiver`,
+  /// inserting IR anchored at `anchor` into `module`.
+  private mutating func emitComputedProperty(
+    boundTo receiver: Operand,
+    declaredBy d: SubscriptImpl.Typed,
+    into module: inout Module,
+    at anchor: SourceRange
+  ) -> Operand {
+    let t = SubscriptImplType(d.type)!
+    let o = RemoteType(d.introducer.value, program.relations.canonical(t.output))
+    let r = module.append(
+      module.makeBorrow(o.access, from: receiver, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+
+    let f = module.getOrCreateSubscript(lowering: d)
+    return module.append(
+      module.makeProject(o, applying: f, to: [r], anchoredAt: anchor),
+      to: insertionBlock!)[0]
   }
 
   // MARK: Helpers
@@ -1676,27 +1914,15 @@ public struct Emitter {
     anchoredAt anchor: SourceRange,
     into module: inout Module
   ) {
-    let moveInit = program.moveDecl(access)
-    switch c.implementations[moveInit]! {
-    case .concrete:
-      fatalError("not implemented")
+    let f = module.getOrCreateMoveOperator(access, from: c)
+    let callee = FunctionReference(to: f, in: module)
 
-    case .synthetic(let t):
-      assert(t[.isCanonical])
-
-      let callee = LambdaType(t)!.lifted
-      let ref = FunctionRef(
-        to: .init(synthesized: program.moveDecl(access), for: t),
-        type: .address(callee))
-      let fun = Operand.constant(ref)
-
-      let receiver = module.append(
-        module.makeBorrow(access, from: storage, anchoredAt: anchor),
-        to: insertionBlock!)[0]
-      module.append(
-        module.makeCall(applying: fun, to: [receiver, value], anchoredAt: anchor),
-        to: insertionBlock!)
-    }
+    let r = module.append(
+      module.makeBorrow(access, from: storage, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeCall(applying: .constant(callee), to: [r, value], anchoredAt: anchor),
+      to: insertionBlock!)
   }
 
   /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
@@ -1857,33 +2083,6 @@ extension TypedProgram {
         return isContained(useSite, in: c.scope)
       }
     }
-  }
-
-  /// Returns the declaration of `Sinkable.take_value`'s requirement for given `access`.
-  ///
-  /// Use the access `.set` or `.inout` to get the declaration of the move-initialization or
-  /// move-assignment, respectively.
-  ///
-  /// - Requires: `access` is either `.set` or `.inout`.
-  fileprivate func moveDecl(_ access: AccessEffect) -> MethodImpl.ID {
-    ast[ast.sinkableTrait.decl].members.first { (m) -> MethodImpl.ID? in
-      guard
-        let d = MethodDecl.ID(m),
-        ast[d].identifier.value == "take_value"
-      else { return nil }
-      return ast[d].impls.first(where: { ast[$0].introducer.value == access })
-    }!
-  }
-
-  /// Returns the declaration of `Copyable.copy`'s requirement.
-  fileprivate func copyDecl() -> FunctionDecl.ID {
-    ast[ast.copyableTrait.decl].members.first { (m) -> FunctionDecl.ID? in
-      guard
-        let d = FunctionDecl.ID(m),
-        ast[d].identifier?.value == "copy"
-      else { return nil }
-      return d
-    }!
   }
 
 }

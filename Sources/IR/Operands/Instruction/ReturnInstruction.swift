@@ -4,7 +4,7 @@ import Core
 public struct ReturnInstruction: Terminator {
 
   /// The returned value.
-  public let object: Operand
+  public private(set) var object: Operand
 
   public let site: SourceRange
 
@@ -20,7 +20,12 @@ public struct ReturnInstruction: Terminator {
 
   public var successors: [Block.ID] { [] }
 
-  func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    object = new
+  }
+
+  func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
     false
   }
 

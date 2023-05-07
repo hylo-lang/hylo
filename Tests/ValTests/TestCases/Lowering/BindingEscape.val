@@ -1,0 +1,13 @@
+//! expect-failure
+
+fun f() -> Int {
+  let x = 0
+  let y = x
+  return y
+}
+
+//! @+1 diagnostic parameter was consumed
+fun g(_ x: Int) -> Int {
+  let y = x
+  return y
+}

@@ -20,7 +20,11 @@ public struct BranchInstruction: Terminator {
 
   public var successors: [Block.ID] { [target] }
 
-  mutating func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    preconditionFailure()
+  }
+
+  mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
     precondition(new.function == target.function)
     if target == old {
       target = new

@@ -7,7 +7,7 @@ public struct LLVMInstruction: Instruction {
   public let instruction: NativeInstruction
 
   /// The operands of the instruction.
-  public let operands: [Operand]
+  public private(set) var operands: [Operand]
 
   public let site: SourceRange
 
@@ -19,6 +19,10 @@ public struct LLVMInstruction: Instruction {
   }
 
   public var types: [LoweredType] { [.object(instruction.type.output)] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    operands[i] = new
+  }
 
 }
 

@@ -4,7 +4,7 @@ import Core
 public struct DeallocStackInstruction: Instruction {
 
   /// The location of the memory being deallocated.
-  public let location: Operand
+  public private(set) var location: Operand
 
   public let site: SourceRange
 
@@ -17,6 +17,11 @@ public struct DeallocStackInstruction: Instruction {
   public var types: [LoweredType] { [] }
 
   public var operands: [Operand] { [location] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    location = new
+  }
 
 }
 

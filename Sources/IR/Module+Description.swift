@@ -33,9 +33,18 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     let function = functions[f]!
 
     // Dumps the function in the module.
-    output.write("fun \(function.name)(")
-    output.write(function.inputs.lazy.descriptions())
-    output.write(") -> \(function.output) {\n")
+    if function.isSubscript {
+      output.write("subscript \(function.name)(")
+      output.write(function.inputs.lazy.descriptions())
+      output.write("): \(function.output)")
+    } else {
+      output.write("fun \(function.name)(")
+      output.write(function.inputs.lazy.descriptions())
+      output.write(") -> \(function.output)")
+    }
+
+    if function.entry == nil { return }
+    output.write(" {\n")
 
     for i in blocks(in: f) {
       output.write("\(i)(")

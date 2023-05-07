@@ -5,7 +5,7 @@ import Core
 public struct OpenInstruction: Instruction {
 
   /// The existential container whose witness should be unwrapped.
-  public let container: Operand
+  public private(set) var container: Operand
 
   /// The type of the witness to unwrap.
   public let type: AnyType
@@ -22,6 +22,11 @@ public struct OpenInstruction: Instruction {
   public var types: [LoweredType] { [.address(type), .object(BuiltinType.i(1))] }
 
   public var operands: [Operand] { [container] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    container = new
+  }
 
 }
 

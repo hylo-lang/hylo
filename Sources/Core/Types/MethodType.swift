@@ -4,7 +4,7 @@ import Utils
 public struct MethodType: TypeProtocol, CallableType {
 
   /// The capabilities of the subscript.
-  public let capabilities: Set<AccessEffect>
+  public let capabilities: AccessEffectSet
 
   /// The type of the receiver.
   public let receiver: AnyType
@@ -19,7 +19,7 @@ public struct MethodType: TypeProtocol, CallableType {
 
   /// Creates an instance with the given properties.
   public init(
-    capabilities: Set<AccessEffect>,
+    capabilities: AccessEffectSet,
     receiver: AnyType,
     inputs: [CallableTypeParameter],
     output: AnyType
@@ -48,11 +48,7 @@ public struct MethodType: TypeProtocol, CallableType {
 extension MethodType: CustomStringConvertible {
 
   public var description: String {
-    let cs =
-      capabilities
-      .map(String.init(describing:))
-      .sorted()
-      .joined(separator: " ")
+    let cs = capabilities.elements.descriptions(joinedBy: " ")
     return "method[\(receiver)] (\(list: inputs)) -> \(output) { \(cs) }"
   }
 

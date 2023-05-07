@@ -192,7 +192,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "Bool")!)
+    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("Bool")!)
   }
 
   private mutating func inferredType(
@@ -249,7 +249,7 @@ extension TypeChecker {
     let syntax = ast[subject]
 
     // Visit the condition(s).
-    let boolType = AnyType(ast.coreType(named: "Bool")!)
+    let boolType = AnyType(ast.coreType("Bool")!)
     for item in syntax.condition {
       switch item {
       case .expr(let expr):
@@ -281,7 +281,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    let defaultType = ^ast.coreType(named: "Double")!
+    let defaultType = ^ast.coreType("Double")!
     return inferredType(
       ofLiteralExpr: subject, shapedBy: shape, defaultingTo: defaultType,
       in: scope, updating: &state)
@@ -370,7 +370,8 @@ extension TypeChecker {
     if let pick = initCandidates.uniqueElement {
       // Rebind the callee and constrain its type.
       let ctor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
-      referredDecls[callee] = pick.reference
+      guard case .direct(let d) = pick.reference else { unreachable() }
+      referredDecls[callee] = .constructor(.init(d)!)
       state.facts.assign(^ctor, to: callee)
       state.facts.append(pick.type.constraints)
 
@@ -406,7 +407,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    let defaultType = ^ast.coreType(named: "Int")!
+    let defaultType = ^ast.coreType("Int")!
     return inferredType(
       ofLiteralExpr: subject, shapedBy: shape, defaultingTo: defaultType,
       in: scope, updating: &state)
@@ -561,9 +562,9 @@ extension TypeChecker {
   ) -> AnyType {
     switch program.ast[subject].kind {
     case .file:
-      return state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "String")!)
+      return state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("String")!)
     case .line:
-      return state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "Int")!)
+      return state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("Int")!)
     }
   }
 
@@ -634,7 +635,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "String")!)
+    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("String")!)
   }
 
   private mutating func inferredType(
@@ -671,7 +672,7 @@ extension TypeChecker {
       let returnType = shape ?? ^TypeVariable()
       let assumedCalleeType = SubscriptImplType(
         isProperty: false,
-        receiverEffect: nil,
+        receiverEffect: .let,
         environment: ^TypeVariable(),
         inputs: parameters,
         output: returnType)

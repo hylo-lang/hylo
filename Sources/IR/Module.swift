@@ -157,9 +157,10 @@ public struct Module {
 
     try run({ removeDeadCode(in: $0, diagnostics: &log) })
     try run({ insertImplicitReturns(in: $0, diagnostics: &log) })
+    try run({ reifyAccesses(in: $0, diagnostics: &log) })
     try run({ closeBorrows(in: $0, diagnostics: &log) })
-    try run({ ensureExclusivity(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
+    try run({ ensureExclusivity(in: $0, diagnostics: &log) })
   }
 
   /// Adds a global constant and returns its identity.
@@ -169,65 +170,21 @@ public struct Module {
     return id
   }
 
-  /// Declares the function identified by `f` with type `t` and name `n` at given `site` if `f`.
-  ///
-  /// - Returns: `true` iff `f` wasn't already declared in `self`.
-  @discardableResult
-  mutating func declareFunction(
-    identifiedBy f: Function.ID,
-    typed t: LambdaType,
-    named n: String = "",
-    at site: SourceRange
-  ) -> Bool {
-    if functions[f] != nil { return false }
-
-    var parameters: [ParameterType] = []
-    parameters.reserveCapacity(t.captures.count + t.inputs.count)
-
-    // Define inputs for the captures.
-    for capture in t.captures {
-      switch program.relations.canonical(capture.type).base {
-      case let p as RemoteType:
-        precondition(p.access != .yielded, "cannot lower yielded parameter")
-        parameters.append(ParameterType(p))
-      case let p:
-        precondition(t.receiverEffect != .yielded, "cannot lower yielded parameter")
-        parameters.append(ParameterType(t.receiverEffect, ^p))
-      }
-    }
-
-    // Define inputs for the parameters.
-    for i in t.inputs {
-      let p = ParameterType(program.relations.canonical(i.type))!
-      precondition(p.access != .yielded, "cannot lower yielded parameter")
-      parameters.append(p)
-    }
-
-    let output = LoweredType.object(program.relations.canonical(t.output))
-    functions[f] = Function(
-      name: n,
-      anchor: site.first(),
-      linkage: .external,
-      inputs: parameters,
-      output: output,
-      blocks: [])
-    return true
-  }
-
   /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func getOrCreateFunction(correspondingTo d: FunctionDecl.Typed) -> Function.ID {
+  mutating func getOrCreateFunction(lowering d: FunctionDecl.Typed) -> Function.ID {
     if let f = loweredFunctions[d.id] { return f }
     let f = Function.ID(d.id)
-    let n = program.debugName(decl: d.id)
 
-    switch d.type.base {
-    case let declType as LambdaType:
-      declareFunction(identifiedBy: f, typed: declType, named: n, at: d.site)
-    case is MethodType:
-      fatalError("not implemented")
-    default:
-      unreachable()
-    }
+    let output = program.relations.canonical((d.type.base as! CallableType).output)
+    let inputs = loweredParameters(of: d.id)
+    functions[f] = Function(
+      isSubscript: false,
+      name: program.debugName(decl: d.id),
+      site: d.site,
+      linkage: .external,
+      inputs: inputs,
+      output: output,
+      blocks: [])
 
     // Determine if the new function is the module's entry.
     if d.scope.kind == TranslationUnit.self, d.isPublic, d.identifier?.value == "main" {
@@ -235,28 +192,60 @@ public struct Module {
       entryFunctionID = f
     }
 
-    // Update the cache and return the ID of the newly created function.
     loweredFunctions[d.id] = f
+    return f
+  }
+
+  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
+  /// defined in conformance `c`.
+  ///
+  /// - Requires: `k` is either `.set` or `.inout`
+  mutating func getOrCreateMoveOperator(_ k: AccessEffect, from c: Conformance) -> Function.ID {
+    let d = program.ast.moveRequirement(k)
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+    case .synthetic(let t):
+      let f = Function.ID(synthesized: d, for: t)
+      declareSyntheticFunction(f, typed: LambdaType(t)!)
+      return f
+    }
+  }
+
+  /// Returns the identity of the Val IR function corresponding to `d`.
+  mutating func getOrCreateSubscript(lowering d: SubscriptImpl.Typed) -> Function.ID {
+    let f = Function.ID(d.id)
+    if functions[f] != nil { return f }
+
+    let output = program.relations.canonical(SubscriptImplType(d.type)!.output)
+    let inputs = loweredParameters(of: d.id)
+    functions[f] = Function(
+      isSubscript: true,
+      name: program.debugName(decl: d.id),
+      site: d.site,
+      linkage: .external,
+      inputs: inputs,
+      output: output,
+      blocks: [])
+
     return f
   }
 
   /// Returns the identifier of the Val IR initializer corresponding to `d`.
   mutating func initializerDeclaration(lowering d: InitializerDecl.Typed) -> Function.ID {
-    if let id = loweredFunctions[d.id] { return id }
-    precondition(d.module == syntax)
     precondition(!d.isMemberwise)
 
-    let declType = LambdaType(d.type)!
-    let parameters = declType.inputs.map({ ParameterType($0.type)! })
-
     let f = Function.ID(initializer: d.id)
-    assert(functions[f] == nil)
+    if functions[f] != nil { return f }
+
+    let inputs = loweredParameters(of: d.id)
     functions[f] = Function(
+      isSubscript: false,
       name: program.debugName(decl: d.id),
-      anchor: d.introducer.site.first(),
-      linkage: d.isPublic ? .external : .module,
-      inputs: parameters,
-      output: LoweredType.object(declType.output),
+      site: d.introducer.site,
+      linkage: .external,
+      inputs: inputs,
+      output: .void,
       blocks: [])
 
     // Update the cache and return the ID of the newly created function.
@@ -264,14 +253,128 @@ public struct Module {
     return f
   }
 
-  /// Appends a basic block to specified function and returns its identifier.
+  /// Returns the lowered declarations of `d`'s parameters.
+  private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
+    let captures = LambdaType(program.declTypes[d]!)!.captures.lazy.map { (e) in
+      program.relations.canonical(e.type)
+    }
+    var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
+      .init(c, capturedAs: e)
+    })
+    result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
+    return result
+  }
+
+  /// Returns the lowered declarations of `d`'s parameters.
+  ///
+  /// `d`'s receiver comes first and is followed by `d`'s formal parameters, from left to right.
+  private func loweredParameters(of d: InitializerDecl.ID) -> [Parameter] {
+    var result: [Parameter] = []
+    result.append(pairedWithLoweredType(parameter: program.ast[d].receiver))
+    result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
+    return result
+  }
+
+  /// Returns the lowered declarations of `d`'s parameters.
+  private func loweredParameters(of d: SubscriptImpl.ID) -> [Parameter] {
+    let captures = SubscriptImplType(program.declTypes[d]!)!.captures.lazy.map { (e) in
+      program.relations.canonical(e.type)
+    }
+    var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
+      .init(c, capturedAs: e)
+    })
+
+    let bundle = SubscriptDecl.ID(program.declToScope[d]!)!
+    if let p = program.ast[bundle].parameters {
+      result.append(contentsOf: p.map(pairedWithLoweredType(parameter:)))
+    }
+
+    return result
+  }
+
+  /// Returns `d`, which declares a parameter, paired with its lowered type.
+  private func pairedWithLoweredType(parameter d: ParameterDecl.ID) -> Parameter {
+    let t = program.relations.canonical(program.declTypes[d]!)
+    return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
+  }
+
+  /// Declares a synthetic function identified by `f` with type `t`.
+  mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) {
+    if functions[f] != nil { return }
+
+    let output = program.relations.canonical(t.output)
+    var inputs: [Parameter] = []
+    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
+    appendParameters(t.inputs, to: &inputs)
+
+    functions[f] = Function(
+      isSubscript: false,
+      name: "",
+      site: .empty(at: syntax.site.first()),
+      linkage: .external,
+      inputs: inputs,
+      output: output,
+      blocks: [])
+  }
+
+  /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
+  private func appendCaptures(
+    _ captures: [TupleType.Element],
+    passed effect: AccessEffect,
+    to inputs: inout [Parameter]
+  ) {
+    inputs.reserveCapacity(captures.count)
+    for c in captures {
+      switch program.relations.canonical(c.type).base {
+      case let p as RemoteType:
+        precondition(p.access != .yielded, "cannot lower yielded parameter")
+        inputs.append(.init(decl: nil, type: ParameterType(p)))
+      case let p:
+        precondition(effect != .yielded, "cannot lower yielded parameter")
+        inputs.append(.init(decl: nil, type: ParameterType(effect, ^p)))
+      }
+    }
+  }
+
+  /// Appends `parameters` to `inputs`, ensuring that their types are canonical.
+  private func appendParameters(
+    _ parameters: [CallableTypeParameter],
+    to inputs: inout [Parameter]
+  ) {
+    inputs.reserveCapacity(parameters.count)
+    for p in parameters {
+      let t = ParameterType(program.relations.canonical(p.type))!
+      precondition(t.access != .yielded, "cannot lower yielded parameter")
+      inputs.append(.init(decl: nil, type: t))
+    }
+  }
+
+  /// Returns the entry of `f`.
+  ///
+  /// - Requires: `f` is declared in `self`.
+  func entry(of f: Function.ID) -> Block.ID? {
+    functions[f]!.entry.map({ Block.ID(f, $0) })
+  }
+
+  /// Appends an entry block to `f` and returns its identifier.
+  ///
+  /// - Requires: `f` is declared in `self` and doesn't have an entry block.
+  @discardableResult
+  mutating func appendEntry(to f: Function.ID) -> Block.ID {
+    assert(functions[f]!.blocks.isEmpty)
+    return appendBlock(taking: functions[f]!.inputs.map({ .address($0.type.bareType) }), to: f)
+  }
+
+  /// Appends a basic block taking `parameters` to `f` and returns its identifier.
+  ///
+  /// - Requires: `f` is declared in `self`.
   @discardableResult
   mutating func appendBlock(
     taking parameters: [LoweredType] = [],
-    to function: Function.ID
+    to f: Function.ID
   ) -> Block.ID {
-    let address = functions[function]!.appendBlock(taking: parameters)
-    return Block.ID(function, address)
+    let a = functions[f]!.appendBlock(taking: parameters)
+    return Block.ID(f, a)
   }
 
   /// Removes `block` and updates def-use chains.
@@ -292,13 +395,37 @@ public struct Module {
   ///
   /// - Requires: `new` produces results with the same types as `old`.
   @discardableResult
-  mutating func replace<I: Instruction>(_ old: InstructionID, by new: I) -> [Operand] {
+  mutating func replace<I: Instruction>(_ old: InstructionID, with new: I) -> [Operand] {
     precondition(self[old].types == new.types)
     removeUsesMadeBy(old)
     return insert(new) { (m, i) in
       m[old] = i
       return old
     }
+  }
+
+  /// Swaps all uses of `old` in `f` by `new` and updates the def-use chains.
+  ///
+  /// - Requires: `new` as the same type as `old`. `f` is in `self`.
+  mutating func replaceUses(of old: Operand, with new: Operand, in f: Function.ID) {
+    precondition(old != new)
+    precondition(type(of: old) == type(of: new))
+
+    guard var oldUses = uses[old], !oldUses.isEmpty else { return }
+    var newUses = uses[new] ?? []
+
+    var end = oldUses.count
+    for i in oldUses.indices.reversed() where oldUses[i].user.function == f {
+      let u = oldUses[i]
+      self[u.user].replaceOperand(at: u.index, with: new)
+      newUses.append(u)
+      end -= 1
+      oldUses.swapAt(i, end)
+    }
+    oldUses.removeSubrange(end...)
+
+    uses[old] = oldUses
+    uses[new] = newUses
   }
 
   /// Adds `newInstruction` at the end of `block` and returns the identities of its return values.
@@ -402,6 +529,48 @@ public struct Module {
   private mutating func removeUsesMadeBy(_ i: InstructionID) {
     for o in self[i].operands {
       uses[o]?.removeAll(where: { $0.user == i })
+    }
+  }
+
+  /// Returns the operands from which the address denoted by `a` derives.
+  ///
+  /// The (static) provenances of an address denote the original operands from which it derives.
+  /// They form a set because an address computed by a projection depends on that projection's
+  /// arguments and because an address defined as a parameter of a basic block with multiple
+  /// predecessors depends on that bock's arguments.
+  func provenances(_ a: Operand) -> Set<Operand> {
+    // TODO: Block arguments
+    guard case .register(let i, _) = a else { return [a] }
+
+    switch self[i] {
+    case let s as BorrowInstruction:
+      return provenances(s.location)
+    case let s as ElementAddrInstruction:
+      return provenances(s.base)
+    case let s as ProjectInstruction:
+      return s.operands.reduce(
+        into: [],
+        { (p, o) in
+          if type(of: o).isAddress { p.formUnion(provenances(o)) }
+        })
+    case let s as WrapAddrInstruction:
+      return provenances(s.witness)
+    default:
+      return [a]
+    }
+  }
+
+  /// Returns `true` if `o` is sinkable in `f`.
+  ///
+  /// - Requires: `o` is defined in `f`.
+  func isSinkable(_ o: Operand, in f: Function.ID) -> Bool {
+    let e = entry(of: f)!
+    return provenances(o).allSatisfy { (p) -> Bool in
+      if case .parameter(e, let i) = p {
+        return self.functions[f]!.inputs[i].type.access == .sink
+      } else {
+        return true
+      }
     }
   }
 

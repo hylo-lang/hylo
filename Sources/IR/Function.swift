@@ -8,20 +8,23 @@ public struct Function {
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
 
+  /// `true` iff the function implements a subscript.
+  public let isSubscript: Bool
+
   /// The mangled name of the function.
   public let name: String
 
-  /// The position in source code at which the function is anchored.
-  public let anchor: SourcePosition
+  /// The site in the source code to which the function corresponds..
+  public let site: SourceRange
 
   /// The linkage of the function.
   public let linkage: Linkage
 
-  /// The types of the function's parameters.
-  public let inputs: [ParameterType]
+  /// The the function's parameters.
+  public let inputs: [Parameter]
 
   /// The type of the function's output.
-  public let output: LoweredType
+  public let output: AnyType
 
   /// The blocks in the function.
   public private(set) var blocks: Blocks
@@ -83,8 +86,8 @@ extension Function {
       /// The identity of a lowered Val function, initializer, or method variant.
       case lowered(AnyDeclID)
 
-      /// The identity of an initializer's constructor form.
-      case constructor(InitializerDecl.ID)
+      /// The identity of a lowered subscript variant.
+      case loweredSubscript(SubscriptImpl.ID)
 
       /// The identity of a requirement synthesized for some type.
       ///
@@ -102,14 +105,14 @@ extension Function {
       self.value = .lowered(AnyDeclID(f))
     }
 
+    /// Creates the identity of the lowered form of `s`.
+    public init(_ s: SubscriptImpl.ID) {
+      self.value = .loweredSubscript(s)
+    }
+
     /// Creates the identity of the lowered form of `f` used as an initializer.
     public init(initializer f: InitializerDecl.ID) {
       self.value = .lowered(AnyDeclID(f))
-    }
-
-    /// Creates the identity of the lowered form of `f` used as a constructor.
-    public init(constructor f: InitializerDecl.ID) {
-      self.value = .constructor(f)
     }
 
     /// Creates the identity of synthesized requirement `r` for type `t`.
@@ -127,8 +130,8 @@ extension Function.ID: CustomStringConvertible {
     switch value {
     case .lowered(let d):
       return "\(d).lowered"
-    case .constructor(let d):
-      return "\(d).constructor"
+    case .loweredSubscript(let d):
+      return "\(d).lowered"
     case .synthesized(let r, let t):
       return "\"synthesized \(r) for \(t)\""
     }

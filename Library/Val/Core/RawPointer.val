@@ -3,12 +3,28 @@ public type RawPointer {
 
   var value: Builtin.ptr
 
+  memberwise init
+
 }
 
 public conformance RawPointer: Copyable {
 
   public fun copy() -> Self {
     RawPointer(value: value)
+  }
+
+}
+
+public conformance RawPointer: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.ptr
+
+  public init(foreign_value: sink Builtin.ptr) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.ptr {
+    value
   }
 
 }

@@ -74,4 +74,37 @@ public struct TypedProgram: Program {
     self.relations = relations
   }
 
+  /// Returns the declarations of `d`' captures.
+  ///
+  /// If `d` is a member function, its receiver is its only capture. Otherwise, its explicit
+  /// captures come first, in the order they appear in its capture list, from left to right.
+  /// Implicit captures come next, in the order they were found during type checking.
+  public func captures(of d: FunctionDecl.ID) -> [AnyDeclID] {
+    var result: [AnyDeclID] = []
+    if let r = ast[d].receiver {
+      result.append(AnyDeclID(r))
+    } else {
+      result.append(contentsOf: ast[d].explicitCaptures.map(AnyDeclID.init(_:)))
+      result.append(contentsOf: implicitCaptures[d]!.map(\.decl))
+    }
+    return result
+  }
+
+  /// Returns the declarations of `d`' captures.
+  ///
+  /// If `d` is a member subscript, its receiver is its only capture. Otherwise, its explicit
+  /// captures come first, in the order they appear in its capture list, from left to right.
+  /// Implicit captures come next, in the order they were found during type checking.
+  public func captures(of d: SubscriptImpl.ID) -> [AnyDeclID] {
+    var result: [AnyDeclID] = []
+    if let r = ast[d].receiver {
+      result.append(AnyDeclID(r))
+    } else {
+      let bundle = SubscriptDecl.ID(declToScope[d]!)!
+      result.append(contentsOf: ast[bundle].explicitCaptures.map(AnyDeclID.init(_:)))
+      result.append(contentsOf: implicitCaptures[bundle]!.map(\.decl))
+    }
+    return result
+  }
+
 }

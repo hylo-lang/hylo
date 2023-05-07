@@ -890,7 +890,7 @@ public enum Parser {
 
     // Parse the subscript implementations.
     var impls: [SubscriptImpl.ID] = []
-    var introducers: Set<AccessEffect> = []
+    var introducers = AccessEffectSet()
     while true {
       // Exit if we find the right delimiter.
       if state.take(.rBrace) != nil { break }
@@ -1186,7 +1186,7 @@ public enum Parser {
   static let methodDeclBody =
     (take(.lBrace).and(methodImpl+).and(take(.rBrace))
       .map({ (state, tree) -> [MethodImpl.ID] in
-        var introducers: Set<AccessEffect> = []
+        var introducers = AccessEffectSet()
         for implID in tree.0.1 {
           let introducer = state.ast[implID].introducer
           if !introducers.insert(introducer.value).inserted {

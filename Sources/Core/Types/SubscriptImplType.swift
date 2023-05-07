@@ -4,8 +4,8 @@ public struct SubscriptImplType: TypeProtocol {
   /// Indicates whether the subscript denotes a computed property.
   public let isProperty: Bool
 
-  /// The property of the subscrit implementation's call operator.
-  public let receiverEffect: AccessEffect?
+  /// The effect of the subscript's call operator.
+  public let receiverEffect: AccessEffect
 
   /// The environment of the subscript implementation.
   public let environment: AnyType
@@ -21,7 +21,7 @@ public struct SubscriptImplType: TypeProtocol {
   /// Creates an instance with the given properties.
   public init(
     isProperty: Bool,
-    receiverEffect: AccessEffect?,
+    receiverEffect: AccessEffect,
     environment: AnyType,
     inputs: [CallableTypeParameter],
     output: AnyType
@@ -68,11 +68,10 @@ public struct SubscriptImplType: TypeProtocol {
 extension SubscriptImplType: CustomStringConvertible {
 
   public var description: String {
-    let fx = receiverEffect.map(String.init(describing:)) ?? "_"
     if isProperty {
-      return "property [\(environment)] \(output) \(fx)"
+      return "property [\(environment)] \(receiverEffect) : \(output)"
     } else {
-      return "subscript [\(environment)] (\(list: inputs)) \(fx) : \(output)"
+      return "subscript [\(environment)] (\(list: inputs)) \(receiverEffect) : \(output)"
     }
   }
 

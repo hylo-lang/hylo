@@ -4,11 +4,11 @@ protocol Terminator: Instruction {
   /// The basic blocks to which control flow may transfer.
   var successors: [Block.ID] { get }
 
-  /// Replaces `old` by `new` and returns `true` if `old` is in `self.sucessors`. Otherwise,
+  /// Replaces `old` with `new` and returns `true` if `old` is successor of `self`. Otherwise,
   /// returns `false`.
   ///
   /// - Requires: `new` takes the same parameters as `old`.
   @discardableResult
-  mutating func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool
+  mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool
 
 }

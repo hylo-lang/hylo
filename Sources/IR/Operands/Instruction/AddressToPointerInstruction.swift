@@ -7,7 +7,7 @@ import Core
 public struct AddressToPointerInstruction: Instruction {
 
   /// The address to convert.
-  public let source: Operand
+  public private(set) var source: Operand
 
   public let site: SourceRange
 
@@ -20,6 +20,11 @@ public struct AddressToPointerInstruction: Instruction {
   public var types: [LoweredType] { [.object(BuiltinType.ptr)] }
 
   public var operands: [Operand] { [source] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    source = new
+  }
 
 }
 

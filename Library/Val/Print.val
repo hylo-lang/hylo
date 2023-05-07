@@ -1,9 +1,11 @@
 /// Writes the textual representation of `item` to the standard output.
-public fun print(_ item: String) {
-  _print_utf8(count: item.size, from: item.utf8)
+public fun print(_ item: String, terminator: String = "\n") {
+  let stream = stdout()
+  _ = fwrite(item.utf8, 1, item.size, stream)
+  _ = fwrite(terminator.utf8, 1, 1, stream)
 }
 
-/// Writes `count` bytes from `base` to the standard output, interpreting read contents with UTF-8
-/// character encoding.
-@ffi("_valcore_print_utf8")
-fun _print_utf8(count: Int, from base: RawPointer)
+/// The standard output of the current process.
+fun stdout() -> RawPointer {
+  fdopen(1, "w".utf8)
+}

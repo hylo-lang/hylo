@@ -22,6 +22,10 @@ public struct AllocStackInstruction: Instruction {
 
   public var operands: [Operand] { [] }
 
+  public func replaceOperand(at i: Int, with new: Operand) {
+    preconditionFailure()
+  }
+
 }
 
 extension AllocStackInstruction: CustomStringConvertible {
