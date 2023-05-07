@@ -766,8 +766,9 @@ extension TypeChecker {
         state.facts.append(instantiatedType.constraints)
 
         // Update the referred declaration map if necessary.
+        // FIXME: Handle generic arguments
         if let c = NameExpr.ID(syntax.callee) {
-          referredDecls[c] = .member(decl)
+          referredDecls[c] = .member(decl, [:])
         }
 
         return state.facts.constrain(subject, in: ast, toHaveType: calleeType.output)

@@ -12,28 +12,22 @@ enum NameResolutionResult {
     /// The quantifier-free type of the declaration at its use site.
     let type: InstantiatedType
 
-    // The generic arguments applied to the resolved declaration.
-    let arguments: GenericArguments
-
     /// Creates an instance with the given properties.
-    init(reference: DeclReference, type: InstantiatedType, arguments: GenericArguments) {
+    init(reference: DeclReference, type: InstantiatedType) {
       self.reference = reference
       self.type = type
-      self.arguments = arguments
     }
 
     /// Creates an instance denoting a built-in function.
     init(_ f: BuiltinFunction) {
       self.reference = .builtinFunction(f)
       self.type = .init(shape: ^f.type(), constraints: [])
-      self.arguments = [:]
     }
 
     /// Creates an instance denoting a built-in type.
     init(_ t: BuiltinType) {
       self.reference = .builtinType
       self.type = .init(shape: ^t, constraints: [])
-      self.arguments = [:]
     }
 
   }

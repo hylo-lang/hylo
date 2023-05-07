@@ -951,7 +951,7 @@ public struct Emitter {
       switch n.declaration {
       case .builtinFunction(let f):
         return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
-      case .constructor(let d):
+      case .constructor(let d, _):
         return emitRValue(constructorCall: expr, applying: d, into: &module)
       default:
         break
@@ -1159,7 +1159,7 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch e.declaration {
-    case .direct(let d):
+    case .direct(let d, _):
       guard let s = frames[program[d]] else { fatalError("not implemented") }
       if module.type(of: s).isObject {
         return s
@@ -1167,7 +1167,7 @@ public struct Emitter {
         return module.append(module.makeLoad(s, anchoredAt: e.site), to: insertionBlock!)[0]
       }
 
-    case .member(let d):
+    case .member(let d, _):
       return emitRValue(memberExpr: e, declaredBy: program[d], into: &module)
 
     case .constructor:
@@ -1268,7 +1268,7 @@ public struct Emitter {
         ParameterType(calleeType.inputs[0].type)!.access, foldedSequenceExpr: lhs, into: &module)
 
       // Emit the callee.
-      guard case .member(let calleeDecl) = program.referredDecls[callee.expr] else {
+      guard case .member(let calleeDecl, _) = program.referredDecls[callee.expr] else {
         unreachable()
       }
       let f = Operand.constant(
@@ -1357,7 +1357,7 @@ public struct Emitter {
     let calleeType = LambdaType(program.relations.canonical(callee.type))!
 
     switch callee.declaration {
-    case .direct(let d) where d.kind == FunctionDecl.self:
+    case .direct(let d, _) where d.kind == FunctionDecl.self:
       // Callee is a direct reference to a function declaration.
       guard calleeType.environment == .void else {
         fatalError("not implemented")
@@ -1366,7 +1366,7 @@ public struct Emitter {
       let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       return (.constant(ref), [])
 
-    case .member(let d) where d.kind == FunctionDecl.self:
+    case .member(let d, _) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
       let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       let fun = Operand.constant(ref)
@@ -1734,10 +1734,10 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch syntax.declaration {
-    case .direct(let d):
+    case .direct(let d, _):
       return emitLValue(directReferenceTo: program[d], into: &module)
 
-    case .member(let d):
+    case .member(let d, _):
       let r = emitLValue(receiverOf: syntax, into: &module)
       return emitProperty(boundTo: r, declaredBy: program[d], into: &module, at: syntax.site)
 

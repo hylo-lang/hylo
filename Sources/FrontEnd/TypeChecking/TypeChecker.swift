@@ -1686,9 +1686,9 @@ public struct TypeChecker {
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
       if let d = c.reference.decl, isNominalTypeDecl(d) {
-        parent = (MetatypeType(c.type.shape)!.instance, c.arguments)
+        parent = (MetatypeType(c.type.shape)!.instance, c.reference.arguments)
       } else {
-        parent = (c.type.shape, c.arguments)
+        parent = (c.type.shape, c.reference.arguments)
       }
     }
 
@@ -1765,9 +1765,9 @@ public struct TypeChecker {
         cause: .init(.binding, at: name.site))
 
       if program.isNonStaticMember(m) && !(parent?.type.base is MetatypeType) {
-        candidates.append(.init(reference: .member(m), type: t, arguments: allArguments))
+        candidates.append(.init(reference: .member(m, allArguments), type: t))
       } else {
-        candidates.append(.init(reference: .direct(m), type: t, arguments: allArguments))
+        candidates.append(.init(reference: .direct(m, allArguments), type: t))
       }
     }
 

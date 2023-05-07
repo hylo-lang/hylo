@@ -435,7 +435,7 @@ struct ConstraintSystem {
       // TODO: Handle bound generic typess
 
       return OverloadConstraint.Predicate(
-        reference: .member(match),
+        reference: .member(match, [:]),
         type: matchType,
         constraints: [],
         penalties: checker.program.isRequirement(match) ? 1 : 0)
