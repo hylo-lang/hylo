@@ -166,7 +166,7 @@ public struct ValCommand: ParsableCommand {
       return
     }
     let ir = LoweredProgram(syntax: program, modules: irModules)
-    
+
     // LLVM
 
     let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
