@@ -1750,8 +1750,9 @@ public struct TypeChecker {
     for m in matches {
       var argumentsDiagnostic: Diagnostic? = nil
       guard var matchType = resolvedType(of: m) else { continue }
-      guard var matchArguments = associateGenericParameters(
-        of: name, declaredBy: m, to: arguments, reportingDiagnosticTo: &argumentsDiagnostic)
+      guard
+        var matchArguments = associateGenericParameters(
+          of: name, declaredBy: m, to: arguments, reportingDiagnosticTo: &argumentsDiagnostic)
       else { continue }
 
       if let g = BoundGenericType(matchType) {
