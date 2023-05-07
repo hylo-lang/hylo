@@ -1,5 +1,5 @@
 /// A reference to a declaration.
-public enum DeclRef: Hashable {
+public enum DeclReference: Hashable {
 
   /// A direct reference.
   case direct(AnyDeclID)

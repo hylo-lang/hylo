@@ -226,7 +226,7 @@ extension TypedNode where ID == NameExpr.ID {
   }
 
   /// The declaration to which `self` refers.
-  public var declaration: DeclRef {
+  public var declaration: DeclReference {
     program.referredDecls[id]!
   }
 

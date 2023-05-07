@@ -34,7 +34,7 @@ struct ConstraintSystem {
   /// This map is monotonically extended during constraint solving to assign a declaration to each
   /// unresolved name expression in the constraint system. A system is complete if it can be used
   /// to derive a complete name binding map w.r.t. its unresolved name expressions.
-  private var bindingAssumptions: [NameExpr.ID: DeclRef] = [:]
+  private var bindingAssumptions: [NameExpr.ID: DeclReference] = [:]
 
   /// The penalties associated with the constraint system.
   ///

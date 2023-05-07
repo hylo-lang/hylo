@@ -7,13 +7,13 @@ enum NameResolutionResult {
   struct Candidate {
 
     /// Declaration being referenced.
-    let reference: DeclRef
+    let reference: DeclReference
 
     /// The quantifier-free type of the declaration at its use site.
     let type: InstantiatedType
 
     /// Creates an instance with the given properties.
-    init(reference: DeclRef, type: InstantiatedType) {
+    init(reference: DeclReference, type: InstantiatedType) {
       self.reference = reference
       self.type = type
     }
