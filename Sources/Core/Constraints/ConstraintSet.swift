@@ -15,4 +15,4 @@ public struct ConstraintHashableWitness: HashableWitness {
 
 }
 
-public typealias ConstraintSet = CustomWitnessedSet<Constraint, ConstraintHashableWitness>
+public typealias ConstraintSet = CustomWitnessedSet<ConstraintHashableWitness>
