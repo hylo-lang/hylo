@@ -464,22 +464,6 @@ public struct TypeChecker {
       check(parameter: parameter, siblingNames: &parameterNames)
     }
 
-    // Set the type of the implicit receiver declaration if necessary.
-    if program.isNonStaticMember(id) {
-      let functionType = declTypes[id]!.base as! LambdaType
-      let receiverDecl = ast[id].receiver!
-
-      if let t = RemoteType(functionType.captures.first?.type) {
-        declTypes[receiverDecl] = ^ParameterType(t)
-      } else {
-        // `sink` member functions capture their receiver.
-        assert(ast[id].isSink)
-        declTypes[receiverDecl] = ^ParameterType(.sink, functionType.environment)
-      }
-
-      declRequests[receiverDecl] = .typeRealizationCompleted
-    }
-
     // Type check the body, if any.
     switch ast[id].body {
     case .block(let stmt):
@@ -2794,55 +2778,45 @@ public struct TypeChecker {
       : []
     self.implicitCaptures[d] = implicitCaptures
 
-    // Realize the function's receiver if necessary.
-    let isNonStaticMember = program.isNonStaticMember(d)
-    var receiver: AnyType? =
-      isNonStaticMember
-      ? realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
-      : nil
-
     // Realize the output type.
-    let outputType: AnyType
+    let output: AnyType
     if let o = ast[d].output {
       // Use the explicit return annotation.
       guard let type = realize(o, in: AnyScopeID(d))?.instance else { return .error }
-      outputType = type
+      output = type
     } else if ast[d].isInExprContext {
       // Infer the return type from the body in expression contexts.
-      outputType = ^TypeVariable()
+      output = ^TypeVariable()
     } else {
       // Default to `Void`.
-      outputType = .void
+      output = .void
     }
 
-    if isNonStaticMember {
-      // Create a lambda bound to a receiver.
-      let effect: AccessEffect
-      if ast[d].isInout {
-        receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.inout, receiver!))])
-        effect = .inout
-      } else if ast[d].isSink {
-        receiver = ^TupleType([.init(label: "self", type: receiver!)])
-        effect = .sink
-      } else {
-        receiver = ^TupleType([.init(label: "self", type: ^RemoteType(.let, receiver!))])
-        effect = .let
+    if program.isNonStaticMember(d) {
+      let effect = ast[d].receiverEffect?.value ?? .let
+      let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
+      declTypes[ast[d].receiver!] = ^ParameterType(effect, receiver)
+      declRequests[ast[d].receiver!] = .typeRealizationCompleted
+
+      let e: TupleType
+      switch effect {
+      case .let, .inout, .set:
+        e = TupleType([.init(label: "self", type: ^RemoteType(effect, receiver))])
+      case .sink:
+        e = TupleType([.init(label: "self", type: receiver)])
+      case .yielded:
+        unreachable()
       }
 
-      return ^LambdaType(
-        receiverEffect: effect,
-        environment: receiver!,
-        inputs: inputs,
-        output: outputType)
+      return ^LambdaType(receiverEffect: effect, environment: ^e, inputs: inputs, output: output)
     } else {
-      // Create a regular lambda.
-      let environment = TupleType(
+      let e = TupleType(
         explicitCaptureTypes.map({ (t) in TupleType.Element(label: nil, type: t) })
           + implicitCaptures.map({ (c) in TupleType.Element(label: nil, type: ^c.type) }))
 
       // TODO: Determine if the lambda is mutating.
 
-      return ^LambdaType(environment: ^environment, inputs: inputs, output: outputType)
+      return ^LambdaType(environment: ^e, inputs: inputs, output: output)
     }
   }
 
