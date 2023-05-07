@@ -41,6 +41,14 @@ public struct TypedNode<ID: NodeIDProtocol>: Hashable {
 
 }
 
+extension TypedNode: CustomStringConvertible {
+
+  public var description: String {
+    String(site.text)
+  }
+
+}
+
 extension AST.Node {
 
   /// Type describing the current node with type information.
