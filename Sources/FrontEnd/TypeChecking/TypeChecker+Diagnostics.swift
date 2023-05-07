@@ -225,10 +225,9 @@ extension Diagnostic {
   }
 
   static func error(
-    invalidGenericArgumentsTo entity: SourceRepresentable<Name>,
-    candidateDiagnostics notes: [Diagnostic]
+    noViableCandidateToResolve entity: SourceRepresentable<Name>, notes: [Diagnostic]
   ) -> Diagnostic {
-    .error("invalid generic argument(s) for '\(entity.value)'", at: entity.site, notes: notes)
+    .error("no viable candidate to resolve '\(entity.value)'", at: entity.site, notes: notes)
   }
 
   static func error(argumentToNonGenericType type: AnyType, at site: SourceRange) -> Diagnostic {
