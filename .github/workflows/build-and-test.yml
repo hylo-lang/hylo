@@ -141,19 +141,6 @@ jobs:
 
     - run: llvm-config --version
 
-    - name: Build support library
-      id: build-support-library
-      continue-on-error: true
-      run: swift build -c release --target Support
-
-    - name: Retry on failure
-      continue-on-error: false
-      if: steps.build-support-library.outcome != 'success'
-      run: swift build -c release --target Support
-      
-    - name: Install support library
-      run: ./Tools/install_CI.bat
-
     - name: Build (Release)
       id: build
       continue-on-error: true
