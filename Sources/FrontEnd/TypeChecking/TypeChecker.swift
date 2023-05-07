@@ -1748,8 +1748,9 @@ public struct TypeChecker {
     let parentArguments = parent?.arguments ?? [:]
     for m in matches {
       guard var matchType = resolvedType(of: m) else { continue }
-      guard var matchArguments = associateGenericParameters(
-        of: name, declaredBy: m, to: arguments, reportingErrorsTo: &candidateDiagnostics)
+      guard
+        var matchArguments = associateGenericParameters(
+          of: name, declaredBy: m, to: arguments, reportingErrorsTo: &candidateDiagnostics)
       else { continue }
 
       if let g = BoundGenericType(matchType) {
