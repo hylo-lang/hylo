@@ -7,25 +7,27 @@ enum NameResolutionResult {
   struct Candidate {
 
     /// Declaration being referenced.
-    let reference: DeclRef
+    let reference: DeclReference
 
     /// The quantifier-free type of the declaration at its use site.
     let type: InstantiatedType
 
     /// Creates an instance with the given properties.
-    init(reference: DeclRef, type: InstantiatedType) {
+    init(reference: DeclReference, type: InstantiatedType) {
       self.reference = reference
       self.type = type
     }
 
     /// Creates an instance denoting a built-in function.
     init(_ f: BuiltinFunction) {
-      self.init(reference: .builtinFunction(f), type: .init(shape: ^f.type(), constraints: []))
+      self.reference = .builtinFunction(f)
+      self.type = .init(shape: ^f.type(), constraints: [])
     }
 
     /// Creates an instance denoting a built-in type.
     init(_ t: BuiltinType) {
-      self.init(reference: .builtinType, type: .init(shape: ^t, constraints: []))
+      self.reference = .builtinType
+      self.type = .init(shape: ^t, constraints: [])
     }
 
   }

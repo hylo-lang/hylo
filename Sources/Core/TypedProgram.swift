@@ -29,7 +29,7 @@ public struct TypedProgram: Program {
   public let implicitCaptures: DeclProperty<[ImplicitCapture]>
 
   /// A map from name expression to its referred declaration.
-  public let referredDecls: [NameExpr.ID: DeclRef]
+  public let referredDecls: [NameExpr.ID: DeclReference]
 
   /// A map from sequence expressions to their evaluation order.
   public let foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr]
@@ -52,7 +52,7 @@ public struct TypedProgram: Program {
     exprTypes: ExprProperty<AnyType>,
     implicitCaptures: DeclProperty<[ImplicitCapture]>,
     synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]],
-    referredDecls: [NameExpr.ID: DeclRef],
+    referredDecls: [NameExpr.ID: DeclReference],
     foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr],
     relations: TypeRelations
   ) {

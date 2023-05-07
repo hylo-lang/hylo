@@ -1,24 +1,20 @@
-import OrderedCollections
 import Utils
 
 /// A generic type bound to arguments.
 public struct BoundGenericType: TypeProtocol {
 
-  /// The arguments of a bound generic type.
-  public typealias Arguments = OrderedDictionary<GenericParameterDecl.ID, any CompileTimeValue>
-
   /// The underlying generic type.
   public let base: AnyType
 
   /// The type and value arguments of the base type.
-  public let arguments: Arguments
+  public let arguments: GenericArguments
 
   public let flags: TypeFlags
 
   /// Creates a bound generic type binding `base` to the given `arguments`.
   ///
   /// - Requires: `arguments` is not empty.
-  public init<T: TypeProtocol>(_ base: T, arguments: Arguments) {
+  public init<T: TypeProtocol>(_ base: T, arguments: GenericArguments) {
     precondition(!arguments.isEmpty)
     self.base = ^base
     self.arguments = arguments
@@ -73,6 +69,13 @@ extension BoundGenericType: Hashable {
 
 extension BoundGenericType: CustomStringConvertible {
 
-  public var description: String { "\(base)<\(list: arguments.values)>" }
+  public var description: String {
+    switch base.base {
+    case is ProductType, is TypeAliasType:
+      return "\(base)<\(list: arguments.values)>"
+    default:
+      return "<\(list: arguments.values)>(\(base))"
+    }
+  }
 
 }
