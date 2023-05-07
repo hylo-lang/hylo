@@ -69,7 +69,7 @@ public struct TypeChecker {
   /// replaced by their corresponding value, performing necessary name lookups from `lookupScope`.
   private mutating func specialized(
     _ genericType: AnyType,
-    applying substitutions: BoundGenericType.Arguments,
+    applying substitutions: GenericArguments,
     in lookupScope: AnyScopeID
   ) -> AnyType {
     return substitutions.isEmpty ? genericType : genericType.transform(specialize(_:))
@@ -127,12 +127,12 @@ public struct TypeChecker {
   /// in `substitutions`, or `nil` if `d` doesn't introduce any generic parameter.
   private mutating func extractArguments<T: GenericDecl>(
     of d: T.ID,
-    from substitutions: BoundGenericType.Arguments
-  ) -> BoundGenericType.Arguments? {
+    from substitutions: GenericArguments
+  ) -> GenericArguments? {
     let e = environment(of: d)
     if e.parameters.isEmpty { return nil }
 
-    return BoundGenericType.Arguments(
+    return GenericArguments(
       uniqueKeysWithValues: e.parameters.map({ (p) in
         (key: p, value: substitutions[p] ?? AnyType.error)
       }))
@@ -826,7 +826,7 @@ public struct TypeChecker {
     at declSite: SourceRange
   ) -> Conformance? {
     let useScope = AnyScopeID(source)
-    let specializations: BoundGenericType.Arguments = [ast[trait.decl].selfParameterDecl: model]
+    let specializations: GenericArguments = [ast[trait.decl].selfParameterDecl: model]
     var implementations = Conformance.ImplementationMap()
     var notes: DiagnosticSet = []
 
@@ -954,7 +954,7 @@ public struct TypeChecker {
     of requirementName: Name,
     in model: AnyType,
     withCallableType requiredType: LambdaType,
-    specializedWith specializations: BoundGenericType.Arguments,
+    specializedWith specializations: GenericArguments,
     exposedTo scope: AnyScopeID
   ) -> AnyDeclID? {
     /// Returns `true` if candidate `d` has `requirementType`.
@@ -1658,7 +1658,7 @@ public struct TypeChecker {
     // Resolve the nominal components of `nameExpr` from left to right as long as we don't need
     // contextual information to resolve overload sets.
     var resolved: [NameResolutionResult.ResolvedComponent] = []
-    var parent: (type: AnyType, arguments: BoundGenericType.Arguments)? = nil
+    var parent: (type: AnyType, arguments: GenericArguments)? = nil
 
     while let component = unresolved.popLast() {
       // Evaluate the static argument list.
@@ -1721,7 +1721,7 @@ public struct TypeChecker {
   private mutating func resolve(
     _ name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue] = [],
-    memberOf parent: (type: AnyType, arguments: BoundGenericType.Arguments)?,
+    memberOf parent: (type: AnyType, arguments: GenericArguments)?,
     exposedTo useScope: AnyScopeID
   ) -> [NameResolutionResult.Candidate] {
     // Resolve references to the built-in symbols.
@@ -1826,7 +1826,7 @@ public struct TypeChecker {
     declaredBy d: AnyDeclID,
     to arguments: [any CompileTimeValue],
     reportingErrorsTo log: inout [Diagnostic]
-  ) -> BoundGenericType.Arguments? {
+  ) -> GenericArguments? {
     if arguments.isEmpty { return [:] }
 
     guard d.kind.value is GenericScope.Type else {
@@ -2334,7 +2334,7 @@ public struct TypeChecker {
 
         // Synthesize arguments to generic parameters if necessary.
         if let parameters = ast[decl].genericClause?.value.parameters {
-          let arguments = BoundGenericType.Arguments(
+          let arguments = GenericArguments(
             uniqueKeysWithValues: parameters.map({ (p) in
               (key: p, value: ^GenericTypeParameterType(p, ast: ast))
             }))
@@ -2575,7 +2575,7 @@ public struct TypeChecker {
       return nil
     }
 
-    var arguments: BoundGenericType.Arguments = [:]
+    var arguments: GenericArguments = [:]
     for (p, a) in zip(clause.parameters, ast[id].arguments) {
       // TODO: Symbolic execution
       guard let v = realize(a.value, in: scope)?.instance else { return nil }
@@ -3344,7 +3344,7 @@ public struct TypeChecker {
     }
 
     let b = MetatypeType(declTypes[d])!.instance
-    let a = BoundGenericType.Arguments(
+    let a = GenericArguments(
       uniqueKeysWithValues: parameters.map({ (key: $0, value: ^TypeVariable()) }))
 
     return BoundGenericType(b, arguments: a)

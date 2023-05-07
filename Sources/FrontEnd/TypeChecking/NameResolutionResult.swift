@@ -13,10 +13,10 @@ enum NameResolutionResult {
     let type: InstantiatedType
 
     // The generic arguments applied to the resolved declaration.
-    let arguments: BoundGenericType.Arguments
+    let arguments: GenericArguments
 
     /// Creates an instance with the given properties.
-    init(reference: DeclReference, type: InstantiatedType, arguments: BoundGenericType.Arguments) {
+    init(reference: DeclReference, type: InstantiatedType, arguments: GenericArguments) {
       self.reference = reference
       self.type = type
       self.arguments = arguments

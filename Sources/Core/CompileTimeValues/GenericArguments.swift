@@ -1,3 +1,4 @@
+import OrderedCollections
 import Utils
 
 /// A map from generic parameter to its argument.
@@ -13,10 +14,15 @@ public struct GenericArguments {
   fileprivate typealias _Value = HashableBox<CompileTimeValueHashableWitness>
 
   /// The type of this map's contents.
-  fileprivate typealias Contents = [GenericParameterDecl.ID: _Value]
+  fileprivate typealias Contents = OrderedDictionary<GenericParameterDecl.ID, _Value>
 
   /// The contents of `self`
   fileprivate var contents: Contents
+
+  /// Creates an instance with given `contents`.
+  private init(contents: Contents) {
+    self.contents = contents
+  }
 
   /// Creates an empty dictionary.
   public init() {
@@ -28,29 +34,29 @@ public struct GenericArguments {
     self.contents = .init(uniqueKeysWithValues: Self.adapt(keysAndValues))
   }
 
+  /// A collection with the values of the arguments.
+  public var values: some Collection<Value> {
+    contents.values.lazy.map(\.base)
+  }
+
   /// Accesses the value associated with the given key.
   public subscript(key: Key) -> Value? {
     get { contents[key]?.base }
     set { contents[key] = newValue.map(_Value.init(_:)) }
   }
 
-  /// Merges the key-value pairs in `other` into `self` using `combine` to determine the value for
-  /// any duplicate keys.
-  public mutating func merge<S: Sequence>(
-    _ other: S, uniquingKeysWith combine: (Value, Value) throws -> Value
-  ) rethrows where S.Element == (Key, Value) {
-    try contents.merge(Self.adapt(other)) { (a, b) in
-      try .init(combine(a.base, b.base))
-    }
+  /// Returns a new map containing the keys of `self` with the values transformed `transform`.
+  public func mapValues(_ transform: (Value) throws -> Value) rethrows -> Self {
+    return try .init(contents: contents.mapValues({ try _Value(transform($0.base)) }))
   }
 
-  /// Merges `other` into `self` using `combine` to determine the value for any duplicate keys.
-  public mutating func merge(
-    _ other: Self, uniquingKeysWith combine: (Value, Value) throws -> Value
-  ) rethrows {
-    try contents.merge(other.contents) { (a, b) in
-      try .init(combine(a.base, b.base))
-    }
+  /// Returns this argument list appended with `suffix`.
+  ///
+  /// - Requires: `self` does not define a value for any of the values defined in `suffix`.
+  public func appending(_ suffix: Self) -> Self {
+    // Note: `merging` perserves order.
+    let s = suffix.lazy.map({ (key: $0.key, value: _Value($0.value)) })
+    return .init(contents: contents.merging(s, uniquingKeysWith: { (_, _) in unreachable() }))
   }
 
   /// Returns a sequence containing the given `keysAndValues` with the values wrapped in `_Value`.
@@ -76,30 +82,18 @@ extension GenericArguments: Collection {
 
   public typealias Element = (key: Key, value: Value)
 
-  public struct Index: Comparable {
+  public typealias Index = Int
 
-    fileprivate let value: Contents.Index
+  public var startIndex: Index { 0 }
 
-    public static func < (l: Self, r: Self) -> Bool {
-      l.value < r.value
-    }
-
-  }
-
-  public var startIndex: Index {
-    .init(value: contents.startIndex)
-  }
-
-  public var endIndex: Index {
-    .init(value: contents.endIndex)
-  }
+  public var endIndex: Index { contents.count }
 
   public func index(after position: Index) -> Index {
-    .init(value: contents.index(after: position.value))
+    position + 1
   }
 
   public subscript(position: Index) -> Element {
-    read(contents[position.value], { (key: $0.key, value: $0.value.base) })
+    read(contents.elements[position], { (key: $0.key, value: $0.value.base) })
   }
 
 }
