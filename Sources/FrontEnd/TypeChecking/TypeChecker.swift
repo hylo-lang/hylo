@@ -69,10 +69,12 @@ public struct TypeChecker {
   /// replaced by their corresponding value, performing necessary name lookups from `lookupScope`.
   private mutating func specialized(
     _ genericType: AnyType,
-    applying substitutions: GenericArguments,
+    applying substitutions: BoundGenericType.Arguments,
     in lookupScope: AnyScopeID
   ) -> AnyType {
-    func _impl(t: AnyType) -> TypeTransformAction {
+    return substitutions.isEmpty ? genericType : genericType.transform(specialize(_:))
+
+    func specialize(_ t: AnyType) -> TypeTransformAction {
       switch t.base {
       case let u as GenericTypeParameterType:
         if let v = substitutions[u.decl] {
@@ -82,7 +84,7 @@ public struct TypeChecker {
         }
 
       case let u as AssociatedTypeType:
-        let d = u.domain.transform(_impl)
+        let d = u.domain.transform(specialize(_:))
 
         let candidates = lookup(ast[u.decl].baseName, memberOf: d, exposedTo: lookupScope)
         if let c = candidates.uniqueElement {
@@ -92,14 +94,14 @@ public struct TypeChecker {
         }
 
       case let u as ProductType:
-        if let a = associateParameters(of: u.decl, to: substitutions) {
+        if let a = extractArguments(of: u.decl, from: substitutions) {
           return .stepOver(^BoundGenericType(u, arguments: a))
         } else {
           return .stepOver(t)
         }
 
       case let u as TypeAliasType:
-        if let a = associateParameters(of: u.decl, to: substitutions) {
+        if let a = extractArguments(of: u.decl, from: substitutions) {
           return .stepOver(^BoundGenericType(u, arguments: a))
         } else {
           return .stepOver(t)
@@ -119,8 +121,21 @@ public struct TypeChecker {
         return .stepInto(t)
       }
     }
+  }
 
-    return genericType.transform(_impl(t:))
+  /// Returns a table mapping the generic parameters introduced by `d` to their corresponding value
+  /// in `substitutions`, or `nil` if `d` doesn't introduce any generic parameter.
+  private mutating func extractArguments<T: GenericDecl>(
+    of d: T.ID,
+    from substitutions: BoundGenericType.Arguments
+  ) -> BoundGenericType.Arguments? {
+    let e = environment(of: d)
+    if e.parameters.isEmpty { return nil }
+
+    return BoundGenericType.Arguments(
+      uniqueKeysWithValues: e.parameters.map({ (p) in
+        (key: p, value: substitutions[p] ?? AnyType.error)
+      }))
   }
 
   /// Returns the set of traits to which `type` conforms in `useScope`, visiting all conformance
@@ -811,7 +826,7 @@ public struct TypeChecker {
     at declSite: SourceRange
   ) -> Conformance? {
     let useScope = AnyScopeID(source)
-    let specializations: GenericArguments = [ast[trait.decl].selfParameterDecl: model]
+    let specializations: BoundGenericType.Arguments = [ast[trait.decl].selfParameterDecl: model]
     var implementations = Conformance.ImplementationMap()
     var notes: DiagnosticSet = []
 
@@ -939,7 +954,7 @@ public struct TypeChecker {
     of requirementName: Name,
     in model: AnyType,
     withCallableType requiredType: LambdaType,
-    specializedWith specializations: GenericArguments,
+    specializedWith specializations: BoundGenericType.Arguments,
     exposedTo scope: AnyScopeID
   ) -> AnyDeclID? {
     /// Returns `true` if candidate `d` has `requirementType`.
@@ -1643,7 +1658,7 @@ public struct TypeChecker {
     // Resolve the nominal components of `nameExpr` from left to right as long as we don't need
     // contextual information to resolve overload sets.
     var resolved: [NameResolutionResult.ResolvedComponent] = []
-    var parentType: AnyType? = nil
+    var parent: (type: AnyType, arguments: BoundGenericType.Arguments)? = nil
 
     while let component = unresolved.popLast() {
       // Evaluate the static argument list.
@@ -1655,7 +1670,7 @@ public struct TypeChecker {
 
       // Resolve the component.
       let candidates = resolve(
-        ast[component].name, parameterizedBy: arguments, memberOf: parentType, exposedTo: scope)
+        ast[component].name, parameterizedBy: arguments, memberOf: parent, exposedTo: scope)
 
       // Fail resolution we didn't find any candidate.
       if candidates.isEmpty { return .failed }
@@ -1666,13 +1681,14 @@ public struct TypeChecker {
       // Defer resolution of the remaining name components if there are multiple candidates for
       // the current component or if we found a type variable.
       if (candidates.count > 1) || (candidates[0].type.shape.base is TypeVariable) { break }
+      let c = candidates[0]
 
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
-      if let d = candidates[0].reference.decl, isNominalTypeDecl(d) {
-        parentType = MetatypeType(candidates[0].type.shape)!.instance
+      if let d = c.reference.decl, isNominalTypeDecl(d) {
+        parent = (MetatypeType(c.type.shape)!.instance, c.arguments)
       } else {
-        parentType = candidates[0].type.shape
+        parent = (c.type.shape, c.arguments)
       }
     }
 
@@ -1680,130 +1696,110 @@ public struct TypeChecker {
     return .done(resolved: resolved, unresolved: unresolved)
   }
 
-  /// Returns the declarations of `name` exposed to `lookupScope` and accepting `arguments`,
-  /// searching in the declaration space of `parentType` if it isn't `nil`, or using unqualified
-  /// lookup otherwise.
+  /// Returns the declarations of `name` exposed to `useScope` and parameterized by `arguments`.
+  ///
+  /// The declarations are searched with an unqualified lookup unless `parent` is set, in which
+  /// case they are searched in its declaration space. Generic candidates are specialized with
+  /// the generic arguments of `parent` if it has any.
   mutating func resolve(
     _ name: SourceRepresentable<Name>,
-    parameterizedBy arguments: [any CompileTimeValue],
-    memberOf parentType: AnyType?,
+    memberOf parent: AnyType,
+    exposedTo useScope: AnyScopeID
+  ) -> [NameResolutionResult.Candidate] {
+    if let t = BoundGenericType(parent) {
+      return resolve(name, memberOf: (t.base, t.arguments), exposedTo: useScope)
+    } else {
+      return resolve(name, memberOf: (parent, [:]), exposedTo: useScope)
+    }
+  }
+
+  /// Returns the declarations of `name` exposed to `useScope` and parameterized by `arguments`.
+  ///
+  /// The declarations are searched with an unqualified lookup unless `parent` is set, in which
+  /// case they are searched in the declaration space of `parent.type`. Generic candidates are
+  /// specialized with `arguments` appended to `parent.arguments`.
+  private mutating func resolve(
+    _ name: SourceRepresentable<Name>,
+    parameterizedBy arguments: [any CompileTimeValue] = [],
+    memberOf parent: (type: AnyType, arguments: BoundGenericType.Arguments)?,
     exposedTo useScope: AnyScopeID
   ) -> [NameResolutionResult.Candidate] {
     // Resolve references to the built-in symbols.
     if isBuiltinModuleVisible {
-      if (parentType == nil) && (name.value.stem == "Builtin") {
+      if (parent == nil) && (name.value.stem == "Builtin") {
         return [.init(.module)]
       }
-      if parentType == .builtin(.module) {
+      if parent?.type == .builtin(.module) {
         return resolve(builtin: name)
       }
     }
 
-    // Gather declarations qualified by `parentType` if it isn't `nil` or unqualified otherwise.
-    let matches = lookup(name, memberOf: parentType, exposedTo: useScope)
+    // Gather declarations qualified by `parent` if it isn't `nil` or unqualified otherwise.
+    let matches = lookup(name, memberOf: parent?.type, exposedTo: useScope)
     if matches.isEmpty {
-      diagnostics.insert(.error(undefinedName: name.value, in: parentType, at: name.site))
+      diagnostics.insert(.error(undefinedName: name.value, in: parent?.type, at: name.site))
       return []
     }
 
-    // Create declaration references to the remaining candidates.
+    // Create declaration references to all candidates.
     var candidates: [NameResolutionResult.Candidate] = []
-    var invalidArgumentsDiagnostics: [Diagnostic] = []
+    var candidateDiagnostics: [Diagnostic] = []
 
-    var parentArguments: GenericArguments = [:]
-    if let p = parentType.flatMap(BoundGenericType.init(_:)) {
-      for (k, v) in p.arguments {
-        parentArguments[k] = v
-      }
-    }
-
-    for match in matches {
-      guard
-        let targetType = resolve(
-          typeOf: name, withArguments: arguments,
-          declaredBy: match, specializedWith: parentArguments, exposedTo: useScope,
-          reportingErrorsTo: &invalidArgumentsDiagnostics)
+    let parentArguments = parent?.arguments ?? [:]
+    for m in matches {
+      guard var matchType = resolvedType(of: m) else { continue }
+      guard var matchArguments = associateGenericParameters(
+        of: name, declaredBy: m, to: arguments, reportingErrorsTo: &candidateDiagnostics)
       else { continue }
 
-      // Determine how the declaration is being referenced.
-      let reference: DeclReference
-      if !program.isNonStaticMember(match) {
-        reference = .direct(match)
-      } else if parentType?.base is MetatypeType {
-        reference = .direct(match)
-      } else {
-        reference = .member(match)
+      if let g = BoundGenericType(matchType) {
+        assert(matchArguments.isEmpty, "generic declaration bound twice")
+        matchArguments = g.arguments
       }
 
-      // Instantiate the type of the declaration
-      let c = ConstraintOrigin(.binding, at: name.site)
-      let t: InstantiatedType
-      switch reference {
-      case .direct(let d), .member(let d):
-        t = instantiate(targetType, in: program.scopeIntroducing(d), cause: c)
-      case .builtinFunction, .builtinType:
-        t = .init(shape: targetType, constraints: [])
-      case .constructor:
-        unreachable()
+      let allArguments = parentArguments.appending(matchArguments)
+      matchType = specialized(matchType, applying: allArguments, in: useScope)
+
+      let t = instantiate(
+        matchType, in: program.scopeIntroducing(m),
+        cause: .init(.binding, at: name.site))
+
+      if program.isNonStaticMember(m) && !(parent?.type.base is MetatypeType) {
+        candidates.append(.init(reference: .member(m), type: t, arguments: allArguments))
+      } else {
+        candidates.append(.init(reference: .direct(m), type: t, arguments: allArguments))
       }
-      candidates.append(.init(reference: reference, type: t))
     }
 
     // If there are no candidates left, diagnose an error.
-    if candidates.isEmpty && !invalidArgumentsDiagnostics.isEmpty {
-      if let diagnostic = invalidArgumentsDiagnostics.uniqueElement {
+    if candidates.isEmpty && !candidateDiagnostics.isEmpty {
+      if let diagnostic = candidateDiagnostics.uniqueElement {
         diagnostics.insert(diagnostic)
       } else {
         diagnostics.insert(
-          .error(
-            invalidGenericArgumentsTo: name,
-            candidateDiagnostics: invalidArgumentsDiagnostics))
+          .error(invalidGenericArgumentsTo: name, candidateDiagnostics: candidateDiagnostics))
       }
     }
 
     return candidates
   }
 
-  /// Returns the type of `name` assuming it accpets `arguments`, is declared by `decl` which is
-  /// exposed to `useScope` and whose type is specialized with, or `nil` if the name is invalud,
-  /// reporting errors to `diagnostics`.
-  private mutating func resolve(
-    typeOf name: SourceRepresentable<Name>,
-    withArguments arguments: [any CompileTimeValue],
-    declaredBy decl: AnyDeclID,
-    specializedWith parentArguments: GenericArguments,
-    exposedTo useScope: AnyScopeID,
-    reportingErrorsTo diagnostics: inout [Diagnostic]
-  ) -> AnyType? {
-    // Realize the type of the declaration.
-    var targetType = realize(decl: decl)
+  /// Returns the resolved type of the entity declared by `d` or `nil` if is invalid.
+  private mutating func resolvedType(of d: AnyDeclID) -> AnyType? {
+    var result = realize(decl: d)
+    if result.isError { return nil }
 
     // Properties are not first-class.
-    if let s = SubscriptDecl.ID(decl), ast[s].isProperty {
-      targetType = SubscriptType(targetType)!.output
+    if let s = SubscriptDecl.ID(d), ast[s].isProperty {
+      result = SubscriptType(result)!.output
     }
 
     // Erase parameter conventions.
-    if let t = ParameterType(targetType) {
-      targetType = t.bareType
+    if let t = ParameterType(result) {
+      result = t.bareType
     }
 
-    // Apply the static arguments, if any.
-    var allArguments = parentArguments
-    if !arguments.isEmpty {
-      guard
-        let a = associateParameters(
-          of: name, declaredBy: decl, to: arguments, reportingErrorsTo: &diagnostics)
-      else { return nil }
-      allArguments.merge(a, uniquingKeysWith: { (_, _) in unreachable() })
-    }
-
-    if !allArguments.isEmpty {
-      targetType = specialized(targetType, applying: allArguments, in: useScope)
-    }
-
-    // Give up if the declaration has an error type.
-    return targetType.isError ? nil : targetType
+    return result
   }
 
   /// Resolves a reference to the built-in type or function named `name`.
@@ -1820,49 +1816,32 @@ public struct TypeChecker {
     return []
   }
 
-  /// Returns a table mapping the generic parameters introduced by `d`, which declares `name`, to
-  /// their corresponding argument in `arguments`, reporting errors to `diagnostics`.
+  /// Returns a sequence of key-value pairs associating the generic parameters introduced by `d`,
+  /// which declares `name`, to corresponding value in `arguments`, or `nil` if such an argument
+  /// list doesn't match `d`'s generic parameters.
   ///
-  /// - Requires: `arguments` is not empty.
-  private mutating func associateParameters(
+  /// - Postcondition: Diagnostics are appended to `log` if the method returns `nil`.
+  private mutating func associateGenericParameters(
     of name: SourceRepresentable<Name>,
     declaredBy d: AnyDeclID,
     to arguments: [any CompileTimeValue],
-    reportingErrorsTo diagnostics: inout [Diagnostic]
-  ) -> GenericArguments? {
-    // Declaration must accept the given arguments.
-    guard d.kind.value is GenericScope.Type else {
-      diagnostics.append(
-        .error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 0))
-      return nil
-    }
-
-    let e = environment(of: d)
-    guard e.parameters.count == arguments.count else {
-      diagnostics.append(
-        .error(
-          invalidGenericArgumentCountTo: name,
-          found: arguments.count, expected: e.parameters.count))
-      return nil
-    }
-
-    // TODO: Check labels
-
-    return .init(uniqueKeysWithValues: zip(e.parameters, arguments))
-  }
-
-  /// Returns a table mapping the generic parameters introduced by `d` to their corresponding value
-  /// in `substitutions`, or `nil` if `d` doesn't introduce any generic parameter.
-  private mutating func associateParameters<T: GenericDecl>(
-    of d: T.ID,
-    to substitutions: GenericArguments
+    reportingErrorsTo log: inout [Diagnostic]
   ) -> BoundGenericType.Arguments? {
-    let e = environment(of: d)
-    if e.parameters.isEmpty { return nil }
-    return BoundGenericType.Arguments(
-      uniqueKeysWithValues: e.parameters.map({ (p) in
-        (key: p, value: substitutions[p] ?? AnyType.error)
-      }))
+    if arguments.isEmpty { return [:] }
+
+    guard d.kind.value is GenericScope.Type else {
+      log.append(.error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 0))
+      return nil
+    }
+
+    let parameters = environment(of: d).parameters
+    guard parameters.count == arguments.count else {
+      let (f, e) = (arguments.count, parameters.count)
+      log.append(.error(invalidGenericArgumentCountTo: name, found: f, expected: e))
+      return nil
+    }
+
+    return .init(uniqueKeysWithValues: zip(parameters, arguments))
   }
 
   /// Returns the declarations exposing a name with given `stem` to `useScope` without

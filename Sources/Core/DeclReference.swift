@@ -16,6 +16,15 @@ public enum DeclReference: Hashable {
   /// A reference to a built-in type.
   case builtinType
 
+  /// Converts a direct initializer reference to a constructor reference.
+  public init?(constructor other: DeclReference) {
+    if case .direct(let d) = other, let i = InitializerDecl.ID(d) {
+      self = .constructor(i)
+    } else {
+      return nil
+    }
+  }
+
   /// Accesses the referred declaration if `self` is `.direct`, `.member`, or `.constructor`.
   public var decl: AnyDeclID? {
     switch self {
