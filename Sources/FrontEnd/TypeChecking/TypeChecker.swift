@@ -811,7 +811,7 @@ public struct TypeChecker {
     at declSite: SourceRange
   ) -> Conformance? {
     let useScope = AnyScopeID(source)
-    let specializations = [ast[trait.decl].selfParameterDecl: model]
+    let specializations: GenericArguments = [ast[trait.decl].selfParameterDecl: model]
     var implementations = Conformance.ImplementationMap()
     var notes: DiagnosticSet = []
 
@@ -939,7 +939,7 @@ public struct TypeChecker {
     of requirementName: Name,
     in model: AnyType,
     withCallableType requiredType: LambdaType,
-    specializedWith specializations: [GenericParameterDecl.ID: AnyType],
+    specializedWith specializations: GenericArguments,
     exposedTo scope: AnyScopeID
   ) -> AnyDeclID? {
     /// Returns `true` if candidate `d` has `requirementType`.
