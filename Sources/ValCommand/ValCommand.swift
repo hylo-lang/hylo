@@ -158,20 +158,17 @@ public struct ValCommand: ParsableCommand {
 
     // IR
 
-    var irModules: [ModuleDecl.ID: IR.Module] = [:]
-    for m in ast.modules {
-      var ir = try IR.Module(lowering: m, in: program, diagnostics: &diagnostics)
-      if outputType != .rawIR {
-        try ir.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
-      }
-      irModules[m] = ir
-    }
-
     if outputType == .ir || outputType == .rawIR {
-      let m = irModules[sourceModule]!
+      let m = try lower(sourceModule, in: program, reportingDiagnosticsInto: &diagnostics)
       try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
+
+    var irModules: [ModuleDecl.ID: IR.Module] = [:]
+    for d in ast.modules {
+      irModules[d] = try lower(d, in: program, reportingDiagnosticsInto: &diagnostics)
+    }
+
     let ir = LoweredProgram(syntax: program, modules: irModules)
 
     // LLVM
@@ -203,6 +200,22 @@ public struct ValCommand: ParsableCommand {
       _ = binaryPath
       fatalError("not implemented")
     #endif
+  }
+
+  /// Returns `m`, which is `program`, lowered to Val IR, accumulating diagnostics into `log` and
+  /// throwing if an error occured.
+  private func lower(
+    _ m: ModuleDecl.ID, in program: TypedProgram,
+    reportingDiagnosticsInto log: inout DiagnosticSet
+  ) throws -> IR.Module {
+    var ir = try IR.Module(lowering: m, in: program, diagnostics: &log)
+    if outputType != .rawIR {
+      try ir.applyMandatoryPasses(reportingDiagnosticsInto: &log)
+    }
+    if let t = transforms {
+      for p in t.elements { ir.applyPass(p) }
+    }
+    return ir
   }
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
