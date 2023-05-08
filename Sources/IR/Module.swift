@@ -29,9 +29,6 @@ public struct Module {
   /// The ID of the module's entry function, if any.
   public private(set) var entryFunctionID: Function.ID?
 
-  /// A map from function declaration its ID in the module.
-  private var loweredFunctions = DeclProperty<Function.ID>()
-
   /// Creates an instance lowering `m` in `p`, reporting errors and warnings to
   /// `diagnostics`.
   ///
@@ -192,7 +189,6 @@ public struct Module {
       entryFunctionID = f
     }
 
-    loweredFunctions[d.id] = f
     return f
   }
 
@@ -229,7 +225,6 @@ public struct Module {
       inputs: inputs,
       output: output,
       blocks: [])
-
     return f
   }
 
@@ -249,9 +244,6 @@ public struct Module {
       inputs: inputs,
       output: .void,
       blocks: [])
-
-    // Update the cache and return the ID of the newly created function.
-    loweredFunctions[d.id] = f
     return f
   }
 
