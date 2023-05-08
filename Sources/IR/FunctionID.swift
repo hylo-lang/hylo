@@ -14,6 +14,9 @@ extension Function {
       /// The identity of a lowered subscript variant.
       case loweredSubscript(SubscriptImpl.ID)
 
+      /// The identity of a monomorphized function.
+      indirect case monomorphized(base: ID, arguments: GenericArguments)
+
       /// The identity of a requirement synthesized for some type.
       ///
       /// The payload is a pair (D, U) where D is the declaration of a requirement and T is a type
@@ -57,6 +60,8 @@ extension Function.ID: CustomStringConvertible {
       return "\(d).lowered"
     case .loweredSubscript(let d):
       return "\(d).lowered"
+    case .monomorphized(let b, let a):
+      return "<\(list: a.values)>(\(b))"
     case .synthesized(let r, let t):
       return "\"synthesized \(r) for \(t)\""
     }
