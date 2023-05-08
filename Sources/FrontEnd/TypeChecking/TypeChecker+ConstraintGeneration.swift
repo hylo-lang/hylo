@@ -361,12 +361,14 @@ extension TypeChecker {
     let initCandidates = resolve(initName, memberOf: instance, exposedTo: scope)
 
     // We're done if we couldn't find any initializer.
-    if initCandidates.isEmpty {
+    assert(initCandidates.elements.count == initCandidates.viable.count)
+    if initCandidates.elements.isEmpty {
+      report(.error(undefinedName: initName.value, in: instance, at: initName.site))
       _ = state.facts.assignErrorType(to: callee)
       return state.facts.assignErrorType(to: subject)
     }
 
-    if let pick = initCandidates.uniqueElement {
+    if let pick = initCandidates.elements.uniqueElement {
       // Rebind the callee and constrain its type.
       let constructor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
       referredDecls[callee] = DeclReference(constructor: pick.reference)!
