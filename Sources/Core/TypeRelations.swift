@@ -4,7 +4,13 @@ import Utils
 public struct TypeRelations {
 
   /// A set of conformances represented to answer "does A conform to T in S" efficiently.
-  public private(set) var conformances: [AnyType: [TraitType: [Conformance]]] = [:]
+  public typealias ConformanceSet = [AnyType: ConformanceTable]
+
+  /// A table from trait to its conformances for a given type.
+  public typealias ConformanceTable = [TraitType: [Conformance]]
+
+  /// The conformances in the program.
+  public private(set) var conformances: ConformanceSet = [:]
 
   /// Creates an instance.
   public init() {}
