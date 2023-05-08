@@ -26,8 +26,8 @@ public struct Module {
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
-  /// The ID of the module's entry function, if any.
-  public private(set) var entryFunctionID: Function.ID?
+  /// The module's entry function, if any.
+  public private(set) var entryFunction: Function.ID?
 
   /// Creates an instance lowering `m` in `p`, reporting errors and warnings to
   /// `diagnostics`.
@@ -185,8 +185,8 @@ public struct Module {
 
     // Determine if the new function is the module's entry.
     if d.scope.kind == TranslationUnit.self, d.isPublic, d.identifier?.value == "main" {
-      assert(entryFunctionID == nil)
-      entryFunctionID = f
+      assert(entryFunction == nil)
+      entryFunction = f
     }
 
     return f
