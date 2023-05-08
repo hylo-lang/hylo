@@ -16,10 +16,11 @@ public struct RemoteType: TypeProtocol {
     self.flags = bareType.flags.inserting(.hasRemoteType)
   }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    RemoteType(access, bareType.transform(transformer))
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
+    RemoteType(access, bareType.transform(mutating: &m, transformer))
   }
-
 }
 
 extension RemoteType: CustomStringConvertible {
