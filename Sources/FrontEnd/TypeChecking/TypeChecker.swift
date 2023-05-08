@@ -27,7 +27,7 @@ public struct TypeChecker {
   private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]] = [:]
 
   /// A map from name expression to its referred declaration.
-  var referredDecls: BindingMap = [:]
+  private(set) var referredDecls: BindingMap = [:]
 
   /// A map from sequence expressions to their evaluation order.
   var foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr] = [:]
