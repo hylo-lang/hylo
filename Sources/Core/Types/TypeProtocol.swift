@@ -40,10 +40,10 @@ extension TypeProtocol {
 
   /// Returns this type transformed with `transformer` applied to `m`.
   ///
-  /// This method visits the structure of the type and calls `transformer` on `m` and each type composing
-  /// that structure. The result of the call is substituted for the visited type. If `transformer` returns
-  /// `stepInto(t)`, `t` is visited after the substitution. Otherwise, the method directly moves to
-  /// the next type in the structure.
+  /// This method visits the structure of the type and calls `transformer` on `m` and each type
+  /// composing that structure. The result of the call is substituted for the visited type. If
+  /// `transformer` returns `stepInto(t)`, `t` is visited after the substitution. Otherwise, the
+  /// method directly moves to the next type in the structure.
   public func transform<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> AnyType {
@@ -66,15 +66,16 @@ extension TypeProtocol {
   /// Returns this type transformed with `transformer`.
   ///
   /// This method visits the structure of the type and calls `transformer` on each type composing
-  /// that structure. The result of the call is substituted for the visited type. If `transformer` returns
-  /// `stepInto(t)`, `t` is visited after the substitution. Otherwise, the method directly moves to
-  /// the next type in the structure.
+  /// that structure. The result of the call is substituted for the visited type. If `transformer`
+  /// returns `stepInto(t)`, `t` is visited after the substitution. Otherwise, the method directly
+  /// moves to the next type in the structure.
   public func transform(_ transformer: (AnyType) -> TypeTransformAction) -> AnyType {
     var ignored: Void = ()
     return transform(mutating: &ignored) { (_, t) in transformer(t) }
   }
 
-  /// Applies `TypeProtocol.transformParts(mutating:_:)` on a discarded value and the types that are part of `self`.
+  /// Applies `TypeProtocol.transformParts(mutating:_:)` on a discarded value and the types that are
+  /// part of `self`.
   public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
     var ignored: Void = ()
     return transformParts(mutating: &ignored) { (_, t) in transformer(t) }

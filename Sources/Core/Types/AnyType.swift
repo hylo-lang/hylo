@@ -16,7 +16,7 @@ private protocol TypeBox {
   /// different type.
   func unwrap<T: TypeProtocol>(as: T.Type) -> T?
 
-  /// Applies `TypeProtocol.transform(mutating:_:)` on the types that are part of `self`.
+  /// Applies `TypeProtocol.transform(mutating:_:)` on `m` and the types that are part of `self`.
   func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> any TypeProtocol
@@ -44,7 +44,7 @@ private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
     base as? T
   }
 
-  /// Applies `TypeProtocol.transform(mutating:_:)` on the types that are part of `self`.
+  /// Applies `TypeProtocol.transform(mutating:_:)` on `m` and the types that are part of `self`.
   func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> any TypeProtocol {
