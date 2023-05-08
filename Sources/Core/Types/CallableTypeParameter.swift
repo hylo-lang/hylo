@@ -20,7 +20,9 @@ public struct CallableTypeParameter: Hashable {
   /// Returns a copy of this instance whose type has been transformed by `transformer`.
   ///
   /// - SeeAlso: `TypeProtocol.transform(_:)`
-  public func transform<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
+  public func transform<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     .init(label: label, type: type.transform(mutating: &m, transformer), hasDefault: hasDefault)
   }
 

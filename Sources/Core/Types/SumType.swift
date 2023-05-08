@@ -20,7 +20,9 @@ public struct SumType: TypeProtocol {
       : TypeFlags(merging: self.elements.map({ $0.flags }))
   }
 
-  public func transform<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
+  public func transform<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     SumType(elements.map({ (e) -> AnyType in e.transform(mutating: &m, transformer) }))
   }
 

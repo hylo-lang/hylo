@@ -56,7 +56,9 @@ public struct TupleType: TypeProtocol {
     elements.lazy.map(\.label)
   }
 
-  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     let newElements = elements.map(
       { (e) -> Element in
         .init(label: e.label, type: e.type.transform(mutating: &m, transformer))

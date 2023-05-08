@@ -57,7 +57,9 @@ public struct SubscriptType: TypeProtocol {
     return .init(receiverEffect: .let, environment: .void, inputs: p + inputs, output: ^o)
   }
 
-  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     SubscriptType(
       isProperty: isProperty,
       capabilities: capabilities,

@@ -80,7 +80,9 @@ public struct LambdaType: TypeProtocol, CallableType {
   /// Accesses the individual elements of the lambda's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
-  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     LambdaType(
       receiverEffect: receiverEffect,
       environment: environment.transform(mutating: &m, transformer),

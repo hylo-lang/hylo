@@ -7,7 +7,9 @@ public protocol TypeProtocol: Hashable {
   var flags: TypeFlags { get }
 
   /// Apply `transform(_:_:)` on `m` and the types that are part of `self`.
-  func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self
+  func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self
 
 }
 
@@ -42,7 +44,9 @@ extension TypeProtocol {
   /// that structure. The result of the call is substituted for the visited type. If `transformer` returns
   /// `stepInto(t)`, `t` is visited after the substitution. Otherwise, the method directly moves to
   /// the next type in the structure.
-  public func transform<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> AnyType {
+  public func transform<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> AnyType {
     switch transformer(&m, AnyType(self)) {
     case .stepInto(let type):
       return type.transformParts(mutating: &m, transformer)
@@ -52,7 +56,9 @@ extension TypeProtocol {
   }
 
   /// Applies `TypeProtocol.transform(mutating:_:)` on `m` and the types that are part of `self`.
-  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     // Default implementation is the identity.
     self
   }

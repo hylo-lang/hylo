@@ -44,7 +44,9 @@ public struct SubscriptImplType: TypeProtocol {
   /// Accesses the individual elements of the lambda's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
-  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     SubscriptImplType(
       isProperty: isProperty,
       receiverEffect: receiverEffect,

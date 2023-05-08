@@ -72,7 +72,8 @@ public struct TypeChecker {
     applying substitutions: GenericArguments,
     in lookupScope: AnyScopeID
   ) -> AnyType {
-    return substitutions.isEmpty ? genericType : genericType.transform(mutating: &self, specialize(mutating:_:))
+    return substitutions.isEmpty
+      ? genericType : genericType.transform(mutating: &self, specialize(mutating:_:))
 
     func specialize(mutating me: inout Self, _ t: AnyType) -> TypeTransformAction {
       switch t.base {

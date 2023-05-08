@@ -35,7 +35,9 @@ public struct MethodType: TypeProtocol, CallableType {
     flags = fs
   }
 
-  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     MethodType(
       capabilities: capabilities,
       receiver: receiver.transform(mutating: &m, transformer),

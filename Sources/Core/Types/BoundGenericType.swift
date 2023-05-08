@@ -31,7 +31,9 @@ public struct BoundGenericType: TypeProtocol {
   }
 
   /// Applies `TypeProtocol.transform(mutating:_:)` on the types that are part of `self`.
-  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     BoundGenericType(
       base.transform(mutating: &m, transformer),
       arguments: arguments.mapValues({ (a) -> any CompileTimeValue in
