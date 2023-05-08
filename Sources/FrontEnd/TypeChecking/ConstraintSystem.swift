@@ -51,11 +51,15 @@ struct ConstraintSystem {
   /// The current indentation level for logging messages.
   private var indentation = 0
 
-  /// Creates an instance with given `constraints` defined in `scope`.
+  /// Creates an instance with given `constraints` and `bindings` defined in `scope`.
   init<S: Sequence<Constraint>>(
-    _ constraints: S, in scope: AnyScopeID, loggingTrace isLoggingEnabled: Bool
+    _ constraints: S,
+    bindings: [NameExpr.ID: DeclReference],
+    in scope: AnyScopeID,
+    loggingTrace isLoggingEnabled: Bool
   ) {
     self.scope = scope
+    self.bindingAssumptions = bindings
     self.isLoggingEnabled = isLoggingEnabled
     _ = insert(fresh: constraints)
   }
@@ -950,7 +954,7 @@ struct ConstraintSystem {
     }
 
     // Solve the constraint system.
-    var s = ConstraintSystem(constraints, in: scope, loggingTrace: isLoggingEnabled)
+    var s = ConstraintSystem(constraints, bindings: [:], in: scope, loggingTrace: isLoggingEnabled)
     return !s.solution(&checker).diagnostics.containsError
   }
 

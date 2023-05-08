@@ -1575,7 +1575,9 @@ public struct TypeChecker {
 
     // Solve the constraints.
     var s = ConstraintSystem(
-      initialConstraints + facts.constraints, in: AnyScopeID(scope),
+      initialConstraints + facts.constraints,
+      bindings: facts.inferredBindings,
+      in: AnyScopeID(scope),
       loggingTrace: shouldLogTrace)
     let solution = s.solution(&self)
 
@@ -1584,11 +1586,12 @@ public struct TypeChecker {
     }
 
     // Apply the solution.
-    for (id, type) in facts.inferredTypes.storage {
-      exprTypes[id] = solution.typeAssumptions.reify(type)
+    for (e, t) in facts.inferredTypes.storage {
+      exprTypes[e] = solution.typeAssumptions.reify(t)
     }
-    for (name, ref) in solution.bindingAssumptions {
-      referredDecls[name] = ref
+    for (n, r) in solution.bindingAssumptions {
+      let s = solution.typeAssumptions.reifyArguments(of: r, withVariables: .substituteByError)
+      referredDecls[n] = s
     }
 
     // Run deferred queries.
