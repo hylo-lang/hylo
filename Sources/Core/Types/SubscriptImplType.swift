@@ -44,17 +44,17 @@ public struct SubscriptImplType: TypeProtocol {
   /// Accesses the individual elements of the lambda's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
     SubscriptImplType(
       isProperty: isProperty,
       receiverEffect: receiverEffect,
-      environment: environment.transform(transformer),
-      inputs: inputs.map({ $0.transform(transformer) }),
-      output: output.transform(transformer))
+      environment: environment.transform(mutating: &m, transformer),
+      inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
+      output: output.transform(mutating: &m, transformer))
   }
 
-  private static func makeTransformer() -> (AnyType) -> TypeTransformAction {
-    { (t) in
+  private static func makeTransformer<M>() -> (inout M, AnyType) -> TypeTransformAction {
+    { (m, t) in
       if let type = RemoteType(t), type.access == .yielded {
         return .stepInto(^RemoteType(.let, type.bareType))
       } else {

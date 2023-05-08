@@ -57,13 +57,13 @@ public struct SubscriptType: TypeProtocol {
     return .init(receiverEffect: .let, environment: .void, inputs: p + inputs, output: ^o)
   }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
     SubscriptType(
       isProperty: isProperty,
       capabilities: capabilities,
-      environment: environment.transform(transformer),
-      inputs: inputs.map({ $0.transform(transformer) }),
-      output: output.transform(transformer))
+      environment: environment.transform(mutating: &m, transformer),
+      inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
+      output: output.transform(mutating: &m, transformer))
   }
 
 }

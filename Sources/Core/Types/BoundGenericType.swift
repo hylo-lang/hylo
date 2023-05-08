@@ -30,12 +30,13 @@ public struct BoundGenericType: TypeProtocol {
     self.flags = flags
   }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+  /// Applies `TypeProtocol.transform(mutating:_:)` on the types that are part of `self`.
+  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
     BoundGenericType(
-      base.transform(transformer),
+      base.transform(mutating: &m, transformer),
       arguments: arguments.mapValues({ (a) -> any CompileTimeValue in
         if let t = a as? AnyType {
-          return t.transform(transformer)
+          return t.transform(mutating: &m, transformer)
         } else {
           fatalError("not implemented")
         }

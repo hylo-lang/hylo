@@ -16,10 +16,9 @@ public struct MetatypeType: TypeProtocol {
 
   public var flags: TypeFlags { instance.flags }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    MetatypeType(of: instance.transform(transformer))
+  public func transformParts<M>(mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction) -> Self {
+    MetatypeType(of: instance.transform(mutating: &m, transformer))
   }
-
 }
 
 extension MetatypeType: CustomStringConvertible {

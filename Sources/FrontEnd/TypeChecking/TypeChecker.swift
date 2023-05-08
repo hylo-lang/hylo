@@ -72,9 +72,9 @@ public struct TypeChecker {
     applying substitutions: GenericArguments,
     in lookupScope: AnyScopeID
   ) -> AnyType {
-    return substitutions.isEmpty ? genericType : genericType.transform(specialize(_:))
+    return substitutions.isEmpty ? genericType : genericType.transform(mutating: &self, specialize(mutating:_:))
 
-    func specialize(_ t: AnyType) -> TypeTransformAction {
+    func specialize(mutating me: inout Self, _ t: AnyType) -> TypeTransformAction {
       switch t.base {
       case let u as GenericTypeParameterType:
         if let v = substitutions[u.decl] {
@@ -84,24 +84,24 @@ public struct TypeChecker {
         }
 
       case let u as AssociatedTypeType:
-        let d = u.domain.transform(specialize(_:))
+        let d = u.domain.transform(mutating: &me) { (me, t) in specialize(mutating: &me, t) }
 
-        let candidates = lookup(ast[u.decl].baseName, memberOf: d, exposedTo: lookupScope)
+        let candidates = me.lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: lookupScope)
         if let c = candidates.uniqueElement {
-          return .stepOver(MetatypeType(realize(decl: c))?.instance ?? .error)
+          return .stepOver(MetatypeType(me.realize(decl: c))?.instance ?? .error)
         } else {
           return .stepOver(.error)
         }
 
       case let u as ProductType:
-        if let a = extractArguments(of: u.decl, from: substitutions) {
+        if let a = me.extractArguments(of: u.decl, from: substitutions) {
           return .stepOver(^BoundGenericType(u, arguments: a))
         } else {
           return .stepOver(t)
         }
 
       case let u as TypeAliasType:
-        if let a = extractArguments(of: u.decl, from: substitutions) {
+        if let a = me.extractArguments(of: u.decl, from: substitutions) {
           return .stepOver(^BoundGenericType(u, arguments: a))
         } else {
           return .stepOver(t)
@@ -110,7 +110,7 @@ public struct TypeChecker {
       case let u as BoundGenericType:
         let updatedArguments = u.arguments.mapValues { (v) -> any CompileTimeValue in
           if let w = v as? AnyType {
-            return specialized(w, applying: substitutions, in: lookupScope)
+            return me.specialized(w, applying: substitutions, in: lookupScope)
           } else {
             return v
           }
