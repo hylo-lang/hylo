@@ -84,6 +84,13 @@ public struct ValCommand: ParsableCommand {
   private var outputType: OutputType = .binary
 
   @Option(
+    name: [.customLong("transform")],
+    help: ArgumentHelp(
+      "Applies the specify transformations after IR lowering.",
+      valueName: "transforms"))
+  private var transforms: ModulePassList?
+
+  @Option(
     name: [.customShort("o")],
     help: ArgumentHelp("Write output to <file>.", valueName: "file"),
     transform: URL.init(fileURLWithPath:))
