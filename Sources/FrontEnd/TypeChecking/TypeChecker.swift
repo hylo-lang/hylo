@@ -65,15 +65,15 @@ public struct TypeChecker {
 
   // MARK: Type system
 
-  /// Returns a copy of `genericType` where occurrences of parameters keying `subtitutions` are
-  /// replaced by their corresponding value, performing necessary name lookups from `lookupScope`.
+  /// Returns a copy of `generic` where occurrences of parameters keying `subtitutions` are
+  /// replaced by their corresponding value, performing necessary name lookups from `useScope`.
+  ///
+  /// This method has no effect if `substitutions` is empty.
   private mutating func specialized(
-    _ genericType: AnyType,
-    applying substitutions: GenericArguments,
-    in lookupScope: AnyScopeID
+    _ generic: AnyType, applying substitutions: GenericArguments, in useScope: AnyScopeID
   ) -> AnyType {
     return substitutions.isEmpty
-      ? genericType : genericType.transform(mutating: &self, specialize(mutating:_:))
+      ? generic : generic.transform(mutating: &self, specialize(mutating:_:))
 
     func specialize(mutating me: inout Self, _ t: AnyType) -> TypeTransformAction {
       switch t.base {
@@ -87,31 +87,17 @@ public struct TypeChecker {
       case let u as AssociatedTypeType:
         let d = u.domain.transform(mutating: &me) { (me, t) in specialize(mutating: &me, t) }
 
-        let candidates = me.lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: lookupScope)
+        let candidates = me.lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: useScope)
         if let c = candidates.uniqueElement {
           return .stepOver(MetatypeType(me.realize(decl: c))?.instance ?? .error)
         } else {
           return .stepOver(.error)
         }
 
-      case let u as ProductType:
-        if let a = me.extractArguments(of: u.decl, from: substitutions) {
-          return .stepOver(^BoundGenericType(u, arguments: a))
-        } else {
-          return .stepOver(t)
-        }
-
-      case let u as TypeAliasType:
-        if let a = me.extractArguments(of: u.decl, from: substitutions) {
-          return .stepOver(^BoundGenericType(u, arguments: a))
-        } else {
-          return .stepOver(t)
-        }
-
       case let u as BoundGenericType:
         let updatedArguments = u.arguments.mapValues { (v) -> any CompileTimeValue in
           if let w = v as? AnyType {
-            return me.specialized(w, applying: substitutions, in: lookupScope)
+            return me.specialized(w, applying: substitutions, in: useScope)
           } else {
             return v
           }
@@ -124,8 +110,28 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns a table mapping the generic parameters introduced by `d` to their corresponding value
-  /// in `substitutions`, or `nil` if `d` doesn't introduce any generic parameter.
+  /// If `generic` is an unbound generic type, returns a bound generic type mapping its parameters
+  /// to corresponding value in `substitutions` or a fresh variable if no such value exists.
+  /// Otherwise, returns `generic` unchanged.
+  private mutating func bind(_ generic: AnyType, to substitutions: GenericArguments) -> AnyType {
+    let filtered: GenericArguments?
+
+    switch generic.base {
+    case let u as ProductType:
+      filtered = extractArguments(of: u.decl, from: substitutions)
+    case let u as TypeAliasType:
+      filtered = extractArguments(of: u.decl, from: substitutions)
+    case let u as MetatypeType:
+      return ^MetatypeType(of: bind(u.instance, to: substitutions))
+    default:
+      return generic
+    }
+
+    return filtered.map({ ^BoundGenericType(generic, arguments: $0) }) ?? generic
+  }
+
+  /// If `d` has generic parameters, returns a table from those parameters to corresponding value
+  /// in `substitutions` or a fresh variable if no such value exists. Otherwise, returns `nil`.
   private mutating func extractArguments<T: GenericDecl>(
     of d: T.ID,
     from substitutions: GenericArguments
@@ -135,7 +141,7 @@ public struct TypeChecker {
 
     return GenericArguments(
       uniqueKeysWithValues: e.parameters.map({ (p) in
-        (key: p, value: substitutions[p] ?? AnyType.error)
+        (key: p, value: substitutions[p] ?? ^TypeVariable())
       }))
   }
 
@@ -1762,6 +1768,7 @@ public struct TypeChecker {
       }
 
       let allArguments = parentArguments.appending(matchArguments)
+      matchType = bind(matchType, to: allArguments)
       matchType = specialized(matchType, applying: allArguments, in: useScope)
 
       let t = instantiate(
