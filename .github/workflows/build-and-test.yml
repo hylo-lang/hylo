@@ -40,7 +40,7 @@ jobs:
       with:
         runCmd: | 
           swift build -v -c ${{ matrix.configuration }}
-          swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
+          swift test --parallel -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
 
     - name: Check code coverage
       uses: mattpolzin/swift-codecov-action@0.7.3
@@ -93,4 +93,4 @@ jobs:
       run: swift build -v -c ${{ matrix.configuration }}
 
     - name: Test (${{ matrix.configuration }})
-      run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
+      run: swift test --parallel -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
