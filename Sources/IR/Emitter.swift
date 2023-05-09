@@ -1357,19 +1357,25 @@ public struct Emitter {
     let calleeType = LambdaType(program.relations.canonical(callee.type))!
 
     switch callee.declaration {
-    case .direct(let d, _) where d.kind == FunctionDecl.self:
+    case .direct(let d, let a) where d.kind == FunctionDecl.self:
       // Callee is a direct reference to a function declaration.
       guard calleeType.environment == .void else {
         fatalError("not implemented")
       }
 
-      let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
-      return (.constant(ref), [])
+      let r = FunctionReference(
+        to: program[FunctionDecl.ID(d)!], parameterizedBy: a,
+        in: &module)
+      return (.constant(r), [])
 
-    case .member(let d, _) where d.kind == FunctionDecl.self:
+    case .member(let d, let a) where d.kind == FunctionDecl.self:
+      if !a.isEmpty {
+        print("Hello")
+      }
+
       // Callee is a member reference to a function or method.
-      let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
-      let fun = Operand.constant(ref)
+      let r = FunctionReference(
+        to: program[FunctionDecl.ID(d)!], parameterizedBy: a, in: &module)
 
       // Emit the location of the receiver.
       let receiver: Operand
@@ -1387,12 +1393,12 @@ public struct Emitter {
         let i = module.append(
           module.makeBorrow(t.access, from: receiver, anchoredAt: callee.site),
           to: insertionBlock!)
-        return (fun, i)
+        return (Operand.constant(r), i)
       } else {
         let i = module.append(
           module.makeLoad(receiver, anchoredAt: callee.site),
           to: insertionBlock!)
-        return (fun, i)
+        return (Operand.constant(r), i)
       }
 
     case .builtinFunction, .builtinType:

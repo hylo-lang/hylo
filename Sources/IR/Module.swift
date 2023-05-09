@@ -175,6 +175,14 @@ public struct Module {
     return id
   }
 
+  /// Assigns `identity` to `function` in `self`.
+  ///
+  /// - Requires: `identity` is not already assigned.
+  mutating func addFunction(_ function: Function, for identity: Function.ID) {
+    precondition(functions[identity] == nil)
+    functions[identity] = function
+  }
+
   /// Returns the identity of the Val IR function corresponding to `d`.
   mutating func demandFunctionDeclaration(lowering d: FunctionDecl.Typed) -> Function.ID {
     let f = Function.ID(d.id)
@@ -182,7 +190,7 @@ public struct Module {
 
     let output = program.relations.canonical((d.type.base as! CallableType).output)
     let inputs = loweredParameters(of: d.id)
-    functions[f] = Function(
+    let entity = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
       site: d.site,
@@ -190,6 +198,7 @@ public struct Module {
       inputs: inputs,
       output: output,
       blocks: [])
+    addFunction(entity, for: f)
 
     // Determine if the new function is the module's entry.
     if d.scope.kind == TranslationUnit.self, d.isPublic, d.identifier?.value == "main" {
@@ -225,7 +234,7 @@ public struct Module {
 
     let output = program.relations.canonical(SubscriptImplType(d.type)!.output)
     let inputs = loweredParameters(of: d.id)
-    functions[f] = Function(
+    let entity = Function(
       isSubscript: true,
       name: program.debugName(decl: d.id),
       site: d.site,
@@ -233,6 +242,8 @@ public struct Module {
       inputs: inputs,
       output: output,
       blocks: [])
+
+    addFunction(entity, for: f)
     return f
   }
 
@@ -244,7 +255,7 @@ public struct Module {
     if functions[f] != nil { return f }
 
     let inputs = loweredParameters(of: d.id)
-    functions[f] = Function(
+    let entity = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
       site: d.introducer.site,
@@ -252,6 +263,8 @@ public struct Module {
       inputs: inputs,
       output: .void,
       blocks: [])
+
+    addFunction(entity, for: f)
     return f
   }
 
@@ -300,7 +313,7 @@ public struct Module {
     return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
   }
 
-  /// Declares a synthetic function identified by `f` with type `t`.
+  /// Declares the synthetic function `f`, which has type `t`, if it wasn't already.
   mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) {
     if functions[f] != nil { return }
 
@@ -309,7 +322,7 @@ public struct Module {
     appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
     appendParameters(t.inputs, to: &inputs)
 
-    functions[f] = Function(
+    let entity = Function(
       isSubscript: false,
       name: "",
       site: .empty(at: syntax.site.first()),
@@ -317,6 +330,7 @@ public struct Module {
       inputs: inputs,
       output: output,
       blocks: [])
+    addFunction(entity, for: f)
   }
 
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
