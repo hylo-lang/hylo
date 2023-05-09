@@ -16,6 +16,8 @@ extension LoweredProgram {
       return abiName(of: f) + "<\(list: a.values))>"
     case .synthesized(let d, let t):
       return "\(d)\(t)"
+    case .existentialized:
+      fatalError("not implemented")
     }
   }
 

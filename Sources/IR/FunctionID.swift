@@ -20,6 +20,9 @@ extension Function {
       /// conforming to the trait defining D.
       case synthesized(AnyDeclID, for: AnyType)
 
+      /// The identity of an existentialized function.
+      indirect case existentialized(base: ID)
+
       /// The identity of a monomorphized function.
       indirect case monomorphized(base: ID, arguments: GenericArguments)
 
@@ -48,7 +51,12 @@ extension Function {
       self.value = .synthesized(AnyDeclID(r), for: t)
     }
 
-    /// Creates the identity of the monomorphized form of `source` for `arguments`.
+    /// Creates the identity of the existentialized form of `base`.
+    public init(existentialized base: Function.ID) {
+      self.value = .existentialized(base: base)
+    }
+
+    /// Creates the identity of the monomorphized form of `base` for `arguments`.
     ///
     /// - Requires: `arguments` is not empty.
     public init(monomorphized base: Function.ID, for arguments: GenericArguments) {
@@ -70,6 +78,8 @@ extension Function.ID: CustomStringConvertible {
       return "\(d).lowered"
     case .synthesized(let r, let t):
       return "\"synthesized \(r) for \(t)\""
+    case .existentialized(let b):
+      return "\"existentialized \(b)\""
     case .monomorphized(let b, let a):
       return "<\(list: a.values)>(\(b))"
     }
