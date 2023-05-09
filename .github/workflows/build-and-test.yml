@@ -35,11 +35,11 @@ jobs:
 
     - run: git config --global core.autocrlf input
 
-    - name: Build and run devcontainer task
+    - name: Build and Test
       uses: devcontainers/ci@v0.3
       with:
-        runCmd: | 
-          swift build -v -c ${{ matrix.configuration }}
+        runCmd: |
+          swift build --build-tests -v -c ${{ matrix.configuration }} &&
           swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
 
     - name: Check code coverage
@@ -85,12 +85,12 @@ jobs:
 
     - name: Configure pkgconfig
       run: |
-        swift package resolve
-        sudo .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh /usr/local/lib/pkgconfig/llvm.pc
+        swift package resolve &&
+        sudo .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh /usr/local/lib/pkgconfig/llvm.pc &&
         cat /usr/local/lib/pkgconfig/llvm.pc
 
     - name: Build (${{ matrix.configuration }})
-      run: swift build -v -c ${{ matrix.configuration }}
+      run: swift build --build-tests -v -c ${{ matrix.configuration }}
 
     - name: Test (${{ matrix.configuration }})
       run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
