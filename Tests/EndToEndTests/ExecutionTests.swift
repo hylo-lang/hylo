@@ -3,7 +3,7 @@ import Core
 import ValCommand
 import XCTest
 
-final class ExecutionTests: XCTestCase {
+final class ExecutionTests: EndToEndTestCase {
 /*
   /// Compiles and executes all tests in `TestCases` directory, and ensures they return success.
   func testExecution() throws {
@@ -31,6 +31,9 @@ final class ExecutionTests: XCTestCase {
     XCTAssertEqual(result.status, 0, "Exit code is \(result.status)")
     XCTAssertEqual(result.standardOutput, "Hello, World!\n")
   }
+}
+
+class EndToEndTestCase: XCTestCase {
 
   /// Compiles `input` with the given arguments and returns the URL of the output file.
   ///

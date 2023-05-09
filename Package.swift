@@ -15,7 +15,6 @@ let package = Package(
 
   products: [
     .executable(name: "valc", targets: ["CLI"]),
-    .executable(name: "GenerateTest", targets: ["GenerateTest"]),
   ],
 
   dependencies: [
@@ -108,10 +107,10 @@ let package = Package(
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
-      dependencies: [.target(name: "GenerateTest")]),
+      dependencies: [.target(name: "GenerateValFileTests")]),
 
     .executableTarget(
-      name: "GenerateTest",
+      name: "GenerateValFileTests",
       dependencies: [
         .product(name: "ArgumentParser", package: "swift-argument-parser")
       ],
@@ -127,19 +126,16 @@ let package = Package(
       name: "ValTests",
       dependencies: ["FrontEnd", "Core", "IR"],
       resources: [.copy("TestCases")],
-      swiftSettings: allTargetsSwiftSettings,
-      plugins: ["TestGeneratorPlugin"]),
+      swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "ValCommandTests",
       dependencies: ["ValCommand"],
-      swiftSettings: allTargetsSwiftSettings,
-      plugins: ["TestGeneratorPlugin"]),
+      swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "EndToEndTests",
       dependencies: ["ValCommand"],
-      // resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
   ])
