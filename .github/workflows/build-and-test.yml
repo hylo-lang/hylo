@@ -42,7 +42,7 @@ jobs:
       uses: devcontainers/ci@v0.3
       with:
         runCmd: |
-          swift build --enable-code-coverage --build-tests -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }} &&
+          swift build --build-tests -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }} &&
           swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
 
     - name: Check code coverage
