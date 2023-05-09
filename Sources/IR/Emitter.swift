@@ -1367,10 +1367,6 @@ public struct Emitter {
       return (.constant(r), [])
 
     case .member(let d, let a) where d.kind == FunctionDecl.self:
-      if !a.isEmpty {
-        print("Hello")
-      }
-
       // Callee is a member reference to a function or method.
       let r = FunctionReference(
         to: program[FunctionDecl.ID(d)!], usedIn: frames.top.scope, parameterizedBy: a,
