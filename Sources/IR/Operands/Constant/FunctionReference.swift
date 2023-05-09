@@ -19,13 +19,13 @@ public struct FunctionReference: Constant, Hashable {
 
   /// Creates a reference to the lowered form of `d` in `module`.
   public init(to d: FunctionDecl.Typed, in module: inout Module) {
-    self.function = module.getOrCreateFunction(lowering: d)
+    self.function = module.demandFunctionDeclaration(lowering: d)
     self.type = .address(LambdaType(d.type)!.lifted)
   }
 
   /// Creates a reference to the lowered form of `d` in `module`.
   public init(to d: InitializerDecl.Typed, in module: inout Module) {
-    self.function = module.initializerDeclaration(lowering: d)
+    self.function = module.demandInitializerDeclaration(lowering: d)
     self.type = .address(LambdaType(d.type)!.lifted)
   }
 

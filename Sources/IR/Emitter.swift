@@ -115,7 +115,7 @@ public struct Emitter {
     functionDecl d: FunctionDecl.Typed,
     into module: inout Module
   ) -> Function.ID {
-    let f = module.getOrCreateFunction(lowering: d)
+    let f = module.demandFunctionDeclaration(lowering: d)
     guard let b = d.body else {
       if d.isForeignInterface { emitFFI(d, into: &module) }
       return f
@@ -169,7 +169,7 @@ public struct Emitter {
 
   /// Inserts the IR for calling `d` into `module`.
   private mutating func emitFFI(_ d: FunctionDecl.Typed, into module: inout Module) {
-    let f = module.getOrCreateFunction(lowering: d)
+    let f = module.demandFunctionDeclaration(lowering: d)
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
     frames.push(.init(scope: AnyScopeID(d.id)))
@@ -214,7 +214,7 @@ public struct Emitter {
     into module: inout Module
   ) {
     if d.isMemberwise { return }
-    let f = module.initializerDeclaration(lowering: d)
+    let f = module.demandInitializerDeclaration(lowering: d)
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
@@ -244,7 +244,7 @@ public struct Emitter {
 
   /// Inserts the IR for `d` into `module`.
   private mutating func emit(subscriptImpl d: SubscriptImpl.Typed, into module: inout Module) {
-    let f = module.getOrCreateSubscript(lowering: d)
+    let f = module.demandSubscriptDeclaration(lowering: d)
     guard let b = d.body else { return }
 
     // Create the function entry.
@@ -1844,7 +1844,7 @@ public struct Emitter {
 
     var variants: [AccessEffect: Function.ID] = [:]
     for v in d.impls {
-      variants[v.introducer.value] = module.getOrCreateSubscript(lowering: v)
+      variants[v.introducer.value] = module.demandSubscriptDeclaration(lowering: v)
     }
 
     let p = module.makeProjectBundle(
@@ -1867,7 +1867,7 @@ public struct Emitter {
       module.makeBorrow(o.access, from: receiver, anchoredAt: anchor),
       to: insertionBlock!)[0]
 
-    let f = module.getOrCreateSubscript(lowering: d)
+    let f = module.demandSubscriptDeclaration(lowering: d)
     return module.append(
       module.makeProject(o, applying: f, to: [r], anchoredAt: anchor),
       to: insertionBlock!)[0]
@@ -1920,7 +1920,7 @@ public struct Emitter {
     anchoredAt anchor: SourceRange,
     into module: inout Module
   ) {
-    let f = module.getOrCreateMoveOperator(access, from: c)
+    let f = module.demandMoveOperatorDeclaration(access, from: c)
     let callee = FunctionReference(to: f, in: module)
 
     let r = module.append(

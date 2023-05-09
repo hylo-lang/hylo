@@ -26,11 +26,8 @@ public struct Module {
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
-  /// The ID of the module's entry function, if any.
-  public private(set) var entryFunctionID: Function.ID?
-
-  /// A map from function declaration its ID in the module.
-  private var loweredFunctions = DeclProperty<Function.ID>()
+  /// The module's entry function, if any.
+  public private(set) var entryFunction: Function.ID?
 
   /// Creates an instance lowering `m` in `p`, reporting errors and warnings to
   /// `diagnostics`.
@@ -171,9 +168,9 @@ public struct Module {
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func getOrCreateFunction(lowering d: FunctionDecl.Typed) -> Function.ID {
-    if let f = loweredFunctions[d.id] { return f }
+  mutating func demandFunctionDeclaration(lowering d: FunctionDecl.Typed) -> Function.ID {
     let f = Function.ID(d.id)
+    if functions[f] != nil { return f }
 
     let output = program.relations.canonical((d.type.base as! CallableType).output)
     let inputs = loweredParameters(of: d.id)
@@ -188,11 +185,10 @@ public struct Module {
 
     // Determine if the new function is the module's entry.
     if d.scope.kind == TranslationUnit.self, d.isPublic, d.identifier?.value == "main" {
-      assert(entryFunctionID == nil)
-      entryFunctionID = f
+      assert(entryFunction == nil)
+      entryFunction = f
     }
 
-    loweredFunctions[d.id] = f
     return f
   }
 
@@ -200,7 +196,9 @@ public struct Module {
   /// defined in conformance `c`.
   ///
   /// - Requires: `k` is either `.set` or `.inout`
-  mutating func getOrCreateMoveOperator(_ k: AccessEffect, from c: Conformance) -> Function.ID {
+  mutating func demandMoveOperatorDeclaration(
+    _ k: AccessEffect, from c: Conformance
+  ) -> Function.ID {
     let d = program.ast.moveRequirement(k)
     switch c.implementations[d]! {
     case .concrete:
@@ -213,7 +211,7 @@ public struct Module {
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func getOrCreateSubscript(lowering d: SubscriptImpl.Typed) -> Function.ID {
+  mutating func demandSubscriptDeclaration(lowering d: SubscriptImpl.Typed) -> Function.ID {
     let f = Function.ID(d.id)
     if functions[f] != nil { return f }
 
@@ -227,12 +225,11 @@ public struct Module {
       inputs: inputs,
       output: output,
       blocks: [])
-
     return f
   }
 
   /// Returns the identifier of the Val IR initializer corresponding to `d`.
-  mutating func initializerDeclaration(lowering d: InitializerDecl.Typed) -> Function.ID {
+  mutating func demandInitializerDeclaration(lowering d: InitializerDecl.Typed) -> Function.ID {
     precondition(!d.isMemberwise)
 
     let f = Function.ID(initializer: d.id)
@@ -247,9 +244,6 @@ public struct Module {
       inputs: inputs,
       output: .void,
       blocks: [])
-
-    // Update the cache and return the ID of the newly created function.
-    loweredFunctions[d.id] = f
     return f
   }
 
