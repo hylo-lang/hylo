@@ -35,14 +35,15 @@ public struct MethodType: TypeProtocol, CallableType {
     flags = fs
   }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     MethodType(
       capabilities: capabilities,
-      receiver: receiver.transform(transformer),
-      inputs: inputs.map({ $0.transform(transformer) }),
-      output: output.transform(transformer))
+      receiver: receiver.transform(mutating: &m, transformer),
+      inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
+      output: output.transform(mutating: &m, transformer))
   }
-
 }
 
 extension MethodType: CustomStringConvertible {

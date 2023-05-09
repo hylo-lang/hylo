@@ -16,9 +16,10 @@ private protocol TypeBox {
   /// different type.
   func unwrap<T: TypeProtocol>(as: T.Type) -> T?
 
-  /// Applies `TypeProtocol.transform(_:)` on the types that are part of `self`.
-  func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> any TypeProtocol
-
+  /// Applies `TypeProtocol.transform(mutating:_:)` on `m` and the types that are part of `self`.
+  func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> any TypeProtocol
 }
 
 /// A box wrapping an instance of `Base`.
@@ -43,10 +44,12 @@ private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
     base as? T
   }
 
-  func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> any TypeProtocol {
-    base.transformParts(transformer)
+  /// Applies `TypeProtocol.transform(mutating:_:)` on `m` and the types that are part of `self`.
+  func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> any TypeProtocol {
+    base.transformParts(mutating: &m, transformer)
   }
-
 }
 
 /// The (static) type of an entity.
@@ -146,10 +149,11 @@ public struct AnyType: TypeProtocol {
 
   public var skolemized: AnyType { base.skolemized }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> AnyType {
-    AnyType(wrapped.transformParts(transformer))
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> AnyType {
+    AnyType(wrapped.transformParts(mutating: &m, transformer))
   }
-
 }
 
 extension AnyType: CompileTimeValue {

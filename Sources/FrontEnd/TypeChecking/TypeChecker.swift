@@ -72,9 +72,10 @@ public struct TypeChecker {
   private mutating func specialized(
     _ generic: AnyType, applying substitutions: GenericArguments, in useScope: AnyScopeID
   ) -> AnyType {
-    return substitutions.isEmpty ? generic : generic.transform(specialize(_:))
+    return substitutions.isEmpty
+      ? generic : generic.transform(mutating: &self, specialize(mutating:_:))
 
-    func specialize(_ t: AnyType) -> TypeTransformAction {
+    func specialize(mutating me: inout Self, _ t: AnyType) -> TypeTransformAction {
       switch t.base {
       case let u as GenericTypeParameterType:
         if let v = substitutions[u.decl] {
@@ -84,11 +85,11 @@ public struct TypeChecker {
         }
 
       case let u as AssociatedTypeType:
-        let d = u.domain.transform(specialize(_:))
+        let d = u.domain.transform(mutating: &me) { (me, t) in specialize(mutating: &me, t) }
 
-        let candidates = lookup(ast[u.decl].baseName, memberOf: d, exposedTo: useScope)
+        let candidates = me.lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: useScope)
         if let c = candidates.uniqueElement {
-          return .stepOver(MetatypeType(realize(decl: c))?.instance ?? .error)
+          return .stepOver(MetatypeType(me.realize(decl: c))?.instance ?? .error)
         } else {
           return .stepOver(.error)
         }
@@ -96,7 +97,7 @@ public struct TypeChecker {
       case let u as BoundGenericType:
         let updatedArguments = u.arguments.mapValues { (v) -> any CompileTimeValue in
           if let w = v as? AnyType {
-            return specialized(w, applying: substitutions, in: useScope)
+            return me.specialized(w, applying: substitutions, in: useScope)
           } else {
             return v
           }
