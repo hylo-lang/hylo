@@ -255,7 +255,7 @@ public struct Module {
     if functions[f] != nil { return f }
 
     let inputs = loweredParameters(of: d.id)
-    let entity =  Function(
+    let entity = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
       site: d.introducer.site,

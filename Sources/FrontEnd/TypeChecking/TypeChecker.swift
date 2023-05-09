@@ -1860,10 +1860,11 @@ public struct TypeChecker {
     if !(d.kind.value is GenericScope.Type) { return [:] }
 
     let parameters = environment(of: d).parameters
-    return .init(uniqueKeysWithValues: parameters.map { (p) in
-      // TODO: Handle generic value parameters
-      (key: p, value: ^TypeVariable())
-    })
+    return .init(
+      uniqueKeysWithValues: parameters.map { (p) in
+        // TODO: Handle generic value parameters
+        (key: p, value: ^TypeVariable())
+      })
   }
 
   /// Returns the declarations exposing a name with given `stem` to `useScope` without
