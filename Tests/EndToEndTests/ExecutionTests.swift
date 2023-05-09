@@ -4,7 +4,7 @@ import ValCommand
 import XCTest
 
 final class ExecutionTests: XCTestCase {
-
+/*
   /// Compiles and executes all tests in `TestCases` directory, and ensures they return success.
   func testExecution() throws {
     let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
@@ -20,7 +20,7 @@ final class ExecutionTests: XCTestCase {
       }
     }
   }
-
+*/
   func testHelloWorld() throws {
     let f = FileManager.default.temporaryFile()
     let s = #"public fun main() { print("Hello, World!") }"#
