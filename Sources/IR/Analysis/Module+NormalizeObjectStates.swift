@@ -312,10 +312,10 @@ extension Module {
 
       let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
       let f = demandMoveOperatorDeclaration(k, from: s.sinkable)
-      let callee = Operand.constant(FunctionReference(to: f, in: self))
+      let move = FunctionReference(to: f, usedIn: s.sinkable.scope, in: self)
 
       let r = insert(makeBorrow(k, from: s.target, anchoredAt: s.site), before: i)[0]
-      insert(makeCall(applying: callee, to: [r, s.object], anchoredAt: s.site), before: i)
+      insert(makeCall(applying: .constant(move), to: [r, s.object], anchoredAt: s.site), before: i)
       insert(makeEndBorrow(r, anchoredAt: s.site), before: i)
       removeInstruction(i)
 
