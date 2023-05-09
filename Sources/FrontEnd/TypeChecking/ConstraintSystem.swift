@@ -34,7 +34,7 @@ struct ConstraintSystem {
   /// This map is monotonically extended during constraint solving to assign a declaration to each
   /// unresolved name expression in the constraint system. A system is complete if it can be used
   /// to derive a complete name binding map w.r.t. its unresolved name expressions.
-  private var bindingAssumptions: [NameExpr.ID: DeclRef] = [:]
+  private var bindingAssumptions: [NameExpr.ID: DeclReference] = [:]
 
   /// The penalties associated with the constraint system.
   ///
@@ -419,55 +419,46 @@ struct ConstraintSystem {
       return nil
     }
 
-    // Generate the list of candidates.
-    let matches = checker.lookup(goal.memberName.stem, memberOf: goal.subject, exposedTo: scope)
-      .compactMap({ checker.decl(in: $0, named: goal.memberName) })
-    let candidates = matches.compactMap({ (match) -> OverloadConstraint.Predicate? in
-      // Realize the type of the declaration and skip it if that fails.
-      var matchType = checker.realize(decl: match)
-      if matchType.isError { return nil }
+    let n = SourceRepresentable(value: goal.memberName, range: goal.origin.site)
+    let candidates = checker.resolve(n, memberOf: goal.subject, exposedTo: scope)
 
-      // Properties are not first-class.
-      if let s = SubscriptDecl.ID(match), checker.ast[s].isProperty {
-        matchType = SubscriptType(matchType)!.output
-      }
-
-      // TODO: Handle bound generic typess
-
-      return OverloadConstraint.Predicate(
-        reference: .member(match),
-        type: matchType,
-        constraints: [],
-        penalties: checker.program.isRequirement(match) ? 1 : 0)
-    })
-
-    // Fail if we couldn't find any candidate.
-    if candidates.isEmpty {
+    if candidates.elements.isEmpty {
       return .failure { (d, m, _) in
         let t = m.reify(goal.memberType)
         d.insert(.error(undefinedName: goal.memberName, in: t, at: goal.origin.site))
       }
     }
 
-    // If there's only one candidate, solve an equality constraint direcly.
-    if let pick = candidates.uniqueElement {
-      assert(pick.constraints.isEmpty, "not implemented")
-      guard unify(pick.type, goal.memberType, querying: checker.relations) else {
-        return .failure { (d, m, _) in
-          let (l, r) = (m.reify(pick.type), m.reify(goal.memberType))
-          d.insert(.error(type: l, incompatibleWith: r, at: goal.origin.site))
-        }
+    if candidates.viable.isEmpty {
+      let notes = candidates.elements.compactMap(\.argumentsDiagnostic)
+      return .failure { (d, _, _) in
+        d.insert(.error(noViableCandidateToResolve: n, notes: notes))
       }
-
-      log("- assume: \"\(goal.memberExpr) &> \(pick.reference)\"")
-      bindingAssumptions[goal.memberExpr] = pick.reference
-      return .success
     }
 
-    // If there are several candidates, create a overload constraint.
+    if let i = candidates.viable.uniqueElement {
+      let c = candidates.elements[i]
+      bindingAssumptions[goal.memberExpr] = c.reference
+
+      var subordinates = insert(fresh: c.type.constraints)
+      subordinates.append(
+        schedule(EqualityConstraint(c.type.shape, goal.memberType, origin: goal.origin)))
+      return delegate(to: subordinates)
+    }
+
+    let selected = candidates.viable.map { (i) in
+      let c = candidates.elements[i]
+      let isRequirement = c.reference.decl.map(default: false, checker.program.isRequirement(_:))
+      return OverloadConstraint.Predicate(
+        reference: c.reference,
+        type: c.type.shape,
+        constraints: c.type.constraints,
+        penalties: isRequirement ? 1 : 0)
+    }
+
     let s = schedule(
       OverloadConstraint(
-        goal.memberExpr, withType: goal.memberType, refersToOneOf: candidates,
+        goal.memberExpr, withType: goal.memberType, refersToOneOf: selected,
         origin: goal.origin.subordinate()))
     return delegate(to: [s])
   }

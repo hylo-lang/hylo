@@ -23,10 +23,11 @@ public struct ParameterType: TypeProtocol {
     self.init(t.access, t.bareType)
   }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    ParameterType(access, bareType.transform(transformer))
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
+    ParameterType(access, bareType.transform(mutating: &m, transformer))
   }
-
 }
 
 extension ParameterType: CustomStringConvertible {

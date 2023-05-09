@@ -43,7 +43,7 @@ struct Solution {
   /// Creates an instance with the given properties.
   init(
     substitutions typeAssumptions: SubstitutionMap,
-    bindings bindingAssumptions: [NameExpr.ID: DeclRef],
+    bindings bindingAssumptions: [NameExpr.ID: DeclReference],
     penalties: Int,
     diagnostics: DiagnosticSet
   ) {

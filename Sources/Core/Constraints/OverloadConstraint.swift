@@ -60,7 +60,9 @@ public struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
   public struct Predicate: DisjunctiveConstraintTerm, Hashable {
 
     /// Creates an instance having the given properties.
-    public init(reference: DeclRef, type: AnyType, constraints: ConstraintSet, penalties: Int) {
+    public init(
+      reference: DeclReference, type: AnyType, constraints: ConstraintSet, penalties: Int
+    ) {
       self.reference = reference
       self.type = type
       self.constraints = constraints
@@ -68,7 +70,7 @@ public struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
     }
 
     /// The candidate reference.
-    public let reference: DeclRef
+    public let reference: DeclReference
 
     /// The instantiated type the referred declaration.
     public let type: AnyType

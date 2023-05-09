@@ -1,8 +1,11 @@
 /// An unordered collection of unique elements using a custom hash witness.
-public struct CustomWitnessedSet<Element, Witness: HashableWitness<Element>> {
+public struct CustomWitnessedSet<Witness: HashableWitness> {
+
+  /// The type of the elements in the set.
+  public typealias Element = Witness.Element
 
   /// An element wrapped into a hashable box.
-  fileprivate typealias _Element = HashableBox<Element, Witness>
+  fileprivate typealias _Element = HashableBox<Witness>
 
   /// The contents of `self`
   fileprivate var contents: Set<_Element>

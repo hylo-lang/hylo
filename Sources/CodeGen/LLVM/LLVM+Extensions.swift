@@ -20,7 +20,7 @@ extension LLVM.Module {
     } else {
       let d = declare(function: f, of: m, from: ir)
       transpile(contentsOf: f, of: m, from: ir, into: d)
-      if f == m.entryFunctionID {
+      if f == m.entryFunction {
         defineMain(calling: f, of: m, from: ir)
       }
     }

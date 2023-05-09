@@ -358,34 +358,51 @@ extension TypeChecker {
     let initName = SourceRepresentable(
       value: Name(stem: "init", labels: ["self"] + ast[subject].arguments.map(\.label?.value)),
       range: ast[callee].name.site)
-    let initCandidates = resolve(
-      initName, parameterizedBy: [], memberOf: instance, exposedTo: scope)
+    let initCandidates = resolve(initName, memberOf: instance, exposedTo: scope)
 
     // We're done if we couldn't find any initializer.
-    if initCandidates.isEmpty {
+    assert(initCandidates.elements.count == initCandidates.viable.count)
+    if initCandidates.elements.isEmpty {
+      report(.error(undefinedName: initName.value, in: instance, at: initName.site))
       _ = state.facts.assignErrorType(to: callee)
       return state.facts.assignErrorType(to: subject)
     }
 
-    if let pick = initCandidates.uniqueElement {
+    if let pick = initCandidates.elements.uniqueElement {
       // Rebind the callee and constrain its type.
-      let ctor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
-      guard case .direct(let d) = pick.reference else { unreachable() }
-      referredDecls[callee] = .constructor(.init(d)!)
-      state.facts.assign(^ctor, to: callee)
+      let constructor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
+      referredDecls[callee] = DeclReference(constructor: pick.reference)!
+      state.facts.assign(^constructor, to: callee)
       state.facts.append(pick.type.constraints)
 
-      // Visit the arguments.
-      if parametersMatching(
-        arguments: ast[subject].arguments, of: ast[subject].callee, in: scope,
-        shapedBy: ctor.inputs, updating: &state)
-      {
-        return state.facts.constrain(subject, in: ast, toHaveType: ctor.output)
-      } else {
-        return state.facts.assignErrorType(to: subject)
+      var arguments: [FunctionCallConstraint.Argument] = []
+      for a in ast[subject].arguments {
+        let p = inferredType(
+          of: a.value, shapedBy: ^TypeVariable(), in: scope, updating: &state)
+        arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
       }
+
+      state.facts.append(
+        FunctionCallConstraint(
+          ^constructor, accepts: arguments, returns: constructor.output,
+          origin: ConstraintOrigin(.callee, at: ast[ast[subject].callee].site)))
+
+      return state.facts.constrain(subject, in: ast, toHaveType: constructor.output)
     } else {
       fatalError("not implemented")
+    }
+  }
+
+  /// Returns the constructor type corresponding to given `initializer`.
+  private func convertToConstructor(_ initializer: AnyType) -> AnyType {
+    switch initializer.base {
+    case let t as LambdaType:
+      return ^LambdaType(constructorFormOf: t)
+    case let t as BoundGenericType:
+      let c = LambdaType(constructorFormOf: .init(t.base)!)
+      return ^BoundGenericType(c, arguments: t.arguments)
+    default:
+      unreachable()
     }
   }
 
@@ -751,8 +768,9 @@ extension TypeChecker {
         state.facts.append(instantiatedType.constraints)
 
         // Update the referred declaration map if necessary.
+        // FIXME: Handle generic arguments
         if let c = NameExpr.ID(syntax.callee) {
-          referredDecls[c] = .member(decl)
+          referredDecls[c] = .member(decl, [:])
         }
 
         return state.facts.constrain(subject, in: ast, toHaveType: calleeType.output)

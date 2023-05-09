@@ -115,7 +115,7 @@ public struct Emitter {
     functionDecl d: FunctionDecl.Typed,
     into module: inout Module
   ) -> Function.ID {
-    let f = module.getOrCreateFunction(lowering: d)
+    let f = module.demandFunctionDeclaration(lowering: d)
     guard let b = d.body else {
       if d.isForeignInterface { emitFFI(d, into: &module) }
       return f
@@ -169,7 +169,7 @@ public struct Emitter {
 
   /// Inserts the IR for calling `d` into `module`.
   private mutating func emitFFI(_ d: FunctionDecl.Typed, into module: inout Module) {
-    let f = module.getOrCreateFunction(lowering: d)
+    let f = module.demandFunctionDeclaration(lowering: d)
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
     frames.push(.init(scope: AnyScopeID(d.id)))
@@ -214,7 +214,7 @@ public struct Emitter {
     into module: inout Module
   ) {
     if d.isMemberwise { return }
-    let f = module.initializerDeclaration(lowering: d)
+    let f = module.demandInitializerDeclaration(lowering: d)
     let entry = module.appendEntry(to: f)
     insertionBlock = entry
 
@@ -244,7 +244,7 @@ public struct Emitter {
 
   /// Inserts the IR for `d` into `module`.
   private mutating func emit(subscriptImpl d: SubscriptImpl.Typed, into module: inout Module) {
-    let f = module.getOrCreateSubscript(lowering: d)
+    let f = module.demandSubscriptDeclaration(lowering: d)
     guard let b = d.body else { return }
 
     // Create the function entry.
@@ -951,7 +951,7 @@ public struct Emitter {
       switch n.declaration {
       case .builtinFunction(let f):
         return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
-      case .constructor(let d):
+      case .constructor(let d, _):
         return emitRValue(constructorCall: expr, applying: d, into: &module)
       default:
         break
@@ -1159,7 +1159,7 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch e.declaration {
-    case .direct(let d):
+    case .direct(let d, _):
       guard let s = frames[program[d]] else { fatalError("not implemented") }
       if module.type(of: s).isObject {
         return s
@@ -1167,7 +1167,7 @@ public struct Emitter {
         return module.append(module.makeLoad(s, anchoredAt: e.site), to: insertionBlock!)[0]
       }
 
-    case .member(let d):
+    case .member(let d, _):
       return emitRValue(memberExpr: e, declaredBy: program[d], into: &module)
 
     case .constructor:
@@ -1268,7 +1268,7 @@ public struct Emitter {
         ParameterType(calleeType.inputs[0].type)!.access, foldedSequenceExpr: lhs, into: &module)
 
       // Emit the callee.
-      guard case .member(let calleeDecl) = program.referredDecls[callee.expr] else {
+      guard case .member(let calleeDecl, _) = program.referredDecls[callee.expr] else {
         unreachable()
       }
       let f = Operand.constant(
@@ -1331,13 +1331,19 @@ public struct Emitter {
   private mutating func emitCallee(
     _ callee: AnyExprID.TypedNode,
     into module: inout Module
-  ) -> (callee: Operand, liftedArguments: [Operand]) {
-    if let e = NameExpr.Typed(callee) {
-      return emitNamedCallee(e, into: &module)
-    }
+  ) -> (callee: Operand, captures: [Operand]) {
+    switch callee.kind {
+    case NameExpr.self:
+      return emitNamedCallee(.init(callee)!, into: &module)
 
-    let f = emitLambdaCallee(callee, into: &module)
-    return (f, [])
+    case InoutExpr.self:
+      // TODO: Handle the mutation marker, somehow.
+      return emitCallee(InoutExpr.Typed(callee)!.subject, into: &module)
+
+    default:
+      let f = emitLambdaCallee(callee, into: &module)
+      return (f, [])
+    }
   }
 
   /// Inserts the IR for given `callee` into `module` at the end of the current insertion block and
@@ -1347,11 +1353,11 @@ public struct Emitter {
   private mutating func emitNamedCallee(
     _ callee: NameExpr.Typed,
     into module: inout Module
-  ) -> (callee: Operand, liftedArguments: [Operand]) {
+  ) -> (callee: Operand, captures: [Operand]) {
     let calleeType = LambdaType(program.relations.canonical(callee.type))!
 
     switch callee.declaration {
-    case .direct(let d) where d.kind == FunctionDecl.self:
+    case .direct(let d, _) where d.kind == FunctionDecl.self:
       // Callee is a direct reference to a function declaration.
       guard calleeType.environment == .void else {
         fatalError("not implemented")
@@ -1360,7 +1366,7 @@ public struct Emitter {
       let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       return (.constant(ref), [])
 
-    case .member(let d) where d.kind == FunctionDecl.self:
+    case .member(let d, _) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
       let ref = FunctionReference(to: program[FunctionDecl.ID(d)!], in: &module)
       let fun = Operand.constant(ref)
@@ -1728,10 +1734,10 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch syntax.declaration {
-    case .direct(let d):
+    case .direct(let d, _):
       return emitLValue(directReferenceTo: program[d], into: &module)
 
-    case .member(let d):
+    case .member(let d, _):
       let r = emitLValue(receiverOf: syntax, into: &module)
       return emitProperty(boundTo: r, declaredBy: program[d], into: &module, at: syntax.site)
 
@@ -1838,7 +1844,7 @@ public struct Emitter {
 
     var variants: [AccessEffect: Function.ID] = [:]
     for v in d.impls {
-      variants[v.introducer.value] = module.getOrCreateSubscript(lowering: v)
+      variants[v.introducer.value] = module.demandSubscriptDeclaration(lowering: v)
     }
 
     let p = module.makeProjectBundle(
@@ -1861,7 +1867,7 @@ public struct Emitter {
       module.makeBorrow(o.access, from: receiver, anchoredAt: anchor),
       to: insertionBlock!)[0]
 
-    let f = module.getOrCreateSubscript(lowering: d)
+    let f = module.demandSubscriptDeclaration(lowering: d)
     return module.append(
       module.makeProject(o, applying: f, to: [r], anchoredAt: anchor),
       to: insertionBlock!)[0]
@@ -1914,7 +1920,7 @@ public struct Emitter {
     anchoredAt anchor: SourceRange,
     into module: inout Module
   ) {
-    let f = module.getOrCreateMoveOperator(access, from: c)
+    let f = module.demandMoveOperatorDeclaration(access, from: c)
     let callee = FunctionReference(to: f, in: module)
 
     let r = module.append(
