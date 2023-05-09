@@ -1256,6 +1256,10 @@ public struct TypeChecker {
     switch scope.kind {
     case FunctionDecl.self:
       return environment(of: FunctionDecl.ID(scope)!)
+    case InitializerDecl.self:
+      return environment(of: InitializerDecl.ID(scope)!)
+    case MethodDecl.self:
+      return environment(of: MethodDecl.ID(scope)!)
     case ProductTypeDecl.self:
       return environment(of: ProductTypeDecl.ID(scope)!)
     case SubscriptDecl.self:
@@ -1767,6 +1771,8 @@ public struct TypeChecker {
       if let g = BoundGenericType(matchType) {
         assert(matchArguments.isEmpty, "generic declaration bound twice")
         matchArguments = g.arguments
+      } else if matchArguments.isEmpty {
+        matchArguments = openGenericParameters(of: m)
       }
 
       let allArguments = parentArguments.appending(matchArguments)
@@ -1846,6 +1852,18 @@ public struct TypeChecker {
 
     argumentsDiagnostic = nil
     return .init(uniqueKeysWithValues: zip(parameters, arguments))
+  }
+
+  /// Returns a sequence of key-value pairs associated the generic parameters introduced by `d`
+  /// to open variables.
+  private mutating func openGenericParameters(of d: AnyDeclID) -> GenericArguments {
+    if !(d.kind.value is GenericScope.Type) { return [:] }
+
+    let parameters = environment(of: d).parameters
+    return .init(uniqueKeysWithValues: parameters.map { (p) in
+      // TODO: Handle generic value parameters
+      (key: p, value: ^TypeVariable())
+    })
   }
 
   /// Returns the declarations exposing a name with given `stem` to `useScope` without
