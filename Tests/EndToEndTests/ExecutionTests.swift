@@ -4,23 +4,7 @@ import ValCommand
 import XCTest
 
 final class ExecutionTests: EndToEndTestCase {
-/*
-  /// Compiles and executes all tests in `TestCases` directory, and ensures they return success.
-  func testExecution() throws {
-    let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
-    for testFile in try! sourceFiles(in: [s]) {
-      let output = try compile(testFile.url, with: ["--emit", "binary"])
-      do {
-        let (status, _) = try run(output)
-        XCTAssertEqual(
-          status, 0,
-          "Execution of binary for test \(testFile.baseName) failed with exit code \(status)")
-      } catch {
-        XCTFail("While testing \(testFile.baseName), cannot execute: \(output)")
-      }
-    }
-  }
-*/
+
   func testHelloWorld() throws {
     let f = FileManager.default.temporaryFile()
     let s = #"public fun main() { print("Hello, World!") }"#
@@ -31,6 +15,7 @@ final class ExecutionTests: EndToEndTestCase {
     XCTAssertEqual(result.status, 0, "Exit code is \(result.status)")
     XCTAssertEqual(result.standardOutput, "Hello, World!\n")
   }
+
 }
 
 class EndToEndTestCase: XCTestCase {
