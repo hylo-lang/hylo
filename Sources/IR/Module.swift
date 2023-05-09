@@ -140,6 +140,14 @@ public struct Module {
     return true
   }
 
+  /// Applies `p` to in this module.
+  public mutating func applyPass(_ p: ModulePass) {
+    switch p {
+    case .depolymorphize:
+      depolymorphize()
+    }
+  }
+
   /// Applies all mandatory passes in this module, accumulating diagnostics into `log` and throwing
   /// if a pass reports an error.
   public mutating func applyMandatoryPasses(
