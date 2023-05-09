@@ -25,6 +25,7 @@ public struct ExistentialType: TypeProtocol {
   /// - Note: This set shall only contain equality and conformance constraints.
   public let constraints: ConstraintSet
 
+  /// A set of flags describing recursive properties.
   public let flags: TypeFlags
 
   /// Creates a new existential type bound by the given traits and constraints.
@@ -54,10 +55,10 @@ public struct ExistentialType: TypeProtocol {
     switch t.base {
     case let u as ProductType:
       self.interface = .generic(AnyDeclID(u.decl))
-      self.flags = t.flags.removing(.isGeneric)
+      self.flags = t.flags
     case let u as TypeAliasType:
       self.interface = .generic(AnyDeclID(u.decl))
-      self.flags = t.flags.removing(.isGeneric)
+      self.flags = t.flags
     case is MetatypeType:
       self.interface = .metatype
       self.flags = .isCanonical

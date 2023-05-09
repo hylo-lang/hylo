@@ -12,6 +12,7 @@ public struct TypeAliasType: TypeProtocol {
   /// The resolved type of the alias.
   public let resolved: Incidental<AnyType>
 
+  /// A set of flags describing recursive properties.
   public let flags: TypeFlags
 
   /// Creates a type alias resolving to `resolved` and declared by `d` in `ast`.
@@ -19,14 +20,7 @@ public struct TypeAliasType: TypeProtocol {
     self.decl = d
     self.name = Incidental(ast[decl].baseName)
     self.resolved = Incidental(resolved)
-
-    var flags = resolved.flags.removing(.isCanonical)
-    if ast[decl].genericClause != nil {
-      flags.insert(.isGeneric)
-    } else {
-      flags.remove(.isGeneric)
-    }
-    self.flags = flags
+    self.flags = resolved.flags.removing(.isCanonical)
   }
 
 }
