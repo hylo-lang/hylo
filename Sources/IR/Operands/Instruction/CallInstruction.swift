@@ -13,6 +13,7 @@ public struct CallInstruction: Instruction {
   /// The callee and arguments of the call.
   public private(set) var operands: [Operand]
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -33,7 +34,17 @@ public struct CallInstruction: Instruction {
   /// The arguments of the call.
   public var arguments: ArraySlice<Operand> { operands[1...] }
 
+  /// The types of the instruction's results.
   public var types: [LoweredType] { [returnType] }
+
+  /// `true` iff the instruction denotes a call to a generic function.
+  public var isGeneric: Bool {
+    if let f = callee.constant as? FunctionReference {
+      return !f.arguments.isEmpty
+    } else {
+      return false
+    }
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     operands[i] = new
