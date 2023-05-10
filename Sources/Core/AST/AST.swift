@@ -1,6 +1,5 @@
 import Foundation
 import Utils
-import ValModule
 
 /// An abstract syntax tree.
 public struct AST {
