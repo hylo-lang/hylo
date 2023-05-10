@@ -39,6 +39,7 @@ extension Module {
       name: "<\(arguments), \(useScope)>(\(source.name))",
       site: source.site,
       linkage: .module,
+      parameters: [],
       inputs: inputs,
       output: output,
       blocks: [])
