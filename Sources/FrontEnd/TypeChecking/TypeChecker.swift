@@ -1979,29 +1979,36 @@ public struct TypeChecker {
       matches = DeclSet()
     }
 
-    // Look for members declared in extensions.
-    for i in extendingDecls(of: domain, exposedTo: useScope) {
-      matches.formUnion(names(introducedIn: i)[stem, default: []])
-    }
-
-    // Look for members declared inherited by conformance/refinement.
-    for trait in conformedTraits(of: domain, in: useScope) where domain != trait {
-      // TODO: Read source of conformance to disambiguate associated names
-      let newMatches = lookup(stem, memberOf: ^trait, exposedTo: useScope)
-
-      // Associated type and value declarations are not inherited by conformance. Traits do not
-      // inherit the generic parameters.
-      switch domain.base {
-      case is AssociatedTypeType, is GenericTypeParameterType:
-        matches.formUnion(newMatches)
-      case is TraitType:
-        matches.formUnion(newMatches.filter({ $0.kind != GenericParameterDecl.self }))
-      default:
-        matches.formUnion(newMatches.filter(program.isRequirement(_:)))
-      }
-    }
-
+    matches.formUnion(lookup(stem, inExtensionsOf: domain, exposedTo: useScope))
     return matches
+  }
+
+  /// Returns the declarations introducing a name with given `stem` as a member of `domain` and
+  /// exposed to `useScope`.
+  private mutating func lookup(
+    _ stem: String,
+    memberOf domain: ExistentialType,
+    exposedTo useScope: AnyScopeID
+  ) -> DeclSet {
+    // Declarations in extensions of existential types shadow their existential APIs.
+    let matches = lookup(stem, inExtensionsOf: ^domain, exposedTo: useScope)
+    if !matches.isEmpty {
+      return matches
+    }
+
+    // Search in the existential API.
+    switch domain.interface {
+    case .traits(let s):
+      return s.reduce(into: DeclSet()) { (r, t) in
+        r.formUnion(lookup(stem, memberOf: ^t, exposedTo: useScope))
+      }
+
+    case .generic(let t):
+      return lookup(stem, memberOf: t, exposedTo: useScope)
+
+    case .metatype:
+      return []
+    }
   }
 
   /// Returns the declarations introducing `name` in the declaration space that are exposed to
@@ -2108,7 +2115,7 @@ public struct TypeChecker {
   ) where S.Element == AnyDeclID {
     precondition(subject[.isCanonical])
 
-    for i in decls where i.kind == ConformanceDecl.self || i.kind == ExtensionDecl.self {
+    for i in decls where (i.kind == ConformanceDecl.self) || (i.kind == ExtensionDecl.self) {
       // Skip extending declarations that are being bound.
       guard extensionsUnderBinding.insert(i).inserted else { continue }
       defer { extensionsUnderBinding.remove(i) }
@@ -2121,7 +2128,7 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the names and declarations introduced in `scope`.
+  /// Returns the names in `scope`.
   private func names<T: NodeIDProtocol>(introducedIn scope: T) -> LookupTable {
     if let module = ModuleDecl.ID(scope) {
       return ast[module].sources.reduce(into: [:]) { (table, s) in
