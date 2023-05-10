@@ -1,24 +1,25 @@
+import Core
 import Utils
 
 /// A constraint specifying that a name expression refers to one of several declarations,
 /// depending on its type.
-public struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
+struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
 
   /// The overloaded expression.
-  public let overloadedExpr: NameExpr.ID
+  let overloadedExpr: NameExpr.ID
 
   /// The type of `self.overloadedExpr`.
-  public private(set) var overloadedExprType: AnyType
+  private(set) var overloadedExprType: AnyType
 
   /// The overloaded candidates.
-  public private(set) var choices: [Predicate]
+  private(set) var choices: [Predicate]
 
-  public let origin: ConstraintOrigin
+  let origin: ConstraintOrigin
 
   /// Creates an instance with the given properties.
   ///
   /// - Requires: `candidates.count >= 2`
-  public init(
+  init(
     _ expr: NameExpr.ID,
     withType type: AnyType,
     refersToOneOf choices: [Predicate],
@@ -38,7 +39,7 @@ public struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
     self.origin = origin
   }
 
-  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+  mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     update(&overloadedExprType, with: transform)
 
     for i in 0 ..< choices.count {
@@ -57,29 +58,19 @@ public struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
   }
 
   /// A candidate in an overload constraint.
-  public struct Predicate: DisjunctiveConstraintTerm, Hashable {
-
-    /// Creates an instance having the given properties.
-    public init(
-      reference: DeclReference, type: AnyType, constraints: ConstraintSet, penalties: Int
-    ) {
-      self.reference = reference
-      self.type = type
-      self.constraints = constraints
-      self.penalties = penalties
-    }
+  struct Predicate: DisjunctiveConstraintTerm, Hashable {
 
     /// The candidate reference.
-    public let reference: DeclReference
+    let reference: DeclReference
 
     /// The instantiated type the referred declaration.
-    public let type: AnyType
+    let type: AnyType
 
     /// The set of constraints associated with this choice.
-    public let constraints: ConstraintSet
+    let constraints: ConstraintSet
 
     /// The penalties associated with this choice.
-    public let penalties: Int
+    let penalties: Int
 
   }
 
@@ -87,7 +78,7 @@ public struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
 
 extension OverloadConstraint: CustomStringConvertible {
 
-  public var description: String {
+  var description: String {
     "\(overloadedExpr) ∈ {\(choices.descriptions())}"
   }
 
@@ -95,7 +86,7 @@ extension OverloadConstraint: CustomStringConvertible {
 
 extension OverloadConstraint.Predicate: CustomStringConvertible {
 
-  public var description: String {
+  var description: String {
     "\(reference) => {\(list: constraints, joinedBy: " ∧ ")}:\(penalties)"
   }
 
