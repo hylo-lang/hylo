@@ -24,7 +24,7 @@ public struct TypeChecker {
   private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
 
   /// A map from generic declarations to their environment.
-  private var environments = DeclProperty<GenericEnvironment>()
+  private(set) var environments = DeclProperty<GenericEnvironment>()
 
   /// A map from module to its synthesized declarations.
   private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]] = [:]
@@ -449,7 +449,8 @@ public struct TypeChecker {
       return
     }
 
-    // TODO: Handle generics
+    // Type check the generic constraints.
+    _ = environment(ofTypeExtendingDecl: d)
 
     check(conformanceList: ast[d].conformances, partOf: d)
     check(all: ast[d].members)
@@ -469,7 +470,8 @@ public struct TypeChecker {
       return
     }
 
-    // TODO: Handle generics
+    // Type check the generic constraints.
+    _ = environment(ofTypeExtendingDecl: d)
 
     check(all: ast[d].members)
   }
