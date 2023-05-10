@@ -449,7 +449,8 @@ public struct TypeChecker {
       return
     }
 
-    // TODO: Handle generics
+    // Type check the generic constraints.
+    _ = environment(ofTypeExtendingDecl: d)
 
     check(conformanceList: ast[d].conformances, partOf: d)
     check(all: ast[d].members)
@@ -469,7 +470,8 @@ public struct TypeChecker {
       return
     }
 
-    // TODO: Handle generics
+    // Type check the generic constraints.
+    _ = environment(ofTypeExtendingDecl: d)
 
     check(all: ast[d].members)
   }
