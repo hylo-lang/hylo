@@ -336,7 +336,7 @@ public struct Module {
       name: "",
       site: .empty(at: syntax.site.first()),
       linkage: .external,
-      parameters: [], // TODO
+      parameters: [],  // TODO
       inputs: inputs,
       output: output,
       blocks: [])
