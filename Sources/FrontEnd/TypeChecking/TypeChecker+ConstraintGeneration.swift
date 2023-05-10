@@ -869,7 +869,7 @@ extension TypeChecker {
 
       state.facts.append(
         DisjunctionConstraint(
-          choices: [
+          between: [
             .init(constraints: preferred, penalties: 0),
             .init(constraints: alternative, penalties: 1),
           ],

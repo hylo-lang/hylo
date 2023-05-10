@@ -12,7 +12,7 @@ struct DisjunctionConstraint: DisjunctiveConstraintProtocol, Hashable {
   /// Creates an instance with two or more minterms.
   ///
   /// - Requires: `choices.count >= 2`
-  init(choices: [Predicate], origin: ConstraintOrigin) {
+  init(between choices: [Predicate], origin: ConstraintOrigin) {
     precondition(choices.count >= 2)
     self.choices = choices
     self.origin = origin
@@ -34,12 +34,6 @@ struct DisjunctionConstraint: DisjunctiveConstraintProtocol, Hashable {
 
   /// A collection of constraints in a disjunction.
   struct Predicate: DisjunctiveConstraintTerm, Hashable {
-
-    /// Creates an instance having the given properties.
-    init(constraints: ConstraintSet, penalties: Int) {
-      self.constraints = constraints
-      self.penalties = penalties
-    }
 
     /// The constraints associated with this choice.
     let constraints: ConstraintSet

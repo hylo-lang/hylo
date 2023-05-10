@@ -536,7 +536,7 @@ public struct TypeChecker {
       return (t, constrainToNever)
     } else {
       let c = DisjunctionConstraint(
-        choices: [
+        between: [
           .init(constraints: [SubtypingConstraint(t, r, origin: o)], penalties: 0),
           .init(constraints: [constrainToNever], penalties: 1),
         ],
