@@ -103,8 +103,8 @@ struct SubstitutionMap {
 
   /// Returns `r` where each type variable occuring in its generic arguments of `r` are replaced by
   /// their corresponding value in `self`, applying `substitutionPolicy` to handle free variables.
-  func reifyArguments(
-    of r: DeclReference, withVariables substitutionPolicy: SubstitutionPolicy
+  func reify(
+    _ r: DeclReference, withVariables substitutionPolicy: SubstitutionPolicy
   ) -> DeclReference {
     switch r {
     case .direct(let d, let a):

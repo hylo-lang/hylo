@@ -1577,8 +1577,13 @@ public struct TypeChecker {
     for (e, t) in facts.inferredTypes.storage {
       exprTypes[e] = solution.typeAssumptions.reify(t)
     }
+
     for (n, r) in solution.bindingAssumptions {
-      let s = solution.typeAssumptions.reifyArguments(of: r, withVariables: .substituteByError)
+      var s = solution.typeAssumptions.reify(r, withVariables: .keep)
+      if s.arguments.values.contains(where: isTypeVariable(_:)) {
+        report(.error(notEnoughContextToInferArgumentsAt: ast[n].site))
+        s = solution.typeAssumptions.reify(r, withVariables: .substituteByError)
+      }
       referredDecls[n] = s
     }
 
