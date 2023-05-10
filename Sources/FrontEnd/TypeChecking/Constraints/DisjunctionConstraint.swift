@@ -2,23 +2,23 @@ import Core
 import Utils
 
 /// A disjunction of two or more constraint sets.
-public struct DisjunctionConstraint: DisjunctiveConstraintProtocol, Hashable {
+struct DisjunctionConstraint: DisjunctiveConstraintProtocol, Hashable {
 
   /// The different choices in this disjunction.
-  public private(set) var choices: [Predicate]
+  private(set) var choices: [Predicate]
 
-  public let origin: ConstraintOrigin
+  let origin: ConstraintOrigin
 
   /// Creates an instance with two or more minterms.
   ///
   /// - Requires: `choices.count >= 2`
-  public init(choices: [Predicate], origin: ConstraintOrigin) {
+  init(choices: [Predicate], origin: ConstraintOrigin) {
     precondition(choices.count >= 2)
     self.choices = choices
     self.origin = origin
   }
 
-  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+  mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     for i in 0 ..< choices.count {
       choices[i] = Predicate(
         constraints: choices[i].constraints.reduce(
@@ -33,19 +33,19 @@ public struct DisjunctionConstraint: DisjunctiveConstraintProtocol, Hashable {
   }
 
   /// A collection of constraints in a disjunction.
-  public struct Predicate: DisjunctiveConstraintTerm, Hashable {
+  struct Predicate: DisjunctiveConstraintTerm, Hashable {
 
     /// Creates an instance having the given properties.
-    public init(constraints: ConstraintSet, penalties: Int) {
+    init(constraints: ConstraintSet, penalties: Int) {
       self.constraints = constraints
       self.penalties = penalties
     }
 
     /// The constraints associated with this choice.
-    public let constraints: ConstraintSet
+    let constraints: ConstraintSet
 
     /// The penalties associated with this choice.
-    public let penalties: Int
+    let penalties: Int
 
   }
 
@@ -53,7 +53,7 @@ public struct DisjunctionConstraint: DisjunctiveConstraintProtocol, Hashable {
 
 extension DisjunctionConstraint: CustomStringConvertible {
 
-  public var description: String {
+  var description: String {
     choices.descriptions(joinedBy: " ∨ ")
   }
 
@@ -61,7 +61,7 @@ extension DisjunctionConstraint: CustomStringConvertible {
 
 extension DisjunctionConstraint.Predicate: CustomStringConvertible {
 
-  public var description: String {
+  var description: String {
     "{\(list: constraints, joinedBy: " ∧ ")}:\(penalties)"
   }
 

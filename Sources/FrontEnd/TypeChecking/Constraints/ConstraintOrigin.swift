@@ -1,10 +1,10 @@
 import Core
 
 /// The site from which a constraint originates and the reason why it was formed.
-public struct ConstraintOrigin: Hashable {
+struct ConstraintOrigin: Hashable {
 
   /// The reason why a constraint was formed.
-  public enum Kind: Hashable {
+  enum Kind: Hashable {
 
     /// The constraint is caused by a type annotation.
     case annotation
@@ -57,19 +57,19 @@ public struct ConstraintOrigin: Hashable {
   }
 
   /// The reason of the constraint.
-  public let kind: Kind
+  let kind: Kind
 
   /// The site from which the constraint originates.
-  public let site: SourceRange
+  let site: SourceRange
 
   /// Creates a new instance with the given properties.
-  public init(_ kind: Kind, at site: SourceRange) {
+  init(_ kind: Kind, at site: SourceRange) {
     self.kind = kind
     self.site = site
   }
 
   /// Returns the parent of this instance if it has kind `.subordinate`.
-  public var parent: ConstraintOrigin? {
+  var parent: ConstraintOrigin? {
     if case .subordinate(let p) = kind {
       return p
     } else {
@@ -78,7 +78,7 @@ public struct ConstraintOrigin: Hashable {
   }
 
   /// Returns a subordinate of this instance with given `id`.
-  public func subordinate() -> ConstraintOrigin {
+  func subordinate() -> ConstraintOrigin {
     .init(.subordinate(parent: self), at: site)
   }
 
@@ -86,6 +86,6 @@ public struct ConstraintOrigin: Hashable {
 
 extension ConstraintOrigin: CustomStringConvertible {
 
-  public var description: String { .init(describing: kind) }
+  var description: String { .init(describing: kind) }
 
 }
