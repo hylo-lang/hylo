@@ -1164,7 +1164,7 @@ private func inferenceConstraint(
   }
 
   return DisjunctionConstraint(
-    choices: [
+    between: [
       .init(constraints: [EqualityConstraint(subtype, supertype, origin: origin)], penalties: 0),
       .init(constraints: [alternative], penalties: 1),
     ],

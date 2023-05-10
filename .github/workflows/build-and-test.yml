@@ -25,7 +25,10 @@ jobs:
       fail-fast: false
       matrix:
         host: [
-          { type: linux, os: ubuntu-latest, test-options: "-Xswiftc -enable-testing --enable-code-coverage" }
+          { type: linux, os: ubuntu-latest,
+	    build-options: "-v --build-tests -Xswiftc -enable-testing",
+	    test-options: "-v --enable-code-coverage"
+	  }
         ]
         configuration: [ "debug", "release" ]
 
@@ -35,12 +38,12 @@ jobs:
 
     - run: git config --global core.autocrlf input
 
-    - name: Build and run devcontainer task
+    - name: Build and Test
       uses: devcontainers/ci@v0.3
       with:
-        runCmd: | 
-          swift build -v -c ${{ matrix.configuration }}
-          swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
+        runCmd: |
+          swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }} &&
+          swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
 
     - name: Check code coverage
       uses: mattpolzin/swift-codecov-action@0.7.3
@@ -55,7 +58,12 @@ jobs:
       fail-fast: false
       matrix:
         host: [
-          { type: macos, os: macos-latest, test-options: "-Xswiftc -enable-testing --enable-code-coverage" }
+          {
+  	    type: macos, os: macos-latest,
+            build-options: "-v --build-tests -Xswiftc -enable-testing",
+	    # No coverage support on MacOS
+	    test-options: "-v"
+	  }
         ]
         swift: [
           { version: "5.8" }
@@ -83,14 +91,18 @@ jobs:
 
     - run: llvm-config --version
 
-    - name: Configure pkgconfig
+    - name: Generate LLVM pkgconfig file
       run: |
-        swift package resolve
-        sudo .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh /usr/local/lib/pkgconfig/llvm.pc
-        cat /usr/local/lib/pkgconfig/llvm.pc
+        swift package resolve &&
+        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc &&
+        cat llvm.pc
 
     - name: Build (${{ matrix.configuration }})
-      run: swift build -v -c ${{ matrix.configuration }}
+      run: |
+        export PKG_CONFIG_PATH=$PWD &&
+        swift build -c ${{ matrix.configuration }} ${{ matrix.host.build-options }}
 
     - name: Test (${{ matrix.configuration }})
-      run: swift test -v -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
+      run: |
+        export PKG_CONFIG_PATH=$PWD &&
+        swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}

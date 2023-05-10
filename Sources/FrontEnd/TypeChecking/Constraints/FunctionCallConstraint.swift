@@ -17,13 +17,6 @@ struct FunctionCallConstraint: Constraint, Hashable {
     /// The site from which the argument's value was parsed.
     let site: SourceRange
 
-    /// Creates an instance with the given properties.
-    init(label: SourceRepresentable<String>?, type: AnyType, site: SourceRange) {
-      self.label = label
-      self.type = type
-      self.site = site
-    }
-
   }
 
   /// A type assumed to be callable.
