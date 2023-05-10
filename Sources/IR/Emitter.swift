@@ -181,8 +181,7 @@ public struct Emitter {
     // Emit FFI call.
     var arguments: [Operand] = []
     for i in module[entry].inputs.indices {
-      let a = emitConvertToForeign(
-        .parameter(entry, i), usedIn: d.scope.id, at: d.site, into: &module)
+      let a = emitConvertToForeign(.parameter(entry, i), at: d.site, into: &module)
       arguments.append(a)
     }
 
@@ -200,8 +199,7 @@ public struct Emitter {
       return
     }
 
-    let v = emitConvert(
-      foreign: foreignResult, to: output, usedIn: d.scope.id, at: d.site, into: &module)
+    let v = emitConvert(foreign: foreignResult, to: output, at: d.site, into: &module)
     emitStackDeallocs(in: &module, site: d.site)
     module.append(
       module.makeReturn(v, anchoredAt: d.site),
@@ -998,7 +996,7 @@ public struct Emitter {
       to: insertionBlock!)[0]
 
     // Initialize storage.
-    let f = FunctionReference(to: program[d], in: &module)
+    let f = FunctionReference(to: program[d], usedIn: frames.top.scope, in: &module)
     module.append(
       module.makeCall(applying: .constant(f), to: [r] + a, anchoredAt: expr.site),
       to: insertionBlock!)
@@ -1148,7 +1146,7 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     _ = emit(functionDecl: e.decl, into: &module)
-    let f = FunctionReference(to: program[e.decl], in: &module)
+    let f = FunctionReference(to: program[e.decl], usedIn: frames.top.scope, in: &module)
     return module.append(
       module.makePartialApply(wrapping: f, with: .void, anchoredAt: e.site),
       to: insertionBlock!)[0]
@@ -1271,13 +1269,13 @@ public struct Emitter {
       guard case .member(let calleeDecl, _) = program.referredDecls[callee.expr] else {
         unreachable()
       }
-      let f = Operand.constant(
-        FunctionReference(to: program[FunctionDecl.ID(calleeDecl)!], in: &module))
+      let f = FunctionReference(
+        to: program[FunctionDecl.ID(calleeDecl)!], usedIn: frames.top.scope, in: &module)
 
       // Emit the call.
-      return module.append(
-        module.makeCall(applying: f, to: [l, r], anchoredAt: program.ast.site(of: expr)),
-        to: insertionBlock!)[0]
+      let call = module.makeCall(
+        applying: .constant(f), to: [l, r], anchoredAt: program.ast.site(of: expr))
+      return module.append(call, to: insertionBlock!)[0]
 
     case .leaf(let expr):
       return (convention == .sink)
@@ -1364,18 +1362,15 @@ public struct Emitter {
       }
 
       let r = FunctionReference(
-        to: program[FunctionDecl.ID(d)!], parameterizedBy: a,
+        to: program[FunctionDecl.ID(d)!], usedIn: frames.top.scope, parameterizedBy: a,
         in: &module)
       return (.constant(r), [])
 
     case .member(let d, let a) where d.kind == FunctionDecl.self:
-      if !a.isEmpty {
-        print("Hello")
-      }
-
       // Callee is a member reference to a function or method.
       let r = FunctionReference(
-        to: program[FunctionDecl.ID(d)!], parameterizedBy: a, in: &module)
+        to: program[FunctionDecl.ID(d)!], usedIn: frames.top.scope, parameterizedBy: a,
+        in: &module)
 
       // Emit the location of the receiver.
       let receiver: Operand
@@ -1598,16 +1593,16 @@ public struct Emitter {
       into: &module)
   }
 
-  /// Inserts the IR for converting `foreign` to a value of type `ir` when it's used in `useScope`.
+  /// Inserts the IR for converting `foreign` to a value of type `ir`.
   private mutating func emitConvert(
     foreign: Operand,
     to ir: AnyType,
-    usedIn useScope: AnyScopeID,
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
     precondition(module.type(of: foreign).isObject)
 
+    let useScope = frames.top.scope
     let foreignConvertible = program.ast.coreTrait("ForeignConvertible")!
     let foreignConvertibleConformance = program.conformance(
       of: ir, to: foreignConvertible, exposedTo: useScope)!
@@ -1616,7 +1611,8 @@ public struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(to: program[InitializerDecl.ID(m)!], in: &module)
+      let convert = FunctionReference(
+        to: program[InitializerDecl.ID(m)!], usedIn: useScope, in: &module)
       let x0 = module.append(
         module.makeAllocStack(ir, anchoredAt: site),
         to: insertionBlock!)[0]
@@ -1638,16 +1634,16 @@ public struct Emitter {
     }
   }
 
-  /// Appends the IR to convert `o` to a FFI argument when it's used in `useScope`.
+  /// Appends the IR to convert `o` to a FFI argument.
   private mutating func emitConvertToForeign(
     _ o: Operand,
-    usedIn useScope: AnyScopeID,
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
     let t = module.type(of: o)
     precondition(t.isAddress)
 
+    let useScope = frames.top.scope
     let foreignConvertible = program.ast.coreTrait("ForeignConvertible")!
     let foreignConvertibleConformance = program.conformance(
       of: t.ast, to: foreignConvertible, exposedTo: useScope)!
@@ -1657,7 +1653,8 @@ public struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(to: program[FunctionDecl.ID(m)!], in: &module)
+      let convert = FunctionReference(
+        to: program[FunctionDecl.ID(m)!], usedIn: useScope, in: &module)
       let x0 = module.append(
         module.makeBorrow(.let, from: o, anchoredAt: site),
         to: insertionBlock!)
@@ -1927,13 +1924,13 @@ public struct Emitter {
     into module: inout Module
   ) {
     let f = module.demandMoveOperatorDeclaration(access, from: c)
-    let callee = FunctionReference(to: f, in: module)
+    let move = FunctionReference(to: f, usedIn: c.scope, in: module)
 
     let r = module.append(
       module.makeBorrow(access, from: storage, anchoredAt: anchor),
       to: insertionBlock!)[0]
     module.append(
-      module.makeCall(applying: .constant(callee), to: [r, value], anchoredAt: anchor),
+      module.makeCall(applying: .constant(move), to: [r, value], anchoredAt: anchor),
       to: insertionBlock!)
   }
 
