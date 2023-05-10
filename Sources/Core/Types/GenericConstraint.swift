@@ -11,7 +11,7 @@ public struct GenericConstraint: Hashable {
     case instance(_ lhs: AnyExprID, _ rhs: AnyType)
 
     /// A constraint specifying that `lhs` conforms to the trais in `rhs`, defined at `site`.
-    case conformance(_ lhs: AnyExprID, _ rhs: Set<TraitType>)
+    case conformance(_ lhs: AnyType, _ rhs: Set<TraitType>)
 
     /// A constraint specifying that the payload evaluates to `true`.
     case predicate(AnyExprID)
@@ -23,5 +23,11 @@ public struct GenericConstraint: Hashable {
 
   /// The site from which `self` was parsed.
   public let site: SourceRange
+
+  /// Creates an instance with given properties.
+  public init(_ value: Value, at site: SourceRange) {
+    self.value = value
+    self.site = site
+  }
 
 }
