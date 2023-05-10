@@ -23,6 +23,9 @@ public struct TypeChecker {
   /// A map from function and subscript declarations to their implicit captures.
   private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
 
+  /// A map from generic declarations to their environment.
+  private var environments = DeclProperty<GenericEnvironment>()
+
   /// A map from module to its synthesized declarations.
   private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]] = [:]
 
@@ -239,9 +242,6 @@ public struct TypeChecker {
 
   /// A cache for type checking requests on declarations.
   private var declRequests = DeclProperty<RequestStatus>()
-
-  /// A cache mapping generic declarations to their environment.
-  private var environments = DeclProperty<MemoizationState<GenericEnvironment>>()
 
   /// The bindings whose initializers are being currently visited.
   private var bindingsUnderChecking: DeclSet = []
@@ -1277,20 +1277,14 @@ public struct TypeChecker {
   /// Returns the generic environment defined by `id`.
   private mutating func environment<T: GenericDecl>(of id: T.ID) -> GenericEnvironment {
     assert(T.self != TraitDecl.self, "trait environements use a more specialized method")
-
-    switch environments[id] {
-    case .done(let e):
+    if let e = environments[id] {
       return e
-    case .inProgress:
-      fatalError("circular dependency")
-    case nil:
-      environments[id] = .inProgress
     }
 
     // Nothing to do if the declaration has no generic clause.
     guard let clause = ast[id].genericClause?.value else {
       let e = GenericEnvironment(decl: id, parameters: [], constraints: [], into: &self)
-      environments[id] = .done(e)
+      environments[id] = e
       return e
     }
 
@@ -1332,7 +1326,7 @@ public struct TypeChecker {
 
     let e = GenericEnvironment(
       decl: id, parameters: clause.parameters, constraints: constraints, into: &self)
-    environments[id] = .done(e)
+    environments[id] = e
     return e
   }
 
@@ -1340,13 +1334,8 @@ public struct TypeChecker {
   private mutating func environment<T: TypeExtendingDecl>(
     ofTypeExtendingDecl id: T.ID
   ) -> GenericEnvironment {
-    switch environments[id] {
-    case .done(let e):
+    if let e = environments[id] {
       return e
-    case .inProgress:
-      fatalError("circular dependency")
-    case nil:
-      environments[id] = .inProgress
     }
 
     let scope = AnyScopeID(id)
@@ -1362,7 +1351,7 @@ public struct TypeChecker {
     }
 
     let e = GenericEnvironment(decl: id, parameters: [], constraints: constraints, into: &self)
-    environments[id] = .done(e)
+    environments[id] = e
     return e
   }
 
@@ -1370,13 +1359,8 @@ public struct TypeChecker {
   private mutating func environment(
     ofTraitDecl id: TraitDecl.ID
   ) -> GenericEnvironment {
-    switch environments[id] {
-    case .done(let e):
+    if let e = environments[id] {
       return e
-    case .inProgress:
-      fatalError("circular dependency")
-    case nil:
-      environments[id] = .inProgress
     }
 
     var constraints: [Constraint] = []
@@ -1404,7 +1388,7 @@ public struct TypeChecker {
 
     let e = GenericEnvironment(
       decl: id, parameters: [selfDecl], constraints: constraints, into: &self)
-    environments[id] = .done(e)
+    environments[id] = e
     return e
   }
 
