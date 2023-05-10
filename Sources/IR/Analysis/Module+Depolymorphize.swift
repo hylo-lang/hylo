@@ -91,6 +91,8 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(_ i: InstructionID, to b: Block.ID) {
       switch self[i] {
+      case is RecordInstruction:
+        rewrite(record: i, to: b)
       case is ReturnInstruction:
         rewrite(return: i, to: b)
       default:
@@ -103,6 +105,14 @@ extension Module {
     func rewrite(return i: InstructionID, to b: Block.ID) {
       let s = self[i] as! ReturnInstruction
       append(makeReturn(rewritten(s.object), anchoredAt: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(record i: InstructionID, to b: Block.ID) {
+      let s = self[i] as! RecordInstruction
+      let t = program.monomorphize(s.objectType.ast, applying: r.arguments, in: r.useScope)
+      let o = s.operands.map(rewritten(_:))
+      append(makeRecord(t, aggregating: o, anchoredAt: s.site), to: b)
     }
 
     /// Returns the rewritten form of `o`, which is used in `r.function`, for use in `result`.
