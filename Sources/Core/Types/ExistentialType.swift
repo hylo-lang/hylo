@@ -10,7 +10,7 @@ public struct ExistentialType: TypeProtocol {
     case traits(Set<TraitType>)
 
     /// The declaration of the unparameterized generic type of the witness.
-    case generic(AnyDeclID)
+    case generic(AnyType)
 
     /// An unparameterized metatype.
     case metatype
@@ -42,11 +42,8 @@ public struct ExistentialType: TypeProtocol {
 
     // TODO: Consider the flags of the types in the cosntraints?
     switch t.base {
-    case let u as ProductType:
-      self.interface = .generic(AnyDeclID(u.decl))
-      self.flags = t.flags.removing(.isGeneric)
-    case let u as TypeAliasType:
-      self.interface = .generic(AnyDeclID(u.decl))
+    case is ProductType, is TypeAliasType:
+      self.interface = .generic(t)
       self.flags = t.flags.removing(.isGeneric)
     case is MetatypeType:
       self.interface = .metatype

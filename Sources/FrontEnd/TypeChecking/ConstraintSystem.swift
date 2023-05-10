@@ -291,7 +291,17 @@ struct ConstraintSystem {
           return delegate(to: [s])
         }
 
-      case .generic(let d):
+      case .generic(let r):
+        let d: AnyDeclID
+        switch r.base {
+        case let u as ProductType:
+          d = AnyDeclID(u.decl)
+        case let u as TypeAliasType:
+          d = AnyDeclID(u.decl)
+        default:
+          unreachable()
+        }
+
         let r = checker.openForUnification(d)
         let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin))
         return delegate(to: [s])
