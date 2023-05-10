@@ -1952,6 +1952,8 @@ public struct TypeChecker {
       return lookup(stem, memberOf: t.base, exposedTo: useScope)
     case let t as ConformanceLensType:
       return lookup(stem, memberOf: ^t.lens, exposedTo: useScope)
+    case let t as ExistentialType:
+      return lookup(stem, memberOf: t, exposedTo: useScope)
     default:
       break
     }
@@ -2009,6 +2011,40 @@ public struct TypeChecker {
     case .metatype:
       return []
     }
+  }
+
+  /// Returns the declarations introducing a name with given `stem` in extensions of `domain`
+  /// exposed to `useScope`.
+  private mutating func lookup(
+    _ stem: String,
+    inExtensionsOf domain: AnyType,
+    exposedTo useScope: AnyScopeID
+  ) -> DeclSet {
+    var matches = DeclSet()
+
+    // Look for members declared in extensions.
+    for i in extendingDecls(of: domain, exposedTo: useScope) {
+      matches.formUnion(names(introducedIn: i)[stem, default: []])
+    }
+
+    // Look for members declared inherited by conformance/refinement.
+    for trait in conformedTraits(of: domain, in: useScope) where domain != trait {
+      // TODO: Read source of conformance to disambiguate associated names
+      let newMatches = lookup(stem, memberOf: ^trait, exposedTo: useScope)
+
+      // Associated type and value declarations are not inherited by conformance. Traits do not
+      // inherit the generic parameters.
+      switch domain.base {
+      case is AssociatedTypeType, is GenericTypeParameterType:
+        matches.formUnion(newMatches)
+      case is TraitType:
+        matches.formUnion(newMatches.filter({ $0.kind != GenericParameterDecl.self }))
+      default:
+        matches.formUnion(newMatches.filter(program.isRequirement(_:)))
+      }
+    }
+
+    return matches
   }
 
   /// Returns the declarations introducing `name` in the declaration space that are exposed to
