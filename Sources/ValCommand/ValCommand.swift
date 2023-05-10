@@ -169,9 +169,10 @@ public struct ValCommand: ParsableCommand {
       irModules[d] = try lower(d, in: program, reportingDiagnosticsInto: &diagnostics)
     }
 
-    let ir = LoweredProgram(syntax: program, modules: irModules)
-
     // LLVM
+
+    var ir = LoweredProgram(syntax: program, modules: irModules)
+    ir.applyPass(.depolymorphize)
 
     let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
     var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
