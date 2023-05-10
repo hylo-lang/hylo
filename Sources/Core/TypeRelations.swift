@@ -61,11 +61,6 @@ public struct TypeRelations {
     }
   }
 
-  /// Returns the canonical form of `constraint`.
-  public func canonical(_ constraint: Constraint) -> Constraint {
-    constraint.modifyingTypes(canonical(_:))
-  }
-
   /// Returns a copy of `generic` where occurrences of parameters keying `subtitutions` are
   /// replaced by their corresponding value, performing necessary conformance lookups from
   /// `useScope`, which is in `program`.

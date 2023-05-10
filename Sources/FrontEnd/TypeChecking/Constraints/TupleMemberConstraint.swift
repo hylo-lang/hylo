@@ -1,3 +1,4 @@
+import Core
 import Utils
 
 /// A constraint `L.i == R` stating that `L` is a tuple type whose `i`-th element has type `R`.

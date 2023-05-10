@@ -1,3 +1,5 @@
+import Core
+
 /// A constraint that consists of an arbitrary expression that must evaluate to `true`.
 public struct PredicateConstraint: Constraint, Hashable {
 

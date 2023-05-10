@@ -1,7 +1,12 @@
+import Core
 import Utils
 
-/// A constraint `L == R` specifying that `L` is exactly the same type as `R`.
-public struct EqualityConstraint: Constraint, Hashable {
+/// A constraint `L ⤷ R` specifying that `R` is a parameter type and `L` the type of a compatible
+/// argument.
+///
+/// - Note: Solving a constraint `l ⤷ R` where `R` is a type variable requires that there be
+///   another constraint on `R` fixing its parameter passing convention.
+public struct ParameterConstraint: Constraint, Hashable {
 
   /// The left operand.
   public private(set) var left: AnyType
@@ -18,13 +23,6 @@ public struct EqualityConstraint: Constraint, Hashable {
     self.origin = origin
   }
 
-  /// Creates an instance transforming by `constraint`.
-  public init(_ constraint: SubtypingConstraint) {
-    self.left = constraint.left
-    self.right = constraint.right
-    self.origin = constraint.origin
-  }
-
   public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     update(&left, with: transform)
     update(&right, with: transform)
@@ -32,8 +30,8 @@ public struct EqualityConstraint: Constraint, Hashable {
 
 }
 
-extension EqualityConstraint: CustomStringConvertible {
+extension ParameterConstraint: CustomStringConvertible {
 
-  public var description: String { "\(left) == \(right)" }
+  public var description: String { "\(left) ⤷ \(right)" }
 
 }
