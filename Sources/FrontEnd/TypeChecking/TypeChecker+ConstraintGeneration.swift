@@ -21,16 +21,14 @@ extension TypeChecker {
     /// A map from visited expression to its inferred type.
     private(set) var inferredTypes = ExprProperty<AnyType>()
 
+    /// A map from name expression to its inferred declaration.
+    private(set) var inferredBindings: [NameExpr.ID: DeclReference] = [:]
+
     /// The set of type constraints between the types involved in the visited expressions.
     private(set) var constraints: [Constraint] = []
 
     /// True iff a constraint could not be solved.
     private(set) var foundConflict = false
-
-    /// Creates a base of facts assigning `type` to `subject`.
-    fileprivate init<ID: ExprID>(assigning type: AnyType, to subject: ID) {
-      assign(type, to: subject)
-    }
 
     /// Creates an empty base of facts.
     fileprivate init() {}
@@ -46,6 +44,11 @@ extension TypeChecker {
     /// Assigns `type` to `subject`.
     fileprivate mutating func assign<ID: ExprID>(_ type: AnyType, to subject: ID) {
       inferredTypes[subject] = type
+    }
+
+    /// Assigns `n` to `r`.
+    fileprivate mutating func assign(_ n: NameExpr.ID, to r: DeclReference) {
+      inferredBindings[n] = r
     }
 
     /// Constrains `subject` to have type `inferredType` and returns either `inferredType` or the
@@ -111,11 +114,9 @@ extension TypeChecker {
     shapedBy shape: AnyType?,
     in scope: AnyScopeID
   ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
-    var s: State
+    var s: State = (facts: .init(), deferred: [])
     if let t = exprTypes[subject] {
-      s = (facts: .init(assigning: t, to: subject), deferred: [])
-    } else {
-      s = (facts: .init(), deferred: [])
+      s.facts.assign(t, to: subject)
     }
 
     let t = inferredType(of: subject, shapedBy: shape, in: scope, updating: &s)
@@ -310,12 +311,10 @@ extension TypeChecker {
 
     // The callee has a metatype and is a name expression bound to a nominal type declaration,
     // meaning that the call is actually a sugared initializer call.
-    if let c = NameExpr.ID(syntax.callee), let d = referredDecls[c]?.decl, isNominalTypeDecl(d) {
+    if isBoundToNominalTypeDecl(syntax.callee, in: state) {
       return inferredType(
-        ofInitializerCall: subject,
-        initializing: MetatypeType(callee)!.instance,
-        in: scope,
-        updating: &state)
+        ofInitializerCall: subject, initializing: MetatypeType(callee)!.instance,
+        in: scope, updating: &state)
     }
 
     // The callee has a callable type or its we need inferrence to determine its type. Either way,
@@ -371,7 +370,7 @@ extension TypeChecker {
     if let pick = initCandidates.elements.uniqueElement {
       // Rebind the callee and constrain its type.
       let constructor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
-      referredDecls[callee] = DeclReference(constructor: pick.reference)!
+      state.facts.assign(callee, to: DeclReference(constructor: pick.reference)!)
       state.facts.assign(^constructor, to: callee)
       state.facts.append(pick.type.constraints)
 
@@ -715,10 +714,7 @@ extension TypeChecker {
     }
 
     // Case 3b
-    if let c = NameExpr.ID(syntax.callee),
-      let d = referredDecls[c]?.decl,
-      isNominalTypeDecl(d)
-    {
+    if isBoundToNominalTypeDecl(syntax.callee, in: state) {
       assert(calleeType.base is MetatypeType)
 
       // Buffer type expressions shall have exactly one argument.
@@ -770,7 +766,7 @@ extension TypeChecker {
         // Update the referred declaration map if necessary.
         // FIXME: Handle generic arguments
         if let c = NameExpr.ID(syntax.callee) {
-          referredDecls[c] = .member(decl, [:])
+          state.facts.assign(c, to: .member(decl, [:]))
         }
 
         return state.facts.constrain(subject, in: ast, toHaveType: calleeType.output)
@@ -873,7 +869,7 @@ extension TypeChecker {
 
       state.facts.append(
         DisjunctionConstraint(
-          choices: [
+          between: [
             .init(constraints: preferred, penalties: 0),
             .init(constraints: alternative, penalties: 1),
           ],
@@ -1042,6 +1038,16 @@ extension TypeChecker {
 
   // MARK: Helpers
 
+  /// Returns `true` iff `e` is a name assumed bound to a nominal type declaration in `state`.
+  private mutating func isBoundToNominalTypeDecl(_ e: AnyExprID, in state: State) -> Bool {
+    guard
+      let c = NameExpr.ID(e),
+      let d = state.facts.inferredBindings[c]?.decl,
+      isNominalTypeDecl(d)
+    else { return false }
+    return true
+  }
+
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
   /// to generate their type constraints assuming they have the corresponding type in `parameters`
   /// and returns `true`. Otherwise, returns `false`.
@@ -1115,7 +1121,7 @@ extension TypeChecker {
 
     if let candidate = candidates.uniqueElement {
       // Bind the component to the resolved declaration and store its type.
-      referredDecls[name] = candidate.reference
+      state.facts.assign(name, to: candidate.reference)
       state.facts.append(candidate.type.constraints)
       return state.facts.constrain(name, in: ast, toHaveType: candidate.type.shape)
     } else {

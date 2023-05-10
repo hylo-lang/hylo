@@ -14,6 +14,11 @@ extension LLVM.Module {
 
   /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
   mutating func incorporate(_ f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram) {
+    // Don't transpile generic functions.
+    if m[f].isGeneric {
+      return
+    }
+
     if m[f].isSubscript {
       let d = declare(subscript: f, of: m, from: ir)
       transpile(contentsOf: f, of: m, from: ir, into: d)

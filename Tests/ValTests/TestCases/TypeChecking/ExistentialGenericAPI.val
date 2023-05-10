@@ -1,0 +1,14 @@
+//! expect-success
+
+type A<X> {
+  public fun foo() -> Int { 42 }
+}
+
+fun check<T>(_ x: T) {}
+
+public fun main() {
+  let x0: any A = A()
+
+  // Note: resolves to `A.foo`.
+  check<Int>(x0.foo())
+}

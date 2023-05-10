@@ -22,11 +22,14 @@ public struct TypedProgram: Program {
   /// The type of each expression.
   public let exprTypes: ExprProperty<AnyType>
 
-  /// A map from module to its synthesized declarations.
-  public let synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]]
-
   /// A map from function and subscript declarations to their implicit captures.
   public let implicitCaptures: DeclProperty<[ImplicitCapture]>
+
+  /// A map from generic declarations to their environment.
+  public let environments: DeclProperty<GenericEnvironment>
+
+  /// A map from module to its synthesized declarations.
+  public let synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]]
 
   /// A map from name expression to its referred declaration.
   public let referredDecls: [NameExpr.ID: DeclReference]
@@ -51,6 +54,7 @@ public struct TypedProgram: Program {
     declTypes: DeclProperty<AnyType>,
     exprTypes: ExprProperty<AnyType>,
     implicitCaptures: DeclProperty<[ImplicitCapture]>,
+    environments: DeclProperty<GenericEnvironment>,
     synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]],
     referredDecls: [NameExpr.ID: DeclReference],
     foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr],
@@ -68,6 +72,7 @@ public struct TypedProgram: Program {
     self.declTypes = declTypes
     self.exprTypes = exprTypes
     self.implicitCaptures = implicitCaptures
+    self.environments = environments
     self.synthesizedDecls = synthesizedDecls
     self.referredDecls = referredDecls
     self.foldedSequenceExprs = foldedSequenceExprs
@@ -105,6 +110,33 @@ public struct TypedProgram: Program {
       result.append(contentsOf: implicitCaptures[bundle]!.map(\.decl))
     }
     return result
+  }
+
+  /// Returns the generic parameters taken by `s`, in outer to inner, left to right.
+  ///
+  /// A declaration may take generic parameters even if it doesn't declare any. For example, a
+  /// nested function will implicitly capture the generic parameters introduced in its context.
+  public func accumulatedGenericParameters<S: ScopeID>(
+    of s: S
+  ) -> some Collection<GenericParameterDecl.ID> {
+    let p = scopes(from: s).compactMap { (t) -> [GenericParameterDecl.ID]? in
+      if !(t.kind.value is GenericScope.Type) { return nil }
+      return environments[AnyDeclID(t)!]!.parameters
+    }
+    return p.reversed().joined()
+  }
+
+  /// Returns a copy of `generic` where occurrences of parameters keying `subtitutions` are
+  /// replaced by their corresponding value, performing necessary conformance lookups from
+  /// `useScope`, which is in `self`.
+  ///
+  /// This method has no effect if `substitutions` is empty.
+  public func monomorphize(
+    _ generic: AnyType,
+    applying substitutions: GenericArguments,
+    in useScope: AnyScopeID
+  ) -> AnyType {
+    relations.monomorphize(generic, applying: substitutions, in: useScope, in: self)
   }
 
 }

@@ -1,22 +1,23 @@
+import Core
 import Utils
 
 /// A constraint `L.i == R` stating that `L` is a tuple type whose `i`-th element has type `R`.
-public struct TupleMemberConstraint: Constraint, Hashable {
+struct TupleMemberConstraint: Constraint, Hashable {
 
   /// The base type of the left operand.
-  public private(set) var subject: AnyType
+  private(set) var subject: AnyType
 
   /// The index of the element in `subject` that must have type `memberType`.
-  public let elementIndex: Int
+  let elementIndex: Int
 
   /// The type of subject's element.
-  public private(set) var elementType: AnyType
+  private(set) var elementType: AnyType
 
-  public let origin: ConstraintOrigin
+  let origin: ConstraintOrigin
 
   /// Creates a constraint requiring `tuple` to be a tuple type with an element of type
   /// `memberType` at given `index`.
-  public init(
+  init(
     _ tuple: AnyType,
     at index: Int,
     hasType element: AnyType,
@@ -28,7 +29,7 @@ public struct TupleMemberConstraint: Constraint, Hashable {
     self.origin = origin
   }
 
-  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+  mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     update(&subject, with: transform)
     update(&elementType, with: transform)
   }
@@ -37,6 +38,8 @@ public struct TupleMemberConstraint: Constraint, Hashable {
 
 extension TupleMemberConstraint: CustomStringConvertible {
 
-  public var description: String { "\(subject).\(elementIndex) == \(elementType)" }
+  var description: String {
+    "\(subject).\(elementIndex) == \(elementType)"
+  }
 
 }

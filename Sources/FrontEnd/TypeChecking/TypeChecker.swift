@@ -23,11 +23,14 @@ public struct TypeChecker {
   /// A map from function and subscript declarations to their implicit captures.
   private(set) var implicitCaptures = DeclProperty<[ImplicitCapture]>()
 
+  /// A map from generic declarations to their environment.
+  private(set) var environments = DeclProperty<GenericEnvironment>()
+
   /// A map from module to its synthesized declarations.
   private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]] = [:]
 
   /// A map from name expression to its referred declaration.
-  var referredDecls: BindingMap = [:]
+  private(set) var referredDecls: BindingMap = [:]
 
   /// A map from sequence expressions to their evaluation order.
   var foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr] = [:]
@@ -145,6 +148,16 @@ public struct TypeChecker {
       }))
   }
 
+  /// Returns `s` extended with traits refined by the elements of `s` in `useScope`.
+  private mutating func derivedTraits(
+    of s: Set<TraitType>,
+    in useScope: AnyScopeID
+  ) -> Set<TraitType> {
+    s.reduce(into: Set<TraitType>()) { (r, t) in
+      r.formUnion(conformedTraits(of: ^t, in: useScope))
+    }
+  }
+
   /// Returns the set of traits to which `type` conforms in `useScope`, visiting all conformance
   /// and refinement declarations recursively.
   ///
@@ -239,9 +252,6 @@ public struct TypeChecker {
 
   /// A cache for type checking requests on declarations.
   private var declRequests = DeclProperty<RequestStatus>()
-
-  /// A cache mapping generic declarations to their environment.
-  private var environments = DeclProperty<MemoizationState<GenericEnvironment>>()
 
   /// The bindings whose initializers are being currently visited.
   private var bindingsUnderChecking: DeclSet = []
@@ -439,7 +449,8 @@ public struct TypeChecker {
       return
     }
 
-    // TODO: Handle generics
+    // Type check the generic constraints.
+    _ = environment(ofTypeExtendingDecl: d)
 
     check(conformanceList: ast[d].conformances, partOf: d)
     check(all: ast[d].members)
@@ -459,7 +470,8 @@ public struct TypeChecker {
       return
     }
 
-    // TODO: Handle generics
+    // Type check the generic constraints.
+    _ = environment(ofTypeExtendingDecl: d)
 
     check(all: ast[d].members)
   }
@@ -526,7 +538,7 @@ public struct TypeChecker {
       return (t, constrainToNever)
     } else {
       let c = DisjunctionConstraint(
-        choices: [
+        between: [
           .init(constraints: [SubtypingConstraint(t, r, origin: o)], penalties: 0),
           .init(constraints: [constrainToNever], penalties: 1),
         ],
@@ -727,7 +739,7 @@ public struct TypeChecker {
 
   private mutating func _check(trait d: TraitDecl.ID) {
     guard let t = MetatypeType(declTypes[d]!)?.instance else { return }
-    _ = environment(ofTraitDecl: d)
+    _ = environment(ofTrait: d)
     check(all: ast[d].members)
     check(all: extendingDecls(of: t, exposedTo: program.declToScope[d]!))
 
@@ -1257,6 +1269,10 @@ public struct TypeChecker {
     switch scope.kind {
     case FunctionDecl.self:
       return environment(of: FunctionDecl.ID(scope)!)
+    case InitializerDecl.self:
+      return environment(of: InitializerDecl.ID(scope)!)
+    case MethodDecl.self:
+      return environment(of: MethodDecl.ID(scope)!)
     case ProductTypeDecl.self:
       return environment(of: ProductTypeDecl.ID(scope)!)
     case SubscriptDecl.self:
@@ -1264,151 +1280,125 @@ public struct TypeChecker {
     case TypeAliasDecl.self:
       return environment(of: TypeAliasDecl.ID(scope)!)
     case TraitDecl.self:
-      return environment(ofTraitDecl: NodeID(scope)!)
+      return environment(ofTrait: NodeID(scope)!)
     default:
       unreachable()
     }
   }
 
-  /// Returns the generic environment defined by `id`.
-  private mutating func environment<T: GenericDecl>(of id: T.ID) -> GenericEnvironment {
+  /// Returns the generic environment defined by `d`.
+  private mutating func environment<T: GenericDecl>(of d: T.ID) -> GenericEnvironment {
     assert(T.self != TraitDecl.self, "trait environements use a more specialized method")
-
-    switch environments[id] {
-    case .done(let e):
+    if let e = environments[d] {
       return e
-    case .inProgress:
-      fatalError("circular dependency")
-    case nil:
-      environments[id] = .inProgress
     }
 
     // Nothing to do if the declaration has no generic clause.
-    guard let clause = ast[id].genericClause?.value else {
-      let e = GenericEnvironment(decl: id, parameters: [], constraints: [], into: &self)
-      environments[id] = .done(e)
+    guard let clause = ast[d].genericClause?.value else {
+      let e = GenericEnvironment(introducing: [])
+      environments[d] = e
       return e
     }
 
-    var constraints: [Constraint] = []
+    var result = GenericEnvironment(introducing: clause.parameters)
 
-    // Check the conformance list of each generic type parameter.
+    // Generate sugared constraints from the parameters' conformance lists.
     for p in clause.parameters {
-      // Realize the parameter's declaration.
-      let parameterType = realize(genericParameterDecl: p)
-      if parameterType.isError { continue }
+      let parameter = realize(genericParameterDecl: p)
+      if parameter.isError {
+        continue
+      }
 
       // TODO: Type check default values.
 
       // Skip value declarations.
       guard
-        let lhs = MetatypeType(parameterType)?.instance,
+        let lhs = MetatypeType(parameter)?.instance,
         lhs.base is GenericTypeParameterType
       else { continue }
 
       // Synthesize the sugared conformance constraint, if any.
       let rhs = ast[p].conformances
-      let requiredTraits = realize(conformances: rhs, in: program.scopeToParent[AnyScopeID(id)!]!)
+      let requiredTraits = realize(conformances: rhs, in: program.scopeToParent[AnyScopeID(d)!]!)
       if !requiredTraits.isEmpty {
-        let constraintSite = ast[p].identifier.site
-        constraints.append(
-          ConformanceConstraint(
-            lhs, conformsTo: requiredTraits, origin: .init(.annotation, at: constraintSite)))
+        let allTraits = derivedTraits(of: requiredTraits, in: AnyScopeID(d)!)
+        let s = ast[p].identifier.site
+        result.insertConstraint(.init(.conformance(lhs, allTraits), at: s))
       }
     }
 
-    // Evaluate the constraint expressions of the associated type's where clause.
+    // Generate constraints defined in the where clause.
     if let whereClause = clause.whereClause?.value {
       for expr in whereClause.constraints {
-        if let constraint = eval(constraintExpr: expr, in: AnyScopeID(id)!) {
-          constraints.append(constraint)
+        if let c = eval(constraint: expr, in: AnyScopeID(d)!) {
+          result.insertConstraint(c)
         }
       }
     }
 
-    let e = GenericEnvironment(
-      decl: id, parameters: clause.parameters, constraints: constraints, into: &self)
-    environments[id] = .done(e)
-    return e
+    environments[d] = result
+    return result
   }
 
-  /// Returns the generic environment defined by `i`, or `nil` if it is ill-typed.
+  /// Returns the generic environment defined by `d`, or `nil` if it is ill-typed.
   private mutating func environment<T: TypeExtendingDecl>(
-    ofTypeExtendingDecl id: T.ID
+    ofTypeExtendingDecl d: T.ID
   ) -> GenericEnvironment {
-    switch environments[id] {
-    case .done(let e):
+    if let e = environments[d] {
       return e
-    case .inProgress:
-      fatalError("circular dependency")
-    case nil:
-      environments[id] = .inProgress
     }
 
-    let scope = AnyScopeID(id)
-    var constraints: [Constraint] = []
-
-    // Evaluate the constraint expressions of the associated type's where clause.
-    if let whereClause = ast[id].whereClause?.value {
+    var result = GenericEnvironment(introducing: [])
+    if let whereClause = ast[d].whereClause?.value {
       for expr in whereClause.constraints {
-        if let constraint = eval(constraintExpr: expr, in: scope) {
-          constraints.append(constraint)
+        if let c = eval(constraint: expr, in: AnyScopeID(d)) {
+          result.insertConstraint(c)
         }
       }
     }
 
-    let e = GenericEnvironment(decl: id, parameters: [], constraints: constraints, into: &self)
-    environments[id] = .done(e)
-    return e
+    environments[d] = result
+    return result
   }
 
-  /// Returns the generic environment defined by `i`, or `nil` if it is ill-typed.
-  private mutating func environment(
-    ofTraitDecl id: TraitDecl.ID
-  ) -> GenericEnvironment {
-    switch environments[id] {
-    case .done(let e):
+  /// Returns the generic environment defined by `d`, or `nil` if it is ill-typed.
+  private mutating func environment(ofTrait d: TraitDecl.ID) -> GenericEnvironment {
+    if let e = environments[d] {
       return e
-    case .inProgress:
-      fatalError("circular dependency")
-    case nil:
-      environments[id] = .inProgress
     }
 
-    var constraints: [Constraint] = []
+    let receiver = ast[d].selfParameterDecl
+    var result = GenericEnvironment(introducing: [receiver])
 
     // Collect and type check the constraints defined on associated types and values.
-    for member in ast[id].members {
+    for member in ast[d].members {
       switch member.kind {
       case AssociatedTypeDecl.self:
-        appendAssociatedTypeConstraints(of: NodeID(member)!, declaredIn: id, to: &constraints)
+        insertConsraints(of: NodeID(member)!, in: d, to: &result)
       case AssociatedValueDecl.self:
-        appendAssociatedValueConstraints(of: NodeID(member)!, declaredIn: id, to: &constraints)
+        insertConstraints(of: NodeID(member)!, in: d, to: &result)
       default:
         continue
       }
     }
 
     // Synthesize `Self: T`.
-    let selfDecl = ast[id].selfParameterDecl
-    let selfType = GenericTypeParameterType(selfDecl, ast: ast)
-    let declaredTrait = TraitType(MetatypeType(declTypes[id]!)!.instance)!
-    constraints.append(
-      ConformanceConstraint(
-        ^selfType, conformsTo: [declaredTrait],
-        origin: ConstraintOrigin(.structural, at: ast[id].identifier.site)))
+    let receiverType = GenericTypeParameterType(receiver, ast: ast)
+    let declaredTrait = TraitType(MetatypeType(declTypes[d]!)!.instance)!
+    let c = GenericConstraint(
+      .conformance(^receiverType, conformedTraits(of: ^declaredTrait, in: AnyScopeID(d))),
+      at: ast[d].identifier.site)
+    result.insertConstraint(c)
 
-    let e = GenericEnvironment(
-      decl: id, parameters: [selfDecl], constraints: constraints, into: &self)
-    environments[id] = .done(e)
-    return e
+    environments[d] = result
+    return result
   }
 
   /// Evaluates the valid constraints declared in `associatedType` and adds them to `constraints`.
-  private mutating func appendAssociatedTypeConstraints(
+  private mutating func insertConsraints(
     of associatedType: AssociatedTypeDecl.ID,
-    declaredIn trait: TraitDecl.ID,
-    to constraints: inout [Constraint]
+    in trait: TraitDecl.ID,
+    to env: inout GenericEnvironment
   ) {
     // Realize the LHS of the constraint.
     let lhs = realize(decl: associatedType)
@@ -1418,27 +1408,26 @@ public struct TypeChecker {
     let rhs = ast[associatedType].conformances
     let requiredTraits = realize(conformances: rhs, in: AnyScopeID(trait))
     if !requiredTraits.isEmpty {
-      let constraintSite = ast[associatedType].identifier.site
-      constraints.append(
-        ConformanceConstraint(
-          lhs, conformsTo: requiredTraits, origin: .init(.annotation, at: constraintSite)))
+      let allTraits = derivedTraits(of: requiredTraits, in: AnyScopeID(trait))
+      let s = ast[associatedType].identifier.site
+      env.insertConstraint(.init(.conformance(lhs, allTraits), at: s))
     }
 
     // Evaluate the constraint expressions of the associated type's where clause.
     if let whereClause = ast[associatedType].whereClause?.value {
       for expr in whereClause.constraints {
-        if let constraint = eval(constraintExpr: expr, in: AnyScopeID(trait)) {
-          constraints.append(constraint)
+        if let c = eval(constraint: expr, in: AnyScopeID(trait)!) {
+          env.insertConstraint(c)
         }
       }
     }
   }
 
   /// Evaluates the valid constraints declared in `associatedValue` and adds them to `constraints`.
-  private mutating func appendAssociatedValueConstraints(
+  private mutating func insertConstraints(
     of associatedValue: AssociatedValueDecl.ID,
-    declaredIn trait: TraitDecl.ID,
-    to constraints: inout [Constraint]
+    in trait: TraitDecl.ID,
+    to env: inout GenericEnvironment
   ) {
     // Realize the LHS of the constraint.
     if realize(decl: associatedValue).isError { return }
@@ -1446,36 +1435,34 @@ public struct TypeChecker {
     // Evaluate the constraint expressions of the associated value's where clause.
     if let whereClause = ast[associatedValue].whereClause?.value {
       for expr in whereClause.constraints {
-        if let constraint = eval(constraintExpr: expr, in: AnyScopeID(trait)) {
-          constraints.append(constraint)
+        if let c = eval(constraint: expr, in: AnyScopeID(trait)!) {
+          env.insertConstraint(c)
         }
       }
     }
   }
 
-  /// Evaluates `expr` in `scope` and returns a type constraint, or `nil` if evaluation failed.
-  ///
-  /// - Note: Calling this method multiple times with the same arguments may duplicate diagnostics.
+  /// Evaluates `e` in `scope` to a generic constraint, or returns `nil` if that failed.
   private mutating func eval(
-    constraintExpr expr: SourceRepresentable<WhereClause.ConstraintExpr>,
+    constraint e: SourceRepresentable<WhereClause.ConstraintExpr>,
     in scope: AnyScopeID
-  ) -> Constraint? {
-    switch expr.value {
+  ) -> GenericConstraint? {
+    switch e.value {
     case .equality(let l, let r):
       guard let a = realize(name: l, in: scope)?.instance else { return nil }
       guard let b = realize(r, in: scope)?.instance else { return nil }
 
       if !a.isTypeParam && !b.isTypeParam {
-        diagnostics.insert(.error(invalidEqualityConstraintBetween: a, and: b, at: expr.site))
+        diagnostics.insert(.error(invalidEqualityConstraintBetween: a, and: b, at: e.site))
         return nil
       }
 
-      return EqualityConstraint(a, b, origin: ConstraintOrigin(.structural, at: expr.site))
+      return .init(.equality(a, b), at: e.site)
 
     case .conformance(let l, let traits):
       guard let a = realize(name: l, in: scope)?.instance else { return nil }
       if !a.isTypeParam {
-        diagnostics.insert(.error(invalidConformanceConstraintTo: a, at: expr.site))
+        diagnostics.insert(.error(invalidConformanceConstraintTo: a, at: e.site))
         return nil
       }
 
@@ -1485,17 +1472,17 @@ public struct TypeChecker {
         if let trait = type.base as? TraitType {
           b.insert(trait)
         } else {
-          diagnostics.insert(.error(conformanceToNonTraitType: a, at: expr.site))
+          diagnostics.insert(.error(conformanceToNonTraitType: a, at: e.site))
           return nil
         }
       }
 
-      return ConformanceConstraint(
-        a, conformsTo: b, origin: ConstraintOrigin(.structural, at: expr.site))
+      let allTraits = derivedTraits(of: b, in: scope)
+      return .init(.conformance(a, allTraits), at: e.site)
 
-    case .value(let e):
+    case .value(let p):
       // TODO: Symbolic execution
-      return PredicateConstraint(e, origin: ConstraintOrigin(.structural, at: expr.site))
+      return .init(.predicate(p), at: e.site)
     }
   }
 
@@ -1576,7 +1563,9 @@ public struct TypeChecker {
 
     // Solve the constraints.
     var s = ConstraintSystem(
-      initialConstraints + facts.constraints, in: AnyScopeID(scope),
+      initialConstraints + facts.constraints,
+      bindings: facts.inferredBindings,
+      in: AnyScopeID(scope),
       loggingTrace: shouldLogTrace)
     let solution = s.solution(&self)
 
@@ -1585,11 +1574,12 @@ public struct TypeChecker {
     }
 
     // Apply the solution.
-    for (id, type) in facts.inferredTypes.storage {
-      exprTypes[id] = solution.typeAssumptions.reify(type)
+    for (e, t) in facts.inferredTypes.storage {
+      exprTypes[e] = solution.typeAssumptions.reify(t)
     }
-    for (name, ref) in solution.bindingAssumptions {
-      referredDecls[name] = ref
+    for (n, r) in solution.bindingAssumptions {
+      let s = solution.typeAssumptions.reifyArguments(of: r, withVariables: .substituteByError)
+      referredDecls[n] = s
     }
 
     // Run deferred queries.
@@ -1765,6 +1755,8 @@ public struct TypeChecker {
       if let g = BoundGenericType(matchType) {
         assert(matchArguments.isEmpty, "generic declaration bound twice")
         matchArguments = g.arguments
+      } else if matchArguments.isEmpty {
+        matchArguments = openGenericParameters(of: m)
       }
 
       let allArguments = parentArguments.appending(matchArguments)
@@ -1844,6 +1836,19 @@ public struct TypeChecker {
 
     argumentsDiagnostic = nil
     return .init(uniqueKeysWithValues: zip(parameters, arguments))
+  }
+
+  /// Returns a sequence of key-value pairs associated the generic parameters introduced by `d`
+  /// to open variables.
+  private mutating func openGenericParameters(of d: AnyDeclID) -> GenericArguments {
+    if !(d.kind.value is GenericScope.Type) { return [:] }
+
+    let parameters = environment(of: d).parameters
+    return .init(
+      uniqueKeysWithValues: parameters.map { (p) in
+        // TODO: Handle generic value parameters
+        (key: p, value: ^TypeVariable())
+      })
   }
 
   /// Returns the declarations exposing a name with given `stem` to `useScope` without
@@ -1947,6 +1952,8 @@ public struct TypeChecker {
       return lookup(stem, memberOf: t.base, exposedTo: useScope)
     case let t as ConformanceLensType:
       return lookup(stem, memberOf: ^t.lens, exposedTo: useScope)
+    case let t as ExistentialType:
+      return lookup(stem, memberOf: t, exposedTo: useScope)
     default:
       break
     }
@@ -1973,6 +1980,47 @@ public struct TypeChecker {
     default:
       matches = DeclSet()
     }
+
+    matches.formUnion(lookup(stem, inExtensionsOf: domain, exposedTo: useScope))
+    return matches
+  }
+
+  /// Returns the declarations introducing a name with given `stem` as a member of `domain` and
+  /// exposed to `useScope`.
+  private mutating func lookup(
+    _ stem: String,
+    memberOf domain: ExistentialType,
+    exposedTo useScope: AnyScopeID
+  ) -> DeclSet {
+    // Declarations in extensions of existential types shadow their existential APIs.
+    let matches = lookup(stem, inExtensionsOf: ^domain, exposedTo: useScope)
+    if !matches.isEmpty {
+      return matches
+    }
+
+    // Search in the existential API.
+    switch domain.interface {
+    case .traits(let s):
+      return s.reduce(into: DeclSet()) { (r, t) in
+        r.formUnion(lookup(stem, memberOf: ^t, exposedTo: useScope))
+      }
+
+    case .generic(let t):
+      return lookup(stem, memberOf: t, exposedTo: useScope)
+
+    case .metatype:
+      return []
+    }
+  }
+
+  /// Returns the declarations introducing a name with given `stem` in extensions of `domain`
+  /// exposed to `useScope`.
+  private mutating func lookup(
+    _ stem: String,
+    inExtensionsOf domain: AnyType,
+    exposedTo useScope: AnyScopeID
+  ) -> DeclSet {
+    var matches = DeclSet()
 
     // Look for members declared in extensions.
     for i in extendingDecls(of: domain, exposedTo: useScope) {
@@ -2103,7 +2151,7 @@ public struct TypeChecker {
   ) where S.Element == AnyDeclID {
     precondition(subject[.isCanonical])
 
-    for i in decls where i.kind == ConformanceDecl.self || i.kind == ExtensionDecl.self {
+    for i in decls where (i.kind == ConformanceDecl.self) || (i.kind == ExtensionDecl.self) {
       // Skip extending declarations that are being bound.
       guard extensionsUnderBinding.insert(i).inserted else { continue }
       defer { extensionsUnderBinding.remove(i) }
@@ -2116,7 +2164,7 @@ public struct TypeChecker {
     }
   }
 
-  /// Returns the names and declarations introduced in `scope`.
+  /// Returns the names in `scope`.
   private func names<T: NodeIDProtocol>(introducedIn scope: T) -> LookupTable {
     if let module = ModuleDecl.ID(scope) {
       return ast[module].sources.reduce(into: [:]) { (table, s) in

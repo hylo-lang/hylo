@@ -12,8 +12,12 @@ extension LoweredProgram {
       return syntax.abiName(of: d)
     case .loweredSubscript(let d):
       return syntax.abiName(of: d)
+    case .monomorphized(let f, let a):
+      return abiName(of: f) + "<\(list: a.values)>"
     case .synthesized(let d, let t):
       return "\(d)\(t)"
+    case .existentialized:
+      fatalError("not implemented")
     }
   }
 

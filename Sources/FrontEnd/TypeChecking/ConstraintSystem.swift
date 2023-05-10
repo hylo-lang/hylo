@@ -51,11 +51,15 @@ struct ConstraintSystem {
   /// The current indentation level for logging messages.
   private var indentation = 0
 
-  /// Creates an instance with given `constraints` defined in `scope`.
+  /// Creates an instance with given `constraints` and `bindings` defined in `scope`.
   init<S: Sequence<Constraint>>(
-    _ constraints: S, in scope: AnyScopeID, loggingTrace isLoggingEnabled: Bool
+    _ constraints: S,
+    bindings: [NameExpr.ID: DeclReference],
+    in scope: AnyScopeID,
+    loggingTrace isLoggingEnabled: Bool
   ) {
     self.scope = scope
+    self.bindingAssumptions = bindings
     self.isLoggingEnabled = isLoggingEnabled
     _ = insert(fresh: constraints)
   }
@@ -287,7 +291,17 @@ struct ConstraintSystem {
           return delegate(to: [s])
         }
 
-      case .generic(let d):
+      case .generic(let r):
+        let d: AnyDeclID
+        switch r.base {
+        case let u as ProductType:
+          d = AnyDeclID(u.decl)
+        case let u as TypeAliasType:
+          d = AnyDeclID(u.decl)
+        default:
+          unreachable()
+        }
+
         let r = checker.openForUnification(d)
         let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin))
         return delegate(to: [s])
@@ -950,7 +964,7 @@ struct ConstraintSystem {
     }
 
     // Solve the constraint system.
-    var s = ConstraintSystem(constraints, in: scope, loggingTrace: isLoggingEnabled)
+    var s = ConstraintSystem(constraints, bindings: [:], in: scope, loggingTrace: isLoggingEnabled)
     return !s.solution(&checker).diagnostics.containsError
   }
 
@@ -1160,7 +1174,7 @@ private func inferenceConstraint(
   }
 
   return DisjunctionConstraint(
-    choices: [
+    between: [
       .init(constraints: [EqualityConstraint(subtype, supertype, origin: origin)], penalties: 0),
       .init(constraints: [alternative], penalties: 1),
     ],

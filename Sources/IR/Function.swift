@@ -1,5 +1,4 @@
 import Core
-import Foundation
 import Utils
 
 /// A collection of basic blocks representing a lowered function.
@@ -20,7 +19,10 @@ public struct Function {
   /// The linkage of the function.
   public let linkage: Linkage
 
-  /// The the function's parameters.
+  /// The generic (a.k.a., compile-time) parameters of the function.
+  public let parameters: [GenericParameterDecl.ID]
+
+  /// The run-time parameters of the function.
   public let inputs: [Parameter]
 
   /// The type of the function's output.
@@ -38,6 +40,11 @@ public struct Function {
   public subscript(_ address: Blocks.Address) -> Block {
     get { blocks[address] }
     _modify { yield &blocks[address] }
+  }
+
+  /// `true` iff the function takes generic parameters.
+  public var isGeneric: Bool {
+    !parameters.isEmpty
   }
 
   /// Appends to `self` a basic block accepting given `parameters` and returns its address.
@@ -72,69 +79,5 @@ public struct Function {
 extension Function: CustomStringConvertible {
 
   public var description: String { "@\(name)" }
-
-}
-
-extension Function {
-
-  /// The global identity of an IR function.
-  public struct ID: Hashable {
-
-    /// The value of a function IR identity.
-    public enum Value: Hashable {
-
-      /// The identity of a lowered Val function, initializer, or method variant.
-      case lowered(AnyDeclID)
-
-      /// The identity of a lowered subscript variant.
-      case loweredSubscript(SubscriptImpl.ID)
-
-      /// The identity of a requirement synthesized for some type.
-      ///
-      /// The payload is a pair (D, U) where D is the declaration of a requirement and T is a type
-      /// conforming to the trait defining D.
-      case synthesized(AnyDeclID, for: AnyType)
-
-    }
-
-    /// The value of this identity.
-    public let value: Value
-
-    /// Creates the identity of the lowered form of `f`.
-    public init(_ f: FunctionDecl.ID) {
-      self.value = .lowered(AnyDeclID(f))
-    }
-
-    /// Creates the identity of the lowered form of `s`.
-    public init(_ s: SubscriptImpl.ID) {
-      self.value = .loweredSubscript(s)
-    }
-
-    /// Creates the identity of the lowered form of `f` used as an initializer.
-    public init(initializer f: InitializerDecl.ID) {
-      self.value = .lowered(AnyDeclID(f))
-    }
-
-    /// Creates the identity of synthesized requirement `r` for type `t`.
-    public init<T: DeclID>(synthesized r: T, for t: AnyType) {
-      self.value = .synthesized(AnyDeclID(r), for: t)
-    }
-
-  }
-
-}
-
-extension Function.ID: CustomStringConvertible {
-
-  public var description: String {
-    switch value {
-    case .lowered(let d):
-      return "\(d).lowered"
-    case .loweredSubscript(let d):
-      return "\(d).lowered"
-    case .synthesized(let r, let t):
-      return "\"synthesized \(r) for \(t)\""
-    }
-  }
 
 }

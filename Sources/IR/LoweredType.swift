@@ -12,7 +12,7 @@ public struct LoweredType: Hashable {
   /// Creates a lowered type.
   ///
   /// - Requires: `ast` must be canonical.
-  private init<T: TypeProtocol>(ast: T, isAddress: Bool) {
+  public init<T: TypeProtocol>(ast: T, isAddress: Bool) {
     precondition(ast[.isCanonical], "source type is not canonical")
     self.ast = ^ast
     self.isAddress = isAddress
