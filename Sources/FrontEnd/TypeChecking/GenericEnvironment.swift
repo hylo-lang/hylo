@@ -4,7 +4,8 @@ import Utils
 /// An object that provides context to interpret the generic parameters of a declaration.
 struct GenericEnvironment {
 
-  /// The declaration of the generic parameters introduced in this environment.
+  /// The generic parameters introduced in the environment, in the order there declaration appears
+  /// in Val sources.
   public let parameters: [GenericParameterDecl.ID]
 
   /// The uninstantiated type constraints.
