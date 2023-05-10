@@ -204,6 +204,8 @@ public struct ValCommand: ParsableCommand {
 
   /// Returns `m`, which is `program`, lowered to Val IR, accumulating diagnostics into `log` and
   /// throwing if an error occured.
+  ///
+  /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
   private func lower(
     _ m: ModuleDecl.ID, in program: TypedProgram,
     reportingDiagnosticsInto log: inout DiagnosticSet
