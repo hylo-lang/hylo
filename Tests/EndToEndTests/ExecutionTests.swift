@@ -9,7 +9,7 @@ final class ExecutionTests: XCTestCase {
   func testExecution() throws {
     let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
     for testFile in try! sourceFiles(in: [s]) {
-      //Testing on Windows requires this not the most concise piece of assignment operation code.
+      // Note: testing on Windows requires explicit call to `URL.init(fileURLWithPath:)`
       let output =
         try compile(
           URL(fileURLWithPath: testFile.url.path),
