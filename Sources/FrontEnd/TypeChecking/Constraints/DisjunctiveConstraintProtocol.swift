@@ -1,5 +1,5 @@
 /// A set of predicates that is satisfied if at least one of them is satisfied.
-public protocol DisjunctiveConstraintProtocol: Constraint {
+protocol DisjunctiveConstraintProtocol: Constraint {
 
   /// The type of a specific choice in instances of this type.
   associatedtype Predicate: DisjunctiveConstraintTerm
@@ -10,7 +10,7 @@ public protocol DisjunctiveConstraintProtocol: Constraint {
 }
 
 /// A predicate in a disjunctive constraint.
-public protocol DisjunctiveConstraintTerm {
+protocol DisjunctiveConstraintTerm {
 
   /// The constituent constraints of the predicate.
   var constraints: ConstraintSet { get }

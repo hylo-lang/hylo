@@ -31,7 +31,7 @@ public struct Conformance {
   public let concept: TraitType
 
   /// The conditions under which this conformance holds.
-  public let conditions: [Constraint]
+  public let conditions: [GenericConstraint]
 
   /// The declaration that establishes this conformance.
   public let source: AnyDeclID
@@ -49,7 +49,7 @@ public struct Conformance {
   public init(
     model: AnyType,
     concept: TraitType,
-    conditions: [Constraint],
+    conditions: [GenericConstraint],
     source: AnyDeclID,
     scope: AnyScopeID,
     implementations: ImplementationMap,

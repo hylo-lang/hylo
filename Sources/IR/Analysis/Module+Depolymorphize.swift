@@ -139,6 +139,7 @@ extension Module {
       name: "<\(list: r.arguments.values), \(r.useScope)>(\(source.name))",
       site: source.site,
       linkage: .module,
+      parameters: [],
       inputs: inputs,
       output: output,
       blocks: [])

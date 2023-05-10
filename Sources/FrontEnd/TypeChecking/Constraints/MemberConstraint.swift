@@ -1,25 +1,26 @@
+import Core
 import Utils
 
 /// A constraint `L.m == R` specifying that `L` has a member of type `R` named `m`.
-public struct MemberConstraint: Constraint, Hashable {
+struct MemberConstraint: Constraint, Hashable {
 
   /// The base type of the left operand.
-  public private(set) var subject: AnyType
+  private(set) var subject: AnyType
 
   /// The expression referring to `subject`'s member in the AST.
-  public let memberExpr: NameExpr.ID
+  let memberExpr: NameExpr.ID
 
   /// The name of the member in `subject` that must have type `memberType`.
-  public let memberName: Name
+  let memberName: Name
 
   /// The right operand.
-  public private(set) var memberType: AnyType
+  private(set) var memberType: AnyType
 
-  public let origin: ConstraintOrigin
+  let origin: ConstraintOrigin
 
   /// Creates a constraint requiring `subject` to have a member of type `memberType` and whose
   /// name is expressed by `memberExpr` in the AST.
-  public init(
+  init(
     _ subject: AnyType,
     hasMemberReferredToBy memberExpr: NameExpr.ID,
     ofType member: AnyType,
@@ -33,7 +34,7 @@ public struct MemberConstraint: Constraint, Hashable {
     self.origin = origin
   }
 
-  public mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+  mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     update(&subject, with: transform)
     update(&memberType, with: transform)
   }
@@ -42,6 +43,6 @@ public struct MemberConstraint: Constraint, Hashable {
 
 extension MemberConstraint: CustomStringConvertible {
 
-  public var description: String { "\(subject).\(memberName) == \(memberType)" }
+  var description: String { "\(subject).\(memberName) == \(memberType)" }
 
 }

@@ -188,13 +188,16 @@ public struct Module {
     let f = Function.ID(d.id)
     if functions[f] != nil { return f }
 
+    let parameters = program.accumulatedGenericParameters(of: d.id)
     let output = program.relations.canonical((d.type.base as! CallableType).output)
     let inputs = loweredParameters(of: d.id)
+
     let entity = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
       site: d.site,
       linkage: .external,
+      parameters: Array(parameters),
       inputs: inputs,
       output: output,
       blocks: [])
@@ -232,13 +235,16 @@ public struct Module {
     let f = Function.ID(d.id)
     if functions[f] != nil { return f }
 
+    let parameters = program.accumulatedGenericParameters(of: d.id)
     let output = program.relations.canonical(SubscriptImplType(d.type)!.output)
     let inputs = loweredParameters(of: d.id)
+
     let entity = Function(
       isSubscript: true,
       name: program.debugName(decl: d.id),
       site: d.site,
       linkage: .external,
+      parameters: Array(parameters),
       inputs: inputs,
       output: output,
       blocks: [])
@@ -254,12 +260,15 @@ public struct Module {
     let f = Function.ID(initializer: d.id)
     if functions[f] != nil { return f }
 
+    let parameters = program.accumulatedGenericParameters(of: d.id)
     let inputs = loweredParameters(of: d.id)
-    let entity =  Function(
+
+    let entity = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
       site: d.introducer.site,
       linkage: .external,
+      parameters: Array(parameters),
       inputs: inputs,
       output: .void,
       blocks: [])
@@ -327,6 +336,7 @@ public struct Module {
       name: "",
       site: .empty(at: syntax.site.first()),
       linkage: .external,
+      parameters: [],  // TODO
       inputs: inputs,
       output: output,
       blocks: [])
