@@ -42,9 +42,9 @@ public struct Function {
     _modify { yield &blocks[address] }
   }
 
-  /// `true` iff the function is generic.
+  /// `true` iff the function takes generic parameters.
   public var isGeneric: Bool {
-    false
+    !parameters.isEmpty
   }
 
   /// Appends to `self` a basic block accepting given `parameters` and returns its address.
