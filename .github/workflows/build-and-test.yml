@@ -27,7 +27,7 @@ jobs:
         host: [
           { type: linux, os: ubuntu-latest,
 	    build-options: "-v --build-tests -Xswiftc -enable-testing",
-	    test-options: "-v --enable-code-coverage"
+	    test-options: "--parallel -v --enable-code-coverage"
 	  }
         ]
         configuration: [ "debug", "release" ]
@@ -62,7 +62,7 @@ jobs:
   	    type: macos, os: macos-latest,
             build-options: "-v --build-tests -Xswiftc -enable-testing",
 	    # No coverage support on MacOS
-	    test-options: "-v"
+	    test-options: "--parallel -v"
 	  }
         ]
         swift: [
