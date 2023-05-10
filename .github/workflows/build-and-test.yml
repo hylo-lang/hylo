@@ -26,8 +26,8 @@ jobs:
       matrix:
         host: [
           { type: linux, os: ubuntu-latest,
-	    build-options: "-v --build-tests -Xswiftc -enable-testing",
-	    test-options: "-v --enable-code-coverage"
+	    build-options: "--build-tests -Xswiftc -enable-testing",
+	    test-options: "--enable-code-coverage"
 	  }
         ]
         configuration: [ "debug", "release" ]
@@ -60,9 +60,9 @@ jobs:
         host: [
           {
   	    type: macos, os: macos-latest,
-            build-options: "-v --build-tests -Xswiftc -enable-testing",
+            build-options: "--build-tests -Xswiftc -enable-testing",
 	    # No coverage support on MacOS
-	    test-options: "-v"
+	    test-options: ""
 	  }
         ]
         swift: [
