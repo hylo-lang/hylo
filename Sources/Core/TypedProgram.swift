@@ -112,4 +112,18 @@ public struct TypedProgram: Program {
     return result
   }
 
+  /// Returns the generic parameters taken by `s`, in outer to inner, left to right.
+  ///
+  /// A declaration may take generic parameters even if it doesn't declare any. For example, a
+  /// nested function will implicitly capture the generic parameters introduced in its context.
+  public func accumulatedGenericParameters<S: ScopeID>(
+    of s: S
+  ) -> some Collection<GenericParameterDecl.ID> {
+    let p = scopes(from: s).compactMap { (t) -> [GenericParameterDecl.ID]? in
+      if !(t.kind.value is GenericScope.Type) { return nil }
+      return environments[AnyDeclID(t)!]!.parameters
+    }
+    return p.reversed().joined()
+  }
+
 }
