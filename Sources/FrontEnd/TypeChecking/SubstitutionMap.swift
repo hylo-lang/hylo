@@ -101,6 +101,35 @@ struct SubstitutionMap {
     return type.transform(_impl(type:))
   }
 
+  /// Returns `r` where each type variable occuring in its generic arguments of `r` are replaced by
+  /// their corresponding value in `self`, applying `substitutionPolicy` to handle free variables.
+  func reifyArguments(
+    of r: DeclReference, withVariables substitutionPolicy: SubstitutionPolicy
+  ) -> DeclReference {
+    switch r {
+    case .direct(let d, let a):
+      return .direct(d, a.mapValues({ reify(value: $0, withVariables: substitutionPolicy) }))
+    case .member(let d, let a):
+      return .member(d, a.mapValues({ reify(value: $0, withVariables: substitutionPolicy) }))
+    case .constructor(let d, let a):
+      return .constructor(d, a.mapValues({ reify(value: $0, withVariables: substitutionPolicy) }))
+    case .builtinType, .builtinFunction:
+      return r
+    }
+  }
+
+  /// Returns `v` with its type variables replaced by their their corresponding value in `self`,
+  /// applying `substitutionPolicy` to handle free variables.
+  private func reify(
+    value v: any CompileTimeValue, withVariables substitutionPolicy: SubstitutionPolicy
+  ) -> any CompileTimeValue {
+    if let t = v as? AnyType {
+      return reify(t, withVariables: substitutionPolicy)
+    } else {
+      return v
+    }
+  }
+
   /// Removes the key/value pairs in `self` that are not also in `other`.
   mutating func formIntersection(_ other: Self) {
     for (key, lhs) in storage {
