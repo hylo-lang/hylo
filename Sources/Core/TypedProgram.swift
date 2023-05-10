@@ -126,4 +126,17 @@ public struct TypedProgram: Program {
     return p.reversed().joined()
   }
 
+  /// Returns a copy of `generic` where occurrences of parameters keying `subtitutions` are
+  /// replaced by their corresponding value, performing necessary conformance lookups from
+  /// `useScope`, which is in `self`.
+  ///
+  /// This method has no effect if `substitutions` is empty.
+  public func monomorphize(
+    _ generic: AnyType,
+    applying substitutions: GenericArguments,
+    in useScope: AnyScopeID
+  ) -> AnyType {
+    relations.monomorphize(generic, applying: substitutions, in: useScope, in: self)
+  }
+
 }
