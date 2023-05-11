@@ -51,6 +51,28 @@ public struct ValCommand: ParsableCommand {
     help: "Type-check the input file(s).")
   private var typeCheckOnly: Bool = false
 
+  /// The format in which to emit diagnostics
+  private enum DiagnosticFormat: String, CaseIterable, ExpressibleByArgument {
+
+    /// ANSI-colored text if supported, plain text otherwise
+    case autoText = "auto-text"
+
+    /// Plain text with no ANSI color escape sequences
+    case plainText = "plain-text"
+
+    /// ANSI colored text
+    case colorText = "color-text"
+
+    /// Serialized as JSON
+    case json = "json"
+
+  }
+
+  @Option(
+    name: [.customLong("diagnostic-format")],
+    help: "The format in which diagnostics will be emitted to the standard error stream.")
+  private var diagnosticFormat: DiagnosticFormat = .autoText
+
   @Option(
     name: [.customLong("trace-inference")],
     help: ArgumentHelp(
