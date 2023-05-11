@@ -1,3 +1,5 @@
+//! expect-success
+
 fun use(_ x: Any) {}
 
 public fun main() {

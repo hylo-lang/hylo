@@ -1,3 +1,5 @@
+//! expect-success
+
 public fun main() {
   _ = 42
 }

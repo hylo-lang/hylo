@@ -1,3 +1,5 @@
+//! expect-success
+
 extension Int {
 
   public property negated: Int {
