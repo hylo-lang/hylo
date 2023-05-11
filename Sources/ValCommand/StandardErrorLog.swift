@@ -1,7 +1,7 @@
 import Foundation
 
 /// A wrapper type implementing `FileHandle.standardError`'s conformance to `Log`.
-struct StandardErrorLog: Log {
+struct StandardErrorLog: DiagnosticLog {
 
   /// Indicates whether this instance supports ANSI colors.
   var hasANSIColorSupport: Bool

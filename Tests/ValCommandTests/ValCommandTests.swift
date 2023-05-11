@@ -135,7 +135,7 @@ extension FileManager {
 
 }
 
-extension String: Log {
+extension String: DiagnosticLog {
 
   public var hasANSIColorSupport: Bool { false }
 

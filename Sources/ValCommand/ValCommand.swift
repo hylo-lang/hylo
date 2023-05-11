@@ -124,7 +124,7 @@ public struct ValCommand: ParsableCommand {
   /// Executes the command, logging Val messages to `errorLog`, and returns its exit status.
   ///
   /// Propagates any thrown errors that are not Val diagnostics,
-  public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
+  public func execute<ErrorLog: DiagnosticLog>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
     do {
       try executeCommand(loggingTo: &errorLog)
     } catch let d as DiagnosticSet {
@@ -135,7 +135,7 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Executes the command, logging Val messages to `errorLog`.
-  private func executeCommand<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
+  private func executeCommand<ErrorLog: DiagnosticLog>(loggingTo errorLog: inout ErrorLog) throws {
     var diagnostics = DiagnosticSet()
     defer { errorLog.log(diagnostics: diagnostics) }
 
@@ -227,7 +227,7 @@ public struct ValCommand: ParsableCommand {
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
   /// logging diagnostics to `log`.
-  private func makeMacOSExecutable<L: Log>(
+  private func makeMacOSExecutable<L: DiagnosticLog>(
     at binaryPath: String,
     linking objects: [URL],
     loggingTo log: inout L
@@ -247,7 +247,7 @@ public struct ValCommand: ParsableCommand {
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
   /// logging diagnostics to `log`.
-  private func makeLinuxExecutable<L: Log>(
+  private func makeLinuxExecutable<L: DiagnosticLog>(
     at binaryPath: String,
     linking objects: [URL],
     loggingTo log: inout L
@@ -285,7 +285,7 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Writes `source` to the `filename`, possibly with verbose logging.
-  private func write<L: Log>(_ source: String, toURL url: URL, loggingTo log: inout L) throws {
+  private func write<L: DiagnosticLog>(_ source: String, toURL url: URL, loggingTo log: inout L) throws {
     if verbose {
       log.log("Writing \(url)")
     }
@@ -336,7 +336,7 @@ public struct ValCommand: ParsableCommand {
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
   @discardableResult
-  private func runCommandLine<L: Log>(
+  private func runCommandLine<L: DiagnosticLog>(
     _ programPath: String,
     _ arguments: [String] = [],
     loggingTo log: inout L
