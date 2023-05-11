@@ -201,8 +201,31 @@ extension LLVM.Module {
     usedIn m: IR.Module,
     from ir: LoweredProgram
   ) -> LLVM.IRValue {
-    // TODO: Handle conformances.
-    transpiledMetatype(of: t.witness, usedIn: m, from: ir)
+    let ptr = LLVM.PointerType(in: &self)
+    let i32 = LLVM.IntegerType(32, in: &self)
+
+    var types: [LLVM.IRType] = [ptr, i32]
+    var parts: [LLVM.IRValue] = []
+
+    // All witness tables have a pointer to their witness followed by the number of conformances.
+    parts.append(transpiledMetatype(of: t.witness, usedIn: m, from: ir))
+    parts.append(i32.constant(UInt64(t.conformances.count)))
+
+    for c in t.conformances {
+      types.append(ptr)
+      parts.append(transpiledMetatype(of: c.concept, usedIn: m, from: ir))
+    }
+
+    let tableType = LLVM.StructType(types, in: &self)
+    let table = LLVM.StructConstant(of: tableType, aggregating: parts, in: &self)
+
+    let g = declareGlobalVariable(ir.mangle(t), tableType)
+    setInitializer(table, for: g)
+    setLinkage(.linkOnce, for: g)
+    setGlobalConstant(true, for: g)
+    return g
+
+    // LLVM.ArrayConstant
   }
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
@@ -211,21 +234,65 @@ extension LLVM.Module {
     usedIn m: IR.Module,
     from ir: LoweredProgram
   ) -> LLVM.GlobalVariable {
-    let p = ProductType(t) ?? fatalError("not implemented")
-    let n = ir.syntax.abiName(of: p.decl) + ".metatype"
+    switch t.base {
+    case let u as ProductType:
+      return transpiledMetatype(of: u, usedIn: m, from: ir)
+    case let u as TraitType:
+      return transpiledMetatype(of: u, usedIn: m, from: ir)
+    default:
+      fatalError("not implemented")
+    }
+  }
 
+  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
+  private mutating func transpiledMetatype(
+    of t: ProductType,
+    usedIn m: IR.Module,
+    from ir: LoweredProgram
+  ) -> LLVM.GlobalVariable {
     // Check if we already created the metatype's instance.
+    let n = ir.mangle(t)
     if let g = global(named: n) { return g }
 
-    // Create a new instance.
     let metatype = metatypeType()
     let instance = declareGlobalVariable(n, metatype)
 
     // Initialize the instance if it's being used in the module defining `t`.
-    if m.syntax.id != ir.syntax.module(containing: p.decl) { return instance }
+    if m.syntax.id != ir.syntax.module(containing: t.decl) {
+      return instance
+    }
 
     // TODO: compute size, alignment, and representation
     setInitializer(metatype.null, for: instance)
+    setGlobalConstant(true, for: instance)
+    return instance
+  }
+
+  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
+  private mutating func transpiledMetatype(
+    of t: TraitType,
+    usedIn m: IR.Module,
+    from ir: LoweredProgram
+  ) -> LLVM.GlobalVariable {
+    // Check if we already created the metatype's instance.
+    let n = ir.mangle(t)
+    if let g = global(named: n) { return g }
+
+    let instance = declareGlobalVariable(n, LLVM.PointerType(in: &self))
+
+    // Initialize the instance if it's being used in the module defining `t`.
+    if m.syntax.id != ir.syntax.module(containing: t.decl) {
+      return instance
+    }
+
+    let s = LLVM.StringConstant(n, nullTerminated: true, in: &self)
+    let g = addGlobalVariable("str", s.type)
+    setInitializer(s, for: g)
+    setLinkage(.private, for: g)
+    setGlobalConstant(true, for: g)
+
+    setInitializer(g, for: instance)
+    setGlobalConstant(true, for: instance)
     return instance
   }
 

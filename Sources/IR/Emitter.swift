@@ -81,7 +81,7 @@ public struct Emitter {
     case ProductTypeDecl.self:
       emit(productDecl: .init(d)!, into: &module)
     case TraitDecl.self:
-      break
+      emit(traitDecl: .init(d)!, into: &module)
     case TypeAliasDecl.self:
       break
     default:
@@ -310,6 +310,11 @@ public struct Emitter {
   private mutating func emit(productDecl d: ProductTypeDecl.Typed, into module: inout Module) {
     _ = module.addGlobal(MetatypeConstant(.init(d.type)!))
     emit(members: d.members, into: &module)
+  }
+
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(traitDecl d: TraitDecl.Typed, into module: inout Module) {
+    _ = module.addGlobal(MetatypeConstant(.init(d.type)!))
   }
 
   /// Inserts the IR for given declaration `members` into `module`.
