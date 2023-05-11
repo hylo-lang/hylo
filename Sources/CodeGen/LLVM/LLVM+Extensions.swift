@@ -64,6 +64,11 @@ extension LLVM.Module {
     }
   }
 
+  /// Returns the LLVM type of a machine word.
+  private mutating func wordType() -> LLVM.IntegerType {
+    IntegerType(64, in: &self)
+  }
+
   /// Returns the LLVM type of a metatype instance.
   private mutating func metatypeType() -> LLVM.StructType {
     if let t = type(named: "_val_metatype") {
@@ -202,30 +207,80 @@ extension LLVM.Module {
     from ir: LoweredProgram
   ) -> LLVM.IRValue {
     let ptr = LLVM.PointerType(in: &self)
-    let i32 = LLVM.IntegerType(32, in: &self)
+    let word = wordType()
 
-    var types: [LLVM.IRType] = [ptr, i32]
-    var parts: [LLVM.IRValue] = []
+    // A witness table is composed of a header, a trait map, and a (possibly empty) sequence of
+    // implementation maps. All parts are laid out inline without any padding.
+    //
+    // The header consists of a pointer to the witness it describes and the number of traits to
+    // which the witness conforms.
+    //
+    // The trait map is a sequence of pairs `(t, d)` where `t` is a pointer to a trait identifier
+    // and `d` the offset of the associated implementation map. The last element of the trait map
+    // is a sentinel `(nullptr, end)` where `end` is the "past-the-end" position of the last
+    // implementation map. An implementation map is a sequence of pairs `(r, i)` where `r` is a
+    // trait requirement identifier and `i` is a pointer to its implementation.
 
-    // All witness tables have a pointer to their witness followed by the number of conformances.
-    parts.append(transpiledMetatype(of: t.witness, usedIn: m, from: ir))
-    parts.append(i32.constant(UInt64(t.conformances.count)))
+    // Encode the table's header.
+    var tableContents: [LLVM.IRValue] = [
+      transpiledMetatype(of: t.witness, usedIn: m, from: ir),
+      word.constant(UInt64(t.conformances.count)),
+    ]
 
+    // Encode the table's trait and implementation maps.
+    var entries: [LLVM.IRValue] = []
+    var implementations: [LLVM.IRValue] = []
     for c in t.conformances {
-      types.append(ptr)
-      parts.append(transpiledMetatype(of: c.concept, usedIn: m, from: ir))
+      let entry: [LLVM.IRValue] = [
+        transpiledMetatype(of: c.concept, usedIn: m, from: ir),
+        word.constant(UInt64(implementations.count)),
+      ]
+      entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
+
+      for (r, d) in c.implementations.storage {
+        let requirement: [LLVM.IRValue] = [
+          word.constant(UInt64(r.rawValue)),
+          transpiledRequirementImplementation(d, from: ir),
+        ]
+        implementations.append(LLVM.StructConstant(aggregating: requirement, in: &self))
+      }
     }
 
-    let tableType = LLVM.StructType(types, in: &self)
-    let table = LLVM.StructConstant(of: tableType, aggregating: parts, in: &self)
+    // Append the sentinel at the end of the trait map.
+    entries.append(
+      LLVM.StructConstant(
+        aggregating: [ptr.null, word.constant(UInt64(implementations.count))], in: &self))
 
-    let g = declareGlobalVariable(ir.mangle(t), tableType)
+    // Put everything together.
+    tableContents.append(
+      LLVM.ArrayConstant(
+        of: LLVM.StructType([ptr, word], in: &self), containing: entries, in: &self))
+
+    if !implementations.isEmpty {
+      tableContents.append(
+        LLVM.ArrayConstant(
+          of: LLVM.StructType([word, ptr], in: &self), containing: implementations, in: &self))
+    }
+
+    let table = LLVM.StructConstant(aggregating: tableContents, in: &self)
+
+    let g = declareGlobalVariable(ir.mangle(t), table.type)
     setInitializer(table, for: g)
     setLinkage(.linkOnce, for: g)
     setGlobalConstant(true, for: g)
     return g
+  }
 
-    // LLVM.ArrayConstant
+  /// Returns the LLVM IR value of the requirement implementation `i`, which is in `ir`.
+  private mutating func transpiledRequirementImplementation(
+    _ i: IR.LoweredConformance.Implementation, from ir: LoweredProgram
+  ) -> LLVM.Function {
+    switch i {
+    case .function(let f):
+      return declare(f, from: ir)
+    case .value:
+      fatalError("not implemented")
+    }
   }
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
