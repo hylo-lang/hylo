@@ -11,40 +11,22 @@ import ValModule
 public struct ValCommand: ParsableCommand {
 
   /// The type of the output files to generate.
-  private enum OutputType: ExpressibleByArgument {
+  private enum OutputType: String, ExpressibleByArgument {
 
     /// AST before type-checking.
-    case rawAST
+    case rawAST = "raw-ast"
 
     /// Val IR before mandatory transformations.
-    case rawIR
+    case rawIR = "raw-ir"
 
     /// Val IR.
-    case ir
+    case ir = "ir"
 
     /// LLVM IR
-    case llvm
+    case llvm = "llvm"
 
     /// Executable binary.
-    case binary
-
-    init?(argument: String) {
-      switch argument {
-      case "raw-ast":
-        self = .rawAST
-      case "raw-ir":
-        self = .rawIR
-      case "ir":
-        self = .ir
-      case "llvm":
-        self = .llvm
-      case "binary":
-        self = .binary
-      default:
-        return nil
-      }
-    }
-
+    case binary = "binary"
   }
 
   public static let configuration = CommandConfiguration(commandName: "valc")
