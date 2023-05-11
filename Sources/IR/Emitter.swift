@@ -476,13 +476,13 @@ public struct Emitter {
   private func filteredConformances(
     of t: AnyType,
     exposedTo s: AnyScopeID
-  ) -> [Conformance] {
+  ) -> Set<Conformance> {
     guard let conformances = program.relations.conformances[t] else { return [] }
 
-    var result: [Conformance] = []
+    var result: Set<Conformance> = []
     for cs in conformances.values {
       if let c = cs.first(where: { program.isContained(s, in: $0.scope) }) {
-        result.append(c)
+        result.insert(c)
       }
     }
     return result
