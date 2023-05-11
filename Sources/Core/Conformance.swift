@@ -4,7 +4,7 @@ public struct Conformance {
   /// A map from requirement to their implementation.
   public typealias ImplementationMap = DeclProperty<Implementation>
 
-  /// The implementation of a conformance.
+  /// The implementation of a requirement.
   public enum Implementation: Hashable {
 
     /// Concrete implementation.
