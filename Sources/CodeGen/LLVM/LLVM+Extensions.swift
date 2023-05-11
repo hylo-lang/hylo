@@ -8,8 +8,11 @@ extension LLVM.Module {
   /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
   mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
     let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
+
     let d = declareGlobalVariable("\(m.syntax.id)\(g)", v.type)
     setInitializer(v, for: d)
+    setLinkage(.private, for: d)
+    setGlobalConstant(true, for: d)
   }
 
   /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
