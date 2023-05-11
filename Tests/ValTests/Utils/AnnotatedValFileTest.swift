@@ -37,7 +37,7 @@ extension XCTestCase {
   /// processing don't match the file's annotation commands ("diagnostic", "expect-failure", and
   /// "expect-success").
   ///
-  /// - Parameter process: applies some compilation phases to `file`, updating `diagnostics` 
+  /// - Parameter process: applies some compilation phases to `file`, updating `diagnostics`
   ///   with any generated diagnostics. Throws an `Error` if any phases failed.
   func checkAnnotatedValFileDiagnostics(
     inSuiteAt suitePath: String,
