@@ -37,26 +37,28 @@ extension XCTestCase {
   /// processing don't match the file's annotation commands ("diagnostic", "expect-failure", and
   /// "expect-success").
   ///
-  /// - Parameter process: applies some compilation phases to `file`, updating `diagnostics` 
+  /// - Parameter process: applies some compilation phases to `file`, updating `diagnostics`
   ///   with any generated diagnostics. Throws an `Error` if any phases failed.
   func checkAnnotatedValFileDiagnostics(
     inSuiteAt suitePath: String,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
-    try checkAnnotatedValFiles(
-      inSuiteAt: suitePath, checkingAnnotationCommands: [],
-      { (file, annotationsToHandle, diagnostics) in
-        assert(annotationsToHandle.isEmpty)
-        try process(file, &diagnostics)
-        return []
-      }
-    )
+    let annotatedValFiles = try testSuite(at: suitePath)
+    for f in annotatedValFiles {
+      try checkAnnotations(
+        in: f, checkingAnnotationCommands: [],
+        { (file, annotationsToHandle, diagnostics) in
+          assert(annotationsToHandle.isEmpty)
+          try process(file, &diagnostics)
+          return []
+        }
+      )
+    }
   }
 
-  /// Applies `processAndCheck` to each ".val" file in the test suite at `suitePath` (relative to
-  /// the `ValTests/` directory of this project) along with the subset of that file's annotations
+  /// Applies `processAndCheck` to `valToTest`, along with the subset of its annotations
   /// whose commands match `checkedCommands`, and reports resulting XCTest failures, along with any
-  /// additional failures where the effects of processing don't match the file's annotation
+  /// additional failures where the effects of processing don't match the its annotation
   /// commands ("diagnostic", "expect-failure", and "expect-success").
   ///
   /// - Parameters:
@@ -64,8 +66,8 @@ extension XCTestCase {
   ///   - processAndCheck: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
-  func checkAnnotatedValFiles(
-    inSuiteAt suitePath: String,
+  func checkAnnotations(
+    in valToTest: SourceFile,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
     _ processAndCheck: (
       _ file: SourceFile,
@@ -73,34 +75,31 @@ extension XCTestCase {
       _ diagnostics: inout DiagnosticSet
     ) throws -> [XCTIssue]
   ) throws {
-    let testCases = try testSuite(at: suitePath)
-    for file in testCases {
-      var annotations = TestAnnotation.parseAll(from: file)
+    var annotations = TestAnnotation.parseAll(from: valToTest)
 
-      // Separate the annotations to be checked by default diagnostic annotation checking from
-      // those to be checked by `processAndCheck`.
-      let p = annotations.partition(by: { checkedCommands.contains($0.command) })
-      let (diagnosticAnnotations, processingAnnotations) = (annotations[..<p], annotations[p...])
+    // Separate the annotations to be checked by default diagnostic annotation checking from
+    // those to be checked by `processAndCheck`.
+    let p = annotations.partition(by: { checkedCommands.contains($0.command) })
+    let (diagnosticAnnotations, processingAnnotations) = (annotations[..<p], annotations[p...])
 
-      var diagnostics = DiagnosticSet()
-      let failures = XCTContext.runActivity(
-        named: file.baseName,
-        block: { activity in
-          let completedProcessingTestFailures = try? processAndCheck(
-            file, processingAnnotations, &diagnostics)
+    var diagnostics = DiagnosticSet()
+    let failures = XCTContext.runActivity(
+      named: valToTest.baseName,
+      block: { activity in
+        let completedProcessingTestFailures = try? processAndCheck(
+          valToTest, processingAnnotations, &diagnostics)
 
-          return failuresToReport(
-            effectsOfProcessing: (
-              ranToCompletion: completedProcessingTestFailures != nil,
-              testFailures: completedProcessingTestFailures ?? [],
-              diagnostics: diagnostics
-            ),
-            unhandledAnnotations: diagnosticAnnotations)
-        })
+        return failuresToReport(
+          effectsOfProcessing: (
+            ranToCompletion: completedProcessingTestFailures != nil,
+            testFailures: completedProcessingTestFailures ?? [],
+            diagnostics: diagnostics
+          ),
+          unhandledAnnotations: diagnosticAnnotations)
+      })
 
-      for f in failures {
-        record(f)
-      }
+    for f in failures {
+      record(f)
     }
   }
 
