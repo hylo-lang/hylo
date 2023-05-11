@@ -428,7 +428,8 @@ public struct Emitter {
       if !program.relations.areEquivalent(name.decl.type, partType) {
         if let u = ExistentialType(name.decl.type) {
           let box = makeExistential(
-            u, borrowing: capability, from: part, at: name.decl.site, into: &module)
+            u, borrowing: capability, from: part,
+            at: name.decl.site, into: &module)
           part = box
         }
       }
@@ -455,15 +456,36 @@ public struct Emitter {
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    let witnessTable = PointerConstant(
-      module.syntax.id,
-      module.addGlobal(WitnessTable(describing: module.type(of: witness).ast)))
+    let witnessTable = makeWitnessTable(of: module.type(of: witness).ast, in: frames.top.scope)
+    let g = PointerConstant(module.syntax.id, module.addGlobal(witnessTable))
+
     let x0 = module.append(
       module.makeBorrow(capability, from: witness, anchoredAt: site),
       to: insertionBlock!)[0]
     return module.append(
-      module.makeWrapAddr(x0, .constant(witnessTable), as: t, anchoredAt: site),
+      module.makeWrapAddr(x0, .constant(g), as: t, anchoredAt: site),
       to: insertionBlock!)[0]
+  }
+
+  /// Returns the witness table of `t` in `s`.
+  private func makeWitnessTable(of t: AnyType, in s: AnyScopeID) -> WitnessTable {
+    .init(for: t, conformingTo: filteredConformances(of: t, exposedTo: s))
+  }
+
+  /// Returns the conformances of `t` that are exposed to `s`.
+  private func filteredConformances(
+    of t: AnyType,
+    exposedTo s: AnyScopeID
+  ) -> [Conformance] {
+    guard let conformances = program.relations.conformances[t] else { return [] }
+
+    var result: [Conformance] = []
+    for cs in conformances.values {
+      if let c = cs.first(where: { program.isContained(s, in: $0.scope) }) {
+        result.append(c)
+      }
+    }
+    return result
   }
 
   /// Inserts the IR for the top-level declaration `d` into `module`.
