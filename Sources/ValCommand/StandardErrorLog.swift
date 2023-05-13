@@ -12,6 +12,10 @@ struct OutputFileHandle: TextOutputStream {
     base.write(Data(text.utf8))
   }
 
+  /// Appends `data` to `self`.
+  public mutating func write(_ data: Data) {
+    base.write(data)
+  }
 }
 
 var standardError = OutputFileHandle(.standardError)
