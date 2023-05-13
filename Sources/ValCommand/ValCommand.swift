@@ -66,6 +66,14 @@ public struct ValCommand: ParsableCommand {
     /// Serialized as JSON
     case json = "json"
 
+    var textStyle: Diagnostic.TextOutputStyle? {
+      switch self {
+      case .json: return nil
+      case .autoText: return ProcessInfo.terminalIsConnected ? .styled : .unstyled
+      case .plainText: return .unstyled
+      case .colorText: return .styled
+      }
+    }
   }
 
   @Option(
@@ -118,10 +126,11 @@ public struct ValCommand: ParsableCommand {
 
   public func run() throws {
     let (exitCode, diagnostics) = try execute()
-    diagnostics.write(
-      into: &standardError,
-      style: ProcessInfo.terminalIsConnected && diagnosticFormat != .plainText
-        ? .ansiColored : .unstyled)
+
+    if let s = diagnosticFormat.textStyle {
+      diagnostics.write(into: &standardError, style: s)
+    }
+
     ValCommand.exit(withError: exitCode)
   }
 
