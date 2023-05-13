@@ -1,8 +1,10 @@
+import Foundation
+
 /// A diagnostic related to a region of Val source code.
 public struct Diagnostic: Hashable {
 
   /// The severity of a diagnostic.
-  public enum Level: Hashable {
+  public enum Level: Hashable, Codable {
 
     /// A note.
     case note
@@ -82,3 +84,5 @@ extension Diagnostic: CustomStringConvertible {
   }
 
 }
+
+extension Diagnostic: Codable {}
