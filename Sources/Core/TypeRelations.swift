@@ -4,7 +4,13 @@ import Utils
 public struct TypeRelations {
 
   /// A set of conformances represented to answer "does A conform to T in S" efficiently.
-  public private(set) var conformances: [AnyType: [TraitType: [Conformance]]] = [:]
+  public typealias ConformanceSet = [AnyType: ConformanceTable]
+
+  /// A table from trait to its conformances for a given type.
+  public typealias ConformanceTable = [TraitType: [Conformance]]
+
+  /// The conformances in the program.
+  public private(set) var conformances: ConformanceSet = [:]
 
   /// Creates an instance.
   public init() {}
@@ -58,6 +64,53 @@ public struct TypeRelations {
   /// Returns the canonical form of `constraint`.
   public func canonical(_ constraint: Constraint) -> Constraint {
     constraint.modifyingTypes(canonical(_:))
+  }
+
+  /// Returns a copy of `generic` where occurrences of parameters keying `subtitutions` are
+  /// replaced by their corresponding value, performing necessary conformance lookups from
+  /// `useScope`, which is in `program`.
+  ///
+  /// This method has no effect if `substitutions` is empty.
+  public func monomorphize<P: Program>(
+    _ genericType: AnyType,
+    applying substitutions: GenericArguments,
+    in useScope: AnyScopeID,
+    in program: P
+  ) -> AnyType {
+    return substitutions.isEmpty ? genericType : genericType.transform(transform(_:))
+
+    /// Returns how to specialize `t`.
+    func transform(_ t: AnyType) -> TypeTransformAction {
+      switch t.base {
+      case let u as AssociatedTypeType:
+        return transform(u)
+      case let u as BoundGenericType:
+        return transform(u)
+      case let u as GenericTypeParameterType:
+        return .stepOver((substitutions[u.decl] as? AnyType) ?? .error)
+      default:
+        return .stepInto(t)
+      }
+    }
+
+    /// Returns how to specialize `t`.
+    func transform(_ t: AssociatedTypeType) -> TypeTransformAction {
+      // Note: requires either the method to accept type and scope as parameters, or to have
+      // associated types remember the trait that introduced them.
+      fatalError("not implemented")
+    }
+
+    /// Returns how to specialize `t`.
+    func transform(_ t: BoundGenericType) -> TypeTransformAction {
+      let updatedArguments = t.arguments.mapValues { (v) -> any CompileTimeValue in
+        if let w = v as? AnyType {
+          return monomorphize(w, applying: substitutions, in: useScope, in: program)
+        } else {
+          return v
+        }
+      }
+      return .stepOver(^BoundGenericType(t.base, arguments: updatedArguments))
+    }
   }
 
 }
