@@ -216,7 +216,7 @@ public struct ValCommand: ParsableCommand {
     #if os(macOS)
       try makeMacOSExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
     #elseif os(Linux)
-      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
     #else
       _ = objectFiles
       _ = binaryPath
