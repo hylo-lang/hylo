@@ -1,4 +1,5 @@
 import ArgumentParser
+import Core
 import Utils
 import ValCommand
 import XCTest
@@ -14,8 +15,8 @@ final class ValCommandTests: XCTestCase {
     /// The URL of the output file.
     let output: URL
 
-    /// The contents of the standard error.
-    let stderr: String
+    /// The text of generated diagnostics.
+    let diagnosticText: String
 
   }
 
@@ -27,34 +28,34 @@ final class ValCommandTests: XCTestCase {
     let result = try compile(["--emit", "raw-ast"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
-    XCTAssert(result.stderr.isEmpty)
+    XCTAssert(result.diagnosticText.isEmpty)
   }
 
   func testRawIR() throws {
     let result = try compile(["--emit", "raw-ir"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.stderr.isEmpty)
+    XCTAssert(result.diagnosticText.isEmpty)
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testIR() throws {
     let result = try compile(["--emit", "ir"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.stderr.isEmpty)
+    XCTAssert(result.diagnosticText.isEmpty)
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testLLVM() throws {
     let result = try compile(["--emit", "llvm"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.stderr.isEmpty)
+    XCTAssert(result.diagnosticText.isEmpty)
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testBinary() throws {
     let result = try compile(["--emit", "binary"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.stderr.isEmpty)
+    XCTAssert(result.diagnosticText.isEmpty)
 
     #if os(Windows)
       XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath + ".exe"))
@@ -68,9 +69,9 @@ final class ValCommandTests: XCTestCase {
     let result = try compile([], valSource)
     XCTAssertFalse(result.status.isSuccess)
     XCTAssertEqual(
-      result.stderr,
+      result.diagnosticText,
       """
-      \(valSource.relativePath):1:6: error: expected function signature
+      \(valSource.relativePath):1.6: error: expected function signature
       fun x
            ^
 
@@ -80,7 +81,7 @@ final class ValCommandTests: XCTestCase {
   func testTypeCheckSuccess() throws {
     let result = try compile(["--typecheck"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.stderr.isEmpty)
+    XCTAssert(result.diagnosticText.isEmpty)
     XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
@@ -89,9 +90,9 @@ final class ValCommandTests: XCTestCase {
     let result = try compile(["--typecheck"], valSource)
     XCTAssertFalse(result.status.isSuccess)
     XCTAssertEqual(
-      result.stderr,
+      result.diagnosticText,
       """
-      \(valSource.relativePath):1:21: error: undefined name 'foo' in this scope
+      \(valSource.relativePath):1.21-24: error: undefined name 'foo' in this scope
       public fun main() { foo() }
                           ~~~
 
@@ -119,9 +120,9 @@ final class ValCommandTests: XCTestCase {
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
 
     // Execute the command.
-    var stderr = ""
-    let status = try cli.execute(loggingTo: &stderr)
-    return CompilationResult(status: status, output: output, stderr: stderr)
+    let (status, diagnostics) = try cli.execute()
+    return CompilationResult(
+      status: status, output: output, diagnosticText: diagnostics.formatted())
   }
 
 }
@@ -132,11 +133,5 @@ extension FileManager {
   func temporaryFile() -> URL {
     temporaryDirectory.appendingPathComponent("\(UUID())")
   }
-
-}
-
-extension String: DiagnosticLog {
-
-  public var hasANSIColorSupport: Bool { false }
 
 }

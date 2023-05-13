@@ -1,19 +1,21 @@
 import Foundation
 
-/// A wrapper type implementing `FileHandle.standardError`'s conformance to `Log`.
-struct StandardErrorLog: DiagnosticLog {
+struct FileHandleStream: TextOutputStream {
 
-  /// Indicates whether this instance supports ANSI colors.
-  var hasANSIColorSupport: Bool
+  private let base: FileHandle
 
-  /// Creates an instance.
-  init() {
-    self.hasANSIColorSupport = ProcessInfo.processInfo.environment["TERM"] != nil
+  /// Creates an instance that writes to `base`.
+  init(_ base: FileHandle) { self.base = base }
+
+  /// Appends `text` to `self`.
+  public mutating func write(_ text: String) {
+    base.write(Data(text.utf8))
   }
 
-  /// Appends `text` to the stream.
-  func write(_ text: String) {
-    FileHandle.standardError.write(Data(text.utf8))
-  }
+}
 
+var standardError: any TextOutputStream = FileHandleStream(.standardError)
+
+extension ProcessInfo {
+  static let terminalIsConnected = processInfo.environment["TERM"] != nil
 }

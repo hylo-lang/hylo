@@ -38,11 +38,12 @@ final class ExecutionTests: XCTestCase {
   func compile(_ input: URL, with arguments: [String]) throws -> URL {
     let output = FileManager.default.temporaryFile()
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
-    var stderr = ""
-    let status = try cli.execute(loggingTo: &stderr)
+    let (status, diagnostics) = try cli.execute()
 
     XCTAssert(status.isSuccess, "Compilation of \(input) failed with exit code \(status.rawValue)")
-    XCTAssert(stderr.isEmpty, "Compilation of \(input) contains errors: \(stderr)")
+    XCTAssert(
+      diagnostics.isEmpty,
+      "Compilation of \(input) contains diagnostics: \(diagnostics.formatted())")
 
     #if os(Windows)
       XCTAssert(
@@ -80,11 +81,5 @@ extension FileManager {
   func temporaryFile() -> URL {
     temporaryDirectory.appendingPathComponent("\(UUID())")
   }
-
-}
-
-extension String: DiagnosticLog {
-
-  public var hasANSIColorSupport: Bool { false }
 
 }

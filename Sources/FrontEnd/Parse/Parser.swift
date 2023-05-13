@@ -313,7 +313,7 @@ public enum Parser {
           .error(
             expected: "'}'",
             at: state.currentLocation,
-            notes: [.error("to match this '{'", at: opener.site)]
+            notes: [.note("to match this '{'", at: opener.site)]
           ))
         break
       }

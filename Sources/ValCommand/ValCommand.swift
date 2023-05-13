@@ -117,27 +117,30 @@ public struct ValCommand: ParsableCommand {
   }
 
   public func run() throws {
-    var errorLog = StandardErrorLog()
-    ValCommand.exit(withError: try execute(loggingTo: &errorLog))
+    let (exitCode, diagnostics) = try execute()
+    diagnostics.write(
+      into: &standardError,
+      style: ProcessInfo.terminalIsConnected && diagnosticFormat != .plainText
+        ? .ansiColored : .unstyled)
+    ValCommand.exit(withError: exitCode)
   }
 
-  /// Executes the command, logging Val messages to `errorLog`, and returns its exit status.
+  /// Executes the command, returning its exit status and any generated diagnostics.
   ///
   /// Propagates any thrown errors that are not Val diagnostics,
-  public func execute<ErrorLog: DiagnosticLog>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
+  public func execute() throws -> (ExitCode, DiagnosticSet) {
+    var diagnostics = DiagnosticSet()
     do {
-      try executeCommand(loggingTo: &errorLog)
+      try executeCommand(diagnostics: &diagnostics)
     } catch let d as DiagnosticSet {
       assert(d.containsError, "Diagnostics containing no errors were thrown")
-      return ExitCode.failure
+      return (ExitCode.failure, diagnostics)
     }
-    return ExitCode.success
+    return (ExitCode.success, diagnostics)
   }
 
-  /// Executes the command, logging Val messages to `errorLog`.
-  private func executeCommand<ErrorLog: DiagnosticLog>(loggingTo errorLog: inout ErrorLog) throws {
-    var diagnostics = DiagnosticSet()
-    defer { errorLog.log(diagnostics: diagnostics) }
+  /// Executes the command, accumulating diagnostics in `diagnostics`.
+  private func executeCommand(diagnostics: inout DiagnosticSet) throws {
 
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
@@ -197,7 +200,7 @@ public struct ValCommand: ParsableCommand {
     let binaryPath = executableOutputPath(default: productName)
 
     #if os(macOS)
-      try makeMacOSExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+      try makeMacOSExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
     #elseif os(Linux)
       try makeLinuxExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #else
@@ -212,8 +215,7 @@ public struct ValCommand: ParsableCommand {
   ///
   /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
   private func lower(
-    _ m: ModuleDecl.ID, in program: TypedProgram,
-    reportingDiagnosticsInto log: inout DiagnosticSet
+    _ m: ModuleDecl.ID, in program: TypedProgram, reportingDiagnosticsInto log: inout DiagnosticSet
   ) throws -> IR.Module {
     var ir = try IR.Module(lowering: m, in: program, diagnostics: &log)
     if outputType != .rawIR {
@@ -226,15 +228,13 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
-  /// logging diagnostics to `log`.
-  private func makeMacOSExecutable<L: DiagnosticLog>(
-    at binaryPath: String,
-    linking objects: [URL],
-    loggingTo log: inout L
+  private func makeMacOSExecutable(
+    at binaryPath: String, linking objects: [URL], diagnostics: inout DiagnosticSet
   ) throws {
     let xcrun = try find("xcrun")
     let sdk =
-      try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &log) ?? ""
+      try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"], diagnostics: &diagnostics)
+      ?? ""
 
     var arguments = [
       "-r", "ld", "-o", binaryPath,
@@ -242,15 +242,15 @@ public struct ValCommand: ParsableCommand {
       "-lSystem", "-lc++",
     ]
     arguments.append(contentsOf: objects.map(\.path))
-    try runCommandLine(xcrun, arguments, loggingTo: &log)
+    try runCommandLine(xcrun, arguments, diagnostics: &diagnostics)
   }
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
   /// logging diagnostics to `log`.
-  private func makeLinuxExecutable<L: DiagnosticLog>(
+  private func makeLinuxExecutable(
     at binaryPath: String,
     linking objects: [URL],
-    loggingTo log: inout L
+    diagnostics: inout DiagnosticSet
   ) throws {
     var arguments = [
       "-o", binaryPath,
@@ -259,7 +259,7 @@ public struct ValCommand: ParsableCommand {
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
-    try runCommandLine(find("clang++"), arguments, loggingTo: &log)
+    try runCommandLine(find("clang++"), arguments, diagnostics: &diagnostics)
   }
 
   /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`
@@ -284,10 +284,10 @@ public struct ValCommand: ParsableCommand {
     return "Main"
   }
 
-  /// Writes `source` to the `filename`, possibly with verbose logging.
-  private func write<L: DiagnosticLog>(_ source: String, toURL url: URL, loggingTo log: inout L) throws {
+  /// Writes `source` to `url`, possibly with verbose logging.
+  private func write(_ source: String, toURL url: URL) throws {
     if verbose {
-      log.log("Writing \(url)")
+      standardError.write("Writing \(url)")
     }
     try source.write(to: url, atomically: true, encoding: .utf8)
   }
@@ -336,13 +336,13 @@ public struct ValCommand: ParsableCommand {
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
   @discardableResult
-  private func runCommandLine<L: DiagnosticLog>(
+  private func runCommandLine(
     _ programPath: String,
     _ arguments: [String] = [],
-    loggingTo log: inout L
+    diagnostics: inout DiagnosticSet
   ) throws -> String? {
     if verbose {
-      log.log(([programPath] + arguments).joined(separator: " "))
+      standardError.write(([programPath] + arguments).joined(separator: " "))
     }
 
     let pipe = Pipe()

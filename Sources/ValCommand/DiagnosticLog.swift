@@ -1,97 +1,102 @@
 import Core
 
-/// A type that can be used as a target to log message.
-public protocol DiagnosticLog: TextOutputStream {
+extension DiagnosticSet {
 
-  /// Indicates whether this instance supports ANSI colors.
-  var hasANSIColorSupport: Bool { get }
+  func write<Output: TextOutputStream>(
+    into output: inout Output, style: Diagnostic.TextOutputStyle = .unstyled
+  ) {
+    for d in elements.sorted(by: Diagnostic.isLoggedBefore) {
+      d.write(into: &output, style: style)
+    }
+  }
 
-  /// Appends `text` to the stream, applying `style` iff `hasANSIColorSupport` is true.
-  mutating func write(_ text: String, in style: [ANSIEscape])
-
+  public func formatted(style: Diagnostic.TextOutputStyle = .unstyled) -> String {
+    var r = ""
+    write(into: &r, style: style)
+    return r
+  }
 }
 
-extension DiagnosticLog {
+extension Diagnostic {
 
-  public mutating func write(_ text: String, in style: [ANSIEscape]) {
-    if hasANSIColorSupport {
-      let codes = style.map({ "\u{001B}[\($0.rawValue)m" }).joined()
-      write(codes + text + "\u{001B}[0m")
-    } else {
-      write(text)
-    }
-  }
+  func write<Output: TextOutputStream>(into output: inout Output, style: TextOutputStyle) {
 
-  /// Logs the contents of `diagnostics`.
-  mutating func log(diagnostics: DiagnosticSet) {
-    for d in diagnostics.elements.sorted(by: Diagnostic.isLoggedBefore) {
-      log(diagnostic: d)
-    }
-  }
-
-  /// Logs `diagnostic`.
-  mutating func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
-    // Log the location
-    let siteFirst = diagnostic.site.first()
-    let path = siteFirst.file.url.relativePath
-    let (lineFirst, column) = siteFirst.lineAndColumn
-    write("\(path):\(lineFirst):\(column): ", in: [.bold])
-
-    // Log the level.
-    if isChild {
-      log(label: .note)
-    } else {
-      log(label: diagnostic.level)
+    func write<T>(_ x: T, in style: String.ANSIStyle = String.unstyled) {
+      output.write(style("\(x)"))
     }
 
-    // Log the message.
-    write(diagnostic.message, in: [.bold])
+    write(site, in: style.sourceRange)
+    write(": ")
+    write(level, in: style[level])
+    write(": ")
+
+    write(message, in: style.message)
     write("\n")
 
-    // Log the window
-    let site = diagnostic.site
-    let line = site.first().line.text
-    write(String(line))
-    if !(line.last?.isNewline ?? false) { write("\n") }
-
-    let padding = line.distance(from: line.startIndex, to: site.start)
-    write(String(repeating: " ", count: padding))
-
-    let count = line.distance(from: site.start, to: min(site.end, line.endIndex))
-    if count > 1 {
-      write(String(repeating: "~", count: count))
-    } else {
-      write("^")
-    }
-    write("\n")
+    writeWindow(into: &output)
 
     // Log the notes.
-    for child in diagnostic.notes {
-      log(diagnostic: child, asChild: true)
+    for n in notes {
+      n.write(into: &output, style: style)
     }
   }
 
-  /// Logs `message`.
-  mutating func log(_ message: String, terminator: String = "\n") {
-    write(message)
-    write(terminator)
-  }
+  private func writeWindow<Output: TextOutputStream>(into output: inout Output) {
+    // Write the first marked line followed by a newline.
+    let firstMarkedLine = site.file.line(containing: site.start).text
+    output.write(String(firstMarkedLine))
+    if !(firstMarkedLine.last?.isNewline ?? false) { output.write("\n") }
 
-  mutating func log(label: Diagnostic.Level) {
-    switch label {
-    case .note:
-      write("note: ", in: [.bold, .cyan])
-    case .warning:
-      write("warning: ", in: [.bold, .yellow])
-    case .error:
-      write("error: ", in: [.bold, .red])
-    }
+    // Write the column indication for that line, followed by a newline.
+    let startColumn = firstMarkedLine.distance(from: firstMarkedLine.startIndex, to: site.start)
+    output.write(String(repeating: " ", count: startColumn))
+    let markWidth = firstMarkedLine.distance(
+      from: site.start, to: min(site.end, firstMarkedLine.endIndex))
+    output.write(markWidth <= 1 ? "^" : String(repeating: "~", count: markWidth))
+    output.write("\n")
   }
 
 }
 
-/// An SRG escape sequence.
-public enum ANSIEscape: Int {
+extension Diagnostic {
+
+  public struct TextOutputStyle {
+    fileprivate let sourceRange: String.ANSIStyle
+    fileprivate let note: String.ANSIStyle
+    fileprivate let warning: String.ANSIStyle
+    fileprivate let error: String.ANSIStyle
+    fileprivate let message: String.ANSIStyle
+
+    fileprivate subscript(l: Diagnostic.Level) -> String.ANSIStyle {
+      switch l {
+      case .note: return note
+      case .warning: return warning
+      case .error: return error
+      }
+    }
+
+    public static let unstyled = TextOutputStyle(
+      sourceRange: String.unstyled,
+      note: String.unstyled,
+      warning: String.unstyled,
+      error: String.unstyled,
+      message: String.unstyled)
+
+    public static let ansiColored = TextOutputStyle(
+      sourceRange: { $0.styled(.bold) },
+      note: { $0.styled(.bold, .cyan) },
+      warning: { $0.styled(.bold, .yellow) },
+      error: { $0.styled(.bold, .red) },
+      message: { $0.styled(.bold) })
+  }
+
+}
+
+/// An ANSI [Select Graphic Rendition](https://en.wikipedia.org/wiki/ANSI_escape_code#SGR) (SGR) escape code.
+private enum ANSISGR: Int {
+
+  /// Reset all SGR attributes
+  case reset = 0
 
   case bold = 1
   case dimmed = 2
@@ -99,6 +104,7 @@ public enum ANSIEscape: Int {
   case underline = 4
   case blink = 5
   case strike = 9
+  case defaultFont = 10
   case black = 30
   case red = 31
   case green = 32
@@ -107,6 +113,18 @@ public enum ANSIEscape: Int {
   case magenta = 35
   case cyan = 36
   case white = 37
-  case `default` = 39
+  case defaultColor = 39
 
+  /// The textual representation that has an effect on an ANSI terminal
+  var controlString: String {
+    "\u{001B}[\(rawValue)m"
+  }
+}
+
+extension String {
+  fileprivate typealias ANSIStyle = (String) -> String
+  fileprivate func styled(_ rendition: ANSISGR...) -> String {
+    "\(list: rendition.map(\.controlString), joinedBy: "")\(self)\(ANSISGR.reset.controlString)"
+  }
+  fileprivate static let unstyled: ANSIStyle = { $0 }
 }
