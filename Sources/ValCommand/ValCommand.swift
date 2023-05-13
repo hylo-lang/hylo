@@ -129,12 +129,12 @@ public struct ValCommand: ParsableCommand {
 
     if let s = diagnosticFormat.textStyle {
       diagnostics.write(into: &standardError, style: s)
-    }
-    else if diagnosticFormat == .json {
+    } else if diagnosticFormat == .json {
       let jsonEncoder = JSONEncoder()
       try standardError.write(jsonEncoder.encode(diagnostics))
+    } else {
+      fatalError("Unreachable")
     }
-    else { fatalError("Unreachable") }
 
     ValCommand.exit(withError: exitCode)
   }
