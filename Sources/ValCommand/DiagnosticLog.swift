@@ -19,13 +19,14 @@ extension DiagnosticSet {
 
 extension Diagnostic {
 
+  /// Writes `self` into `output` using the given output style.
   func write<Output: TextOutputStream>(into output: inout Output, style: TextOutputStyle) {
 
     func write<T>(_ x: T, in style: String.ANSIStyle = String.unstyled) {
       output.write(style("\(x)"))
     }
 
-    write(site, in: style.sourceRange)
+    write(site.gnuStandardText, in: style.sourceRange)
     write(": ")
     write(level, in: style[level])
     write(": ")
@@ -41,6 +42,7 @@ extension Diagnostic {
     }
   }
 
+  /// Writes the text of the source line and column indicator (the "window") into `output`.
   private func writeWindow<Output: TextOutputStream>(into output: inout Output) {
     // Write the first marked line followed by a newline.
     let firstMarkedLine = site.file.line(containing: site.start).text
