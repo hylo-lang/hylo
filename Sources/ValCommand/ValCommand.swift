@@ -263,7 +263,7 @@ public struct ValCommand: ParsableCommand {
     loggingTo log: inout L
   ) throws {
     var arguments = [
-      "-defaultlib:msvcrt", "-o", binaryPath,
+      "-defaultlib:msvcrt", "-out:" + binaryPath,
     ]
     arguments.append(contentsOf: objects.map(\.path))
 
