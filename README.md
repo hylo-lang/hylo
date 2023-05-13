@@ -19,8 +19,6 @@ swift build -c release
 That command will create an executable named `valc` in `.build/release`.
 That's Val compiler!
 
-A custom location can be specified with the option `--valc`.
-
 For details about the environment configuration, see CI Settings.
 
 ### Building Val Devcontainer with VSCode

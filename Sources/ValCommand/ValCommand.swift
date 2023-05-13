@@ -190,9 +190,9 @@ public struct ValCommand: ParsableCommand {
     #if os(macOS)
       try makeMacOSExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #elseif os(Linux)
-      try makeExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #elseif os(Windows)
-      try makeExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+      try makeWindowsExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
     #else
       _ = objectFiles
       _ = binaryPath
@@ -220,9 +220,8 @@ public struct ValCommand: ParsableCommand {
     try runCommandLine(xcrun, arguments, loggingTo: &log)
   }
 
-  /// Combines the object files located at `objects` into a Linux or Windows executable file at
   /// `binaryPath`, logging diagnostics to `log`.
-  private func makeExecutable<L: Log>(
+  private func makeLinuxExecutable<L: Log>(
     at binaryPath: String,
     linking objects: [URL],
     loggingTo log: inout L
@@ -235,6 +234,22 @@ public struct ValCommand: ParsableCommand {
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
     try runCommandLine(find("clang++"), arguments, loggingTo: &log)
+  }
+
+  /// `binaryPath`, logging diagnostics to `log`.
+  private func makeWindowsExecutable<L: Log>(
+    at binaryPath: String,
+    linking objects: [URL],
+    loggingTo log: inout L
+  ) throws {
+    var arguments = [
+      "-defaultlib:msvcrt", "-o", binaryPath,
+    ]
+    arguments.append(contentsOf: objects.map(\.path))
+
+    // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
+    // See https://stackoverflow.com/questions/51677440
+    try runCommandLine(find("lld-link"), arguments, loggingTo: &log)
   }
 
   /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`
