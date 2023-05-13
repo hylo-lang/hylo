@@ -1,6 +1,6 @@
 import Foundation
 
-struct FileHandleStream: TextOutputStream {
+struct OutputFileHandle: TextOutputStream {
 
   private let base: FileHandle
 
@@ -14,7 +14,7 @@ struct FileHandleStream: TextOutputStream {
 
 }
 
-var standardError: any TextOutputStream = FileHandleStream(.standardError)
+var standardError = OutputFileHandle(.standardError)
 
 extension ProcessInfo {
   static let terminalIsConnected = processInfo.environment["TERM"] != nil
