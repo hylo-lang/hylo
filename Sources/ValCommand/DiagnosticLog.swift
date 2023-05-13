@@ -82,7 +82,7 @@ extension Diagnostic {
       error: String.unstyled,
       message: String.unstyled)
 
-    public static let ansiColored = TextOutputStyle(
+    public static let styled = TextOutputStyle(
       sourceRange: { $0.styled(.bold) },
       note: { $0.styled(.bold, .cyan) },
       warning: { $0.styled(.bold, .yellow) },
