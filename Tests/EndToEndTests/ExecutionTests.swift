@@ -22,7 +22,7 @@ final class ExecutionTests: XCTestCase {
   }
 
   func testHelloWorld() throws {
-    let f = FileManager.default.temporaryFile()
+    let f = FileManager.default.makeTemporaryFileURL()
     let s = #"public fun main() { print("Hello, World!") }"#
     try s.write(to: f, atomically: true, encoding: .utf8)
 
@@ -36,7 +36,7 @@ final class ExecutionTests: XCTestCase {
   ///
   /// Ensures that the compilation succeeds.
   func compile(_ input: URL, with arguments: [String]) throws -> URL {
-    let output = FileManager.default.temporaryFile()
+    let output = FileManager.default.makeTemporaryFileURL()
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
     var stderr = ""
     let status = try cli.execute(loggingTo: &stderr)
@@ -70,15 +70,6 @@ final class ExecutionTests: XCTestCase {
     let standardOutput = String(
       data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
     return (task.terminationStatus, standardOutput ?? "")
-  }
-
-}
-
-extension FileManager {
-
-  /// Returns the URL of a temporary file.
-  func temporaryFile() -> URL {
-    temporaryDirectory.appendingPathComponent("\(UUID())")
   }
 
 }

@@ -170,8 +170,8 @@ public struct ValCommand: ParsableCommand {
 
     assert(outputType == .binary)
 
-    let objectFiles = try llvmProgram.write(
-      .objectFile, to: FileManager.default.temporaryDirectory)
+    let objectDir = try FileManager.default.makeTemporaryDirectory()
+    let objectFiles = try llvmProgram.write(.objectFile, to: objectDir)
     let binaryPath = executableOutputPath(default: productName)
 
     #if os(macOS)
