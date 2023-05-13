@@ -20,18 +20,6 @@ final class ExecutionTests: EndToEndTestCase {
 
 class EndToEndTestCase: XCTestCase {
 
-  func compileAndRun(_ annotatedValFilePath: String) throws {
-    let output = try compile(URL(fileURLWithPath: annotatedValFilePath), with: ["--emit", "binary"])
-    do {
-      let (status, _) = try run(output)
-      XCTAssertEqual(
-        status, 0,
-        "Execution of binary for test \(f.lastPathComponent) failed with exit code \\(status)")
-    } catch {
-      XCTFail("While testing \(f.lastPathComponent), cannot execute: \\(output)")
-    }
-  }
-
   /// Compiles `input` with the given arguments and returns the URL of the output file.
   ///
   /// Ensures that the compilation succeeds.
