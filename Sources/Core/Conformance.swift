@@ -11,7 +11,7 @@ public struct Conformance {
     case concrete(AnyDeclID)
 
     /// Synthesized implementation with given type.
-    case synthetic(AnyType)
+    case synthetic(SynthesizedDecl)
 
     /// The payload of `.concrete` or `nil` if `self == .synthetic`.
     public var decl: AnyDeclID? {

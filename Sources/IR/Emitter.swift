@@ -432,7 +432,7 @@ public struct Emitter {
 
       if !program.relations.areEquivalent(name.decl.type, partType) {
         if let u = ExistentialType(name.decl.type) {
-          let box = makeExistential(
+          let box = emitExistential(
             u, borrowing: capability, from: part,
             at: name.decl.site, into: &module)
           part = box
@@ -454,7 +454,7 @@ public struct Emitter {
   }
 
   /// Returns an existential container of type `t` borrowing `capability` from `witness`.
-  private func makeExistential(
+  private mutating func emitExistential(
     _ t: ExistentialType,
     borrowing capability: AccessEffect,
     from witness: Operand,
@@ -474,14 +474,14 @@ public struct Emitter {
   }
 
   /// Returns the witness table of `t` in `s`.
-  private func emitWitnessTable(
+  private mutating func emitWitnessTable(
     of t: AnyType, usedIn s: AnyScopeID, into module: inout Module
   ) -> WitnessTable {
     .init(for: t, conformingTo: emitConformances(of: t, exposedTo: s, into: &module))
   }
 
   /// Returns the lowered conformances of `model` that are exposed to `useScope`.
-  private func emitConformances(
+  private mutating func emitConformances(
     of model: AnyType,
     exposedTo useScope: AnyScopeID,
     into module: inout Module
@@ -497,7 +497,7 @@ public struct Emitter {
   }
 
   /// Returns the lowered form of `c`, generating function references in `useScope`.
-  private func emitConformance(
+  private mutating func emitConformance(
     _ c: Conformance, in useScope: AnyScopeID, into module: inout Module
   ) -> LoweredConformance {
     var implementations = LoweredConformance.ImplementationMap()
@@ -505,8 +505,10 @@ public struct Emitter {
       switch i {
       case .concrete(let d):
         implementations[r] = emitRequirementImplementation(d, in: useScope, into: &module)
-      case .synthetic:
-        fatalError("not implemented")
+
+      case .synthetic(let d):
+        let f = emit(synthesizedDecl: d, into: &module)
+        implementations[r] = .function(.init(to: f, usedIn: useScope, in: module))
       }
     }
 
@@ -534,16 +536,15 @@ public struct Emitter {
   }
 
   /// Inserts the IR for the top-level declaration `d` into `module`.
+  @discardableResult
   private mutating func emit(
-    synthesizedDecl d: SynthesizedDecl,
-    into module: inout Module
-  ) {
-    assert(program.module(containing: d.scope) == module.syntax.id)
+    synthesizedDecl d: SynthesizedDecl, into module: inout Module
+  ) -> Function.ID {
     switch d.kind {
     case .moveInitialization:
-      synthesizeMoveInitImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
+      return synthesizeMoveInitImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .moveAssignment:
-      synthesizeMoveAssignImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
+      return synthesizeMoveAssignImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .copy:
       fatalError("not implemented")
     }
@@ -554,11 +555,11 @@ public struct Emitter {
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
-  ) {
+  ) -> Function.ID {
     let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
     module.declareSyntheticFunction(f, typed: t)
-    if module[f].entry != nil {
-      return
+    if (module[f].entry != nil) || (program.module(containing: scope) != module.syntax.id) {
+      return f
     }
 
     let site = module.syntax.site
@@ -613,6 +614,7 @@ public struct Emitter {
     }
 
     module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
+    return f
   }
 
   /// Synthesize the implementation of `t`'s move assignment operator in `scope`.
@@ -620,11 +622,11 @@ public struct Emitter {
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
-  ) {
+  ) -> Function.ID {
     let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
     module.declareSyntheticFunction(f, typed: t)
-    if module[f].entry != nil {
-      return
+    if (module[f].entry != nil) || (program.module(containing: scope) != module.syntax.id) {
+      return f
     }
 
     let site = module.syntax.site
@@ -645,6 +647,7 @@ public struct Emitter {
     emitMove(.set, of: r, to: receiver, conformanceToSinkable: c, anchoredAt: site, into: &module)
 
     module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
+    return f
   }
 
   // MARK: Statements

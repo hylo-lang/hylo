@@ -934,7 +934,7 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
-        implementations[d] = .synthetic(t)
+        implementations[d] = .synthetic(i)
         synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
         notes.insert(
@@ -956,7 +956,7 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
-        implementations[d] = .synthetic(t)
+        implementations[d] = .synthetic(i)
         synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
         let requiredName = m.appending(ast[d].introducer.value)!
