@@ -1,6 +1,6 @@
 import Core
 
-/// A constant buffer of bytes in Val IR.
+/// The type and conformances of a value acting as the witness of an existential container.
 public struct WitnessTable: Constant, Hashable {
 
   /// The type of the witness described by this table.
