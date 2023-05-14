@@ -4,23 +4,18 @@
 ///   - alignment: The alignment of the allocated memory. Must be a valid alignment supported by
 ///     the implementation.
 ///   - size: The number of bytes to allocate. Must be an integral multiple of `alignment`.
-@ffi("_aligned_malloc")
-fun _aligned_malloc(_ size: Int, _ alignment: Int) -> RawPointer
-
-fun aligned_alloc(_ alignment: Int, _ size: Int) -> RawPointer {
-    _aligned_malloc(size, alignment)
-}
-
+@ffi("aligned_alloc")
+fun aligned_alloc(_ alignment: Int, _ size: Int) -> RawPointer
 
 /// Deallocates the block of memory pointed at by `pointer`.
-@ffi("_aligned_free")
+@ffi("free")
 fun free(_ pointer: RawPointer)
 
 /// Terminates the program abnormally.
 @ffi("abort")
 public fun fatal_error() -> Never
 
-@ffi("_fdopen")
+@ffi("fdopen")
 public fun fdopen(_ descriptor: Int, _ mode: RawPointer) -> RawPointer
 
 /// Writes to `stream` the contents of `data`, which containts `count` elements of `size` bytes,

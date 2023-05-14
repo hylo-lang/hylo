@@ -7,5 +7,5 @@ public fun print(_ item: String, terminator: String = "\n") {
 
 /// The standard output of the current process.
 fun stdout() -> RawPointer {
-  _fdopen(1, "w".utf8)
+  fdopen(1, "w".utf8)
 }
