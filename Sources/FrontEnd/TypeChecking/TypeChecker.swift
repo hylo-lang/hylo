@@ -934,7 +934,7 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
-        implementations[d] = .synthetic(t)
+        implementations[d] = .synthetic(i)
         synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
         notes.insert(
@@ -956,7 +956,7 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
-        implementations[d] = .synthetic(t)
+        implementations[d] = .synthetic(i)
         synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
         let requiredName = m.appending(ast[d].introducer.value)!
@@ -1577,8 +1577,15 @@ public struct TypeChecker {
     for (e, t) in facts.inferredTypes.storage {
       exprTypes[e] = solution.typeAssumptions.reify(t)
     }
+
     for (n, r) in solution.bindingAssumptions {
-      let s = solution.typeAssumptions.reifyArguments(of: r, withVariables: .substituteByError)
+      var s = solution.typeAssumptions.reify(r, withVariables: .keep)
+
+      // https://github.com/apple/swift/issues/65844
+      if s.arguments.values.contains(where: { $0.isTypeVariable }) {
+        report(.error(notEnoughContextToInferArgumentsAt: ast[n].site))
+        s = solution.typeAssumptions.reify(s, withVariables: .substituteByError)
+      }
       referredDecls[n] = s
     }
 

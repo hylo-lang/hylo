@@ -81,7 +81,7 @@ public struct Emitter {
     case ProductTypeDecl.self:
       emit(productDecl: .init(d)!, into: &module)
     case TraitDecl.self:
-      break
+      emit(traitDecl: .init(d)!, into: &module)
     case TypeAliasDecl.self:
       break
     default:
@@ -312,6 +312,11 @@ public struct Emitter {
     emit(members: d.members, into: &module)
   }
 
+  /// Inserts the IR for `d` into `module`.
+  private mutating func emit(traitDecl d: TraitDecl.Typed, into module: inout Module) {
+    _ = module.addGlobal(MetatypeConstant(.init(d.type)!))
+  }
+
   /// Inserts the IR for given declaration `members` into `module`.
   private mutating func emit(members: [AnyDeclID], into module: inout Module) {
     for m in members {
@@ -427,8 +432,9 @@ public struct Emitter {
 
       if !program.relations.areEquivalent(name.decl.type, partType) {
         if let u = ExistentialType(name.decl.type) {
-          let box = makeExistential(
-            u, borrowing: capability, from: part, at: name.decl.site, into: &module)
+          let box = emitExistential(
+            u, borrowing: capability, from: part,
+            at: name.decl.site, into: &module)
           part = box
         }
       }
@@ -448,35 +454,97 @@ public struct Emitter {
   }
 
   /// Returns an existential container of type `t` borrowing `capability` from `witness`.
-  private func makeExistential(
+  private mutating func emitExistential(
     _ t: ExistentialType,
     borrowing capability: AccessEffect,
     from witness: Operand,
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    let witnessTable = PointerConstant(
-      module.syntax.id,
-      module.addGlobal(WitnessTable(describing: module.type(of: witness).ast)))
+    let witnessTable = emitWitnessTable(
+      of: module.type(of: witness).ast, usedIn: frames.top.scope, into: &module)
+    let g = PointerConstant(module.syntax.id, module.addGlobal(witnessTable))
+
     let x0 = module.append(
       module.makeBorrow(capability, from: witness, anchoredAt: site),
       to: insertionBlock!)[0]
     return module.append(
-      module.makeWrapAddr(x0, .constant(witnessTable), as: t, anchoredAt: site),
+      module.makeWrapAddr(x0, .constant(g), as: t, anchoredAt: site),
       to: insertionBlock!)[0]
   }
 
-  /// Inserts the IR for the top-level declaration `d` into `module`.
-  private mutating func emit(
-    synthesizedDecl d: SynthesizedDecl,
+  /// Returns the witness table of `t` in `s`.
+  private mutating func emitWitnessTable(
+    of t: AnyType, usedIn s: AnyScopeID, into module: inout Module
+  ) -> WitnessTable {
+    .init(for: t, conformingTo: emitConformances(of: t, exposedTo: s, into: &module))
+  }
+
+  /// Returns the lowered conformances of `model` that are exposed to `useScope`.
+  private mutating func emitConformances(
+    of model: AnyType,
+    exposedTo useScope: AnyScopeID,
     into module: inout Module
-  ) {
-    assert(program.module(containing: d.scope) == module.syntax.id)
+  ) -> Set<LoweredConformance> {
+    guard let conformances = program.relations.conformances[model] else { return [] }
+
+    var result: Set<LoweredConformance> = []
+    for concept in conformances.keys {
+      let c = program.conformance(of: model, to: concept, exposedTo: useScope)!
+      result.insert(emitConformance(c, in: useScope, into: &module))
+    }
+    return result
+  }
+
+  /// Returns the lowered form of `c`, generating function references in `useScope`.
+  private mutating func emitConformance(
+    _ c: Conformance, in useScope: AnyScopeID, into module: inout Module
+  ) -> LoweredConformance {
+    var implementations = LoweredConformance.ImplementationMap()
+    for (r, i) in c.implementations.storage {
+      switch i {
+      case .concrete(let d):
+        implementations[r] = emitRequirementImplementation(d, in: useScope, into: &module)
+
+      case .synthetic(let d):
+        let f = emit(synthesizedDecl: d, into: &module)
+        implementations[r] = .function(.init(to: f, usedIn: useScope, in: module))
+      }
+    }
+
+    return .init(concept: c.concept, source: c.source, implementations: implementations)
+  }
+
+  /// Returns the lowered form of the requirement implementation `d` in `useScope`.
+  private func emitRequirementImplementation(
+    _ d: AnyDeclID, in useScope: AnyScopeID, into module: inout Module
+  ) -> LoweredConformance.Implementation {
+    switch d.kind {
+    case FunctionDecl.self:
+      let f = program[FunctionDecl.ID(d)!]
+      let r = FunctionReference(to: f, usedIn: useScope, in: &module)
+      return .function(r)
+
+    case InitializerDecl.self:
+      let f = program[InitializerDecl.ID(d)!]
+      let r = FunctionReference(to: f, usedIn: useScope, in: &module)
+      return .function(r)
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Inserts the IR for the top-level declaration `d` into `module`.
+  @discardableResult
+  private mutating func emit(
+    synthesizedDecl d: SynthesizedDecl, into module: inout Module
+  ) -> Function.ID {
     switch d.kind {
     case .moveInitialization:
-      synthesizeMoveInitImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
+      return synthesizeMoveInitImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .moveAssignment:
-      synthesizeMoveAssignImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
+      return synthesizeMoveAssignImplementation(typed: .init(d.type)!, in: d.scope, into: &module)
     case .copy:
       fatalError("not implemented")
     }
@@ -487,11 +555,11 @@ public struct Emitter {
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
-  ) {
+  ) -> Function.ID {
     let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
     module.declareSyntheticFunction(f, typed: t)
-    if module[f].entry != nil {
-      return
+    if (module[f].entry != nil) || (program.module(containing: scope) != module.syntax.id) {
+      return f
     }
 
     let site = module.syntax.site
@@ -546,6 +614,7 @@ public struct Emitter {
     }
 
     module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
+    return f
   }
 
   /// Synthesize the implementation of `t`'s move assignment operator in `scope`.
@@ -553,11 +622,11 @@ public struct Emitter {
     typed t: LambdaType,
     in scope: AnyScopeID,
     into module: inout Module
-  ) {
+  ) -> Function.ID {
     let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
     module.declareSyntheticFunction(f, typed: t)
-    if module[f].entry != nil {
-      return
+    if (module[f].entry != nil) || (program.module(containing: scope) != module.syntax.id) {
+      return f
     }
 
     let site = module.syntax.site
@@ -578,6 +647,7 @@ public struct Emitter {
     emitMove(.set, of: r, to: receiver, conformanceToSinkable: c, anchoredAt: site, into: &module)
 
     module.append(module.makeReturn(.void, anchoredAt: site), to: insertionBlock!)
+    return f
   }
 
   // MARK: Statements

@@ -223,9 +223,9 @@ public struct Module {
     switch c.implementations[d]! {
     case .concrete:
       fatalError("not implemented")
-    case .synthetic(let t):
-      let f = Function.ID(synthesized: d, for: t)
-      declareSyntheticFunction(f, typed: LambdaType(t)!)
+    case .synthetic(let s):
+      let f = Function.ID(synthesized: d, for: s.type)
+      declareSyntheticFunction(f, typed: LambdaType(s.type)!)
       return f
     }
   }

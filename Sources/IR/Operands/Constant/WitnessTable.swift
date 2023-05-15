@@ -1,32 +1,31 @@
 import Core
-import Foundation
 
-/// A constant buffer of bytes in Val IR.
+/// The type and conformances of a value acting as the witness of an existential container.
 public struct WitnessTable: Constant, Hashable {
-
-  /// The identifier of this table.
-  public let id: UUID
 
   /// The type of the witness described by this table.
   public let witness: AnyType
 
-  /// Creates an instance describing `witness`.
+  /// The conformances described by this table.
+  public let conformances: Set<LoweredConformance>
+
+  /// Creates an instance describing `witness` and its `conformances`.
   ///
   /// - Requires: `witness` is canonical.
-  public init(describing witness: AnyType) {
-    self.id = UUID()
+  public init(for witness: AnyType, conformingTo conformances: Set<LoweredConformance>) {
     self.witness = witness
+    self.conformances = conformances
   }
 
   /// The Val IR type of this instance.
-  public var type: LoweredType { .object(WitnessTableType(self)) }
+  public var type: LoweredType { .object(WitnessTableType()) }
 
 }
 
 extension WitnessTable: CustomStringConvertible {
 
   public var description: String {
-    "WitnessTable(\(id))"
+    "WitnessTable(\(witness): \(list: conformances.map(\.concept)))"
   }
 
 }

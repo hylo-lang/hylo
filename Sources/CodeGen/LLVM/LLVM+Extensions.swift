@@ -8,8 +8,11 @@ extension LLVM.Module {
   /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
   mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
     let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
+
     let d = declareGlobalVariable("\(m.syntax.id)\(g)", v.type)
     setInitializer(v, for: d)
+    setLinkage(.private, for: d)
+    setGlobalConstant(true, for: d)
   }
 
   /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
@@ -42,12 +45,12 @@ extension LLVM.Module {
     let b = appendBlock(to: main)
     let p = endOf(b)
 
-    let transpilation = function(named: ir.abiName(of: f))!
+    let transpilation = function(named: ir.mangle(f))!
 
     let val32 = ir.syntax.ast.coreType("Int32")!
     switch m[f].output {
     case val32:
-      let t = StructType(ir.syntax.llvm(val32, in: &self))!
+      let t = StructType(ir.llvm(val32, in: &self))!
       let s = insertAlloca(t, at: p)
       _ = insertCall(transpilation, on: [s], at: p)
 
@@ -59,6 +62,11 @@ extension LLVM.Module {
       _ = insertCall(transpilation, on: [], at: p)
       insertReturn(i32.zero, at: p)
     }
+  }
+
+  /// Returns the LLVM type of a machine word.
+  private mutating func wordType() -> LLVM.IntegerType {
+    IntegerType(64, in: &self)
   }
 
   /// Returns the LLVM type of a metatype instance.
@@ -162,7 +170,7 @@ extension LLVM.Module {
       return t.constant(UInt64(v.value.words[0]))
 
     case let v as IR.FloatingPointConstant:
-      let t = LLVM.FloatingPointType(ir.syntax.llvm(c.type.ast, in: &self))!
+      let t = LLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
       return t.constant(parsing: v.value)
 
     case let v as IR.BufferConstant:
@@ -181,7 +189,7 @@ extension LLVM.Module {
       return declare(v, from: ir)
 
     case is IR.Poison:
-      let t = ir.syntax.llvm(c.type.ast, in: &self)
+      let t = ir.llvm(c.type.ast, in: &self)
       return LLVM.Poison(of: t)
 
     case is IR.VoidConstant:
@@ -198,8 +206,81 @@ extension LLVM.Module {
     usedIn m: IR.Module,
     from ir: LoweredProgram
   ) -> LLVM.IRValue {
-    // TODO: Handle conformances.
-    transpiledMetatype(of: t.witness, usedIn: m, from: ir)
+    let ptr = LLVM.PointerType(in: &self)
+    let word = wordType()
+
+    // A witness table is composed of a header, a trait map, and a (possibly empty) sequence of
+    // implementation maps. All parts are laid out inline without any padding.
+    //
+    // The header consists of a pointer to the witness it describes and the number of traits to
+    // which the witness conforms.
+    //
+    // The trait map is a sequence of pairs `(t, d)` where `t` is a pointer to a trait identifier
+    // and `d` the offset of the associated implementation map. The last element of the trait map
+    // is a sentinel `(nullptr, end)` where `end` is the "past-the-end" position of the last
+    // implementation map. An implementation map is a sequence of pairs `(r, i)` where `r` is a
+    // trait requirement identifier and `i` is a pointer to its implementation.
+
+    // Encode the table's header.
+    var tableContents: [LLVM.IRValue] = [
+      transpiledMetatype(of: t.witness, usedIn: m, from: ir),
+      word.constant(UInt64(t.conformances.count)),
+    ]
+
+    // Encode the table's trait and implementation maps.
+    var entries: [LLVM.IRValue] = []
+    var implementations: [LLVM.IRValue] = []
+    for c in t.conformances {
+      let entry: [LLVM.IRValue] = [
+        transpiledMetatype(of: c.concept, usedIn: m, from: ir),
+        word.constant(UInt64(implementations.count)),
+      ]
+      entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
+
+      for (r, d) in c.implementations.storage {
+        let requirement: [LLVM.IRValue] = [
+          word.constant(UInt64(r.rawValue)),
+          transpiledRequirementImplementation(d, from: ir),
+        ]
+        implementations.append(LLVM.StructConstant(aggregating: requirement, in: &self))
+      }
+    }
+
+    // Append the sentinel at the end of the trait map.
+    entries.append(
+      LLVM.StructConstant(
+        aggregating: [ptr.null, word.constant(UInt64(implementations.count))], in: &self))
+
+    // Put everything together.
+    tableContents.append(
+      LLVM.ArrayConstant(
+        of: LLVM.StructType([ptr, word], in: &self), containing: entries, in: &self))
+
+    if !implementations.isEmpty {
+      tableContents.append(
+        LLVM.ArrayConstant(
+          of: LLVM.StructType([word, ptr], in: &self), containing: implementations, in: &self))
+    }
+
+    let table = LLVM.StructConstant(aggregating: tableContents, in: &self)
+
+    let g = declareGlobalVariable(ir.mangle(t), table.type)
+    setInitializer(table, for: g)
+    setLinkage(.linkOnce, for: g)
+    setGlobalConstant(true, for: g)
+    return g
+  }
+
+  /// Returns the LLVM IR value of the requirement implementation `i`, which is in `ir`.
+  private mutating func transpiledRequirementImplementation(
+    _ i: IR.LoweredConformance.Implementation, from ir: LoweredProgram
+  ) -> LLVM.Function {
+    switch i {
+    case .function(let f):
+      return declare(f, from: ir)
+    case .value:
+      fatalError("not implemented")
+    }
   }
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
@@ -208,21 +289,65 @@ extension LLVM.Module {
     usedIn m: IR.Module,
     from ir: LoweredProgram
   ) -> LLVM.GlobalVariable {
-    let p = ProductType(t) ?? fatalError("not implemented")
-    let n = ir.syntax.abiName(of: p.decl) + ".metatype"
+    switch t.base {
+    case let u as ProductType:
+      return transpiledMetatype(of: u, usedIn: m, from: ir)
+    case let u as TraitType:
+      return transpiledMetatype(of: u, usedIn: m, from: ir)
+    default:
+      fatalError("not implemented")
+    }
+  }
 
+  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
+  private mutating func transpiledMetatype(
+    of t: ProductType,
+    usedIn m: IR.Module,
+    from ir: LoweredProgram
+  ) -> LLVM.GlobalVariable {
     // Check if we already created the metatype's instance.
+    let n = ir.mangle(t)
     if let g = global(named: n) { return g }
 
-    // Create a new instance.
     let metatype = metatypeType()
     let instance = declareGlobalVariable(n, metatype)
 
     // Initialize the instance if it's being used in the module defining `t`.
-    if m.syntax.id != ir.syntax.module(containing: p.decl) { return instance }
+    if m.syntax.id != ir.syntax.module(containing: t.decl) {
+      return instance
+    }
 
     // TODO: compute size, alignment, and representation
     setInitializer(metatype.null, for: instance)
+    setGlobalConstant(true, for: instance)
+    return instance
+  }
+
+  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
+  private mutating func transpiledMetatype(
+    of t: TraitType,
+    usedIn m: IR.Module,
+    from ir: LoweredProgram
+  ) -> LLVM.GlobalVariable {
+    // Check if we already created the metatype's instance.
+    let n = ir.mangle(t)
+    if let g = global(named: n) { return g }
+
+    let instance = declareGlobalVariable(n, LLVM.PointerType(in: &self))
+
+    // Initialize the instance if it's being used in the module defining `t`.
+    if m.syntax.id != ir.syntax.module(containing: t.decl) {
+      return instance
+    }
+
+    let s = LLVM.StringConstant(n, nullTerminated: true, in: &self)
+    let g = addGlobalVariable("str", s.type)
+    setInitializer(s, for: g)
+    setLinkage(.private, for: g)
+    setGlobalConstant(true, for: g)
+
+    setInitializer(g, for: instance)
+    setGlobalConstant(true, for: instance)
     return instance
   }
 
@@ -231,7 +356,7 @@ extension LLVM.Module {
     _ ref: IR.FunctionReference, from ir: LoweredProgram
   ) -> LLVM.Function {
     let t = transpiledType(LambdaType(ref.type.ast)!)
-    return declareFunction(ir.abiName(of: ref.function), t)
+    return declareFunction(ir.mangle(ref.function), t)
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
@@ -247,7 +372,7 @@ extension LLVM.Module {
       parameters.append(ptr)
     }
     parameters.append(contentsOf: Array(repeating: ptr, count: m[f].inputs.count))
-    let result = declareFunction(ir.abiName(of: f), .init(from: parameters, in: &self))
+    let result = declareFunction(ir.mangle(f), .init(from: parameters, in: &self))
 
     if m[f].output == .never {
       addAttribute(.init(.noreturn, in: &self), to: result)
@@ -268,7 +393,7 @@ extension LLVM.Module {
     let ptr = LLVM.PointerType(in: &self)
     let ret = LLVM.StructType([ptr, ptr], in: &self)
     let parameters = Array(repeating: ptr, count: m[f].inputs.count + 1)
-    let coroutine = declareFunction(ir.abiName(of: f), .init(from: parameters, to: ret, in: &self))
+    let coroutine = declareFunction(ir.mangle(f), .init(from: parameters, to: ret, in: &self))
 
     return coroutine
   }
@@ -392,7 +517,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(allocStack i: IR.InstructionID) {
       let s = m[i] as! AllocStackInstruction
-      let t = ir.syntax.llvm(s.allocatedType, in: &self)
+      let t = ir.llvm(s.allocatedType, in: &self)
       register[.register(i, 0)] = insertAlloca(t, atEntryOf: transpilation)
     }
 
@@ -418,7 +543,7 @@ extension LLVM.Module {
       if s.types[0].ast.isVoidOrNever {
         returnType = nil
       } else {
-        returnType = ir.syntax.llvm(s.types[0].ast, in: &self)
+        returnType = ir.llvm(s.types[0].ast, in: &self)
         arguments.append(insertAlloca(returnType!, atEntryOf: transpilation))
       }
 
@@ -441,7 +566,7 @@ extension LLVM.Module {
       // All arguments are passed by reference.
       for a in s.arguments {
         if m.type(of: a).isObject {
-          let t = ir.syntax.llvm(s.types[0].ast, in: &self)
+          let t = ir.llvm(s.types[0].ast, in: &self)
           let l = insertAlloca(t, atEntryOf: transpilation)
           insertStore(llvm(a), to: l, at: insertionPoint)
           arguments.append(l)
@@ -461,13 +586,13 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(callFFI i: IR.InstructionID) {
       let s = m[i] as! CallFIIInstruction
-      let parameters = s.operands.map({ ir.syntax.llvm(m.type(of: $0).ast, in: &self) })
+      let parameters = s.operands.map({ ir.llvm(m.type(of: $0).ast, in: &self) })
 
       let returnType: IRType
       if s.returnType.ast.isVoidOrNever {
         returnType = LLVM.VoidType(in: &self)
       } else {
-        returnType = ir.syntax.llvm(s.returnType.ast, in: &self)
+        returnType = ir.llvm(s.returnType.ast, in: &self)
       }
 
       let callee = declareFunction(s.callee, .init(from: parameters, to: returnType, in: &self))
@@ -499,7 +624,7 @@ extension LLVM.Module {
       let t = LLVM.IntegerType(32, in: &self)
 
       let base = llvm(s.base)
-      let baseType = ir.syntax.llvm(m.type(of: s.base).ast, in: &self)
+      let baseType = ir.llvm(m.type(of: s.base).ast, in: &self)
       let indices = [t.constant(0)] + s.elementPath.map({ t.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
@@ -548,17 +673,17 @@ extension LLVM.Module {
         register[.register(i, 0)] = insertIntegerComparison(p, l, r, at: insertionPoint)
 
       case .trunc(_, let t):
-        let target = ir.syntax.llvm(builtinType: t, in: &self)
+        let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i, 0)] = insertTrunc(source, to: target, at: insertionPoint)
 
       case .fptrunc(_, let t):
-        let target = ir.syntax.llvm(builtinType: t, in: &self)
+        let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i, 0)] = insertFPTrunc(source, to: target, at: insertionPoint)
 
       case .zeroinitializer(let t):
-        register[.register(i, 0)] = ir.syntax.llvm(builtinType: t, in: &self).null
+        register[.register(i, 0)] = ir.llvm(builtinType: t, in: &self).null
 
       default:
         unreachable("unexpected LLVM instruction '\(s.instruction)'")
@@ -568,7 +693,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(load i: IR.InstructionID) {
       let s = m[i] as! LoadInstruction
-      let t = ir.syntax.llvm(s.objectType.ast, in: &self)
+      let t = ir.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
       register[.register(i, 0)] = insertLoad(t, from: source, at: insertionPoint)
     }
@@ -598,7 +723,7 @@ extension LLVM.Module {
       var arguments: [LLVM.IRValue] = [x0]
       for a in s.operands {
         if m.type(of: a).isObject {
-          let t = ir.syntax.llvm(s.types[0].ast, in: &self)
+          let t = ir.llvm(s.types[0].ast, in: &self)
           let l = insertAlloca(t, atEntryOf: transpilation)
           insertStore(llvm(a), to: l, at: insertionPoint)
           arguments.append(l)
@@ -623,7 +748,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(record i: IR.InstructionID) {
       let s = m[i] as! IR.RecordInstruction
-      let t = ir.syntax.llvm(s.objectType.ast, in: &self)
+      let t = ir.llvm(s.objectType.ast, in: &self)
       var record: LLVM.IRValue = LLVM.Undefined(of: t)
       for (i, part) in s.operands.enumerated() {
         let v = llvm(part)
