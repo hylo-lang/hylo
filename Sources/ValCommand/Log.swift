@@ -32,10 +32,7 @@ extension Log {
   /// Logs `diagnostic`.
   mutating func log(diagnostic: Diagnostic, asChild isChild: Bool = false) {
     // Log the location
-    let siteFirst = diagnostic.site.first()
-    let path = siteFirst.file.url.relativePath
-    let (lineFirst, column) = siteFirst.lineAndColumn
-    write("\(path):\(lineFirst):\(column): ", in: [.bold])
+    write("\(diagnostic.site.gnuStandardText): ", in: [.bold])
 
     // Log the level.
     if isChild {

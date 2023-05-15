@@ -70,7 +70,7 @@ final class ValCommandTests: XCTestCase {
     XCTAssertEqual(
       result.stderr,
       """
-      \(valSource.relativePath):1:6: error: expected function signature
+      \(valSource.relativePath):1.6: error: expected function signature
       fun x
            ^
 
@@ -91,7 +91,7 @@ final class ValCommandTests: XCTestCase {
     XCTAssertEqual(
       result.stderr,
       """
-      \(valSource.relativePath):1:21: error: undefined name 'foo' in this scope
+      \(valSource.relativePath):1.21-24: error: undefined name 'foo' in this scope
       public fun main() { foo() }
                           ~~~
 
