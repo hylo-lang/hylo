@@ -41,6 +41,14 @@ public struct TypedNode<ID: NodeIDProtocol>: Hashable {
 
 }
 
+extension TypedNode: CustomStringConvertible {
+
+  public var description: String {
+    String(site.text)
+  }
+
+}
+
 extension AST.Node {
 
   /// Type describing the current node with type information.
@@ -217,47 +225,9 @@ extension TypedNode where ID == NameExpr.ID {
     }
   }
 
-  /// A reference to a declaration.
-  public enum DeclRef: Hashable {
-
-    /// A direct reference.
-    case direct(AnyDeclID.TypedNode)
-
-    /// A reference to a member declaration bound to `self`.
-    case member(AnyDeclID.TypedNode)
-
-    /// A reference to a built-in function.
-    case builtinFunction(BuiltinFunction)
-
-    /// A reference to a built-in type.
-    case builtinType
-
-    /// Accesses the referred declaration  if `self` is `.direct` or `.member`.
-    public var decl: AnyDeclID.TypedNode? {
-      switch self {
-      case .direct(let d):
-        return d
-      case .member(let d):
-        return d
-      default:
-        return nil
-      }
-    }
-
-  }
-
-  /// The declaration of this name.
-  public var decl: DeclRef {
-    switch program.referredDecls[id]! {
-    case .direct(let d):
-      return .direct(program[d])
-    case .member(let d):
-      return .member(program[d])
-    case .builtinFunction(let f):
-      return .builtinFunction(f)
-    case .builtinType:
-      return .builtinType
-    }
+  /// The declaration to which `self` refers.
+  public var declaration: DeclReference {
+    program.referredDecls[id]!
   }
 
 }
@@ -308,6 +278,17 @@ extension TypedNode where ID == FunctionDecl.ID {
   }
 
   /// The parameters of the function.
+  public var parameters: [ParameterDecl.Typed] {
+    return syntax.parameters.lazy.map({
+      return program[$0]
+    })
+  }
+
+}
+
+extension TypedNode where ID == InitializerDecl.ID {
+
+  /// The parameters of the initializer.
   public var parameters: [ParameterDecl.Typed] {
     return syntax.parameters.lazy.map({
       return program[$0]

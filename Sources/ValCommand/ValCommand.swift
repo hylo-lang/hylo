@@ -1,67 +1,35 @@
 import ArgumentParser
-import CodeGenCXX
 import CodeGenLLVM
 import Core
 import Foundation
 import FrontEnd
 import IR
+import LLVM
 import Utils
 import ValModule
 
 public struct ValCommand: ParsableCommand {
 
   /// The type of the output files to generate.
-  private enum OutputType: ExpressibleByArgument {
+  private enum OutputType: String, ExpressibleByArgument {
 
     /// AST before type-checking.
-    case rawAST
+    case rawAST = "raw-ast"
 
     /// Val IR before mandatory transformations.
-    case rawIR
+    case rawIR = "raw-ir"
 
     /// Val IR.
-    case ir
-
-    /// C++ code
-    case cpp
+    case ir = "ir"
 
     /// LLVM IR
-    case llvm
+    case llvm = "llvm"
 
     /// Executable binary.
-    case binary
-
-    init?(argument: String) {
-      switch argument {
-      case "raw-ast":
-        self = .rawAST
-      case "raw-ir":
-        self = .rawIR
-      case "ir":
-        self = .ir
-      case "cpp":
-        self = .cpp
-      case "llvm":
-        self = .llvm
-      case "binary":
-        self = .binary
-      default:
-        return nil
-      }
-    }
-
+    case binary = "binary"
   }
 
   public static let configuration = CommandConfiguration(commandName: "valc")
-
-  /// The default location of Val's SDK.
-  private static func defaultValSDK() -> URL {
-    #if os(Windows)
-      return URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
-    #else
-      return URL(fileURLWithPath: "/usr/local/lib/val")
-    #endif
-  }
 
   @Flag(
     name: [.customLong("modules")],
@@ -78,12 +46,6 @@ public struct ValCommand: ParsableCommand {
     help: "Do not include the standard library.")
   private var noStandardLibrary: Bool = false
 
-  @Option(
-    name: [.customLong("sdk")],
-    help: ArgumentHelp("Val's software development kit", valueName: "directory"),
-    transform: URL.init(fileURLWithPath:))
-  private var valSDK: URL = Self.defaultValSDK()
-
   @Flag(
     name: [.customLong("typecheck")],
     help: "Type-check the input file(s).")
@@ -99,9 +61,16 @@ public struct ValCommand: ParsableCommand {
   @Option(
     name: [.customLong("emit")],
     help: ArgumentHelp(
-      "Emit the specified type output files. From: raw-ast, raw-ir, ir, cpp, binary",
+      "Emit the specified type output files. From: raw-ast, raw-ir, ir, llvm, binary",
       valueName: "output-type"))
   private var outputType: OutputType = .binary
+
+  @Option(
+    name: [.customLong("transform")],
+    help: ArgumentHelp(
+      "Applies the specify transformations after IR lowering.",
+      valueName: "transforms"))
+  private var transforms: ModulePassList?
 
   @Option(
     name: [.customShort("o")],
@@ -171,42 +140,25 @@ public struct ValCommand: ParsableCommand {
 
     // IR
 
-    var irModules: [ModuleDecl.ID: IR.Module] = [:]
-    for m in ast.modules {
-      var ir = try IR.Module(lowering: m, in: program, diagnostics: &diagnostics)
-      if outputType != .rawIR {
-        try ir.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
-      }
-      irModules[m] = ir
-    }
-
     if outputType == .ir || outputType == .rawIR {
-      let m = irModules[sourceModule]!
+      let m = try lower(sourceModule, in: program, reportingDiagnosticsInto: &diagnostics)
       try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
-    let ir = LoweredProgram(syntax: program, modules: irModules)
 
-    // C++
-
-    if outputType == .cpp {
-      let codeFormatter: CodeTransform? = (try? find("clang-format")).map({
-        clangFormatter(URL(fileURLWithPath: $0))
-      })
-
-      let cxxModules = (
-        core: program.cxx(program.coreLibrary!, withFormatter: codeFormatter),
-        source: program.cxx(program[sourceModule], withFormatter: codeFormatter)
-      )
-
-      try write(cxxModules.core, to: coreLibCXXOutputBase, loggingTo: &errorLog)
-      try write(cxxModules.source, to: sourceModuleCXXOutputBase(productName), loggingTo: &errorLog)
-      return
+    var irModules: [ModuleDecl.ID: IR.Module] = [:]
+    for d in ast.modules {
+      irModules[d] = try lower(d, in: program, reportingDiagnosticsInto: &diagnostics)
     }
 
     // LLVM
 
-    let llvmProgram = try LLVMProgram(ir, mainModule: sourceModule)
+    var ir = LoweredProgram(syntax: program, modules: irModules)
+    ir.applyPass(.depolymorphize)
+
+    let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
+    var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
+    llvmProgram.applyMandatoryPasses()
 
     if outputType == .llvm {
       let m = llvmProgram.llvmModules[sourceModule]!
@@ -218,8 +170,8 @@ public struct ValCommand: ParsableCommand {
 
     assert(outputType == .binary)
 
-    let objectFiles = try llvmProgram.write(
-      .objectFile, to: FileManager.default.temporaryDirectory)
+    let objectDir = try FileManager.default.makeTemporaryDirectory()
+    let objectFiles = try llvmProgram.write(.objectFile, to: objectDir)
     let binaryPath = executableOutputPath(default: productName)
 
     #if os(macOS)
@@ -233,6 +185,24 @@ public struct ValCommand: ParsableCommand {
     #endif
   }
 
+  /// Returns `m`, which is `program`, lowered to Val IR, accumulating diagnostics into `log` and
+  /// throwing if an error occured.
+  ///
+  /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
+  private func lower(
+    _ m: ModuleDecl.ID, in program: TypedProgram,
+    reportingDiagnosticsInto log: inout DiagnosticSet
+  ) throws -> IR.Module {
+    var ir = try IR.Module(lowering: m, in: program, diagnostics: &log)
+    if outputType != .rawIR {
+      try ir.applyMandatoryPasses(reportingDiagnosticsInto: &log)
+    }
+    if let t = transforms {
+      for p in t.elements { ir.applyPass(p) }
+    }
+    return ir
+  }
+
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
   /// logging diagnostics to `log`.
   private func makeMacOSExecutable<L: Log>(
@@ -242,14 +212,12 @@ public struct ValCommand: ParsableCommand {
   ) throws {
     let xcrun = try find("xcrun")
     let sdk =
-      try runCommandLine(
-        xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &log) ?? ""
+      try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &log) ?? ""
 
     var arguments = [
       "-r", "ld", "-o", binaryPath,
       "-L\(sdk)/usr/lib",
-      "-L\(valSDK.appendingPathComponent("lib").path)",
-      "-lval_support", "-lSystem", "-lc++",
+      "-lSystem", "-lc++",
     ]
     arguments.append(contentsOf: objects.map(\.path))
     try runCommandLine(xcrun, arguments, loggingTo: &log)
@@ -264,10 +232,8 @@ public struct ValCommand: ParsableCommand {
   ) throws {
     var arguments = [
       "-o", binaryPath,
-      "-L\(valSDK.appendingPathComponent("lib").path)",
     ]
     arguments.append(contentsOf: objects.map(\.path))
-    arguments.append("-lval_support")
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
@@ -294,15 +260,6 @@ public struct ValCommand: ParsableCommand {
       if !n.isEmpty { return String(n) }
     }
     return "Main"
-  }
-
-  /// Writes the code for `m` to `.h` and `.cpp` files having the given `basePath`, logging
-  /// diagnostics to `log`.
-  private func write<L: Log>(
-    _ m: TypedProgram.CXXModule, to basePath: URL, loggingTo log: inout L
-  ) throws {
-    try write(m.text.headerCode, toURL: basePath.appendingPathExtension("h"), loggingTo: &log)
-    try write(m.text.sourceCode, toURL: basePath.appendingPathExtension("cpp"), loggingTo: &log)
   }
 
   /// Writes `source` to the `filename`, possibly with verbose logging.
@@ -412,21 +369,6 @@ public struct ValCommand: ParsableCommand {
   /// selected as the output type.
   private func binaryFile(_ productName: String) -> URL {
     outputURL ?? URL(fileURLWithPath: productName)
-  }
-
-  /// The base path (sans extension) of the `.cpp` and `.h` files representing the core library
-  /// when "cpp" is selected as the output type.
-  private var coreLibCXXOutputBase: URL {
-    outputURL?.deletingLastPathComponent()
-      .appendingPathComponent(CXXTranspiler.coreLibModuleName)
-      ?? URL(fileURLWithPath: CXXTranspiler.coreLibModuleName)
-  }
-
-  /// Given the desired name of the compiler's product, returns the base path (sans extension) of
-  /// the `.cpp` and `.h` files representing the module whose files are given on the command-line,
-  /// when "cpp" is selected as the output type.
-  private func sourceModuleCXXOutputBase(_ productName: String) -> URL {
-    outputURL?.deletingPathExtension() ?? URL(fileURLWithPath: productName)
   }
 
 }

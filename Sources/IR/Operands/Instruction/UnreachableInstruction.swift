@@ -16,7 +16,11 @@ public struct UnrechableInstruction: Terminator {
 
   public var successors: [Block.ID] { [] }
 
-  func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    preconditionFailure()
+  }
+
+  func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
     false
   }
 

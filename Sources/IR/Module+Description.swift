@@ -17,11 +17,11 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
   /// Writes a textual representation of this instance into `output`.
   public func write<Target: TextOutputStream>(to output: inout Target) {
-    output.write(contentsOf: globals.enumerated(), separatedBy: "\n") { (s, e) in
+    output.write(contentsOf: globals.enumerated(), separatedBy: "\n\n") { (s, e) in
       s.write("global @\(syntax.id).\(e.offset) = \(e.element)")
     }
     if !globals.isEmpty && !functions.isEmpty {
-      output.write("\n")
+      output.write("\n\n")
     }
     output.write(contentsOf: functions.keys, separatedBy: "\n\n") { (s, f) in
       write(function: f, to: &s)
@@ -33,9 +33,18 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     let function = functions[f]!
 
     // Dumps the function in the module.
-    output.write("fun \(function.name)(")
-    output.write(function.inputs.lazy.descriptions())
-    output.write(") -> \(function.output) {\n")
+    if function.isSubscript {
+      output.write("subscript \(function.name)(")
+      output.write(function.inputs.lazy.descriptions())
+      output.write("): \(function.output)")
+    } else {
+      output.write("fun \(function.name)(")
+      output.write(function.inputs.lazy.descriptions())
+      output.write(") -> \(function.output)")
+    }
+
+    if function.entry == nil { return }
+    output.write(" {\n")
 
     for i in blocks(in: f) {
       output.write("\(i)(")

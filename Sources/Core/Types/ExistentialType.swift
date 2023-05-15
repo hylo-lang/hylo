@@ -10,7 +10,7 @@ public struct ExistentialType: TypeProtocol {
     case traits(Set<TraitType>)
 
     /// The declaration of the unparameterized generic type of the witness.
-    case generic(AnyDeclID)
+    case generic(AnyType)
 
     /// An unparameterized metatype.
     case metatype
@@ -23,40 +23,27 @@ public struct ExistentialType: TypeProtocol {
   /// The constraints on the associated types of the witness.
   ///
   /// - Note: This set shall only contain equality and conformance constraints.
-  public let constraints: ConstraintSet
+  public let constraints: Set<GenericConstraint>
 
   public let flags: TypeFlags
 
   /// Creates a new existential type bound by the given traits and constraints.
-  public init(traits: Set<TraitType>, constraints: ConstraintSet) {
-    // TODO: Consider the flags of the types in the cosntraints?
-    for c in constraints {
-      precondition(
-        (c is EqualityConstraint) || (c is ConformanceConstraint),
-        "type may only be constrained by equality or conformance")
-    }
-
+  public init(traits: Set<TraitType>, constraints: Set<GenericConstraint>) {
     self.interface = .traits(traits)
     self.constraints = constraints
+
+    // TODO: Consider the flags of the types in the cosntraints?
     self.flags = traits.reduce(into: TypeFlags.isCanonical, { (a, b) in a.merge(b.flags) })
   }
 
   /// Creates a new existential type bound by an unparameterized generic type and constraints.
-  public init(unparameterized t: AnyType, constraints: ConstraintSet) {
-    // TODO: Consider the flags of the types in the cosntraints?
-    for c in constraints {
-      precondition(
-        (c is EqualityConstraint) || (c is ConformanceConstraint),
-        "type may only be constrained by equality or conformance")
-    }
+  public init(unparameterized t: AnyType, constraints: Set<GenericConstraint>) {
     self.constraints = constraints
 
+    // TODO: Consider the flags of the types in the cosntraints?
     switch t.base {
-    case let u as ProductType:
-      self.interface = .generic(AnyDeclID(u.decl))
-      self.flags = t.flags.removing(.isGeneric)
-    case let u as TypeAliasType:
-      self.interface = .generic(AnyDeclID(u.decl))
+    case is ProductType, is TypeAliasType:
+      self.interface = .generic(t)
       self.flags = t.flags.removing(.isGeneric)
     case is MetatypeType:
       self.interface = .metatype

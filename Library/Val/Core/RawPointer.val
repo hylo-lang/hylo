@@ -19,3 +19,17 @@ public conformance RawPointer: Copyable {
   }
 
 }
+
+public conformance RawPointer: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.ptr
+
+  public init(foreign_value: sink Builtin.ptr) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.ptr {
+    value
+  }
+
+}

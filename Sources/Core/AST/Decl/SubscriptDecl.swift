@@ -72,6 +72,9 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     self.impls = impls
   }
 
+  /// Returns whether the declaration introduces a property.
+  public var isProperty: Bool { introducer.value == .property }
+
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier?.value == .public }
 

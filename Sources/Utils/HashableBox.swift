@@ -1,11 +1,11 @@
 /// A wrapper implementing a value's conformance to `Hashable` with a custom witness.
-public struct HashableBox<Base, Witness: HashableWitness<Base>>: Hashable {
+public struct HashableBox<Witness: HashableWitness>: Hashable {
 
   /// The value wrapped by this instance.
-  public let base: Base
+  public let base: Witness.Element
 
   /// Creates a new instance wrapping `base`.
-  public init(_ base: Base) {
+  public init(_ base: Witness.Element) {
     self.base = base
   }
 

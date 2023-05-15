@@ -7,7 +7,7 @@ public struct DestructureInstruction: Instruction {
   public let types: [LoweredType]
 
   /// The object being destructured.
-  public let whole: Operand
+  public private(set) var whole: Operand
 
   public let site: SourceRange
 
@@ -19,6 +19,11 @@ public struct DestructureInstruction: Instruction {
   }
 
   public var operands: [Operand] { [whole] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    whole = new
+  }
 
 }
 

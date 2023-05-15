@@ -4,15 +4,15 @@ import Core
 public struct PartialApplyInstruction: Instruction {
 
   /// The address of the underlying function.
-  public let function: Constant
+  public private(set) var function: FunctionReference
 
   /// The environment of the lambda.
-  public let environment: Operand
+  public private(set) var environment: Operand
 
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(function: Constant, environment: Operand, site: SourceRange) {
+  fileprivate init(function: FunctionReference, environment: Operand, site: SourceRange) {
     self.function = function
     self.environment = environment
     self.site = site
@@ -21,6 +21,20 @@ public struct PartialApplyInstruction: Instruction {
   public var types: [LoweredType] { [.object(function.type.ast)] }
 
   public var operands: [Operand] { [.constant(function), environment] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    switch i {
+    case 0:
+      guard let f = new.constant as? FunctionReference else {
+        preconditionFailure("invalid substitution")
+      }
+      function = f
+    case 1:
+      environment = new
+    default:
+      preconditionFailure()
+    }
+  }
 
 }
 
@@ -32,12 +46,11 @@ extension Module {
   ///   - f: The address of a function implementing the lambda.
   ///   - e: The environment of the lambda.
   func makePartialApply(
-    wrapping f: Constant,
+    wrapping f: FunctionReference,
     with e: Operand,
     anchoredAt anchor: SourceRange
   ) -> PartialApplyInstruction {
-    guard case .function = f else { preconditionFailure() }
-    return .init(function: f, environment: e, site: anchor)
+    .init(function: f, environment: e, site: anchor)
   }
 
 }

@@ -1,8 +1,0 @@
-/*! cpp
-    void myFun(Int x)
- */
-public fun myFun(_ x: Int) {
-}
-
-public fun main() {
-}

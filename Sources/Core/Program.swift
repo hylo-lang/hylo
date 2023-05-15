@@ -58,11 +58,26 @@ extension Program {
   public func scopeIntroducing(_ d: AnyDeclID) -> AnyScopeID {
     switch d.kind {
     case InitializerDecl.self:
-      return scopeToParent[declToScope[d]!]!
+      return scopeIntroducing(initializer: .init(d)!)
     case ModuleDecl.self:
       return AnyScopeID(ModuleDecl.ID(d)!)
     default:
       return declToScope[d]!
+    }
+  }
+
+  /// Returns the scope introducing `d`.
+  public func scopeIntroducing(initializer d: InitializerDecl.ID) -> AnyScopeID {
+    scopeToParent[declToScope[d]!]!
+  }
+
+  /// Returns `true` iff `d` is at module scope.
+  public func isAtModuleScope<T: DeclID>(_ d: T) -> Bool {
+    switch declToScope[d]!.kind {
+    case TranslationUnit.self, NamespaceDecl.self:
+      return true
+    default:
+      return false
     }
   }
 
@@ -246,7 +261,7 @@ extension Program {
       return s + ast[ProductTypeDecl.ID(d)!].baseName
     case SubscriptDecl.self:
       let n = ast[SubscriptDecl.ID(d)!].identifier?.value ?? "\(d.rawValue)"
-      return s + "\(s)\(n)#\(d.rawValue)"
+      return s + "\(n)#\(d.rawValue)"
     case SubscriptImpl.self:
       return s + String(describing: ast[SubscriptImpl.ID(d)!].introducer.value)
     case TraitDecl.self:

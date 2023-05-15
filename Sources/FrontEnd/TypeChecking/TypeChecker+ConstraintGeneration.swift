@@ -21,16 +21,14 @@ extension TypeChecker {
     /// A map from visited expression to its inferred type.
     private(set) var inferredTypes = ExprProperty<AnyType>()
 
+    /// A map from name expression to its inferred declaration.
+    private(set) var inferredBindings: [NameExpr.ID: DeclReference] = [:]
+
     /// The set of type constraints between the types involved in the visited expressions.
     private(set) var constraints: [Constraint] = []
 
     /// True iff a constraint could not be solved.
     private(set) var foundConflict = false
-
-    /// Creates a base of facts assigning `type` to `subject`.
-    fileprivate init<ID: ExprID>(assigning type: AnyType, to subject: ID) {
-      assign(type, to: subject)
-    }
 
     /// Creates an empty base of facts.
     fileprivate init() {}
@@ -46,6 +44,11 @@ extension TypeChecker {
     /// Assigns `type` to `subject`.
     fileprivate mutating func assign<ID: ExprID>(_ type: AnyType, to subject: ID) {
       inferredTypes[subject] = type
+    }
+
+    /// Assigns `n` to `r`.
+    fileprivate mutating func assign(_ n: NameExpr.ID, to r: DeclReference) {
+      inferredBindings[n] = r
     }
 
     /// Constrains `subject` to have type `inferredType` and returns either `inferredType` or the
@@ -111,11 +114,9 @@ extension TypeChecker {
     shapedBy shape: AnyType?,
     in scope: AnyScopeID
   ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
-    var s: State
+    var s: State = (facts: .init(), deferred: [])
     if let t = exprTypes[subject] {
-      s = (facts: .init(assigning: t, to: subject), deferred: [])
-    } else {
-      s = (facts: .init(), deferred: [])
+      s.facts.assign(t, to: subject)
     }
 
     let t = inferredType(of: subject, shapedBy: shape, in: scope, updating: &s)
@@ -163,6 +164,9 @@ extension TypeChecker {
     case NameExpr.self:
       return inferredType(
         ofNameExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+    case PragmaLiteralExpr.self:
+      return inferredType(
+        ofPragmaLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
     case SequenceExpr.self:
       return inferredType(
         ofSequenceExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
@@ -189,7 +193,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "Bool")!)
+    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("Bool")!)
   }
 
   private mutating func inferredType(
@@ -246,7 +250,7 @@ extension TypeChecker {
     let syntax = ast[subject]
 
     // Visit the condition(s).
-    let boolType = AnyType(ast.coreType(named: "Bool")!)
+    let boolType = AnyType(ast.coreType("Bool")!)
     for item in syntax.condition {
       switch item {
       case .expr(let expr):
@@ -278,7 +282,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    let defaultType = ^ast.coreType(named: "Double")!
+    let defaultType = ^ast.coreType("Double")!
     return inferredType(
       ofLiteralExpr: subject, shapedBy: shape, defaultingTo: defaultType,
       in: scope, updating: &state)
@@ -292,102 +296,113 @@ extension TypeChecker {
   ) -> AnyType {
     let syntax = ast[subject]
 
-    let calleeType: AnyType
-    if let callee = NameExpr.ID(syntax.callee) {
-      let l = ast[subject].arguments.map(\.label?.value)
-      calleeType = inferredType(
-        ofNameExpr: callee, withImplicitDomain: shape, appliedWith: l, shapedBy: nil,
-        in: scope, updating: &state)
+    let callee: AnyType
+    if let e = NameExpr.ID(syntax.callee) {
+      callee = inferredType(
+        ofNameExpr: e, withImplicitDomain: shape, shapedBy: nil, in: scope, updating: &state)
     } else {
-      calleeType = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
+      callee = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
     }
 
-    // The following cases must be considered:
-    //
-    // 1. We failed to infer the type of the callee. We can stop here.
-    // 2. We couldn't infer the exact type of the callee and must rely on bottom-up inference.
-    // 3. We determined the exact type of the callee, and:
-    //   a. it's a lambda or method type. In that case, we can use the parameters to validate the
-    //      arguments' labels and their types.
-    //   b. it's a metatype and the callee is a name expression referring to a nominal type
-    //      declaration. In that case, the call is actually a sugared buffer type expression.
-    //   c. it's any other type. In that case the callee is not callable.
-
-    // Case 1
-    if calleeType.isError {
+    // We failed to infer the type of the callee. We can stop here.
+    if callee.isError {
       return state.facts.assignErrorType(to: subject)
     }
 
-    // Case 2
-    if calleeType.base is TypeVariable {
-      let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &state)
+    // The callee has a metatype and is a name expression bound to a nominal type declaration,
+    // meaning that the call is actually a sugared initializer call.
+    if isBoundToNominalTypeDecl(syntax.callee, in: state) {
+      return inferredType(
+        ofInitializerCall: subject, initializing: MetatypeType(callee)!.instance,
+        in: scope, updating: &state)
+    }
+
+    // The callee has a callable type or its we need inferrence to determine its type. Either way,
+    // constraint the callee and its arguments with a function call constraints.
+    if (callee.base is CallableType) || (callee.base is TypeVariable) {
       let returnType = shape ?? ^TypeVariable()
+
+      var arguments: [FunctionCallConstraint.Argument] = []
+      for a in syntax.arguments {
+        let p = inferredType(
+          of: a.value, shapedBy: ^TypeVariable(), in: scope, updating: &state)
+        arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
+      }
 
       state.facts.append(
         FunctionCallConstraint(
-          calleeType, takes: parameters, andReturns: returnType,
+          callee, accepts: arguments, returns: returnType,
           origin: ConstraintOrigin(.callee, at: ast[syntax.callee].site)))
 
       return state.facts.constrain(subject, in: ast, toHaveType: returnType)
     }
 
-    // Case 3a
-    if let callable = calleeType.base as? CallableType {
-      if parametersMatching(
-        arguments: syntax.arguments, of: syntax.callee, in: scope,
-        shapedBy: callable.inputs, updating: &state)
-      {
-        return state.facts.constrain(subject, in: ast, toHaveType: callable.output)
-      } else {
-        return state.facts.assignErrorType(to: subject)
-      }
-    }
-
-    // Case 3b
-    if let c = NameExpr.ID(syntax.callee),
-      let d = referredDecls[c]?.decl,
-      isNominalTypeDecl(d)
-    {
-      let instance = MetatypeType(calleeType)!.instance
-      let initName = SourceRepresentable(
-        value: Name(stem: "init", labels: ["self"] + syntax.arguments.map(\.label?.value)),
-        range: ast[c].name.site)
-      let initCandidates = resolve(
-        initName, parameterizedBy: [], memberOf: instance, exposedTo: scope)
-
-      // We're done if we couldn't find any initializer.
-      if initCandidates.isEmpty {
-        _ = state.facts.assignErrorType(to: syntax.callee)
-        return state.facts.assignErrorType(to: subject)
-      }
-
-      if let pick = initCandidates.uniqueElement {
-        // Rebind the callee and constrain its type.
-        let ctor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
-        referredDecls[c] = pick.reference
-        state.facts.assign(^ctor, to: c)
-        state.facts.append(pick.type.constraints)
-
-        // Visit the arguments.
-        if parametersMatching(
-          arguments: syntax.arguments, of: syntax.callee, in: scope,
-          shapedBy: ctor.inputs, updating: &state)
-        {
-          return state.facts.constrain(subject, in: ast, toHaveType: ctor.output)
-        } else {
-          return state.facts.assignErrorType(to: subject)
-        }
-      } else {
-        fatalError("not implemented")
-      }
-    }
-
-    // Case 3c
+    // In any other case, the callee is known to be not callable.
     report(
       .error(
         nonCallableType: state.facts.inferredTypes[syntax.callee]!,
         at: ast[syntax.callee].site))
     return state.facts.assignErrorType(to: subject)
+  }
+
+  /// Returns the inferred type of the initializer call `subject` in `scope`, assuming it returns
+  /// a value of type `instance`.
+  private mutating func inferredType(
+    ofInitializerCall subject: FunctionCallExpr.ID,
+    initializing instance: AnyType,
+    in scope: AnyScopeID,
+    updating state: inout State
+  ) -> AnyType {
+    let callee = NameExpr.ID(ast[subject].callee)!
+    let initName = SourceRepresentable(
+      value: Name(stem: "init", labels: ["self"] + ast[subject].arguments.map(\.label?.value)),
+      range: ast[callee].name.site)
+    let initCandidates = resolve(initName, memberOf: instance, exposedTo: scope)
+
+    // We're done if we couldn't find any initializer.
+    assert(initCandidates.elements.count == initCandidates.viable.count)
+    if initCandidates.elements.isEmpty {
+      report(.error(undefinedName: initName.value, in: instance, at: initName.site))
+      _ = state.facts.assignErrorType(to: callee)
+      return state.facts.assignErrorType(to: subject)
+    }
+
+    if let pick = initCandidates.elements.uniqueElement {
+      // Rebind the callee and constrain its type.
+      let constructor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
+      state.facts.assign(callee, to: DeclReference(constructor: pick.reference)!)
+      state.facts.assign(^constructor, to: callee)
+      state.facts.append(pick.type.constraints)
+
+      var arguments: [FunctionCallConstraint.Argument] = []
+      for a in ast[subject].arguments {
+        let p = inferredType(
+          of: a.value, shapedBy: ^TypeVariable(), in: scope, updating: &state)
+        arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
+      }
+
+      state.facts.append(
+        FunctionCallConstraint(
+          ^constructor, accepts: arguments, returns: constructor.output,
+          origin: ConstraintOrigin(.callee, at: ast[ast[subject].callee].site)))
+
+      return state.facts.constrain(subject, in: ast, toHaveType: constructor.output)
+    } else {
+      fatalError("not implemented")
+    }
+  }
+
+  /// Returns the constructor type corresponding to given `initializer`.
+  private func convertToConstructor(_ initializer: AnyType) -> AnyType {
+    switch initializer.base {
+    case let t as LambdaType:
+      return ^LambdaType(constructorFormOf: t)
+    case let t as BoundGenericType:
+      let c = LambdaType(constructorFormOf: .init(t.base)!)
+      return ^BoundGenericType(c, arguments: t.arguments)
+    default:
+      unreachable()
+    }
   }
 
   private mutating func inferredType(
@@ -408,7 +423,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    let defaultType = ^ast.coreType(named: "Int")!
+    let defaultType = ^ast.coreType("Int")!
     return inferredType(
       ofLiteralExpr: subject, shapedBy: shape, defaultingTo: defaultType,
       in: scope, updating: &state)
@@ -504,7 +519,6 @@ extension TypeChecker {
   private mutating func inferredType(
     ofNameExpr subject: NameExpr.ID,
     withImplicitDomain domain: AnyType? = nil,
-    appliedWith labels: [String?]? = nil,
     shapedBy shape: AnyType?,
     in scope: AnyScopeID,
     updating state: inout State
@@ -537,8 +551,9 @@ extension TypeChecker {
 
     case .done(let prefix, let suffix):
       unresolvedComponents = suffix
-      lastVisitedComponentType =
-        bind(prefix, appliedWithLabels: suffix.isEmpty ? labels : nil, updating: &state)
+      for p in prefix {
+        lastVisitedComponentType = bind(p.component, to: p.candidates, updating: &state)
+      }
     }
 
     // Create the necessary constraints to let the solver resolve the remaining components.
@@ -553,6 +568,20 @@ extension TypeChecker {
     }
 
     return lastVisitedComponentType!
+  }
+
+  private mutating func inferredType(
+    ofPragmaLiteralExpr subject: PragmaLiteralExpr.ID,
+    shapedBy shape: AnyType?,
+    in scope: AnyScopeID,
+    updating state: inout State
+  ) -> AnyType {
+    switch program.ast[subject].kind {
+    case .file:
+      return state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("String")!)
+    case .line:
+      return state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("Int")!)
+    }
   }
 
   private mutating func inferredType(
@@ -622,7 +651,7 @@ extension TypeChecker {
     in scope: AnyScopeID,
     updating state: inout State
   ) -> AnyType {
-    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType(named: "String")!)
+    state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("String")!)
   }
 
   private mutating func inferredType(
@@ -659,7 +688,7 @@ extension TypeChecker {
       let returnType = shape ?? ^TypeVariable()
       let assumedCalleeType = SubscriptImplType(
         isProperty: false,
-        receiverEffect: nil,
+        receiverEffect: .let,
         environment: ^TypeVariable(),
         inputs: parameters,
         output: returnType)
@@ -685,10 +714,7 @@ extension TypeChecker {
     }
 
     // Case 3b
-    if let c = NameExpr.ID(syntax.callee),
-      let d = referredDecls[c]?.decl,
-      isNominalTypeDecl(d)
-    {
+    if isBoundToNominalTypeDecl(syntax.callee, in: state) {
       assert(calleeType.base is MetatypeType)
 
       // Buffer type expressions shall have exactly one argument.
@@ -738,8 +764,9 @@ extension TypeChecker {
         state.facts.append(instantiatedType.constraints)
 
         // Update the referred declaration map if necessary.
+        // FIXME: Handle generic arguments
         if let c = NameExpr.ID(syntax.callee) {
-          referredDecls[c] = .member(decl)
+          state.facts.assign(c, to: .member(decl, [:]))
         }
 
         return state.facts.constrain(subject, in: ast, toHaveType: calleeType.output)
@@ -842,7 +869,7 @@ extension TypeChecker {
 
       state.facts.append(
         DisjunctionConstraint(
-          choices: [
+          between: [
             .init(constraints: preferred, penalties: 0),
             .init(constraints: alternative, penalties: 1),
           ],
@@ -1011,6 +1038,16 @@ extension TypeChecker {
 
   // MARK: Helpers
 
+  /// Returns `true` iff `e` is a name assumed bound to a nominal type declaration in `state`.
+  private mutating func isBoundToNominalTypeDecl(_ e: AnyExprID, in state: State) -> Bool {
+    guard
+      let c = NameExpr.ID(e),
+      let d = state.facts.inferredBindings[c]?.decl,
+      isNominalTypeDecl(d)
+    else { return false }
+    return true
+  }
+
   /// If the labels of `arguments` matches those of `parameters`, visit the arguments' expressions
   /// to generate their type constraints assuming they have the corresponding type in `parameters`
   /// and returns `true`. Otherwise, returns `false`.
@@ -1063,53 +1100,13 @@ extension TypeChecker {
     var parameters: [CallableTypeParameter] = []
     parameters.reserveCapacity(arguments.count)
 
-    for i in 0 ..< arguments.count {
-      let argumentExpr = arguments[i].value
-      let parameterType = ^TypeVariable()
-
-      // Infer the type of the argument bottom-up.
-      let argumentType = inferredType(
-        of: argumentExpr, shapedBy: ^TypeVariable(), in: scope, updating: &state)
-
-      state.facts.append(
-        ParameterConstraint(
-          argumentType, parameterType,
-          origin: ConstraintOrigin(.argument, at: ast[argumentExpr].site)))
-
-      let argumentLabel = arguments[i].label?.value
-      parameters.append(CallableTypeParameter(label: argumentLabel, type: parameterType))
+    for a in arguments {
+      let p = inferredType(
+        of: a.value, shapedBy: ^TypeVariable(), in: scope, updating: &state)
+      parameters.append(CallableTypeParameter(label: a.label?.value, type: p))
     }
 
     return parameters
-  }
-
-  /// Constrains the name expressions in `path` to references to either of their corresponding
-  /// resolution candidations, using `labels` to filter overloaded candidates.
-  ///
-  /// - Parameters:
-  ///   - path: A sequence of resolved components returned by `TypeChecker.resolveNominalPrefix`.
-  ///   - labels: the labels of a call expression if `path` denotes all the components of a name
-  ///     expression used as the callee of the call.
-  private mutating func bind(
-    _ path: [NameResolutionResult.ResolvedComponent],
-    appliedWithLabels labels: [String?]?,
-    updating state: inout State
-  ) -> AnyType {
-    for p in path.dropLast() {
-      _ = bind(p.component, to: p.candidates, updating: &state)
-    }
-
-    let lastVisited = path.last!
-    let c: [NameResolutionResult.Candidate]
-    if lastVisited.candidates.count > 1, let l = labels {
-      let y = lastVisited.candidates.filter { (z) in
-        z.reference.decl.map({ self.labels($0) == l }) ?? false
-      }
-      c = y.isEmpty ? lastVisited.candidates : y
-    } else {
-      c = lastVisited.candidates
-    }
-    return bind(lastVisited.component, to: c, updating: &state)
   }
 
   /// Constrains `name` to be a reference to either of the declarations in `candidates`.
@@ -1124,7 +1121,7 @@ extension TypeChecker {
 
     if let candidate = candidates.uniqueElement {
       // Bind the component to the resolved declaration and store its type.
-      referredDecls[name] = candidate.reference
+      state.facts.assign(name, to: candidate.reference)
       state.facts.append(candidate.type.constraints)
       return state.facts.constrain(name, in: ast, toHaveType: candidate.type.shape)
     } else {

@@ -4,7 +4,7 @@ import Core
 public struct EndBorrowInstruction: Instruction {
 
   /// The borrow whose lifetime is ended.
-  public let borrow: Operand
+  public private(set) var borrow: Operand
 
   public let site: SourceRange
 
@@ -17,6 +17,11 @@ public struct EndBorrowInstruction: Instruction {
   public var types: [LoweredType] { [] }
 
   public var operands: [Operand] { [borrow] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    borrow = new
+  }
 
 }
 

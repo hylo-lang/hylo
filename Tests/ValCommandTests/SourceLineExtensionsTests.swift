@@ -5,7 +5,7 @@ import XCTest
 final class SourceLineExtensionsTests: XCTestCase {
 
   func testInitFromArgument() throws {
-    let f = FileManager.default.temporaryFile()
+    let f = FileManager.default.makeTemporaryFileURL()
     try "Hello,\nWorld!".write(to: f, atomically: true, encoding: .utf8)
 
     let l1 = try XCTUnwrap(SourceLine(argument: "\(f.relativePath):1"))

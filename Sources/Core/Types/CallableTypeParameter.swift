@@ -2,15 +2,28 @@
 public struct CallableTypeParameter: Hashable {
 
   /// The label of the parameter.
-  public var label: String?
+  public let label: String?
 
   /// The type of the parameter.
-  public var type: AnyType
+  public let type: AnyType
+
+  /// `true` iff the parameter has a default argument.
+  public let hasDefault: Bool
 
   /// Creates an instance with the given properties.
-  public init(label: String? = nil, type: AnyType) {
+  public init(label: String? = nil, type: AnyType, hasDefault: Bool = false) {
     self.label = label
     self.type = type
+    self.hasDefault = hasDefault
+  }
+
+  /// Returns a copy of this instance with its type replaced by `transformer(&m, t)`.
+  ///
+  /// - SeeAlso: `TypeProtocol.transform(mutating:_:)`
+  public func transform<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
+    .init(label: label, type: type.transform(mutating: &m, transformer), hasDefault: hasDefault)
   }
 
 }

@@ -3,21 +3,11 @@
 /Packages
 
 # IDEs
+/.vscode
 /.swiftpm
 
 # macOS
 .DS_Store
-
-# Project-specific settings
-/antlr4
-
-/Sources/Parser/**
-!/Sources/Parser/Val.g4
-!/Sources/Parser/ValParser+Extensions.swift
-
-# Windows
-/Examples/**.exe
-/Examples/**.obj
 
 # Misc
 /Examples/**.vir
@@ -26,3 +16,5 @@
 /Examples/**.h
 /Examples/**.ilk
 /Examples/**.pdb
+/Examples/**.exe
+/Examples/**.obj

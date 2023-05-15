@@ -7,7 +7,7 @@ public struct RecordInstruction: Instruction {
   public let objectType: LoweredType
 
   /// The operands consumed to initialize the record members.
-  public let operands: [Operand]
+  public private(set) var operands: [Operand]
 
   public let site: SourceRange
 
@@ -19,6 +19,10 @@ public struct RecordInstruction: Instruction {
   }
 
   public var types: [LoweredType] { [objectType] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    operands[i] = new
+  }
 
 }
 

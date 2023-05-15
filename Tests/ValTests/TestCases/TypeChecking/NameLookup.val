@@ -40,6 +40,25 @@ conformance A: T {
   fun m4() { m1() }
 }
 
+namespace N0 {
+  namespace N1 {
+    public fun f0() {
+      N0.g()
+
+      g0()
+      N1.g0()
+      N0.N1.g0()
+    }
+    fun g0() {}
+  }
+
+  public fun g() {}
+  public fun h() {
+    N0.N1.f0()
+    f0()
+  }
+}
+
 fun f0() {
   let x = A.E()
   check<B>(x)

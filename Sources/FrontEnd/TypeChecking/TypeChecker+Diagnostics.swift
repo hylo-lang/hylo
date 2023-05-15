@@ -84,10 +84,6 @@ extension Diagnostic {
       """, at: site)
   }
 
-  static func error(incompatibleParameterCountAt site: SourceRange) -> Diagnostic {
-    .error("incompatible number of parameters", at: site)
-  }
-
   static func error(
     type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange
   ) -> Diagnostic {
@@ -163,8 +159,7 @@ extension Diagnostic {
   }
 
   static func error(notEnoughContextToInferArgumentsAt site: SourceRange) -> Diagnostic {
-    .error(
-      "not enough contextual information to infer the arguments to generic parameters", at: site)
+    .error("not enough contextual information to infer generic arguments", at: site)
   }
 
   static func error(
@@ -187,6 +182,12 @@ extension Diagnostic {
     trait x: TraitType, requiresMethod m: Name, withType t: AnyType, at site: SourceRange
   ) -> Diagnostic {
     .error("trait '\(x)' requires method '\(m)' with type '\(t)'", at: site)
+  }
+
+  static func error(
+    trait x: TraitType, requiresInitializer t: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .error("trait '\(x)' requires initializer with type '\(t)'", at: site)
   }
 
   static func error(staleConstraint c: any Constraint) -> Diagnostic {
@@ -223,10 +224,9 @@ extension Diagnostic {
   }
 
   static func error(
-    invalidGenericArgumentsTo entity: SourceRepresentable<Name>,
-    candidateDiagnostics notes: [Diagnostic]
+    noViableCandidateToResolve entity: SourceRepresentable<Name>, notes: [Diagnostic]
   ) -> Diagnostic {
-    .error("invalid generic argument(s) for '\(entity.value)'", at: entity.site, notes: notes)
+    .error("no viable candidate to resolve '\(entity.value)'", at: entity.site, notes: notes)
   }
 
   static func error(argumentToNonGenericType type: AnyType, at site: SourceRange) -> Diagnostic {

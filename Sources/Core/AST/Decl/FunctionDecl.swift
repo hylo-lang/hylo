@@ -97,7 +97,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   public var isSink: Bool { receiverEffect?.value == .sink }
 
   /// Returns whether `self` is a foreign function interface.
-  public var isFFI: Bool {
+  public var isForeignInterface: Bool {
     foreignName != nil
   }
 
