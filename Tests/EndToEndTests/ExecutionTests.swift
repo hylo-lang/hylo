@@ -38,11 +38,12 @@ final class ExecutionTests: XCTestCase {
   func compile(_ input: URL, with arguments: [String]) throws -> URL {
     let output = FileManager.default.makeTemporaryFileURL()
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
-    var stderr = ""
-    let status = try cli.execute(loggingTo: &stderr)
+    let (status, diagnostics) = try cli.execute()
 
     XCTAssert(status.isSuccess, "Compilation of \(input) failed with exit code \(status.rawValue)")
-    XCTAssert(stderr.isEmpty, "Compilation of \(input) contains errors: \(stderr)")
+    XCTAssert(
+      diagnostics.isEmpty,
+      "Compilation of \(input) contains diagnostics: \(diagnostics.rendered())")
 
     #if os(Windows)
       XCTAssert(
@@ -71,11 +72,5 @@ final class ExecutionTests: XCTestCase {
       data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
     return (task.terminationStatus, standardOutput ?? "")
   }
-
-}
-
-extension String: Log {
-
-  public var hasANSIColorSupport: Bool { false }
 
 }
