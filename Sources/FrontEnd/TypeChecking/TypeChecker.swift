@@ -1766,6 +1766,11 @@ public struct TypeChecker {
         matchArguments = openGenericParameters(of: m)
       }
 
+      let isConstructor = (m.kind == InitializerDecl.self) && (name.value.stem == "new")
+      if isConstructor {
+        matchType = ^LambdaType(constructorFormOf: LambdaType(matchType)!)
+      }
+
       let allArguments = parentArguments.appending(matchArguments)
       matchType = bind(matchType, to: allArguments)
       matchType = specialized(matchType, applying: allArguments, in: useScope)
@@ -1775,7 +1780,9 @@ public struct TypeChecker {
         cause: .init(.binding, at: name.site))
 
       let r: DeclReference
-      if program.isNonStaticMember(m) && !(parent?.type.base is MetatypeType) {
+      if isConstructor {
+        r = .constructor(InitializerDecl.ID(m)!, allArguments)
+      } else if program.isNonStaticMember(m) && !(parent?.type.base is MetatypeType) {
         r = .member(m, allArguments)
       } else {
         r = .direct(m, allArguments)
@@ -2212,6 +2219,7 @@ public struct TypeChecker {
 
       case InitializerDecl.self:
         table["init", default: []].insert(id)
+        table["new", default: []].insert(id)
 
       case MethodDecl.self:
         table[ast[MethodDecl.ID(id)!].identifier.value, default: []].insert(id)
