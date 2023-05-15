@@ -677,6 +677,15 @@ extension LLVM.Module {
         let source = llvm(s.operands[0])
         register[.register(i, 0)] = insertTrunc(source, to: target, at: insertionPoint)
 
+      case .inttoptr(_):
+        let source = llvm(s.operands[0])
+        register[.register(i, 0)] = insertIntToPtr(source, at: insertionPoint)
+
+      case .ptrtoint(let t):
+        let target = ir.llvm(builtinType: t, in: &self)
+        let source = llvm(s.operands[0])
+        register[.register(i, 0)] = insertPtrToInt(source, to: target, at: insertionPoint)
+
       case .fptrunc(_, let t):
         let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
