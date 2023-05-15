@@ -97,7 +97,7 @@ public struct ValCommand: ParsableCommand {
   public func run() throws {
     let (exitCode, diagnostics) = try execute()
 
-    diagnostics.write(
+    diagnostics.render(
       into: &standardError, style: ProcessInfo.terminalIsConnected ? .styled : .unstyled)
 
     ValCommand.exit(withError: exitCode)

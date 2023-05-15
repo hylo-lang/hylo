@@ -3,18 +3,18 @@ import Core
 extension DiagnosticSet {
 
   /// Writes a textual representation of `self` into `output` using the given style.
-  func write<Output: TextOutputStream>(
+  func render<Output: TextOutputStream>(
     into output: inout Output, style: Diagnostic.TextOutputStyle = .unstyled
   ) {
     for d in elements.sorted(by: Diagnostic.isLoggedBefore) {
-      d.write(into: &output, style: style)
+      d.render(into: &output, style: style)
     }
   }
 
   /// Returns a textual representation of `self` using the given style.
-  public func formatted(style: Diagnostic.TextOutputStyle = .unstyled) -> String {
+  public func rendered(style: Diagnostic.TextOutputStyle = .unstyled) -> String {
     var r = ""
-    write(into: &r, style: style)
+    render(into: &r, style: style)
     return r
   }
 }
@@ -22,7 +22,7 @@ extension DiagnosticSet {
 extension Diagnostic {
 
   /// Writes `self` into `output` using the given output style.
-  func write<Output: TextOutputStream>(into output: inout Output, style: TextOutputStyle) {
+  func render<Output: TextOutputStream>(into output: inout Output, style: TextOutputStyle) {
 
     func write<T>(_ x: T, in style: String.ANSIStyle = String.unstyled) {
       output.write(style("\(x)"))
@@ -36,16 +36,16 @@ extension Diagnostic {
     write(message, in: style.message)
     write("\n")
 
-    writeWindow(into: &output)
+    renderWindow(into: &output)
 
     // Log the notes.
     for n in notes {
-      n.write(into: &output, style: style)
+      n.render(into: &output, style: style)
     }
   }
 
   /// Writes the text of the source line and column indicator (the "window") into `output`.
-  private func writeWindow<Output: TextOutputStream>(into output: inout Output) {
+  private func renderWindow<Output: TextOutputStream>(into output: inout Output) {
     // Write the first marked line followed by a newline.
     let firstMarkedLine = site.file.line(containing: site.start).text
     output.write(String(firstMarkedLine))
@@ -67,22 +67,22 @@ extension Diagnostic {
   /// Style transforms applied to the raw text of different parts of a diagnostic.
   public struct TextOutputStyle {
 
-    /// How the site is presented in this style.
+    /// How the site is rendered in this style.
     fileprivate let sourceRange: String.ANSIStyle
 
-    /// How a “note:” label is presented in this style.
+    /// How a “note:” label is rendered in this style.
     fileprivate let noteLabel: String.ANSIStyle
 
-    /// How a “warning:” label is presented in this style.
+    /// How a “warning:” label is rendered in this style.
     fileprivate let warningLabel: String.ANSIStyle
 
-    /// How an “error:” label is presented in this style.
+    /// How an “error:” label is rendered in this style.
     fileprivate let errorLabel: String.ANSIStyle
 
-    /// How a diagnostic message is presented in this style.
+    /// How a diagnostic message is rendered in this style.
     fileprivate let message: String.ANSIStyle
 
-    /// Returns the presentation of a label with diagnostic level `l`.
+    /// How a label for diagnostic level `l` is rendered in this style.
     fileprivate subscript(l: Diagnostic.Level) -> String.ANSIStyle {
       switch l {
       case .note: return noteLabel
@@ -91,7 +91,7 @@ extension Diagnostic {
       }
     }
 
-    /// The identity style; applies no special formatting
+    /// The identity style; applies no changes to text.
     public static let unstyled = TextOutputStyle(
       sourceRange: String.unstyled,
       noteLabel: String.unstyled,

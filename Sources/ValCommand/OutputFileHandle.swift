@@ -19,7 +19,3 @@ struct OutputFileHandle: TextOutputStream {
 }
 
 var standardError = OutputFileHandle(.standardError)
-
-extension ProcessInfo {
-  static let terminalIsConnected = processInfo.environment["TERM"] != nil
-}

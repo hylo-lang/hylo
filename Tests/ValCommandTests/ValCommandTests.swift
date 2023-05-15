@@ -122,7 +122,7 @@ final class ValCommandTests: XCTestCase {
     // Execute the command.
     let (status, diagnostics) = try cli.execute()
     return CompilationResult(
-      status: status, output: output, diagnosticText: diagnostics.formatted())
+      status: status, output: output, diagnosticText: diagnostics.rendered())
   }
 
 }

@@ -43,7 +43,7 @@ final class ExecutionTests: XCTestCase {
     XCTAssert(status.isSuccess, "Compilation of \(input) failed with exit code \(status.rawValue)")
     XCTAssert(
       diagnostics.isEmpty,
-      "Compilation of \(input) contains diagnostics: \(diagnostics.formatted())")
+      "Compilation of \(input) contains diagnostics: \(diagnostics.rendered())")
 
     #if os(Windows)
       XCTAssert(
