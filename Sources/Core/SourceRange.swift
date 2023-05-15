@@ -99,9 +99,19 @@ extension SourceRange: Codable {
 
 extension SourceRange: CustomStringConvertible {
 
-  public var description: String {
-    let (l, c) = file.position(indices.upperBound).lineAndColumn
-    return "\(first())-\(l):\(c)"
+  /// A textual representation per the
+  /// [Gnu-standard](https://www.gnu.org/prep/standards/html_node/Errors.html).
+  public var gnuStandardText: String {
+    let start = first().lineAndColumn
+    let head = "\(file.url.relativePath):\(start.line).\(start.column)"
+    if self.start == self.end { return head }
+
+    let end = file.position(end).lineAndColumn
+    if end.line == start.line {
+      return head + "-\(end.column)"
+    }
+    return head + "-\(end.line):\(end.column)"
   }
 
+  public var description: String { gnuStandardText }
 }

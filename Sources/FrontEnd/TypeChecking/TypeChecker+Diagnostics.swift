@@ -35,7 +35,7 @@ extension Diagnostic {
     .error(
       "redundant conformance of '\(c.model)' to trait '\(c.concept)'", at: site,
       notes: [
-        .error("conformance already declared here", at: originalSite)
+        .note("conformance already declared here", at: originalSite)
       ])
   }
 
@@ -159,8 +159,7 @@ extension Diagnostic {
   }
 
   static func error(notEnoughContextToInferArgumentsAt site: SourceRange) -> Diagnostic {
-    .error(
-      "not enough contextual information to infer the arguments to generic parameters", at: site)
+    .error("not enough contextual information to infer generic arguments", at: site)
   }
 
   static func error(
@@ -179,16 +178,16 @@ extension Diagnostic {
     }
   }
 
-  static func error(
+  static func note(
     trait x: TraitType, requiresMethod m: Name, withType t: AnyType, at site: SourceRange
   ) -> Diagnostic {
-    .error("trait '\(x)' requires method '\(m)' with type '\(t)'", at: site)
+    .note("trait '\(x)' requires method '\(m)' with type '\(t)'", at: site)
   }
 
-  static func error(
+  static func note(
     trait x: TraitType, requiresInitializer t: AnyType, at site: SourceRange
   ) -> Diagnostic {
-    .error("trait '\(x)' requires initializer with type '\(t)'", at: site)
+    .note("trait '\(x)' requires initializer with type '\(t)'", at: site)
   }
 
   static func error(staleConstraint c: any Constraint) -> Diagnostic {
@@ -311,8 +310,9 @@ extension Diagnostic {
   static func error(
     ambiguousUse expr: NameExpr.ID, in ast: AST, candidates: [AnyDeclID] = []
   ) -> Diagnostic {
-    let notes = candidates.map { Diagnostic.error("candidate here", at: ast[$0].site) }
-    return .error("ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site, notes: notes)
+    return .error(
+      "ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site,
+      notes: candidates.map { .note("candidate here", at: ast[$0].site) })
   }
 
   static func error(cannotExtend t: BuiltinType, at site: SourceRange) -> Diagnostic {

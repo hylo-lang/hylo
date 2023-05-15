@@ -884,7 +884,7 @@ public struct TypeChecker {
       }
     }
 
-    if notes.containsError {
+    if !notes.isEmpty {
       diagnostics.insert(.error(model, doesNotConformTo: trait, at: declSite, because: notes))
       return nil
     }
@@ -915,7 +915,7 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else {
-        notes.insert(.error(trait: trait, requiresInitializer: requiredType, at: declSite))
+        notes.insert(.note(trait: trait, requiresInitializer: requiredType, at: declSite))
       }
     }
 
@@ -934,11 +934,11 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
-        implementations[d] = .synthetic(t)
+        implementations[d] = .synthetic(i)
         synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
         notes.insert(
-          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+          .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
       }
     }
 
@@ -956,12 +956,12 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
-        implementations[d] = .synthetic(t)
+        implementations[d] = .synthetic(i)
         synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
         let requiredName = m.appending(ast[d].introducer.value)!
         notes.insert(
-          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+          .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
       }
     }
   }
@@ -1577,8 +1577,15 @@ public struct TypeChecker {
     for (e, t) in facts.inferredTypes.storage {
       exprTypes[e] = solution.typeAssumptions.reify(t)
     }
+
     for (n, r) in solution.bindingAssumptions {
-      let s = solution.typeAssumptions.reifyArguments(of: r, withVariables: .substituteByError)
+      var s = solution.typeAssumptions.reify(r, withVariables: .keep)
+
+      // https://github.com/apple/swift/issues/65844
+      if s.arguments.values.contains(where: { $0.isTypeVariable }) {
+        report(.error(notEnoughContextToInferArgumentsAt: ast[n].site))
+        s = solution.typeAssumptions.reify(s, withVariables: .substituteByError)
+      }
       referredDecls[n] = s
     }
 
@@ -1759,6 +1766,11 @@ public struct TypeChecker {
         matchArguments = openGenericParameters(of: m)
       }
 
+      let isConstructor = (m.kind == InitializerDecl.self) && (name.value.stem == "new")
+      if isConstructor {
+        matchType = ^LambdaType(constructorFormOf: LambdaType(matchType)!)
+      }
+
       let allArguments = parentArguments.appending(matchArguments)
       matchType = bind(matchType, to: allArguments)
       matchType = specialized(matchType, applying: allArguments, in: useScope)
@@ -1768,7 +1780,9 @@ public struct TypeChecker {
         cause: .init(.binding, at: name.site))
 
       let r: DeclReference
-      if program.isNonStaticMember(m) && !(parent?.type.base is MetatypeType) {
+      if isConstructor {
+        r = .constructor(InitializerDecl.ID(m)!, allArguments)
+      } else if program.isNonStaticMember(m) && !(parent?.type.base is MetatypeType) {
         r = .member(m, allArguments)
       } else {
         r = .direct(m, allArguments)
@@ -2205,6 +2219,7 @@ public struct TypeChecker {
 
       case InitializerDecl.self:
         table["init", default: []].insert(id)
+        table["new", default: []].insert(id)
 
       case MethodDecl.self:
         table[ast[MethodDecl.ID(id)!].identifier.value, default: []].insert(id)
