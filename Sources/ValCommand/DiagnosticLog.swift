@@ -2,6 +2,7 @@ import Core
 
 extension DiagnosticSet {
 
+  /// Write a textual representation of `self` into `output` using the given style.
   func write<Output: TextOutputStream>(
     into output: inout Output, style: Diagnostic.TextOutputStyle = .unstyled
   ) {
@@ -10,6 +11,7 @@ extension DiagnosticSet {
     }
   }
 
+  /// Returns a textual representation of `self` using the given style.
   public func formatted(style: Diagnostic.TextOutputStyle = .unstyled) -> String {
     var r = ""
     write(into: &r, style: style)
@@ -62,39 +64,54 @@ extension Diagnostic {
 
 extension Diagnostic {
 
+  /// Style transforms applied to the raw text of different parts of a diagnostic.
   public struct TextOutputStyle {
+
+    /// How the site is presented in this style.
     fileprivate let sourceRange: String.ANSIStyle
-    fileprivate let note: String.ANSIStyle
-    fileprivate let warning: String.ANSIStyle
-    fileprivate let error: String.ANSIStyle
+
+    /// How a “note:” label is presented in this style.
+    fileprivate let noteLabel: String.ANSIStyle
+
+    /// How a “warning:” label is presented in this style.
+    fileprivate let warningLabel: String.ANSIStyle
+
+    /// How an “error:” label is presented in this style.
+    fileprivate let errorLabel: String.ANSIStyle
+
+    /// How a diagnostic message is presented in this style.
     fileprivate let message: String.ANSIStyle
 
+    /// Returns the presentation of a label with diagnostic level `l`.
     fileprivate subscript(l: Diagnostic.Level) -> String.ANSIStyle {
       switch l {
-      case .note: return note
-      case .warning: return warning
-      case .error: return error
+      case .note: return noteLabel
+      case .warning: return warningLabel
+      case .error: return errorLabel
       }
     }
 
+    /// The identity style; applies no special formatting
     public static let unstyled = TextOutputStyle(
       sourceRange: String.unstyled,
-      note: String.unstyled,
-      warning: String.unstyled,
-      error: String.unstyled,
+      noteLabel: String.unstyled,
+      warningLabel: String.unstyled,
+      errorLabel: String.unstyled,
       message: String.unstyled)
 
+    /// The default style with colors and font weights.
     public static let styled = TextOutputStyle(
       sourceRange: { $0.styled(.bold) },
-      note: { $0.styled(.bold, .cyan) },
-      warning: { $0.styled(.bold, .yellow) },
-      error: { $0.styled(.bold, .red) },
+      noteLabel: { $0.styled(.bold, .cyan) },
+      warningLabel: { $0.styled(.bold, .yellow) },
+      errorLabel: { $0.styled(.bold, .red) },
       message: { $0.styled(.bold) })
   }
 
 }
 
-/// An ANSI [Select Graphic Rendition](https://en.wikipedia.org/wiki/ANSI_escape_code#SGR) (SGR) escape code.
+/// An ANSI [Select Graphic Rendition](https://en.wikipedia.org/wiki/ANSI_escape_code#SGR) (SGR)
+/// escape code.
 private enum ANSISGR: Int {
 
   /// Reset all SGR attributes
@@ -117,16 +134,24 @@ private enum ANSISGR: Int {
   case white = 37
   case defaultColor = 39
 
-  /// The textual representation that has an effect on an ANSI terminal
+  /// The textual representation of this code that has an effect on an ANSI terminal
   var controlString: String {
     "\u{001B}[\(rawValue)m"
   }
 }
 
 extension String {
+
+  /// A string transformation for applying (or not) ANSI terminal styling.
   fileprivate typealias ANSIStyle = (String) -> String
+
+  /// Returns `self` with the given set of styles applied
   fileprivate func styled(_ rendition: ANSISGR...) -> String {
-    "\(list: rendition.map(\.controlString), joinedBy: "")\(self)\(ANSISGR.reset.controlString)"
+    "\(list: rendition.map(\.controlString), joinedBy: "")"
+      + "\(self)\(ANSISGR.reset.controlString)"
   }
+
+  /// The identity transformation.
   fileprivate static let unstyled: ANSIStyle = { $0 }
+
 }
