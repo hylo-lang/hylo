@@ -10,6 +10,11 @@ public type Int {
     &self.value = Builtin.zeroinitializer_i64()
   }
 
+  /// Creates an instance with the bit pattern of `address`.
+  public init(bit_pattern address: RawPointer) {
+    &self.value = Builtin.ptrtoint_i64(address.value)
+  }
+
   /// Returns the sum of `self` and `other`.
   ///
   /// - Requires: The sum of the two arguments must be representable in the arguments' type.
