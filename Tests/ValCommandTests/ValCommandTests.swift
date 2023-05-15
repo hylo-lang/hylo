@@ -126,12 +126,3 @@ final class ValCommandTests: XCTestCase {
   }
 
 }
-
-extension FileManager {
-
-  /// Returns the URL of a temporary file.
-  func temporaryFile() -> URL {
-    temporaryDirectory.appendingPathComponent("\(UUID())")
-  }
-
-}
