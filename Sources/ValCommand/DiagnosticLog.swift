@@ -2,7 +2,7 @@ import Core
 
 extension DiagnosticSet {
 
-  /// Write a textual representation of `self` into `output` using the given style.
+  /// Writes a textual representation of `self` into `output` using the given style.
   func write<Output: TextOutputStream>(
     into output: inout Output, style: Diagnostic.TextOutputStyle = .unstyled
   ) {
