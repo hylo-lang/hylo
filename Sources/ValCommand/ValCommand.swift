@@ -51,36 +51,6 @@ public struct ValCommand: ParsableCommand {
     help: "Type-check the input file(s).")
   private var typeCheckOnly: Bool = false
 
-  /// The format in which to emit diagnostics
-  private enum DiagnosticFormat: String, CaseIterable, ExpressibleByArgument {
-
-    /// ANSI-colored text if supported, plain text otherwise
-    case autoText = "auto-text"
-
-    /// Plain text with no ANSI color escape sequences
-    case plainText = "plain-text"
-
-    /// ANSI colored text
-    case colorText = "color-text"
-
-    /// Serialized as JSON
-    case json = "json"
-
-    var textStyle: Diagnostic.TextOutputStyle? {
-      switch self {
-      case .json: return nil
-      case .autoText: return ProcessInfo.terminalIsConnected ? .styled : .unstyled
-      case .plainText: return .unstyled
-      case .colorText: return .styled
-      }
-    }
-  }
-
-  @Option(
-    name: [.customLong("diagnostic-format")],
-    help: "The format in which diagnostics will be emitted to the standard error stream.")
-  private var diagnosticFormat: DiagnosticFormat = .autoText
-
   @Option(
     name: [.customLong("trace-inference")],
     help: ArgumentHelp(
@@ -127,14 +97,8 @@ public struct ValCommand: ParsableCommand {
   public func run() throws {
     let (exitCode, diagnostics) = try execute()
 
-    if let s = diagnosticFormat.textStyle {
-      diagnostics.write(into: &standardError, style: s)
-    } else if diagnosticFormat == .json {
-      let jsonEncoder = JSONEncoder()
-      try standardError.write(jsonEncoder.encode(diagnostics))
-    } else {
-      fatalError("Unreachable")
-    }
+    diagnostics.write(
+      into: &standardError, style: ProcessInfo.terminalIsConnected ? .styled : .unstyled)
 
     ValCommand.exit(withError: exitCode)
   }

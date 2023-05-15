@@ -1,5 +1,3 @@
-import Foundation
-
 /// A set of `Diagnostic` that can answer the question “was there an error?” in O(1).
 public struct DiagnosticSet {
 
@@ -68,5 +66,3 @@ extension DiagnosticSet: Error {
 }
 
 extension DiagnosticSet: Equatable {}
-
-extension DiagnosticSet: Codable {}
