@@ -159,8 +159,7 @@ extension Diagnostic {
   }
 
   static func error(notEnoughContextToInferArgumentsAt site: SourceRange) -> Diagnostic {
-    .error(
-      "not enough contextual information to infer the arguments to generic parameters", at: site)
+    .error("not enough contextual information to infer generic arguments", at: site)
   }
 
   static func error(

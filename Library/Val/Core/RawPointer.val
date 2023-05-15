@@ -5,6 +5,11 @@ public type RawPointer {
 
   memberwise init
 
+  /// Creates an instance with the bit pattern of `address`.
+  public init(bit_pattern address: Int) {
+    &self.value = Builtin.inttoptr_i64(address.value)
+  }
+
 }
 
 public conformance RawPointer: Copyable {

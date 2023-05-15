@@ -102,7 +102,7 @@ final class ValCommandTests: XCTestCase {
 
   /// Writes `s` to a temporary file and returns its URL.
   private func newFile(containing s: String) throws -> URL {
-    let f = FileManager.default.temporaryFile()
+    let f = FileManager.default.makeTemporaryFileURL()
     try s.write(to: f, atomically: true, encoding: .utf8)
     return f
   }
@@ -114,7 +114,7 @@ final class ValCommandTests: XCTestCase {
     _ input: URL
   ) throws -> CompilationResult {
     // Create a temporary output.
-    let output = FileManager.default.temporaryFile()
+    let output = FileManager.default.makeTemporaryFileURL()
 
     // Parse the command line's arguments.
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])

@@ -26,6 +26,14 @@ public struct RecordInstruction: Instruction {
 
 }
 
+extension RecordInstruction: CustomStringConvertible {
+
+  public var description: String {
+    "record \(objectType) \(list: operands)"
+  }
+
+}
+
 extension Module {
 
   /// Creates a `record` anchored at `anchor` that creates a record of type `recordType` by
