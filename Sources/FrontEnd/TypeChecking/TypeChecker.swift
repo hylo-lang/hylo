@@ -884,7 +884,7 @@ public struct TypeChecker {
       }
     }
 
-    if notes.containsError {
+    if !notes.isEmpty {
       diagnostics.insert(.error(model, doesNotConformTo: trait, at: declSite, because: notes))
       return nil
     }
@@ -915,7 +915,7 @@ public struct TypeChecker {
       {
         implementations[d] = .concrete(c)
       } else {
-        notes.insert(.error(trait: trait, requiresInitializer: requiredType, at: declSite))
+        notes.insert(.note(trait: trait, requiresInitializer: requiredType, at: declSite))
       }
     }
 
@@ -938,7 +938,7 @@ public struct TypeChecker {
         synthesizedDecls[program.module(containing: d), default: []].append(i)
       } else {
         notes.insert(
-          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+          .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
       }
     }
 
@@ -961,7 +961,7 @@ public struct TypeChecker {
       } else {
         let requiredName = m.appending(ast[d].introducer.value)!
         notes.insert(
-          .error(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+          .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
       }
     }
   }

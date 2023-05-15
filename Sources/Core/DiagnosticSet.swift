@@ -38,6 +38,9 @@ public struct DiagnosticSet {
     if containsError { throw self }
   }
 
+  /// Whether `self` contains no elements.
+  public var isEmpty: Bool { elements.isEmpty }
+
 }
 
 extension DiagnosticSet: ExpressibleByArrayLiteral {

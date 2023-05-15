@@ -749,8 +749,9 @@ extension Diagnostic {
     at site: SourceRange
   ) -> Diagnostic {
     if let c = consumers {
-      let notes = c.map({ Diagnostic.error("escape happens here", at: module[$0].site) })
-      return .error("parameter was consumed", at: site, notes: notes)
+      return .error(
+        "parameter was consumed", at: site,
+        notes: c.map({ Diagnostic.note("escape happens here", at: module[$0].site) }))
     } else {
       return .error("parameter was consumed", at: site)
     }
