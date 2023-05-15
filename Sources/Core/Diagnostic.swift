@@ -30,14 +30,28 @@ public struct Diagnostic: Hashable {
   public let notes: [Diagnostic]
 
   /// Creates a new diagnostic.
+  ///
+  /// - Precondition: elements of `notes` have `self.level == .note`
   public init(level: Level, message: String, site: SourceRange, notes: [Diagnostic] = []) {
+    precondition(notes.allSatisfy { $0.level == .note }, file: #filePath)
     self.level = level
     self.message = message
     self.site = site
     self.notes = notes
   }
 
+  /// Returns a note with the given `message` highlighting `range`.
+  ///
+  /// - Precondition: elements of `notes` have `self.level == .note`
+  public static func note(_ message: String, at site: SourceRange)
+    -> Diagnostic
+  {
+    Diagnostic(level: .note, message: message, site: site)
+  }
+
   /// Returns an error with the given `message` highlighting `range`.
+  ///
+  /// - Precondition: elements of `notes` have `self.level == .note`
   public static func error(_ message: String, at site: SourceRange, notes: [Diagnostic] = [])
     -> Diagnostic
   {
@@ -46,6 +60,8 @@ public struct Diagnostic: Hashable {
   }
 
   /// Returns a warning with the given `message` highlighting `range`..
+  ///
+  /// - Precondition: elements of `notes` have `self.level == .note`
   public static func warning(
     _ message: String, at site: SourceRange, notes: [Diagnostic] = []
   ) -> Diagnostic {
