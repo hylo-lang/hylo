@@ -62,19 +62,28 @@ public struct LoweredProgram {
     return result
   }
 
-  /// Returns the name of `f`.
+  /// Returns the mangled name of `f`.
   public func mangle(_ f: Function.ID) -> String {
     switch f.value {
     case .lowered(let d):
-      return syntax.debugName(decl: d)
+      return mangle(d)
     case .loweredSubscript(let d):
-      return syntax.debugName(decl: d)
+      return mangle(d)
     case .monomorphized(let f, let a):
       return mangle(f) + "<\(list: a.values)>"
     case .synthesized(let d, let t):
       return "\(d)\(t)"
     case .existentialized:
       fatalError("not implemented")
+    }
+  }
+
+  /// Returns the mangled name of `f`.
+  public func mangle<T: DeclID>(_ d: T) -> String {
+    if let f = FunctionDecl.ID(d) {
+      return syntax.ast[f].llvmName ?? syntax.debugName(decl: f)
+    } else {
+      return syntax.debugName(decl: d)
     }
   }
 
