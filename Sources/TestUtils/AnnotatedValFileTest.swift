@@ -145,11 +145,11 @@ extension XCTestCase {
         }
       case "expect-failure":
         if processing.ranToCompletion {
-          fail(a, "processing succeeded, but failure was expected")
+          fail(a, "compilation stages succeeded, but failure was expected")
         }
       case "expect-success":
         if !processing.ranToCompletion {
-          fail(a, "processing failed, but success was expected")
+          fail(a, "compilation stages failed, but success was expected")
         }
       default:
         fail(a, "unexpected test command: '\(a.command)'")
