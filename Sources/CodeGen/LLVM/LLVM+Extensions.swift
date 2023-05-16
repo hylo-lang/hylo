@@ -113,7 +113,7 @@ extension LLVM.Module {
 
     let ptr = PointerType(in: &self)
     let f = declareFunction(
-      "_val_rt_implementation",
+      "valrt_implementation",
       FunctionType(
         from: [ptr, ptr, ptr],
         to: VoidType(in: &self),
