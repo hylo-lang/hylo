@@ -5,6 +5,11 @@ public type RawPointer {
 
   memberwise init
 
+  /// Creates an instance with the bit pattern of `address`.
+  public init(bit_pattern address: Int) {
+    &self.value = Builtin.inttoptr_i64(address.value)
+  }
+
   /// Returns the null pointer.
   public static fun null() -> RawPointer {
     .new(value: Builtin.zeroinitializer_ptr())
