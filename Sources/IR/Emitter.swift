@@ -1389,6 +1389,20 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
+  // Returns the address of the receiver of a reference to a bound member declaration.
+  private mutating func emitMemberReceiver(
+    _ member: NameExpr.Typed, into module: inout Module
+  ) -> Operand {
+    switch member.domain {
+    case .none:
+      return frames[receiver!]!
+    case .expr(let e):
+      return emitLValue(e, into: &module)
+    case .implicit:
+      unreachable()
+    }
+  }
+
   /// Inserts the IR for given `callee` into `module` at the end of the current insertion block and
   /// returns `(c, a)`, where `c` is the callee's value and `a` are arguments to lifted parameters.
   ///
@@ -1419,8 +1433,7 @@ public struct Emitter {
   ///
   /// - Requires: `callee` has a lambda type.
   private mutating func emitNamedCallee(
-    _ callee: NameExpr.Typed,
-    into module: inout Module
+    _ callee: NameExpr.Typed, into module: inout Module
   ) -> (callee: Operand, captures: [Operand]) {
     let calleeType = LambdaType(program.relations.canonical(callee.type))!
 
@@ -1437,33 +1450,33 @@ public struct Emitter {
       return (.constant(r), [])
 
     case .member(let d, let a) where d.kind == FunctionDecl.self:
-      // Callee is a member reference to a function or method.
-      let r = FunctionReference(
-        to: program[FunctionDecl.ID(d)!], usedIn: frames.top.scope, parameterizedBy: a,
-        in: &module)
+      // Callee is a member reference to a function declration. The call is virtual iff the
+      // referred function is declared at trait scope.
+      let f = FunctionDecl.ID(d)!
+      let receiver = emitMemberReceiver(callee, into: &module)
 
-      // Emit the location of the receiver.
-      let receiver: Operand
-      switch callee.domain {
-      case .none:
-        receiver = frames[self.receiver!]!
-      case .expr(let e):
-        receiver = emitLValue(e, into: &module)
-      case .implicit:
-        unreachable()
+      let calleeIR: Operand
+      if program.declToScope[f]!.kind == TraitDecl.self {
+        let f = emitVirtualCallee(
+          calleeType.lifted, implementing: f, of: receiver, at: callee.site, into: &module)
+        calleeIR = f
+      } else {
+        let r = FunctionReference(
+          to: program[f], usedIn: frames.top.scope, parameterizedBy: a, in: &module)
+        calleeIR = .constant(r)
       }
 
-      // Load or borrow the receiver.
+      // Load or borrow the receiver depending on the callee's passing convention.
       if let t = RemoteType(calleeType.captures[0].type) {
-        let i = module.append(
+        let r = module.append(
           module.makeBorrow(t.access, from: receiver, anchoredAt: callee.site),
           to: insertionBlock!)
-        return (Operand.constant(r), i)
+        return (calleeIR, r)
       } else {
-        let i = module.append(
+        let r = module.append(
           module.makeLoad(receiver, anchoredAt: callee.site),
           to: insertionBlock!)
-        return (Operand.constant(r), i)
+        return (calleeIR, r)
       }
 
     case .builtinFunction, .builtinType:
@@ -1475,6 +1488,32 @@ public struct Emitter {
       let f = emitLambdaCallee(.init(callee), into: &module)
       return (f, [])
     }
+  }
+
+  /// Inserts the IR for obtaining the function with type `inferface` that implements `requirement`
+  /// for the witness of `receiver`, which is an existential container.
+  private mutating func emitVirtualCallee(
+    _ interface: LambdaType,
+    implementing requirement: FunctionDecl.ID,
+    of receiver: Operand,
+    at anchor: SourceRange,
+    into module: inout Module
+  ) -> Operand {
+    assert(module.type(of: receiver).ast.base is ExistentialType)
+
+    let x0 = module.append(
+      module.makeBorrow(.let, from: receiver, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+    let x1 = module.append(
+      module.makeCopyWitnessTable(of: x0, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+    let x2 = module.append(
+      module.makeVirtualFunction(interface, implementing: requirement, in: x1, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+    let x3 = module.append(
+      module.makeBorrow(.let, from: x2, anchoredAt: anchor),
+      to: insertionBlock!)[0]
+    return x3
   }
 
   /// Inserts the IR for given `callee` into `module` at the end of the current insertion block and
