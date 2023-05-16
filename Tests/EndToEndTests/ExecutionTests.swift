@@ -26,24 +26,21 @@ class EndToEndTestCase: XCTestCase {
   func compileAndRun(_ valFilePath: String, file: StaticString = #filePath, line: UInt = #line)
     throws
   {
-    #if false
-      checkAnnotatedValFileDiagnostics(inFileAt: valFilePath) {
-        (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) in
-        let output = try compile(f, with: ["--emit", "binary"])
+    try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath) {
+      (_ valSource: SourceFile, _ diagnostics: inout DiagnosticSet) in
+
+      let binary = try compile(valSource.url, with: ["--emit", "binary"])
+      do {
+        let (status, _) = try run(binary)
+        XCTAssertEqual(
+          status, 0,
+          "Execution of binary for test \(valSource.url.lastPathComponent)"
+            + " failed with exit code \(status)", file: file, line: line)
+      } catch {
+        XCTFail(
+          "While testing \(valSource.url.lastPathComponent), cannot execute: \(binary)", file: file,
+          line: line)
       }
-    #endif
-    let f = URL(fileURLWithPath: valFilePath)
-    let output = try compile(f, with: ["--emit", "binary"])
-    do {
-      let (status, _) = try run(output)
-      XCTAssertEqual(
-        status, 0,
-        "Execution of binary for test \(f.lastPathComponent) failed with exit code \(status)",
-        file: file, line: line
-      )
-    } catch {
-      XCTFail(
-        "While testing \(f.lastPathComponent), cannot execute: \(output)", file: file, line: line)
     }
   }
 

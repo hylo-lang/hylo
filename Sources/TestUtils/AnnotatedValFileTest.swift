@@ -53,11 +53,6 @@ extension XCTestCase {
     diagnostics: DiagnosticSet
   )
 
-  /// The URL of the `ValTests/` directory of this project.
-  fileprivate static let valTests = URL(fileURLWithPath: String(#filePath))
-    .deletingLastPathComponent()
-    .deletingLastPathComponent()
-
   /// Applies `processAndCheck` to `valToTest`, along with the subset of its annotations
   /// whose commands match `checkedCommands`, and reports resulting XCTest failures, along with any
   /// additional failures where the effects of processing don't match the its annotation
@@ -103,6 +98,27 @@ extension XCTestCase {
     for f in failures {
       record(f)
     }
+  }
+
+  /// Applies `process` to the ".val" file at the given path and reports XCTest failures where the
+  /// effects of processing don't match the file's annotation commands ("diagnostic",
+  /// "expect-failure", and "expect-success").
+  ///
+  /// - Parameter process: applies some compilation phases to `file`, updating `diagnostics`
+  ///   with any generated diagnostics. Throws an `Error` if any phases failed.
+  public func checkAnnotatedValFileDiagnostics(
+    inFileAt valFilePath: String,
+    _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
+  ) throws {
+    let f = try SourceFile(contentsOf: URL(fileURLWithPath: valFilePath))
+    try checkAnnotations(
+      in: f, checkingAnnotationCommands: [],
+      { (file, annotationsToHandle, diagnostics) in
+        assert(annotationsToHandle.isEmpty)
+        try process(file, &diagnostics)
+        return []
+      }
+    )
   }
 
   /// Given the effects of processing and the annotations not specifically handled by
