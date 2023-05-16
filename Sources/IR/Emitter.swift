@@ -1456,9 +1456,10 @@ public struct Emitter {
       let receiver = emitMemberReceiver(callee, into: &module)
 
       let calleeIR: Operand
-      if program.declToScope[f]!.kind == TraitDecl.self {
+      if let concept = TraitDecl.ID(program.declToScope[f]!) {
+        let r = Requirement(concept: .init(concept, ast: program.ast), id: f.rawValue)
         let f = emitVirtualCallee(
-          calleeType.lifted, implementing: f, of: receiver, at: callee.site, into: &module)
+          calleeType.lifted, implementing: r, of: receiver, at: callee.site, into: &module)
         calleeIR = f
       } else {
         let r = FunctionReference(
@@ -1494,7 +1495,7 @@ public struct Emitter {
   /// for the witness of `receiver`, which is an existential container.
   private mutating func emitVirtualCallee(
     _ interface: LambdaType,
-    implementing requirement: FunctionDecl.ID,
+    implementing requirement: Requirement,
     of receiver: Operand,
     at anchor: SourceRange,
     into module: inout Module

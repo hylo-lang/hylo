@@ -6,8 +6,8 @@ public struct VirtualFunctionInstruction: Instruction {
   /// The type of the virtual function.
   public let interface: LambdaType
 
-  /// The ID of the requirement representing the virtual function.
-  public let requirement: FunctionDecl.ID
+  /// The the requirement representing the virtual function.
+  public private(set) var requirement: Requirement
 
   /// The witness table being read to identify `requirement`'s implementation.
   public private(set) var source: Operand
@@ -17,7 +17,7 @@ public struct VirtualFunctionInstruction: Instruction {
 
   /// Creates an instance with given properties.
   fileprivate init(
-    interface: LambdaType, requirement: FunctionDecl.ID, source: Operand, site: SourceRange
+    interface: LambdaType, requirement: Requirement, source: Operand, site: SourceRange
   ) {
     self.interface = interface
     self.requirement = requirement
@@ -27,19 +27,20 @@ public struct VirtualFunctionInstruction: Instruction {
 
   public var types: [LoweredType] { [.address(interface)] }
 
-  public var operands: [Operand] { [source] }
+  public var operands: [Operand] { [.constant(requirement), source] }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
-    precondition(i == 0)
-    source = new
-  }
-
-}
-
-extension VirtualFunctionInstruction: CustomStringConvertible {
-
-  public var description: String {
-    "virtual_function \(requirement.rawValue) in \(source)"
+    switch i {
+    case 0:
+      guard let r = new.constant as? Requirement else {
+        preconditionFailure("invalid substitution")
+      }
+      requirement = r
+    case 1:
+      source = new
+    default:
+      preconditionFailure()
+    }
   }
 
 }
@@ -56,7 +57,7 @@ extension Module {
   ///   - source: The address of a virtual table specifying how `requirement` is implemented.
   func makeVirtualFunction(
     _ interface: LambdaType,
-    implementing requirement: FunctionDecl.ID,
+    implementing requirement: Requirement,
     in source: Operand,
     anchoredAt anchor: SourceRange
   ) -> VirtualFunctionInstruction {
