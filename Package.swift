@@ -100,6 +100,11 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
+      name: "TestUtils",
+      dependencies: ["Core", "Utils"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
       name: "ValModule",
       path: "Library",
       resources: [.copy("Val")],
@@ -124,7 +129,7 @@ let package = Package(
 
     .testTarget(
       name: "ValTests",
-      dependencies: ["FrontEnd", "Core", "IR"],
+      dependencies: ["FrontEnd", "Core", "IR", "TestUtils"],
       resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
 
@@ -135,7 +140,7 @@ let package = Package(
 
     .testTarget(
       name: "EndToEndTests",
-      dependencies: ["ValCommand"],
+      dependencies: ["ValCommand", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
   ])

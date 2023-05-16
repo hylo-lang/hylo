@@ -8,10 +8,10 @@ import XCTest
 #if !os(macOS)
 
   /// An object that represents a test failure.
-  struct XCTIssue {
+  public struct XCTIssue {
 
     /// Constants that indicate types of test failures.
-    enum IssueType: Int {
+    public enum IssueType: Int {
 
       /// A test failure due to a failed test assertion or related API.
       case assertionFailure
@@ -22,58 +22,58 @@ import XCTest
     }
 
     /// A value for classifying an issue that occurs during testing.
-    var type: IssueType
+    public var type: IssueType
 
     /// A concise description of the issue with no transient data, suitable for use in test run
     /// summaries and results aggregation across multiple test runs.
-    var compactDescription: String
+    public var compactDescription: String
 
     /// The source code location for the issue.
-    var sourceCodeContext: XCTSourceCodeContext?
+    public var sourceCodeContext: XCTSourceCodeContext?
 
   }
 
   /// An object that contains call stack and source code location details to provide context for a
   /// point of execution in a test.
-  struct XCTSourceCodeContext {
+  public struct XCTSourceCodeContext {
 
     /// A representation of a location in source code where a test issue occurred.
-    var location: XCTSourceCodeLocation?
+    public var location: XCTSourceCodeLocation?
 
   }
 
   /// An object that contains a file URL and line number that represents a distinct location in
   /// source code.
-  final class XCTSourceCodeLocation: Hashable {
+  public final class XCTSourceCodeLocation: Hashable {
 
     /// A file URL that represents the file-system location of the source code file.
-    var fileURL: URL
+    public var fileURL: URL
 
     /// An integer that represents a line of code in a source code file.
-    var lineNumber: Int
+    public var lineNumber: Int
 
     /// Initializes a new instance with a file URL and a line number.
-    init(fileURL: URL, lineNumber: Int) {
+    public init(fileURL: URL, lineNumber: Int) {
       self.fileURL = fileURL
       self.lineNumber = lineNumber
     }
 
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
       hasher.combine(fileURL)
       hasher.combine(lineNumber)
     }
 
-    static func == (l: XCTSourceCodeLocation, r: XCTSourceCodeLocation) -> Bool {
+    public static func == (l: XCTSourceCodeLocation, r: XCTSourceCodeLocation) -> Bool {
       (l.fileURL == r.fileURL) && (l.lineNumber == r.lineNumber)
     }
 
   }
 
   /// A proxy for the current testing context.
-  struct XCTContext {
+  public struct XCTContext {
 
     /// Creates and runs an activity with the provided block of code.
-    static func runActivity<Result>(
+    public static func runActivity<Result>(
       named name: String,
       block: (XCTActivity) throws -> Result
     ) rethrows -> Result {
@@ -83,16 +83,16 @@ import XCTest
   }
 
   /// A named substep of a test method.
-  struct XCTActivity {
+  public struct XCTActivity {
 
     /// A human-readable name for the activity.
-    var name: String
+    public var name: String
 
   }
 
   extension XCTestCase {
 
-    func record(_ issue: XCTIssue) {
+    public func record(_ issue: XCTIssue) {
       let location = issue.sourceCodeContext!.location!
       recordFailure(
         withDescription: issue.compactDescription,
