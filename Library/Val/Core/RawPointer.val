@@ -5,6 +5,11 @@ public type RawPointer {
 
   memberwise init
 
+  /// Returns the null pointer.
+  public static fun null() -> RawPointer {
+    .new(value: Builtin.zeroinitializer_ptr())
+  }
+
 }
 
 public conformance RawPointer: Copyable {
