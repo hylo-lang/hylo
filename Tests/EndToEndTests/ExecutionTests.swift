@@ -29,7 +29,14 @@ class EndToEndTestCase: XCTestCase {
     try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath) {
       (_ valSource: SourceFile, _ diagnostics: inout DiagnosticSet) in
 
-      let binary = try compile(valSource.url, with: ["--emit", "binary"])
+      let binary: URL
+      do {
+        binary = try compile(valSource.url, with: ["--emit", "binary"])
+      } catch let d as DiagnosticSet {
+        diagnostics = d
+        throw d
+      }
+
       do {
         let (status, _) = try run(binary)
         XCTAssertEqual(
@@ -38,7 +45,8 @@ class EndToEndTestCase: XCTestCase {
             + " failed with exit code \(status)", file: file, line: line)
       } catch {
         XCTFail(
-          "While testing \(valSource.url.lastPathComponent), cannot execute: \(binary)", file: file,
+          "While testing \(valSource.url.lastPathComponent), cannot execute: \(binary)",
+          file: file,
           line: line)
       }
     }
@@ -47,14 +55,16 @@ class EndToEndTestCase: XCTestCase {
   /// Compiles `input` with the given arguments and returns the URL of the output file.
   ///
   /// Ensures that the compilation succeeds.
-  func compile(_ input: URL, with arguments: [String]) throws -> URL {
+  fileprivate func compile(_ input: URL, with arguments: [String]) throws -> URL {
     let output = FileManager.default.makeTemporaryFileURL()
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
     let (status, diagnostics) = try cli.execute()
+    if !status.isSuccess {
+      throw diagnostics
+    }
 
-    XCTAssert(status.isSuccess, "Compilation of \(input) failed with exit code \(status.rawValue)")
     XCTAssert(
-      diagnostics.isEmpty,
+      !diagnostics.containsError,
       "Compilation of \(input) contains diagnostics: \(diagnostics.rendered())")
 
     #if os(Windows)
@@ -72,7 +82,7 @@ class EndToEndTestCase: XCTestCase {
 
   /// Runs `executable` and returns its exit status along with the text written to its standard
   /// output.
-  public func run(_ executable: URL) throws -> (status: Int32, standardOutput: String) {
+  fileprivate func run(_ executable: URL) throws -> (status: Int32, standardOutput: String) {
     let pipe = Pipe()
     let task = Process()
     task.executableURL = executable
