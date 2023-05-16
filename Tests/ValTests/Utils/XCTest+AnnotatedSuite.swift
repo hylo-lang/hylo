@@ -22,14 +22,7 @@ extension XCTestCase {
   ) throws {
     let annotatedValFiles = try testSuite(at: suitePath)
     for f in annotatedValFiles {
-      try checkAnnotations(
-        in: f, checkingAnnotationCommands: [],
-        { (file, annotationsToHandle, diagnostics) in
-          assert(annotationsToHandle.isEmpty)
-          try process(file, &diagnostics)
-          return []
-        }
-      )
+      try checkAnnotatedValFileDiagnostics(inFileAt: f.url.path, process)
     }
   }
 
