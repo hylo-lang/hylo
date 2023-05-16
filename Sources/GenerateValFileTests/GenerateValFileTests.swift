@@ -15,6 +15,11 @@ struct GenerateValFileTests: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   var outputURL: URL
 
+  @Option(
+    name: [.customShort("n")],
+    help: ArgumentHelp("Name of generated test case."))
+  var testCaseName: String
+
   func run() throws {
 
     var output =
@@ -23,7 +28,7 @@ struct GenerateValFileTests: ParsableCommand {
       import ValCommand
       import XCTest
 
-      final class ValFileTests: EndToEndTestCase {
+      final class \(testCaseName.asSwiftIdentifier): EndToEndTestCase {
 
       """
 

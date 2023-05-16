@@ -11,7 +11,7 @@ struct TestGeneratorPlugin: BuildToolPlugin {
     let cmd: Command = .buildCommand(
         displayName: "Generating XCTestCases for \(inputPaths.map(\.stem)) into \(outputPath)",
         executable: try context.tool(named: "GenerateValFileTests").path,
-        arguments: inputPaths + [ "-o", outputPath ],
+        arguments: [ "-o", outputPath, "-n", target.moduleName ] + inputPaths,
         inputFiles: inputPaths,
         outputFiles: [ outputPath ]
     )
