@@ -79,6 +79,8 @@ extension Module {
       return t.capabilities
     case let t as BorrowInstruction:
       return [t.capability]
+    case is CopyWitnessTableInstruction:
+      return [.let]
     case is LoadInstruction:
       return [.sink]
     case is MoveInstruction:

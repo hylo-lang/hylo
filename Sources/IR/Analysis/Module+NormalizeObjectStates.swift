@@ -36,6 +36,8 @@ extension Module {
           pc = interpret(call: user, in: &context)
         case is CallFIIInstruction:
           pc = interpret(callFFI: user, in: &context)
+        case is CopyWitnessTableInstruction:
+          pc = interpret(copyWitnessTable: user, in: &context)
         case is DeallocStackInstruction:
           pc = interpret(deallocStack: user, in: &context)
         case is DeinitInstruction:
@@ -68,6 +70,8 @@ extension Module {
           pc = interpret(store: user, in: &context)
         case is UnrechableInstruction:
           pc = successor(of: user)
+        case is VirtualFunctionInstruction:
+          pc = interpret(virtualFunction: user, in: &context)
         case is WrapAddrInstruction:
           pc = interpret(wrapAddr: user, in: &context)
         case is YieldInstruction:
@@ -203,6 +207,12 @@ extension Module {
       for a in s.operands {
         consume(a, with: i, at: s.site, in: &context)
       }
+      initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(copyWitnessTable i: InstructionID, in context: inout Context) -> PC? {
       initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
@@ -391,6 +401,19 @@ extension Module {
         assert(o.value.initializedPaths.isEmpty || o.layout.type.isBuiltin)
         o.value = .full(.initialized)
       }
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(virtualFunction i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! VirtualFunctionInstruction
+      consume(s.source, with: i, at: s.site, in: &context)
+
+      let l = AbstractLocation.root(.register(i, 0))
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: s.interface, definedIn: program),
+        value: .full(.initialized))
+      context.locals[.register(i, 0)] = .locations([l])
       return successor(of: i)
     }
 

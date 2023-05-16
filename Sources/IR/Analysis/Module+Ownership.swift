@@ -35,6 +35,8 @@ extension Module {
           interpret(globalAddr: user, in: &context)
         case is ProjectInstruction:
           interpret(project: user, in: &context)
+        case is VirtualFunctionInstruction:
+          interpret(virtualFunction: user, in: &context)
         case is WrapAddrInstruction:
           interpret(wrapAddr: user, in: &context)
         default:
@@ -195,6 +197,17 @@ extension Module {
 
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
+        value: .full(.unique))
+      context.locals[.register(i, 0)] = .locations([l])
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(virtualFunction i: InstructionID, in context: inout Context) {
+      let s = self[i] as! VirtualFunctionInstruction
+      let l = AbstractLocation.root(.register(i, 0))
+
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: s.interface, definedIn: program),
         value: .full(.unique))
       context.locals[.register(i, 0)] = .locations([l])
     }
