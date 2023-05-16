@@ -105,6 +105,34 @@ extension LLVM.Module {
     return f
   }
 
+  /// Returns the prototype `Val.Runtime.implementation`.
+  private mutating func runtimeImplementation() -> LLVM.Function {
+    if let f = function(named: "valrt_implementation") {
+      return f
+    }
+
+    let ptr = PointerType(in: &self)
+    let f = declareFunction(
+      "_val_rt_implementation",
+      FunctionType(
+        from: [ptr, ptr, ptr],
+        to: VoidType(in: &self),
+        in: &self))
+
+    return f
+  }
+
+  /// Returns the prototype `Val.Runtime.implementation`.
+  private mutating func runtimeRequirementType() -> LLVM.StructType {
+    if let t = type(named: "valrt_Requirement") {
+      return .init(t)!
+    }
+
+    let m0 = PointerType(in: &self)
+    let m1 = wordType()
+    return StructType([m0, m1], in: &self)
+  }
+
   /// Returns the declaration of `malloc`.
   private mutating func mallocPrototype() -> LLVM.Function {
     if let f = function(named: "malloc") {
@@ -188,6 +216,9 @@ extension LLVM.Module {
     case let v as IR.FunctionReference:
       return declare(v, from: ir)
 
+    case let v as IR.Requirement:
+      return transpiledRequirement(v, usedIn: m, from: ir)
+
     case is IR.Poison:
       let t = ir.llvm(c.type.ast, in: &self)
       return LLVM.Poison(of: t)
@@ -269,6 +300,15 @@ extension LLVM.Module {
     setLinkage(.linkOnce, for: g)
     setGlobalConstant(true, for: g)
     return g
+  }
+
+  /// Returns the LLVM IR value of the requirement `r` used in `m` in `ir`.
+  private mutating func transpiledRequirement(
+    _ r: IR.Requirement, usedIn m: IR.Module, from ir: LoweredProgram
+  ) -> LLVM.IRValue {
+    let m0: LLVM.IRValue = transpiledMetatype(of: r.concept, usedIn: m, from: ir)
+    let m1: LLVM.IRValue = wordType().constant(UInt64(r.id))
+    return LLVM.StructConstant(of: runtimeRequirementType(), aggregating: [m0, m1], in: &self)
   }
 
   /// Returns the LLVM IR value of the requirement implementation `i`, which is in `ir`.
@@ -471,6 +511,8 @@ extension LLVM.Module {
         insert(callFFI: i)
       case is IR.CondBranchInstruction:
         insert(condBranch: i)
+      case is IR.CopyWitnessTableInstruction:
+        insert(copyWitnessTable: i)
       case is IR.DeallocStackInstruction:
         return
       case is IR.DeinitInstruction:
@@ -499,6 +541,8 @@ extension LLVM.Module {
         insert(store: i)
       case is IR.UnrechableInstruction:
         insert(unreachable: i)
+      case is IR.VirtualFunctionInstruction:
+        insert(virtualFunction: i)
       case is IR.WrapAddrInstruction:
         insert(wrapAddr: i)
       case is IR.YieldInstruction:
@@ -607,6 +651,20 @@ extension LLVM.Module {
       insertCondBr(
         if: c, then: block[s.targetIfTrue]!, else: block[s.targetIfFalse]!,
         at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(copyWitnessTable i: IR.InstructionID) {
+      // TODO: Use Val runtime
+      let s = m[i] as! CopyWitnessTableInstruction
+      let i32 = LLVM.IntegerType(32, in: &self)
+      let ptr = LLVM.PointerType(in: &self)
+
+      let container = llvm(s.container)
+      let x0 = insertGetElementPointerInBounds(
+        of: container, typed: containerType(), indices: [i32.constant(1)], at: insertionPoint)
+      let x1 = insertLoad(ptr, from: x0, at: insertionPoint)
+      register[.register(i, 0)] = x1
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -783,6 +841,27 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(unreachable i: IR.InstructionID) {
       insertUnreachable(at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(virtualFunction i: IR.InstructionID) {
+      let s = m[i] as! IR.VirtualFunctionInstruction
+      let ptr = PointerType(in: &self)
+
+      // Allocate storage for the return value of `Val.Runtime.implementation`.
+      let x0 = insertAlloca(ptr, atEntryOf: transpilation)
+
+      // Prepare a pointer to the requirement,
+      let x1 = insertAlloca(runtimeRequirementType(), atEntryOf: transpilation)
+      let x2 = transpiledRequirement(s.requirement, usedIn: m, from: ir)
+      insertStore(x2, to: x1, at: insertionPoint)
+
+      // Call the run-time.
+      let implementation = runtimeImplementation()
+      _ = insertCall(
+        implementation, on: [x0, x1, llvm(s.source)],
+        at: insertionPoint)
+      register[.register(i, 0)] = insertLoad(ptr, from: x0, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
