@@ -23,33 +23,29 @@ class EndToEndTestCase: XCTestCase {
 
   /// Compiles and runs the given file at `valFilePath`, `XCTAssert`ing that diagnostics and exit
   /// codes match annotated expectations.
-  func compileAndRun(_ valFilePath: String, file: StaticString = #filePath, line: UInt = #line)
+  func compileAndRun(_ valFilePath: String)
     throws
   {
+    // Using an IUO here because threading it through all the layers used by compile is just too
+    // awful.
+    var executable: URL!
+
     try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath) {
       (_ valSource: SourceFile, _ diagnostics: inout DiagnosticSet) in
 
-      let binary: URL
       do {
-        binary = try compile(valSource.url, with: ["--emit", "binary"])
+        executable = try compile(valSource.url, with: ["--emit", "binary"])
       } catch let d as DiagnosticSet {
+        // Recapture the diagnostics so the annotation testing framework can use them.  The need for
+        // this ugliness makes me wonder how important it is to test cli.execute, which after all is
+        // just a thin wrapper over cli.executeCommand (currently private).
         diagnostics = d
         throw d
       }
-
-      do {
-        let (status, _) = try run(binary)
-        XCTAssertEqual(
-          status, 0,
-          "Execution of binary for test \(valSource.url.lastPathComponent)"
-            + " failed with exit code \(status)", file: file, line: line)
-      } catch {
-        XCTFail(
-          "While testing \(valSource.url.lastPathComponent), cannot execute: \(binary)",
-          file: file,
-          line: line)
-      }
     }
+
+    let (status, _) = try run(executable)
+    XCTAssertEqual(status, 0, "\n\(valFilePath):1:1 execution failed with exit code \(status)")
   }
 
   /// Compiles `input` with the given arguments and returns the URL of the output file.
