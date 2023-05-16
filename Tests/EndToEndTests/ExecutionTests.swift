@@ -68,14 +68,14 @@ class EndToEndTestCase: XCTestCase {
       "Compilation of \(input) contains diagnostics: \(diagnostics.rendered())")
 
     #if os(Windows)
-      XCTAssert(
-        FileManager.default.fileExists(atPath: output.relativePath + ".exe"),
-        "Compilation output file not found: \(output.relativePath)")
+      let executableSuffix = ".exe"
     #else
-      XCTAssert(
-        FileManager.default.fileExists(atPath: output.relativePath),
-        "Compilation output file not found: \(output.relativePath)")
+      let executableSuffix = ""
     #endif
+
+    XCTAssert(
+      FileManager.default.fileExists(atPath: output.relativePath + executableSuffix),
+      "Compilation output file not found: \(output.relativePath)")
 
     return output
   }
