@@ -30,7 +30,7 @@ struct GenerateValFileTests: ParsableCommand {
     for f in valSourceFiles {
       output += """
 
-          func test_\(f.lastPathComponent.replacingOccurrences(of: ".", with: "_"))() throws {
+          func test_\(f.lastPathComponent.asSwiftIdentifier)() throws {
             try compileAndRun(\(String(reflecting: f.path)))
           }
 
@@ -43,4 +43,15 @@ struct GenerateValFileTests: ParsableCommand {
 
     try output.write(to: outputURL, atomically: true, encoding: .utf8)
   }
+}
+
+extension String {
+
+  /// Returns a valid Swift identifier made by replacing non-identifier characters in `self` with
+  /// underscores, and prefixing it with "X" if it happens to begin with a number.
+  fileprivate var asSwiftIdentifier: String {
+    let r = String(self.lazy.map { $0.isNumber || $0.isLetter ? $0 : "_" })
+    return (r.first?.isNumber ?? true) ? "X" + r : r
+  }
+
 }
