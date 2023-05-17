@@ -48,6 +48,7 @@ public struct Token {
     case `prefix`
     case `property`
     case `public`
+    case `remote`
     case `return`
     case `set`
     case `sink`
