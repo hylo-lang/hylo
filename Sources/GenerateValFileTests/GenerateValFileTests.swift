@@ -24,8 +24,6 @@ struct GenerateValFileTests: ParsableCommand {
 
     var output =
       """
-      import Core
-      import ValCommand
       import XCTest
 
       final class \(testCaseName.asSwiftIdentifier): EndToEndTestCase {
