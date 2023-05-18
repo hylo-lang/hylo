@@ -187,7 +187,7 @@ public struct Emitter {
 
     let output = module.functions[f]!.output
     let foreignResult = module.append(
-      module.makeCallFII(
+      module.makeCallFFI(
         returning: .object(output),
         applying: d.foreignName!,
         to: arguments, anchoredAt: d.site),

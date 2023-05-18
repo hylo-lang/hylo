@@ -34,7 +34,7 @@ extension Module {
           pc = interpret(condBranch: user, in: &context)
         case is CallInstruction:
           pc = interpret(call: user, in: &context)
-        case is CallFIIInstruction:
+        case is CallFFIInstruction:
           pc = interpret(callFFI: user, in: &context)
         case is DeallocStackInstruction:
           pc = interpret(deallocStack: user, in: &context)
@@ -199,7 +199,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(callFFI i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! CallFIIInstruction
+      let s = self[i] as! CallFFIInstruction
       for a in s.operands {
         consume(a, with: i, at: s.site, in: &context)
       }
