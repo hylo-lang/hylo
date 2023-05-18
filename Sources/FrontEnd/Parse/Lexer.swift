@@ -101,6 +101,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "prefix": token.kind = .`prefix`
       case "property": token.kind = .`property`
       case "public": token.kind = .`public`
+      case "remote": token.kind = .`remote`
       case "return": token.kind = .`return`
       case "set": token.kind = .`set`
       case "sink": token.kind = .`sink`
