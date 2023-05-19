@@ -1,6 +1,7 @@
 import Core
 import IR
 import LLVM
+import Utils
 
 extension LoweredProgram {
 
