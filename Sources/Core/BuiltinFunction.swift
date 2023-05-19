@@ -46,7 +46,7 @@ extension BuiltinFunction.Name: CustomStringConvertible {
     case .llvm(let n):
       return n.description
     case .addressOf:
-      return "address_of(_:)"
+      return "address(of:)"
     }
   }
 
