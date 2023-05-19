@@ -125,8 +125,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "is": token.kind = .cast
 
       case "as":
-        _ = take("!")
-        _ = take("!")
+        _ = take("!") ?? take("*")
         token.site.extend(upTo: index)
         token.kind = .cast
 

@@ -1411,8 +1411,8 @@ public enum Parser {
       castKind = .up
     case "as!":
       castKind = .down
-    case "as!!":
-      castKind = .builtinPointerConversion
+    case "as*":
+      castKind = .pointerConversion
     default:
       unreachable()
     }
