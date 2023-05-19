@@ -5,7 +5,7 @@ import XCTest
 extension Diagnostic {
 
   /// A test annotation that announces `self` should be expected.
-  var expectation: TestAnnotation {
+  fileprivate var expectation: TestAnnotation {
     TestAnnotation(
       in: site.file.url,
       atLine: site.first().line.number,
@@ -16,32 +16,6 @@ extension Diagnostic {
 }
 
 extension XCTestCase {
-
-  /// Returns the result of invoking `f` on an initially-empty diagnostic set, reporting any
-  /// diagnostics added and/or thrown as XCTest issues.
-  public func checkNoDiagnostic<R>(
-    f: (inout DiagnosticSet) throws -> R, testFile: StaticString = #filePath, line: UInt = #line
-  ) rethrows -> R {
-    var d = DiagnosticSet()
-    do {
-      let r = try f(&d)
-      checkEmpty(d)
-      return r
-    } catch let d1 as DiagnosticSet {
-      XCTAssertEqual(
-        d1, d, "thrown diagnostics don't match mutated diagnostics",
-        file: testFile, line: line)
-      checkEmpty(d)
-      throw d
-    }
-  }
-
-  /// Reports any diagnostics in `s` as XCTest issues.
-  public func checkEmpty(_ s: DiagnosticSet) {
-    for d in s.elements {
-      record(XCTIssue(.error("unexpected diagnostic: '\(d.message)'", at: d.site, notes: d.notes)))
-    }
-  }
 
   /// The effects of running the `processAndCheck` parameter to `checkAnnotatedValFiles`.
   fileprivate typealias ProcessingEffects = (
@@ -63,7 +37,7 @@ extension XCTestCase {
   ///   - processAndCheck: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
-  public func checkAnnotations(
+  fileprivate func checkAnnotations(
     in valToTest: SourceFile,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
     _ processAndCheck: (
@@ -160,28 +134,6 @@ extension XCTestCase {
       XCTIssue(.error("unexpected diagnostic: '\($0.message)'", at: $0.site, notes: $0.notes))
     }
     return testFailures
-  }
-
-}
-
-extension XCTIssue {
-
-  /// Creates an instance from a diagnostic.
-  init(_ d: Diagnostic) {
-    self.init(
-      type: .assertionFailure,
-      compactDescription: d.message,
-      sourceCodeContext:
-        .init(location: XCTSourceCodeLocation.init(d.site.first())))
-  }
-
-}
-
-extension XCTSourceCodeLocation {
-
-  /// Creates an instance from a location in a Val source file.
-  convenience init(_ l: SourcePosition) {
-    self.init(fileURL: l.file.url, lineNumber: l.line.number)
   }
 
 }
