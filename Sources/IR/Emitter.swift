@@ -1019,8 +1019,8 @@ public struct Emitter {
       switch n.declaration {
       case .builtinFunction(let f):
         return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
-      case .constructor(let d, _):
-        return emitRValue(constructorCall: expr, applying: d, into: &module)
+      case .constructor(let d, let a):
+        return emitRValue(constructorCall: expr, applying: d, parameterizedBy: a, into: &module)
       default:
         break
       }
@@ -1044,6 +1044,7 @@ public struct Emitter {
   private mutating func emitRValue(
     constructorCall expr: FunctionCallExpr.Typed,
     applying d: InitializerDecl.ID,
+    parameterizedBy a: GenericArguments,
     into module: inout Module
   ) -> Operand {
     // Handle memberwise constructor calls.
@@ -1053,7 +1054,7 @@ public struct Emitter {
 
     // Evaluate all arguments.
     let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
-    let a = emit(
+    let arguments = emit(
       arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
       into: &module)
 
@@ -1066,9 +1067,10 @@ public struct Emitter {
       to: insertionBlock!)[0]
 
     // Initialize storage.
-    let f = FunctionReference(to: program[d], usedIn: frames.top.scope, in: &module)
+    let f = FunctionReference(
+      to: program[d], parameterizedBy: a, usedIn: frames.top.scope, in: &module)
     module.append(
-      module.makeCall(applying: .constant(f), to: [r] + a, anchoredAt: expr.site),
+      module.makeCall(applying: .constant(f), to: [r] + arguments, anchoredAt: expr.site),
       to: insertionBlock!)
 
     // Load initialized storage.
