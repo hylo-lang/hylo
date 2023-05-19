@@ -75,7 +75,7 @@ extension Module {
 
       // Rewrite the source block in the monomorphized function.
       let inputs = self[source].inputs.map { (t) in
-        program.monomorphize(t, applying: r.arguments, in: r.useScope)
+        program.monomorphize(t, applying: r.arguments)
       }
       let target = Block.ID(result, self[result].appendBlock(taking: inputs))
       rewrittenBlocks[source] = target
@@ -136,12 +136,11 @@ extension Module {
     let source = self[r.function]
 
     let inputs = source.inputs.map { (p) in
-      let t = program.monomorphize(p.type.bareType, applying: r.arguments, in: r.useScope)
+      let t = program.monomorphize(p.type.bareType, for: r.arguments)
       return Parameter(decl: p.decl, type: ParameterType(p.type.access, t))
     }
 
-    let output = program.relations.monomorphize(
-      source.output, applying: r.arguments, in: r.useScope, in: program)
+    let output = program.monomorphize(source.output, for: r.arguments)
 
     let entity = Function(
       isSubscript: source.isSubscript,
@@ -161,17 +160,13 @@ extension Module {
 
 extension TypedProgram {
 
-  /// Returns a copy of `generic` where occurrences of parameters keying `subtitutions` are
-  /// replaced by their corresponding value, performing necessary conformance lookups from
-  /// `useScope`, which is in `self`.
+  /// Returns a copy of `generic` monomorphized for the given `arguments`.
   ///
-  /// This method has no effect if `substitutions` is empty.
+  /// This method has no effect if `arguments` is empty.
   fileprivate func monomorphize(
-    _ generic: LoweredType,
-    applying substitutions: GenericArguments,
-    in useScope: AnyScopeID
+    _ generic: LoweredType, applying arguments: GenericArguments
   ) -> LoweredType {
-    let t = monomorphize(generic.ast, applying: substitutions, in: useScope)
+    let t = monomorphize(generic.ast, for: arguments)
     return .init(ast: t, isAddress: generic.isAddress)
   }
 
