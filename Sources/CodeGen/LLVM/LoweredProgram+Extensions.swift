@@ -26,6 +26,8 @@ extension LoweredProgram {
       return llvm(t.base, in: &module)
     case let t as BuiltinType:
       return llvm(builtinType: t, in: &module)
+    case let t as BoundGenericType:
+      return llvm(boundGenericType: t, in: &module)
     case let t as LambdaType:
       return llvm(lambdaType: t, in: &module)
     case let t as ProductType:
@@ -62,13 +64,34 @@ extension LoweredProgram {
   /// Returns the LLVM form of `val` in `module`.
   ///
   /// - Requires: `val` is representable in LLVM.
+  func llvm(boundGenericType val: BoundGenericType, in module: inout LLVM.Module) -> LLVM.IRType {
+    precondition(val[.isCanonical])
+
+    let fields = syntax.storage(of: val.base).map { (_, t) in
+      let u = syntax.monomorphize(t, for: val.arguments)
+      return llvm(u, in: &module)
+    }
+
+    switch val.base.base {
+    case let u as ProductType:
+      return LLVM.StructType(named: u.name.value, fields, in: &module)
+    case is TupleType:
+      return LLVM.StructType(fields, in: &module)
+    default:
+      unreachable()
+    }
+  }
+
+  /// Returns the LLVM form of `val` in `module`.
+  ///
+  /// - Requires: `val` is representable in LLVM.
   func llvm(lambdaType val: LambdaType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
-    if val.environment == .void {
-      return LLVM.PointerType(in: &module)
-    } else {
-      fatalError("not implemented")
+    if val.environment != .void {
+      notLLVMRepresentable(val)
     }
+
+    return LLVM.PointerType(in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.
@@ -96,10 +119,13 @@ extension LoweredProgram {
   ///
   /// - Requires: `val` is representable in LLVM.
   func llvm(tupleType val: TupleType, in module: inout LLVM.Module) -> LLVM.IRType {
+    precondition(val[.isCanonical])
+
     var fields: [LLVM.IRType] = []
     for e in val.elements {
       fields.append(llvm(e.type, in: &module))
     }
+
     return LLVM.StructType(fields, in: &module)
   }
 

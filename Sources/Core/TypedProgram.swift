@@ -133,4 +133,26 @@ public struct TypedProgram: Program {
     relations.monomorphize(generic, for: arguments)
   }
 
+  /// If `t` has a record layout, returns the names and types of its stored properties. Otherwise,
+  /// returns an empty array.
+  public func storage(of t: AnyType) -> [StoredProperty] {
+    switch t.base {
+    case let u as BoundGenericType:
+      return storage(of: u.base)
+
+    case let u as ProductType:
+      return self[u.decl].members.flatMap { (m) in
+        BindingDecl.Typed(m).map { (b) in
+          b.pattern.names.lazy.map({ (_, name) in (name.decl.baseName, name.decl.type) })
+        } ?? []
+      }
+
+    case let u as TupleType:
+      return u.elements.map({ ($0.label, $0.type) })
+
+    default:
+      return []
+    }
+  }
+
 }
