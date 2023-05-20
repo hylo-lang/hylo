@@ -143,20 +143,16 @@ public struct ValCommand: ParsableCommand {
 
     // IR
 
+    var ir = try lower(program: program, reportingDiagnosticsInto: &diagnostics)
+
     if outputType == .ir || outputType == .rawIR {
-      let m = try lower(sourceModule, in: program, reportingDiagnosticsInto: &diagnostics)
+      let m = ir.modules[sourceModule]!
       try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
 
-    var irModules: [ModuleDecl.ID: IR.Module] = [:]
-    for d in ast.modules {
-      irModules[d] = try lower(d, in: program, reportingDiagnosticsInto: &diagnostics)
-    }
-
     // LLVM
 
-    var ir = LoweredProgram(syntax: program, modules: irModules)
     ir.applyPass(.depolymorphize)
 
     let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
@@ -188,6 +184,25 @@ public struct ValCommand: ParsableCommand {
     #endif
   }
 
+  /// Returns `program` lowered to Val IR, accumulating diagnostics into `log` and throwing if an
+  /// error occured.
+  ///
+  /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
+  private func lower(
+    program: TypedProgram, reportingDiagnosticsInto log: inout DiagnosticSet
+  ) throws -> IR.LoweredProgram {
+    var loweredModules: [ModuleDecl.ID: IR.Module] = [:]
+    for d in program.ast.modules {
+      loweredModules[d] = try lower(d, in: program, reportingDiagnosticsInto: &log)
+    }
+
+    var ir = IR.LoweredProgram(syntax: program, modules: loweredModules)
+    if let t = transforms {
+      for p in t.elements { ir.applyPass(p) }
+    }
+    return ir
+  }
+
   /// Returns `m`, which is `program`, lowered to Val IR, accumulating diagnostics into `log` and
   /// throwing if an error occured.
   ///
@@ -198,9 +213,6 @@ public struct ValCommand: ParsableCommand {
     var ir = try IR.Module(lowering: m, in: program, diagnostics: &log)
     if outputType != .rawIR {
       try ir.applyMandatoryPasses(reportingDiagnosticsInto: &log)
-    }
-    if let t = transforms {
-      for p in t.elements { ir.applyPass(p) }
     }
     return ir
   }
