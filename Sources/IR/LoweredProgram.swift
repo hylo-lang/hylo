@@ -23,7 +23,7 @@ public struct LoweredProgram {
 
   /// Applies `p` to the modules in `self`.
   public mutating func applyPass(_ p: ModulePass) {
-    for k in modules.keys {
+    for k in syntax.ast.modules {
       modules[k]!.applyPass(p)
     }
   }
