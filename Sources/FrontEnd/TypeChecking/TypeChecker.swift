@@ -3472,30 +3472,46 @@ public struct TypeChecker {
   }
 
   /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the
-  /// whether their declaration is contained in `scope`.
-  func instantiate<S: ScopeID>(
+  /// whether their declaration is contained in `useScope`.
+  mutating func instantiate<S: ScopeID>(
     _ subject: AnyType,
-    in scope: S,
+    in useScope: S,
     cause: ConstraintOrigin
   ) -> InstantiatedType {
     /// A map from generic parameter type to its opened type.
     var openedParameters: [AnyType: AnyType] = [:]
+    /// The scope bridged to `useScope` by an extension, if any.
+    let extendedScope = bridgedScope(of: useScope)
 
-    func _impl(type: AnyType) -> TypeTransformAction {
+    return InstantiatedType(shape: subject.transform(instantiate(type:)), constraints: [])
+
+    /// Returns `true` iff `p` should be skolemized rather than opened as fresh variables.
+    func shouldSkolemize(_ p: GenericTypeParameterType) -> Bool {
+      // Identify the generic environment that introduces the parameter.
+      let introductionScope: AnyScopeID
+      if p.decl.kind == TraitDecl.self {
+        introductionScope = AnyScopeID(p.decl)!
+      } else {
+        introductionScope = program.declToScope[p.decl]!
+      }
+
+      if program.isContained(useScope, in: introductionScope) {
+        return true
+      } else if let s = extendedScope {
+        return program.isContained(s, in: introductionScope)
+      } else {
+        return false
+      }
+    }
+
+    /// Returns how to instantiate `type`
+    func instantiate(type: AnyType) -> TypeTransformAction {
       switch type.base {
       case is AssociatedTypeType:
         fatalError("not implemented")
 
-      case let base as GenericTypeParameterType:
-        // Identify the generic environment that introduces the parameter.
-        let site: AnyScopeID
-        if base.decl.kind == TraitDecl.self {
-          site = AnyScopeID(base.decl)!
-        } else {
-          site = program.declToScope[base.decl]!
-        }
-
-        if program.isContained(scope, in: site) {
+      case let p as GenericTypeParameterType:
+        if shouldSkolemize(p) {
           // Skolemize.
           return .stepOver(^SkolemType(quantifying: type))
         } else if let opened = openedParameters[type] {
@@ -3520,9 +3536,9 @@ public struct TypeChecker {
         }
       }
     }
-
-    return InstantiatedType(shape: subject.transform(_impl(type:)), constraints: [])
   }
+
+
 
   // MARK: Utils
 
