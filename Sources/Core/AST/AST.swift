@@ -10,7 +10,10 @@ public struct AST {
     /// The nodes in `self`.
     public var nodes: [AnyNode] = []
 
-    /// The indices of the modules.
+    /// The indices of the modules in the AST.
+    ///
+    /// Indices are ordered by module dependency. If the module identified by the index at position
+    /// `i` depends on the one identified by the index at position `j`, then `i` precedes `j`.
     ///
     /// - Invariant: All referred modules have a different name.
     public var modules: [ModuleDecl.ID] = []

@@ -140,11 +140,11 @@ public struct Module {
     return true
   }
 
-  /// Applies `p` to in this module.
-  public mutating func applyPass(_ p: ModulePass) {
+  /// Applies `p` to in this module, which is in `ir`.
+  public mutating func applyPass(_ p: ModulePass, in ir: LoweredProgram) {
     switch p {
     case .depolymorphize:
-      depolymorphize()
+      depolymorphize(in: ir)
     }
   }
 
