@@ -24,7 +24,23 @@ public struct LoweredProgram {
   /// Applies `p` to the modules in `self`.
   public mutating func applyPass(_ p: ModulePass) {
     for k in syntax.ast.modules {
-      modules[k]!.applyPass(p)
+      modules[k]!.applyPass(p, in: self)
+    }
+  }
+
+  /// Returns the module containing the unique definition of `f`.
+  public func module(defining f: Function.ID) -> ModuleDecl.ID {
+    switch f.value {
+    case .lowered(let d):
+      return syntax.module(containing: syntax.declToScope[d]!)
+    case .loweredSubscript(let d):
+      return syntax.module(containing: syntax.declToScope[d]!)
+    case .monomorphized:
+      fatalError("not implemented")
+    case .existentialized(let i):
+      return module(defining: i)
+    case .synthesized:
+      fatalError("not implemented")
     }
   }
 
