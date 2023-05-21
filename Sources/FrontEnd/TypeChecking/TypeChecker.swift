@@ -2237,6 +2237,36 @@ public struct TypeChecker {
     return table
   }
 
+  /// If `useScope` is contained in a type extending declaration, the scope extended by that
+  /// declaration. Otherwise, `nil`.
+  private mutating func bridgedScope<S: ScopeID>(of useScope: S) -> AnyScopeID? {
+    for s in program.scopes(from: useScope) {
+      switch s.kind {
+      case ConformanceDecl.self:
+        return scopeExtended(by: ConformanceDecl.ID(s)!)
+      case ExtensionDecl.self:
+        return scopeExtended(by: ExtensionDecl.ID(s)!)
+      default:
+        continue
+      }
+    }
+    return nil
+  }
+
+  /// Returns the scope of the declaration extended by `d`, if any.
+  private mutating func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
+    let t = realize(typeExtendingDecl: d)
+
+    switch MetatypeType(t)?.instance.base {
+    case let u as ProductType:
+      return AnyScopeID(u.decl)
+    case let u as TypeAliasType:
+      return AnyScopeID(u.decl)
+    default:
+      return nil
+    }
+  }
+
   // MARK: Type realization
 
   /// Realizes and returns the type denoted by `expr` evaluated in `scope`.
