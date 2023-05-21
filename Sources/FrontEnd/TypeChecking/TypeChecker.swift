@@ -1825,8 +1825,8 @@ public struct TypeChecker {
   }
 
   /// Returns a sequence of key-value pairs associating the generic parameters introduced by `d`,
-  /// which declares `name`, to corresponding value in `arguments`, or `nil` if such an argument
-  /// list doesn't match `d`'s generic parameters.
+  /// which declares `name`, to corresponding values in `arguments` if they match `d`'s generic
+  /// parameters. Otherwise, returns `nil`.
   private mutating func associateGenericParameters(
     of name: SourceRepresentable<Name>,
     declaredBy d: AnyDeclID,
