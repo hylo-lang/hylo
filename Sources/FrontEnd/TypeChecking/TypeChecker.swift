@@ -1553,8 +1553,8 @@ public struct TypeChecker {
     }
 
     // Generate constraints.
-    let (_, facts, deferredQueries) = inferredType(
-      of: subject, shapedBy: shape, in: AnyScopeID(scope))
+    let useScope = AnyScopeID(scope)
+    let (_, facts, deferredQueries) = inferredType(of: subject, shapedBy: shape, in: useScope)
 
     // Bail out if constraint generation failed.
     if facts.foundConflict {
@@ -1565,7 +1565,7 @@ public struct TypeChecker {
     var s = ConstraintSystem(
       initialConstraints + facts.constraints,
       bindings: facts.inferredBindings,
-      in: AnyScopeID(scope),
+      in: useScope,
       loggingTrace: shouldLogTrace)
     let solution = s.solution(&self)
 
@@ -3537,8 +3537,6 @@ public struct TypeChecker {
       }
     }
   }
-
-
 
   // MARK: Utils
 
