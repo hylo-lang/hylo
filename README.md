@@ -12,6 +12,19 @@ You will need Swift 5.7 or higher to build the compiler from sources.
 
 *Note to Windows users: although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see https://github.com/val-lang/val/issues/252).*
 
+### Prerequisites
+
+You can skip this step if you're doing development exlusively in a [devcontainer](#building-val-devcontainer-with-vscode).  Otherwise:
+
+1. Install LLVM 15 or later on your system. Then, in this project's root directory.
+2. `swift package resolve` to get the tool for step 3.
+3. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description.
+4. Either
+   a. `sudo mv llvm.pc /usr/local/lib/pkgconfig` (if you want to use Xcode), or
+   b. `export PKG_CONFIG_PATH=$PWD`
+   
+### Building the compiler
+
 You may compile Val's compiler with the following commands:
 
 ```bash
@@ -20,6 +33,14 @@ swift build -c release
 
 That command will create an executable named `valc` in `.build/release`.
 That's Val compiler!
+
+### Running the tests
+
+To test your compiler, 
+
+```bash
+swift test -c release --parallel
+```
 
 ### Building Val Devcontainer with VSCode
 
