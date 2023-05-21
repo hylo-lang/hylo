@@ -801,7 +801,7 @@ public struct TypeChecker {
   private mutating func check<T: Decl & LexicalScope>(
     conformanceList traits: [NameExpr.ID], partOf d: T.ID
   ) {
-    let receiver = realizeSelfTypeExpr(in: d)!.instance
+    let receiver = realizeReceiver(usedIn: d)!.instance
     let declContainer = program.scopeToParent[d]!
     for e in traits {
       guard let rhs = realize(name: e, in: declContainer)?.instance else { continue }
@@ -2313,7 +2313,7 @@ public struct TypeChecker {
       return type
 
     case "Self":
-      guard let type = realizeSelfTypeExpr(in: scope) else {
+      guard let type = realizeReceiver(usedIn: scope) else {
         diagnostics.insert(.error(invalidReferenceToSelfTypeAt: name.site))
         return nil
       }
@@ -2382,49 +2382,75 @@ public struct TypeChecker {
     }
   }
 
-  /// Realizes and returns the type of the `Self` expression in `scope`.
-  ///
-  /// - Note: This method does not issue diagnostics.
-  private mutating func realizeSelfTypeExpr<T: ScopeID>(in scope: T) -> MetatypeType? {
+  /// Returns the expression "`Self`" if occured in `scope`.
+  private mutating func realizeReceiver<T: ScopeID>(usedIn scope: T) -> MetatypeType? {
     for scope in program.scopes(from: scope) {
       switch scope.kind {
       case TraitDecl.self:
-        let decl = TraitDecl.ID(scope)!
-        return MetatypeType(of: GenericTypeParameterType(selfParameterOf: decl, in: ast))
-
+        let d = TraitDecl.ID(scope)!
+        return MetatypeType(of: GenericTypeParameterType(selfParameterOf: d, in: ast))
       case ProductTypeDecl.self:
-        // Synthesize unparameterized `Self`.
-        let decl = ProductTypeDecl.ID(scope)!
-        let unparameterized = ProductType(decl, ast: ast)
-
-        // Synthesize arguments to generic parameters if necessary.
-        if let parameters = ast[decl].genericClause?.value.parameters {
-          let arguments = GenericArguments(
-            uniqueKeysWithValues: parameters.map({ (p) in
-              (key: p, value: ^GenericTypeParameterType(p, ast: ast))
-            }))
-          return MetatypeType(of: BoundGenericType(unparameterized, arguments: arguments))
-        } else {
-          return MetatypeType(of: unparameterized)
-        }
-
+        return realizeReceiver(of: ProductTypeDecl.ID(scope)!)
       case ConformanceDecl.self:
-        let decl = ConformanceDecl.ID(scope)!
-        return realize(ast[decl].subject, in: scope)
-
+        return realizeReceiver(usedIn: ConformanceDecl.ID(scope)!)
       case ExtensionDecl.self:
-        let decl = ExtensionDecl.ID(scope)!
-        return realize(ast[decl].subject, in: scope)
-
+        return realizeReceiver(usedIn: ExtensionDecl.ID(scope)!)
       case TypeAliasDecl.self:
-        fatalError("not implemented")
-
+        return realizeReceiver(of: TypeAliasDecl.ID(scope)!)
       default:
         continue
       }
     }
 
+    // `scope` isn't contained in a type scope.
     return nil
+  }
+
+  /// Returns the expressions "`Self`" if it referred to `d`.
+  ///
+  /// - Requires: `d` is either a product type or type alias declaration.
+  private mutating func realizeReceiver<T: GenericDecl>(of d: T.ID) -> MetatypeType? {
+    guard let unparameterized = MetatypeType(realize(decl: d)) else {
+      return nil
+    }
+
+    // Synthesize arguments to generic parameters if necessary.
+    if let parameters = ast[d].genericClause?.value.parameters {
+      return realizeGenericReceiver(unparameterized.instance, parameterizedBy: parameters)
+    } else {
+      return unparameterized
+    }
+  }
+
+  /// Returns the expressions "`Self`" parameterized by `parameters`.
+  private mutating func realizeGenericReceiver(
+    _ unparameterized: AnyType, parameterizedBy parameters: [GenericParameterDecl.ID]
+  ) -> MetatypeType {
+    let arguments = GenericArguments(
+      uniqueKeysWithValues: parameters.map({ (p) in
+        (key: p, value: ^GenericTypeParameterType(p, ast: ast))
+      }))
+    return MetatypeType(of: BoundGenericType(unparameterized, arguments: arguments))
+  }
+
+  /// Returns the expression "`Self`" if it occured directly in given type extending declaration.
+  private mutating func realizeReceiver<T: TypeExtendingDecl>(
+    usedIn scope: T.ID
+  ) -> MetatypeType? {
+    let t = realize(typeExtendingDecl: scope)
+
+    guard let m = MetatypeType(t) else {
+      return t.isError ? nil : MetatypeType(of: t)
+    }
+
+    switch m.instance.base {
+    case let u as ProductType:
+      return realizeReceiver(of: u.decl)
+    case let u as TypeAliasType:
+      return realizeReceiver(of: u.decl)
+    default:
+      return m
+    }
   }
 
   private mutating func realize(
@@ -2602,7 +2628,7 @@ public struct TypeChecker {
         // Assume that `Self` in `scope` resolves to an implicit generic parameter of a trait
         // declaration, since associated declarations cannot be looked up unqualified outside
         // the scope of a trait and its extensions.
-        let domain = realizeSelfTypeExpr(in: scope)!.instance
+        let domain = realizeReceiver(usedIn: scope)!.instance
         let instance = AssociatedTypeType(NodeID(match)!, domain: domain, ast: ast)
         referredType = MetatypeType(of: instance)
 
@@ -2838,7 +2864,7 @@ public struct TypeChecker {
 
     if program.isNonStaticMember(d) {
       let effect = ast[d].receiverEffect?.value ?? .let
-      let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
+      let receiver = realizeReceiver(usedIn: program.declToScope[d]!)!.instance
       declTypes[ast[d].receiver!] = ^ParameterType(effect, receiver)
       declRequests[ast[d].receiver!] = .typeRealizationCompleted
 
@@ -2930,7 +2956,7 @@ public struct TypeChecker {
     var inputs = realize(parameters: ast[d].parameters)
 
     // Initializers are global functions.
-    let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
+    let receiver = realizeReceiver(usedIn: program.declToScope[d]!)!.instance
     let receiverParameter = CallableTypeParameter(
       label: "self",
       type: ^ParameterType(.set, receiver))
@@ -2947,7 +2973,7 @@ public struct TypeChecker {
     let inputs = realize(parameters: ast[d].parameters)
 
     // Realize the method's receiver.
-    let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
+    let receiver = realizeReceiver(usedIn: program.declToScope[d]!)!.instance
 
     // Realize the output type.
     let outputType: AnyType
@@ -3060,7 +3086,7 @@ public struct TypeChecker {
     // Build the subscript's environment.
     let environment: TupleType
     if program.isNonStaticMember(d) {
-      let receiver = realizeSelfTypeExpr(in: program.declToScope[d]!)!.instance
+      let receiver = realizeReceiver(usedIn: program.declToScope[d]!)!.instance
       environment = TupleType([.init(label: "self", type: ^RemoteType(.yielded, receiver))])
     } else {
       environment = TupleType(
@@ -3272,7 +3298,7 @@ public struct TypeChecker {
   /// Returns the type of `decl`'s memberwise initializer.
   private mutating func memberwiseInitType(of decl: ProductTypeDecl.ID) -> LambdaType? {
     // Synthesize the receiver type.
-    let receiver = realizeSelfTypeExpr(in: decl)!.instance
+    let receiver = realizeReceiver(usedIn: decl)!.instance
     var inputs = [CallableTypeParameter(label: "self", type: ^ParameterType(.set, receiver))]
 
     // List and realize the type of all stored bindings.
