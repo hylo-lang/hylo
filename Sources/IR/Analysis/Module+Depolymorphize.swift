@@ -116,8 +116,6 @@ extension Module {
         rewrite(deallocStack: i, to: b)
       case is DeinitInstruction:
         break  // TODO: Should not be necessary
-      case is DestructureInstruction:
-        rewrite(destructure: i, to: b)
       case is ElementAddrInstruction:
         rewrite(elementAddr: i, to: b)
       case is EndBorrowInstruction:
@@ -212,12 +210,6 @@ extension Module {
     func rewrite(deallocStack i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! DeallocStackInstruction
       append(makeDeallocStack(for: rewritten(s.location), anchoredAt: s.site), to: b)
-    }
-
-    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(destructure i: InstructionID, to b: Block.ID) {
-      let s = sourceModule[i] as! DestructureInstruction
-      append(makeDestructure(rewritten(s.whole), anchoredAt: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

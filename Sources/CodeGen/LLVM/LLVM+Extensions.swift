@@ -475,8 +475,6 @@ extension LLVM.Module {
         return
       case is IR.DeinitInstruction:
         return
-      case is IR.DestructureInstruction:
-        insert(destructure: i)
       case is IR.ElementAddrInstruction:
         insert(elementAddr: i)
       case is IR.EndBorrowInstruction:
@@ -609,15 +607,6 @@ extension LLVM.Module {
       insertCondBr(
         if: c, then: block[s.targetIfTrue]!, else: block[s.targetIfFalse]!,
         at: insertionPoint)
-    }
-
-    /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(destructure i: IR.InstructionID) {
-      let s = m[i] as! DestructureInstruction
-      let whole = llvm(s.whole)
-      for j in s.types.indices {
-        register[.register(i, j)] = insertExtractValue(from: whole, at: j, at: insertionPoint)
-      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
