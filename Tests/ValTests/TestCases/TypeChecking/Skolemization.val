@@ -1,0 +1,34 @@
+//! expect-success
+
+type A<X> {
+  public memberwise init
+  public fun f() {
+    let p = self
+    check<A<X>>(p)
+  }
+}
+
+extension A {
+  public fun g() {
+    let p = self
+    check<A<X>>(p)
+  }
+}
+
+typealias B<Y> = A<Y>
+
+trait T {}
+
+conformance B: T {
+  public fun h() {
+    let p = self
+    check<B<Y>>(p)
+  }
+}
+
+fun check<T>(_ x: T) {}
+
+public fun main() {
+  let a = A<Void>()
+  check<A<Void>>(a)
+}
