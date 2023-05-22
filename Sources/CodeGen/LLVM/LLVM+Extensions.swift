@@ -39,7 +39,6 @@ extension LLVM.Module {
     of m: IR.Module,
     from ir: LoweredProgram
   ) {
-    let i32 = IntegerType(32, in: &self)
     let main = declareFunction("main", FunctionType(from: [], to: i32, in: &self))
 
     let b = appendBlock(to: main)
@@ -74,8 +73,6 @@ extension LLVM.Module {
     if let t = type(named: "_val_metatype") {
       return .init(t)!
     }
-    let i64 = IntegerType(64, in: &self)
-    let ptr = PointerType(in: &self)
     return StructType([i64, i64, ptr], in: &self)
   }
 
@@ -84,7 +81,6 @@ extension LLVM.Module {
     if let t = type(named: "_val_container") {
       return .init(t)!
     }
-    let ptr = PointerType(in: &self)
     return StructType([ptr, ptr], in: &self)
   }
 
@@ -96,10 +92,7 @@ extension LLVM.Module {
 
     let f = declareFunction(
       "_val_slide",
-      FunctionType(
-        from: [PointerType(in: &self), IntegerType(1, in: &self)],
-        to: VoidType(in: &self),
-        in: &self))
+      FunctionType(from: [ptr, i1], to: void, in: &self))
     addAttribute(named: .zeroext, to: f.parameters[1])
 
     return f
@@ -113,7 +106,7 @@ extension LLVM.Module {
 
     let f = declareFunction(
       "malloc",
-      FunctionType(from: [IntegerType(32, in: &self)], to: PointerType(in: &self), in: &self))
+      FunctionType(from: [i32], to: ptr, in: &self))
     addAttribute(named: .noundef, to: f.parameters[0])
     addAttribute(named: .noalias, to: f.returnValue)
 
@@ -128,7 +121,7 @@ extension LLVM.Module {
 
     let f = declareFunction(
       "free",
-      FunctionType(from: [PointerType(in: &self)], to: VoidType(in: &self), in: &self))
+      FunctionType(from: [ptr], to: void, in: &self))
     addAttribute(named: .noundef, to: f.parameters[0])
 
     return f
@@ -151,10 +144,7 @@ extension LLVM.Module {
       parameters += 1
     }
 
-    return .init(
-      from: Array(repeating: LLVM.PointerType(in: &self), count: parameters),
-      to: VoidType(in: &self),
-      in: &self)
+    return .init(from: Array(repeating: ptr, count: parameters), to: void, in: &self)
   }
 
   /// Returns the LLVM IR value corresponding to the Val IR constant `c` when used in `m` in `ir`.
@@ -206,7 +196,6 @@ extension LLVM.Module {
     usedIn m: IR.Module,
     from ir: LoweredProgram
   ) -> LLVM.IRValue {
-    let ptr = LLVM.PointerType(in: &self)
     let word = wordType()
 
     // A witness table is composed of a header, a trait map, and a (possibly empty) sequence of
@@ -333,7 +322,7 @@ extension LLVM.Module {
     let n = ir.mangle(t)
     if let g = global(named: n) { return g }
 
-    let instance = declareGlobalVariable(n, LLVM.PointerType(in: &self))
+    let instance = declareGlobalVariable(n, ptr)
 
     // Initialize the instance if it's being used in the module defining `t`.
     if m.syntax.id != ir.syntax.module(containing: t.decl) {
@@ -366,7 +355,6 @@ extension LLVM.Module {
     precondition(!m[f].isSubscript)
 
     // Parameters and return values are passed by reference.
-    let ptr = LLVM.PointerType(in: &self)
     var parameters: [LLVM.IRType] = []
     if !m[f].output.isVoidOrNever {
       parameters.append(ptr)
@@ -390,10 +378,9 @@ extension LLVM.Module {
     // Parameters are a buffer for the subscript frame followed by its declared parameters. Return
     // type is a pair `(c, p)` where `c` points to a subscript slide and `p` is the address of the
     // projected value.
-    let ptr = LLVM.PointerType(in: &self)
-    let ret = LLVM.StructType([ptr, ptr], in: &self)
+    let r = LLVM.StructType([ptr, ptr], in: &self)
     let parameters = Array(repeating: ptr, count: m[f].inputs.count + 1)
-    let coroutine = declareFunction(ir.mangle(f), .init(from: parameters, to: ret, in: &self))
+    let coroutine = declareFunction(ir.mangle(f), .init(from: parameters, to: r, in: &self))
 
     return coroutine
   }
@@ -590,7 +577,7 @@ extension LLVM.Module {
 
       let returnType: IRType
       if s.returnType.ast.isVoidOrNever {
-        returnType = LLVM.VoidType(in: &self)
+        returnType = void
       } else {
         returnType = ir.llvm(s.returnType.ast, in: &self)
       }
@@ -612,11 +599,10 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(elementAddr i: IR.InstructionID) {
       let s = m[i] as! ElementAddrInstruction
-      let t = LLVM.IntegerType(32, in: &self)
 
       let base = llvm(s.base)
       let baseType = ir.llvm(m.type(of: s.base).ast, in: &self)
-      let indices = [t.constant(0)] + s.elementPath.map({ t.constant(UInt64($0)) })
+      let indices = [i32.constant(0)] + s.elementPath.map({ i32.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
       register[.register(i, 0)] = v
@@ -628,11 +614,7 @@ extension LLVM.Module {
       let start = s.projection.instruction!
       assert(m[start] is ProjectInstruction)
 
-      let i1 = LLVM.IntegerType(1, in: &self)
-      let t = LLVM.FunctionType(
-        from: [LLVM.PointerType(in: &self), i1],
-        to: LLVM.VoidType(in: &self),
-        in: &self)
+      let t = LLVM.FunctionType(from: [ptr, i1], to: void, in: &self)
 
       let slide = register[.register(start, 1)]!
       let buffer = register[.register(start, 2)]!
@@ -721,7 +703,7 @@ extension LLVM.Module {
       let s = m[i] as! IR.ProjectInstruction
 
       // %0 = alloca [8 x i8], align 8
-      let buffer = LLVM.ArrayType(8, LLVM.IntegerType(8, in: &self), in: &self)
+      let buffer = LLVM.ArrayType(8, i8, in: &self)
       let x0 = insertAlloca(buffer, at: insertionPoint)
       setAlignment(8, for: x0)
 
@@ -768,7 +750,7 @@ extension LLVM.Module {
       if m[f].isSubscript {
         _ = insertCall(
           LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.end)!)!,
-          on: [frame!, IntegerType(1, in: &self).zero],
+          on: [frame!, i1.zero],
           at: insertionPoint)
         _ = insertUnreachable(at: insertionPoint)
       } else {
@@ -806,7 +788,6 @@ extension LLVM.Module {
       let p = llvm(s.projection)
 
       // The intrinsic will return a non-zero result if the subscript should resume abnormally.
-      let i1 = IntegerType(1, in: &self)
       _ = insertCall(
         LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.suspend.retcon, for: [i1])!)!,
         on: [p],
@@ -831,8 +812,7 @@ extension LLVM.Module {
       if virType.isObject {
         lambda = llvm(o)
       } else {
-        let t = LLVM.PointerType(in: &self)
-        lambda = insertLoad(t, from: llvm(o), at: insertionPoint)
+        lambda = insertLoad(ptr, from: llvm(o), at: insertionPoint)
       }
 
       let llvmType = transpiledType(valType)
@@ -859,7 +839,6 @@ extension LLVM.Module {
     into transpilation: LLVM.Function
   ) -> IRValue {
     let insertionPoint = endOf(transpilation.entry!)
-    let i32 = IntegerType(32, in: &self)
     let id = insertCall(
       LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.id.retcon.once)!)!,
       on: [
@@ -869,7 +848,7 @@ extension LLVM.Module {
       at: insertionPoint)
     return insertCall(
       LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.begin)!)!,
-      on: [id, PointerType(in: &self).null],
+      on: [id, ptr.null],
       at: insertionPoint)
   }
 
