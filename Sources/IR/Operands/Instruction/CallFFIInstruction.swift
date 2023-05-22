@@ -2,7 +2,7 @@ import Core
 import Utils
 
 /// Invokes `callee`, which is a foreign function interface, with `operands`.
-public struct CallFIIInstruction: Instruction {
+public struct CallFFIInstruction: Instruction {
 
   /// The type of the return value.
   public let returnType: LoweredType
@@ -36,7 +36,7 @@ public struct CallFIIInstruction: Instruction {
 
 }
 
-extension CallFIIInstruction: CustomStringConvertible {
+extension CallFFIInstruction: CustomStringConvertible {
 
   public var description: String {
     let s = "call_ffi \(callee)"
@@ -54,12 +54,12 @@ extension Module {
   ///   - returnType: The return type of the callee.
   ///   - callee: The name of the foreign function to call
   ///   - arguments: The arguments of the call.
-  func makeCallFII(
+  func makeCallFFI(
     returning returnType: LoweredType,
     applying callee: String,
     to arguments: [Operand],
     anchoredAt anchor: SourceRange
-  ) -> CallFIIInstruction {
+  ) -> CallFFIInstruction {
     precondition(returnType.isObject)
     return .init(returnType: returnType, callee: callee, arguments: arguments, site: anchor)
   }

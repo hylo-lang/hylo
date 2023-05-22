@@ -231,9 +231,10 @@ struct ConstraintSystem {
     }
   }
 
-  /// Returns either `.success` if `g.left` is (strictly) subtype of `g.right`, `.failure` if it
-  /// isn't, `.product` if `g` must be broken down to smaller goals, or `nil` if that can't be
-  /// determined yet.
+  /// Returns `.success` if `g.left` is subtype of `g.right`, `.failure` if it isn't, `.product`
+  /// if `g` must be broken down to smaller goals, or `nil` if that can't be determined yet.
+  ///
+  /// If the constraint is strict, then `g.left` must be different than `g.right`.
   private mutating func solve(
     subtyping g: GoalIdentity,
     using checker: inout TypeChecker
@@ -273,6 +274,12 @@ struct ConstraintSystem {
           inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
         return delegate(to: [s])
       }
+
+    case (let l as RemoteType, _):
+      let s = schedule(
+        SubtypingConstraint(
+          l.bareType, goal.right, strictly: goal.isStrict, origin: goal.origin.subordinate()))
+      return delegate(to: [s])
 
     case (_, let r as ExistentialType):
       guard r.constraints.isEmpty else { fatalError("not implemented") }

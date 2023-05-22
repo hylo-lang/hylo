@@ -10,6 +10,11 @@ public type RawPointer {
     &self.value = Builtin.inttoptr_i64(address.value)
   }
 
+  /// Creates a copy of `other`.
+  public init<T>(_ other: MutablePointer<T>) {
+    &self.value = other.value
+  }
+
 }
 
 public conformance RawPointer: Copyable {

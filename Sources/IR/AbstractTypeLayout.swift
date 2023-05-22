@@ -19,7 +19,7 @@ public struct AbstractTypeLayout {
   public init<T: TypeProtocol>(of t: T, definedIn p: TypedProgram) {
     self.program = p
     self.type = ^t
-    self.properties = program.properties(of: self.type)
+    self.properties = program.storage(of: self.type)
   }
 
   /// Accesses the layout of the stored property at given `offset`.
@@ -54,28 +54,6 @@ extension AbstractTypeLayout: Hashable {
 
   public static func == (l: Self, r: Self) -> Bool {
     l.type == r.type
-  }
-
-}
-
-extension TypedProgram {
-
-  /// Returns the names and types of the stored properties of `t`.
-  fileprivate func properties(of t: AnyType) -> [AbstractTypeLayout.StoredProperty] {
-    switch t.base {
-    case let p as ProductType:
-      return self[p.decl].members.flatMap { (m) in
-        BindingDecl.Typed(m).map { b in
-          b.pattern.names.lazy.map({ (_, name) in (name.decl.baseName, name.decl.type) })
-        } ?? []
-      }
-
-    case let p as TupleType:
-      return p.elements.map { ($0.label, $0.type) }
-
-    default:
-      return []
-    }
   }
 
 }

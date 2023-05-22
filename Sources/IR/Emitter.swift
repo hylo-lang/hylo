@@ -187,7 +187,7 @@ public struct Emitter {
 
     let output = module.functions[f]!.output
     let foreignResult = module.append(
-      module.makeCallFII(
+      module.makeCallFFI(
         returning: .object(output),
         applying: d.foreignName!,
         to: arguments, anchoredAt: d.site),
@@ -1019,8 +1019,8 @@ public struct Emitter {
       switch n.declaration {
       case .builtinFunction(let f):
         return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
-      case .constructor(let d, _):
-        return emitRValue(constructorCall: expr, applying: d, into: &module)
+      case .constructor(let d, let a):
+        return emitRValue(constructorCall: expr, applying: d, parameterizedBy: a, into: &module)
       default:
         break
       }
@@ -1044,6 +1044,7 @@ public struct Emitter {
   private mutating func emitRValue(
     constructorCall expr: FunctionCallExpr.Typed,
     applying d: InitializerDecl.ID,
+    parameterizedBy a: GenericArguments,
     into module: inout Module
   ) -> Operand {
     // Handle memberwise constructor calls.
@@ -1053,7 +1054,7 @@ public struct Emitter {
 
     // Evaluate all arguments.
     let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
-    let a = emit(
+    let arguments = emit(
       arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
       into: &module)
 
@@ -1066,9 +1067,10 @@ public struct Emitter {
       to: insertionBlock!)[0]
 
     // Initialize storage.
-    let f = FunctionReference(to: program[d], usedIn: frames.top.scope, in: &module)
+    let f = FunctionReference(
+      to: program[d], parameterizedBy: a, usedIn: frames.top.scope, in: &module)
     module.append(
-      module.makeCall(applying: .constant(f), to: [r] + a, anchoredAt: expr.site),
+      module.makeCall(applying: .constant(f), to: [r] + arguments, anchoredAt: expr.site),
       to: insertionBlock!)
 
     // Load initialized storage.
@@ -1270,27 +1272,22 @@ public struct Emitter {
     declaredBy d: VarDecl.Typed,
     into module: inout Module
   ) -> Operand {
-    let base: Operand
-    let propertyIndex: Int
-
     // Member reference without a domain expression are implicitly bound to `self`.
-    if let domain = e.domainExpr {
-      base = emitLValue(domain, into: &module)
-      propertyIndex = AbstractTypeLayout(of: domain.type, definedIn: program)
-        .offset(of: d.baseName)!
+    let base: Operand
+    if let p = e.domainExpr {
+      base = emitLValue(p, into: &module)
     } else {
       base = frames[receiver!]!
-
-      let receiverType = ParameterType(receiver!.type)!
-      propertyIndex = AbstractTypeLayout(of: receiverType.bareType, definedIn: program)
-        .offset(of: d.baseName)!
     }
 
-    let s = module.append(
-      module.makeElementAddr(base, at: [propertyIndex], anchoredAt: e.site),
+    let l = AbstractTypeLayout(of: module.type(of: base).ast, definedIn: program)
+    let i = l.offset(of: d.baseName)!
+
+    let x0 = module.append(
+      module.makeElementAddr(base, at: [i], anchoredAt: e.site),
       to: insertionBlock!)[0]
     return module.append(
-      module.makeLoad(s, anchoredAt: e.site),
+      module.makeLoad(x0, anchoredAt: e.site),
       to: insertionBlock!)[0]
   }
 
@@ -1432,15 +1429,15 @@ public struct Emitter {
       }
 
       let r = FunctionReference(
-        to: program[FunctionDecl.ID(d)!], usedIn: frames.top.scope, parameterizedBy: a,
-        in: &module)
+        to: program[FunctionDecl.ID(d)!], parameterizedBy: a,
+        usedIn: frames.top.scope, in: &module)
       return (.constant(r), [])
 
     case .member(let d, let a) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
       let r = FunctionReference(
-        to: program[FunctionDecl.ID(d)!], usedIn: frames.top.scope, parameterizedBy: a,
-        in: &module)
+        to: program[FunctionDecl.ID(d)!], parameterizedBy: a,
+        usedIn: frames.top.scope, in: &module)
 
       // Emit the location of the receiver.
       let receiver: Operand
@@ -1760,8 +1757,10 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     switch syntax.kind {
+    case CastExpr.self:
+      return emitLValue(cast: .init(syntax)!, into: &module)
     case InoutExpr.self:
-      return emitLValue(inoutExpr: InoutExpr.Typed(syntax)!, into: &module)
+      return emitLValue(inoutExpr: .init(syntax)!, into: &module)
     case NameExpr.self:
       return emitLValue(name: NameExpr.Typed(syntax)!, into: &module)
     case TupleMemberExpr.self:
@@ -1793,6 +1792,23 @@ public struct Emitter {
     frames.top.allocs.append(storage)
     emitInitialization(of: storage, to: rvalue, anchoredAt: site, into: &module)
     return storage
+  }
+
+  private mutating func emitLValue(
+    cast syntax: CastExpr.Typed,
+    into module: inout Module
+  ) -> Operand {
+    switch syntax.direction {
+    case .pointerConversion:
+      let source = emitRValue(syntax.left, into: &module)
+      let target = RemoteType(program.relations.canonical(syntax.type))!
+      return module.append(
+        module.makePointerToAddress(source, to: target, anchoredAt: syntax.site),
+        to: insertionBlock!)[0]
+
+    default:
+      fatalError("not implemented")
+    }
   }
 
   private mutating func emitLValue(
@@ -1884,9 +1900,8 @@ public struct Emitter {
         boundTo: receiver, declaredByBundle: .init(d)!, into: &module, at: anchor)
 
     case VarDecl.self:
-      let receiverLayout = AbstractTypeLayout(
-        of: module.type(of: receiver).ast, definedIn: program)
-      let i = receiverLayout.offset(of: VarDecl.Typed(d)!.baseName)!
+      let l = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
+      let i = l.offset(of: VarDecl.Typed(d)!.baseName)!
       return module.append(
         module.makeElementAddr(receiver, at: [i], anchoredAt: anchor),
         to: insertionBlock!)[0]

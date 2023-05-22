@@ -349,6 +349,10 @@ extension Diagnostic {
     .error("no such module '\(n)'", at: site)
   }
 
+  static func error(invalidPointerConversionAt site: SourceRange) -> Diagnostic {
+    .error("right operand of built-in pointer conversion must be a remote type", at: site)
+  }
+
   static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {
     let s = ast[d].identifier
     return .warning("needless import: source file is part of '\(s.value)'", at: s.site)

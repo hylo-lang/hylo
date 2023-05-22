@@ -2280,6 +2280,8 @@ public struct TypeChecker {
       return realize(lambda: NodeID(expr)!, in: scope)
     case NameExpr.self:
       return realize(name: NodeID(expr)!, in: scope)
+    case RemoteTypeExpr.self:
+      return realize(remoteType: NodeID(expr)!, in: scope)
     case TupleTypeExpr.self:
       return realize(tuple: NodeID(expr)!, in: scope)
     case WildcardExpr.self:
@@ -2706,13 +2708,19 @@ public struct TypeChecker {
   }
 
   private mutating func realize(
-    parameter id: ParameterTypeExpr.ID,
+    parameter e: ParameterTypeExpr.ID,
     in scope: AnyScopeID
   ) -> MetatypeType? {
-    let node = ast[id]
+    guard let bare = realize(ast[e].bareType, in: scope)?.instance else { return nil }
+    return MetatypeType(of: ParameterType(ast[e].convention.value, bare))
+  }
 
-    guard let bareType = realize(node.bareType, in: scope)?.instance else { return nil }
-    return MetatypeType(of: ParameterType(node.convention.value, bareType))
+  private mutating func realize(
+    remoteType e: RemoteTypeExpr.ID,
+    in scope: AnyScopeID
+  ) -> MetatypeType? {
+    guard let bare = realize(ast[e].operand, in: scope)?.instance else { return nil }
+    return MetatypeType(of: RemoteType(ast[e].convention.value, bare))
   }
 
   private mutating func realize(

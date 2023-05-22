@@ -467,7 +467,7 @@ extension LLVM.Module {
         insert(branch: i)
       case is IR.CallInstruction:
         insert(call: i)
-      case is IR.CallFIIInstruction:
+      case is IR.CallFFIInstruction:
         insert(callFFI: i)
       case is IR.CondBranchInstruction:
         insert(condBranch: i)
@@ -489,6 +489,8 @@ extension LLVM.Module {
         insert(load: i)
       case is IR.PartialApplyInstruction:
         insert(partialApply: i)
+      case is IR.PointerToAddressInstruction:
+        insert(pointerToAddress: i)
       case is IR.ProjectInstruction:
         insert(project: i)
       case is IR.RecordInstruction:
@@ -585,7 +587,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(callFFI i: IR.InstructionID) {
-      let s = m[i] as! CallFIIInstruction
+      let s = m[i] as! CallFFIInstruction
       let parameters = s.operands.map({ ir.llvm(m.type(of: $0).ast, in: &self) })
 
       let returnType: IRType
@@ -717,6 +719,12 @@ extension LLVM.Module {
       } else {
         fatalError("not implemented")
       }
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(pointerToAddress i: IR.InstructionID) {
+      let s = m[i] as! IR.PointerToAddressInstruction
+      register[.register(i, 0)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
