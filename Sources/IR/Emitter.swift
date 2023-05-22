@@ -364,13 +364,8 @@ public struct Emitter {
     precondition(program.isLocal(decl.id))
     precondition(read(decl.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
-    /// A map from object path to its corresponding (sub-)object during destructuring.
-    var objects: [PartPath: Operand] = [:]
-    if let initializer = decl.initializer {
-      objects[[]] = emitRValue(initializer, into: &module)
-    }
+    let source = decl.initializer.map({ emitLValue($0, into: &module) })
 
-    // Allocate storage for each name introduced by the declaration.
     for (path, name) in decl.pattern.subpattern.names {
       let storage = module.append(
         module.makeAllocStack(name.decl.type, for: name.decl.id, anchoredAt: name.site),
@@ -378,22 +373,13 @@ public struct Emitter {
       frames.top.allocs.append(storage)
       frames[name.decl] = storage
 
-      if let initializer = decl.initializer {
-        // Initialize (sub-)object corresponding to the current name.
-        for i in 0 ..< path.count {
-          // Make sure the initializer has been destructured deeply enough.
-          if objects[PartPath(path[...i])] != nil { continue }
-
-          // Destructure the (sub-)object.
-          let subobject = PartPath(path[..<i])
-          let subobjectParts = module.append(
-            module.makeDestructure(objects[subobject]!, anchoredAt: initializer.site),
-            to: insertionBlock!)
-          for j in 0 ..< subobjectParts.count {
-            objects[subobject + [j]] = subobjectParts[j]
-          }
-        }
-        emitInitialization(of: storage, to: objects[path]!, anchoredAt: name.site, into: &module)
+      if let s = source {
+        // TODO: Handle existentials
+        let x0 = emitElementAddr(s, at: path, anchoredAt: name.decl.site, into: &module)
+        let x1 = module.append(
+          module.makeLoad(x0, anchoredAt: name.decl.site),
+          to: insertionBlock!)[0]
+        emitInitialization(of: storage, to: x1, anchoredAt: name.site, into: &module)
       }
     }
   }
@@ -1563,10 +1549,14 @@ public struct Emitter {
     into module: inout Module
   ) -> Operand {
     precondition(program.relations.canonical(expr.type) == program.ast.coreType("Bool")!)
-    let b = emitRValue(expr, into: &module)
-    return module.append(
-      module.makeDestructure(b, anchoredAt: expr.site),
+    let x0 = emitLValue(expr, into: &module)
+    let x1 = module.append(
+      module.makeElementAddr(x0, at: [0], anchoredAt: expr.site),
       to: insertionBlock!)[0]
+    let x2 = module.append(
+      module.makeLoad(x1, anchoredAt: expr.site),
+      to: insertionBlock!)[0]
+    return x2
   }
 
   /// Inserts the IR for numeric literal `s` with type `literalType` into `module` at the end of
