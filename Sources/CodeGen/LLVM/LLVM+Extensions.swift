@@ -64,7 +64,7 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM type of a machine word.
-  private mutating func wordType() -> LLVM.IntegerType {
+  private mutating func word() -> LLVM.IntegerType {
     IntegerType(64, in: &self)
   }
 
@@ -196,8 +196,6 @@ extension LLVM.Module {
     usedIn m: IR.Module,
     from ir: LoweredProgram
   ) -> LLVM.IRValue {
-    let word = wordType()
-
     // A witness table is composed of a header, a trait map, and a (possibly empty) sequence of
     // implementation maps. All parts are laid out inline without any padding.
     //
@@ -213,7 +211,7 @@ extension LLVM.Module {
     // Encode the table's header.
     var tableContents: [LLVM.IRValue] = [
       transpiledMetatype(of: t.witness, usedIn: m, from: ir),
-      word.constant(UInt64(t.conformances.count)),
+      word().constant(UInt64(t.conformances.count)),
     ]
 
     // Encode the table's trait and implementation maps.
@@ -222,13 +220,13 @@ extension LLVM.Module {
     for c in t.conformances {
       let entry: [LLVM.IRValue] = [
         transpiledMetatype(of: c.concept, usedIn: m, from: ir),
-        word.constant(UInt64(implementations.count)),
+        word().constant(UInt64(implementations.count)),
       ]
       entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
 
       for (r, d) in c.implementations.storage {
         let requirement: [LLVM.IRValue] = [
-          word.constant(UInt64(r.rawValue)),
+          word().constant(UInt64(r.rawValue)),
           transpiledRequirementImplementation(d, from: ir),
         ]
         implementations.append(LLVM.StructConstant(aggregating: requirement, in: &self))
@@ -238,17 +236,17 @@ extension LLVM.Module {
     // Append the sentinel at the end of the trait map.
     entries.append(
       LLVM.StructConstant(
-        aggregating: [ptr.null, word.constant(UInt64(implementations.count))], in: &self))
+        aggregating: [ptr.null, word().constant(UInt64(implementations.count))], in: &self))
 
     // Put everything together.
     tableContents.append(
       LLVM.ArrayConstant(
-        of: LLVM.StructType([ptr, word], in: &self), containing: entries, in: &self))
+        of: LLVM.StructType([ptr, word()], in: &self), containing: entries, in: &self))
 
     if !implementations.isEmpty {
       tableContents.append(
         LLVM.ArrayConstant(
-          of: LLVM.StructType([word, ptr], in: &self), containing: implementations, in: &self))
+          of: LLVM.StructType([word(), ptr], in: &self), containing: implementations, in: &self))
     }
 
     let table = LLVM.StructConstant(aggregating: tableContents, in: &self)
