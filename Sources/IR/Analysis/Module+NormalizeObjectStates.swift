@@ -40,8 +40,6 @@ extension Module {
           pc = interpret(deallocStack: user, in: &context)
         case is DeinitInstruction:
           pc = interpret(deinit: user, in: &context)
-        case is DestructureInstruction:
-          pc = interpret(destructure: user, in: &context)
         case is ElementAddrInstruction:
           pc = interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
@@ -244,14 +242,6 @@ extension Module {
       }
 
       context.locals[.register(i, 0)] = .locations(Set(locations))
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(destructure i: InstructionID, in context: inout Context) -> PC? {
-      let x = self[i] as! DestructureInstruction
-      consume(x.whole, with: i, at: x.site, in: &context)
-      initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
 
