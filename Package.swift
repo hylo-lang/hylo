@@ -75,6 +75,7 @@ let package = Package(
       dependencies: [
         "Utils",
         .product(name: "LLVM", package: "Swifty-LLVM"),
+        .product(name: "Collections", package: "swift-collections"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
