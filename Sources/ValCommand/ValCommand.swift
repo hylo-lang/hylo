@@ -68,9 +68,23 @@ public struct ValCommand: ParsableCommand {
   @Option(
     name: [.customLong("transform")],
     help: ArgumentHelp(
-      "Applies the specify transformations after IR lowering.",
+      "Apply the specify transformations after IR lowering.",
       valueName: "transforms"))
   private var transforms: ModulePassList?
+
+  @Option(
+    name: [.customShort("L")],
+    help: ArgumentHelp(
+      "Add a directory to the library search path.",
+      valueName: "directory"))
+  private var librarySearchPaths: [String] = []
+
+  @Option(
+    name: [.customShort("l")],
+    help: ArgumentHelp(
+      "Link the generated crate(s) to the specified native library.",
+      valueName: "name"))
+  private var libraries: [String] = []
 
   @Option(
     name: [.customShort("o")],
@@ -229,9 +243,13 @@ public struct ValCommand: ParsableCommand {
     var arguments = [
       "-r", "ld", "-o", binaryPath,
       "-L\(sdk)/usr/lib",
-      "-lSystem", "-lc++",
     ]
+    arguments.append(contentsOf: librarySearchPaths.map({ "-L\($0)" }))
     arguments.append(contentsOf: objects.map(\.path))
+    arguments.append("-lSystem")
+    arguments.append("-lc++")
+    arguments.append(contentsOf: libraries.map({ "-l\($0)" }))
+
     try runCommandLine(xcrun, arguments, diagnostics: &diagnostics)
   }
 
@@ -245,7 +263,9 @@ public struct ValCommand: ParsableCommand {
     var arguments = [
       "-o", binaryPath,
     ]
+    arguments.append(contentsOf: librarySearchPaths.map({ "-L\($0)" }))
     arguments.append(contentsOf: objects.map(\.path))
+    arguments.append(contentsOf: libraries.map({ "-l\($0)" }))
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
