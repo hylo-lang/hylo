@@ -14,7 +14,7 @@ let package = Package(
   ],
 
   products: [
-    .executable(name: "valc", targets: ["CLI"])
+
   ],
 
   dependencies: [
@@ -39,36 +39,6 @@ let package = Package(
   ],
 
   targets: [
-    // The compiler's executable target.
-    .executableTarget(
-      name: "CLI",
-      dependencies: [
-        "ValCommand"
-      ],
-      swiftSettings: allTargetsSwiftSettings),
-
-    .target(
-      name: "ValCommand",
-      dependencies: [
-        "FrontEnd",
-        "IR",
-        "CodeGenLLVM",
-        .product(name: "ArgumentParser", package: "swift-argument-parser"),
-      ],
-      swiftSettings: allTargetsSwiftSettings),
-
-    // Targets related to the compiler's internal library.
-    .target(
-      name: "FrontEnd",
-      dependencies: [
-        "Utils",
-        "Core",
-        "ValModule",
-        .product(name: "Collections", package: "swift-collections"),
-        .product(name: "Durian", package: "Durian"),
-        .product(name: "BigInt", package: "BigInt"),
-      ],
-      swiftSettings: allTargetsSwiftSettings),
 
     .target(
       name: "Core",
@@ -79,21 +49,6 @@ let package = Package(
       ],
       swiftSettings: allTargetsSwiftSettings),
 
-    .target(
-      name: "IR",
-      dependencies: ["Utils", "Core", "FrontEnd"],
-      swiftSettings: allTargetsSwiftSettings),
-
-    .target(
-      name: "CodeGenLLVM",
-      dependencies: [
-        "Core",
-        "IR",
-        "Utils",
-        .product(name: "LLVM", package: "Swifty-LLVM"),
-      ],
-      path: "Sources/CodeGen/LLVM",
-      swiftSettings: allTargetsSwiftSettings),
 
     .target(
       name: "Utils",
