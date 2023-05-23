@@ -124,7 +124,7 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "EndToEndTests",
-      dependencies: ["ValCommand", "TestUtils"],
+      dependencies: ["TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
   ])
