@@ -123,22 +123,6 @@ let package = Package(
 
     // Test targets.
     .testTarget(
-      name: "UtilsTests",
-      dependencies: ["Utils"],
-      swiftSettings: allTargetsSwiftSettings),
-
-    .testTarget(
-      name: "ValTests",
-      dependencies: ["FrontEnd", "Core", "IR", "TestUtils"],
-      resources: [.copy("TestCases")],
-      swiftSettings: allTargetsSwiftSettings),
-
-    .testTarget(
-      name: "ValCommandTests",
-      dependencies: ["ValCommand"],
-      swiftSettings: allTargetsSwiftSettings),
-
-    .testTarget(
       name: "EndToEndTests",
       dependencies: ["ValCommand", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
