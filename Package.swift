@@ -25,9 +25,6 @@ let package = Package(
       url: "https://github.com/apple/swift-collections.git",
       from: "1.0.0"),
     .package(
-      url: "https://github.com/val-lang/Durian.git",
-      from: "1.2.0"),
-    .package(
       url: "https://github.com/attaswift/BigInt.git",
       from: "5.3.0"),
     .package(
