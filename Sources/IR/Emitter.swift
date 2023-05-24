@@ -732,7 +732,7 @@ public struct Emitter {
     // Built-in types do not require deinitialization.
     let l = program.relations.canonical(stmt.left.type)
     if l.base is BuiltinType {
-      emitInitialization(of: lhs, to: rhs, anchoredAt: stmt.site, into: &module)
+      emitInitialization(of: lhs, to: rhs, at: stmt.site, into: &module)
       return
     }
 
@@ -1010,7 +1010,7 @@ public struct Emitter {
     frames.push(.init(scope: AnyScopeID(expr.id)))
     let a = emitRValue(program[expr.success], into: &module)
     if let s = resultStorage {
-      emitInitialization(of: s, to: a, anchoredAt: program[expr.success].site, into: &module)
+      emitInitialization(of: s, to: a, at: program[expr.success].site, into: &module)
     }
     emitStackDeallocs(in: &module, site: expr.site)
     frames.pop()
@@ -1021,7 +1021,7 @@ public struct Emitter {
     let i = frames.top.allocs.count
     let b = emitRValue(program[expr.failure], into: &module)
     if let s = resultStorage {
-      emitInitialization(of: s, to: b, anchoredAt: program[expr.failure].site, into: &module)
+      emitInitialization(of: s, to: b, at: program[expr.failure].site, into: &module)
     }
     for a in frames.top.allocs[i...] {
       module.append(module.makeDeallocStack(for: a, anchoredAt: expr.site), to: insertionBlock!)
@@ -1852,7 +1852,7 @@ public struct Emitter {
       module.makeAllocStack(module.type(of: rvalue).ast, anchoredAt: site),
       to: insertionBlock!)[0]
     frames.top.allocs.append(storage)
-    emitInitialization(of: storage, to: rvalue, anchoredAt: site, into: &module)
+    emitInitialization(of: storage, to: rvalue, at: site, into: &module)
     return storage
   }
 
@@ -2053,18 +2053,18 @@ public struct Emitter {
   }
 
   /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
-  /// block, anchoring new instructions at `anchor` into `module`.
+  /// block, anchoring new instructions at `site` into `module`.
   private mutating func emitInitialization(
     of storage: Operand,
     to value: Operand,
-    anchoredAt anchor: SourceRange,
+    at site: SourceRange,
     into module: inout Module
   ) {
     let s = module.append(
-      module.makeBorrow(.set, from: storage, anchoredAt: anchor),
+      module.makeBorrow(.set, from: storage, anchoredAt: site),
       to: insertionBlock!)[0]
     module.append(
-      module.makeStore(value, at: s, anchoredAt: anchor),
+      module.makeStore(value, at: s, anchoredAt: site),
       to: insertionBlock!)
   }
 
