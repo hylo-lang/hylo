@@ -52,12 +52,6 @@ let package = Package(
       dependencies: [.product(name: "BigInt", package: "BigInt")],
       swiftSettings: allTargetsSwiftSettings),
 
-    .target(
-      name: "ValModule",
-      path: "Library",
-      resources: [.copy("Val")],
-      swiftSettings: allTargetsSwiftSettings),
-
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
       dependencies: [.target(name: "GenerateValFileTests")]),
