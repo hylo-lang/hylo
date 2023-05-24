@@ -30,9 +30,6 @@ let package = Package(
     .package(
       url: "https://github.com/val-lang/Swifty-LLVM",
       branch: "main"),
-    .package(
-      url: "https://github.com/val-lang/swift-format",
-      branch: "main"),
   ],
 
   targets: [
