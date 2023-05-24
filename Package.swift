@@ -72,6 +72,7 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "EndToEndTests",
+      dependencies: ["Core"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
   ])
