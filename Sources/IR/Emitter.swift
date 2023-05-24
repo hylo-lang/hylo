@@ -1005,8 +1005,14 @@ public struct Emitter {
       switch n.declaration {
       case .builtinFunction(let f):
         return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
+
       case .constructor(let d, let a):
-        return emitRValue(constructorCall: expr, applying: d, parameterizedBy: a, into: &module)
+        let s = emitAllocStack(for: expr.type, at: expr.site, into: &module)
+        emitInitializerCall(expr, initializing: s, applying: d, parameterizedBy: a, into: &module)
+        return module.append(
+          module.makeLoad(s, anchoredAt: expr.site),
+          to: insertionBlock!)[0]
+
       default:
         break
       }
@@ -1027,61 +1033,74 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
-  private mutating func emitRValue(
-    constructorCall expr: FunctionCallExpr.Typed,
+  /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
+  /// initializer `d` parameterized by `a`.
+  ///
+  /// - Parameters:
+  ///   - call: The syntax of the call.
+  ///   - s: The address of uninitialized storage typed by the receiver of `d`. This storage is
+  ///     borrowed for initialization after evaluating `call`'s arguments and before calling `d`.
+  ///   - d: The initializer referenced by `call`'s callee.
+  ///   - a: The generic arguments passed to `d`.
+  private mutating func emitInitializerCall(
+    _ call: FunctionCallExpr.Typed,
+    initializing s: Operand,
     applying d: InitializerDecl.ID,
     parameterizedBy a: GenericArguments,
     into module: inout Module
-  ) -> Operand {
+  ) {
     // Handle memberwise constructor calls.
     if program.ast[d].isMemberwise {
-      return emitRValue(memberwiseConstructorCall: expr, into: &module)
+      emitMemberwiseInitializerCall(call, initializing: s, into: &module)
+      return
     }
 
     // Evaluate all arguments.
-    let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
+    let syntheticSite = call.site.file.emptyRange(at: call.site.end)
     let arguments = emit(
-      arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
+      arguments: call.arguments, to: call.callee, synthesizingDefaultArgumentsAt: syntheticSite,
       into: &module)
-
-    // Allocate storage for the receiver.
-    let s = module.append(
-      module.makeAllocStack(program.relations.canonical(expr.type), anchoredAt: expr.site),
-      to: insertionBlock!)[0]
-    let r = module.append(
-      module.makeBorrow(.set, from: s, anchoredAt: expr.site),
-      to: insertionBlock!)[0]
 
     // Initialize storage.
     let f = FunctionReference(
       to: program[d], parameterizedBy: a, usedIn: frames.top.scope, in: &module)
-    module.append(
-      module.makeCall(applying: .constant(f), to: [r] + arguments, anchoredAt: expr.site),
-      to: insertionBlock!)
-
-    // Load initialized storage.
-    return module.append(
-      module.makeLoad(s, anchoredAt: expr.site),
+    let receiver = module.append(
+      module.makeBorrow(.set, from: s, anchoredAt: call.site),
       to: insertionBlock!)[0]
+    module.append(
+      module.makeCall(applying: .constant(f), to: [receiver] + arguments, anchoredAt: call.site),
+      to: insertionBlock!)
   }
 
-  /// Inserts the IR for the memberwise initializer call `expr` into `module` at the end of the
-  /// current insertion block.
+  /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
+  /// memberwise initializer `d`.
   ///
-  /// - Requires: The callee of `expr` is a direct reference to a memberwise initializer.
-  private mutating func emitRValue(
-    memberwiseConstructorCall expr: FunctionCallExpr.Typed,
+  /// - Parameters:
+  ///   - call: The syntax of the call.
+  ///   - s: The address of uninitialized storage typed by the receiver of `d`. This storage is
+  ///     borrowed for initialization after evaluating `call`'s arguments and before calling `d`.
+  ///   - d: The initializer referenced by `call`'s callee.
+  private mutating func emitMemberwiseInitializerCall(
+    _ call: FunctionCallExpr.Typed,
+    initializing s: Operand,
     into module: inout Module
-  ) -> Operand {
-    let callee = LambdaType(expr.callee.type)!
+  ) {
+    let callee = LambdaType(call.callee.type)!
     var arguments: [Operand] = []
-    for (p, e) in zip(callee.inputs, expr.arguments) {
+    for (p, e) in zip(callee.inputs, call.arguments) {
       let a = program[e.value]
       arguments.append(emit(argument: a, to: ParameterType(p.type)!, into: &module))
     }
 
-    let s = module.makeRecord(callee.output, aggregating: arguments, anchoredAt: expr.site)
-    return module.append(s, to: insertionBlock!)[0]
+    let x0 = module.append(
+      module.makeRecord(callee.output, aggregating: arguments, anchoredAt: call.site),
+      to: insertionBlock!)[0]
+    let x1 = module.append(
+      module.makeBorrow(.set, from: s, anchoredAt: call.site),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeStore(x0, at: x1, anchoredAt: call.site),
+      to: insertionBlock!)
   }
 
   /// Inserts the IR for `arguments`, which is an argument passed to a function of type `callee`,
@@ -1952,6 +1971,18 @@ public struct Emitter {
   }
 
   // MARK: Helpers
+
+  /// Inserts a stack allocation for an object of type `t`.
+  private mutating func emitAllocStack(
+    for t: AnyType, at site: SourceRange, into module: inout Module
+  ) -> Operand {
+    let u = program.relations.canonical(t)
+    let s = module.append(
+      module.makeAllocStack(u, anchoredAt: site),
+      to: insertionBlock!)[0]
+    frames.top.allocs.append(s)
+    return s
+  }
 
   /// Appends the IR for computing the address of the property at `path` rooted at `base` into
   /// `module`, anchoring new at `anchor`.
