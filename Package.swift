@@ -53,11 +53,6 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
-      name: "TestUtils",
-      dependencies: ["Core", "Utils"],
-      swiftSettings: allTargetsSwiftSettings),
-
-    .target(
       name: "ValModule",
       path: "Library",
       resources: [.copy("Val")],
@@ -77,7 +72,6 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "EndToEndTests",
-      dependencies: ["TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
   ])

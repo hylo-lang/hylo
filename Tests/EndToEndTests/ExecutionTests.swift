@@ -1,5 +1,4 @@
 import Core
-import TestUtils
 import XCTest
 
 class EndToEndTestCase: XCTestCase {}
