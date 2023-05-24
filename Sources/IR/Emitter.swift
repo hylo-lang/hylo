@@ -718,6 +718,8 @@ public struct Emitter {
   }
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed, into module: inout Module) {
+    // The left operand of an assignment should always be marked for mutation, even if the
+    // statement actually denotes initialization.
     guard stmt.left.kind == InoutExpr.self else {
       report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: stmt.left.site.first())))
       return
