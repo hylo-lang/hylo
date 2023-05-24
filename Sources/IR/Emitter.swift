@@ -364,23 +364,74 @@ public struct Emitter {
     precondition(program.isLocal(decl.id))
     precondition(read(decl.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
-    let source = decl.initializer.map({ emitLValue($0, into: &module) })
+    // Allocate storage for all the names declared by `decl`.
+    let storage = emitAllocStack(for: decl.type, at: decl.site, into: &module)
 
-    for (path, name) in decl.pattern.subpattern.names {
-      let storage = module.append(
-        module.makeAllocStack(name.decl.type, for: name.decl.id, anchoredAt: name.site),
-        to: insertionBlock!)[0]
-      frames.top.allocs.append(storage)
-      frames[name.decl] = storage
+    // Declare each introduced name and initialize them if possible.
+    let lhs = decl.pattern.subpattern.id
+    if let initializer = decl.initializer {
+      program.ast.walking(pattern: lhs, expression: initializer.id) { (path, p, rhs) in
+        // Declare the introduced name if `p` is a name pattern. Otherwise, drop the value of the
+        // the corresponding expression.
+        if let name = NamePattern.ID(p) {
+          declare(name: program[name], referringTo: path, initializedTo: rhs)
+        } else {
+          let part = emitRValue(program[rhs], into: &module)
+          module.append(
+            module.makeDeinit(part, anchoredAt: program.ast[p].site),
+            to: insertionBlock!)
 
-      if let s = source {
-        // TODO: Handle existentials
-        let x0 = emitElementAddr(s, at: path, anchoredAt: name.decl.site, into: &module)
-        let x1 = module.append(
-          module.makeLoad(x0, anchoredAt: name.decl.site),
-          to: insertionBlock!)[0]
-        emitInitialization(of: storage, to: x1, anchoredAt: name.site, into: &module)
+        }
       }
+    } else {
+      for (path, name) in program.ast.names(in: lhs) {
+        _ = declare(name: program[name], referringTo: path)
+      }
+    }
+
+    /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`, and
+    /// initialize it to the result of `rhs`.
+    func declare(
+      name: NamePattern.Typed, referringTo pathInStorage: PartPath,
+      initializedTo rhs: AnyExprID
+    ) {
+      let sublocation = declare(name: name, referringTo: pathInStorage)
+
+      // TODO: Handle existentials
+
+      // Binding a name to the result of a constructor call doesn't cause a move.
+      if let call = FunctionCallExpr.ID(rhs), let n = NameExpr.ID(program.ast[call].callee),
+        case .constructor(let d, let a) = program.referredDecls[n]!
+      {
+        emitInitializerCall(
+          program[call], initializing: sublocation,
+          applying: d, parameterizedBy: a, into: &module)
+        return
+      }
+
+      // Binding a name to an arbitrary expression causes a move.
+      let useScope = program.declToScope[name.decl]!
+      let t = module.type(of: sublocation).ast
+      let m = program.ast.sinkableTrait
+      guard let c = program.conformance(of: t, to: m, exposedTo: useScope) else {
+        report(.error(t, doesNotConformTo: m, at: name.site))
+        return
+      }
+
+      let part = emitRValue(program[rhs], into: &module)
+      emitMove(
+        .set, of: part, to: sublocation, conformanceToSinkable: c,
+        anchoredAt: name.site, into: &module)
+    }
+
+    /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`,
+    /// returning that sub-location.
+    func declare(name: NamePattern.Typed, referringTo pathInStorage: PartPath) -> Operand {
+      let sublocation = module.append(
+        module.makeElementAddr(storage, at: pathInStorage, anchoredAt: name.site),
+        to: insertionBlock!)[0]
+      frames[name.decl] = sublocation
+      return sublocation
     }
   }
 
