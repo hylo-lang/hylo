@@ -38,16 +38,6 @@ let package = Package(
   targets: [
 
     .target(
-      name: "Core",
-      dependencies: [
-        "Utils",
-        .product(name: "LLVM", package: "Swifty-LLVM"),
-        .product(name: "Collections", package: "swift-collections"),
-      ],
-      swiftSettings: allTargetsSwiftSettings),
-
-
-    .target(
       name: "Utils",
       dependencies: [.product(name: "BigInt", package: "BigInt")],
       swiftSettings: allTargetsSwiftSettings),
@@ -66,7 +56,6 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "EndToEndTests",
-      dependencies: ["Core"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
   ])
