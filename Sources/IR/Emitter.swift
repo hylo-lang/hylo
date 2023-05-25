@@ -942,11 +942,7 @@ public struct Emitter {
     // If the expression is supposed to return a value, allocate storage for it.
     var resultStorage: Operand?
     if expr.type != .void {
-      resultStorage =
-        module.append(
-          module.makeAllocStack(expr.type, anchoredAt: expr.site),
-          to: insertionBlock!)[0]
-      frames.top.allocs.append(resultStorage!)
+      resultStorage = emitAllocStack(for: expr.type, at: expr.site)
     }
 
     let (firstBranch, secondBranch) = emitTest(condition: expr.condition)
@@ -1612,10 +1608,7 @@ public struct Emitter {
     case .concrete(let m):
       let convert = FunctionReference(
         to: program[InitializerDecl.ID(m)!], usedIn: useScope, in: &module)
-      let x0 = module.append(
-        module.makeAllocStack(ir, anchoredAt: site),
-        to: insertionBlock!)[0]
-      frames.top.allocs.append(x0)
+      let x0 = emitAllocStack(for: ir, at: site)
       let x1 = module.append(
         module.makeBorrow(.set, from: x0, anchoredAt: site),
         to: insertionBlock!)[0]
