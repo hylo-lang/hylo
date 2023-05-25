@@ -54,25 +54,22 @@ public struct CallInstruction: Instruction {
 
 extension Module {
 
-  /// Creates a `call` anchored at `anchor` applies `callee` using convention `calleeConvention` on
-  /// `arguments` using `argumentConventions`.
+  /// Creates a `call` anchored at `site` that applies `callee` on `arguments`.
   ///
   /// - Parameters:
   ///   - callee: The function to call.
-  ///   - arguments: The arguments of the call; one of each input of `callee`'s type.
+  ///   - arguments: The arguments of the call; one for each input of `callee`'s type.
   func makeCall(
-    applying callee: Operand,
-    to arguments: [Operand],
-    anchoredAt anchor: SourceRange
+    applying callee: Operand, to arguments: [Operand],
+    at site: SourceRange
   ) -> CallInstruction {
     let calleeType = LambdaType(type(of: callee).ast)!.strippingEnvironment
     precondition(calleeType.inputs.count == arguments.count)
-
-    return CallInstruction(
+    return .init(
       returnType: .object(program.relations.canonical(calleeType.output)),
       callee: callee,
       arguments: arguments,
-      site: anchor)
+      site: site)
   }
 
 }

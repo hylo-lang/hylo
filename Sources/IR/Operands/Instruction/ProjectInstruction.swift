@@ -56,15 +56,12 @@ extension ProjectInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `project` anchored at `anchor` that projects a value of type `t` by applying `s`
+  /// Creates a `project` anchored at `site` that projects a value of type `t` by applying `s`
   /// on `arguments`.
   func makeProject(
-    _ t: RemoteType,
-    applying s: Function.ID,
-    to arguments: [Operand],
-    anchoredAt anchor: SourceRange
+    _ t: RemoteType, applying s: Function.ID, to arguments: [Operand], at site: SourceRange
   ) -> ProjectInstruction {
-    .init(projection: t, callee: s, operands: arguments, site: anchor)
+    .init(projection: t, callee: s, operands: arguments, site: site)
   }
 
 }

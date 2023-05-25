@@ -43,17 +43,17 @@ extension PointerToAddressInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `pointer_to_address` anchored at `anchor` that converts `source`, which is a
+  /// Creates a `pointer_to_address` anchored at `site` that converts `source`, which is a
   /// built-in pointer value, to an address of type `target`.
   ///
   /// - Requires: `target.access` is `.let`, `.inout`, or `.set`
   func makePointerToAddress(
     _ source: Operand,
     to target: RemoteType,
-    anchoredAt anchor: SourceRange
+    at site: SourceRange
   ) -> PointerToAddressInstruction {
     precondition(AccessEffectSet([.let, .inout, .set]).contains(target.access))
-    return .init(source: source, target: target, site: anchor)
+    return .init(source: source, target: target, site: site)
   }
 
 }

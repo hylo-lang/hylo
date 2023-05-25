@@ -9,6 +9,7 @@ public struct StoreInstruction: Instruction {
   /// The location at which the object is stored.
   public private(set) var target: Operand
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -35,20 +36,17 @@ public struct StoreInstruction: Instruction {
 
 extension Module {
 
-  /// Creates a `record` anchored at `anchor` that stores `object` in `memory`.
+  /// Creates a `record` anchored at `site` that stores `object` at `target.
   ///
   /// - Parameters:
   ///   - object: The object to store. Must have an object type.
-  ///   - memory: The location at which `object` is stored. Must have an address type.
+  ///   - target: The location at which `object` is stored. Must have an address type.
   func makeStore(
-    _ object: Operand,
-    at memory: Operand,
-    anchoredAt anchor: SourceRange
+    _ object: Operand, at target: Operand, at site: SourceRange
   ) -> StoreInstruction {
     precondition(type(of: object).isObject)
-    precondition(type(of: memory).isAddress)
-
-    return StoreInstruction(object: object, at: memory, site: anchor)
+    precondition(type(of: target).isAddress)
+    return .init(object: object, at: target, site: site)
   }
 
 }

@@ -129,7 +129,7 @@ extension Module {
       replaceUses(of: .register(i, 0), with: s.source, in: i.function)
       removeInstruction(i)
     } else {
-      let reified = makeBorrow(k, from: s.source, correspondingTo: s.binding, anchoredAt: s.site)
+      let reified = makeBorrow(k, from: s.source, correspondingTo: s.binding, at: s.site)
       replace(i, with: reified)
     }
   }
@@ -143,13 +143,13 @@ extension Module {
     for a in arguments.indices where s.parameters[a].access == .yielded {
       let b: Instruction =
         (k == .sink)
-        ? makeLoad(arguments[a], anchoredAt: s.site)
-        : makeBorrow(k, from: arguments[a], anchoredAt: s.site)
+        ? makeLoad(arguments[a], at: s.site)
+        : makeBorrow(k, from: arguments[a], at: s.site)
       arguments[a] = insert(b, before: i)[0]
     }
 
     let o = RemoteType(k, s.projection.bareType)
-    let reified = makeProject(o, applying: s.variants[k]!, to: arguments, anchoredAt: s.site)
+    let reified = makeProject(o, applying: s.variants[k]!, to: arguments, at: s.site)
     replace(i, with: reified)
   }
 

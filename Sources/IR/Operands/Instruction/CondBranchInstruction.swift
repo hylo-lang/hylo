@@ -12,6 +12,7 @@ public struct CondBranchInstruction: Terminator {
   /// The target of the branch if `condition` is false.
   public private(set) var targetIfFalse: Block.ID
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -63,7 +64,7 @@ extension CondBranchInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `cond_branch` anchored at `anchor` that jumps to `targetIfTrue` if `condition` is
+  /// Creates a `cond_branch` anchored at `site` that jumps to `targetIfTrue` if `condition` is
   /// true or `targetIfFalse` otherwise.
   ///
   /// - Parameters:
@@ -75,16 +76,15 @@ extension Module {
     if condition: Operand,
     then targetIfTrue: Block.ID,
     else targetIfFalse: Block.ID,
-    anchoredAt anchor: SourceRange
+    at site: SourceRange
   ) -> CondBranchInstruction {
     precondition(type(of: condition) == .object(BuiltinType.i(1)))
     precondition(targetIfTrue.function == targetIfFalse.function)
-
-    return CondBranchInstruction(
+    return .init(
       condition: condition,
       targetIfTrue: targetIfTrue,
       targetIfFalse: targetIfFalse,
-      site: anchor)
+      site: site)
   }
 
 }

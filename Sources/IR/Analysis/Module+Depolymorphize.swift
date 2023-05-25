@@ -33,7 +33,7 @@ extension Module {
 
       let g = monomorphize(callee, in: ir)
       let r = FunctionReference(to: g, usedIn: callee.useScope, in: self)
-      let newCall = makeCall(applying: .constant(r), to: Array(s.arguments), anchoredAt: s.site)
+      let newCall = makeCall(applying: .constant(r), to: Array(s.arguments), at: s.site)
       replace(i, with: newCall)
     }
   }
@@ -149,26 +149,26 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(addressToPointer i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! AddressToPointerInstruction
-      append(makeAddressToPointer(rewritten(s.source), anchoredAt: s.site), to: b)
+      append(makeAddressToPointer(rewritten(s.source), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(allocStack i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! AllocStackInstruction
       let t = program.monomorphize(s.allocatedType, for: r.arguments)
-      append(makeAllocStack(t, anchoredAt: s.site), to: b)
+      append(makeAllocStack(t, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(borrow i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! BorrowInstruction
-      append(makeBorrow(s.capability, from: rewritten(s.location), anchoredAt: s.site), to: b)
+      append(makeBorrow(s.capability, from: rewritten(s.location), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(branch i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! BranchInstruction
-      append(makeBranch(to: rewrittenBlocks[s.target]!, anchoredAt: s.site), to: b)
+      append(makeBranch(to: rewrittenBlocks[s.target]!, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -184,7 +184,7 @@ extension Module {
       }
 
       let a = s.arguments.map(rewritten(_:))
-      append(makeCall(applying: newCallee, to: a, anchoredAt: s.site), to: b)
+      append(makeCall(applying: newCallee, to: a, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -192,7 +192,7 @@ extension Module {
       let s = sourceModule[i] as! CallFFIInstruction
       let t = program.monomorphize(s.returnType, applying: r.arguments)
       let o = s.operands.map(rewritten(_:))
-      append(makeCallFFI(returning: t, applying: s.callee, to: o, anchoredAt: s.site), to: b)
+      append(makeCallFFI(returning: t, applying: s.callee, to: o, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -202,26 +202,26 @@ extension Module {
 
       let newInstruction = makeCondBranch(
         if: c, then: rewrittenBlocks[s.targetIfTrue]!, else: rewrittenBlocks[s.targetIfFalse]!,
-        anchoredAt: s.site)
+        at: s.site)
       append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(deallocStack i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! DeallocStackInstruction
-      append(makeDeallocStack(for: rewritten(s.location), anchoredAt: s.site), to: b)
+      append(makeDeallocStack(for: rewritten(s.location), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(elementAddr i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! ElementAddrInstruction
-      append(makeElementAddr(rewritten(s.base), at: s.elementPath, anchoredAt: s.site), to: b)
+      append(makeElementAddr(rewritten(s.base), at: s.elementPath, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(endBorrow i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! EndBorrowInstruction
-      append(makeEndBorrow(rewritten(s.borrow), anchoredAt: s.site), to: b)
+      append(makeEndBorrow(rewritten(s.borrow), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -234,19 +234,19 @@ extension Module {
     func rewrite(globalAddr i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! GlobalAddrInstruction
       let t = program.monomorphize(s.valueType, for: r.arguments)
-      append(makeGlobalAddr(of: s.id, in: s.container, typed: t, anchoredAt: s.site), to: b)
+      append(makeGlobalAddr(of: s.id, in: s.container, typed: t, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(llvm i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! LLVMInstruction
       let o = s.operands.map(rewritten(_:))
-      append(makeLLVM(applying: s.instruction, to: o, anchoredAt: s.site), to: b)
+      append(makeLLVM(applying: s.instruction, to: o, at: s.site), to: b)
     }
 
     func rewrite(load i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! LoadInstruction
-      append(makeLoad(rewritten(s.source), anchoredAt: s.site), to: b)
+      append(makeLoad(rewritten(s.source), at: s.site), to: b)
     }
 
     func rewrite(pointerToAddress i: InstructionID, to b: Block.ID) {
@@ -254,7 +254,7 @@ extension Module {
       let t = program.monomorphize(^s.target, for: r.arguments)
 
       let newInstruction = makePointerToAddress(
-        rewritten(s.source), to: RemoteType(t)!, anchoredAt: s.site)
+        rewritten(s.source), to: RemoteType(t)!, at: s.site)
       append(newInstruction, to: b)
     }
 
@@ -263,31 +263,31 @@ extension Module {
       let s = sourceModule[i] as! RecordInstruction
       let t = program.monomorphize(s.objectType.ast, for: r.arguments)
       let o = s.operands.map(rewritten(_:))
-      append(makeRecord(t, aggregating: o, anchoredAt: s.site), to: b)
+      append(makeRecord(t, aggregating: o, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(return i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! ReturnInstruction
-      append(makeReturn(rewritten(s.object), anchoredAt: s.site), to: b)
+      append(makeReturn(rewritten(s.object), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(store i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! StoreInstruction
-      append(makeStore(rewritten(s.object), at: rewritten(s.target), anchoredAt: s.site), to: b)
+      append(makeStore(rewritten(s.object), at: rewritten(s.target), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(unreachable i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! UnrechableInstruction
-      append(makeUnreachable(anchoredAt: s.site), to: b)
+      append(makeUnreachable(at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(yield i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! YieldInstruction
-      append(makeYield(s.capability, rewritten(s.projection), anchoredAt: s.site), to: b)
+      append(makeYield(s.capability, rewritten(s.projection), at: s.site), to: b)
     }
 
     /// Returns the rewritten form of `o`, which is used in `r.function`, for use in `result`.
