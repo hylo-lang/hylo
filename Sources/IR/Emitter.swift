@@ -2037,8 +2037,7 @@ public struct Emitter {
   ) {
     if let tuple = TupleExpr.ID(value) {
       emitInitialization(of: storage, to: tuple, into: &module)
-    } else if
-      let call = FunctionCallExpr.ID(value),
+    } else if let call = FunctionCallExpr.ID(value),
       let n = NameExpr.ID(program.ast[call].callee),
       case .constructor = program.referredDecls[n]!
     {
