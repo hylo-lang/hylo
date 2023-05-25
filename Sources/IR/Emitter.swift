@@ -1059,9 +1059,9 @@ public struct Emitter {
       case .builtinFunction(let f):
         return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
 
-      case .constructor(let d, let a):
+      case .constructor:
         let s = emitAllocStack(for: expr.type, at: expr.site, into: &module)
-        emitInitializerCall(expr, initializing: s, applying: d, parameterizedBy: a, into: &module)
+        emitInitializerCall(expr, initializing: s, into: &module)
         return module.append(
           module.makeLoad(s, anchoredAt: expr.site),
           to: insertionBlock!)[0]
@@ -1091,17 +1091,16 @@ public struct Emitter {
   ///
   /// - Parameters:
   ///   - call: The syntax of the call.
-  ///   - s: The address of uninitialized storage typed by the receiver of `d`. This storage is
-  ///     borrowed for initialization after evaluating `call`'s arguments and before calling `d`.
-  ///   - d: The initializer referenced by `call`'s callee.
-  ///   - a: The generic arguments passed to `d`.
+  ///   - s: The address of uninitialized storage typed by the receiver of `call`. This storage is
+  ///     borrowed for initialization after evaluating `call`'s arguments and before the call.
   private mutating func emitInitializerCall(
     _ call: FunctionCallExpr.Typed,
     initializing s: Operand,
-    applying d: InitializerDecl.ID,
-    parameterizedBy a: GenericArguments,
     into module: inout Module
   ) {
+    let callee = NameExpr.Typed(call.callee)!
+    guard case .constructor(let d, let a) = callee.declaration else { preconditionFailure() }
+
     // Handle memberwise constructor calls.
     if program.ast[d].isMemberwise {
       emitMemberwiseInitializerCall(call, initializing: s, into: &module)
