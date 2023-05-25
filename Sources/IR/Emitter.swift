@@ -380,7 +380,6 @@ public struct Emitter {
           module.append(
             module.makeDeinit(part, anchoredAt: program.ast[p].site),
             to: insertionBlock!)
-
         }
       }
     } else {
@@ -395,33 +394,9 @@ public struct Emitter {
       name: NamePattern.Typed, referringTo pathInStorage: PartPath,
       initializedTo rhs: AnyExprID
     ) {
-      let sublocation = declare(name: name, referringTo: pathInStorage)
-
       // TODO: Handle existentials
-
-      // Binding a name to the result of a constructor call doesn't cause a move.
-      if let call = FunctionCallExpr.ID(rhs), let n = NameExpr.ID(program.ast[call].callee),
-        case .constructor(let d, let a) = program.referredDecls[n]!
-      {
-        emitInitializerCall(
-          program[call], initializing: sublocation,
-          applying: d, parameterizedBy: a, into: &module)
-        return
-      }
-
-      // Binding a name to an arbitrary expression causes a move.
-      let useScope = program.declToScope[name.decl]!
-      let t = module.type(of: sublocation).ast
-      let m = program.ast.sinkableTrait
-      guard let c = program.conformance(of: t, to: m, exposedTo: useScope) else {
-        report(.error(t, doesNotConformTo: m, at: name.site))
-        return
-      }
-
-      let part = emitRValue(program[rhs], into: &module)
-      emitMove(
-        .set, of: part, to: sublocation, conformanceToSinkable: c,
-        anchoredAt: name.site, into: &module)
+      let sublocation = declare(name: name, referringTo: pathInStorage)
+      emitInitialization(of: sublocation, to: rhs, into: &module)
     }
 
     /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`,
@@ -1008,9 +983,10 @@ public struct Emitter {
     // Emit the success branch.
     insertionBlock = firstBranch
     frames.push(.init(scope: AnyScopeID(expr.id)))
-    let a = emitRValue(program[expr.success], into: &module)
     if let s = resultStorage {
-      emitInitialization(of: s, to: a, at: program[expr.success].site, into: &module)
+      emitInitialization(of: s, to: expr.success, into: &module)
+    } else {
+      _ = emitRValue(program[expr.success], into: &module)
     }
     emitStackDeallocs(in: &module, site: expr.site)
     frames.pop()
@@ -1019,9 +995,10 @@ public struct Emitter {
     // Emit the failure branch.
     insertionBlock = secondBranch
     let i = frames.top.allocs.count
-    let b = emitRValue(program[expr.failure], into: &module)
     if let s = resultStorage {
-      emitInitialization(of: s, to: b, at: program[expr.failure].site, into: &module)
+      emitInitialization(of: s, to: expr.failure, into: &module)
+    } else {
+      _ = emitRValue(program[expr.failure], into: &module)
     }
     for a in frames.top.allocs[i...] {
       module.append(module.makeDeallocStack(for: a, anchoredAt: expr.site), to: insertionBlock!)
@@ -1837,8 +1814,10 @@ public struct Emitter {
     converting rvalue: AnyExprID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    let v = emitRValue(rvalue, into: &module)
-    return emitLValue(converting: v, at: rvalue.site, into: &module)
+    let t = program.relations.canonical(rvalue.type)
+    let s = emitAllocStack(for: t, at: rvalue.site, into: &module)
+    emitInitialization(of: s, to: rvalue.id, into: &module)
+    return s
   }
 
   /// Inserts the IR for converting `rvalue` as a lvalue at `site`.
@@ -1847,12 +1826,10 @@ public struct Emitter {
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    let storage = module.append(
-      module.makeAllocStack(module.type(of: rvalue).ast, anchoredAt: site),
-      to: insertionBlock!)[0]
-    frames.top.allocs.append(storage)
-    emitInitialization(of: storage, to: rvalue, at: site, into: &module)
-    return storage
+    let t = module.type(of: rvalue).ast
+    let s = emitAllocStack(for: t, at: site, into: &module)
+    emitInitialization(of: s, to: rvalue, at: site, into: &module)
+    return s
   }
 
   private mutating func emitLValue(
@@ -2049,6 +2026,43 @@ public struct Emitter {
     return module.append(
       module.makeElementAddr(base, at: path, anchoredAt: anchor),
       to: insertionBlock!)[0]
+  }
+
+  /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
+  /// block into `module`.
+  private mutating func emitInitialization(
+    of storage: Operand,
+    to value: AnyExprID,
+    into module: inout Module
+  ) {
+    if let tuple = TupleExpr.ID(value) {
+      emitInitialization(of: storage, to: tuple, into: &module)
+    } else if
+      let call = FunctionCallExpr.ID(value),
+      let n = NameExpr.ID(program.ast[call].callee),
+      case .constructor = program.referredDecls[n]!
+    {
+      emitInitializerCall(program[call], initializing: storage, into: &module)
+    } else {
+      let v = emitRValue(program[value], into: &module)
+      // TODO: Replace by emitMove
+      emitInitialization(of: storage, to: v, at: program.ast[value].site, into: &module)
+    }
+  }
+
+  /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
+  /// block into `module`.
+  private mutating func emitInitialization(
+    of storage: Operand,
+    to value: TupleExpr.ID,
+    into module: inout Module
+  ) {
+    for (i, e) in program.ast[value].elements.enumerated() {
+      let s = module.append(
+        module.makeElementAddr(storage, at: [i], anchoredAt: program.ast[e.value].site),
+        to: insertionBlock!)[0]
+      emitInitialization(of: s, to: e.value, into: &module)
+    }
   }
 
   /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
