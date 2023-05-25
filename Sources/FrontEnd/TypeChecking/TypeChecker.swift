@@ -388,25 +388,22 @@ public struct TypeChecker {
       return complete(.error)
     }
 
-    // Determine whether the declaration has a type annotation.
-    let hasTypeHint = ast[ast[d].pattern].annotation != nil
-
     // Type check the initializer, if any.
     if let initializer = ast[d].initializer {
       let initializerType = exprTypes[initializer].setIfNil(^TypeVariable())
       var initializerConstraints: [Constraint] = shape.facts.constraints
 
       // The type of the initializer may be a subtype of the pattern's
-      if hasTypeHint {
-        initializerConstraints.append(
-          SubtypingConstraint(
-            initializerType, shape.type,
-            origin: ConstraintOrigin(.initializationWithHint, at: ast[initializer].site)))
-      } else {
+      if ast[ast[d].pattern].annotation == nil {
         initializerConstraints.append(
           EqualityConstraint(
             initializerType, shape.type,
             origin: ConstraintOrigin(.initializationWithPattern, at: ast[initializer].site)))
+      } else {
+        initializerConstraints.append(
+          SubtypingConstraint(
+            initializerType, shape.type,
+            origin: ConstraintOrigin(.initializationWithHint, at: ast[initializer].site)))
       }
 
       // Infer the type of the initializer
@@ -421,6 +418,7 @@ public struct TypeChecker {
       bindingsUnderChecking.subtract(names)
 
       // TODO: Complete underspecified generic signatures
+      // TODO: Ensure that the initializer is either movable or the result of a constructor call
 
       let result = complete(inference.solution.typeAssumptions.reify(shape.type))
 
@@ -428,10 +426,9 @@ public struct TypeChecker {
       let s = shape.deferred.reduce(true, { $1(&self, inference.solution) && $0 })
       assert(s || diagnostics.containsError)
       return result
-    } else if hasTypeHint {
-      return complete(shape.type)
     } else {
-      unreachable("expected type annotation")
+      assert(ast[ast[d].pattern].annotation != nil, "expected type annotation")
+      return complete(shape.type)
     }
   }
 

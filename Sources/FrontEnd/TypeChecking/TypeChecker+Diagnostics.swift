@@ -125,7 +125,7 @@ extension Diagnostic {
     .error("type '\(type)' is not a trait", at: site)
   }
 
-  static func error(
+  public static func error(
     _ type: AnyType, doesNotConformTo trait: TraitType, at site: SourceRange,
     because notes: DiagnosticSet = []
   ) -> Diagnostic {

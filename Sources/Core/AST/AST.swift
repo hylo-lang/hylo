@@ -293,6 +293,44 @@ public struct AST {
     return result
   }
 
+  /// Calls `action` on each sub-pattern in `pattern` and its corresponding sub-expression in
+  /// `expression`, along with the path to this sub-pattern, relative to `root`.
+  ///
+  /// Use this method to walk a pattern and a corresponding expression side by side and perform an
+  /// action for each pair. Children of tuple patterns are visited in pre-order if and only ifs the
+  /// corresponding expression is also a tuple. Otherwise, `action` is called on the tuple and the
+  /// sub-patterns are not visited.
+  ///
+  /// - Requires: `expression` structurally matches `pattern`: If `pattern` and `expression` are
+  ///   tuples, then they have equal lengths and labels.
+  public func walking(
+    pattern: AnyPatternID, expression: AnyExprID,
+    at root: PartPath = [],
+    _ action: (_ path: PartPath, _ subpattern: AnyPatternID, _ subexpression: AnyExprID) -> Void
+  ) {
+    switch pattern.kind {
+    case BindingPattern.self:
+      let p = self[BindingPattern.ID(pattern)]!.subpattern
+      walking(pattern: p, expression: expression, at: root, action)
+
+    case TuplePattern.kind:
+      guard let e = TupleExpr.ID(expression) else {
+        walking(pattern: pattern, expression: expression, at: root, action)
+        return
+      }
+
+      let p = TuplePattern.ID(pattern)!
+      for i in self[p].elements.indices {
+        let a = self[p].elements[i]
+        let b = self[e].elements[i]
+        walking(pattern: a.pattern, expression: b.value, at: root + [i], action)
+      }
+
+    default:
+      action(root, pattern, expression)
+    }
+  }
+
   /// Returns the source site of `expr`
   public func site(of expr: FoldedSequenceExpr) -> SourceRange {
     switch expr {

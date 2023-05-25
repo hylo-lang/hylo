@@ -364,23 +364,49 @@ public struct Emitter {
     precondition(program.isLocal(decl.id))
     precondition(read(decl.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
-    let source = decl.initializer.map({ emitLValue($0, into: &module) })
+    // Allocate storage for all the names declared by `decl`.
+    let storage = emitAllocStack(for: decl.type, at: decl.site, into: &module)
 
-    for (path, name) in decl.pattern.subpattern.names {
-      let storage = module.append(
-        module.makeAllocStack(name.decl.type, for: name.decl.id, anchoredAt: name.site),
-        to: insertionBlock!)[0]
-      frames.top.allocs.append(storage)
-      frames[name.decl] = storage
-
-      if let s = source {
-        // TODO: Handle existentials
-        let x0 = emitElementAddr(s, at: path, anchoredAt: name.decl.site, into: &module)
-        let x1 = module.append(
-          module.makeLoad(x0, anchoredAt: name.decl.site),
-          to: insertionBlock!)[0]
-        emitInitialization(of: storage, to: x1, anchoredAt: name.site, into: &module)
+    // Declare each introduced name and initialize them if possible.
+    let lhs = decl.pattern.subpattern.id
+    if let initializer = decl.initializer {
+      program.ast.walking(pattern: lhs, expression: initializer.id) { (path, p, rhs) in
+        // Declare the introduced name if `p` is a name pattern. Otherwise, drop the value of the
+        // the corresponding expression.
+        if let name = NamePattern.ID(p) {
+          declare(name: program[name], referringTo: path, initializedTo: rhs)
+        } else {
+          let part = emitRValue(program[rhs], into: &module)
+          module.append(
+            module.makeDeinit(part, anchoredAt: program.ast[p].site),
+            to: insertionBlock!)
+        }
       }
+    } else {
+      for (path, name) in program.ast.names(in: lhs) {
+        _ = declare(name: program[name], referringTo: path)
+      }
+    }
+
+    /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`, and
+    /// initialize it to the result of `rhs`.
+    func declare(
+      name: NamePattern.Typed, referringTo pathInStorage: PartPath,
+      initializedTo rhs: AnyExprID
+    ) {
+      // TODO: Handle existentials
+      let sublocation = declare(name: name, referringTo: pathInStorage)
+      emitInitialization(of: sublocation, to: rhs, into: &module)
+    }
+
+    /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`,
+    /// returning that sub-location.
+    func declare(name: NamePattern.Typed, referringTo pathInStorage: PartPath) -> Operand {
+      let sublocation = module.append(
+        module.makeElementAddr(storage, at: pathInStorage, anchoredAt: name.site),
+        to: insertionBlock!)[0]
+      frames[name.decl] = sublocation
+      return sublocation
     }
   }
 
@@ -667,6 +693,8 @@ public struct Emitter {
   }
 
   private mutating func emit(assignStmt stmt: AssignStmt.Typed, into module: inout Module) {
+    // The left operand of an assignment should always be marked for mutation, even if the
+    // statement actually denotes initialization.
     guard stmt.left.kind == InoutExpr.self else {
       report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: stmt.left.site.first())))
       return
@@ -679,7 +707,7 @@ public struct Emitter {
     // Built-in types do not require deinitialization.
     let l = program.relations.canonical(stmt.left.type)
     if l.base is BuiltinType {
-      emitInitialization(of: lhs, to: rhs, anchoredAt: stmt.site, into: &module)
+      emitInitialization(of: lhs, to: rhs, at: stmt.site, into: &module)
       return
     }
 
@@ -955,9 +983,10 @@ public struct Emitter {
     // Emit the success branch.
     insertionBlock = firstBranch
     frames.push(.init(scope: AnyScopeID(expr.id)))
-    let a = emitRValue(program[expr.success], into: &module)
     if let s = resultStorage {
-      emitInitialization(of: s, to: a, anchoredAt: program[expr.success].site, into: &module)
+      emitInitialization(of: s, to: expr.success, into: &module)
+    } else {
+      _ = emitRValue(program[expr.success], into: &module)
     }
     emitStackDeallocs(in: &module, site: expr.site)
     frames.pop()
@@ -966,9 +995,10 @@ public struct Emitter {
     // Emit the failure branch.
     insertionBlock = secondBranch
     let i = frames.top.allocs.count
-    let b = emitRValue(program[expr.failure], into: &module)
     if let s = resultStorage {
-      emitInitialization(of: s, to: b, anchoredAt: program[expr.failure].site, into: &module)
+      emitInitialization(of: s, to: expr.failure, into: &module)
+    } else {
+      _ = emitRValue(program[expr.failure], into: &module)
     }
     for a in frames.top.allocs[i...] {
       module.append(module.makeDeallocStack(for: a, anchoredAt: expr.site), to: insertionBlock!)
@@ -1005,8 +1035,14 @@ public struct Emitter {
       switch n.declaration {
       case .builtinFunction(let f):
         return emit(apply: f, to: expr.arguments, at: expr.site, into: &module)
-      case .constructor(let d, let a):
-        return emitRValue(constructorCall: expr, applying: d, parameterizedBy: a, into: &module)
+
+      case .constructor:
+        let s = emitAllocStack(for: expr.type, at: expr.site, into: &module)
+        emitInitializerCall(expr, initializing: s, into: &module)
+        return module.append(
+          module.makeLoad(s, anchoredAt: expr.site),
+          to: insertionBlock!)[0]
+
       default:
         break
       }
@@ -1027,61 +1063,73 @@ public struct Emitter {
       to: insertionBlock!)[0]
   }
 
-  private mutating func emitRValue(
-    constructorCall expr: FunctionCallExpr.Typed,
-    applying d: InitializerDecl.ID,
-    parameterizedBy a: GenericArguments,
+  /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
+  /// initializer `d` parameterized by `a`.
+  ///
+  /// - Parameters:
+  ///   - call: The syntax of the call.
+  ///   - s: The address of uninitialized storage typed by the receiver of `call`. This storage is
+  ///     borrowed for initialization after evaluating `call`'s arguments and before the call.
+  private mutating func emitInitializerCall(
+    _ call: FunctionCallExpr.Typed,
+    initializing s: Operand,
     into module: inout Module
-  ) -> Operand {
+  ) {
+    let callee = NameExpr.Typed(call.callee)!
+    guard case .constructor(let d, let a) = callee.declaration else { preconditionFailure() }
+
     // Handle memberwise constructor calls.
     if program.ast[d].isMemberwise {
-      return emitRValue(memberwiseConstructorCall: expr, into: &module)
+      emitMemberwiseInitializerCall(call, initializing: s, into: &module)
+      return
     }
 
     // Evaluate all arguments.
-    let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
+    let syntheticSite = call.site.file.emptyRange(at: call.site.end)
     let arguments = emit(
-      arguments: expr.arguments, to: expr.callee, synthesizingDefaultArgumentsAt: syntheticSite,
+      arguments: call.arguments, to: call.callee, synthesizingDefaultArgumentsAt: syntheticSite,
       into: &module)
-
-    // Allocate storage for the receiver.
-    let s = module.append(
-      module.makeAllocStack(program.relations.canonical(expr.type), anchoredAt: expr.site),
-      to: insertionBlock!)[0]
-    let r = module.append(
-      module.makeBorrow(.set, from: s, anchoredAt: expr.site),
-      to: insertionBlock!)[0]
 
     // Initialize storage.
     let f = FunctionReference(
       to: program[d], parameterizedBy: a, usedIn: frames.top.scope, in: &module)
-    module.append(
-      module.makeCall(applying: .constant(f), to: [r] + arguments, anchoredAt: expr.site),
-      to: insertionBlock!)
-
-    // Load initialized storage.
-    return module.append(
-      module.makeLoad(s, anchoredAt: expr.site),
+    let receiver = module.append(
+      module.makeBorrow(.set, from: s, anchoredAt: call.site),
       to: insertionBlock!)[0]
+    module.append(
+      module.makeCall(applying: .constant(f), to: [receiver] + arguments, anchoredAt: call.site),
+      to: insertionBlock!)
   }
 
-  /// Inserts the IR for the memberwise initializer call `expr` into `module` at the end of the
-  /// current insertion block.
+  /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
+  /// memberwise initializer `d`.
   ///
-  /// - Requires: The callee of `expr` is a direct reference to a memberwise initializer.
-  private mutating func emitRValue(
-    memberwiseConstructorCall expr: FunctionCallExpr.Typed,
+  /// - Parameters:
+  ///   - call: The syntax of the call.
+  ///   - s: The address of uninitialized storage typed by the receiver of `d`. This storage is
+  ///     borrowed for initialization after evaluating `call`'s arguments and before calling `d`.
+  ///   - d: The initializer referenced by `call`'s callee.
+  private mutating func emitMemberwiseInitializerCall(
+    _ call: FunctionCallExpr.Typed,
+    initializing s: Operand,
     into module: inout Module
-  ) -> Operand {
-    let callee = LambdaType(expr.callee.type)!
+  ) {
+    let callee = LambdaType(call.callee.type)!
     var arguments: [Operand] = []
-    for (p, e) in zip(callee.inputs, expr.arguments) {
+    for (p, e) in zip(callee.inputs, call.arguments) {
       let a = program[e.value]
       arguments.append(emit(argument: a, to: ParameterType(p.type)!, into: &module))
     }
 
-    let s = module.makeRecord(callee.output, aggregating: arguments, anchoredAt: expr.site)
-    return module.append(s, to: insertionBlock!)[0]
+    let x0 = module.append(
+      module.makeRecord(callee.output, aggregating: arguments, anchoredAt: call.site),
+      to: insertionBlock!)[0]
+    let x1 = module.append(
+      module.makeBorrow(.set, from: s, anchoredAt: call.site),
+      to: insertionBlock!)[0]
+    module.append(
+      module.makeStore(x0, at: x1, anchoredAt: call.site),
+      to: insertionBlock!)
   }
 
   /// Inserts the IR for `arguments`, which is an argument passed to a function of type `callee`,
@@ -1766,8 +1814,10 @@ public struct Emitter {
     converting rvalue: AnyExprID.TypedNode,
     into module: inout Module
   ) -> Operand {
-    let v = emitRValue(rvalue, into: &module)
-    return emitLValue(converting: v, at: rvalue.site, into: &module)
+    let t = program.relations.canonical(rvalue.type)
+    let s = emitAllocStack(for: t, at: rvalue.site, into: &module)
+    emitInitialization(of: s, to: rvalue.id, into: &module)
+    return s
   }
 
   /// Inserts the IR for converting `rvalue` as a lvalue at `site`.
@@ -1776,12 +1826,10 @@ public struct Emitter {
     at site: SourceRange,
     into module: inout Module
   ) -> Operand {
-    let storage = module.append(
-      module.makeAllocStack(module.type(of: rvalue).ast, anchoredAt: site),
-      to: insertionBlock!)[0]
-    frames.top.allocs.append(storage)
-    emitInitialization(of: storage, to: rvalue, anchoredAt: site, into: &module)
-    return storage
+    let t = module.type(of: rvalue).ast
+    let s = emitAllocStack(for: t, at: site, into: &module)
+    emitInitialization(of: s, to: rvalue, at: site, into: &module)
+    return s
   }
 
   private mutating func emitLValue(
@@ -1953,6 +2001,18 @@ public struct Emitter {
 
   // MARK: Helpers
 
+  /// Inserts a stack allocation for an object of type `t`.
+  private mutating func emitAllocStack(
+    for t: AnyType, at site: SourceRange, into module: inout Module
+  ) -> Operand {
+    let u = program.relations.canonical(t)
+    let s = module.append(
+      module.makeAllocStack(u, anchoredAt: site),
+      to: insertionBlock!)[0]
+    frames.top.allocs.append(s)
+    return s
+  }
+
   /// Appends the IR for computing the address of the property at `path` rooted at `base` into
   /// `module`, anchoring new at `anchor`.
   ///
@@ -1969,18 +2029,54 @@ public struct Emitter {
   }
 
   /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
-  /// block, anchoring new instructions at `anchor` into `module`.
+  /// block into `module`.
+  private mutating func emitInitialization(
+    of storage: Operand,
+    to value: AnyExprID,
+    into module: inout Module
+  ) {
+    if let tuple = TupleExpr.ID(value) {
+      emitInitialization(of: storage, to: tuple, into: &module)
+    } else if let call = FunctionCallExpr.ID(value),
+      let n = NameExpr.ID(program.ast[call].callee),
+      case .constructor = program.referredDecls[n]!
+    {
+      emitInitializerCall(program[call], initializing: storage, into: &module)
+    } else {
+      let v = emitRValue(program[value], into: &module)
+      // TODO: Replace by emitMove
+      emitInitialization(of: storage, to: v, at: program.ast[value].site, into: &module)
+    }
+  }
+
+  /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
+  /// block into `module`.
+  private mutating func emitInitialization(
+    of storage: Operand,
+    to value: TupleExpr.ID,
+    into module: inout Module
+  ) {
+    for (i, e) in program.ast[value].elements.enumerated() {
+      let s = module.append(
+        module.makeElementAddr(storage, at: [i], anchoredAt: program.ast[e.value].site),
+        to: insertionBlock!)[0]
+      emitInitialization(of: s, to: e.value, into: &module)
+    }
+  }
+
+  /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
+  /// block, anchoring new instructions at `site` into `module`.
   private mutating func emitInitialization(
     of storage: Operand,
     to value: Operand,
-    anchoredAt anchor: SourceRange,
+    at site: SourceRange,
     into module: inout Module
   ) {
     let s = module.append(
-      module.makeBorrow(.set, from: storage, anchoredAt: anchor),
+      module.makeBorrow(.set, from: storage, anchoredAt: site),
       to: insertionBlock!)[0]
     module.append(
-      module.makeStore(value, at: s, anchoredAt: anchor),
+      module.makeStore(value, at: s, anchoredAt: site),
       to: insertionBlock!)
   }
 
