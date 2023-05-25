@@ -48,13 +48,10 @@ extension GlobalAddrInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates an `global_addr` anchored at `anchor` that returns the address of `g` in `m`, which
+  /// Creates an `global_addr` anchored at `site` that returns the address of `g` in `m`, which
   /// has type `t`.
   func makeGlobalAddr(
-    of g: Module.GlobalID,
-    in m: ModuleDecl.ID,
-    typed t: AnyType,
-    anchoredAt anchor: SourceRange
+    of g: Module.GlobalID, in m: ModuleDecl.ID, typed t: AnyType, at anchor: SourceRange
   ) -> GlobalAddrInstruction {
     .init(id: g, container: m, valueType: t, site: anchor)
   }

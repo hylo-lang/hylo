@@ -306,9 +306,9 @@ extension Module {
       let f = demandMoveOperatorDeclaration(k, from: s.sinkable)
       let move = FunctionReference(to: f, usedIn: s.sinkable.scope, in: self)
 
-      let r = insert(makeBorrow(k, from: s.target, anchoredAt: s.site), before: i)[0]
-      insert(makeCall(applying: .constant(move), to: [r, s.object], anchoredAt: s.site), before: i)
-      insert(makeEndBorrow(r, anchoredAt: s.site), before: i)
+      let r = insert(makeBorrow(k, from: s.target, at: s.site), before: i)[0]
+      insert(makeCall(applying: .constant(move), to: [r, s.object], at: s.site), before: i)
+      insert(makeEndBorrow(r, at: s.site), before: i)
       removeInstruction(i)
 
       return r.instruction!.address
@@ -498,12 +498,12 @@ extension Module {
   ) {
     for path in initializedPaths {
       let s = insert(
-        makeElementAddr(root, at: path, anchoredAt: anchor),
+        makeElementAddr(root, at: path, at: anchor),
         before: i)[0]
       let o = insert(
-        makeLoad(s, anchoredAt: anchor),
+        makeLoad(s, at: anchor),
         before: i)[0]
-      insert(makeDeinit(o, anchoredAt: anchor), before: i)
+      insert(makeDeinit(o, at: anchor), before: i)
     }
   }
 

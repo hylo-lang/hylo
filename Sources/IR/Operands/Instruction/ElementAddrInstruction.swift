@@ -50,7 +50,7 @@ extension ElementAddrInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates an `element_addr` anchored at `anchor` that computes the address of the property at
+  /// Creates an `element_addr` anchored at `site` that computes the address of the property at
   /// `path` rooted at `base`.
   ///
   /// - Note: `base` is returned unchanged if `elementPath` is empty.
@@ -58,14 +58,11 @@ extension Module {
   ///   - base: The base address used for the computation.
   ///   - elementPath: An array of of indices identifying a sub-location in `base`.
   func makeElementAddr(
-    _ base: Operand,
-    at elementPath: PartPath,
-    anchoredAt anchor: SourceRange
+    _ base: Operand, at elementPath: PartPath, at anchor: SourceRange
   ) -> ElementAddrInstruction {
     precondition(type(of: base).isAddress)
-
     let l = AbstractTypeLayout(of: type(of: base).ast, definedIn: program)
-    return ElementAddrInstruction(
+    return .init(
       base: base,
       elementPath: elementPath,
       elementType: .address(l[elementPath].type),

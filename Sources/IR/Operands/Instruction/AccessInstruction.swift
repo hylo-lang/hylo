@@ -62,27 +62,25 @@ extension AccessInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates an `access` anchored at `anchor` that takes `capability` from `source`.
+  /// Creates an `access` anchored at `site` that takes `capability` from `source`.
   ///
   /// - Parameters:
   ///   - capabilities: The capability being borrowed. Must not be empty.
   ///   - source: The address from which the capability is borrowed. Must have an address type.
   ///   - binding: The declaration of the binding to which the borrow corresponds, if any.
   func makeAccess(
-    _ capabilities: AccessEffectSet,
-    from source: Operand,
+    _ capabilities: AccessEffectSet, from source: Operand,
     correspondingTo binding: VarDecl.Typed? = nil,
-    anchoredAt anchor: SourceRange
+    at site: SourceRange
   ) -> AccessInstruction {
     precondition(!capabilities.isEmpty)
     precondition(type(of: source).isAddress)
-
     return .init(
       capabilities: capabilities,
       accessedType: type(of: source).ast,
       source: source,
       binding: binding,
-      site: anchor)
+      site: site)
   }
 
 }

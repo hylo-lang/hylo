@@ -6,6 +6,7 @@ public struct BranchInstruction: Terminator {
   /// The target of the branch.
   public private(set) var target: Block.ID
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -46,15 +47,12 @@ extension BranchInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `branch` anchored at `anchor` that unconditionally jumps at the start of a block.
+  /// Creates a `branch` anchored at `site` that unconditionally jumps at the start of a block.
   ///
   /// - Parameters:
   ///   - target: The block in which control flow jumps.
-  func makeBranch(
-    to target: Block.ID,
-    anchoredAt anchor: SourceRange
-  ) -> BranchInstruction {
-    return BranchInstruction(target: target, site: anchor)
+  func makeBranch(to target: Block.ID, at anchor: SourceRange) -> BranchInstruction {
+    .init(target: target, site: anchor)
   }
 
 }

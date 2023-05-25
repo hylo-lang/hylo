@@ -9,6 +9,7 @@ public struct LLVMInstruction: Instruction {
   /// The operands of the instruction.
   public private(set) var operands: [Operand]
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -36,15 +37,13 @@ extension LLVMInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a llvm instruction anchored at `anchor` that applies `f` to `operands`.
+  /// Creates a llvm instruction anchored at `site` that applies `f` to `operands`.
   ///
   /// - Parameters:
   ///   - f: A built-in function.
   ///   - operands: A collection of built-in objects.
   func makeLLVM(
-    applying s: NativeInstruction,
-    to operands: [Operand],
-    anchoredAt anchor: SourceRange
+    applying s: NativeInstruction, to operands: [Operand], at site: SourceRange
   ) -> LLVMInstruction {
     precondition(
       operands.allSatisfy { (o) in
@@ -52,7 +51,7 @@ extension Module {
         return t.isObject && (t.ast.base is BuiltinType)
       })
 
-    return LLVMInstruction(applying: s, to: operands, site: anchor)
+    return .init(applying: s, to: operands, site: site)
   }
 
 }

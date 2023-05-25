@@ -76,7 +76,7 @@ extension ProjectBundleInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `project_bundle` anchored at `anchor` that projects a value by applying one of
+  /// Creates a `project_bundle` anchored at `site` that projects a value by applying one of
   /// the given `variants` on `arguments`. The variants are defined in `bundle`, which whose
   /// declaration reference has type `bundleType`.
   ///
@@ -86,7 +86,7 @@ extension Module {
     of bundle: SubscriptDecl.ID,
     typed bundleType: SubscriptType,
     to arguments: [Operand],
-    anchoredAt anchor: SourceRange
+    at site: SourceRange
   ) -> ProjectBundleInstruction {
     precondition(bundleType[.isCanonical])
     return .init(
@@ -94,7 +94,7 @@ extension Module {
       pureCalleeType: bundleType.pure,
       variants: variants,
       operands: arguments,
-      site: anchor)
+      site: site)
   }
 
 }
