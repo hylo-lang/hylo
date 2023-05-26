@@ -16,12 +16,12 @@ You will need Swift 5.7 or higher to build the compiler from sources.
 
 You can skip this step if you're doing development exlusively in a [devcontainer](#building-val-devcontainer-with-vscode).  Otherwise:
 
-1. Install LLVM 15 or later on your system. Then, in this project's root directory.
+1. Install LLVM 15 or later on your system (e.g. `brew install llvm`). Then, in this project's root directory.
 2. `swift package resolve` to get the tool for step 3.
 3. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description.
 4. Either
    1. `sudo mv llvm.pc /usr/local/lib/pkgconfig` (if you want to use Xcode), or
-   2. `export PKG_CONFIG_PATH=$PWD`
+   2. `export PKG_CONFIG_PATH=$PWD` in any shell where you want to work on this project
    
 ### Building the compiler
 
