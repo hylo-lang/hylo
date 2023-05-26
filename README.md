@@ -20,7 +20,7 @@ You can skip this step if you're doing development exlusively in a [devcontainer
 2. `swift package resolve` to get the tool for step 3.
 3. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description.
 4. Either
-   1. `sudo mv llvm.pc /usr/local/lib/pkgconfig` (if you want to use Xcode), or
+   1. `sudo mkdir -p /usr/local/lib/pkgconfig && sudo mv llvm.pc /usr/local/lib/pkgconfig/` (if you want to use Xcode), or
    2. `export PKG_CONFIG_PATH=$PWD` in any shell where you want to work on this project
    
 ### Building the compiler
