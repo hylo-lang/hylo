@@ -1836,8 +1836,23 @@ public struct Emitter {
     insertionBlock = success
   }
 
-  /// Returns the result of applying `action` to `self` in a copy of `self` whose insertion block,
-  /// frames, and receiver are clear.
+  /// Returns the result of calling `action` on a copy of `self` in which a `newFrame` is the top
+  /// frame.
+  ///
+  /// `newFrame` is pushed on `self.frames` before `action` is called. When `action` returns,
+  /// outstanding stack allocations are deallocated and `newFrame` is popped. References to stack
+  /// memory allocated by `action` are invalidated when this method returns.
+  private mutating func pushing<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
+    frames.push(newFrame)
+    defer {
+      emitStackDeallocs(site: .empty(atEndOf: program.ast[insertionScope!].site))
+      frames.pop()
+    }
+    return action(&self)
+  }
+
+  /// Returns the result of calling `action` on a copy of `self` whose insertion block, frames,
+  /// and receiver are clear.
   private mutating func withClearContext<T>(_ action: (inout Self) throws -> T) rethrows -> T {
     var b: Block.ID? = nil
     var r: ParameterDecl.Typed? = nil
