@@ -192,7 +192,7 @@ public struct ValCommand: ParsableCommand {
     #elseif os(Linux)
       try makeLinuxExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
     #elseif os(Windows)
-      try makeWindowsExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+      try makeWindowsExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
 
     #else
       _ = objectFiles
@@ -276,10 +276,10 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// `binaryPath`, logging diagnostics to `log`.
-  private func makeWindowsExecutable<L: Log>(
+  private func makeWindowsExecutable(
     at binaryPath: String,
     linking objects: [URL],
-    loggingTo log: inout L
+    diagnostics: inout DiagnosticSet
   ) throws {
     var arguments = [
       "-defaultlib:msvcrt", "-out:" + binaryPath,
@@ -288,7 +288,7 @@ public struct ValCommand: ParsableCommand {
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
-    try runCommandLine(find("lld-link"), arguments, loggingTo: &log)
+    try runCommandLine(find("lld-link"), arguments, diagnostics: &diagnostics)
   }
 
   /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`
