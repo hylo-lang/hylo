@@ -1,4 +1,4 @@
-//! expect-success
+//- compileAndRun expecting: success
 
 type A {
   public var x: Int

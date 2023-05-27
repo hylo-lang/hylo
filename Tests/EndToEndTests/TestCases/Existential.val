@@ -1,4 +1,4 @@
-//! expect-success
+//- compileAndRun expecting: success
 
 fun use<T>(_ x: T) {}
 

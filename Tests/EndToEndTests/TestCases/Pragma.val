@@ -1,4 +1,4 @@
-//! expect-success
+//- compileAndRun expecting: success
 
 fun f(_ f: sink Int = #line) -> Int { f }
 
