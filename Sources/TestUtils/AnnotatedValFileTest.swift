@@ -30,13 +30,15 @@ extension XCTestCase {
   /// Applies `processAndCheck` to `valToTest`, along with the subset of its annotations
   /// whose commands match `checkedCommands`, and reports resulting XCTest failures, along with any
   /// additional failures where the effects of processing don't match the its annotation
-  /// commands ("diagnostic", "expect-failure", and "expect-success").
+  /// commands ("//! ... diagnostic ...").
   ///
   /// - Parameters:
   ///   - checkedCommands: the annnotation commands to be validated by `processAndCheck`.
   ///   - processAndCheck: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
+  ///   - expectSuccess: true if an error from `processAndCheck` represents a test failure, false if
+  ///     the lack of an error represents a test failure.
   fileprivate func checkAnnotations(
     in valToTest: SourceFile,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
@@ -44,7 +46,8 @@ extension XCTestCase {
       _ file: SourceFile,
       _ annotationsToCheck: ArraySlice<TestAnnotation>,
       _ diagnostics: inout DiagnosticSet
-    ) throws -> [XCTIssue]
+    ) throws -> [XCTIssue],
+    expectSuccess: Bool
   ) throws {
     var annotations = TestAnnotation.parseAll(from: valToTest)
 
@@ -66,7 +69,7 @@ extension XCTestCase {
             testFailures: completedProcessingTestFailures ?? [],
             diagnostics: diagnostics
           ),
-          unhandledAnnotations: diagnosticAnnotations)
+          unhandledAnnotations: diagnosticAnnotations, expectSuccess: expectSuccess)
       })
 
     for f in failures {
@@ -75,13 +78,16 @@ extension XCTestCase {
   }
 
   /// Applies `process` to the ".val" file at the given path and reports XCTest failures where the
-  /// effects of processing don't match the file's annotation commands ("diagnostic",
-  /// "expect-failure", and "expect-success").
+  /// effects of processing don't match the file's annotation commands ("//! ... diagnostic ...").
   ///
   /// - Parameter process: applies some compilation phases to `file`, updating `diagnostics`
   ///   with any generated diagnostics. Throws an `Error` if any phases failed.
+  /// - Parameter expectSuccess: true if an error from `process` represents a test failure, false if
+  ///   the lack of an error represents a test failure; nil if that information is to be derived
+  ///   from the contents of the file.
   public func checkAnnotatedValFileDiagnostics(
     inFileAt valFilePath: String,
+    expectSuccess: Bool? = nil,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
     let f = try SourceFile(atPath: valFilePath)
@@ -91,15 +97,18 @@ extension XCTestCase {
         assert(annotationsToHandle.isEmpty)
         try process(file, &diagnostics)
         return []
-      }
+      },
+      expectSuccess: expectSuccess ?? f.line(1).text.hasSuffix("success\n")
     )
   }
 
-  /// Given the effects of processing and the annotations not specifically handled by
-  /// `processAndCheck` above, returns the final set of test failures to be reported to XCTest.
+  /// Given the effects of processing, the annotations not specifically handled by `processAndCheck`
+  /// above, and the expectation of success (or not), returns the final set of test failures to be
+  /// reported to XCTest.
   fileprivate func failuresToReport(
     effectsOfProcessing processing: ProcessingEffects,
-    unhandledAnnotations: ArraySlice<TestAnnotation>
+    unhandledAnnotations: ArraySlice<TestAnnotation>,
+    expectSuccess: Bool
   ) -> [XCTIssue] {
     var testFailures = processing.testFailures
 

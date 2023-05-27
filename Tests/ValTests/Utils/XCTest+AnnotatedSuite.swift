@@ -11,8 +11,7 @@ extension XCTestCase {
 
   /// Applies `process` to each ".val" file in the test suite at `suitePath` (relative to the
   /// `ValTests/` directory of this project) and reports XCTest failures where the effects of
-  /// processing don't match the file's annotation commands ("diagnostic", "expect-failure", and
-  /// "expect-success").
+  /// processing don't match the file's annotation commands ("//! ... diagnostic ...").
   ///
   /// - Parameter process: applies some compilation phases to `file`, updating `diagnostics`
   ///   with any generated diagnostics. Throws an `Error` if any phases failed.
