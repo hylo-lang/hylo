@@ -26,9 +26,9 @@ class EndToEndTestCase: XCTestCase {
   func compileAndRun(_ valFilePath: String)
     throws
   {
-    // Using an IUO here because threading it through all the layers used by compile is just too
-    // awful.
-    var executable: URL!
+    // Using an optional here because threading it through all the layers used by `compile` is just
+    // too awful.
+    var executable: URL? = nil
 
     try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath) {
       (_ valSource: SourceFile, _ diagnostics: inout DiagnosticSet) in
@@ -44,13 +44,16 @@ class EndToEndTestCase: XCTestCase {
       }
     }
 
-    let (status, _) = try run(executable)
-    if status != 0 {
-      record(
-        XCTIssue(
-          Diagnostic.error(
-            "execution failed with exit code \(status)",
-            at: try SourceFile(path: valFilePath).wholeRange)))
+    if let x = executable {
+      let (status, _) = try run(x)
+
+      if status != 0 {
+        record(
+          XCTIssue(
+            Diagnostic.error(
+              "execution failed with exit code \(status)",
+              at: try SourceFile(path: valFilePath).wholeRange)))
+      }
     }
   }
 
