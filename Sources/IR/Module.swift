@@ -140,11 +140,11 @@ public struct Module {
     return true
   }
 
-  /// Applies `p` to in this module.
-  public mutating func applyPass(_ p: ModulePass) {
+  /// Applies `p` to in this module, which is in `ir`.
+  public mutating func applyPass(_ p: ModulePass, in ir: LoweredProgram) {
     switch p {
     case .depolymorphize:
-      depolymorphize()
+      depolymorphize(in: ir)
     }
   }
 
@@ -188,13 +188,16 @@ public struct Module {
     let f = Function.ID(d.id)
     if functions[f] != nil { return f }
 
+    let parameters = program.accumulatedGenericParameters(of: d.id)
     let output = program.relations.canonical((d.type.base as! CallableType).output)
     let inputs = loweredParameters(of: d.id)
+
     let entity = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
       site: d.site,
       linkage: .external,
+      parameters: Array(parameters),
       inputs: inputs,
       output: output,
       blocks: [])
@@ -220,9 +223,9 @@ public struct Module {
     switch c.implementations[d]! {
     case .concrete:
       fatalError("not implemented")
-    case .synthetic(let t):
-      let f = Function.ID(synthesized: d, for: t)
-      declareSyntheticFunction(f, typed: LambdaType(t)!)
+    case .synthetic(let s):
+      let f = Function.ID(synthesized: d, for: s.type)
+      declareSyntheticFunction(f, typed: LambdaType(s.type)!)
       return f
     }
   }
@@ -232,13 +235,16 @@ public struct Module {
     let f = Function.ID(d.id)
     if functions[f] != nil { return f }
 
+    let parameters = program.accumulatedGenericParameters(of: d.id)
     let output = program.relations.canonical(SubscriptImplType(d.type)!.output)
     let inputs = loweredParameters(of: d.id)
+
     let entity = Function(
       isSubscript: true,
       name: program.debugName(decl: d.id),
       site: d.site,
       linkage: .external,
+      parameters: Array(parameters),
       inputs: inputs,
       output: output,
       blocks: [])
@@ -254,12 +260,15 @@ public struct Module {
     let f = Function.ID(initializer: d.id)
     if functions[f] != nil { return f }
 
+    let parameters = program.accumulatedGenericParameters(of: d.id)
     let inputs = loweredParameters(of: d.id)
+
     let entity = Function(
       isSubscript: false,
       name: program.debugName(decl: d.id),
       site: d.introducer.site,
       linkage: .external,
+      parameters: Array(parameters),
       inputs: inputs,
       output: .void,
       blocks: [])
@@ -327,6 +336,7 @@ public struct Module {
       name: "",
       site: .empty(at: syntax.site.first()),
       linkage: .external,
+      parameters: [],  // TODO
       inputs: inputs,
       output: output,
       blocks: [])

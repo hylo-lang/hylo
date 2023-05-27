@@ -10,6 +10,7 @@ public struct OpenInstruction: Instruction {
   /// The type of the witness to unwrap.
   public let type: AnyType
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -40,20 +41,16 @@ extension OpenInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates an `unwrap` anchored at `anchor` that unwraps the witness of `container` as a value
+  /// Creates an `unwrap` anchored at `site` that unwraps the witness of `container` as a value
   /// of type `t`.
   ///
   /// - Parameters:
   ///   - container: An existential container. Must have an existential type.
   ///   - type: The type of the witness packaged in `container`.
-  func makeOpen(
-    _ container: Operand,
-    as t: AnyType,
-    anchoredAt anchor: SourceRange
-  ) -> OpenInstruction {
+  func makeOpen(_ container: Operand, as t: AnyType, at site: SourceRange) -> OpenInstruction {
     precondition(type(of: container).isObject)
     precondition(t[.isCanonical])
-    return .init(container: container, type: t, site: anchor)
+    return .init(container: container, type: t, site: site)
   }
 
 }

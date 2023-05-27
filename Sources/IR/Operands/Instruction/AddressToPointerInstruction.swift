@@ -9,6 +9,7 @@ public struct AddressToPointerInstruction: Instruction {
   /// The address to convert.
   public private(set) var source: Operand
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -30,13 +31,12 @@ public struct AddressToPointerInstruction: Instruction {
 
 extension Module {
 
-  /// Creates an `address_to_pointer` anchored at `anchor` that converts `source` to a built-in
+  /// Creates an `address_to_pointer` anchored at `site` that converts `source` to a built-in
   /// pointer value.
   func makeAddressToPointer(
-    _ source: Operand,
-    anchoredAt anchor: SourceRange
+    _ source: Operand, at site: SourceRange
   ) -> AddressToPointerInstruction {
-    .init(source: source, site: anchor)
+    .init(source: source, site: site)
   }
 
 }

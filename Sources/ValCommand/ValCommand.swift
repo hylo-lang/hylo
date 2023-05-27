@@ -11,40 +11,22 @@ import ValModule
 public struct ValCommand: ParsableCommand {
 
   /// The type of the output files to generate.
-  private enum OutputType: ExpressibleByArgument {
+  private enum OutputType: String, ExpressibleByArgument {
 
     /// AST before type-checking.
-    case rawAST
+    case rawAST = "raw-ast"
 
     /// Val IR before mandatory transformations.
-    case rawIR
+    case rawIR = "raw-ir"
 
     /// Val IR.
-    case ir
+    case ir = "ir"
 
     /// LLVM IR
-    case llvm
+    case llvm = "llvm"
 
     /// Executable binary.
-    case binary
-
-    init?(argument: String) {
-      switch argument {
-      case "raw-ast":
-        self = .rawAST
-      case "raw-ir":
-        self = .rawIR
-      case "ir":
-        self = .ir
-      case "llvm":
-        self = .llvm
-      case "binary":
-        self = .binary
-      default:
-        return nil
-      }
-    }
-
+    case binary = "binary"
   }
 
   public static let configuration = CommandConfiguration(commandName: "valc")
@@ -86,9 +68,23 @@ public struct ValCommand: ParsableCommand {
   @Option(
     name: [.customLong("transform")],
     help: ArgumentHelp(
-      "Applies the specify transformations after IR lowering.",
+      "Apply the specify transformations after IR lowering.",
       valueName: "transforms"))
   private var transforms: ModulePassList?
+
+  @Option(
+    name: [.customShort("L")],
+    help: ArgumentHelp(
+      "Add a directory to the library search path.",
+      valueName: "directory"))
+  private var librarySearchPaths: [String] = []
+
+  @Option(
+    name: [.customShort("l")],
+    help: ArgumentHelp(
+      "Link the generated crate(s) to the specified native library.",
+      valueName: "name"))
+  private var libraries: [String] = []
 
   @Option(
     name: [.customShort("o")],
@@ -113,27 +109,30 @@ public struct ValCommand: ParsableCommand {
   }
 
   public func run() throws {
-    var errorLog = StandardErrorLog()
-    ValCommand.exit(withError: try execute(loggingTo: &errorLog))
+    let (exitCode, diagnostics) = try execute()
+
+    diagnostics.render(
+      into: &standardError, style: ProcessInfo.terminalIsConnected ? .styled : .unstyled)
+
+    ValCommand.exit(withError: exitCode)
   }
 
-  /// Executes the command, logging Val messages to `errorLog`, and returns its exit status.
+  /// Executes the command, returning its exit status and any generated diagnostics.
   ///
   /// Propagates any thrown errors that are not Val diagnostics,
-  public func execute<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws -> ExitCode {
+  public func execute() throws -> (ExitCode, DiagnosticSet) {
+    var diagnostics = DiagnosticSet()
     do {
-      try executeCommand(loggingTo: &errorLog)
+      try executeCommand(diagnostics: &diagnostics)
     } catch let d as DiagnosticSet {
       assert(d.containsError, "Diagnostics containing no errors were thrown")
-      return ExitCode.failure
+      return (ExitCode.failure, diagnostics)
     }
-    return ExitCode.success
+    return (ExitCode.success, diagnostics)
   }
 
-  /// Executes the command, logging Val messages to `errorLog`.
-  private func executeCommand<ErrorLog: Log>(loggingTo errorLog: inout ErrorLog) throws {
-    var diagnostics = DiagnosticSet()
-    defer { errorLog.log(diagnostics: diagnostics) }
+  /// Executes the command, accumulating diagnostics in `diagnostics`.
+  private func executeCommand(diagnostics: inout DiagnosticSet) throws {
 
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
@@ -158,20 +157,17 @@ public struct ValCommand: ParsableCommand {
 
     // IR
 
+    var ir = try lower(program: program, reportingDiagnosticsInto: &diagnostics)
+
     if outputType == .ir || outputType == .rawIR {
-      let m = try lower(sourceModule, in: program, reportingDiagnosticsInto: &diagnostics)
+      let m = ir.modules[sourceModule]!
       try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
 
-    var irModules: [ModuleDecl.ID: IR.Module] = [:]
-    for d in ast.modules {
-      irModules[d] = try lower(d, in: program, reportingDiagnosticsInto: &diagnostics)
-    }
-
-    let ir = LoweredProgram(syntax: program, modules: irModules)
-
     // LLVM
+
+    ir.applyPass(.depolymorphize)
 
     let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
     var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
@@ -187,16 +183,17 @@ public struct ValCommand: ParsableCommand {
 
     assert(outputType == .binary)
 
-    let objectFiles = try llvmProgram.write(
-      .objectFile, to: FileManager.default.temporaryDirectory)
+    let objectDir = try FileManager.default.makeTemporaryDirectory()
+    let objectFiles = try llvmProgram.write(.objectFile, to: objectDir)
     let binaryPath = executableOutputPath(default: productName)
 
     #if os(macOS)
-      try makeMacOSExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+      try makeMacOSExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
     #elseif os(Linux)
-      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
     #elseif os(Windows)
       try makeWindowsExecutable(at: binaryPath, linking: objectFiles, loggingTo: &errorLog)
+
     #else
       _ = objectFiles
       _ = binaryPath
@@ -204,56 +201,78 @@ public struct ValCommand: ParsableCommand {
     #endif
   }
 
-  /// Returns `m`, which is `program`, lowered to Val IR, accumulating diagnostics into `log` and
-  /// throwing if an error occured.
+  /// Returns `program` lowered to Val IR, accumulating diagnostics into `log` and throwing if an
+  /// error occured.
+  ///
+  /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
   private func lower(
-    _ m: ModuleDecl.ID, in program: TypedProgram,
-    reportingDiagnosticsInto log: inout DiagnosticSet
-  ) throws -> IR.Module {
-    var ir = try IR.Module(lowering: m, in: program, diagnostics: &log)
-    if outputType != .rawIR {
-      try ir.applyMandatoryPasses(reportingDiagnosticsInto: &log)
+    program: TypedProgram, reportingDiagnosticsInto log: inout DiagnosticSet
+  ) throws -> IR.LoweredProgram {
+    var loweredModules: [ModuleDecl.ID: IR.Module] = [:]
+    for d in program.ast.modules {
+      loweredModules[d] = try lower(d, in: program, reportingDiagnosticsInto: &log)
     }
+
+    var ir = IR.LoweredProgram(syntax: program, modules: loweredModules)
     if let t = transforms {
       for p in t.elements { ir.applyPass(p) }
     }
     return ir
   }
 
+  /// Returns `m`, which is `program`, lowered to Val IR, accumulating diagnostics into `log` and
+  /// throwing if an error occured.
+  ///
+  /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
+  private func lower(
+    _ m: ModuleDecl.ID, in program: TypedProgram, reportingDiagnosticsInto log: inout DiagnosticSet
+  ) throws -> IR.Module {
+    var ir = try IR.Module(lowering: m, in: program, diagnostics: &log)
+    if outputType != .rawIR {
+      try ir.applyMandatoryPasses(reportingDiagnosticsInto: &log)
+    }
+    return ir
+  }
+
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
-  /// logging diagnostics to `log`.
-  private func makeMacOSExecutable<L: Log>(
-    at binaryPath: String,
-    linking objects: [URL],
-    loggingTo log: inout L
+  private func makeMacOSExecutable(
+    at binaryPath: String, linking objects: [URL], diagnostics: inout DiagnosticSet
   ) throws {
     let xcrun = try find("xcrun")
     let sdk =
-      try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"], loggingTo: &log) ?? ""
+      try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"], diagnostics: &diagnostics)
+      ?? ""
 
     var arguments = [
       "-r", "ld", "-o", binaryPath,
       "-L\(sdk)/usr/lib",
-      "-lSystem", "-lc++",
     ]
+    arguments.append(contentsOf: librarySearchPaths.map({ "-L\($0)" }))
     arguments.append(contentsOf: objects.map(\.path))
-    try runCommandLine(xcrun, arguments, loggingTo: &log)
+    arguments.append("-lSystem")
+    arguments.append("-lc++")
+    arguments.append(contentsOf: libraries.map({ "-l\($0)" }))
+
+    try runCommandLine(xcrun, arguments, diagnostics: &diagnostics)
   }
 
-  /// `binaryPath`, logging diagnostics to `log`.
-  private func makeLinuxExecutable<L: Log>(
+  /// Combines the object files located at `objects` into an executable file at `binaryPath`,
+  /// logging diagnostics to `log`.
+  private func makeLinuxExecutable(
     at binaryPath: String,
     linking objects: [URL],
-    loggingTo log: inout L
+    diagnostics: inout DiagnosticSet
   ) throws {
     var arguments = [
       "-o", binaryPath,
     ]
+    arguments.append(contentsOf: librarySearchPaths.map({ "-L\($0)" }))
     arguments.append(contentsOf: objects.map(\.path))
+    arguments.append(contentsOf: libraries.map({ "-l\($0)" }))
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
-    try runCommandLine(find("clang++"), arguments, loggingTo: &log)
+    try runCommandLine(find("clang++"), arguments, diagnostics: &diagnostics)
   }
 
   /// `binaryPath`, logging diagnostics to `log`.
@@ -294,10 +313,10 @@ public struct ValCommand: ParsableCommand {
     return "Main"
   }
 
-  /// Writes `source` to the `filename`, possibly with verbose logging.
-  private func write<L: Log>(_ source: String, toURL url: URL, loggingTo log: inout L) throws {
+  /// Writes `source` to `url`, possibly with verbose logging.
+  private func write(_ source: String, toURL url: URL) throws {
     if verbose {
-      log.log("Writing \(url)")
+      standardError.write("Writing \(url)")
     }
     try source.write(to: url, atomically: true, encoding: .utf8)
   }
@@ -346,13 +365,13 @@ public struct ValCommand: ParsableCommand {
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
   @discardableResult
-  private func runCommandLine<L: Log>(
+  private func runCommandLine(
     _ programPath: String,
     _ arguments: [String] = [],
-    loggingTo log: inout L
+    diagnostics: inout DiagnosticSet
   ) throws -> String? {
     if verbose {
-      log.log(([programPath] + arguments).joined(separator: " "))
+      standardError.write(([programPath] + arguments).joined(separator: " "))
     }
 
     let pipe = Pipe()

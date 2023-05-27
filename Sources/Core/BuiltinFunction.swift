@@ -46,7 +46,7 @@ extension BuiltinFunction.Name: CustomStringConvertible {
     case .llvm(let n):
       return n.description
     case .addressOf:
-      return "address_of(_:)"
+      return "address(of:)"
     }
   }
 
@@ -149,6 +149,14 @@ extension BuiltinFunction {
     case "sitofp":
       guard let (s, d) = (builtinType ++ builtinType)(&tokens) else { return nil }
       self = .init(name: .llvm(.sitofp(s, d)))
+
+    case "inttoptr":
+      guard let t = builtinType(&tokens) else { return nil }
+      self = .init(name: .llvm(.inttoptr(t)))
+
+    case "ptrtoint":
+      guard let t = builtinType(&tokens) else { return nil }
+      self = .init(name: .llvm(.ptrtoint(t)))
 
     case "fadd":
       guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }

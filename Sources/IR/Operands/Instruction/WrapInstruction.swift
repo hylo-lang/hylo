@@ -12,6 +12,7 @@ public struct WrapInstruction: Instruction {
   /// The type of the existential container.
   public let interface: LoweredType
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -47,7 +48,7 @@ extension WrapInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `wrap` anchored at `anchor` that creates an existential container of type
+  /// Creates a `wrap` anchored at `site` that creates an existential container of type
   /// `interface` wrapping `witness` and `table`.
   ///
   /// - Parameters:
@@ -55,13 +56,11 @@ extension Module {
   ///   - interface: The type of the container.
   ///   - table: The witness table of the wrapped value. Must be a pointer to a witness table.
   func makeWrap(
-    _ witness: Operand,
-    _ table: Operand,
-    as interface: ExistentialType,
-    anchoredAt anchor: SourceRange
+    _ witness: Operand, _ table: Operand, as interface: ExistentialType,
+    at site: SourceRange
   ) -> WrapInstruction {
     precondition(type(of: witness).isAddress)
-    return .init(witness: witness, table: table, interface: .object(interface), site: anchor)
+    return .init(witness: witness, table: table, interface: .object(interface), site: site)
   }
 
 }

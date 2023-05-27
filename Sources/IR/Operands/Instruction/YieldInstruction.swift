@@ -38,12 +38,10 @@ public struct YieldInstruction: Instruction {
 
 extension Module {
 
-  /// Creates a `yield` anchored at `anchor` that projects `a` with capability `c`.
-  func makeYield(
-    _ c: AccessEffect, _ a: Operand, anchoredAt anchor: SourceRange
-  ) -> YieldInstruction {
+  /// Creates a `yield` anchored at `site` that projects `a` with capability `c`.
+  func makeYield(_ c: AccessEffect, _ a: Operand, at site: SourceRange) -> YieldInstruction {
     precondition(type(of: a).isAddress)
-    return .init(capability: c, projection: a, site: anchor)
+    return .init(capability: c, projection: a, site: site)
   }
 
 }

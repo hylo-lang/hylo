@@ -40,8 +40,8 @@ public struct MoveInstruction: Instruction {
 
 extension Module {
 
-  /// Creates a `move` instruction at `anchor` that moves `object` into `target` using the move
-  /// operators defined by `sinkable`.
+  /// Creates a `move` instruction anchored at `site` that moves `object` into `target` using the
+  /// move operators defined by `sinkable`.
   ///
   /// This instruction is replaced during IR transformation by either the initialization or
   /// assignment of `target`, depending on its initialization state.
@@ -50,14 +50,12 @@ extension Module {
   ///   - object: The object to move. Must have an object type.
   ///   - target: The location to initialize or assign. Must have an address type.
   func makeMove(
-    _ object: Operand,
-    to target: Operand,
-    usingConformance sinkable: Conformance,
-    anchoredAt anchor: SourceRange
+    _ object: Operand, to target: Operand, usingConformance sinkable: Conformance,
+    at site: SourceRange
   ) -> MoveInstruction {
     precondition(type(of: object).isObject)
     precondition(type(of: target).isAddress)
-    return .init(object: object, target: target, sinkable: sinkable, site: anchor)
+    return .init(object: object, target: target, sinkable: sinkable, site: site)
   }
 
 }

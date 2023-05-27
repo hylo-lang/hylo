@@ -61,23 +61,18 @@ public struct TypeRelations {
     }
   }
 
-  /// Returns the canonical form of `constraint`.
-  public func canonical(_ constraint: Constraint) -> Constraint {
-    constraint.modifyingTypes(canonical(_:))
+  /// Returns `arguments` with all types replaced by their canonical form.
+  public func canonical(_ arguments: GenericArguments) -> GenericArguments {
+    arguments.mapValues { (v) in
+      (v as? AnyType).map(canonical(_:)) ?? v
+    }
   }
 
-  /// Returns a copy of `generic` where occurrences of parameters keying `subtitutions` are
-  /// replaced by their corresponding value, performing necessary conformance lookups from
-  /// `useScope`, which is in `program`.
+  /// Returns a copy of `generic` monomorphized for the given `arguments`.
   ///
-  /// This method has no effect if `substitutions` is empty.
-  public func monomorphize<P: Program>(
-    _ genericType: AnyType,
-    applying substitutions: GenericArguments,
-    in useScope: AnyScopeID,
-    in program: P
-  ) -> AnyType {
-    return substitutions.isEmpty ? genericType : genericType.transform(transform(_:))
+  /// This method has no effect if `arguments` is empty.
+  public func monomorphize(_ generic: AnyType, for arguments: GenericArguments) -> AnyType {
+    return arguments.isEmpty ? generic : generic.transform(transform(_:))
 
     /// Returns how to specialize `t`.
     func transform(_ t: AnyType) -> TypeTransformAction {
@@ -87,29 +82,36 @@ public struct TypeRelations {
       case let u as BoundGenericType:
         return transform(u)
       case let u as GenericTypeParameterType:
-        return .stepOver((substitutions[u.decl] as? AnyType) ?? .error)
+        return .stepOver((arguments[u.decl] as? AnyType) ?? .error)
+      case let u as SkolemType:
+        return transform(u)
       default:
         return .stepInto(t)
       }
     }
 
-    /// Returns how to specialize `t`.
+    /// Returns how to monomorphize `t`.
     func transform(_ t: AssociatedTypeType) -> TypeTransformAction {
       // Note: requires either the method to accept type and scope as parameters, or to have
       // associated types remember the trait that introduced them.
       fatalError("not implemented")
     }
 
-    /// Returns how to specialize `t`.
+    /// Returns how to monomorphize `t`.
     func transform(_ t: BoundGenericType) -> TypeTransformAction {
       let updatedArguments = t.arguments.mapValues { (v) -> any CompileTimeValue in
         if let w = v as? AnyType {
-          return monomorphize(w, applying: substitutions, in: useScope, in: program)
+          return monomorphize(w, for: arguments)
         } else {
           return v
         }
       }
       return .stepOver(^BoundGenericType(t.base, arguments: updatedArguments))
+    }
+
+    /// Returns how to monomorphize `t`.
+    func transform(_ t: SkolemType) -> TypeTransformAction {
+      .stepOver(monomorphize(t.base, for: arguments))
     }
   }
 

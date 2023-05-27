@@ -313,7 +313,7 @@ public enum Parser {
           .error(
             expected: "'}'",
             at: state.currentLocation,
-            notes: [.error("to match this '{'", at: opener.site)]
+            notes: [.note("to match this '{'", at: opener.site)]
           ))
         break
       }
@@ -1411,8 +1411,8 @@ public enum Parser {
       castKind = .up
     case "as!":
       castKind = .down
-    case "as!!":
-      castKind = .builtinPointerConversion
+    case "as*":
+      castKind = .pointerConversion
     default:
       unreachable()
     }
@@ -1732,6 +1732,10 @@ public enum Parser {
     case .pragmaLiteral:
       // Pragma literal.
       return try parsePragmaLiteralExpr(in: &state).map(AnyExprID.init)
+
+    case .remote:
+      // Remote type expression.
+      return try parseRemoteTypeExpr(in: &state).map(AnyExprID.init)
 
     case .spawn:
       // Spawn expression.
@@ -2095,6 +2099,22 @@ public enum Parser {
 
     guard let s = try braceStmt.parse(&state) else { return nil }
     return .block(s)
+  }
+
+  private static func parseRemoteTypeExpr(
+    in state: inout ParserState
+  ) throws -> RemoteTypeExpr.ID? {
+    guard let introducer = state.take(.remote) else { return nil }
+
+    let convention = try state.expect("access effect", using: accessEffect)
+    let operand = try state.expect("type expression", using: parseExpr(in:))
+
+    return state.insert(
+      RemoteTypeExpr(
+        introducerSite: introducer.site,
+        convention: convention,
+        operand: operand,
+        site: state.range(from: introducer.site.start)))
   }
 
   private static func parseSpawnExpr(in state: inout ParserState) throws -> SpawnExpr.ID? {

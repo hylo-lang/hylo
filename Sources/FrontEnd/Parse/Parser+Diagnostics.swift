@@ -22,7 +22,7 @@ extension Diagnostic {
     .error(
       expected: "'\(closerDescription)'", at: state.currentLocation,
       notes: [
-        .error("to match this '\(state.lexer.sourceCode[opener.site])'", at: opener.site)
+        .note("to match this '\(state.lexer.sourceCode[opener.site])'", at: opener.site)
       ])
   }
 

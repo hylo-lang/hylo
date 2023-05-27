@@ -19,7 +19,10 @@ public struct Function {
   /// The linkage of the function.
   public let linkage: Linkage
 
-  /// The the function's parameters.
+  /// The generic (a.k.a., compile-time) parameters of the function.
+  public let parameters: [GenericParameterDecl.ID]
+
+  /// The run-time parameters of the function.
   public let inputs: [Parameter]
 
   /// The type of the function's output.
@@ -37,6 +40,11 @@ public struct Function {
   public subscript(_ address: Blocks.Address) -> Block {
     get { blocks[address] }
     _modify { yield &blocks[address] }
+  }
+
+  /// `true` iff the function takes generic parameters.
+  public var isGeneric: Bool {
+    !parameters.isEmpty
   }
 
   /// Appends to `self` a basic block accepting given `parameters` and returns its address.

@@ -2,7 +2,7 @@ import Core
 import Utils
 
 /// Invokes `callee`, which is a foreign function interface, with `operands`.
-public struct CallFIIInstruction: Instruction {
+public struct CallFFIInstruction: Instruction {
 
   /// The type of the return value.
   public let returnType: LoweredType
@@ -13,6 +13,7 @@ public struct CallFIIInstruction: Instruction {
   /// The arguments of the call.
   public private(set) var operands: [Operand]
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -36,7 +37,7 @@ public struct CallFIIInstruction: Instruction {
 
 }
 
-extension CallFIIInstruction: CustomStringConvertible {
+extension CallFFIInstruction: CustomStringConvertible {
 
   public var description: String {
     let s = "call_ffi \(callee)"
@@ -47,21 +48,19 @@ extension CallFIIInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `call_fii` anchored at `anchor` applies `callee` using convention `calleeConvention` on
-  /// `arguments` using `argumentConventions`.
+  /// Creates a `call_ffi` anchored at `site` that applies `callee` on `arguments` using to return
+  /// and returns a value of `returnType`.
   ///
   /// - Parameters:
   ///   - returnType: The return type of the callee.
   ///   - callee: The name of the foreign function to call
   ///   - arguments: The arguments of the call.
-  func makeCallFII(
-    returning returnType: LoweredType,
-    applying callee: String,
-    to arguments: [Operand],
-    anchoredAt anchor: SourceRange
-  ) -> CallFIIInstruction {
+  func makeCallFFI(
+    returning returnType: LoweredType, applying callee: String, to arguments: [Operand],
+    at site: SourceRange
+  ) -> CallFFIInstruction {
     precondition(returnType.isObject)
-    return .init(returnType: returnType, callee: callee, arguments: arguments, site: anchor)
+    return .init(returnType: returnType, callee: callee, arguments: arguments, site: site)
   }
 
 }

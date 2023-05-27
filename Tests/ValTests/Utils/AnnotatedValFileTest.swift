@@ -37,10 +37,8 @@ extension XCTestCase {
   /// processing don't match the file's annotation commands ("diagnostic", "expect-failure", and
   /// "expect-success").
   ///
-  /// - Parameters:
-  ///   - suitePath: a path relative to the `swiftFile`.
-  ///   - process: applies some compilation phases to `file`, updating `diagnostics` with any
-  ///     generated diagnostics. Throws an `Error` if any phases failed.
+  /// - Parameter process: applies some compilation phases to `file`, updating `diagnostics`
+  ///   with any generated diagnostics. Throws an `Error` if any phases failed.
   func checkAnnotatedValFileDiagnostics(
     inSuiteAt suitePath: String,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
@@ -62,7 +60,6 @@ extension XCTestCase {
   /// commands ("diagnostic", "expect-failure", and "expect-success").
   ///
   /// - Parameters:
-  ///   - suitePath: a path relative to the `swiftFile`.
   ///   - checkedCommands: the annnotation commands to be validated by `processAndCheck`.
   ///   - processAndCheck: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,

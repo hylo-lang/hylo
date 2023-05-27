@@ -228,8 +228,13 @@ extension TypeChecker {
           lhsType, rhs.shape,
           origin: ConstraintOrigin(.cast, at: syntax.site)))
 
-    case .builtinPointerConversion:
-      // The type of the left operand must be `Builtin.Pointer`.
+    case .pointerConversion:
+      // The left operand must be a `Builtin.ptr`. The right operand must be a remote type.
+      if !(rhs.shape.base is RemoteType) {
+        report(.error(invalidPointerConversionAt: ast[syntax.right].site))
+        return state.facts.assignErrorType(to: subject)
+      }
+
       let lhsType = inferredType(of: lhs, shapedBy: nil, in: scope, updating: &state)
       state.facts.append(
         EqualityConstraint(
@@ -869,7 +874,7 @@ extension TypeChecker {
 
       state.facts.append(
         DisjunctionConstraint(
-          choices: [
+          between: [
             .init(constraints: preferred, penalties: 0),
             .init(constraints: alternative, penalties: 1),
           ],

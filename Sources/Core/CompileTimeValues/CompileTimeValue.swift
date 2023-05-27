@@ -12,6 +12,11 @@ public protocol CompileTimeValue: Hashable {
 
 extension CompileTimeValue {
 
+  /// `true` if `self` is a `TypeVariable`.
+  public var isTypeVariable: Bool {
+    (self as? AnyType)?.base is TypeVariable
+  }
+
   /// Returns `true` if `self` is equal to `other`.
   public func equals(_ other: any CompileTimeValue) -> Bool {
     if let r = other as? Self {

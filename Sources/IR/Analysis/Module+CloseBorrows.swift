@@ -25,7 +25,7 @@ extension Module {
 
           // Insert `end_borrow` after the instruction's last users.
           for lastUse in borrowLifetime.maximalElements() {
-            let s = makeEndBorrow(result, anchoredAt: self[lastUse.user].site)
+            let s = makeEndBorrow(result, at: self[lastUse.user].site)
             insert(s, after: lastUse.user)
           }
 

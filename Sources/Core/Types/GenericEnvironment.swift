@@ -1,14 +1,14 @@
-import Core
 import Utils
 
 /// An object that provides context to interpret the generic parameters of a declaration.
-struct GenericEnvironment {
+public struct GenericEnvironment {
 
-  /// The declaration of the generic parameters introduced in this environment.
+  /// The generic parameters introduced in the environment, in the order there declaration appears
+  /// in Val sources.
   public let parameters: [GenericParameterDecl.ID]
 
   /// The uninstantiated type constraints.
-  public let constraints: [Constraint]
+  public private(set) var constraints: [GenericConstraint] = []
 
   /// A table from types to their entry.
   private var ledger: [AnyType: Int] = [:]
@@ -16,45 +16,13 @@ struct GenericEnvironment {
   /// The equivalence classes and their associated conformance sets.
   private var entries: [(equivalences: Set<AnyType>, conformances: Set<TraitType>)] = []
 
-  /// Creates and returns the generic environment of `decl`.
-  ///
-  /// - Parameters:
-  ///   - decl: The declaration for which `self` is being initialized.
-  ///   - parameters: The declarations of the parameters introduced by `decl`.
-  ///   - constraints: The constraints defined on the environment to build.
-  ///   - checker: The type checker used to check the constraints.
-  init<T: DeclID>(
-    decl: T,
-    parameters: [GenericParameterDecl.ID],
-    constraints: [Constraint],
-    into checker: inout TypeChecker
-  ) {
-    self.constraints = constraints
+  /// Creates an environment that introduces `parameters` in a declaration space.
+  public init(introducing parameters: [GenericParameterDecl.ID]) {
     self.parameters = parameters
-
-    let scope = AnyScopeID(decl)!
-    for c in constraints {
-      switch c {
-      case let equality as EqualityConstraint:
-        registerEquivalence(l: equality.left, r: equality.right)
-
-      case let conformance as ConformanceConstraint:
-        let allTraits: Set<TraitType> = conformance.traits.reduce(into: []) { (r, t) in
-          r.formUnion(checker.conformedTraits(of: ^t, in: scope))
-        }
-        registerConformance(l: conformance.subject, traits: allTraits)
-
-      case is PredicateConstraint:
-        break
-
-      default:
-        unreachable()
-      }
-    }
   }
 
   /// Returns the set of traits to which `type` conforms in the environment.
-  func conformedTraits(of type: AnyType) -> Set<TraitType> {
+  public func conformedTraits(of type: AnyType) -> Set<TraitType> {
     if let i = ledger[type] {
       return entries[i].conformances
     } else {
@@ -62,7 +30,20 @@ struct GenericEnvironment {
     }
   }
 
-  private mutating func registerEquivalence(l: AnyType, r: AnyType) {
+  /// Inserts constraint `c` to the environment, updating equivalence classes.
+  public mutating func insertConstraint(_ c: GenericConstraint) {
+    constraints.append(c)
+    switch c.value {
+    case .equality(let lhs, let rhs):
+      registerEquivalence(lhs, rhs)
+    case .conformance(let lhs, let rhs):
+      registerConformance(lhs, to: rhs)
+    default:
+      break
+    }
+  }
+
+  private mutating func registerEquivalence(_ l: AnyType, _ r: AnyType) {
     if let i = ledger[l] {
       // `l` is part of a class.
       if let j = ledger[r] {
@@ -89,7 +70,7 @@ struct GenericEnvironment {
     }
   }
 
-  private mutating func registerConformance(l: AnyType, traits: Set<TraitType>) {
+  private mutating func registerConformance(_ l: AnyType, to traits: Set<TraitType>) {
     if let i = ledger[l] {
       // `l` is part of a class.
       entries[i].conformances.formUnion(traits)
