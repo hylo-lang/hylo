@@ -33,9 +33,9 @@ struct GenerateValFileTests: ParsableCommand {
     for f in valSourceFiles {
       output += """
 
-          func test_\(f.lastPathComponent.asSwiftIdentifier)() throws {
-            try compileAndRun(\(String(reflecting: f.path)))
-          }
+        func test_\(f.lastPathComponent.asSwiftIdentifier)() throws {
+        try compileAndRun(\(String(reflecting: f.path)))
+        }
 
         """
     }
