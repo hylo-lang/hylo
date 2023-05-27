@@ -23,11 +23,11 @@ class EndToEndTestCase: XCTestCase {
 
   /// Compiles and runs the given file at `valFilePath`, `XCTAssert`ing that diagnostics and exit
   /// codes match annotated expectations.
-  func compileAndRun(_ valFilePath: String)
+  func compileAndRun(_ valFilePath: String, expectSuccess: Bool)
     throws
   {
-    // Using an optional here because threading it through all the layers used by `compile` is just
-    // too awful.
+    // Using 2-phase initialization here because threading it through all the layers used by
+    // `compile` is just too awful.
     var executable: URL? = nil
 
     try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath) {

@@ -36,6 +36,50 @@ struct GenerateValFileTests: AsyncParsableCommand {
     }
   }
 
+  /// Returns the Swift source of the test function for the Val at `source`, having `firstLine` as
+  /// its first line.
+  func swiftFunctionTesting(valAt source: URL, withFirstLine firstLine: String) -> String {
+
+    func die(_ message: String) -> Never {
+      try! FileHandle.standardError.write(
+        contentsOf: Data("\(source.path):1: error: \(message)\n".utf8))
+      GenerateValFileTests.exit(withError: ExitCode(-1))
+    }
+
+    var text = firstLine[...]
+    if !text.removeLeading("//- ") {
+      die("first line of annotated test file must begin with “//-”.")
+    }
+    let methodName = text.removeUntil { $0.isWhitespace }
+    if methodName.isEmpty {
+      die("missing test method name.")
+    }
+    text = text.drop(while: \.isWhitespace)
+
+    if !text.removeLeading("expecting:") {
+      die("missing “expecting:” after test method name.")
+    }
+    text = text.drop(while: \.isWhitespace)
+
+    let expectation = text.removeUntil { $0.isWhitespace }
+    if expectation != "success" && expectation != "failure" {
+      die(
+        "illegal expectation “\(expectation)” must be “success” or “failure”."
+      )
+    }
+    if !text.drop(while: \.isWhitespace).isEmpty {
+      die("illegal trailing text “\(text)”.")
+    }
+
+    return """
+
+      func test_\(source.lastPathComponent.asSwiftIdentifier)() throws {
+        try \(methodName)(\(String(reflecting: source.path)), expectSuccess: \(expectation == "success"))
+      }
+
+      """
+  }
+
   func run() async throws {
 
     let firstLines = try await firstLineOfEachInput()
@@ -50,18 +94,10 @@ struct GenerateValFileTests: AsyncParsableCommand {
       """
 
     for f in valSourceFiles {
-      output += """
-
-        func test_\(f.lastPathComponent.asSwiftIdentifier)() throws {
-          try compileAndRun(\(String(reflecting: f.path)))
-        }
-
-        """
+      output += swiftFunctionTesting(valAt: f, withFirstLine: firstLines[f]!)
     }
 
-    output += """
-      }
-      """
+    output += "\n}\n"
 
     try output.write(to: outputURL, atomically: true, encoding: .utf8)
   }
@@ -74,6 +110,35 @@ extension String {
   fileprivate var asSwiftIdentifier: String {
     let r = String(self.lazy.map { $0.isNumber || $0.isLetter ? $0 : "_" })
     return (r.first?.isNumber ?? true) ? "X" + r : r
+  }
+
+}
+
+extension Substring {
+
+  /// Removes `prefix` from the beginning and returns `true`, or returns `false` if `self`
+  /// has no such prefix.
+  fileprivate mutating func removeLeading(_ prefix: String) -> Bool {
+    var me = self
+    var p = prefix[...]
+
+    while let x = me.first, let y = p.first {
+      if x != y { return false }
+      me = me.dropFirst()
+      p = p.dropFirst()
+    }
+
+    if !p.isEmpty { return false }
+    self = me
+    return true
+  }
+
+  /// Removes characters from the beginning until the first character satisfies `p` or `self` is
+  /// empty, returning the removed substring.
+  fileprivate mutating func removeUntil(firstSatisfies p: (Character) -> Bool) -> Substring {
+    let firstToKeep = firstIndex(where: p) ?? endIndex
+    defer { self = self[firstToKeep...] }
+    return self[..<firstToKeep]
   }
 
 }
