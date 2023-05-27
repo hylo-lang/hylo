@@ -2,25 +2,44 @@ import ArgumentParser
 import Foundation
 
 @main
-struct GenerateValFileTests: ParsableCommand {
-  @Argument(
-    help: "Paths of val source files to build",
-    transform: URL.init(fileURLWithPath:)
-  )
-  var valSourceFiles: [URL] = []
-
+struct GenerateValFileTests: AsyncParsableCommand {
   @Option(
     name: [.customShort("o")],
-    help: ArgumentHelp("Write output to <file>.", valueName: "file"),
+    help: ArgumentHelp("Write output to <file>.", valueName: "output-swift-file"),
     transform: URL.init(fileURLWithPath:))
   var outputURL: URL
 
   @Option(
     name: [.customShort("n")],
-    help: ArgumentHelp("Name of generated test case."))
+    help: ArgumentHelp("Name of generated test case.", valueName: "XCTestCase name"))
   var testCaseName: String
 
-  func run() throws {
+  @Argument(
+    help: "Paths of annotated val source files to be tested.",
+    transform: URL.init(fileURLWithPath:)
+  )
+  var valSourceFiles: [URL]
+
+  func firstLineOfEachInput() async throws -> [URL: String] {
+    try await withThrowingTaskGroup(of: (URL, String).self) { (g) -> [URL: String] in
+      for f in valSourceFiles {
+        g.addTask {
+          for try await firstLine in f.lines {
+            return (f, firstLine)
+          }
+          return (f, "")
+        }
+      }
+      var r = [URL: String]()
+      for try await (k, v) in g { r[k] = v }
+      return r
+    }
+  }
+
+  func run() async throws {
+
+    let firstLines = try await firstLineOfEachInput()
+    _ = firstLines
 
     var output =
       """
