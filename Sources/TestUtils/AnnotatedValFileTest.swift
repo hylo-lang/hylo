@@ -84,7 +84,7 @@ extension XCTestCase {
     inFileAt valFilePath: String,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
-    let f = try SourceFile(contentsOf: URL(fileURLWithPath: valFilePath))
+    let f = try SourceFile(atPath: valFilePath)
     try checkAnnotations(
       in: f, checkingAnnotationCommands: [],
       { (file, annotationsToHandle, diagnostics) in
