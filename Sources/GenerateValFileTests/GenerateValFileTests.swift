@@ -53,7 +53,7 @@ struct GenerateValFileTests: AsyncParsableCommand {
       output += """
 
         func test_\(f.lastPathComponent.asSwiftIdentifier)() throws {
-        try compileAndRun(\(String(reflecting: f.path)))
+          try compileAndRun(\(String(reflecting: f.path)))
         }
 
         """
