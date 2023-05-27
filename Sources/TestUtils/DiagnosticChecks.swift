@@ -34,7 +34,7 @@ extension XCTestCase {
 extension XCTIssue {
 
   /// Creates an instance from a diagnostic.
-  init(_ d: Diagnostic) {
+  public init(_ d: Diagnostic) {
     self.init(
       type: .assertionFailure,
       compactDescription: d.message,

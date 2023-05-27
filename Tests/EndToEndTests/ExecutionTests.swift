@@ -45,7 +45,13 @@ class EndToEndTestCase: XCTestCase {
     }
 
     let (status, _) = try run(executable)
-    XCTAssertEqual(status, 0, "\n\(valFilePath):1:1 execution failed with exit code \(status)")
+    if status != 0 {
+      record(
+        XCTIssue(
+          Diagnostic.error(
+            "execution failed with exit code \(status)",
+            at: try SourceFile(path: valFilePath).wholeRange)))
+    }
   }
 
   /// Compiles `input` with the given arguments and returns the URL of the output file.
