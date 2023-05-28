@@ -30,10 +30,10 @@ struct GenerateValFileTests: ParsableCommand {
 
     return """
 
-      func test_\(parsed.methodName)_\(testID)() throws {
-        try \(parsed.methodName)(
-          \(String(reflecting: source.path)), expectSuccess: \(parsed.expectSuccess))
-      }
+        func test_\(parsed.methodName)_\(testID)() throws {
+          try \(parsed.methodName)(
+            \(String(reflecting: source.path)), expectSuccess: \(parsed.expectSuccess))
+        }
 
       """
   }
