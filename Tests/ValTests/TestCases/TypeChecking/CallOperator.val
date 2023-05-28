@@ -1,4 +1,4 @@
-//! expect-failure
+//- typeCheck expecting: failure
 
 public fun main() {
   let a = 42

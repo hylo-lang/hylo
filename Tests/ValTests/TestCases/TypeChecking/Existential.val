@@ -1,4 +1,4 @@
-//! expect-failure
+//- typeCheck expecting: failure
 
 trait P1 {}
 trait P2 {}

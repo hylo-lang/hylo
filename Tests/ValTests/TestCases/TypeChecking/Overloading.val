@@ -1,4 +1,4 @@
-//! expect-failure
+//- typeCheck expecting: failure
 
 @ffi("abort")
 fun abort() -> Never

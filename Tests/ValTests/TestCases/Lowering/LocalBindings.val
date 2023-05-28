@@ -1,4 +1,4 @@
-//! expect-failure
+//- lowerToFinishedIR expecting: failure
 
 public fun main() {
   sink let x: Int

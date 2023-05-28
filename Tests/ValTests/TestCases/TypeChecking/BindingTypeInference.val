@@ -1,4 +1,4 @@
-//! expect-success
+//- typeCheck expecting: success
 
 let x0 = ()
 let (y0, y1) = ((), ())
