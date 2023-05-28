@@ -80,8 +80,8 @@ extension XCTestCase {
   /// Applies `process` to the ".val" file at the given path and reports XCTest failures where the
   /// effects of processing don't match the file's annotation commands ("//! ... diagnostic ...").
   ///
-  /// - Parameter process: applies some compilation phases to `file`, updating `diagnostics`
-  ///   with any generated diagnostics. Throws an `Error` if any phases failed.
+  /// - Parameter process: applies some processing to `file`, updating `diagnostics`
+  ///   with any generated diagnostics. Throws an `Error` if processing failed.
   /// - Parameter expectSuccess: true if an error from `process` represents a test failure, false if
   ///   the lack of an error represents a test failure; nil if that information is to be derived
   ///   from the contents of the file.
@@ -105,8 +105,8 @@ extension XCTestCase {
         XCTIssue(
           Diagnostic.error(
             processingSucceeded
-              ? "compilation stages succeeded, but failure was expected"
-              : "compilation stages failed, but success was expected",
+              ? "processing succeeded, but failure was expected"
+              : "processing failed, but success was expected",
             at: f.wholeRange)))
     }
   }

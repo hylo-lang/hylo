@@ -26,12 +26,10 @@ class EndToEndTestCase: XCTestCase {
   func compileAndRun(_ valFilePath: String, expectSuccess: Bool)
     throws
   {
-    // Using 2-phase initialization here because threading it through all the layers used by
-    // `compile` is just too awful.
-    var executable: URL? = nil
-
-    try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath) {
+    try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath, expectSuccess: expectSuccess) {
       (_ valSource: SourceFile, _ diagnostics: inout DiagnosticSet) in
+
+      var executable: URL
 
       do {
         executable = try compile(valSource.url, with: ["--emit", "binary"])
@@ -42,17 +40,10 @@ class EndToEndTestCase: XCTestCase {
         diagnostics = d
         throw d
       }
-    }
 
-    if let x = executable {
-      let (status, _) = try run(x)
-
+      let (status, _) = try run(executable)
       if status != 0 {
-        record(
-          XCTIssue(
-            Diagnostic.error(
-              "execution failed with exit code \(status)",
-              at: try SourceFile(path: valFilePath).wholeRange)))
+        throw NonzeroExitCode(value: status)
       }
     }
   }
@@ -100,4 +91,8 @@ class EndToEndTestCase: XCTestCase {
     return (task.terminationStatus, standardOutput ?? "")
   }
 
+}
+
+struct NonzeroExitCode: Error {
+  var value: Int32
 }
