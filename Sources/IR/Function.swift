@@ -47,12 +47,14 @@ public struct Function {
     !parameters.isEmpty
   }
 
-  /// Appends to `self` a basic block accepting given `parameters` and returns its address.
+  /// Appends to `self` a basic block in `scope` that accepts `parameters`, returning its address.
   ///
   /// The new block will become the function's entry if `self` contains no block before
   /// `appendBlock` is called.
-  mutating func appendBlock(taking parameters: [LoweredType]) -> Blocks.Address {
-    blocks.append(Block(inputs: parameters))
+  mutating func appendBlock<T: ScopeID>(
+    in scope: T, taking parameters: [LoweredType]
+  ) -> Blocks.Address {
+    blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters))
   }
 
   /// Removes the block at `address`.

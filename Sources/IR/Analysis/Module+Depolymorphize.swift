@@ -81,10 +81,11 @@ extension Module {
       let source = Block.ID(r.function, b)
 
       // Rewrite the source block in the monomorphized function.
+      let scope = sourceModule[source].scope
       let inputs = sourceModule[source].inputs.map { (t) in
         program.monomorphize(t, applying: r.arguments)
       }
-      let target = Block.ID(result, self[result].appendBlock(taking: inputs))
+      let target = Block.ID(result, self[result].appendBlock(in: scope, taking: inputs))
       rewrittenBlocks[source] = target
 
       // Rewrite all instructions from the source block.
