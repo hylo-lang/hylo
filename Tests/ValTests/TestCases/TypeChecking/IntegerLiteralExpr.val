@@ -18,7 +18,7 @@ public fun main() {
   let f: Float = 42
   check<Float>(f)
 
-  let _: Double = i   //! diagnostic cannot initialize object of type 'Int' with value of type 'Double'
+  let _: Double = i   //! diagnostic cannot initialize object of type 'Double' with value of type 'Int'
 
   let _: Bool = 42    //! diagnostic type 'Bool' does not conform to trait 'ExpressibleByIntegerLiteral'
 }

@@ -4,14 +4,14 @@ public struct Conformance {
   /// A map from requirement to their implementation.
   public typealias ImplementationMap = DeclProperty<Implementation>
 
-  /// The implementation of a conformance.
+  /// The implementation of a requirement.
   public enum Implementation: Hashable {
 
     /// Concrete implementation.
     case concrete(AnyDeclID)
 
     /// Synthesized implementation with given type.
-    case synthetic(AnyType)
+    case synthetic(SynthesizedDecl)
 
     /// The payload of `.concrete` or `nil` if `self == .synthetic`.
     public var decl: AnyDeclID? {
@@ -31,7 +31,10 @@ public struct Conformance {
   public let concept: TraitType
 
   /// The conditions under which this conformance holds.
-  public let conditions: [Constraint]
+  public let conditions: [GenericConstraint]
+
+  /// The declaration that establishes this conformance.
+  public let source: AnyDeclID
 
   /// The outermost scope in which this conformance is exposed.
   public let scope: AnyScopeID
@@ -46,7 +49,8 @@ public struct Conformance {
   public init(
     model: AnyType,
     concept: TraitType,
-    conditions: [Constraint],
+    conditions: [GenericConstraint],
+    source: AnyDeclID,
     scope: AnyScopeID,
     implementations: ImplementationMap,
     site: SourceRange
@@ -54,9 +58,28 @@ public struct Conformance {
     self.model = model
     self.concept = concept
     self.conditions = conditions
+    self.source = source
     self.scope = scope
     self.implementations = implementations
     self.site = site
+  }
+
+}
+
+extension Conformance: Equatable {
+
+  public static func == (l: Self, r: Self) -> Bool {
+    (l.model == r.model) && (l.concept == r.concept) && (l.source == r.source)
+  }
+
+}
+
+extension Conformance: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    model.hash(into: &hasher)
+    concept.hash(into: &hasher)
+    source.hash(into: &hasher)
   }
 
 }

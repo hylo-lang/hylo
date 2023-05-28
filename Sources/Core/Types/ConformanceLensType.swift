@@ -16,8 +16,10 @@ public struct ConformanceLensType: TypeProtocol {
     self.flags = subject.flags
   }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
-    ConformanceLensType(viewing: subject.transform(transformer), through: lens)
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
+    ConformanceLensType(viewing: subject.transform(mutating: &m, transformer), through: lens)
   }
 
 }

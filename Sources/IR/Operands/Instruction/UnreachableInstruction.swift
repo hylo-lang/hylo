@@ -3,11 +3,12 @@ import Core
 /// Marks this execution path as unreachable, causing a fatal error otherwise.
 public struct UnrechableInstruction: Terminator {
 
+  /// The site of the code corresponding to that instruction.
   public var site: SourceRange
 
-  /// Creates an instance anchored at `anchor`.
-  fileprivate init(anchoredAt anchor: SourceRange) {
-    self.site = anchor
+  /// Creates an instance with the given properties.
+  fileprivate init(site: SourceRange) {
+    self.site = site
   }
 
   public var types: [LoweredType] { [] }
@@ -16,7 +17,11 @@ public struct UnrechableInstruction: Terminator {
 
   public var successors: [Block.ID] { [] }
 
-  func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    preconditionFailure()
+  }
+
+  func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
     false
   }
 
@@ -24,9 +29,9 @@ public struct UnrechableInstruction: Terminator {
 
 extension Module {
 
-  /// Creates an `unreachable` anchored at `anchor` that marks the execution path unreachable.
-  func makeUnreachable(anchoredAt anchor: SourceRange) -> UnrechableInstruction {
-    UnrechableInstruction(anchoredAt: anchor)
+  /// Creates an `unreachable` anchored at `site` that marks the execution path unreachable.
+  func makeUnreachable(at site: SourceRange) -> UnrechableInstruction {
+    UnrechableInstruction(site: site)
   }
 
 }

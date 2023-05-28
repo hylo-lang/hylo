@@ -1,0 +1,3 @@
+public fun main() {
+  _ = 42
+}

@@ -16,9 +16,10 @@ private protocol TypeBox {
   /// different type.
   func unwrap<T: TypeProtocol>(as: T.Type) -> T?
 
-  /// Applies `TypeProtocol.transform(_:)` on the types that are part of `self`.
-  func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> any TypeProtocol
-
+  /// Applies `TypeProtocol.transform(mutating:_:)` on `m` and the types that are part of `self`.
+  func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> any TypeProtocol
 }
 
 /// A box wrapping an instance of `Base`.
@@ -43,10 +44,12 @@ private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
     base as? T
   }
 
-  func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> any TypeProtocol {
-    base.transformParts(transformer)
+  /// Applies `TypeProtocol.transform(mutating:_:)` on `m` and the types that are part of `self`.
+  func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> any TypeProtocol {
+    base.transformParts(mutating: &m, transformer)
   }
-
 }
 
 /// The (static) type of an entity.
@@ -109,6 +112,22 @@ public struct AnyType: TypeProtocol {
     base is ErrorType
   }
 
+  /// Indicates whether `self` is a built-in type.
+  ///
+  /// - Requires: `self` is canonical.
+  public var isBuiltin: Bool {
+    precondition(self[.isCanonical])
+    return base is BuiltinType
+  }
+
+  /// Indicates whether `self` is Val's `Void` or `Never` type.
+  ///
+  /// - Requires: `self` is canonical.
+  public var isVoidOrNever: Bool {
+    precondition(self[.isCanonical])
+    return (self == .void) || (self == .never)
+  }
+
   /// Indicates whether `self` is a generic type parameter or associated type.
   public var isTypeParam: Bool {
     (base is AssociatedTypeType) || (base is GenericTypeParameterType)
@@ -130,34 +149,11 @@ public struct AnyType: TypeProtocol {
 
   public var skolemized: AnyType { base.skolemized }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> AnyType {
-    AnyType(wrapped.transformParts(transformer))
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> AnyType {
+    AnyType(wrapped.transformParts(mutating: &m, transformer))
   }
-
-}
-
-extension AnyType {
-
-  /// A value indicating that two types compared with `compare(_:reconcilingWith:)` are either
-  /// equal or inequal with some description of type `T`.
-  public enum ComparisonResult<T> {
-
-    /// Types are equal.
-    case equal
-
-    /// Types are inequal; the payload describes why.
-    case inequal(T)
-
-  }
-
-  /// Returns `.equal` if `self` is equal to `other`. Otherwise, returns `reconcile(self, other)`.
-  public func compare<T>(
-    _ other: AnyType,
-    reconcilingWith reconcile: (AnyType, AnyType) -> ComparisonResult<T>
-  ) -> ComparisonResult<T> {
-    self == other ? .equal : reconcile(self, other)
-  }
-
 }
 
 extension AnyType: CompileTimeValue {
@@ -208,6 +204,11 @@ extension AnyType: Equatable {
   ///       }
   ///     }
   public static func ~= (pattern: Self, subject: any TypeProtocol) -> Bool {
+    pattern == subject
+  }
+
+  /// Returns whether `subject` matches `pattern`.
+  public static func ~= (pattern: Self, subject: Self) -> Bool {
     pattern == subject
   }
 

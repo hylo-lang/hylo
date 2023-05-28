@@ -1,0 +1,10 @@
+//! expect-failure
+
+type A<X> {}
+
+trait T {
+  fun foo()
+}
+
+//! @+1 diagnostic no type named 'S' in this scope
+extension A where X: S {}

@@ -4,7 +4,7 @@ import Utils
 public struct MethodType: TypeProtocol, CallableType {
 
   /// The capabilities of the subscript.
-  public let capabilities: Set<AccessEffect>
+  public let capabilities: AccessEffectSet
 
   /// The type of the receiver.
   public let receiver: AnyType
@@ -19,7 +19,7 @@ public struct MethodType: TypeProtocol, CallableType {
 
   /// Creates an instance with the given properties.
   public init(
-    capabilities: Set<AccessEffect>,
+    capabilities: AccessEffectSet,
     receiver: AnyType,
     inputs: [CallableTypeParameter],
     output: AnyType
@@ -35,26 +35,21 @@ public struct MethodType: TypeProtocol, CallableType {
     flags = fs
   }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     MethodType(
       capabilities: capabilities,
-      receiver: receiver.transform(transformer),
-      inputs: inputs.map({ (p) -> CallableTypeParameter in
-        .init(label: p.label, type: p.type.transform(transformer))
-      }),
-      output: output.transform(transformer))
+      receiver: receiver.transform(mutating: &m, transformer),
+      inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
+      output: output.transform(mutating: &m, transformer))
   }
-
 }
 
 extension MethodType: CustomStringConvertible {
 
   public var description: String {
-    let cs =
-      capabilities
-      .map(String.init(describing:))
-      .sorted()
-      .joined(separator: " ")
+    let cs = capabilities.elements.descriptions(joinedBy: " ")
     return "method[\(receiver)] (\(list: inputs)) -> \(output) { \(cs) }"
   }
 

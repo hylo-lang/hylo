@@ -6,8 +6,10 @@ public protocol TypeProtocol: Hashable {
   /// A set of flags describing recursive properties.
   var flags: TypeFlags { get }
 
-  /// Apply `transform(_:)` on the types that are part of `self`.
-  func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self
+  /// Apply `transform(_:_:)` on `m` and the types that are part of `self`.
+  func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self
 
 }
 
@@ -36,25 +38,47 @@ extension TypeProtocol {
   /// Returns whether the specified flags are raised on this type.
   public subscript(fs: TypeFlags) -> Bool { flags.contains(fs) }
 
-  /// Returns this type transformed with `transformer`.
+  /// Returns this type transformed with `transformer` applied to `m`.
   ///
-  /// This method visits the structure of the type and calls `transformer` on each type composing
-  /// that structure. The result of the call substitutes the visited type. If `transformer` returns
-  /// `stepInto(t)`, `t` is visited after the substitution. Otherwise, the method directly moves to
-  /// the next type in the structure.
-  public func transform(_ transformer: (AnyType) -> TypeTransformAction) -> AnyType {
-    switch transformer(AnyType(self)) {
+  /// This method visits the structure of the type and calls `transformer` on `m` and each type
+  /// composing that structure. The result of the call is substituted for the visited type. If
+  /// `transformer` returns `stepInto(t)`, `t` is visited after the substitution. Otherwise, the
+  /// method directly moves to the next type in the structure.
+  public func transform<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> AnyType {
+    switch transformer(&m, AnyType(self)) {
     case .stepInto(let type):
-      return type.transformParts(transformer)
+      return type.transformParts(mutating: &m, transformer)
     case .stepOver(let type):
       return type
     }
   }
 
-  /// Applies `TypeProtocol.transform(_:)` on the types that are part of `self`.
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+  /// Applies `TypeProtocol.transform(mutating:_:)` on `m` and the types that are part of `self`.
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     // Default implementation is the identity.
     self
+  }
+
+  /// Returns this type transformed with `transformer`.
+  ///
+  /// This method visits the structure of the type and calls `transformer` on each type composing
+  /// that structure. The result of the call is substituted for the visited type. If `transformer`
+  /// returns `stepInto(t)`, `t` is visited after the substitution. Otherwise, the method directly
+  /// moves to the next type in the structure.
+  public func transform(_ transformer: (AnyType) -> TypeTransformAction) -> AnyType {
+    var ignored: Void = ()
+    return transform(mutating: &ignored) { (_, t) in transformer(t) }
+  }
+
+  /// Applies `TypeProtocol.transformParts(mutating:_:)` on a discarded value and the types that are
+  /// part of `self`.
+  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+    var ignored: Void = ()
+    return transformParts(mutating: &ignored) { (_, t) in transformer(t) }
   }
 
   /// `self` with all generic parameters replaced by skolems.

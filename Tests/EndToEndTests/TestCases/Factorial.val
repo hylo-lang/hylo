@@ -2,14 +2,7 @@ fun factorial(_ n: Int) -> Int {
   if n < 2 { 1 } else { n * factorial(n - 1) }
 }
 
-fun assert(_ b: Bool) {
-  // TODO: if !b {
-  if b == false {
-    let _ = fatal_error()
-  }
-}
-
 public fun main() {
   let r = factorial(6)
-  assert(r == 720)
+  precondition(r == 720)
 }

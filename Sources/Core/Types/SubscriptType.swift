@@ -7,7 +7,7 @@ public struct SubscriptType: TypeProtocol {
   public let isProperty: Bool
 
   /// The capabilities of the subscript.
-  public let capabilities: Set<AccessEffect>
+  public let capabilities: AccessEffectSet
 
   /// The environment of the subscript implementation.
   public let environment: AnyType
@@ -23,7 +23,7 @@ public struct SubscriptType: TypeProtocol {
   /// Creates an instance with the given properties.
   public init(
     isProperty: Bool,
-    capabilities: Set<AccessEffect>,
+    capabilities: AccessEffectSet,
     environment: AnyType = .void,
     inputs: [CallableTypeParameter],
     output: AnyType
@@ -43,15 +43,29 @@ public struct SubscriptType: TypeProtocol {
   /// Accesses the individual elements of the subscript's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
-  public func transformParts(_ transformer: (AnyType) -> TypeTransformAction) -> Self {
+  /// Returns the type of the thin function corresponding to `self`.
+  public var pure: LambdaType {
+    let captures = TupleType(environment).map(\.elements) ?? [.init(label: nil, type: environment)]
+    let p = captures.map { (e) -> CallableTypeParameter in
+      if let t = RemoteType(e.type) {
+        return .init(label: e.label, type: ^ParameterType(t))
+      } else {
+        return .init(label: e.label, type: ^ParameterType(.yielded, e.type))
+      }
+    }
+    let o = RemoteType(.yielded, output)
+    return .init(receiverEffect: .let, environment: .void, inputs: p + inputs, output: ^o)
+  }
+
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
     SubscriptType(
       isProperty: isProperty,
       capabilities: capabilities,
-      environment: environment.transform(transformer),
-      inputs: inputs.map({ (p) -> CallableTypeParameter in
-        .init(label: p.label, type: p.type.transform(transformer))
-      }),
-      output: output.transform(transformer))
+      environment: environment.transform(mutating: &m, transformer),
+      inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
+      output: output.transform(mutating: &m, transformer))
   }
 
 }
@@ -59,12 +73,7 @@ public struct SubscriptType: TypeProtocol {
 extension SubscriptType: CustomStringConvertible {
 
   public var description: String {
-    let cs =
-      capabilities
-      .map(String.init(describing:))
-      .sorted()
-      .joined(separator: " ")
-
+    let cs = capabilities.elements.descriptions(joinedBy: " ")
     if isProperty {
       return "property [\(environment)] \(output) { \(cs) }"
     } else {

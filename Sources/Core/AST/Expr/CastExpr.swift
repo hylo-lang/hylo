@@ -1,8 +1,8 @@
 /// An explicit cast expression.
 public struct CastExpr: Expr {
 
-  /// The kind of a cast expression.
-  public enum Kind: Codable {
+  /// The direction of a cast expression w.r.t. the type lattice.
+  public enum Direction: Codable {
 
     /// An upcast.
     case up
@@ -14,7 +14,7 @@ public struct CastExpr: Expr {
     ///
     /// - Note: built-in conversion expressions may only be used in the core library. The compiler
     ///   shall emit a warning if one is found outside of core library sources.
-    case builtinPointerConversion
+    case pointerConversion
 
   }
 
@@ -26,14 +26,15 @@ public struct CastExpr: Expr {
   /// The type to which the left operand is being converted.
   public let right: AnyTypeExprID
 
-  /// The kind of the cast.
-  public let kind: Kind
+  /// The direction of the cast.
+  public let direction: Direction
 
-  public init(left: AnyExprID, right: AnyTypeExprID, kind: Kind, site: SourceRange) {
+  /// Creates an instance with the given properties.
+  public init(left: AnyExprID, right: AnyTypeExprID, direction: Direction, site: SourceRange) {
     self.site = site
     self.left = left
     self.right = right
-    self.kind = kind
+    self.direction = direction
   }
 
 }

@@ -1,3 +1,5 @@
+import Utils
+
 /// A type representing a Val program and its properties at a some stage of compilation.
 public protocol Program {
 
@@ -56,11 +58,26 @@ extension Program {
   public func scopeIntroducing(_ d: AnyDeclID) -> AnyScopeID {
     switch d.kind {
     case InitializerDecl.self:
-      return scopeToParent[declToScope[d]!]!
+      return scopeIntroducing(initializer: .init(d)!)
     case ModuleDecl.self:
       return AnyScopeID(ModuleDecl.ID(d)!)
     default:
       return declToScope[d]!
+    }
+  }
+
+  /// Returns the scope introducing `d`.
+  public func scopeIntroducing(initializer d: InitializerDecl.ID) -> AnyScopeID {
+    scopeToParent[declToScope[d]!]!
+  }
+
+  /// Returns `true` iff `d` is at module scope.
+  public func isAtModuleScope<T: DeclID>(_ d: T) -> Bool {
+    switch declToScope[d]!.kind {
+    case TranslationUnit.self, NamespaceDecl.self:
+      return true
+    default:
+      return false
     }
   }
 
@@ -169,24 +186,6 @@ extension Program {
     }
   }
 
-  /// Returns whether requirement `requirement` is a synthesizable.
-  ///
-  /// Only the requirements of the core `Sinkable` and `Copyable` traits are synthesizable.
-  public func isSynthesizable<T: DeclID>(_ requirement: T) -> Bool {
-    guard let s = innermostType(containing: requirement).map(TraitDecl.ID.init(_:)) else {
-      return false
-    }
-
-    switch s {
-    case ast.coreTrait(named: "Sinkable")?.decl:
-      return true
-    case ast.coreTrait(named: "Copyable")?.decl:
-      return true
-    default:
-      return false
-    }
-  }
-
   /// Returns whether `scope` denotes a member context.
   public func isMemberContext<S: ScopeID>(_ scope: S) -> Bool {
     switch scope.kind {
@@ -223,6 +222,66 @@ extension Program {
   /// - Requires:`scope` is not a module.
   public func source<S: ScopeID>(containing scope: S) -> TranslationUnit.ID {
     scopes(from: scope).first(TranslationUnit.self)!
+  }
+
+  public func debugName<T: DeclID>(decl d: T) -> String {
+    let s = (declToScope[d].map(debugName(scope:)) ?? "") + "."
+    switch d.kind {
+    case AssociatedTypeDecl.self:
+      return s + ast[AssociatedTypeDecl.ID(d)!].baseName
+    case AssociatedValueDecl.self:
+      return s + ast[AssociatedValueDecl.ID(d)!].baseName
+    case BindingDecl.self:
+      return s + "\(d.rawValue)"
+    case ConformanceDecl.self:
+      return s + "\(d.rawValue)"
+    case ExtensionDecl.self:
+      return s + "\(d.rawValue)"
+    case FunctionDecl.self:
+      return s + (ast[FunctionDecl.ID(d)!].identifier?.value ?? "\(d.rawValue)") + "#\(d.rawValue)"
+    case GenericParameterDecl.self:
+      return s + ast[GenericParameterDecl.ID(d)!].baseName
+    case ImportDecl.self:
+      return s + ast[ImportDecl.ID(d)!].baseName
+    case InitializerDecl.self:
+      return s + "init#\(d.rawValue)"
+    case MethodDecl.self:
+      return s + ast[ImportDecl.ID(d)!].baseName + "#\(d.rawValue)"
+    case MethodImpl.self:
+      return s + String(describing: ast[MethodImpl.ID(d)!].introducer.value)
+    case ModuleDecl.self:
+      return ast[ModuleDecl.ID(d)!].baseName
+    case NamespaceDecl.self:
+      return s + ast[NamespaceDecl.ID(d)!].baseName
+    case OperatorDecl.self:
+      return s + ast[OperatorDecl.ID(d)!].name.value
+    case ParameterDecl.self:
+      return s + ast[ParameterDecl.ID(d)!].baseName
+    case ProductTypeDecl.self:
+      return s + ast[ProductTypeDecl.ID(d)!].baseName
+    case SubscriptDecl.self:
+      let n = ast[SubscriptDecl.ID(d)!].identifier?.value ?? "\(d.rawValue)"
+      return s + "\(n)#\(d.rawValue)"
+    case SubscriptImpl.self:
+      return s + String(describing: ast[SubscriptImpl.ID(d)!].introducer.value)
+    case TraitDecl.self:
+      return s + ast[TraitDecl.ID(d)!].baseName
+    case TypeAliasDecl.self:
+      return s + ast[TypeAliasDecl.ID(d)!].baseName
+    case VarDecl.self:
+      return s + ast[VarDecl.ID(d)!].baseName
+    default:
+      unreachable()
+    }
+  }
+
+  public func debugName<T: ScopeID>(scope s: T) -> String {
+    if let d = AnyDeclID(s) {
+      return debugName(decl: d)
+    } else {
+      let p = (scopeToParent[s].map(debugName(scope:)) ?? "") + "."
+      return "\(p)\(s.rawValue)"
+    }
   }
 
 }

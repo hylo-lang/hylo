@@ -1,22 +1,26 @@
 import Foundation
 import Utils
-import ValModule
 
 /// An abstract syntax tree.
 public struct AST {
 
   /// The stored representation of an AST; distinguished for encoding/decoding purposes.
   private struct Storage: Codable {
+
     /// The nodes in `self`.
     public var nodes: [AnyNode] = []
 
-    /// The indices of the modules.
+    /// The indices of the modules in the AST.
+    ///
+    /// Indices are ordered by module dependency. If the module identified by the index at position
+    /// `i` depends on the one identified by the index at position `j`, then `i` precedes `j`.
     ///
     /// - Invariant: All referred modules have a different name.
     public var modules: [ModuleDecl.ID] = []
 
     /// The ID of the module containing Val's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
+
   }
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
@@ -113,7 +117,7 @@ public struct AST {
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
   ///
   /// - Requires: The Core library must have been loaded.
-  public func coreType(named name: String) -> ProductType? {
+  public func coreType(_ name: String) -> ProductType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(coreLibrary!) where id.kind == ProductTypeDecl.self {
@@ -129,7 +133,7 @@ public struct AST {
   /// Returns the trait named `name` defined in the core library or `nil` if it does not exist.
   ///
   /// - Requires: The Core library must have been loaded.
-  public func coreTrait(named name: String) -> TraitType? {
+  public func coreTrait(_ name: String) -> TraitType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(coreLibrary!) where id.kind == TraitDecl.self {
@@ -149,9 +153,9 @@ public struct AST {
   public func coreTrait<T: Expr>(forTypesExpressibleBy literal: T.Type) -> TraitType? {
     switch literal.kind {
     case FloatLiteralExpr.self:
-      return coreTrait(named: "ExpressibleByFloatLiteral")
+      return coreTrait("ExpressibleByFloatLiteral")
     case IntegerLiteralExpr.self:
-      return coreTrait(named: "ExpressibleByIntegerLiteral")
+      return coreTrait("ExpressibleByIntegerLiteral")
     default:
       return nil
     }
@@ -160,13 +164,97 @@ public struct AST {
   /// `Val.Sinkable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
-  public var sinkableTrait: TraitType { coreTrait(named: "Sinkable")! }
+  public var sinkableTrait: TraitType { coreTrait("Sinkable")! }
+
+  /// `Val.Copyable` trait from the Core library.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public var copyableTrait: TraitType { coreTrait("Copyable")! }
 
   // MARK: Helpers
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
     self[self[module].sources].map(\.decls).joined()
+  }
+
+  /// Returns the requirements named `n` in `t`.
+  ///
+  /// If `n` is overloaded, the requirements are returned in the order in which they are declared
+  /// in the source code.
+  public func requirements(_ n: Name, in t: TraitDecl.ID) -> [AnyDeclID] {
+    self[t].members.compactMap({ (m) -> AnyDeclID? in
+      switch m.kind {
+      case AssociatedValueDecl.self:
+        return (n == Name(stem: self[AssociatedValueDecl.ID(m)!].baseName)) ? m : nil
+
+      case AssociatedTypeDecl.self:
+        return (n == Name(stem: self[AssociatedTypeDecl.ID(m)!].baseName)) ? m : nil
+
+      case FunctionDecl.self:
+        return (n == Name(of: FunctionDecl.ID(m)!, in: self)) ? m : nil
+
+      case InitializerDecl.self:
+        return (n == Name(of: InitializerDecl.ID(m)!, in: self)) ? m : nil
+
+      case MethodDecl.self:
+        let d = MethodDecl.ID(m)!
+        if let i = n.introducer {
+          guard n.removingIntroducer() == Name(of: d, in: self) else { return nil }
+          return self[d].impls
+            .first(where: { self[$0].introducer.value == i })
+            .map(AnyDeclID.init(_:))
+        } else {
+          return (Name(of: d, in: self) == n) ? m : nil
+        }
+
+      case SubscriptDecl.self:
+        let d = SubscriptDecl.ID(m)!
+        if let i = n.introducer {
+          guard n.removingIntroducer() == Name(of: d, in: self) else { return nil }
+          return self[d].impls
+            .first(where: { self[$0].introducer.value == i })
+            .map(AnyDeclID.init(_:))
+        } else {
+          return (Name(of: d, in: self) == n) ? m : nil
+        }
+
+      default:
+        return nil
+      }
+    })
+  }
+
+  /// Returns the declaration of `Sinkable.take_value`'s requirement for variant `access`.
+  ///
+  /// Use the `.set` or `.inout` access in order to get the declaration of the move-initialization
+  /// or move-assignment, respectively.
+  ///
+  /// - Requires: `access` is either `.set` or `.inout`.
+  public func moveRequirement(_ access: AccessEffect) -> MethodImpl.ID {
+    let d = requirements(
+      Name(stem: "take_value", labels: ["from"], introducer: access),
+      in: sinkableTrait.decl)
+    return MethodImpl.ID(d[0])!
+  }
+
+  /// Returns a table mapping each parameter of `d` to its default argument if `d` is a function,
+  /// initializer, method or subscript declaration. Otherwise, returns `nil`.
+  public func defaultArguments(of d: AnyDeclID) -> [AnyExprID?]? {
+    let parameters: [ParameterDecl.ID]
+    switch d.kind {
+    case FunctionDecl.self:
+      parameters = self[FunctionDecl.ID(d)!].parameters
+    case InitializerDecl.self:
+      parameters = self[InitializerDecl.ID(d)!].parameters
+    case MethodDecl.self:
+      parameters = self[MethodDecl.ID(d)!].parameters
+    case SubscriptDecl.self:
+      parameters = self[SubscriptDecl.ID(d)!].parameters ?? []
+    default:
+      return nil
+    }
+    return self[parameters].map(\.defaultValue)
   }
 
   /// Returns the paths and IDs of the named patterns contained in `p`.
@@ -203,6 +291,44 @@ public struct AST {
     var result: [(path: PartPath, pattern: NamePattern.ID)] = []
     visit(pattern: AnyPatternID(p), path: [], result: &result)
     return result
+  }
+
+  /// Calls `action` on each sub-pattern in `pattern` and its corresponding sub-expression in
+  /// `expression`, along with the path to this sub-pattern, relative to `root`.
+  ///
+  /// Use this method to walk a pattern and a corresponding expression side by side and perform an
+  /// action for each pair. Children of tuple patterns are visited in pre-order if and only ifs the
+  /// corresponding expression is also a tuple. Otherwise, `action` is called on the tuple and the
+  /// sub-patterns are not visited.
+  ///
+  /// - Requires: `expression` structurally matches `pattern`: If `pattern` and `expression` are
+  ///   tuples, then they have equal lengths and labels.
+  public func walking(
+    pattern: AnyPatternID, expression: AnyExprID,
+    at root: PartPath = [],
+    _ action: (_ path: PartPath, _ subpattern: AnyPatternID, _ subexpression: AnyExprID) -> Void
+  ) {
+    switch pattern.kind {
+    case BindingPattern.self:
+      let p = self[BindingPattern.ID(pattern)]!.subpattern
+      walking(pattern: p, expression: expression, at: root, action)
+
+    case TuplePattern.kind:
+      guard let e = TupleExpr.ID(expression) else {
+        walking(pattern: pattern, expression: expression, at: root, action)
+        return
+      }
+
+      let p = TuplePattern.ID(pattern)!
+      for i in self[p].elements.indices {
+        let a = self[p].elements[i]
+        let b = self[e].elements[i]
+        walking(pattern: a.pattern, expression: b.value, at: root + [i], action)
+      }
+
+    default:
+      action(root, pattern, expression)
+    }
   }
 
   /// Returns the source site of `expr`

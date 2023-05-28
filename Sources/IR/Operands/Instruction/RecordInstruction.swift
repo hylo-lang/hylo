@@ -7,8 +7,9 @@ public struct RecordInstruction: Instruction {
   public let objectType: LoweredType
 
   /// The operands consumed to initialize the record members.
-  public let operands: [Operand]
+  public private(set) var operands: [Operand]
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -20,11 +21,23 @@ public struct RecordInstruction: Instruction {
 
   public var types: [LoweredType] { [objectType] }
 
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    operands[i] = new
+  }
+
+}
+
+extension RecordInstruction: CustomStringConvertible {
+
+  public var description: String {
+    "record \(objectType) \(list: operands)"
+  }
+
 }
 
 extension Module {
 
-  /// Creates a `record` anchored at `anchor` that creates a record of type `recordType` by
+  /// Creates a `record` anchored at `site` that creates a record of type `recordType` by
   /// aggregating its `parts`.
   ///
   /// - Parameters:
@@ -33,17 +46,17 @@ extension Module {
   func makeRecord<T: TypeProtocol>(
     _ recordType: T,
     aggregating parts: [Operand],
-    anchoredAt anchor: SourceRange
+    at site: SourceRange
   ) -> RecordInstruction {
     let t = AbstractTypeLayout(of: recordType, definedIn: program)
 
     precondition(t.properties.count == parts.count)
     for (p, q) in zip(t.properties, parts) {
       let u = type(of: q)
-      precondition(u.isObject && program.relations.areEquivalent(p.type, type(of: q).astType))
+      precondition(u.isObject && program.relations.areEquivalent(p.type, type(of: q).ast))
     }
 
-    return RecordInstruction(objectType: .object(recordType), operands: parts, site: anchor)
+    return .init(objectType: .object(recordType), operands: parts, site: site)
   }
 
 }

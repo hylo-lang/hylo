@@ -1,0 +1,18 @@
+/// A Unicode string.
+public type String {
+
+  /// The size of `utf8` in bytes.
+  public var size: Int
+
+  /// The contents of the string, encoded in UTF8.
+  public var utf8: RawPointer
+
+}
+
+public conformance String: Copyable {
+
+  public fun copy() -> Self {
+    String(size: size.copy(), utf8: utf8.copy())
+  }
+
+}

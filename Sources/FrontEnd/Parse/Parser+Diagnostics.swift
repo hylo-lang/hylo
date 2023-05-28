@@ -22,7 +22,7 @@ extension Diagnostic {
     .error(
       expected: "'\(closerDescription)'", at: state.currentLocation,
       notes: [
-        .error("to match this '\(state.lexer.sourceCode[opener.site])'", at: opener.site)
+        .note("to match this '\(state.lexer.sourceCode[opener.site])'", at: opener.site)
       ])
   }
 
@@ -93,6 +93,10 @@ extension Diagnostic {
     .error(
       "'\(ast[p].introducer.value)' cannot appear nested in another binding pattern",
       at: ast[p].introducer.site)
+  }
+
+  static func error(unknownPragma n: Substring, at site: SourceRange) -> Diagnostic {
+    .error("unknown pragma '\(n)'", at: site)
   }
 
 }

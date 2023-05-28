@@ -1,3 +1,5 @@
+//! expect-failure
+
 type A0 {
 
   fun m0() -> Self {

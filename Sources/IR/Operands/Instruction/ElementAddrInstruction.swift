@@ -4,7 +4,7 @@ import Core
 public struct ElementAddrInstruction: Instruction {
 
   /// The address of a record.
-  public let base: Operand
+  public private(set) var base: Operand
 
   /// A sequence of indices identifying a part of the value at `base`.
   public let elementPath: PartPath
@@ -32,6 +32,11 @@ public struct ElementAddrInstruction: Instruction {
 
   public var operands: [Operand] { [base] }
 
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    base = new
+  }
+
 }
 
 extension ElementAddrInstruction: CustomStringConvertible {
@@ -45,7 +50,7 @@ extension ElementAddrInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates an `element_addr` anchored at `anchor` that computes the address of the property at
+  /// Creates an `element_addr` anchored at `site` that computes the address of the property at
   /// `path` rooted at `base`.
   ///
   /// - Note: `base` is returned unchanged if `elementPath` is empty.
@@ -53,14 +58,11 @@ extension Module {
   ///   - base: The base address used for the computation.
   ///   - elementPath: An array of of indices identifying a sub-location in `base`.
   func makeElementAddr(
-    _ base: Operand,
-    at elementPath: PartPath,
-    anchoredAt anchor: SourceRange
+    _ base: Operand, at elementPath: PartPath, at anchor: SourceRange
   ) -> ElementAddrInstruction {
     precondition(type(of: base).isAddress)
-
-    let l = AbstractTypeLayout(of: type(of: base).astType, definedIn: program)
-    return ElementAddrInstruction(
+    let l = AbstractTypeLayout(of: type(of: base).ast, definedIn: program)
+    return .init(
       base: base,
       elementPath: elementPath,
       elementType: .address(l[elementPath].type),

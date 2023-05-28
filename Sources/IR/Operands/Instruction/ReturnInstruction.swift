@@ -4,12 +4,13 @@ import Core
 public struct ReturnInstruction: Terminator {
 
   /// The returned value.
-  public let object: Operand
+  public private(set) var object: Operand
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(value: Operand = .constant(.void), site: SourceRange) {
+  fileprivate init(value: Operand = .void, site: SourceRange) {
     self.object = value
     self.site = site
   }
@@ -20,7 +21,12 @@ public struct ReturnInstruction: Terminator {
 
   public var successors: [Block.ID] { [] }
 
-  func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    object = new
+  }
+
+  func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
     false
   }
 
@@ -28,13 +34,13 @@ public struct ReturnInstruction: Terminator {
 
 extension Module {
 
-  /// Creates a `return` anchored at `anchor` that returns `object`.
+  /// Creates a `return` anchored at `site` that returns `object`.
   ///
   /// - Parameters:
   ///   - object: The return value. Must have an object type.
-  func makeReturn(_ object: Operand, anchoredAt anchor: SourceRange) -> ReturnInstruction {
+  func makeReturn(_ object: Operand, at site: SourceRange) -> ReturnInstruction {
     precondition(type(of: object).isObject)
-    return ReturnInstruction(value: object, site: anchor)
+    return .init(value: object, site: site)
   }
 
 }

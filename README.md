@@ -1,6 +1,6 @@
 # Val
 
-Val is a research programming language to explore the concepts of [mutable value semantics](http://jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
+Val is a research programming language to explore the concepts of [mutable value semantics](https://www.jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
 
 This repository contains the sources of the reference implementation of Val.
 Please visit our [website](https://val-lang.dev) to get more information about the language itself.
@@ -8,9 +8,23 @@ Please visit our [website](https://val-lang.dev) to get more information about t
 ## Installation
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
-You will need Swift 5.6 or higher to build the compiler from sources.
+You will need Swift 5.7 or higher to build the compiler from sources.
 
 *Note to Windows users: although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see https://github.com/val-lang/val/issues/252).*
+
+### Prerequisites
+
+You can skip this step if you're doing development exlusively in a [devcontainer](#building-val-devcontainer-with-vscode).  Otherwise:
+
+1. Install LLVM 15 or later on your system (e.g. `brew install llvm`) 
+2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"`). Then, in this project's root directory.
+3. `swift package resolve` to get the tool for step 3.
+4. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description.
+5. Either
+   1. `sudo mkdir -p /usr/local/lib/pkgconfig && sudo mv llvm.pc /usr/local/lib/pkgconfig/` (if you want to use Xcode), or
+   2. `export PKG_CONFIG_PATH=$PWD` in any shell where you want to work on this project
+   
+### Building the compiler
 
 You may compile Val's compiler with the following commands:
 
@@ -20,6 +34,28 @@ swift build -c release
 
 That command will create an executable named `valc` in `.build/release`.
 That's Val compiler!
+
+### Running the tests
+
+To test your compiler, 
+
+```bash
+swift test -c release --parallel
+```
+
+### Building Val Devcontainer with VSCode
+
+While Val supports Linux natively, it also provides a [Devcontainer](https://containers.dev/) specification to develop for Linux on other platforms through a Docker container. Our [Linux CI](.github/workflows/build-and-test.yml) uses this specification; this makes it possible to run Linux CI locally on other operating systems like macOS. While this specification should work for any IDE that supports devcontainers, keep in mind this team only uses VSCode. 
+
+When opening the Val project in VSCode for the first time, you should be prompted to install the extension `recommendations` in `.vscode/extensions.json`. If you are not prompted, manually install the extensions by searching for the extension identifiers in the Extensions Marketplace.
+
+Then, build the Devcontainer with the VSCode command: `> Dev Containers: Rebuild and Reopen in Container`.
+
+Finally, open a new integrated terminal in VSCode and confirm that the shell user is `vscode`. You can run `whoami` to check this.
+
+That integrated terminal is connected to the Devcontainer, as if by ssh. You can now run `swift test -c release` to build and test for Linux. 
+
+The Val repository files are mounted into the container, so any changes made locally (in VSCode or in other editors) will be automatically propagated into the Devcontainer. However, if you need to modifiy any of the files in the `.devcontainer` directory, you will need to rebuild the container with `> Dev Containers: Rebuild and Reopen in Container`.
 
 ## Implementation status
 
@@ -39,15 +75,8 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--typecheck`: Run the type checker on the input.
 - `--emit raw-ir`: Lower the typed AST into Val IR and output the result in a file.
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
-- `--emit cpp`: Produce a C++ source file (use `clang-format` to format the output C++ code).
-- `--emit binary` (default): Produce an executable (currently by compiling transpiled C++ files)
-  - Note: by default, C++ files will be compiled with `Clang`. Use `--cc {CXX compiler}` to use another compiler.
-  - Note: You can specify parameters for the C++ compiler to use (e.g., `--cc-flags O3`).
-    - Note: Don't add an extraneous `-`, please use `O3` instead of `-O3`. 
-    - Note to MSVC users: Don't add an extraneous `/`, please use `O1` instead of `/O1`. 
-    - Note: You can also add more than one such option (e.g., `--cc-flags O1 --cc-flags g`).
-    - Note: Do not use `--cc-flags` to specify output locations; use `-o` instead.
-  - Note to MSVC users: be sure to use Visual Studio Developer Command Prompt or Visual Studio Developer PowerShell.
+- `--emit llvm`: Transpile the program to LLVM and output LLVM IR.
+- `--emit binary` (default): Produce an executable.
 
 For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
 

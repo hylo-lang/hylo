@@ -1,3 +1,5 @@
+import Utils
+
 /// A function declaration.
 public struct FunctionDecl: GenericDecl, GenericScope {
 
@@ -95,8 +97,28 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   public var isSink: Bool { receiverEffect?.value == .sink }
 
   /// Returns whether `self` is a foreign function interface.
-  public var isFFI: Bool {
-    attributes.contains(where: { $0.value.name.value == "@_lowered_name" })
+  public var isForeignInterface: Bool {
+    foreignName != nil
+  }
+
+  /// The name of this foreign function if this instance is a foreign function interface.
+  public var foreignName: String? {
+    if let a = attributes.first(where: { $0.value.name.value == "@ffi" }) {
+      guard case .string(let n) = a.value.arguments[0] else { unreachable() }
+      return n.value
+    } else {
+      return nil
+    }
+  }
+
+  /// The LLVM name of this function if this instance has the `@_llvm` attribute.
+  public var llvmName: String? {
+    if let a = attributes.first(where: { $0.value.name.value == "@_llvm" }) {
+      guard case .string(let n) = a.value.arguments[0] else { unreachable() }
+      return n.value
+    } else {
+      return nil
+    }
   }
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {

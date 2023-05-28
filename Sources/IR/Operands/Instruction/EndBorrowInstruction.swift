@@ -4,8 +4,9 @@ import Core
 public struct EndBorrowInstruction: Instruction {
 
   /// The borrow whose lifetime is ended.
-  public let borrow: Operand
+  public private(set) var borrow: Operand
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -18,21 +19,22 @@ public struct EndBorrowInstruction: Instruction {
 
   public var operands: [Operand] { [borrow] }
 
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    precondition(i == 0)
+    borrow = new
+  }
+
 }
 
 extension Module {
 
-  /// Creates an `end_borrow` anchored at `anchor` that ends a borrow previously created by
-  /// `borrow`.
+  /// Creates an `end_borrow` anchored at `site` that ends a borrow previously created by `borrow`.
   ///
   /// - Parameters:
   ///   - borrow: The borrow to end. Must be the result of `borrow`.
-  func makeEndBorrow(
-    _ borrow: Operand,
-    anchoredAt anchor: SourceRange
-  ) -> EndBorrowInstruction {
+  func makeEndBorrow(_ borrow: Operand, at site: SourceRange) -> EndBorrowInstruction {
     precondition(borrow.instruction.map({ self[$0] is BorrowInstruction }) ?? false)
-    return EndBorrowInstruction(borrow: borrow, site: anchor)
+    return .init(borrow: borrow, site: site)
   }
 
 }

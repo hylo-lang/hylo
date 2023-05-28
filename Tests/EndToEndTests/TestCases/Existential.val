@@ -1,0 +1,16 @@
+fun use<T>(_ x: T) {}
+
+trait T {
+  fun foo() -> Int
+}
+
+type A: T {
+  public fun foo() -> Int { 42 }
+}
+
+public fun main() {
+  let x: Any = A()
+  use(x)
+  let y: any T = A()
+  use(y)
+}

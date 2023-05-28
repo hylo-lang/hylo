@@ -2,5 +2,5 @@
 
 type A {
   var value: Double
-  public init(_ v: Double) { &self.value = v }
+  public init(_ v: sink Double) { &self.value = v }
 }

@@ -35,7 +35,7 @@ extension Diagnostic {
     .error(
       "redundant conformance of '\(c.model)' to trait '\(c.concept)'", at: site,
       notes: [
-        .error("conformance already declared here", at: originalSite)
+        .note("conformance already declared here", at: originalSite)
       ])
   }
 
@@ -84,10 +84,6 @@ extension Diagnostic {
       """, at: site)
   }
 
-  static func error(incompatibleParameterCountAt site: SourceRange) -> Diagnostic {
-    .error("incompatible number of parameters", at: site)
-  }
-
   static func error(
     type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange
   ) -> Diagnostic {
@@ -129,13 +125,17 @@ extension Diagnostic {
     .error("type '\(type)' is not a trait", at: site)
   }
 
-  static func error(
+  public static func error(
     _ type: AnyType, doesNotConformTo trait: TraitType, at site: SourceRange,
     because notes: DiagnosticSet = []
   ) -> Diagnostic {
     .error(
       "type '\(type)' does not conform to trait '\(trait)'", at: site,
       notes: Array(notes.elements))
+  }
+
+  static func error(tooManyExistentialBoundsAt site: SourceRange) -> Diagnostic {
+    .error("existential generic type may have only one bound", at: site)
   }
 
   static func error(
@@ -159,8 +159,7 @@ extension Diagnostic {
   }
 
   static func error(notEnoughContextToInferArgumentsAt site: SourceRange) -> Diagnostic {
-    .error(
-      "not enough contextual information to infer the arguments to generic parameters", at: site)
+    .error("not enough contextual information to infer generic arguments", at: site)
   }
 
   static func error(
@@ -179,10 +178,16 @@ extension Diagnostic {
     }
   }
 
-  static func error(
+  static func note(
     trait x: TraitType, requiresMethod m: Name, withType t: AnyType, at site: SourceRange
   ) -> Diagnostic {
-    .error("trait '\(x)' requires method '\(m)' with type '\(t)'", at: site)
+    .note("trait '\(x)' requires method '\(m)' with type '\(t)'", at: site)
+  }
+
+  static func note(
+    trait x: TraitType, requiresInitializer t: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .note("trait '\(x)' requires initializer with type '\(t)'", at: site)
   }
 
   static func error(staleConstraint c: any Constraint) -> Diagnostic {
@@ -219,18 +224,13 @@ extension Diagnostic {
   }
 
   static func error(
-    invalidGenericArgumentsTo entity: SourceRepresentable<Name>,
-    candidateDiagnostics notes: [Diagnostic]
+    noViableCandidateToResolve entity: SourceRepresentable<Name>, notes: [Diagnostic]
   ) -> Diagnostic {
-    .error("invalid generic argument(s) for '\(entity.value)'", at: entity.site, notes: notes)
+    .error("no viable candidate to resolve '\(entity.value)'", at: entity.site, notes: notes)
   }
 
   static func error(argumentToNonGenericType type: AnyType, at site: SourceRange) -> Diagnostic {
     .error("non-generic type '\(type)' has no generic parameters", at: site)
-  }
-
-  static func error(metatypeRequiresOneArgumentAt site: SourceRange) -> Diagnostic {
-    .error("reference to 'Metatype' requires exacly one static argument", at: site)
   }
 
   static func error(tooManyAnnotationsOnGenericValueParametersAt site: SourceRange) -> Diagnostic {
@@ -310,8 +310,9 @@ extension Diagnostic {
   static func error(
     ambiguousUse expr: NameExpr.ID, in ast: AST, candidates: [AnyDeclID] = []
   ) -> Diagnostic {
-    let notes = candidates.map { Diagnostic.error("candidate here", at: ast[$0].site) }
-    return .error("ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site, notes: notes)
+    return .error(
+      "ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site,
+      notes: candidates.map { .note("candidate here", at: ast[$0].site) })
   }
 
   static func error(cannotExtend t: BuiltinType, at site: SourceRange) -> Diagnostic {
@@ -346,6 +347,10 @@ extension Diagnostic {
 
   static func error(noSuchModule n: String, at site: SourceRange) -> Diagnostic {
     .error("no such module '\(n)'", at: site)
+  }
+
+  static func error(invalidPointerConversionAt site: SourceRange) -> Diagnostic {
+    .error("right operand of built-in pointer conversion must be a remote type", at: site)
   }
 
   static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {

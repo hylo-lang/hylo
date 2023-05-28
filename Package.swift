@@ -1,4 +1,4 @@
-// swift-tools-version:5.6
+// swift-tools-version:5.7
 import PackageDescription
 
 /// Settings to be passed to swiftc for all targets.
@@ -31,6 +31,9 @@ let package = Package(
       url: "https://github.com/attaswift/BigInt.git",
       from: "5.3.0"),
     .package(
+      url: "https://github.com/val-lang/Swifty-LLVM",
+      branch: "main"),
+    .package(
       url: "https://github.com/val-lang/swift-format",
       branch: "main"),
   ],
@@ -49,7 +52,7 @@ let package = Package(
       dependencies: [
         "FrontEnd",
         "IR",
-        "CodeGenCXX",
+        "CodeGenLLVM",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: allTargetsSwiftSettings),
@@ -70,7 +73,8 @@ let package = Package(
     .target(
       name: "Core",
       dependencies: [
-        "Utils"
+        "Utils",
+        .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
@@ -80,21 +84,25 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
-      name: "CodeGenCXX",
-      dependencies: ["FrontEnd", "Utils"],
-      path: "Sources/CodeGen/CXX",
-      exclude: ["README.md"],
-      swiftSettings: allTargetsSwiftSettings),
-
-    .target(
-      name: "ValModule",
-      path: "Library",
-      resources: [.copy("Core"), .copy("CXX")],
+      name: "CodeGenLLVM",
+      dependencies: [
+        "Core",
+        "IR",
+        "Utils",
+        .product(name: "LLVM", package: "Swifty-LLVM"),
+      ],
+      path: "Sources/CodeGen/LLVM",
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
       name: "Utils",
       dependencies: [.product(name: "BigInt", package: "BigInt")],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
+      name: "ValModule",
+      path: "Library",
+      resources: [.copy("Val")],
       swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
@@ -105,7 +113,7 @@ let package = Package(
 
     .testTarget(
       name: "ValTests",
-      dependencies: ["FrontEnd", "Core", "CodeGenCXX", "IR"],
+      dependencies: ["FrontEnd", "Core", "IR"],
       resources: [.copy("TestCases")],
       swiftSettings: allTargetsSwiftSettings),
 

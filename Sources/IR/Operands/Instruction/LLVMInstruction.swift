@@ -3,44 +3,55 @@ import Core
 /// An instruction whose semantics is defined by LLVM.
 public struct LLVMInstruction: Instruction {
 
-  /// The built-in function representing this instruction.
-  public let function: BuiltinFunction
+  /// The LLVM instruction corresponding to this instance.
+  public let instruction: NativeInstruction
 
   /// The operands of the instruction.
-  public let operands: [Operand]
+  public private(set) var operands: [Operand]
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(applying f: BuiltinFunction, to operands: [Operand], site: SourceRange) {
-    self.function = f
+  fileprivate init(applying s: NativeInstruction, to operands: [Operand], site: SourceRange) {
+    self.instruction = s
     self.operands = operands
     self.site = site
   }
 
-  public var types: [LoweredType] { [.object(function.type.output)] }
+  public var types: [LoweredType] { [.object(instruction.type.output)] }
+
+  public mutating func replaceOperand(at i: Int, with new: Operand) {
+    operands[i] = new
+  }
+
+}
+
+extension LLVMInstruction: CustomStringConvertible {
+
+  public var description: String {
+    operands.isEmpty ? "\(instruction)" : "\(instruction) \(list: operands)"
+  }
 
 }
 
 extension Module {
 
-  /// Creates a llvm instruction anchored at `anchor` that applies `f` to `operands`.
+  /// Creates a llvm instruction anchored at `site` that applies `f` to `operands`.
   ///
   /// - Parameters:
   ///   - f: A built-in function.
   ///   - operands: A collection of built-in objects.
   func makeLLVM(
-    applying f: BuiltinFunction,
-    to operands: [Operand],
-    anchoredAt anchor: SourceRange
+    applying s: NativeInstruction, to operands: [Operand], at site: SourceRange
   ) -> LLVMInstruction {
     precondition(
       operands.allSatisfy { (o) in
         let t = type(of: o)
-        return t.isObject && (t.astType.base is BuiltinType)
+        return t.isObject && (t.ast.base is BuiltinType)
       })
 
-    return LLVMInstruction(applying: f, to: operands, site: anchor)
+    return .init(applying: s, to: operands, site: site)
   }
 
 }

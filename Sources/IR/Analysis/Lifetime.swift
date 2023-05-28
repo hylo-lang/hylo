@@ -130,7 +130,7 @@ extension Module {
       case (false, true):
         coverage[block] = .liveOut
       case (true, false):
-        let id = Block.ID(function: site.function, address: block)
+        let id = Block.ID(site.function, block)
         coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: id))
       case (false, false):
         continue
