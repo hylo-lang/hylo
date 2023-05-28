@@ -87,7 +87,7 @@ extension XCTestCase {
   ///   from the contents of the file.
   public func checkAnnotatedValFileDiagnostics(
     inFileAt valFilePath: String,
-    expectSuccess: Bool? = nil,
+    expectSuccess: Bool,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
     let f = try SourceFile(atPath: valFilePath)
@@ -100,7 +100,7 @@ extension XCTestCase {
       return []
     }
 
-    if processingSucceeded != (expectSuccess ?? f.line(1).text.hasSuffix("success\n")) {
+    if processingSucceeded != expectSuccess {
       record(
         XCTIssue(
           Diagnostic.error(
