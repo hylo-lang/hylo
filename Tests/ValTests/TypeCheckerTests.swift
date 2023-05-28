@@ -1,7 +1,7 @@
 import Core
 import FrontEnd
-import XCTest
 import TestUtils
+import XCTest
 
 extension XCTestCase {
 
