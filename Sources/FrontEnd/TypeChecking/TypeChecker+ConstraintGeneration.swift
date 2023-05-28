@@ -621,27 +621,20 @@ extension TypeChecker {
         return .error
       }
 
-      // Infer the type of the callee.
-      let parameterType = ^TypeVariable()
-      state.facts.append(
-        ParameterConstraint(
-          rhsType, parameterType,
-          origin: ConstraintOrigin(.argument, at: ast.site(of: rhs))))
-
+      let operatorType = ^TypeVariable()
       let outputType = ^TypeVariable()
-      let calleeType = LambdaType(
-        receiverEffect: .let,
-        environment: ^TupleType(labelsAndTypes: [("self", ^RemoteType(.let, lhsType))]),
-        inputs: [CallableTypeParameter(type: parameterType)],
-        output: outputType)
-      state.facts.assign(^calleeType, to: callee.expr)
+      state.facts.assign(operatorType, to: callee.expr)
 
-      // Create a member constraint for the operator.
+      // The operator is a member function of the left operand.
       state.facts.append(
         MemberConstraint(
-          lhsType, hasMemberReferredToBy: callee.expr, ofType: ^calleeType,
-          in: ast,
+          lhsType, hasMemberReferredToBy: callee.expr, ofType: operatorType, in: ast,
           origin: ConstraintOrigin(.member, at: ast[callee.expr].site)))
+      state.facts.append(
+        FunctionCallConstraint(
+          operatorType, accepts: [.init(label: nil, type: rhsType, site: ast.site(of: rhs))],
+          returns: outputType,
+          origin: ConstraintOrigin(.callee, at: ast.site(of: subject))))
 
       return outputType
 
