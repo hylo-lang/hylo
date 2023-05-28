@@ -382,24 +382,27 @@ public struct Module {
     functions[f]!.entry.map({ Block.ID(f, $0) })
   }
 
-  /// Appends an entry block to `f` and returns its identifier.
+  /// Appends to `f` an entry block that is in `scope`, returning its identifier.
   ///
   /// - Requires: `f` is declared in `self` and doesn't have an entry block.
   @discardableResult
-  mutating func appendEntry(to f: Function.ID) -> Block.ID {
+  mutating func appendEntry<T: ScopeID>(in scope: T, to f: Function.ID) -> Block.ID {
     assert(functions[f]!.blocks.isEmpty)
-    return appendBlock(taking: functions[f]!.inputs.map({ .address($0.type.bareType) }), to: f)
+    let parameters = functions[f]!.inputs.map({ LoweredType.address($0.type.bareType) })
+    return appendBlock(in: scope, taking: parameters, to: f)
   }
 
-  /// Appends a basic block taking `parameters` to `f` and returns its identifier.
+  /// Appends to `f` a basic block that is in `scope` and accepts `parameters` to `f`, returning
+  /// its identifier.
   ///
   /// - Requires: `f` is declared in `self`.
   @discardableResult
-  mutating func appendBlock(
+  mutating func appendBlock<T: ScopeID>(
+    in scope: T,
     taking parameters: [LoweredType] = [],
     to f: Function.ID
   ) -> Block.ID {
-    let a = functions[f]!.appendBlock(taking: parameters)
+    let a = functions[f]!.appendBlock(in: scope, taking: parameters)
     return Block.ID(f, a)
   }
 
