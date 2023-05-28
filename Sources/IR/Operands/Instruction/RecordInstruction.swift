@@ -9,6 +9,7 @@ public struct RecordInstruction: Instruction {
   /// The operands consumed to initialize the record members.
   public private(set) var operands: [Operand]
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -36,7 +37,7 @@ extension RecordInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `record` anchored at `anchor` that creates a record of type `recordType` by
+  /// Creates a `record` anchored at `site` that creates a record of type `recordType` by
   /// aggregating its `parts`.
   ///
   /// - Parameters:
@@ -45,7 +46,7 @@ extension Module {
   func makeRecord<T: TypeProtocol>(
     _ recordType: T,
     aggregating parts: [Operand],
-    anchoredAt anchor: SourceRange
+    at site: SourceRange
   ) -> RecordInstruction {
     let t = AbstractTypeLayout(of: recordType, definedIn: program)
 
@@ -55,7 +56,7 @@ extension Module {
       precondition(u.isObject && program.relations.areEquivalent(p.type, type(of: q).ast))
     }
 
-    return RecordInstruction(objectType: .object(recordType), operands: parts, site: anchor)
+    return .init(objectType: .object(recordType), operands: parts, site: site)
   }
 
 }

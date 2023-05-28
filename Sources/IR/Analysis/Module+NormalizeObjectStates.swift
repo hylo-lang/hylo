@@ -34,14 +34,12 @@ extension Module {
           pc = interpret(condBranch: user, in: &context)
         case is CallInstruction:
           pc = interpret(call: user, in: &context)
-        case is CallFIIInstruction:
+        case is CallFFIInstruction:
           pc = interpret(callFFI: user, in: &context)
         case is DeallocStackInstruction:
           pc = interpret(deallocStack: user, in: &context)
         case is DeinitInstruction:
           pc = interpret(deinit: user, in: &context)
-        case is DestructureInstruction:
-          pc = interpret(destructure: user, in: &context)
         case is ElementAddrInstruction:
           pc = interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
@@ -58,6 +56,8 @@ extension Module {
           pc = interpret(move: user, in: &context)
         case is PartialApplyInstruction:
           pc = interpret(partialApply: user, in: &context)
+        case is PointerToAddressInstruction:
+          pc = interpret(pointerToAddress: user, in: &context)
         case is ProjectInstruction:
           pc = interpret(project: user, in: &context)
         case is RecordInstruction:
@@ -199,7 +199,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(callFFI i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! CallFIIInstruction
+      let s = self[i] as! CallFFIInstruction
       for a in s.operands {
         consume(a, with: i, at: s.site, in: &context)
       }
@@ -242,14 +242,6 @@ extension Module {
       }
 
       context.locals[.register(i, 0)] = .locations(Set(locations))
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(destructure i: InstructionID, in context: inout Context) -> PC? {
-      let x = self[i] as! DestructureInstruction
-      consume(x.whole, with: i, at: x.site, in: &context)
-      initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
 
@@ -314,9 +306,9 @@ extension Module {
       let f = demandMoveOperatorDeclaration(k, from: s.sinkable)
       let move = FunctionReference(to: f, usedIn: s.sinkable.scope, in: self)
 
-      let r = insert(makeBorrow(k, from: s.target, anchoredAt: s.site), before: i)[0]
-      insert(makeCall(applying: .constant(move), to: [r, s.object], anchoredAt: s.site), before: i)
-      insert(makeEndBorrow(r, anchoredAt: s.site), before: i)
+      let r = insert(makeBorrow(k, from: s.target, at: s.site), before: i)[0]
+      insert(makeCall(applying: .constant(move), to: [r, s.object], at: s.site), before: i)
+      insert(makeEndBorrow(r, at: s.site), before: i)
       removeInstruction(i)
 
       return r.instruction!.address
@@ -338,6 +330,19 @@ extension Module {
       }
 
       initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(pointerToAddress i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! PointerToAddressInstruction
+      consume(s.source, with: i, at: s.site, in: &context)
+
+      let l = AbstractLocation.root(.register(i, 0))
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
+        value: .full(s.target.access == .set ? .uninitialized : .initialized))
+      context.locals[.register(i, 0)] = .locations([l])
       return successor(of: i)
     }
 
@@ -493,12 +498,12 @@ extension Module {
   ) {
     for path in initializedPaths {
       let s = insert(
-        makeElementAddr(root, at: path, anchoredAt: anchor),
+        makeElementAddr(root, at: path, at: anchor),
         before: i)[0]
       let o = insert(
-        makeLoad(s, anchoredAt: anchor),
+        makeLoad(s, at: anchor),
         before: i)[0]
-      insert(makeDeinit(o, anchoredAt: anchor), before: i)
+      insert(makeDeinit(o, at: anchor), before: i)
     }
   }
 

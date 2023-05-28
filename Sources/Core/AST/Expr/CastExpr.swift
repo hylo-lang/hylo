@@ -14,7 +14,7 @@ public struct CastExpr: Expr {
     ///
     /// - Note: built-in conversion expressions may only be used in the core library. The compiler
     ///   shall emit a warning if one is found outside of core library sources.
-    case builtinPointerConversion
+    case pointerConversion
 
   }
 

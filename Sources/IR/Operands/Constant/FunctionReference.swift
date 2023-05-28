@@ -29,26 +29,35 @@ public struct FunctionReference: Constant, Hashable {
   /// parameterized by `a`.
   public init(
     to d: FunctionDecl.Typed,
-    usedIn s: AnyScopeID,
     parameterizedBy a: GenericArguments = [:],
+    usedIn s: AnyScopeID,
     in module: inout Module
   ) {
+    let arguments = module.program.relations.canonical(a)
+    let t = module.program.relations.canonical(
+      module.program.monomorphize(d.type, for: arguments))
+
     self.function = module.demandFunctionDeclaration(lowering: d)
-    self.type = .address(LambdaType(d.type)!.lifted)
+    self.type = .address(LambdaType(t)!.lifted)
     self.useScope = s
-    self.arguments = a
+    self.arguments = arguments
   }
 
   /// Creates in `module` a reference to the lowered form of `d`, which is used in `s`.
   public init(
     to d: InitializerDecl.Typed,
+    parameterizedBy a: GenericArguments = [:],
     usedIn s: AnyScopeID,
     in module: inout Module
   ) {
+    let arguments = module.program.relations.canonical(a)
+    let t = module.program.relations.canonical(
+      module.program.monomorphize(d.type, for: arguments))
+
     self.function = module.demandInitializerDeclaration(lowering: d)
-    self.type = .address(LambdaType(d.type)!.lifted)
+    self.type = .address(LambdaType(t)!.lifted)
     self.useScope = s
-    self.arguments = [:]
+    self.arguments = arguments
   }
 
 }

@@ -125,7 +125,7 @@ extension Diagnostic {
     .error("type '\(type)' is not a trait", at: site)
   }
 
-  static func error(
+  public static func error(
     _ type: AnyType, doesNotConformTo trait: TraitType, at site: SourceRange,
     because notes: DiagnosticSet = []
   ) -> Diagnostic {
@@ -347,6 +347,10 @@ extension Diagnostic {
 
   static func error(noSuchModule n: String, at site: SourceRange) -> Diagnostic {
     .error("no such module '\(n)'", at: site)
+  }
+
+  static func error(invalidPointerConversionAt site: SourceRange) -> Diagnostic {
+    .error("right operand of built-in pointer conversion must be a remote type", at: site)
   }
 
   static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {

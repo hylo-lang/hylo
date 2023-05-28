@@ -15,6 +15,7 @@ public struct BorrowInstruction: Instruction {
   /// The binding in source program to which the instruction corresponds, if any.
   public let binding: VarDecl.Typed?
 
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
@@ -53,22 +54,20 @@ extension BorrowInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `borrow` anchored at `anchor` that takes `capability` from `source`.
+  /// Creates a `borrow` anchored at `site` that takes `capability` from `source`.
   ///
   /// - Parameters:
   ///   - capability: The capability being borrowed. Must be `.let`, `.inout`, or `.set`.
   ///   - source: The address from which the capability is borrowed. Must have an address type.
   ///   - binding: The declaration of the binding to which the borrow corresponds, if any.
   func makeBorrow(
-    _ capability: AccessEffect,
-    from source: Operand,
+    _ capability: AccessEffect, from source: Operand,
     correspondingTo binding: VarDecl.Typed? = nil,
-    anchoredAt anchor: SourceRange
+    at anchor: SourceRange
   ) -> BorrowInstruction {
     precondition((capability == .let) || (capability == .inout) || (capability == .set))
     precondition(type(of: source).isAddress)
-
-    return BorrowInstruction(
+    return .init(
       borrowedType: type(of: source),
       capability: capability,
       location: source,

@@ -835,10 +835,10 @@ final class ParserTests: XCTestCase {
   }
 
   func testCastExprBuiltinPointerConversion() throws {
-    let input: SourceFile = "foo as!! T"
+    let input: SourceFile = "foo as* T"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let cast = try XCTUnwrap(ast[exprID] as? CastExpr)
-    XCTAssertEqual(cast.direction, .builtinPointerConversion)
+    XCTAssertEqual(cast.direction, .pointerConversion)
   }
 
   func testInoutExpr() throws {
