@@ -71,6 +71,42 @@ extension Program {
     scopeToParent[declToScope[d]!]!
   }
 
+  /// Returns the scope of `d`'s body, if any.
+  public func scopeContainingBody(of d: FunctionDecl.ID) -> AnyScopeID? {
+    switch ast[d].body {
+    case nil:
+      return nil
+    case .some(.block(let s)):
+      return AnyScopeID(s)
+    case .some(.expr):
+      return AnyScopeID(d)
+    }
+  }
+
+  /// Returns the scope of `d`'s body, if any.
+  public func scopeContainingBody(of d: MethodImpl.ID) -> AnyScopeID? {
+    switch ast[d].body {
+    case nil:
+      return nil
+    case .some(.block(let s)):
+      return AnyScopeID(s)
+    case .some(.expr):
+      return AnyScopeID(d)
+    }
+  }
+
+  /// Returns the scope of `d`'s body, if any.
+  public func scopeContainingBody(of d: SubscriptImpl.ID) -> AnyScopeID? {
+    switch ast[d].body {
+    case nil:
+      return nil
+    case .some(.block(let s)):
+      return AnyScopeID(s)
+    case .some(.expr):
+      return AnyScopeID(d)
+    }
+  }
+
   /// Returns `true` iff `d` is at module scope.
   public func isAtModuleScope<T: DeclID>(_ d: T) -> Bool {
     switch declToScope[d]!.kind {
