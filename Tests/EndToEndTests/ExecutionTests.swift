@@ -4,7 +4,7 @@ import TestUtils
 import ValCommand
 import XCTest
 
-final class ExecutionTests: EndToEndTestCase {
+final class ExecutionTests: XCTestCase {
 
   func testHelloWorld() throws {
     let f = FileManager.default.makeTemporaryFileURL()
@@ -19,15 +19,15 @@ final class ExecutionTests: EndToEndTestCase {
 
 }
 
-class EndToEndTestCase: XCTestCase {
+extension XCTestCase {
 
-  /// Compiles and runs the given file at `valFilePath`, `XCTAssert`ing that diagnostics and exit
+  /// Compiles and runs the val file at `valFilePath`, `XCTAssert`ing that diagnostics and exit
   /// codes match annotated expectations.
   func compileAndRun(_ valFilePath: String, expectSuccess: Bool)
     throws
   {
     try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath, expectSuccess: expectSuccess) {
-      (_ valSource: SourceFile, _ diagnostics: inout DiagnosticSet) in
+      (valSource, diagnostics) in
 
       var executable: URL
 

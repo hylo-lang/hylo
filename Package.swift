@@ -130,8 +130,8 @@ let package = Package(
     .testTarget(
       name: "ValTests",
       dependencies: ["FrontEnd", "Core", "IR", "TestUtils"],
-      resources: [.copy("TestCases")],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: ["TestGeneratorPlugin"]),
 
     .testTarget(
       name: "ValCommandTests",

@@ -5,16 +5,23 @@ import XCTest
 
 @testable import FrontEnd
 
-final class ParserTests: XCTestCase {
+extension XCTestCase {
 
-  func testParser() throws {
-    try checkAnnotatedValFileDiagnostics(
-      inSuiteAt: "TestCases/Parsing",
-      { (source, diagnostics) in
-        var ast = AST()
-        _ = try ast.makeModule(source.baseName, sourceCode: [source], diagnostics: &diagnostics)
-      })
+  /// Parses the val file at `valFilePath`, `XCTAssert`ing that diagnostics and thrown
+  /// errors match annotated expectations.
+  func parse(_ valFilePath: String, expectSuccess: Bool) throws {
+
+    try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath, expectSuccess: expectSuccess) {
+      (valSource, diagnostics) in
+      var ast = AST()
+      _ = try ast.makeModule(valSource.baseName, sourceCode: [valSource], diagnostics: &diagnostics)
+    }
+
   }
+
+}
+
+final class ParserTests: XCTestCase {
 
   // MARK: Unit tests
 

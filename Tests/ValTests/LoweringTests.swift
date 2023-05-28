@@ -4,17 +4,18 @@ import IR
 import Utils
 import XCTest
 
-final class LoweringTests: XCTestCase {
+extension XCTestCase {
 
-  func testLowering() throws {
-    try checkAnnotatedValFileDiagnostics(
-      inSuiteAt: "TestCases/Lowering",
-      { (source, diagnostics) in
+  /// Lowers the val file at `valFilePath` to IR, applying any mandatory passes, and `XCTAssert`s
+  /// that diagnostics and thrown errors match annotated expectations.
+  func lowerToFinishedIR(_ valFilePath: String, expectSuccess: Bool) throws {
+
+    try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath, expectSuccess: expectSuccess) {
+       (valSource, diagnostics) in
         // Note: built-in module is visible so that we can test built-in function calls.
         var ast = AST.coreModule
         let module = try ast.makeModule(
-          source.baseName, sourceCode: [source],
-          builtinModuleAccess: true, diagnostics: &diagnostics)
+          valSource.baseName, sourceCode: [valSource], builtinModuleAccess: true, diagnostics: &diagnostics)
 
         // Run the type checker
         let typedProgram = try TypedProgram(ast, diagnostics: &diagnostics)
@@ -24,7 +25,9 @@ final class LoweringTests: XCTestCase {
 
         // Run mandatory IR analysis and transformation passes.
         try irModule.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
-      })
+
+    }
+
   }
 
 }

@@ -26,10 +26,11 @@ struct GenerateValFileTests: ParsableCommand {
   func swiftFunctionTesting(valAt source: URL, withFirstLine firstLine: Substring) throws -> String
   {
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedValFileTest()
+    let testID = source.deletingPathExtension().lastPathComponent.asSwiftIdentifier
 
     return """
 
-      func test_\(source.lastPathComponent.asSwiftIdentifier)() throws {
+      func test_\(parsed.methodName)_\(testID)() throws {
         try \(parsed.methodName)(
           \(String(reflecting: source.path)), expectSuccess: \(parsed.expectSuccess))
       }
@@ -42,7 +43,7 @@ struct GenerateValFileTests: ParsableCommand {
       """
       import XCTest
 
-      final class \(testCaseName.asSwiftIdentifier): EndToEndTestCase {
+      final class \(testCaseName.asSwiftIdentifier): XCTestCase {
 
       """
 
