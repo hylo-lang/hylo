@@ -2,7 +2,8 @@ import ArgumentParser
 import Foundation
 
 @main
-struct GenerateValFileTests: AsyncParsableCommand {
+struct GenerateValFileTests: ParsableCommand {
+
   @Option(
     name: [.customShort("o")],
     help: ArgumentHelp("Write output to <file>.", valueName: "output-swift-file"),
@@ -20,28 +21,10 @@ struct GenerateValFileTests: AsyncParsableCommand {
   )
   var valSourceFiles: [URL]
 
-  /// Returns a mapping from the elements of `valSourceFiles` to the first line of the file that
-  /// element refers to.
-  func firstLineOfEachInput() async throws -> [URL: String] {
-    try await withThrowingTaskGroup(of: (URL, String).self) { (g) -> [URL: String] in
-      for f in valSourceFiles {
-        g.addTask {
-          for try await firstLine in f.lines {
-            return (f, firstLine)
-          }
-          return (f, "")
-        }
-      }
-      var r = [URL: String]()
-      for try await (k, v) in g { r[k] = v }
-      return r
-    }
-  }
-
   /// Returns the Swift source of the test function for the Val at `source`, having `firstLine` as
   /// its first line.
-  func swiftFunctionTesting(valAt source: URL, withFirstLine firstLine: String) throws -> String {
-
+  func swiftFunctionTesting(valAt source: URL, withFirstLine firstLine: Substring) throws -> String
+  {
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedValFileTest()
 
     return """
@@ -54,11 +37,7 @@ struct GenerateValFileTests: AsyncParsableCommand {
       """
   }
 
-  func run() async throws {
-
-    let firstLines = try await firstLineOfEachInput()
-    _ = firstLines
-
+  func run() throws {
     var output =
       """
       import XCTest
@@ -68,8 +47,9 @@ struct GenerateValFileTests: AsyncParsableCommand {
       """
 
     for f in valSourceFiles {
+      let firstLine = try String(contentsOf: f).split(separator: "\n", maxSplits: 1).first ?? ""
       do {
-        output += try swiftFunctionTesting(valAt: f, withFirstLine: firstLines[f]!)
+        output += try swiftFunctionTesting(valAt: f, withFirstLine: firstLine)
       } catch let e as FirstLineError {
         try! FileHandle.standardError.write(
           contentsOf: Data("\(f.path):1: error: \(e.details)\n".utf8))
@@ -100,7 +80,7 @@ extension Substring {
   /// Removes `prefix` from the beginning and returns `true`, or returns `false` if `self`
   /// has no such prefix.
   fileprivate mutating func removeLeading(_ prefix: String) -> Bool {
-    var me = self
+    var me = self[...]
     var p = prefix[...]
 
     while let x = me.first, let y = p.first {
@@ -124,7 +104,7 @@ extension Substring {
 
 }
 
-extension String {
+extension StringProtocol where Self.SubSequence == Substring {
 
   /// Interpreting `self` as the first line of an annotated Val test file, returns the embedded test
   /// method name and expectation of success.
