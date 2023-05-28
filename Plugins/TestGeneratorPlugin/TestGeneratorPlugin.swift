@@ -1,5 +1,7 @@
 import PackagePlugin
 
+/// The Swift Package Manager plugin that generates XCTest cases for annotated .val files as part of
+/// our build process.
 @main
 struct TestGeneratorPlugin: BuildToolPlugin {
 
