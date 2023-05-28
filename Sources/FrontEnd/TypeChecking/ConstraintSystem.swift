@@ -445,7 +445,7 @@ struct ConstraintSystem {
 
     if candidates.elements.isEmpty {
       return .failure { (d, m, _) in
-        let t = m.reify(goal.memberType)
+        let t = m.reify(goal.subject)
         d.insert(.error(undefinedName: goal.memberName, in: t, at: goal.origin.site))
       }
     }
