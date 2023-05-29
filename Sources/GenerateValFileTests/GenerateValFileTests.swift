@@ -62,8 +62,8 @@ struct GenerateValFileTests: ParsableCommand {
     output += "\n}\n"
 
     try output.write(to: outputURL, atomically: true, encoding: .utf8)
-
   }
+
 }
 
 extension String {
