@@ -1,7 +1,7 @@
 import ArgumentParser
 import Foundation
 
-/// A command-line tool that, given a list of .val files, generates XCTest cases for annotated .val
+/// A command-line tool that generates XCTest cases for a list of annotated .val
 /// files as part of our build process.
 @main
 struct GenerateValFileTests: ParsableCommand {
