@@ -71,7 +71,7 @@ extension String {
   /// Returns a valid Swift identifier made by replacing non-identifier characters in `self` with
   /// underscores, and prefixing it with "X" if it happens to begin with a number.
   fileprivate var asSwiftIdentifier: String {
-    let r = String(self.lazy.map { $0.isNumber || $0.isLetter ? $0 : "_" })
+    let r = String(self.map { $0.isNumber || $0.isLetter ? $0 : "_" })
     return (r.first?.isNumber ?? true) ? "X" + r : r
   }
 
