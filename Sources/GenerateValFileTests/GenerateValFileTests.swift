@@ -22,10 +22,11 @@ struct GenerateValFileTests: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   var valSourceFiles: [URL]
 
-  /// Returns the Swift source of the test function for the Val file at `source`, having `firstLine`
-  /// as its first line.
-  func swiftFunctionTesting(valAt source: URL, withFirstLine firstLine: Substring) throws -> String
+  /// Returns the Swift source of the test function for the Val file at `source`.
+  func swiftFunctionTesting(valAt source: URL) throws -> String
   {
+    let firstLine = try String(contentsOf: source)
+      .split(separator: "\n", maxSplits: 1).first ?? ""
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedValFileTest()
     let testID = source.deletingPathExtension().lastPathComponent.asSwiftIdentifier
 
@@ -49,9 +50,8 @@ struct GenerateValFileTests: ParsableCommand {
       """
 
     for f in valSourceFiles {
-      let firstLine = try String(contentsOf: f).split(separator: "\n", maxSplits: 1).first ?? ""
       do {
-        output += try swiftFunctionTesting(valAt: f, withFirstLine: firstLine)
+        output += try swiftFunctionTesting(valAt: f)
       } catch let e as FirstLineError {
         try! FileHandle.standardError.write(
           contentsOf: Data("\(f.path):1: error: \(e.details)\n".utf8))
