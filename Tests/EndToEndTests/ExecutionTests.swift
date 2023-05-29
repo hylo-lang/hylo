@@ -58,7 +58,7 @@ extension XCTestCase {
 
     XCTAssert(
       !diagnostics.containsError,
-      "Compilation of \(input) contains diagnostics: \(diagnostics.rendered())")
+      "CLI reported success but \(input) contains errors: \(diagnostics.rendered())")
 
     #if os(Windows)
       let executableSuffix = ".exe"
