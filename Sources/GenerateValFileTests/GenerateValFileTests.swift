@@ -89,18 +89,18 @@ extension StringProtocol where Self.SubSequence == Substring {
     if !text.removeLeading("//- ") {
       throw FirstLineError("first line of annotated test file must begin with “//-”.")
     }
-    let methodName = text.removeUntil(first: \.isWhitespace)
+    let methodName = text.removeFirstUntil(it: \.isWhitespace)
     if methodName.isEmpty {
       throw FirstLineError("missing test method name.")
     }
-    text.removeWhile(first: \.isWhitespace)
+    text.removeFirstWhile(it: \.isWhitespace)
 
     if !text.removeLeading("expecting:") {
       throw FirstLineError("missing “expecting:” after test method name.")
     }
-    text.removeWhile(first: \.isWhitespace)
+    text.removeFirstWhile(it: \.isWhitespace)
 
-    let expectation = text.removeUntil(first: \.isWhitespace)
+    let expectation = text.removeFirstUntil(it: \.isWhitespace)
     if expectation != "success" && expectation != "failure" {
       throw FirstLineError(
         "illegal expectation “\(expectation)” must be “success” or “failure”."

@@ -199,18 +199,18 @@ extension Collection where Self == Self.SubSequence {
     return true
   }
 
-  /// Removes elements from the beginning until the first element satisfies `p` or `self` is
-  /// empty, returning the removed subsequence.
+  /// Removes elements from the beginning until the first element satisfies `shouldBeKept` or `self`
+  /// is empty, returning the removed subsequence.
   @discardableResult
-  public mutating func removeUntil(first p: (Element) -> Bool) -> Self {
-    return removeWhile(first: { !p($0) })
+  public mutating func removeFirstUntil(it shouldBeKept: (Element) -> Bool) -> Self {
+    return removeFirstWhile(it: { !shouldBeKept($0) })
   }
 
-  /// Removes elements from the beginning until the first element satisfies `p` or `self` is
-  /// empty, returning the removed subsequence.
+  /// Removes elements from the beginning that satisfy `shouldBeRemoved`, returning the removed
+  /// subsequence.
   @discardableResult
-  public mutating func removeWhile(first p: (Element) -> Bool) -> Self {
-    let t = self.drop(while: p)
+  public mutating func removeFirstWhile(it shouldBeRemoved: (Element) -> Bool) -> Self {
+    let t = self.drop(while: shouldBeRemoved)
     defer { self = t }
     return self[..<t.startIndex]
   }
