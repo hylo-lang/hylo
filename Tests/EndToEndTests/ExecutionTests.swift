@@ -46,9 +46,8 @@ extension XCTestCase {
     }
   }
 
-  /// Compiles `input` with the given arguments and returns the URL of the output file.
-  ///
-  /// Ensures that the compilation succeeds.
+  /// Compiles `input` with the given arguments and returns the URL of the output file, throwing
+  /// diagnostics if there are any errors.
   fileprivate func compile(_ input: URL, with arguments: [String]) throws -> URL {
     let output = FileManager.default.makeTemporaryFileURL()
     let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
