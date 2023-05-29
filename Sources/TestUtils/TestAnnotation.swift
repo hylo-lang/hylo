@@ -1,5 +1,4 @@
 import Core
-import FrontEnd
 import XCTest
 
 /// A test annotation in a source file.
@@ -43,7 +42,7 @@ import XCTest
 ///
 /// The command of the annotation is `cpp` and the argument is a C++ struct declaration with no
 /// indentation on the first and last line, and two spaces before the field declaration..
-struct TestAnnotation: Hashable {
+public struct TestAnnotation: Hashable {
 
   /// The line location of this annotation.
   let location: XCTSourceCodeLocation

@@ -1,4 +1,4 @@
-//! expect-failure
+//- lowerToFinishedIR expecting: failure
 
 fun f0(_ x: set Int) { &x = 0 }
 

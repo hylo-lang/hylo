@@ -178,3 +178,41 @@ extension RangeReplaceableCollection {
   }
 
 }
+
+extension Collection where Self == Self.SubSequence {
+
+  /// Removes `prefix` from the beginning and returns `true`, or returns `false` if `self`
+  /// has no such prefix.
+  public mutating func removeLeading<P: Collection>(_ prefix: P) -> Bool
+  where P.Element == Element, Element: Equatable {
+    var me = self[...]
+    var p = prefix[...]
+
+    while let x = me.first, let y = p.first {
+      if x != y { return false }
+      me = me.dropFirst()
+      p = p.dropFirst()
+    }
+
+    if !p.isEmpty { return false }
+    self = me
+    return true
+  }
+
+  /// Removes elements from the beginning until the first element satisfies `shouldBeKept` or `self`
+  /// is empty, returning the removed subsequence.
+  @discardableResult
+  public mutating func removeFirstUntil(it shouldBeKept: (Element) -> Bool) -> Self {
+    return removeFirstWhile(it: { !shouldBeKept($0) })
+  }
+
+  /// Removes elements from the beginning that satisfy `shouldBeRemoved`, returning the removed
+  /// subsequence.
+  @discardableResult
+  public mutating func removeFirstWhile(it shouldBeRemoved: (Element) -> Bool) -> Self {
+    let t = self.drop(while: shouldBeRemoved)
+    defer { self = t }
+    return self[..<t.startIndex]
+  }
+
+}

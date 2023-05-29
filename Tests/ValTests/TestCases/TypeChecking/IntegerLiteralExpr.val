@@ -1,4 +1,4 @@
-//! expect-failure
+//- typeCheck expecting: failure
 
 fun check<T>(_ x: T) {}
 

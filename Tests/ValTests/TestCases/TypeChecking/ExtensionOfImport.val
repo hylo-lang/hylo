@@ -1,4 +1,4 @@
-//! expect-success
+//- typeCheck expecting: success
 
 extension Double {
   public static fun gravity() -> Double { 9.81 }
