@@ -117,7 +117,8 @@ let package = Package(
     .executableTarget(
       name: "GenerateValFileTests",
       dependencies: [
-        .product(name: "ArgumentParser", package: "swift-argument-parser")
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        "Utils",
       ],
       swiftSettings: allTargetsSwiftSettings),
 

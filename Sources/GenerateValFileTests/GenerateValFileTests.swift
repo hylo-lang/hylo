@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import Utils
 
 /// A command-line tool that generates XCTest cases for a list of annotated .val
 /// files as part of our build process.
@@ -23,9 +24,9 @@ struct GenerateValFileTests: ParsableCommand {
   var valSourceFiles: [URL]
 
   /// Returns the Swift source of the test function for the Val file at `source`.
-  func swiftFunctionTesting(valAt source: URL) throws -> String
-  {
-    let firstLine = try String(contentsOf: source)
+  func swiftFunctionTesting(valAt source: URL) throws -> String {
+    let firstLine =
+      try String(contentsOf: source)
       .split(separator: "\n", maxSplits: 1).first ?? ""
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedValFileTest()
     let testID = source.deletingPathExtension().lastPathComponent.asSwiftIdentifier
@@ -77,58 +78,29 @@ extension String {
 
 }
 
-extension Substring {
-
-  /// Removes `prefix` from the beginning and returns `true`, or returns `false` if `self`
-  /// has no such prefix.
-  fileprivate mutating func removeLeading(_ prefix: String) -> Bool {
-    var me = self[...]
-    var p = prefix[...]
-
-    while let x = me.first, let y = p.first {
-      if x != y { return false }
-      me = me.dropFirst()
-      p = p.dropFirst()
-    }
-
-    if !p.isEmpty { return false }
-    self = me
-    return true
-  }
-
-  /// Removes characters from the beginning until the first character satisfies `p` or `self` is
-  /// empty, returning the removed substring.
-  fileprivate mutating func removeUntil(firstSatisfies p: (Character) -> Bool) -> Substring {
-    let firstToKeep = firstIndex(where: p) ?? endIndex
-    defer { self = self[firstToKeep...] }
-    return self[..<firstToKeep]
-  }
-
-}
-
 extension StringProtocol where Self.SubSequence == Substring {
 
   /// Interpreting `self` as the first line of an annotated Val test file, returns the embedded test
   /// method name and expectation of success.
-  func parsedAsFirstLineOfAnnotatedValFileTest() throws -> (
+  fileprivate func parsedAsFirstLineOfAnnotatedValFileTest() throws -> (
     methodName: Substring, expectSuccess: Bool
   ) {
     var text = self[...]
     if !text.removeLeading("//- ") {
       throw FirstLineError("first line of annotated test file must begin with “//-”.")
     }
-    let methodName = text.removeUntil { $0.isWhitespace }
+    let methodName = text.removeUntil(first: \.isWhitespace)
     if methodName.isEmpty {
       throw FirstLineError("missing test method name.")
     }
-    text = text.drop(while: \.isWhitespace)
+    text.removeWhile(first: \.isWhitespace)
 
     if !text.removeLeading("expecting:") {
       throw FirstLineError("missing “expecting:” after test method name.")
     }
-    text = text.drop(while: \.isWhitespace)
+    text.removeWhile(first: \.isWhitespace)
 
-    let expectation = text.removeUntil { $0.isWhitespace }
+    let expectation = text.removeUntil(first: \.isWhitespace)
     if expectation != "success" && expectation != "failure" {
       throw FirstLineError(
         "illegal expectation “\(expectation)” must be “success” or “failure”."
