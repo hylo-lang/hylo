@@ -10,7 +10,7 @@ struct TestGeneratorPlugin: BuildToolPlugin {
     let inputPaths = target.sourceFiles(withSuffix: "val").map(\.path)
     let outputPath = context.pluginWorkDirectory.appending("ValFileTests.swift")
 
-    let cmd: Command = .buildCommand(
+    let cmd = Command.buildCommand(
         displayName: "Generating XCTestCases for \(inputPaths.map(\.stem)) into \(outputPath)",
         executable: try context.tool(named: "GenerateValFileTests").path,
         arguments: [ "-o", outputPath, "-n", target.moduleName ] + inputPaths,

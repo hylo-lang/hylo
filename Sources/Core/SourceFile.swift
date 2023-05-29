@@ -29,7 +29,7 @@ public struct SourceFile {
   }
 
   /// Creates an instance representing the file at `filePath`.
-  public init(atPath filePath: String) throws {
+  public init(at filePath: String) throws {
     try self.init(contentsOf: URL(fileURLWithPath: filePath))
   }
 
@@ -43,7 +43,7 @@ public struct SourceFile {
   fileprivate init(
     diagnosableLiteral text: String, swiftFile: String, startLine: Int
   ) throws {
-    let wholeFile = try SourceFile(atPath: swiftFile)
+    let wholeFile = try SourceFile(at: swiftFile)
     let endLine = startLine + text.lazy.filter(\.isNewline).count
     let fragment = URL(string: "\(wholeFile.url.absoluteString)#L\(startLine)-L\(endLine)")!
 

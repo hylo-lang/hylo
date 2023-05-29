@@ -90,7 +90,7 @@ extension XCTestCase {
     expectSuccess: Bool,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
-    let f = try SourceFile(atPath: valFilePath)
+    let f = try SourceFile(at: valFilePath)
 
     // FIXME: clarify/explain this code
     let processingSucceeded = checkAnnotations(in: f, checkingAnnotationCommands: []) {
