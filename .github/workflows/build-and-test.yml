@@ -43,7 +43,11 @@ jobs:
       with:
         runCmd: |
           swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }} &&
-          swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
+          swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
+            tee testoutput.txt && (
+              (grep -q 'EndToEndTests/test_' testoutput.txt && grep -q 'ValTests/test_' testoutput.txt) ||
+              (echo "error: generated tests failed to run; see
+              https://github.com/apple/swift-package-manager/issues/6595" && false) )
 
     - name: Check code coverage
       uses: mattpolzin/swift-codecov-action@0.7.3
@@ -105,4 +109,8 @@ jobs:
     - name: Test (${{ matrix.configuration }})
       run: |
         export PKG_CONFIG_PATH=$PWD &&
-        swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }}
+        swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
+          tee testoutput.txt && (
+            (grep -q 'EndToEndTests/test_' testoutput.txt && grep -q 'ValTests/test_' testoutput.txt) ||
+            (echo "error: generated tests failed to run; see
+            https://github.com/apple/swift-package-manager/issues/6595" && false) )
