@@ -19,8 +19,7 @@ struct GenerateValFileTests: ParsableCommand {
 
   @Argument(
     help: "Paths of annotated val source files to be tested.",
-    transform: URL.init(fileURLWithPath:)
-  )
+    transform: URL.init(fileURLWithPath:))
   var valSourceFiles: [URL]
 
   /// Returns the Swift source of the test function for the Val at `source`, having `firstLine` as
