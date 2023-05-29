@@ -23,9 +23,7 @@ extension XCTestCase {
 
   /// Compiles and runs the val file at `valFilePath`, `XCTAssert`ing that diagnostics and exit
   /// codes match annotated expectations.
-  func compileAndRun(_ valFilePath: String, expectSuccess: Bool)
-    throws
-  {
+  func compileAndRun(_ valFilePath: String, expectSuccess: Bool) throws {
     try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath, expectSuccess: expectSuccess) {
       (valSource, diagnostics) in
 
