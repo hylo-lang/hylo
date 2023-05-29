@@ -22,8 +22,8 @@ struct GenerateValFileTests: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   var valSourceFiles: [URL]
 
-  /// Returns the Swift source of the test function for the Val at `source`, having `firstLine` as
-  /// its first line.
+  /// Returns the Swift source of the test function for the Val file at `source`, having `firstLine`
+  /// as its first line.
   func swiftFunctionTesting(valAt source: URL, withFirstLine firstLine: Substring) throws -> String
   {
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedValFileTest()
