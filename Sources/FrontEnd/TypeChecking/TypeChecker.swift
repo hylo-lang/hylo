@@ -1564,7 +1564,7 @@ public struct TypeChecker {
       bindings: facts.inferredBindings,
       in: useScope,
       loggingTrace: shouldLogTrace)
-    let solution = s.solution(&self)
+    let solution = s.solution(querying: &self)
 
     if shouldLogTrace {
       print(solution)
@@ -1587,12 +1587,11 @@ public struct TypeChecker {
     }
 
     // Run deferred queries.
-    let success = deferredQueries.reduce(
-      !solution.diagnostics.containsError, { (s, q) in q(&self, solution) && s })
+    let isSound = deferredQueries.reduce(solution.isSound, { (s, q) in q(&self, solution) && s })
 
     diagnostics.formUnion(solution.diagnostics)
-    assert(success || diagnostics.containsError)
-    return (succeeded: success, solution: solution)
+    assert(isSound || diagnostics.containsError, "inferrence failed without diagnostics")
+    return (succeeded: isSound, solution: solution)
   }
 
   // MARK: Name binding

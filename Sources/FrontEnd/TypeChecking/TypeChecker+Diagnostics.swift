@@ -190,10 +190,6 @@ extension Diagnostic {
     .note("trait '\(x)' requires initializer with type '\(t)'", at: site)
   }
 
-  static func error(staleConstraint c: any Constraint) -> Diagnostic {
-    .error("stale constraint '\(c)'", at: c.origin.site)
-  }
-
   static func error(
     illegalUseOfStaticMember name: Name, onInstanceOf: AnyType, at site: SourceRange
   ) -> Diagnostic {
