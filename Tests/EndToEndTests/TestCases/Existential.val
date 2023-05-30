@@ -1,3 +1,5 @@
+//- compileAndRun expecting: success
+
 fun use<T>(_ x: T) {}
 
 trait T {

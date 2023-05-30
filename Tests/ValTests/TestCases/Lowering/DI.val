@@ -1,4 +1,4 @@
-//! expect-failure
+//- lowerToFinishedIR expecting: failure
 
 fun read<T>(_ x: T) {}
 

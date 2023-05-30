@@ -1,33 +1,11 @@
 import Core
 import XCTest
 
-extension XCTIssue {
-
-  /// Creates an instance from a diagnostic.
-  init(_ d: Diagnostic) {
-    self.init(
-      type: .assertionFailure,
-      compactDescription: d.message,
-      sourceCodeContext:
-        .init(location: XCTSourceCodeLocation.init(d.site.first())))
-  }
-
-}
-
-extension XCTSourceCodeLocation {
-
-  /// Creates an instance from a location in a Val source file.
-  convenience init(_ l: SourcePosition) {
-    self.init(fileURL: l.file.url, lineNumber: l.line.number)
-  }
-
-}
-
 extension XCTestCase {
 
   /// Returns the result of invoking `f` on an initially-empty diagnostic set, reporting any
   /// diagnostics added and/or thrown as XCTest issues.
-  func checkNoDiagnostic<R>(
+  public func checkNoDiagnostic<R>(
     f: (inout DiagnosticSet) throws -> R, testFile: StaticString = #filePath, line: UInt = #line
   ) rethrows -> R {
     var d = DiagnosticSet()
@@ -45,10 +23,32 @@ extension XCTestCase {
   }
 
   /// Reports any diagnostics in `s` as XCTest issues.
-  func checkEmpty(_ s: DiagnosticSet) {
+  public func checkEmpty(_ s: DiagnosticSet) {
     for d in s.elements {
       record(XCTIssue(.error("unexpected diagnostic: '\(d.message)'", at: d.site, notes: d.notes)))
     }
+  }
+
+}
+
+extension XCTIssue {
+
+  /// Creates an instance from a diagnostic.
+  public init(_ d: Diagnostic) {
+    self.init(
+      type: .assertionFailure,
+      compactDescription: d.message,
+      sourceCodeContext:
+        .init(location: XCTSourceCodeLocation.init(d.site.first())))
+  }
+
+}
+
+extension XCTSourceCodeLocation {
+
+  /// Creates an instance from a location in a Val source file.
+  fileprivate convenience init(_ l: SourcePosition) {
+    self.init(fileURL: l.file.url, lineNumber: l.line.number)
   }
 
 }

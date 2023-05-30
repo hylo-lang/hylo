@@ -1,4 +1,4 @@
-//! expect-success
+//- typeCheck expecting: success
 
 type Message {
   public var value: String

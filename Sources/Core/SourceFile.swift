@@ -28,6 +28,11 @@ public struct SourceFile {
     self.storage = storage
   }
 
+  /// Creates an instance representing the file at `filePath`.
+  public init(at filePath: String) throws {
+    try self.init(contentsOf: URL(fileURLWithPath: filePath))
+  }
+
   /// Creates an instance for the `text` given by a multiline string literal in the given
   /// `swiftFile`, the literal's textual content (the line after the opening quotes) being
   /// startLine.
@@ -38,7 +43,7 @@ public struct SourceFile {
   fileprivate init(
     diagnosableLiteral text: String, swiftFile: String, startLine: Int
   ) throws {
-    let wholeFile = try SourceFile(contentsOf: URL(fileURLWithPath: swiftFile))
+    let wholeFile = try SourceFile(at: swiftFile)
     let endLine = startLine + text.lazy.filter(\.isNewline).count
     let fragment = URL(string: "\(wholeFile.url.absoluteString)#L\(startLine)-L\(endLine)")!
 

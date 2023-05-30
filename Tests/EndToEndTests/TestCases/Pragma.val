@@ -1,3 +1,5 @@
+//- compileAndRun expecting: success
+
 fun f(_ f: sink Int = #line) -> Int { f }
 
 public fun main() -> Int32 {

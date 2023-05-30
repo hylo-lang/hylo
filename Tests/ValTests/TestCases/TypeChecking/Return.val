@@ -1,4 +1,4 @@
-//! expect-failure
+//- typeCheck expecting: failure
 
 fun forty_two() -> Int { return 42 }
 

@@ -1,3 +1,5 @@
+//- compileAndRun expecting: success
+
 extension Int {
 
   public property negated: Int {

@@ -1,4 +1,4 @@
-//! expect-success
+//- typeCheck expecting: success
 
 type A<X> {
   public memberwise init

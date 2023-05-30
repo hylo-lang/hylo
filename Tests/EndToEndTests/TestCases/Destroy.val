@@ -1,3 +1,5 @@
+//- compileAndRun expecting: success
+
 public fun main() {
   _ = 42
 }

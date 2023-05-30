@@ -100,9 +100,26 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
+      name: "TestUtils",
+      dependencies: ["Core", "Utils"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
       name: "ValModule",
       path: "Library",
       resources: [.copy("Val")],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .plugin(
+      name: "TestGeneratorPlugin", capability: .buildTool(),
+      dependencies: [.target(name: "GenerateValFileTests")]),
+
+    .executableTarget(
+      name: "GenerateValFileTests",
+      dependencies: [
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        "Utils",
+      ],
       swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
@@ -113,9 +130,9 @@ let package = Package(
 
     .testTarget(
       name: "ValTests",
-      dependencies: ["FrontEnd", "Core", "IR"],
-      resources: [.copy("TestCases")],
-      swiftSettings: allTargetsSwiftSettings),
+      dependencies: ["FrontEnd", "Core", "IR", "TestUtils"],
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: ["TestGeneratorPlugin"]),
 
     .testTarget(
       name: "ValCommandTests",
@@ -124,7 +141,7 @@ let package = Package(
 
     .testTarget(
       name: "EndToEndTests",
-      dependencies: ["ValCommand"],
-      resources: [.copy("TestCases")],
-      swiftSettings: allTargetsSwiftSettings),
+      dependencies: ["ValCommand", "TestUtils"],
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: ["TestGeneratorPlugin"]),
   ])

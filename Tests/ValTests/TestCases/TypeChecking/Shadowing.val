@@ -1,4 +1,4 @@
-//! expect-failure
+//- typeCheck expecting: failure
 
 fun foo(_ x: Int) -> Bool { true }
 
