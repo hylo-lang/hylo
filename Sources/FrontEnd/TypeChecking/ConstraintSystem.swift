@@ -42,9 +42,6 @@ struct ConstraintSystem {
   /// already computed.
   private var penalties: Int = 0
 
-  /// The score of the best solution computed so far.
-  private var bestScore = Solution.Score.worst
-
   /// Indicates whether this instance should log a trace.
   private let isLoggingEnabled: Bool
 
@@ -66,19 +63,22 @@ struct ConstraintSystem {
 
   /// Solves this instance using `checker` to query type relations and resolve names, returning the
   /// best solution.
-  mutating func solution(_ checker: inout TypeChecker) -> Solution {
-    betterSolution(&checker)!
+  mutating func solution(querying checker: inout TypeChecker) -> Solution {
+    solution(notWorseThan: .worst, querying: &checker)!
   }
 
   /// Solves this instance using `checker` to query type relations and resolve names, returning the
-  /// best solution or `nil` if no solution with a score better than `self.bestScore` can be found.
-  private mutating func betterSolution(_ checker: inout TypeChecker) -> Solution? {
+  /// best solution with a score inferior or equal to `maxScore` or `nil` if no such solution with
+  /// can be found.
+  private mutating func solution(
+    notWorseThan maxScore: Solution.Score, querying checker: inout TypeChecker
+  ) -> Solution? {
     logState()
     log("steps:")
 
     while let g = fresh.popLast() {
       // Make sure the current solution is still worth exploring.
-      if score() > bestScore {
+      if score() > maxScore {
         log("- abort")
         return nil
       }
@@ -681,7 +681,7 @@ struct ConstraintSystem {
       // Don't bother if there's no chance to find a better solution.
       var underestimatedChoiceScore = score()
       underestimatedChoiceScore.penalties += choice.penalties
-      if underestimatedChoiceScore > bestScore {
+      if underestimatedChoiceScore > results.score {
         log("- skip: \"\(choice)\"")
         continue
       }
@@ -694,11 +694,13 @@ struct ConstraintSystem {
       var exploration = self
       let s = configureSubSystem(&exploration, choice)
       exploration.setOutcome(s.isEmpty ? .success : delegate(to: s), for: g)
-      guard let newSolution = exploration.betterSolution(&checker) else { continue }
+      guard let new = exploration.solution(notWorseThan: results.score, querying: &checker) else {
+        continue
+      }
 
       // Insert the new result.
       results.insert(
-        (choice, newSolution),
+        (choice, new),
         rankingSolutionWith: { (a, b) in rank(a, b, querying: &checker) })
     }
 
@@ -972,7 +974,7 @@ struct ConstraintSystem {
 
     // Solve the constraint system.
     var s = ConstraintSystem(constraints, bindings: [:], in: scope, loggingTrace: isLoggingEnabled)
-    return !s.solution(&checker).diagnostics.containsError
+    return !s.solution(querying: &checker).diagnostics.containsError
   }
 
   /// Logs a line of text in the standard output.
@@ -1073,7 +1075,7 @@ private struct Explorations<T: DisjunctiveConstraintProtocol> {
   private(set) var elements: [Element] = []
 
   /// The score of the solutions in this set.
-  private var score = Solution.Score.worst
+  private(set) var score = Solution.Score.worst
 
   /// Creates an empty set.
   init() {}

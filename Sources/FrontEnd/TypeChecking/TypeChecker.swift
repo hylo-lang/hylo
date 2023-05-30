@@ -1564,7 +1564,7 @@ public struct TypeChecker {
       bindings: facts.inferredBindings,
       in: useScope,
       loggingTrace: shouldLogTrace)
-    let solution = s.solution(&self)
+    let solution = s.solution(querying: &self)
 
     if shouldLogTrace {
       print(solution)
