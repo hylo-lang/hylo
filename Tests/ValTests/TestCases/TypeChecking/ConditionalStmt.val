@@ -1,0 +1,10 @@
+//! expect-failure
+
+fun trap() {}
+
+fun assert(_ b: Bool) {
+  //! @+1 diagnostic type 'Bool' has no member 'infix+'
+  if !b + 2 {
+    trap()
+  }
+}
