@@ -1,4 +1,11 @@
 //! expect-success
 
-let x0: { Int, Double } = (2, 3)
-let x1: { _, Double } = (2, 3)
+fun check<T>(_ x: T) {}
+
+public fun main() {
+  let x0: {Int, Double} = (2, 3)
+  check<{Int, Double}>(x0)
+
+  let x1: {_, Double} = (2, 3)
+  check<{Int, Double}>(x1)
+}
