@@ -155,8 +155,7 @@ struct ConstraintSystem {
     assert(outcomes.enumerated().allSatisfy({ (i, o) in (o != nil) || stale.contains(i) }))
 
     for g in stale {
-      let c = goals[g]
-      setOutcome(.failure({ (d, _, _) in d.insert(.error(staleConstraint: c)) }), for: g)
+      setOutcome(.failure({ (_, _, _) in () }), for: g)
     }
 
     let m = typeAssumptions.optimized()
@@ -166,7 +165,8 @@ struct ConstraintSystem {
     }
 
     return Solution(
-      substitutions: m, bindings: bindingAssumptions, penalties: penalties, diagnostics: d)
+      substitutions: m, bindings: bindingAssumptions,
+      penalties: penalties, diagnostics: d, stale: stale.map({ goals[$0] }))
   }
 
   /// Creates an ambiguous solution.
@@ -974,7 +974,7 @@ struct ConstraintSystem {
 
     // Solve the constraint system.
     var s = ConstraintSystem(constraints, bindings: [:], in: scope, loggingTrace: isLoggingEnabled)
-    return !s.solution(querying: &checker).diagnostics.containsError
+    return !s.solution(querying: &checker).isSound
   }
 
   /// Logs a line of text in the standard output.
