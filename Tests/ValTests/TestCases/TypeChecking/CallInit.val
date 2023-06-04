@@ -1,6 +1,6 @@
 //- typeCheck expecting: failure
 
-type A: Sinkable {
+type A: Movable {
 
   var x: Int
 

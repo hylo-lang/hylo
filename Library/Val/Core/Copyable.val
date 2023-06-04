@@ -1,5 +1,5 @@
 /// A type whose values can be copied.
-public trait Copyable: Sinkable {
+public trait Copyable: Movable {
 
   /// Returns a copy of `self`.
   fun copy() -> Self

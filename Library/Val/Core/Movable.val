@@ -1,5 +1,5 @@
 /// A type whose values can be consumed.
-public trait Sinkable {
+public trait Movable {
 
   /// Gives `self` the value of a consumed `source`.
   fun take_value(from source: sink Self) -> {self: Self, Void} {

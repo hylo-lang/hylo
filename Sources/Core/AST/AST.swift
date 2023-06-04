@@ -161,10 +161,10 @@ public struct AST {
     }
   }
 
-  /// `Val.Sinkable` trait from the Core library.
+  /// `Val.Movable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
-  public var sinkableTrait: TraitType { coreTrait("Sinkable")! }
+  public var movableTrait: TraitType { coreTrait("Movable")! }
 
   /// `Val.Copyable` trait from the Core library.
   ///
@@ -225,7 +225,7 @@ public struct AST {
     })
   }
 
-  /// Returns the declaration of `Sinkable.take_value`'s requirement for variant `access`.
+  /// Returns the declaration of `Movable.take_value`'s requirement for variant `access`.
   ///
   /// Use the `.set` or `.inout` access in order to get the declaration of the move-initialization
   /// or move-assignment, respectively.
@@ -234,7 +234,7 @@ public struct AST {
   public func moveRequirement(_ access: AccessEffect) -> MethodImpl.ID {
     let d = requirements(
       Name(stem: "take_value", labels: ["from"], introducer: access),
-      in: sinkableTrait.decl)
+      in: movableTrait.decl)
     return MethodImpl.ID(d[0])!
   }
 

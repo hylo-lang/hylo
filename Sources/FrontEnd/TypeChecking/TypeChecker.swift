@@ -1026,9 +1026,9 @@ public struct TypeChecker {
       return nil
     }
 
-    // If the requirement is defined in `Sinkable`, it must be either the move-initialization or
+    // If the requirement is defined in `Movable`, it must be either the move-initialization or
     // move-assignment method.
-    if s == ast.sinkableTrait.decl {
+    if s == ast.movableTrait.decl {
       let d = MethodImpl.ID(r)!
       switch ast[d].introducer.value {
       case .set:
@@ -1125,10 +1125,10 @@ public struct TypeChecker {
   }
 
   private mutating func check(assign s: AssignStmt.ID, in scope: AnyScopeID) {
-    // Target type must be `Sinkable`.
+    // Target type must be `Movable`.
     guard let targetType = checkedType(of: ast[s].left, in: scope) else { return }
     let lhsConstraint = ConformanceConstraint(
-      targetType, conformsTo: [ast.coreTrait("Sinkable")!],
+      targetType, conformsTo: [ast.movableTrait],
       origin: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
 
     // Source type must be subtype of the target type.

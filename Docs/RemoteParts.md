@@ -57,7 +57,7 @@ type Slice<Base: Collection, base_access: access = sink> {
 Conformance and extension declarations can depend on effects:
 
 ```
-conformance Slice: Sinkable where base_access == sink {}
+conformance Slice: Movable where base_access == sink {}
 ```
 
 The output type of a subscript can be declared with `var`, in which case the yielded value can be mutable even when it is projected out of an immutable argument.
