@@ -447,7 +447,7 @@ public struct Emitter {
     }
 
     let source = emitLValue(initializer)
-    let isSourceSinkable = module.isSinkable(source, in: insertionBlock!.function)
+    let isSink = module.isSink(source, in: insertionBlock!.function)
 
     for (path, name) in decl.pattern.subpattern.names {
       var part = emitElementAddr(source, at: path, at: name.decl.site)
@@ -462,7 +462,7 @@ public struct Emitter {
         }
       }
 
-      if isSourceSinkable {
+      if isSink {
         let b = module.makeAccess(
           [.sink, capability], from: part, correspondingTo: name.decl,
           at: name.decl.site)
@@ -603,9 +603,9 @@ public struct Emitter {
         if p.type.base is BuiltinType {
           append(module.makeStore(part, at: target, at: site))
         } else {
-          let c = program.conformance(of: p.type, to: program.ast.sinkableTrait, exposedTo: scope)!
+          let c = program.conformance(of: p.type, to: program.ast.movableTrait, exposedTo: scope)!
           emitMove(
-            .set, of: part, to: target, conformanceToSinkable: c,
+            .set, of: part, to: target, withConformanceToMovable: c,
             at: site)
         }
       }
@@ -641,9 +641,9 @@ public struct Emitter {
 
     // Apply the move-initializer.
     let c = program.conformance(
-      of: module.type(of: receiver).ast, to: program.ast.sinkableTrait, exposedTo: scope)!
+      of: module.type(of: receiver).ast, to: program.ast.movableTrait, exposedTo: scope)!
     let r = append(module.makeLoad(argument, at: site))[0]
-    emitMove(.set, of: r, to: receiver, conformanceToSinkable: c, at: site)
+    emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
 
     append(module.makeReturn(.void, at: site))
     return f
@@ -698,7 +698,7 @@ public struct Emitter {
       return
     }
 
-    let c = program.conformance(of: l, to: program.ast.sinkableTrait, exposedTo: insertionScope!)!
+    let c = program.conformance(of: l, to: program.ast.movableTrait, exposedTo: insertionScope!)!
     append(module.makeMove(rhs, to: lhs, usingConformance: c, at: stmt.site))
   }
 
@@ -1810,7 +1810,7 @@ public struct Emitter {
     _ access: AccessEffect,
     of value: Operand,
     to storage: Operand,
-    conformanceToSinkable c: Conformance,
+    withConformanceToMovable c: Conformance,
     at site: SourceRange
   ) {
     let oper = module.demandMoveOperatorDeclaration(access, from: c)

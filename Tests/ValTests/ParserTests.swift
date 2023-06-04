@@ -421,7 +421,7 @@ final class ParserTests: XCTestCase {
   }
 
   func testFunctionDeclWithExprBody() throws {
-    let input: SourceFile = "fun id<T: Sinkable>(_ x: T) -> T { x }"
+    let input: SourceFile = "fun id<T: Movable>(_ x: T) -> T { x }"
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
     let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
     if case .expr = decl.body {

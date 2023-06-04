@@ -303,8 +303,8 @@ extension Module {
       let s = self[i] as! MoveInstruction
 
       let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
-      let f = demandMoveOperatorDeclaration(k, from: s.sinkable)
-      let move = FunctionReference(to: f, usedIn: s.sinkable.scope, in: self)
+      let f = demandMoveOperatorDeclaration(k, from: s.movable)
+      let move = FunctionReference(to: f, usedIn: s.movable.scope, in: self)
 
       let r = insert(makeBorrow(k, from: s.target, at: s.site), before: i)[0]
       insert(makeCall(applying: .constant(move), to: [r, s.object], at: s.site), before: i)

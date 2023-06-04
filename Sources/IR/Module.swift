@@ -589,10 +589,10 @@ public struct Module {
     }
   }
 
-  /// Returns `true` if `o` is sinkable in `f`.
+  /// Returns `true` if `o` is sink in `f`.
   ///
   /// - Requires: `o` is defined in `f`.
-  func isSinkable(_ o: Operand, in f: Function.ID) -> Bool {
+  func isSink(_ o: Operand, in f: Function.ID) -> Bool {
     let e = entry(of: f)!
     return provenances(o).allSatisfy { (p) -> Bool in
       if case .parameter(e, let i) = p {
