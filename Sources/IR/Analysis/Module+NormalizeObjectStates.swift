@@ -166,15 +166,15 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) -> PC? {
       let call = self[i] as! CallInstruction
-      let calleeType = LambdaType(type(of: call.callee).ast)!
+      let callee = LambdaType(type(of: call.callee).ast)!
 
-      if calleeType.receiverEffect == .sink {
+      if callee.receiverEffect == .sink {
         consume(call.callee, with: i, at: call.site, in: &context)
       } else {
         assert(isBorrowOrConstant(call.callee))
       }
 
-      for (p, a) in zip(calleeType.inputs, call.arguments) {
+      for (p, a) in zip(callee.inputs, call.arguments) {
         switch ParameterType(p.type)!.access {
         case .let, .inout:
           assert(isBorrowOrConstant(call.callee))
@@ -193,7 +193,11 @@ extension Module {
         }
       }
 
-      initializeRegisters(createdBy: i, in: &context)
+      context.forEachObject(at: call.output) { (o) in
+        assert(o.value.initializedPaths.isEmpty || o.layout.type.base is BuiltinType)
+        o.value = .full(.initialized)
+      }
+
       return successor(of: i)
     }
 
@@ -501,13 +505,9 @@ extension Module {
     anchoredAt anchor: SourceRange
   ) {
     for path in initializedPaths {
-      let s = insert(
-        makeElementAddr(root, at: path, at: anchor),
-        before: i)[0]
-      let o = insert(
-        makeLoad(s, at: anchor),
-        before: i)[0]
-      insert(makeDeinit(o, at: anchor), before: i)
+      let x0 = insert(makeElementAddr(root, at: path, at: anchor), before: i)[0]
+      let x1 = insert(makeLoad(x0, at: anchor), before: i)[0]
+      insert(makeDeinit(x1, at: anchor), before: i)
     }
   }
 
