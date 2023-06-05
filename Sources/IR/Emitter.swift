@@ -1254,43 +1254,8 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(sequence expr: SequenceExpr.Typed) -> Operand {
-    emit(.sink, foldedSequenceExpr: expr.folded)
-  }
-
-  private mutating func emit(
-    _ convention: AccessEffect,
-    foldedSequenceExpr expr: FoldedSequenceExpr
-  ) -> Operand {
-    switch expr {
-    case .infix(let callee, let lhs, let rhs):
-      let calleeType = LambdaType(program.relations.canonical(program.exprTypes[callee.expr]!))!
-        .lifted
-
-      // Emit the operands, starting with RHS.
-      let r = emit(
-        ParameterType(calleeType.inputs[1].type)!.access, foldedSequenceExpr: rhs)
-      let l = emit(
-        ParameterType(calleeType.inputs[0].type)!.access, foldedSequenceExpr: lhs)
-
-      // The callee must be a reference to member function.
-      guard case .member(let d, _) = program.referredDecls[callee.expr] else { unreachable() }
-      let oper = Operand.constant(
-        FunctionReference(to: program[FunctionDecl.ID(d)!], usedIn: insertionScope!, in: &module))
-
-      // Emit the call.
-      let site = program.ast.site(of: expr)
-      let x0 = emitAllocStack(for: calleeType.output, at: site)
-      let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
-      append(module.makeCall(applying: oper, to: [l, r], writingResultTo: x1, at: site))
-
-      // FIXME
-      return append(module.makeLoad(x0, at: site))[0]
-
-    case .leaf(let expr):
-      return (convention == .sink)
-        ? emitRValue(program[expr])
-        : emitLValue(program[expr], meantFor: convention)
-    }
+    let s = emitLValue(sequence: expr)
+    return append(module.makeLoad(s, at: expr.site))[0]
   }
 
   private mutating func emitRValue(stringLiteral syntax: StringLiteralExpr.Typed) -> Operand {
@@ -1633,6 +1598,8 @@ public struct Emitter {
       return emitLValue(inoutExpr: .init(syntax)!)
     case NameExpr.self:
       return emitLValue(name: .init(syntax)!)
+    case SequenceExpr.self:
+      return emitLValue(sequence: .init(syntax)!)
     case TupleMemberExpr.self:
       return emitLValue(tupleMember: .init(syntax)!)
     default:
@@ -1717,6 +1684,53 @@ public struct Emitter {
       fatalError("not implemented")
     case .expr(let e):
       return emitLValue(e)
+    }
+  }
+
+  private mutating func emitLValue(sequence syntax: SequenceExpr.Typed) -> Operand {
+    emitLValue(foldedSequence: syntax.folded)
+  }
+
+  private mutating func emitLValue(foldedSequence syntax: FoldedSequenceExpr) -> Operand {
+    switch syntax {
+    case .infix(let callee, let lhs, let rhs):
+      let t = program.exprTypes[callee.expr]!
+      let calleeType = LambdaType(program.relations.canonical(t))!.lifted
+
+      // Emit the operands, starting with RHS.
+      let r = emitInfixOperand(rhs, passed: ParameterType(calleeType.inputs[1].type)!.access)
+      let l = emitInfixOperand(lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
+
+      // The callee must be a reference to member function.
+      guard case .member(let d, _) = program.referredDecls[callee.expr] else { unreachable() }
+      let oper = Operand.constant(
+        FunctionReference(to: program[FunctionDecl.ID(d)!], usedIn: insertionScope!, in: &module))
+
+      // Emit the call.
+      let site = program.ast.site(of: syntax)
+      let x0 = emitAllocStack(for: calleeType.output, at: site)
+      let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
+      append(module.makeCall(applying: oper, to: [l, r], writingResultTo: x1, at: site))
+      return x0
+
+    case .leaf(let e):
+      return emitLValue(program[e])
+    }
+  }
+
+  private mutating func emitInfixOperand(
+    _ syntax: FoldedSequenceExpr, passed access: AccessEffect
+  ) -> Operand {
+    let source = emitLValue(foldedSequence: syntax)
+    let site = program.ast.site(of: syntax)
+
+    switch access {
+    case .let, .inout, .set:
+      return append(module.makeBorrow(access, from: source, at: site))[0]
+    case .sink:
+      return append(module.makeLoad(source, at: site))[0]
+    case .yielded:
+      unreachable()
     }
   }
 
