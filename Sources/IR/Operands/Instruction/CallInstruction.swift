@@ -1,14 +1,11 @@
 import Core
 import Utils
 
-/// Invokes `callee` with `operands`.
+/// Invokes `callee` with `arguments` and writes its result to `output`.
 ///
 /// `callee` must have a lambda type; the type of the instruction must be the same as output type
 /// of the callee. `operands` must contain as many operands as the callee's type.
 public struct CallInstruction: Instruction {
-
-  /// The type if the return value.
-  public let returnType: LoweredType
 
   /// The callee and arguments of the call.
   public private(set) var operands: [Operand]
@@ -18,24 +15,26 @@ public struct CallInstruction: Instruction {
 
   /// Creates an instance with the given properties.
   fileprivate init(
-    returnType: LoweredType,
     callee: Operand,
+    output: Operand,
     arguments: [Operand],
     site: SourceRange
   ) {
-    self.returnType = returnType
-    self.operands = [callee] + arguments
+    self.operands = [callee, output] + arguments
     self.site = site
   }
 
   /// The callee.
   public var callee: Operand { operands[0] }
 
+  /// The location at which the result of `callee` is stored.
+  public var output: Operand { operands[1] }
+
   /// The arguments of the call.
-  public var arguments: ArraySlice<Operand> { operands[1...] }
+  public var arguments: ArraySlice<Operand> { operands[2...] }
 
   /// The types of the instruction's results.
-  public var types: [LoweredType] { [returnType] }
+  public var types: [LoweredType] { [] }
 
   /// `true` iff the instruction denotes a call to a generic function.
   public var isGeneric: Bool {
@@ -52,24 +51,38 @@ public struct CallInstruction: Instruction {
 
 }
 
+extension CallInstruction: CustomStringConvertible {
+
+  public var description: String {
+    "call \(callee)(\(list: arguments)) to \(output)"
+  }
+
+}
+
 extension Module {
 
-  /// Creates a `call` anchored at `site` that applies `callee` on `arguments`.
+  /// Creates a `call` anchored at `site` that applies `callee` on `arguments` and writes its
+  /// result to `output`.
   ///
   /// - Parameters:
   ///   - callee: The function to call.
+  ///   - output: The location at which the result of `callee` is stored.
   ///   - arguments: The arguments of the call; one for each input of `callee`'s type.
   func makeCall(
-    applying callee: Operand, to arguments: [Operand],
+    applying callee: Operand, to arguments: [Operand], writingResultTo output: Operand,
     at site: SourceRange
   ) -> CallInstruction {
     let calleeType = LambdaType(type(of: callee).ast)!.strippingEnvironment
     precondition(calleeType.inputs.count == arguments.count)
-    return .init(
-      returnType: .object(program.relations.canonical(calleeType.output)),
-      callee: callee,
-      arguments: arguments,
-      site: site)
+    precondition({
+      guard
+        let i = output.instruction,
+        let s = self[i] as? BorrowInstruction
+      else { return false }
+      return s.capability == .set
+    }())
+
+    return .init(callee: callee, output: output, arguments: arguments, site: site)
   }
 
 }
