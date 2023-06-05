@@ -199,29 +199,30 @@ public struct Emitter {
       assert(self.frames.isEmpty)
     }
 
-    // Emit FFI call.
+    // Convert Val arguments to their foreign representation.
     var arguments: [Operand] = []
     for i in module[entry].inputs.indices {
       let a = emitConvertToForeign(.parameter(entry, i), at: d.site)
       arguments.append(a)
     }
 
-    let output = module.functions[f]!.output
+    // Emit the FFI call.
+    let returnType = module.functions[f]!.output
     let foreignResult = append(
       module.makeCallFFI(
-        returning: .object(output),
+        returning: .object(returnType),
         applying: d.foreignName!,
         to: arguments, at: d.site))[0]
 
-    // Handle FFIs without return values.
-    if output.isVoidOrNever {
-      append(module.makeReturn(.void, at: d.site))
-      return
+    // Convert the result of the FFI to its Val representation and return it.
+    let returnValue: Operand
+    if returnType.isVoidOrNever {
+      returnValue = .void
+    } else {
+      returnValue = emitConvert(foreign: foreignResult, to: returnType, at: d.site)
     }
-
-    let v = emitConvert(foreign: foreignResult, to: output, at: d.site)
     emitStackDeallocs(site: d.site)
-    append(module.makeReturn(v, at: d.site))
+    append(module.makeReturn(returnValue, at: d.site))
   }
 
   /// Inserts the IR for `d`.
@@ -553,9 +554,7 @@ public struct Emitter {
 
   /// Inserts the IR for the top-level declaration `d`.
   @discardableResult
-  private mutating func emit(
-    synthesizedDecl d: SynthesizedDecl
-  ) -> Function.ID {
+  private mutating func emit(synthesizedDecl d: SynthesizedDecl) -> Function.ID {
     switch d.kind {
     case .moveInitialization:
       return synthesizeMoveInitImplementation(typed: .init(d.type)!, in: d.scope)
@@ -579,6 +578,11 @@ public struct Emitter {
     let site = module.syntax.site
     let entry = module.appendEntry(in: scope, to: f)
     insertionBlock = entry
+    self.frames.push()
+    defer {
+      self.frames.pop()
+      assert(self.frames.isEmpty)
+    }
 
     let receiver = Operand.parameter(entry, 0)
     let argument = Operand.parameter(entry, 1)
@@ -614,6 +618,7 @@ public struct Emitter {
       fatalError("not implemented")
     }
 
+    emitStackDeallocs(site: site)
     append(module.makeReturn(.void, at: site))
     return f
   }
@@ -631,6 +636,11 @@ public struct Emitter {
     let site = module.syntax.site
     let entry = module.appendEntry(in: scope, to: f)
     insertionBlock = entry
+    self.frames.push()
+    defer {
+      self.frames.pop()
+      assert(self.frames.isEmpty)
+    }
 
     let receiver = Operand.parameter(entry, 0)
     let argument = Operand.parameter(entry, 1)
@@ -645,6 +655,7 @@ public struct Emitter {
     let r = append(module.makeLoad(argument, at: site))[0]
     emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
 
+    emitStackDeallocs(site: site)
     append(module.makeReturn(.void, at: site))
     return f
   }
@@ -953,16 +964,25 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(functionCall expr: FunctionCallExpr.Typed) -> Operand {
+    let s = emitLValue(functionCall: expr)
+    return append(module.makeLoad(s, at: expr.site))[0]
+  }
+
+  private mutating func emitLValue(functionCall expr: FunctionCallExpr.Typed) -> Operand {
+    let result = emitAllocStack(for: expr.type, at: expr.site)
+
     // Handle built-ins and constructor calls.
     if let n = NameExpr.Typed(expr.callee) {
       switch n.declaration {
       case .builtinFunction(let f):
-        return emit(apply: f, to: expr.arguments, at: expr.site)
+        let x0 = emit(apply: f, to: expr.arguments, at: expr.site)
+        let x1 = append(module.makeBorrow(.set, from: result, at: expr.site))[0]
+        append(module.makeStore(x0, at: x1, at: expr.site))
+        return result
 
       case .constructor:
-        let s = emitAllocStack(for: expr.type, at: expr.site)
-        emitInitializerCall(expr, initializing: s)
-        return append(module.makeLoad(s, at: expr.site))[0]
+        emitInitializerCall(expr, initializing: result)
+        return result
 
       default:
         break
@@ -979,7 +999,11 @@ public struct Emitter {
     let (callee, captures) = emitCallee(expr.callee)
 
     // Call is evaluated last.
-    return append(module.makeCall(applying: callee, to: captures + arguments, at: expr.site))[0]
+    let x1 = append(module.makeBorrow(.set, from: result, at: expr.site))[0]
+    append(
+      module.makeCall(
+        applying: callee, to: captures + arguments, writingResultTo: x1, at: expr.site))
+    return result
   }
 
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
@@ -1001,18 +1025,25 @@ public struct Emitter {
       return
     }
 
-    // Evaluate all arguments.
+    // Arguments are evaluated first, from left to right.
     let syntheticSite = call.site.file.emptyRange(at: call.site.end)
     let arguments = emit(
       arguments: call.arguments, to: call.callee,
       synthesizingDefaultArgumentsAt: syntheticSite)
 
-    // Initialize storage.
+    // Receiver is captured next.
+    let receiver = append(module.makeBorrow(.set, from: s, at: call.site))[0]
+
+    // Call is evaluated last.
     let f = FunctionReference(
       to: program[d], parameterizedBy: a,
       usedIn: insertionScope!, in: &module)
-    let receiver = append(module.makeBorrow(.set, from: s, at: call.site))[0]
-    append(module.makeCall(applying: .constant(f), to: [receiver] + arguments, at: call.site))
+
+    let x0 = emitAllocStack(for: .void, at: call.site)
+    let x1 = append(module.makeBorrow(.set, from: x0, at: call.site))[0]
+    append(
+      module.makeCall(
+        applying: .constant(f), to: [receiver] + arguments, writingResultTo: x1, at: call.site))
   }
 
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
@@ -1241,17 +1272,19 @@ public struct Emitter {
       let l = emit(
         ParameterType(calleeType.inputs[0].type)!.access, foldedSequenceExpr: lhs)
 
-      // Emit the callee.
-      guard case .member(let calleeDecl, _) = program.referredDecls[callee.expr] else {
-        unreachable()
-      }
-      let f = FunctionReference(
-        to: program[FunctionDecl.ID(calleeDecl)!],
-        usedIn: insertionScope!, in: &module)
+      // The callee must be a reference to member function.
+      guard case .member(let d, _) = program.referredDecls[callee.expr] else { unreachable() }
+      let oper = Operand.constant(
+        FunctionReference(to: program[FunctionDecl.ID(d)!], usedIn: insertionScope!, in: &module))
 
       // Emit the call.
-      return append(
-        module.makeCall(applying: .constant(f), to: [l, r], at: program.ast.site(of: expr)))[0]
+      let site = program.ast.site(of: expr)
+      let x0 = emitAllocStack(for: calleeType.output, at: site)
+      let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
+      append(module.makeCall(applying: oper, to: [l, r], writingResultTo: x1, at: site))
+
+      // FIXME
+      return append(module.makeLoad(x0, at: site))[0]
 
     case .leaf(let expr):
       return (convention == .sink)
@@ -1533,11 +1566,16 @@ public struct Emitter {
       let convert = FunctionReference(
         to: program[InitializerDecl.ID(m)!],
         usedIn: insertionScope!, in: &module)
+      let t = LambdaType(convert.type.ast)!.output
+
       let x0 = emitAllocStack(for: ir, at: site)
       let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
-      append(module.makeCall(applying: .constant(convert), to: [x1, foreign], at: site))
-      let x3 = append(module.makeLoad(x0, at: site))[0]
-      return x3
+      let x2 = emitAllocStack(for: t, at: site)
+      let x3 = append(module.makeBorrow(.set, from: x2, at: site))[0]
+      append(
+        module.makeCall(
+          applying: .constant(convert), to: [x1, foreign], writingResultTo: x3, at: site))
+      return append(module.makeLoad(x0, at: site))[0]
 
     case .synthetic:
       fatalError("not implemented")
@@ -1561,9 +1599,13 @@ public struct Emitter {
       let convert = FunctionReference(
         to: program[FunctionDecl.ID(m)!],
         usedIn: insertionScope!, in: &module)
+      let t = LambdaType(convert.type.ast)!.output
+
       let x0 = append(module.makeBorrow(.let, from: o, at: site))
-      let x1 = append(module.makeCall(applying: .constant(convert), to: x0, at: site))[0]
-      return x1
+      let x1 = emitAllocStack(for: t, at: site)
+      let x2 = append(module.makeBorrow(.set, from: x1, at: site))[0]
+      append(module.makeCall(applying: .constant(convert), to: x0, writingResultTo: x2, at: site))
+      return append(module.makeLoad(x1, at: site))[0]
 
     case .synthetic:
       fatalError("not implemented")
@@ -1585,6 +1627,8 @@ public struct Emitter {
     switch syntax.kind {
     case CastExpr.self:
       return emitLValue(cast: .init(syntax)!)
+    case FunctionCallExpr.self:
+      return emitLValue(functionCall: .init(syntax)!)
     case InoutExpr.self:
       return emitLValue(inoutExpr: .init(syntax)!)
     case NameExpr.self:
@@ -1814,9 +1858,12 @@ public struct Emitter {
     at site: SourceRange
   ) {
     let oper = module.demandMoveOperatorDeclaration(access, from: c)
-    let move = FunctionReference(to: oper, usedIn: c.scope, in: module)
-    let r = append(module.makeBorrow(access, from: storage, at: site))[0]
-    append(module.makeCall(applying: .constant(move), to: [r, value], at: site))
+    let move = Operand.constant(FunctionReference(to: oper, usedIn: c.scope, in: module))
+
+    let x0 = append(module.makeBorrow(access, from: storage, at: site))[0]
+    let x1 = emitAllocStack(for: .void, at: site)
+    let x2 = append(module.makeBorrow(.set, from: x1, at: site))[0]
+    append(module.makeCall(applying: move, to: [x0, value], writingResultTo: x2, at: site))
   }
 
   /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.

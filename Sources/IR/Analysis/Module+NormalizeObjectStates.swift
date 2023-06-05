@@ -303,15 +303,19 @@ extension Module {
       let s = self[i] as! MoveInstruction
 
       let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
-      let f = demandMoveOperatorDeclaration(k, from: s.movable)
-      let move = FunctionReference(to: f, usedIn: s.movable.scope, in: self)
+      let oper = demandMoveOperatorDeclaration(k, from: s.movable)
+      let move = FunctionReference(to: oper, usedIn: s.movable.scope, in: self)
 
-      let r = insert(makeBorrow(k, from: s.target, at: s.site), before: i)[0]
-      insert(makeCall(applying: .constant(move), to: [r, s.object], at: s.site), before: i)
-      insert(makeEndBorrow(r, at: s.site), before: i)
+      let x0 = insert(makeBorrow(k, from: s.target, at: s.site), before: i)[0]
+      let x1 = insert(makeAllocStack(.void, at: s.site), before: i)[0]
+      let x2 = insert(makeBorrow(.set, from: x1, at: s.site), before: i)[0]
+      let call = makeCall(
+        applying: .constant(move), to: [x0, s.object], writingResultTo: x2, at: s.site)
+      insert(call, before: i)
+      insert(makeEndBorrow(x0, at: s.site), before: i)
       removeInstruction(i)
 
-      return r.instruction!.address
+      return x0.instruction!.address
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
