@@ -33,6 +33,8 @@ extension LoweredProgram {
       return llvm(lambdaType: t, in: &module)
     case let t as ProductType:
       return llvm(productType: t, in: &module)
+    case let t as SumType:
+      return llvm(sumType: t, in: &module)
     case let t as TupleType:
       return llvm(tupleType: t, in: &module)
     default:
@@ -114,6 +116,19 @@ extension LoweredProgram {
     }
 
     return LLVM.StructType(named: n, fields, in: &module)
+  }
+
+  /// Returns the LLVM form of `val` in `module`.
+  ///
+  /// - Requires: `val` is representable in LLVM.
+  func llvm(sumType val: SumType, in module: inout LLVM.Module) -> LLVM.IRType {
+    precondition(val[.isCanonical])
+
+    if val == .never {
+      return LLVM.StructType([], in: &module)
+    }
+
+    fatalError("not implemented")
   }
 
   /// Returns the LLVM form of `val` in `module`.

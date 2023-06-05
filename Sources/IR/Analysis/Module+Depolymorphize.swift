@@ -33,7 +33,8 @@ extension Module {
 
       let g = monomorphize(callee, in: ir)
       let r = FunctionReference(to: g, usedIn: callee.useScope, in: self)
-      let newCall = makeCall(applying: .constant(r), to: Array(s.arguments), at: s.site)
+      let newCall = makeCall(
+        applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
       replace(i, with: newCall)
     }
   }
@@ -185,7 +186,8 @@ extension Module {
       }
 
       let a = s.arguments.map(rewritten(_:))
-      append(makeCall(applying: newCallee, to: a, at: s.site), to: b)
+      let o = rewritten(s.output)
+      append(makeCall(applying: newCallee, to: a, writingResultTo: o, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

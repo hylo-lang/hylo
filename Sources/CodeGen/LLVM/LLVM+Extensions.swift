@@ -524,12 +524,8 @@ extension LLVM.Module {
       var arguments: [LLVM.IRValue] = []
 
       // Return value is passed by reference.
-      let returnType: LLVM.IRType?
-      if s.types[0].ast.isVoidOrNever {
-        returnType = nil
-      } else {
-        returnType = ir.llvm(s.types[0].ast, in: &self)
-        arguments.append(insertAlloca(returnType!, atEntryOf: transpilation))
+      if !m.type(of: s.output).ast.isVoidOrNever {
+        arguments.append(llvm(s.output))
       }
 
       // Callee is evaluated first.
@@ -551,7 +547,7 @@ extension LLVM.Module {
       // All arguments are passed by reference.
       for a in s.arguments {
         if m.type(of: a).isObject {
-          let t = ir.llvm(s.types[0].ast, in: &self)
+          let t = ir.llvm(m.type(of: a).ast, in: &self)
           let l = insertAlloca(t, atEntryOf: transpilation)
           insertStore(llvm(a), to: l, at: insertionPoint)
           arguments.append(l)
@@ -561,11 +557,6 @@ extension LLVM.Module {
       }
 
       _ = insertCall(callee, typed: calleeType, on: arguments, at: insertionPoint)
-
-      // Load the return value if necessary.
-      if let t = returnType {
-        register[.register(i, 0)] = insertLoad(t, from: arguments[0], at: insertionPoint)
-      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
