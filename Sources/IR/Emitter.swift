@@ -1579,14 +1579,6 @@ public struct Emitter {
 
   // MARK: l-values
 
-  /// Inserts the IR for the lvalue `expr` meant for `capability`.
-  private mutating func emitLValue(
-    _ syntax: AnyExprID.TypedNode, meantFor capability: AccessEffect
-  ) -> Operand {
-    let s = emitLValue(syntax)
-    return append(module.makeBorrow(capability, from: s, at: syntax.site))[0]
-  }
-
   /// Inserts the IR for the lvalue `syntax` block.
   private mutating func emitLValue(_ syntax: AnyExprID.TypedNode) -> Operand {
     switch syntax.kind {
