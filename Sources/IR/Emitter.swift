@@ -120,15 +120,15 @@ public struct Emitter {
     emit(members: d.members)
   }
 
-  /// Inserts the IR for `decl`, returning the ID of the lowered function.
+  /// Inserts the IR for `d`, returning the ID of the lowered function.
   @discardableResult
-  private mutating func emit(functionDecl decl: FunctionDecl.Typed) -> Function.ID {
-    withClearContext({ $0._emit(functionDecl: decl) })
+  private mutating func emit(functionDecl d: FunctionDecl.Typed) -> Function.ID {
+    withClearContext({ $0._emit(functionDecl: d) })
   }
 
-  /// Inserts the IR for `decl`, returning the ID of the lowered function.
+  /// Inserts the IR for `d`, returning the ID of the lowered function.
   ///
-  /// - Precondition: `self` has a clear lowering context.
+  /// - Requires: `self` has a clear lowering context.
   private mutating func _emit(functionDecl d: FunctionDecl.Typed) -> Function.ID {
     let f = module.demandFunctionDeclaration(lowering: d)
     guard let b = d.body else {
@@ -184,7 +184,7 @@ public struct Emitter {
     return f
   }
 
-  /// Inserts the IR for calling `d`.
+  /// Inserts the IR for calling `d`, which is a foreign function interface.
   private mutating func emitFFI(_ d: FunctionDecl.Typed) {
     let f = module.demandFunctionDeclaration(lowering: d)
 
