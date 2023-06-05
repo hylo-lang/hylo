@@ -1632,9 +1632,9 @@ public struct Emitter {
     case InoutExpr.self:
       return emitLValue(inoutExpr: .init(syntax)!)
     case NameExpr.self:
-      return emitLValue(name: NameExpr.Typed(syntax)!)
+      return emitLValue(name: .init(syntax)!)
     case TupleMemberExpr.self:
-      return emitLValue(name: TupleMemberExpr.Typed(syntax)!)
+      return emitLValue(tupleMember: .init(syntax)!)
     default:
       return emitLValue(converting: syntax)
     }
@@ -1720,7 +1720,7 @@ public struct Emitter {
     }
   }
 
-  private mutating func emitLValue(name syntax: TupleMemberExpr.Typed) -> Operand {
+  private mutating func emitLValue(tupleMember syntax: TupleMemberExpr.Typed) -> Operand {
     let base = emitLValue(syntax.tuple)
     return append(module.makeElementAddr(base, at: [syntax.index.value], at: syntax.index.site))[0]
   }
