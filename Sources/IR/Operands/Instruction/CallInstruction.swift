@@ -74,15 +74,18 @@ extension Module {
   ) -> CallInstruction {
     let calleeType = LambdaType(type(of: callee).ast)!.strippingEnvironment
     precondition(calleeType.inputs.count == arguments.count)
-    precondition({
-      guard
-        let i = output.instruction,
-        let s = self[i] as? BorrowInstruction
-      else { return false }
-      return s.capability == .set
-    }())
+    precondition(isBorrowSet(output))
 
     return .init(callee: callee, output: output, arguments: arguments, site: site)
+  }
+
+  /// Returns `true` iff `o` is a `borrow [set]` instruction.
+  fileprivate func isBorrowSet(_ o: Operand) -> Bool {
+    guard
+      let i = o.instruction,
+      let s = self[i] as? BorrowInstruction
+    else { return false }
+    return s.capability == .set
   }
 
 }
