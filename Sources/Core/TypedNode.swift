@@ -299,9 +299,9 @@ extension TypedNode where ID == InitializerDecl.ID {
 
 extension TypedNode where ID == SequenceExpr.ID {
 
-  /// A map from (typed) sequence expressions to their evaluation order.
-  public var foldedSequenceExprs: FoldedSequenceExpr? {
-    program.foldedSequenceExprs[id]
+  /// A representation of `self` that encodes its evaluation order.
+  public var folded: FoldedSequenceExpr {
+    program.foldedSequenceExprs[id]!
   }
 
 }

@@ -1254,7 +1254,7 @@ public struct Emitter {
   }
 
   private mutating func emitRValue(sequence expr: SequenceExpr.Typed) -> Operand {
-    emit(.sink, foldedSequenceExpr: expr.foldedSequenceExprs!)
+    emit(.sink, foldedSequenceExpr: expr.folded)
   }
 
   private mutating func emit(
