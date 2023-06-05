@@ -42,6 +42,15 @@ public struct LLVMProgram {
     }
   }
 
+  /// Applies optimizations on each module in `self`.
+  ///
+  /// Optimization applied are similar to clang's `-O3`.
+  public mutating func optimize() {
+    for k in llvmModules.keys {
+      llvmModules[k]!.runDefaultModulePasses(optimization: .aggressive, for: target)
+    }
+  }
+
   /// Compile the contents of this program to products of given `type` and writes theses products
   /// to `directory`, returning the URL of each written file.
   ///

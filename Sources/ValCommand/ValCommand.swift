@@ -97,6 +97,11 @@ public struct ValCommand: ParsableCommand {
     help: "Use verbose output.")
   private var verbose: Bool = false
 
+  @Flag(
+    name: [.customShort("O")],
+    help: "Compile with optimizations.")
+  private var optimize: Bool = false
+
   @Argument(
     transform: URL.init(fileURLWithPath:))
   private var inputs: [URL]
@@ -171,7 +176,12 @@ public struct ValCommand: ParsableCommand {
 
     let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
     var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
-    llvmProgram.applyMandatoryPasses()
+
+    if optimize {
+      llvmProgram.optimize()
+    } else {
+      llvmProgram.applyMandatoryPasses()
+    }
 
     if outputType == .llvm {
       let m = llvmProgram.llvmModules[sourceModule]!
