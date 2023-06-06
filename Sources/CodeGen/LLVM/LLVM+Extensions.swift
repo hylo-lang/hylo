@@ -58,7 +58,9 @@ extension LLVM.Module {
       insertReturn(status, at: p)
 
     default:
-      _ = insertCall(transpilation, on: [], at: p)
+      let t = ir.llvm(AnyType.void, in: &self)
+      let s = insertAlloca(t, at: p)
+      _ = insertCall(transpilation, on: [s], at: p)
       insertReturn(i32.zero, at: p)
     }
   }
@@ -132,12 +134,8 @@ extension LLVM.Module {
   /// - Note: the type of a function in Val IR typically doesn't match the type of its transpiled
   ///   form 1-to-1, as return values are often passed by references.
   private mutating func transpiledType(_ t: LambdaType) -> LLVM.FunctionType {
-    var parameters: Int = t.inputs.count
-
     // Return values are passed by reference.
-    if !t.output.isVoidOrNever {
-      parameters += 1
-    }
+    var parameters: Int = t.inputs.count + 1
 
     // Environments are passed before explicit arguments.
     if t.environment != .void {
@@ -183,7 +181,7 @@ extension LLVM.Module {
       return LLVM.Poison(of: t)
 
     case is IR.VoidConstant:
-      fatalError("not implemented")
+      return LLVM.StructConstant(aggregating: [], in: &self)
 
     default:
       unreachable()
@@ -353,11 +351,7 @@ extension LLVM.Module {
     precondition(!m[f].isSubscript)
 
     // Parameters and return values are passed by reference.
-    var parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count)
-    if !m[f].output.isVoidOrNever {
-      parameters.append(ptr)
-    }
-
+    let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
     let result = declareFunction(ir.mangle(f), .init(from: parameters, in: &self))
 
     if m[f].output == .never {
@@ -419,7 +413,7 @@ extension LLVM.Module {
       frame = nil
     }
 
-    for i in m[f].inputs.indices {
+    for i in m[m.entry(of: f)!].inputs.indices {
       let o = Operand.parameter(.init(f, entry), i)
       let s = transpilation.parameters[parameterOffset + i]
       register[o] = s
@@ -549,10 +543,7 @@ extension LLVM.Module {
           arguments.append(llvm(a))
         }
       }
-
-      if !m.type(of: s.output).ast.isVoidOrNever {
-        arguments.append(llvm(s.output))
-      }
+      arguments.append(llvm(s.output))
 
       _ = insertCall(callee, typed: calleeType, on: arguments, at: insertionPoint)
     }
@@ -741,10 +732,6 @@ extension LLVM.Module {
           at: insertionPoint)
         _ = insertUnreachable(at: insertionPoint)
       } else {
-        let s = m[i] as! IR.ReturnInstruction
-        if !m.type(of: s.object).ast.isVoidOrNever {
-          insertStore(llvm(s.object), to: transpilation.parameters.last!, at: insertionPoint)
-        }
         insertReturn(at: insertionPoint)
       }
     }

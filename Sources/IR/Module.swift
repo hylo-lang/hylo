@@ -378,7 +378,7 @@ public struct Module {
   /// Returns the entry of `f`.
   ///
   /// - Requires: `f` is declared in `self`.
-  func entry(of f: Function.ID) -> Block.ID? {
+  public func entry(of f: Function.ID) -> Block.ID? {
     functions[f]!.entry.map({ Block.ID(f, $0) })
   }
 
@@ -387,8 +387,15 @@ public struct Module {
   /// - Requires: `f` is declared in `self` and doesn't have an entry block.
   @discardableResult
   mutating func appendEntry<T: ScopeID>(in scope: T, to f: Function.ID) -> Block.ID {
-    assert(functions[f]!.blocks.isEmpty)
-    let parameters = functions[f]!.inputs.map({ LoweredType.address($0.type.bareType) })
+    let ir = functions[f]!
+    assert(ir.blocks.isEmpty)
+
+    // In functions, the last parameter of the entry denotes the function's return value.
+    var parameters = ir.inputs.map({ LoweredType.address($0.type.bareType) })
+    if !ir.isSubscript {
+      parameters.append(.address(ir.output))
+    }
+
     return appendBlock(in: scope, taking: parameters, to: f)
   }
 
