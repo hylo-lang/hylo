@@ -369,28 +369,19 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! ReturnInstruction
-      consume(s.object, with: i, at: s.site, in: &context)
-
       // Make sure that all non-sink parameters are initialized on exit.
-      let entry = Block.ID(f, self[f].entry!)
+      let entry = entry(of: f)!
       for (i, p) in self[f].inputs.enumerated() where p.type.access != .sink {
-        let a = AbstractLocation.root(.parameter(entry, i))
-        context.withObject(at: a) { (o) in
-          if o.value == .full(.initialized) { return }
-          let parameterSite = diagnosticSite(for: p, in: f)
+        ensureInitializedOnExit(
+          .parameter(entry, i), passed: p.type.access, in: &context,
+          reportingDiagnosticsAt: diagnosticSite(for: p, in: f))
+      }
 
-          if p.type.access == .set {
-            diagnostics.insert(
-              .uninitializedSetParameter(beforeReturningFrom: f, in: self, at: parameterSite))
-            return
-          }
-
-          // If the parameter is `let` or `inout`, it's been (partially) consumed since it was
-          // initialized in the entry context.
-          diagnostics.insert(
-            .illegalParameterEscape(consumedBy: o.value.consumers, in: self, at: parameterSite))
-        }
+      // Make sure that the return value is initialized on exit.
+      if !self[f].isSubscript {
+        ensureInitializedOnExit(
+          .parameter(entry, self[f].inputs.count), passed: .set, in: &context,
+          reportingDiagnosticsAt: .empty(at: self[f].site.first()))
       }
 
       return successor(of: i)
@@ -446,6 +437,28 @@ extension Module {
         diagnostics.insert(.illegalMove(at: site))
       }
     }
+
+    /// Checks that entry parameter `p`, passed with capability `k`, is initialized in `context`,
+    /// reporting diagnostics at `site` if it isn't.
+    func ensureInitializedOnExit(
+      _ p: Operand, passed k: AccessEffect, in context: inout Context,
+      reportingDiagnosticsAt site: SourceRange
+    ) {
+      context.withObject(at: .root(p)) { (o) in
+        if o.value == .full(.initialized) { return }
+
+        if k == .set {
+          diagnostics.insert(
+            .uninitializedSetParameter(beforeReturningFrom: f, in: self, at: site))
+          return
+        }
+
+        // If the parameter is `let` or `inout`, it's been (partially) consumed since it was
+        // initialized in the entry context.
+        diagnostics.insert(
+          .illegalParameterEscape(consumedBy: o.value.consumers, in: self, at: site))
+      }
+    }
   }
 
   /// Returns the initial context in which `f` should be interpreted.
@@ -453,27 +466,47 @@ extension Module {
     let function = self[f]
     var result = Context()
 
-    let b = Block.ID(f, function.entry!)
+    let entry = Block.ID(f, function.entry!)
+    addParameter(.set, function.output, of: entry, at: function.inputs.count, in: &result)
     for i in function.inputs.indices {
-      let l = AbstractTypeLayout(of: function.inputs[i].type.bareType, definedIn: program)
-
-      switch function.inputs[i].type.access {
-      case .let, .inout, .sink:
-        let a = AbstractLocation.root(.parameter(b, i))
-        result.locals[.parameter(b, i)] = .locations([a])
-        result.memory[a] = .init(layout: l, value: .full(.initialized))
-
-      case .set:
-        let a = AbstractLocation.root(.parameter(b, i))
-        result.locals[.parameter(b, i)] = .locations([a])
-        result.memory[a] = .init(layout: l, value: .full(.uninitialized))
-
-      case .yielded:
-        preconditionFailure("cannot represent instance of yielded type")
-      }
+      addParameter(function.inputs[i].type, of: entry, at: i, in: &result)
     }
 
     return result
+  }
+
+  /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
+  /// has type `t`.
+  private func addParameter(
+    _ t: ParameterType, of entry: Block.ID, at position: Int,
+    in context: inout Context
+  ) {
+    addParameter(t.access, t.bareType, of: entry, at: position, in: &context)
+  }
+
+  /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
+  /// has type `t` passed with capability `k`.
+  private func addParameter(
+    _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
+    in context: inout Context
+  ) {
+    let l = AbstractTypeLayout(of: t, definedIn: program)
+    let p = Operand.parameter(entry, position)
+
+    switch k {
+    case .let, .inout, .sink:
+      let a = AbstractLocation.root(p)
+      context.locals[p] = .locations([a])
+      context.memory[a] = .init(layout: l, value: .full(.initialized))
+
+    case .set:
+      let a = AbstractLocation.root(p)
+      context.locals[p] = .locations([a])
+      context.memory[a] = .init(layout: l, value: .full(.uninitialized))
+
+    case .yielded:
+      preconditionFailure("cannot represent instance of yielded type")
+    }
   }
 
   /// Returns `true` iff `o` is the result of a borrow instruction or a constant value.

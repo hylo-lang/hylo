@@ -272,7 +272,7 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(return i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! ReturnInstruction
-      append(makeReturn(rewritten(s.object), at: s.site), to: b)
+      append(makeReturn(at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

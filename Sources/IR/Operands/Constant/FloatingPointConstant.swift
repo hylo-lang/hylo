@@ -15,12 +15,12 @@ public struct FloatingPointConstant: Constant, Hashable {
     self.type = .object(type)
   }
 
-  /// Creates a nre Val IR `double` constant with value `v`.
+  /// Creates a new Val IR `double` constant with value `v`.
   public static func double(_ v: String) -> Self {
     .init(v, type: .double)
   }
 
-  /// Creates a nre Val IR `float` constant with value `v`.
+  /// Creates a new Val IR `float` constant with value `v`.
   public static func float(_ v: String) -> Self {
     .init(v, type: .float)
   }

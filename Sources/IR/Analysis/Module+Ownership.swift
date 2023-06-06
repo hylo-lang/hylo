@@ -230,22 +230,42 @@ extension Module {
     let function = self[f]
     var result = Context()
 
-    let b = Block.ID(f, function.entry!)
+    let entry = Block.ID(f, function.entry!)
+    addParameter(.set, function.output, of: entry, at: function.inputs.count, in: &result)
     for i in function.inputs.indices {
-      let l = AbstractTypeLayout(of: function.inputs[i].type.bareType, definedIn: program)
-
-      switch function.inputs[i].type.access {
-      case .let, .inout, .set, .sink:
-        let a = AbstractLocation.root(.parameter(b, i))
-        result.locals[.parameter(b, i)] = .locations([a])
-        result.memory[a] = .init(layout: l, value: .full(.unique))
-
-      case .yielded:
-        preconditionFailure("cannot represent instance of yielded type")
-      }
+      addParameter(function.inputs[i].type, of: entry, at: i, in: &result)
     }
 
     return result
+  }
+
+  /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
+  /// has type `t`.
+  private func addParameter(
+    _ t: ParameterType, of entry: Block.ID, at position: Int,
+    in context: inout Context
+  ) {
+    addParameter(t.access, t.bareType, of: entry, at: position, in: &context)
+  }
+
+  /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
+  /// has type `t` passed with capability `k`.
+  private func addParameter(
+    _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
+    in context: inout Context
+  ) {
+    let l = AbstractTypeLayout(of: t, definedIn: program)
+    let p = Operand.parameter(entry, position)
+
+    switch k {
+    case .let, .inout, .set, .sink:
+      let a = AbstractLocation.root(p)
+      context.locals[p] = .locations([a])
+      context.memory[a] = .init(layout: l, value: .full(.unique))
+
+    case .yielded:
+      preconditionFailure("cannot represent instance of yielded type")
+    }
   }
 
   /// Returns `true` iff `i` is a `borrow` instruction taking the `inout` or `set` capability.

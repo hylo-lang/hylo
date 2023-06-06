@@ -58,7 +58,9 @@ extension LLVM.Module {
       insertReturn(status, at: p)
 
     default:
-      _ = insertCall(transpilation, on: [], at: p)
+      let t = ir.llvm(AnyType.void, in: &self)
+      let s = insertAlloca(t, at: p)
+      _ = insertCall(transpilation, on: [s], at: p)
       insertReturn(i32.zero, at: p)
     }
   }
@@ -132,12 +134,8 @@ extension LLVM.Module {
   /// - Note: the type of a function in Val IR typically doesn't match the type of its transpiled
   ///   form 1-to-1, as return values are often passed by references.
   private mutating func transpiledType(_ t: LambdaType) -> LLVM.FunctionType {
-    var parameters: Int = t.inputs.count
-
     // Return values are passed by reference.
-    if !t.output.isVoidOrNever {
-      parameters += 1
-    }
+    var parameters: Int = t.inputs.count + 1
 
     // Environments are passed before explicit arguments.
     if t.environment != .void {
@@ -183,7 +181,7 @@ extension LLVM.Module {
       return LLVM.Poison(of: t)
 
     case is IR.VoidConstant:
-      fatalError("not implemented")
+      return LLVM.StructConstant(aggregating: [], in: &self)
 
     default:
       unreachable()
@@ -353,11 +351,7 @@ extension LLVM.Module {
     precondition(!m[f].isSubscript)
 
     // Parameters and return values are passed by reference.
-    var parameters: [LLVM.IRType] = []
-    if !m[f].output.isVoidOrNever {
-      parameters.append(ptr)
-    }
-    parameters.append(contentsOf: Array(repeating: ptr, count: m[f].inputs.count))
+    let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
     let result = declareFunction(ir.mangle(f), .init(from: parameters, in: &self))
 
     if m[f].output == .never {
@@ -409,18 +403,17 @@ extension LLVM.Module {
     /// The prologue of the transpiled function, which contains its stack allocations.
     let prologue = appendBlock(named: "prologue", to: transpilation)
 
+    // In subscripts, parameters are laid out after the frame buffer.
     let parameterOffset: Int
     if m[f].isSubscript {
-      // In subscripts, parameters are laid out after the frame buffer.
       parameterOffset = 1
       frame = insertSubscriptPrologue(into: transpilation)
     } else {
-      // In functions, parameters are laid out after the return value.
-      parameterOffset = m[f].output.isVoidOrNever ? 0 : 1
+      parameterOffset = 0
       frame = nil
     }
 
-    for i in m[f].inputs.indices {
+    for i in m[m.entry(of: f)!].inputs.indices {
       let o = Operand.parameter(.init(f, entry), i)
       let s = transpilation.parameters[parameterOffset + i]
       register[o] = s
@@ -523,11 +516,6 @@ extension LLVM.Module {
       let s = m[i] as! CallInstruction
       var arguments: [LLVM.IRValue] = []
 
-      // Return value is passed by reference.
-      if !m.type(of: s.output).ast.isVoidOrNever {
-        arguments.append(llvm(s.output))
-      }
-
       // Callee is evaluated first.
       let callee: LLVM.IRValue
       let calleeType: LLVM.IRType
@@ -544,7 +532,7 @@ extension LLVM.Module {
         }
       }
 
-      // All arguments are passed by reference.
+      // Arguments and return value are passed by reference.
       for a in s.arguments {
         if m.type(of: a).isObject {
           let t = ir.llvm(m.type(of: a).ast, in: &self)
@@ -555,6 +543,7 @@ extension LLVM.Module {
           arguments.append(llvm(a))
         }
       }
+      arguments.append(llvm(s.output))
 
       _ = insertCall(callee, typed: calleeType, on: arguments, at: insertionPoint)
     }
@@ -743,10 +732,6 @@ extension LLVM.Module {
           at: insertionPoint)
         _ = insertUnreachable(at: insertionPoint)
       } else {
-        let s = m[i] as! IR.ReturnInstruction
-        if !m.type(of: s.object).ast.isVoidOrNever {
-          insertStore(llvm(s.object), to: transpilation.parameters[0], at: insertionPoint)
-        }
         insertReturn(at: insertionPoint)
       }
     }

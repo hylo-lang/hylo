@@ -120,15 +120,15 @@ public struct Emitter {
     emit(members: d.members)
   }
 
-  /// Inserts the IR for `decl`, returning the ID of the lowered function.
+  /// Inserts the IR for `d`, returning the ID of the lowered function.
   @discardableResult
-  private mutating func emit(functionDecl decl: FunctionDecl.Typed) -> Function.ID {
-    withClearContext({ $0._emit(functionDecl: decl) })
+  private mutating func emit(functionDecl d: FunctionDecl.Typed) -> Function.ID {
+    withClearContext({ $0._emit(functionDecl: d) })
   }
 
-  /// Inserts the IR for `decl`, returning the ID of the lowered function.
+  /// Inserts the IR for `d`, returning the ID of the lowered function.
   ///
-  /// - Precondition: `self` has a clear lowering context.
+  /// - Requires: `self` has a clear lowering context.
   private mutating func _emit(functionDecl d: FunctionDecl.Typed) -> Function.ID {
     let f = module.demandFunctionDeclaration(lowering: d)
     guard let b = d.body else {
@@ -174,17 +174,15 @@ public struct Emitter {
       emit(stmt: s)
 
     case .expr(let e):
-      let value = emitRValue(e)
+      store(returnValue: emitRValue(e), at: e.site)
       emitStackDeallocs(site: e.site)
-      if e.type != .never {
-        append(module.makeReturn(value, at: e.site))
-      }
+      append(module.makeReturn(at: e.site))
     }
 
     return f
   }
 
-  /// Inserts the IR for calling `d`.
+  /// Inserts the IR for calling `d`, which is a foreign function interface.
   private mutating func emitFFI(_ d: FunctionDecl.Typed) {
     let f = module.demandFunctionDeclaration(lowering: d)
 
@@ -199,20 +197,19 @@ public struct Emitter {
       assert(self.frames.isEmpty)
     }
 
-    // Convert Val arguments to their foreign representation.
+    // Convert Val arguments to their foreign representation. Note that the last parameter of the
+    // entry is the address of the FFI's return value.
     var arguments: [Operand] = []
-    for i in module[entry].inputs.indices {
+    for i in 0 ..< module[entry].inputs.count - 1 {
       let a = emitConvertToForeign(.parameter(entry, i), at: d.site)
       arguments.append(a)
     }
 
-    // Emit the FFI call.
+    // Emit the call to the foreign function.
     let returnType = module.functions[f]!.output
     let foreignResult = append(
       module.makeCallFFI(
-        returning: .object(returnType),
-        applying: d.foreignName!,
-        to: arguments, at: d.site))[0]
+        returning: .object(returnType), applying: d.foreignName!, to: arguments, at: d.site))[0]
 
     // Convert the result of the FFI to its Val representation and return it.
     let returnValue: Operand
@@ -221,8 +218,10 @@ public struct Emitter {
     } else {
       returnValue = emitConvert(foreign: foreignResult, to: returnType, at: d.site)
     }
+
+    store(returnValue: returnValue, at: d.site)
     emitStackDeallocs(site: d.site)
-    append(module.makeReturn(returnValue, at: d.site))
+    append(module.makeReturn(at: d.site))
   }
 
   /// Inserts the IR for `d`.
@@ -314,7 +313,7 @@ public struct Emitter {
         module.makeBorrow(d.introducer.value, from: s, at: program.ast[e].site))[0]
       append(module.makeYield(d.introducer.value, b, at: program.ast[e].site))
       emitStackDeallocs(site: program.ast[e].site)
-      append(module.makeReturn(.void, at: program.ast[e].site))
+      append(module.makeReturn(at: program.ast[e].site))
     }
   }
 
@@ -618,8 +617,9 @@ public struct Emitter {
       fatalError("not implemented")
     }
 
+    store(returnValue: .void, at: site)
     emitStackDeallocs(site: site)
-    append(module.makeReturn(.void, at: site))
+    append(module.makeReturn(at: site))
     return f
   }
 
@@ -655,8 +655,9 @@ public struct Emitter {
     let r = append(module.makeLoad(argument, at: site))[0]
     emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
 
+    store(returnValue: .void, at: site)
     emitStackDeallocs(site: site)
-    append(module.makeReturn(.void, at: site))
+    append(module.makeReturn(at: site))
     return f
   }
 
@@ -788,8 +789,9 @@ public struct Emitter {
       value = .void
     }
 
+    store(returnValue: value, at: stmt.site)
     emitStackDeallocs(site: stmt.site)
-    append(module.makeReturn(value, at: stmt.site))
+    append(module.makeReturn(at: stmt.site))
   }
 
   private mutating func emit(whileStmt stmt: WhileStmt.Typed) {
@@ -816,6 +818,13 @@ public struct Emitter {
     let s = emitLValue(program[stmt.value])
     let b = append(module.makeBorrow(.let, from: s, at: stmt.site))[0]
     append(module.makeYield(.let, b, at: stmt.site))
+  }
+
+  private mutating func store(returnValue v: Operand, at site: SourceRange) {
+    let entry = module.entry(of: insertionBlock!.function)!
+    let x0 = Operand.parameter(entry, module[entry].inputs.count - 1)
+    let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
+    append(module.makeStore(v, at: x1, at: site))
   }
 
   // MARK: r-values
@@ -1395,7 +1404,7 @@ public struct Emitter {
       switch item {
       case .expr(let e):
         let condition = program[e]
-        let test = pushing(.init(), { $0.emitBranchCondition(condition) })
+        let test = pushing(Frame(), { $0.emitBranchCondition(condition) })
         let next = module.appendBlock(in: scope, to: f)
         append(module.makeCondBranch(if: test, then: next, else: failure, at: program[e].site))
         insertionBlock = next
@@ -1578,14 +1587,6 @@ public struct Emitter {
   }
 
   // MARK: l-values
-
-  /// Inserts the IR for the lvalue `expr` meant for `capability`.
-  private mutating func emitLValue(
-    _ syntax: AnyExprID.TypedNode, meantFor capability: AccessEffect
-  ) -> Operand {
-    let s = emitLValue(syntax)
-    return append(module.makeBorrow(capability, from: s, at: syntax.site))[0]
-  }
 
   /// Inserts the IR for the lvalue `syntax` block.
   private mutating func emitLValue(_ syntax: AnyExprID.TypedNode) -> Operand {
