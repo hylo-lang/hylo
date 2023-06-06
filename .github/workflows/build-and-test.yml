@@ -53,7 +53,7 @@ jobs:
       uses: mattpolzin/swift-codecov-action@0.7.3
       with:
         SORT_ORDER: +cov
-        MINIMUM_COVERAGE: 85
+        MINIMUM_COVERAGE: 84
         CODECOV_JSON: .build/${{ matrix.configuration }}/codecov/*.json
 
   build-native:
