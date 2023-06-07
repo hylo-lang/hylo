@@ -1330,11 +1330,10 @@ public enum Parser {
         SourceRepresentable(value: .static, range: token.site)
       }))
 
-  static let accessModifier =
-    (take(.public)
-      .map({ (_, token) -> SourceRepresentable<AccessModifier> in
-        SourceRepresentable(value: .public, range: token.site)
-      }))
+  static let accessModifier = translate([
+    .private: AccessModifier.private,
+    .public: AccessModifier.public,
+  ])
 
   static let captureList = inContext(
     .captureList,

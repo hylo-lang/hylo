@@ -47,6 +47,7 @@ public struct Token {
     case `postfix`
     case `prefix`
     case `property`
+    case `private`
     case `public`
     case `remote`
     case `return`
