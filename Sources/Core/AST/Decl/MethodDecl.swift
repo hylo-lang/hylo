@@ -36,7 +36,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
   public init(
     introducerSite: SourceRange,
     attributes: [SourceRepresentable<Attribute>],
-    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    accessModifier: SourceRepresentable<AccessModifier>,
     notation: SourceRepresentable<OperatorNotation>?,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
@@ -48,8 +48,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
     self.site = site
     self.introducerSite = introducerSite
     self.attributes = attributes
-    // implicitly mark the method as private
-    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
+    self.accessModifier = accessModifier
     self.notation = notation
     self.identifier = identifier
     self.genericClause = genericClause

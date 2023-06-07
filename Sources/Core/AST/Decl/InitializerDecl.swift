@@ -41,7 +41,7 @@ public struct InitializerDecl: GenericDecl, GenericScope {
   public init(
     introducer: SourceRepresentable<Introducer>,
     attributes: [SourceRepresentable<Attribute>],
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     parameters: [ParameterDecl.ID],
     receiver: ParameterDecl.ID,
@@ -53,8 +53,7 @@ public struct InitializerDecl: GenericDecl, GenericScope {
     self.site = site
     self.introducer = introducer
     self.attributes = attributes
-    // implicitly mark the initializer as private
-    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
+    self.accessModifier = accessModifier
     self.genericClause = genericClause
     self.parameters = parameters
     self.receiver = receiver

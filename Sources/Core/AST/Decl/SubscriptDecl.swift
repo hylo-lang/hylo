@@ -49,7 +49,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   public init(
     introducer: SourceRepresentable<Introducer>,
     attributes: [SourceRepresentable<Attribute>],
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     memberModifier: SourceRepresentable<MemberModifier>?,
     identifier: SourceRepresentable<Identifier>?,
     genericClause: SourceRepresentable<GenericClause>?,
@@ -62,7 +62,7 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     self.site = site
     self.introducer = introducer
     self.attributes = attributes
-    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
+    self.accessModifier = accessModifier
     self.memberModifier = memberModifier
     self.identifier = identifier
     self.genericClause = genericClause

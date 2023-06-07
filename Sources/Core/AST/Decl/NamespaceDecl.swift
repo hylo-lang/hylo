@@ -18,15 +18,14 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
   /// Creates an instance with the given properties.
   public init(
     introducerSite: SourceRange,
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
     members: [AnyDeclID],
     site: SourceRange
   ) {
     self.site = site
     self.introducerSite = introducerSite
-    // implicitly mark the namespace as private
-    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
+    self.accessModifier = accessModifier
     self.identifier = identifier
     self.members = members
   }

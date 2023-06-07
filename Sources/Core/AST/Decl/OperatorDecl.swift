@@ -21,7 +21,7 @@ public struct OperatorDecl: Decl {
   /// Creates an instance with the given properties.
   public init(
     introducerSite: SourceRange,
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     notation: SourceRepresentable<OperatorNotation>,
     name: SourceRepresentable<Identifier>,
     precedenceGroup: SourceRepresentable<PrecedenceGroup>?,
@@ -29,8 +29,7 @@ public struct OperatorDecl: Decl {
   ) {
     self.site = site
     self.introducerSite = introducerSite
-    // implicitly mark the operator as private
-    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
+    self.accessModifier = accessModifier
     self.notation = notation
     self.name = name
     self.precedenceGroup = precedenceGroup

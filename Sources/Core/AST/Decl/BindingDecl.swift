@@ -21,7 +21,7 @@ public struct BindingDecl: Decl {
   /// Creates an instance with the given properties.
   public init(
     attributes: [SourceRepresentable<Attribute>] = [],
-    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    accessModifier: SourceRepresentable<AccessModifier>,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     pattern: BindingPattern.ID,
     initializer: AnyExprID?,
@@ -29,8 +29,7 @@ public struct BindingDecl: Decl {
   ) {
     self.site = site
     self.attributes = attributes
-    // implicitly mark the binding as private
-    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
+    self.accessModifier = accessModifier
     self.memberModifier = memberModifier
     self.pattern = pattern
     self.initializer = initializer

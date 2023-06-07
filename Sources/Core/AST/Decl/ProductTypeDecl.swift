@@ -23,7 +23,7 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
 
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     conformances: [NameExpr.ID],
@@ -34,8 +34,7 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
     precondition(members.contains(AnyDeclID(memberwiseInit)))
 
     self.site = site
-    // implicitly mark the product type as private
-    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
+    self.accessModifier = accessModifier
     self.identifier = identifier
     self.genericClause = genericClause
     self.conformances = conformances

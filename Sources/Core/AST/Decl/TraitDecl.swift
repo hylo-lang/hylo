@@ -22,7 +22,7 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
     refinements: [NameExpr.ID],
     members: [AnyDeclID],
@@ -32,8 +32,7 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
     precondition(members.contains(AnyDeclID(selfParameterDecl)))
 
     self.site = site
-    // implicitly mark the trait as private
-    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
+    self.accessModifier = accessModifier
     self.identifier = identifier
     self.refinements = refinements
     self.selfParameterDecl = selfParameterDecl

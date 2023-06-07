@@ -53,7 +53,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   public init(
     introducerSite: SourceRange,
     attributes: [SourceRepresentable<Attribute>] = [],
-    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    accessModifier: SourceRepresentable<AccessModifier>,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     receiverEffect: SourceRepresentable<AccessEffect>? = nil,
     notation: SourceRepresentable<OperatorNotation>? = nil,
@@ -70,8 +70,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     self.site = site
     self.introducerSite = introducerSite
     self.attributes = attributes
-    // implicitly mark the function as private
-    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
+    self.accessModifier = accessModifier
     self.memberModifier = memberModifier
     self.receiverEffect = receiverEffect
     self.notation = notation

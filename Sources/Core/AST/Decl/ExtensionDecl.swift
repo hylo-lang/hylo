@@ -17,15 +17,14 @@ public struct ExtensionDecl: TypeExtendingDecl {
 
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     subject: AnyTypeExprID,
     whereClause: SourceRepresentable<WhereClause>?,
     members: [AnyDeclID],
     site: SourceRange
   ) {
     self.site = site
-    // implicitly mark the extension as private
-    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
+    self.accessModifier = accessModifier
     self.subject = subject
     self.whereClause = whereClause
     self.members = members
