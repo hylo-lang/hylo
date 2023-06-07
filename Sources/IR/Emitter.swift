@@ -1046,8 +1046,8 @@ public struct Emitter {
       let calleeType = LambdaType(program.relations.canonical(t))!.lifted
 
       // Emit the operands, starting with RHS.
-      let r = emitInfixOperand(rhs, passed: ParameterType(calleeType.inputs[1].type)!.access)
-      let l = emitInfixOperand(lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
+      let r = emit(infixOperand: rhs, passed: ParameterType(calleeType.inputs[1].type)!.access)
+      let l = emit(infixOperand: lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
 
       // The callee must be a reference to member function.
       guard case .member(let d, _) = program.referredDecls[callee.expr] else { unreachable() }
@@ -1331,14 +1331,27 @@ public struct Emitter {
       storage = emitLValue(syntax)
     }
 
-    switch parameter.access {
-    case .let, .inout, .set:
-      return append(module.makeBorrow(parameter.access, from: storage, at: argumentSite))[0]
-    case .sink:
-      return append(module.makeLoad(storage, at: argumentSite))[0]
-    default:
-      unreachable()
+    return take(parameter.access, on: storage, at: argumentSite)
+  }
+
+  /// Inserts the IR for infix operand `e` passed with convention `access`.
+  private mutating func emit(
+    infixOperand e: FoldedSequenceExpr, passed access: AccessEffect
+  ) -> Operand {
+    let storage: Operand
+
+    switch e {
+    case .infix(let callee, _, _):
+      let t = program.exprTypes[callee.expr]!
+      let u = LambdaType(program.relations.canonical(t))!.lifted
+      storage = emitAllocStack(for: u.output, at: program.ast.site(of: e))
+      store(foldedSequence: e, to: storage)
+
+    case .leaf(let e):
+      storage = emitLValue(program[e])
     }
+
+    return take(access, on: storage, at: program.ast.site(of: e))
   }
 
   /// Emits the IR of a call to `f` with given `arguments` at `site`.
@@ -1578,8 +1591,6 @@ public struct Emitter {
       return emitLValue(inoutExpr: .init(syntax)!)
     case NameExpr.self:
       return emitLValue(name: .init(syntax)!)
-    case SequenceExpr.self:
-      return emitLValue(sequence: .init(syntax)!)
     case TupleMemberExpr.self:
       return emitLValue(tupleMember: .init(syntax)!)
     default:
@@ -1660,53 +1671,6 @@ public struct Emitter {
     }
   }
 
-  private mutating func emitLValue(sequence syntax: SequenceExpr.Typed) -> Operand {
-    emitLValue(foldedSequence: syntax.folded)
-  }
-
-  private mutating func emitLValue(foldedSequence syntax: FoldedSequenceExpr) -> Operand {
-    switch syntax {
-    case .infix(let callee, let lhs, let rhs):
-      let t = program.exprTypes[callee.expr]!
-      let calleeType = LambdaType(program.relations.canonical(t))!.lifted
-
-      // Emit the operands, starting with RHS.
-      let r = emitInfixOperand(rhs, passed: ParameterType(calleeType.inputs[1].type)!.access)
-      let l = emitInfixOperand(lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
-
-      // The callee must be a reference to member function.
-      guard case .member(let d, _) = program.referredDecls[callee.expr] else { unreachable() }
-      let oper = Operand.constant(
-        FunctionReference(to: program[FunctionDecl.ID(d)!], usedIn: insertionScope!, in: &module))
-
-      // Emit the call.
-      let site = program.ast.site(of: syntax)
-      let x0 = emitAllocStack(for: calleeType.output, at: site)
-      let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
-      append(module.makeCall(applying: oper, to: [l, r], writingResultTo: x1, at: site))
-      return x0
-
-    case .leaf(let e):
-      return emitLValue(program[e])
-    }
-  }
-
-  private mutating func emitInfixOperand(
-    _ syntax: FoldedSequenceExpr, passed access: AccessEffect
-  ) -> Operand {
-    let source = emitLValue(foldedSequence: syntax)
-    let site = program.ast.site(of: syntax)
-
-    switch access {
-    case .let, .inout, .set:
-      return append(module.makeBorrow(access, from: source, at: site))[0]
-    case .sink:
-      return append(module.makeLoad(source, at: site))[0]
-    case .yielded:
-      unreachable()
-    }
-  }
-
   private mutating func emitLValue(tupleMember syntax: TupleMemberExpr.Typed) -> Operand {
     let base = emitLValue(syntax.tuple)
     return append(module.makeElementAddr(base, at: [syntax.index.value], at: syntax.index.site))[0]
@@ -1773,6 +1737,20 @@ public struct Emitter {
   }
 
   // MARK: Helpers
+
+  /// Inserts the IR for taking given `access` on `source` at `site`.
+  private mutating func take(
+    _ access: AccessEffect, on source: Operand, at site: SourceRange
+  ) -> Operand {
+    switch access {
+    case .let, .inout, .set:
+      return append(module.makeBorrow(access, from: source, at: site))[0]
+    case .sink:
+      return append(module.makeLoad(source, at: site))[0]
+    case .yielded:
+      unreachable()
+    }
+  }
 
   /// Inserts a stack allocation for an object of type `t`.
   private mutating func emitAllocStack(
