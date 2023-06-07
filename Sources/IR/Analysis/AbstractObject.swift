@@ -17,14 +17,13 @@ struct AbstractObject<Domain: AbstractDomain>: Equatable {
   ///
   /// - Requires: `i` is a valid index in `layout`.
   mutating func withSubobject<T>(_ offset: Int, _ action: (inout AbstractObject) -> T) -> T {
-    let n = layout.properties.count
-    precondition(n != 0)
+    precondition(layout.properties.count > 0)
 
     var parts: [Value]
     if case .partial(let p) = value {
       parts = p
     } else {
-      parts = Array(repeating: value, count: n)
+      parts = Array(repeating: value, count: layout.properties.count)
     }
 
     var o = AbstractObject(layout: layout[offset], value: parts[offset])
@@ -42,15 +41,11 @@ struct AbstractObject<Domain: AbstractDomain>: Equatable {
     at path: Path,
     _ action: (inout AbstractObject) -> T
   ) -> T {
-    guard let (i, t) = path.headAndTail else {
+    if let (i, t) = path.headAndTail {
+      return withSubobject(i, { $0.withSubobject(at: t, action) })
+    } else {
       defer { value = value.canonical }
       return action(&self)
-    }
-
-    if t.isEmpty {
-      return withSubobject(i, action)
-    } else {
-      return withSubobject(at: t, action)
     }
   }
 
