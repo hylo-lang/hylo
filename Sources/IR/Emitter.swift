@@ -1594,16 +1594,8 @@ public struct Emitter {
     case TupleMemberExpr.self:
       return emitLValue(tupleMember: .init(syntax)!)
     default:
-      return emitLValue(converting: syntax)
+      return store(value: syntax)
     }
-  }
-
-  /// Inserts the IR for `rvalue` converted as a lvalue.
-  private mutating func emitLValue(converting rvalue: AnyExprID.TypedNode) -> Operand {
-    let t = program.relations.canonical(rvalue.type)
-    let s = emitAllocStack(for: t, at: rvalue.site)
-    emitInitialization(of: s, to: rvalue.id)
-    return s
   }
 
   private mutating func emitLValue(cast syntax: CastExpr.Typed) -> Operand {
