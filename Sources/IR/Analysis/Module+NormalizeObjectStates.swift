@@ -38,8 +38,6 @@ extension Module {
           pc = interpret(callFFI: user, in: &context)
         case is DeallocStackInstruction:
           pc = interpret(deallocStack: user, in: &context)
-        case is DeinitInstruction:
-          pc = interpret(deinit: user, in: &context)
         case is ElementAddrInstruction:
           pc = interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
@@ -221,13 +219,6 @@ extension Module {
       let p = context.withObject(at: l, \.value.initializedPaths)
       insertDeinitialization(of: dealloc.location, at: p, before: i, anchoredAt: dealloc.site)
       context.memory[l] = nil
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(deinit i: InstructionID, in context: inout Context) -> PC? {
-      let x = self[i] as! DeinitInstruction
-      consume(x.object, with: i, at: x.site, in: &context)
       return successor(of: i)
     }
 
@@ -539,8 +530,7 @@ extension Module {
   ) {
     for path in initializedPaths {
       let x0 = insert(makeElementAddr(root, at: path, at: anchor), before: i)[0]
-      let x1 = insert(makeLoad(x0, at: anchor), before: i)[0]
-      insert(makeDeinit(x1, at: anchor), before: i)
+      insert(makeDeinit(x0, at: anchor), before: i)
     }
   }
 

@@ -656,8 +656,7 @@ public struct Emitter {
     let argument = Operand.parameter(entry, 1)
 
     // Deinitialize the receiver.
-    let l = append(module.makeLoad(receiver, at: site))[0]
-    append(module.makeDeinit(l, at: site))
+    append(module.makeDeinit(receiver, at: site))
 
     // Apply the move-initializer.
     let c = program.conformance(

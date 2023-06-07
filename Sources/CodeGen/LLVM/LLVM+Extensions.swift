@@ -451,8 +451,6 @@ extension LLVM.Module {
         insert(condBranch: i)
       case is IR.DeallocStackInstruction:
         return
-      case is IR.DeinitInstruction:
-        return
       case is IR.ElementAddrInstruction:
         insert(elementAddr: i)
       case is IR.EndBorrowInstruction:

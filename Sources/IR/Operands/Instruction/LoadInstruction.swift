@@ -39,7 +39,15 @@ extension Module {
   func makeLoad(_ source: Operand, at site: SourceRange) -> LoadInstruction {
     let t = type(of: source)
     precondition(t.isAddress)
-    return LoadInstruction(objectType: .object(t.ast), from: source, site: site)
+    return .init(objectType: .object(t.ast), from: source, site: site)
+  }
+
+  /// Creates a `deinit` anchored at `site` that deinitializes `receiver`.
+  ///
+  /// - Parameters:
+  ///   - receiver: The location of the object to deinitialize.
+  func makeDeinit(_ receiver: Operand, at site: SourceRange) -> LoadInstruction {
+    makeLoad(receiver, at: site)
   }
 
 }
