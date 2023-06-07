@@ -43,6 +43,16 @@ public struct Emitter {
     insertionBlock.map({ module[$0].scope })
   }
 
+  /// The address of the return value in the current function, if any.
+  private var returnValue: Operand? {
+    guard
+      let f = insertionBlock?.function,
+      let b = module.entry(of: f),
+      !module[f].isSubscript
+    else { return nil }
+    return .parameter(b, module[f].inputs.count)
+  }
+
   /// Reports the given diagnostic.
   private mutating func report(_ d: Diagnostic) {
     diagnostics.insert(d)
