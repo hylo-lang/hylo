@@ -7,7 +7,7 @@ public struct OperatorDecl: Decl {
   public let introducerSite: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The notation of the operator.
   public let notation: SourceRepresentable<OperatorNotation>
@@ -29,7 +29,8 @@ public struct OperatorDecl: Decl {
   ) {
     self.site = site
     self.introducerSite = introducerSite
-    self.accessModifier = accessModifier
+    // implicitly mark the operator as private
+    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
     self.notation = notation
     self.name = name
     self.precedenceGroup = precedenceGroup

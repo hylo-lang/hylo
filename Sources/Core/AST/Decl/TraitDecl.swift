@@ -6,7 +6,7 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The identifier of the trait.
   public let identifier: SourceRepresentable<Identifier>
@@ -32,7 +32,8 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
     precondition(members.contains(AnyDeclID(selfParameterDecl)))
 
     self.site = site
-    self.accessModifier = accessModifier
+    // implicitly mark the trait as private
+    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
     self.identifier = identifier
     self.refinements = refinements
     self.selfParameterDecl = selfParameterDecl

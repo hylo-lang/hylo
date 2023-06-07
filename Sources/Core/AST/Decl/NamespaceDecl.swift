@@ -7,7 +7,7 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
   public let introducerSite: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The identifier of the namespace.
   public let identifier: SourceRepresentable<Identifier>
@@ -25,7 +25,8 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
   ) {
     self.site = site
     self.introducerSite = introducerSite
-    self.accessModifier = accessModifier
+    // implicitly mark the namespace as private
+    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
     self.identifier = identifier
     self.members = members
   }

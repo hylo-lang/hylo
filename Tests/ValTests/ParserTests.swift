@@ -99,7 +99,7 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "public fun foo() {}"
     let (declID, ast) = try input.parse(inContext: .namespaceBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
-    XCTAssertEqual(decl.accessModifier?.value, .public)
+    XCTAssertEqual(decl.accessModifier.value, .public)
   }
 
   func testTypeAliasDecl() throws {
@@ -175,7 +175,7 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "public var x: Int"
     let (declID, ast) = try input.parse(inContext: .productBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
-    XCTAssertEqual(decl.accessModifier?.value, .public)
+    XCTAssertEqual(decl.accessModifier.value, .public)
   }
 
   func testProductTypeMemberStatic() throws {
@@ -189,7 +189,7 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "public static var x: Int"
     let (declID, ast) = try input.parse(inContext: .productBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
-    XCTAssertEqual(decl.accessModifier?.value, .public)
+    XCTAssertEqual(decl.accessModifier.value, .public)
     XCTAssertEqual(decl.memberModifier?.value, .static)
   }
 
@@ -362,7 +362,7 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "public static fun forty_two() -> Int { 42 }"
     let (declID, ast) = try input.parse(inContext: .extensionBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
-    XCTAssertEqual(decl.accessModifier?.value, .public)
+    XCTAssertEqual(decl.accessModifier.value, .public)
     XCTAssertEqual(decl.memberModifier?.value, .static)
   }
 

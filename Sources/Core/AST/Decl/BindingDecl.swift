@@ -7,7 +7,7 @@ public struct BindingDecl: Decl {
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The member modifier of the declaration.
   public let memberModifier: SourceRepresentable<MemberModifier>?
@@ -29,14 +29,15 @@ public struct BindingDecl: Decl {
   ) {
     self.site = site
     self.attributes = attributes
-    self.accessModifier = accessModifier
+    // implicitly mark the binding as private
+    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
     self.memberModifier = memberModifier
     self.pattern = pattern
     self.initializer = initializer
   }
 
   /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier?.value == .public }
+  public var isPublic: Bool { accessModifier.value == .public }
 
   /// Returns whether the declaration denotes a static member.
   public var isStatic: Bool { memberModifier?.value == .static }

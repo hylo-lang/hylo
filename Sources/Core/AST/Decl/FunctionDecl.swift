@@ -12,7 +12,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The member modifier of the declaration.
   public let memberModifier: SourceRepresentable<MemberModifier>?
@@ -70,7 +70,8 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     self.site = site
     self.introducerSite = introducerSite
     self.attributes = attributes
-    self.accessModifier = accessModifier
+    // implicitly mark the function as private
+    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
     self.memberModifier = memberModifier
     self.receiverEffect = receiverEffect
     self.notation = notation
@@ -85,7 +86,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   }
 
   /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier?.value == .public }
+  public var isPublic: Bool { accessModifier.value == .public }
 
   /// Returns whether the declaration denotes a static member function.
   public var isStatic: Bool { memberModifier?.value == .static }

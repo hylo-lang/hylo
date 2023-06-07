@@ -4,7 +4,7 @@ public struct ExtensionDecl: TypeExtendingDecl {
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The expression of the extended type.
   public let subject: AnyTypeExprID
@@ -24,7 +24,8 @@ public struct ExtensionDecl: TypeExtendingDecl {
     site: SourceRange
   ) {
     self.site = site
-    self.accessModifier = accessModifier
+    // implicitly mark the extension as private
+    self.accessModifier = accessModifier ?? SourceRepresentable(value: .private, range: site)
     self.subject = subject
     self.whereClause = whereClause
     self.members = members
