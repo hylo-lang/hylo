@@ -1,5 +1,5 @@
 /// An integer literal expression.
-public struct IntegerLiteralExpr: Expr {
+public struct IntegerLiteralExpr: NumericLiteralExpr {
 
   public let site: SourceRange
 
