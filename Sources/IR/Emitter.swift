@@ -900,7 +900,7 @@ public struct Emitter {
     case .down:
       store(downcast: e, to: storage)
     case .pointerConversion:
-      fatalError("not implemented")
+      unreachable("pointer to address conversion evalutes to a lvalue")
     }
   }
 
