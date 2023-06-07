@@ -1489,25 +1489,6 @@ public struct Emitter {
     return (success: insertionBlock!, failure: failure)
   }
 
-  /// Inserts the IR for string `s`, anchoring instructions at site.
-  private mutating func emitString(_ s: String, at site: SourceRange) -> Operand {
-    var bytes = s.unescaped.data(using: .utf8)!
-    let size = emitWord(bytes.count, at: site)
-    bytes.append(contentsOf: [0])
-
-    let p = PointerConstant(module.syntax.id, module.addGlobal(BufferConstant(bytes)))
-    let base = emitCoreInstance(of: "RawPointer", aggregating: [.constant(p)], at: site)
-    return emitCoreInstance(of: "String", aggregating: [size, base], at: site)
-  }
-
-  /// Inserts the IR for integer `i` anchoring instructions at site.
-  private mutating func emitInt(_ i: Int, at site: SourceRange) -> Operand {
-    let t = program.ast.coreType("Int")!
-    let s = module.makeRecord(
-      t, aggregating: [.constant(IntegerConstant(i, bitWidth: 64))], at: site)
-    return append(s)[0]
-  }
-
   /// Inserts the IR for branch condition `expr`.
   ///
   /// - Requires: `expr.type` is `Val.Bool`
@@ -1517,80 +1498,6 @@ public struct Emitter {
     let x1 = append(module.makeElementAddr(x0, at: [0], at: expr.site))[0]
     let x2 = append(module.makeLoad(x1, at: expr.site))[0]
     return x2
-  }
-
-  /// Inserts the IR for numeric literal `s` with type `literalType`, anchoring new instructions
-  /// at `site`.
-  ///
-  /// - Requires `literalType` must be one of the core numeric types.
-  private mutating func emitNumericLiteral(
-    _ s: String, typed literalType: AnyType, at site: SourceRange
-  ) -> Operand {
-    switch literalType {
-    case program.ast.coreType("Double")!:
-      let v = FloatingPointConstant.double(s)
-      return append(module.makeRecord(literalType, aggregating: [.constant(v)], at: site))[0]
-
-    case program.ast.coreType("Float")!:
-      let v = FloatingPointConstant.float(s)
-      return append(module.makeRecord(literalType, aggregating: [.constant(v)], at: site))[0]
-
-    default:
-      return emitIntegerLiteral(s, typed: literalType, at: site)
-    }
-  }
-
-  /// Inserts the IR for numeric literal `s` with type `literalType`, anchoring new instructions
-  /// at `site`.
-  ///
-  /// - Requires `literalType` must be one of the core integer types.
-  private mutating func emitIntegerLiteral(
-    _ s: String, typed literalType: AnyType, at site: SourceRange
-  ) -> Operand {
-    let bits: WideUInt?
-    switch literalType {
-    case program.ast.coreType("Int")!:
-      bits = .init(valLiteral: s, signed: true, bitWidth: 64)
-    case program.ast.coreType("Int32")!:
-      bits = .init(valLiteral: s, signed: true, bitWidth: 32)
-    case program.ast.coreType("Int8")!:
-      bits = .init(valLiteral: s, signed: true, bitWidth: 8)
-    default:
-      unreachable("unexpected numeric type")
-    }
-
-    guard let b = bits else {
-      diagnostics.insert(
-        .error(integerLiteral: s, overflowsWhenStoredInto: literalType, at: site))
-      return .constant(Poison(type: .object(literalType)))
-    }
-
-    return append(
-      module.makeRecord(
-        literalType, aggregating: [.constant(IntegerConstant(b))], at: site))[0]
-  }
-
-  /// Inserts the IR for the construction of an instance of a core type named `n`with given
-  /// `value`, anchoring instructions at `site`.
-  ///
-  /// - precondition: `type` is a core type.
-  private mutating func emitCoreInstance(
-    of n: String,
-    aggregating parts: [Operand],
-    at site: SourceRange
-  ) -> Operand {
-    let t = program.ast.coreType(n)!
-    let o = module.makeRecord(t, aggregating: parts, at: site)
-    return append(o)[0]
-  }
-
-  /// Inserts the IR for the construction of a a machine word with given `value`, anchoring
-  /// instructions at `site`.
-  private mutating func emitWord(_ value: Int, at site: SourceRange) -> Operand {
-    emitCoreInstance(
-      of: "Int",
-      aggregating: [.constant(IntegerConstant(value, bitWidth: 64))],
-      at: site)
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
