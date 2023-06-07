@@ -1077,13 +1077,12 @@ public struct Emitter {
   }
 
   private mutating func store(tupleMember e: TupleMemberExpr.Typed, to storage: Operand) {
-    let x0 = emitLValue(e.tuple)
-    let x1 = append(module.makeElementAddr(x0, at: [e.index.value], at: e.index.site))[0]
-    let x2 = append(module.makeLoad(x1, at: e.site))[0]
+    let x0 = emitLValue(tupleMember: e)
+    let x1 = append(module.makeLoad(x0, at: e.site))[0]
 
     let t = module.type(of: storage).ast
     let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
-    emitMove(.set, of: x2, to: storage, withConformanceToMovable: c, at: e.site)
+    emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: e.site)
   }
 
   /// Writes the value of `literal` to `storage`.
