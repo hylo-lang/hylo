@@ -1172,44 +1172,6 @@ public struct Emitter {
     append(module.makeStore(.constant(utf8), at: x2, at: site))
   }
 
-  private mutating func emitLValue(functionCall expr: FunctionCallExpr.Typed) -> Operand {
-    let result = emitAllocStack(for: expr.type, at: expr.site)
-
-    // Handle built-ins and constructor calls.
-    if let n = NameExpr.Typed(expr.callee) {
-      switch n.declaration {
-      case .builtinFunction(let f):
-        let x0 = emit(apply: f, to: expr.arguments, at: expr.site)
-        let x1 = append(module.makeBorrow(.set, from: result, at: expr.site))[0]
-        append(module.makeStore(x0, at: x1, at: expr.site))
-        return result
-
-      case .constructor:
-        emitInitializerCall(expr, initializing: result)
-        return result
-
-      default:
-        break
-      }
-    }
-
-    // Arguments are evaluated first, from left to right.
-    let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
-    let arguments = emit(
-      arguments: expr.arguments, to: expr.callee,
-      synthesizingDefaultArgumentsAt: syntheticSite)
-
-    // Callee and captures are evaluated next.
-    let (callee, captures) = emitCallee(expr.callee)
-
-    // Call is evaluated last.
-    let x1 = append(module.makeBorrow(.set, from: result, at: expr.site))[0]
-    append(
-      module.makeCall(
-        applying: callee, to: captures + arguments, writingResultTo: x1, at: expr.site))
-    return result
-  }
-
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
   /// initializer `d` parameterized by `a`.
   ///
@@ -1585,8 +1547,6 @@ public struct Emitter {
     switch syntax.kind {
     case CastExpr.self:
       return emitLValue(cast: .init(syntax)!)
-    case FunctionCallExpr.self:
-      return emitLValue(functionCall: .init(syntax)!)
     case InoutExpr.self:
       return emitLValue(inoutExpr: .init(syntax)!)
     case NameExpr.self:
