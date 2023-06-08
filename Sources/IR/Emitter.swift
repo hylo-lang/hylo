@@ -598,13 +598,6 @@ public struct Emitter {
     case is ProductType, is TupleType:
       let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
 
-      // Emit a load/store of the argument if it doesn't have any stored property.
-      if layout.properties.isEmpty {
-        let v = append(module.makeLoad(argument, at: site))[0]
-        append(module.makeStore(v, at: receiver, at: site))
-        break
-      }
-
       // Move initialize each property.
       for (i, p) in layout.properties.enumerated() {
         let source = append(module.makeElementAddr(argument, at: [i], at: site))[0]
@@ -1211,29 +1204,26 @@ public struct Emitter {
         applying: .constant(f), to: [receiver] + arguments, writingResultTo: x1, at: call.site))
   }
 
-  /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
-  /// memberwise initializer `d`.
+  /// Inserts the IR for given memberwise constructor `call`, which initializes `receiver`.
   ///
   /// - Parameters:
   ///   - call: The syntax of the call.
-  ///   - s: The address of uninitialized storage typed by the receiver of `d`. This storage is
-  ///     borrowed for initialization after evaluating `call`'s arguments and before calling `d`.
-  ///   - d: The initializer referenced by `call`'s callee.
+  ///   - receiver: The address of uninitialized storage typed by the receiver of `d`. This storage
+  ///     is borrowed for initialization after evaluating `call`'s arguments.
   private mutating func emitMemberwiseInitializerCall(
-    _ call: FunctionCallExpr.Typed,
-    initializing s: Operand
+    _ call: FunctionCallExpr.Typed, initializing receiver: Operand
   ) {
     let callee = LambdaType(call.callee.type)!
-    var arguments: [Operand] = []
-    for (p, e) in zip(callee.inputs, call.arguments) {
-      let a = program[e.value]
-      arguments.append(emit(argument: a, to: ParameterType(p.type)!))
-    }
+    for i in callee.inputs.indices {
+      // TODO: Handle remote types
+      let p = ParameterType(callee.inputs[i].type)!
+      if p.bareType.base is RemoteType {
+        fatalError("not implemented")
+      }
 
-    let x0 = append(
-      module.makeRecord(callee.output, aggregating: arguments, at: call.site))[0]
-    let x1 = append(module.makeBorrow(.set, from: s, at: call.site))[0]
-    append(module.makeStore(x0, at: x1, at: call.site))
+      let s = append(module.makeElementAddr(receiver, at: [i], at: call.site))[0]
+      store(value: program[call.arguments[i].value], to: s)
+    }
   }
 
   /// Inserts the IR for `arguments`, which is an argument passed to a function of type `callee`.

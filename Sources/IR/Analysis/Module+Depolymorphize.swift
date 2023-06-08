@@ -130,8 +130,6 @@ extension Module {
         rewrite(load: i, to: b)
       case is PointerToAddressInstruction:
         rewrite(pointerToAddress: i, to: b)
-      case is RecordInstruction:
-        rewrite(record: i, to: b)
       case is ReturnInstruction:
         rewrite(return: i, to: b)
       case is StoreInstruction:
@@ -257,14 +255,6 @@ extension Module {
       let newInstruction = makePointerToAddress(
         rewritten(s.source), to: RemoteType(t)!, at: s.site)
       append(newInstruction, to: b)
-    }
-
-    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(record i: InstructionID, to b: Block.ID) {
-      let s = sourceModule[i] as! RecordInstruction
-      let t = program.monomorphize(s.objectType.ast, for: r.arguments)
-      let o = s.operands.map(rewritten(_:))
-      append(makeRecord(t, aggregating: o, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

@@ -58,8 +58,6 @@ extension Module {
           pc = interpret(pointerToAddress: user, in: &context)
         case is ProjectInstruction:
           pc = interpret(project: user, in: &context)
-        case is RecordInstruction:
-          pc = interpret(record: user, in: &context)
         case is ReturnInstruction:
           pc = interpret(return: user, in: &context)
         case is StoreInstruction:
@@ -94,10 +92,10 @@ extension Module {
       precondition(context.memory[l] == nil, "stack leak")
 
       // Update the context.
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(
-          of: (self[i] as! AllocStackInstruction).allocatedType, definedIn: program),
-        value: .full(.uninitialized))
+      let s = self[i] as! AllocStackInstruction
+      let t = AbstractTypeLayout(of: s.allocatedType, definedIn: program)
+
+      context.memory[l] = .init(layout: t, value: t.allocationState())
       context.locals[.register(i, 0)] = .locations([l])
       return successor(of: i)
     }
@@ -322,17 +320,6 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(record i: InstructionID, in context: inout Context) -> PC? {
-      let x = self[i] as! RecordInstruction
-      for o in x.operands {
-        consume(o, with: i, at: x.site, in: &context)
-      }
-
-      initializeRegisters(createdBy: i, in: &context)
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(pointerToAddress i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! PointerToAddressInstruction
       consume(s.source, with: i, at: s.site, in: &context)
@@ -493,7 +480,7 @@ extension Module {
     case .set:
       let a = AbstractLocation.root(p)
       context.locals[p] = .locations([a])
-      context.memory[a] = .init(layout: l, value: .full(.uninitialized))
+      context.memory[a] = .init(layout: l, value: l.allocationState())
 
     case .yielded:
       preconditionFailure("cannot represent instance of yielded type")
@@ -632,6 +619,22 @@ extension State: CustomStringConvertible {
       return "\u{25cb}"
     case .consumed(let consumers):
       return "←\(consumers)"
+    }
+  }
+
+}
+
+extension AbstractTypeLayout {
+
+  /// Returns the initial state of a fresh allocation whose type has layout `self`.
+  ///
+  /// Empty objects that have a struct layout are allocated fully initialized since they have no
+  /// part to initialize.
+  fileprivate func allocationState() -> AbstractObject<State>.Value {
+    if type.hasRecordLayout {
+      return .full(properties.isEmpty ? .initialized : .uninitialized)
+    } else {
+      return .full(.uninitialized)
     }
   }
 
