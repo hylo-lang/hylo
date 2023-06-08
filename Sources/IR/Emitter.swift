@@ -598,13 +598,6 @@ public struct Emitter {
     case is ProductType, is TupleType:
       let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
 
-      // Emit a load/store of the argument if it doesn't have any stored property.
-      if layout.properties.isEmpty {
-        let v = append(module.makeLoad(argument, at: site))[0]
-        append(module.makeStore(v, at: receiver, at: site))
-        break
-      }
-
       // Move initialize each property.
       for (i, p) in layout.properties.enumerated() {
         let source = append(module.makeElementAddr(argument, at: [i], at: site))[0]
