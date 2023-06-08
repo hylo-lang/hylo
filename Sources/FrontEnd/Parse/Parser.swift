@@ -133,7 +133,7 @@ public enum Parser {
               appearsBeforeAccessModifier: access))
         }
 
-        // Catch incosistent access modifiers.
+        // Catch inconsistent access modifiers.
         else if let p = accessModifiers.first, p != access {
           state.diagnostics.insert(
             .error(
