@@ -151,6 +151,7 @@ public struct TypedProgram: Program {
       return u.elements.map({ ($0.label, $0.type) })
 
     default:
+      assert(!t.hasRecordLayout)
       return []
     }
   }
