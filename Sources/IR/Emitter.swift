@@ -903,12 +903,12 @@ public struct Emitter {
 
     // Emit the success branch.
     insertionBlock = success
-    pushing(Frame(), { $0.emitInitialization(of: storage, to: e.success) })
+    pushing(Frame(), { $0.emitStore(value: $0.program[e.success], to: storage) })
     append(module.makeBranch(to: tail, at: e.site))
 
     // Emit the failure branch.
     insertionBlock = failure
-    pushing(Frame(), { $0.emitInitialization(of: storage, to: e.failure) })
+    pushing(Frame(), { $0.emitStore(value: $0.program[e.failure], to: storage) })
     append(module.makeBranch(to: tail, at: e.site))
 
     insertionBlock = tail
@@ -1696,30 +1696,6 @@ public struct Emitter {
   ) -> Operand {
     if path.isEmpty { return base }
     return append(module.makeElementAddr(base, at: path, at: site))[0]
-  }
-
-  /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
-  /// block.
-  private mutating func emitInitialization(of storage: Operand, to value: AnyExprID) {
-    if let tuple = TupleExpr.ID(value) {
-      emitInitialization(of: storage, to: tuple)
-    } else if let call = FunctionCallExpr.ID(value),
-      let n = NameExpr.ID(program.ast[call].callee),
-      case .constructor = program.referredDecls[n]!
-    {
-      emit(initializerCall: program[call], initializing: storage)
-    } else {
-      emitStore(value: program[value], to: storage)
-    }
-  }
-
-  /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
-  /// block.
-  private mutating func emitInitialization(of storage: Operand, to value: TupleExpr.ID) {
-    for (i, e) in program.ast[value].elements.enumerated() {
-      let s = emitElementAddr(storage, at: [i], at: program.ast[e.value].site)
-      emitInitialization(of: s, to: e.value)
-    }
   }
 
   /// Appends the IR for a call to move-initialize/assign `storage` with `value`, using `c` to
