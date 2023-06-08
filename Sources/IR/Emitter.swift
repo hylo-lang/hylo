@@ -43,6 +43,16 @@ public struct Emitter {
     insertionBlock.map({ module[$0].scope })
   }
 
+  /// The address of the return value in the current function, if any.
+  private var returnValue: Operand? {
+    guard
+      let f = insertionBlock?.function,
+      let b = module.entry(of: f),
+      !module[f].isSubscript
+    else { return nil }
+    return .parameter(b, module[f].inputs.count)
+  }
+
   /// Reports the given diagnostic.
   private mutating func report(_ d: Diagnostic) {
     diagnostics.insert(d)
@@ -136,50 +146,52 @@ public struct Emitter {
       return f
     }
 
-    // Create the function entry.
+    // Configure the emitter context.
     let entry = module.appendEntry(in: program.scopeContainingBody(of: d.id)!, to: f)
+    let bodyFrame = outermostFrame(of: d, entering: entry)
 
-    // Configure the locals.
+    self.insertionBlock = entry
+    self.receiver = d.receiver
+
+    // Emit the body.
+    switch b {
+    case .block(let s):
+      pushing(bodyFrame, { $0.emit(braceStmt: s) })
+    case .expr(let e):
+      pushing(bodyFrame, { $0.store(value: e, to: $0.returnValue!) })
+      append(module.makeReturn(at: e.site))
+    }
+
+    return f
+  }
+
+  /// Returns the frame enclosing the body of `d`, whose entry block is `entry`.
+  private func outermostFrame(of d: FunctionDecl.Typed, entering entry: Block.ID) -> Frame {
     var locals = TypedDeclProperty<Operand>()
 
+    // Exlicit captures appear first.
     for (i, c) in d.explicitCaptures.enumerated() {
       locals[c] = .parameter(entry, i)
     }
+
+    // Implicit captures appear next.
     for (i, c) in d.implicitCaptures!.enumerated() {
       locals[program[c.decl]] = .parameter(entry, i + d.explicitCaptures.count)
     }
 
+    // Function receiver appears next.
     var captureCount = d.explicitCaptures.count + d.implicitCaptures!.count
     if let r = d.receiver {
       locals[r] = .parameter(entry, captureCount)
       captureCount += 1
     }
 
+    // Explicit parameters appear last.
     for (i, p) in d.parameters.enumerated() {
       locals[p] = .parameter(entry, i + captureCount)
     }
 
-    // Configure the emitter context.
-    self.insertionBlock = entry
-    self.receiver = d.receiver
-    self.frames.push(.init(locals: locals))
-    defer {
-      self.frames.pop()
-      assert(self.frames.isEmpty)
-    }
-
-    // Emit the body.
-    switch b {
-    case .block(let s):
-      emit(stmt: s)
-
-    case .expr(let e):
-      store(returnValue: emitRValue(e), at: e.site)
-      emitStackDeallocs(site: e.site)
-      append(module.makeReturn(at: e.site))
-    }
-
-    return f
+    return Frame(locals: locals)
   }
 
   /// Inserts the IR for calling `d`, which is a foreign function interface.
@@ -212,14 +224,13 @@ public struct Emitter {
         returning: .object(returnType), applying: d.foreignName!, to: arguments, at: d.site))[0]
 
     // Convert the result of the FFI to its Val representation and return it.
-    let returnValue: Operand
     if returnType.isVoidOrNever {
-      returnValue = .void
+      store(value: .void, to: returnValue!, at: d.site)
     } else {
-      returnValue = emitConvert(foreign: foreignResult, to: returnType, at: d.site)
+      let v = emitConvert(foreign: foreignResult, to: returnType, at: d.site)
+      store(value: v, to: returnValue!, at: d.site)
     }
 
-    store(returnValue: returnValue, at: d.site)
     emitStackDeallocs(site: d.site)
     append(module.makeReturn(at: d.site))
   }
@@ -244,15 +255,12 @@ public struct Emitter {
     let r = self.receiver
     insertionBlock = entry
     receiver = program[d.receiver]
-    frames.push(.init(locals: locals))
     defer {
-      frames.pop()
       receiver = r
-      assert(frames.isEmpty)
     }
 
     // Emit the body.
-    emit(stmt: d.body!)
+    pushing(Frame(locals: locals), { $0.emit(braceStmt: d.body!) })
   }
 
   /// Inserts the IR for `d`.
@@ -391,7 +399,7 @@ public struct Emitter {
         if let name = NamePattern.ID(p) {
           declare(name: program[name], referringTo: path, initializedTo: rhs)
         } else {
-          let part = emitRValue(program[rhs])
+          let part = store(value: program[rhs])
           append(module.makeDeinit(part, at: program.ast[p].site))
         }
       }
@@ -617,7 +625,7 @@ public struct Emitter {
       fatalError("not implemented")
     }
 
-    store(returnValue: .void, at: site)
+    store(value: .void, to: returnValue!, at: site)
     emitStackDeallocs(site: site)
     append(module.makeReturn(at: site))
     return f
@@ -646,16 +654,15 @@ public struct Emitter {
     let argument = Operand.parameter(entry, 1)
 
     // Deinitialize the receiver.
-    let l = append(module.makeLoad(receiver, at: site))[0]
-    append(module.makeDeinit(l, at: site))
+    append(module.makeDeinit(receiver, at: site))
 
     // Apply the move-initializer.
-    let c = program.conformance(
-      of: module.type(of: receiver).ast, to: program.ast.movableTrait, exposedTo: scope)!
+    let t = module.type(of: receiver).ast
+    let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: scope)!
     let r = append(module.makeLoad(argument, at: site))[0]
     emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
 
-    store(returnValue: .void, at: site)
+    store(value: .void, to: returnValue!, at: site)
     emitStackDeallocs(site: site)
     append(module.makeReturn(at: site))
     return f
@@ -700,17 +707,20 @@ public struct Emitter {
     }
 
     // The RHS is evaluated before the LHS.
-    let rhs = emitRValue(stmt.right)
+    var rhs = store(value: stmt.right)
+    rhs = append(module.makeLoad(rhs, at: stmt.site))[0]
     let lhs = emitLValue(stmt.left)
 
+    let t = program.relations.canonical(stmt.left.type)
+
     // Built-in types do not require deinitialization.
-    let l = program.relations.canonical(stmt.left.type)
-    if l.base is BuiltinType {
-      emitInitialization(of: lhs, to: rhs, at: stmt.site)
+    if t.base is BuiltinType {
+      store(value: rhs, to: lhs, at: stmt.site)
       return
     }
 
-    let c = program.conformance(of: l, to: program.ast.movableTrait, exposedTo: insertionScope!)!
+    // The LHS can be assumed to conform to `Movable` if type checking passed.
+    let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
     append(module.makeMove(rhs, to: lhs, usingConformance: c, at: stmt.site))
   }
 
@@ -752,7 +762,7 @@ public struct Emitter {
   }
 
   private mutating func emit(discardStmt stmt: DiscardStmt.Typed) {
-    let v = emitRValue(stmt.expr)
+    let v = store(value: stmt.expr)
     append(module.makeDeinit(v, at: stmt.site))
   }
 
@@ -778,18 +788,22 @@ public struct Emitter {
   }
 
   private mutating func emit(exprStmt stmt: ExprStmt.Typed) {
-    _ = emitRValue(stmt.expr)
+    let v = store(value: stmt.expr)
+    if module.type(of: v).ast.isVoidOrNever {
+      append(module.makeDeinit(v, at: stmt.site))
+    } else {
+      // TODO: complain about unused value
+      fatalError("not implemented")
+    }
   }
 
   private mutating func emit(returnStmt stmt: ReturnStmt.Typed) {
-    let value: Operand
-    if let expr = stmt.value {
-      value = emitRValue(expr)
+    if let e = stmt.value {
+      store(value: e, to: returnValue!)
     } else {
-      value = .void
+      store(value: .void, to: returnValue!, at: stmt.site)
     }
 
-    store(returnValue: value, at: stmt.site)
     emitStackDeallocs(site: stmt.site)
     append(module.makeReturn(at: stmt.site))
   }
@@ -820,199 +834,341 @@ public struct Emitter {
     append(module.makeYield(.let, b, at: stmt.site))
   }
 
-  private mutating func store(returnValue v: Operand, at site: SourceRange) {
-    let entry = module.entry(of: insertionBlock!.function)!
-    let x0 = Operand.parameter(entry, module[entry].inputs.count - 1)
-    let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
-    append(module.makeStore(v, at: x1, at: site))
+  // MARK: values
+
+  private mutating func store(value: Operand, to storage: Operand, at site: SourceRange) {
+    let x0 = append(module.makeBorrow(.set, from: storage, at: site))[0]
+    append(module.makeStore(value, at: x0, at: site))
   }
 
-  // MARK: r-values
+  /// Inserts the IR for storing the value of `syntax` to a fresh stack allocation, returning the
+  /// address of this allocation.
+  @discardableResult
+  private mutating func store<ID: ExprID>(value syntax: ID.TypedNode) -> Operand {
+    let s = emitAllocStack(for: syntax.type, at: syntax.site)
+    store(value: syntax, to: s)
+    return s
+  }
 
-  /// Inserts the IR for the rvalue `expr`.
-  private mutating func emitRValue<ID: ExprID>(_ expr: ID.TypedNode) -> Operand {
-    defer {
-      // Mark the execution path unreachable if the computed value has type `Never`.
-      if program.relations.areEquivalent(expr.type, .never) {
-        emitStackDeallocs(site: expr.site)
-        append(module.makeUnreachable(at: expr.site))
-      }
-    }
-
-    switch expr.kind {
+  /// Inserts the IR for storing the value of `syntax` to `storage`.
+  ///
+  /// `storage` must be the address of some uninitialized memory block capable of storing the value
+  /// of `syntax`.
+  private mutating func store<ID: ExprID>(value syntax: ID.TypedNode, to storage: Operand) {
+    switch syntax.kind {
     case BooleanLiteralExpr.self:
-      return emitRValue(booleanLiteral: BooleanLiteralExpr.Typed(expr)!)
+      store(booleanLiteral: .init(syntax)!, to: storage)
     case CastExpr.self:
-      return emitRValue(cast: CastExpr.Typed(expr)!)
+      store(cast: .init(syntax)!, to: storage)
     case ConditionalExpr.self:
-      return emitRValue(conditional: ConditionalExpr.Typed(expr)!)
+      store(conditional: .init(syntax)!, to: storage)
     case FloatLiteralExpr.self:
-      return emitRValue(floatLiteral: FloatLiteralExpr.Typed(expr)!)
+      store(floatLiteral: .init(syntax)!, to: storage)
     case FunctionCallExpr.self:
-      return emitRValue(functionCall: FunctionCallExpr.Typed(expr)!)
+      store(functionCall: .init(syntax)!, to: storage)
     case IntegerLiteralExpr.self:
-      return emitRValue(integerLiteral: IntegerLiteralExpr.Typed(expr)!)
+      store(integerLiteral: .init(syntax)!, to: storage)
     case LambdaExpr.self:
-      return emitRValue(lambda: LambdaExpr.Typed(expr)!)
+      store(lambda: .init(syntax)!, to: storage)
     case NameExpr.self:
-      return emitRValue(name: NameExpr.Typed(expr)!)
+      store(name: .init(syntax)!, to: storage)
     case PragmaLiteralExpr.self:
-      return emitRValue(pragma: PragmaLiteralExpr.Typed(expr)!)
+      store(pragma: .init(syntax)!, to: storage)
     case SequenceExpr.self:
-      return emitRValue(sequence: SequenceExpr.Typed(expr)!)
+      store(sequence: .init(syntax)!, to: storage)
     case StringLiteralExpr.self:
-      return emitRValue(stringLiteral: StringLiteralExpr.Typed(expr)!)
+      store(stringLiteral: .init(syntax)!, to: storage)
     case TupleExpr.self:
-      return emitRValue(tuple: TupleExpr.Typed(expr)!)
+      store(tuple: .init(syntax)!, to: storage)
     case TupleMemberExpr.self:
-      return emitRValue(tuple: TupleMemberExpr.Typed(expr)!)
+      store(tupleMember: .init(syntax)!, to: storage)
     default:
-      unexpected(expr)
+      unexpected(syntax)
     }
   }
 
-  private mutating func emitRValue(booleanLiteral expr: BooleanLiteralExpr.Typed) -> Operand {
-    let bool = program.ast.coreType("Bool")!
-    let s = module.makeRecord(bool, aggregating: [.i1(expr.value)], at: expr.site)
-    return append(s)[0]
+  private mutating func store(booleanLiteral e: BooleanLiteralExpr.Typed, to storage: Operand) {
+    let x0 = append(module.makeElementAddr(storage, at: [0], at: e.site))[0]
+    let x1 = append(module.makeBorrow(.set, from: x0, at: e.site))[0]
+    append(module.makeStore(.i1(e.value), at: x1, at: e.site))
   }
 
-  private mutating func emitRValue(cast expr: CastExpr.Typed) -> Operand {
-    switch expr.direction {
+  private mutating func store(cast e: CastExpr.Typed, to storage: Operand) {
+    switch e.direction {
     case .up:
-      return emitRValue(upcast: expr)
+      store(upcast: e, to: storage)
     case .down:
-      return emitRValue(downcast: expr)
-    default:
-      fatalError("not implemented")
+      store(downcast: e, to: storage)
+    case .pointerConversion:
+      unreachable("pointer to address conversion evalutes to a lvalue")
     }
   }
 
-  private mutating func emitRValue(upcast expr: CastExpr.Typed) -> Operand {
-    precondition(expr.direction == .up)
+  private mutating func store(upcast e: CastExpr.Typed, to storage: Operand) {
+    assert(e.direction == .up)
+    let target = MetatypeType(e.right.type)!.instance
 
-    let lhs = emitRValue(expr.left)
-    let rhs = MetatypeType(expr.right.type)!.instance
-
-    // Nothing to do if the LHS already has the desired type.
-    if program.relations.areEquivalent(expr.left.type, rhs) {
-      return lhs
+    // Store the LHS to `storage` if it already has the desired type.
+    if program.relations.areEquivalent(e.left.type, target) {
+      store(value: e.left, to: storage)
+      return
     }
 
+    // Otherwise, wrap the LHS.
     fatalError("not implemented")
   }
 
-  private mutating func emitRValue(downcast expr: CastExpr.Typed) -> Operand {
-    precondition(expr.direction == .down)
+  private mutating func store(downcast e: CastExpr.Typed, to storage: Operand) {
+    assert(e.direction == .down)
+    let target = MetatypeType(e.right.type)!.instance
 
-    let lhs = emitRValue(expr.left)
-    let rhs = MetatypeType(expr.right.type)!.instance
-
-    // Nothing to do if the LHS already has the desired type.
-    if program.relations.areEquivalent(expr.left.type, rhs) {
-      return lhs
+    // Store the LHS to `storage` if it already has the desired type.
+    if program.relations.areEquivalent(e.left.type, target) {
+      store(value: e.left, to: storage)
+      return
     }
 
-    if expr.left.type.base is ExistentialType {
-      let x = append(module.makeOpen(lhs, as: rhs, at: expr.site))
-      emitGuard(x[1], at: expr.site)
-      return append(module.makeLoad(x[0], at: expr.site))[0]
-    }
+    // Otherwise, unpack or repack the LHS.
+    let lhs = store(value: e.left)
 
-    fatalError("not implemented")
+    // TODO
+    _ = lhs
+    fatalError("not implementeds")
   }
 
-  private mutating func emitRValue(conditional expr: ConditionalExpr.Typed) -> Operand {
-    // If the expression is supposed to return a value, allocate storage for it.
-    var resultStorage: Operand?
-    if expr.type != .void {
-      resultStorage = emitAllocStack(for: expr.type, at: expr.site)
-    }
-
-    let (firstBranch, secondBranch) = emitTest(condition: expr.condition, in: AnyScopeID(expr.id))
+  private mutating func store(conditional e: ConditionalExpr.Typed, to storage: Operand) {
+    let (success, failure) = emitTest(condition: e.condition, in: AnyScopeID(e.id))
     let tail = module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
 
     // Emit the success branch.
-    insertionBlock = firstBranch
-    frames.push()
-    if let s = resultStorage {
-      emitInitialization(of: s, to: expr.success)
-    } else {
-      _ = emitRValue(program[expr.success])
-    }
-    emitStackDeallocs(site: expr.site)
-    frames.pop()
-    append(module.makeBranch(to: tail, at: expr.site))
+    insertionBlock = success
+    pushing(Frame(), { $0.emitInitialization(of: storage, to: e.success) })
+    append(module.makeBranch(to: tail, at: e.site))
 
     // Emit the failure branch.
-    insertionBlock = secondBranch
-    let i = frames.top.allocs.count
-    if let s = resultStorage {
-      emitInitialization(of: s, to: expr.failure)
-    } else {
-      _ = emitRValue(program[expr.failure])
-    }
-    for a in frames.top.allocs[i...] {
-      append(module.makeDeallocStack(for: a, at: expr.site))
-    }
-    frames.top.allocs.removeSubrange(i...)
+    insertionBlock = failure
+    pushing(Frame(), { $0.emitInitialization(of: storage, to: e.failure) })
+    append(module.makeBranch(to: tail, at: e.site))
 
-    append(module.makeBranch(to: tail, at: expr.site))
-
-    // Emit the value of the expression.
     insertionBlock = tail
-    if let s = resultStorage {
-      return append(module.makeLoad(s, at: expr.site))[0]
-    } else {
-      return .void
-    }
   }
 
-  private mutating func emitRValue(floatLiteral expr: FloatLiteralExpr.Typed) -> Operand {
-    emitNumericLiteral(expr.value, typed: program.relations.canonical(expr.type), at: expr.site)
+  private mutating func store(floatLiteral e: FloatLiteralExpr.Typed, to storage: Operand) {
+    store(numericLiteral: e.id, to: storage)
   }
 
-  private mutating func emitRValue(functionCall expr: FunctionCallExpr.Typed) -> Operand {
-    let s = emitLValue(functionCall: expr)
-    return append(module.makeLoad(s, at: expr.site))[0]
-  }
-
-  private mutating func emitLValue(functionCall expr: FunctionCallExpr.Typed) -> Operand {
-    let result = emitAllocStack(for: expr.type, at: expr.site)
-
+  private mutating func store(functionCall e: FunctionCallExpr.Typed, to storage: Operand) {
     // Handle built-ins and constructor calls.
-    if let n = NameExpr.Typed(expr.callee) {
+    if let n = NameExpr.Typed(e.callee) {
       switch n.declaration {
       case .builtinFunction(let f):
-        let x0 = emit(apply: f, to: expr.arguments, at: expr.site)
-        let x1 = append(module.makeBorrow(.set, from: result, at: expr.site))[0]
-        append(module.makeStore(x0, at: x1, at: expr.site))
-        return result
+        let x0 = emit(apply: f, to: e.arguments, at: e.site)
+        let x1 = append(module.makeBorrow(.set, from: storage, at: e.site))[0]
+        append(module.makeStore(x0, at: x1, at: e.site))
+        return
 
       case .constructor:
-        emitInitializerCall(expr, initializing: result)
-        return result
+        emitInitializerCall(e, initializing: storage)
+        return
 
       default:
         break
       }
     }
 
-    // Arguments are evaluated first, from left to right.
-    let syntheticSite = expr.site.file.emptyRange(at: expr.site.end)
-    let arguments = emit(
-      arguments: expr.arguments, to: expr.callee,
+    // Explicit arguments are evaluated first, from left to right.
+    let syntheticSite = e.site.file.emptyRange(at: e.site.end)
+    let explicitArguments = emit(
+      arguments: e.arguments, to: e.callee,
       synthesizingDefaultArgumentsAt: syntheticSite)
 
     // Callee and captures are evaluated next.
-    let (callee, captures) = emitCallee(expr.callee)
+    let (callee, captures) = emitCallee(e.callee)
+    let allArguments = captures + explicitArguments
 
     // Call is evaluated last.
-    let x1 = append(module.makeBorrow(.set, from: result, at: expr.site))[0]
-    append(
-      module.makeCall(
-        applying: callee, to: captures + arguments, writingResultTo: x1, at: expr.site))
-    return result
+    let o = append(module.makeBorrow(.set, from: storage, at: e.site))[0]
+    append(module.makeCall(applying: callee, to: allArguments, writingResultTo: o, at: e.site))
+  }
+
+  private mutating func store(integerLiteral e: IntegerLiteralExpr.Typed, to storage: Operand) {
+    store(numericLiteral: e.id, to: storage)
+  }
+
+  private mutating func store(lambda e: LambdaExpr.Typed, to storage: Operand) {
+    let f = emit(functionDecl: e.decl)
+    let r = FunctionReference(to: f, usedIn: insertionScope!, in: module)
+
+    let x0 = append(module.makePartialApply(wrapping: r, with: .void, at: e.site))[0]
+    let x1 = append(module.makeBorrow(.set, from: storage, at: e.site))[0]
+    append(module.makeStore(x0, at: x1, at: e.site))
+  }
+
+  private mutating func store(name e: NameExpr.Typed, to storage: Operand) {
+    let x0 = emitLValue(name: e)
+    let x1 = append(module.makeLoad(x0, at: e.site))[0]
+
+    let t = module.type(of: storage).ast
+    if t.isBuiltin {
+      let x2 = append(module.makeBorrow(.set, from: storage, at: e.site))[0]
+      append(module.makeStore(x1, at: x2, at: e.site))
+    } else {
+      let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
+      emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: e.site)
+    }
+  }
+
+  /// Writes the value of `e` to `storage`.
+  ///
+  /// - Parameters:
+  ///   - site: The source range in which `e` is being evaluated. Defaults to `e.site`.
+  private mutating func store(
+    pragma e: PragmaLiteralExpr.Typed, to storage: Operand,
+    at site: SourceRange? = nil
+  ) {
+    let anchor = site ?? e.site
+    switch program.ast[e.id].kind {
+    case .file:
+      store(string: anchor.file.url.absoluteURL.path, to: storage, at: anchor)
+    case .line:
+      store(int: anchor.first().line.number, to: storage, at: anchor)
+    }
+  }
+
+  private mutating func store(sequence e: SequenceExpr.Typed, to storage: Operand) {
+    store(foldedSequence: e.folded, to: storage)
+  }
+
+  private mutating func store(foldedSequence e: FoldedSequenceExpr, to storage: Operand) {
+    switch e {
+    case .infix(let callee, let lhs, let rhs):
+      let t = program.exprTypes[callee.expr]!
+      let calleeType = LambdaType(program.relations.canonical(t))!.lifted
+
+      // Emit the operands, starting with RHS.
+      let r = emit(infixOperand: rhs, passed: ParameterType(calleeType.inputs[1].type)!.access)
+      let l = emit(infixOperand: lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
+
+      // The callee must be a reference to member function.
+      guard case .member(let d, _) = program.referredDecls[callee.expr] else { unreachable() }
+      let oper = Operand.constant(
+        FunctionReference(to: program[FunctionDecl.ID(d)!], usedIn: insertionScope!, in: &module))
+
+      // Emit the call.
+      let site = program.ast.site(of: e)
+      let x0 = append(module.makeBorrow(.set, from: storage, at: site))[0]
+      append(module.makeCall(applying: oper, to: [l, r], writingResultTo: x0, at: site))
+
+    case .leaf(let v):
+      store(value: program[v], to: storage)
+    }
+  }
+
+  private mutating func store(stringLiteral e: StringLiteralExpr.Typed, to storage: Operand) {
+    store(string: e.value, to: storage, at: e.site)
+  }
+
+  private mutating func store(tuple e: TupleExpr.Typed, to storage: Operand) {
+    for (i, element) in e.elements.enumerated() {
+      let syntax = program[element.value]
+      let xi = append(module.makeElementAddr(storage, at: [i], at: syntax.site))[0]
+      store(value: syntax, to: xi)
+    }
+  }
+
+  private mutating func store(tupleMember e: TupleMemberExpr.Typed, to storage: Operand) {
+    let x0 = emitLValue(tupleMember: e)
+    let x1 = append(module.makeLoad(x0, at: e.site))[0]
+
+    let t = module.type(of: storage).ast
+    let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
+    emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: e.site)
+  }
+
+  /// Writes the value of `literal` to `storage`.
+  private mutating func store<T: NumericLiteralExpr>(
+    numericLiteral literal: T.ID, to storage: Operand
+  ) {
+    let literalType = program.relations.canonical(program.exprTypes[literal]!)
+
+    switch literalType {
+    case program.ast.coreType("Int")!:
+      store(integer: literal, signed: true, bitWidth: 64, to: storage)
+    case program.ast.coreType("Int32")!:
+      store(integer: literal, signed: true, bitWidth: 32, to: storage)
+    case program.ast.coreType("Int8")!:
+      store(integer: literal, signed: true, bitWidth: 8, to: storage)
+    case program.ast.coreType("Double")!:
+      store(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.double(_:))
+    case program.ast.coreType("Float")!:
+      store(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float(_:))
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Writes the value of `literal` to `storage`, knowing it is a core floating-point instance
+  /// evaluated by `evaluate`.
+  private mutating func store<T: NumericLiteralExpr>(
+    floatingPoint literal: T.ID, to storage: Operand,
+    evaluatedBy evaluate: (String) -> FloatingPointConstant
+  ) {
+    let syntax = program.ast[literal]
+    let x0 = append(module.makeElementAddr(storage, at: [0], at: syntax.site))[0]
+    let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))[0]
+    let x2 = Operand.constant(evaluate(syntax.value))
+    append(module.makeStore(x2, at: x1, at: syntax.site))
+  }
+
+  /// Writes the value of `literal` to `storage`, knowing it is a core integer instance with given
+  /// sign and width.
+  private mutating func store<T: NumericLiteralExpr>(
+    integer literal: T.ID, signed: Bool, bitWidth: Int, to storage: Operand
+  ) {
+    let syntax = program.ast[literal]
+    guard let bits = WideUInt(valLiteral: syntax.value, signed: signed, bitWidth: bitWidth) else {
+      diagnostics.insert(
+        .error(
+          integerLiteral: syntax.value,
+          overflowsWhenStoredInto: program.exprTypes[literal]!,
+          at: syntax.site))
+      return
+    }
+
+    let x0 = append(module.makeElementAddr(storage, at: [0], at: syntax.site))[0]
+    let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))[0]
+    let x2 = Operand.constant(IntegerConstant(bits))
+    append(module.makeStore(x2, at: x1, at: syntax.site))
+  }
+
+  /// Writes an instance of `Val.Int` with value `v` to `storage`, anchoring new instruction at
+  /// `site`.
+  ///
+  /// - Requires: `storage` is the address of uninitialized memory of type `Val.Int`.
+  private mutating func store(int v: Int, to storage: Operand, at site: SourceRange) {
+    let x0 = append(module.makeElementAddr(storage, at: [0], at: site))[0]
+    let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
+    append(module.makeStore(.word(v), at: x1, at: site))
+  }
+
+  /// Writes an instance of `Val.String` with value `v` to `storage`, anchoring new instruction at
+  /// `site`.
+  ///
+  /// - Requires: `storage` is the address of uninitialized memory of type `Val.String`.
+  private mutating func store(string v: String, to storage: Operand, at site: SourceRange) {
+    var bytes = v.unescaped.data(using: .utf8)!
+    let utf8 = PointerConstant(module.syntax.id, module.addGlobal(BufferConstant(bytes)))
+    let size = bytes.count
+
+    // Make sure the string is null-terminated.
+    bytes.append(contentsOf: [0])
+
+    let x0 = append(module.makeElementAddr(storage, at: [0], at: site))[0]
+    store(int: size, to: x0, at: site)
+
+    let x1 = append(module.makeElementAddr(storage, at: [1, 0], at: site))[0]
+    let x2 = append(module.makeBorrow(.set, from: x1, at: site))[0]
+    append(module.makeStore(.constant(utf8), at: x2, at: site))
   }
 
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
@@ -1124,36 +1280,39 @@ public struct Emitter {
     to parameter: ParameterType,
     at site: SourceRange? = nil
   ) -> Operand {
+    let argumentSite: SourceRange
+    let storage: Operand
+
     if let e = PragmaLiteralExpr.Typed(syntax) {
-      let anchor = site ?? syntax.site
-      let v = emitRValue(pragma: e, at: anchor)
-
-      switch parameter.access {
-      case .let, .inout, .set:
-        let s = emitLValue(converting: v, at: anchor)
-        let b = module.makeBorrow(parameter.access, from: s, at: anchor)
-        return append(b)[0]
-
-      case .sink:
-        return v
-
-      default:
-        fatalError("not implemented")
-      }
+      argumentSite = site ?? syntax.site
+      storage = append(module.makeAllocStack(e.type, at: argumentSite))[0]
+      store(pragma: e, to: storage, at: argumentSite)
+    } else {
+      argumentSite = syntax.site
+      storage = emitLValue(syntax)
     }
 
-    switch parameter.access {
-    case .let, .inout, .set:
-      let s = emitLValue(syntax)
-      let b = module.makeBorrow(parameter.access, from: s, at: syntax.site)
-      return append(b)[0]
+    return take(parameter.access, on: storage, at: argumentSite)
+  }
 
-    case .sink:
-      return emitRValue(syntax)
+  /// Inserts the IR for infix operand `e` passed with convention `access`.
+  private mutating func emit(
+    infixOperand e: FoldedSequenceExpr, passed access: AccessEffect
+  ) -> Operand {
+    let storage: Operand
 
-    default:
-      fatalError("not implemented")
+    switch e {
+    case .infix(let callee, _, _):
+      let t = program.exprTypes[callee.expr]!
+      let u = LambdaType(program.relations.canonical(t))!.lifted
+      storage = emitAllocStack(for: u.output, at: program.ast.site(of: e))
+      store(foldedSequence: e, to: storage)
+
+    case .leaf(let e):
+      storage = emitLValue(program[e])
     }
+
+    return take(access, on: storage, at: program.ast.site(of: e))
   }
 
   /// Emits the IR of a call to `f` with given `arguments` at `site`.
@@ -1166,126 +1325,17 @@ public struct Emitter {
     case .llvm(let n):
       var a: [Operand] = []
       for e in arguments {
-        a.append(emitRValue(program[e.value]))
+        let x0 = store(value: program[e.value])
+        let x1 = append(module.makeLoad(x0, at: site))[0]
+        a.append(x1)
       }
-      return append(
-        module.makeLLVM(applying: n, to: a, at: site))[0]
+      return append(module.makeLLVM(applying: n, to: a, at: site))[0]
 
     case .addressOf:
       let source = emitLValue(program[arguments[0].value])
       return append(
         module.makeAddressToPointer(source, at: site))[0]
     }
-  }
-
-  private mutating func emitRValue(integerLiteral expr: IntegerLiteralExpr.Typed) -> Operand {
-    emitNumericLiteral(expr.value, typed: program.relations.canonical(expr.type), at: expr.site)
-  }
-
-  private mutating func emitRValue(lambda e: LambdaExpr.Typed) -> Operand {
-    _ = emit(functionDecl: e.decl)
-    let f = FunctionReference(to: program[e.decl], usedIn: insertionScope!, in: &module)
-    return append(module.makePartialApply(wrapping: f, with: .void, at: e.site))[0]
-  }
-
-  private mutating func emitRValue(name e: NameExpr.Typed) -> Operand {
-    switch e.declaration {
-    case .direct(let d, _):
-      guard let s = frames[program[d]] else { fatalError("not implemented") }
-      if module.type(of: s).isObject {
-        return s
-      } else {
-        return append(module.makeLoad(s, at: e.site))[0]
-      }
-
-    case .member(let d, _):
-      return emitRValue(memberExpr: e, declaredBy: program[d])
-
-    case .constructor:
-      fatalError("not implemented")
-
-    case .builtinFunction:
-      fatalError("not implemented")
-
-    case .builtinType:
-      fatalError("not implemented")
-    }
-  }
-
-  private mutating func emitRValue(
-    memberExpr e: NameExpr.Typed, declaredBy d: AnyDeclID.TypedNode
-  ) -> Operand {
-    switch d.kind {
-    case VarDecl.self:
-      return emitRValue(memberBinding: e, declaredBy: .init(d)!)
-    default:
-      fatalError("not implemented")
-    }
-  }
-
-  /// Emits the IR for consuming a stored binding `e` at the end of `self.insertionBlock`.
-  ///
-  /// - Requires: `m.decl` is a `VarDecl`.
-  private mutating func emitRValue(
-    memberBinding e: NameExpr.Typed, declaredBy d: VarDecl.Typed
-  ) -> Operand {
-    // Member reference without a domain expression are implicitly bound to `self`.
-    let base: Operand
-    if let p = e.domainExpr {
-      base = emitLValue(p)
-    } else {
-      base = frames[receiver!]!
-    }
-
-    let l = AbstractTypeLayout(of: module.type(of: base).ast, definedIn: program)
-    let i = l.offset(of: d.baseName)!
-
-    let x0 = append(module.makeElementAddr(base, at: [i], at: e.site))[0]
-    let x1 = append(module.makeLoad(x0, at: e.site))[0]
-    return x1
-  }
-
-  /// Inserts the IR of `syntax`.
-  ///
-  /// - Parameters:
-  ///   - site: The source range in which `syntax` is being evaluated. Defaults to `syntax.site`.
-  private mutating func emitRValue(
-    pragma syntax: PragmaLiteralExpr.Typed,
-    at site: SourceRange? = nil
-  ) -> Operand {
-    let s = site ?? syntax.site
-    switch program.ast[syntax.id].kind {
-    case .file:
-      return emitString(s.file.url.absoluteURL.path, at: s)
-    case .line:
-      return emitInt(s.first().line.number, at: s)
-    }
-  }
-
-  private mutating func emitRValue(sequence expr: SequenceExpr.Typed) -> Operand {
-    let s = emitLValue(sequence: expr)
-    return append(module.makeLoad(s, at: expr.site))[0]
-  }
-
-  private mutating func emitRValue(stringLiteral syntax: StringLiteralExpr.Typed) -> Operand {
-    emitString(syntax.value, at: syntax.site)
-  }
-
-  private mutating func emitRValue(tuple syntax: TupleExpr.Typed) -> Operand {
-    if syntax.elements.isEmpty { return .void }
-
-    var elements: [Operand] = []
-    for e in syntax.elements {
-      elements.append(emitRValue(program[e.value]))
-    }
-    return append(module.makeRecord(syntax.type, aggregating: elements, at: syntax.site))[0]
-  }
-
-  private mutating func emitRValue(tuple syntax: TupleMemberExpr.Typed) -> Operand {
-    let base = emitLValue(syntax.tuple)
-    let element = append(
-      module.makeElementAddr(base, at: [syntax.index.value], at: syntax.index.site))[0]
-    return append(module.makeLoad(element, at: syntax.index.site))[0]
   }
 
   /// Inserts the IR for given `callee` and returns `(c, a)`, where `c` is the callee's value and
@@ -1377,12 +1427,8 @@ public struct Emitter {
     switch LambdaType(callee.type)!.receiverEffect {
     case .yielded:
       unreachable()
-
-    case .set:
+    case .set, .sink:
       fatalError("not implemented")
-
-    case .sink:
-      return emitRValue(callee)
 
     case let k:
       let l = emitLValue(callee)
@@ -1417,25 +1463,6 @@ public struct Emitter {
     return (success: insertionBlock!, failure: failure)
   }
 
-  /// Inserts the IR for string `s`, anchoring instructions at site.
-  private mutating func emitString(_ s: String, at site: SourceRange) -> Operand {
-    var bytes = s.unescaped.data(using: .utf8)!
-    let size = emitWord(bytes.count, at: site)
-    bytes.append(contentsOf: [0])
-
-    let p = PointerConstant(module.syntax.id, module.addGlobal(BufferConstant(bytes)))
-    let base = emitCoreInstance(of: "RawPointer", aggregating: [.constant(p)], at: site)
-    return emitCoreInstance(of: "String", aggregating: [size, base], at: site)
-  }
-
-  /// Inserts the IR for integer `i` anchoring instructions at site.
-  private mutating func emitInt(_ i: Int, at site: SourceRange) -> Operand {
-    let t = program.ast.coreType("Int")!
-    let s = module.makeRecord(
-      t, aggregating: [.constant(IntegerConstant(i, bitWidth: 64))], at: site)
-    return append(s)[0]
-  }
-
   /// Inserts the IR for branch condition `expr`.
   ///
   /// - Requires: `expr.type` is `Val.Bool`
@@ -1445,80 +1472,6 @@ public struct Emitter {
     let x1 = append(module.makeElementAddr(x0, at: [0], at: expr.site))[0]
     let x2 = append(module.makeLoad(x1, at: expr.site))[0]
     return x2
-  }
-
-  /// Inserts the IR for numeric literal `s` with type `literalType`, anchoring new instructions
-  /// at `site`.
-  ///
-  /// - Requires `literalType` must be one of the core numeric types.
-  private mutating func emitNumericLiteral(
-    _ s: String, typed literalType: AnyType, at site: SourceRange
-  ) -> Operand {
-    switch literalType {
-    case program.ast.coreType("Double")!:
-      let v = FloatingPointConstant.double(s)
-      return append(module.makeRecord(literalType, aggregating: [.constant(v)], at: site))[0]
-
-    case program.ast.coreType("Float")!:
-      let v = FloatingPointConstant.float(s)
-      return append(module.makeRecord(literalType, aggregating: [.constant(v)], at: site))[0]
-
-    default:
-      return emitIntegerLiteral(s, typed: literalType, at: site)
-    }
-  }
-
-  /// Inserts the IR for numeric literal `s` with type `literalType`, anchoring new instructions
-  /// at `site`.
-  ///
-  /// - Requires `literalType` must be one of the core integer types.
-  private mutating func emitIntegerLiteral(
-    _ s: String, typed literalType: AnyType, at site: SourceRange
-  ) -> Operand {
-    let bits: WideUInt?
-    switch literalType {
-    case program.ast.coreType("Int")!:
-      bits = .init(valLiteral: s, signed: true, bitWidth: 64)
-    case program.ast.coreType("Int32")!:
-      bits = .init(valLiteral: s, signed: true, bitWidth: 32)
-    case program.ast.coreType("Int8")!:
-      bits = .init(valLiteral: s, signed: true, bitWidth: 8)
-    default:
-      unreachable("unexpected numeric type")
-    }
-
-    guard let b = bits else {
-      diagnostics.insert(
-        .error(integerLiteral: s, overflowsWhenStoredInto: literalType, at: site))
-      return .constant(Poison(type: .object(literalType)))
-    }
-
-    return append(
-      module.makeRecord(
-        literalType, aggregating: [.constant(IntegerConstant(b))], at: site))[0]
-  }
-
-  /// Inserts the IR for the construction of an instance of a core type named `n`with given
-  /// `value`, anchoring instructions at `site`.
-  ///
-  /// - precondition: `type` is a core type.
-  private mutating func emitCoreInstance(
-    of n: String,
-    aggregating parts: [Operand],
-    at site: SourceRange
-  ) -> Operand {
-    let t = program.ast.coreType(n)!
-    let o = module.makeRecord(t, aggregating: parts, at: site)
-    return append(o)[0]
-  }
-
-  /// Inserts the IR for the construction of a a machine word with given `value`, anchoring
-  /// instructions at `site`.
-  private mutating func emitWord(_ value: Int, at site: SourceRange) -> Operand {
-    emitCoreInstance(
-      of: "Int",
-      aggregating: [.constant(IntegerConstant(value, bitWidth: 64))],
-      at: site)
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
@@ -1593,43 +1546,24 @@ public struct Emitter {
     switch syntax.kind {
     case CastExpr.self:
       return emitLValue(cast: .init(syntax)!)
-    case FunctionCallExpr.self:
-      return emitLValue(functionCall: .init(syntax)!)
     case InoutExpr.self:
       return emitLValue(inoutExpr: .init(syntax)!)
     case NameExpr.self:
       return emitLValue(name: .init(syntax)!)
-    case SequenceExpr.self:
-      return emitLValue(sequence: .init(syntax)!)
     case TupleMemberExpr.self:
       return emitLValue(tupleMember: .init(syntax)!)
     default:
-      return emitLValue(converting: syntax)
+      return store(value: syntax)
     }
-  }
-
-  /// Inserts the IR for `rvalue` converted as a lvalue.
-  private mutating func emitLValue(converting rvalue: AnyExprID.TypedNode) -> Operand {
-    let t = program.relations.canonical(rvalue.type)
-    let s = emitAllocStack(for: t, at: rvalue.site)
-    emitInitialization(of: s, to: rvalue.id)
-    return s
-  }
-
-  /// Inserts the IR for converting `rvalue` as a lvalue at `site`.
-  private mutating func emitLValue(converting rvalue: Operand, at site: SourceRange) -> Operand {
-    let t = module.type(of: rvalue).ast
-    let s = emitAllocStack(for: t, at: site)
-    emitInitialization(of: s, to: rvalue, at: site)
-    return s
   }
 
   private mutating func emitLValue(cast syntax: CastExpr.Typed) -> Operand {
     switch syntax.direction {
     case .pointerConversion:
-      let source = emitRValue(syntax.left)
+      let x0 = emitLValue(syntax.left)
+      let x1 = append(module.makeLoad(x0, at: syntax.site))[0]
       let target = RemoteType(program.relations.canonical(syntax.type))!
-      return append(module.makePointerToAddress(source, to: target, at: syntax.site))[0]
+      return append(module.makePointerToAddress(x1, to: target, at: syntax.site))[0]
 
     default:
       fatalError("not implemented")
@@ -1685,53 +1619,6 @@ public struct Emitter {
       fatalError("not implemented")
     case .expr(let e):
       return emitLValue(e)
-    }
-  }
-
-  private mutating func emitLValue(sequence syntax: SequenceExpr.Typed) -> Operand {
-    emitLValue(foldedSequence: syntax.folded)
-  }
-
-  private mutating func emitLValue(foldedSequence syntax: FoldedSequenceExpr) -> Operand {
-    switch syntax {
-    case .infix(let callee, let lhs, let rhs):
-      let t = program.exprTypes[callee.expr]!
-      let calleeType = LambdaType(program.relations.canonical(t))!.lifted
-
-      // Emit the operands, starting with RHS.
-      let r = emitInfixOperand(rhs, passed: ParameterType(calleeType.inputs[1].type)!.access)
-      let l = emitInfixOperand(lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
-
-      // The callee must be a reference to member function.
-      guard case .member(let d, _) = program.referredDecls[callee.expr] else { unreachable() }
-      let oper = Operand.constant(
-        FunctionReference(to: program[FunctionDecl.ID(d)!], usedIn: insertionScope!, in: &module))
-
-      // Emit the call.
-      let site = program.ast.site(of: syntax)
-      let x0 = emitAllocStack(for: calleeType.output, at: site)
-      let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
-      append(module.makeCall(applying: oper, to: [l, r], writingResultTo: x1, at: site))
-      return x0
-
-    case .leaf(let e):
-      return emitLValue(program[e])
-    }
-  }
-
-  private mutating func emitInfixOperand(
-    _ syntax: FoldedSequenceExpr, passed access: AccessEffect
-  ) -> Operand {
-    let source = emitLValue(foldedSequence: syntax)
-    let site = program.ast.site(of: syntax)
-
-    switch access {
-    case .let, .inout, .set:
-      return append(module.makeBorrow(access, from: source, at: site))[0]
-    case .sink:
-      return append(module.makeLoad(source, at: site))[0]
-    case .yielded:
-      unreachable()
     }
   }
 
@@ -1802,6 +1689,20 @@ public struct Emitter {
 
   // MARK: Helpers
 
+  /// Inserts the IR for taking given `access` on `source` at `site`.
+  private mutating func take(
+    _ access: AccessEffect, on source: Operand, at site: SourceRange
+  ) -> Operand {
+    switch access {
+    case .let, .inout, .set:
+      return append(module.makeBorrow(access, from: source, at: site))[0]
+    case .sink:
+      return append(module.makeLoad(source, at: site))[0]
+    case .yielded:
+      unreachable()
+    }
+  }
+
   /// Inserts a stack allocation for an object of type `t`.
   private mutating func emitAllocStack(
     for t: AnyType, at site: SourceRange
@@ -1835,9 +1736,7 @@ public struct Emitter {
     {
       emitInitializerCall(program[call], initializing: storage)
     } else {
-      let v = emitRValue(program[value])
-      // TODO: Replace by emitMove
-      emitInitialization(of: storage, to: v, at: program.ast[value].site)
+      store(value: program[value], to: storage)
     }
   }
 
@@ -1849,15 +1748,6 @@ public struct Emitter {
         module.makeElementAddr(storage, at: [i], at: program.ast[e.value].site))[0]
       emitInitialization(of: s, to: e.value)
     }
-  }
-
-  /// Inserts the IR for initializing `storage` with `value` at the end of the current insertion
-  /// block, anchoring new instructions at `site`.
-  private mutating func emitInitialization(
-    of storage: Operand, to value: Operand, at site: SourceRange
-  ) {
-    let s = append(module.makeBorrow(.set, from: storage, at: site))[0]
-    append(module.makeStore(value, at: s, at: site))
   }
 
   /// Appends the IR for a call to move-initialize/assign `storage` with `value`, using `c` to

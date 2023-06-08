@@ -116,8 +116,6 @@ extension Module {
         rewrite(condBranch: i, to: b)
       case is DeallocStackInstruction:
         rewrite(deallocStack: i, to: b)
-      case is DeinitInstruction:
-        break  // TODO: Should not be necessary
       case is ElementAddrInstruction:
         rewrite(elementAddr: i, to: b)
       case is EndBorrowInstruction:

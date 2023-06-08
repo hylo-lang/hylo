@@ -1,5 +1,5 @@
 /// A floating-point number literal expression.
-public struct FloatLiteralExpr: Expr {
+public struct FloatLiteralExpr: NumericLiteralExpr {
 
   public let site: SourceRange
 

@@ -18,6 +18,11 @@ public enum Operand {
     .constant(IntegerConstant(v ? 1 : 0, bitWidth: 1))
   }
 
+  /// Returns a built-in integer constant with the size of a machine word.
+  public static func word(_ v: Int) -> Operand {
+    .constant(IntegerConstant(v, bitWidth: 64))
+  }
+
   /// The ID of the function in which the operand is defined, if any.
   public var function: Function.ID? {
     block?.function
