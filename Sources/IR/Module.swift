@@ -41,7 +41,7 @@ public struct Module {
     self.syntax = program[m]
 
     var emitter = Emitter(program: program)
-    emitter.emit(module: m, into: &self, diagnostics: &diagnostics)
+    emitter.lower(module: m, into: &self, diagnostics: &diagnostics)
     try diagnostics.throwOnError()
   }
 
