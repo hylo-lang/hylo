@@ -467,8 +467,6 @@ extension LLVM.Module {
         insert(pointerToAddress: i)
       case is IR.ProjectInstruction:
         insert(project: i)
-      case is IR.RecordInstruction:
-        insert(record: i)
       case is IR.ReturnInstruction:
         insert(return: i)
       case is IR.StoreInstruction:
@@ -707,18 +705,6 @@ extension LLVM.Module {
       register[.register(i, 0)] = insertExtractValue(from: x2, at: 1, at: insertionPoint)
       register[.register(i, 1)] = insertExtractValue(from: x2, at: 0, at: insertionPoint)
       register[.register(i, 2)] = x0
-    }
-
-    /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(record i: IR.InstructionID) {
-      let s = m[i] as! IR.RecordInstruction
-      let t = ir.llvm(s.objectType.ast, in: &self)
-      var record: LLVM.IRValue = LLVM.Undefined(of: t)
-      for (i, part) in s.operands.enumerated() {
-        let v = llvm(part)
-        record = insertInsertValue(v, at: i, into: record, at: insertionPoint)
-      }
-      register[.register(i, 0)] = record
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.

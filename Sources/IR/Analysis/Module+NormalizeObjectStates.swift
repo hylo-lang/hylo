@@ -58,8 +58,6 @@ extension Module {
           pc = interpret(pointerToAddress: user, in: &context)
         case is ProjectInstruction:
           pc = interpret(project: user, in: &context)
-        case is RecordInstruction:
-          pc = interpret(record: user, in: &context)
         case is ReturnInstruction:
           pc = interpret(return: user, in: &context)
         case is StoreInstruction:
@@ -317,17 +315,6 @@ extension Module {
     func interpret(partialApply i: InstructionID, in context: inout Context) -> PC? {
       let x = self[i] as! PartialApplyInstruction
       consume(x.environment, with: i, at: x.site, in: &context)
-      initializeRegisters(createdBy: i, in: &context)
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(record i: InstructionID, in context: inout Context) -> PC? {
-      let x = self[i] as! RecordInstruction
-      for o in x.operands {
-        consume(o, with: i, at: x.site, in: &context)
-      }
-
       initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
