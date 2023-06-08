@@ -6,7 +6,7 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The identifier of the trait.
   public let identifier: SourceRepresentable<Identifier>
@@ -22,7 +22,7 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
     refinements: [NameExpr.ID],
     members: [AnyDeclID],

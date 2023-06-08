@@ -4,7 +4,7 @@ public struct TypeAliasDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericSc
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The identifier of the alias.
   public let identifier: SourceRepresentable<Identifier>
@@ -17,7 +17,7 @@ public struct TypeAliasDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericSc
 
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     aliasedType: AnyTypeExprID,

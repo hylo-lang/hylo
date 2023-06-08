@@ -7,7 +7,7 @@ public struct BindingDecl: Decl {
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The member modifier of the declaration.
   public let memberModifier: SourceRepresentable<MemberModifier>?
@@ -21,7 +21,7 @@ public struct BindingDecl: Decl {
   /// Creates an instance with the given properties.
   public init(
     attributes: [SourceRepresentable<Attribute>] = [],
-    accessModifier: SourceRepresentable<AccessModifier>? = nil,
+    accessModifier: SourceRepresentable<AccessModifier>,
     memberModifier: SourceRepresentable<MemberModifier>? = nil,
     pattern: BindingPattern.ID,
     initializer: AnyExprID?,
@@ -36,7 +36,7 @@ public struct BindingDecl: Decl {
   }
 
   /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier?.value == .public }
+  public var isPublic: Bool { accessModifier.value == .public }
 
   /// Returns whether the declaration denotes a static member.
   public var isStatic: Bool { memberModifier?.value == .static }

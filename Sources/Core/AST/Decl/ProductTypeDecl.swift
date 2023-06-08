@@ -4,7 +4,7 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>
@@ -23,7 +23,7 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
 
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     conformances: [NameExpr.ID],
@@ -45,7 +45,7 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
   public var baseName: String { identifier.value }
 
   /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier?.value != nil }
+  public var isPublic: Bool { accessModifier.value == .public }
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     for m in members {

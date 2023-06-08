@@ -55,6 +55,17 @@ extension Diagnostic {
   }
 
   static func error(
+    inconsistentAccessModifiers m: SourceRepresentable<AccessModifier>,
+    appearsAfterPreviousAccessModifier p: SourceRepresentable<AccessModifier>
+  ) -> Diagnostic {
+    .error(
+      "inconsistent access modifier '\(m.value)'", at: m.site,
+      notes: [
+        .note("previously declared as '\(p.value)'", at: p.site)
+      ])
+  }
+
+  static func error(
     duplicateImplementationIntroducer i: SourceRepresentable<AccessEffect>
   ) -> Diagnostic {
     .error("duplicate implementation introducer '\(i.value)'", at: i.site)

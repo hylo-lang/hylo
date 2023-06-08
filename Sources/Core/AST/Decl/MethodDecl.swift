@@ -10,7 +10,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The operator notation of the method.
   public let notation: SourceRepresentable<OperatorNotation>?
@@ -36,7 +36,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
   public init(
     introducerSite: SourceRange,
     attributes: [SourceRepresentable<Attribute>],
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     notation: SourceRepresentable<OperatorNotation>?,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
@@ -58,7 +58,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
   }
 
   /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier?.value == .public }
+  public var isPublic: Bool { accessModifier.value == .public }
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.

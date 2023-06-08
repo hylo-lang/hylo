@@ -100,6 +100,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "postfix": token.kind = .`postfix`
       case "prefix": token.kind = .`prefix`
       case "property": token.kind = .`property`
+      case "private": token.kind = .`private`
       case "public": token.kind = .`public`
       case "remote": token.kind = .`remote`
       case "return": token.kind = .`return`

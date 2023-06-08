@@ -7,7 +7,7 @@ public struct OperatorDecl: Decl {
   public let introducerSite: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The notation of the operator.
   public let notation: SourceRepresentable<OperatorNotation>
@@ -21,7 +21,7 @@ public struct OperatorDecl: Decl {
   /// Creates an instance with the given properties.
   public init(
     introducerSite: SourceRange,
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     notation: SourceRepresentable<OperatorNotation>,
     name: SourceRepresentable<Identifier>,
     precedenceGroup: SourceRepresentable<PrecedenceGroup>?,
