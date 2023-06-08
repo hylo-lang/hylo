@@ -56,12 +56,12 @@ extension Diagnostic {
 
   static func error(
     inconsistentAccessModifiers m: SourceRepresentable<AccessModifier>,
-    appearsAfterPreviousAccessModifier prev: SourceRepresentable<AccessModifier>
+    appearsAfterPreviousAccessModifier p: SourceRepresentable<AccessModifier>
   ) -> Diagnostic {
     .error(
       "inconsistent access modifier '\(m.value)'", at: m.site,
       notes: [
-        .note("previously declared as '\(prev.value)'", at: prev.site)
+        .note("previously declared as '\(p.value)'", at: p.site)
       ])
   }
 
