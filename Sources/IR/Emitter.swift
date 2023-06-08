@@ -574,7 +574,7 @@ public struct Emitter {
         if p.type.base is BuiltinType {
           append(module.makeStore(part, at: target, at: site))
         } else {
-          let c = program.conformance(of: p.type, to: program.ast.movableTrait, exposedTo: scope)!
+          let c = program.conformanceToMovable(of: p.type, exposedTo: scope)!
           emitMove(.set, of: part, to: target, withConformanceToMovable: c, at: site)
         }
       }
@@ -617,7 +617,7 @@ public struct Emitter {
 
     // Apply the move-initializer.
     let t = module.type(of: receiver).ast
-    let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: scope)!
+    let c = program.conformanceToMovable(of: t, exposedTo: scope)!
     let r = append(module.makeLoad(argument, at: site))[0]
     emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
 
@@ -679,7 +679,7 @@ public struct Emitter {
     }
 
     // The LHS can be assumed to conform to `Movable` if type checking passed.
-    let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
+    let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
     append(module.makeMove(rhs, to: lhs, usingConformance: c, at: stmt.site))
   }
 
@@ -976,7 +976,7 @@ public struct Emitter {
       let x2 = append(module.makeBorrow(.set, from: storage, at: e.site))[0]
       append(module.makeStore(x1, at: x2, at: e.site))
     } else {
-      let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
+      let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
       emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: e.site)
     }
   }
@@ -1044,7 +1044,7 @@ public struct Emitter {
     let x1 = append(module.makeLoad(x0, at: e.site))[0]
 
     let t = module.type(of: storage).ast
-    let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
+    let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
     emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: e.site)
   }
 
@@ -1857,31 +1857,6 @@ extension Diagnostic {
     at site: SourceRange
   ) -> Diagnostic {
     .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
-  }
-
-}
-
-extension TypedProgram {
-
-  /// Returns the conformance of `model` to `concept` exposed to `useSite` or `nil` if no such
-  /// conformance exists.
-  fileprivate func conformance(
-    of model: AnyType, to concept: TraitType, exposedTo useSite: AnyScopeID
-  ) -> Conformance? {
-    guard
-      let allConformances = relations.conformances[relations.canonical(model)],
-      let conformancesToConcept = allConformances[concept]
-    else { return nil }
-
-    // Return the first conformance exposed to `useSite`,
-    let fileImports = imports[source(containing: useSite), default: []]
-    return conformancesToConcept.first { (c) in
-      if let m = ModuleDecl.ID(c.scope), fileImports.contains(m) {
-        return true
-      } else {
-        return isContained(useSite, in: c.scope)
-      }
-    }
   }
 
 }
