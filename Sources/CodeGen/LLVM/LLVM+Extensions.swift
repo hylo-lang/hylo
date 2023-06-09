@@ -473,6 +473,8 @@ extension LLVM.Module {
         insert(store: i)
       case is IR.UnrechableInstruction:
         insert(unreachable: i)
+      case is IR.UnsafeCastInstruction:
+        insert(unsafeCast: i)
       case is IR.WrapAddrInstruction:
         insert(wrapAddr: i)
       case is IR.YieldInstruction:
@@ -729,6 +731,22 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(unreachable i: IR.InstructionID) {
       insertUnreachable(at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(unsafeCast i: IR.InstructionID) {
+      let s = m[i] as! IR.UnsafeCastInstruction
+
+      let lhs = llvm(s.source)
+      let rhs = ir.llvm(s.target, in: &self)
+
+      if lhs.type == rhs {
+        register[.register(i, 0)] = lhs
+      } else if layout.storageSize(of: rhs) == 0 {
+        register[.register(i, 0)] = rhs.null
+      } else {
+        fatalError("not implemented")
+      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.

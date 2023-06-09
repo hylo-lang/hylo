@@ -224,15 +224,21 @@ public struct Emitter {
         returning: .object(returnType), applying: d.foreignName!, to: arguments, at: d.site))[0]
 
     // Convert the result of the FFI to its Val representation and return it.
-    if returnType.isVoidOrNever {
+    switch returnType {
+    case .never:
+      append(module.makeUnreachable(at: d.site))
+
+    case .void:
       emitStore(value: .void, to: returnValue!, at: d.site)
-    } else {
+      emitStackDeallocs(site: d.site)
+      append(module.makeReturn(at: d.site))
+
+    default:
       let v = emitConvert(foreign: foreignResult, to: returnType, at: d.site)
       emitStore(value: v, to: returnValue!, at: d.site)
+      emitStackDeallocs(site: d.site)
+      append(module.makeReturn(at: d.site))
     }
-
-    emitStackDeallocs(site: d.site)
-    append(module.makeReturn(at: d.site))
   }
 
   /// Inserts the IR for `d`.
@@ -565,7 +571,16 @@ public struct Emitter {
     case is ProductType, is TupleType:
       let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
 
-      // Move initialize each property.
+      // If the object is empty, simply mark it initialized.
+      if layout.properties.isEmpty {
+        let x0 = append(module.makeUnsafeCast(.void, to: layout.type, at: site))[0]
+        let x1 = append(module.makeBorrow(.set, from: receiver, at: site))[0]
+        append(module.makeStore(x0, at: x1, at: site))
+        append(module.makeDeinit(argument, at: site))
+        break
+      }
+
+      // Otherwise, move initialize each property.
       for (i, p) in layout.properties.enumerated() {
         let source = emitElementAddr(argument, at: [i], at: site)
         let part = append(module.makeLoad(source, at: site))[0]
@@ -574,7 +589,7 @@ public struct Emitter {
         if p.type.base is BuiltinType {
           append(module.makeStore(part, at: target, at: site))
         } else {
-          let c = program.conformance(of: p.type, to: program.ast.movableTrait, exposedTo: scope)!
+          let c = program.conformanceToMovable(of: p.type, exposedTo: scope)!
           emitMove(.set, of: part, to: target, withConformanceToMovable: c, at: site)
         }
       }
@@ -617,7 +632,7 @@ public struct Emitter {
 
     // Apply the move-initializer.
     let t = module.type(of: receiver).ast
-    let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: scope)!
+    let c = program.conformanceToMovable(of: t, exposedTo: scope)!
     let r = append(module.makeLoad(argument, at: site))[0]
     emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
 
@@ -679,7 +694,7 @@ public struct Emitter {
     }
 
     // The LHS can be assumed to conform to `Movable` if type checking passed.
-    let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
+    let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
     append(module.makeMove(rhs, to: lhs, usingConformance: c, at: stmt.site))
   }
 
@@ -795,9 +810,20 @@ public struct Emitter {
 
   // MARK: Values
 
+  /// Inserts the IR for storing `value` to `storage`, anchoring new instructions at `site`.
   private mutating func emitStore(value: Operand, to storage: Operand, at site: SourceRange) {
-    let x0 = append(module.makeBorrow(.set, from: storage, at: site))[0]
-    append(module.makeStore(value, at: x0, at: site))
+    let t = module.type(of: storage).ast
+
+    // Because `emitStore(value:to:at:)` is used to synthesize conformances to `Movable`, calling
+    // the move-initializer of `Val.Void` would cause infinite recursion. Since the latter should
+    // always be inlined anyway, we can emit a simple store in all cases.
+    if t.isBuiltin || (t == .void) {
+      let x0 = append(module.makeBorrow(.set, from: storage, at: site))[0]
+      append(module.makeStore(value, at: x0, at: site))
+    } else {
+      let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
+      emitMove(.set, of: value, to: storage, withConformanceToMovable: c, at: site)
+    }
   }
 
   /// Inserts the IR for storing the value of `syntax` to a fresh stack allocation, returning the
@@ -970,15 +996,7 @@ public struct Emitter {
   private mutating func emitStore(name e: NameExpr.Typed, to storage: Operand) {
     let x0 = emitLValue(name: e)
     let x1 = append(module.makeLoad(x0, at: e.site))[0]
-
-    let t = module.type(of: storage).ast
-    if t.isBuiltin {
-      let x2 = append(module.makeBorrow(.set, from: storage, at: e.site))[0]
-      append(module.makeStore(x1, at: x2, at: e.site))
-    } else {
-      let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
-      emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: e.site)
-    }
+    emitStore(value: x1, to: storage, at: e.site)
   }
 
   /// Writes the value of `e` to `storage`.
@@ -1032,6 +1050,14 @@ public struct Emitter {
   }
 
   private mutating func emitStore(tuple e: TupleExpr.Typed, to storage: Operand) {
+    if e.elements.isEmpty {
+      let t = program.relations.canonical(e.type)
+      let x0 = append(module.makeUnsafeCast(.void, to: t, at: e.site))[0]
+      let x1 = append(module.makeBorrow(.set, from: storage, at: e.site))[0]
+      append(module.makeStore(x0, at: x1, at: e.site))
+      return
+    }
+
     for (i, element) in e.elements.enumerated() {
       let syntax = program[element.value]
       let xi = emitElementAddr(storage, at: [i], at: syntax.site)
@@ -1044,7 +1070,7 @@ public struct Emitter {
     let x1 = append(module.makeLoad(x0, at: e.site))[0]
 
     let t = module.type(of: storage).ast
-    let c = program.conformance(of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
+    let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
     emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: e.site)
   }
 
@@ -1183,7 +1209,15 @@ public struct Emitter {
   private mutating func emit(
     memberwiseInitializerCall call: FunctionCallExpr.Typed, initializing receiver: Operand
   ) {
-    let callee = LambdaType(call.callee.type)!
+    let callee = LambdaType(program.relations.canonical(call.callee.type))!
+
+    if callee.inputs.isEmpty {
+      let x0 = append(module.makeUnsafeCast(.void, to: call.type, at: call.site))[0]
+      let x1 = append(module.makeBorrow(.set, from: receiver, at: call.site))[0]
+      append(module.makeStore(x0, at: x1, at: call.site))
+      return
+    }
+
     for i in callee.inputs.indices {
       // TODO: Handle remote types
       let p = ParameterType(callee.inputs[i].type)!
@@ -1857,31 +1891,6 @@ extension Diagnostic {
     at site: SourceRange
   ) -> Diagnostic {
     .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
-  }
-
-}
-
-extension TypedProgram {
-
-  /// Returns the conformance of `model` to `concept` exposed to `useSite` or `nil` if no such
-  /// conformance exists.
-  fileprivate func conformance(
-    of model: AnyType, to concept: TraitType, exposedTo useSite: AnyScopeID
-  ) -> Conformance? {
-    guard
-      let allConformances = relations.conformances[relations.canonical(model)],
-      let conformancesToConcept = allConformances[concept]
-    else { return nil }
-
-    // Return the first conformance exposed to `useSite`,
-    let fileImports = imports[source(containing: useSite), default: []]
-    return conformancesToConcept.first { (c) in
-      if let m = ModuleDecl.ID(c.scope), fileImports.contains(m) {
-        return true
-      } else {
-        return isContained(useSite, in: c.scope)
-      }
-    }
   }
 
 }

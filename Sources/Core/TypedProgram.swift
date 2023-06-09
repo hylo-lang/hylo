@@ -156,4 +156,33 @@ public struct TypedProgram: Program {
     }
   }
 
+  /// Returns the conformance of `model` to `Val.Movable` exposed to `useScope` or `nil` if no such
+  /// conformance exists.
+  public func conformanceToMovable(
+    of model: AnyType, exposedTo useScope: AnyScopeID
+  ) -> Conformance? {
+    conformance(of: model, to: ast.movableTrait, exposedTo: useScope)
+  }
+
+  /// Returns the conformance of `model` to `concept` exposed to `useScope` or `nil` if no such
+  /// conformance exists.
+  public func conformance(
+    of model: AnyType, to concept: TraitType, exposedTo useScope: AnyScopeID
+  ) -> Conformance? {
+    guard
+      let allConformances = relations.conformances[relations.canonical(model)],
+      let conformancesToConcept = allConformances[concept]
+    else { return nil }
+
+    // Return the first conformance exposed to `useSite`,
+    let fileImports = imports[source(containing: useScope), default: []]
+    return conformancesToConcept.first { (c) in
+      if let m = ModuleDecl.ID(c.scope), fileImports.contains(m) {
+        return true
+      } else {
+        return isContained(useScope, in: c.scope)
+      }
+    }
+  }
+
 }
