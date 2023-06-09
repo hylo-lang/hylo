@@ -813,6 +813,10 @@ public struct Emitter {
   /// Inserts the IR for storing `value` to `storage`, anchoring new instructions at `site`.
   private mutating func emitStore(value: Operand, to storage: Operand, at site: SourceRange) {
     let t = module.type(of: storage).ast
+
+    // Because `emitStore(value:to:at:)` is used to synthesize conformances to `Movable`, calling
+    // the move-initializer of `Val.Void` would cause infinite recursion. Since the latter should
+    // always be inlined anyway, we can emit a simple store in all cases.
     if t.isBuiltin || (t == .void) {
       let x0 = append(module.makeBorrow(.set, from: storage, at: site))[0]
       append(module.makeStore(value, at: x0, at: site))
