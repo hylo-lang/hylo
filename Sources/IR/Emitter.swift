@@ -571,7 +571,16 @@ public struct Emitter {
     case is ProductType, is TupleType:
       let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
 
-      // Move initialize each property.
+      // If the object is empty, simply mark it initialized.
+      if layout.properties.isEmpty {
+        let x0 = append(module.makeUnsafeCast(.void, to: layout.type, at: site))[0]
+        let x1 = append(module.makeBorrow(.set, from: receiver, at: site))[0]
+        append(module.makeStore(x0, at: x1, at: site))
+        append(module.makeDeinit(argument, at: site))
+        break
+      }
+
+      // Otherwise, move initialize each property.
       for (i, p) in layout.properties.enumerated() {
         let source = emitElementAddr(argument, at: [i], at: site)
         let part = append(module.makeLoad(source, at: site))[0]
@@ -801,9 +810,16 @@ public struct Emitter {
 
   // MARK: Values
 
+  /// Inserts the IR for storing `value` to `storage`, anchoring new instructions at `site`.
   private mutating func emitStore(value: Operand, to storage: Operand, at site: SourceRange) {
-    let x0 = append(module.makeBorrow(.set, from: storage, at: site))[0]
-    append(module.makeStore(value, at: x0, at: site))
+    let t = module.type(of: storage).ast
+    if t.isBuiltin || (t == .void) {
+      let x0 = append(module.makeBorrow(.set, from: storage, at: site))[0]
+      append(module.makeStore(value, at: x0, at: site))
+    } else {
+      let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
+      emitMove(.set, of: value, to: storage, withConformanceToMovable: c, at: site)
+    }
   }
 
   /// Inserts the IR for storing the value of `syntax` to a fresh stack allocation, returning the
@@ -976,15 +992,7 @@ public struct Emitter {
   private mutating func emitStore(name e: NameExpr.Typed, to storage: Operand) {
     let x0 = emitLValue(name: e)
     let x1 = append(module.makeLoad(x0, at: e.site))[0]
-
-    let t = module.type(of: storage).ast
-    if t.isBuiltin {
-      let x2 = append(module.makeBorrow(.set, from: storage, at: e.site))[0]
-      append(module.makeStore(x1, at: x2, at: e.site))
-    } else {
-      let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
-      emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: e.site)
-    }
+    emitStore(value: x1, to: storage, at: e.site)
   }
 
   /// Writes the value of `e` to `storage`.
@@ -1038,6 +1046,14 @@ public struct Emitter {
   }
 
   private mutating func emitStore(tuple e: TupleExpr.Typed, to storage: Operand) {
+    if e.elements.isEmpty {
+      let t = program.relations.canonical(e.type)
+      let x0 = append(module.makeUnsafeCast(.void, to: t, at: e.site))[0]
+      let x1 = append(module.makeBorrow(.set, from: storage, at: e.site))[0]
+      append(module.makeStore(x0, at: x1, at: e.site))
+      return
+    }
+
     for (i, element) in e.elements.enumerated() {
       let syntax = program[element.value]
       let xi = emitElementAddr(storage, at: [i], at: syntax.site)
@@ -1189,7 +1205,15 @@ public struct Emitter {
   private mutating func emit(
     memberwiseInitializerCall call: FunctionCallExpr.Typed, initializing receiver: Operand
   ) {
-    let callee = LambdaType(call.callee.type)!
+    let callee = LambdaType(program.relations.canonical(call.callee.type))!
+
+    if callee.inputs.isEmpty {
+      let x0 = append(module.makeUnsafeCast(.void, to: call.type, at: call.site))[0]
+      let x1 = append(module.makeBorrow(.set, from: receiver, at: call.site))[0]
+      append(module.makeStore(x0, at: x1, at: call.site))
+      return
+    }
+
     for i in callee.inputs.indices {
       // TODO: Handle remote types
       let p = ParameterType(callee.inputs[i].type)!
