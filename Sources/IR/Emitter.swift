@@ -584,17 +584,11 @@ public struct Emitter {
       }
 
       // Otherwise, move initialize each property.
-      for (i, p) in layout.properties.enumerated() {
+      for i in layout.properties.indices {
         let source = emitElementAddr(argument, at: [i], at: site)
-        let part = append(module.makeLoad(source, at: site))[0]
         let target = emitElementAddr(receiver, at: [i], at: site)
-
-        if p.type.base is BuiltinType {
-          append(module.makeStore(part, at: target, at: site))
-        } else {
-          let c = program.conformanceToMovable(of: p.type, exposedTo: scope)!
-          emitMove(.set, of: part, to: target, withConformanceToMovable: c, at: site)
-        }
+        let part = append(module.makeLoad(source, at: site))[0]
+        emitStore(value: part, to: target, at: site)
       }
 
     default:
@@ -684,21 +678,10 @@ public struct Emitter {
     }
 
     // The RHS is evaluated before the LHS.
-    var rhs = emitStore(value: stmt.right)
-    rhs = append(module.makeLoad(rhs, at: stmt.site))[0]
-    let lhs = emitLValue(stmt.left)
-
-    let t = program.relations.canonical(stmt.left.type)
-
-    // Built-in types do not require deinitialization.
-    if t.base is BuiltinType {
-      emitStore(value: rhs, to: lhs, at: stmt.site)
-      return
-    }
-
-    // The LHS can be assumed to conform to `Movable` if type checking passed.
-    let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
-    append(module.makeMove(rhs, to: lhs, usingConformance: c, at: stmt.site))
+    let x0 = emitStore(value: stmt.right)
+    let x1 = append(module.makeLoad(x0, at: stmt.site))[0]
+    let x2 = emitLValue(stmt.left)
+    emitStore(value: x1, to: x2, at: stmt.site)
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed) {
@@ -1071,10 +1054,7 @@ public struct Emitter {
   private mutating func emitStore(tupleMember e: TupleMemberExpr.Typed, to storage: Operand) {
     let x0 = emitLValue(tupleMember: e)
     let x1 = append(module.makeLoad(x0, at: e.site))[0]
-
-    let t = module.type(of: storage).ast
-    let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
-    emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: e.site)
+    emitStore(value: x1, to: storage, at: e.site)
   }
 
   /// Writes the value of `literal` to `storage`.
