@@ -1531,15 +1531,15 @@ public struct Emitter {
     }
   }
 
-  /// Returns an existential container of type `t` borrowing `capability` from `witness`.
+  /// Returns an existential container of type `t` borrowing `access` on `witness`.
   private mutating func emitExistential(
-    _ t: ExistentialType, borrowing capability: AccessEffect, from witness: Operand,
+    _ t: ExistentialType, borrowing access: AccessEffect, from witness: Operand,
     at site: SourceRange
   ) -> Operand {
     let witnessTable = emitWitnessTable(of: module.type(of: witness).ast, usedIn: insertionScope!)
     let g = PointerConstant(module.syntax.id, module.addGlobal(witnessTable))
 
-    let x0 = append(module.makeBorrow(capability, from: witness, at: site))[0]
+    let x0 = append(module.makeBorrow(access, from: witness, at: site))[0]
     let x1 = append(module.makeWrapAddr(x0, .constant(g), as: t, at: site))[0]
     return x1
   }
