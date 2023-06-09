@@ -97,7 +97,7 @@ extension Module {
       let s = self[i] as! AllocStackInstruction
       let t = AbstractTypeLayout(of: s.allocatedType, definedIn: program)
 
-      context.memory[l] = .init(layout: t, value: t.allocationState())
+      context.memory[l] = .init(layout: t, value: .full(.uninitialized))
       context.locals[.register(i, 0)] = .locations([l])
       return successor(of: i)
     }
@@ -490,7 +490,7 @@ extension Module {
     case .set:
       let a = AbstractLocation.root(p)
       context.locals[p] = .locations([a])
-      context.memory[a] = .init(layout: l, value: l.allocationState())
+      context.memory[a] = .init(layout: l, value: .full(.uninitialized))
 
     case .yielded:
       preconditionFailure("cannot represent instance of yielded type")
@@ -629,22 +629,6 @@ extension State: CustomStringConvertible {
       return "\u{25cb}"
     case .consumed(let consumers):
       return "←\(consumers)"
-    }
-  }
-
-}
-
-extension AbstractTypeLayout {
-
-  /// Returns the initial state of a fresh allocation whose type has layout `self`.
-  ///
-  /// Empty objects that have a struct layout are allocated fully initialized since they have no
-  /// part to initialize.
-  fileprivate func allocationState() -> AbstractObject<State>.Value {
-    if type.hasRecordLayout {
-      return .full(properties.isEmpty ? .initialized : .uninitialized)
-    } else {
-      return .full(.uninitialized)
     }
   }
 
