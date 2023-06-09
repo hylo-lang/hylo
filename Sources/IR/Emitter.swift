@@ -379,16 +379,14 @@ public struct Emitter {
     switch d.pattern.introducer.value {
     case .var, .sinklet:
       lower(storedLocalBinding: d)
-    case .let:
-      lower(localBinding: d, borrowing: .let)
-    case .inout:
-      lower(localBinding: d, borrowing: .inout)
+    case .let, .inout:
+      lower(projectedLocalBinding: d)
     }
   }
 
-  /// Inserts the IR for the local binding `d`.
+  /// Inserts the IR for stored local binding `d`.
   ///
-  /// - Requires: `d` is a local local `var` or `sink let` binding.
+  /// - Requires: `d` is a local `var` or `sink let` binding.
   private mutating func lower(storedLocalBinding d: BindingDecl.Typed) {
     precondition(program.isLocal(d.id))
     precondition(read(d.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
@@ -425,18 +423,25 @@ public struct Emitter {
     }
   }
 
-  /// Inserts the IR for the local binding `d`.
+  /// Inserts the IR for projected local binding `d` .
   ///
-  /// - Requires: `d` is a local local `let` or `inout` binding.
-  private mutating func lower(
-    localBinding d: BindingDecl.Typed, borrowing capability: AccessEffect
-  ) {
+  /// - Requires: `d` is a local `let` or `inout` binding.
+  private mutating func lower(projectedLocalBinding d: BindingDecl.Typed) {
     precondition(program.isLocal(d.id))
-    precondition(read(d.pattern.introducer.value, { ($0 == .let) || ($0 == .inout) }))
+
+    let access: AccessEffect
+    switch d.pattern.introducer.value {
+    case .let:
+      access = .let
+    case .inout:
+      access = .inout
+    default:
+      preconditionFailure()
+    }
 
     // Borrowed binding requires an initializer.
     guard let initializer = d.initializer else {
-      report(.error(binding: capability, requiresInitializerAt: d.pattern.introducer.site))
+      report(.error(binding: access, requiresInitializerAt: d.pattern.introducer.site))
       for (_, name) in d.pattern.subpattern.names {
         frames[name.decl] = .constant(Poison(type: .address(name.decl.type)))
       }
@@ -444,7 +449,7 @@ public struct Emitter {
     }
 
     // Initializing inout bindings requires a mutation marker.
-    if (capability == .inout) && (initializer.kind != InoutExpr.self) {
+    if (access == .inout) && (initializer.kind != InoutExpr.self) {
       report(.error(inoutBindingRequiresMutationMarkerAt: .empty(at: initializer.site.first())))
     }
 
@@ -458,7 +463,7 @@ public struct Emitter {
       if !program.relations.areEquivalent(name.decl.type, partType) {
         if let u = ExistentialType(name.decl.type) {
           let box = emitExistential(
-            u, borrowing: capability, from: part,
+            u, borrowing: access, from: part,
             at: name.decl.site)
           part = box
         }
@@ -466,13 +471,11 @@ public struct Emitter {
 
       if isSink {
         let b = module.makeAccess(
-          [.sink, capability], from: part, correspondingTo: name.decl,
-          at: name.decl.site)
+          [.sink, access], from: part, correspondingTo: name.decl, at: name.decl.site)
         frames[name.decl] = append(b)[0]
       } else {
         let b = module.makeBorrow(
-          capability, from: part, correspondingTo: name.decl,
-          at: name.decl.site)
+          access, from: part, correspondingTo: name.decl, at: name.decl.site)
         frames[name.decl] = append(b)[0]
       }
     }
