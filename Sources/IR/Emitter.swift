@@ -379,16 +379,14 @@ public struct Emitter {
     switch d.pattern.introducer.value {
     case .var, .sinklet:
       lower(storedLocalBinding: d)
-    case .let:
-      lower(localBinding: d, borrowing: .let)
-    case .inout:
-      lower(localBinding: d, borrowing: .inout)
+    case .let, .inout:
+      lower(projectedLocalBinding: d)
     }
   }
 
-  /// Inserts the IR for the local binding `d`.
+  /// Inserts the IR for stored local binding `d`.
   ///
-  /// - Requires: `d` is a local local `var` or `sink let` binding.
+  /// - Requires: `d` is a local `var` or `sink let` binding.
   private mutating func lower(storedLocalBinding d: BindingDecl.Typed) {
     precondition(program.isLocal(d.id))
     precondition(read(d.pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
@@ -425,18 +423,25 @@ public struct Emitter {
     }
   }
 
-  /// Inserts the IR for the local binding `d`.
+  /// Inserts the IR for projected local binding `d` .
   ///
-  /// - Requires: `d` is a local local `let` or `inout` binding.
-  private mutating func lower(
-    localBinding d: BindingDecl.Typed, borrowing capability: AccessEffect
-  ) {
+  /// - Requires: `d` is a local `let` or `inout` binding.
+  private mutating func lower(projectedLocalBinding d: BindingDecl.Typed) {
     precondition(program.isLocal(d.id))
-    precondition(read(d.pattern.introducer.value, { ($0 == .let) || ($0 == .inout) }))
+
+    let access: AccessEffect
+    switch d.pattern.introducer.value {
+    case .let:
+      access = .let
+    case .inout:
+      access = .inout
+    default:
+      preconditionFailure()
+    }
 
     // Borrowed binding requires an initializer.
     guard let initializer = d.initializer else {
-      report(.error(binding: capability, requiresInitializerAt: d.pattern.introducer.site))
+      report(.error(binding: access, requiresInitializerAt: d.pattern.introducer.site))
       for (_, name) in d.pattern.subpattern.names {
         frames[name.decl] = .constant(Poison(type: .address(name.decl.type)))
       }
@@ -444,7 +449,7 @@ public struct Emitter {
     }
 
     // Initializing inout bindings requires a mutation marker.
-    if (capability == .inout) && (initializer.kind != InoutExpr.self) {
+    if (access == .inout) && (initializer.kind != InoutExpr.self) {
       report(.error(inoutBindingRequiresMutationMarkerAt: .empty(at: initializer.site.first())))
     }
 
@@ -458,7 +463,7 @@ public struct Emitter {
       if !program.relations.areEquivalent(name.decl.type, partType) {
         if let u = ExistentialType(name.decl.type) {
           let box = emitExistential(
-            u, borrowing: capability, from: part,
+            u, borrowing: access, from: part,
             at: name.decl.site)
           part = box
         }
@@ -466,13 +471,11 @@ public struct Emitter {
 
       if isSink {
         let b = module.makeAccess(
-          [.sink, capability], from: part, correspondingTo: name.decl,
-          at: name.decl.site)
+          [.sink, access], from: part, correspondingTo: name.decl, at: name.decl.site)
         frames[name.decl] = append(b)[0]
       } else {
         let b = module.makeBorrow(
-          capability, from: part, correspondingTo: name.decl,
-          at: name.decl.site)
+          access, from: part, correspondingTo: name.decl, at: name.decl.site)
         frames[name.decl] = append(b)[0]
       }
     }
@@ -581,17 +584,11 @@ public struct Emitter {
       }
 
       // Otherwise, move initialize each property.
-      for (i, p) in layout.properties.enumerated() {
+      for i in layout.properties.indices {
         let source = emitElementAddr(argument, at: [i], at: site)
-        let part = append(module.makeLoad(source, at: site))[0]
         let target = emitElementAddr(receiver, at: [i], at: site)
-
-        if p.type.base is BuiltinType {
-          append(module.makeStore(part, at: target, at: site))
-        } else {
-          let c = program.conformanceToMovable(of: p.type, exposedTo: scope)!
-          emitMove(.set, of: part, to: target, withConformanceToMovable: c, at: site)
-        }
+        let part = append(module.makeLoad(source, at: site))[0]
+        emitStore(value: part, to: target, at: site)
       }
 
     default:
@@ -681,21 +678,10 @@ public struct Emitter {
     }
 
     // The RHS is evaluated before the LHS.
-    var rhs = emitStore(value: stmt.right)
-    rhs = append(module.makeLoad(rhs, at: stmt.site))[0]
-    let lhs = emitLValue(stmt.left)
-
-    let t = program.relations.canonical(stmt.left.type)
-
-    // Built-in types do not require deinitialization.
-    if t.base is BuiltinType {
-      emitStore(value: rhs, to: lhs, at: stmt.site)
-      return
-    }
-
-    // The LHS can be assumed to conform to `Movable` if type checking passed.
-    let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
-    append(module.makeMove(rhs, to: lhs, usingConformance: c, at: stmt.site))
+    let x0 = emitStore(value: stmt.right)
+    let x1 = append(module.makeLoad(x0, at: stmt.site))[0]
+    let x2 = emitLValue(stmt.left)
+    emitStore(value: x1, to: x2, at: stmt.site)
   }
 
   private mutating func emit(braceStmt stmt: BraceStmt.Typed) {
@@ -1068,10 +1054,7 @@ public struct Emitter {
   private mutating func emitStore(tupleMember e: TupleMemberExpr.Typed, to storage: Operand) {
     let x0 = emitLValue(tupleMember: e)
     let x1 = append(module.makeLoad(x0, at: e.site))[0]
-
-    let t = module.type(of: storage).ast
-    let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
-    emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: e.site)
+    emitStore(value: x1, to: storage, at: e.site)
   }
 
   /// Writes the value of `literal` to `storage`.
@@ -1283,7 +1266,7 @@ public struct Emitter {
       storage = emitLValue(syntax)
     }
 
-    return emitTake(parameter.access, on: storage, at: argumentSite)
+    return emitAcquire(parameter.access, on: storage, at: argumentSite)
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.
@@ -1303,7 +1286,7 @@ public struct Emitter {
       storage = emitLValue(program[e])
     }
 
-    return emitTake(access, on: storage, at: program.ast.site(of: e))
+    return emitAcquire(access, on: storage, at: program.ast.site(of: e))
   }
 
   /// Emits the IR of a call to `f` with given `arguments` at `site`.
@@ -1528,15 +1511,15 @@ public struct Emitter {
     }
   }
 
-  /// Returns an existential container of type `t` borrowing `capability` from `witness`.
+  /// Returns an existential container of type `t` borrowing `access` on `witness`.
   private mutating func emitExistential(
-    _ t: ExistentialType, borrowing capability: AccessEffect, from witness: Operand,
+    _ t: ExistentialType, borrowing access: AccessEffect, from witness: Operand,
     at site: SourceRange
   ) -> Operand {
     let witnessTable = emitWitnessTable(of: module.type(of: witness).ast, usedIn: insertionScope!)
     let g = PointerConstant(module.syntax.id, module.addGlobal(witnessTable))
 
-    let x0 = append(module.makeBorrow(capability, from: witness, at: site))[0]
+    let x0 = append(module.makeBorrow(access, from: witness, at: site))[0]
     let x1 = append(module.makeWrapAddr(x0, .constant(g), as: t, at: site))[0]
     return x1
   }
@@ -1696,8 +1679,8 @@ public struct Emitter {
 
   // MARK: Helpers
 
-  /// Inserts the IR for taking given `access` on `source` at `site`.
-  private mutating func emitTake(
+  /// Inserts the IR for aquiring `access` on `source` at `site`.
+  private mutating func emitAcquire(
     _ access: AccessEffect, on source: Operand, at site: SourceRange
   ) -> Operand {
     switch access {
