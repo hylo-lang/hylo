@@ -64,6 +64,8 @@ extension Module {
           pc = interpret(store: user, in: &context)
         case is UnrechableInstruction:
           pc = successor(of: user)
+        case is UnsafeCastInstruction:
+          pc = interpret(unsafeCast: user, in: &context)
         case is WrapAddrInstruction:
           pc = interpret(wrapAddr: user, in: &context)
         case is YieldInstruction:
@@ -373,6 +375,14 @@ extension Module {
         assert(o.value.initializedPaths.isEmpty || o.layout.type.isBuiltin)
         o.value = .full(.initialized)
       }
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(unsafeCast i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! UnsafeCastInstruction
+      consume(s.source, with: i, at: s.site, in: &context)
+      initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
 
