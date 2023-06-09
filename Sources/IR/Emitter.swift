@@ -224,15 +224,21 @@ public struct Emitter {
         returning: .object(returnType), applying: d.foreignName!, to: arguments, at: d.site))[0]
 
     // Convert the result of the FFI to its Val representation and return it.
-    if returnType.isVoidOrNever {
+    switch returnType {
+    case .never:
+      append(module.makeUnreachable(at: d.site))
+
+    case .void:
       emitStore(value: .void, to: returnValue!, at: d.site)
-    } else {
+      emitStackDeallocs(site: d.site)
+      append(module.makeReturn(at: d.site))
+
+    default:
       let v = emitConvert(foreign: foreignResult, to: returnType, at: d.site)
       emitStore(value: v, to: returnValue!, at: d.site)
+      emitStackDeallocs(site: d.site)
+      append(module.makeReturn(at: d.site))
     }
-
-    emitStackDeallocs(site: d.site)
-    append(module.makeReturn(at: d.site))
   }
 
   /// Inserts the IR for `d`.
