@@ -1286,7 +1286,7 @@ public struct Emitter {
       storage = emitLValue(syntax)
     }
 
-    return emitTake(parameter.access, on: storage, at: argumentSite)
+    return emitAcquire(parameter.access, on: storage, at: argumentSite)
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.
@@ -1306,7 +1306,7 @@ public struct Emitter {
       storage = emitLValue(program[e])
     }
 
-    return emitTake(access, on: storage, at: program.ast.site(of: e))
+    return emitAcquire(access, on: storage, at: program.ast.site(of: e))
   }
 
   /// Emits the IR of a call to `f` with given `arguments` at `site`.
@@ -1699,8 +1699,8 @@ public struct Emitter {
 
   // MARK: Helpers
 
-  /// Inserts the IR for taking given `access` on `source` at `site`.
-  private mutating func emitTake(
+  /// Inserts the IR for aquiring `access` on `source` at `site`.
+  private mutating func emitAcquire(
     _ access: AccessEffect, on source: Operand, at site: SourceRange
   ) -> Operand {
     switch access {
