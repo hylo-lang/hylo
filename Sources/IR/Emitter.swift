@@ -363,7 +363,6 @@ public struct Emitter {
   private mutating func lower(body s: BraceStmt.Typed, of d: SubscriptImpl.Typed, in f: Frame) {
     switch pushing(f, { $0.emit(braceStmt: s) }) {
     case .next:
-      emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: s.site))
       append(module.makeReturn(at: .empty(atEndOf: s.site)))
 
     case .return(let s):
