@@ -156,6 +156,15 @@ public struct TypedProgram: Program {
     }
   }
 
+  /// Returns the conformance of `model` to `Val.Deinitializable` exposed to `useScope` or `nil` if
+  /// no such conformance exists.
+  public func conformanceToDeinitializable(
+    of model: AnyType, exposedTo useScope: AnyScopeID
+  ) -> Conformance? {
+    conformance(of: model, to: ast.deinitializableTrait, exposedTo: useScope)
+  }
+
+
   /// Returns the conformance of `model` to `Val.Movable` exposed to `useScope` or `nil` if no such
   /// conformance exists.
   public func conformanceToMovable(
