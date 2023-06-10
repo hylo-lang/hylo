@@ -1017,13 +1017,19 @@ public struct TypeChecker {
     return viableCandidates.uniqueElement
   }
 
-  /// Returns the synthesized implementation of requirement `r` for type `t` in given `scope`, or
-  /// `nil` if `r` is not synthesizable.
+  /// Returns the synthesized implementation of requirement `r` for type `t` in given `useScope`,
+  /// or `nil` if `r` is not synthesizable.
   private func synthesizedImplementation<T: DeclID>(
-    of r: T, for t: AnyType, in scope: AnyScopeID
+    of r: T, for t: AnyType, in useScope: AnyScopeID
   ) -> SynthesizedDecl? {
     guard let s = program.innermostType(containing: r).map(TraitDecl.ID.init(_:)) else {
       return nil
+    }
+
+    // If the requirement is defined in `Destructible`, it must be the deinitialization method.
+    if s == ast.deinitializableTrait.decl {
+      assert(r.kind == FunctionDecl.self)
+      return .init(.deinitialize, for: t, in: useScope)
     }
 
     // If the requirement is defined in `Movable`, it must be either the move-initialization or
@@ -1032,18 +1038,18 @@ public struct TypeChecker {
       let d = MethodImpl.ID(r)!
       switch ast[d].introducer.value {
       case .set:
-        return .init(.moveInitialization, for: t, in: scope)
+        return .init(.moveInitialization, for: t, in: useScope)
       case .inout:
-        return .init(.moveAssignment, for: t, in: scope)
+        return .init(.moveAssignment, for: t, in: useScope)
       default:
         unreachable()
       }
     }
 
-    // If the requirement is defined in `Copyable`, it must me the copy method.
+    // If the requirement is defined in `Copyable`, it must be the copy method.
     if s == ast.copyableTrait.decl {
       assert(r.kind == FunctionDecl.self)
-      return .init(.copy, for: t, in: scope)
+      return .init(.copy, for: t, in: useScope)
     }
 
     // Requirement is not synthesizable.
