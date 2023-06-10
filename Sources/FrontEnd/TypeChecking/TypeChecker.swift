@@ -932,7 +932,7 @@ public struct TypeChecker {
         implementations[d] = .concrete(c)
       } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
         implementations[d] = .synthetic(i)
-        synthesizedDecls[program.module(containing: d), default: []].append(i)
+        synthesizedDecls[program.module(containing: source), default: []].append(i)
       } else {
         notes.insert(
           .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
