@@ -581,9 +581,9 @@ public struct Emitter {
   private mutating func lower(synthesized d: SynthesizedDecl) -> Function.ID {
     switch d.kind {
     case .moveInitialization:
-      return lowerSynthesizedMoveInitImplementation(typed: .init(d.type)!, in: d.scope)
+      return lowerSynthesizedMoveInit(typed: .init(d.type)!, in: d.scope)
     case .moveAssignment:
-      return lowerSynthesizedMoveAssignImplementation(typed: .init(d.type)!, in: d.scope)
+      return lowerSynthesizedMoveAssign(typed: .init(d.type)!, in: d.scope)
     case .copy:
       fatalError("not implemented")
     }
@@ -591,7 +591,7 @@ public struct Emitter {
 
   /// Synthesizes the implementation of `t`'s move initialization operator in `scope`, returning
   /// the ID of the corresponding IR function.
-  private mutating func lowerSynthesizedMoveInitImplementation(
+  private mutating func lowerSynthesizedMoveInit(
     typed t: LambdaType, in scope: AnyScopeID
   ) -> Function.ID {
     let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
@@ -645,7 +645,7 @@ public struct Emitter {
 
   /// Synthesizes the implementation of `t`'s move assignment operator in `scope`, returning the ID
   /// of the corresponding IR function.
-  private mutating func lowerSynthesizedMoveAssignImplementation(
+  private mutating func lowerSynthesizedMoveAssign(
     typed t: LambdaType, in scope: AnyScopeID
   ) -> Function.ID {
     let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
