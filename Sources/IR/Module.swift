@@ -211,6 +211,20 @@ public struct Module {
     return f
   }
 
+  /// Returns the identity of the Val IR function implementing the deinitializer defined in
+  /// conformance `c`.
+  mutating func demandDeinitDeclaration(from c: Conformance) -> Function.ID {
+    let d = program.ast.deinitRequirement()
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+    case .synthetic(let s):
+      let f = Function.ID(synthesized: d, for: s.type)
+      declareSyntheticFunction(f, typed: LambdaType(s.type)!)
+      return f
+    }
+  }
+
   /// Returns the identity of the Val IR function implementing the `k` variant move-operator
   /// defined in conformance `c`.
   ///

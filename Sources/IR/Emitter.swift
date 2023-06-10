@@ -580,6 +580,8 @@ public struct Emitter {
   @discardableResult
   private mutating func lower(synthesized d: SynthesizedDecl) -> Function.ID {
     switch d.kind {
+    case .deinitialize:
+      return lower(syntheticDeinitializer: d)
     case .moveInitialization:
       return lowerSynthesizedMoveInit(typed: .init(d.type)!, in: d.scope)
     case .moveAssignment:
@@ -587,6 +589,52 @@ public struct Emitter {
     case .copy:
       fatalError("not implemented")
     }
+  }
+
+  /// Inserts the IR for `d`, which is a synthetic deinitializer, returning the ID of the lowered
+  /// function.
+  private mutating func lower(syntheticDeinitializer d: SynthesizedDecl) -> Function.ID {
+    let t = LambdaType(d.type)!
+    let f = Function.ID(synthesized: program.ast.deinitRequirement(), for: ^t)
+    module.declareSyntheticFunction(f, typed: t)
+    if (module[f].entry != nil) || (program.module(containing: d.scope) != module.syntax.id) {
+      return f
+    }
+
+    let site = module.syntax.site
+    let entry = module.appendEntry(in: d.scope, to: f)
+    insertionBlock = entry
+    self.frames.push()
+    defer {
+      self.frames.pop()
+      assert(self.frames.isEmpty)
+    }
+
+    let receiver = Operand.parameter(entry, 0)
+
+    switch program.relations.canonical(t.output).base {
+    case is ProductType, is TupleType:
+      let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
+
+      // If the object is empty, simply mark it uninitialized.
+      if layout.properties.isEmpty {
+        fatalError("not implemented")
+      }
+
+      // Otherwise, deinitialize each property.
+      for i in layout.properties.indices {
+        let x0 = emitElementAddr(receiver, at: [i], at: site)
+        emitDeinit(x0, at: site)
+      }
+
+    default:
+      fatalError("not implemented")
+    }
+
+    emitStore(value: .void, to: returnValue!, at: site)
+    emitDeallocTopFrame(at: site)
+    append(module.makeReturn(at: site))
+    return f
   }
 
   /// Synthesizes the implementation of `t`'s move initialization operator in `scope`, returning
@@ -643,8 +691,8 @@ public struct Emitter {
     return f
   }
 
-  /// Synthesizes the implementation of `t`'s move assignment operator in `scope`, returning the ID
-  /// of the corresponding IR function.
+  /// Synthesizes the implementation of `t`'s move assignment operator in `scope`, returning the
+  /// ID of the corresponding IR function.
   private mutating func lowerSynthesizedMoveAssign(
     typed t: LambdaType, in scope: AnyScopeID
   ) -> Function.ID {
@@ -1834,6 +1882,33 @@ public struct Emitter {
   ) -> Operand {
     if path.isEmpty { return base }
     return append(module.makeElementAddr(base, at: path, at: site))[0]
+  }
+
+  /// Inserts the IR for deinitializing `storage`, anchoring new instructions at `site`.
+  private mutating func emitDeinit(_ storage: Operand, at site: SourceRange) {
+    let t = module.type(of: storage).ast
+
+    // Deinitialization of built-in types is a no-op.
+    if t.isBuiltin { return }
+
+    let c = program.conformanceToDeinitializable(of: t, exposedTo: insertionScope!)!
+    emitDeinit(storage, withConformanceToDeinitializable: c, at: site)
+  }
+
+  /// Inserts the IR for deinitializing `storage`, using `c` to identify the implementations of its
+  /// deinitializer and anchoring new instructions at `site`.
+  private mutating func emitDeinit(
+    _ storage: Operand,
+    withConformanceToDeinitializable c: Conformance,
+    at site: SourceRange
+  ) {
+    let d = module.demandDeinitDeclaration(from: c)
+    let f = Operand.constant(FunctionReference(to: d, usedIn: c.scope, in: module))
+
+    let x0 = append(module.makeLoad(storage, at: site))[0]
+    let x1 = emitAllocStack(for: .void, at: site)
+    let x2 = append(module.makeBorrow(.set, from: x1, at: site))[0]
+    append(module.makeCall(applying: f, to: [x0], writingResultTo: x2, at: site))
   }
 
   /// Appends the IR for a call to move-initialize/assign `storage` with `value`, using `c` to
