@@ -21,6 +21,8 @@ public conformance Float: ExpressibleByFloatLiteral {}
 
 public conformance Float: ExpressibleByIntegerLiteral {}
 
+public conformance Float: Deinitializable {}
+
 public conformance Float: Copyable {
 
   public fun copy() -> Self {

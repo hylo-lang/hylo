@@ -76,6 +76,8 @@ public type Int {
 
 public conformance Int: ExpressibleByIntegerLiteral {}
 
+public conformance Int: Deinitializable {}
+
 public conformance Int: Copyable {
 
   public fun copy() -> Self {

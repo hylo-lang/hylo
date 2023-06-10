@@ -17,6 +17,8 @@ public type RawPointer {
 
 }
 
+public conformance RawPointer: Deinitializable {}
+
 public conformance RawPointer: Copyable {
 
   public fun copy() -> Self {
