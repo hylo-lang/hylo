@@ -161,6 +161,11 @@ public struct AST {
     }
   }
 
+  /// `Val.Deinitializable` trait from the Core library.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public var deinitializableTrait: TraitType { coreTrait("Deinitializable")! }
+
   /// `Val.Movable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
@@ -223,6 +228,12 @@ public struct AST {
         return nil
       }
     })
+  }
+
+  /// Returns the declaration of `Deinitializable.deinit`.
+  public func deinitRequirement() -> FunctionDecl.ID {
+    let d = requirements(Name(stem: "deinit"), in: deinitializableTrait.decl)
+    return FunctionDecl.ID(d[0])!
   }
 
   /// Returns the declaration of `Movable.take_value`'s requirement for variant `access`.
