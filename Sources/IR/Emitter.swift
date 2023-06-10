@@ -618,7 +618,8 @@ public struct Emitter {
 
       // If the object is empty, simply mark it uninitialized.
       if layout.properties.isEmpty {
-        fatalError("not implemented")
+        append(module.makeMarkState(receiver, initialized: false, at: site))
+        break
       }
 
       // Otherwise, deinitialize each property.

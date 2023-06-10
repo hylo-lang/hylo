@@ -128,6 +128,8 @@ extension Module {
         rewrite(llvm: i, to: b)
       case is LoadInstruction:
         rewrite(load: i, to: b)
+      case is MarkStateInstruction:
+        rewrite(markState: i, to: b)
       case is PointerToAddressInstruction:
         rewrite(pointerToAddress: i, to: b)
       case is ReturnInstruction:
@@ -243,11 +245,19 @@ extension Module {
       append(makeLLVM(applying: s.instruction, to: o, at: s.site), to: b)
     }
 
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(markState i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! MarkStateInstruction
+      append(makeMarkState(rewritten(s.storage), initialized: s.initialized, at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(load i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! LoadInstruction
       append(makeLoad(rewritten(s.source), at: s.site), to: b)
     }
 
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(pointerToAddress i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! PointerToAddressInstruction
       let t = program.monomorphize(^s.target, for: r.arguments)

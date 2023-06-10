@@ -50,6 +50,8 @@ extension Module {
           pc = interpret(llvm: user, in: &context)
         case is LoadInstruction:
           pc = interpret(load: user, in: &context)
+        case is MarkStateInstruction:
+          pc = interpret(markState: user, in: &context)
         case is MoveInstruction:
           pc = interpret(move: user, in: &context)
         case is PartialApplyInstruction:
@@ -290,6 +292,20 @@ extension Module {
       }
 
       initializeRegisters(createdBy: i, in: &context)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(markState i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! MarkStateInstruction
+
+      let locations = context.locals[s.storage]!.unwrapLocations()!
+      for l in locations {
+        context.withObject(at: l) { (o) in
+          o.value = .full(s.initialized ? .initialized : .uninitialized)
+        }
+      }
+
       return successor(of: i)
     }
 
