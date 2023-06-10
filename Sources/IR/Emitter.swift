@@ -156,7 +156,8 @@ public struct Emitter {
     // Emit the body.
     switch b {
     case .block(let s):
-      pushing(bodyFrame, { $0.emit(braceStmt: s) })
+      lower(body: s, of: d, in: bodyFrame)
+
     case .expr(let e):
       pushing(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
       append(module.makeReturn(at: e.site))
@@ -194,17 +195,38 @@ public struct Emitter {
     return Frame(locals: locals)
   }
 
+  /// Inserts the IR for `b`, which is the body of `d` and is enclosed in frame `f`.
+  private mutating func lower(body s: BraceStmt.Typed, of d: FunctionDecl.Typed, in f: Frame) {
+    switch pushing(f, { $0.emit(braceStmt: s) }) {
+    case .next:
+      if !module[insertionBlock!.function].output.isVoidOrNever {
+        report(.error(missingReturn: LambdaType(d.type)!.output, at: .empty(atEndOf: s.site)))
+      } else {
+        emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: s.site))
+        append(module.makeReturn(at: .empty(atEndOf: s.site)))
+      }
+
+    case .return(let s):
+      append(module.makeReturn(at: program.ast[s].site))
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
   /// Inserts the IR for calling `d`, which is a foreign function interface.
   private mutating func lower(ffi d: FunctionDecl.Typed) {
     let f = module.demandFunctionDeclaration(lowering: d)
 
-    // Create the function entry.
+    // Configure the emitter context.
     let entry = module.appendEntry(in: d.id, to: f)
 
-    // Configure the emitter context.
+    let r = self.receiver
     self.insertionBlock = entry
+    self.receiver = nil
     self.frames.push()
     defer {
+      self.receiver = r
       self.frames.pop()
       assert(self.frames.isEmpty)
     }
@@ -230,13 +252,13 @@ public struct Emitter {
 
     case .void:
       emitStore(value: .void, to: returnValue!, at: d.site)
-      emitStackDeallocs(site: d.site)
+      emitDeallocTopFrame(at: d.site)
       append(module.makeReturn(at: d.site))
 
     default:
       let v = emitConvert(foreign: foreignResult, to: returnType, at: d.site)
       emitStore(value: v, to: returnValue!, at: d.site)
-      emitStackDeallocs(site: d.site)
+      emitDeallocTopFrame(at: d.site)
       append(module.makeReturn(at: d.site))
     }
   }
@@ -261,12 +283,20 @@ public struct Emitter {
     let r = self.receiver
     insertionBlock = entry
     receiver = program[d.receiver]
-    defer {
-      receiver = r
-    }
+    defer { receiver = r }
 
     // Emit the body.
-    pushing(Frame(locals: locals), { $0.emit(braceStmt: d.body!) })
+    switch pushing(Frame(locals: locals), { $0.emit(braceStmt: d.body!) }) {
+    case .next:
+      emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: d.site))
+      append(module.makeReturn(at: .empty(atEndOf: d.site)))
+
+    case .return(let s):
+      append(module.makeReturn(at: program.ast[s].site))
+
+    default:
+      fatalError("not implemented")
+    }
   }
 
   /// Inserts the IR for `d`.
@@ -308,26 +338,38 @@ public struct Emitter {
     }
 
     // Configure the emitter context.
+    let r = self.receiver
     self.insertionBlock = entry
     self.receiver = d.receiver
-    self.frames.push(.init(locals: locals))
-    defer {
-      self.frames.pop()
-      assert(self.frames.isEmpty)
-    }
+    defer { receiver = r }
 
     // Emit the body.
     switch b {
     case .block(let s):
-      emit(stmt: program[s])
+      lower(body: program[s], of: d, in: Frame(locals: locals))
 
     case .expr(let e):
-      let s = emitLValue(program[e])
-      let b = append(
-        module.makeBorrow(d.introducer.value, from: s, at: program.ast[e].site))[0]
-      append(module.makeYield(d.introducer.value, b, at: program.ast[e].site))
-      emitStackDeallocs(site: program.ast[e].site)
+      pushing(Frame(locals: locals)) { (this) in
+        let x0 = this.emitLValue(this.program[e])
+        let x1 = this.append(
+          this.module.makeBorrow(d.introducer.value, from: x0, at: this.program.ast[e].site))[0]
+        this.append(this.module.makeYield(d.introducer.value, x1, at: this.program.ast[e].site))
+      }
       append(module.makeReturn(at: program.ast[e].site))
+    }
+  }
+
+  /// Inserts the IR for `b`, which is the body of `d` and is enclosed in `bodyFrame`.
+  private mutating func lower(body s: BraceStmt.Typed, of d: SubscriptImpl.Typed, in f: Frame) {
+    switch pushing(f, { $0.emit(braceStmt: s) }) {
+    case .next:
+      append(module.makeReturn(at: .empty(atEndOf: s.site)))
+
+    case .return(let s):
+      append(module.makeReturn(at: program.ast[s].site))
+
+    default:
+      fatalError("not implemented")
     }
   }
 
@@ -596,7 +638,7 @@ public struct Emitter {
     }
 
     emitStore(value: .void, to: returnValue!, at: site)
-    emitStackDeallocs(site: site)
+    emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
     return f
   }
@@ -634,164 +676,243 @@ public struct Emitter {
     emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
 
     emitStore(value: .void, to: returnValue!, at: site)
-    emitStackDeallocs(site: site)
+    emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
     return f
   }
 
   // MARK: Statements
 
-  /// Inserts the IR for `stmt`.
-  private mutating func emit<ID: StmtID>(stmt: ID.TypedNode) {
-    switch stmt.kind {
+  /// The description of the next action a program should execute.
+  private enum ControlFlow: Equatable {
+
+    /// Move to the next statement.
+    case next
+
+    /// Return from the current function.
+    case `return`(ReturnStmt.ID)
+
+    /// Break from the innermost loop.
+    case `break`
+
+    /// Continue the innermost loop.
+    case `continue`
+
+  }
+
+  /// Inserts IR for returning from current function, anchoring instructions to `s`.
+  private mutating func emitControlFlow(return s: ReturnStmt.ID) {
+    for f in frames.elements.reversed() {
+      emitDeallocs(for: f, at: program.ast[s].site)
+    }
+    append(module.makeReturn(at: program.ast[s].site))
+  }
+
+  /// Inserts the IR for `s`, returning its effect on control flow.
+  private mutating func emit<ID: StmtID>(stmt s: ID.TypedNode) -> ControlFlow {
+    switch s.kind {
     case AssignStmt.self:
-      emit(assignStmt: AssignStmt.Typed(stmt)!)
+      return emit(assignStmt: .init(s)!)
     case BraceStmt.self:
-      emit(braceStmt: BraceStmt.Typed(stmt)!)
+      return emit(braceStmt: .init(s)!)
     case ConditionalStmt.self:
-      emit(conditionalStmt: ConditionalStmt.Typed(stmt)!)
+      return emit(conditionalStmt: .init(s)!)
     case DeclStmt.self:
-      emit(declStmt: DeclStmt.Typed(stmt)!)
+      return emit(declStmt: .init(s)!)
     case DiscardStmt.self:
-      emit(discardStmt: DiscardStmt.Typed(stmt)!)
+      return emit(discardStmt: .init(s)!)
     case DoWhileStmt.self:
-      emit(doWhileStmt: DoWhileStmt.Typed(stmt)!)
+      return emit(doWhileStmt: .init(s)!)
     case ExprStmt.self:
-      emit(exprStmt: ExprStmt.Typed(stmt)!)
+      return emit(exprStmt: .init(s)!)
     case ReturnStmt.self:
-      emit(returnStmt: ReturnStmt.Typed(stmt)!)
+      return emit(returnStmt: .init(s)!)
     case WhileStmt.self:
-      emit(whileStmt: WhileStmt.Typed(stmt)!)
+      return emit(whileStmt: .init(s)!)
     case YieldStmt.self:
-      emit(yieldStmt: YieldStmt.Typed(stmt)!)
+      return emit(yieldStmt: .init(s)!)
     default:
-      unexpected(stmt)
+      unexpected(s)
     }
   }
 
-  private mutating func emit(assignStmt stmt: AssignStmt.Typed) {
+  private mutating func emit(assignStmt s: AssignStmt.Typed) -> ControlFlow {
     // The left operand of an assignment should always be marked for mutation, even if the
     // statement actually denotes initialization.
-    guard stmt.left.kind == InoutExpr.self else {
-      report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: stmt.left.site.first())))
-      return
+    guard s.left.kind == InoutExpr.self else {
+      report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: s.left.site.first())))
+      return .next
     }
 
     // The RHS is evaluated before the LHS.
-    let x0 = emitStore(value: stmt.right)
-    let x1 = append(module.makeLoad(x0, at: stmt.site))[0]
-    let x2 = emitLValue(stmt.left)
-    emitStore(value: x1, to: x2, at: stmt.site)
+    let x0 = emitStore(value: s.right)
+    let x1 = append(module.makeLoad(x0, at: s.site))[0]
+    let x2 = emitLValue(s.left)
+    emitStore(value: x1, to: x2, at: s.site)
+    return .next
   }
 
-  private mutating func emit(braceStmt stmt: BraceStmt.Typed) {
+  private mutating func emit(braceStmt s: BraceStmt.Typed) -> ControlFlow {
     frames.push()
-    for s in stmt.stmts {
-      emit(stmt: s)
+    defer {
+      emitDeallocTopFrame(at: s.site)
+      frames.pop()
     }
-    emitStackDeallocs(site: stmt.site)
-    frames.pop()
+
+    for i in s.stmts.indices {
+      let a = emit(stmt: s.stmts[i])
+      if a == .next { continue }
+
+      // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the
+      // last statement of the code block.
+      if i != s.stmts.count - 1 {
+        report(.warning(unreachableStatement: s.stmts[i + 1], in: program.ast))
+      }
+      return a
+    }
+
+    return .next
   }
 
-  private mutating func emit(conditionalStmt stmt: ConditionalStmt.Typed) {
-    let (firstBranch, secondBranch) = emitTest(condition: stmt.condition, in: AnyScopeID(stmt.id))
-    let tail: Block.ID
+  private mutating func emit(conditionalStmt s: ConditionalStmt.Typed) -> ControlFlow {
+    let (firstBranch, secondBranch) = emitTest(condition: s.condition, in: AnyScopeID(s.id))
+    let tail = module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
 
     insertionBlock = firstBranch
-    emit(braceStmt: stmt.success)
-    if let s = stmt.failure {
-      tail = module.appendBlock(in: module[firstBranch].scope, to: firstBranch.function)
-      append(module.makeBranch(to: tail, at: stmt.site))
-      insertionBlock = secondBranch
-      emit(stmt: s)
-    } else {
-      tail = secondBranch
-    }
-
-    append(module.makeBranch(to: tail, at: stmt.site))
-    insertionBlock = tail
-  }
-
-  private mutating func emit(declStmt stmt: DeclStmt.Typed) {
-    switch stmt.decl.kind {
-    case BindingDecl.self:
-      lower(localBinding: BindingDecl.Typed(stmt.decl)!)
+    switch emit(braceStmt: s.success) {
+    case .next:
+      append(module.makeBranch(to: tail, at: s.site))
+    case .return(let s):
+      emitControlFlow(return: s)
     default:
-      unexpected(stmt.decl)
+      fatalError("not implemented")
     }
+
+    insertionBlock = secondBranch
+    guard let failure = s.failure else {
+      append(module.makeBranch(to: tail, at: s.site))
+      insertionBlock = tail
+      return .next
+    }
+
+    switch emit(stmt: failure) {
+    case .next:
+      append(module.makeBranch(to: tail, at: s.site))
+    case .return(let s):
+      emitControlFlow(return: s)
+    default:
+      fatalError("not implemented")
+    }
+
+    insertionBlock = tail
+    return .next
   }
 
-  private mutating func emit(discardStmt stmt: DiscardStmt.Typed) {
-    let v = emitStore(value: stmt.expr)
-    append(module.makeDeinit(v, at: stmt.site))
+  private mutating func emit(declStmt s: DeclStmt.Typed) -> ControlFlow {
+    switch s.decl.kind {
+    case BindingDecl.self:
+      lower(localBinding: BindingDecl.Typed(s.decl)!)
+    default:
+      unexpected(s.decl)
+    }
+    return .next
   }
 
-  private mutating func emit(doWhileStmt stmt: DoWhileStmt.Typed) {
-    let loopBody = module.appendBlock(in: stmt.body.id, to: insertionBlock!.function)
-    let loopTail = module.appendBlock(in: stmt.body.id, to: insertionBlock!.function)
-    append(module.makeBranch(to: loopBody, at: .empty(at: stmt.site.first())))
+  private mutating func emit(discardStmt s: DiscardStmt.Typed) -> ControlFlow {
+    let v = emitStore(value: s.expr)
+    append(module.makeDeinit(v, at: s.site))
+    return .next
+  }
+
+  private mutating func emit(doWhileStmt s: DoWhileStmt.Typed) -> ControlFlow {
+    let loopBody = module.appendBlock(in: s.body.id, to: insertionBlock!.function)
+    let loopTail = module.appendBlock(in: s.body.id, to: insertionBlock!.function)
+    append(module.makeBranch(to: loopBody, at: .empty(at: s.site.first())))
     insertionBlock = loopBody
 
-    // Note: we're not using `emit(braceStmt:into:)` because we need to evaluate the loop
-    // condition before exiting the scope.
+    // We're not using `emit(braceStmt:into:)` because we need to evaluate the loop condition
+    // before exiting the scope.
     frames.push()
-    for s in stmt.body.stmts {
-      emit(stmt: s)
+    for i in s.body.stmts.indices {
+      let a = emit(stmt: s.body.stmts[i])
+      if a == .next { continue }
+
+      // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the
+      // last statement of the code block.
+      if i != s.body.stmts.count - 1 {
+        report(.warning(unreachableStatement: s.body.stmts[i + 1], in: program.ast))
+      }
+
+      if case .return = a {
+        return a
+      } else {
+        fatalError("not implemented")
+      }
     }
 
-    let c = emit(branchCondition: stmt.condition)
-    emitStackDeallocs(site: stmt.site)
+    let c = emit(branchCondition: s.condition)
+    emitDeallocTopFrame(at: s.site)
     frames.pop()
 
-    append(module.makeCondBranch(if: c, then: loopBody, else: loopTail, at: stmt.condition.site))
+    append(module.makeCondBranch(if: c, then: loopBody, else: loopTail, at: s.condition.site))
     insertionBlock = loopTail
+    return .next
   }
 
-  private mutating func emit(exprStmt stmt: ExprStmt.Typed) {
-    let v = emitStore(value: stmt.expr)
+  private mutating func emit(exprStmt s: ExprStmt.Typed) -> ControlFlow {
+    let v = emitStore(value: s.expr)
     if module.type(of: v).ast.isVoidOrNever {
-      append(module.makeDeinit(v, at: stmt.site))
+      append(module.makeDeinit(v, at: s.site))
     } else {
       // TODO: complain about unused value
       fatalError("not implemented")
     }
+    return .next
   }
 
-  private mutating func emit(returnStmt stmt: ReturnStmt.Typed) {
-    if let e = stmt.value {
+  private mutating func emit(returnStmt s: ReturnStmt.Typed) -> ControlFlow {
+    if let e = s.value {
       emitStore(value: e, to: returnValue!)
     } else {
-      emitStore(value: .void, to: returnValue!, at: stmt.site)
+      emitStore(value: .void, to: returnValue!, at: s.site)
     }
 
-    emitStackDeallocs(site: stmt.site)
-    append(module.makeReturn(at: stmt.site))
+    // The return instruction is emitted by the caller handling this control-flow effect.
+    return .return(s.id)
   }
 
-  private mutating func emit(whileStmt stmt: WhileStmt.Typed) {
+  private mutating func emit(whileStmt s: WhileStmt.Typed) -> ControlFlow {
     // Enter the loop.
-    let head = module.appendBlock(in: stmt.id, to: insertionBlock!.function)
-    append(module.makeBranch(to: head, at: .empty(at: stmt.site.first())))
+    let head = module.appendBlock(in: s.id, to: insertionBlock!.function)
+    append(module.makeBranch(to: head, at: .empty(at: s.site.first())))
 
     // Test the conditions.
     insertionBlock = head
-    let (body, exit) = emitTest(condition: stmt.condition, in: AnyScopeID(stmt.id))
+    let (body, exit) = emitTest(condition: s.condition, in: AnyScopeID(s.id))
 
     // Execute the body.
     insertionBlock = body
-    emit(braceStmt: stmt.body)
-    append(module.makeBranch(to: head, at: .empty(at: stmt.site.first())))
+    switch emit(stmt: s.body) {
+    case .next:
+      append(module.makeBranch(to: head, at: .empty(atEndOf: s.body.site)))
+    case .return(let s):
+      emitControlFlow(return: s)
+    default:
+      fatalError("not implemented")
+    }
 
     // Exit.
     insertionBlock = exit
+    return .next
   }
 
-  private mutating func emit(yieldStmt stmt: YieldStmt.Typed) {
+  private mutating func emit(yieldStmt s: YieldStmt.Typed) -> ControlFlow {
     // TODO: Read mutability of current subscript
 
-    let s = emitLValue(program[stmt.value])
-    let b = append(module.makeBorrow(.let, from: s, at: stmt.site))[0]
-    append(module.makeYield(.let, b, at: stmt.site))
+    let x0 = emitLValue(program[s.value])
+    let x1 = append(module.makeBorrow(.let, from: x0, at: s.site))[0]
+    append(module.makeYield(.let, x1, at: s.site))
+    return .next
   }
 
   // MARK: Values
@@ -1736,9 +1857,16 @@ public struct Emitter {
     append(module.makeCall(applying: move, to: [x0, value], writingResultTo: x2, at: site))
   }
 
-  /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
-  private mutating func emitStackDeallocs(site: SourceRange) {
-    while let a = frames.top.allocs.popLast() {
+  /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`, anchoring
+  /// new instructions at `site`.
+  private mutating func emitDeallocTopFrame(at site: SourceRange) {
+    emitDeallocs(for: frames.top, at: site)
+    frames.top.allocs.removeAll()
+  }
+
+  /// Inserts the IR for deallocating each allocation in `f`, anchoring new instructions at `site`.
+  private mutating func emitDeallocs(for f: Frame, at site: SourceRange) {
+    for a in f.allocs.reversed() {
       append(module.makeDeallocStack(for: a, at: site))
     }
   }
@@ -1764,7 +1892,7 @@ public struct Emitter {
   private mutating func pushing<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
     frames.push(newFrame)
     defer {
-      emitStackDeallocs(site: .empty(atEndOf: program.ast[insertionScope!].site))
+      emitDeallocTopFrame(at: .empty(atEndOf: program.ast[insertionScope!].site))
       frames.pop()
     }
     return action(&self)
@@ -1807,17 +1935,17 @@ extension Emitter {
   fileprivate struct Stack {
 
     /// The frames in the stack, ordered from bottom to top.
-    private var frames: [Frame] = []
+    private(set) var elements: [Frame] = []
 
     /// True iff the stack is empty.
-    var isEmpty: Bool { frames.isEmpty }
+    var isEmpty: Bool { elements.isEmpty }
 
     /// Accesses the top frame.
     ///
     /// - Requires: The stack is not empty.
     var top: Frame {
-      get { frames[frames.count - 1] }
-      _modify { yield &frames[frames.count - 1] }
+      get { elements[elements.count - 1] }
+      _modify { yield &elements[elements.count - 1] }
     }
 
     /// Accesses the IR corresponding to `d`.
@@ -1827,7 +1955,7 @@ extension Emitter {
     ///   for write access.
     subscript<ID: DeclID>(d: ID.TypedNode) -> Operand? {
       get {
-        for frame in frames.reversed() {
+        for frame in elements.reversed() {
           if let operand = frame.locals[d] { return operand }
         }
         return nil
@@ -1837,7 +1965,7 @@ extension Emitter {
 
     /// Pushes `newFrame` on the stack.
     mutating func push(_ newFrame: Frame = .init()) {
-      frames.append(newFrame)
+      elements.append(newFrame)
     }
 
     /// Pops the top frame.
@@ -1846,7 +1974,7 @@ extension Emitter {
     @discardableResult
     mutating func pop() -> Frame {
       precondition(top.allocs.isEmpty, "stack leak")
-      return frames.removeLast()
+      return elements.removeLast()
     }
 
   }
@@ -1874,6 +2002,14 @@ extension Diagnostic {
     at site: SourceRange
   ) -> Diagnostic {
     .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
+  }
+
+  static func error(missingReturn returnType: AnyType, at site: SourceRange) -> Diagnostic {
+    .error("missing return in function expected to return '\(returnType)'", at: site)
+  }
+
+  static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
+    .error("statement will never be executed", at: .empty(at: ast[s].site.first()))
   }
 
 }
