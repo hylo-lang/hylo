@@ -27,7 +27,6 @@ public struct Token {
     case `catch`
     case `conformance`
     case `continue`
-    case `deinit`
     case `do`
     case `else`
     case `extension`
