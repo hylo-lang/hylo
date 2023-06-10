@@ -230,13 +230,13 @@ public struct Emitter {
 
     case .void:
       emitStore(value: .void, to: returnValue!, at: d.site)
-      emitStackDeallocs(site: d.site)
+      emitDeallocTopFrame(at: d.site)
       append(module.makeReturn(at: d.site))
 
     default:
       let v = emitConvert(foreign: foreignResult, to: returnType, at: d.site)
       emitStore(value: v, to: returnValue!, at: d.site)
-      emitStackDeallocs(site: d.site)
+      emitDeallocTopFrame(at: d.site)
       append(module.makeReturn(at: d.site))
     }
   }
@@ -596,7 +596,7 @@ public struct Emitter {
     }
 
     emitStore(value: .void, to: returnValue!, at: site)
-    emitStackDeallocs(site: site)
+    emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
     return f
   }
@@ -1736,9 +1736,16 @@ public struct Emitter {
     append(module.makeCall(applying: move, to: [x0, value], writingResultTo: x2, at: site))
   }
 
-  /// Emits a deallocation instruction for each allocation in the top frame of `self.frames`.
-  private mutating func emitStackDeallocs(site: SourceRange) {
-    while let a = frames.top.allocs.popLast() {
+  /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`, anchoring
+  /// new instructions at `site`.
+  private mutating func emitDeallocTopFrame(at site: SourceRange) {
+    emitDeallocs(for: frames.top, at: site)
+    frames.top.allocs.removeAll()
+  }
+
+  /// Inserts the IR for deallocating each allocation in `f`, anchoring new instructions at `site`.
+  private mutating func emitDeallocs(for f: Frame, at site: SourceRange) {
+    for a in f.allocs.reversed() {
       append(module.makeDeallocStack(for: a, at: site))
     }
   }
@@ -1764,7 +1771,7 @@ public struct Emitter {
   private mutating func pushing<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
     frames.push(newFrame)
     defer {
-      emitStackDeallocs(site: .empty(atEndOf: program.ast[insertionScope!].site))
+      emitDeallocTopFrame(at: .empty(atEndOf: program.ast[insertionScope!].site))
       frames.pop()
     }
     return action(&self)
