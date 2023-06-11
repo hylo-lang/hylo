@@ -137,8 +137,10 @@ public struct TypedProgram: Program {
 
     case let u as ProductType:
       return self[u.decl].members.flatMap { (m) in
-        BindingDecl.Typed(m).map { (b) in
-          b.pattern.names.lazy.map({ (_, name) in (name.decl.baseName, name.decl.type) })
+        BindingDecl.ID(m).map { (b) in
+          ast.names(in: ast[b].pattern).map { (_, name) in
+            (ast[ast[name].decl].baseName, declTypes[ast[name].decl]!)
+          }
         } ?? []
       }
 
