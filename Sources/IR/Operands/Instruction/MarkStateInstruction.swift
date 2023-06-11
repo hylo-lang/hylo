@@ -30,6 +30,15 @@ public struct MarkStateInstruction: Instruction {
 
 }
 
+extension MarkStateInstruction: CustomStringConvertible {
+
+  public var description: String {
+    let s = initialized ? "initialized" : "deinitialized"
+    return "mark_state \(s) \(storage)"
+  }
+
+}
+
 extension Module {
 
   /// Creates a `mark_state` instruction anchored at `site` that marks `storage` has being fully
