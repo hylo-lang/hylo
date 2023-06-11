@@ -846,42 +846,12 @@ public struct TypeChecker {
   ) -> Conformance? {
     let useScope = AnyScopeID(source)
     let specializations: GenericArguments = [ast[trait.decl].selfParameterDecl: model]
+
+    // Check the trait's requirements.
     var implementations = Conformance.ImplementationMap()
     var notes: DiagnosticSet = []
-
-    // Get the set of generic parameters defined by `trait`.
     for m in ast[trait.decl].members {
-      switch m.kind {
-      case GenericParameterDecl.self:
-        assert(m == ast[trait.decl].selfParameterDecl, "unexpected declaration")
-        continue
-
-      case AssociatedTypeDecl.self:
-        // TODO: Implement me.
-        continue
-
-      case AssociatedValueDecl.self:
-        // TODO: Implement me.
-        continue
-
-      case FunctionDecl.self:
-        checkSatisfied(function: .init(m)!)
-
-      case InitializerDecl.self:
-        checkSatisfied(initializer: .init(m)!)
-
-      case MethodDecl.self:
-        let r = MethodDecl.ID(m)!
-        let n = Name(of: r, in: ast)
-        ast[r].impls.forEach({ checkSatisfied(variant: $0, inMethod: n) })
-
-      case SubscriptDecl.self:
-        // TODO: Implement me.
-        continue
-
-      default:
-        unreachable()
-      }
+      checkStatisifed(requirement: m)
     }
 
     if !notes.isEmpty {
@@ -895,11 +865,48 @@ public struct TypeChecker {
       (s.kind == TranslationUnit.self) ? AnyScopeID(program.module(containing: s)) : s
     }
 
+    // FIXME: Use bound generic parameters as conditions
+    let m = BoundGenericType(model).map(\.base) ?? model
     return Conformance(
-      model: model, concept: trait, conditions: [],
+      model: m, concept: trait, arguments: [:], conditions: [],
       source: AnyDeclID(source), scope: expositionScope,
       implementations: implementations,
       site: declSite)
+
+    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
+    /// reporting a diagnostic in `notes` otherwise.
+    func checkStatisifed(requirement d: AnyDeclID) {
+      switch d.kind {
+      case GenericParameterDecl.self:
+        assert(d == ast[trait.decl].selfParameterDecl, "unexpected declaration")
+
+      case AssociatedTypeDecl.self:
+        // TODO: Implement me.
+        break
+
+      case AssociatedValueDecl.self:
+        // TODO: Implement me.
+        break
+
+      case FunctionDecl.self:
+        checkSatisfied(function: .init(d)!)
+
+      case InitializerDecl.self:
+        checkSatisfied(initializer: .init(d)!)
+
+      case MethodDecl.self:
+        let r = MethodDecl.ID(d)!
+        let n = Name(of: r, in: ast)
+        ast[r].impls.forEach({ checkSatisfied(variant: $0, inMethod: n) })
+
+      case SubscriptDecl.self:
+        // TODO: Implement me.
+        break
+
+      default:
+        unreachable()
+      }
+    }
 
     /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.

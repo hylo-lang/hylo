@@ -178,8 +178,22 @@ public struct TypedProgram: Program {
   public func conformance(
     of model: AnyType, to concept: TraitType, exposedTo useScope: AnyScopeID
   ) -> Conformance? {
+    let m = relations.canonical(model)
+
+    // `A<X>: T` iff `A: T` whose conditions are satisfied by `X`.
+    if let t = BoundGenericType(m) {
+      guard let c = conformance(of: t.base, to: concept, exposedTo: useScope) else {
+        return nil
+      }
+
+      // TODO: translate generic arguments to conditions
+      return .init(
+        model: t.base, concept: concept, arguments: t.arguments, conditions: [],
+        source: c.source, scope: c.scope, implementations: c.implementations, site: c.site)
+    }
+
     guard
-      let allConformances = relations.conformances[relations.canonical(model)],
+      let allConformances = relations.conformances[m],
       let conformancesToConcept = allConformances[concept]
     else { return nil }
 
