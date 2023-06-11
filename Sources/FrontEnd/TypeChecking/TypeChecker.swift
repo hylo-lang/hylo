@@ -179,10 +179,13 @@ public struct TypeChecker {
         result.formUnion(e.conformedTraits(of: type))
       }
 
+    case let t as BoundGenericType:
+      result.formUnion(conformedTraits(of: t.base, in: useScope))
+
     case let t as ProductType:
       let s = program.declToScope[t.decl]!
-      for t in realize(conformances: ast[t.decl].conformances, in: s) {
-        result.formUnion(conformedTraits(of: ^t, in: s))
+      for u in realize(conformances: ast[t.decl].conformances, in: s) {
+        result.formUnion(conformedTraits(of: ^u, in: s))
       }
 
     case let t as TraitType:
