@@ -38,6 +38,11 @@ public struct Emitter {
     self.program = program
   }
 
+  /// The AST of the program being lowered.
+  private var ast: AST {
+    program.ast
+  }
+
   /// The scope corresponding to the current insertion block.
   private var insertionScope: AnyScopeID? {
     insertionBlock.map({ module[$0].scope })
@@ -81,7 +86,7 @@ public struct Emitter {
     }
 
     // Lower the top-level declarations.
-    for u in program.ast.topLevelDecls(d) {
+    for u in ast.topLevelDecls(d) {
       lower(topLevel: program[u])
     }
 
@@ -207,7 +212,7 @@ public struct Emitter {
       }
 
     case .return(let s):
-      append(module.makeReturn(at: program.ast[s].site))
+      append(module.makeReturn(at: ast[s].site))
 
     default:
       fatalError("not implemented")
@@ -292,7 +297,7 @@ public struct Emitter {
       append(module.makeReturn(at: .empty(atEndOf: d.site)))
 
     case .return(let s):
-      append(module.makeReturn(at: program.ast[s].site))
+      append(module.makeReturn(at: ast[s].site))
 
     default:
       fatalError("not implemented")
@@ -352,10 +357,10 @@ public struct Emitter {
       pushing(Frame(locals: locals)) { (this) in
         let x0 = this.emitLValue(this.program[e])
         let x1 = this.append(
-          this.module.makeBorrow(d.introducer.value, from: x0, at: this.program.ast[e].site))[0]
-        this.append(this.module.makeYield(d.introducer.value, x1, at: this.program.ast[e].site))
+          this.module.makeBorrow(d.introducer.value, from: x0, at: this.ast[e].site))[0]
+        this.append(this.module.makeYield(d.introducer.value, x1, at: this.ast[e].site))
       }
-      append(module.makeReturn(at: program.ast[e].site))
+      append(module.makeReturn(at: ast[e].site))
     }
   }
 
@@ -366,7 +371,7 @@ public struct Emitter {
       append(module.makeReturn(at: .empty(atEndOf: s.site)))
 
     case .return(let s):
-      append(module.makeReturn(at: program.ast[s].site))
+      append(module.makeReturn(at: ast[s].site))
 
     default:
       fatalError("not implemented")
@@ -439,7 +444,7 @@ public struct Emitter {
     // Declare each introduced name and initialize them if possible.
     let lhs = d.pattern.subpattern.id
     if let initializer = d.initializer {
-      program.ast.walking(pattern: lhs, expression: initializer.id) { (path, p, rhs) in
+      ast.walking(pattern: lhs, expression: initializer.id) { (path, p, rhs) in
         // Declare the introduced name if `p` is a name pattern. Otherwise, drop the value of the
         // the corresponding expression.
         if let name = NamePattern.ID(p) {
@@ -447,11 +452,11 @@ public struct Emitter {
           emitStore(value: program[rhs], to: part)
         } else {
           let part = emitStore(value: program[rhs])
-          emitDeinit(part, at: program.ast[p].site)
+          emitDeinit(part, at: ast[p].site)
         }
       }
     } else {
-      for (path, name) in program.ast.names(in: lhs) {
+      for (path, name) in ast.names(in: lhs) {
         _ = declare(name: program[name], referringTo: path)
       }
     }
@@ -595,7 +600,7 @@ public struct Emitter {
   /// function.
   private mutating func lower(syntheticDeinit d: SynthesizedDecl) -> Function.ID {
     let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: program.ast.deinitRequirement(), for: ^t)
+    let f = Function.ID(synthesized: ast.deinitRequirement(), for: ^t)
     module.declareSyntheticFunction(f, typed: t)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.syntax.id) {
       return f
@@ -633,7 +638,7 @@ public struct Emitter {
   /// the lowered function.
   private mutating func lower(syntheticMoveInit d: SynthesizedDecl) -> Function.ID {
     let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
+    let f = Function.ID(synthesized: ast.moveRequirement(.set), for: ^t)
     module.declareSyntheticFunction(f, typed: t)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.syntax.id) {
       return f
@@ -686,7 +691,7 @@ public struct Emitter {
   /// the lowered function.
   private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) -> Function.ID {
     let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
+    let f = Function.ID(synthesized: ast.moveRequirement(.inout), for: ^t)
     module.declareSyntheticFunction(f, typed: t)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.syntax.id) {
       return f
@@ -740,9 +745,9 @@ public struct Emitter {
   /// Inserts IR for returning from current function, anchoring instructions to `s`.
   private mutating func emitControlFlow(return s: ReturnStmt.ID) {
     for f in frames.elements.reversed() {
-      emitDeallocs(for: f, at: program.ast[s].site)
+      emitDeallocs(for: f, at: ast[s].site)
     }
-    append(module.makeReturn(at: program.ast[s].site))
+    append(module.makeReturn(at: ast[s].site))
   }
 
   /// Inserts the IR for `s`, returning its effect on control flow.
@@ -803,7 +808,7 @@ public struct Emitter {
       // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the
       // last statement of the code block.
       if i != s.stmts.count - 1 {
-        report(.warning(unreachableStatement: s.stmts[i + 1], in: program.ast))
+        report(.warning(unreachableStatement: s.stmts[i + 1], in: ast))
       }
       return a
     }
@@ -877,7 +882,7 @@ public struct Emitter {
       // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the
       // last statement of the code block.
       if i != s.body.stmts.count - 1 {
-        report(.warning(unreachableStatement: s.body.stmts[i + 1], in: program.ast))
+        report(.warning(unreachableStatement: s.body.stmts[i + 1], in: ast))
       }
 
       if case .return = a {
@@ -1151,7 +1156,7 @@ public struct Emitter {
     at site: SourceRange? = nil
   ) {
     let anchor = site ?? e.site
-    switch program.ast[e.id].kind {
+    switch ast[e.id].kind {
     case .file:
       emitStore(string: anchor.file.url.absoluteURL.path, to: storage, at: anchor)
     case .line:
@@ -1179,7 +1184,7 @@ public struct Emitter {
         FunctionReference(to: program[FunctionDecl.ID(d)!], usedIn: insertionScope!, in: &module))
 
       // Emit the call.
-      let site = program.ast.site(of: e)
+      let site = ast.site(of: e)
       let x0 = append(module.makeBorrow(.set, from: storage, at: site))[0]
       append(module.makeCall(applying: oper, to: [l, r], writingResultTo: x0, at: site))
 
@@ -1221,15 +1226,15 @@ public struct Emitter {
     let literalType = program.relations.canonical(program.exprTypes[literal]!)
 
     switch literalType {
-    case program.ast.coreType("Int")!:
+    case ast.coreType("Int")!:
       emitStore(integer: literal, signed: true, bitWidth: 64, to: storage)
-    case program.ast.coreType("Int32")!:
+    case ast.coreType("Int32")!:
       emitStore(integer: literal, signed: true, bitWidth: 32, to: storage)
-    case program.ast.coreType("Int8")!:
+    case ast.coreType("Int8")!:
       emitStore(integer: literal, signed: true, bitWidth: 8, to: storage)
-    case program.ast.coreType("Double")!:
+    case ast.coreType("Double")!:
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.double(_:))
-    case program.ast.coreType("Float")!:
+    case ast.coreType("Float")!:
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float(_:))
     default:
       fatalError("not implemented")
@@ -1242,7 +1247,7 @@ public struct Emitter {
     floatingPoint literal: T.ID, to storage: Operand,
     evaluatedBy evaluate: (String) -> FloatingPointConstant
   ) {
-    let syntax = program.ast[literal]
+    let syntax = ast[literal]
     let x0 = emitElementAddr(storage, at: [0], at: syntax.site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))[0]
     let x2 = Operand.constant(evaluate(syntax.value))
@@ -1254,7 +1259,7 @@ public struct Emitter {
   private mutating func emitStore<T: NumericLiteralExpr>(
     integer literal: T.ID, signed: Bool, bitWidth: Int, to storage: Operand
   ) {
-    let syntax = program.ast[literal]
+    let syntax = ast[literal]
     guard let bits = WideUInt(valLiteral: syntax.value, signed: signed, bitWidth: bitWidth) else {
       diagnostics.insert(
         .error(
@@ -1314,7 +1319,7 @@ public struct Emitter {
     guard case .constructor(let d, let a) = callee.declaration else { preconditionFailure() }
 
     // Handle memberwise constructor calls.
-    if program.ast[d].isMemberwise {
+    if ast[d].isMemberwise {
       emit(memberwiseInitializerCall: call, initializing: s)
       return
     }
@@ -1380,7 +1385,7 @@ public struct Emitter {
   ) -> [Operand] {
     let calleeType = LambdaType(callee.type)!
     let calleeDecl = NameExpr.Typed(callee)?.declaration.decl
-    let defaults = calleeDecl.flatMap(program.ast.defaultArguments(of:))
+    let defaults = calleeDecl.flatMap(ast.defaultArguments(of:))
 
     var result: [Operand] = []
     var i = 0
@@ -1436,14 +1441,14 @@ public struct Emitter {
     case .infix(let callee, _, _):
       let t = program.exprTypes[callee.expr]!
       let u = LambdaType(program.relations.canonical(t))!.lifted
-      storage = emitAllocStack(for: u.output, at: program.ast.site(of: e))
+      storage = emitAllocStack(for: u.output, at: ast.site(of: e))
       emitStore(foldedSequence: e, to: storage)
 
     case .leaf(let e):
       storage = emitLValue(program[e])
     }
 
-    return emitAcquire(access, on: storage, at: program.ast.site(of: e))
+    return emitAcquire(access, on: storage, at: ast.site(of: e))
   }
 
   /// Emits the IR of a call to `f` with given `arguments` at `site`.
@@ -1596,7 +1601,7 @@ public struct Emitter {
   ///
   /// - Requires: `e.type` is `Val.Bool`
   private mutating func emit(branchCondition e: AnyExprID.TypedNode) -> Operand {
-    precondition(program.relations.canonical(e.type) == program.ast.coreType("Bool")!)
+    precondition(program.relations.canonical(e.type) == ast.coreType("Bool")!)
     let x0 = emitLValue(e)
     let x1 = emitElementAddr(x0, at: [0], at: e.site)
     let x2 = append(module.makeLoad(x1, at: e.site))[0]
@@ -1611,10 +1616,10 @@ public struct Emitter {
   ) -> Operand {
     precondition(module.type(of: foreign).isObject)
 
-    let foreignConvertible = program.ast.coreTrait("ForeignConvertible")!
+    let foreignConvertible = ast.coreTrait("ForeignConvertible")!
     let foreignConvertibleConformance = program.conformance(
       of: ir, to: foreignConvertible, exposedTo: insertionScope!)!
-    let r = program.ast.requirements(
+    let r = ast.requirements(
       Name(stem: "init", labels: ["foreign_value"]), in: foreignConvertible.decl)[0]
 
     switch foreignConvertibleConformance.implementations[r]! {
@@ -1643,10 +1648,10 @@ public struct Emitter {
     let t = module.type(of: o)
     precondition(t.isAddress)
 
-    let foreignConvertible = program.ast.coreTrait("ForeignConvertible")!
+    let foreignConvertible = ast.coreTrait("ForeignConvertible")!
     let foreignConvertibleConformance = program.conformance(
       of: t.ast, to: foreignConvertible, exposedTo: insertionScope!)!
-    let r = program.ast.requirements("foreign_value", in: foreignConvertible.decl)[0]
+    let r = ast.requirements("foreign_value", in: foreignConvertible.decl)[0]
 
     // TODO: Handle cases where the foreign representation of `t` is not built-in
 
@@ -2028,7 +2033,7 @@ public struct Emitter {
   private mutating func pushing<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
     frames.push(newFrame)
     defer {
-      emitDeallocTopFrame(at: .empty(atEndOf: program.ast[insertionScope!].site))
+      emitDeallocTopFrame(at: .empty(atEndOf: ast[insertionScope!].site))
       frames.pop()
     }
     return action(&self)
