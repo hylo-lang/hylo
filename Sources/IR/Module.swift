@@ -112,12 +112,6 @@ public struct Module {
     }
   }
 
-  /// Returns the global "past the end" position of `block`.
-  func endIndex(of block: Block.ID) -> InstructionIndex {
-    InstructionIndex(
-      block, functions[block.function]!.blocks[block.address].instructions.endIndex)
-  }
-
   /// Returns the registers asssigned by `i`.
   func results(of i: InstructionID) -> [Operand] {
     (0 ..< self[i].types.count).map({ .register(i, $0) })
@@ -488,6 +482,17 @@ public struct Module {
       with: { (m, i) in
         InstructionID(block, m[block].instructions.append(newInstruction))
       })
+  }
+
+  /// Inserts `newInstruction` at `p` and returns the identities of its resutls.
+  @discardableResult
+  mutating func insert<I: Instruction>(_ newInstruction: I, _ p: InsertionPoint) -> [Operand] {
+    switch p {
+    case .at(endOf: let b):
+      return append(newInstruction, to: b)
+    case .before(let i):
+      return insert(newInstruction, before: i)
+    }
   }
 
   /// Inserts `newInstruction` at `position` and returns the identities of its return values.
