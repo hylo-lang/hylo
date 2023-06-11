@@ -447,7 +447,7 @@ public struct Emitter {
           emitStore(value: program[rhs], to: part)
         } else {
           let part = emitStore(value: program[rhs])
-          append(module.makeDeinit(part, at: program.ast[p].site))
+          emitDeinit(part, at: program.ast[p].site)
         }
       }
     } else {
@@ -660,7 +660,7 @@ public struct Emitter {
         let x0 = append(module.makeUnsafeCast(.void, to: layout.type, at: site))[0]
         let x1 = append(module.makeBorrow(.set, from: receiver, at: site))[0]
         append(module.makeStore(x0, at: x1, at: site))
-        append(module.makeDeinit(argument, at: site))
+        emitDeinit(argument, at: site)
         break
       }
 
@@ -705,11 +705,10 @@ public struct Emitter {
     let argument = Operand.parameter(entry, 1)
 
     // Deinitialize the receiver.
-    append(module.makeDeinit(receiver, at: site))
+    emitDeinit(receiver, at: site)
 
     // Apply the move-initializer.
-    let t = module.type(of: receiver).ast
-    let c = program.conformanceToMovable(of: t, exposedTo: scope)!
+    let c = program.conformanceToMovable(of: module.type(of: receiver).ast, exposedTo: d.scope)!
     let r = append(module.makeLoad(argument, at: site))[0]
     emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
 
@@ -858,7 +857,7 @@ public struct Emitter {
 
   private mutating func emit(discardStmt s: DiscardStmt.Typed) -> ControlFlow {
     let v = emitStore(value: s.expr)
-    append(module.makeDeinit(v, at: s.site))
+    emitDeinit(v, at: s.site)
     return .next
   }
 
@@ -899,9 +898,8 @@ public struct Emitter {
 
   private mutating func emit(exprStmt s: ExprStmt.Typed) -> ControlFlow {
     let v = emitStore(value: s.expr)
-    if module.type(of: v).ast.isVoidOrNever {
-      append(module.makeDeinit(v, at: s.site))
-    } else {
+    emitDeinit(v, at: s.site)
+    if !module.type(of: v).ast.isVoidOrNever {
       // TODO: complain about unused value
       fatalError("not implemented")
     }

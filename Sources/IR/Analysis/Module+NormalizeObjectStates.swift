@@ -143,7 +143,9 @@ extension Module {
         let p = o.value.initializedPaths
         if p.isEmpty { break }
 
-        insertDeinitialization(of: borrow.location, at: p, before: i, anchoredAt: borrow.site)
+        insertDeinit(
+          borrow.location, at: p, anchoredTo: borrow.site, before: i,
+          reportingDiagnosticsTo: &diagnostics)
         for l in locations {
           context.withObject(at: l, { $0.value = .full(.uninitialized) })
         }
@@ -213,13 +215,15 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) -> PC? {
-      let dealloc = self[i] as! DeallocStackInstruction
-      let l = context.locals[dealloc.location]!.unwrapLocations()!.uniqueElement!
+      let s = self[i] as! DeallocStackInstruction
+      let l = context.locals[s.location]!.unwrapLocations()!.uniqueElement!
 
       // Make sure the memory at the deallocated location is consumed or uninitialized before
       // erasing the deallocated memory from the context.
       let p = context.withObject(at: l, \.value.initializedPaths)
-      insertDeinitialization(of: dealloc.location, at: p, before: i, anchoredAt: dealloc.site)
+      insertDeinit(
+        s.location, at: p, anchoredTo: s.site, before: i,
+        reportingDiagnosticsTo: &diagnostics)
       context.memory[l] = nil
       return successor(of: i)
     }
@@ -534,16 +538,21 @@ extension Module {
   }
 
   /// Inserts IR for the deinitialization of `root` at given `initializedPaths` before
-  /// instruction `i`, anchoring instructions at `anchor`
-  private mutating func insertDeinitialization(
-    of root: Operand,
-    at initializedPaths: [PartPath],
-    before i: InstructionID,
-    anchoredAt anchor: SourceRange
+  /// instruction `i`, anchoring instructions to `site`
+  private mutating func insertDeinit(
+    _ root: Operand, at initializedPaths: [PartPath], anchoredTo site: SourceRange,
+    before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedPaths {
-      let x0 = insert(makeElementAddr(root, at: path, at: anchor), before: i)[0]
-      insert(makeDeinit(x0, at: anchor), before: i)
+      let s = insert(makeElementAddr(root, at: path, at: site), before: i)[0]
+
+      let useScope = functions[i.function]![i.block].scope
+      let success = Emitter.insertDeinit(
+        s, usingDeinitializerExposedTo: useScope, at: site, .before(i), in: &self)
+
+      if !success {
+        log.insert(.error(nonDeinitializable: type(of: s).ast, at: site))
+      }
     }
   }
 
