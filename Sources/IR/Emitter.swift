@@ -2128,7 +2128,7 @@ extension Diagnostic {
   }
 
   static func error(nonDeinitializable t: AnyType, at site: SourceRange) -> Diagnostic {
-    .error("\(t) is not deinitializable", at: site)
+    .error("type '\(t)' is not deinitializable", at: site)
   }
 
   static func error(
