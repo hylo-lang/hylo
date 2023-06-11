@@ -28,7 +28,7 @@ public struct Emitter {
   private var frames = Stack()
 
   /// The receiver of the function or subscript currently being lowered, if any.
-  private var receiver: ParameterDecl.Typed?
+  private var receiver: ParameterDecl.ID?
 
   /// The diagnostics of lowering errors.
   private var diagnostics: DiagnosticSet = []
@@ -282,7 +282,7 @@ public struct Emitter {
     // Configure the emitter context.
     let r = self.receiver
     insertionBlock = entry
-    receiver = program[d.receiver]
+    receiver = d.receiver
     defer { receiver = r }
 
     // Emit the body.
@@ -1522,7 +1522,7 @@ public struct Emitter {
       let receiver: Operand
       switch callee.domain {
       case .none:
-        receiver = frames[self.receiver!]!
+        receiver = frames[program[self.receiver!]]!
       case .expr(let e):
         receiver = emitLValue(e)
       case .implicit:
@@ -1761,7 +1761,7 @@ public struct Emitter {
   private mutating func emitLValue(receiverOf syntax: NameExpr.Typed) -> Operand {
     switch syntax.domain {
     case .none:
-      return frames[receiver!]!
+      return frames[program[receiver!]]!
     case .implicit:
       fatalError("not implemented")
     case .expr(let e):
@@ -2038,7 +2038,7 @@ public struct Emitter {
   /// and receiver are clear.
   private mutating func withClearContext<T>(_ action: (inout Self) throws -> T) rethrows -> T {
     var b: Block.ID? = nil
-    var r: ParameterDecl.Typed? = nil
+    var r: ParameterDecl.ID? = nil
     var f = Stack()
 
     swap(&b, &insertionBlock)
