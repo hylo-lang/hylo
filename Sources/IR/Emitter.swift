@@ -884,7 +884,7 @@ public struct Emitter {
     // before exiting the scope.
     frames.push()
 
-    let body = ast[ast[s].body].stmts
+    let body = s[in: ast].body.stmts
     for i in body.indices {
       let a = emit(stmt: body[i])
       if a == .next { continue }

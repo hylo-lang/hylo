@@ -397,7 +397,7 @@ public struct TypeChecker {
       var initializerConstraints: [Constraint] = shape.facts.constraints
 
       // The type of the initializer may be a subtype of the pattern's
-      if ast[ast[d].pattern].annotation == nil {
+      if d[in: ast].pattern.annotation == nil {
         initializerConstraints.append(
           EqualityConstraint(
             initializerType, shape.type,
@@ -430,7 +430,7 @@ public struct TypeChecker {
       assert(s || diagnostics.containsError)
       return result
     } else {
-      assert(ast[ast[d].pattern].annotation != nil, "expected type annotation")
+      assert(d[in: ast].pattern.annotation != nil, "expected type annotation")
       return complete(shape.type)
     }
   }
@@ -445,7 +445,7 @@ public struct TypeChecker {
 
     // Built-in types can't be extended.
     if let b = BuiltinType(receiver) {
-      diagnostics.insert(.error(cannotExtend: b, at: ast[ast[d].subject].site))
+      diagnostics.insert(.error(cannotExtend: b, at: d[in: ast].subject.site))
       return
     }
 
@@ -466,7 +466,7 @@ public struct TypeChecker {
 
     // Built-in types can't be extended.
     if let b = BuiltinType(receiver) {
-      diagnostics.insert(.error(cannotExtend: b, at: ast[ast[d].subject].site))
+      diagnostics.insert(.error(cannotExtend: b, at: d[in: ast].subject.site))
       return
     }
 
@@ -1182,7 +1182,7 @@ public struct TypeChecker {
     // Warn against unused result if the type of the expression is neither `Void` nor `Never`.
     let t = relations.canonical(result)
     if (t != .void) && (t != .never) {
-      diagnostics.insert(.warning(unusedResultOfType: result, at: ast[ast[s].expr].site))
+      diagnostics.insert(.warning(unusedResultOfType: result, at: s[in: ast].expr.site))
     }
   }
 
@@ -1246,9 +1246,8 @@ public struct TypeChecker {
 
     // Reify the type of the underlying declaration.
     declTypes[ast[e].decl] = ^declType
-    let parameters = ast[ast[e].decl].parameters
-    for i in 0 ..< parameters.count {
-      declTypes[parameters[i]] = declType.inputs[i].type
+    for (i, p) in e[in: ast].decl.parameters.enumerated() {
+      declTypes[p] = declType.inputs[i].type
     }
 
     // Type check the declaration.
@@ -3230,7 +3229,7 @@ public struct TypeChecker {
       if type.isError {
         success = false
       } else {
-        switch ast[ast[i].pattern].introducer.value {
+        switch i[in: ast].pattern.introducer.value {
         case .let:
           captures.append(^RemoteType(.let, type))
         case .inout:
@@ -3628,7 +3627,7 @@ public struct TypeChecker {
       return ast[p].members.reduce(into: ["self"]) { (l, m) in
         guard let b = BindingDecl.ID(m) else { return }
         l.append(
-          contentsOf: ast.names(in: ast[b].pattern).map({ ast[ast[$0.pattern].decl].baseName }))
+          contentsOf: ast.names(in: ast[b].pattern).map({ $0.pattern[in: ast].decl.baseName }))
       }
     }
   }
