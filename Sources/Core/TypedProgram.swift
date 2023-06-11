@@ -156,6 +156,14 @@ public struct TypedProgram: Program {
     }
   }
 
+  /// Returns the conformance of `model` to `Val.Deinitializable` exposed to `useScope` or `nil` if
+  /// no such conformance exists.
+  public func conformanceToDeinitializable(
+    of model: AnyType, exposedTo useScope: AnyScopeID
+  ) -> Conformance? {
+    conformance(of: model, to: ast.deinitializableTrait, exposedTo: useScope)
+  }
+
   /// Returns the conformance of `model` to `Val.Movable` exposed to `useScope` or `nil` if no such
   /// conformance exists.
   public func conformanceToMovable(
@@ -169,8 +177,22 @@ public struct TypedProgram: Program {
   public func conformance(
     of model: AnyType, to concept: TraitType, exposedTo useScope: AnyScopeID
   ) -> Conformance? {
+    let m = relations.canonical(model)
+
+    // `A<X>: T` iff `A: T` whose conditions are satisfied by `X`.
+    if let t = BoundGenericType(m) {
+      guard let c = conformance(of: t.base, to: concept, exposedTo: useScope) else {
+        return nil
+      }
+
+      // TODO: translate generic arguments to conditions
+      return .init(
+        model: t.base, concept: concept, arguments: t.arguments, conditions: [],
+        source: c.source, scope: c.scope, implementations: c.implementations, site: c.site)
+    }
+
     guard
-      let allConformances = relations.conformances[relations.canonical(model)],
+      let allConformances = relations.conformances[m],
       let conformancesToConcept = allConformances[concept]
     else { return nil }
 

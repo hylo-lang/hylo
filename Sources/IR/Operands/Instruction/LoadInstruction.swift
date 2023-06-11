@@ -42,12 +42,4 @@ extension Module {
     return .init(objectType: .object(t.ast), from: source, site: site)
   }
 
-  /// Creates a `deinit` anchored at `site` that deinitializes `receiver`.
-  ///
-  /// - Parameters:
-  ///   - receiver: The location of the object to deinitialize.
-  func makeDeinit(_ receiver: Operand, at site: SourceRange) -> LoadInstruction {
-    makeLoad(receiver, at: site)
-  }
-
 }

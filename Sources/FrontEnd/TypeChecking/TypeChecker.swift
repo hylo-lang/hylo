@@ -846,42 +846,12 @@ public struct TypeChecker {
   ) -> Conformance? {
     let useScope = AnyScopeID(source)
     let specializations: GenericArguments = [ast[trait.decl].selfParameterDecl: model]
+
+    // Check the trait's requirements.
     var implementations = Conformance.ImplementationMap()
     var notes: DiagnosticSet = []
-
-    // Get the set of generic parameters defined by `trait`.
     for m in ast[trait.decl].members {
-      switch m.kind {
-      case GenericParameterDecl.self:
-        assert(m == ast[trait.decl].selfParameterDecl, "unexpected declaration")
-        continue
-
-      case AssociatedTypeDecl.self:
-        // TODO: Implement me.
-        continue
-
-      case AssociatedValueDecl.self:
-        // TODO: Implement me.
-        continue
-
-      case FunctionDecl.self:
-        checkSatisfied(function: .init(m)!)
-
-      case InitializerDecl.self:
-        checkSatisfied(initializer: .init(m)!)
-
-      case MethodDecl.self:
-        let r = MethodDecl.ID(m)!
-        let n = Name(of: r, in: ast)
-        ast[r].impls.forEach({ checkSatisfied(variant: $0, inMethod: n) })
-
-      case SubscriptDecl.self:
-        // TODO: Implement me.
-        continue
-
-      default:
-        unreachable()
-      }
+      checkStatisifed(requirement: m)
     }
 
     if !notes.isEmpty {
@@ -895,11 +865,48 @@ public struct TypeChecker {
       (s.kind == TranslationUnit.self) ? AnyScopeID(program.module(containing: s)) : s
     }
 
+    // FIXME: Use bound generic parameters as conditions
+    let m = BoundGenericType(model).map(\.base) ?? model
     return Conformance(
-      model: model, concept: trait, conditions: [],
+      model: m, concept: trait, arguments: [:], conditions: [],
       source: AnyDeclID(source), scope: expositionScope,
       implementations: implementations,
       site: declSite)
+
+    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
+    /// reporting a diagnostic in `notes` otherwise.
+    func checkStatisifed(requirement d: AnyDeclID) {
+      switch d.kind {
+      case GenericParameterDecl.self:
+        assert(d == ast[trait.decl].selfParameterDecl, "unexpected declaration")
+
+      case AssociatedTypeDecl.self:
+        // TODO: Implement me.
+        break
+
+      case AssociatedValueDecl.self:
+        // TODO: Implement me.
+        break
+
+      case FunctionDecl.self:
+        checkSatisfied(function: .init(d)!)
+
+      case InitializerDecl.self:
+        checkSatisfied(initializer: .init(d)!)
+
+      case MethodDecl.self:
+        let r = MethodDecl.ID(d)!
+        let n = Name(of: r, in: ast)
+        ast[r].impls.forEach({ checkSatisfied(variant: $0, inMethod: n) })
+
+      case SubscriptDecl.self:
+        // TODO: Implement me.
+        break
+
+      default:
+        unreachable()
+      }
+    }
 
     /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
@@ -935,7 +942,7 @@ public struct TypeChecker {
         implementations[d] = .concrete(c)
       } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
         implementations[d] = .synthetic(i)
-        synthesizedDecls[program.module(containing: d), default: []].append(i)
+        synthesizedDecls[program.module(containing: source), default: []].append(i)
       } else {
         notes.insert(
           .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
@@ -1020,13 +1027,19 @@ public struct TypeChecker {
     return viableCandidates.uniqueElement
   }
 
-  /// Returns the synthesized implementation of requirement `r` for type `t` in given `scope`, or
-  /// `nil` if `r` is not synthesizable.
+  /// Returns the synthesized implementation of requirement `r` for type `t` in given `useScope`,
+  /// or `nil` if `r` is not synthesizable.
   private func synthesizedImplementation<T: DeclID>(
-    of r: T, for t: AnyType, in scope: AnyScopeID
+    of r: T, for t: AnyType, in useScope: AnyScopeID
   ) -> SynthesizedDecl? {
     guard let s = program.innermostType(containing: r).map(TraitDecl.ID.init(_:)) else {
       return nil
+    }
+
+    // If the requirement is defined in `Destructible`, it must be the deinitialization method.
+    if s == ast.deinitializableTrait.decl {
+      assert(r.kind == FunctionDecl.self)
+      return .init(.deinitialize, for: t, in: useScope)
     }
 
     // If the requirement is defined in `Movable`, it must be either the move-initialization or
@@ -1035,18 +1048,18 @@ public struct TypeChecker {
       let d = MethodImpl.ID(r)!
       switch ast[d].introducer.value {
       case .set:
-        return .init(.moveInitialization, for: t, in: scope)
+        return .init(.moveInitialization, for: t, in: useScope)
       case .inout:
-        return .init(.moveAssignment, for: t, in: scope)
+        return .init(.moveAssignment, for: t, in: useScope)
       default:
         unreachable()
       }
     }
 
-    // If the requirement is defined in `Copyable`, it must me the copy method.
+    // If the requirement is defined in `Copyable`, it must be the copy method.
     if s == ast.copyableTrait.decl {
       assert(r.kind == FunctionDecl.self)
-      return .init(.copy, for: t, in: scope)
+      return .init(.copy, for: t, in: useScope)
     }
 
     // Requirement is not synthesizable.

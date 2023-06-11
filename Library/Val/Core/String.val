@@ -9,6 +9,8 @@ public type String {
 
 }
 
+public conformance String: Deinitializable {}
+
 public conformance String: Copyable {
 
   public fun copy() -> Self {

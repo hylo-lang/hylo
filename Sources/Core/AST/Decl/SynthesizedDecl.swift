@@ -4,10 +4,13 @@ public struct SynthesizedDecl: Hashable {
   /// The kind of a synthesized declaration.
   public enum Kind {
 
-    /// The move-initialization of a type.
+    /// The deinitializer of a type.
+    case deinitialize
+
+    /// The move-initialization operator of a type.
     case moveInitialization
 
-    /// The move-assignment of a type.
+    /// The move-assignment operator of a type.
     case moveAssignment
 
     /// The copy method of a type.

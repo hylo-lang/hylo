@@ -1,4 +1,4 @@
-/// A type whose values can be consumed.
+/// A type whose values can be relocated to different storage.
 public trait Movable {
 
   /// Gives `self` the value of a consumed `source`.

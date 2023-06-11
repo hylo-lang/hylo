@@ -2,7 +2,7 @@
 
 fun use<T>(_ x: T) {}
 
-trait T {
+trait T: Deinitializable {
   fun foo() -> Int
 }
 

@@ -19,6 +19,8 @@ public type Int8 {
 
 public conformance Int8: ExpressibleByIntegerLiteral {}
 
+public conformance Int8: Deinitializable {}
+
 public conformance Int8: Copyable {
 
   public fun copy() -> Self {

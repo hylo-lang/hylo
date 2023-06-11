@@ -19,6 +19,8 @@ public type Int32 {
 
 public conformance Int32: ExpressibleByIntegerLiteral {}
 
+public conformance Int32: Deinitializable {}
+
 public conformance Int32: Copyable {
 
   public fun copy() -> Self {

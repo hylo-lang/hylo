@@ -461,6 +461,8 @@ extension LLVM.Module {
         insert(llvm: i)
       case is IR.LoadInstruction:
         insert(load: i)
+      case is IR.MarkStateInstruction:
+        return
       case is IR.PartialApplyInstruction:
         insert(partialApply: i)
       case is IR.PointerToAddressInstruction:

@@ -80,7 +80,6 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "catch": token.kind = .`catch`
       case "conformance": token.kind = .`conformance`
       case "continue": token.kind = .`continue`
-      case "deinit": token.kind = .`deinit`
       case "do": token.kind = .`do`
       case "else": token.kind = .`else`
       case "extension": token.kind = .`extension`

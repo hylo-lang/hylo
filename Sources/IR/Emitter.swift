@@ -447,7 +447,7 @@ public struct Emitter {
           emitStore(value: program[rhs], to: part)
         } else {
           let part = emitStore(value: program[rhs])
-          append(module.makeDeinit(part, at: program.ast[p].site))
+          emitDeinit(part, at: program.ast[p].site)
         }
       }
     } else {
@@ -580,28 +580,67 @@ public struct Emitter {
   @discardableResult
   private mutating func lower(synthesized d: SynthesizedDecl) -> Function.ID {
     switch d.kind {
+    case .deinitialize:
+      return withClearContext({ $0.lower(syntheticDeinit: d) })
     case .moveInitialization:
-      return lowerSynthesizedMoveInitImplementation(typed: .init(d.type)!, in: d.scope)
+      return withClearContext({ $0.lower(syntheticMoveInit: d) })
     case .moveAssignment:
-      return lowerSynthesizedMoveAssignImplementation(typed: .init(d.type)!, in: d.scope)
+      return withClearContext({ $0.lower(syntheticMoveAssign: d) })
     case .copy:
       fatalError("not implemented")
     }
   }
 
-  /// Synthesizes the implementation of `t`'s move initialization operator in `scope`, returning
-  /// the ID of the corresponding IR function.
-  private mutating func lowerSynthesizedMoveInitImplementation(
-    typed t: LambdaType, in scope: AnyScopeID
-  ) -> Function.ID {
-    let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
+  /// Inserts the IR for `d`, which is a synthetic deinitializer, returning the ID of the lowered
+  /// function.
+  private mutating func lower(syntheticDeinit d: SynthesizedDecl) -> Function.ID {
+    let t = LambdaType(d.type)!
+    let f = Function.ID(synthesized: program.ast.deinitRequirement(), for: ^t)
     module.declareSyntheticFunction(f, typed: t)
-    if (module[f].entry != nil) || (program.module(containing: scope) != module.syntax.id) {
+    if (module[f].entry != nil) || (program.module(containing: d.scope) != module.syntax.id) {
       return f
     }
 
     let site = module.syntax.site
-    let entry = module.appendEntry(in: scope, to: f)
+    let entry = module.appendEntry(in: d.scope, to: f)
+    insertionBlock = entry
+    self.frames.push()
+    defer {
+      self.frames.pop()
+      assert(self.frames.isEmpty)
+    }
+
+    let receiver = Operand.parameter(entry, 0)
+
+    switch program.relations.canonical(t.output).base {
+    case is ProductType, is TupleType:
+      let success = Emitter.insertDeinit(
+        record: receiver, usingDeinitializerExposedTo: insertionScope!, at: site,
+        .at(endOf: entry), in: &module)
+      assert(success, "deinitialization is not synthesizable")
+
+    default:
+      fatalError("not implemented")
+    }
+
+    emitStore(value: .void, to: returnValue!, at: site)
+    emitDeallocTopFrame(at: site)
+    append(module.makeReturn(at: site))
+    return f
+  }
+
+  /// Inserts the IR for `d`, which is a synthetic move initialization method, returning the ID of
+  /// the lowered function.
+  private mutating func lower(syntheticMoveInit d: SynthesizedDecl) -> Function.ID {
+    let t = LambdaType(d.type)!
+    let f = Function.ID(synthesized: program.ast.moveRequirement(.set), for: ^t)
+    module.declareSyntheticFunction(f, typed: t)
+    if (module[f].entry != nil) || (program.module(containing: d.scope) != module.syntax.id) {
+      return f
+    }
+
+    let site = module.syntax.site
+    let entry = module.appendEntry(in: d.scope, to: f)
     insertionBlock = entry
     self.frames.push()
     defer {
@@ -621,7 +660,7 @@ public struct Emitter {
         let x0 = append(module.makeUnsafeCast(.void, to: layout.type, at: site))[0]
         let x1 = append(module.makeBorrow(.set, from: receiver, at: site))[0]
         append(module.makeStore(x0, at: x1, at: site))
-        append(module.makeDeinit(argument, at: site))
+        emitDeinit(argument, at: site)
         break
       }
 
@@ -643,19 +682,18 @@ public struct Emitter {
     return f
   }
 
-  /// Synthesizes the implementation of `t`'s move assignment operator in `scope`, returning the ID
-  /// of the corresponding IR function.
-  private mutating func lowerSynthesizedMoveAssignImplementation(
-    typed t: LambdaType, in scope: AnyScopeID
-  ) -> Function.ID {
+  /// Inserts the IR for `d`, which is a synthetic move initialization method, returning the ID of
+  /// the lowered function.
+  private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) -> Function.ID {
+    let t = LambdaType(d.type)!
     let f = Function.ID(synthesized: program.ast.moveRequirement(.inout), for: ^t)
     module.declareSyntheticFunction(f, typed: t)
-    if (module[f].entry != nil) || (program.module(containing: scope) != module.syntax.id) {
+    if (module[f].entry != nil) || (program.module(containing: d.scope) != module.syntax.id) {
       return f
     }
 
     let site = module.syntax.site
-    let entry = module.appendEntry(in: scope, to: f)
+    let entry = module.appendEntry(in: d.scope, to: f)
     insertionBlock = entry
     self.frames.push()
     defer {
@@ -667,11 +705,10 @@ public struct Emitter {
     let argument = Operand.parameter(entry, 1)
 
     // Deinitialize the receiver.
-    append(module.makeDeinit(receiver, at: site))
+    emitDeinit(receiver, at: site)
 
     // Apply the move-initializer.
-    let t = module.type(of: receiver).ast
-    let c = program.conformanceToMovable(of: t, exposedTo: scope)!
+    let c = program.conformanceToMovable(of: module.type(of: receiver).ast, exposedTo: d.scope)!
     let r = append(module.makeLoad(argument, at: site))[0]
     emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
 
@@ -755,7 +792,7 @@ public struct Emitter {
   private mutating func emit(braceStmt s: BraceStmt.Typed) -> ControlFlow {
     frames.push()
     defer {
-      emitDeallocTopFrame(at: s.site)
+      emitDeallocTopFrame(at: .empty(atEndOf: s.site))
       frames.pop()
     }
 
@@ -820,7 +857,7 @@ public struct Emitter {
 
   private mutating func emit(discardStmt s: DiscardStmt.Typed) -> ControlFlow {
     let v = emitStore(value: s.expr)
-    append(module.makeDeinit(v, at: s.site))
+    emitDeinit(v, at: s.site)
     return .next
   }
 
@@ -861,9 +898,8 @@ public struct Emitter {
 
   private mutating func emit(exprStmt s: ExprStmt.Typed) -> ControlFlow {
     let v = emitStore(value: s.expr)
-    if module.type(of: v).ast.isVoidOrNever {
-      append(module.makeDeinit(v, at: s.site))
-    } else {
+    emitDeinit(v, at: s.site)
+    if !module.type(of: v).ast.isVoidOrNever {
       // TODO: complain about unused value
       fatalError("not implemented")
     }
@@ -1798,6 +1834,95 @@ public struct Emitter {
     return append(module.makeProject(o, applying: f, to: [r], at: site))[0]
   }
 
+  // MARK: Deinitialization
+
+  /// If `storage` is deinitializable, inserts the IR for deinitializing its contents at `point`
+  /// in `module`, using `useScope` to lookup deinitializers, anchoring new instructions to `site`,
+  /// and returning `true`. Otherwise, returns `false`.
+  ///
+  /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
+  /// exposed to `useScope`. The deinitializers of product types are searched by looking up their
+  /// conformance to `Val.Deinitializable`. The deinitializers of other types are synthesized.
+  static func insertDeinit(
+    _ storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID, at site: SourceRange,
+    _ point: InsertionPoint, in module: inout Module
+  ) -> Bool {
+    let t = module.type(of: storage).ast
+    switch t.base {
+    case is BuiltinType:
+      // Deinitialization of built-in types is a no-op.
+      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+      return true
+
+    case AnyType.void, AnyType.never:
+      // Deinitialization of `Void` and `Never` is no-op.
+      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+      return true
+
+    case let u as LambdaType:
+      if module.program.relations.canonical(u.environment) == .void {
+        module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+        return true
+      } else {
+        fatalError("not implemented")
+      }
+
+    case is TupleType:
+      return insertDeinit(
+        record: storage, usingDeinitializerExposedTo: useScope, at: site,
+        point, in: &module)
+
+    default:
+      break
+    }
+
+    guard let c = module.program.conformanceToDeinitializable(of: t, exposedTo: useScope) else {
+      return false
+    }
+
+    let d = module.demandDeinitDeclaration(from: c)
+    let f = Operand.constant(FunctionReference(to: d, usedIn: c.scope, in: module))
+
+    let x0 = module.insert(module.makeLoad(storage, at: site), point)[0]
+    let x1 = module.insert(module.makeAllocStack(.void, at: site), point)[0]
+    let x2 = module.insert(module.makeBorrow(.set, from: x1, at: site), point)[0]
+    module.insert(module.makeCall(applying: f, to: [x0], writingResultTo: x2, at: site), point)
+    module.insert(module.makeEndBorrow(x2, at: site), point)
+    module.insert(module.makeMarkState(x1, initialized: false, at: site), point)
+    module.insert(module.makeDeallocStack(for: x1, at: site), point)
+
+    return true
+  }
+
+  /// If `storage`, which holds a record, is deinitializable, inserts the IR for deinitializing its
+  /// contents at `point` in `module`, using `useScope` to lookup deinitializers, anchoring new
+  /// instructions to `site`, and returning `true`. Otherwise, returns `false`.
+  private static func insertDeinit(
+    record storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID,
+    at site: SourceRange,
+    _ point: InsertionPoint, in module: inout Module
+  ) -> Bool {
+    let t = module.type(of: storage).ast
+    precondition(t.hasRecordLayout)
+
+    let layout = AbstractTypeLayout(of: t, definedIn: module.program)
+
+    // If the object is empty, simply mark it uninitialized.
+    if layout.properties.isEmpty {
+      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+      return true
+    }
+
+    // Otherwise, deinitialize each property.
+    var r = true
+    for i in layout.properties.indices {
+      let x0 = module.insert(module.makeElementAddr(storage, at: [i], at: site), point)[0]
+      r =
+        insertDeinit(x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module) && r
+    }
+    return r
+  }
+
   // MARK: Helpers
 
   /// Inserts the IR for aquiring `access` on `source` at `site`.
@@ -1834,6 +1959,17 @@ public struct Emitter {
   ) -> Operand {
     if path.isEmpty { return base }
     return append(module.makeElementAddr(base, at: path, at: site))[0]
+  }
+
+  /// Inserts the IR for deinitializing `storage`, anchoring new instructions at `site`.
+  private mutating func emitDeinit(_ storage: Operand, at site: SourceRange) {
+    let success = Emitter.insertDeinit(
+      storage, usingDeinitializerExposedTo: insertionScope!, at: site,
+      .at(endOf: insertionBlock!), in: &module)
+
+    if !success {
+      report(.error(nonDeinitializable: module.type(of: storage).ast, at: site))
+    }
   }
 
   /// Appends the IR for a call to move-initialize/assign `storage` with `value`, using `c` to
@@ -1989,6 +2125,10 @@ extension Diagnostic {
 
   static func error(inoutBindingRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
     .error("initialization of inout binding must be marked for mutation", at: site)
+  }
+
+  static func error(nonDeinitializable t: AnyType, at site: SourceRange) -> Diagnostic {
+    .error("type '\(t)' is not deinitializable", at: site)
   }
 
   static func error(

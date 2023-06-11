@@ -16,6 +16,8 @@ public conformance Double: ExpressibleByFloatLiteral {}
 
 public conformance Double: ExpressibleByIntegerLiteral {}
 
+public conformance Double: Deinitializable {}
+
 public conformance Double: Copyable {
 
   public fun copy() -> Self {
