@@ -1,6 +1,6 @@
 //- lowerToFinishedIR expecting: failure
 
-type A {
+type A: Deinitializable {
   public var x: Int
   public memberwise init
   public property y: Int {
