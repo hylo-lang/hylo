@@ -40,11 +40,6 @@ public struct TypedProgram: Program {
   /// The type relations of the program.
   public let relations: TypeRelations
 
-  /// Val's core library.
-  public var coreLibrary: ModuleDecl.Typed? {
-    ast.coreLibrary.map({ self[$0] })
-  }
-
   /// Creates a typed program from a scoped program and property maps describing type annotations.
   ///
   /// - Requires: All modules in `program` have been sucessfully typed checked.
