@@ -164,7 +164,6 @@ public struct TypedProgram: Program {
     conformance(of: model, to: ast.deinitializableTrait, exposedTo: useScope)
   }
 
-
   /// Returns the conformance of `model` to `Val.Movable` exposed to `useScope` or `nil` if no such
   /// conformance exists.
   public func conformanceToMovable(

@@ -1917,8 +1917,8 @@ public struct Emitter {
     var r = true
     for i in layout.properties.indices {
       let x0 = module.insert(module.makeElementAddr(storage, at: [i], at: site), point)[0]
-      r = r && insertDeinit(
-        x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module)
+      r =
+        insertDeinit(x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module) && r
     }
     return r
   }
