@@ -136,7 +136,7 @@ public struct TypedProgram: Program {
       return storage(of: u.base)
 
     case let u as ProductType:
-      return self[u.decl].members.flatMap { (m) in
+      return ast[u.decl].members.flatMap { (m) in
         BindingDecl.ID(m).map { (b) in
           ast.names(in: ast[b].pattern).map { (_, name) in
             (ast[ast[name].decl].baseName, declTypes[ast[name].decl]!)

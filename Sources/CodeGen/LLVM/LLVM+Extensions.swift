@@ -9,7 +9,7 @@ extension LLVM.Module {
   mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
     let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
 
-    let d = declareGlobalVariable("\(m.syntax.id)\(g)", v.type)
+    let d = declareGlobalVariable("\(m.id)\(g)", v.type)
     setInitializer(v, for: d)
     setLinkage(.private, for: d)
     setGlobalConstant(true, for: d)
@@ -298,7 +298,7 @@ extension LLVM.Module {
     let instance = declareGlobalVariable(n, metatype)
 
     // Initialize the instance if it's being used in the module defining `t`.
-    if m.syntax.id != ir.syntax.module(containing: t.decl) {
+    if m.id != ir.syntax.module(containing: t.decl) {
       return instance
     }
 
@@ -321,7 +321,7 @@ extension LLVM.Module {
     let instance = declareGlobalVariable(n, ptr)
 
     // Initialize the instance if it's being used in the module defining `t`.
-    if m.syntax.id != ir.syntax.module(containing: t.decl) {
+    if m.id != ir.syntax.module(containing: t.decl) {
       return instance
     }
 

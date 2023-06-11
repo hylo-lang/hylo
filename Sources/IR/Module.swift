@@ -14,8 +14,8 @@ public struct Module {
   /// The program defining the functions in `self`.
   public let program: TypedProgram
 
-  /// The module's syntax.
-  public let syntax: ModuleDecl.Typed
+  /// The module's identifier.
+  public let id: ModuleDecl.ID
 
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
@@ -38,7 +38,7 @@ public struct Module {
     lowering m: ModuleDecl.ID, in p: TypedProgram, diagnostics: inout DiagnosticSet
   ) throws {
     self.program = p
-    self.syntax = program[m]
+    self.id = m
 
     var emitter = Emitter(program: program)
     emitter.lower(module: m, into: &self, diagnostics: &diagnostics)
@@ -46,7 +46,9 @@ public struct Module {
   }
 
   /// The module's name.
-  public var name: String { syntax.baseName }
+  public var name: String {
+    program.ast[id].baseName
+  }
 
   /// Accesses the given function.
   public subscript(f: Function.ID) -> Function {
@@ -177,18 +179,18 @@ public struct Module {
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func demandFunctionDeclaration(lowering d: FunctionDecl.Typed) -> Function.ID {
-    let f = Function.ID(d.id)
+  mutating func demandFunctionDeclaration(lowering d: FunctionDecl.ID) -> Function.ID {
+    let f = Function.ID(d)
     if functions[f] != nil { return f }
 
-    let parameters = program.accumulatedGenericParameters(of: d.id)
-    let output = program.relations.canonical((d.type.base as! CallableType).output)
-    let inputs = loweredParameters(of: d.id)
+    let parameters = program.accumulatedGenericParameters(of: d)
+    let output = program.relations.canonical((program.declTypes[d]!.base as! CallableType).output)
+    let inputs = loweredParameters(of: d)
 
     let entity = Function(
       isSubscript: false,
-      name: program.debugName(decl: d.id),
-      site: d.site,
+      name: program.debugName(decl: d),
+      site: program.ast[d].site,
       linkage: .external,
       parameters: Array(parameters),
       inputs: inputs,
@@ -197,7 +199,7 @@ public struct Module {
     addFunction(entity, for: f)
 
     // Determine if the new function is the module's entry.
-    if d.scope.kind == TranslationUnit.self, d.isPublic, d.identifier?.value == "main" {
+    if program.isModuleEntry(d) {
       assert(entryFunction == nil)
       entryFunction = f
     }
@@ -238,18 +240,18 @@ public struct Module {
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func demandSubscriptDeclaration(lowering d: SubscriptImpl.Typed) -> Function.ID {
-    let f = Function.ID(d.id)
+  mutating func demandSubscriptDeclaration(lowering d: SubscriptImpl.ID) -> Function.ID {
+    let f = Function.ID(d)
     if functions[f] != nil { return f }
 
-    let parameters = program.accumulatedGenericParameters(of: d.id)
-    let output = program.relations.canonical(SubscriptImplType(d.type)!.output)
-    let inputs = loweredParameters(of: d.id)
+    let parameters = program.accumulatedGenericParameters(of: d)
+    let output = program.relations.canonical(SubscriptImplType(program.declTypes[d])!.output)
+    let inputs = loweredParameters(of: d)
 
     let entity = Function(
       isSubscript: true,
-      name: program.debugName(decl: d.id),
-      site: d.site,
+      name: program.debugName(decl: d),
+      site: program.ast[d].site,
       linkage: .external,
       parameters: Array(parameters),
       inputs: inputs,
@@ -261,19 +263,19 @@ public struct Module {
   }
 
   /// Returns the identifier of the Val IR initializer corresponding to `d`.
-  mutating func demandInitializerDeclaration(lowering d: InitializerDecl.Typed) -> Function.ID {
-    precondition(!d.isMemberwise)
+  mutating func demandInitializerDeclaration(lowering d: InitializerDecl.ID) -> Function.ID {
+    precondition(!program.ast[d].isMemberwise)
 
-    let f = Function.ID(initializer: d.id)
+    let f = Function.ID(initializer: d)
     if functions[f] != nil { return f }
 
-    let parameters = program.accumulatedGenericParameters(of: d.id)
-    let inputs = loweredParameters(of: d.id)
+    let parameters = program.accumulatedGenericParameters(of: d)
+    let inputs = loweredParameters(of: d)
 
     let entity = Function(
       isSubscript: false,
-      name: program.debugName(decl: d.id),
-      site: d.introducer.site,
+      name: program.debugName(decl: d),
+      site: program.ast[d].introducer.site,
       linkage: .external,
       parameters: Array(parameters),
       inputs: inputs,
@@ -341,7 +343,7 @@ public struct Module {
     let entity = Function(
       isSubscript: false,
       name: "",
-      site: .empty(at: syntax.site.first()),
+      site: .empty(at: program.ast[id].site.first()),
       linkage: .external,
       parameters: [],  // TODO
       inputs: inputs,

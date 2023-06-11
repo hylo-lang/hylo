@@ -13,7 +13,7 @@ public struct BorrowInstruction: Instruction {
   public private(set) var location: Operand
 
   /// The binding in source program to which the instruction corresponds, if any.
-  public let binding: VarDecl.Typed?
+  public let binding: VarDecl.ID?
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
@@ -23,7 +23,7 @@ public struct BorrowInstruction: Instruction {
     borrowedType: LoweredType,
     capability: AccessEffect,
     location: Operand,
-    binding: VarDecl.Typed?,
+    binding: VarDecl.ID?,
     site: SourceRange
   ) {
     self.borrowedType = borrowedType
@@ -62,7 +62,7 @@ extension Module {
   ///   - binding: The declaration of the binding to which the borrow corresponds, if any.
   func makeBorrow(
     _ capability: AccessEffect, from source: Operand,
-    correspondingTo binding: VarDecl.Typed? = nil,
+    correspondingTo binding: VarDecl.ID? = nil,
     at anchor: SourceRange
   ) -> BorrowInstruction {
     precondition((capability == .let) || (capability == .inout) || (capability == .set))
