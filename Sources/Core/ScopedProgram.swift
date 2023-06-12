@@ -57,28 +57,35 @@ private struct ScopeVisitor: ASTWalkObserver {
 
   mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
     if let m = ModuleDecl.ID(n) {
-      return visit(moduleDecl: NodeID(m)!, in: ast)
+      return visit(moduleDecl: .init(m)!, in: ast)
     }
 
     insert(child: n, into: innermost!)
 
     switch n.kind {
     case BindingDecl.self:
-      return visit(bindingDecl: NodeID(n)!, in: ast)
+      return visit(bindingDecl: .init(n)!, in: ast)
+    case ConformanceDecl.self:
+      return visit(conformanceDecl: .init(n)!, in: ast)
+    case ExtensionDecl.self:
+      return visit(extensionDecl: .init(n)!, in: ast)
+    case ProductTypeDecl.self:
+      return visit(productTypeDecl: .init(n)!, in: ast)
+    case TraitDecl.self:
+      return visit(traitDecl: .init(n)!, in: ast)
     case VarDecl.self:
-      return visit(varDecl: NodeID(n)!, in: ast)
+      return visit(varDecl: .init(n)!, in: ast)
     case ConditionalExpr.self:
-      return visit(conditionalExpr: NodeID(n)!, in: ast)
+      return visit(conditionalExpr: .init(n)!, in: ast)
     case ConditionalStmt.self:
-      return visit(conditionalStmt: NodeID(n)!, in: ast)
+      return visit(conditionalStmt: .init(n)!, in: ast)
     case DoWhileStmt.self:
-      return visit(doWhileStmt: NodeID(n)!, in: ast)
+      return visit(doWhileStmt: .init(n)!, in: ast)
     default:
       break
     }
 
     if let s = AnyScopeID(n) {
-      nodeToScope[s] = innermost
       scopeToDecls[s] = []
       innermost = s
     }
@@ -103,12 +110,76 @@ private struct ScopeVisitor: ASTWalkObserver {
     return false
   }
 
+  private mutating func visit(conformanceDecl d: ConformanceDecl.ID, in ast: AST) -> Bool {
+    scopeToDecls[d] = []
+
+    // The subject and conformance list reside in the parent's scope.
+    innermost = nodeToScope[d]
+    ast.walk(ast[d].subject, notifying: &self)
+    ast.walk(roots: ast[d].conformances, notifying: &self)
+
+    // Other parts reside in `d`.
+    innermost = AnyScopeID(d)
+    ast[d].whereClause.map({ ast.traverse(whereClause: $0.value, notifying: &self) })
+    ast.walk(roots: ast[d].members, notifying: &self)
+
+    innermost = nodeToScope[d]
+    return false
+  }
+
+  private mutating func visit(extensionDecl d: ExtensionDecl.ID, in ast: AST) -> Bool {
+    scopeToDecls[d] = []
+
+    // The subject resides in the parent's scope.
+    innermost = nodeToScope[d]
+    ast.walk(ast[d].subject, notifying: &self)
+
+    // Other parts reside in `d`.
+    innermost = AnyScopeID(d)
+    ast[d].whereClause.map({ ast.traverse(whereClause: $0.value, notifying: &self) })
+    ast.walk(roots: ast[d].members, notifying: &self)
+
+    innermost = nodeToScope[d]
+    return false
+  }
+
   private mutating func visit(moduleDecl d: ModuleDecl.ID, in ast: AST) -> Bool {
     assert(innermost == nil)
     scopeToDecls[d] = []
     innermost = AnyScopeID(d)
     ast.traverse(ast[d], notifying: &self)
     innermost = nil
+    return false
+  }
+
+  private mutating func visit(productTypeDecl d: ProductTypeDecl.ID, in ast: AST) -> Bool {
+    scopeToDecls[d] = []
+
+    // The conformance list resides in the parent's scope.
+    innermost = nodeToScope[d]
+    ast.walk(roots: ast[d].conformances, notifying: &self)
+
+    // Other parts reside in `d`.
+    innermost = AnyScopeID(d)
+    ast[d].genericClause.map({ ast.traverse(genericClause: $0.value, notifying: &self) })
+    ast.walk(roots: ast[d].members, notifying: &self)
+
+    innermost = nodeToScope[d]
+    return false
+  }
+
+  private mutating func visit(traitDecl d: TraitDecl.ID, in ast: AST) -> Bool {
+    scopeToDecls[d] = []
+
+    // The refinement list resides in the parent's scope.
+    innermost = nodeToScope[d]
+    ast.walk(roots: ast[d].refinements, notifying: &self)
+
+    // Other parts reside in `d`.
+    innermost = AnyScopeID(d)
+    ast.walk(roots: ast[d].members, notifying: &self)
+
+    innermost = nodeToScope[d]
     return false
   }
 
