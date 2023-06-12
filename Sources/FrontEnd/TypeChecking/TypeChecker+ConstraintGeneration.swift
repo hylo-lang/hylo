@@ -636,8 +636,7 @@ extension TypeChecker {
 
     // Case 2
     if calleeType.base is TypeVariable {
-      let parameters = parametersMatching(
-        arguments: syntax.arguments, in: program[subject].scope, updating: &state)
+      let parameters = parametersMatching(arguments: syntax.arguments, updating: &state)
       let returnType = shape ?? ^TypeVariable()
       let assumedCalleeType = SubscriptImplType(
         isProperty: false,
@@ -657,7 +656,7 @@ extension TypeChecker {
     // Case 3a
     if let callable = SubscriptType(state.facts.inferredTypes[syntax.callee]!) {
       if parametersMatching(
-        arguments: syntax.arguments, of: syntax.callee, in: program[subject].scope,
+        arguments: syntax.arguments, of: syntax.callee,
         shapedBy: callable.inputs, updating: &state)
       {
         return state.facts.constrain(subject, in: ast, toHaveType: callable.output)
@@ -710,7 +709,7 @@ extension TypeChecker {
       // Visit the arguments.
       let calleeType = SubscriptType(instantiatedType.shape)!
       if parametersMatching(
-        arguments: syntax.arguments, of: syntax.callee, in: program[subject].scope,
+        arguments: syntax.arguments, of: syntax.callee,
         shapedBy: calleeType.inputs, updating: &state)
       {
         // Register the callee's constraints.
@@ -977,9 +976,7 @@ extension TypeChecker {
   /// to generate their type constraints assuming they have the corresponding type in `parameters`
   /// and returns `true`. Otherwise, returns `false`.
   private mutating func parametersMatching(
-    arguments: [LabeledArgument],
-    of callee: AnyExprID,
-    in scope: AnyScopeID,
+    arguments: [LabeledArgument], of callee: AnyExprID,
     shapedBy parameters: [CallableTypeParameter],
     updating state: inout State
   ) -> Bool {
@@ -1019,7 +1016,6 @@ extension TypeChecker {
   /// Visit `arguments` to generate their type constraints and returns a matching parameter list.
   private mutating func parametersMatching(
     arguments: [LabeledArgument],
-    in scope: AnyScopeID,
     updating state: inout State
   ) -> [CallableTypeParameter] {
     var parameters: [CallableTypeParameter] = []
