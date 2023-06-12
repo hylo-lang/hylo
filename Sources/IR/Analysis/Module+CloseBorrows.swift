@@ -17,7 +17,7 @@ extension Module {
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
-              diagnostics.insert(.unusedBinding(name: decl.baseName, at: borrow.site))
+              diagnostics.insert(.unusedBinding(name: program.ast[decl].baseName, at: borrow.site))
             }
             removeInstruction(i)
             continue

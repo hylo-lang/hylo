@@ -18,7 +18,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
   /// Writes a textual representation of this instance into `output`.
   public func write<Target: TextOutputStream>(to output: inout Target) {
     output.write(contentsOf: globals.enumerated(), separatedBy: "\n\n") { (s, e) in
-      s.write("global @\(syntax.id).\(e.offset) = \(e.element)")
+      s.write("global @\(id).\(e.offset) = \(e.element)")
     }
     if !globals.isEmpty && !functions.isEmpty {
       output.write("\n\n")

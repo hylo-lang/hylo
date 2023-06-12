@@ -389,7 +389,7 @@ extension TypeChecker {
       state.facts.append(
         FunctionCallConstraint(
           ^constructor, accepts: arguments, returns: constructor.output,
-          origin: ConstraintOrigin(.callee, at: ast[ast[subject].callee].site)))
+          origin: ConstraintOrigin(.callee, at: program[subject].callee.site)))
 
       return state.facts.constrain(subject, in: ast, toHaveType: constructor.output)
     } else {

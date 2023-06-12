@@ -40,11 +40,6 @@ public struct TypedProgram: Program {
   /// The type relations of the program.
   public let relations: TypeRelations
 
-  /// Val's core library.
-  public var coreLibrary: ModuleDecl.Typed? {
-    ast.coreLibrary.map({ self[$0] })
-  }
-
   /// Creates a typed program from a scoped program and property maps describing type annotations.
   ///
   /// - Requires: All modules in `program` have been sucessfully typed checked.
@@ -141,9 +136,11 @@ public struct TypedProgram: Program {
       return storage(of: u.base)
 
     case let u as ProductType:
-      return self[u.decl].members.flatMap { (m) in
-        BindingDecl.Typed(m).map { (b) in
-          b.pattern.names.lazy.map({ (_, name) in (name.decl.baseName, name.decl.type) })
+      return ast[u.decl].members.flatMap { (m) in
+        BindingDecl.ID(m).map { (b) in
+          ast.names(in: ast[b].pattern).map { (_, name) in
+            (ast[ast[name].decl].baseName, declTypes[ast[name].decl]!)
+          }
         } ?? []
       }
 

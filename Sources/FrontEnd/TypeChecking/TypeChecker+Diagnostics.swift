@@ -233,10 +233,10 @@ extension Diagnostic {
     .error("only one annotation is allowed on generic value parameter declarations", at: site)
   }
 
-  static func error(invalidBufferTypeExprArgumentCount expr: SubscriptCallExpr.ID, in ast: AST)
-    -> Diagnostic
-  {
-    .error("buffer type expression requires exactly one argument", at: ast[ast[expr].callee].site)
+  static func error(
+    invalidBufferTypeExprArgumentCount e: SubscriptCallExpr.ID, in ast: AST
+  ) -> Diagnostic {
+    .error("buffer type expression requires exactly one argument", at: ast[ast[e].callee].site)
   }
 
   static func error(nonCallableType type: AnyType, at site: SourceRange) -> Diagnostic {

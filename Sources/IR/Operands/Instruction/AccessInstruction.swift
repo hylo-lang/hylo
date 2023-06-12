@@ -21,7 +21,7 @@ public struct AccessInstruction: Instruction {
   public private(set) var source: Operand
 
   /// The binding in source program to which the instruction corresponds, if any.
-  public let binding: VarDecl.Typed?
+  public let binding: VarDecl.ID?
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
@@ -31,7 +31,7 @@ public struct AccessInstruction: Instruction {
     capabilities: AccessEffectSet,
     accessedType: AnyType,
     source: Operand,
-    binding: VarDecl.Typed?,
+    binding: VarDecl.ID?,
     site: SourceRange
   ) {
     self.capabilities = capabilities
@@ -70,7 +70,7 @@ extension Module {
   ///   - binding: The declaration of the binding to which the borrow corresponds, if any.
   func makeAccess(
     _ capabilities: AccessEffectSet, from source: Operand,
-    correspondingTo binding: VarDecl.Typed? = nil,
+    correspondingTo binding: VarDecl.ID? = nil,
     at site: SourceRange
   ) -> AccessInstruction {
     precondition(!capabilities.isEmpty)

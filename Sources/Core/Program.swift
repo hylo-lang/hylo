@@ -25,6 +25,18 @@ public protocol Program {
 
 extension Program {
 
+  /// Projects the node associated with `id` bundled with its extrinsic relationships.
+  public subscript<T: NodeIDProtocol>(id: T) -> BundledNode<T, Self> {
+    .init(id, in: self)
+  }
+
+  /// Returns `true` iff `d` is a module's entry function.
+  public func isModuleEntry(_ d: FunctionDecl.ID) -> Bool {
+    let s = declToScope[d]!
+    let n = ast[d].identifier?.value
+    return (s.kind == TranslationUnit.self) && ast[d].isPublic && (n == "main")
+  }
+
   /// Returns whether `child` is contained in `ancestor`.
   ///
   /// Lexical scope containment is transitive and reflexive; this method returns `true` if:
