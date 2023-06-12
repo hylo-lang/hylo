@@ -1638,14 +1638,11 @@ public struct TypeChecker {
     }
   }
 
-  /// Resolves the non-overloaded name components of `name` from left to right in `scope`.
+  /// Resolves the non-overloaded name components of `name` from left to right.
   ///
   /// - Postcondition: If the method returns `.done(resolved: r, unresolved: u)`, `r` is not empty
   ///   and `r[i].candidates` has a single element for `0 < i < r.count`.
-  mutating func resolveNominalPrefix(
-    of name: NameExpr.ID,
-    in scope: AnyScopeID
-  ) -> NameResolutionResult {
+  mutating func resolveNominalPrefix(of name: NameExpr.ID) -> NameResolutionResult {
     var (unresolved, domain) = splitNominalComponents(of: name)
     if domain != nil {
       return .inexecutable(unresolved)
@@ -1656,17 +1653,19 @@ public struct TypeChecker {
     var resolved: [NameResolutionResult.ResolvedComponent] = []
     var parent: (type: AnyType, arguments: GenericArguments)? = nil
 
+    let useScope = program[name].scope
     while let component = unresolved.popLast() {
       // Evaluate the static argument list.
       var arguments: [AnyType] = []
       for a in ast[component].arguments {
-        guard let type = realize(a.value, in: scope)?.instance else { return .failed }
+        guard let type = realize(a.value, in: useScope)?.instance else { return .failed }
         arguments.append(type)
       }
 
       // Resolve the component.
       let n = ast[component].name
-      let candidates = resolve(n, parameterizedBy: arguments, memberOf: parent, exposedTo: scope)
+      let candidates = resolve(
+        n, parameterizedBy: arguments, memberOf: parent, exposedTo: useScope)
 
       if candidates.elements.isEmpty {
         report(.error(undefinedName: n.value, in: parent?.type, at: n.site))

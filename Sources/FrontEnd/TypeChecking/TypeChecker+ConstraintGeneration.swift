@@ -492,7 +492,7 @@ extension TypeChecker {
     shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    let resolution = resolveNominalPrefix(of: subject, in: program[subject].scope)
+    let resolution = resolveNominalPrefix(of: subject)
     let unresolvedComponents: [NameExpr.ID]
     var lastVisitedComponentType: AnyType?
 
