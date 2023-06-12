@@ -415,7 +415,6 @@ public struct TypeChecker {
       let inference = solutionTyping(
         initializer,
         shapedBy: shape.type,
-        in: program[AnyDeclID(d)].scope,
         initialConstraints: initializerConstraints)
       bindingsUnderChecking.subtract(names)
 
@@ -509,7 +508,7 @@ public struct TypeChecker {
       // Inline functions may return `Never` regardless of their return type.
       let r = LambdaType(declTypes[id]!)!.output.skolemized
       let (t, c) = typeAndConstraintOfBody(body, inFunctionReturning: r)
-      _ = solutionTyping(body, shapedBy: t, in: id, initialConstraints: [c])
+      _ = solutionTyping(body, shapedBy: t, initialConstraints: [c])
 
     case nil:
       // Requirements and FFIs can be without a body.
@@ -612,7 +611,7 @@ public struct TypeChecker {
   private mutating func check(methodImpl d: MethodImpl.ID) {
     switch ast[d].body {
     case .expr(let e):
-      _ = checkedType(of: e, subtypeOf: LambdaType(declTypes[d])!.output, in: d)
+      _ = checkedType(of: e, subtypeOf: LambdaType(declTypes[d])!.output)
     case .block(let s):
       check(braceStmt: s)
     case nil:
@@ -639,9 +638,7 @@ public struct TypeChecker {
       let defaultValueType = exprTypes[defaultValue].setIfNil(^TypeVariable())
 
       _ = solutionTyping(
-        defaultValue,
-        shapedBy: parameterType.bareType,
-        in: program[d].scope,
+        defaultValue, shapedBy: parameterType.bareType,
         initialConstraints: [
           ParameterConstraint(
             defaultValueType, ^parameterType,
@@ -720,7 +717,7 @@ public struct TypeChecker {
   private mutating func check(subscriptImpl d: SubscriptImpl.ID, outputType: AnyType) {
     switch ast[d].body {
     case .expr(let e):
-      _ = checkedType(of: e, subtypeOf: outputType, in: d)
+      _ = checkedType(of: e, subtypeOf: outputType)
     case .block(let s):
       check(braceStmt: s)
     case nil:
@@ -1113,7 +1110,7 @@ public struct TypeChecker {
     case DeclStmt.self:
       check(decl: ast[DeclStmt.ID(s)!].decl)
     case DiscardStmt.self:
-      _ = checkedType(of: ast[DiscardStmt.ID(s)!].expr, in: scope)
+      _ = checkedType(of: ast[DiscardStmt.ID(s)!].expr)
     case DoWhileStmt.self:
       check(doWhile: NodeID(s)!, in: scope)
     case ReturnStmt.self:
@@ -1140,7 +1137,7 @@ public struct TypeChecker {
 
   private mutating func check(assign s: AssignStmt.ID, in scope: AnyScopeID) {
     // Target type must be `Movable`.
-    guard let targetType = checkedType(of: ast[s].left, in: scope) else { return }
+    guard let targetType = checkedType(of: ast[s].left) else { return }
     let lhsConstraint = ConformanceConstraint(
       targetType, conformsTo: [ast.movableTrait],
       origin: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
@@ -1153,7 +1150,7 @@ public struct TypeChecker {
 
     // Note: Type information flows strictly from left to right.
     _ = solutionTyping(
-      ast[s].right, shapedBy: targetType, in: scope,
+      ast[s].right, shapedBy: targetType,
       initialConstraints: [lhsConstraint, rhsConstraint])
   }
 
@@ -1162,7 +1159,7 @@ public struct TypeChecker {
     for c in ast[s].condition {
       switch c {
       case .expr(let e):
-        _ = checkedType(of: e, subtypeOf: boolType, in: scope)
+        _ = checkedType(of: e, subtypeOf: boolType)
       default:
         fatalError("not implemented")
       }
@@ -1175,7 +1172,7 @@ public struct TypeChecker {
   }
 
   private mutating func check(exprStmt s: ExprStmt.ID, in scope: AnyScopeID) {
-    guard let result = checkedType(of: ast[s].expr, in: scope) else { return }
+    guard let result = checkedType(of: ast[s].expr) else { return }
 
     // Warn against unused result if the type of the expression is neither `Void` nor `Never`.
     let t = relations.canonical(result)
@@ -1189,13 +1186,13 @@ public struct TypeChecker {
 
     // Visit the condition of the loop in the scope of the body.
     let boolType = AnyType(ast.coreType("Bool")!)
-    check(ast[subject].condition, in: ast[subject].body, hasType: boolType, cause: .structural)
+    check(ast[subject].condition, hasType: boolType, cause: .structural)
   }
 
   private mutating func check(return id: ReturnStmt.ID, in scope: AnyScopeID) {
     let o = expectedOutputType(in: scope)!
     if let v = ast[id].value {
-      _ = checkedType(of: v, subtypeOf: o, in: scope)
+      _ = checkedType(of: v, subtypeOf: o)
     } else if !relations.areEquivalent(o, .void) {
       diagnostics.insert(.error(missingReturnValueAt: ast[id].site))
     }
@@ -1208,7 +1205,7 @@ public struct TypeChecker {
       switch item {
       case .expr(let e):
         // Condition must be Boolean.
-        check(e, in: scope, hasType: boolType, cause: .structural)
+        check(e, hasType: boolType, cause: .structural)
       case .decl(let binding):
         check(binding: binding)
       }
@@ -1220,7 +1217,7 @@ public struct TypeChecker {
 
   private mutating func check(yield s: YieldStmt.ID, in scope: AnyScopeID) {
     let o = expectedOutputType(in: scope)!
-    _ = checkedType(of: ast[s].value, subtypeOf: o, in: scope)
+    _ = checkedType(of: ast[s].value, subtypeOf: o)
   }
 
   /// Returns whether `d` is well-typed, reading type inference results from `s`.
@@ -1498,28 +1495,23 @@ public struct TypeChecker {
 
   // MARK: Type inference
 
-  /// Checks that `e`, which occurs in `scope`,  has type `t` due to `c`.
-  private mutating func check<S: ScopeID>(
-    _ e: AnyExprID, in scope: S, hasType t: AnyType, cause c: ConstraintOrigin.Kind
-  ) {
+  /// Checks that `e`  has type `t` due to `c`.
+  private mutating func check(_ e: AnyExprID, hasType t: AnyType, cause c: ConstraintOrigin.Kind) {
     let u = exprTypes[e].setIfNil(^TypeVariable())
     _ = solutionTyping(
-      e, shapedBy: t, in: scope,
+      e, shapedBy: t,
       initialConstraints: [EqualityConstraint(u, t, origin: .init(c, at: ast[e].site))])
   }
 
-  /// Returns the type of `subject` knowing it occurs in `scope` and is shaped by `shape`, or `nil`
-  /// if such type couldn't be deduced.
+  /// Returns the type of `subject` knowing it is shaped by `shape`, or `nil` if such type couldn't
+  /// be deduced.
   ///
   /// - Parameters:
   ///   - subject: The expression whose type should be deduced.
   ///   - shape: The shape of the type `subject` is expected to have given top-bottom information
   ///     flow, or `nil` of such shape is unknown.
-  ///   - scope: The innermost scope containing `subject`.
-  private mutating func checkedType<S: ScopeID>(
-    of subject: AnyExprID,
-    subtypeOf supertype: AnyType? = nil,
-    in scope: S
+  private mutating func checkedType(
+    of subject: AnyExprID, subtypeOf supertype: AnyType? = nil
   ) -> AnyType? {
     var c: [Constraint] = []
     if let t = supertype {
@@ -1527,24 +1519,20 @@ public struct TypeChecker {
       c.append(SubtypingConstraint(u, t, origin: .init(.structural, at: ast[subject].site)))
     }
 
-    let i = solutionTyping(subject, shapedBy: supertype, in: scope, initialConstraints: c)
+    let i = solutionTyping(subject, shapedBy: supertype, initialConstraints: c)
     return i.succeeded ? exprTypes[subject]! : nil
   }
 
   /// Returns the best solution satisfying `initialConstraints` and describing the types of
-  /// `subject` and its sub-expressions, knowing `subject` occurs in `scope` and is shaped by
-  /// `shape`.
+  /// `subject` and its sub-expressions, knowing `subject` is shaped by `shape`.
   ///
   /// - Parameters:
   ///   - subject: The expression whose constituent types should be deduced.
   ///   - shape: The shape of the type `subject` is expected to have given top-bottom information
   ///     flow, or `nil` of such shape is unknown.
-  ///   - scope: The innermost scope containing `subject`.
   ///   - initialConstraints: A collection of constraints on constituent types of `subject`.
-  mutating func solutionTyping<S: ScopeID>(
-    _ subject: AnyExprID,
-    shapedBy shape: AnyType?,
-    in scope: S,
+  mutating func solutionTyping(
+    _ subject: AnyExprID, shapedBy shape: AnyType?,
     initialConstraints: [Constraint] = []
   ) -> (succeeded: Bool, solution: Solution) {
     // Determine whether tracing should be enabled.
@@ -1574,7 +1562,7 @@ public struct TypeChecker {
     var s = ConstraintSystem(
       initialConstraints + facts.constraints,
       bindings: facts.inferredBindings,
-      in: AnyScopeID(scope),
+      in: program[subject].scope,
       loggingTrace: shouldLogTrace)
     let solution = s.solution(querying: &self)
 
