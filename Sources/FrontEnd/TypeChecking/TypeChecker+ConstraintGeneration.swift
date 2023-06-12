@@ -510,9 +510,7 @@ extension TypeChecker {
 
     for c in syntax.cases {
       // Each pattern is expected to have the same type as the subject.
-      let caseType = inferredType(
-        of: ast[c].pattern, shapedBy: subjectType, in: scope, updating: &state)
-
+      let caseType = inferredType(of: ast[c].pattern, shapedBy: subjectType, updating: &state)
       if caseType.isError {
         return state.facts.assignErrorType(to: subject)
       }
@@ -881,39 +879,30 @@ extension TypeChecker {
 
   // MARK: Patterns
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type,
-  /// updating `state` with inference facts and deferred type checking requests.
+  /// Knowing `subject` is shaped by `shape`, returns its inferred type, updating `state` with
+  /// inference facts and deferred type checking requests.
   mutating func inferredType(
-    of subject: AnyPatternID,
-    in scope: AnyScopeID,
-    shapedBy shape: AnyType?
+    of subject: AnyPatternID, shapedBy shape: AnyType?
   ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
     var s: State = (facts: .init(), deferred: [])
-    let t = inferredType(of: subject, shapedBy: shape, in: scope, updating: &s)
+    let t = inferredType(of: subject, shapedBy: shape, updating: &s)
     return (t, s.facts, s.deferred)
   }
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type
-  /// along, updating `state` with inference facts and deferred type checking requests.
+  /// Knowing `subject` is shaped by `shape`, returns its inferred type along, updating `state`
+  /// with inference facts and deferred type checking requests.
   private mutating func inferredType(
-    of subject: AnyPatternID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: AnyPatternID, shapedBy shape: AnyType?, updating state: inout State
   ) -> AnyType {
     switch subject.kind {
     case BindingPattern.self:
-      return inferredType(
-        ofBindingPattern: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(ofBindingPattern: NodeID(subject)!, shapedBy: shape, updating: &state)
     case ExprPattern.self:
-      return inferredType(
-        ofExprPattern: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(ofExprPattern: NodeID(subject)!, shapedBy: shape, updating: &state)
     case NamePattern.self:
-      return inferredType(
-        ofNamePattern: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(ofNamePattern: NodeID(subject)!, shapedBy: shape, updating: &state)
     case TuplePattern.self:
-      return inferredType(
-        ofTuplePattern: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(ofTuplePattern: NodeID(subject)!, shapedBy: shape, updating: &state)
     case WildcardPattern.self:
       return shape ?? ^TypeVariable()
     default:
@@ -922,9 +911,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofBindingPattern subject: BindingPattern.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
+    ofBindingPattern subject: BindingPattern.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     // A binding pattern introduces additional type information when it has a type annotation. In
@@ -932,7 +919,7 @@ extension TypeChecker {
     // and constrained to be a subtype of the expected type, if any.
     var subpatternType = shape
     if let a = ast[subject].annotation {
-      if let subjectType = realize(a, in: scope)?.instance {
+      if let subjectType = realize(a, in: program[subject].scope)?.instance {
         if let t = shape {
           state.facts.append(
             SubtypingConstraint(
@@ -946,23 +933,19 @@ extension TypeChecker {
       }
     }
 
-    return inferredType(
-      of: ast[subject].subpattern, shapedBy: subpatternType, in: scope, updating: &state)
+    return inferredType(of: ast[subject].subpattern, shapedBy: subpatternType, updating: &state)
   }
 
   private mutating func inferredType(
-    ofExprPattern subject: ExprPattern.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
+    ofExprPattern subject: ExprPattern.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    inferredType(of: ast[subject].expr, shapedBy: shape, in: scope, updating: &state)
+    let s = program[subject].scope
+    return inferredType(of: ast[subject].expr, shapedBy: shape, in: s, updating: &state)
   }
 
   private mutating func inferredType(
-    ofNamePattern subject: NamePattern.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
+    ofNamePattern subject: NamePattern.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let nameDecl = ast[subject].decl
@@ -981,9 +964,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofTuplePattern subject: TuplePattern.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
+    ofTuplePattern subject: TuplePattern.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     switch shape?.base {
@@ -1000,7 +981,7 @@ extension TypeChecker {
 
       // Visit the elements pairwise.
       for (a, b) in zip(ast[subject].elements, t.elements) {
-        let t = inferredType(of: a.pattern, shapedBy: b.type, in: scope, updating: &state)
+        let t = inferredType(of: a.pattern, shapedBy: b.type, updating: &state)
         if t.isError { return .error }
         lhs.append(a.label?.value)
         rhs.append(b.label)
@@ -1027,9 +1008,8 @@ extension TypeChecker {
       // Infer the shape of the expected type.
       return ^TupleType(
         ast[subject].elements.map { (a) in
-          .init(
-            label: a.label?.value,
-            type: inferredType(of: a.pattern, shapedBy: nil, in: scope, updating: &state))
+          let t = inferredType(of: a.pattern, shapedBy: nil, updating: &state)
+          return .init(label: a.label?.value, type: t)
         })
     }
   }

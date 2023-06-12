@@ -383,8 +383,7 @@ public struct TypeChecker {
     }
 
     // Determine the shape of the declaration.
-    let shape = inferredType(
-      of: AnyPatternID(ast[d].pattern), in: program[AnyDeclID(d)].scope, shapedBy: nil)
+    let shape = inferredType(of: AnyPatternID(ast[d].pattern), shapedBy: nil)
     assert(shape.facts.inferredTypes.storage.isEmpty, "expression in binding pattern")
 
     if shape.type[.hasError] {
