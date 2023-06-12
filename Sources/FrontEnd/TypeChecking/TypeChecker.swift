@@ -2120,14 +2120,14 @@ public struct TypeChecker {
       case ModuleDecl.self:
         let m = ModuleDecl.ID(s)!
         let symbols = ast.topLevelDecls(m)
-        insert(into: &matches, decls: symbols, extending: canonicalSubject, in: s)
+        insert(decls: symbols, extending: canonicalSubject, into: &matches)
         root = m
 
       case TranslationUnit.self:
         continue
 
       default:
-        insert(into: &matches, decls: program[s].decls, extending: canonicalSubject, in: s)
+        insert(decls: program[s].decls, extending: canonicalSubject, into: &matches)
       }
     }
 
@@ -2138,20 +2138,18 @@ public struct TypeChecker {
     let imports = self.imports[program.source(containing: useScope), default: []]
     for m in imports where m != root {
       let symbols = ast.topLevelDecls(m)
-      insert(into: &matches, decls: symbols, extending: canonicalSubject, in: AnyScopeID(m))
+      insert(decls: symbols, extending: canonicalSubject, into: &matches)
     }
 
     return matches
   }
 
-  /// Insert into `matches` the declarations in `decls` that extend `subject` in `scope`.
+  /// Insert the declarations in `decls` that extend `subject` into `matches`.
   ///
   /// - Requires: `subject` must be canonical.
   private mutating func insert<S: Sequence>(
-    into matches: inout [AnyDeclID],
-    decls: S,
-    extending subject: AnyType,
-    in scope: AnyScopeID
+    decls: S, extending subject: AnyType,
+    into matches: inout [AnyDeclID]
   ) where S.Element == AnyDeclID {
     precondition(subject[.isCanonical])
 
