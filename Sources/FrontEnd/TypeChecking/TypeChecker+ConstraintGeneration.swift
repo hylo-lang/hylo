@@ -194,13 +194,13 @@ extension TypeChecker {
     updating state: inout State
   ) -> AnyType {
     let syntax = ast[subject]
-    let useScope = program[subject].scope
 
     // Realize the type to which the left operand should be converted.
-    guard let target = realize(syntax.right, in: useScope)?.instance else {
+    guard let target = realize(syntax.right)?.instance else {
       return state.facts.assignErrorType(to: subject)
     }
 
+    let useScope = program[subject].scope
     let rhs = instantiate(target, in: useScope, cause: ConstraintOrigin(.cast, at: syntax.site))
     _ = state.facts.constrain(syntax.right, in: ast, toHaveType: MetatypeType(of: rhs.shape))
     state.facts.append(rhs.constraints)
@@ -866,7 +866,7 @@ extension TypeChecker {
     // and constrained to be a subtype of the expected type, if any.
     var subpatternType = shape
     if let a = ast[subject].annotation {
-      if let subjectType = realize(a, in: program[subject].scope)?.instance {
+      if let subjectType = realize(a)?.instance {
         if let t = shape {
           state.facts.append(
             SubtypingConstraint(
