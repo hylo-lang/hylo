@@ -3,13 +3,9 @@ public struct TypedProgram: Program {
 
   public let ast: AST
 
-  public let scopeToParent: ASTProperty<AnyScopeID>
+  public let nodeToScope: ASTProperty<AnyScopeID>
 
   public let scopeToDecls: ASTProperty<[AnyDeclID]>
-
-  public let declToScope: DeclProperty<AnyScopeID>
-
-  public let exprToScope: [NameExpr.ID: AnyScopeID]
 
   public let varToBinding: [VarDecl.ID: BindingDecl.ID]
 
@@ -58,10 +54,8 @@ public struct TypedProgram: Program {
     precondition(program.ast.modules.allSatisfy({ declTypes[$0]?.base is ModuleType }))
 
     self.ast = program.ast
-    self.scopeToParent = program.scopeToParent
+    self.nodeToScope = program.nodeToScope
     self.scopeToDecls = program.scopeToDecls
-    self.declToScope = program.declToScope
-    self.exprToScope = program.exprToScope
     self.varToBinding = program.varToBinding
     self.imports = imports
     self.declTypes = declTypes
@@ -100,7 +94,7 @@ public struct TypedProgram: Program {
     if let r = ast[d].receiver {
       result.append(AnyDeclID(r))
     } else {
-      let bundle = SubscriptDecl.ID(declToScope[d]!)!
+      let bundle = SubscriptDecl.ID(nodeToScope[d]!)!
       result.append(contentsOf: ast[bundle].explicitCaptures.map(AnyDeclID.init(_:)))
       result.append(contentsOf: implicitCaptures[bundle]!.map(\.decl))
     }

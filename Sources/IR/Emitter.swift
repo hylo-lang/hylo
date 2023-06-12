@@ -328,7 +328,7 @@ public struct Emitter {
     // Configure the locals.
     var locals = DeclProperty<Operand>()
 
-    let bundle = SubscriptDecl.ID(program[d].parent!)!
+    let bundle = SubscriptDecl.ID(program[d].scope)!
     let explicit = program[bundle].explicitCaptures
     let implicit = program[bundle].implicitCaptures
 
