@@ -184,7 +184,7 @@ public struct Module {
     if functions[f] != nil { return f }
 
     let parameters = program.accumulatedGenericParameters(of: d)
-    let output = program.relations.canonical((program.declTypes[d]!.base as! CallableType).output)
+    let output = program.relations.canonical((program[d].type.base as! CallableType).output)
     let inputs = loweredParameters(of: d)
 
     let entity = Function(
@@ -245,7 +245,7 @@ public struct Module {
     if functions[f] != nil { return f }
 
     let parameters = program.accumulatedGenericParameters(of: d)
-    let output = program.relations.canonical(SubscriptImplType(program.declTypes[d])!.output)
+    let output = program.relations.canonical(SubscriptImplType(program[d].type)!.output)
     let inputs = loweredParameters(of: d)
 
     let entity = Function(
@@ -288,7 +288,7 @@ public struct Module {
 
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
-    let captures = LambdaType(program.declTypes[d]!)!.captures.lazy.map { (e) in
+    let captures = LambdaType(program[d].type)!.captures.lazy.map { (e) in
       program.relations.canonical(e.type)
     }
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
@@ -310,14 +310,14 @@ public struct Module {
 
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: SubscriptImpl.ID) -> [Parameter] {
-    let captures = SubscriptImplType(program.declTypes[d]!)!.captures.lazy.map { (e) in
+    let captures = SubscriptImplType(program[d].type)!.captures.lazy.map { (e) in
       program.relations.canonical(e.type)
     }
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
       .init(c, capturedAs: e)
     })
 
-    let bundle = SubscriptDecl.ID(program.declToScope[d]!)!
+    let bundle = SubscriptDecl.ID(program[d].scope)!
     if let p = program.ast[bundle].parameters {
       result.append(contentsOf: p.map(pairedWithLoweredType(parameter:)))
     }
@@ -327,7 +327,7 @@ public struct Module {
 
   /// Returns `d`, which declares a parameter, paired with its lowered type.
   private func pairedWithLoweredType(parameter d: ParameterDecl.ID) -> Parameter {
-    let t = program.relations.canonical(program.declTypes[d]!)
+    let t = program.relations.canonical(program[d].type)
     return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
   }
 

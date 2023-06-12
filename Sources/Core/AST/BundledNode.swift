@@ -1,22 +1,22 @@
-/// A projection from a `AST` of a node along with its children.
+/// A projection from a `Program` of a node along with its extrinsic relationships.
 @dynamicMemberLookup
-public struct BundledNode<T: NodeIDProtocol> {
+public struct BundledNode<T: NodeIDProtocol, P: Program> {
 
-  /// The AST of which this node is a notional part.
-  private let container: AST
+  /// The program of which this node is a notional part.
+  private let container: P
 
-  /// The node's identity in `container`.
+  /// The node's identity in `container.ast`.
   public let id: T
 
   /// Creates an instance bundling `container` with `id`.
-  public init(_ id: T, in container: AST) {
+  public init(_ id: T, in container: P) {
     self.container = container
     self.id = id
   }
 
   /// The site from which self was parsed.
   public var site: SourceRange {
-    container[id].site
+    container.ast[id].site
   }
 
 }
@@ -25,14 +25,100 @@ extension BundledNode where T: ConcreteNodeID {
 
   /// Accesses `m` in the corresponding AST node.
   public subscript<Target>(dynamicMember m: KeyPath<T.Subject, Target>) -> Target {
-    container[id][keyPath: m]
+    container.ast[id][keyPath: m]
   }
 
   /// Accesses `m` in the corresponding AST node.
   public subscript<Target: NodeIDProtocol>(
     dynamicMember m: KeyPath<T.Subject, Target>
-  ) -> BundledNode<Target> {
-    .init(container[id][keyPath: m], in: container)
+  ) -> BundledNode<Target, P> {
+    .init(container.ast[id][keyPath: m], in: container)
+  }
+
+}
+
+extension BundledNode where T: DeclID {
+
+  /// The scope in which this declaration resides.
+  public var scope: AnyScopeID {
+    container.declToScope[id]!
+  }
+
+}
+
+extension BundledNode where T: ScopeID {
+
+  /// The parent scope, if any
+  public var parent: AnyScopeID? {
+    container.scopeToParent[id]
+  }
+
+  /// The declarations in this immediate scope.
+  public var decls: [AnyDeclID] {
+    container.scopeToDecls[id, default: []]
+  }
+
+}
+
+extension BundledNode where T == VarDecl.ID {
+
+  /// The binding declaration containing this variable declaration.
+  public var binding: BindingDecl.ID {
+    container.varToBinding[id]!
+  }
+
+}
+
+extension BundledNode where T: DeclID, P == TypedProgram {
+
+  /// The type of the declared entity.
+  public var type: AnyType {
+    container.declTypes[id]!
+  }
+
+}
+
+extension BundledNode where T == FunctionDecl.ID, P == TypedProgram {
+
+  /// The implicit captures for the declared entity.
+  public var implicitCaptures: [ImplicitCapture] {
+    container.implicitCaptures[id, default: []]
+  }
+
+}
+
+extension BundledNode where T == SubscriptDecl.ID, P == TypedProgram {
+
+  /// The implicit captures for the declared entity.
+  public var implicitCaptures: [ImplicitCapture] {
+    container.implicitCaptures[id, default: []]
+  }
+
+}
+
+extension BundledNode where T: ExprID, P == TypedProgram {
+
+  /// The type of this expression
+  public var type: AnyType {
+    container.exprTypes[id]!
+  }
+
+}
+
+extension BundledNode where T == NameExpr.ID, P == TypedProgram {
+
+  /// The declaration referenced by this expression.
+  public var referredDecl: DeclReference {
+    container.referredDecls[id]!
+  }
+
+}
+
+extension BundledNode where T == SequenceExpr.ID, P == TypedProgram {
+
+  /// A representation of `self` that encodes its evaluation order.
+  public var folded: FoldedSequenceExpr {
+    container.foldedSequenceExprs[id]!
   }
 
 }
@@ -54,14 +140,6 @@ extension BundledNode: CustomStringConvertible {
 
   public var description: String {
     String(site.text)
-  }
-
-}
-
-extension NodeIDProtocol {
-
-  public subscript(in container: AST) -> BundledNode<Self> {
-    .init(self, in: container)
   }
 
 }

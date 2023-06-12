@@ -25,6 +25,11 @@ public protocol Program {
 
 extension Program {
 
+  /// Projects the node associated with `id` bundled with its extrinsic relationships.
+  public subscript<T: NodeIDProtocol>(id: T) -> BundledNode<T, Self> {
+    .init(id, in: self)
+  }
+
   /// Returns `true` iff `d` is a module's entry function.
   public func isModuleEntry(_ d: FunctionDecl.ID) -> Bool {
     let s = declToScope[d]!

@@ -175,8 +175,8 @@ public struct Emitter {
   private func outermostFrame(of d: FunctionDecl.ID, entering entry: Block.ID) -> Frame {
     var locals = DeclProperty<Operand>()
 
-    let explicit = ast[d].explicitCaptures
-    let implicit = program.implicitCaptures[d]!
+    let explicit = program[d].explicitCaptures
+    let implicit = program[d].implicitCaptures
 
     // Exlicit captures appear first.
     for (i, c) in explicit.enumerated() {
@@ -208,7 +208,7 @@ public struct Emitter {
     switch pushing(f, { $0.emit(braceStmt: b) }) {
     case .next:
       if !module[insertionBlock!.function].output.isVoidOrNever {
-        let t = LambdaType(program.declTypes[d])!.output
+        let t = LambdaType(program[d].type)!.output
         report(.error(missingReturn: t, at: .empty(atEndOf: ast[b].site)))
       } else {
         emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: ast[b].site))
@@ -328,9 +328,9 @@ public struct Emitter {
     // Configure the locals.
     var locals = DeclProperty<Operand>()
 
-    let bundle = SubscriptDecl.ID(program.scopeToParent[d]!)!
-    let explicit = ast[bundle].explicitCaptures
-    let implicit = program.implicitCaptures[bundle]!
+    let bundle = SubscriptDecl.ID(program[d].parent!)!
+    let explicit = program[bundle].explicitCaptures
+    let implicit = program[bundle].implicitCaptures
 
     for (i, c) in explicit.enumerated() {
       locals[c] = .parameter(entry, i)
@@ -394,13 +394,13 @@ public struct Emitter {
 
   /// Inserts the IR for `d`.
   private mutating func lower(product d: ProductTypeDecl.ID) {
-    _ = module.addGlobal(MetatypeConstant(.init(program.declTypes[d])!))
+    _ = module.addGlobal(MetatypeConstant(.init(program[d].type)!))
     lower(members: ast[d].members)
   }
 
   /// Inserts the IR for `d`.
   private mutating func lower(trait d: TraitDecl.ID) {
-    _ = module.addGlobal(MetatypeConstant(.init(program.declTypes[d])!))
+    _ = module.addGlobal(MetatypeConstant(.init(program[d].type)!))
   }
 
   /// Inserts the IR for given declaration `members`.
@@ -430,7 +430,7 @@ public struct Emitter {
   ///
   /// - Requires: `d` is a local binding.
   private mutating func lower(localBinding d: BindingDecl.ID) {
-    switch d[in: ast].pattern.introducer.value {
+    switch program[d].pattern.introducer.value {
     case .var, .sinklet:
       lower(storedLocalBinding: d)
     case .let, .inout:
@@ -443,13 +443,13 @@ public struct Emitter {
   /// - Requires: `d` is a local `var` or `sink let` binding.
   private mutating func lower(storedLocalBinding d: BindingDecl.ID) {
     precondition(program.isLocal(d))
-    precondition(read(d[in: ast].pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
+    precondition(read(program[d].pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
     // Allocate storage for all the names declared by `decl`.
-    let storage = emitAllocStack(for: program.declTypes[d]!, at: ast[d].site)
+    let storage = emitAllocStack(for: program[d].type, at: ast[d].site)
 
     // Declare each introduced name and initialize them if possible.
-    let lhs = d[in: ast].pattern.subpattern.id
+    let lhs = program[d].pattern.subpattern.id
     if let initializer = ast[d].initializer {
       ast.walking(pattern: lhs, expression: initializer) { (path, p, rhs) in
         // Declare the introduced name if `p` is a name pattern. Otherwise, drop the value of the
@@ -484,7 +484,7 @@ public struct Emitter {
     precondition(program.isLocal(d))
 
     let access: AccessEffect
-    switch d[in: ast].pattern.introducer.value {
+    switch program[d].pattern.introducer.value {
     case .let:
       access = .let
     case .inout:
@@ -495,9 +495,9 @@ public struct Emitter {
 
     // Borrowed binding requires an initializer.
     guard let initializer = ast[d].initializer else {
-      report(.error(binding: access, requiresInitializerAt: d[in: ast].pattern.introducer.site))
-      for (_, name) in ast.names(in: d[in: ast].pattern.subpattern) {
-        let t = program.relations.canonical(program.declTypes[name[in: ast].decl]!)
+      report(.error(binding: access, requiresInitializerAt: program[d].pattern.introducer.site))
+      for (_, name) in ast.names(in: program[d].pattern.subpattern) {
+        let t = program.relations.canonical(program[program[name].decl].type)
         frames[ast[name].decl] = .constant(Poison(type: .address(t)))
       }
       return
@@ -512,12 +512,12 @@ public struct Emitter {
     let source = emitLValue(initializer)
     let isSink = module.isSink(source, in: insertionBlock!.function)
 
-    for (path, name) in ast.names(in: d[in: ast].pattern.subpattern) {
-      var part = emitElementAddr(source, at: path, at: name[in: ast].decl.site)
+    for (path, name) in ast.names(in: program[d].pattern.subpattern) {
+      var part = emitElementAddr(source, at: path, at: program[name].decl.site)
       let partType = module.type(of: part).ast
       let partDecl = ast[name].decl
 
-      let t = program.relations.canonical(program.declTypes[partDecl]!)
+      let t = program.relations.canonical(program[partDecl].type)
       if !program.relations.areEquivalent(t, partType) {
         if let u = ExistentialType(t) {
           let box = emitExistential(u, borrowing: access, from: part, at: ast[partDecl].site)
@@ -790,7 +790,7 @@ public struct Emitter {
     // statement actually denotes initialization.
     guard ast[s].left.kind == InoutExpr.self else {
       report(
-        .error(assignmentLHSRequiresMutationMarkerAt: .empty(at: s[in: ast].left.site.first())))
+        .error(assignmentLHSRequiresMutationMarkerAt: .empty(at: program[s].left.site.first())))
       return .next
     }
 
@@ -884,7 +884,7 @@ public struct Emitter {
     // before exiting the scope.
     frames.push()
 
-    let body = s[in: ast].body.stmts
+    let body = program[s].body.stmts
     for i in body.indices {
       let a = emit(stmt: body[i])
       if a == .next { continue }
@@ -907,7 +907,7 @@ public struct Emitter {
     frames.pop()
 
     append(
-      module.makeCondBranch(if: c, then: loopBody, else: loopTail, at: s[in: ast].condition.site))
+      module.makeCondBranch(if: c, then: loopBody, else: loopTail, at: program[s].condition.site))
     insertionBlock = loopTail
     return .next
   }
@@ -946,7 +946,7 @@ public struct Emitter {
     insertionBlock = body
     switch emit(stmt: ast[s].body) {
     case .next:
-      append(module.makeBranch(to: head, at: .empty(atEndOf: s[in: ast].body.site)))
+      append(module.makeBranch(to: head, at: .empty(atEndOf: program[s].body.site)))
     case .return(let s):
       emitControlFlow(return: s)
     default:
@@ -989,7 +989,7 @@ public struct Emitter {
   /// address of this allocation.
   @discardableResult
   private mutating func emitStore<T: ExprID>(value syntax: T) -> Operand {
-    let s = emitAllocStack(for: program.exprTypes[syntax]!, at: ast[syntax].site)
+    let s = emitAllocStack(for: program[syntax].type, at: ast[syntax].site)
     emitStore(value: syntax, to: s)
     return s
   }
@@ -1052,10 +1052,10 @@ public struct Emitter {
 
   private mutating func emitStore(upcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .up)
-    let target = MetatypeType(program.exprTypes[ast[e].right])!.instance
+    let target = MetatypeType(program[ast[e].right].type)!.instance
 
     // Store the LHS to `storage` if it already has the desired type.
-    if program.relations.areEquivalent(program.exprTypes[ast[e].left]!, target) {
+    if program.relations.areEquivalent(program[ast[e].left].type, target) {
       emitStore(value: ast[e].left, to: storage)
       return
     }
@@ -1066,10 +1066,10 @@ public struct Emitter {
 
   private mutating func emitStore(downcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .down)
-    let target = MetatypeType(program.exprTypes[ast[e].right])!.instance
+    let target = MetatypeType(program[ast[e].right].type)!.instance
 
     // Store the LHS to `storage` if it already has the desired type.
-    if program.relations.areEquivalent(program.exprTypes[ast[e].left]!, target) {
+    if program.relations.areEquivalent(program[ast[e].left].type, target) {
       emitStore(value: ast[e].left, to: storage)
       return
     }
@@ -1106,7 +1106,7 @@ public struct Emitter {
   private mutating func emitStore(functionCall e: FunctionCallExpr.ID, to storage: Operand) {
     // Handle built-ins and constructor calls.
     if let n = NameExpr.ID(ast[e].callee) {
-      switch program.referredDecls[n]! {
+      switch program[n].referredDecl {
       case .builtinFunction(let f):
         let x0 = emit(apply: f, to: ast[e].arguments, at: ast[e].site)
         let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
@@ -1176,13 +1176,13 @@ public struct Emitter {
   }
 
   private mutating func emitStore(sequence e: SequenceExpr.ID, to storage: Operand) {
-    emitStore(foldedSequence: program.foldedSequenceExprs[e]!, to: storage)
+    emitStore(foldedSequence: program[e].folded, to: storage)
   }
 
   private mutating func emitStore(foldedSequence e: FoldedSequenceExpr, to storage: Operand) {
     switch e {
     case .infix(let callee, let lhs, let rhs):
-      let t = program.exprTypes[callee.expr]!
+      let t = program[callee.expr].type
       let calleeType = LambdaType(program.relations.canonical(t))!.lifted
 
       // Emit the operands, starting with RHS.
@@ -1190,7 +1190,7 @@ public struct Emitter {
       let l = emit(infixOperand: lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
 
       // The callee must be a reference to member function.
-      guard case .member(let d, _) = program.referredDecls[callee.expr] else { unreachable() }
+      guard case .member(let d, _) = program[callee.expr].referredDecl else { unreachable() }
       let oper = Operand.constant(
         FunctionReference(to: FunctionDecl.ID(d)!, usedIn: insertionScope!, in: &module))
 
@@ -1210,7 +1210,7 @@ public struct Emitter {
 
   private mutating func emitStore(tuple e: TupleExpr.ID, to storage: Operand) {
     if ast[e].elements.isEmpty {
-      let t = program.relations.canonical(program.exprTypes[e]!)
+      let t = program.relations.canonical(program[e].type)
       let x0 = append(module.makeUnsafeCast(.void, to: t, at: ast[e].site))[0]
       let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
       append(module.makeStore(x0, at: x1, at: ast[e].site))
@@ -1233,7 +1233,7 @@ public struct Emitter {
   private mutating func emitStore<T: NumericLiteralExpr>(
     numericLiteral literal: T.ID, to storage: Operand
   ) {
-    let literalType = program.relations.canonical(program.exprTypes[literal]!)
+    let literalType = program.relations.canonical(program[literal].type)
 
     switch literalType {
     case ast.coreType("Int")!:
@@ -1274,7 +1274,7 @@ public struct Emitter {
       diagnostics.insert(
         .error(
           integerLiteral: syntax.value,
-          overflowsWhenStoredInto: program.exprTypes[literal]!,
+          overflowsWhenStoredInto: program[literal].type,
           at: syntax.site))
       return
     }
@@ -1326,7 +1326,7 @@ public struct Emitter {
     initializerCall call: FunctionCallExpr.ID, initializing s: Operand
   ) {
     let callee = NameExpr.ID(ast[call].callee)!
-    guard case .constructor(let d, let a) = program.referredDecls[callee]! else {
+    guard case .constructor(let d, let a) = program[callee].referredDecl else {
       preconditionFailure()
     }
 
@@ -1367,10 +1367,10 @@ public struct Emitter {
   private mutating func emit(
     memberwiseInitializerCall call: FunctionCallExpr.ID, initializing receiver: Operand
   ) {
-    let callee = LambdaType(program.relations.canonical(program.exprTypes[ast[call].callee]!))!
+    let callee = LambdaType(program.relations.canonical(program[ast[call].callee].type))!
 
     if callee.inputs.isEmpty {
-      let t = program.relations.canonical(program.exprTypes[call]!)
+      let t = program.relations.canonical(program[call].type)
       let x0 = append(module.makeUnsafeCast(.void, to: t, at: ast[call].site))[0]
       let x1 = append(module.makeBorrow(.set, from: receiver, at: ast[call].site))[0]
       append(module.makeStore(x0, at: x1, at: ast[call].site))
@@ -1397,8 +1397,8 @@ public struct Emitter {
     arguments: [LabeledArgument], to callee: AnyExprID,
     synthesizingDefaultArgumentsAt syntheticSite: SourceRange
   ) -> [Operand] {
-    let calleeType = LambdaType(program.exprTypes[callee])!
-    let calleeDecl = NameExpr.ID(callee).flatMap({ program.referredDecls[$0]!.decl })
+    let calleeType = LambdaType(program[callee].type)!
+    let calleeDecl = NameExpr.ID(callee).flatMap({ program[$0].referredDecl.decl! })
     let defaults = calleeDecl.flatMap(ast.defaultArguments(of:))
 
     var result: [Operand] = []
@@ -1435,7 +1435,7 @@ public struct Emitter {
 
     if let e = PragmaLiteralExpr.ID(syntax) {
       argumentSite = site ?? ast[e].site
-      storage = append(module.makeAllocStack(program.exprTypes[e]!, at: argumentSite))[0]
+      storage = append(module.makeAllocStack(program[e].type, at: argumentSite))[0]
       emitStore(pragma: e, to: storage, at: argumentSite)
     } else {
       argumentSite = ast[syntax].site
@@ -1453,7 +1453,7 @@ public struct Emitter {
 
     switch e {
     case .infix(let callee, _, _):
-      let t = program.exprTypes[callee.expr]!
+      let t = program[callee.expr].type
       let u = LambdaType(program.relations.canonical(t))!.lifted
       storage = emitAllocStack(for: u.output, at: ast.site(of: e))
       emitStore(foldedSequence: e, to: storage)
@@ -1515,9 +1515,9 @@ public struct Emitter {
   private mutating func emit(
     namedCallee callee: NameExpr.ID
   ) -> (callee: Operand, captures: [Operand]) {
-    let calleeType = LambdaType(program.relations.canonical(program.exprTypes[callee]!))!
+    let calleeType = LambdaType(program.relations.canonical(program[callee].type))!
 
-    switch program.referredDecls[callee] {
+    switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == FunctionDecl.self:
       // Callee is a direct reference to a function declaration.
       guard calleeType.environment == .void else {
@@ -1570,7 +1570,7 @@ public struct Emitter {
   ///
   /// - Requires: `callee` has a lambda type.
   private mutating func emit(lambdaCallee callee: AnyExprID) -> Operand {
-    switch LambdaType(program.exprTypes[callee])!.receiverEffect {
+    switch LambdaType(program[callee].type)!.receiverEffect {
     case .yielded:
       unreachable()
     case .set, .sink:
@@ -1612,7 +1612,7 @@ public struct Emitter {
   ///
   /// - Requires: `e.type` is `Val.Bool`
   private mutating func emit(branchCondition e: AnyExprID) -> Operand {
-    precondition(program.relations.canonical(program.exprTypes[e]!) == ast.coreType("Bool")!)
+    precondition(program.relations.canonical(program[e].type) == ast.coreType("Bool")!)
     let x0 = emitLValue(e)
     let x1 = emitElementAddr(x0, at: [0], at: ast[e].site)
     let x2 = append(module.makeLoad(x1, at: ast[e].site))[0]
@@ -1725,7 +1725,7 @@ public struct Emitter {
     case .pointerConversion:
       let x0 = emitLValue(ast[e].left)
       let x1 = append(module.makeLoad(x0, at: ast[e].site))[0]
-      let target = RemoteType(program.relations.canonical(program.exprTypes[e]!))!
+      let target = RemoteType(program.relations.canonical(program[e].type))!
       return append(module.makePointerToAddress(x1, to: target, at: ast[e].site))[0]
 
     default:
@@ -1738,7 +1738,7 @@ public struct Emitter {
   }
 
   private mutating func emitLValue(name e: NameExpr.ID) -> Operand {
-    switch program.referredDecls[e]! {
+    switch program[e].referredDecl {
     case .direct(let d, _):
       return emitLValue(directReferenceTo: d)
 
@@ -1762,8 +1762,8 @@ public struct Emitter {
 
     switch d.kind {
     case ProductTypeDecl.self:
-      let t = MetatypeType(of: program.declTypes[d]!)
-      let g = module.addGlobal(MetatypeConstant(MetatypeType(program.declTypes[d])!))
+      let t = MetatypeType(of: program[d].type)
+      let g = module.addGlobal(MetatypeConstant(MetatypeType(program[d].type)!))
       let s = module.makeGlobalAddr(
         of: g, in: module.id, typed: ^MetatypeType(of: t), at: ast[d].site)
       return append(s)[0]
@@ -1822,7 +1822,7 @@ public struct Emitter {
       return emitComputedProperty(boundTo: receiver, declaredBy: i, at: site)
     }
 
-    let t = SubscriptType(program.relations.canonical(program.declTypes[d]!))!
+    let t = SubscriptType(program.relations.canonical(program[d].type))!
     let r = append(module.makeAccess(t.capabilities, from: receiver, at: site))[0]
 
     var variants: [AccessEffect: Function.ID] = [:]
@@ -1840,7 +1840,7 @@ public struct Emitter {
     boundTo receiver: Operand, declaredBy d: SubscriptImpl.ID,
     at site: SourceRange
   ) -> Operand {
-    let t = SubscriptImplType(program.declTypes[d])!
+    let t = SubscriptImplType(program[d].type)!
     let o = RemoteType(ast[d].introducer.value, program.relations.canonical(t.output))
     let r = append(module.makeBorrow(o.access, from: receiver, at: site))[0]
     let f = module.demandSubscriptDeclaration(lowering: d)

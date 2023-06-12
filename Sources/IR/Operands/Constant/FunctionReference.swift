@@ -35,7 +35,7 @@ public struct FunctionReference: Constant, Hashable {
   ) {
     let arguments = module.program.relations.canonical(a)
     let t = module.program.relations.canonical(
-      module.program.monomorphize(module.program.declTypes[d]!, for: arguments))
+      module.program.monomorphize(module.program[d].type, for: arguments))
 
     self.function = module.demandFunctionDeclaration(lowering: d)
     self.type = .address(LambdaType(t)!.lifted)
@@ -52,7 +52,7 @@ public struct FunctionReference: Constant, Hashable {
   ) {
     let arguments = module.program.relations.canonical(a)
     let t = module.program.relations.canonical(
-      module.program.monomorphize(module.program.declTypes[d]!, for: arguments))
+      module.program.monomorphize(module.program[d].type, for: arguments))
 
     self.function = module.demandInitializerDeclaration(lowering: d)
     self.type = .address(LambdaType(t)!.lifted)

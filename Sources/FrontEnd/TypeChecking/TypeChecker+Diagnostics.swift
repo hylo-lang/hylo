@@ -236,7 +236,7 @@ extension Diagnostic {
   static func error(
     invalidBufferTypeExprArgumentCount e: SubscriptCallExpr.ID, in ast: AST
   ) -> Diagnostic {
-    .error("buffer type expression requires exactly one argument", at: e[in: ast].callee.site)
+    .error("buffer type expression requires exactly one argument", at: ast[ast[e].callee].site)
   }
 
   static func error(nonCallableType type: AnyType, at site: SourceRange) -> Diagnostic {
