@@ -198,7 +198,7 @@ public struct TypeChecker {
           diagnostics.insert(.error(circularRefinementAt: ast[t.decl].identifier.site))
         } else if result.insert(base).inserted {
           let newTraits = realize(
-            conformances: ast[base.decl].refinements, in: program[base.decl].parent!)
+            conformances: ast[base.decl].refinements, in: program[base.decl].scope)
           work.formUnion(newTraits)
         }
       }
@@ -802,15 +802,14 @@ public struct TypeChecker {
     conformanceList traits: [NameExpr.ID], partOf d: T.ID
   ) {
     let receiver = realizeReceiver(usedIn: d)!.instance
-    let declContainer = program[d].parent!
     for e in traits {
-      guard let rhs = realize(name: e, in: declContainer)?.instance else { continue }
+      guard let rhs = realize(name: e, in: program[d].scope)?.instance else { continue }
       guard rhs.base is TraitType else {
         diagnostics.insert(.error(conformanceToNonTraitType: rhs, at: ast[e].site))
         continue
       }
 
-      for t in conformedTraits(of: rhs, in: declContainer) {
+      for t in conformedTraits(of: rhs, in: program[d].scope) {
         checkAndRegisterConformance(of: receiver, to: t, declaredBy: d, at: ast[e].site)
       }
     }
@@ -861,7 +860,7 @@ public struct TypeChecker {
 
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
-    let expositionScope = read(program[source].parent!) { (s) in
+    let expositionScope = read(program[source].scope) { (s) in
       (s.kind == TranslationUnit.self) ? AnyScopeID(program.module(containing: s)) : s
     }
 
@@ -1331,7 +1330,7 @@ public struct TypeChecker {
 
       // Synthesize the sugared conformance constraint, if any.
       let rhs = ast[p].conformances
-      let requiredTraits = realize(conformances: rhs, in: program[AnyScopeID(d)!].parent!)
+      let requiredTraits = realize(conformances: rhs, in: program[AnyScopeID(d)!].scope)
       if !requiredTraits.isEmpty {
         let allTraits = derivedTraits(of: requiredTraits, in: AnyScopeID(d)!)
         let s = ast[p].identifier.site
@@ -3254,7 +3253,7 @@ public struct TypeChecker {
       var n = ast[u.name].name.value
       if explictNames.contains(n) { continue }
 
-      let candidates = lookup(unqualified: n.stem, in: program.exprToScope[u.name]!)
+      let candidates = lookup(unqualified: n.stem, in: program[u.name].scope)
         .filter({ isCaptured(referenceTo: $0, occuringIn: decl) })
       if candidates.isEmpty { continue }
 

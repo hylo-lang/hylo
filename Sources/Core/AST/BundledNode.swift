@@ -19,6 +19,13 @@ public struct BundledNode<T: NodeIDProtocol, P: Program> {
     container.ast[id].site
   }
 
+  /// The scope in which the node resides.
+  ///
+  /// - Requres: `self` does not identify a module.
+  public var scope: AnyScopeID {
+    container.nodeToScope[id]!
+  }
+
 }
 
 extension BundledNode where T: ConcreteNodeID {
@@ -37,21 +44,7 @@ extension BundledNode where T: ConcreteNodeID {
 
 }
 
-extension BundledNode where T: DeclID {
-
-  /// The scope in which this declaration resides.
-  public var scope: AnyScopeID {
-    container.declToScope[id]!
-  }
-
-}
-
 extension BundledNode where T: ScopeID {
-
-  /// The parent scope, if any
-  public var parent: AnyScopeID? {
-    container.scopeToParent[id]
-  }
 
   /// The declarations in this immediate scope.
   public var decls: [AnyDeclID] {
