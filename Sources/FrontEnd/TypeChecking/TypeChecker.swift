@@ -624,9 +624,7 @@ public struct TypeChecker {
   }
 
   /// Inserts in `siblingNames` the name of the parameter declaration identified by `d`.
-  private mutating func check(
-    parameter d: ParameterDecl.ID, siblingNames: inout Set<String>
-  ) {
+  private mutating func check(parameter d: ParameterDecl.ID, siblingNames: inout Set<String>) {
     // Check for duplicate parameter names.
     if !siblingNames.insert(ast[d].baseName).inserted {
       diagnostics.insert(.error(duplicateParameterNamed: ast[d].baseName, at: ast[d].site))
@@ -1062,15 +1060,15 @@ public struct TypeChecker {
   }
 
   /// Returns an array of declarations implementing `requirement` with type `requirementType` that
-  /// are member of `conformingType` and exposed in `scope`.
+  /// are member of `conformingType` and exposed in `useScope`.
   private mutating func gatherCandidates(
     implementing requirement: MethodDecl.ID,
     withType requirementType: AnyType,
     for conformingType: AnyType,
-    exposedTo scope: AnyScopeID
+    exposedTo useScope: AnyScopeID
   ) -> [AnyDeclID] {
     let n = Name(of: requirement, in: ast)
-    let lookupResult = lookup(n.stem, memberOf: conformingType, exposedTo: scope)
+    let lookupResult = lookup(n.stem, memberOf: conformingType, exposedTo: useScope)
 
     // Filter out the candidates with incompatible types.
     return lookupResult.compactMap { (c) -> AnyDeclID? in
@@ -1097,31 +1095,30 @@ public struct TypeChecker {
   }
 
   /// Type checks `s`.
-  private mutating func check<T: StmtID>(stmt s: T, in scope: AnyScopeID) {
+  private mutating func check<T: StmtID>(stmt s: T) {
     switch s.kind {
     case AssignStmt.self:
-      check(assign: NodeID(s)!, in: scope)
+      check(assign: NodeID(s)!)
     case BraceStmt.self:
       check(braceStmt: NodeID(s)!)
     case ConditionalStmt.self:
-      check(conditional: NodeID(s)!, in: scope)
+      check(conditional: NodeID(s)!)
     case ExprStmt.self:
-      check(exprStmt: NodeID(s)!, in: scope)
+      check(exprStmt: NodeID(s)!)
     case DeclStmt.self:
       check(decl: ast[DeclStmt.ID(s)!].decl)
     case DiscardStmt.self:
       _ = checkedType(of: ast[DiscardStmt.ID(s)!].expr)
     case DoWhileStmt.self:
-      check(doWhile: NodeID(s)!, in: scope)
+      check(doWhile: NodeID(s)!)
     case ReturnStmt.self:
-      check(return: NodeID(s)!, in: scope)
+      check(return: NodeID(s)!)
     case WhileStmt.self:
-      check(while: NodeID(s)!, in: scope)
+      check(while: NodeID(s)!)
     case YieldStmt.self:
-      check(yield: NodeID(s)!, in: scope)
+      check(yield: NodeID(s)!)
     case ForStmt.self, BreakStmt.self, ContinueStmt.self:
-      // TODO: implement checks for these statements
-      break
+      fatalError("not implemented")
     default:
       unexpected(s, in: ast)
     }
@@ -1131,11 +1128,10 @@ public struct TypeChecker {
   ///
   /// - Note: Method is internal because it may be called during constraint generation.
   mutating func check(braceStmt s: BraceStmt.ID) {
-    let context = AnyScopeID(s)
-    ast[s].stmts.forEach({ (x) in check(stmt: x, in: context) })
+    ast[s].stmts.forEach({ (x) in check(stmt: x) })
   }
 
-  private mutating func check(assign s: AssignStmt.ID, in scope: AnyScopeID) {
+  private mutating func check(assign s: AssignStmt.ID) {
     // Target type must be `Movable`.
     guard let targetType = checkedType(of: ast[s].left) else { return }
     let lhsConstraint = ConformanceConstraint(
@@ -1154,7 +1150,7 @@ public struct TypeChecker {
       initialConstraints: [lhsConstraint, rhsConstraint])
   }
 
-  private mutating func check(conditional s: ConditionalStmt.ID, in scope: AnyScopeID) {
+  private mutating func check(conditional s: ConditionalStmt.ID) {
     let boolType = AnyType(ast.coreType("Bool")!)
     for c in ast[s].condition {
       switch c {
@@ -1167,11 +1163,11 @@ public struct TypeChecker {
 
     check(braceStmt: ast[s].success)
     if let b = ast[s].failure {
-      check(stmt: b, in: scope)
+      check(stmt: b)
     }
   }
 
-  private mutating func check(exprStmt s: ExprStmt.ID, in scope: AnyScopeID) {
+  private mutating func check(exprStmt s: ExprStmt.ID) {
     guard let result = checkedType(of: ast[s].expr) else { return }
 
     // Warn against unused result if the type of the expression is neither `Void` nor `Never`.
@@ -1181,7 +1177,7 @@ public struct TypeChecker {
     }
   }
 
-  private mutating func check(doWhile subject: DoWhileStmt.ID, in scope: AnyScopeID) {
+  private mutating func check(doWhile subject: DoWhileStmt.ID) {
     check(braceStmt: ast[subject].body)
 
     // Visit the condition of the loop in the scope of the body.
@@ -1189,16 +1185,16 @@ public struct TypeChecker {
     check(ast[subject].condition, hasType: boolType, cause: .structural)
   }
 
-  private mutating func check(return id: ReturnStmt.ID, in scope: AnyScopeID) {
-    let o = expectedOutputType(in: scope)!
-    if let v = ast[id].value {
+  private mutating func check(return s: ReturnStmt.ID) {
+    let o = expectedOutputType(in: program[s].scope)!
+    if let v = ast[s].value {
       _ = checkedType(of: v, subtypeOf: o)
     } else if !relations.areEquivalent(o, .void) {
-      diagnostics.insert(.error(missingReturnValueAt: ast[id].site))
+      diagnostics.insert(.error(missingReturnValueAt: ast[s].site))
     }
   }
 
-  private mutating func check(while s: WhileStmt.ID, in scope: AnyScopeID) {
+  private mutating func check(while s: WhileStmt.ID) {
     // Visit the condition(s).
     let boolType = AnyType(ast.coreType("Bool")!)
     for item in ast[s].condition {
@@ -1215,8 +1211,8 @@ public struct TypeChecker {
     check(braceStmt: ast[s].body)
   }
 
-  private mutating func check(yield s: YieldStmt.ID, in scope: AnyScopeID) {
-    let o = expectedOutputType(in: scope)!
+  private mutating func check(yield s: YieldStmt.ID) {
+    let o = expectedOutputType(in: program[s].scope)!
     _ = checkedType(of: ast[s].value, subtypeOf: o)
   }
 
