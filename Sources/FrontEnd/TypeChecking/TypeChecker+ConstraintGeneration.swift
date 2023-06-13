@@ -823,7 +823,8 @@ extension TypeChecker {
   /// Knowing `subject` is shaped by `shape`, returns its inferred type along, updating `state`
   /// with inference facts and deferred type checking requests.
   private mutating func inferredType(
-    of subject: AnyPatternID, shapedBy shape: AnyType?, updating state: inout State
+    of subject: AnyPatternID, shapedBy shape: AnyType?,
+    updating state: inout State
   ) -> AnyType {
     switch subject.kind {
     case BindingPattern.self:
