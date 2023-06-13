@@ -209,8 +209,8 @@ public struct TypeChecker {
     }
 
     // Collect traits declared in conformance declarations.
-    for i in extendingDecls(of: type, exposedTo: useScope) where i.kind == ConformanceDecl.self {
-      for t in realize(conformances: ast[ConformanceDecl.ID(i)!].conformances) {
+    for i in extendingDecls(of: type, exposedTo: useScope).filter(ConformanceDecl.self) {
+      for t in realize(conformances: ast[i].conformances) {
         result.formUnion(conformedTraits(of: ^t, in: useScope))
       }
     }
@@ -1495,13 +1495,13 @@ public struct TypeChecker {
       initialConstraints: [EqualityConstraint(u, t, origin: .init(c, at: ast[e].site))])
   }
 
-  /// Returns the type of `subject` knowing it is shaped by `shape`, or `nil` if such type couldn't
+  /// Returns the type of `subject` knowing it is shaped by `shape`, or `nil` if no such type could
   /// be deduced.
   ///
   /// - Parameters:
   ///   - subject: The expression whose type should be deduced.
   ///   - shape: The shape of the type `subject` is expected to have given top-bottom information
-  ///     flow, or `nil` of such shape is unknown.
+  ///     flow, or `nil` of such a shape is unknown.
   private mutating func checkedType(
     of subject: AnyExprID, subtypeOf supertype: AnyType? = nil
   ) -> AnyType? {
@@ -1521,7 +1521,7 @@ public struct TypeChecker {
   /// - Parameters:
   ///   - subject: The expression whose constituent types should be deduced.
   ///   - shape: The shape of the type `subject` is expected to have given top-bottom information
-  ///     flow, or `nil` of such shape is unknown.
+  ///     flow, or `nil` of such a shape is unknown.
   ///   - initialConstraints: A collection of constraints on constituent types of `subject`.
   mutating func solutionTyping(
     _ subject: AnyExprID, shapedBy shape: AnyType?,
@@ -1607,11 +1607,12 @@ public struct TypeChecker {
   /// This property is used to memoize the results of `lookup(_:memberOf:in)`.
   private var memberLookupTables: [MemberLookupKey: LookupTable] = [:]
 
-  /// A set containing the type extending declarations being currently bounded.
+  /// A set containing the type extending declarations being currently looked into.
   ///
-  /// This property is used during conformance and extension binding to avoid infinite recursion
-  /// through qualified lookups into the extended type.
-  private var extensionsUnderBinding = DeclSet()
+  /// This property is used during to avoid infinite recursion through qualified lookups into the
+  /// extended type. Such a recursion would otherwise occur if the expression of the extended type
+  /// is being evaluated while the members of the extending declarations are being gathered.
+  private var extensionsOnStack = DeclSet()
 
   /// Returns `(head, tail)` where `head` contains the nominal components of `name` from right to
   /// left and `tail` is the non-nominal component of `name`, if any.
@@ -1649,7 +1650,6 @@ public struct TypeChecker {
     var resolved: [NameResolutionResult.ResolvedComponent] = []
     var parent: (type: AnyType, arguments: GenericArguments)? = nil
 
-    let useScope = program[name].scope
     while let component = unresolved.popLast() {
       // Evaluate the static argument list.
       var arguments: [AnyType] = []
@@ -1661,7 +1661,7 @@ public struct TypeChecker {
       // Resolve the component.
       let n = ast[component].name
       let candidates = resolve(
-        n, parameterizedBy: arguments, memberOf: parent, exposedTo: useScope)
+        n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[name].scope)
 
       if candidates.elements.isEmpty {
         report(.error(undefinedName: n.value, in: parent?.type, at: n.site))
@@ -1733,7 +1733,9 @@ public struct TypeChecker {
 
     // Gather declarations qualified by `parent` if it isn't `nil` or unqualified otherwise.
     let matches = lookup(name, memberOf: parent?.type, exposedTo: useScope)
-    if matches.isEmpty { return [] }
+    if matches.isEmpty {
+      return []
+    }
 
     // Create declaration references to all candidates.
     var candidates: NameResolutionResult.CandidateSet = []
@@ -1763,8 +1765,7 @@ public struct TypeChecker {
       matchType = specialized(matchType, applying: allArguments, in: useScope)
 
       let t = instantiate(
-        matchType, in: program.scopeIntroducing(m),
-        cause: .init(.binding, at: name.site))
+        matchType, in: program.scopeIntroducing(m), cause: .init(.binding, at: name.site))
 
       let r: DeclReference
       if isConstructor {
@@ -1854,7 +1855,7 @@ public struct TypeChecker {
 
   /// Returns the declarations exposing a name with given `stem` to `useScope` without
   /// qualification.
-  mutating func lookup(unqualified baseName: String, in useScope: AnyScopeID) -> DeclSet {
+  mutating func lookup(unqualified stem: String, in useScope: AnyScopeID) -> DeclSet {
     var matches = DeclSet()
     var containingFile: TranslationUnit.ID? = nil
     var containingModule: ModuleDecl.ID? = nil
@@ -1868,7 +1869,7 @@ public struct TypeChecker {
 
       // Gather declarations of the identifier in the current scope; we can assume we've got no
       // no non-overloadable candidate.
-      let newMatches = lookup(baseName, introducedInDeclSpaceOf: s, exposedTo: useScope)
+      let newMatches = lookup(stem, inDeclSpaceOf: s, exposedTo: useScope)
         .subtracting(bindingsUnderChecking)
       for d in newMatches {
         if let result = matches.inserting(d) { return result }
@@ -1876,14 +1877,14 @@ public struct TypeChecker {
     }
 
     // Handle references to the containing module.
-    if ast[containingModule]?.baseName == baseName {
+    if ast[containingModule]?.baseName == stem {
       if let result = matches.inserting(containingModule!) { return result }
     }
 
     // Handle references to imported symbols.
     if let u = containingFile, let fileImports = imports[u] {
       for m in fileImports {
-        matches.formUnion(names(introducedIn: m)[baseName, default: []])
+        matches.formUnion(names(introducedIn: m)[stem, default: []])
       }
     }
 
@@ -1892,9 +1893,9 @@ public struct TypeChecker {
 
   /// Returns the declarations introducing a name with given `stem` in the declaration space of
   /// `lookupContext` and exposed to `useScope`.
-  private mutating func lookup<T: ScopeID>(
+  private mutating func lookup(
     _ stem: String,
-    introducedInDeclSpaceOf lookupContext: T,
+    inDeclSpaceOf lookupContext: AnyScopeID,
     exposedTo useScope: AnyScopeID
   ) -> DeclSet {
     switch lookupContext.kind {
@@ -1908,19 +1909,11 @@ public struct TypeChecker {
 
     case ConformanceDecl.self:
       let d = ConformanceDecl.ID(lookupContext)!
-      if let t = MetatypeType(realize(typeExtendingDecl: d))?.instance {
-        return t.isError ? [] : lookup(stem, memberOf: t, exposedTo: useScope)
-      } else {
-        return names(introducedIn: d)[stem, default: []]
-      }
+      return lookup(stem, inDeclSpaceOf: d, exposedTo: useScope)
 
     case ExtensionDecl.self:
       let d = ExtensionDecl.ID(lookupContext)!
-      if let t = MetatypeType(realize(typeExtendingDecl: d))?.instance {
-        return t.isError ? [] : lookup(stem, memberOf: t, exposedTo: useScope)
-      } else {
-        return names(introducedIn: d)[stem, default: []]
-      }
+      return lookup(stem, inDeclSpaceOf: d, exposedTo: useScope)
 
     case TypeAliasDecl.self:
       // We can't re-enter `realize(typeAliasDecl:)` if the aliased type of `d` is being resolved
@@ -1938,6 +1931,21 @@ public struct TypeChecker {
 
     default:
       return names(introducedIn: lookupContext)[stem, default: []]
+    }
+  }
+
+  /// Returns the declarations introducing a name with given `stem` in the declaration space of
+  /// `lookupContext` and exposed to `useScope`.
+  private mutating func lookup<T: TypeExtendingDecl>(
+    _ stem: String,
+    inDeclSpaceOf lookupContext: T.ID,
+    exposedTo useScope: AnyScopeID
+  ) -> DeclSet {
+    let matches = names(introducedIn: lookupContext)[stem, default: []]
+    if let t = MetatypeType(realize(typeExtendingDecl: lookupContext))?.instance {
+      return matches.union(lookup(stem, memberOf: t, exposedTo: useScope))
+    } else {
+      return matches
     }
   }
 
@@ -2144,20 +2152,19 @@ public struct TypeChecker {
   ///
   /// - Requires: `subject` must be canonical.
   private mutating func insert<S: Sequence>(
-    decls: S, extending subject: AnyType,
-    into matches: inout [AnyDeclID]
+    decls: S, extending subject: AnyType, into matches: inout [AnyDeclID]
   ) where S.Element == AnyDeclID {
     precondition(subject[.isCanonical])
 
-    for i in decls where (i.kind == ConformanceDecl.self) || (i.kind == ExtensionDecl.self) {
-      // Skip extending declarations that are being bound.
-      guard extensionsUnderBinding.insert(i).inserted else { continue }
-      defer { extensionsUnderBinding.remove(i) }
+    for d in decls where (d.kind == ConformanceDecl.self) || (d.kind == ExtensionDecl.self) {
+      // Skip extending declarations that are already on the lookup stack.
+      guard extensionsOnStack.insert(d).inserted else { continue }
+      defer { extensionsOnStack.remove(d) }
 
       // Check for matches.
-      guard let extendedType = realize(decl: i).base as? MetatypeType else { continue }
+      guard let extendedType = realize(decl: d).base as? MetatypeType else { continue }
       if relations.canonical(extendedType.instance) == subject {
-        matches.append(i)
+        matches.append(d)
       }
     }
   }
@@ -3306,7 +3313,7 @@ public struct TypeChecker {
   }
 
   /// Returns the type of variant `v` given a method with type `bundle` or returns `nil` if such
-  /// variant is incompatible with `bundle`, reporting diagnostics at `site`.
+  /// a variant is incompatible with `bundle`, reporting diagnostics at `site`.
   ///
   /// - Requires `v` is in `bundle.capabilities`.
   private mutating func variantType(
@@ -3343,7 +3350,7 @@ public struct TypeChecker {
   }
 
   /// Returns the type of variant `v` given a subscript with type `bundle` or returns `nil` if such
-  /// variant is incompatible with `bundle`, reporting diagnostics at `site`.
+  /// a variant is incompatible with `bundle`, reporting diagnostics at `site`.
   ///
   /// - Requires `v` is in `bundle.capabilities`.
   private func variantType(
