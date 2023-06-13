@@ -121,76 +121,60 @@ extension TypeChecker {
   }
 
   /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type,
-  /// updating `state` with inference facts and deferred type checking requests.
+  /// updating `s` with inference facts and deferred type checking requests.
   private mutating func inferredType(
     of subject: AnyExprID, shapedBy shape: AnyType?,
-    updating state: inout State
+    updating s: inout State
   ) -> AnyType {
-    defer { assert(state.facts.inferredTypes[subject] != nil) }
+    defer { assert(s.facts.inferredTypes[subject] != nil) }
 
     switch subject.kind {
     case BooleanLiteralExpr.self:
-      return inferredType(
-        ofBooleanLiteralExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: BooleanLiteralExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case CastExpr.self:
-      return inferredType(
-        ofCastExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: CastExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case ConditionalExpr.self:
-      return inferredType(
-        ofConditionalExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: ConditionalExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case FloatLiteralExpr.self:
-      return inferredType(
-        ofFloatLiteralExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: FloatLiteralExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case FunctionCallExpr.self:
-      return inferredType(
-        ofFunctionCallExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: FunctionCallExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case InoutExpr.self:
-      return inferredType(
-        ofInoutExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: InoutExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case IntegerLiteralExpr.self:
-      return inferredType(
-        ofIntegerLiteralExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: IntegerLiteralExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case LambdaExpr.self:
-      return inferredType(
-        ofLambdaExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: LambdaExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case MatchExpr.self:
-      return inferredType(
-        ofMatchExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: MatchExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case NameExpr.self:
-      return inferredType(
-        ofNameExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: NameExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case PragmaLiteralExpr.self:
-      return inferredType(
-        ofPragmaLiteralExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: PragmaLiteralExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case SequenceExpr.self:
-      return inferredType(
-        ofSequenceExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: SequenceExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case StringLiteralExpr.self:
-      return inferredType(
-        ofStringLiteralExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: StringLiteralExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case SubscriptCallExpr.self:
-      return inferredType(
-        ofSubscriptCallExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: SubscriptCallExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case TupleExpr.self:
-      return inferredType(
-        ofTupleExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: TupleExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case TupleMemberExpr.self:
-      return inferredType(
-        ofTupleMemberExpr: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: TupleMemberExpr.ID(subject)!, shapedBy: shape, updating: &s)
     default:
       unexpected(subject, in: ast)
     }
   }
 
   private mutating func inferredType(
-    ofBooleanLiteralExpr subject: BooleanLiteralExpr.ID, shapedBy shape: AnyType?,
+    of subject: BooleanLiteralExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("Bool")!)
   }
 
   private mutating func inferredType(
-    ofCastExpr subject: CastExpr.ID, shapedBy shape: AnyType?,
+    of subject: CastExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let syntax = ast[subject]
@@ -239,7 +223,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofConditionalExpr subject: ConditionalExpr.ID, shapedBy shape: AnyType?,
+    of subject: ConditionalExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let syntax = ast[subject]
@@ -270,7 +254,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofFloatLiteralExpr subject: FloatLiteralExpr.ID, shapedBy shape: AnyType?,
+    of subject: FloatLiteralExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let defaultType = ^ast.coreType("Double")!
@@ -279,7 +263,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofFunctionCallExpr subject: FunctionCallExpr.ID, shapedBy shape: AnyType?,
+    of subject: FunctionCallExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let syntax = ast[subject]
@@ -287,7 +271,7 @@ extension TypeChecker {
     let callee: AnyType
     if let e = NameExpr.ID(syntax.callee) {
       callee = inferredType(
-        ofNameExpr: e, withImplicitDomain: shape, shapedBy: nil, updating: &state)
+        of: e, withImplicitDomain: shape, shapedBy: nil, updating: &state)
     } else {
       callee = inferredType(of: syntax.callee, shapedBy: nil, updating: &state)
     }
@@ -390,7 +374,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofInoutExpr subject: InoutExpr.ID, shapedBy shape: AnyType?,
+    of subject: InoutExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     state.facts.constrain(
@@ -399,7 +383,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofIntegerLiteralExpr subject: IntegerLiteralExpr.ID, shapedBy shape: AnyType?,
+    of subject: IntegerLiteralExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let t = ^ast.coreType("Int")!
@@ -407,7 +391,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofLambdaExpr subject: LambdaExpr.ID, shapedBy shape: AnyType?,
+    of subject: LambdaExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let syntax = ast[subject]
@@ -465,7 +449,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofMatchExpr subject: MatchExpr.ID, shapedBy shape: AnyType?,
+    of subject: MatchExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let syntax = ast[subject]
@@ -488,7 +472,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofNameExpr subject: NameExpr.ID, withImplicitDomain domain: AnyType? = nil,
+    of subject: NameExpr.ID, withImplicitDomain domain: AnyType? = nil,
     shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
@@ -540,7 +524,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofPragmaLiteralExpr subject: PragmaLiteralExpr.ID, shapedBy shape: AnyType?,
+    of subject: PragmaLiteralExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     switch program.ast[subject].kind {
@@ -552,7 +536,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofSequenceExpr subject: SequenceExpr.ID, shapedBy shape: AnyType?,
+    of subject: SequenceExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     // Fold the sequence and visit its sub-expressions.
@@ -602,14 +586,14 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofStringLiteralExpr subject: StringLiteralExpr.ID, shapedBy shape: AnyType?,
+    of subject: StringLiteralExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("String")!)
   }
 
   private mutating func inferredType(
-    ofSubscriptCallExpr subject: SubscriptCallExpr.ID, shapedBy shape: AnyType?,
+    of subject: SubscriptCallExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let syntax = ast[subject]
@@ -733,7 +717,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofTupleExpr subject: TupleExpr.ID, shapedBy shape: AnyType?,
+    of subject: TupleExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let elements = ast[subject].elements
@@ -760,7 +744,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofTupleMemberExpr subject: TupleMemberExpr.ID, shapedBy shape: AnyType?,
+    of subject: TupleMemberExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let s = inferredType(of: ast[subject].tuple, shapedBy: nil, updating: &state)
