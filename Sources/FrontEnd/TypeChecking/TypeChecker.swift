@@ -1589,10 +1589,13 @@ public struct TypeChecker {
   /// A lookup table.
   private typealias LookupTable = [String: DeclSet]
 
+  /// A key in a member lookup table.
   private struct MemberLookupKey: Hashable {
 
+    /// The type containing the member being looked up.
     var type: AnyType
 
+    /// The scope in which the member is being used.
     var scope: AnyScopeID
 
   }
