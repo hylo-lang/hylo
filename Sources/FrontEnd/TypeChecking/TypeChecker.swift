@@ -1612,27 +1612,6 @@ public struct TypeChecker {
   /// is being evaluated while the members of the extending declarations are being gathered.
   private var extensionsOnStack = DeclSet()
 
-  /// Returns `(head, tail)` where `head` contains the nominal components of `name` from right to
-  /// left and `tail` is the non-nominal component of `name`, if any.
-  ///
-  /// Name expressions are rperesented as linked-list, whose elements are the components of a
-  /// name in reverse order. This method splits such lists at the first non-nominal component.
-  private func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain?) {
-    var suffix = [name]
-    while true {
-      let d = ast[suffix.last!].domain
-      switch d {
-      case .none:
-        return (suffix, nil)
-      case .implicit:
-        return (suffix, d)
-      case .expr(let e):
-        guard let p = NameExpr.ID(e) else { return (suffix, d) }
-        suffix.append(p)
-      }
-    }
-  }
-
   /// Resolves the non-overloaded name components of `name` from left to right.
   ///
   /// - Postcondition: If the method returns `.done(resolved: r, unresolved: u)`, `r` is not empty
@@ -1692,6 +1671,27 @@ public struct TypeChecker {
 
     precondition(!resolved.isEmpty)
     return .done(resolved: resolved, unresolved: unresolved)
+  }
+
+  /// Returns `(head, tail)` where `head` contains the nominal components of `name` from right to
+  /// left and `tail` is the non-nominal component of `name`, if any.
+  ///
+  /// Name expressions are rperesented as linked-list, whose elements are the components of a
+  /// name in reverse order. This method splits such lists at the first non-nominal component.
+  private func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain?) {
+    var suffix = [name]
+    while true {
+      let d = ast[suffix.last!].domain
+      switch d {
+      case .none:
+        return (suffix, nil)
+      case .implicit:
+        return (suffix, d)
+      case .expr(let e):
+        guard let p = NameExpr.ID(e) else { return (suffix, d) }
+        suffix.append(p)
+      }
+    }
   }
 
   /// Returns the declarations of `name` exposed to `useScope` and parameterized by `arguments`.
