@@ -1529,14 +1529,9 @@ public struct TypeChecker {
   ) -> (succeeded: Bool, solution: Solution) {
     // Determine whether tracing should be enabled.
     let shouldLogTrace: Bool
-    if let tracingSite = inferenceTracingSite,
-      tracingSite.bounds.contains(ast[subject].site.first())
-    {
-      let subjectSite = ast[subject].site
+    if let s = inferenceTracingSite, s.bounds.contains(ast[subject].site.first()) {
       shouldLogTrace = true
-      let loc = subjectSite.first()
-      let subjectDescription = subjectSite.file[subjectSite]
-      print("Inferring type of '\(subjectDescription)' at \(loc)")
+      print("Inferring type of '\(program[subject])' at \(ast[subject].site.first())")
       print("---")
     } else {
       shouldLogTrace = false
