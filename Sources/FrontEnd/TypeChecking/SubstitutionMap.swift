@@ -113,7 +113,7 @@ struct SubstitutionMap {
       return .member(d, a.mapValues({ reify(value: $0, withVariables: substitutionPolicy) }))
     case .constructor(let d, let a):
       return .constructor(d, a.mapValues({ reify(value: $0, withVariables: substitutionPolicy) }))
-    case .builtinType, .builtinFunction:
+    case .builtinModule, .builtinType, .builtinFunction:
       return r
     }
   }

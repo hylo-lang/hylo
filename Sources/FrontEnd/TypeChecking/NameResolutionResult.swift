@@ -59,10 +59,17 @@ enum NameResolutionResult {
 
     /// Creates an instance denoting a built-in type.
     init(_ t: BuiltinType) {
+      precondition(t != .module)
       self.reference = .builtinType
-      self.type = .init(shape: ^t, constraints: [])
+      self.type = .init(shape: ^MetatypeType(of: t), constraints: [])
       self.argumentsDiagnostic = nil
     }
+
+    /// A candidate denoting a reference to the built-in module.
+    static var builtinModule = Candidate(
+      reference: .builtinModule,
+      type: .init(shape: .builtin(.module), constraints: []),
+      argumentsDiagnostic: nil)
 
   }
 

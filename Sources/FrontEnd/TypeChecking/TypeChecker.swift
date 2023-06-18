@@ -435,13 +435,8 @@ public struct TypeChecker {
   }
 
   private mutating func _check(conformance d: ConformanceDecl.ID) {
-    guard let receiver = realize(ast[d].subject)?.instance else { return }
-
-    // Built-in types can't be extended.
-    if let b = BuiltinType(receiver) {
-      diagnostics.insert(.error(cannotExtend: b, at: program[d].subject.site))
-      return
-    }
+    // Nothing to do if type realization failed.
+    guard declTypes[d]! != .error else { return }
 
     // Type check the generic constraints.
     _ = environment(ofTypeExtendingDecl: d)
@@ -455,13 +450,8 @@ public struct TypeChecker {
   }
 
   private mutating func _check(extension d: ExtensionDecl.ID) {
-    guard let receiver = realize(ast[d].subject)?.instance else { return }
-
-    // Built-in types can't be extended.
-    if let b = BuiltinType(receiver) {
-      diagnostics.insert(.error(cannotExtend: b, at: program[d].subject.site))
-      return
-    }
+    // Nothing to do if type realization failed.
+    guard declTypes[d]! != .error else { return }
 
     // Type check the generic constraints.
     _ = environment(ofTypeExtendingDecl: d)
@@ -1722,7 +1712,7 @@ public struct TypeChecker {
     // Resolve references to the built-in symbols.
     if isBuiltinModuleVisible {
       if (parent == nil) && (name.value.stem == "Builtin") {
-        return [.init(.module)]
+        return [.builtinModule]
       }
       if parent?.type == .builtin(.module) {
         return resolve(builtin: name)
@@ -1866,27 +1856,41 @@ public struct TypeChecker {
     switch resolution {
     case .done(let prefix, let suffix) where suffix.isEmpty:
       // Return the type of the expression if it could be resolved without further type checking.
-      guard prefix.allSatisfy({ $0.candidates.count == 1 }) else { return nil }
+      guard let last = prefix.last!.candidates.uniqueElement else {
+        return nil
+      }
 
+      // Last component must refer to a type.
+      guard let lastType = MetatypeType(last.type.shape) else {
+        report(.error(typeExprDenotesValue: e, in: ast))
+        exprTypes[e] = .error
+        return .error
+      }
+
+      // Built-in types can't be extended.
+      if let b = BuiltinType(lastType.instance) {
+        diagnostics.insert(.error(cannotExtend: b, at: ast[e].site))
+        exprTypes[e] = .error
+        return .error
+      }
+
+      // Bind each component of the name expression and gather type constraints.
       for p in prefix {
-        // Candidate must refer to a type.
-        guard let t = MetatypeType(p.candidates[0].type.shape) else {
-          report(.error(typeExprDenotesValue: p.component, in: ast))
-          exprTypes[e] = .error
-          return .error
+        var resolvedType = p.candidates[0].type.shape
+        var resolvedDecl = p.candidates[0].reference
+
+        if let t = MetatypeType(resolvedType), let u = BoundGenericType(t.instance) {
+          resolvedType = ^MetatypeType(of: u.base)
+          resolvedDecl = .direct(resolvedDecl.decl!, [:])
+        } else if let u = BoundGenericType(resolvedType) {
+          resolvedType = u.base
+          resolvedDecl = .direct(resolvedDecl.decl!, [:])
         }
 
-        // Translate the generic arguments of the type to constraints.
-        if let u = BoundGenericType(t.instance) {
-          exprTypes[e] = ^MetatypeType(of: u.base)
-          referredDecls[e] = .direct(p.candidates[0].reference.decl!, [:])
+        exprTypes[e] = resolvedType
+        referredDecls[e] = resolvedDecl
 
-          // TODO: Handle arguments and candidate constraints
-          continue
-        }
-
-        exprTypes[e] = ^t
-        referredDecls[e] = p.candidates[0].reference
+        // TODO: Handle arguments and candidate constraints
       }
 
       return exprTypes[e]!

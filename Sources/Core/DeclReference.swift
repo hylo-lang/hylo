@@ -10,11 +10,14 @@ public enum DeclReference: Hashable {
   /// A reference to an initializer used as a constructor.
   case constructor(InitializerDecl.ID, GenericArguments)
 
-  /// A reference to a built-in function.
-  case builtinFunction(BuiltinFunction)
+  /// A reference to the built-in module.
+  case builtinModule
 
   /// A reference to a built-in type.
   case builtinType
+
+  /// A reference to a built-in function.
+  case builtinFunction(BuiltinFunction)
 
   /// Converts a direct initializer reference to a constructor reference.
   public init?(constructor other: DeclReference) {

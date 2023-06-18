@@ -1749,7 +1749,7 @@ public struct Emitter {
     case .constructor:
       fatalError()
 
-    case .builtinFunction, .builtinType:
+    case .builtinModule, .builtinFunction, .builtinType:
       // Built-in functions and types are never used as l-value.
       unreachable()
     }

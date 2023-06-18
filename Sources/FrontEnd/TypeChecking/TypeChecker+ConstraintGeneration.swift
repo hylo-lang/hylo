@@ -270,8 +270,7 @@ extension TypeChecker {
 
     let callee: AnyType
     if let e = NameExpr.ID(syntax.callee) {
-      callee = inferredType(
-        of: e, withImplicitDomain: shape, shapedBy: nil, updating: &state)
+      callee = inferredType(of: e, withImplicitDomain: shape, shapedBy: nil, updating: &state)
     } else {
       callee = inferredType(of: syntax.callee, shapedBy: nil, updating: &state)
     }
