@@ -55,8 +55,9 @@ extension Diagnostic {
     .error("duplicate parameter name '\(name)'", at: site)
   }
 
-  static func error(nameRefersToValue expr: NameExpr.ID, in ast: AST) -> Diagnostic {
-    .error("expected type but '\(ast[expr].name.value)' refers to a value", at: ast[expr].site)
+  static func error<T: ExprID>(typeExprDenotesValue e: T, in ast: AST) -> Diagnostic {
+    let n = NameExpr.ID(e).map({ "'\(ast[$0].name.value)'" }) ?? "expression"
+    return .error("expected type but \(n) denotes a value", at: ast[e].site)
   }
 
   static func error(genericDeclHasCapturesAt site: SourceRange) -> Diagnostic {

@@ -1705,7 +1705,7 @@ public struct TypeChecker {
     exposedTo useScope: AnyScopeID
   ) -> NameResolutionResult.CandidateSet {
     let p = BoundGenericType(parent).map({ ($0.base, $0.arguments) }) ?? (parent, [:])
-    return resolve(name, memberOf: p, exposedTo: useScope)
+    return resolve(name, parameterizedBy: [], memberOf: p, exposedTo: useScope)
   }
 
   /// Returns the declarations of `name` exposed to `useScope` and parameterized by `arguments`.
@@ -1715,7 +1715,7 @@ public struct TypeChecker {
   /// specialized with `arguments` appended to `parent.arguments`.
   private mutating func resolve(
     _ name: SourceRepresentable<Name>,
-    parameterizedBy arguments: [any CompileTimeValue] = [],
+    parameterizedBy arguments: [any CompileTimeValue],
     memberOf parent: (type: AnyType, arguments: GenericArguments)?,
     exposedTo useScope: AnyScopeID
   ) -> NameResolutionResult.CandidateSet {
@@ -1849,6 +1849,57 @@ public struct TypeChecker {
         // TODO: Handle generic value parameters
         (key: p, value: ^TypeVariable())
       })
+  }
+
+  /// Returns the type referred by the subject `e` of a type extending declaration or `nil` if `e`
+  /// can't be resolved as a nominal type declaration.
+  ///
+  /// Generic parameters are interpreted as sugared constraints in the subject of an extension or
+  /// conformance declaration. For example:
+  ///
+  ///     conformance Array<Int>: P {}
+  ///
+  /// In this declaration, the extended type is `Array` and `Int` is viewed as a constraint on
+  /// `Array`'s associated type, just like if it had been declared in a where clause.
+  private mutating func resolve(extendedType e: NameExpr.ID) -> AnyType? {
+    let resolution = resolveNominalPrefix(of: e)
+    switch resolution {
+    case .done(let prefix, let suffix) where suffix.isEmpty:
+      // Return the type of the expression if it could be resolved without further type checking.
+      guard prefix.allSatisfy({ $0.candidates.count == 1 }) else { return nil }
+
+      for p in prefix {
+        // Candidate must refer to a type.
+        guard let t = MetatypeType(p.candidates[0].type.shape) else {
+          report(.error(typeExprDenotesValue: p.component, in: ast))
+          exprTypes[e] = .error
+          return .error
+        }
+
+        // Translate the generic arguments of the type to constraints.
+        if let u = BoundGenericType(t.instance) {
+          exprTypes[e] = ^MetatypeType(of: u.base)
+          referredDecls[e] = .direct(p.candidates[0].reference.decl!, [:])
+
+          // TODO: Handle arguments and candidate constraints
+          continue
+        }
+
+        exprTypes[e] = ^t
+        referredDecls[e] = p.candidates[0].reference
+      }
+
+      return exprTypes[e]!
+
+    case .failed:
+      // Nothing more to do if resolution failed.
+      exprTypes[e] = .error
+      return .error
+
+    default:
+      // Otherwise, fallback to the regular path.
+      return nil
+    }
   }
 
   /// Returns the declarations exposing a name with given `stem` to `useScope` without
@@ -2639,7 +2690,7 @@ public struct TypeChecker {
       case let t as MetatypeType:
         referredType = t
       default:
-        diagnostics.insert(.error(nameRefersToValue: id, in: ast))
+        diagnostics.insert(.error(typeExprDenotesValue: id, in: ast))
         return nil
       }
     }
@@ -3133,10 +3184,27 @@ public struct TypeChecker {
 
   /// Returns the overarching type of `d`.
   private mutating func realize<T: TypeExtendingDecl>(typeExtendingDecl d: T.ID) -> AnyType {
-    return _realize(decl: d) { (this, d) in
-      let t = this.realize(this.ast[d].subject)
-      return t.map(AnyType.init(_:)) ?? .error
+    _realize(decl: d, { (this, id) in this._realize(typeExtendingDecl: d) })
+  }
+
+  private mutating func _realize<T: TypeExtendingDecl>(typeExtendingDecl d: T.ID) -> AnyType {
+    if let e = NameExpr.ID(ast[d].subject) {
+      if let t = resolve(extendedType: e) {
+        return t
+      }
     }
+
+    guard let t = checkedType(of: ast[d].subject) else {
+      return .error
+    }
+
+    guard t.base is MetatypeType else {
+      report(.error(typeExprDenotesValue: ast[d].subject, in: ast))
+      exprTypes[ast[d].subject] = .error
+      return .error
+    }
+
+    return t
   }
 
   /// Returns the overarching type of `d`.
