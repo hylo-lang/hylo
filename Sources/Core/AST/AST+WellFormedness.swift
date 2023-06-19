@@ -11,12 +11,10 @@ extension AST {
   ) {
     switch decl.kind {
     case AssociatedTypeDecl.self:
-      diagnostics.insert(
-        .error(unexpectedAssociatedTypeDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedAssociatedTypeDecl: self[NodeID(decl)!]))
 
     case AssociatedValueDecl.self:
-      diagnostics.insert(
-        .error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
 
     case BindingDecl.self:
       let d = self[BindingDecl.ID(decl)!]
@@ -46,8 +44,7 @@ extension AST {
       }
 
     case GenericParameterDecl.self:
-      diagnostics.insert(
-        .error(unexpectedGenericParameterDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedGenericParameterDecl: self[NodeID(decl)!]))
 
     case ImportDecl.self:
       if !atTopLevel {
@@ -55,8 +52,7 @@ extension AST {
       }
 
     case InitializerDecl.self:
-      diagnostics.insert(
-        .error(unexpectedInitializerDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedInitializerDecl: self[NodeID(decl)!]))
 
     case MethodDecl.self:
       diagnostics.insert(.error(unexpectedMethodDecl: self[NodeID(decl)!]))
@@ -91,8 +87,7 @@ extension AST {
       }
 
     case SubscriptImpl.self:
-      diagnostics.insert(
-        .error(unexpectedSubscriptImpl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedSubscriptImpl: self[NodeID(decl)!]))
 
     case TraitDecl.self:
       break
@@ -113,12 +108,10 @@ extension AST {
   func validateTypeMember(_ decl: AnyDeclID, into diagnostics: inout DiagnosticSet) {
     switch decl.kind {
     case AssociatedTypeDecl.self:
-      diagnostics.insert(
-        .error(unexpectedAssociatedTypeDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedAssociatedTypeDecl: self[NodeID(decl)!]))
 
     case AssociatedValueDecl.self:
-      diagnostics.insert(
-        .error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
 
     case BindingDecl.self:
       let d = self[BindingDecl.ID(decl)!]
@@ -151,8 +144,7 @@ extension AST {
       }
 
     case GenericParameterDecl.self:
-      diagnostics.insert(
-        .error(unexpectedGenericParameterDecl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedGenericParameterDecl: self[NodeID(decl)!]))
 
     case ImportDecl.self:
       diagnostics.insert(.error(unexpectedImportDecl: self[NodeID(decl)!]))
@@ -182,8 +174,7 @@ extension AST {
       break
 
     case SubscriptImpl.self:
-      diagnostics.insert(
-        .error(unexpectedSubscriptImpl: self[NodeID(decl)!]))
+      diagnostics.insert(.error(unexpectedSubscriptImpl: self[NodeID(decl)!]))
 
     case TraitDecl.self:
       diagnostics.insert(.error(unexpectedTraitDecl: self[NodeID(decl)!]))

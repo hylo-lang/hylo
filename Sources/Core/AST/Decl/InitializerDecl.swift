@@ -67,7 +67,6 @@ public struct InitializerDecl: GenericDecl, GenericScope {
   public var isPublic: Bool { accessModifier.value == .public }
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
-
     // Parameter declarations must have a type annotation.
     for p in parameters {
       if ast[p].annotation == nil {

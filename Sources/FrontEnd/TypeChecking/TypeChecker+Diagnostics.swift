@@ -14,9 +14,8 @@ extension Diagnostic {
     .error("circular dependency", at: site)
   }
 
-  static func error(cannotConstructTrait trait: TraitType, at site: SourceRange) -> Diagnostic {
-    .error(
-      "cannot construct an instance of trait '\(trait)'; did you mean 'any \(trait)'?", at: site)
+  static func error(cannotConstructTrait t: TraitType, at site: SourceRange) -> Diagnostic {
+    .error("cannot construct an instance of trait '\(t)'; did you mean 'any \(t)'?", at: site)
   }
 
   static func error(cannotInferComplexReturnTypeAt site: SourceRange) -> Diagnostic {

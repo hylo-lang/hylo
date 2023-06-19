@@ -66,15 +66,13 @@ public enum Parser {
       case .unterminatedBlockComment:
         // Nothing to parse after an unterminated block comment.
         state.diagnostics.insert(
-          .error(
-            unterminatedCommentEndingAt: head.site.last() ?? head.site.first()))
+          .error(unterminatedCommentEndingAt: head.site.last() ?? head.site.first()))
         break
 
       case .unterminatedString:
         // Nothing to parse after an unterminated string.
         state.diagnostics.insert(
-          .error(
-            unterminatedStringEndingAt: head.site.last() ?? head.site.first()))
+          .error(unterminatedStringEndingAt: head.site.last() ?? head.site.first()))
         break
 
       default:
@@ -357,13 +355,11 @@ public enum Parser {
     // Associated type declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.accessModifiers.map(
-          Diagnostic.error(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.memberModifiers.map(
-          Diagnostic.error(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `AssociatedTypeDecl`.
@@ -397,13 +393,11 @@ public enum Parser {
     // Associated value declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.accessModifiers.map(
-          Diagnostic.error(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.memberModifiers.map(
-          Diagnostic.error(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `AssociatedValueDecl`.
@@ -464,8 +458,7 @@ public enum Parser {
     // Conformance declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.memberModifiers.map(
-          Diagnostic.error(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `ConformanceDecl`.
@@ -499,13 +492,11 @@ public enum Parser {
     // Extension declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.accessModifiers.map(
-          Diagnostic.error(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.memberModifiers.map(
-          Diagnostic.error(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `ExtensionDecl`.
@@ -655,13 +646,11 @@ public enum Parser {
     // Import declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.accessModifiers.map(
-          Diagnostic.error(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.memberModifiers.map(
-          Diagnostic.error(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `ImportDecl`.
@@ -1456,9 +1445,7 @@ public enum Parser {
         }
 
         // Otherwise, complain about missing whitespaces.
-        state.diagnostics.insert(
-          .error(
-            infixOperatorRequiresWhitespacesAt: operatorStem.site))
+        state.diagnostics.insert(.error(infixOperatorRequiresWhitespacesAt: operatorStem.site))
       }
 
       // If we can't parse an operand, the tail is empty.
