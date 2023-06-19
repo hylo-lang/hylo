@@ -139,6 +139,10 @@ extension Diagnostic {
     .error("existential generic type may have only one bound", at: site)
   }
 
+  static func error(invalidExistentialInterface e: NameExpr.ID, in ast: AST) -> Diagnostic {
+    return .error("'\(ast[e].name.value)' is not a valid existential interface", at: ast[e].site)
+  }
+
   static func error(
     invalidConformanceConstraintTo type: AnyType, at site: SourceRange
   ) -> Diagnostic {
