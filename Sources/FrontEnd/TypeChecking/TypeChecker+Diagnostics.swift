@@ -196,7 +196,7 @@ extension Diagnostic {
     } else {
       return .error(
         """
-        too many generic arguments to entity '\(entity.value)' \
+        too \(found > expected ? "many" : "few") generic arguments to entity '\(entity.value)' \
         (found \(found), expected \(expected)
         """, at: entity.site)
     }
