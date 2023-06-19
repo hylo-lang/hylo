@@ -1606,9 +1606,15 @@ public struct TypeChecker {
 
   /// Resolves the non-overloaded name components of `name` from left to right.
   ///
+  /// If `dropImplicitArguments` is `true`, generic entities referenced without explicit arguments
+  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables.
+  ///
   /// - Postcondition: If the method returns `.done(resolved: r, unresolved: u)`, `r` is not empty
   ///   and `r[i].candidates` has a single element for `0 < i < r.count`.
-  mutating func resolveNominalPrefix(of name: NameExpr.ID) -> NameResolutionResult {
+  mutating func resolveNominalPrefix(
+    of name: NameExpr.ID,
+    droppingImplicitArguments dropImplicitArguments: Bool = false
+  ) -> NameResolutionResult {
     var (unresolved, domain) = splitNominalComponents(of: name)
     if domain != nil {
       return .inexecutable(unresolved)
@@ -1630,7 +1636,8 @@ public struct TypeChecker {
       // Resolve the component.
       let n = ast[component].name
       let candidates = resolve(
-        n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[name].scope)
+        n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[name].scope,
+        droppingImplicitArguments: dropImplicitArguments)
 
       if candidates.elements.isEmpty {
         report(.error(undefinedName: n.value, in: parent?.type, at: n.site))
@@ -1705,11 +1712,15 @@ public struct TypeChecker {
   /// The declarations are searched with an unqualified lookup unless `parent` is set, in which
   /// case they are searched in the declaration space of `parent.type`. Generic candidates are
   /// specialized with `arguments` appended to `parent.arguments`.
+  ///
+  /// If `dropImplicitArguments` is `true`, generic entities referenced without explicit arguments
+  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables.
   private mutating func resolve(
     _ name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue],
     memberOf parent: (type: AnyType, arguments: GenericArguments)?,
-    exposedTo useScope: AnyScopeID
+    exposedTo useScope: AnyScopeID,
+    droppingImplicitArguments dropImplicitArguments: Bool = false
   ) -> NameResolutionResult.CandidateSet {
     // Resolve references to the built-in symbols.
     if isBuiltinModuleVisible {
@@ -1738,33 +1749,30 @@ public struct TypeChecker {
           of: name, declaredBy: m, to: arguments, reportingDiagnosticTo: &argumentsDiagnostic)
       else { continue }
 
-      if let g = BoundGenericType(matchType) {
-        assert(matchArguments.isEmpty, "generic declaration bound twice")
-        matchArguments = g.arguments
-      } else if matchArguments.isEmpty {
-        matchArguments = openGenericParameters(of: m)
-      }
-
       let isConstructor = (m.kind == InitializerDecl.self) && (name.value.stem == "new")
       if isConstructor {
         matchType = ^LambdaType(constructorFormOf: LambdaType(matchType)!)
       }
 
+      if let g = BoundGenericType(matchType) {
+        assert(matchArguments.isEmpty, "generic declaration bound twice")
+        matchArguments = g.arguments
+      } else if matchArguments.isEmpty && !dropImplicitArguments {
+        matchArguments = openGenericParameters(of: m)
+      }
+
       let allArguments = parentArguments.appending(matchArguments)
-      matchType = bind(matchType, to: allArguments)
+      if !dropImplicitArguments {
+        matchType = bind(matchType, to: allArguments)
+      }
       matchType = specialized(matchType, applying: allArguments, in: useScope)
 
       let t = instantiate(
         matchType, in: program.scopeIntroducing(m), cause: .init(.binding, at: name.site))
 
-      let r: DeclReference
-      if isConstructor {
-        r = .constructor(InitializerDecl.ID(m)!, allArguments)
-      } else if program.isNonStaticMember(m) && !(parent?.type.base is MetatypeType) {
-        r = .member(m, allArguments)
-      } else {
-        r = .direct(m, allArguments)
-      }
+      let r = makeReference(
+        to: m, usedAsConstructor: isConstructor, memberOf: parent?.type,
+        parameterizedBy: allArguments)
       candidates.insert(.init(reference: r, type: t, argumentsDiagnostic: argumentsDiagnostic))
     }
 
@@ -1843,18 +1851,38 @@ public struct TypeChecker {
       })
   }
 
-  /// Returns the type referred by the subject `e` of a type extending declaration or `nil` if `e`
-  /// can't be resolved as a nominal type declaration.
+  /// Returns a declaration reference to `d`, which is a member of `parent` parameterized by
+  /// `arguments` and used as a constructor iff `isConstructor` is true.
+  private func makeReference(
+    to d: AnyDeclID,
+    usedAsConstructor isConstructor: Bool,
+    memberOf parent: AnyType?,
+    parameterizedBy arguments: GenericArguments
+  ) -> DeclReference {
+    if isConstructor {
+      return .constructor(InitializerDecl.ID(d)!, arguments)
+    } else if program.isNonStaticMember(d) && !(parent?.base is MetatypeType) {
+      return .member(d, arguments)
+    } else {
+      return .direct(d, arguments)
+    }
+  }
+
+  /// Returns the type referred by `e`, which is the interface of an existential or the subject of
+  /// an extension, or `nil` if `e` can't be resolved as a nominal type declaration.
   ///
-  /// Generic parameters are interpreted as sugared constraints in the subject of an extension or
-  /// conformance declaration. For example:
+  /// When a type expression `e` denotes the interface of an existential type or the subject of an
+  /// extension, generic parameters are interpreted as sugared constraints that would otherwise be
+  /// defined in a where clause. For example:
   ///
   ///     conformance Array<Int>: P {}
   ///
   /// In this declaration, the extended type is `Array` and `Int` is viewed as a constraint on
-  /// `Array`'s associated type, just like if it had been declared in a where clause.
-  private mutating func resolve(extendedType e: NameExpr.ID) -> AnyType? {
-    let resolution = resolveNominalPrefix(of: e)
+  /// `Array`'s associated type, just like if it had been declared in a where clause:
+  ///
+  ///     conformance Array: P where Element == Int {}
+  mutating func resolve(nominalType e: NameExpr.ID) -> AnyType? {
+    let resolution = resolveNominalPrefix(of: e, droppingImplicitArguments: true)
     switch resolution {
     case .done(let prefix, let suffix) where suffix.isEmpty:
       // Return the type of the expression if it could be resolved without further type checking.
@@ -1862,37 +1890,17 @@ public struct TypeChecker {
         return nil
       }
 
-      // Last component must refer to a type.
-      guard let lastType = MetatypeType(last.type.shape) else {
+      // Last component must resolve to a type.
+      guard last.type.shape.base is MetatypeType else {
         report(.error(typeExprDenotesValue: e, in: ast))
-        exprTypes[e] = .error
-        return .error
-      }
-
-      // Built-in types can't be extended.
-      if let b = BuiltinType(lastType.instance) {
-        diagnostics.insert(.error(cannotExtend: b, at: ast[e].site))
-        exprTypes[e] = .error
         return .error
       }
 
       // Bind each component of the name expression and gather type constraints.
       for p in prefix {
-        var resolvedType = p.candidates[0].type.shape
-        var resolvedDecl = p.candidates[0].reference
-
-        if let t = MetatypeType(resolvedType), let u = BoundGenericType(t.instance) {
-          resolvedType = ^MetatypeType(of: u.base)
-          resolvedDecl = .direct(resolvedDecl.decl!, [:])
-        } else if let u = BoundGenericType(resolvedType) {
-          resolvedType = u.base
-          resolvedDecl = .direct(resolvedDecl.decl!, [:])
-        }
-
-        exprTypes[e] = resolvedType
-        referredDecls[e] = resolvedDecl
-
-        // TODO: Handle arguments and candidate constraints
+        // TODO: Handle generic arguments and candidate constraints
+        exprTypes[e] = p.candidates[0].type.shape
+        referredDecls[e] = p.candidates[0].reference
       }
 
       return exprTypes[e]!
@@ -3194,23 +3202,31 @@ public struct TypeChecker {
   }
 
   private mutating func _realize<T: TypeExtendingDecl>(typeExtendingDecl d: T.ID) -> AnyType {
-    if let e = NameExpr.ID(ast[d].subject) {
-      if let t = resolve(extendedType: e) {
-        return t
+    let interface: MetatypeType
+
+    // Realize the extended type.
+    if let e = NameExpr.ID(ast[d].subject), let t = resolve(nominalType: e) {
+      guard let u = MetatypeType(t) else {
+        return .error
       }
-    }
-
-    guard let t = checkedType(of: ast[d].subject) else {
+      interface = u
+    } else if let t = checkedType(of: ast[d].subject) {
+      guard let u = MetatypeType(t) else {
+        report(.error(typeExprDenotesValue: ast[d].subject, in: ast))
+        return .error
+      }
+      interface = u
+    } else {
       return .error
     }
 
-    guard t.base is MetatypeType else {
-      report(.error(typeExprDenotesValue: ast[d].subject, in: ast))
-      exprTypes[ast[d].subject] = .error
+    // Built-in types can't be extended.
+    if let b = BuiltinType(interface.instance) {
+      diagnostics.insert(.error(cannotExtend: b, at: ast[ast[d].subject].site))
       return .error
     }
 
-    return t
+    return ^interface
   }
 
   /// Returns the overarching type of `d`.
