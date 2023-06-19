@@ -75,6 +75,12 @@ extension Diagnostic {
     .error("initializer declaration is not allowed here", at: d.introducer.site)
   }
 
+  static func error(unexpectedMemberwiseInitializerDecl d: InitializerDecl) -> Diagnostic {
+    .error(
+      "memberwise initializer declaration may only appear in product type declaration",
+      at: d.introducer.site)
+  }
+
   public static func error(
     unexpectedMemberModifier m: SourceRepresentable<MemberModifier>
   ) -> Diagnostic {

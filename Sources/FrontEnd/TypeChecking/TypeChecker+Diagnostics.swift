@@ -64,11 +64,6 @@ extension Diagnostic {
     .error("generic declaration has captures", at: site)
   }
 
-  static func error(illegalMemberwiseInitAt site: SourceRange) -> Diagnostic {
-    .error(
-      "memberwise initializer declaration may only appear in product type declaration", at: site)
-  }
-
   static func error(
     illegalParameterConvention c: AccessEffect, at site: SourceRange
   ) -> Diagnostic {
