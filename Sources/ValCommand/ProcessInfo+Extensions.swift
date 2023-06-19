@@ -2,6 +2,6 @@ import Foundation
 
 extension ProcessInfo {
 
-  static let terminalIsConnected = processInfo.environment["TERM"] != nil
+  static let ansiTerminalIsConnected = !["", "dumb", nil].contains(processInfo.environment["TERM"])
 
 }
