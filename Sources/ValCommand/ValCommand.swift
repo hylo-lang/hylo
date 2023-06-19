@@ -117,7 +117,7 @@ public struct ValCommand: ParsableCommand {
     let (exitCode, diagnostics) = try execute()
 
     diagnostics.render(
-      into: &standardError, style: ProcessInfo.terminalIsConnected ? .styled : .unstyled)
+      into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
 
     ValCommand.exit(withError: exitCode)
   }
