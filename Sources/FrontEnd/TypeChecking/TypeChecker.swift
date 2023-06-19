@@ -134,7 +134,9 @@ public struct TypeChecker {
   }
 
   /// If `d` has generic parameters, returns a table from those parameters to corresponding value
-  /// in `substitutions` or a fresh variable if no such value exists. Otherwise, returns `nil`.
+  /// in `substitutions`. Otherwise, returns `nil`.
+  ///
+  /// - Requires: `substitutions` has a value for each generic parameter introduced by `d`.
   private mutating func extractArguments<T: GenericDecl>(
     of d: T.ID,
     from substitutions: GenericArguments
@@ -144,7 +146,7 @@ public struct TypeChecker {
 
     return GenericArguments(
       uniqueKeysWithValues: e.parameters.map({ (p) in
-        (key: p, value: substitutions[p] ?? ^TypeVariable())
+        (key: p, value: substitutions[p]!)
       }))
   }
 
