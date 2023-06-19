@@ -55,8 +55,9 @@ extension Diagnostic {
     .error("duplicate parameter name '\(name)'", at: site)
   }
 
-  static func error(nameRefersToValue expr: NameExpr.ID, in ast: AST) -> Diagnostic {
-    .error("expected type but '\(ast[expr].name.value)' refers to a value", at: ast[expr].site)
+  static func error<T: ExprID>(typeExprDenotesValue e: T, in ast: AST) -> Diagnostic {
+    let n = NameExpr.ID(e).map({ "'\(ast[$0].name.value)'" }) ?? "expression"
+    return .error("expected type but \(n) denotes a value", at: ast[e].site)
   }
 
   static func error(genericDeclHasCapturesAt site: SourceRange) -> Diagnostic {
@@ -136,6 +137,10 @@ extension Diagnostic {
 
   static func error(tooManyExistentialBoundsAt site: SourceRange) -> Diagnostic {
     .error("existential generic type may have only one bound", at: site)
+  }
+
+  static func error(invalidExistentialInterface e: NameExpr.ID, in ast: AST) -> Diagnostic {
+    return .error("'\(ast[e].name.value)' is not a valid existential interface", at: ast[e].site)
   }
 
   static func error(

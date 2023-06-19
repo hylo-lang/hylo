@@ -1,6 +1,6 @@
 //- typeCheck expecting: failure
 
-//! @+1 diagnostic expected type but 'v' refers to a value
+//! @+1 diagnostic expected type but 'v' denotes a value
 fun f0<X, v: Int>(_ x: X, _ y: v) {}
 
 //! @+1 diagnostic only one annotation is allowed on generic value parameter declarations
