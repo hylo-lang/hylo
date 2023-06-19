@@ -590,25 +590,25 @@ extension TypeChecker {
     of subject: SequenceExpr.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
-    // Fold the sequence and visit its sub-expressions.
-    let foldedSequence = fold(sequenceExpr: subject)
-    foldedSequenceExprs[subject] = foldedSequence
+    // Transform the sequence into a binary tree.
+    guard let tree = fold(subject) else {
+      return state.facts.assignErrorType(to: subject)
+    }
 
     // Generate constraints from the folded sequence.
-    let rootType = inferredType(
-      ofSequenceExpr: foldedSequence, shapedBy: shape, updating: &state)
+    let rootType = inferredType(of: tree, shapedBy: shape, updating: &state)
     return state.facts.constrain(subject, in: ast, toHaveType: rootType)
   }
 
   private mutating func inferredType(
-    ofSequenceExpr subject: FoldedSequenceExpr, shapedBy shape: AnyType?,
+    of subject: FoldedSequenceExpr, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     switch subject {
     case .infix(let callee, let lhs, let rhs):
       // Infer the types of the operands.
-      let lhsType = inferredType(ofSequenceExpr: lhs, shapedBy: nil, updating: &state)
-      let rhsType = inferredType(ofSequenceExpr: rhs, shapedBy: nil, updating: &state)
+      let lhsType = inferredType(of: lhs, shapedBy: nil, updating: &state)
+      let rhsType = inferredType(of: rhs, shapedBy: nil, updating: &state)
 
       if lhsType.isError || rhsType.isError {
         return .error
@@ -1099,47 +1099,6 @@ extension TypeChecker {
           origin: ConstraintOrigin(.binding, at: ast[name].site)))
       return state.facts.constrain(name, in: ast, toHaveType: nameType)
     }
-  }
-
-  /// Folds a sequence of binary expressions.
-  private mutating func fold(sequenceExpr expr: SequenceExpr.ID) -> FoldedSequenceExpr {
-    let syntax = ast[expr]
-    return fold(sequenceExprTail: syntax.tail[0...], into: .leaf(syntax.head))
-  }
-
-  /// Folds the remainder of a sequence of binary expressions into `initialResult`.
-  private mutating func fold(
-    sequenceExprTail tail: ArraySlice<SequenceExpr.TailElement>,
-    into initialResult: FoldedSequenceExpr
-  ) -> FoldedSequenceExpr {
-    var accumulator = initialResult
-
-    for i in tail.indices {
-      // Search for the operator declaration.
-      let operatorStem = ast[tail[i].operator].name.value.stem
-      let useScope = program[tail[i].operator].scope
-      let candidates = lookup(operator: operatorStem, notation: .infix, exposedTo: useScope)
-
-      switch candidates.count {
-      case 0:
-        report(.error(undefinedOperator: operatorStem, at: ast[tail[i].operator].site))
-        accumulator.append(
-          operator: (expr: tail[i].operator, precedence: nil),
-          right: tail[i].operand)
-
-      case 1:
-        let precedence = ast[candidates[0]].precedenceGroup?.value
-        accumulator.append(
-          operator: (expr: tail[i].operator, precedence: precedence),
-          right: tail[i].operand)
-
-      default:
-        // TODO: should probably emit a diagnostic. Operator declarations cannot be overloaded.
-        fatalError("not implemented")
-      }
-    }
-
-    return accumulator
   }
 
 }

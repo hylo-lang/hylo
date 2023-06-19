@@ -33,7 +33,7 @@ public struct TypeChecker {
   private(set) var referredDecls: BindingMap = [:]
 
   /// A map from sequence expressions to their evaluation order.
-  var foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr] = [:]
+  private(set) var foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr] = [:]
 
   /// The type relations of the program.
   private(set) var relations = TypeRelations()
@@ -3591,6 +3591,52 @@ public struct TypeChecker {
         }
       }
     }
+  }
+
+  // MARK: AST Restructuring
+
+  /// Returns a binary tree encoding the evaluation order of `e` or `nil` if `e` contains an
+  /// undefined operator.
+  mutating func fold(_ e: SequenceExpr.ID) -> FoldedSequenceExpr? {
+    if let tree = foldedSequenceExprs[e] { return tree }
+
+    let tree = fold(ast[e].tail[0...], into: .leaf(ast[e].head))
+    foldedSequenceExprs[e] = tree
+    return tree
+  }
+
+  /// Returns a copy of `initialResult` in which `tail` has been incorporated or `nil` if `tail`
+  /// contains an undefined operator.
+  private mutating func fold(
+    _ tail: ArraySlice<SequenceExpr.TailElement>,
+    into initialResult: FoldedSequenceExpr
+  ) -> FoldedSequenceExpr? {
+    var accumulator = initialResult
+
+    for i in tail.indices {
+      // Search for the operator declaration.
+      let operatorStem = ast[tail[i].operator].name.value.stem
+      let useScope = program[tail[i].operator].scope
+      let candidates = lookup(operator: operatorStem, notation: .infix, exposedTo: useScope)
+
+      switch candidates.count {
+      case 0:
+        report(.error(undefinedOperator: operatorStem, at: ast[tail[i].operator].site))
+        return nil
+
+      case 1:
+        let precedence = ast[candidates[0]].precedenceGroup?.value
+        accumulator.append(
+          operator: (expr: tail[i].operator, precedence: precedence),
+          right: tail[i].operand)
+
+      default:
+        // TODO: should probably emit a diagnostic. Operator declarations cannot be overloaded.
+        fatalError("not implemented")
+      }
+    }
+
+    return accumulator
   }
 
   // MARK: Utils

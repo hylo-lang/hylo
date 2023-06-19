@@ -14,9 +14,8 @@ extension Diagnostic {
     .error("circular dependency", at: site)
   }
 
-  static func error(cannotConstructTrait trait: TraitType, at site: SourceRange) -> Diagnostic {
-    .error(
-      "cannot construct an instance of trait '\(trait)'; did you mean 'any \(trait)'?", at: site)
+  static func error(cannotConstructTrait t: TraitType, at site: SourceRange) -> Diagnostic {
+    .error("cannot construct an instance of trait '\(t)'; did you mean 'any \(t)'?", at: site)
   }
 
   static func error(cannotInferComplexReturnTypeAt site: SourceRange) -> Diagnostic {
@@ -58,21 +57,6 @@ extension Diagnostic {
   static func error<T: ExprID>(typeExprDenotesValue e: T, in ast: AST) -> Diagnostic {
     let n = NameExpr.ID(e).map({ "'\(ast[$0].name.value)'" }) ?? "expression"
     return .error("expected type but \(n) denotes a value", at: ast[e].site)
-  }
-
-  static func error(genericDeclHasCapturesAt site: SourceRange) -> Diagnostic {
-    .error("generic declaration has captures", at: site)
-  }
-
-  static func error(illegalMemberwiseInitAt site: SourceRange) -> Diagnostic {
-    .error(
-      "memberwise initializer declaration may only appear in product type declaration", at: site)
-  }
-
-  static func error(
-    illegalParameterConvention c: AccessEffect, at site: SourceRange
-  ) -> Diagnostic {
-    .error("'\(c)' may only be used on parameters", at: site)
   }
 
   static func error<S1: Sequence<String?>, S2: Sequence<String?>>(
@@ -193,12 +177,6 @@ extension Diagnostic {
     trait x: TraitType, requiresInitializer t: AnyType, at site: SourceRange
   ) -> Diagnostic {
     .note("trait '\(x)' requires initializer with type '\(t)'", at: site)
-  }
-
-  static func error(
-    illegalUseOfStaticMember name: Name, onInstanceOf: AnyType, at site: SourceRange
-  ) -> Diagnostic {
-    .error("static member '\(name)' cannot be used on instance of '\(onInstanceOf)'", at: site)
   }
 
   static func error(undefinedOperator name: String, at site: SourceRange) -> Diagnostic {
@@ -322,12 +300,6 @@ extension Diagnostic {
 
   static func error(mutatingBundleMustReturn t: TupleType, at site: SourceRange) -> Diagnostic {
     .error("mutating bundle must return '\(t)'", at: site)
-  }
-
-  static func error(
-    function c: AnyType, notCallableWith a: [CallableTypeParameter], at site: SourceRange
-  ) -> Diagnostic {
-    .error("function '\(c)' is not callable with arguments of type \(a)", at: site)
   }
 
   static func error(
