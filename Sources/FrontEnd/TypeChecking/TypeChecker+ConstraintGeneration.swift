@@ -879,13 +879,13 @@ extension TypeChecker {
   ) -> AnyType {
     switch subject.kind {
     case BindingPattern.self:
-      return inferredType(ofBindingPattern: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: BindingPattern.ID(subject)!, shapedBy: shape, updating: &state)
     case ExprPattern.self:
-      return inferredType(ofExprPattern: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: ExprPattern.ID(subject)!, shapedBy: shape, updating: &state)
     case NamePattern.self:
-      return inferredType(ofNamePattern: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: NamePattern.ID(subject)!, shapedBy: shape, updating: &state)
     case TuplePattern.self:
-      return inferredType(ofTuplePattern: NodeID(subject)!, shapedBy: shape, updating: &state)
+      return inferredType(of: TuplePattern.ID(subject)!, shapedBy: shape, updating: &state)
     case WildcardPattern.self:
       return shape ?? ^TypeVariable()
     default:
@@ -894,7 +894,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofBindingPattern subject: BindingPattern.ID, shapedBy shape: AnyType?,
+    of subject: BindingPattern.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     // A binding pattern introduces additional type information when it has a type annotation. In
@@ -920,14 +920,14 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofExprPattern subject: ExprPattern.ID, shapedBy shape: AnyType?,
+    of subject: ExprPattern.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     return inferredType(of: ast[subject].expr, shapedBy: shape, updating: &state)
   }
 
   private mutating func inferredType(
-    ofNamePattern subject: NamePattern.ID, shapedBy shape: AnyType?,
+    of subject: NamePattern.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     let nameDecl = ast[subject].decl
@@ -946,7 +946,7 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofTuplePattern subject: TuplePattern.ID, shapedBy shape: AnyType?,
+    of subject: TuplePattern.ID, shapedBy shape: AnyType?,
     updating state: inout State
   ) -> AnyType {
     switch shape?.base {
