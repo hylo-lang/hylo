@@ -265,7 +265,7 @@ extension TypeChecker {
     var interface: [AnyType] = []
     for n in ast[subject].traits {
       // Expression must resolve to a nominal type.
-      guard let t = resolve(nominalType: n) else {
+      guard let t = resolve(interface: n) else {
         report(.error(invalidExistentialInterface: n, in: ast))
         return .error
       }

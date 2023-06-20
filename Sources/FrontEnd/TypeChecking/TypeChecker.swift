@@ -1881,7 +1881,7 @@ public struct TypeChecker {
   /// `Array`'s associated type, just like if it had been declared in a where clause:
   ///
   ///     conformance Array: P where Element == Int {}
-  mutating func resolve(nominalType e: NameExpr.ID) -> AnyType? {
+  mutating func resolve(interface e: NameExpr.ID) -> AnyType? {
     let resolution = resolveNominalPrefix(of: e, droppingImplicitArguments: true)
     switch resolution {
     case .done(let prefix, let suffix) where suffix.isEmpty:
@@ -3205,7 +3205,7 @@ public struct TypeChecker {
     let interface: MetatypeType
 
     // Realize the extended type.
-    if let e = NameExpr.ID(ast[d].subject), let t = resolve(nominalType: e) {
+    if let e = NameExpr.ID(ast[d].subject), let t = resolve(interface: e) {
       guard let u = MetatypeType(t) else {
         return .error
       }
