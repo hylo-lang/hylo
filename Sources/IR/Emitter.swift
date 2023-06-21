@@ -1125,13 +1125,12 @@ public struct Emitter {
     }
 
     // Explicit arguments are evaluated first, from left to right.
-    let syntheticSite = SourceRange.empty(atEndOf: ast[e].site)
     let explicitArguments = emit(
       arguments: ast[e].arguments, to: ast[e].callee,
-      synthesizingDefaultArgumentsAt: syntheticSite)
+      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[e].site))
 
     // Callee and captures are evaluated next.
-    let (callee, captures) = emit(callee: ast[e].callee)
+    let (callee, captures) = emit(functionCallee: ast[e].callee)
     let arguments = captures + explicitArguments
 
     // Call is evaluated last.
@@ -1339,10 +1338,9 @@ public struct Emitter {
     }
 
     // Arguments are evaluated first, from left to right.
-    let syntheticSite = SourceRange.empty(atEndOf: ast[call].site)
     let arguments = emit(
       arguments: ast[call].arguments, to: ast[call].callee,
-      synthesizingDefaultArgumentsAt: syntheticSite)
+      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[call].site))
 
     // Receiver is captured next.
     let receiver = append(module.makeBorrow(.set, from: s, at: ast[call].site))[0]
@@ -1399,7 +1397,7 @@ public struct Emitter {
     arguments: [LabeledArgument], to callee: AnyExprID,
     synthesizingDefaultArgumentsAt syntheticSite: SourceRange
   ) -> [Operand] {
-    let calleeType = LambdaType(program[callee].type)!
+    let calleeType = program.relations.canonical(program[callee].type).base as! CallableType
     let calleeDecl = NameExpr.ID(callee).flatMap({ program[$0].referredDecl.decl! })
     let defaults = calleeDecl.flatMap(ast.defaultArguments(of:))
 
@@ -1495,14 +1493,16 @@ public struct Emitter {
   /// a bound member function or a local function declaration with a non-empty environment.
   ///
   /// - Requires: `callee` has a lambda type.
-  private mutating func emit(callee: AnyExprID) -> (callee: Operand, captures: [Operand]) {
+  private mutating func emit(
+    functionCallee callee: AnyExprID
+  ) -> (callee: Operand, captures: [Operand]) {
     switch callee.kind {
     case NameExpr.self:
-      return emit(namedCallee: .init(callee)!)
+      return emit(namedFunctionCallee: .init(callee)!)
 
     case InoutExpr.self:
       // TODO: Handle the mutation marker, somehow.
-      return emit(callee: ast[InoutExpr.ID(callee)!].subject)
+      return emit(functionCallee: ast[InoutExpr.ID(callee)!].subject)
 
     default:
       let f = emit(lambdaCallee: callee)
@@ -1515,7 +1515,7 @@ public struct Emitter {
   ///
   /// - Requires: `callee` has a lambda type.
   private mutating func emit(
-    namedCallee callee: NameExpr.ID
+    namedFunctionCallee callee: NameExpr.ID
   ) -> (callee: Operand, captures: [Operand]) {
     let calleeType = LambdaType(program.relations.canonical(program[callee].type))!
 
@@ -1582,6 +1582,34 @@ public struct Emitter {
       let l = emitLValue(callee)
       let b = module.makeBorrow(k, from: l, at: ast[callee].site)
       return append(b)[0]
+    }
+  }
+
+  private mutating func emit(subscriptCallee callee: AnyExprID) -> SubscriptBundleReference {
+    // TODO: Handle captures
+    switch callee.kind {
+    case NameExpr.self:
+      return emit(namedSubscriptCallee: .init(callee)!)
+
+    case InoutExpr.self:
+      // TODO: Handle the mutation marker, somehow.
+      return emit(subscriptCallee: ast[InoutExpr.ID(callee)!].subject)
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  private mutating func emit(
+    namedSubscriptCallee callee: NameExpr.ID
+  ) -> SubscriptBundleReference {
+    switch program[callee].referredDecl {
+    case .direct(let d, let a) where d.kind == SubscriptDecl.self:
+      // Direct reference to a subscript declaration.
+      return .init(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+
+    default:
+      fatalError()
     }
   }
 
@@ -1715,6 +1743,8 @@ public struct Emitter {
       return emitLValue(inoutExpr: .init(syntax)!)
     case NameExpr.self:
       return emitLValue(name: .init(syntax)!)
+    case SubscriptCallExpr.self:
+      return emitLValue(subscriptCall: .init(syntax)!)
     case TupleMemberExpr.self:
       return emitLValue(tupleMember: .init(syntax)!)
     default:
@@ -1749,7 +1779,7 @@ public struct Emitter {
       return emitProperty(boundTo: r, declaredBy: d, parameterizedBy: a, at: ast[e].site)
 
     case .constructor:
-      fatalError()
+      fatalError("not implemented")
 
     case .builtinModule, .builtinFunction, .builtinType:
       // Built-in functions and types are never used as l-value.
@@ -1787,6 +1817,31 @@ public struct Emitter {
     }
   }
 
+  private mutating func emitLValue(subscriptCall e: SubscriptCallExpr.ID) -> Operand {
+    // Explicit arguments are evaluated first, from left to right.
+    let explicitArguments = emit(
+      arguments: ast[e].arguments, to: ast[e].callee,
+      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[e].site))
+
+    // Callee and captures are evaluated next.
+    // TODO: Handle captures
+    let callee = emit(subscriptCallee: ast[e].callee)
+    let arguments = explicitArguments
+
+    // Projection is evaluated last.
+    let t = SubscriptType(
+      program.canonicalType(of: callee.bundle, parameterizedBy: callee.arguments))!
+
+    var variants: [AccessEffect: Function.ID] = [:]
+    for v in ast[callee.bundle].impls {
+      variants[ast[v].introducer.value] = module.demandSubscriptDeclaration(lowering: v)
+    }
+
+    return append(
+      module.makeProjectBundle(
+        applying: variants, of: callee, typed: t, to: arguments, at: ast[e].site))[0]
+  }
+
   private mutating func emitLValue(tupleMember e: TupleMemberExpr.ID) -> Operand {
     let base = emitLValue(ast[e].tuple)
     return emitElementAddr(base, at: [ast[e].index.value], at: ast[e].index.site)
@@ -1820,8 +1875,6 @@ public struct Emitter {
     parameterizedBy a: GenericArguments,
     at site: SourceRange
   ) -> Operand {
-    // TODO: Handle generics
-
     if let i = ast[d].impls.uniqueElement {
       return emitComputedProperty(boundTo: receiver, declaredBy: i, parameterizedBy: a, at: site)
     }
