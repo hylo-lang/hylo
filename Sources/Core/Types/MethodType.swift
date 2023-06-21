@@ -1,7 +1,7 @@
 import Utils
 
 /// The overarching type of a method declaration.
-public struct MethodType: TypeProtocol, CallableType {
+public struct MethodType: TypeProtocol {
 
   /// The capabilities of the subscript.
   public let capabilities: AccessEffectSet
@@ -44,6 +44,12 @@ public struct MethodType: TypeProtocol, CallableType {
       inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
       output: output.transform(mutating: &m, transformer))
   }
+}
+
+extension MethodType: CallableType {
+
+  public var isArrow: Bool { true }
+
 }
 
 extension MethodType: CustomStringConvertible {
