@@ -622,9 +622,21 @@ public struct Module {
   func isSink(_ o: Operand, in f: Function.ID) -> Bool {
     let e = entry(of: f)!
     return provenances(o).allSatisfy { (p) -> Bool in
-      if case .parameter(e, let i) = p {
+      switch p {
+      case .parameter(e, let i):
         return self.functions[f]!.inputs[i].type.access == .sink
-      } else {
+
+      case .register(let i, _):
+        switch self[i] {
+        case let s as ProjectBundleInstruction:
+          return s.capabilities.contains(.sink)
+        case let s as ProjectInstruction:
+          return s.projection.access == .sink
+        default:
+          return true
+        }
+
+      default:
         return true
       }
     }
