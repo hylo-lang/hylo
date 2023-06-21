@@ -68,6 +68,11 @@ public struct TypedProgram: Program {
     self.relations = relations
   }
 
+  /// Returns the canonical type of `d`, parameterized by `a`.
+  public func canonicalType<T: DeclID>(of d: T, parameterizedBy a: GenericArguments) -> AnyType {
+    relations.canonical(relations.monomorphize(declTypes[d]!, for: a))
+  }
+
   /// Returns the declarations of `d`' captures.
   ///
   /// If `d` is a member function, its receiver is its only capture. Otherwise, its explicit
