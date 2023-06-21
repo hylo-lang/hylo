@@ -1742,9 +1742,9 @@ public struct Emitter {
     case .direct(let d, _):
       return emitLValue(directReferenceTo: d)
 
-    case .member(let d, _):
+    case .member(let d, let a):
       let r = emitLValue(receiverOf: e)
-      return emitProperty(boundTo: r, declaredBy: d, at: ast[e].site)
+      return emitProperty(boundTo: r, declaredBy: d, parameterizedBy: a, at: ast[e].site)
 
     case .constructor:
       fatalError()
@@ -1790,15 +1790,16 @@ public struct Emitter {
     return emitElementAddr(base, at: [ast[e].index.value], at: ast[e].index.site)
   }
 
-  /// Returns the address of the member declared by `d` and bound to `receiver`, inserting IR
-  /// anchored at `site`.
+  /// Returns the address of the member declared by `d`, parameterized by `a`, and bound to
+  /// `receiver`, inserting IR anchored at `site`.
   private mutating func emitProperty(
-    boundTo receiver: Operand, declaredBy d: AnyDeclID,
+    boundTo receiver: Operand, declaredBy d: AnyDeclID, parameterizedBy a: GenericArguments,
     at site: SourceRange
   ) -> Operand {
     switch d.kind {
     case SubscriptDecl.self:
-      return emitComputedProperty(boundTo: receiver, declaredByBundle: .init(d)!, at: site)
+      return emitComputedProperty(
+        boundTo: receiver, declaredByBundle: .init(d)!, parameterizedBy: a, at: site)
 
     case VarDecl.self:
       let l = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
@@ -1810,16 +1811,17 @@ public struct Emitter {
     }
   }
 
-  /// Returns the address of the computed property declared by `d` and bound to `receiver`,
-  /// inserting IR anchored at `site`.
+  /// Returns the projection the property declared by `d`, parameterized by `a`, and bound to
+  /// `receiver`, inserting IR anchored at `site`.
   private mutating func emitComputedProperty(
     boundTo receiver: Operand, declaredByBundle d: SubscriptDecl.ID,
+    parameterizedBy a: GenericArguments,
     at site: SourceRange
   ) -> Operand {
     // TODO: Handle generics
 
     if let i = ast[d].impls.uniqueElement {
-      return emitComputedProperty(boundTo: receiver, declaredBy: i, at: site)
+      return emitComputedProperty(boundTo: receiver, declaredBy: i, parameterizedBy: a, at: site)
     }
 
     let t = SubscriptType(program.relations.canonical(program[d].type))!
@@ -1831,20 +1833,21 @@ public struct Emitter {
     }
 
     return append(
-      module.makeProjectBundle(applying: variants, of: d, typed: t, to: [r], at: site))[0]
+      module.makeProjectBundle(
+        applying: variants, of: d, parameterizedBy: a, typed: t, to: [r], at: site))[0]
   }
 
-  /// Returns the address of the computed property declared by `d` and bound to `receiver`,
-  /// inserting IR anchored at `site`.
+  /// Returns the projection of the property declared by `d`, parameterized by `a`, and bound to
+  /// `receiver`, inserting IR anchored at `site`.
   private mutating func emitComputedProperty(
-    boundTo receiver: Operand, declaredBy d: SubscriptImpl.ID,
+    boundTo receiver: Operand, declaredBy d: SubscriptImpl.ID, parameterizedBy a: GenericArguments,
     at site: SourceRange
   ) -> Operand {
     let t = SubscriptImplType(program[d].type)!
     let o = RemoteType(ast[d].introducer.value, program.relations.canonical(t.output))
     let r = append(module.makeBorrow(o.access, from: receiver, at: site))[0]
     let f = module.demandSubscriptDeclaration(lowering: d)
-    return append(module.makeProject(o, applying: f, to: [r], at: site))[0]
+    return append(module.makeProject(o, applying: f, parameterizedBy: a, to: [r], at: site))[0]
   }
 
   // MARK: Deinitialization

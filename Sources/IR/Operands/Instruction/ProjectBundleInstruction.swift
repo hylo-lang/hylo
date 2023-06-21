@@ -6,6 +6,9 @@ public struct ProjectBundleInstruction: Instruction {
   /// The subscript bundle implementing the projections.
   public let bundle: SubscriptDecl.ID
 
+  /// If `bundle` is generic, the arguments to its generic parameter.
+  public let parameterization: GenericArguments
+
   /// The pure functional type of the callee.
   public let pureCalleeType: LambdaType
 
@@ -24,12 +27,14 @@ public struct ProjectBundleInstruction: Instruction {
   /// Creates an instance with the given properties.
   fileprivate init(
     bundle: SubscriptDecl.ID,
+    parameterization: GenericArguments,
     pureCalleeType: LambdaType,
     variants: [AccessEffect: Function.ID],
     operands: [Operand],
     site: SourceRange
   ) {
     self.bundle = bundle
+    self.parameterization = parameterization
     self.pureCalleeType = pureCalleeType
     self.variants = variants
     self.operands = operands
@@ -77,13 +82,14 @@ extension ProjectBundleInstruction: CustomStringConvertible {
 extension Module {
 
   /// Creates a `project_bundle` anchored at `site` that projects a value by applying one of
-  /// the given `variants` on `arguments`. The variants are defined in `bundle`, which whose
-  /// declaration reference has type `bundleType`.
+  /// the given `variants` on `arguments`. The variants are defined in `bundle`, which is
+  /// parameterized by `parameterization` and has type `bundleType`.
   ///
   /// - Requires: `bundleType` is canonical and `variants` is not empty.
   func makeProjectBundle(
     applying variants: [AccessEffect: Function.ID],
     of bundle: SubscriptDecl.ID,
+    parameterizedBy parameterization: GenericArguments,
     typed bundleType: SubscriptType,
     to arguments: [Operand],
     at site: SourceRange
@@ -91,6 +97,7 @@ extension Module {
     precondition(bundleType[.isCanonical])
     return .init(
       bundle: bundle,
+      parameterization: parameterization,
       pureCalleeType: bundleType.pure,
       variants: variants,
       operands: arguments,
