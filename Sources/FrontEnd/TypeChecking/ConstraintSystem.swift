@@ -536,7 +536,7 @@ struct ConstraintSystem {
       return nil
     }
 
-    guard let callee = goal.callee.base as? CallableType else {
+    guard let callee = goal.callee.base as? CallableType, callee.isArrow else {
       return .failure { (d, m, _) in
         d.insert(.error(nonCallableType: m.reify(goal.callee), at: goal.origin.site))
       }
@@ -569,8 +569,7 @@ struct ConstraintSystem {
   /// For example, given a callee whose parameters are `(x: Int, y: Int = 0, z: Int)` and an
   /// argument list with labels `[x, z]`, this function returns `[0, 2]`.
   private func matchArgumentsToParameter<T: Collection>(
-    _ labels: T,
-    by callee: CallableType
+    _ labels: T, by callee: CallableType
   ) -> [Int]?
   where T.Element == String? {
     var result: [Int] = []
