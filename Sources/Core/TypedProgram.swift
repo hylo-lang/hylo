@@ -122,24 +122,31 @@ public struct TypedProgram: Program {
     relations.monomorphize(generic, for: arguments)
   }
 
-  /// If `t` has a record layout, returns the names and types of its stored properties. Otherwise,
-  /// returns an empty array.
-  public func storage(of t: AnyType) -> [StoredProperty] {
+  /// If `t` has a record layout, returns the names and types of its stored properties, replacing
+  /// generic parameters by their corresponding value in `parameterization`. Otherwise, returns an
+  /// empty array.
+  public func storage(
+    of t: AnyType, parameterizedBy parameterization: GenericArguments = [:]
+  ) -> [StoredProperty] {
     switch t.base {
     case let u as BoundGenericType:
-      return storage(of: u.base)
+      return storage(of: u.base, parameterizedBy: parameterization.appending(u.arguments))
 
     case let u as ProductType:
       return ast[u.decl].members.flatMap { (m) in
         BindingDecl.ID(m).map { (b) in
           ast.names(in: ast[b].pattern).map { (_, name) in
-            (ast[ast[name].decl].baseName, declTypes[ast[name].decl]!)
+            let t = relations.monomorphize(declTypes[ast[name].decl]!, for: parameterization)
+            return (ast[ast[name].decl].baseName, t)
           }
         } ?? []
       }
 
     case let u as TupleType:
-      return u.elements.map({ ($0.label, $0.type) })
+      return u.elements.map({ (l) in
+        let t = relations.monomorphize(l.type, for: parameterization)
+        return (l.label, t)
+      })
 
     default:
       assert(!t.hasRecordLayout)
