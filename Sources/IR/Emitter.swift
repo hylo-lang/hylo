@@ -1836,7 +1836,7 @@ public struct Emitter {
 
     return append(
       module.makeProjectBundle(
-        applying: variants, of: d, parameterizedBy: a, typed: t, to: [r], at: site))[0]
+        applying: variants, of: .init(to: d, parameterizedBy: a), typed: t, to: [r], at: site))[0]
   }
 
   /// Returns the projection of the property declared by `d`, parameterized by `a`, and bound to

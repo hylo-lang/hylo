@@ -150,7 +150,7 @@ extension Module {
 
     let o = RemoteType(k, s.projection.bareType)
     let reified = makeProject(
-      o, applying: s.variants[k]!, parameterizedBy: s.parameterization, to: arguments, at: s.site)
+      o, applying: s.variants[k]!, parameterizedBy: s.bundle.arguments, to: arguments, at: s.site)
     replace(i, with: reified)
   }
 
