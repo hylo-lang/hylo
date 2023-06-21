@@ -9,6 +9,9 @@ public struct ProjectInstruction: Instruction {
   /// The subscript implementing the projection.
   public let callee: Function.ID
 
+  /// If `callee` is generic, the arguments to its generic parameter.
+  public let parameterization: GenericArguments
+
   /// The arguments of the call.
   ///
   /// Operands to non-`sink` inputs must be the result of a `borrow` instruction requesting the
@@ -22,11 +25,13 @@ public struct ProjectInstruction: Instruction {
   fileprivate init(
     projection: RemoteType,
     callee: Function.ID,
+    parameterization: GenericArguments,
     operands: [Operand],
     site: SourceRange
   ) {
     self.projection = projection
     self.callee = callee
+    self.parameterization = parameterization
     self.operands = operands
     self.site = site
   }
@@ -56,12 +61,21 @@ extension ProjectInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `project` anchored at `site` that projects a value of type `t` by applying `s`
-  /// on `arguments`.
+  /// Creates a `project` anchored at `site` that projects a value of type `t` by applying
+  /// `callee`, which is parameterized by `parameterization`, on `arguments`.
   func makeProject(
-    _ t: RemoteType, applying s: Function.ID, to arguments: [Operand], at site: SourceRange
+    _ t: RemoteType,
+    applying callee: Function.ID,
+    parameterizedBy parameterization: GenericArguments,
+    to arguments: [Operand],
+    at site: SourceRange
   ) -> ProjectInstruction {
-    .init(projection: t, callee: s, operands: arguments, site: site)
+    .init(
+      projection: t,
+      callee: callee,
+      parameterization: parameterization,
+      operands: arguments,
+      site: site)
   }
 
 }
