@@ -43,7 +43,7 @@ extension Module {
         case is EndBorrowInstruction:
           pc = successor(of: user)
         case is EndProjectInstruction:
-          pc = successor(of: user)
+          pc = interpret(endProject: user, in: &context)
         case is GlobalAddrInstruction:
           pc = interpret(globalAddr: user, in: &context)
         case is LLVMInstruction:
@@ -243,6 +243,33 @@ extension Module {
       }
 
       context.locals[.register(i, 0)] = .locations(Set(locations))
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(endProject i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! EndProjectInstruction
+      let l = context.locals[s.projection]!.unwrapLocations()!.uniqueElement!
+      let projection = context.withObject(at: l, { $0 })
+
+      let source = self[s.projection.instruction!] as! ProjectInstruction
+
+      switch source.projection.access {
+      case .let, .inout, .set:
+        for c in projection.value.consumers {
+          diagnostics.insert(.error(cannotConsume: source.projection.access, at: self[c].site))
+        }
+
+      case .sink:
+        insertDeinit(
+          s.projection, at: projection.value.initializedPaths, anchoredTo: s.site, before: i,
+          reportingDiagnosticsTo: &diagnostics)
+        context.withObject(at: l, { $0.value = .full(.uninitialized) })
+
+      case .yielded:
+        unreachable()
+      }
+
       return successor(of: i)
     }
 
@@ -818,6 +845,12 @@ extension Diagnostic {
   ) -> Diagnostic {
     let e = module[f].isSubscript ? "subscript" : "function"
     return .error("set parameter not initialized before \(e) returns", at: site)
+  }
+
+  fileprivate static func error(
+    cannotConsume k: AccessEffect, at site: SourceRange
+  ) -> Diagnostic {
+    .error("cannot consume '\(k)' projection", at: site)
   }
 
   fileprivate static func useOfConsumedObject(at site: SourceRange) -> Diagnostic {
