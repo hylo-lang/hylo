@@ -23,20 +23,47 @@ extension Module {
   /// counterparts, reading definitions from `ir`.
   private mutating func depolymorphize(_ f: Function.ID, in ir: LoweredProgram) {
     for i in blocks(in: f).map(instructions(in:)).joined() {
-      guard
-        let s = self[i] as? CallInstruction,
-        let callee = s.callee.constant as? FunctionReference,
-        !callee.arguments.isEmpty
-      else { continue }
+      switch self[i] {
+      case let s as CallInstruction:
+        if let new = depolymorphized(s, in: ir) {
+          replace(i, with: new)
+        }
 
-      // TODO: Use existentialization unless the function is inlinable
+      case let s as ProjectInstruction:
+        if let new = depolymorphized(s, in: ir) {
+          replace(i, with: new)
+        }
 
-      let g = monomorphize(callee, in: ir)
-      let r = FunctionReference(to: g, usedIn: callee.useScope, in: self)
-      let newCall = makeCall(
-        applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
-      replace(i, with: newCall)
+      default:
+        continue
+      }
     }
+  }
+
+  /// If `s` is a call to a generic function, returns a new instruction applying a depolymorphized
+  /// version of its callee. Otherwise, returns `nil`.
+  private mutating func depolymorphized(
+    _ s: CallInstruction, in ir: LoweredProgram
+  ) -> CallInstruction? {
+    guard
+      let callee = s.callee.constant as? FunctionReference,
+      !callee.arguments.isEmpty
+    else { return nil }
+
+    // TODO: Use existentialization unless the function is inlinable
+
+    let g = monomorphize(callee, in: ir)
+    let r = FunctionReference(to: g, usedIn: callee.useScope, in: self)
+    return makeCall(
+      applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
+  }
+
+  /// If `s` is the projection through a generic subscript, returns a new instruction applying a
+  /// depolymorphized version of its callee. Otherwise, returns `nil`.
+  private mutating func depolymorphized(
+    _ s: ProjectInstruction, in ir: LoweredProgram
+  ) -> ProjectInstruction? {
+    return nil
   }
 
   /// Returns a depolymorphized copy of `base` in which parametric parameters have been notionally
