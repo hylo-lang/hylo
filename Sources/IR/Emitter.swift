@@ -1824,7 +1824,7 @@ public struct Emitter {
       return emitComputedProperty(boundTo: receiver, declaredBy: i, parameterizedBy: a, at: site)
     }
 
-    let t = SubscriptType(program.relations.canonical(program[d].type))!
+    let t = SubscriptType(program.canonicalType(of: d, parameterizedBy: a))!
     let r = append(module.makeAccess(t.capabilities, from: receiver, at: site))[0]
 
     var variants: [AccessEffect: Function.ID] = [:]
@@ -1843,7 +1843,7 @@ public struct Emitter {
     boundTo receiver: Operand, declaredBy d: SubscriptImpl.ID, parameterizedBy a: GenericArguments,
     at site: SourceRange
   ) -> Operand {
-    let t = SubscriptImplType(program[d].type)!
+    let t = SubscriptImplType(program.canonicalType(of: d, parameterizedBy: a))!
     let o = RemoteType(ast[d].introducer.value, program.relations.canonical(t.output))
     let r = append(module.makeBorrow(o.access, from: receiver, at: site))[0]
     let f = module.demandSubscriptDeclaration(lowering: d)
