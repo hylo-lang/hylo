@@ -93,7 +93,15 @@ extension TypeChecker {
   }
 
   /// The common state of all `inferTypes(...)` methods as they recursively visit the AST.
-  private typealias State = (facts: InferenceFacts, deferred: [DeferredQuery])
+  private struct State {
+
+    /// Facts about the AST generated during constraint generation.
+    var facts: InferenceFacts
+
+    /// A set of type checking queries to be run after type inference.
+    var deferred: [DeferredQuery]
+
+  }
 
   // MARK: Expressions
 
@@ -111,7 +119,7 @@ extension TypeChecker {
   mutating func inferredType(
     of subject: AnyExprID, shapedBy shape: AnyType?
   ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
-    var s: State = (facts: .init(), deferred: [])
+    var s = State(facts: .init(), deferred: [])
     if let t = exprTypes[subject] {
       s.facts.assign(t, to: subject)
     }
@@ -866,7 +874,7 @@ extension TypeChecker {
   mutating func inferredType(
     of subject: AnyPatternID, shapedBy shape: AnyType?
   ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
-    var s: State = (facts: .init(), deferred: [])
+    var s = State(facts: .init(), deferred: [])
     let t = inferredType(of: subject, shapedBy: shape, updating: &s)
     return (t, s.facts, s.deferred)
   }
