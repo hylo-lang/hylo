@@ -116,6 +116,8 @@ public struct Emitter {
       lower(namespace: .init(d)!)
     case ProductTypeDecl.self:
       lower(product: .init(d)!)
+    case SubscriptDecl.self:
+      lower(subscript: .init(d)!)
     case TraitDecl.self:
       lower(trait: .init(d)!)
     case TypeAliasDecl.self:
