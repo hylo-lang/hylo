@@ -70,6 +70,12 @@ public struct SubscriptType: TypeProtocol {
 
 }
 
+extension SubscriptType: CallableType {
+
+  public var isArrow: Bool { false }
+
+}
+
 extension SubscriptType: CustomStringConvertible {
 
   public var description: String {

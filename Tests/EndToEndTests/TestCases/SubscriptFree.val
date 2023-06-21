@@ -1,0 +1,8 @@
+//- compileAndRun expecting: success
+
+subscript foo(): Int { 42 }
+
+public fun main() {
+  let x = foo[]
+  precondition(x == 42)
+}

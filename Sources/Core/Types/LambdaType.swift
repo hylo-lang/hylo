@@ -1,7 +1,7 @@
 import Utils
 
 /// The type of a lambda.
-public struct LambdaType: TypeProtocol, CallableType {
+public struct LambdaType: TypeProtocol {
 
   /// The effect of the lambda's call operator.
   public let receiverEffect: AccessEffect
@@ -89,6 +89,12 @@ public struct LambdaType: TypeProtocol, CallableType {
       inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
       output: output.transform(mutating: &m, transformer))
   }
+}
+
+extension LambdaType: CallableType {
+
+  public var isArrow: Bool { true }
+
 }
 
 extension LambdaType: CustomStringConvertible {
