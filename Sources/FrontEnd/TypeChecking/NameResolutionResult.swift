@@ -37,23 +37,31 @@ enum NameResolutionResult {
     /// Declaration being referenced.
     let reference: DeclReference
 
-    /// The quantifier-free type of the declaration at its use site.
-    let type: InstantiatedType
+    /// The type of the declaration.
+    let type: AnyType
 
-    /// The diagnostics of the error related to this candidate's generic arguments, if any.
+    /// The constraints related to the open variables in `type`, if any.
+    let constraints: ConstraintSet
+
+    /// The diagnostics of the error related to this candidate, if any.
     let argumentsDiagnostic: Diagnostic?
 
     /// Creates an instance with the given properties.
-    init(reference: DeclReference, type: InstantiatedType, argumentsDiagnostic: Diagnostic?) {
+    init(
+      reference: DeclReference, type: AnyType, constraints: ConstraintSet,
+      argumentsDiagnostic: Diagnostic?
+    ) {
       self.reference = reference
       self.type = type
+      self.constraints = constraints
       self.argumentsDiagnostic = argumentsDiagnostic
     }
 
     /// Creates an instance denoting a built-in function.
     init(_ f: BuiltinFunction) {
       self.reference = .builtinFunction(f)
-      self.type = .init(shape: ^f.type(), constraints: [])
+      self.type = ^f.type()
+      self.constraints = []
       self.argumentsDiagnostic = nil
     }
 
@@ -61,14 +69,16 @@ enum NameResolutionResult {
     init(_ t: BuiltinType) {
       precondition(t != .module)
       self.reference = .builtinType
-      self.type = .init(shape: ^MetatypeType(of: t), constraints: [])
+      self.type = ^MetatypeType(of: t)
+      self.constraints = []
       self.argumentsDiagnostic = nil
     }
 
     /// A candidate denoting a reference to the built-in module.
     static var builtinModule = Candidate(
       reference: .builtinModule,
-      type: .init(shape: .builtin(.module), constraints: []),
+      type: .builtin(.module),
+      constraints: [],
       argumentsDiagnostic: nil)
 
   }

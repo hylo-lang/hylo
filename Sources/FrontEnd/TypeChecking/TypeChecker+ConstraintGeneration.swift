@@ -397,10 +397,10 @@ extension TypeChecker {
 
     if let pick = initCandidates.elements.uniqueElement {
       // Rebind the callee and constrain its type.
-      let constructor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
+      let constructor = LambdaType(constructorFormOf: .init(pick.type)!)
       state.facts.assign(callee, to: DeclReference(constructor: pick.reference)!)
       state.facts.assign(^constructor, to: callee)
-      state.facts.append(pick.type.constraints)
+      state.facts.append(pick.constraints)
 
       var arguments: [FunctionCallConstraint.Argument] = []
       for a in ast[subject].arguments {
@@ -1079,23 +1079,23 @@ extension TypeChecker {
   private mutating func bind(
     _ name: NameExpr.ID,
     to candidates: [NameResolutionResult.Candidate],
-    updating state: inout State
+    updating state: inout Context
   ) -> AnyType {
     precondition(!candidates.isEmpty)
 
     if let candidate = candidates.uniqueElement {
       // Bind the component to the resolved declaration and store its type.
       state.facts.assign(name, to: candidate.reference)
-      state.facts.append(candidate.type.constraints)
-      return state.facts.constrain(name, in: ast, toHaveType: candidate.type.shape)
+      state.facts.append(candidate.constraints)
+      return state.facts.constrain(name, in: ast, toHaveType: candidate.type)
     } else {
       // Create an overload set.
       let overloads: [OverloadConstraint.Predicate] = candidates.map({ (candidate) in
         let p = candidate.reference.decl.map({ program.isRequirement($0) ? 1 : 0 }) ?? 0
         return .init(
           reference: candidate.reference,
-          type: candidate.type.shape,
-          constraints: candidate.type.constraints,
+          type: candidate.type,
+          constraints: candidate.constraints,
           penalties: p)
       })
 
