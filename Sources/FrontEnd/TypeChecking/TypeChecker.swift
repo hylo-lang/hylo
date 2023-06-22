@@ -1607,7 +1607,8 @@ public struct TypeChecker {
   /// Resolves the non-overloaded name components of `name` from left to right.
   ///
   /// If `keepImplicitArguments` is `false`, generic entities referenced without explicit arguments
-  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables.
+  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables. If
+  /// `instantiateTypes` is `false`, generic parameters are not instantiated.
   ///
   /// - Postcondition: If the method returns `.done(resolved: r, unresolved: u)`, `r` is not empty
   ///   and `r[i].candidates` has a single element for `0 < i < r.count`.
@@ -1716,8 +1717,9 @@ public struct TypeChecker {
   /// case they are searched in the declaration space of `parent.type`. Generic candidates are
   /// specialized with `arguments` appended to `parent.arguments`.
   ///
-  /// If `keepImplicitArguments` is `true`, generic entities referenced without explicit arguments
-  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables.
+  /// If `keepImplicitArguments` is `false`, generic entities referenced without explicit arguments
+  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables. If
+  /// `instantiateTypes` is `false`, generic parameters are not instantiated.
   private mutating func resolve(
     _ name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue],
