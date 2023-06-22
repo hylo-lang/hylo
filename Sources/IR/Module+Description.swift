@@ -57,7 +57,10 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       for j in instructions(in: i) {
         output.write("  ")
         if !self[j].types.isEmpty {
-          let r = self[j].types.indices.map({ (k) in Operand.register(j, k).description })
+          let r = self[j].types.indices.map { (k) -> String in
+            let o = Operand.register(j, k)
+            return "\(o): \(type(of: o))"
+          }
           output.write("\(list: r) = ")
         }
         output.write("\(self[j])\n")
