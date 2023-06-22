@@ -1606,14 +1606,14 @@ public struct TypeChecker {
 
   /// Resolves the non-overloaded name components of `name` from left to right.
   ///
-  /// If `dropImplicitArguments` is `true`, generic entities referenced without explicit arguments
+  /// If `keepImplicitArguments` is `false`, generic entities referenced without explicit arguments
   /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables.
   ///
   /// - Postcondition: If the method returns `.done(resolved: r, unresolved: u)`, `r` is not empty
   ///   and `r[i].candidates` has a single element for `0 < i < r.count`.
   mutating func resolveNominalPrefix(
     of name: NameExpr.ID,
-    droppingImplicitArguments dropImplicitArguments: Bool = false,
+    keepingImplicitArguments keepImplicitArguments: Bool = true,
     instantiatingTypes instantiateTypes: Bool = true
   ) -> NameResolutionResult {
     var (unresolved, domain) = splitNominalComponents(of: name)
@@ -1638,7 +1638,7 @@ public struct TypeChecker {
       let n = ast[component].name
       let candidates = resolve(
         n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[name].scope,
-        droppingImplicitArguments: dropImplicitArguments,
+        keepingImplicitArguments: keepImplicitArguments,
         instantiatingTypes: instantiateTypes)
 
       if candidates.elements.isEmpty {
@@ -1716,14 +1716,14 @@ public struct TypeChecker {
   /// case they are searched in the declaration space of `parent.type`. Generic candidates are
   /// specialized with `arguments` appended to `parent.arguments`.
   ///
-  /// If `dropImplicitArguments` is `true`, generic entities referenced without explicit arguments
+  /// If `keepImplicitArguments` is `true`, generic entities referenced without explicit arguments
   /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables.
   private mutating func resolve(
     _ name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue],
     memberOf parent: (type: AnyType, arguments: GenericArguments)?,
     exposedTo useScope: AnyScopeID,
-    droppingImplicitArguments dropImplicitArguments: Bool = false,
+    keepingImplicitArguments keepImplicitArguments: Bool = true,
     instantiatingTypes instantiateTypes: Bool = true
   ) -> NameResolutionResult.CandidateSet {
     // Resolve references to the built-in symbols.
@@ -1761,12 +1761,12 @@ public struct TypeChecker {
       if let g = BoundGenericType(matchType) {
         assert(matchArguments.isEmpty, "generic declaration bound twice")
         matchArguments = g.arguments
-      } else if matchArguments.isEmpty && !dropImplicitArguments {
+      } else if matchArguments.isEmpty && keepImplicitArguments {
         matchArguments = openGenericParameters(of: m)
       }
 
       let allArguments = parentArguments.appending(matchArguments)
-      if !dropImplicitArguments {
+      if keepImplicitArguments {
         matchType = bind(matchType, to: allArguments)
       }
       matchType = specialized(matchType, applying: allArguments, in: useScope)
@@ -1895,7 +1895,7 @@ public struct TypeChecker {
   ///     conformance Array: P where Element == Int {}
   mutating func resolve(interface e: NameExpr.ID) -> AnyType? {
     let resolution = resolveNominalPrefix(
-      of: e, droppingImplicitArguments: true, instantiatingTypes: false)
+      of: e, keepingImplicitArguments: false, instantiatingTypes: false)
 
     switch resolution {
     case .done(let prefix, let suffix) where suffix.isEmpty:
