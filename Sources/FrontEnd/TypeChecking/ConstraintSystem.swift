@@ -461,9 +461,9 @@ struct ConstraintSystem {
       let c = candidates.elements[i]
       bindingAssumptions[goal.memberExpr] = c.reference
 
-      var subordinates = insert(fresh: c.type.constraints)
+      var subordinates = insert(fresh: c.constraints)
       subordinates.append(
-        schedule(EqualityConstraint(c.type.shape, goal.memberType, origin: goal.origin)))
+        schedule(EqualityConstraint(c.type, goal.memberType, origin: goal.origin)))
       return delegate(to: subordinates)
     }
 
@@ -472,8 +472,8 @@ struct ConstraintSystem {
       let isRequirement = c.reference.decl.map(default: false, checker.program.isRequirement(_:))
       return OverloadConstraint.Predicate(
         reference: c.reference,
-        type: c.type.shape,
-        constraints: c.type.constraints,
+        type: c.type,
+        constraints: c.constraints,
         penalties: isRequirement ? 1 : 0)
     }
 

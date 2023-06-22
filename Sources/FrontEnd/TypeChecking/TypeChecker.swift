@@ -1606,14 +1606,16 @@ public struct TypeChecker {
 
   /// Resolves the non-overloaded name components of `name` from left to right.
   ///
-  /// If `dropImplicitArguments` is `true`, generic entities referenced without explicit arguments
-  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables.
+  /// If `keepImplicitArguments` is `false`, generic entities referenced without explicit arguments
+  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables. If
+  /// `instantiateTypes` is `false`, generic parameters are not instantiated.
   ///
   /// - Postcondition: If the method returns `.done(resolved: r, unresolved: u)`, `r` is not empty
   ///   and `r[i].candidates` has a single element for `0 < i < r.count`.
   mutating func resolveNominalPrefix(
     of name: NameExpr.ID,
-    droppingImplicitArguments dropImplicitArguments: Bool = false
+    keepingImplicitArguments keepImplicitArguments: Bool = true,
+    instantiatingTypes instantiateTypes: Bool = true
   ) -> NameResolutionResult {
     var (unresolved, domain) = splitNominalComponents(of: name)
     if domain != nil {
@@ -1637,7 +1639,8 @@ public struct TypeChecker {
       let n = ast[component].name
       let candidates = resolve(
         n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[name].scope,
-        droppingImplicitArguments: dropImplicitArguments)
+        keepingImplicitArguments: keepImplicitArguments,
+        instantiatingTypes: instantiateTypes)
 
       if candidates.elements.isEmpty {
         report(.error(undefinedName: n.value, in: parent?.type, at: n.site))
@@ -1655,16 +1658,17 @@ public struct TypeChecker {
       resolved.append(.init(component, selected))
 
       // Defer resolution of the remaining name components if there are multiple candidates for
-      // the current component or if we found a type variable.
-      if (selected.count > 1) || (selected[0].type.shape.base is TypeVariable) { break }
+      // the current component or if we found a type variable. Otherwise, configure `parent` to
+      // resolve the next name component.
+      if (selected.count > 1) || selected[0].type.isTypeVariable { break }
       let c = selected[0]
 
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
       if let d = c.reference.decl, isNominalTypeDecl(d) {
-        parent = (MetatypeType(c.type.shape)!.instance, c.reference.arguments)
+        parent = (MetatypeType(c.type)!.instance, c.reference.arguments)
       } else {
-        parent = (c.type.shape, c.reference.arguments)
+        parent = (c.type, c.reference.arguments)
       }
     }
 
@@ -1713,14 +1717,16 @@ public struct TypeChecker {
   /// case they are searched in the declaration space of `parent.type`. Generic candidates are
   /// specialized with `arguments` appended to `parent.arguments`.
   ///
-  /// If `dropImplicitArguments` is `true`, generic entities referenced without explicit arguments
-  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables.
+  /// If `keepImplicitArguments` is `false`, generic entities referenced without explicit arguments
+  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables. If
+  /// `instantiateTypes` is `false`, generic parameters are not instantiated.
   private mutating func resolve(
     _ name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue],
     memberOf parent: (type: AnyType, arguments: GenericArguments)?,
     exposedTo useScope: AnyScopeID,
-    droppingImplicitArguments dropImplicitArguments: Bool = false
+    keepingImplicitArguments keepImplicitArguments: Bool = true,
+    instantiatingTypes instantiateTypes: Bool = true
   ) -> NameResolutionResult.CandidateSet {
     // Resolve references to the built-in symbols.
     if isBuiltinModuleVisible {
@@ -1742,11 +1748,11 @@ public struct TypeChecker {
     var candidates: NameResolutionResult.CandidateSet = []
     let parentArguments = parent?.arguments ?? [:]
     for m in matches {
-      var argumentsDiagnostic: Diagnostic? = nil
+      var matchDiagnostic: Diagnostic? = nil
       guard
         var matchType = resolvedType(of: m),
         var matchArguments = associateGenericParameters(
-          of: name, declaredBy: m, to: arguments, reportingDiagnosticTo: &argumentsDiagnostic)
+          of: name, declaredBy: m, to: arguments, reportingDiagnosticTo: &matchDiagnostic)
       else { continue }
 
       let isConstructor = (m.kind == InitializerDecl.self) && (name.value.stem == "new")
@@ -1757,23 +1763,31 @@ public struct TypeChecker {
       if let g = BoundGenericType(matchType) {
         assert(matchArguments.isEmpty, "generic declaration bound twice")
         matchArguments = g.arguments
-      } else if matchArguments.isEmpty && !dropImplicitArguments {
+      } else if matchArguments.isEmpty && keepImplicitArguments {
         matchArguments = openGenericParameters(of: m)
       }
 
       let allArguments = parentArguments.appending(matchArguments)
-      if !dropImplicitArguments {
+      if keepImplicitArguments {
         matchType = bind(matchType, to: allArguments)
       }
       matchType = specialized(matchType, applying: allArguments, in: useScope)
 
-      let t = instantiate(
-        matchType, in: program.scopeIntroducing(m), cause: .init(.binding, at: name.site))
+      var matchConstraints = ConstraintSet()
+      if instantiateTypes {
+        let t = instantiate(
+          matchType, in: program.scopeIntroducing(m), cause: .init(.binding, at: name.site))
+        matchType = t.shape
+        matchConstraints = t.constraints
+      }
 
       let r = makeReference(
         to: m, usedAsConstructor: isConstructor, memberOf: parent?.type,
         parameterizedBy: allArguments)
-      candidates.insert(.init(reference: r, type: t, argumentsDiagnostic: argumentsDiagnostic))
+      candidates.insert(
+        .init(
+          reference: r, type: matchType, constraints: matchConstraints,
+          argumentsDiagnostic: matchDiagnostic))
     }
 
     return candidates
@@ -1881,8 +1895,10 @@ public struct TypeChecker {
   /// `Array`'s associated type, just like if it had been declared in a where clause:
   ///
   ///     conformance Array: P where Element == Int {}
-  mutating func resolve(nominalType e: NameExpr.ID) -> AnyType? {
-    let resolution = resolveNominalPrefix(of: e, droppingImplicitArguments: true)
+  mutating func resolve(interface e: NameExpr.ID) -> AnyType? {
+    let resolution = resolveNominalPrefix(
+      of: e, keepingImplicitArguments: false, instantiatingTypes: false)
+
     switch resolution {
     case .done(let prefix, let suffix) where suffix.isEmpty:
       // Return the type of the expression if it could be resolved without further type checking.
@@ -1891,7 +1907,7 @@ public struct TypeChecker {
       }
 
       // Last component must resolve to a type.
-      guard last.type.shape.base is MetatypeType else {
+      guard last.type.base is MetatypeType else {
         report(.error(typeExprDenotesValue: e, in: ast))
         return .error
       }
@@ -1899,7 +1915,7 @@ public struct TypeChecker {
       // Bind each component of the name expression and gather type constraints.
       for p in prefix {
         // TODO: Handle generic arguments and candidate constraints
-        exprTypes[e] = p.candidates[0].type.shape
+        exprTypes[e] = p.candidates[0].type
         referredDecls[e] = p.candidates[0].reference
       }
 
@@ -3205,7 +3221,7 @@ public struct TypeChecker {
     let interface: MetatypeType
 
     // Realize the extended type.
-    if let e = NameExpr.ID(ast[d].subject), let t = resolve(nominalType: e) {
+    if let e = NameExpr.ID(ast[d].subject), let t = resolve(interface: e) {
       guard let u = MetatypeType(t) else {
         return .error
       }
