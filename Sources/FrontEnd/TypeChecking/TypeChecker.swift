@@ -1793,6 +1793,19 @@ public struct TypeChecker {
     return candidates
   }
 
+  /// Resolves a reference to the built-in type or function named `name`.
+  private mutating func resolve(
+    builtin name: SourceRepresentable<Name>
+  ) -> NameResolutionResult.CandidateSet {
+    if let f = BuiltinFunction(name.value.stem) {
+      return [.init(f)]
+    }
+    if let t = BuiltinType(name.value.stem) {
+      return [.init(t)]
+    }
+    return []
+  }
+
   /// Returns the resolved type of the entity declared by `d` or `nil` if is invalid.
   private mutating func resolvedType(of d: AnyDeclID) -> AnyType? {
     var result = realize(decl: d)
@@ -1809,19 +1822,6 @@ public struct TypeChecker {
     }
 
     return result
-  }
-
-  /// Resolves a reference to the built-in type or function named `name`.
-  private mutating func resolve(
-    builtin name: SourceRepresentable<Name>
-  ) -> NameResolutionResult.CandidateSet {
-    if let f = BuiltinFunction(name.value.stem) {
-      return [.init(f)]
-    }
-    if let t = BuiltinType(name.value.stem) {
-      return [.init(t)]
-    }
-    return []
   }
 
   /// Returns a sequence of key-value pairs associating the generic parameters introduced by `d`,
