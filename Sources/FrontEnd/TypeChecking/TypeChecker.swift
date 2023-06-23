@@ -1729,19 +1729,20 @@ public struct TypeChecker {
     instantiatingTypes instantiateTypes: Bool = true
   ) -> NameResolutionResult.CandidateSet {
     // Resolve references to the built-in symbols.
-    if isBuiltinModuleVisible {
-      if (parent == nil) && (name.value.stem == "Builtin") {
-        return [.builtinModule]
-      }
-      if parent?.type == .builtin(.module) {
-        return resolve(builtin: name)
-      }
+    if parent?.type == .builtin(.module) {
+      return resolve(builtin: name)
     }
 
     // Gather declarations qualified by `parent` if it isn't `nil` or unqualified otherwise.
     let matches = lookup(name, memberOf: parent?.type, exposedTo: useScope)
+
+    // Resolve intrinsic type aliases if no match was found.
     if matches.isEmpty {
-      return []
+      if parent == nil {
+        return resolve(intrinsic: name, parameterizedBy: arguments, exposedTo: useScope)
+      } else {
+        return []
+      }
     }
 
     // Create declaration references to all candidates.
@@ -1793,6 +1794,106 @@ public struct TypeChecker {
     return candidates
   }
 
+  /// Returns the declaration of `name` interpreted as a member of the built-in module.
+  private mutating func resolve(
+    builtin name: SourceRepresentable<Name>
+  ) -> NameResolutionResult.CandidateSet {
+    if let f = BuiltinFunction(name.value.stem) {
+      return [.init(f)]
+    }
+    if let t = BuiltinType(name.value.stem) {
+      return [.init(t)]
+    }
+    return []
+  }
+
+  /// Returns the declarations of `name` interpreted as an intrinsic type alias (e.g., `Never` or
+  /// `Sum<A, B>`) parameterized by `arguments`, or `nil` if an error occured.
+  private mutating func resolve(
+    intrinsic name: SourceRepresentable<Name>,
+    parameterizedBy arguments: [any CompileTimeValue],
+    exposedTo useScope: AnyScopeID
+  ) -> NameResolutionResult.CandidateSet {
+    func nonGeneric(_ t: MetatypeType) -> NameResolutionResult.CandidateSet {
+      if arguments.count > 0 {
+        report(.error(argumentToNonGenericType: t.instance, at: name.site))
+        return [.intrinsic(.error)]
+      }
+      return [.intrinsic(^t)]
+    }
+
+    switch name.value.stem {
+    case "Any":
+      return nonGeneric(MetatypeType(of: .any))
+
+    case "Never":
+      return nonGeneric(MetatypeType(of: .never))
+
+    case "Builtin" where isBuiltinModuleVisible:
+      return [.builtinModule]
+
+    case "Sum":
+      return resolve(sum: name, parameterizedBy: arguments)
+
+    case "Self":
+      guard let t = realizeReceiver(in: useScope) else {
+        report(.error(invalidReferenceToSelfTypeAt: name.site))
+        return [.intrinsic(.error)]
+      }
+      return nonGeneric(t)
+
+    case "Metatype":
+      return resolve(metatype: name, parameterizedBy: arguments)
+
+    default:
+      return []
+    }
+  }
+
+  /// Resolves `name` as a reference to a sum type parameterized by `arguments`.
+  private mutating func resolve(
+    sum name: SourceRepresentable<Name>,
+    parameterizedBy arguments: [any CompileTimeValue]
+  ) -> NameResolutionResult.CandidateSet {
+    var elements: [AnyType] = []
+    for a in arguments {
+      guard let t = a as? AnyType else {
+        report(.error(valueInSumTypeAt: name.site))
+        return [.intrinsic(.error)]
+      }
+      elements.append(t)
+    }
+
+    switch arguments.count {
+    case 0:
+      report(.warning(sumTypeWithZeroElementsAt: name.site))
+      return [.intrinsic(^MetatypeType(of: .never))]
+    case 1:
+      report(.error(sumTypeWithOneElementAt: name.site))
+      return [.intrinsic(.error)]
+    default:
+      return [.intrinsic(^MetatypeType(of: SumType(elements)))]
+    }
+  }
+
+  /// Resolves `name` as a reference to a metatype parameterized by `arguments`.
+  private mutating func resolve(
+    metatype name: SourceRepresentable<Name>,
+    parameterizedBy arguments: [any CompileTimeValue]
+  ) -> NameResolutionResult.CandidateSet {
+    if let a = arguments.uniqueElement {
+      let instance = (a as? AnyType) ?? fatalError("not implemented")
+      return [.intrinsic(^MetatypeType(of: MetatypeType(of: instance)))]
+    }
+
+    if arguments.isEmpty {
+      return [.intrinsic(^MetatypeType(of: MetatypeType(of: TypeVariable())))]
+    }
+
+    report(.error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 1))
+    return [.intrinsic(.error)]
+  }
+
   /// Returns the resolved type of the entity declared by `d` or `nil` if is invalid.
   private mutating func resolvedType(of d: AnyDeclID) -> AnyType? {
     var result = realize(decl: d)
@@ -1809,19 +1910,6 @@ public struct TypeChecker {
     }
 
     return result
-  }
-
-  /// Resolves a reference to the built-in type or function named `name`.
-  private mutating func resolve(
-    builtin name: SourceRepresentable<Name>
-  ) -> NameResolutionResult.CandidateSet {
-    if let f = BuiltinFunction(name.value.stem) {
-      return [.init(f)]
-    }
-    if let t = BuiltinType(name.value.stem) {
-      return [.init(t)]
-    }
-    return []
   }
 
   /// Returns a sequence of key-value pairs associating the generic parameters introduced by `d`,
@@ -1855,9 +1943,10 @@ public struct TypeChecker {
   /// Returns a sequence of key-value pairs associated the generic parameters introduced by `d`
   /// to open variables.
   private mutating func openGenericParameters(of d: AnyDeclID) -> GenericArguments {
-    if !(d.kind.value is GenericScope.Type) { return [:] }
+    guard let parameters = (ast[d] as? GenericScope)?.genericParameters else {
+      return [:]
+    }
 
-    let parameters = environment(of: d).parameters
     return .init(
       uniqueKeysWithValues: parameters.map { (p) in
         // TODO: Handle generic value parameters
@@ -3657,15 +3746,13 @@ public struct TypeChecker {
 
   // MARK: Utils
 
-  /// Returns whether `decl` is a nominal type declaration.
-  mutating func isNominalTypeDecl(_ decl: AnyDeclID) -> Bool {
-    switch decl.kind {
-    case AssociatedTypeDecl.self, ProductTypeDecl.self, TypeAliasDecl.self:
+  /// Returns whether `d` is a nominal type declaration.
+  mutating func isNominalTypeDecl(_ d: AnyDeclID) -> Bool {
+    switch d.kind {
+    case AssociatedTypeDecl.self, ProductTypeDecl.self, TraitDecl.self, TypeAliasDecl.self:
       return true
-
     case GenericParameterDecl.self:
-      return realize(genericParameterDecl: NodeID(decl)!).base is MetatypeType
-
+      return realize(genericParameterDecl: .init(d)!).base is MetatypeType
     default:
       return false
     }

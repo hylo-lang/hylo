@@ -81,6 +81,11 @@ enum NameResolutionResult {
       constraints: [],
       argumentsDiagnostic: nil)
 
+    /// Creates an instance denoting an intrinsic type.
+    static func intrinsic(_ t: AnyType) -> Self {
+      .init(reference: .intrinsicType, type: t, constraints: [], argumentsDiagnostic: nil)
+    }
+
   }
 
   /// A set of candidates found by name resolution.
