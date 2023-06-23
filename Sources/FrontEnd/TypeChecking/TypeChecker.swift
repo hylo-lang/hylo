@@ -1729,19 +1729,20 @@ public struct TypeChecker {
     instantiatingTypes instantiateTypes: Bool = true
   ) -> NameResolutionResult.CandidateSet {
     // Resolve references to the built-in symbols.
-    if isBuiltinModuleVisible {
-      if (parent == nil) && (name.value.stem == "Builtin") {
-        return [.builtinModule]
-      }
-      if parent?.type == .builtin(.module) {
-        return resolve(builtin: name)
-      }
+    if parent?.type == .builtin(.module) {
+      return resolve(builtin: name)
     }
 
     // Gather declarations qualified by `parent` if it isn't `nil` or unqualified otherwise.
     let matches = lookup(name, memberOf: parent?.type, exposedTo: useScope)
+
+    // Resolve intrinsic type aliases if no match was found.
     if matches.isEmpty {
-      return []
+      if parent == nil {
+        return resolve(intrinsic: name, parameterizedBy: arguments, exposedTo: useScope)
+      } else {
+        return []
+      }
     }
 
     // Create declaration references to all candidates.
@@ -1793,7 +1794,7 @@ public struct TypeChecker {
     return candidates
   }
 
-  /// Resolves a reference to the built-in type or function named `name`.
+  /// Returns the declaration of `name` interpreted as a member of the built-in module.
   private mutating func resolve(
     builtin name: SourceRepresentable<Name>
   ) -> NameResolutionResult.CandidateSet {
@@ -1803,6 +1804,93 @@ public struct TypeChecker {
     if let t = BuiltinType(name.value.stem) {
       return [.init(t)]
     }
+    return []
+  }
+
+  /// Returns the declarations of `name` interpreted as an intrinsic type alias (e.g., `Never` or
+  /// `Sum<A, B>`) parameterized by `arguments`, or `nil` if an error occured.
+  private mutating func resolve(
+    intrinsic name: SourceRepresentable<Name>,
+    parameterizedBy arguments: [any CompileTimeValue],
+    exposedTo useScope: AnyScopeID
+  ) -> NameResolutionResult.CandidateSet {
+    func nonGeneric(_ t: MetatypeType) -> NameResolutionResult.CandidateSet {
+      if arguments.count > 0 {
+        report(.error(argumentToNonGenericType: t.instance, at: name.site))
+        return []
+      }
+      return [.intrinsic(^t)]
+    }
+
+    switch name.value.stem {
+    case "Any":
+      return nonGeneric(MetatypeType(of: .any))
+
+    case "Never":
+      return nonGeneric(MetatypeType(of: .never))
+
+    case "Builtin" where isBuiltinModuleVisible:
+      return [.builtinModule]
+
+    case "Sum":
+      return resolve(sum: name, parameterizedBy: arguments)
+
+    case "Self":
+      guard let t = realizeReceiver(in: useScope) else {
+        report(.error(invalidReferenceToSelfTypeAt: name.site))
+        return []
+      }
+      return nonGeneric(t)
+
+    case "Metatype":
+      return resolve(metatype: name, parameterizedBy: arguments)
+
+    default:
+      return []
+    }
+  }
+
+  /// Resolves `name` as a reference to a sum type parameterized by `arguments`.
+  private mutating func resolve(
+    sum name: SourceRepresentable<Name>,
+    parameterizedBy arguments: [any CompileTimeValue]
+  ) -> NameResolutionResult.CandidateSet {
+    var elements: [AnyType] = []
+    for a in arguments {
+      guard let t = a as? AnyType else {
+        report(.error(valueInSumTypeAt: name.site))
+        return []
+      }
+      elements.append(t)
+    }
+
+    switch arguments.count {
+    case 0:
+      report(.warning(sumTypeWithZeroElementsAt: name.site))
+      return [.intrinsic(^MetatypeType(of: .never))]
+    case 1:
+      report(.error(sumTypeWithOneElementAt: name.site))
+      return []
+    default:
+      return [.intrinsic(^MetatypeType(of: SumType(elements)))]
+    }
+  }
+
+  /// Resolves `name` as a reference to a metatype parameterized by `arguments`.
+  private mutating func resolve(
+    metatype name: SourceRepresentable<Name>,
+    parameterizedBy arguments: [any CompileTimeValue]
+  ) -> NameResolutionResult.CandidateSet {
+    if let a = arguments.uniqueElement {
+      let instance = (a as? AnyType) ?? fatalError("not implemented")
+      return [.intrinsic(^MetatypeType(of: MetatypeType(of: instance)))]
+    }
+
+    if arguments.isEmpty {
+      return [.intrinsic(^MetatypeType(of: MetatypeType(of: TypeVariable())))]
+    }
+
+    report(.error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 1))
     return []
   }
 
