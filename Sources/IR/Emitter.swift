@@ -402,7 +402,7 @@ public struct Emitter {
 
   /// Inserts the IR for `d`.
   private mutating func lower(trait d: TraitDecl.ID) {
-    _ = module.addGlobal(MetatypeConstant(.init(program[d].type)!))
+    _ = module.addGlobal(TraitType(program[d].type)!)
   }
 
   /// Inserts the IR for given declaration `members`.
