@@ -719,7 +719,9 @@ public struct TypeChecker {
   }
 
   private mutating func _check(trait d: TraitDecl.ID) {
-    guard let t = MetatypeType(declTypes[d]!)?.instance else { return }
+    let t = declTypes[d]!
+    guard !t.isError else { return }
+
     _ = environment(ofTrait: d)
     check(all: ast[d].members)
     check(all: extendingDecls(of: t, exposedTo: program[d].scope))
@@ -1376,7 +1378,7 @@ public struct TypeChecker {
 
     // Synthesize `Self: T`.
     let receiverType = GenericTypeParameterType(receiver, ast: ast)
-    let declaredTrait = TraitType(MetatypeType(declTypes[d]!)!.instance)!
+    let declaredTrait = TraitType(declTypes[d])!
     let c = GenericConstraint(
       .conformance(^receiverType, conformedTraits(of: ^declaredTrait, in: AnyScopeID(d))),
       at: ast[d].identifier.site)
@@ -1995,8 +1997,8 @@ public struct TypeChecker {
         return nil
       }
 
-      // Last component must resolve to a type.
-      guard last.type.base is MetatypeType else {
+      // Last component must resolve to a type or trait.
+      guard (last.type.base is MetatypeType) || (last.type.base is TraitType) else {
         report(.error(typeExprDenotesValue: e, in: ast))
         return .error
       }
@@ -2808,6 +2810,8 @@ public struct TypeChecker {
       switch realize(decl: match).base {
       case let t as MetatypeType:
         referredType = t
+      case let t as TraitType:
+        referredType = MetatypeType(of: t)
       default:
         diagnostics.insert(.error(typeExprDenotesValue: id, in: ast))
         return nil
@@ -3284,7 +3288,7 @@ public struct TypeChecker {
 
   /// Returns the overarching type of `d`.
   private mutating func realize(traitDecl d: TraitDecl.ID) -> AnyType {
-    _realize(decl: d) { (this, d) in ^MetatypeType(of: TraitType(d, ast: this.ast)) }
+    _realize(decl: d) { (this, d) in ^TraitType(d, ast: this.ast) }
   }
 
   /// Returns the overarching type of `d`.
@@ -3749,7 +3753,7 @@ public struct TypeChecker {
   /// Returns whether `d` is a nominal type declaration.
   mutating func isNominalTypeDecl(_ d: AnyDeclID) -> Bool {
     switch d.kind {
-    case AssociatedTypeDecl.self, ProductTypeDecl.self, TraitDecl.self, TypeAliasDecl.self:
+    case AssociatedTypeDecl.self, ProductTypeDecl.self, TypeAliasDecl.self:
       return true
     case GenericParameterDecl.self:
       return realize(genericParameterDecl: .init(d)!).base is MetatypeType

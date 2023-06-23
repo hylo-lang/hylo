@@ -278,13 +278,16 @@ extension TypeChecker {
         return .error
       }
 
-      // Expression must refer to a type.
-      guard let u = MetatypeType(t) else {
+      // Expression must refer to a type or trait.
+      switch t.base {
+      case let u as MetatypeType:
+        interface.append(u.instance)
+      case let u as TraitType:
+        interface.append(^u)
+      default:
         report(.error(typeExprDenotesValue: n, in: ast))
         return .error
       }
-
-      interface.append(u.instance)
     }
 
     // TODO: Process where clauses
