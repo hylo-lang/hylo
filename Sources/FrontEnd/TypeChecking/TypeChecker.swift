@@ -3746,15 +3746,13 @@ public struct TypeChecker {
 
   // MARK: Utils
 
-  /// Returns whether `decl` is a nominal type declaration.
-  mutating func isNominalTypeDecl(_ decl: AnyDeclID) -> Bool {
-    switch decl.kind {
-    case AssociatedTypeDecl.self, ProductTypeDecl.self, TypeAliasDecl.self:
+  /// Returns whether `d` is a nominal type declaration.
+  mutating func isNominalTypeDecl(_ d: AnyDeclID) -> Bool {
+    switch d.kind {
+    case AssociatedTypeDecl.self, ProductTypeDecl.self, TraitDecl.self, TypeAliasDecl.self:
       return true
-
     case GenericParameterDecl.self:
-      return realize(genericParameterDecl: NodeID(decl)!).base is MetatypeType
-
+      return realize(genericParameterDecl: .init(d)!).base is MetatypeType
     default:
       return false
     }
