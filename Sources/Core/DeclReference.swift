@@ -19,6 +19,9 @@ public enum DeclReference: Hashable {
   /// A reference to a built-in function.
   case builtinFunction(BuiltinFunction)
 
+  /// A reference to a intrinsic type.
+  case intrinsicType
+
   /// Converts a direct initializer reference to a constructor reference.
   public init?(constructor other: DeclReference) {
     if case .direct(let d, let a) = other, let i = InitializerDecl.ID(d) {
