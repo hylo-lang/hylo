@@ -164,9 +164,6 @@ extension LLVM.Module {
     case let v as IR.BufferConstant:
       return LLVM.ArrayConstant(bytes: v.contents, in: &self)
 
-    case let v as IR.MetatypeConstant:
-      return transpiledMetatype(of: v.value.instance, usedIn: m, from: ir)
-
     case let v as IR.WitnessTable:
       return transpiledWitnessTable(v, usedIn: m, from: ir)
 
@@ -175,6 +172,9 @@ extension LLVM.Module {
 
     case let v as IR.FunctionReference:
       return declare(v, from: ir)
+
+    case let v as MetatypeType:
+      return transpiledMetatype(of: v.instance, usedIn: m, from: ir)
 
     case is IR.Poison:
       let t = ir.llvm(c.type.ast, in: &self)
@@ -291,13 +291,15 @@ extension LLVM.Module {
     from ir: LoweredProgram
   ) -> LLVM.GlobalVariable {
     // Check if we already created the metatype's instance.
-    let n = ir.mangle(t)
-    if let g = global(named: n) { return g }
+    let globalName = ir.mangle(t)
+    if let g = global(named: globalName) {
+      return g
+    }
 
+    // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply
+    // declare the symbol and let it be linked later.
     let metatype = metatypeType()
-    let instance = declareGlobalVariable(n, metatype)
-
-    // Initialize the instance if it's being used in the module defining `t`.
+    let instance = declareGlobalVariable(globalName, metatype)
     if m.id != ir.syntax.module(containing: t.decl) {
       return instance
     }
