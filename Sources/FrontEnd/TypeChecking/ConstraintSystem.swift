@@ -451,9 +451,11 @@ struct ConstraintSystem {
     }
 
     if candidates.viable.isEmpty {
-      let notes = candidates.elements.compactMap(\.argumentsDiagnostic)
+      let notes = candidates.elements.reduce(into: DiagnosticSet()) { (d, c) in
+        d.formUnion(c.diagnostics)
+      }
       return .failure { (d, _, _) in
-        d.insert(.error(noViableCandidateToResolve: n, notes: notes))
+        d.insert(.error(noViableCandidateToResolve: n, notes: Array(notes.elements)))
       }
     }
 

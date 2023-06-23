@@ -1650,8 +1650,10 @@ public struct TypeChecker {
       }
 
       if candidates.viable.isEmpty {
-        let notes = candidates.elements.compactMap(\.argumentsDiagnostic)
-        report(.error(noViableCandidateToResolve: n, notes: notes))
+        let notes = candidates.elements.reduce(into: DiagnosticSet()) { (d, c) in
+          d.formUnion(c.diagnostics)
+        }
+        report(.error(noViableCandidateToResolve: n, notes: Array(notes.elements)))
         return .failed
       }
 
@@ -1751,11 +1753,11 @@ public struct TypeChecker {
     var candidates: NameResolutionResult.CandidateSet = []
     let parentArguments = parent?.arguments ?? [:]
     for m in matches {
-      var matchDiagnostic: Diagnostic? = nil
+      var matchDiagnostics = DiagnosticSet()
       guard
         var matchType = resolvedType(of: m),
         var matchArguments = associateGenericParameters(
-          of: name, declaredBy: m, to: arguments, reportingDiagnosticTo: &matchDiagnostic)
+          of: name, declaredBy: m, to: arguments, reportingDiagnosticsTo: &matchDiagnostics)
       else { continue }
 
       let isConstructor = (m.kind == InitializerDecl.self) && (name.value.stem == "new")
@@ -1790,7 +1792,7 @@ public struct TypeChecker {
       candidates.insert(
         .init(
           reference: r, type: matchType, constraints: matchConstraints,
-          argumentsDiagnostic: matchDiagnostic))
+          diagnostics: matchDiagnostics))
     }
 
     return candidates
@@ -1916,38 +1918,38 @@ public struct TypeChecker {
 
   /// Returns a sequence of key-value pairs associating the generic parameters introduced by `d`,
   /// which declares `name`, to corresponding values in `arguments` if they match `d`'s generic
-  /// parameters. Otherwise, returns `nil`.
+  /// parameters. Otherwise, returns `nil`, reporting diagnostics to `log`.
   private mutating func associateGenericParameters(
     of name: SourceRepresentable<Name>,
     declaredBy d: AnyDeclID,
     to arguments: [any CompileTimeValue],
-    reportingDiagnosticTo argumentsDiagnostic: inout Diagnostic?
+    reportingDiagnosticsTo log: inout DiagnosticSet
   ) -> GenericArguments? {
     if arguments.isEmpty { return [:] }
 
     guard d.kind.value is GenericScope.Type else {
-      argumentsDiagnostic =
-        .error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 0)
+      log.insert(.error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 0))
       return nil
     }
 
     let parameters = environment(of: d).parameters
     guard parameters.count == arguments.count else {
       let (f, e) = (arguments.count, parameters.count)
-      argumentsDiagnostic = .error(invalidGenericArgumentCountTo: name, found: f, expected: e)
+      log.insert(.error(invalidGenericArgumentCountTo: name, found: f, expected: e))
       return nil
     }
 
-    argumentsDiagnostic = nil
     return .init(uniqueKeysWithValues: zip(parameters, arguments))
   }
 
   /// Returns a sequence of key-value pairs associated the generic parameters introduced by `d`
   /// to open variables.
   private mutating func openGenericParameters(of d: AnyDeclID) -> GenericArguments {
-    guard let parameters = (ast[d] as? GenericScope)?.genericParameters else {
-      return [:]
-    }
+    // Nothing to do if `d` declares a trait or if `d` has no generic parameters.
+    guard
+      d.kind != TraitDecl.self,
+      let parameters = (ast[d] as? GenericScope)?.genericParameters
+    else { return [:] }
 
     return .init(
       uniqueKeysWithValues: parameters.map { (p) in
