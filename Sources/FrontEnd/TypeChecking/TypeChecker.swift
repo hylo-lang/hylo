@@ -1817,7 +1817,7 @@ public struct TypeChecker {
     func nonGeneric(_ t: MetatypeType) -> NameResolutionResult.CandidateSet {
       if arguments.count > 0 {
         report(.error(argumentToNonGenericType: t.instance, at: name.site))
-        return []
+        return [.intrinsic(.error)]
       }
       return [.intrinsic(^t)]
     }
@@ -1838,7 +1838,7 @@ public struct TypeChecker {
     case "Self":
       guard let t = realizeReceiver(in: useScope) else {
         report(.error(invalidReferenceToSelfTypeAt: name.site))
-        return []
+        return [.intrinsic(.error)]
       }
       return nonGeneric(t)
 
@@ -1859,7 +1859,7 @@ public struct TypeChecker {
     for a in arguments {
       guard let t = a as? AnyType else {
         report(.error(valueInSumTypeAt: name.site))
-        return []
+        return [.intrinsic(.error)]
       }
       elements.append(t)
     }
@@ -1870,7 +1870,7 @@ public struct TypeChecker {
       return [.intrinsic(^MetatypeType(of: .never))]
     case 1:
       report(.error(sumTypeWithOneElementAt: name.site))
-      return []
+      return [.intrinsic(.error)]
     default:
       return [.intrinsic(^MetatypeType(of: SumType(elements)))]
     }
@@ -1891,7 +1891,7 @@ public struct TypeChecker {
     }
 
     report(.error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 1))
-    return []
+    return [.intrinsic(.error)]
   }
 
   /// Returns the resolved type of the entity declared by `d` or `nil` if is invalid.
