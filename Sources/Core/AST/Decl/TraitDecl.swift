@@ -1,7 +1,7 @@
 /// A trait declaration.
 ///
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
-public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
+public struct TraitDecl: SingleEntityDecl, TypeScope {
 
   public let site: SourceRange
 
@@ -47,6 +47,14 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
         diagnostics.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
       }
     }
+  }
+
+}
+
+extension TraitDecl: GenericScope {
+
+  public var genericParameters: [GenericParameterDecl.ID] {
+    [selfParameterDecl]
   }
 
 }

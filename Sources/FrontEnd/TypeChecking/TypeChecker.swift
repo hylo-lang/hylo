@@ -1943,9 +1943,10 @@ public struct TypeChecker {
   /// Returns a sequence of key-value pairs associated the generic parameters introduced by `d`
   /// to open variables.
   private mutating func openGenericParameters(of d: AnyDeclID) -> GenericArguments {
-    if !(d.kind.value is GenericScope.Type) { return [:] }
+    guard let parameters = (ast[d] as? GenericScope)?.genericParameters else {
+      return [:]
+    }
 
-    let parameters = environment(of: d).parameters
     return .init(
       uniqueKeysWithValues: parameters.map { (p) in
         // TODO: Handle generic value parameters
