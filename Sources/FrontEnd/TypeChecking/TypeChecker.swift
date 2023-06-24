@@ -2586,14 +2586,28 @@ public struct TypeChecker {
     return MetatypeType(of: ConformanceLensType(viewing: subject, through: lensTrait))
   }
 
-  private mutating func realize(existentialType e: ExistentialTypeExpr.ID) -> MetatypeType? {
+  mutating func realize(existentialType e: ExistentialTypeExpr.ID) -> MetatypeType? {
     assert(!ast[e].traits.isEmpty, "existential type with no interface")
 
     // Realize the interface.
     var interface: [AnyType] = []
     for n in ast[e].traits {
-      guard let i = realize(name: n)?.instance else { return nil }
-      interface.append(i)
+      // Expression must resolve to a nominal type.
+      guard let t = resolve(interface: n) else {
+        report(.error(invalidExistentialInterface: n, in: ast))
+        return nil
+      }
+
+      // Expression must refer to a type or trait.
+      switch t.base {
+      case let u as MetatypeType:
+        interface.append(u.instance)
+      case let u as TraitType:
+        interface.append(^u)
+      default:
+        report(.error(typeExprDenotesValue: n, in: ast))
+        return nil
+      }
     }
 
     // TODO: Process where clauses
@@ -2606,7 +2620,7 @@ public struct TypeChecker {
         if let u = TraitType(interface[i]) {
           traits.insert(u)
         } else {
-          diagnostics.insert(.error(notATrait: interface[i], at: ast[ast[e].traits[i]].site))
+          report(.error(notATrait: interface[i], at: ast[ast[e].traits[i]].site))
           return nil
         }
       }
@@ -2615,7 +2629,7 @@ public struct TypeChecker {
     } else if let t = interface.uniqueElement {
       return MetatypeType(of: ExistentialType(unparameterized: t, constraints: []))
     } else {
-      diagnostics.insert(.error(tooManyExistentialBoundsAt: ast[ast[e].traits[1]].site))
+      report(.error(tooManyExistentialBoundsAt: ast[ast[e].traits[1]].site))
       return nil
     }
   }

@@ -267,51 +267,10 @@ extension TypeChecker {
     of subject: ExistentialTypeExpr.ID, shapedBy shape: AnyType?,
     updating state: inout Context
   ) -> AnyType {
-    assert(!ast[subject].traits.isEmpty, "existential type with no interface")
-
-    // Realize the interface.
-    var interface: [AnyType] = []
-    for n in ast[subject].traits {
-      // Expression must resolve to a nominal type.
-      guard let t = resolve(interface: n) else {
-        report(.error(invalidExistentialInterface: n, in: ast))
-        return .error
-      }
-
-      // Expression must refer to a type or trait.
-      switch t.base {
-      case let u as MetatypeType:
-        interface.append(u.instance)
-      case let u as TraitType:
-        interface.append(^u)
-      default:
-        report(.error(typeExprDenotesValue: n, in: ast))
-        return .error
-      }
-    }
-
-    // TODO: Process where clauses
-    guard ast[subject].whereClause == nil else { fatalError("not implemented") }
-
-    // Interface must be either a single type or a set of traits.
-    if let t = TraitType(interface[0]) {
-      var traits = Set([t])
-      for i in 1 ..< interface.count {
-        if let u = TraitType(interface[i]) {
-          traits.insert(u)
-        } else {
-          report(.error(invalidPointerConversionAt: ast[ast[subject].traits[i]].site))
-          return state.facts.assignErrorType(to: subject)
-        }
-      }
-
-      let result = MetatypeType(of: ExistentialType(traits: traits, constraints: []))
-      return state.facts.constrain(subject, in: ast, toHaveType: result)
-    } else if let t = interface.uniqueElement {
-      let result = MetatypeType(of: ExistentialType(unparameterized: t, constraints: []))
-      return state.facts.constrain(subject, in: ast, toHaveType: result)
+    // Inferring the type of an existential type expression is the equivalent to evaluating it.
+    if let t = realize(existentialType: subject) {
+      return state.facts.constrain(subject, in: ast, toHaveType: t)
     } else {
-      report(.error(tooManyExistentialBoundsAt: ast[ast[subject].traits[1]].site))
       return state.facts.assignErrorType(to: subject)
     }
   }
