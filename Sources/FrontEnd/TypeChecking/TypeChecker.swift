@@ -66,6 +66,11 @@ public struct TypeChecker {
     diagnostics.insert(d)
   }
 
+  /// Reports the given diagnostics.
+  mutating func report<B: Sequence<Diagnostic>>(_ batch: B) {
+    diagnostics.formUnion(batch)
+  }
+
   // MARK: Type system
 
   /// Returns a copy of `generic` where occurrences of parameters keying `subtitutions` are
@@ -1606,29 +1611,43 @@ public struct TypeChecker {
   /// is being evaluated while the members of the extending declarations are being gathered.
   private var extensionsOnStack = DeclSet()
 
-  /// Resolves the non-overloaded name components of `name` from left to right.
+  /// Resolves the name components of `name` from left to right until either all components have
+  /// been resolved or one components requires overload resolution.
+  ///
+  /// If `name` is prefixed by a non-nominal component, `resolveNonNominalPrefix` is called with a
+  /// mutable projection of `self` and the leftmost nominal component `l` of `name`, expecting the
+  /// type `T` of `l`'s domain. If a type is returned, name resolution proceeds, looking for `l` as
+  /// a member of `T`. Otherwise, name resolution is cancled and `.inexecutable` is returned.
   ///
   /// If `keepImplicitArguments` is `false`, generic entities referenced without explicit arguments
   /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables. If
   /// `instantiateTypes` is `false`, generic parameters are not instantiated.
   ///
-  /// - Postcondition: If the method returns `.done(resolved: r, unresolved: u)`, `r` is not empty
-  ///   and `r[i].candidates` has a single element for `0 < i < r.count`.
-  mutating func resolveNominalPrefix(
-    of name: NameExpr.ID,
+  /// - Postcondition: `r[i].candidates` has a single element for `0 < i < r.count`.
+  mutating func resolve(
+    _ name: NameExpr.ID,
     keepingImplicitArguments keepImplicitArguments: Bool = true,
-    instantiatingTypes instantiateTypes: Bool = true
+    instantiatingTypes instantiateTypes: Bool = true,
+    withNonNominalPrefix resolveNonNominalPrefix: (inout Self, NameExpr.ID) -> AnyType?
   ) -> NameResolutionResult {
     var (unresolved, domain) = splitNominalComponents(of: name)
+
+    // Continue iff `name` is prefixed by nominal components only.
+    var parent: (type: AnyType, arguments: GenericArguments)? = nil
     if domain != nil {
-      return .inexecutable(unresolved)
+      switch resolveNonNominalPrefix(&self, unresolved.last!) {
+      case nil:
+        return .inexecutable(unresolved)
+      case .some(.error):
+        return .failed
+      case .some(let p):
+        parent = (type: p, arguments: [:])
+      }
     }
 
-    // Resolve the nominal components of `nameExpr` from left to right as long as we don't need
-    // contextual information to resolve overload sets.
+    // Process unresolved components from left to right as long as we don't need contextual
+    // information to resolve overload sets.
     var resolved: [NameResolutionResult.ResolvedComponent] = []
-    var parent: (type: AnyType, arguments: GenericArguments)? = nil
-
     while let component = unresolved.popLast() {
       // Evaluate the static argument list.
       var arguments: [AnyType] = []
@@ -1640,7 +1659,7 @@ public struct TypeChecker {
       // Resolve the component.
       let n = ast[component].name
       let candidates = resolve(
-        n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[name].scope,
+        n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[component].scope,
         keepingImplicitArguments: keepImplicitArguments,
         instantiatingTypes: instantiateTypes)
 
@@ -1650,10 +1669,11 @@ public struct TypeChecker {
       }
 
       if candidates.viable.isEmpty {
-        let notes = candidates.elements.reduce(into: DiagnosticSet()) { (d, c) in
-          d.formUnion(c.diagnostics)
+        if let c = candidates.elements.uniqueElement {
+          report(c.diagnostics.elements)
+        } else {
+          report(.error(noViableCandidateToResolve: n, notes: []))
         }
-        report(.error(noViableCandidateToResolve: n, notes: Array(notes.elements)))
         return .failed
       }
 
@@ -1753,46 +1773,53 @@ public struct TypeChecker {
     var candidates: NameResolutionResult.CandidateSet = []
     let parentArguments = parent?.arguments ?? [:]
     for m in matches {
-      var matchDiagnostics = DiagnosticSet()
+      var candidateDiagnostics = DiagnosticSet()
+
       guard
-        var matchType = resolvedType(of: m),
-        var matchArguments = associateGenericParameters(
-          of: name, declaredBy: m, to: arguments, reportingDiagnosticsTo: &matchDiagnostics)
+        var candidateType = resolvedType(of: m),
+        var candidateArguments = associateGenericParameters(
+          of: name, declaredBy: m, to: arguments, reportingDiagnosticsTo: &candidateDiagnostics)
       else { continue }
 
       let isConstructor = (m.kind == InitializerDecl.self) && (name.value.stem == "new")
       if isConstructor {
-        matchType = ^LambdaType(constructorFormOf: LambdaType(matchType)!)
+        candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
       }
 
-      if let g = BoundGenericType(matchType) {
-        assert(matchArguments.isEmpty, "generic declaration bound twice")
-        matchArguments = g.arguments
-      } else if matchArguments.isEmpty && keepImplicitArguments {
-        matchArguments = openGenericParameters(of: m)
+      if let g = BoundGenericType(candidateType) {
+        assert(candidateArguments.isEmpty, "generic declaration bound twice")
+        candidateArguments = g.arguments
+      } else if candidateArguments.isEmpty && keepImplicitArguments {
+        candidateArguments = openGenericParameters(of: m)
       }
 
-      let allArguments = parentArguments.appending(matchArguments)
+      let allArguments = parentArguments.appending(candidateArguments)
       if keepImplicitArguments {
-        matchType = bind(matchType, to: allArguments)
+        candidateType = bind(candidateType, to: allArguments)
       }
-      matchType = specialized(matchType, applying: allArguments, in: useScope)
+      candidateType = specialized(candidateType, applying: allArguments, in: useScope)
 
       var matchConstraints = ConstraintSet()
       if instantiateTypes {
         let t = instantiate(
-          matchType, in: program.scopeIntroducing(m), cause: .init(.binding, at: name.site))
-        matchType = t.shape
+          candidateType, in: program.scopeIntroducing(m), cause: .init(.binding, at: name.site))
+        candidateType = t.shape
         matchConstraints = t.constraints
       }
 
       let r = makeReference(
         to: m, usedAsConstructor: isConstructor, memberOf: parent?.type,
         parameterizedBy: allArguments)
+
+      if (parent?.type.base is TraitType) && (m.kind == AssociatedTypeDecl.self) {
+        candidateDiagnostics.insert(
+          .error(invalidUseOfAssociatedType: name.value.stem, at: name.site))
+      }
+
       candidates.insert(
         .init(
-          reference: r, type: matchType, constraints: matchConstraints,
-          diagnostics: matchDiagnostics))
+          reference: r, type: candidateType, constraints: matchConstraints,
+          diagnostics: candidateDiagnostics))
     }
 
     return candidates
@@ -1989,27 +2016,33 @@ public struct TypeChecker {
   ///
   ///     conformance Array: P where Element == Int {}
   mutating func resolve(interface e: NameExpr.ID) -> AnyType? {
-    let resolution = resolveNominalPrefix(
-      of: e, keepingImplicitArguments: false, instantiatingTypes: false)
+    let resolution = resolve(
+      e, keepingImplicitArguments: false, instantiatingTypes: false,
+      withNonNominalPrefix: { (_, _) in nil })
 
     switch resolution {
     case .done(let prefix, let suffix) where suffix.isEmpty:
       // Return the type of the expression if it could be resolved without further type checking.
-      guard let last = prefix.last!.candidates.uniqueElement else {
+      guard let candidate = prefix.last!.candidates.uniqueElement else {
         return nil
       }
 
       // Last component must resolve to a type or trait.
-      guard (last.type.base is MetatypeType) || (last.type.base is TraitType) else {
-        report(.error(typeExprDenotesValue: e, in: ast))
-        return .error
+      switch candidate.type.base {
+      case is MetatypeType, is TraitType:
+        break
+      case is ErrorType:
+        return nil
+      default:
+        report(.error(typeExprDenotesValue: prefix.last!.component, in: ast))
+        return nil
       }
 
       // Bind each component of the name expression and gather type constraints.
       for p in prefix {
         // TODO: Handle generic arguments and candidate constraints
-        exprTypes[e] = p.candidates[0].type
-        referredDecls[e] = p.candidates[0].reference
+        exprTypes[p.component] = p.candidates[0].type
+        referredDecls[p.component] = p.candidates[0].reference
       }
 
       return exprTypes[e]!
@@ -2466,111 +2499,6 @@ public struct TypeChecker {
     realize(functionDecl: ast[e].decl, with: conventions)
   }
 
-  /// Realizes and returns a "magic" type expression.
-  private mutating func realizeMagicTypeExpr(_ e: NameExpr.ID) -> MetatypeType? {
-    precondition(ast[e].domain == .none)
-
-    // Determine the "magic" type expression to realize.
-    let name = ast[e].name
-    switch name.value.stem {
-    case "Sum":
-      return realizeSumTypeExpr(e)
-    default:
-      break
-    }
-
-    // Evaluate the static argument list.
-    var arguments: [(value: any CompileTimeValue, site: SourceRange)] = []
-    for a in ast[e].arguments {
-      // TODO: Symbolic execution
-      guard let v = realize(a.value)?.instance else { return nil }
-      arguments.append((value: v, site: ast[a.value].site))
-    }
-
-    switch name.value.stem {
-    case "Any":
-      let type = MetatypeType(of: .any)
-      if arguments.count > 0 {
-        diagnostics.insert(.error(argumentToNonGenericType: type.instance, at: name.site))
-        return nil
-      }
-      return type
-
-    case "Never":
-      let type = MetatypeType(of: .never)
-      if arguments.count > 0 {
-        diagnostics.insert(.error(argumentToNonGenericType: type.instance, at: name.site))
-        return nil
-      }
-      return type
-
-    case "Self":
-      guard let type = realizeReceiver(in: program[e].scope) else {
-        diagnostics.insert(.error(invalidReferenceToSelfTypeAt: name.site))
-        return nil
-      }
-      if arguments.count > 0 {
-        diagnostics.insert(.error(argumentToNonGenericType: type.instance, at: name.site))
-        return nil
-      }
-      return type
-
-    case "Metatype":
-      if arguments.count > 1 {
-        diagnostics.insert(
-          .error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 1))
-        return nil
-      }
-      if let a = arguments.first {
-        let instance = (a.value as? AnyType) ?? fatalError("not implemented")
-        return MetatypeType(of: MetatypeType(of: instance))
-      } else {
-        return MetatypeType(of: MetatypeType(of: TypeVariable()))
-      }
-
-    case "Builtin" where isBuiltinModuleVisible:
-      let type = MetatypeType(of: .builtin(.module))
-      if arguments.count > 0 {
-        diagnostics.insert(.error(argumentToNonGenericType: type.instance, at: name.site))
-        return nil
-      }
-      return type
-
-    default:
-      diagnostics.insert(.error(noType: name.value, in: nil, at: name.site))
-      return nil
-    }
-  }
-
-  /// Returns the type of a sum type expression with the given arguments.
-  ///
-  /// - Requires: `e` is a sum type expression.
-  private mutating func realizeSumTypeExpr(_ e: NameExpr.ID) -> MetatypeType? {
-    precondition(ast[e].name.value.stem == "Sum")
-
-    var elements = SumType.Elements()
-    for a in ast[e].arguments {
-      guard let type = realize(a.value)?.instance else {
-        diagnostics.insert(.error(valueInSumTypeAt: ast[a.value].site))
-        return nil
-      }
-      elements.insert(type)
-    }
-
-    switch elements.count {
-    case 0:
-      diagnostics.insert(.warning(sumTypeWithZeroElementsAt: ast[e].name.site))
-      return MetatypeType(of: .never)
-
-    case 1:
-      diagnostics.insert(.error(sumTypeWithOneElementAt: ast[e].name.site))
-      return nil
-
-    default:
-      return MetatypeType(of: SumType(elements))
-    }
-  }
-
   /// Returns the expression "`Self`" if occured in `useScope`.
   private mutating func realizeReceiver<T: ScopeID>(in useScope: T) -> MetatypeType? {
     for s in program.scopes(from: useScope) {
@@ -2722,131 +2650,67 @@ public struct TypeChecker {
         output: output))
   }
 
-  private mutating func realize(name id: NameExpr.ID) -> MetatypeType? {
-    // Note: This function has become pretty hacky but it may not be worth refactoring before we
-    // tackle the evaluation of compile-time expressions properly.
-
-    let name = ast[id].name
-    let useScope = program[id].scope
-    let domain: AnyType?
-    let matches: DeclSet
-
-    // Realize the name's domain, if any.
-    switch ast[id].domain {
-    case .none:
-      // Name expression has no domain; gather declarations with an unqualified lookup or try to
-      // evaluate the name as a "magic" type expression if there are no candidates.
-      domain = nil
-      matches = lookup(unqualified: name.value.stem, in: useScope)
-      if matches.isEmpty {
-        return realizeMagicTypeExpr(id)
-      }
-
-    case .expr(let j):
-      // Hack to handle cases where the domain refers to a module.
-      if let n = NameExpr.ID(j), ast[n].domain == .none,
-        let d = lookup(unqualified: ast[n].name.value.stem, in: useScope).uniqueElement,
-        let t = ModuleType(realize(decl: d))
-      {
-        domain = ^t
-      } else if let t = realize(j)?.instance {
-        domain = t
-      } else {
-        return nil
-      }
-
-      // Handle references to built-in types.
-      if relations.areEquivalent(domain!, .builtin(.module)) {
-        if let t = BuiltinType(name.value.stem) {
-          return MetatypeType(of: .builtin(t))
-        } else {
-          diagnostics.insert(.error(noType: name.value, in: domain, at: name.site))
-          return nil
-        }
-      }
-
-      // Gather declarations with a qualified lookup.
-      matches = lookup(name.value.stem, memberOf: domain!, exposedTo: useScope)
+  private mutating func realize(domainOf e: NameExpr.ID) -> AnyType? {
+    switch ast[e].domain {
+    case .expr(let d):
+      return realize(d).map(\.instance) ?? .error
 
     case .implicit:
-      diagnostics.insert(.error(notEnoughContextToResolveMember: name))
-      return nil
+      report(.error(notEnoughContextToResolveMember: ast[e].name))
+      return .error
+
+    case .none:
+      unreachable()
     }
+  }
 
-    // Diagnose unresolved names.
-    guard let match = matches.first else {
-      diagnostics.insert(.error(noType: name.value, in: domain, at: name.site))
-      return nil
-    }
+  private mutating func realize(name e: NameExpr.ID) -> MetatypeType? {
+    let resolution = resolve(
+      e, keepingImplicitArguments: true, instantiatingTypes: false,
+      withNonNominalPrefix: { (this, p) in this.realize(domainOf: p) })
 
-    // Diagnose ambiguous references.
-    if matches.count > 1 {
-      diagnostics.insert(.error(ambiguousUse: id, in: ast))
-      return nil
-    }
-
-    // Realize the referred type.
-    let referredType: MetatypeType
-    if match.kind == AssociatedTypeDecl.self {
-      let decl = AssociatedTypeDecl.ID(match)!
-
-      switch domain?.base {
-      case is AssociatedTypeType,
-        is ConformanceLensType,
-        is GenericTypeParameterType:
-        referredType = MetatypeType(of: AssociatedTypeType(decl, domain: domain!, ast: ast))
-
-      case nil:
-        // Assume that `Self` in `scope` resolves to an implicit generic parameter of a trait
-        // declaration, since associated declarations cannot be looked up unqualified outside
-        // the scope of a trait and its extensions.
-        let domain = realizeReceiver(in: useScope)!.instance
-        let instance = AssociatedTypeType(NodeID(match)!, domain: domain, ast: ast)
-        referredType = MetatypeType(of: instance)
-
-      case .some:
-        diagnostics.insert(.error(invalidUseOfAssociatedType: ast[decl].baseName, at: name.site))
+    switch resolution {
+    case .done(let prefix, let suffix) where suffix.isEmpty:
+      // Nominal type expressions shall not be overloaded.
+      guard let candidate = prefix.last!.candidates.uniqueElement else {
+        report(.error(ambiguousUse: prefix.last!.component, in: ast))
         return nil
       }
-    } else {
-      switch realize(decl: match).base {
-      case let t as MetatypeType:
-        referredType = t
-      case let t as TraitType:
-        referredType = MetatypeType(of: t)
+
+      // Last component must resolve to a type or trait.
+      switch candidate.type.base {
+      case is MetatypeType, is TraitType:
+        break
+      case is ErrorType:
+        return nil
       default:
-        diagnostics.insert(.error(typeExprDenotesValue: id, in: ast))
+        report(.error(typeExprDenotesValue: prefix.last!.component, in: ast))
         return nil
       }
-    }
 
-    if ast[id].arguments.isEmpty {
-      return referredType
-    }
+      // Bind each component of the name expression and gather type constraints.
+      for p in prefix {
+        exprTypes[p.component] = p.candidates[0].type
+        referredDecls[p.component] = p.candidates[0].reference
+      }
 
-    guard let clause = (ast[match] as? GenericDecl)?.genericClause?.value else {
-      diagnostics.insert(
-        .error(
-          "non-generic type '\(referredType.instance)' has no generic parameters",
-          at: ast[ast[id].arguments[0].value].site))
+      // FIXME: Avoid wrapping traits in metatypes
+      if let t = TraitType(exprTypes[e]) {
+        return MetatypeType(of: t)
+      } else {
+        return MetatypeType(exprTypes[e])!
+      }
+
+    case .failed:
       return nil
-    }
 
-    guard ast[id].arguments.count == clause.parameters.count else {
-      diagnostics.insert(
-        .error(
-          invalidGenericArgumentCountTo: ast[id].name,
-          found: ast[id].arguments.count, expected: clause.parameters.count))
-      return nil
-    }
+    case .inexecutable:
+      // Non-nominal prefixes are handled by the closure passed to `resolveNominalPrefix`.
+      unreachable()
 
-    var arguments: GenericArguments = [:]
-    for (p, a) in zip(clause.parameters, ast[id].arguments) {
-      // TODO: Symbolic execution
-      guard let v = realize(a.value)?.instance else { return nil }
-      arguments[p] = v
+    default:
+      fatalError("not implemented")
     }
-    return MetatypeType(of: BoundGenericType(referredType.instance, arguments: arguments))
   }
 
   private mutating func realize(parameter e: ParameterTypeExpr.ID) -> MetatypeType? {

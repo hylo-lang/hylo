@@ -538,7 +538,7 @@ extension TypeChecker {
     shapedBy shape: AnyType?,
     updating state: inout Context
   ) -> AnyType {
-    let resolution = resolveNominalPrefix(of: subject)
+    let resolution = resolve(subject, withNonNominalPrefix: { (_, _) in nil })
     let unresolvedComponents: [NameExpr.ID]
     var lastVisitedComponentType: AnyType?
 
@@ -547,7 +547,7 @@ extension TypeChecker {
       return state.facts.assignErrorType(to: subject)
 
     case .inexecutable(let suffix):
-      switch ast[subject].domain {
+      switch ast[suffix[0]].domain {
       case .implicit:
         if let t = domain {
           lastVisitedComponentType = t
