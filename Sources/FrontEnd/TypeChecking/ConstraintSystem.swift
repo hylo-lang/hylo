@@ -451,12 +451,13 @@ struct ConstraintSystem {
     }
 
     if candidates.viable.isEmpty {
-      let notes = candidates.elements.reduce(into: DiagnosticSet()) { (d, c) in
-        d.formUnion(c.diagnostics)
+      var reasons = DiagnosticSet()
+      if let c = candidates.elements.uniqueElement {
+        reasons.formUnion(c.diagnostics.elements)
+      } else {
+        reasons.insert(.error(noViableCandidateToResolve: n, notes: []))
       }
-      return .failure { (d, _, _) in
-        d.insert(.error(noViableCandidateToResolve: n, notes: Array(notes.elements)))
-      }
+      return .failure({ (d, _, _) in d.formUnion(reasons) })
     }
 
     if let i = candidates.viable.uniqueElement {
