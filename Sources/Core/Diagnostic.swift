@@ -43,20 +43,17 @@ public struct Diagnostic: Hashable {
   /// Returns a note with the given `message` highlighting `range`.
   ///
   /// - Precondition: elements of `notes` have `self.level == .note`
-  public static func note(_ message: String, at site: SourceRange)
-    -> Diagnostic
-  {
+  public static func note(_ message: String, at site: SourceRange) -> Diagnostic {
     Diagnostic(level: .note, message: message, site: site)
   }
 
   /// Returns an error with the given `message` highlighting `range`.
   ///
   /// - Precondition: elements of `notes` have `self.level == .note`
-  public static func error(_ message: String, at site: SourceRange, notes: [Diagnostic] = [])
-    -> Diagnostic
-  {
-    Diagnostic(
-      level: .error, message: message, site: site, notes: notes)
+  public static func error(
+    _ message: String, at site: SourceRange, notes: [Diagnostic] = []
+  ) -> Diagnostic {
+    Diagnostic(level: .error, message: message, site: site, notes: notes)
   }
 
   /// Returns a warning with the given `message` highlighting `range`..
@@ -65,8 +62,7 @@ public struct Diagnostic: Hashable {
   public static func warning(
     _ message: String, at site: SourceRange, notes: [Diagnostic] = []
   ) -> Diagnostic {
-    Diagnostic(
-      level: .warning, message: message, site: site, notes: notes)
+    Diagnostic(level: .warning, message: message, site: site, notes: notes)
   }
 
 }

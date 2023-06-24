@@ -396,13 +396,13 @@ public struct Emitter {
 
   /// Inserts the IR for `d`.
   private mutating func lower(product d: ProductTypeDecl.ID) {
-    _ = module.addGlobal(MetatypeConstant(.init(program[d].type)!))
+    _ = module.addGlobal(MetatypeType(program[d].type)!)
     lower(members: ast[d].members)
   }
 
   /// Inserts the IR for `d`.
   private mutating func lower(trait d: TraitDecl.ID) {
-    _ = module.addGlobal(MetatypeConstant(.init(program[d].type)!))
+    _ = module.addGlobal(TraitType(program[d].type)!)
   }
 
   /// Inserts the IR for given declaration `members`.
@@ -1795,7 +1795,7 @@ public struct Emitter {
     switch d.kind {
     case ProductTypeDecl.self:
       let t = MetatypeType(of: program[d].type)
-      let g = module.addGlobal(MetatypeConstant(MetatypeType(program[d].type)!))
+      let g = module.addGlobal(MetatypeType(program[d].type)!)
       let s = module.makeGlobalAddr(
         of: g, in: module.id, typed: ^MetatypeType(of: t), at: ast[d].site)
       return append(s)[0]

@@ -157,16 +157,6 @@ extension Diagnostic {
     .error("not enough contextual information to resolve member '\(name.value)'", at: name.site)
   }
 
-  static func error(noType name: Name, in domain: AnyType? = nil, at site: SourceRange)
-    -> Diagnostic
-  {
-    if let domain = domain {
-      return .error("type '\(domain)' has no type member '\(name.stem)'", at: site)
-    } else {
-      return .error("no type named '\(name.stem)' in this scope", at: site)
-    }
-  }
-
   static func note(
     trait x: TraitType, requiresMethod m: Name, withType t: AnyType, at site: SourceRange
   ) -> Diagnostic {

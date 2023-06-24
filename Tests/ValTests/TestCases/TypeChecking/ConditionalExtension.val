@@ -6,5 +6,5 @@ trait T {
   fun foo()
 }
 
-//! @+1 diagnostic no type named 'S' in this scope
+//! @+1 diagnostic undefined name 'S' in this scope
 extension A where X: S {}
