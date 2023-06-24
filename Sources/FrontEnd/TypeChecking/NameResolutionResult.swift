@@ -5,6 +5,8 @@ enum NameResolutionResult {
 
   /// Name resolution applied on the nominal prefix that doesn't require any overload resolution.
   /// The payload contains the collections of resolved and unresolved components.
+  ///
+  /// - Invariant: `resolved` is not empty.
   case done(resolved: [ResolvedComponent], unresolved: [NameExpr.ID])
 
   /// Name resolution failed.
@@ -12,6 +14,8 @@ enum NameResolutionResult {
 
   /// Name resolution couln't start because the first component of the expression isn't a name
   /// The payload contains the collection of unresolved components, after the first one.
+  ///
+  /// - Invariant: `components` is not empty.
   case inexecutable(_ components: [NameExpr.ID])
 
   /// The result of name resolution for a single name component.
