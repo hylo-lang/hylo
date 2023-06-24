@@ -1684,7 +1684,7 @@ public struct TypeChecker {
       // Defer resolution of the remaining name components if there are multiple candidates for
       // the current component or if we found a type variable. Otherwise, configure `parent` to
       // resolve the next name component.
-      if (selected.count > 1) || selected[0].type.isTypeVariable { break }
+      if (selected.count > 1) || (selected[0].type.base is TypeVariable) { break }
       let c = selected[0]
 
       // If the candidate is a direct reference to a type declaration, the next component should be

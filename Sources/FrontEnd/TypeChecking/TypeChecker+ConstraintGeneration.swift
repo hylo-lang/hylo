@@ -310,31 +310,39 @@ extension TypeChecker {
         updating: &state)
     }
 
-    // The callee has a callable type or its we need inferrence to determine its type. Either way,
+    // The callee has a callable type or its we need inference to determine its type. Either way,
     // constraint the callee and its arguments with a function call constraints.
-    if (callee.base is CallableType) || (callee.base is TypeVariable) {
-      let returnType = shape ?? ^TypeVariable()
-
-      var arguments: [FunctionCallConstraint.Argument] = []
-      for a in syntax.arguments {
-        let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
-        arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
-      }
-
-      state.facts.append(
-        FunctionCallConstraint(
-          callee, accepts: arguments, returns: returnType,
-          origin: ConstraintOrigin(.callee, at: ast[syntax.callee].site)))
-
-      return state.facts.constrain(subject, in: ast, toHaveType: returnType)
+    if isArrow(callee) || (callee.base is TypeVariable) {
+      return inferredType(of: subject, shapedBy: shape, withCallee: callee, updating: &state)
     }
 
     // In any other case, the callee is known to be not callable.
-    report(
-      .error(
-        nonCallableType: state.facts.inferredTypes[syntax.callee]!,
-        at: ast[syntax.callee].site))
+    report(.error(nonCallableType: callee, at: ast[syntax.callee].site))
     return state.facts.assignErrorType(to: subject)
+  }
+
+  /// Knowing `subject`, which is shaped by `shape`, has a callee of type `callee`, returns its
+  /// inferred type, updating `s` with inference facts and deferred type checking requests.
+  private mutating func inferredType(
+    of subject: FunctionCallExpr.ID,
+    shapedBy shape: AnyType?,
+    withCallee callee: AnyType,
+    updating state: inout Context
+  ) -> AnyType {
+    let returnType = shape ?? ^TypeVariable()
+
+    var arguments: [FunctionCallConstraint.Argument] = []
+    for a in ast[subject].arguments {
+      let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
+      arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
+    }
+
+    state.facts.append(
+      FunctionCallConstraint(
+        callee, accepts: arguments, returns: returnType,
+        origin: ConstraintOrigin(.callee, at: program[subject].callee.site)))
+
+    return state.facts.constrain(subject, in: ast, toHaveType: returnType)
   }
 
   /// Returns the inferred type of the initializer call `subject` in `scope`, assuming it returns
@@ -967,6 +975,11 @@ extension TypeChecker {
   }
 
   // MARK: Helpers
+
+  /// Returns `true` iff `t` is an arrow type.
+  private func isArrow(_ t: AnyType) -> Bool {
+    (t.base as? CallableType)?.isArrow ?? false
+  }
 
   /// Returns `true` iff `e` is a name assumed bound to a nominal type declaration in `state`.
   private mutating func isBoundToNominalTypeDecl(_ e: AnyExprID, in state: Context) -> Bool {
