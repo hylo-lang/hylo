@@ -105,8 +105,8 @@ extension TypeChecker {
 
   // MARK: Expressions
 
-  /// Knowing is shaped by `shape`, returns its inferred type along with constraints on its
-  /// sub-expressions and deferred type checking requests.
+  /// Knowing `subject` is shaped by `shape`, returns its inferred type along with constraints on
+  /// its sub-expressions and deferred type checking requests.
   ///
   /// The returned type is not suitable to annotate the AST; it may contain open variables to be
   /// resolved by solving type constraints. Use `checkedType(of:shapedBy:in:)` to get the deduced
@@ -128,8 +128,8 @@ extension TypeChecker {
     return (t, s.facts, s.deferred)
   }
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type,
-  /// updating `s` with inference facts and deferred type checking requests.
+  /// Knowing `subject` is shaped by `shape`, returns its inferred type, updating `s` with
+  /// inference facts and deferred type checking requests.
   private mutating func inferredType(
     of subject: AnyExprID, shapedBy shape: AnyType?,
     updating s: inout Context
