@@ -289,13 +289,7 @@ extension TypeChecker {
     updating state: inout Context
   ) -> AnyType {
     let syntax = ast[subject]
-
-    let callee: AnyType
-    if let e = NameExpr.ID(syntax.callee) {
-      callee = inferredType(of: e, withImplicitDomain: shape, shapedBy: nil, updating: &state)
-    } else {
-      callee = inferredType(of: syntax.callee, shapedBy: nil, updating: &state)
-    }
+    let callee = inferredType(ofCallee: syntax.callee, shapedBy: shape, updating: &state)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {
@@ -784,8 +778,21 @@ extension TypeChecker {
     return state.facts.constrain(subject, in: ast, toHaveType: t)
   }
 
-  /// Returns the inferred type of `literal`, updating `state` with inference facts and deferred
-  /// type checking requests.
+  /// Returns the inferred type of `callee`, which is the callee of a function or subscrpt call,
+  /// updating `state` with inference facts and deferred type checking requests.
+  private mutating func inferredType(
+    ofCallee e: AnyExprID, shapedBy shape: AnyType?,
+    updating state: inout Context
+  ) -> AnyType {
+    if let e = NameExpr.ID(e) {
+      return inferredType(of: e, withImplicitDomain: shape, shapedBy: nil, updating: &state)
+    } else {
+      return inferredType(of: e, shapedBy: nil, updating: &state)
+    }
+  }
+
+  /// Returns the inferred type of `literal`, which is a literal expression, updating `state` with
+  /// inference facts and deferred type checking requests.
   ///
   /// - Parameters:
   ///   - literal: A literal expression.
