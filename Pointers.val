@@ -32,6 +32,18 @@ public type Pointer<Pointee>: Regular {
 
 }
 
+/// Accesses the address of `x`.
+public subscript pointer<T>(to x: T): Pointer<T> {
+  let { yield Pointer(base: Builtin.address(of: x)) }
+}
+
+/// Accesses the address of `x`.
+// TODO: replace with overload of `pointer(to:) if possible`
+public subscript pointerTo<T>(mutable x: inout T): PointerToMutable<T> {
+  let { yield PointerToMutable(base: Builtin.address(of: x)) }
+}
+
+
 /// A typed memory address whose contents can be read and written.
 public type PointerToMutable<Pointee>: Regular {
 
@@ -105,11 +117,12 @@ public conformance PointerToMutable: ForeignConvertible {
 
 }
 
-fun test(p: Pointer<Int>, m: PointerToMutable<Int>) {
-  var x: Int = p.unsafe_pointee.copy()
-  x += m.unsafe_pointee
-  m.copy().unsafe_pointee += x
-  m.copy().unsafe_pointee += p.unsafe_pointee
-}
+public fun main() {
+  var x: Int = 3
+  var y: Int = 7
 
-public fun main() {}
+  let px = pointer[to: x]
+  let pmy = pointerTo[mutable: &y]
+  pmy.copy().unsafe_pointee += px.unsafe_pointee
+  precondition(y == 10)
+}
