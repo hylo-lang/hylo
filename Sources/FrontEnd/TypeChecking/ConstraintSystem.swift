@@ -102,8 +102,8 @@ struct ConstraintSystem {
         setOutcome(solve(member: g, using: &checker), for: g)
       case is TupleMemberConstraint:
         setOutcome(solve(tupleMember: g, using: &checker), for: g)
-      case is FunctionCallConstraint:
-        setOutcome(solve(functionCall: g, using: &checker), for: g)
+      case is CallConstraint:
+        setOutcome(solve(call: g, using: &checker), for: g)
       case is MergingConstraint:
         setOutcome(solve(merging: g, using: &checker), for: g)
       case is DisjunctionConstraint:
@@ -526,13 +526,13 @@ struct ConstraintSystem {
   }
 
   /// Returns either `.success` if `g.callee` is a callable type with parameters `g.parameters`
-  /// and return type `g.returnType`, `.failure` if it doesn't, `.product` if `g` must be broken
+  /// and return type `g.output`, `.failure` if it doesn't, `.product` if `g` must be broken
   /// down to smaller goals, or `nil` if neither of these outcomes can be determined yet.
   private mutating func solve(
-    functionCall g: GoalIdentity,
+    call g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = goals[g] as! FunctionCallConstraint
+    let goal = goals[g] as! CallConstraint
 
     if goal.callee.base is TypeVariable {
       postpone(g)
@@ -562,7 +562,7 @@ struct ConstraintSystem {
     }
     subordinates.append(
       schedule(
-        EqualityConstraint(callee.output, goal.returnType, origin: goal.origin.subordinate())))
+        EqualityConstraint(callee.output, goal.output, origin: goal.origin.subordinate())))
     return delegate(to: subordinates)
   }
 

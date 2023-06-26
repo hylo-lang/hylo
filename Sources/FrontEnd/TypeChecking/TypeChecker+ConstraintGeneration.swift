@@ -307,7 +307,7 @@ extension TypeChecker {
     // The callee has a callable type or its we need inference to determine its type. Either way,
     // constraint the callee and its arguments with a function call constraints.
     if isArrow(callee) || (callee.base is TypeVariable) {
-      return inferredType(of: subject, shapedBy: shape, withCallee: callee, updating: &state)
+      return inferredType(of: subject, returning: shape, withCallee: callee, updating: &state)
     }
 
     // In any other case, the callee is known to be not callable.
@@ -315,28 +315,26 @@ extension TypeChecker {
     return state.facts.assignErrorType(to: subject)
   }
 
-  /// Knowing `subject`, which is shaped by `shape`, has a callee of type `callee`, returns its
-  /// inferred type, updating `s` with inference facts and deferred type checking requests.
+  /// Knowing `subject` has a callee of type `callee` and returns a value of type `output`,
+  /// returns its inferred type, updating `state`.
   private mutating func inferredType(
     of subject: FunctionCallExpr.ID,
-    shapedBy shape: AnyType?,
+    returning output: AnyType = ^TypeVariable(),
     withCallee callee: AnyType,
     updating state: inout Context
   ) -> AnyType {
-    let returnType = shape ?? ^TypeVariable()
-
-    var arguments: [FunctionCallConstraint.Argument] = []
+    var arguments: [CallConstraint.Argument] = []
     for a in ast[subject].arguments {
       let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
       arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
     }
 
     state.facts.append(
-      FunctionCallConstraint(
-        callee, accepts: arguments, returns: returnType,
+      CallConstraint(
+        arrow: callee, takes: arguments, gives: output,
         origin: ConstraintOrigin(.callee, at: program[subject].callee.site)))
 
-    return state.facts.constrain(subject, in: ast, toHaveType: returnType)
+    return state.facts.constrain(subject, in: ast, toHaveType: output)
   }
 
   /// Returns the inferred type of the initializer call `subject` in `scope`, assuming it returns
@@ -366,15 +364,15 @@ extension TypeChecker {
       state.facts.assign(^constructor, to: callee)
       state.facts.append(pick.constraints)
 
-      var arguments: [FunctionCallConstraint.Argument] = []
+      var arguments: [CallConstraint.Argument] = []
       for a in ast[subject].arguments {
         let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
         arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
       }
 
       state.facts.append(
-        FunctionCallConstraint(
-          ^constructor, accepts: arguments, returns: constructor.output,
+        CallConstraint(
+          arrow: ^constructor, takes: arguments, gives: constructor.output,
           origin: ConstraintOrigin(.callee, at: program[subject].callee.site)))
 
       return state.facts.constrain(subject, in: ast, toHaveType: constructor.output)
@@ -596,9 +594,9 @@ extension TypeChecker {
           lhsType, hasMemberReferredToBy: callee.expr, ofType: operatorType, in: ast,
           origin: ConstraintOrigin(.member, at: ast[callee.expr].site)))
       state.facts.append(
-        FunctionCallConstraint(
-          operatorType, accepts: [.init(label: nil, type: rhsType, site: ast.site(of: rhs))],
-          returns: outputType,
+        CallConstraint(
+          arrow: operatorType, takes: [.init(label: nil, type: rhsType, site: ast.site(of: rhs))],
+          gives: outputType,
           origin: ConstraintOrigin(.callee, at: ast.site(of: subject))))
 
       return outputType
