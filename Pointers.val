@@ -68,7 +68,7 @@ public type PointerToMutable<Pointee>: Regular {
 
 extension Int {
 
-  fun infix+= (_ other: Int) {
+  fun infix+= (_ other: Int) inout {
     &self = self + other
   }
 
