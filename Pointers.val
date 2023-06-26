@@ -19,6 +19,8 @@ public type Pointer<Pointee>: Regular {
   ///
   /// - Requires: the address stores an object of type Pointee and nothing modifies
   ///   that storage during the lifetime of this projection.
+  // TODO: replace with `subscript unsafe()` and then with `unsafe subscript()`, when the compiler
+  // supports them.
   public property unsafe_pointee: Pointee {
     yield base as* (remote let Pointee)
   }
@@ -40,17 +42,18 @@ public type PointerToMutable<Pointee>: Regular {
 
   /// Returns an equivalent instance.
   ///
-  /// Because we don't have a `nonmutating` keyword yet, writing to the pointee of
-  /// a `let`-bound `PointerToMutable` is only possible by copying, e.g.
-  /// `&p.copy().unsafe_pointee.mutate()`.
+  /// Because we don't have a `nonmutating` keyword yet, writing to the pointee of a `let`-bound
+  /// `PointerToMutable` is only possible by copying, e.g.  `&p.copy().unsafe_pointee.mutate()`.
   public fun copy() -> Self {
     PointerToMutable(base: base)
   }
 
   /// The value at the given address.
   ///
-  /// - Requires: the address stores a mutable object of type Pointee and nothing
-  ///   accesses that storage except through this projection during its lifetime.
+  /// - Requires: the address stores a mutable object of type Pointee and nothing accesses that
+  ///   storage except through this projection during its lifetime.
+  // TODO: replace with `subscript unsafe()` and then with `unsafe subscript()`, when the compiler
+  // supports them.
   public property unsafe_pointee: Pointee {
     let { yield base as* (remote let Pointee) }
     inout { yield &(base as* (remote let Pointee)) }
