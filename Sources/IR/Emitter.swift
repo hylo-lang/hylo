@@ -1244,9 +1244,9 @@ public struct Emitter {
     case ast.coreType("Int8")!:
       emitStore(integer: literal, signed: true, bitWidth: 8, to: storage)
     case ast.coreType("Double")!:
-      emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.double(_:))
+      emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
     case ast.coreType("Float")!:
-      emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float(_:))
+      emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float32(_:))
     default:
       fatalError("not implemented")
     }

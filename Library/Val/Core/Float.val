@@ -1,18 +1,18 @@
 /// A singe-precision, floating-point value.
 public type Float {
 
-  var value: Builtin.float
+  var value: Builtin.float32
 
   memberwise init
 
   /// Creates an instance with value `0.0`.
   public init() {
-    &self.value = Builtin.zeroinitializer_float()
+    &self.value = Builtin.zeroinitializer_float32()
   }
 
   /// Creates an instance that approximates `other`.
   public init(_ other: Double) {
-    &self = Float(value: Builtin.fptrunc_double_float(other.value))
+    &self = Float(value: Builtin.fptrunc_float64_float32(other.value))
   }
 
 }

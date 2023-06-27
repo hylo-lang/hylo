@@ -1,13 +1,13 @@
 /// A double-precision, floating-point value.
 public type Double {
 
-  var value: Builtin.double
+  var value: Builtin.float64
 
   memberwise init
 
   /// Creates an instance with value `0.0`.
   public init() {
-    &self.value = Builtin.zeroinitializer_double()
+    &self.value = Builtin.zeroinitializer_float64()
   }
 
 }
