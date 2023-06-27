@@ -16,7 +16,7 @@ struct CallConstraint: Constraint, Hashable {
     fileprivate(set) var type: AnyType
 
     /// The site from which the argument's value was parsed.
-    let site: SourceRange
+    let valueSite: SourceRange
 
   }
 

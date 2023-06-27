@@ -557,7 +557,7 @@ struct ConstraintSystem {
     var subordinates: [GoalIdentity] = []
     for (a, j) in zip(goal.arguments, argumentsToParameter) {
       let b = callee.inputs[j]
-      let o = ConstraintOrigin(.argument, at: a.site)
+      let o = ConstraintOrigin(.argument, at: a.valueSite)
       subordinates.append(schedule(ParameterConstraint(a.type, b.type, origin: o)))
     }
     subordinates.append(

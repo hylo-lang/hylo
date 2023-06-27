@@ -326,7 +326,7 @@ extension TypeChecker {
     var arguments: [CallConstraint.Argument] = []
     for a in ast[subject].arguments {
       let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
-      arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
+      arguments.append(.init(label: a.label, type: p, valueSite: ast[a.value].site))
     }
 
     state.facts.append(
@@ -367,7 +367,7 @@ extension TypeChecker {
       var arguments: [CallConstraint.Argument] = []
       for a in ast[subject].arguments {
         let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
-        arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
+        arguments.append(.init(label: a.label, type: p, valueSite: ast[a.value].site))
       }
 
       state.facts.append(
@@ -595,7 +595,8 @@ extension TypeChecker {
           origin: ConstraintOrigin(.member, at: ast[callee.expr].site)))
       state.facts.append(
         CallConstraint(
-          arrow: operatorType, takes: [.init(label: nil, type: rhsType, site: ast.site(of: rhs))],
+          arrow: operatorType,
+          takes: [.init(label: nil, type: rhsType, valueSite: ast.site(of: rhs))],
           gives: outputType,
           origin: ConstraintOrigin(.callee, at: ast.site(of: subject))))
 
