@@ -669,7 +669,6 @@ public struct TypeChecker {
 
   private mutating func _check(productType d: ProductTypeDecl.ID) {
     _ = environment(of: d)
-    check(initializer: ast[d].memberwiseInit)
     check(all: ast[d].members)
     check(conformanceList: ast[d].conformances, partOf: d)
   }

@@ -1,6 +1,6 @@
 //- typeCheck expecting: failure
 
-type A {}
+type A { public memberwise init }
 
 public fun main() {
   let a = A()

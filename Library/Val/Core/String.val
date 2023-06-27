@@ -7,6 +7,8 @@ public type String {
   /// The contents of the string, encoded in UTF8.
   public var utf8: RawPointer
 
+  memberwise init
+
 }
 
 public conformance String: Deinitializable {}

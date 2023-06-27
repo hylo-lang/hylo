@@ -2,6 +2,8 @@
 
 type A {
 
+  memberwise init
+
   fun m0(_ x: Int) -> A {
     let   { A() }
     sink  { A() }
