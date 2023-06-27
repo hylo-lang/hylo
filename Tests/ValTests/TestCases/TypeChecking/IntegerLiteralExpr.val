@@ -15,8 +15,8 @@ public fun main() {
   let d: Double = 42
   check<Double>(d)
 
-  let f: Float = 42
-  check<Float>(f)
+  let f: Float32 = 42
+  check<Float32>(f)
 
   let _: Double = i   //! diagnostic cannot initialize object of type 'Double' with value of type 'Int'
 
