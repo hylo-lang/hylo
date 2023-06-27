@@ -1643,6 +1643,7 @@ public struct TypeChecker {
   /// - Postcondition: `r[i].candidates` has a single element for `0 < i < r.count`.
   mutating func resolve(
     _ name: NameExpr.ID,
+    usedAs purpose: NameUse = .unapplied,
     keepingImplicitArguments keepImplicitArguments: Bool = true,
     instantiatingTypes instantiateTypes: Bool = true,
     withNonNominalPrefix resolveNonNominalPrefix: (inout Self, NameExpr.ID) -> AnyType?
@@ -1677,6 +1678,7 @@ public struct TypeChecker {
       let n = ast[component].name
       let candidates = resolve(
         n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[component].scope,
+        usedAs: unresolved.isEmpty ? purpose : .unapplied,
         keepingImplicitArguments: keepImplicitArguments,
         instantiatingTypes: instantiateTypes)
 
@@ -1746,10 +1748,11 @@ public struct TypeChecker {
   mutating func resolve(
     _ name: SourceRepresentable<Name>,
     memberOf parent: AnyType,
-    exposedTo useScope: AnyScopeID
+    exposedTo useScope: AnyScopeID,
+    usedAs purpose: NameUse
   ) -> NameResolutionResult.CandidateSet {
     let p = BoundGenericType(parent).map({ ($0.base, $0.arguments) }) ?? (parent, [:])
-    return resolve(name, parameterizedBy: [], memberOf: p, exposedTo: useScope)
+    return resolve(name, parameterizedBy: [], memberOf: p, exposedTo: useScope, usedAs: purpose)
   }
 
   /// Returns the declarations of `name` exposed to `useScope` and parameterized by `arguments`.
@@ -1766,6 +1769,7 @@ public struct TypeChecker {
     parameterizedBy arguments: [any CompileTimeValue],
     memberOf parent: (type: AnyType, arguments: GenericArguments)?,
     exposedTo useScope: AnyScopeID,
+    usedAs purpose: NameUse,
     keepingImplicitArguments keepImplicitArguments: Bool = true,
     instantiatingTypes instantiateTypes: Bool = true
   ) -> NameResolutionResult.CandidateSet {
@@ -1798,7 +1802,17 @@ public struct TypeChecker {
           of: name, declaredBy: m, to: arguments, reportingDiagnosticsTo: &candidateDiagnostics)
       else { continue }
 
-      let isConstructor = (m.kind == InitializerDecl.self) && (name.value.stem == "new")
+      if let r = resolve(
+        sugared: name, memberOf: candidateType, exposedTo: useScope, usedAs: purpose)
+      {
+        candidates.formUnion(r)
+        continue
+      }
+
+      // If the name resolves to an initializer, determine if it is used as a constructor.
+      let isConstructor =
+        (m.kind == InitializerDecl.self) &&
+        ((purpose == .constructorCallee) || (name.value.stem == "new"))
       if isConstructor {
         candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
       }
@@ -1940,6 +1954,34 @@ public struct TypeChecker {
 
     report(.error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 1))
     return [.intrinsic(.error)]
+  }
+
+  /// Resolves `name` as a sugared reference to a constructor or nameless subscript declaration or
+  /// returns `nil` if `name` isn't a sugar.
+  private mutating func resolve(
+    sugared name: SourceRepresentable<Name>,
+    memberOf parent: AnyType,
+    exposedTo useScope: AnyScopeID,
+    usedAs purpose: NameUse
+  ) -> NameResolutionResult.CandidateSet? {
+    switch purpose {
+    case .constructorCallee, .functionCallee:
+      guard let t = MetatypeType(parent)?.instance else {
+        return nil
+      }
+      let n = SourceRepresentable(value: Name(stem: "init"), range: name.site)
+      return resolve(n, memberOf: t, exposedTo: useScope, usedAs: .constructorCallee)
+
+    case .subscriptCallee:
+      guard !(parent.base is MetatypeType) else {
+        return nil
+      }
+      let n = SourceRepresentable(value: Name(stem: "[]"), range: name.site)
+      return resolve(n, memberOf: parent, exposedTo: useScope, usedAs: .subscriptCallee)
+
+    default:
+      return nil
+    }
   }
 
   /// Returns the resolved type of the entity declared by `d` or `nil` if is invalid.

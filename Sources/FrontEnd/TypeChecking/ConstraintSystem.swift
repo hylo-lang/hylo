@@ -441,7 +441,8 @@ struct ConstraintSystem {
     }
 
     let n = SourceRepresentable(value: goal.memberName, range: goal.origin.site)
-    let candidates = checker.resolve(n, memberOf: goal.subject, exposedTo: scope)
+    let candidates = checker.resolve(
+      n, memberOf: goal.subject, exposedTo: scope, usedAs: .unapplied)
 
     if candidates.elements.isEmpty {
       return .failure { (d, m, _) in

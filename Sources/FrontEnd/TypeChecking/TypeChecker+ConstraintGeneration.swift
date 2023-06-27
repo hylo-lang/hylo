@@ -289,7 +289,8 @@ extension TypeChecker {
     updating state: inout Context
   ) -> AnyType {
     let syntax = ast[subject]
-    let callee = inferredType(ofCallee: syntax.callee, shapedBy: shape, updating: &state)
+    let callee = inferredType(
+      ofCallee: syntax.callee, usedAs: .functionCallee, shapedBy: shape, updating: &state)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {
@@ -304,10 +305,11 @@ extension TypeChecker {
         updating: &state)
     }
 
-    // The callee has a callable type or its we need inference to determine its type. Either way,
+    // The callee has a callable type or we need inference to determine its type. Either way,
     // constraint the callee and its arguments with a function call constraints.
     if isArrow(callee) || (callee.base is TypeVariable) {
-      return inferredType(of: subject, returning: shape, withCallee: callee, updating: &state)
+      return inferredType(
+        of: subject, returning: shape ?? ^TypeVariable(), with: callee, updating: &state)
     }
 
     // In any other case, the callee is known to be not callable.
@@ -319,8 +321,8 @@ extension TypeChecker {
   /// returns its inferred type, updating `state`.
   private mutating func inferredType(
     of subject: FunctionCallExpr.ID,
-    returning output: AnyType = ^TypeVariable(),
-    withCallee callee: AnyType,
+    returning output: AnyType,
+    with callee: AnyType,
     updating state: inout Context
   ) -> AnyType {
     var arguments: [CallConstraint.Argument] = []
@@ -347,7 +349,8 @@ extension TypeChecker {
     let initName = SourceRepresentable(
       value: Name(stem: "init", labels: ["self"] + ast[subject].arguments.map(\.label?.value)),
       range: ast[callee].name.site)
-    let initCandidates = resolve(initName, memberOf: instance, exposedTo: program[subject].scope)
+    let initCandidates = resolve(
+      initName, memberOf: instance, exposedTo: program[subject].scope, usedAs: .constructorCallee)
 
     // We're done if we couldn't find any initializer.
     assert(initCandidates.elements.count == initCandidates.viable.count)
@@ -493,11 +496,13 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    of subject: NameExpr.ID, withImplicitDomain domain: AnyType? = nil,
+    of subject: NameExpr.ID,
+    withImplicitDomain domain: AnyType? = nil,
+    usedAs purpose: NameUse = .unapplied,
     shapedBy shape: AnyType?,
     updating state: inout Context
   ) -> AnyType {
-    let resolution = resolve(subject, withNonNominalPrefix: { (_, _) in nil })
+    let resolution = resolve(subject, usedAs: purpose, withNonNominalPrefix: { (_, _) in nil })
     let unresolvedComponents: [NameExpr.ID]
     var lastVisitedComponentType: AnyType?
 
@@ -777,16 +782,19 @@ extension TypeChecker {
     return state.facts.constrain(subject, in: ast, toHaveType: t)
   }
 
-  /// Returns the inferred type of `callee`, which is the callee of a function or subscrpt call,
-  /// updating `state` with inference facts and deferred type checking requests.
+  /// Returns the inferred type of `callee`, which is the callee of a function, initializer, or
+  /// subscript called with `arguments`, updating `state` with inference facts and deferred type
+  /// checking requests.
   private mutating func inferredType(
-    ofCallee e: AnyExprID, shapedBy shape: AnyType?,
+    ofCallee callee: AnyExprID, usedAs use: NameUse, shapedBy shape: AnyType?,
     updating state: inout Context
   ) -> AnyType {
-    if let e = NameExpr.ID(e) {
-      return inferredType(of: e, withImplicitDomain: shape, shapedBy: nil, updating: &state)
+    assert(use != .unapplied)
+    if let callee = NameExpr.ID(callee) {
+      return inferredType(
+        of: callee, withImplicitDomain: shape, usedAs: use, shapedBy: nil, updating: &state)
     } else {
-      return inferredType(of: e, shapedBy: nil, updating: &state)
+      return inferredType(of: callee, shapedBy: nil, updating: &state)
     }
   }
 
