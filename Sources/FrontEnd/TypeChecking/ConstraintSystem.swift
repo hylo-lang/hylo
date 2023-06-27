@@ -540,10 +540,8 @@ struct ConstraintSystem {
       return nil
     }
 
-    guard let callee = goal.callee.base as? CallableType, callee.isArrow else {
-      return .failure { (d, m, _) in
-        d.insert(.error(nonCallableType: m.reify(goal.callee), at: goal.origin.site))
-      }
+    guard let callee = goal.callee.base as? CallableType, goal.isArrow == callee.isArrow else {
+      return .failure(invalidCallee(goal))
     }
 
     // Make sure `F` structurally matches the given parameter list.
@@ -565,6 +563,17 @@ struct ConstraintSystem {
       schedule(
         EqualityConstraint(callee.output, goal.output, origin: goal.origin.subordinate())))
     return delegate(to: subordinates)
+  }
+
+  /// Returns a clousre diagnosing a failure to solve `g` because of an invalid callee.
+  private mutating func invalidCallee(_ g: CallConstraint) -> DiagnoseFailure {
+    { (d, m, _) in
+      if g.isArrow {
+        d.insert(.error(cannotCall: m.reify(g.callee), as: .function, at: g.origin.site))
+      } else {
+        d.insert(.error(cannotCall: m.reify(g.callee), as: .subscript, at: g.origin.site))
+      }
+    }
   }
 
   /// Returns a table from argument position to its corresponding parameter position iff `callee`

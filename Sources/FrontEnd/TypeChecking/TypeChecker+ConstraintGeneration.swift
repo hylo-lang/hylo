@@ -313,7 +313,7 @@ extension TypeChecker {
     }
 
     // In any other case, the callee is known to be not callable.
-    report(.error(nonCallableType: callee, at: ast[syntax.callee].site))
+    report(.error(cannotCall: callee, as: .function, at: ast[syntax.callee].site))
     return state.facts.assignErrorType(to: subject)
   }
 
@@ -624,123 +624,52 @@ extension TypeChecker {
     updating state: inout Context
   ) -> AnyType {
     let syntax = ast[subject]
+    let callee = inferredType(
+      ofCallee: syntax.callee, usedAs: .subscriptCallee, shapedBy: shape, updating: &state)
 
-    // Infer the type of the callee.
-    let calleeType = inferredType(of: syntax.callee, shapedBy: nil, updating: &state)
-
-    // The following cases must be considered:
-    //
-    // 1. We failed to infer the type of the callee. We can stop here.
-    // 2. We couldn't infer the exact type of the callee and must rely on bottom-up inference.
-    // 3. We determined the exact type of the callee, and:
-    //   a. it's a subscript type. In that case, we can use the parameters to validate the
-    //      arguments' labels and infer their types.
-    //   b. it's a metatype and the the callee is a name expression referring to a nominal type
-    //      declaration. In that case, the call is actually a sugared buffer type expression.
-    //   c. it's any other type. In that case we must look for an unnamed member subscript in that
-    //      type and use it at the callee's type.
-
-    // Case 1
-    if state.facts.inferredTypes[syntax.callee]!.isError {
+    // We failed to infer the type of the callee. We can stop here.
+    if callee.isError {
       return state.facts.assignErrorType(to: subject)
     }
 
-    // Case 2
-    if calleeType.base is TypeVariable {
-      let parameters = parametersMatching(arguments: syntax.arguments, updating: &state)
-      let returnType = shape ?? ^TypeVariable()
-      let assumedCalleeType = SubscriptImplType(
-        isProperty: false,
-        receiverEffect: .let,
-        environment: ^TypeVariable(),
-        inputs: parameters,
-        output: returnType)
-
-      state.facts.append(
-        EqualityConstraint(
-          calleeType, ^assumedCalleeType,
-          origin: ConstraintOrigin(.callee, at: ast[syntax.callee].site)))
-
-      return state.facts.constrain(subject, in: ast, toHaveType: returnType)
-    }
-
-    // Case 3a
-    if let callable = SubscriptType(state.facts.inferredTypes[syntax.callee]!) {
-      if parametersMatching(
-        arguments: syntax.arguments, of: syntax.callee,
-        shapedBy: callable.inputs, updating: &state)
-      {
-        return state.facts.constrain(subject, in: ast, toHaveType: callable.output)
-      } else {
-        return state.facts.assignErrorType(to: subject)
-      }
-    }
-
-    // Case 3b
+    // The callee has a metatype and is a name expression bound to a nominal type declaration,
+    // meaning that the call is actually a sugared buffer type expression.
     if isBoundToNominalTypeDecl(syntax.callee, in: state) {
-      assert(calleeType.base is MetatypeType)
-
-      // Buffer type expressions shall have exactly one argument.
-      if syntax.arguments.count != 1 {
-        report(.error(invalidBufferTypeExprArgumentCount: subject, in: ast))
-        return state.facts.assignErrorType(to: subject)
-      }
-
-      // Note: We'll need some form of compile-time evaluation here.
       fatalError("not implemented")
     }
 
-    // Case 3c
-    let candidates = lookup(
-      "[]", memberOf: state.facts.inferredTypes[syntax.callee]!, exposedTo: program[subject].scope)
-    switch candidates.count {
-    case 0:
-      report(
-        .error(
-          noUnnamedSubscriptsIn: state.facts.inferredTypes[syntax.callee]!,
-          at: ast[syntax.callee].site))
-      return state.facts.assignErrorType(to: subject)
-
-    case 1:
-      // If there's a single candidate, we're looking at case 3a.
-      let decl = candidates.first!
-      let declType = realize(decl: decl)
-      assert(decl.kind == SubscriptDecl.self)
-
-      // Bail out if we can't get the type of the referred declaration.
-      if declType.isError {
-        return state.facts.assignErrorType(to: subject)
-      }
-
-      // Contextualize the type of the referred declaration.
-      let instantiatedType = instantiate(
-        declType, in: program[subject].scope,
-        cause: ConstraintOrigin(.callee, at: ast[syntax.callee].site))
-
-      // Visit the arguments.
-      let calleeType = SubscriptType(instantiatedType.shape)!
-      if parametersMatching(
-        arguments: syntax.arguments, of: syntax.callee,
-        shapedBy: calleeType.inputs, updating: &state)
-      {
-        // Register the callee's constraints.
-        state.facts.append(instantiatedType.constraints)
-
-        // Update the referred declaration map if necessary.
-        // FIXME: Handle generic arguments
-        if let c = NameExpr.ID(syntax.callee) {
-          state.facts.assign(c, to: .member(decl, [:]))
-        }
-
-        return state.facts.constrain(subject, in: ast, toHaveType: calleeType.output)
-      } else {
-        return state.facts.assignErrorType(to: subject)
-      }
-
-    default:
-      // Note: Create an overload constraint.
-      fatalError("not implemented")
+    // The callee has a callable type or we need inference to determine its type. Either way,
+    // constraint the callee and its arguments with a function call constraints.
+    if isSubscript(callee) || (callee.base is TypeVariable) {
+      return inferredType(
+        of: subject, projecting: shape ?? ^TypeVariable(), with: callee, updating: &state)
     }
+
+    // In any other case, the callee is known to be not callable.
+    report(.error(cannotCall: callee, as: .subscript, at: ast[syntax.callee].site))
+    return state.facts.assignErrorType(to: subject)
+  }
+
+  /// Knowing `subject` has a callee of type `callee` and projects a value of type `output`,
+  /// returns its inferred type, updating `state`.
+  private mutating func inferredType(
+    of subject: SubscriptCallExpr.ID,
+    projecting output: AnyType = ^TypeVariable(),
+    with callee: AnyType,
+    updating state: inout Context
+  ) -> AnyType {
+    var arguments: [CallConstraint.Argument] = []
+    for a in ast[subject].arguments {
+      let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
+      arguments.append(.init(label: a.label, type: p, valueSite: ast[a.value].site))
+    }
+
+    state.facts.append(
+      CallConstraint(
+        subscript: callee, takes: arguments, gives: output,
+        origin: ConstraintOrigin(.callee, at: program[subject].callee.site)))
+
+    return state.facts.constrain(subject, in: ast, toHaveType: output)
   }
 
   private mutating func inferredType(
@@ -990,9 +919,14 @@ extension TypeChecker {
 
   // MARK: Helpers
 
-  /// Returns `true` iff `t` is an arrow type.
+  /// Returns `true` iff `t` is known as an arrow type.
   private func isArrow(_ t: AnyType) -> Bool {
     (t.base as? CallableType)?.isArrow ?? false
+  }
+
+  /// Returns `true` iff `t` is known as a subscript type.
+  private func isSubscript(_ t: AnyType) -> Bool {
+    !isArrow(t)
   }
 
   /// Returns `true` iff `e` is a name assumed bound to a nominal type declaration in `state`.

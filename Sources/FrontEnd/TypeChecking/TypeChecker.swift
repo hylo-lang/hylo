@@ -1964,18 +1964,18 @@ public struct TypeChecker {
     exposedTo useScope: AnyScopeID,
     usedAs purpose: NameUse
   ) -> NameResolutionResult.CandidateSet? {
+    // Nothing to do if `parent` is a callable type.
+    if parent.base is CallableType {
+      return nil
+    }
+
     switch purpose {
     case .constructorCallee, .functionCallee:
-      guard let t = MetatypeType(parent)?.instance else {
-        return nil
-      }
+      guard let t = MetatypeType(parent)?.instance else { return nil }
       let n = SourceRepresentable(value: Name(stem: "init"), range: name.site)
       return resolve(n, memberOf: t, exposedTo: useScope, usedAs: .constructorCallee)
 
-    case .subscriptCallee:
-      guard !(parent.base is MetatypeType) else {
-        return nil
-      }
+    case .subscriptCallee where !(parent.base is MetatypeType):
       let n = SourceRepresentable(value: Name(stem: "[]"), range: name.site)
       return resolve(n, memberOf: parent, exposedTo: useScope, usedAs: .subscriptCallee)
 
