@@ -11,7 +11,7 @@ public type Float32 {
   }
 
   /// Creates an instance that approximates `other`.
-  public init(_ other: Double) {
+  public init(_ other: Float64) {
     &self = Float32(value: Builtin.fptrunc_float64_float32(other.value))
   }
 
