@@ -1802,13 +1802,6 @@ public struct TypeChecker {
           of: name, declaredBy: m, to: arguments, reportingDiagnosticsTo: &candidateDiagnostics)
       else { continue }
 
-      if let r = resolve(
-        sugared: name, memberOf: candidateType, exposedTo: useScope, usedAs: purpose)
-      {
-        candidates.formUnion(r)
-        continue
-      }
-
       // If the name resolves to an initializer, determine if it is used as a constructor.
       let isConstructor =
         (m.kind == InitializerDecl.self) &&
@@ -1836,6 +1829,13 @@ public struct TypeChecker {
           candidateType, in: program.scopeIntroducing(m), cause: .init(.binding, at: name.site))
         candidateType = t.shape
         matchConstraints = t.constraints
+      }
+
+      if let sugars = resolve(
+        sugared: name, memberOf: candidateType, exposedTo: useScope, usedAs: purpose)
+      {
+        candidates.formUnion(sugars)
+        continue
       }
 
       let r = makeReference(
@@ -1973,11 +1973,13 @@ public struct TypeChecker {
     case .constructorCallee, .functionCallee:
       guard let t = MetatypeType(parent)?.instance else { return nil }
       let n = SourceRepresentable(value: Name(stem: "init"), range: name.site)
-      return resolve(n, memberOf: t, exposedTo: useScope, usedAs: .constructorCallee)
+      let r = resolve(n, memberOf: t, exposedTo: useScope, usedAs: .constructorCallee)
+      return r.elements.isEmpty ? nil : r
 
     case .subscriptCallee where !(parent.base is MetatypeType):
       let n = SourceRepresentable(value: Name(stem: "[]"), range: name.site)
-      return resolve(n, memberOf: parent, exposedTo: useScope, usedAs: .subscriptCallee)
+      let r = resolve(n, memberOf: parent, exposedTo: useScope, usedAs: .subscriptCallee)
+      return r.elements.isEmpty ? nil : r
 
     default:
       return nil

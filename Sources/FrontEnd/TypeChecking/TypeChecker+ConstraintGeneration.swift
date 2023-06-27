@@ -308,8 +308,7 @@ extension TypeChecker {
     // The callee has a callable type or we need inference to determine its type. Either way,
     // constraint the callee and its arguments with a function call constraints.
     if isArrow(callee) || (callee.base is TypeVariable) {
-      return inferredType(
-        of: subject, returning: shape ?? ^TypeVariable(), with: callee, updating: &state)
+      return inferredType(of: subject, withCallee: callee, updating: &state)
     }
 
     // In any other case, the callee is known to be not callable.
@@ -321,8 +320,7 @@ extension TypeChecker {
   /// returns its inferred type, updating `state`.
   private mutating func inferredType(
     of subject: FunctionCallExpr.ID,
-    returning output: AnyType,
-    with callee: AnyType,
+    withCallee callee: AnyType,
     updating state: inout Context
   ) -> AnyType {
     var arguments: [CallConstraint.Argument] = []
@@ -331,6 +329,7 @@ extension TypeChecker {
       arguments.append(.init(label: a.label, type: p, valueSite: ast[a.value].site))
     }
 
+    let output = (callee.base as? CallableType)?.output ?? ^TypeVariable()
     state.facts.append(
       CallConstraint(
         arrow: callee, takes: arguments, gives: output,
@@ -641,8 +640,7 @@ extension TypeChecker {
     // The callee has a callable type or we need inference to determine its type. Either way,
     // constraint the callee and its arguments with a function call constraints.
     if isSubscript(callee) || (callee.base is TypeVariable) {
-      return inferredType(
-        of: subject, projecting: shape ?? ^TypeVariable(), with: callee, updating: &state)
+      return inferredType(of: subject, withCallee: callee, updating: &state)
     }
 
     // In any other case, the callee is known to be not callable.
@@ -654,8 +652,7 @@ extension TypeChecker {
   /// returns its inferred type, updating `state`.
   private mutating func inferredType(
     of subject: SubscriptCallExpr.ID,
-    projecting output: AnyType = ^TypeVariable(),
-    with callee: AnyType,
+    withCallee callee: AnyType,
     updating state: inout Context
   ) -> AnyType {
     var arguments: [CallConstraint.Argument] = []
@@ -664,6 +661,7 @@ extension TypeChecker {
       arguments.append(.init(label: a.label, type: p, valueSite: ast[a.value].site))
     }
 
+    let output = (callee.base as? CallableType)?.output ?? ^TypeVariable()
     state.facts.append(
       CallConstraint(
         subscript: callee, takes: arguments, gives: output,
