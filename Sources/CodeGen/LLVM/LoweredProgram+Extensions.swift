@@ -49,13 +49,13 @@ extension LoweredProgram {
     switch val {
     case .i(let width):
       return LLVM.IntegerType(width, in: &module)
-    case .half:
+    case .float16:
       return LLVM.FloatingPointType.half(in: &module)
-    case .float:
+    case .float32:
       return LLVM.FloatingPointType.float(in: &module)
-    case .double:
+    case .float64:
       return LLVM.FloatingPointType.double(in: &module)
-    case .fp128:
+    case .float128:
       return LLVM.FloatingPointType.fp128(in: &module)
     case .ptr:
       return LLVM.PointerType(in: &module)

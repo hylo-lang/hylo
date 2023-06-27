@@ -16,7 +16,7 @@ import LLVM
 ///
 ///     add i64 -> Builtin.add_i64
 ///     icmp ne i32 -> Builtin.icmp_ne_i32
-///     fmul fast double -> Builtin.fmul_fast_double
+///     fmul fast float64 -> Builtin.fmul_fast_float64
 ///
 /// An exception is made for LLVM conversion instructions: we omit the keyword `to` that appears
 /// between the first argument and result type. For example:

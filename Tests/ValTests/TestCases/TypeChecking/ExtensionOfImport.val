@@ -1,9 +1,9 @@
 //- typeCheck expecting: success
 
-extension Double {
-  public static fun gravity() -> Double { 9.81 }
+extension Float64 {
+  public static fun gravity() -> Float64 { 9.81 }
 }
 
 public fun main() {
-  let _: Double = .gravity()
+  let _: Float64 = .gravity()
 }

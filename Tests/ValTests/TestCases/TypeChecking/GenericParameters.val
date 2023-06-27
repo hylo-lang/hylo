@@ -4,7 +4,7 @@
 fun f0<X, v: Int>(_ x: X, _ y: v) {}
 
 //! @+1 diagnostic only one annotation is allowed on generic value parameter declarations
-fun f1<X, v: Int & Double>(_ x: X) {}
+fun f1<X, v: Int & Float64>(_ x: X) {}
 
-//! @+1 diagnostic conformance to non-trait type 'Double'
-fun f2<X, v: Copyable & Double>(_ x: X) {}
+//! @+1 diagnostic conformance to non-trait type 'Float64'
+fun f2<X, v: Copyable & Float64>(_ x: X) {}

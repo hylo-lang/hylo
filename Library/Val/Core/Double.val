@@ -1,27 +1,27 @@
 /// A double-precision, floating-point value.
-public type Double {
+public type Float64 {
 
-  var value: Builtin.double
+  var value: Builtin.float64
 
   memberwise init
 
   /// Creates an instance with value `0.0`.
   public init() {
-    &self.value = Builtin.zeroinitializer_double()
+    &self.value = Builtin.zeroinitializer_float64()
   }
 
 }
 
-public conformance Double: ExpressibleByFloatLiteral {}
+public conformance Float64: ExpressibleByFloatLiteral {}
 
-public conformance Double: ExpressibleByIntegerLiteral {}
+public conformance Float64: ExpressibleByIntegerLiteral {}
 
-public conformance Double: Deinitializable {}
+public conformance Float64: Deinitializable {}
 
-public conformance Double: Copyable {
+public conformance Float64: Copyable {
 
   public fun copy() -> Self {
-    Double(value: value)
+    Float64(value: value)
   }
 
 }
