@@ -223,10 +223,6 @@ extension Diagnostic {
     }
   }
 
-  static func error(noUnnamedSubscriptsIn domain: AnyType, at site: SourceRange) -> Diagnostic {
-    .error("type '\(domain)' has no unnamed subscripts", at: site)
-  }
-
   static func error(
     undefinedName name: Name, in domain: AnyType? = nil, at site: SourceRange
   ) -> Diagnostic {
