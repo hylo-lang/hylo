@@ -1803,8 +1803,8 @@ public struct TypeChecker {
 
       // If the name resolves to an initializer, determine if it is used as a constructor.
       let isConstructor =
-        (m.kind == InitializerDecl.self) &&
-        ((purpose == .constructorCallee) || (name.value.stem == "new"))
+        (m.kind == InitializerDecl.self)
+        && ((purpose == .constructorCallee) || (name.value.stem == "new"))
       if isConstructor {
         candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
       }
