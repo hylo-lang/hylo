@@ -24,8 +24,8 @@ public fun main() {
   let x2: any P1 & P2 = B()
   check<any P1 & P2>(x2)
 
-  //! @+1 diagnostic incompatible types 'Int' and 'A<_>'
-  let _: any A = Int()
+  //! @+1 diagnostic incompatible types 'Bool' and 'A<_>'
+  let _: any A = true
 
   //! @+1 diagnostic type 'B' does not conform to trait 'Copyable'
   let _: any Copyable = B()
