@@ -1,6 +1,8 @@
 import Utils
 import XCTest
 
+@testable import IR
+
 final class WideUIntTests: XCTestCase {
 
   func testInitFromValLiteral() throws {
