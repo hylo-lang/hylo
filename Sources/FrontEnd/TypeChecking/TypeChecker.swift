@@ -1883,6 +1883,7 @@ public struct TypeChecker {
       return [.intrinsic(^t)]
     }
 
+    // TODO: Check labels and notations.
     switch name.value.stem {
     case "Any":
       return nonGeneric(MetatypeType(of: .any))
