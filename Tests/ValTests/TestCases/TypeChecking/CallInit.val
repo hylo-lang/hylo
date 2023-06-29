@@ -4,6 +4,8 @@ type A: Movable {
 
   var x: Int
 
+  memberwise init
+
   public init(value: sink Int) {
     &self = A(x: value)
   }

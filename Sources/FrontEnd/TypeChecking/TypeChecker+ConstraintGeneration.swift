@@ -279,7 +279,7 @@ extension TypeChecker {
     of subject: FloatLiteralExpr.ID, shapedBy shape: AnyType?,
     updating state: inout Context
   ) -> AnyType {
-    let defaultType = ^ast.coreType("Double")!
+    let defaultType = ^ast.coreType("Float64")!
     return inferredType(
       ofLiteralExpr: subject, shapedBy: shape, defaultingTo: defaultType, updating: &state)
   }

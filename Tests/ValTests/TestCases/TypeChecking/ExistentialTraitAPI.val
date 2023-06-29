@@ -13,14 +13,15 @@ trait R {
 }
 
 type A: U, R {
+  public memberwise init
   public fun foo() -> Int { 42 }
   public fun bar() -> Int { 42 }
   public fun ham() -> Int { 42 }
 }
 
-type B<X> {}
+type B<X> { public memberwise init }
 
-type C<X> {}
+type C<X> { public memberwise init }
 
 fun check<T>(_ x: T) {}
 
