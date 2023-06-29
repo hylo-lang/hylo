@@ -297,14 +297,6 @@ extension TypeChecker {
       return state.facts.assignErrorType(to: subject)
     }
 
-    // The callee has a metatype and is a name expression bound to a nominal type declaration,
-    // meaning that the call is actually a sugared initializer call.
-    if isBoundToNominalTypeDecl(syntax.callee, in: state) {
-      return inferredType(
-        ofInitializerCall: subject, initializing: MetatypeType(callee)!.instance,
-        updating: &state)
-    }
-
     // The callee has a callable type or we need inference to determine its type. Either way,
     // constraint the callee and its arguments with a function call constraints.
     if isArrow(callee) || (callee.base is TypeVariable) {
@@ -336,64 +328,6 @@ extension TypeChecker {
         origin: ConstraintOrigin(.callee, at: program[subject].callee.site)))
 
     return state.facts.constrain(subject, in: ast, toHaveType: output)
-  }
-
-  /// Returns the inferred type of the initializer call `subject` in `scope`, assuming it returns
-  /// a value of type `instance`.
-  private mutating func inferredType(
-    ofInitializerCall subject: FunctionCallExpr.ID, initializing instance: AnyType,
-    updating state: inout Context
-  ) -> AnyType {
-    let callee = NameExpr.ID(ast[subject].callee)!
-    let initName = SourceRepresentable(
-      value: Name(stem: "init", labels: ["self"] + ast[subject].arguments.map(\.label?.value)),
-      range: ast[callee].name.site)
-    let initCandidates = resolve(
-      initName, memberOf: instance, exposedTo: program[subject].scope, usedAs: .constructorCallee)
-
-    // We're done if we couldn't find any initializer.
-    assert(initCandidates.elements.count == initCandidates.viable.count)
-    if initCandidates.elements.isEmpty {
-      report(.error(undefinedName: initName.value, in: instance, at: initName.site))
-      _ = state.facts.assignErrorType(to: callee)
-      return state.facts.assignErrorType(to: subject)
-    }
-
-    if let pick = initCandidates.elements.uniqueElement {
-      // Rebind the callee and constrain its type.
-      let constructor = LambdaType(constructorFormOf: .init(pick.type)!)
-      state.facts.assign(callee, to: DeclReference(constructor: pick.reference)!)
-      state.facts.assign(^constructor, to: callee)
-      state.facts.append(pick.constraints)
-
-      var arguments: [CallConstraint.Argument] = []
-      for a in ast[subject].arguments {
-        let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
-        arguments.append(.init(label: a.label, type: p, valueSite: ast[a.value].site))
-      }
-
-      state.facts.append(
-        CallConstraint(
-          arrow: ^constructor, takes: arguments, gives: constructor.output,
-          origin: ConstraintOrigin(.callee, at: program[subject].callee.site)))
-
-      return state.facts.constrain(subject, in: ast, toHaveType: constructor.output)
-    } else {
-      fatalError("not implemented")
-    }
-  }
-
-  /// Returns the constructor type corresponding to given `initializer`.
-  private func convertToConstructor(_ initializer: AnyType) -> AnyType {
-    switch initializer.base {
-    case let t as LambdaType:
-      return ^LambdaType(constructorFormOf: t)
-    case let t as BoundGenericType:
-      let c = LambdaType(constructorFormOf: .init(t.base)!)
-      return ^BoundGenericType(c, arguments: t.arguments)
-    default:
-      unreachable()
-    }
   }
 
   private mutating func inferredType(
