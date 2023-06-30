@@ -1191,7 +1191,7 @@ public struct Emitter {
       let l = emit(infixOperand: lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
 
       // The callee must be a reference to member function.
-      guard case .member(let d, _) = program[callee.expr].referredDecl else { unreachable() }
+      guard case .member(let d, _, _) = program[callee.expr].referredDecl else { unreachable() }
       let oper = Operand.constant(
         FunctionReference(to: FunctionDecl.ID(d)!, usedIn: insertionScope!, in: &module))
 
@@ -1531,7 +1531,7 @@ public struct Emitter {
         usedIn: insertionScope!, in: &module)
       return (.constant(r), [])
 
-    case .member(let d, let a) where d.kind == FunctionDecl.self:
+    case .member(let d, let a, _) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
       let r = FunctionReference(
         to: FunctionDecl.ID(d)!, parameterizedBy: a,
@@ -1774,7 +1774,7 @@ public struct Emitter {
     case .direct(let d, _):
       return emitLValue(directReferenceTo: d)
 
-    case .member(let d, let a):
+    case .member(let d, let a, _):
       let r = emitLValue(receiverOf: e)
       return emitProperty(boundTo: r, declaredBy: d, parameterizedBy: a, at: ast[e].site)
 

@@ -290,7 +290,7 @@ extension TypeChecker {
   ) -> AnyType {
     let syntax = ast[subject]
     let callee = inferredType(
-      ofCallee: syntax.callee, usedAs: .functionCallee, shapedBy: shape, updating: &state)
+      ofCallee: syntax.callee, usedAs: .function, shapedBy: shape, updating: &state)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {
@@ -558,7 +558,7 @@ extension TypeChecker {
   ) -> AnyType {
     let syntax = ast[subject]
     let callee = inferredType(
-      ofCallee: syntax.callee, usedAs: .subscriptCallee, shapedBy: shape, updating: &state)
+      ofCallee: syntax.callee, usedAs: .subscript, shapedBy: shape, updating: &state)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {

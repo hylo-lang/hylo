@@ -108,14 +108,22 @@ struct SubstitutionMap {
   ) -> DeclReference {
     switch r {
     case .direct(let d, let a):
-      return .direct(d, a.mapValues({ reify(value: $0, withVariables: substitutionPolicy) }))
-    case .member(let d, let a):
-      return .member(d, a.mapValues({ reify(value: $0, withVariables: substitutionPolicy) }))
+      return .direct(d, reify(a, withVariables: substitutionPolicy))
+    case .member(let d, let a, let r):
+      return .member(d, reify(a, withVariables: substitutionPolicy), r)
     case .constructor(let d, let a):
-      return .constructor(d, a.mapValues({ reify(value: $0, withVariables: substitutionPolicy) }))
+      return .constructor(d, reify(a, withVariables: substitutionPolicy))
     case .builtinModule, .builtinType, .builtinFunction, .intrinsicType:
       return r
     }
+  }
+
+  /// Returns `a` with its type variables replaced by their their corresponding value in `self`,
+  /// applying `substitutionPolicy` to handle free variables.
+  private func reify(
+    _ a: GenericArguments, withVariables substitutionPolicy: SubstitutionPolicy
+  ) -> GenericArguments {
+    a.mapValues({ reify(value: $0, withVariables: substitutionPolicy) })
   }
 
   /// Returns `v` with its type variables replaced by their their corresponding value in `self`,
