@@ -473,8 +473,7 @@ extension TypeChecker {
       let memberType = ^TypeVariable()
       state.facts.append(
         MemberConstraint(
-          lastVisitedComponentType!, hasMemberReferredToBy: component, ofType: memberType,
-          in: ast,
+          lastVisitedComponentType!, hasMember: memberType, referredToBy: component, in: ast,
           origin: ConstraintOrigin(.member, at: ast[component].site)))
       lastVisitedComponentType = state.facts.constrain(component, in: ast, toHaveType: memberType)
     }
@@ -529,7 +528,7 @@ extension TypeChecker {
       // The operator is a member function of the left operand.
       state.facts.append(
         MemberConstraint(
-          lhsType, hasMemberReferredToBy: callee.expr, ofType: operatorType, in: ast,
+          lhsType, hasMember: operatorType, referredToBy: callee.expr, in: ast,
           origin: ConstraintOrigin(.member, at: ast[callee.expr].site)))
       state.facts.append(
         CallConstraint(
