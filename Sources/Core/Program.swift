@@ -233,6 +233,27 @@ extension Program {
     }
   }
 
+  /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
+  /// Otherwise, returns `nil`
+  public func innermostReceiver(in useScope: AnyScopeID) -> ParameterDecl.ID? {
+    switch useScope.kind {
+    case FunctionDecl.self:
+      if let d = ast[FunctionDecl.ID(useScope)!].receiver { return d }
+    case InitializerDecl.self:
+      return ast[InitializerDecl.ID(useScope)!].receiver
+    case MethodImpl.self:
+      return ast[MethodImpl.ID(useScope)!].receiver
+    case ModuleDecl.self:
+      return nil
+    case SubscriptImpl.self:
+      if let d = ast[SubscriptImpl.ID(useScope)!].receiver { return d }
+    default:
+      break
+    }
+
+    return innermostReceiver(in: nodeToScope[useScope]!)
+  }
+
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
   public func scopes<S: ScopeID>(from scope: S) -> LexicalScopeSequence {
     LexicalScopeSequence(scopeToParent: nodeToScope, from: scope)
