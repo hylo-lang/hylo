@@ -538,7 +538,7 @@ extension AST {
   public func traverse<O: ASTWalkObserver>(
     _ n: NameExpr, notifying o: inout O
   ) {
-    if case .expr(let e) = n.domain { walk(e, notifying: &o) }
+    if case .explicit(let e) = n.domain { walk(e, notifying: &o) }
     walk(roots: n.arguments.map(\.value), notifying: &o)
   }
 
