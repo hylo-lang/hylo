@@ -154,7 +154,6 @@ extension Program {
     switch nodeToScope[decl]!.kind {
     case TranslationUnit.self, NamespaceDecl.self:
       return true
-
     default:
       break
     }
@@ -163,16 +162,12 @@ extension Program {
     switch decl.kind {
     case BindingDecl.self:
       return ast[BindingDecl.ID(decl)!].isStatic
-
     case FunctionDecl.self:
       return ast[FunctionDecl.ID(decl)!].isStatic
-
     case InitializerDecl.self:
       return true
-
     case SubscriptDecl.self:
       return ast[SubscriptDecl.ID(decl)!].isStatic
-
     default:
       return false
     }
