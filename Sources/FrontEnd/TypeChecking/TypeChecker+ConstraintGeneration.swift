@@ -300,7 +300,7 @@ extension TypeChecker {
     // The callee has a callable type or we need inference to determine its type. Either way,
     // constraint the callee and its arguments with a function call constraints.
     if isArrow(callee) || (callee.base is TypeVariable) {
-      return inferredType(of: subject, withCallee: callee, updating: &state)
+      return inferredType(of: subject, withCallee: callee, shapedBy: shape, updating: &state)
     }
 
     // In any other case, the callee is known to be not callable.
@@ -308,11 +308,12 @@ extension TypeChecker {
     return state.facts.assignErrorType(to: subject)
   }
 
-  /// Knowing `subject` has a callee of type `callee` and returns a value of type `output`,
+  /// Knowing `subject` has a callee of type `callee` and returns a value of type `shape`,
   /// returns its inferred type, updating `state`.
   private mutating func inferredType(
     of subject: FunctionCallExpr.ID,
     withCallee callee: AnyType,
+    shapedBy shape: AnyType?,
     updating state: inout Context
   ) -> AnyType {
     var arguments: [CallConstraint.Argument] = []
@@ -321,7 +322,7 @@ extension TypeChecker {
       arguments.append(.init(label: a.label, type: p, valueSite: ast[a.value].site))
     }
 
-    let output = (callee.base as? CallableType)?.output ?? ^TypeVariable()
+    let output = ((callee.base as? CallableType)?.output ?? shape) ?? ^TypeVariable()
     state.facts.append(
       CallConstraint(
         arrow: callee, takes: arguments, gives: output,
@@ -573,7 +574,7 @@ extension TypeChecker {
     // The callee has a callable type or we need inference to determine its type. Either way,
     // constraint the callee and its arguments with a function call constraints.
     if isSubscript(callee) || (callee.base is TypeVariable) {
-      return inferredType(of: subject, withCallee: callee, updating: &state)
+      return inferredType(of: subject, withCallee: callee, shapedBy: shape, updating: &state)
     }
 
     // In any other case, the callee is known to be not callable.
@@ -581,11 +582,12 @@ extension TypeChecker {
     return state.facts.assignErrorType(to: subject)
   }
 
-  /// Knowing `subject` has a callee of type `callee` and projects a value of type `output`,
+  /// Knowing `subject` has a callee of type `callee` and projects a value of type `shape`,
   /// returns its inferred type, updating `state`.
   private mutating func inferredType(
     of subject: SubscriptCallExpr.ID,
     withCallee callee: AnyType,
+    shapedBy shape: AnyType?,
     updating state: inout Context
   ) -> AnyType {
     var arguments: [CallConstraint.Argument] = []
@@ -594,7 +596,7 @@ extension TypeChecker {
       arguments.append(.init(label: a.label, type: p, valueSite: ast[a.value].site))
     }
 
-    let output = (callee.base as? CallableType)?.output ?? ^TypeVariable()
+    let output = ((callee.base as? CallableType)?.output ?? shape) ?? ^TypeVariable()
     state.facts.append(
       CallConstraint(
         subscript: callee, takes: arguments, gives: output,
