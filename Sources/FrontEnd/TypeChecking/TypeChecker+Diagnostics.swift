@@ -212,12 +212,15 @@ extension Diagnostic {
     .error("buffer type expression requires exactly one argument", at: ast[ast[e].callee].site)
   }
 
-  static func error(nonCallableType type: AnyType, at site: SourceRange) -> Diagnostic {
-    .error("cannot call value of non-callable type '\(type)'", at: site)
-  }
-
-  static func error(noUnnamedSubscriptsIn domain: AnyType, at site: SourceRange) -> Diagnostic {
-    .error("type '\(domain)' has no unnamed subscripts", at: site)
+  static func error(
+    cannotCall type: AnyType, as entity: CallableEntity, at site: SourceRange
+  ) -> Diagnostic {
+    switch entity {
+    case .function:
+      return .error("cannot call value of type '\(type)' as a function", at: site)
+    case .subscript:
+      return .error("cannot call value of type '\(type)' as a subscript", at: site)
+    }
   }
 
   static func error(

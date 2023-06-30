@@ -154,7 +154,6 @@ extension Program {
     switch nodeToScope[decl]!.kind {
     case TranslationUnit.self, NamespaceDecl.self:
       return true
-
     default:
       break
     }
@@ -163,24 +162,21 @@ extension Program {
     switch decl.kind {
     case BindingDecl.self:
       return ast[BindingDecl.ID(decl)!].isStatic
-
     case FunctionDecl.self:
       return ast[FunctionDecl.ID(decl)!].isStatic
-
     case InitializerDecl.self:
       return true
-
     case SubscriptDecl.self:
       return ast[SubscriptDecl.ID(decl)!].isStatic
-
     default:
       return false
     }
   }
 
-  /// Returns whether `decl` is member of a type declaration.
-  public func isMember<T: DeclID>(_ decl: T) -> Bool {
-    guard let parent = nodeToScope[decl] else { return false }
+  /// Returns whether `d` is member of a type declaration.
+  public func isMember<T: DeclID>(_ d: T) -> Bool {
+    guard let parent = nodeToScope[d] else { return false }
+
     switch parent.kind {
     case ConformanceDecl.self,
       ExtensionDecl.self,
@@ -188,6 +184,12 @@ extension Program {
       TraitDecl.self,
       TypeAliasDecl.self:
       return true
+
+    case MethodDecl.self:
+      return d.kind == MethodImpl.self
+
+    case SubscriptDecl.self:
+      return (d.kind == SubscriptImpl.self) && isMember(SubscriptDecl.ID(parent)!)
 
     default:
       return false
@@ -202,6 +204,11 @@ extension Program {
   /// Returns whether `decl` is a non-static member of a type declaration.
   public func isNonStaticMember(_ decl: FunctionDecl.ID) -> Bool {
     !ast[decl].isStatic && isMember(decl)
+  }
+
+  /// Returns whether `decl` is a non-static member of a type declaration.
+  public func isNonStaticMember(_ decl: MethodDecl.ID) -> Bool {
+    true
   }
 
   /// Returns whether `decl` is a non-static member of a type declaration.
@@ -228,20 +235,25 @@ extension Program {
     }
   }
 
-  /// Returns whether `scope` denotes a member context.
-  public func isMemberContext<S: ScopeID>(_ scope: S) -> Bool {
-    switch scope.kind {
+  /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
+  /// Otherwise, returns `nil`
+  public func innermostReceiver(in useScope: AnyScopeID) -> ParameterDecl.ID? {
+    switch useScope.kind {
     case FunctionDecl.self:
-      return isNonStaticMember(FunctionDecl.ID(scope)!)
-    case SubscriptDecl.self:
-      return isNonStaticMember(SubscriptDecl.ID(scope)!)
-    case MethodDecl.self, InitializerDecl.self:
-      return true
+      if let d = ast[FunctionDecl.ID(useScope)!].receiver { return d }
+    case InitializerDecl.self:
+      return ast[InitializerDecl.ID(useScope)!].receiver
+    case MethodImpl.self:
+      return ast[MethodImpl.ID(useScope)!].receiver
     case ModuleDecl.self:
-      return false
+      return nil
+    case SubscriptImpl.self:
+      if let d = ast[SubscriptImpl.ID(useScope)!].receiver { return d }
     default:
-      return isMemberContext(nodeToScope[scope]!)
+      break
     }
+
+    return innermostReceiver(in: nodeToScope[useScope]!)
   }
 
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.

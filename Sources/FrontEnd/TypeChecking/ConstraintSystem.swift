@@ -102,8 +102,8 @@ struct ConstraintSystem {
         setOutcome(solve(member: g, using: &checker), for: g)
       case is TupleMemberConstraint:
         setOutcome(solve(tupleMember: g, using: &checker), for: g)
-      case is FunctionCallConstraint:
-        setOutcome(solve(functionCall: g, using: &checker), for: g)
+      case is CallConstraint:
+        setOutcome(solve(call: g, using: &checker), for: g)
       case is MergingConstraint:
         setOutcome(solve(merging: g, using: &checker), for: g)
       case is DisjunctionConstraint:
@@ -174,9 +174,7 @@ struct ConstraintSystem {
     _ results: Explorations<T>,
     diagnosedBy d: Diagnostic
   ) -> Solution {
-    var s = results.elements.dropFirst().reduce(into: results.elements[0].solution) { (s, r) in
-      s.merge(r.solution)
-    }
+    var s = results.elements.reduce(into: Solution(), { (s, r) in s.merge(r.solution) })
     s.incorporate(d)
     return s
   }
@@ -441,7 +439,11 @@ struct ConstraintSystem {
     }
 
     let n = SourceRepresentable(value: goal.memberName, range: goal.origin.site)
-    let candidates = checker.resolve(n, memberOf: goal.subject, exposedTo: scope)
+
+    let context = NameResolutionContext(
+      type: goal.subject, arguments: [:], receiver: .init(checker.ast[goal.memberExpr].domain))
+    let candidates = checker.resolve(
+      n, parameterizedBy: [], memberOf: context, exposedTo: scope, usedAs: .unapplied)
 
     if candidates.elements.isEmpty {
       return .failure { (d, m, _) in
@@ -526,23 +528,21 @@ struct ConstraintSystem {
   }
 
   /// Returns either `.success` if `g.callee` is a callable type with parameters `g.parameters`
-  /// and return type `g.returnType`, `.failure` if it doesn't, `.product` if `g` must be broken
+  /// and return type `g.output`, `.failure` if it doesn't, `.product` if `g` must be broken
   /// down to smaller goals, or `nil` if neither of these outcomes can be determined yet.
   private mutating func solve(
-    functionCall g: GoalIdentity,
+    call g: GoalIdentity,
     using checker: inout TypeChecker
   ) -> Outcome? {
-    let goal = goals[g] as! FunctionCallConstraint
+    let goal = goals[g] as! CallConstraint
 
     if goal.callee.base is TypeVariable {
       postpone(g)
       return nil
     }
 
-    guard let callee = goal.callee.base as? CallableType, callee.isArrow else {
-      return .failure { (d, m, _) in
-        d.insert(.error(nonCallableType: m.reify(goal.callee), at: goal.origin.site))
-      }
+    guard let callee = goal.callee.base as? CallableType, goal.isArrow == callee.isArrow else {
+      return .failure(invalidCallee(goal))
     }
 
     // Make sure `F` structurally matches the given parameter list.
@@ -557,13 +557,24 @@ struct ConstraintSystem {
     var subordinates: [GoalIdentity] = []
     for (a, j) in zip(goal.arguments, argumentsToParameter) {
       let b = callee.inputs[j]
-      let o = ConstraintOrigin(.argument, at: a.site)
+      let o = ConstraintOrigin(.argument, at: a.valueSite)
       subordinates.append(schedule(ParameterConstraint(a.type, b.type, origin: o)))
     }
     subordinates.append(
       schedule(
-        EqualityConstraint(callee.output, goal.returnType, origin: goal.origin.subordinate())))
+        EqualityConstraint(callee.output, goal.output, origin: goal.origin.subordinate())))
     return delegate(to: subordinates)
+  }
+
+  /// Returns a clousre diagnosing a failure to solve `g` because of an invalid callee.
+  private mutating func invalidCallee(_ g: CallConstraint) -> DiagnoseFailure {
+    { (d, m, _) in
+      if g.isArrow {
+        d.insert(.error(cannotCall: m.reify(g.callee), as: .function, at: g.origin.site))
+      } else {
+        d.insert(.error(cannotCall: m.reify(g.callee), as: .subscript, at: g.origin.site))
+      }
+    }
   }
 
   /// Returns a table from argument position to its corresponding parameter position iff `callee`

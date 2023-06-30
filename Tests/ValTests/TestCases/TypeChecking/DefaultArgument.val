@@ -29,7 +29,6 @@ public fun main() {
   //! @+1 diagnostic incompatible labels: found '(a:)', expected '(a:b:)'
   f1(a: A())
 
-  // FIXME
-  // let x = C()
-  // x.foo()
+  let x = C()
+  x.foo()
 }

@@ -1598,6 +1598,23 @@ public struct TypeChecker {
 
   }
 
+  /// How a name expression is being used.
+  enum NameUse: Equatable {
+
+    /// The name is used as the callee of an arbitrary function call.
+    case function
+
+    /// The name is used as the callee of a constructor call.
+    case constructor
+
+    /// The name is used as the callee of a subscript call.
+    case `subscript`
+
+    /// The name is used as an unapplied reference to a declaration.
+    case unapplied
+
+  }
+
   /// The member lookup tables of the types.
   ///
   /// This property is used to memoize the results of `lookup(_:memberOf:in)`.
@@ -1625,6 +1642,7 @@ public struct TypeChecker {
   /// - Postcondition: `r[i].candidates` has a single element for `0 < i < r.count`.
   mutating func resolve(
     _ name: NameExpr.ID,
+    usedAs purpose: NameUse = .unapplied,
     keepingImplicitArguments keepImplicitArguments: Bool = true,
     instantiatingTypes instantiateTypes: Bool = true,
     withNonNominalPrefix resolveNonNominalPrefix: (inout Self, NameExpr.ID) -> AnyType?
@@ -1632,15 +1650,15 @@ public struct TypeChecker {
     var (unresolved, domain) = splitNominalComponents(of: name)
 
     // Continue iff `name` is prefixed by nominal components only.
-    var parent: (type: AnyType, arguments: GenericArguments)? = nil
-    if domain != nil {
+    var parent: NameResolutionContext? = nil
+    if domain != .none {
       switch resolveNonNominalPrefix(&self, unresolved.last!) {
       case nil:
         return .inexecutable(unresolved)
       case .some(.error):
         return .failed
       case .some(let p):
-        parent = (type: p, arguments: [:])
+        parent = .init(type: p, arguments: [:], receiver: .init(domain))
       }
     }
 
@@ -1659,6 +1677,7 @@ public struct TypeChecker {
       let n = ast[component].name
       let candidates = resolve(
         n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[component].scope,
+        usedAs: unresolved.isEmpty ? purpose : .unapplied,
         keepingImplicitArguments: keepImplicitArguments,
         instantiatingTypes: instantiateTypes)
 
@@ -1683,15 +1702,17 @@ public struct TypeChecker {
       // Defer resolution of the remaining name components if there are multiple candidates for
       // the current component or if we found a type variable. Otherwise, configure `parent` to
       // resolve the next name component.
-      if (selected.count > 1) || selected[0].type.isTypeVariable { break }
+      if (selected.count > 1) || (selected[0].type.base is TypeVariable) { break }
       let c = selected[0]
 
       // If the candidate is a direct reference to a type declaration, the next component should be
       // looked up in the referred type's declaration space rather than that of its metatype.
+      let receiver = DeclReference.Receiver.explicit(AnyExprID(component))
       if let d = c.reference.decl, isNominalTypeDecl(d) {
-        parent = (MetatypeType(c.type)!.instance, c.reference.arguments)
+        let t = MetatypeType(c.type)!.instance
+        parent = .init(type: t, arguments: c.reference.arguments, receiver: receiver)
       } else {
-        parent = (c.type, c.reference.arguments)
+        parent = .init(type: c.type, arguments: c.reference.arguments, receiver: receiver)
       }
     }
 
@@ -1704,14 +1725,12 @@ public struct TypeChecker {
   ///
   /// Name expressions are rperesented as linked-list, whose elements are the components of a
   /// name in reverse order. This method splits such lists at the first non-nominal component.
-  private func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain?) {
+  private func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain) {
     var suffix = [name]
     while true {
       let d = ast[suffix.last!].domain
       switch d {
-      case .none:
-        return (suffix, nil)
-      case .implicit:
+      case .none, .implicit, .operand:
         return (suffix, d)
       case .expr(let e):
         guard let p = NameExpr.ID(e) else { return (suffix, d) }
@@ -1723,31 +1742,18 @@ public struct TypeChecker {
   /// Returns the declarations of `name` exposed to `useScope` and parameterized by `arguments`.
   ///
   /// The declarations are searched with an unqualified lookup unless `parent` is set, in which
-  /// case they are searched in its declaration space. Generic candidates are specialized with
-  /// the generic arguments of `parent` if it has any.
-  mutating func resolve(
-    _ name: SourceRepresentable<Name>,
-    memberOf parent: AnyType,
-    exposedTo useScope: AnyScopeID
-  ) -> NameResolutionResult.CandidateSet {
-    let p = BoundGenericType(parent).map({ ($0.base, $0.arguments) }) ?? (parent, [:])
-    return resolve(name, parameterizedBy: [], memberOf: p, exposedTo: useScope)
-  }
-
-  /// Returns the declarations of `name` exposed to `useScope` and parameterized by `arguments`.
-  ///
-  /// The declarations are searched with an unqualified lookup unless `parent` is set, in which
   /// case they are searched in the declaration space of `parent.type`. Generic candidates are
   /// specialized with `arguments` appended to `parent.arguments`.
   ///
   /// If `keepImplicitArguments` is `false`, generic entities referenced without explicit arguments
   /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables. If
   /// `instantiateTypes` is `false`, generic parameters are not instantiated.
-  private mutating func resolve(
+  mutating func resolve(
     _ name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue],
-    memberOf parent: (type: AnyType, arguments: GenericArguments)?,
+    memberOf parent: NameResolutionContext?,
     exposedTo useScope: AnyScopeID,
+    usedAs purpose: NameUse,
     keepingImplicitArguments keepImplicitArguments: Bool = true,
     instantiatingTypes instantiateTypes: Bool = true
   ) -> NameResolutionResult.CandidateSet {
@@ -1780,7 +1786,10 @@ public struct TypeChecker {
           of: name, declaredBy: m, to: arguments, reportingDiagnosticsTo: &candidateDiagnostics)
       else { continue }
 
-      let isConstructor = (m.kind == InitializerDecl.self) && (name.value.stem == "new")
+      // If the name resolves to an initializer, determine if it is used as a constructor.
+      let isConstructor =
+        (m.kind == InitializerDecl.self)
+        && ((purpose == .constructor) || (name.value.stem == "new"))
       if isConstructor {
         candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
       }
@@ -1807,8 +1816,17 @@ public struct TypeChecker {
       }
 
       let r = makeReference(
-        to: m, usedAsConstructor: isConstructor, memberOf: parent?.type,
-        parameterizedBy: allArguments)
+        to: m, parameterizedBy: allArguments, memberOf: parent, exposedTo: useScope,
+        usedAsConstructor: isConstructor)
+
+      if let sugars = resolve(
+        sugared: name,
+        memberOf: .init(type: candidateType, arguments: allArguments, receiver: .elided(r)),
+        exposedTo: useScope, usedAs: purpose)
+      {
+        candidates.formUnion(sugars)
+        continue
+      }
 
       if (parent?.type.base is TraitType) && (m.kind == AssociatedTypeDecl.self) {
         candidateDiagnostics.insert(
@@ -1852,6 +1870,7 @@ public struct TypeChecker {
       return [.intrinsic(^t)]
     }
 
+    // TODO: Check labels and notations.
     switch name.value.stem {
     case "Any":
       return nonGeneric(MetatypeType(of: .any))
@@ -1924,6 +1943,42 @@ public struct TypeChecker {
     return [.intrinsic(.error)]
   }
 
+  /// Resolves `name` as a sugared reference to a constructor or nameless subscript declaration or
+  /// returns `nil` if `name` isn't a sugar.
+  private mutating func resolve(
+    sugared name: SourceRepresentable<Name>,
+    memberOf parent: NameResolutionContext,
+    exposedTo useScope: AnyScopeID,
+    usedAs purpose: NameUse
+  ) -> NameResolutionResult.CandidateSet? {
+    // Nothing to do if `parent.type` is a callableb type.
+    if parent.type.base is CallableType {
+      return nil
+    }
+
+    switch purpose {
+    case .constructor, .function:
+      guard let t = MetatypeType(parent.type)?.instance else { return nil }
+      let n = SourceRepresentable(value: Name(stem: "init"), range: name.site)
+      let r = resolve(
+        n, parameterizedBy: [],
+        memberOf: .init(type: t, arguments: parent.arguments, receiver: nil),
+        exposedTo: useScope, usedAs: .constructor)
+      return r.elements.isEmpty ? nil : r
+
+    case .subscript where !(parent.type.base is MetatypeType):
+      let n = SourceRepresentable(value: Name(stem: "[]"), range: name.site)
+      let r = resolve(
+        n, parameterizedBy: [],
+        memberOf: parent,
+        exposedTo: useScope, usedAs: .subscript)
+      return r.elements.isEmpty ? nil : r
+
+    default:
+      return nil
+    }
+  }
+
   /// Returns the resolved type of the entity declared by `d` or `nil` if is invalid.
   private mutating func resolvedType(of d: AnyDeclID) -> AnyType? {
     var result = realize(decl: d)
@@ -1984,20 +2039,26 @@ public struct TypeChecker {
       })
   }
 
-  /// Returns a declaration reference to `d`, which is a member of `parent` parameterized by
-  /// `arguments` and used as a constructor iff `isConstructor` is true.
+  /// Returns a reference to `d` as a member of `parent`, parameterized by `parametrization`,
+  /// exposed to `useScope`, and used as a constructor if `isConstructor` is `true`.
   private func makeReference(
     to d: AnyDeclID,
-    usedAsConstructor isConstructor: Bool,
-    memberOf parent: AnyType?,
-    parameterizedBy arguments: GenericArguments
+    parameterizedBy parameterization: GenericArguments,
+    memberOf parent: NameResolutionContext?,
+    exposedTo useScope: AnyScopeID,
+    usedAsConstructor isConstructor: Bool
   ) -> DeclReference {
     if isConstructor {
-      return .constructor(InitializerDecl.ID(d)!, arguments)
-    } else if program.isNonStaticMember(d) && !(parent?.base is MetatypeType) {
-      return .member(d, arguments)
+      return .constructor(InitializerDecl.ID(d)!, parameterization)
+    } else if program.isNonStaticMember(d) && !(parent?.type.base is MetatypeType) {
+      if let p = parent {
+        return .member(d, parameterization, p.receiver!)
+      } else {
+        let r = program.innermostReceiver(in: useScope)!
+        return .member(d, parameterization, .elided(.direct(AnyDeclID(r), [:])))
+      }
     } else {
-      return .direct(d, arguments)
+      return .direct(d, parameterization)
     }
   }
 
@@ -2672,7 +2733,7 @@ public struct TypeChecker {
       report(.error(notEnoughContextToResolveMember: ast[e].name))
       return .error
 
-    case .none:
+    case .none, .operand:
       unreachable()
     }
   }

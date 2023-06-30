@@ -102,6 +102,7 @@ enum NameResolutionResult {
     /// where used for name resolution.
     internal private(set) var viable: [Int] = []
 
+    /// Creates an instance from an array literal.
     init(arrayLiteral candidates: Candidate...) {
       for c in candidates {
         insert(c)
@@ -114,6 +115,13 @@ enum NameResolutionResult {
         viable.append(elements.count)
       }
       elements.append(c)
+    }
+
+    /// Inserts the contents of `other` into `self`.
+    mutating func formUnion(_ other: Self) {
+      for e in other.elements {
+        insert(e)
+      }
     }
 
   }

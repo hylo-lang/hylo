@@ -2,5 +2,5 @@
 
 public fun main() {
   let forty_two = 42
-  forty_two() //! diagnostic cannot call value of non-callable type 'Int'
+  forty_two() //! diagnostic cannot call value of type 'Int' as a function
 }

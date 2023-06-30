@@ -1417,6 +1417,7 @@ public enum Parser {
 
       let `operator` = state.insert(
         NameExpr(
+          domain: .operand,
           name: SourceRepresentable(
             value: Name(stem: operatorStem.value, notation: .infix), range: operatorStem.site),
           site: operatorStem.site))
