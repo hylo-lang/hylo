@@ -12,12 +12,4 @@ struct NameResolutionContext {
   /// The expression of the receiver, unless it is elided.
   let receiver: DeclReference.Receiver?
 
-  /// Creates a context denoting the declaration of space of `type`, parameterized by `arguments`
-  /// and optionally expressed by `receiver`.
-  init(type: AnyType, arguments: GenericArguments, receiver: DeclReference.Receiver?) {
-    self.type = type
-    self.arguments = arguments
-    self.receiver = receiver
-  }
-
 }
