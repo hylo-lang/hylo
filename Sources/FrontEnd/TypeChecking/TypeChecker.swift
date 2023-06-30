@@ -1715,7 +1715,7 @@ public struct TypeChecker {
       switch d {
       case .none, .implicit, .operand:
         return (suffix, d)
-      case .expr(let e):
+      case .explicit(let e):
         guard let p = NameExpr.ID(e) else { return (suffix, d) }
         suffix.append(p)
       }
@@ -2709,7 +2709,7 @@ public struct TypeChecker {
 
   private mutating func realize(domainOf e: NameExpr.ID) -> AnyType? {
     switch ast[e].domain {
-    case .expr(let d):
+    case .explicit(let d):
       return realize(d).map(\.instance) ?? .error
 
     case .implicit:

@@ -1451,7 +1451,7 @@ public enum Parser {
 
       let callee = state.insert(
         NameExpr(
-          domain: .expr(operand),
+          domain: .explicit(operand),
           name: SourceRepresentable(
             value: Name(stem: op.value, notation: .prefix),
             range: op.site),
@@ -1482,7 +1482,7 @@ public enum Parser {
 
       let callee = state.insert(
         NameExpr(
-          domain: .expr(operand),
+          domain: .explicit(operand),
           name: SourceRepresentable(
             value: Name(stem: op.value, notation: .postfix),
             range: op.site),
@@ -1597,7 +1597,7 @@ public enum Parser {
     if let component = try parseNameExprComponent(in: &state) {
       let e = state.insert(
         NameExpr(
-          domain: .expr(head),
+          domain: .explicit(head),
           name: component.name,
           arguments: component.arguments,
           site: state.range(from: state.ast[head].site.start)))
