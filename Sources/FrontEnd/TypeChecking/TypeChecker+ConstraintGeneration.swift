@@ -456,7 +456,7 @@ extension TypeChecker {
       case .expr(let e):
         lastVisitedComponentType = inferredType(of: e, shapedBy: nil, updating: &state)
 
-      case .none:
+      case .none, .operand:
         unreachable()
       }
       unresolvedComponents = suffix

@@ -1723,14 +1723,12 @@ public struct TypeChecker {
   ///
   /// Name expressions are rperesented as linked-list, whose elements are the components of a
   /// name in reverse order. This method splits such lists at the first non-nominal component.
-  private func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain?) {
+  private func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain) {
     var suffix = [name]
     while true {
       let d = ast[suffix.last!].domain
       switch d {
-      case .none:
-        return (suffix, nil)
-      case .implicit:
+      case .none, .implicit, .operand:
         return (suffix, d)
       case .expr(let e):
         guard let p = NameExpr.ID(e) else { return (suffix, d) }
@@ -2734,7 +2732,7 @@ public struct TypeChecker {
       report(.error(notEnoughContextToResolveMember: ast[e].name))
       return .error
 
-    case .none:
+    case .none, .operand:
       unreachable()
     }
   }
