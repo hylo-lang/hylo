@@ -176,13 +176,18 @@ extension Program {
   /// Returns whether `decl` is member of a type declaration.
   public func isMember<T: DeclID>(_ decl: T) -> Bool {
     guard let parent = nodeToScope[decl] else { return false }
+
     switch parent.kind {
     case ConformanceDecl.self,
       ExtensionDecl.self,
+      MethodDecl.self,
       ProductTypeDecl.self,
       TraitDecl.self,
       TypeAliasDecl.self:
       return true
+
+    case SubscriptDecl.self:
+      return isMember(SubscriptDecl.ID(parent)!)
 
     default:
       return false
@@ -197,6 +202,11 @@ extension Program {
   /// Returns whether `decl` is a non-static member of a type declaration.
   public func isNonStaticMember(_ decl: FunctionDecl.ID) -> Bool {
     !ast[decl].isStatic && isMember(decl)
+  }
+
+  /// Returns whether `decl` is a non-static member of a type declaration.
+  public func isNonStaticMember(_ decl: MethodDecl.ID) -> Bool {
+    true
   }
 
   /// Returns whether `decl` is a non-static member of a type declaration.
