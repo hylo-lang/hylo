@@ -27,9 +27,6 @@ public struct Emitter {
   /// A stack of frames describing the variables and allocations of each traversed lexical scope.
   private var frames = Stack()
 
-  /// The receiver of the function or subscript currently being lowered, if any.
-  private var receiver: ParameterDecl.ID?
-
   /// The diagnostics of lowering errors.
   private var diagnostics: DiagnosticSet = []
 
@@ -156,9 +153,7 @@ public struct Emitter {
     // Configure the emitter context.
     let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
     let bodyFrame = outermostFrame(of: d, entering: entry)
-
     self.insertionBlock = entry
-    self.receiver = ast[d].receiver
 
     // Emit the body.
     switch b {
@@ -232,12 +227,9 @@ public struct Emitter {
     // Configure the emitter context.
     let entry = module.appendEntry(in: d, to: f)
 
-    let r = self.receiver
     self.insertionBlock = entry
-    self.receiver = nil
     self.frames.push()
     defer {
-      self.receiver = r
       self.frames.pop()
       assert(self.frames.isEmpty)
     }
@@ -292,13 +284,8 @@ public struct Emitter {
       locals[p] = .parameter(entry, i + 1)
     }
 
-    // Configure the emitter context.
-    let r = self.receiver
-    insertionBlock = entry
-    receiver = ast[d].receiver
-    defer { receiver = r }
-
     // Emit the body.
+    insertionBlock = entry
     switch pushing(Frame(locals: locals), { $0.emit(braceStmt: $0.ast[d].body!) }) {
     case .next:
       emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: ast[d].site))
@@ -353,13 +340,8 @@ public struct Emitter {
       }
     }
 
-    // Configure the emitter context.
-    let r = self.receiver
-    self.insertionBlock = entry
-    self.receiver = ast[d].receiver
-    defer { receiver = r }
-
     // Emit the body.
+    self.insertionBlock = entry
     switch b {
     case .block(let s):
       lower(body: s, of: d, in: Frame(locals: locals))
@@ -2120,19 +2102,16 @@ public struct Emitter {
     return action(&self)
   }
 
-  /// Returns the result of calling `action` on a copy of `self` whose insertion block, frames,
-  /// and receiver are clear.
+  /// Returns the result of calling `action` on a copy of `self` whose insertion block and frames
+  /// are clear.
   private mutating func withClearContext<T>(_ action: (inout Self) throws -> T) rethrows -> T {
     var b: Block.ID? = nil
-    var r: ParameterDecl.ID? = nil
     var f = Stack()
 
     swap(&b, &insertionBlock)
-    swap(&r, &receiver)
     swap(&f, &frames)
     defer {
       swap(&b, &insertionBlock)
-      swap(&r, &receiver)
       swap(&f, &frames)
     }
     return try action(&self)
