@@ -1481,8 +1481,7 @@ public struct Emitter {
 
     case .addressOf:
       let source = emitLValue(arguments[0].value)
-      return append(
-        module.makeAddressToPointer(source, at: site))[0]
+      return append(module.makeAddressToPointer(source, at: site))[0]
     }
   }
 
@@ -1531,24 +1530,14 @@ public struct Emitter {
         usedIn: insertionScope!, in: &module)
       return (.constant(r), [])
 
-    case .member(let d, let a, _) where d.kind == FunctionDecl.self:
+    case .member(let d, let a, let s) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
       let r = FunctionReference(
         to: FunctionDecl.ID(d)!, parameterizedBy: a,
         usedIn: insertionScope!, in: &module)
 
-      // Emit the location of the receiver.
-      let receiver: Operand
-      switch ast[callee].domain {
-      case .none:
-        receiver = frames[self.receiver!]!
-      case .expr(let e):
-        receiver = emitLValue(e)
-      case .implicit:
-        unreachable()
-      }
-
-      // Load or borrow the receiver.
+      // The callee's receiver is the sole capture.
+      let receiver = emitLValue(receiver: s, at: ast[callee].site)
       if let t = RemoteType(calleeType.captures[0].type) {
         let i = append(module.makeBorrow(t.access, from: receiver, at: ast[callee].site))
         return (Operand.constant(r), i)
@@ -1585,7 +1574,9 @@ public struct Emitter {
     }
   }
 
-  private mutating func emit(subscriptCallee callee: AnyExprID) -> SubscriptBundleReference {
+  private mutating func emit(
+    subscriptCallee callee: AnyExprID
+  ) -> (callee: SubscriptBundleReference, captures: [Operand]) {
     // TODO: Handle captures
     switch callee.kind {
     case NameExpr.self:
@@ -1602,14 +1593,34 @@ public struct Emitter {
 
   private mutating func emit(
     namedSubscriptCallee callee: NameExpr.ID
-  ) -> SubscriptBundleReference {
+  ) -> (callee: SubscriptBundleReference, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == SubscriptDecl.self:
-      // Direct reference to a subscript declaration.
-      return .init(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+      // Callee is a direct reference to a subscript declaration.
+      let t = SubscriptType(program.relations.canonical(program[d].type))!
+      guard t.environment == .void else {
+        fatalError("not implemented")
+      }
+
+      let b = SubscriptBundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+      return (b, [])
+
+    case .member(let d, let a, let s) where d.kind == SubscriptDecl.self:
+      // Callee is a member reference to a subscript declaration.
+      let b = SubscriptBundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+
+      // The callee's receiver is the sole capture.
+      let receiver = emitLValue(receiver: s, at: ast[callee].site)
+      let t = SubscriptType(program[d].type)!
+      let i = append(module.makeAccess(t.capabilities, from: receiver, at: ast[callee].site))
+      return (b, i)
+
+    case .builtinFunction, .builtinType:
+      // There are no built-in subscripts.
+      unreachable()
 
     default:
-      fatalError()
+      fatalError("not implemented")
     }
   }
 
@@ -1766,17 +1777,21 @@ public struct Emitter {
   }
 
   private mutating func emitLValue(inoutExpr e: InoutExpr.ID) -> Operand {
-    return emitLValue(ast[e].subject)
+    emitLValue(ast[e].subject)
   }
 
   private mutating func emitLValue(name e: NameExpr.ID) -> Operand {
-    switch program[e].referredDecl {
+    emitLValue(reference: program[e].referredDecl, at: ast[e].site)
+  }
+
+  private mutating func emitLValue(reference r: DeclReference, at site: SourceRange) -> Operand {
+    switch r {
     case .direct(let d, _):
       return emitLValue(directReferenceTo: d)
 
-    case .member(let d, let a, _):
-      let r = emitLValue(receiverOf: e)
-      return emitProperty(boundTo: r, declaredBy: d, parameterizedBy: a, at: ast[e].site)
+    case .member(let d, let a, let s):
+      let receiver = emitLValue(receiver: s, at: site)
+      return emitProperty(boundTo: receiver, declaredBy: d, parameterizedBy: a, at: site)
 
     case .constructor:
       fatalError("not implemented")
@@ -1784,6 +1799,20 @@ public struct Emitter {
     case .builtinModule, .builtinFunction, .builtinType, .intrinsicType:
       // Built-in symbols and intrinsic types are never used as l-value.
       unreachable()
+    }
+  }
+
+  /// Returns the address of the `operation`'s receiver, which refers to a member declaration.
+  private mutating func emitLValue(
+    receiver r: DeclReference.Receiver, at site: SourceRange
+  ) -> Operand {
+    switch r {
+    case .operand, .implicit:
+      unreachable()
+    case .explicit(let e):
+      return emitLValue(e)
+    case .elided(let s):
+      return emitLValue(reference: s, at: site)
     }
   }
 
@@ -1805,18 +1834,6 @@ public struct Emitter {
     }
   }
 
-  /// Inserts the IR denoting the domain of `syntax`.
-  private mutating func emitLValue(receiverOf e: NameExpr.ID) -> Operand {
-    switch ast[e].domain {
-    case .none:
-      return frames[receiver!]!
-    case .implicit:
-      fatalError("not implemented")
-    case .expr(let e):
-      return emitLValue(e)
-    }
-  }
-
   private mutating func emitLValue(subscriptCall e: SubscriptCallExpr.ID) -> Operand {
     // Explicit arguments are evaluated first, from left to right.
     let explicitArguments = emit(
@@ -1824,19 +1841,17 @@ public struct Emitter {
       synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[e].site))
 
     // Callee and captures are evaluated next.
-    // TODO: Handle captures
-    let callee = emit(subscriptCallee: ast[e].callee)
-    let arguments = explicitArguments
-
-    // Projection is evaluated last.
-    let t = SubscriptType(
-      program.canonicalType(of: callee.bundle, parameterizedBy: callee.arguments))!
+    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
+    let arguments = captures + explicitArguments
 
     var variants: [AccessEffect: Function.ID] = [:]
     for v in ast[callee.bundle].impls {
       variants[ast[v].introducer.value] = module.demandSubscriptDeclaration(lowering: v)
     }
 
+    // Projection is evaluated last.
+    let t = SubscriptType(
+      program.canonicalType(of: callee.bundle, parameterizedBy: callee.arguments))!
     return append(
       module.makeProjectBundle(
         applying: variants, of: callee, typed: t, to: arguments, at: ast[e].site))[0]
