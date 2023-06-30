@@ -14,7 +14,7 @@ public struct NameExpr: Expr {
     case implicit
 
     /// Explicit, as `foo.` in `foo.bar` or `.foo.` in `.foo.bar`.
-    case expr(AnyExprID)
+    case explicit(AnyExprID)
 
   }
 

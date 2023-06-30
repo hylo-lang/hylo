@@ -25,7 +25,7 @@ public enum DeclReference: Hashable {
         self = .operand
       case .implicit:
         self = .implicit
-      case .expr(let e):
+      case .explicit(let e):
         self = .explicit(e)
       }
     }

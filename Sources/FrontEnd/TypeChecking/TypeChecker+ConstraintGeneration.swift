@@ -453,7 +453,7 @@ extension TypeChecker {
           return state.facts.assignErrorType(to: subject)
         }
 
-      case .expr(let e):
+      case .explicit(let e):
         lastVisitedComponentType = inferredType(of: e, shapedBy: nil, updating: &state)
 
       case .none, .operand:
