@@ -173,21 +173,23 @@ extension Program {
     }
   }
 
-  /// Returns whether `decl` is member of a type declaration.
-  public func isMember<T: DeclID>(_ decl: T) -> Bool {
-    guard let parent = nodeToScope[decl] else { return false }
+  /// Returns whether `d` is member of a type declaration.
+  public func isMember<T: DeclID>(_ d: T) -> Bool {
+    guard let parent = nodeToScope[d] else { return false }
 
     switch parent.kind {
     case ConformanceDecl.self,
       ExtensionDecl.self,
-      MethodDecl.self,
       ProductTypeDecl.self,
       TraitDecl.self,
       TypeAliasDecl.self:
       return true
 
+    case MethodDecl.self:
+      return d.kind == MethodImpl.self
+
     case SubscriptDecl.self:
-      return isMember(SubscriptDecl.ID(parent)!)
+      return (d.kind == SubscriptImpl.self) && isMember(SubscriptDecl.ID(parent)!)
 
     default:
       return false
