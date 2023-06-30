@@ -16,6 +16,9 @@ struct MemberConstraint: Constraint, Hashable {
   /// The name of the member in `subject` that must have type `memberType`.
   let memberName: Name
 
+  /// The purpose of `memberExpr`.
+  let purpose: NameUse
+
   /// The site from which a constraint originates and the reason why it was formed.
   let origin: ConstraintOrigin
 
@@ -28,12 +31,14 @@ struct MemberConstraint: Constraint, Hashable {
     hasMember memberType: AnyType,
     referredToBy memberExpr: NameExpr.ID,
     in ast: AST,
+    usedAs purpose: NameUse,
     origin: ConstraintOrigin
   ) {
     self.subject = subject
     self.memberType = memberType
     self.memberExpr = memberExpr
     self.memberName = ast[memberExpr].name.value
+    self.purpose = purpose
     self.origin = origin
   }
 

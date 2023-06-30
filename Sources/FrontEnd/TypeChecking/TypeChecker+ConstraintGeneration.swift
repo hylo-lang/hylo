@@ -437,8 +437,8 @@ extension TypeChecker {
     updating state: inout Context
   ) -> AnyType {
     let resolution = resolve(subject, usedAs: purpose, withNonNominalPrefix: { (_, _) in nil })
-    let unresolvedComponents: [NameExpr.ID]
-    var lastVisitedComponentType: AnyType?
+    let unresolved: [NameExpr.ID]
+    var lastVisited: AnyType?
 
     switch resolution {
     case .failed:
@@ -448,38 +448,39 @@ extension TypeChecker {
       switch ast[suffix[0]].domain {
       case .implicit:
         if let t = domain {
-          lastVisitedComponentType = t
+          lastVisited = t
         } else {
           report(.error(noContextToResolve: ast[subject].name.value, at: ast[subject].name.site))
           return state.facts.assignErrorType(to: subject)
         }
 
       case .expr(let e):
-        lastVisitedComponentType = inferredType(of: e, shapedBy: nil, updating: &state)
+        lastVisited = inferredType(of: e, shapedBy: nil, updating: &state)
 
       case .none, .operand:
         unreachable()
       }
-      unresolvedComponents = suffix
+      unresolved = suffix
 
     case .done(let prefix, let suffix):
-      unresolvedComponents = suffix
+      unresolved = suffix
       for p in prefix {
-        lastVisitedComponentType = bind(p.component, to: p.candidates, updating: &state)
+        lastVisited = bind(p.component, to: p.candidates, updating: &state)
       }
     }
 
     // Create the necessary constraints to let the solver resolve the remaining components.
-    for component in unresolvedComponents {
+    for (i, component) in unresolved.enumerated() {
       let memberType = ^TypeVariable()
       state.facts.append(
         MemberConstraint(
-          lastVisitedComponentType!, hasMember: memberType, referredToBy: component, in: ast,
+          lastVisited!, hasMember: memberType, referredToBy: component, in: ast,
+          usedAs: (i == unresolved.count - 1) ? purpose : .unapplied,
           origin: ConstraintOrigin(.member, at: ast[component].site)))
-      lastVisitedComponentType = state.facts.constrain(component, in: ast, toHaveType: memberType)
+      lastVisited = state.facts.constrain(component, in: ast, toHaveType: memberType)
     }
 
-    return lastVisitedComponentType!
+    return lastVisited!
   }
 
   private mutating func inferredType(
@@ -530,6 +531,7 @@ extension TypeChecker {
       state.facts.append(
         MemberConstraint(
           lhsType, hasMember: operatorType, referredToBy: callee.expr, in: ast,
+          usedAs: .unapplied,
           origin: ConstraintOrigin(.member, at: ast[callee.expr].site)))
       state.facts.append(
         CallConstraint(
@@ -648,13 +650,13 @@ extension TypeChecker {
   /// subscript called with `arguments`, updating `state` with inference facts and deferred type
   /// checking requests.
   private mutating func inferredType(
-    ofCallee callee: AnyExprID, usedAs use: NameUse, shapedBy shape: AnyType?,
+    ofCallee callee: AnyExprID, usedAs purpose: NameUse, shapedBy shape: AnyType?,
     updating state: inout Context
   ) -> AnyType {
-    assert(use != .unapplied)
-    if let callee = NameExpr.ID(callee) {
+    assert(purpose != .unapplied)
+    if let n = NameExpr.ID(callee) {
       return inferredType(
-        of: callee, withImplicitDomain: shape, usedAs: use, shapedBy: nil, updating: &state)
+        of: n, withImplicitDomain: shape, usedAs: purpose, shapedBy: nil, updating: &state)
     } else {
       return inferredType(of: callee, shapedBy: nil, updating: &state)
     }

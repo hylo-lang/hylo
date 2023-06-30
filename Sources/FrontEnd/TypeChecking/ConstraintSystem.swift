@@ -443,7 +443,7 @@ struct ConstraintSystem {
     let context = NameResolutionContext(
       type: goal.subject, arguments: [:], receiver: .init(checker.ast[goal.memberExpr].domain))
     let candidates = checker.resolve(
-      n, parameterizedBy: [], memberOf: context, exposedTo: scope, usedAs: .unapplied)
+      n, parameterizedBy: [], memberOf: context, exposedTo: scope, usedAs: goal.purpose)
 
     if candidates.elements.isEmpty {
       return .failure { (d, m, _) in

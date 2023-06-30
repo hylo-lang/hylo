@@ -1934,7 +1934,7 @@ public struct TypeChecker {
     exposedTo useScope: AnyScopeID,
     usedAs purpose: NameUse
   ) -> NameResolutionResult.CandidateSet? {
-    // Nothing to do if `parent.type` is a callableb type.
+    // Nothing to do if `parent.type` is a callable type.
     if parent.type.base is CallableType {
       return nil
     }
