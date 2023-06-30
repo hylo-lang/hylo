@@ -1598,23 +1598,6 @@ public struct TypeChecker {
 
   }
 
-  /// How a name expression is being used.
-  enum NameUse: Equatable {
-
-    /// The name is used as the callee of an arbitrary function call.
-    case function
-
-    /// The name is used as the callee of a constructor call.
-    case constructor
-
-    /// The name is used as the callee of a subscript call.
-    case `subscript`
-
-    /// The name is used as an unapplied reference to a declaration.
-    case unapplied
-
-  }
-
   /// The member lookup tables of the types.
   ///
   /// This property is used to memoize the results of `lookup(_:memberOf:in)`.
