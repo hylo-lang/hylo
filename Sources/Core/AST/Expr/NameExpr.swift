@@ -2,7 +2,7 @@
 public struct NameExpr: Expr {
 
   /// A name's qualification
-  public enum Domain: ExpressibleByNilLiteral, Equatable, Codable {
+  public enum Domain: Equatable, Codable {
 
     /// Unqualified as in `bar`.
     case none
@@ -12,10 +12,6 @@ public struct NameExpr: Expr {
 
     /// Explicit, as `foo.` in `foo.bar` or `.foo.` in `.foo.bar`.
     case expr(AnyExprID)
-
-    public init(nilLiteral: ()) {
-      self = .none
-    }
 
   }
 
