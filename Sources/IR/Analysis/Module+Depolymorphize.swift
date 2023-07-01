@@ -163,7 +163,7 @@ extension Module {
       case is EndBorrowInstruction:
         rewrite(endBorrow: i, to: b)
       case is EndProjectInstruction:
-        rewrite(endBorrow: i, to: b)
+        rewrite(endProject: i, to: b)
       case is GlobalAddrInstruction:
         rewrite(globalAddr: i, to: b)
       case is LLVMInstruction:
