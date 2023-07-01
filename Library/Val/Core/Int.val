@@ -10,7 +10,12 @@ public type Int {
     &self.value = Builtin.zeroinitializer_i64()
   }
 
-  /// Creates an instance with the bit pattern of `address`.
+  /// Creates an instance with the same memory representation as `other`.
+  public init(bit_pattern other: UInt) {
+    &self.value = other.value
+  }
+
+  /// Creates an instance with the same memory representation as `address`.
   public init(bit_pattern address: RawPointer) {
     &self.value = Builtin.ptrtoint_i64(address.value)
   }

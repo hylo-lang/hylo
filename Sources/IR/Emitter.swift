@@ -1225,6 +1225,8 @@ public struct Emitter {
       emitStore(integer: literal, signed: true, bitWidth: 32, to: storage)
     case ast.coreType("Int8")!:
       emitStore(integer: literal, signed: true, bitWidth: 8, to: storage)
+    case ast.coreType("UInt")!:
+      emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
     case ast.coreType("Float64")!:
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
     case ast.coreType("Float32")!:
