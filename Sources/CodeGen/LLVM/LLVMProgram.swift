@@ -24,7 +24,7 @@ public struct LLVMProgram {
   ) throws {
     self.target = try target ?? LLVM.TargetMachine(for: .host())
     for m in ir.modules.keys {
-      let transpilation = ir.transpile(m)
+      let transpilation = LLVM.Module(transpiling: m, from: ir)
       do {
         try transpilation.verify()
       } catch {
