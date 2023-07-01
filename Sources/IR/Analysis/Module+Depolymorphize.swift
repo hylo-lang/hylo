@@ -219,7 +219,8 @@ extension Module {
 
       let newCallee: Operand
       if let callee = s.callee.constant as? FunctionReference, !callee.arguments.isEmpty {
-        let g = monomorphize(callee, in: ir)
+        let p = program.monomorphize(callee.arguments, for: parameterization)
+        let g = monomorphize(callee.function, for: p, usedIn: callee.useScope, in: ir)
         newCallee = .constant(FunctionReference(to: g, usedIn: callee.useScope, in: self))
       } else {
         newCallee = rewritten(s.callee)
