@@ -21,7 +21,6 @@ extension LLVM.Module {
   /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
   mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
     let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
-
     let d = declareGlobalVariable("\(m.id)\(g)", v.type)
     setInitializer(v, for: d)
     setLinkage(.private, for: d)
@@ -88,7 +87,13 @@ extension LLVM.Module {
     if let t = type(named: "_val_metatype") {
       return .init(t)!
     }
-    return StructType([i64, i64, ptr], in: &self)
+
+    let fields: [LLVM.IRType] = [
+      word(),   // size
+      word(),   // alignment
+      ptr,      // representation
+    ]
+    return LLVM.StructType(fields, in: &self)
   }
 
   /// Returns the LLVM type of an existential container.
@@ -318,8 +323,16 @@ extension LLVM.Module {
       return instance
     }
 
-    // TODO: compute size, alignment, and representation
-    setInitializer(metatype.null, for: instance)
+    let u = ir.llvm(t, in: &self)
+    let initializer = metatype.constant(
+      aggregating: [
+        word().constant(truncatingIfNeeded: self.layout.storageSize(of: u)),
+        word().constant(truncatingIfNeeded: self.layout.preferredAlignment(of: u)),
+        ptr.null,
+      ],
+      in: &self)
+
+    setInitializer(initializer, for: instance)
     setGlobalConstant(true, for: instance)
     return instance
   }
