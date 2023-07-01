@@ -11,11 +11,12 @@ extension Module {
       let f = functions[k]!
       if (f.linkage != .external) || (f.entry == nil) { continue }
 
-      // Existentialize public generic functions.
-      let j = f.isGeneric ? existentialize(k) : k
-
-      // Depolymorphize all public functions.
-      depolymorphize(j, in: ir)
+      if f.isGeneric {
+        // Existentialize public, non-inlinable generic functions.
+        _ = existentialize(k)
+      } else {
+        depolymorphize(k, in: ir)
+      }
     }
   }
 
@@ -65,7 +66,7 @@ extension Module {
     // TODO: Use existentialization unless the subscript is inlinable
 
     let useScope = self[Block.ID(i.function, i.block)].scope
-    let g = monomorphize(s.callee, for: s.parameterization, usedIn: useScope, in: ir)
+    let g = monomorphize(s.callee, in: ir, for: s.parameterization, usedIn: useScope)
     let new = makeProject(
       s.projection, applying: g, parameterizedBy: [:], to: s.operands, at: s.site)
     replace(i, with: new)
@@ -96,17 +97,18 @@ extension Module {
   private mutating func monomorphize(
     _ r: FunctionReference, in ir: LoweredProgram
   ) -> Function.ID {
-    monomorphize(r.function, for: r.arguments, usedIn: r.useScope, in: ir)
+    monomorphize(r.function, in: ir, for: r.arguments, usedIn: r.useScope)
   }
 
   /// Returns a reference to the monomorphized form of `f` for given `parameterization` in
   /// `useScope`, reading definitions from `ir`.
   @discardableResult
   private mutating func monomorphize(
-    _ f: Function.ID, for parameterization: GenericArguments, usedIn useScope: AnyScopeID,
-    in ir: LoweredProgram
+    _ f: Function.ID, in ir: LoweredProgram,
+    for parameterization: GenericArguments, usedIn useScope: AnyScopeID
   ) -> Function.ID {
-    let result = demandMonomorphizedDeclaration(of: f, for: parameterization, in: useScope)
+    let result = demandMonomorphizedDeclaration(
+      of: f, in: ir, for: parameterization, usedIn: useScope)
     if self[result].entry != nil {
       return result
     }
@@ -222,7 +224,7 @@ extension Module {
       let newCallee: Operand
       if let callee = s.callee.constant as? FunctionReference, !callee.arguments.isEmpty {
         let p = program.monomorphize(callee.arguments, for: parameterization)
-        let g = monomorphize(callee.function, for: p, usedIn: callee.useScope, in: ir)
+        let g = monomorphize(callee.function, in: ir, for: p, usedIn: callee.useScope)
         newCallee = .constant(FunctionReference(to: g, usedIn: callee.useScope, in: self))
       } else {
         newCallee = rewritten(s.callee)
@@ -321,7 +323,7 @@ extension Module {
         newCallee = s.callee
       } else {
         let p = program.monomorphize(s.parameterization, for: parameterization)
-        newCallee = monomorphize(s.callee, for: p, usedIn: self[b].scope, in: ir)
+        newCallee = monomorphize(s.callee, in: ir, for: p, usedIn: self[b].scope)
       }
 
       let t = RemoteType(program.monomorphize(^s.projection, for: s.parameterization))!
@@ -370,14 +372,14 @@ extension Module {
   /// Returns the identity of the Val IR function monomorphizing `f` for given `parameterization`
   /// in `useScope`.
   private mutating func demandMonomorphizedDeclaration(
-    of f: Function.ID,
-    for parameterization: GenericArguments,
-    in useScope: AnyScopeID
+    of f: Function.ID, in ir: LoweredProgram,
+    for parameterization: GenericArguments, usedIn useScope: AnyScopeID
   ) -> Function.ID {
     let result = Function.ID(monomorphized: f, for: parameterization)
     if functions[result] != nil { return result }
 
-    let source = self[f]
+    let m = ir.modules[ir.module(defining: f)]!
+    let source = m[f]
 
     let inputs = source.inputs.map { (p) in
       let t = program.monomorphize(p.type.bareType, for: parameterization)
