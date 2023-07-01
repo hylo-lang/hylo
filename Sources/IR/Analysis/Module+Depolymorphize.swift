@@ -38,9 +38,7 @@ extension Module {
   /// depolymorphized version of its callee. Otherwise, does nothing.
   ///
   /// - Requires: `i` identifies a `CallInstruction`
-  private mutating func depolymorphize(
-    call i: InstructionID, in ir: LoweredProgram
-  ) {
+  private mutating func depolymorphize(call i: InstructionID, in ir: LoweredProgram) {
     let s = self[i] as! CallInstruction
     guard
       let callee = s.callee.constant as? FunctionReference,
@@ -60,9 +58,7 @@ extension Module {
   /// a depolymorphized version of its callee. Otherwise, does nothing.
   ///
   /// - Requires: `i` identifies a `ProjectInstruction`
-  private mutating func depolymorphize(
-    project i: InstructionID, in ir: LoweredProgram
-  ) {
+  private mutating func depolymorphize(project i: InstructionID, in ir: LoweredProgram) {
     let s = self[i] as! ProjectInstruction
     guard !s.parameterization.isEmpty else { return }
 
@@ -223,7 +219,8 @@ extension Module {
 
       let newCallee: Operand
       if let callee = s.callee.constant as? FunctionReference, !callee.arguments.isEmpty {
-        let g = monomorphize(callee, in: ir)
+        let p = program.monomorphize(callee.arguments, for: parameterization)
+        let g = monomorphize(callee.function, for: p, usedIn: callee.useScope, in: ir)
         newCallee = .constant(FunctionReference(to: g, usedIn: callee.useScope, in: self))
       } else {
         newCallee = rewritten(s.callee)

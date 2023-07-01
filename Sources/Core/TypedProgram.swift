@@ -120,11 +120,16 @@ public struct TypedProgram: Program {
     return p.reversed().joined()
   }
 
-  /// Returns a copy of `generic` monomorphized for the given `arguments`.
-  ///
-  /// This method has no effect if `arguments` is empty.
-  public func monomorphize(_ generic: AnyType, for arguments: GenericArguments) -> AnyType {
-    relations.monomorphize(generic, for: arguments)
+  /// Returns a copy of `generic` monomorphized for the given `parameterization`.
+  public func monomorphize(_ generic: AnyType, for parameterization: GenericArguments) -> AnyType {
+    relations.monomorphize(generic, for: parameterization)
+  }
+
+  /// Returns `arguments` monomorphized for the given `parameterization`.
+  public func monomorphize(
+    _ arguments: GenericArguments, for parameterization: GenericArguments
+  ) -> GenericArguments {
+    relations.monomorphize(arguments, for: parameterization)
   }
 
   /// If `t` has a record layout, returns the names and types of its stored properties, replacing
