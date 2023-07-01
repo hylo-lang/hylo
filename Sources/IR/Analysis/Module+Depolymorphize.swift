@@ -174,6 +174,8 @@ extension Module {
         rewrite(markState: i, to: b)
       case is PointerToAddressInstruction:
         rewrite(pointerToAddress: i, to: b)
+      case is ProjectInstruction:
+        rewrite(project: i, to: b)
       case is ReturnInstruction:
         rewrite(return: i, to: b)
       case is StoreInstruction:
@@ -308,6 +310,24 @@ extension Module {
       let newInstruction = makePointerToAddress(
         rewritten(s.source), to: RemoteType(t)!, at: s.site)
       append(newInstruction, to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(project i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! ProjectInstruction
+
+      let newCallee: Function.ID
+      if s.parameterization.isEmpty {
+        newCallee = s.callee
+      } else {
+        let p = program.monomorphize(s.parameterization, for: parameterization)
+        newCallee = monomorphize(s.callee, for: p, usedIn: self[b].scope, in: ir)
+      }
+
+      let t = RemoteType(program.monomorphize(^s.projection, for: s.parameterization))!
+      let a = s.operands.map(rewritten(_:))
+      append(
+        makeProject(t, applying: newCallee, parameterizedBy: [:], to: a, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
