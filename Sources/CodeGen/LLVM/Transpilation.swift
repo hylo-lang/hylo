@@ -5,6 +5,19 @@ import Utils
 
 extension LLVM.Module {
 
+  /// Creates the LLVM transpilation of the Val IR module `m` in `ir`.
+  init(transpiling m: ModuleDecl.ID, from ir: LoweredProgram) {
+    let source = ir.modules[m]!
+    self.init(source.name)
+
+    for g in source.globals.indices {
+      incorporate(g, of: source, from: ir)
+    }
+    for f in source.functions.keys {
+      incorporate(f, of: source, from: ir)
+    }
+  }
+
   /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
   mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
     let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
