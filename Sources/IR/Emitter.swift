@@ -1928,13 +1928,7 @@ public struct Emitter {
   ) -> Bool {
     let t = module.type(of: storage).ast
     switch t.base {
-    case is BuiltinType:
-      // Deinitialization of built-in types is a no-op.
-      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
-      return true
-
-    case AnyType.void, AnyType.never:
-      // Deinitialization of `Void` and `Never` is no-op.
+    case is BuiltinType, is MetatypeType, AnyType.void, AnyType.never:
       module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
       return true
 
