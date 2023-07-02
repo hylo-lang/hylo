@@ -1575,7 +1575,7 @@ public struct TypeChecker {
     let isSound = deferredQueries.reduce(solution.isSound, { (s, q) in q(&self, solution) && s })
 
     diagnostics.formUnion(solution.diagnostics)
-    assert(isSound || diagnostics.containsError, "inferrence failed without diagnostics")
+    assert(isSound || diagnostics.containsError, "inference failed without diagnostics")
     return (succeeded: isSound, solution: solution)
   }
 
@@ -2132,7 +2132,11 @@ public struct TypeChecker {
     // Handle references to imported symbols.
     if let u = containingFile, let fileImports = imports[u] {
       for m in fileImports {
-        matches.formUnion(names(introducedIn: m)[stem, default: []])
+        if ast[m].baseName == stem {
+          matches.insert(AnyDeclID(m))
+        } else {
+          matches.formUnion(names(introducedIn: m)[stem, default: []])
+        }
       }
     }
 

@@ -174,6 +174,8 @@ extension Module {
         rewrite(load: i, to: b)
       case is MarkStateInstruction:
         rewrite(markState: i, to: b)
+      case is PartialApplyInstruction:
+        rewrite(partialApply: i, to: b)
       case is PointerToAddressInstruction:
         rewrite(pointerToAddress: i, to: b)
       case is ProjectInstruction:
@@ -305,6 +307,24 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(partialApply i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! PartialApplyInstruction
+
+      let newCallee: FunctionReference
+      if s.callee.arguments.isEmpty {
+        assert(!sourceModule[s.callee.function].isGeneric)
+        newCallee = s.callee
+      } else {
+        let p = program.monomorphize(s.callee.arguments, for: parameterization)
+        let g = monomorphize(s.callee.function, in: ir, for: p, usedIn: s.callee.useScope)
+        newCallee = FunctionReference(to: g, usedIn: s.callee.useScope, in: self)
+      }
+
+      let e = rewritten(s.environment)
+      append(makePartialApply(wrapping: newCallee, with: e, at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(pointerToAddress i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! PointerToAddressInstruction
       let t = program.monomorphize(^s.target, for: parameterization)
@@ -356,11 +376,20 @@ extension Module {
       append(makeYield(s.capability, rewritten(s.projection), at: s.site), to: b)
     }
 
+    /// Returns the rewritten form of `c` for use in `result`.
+    func rewritten(_ c: any Constant) -> any Constant {
+      if let t = c as? MetatypeType {
+        return MetatypeType(program.monomorphize(^t, for: parameterization))!
+      } else {
+        return c
+      }
+    }
+
     /// Returns the rewritten form of `o`, which is used in `r.function`, for use in `result`.
     func rewritten(_ o: Operand) -> Operand {
       switch o {
-      case .constant:
-        return o
+      case .constant(let c):
+        return .constant(rewritten(c))
       case .parameter(let b, let i):
         return .parameter(rewrittenBlocks[b]!, i)
       case .register(let s, let i):

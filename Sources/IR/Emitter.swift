@@ -1128,7 +1128,9 @@ public struct Emitter {
 
   private mutating func emitStore(lambda e: LambdaExpr.ID, to storage: Operand) {
     let f = lower(function: ast[e].decl)
-    let r = FunctionReference(to: f, usedIn: insertionScope!, in: module)
+    let r = FunctionReference(
+      to: f, parameterizedBy: module.parameterization(in: insertionBlock!.function),
+      usedIn: insertionScope!, in: module)
 
     let x0 = append(module.makePartialApply(wrapping: r, with: .void, at: ast[e].site))[0]
     let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
@@ -1509,8 +1511,9 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
+      let p = module.parameterization(in: insertionBlock!.function).appending(a)
       let r = FunctionReference(
-        to: FunctionDecl.ID(d)!, parameterizedBy: a,
+        to: FunctionDecl.ID(d)!, parameterizedBy: p,
         usedIn: insertionScope!, in: &module)
       return (.constant(r), [])
 
@@ -1771,7 +1774,7 @@ public struct Emitter {
   private mutating func emitLValue(reference r: DeclReference, at site: SourceRange) -> Operand {
     switch r {
     case .direct(let d, _):
-      return emitLValue(directReferenceTo: d)
+      return emitLValue(directReferenceTo: d, at: site)
 
     case .member(let d, let a, let s):
       let receiver = emitLValue(receiver: s, at: site)
@@ -1800,22 +1803,29 @@ public struct Emitter {
     }
   }
 
-  /// Inserts the IR denoting a direct reference to `d` at the end of the current insertion block.
-  private mutating func emitLValue(directReferenceTo d: AnyDeclID) -> Operand {
-    // Check if `d` is a local.
-    if let s = frames[d] { return s }
+  /// Inserts the IR denoting a direct reference to `d`.
+  private mutating func emitLValue(
+    directReferenceTo d: AnyDeclID, at site: SourceRange
+  ) -> Operand {
+    // Handle local bindings.
+    if let s = frames[d] {
+      return s
+    }
 
-    switch d.kind {
-    case ProductTypeDecl.self:
-      let t = MetatypeType(of: program[d].type)
-      let g = module.addGlobal(MetatypeType(program[d].type)!)
-      let s = module.makeGlobalAddr(
-        of: g, in: module.id, typed: ^MetatypeType(of: t), at: ast[d].site)
-      return append(s)[0]
-
-    default:
+    // Handle global bindings.
+    if d.kind == VarDecl.self {
       fatalError("not implemented")
     }
+
+    // Handle references to type declarations.
+    if let t = MetatypeType(program[d].type) {
+      let s = emitAllocStack(for: ^t, at: site)
+      append(module.makeStore(.constant(t), at: s, at: site))
+      return s
+    }
+
+    // Handle references to global functions.
+    fatalError("not implemented")
   }
 
   private mutating func emitLValue(subscriptCall e: SubscriptCallExpr.ID) -> Operand {
@@ -1919,13 +1929,7 @@ public struct Emitter {
   ) -> Bool {
     let t = module.type(of: storage).ast
     switch t.base {
-    case is BuiltinType:
-      // Deinitialization of built-in types is a no-op.
-      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
-      return true
-
-    case AnyType.void, AnyType.never:
-      // Deinitialization of `Void` and `Never` is no-op.
+    case is BuiltinType, is MetatypeType, AnyType.void, AnyType.never:
       module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
       return true
 

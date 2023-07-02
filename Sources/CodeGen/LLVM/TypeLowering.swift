@@ -18,6 +18,8 @@ extension LoweredProgram {
       return llvm(boundGenericType: t, in: &module)
     case let t as LambdaType:
       return llvm(lambdaType: t, in: &module)
+    case is MetatypeType:
+      return module.ptr
     case let t as ProductType:
       return llvm(productType: t, in: &module)
     case let t as SumType:
