@@ -174,6 +174,8 @@ extension Module {
         rewrite(load: i, to: b)
       case is MarkStateInstruction:
         rewrite(markState: i, to: b)
+      case is PartialApplyInstruction:
+        rewrite(partialApply: i, to: b)
       case is PointerToAddressInstruction:
         rewrite(pointerToAddress: i, to: b)
       case is ProjectInstruction:
@@ -302,6 +304,24 @@ extension Module {
     func rewrite(load i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! LoadInstruction
       append(makeLoad(rewritten(s.source), at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(partialApply i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! PartialApplyInstruction
+
+      let newCallee: FunctionReference
+      if s.callee.arguments.isEmpty {
+        assert(!sourceModule[s.callee.function].isGeneric)
+        newCallee = s.callee
+      } else {
+        let p = program.monomorphize(s.callee.arguments, for: parameterization)
+        let g = monomorphize(s.callee.function, in: ir, for: p, usedIn: s.callee.useScope)
+        newCallee = FunctionReference(to: g, usedIn: s.callee.useScope, in: self)
+      }
+
+      let e = rewritten(s.environment)
+      append(makePartialApply(wrapping: newCallee, with: e, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
