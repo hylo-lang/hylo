@@ -354,9 +354,7 @@ public struct Module {
 
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
   private func appendCaptures(
-    _ captures: [TupleType.Element],
-    passed effect: AccessEffect,
-    to inputs: inout [Parameter]
+    _ captures: [TupleType.Element], passed effect: AccessEffect, to inputs: inout [Parameter]
   ) {
     inputs.reserveCapacity(captures.count)
     for c in captures {
@@ -373,8 +371,7 @@ public struct Module {
 
   /// Appends `parameters` to `inputs`, ensuring that their types are canonical.
   private func appendParameters(
-    _ parameters: [CallableTypeParameter],
-    to inputs: inout [Parameter]
+    _ parameters: [CallableTypeParameter], to inputs: inout [Parameter]
   ) {
     inputs.reserveCapacity(parameters.count)
     for p in parameters {
