@@ -376,11 +376,20 @@ extension Module {
       append(makeYield(s.capability, rewritten(s.projection), at: s.site), to: b)
     }
 
+    /// Returns the rewritten form of `c` for use in `result`.
+    func rewritten(_ c: any Constant) -> any Constant {
+      if let t = c as? MetatypeType {
+        return MetatypeType(program.monomorphize(^t, for: parameterization))!
+      } else {
+        return c
+      }
+    }
+
     /// Returns the rewritten form of `o`, which is used in `r.function`, for use in `result`.
     func rewritten(_ o: Operand) -> Operand {
       switch o {
-      case .constant:
-        return o
+      case .constant(let c):
+        return .constant(rewritten(c))
       case .parameter(let b, let i):
         return .parameter(rewrittenBlocks[b]!, i)
       case .register(let s, let i):
