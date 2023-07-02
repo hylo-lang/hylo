@@ -1511,8 +1511,9 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
+      let p = module.parameterization(in: insertionBlock!.function).appending(a)
       let r = FunctionReference(
-        to: FunctionDecl.ID(d)!, parameterizedBy: a,
+        to: FunctionDecl.ID(d)!, parameterizedBy: p,
         usedIn: insertionScope!, in: &module)
       return (.constant(r), [])
 
