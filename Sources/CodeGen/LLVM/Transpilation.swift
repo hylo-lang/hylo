@@ -486,6 +486,8 @@ extension LLVM.Module {
         return
       case is IR.EndProjectInstruction:
         insert(endProjection: i)
+      case is IR.GlobalAddrInstruction:
+        insert(globalAddr: i)
       case is IR.LLVMInstruction:
         insert(llvm: i)
       case is IR.LoadInstruction:
@@ -626,6 +628,12 @@ extension LLVM.Module {
       let slide = register[.register(start, 1)]!
       let buffer = register[.register(start, 2)]!
       _ = insertCall(slide, typed: t, on: [buffer, i1.zero], at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(globalAddr i: IR.InstructionID) {
+      let s = m[i] as! IR.GlobalAddrInstruction
+      register[.register(i, 0)] = global(named: "\(s.container)\(s.id)")!
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
