@@ -381,6 +381,25 @@ public struct Module {
     }
   }
 
+  /// Returns a map from `f`'s generic arguments to their skolemized form.
+  ///
+  /// - Requires: `f` is declared in `self`.
+  public func parameterization(in f: Function.ID) -> GenericArguments {
+    var result = GenericArguments()
+    for p in functions[f]!.parameters {
+      guard
+        let t = MetatypeType(program[p].type),
+        let u = GenericTypeParameterType(t.instance)
+      else {
+        // TODO: Handle value parameters
+        fatalError("not implemented")
+      }
+
+      result[p] = ^SkolemType(quantifying: u)
+    }
+    return result
+  }
+
   /// Returns the entry of `f`.
   ///
   /// - Requires: `f` is declared in `self`.

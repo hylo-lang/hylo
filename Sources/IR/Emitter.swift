@@ -1128,7 +1128,9 @@ public struct Emitter {
 
   private mutating func emitStore(lambda e: LambdaExpr.ID, to storage: Operand) {
     let f = lower(function: ast[e].decl)
-    let r = FunctionReference(to: f, usedIn: insertionScope!, in: module)
+    let r = FunctionReference(
+      to: f, parameterizedBy: module.parameterization(in: insertionBlock!.function),
+      usedIn: insertionScope!, in: module)
 
     let x0 = append(module.makePartialApply(wrapping: r, with: .void, at: ast[e].site))[0]
     let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
