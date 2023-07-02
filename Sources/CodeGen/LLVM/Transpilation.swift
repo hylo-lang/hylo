@@ -89,9 +89,9 @@ extension LLVM.Module {
     }
 
     let fields: [LLVM.IRType] = [
-      word(),   // size
-      word(),   // alignment
-      ptr,      // representation
+      word(),  // size
+      word(),  // alignment
+      ptr,  // representation
     ]
     return LLVM.StructType(fields, in: &self)
   }
