@@ -1575,7 +1575,7 @@ public struct TypeChecker {
     let isSound = deferredQueries.reduce(solution.isSound, { (s, q) in q(&self, solution) && s })
 
     diagnostics.formUnion(solution.diagnostics)
-    assert(isSound || diagnostics.containsError, "inferrence failed without diagnostics")
+    assert(isSound || diagnostics.containsError, "inference failed without diagnostics")
     return (succeeded: isSound, solution: solution)
   }
 
