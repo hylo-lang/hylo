@@ -690,10 +690,10 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(partialApply i: IR.InstructionID) {
       let s = m[i] as! IR.PartialApplyInstruction
-      let t = LambdaType(s.function.type.ast)!
+      let t = LambdaType(s.callee.type.ast)!
 
       if t.environment == .void {
-        register[.register(i, 0)] = transpiledConstant(s.function, usedIn: m, from: ir)
+        register[.register(i, 0)] = transpiledConstant(s.callee, usedIn: m, from: ir)
       } else {
         fatalError("not implemented")
       }
