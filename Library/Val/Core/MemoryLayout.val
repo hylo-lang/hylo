@@ -1,0 +1,26 @@
+/// The memory layout of a type, describing its size, stride, and alignment.
+public type MemoryLayout<T> {
+
+  /// The contiguous memory footprint of the `T`'s instances, in bytes.
+  public static fun size() -> Int {
+    let p: Pointer<Runtime.MetatypeHeader> = unsafe_bitcast[T]
+    return p.with_pointee(fun (_ h) -> Int {
+      h.size.copy()
+    })
+  }
+
+  /// The preferred memory alignment of the `T`'s instances, in bytes.
+  public static fun alignment() -> Int {
+    let p: Pointer<Runtime.MetatypeHeader> = unsafe_bitcast[T]
+    return p.with_pointee(fun (_ h) -> Int {
+      h.alignment.copy()
+    })
+  }
+
+  /// The number of bytes from the start of one instance of `T` to the start of the next when
+  /// stored in contiguous memory.
+  public static fun stride() -> Int {
+    size().round_up(nearest_multiple_of: alignment())
+  }
+
+}
