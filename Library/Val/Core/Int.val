@@ -20,6 +20,27 @@ public type Int {
     &self.value = Builtin.ptrtoint_i64(address.value)
   }
 
+  /// Returns the absolute value of `self`.
+  public fun abs() -> Int {
+    if self < 0 { -self } else { +self }
+  }
+
+  /// Returns `self` rounded up to the nearest multiple of `stride`.
+  public fun round_up(nearest_multiple_of stride: Int) -> Int {
+    if stride == 0 {
+      return self.copy()
+    }
+
+    let r = abs() % stride
+    if r == 0 {
+      return self.copy()
+    } else if r < 0 {
+      return -(abs() - r);
+    }
+
+    return self + stride - r;
+  }
+
   /// Returns the sum of `self` and `other`.
   ///
   /// - Requires: The sum of the two arguments must be representable in the arguments' type.
@@ -35,6 +56,20 @@ public type Int {
   /// Returns the product of `self` and `other`
   public fun infix* (_ other: Self) -> Self {
     Int(value: Builtin.mul_i64(value, other.value))
+  }
+
+  /// Returns the quotient of dividing `self` by `other`
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix/ (_ other: Self) -> Self {
+    Int(value: Builtin.sdiv_i64(value, other.value))
+  }
+
+  /// Returns the remainder of dividing `self` by `other`
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix% (_ other: Self) -> Self {
+    Int(value: Builtin.srem_i64(value, other.value))
   }
 
   /// Returns the additive inverse of `self`.

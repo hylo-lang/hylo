@@ -655,6 +655,16 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         register[.register(i, 0)] = insertMul(overflow: p, l, r, at: insertionPoint)
 
+      case .sdiv(let e, _):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertSignedDiv(exact: e, l, r, at: insertionPoint)
+
+      case .srem(_):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertSignedRem(l, r, at: insertionPoint)
+
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
