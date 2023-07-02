@@ -2132,7 +2132,11 @@ public struct TypeChecker {
     // Handle references to imported symbols.
     if let u = containingFile, let fileImports = imports[u] {
       for m in fileImports {
-        matches.formUnion(names(introducedIn: m)[stem, default: []])
+        if ast[m].baseName == stem {
+          matches.insert(AnyDeclID(m))
+        } else {
+          matches.formUnion(names(introducedIn: m)[stem, default: []])
+        }
       }
     }
 
