@@ -62,10 +62,7 @@ extension Combinations: Collection {
 
   /// The index of the first combination.
   public var startIndex: Index {
-    var positions: [Base.Index] = []
-    positions.reserveCapacity(combinationCount)
-    update(positions: &positions, from: 0, toStartAt: base.startIndex)
-    return .init(positions: positions)
+    .init(positions: Array(base.indices.prefix(combinationCount)))
   }
 
   /// The collection's "past the end" position.
