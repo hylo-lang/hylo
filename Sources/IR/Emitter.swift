@@ -487,12 +487,6 @@ public struct Emitter {
       return
     }
 
-    // Initializing inout bindings requires a mutation marker.
-    if (access == .inout) && (initializer.kind != InoutExpr.self) {
-      report(
-        .error(inoutBindingRequiresMutationMarkerAt: .empty(at: ast[initializer].site.first())))
-    }
-
     let source = emitLValue(initializer)
     let isSink = module.isSink(source, in: insertionBlock!.function)
 
@@ -2192,10 +2186,6 @@ extension Diagnostic {
 
   static func error(assignmentLHSRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
-  }
-
-  static func error(inoutBindingRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
-    .error("initialization of inout binding must be marked for mutation", at: site)
   }
 
   static func error(nonDeinitializable t: AnyType, at site: SourceRange) -> Diagnostic {
