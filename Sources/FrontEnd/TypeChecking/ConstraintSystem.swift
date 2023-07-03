@@ -243,6 +243,44 @@ struct ConstraintSystem {
     }
 
     switch (goal.left.base, goal.right.base) {
+    case (let l as SumType, _ as SumType):
+      // If both types are sums, all elements in `L` must be contained in `R`.
+      var subordinates: [GoalIdentity] = []
+      let o = goal.origin.subordinate()
+      for e in l.elements {
+        subordinates.append(schedule(SubtypingConstraint(e, goal.right, origin: o)))
+      }
+      return .product(subordinates, failureToSolve(goal))
+
+    case (_, let r as SumType):
+      // If `R` is an empty sum, so must be `L`.
+      if r.elements.isEmpty {
+        return unify(goal.left, goal.right, querying: checker.relations)
+          ? .success
+          : .failure(failureToSolve(goal))
+      }
+
+      // If `R` has a single element, it must be equal to (the canonical form of) `L`.
+      let o = goal.origin.subordinate()
+      if let e = r.elements.uniqueElement {
+        let s = schedule(SubtypingConstraint(goal.left, e, origin: o))
+        return delegate(to: [s])
+      }
+
+      // If `R` has multiple elements, `L` can be equal to `R` (unless the goal is strict) or
+      // subtype of some strict subset of `R`.
+      var candidates: [DisjunctionConstraint.Predicate] = []
+      for subset in r.elements.combinations(of: r.elements.count - 1) {
+        let c = SubtypingConstraint(goal.left, ^SumType(subset), origin: o)
+        candidates.append(.init(constraints: [c], penalties: 1))
+      }
+      if !goal.isStrict {
+        let c = EqualityConstraint(goal.left, goal.right, origin: o)
+        candidates.append(.init(constraints: [c], penalties: 0))
+      }
+      let s = schedule(DisjunctionConstraint(between: candidates, origin: o))
+      return delegate(to: [s])
+
     case (_, _ as TypeVariable):
       // The type variable is above a more concrete type. We should compute the "join" of all types
       // to which `L` is coercible and that are below `R`, but that set is unbounded. We have no
@@ -251,8 +289,8 @@ struct ConstraintSystem {
         postpone(g)
         return nil
       } else {
-        let s = schedule(
-          inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
+        let o = goal.origin.subordinate()
+        let s = schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: o))
         return delegate(to: [s])
       }
 
@@ -268,15 +306,15 @@ struct ConstraintSystem {
         postpone(g)
         return nil
       } else {
-        let s = schedule(
-          inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: goal.origin))
+        let o = goal.origin.subordinate()
+        let s = schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: o))
         return delegate(to: [s])
       }
 
     case (let l as RemoteType, _):
+      let o = goal.origin.subordinate()
       let s = schedule(
-        SubtypingConstraint(
-          l.bareType, goal.right, strictly: goal.isStrict, origin: goal.origin.subordinate()))
+        SubtypingConstraint(l.bareType, goal.right, strictly: goal.isStrict, origin: o))
       return delegate(to: [s])
 
     case (_, let r as ExistentialType):
@@ -291,8 +329,8 @@ struct ConstraintSystem {
           // All types conform to `Any`.
           return .success
         } else {
-          let s = schedule(
-            ConformanceConstraint(goal.left, conformsTo: traits, origin: goal.origin))
+          let o = goal.origin.subordinate()
+          let s = schedule(ConformanceConstraint(goal.left, conformsTo: traits, origin: o))
           return delegate(to: [s])
         }
 
@@ -308,12 +346,12 @@ struct ConstraintSystem {
         }
 
         let r = checker.openForUnification(d)
-        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin))
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
         return delegate(to: [s])
 
       case .metatype:
         let r = MetatypeType(of: TypeVariable())
-        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin))
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
         return delegate(to: [s])
       }
 
@@ -323,44 +361,25 @@ struct ConstraintSystem {
       }
 
       var subordinates: [GoalIdentity] = []
-      subordinates.append(
-        schedule(
-          SubtypingConstraint(l.environment, r.environment, origin: goal.origin.subordinate())))
+      let o = goal.origin.subordinate()
+      subordinates.append(schedule(SubtypingConstraint(l.environment, r.environment, origin: o)))
 
       // Parameters are contravariant; return types are covariant.
       for (a, b) in zip(l.inputs, r.inputs) {
-        subordinates.append(
-          schedule(SubtypingConstraint(b.type, a.type, origin: goal.origin.subordinate())))
+        subordinates.append(schedule(SubtypingConstraint(b.type, a.type, origin: o)))
       }
-      subordinates.append(
-        schedule(SubtypingConstraint(l.output, r.output, origin: goal.origin.subordinate())))
+      subordinates.append(schedule(SubtypingConstraint(l.output, r.output, origin: o)))
       return .product(subordinates, failureToSolve(goal))
-
-    case (let l as SumType, _ as SumType):
-      // If both types are sums, all elements in `L` must be contained in `R`.
-      var subordinates: [GoalIdentity] = []
-      for e in l.elements {
-        subordinates.append(
-          schedule(SubtypingConstraint(e, goal.right, origin: goal.origin.subordinate())))
-      }
-      return .product(subordinates, failureToSolve(goal))
-
-    case (_, let r as SumType):
-      // If `R` is a sum type and `L` isn't, then `L` must be contained in `R`.
-      if r.elements.contains(where: { checker.relations.areEquivalent(goal.left, $0) }) {
-        return .success
-      }
-
-      // Postpone the goal if either `L` or `R` contains variables. Otherwise, `L` is not subtype
-      // of `R`.
-      if goal.left[.hasVariable] || goal.right[.hasVariable] {
-        postpone(g)
-        return nil
-      } else {
-        return .failure(failureToSolve(goal))
-      }
 
     default:
+      if !goal.left[.isCanonical] || !goal.right[.isCanonical] {
+        let l = checker.relations.canonical(goal.left)
+        let r = checker.relations.canonical(goal.right)
+        let s = schedule(
+          SubtypingConstraint(l, r, strictly: goal.isStrict, origin: goal.origin.subordinate()))
+        return delegate(to: [s])
+      }
+
       if goal.isStrict {
         return .failure(failureToSolve(goal))
       } else {
@@ -468,7 +487,7 @@ struct ConstraintSystem {
 
       var subordinates = insert(fresh: c.constraints)
       subordinates.append(
-        schedule(EqualityConstraint(c.type, goal.memberType, origin: goal.origin)))
+        schedule(EqualityConstraint(c.type, goal.memberType, origin: goal.origin.subordinate())))
       return delegate(to: subordinates)
     }
 
@@ -561,8 +580,7 @@ struct ConstraintSystem {
       subordinates.append(schedule(ParameterConstraint(a.type, b.type, origin: o)))
     }
     subordinates.append(
-      schedule(
-        EqualityConstraint(callee.output, goal.output, origin: goal.origin.subordinate())))
+      schedule(EqualityConstraint(callee.output, goal.output, origin: goal.origin.subordinate())))
     return delegate(to: subordinates)
   }
 
@@ -609,9 +627,9 @@ struct ConstraintSystem {
     guard !goal.branches.isEmpty else { return .success }
 
     var subordinates: [GoalIdentity] = []
+    let o = goal.origin.subordinate()
     for b in goal.branches {
-      subordinates.append(
-        schedule(SubtypingConstraint(goal.supertype, b, origin: goal.origin.subordinate())))
+      subordinates.append(schedule(SubtypingConstraint(goal.supertype, b, origin: o)))
     }
     return .product(subordinates) { (d, m, _) in
       let t = goal.branches.map({ m.reify($0) })
@@ -861,6 +879,12 @@ struct ConstraintSystem {
       return unify(l.bareType, r.bareType, querying: relations)
 
     default:
+      if !lhs[.isCanonical] {
+        return unify(relations.canonical(lhs), rhs, querying: relations)
+      }
+      if !rhs[.isCanonical] {
+        return unify(lhs, relations.canonical(rhs), querying: relations)
+      }
       return false
     }
   }

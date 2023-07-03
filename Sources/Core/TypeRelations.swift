@@ -49,16 +49,37 @@ public struct TypeRelations {
     return false
   }
 
-  /// Returns the canonical form of `t`.
+  /// Returns the canonical form of `type`.
   public func canonical(_ type: AnyType) -> AnyType {
     if type[.isCanonical] { return type }
 
     switch type.base {
     case let t as TypeAliasType:
       return canonical(t.resolved.value)
+    case let t as BoundGenericType:
+      return canonical(t)
+    case let t as SumType:
+      return canonical(t)
     default:
-      return type.transformParts({ (t) in .stepOver(canonical(t)) })
+      return type.transformParts({ .stepOver(canonical($0)) })
     }
+  }
+
+  /// Returns the canonical form of `type`.
+  private func canonical(_ type: BoundGenericType) -> AnyType {
+    if type[.isCanonical] { return ^type }
+
+    let arguments = canonical(type.arguments)
+    let base = monomorphize(canonical(type.base), for: arguments)
+    return canonical(base)
+  }
+
+  /// Returns the canonical form of `type`.
+  private func canonical(_ type: SumType) -> AnyType {
+    if type[.isCanonical] { return ^type }
+
+    let elements = Set(type.elements.map(canonical(_:)))
+    return elements.uniqueElement ?? ^SumType(elements)
   }
 
   /// Returns `arguments` with all types replaced by their canonical form.
