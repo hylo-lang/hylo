@@ -1715,7 +1715,7 @@ public struct Emitter {
     let g = PointerConstant(module.id, module.addGlobal(witnessTable))
 
     let x0 = append(module.makeBorrow(access, from: witness, at: site))[0]
-    let x1 = append(module.makeWrapAddr(x0, .constant(g), as: t, at: site))[0]
+    let x1 = append(module.makeWrapExistentialAddr(x0, .constant(g), as: t, at: site))[0]
     return x1
   }
 

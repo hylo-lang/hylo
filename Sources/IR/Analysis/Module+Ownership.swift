@@ -37,7 +37,7 @@ extension Module {
           interpret(pointerToAddress: user, in: &context)
         case is ProjectInstruction:
           interpret(project: user, in: &context)
-        case is WrapAddrInstruction:
+        case is WrapExistentialAddrInstruction:
           interpret(wrapAddr: user, in: &context)
         default:
           continue
@@ -214,7 +214,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(wrapAddr i: InstructionID, in context: inout Context) {
-      let s = self[i] as! WrapAddrInstruction
+      let s = self[i] as! WrapExistentialAddrInstruction
       if case .constant = s.witness {
         // Operand is a constant.
         fatalError("not implemented")

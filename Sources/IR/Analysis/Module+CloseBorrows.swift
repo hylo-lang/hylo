@@ -55,7 +55,7 @@ extension Module {
     for use in uses {
       switch self[use.user] {
       case is BorrowInstruction, is ElementAddrInstruction, is ProjectInstruction,
-        is WrapAddrInstruction:
+        is WrapExistentialAddrInstruction:
 
         let x = lifetime(of: results(of: use.user).uniqueElement!)
         result = extend(lifetime: result, with: x)

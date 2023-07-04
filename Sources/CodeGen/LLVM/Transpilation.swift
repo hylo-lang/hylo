@@ -508,7 +508,7 @@ extension LLVM.Module {
         insert(unreachable: i)
       case is IR.UnsafeCastInstruction:
         insert(unsafeCast: i)
-      case is IR.WrapAddrInstruction:
+      case is IR.WrapExistentialAddrInstruction:
         insert(wrapAddr: i)
       case is IR.YieldInstruction:
         insert(yield: i)
@@ -800,7 +800,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(wrapAddr i: IR.InstructionID) {
-      let s = m[i] as! IR.WrapAddrInstruction
+      let s = m[i] as! IR.WrapExistentialAddrInstruction
       let t = containerType()
       let a = insertAlloca(t, atEntryOf: transpilation)
       insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)

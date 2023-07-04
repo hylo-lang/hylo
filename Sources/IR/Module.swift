@@ -625,7 +625,7 @@ public struct Module {
         { (p, o) in
           if type(of: o).isAddress { p.formUnion(provenances(o)) }
         })
-    case let s as WrapAddrInstruction:
+    case let s as WrapExistentialAddrInstruction:
       return provenances(s.witness)
     default:
       return [a]

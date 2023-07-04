@@ -68,7 +68,7 @@ extension Module {
           pc = successor(of: user)
         case is UnsafeCastInstruction:
           pc = interpret(unsafeCast: user, in: &context)
-        case is WrapAddrInstruction:
+        case is WrapExistentialAddrInstruction:
           pc = interpret(wrapAddr: user, in: &context)
         case is YieldInstruction:
           pc = interpret(yield: user, in: &context)
@@ -435,7 +435,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(wrapAddr i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! WrapAddrInstruction
+      let s = self[i] as! WrapExistentialAddrInstruction
       if case .constant = s.witness {
         // Operand is a constant.
         fatalError("not implemented")
