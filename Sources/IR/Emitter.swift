@@ -455,7 +455,7 @@ public struct Emitter {
     /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`,
     /// returning that sub-location.
     func declare(name: NamePattern.ID, referringTo pathInStorage: PartPath) -> Operand {
-      let s = emitElementAddr(storage, at: pathInStorage, at: ast[name].site)
+      let s = emitInlineStorageView(storage, at: pathInStorage, at: ast[name].site)
       frames[ast[name].decl] = s
       return s
     }
@@ -497,7 +497,7 @@ public struct Emitter {
     let isSink = module.isSink(source, in: insertionBlock!.function)
 
     for (path, name) in ast.names(in: program[d].pattern.subpattern) {
-      var part = emitElementAddr(source, at: path, at: program[name].decl.site)
+      var part = emitInlineStorageView(source, at: path, at: program[name].decl.site)
       let partType = module.type(of: part).ast
       let partDecl = ast[name].decl
 
@@ -662,8 +662,8 @@ public struct Emitter {
 
       // Otherwise, move initialize each property.
       for i in layout.properties.indices {
-        let source = emitElementAddr(argument, at: [i], at: site)
-        let target = emitElementAddr(receiver, at: [i], at: site)
+        let source = emitInlineStorageView(argument, at: [i], at: site)
+        let target = emitInlineStorageView(receiver, at: [i], at: site)
         let part = append(module.makeLoad(source, at: site))[0]
         emitStore(value: part, to: target, at: site)
       }
@@ -1018,7 +1018,7 @@ public struct Emitter {
   private mutating func emitStore(
     booleanLiteral e: BooleanLiteralExpr.ID, to storage: Operand
   ) {
-    let x0 = emitElementAddr(storage, at: [0], at: ast[e].site)
+    let x0 = emitInlineStorageView(storage, at: [0], at: ast[e].site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: ast[e].site))[0]
     append(module.makeStore(.i1(ast[e].value), at: x1, at: ast[e].site))
   }
@@ -1203,7 +1203,7 @@ public struct Emitter {
     }
 
     for (i, element) in ast[e].elements.enumerated() {
-      let xi = emitElementAddr(storage, at: [i], at: ast[element.value].site)
+      let xi = emitInlineStorageView(storage, at: [i], at: ast[element.value].site)
       emitStore(value: element.value, to: xi)
     }
   }
@@ -1245,7 +1245,7 @@ public struct Emitter {
     evaluatedBy evaluate: (String) -> FloatingPointConstant
   ) {
     let syntax = ast[literal]
-    let x0 = emitElementAddr(storage, at: [0], at: syntax.site)
+    let x0 = emitInlineStorageView(storage, at: [0], at: syntax.site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))[0]
     let x2 = Operand.constant(evaluate(syntax.value))
     append(module.makeStore(x2, at: x1, at: syntax.site))
@@ -1266,7 +1266,7 @@ public struct Emitter {
       return
     }
 
-    let x0 = emitElementAddr(storage, at: [0], at: syntax.site)
+    let x0 = emitInlineStorageView(storage, at: [0], at: syntax.site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))[0]
     let x2 = Operand.constant(IntegerConstant(bits))
     append(module.makeStore(x2, at: x1, at: syntax.site))
@@ -1277,7 +1277,7 @@ public struct Emitter {
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Val.Int`.
   private mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
-    let x0 = emitElementAddr(storage, at: [0], at: site)
+    let x0 = emitInlineStorageView(storage, at: [0], at: site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
     append(module.makeStore(.word(v), at: x1, at: site))
   }
@@ -1294,10 +1294,10 @@ public struct Emitter {
     // Make sure the string is null-terminated.
     bytes.append(contentsOf: [0])
 
-    let x0 = emitElementAddr(storage, at: [0], at: site)
+    let x0 = emitInlineStorageView(storage, at: [0], at: site)
     emitStore(int: size, to: x0, at: site)
 
-    let x1 = emitElementAddr(storage, at: [1, 0], at: site)
+    let x1 = emitInlineStorageView(storage, at: [1, 0], at: site)
     let x2 = append(module.makeBorrow(.set, from: x1, at: site))[0]
     append(module.makeStore(.constant(utf8), at: x2, at: site))
   }
@@ -1370,7 +1370,7 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
-      let s = emitElementAddr(receiver, at: [i], at: ast[call].site)
+      let s = emitInlineStorageView(receiver, at: [i], at: ast[call].site)
       emitStore(value: ast[call].arguments[i].value, to: s)
     }
   }
@@ -1642,7 +1642,7 @@ public struct Emitter {
   private mutating func emit(branchCondition e: AnyExprID) -> Operand {
     precondition(program.relations.canonical(program[e].type) == ast.coreType("Bool")!)
     let x0 = emitLValue(e)
-    let x1 = emitElementAddr(x0, at: [0], at: ast[e].site)
+    let x1 = emitInlineStorageView(x0, at: [0], at: ast[e].site)
     let x2 = append(module.makeLoad(x1, at: ast[e].site))[0]
     return x2
   }
@@ -1853,7 +1853,7 @@ public struct Emitter {
 
   private mutating func emitLValue(tupleMember e: TupleMemberExpr.ID) -> Operand {
     let base = emitLValue(ast[e].tuple)
-    return emitElementAddr(base, at: [ast[e].index.value], at: ast[e].index.site)
+    return emitInlineStorageView(base, at: [ast[e].index.value], at: ast[e].index.site)
   }
 
   /// Returns the address of the member declared by `d`, parameterized by `a`, and bound to
@@ -1870,7 +1870,7 @@ public struct Emitter {
     case VarDecl.self:
       let l = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
       let i = l.offset(of: ast[VarDecl.ID(d)!].baseName)!
-      return emitElementAddr(receiver, at: [i], at: site)
+      return emitInlineStorageView(receiver, at: [i], at: site)
 
     default:
       fatalError("not implemented")
@@ -1990,7 +1990,7 @@ public struct Emitter {
     // Otherwise, deinitialize each property.
     var r = true
     for i in layout.properties.indices {
-      let x0 = module.insert(module.makeElementAddr(storage, at: [i], at: site), point)[0]
+      let x0 = module.insert(module.makeInlineStorageView(storage, at: [i], at: site), point)[0]
       r =
         insertDeinit(x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module) && r
     }
@@ -2026,13 +2026,13 @@ public struct Emitter {
   /// Appends the IR for computing the address of the property at `path` rooted at `base`,
   /// anchoring new instructions at `site`.
   ///
-  /// - Returns: The result of `element_addr base, path` instruction if `path` is not empty;
+  /// - Returns: The result of `inline_storage_view base, path` instruction if `path` is not empty;
   ///   otherwise, returns `base` unchanged.
-  private mutating func emitElementAddr(
+  private mutating func emitInlineStorageView(
     _ base: Operand, at path: PartPath, at site: SourceRange
   ) -> Operand {
     if path.isEmpty { return base }
-    return append(module.makeElementAddr(base, at: path, at: site))[0]
+    return append(module.makeInlineStorageView(base, at: path, at: site))[0]
   }
 
   /// Inserts the IR for deinitializing `storage`, anchoring new instructions at `site`.

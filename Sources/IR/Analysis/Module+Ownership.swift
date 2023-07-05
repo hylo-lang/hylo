@@ -25,8 +25,8 @@ extension Module {
           interpret(borrow: user, in: &context)
         case is DeallocStackInstruction:
           interpret(deallocStack: user, in: &context)
-        case is ElementAddrInstruction:
-          interpret(elementAddr: user, in: &context)
+        case is InlineStorageViewInstruction:
+          interpret(inlineStorageView: user, in: &context)
         case is EndBorrowInstruction:
           interpret(endBorrow: user, in: &context)
         case is EndProjectInstruction:
@@ -120,8 +120,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(elementAddr i: InstructionID, in context: inout Context) {
-      let s = self[i] as! ElementAddrInstruction
+    func interpret(inlineStorageView i: InstructionID, in context: inout Context) {
+      let s = self[i] as! InlineStorageViewInstruction
       if case .constant = s.base {
         // Operand is a constant.
         fatalError("not implemented")
@@ -299,7 +299,7 @@ extension Module {
   ///
   /// - Requires: `o` denotes a location.
   private func accessSource(_ o: Operand) -> Operand {
-    if case .register(let i, _) = o, let a = self[i] as? ElementAddrInstruction {
+    if case .register(let i, _) = o, let a = self[i] as? InlineStorageViewInstruction {
       return accessSource(a.base)
     } else {
       return o

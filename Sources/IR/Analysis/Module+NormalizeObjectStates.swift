@@ -38,8 +38,8 @@ extension Module {
           pc = interpret(callFFI: user, in: &context)
         case is DeallocStackInstruction:
           pc = interpret(deallocStack: user, in: &context)
-        case is ElementAddrInstruction:
-          pc = interpret(elementAddr: user, in: &context)
+        case is InlineStorageViewInstruction:
+          pc = interpret(inlineStorageView: user, in: &context)
         case is EndBorrowInstruction:
           pc = successor(of: user)
         case is EndProjectInstruction:
@@ -229,8 +229,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(elementAddr i: InstructionID, in context: inout Context) -> PC? {
-      let addr = self[i] as! ElementAddrInstruction
+    func interpret(inlineStorageView i: InstructionID, in context: inout Context) -> PC? {
+      let addr = self[i] as! InlineStorageViewInstruction
 
       // Operand must a location.
       let locations: [AbstractLocation]
@@ -571,7 +571,7 @@ extension Module {
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedPaths {
-      let s = insert(makeElementAddr(root, at: path, at: site), before: i)[0]
+      let s = insert(makeInlineStorageView(root, at: path, at: site), before: i)[0]
 
       let useScope = functions[i.function]![i.block].scope
       let success = Emitter.insertDeinit(

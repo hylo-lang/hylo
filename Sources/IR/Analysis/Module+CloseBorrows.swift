@@ -54,7 +54,7 @@ extension Module {
     // Extend the lifetime with that of its borrows.
     for use in uses {
       switch self[use.user] {
-      case is BorrowInstruction, is ElementAddrInstruction, is ProjectInstruction,
+      case is BorrowInstruction, is InlineStorageViewInstruction, is ProjectInstruction,
         is WrapAddrInstruction:
 
         let x = lifetime(of: results(of: use.user).uniqueElement!)

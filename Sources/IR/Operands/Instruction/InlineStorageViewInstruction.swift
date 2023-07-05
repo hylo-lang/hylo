@@ -1,7 +1,7 @@
 import Core
 
 /// Given the address of a record value in memory, derives the address of a stored property within.
-public struct ElementAddrInstruction: Instruction {
+public struct InlineStorageViewInstruction: Instruction {
 
   /// The address of a record.
   public private(set) var base: Operand
@@ -39,10 +39,10 @@ public struct ElementAddrInstruction: Instruction {
 
 }
 
-extension ElementAddrInstruction: CustomStringConvertible {
+extension InlineStorageViewInstruction: CustomStringConvertible {
 
   public var description: String {
-    let s = "element_addr \(base)"
+    let s = "inline_storage_view \(base)"
     return elementPath.isEmpty ? s : "\(s), \(list: elementPath)"
   }
 
@@ -50,16 +50,16 @@ extension ElementAddrInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates an `element_addr` anchored at `site` that computes the address of the property at
-  /// `path` rooted at `base`.
+  /// Creates an `inline_storage_view` anchored at `site` that computes the address of the property
+  /// at `path` rooted at `base`.
   ///
   /// - Note: `base` is returned unchanged if `elementPath` is empty.
   /// - Parameters:
   ///   - base: The base address used for the computation.
   ///   - elementPath: An array of of indices identifying a sub-location in `base`.
-  func makeElementAddr(
+  func makeInlineStorageView(
     _ base: Operand, at elementPath: PartPath, at anchor: SourceRange
-  ) -> ElementAddrInstruction {
+  ) -> InlineStorageViewInstruction {
     precondition(type(of: base).isAddress)
     let l = AbstractTypeLayout(of: type(of: base).ast, definedIn: program)
     return .init(

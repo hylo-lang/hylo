@@ -480,8 +480,8 @@ extension LLVM.Module {
         insert(condBranch: i)
       case is IR.DeallocStackInstruction:
         return
-      case is IR.ElementAddrInstruction:
-        insert(elementAddr: i)
+      case is IR.InlineStorageViewInstruction:
+        insert(inlineStorageView: i)
       case is IR.EndBorrowInstruction:
         return
       case is IR.EndProjectInstruction:
@@ -606,8 +606,8 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(elementAddr i: IR.InstructionID) {
-      let s = m[i] as! ElementAddrInstruction
+    func insert(inlineStorageView i: IR.InstructionID) {
+      let s = m[i] as! InlineStorageViewInstruction
 
       let base = llvm(s.base)
       let baseType = ir.llvm(m.type(of: s.base).ast, in: &self)
