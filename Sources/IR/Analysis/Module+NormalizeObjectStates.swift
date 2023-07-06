@@ -234,12 +234,14 @@ extension Module {
 
       // Operand must a location.
       let locations: [AbstractLocation]
-      if case .constant = addr.base {
+      if case .constant = addr.source {
         // Operand is a constant.
         fatalError("not implemented")
       } else {
+        if addr.targetPath.elementOffset != nil { fatalError("pointer indexing not yet fully implemented") }
+
         locations =
-          context.locals[addr.base]!.unwrapLocations()!.map({ $0.appending(addr.elementPath) })
+          context.locals[addr.source]!.unwrapLocations()!.map({ $0.appending(addr.targetPath.subPart) })
       }
 
       context.locals[.register(i, 0)] = .locations(Set(locations))
@@ -570,8 +572,8 @@ extension Module {
     _ root: Operand, at initializedPaths: [PartPath], anchoredTo site: SourceRange,
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
-    for path in initializedPaths {
-      let s = insert(makeInlineStorageView(root, at: path, at: site), before: i)[0]
+    for p in initializedPaths {
+      let s = insert(makeInlineStorageView(from: root, via: InlineStoragePath(p), at: site), before: i)[0]
 
       let useScope = functions[i.function]![i.block].scope
       let success = Emitter.insertDeinit(

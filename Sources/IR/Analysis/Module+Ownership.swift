@@ -122,18 +122,20 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(inlineStorageView i: InstructionID, in context: inout Context) {
       let s = self[i] as! InlineStorageViewInstruction
-      if case .constant = s.base {
+      if case .constant = s.source {
         // Operand is a constant.
         fatalError("not implemented")
       }
 
       // Skip the instruction if an error occured upstream.
-      guard let base = context.locals[s.base] else {
+      guard let base = context.locals[s.source] else {
         assert(diagnostics.containsError)
         return
       }
 
-      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.elementPath) })
+      if s.targetPath.elementOffset != nil { fatalError("pointer indexing not fully implemented") }
+
+      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.targetPath.subPart) })
       context.locals[.register(i, 0)] = .locations(Set(newLocations))
     }
 
@@ -300,7 +302,7 @@ extension Module {
   /// - Requires: `o` denotes a location.
   private func accessSource(_ o: Operand) -> Operand {
     if case .register(let i, _) = o, let a = self[i] as? InlineStorageViewInstruction {
-      return accessSource(a.base)
+      return accessSource(a.source)
     } else {
       return o
     }

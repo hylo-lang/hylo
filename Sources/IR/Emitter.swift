@@ -1990,7 +1990,7 @@ public struct Emitter {
     // Otherwise, deinitialize each property.
     var r = true
     for i in layout.properties.indices {
-      let x0 = module.insert(module.makeInlineStorageView(storage, at: [i], at: site), point)[0]
+      let x0 = module.insert(module.makeInlineStorageView(from: storage, via: InlineStoragePath([i]), at: site), point)[0]
       r =
         insertDeinit(x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module) && r
     }
@@ -2029,10 +2029,10 @@ public struct Emitter {
   /// - Returns: The result of `inline_storage_view base, path` instruction if `path` is not empty;
   ///   otherwise, returns `base` unchanged.
   private mutating func emitInlineStorageView(
-    _ base: Operand, at path: PartPath, at site: SourceRange
+    _ base: Operand, at part: PartPath, at site: SourceRange
   ) -> Operand {
-    if path.isEmpty { return base }
-    return append(module.makeInlineStorageView(base, at: path, at: site))[0]
+    if part.isEmpty { return base }
+    return append(module.makeInlineStorageView(from: base, via: InlineStoragePath(part), at: site))[0]
   }
 
   /// Inserts the IR for deinitializing `storage`, anchoring new instructions at `site`.

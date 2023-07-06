@@ -609,11 +609,13 @@ extension LLVM.Module {
     func insert(inlineStorageView i: IR.InstructionID) {
       let s = m[i] as! InlineStorageViewInstruction
 
-      let base = llvm(s.base)
-      let baseType = ir.llvm(m.type(of: s.base).ast, in: &self)
-      let indices = [i32.constant(0)] + s.elementPath.map({ i32.constant(UInt64($0)) })
+      let baseType = ir.llvm(m.type(of: s.source).ast, in: &self)
+
+      let indices = ([s.targetPath.elementOffset.map(llvm) ?? i32.constant(0)])
+        + s.targetPath.subPart.map({ i32.constant(UInt64($0)) })
+
       let v = insertGetElementPointerInBounds(
-        of: base, typed: baseType, indices: indices, at: insertionPoint)
+        of: llvm(s.source), typed: baseType, indices: indices, at: insertionPoint)
       register[.register(i, 0)] = v
     }
 

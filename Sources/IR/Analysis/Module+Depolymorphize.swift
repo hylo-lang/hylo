@@ -265,7 +265,7 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(inlineStorageView i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! InlineStorageViewInstruction
-      append(makeInlineStorageView(rewritten(s.base), at: s.elementPath, at: s.site), to: b)
+      append(makeInlineStorageView(from: rewritten(s.source), via: s.targetPath, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
