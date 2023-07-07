@@ -4,7 +4,7 @@ import Core
 enum AbstractLocation: Hashable {
 
   /// A root location.
-  case root(Operand)
+  case recordAddress(Operand)
 
   /// A sub-location rooted at an argument or instruction.
   ///
@@ -14,7 +14,7 @@ enum AbstractLocation: Hashable {
   /// location identifying storage of type `B`.
   ///
   /// - Note: Use `appending(_:)` to create instances of this case.
-  indirect case sublocation(root: Operand, path: SubfieldID)
+  indirect case sublocation(root: Operand, subfield: SubfieldID)
 
   /// Returns a new locating created by appending `suffix` to this one.
   ///
@@ -23,10 +23,10 @@ enum AbstractLocation: Hashable {
     if suffix.isEmpty { return self }
 
     switch self {
-    case .root(let root):
-      return .sublocation(root: root, path: suffix)
+    case .recordAddress(let root):
+      return .sublocation(root: root, subfield: suffix)
     case .sublocation(let root, let prefix):
-      return .sublocation(root: root, path: prefix + suffix)
+      return .sublocation(root: root, subfield: prefix + suffix)
     }
   }
 
@@ -36,7 +36,7 @@ extension AbstractLocation: CustomStringConvertible {
 
   var description: String {
     switch self {
-    case .root(let r):
+    case .recordAddress(let r):
       return String(describing: r)
     case .sublocation(let root, let path):
       return "\(root).\(list: path, joinedBy: ".")"

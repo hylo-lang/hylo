@@ -56,14 +56,14 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
     _ action: (inout AbstractObject<Domain>) -> T
   ) -> T {
     switch location {
-    case .root:
+    case .recordAddress:
       return action(&memory[location]!)
 
     case .sublocation(let root, let path):
       if path.isEmpty {
         return action(&memory[location]!)
       } else {
-        return modify(&memory[.root(root)]!, { $0.withSubobject(at: path, action) })
+        return modify(&memory[.recordAddress(root)]!, { $0.withSubobject(at: path, action) })
       }
     }
   }

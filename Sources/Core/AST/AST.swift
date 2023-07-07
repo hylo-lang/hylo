@@ -268,27 +268,29 @@ public struct AST {
     return self[parameters].map(\.defaultValue)
   }
 
-  /// Returns the paths and IDs of the named patterns contained in `p`.
-  public func names<T: PatternID>(in p: T) -> [(path: SubfieldID, pattern: NamePattern.ID)] {
+  /// Returns the subfields and pattern IDs of the named patterns contained in `p`.
+  public func names<T: PatternID>(in p: T) -> [(subfield: SubfieldID, pattern: NamePattern.ID)] {
     func visit(
       pattern: AnyPatternID,
-      path: SubfieldID,
-      result: inout [(path: SubfieldID, pattern: NamePattern.ID)]
+      subfield: SubfieldID,
+      result: inout [(subfield: SubfieldID, pattern: NamePattern.ID)]
     ) {
       switch pattern.kind {
       case BindingPattern.self:
-        visit(pattern: self[BindingPattern.ID(pattern)!].subpattern, path: path, result: &result)
+        visit(
+          pattern: self[BindingPattern.ID(pattern)!].subpattern, subfield: subfield, result: &result
+        )
 
       case ExprPattern.self:
         break
 
       case NamePattern.self:
-        result.append((path: path, pattern: NamePattern.ID(pattern)!))
+        result.append((subfield: subfield, pattern: NamePattern.ID(pattern)!))
 
       case TuplePattern.self:
         let x = TuplePattern.ID(pattern)!
         for i in 0 ..< self[x].elements.count {
-          visit(pattern: self[x].elements[i].pattern, path: path + [i], result: &result)
+          visit(pattern: self[x].elements[i].pattern, subfield: subfield + [i], result: &result)
         }
 
       case WildcardPattern.self:
@@ -299,8 +301,8 @@ public struct AST {
       }
     }
 
-    var result: [(path: SubfieldID, pattern: NamePattern.ID)] = []
-    visit(pattern: AnyPatternID(p), path: [], result: &result)
+    var result: [(subfield: SubfieldID, pattern: NamePattern.ID)] = []
+    visit(pattern: AnyPatternID(p), subfield: [], result: &result)
     return result
   }
 
@@ -317,7 +319,8 @@ public struct AST {
   public func walking(
     pattern: AnyPatternID, expression: AnyExprID,
     at root: SubfieldID = [],
-    _ action: (_ path: SubfieldID, _ subpattern: AnyPatternID, _ subexpression: AnyExprID) -> Void
+    _ action: (_ subfield: SubfieldID, _ subpattern: AnyPatternID, _ subexpression: AnyExprID) ->
+      Void
   ) {
     switch pattern.kind {
     case BindingPattern.self:

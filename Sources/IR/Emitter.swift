@@ -452,10 +452,10 @@ public struct Emitter {
       }
     }
 
-    /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`,
+    /// Inserts the IR to declare `name`, which refers to the given `subfield`,
     /// returning that sub-location.
-    func declare(name: NamePattern.ID, referringTo pathInStorage: SubfieldID) -> Operand {
-      let s = emitFieldView(storage, at: pathInStorage, at: ast[name].site)
+    func declare(name: NamePattern.ID, referringTo subfield: SubfieldID) -> Operand {
+      let s = emitFieldView(storage, at: subfield, at: ast[name].site)
       frames[ast[name].decl] = s
       return s
     }

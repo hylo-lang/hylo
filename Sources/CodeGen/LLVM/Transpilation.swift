@@ -611,7 +611,7 @@ extension LLVM.Module {
 
       let base = llvm(s.recordAddress)
       let baseType = ir.llvm(m.type(of: s.recordAddress).ast, in: &self)
-      let indices = [i32.constant(0)] + s.subfieldPath.map({ i32.constant(UInt64($0)) })
+      let indices = [i32.constant(0)] + s.subfield.map({ i32.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
       register[.register(i, 0)] = v

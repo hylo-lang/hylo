@@ -8,10 +8,10 @@ public struct FieldViewInstruction: Instruction {
   /// The address of the whole record.
   public private(set) var recordAddress: Operand
 
-  /// A sequence of indices identifying a part of the value at `base`.
-  public let subfieldPath: SubfieldID
+  /// The subfield of the whole record whose address is computed.
+  public let subfield: SubfieldID
 
-  /// The type of the derived address.
+  /// The type of the resulting address.
   public let subfieldType: LoweredType
 
   /// The site of the code corresponding to that instruction.
@@ -25,7 +25,7 @@ public struct FieldViewInstruction: Instruction {
     site: SourceRange
   ) {
     self.recordAddress = base
-    self.subfieldPath = subfield
+    self.subfield = subfield
     self.subfieldType = subfieldType
     self.site = site
   }
@@ -44,7 +44,7 @@ public struct FieldViewInstruction: Instruction {
 extension FieldViewInstruction: CustomStringConvertible {
 
   public var description: String {
-    "field_view \(recordAddress)\(subfieldPath.isEmpty ? "" : ", ")\(list: subfieldPath)"
+    "field_view \(recordAddress)\(subfield.isEmpty ? "" : ", ")\(list: subfield)"
   }
 
 }

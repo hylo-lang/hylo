@@ -92,7 +92,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
       // Create an abstract location denoting the newly allocated memory.
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.recordAddress(.register(i, 0))
       precondition(context.memory[l] == nil, "stack leak")
 
       // Update the context.
@@ -131,7 +131,7 @@ extension Module {
         case .full(.consumed):
           diagnostics.insert(.useOfConsumedObject(at: borrow.site))
         case .partial:
-          if o.value.paths!.consumed.isEmpty {
+          if o.value.subfieldsByStatus!.consumed.isEmpty {
             diagnostics.insert(.useOfPartiallyInitializedObject(at: borrow.site))
           } else {
             diagnostics.insert(.useOfPartiallyConsumedObject(at: borrow.site))
@@ -140,7 +140,7 @@ extension Module {
 
       case .set:
         // `set` requires the borrowed object to be uninitialized.
-        let p = o.value.initializedPaths
+        let p = o.value.initializedSubfields
         if p.isEmpty { break }
 
         insertDeinit(
@@ -183,7 +183,7 @@ extension Module {
 
         case .set:
           context.forEachObject(at: a) { (o) in
-            assert(o.value.initializedPaths.isEmpty || o.layout.type.base is BuiltinType)
+            assert(o.value.initializedSubfields.isEmpty || o.layout.type.base is BuiltinType)
             o.value = .full(.initialized)
           }
 
@@ -196,7 +196,7 @@ extension Module {
       }
 
       context.forEachObject(at: call.output) { (o) in
-        assert(o.value.initializedPaths.isEmpty || o.layout.type.base is BuiltinType)
+        assert(o.value.initializedSubfields.isEmpty || o.layout.type.base is BuiltinType)
         o.value = .full(.initialized)
       }
 
@@ -220,7 +220,7 @@ extension Module {
 
       // Make sure the memory at the deallocated location is consumed or uninitialized before
       // erasing the deallocated memory from the context.
-      let p = context.withObject(at: l, \.value.initializedPaths)
+      let p = context.withObject(at: l, \.value.initializedSubfields)
       insertDeinit(
         s.location, at: p, anchoredTo: s.site, before: i,
         reportingDiagnosticsTo: &diagnostics)
@@ -240,7 +240,7 @@ extension Module {
       } else {
         locations =
           context.locals[addr.recordAddress]!.unwrapLocations()!.map({
-            $0.appending(addr.subfieldPath)
+            $0.appending(addr.subfield)
           })
       }
 
@@ -264,7 +264,7 @@ extension Module {
 
       case .sink:
         insertDeinit(
-          s.projection, at: projection.value.initializedPaths, anchoredTo: s.site, before: i,
+          s.projection, at: projection.value.initializedSubfields, anchoredTo: s.site, before: i,
           reportingDiagnosticsTo: &diagnostics)
         context.withObject(at: l, { $0.value = .full(.uninitialized) })
 
@@ -277,7 +277,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, in context: inout Context) -> PC? {
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.recordAddress(.register(i, 0))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(
           of: (self[i] as! GlobalAddrInstruction).valueType, definedIn: program),
@@ -314,7 +314,7 @@ extension Module {
           case .full(.consumed):
             diagnostics.insert(.useOfConsumedObject(at: load.site))
           case .partial:
-            let p = o.value.paths!
+            let p = o.value.subfieldsByStatus!
             if p.consumed.isEmpty {
               diagnostics.insert(.useOfPartiallyInitializedObject(at: load.site))
             } else {
@@ -375,7 +375,7 @@ extension Module {
       let s = self[i] as! PointerToAddressInstruction
       consume(s.source, with: i, at: s.site, in: &context)
 
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.recordAddress(.register(i, 0))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
         value: .full(s.target.access == .set ? .uninitialized : .initialized))
@@ -388,7 +388,7 @@ extension Module {
       // TODO: Process arguments
 
       let s = self[i] as! ProjectInstruction
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.recordAddress(.register(i, 0))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
         value: .full(s.projection.access == .set ? .uninitialized : .initialized))
@@ -421,7 +421,7 @@ extension Module {
       let store = self[i] as! StoreInstruction
       consume(store.object, with: i, at: store.site, in: &context)
       context.forEachObject(at: store.target) { (o) in
-        assert(o.value.initializedPaths.isEmpty || o.layout.type.isBuiltin)
+        assert(o.value.initializedSubfields.isEmpty || o.layout.type.isBuiltin)
         o.value = .full(.initialized)
       }
       return successor(of: i)
@@ -481,7 +481,7 @@ extension Module {
       _ p: Operand, passed k: AccessEffect, in context: inout Context,
       reportingDiagnosticsAt site: SourceRange
     ) {
-      context.withObject(at: .root(p)) { (o) in
+      context.withObject(at: .recordAddress(p)) { (o) in
         if o.value == .full(.initialized) { return }
 
         if k == .set {
@@ -532,12 +532,12 @@ extension Module {
 
     switch k {
     case .let, .inout, .sink:
-      let a = AbstractLocation.root(p)
+      let a = AbstractLocation.recordAddress(p)
       context.locals[p] = .locations([a])
       context.memory[a] = .init(layout: l, value: .full(.initialized))
 
     case .set:
-      let a = AbstractLocation.root(p)
+      let a = AbstractLocation.recordAddress(p)
       context.locals[p] = .locations([a])
       context.memory[a] = .init(layout: l, value: .full(.uninitialized))
 
@@ -566,13 +566,13 @@ extension Module {
     }
   }
 
-  /// Inserts IR for the deinitialization of `root` at given `initializedPaths` before
+  /// Inserts IR for the deinitialization of `root` at given `initializedSubfields` before
   /// instruction `i`, anchoring instructions to `site`
   private mutating func insertDeinit(
-    _ root: Operand, at initializedPaths: [SubfieldID], anchoredTo site: SourceRange,
+    _ root: Operand, at initializedSubfields: [SubfieldID], anchoredTo site: SourceRange,
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
-    for path in initializedPaths {
+    for path in initializedSubfields {
       let s = insert(makeFieldView(of: root, subfield: path, at: site), before: i)[0]
 
       let useScope = functions[i.function]![i.block].scope
@@ -688,8 +688,8 @@ extension State: CustomStringConvertible {
 
 }
 
-/// The paths to the initialized, uninitialized, and consumed parts of an object.
-private struct PartPaths {
+/// Classification of a record type's subfields into uninitialized, initialized, and consumed sets.
+private struct SubfieldStatus {
 
   /// The paths to the initialized parts.
   var initialized: [SubfieldID]
@@ -698,29 +698,29 @@ private struct PartPaths {
   var uninitialized: [SubfieldID]
 
   /// The paths to the consumed parts, along with the users that consumed them.
-  var consumed: [(path: SubfieldID, consumers: State.Consumers)]
+  var consumed: [(subfield: SubfieldID, consumers: State.Consumers)]
 
 }
 
 extension AbstractObject.Value where Domain == State {
 
   /// If `self` is `.partial`, the paths to `self`'s parts; otherwise, `nil`.
-  fileprivate var paths: PartPaths? {
+  fileprivate var subfieldsByStatus: SubfieldStatus? {
     if case .full = self { return nil }
-    var paths = PartPaths(initialized: [], uninitialized: [], consumed: [])
+    var paths = SubfieldStatus(initialized: [], uninitialized: [], consumed: [])
     gatherSubobjectPaths(prefixedBy: [], into: &paths)
     return paths
   }
 
-  /// The paths to `self`'s initialized parts.
-  fileprivate var initializedPaths: [SubfieldID] {
+  /// The initialized subfields.
+  fileprivate var initializedSubfields: [SubfieldID] {
     switch self {
     case .full(.initialized):
       return [[]]
     case .full(.uninitialized), .full(.consumed):
       return []
     case .partial:
-      return paths!.initialized
+      return subfieldsByStatus!.initialized
     }
   }
 
@@ -730,7 +730,7 @@ extension AbstractObject.Value where Domain == State {
   /// - Requires: `self` is canonical.
   private func gatherSubobjectPaths(
     prefixedBy prefix: SubfieldID,
-    into paths: inout PartPaths
+    into paths: inout SubfieldStatus
   ) {
     guard case .partial(let subobjects) = self else { return }
 
@@ -741,7 +741,7 @@ extension AbstractObject.Value where Domain == State {
       case .full(.uninitialized):
         paths.uninitialized.append(prefix + [i])
       case .full(.consumed(let c)):
-        paths.consumed.append((path: prefix + [i], consumers: c))
+        paths.consumed.append((subfield: prefix + [i], consumers: c))
       case .partial(let parts):
         for p in parts {
           p.gatherSubobjectPaths(prefixedBy: prefix + [i], into: &paths)
@@ -792,7 +792,7 @@ extension AbstractObject.Value where Domain == State {
 
     case (let lhs, .full):
       // RHS is fully consumed or uninitialized.
-      if let p = lhs.paths {
+      if let p = lhs.subfieldsByStatus {
         return p.initialized
       } else if lhs == .full(.initialized) {
         return [[]]
@@ -802,8 +802,8 @@ extension AbstractObject.Value where Domain == State {
 
     case (.full(.initialized), let rhs):
       // RHS is partially initialized.
-      let p = rhs.paths!
-      return p.uninitialized + p.consumed.map(\.path)
+      let p = rhs.subfieldsByStatus!
+      return p.uninitialized + p.consumed.map(\.subfield)
 
     case (.full, _):
       // LHS is fully consumed or uninitialized.

@@ -48,7 +48,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
       let s = self[i] as! AllocStackInstruction
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.recordAddress(.register(i, 0))
       precondition(context.memory[l] == nil, "stack leak")
 
       context.memory[l] = .init(
@@ -133,7 +133,7 @@ extension Module {
         return
       }
 
-      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.subfieldPath) })
+      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.subfield) })
       context.locals[.register(i, 0)] = .locations(Set(newLocations))
     }
 
@@ -181,7 +181,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, in context: inout Context) {
       let s = self[i] as! GlobalAddrInstruction
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.recordAddress(.register(i, 0))
 
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.valueType, definedIn: program),
@@ -192,7 +192,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(pointerToAddress i: InstructionID, in context: inout Context) {
       let s = self[i] as! PointerToAddressInstruction
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.recordAddress(.register(i, 0))
 
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
@@ -203,7 +203,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(project i: InstructionID, in context: inout Context) {
       let s = self[i] as! ProjectInstruction
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.recordAddress(.register(i, 0))
       precondition(context.memory[l] == nil, "projection leak")
 
       context.memory[l] = .init(
@@ -259,7 +259,7 @@ extension Module {
 
     switch k {
     case .let, .inout, .set, .sink:
-      let a = AbstractLocation.root(p)
+      let a = AbstractLocation.recordAddress(p)
       context.locals[p] = .locations([a])
       context.memory[a] = .init(layout: l, value: .full(.unique))
 
