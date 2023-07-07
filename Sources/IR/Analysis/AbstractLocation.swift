@@ -14,12 +14,12 @@ enum AbstractLocation: Hashable {
   /// location identifying storage of type `B`.
   ///
   /// - Note: Use `appending(_:)` to create instances of this case.
-  indirect case sublocation(root: Operand, path: SubfieldPath)
+  indirect case sublocation(root: Operand, path: SubfieldID)
 
   /// Returns a new locating created by appending `suffix` to this one.
   ///
   /// - Requires: `self` is not `.null`.
-  func appending(_ suffix: SubfieldPath) -> AbstractLocation {
+  func appending(_ suffix: SubfieldID) -> AbstractLocation {
     if suffix.isEmpty { return self }
 
     switch self {

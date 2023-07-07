@@ -7,4 +7,4 @@
 /// - `[0]` denotes `foo`,
 /// - `[1, 0]` denotes `bar.baz`, and
 /// - `[]` denotes the whole `T` record.
-public typealias SubfieldPath = [Int]
+public typealias SubfieldID = [Int]

@@ -239,7 +239,9 @@ extension Module {
         fatalError("not implemented")
       } else {
         locations =
-          context.locals[addr.recordAddress]!.unwrapLocations()!.map({ $0.appending(addr.subfieldPath) })
+          context.locals[addr.recordAddress]!.unwrapLocations()!.map({
+            $0.appending(addr.subfieldPath)
+          })
       }
 
       context.locals[.register(i, 0)] = .locations(Set(locations))
@@ -567,7 +569,7 @@ extension Module {
   /// Inserts IR for the deinitialization of `root` at given `initializedPaths` before
   /// instruction `i`, anchoring instructions to `site`
   private mutating func insertDeinit(
-    _ root: Operand, at initializedPaths: [SubfieldPath], anchoredTo site: SourceRange,
+    _ root: Operand, at initializedPaths: [SubfieldID], anchoredTo site: SourceRange,
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedPaths {
@@ -690,13 +692,13 @@ extension State: CustomStringConvertible {
 private struct PartPaths {
 
   /// The paths to the initialized parts.
-  var initialized: [SubfieldPath]
+  var initialized: [SubfieldID]
 
   /// The paths to the uninitialized parts.
-  var uninitialized: [SubfieldPath]
+  var uninitialized: [SubfieldID]
 
   /// The paths to the consumed parts, along with the users that consumed them.
-  var consumed: [(path: SubfieldPath, consumers: State.Consumers)]
+  var consumed: [(path: SubfieldID, consumers: State.Consumers)]
 
 }
 
@@ -711,7 +713,7 @@ extension AbstractObject.Value where Domain == State {
   }
 
   /// The paths to `self`'s initialized parts.
-  fileprivate var initializedPaths: [SubfieldPath] {
+  fileprivate var initializedPaths: [SubfieldID] {
     switch self {
     case .full(.initialized):
       return [[]]
@@ -727,7 +729,7 @@ extension AbstractObject.Value where Domain == State {
   ///
   /// - Requires: `self` is canonical.
   private func gatherSubobjectPaths(
-    prefixedBy prefix: SubfieldPath,
+    prefixedBy prefix: SubfieldID,
     into paths: inout PartPaths
   ) {
     guard case .partial(let subobjects) = self else { return }
@@ -782,7 +784,7 @@ extension AbstractObject.Value where Domain == State {
   /// consumed in `r`.
   ///
   /// - Requires: `l` and `r` are canonical and have the same layout
-  static func - (l: Self, r: Self) -> [SubfieldPath] {
+  static func - (l: Self, r: Self) -> [SubfieldID] {
     switch (l, r) {
     case (_, .full(.initialized)):
       // No part of LHS is not initialized in RHS.

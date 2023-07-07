@@ -454,7 +454,7 @@ public struct Emitter {
 
     /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`,
     /// returning that sub-location.
-    func declare(name: NamePattern.ID, referringTo pathInStorage: SubfieldPath) -> Operand {
+    func declare(name: NamePattern.ID, referringTo pathInStorage: SubfieldID) -> Operand {
       let s = emitFieldView(storage, at: pathInStorage, at: ast[name].site)
       frames[ast[name].decl] = s
       return s
@@ -2026,7 +2026,7 @@ public struct Emitter {
   /// Appends the IR for computing the address of the given `subfield` of the record at
   /// `recordAddress` and returns the resulting address, anchoring new instructions at `site`.
   private mutating func emitFieldView(
-    _ recordAddress: Operand, at subfield: SubfieldPath, at site: SourceRange
+    _ recordAddress: Operand, at subfield: SubfieldID, at site: SourceRange
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
     return append(module.makeFieldView(of: recordAddress, subfield: subfield, at: site))[0]

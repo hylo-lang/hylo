@@ -9,7 +9,7 @@ public struct FieldViewInstruction: Instruction {
   public private(set) var recordAddress: Operand
 
   /// A sequence of indices identifying a part of the value at `base`.
-  public let subfieldPath: SubfieldPath
+  public let subfieldPath: SubfieldID
 
   /// The type of the derived address.
   public let subfieldType: LoweredType
@@ -20,7 +20,7 @@ public struct FieldViewInstruction: Instruction {
   /// Creates an instance with the given properties.
   fileprivate init(
     base: Operand,
-    subfield: SubfieldPath,
+    subfield: SubfieldID,
     subfieldType: LoweredType,
     site: SourceRange
   ) {
@@ -51,11 +51,11 @@ extension FieldViewInstruction: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `field_view` anchored at `site` computing the address of the 
+  /// Creates a `field_view` anchored at `site` computing the address of the
   /// given `subfield` of some record at `recordAddress`.
   /// - Note: `base` is returned unchanged if `elementPath` is empty.
   func makeFieldView(
-    of recordAddress: Operand, subfield elementPath: SubfieldPath, at site: SourceRange
+    of recordAddress: Operand, subfield elementPath: SubfieldID, at site: SourceRange
   ) -> FieldViewInstruction {
     precondition(type(of: recordAddress).isAddress)
     let l = AbstractTypeLayout(of: type(of: recordAddress).ast, definedIn: program)

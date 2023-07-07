@@ -265,7 +265,8 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(fieldView i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! FieldViewInstruction
-      append(makeFieldView(of: rewritten(s.recordAddress), subfield: s.subfieldPath, at: s.site), to: b)
+      append(
+        makeFieldView(of: rewritten(s.recordAddress), subfield: s.subfieldPath, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
