@@ -333,8 +333,8 @@ public struct ValCommand: ParsableCommand {
     // Search in the PATH.
     #if os(Windows)
       let environment = ProcessInfo.processInfo.environment["Path"] ?? ""
-      for base in environment.split(separator: ";") {
-        candidate = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+      for recordAddress in environment.split(separator: ";") {
+        candidate = URL(fileURLWithPath: String(recordAddress)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidate.path + ".exe") {
           ValCommand.executableLocationCache[executable] = candidate.path
           return candidate.path
@@ -342,8 +342,8 @@ public struct ValCommand: ParsableCommand {
       }
     #else
       let environment = ProcessInfo.processInfo.environment["PATH"] ?? ""
-      for base in environment.split(separator: ":") {
-        candidate = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+      for recordAddress in environment.split(separator: ":") {
+        candidate = URL(fileURLWithPath: String(recordAddress)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidate.path) {
           ValCommand.executableLocationCache[executable] = candidate.path
           return candidate.path

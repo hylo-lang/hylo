@@ -480,8 +480,8 @@ extension LLVM.Module {
         insert(condBranch: i)
       case is IR.DeallocStackInstruction:
         return
-      case is IR.InlineStorageViewInstruction:
-        insert(inlineStorageView: i)
+      case is IR.FieldViewInstruction:
+        insert(fieldView: i)
       case is IR.EndBorrowInstruction:
         return
       case is IR.EndProjectInstruction:
@@ -606,12 +606,12 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(inlineStorageView i: IR.InstructionID) {
-      let s = m[i] as! InlineStorageViewInstruction
+    func insert(fieldView i: IR.InstructionID) {
+      let s = m[i] as! FieldViewInstruction
 
-      let base = llvm(s.base)
-      let baseType = ir.llvm(m.type(of: s.base).ast, in: &self)
-      let indices = [i32.constant(0)] + s.elementPath.map({ i32.constant(UInt64($0)) })
+      let base = llvm(s.recordAddress)
+      let baseType = ir.llvm(m.type(of: s.recordAddress).ast, in: &self)
+      let indices = [i32.constant(0)] + s.subfieldPath.map({ i32.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
       register[.register(i, 0)] = v

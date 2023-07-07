@@ -38,8 +38,8 @@ extension Module {
           pc = interpret(callFFI: user, in: &context)
         case is DeallocStackInstruction:
           pc = interpret(deallocStack: user, in: &context)
-        case is InlineStorageViewInstruction:
-          pc = interpret(inlineStorageView: user, in: &context)
+        case is FieldViewInstruction:
+          pc = interpret(fieldView: user, in: &context)
         case is EndBorrowInstruction:
           pc = successor(of: user)
         case is EndProjectInstruction:
@@ -229,17 +229,17 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(inlineStorageView i: InstructionID, in context: inout Context) -> PC? {
-      let addr = self[i] as! InlineStorageViewInstruction
+    func interpret(fieldView i: InstructionID, in context: inout Context) -> PC? {
+      let addr = self[i] as! FieldViewInstruction
 
       // Operand must a location.
       let locations: [AbstractLocation]
-      if case .constant = addr.base {
+      if case .constant = addr.recordAddress {
         // Operand is a constant.
         fatalError("not implemented")
       } else {
         locations =
-          context.locals[addr.base]!.unwrapLocations()!.map({ $0.appending(addr.elementPath) })
+          context.locals[addr.recordAddress]!.unwrapLocations()!.map({ $0.appending(addr.subfieldPath) })
       }
 
       context.locals[.register(i, 0)] = .locations(Set(locations))
@@ -567,11 +567,11 @@ extension Module {
   /// Inserts IR for the deinitialization of `root` at given `initializedPaths` before
   /// instruction `i`, anchoring instructions to `site`
   private mutating func insertDeinit(
-    _ root: Operand, at initializedPaths: [PartPath], anchoredTo site: SourceRange,
+    _ root: Operand, at initializedPaths: [SubfieldPath], anchoredTo site: SourceRange,
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedPaths {
-      let s = insert(makeInlineStorageView(root, at: path, at: site), before: i)[0]
+      let s = insert(makeFieldView(of: root, subfield: path, at: site), before: i)[0]
 
       let useScope = functions[i.function]![i.block].scope
       let success = Emitter.insertDeinit(
@@ -690,13 +690,13 @@ extension State: CustomStringConvertible {
 private struct PartPaths {
 
   /// The paths to the initialized parts.
-  var initialized: [PartPath]
+  var initialized: [SubfieldPath]
 
   /// The paths to the uninitialized parts.
-  var uninitialized: [PartPath]
+  var uninitialized: [SubfieldPath]
 
   /// The paths to the consumed parts, along with the users that consumed them.
-  var consumed: [(path: PartPath, consumers: State.Consumers)]
+  var consumed: [(path: SubfieldPath, consumers: State.Consumers)]
 
 }
 
@@ -711,7 +711,7 @@ extension AbstractObject.Value where Domain == State {
   }
 
   /// The paths to `self`'s initialized parts.
-  fileprivate var initializedPaths: [PartPath] {
+  fileprivate var initializedPaths: [SubfieldPath] {
     switch self {
     case .full(.initialized):
       return [[]]
@@ -727,7 +727,7 @@ extension AbstractObject.Value where Domain == State {
   ///
   /// - Requires: `self` is canonical.
   private func gatherSubobjectPaths(
-    prefixedBy prefix: PartPath,
+    prefixedBy prefix: SubfieldPath,
     into paths: inout PartPaths
   ) {
     guard case .partial(let subobjects) = self else { return }
@@ -782,7 +782,7 @@ extension AbstractObject.Value where Domain == State {
   /// consumed in `r`.
   ///
   /// - Requires: `l` and `r` are canonical and have the same layout
-  static func - (l: Self, r: Self) -> [PartPath] {
+  static func - (l: Self, r: Self) -> [SubfieldPath] {
     switch (l, r) {
     case (_, .full(.initialized)):
       // No part of LHS is not initialized in RHS.
