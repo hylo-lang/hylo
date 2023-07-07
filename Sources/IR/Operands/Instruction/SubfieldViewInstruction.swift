@@ -3,7 +3,7 @@ import Core
 /// Computes the address of storage for a field or sub-field of a record, given the record's address.
 ///
 /// Does not access memory.
-public struct FieldViewInstruction: Instruction {
+public struct SubfieldViewInstruction: Instruction {
 
   /// The address of the whole record.
   public private(set) var recordAddress: Operand
@@ -41,22 +41,22 @@ public struct FieldViewInstruction: Instruction {
 
 }
 
-extension FieldViewInstruction: CustomStringConvertible {
+extension SubfieldViewInstruction: CustomStringConvertible {
 
   public var description: String {
-    "field_view \(recordAddress)\(subfield.isEmpty ? "" : ", ")\(list: subfield)"
+    "subfield_view \(recordAddress)\(subfield.isEmpty ? "" : ", ")\(list: subfield)"
   }
 
 }
 
 extension Module {
 
-  /// Creates a `field_view` anchored at `site` computing the address of the
+  /// Creates a `subfield_view` anchored at `site` computing the address of the
   /// given `subfield` of some record at `recordAddress`.
   /// - Note: `base` is returned unchanged if `elementPath` is empty.
-  func makeFieldView(
+  func makeSubfieldView(
     of recordAddress: Operand, subfield elementPath: SubfieldID, at site: SourceRange
-  ) -> FieldViewInstruction {
+  ) -> SubfieldViewInstruction {
     precondition(type(of: recordAddress).isAddress)
     let l = AbstractTypeLayout(of: type(of: recordAddress).ast, definedIn: program)
     return .init(

@@ -160,8 +160,8 @@ extension Module {
         rewrite(condBranch: i, to: b)
       case is DeallocStackInstruction:
         rewrite(deallocStack: i, to: b)
-      case is FieldViewInstruction:
-        rewrite(fieldView: i, to: b)
+      case is SubfieldViewInstruction:
+        rewrite(subfieldView: i, to: b)
       case is EndBorrowInstruction:
         rewrite(endBorrow: i, to: b)
       case is EndProjectInstruction:
@@ -263,10 +263,10 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(fieldView i: InstructionID, to b: Block.ID) {
-      let s = sourceModule[i] as! FieldViewInstruction
+    func rewrite(subfieldView i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! SubfieldViewInstruction
       append(
-        makeFieldView(of: rewritten(s.recordAddress), subfield: s.subfield, at: s.site), to: b)
+        makeSubfieldView(of: rewritten(s.recordAddress), subfield: s.subfield, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

@@ -480,8 +480,8 @@ extension LLVM.Module {
         insert(condBranch: i)
       case is IR.DeallocStackInstruction:
         return
-      case is IR.FieldViewInstruction:
-        insert(fieldView: i)
+      case is IR.SubfieldViewInstruction:
+        insert(subfieldView: i)
       case is IR.EndBorrowInstruction:
         return
       case is IR.EndProjectInstruction:
@@ -606,8 +606,8 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(fieldView i: IR.InstructionID) {
-      let s = m[i] as! FieldViewInstruction
+    func insert(subfieldView i: IR.InstructionID) {
+      let s = m[i] as! SubfieldViewInstruction
 
       let base = llvm(s.recordAddress)
       let baseType = ir.llvm(m.type(of: s.recordAddress).ast, in: &self)

@@ -21,7 +21,7 @@ import Utils
 /// elements in `W` eliminates those leaves, forming a smaller forest until `W` is empty.
 ///
 /// Step 2b is implemented by `Module.forEachClient(of:)` and `Module.requests(_:)`. The former
-/// iterates over all the uses of an instruction, traversing `field_view`. The latter
+/// iterates over all the uses of an instruction, traversing `subfield_view`. The latter
 /// returns the set of requested capabilities for each user. As well-formed accesses to memory must
 /// be done via `borrow` or `load`, there's a fairly small number of instructions to consider.
 ///
@@ -100,7 +100,7 @@ extension Module {
   private func forEachClient(of i: InstructionID, _ action: (Use) -> Void) {
     guard let uses = self.uses[.register(i, 0)] else { return }
     for u in uses {
-      if self[u.user] is FieldViewInstruction {
+      if self[u.user] is SubfieldViewInstruction {
         forEachClient(of: u.user, action)
       } else {
         action(u)

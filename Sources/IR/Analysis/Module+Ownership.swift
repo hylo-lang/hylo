@@ -25,8 +25,8 @@ extension Module {
           interpret(borrow: user, in: &context)
         case is DeallocStackInstruction:
           interpret(deallocStack: user, in: &context)
-        case is FieldViewInstruction:
-          interpret(fieldView: user, in: &context)
+        case is SubfieldViewInstruction:
+          interpret(subfieldView: user, in: &context)
         case is EndBorrowInstruction:
           interpret(endBorrow: user, in: &context)
         case is EndProjectInstruction:
@@ -120,8 +120,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(fieldView i: InstructionID, in context: inout Context) {
-      let s = self[i] as! FieldViewInstruction
+    func interpret(subfieldView i: InstructionID, in context: inout Context) {
+      let s = self[i] as! SubfieldViewInstruction
       if case .constant = s.recordAddress {
         // Operand is a constant.
         fatalError("not implemented")
@@ -299,7 +299,7 @@ extension Module {
   ///
   /// - Requires: `o` denotes a location.
   private func accessSource(_ o: Operand) -> Operand {
-    if case .register(let i, _) = o, let a = self[i] as? FieldViewInstruction {
+    if case .register(let i, _) = o, let a = self[i] as? SubfieldViewInstruction {
       return accessSource(a.recordAddress)
     } else {
       return o

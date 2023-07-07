@@ -38,8 +38,8 @@ extension Module {
           pc = interpret(callFFI: user, in: &context)
         case is DeallocStackInstruction:
           pc = interpret(deallocStack: user, in: &context)
-        case is FieldViewInstruction:
-          pc = interpret(fieldView: user, in: &context)
+        case is SubfieldViewInstruction:
+          pc = interpret(subfieldView: user, in: &context)
         case is EndBorrowInstruction:
           pc = successor(of: user)
         case is EndProjectInstruction:
@@ -229,8 +229,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(fieldView i: InstructionID, in context: inout Context) -> PC? {
-      let addr = self[i] as! FieldViewInstruction
+    func interpret(subfieldView i: InstructionID, in context: inout Context) -> PC? {
+      let addr = self[i] as! SubfieldViewInstruction
 
       // Operand must a location.
       let locations: [AbstractLocation]
@@ -573,7 +573,7 @@ extension Module {
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedSubfields {
-      let s = insert(makeFieldView(of: root, subfield: path, at: site), before: i)[0]
+      let s = insert(makeSubfieldView(of: root, subfield: path, at: site), before: i)[0]
 
       let useScope = functions[i.function]![i.block].scope
       let success = Emitter.insertDeinit(
