@@ -7,6 +7,9 @@ public enum BuiltinType: TypeProtocol {
   /// and does not specify signedness.
   case i(Int)
 
+  /// An alias for `.i(n)` where `n` is the width of `.ptr`.
+  case word
+
   /// A built-in 16-bit floating-point type (specifically, "binary16" in IEEE 754).
   case float16
 
@@ -35,6 +38,8 @@ extension BuiltinType: CustomStringConvertible {
     switch self {
     case .i(let bitWidth):
       return "i\(bitWidth)"
+    case .word:
+      return "word"
     case .float16:
       return "float16"
     case .float32:
@@ -56,6 +61,8 @@ extension BuiltinType: LosslessStringConvertible {
 
   public init?<S: StringProtocol>(_ description: S) {
     switch description {
+    case "word":
+      self = .word
     case "float16":
       self = .float16
     case "float32":

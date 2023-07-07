@@ -77,11 +77,6 @@ extension LLVM.Module {
     }
   }
 
-  /// Returns the LLVM type of a machine word.
-  private mutating func word() -> LLVM.IntegerType {
-    IntegerType(64, in: &self)
-  }
-
   /// Returns the LLVM type of a metatype instance.
   private mutating func metatypeType() -> LLVM.StructType {
     if let t = type(named: "_val_metatype") {
