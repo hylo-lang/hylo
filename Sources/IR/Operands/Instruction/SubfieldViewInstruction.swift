@@ -12,7 +12,7 @@ public struct SubfieldViewInstruction: Instruction {
   public let subfield: SubfieldID
 
   /// The type of the resulting address.
-  public let subfieldType: LoweredType
+  public let resultType: LoweredType
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
@@ -26,11 +26,11 @@ public struct SubfieldViewInstruction: Instruction {
   ) {
     self.recordAddress = base
     self.subfield = subfield
-    self.subfieldType = subfieldType
+    self.resultType = subfieldType
     self.site = site
   }
 
-  public var types: [LoweredType] { [subfieldType] }
+  public var types: [LoweredType] { [resultType] }
 
   public var operands: [Operand] { [recordAddress] }
 
