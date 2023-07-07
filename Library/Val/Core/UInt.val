@@ -1,13 +1,13 @@
 /// An unsigned integer value.
 public type UInt {
 
-  var value: Builtin.i64
+  var value: Builtin.word
 
   memberwise init
 
   /// Creates an instance with value `0`.
   public init() {
-    &self.value = Builtin.zeroinitializer_i64()
+    &self.value = Builtin.zeroinitializer_word()
   }
 
   /// Creates an instance with the same memory representation as `other`.
@@ -17,17 +17,17 @@ public type UInt {
 
   /// Creates an instance with the same memory representation as `address`.
   public init(bit_pattern address: RawPointer) {
-    &self.value = Builtin.ptrtoint_i64(address.value)
+    &self.value = Builtin.ptrtoint_word(address.value)
   }
 
   /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
   public fun infix== (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_eq_i64(value, other.value))
+    Bool(value: Builtin.icmp_eq_word(value, other.value))
   }
 
   /// Returns `true` if `self` is not equal to `other`. Otherwise, returns `false`.
   public fun infix!= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_ne_i64(value, other.value))
+    Bool(value: Builtin.icmp_ne_word(value, other.value))
   }
 
 }
