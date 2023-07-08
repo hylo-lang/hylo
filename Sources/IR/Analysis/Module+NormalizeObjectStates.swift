@@ -92,7 +92,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
       // Create an abstract location denoting the newly allocated memory.
-      let l = AbstractLocation.recordAddress(.register(i, 0))
+      let l = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[l] == nil, "stack leak")
 
       // Update the context.
@@ -277,7 +277,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, in context: inout Context) -> PC? {
-      let l = AbstractLocation.recordAddress(.register(i, 0))
+      let l = AbstractLocation.root(.register(i, 0))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(
           of: (self[i] as! GlobalAddrInstruction).valueType, definedIn: program),
@@ -375,7 +375,7 @@ extension Module {
       let s = self[i] as! PointerToAddressInstruction
       consume(s.source, with: i, at: s.site, in: &context)
 
-      let l = AbstractLocation.recordAddress(.register(i, 0))
+      let l = AbstractLocation.root(.register(i, 0))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
         value: .full(s.target.access == .set ? .uninitialized : .initialized))
@@ -388,7 +388,7 @@ extension Module {
       // TODO: Process arguments
 
       let s = self[i] as! ProjectInstruction
-      let l = AbstractLocation.recordAddress(.register(i, 0))
+      let l = AbstractLocation.root(.register(i, 0))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
         value: .full(s.projection.access == .set ? .uninitialized : .initialized))
@@ -481,7 +481,7 @@ extension Module {
       _ p: Operand, passed k: AccessEffect, in context: inout Context,
       reportingDiagnosticsAt site: SourceRange
     ) {
-      context.withObject(at: .recordAddress(p)) { (o) in
+      context.withObject(at: .root(p)) { (o) in
         if o.value == .full(.initialized) { return }
 
         if k == .set {
@@ -532,12 +532,12 @@ extension Module {
 
     switch k {
     case .let, .inout, .sink:
-      let a = AbstractLocation.recordAddress(p)
+      let a = AbstractLocation.root(p)
       context.locals[p] = .locations([a])
       context.memory[a] = .init(layout: l, value: .full(.initialized))
 
     case .set:
-      let a = AbstractLocation.recordAddress(p)
+      let a = AbstractLocation.root(p)
       context.locals[p] = .locations([a])
       context.memory[a] = .init(layout: l, value: .full(.uninitialized))
 

@@ -4,7 +4,7 @@ import Core
 enum AbstractLocation: Hashable {
 
   /// A root location.
-  case recordAddress(Operand)
+  case root(Operand)
 
   /// A sub-location rooted at an argument or instruction.
   ///
@@ -23,7 +23,7 @@ enum AbstractLocation: Hashable {
     if suffix.isEmpty { return self }
 
     switch self {
-    case .recordAddress(let root):
+    case .root(let root):
       return .sublocation(root: root, subfield: suffix)
     case .sublocation(let root, let prefix):
       return .sublocation(root: root, subfield: prefix + suffix)
@@ -36,7 +36,7 @@ extension AbstractLocation: CustomStringConvertible {
 
   var description: String {
     switch self {
-    case .recordAddress(let r):
+    case .root(let r):
       return String(describing: r)
     case .sublocation(let root, let path):
       return "\(root).\(list: path, joinedBy: ".")"
