@@ -617,8 +617,8 @@ public struct Module {
     switch self[i] {
     case let s as BorrowInstruction:
       return provenances(s.location)
-    case let s as ElementAddrInstruction:
-      return provenances(s.base)
+    case let s as SubfieldViewInstruction:
+      return provenances(s.recordAddress)
     case let s as ProjectInstruction:
       return s.operands.reduce(
         into: [],

@@ -25,8 +25,8 @@ extension Module {
           interpret(borrow: user, in: &context)
         case is DeallocStackInstruction:
           interpret(deallocStack: user, in: &context)
-        case is ElementAddrInstruction:
-          interpret(elementAddr: user, in: &context)
+        case is SubfieldViewInstruction:
+          interpret(subfieldView: user, in: &context)
         case is EndBorrowInstruction:
           interpret(endBorrow: user, in: &context)
         case is EndProjectInstruction:
@@ -120,20 +120,20 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(elementAddr i: InstructionID, in context: inout Context) {
-      let s = self[i] as! ElementAddrInstruction
-      if case .constant = s.base {
+    func interpret(subfieldView i: InstructionID, in context: inout Context) {
+      let s = self[i] as! SubfieldViewInstruction
+      if case .constant = s.recordAddress {
         // Operand is a constant.
         fatalError("not implemented")
       }
 
       // Skip the instruction if an error occured upstream.
-      guard let base = context.locals[s.base] else {
+      guard let base = context.locals[s.recordAddress] else {
         assert(diagnostics.containsError)
         return
       }
 
-      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.elementPath) })
+      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.subfield) })
       context.locals[.register(i, 0)] = .locations(Set(newLocations))
     }
 
@@ -299,8 +299,8 @@ extension Module {
   ///
   /// - Requires: `o` denotes a location.
   private func accessSource(_ o: Operand) -> Operand {
-    if case .register(let i, _) = o, let a = self[i] as? ElementAddrInstruction {
-      return accessSource(a.base)
+    if case .register(let i, _) = o, let a = self[i] as? SubfieldViewInstruction {
+      return accessSource(a.recordAddress)
     } else {
       return o
     }

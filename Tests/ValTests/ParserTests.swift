@@ -1419,9 +1419,9 @@ final class ParserTests: XCTestCase {
     let names = ast.names(in: p!)
     XCTAssertEqual(names.count, 2)
     if names.count == 2 {
-      XCTAssertEqual(names[0].path, [0])
+      XCTAssertEqual(names[0].subfield, [0])
       XCTAssertEqual(ast[ast[names[0].pattern].decl].baseName, "foo")
-      XCTAssertEqual(names[1].path, [1, 0])
+      XCTAssertEqual(names[1].subfield, [1, 0])
       XCTAssertEqual(ast[ast[names[1].pattern].decl].baseName, "bar")
     }
   }
