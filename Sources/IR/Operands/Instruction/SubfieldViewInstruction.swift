@@ -9,7 +9,7 @@ public struct SubfieldViewInstruction: Instruction {
   public private(set) var recordAddress: Operand
 
   /// The subfield of the whole record whose address is computed.
-  public let subfield: SubfieldID
+  public let subfield: RecordPath
 
   /// The type of the resulting address.
   public let resultType: LoweredType
@@ -20,7 +20,7 @@ public struct SubfieldViewInstruction: Instruction {
   /// Creates an instance with the given properties.
   fileprivate init(
     base: Operand,
-    subfield: SubfieldID,
+    subfield: RecordPath,
     subfieldType: LoweredType,
     site: SourceRange
   ) {
@@ -55,7 +55,7 @@ extension Module {
   /// given `subfield` of some record at `recordAddress`.
   /// - Note: `base` is returned unchanged if `elementPath` is empty.
   func makeSubfieldView(
-    of recordAddress: Operand, subfield elementPath: SubfieldID, at site: SourceRange
+    of recordAddress: Operand, subfield elementPath: RecordPath, at site: SourceRange
   ) -> SubfieldViewInstruction {
     precondition(type(of: recordAddress).isAddress)
     let l = AbstractTypeLayout(of: type(of: recordAddress).ast, definedIn: program)

@@ -269,11 +269,11 @@ public struct AST {
   }
 
   /// Returns the subfields and pattern IDs of the named patterns contained in `p`.
-  public func names<T: PatternID>(in p: T) -> [(subfield: SubfieldID, pattern: NamePattern.ID)] {
+  public func names<T: PatternID>(in p: T) -> [(subfield: RecordPath, pattern: NamePattern.ID)] {
     func visit(
       pattern: AnyPatternID,
-      subfield: SubfieldID,
-      result: inout [(subfield: SubfieldID, pattern: NamePattern.ID)]
+      subfield: RecordPath,
+      result: inout [(subfield: RecordPath, pattern: NamePattern.ID)]
     ) {
       switch pattern.kind {
       case BindingPattern.self:
@@ -301,7 +301,7 @@ public struct AST {
       }
     }
 
-    var result: [(subfield: SubfieldID, pattern: NamePattern.ID)] = []
+    var result: [(subfield: RecordPath, pattern: NamePattern.ID)] = []
     visit(pattern: AnyPatternID(p), subfield: [], result: &result)
     return result
   }
@@ -318,8 +318,8 @@ public struct AST {
   ///   tuples, then they have equal lengths and labels.
   public func walking(
     pattern: AnyPatternID, expression: AnyExprID,
-    at root: SubfieldID = [],
-    _ action: (_ subfield: SubfieldID, _ subpattern: AnyPatternID, _ subexpression: AnyExprID) ->
+    at root: RecordPath = [],
+    _ action: (_ subfield: RecordPath, _ subpattern: AnyPatternID, _ subexpression: AnyExprID) ->
       Void
   ) {
     switch pattern.kind {

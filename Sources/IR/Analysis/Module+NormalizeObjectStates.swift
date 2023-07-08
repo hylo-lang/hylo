@@ -569,7 +569,7 @@ extension Module {
   /// Inserts IR for the deinitialization of `root` at given `initializedSubfields` before
   /// instruction `i`, anchoring instructions to `site`
   private mutating func insertDeinit(
-    _ root: Operand, at initializedSubfields: [SubfieldID], anchoredTo site: SourceRange,
+    _ root: Operand, at initializedSubfields: [RecordPath], anchoredTo site: SourceRange,
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedSubfields {
@@ -692,13 +692,13 @@ extension State: CustomStringConvertible {
 private struct SubfieldsByInitializationState {
 
   /// The paths to the initialized parts.
-  var initialized: [SubfieldID]
+  var initialized: [RecordPath]
 
   /// The paths to the uninitialized parts.
-  var uninitialized: [SubfieldID]
+  var uninitialized: [RecordPath]
 
   /// The paths to the consumed parts, along with the users that consumed them.
-  var consumed: [(subfield: SubfieldID, consumers: State.Consumers)]
+  var consumed: [(subfield: RecordPath, consumers: State.Consumers)]
 
 }
 
@@ -713,7 +713,7 @@ extension AbstractObject.Value where Domain == State {
   }
 
   /// The initialized subfields.
-  fileprivate var initializedSubfields: [SubfieldID] {
+  fileprivate var initializedSubfields: [RecordPath] {
     switch self {
     case .full(.initialized):
       return [[]]
@@ -729,7 +729,7 @@ extension AbstractObject.Value where Domain == State {
   ///
   /// - Requires: `self` is canonical.
   private func gatherSubobjectPaths(
-    prefixedBy prefix: SubfieldID,
+    prefixedBy prefix: RecordPath,
     into paths: inout SubfieldsByInitializationState
   ) {
     guard case .partial(let subobjects) = self else { return }
@@ -784,7 +784,7 @@ extension AbstractObject.Value where Domain == State {
   /// consumed in `r`.
   ///
   /// - Requires: `l` and `r` are canonical and have the same layout
-  static func - (l: Self, r: Self) -> [SubfieldID] {
+  static func - (l: Self, r: Self) -> [RecordPath] {
     switch (l, r) {
     case (_, .full(.initialized)):
       // No part of LHS is not initialized in RHS.
