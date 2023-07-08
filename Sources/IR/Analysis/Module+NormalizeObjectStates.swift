@@ -131,7 +131,7 @@ extension Module {
         case .full(.consumed):
           diagnostics.insert(.useOfConsumedObject(at: borrow.site))
         case .partial:
-          if o.value.subfieldsByStatus!.consumed.isEmpty {
+          if o.value.subfields!.consumed.isEmpty {
             diagnostics.insert(.useOfPartiallyInitializedObject(at: borrow.site))
           } else {
             diagnostics.insert(.useOfPartiallyConsumedObject(at: borrow.site))
@@ -314,7 +314,7 @@ extension Module {
           case .full(.consumed):
             diagnostics.insert(.useOfConsumedObject(at: load.site))
           case .partial:
-            let p = o.value.subfieldsByStatus!
+            let p = o.value.subfields!
             if p.consumed.isEmpty {
               diagnostics.insert(.useOfPartiallyInitializedObject(at: load.site))
             } else {
@@ -689,7 +689,7 @@ extension State: CustomStringConvertible {
 }
 
 /// Classification of a record type's subfields into uninitialized, initialized, and consumed sets.
-private struct SubfieldStatus {
+private struct SubfieldsByInitializationState {
 
   /// The paths to the initialized parts.
   var initialized: [SubfieldID]
@@ -705,9 +705,9 @@ private struct SubfieldStatus {
 extension AbstractObject.Value where Domain == State {
 
   /// If `self` is `.partial`, the paths to `self`'s parts; otherwise, `nil`.
-  fileprivate var subfieldsByStatus: SubfieldStatus? {
+  fileprivate var subfields: SubfieldsByInitializationState? {
     if case .full = self { return nil }
-    var paths = SubfieldStatus(initialized: [], uninitialized: [], consumed: [])
+    var paths = SubfieldsByInitializationState(initialized: [], uninitialized: [], consumed: [])
     gatherSubobjectPaths(prefixedBy: [], into: &paths)
     return paths
   }
@@ -720,7 +720,7 @@ extension AbstractObject.Value where Domain == State {
     case .full(.uninitialized), .full(.consumed):
       return []
     case .partial:
-      return subfieldsByStatus!.initialized
+      return subfields!.initialized
     }
   }
 
@@ -730,7 +730,7 @@ extension AbstractObject.Value where Domain == State {
   /// - Requires: `self` is canonical.
   private func gatherSubobjectPaths(
     prefixedBy prefix: SubfieldID,
-    into paths: inout SubfieldStatus
+    into paths: inout SubfieldsByInitializationState
   ) {
     guard case .partial(let subobjects) = self else { return }
 
@@ -792,7 +792,7 @@ extension AbstractObject.Value where Domain == State {
 
     case (let lhs, .full):
       // RHS is fully consumed or uninitialized.
-      if let p = lhs.subfieldsByStatus {
+      if let p = lhs.subfields {
         return p.initialized
       } else if lhs == .full(.initialized) {
         return [[]]
@@ -802,7 +802,7 @@ extension AbstractObject.Value where Domain == State {
 
     case (.full(.initialized), let rhs):
       // RHS is partially initialized.
-      let p = rhs.subfieldsByStatus!
+      let p = rhs.subfields!
       return p.uninitialized + p.consumed.map(\.subfield)
 
     case (.full, _):
