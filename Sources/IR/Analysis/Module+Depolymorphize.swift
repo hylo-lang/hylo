@@ -156,6 +156,8 @@ extension Module {
         rewrite(call: i, to: b)
       case is CallFFIInstruction:
         rewrite(callFFI: i, to: b)
+      case is CloseSumInstruction:
+        rewrite(closeSum: i, to: b)
       case is CondBranchInstruction:
         rewrite(condBranch: i, to: b)
       case is DeallocStackInstruction:
@@ -174,6 +176,8 @@ extension Module {
         rewrite(load: i, to: b)
       case is MarkStateInstruction:
         rewrite(markState: i, to: b)
+      case is OpenSumInstruction:
+        rewrite(openSum: i, to: b)
       case is PartialApplyInstruction:
         rewrite(partialApply: i, to: b)
       case is PointerToAddressInstruction:
@@ -246,6 +250,12 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(closeSum i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! CloseSumInstruction
+      append(makeCloseSum(rewritten(s.start), at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(condBranch i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! CondBranchInstruction
       let c = rewritten(s.condition)
@@ -304,6 +314,16 @@ extension Module {
     func rewrite(load i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! LoadInstruction
       append(makeLoad(rewritten(s.source), at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(openSum i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! OpenSumInstruction
+      let u = makeOpenSum(
+        rewritten(s.container), as: program.monomorphize(s.payloadType, for: parameterization),
+        forInitialization: s.isUsedForInitialization,
+        at: s.site)
+      append(u, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
