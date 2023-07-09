@@ -476,6 +476,8 @@ extension LLVM.Module {
         insert(call: i)
       case is IR.CallFFIInstruction:
         insert(callFFI: i)
+      case is IR.CloseSumInstruction:
+        insert(closeSum: i)
       case is IR.CondBranchInstruction:
         insert(condBranch: i)
       case is IR.DeallocStackInstruction:
@@ -494,6 +496,8 @@ extension LLVM.Module {
         insert(load: i)
       case is IR.MarkStateInstruction:
         return
+      case is IR.OpenSumInstruction:
+        insert(openSum: i)
       case is IR.PartialApplyInstruction:
         insert(partialApply: i)
       case is IR.PointerToAddressInstruction:
@@ -594,6 +598,12 @@ extension LLVM.Module {
       let callee = declareFunction(s.callee, .init(from: parameters, to: returnType, in: &self))
       let arguments = s.operands.map({ llvm($0) })
       register[.register(i, 0)] = insertCall(callee, on: arguments, at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(closeSum i: IR.InstructionID) {
+      // TODO: Implement me
+      // Set the discriminator of the sum container.
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -703,6 +713,12 @@ extension LLVM.Module {
       let t = ir.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
       register[.register(i, 0)] = insertLoad(t, from: source, at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(openSum i: IR.InstructionID) {
+      let s = m[i] as! OpenSumInstruction
+      register[.register(i, 0)] = llvm(s.container)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
