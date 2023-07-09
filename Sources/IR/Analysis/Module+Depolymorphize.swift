@@ -160,8 +160,6 @@ extension Module {
         rewrite(condBranch: i, to: b)
       case is DeallocStackInstruction:
         rewrite(deallocStack: i, to: b)
-      case is SubfieldViewInstruction:
-        rewrite(subfieldView: i, to: b)
       case is EndBorrowInstruction:
         rewrite(endBorrow: i, to: b)
       case is EndProjectInstruction:
@@ -184,6 +182,8 @@ extension Module {
         rewrite(return: i, to: b)
       case is StoreInstruction:
         rewrite(store: i, to: b)
+      case is SubfieldViewInstruction:
+        rewrite(subfieldView: i, to: b)
       case is UnrechableInstruction:
         rewrite(unreachable: i, to: b)
       case is YieldInstruction:
@@ -260,13 +260,6 @@ extension Module {
     func rewrite(deallocStack i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! DeallocStackInstruction
       append(makeDeallocStack(for: rewritten(s.location), at: s.site), to: b)
-    }
-
-    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(subfieldView i: InstructionID, to b: Block.ID) {
-      let s = sourceModule[i] as! SubfieldViewInstruction
-      append(
-        makeSubfieldView(of: rewritten(s.recordAddress), subfield: s.subfield, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -363,6 +356,13 @@ extension Module {
     func rewrite(store i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! StoreInstruction
       append(makeStore(rewritten(s.object), at: rewritten(s.target), at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(subfieldView i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! SubfieldViewInstruction
+      append(
+        makeSubfieldView(of: rewritten(s.recordAddress), subfield: s.subfield, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

@@ -25,8 +25,6 @@ extension Module {
           interpret(borrow: user, in: &context)
         case is DeallocStackInstruction:
           interpret(deallocStack: user, in: &context)
-        case is SubfieldViewInstruction:
-          interpret(subfieldView: user, in: &context)
         case is EndBorrowInstruction:
           interpret(endBorrow: user, in: &context)
         case is EndProjectInstruction:
@@ -37,6 +35,8 @@ extension Module {
           interpret(pointerToAddress: user, in: &context)
         case is ProjectInstruction:
           interpret(project: user, in: &context)
+        case is SubfieldViewInstruction:
+          interpret(subfieldView: user, in: &context)
         case is WrapAddrInstruction:
           interpret(wrapAddr: user, in: &context)
         default:
@@ -120,24 +120,6 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(subfieldView i: InstructionID, in context: inout Context) {
-      let s = self[i] as! SubfieldViewInstruction
-      if case .constant = s.recordAddress {
-        // Operand is a constant.
-        fatalError("not implemented")
-      }
-
-      // Skip the instruction if an error occured upstream.
-      guard let base = context.locals[s.recordAddress] else {
-        assert(diagnostics.containsError)
-        return
-      }
-
-      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.subfield) })
-      context.locals[.register(i, 0)] = .locations(Set(newLocations))
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endBorrow i: InstructionID, in context: inout Context) {
       let end = self[i] as! EndBorrowInstruction
 
@@ -210,6 +192,24 @@ extension Module {
         layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
         value: .full(.unique))
       context.locals[.register(i, 0)] = .locations([l])
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(subfieldView i: InstructionID, in context: inout Context) {
+      let s = self[i] as! SubfieldViewInstruction
+      if case .constant = s.recordAddress {
+        // Operand is a constant.
+        fatalError("not implemented")
+      }
+
+      // Skip the instruction if an error occured upstream.
+      guard let base = context.locals[s.recordAddress] else {
+        assert(diagnostics.containsError)
+        return
+      }
+
+      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.subfield) })
+      context.locals[.register(i, 0)] = .locations(Set(newLocations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.

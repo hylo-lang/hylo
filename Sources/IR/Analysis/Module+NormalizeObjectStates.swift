@@ -38,8 +38,6 @@ extension Module {
           pc = interpret(callFFI: user, in: &context)
         case is DeallocStackInstruction:
           pc = interpret(deallocStack: user, in: &context)
-        case is SubfieldViewInstruction:
-          pc = interpret(subfieldView: user, in: &context)
         case is EndBorrowInstruction:
           pc = successor(of: user)
         case is EndProjectInstruction:
@@ -64,6 +62,8 @@ extension Module {
           pc = interpret(return: user, in: &context)
         case is StoreInstruction:
           pc = interpret(store: user, in: &context)
+        case is SubfieldViewInstruction:
+          pc = interpret(subfieldView: user, in: &context)
         case is UnrechableInstruction:
           pc = successor(of: user)
         case is UnsafeCastInstruction:
@@ -225,26 +225,6 @@ extension Module {
         s.location, at: p, anchoredTo: s.site, before: i,
         reportingDiagnosticsTo: &diagnostics)
       context.memory[l] = nil
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(subfieldView i: InstructionID, in context: inout Context) -> PC? {
-      let addr = self[i] as! SubfieldViewInstruction
-
-      // Operand must a location.
-      let locations: [AbstractLocation]
-      if case .constant = addr.recordAddress {
-        // Operand is a constant.
-        fatalError("not implemented")
-      } else {
-        locations =
-          context.locals[addr.recordAddress]!.unwrapLocations()!.map({
-            $0.appending(addr.subfield)
-          })
-      }
-
-      context.locals[.register(i, 0)] = .locations(Set(locations))
       return successor(of: i)
     }
 
@@ -424,6 +404,26 @@ extension Module {
         assert(o.value.initializedSubfields.isEmpty || o.layout.type.isBuiltin)
         o.value = .full(.initialized)
       }
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(subfieldView i: InstructionID, in context: inout Context) -> PC? {
+      let addr = self[i] as! SubfieldViewInstruction
+
+      // Operand must a location.
+      let locations: [AbstractLocation]
+      if case .constant = addr.recordAddress {
+        // Operand is a constant.
+        fatalError("not implemented")
+      } else {
+        locations =
+          context.locals[addr.recordAddress]!.unwrapLocations()!.map({
+            $0.appending(addr.subfield)
+          })
+      }
+
+      context.locals[.register(i, 0)] = .locations(Set(locations))
       return successor(of: i)
     }
 
