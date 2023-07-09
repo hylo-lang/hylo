@@ -2,7 +2,11 @@
 
 fun modify<T>(_ x: inout T) {}
 
-public fun main() {
+fun foo<T>() {
   var s: Sum<Int, Bool> = true
   modify(&s)
+}
+
+public fun main() {
+  foo<Int>()
 }
