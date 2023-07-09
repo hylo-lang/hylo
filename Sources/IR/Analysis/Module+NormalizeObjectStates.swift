@@ -36,6 +36,8 @@ extension Module {
           pc = interpret(call: user, in: &context)
         case is CallFFIInstruction:
           pc = interpret(callFFI: user, in: &context)
+        case is CloseSumInstruction:
+          pc = interpret(closeSum: user, in: &context)
         case is DeallocStackInstruction:
           pc = interpret(deallocStack: user, in: &context)
         case is ElementAddrInstruction:
@@ -54,6 +56,8 @@ extension Module {
           pc = interpret(markState: user, in: &context)
         case is MoveInstruction:
           pc = interpret(move: user, in: &context)
+        case is OpenSumInstruction:
+          pc = interpret(openSum: user, in: &context)
         case is PartialApplyInstruction:
           pc = interpret(partialApply: user, in: &context)
         case is PointerToAddressInstruction:
@@ -108,7 +112,7 @@ extension Module {
     func interpret(borrow i: InstructionID, in context: inout Context) -> PC? {
       let borrow = self[i] as! BorrowInstruction
 
-      // Operand must a location.
+      // Operand must be a location.
       let locations: Set<AbstractLocation>
       if case .constant = borrow.location {
         // Operand is a constant.
@@ -214,6 +218,27 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(closeSum i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! CloseSumInstruction
+      let payload = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
+
+      // The state of the projected payload can't be partial.
+      let o = context.withObject(at: payload, { $0 })
+      guard case .full(let payloadInitializationState) = o.value else {
+        fatalError()
+      }
+
+      // Copy the state of the payload to set the state of the container.
+      let start = self[s.start.instruction!] as! OpenSumInstruction
+      context.forEachObject(at: start.container) { (o) in
+        o.value = .full(payloadInitializationState)
+      }
+
+      context.memory[payload] = nil
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! DeallocStackInstruction
       let l = context.locals[s.location]!.unwrapLocations()!.uniqueElement!
@@ -232,7 +257,7 @@ extension Module {
     func interpret(elementAddr i: InstructionID, in context: inout Context) -> PC? {
       let addr = self[i] as! ElementAddrInstruction
 
-      // Operand must a location.
+      // Operand must be a location.
       let locations: [AbstractLocation]
       if case .constant = addr.base {
         // Operand is a constant.
@@ -358,6 +383,24 @@ extension Module {
       removeInstruction(i)
 
       return x0.instruction!.address
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(openSum i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! OpenSumInstruction
+      let l = AbstractLocation.root(.register(i, 0))
+      precondition(context.memory[l] == nil, "overlapping accesses to sum payload")
+
+      // Operand must be a location.
+      let locations = context.locals[s.container]!.unwrapLocations()!
+
+      // Objects at each location have the same state unless DI or LoE has been broken.
+      let o = context.withObject(at: locations.first!, { $0 })
+      let t = AbstractTypeLayout(of: s.payloadType, definedIn: program)
+
+      context.memory[l] = .init(layout: t, value: o.value)
+      context.locals[.register(i, 0)] = .locations([l])
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
