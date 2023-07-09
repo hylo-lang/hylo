@@ -42,7 +42,7 @@ extension Module {
         case is SubfieldViewInstruction:
           interpret(subfieldView: user, in: &context)
         case is WrapExistentialAddrInstruction:
-          interpret(WrapExistential: user, in: &context)
+          interpret(wrapExistentialAddr: user, in: &context)
         default:
           continue
         }
@@ -254,7 +254,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(WrapExistential i: InstructionID, in context: inout Context) {
+    func interpret(wrapExistentialAddr i: InstructionID, in context: inout Context) {
       let s = self[i] as! WrapExistentialAddrInstruction
       if case .constant = s.witness {
         // Operand is a constant.
