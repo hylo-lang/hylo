@@ -100,9 +100,10 @@ extension Module {
   private func forEachClient(of i: InstructionID, _ action: (Use) -> Void) {
     guard let uses = self.uses[.register(i, 0)] else { return }
     for u in uses {
-      if self[u.user] is ElementAddrInstruction {
+      switch self[u.user] {
+      case is ElementAddrInstruction, is OpenSumInstruction:
         forEachClient(of: u.user, action)
-      } else {
+      default:
         action(u)
       }
     }
