@@ -27,8 +27,6 @@ extension Module {
           interpret(closeSum: user, in: &context)
         case is DeallocStackInstruction:
           interpret(deallocStack: user, in: &context)
-        case is ElementAddrInstruction:
-          interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
           interpret(endBorrow: user, in: &context)
         case is EndProjectInstruction:
@@ -41,8 +39,10 @@ extension Module {
           interpret(pointerToAddress: user, in: &context)
         case is ProjectInstruction:
           interpret(project: user, in: &context)
+        case is SubfieldViewInstruction:
+          interpret(subfieldView: user, in: &context)
         case is WrapExistentialAddrInstruction:
-          interpret(wrapAddr: user, in: &context)
+          interpret(WrapExistential: user, in: &context)
         default:
           continue
         }
@@ -144,24 +144,6 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(elementAddr i: InstructionID, in context: inout Context) {
-      let s = self[i] as! ElementAddrInstruction
-      if case .constant = s.base {
-        // Operand is a constant.
-        fatalError("not implemented")
-      }
-
-      // Skip the instruction if an error occured upstream.
-      guard let base = context.locals[s.base] else {
-        assert(diagnostics.containsError)
-        return
-      }
-
-      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.elementPath) })
-      context.locals[.register(i, 0)] = .locations(Set(newLocations))
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endBorrow i: InstructionID, in context: inout Context) {
       let end = self[i] as! EndBorrowInstruction
 
@@ -254,7 +236,25 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapAddr i: InstructionID, in context: inout Context) {
+    func interpret(subfieldView i: InstructionID, in context: inout Context) {
+      let s = self[i] as! SubfieldViewInstruction
+      if case .constant = s.recordAddress {
+        // Operand is a constant.
+        fatalError("not implemented")
+      }
+
+      // Skip the instruction if an error occured upstream.
+      guard let base = context.locals[s.recordAddress] else {
+        assert(diagnostics.containsError)
+        return
+      }
+
+      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.subfield) })
+      context.locals[.register(i, 0)] = .locations(Set(newLocations))
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(WrapExistential i: InstructionID, in context: inout Context) {
       let s = self[i] as! WrapExistentialAddrInstruction
       if case .constant = s.witness {
         // Operand is a constant.
@@ -340,8 +340,8 @@ extension Module {
   ///
   /// - Requires: `o` denotes a location.
   private func accessSource(_ o: Operand) -> Operand {
-    if case .register(let i, _) = o, let a = self[i] as? ElementAddrInstruction {
-      return accessSource(a.base)
+    if case .register(let i, _) = o, let a = self[i] as? SubfieldViewInstruction {
+      return accessSource(a.recordAddress)
     } else {
       return o
     }

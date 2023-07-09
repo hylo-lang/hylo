@@ -77,11 +77,6 @@ extension LLVM.Module {
     }
   }
 
-  /// Returns the LLVM type of a machine word.
-  private mutating func word() -> LLVM.IntegerType {
-    IntegerType(64, in: &self)
-  }
-
   /// Returns the LLVM type of a metatype instance.
   private mutating func metatypeType() -> LLVM.StructType {
     if let t = type(named: "_val_metatype") {
@@ -482,8 +477,6 @@ extension LLVM.Module {
         insert(condBranch: i)
       case is IR.DeallocStackInstruction:
         return
-      case is IR.ElementAddrInstruction:
-        insert(elementAddr: i)
       case is IR.EndBorrowInstruction:
         return
       case is IR.EndProjectInstruction:
@@ -508,6 +501,8 @@ extension LLVM.Module {
         insert(return: i)
       case is IR.StoreInstruction:
         insert(store: i)
+      case is IR.SubfieldViewInstruction:
+        insert(subfieldView: i)
       case is IR.UnrechableInstruction:
         insert(unreachable: i)
       case is IR.UnsafeCastInstruction:
@@ -616,18 +611,6 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(elementAddr i: IR.InstructionID) {
-      let s = m[i] as! ElementAddrInstruction
-
-      let base = llvm(s.base)
-      let baseType = ir.llvm(m.type(of: s.base).ast, in: &self)
-      let indices = [i32.constant(0)] + s.elementPath.map({ i32.constant(UInt64($0)) })
-      let v = insertGetElementPointerInBounds(
-        of: base, typed: baseType, indices: indices, at: insertionPoint)
-      register[.register(i, 0)] = v
-    }
-
-    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(endProjection i: IR.InstructionID) {
       let s = m[i] as! EndProjectInstruction
       let start = s.projection.instruction!
@@ -644,6 +627,18 @@ extension LLVM.Module {
     func insert(globalAddr i: IR.InstructionID) {
       let s = m[i] as! IR.GlobalAddrInstruction
       register[.register(i, 0)] = global(named: "\(s.container)\(s.id)")!
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(subfieldView i: IR.InstructionID) {
+      let s = m[i] as! SubfieldViewInstruction
+
+      let base = llvm(s.recordAddress)
+      let baseType = ir.llvm(m.type(of: s.recordAddress).ast, in: &self)
+      let indices = [i32.constant(0)] + s.subfield.map({ i32.constant(UInt64($0)) })
+      let v = insertGetElementPointerInBounds(
+        of: base, typed: baseType, indices: indices, at: insertionPoint)
+      register[.register(i, 0)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.

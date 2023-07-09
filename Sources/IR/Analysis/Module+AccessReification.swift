@@ -21,9 +21,10 @@ import Utils
 /// elements in `W` eliminates those leaves, forming a smaller forest until `W` is empty.
 ///
 /// Step 2b is implemented by `Module.forEachClient(of:)` and `Module.requests(_:)`. The former
-/// iterates over all the uses of an instruction, traversing `element_addr`. The latter returns
-/// the set of requested capabilities for each user. As well-formed accesses to memory must be
-/// done via `borrow` or `load`, there's a fairly small number of instructions to consider.
+/// iterates over all the uses of an instruction, traversing instructions that compute derived
+/// addresses (.e.g., `subfield_view`). The latter returns the set of requested capabilities for
+/// each user. As well-formed accesses to memory must be done via `borrow` or `load`, there's a
+/// fairly small number of instructions to consider.
 ///
 /// Note that `move` are assumed to request `inout` only as assignment should be preferred over
 /// initialization. This assumption is sound because if the reifiable access only provides `set`,
@@ -101,7 +102,7 @@ extension Module {
     guard let uses = self.uses[.register(i, 0)] else { return }
     for u in uses {
       switch self[u.user] {
-      case is ElementAddrInstruction, is OpenSumInstruction:
+      case is OpenSumInstruction, is SubfieldViewInstruction:
         forEachClient(of: u.user, action)
       default:
         action(u)

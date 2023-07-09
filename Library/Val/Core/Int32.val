@@ -14,7 +14,7 @@ public type Int32 {
   ///
   /// - Requires: The value of `other` must be representable in this type.
   public init(_ other: Int) {
-    &self.value = Builtin.trunc_i64_i32(other.value)
+    &self.value = Builtin.trunc_word_i32(other.value)
   }
 
 }

@@ -38,6 +38,8 @@ extension LoweredProgram {
     switch val {
     case .i(let width):
       return LLVM.IntegerType(width, in: &module)
+    case .word:
+      return module.word()
     case .float16:
       return LLVM.FloatingPointType.half(in: &module)
     case .float32:

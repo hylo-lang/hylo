@@ -82,12 +82,12 @@ private protocol LifetimeExtender {}
 
 extension BorrowInstruction: LifetimeExtender {}
 
-extension ElementAddrInstruction: LifetimeExtender {}
-
 extension OpenSumInstruction: LifetimeExtender {}
 
 extension ProjectInstruction: LifetimeExtender {}
 
 extension ProjectBundleInstruction: LifetimeExtender {}
+
+extension SubfieldViewInstruction: LifetimeExtender {}
 
 extension WrapExistentialAddrInstruction: LifetimeExtender {}

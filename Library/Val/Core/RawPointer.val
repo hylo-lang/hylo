@@ -7,7 +7,7 @@ public type RawPointer {
 
   /// Creates an instance with the bit pattern of `address`.
   public init(bit_pattern address: Int) {
-    &self.value = Builtin.inttoptr_i64(address.value)
+    &self.value = Builtin.inttoptr_word(address.value)
   }
 
   /// Creates a copy of `other`.
