@@ -429,21 +429,34 @@ public struct Emitter {
     precondition(program.isLocal(d))
     precondition(read(program[d].pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
-    // Allocate storage for all the names declared by `decl`.
+    // Allocate storage for all the names declared by `d` in a single aggregate.
     let storage = emitAllocStack(for: program[d].type, at: ast[d].site)
 
-    // Declare each introduced name and initialize them if possible.
+    // Declare all introduced names, initializing them if possible.
     let lhs = program[d].pattern.subpattern.id
     if let initializer = ast[d].initializer {
       ast.walking(pattern: lhs, expression: initializer) { (path, p, rhs) in
-        // Declare the introduced name if `p` is a name pattern. Otherwise, drop the value of the
-        // the corresponding expression.
-        if let name = NamePattern.ID(p) {
-          let part = declare(name: name, referringTo: path)
-          emitStore(value: rhs, to: part)
+        // Nothing to assign if `p` isn't a name pattern.
+        guard let n = NamePattern.ID(p) else {
+          let s = emitStore(value: rhs)
+          emitDeinit(s, at: ast[p].site)
+          return
+        }
+
+        let lhsPart = declare(name: n, referringTo: path)
+        let lhsPartType = module.type(of: lhsPart).ast
+        let rhsPartType = program.relations.canonical(program[rhs].type)
+
+        if program.relations.areEquivalent(lhsPartType, rhsPartType) {
+          emitStore(value: rhs, to: lhsPart)
+        } else if lhsPartType.base is SumType {
+          let x0 = append(
+            module.makeOpenSum(
+              lhsPart, as: rhsPartType, forInitialization: true, at: ast[p].site))[0]
+          emitStore(value: rhs, to: x0)
+          append(module.makeCloseSum(x0, at: ast[p].site))
         } else {
-          let part = emitStore(value: rhs)
-          emitDeinit(part, at: ast[p].site)
+          fatalError("not implemented")
         }
       }
     } else {
@@ -452,8 +465,8 @@ public struct Emitter {
       }
     }
 
-    /// Inserts the IR to declare `name`, which refers to the given `subfield`,
-    /// returning that sub-location.
+    /// Inserts the IR to declare `name`, which refers to the given `subfield` (relative to
+    /// `storage`), returning that sub-location.
     func declare(name: NamePattern.ID, referringTo subfield: RecordPath) -> Operand {
       let s = emitSubfieldView(storage, at: subfield, at: ast[name].site)
       frames[ast[name].decl] = s
@@ -485,12 +498,6 @@ public struct Emitter {
         frames[ast[name].decl] = .constant(Poison(type: .address(t)))
       }
       return
-    }
-
-    // Initializing inout bindings requires a mutation marker.
-    if (access == .inout) && (initializer.kind != InoutExpr.self) {
-      report(
-        .error(inoutBindingRequiresMutationMarkerAt: .empty(at: ast[initializer].site.first())))
     }
 
     let source = emitLValue(initializer)
@@ -1721,7 +1728,7 @@ public struct Emitter {
     let g = PointerConstant(module.id, module.addGlobal(witnessTable))
 
     let x0 = append(module.makeBorrow(access, from: witness, at: site))[0]
-    let x1 = append(module.makeWrapAddr(x0, .constant(g), as: t, at: site))[0]
+    let x1 = append(module.makeWrapExistentialAddr(x0, .constant(g), as: t, at: site))[0]
     return x1
   }
 
@@ -1927,7 +1934,13 @@ public struct Emitter {
     _ storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID, at site: SourceRange,
     _ point: InsertionPoint, in module: inout Module
   ) -> Bool {
+    // Use custom conformance to `Deinitializable` if possible.
     let t = module.type(of: storage).ast
+    if let c = module.program.conformanceToDeinitializable(of: t, exposedTo: useScope) {
+      insertDeinit(storage, withConformanceToDeinitializable: c, at: site, point, in: &module)
+      return true
+    }
+
     switch t.base {
     case is BuiltinType, is MetatypeType, AnyType.void, AnyType.never:
       module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
@@ -1941,6 +1954,11 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
+    case is SumType:
+      // TODO: implement me.
+      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+      return true
+
     case is TupleType:
       return insertDeinit(
         record: storage, usingDeinitializerExposedTo: useScope, at: site,
@@ -1950,10 +1968,15 @@ public struct Emitter {
       break
     }
 
-    guard let c = module.program.conformanceToDeinitializable(of: t, exposedTo: useScope) else {
-      return false
-    }
+    return false
+  }
 
+  /// Inserts the IR for deinitializing the contents of `storage` at `point` in `module`, using `c`
+  /// to identify the deinitializer to apply, anchoring new instructions to `site`.
+  private static func insertDeinit(
+    _ storage: Operand, withConformanceToDeinitializable c: Conformance, at site: SourceRange,
+    _ point: InsertionPoint, in module: inout Module
+  ) {
     let d = module.demandDeinitDeclaration(from: c)
     let f = Operand.constant(FunctionReference(to: d, usedIn: c.scope, in: module))
 
@@ -1964,8 +1987,6 @@ public struct Emitter {
     module.insert(module.makeEndBorrow(x2, at: site), point)
     module.insert(module.makeMarkState(x1, initialized: false, at: site), point)
     module.insert(module.makeDeallocStack(for: x1, at: site), point)
-
-    return true
   }
 
   /// If `storage`, which holds a record, is deinitializable, inserts the IR for deinitializing its
@@ -2191,10 +2212,6 @@ extension Diagnostic {
 
   static func error(assignmentLHSRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
-  }
-
-  static func error(inoutBindingRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
-    .error("initialization of inout binding must be marked for mutation", at: site)
   }
 
   static func error(nonDeinitializable t: AnyType, at site: SourceRange) -> Diagnostic {

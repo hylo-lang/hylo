@@ -625,7 +625,7 @@ public struct Module {
         })
     case let s as SubfieldViewInstruction:
       return provenances(s.recordAddress)
-    case let s as WrapAddrInstruction:
+    case let s as WrapExistentialAddrInstruction:
       return provenances(s.witness)
     default:
       return [a]
