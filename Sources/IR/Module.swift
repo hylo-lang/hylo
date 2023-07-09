@@ -617,14 +617,14 @@ public struct Module {
     switch self[i] {
     case let s as BorrowInstruction:
       return provenances(s.location)
-    case let s as SubfieldViewInstruction:
-      return provenances(s.recordAddress)
     case let s as ProjectInstruction:
       return s.operands.reduce(
         into: [],
         { (p, o) in
           if type(of: o).isAddress { p.formUnion(provenances(o)) }
         })
+    case let s as SubfieldViewInstruction:
+      return provenances(s.recordAddress)
     case let s as WrapAddrInstruction:
       return provenances(s.witness)
     default:
