@@ -1934,7 +1934,13 @@ public struct Emitter {
     _ storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID, at site: SourceRange,
     _ point: InsertionPoint, in module: inout Module
   ) -> Bool {
+    // Use custom conformance to `Deinitializable` if possible.
     let t = module.type(of: storage).ast
+    if let c = module.program.conformanceToDeinitializable(of: t, exposedTo: useScope) {
+      insertDeinit(storage, withConformanceToDeinitializable: c, at: site, point, in: &module)
+      return true
+    }
+
     switch t.base {
     case is BuiltinType, is MetatypeType, AnyType.void, AnyType.never:
       module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
@@ -1948,6 +1954,11 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
+    case is SumType:
+      // TODO: implement me.
+      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+      return true
+
     case is TupleType:
       return insertDeinit(
         record: storage, usingDeinitializerExposedTo: useScope, at: site,
@@ -1957,10 +1968,15 @@ public struct Emitter {
       break
     }
 
-    guard let c = module.program.conformanceToDeinitializable(of: t, exposedTo: useScope) else {
-      return false
-    }
+    return false
+  }
 
+  /// Inserts the IR for deinitializing the contents of `storage` at `point` in `module`, using `c`
+  /// to identify the deinitializer to apply, anchoring new instructions to `site`.
+  private static func insertDeinit(
+    _ storage: Operand, withConformanceToDeinitializable c: Conformance, at site: SourceRange,
+    _ point: InsertionPoint, in module: inout Module
+  ) {
     let d = module.demandDeinitDeclaration(from: c)
     let f = Operand.constant(FunctionReference(to: d, usedIn: c.scope, in: module))
 
@@ -1971,8 +1987,6 @@ public struct Emitter {
     module.insert(module.makeEndBorrow(x2, at: site), point)
     module.insert(module.makeMarkState(x1, initialized: false, at: site), point)
     module.insert(module.makeDeallocStack(for: x1, at: site), point)
-
-    return true
   }
 
   /// If `storage`, which holds a record, is deinitializable, inserts the IR for deinitializing its
