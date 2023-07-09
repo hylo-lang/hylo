@@ -1,0 +1,8 @@
+//- compileAndRun expecting: success
+
+fun modify<T>(_ x: inout T) {}
+
+public fun main() {
+  var s: Sum<Int, Bool> = true
+  modify(&s)
+}
