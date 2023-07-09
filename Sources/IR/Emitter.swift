@@ -429,21 +429,34 @@ public struct Emitter {
     precondition(program.isLocal(d))
     precondition(read(program[d].pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
-    // Allocate storage for all the names declared by `decl`.
+    // Allocate storage for all the names declared by `d` in a single aggregate.
     let storage = emitAllocStack(for: program[d].type, at: ast[d].site)
 
-    // Declare each introduced name and initialize them if possible.
+    // Declare all introduced names, initializing them if possible.
     let lhs = program[d].pattern.subpattern.id
     if let initializer = ast[d].initializer {
       ast.walking(pattern: lhs, expression: initializer) { (path, p, rhs) in
-        // Declare the introduced name if `p` is a name pattern. Otherwise, drop the value of the
-        // the corresponding expression.
-        if let name = NamePattern.ID(p) {
-          let part = declare(name: name, referringTo: path)
-          emitStore(value: rhs, to: part)
+        // Nothing to assign if `p` isn't a name pattern.
+        guard let n = NamePattern.ID(p) else {
+          let s = emitStore(value: rhs)
+          emitDeinit(s, at: ast[p].site)
+          return
+        }
+
+        let lhsPart = declare(name: n, referringTo: path)
+        let lhsPartType = module.type(of: lhsPart).ast
+        let rhsPartType = program.relations.canonical(program[rhs].type)
+
+        if program.relations.areEquivalent(lhsPartType, rhsPartType) {
+          emitStore(value: rhs, to: lhsPart)
+        } else if lhsPartType.base is SumType {
+          let x0 = append(
+            module.makeOpenSum(
+              lhsPart, as: rhsPartType, forInitialization: true, at: ast[p].site))[0]
+          emitStore(value: rhs, to: x0)
+          append(module.makeCloseSum(x0, at: ast[p].site))
         } else {
-          let part = emitStore(value: rhs)
-          emitDeinit(part, at: ast[p].site)
+          fatalError("not implemented")
         }
       }
     } else {
@@ -452,8 +465,8 @@ public struct Emitter {
       }
     }
 
-    /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`,
-    /// returning that sub-location.
+    /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`
+    /// relative to `storage`, returning that sub-location.
     func declare(name: NamePattern.ID, referringTo pathInStorage: PartPath) -> Operand {
       let s = emitElementAddr(storage, at: pathInStorage, at: ast[name].site)
       frames[ast[name].decl] = s
