@@ -360,9 +360,13 @@ public struct TypeChecker {
 
   /// Type checks `d` and returns its type.
   ///
+  /// If `asOptional` is `true`, `d` is checked as an optional binding declaration, meaning that
+  /// its annotation (if any) is treated as a lower bound rather than an upper bound on tne type
+  /// of its initializer.
+  ///
   /// - Note: Method is internal because it may be called during constraint generation.
   @discardableResult
-  mutating func check(binding d: BindingDecl.ID) -> AnyType {
+  mutating func check(binding d: BindingDecl.ID, asCondition: Bool = false) -> AnyType {
     defer { assert(declTypes[d] != nil) }
 
     /// Registers that type checking completed for `d`, assiging it to `t` and returning `t`.
@@ -386,55 +390,54 @@ public struct TypeChecker {
       unreachable()
     }
 
-    // Determine the shape of the declaration.
-    let shape = inferredType(of: AnyPatternID(ast[d].pattern), shapedBy: nil)
-    assert(shape.facts.inferredTypes.storage.isEmpty, "expression in binding pattern")
-
-    if shape.type[.hasError] {
+    // Determine the type of the declaration's pattern.
+    let pattern = inferredType(of: AnyPatternID(ast[d].pattern), shapedBy: nil)
+    assert(pattern.facts.inferredTypes.storage.isEmpty, "expression in binding pattern")
+    if pattern.type[.hasError] {
       return complete(.error)
     }
 
     // Type check the initializer, if any.
-    if let initializer = ast[d].initializer {
-      let initializerType = exprTypes[initializer].setIfNil(^TypeVariable())
-      var initializerConstraints: [Constraint] = shape.facts.constraints
-
-      // The type of the initializer may be a subtype of the pattern's
-      if program[d].pattern.annotation == nil {
-        initializerConstraints.append(
-          EqualityConstraint(
-            initializerType, shape.type,
-            origin: ConstraintOrigin(.initializationWithPattern, at: ast[initializer].site)))
-      } else {
-        initializerConstraints.append(
-          SubtypingConstraint(
-            initializerType, shape.type,
-            origin: ConstraintOrigin(.initializationWithHint, at: ast[initializer].site)))
-      }
-
-      // Infer the type of the initializer
-      let names = ast.names(in: ast[d].pattern).map({ AnyDeclID(ast[$0.pattern].decl) })
-
-      bindingsUnderChecking.formUnion(names)
-      let inference = solutionTyping(
-        initializer,
-        shapedBy: shape.type,
-        initialConstraints: initializerConstraints)
-      bindingsUnderChecking.subtract(names)
-
-      // TODO: Complete underspecified generic signatures
-      // TODO: Ensure that the initializer is either movable or the result of a constructor call
-
-      let result = complete(inference.solution.typeAssumptions.reify(shape.type))
-
-      // Run deferred queries.
-      let s = shape.deferred.reduce(true, { $1(&self, inference.solution) && $0 })
-      assert(s || diagnostics.containsError)
-      return result
-    } else {
+    guard let initializer = ast[d].initializer else {
       assert(program[d].pattern.annotation != nil, "expected type annotation")
-      return complete(shape.type)
+      return complete(pattern.type)
     }
+
+    let initializerType = exprTypes[initializer].setIfNil(^TypeVariable())
+    var constraints = pattern.facts.constraints
+
+    // If `d` has no annotation, its type is inferred as that of its initializer. Otherwise, the
+    // type of the initializer must be subtype of the pattern unless `d` is used as a condition.
+    // In that case, it must be supertype of the pattern.
+    if program[d].pattern.annotation == nil {
+      let o = ConstraintOrigin(.initializationWithPattern, at: ast[initializer].site)
+      constraints.append(EqualityConstraint(initializerType, pattern.type, origin: o))
+    } else if !asCondition {
+      let o = ConstraintOrigin(.initializationWithHint, at: ast[initializer].site)
+      constraints.append(SubtypingConstraint(initializerType, pattern.type, origin: o))
+    } else {
+      let o = ConstraintOrigin(.optionalBinding, at: ast[initializer].site)
+      constraints.append(SubtypingConstraint(pattern.type, initializerType, origin: o))
+    }
+
+    // Infer the type of the initializer
+    let names = ast.names(in: ast[d].pattern).map({ AnyDeclID(ast[$0.pattern].decl) })
+    bindingsUnderChecking.formUnion(names)
+    let inference = solutionTyping(
+      initializer,
+      shapedBy: pattern.type,
+      initialConstraints: constraints)
+    bindingsUnderChecking.subtract(names)
+
+    // TODO: Complete underspecified generic signatures
+    // TODO: Ensure that the initializer is either movable or the result of a constructor call
+
+    let result = complete(inference.solution.typeAssumptions.reify(pattern.type))
+
+    // Run deferred queries.
+    let s = pattern.deferred.reduce(true, { $1(&self, inference.solution) && $0 })
+    assert(s || diagnostics.containsError)
+    return result
   }
 
   private mutating func check(conformance d: ConformanceDecl.ID) {
@@ -1146,13 +1149,14 @@ public struct TypeChecker {
   }
 
   private mutating func check(conditional s: ConditionalStmt.ID) {
-    let boolType = AnyType(ast.coreType("Bool")!)
+    let bool = AnyType(ast.coreType("Bool")!)
+
     for c in ast[s].condition {
       switch c {
       case .expr(let e):
-        _ = checkedType(of: e, subtypeOf: boolType)
-      default:
-        fatalError("not implemented")
+        _ = checkedType(of: e, subtypeOf: bool)
+      case .decl(let d):
+        _ = check(binding: d, asCondition: true)
       }
     }
 
