@@ -113,11 +113,18 @@ extension LoweredProgram {
   func llvm(sumType val: SumType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
+    var payload: IRType = LLVM.StructType([], in: &module)
     if val == .never {
-      return LLVM.StructType([], in: &module)
+      return payload
     }
 
-    fatalError("not implemented")
+    for e in val.elements {
+      let t = llvm(e, in: &module)
+      if module.layout.storageSize(of: t) > module.layout.storageSize(of: payload) {
+        payload = t
+      }
+    }
+    return StructType([payload, module.ptr], in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.
