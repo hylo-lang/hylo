@@ -1057,41 +1057,6 @@ public struct TypeChecker {
     return nil
   }
 
-  /// Returns an array of declarations implementing `requirement` with type `requirementType` that
-  /// are member of `conformingType` and exposed in `useScope`.
-  private mutating func gatherCandidates(
-    implementing requirement: MethodDecl.ID,
-    withType requirementType: AnyType,
-    for conformingType: AnyType,
-    exposedTo useScope: AnyScopeID
-  ) -> [AnyDeclID] {
-    let n = Name(of: requirement, in: ast)
-    let lookupResult = lookup(n.stem, memberOf: conformingType, exposedTo: useScope)
-
-    // Filter out the candidates with incompatible types.
-    return lookupResult.compactMap { (c) -> AnyDeclID? in
-      guard
-        c != requirement,
-        let d = self.decl(in: c, named: n),
-        relations.canonical(realize(decl: d)) == requirementType
-      else { return nil }
-
-      if let f = MethodDecl.ID(d) {
-        if ast[f].impls.contains(where: ({ ast[$0].body == nil })) { return nil }
-      }
-
-      // TODO: Filter out the candidates with incompatible constraints.
-      // trait A {}
-      // type Foo<T> {}
-      // extension Foo where T: U { fun foo() }
-      // conformance Foo: A {} // <- should not consider `foo` in the extension
-
-      // TODO: Rank candidates
-
-      return d
-    }
-  }
-
   /// Type checks `s`.
   private mutating func check<T: StmtID>(stmt s: T) {
     switch s.kind {
