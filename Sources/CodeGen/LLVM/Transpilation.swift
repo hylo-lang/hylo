@@ -461,6 +461,8 @@ extension LLVM.Module {
       switch m[i] {
       case is IR.AddressToPointerInstruction:
         insert(addressToPointer: i)
+      case is IR.AdvancedByStridesInstruction:
+        insert(advancedByStrides: i)
       case is IR.AllocStackInstruction:
         insert(allocStack: i)
       case is IR.BorrowInstruction:
@@ -520,6 +522,17 @@ extension LLVM.Module {
     func insert(addressToPointer i: IR.InstructionID) {
       let s = m[i] as! AddressToPointerInstruction
       register[.register(i, 0)] = llvm(s.source)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(advancedByStrides i: IR.InstructionID) {
+      let s = m[i] as! AdvancedByStridesInstruction
+
+      let base = llvm(s.source)
+      let baseType = ir.llvm(m.type(of: s.source).ast, in: &self)
+      let v = insertGetElementPointerInBounds(
+        of: base, typed: baseType, indices: [llvm(s.offset)], at: insertionPoint)
+      register[.register(i, 0)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.

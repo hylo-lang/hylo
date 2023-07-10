@@ -80,6 +80,8 @@ extension Diagnostic {
 /// An instruction that extends the lifetime of all its uses.
 private protocol LifetimeExtender {}
 
+extension AdvancedByStridesInstruction: LifetimeExtender {}
+
 extension BorrowInstruction: LifetimeExtender {}
 
 extension OpenSumInstruction: LifetimeExtender {}

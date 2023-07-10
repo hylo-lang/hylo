@@ -102,7 +102,7 @@ extension Module {
     guard let uses = self.uses[.register(i, 0)] else { return }
     for u in uses {
       switch self[u.user] {
-      case is OpenSumInstruction, is SubfieldViewInstruction:
+      case is OpenSumInstruction, is SubfieldViewInstruction, is AdvancedByStridesInstruction:
         forEachClient(of: u.user, action)
       default:
         action(u)

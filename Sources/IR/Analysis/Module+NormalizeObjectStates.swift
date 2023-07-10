@@ -24,6 +24,8 @@ extension Module {
         switch self[f][b].instructions[a] {
         case is AddressToPointerInstruction:
           pc = interpret(addressToPointer: user, in: &context)
+        case is AdvancedByStridesInstruction:
+          pc = interpret(advancedByStrides: user, in: &context)
         case is AllocStackInstruction:
           pc = interpret(allocStack: user, in: &context)
         case is BorrowInstruction:
@@ -105,6 +107,16 @@ extension Module {
 
       context.memory[l] = .init(layout: t, value: .full(.uninitialized))
       context.locals[.register(i, 0)] = .locations([l])
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(advancedByStrides i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! AdvancedByStridesInstruction
+      // DWA FIXME: this code is a total WAG
+      consume(s.source, with: i, at: s.site, in: &context)
+      consume(s.offset, with: i, at: s.site, in: &context)
+      initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
 
