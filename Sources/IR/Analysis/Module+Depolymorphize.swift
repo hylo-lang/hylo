@@ -146,6 +146,8 @@ extension Module {
       switch sourceModule[i] {
       case is AddressToPointerInstruction:
         rewrite(addressToPointer: i, to: b)
+      case is AdvancedByBytesInstruction:
+        rewrite(advancedByBytes: i, to: b)
       case is AllocStackInstruction:
         rewrite(allocStack: i, to: b)
       case is BorrowInstruction:
@@ -202,6 +204,14 @@ extension Module {
     func rewrite(addressToPointer i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! AddressToPointerInstruction
       append(makeAddressToPointer(rewritten(s.source), at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(advancedByBytes i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! AdvancedByBytesInstruction
+      append(
+        makeAdvancedByBytes(source: rewritten(s.base), offset: rewritten(s.byteOffset), at: s.site),
+        to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

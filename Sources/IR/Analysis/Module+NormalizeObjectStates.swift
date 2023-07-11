@@ -24,6 +24,8 @@ extension Module {
         switch self[f][b].instructions[a] {
         case is AddressToPointerInstruction:
           pc = interpret(addressToPointer: user, in: &context)
+        case is AdvancedByBytesInstruction:
+          pc = interpret(advancedByBytes: user, in: &context)
         case is AllocStackInstruction:
           pc = interpret(allocStack: user, in: &context)
         case is BorrowInstruction:
@@ -105,6 +107,15 @@ extension Module {
 
       context.memory[l] = .init(layout: t, value: .full(.uninitialized))
       context.locals[.register(i, 0)] = .locations([l])
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(advancedByBytes i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! AdvancedByBytesInstruction
+      consume(s.base, with: i, at: s.site, in: &context)
+      consume(s.byteOffset, with: i, at: s.site, in: &context)
+      initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
 

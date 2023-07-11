@@ -461,6 +461,8 @@ extension LLVM.Module {
       switch m[i] {
       case is IR.AddressToPointerInstruction:
         insert(addressToPointer: i)
+      case is IR.AdvancedByBytesInstruction:
+        insert(advancedByBytes: i)
       case is IR.AllocStackInstruction:
         insert(allocStack: i)
       case is IR.BorrowInstruction:
@@ -520,6 +522,16 @@ extension LLVM.Module {
     func insert(addressToPointer i: IR.InstructionID) {
       let s = m[i] as! AddressToPointerInstruction
       register[.register(i, 0)] = llvm(s.source)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(advancedByBytes i: IR.InstructionID) {
+      let s = m[i] as! AdvancedByBytesInstruction
+
+      let base = llvm(s.base)
+      let v = insertGetElementPointerInBounds(
+        of: base, typed: ptr, indices: [llvm(s.byteOffset)], at: insertionPoint)
+      register[.register(i, 0)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
