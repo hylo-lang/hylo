@@ -29,6 +29,9 @@ public enum NativeInstruction: Hashable {
 
   case add(LLVM.OverflowBehavior, BuiltinType)
 
+  // Corresponding LLVM instruction: get_elementptr_inbounds.
+  case advancedByBytes(byteOffset: BuiltinType)
+
   case sub(LLVM.OverflowBehavior, BuiltinType)
 
   case mul(LLVM.OverflowBehavior, BuiltinType)
@@ -129,6 +132,8 @@ extension NativeInstruction {
     switch self {
     case .add(_, let t):
       return .init(^t, ^t, to: ^t)
+    case .advancedByBytes(let byteOffset):
+      return .init(.builtin(.ptr), ^byteOffset, to: .builtin(.ptr))
     case .sub(_, let t):
       return .init(^t, ^t, to: ^t)
     case .mul(_, let t):
@@ -200,6 +205,8 @@ extension NativeInstruction: CustomStringConvertible {
 
   public var description: String {
     switch self {
+    case .advancedByBytes(let byteOffset):
+      return "advanced_by_bytes_\(byteOffset)"
     case .add(let p, let t):
       return (p != .ignore) ? "add_\(p)_\(t)" : "add_\(t)"
     case .sub(let p, let t):
