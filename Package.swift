@@ -74,6 +74,7 @@ let package = Package(
       name: "Core",
       dependencies: [
         "Utils",
+        .product(name: "Collections", package: "swift-collections"),
         .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
       swiftSettings: allTargetsSwiftSettings),
@@ -126,6 +127,11 @@ let package = Package(
     .testTarget(
       name: "UtilsTests",
       dependencies: ["Utils"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
+      name: "CoreTests",
+      dependencies: ["Core"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
