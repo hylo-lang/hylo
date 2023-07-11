@@ -210,7 +210,7 @@ extension Module {
     func rewrite(advancedByBytes i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! AdvancedByBytesInstruction
       append(
-        makeAdvancedByBytes(source: rewritten(s.source), offset: rewritten(s.offset), at: s.site),
+        makeAdvancedByBytes(source: rewritten(s.base), offset: rewritten(s.byteOffset), at: s.site),
         to: b)
     }
 

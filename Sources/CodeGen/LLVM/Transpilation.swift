@@ -528,10 +528,9 @@ extension LLVM.Module {
     func insert(advancedByBytes i: IR.InstructionID) {
       let s = m[i] as! AdvancedByBytesInstruction
 
-      let base = llvm(s.source)
-      let baseType = ir.llvm(m.type(of: s.source).ast, in: &self)
+      let base = llvm(s.base)
       let v = insertGetElementPointerInBounds(
-        of: base, typed: baseType, indices: [llvm(s.offset)], at: insertionPoint)
+        of: base, typed: ptr, indices: [llvm(s.byteOffset)], at: insertionPoint)
       register[.register(i, 0)] = v
     }
 

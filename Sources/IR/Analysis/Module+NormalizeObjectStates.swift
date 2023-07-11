@@ -114,8 +114,8 @@ extension Module {
     func interpret(advancedByBytes i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! AdvancedByBytesInstruction
       // DWA FIXME: this code is a total WAG
-      consume(s.source, with: i, at: s.site, in: &context)
-      consume(s.offset, with: i, at: s.site, in: &context)
+      consume(s.base, with: i, at: s.site, in: &context)
+      consume(s.byteOffset, with: i, at: s.site, in: &context)
       initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }

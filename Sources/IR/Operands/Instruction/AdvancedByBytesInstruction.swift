@@ -3,38 +3,33 @@ import Core
 /// Computes a `source` address value advanced by `offset` bytes.
 public struct AdvancedByBytesInstruction: Instruction {
 
-  /// The pointer value that is advanced to produce the result.
-  public private(set) var source: Operand
+  /// The value of a pointer to be advanced.
+  public private(set) var base: Operand
 
-  /// An integer number of bytes to advance the source value.
-  public private(set) var offset: Operand
+  /// The value of an integer number of bytes by which to advance the source value.
+  public private(set) var byteOffset: Operand
 
   /// The site of the val source from which `self` was generated.
   public let site: SourceRange
 
-  /// The content type of the `source` (and resulting) address value.
-  private let contentType: LoweredType
-
   /// Creates an instance with the given properties.
   fileprivate init(
-    contentType: LoweredType,
     source: Operand,
     offset: Operand,
     site: SourceRange
   ) {
-    self.contentType = contentType
-    self.source = source
-    self.offset = offset
+    self.base = source
+    self.byteOffset = offset
     self.site = site
   }
 
-  public var types: [LoweredType] { [contentType] }
+  public var types: [LoweredType] { [.object(BuiltinType.ptr)] }
 
-  public var operands: [Operand] { [source, offset] }
+  public var operands: [Operand] { [base, byteOffset] }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i >= 0 && i < 2)
-    if i == 0 { source = new } else { offset = new }
+    if i == 0 { base = new } else { byteOffset = new }
   }
 
 }
@@ -42,7 +37,7 @@ public struct AdvancedByBytesInstruction: Instruction {
 extension AdvancedByBytesInstruction: CustomStringConvertible {
 
   public var description: String {
-    "\(source) advanced by \(offset) bytes"
+    "\(base) advanced by \(byteOffset) bytes"
   }
 
 }
@@ -57,7 +52,6 @@ extension Module {
     precondition(type(of: source).isAddress)
     precondition(type(of: offset).isAddress)
     return .init(
-      contentType: type(of: source),
       source: source,
       offset: offset,
       site: site)
