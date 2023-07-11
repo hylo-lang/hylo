@@ -1,13 +1,12 @@
 import Core
 
-/// Computes a `source` address value advanced by `offset` strides of the `source`'s content type
-/// (`source + offset` in C terms).
-public struct AdvancedByStridesInstruction: Instruction {
+/// Computes a `source` address value advanced by `offset` bytes.
+public struct AdvancedByBytesInstruction: Instruction {
 
   /// The pointer value that is advanced to produce the result.
   public private(set) var source: Operand
 
-  /// An integer number of strides to advance the source value.
+  /// An integer number of bytes to advance the source value.
   public private(set) var offset: Operand
 
   /// The site of the val source from which `self` was generated.
@@ -40,20 +39,20 @@ public struct AdvancedByStridesInstruction: Instruction {
 
 }
 
-extension AdvancedByStridesInstruction: CustomStringConvertible {
+extension AdvancedByBytesInstruction: CustomStringConvertible {
 
   public var description: String {
-    "\(source) advanced by \(offset) strides"
+    "\(source) advanced by \(offset) bytes"
   }
 
 }
 
 extension Module {
 
-  /// Creates an `advanced by strides` instruction anchored at `site` computing the `source` address
-  /// value advanced by `offset` strides of the `source`'s content type.
-  func makeAdvancedByStrides(source: Operand, offset: Operand, at site: SourceRange)
-    -> AdvancedByStridesInstruction
+  /// Creates an `advanced by bytes` instruction anchored at `site` computing the `source` address
+  /// value advanced by `offset` bytes.
+  func makeAdvancedByBytes(source: Operand, offset: Operand, at site: SourceRange)
+    -> AdvancedByBytesInstruction
   {
     precondition(type(of: source).isAddress)
     precondition(type(of: offset).isAddress)

@@ -615,7 +615,7 @@ public struct Module {
     guard case .register(let i, _) = a else { return [a] }
 
     switch self[i] {
-    case let s as AdvancedByStridesInstruction:
+    case let s as AdvancedByBytesInstruction:
       return provenances(s.source)
     case let s as BorrowInstruction:
       return provenances(s.location)

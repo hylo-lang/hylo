@@ -342,7 +342,7 @@ extension Module {
   private func accessSource(_ o: Operand) -> Operand {
     if case .register(let i, _) = o, let a = self[i] as? SubfieldViewInstruction {
       return accessSource(a.recordAddress)
-    } else if case .register(let i, _) = o, let a = self[i] as? AdvancedByStridesInstruction {
+    } else if case .register(let i, _) = o, let a = self[i] as? AdvancedByBytesInstruction {
       return accessSource(a.source)
     } else {
       return o
