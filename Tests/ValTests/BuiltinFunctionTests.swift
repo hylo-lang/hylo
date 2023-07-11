@@ -8,6 +8,18 @@ final class BuiltinFunctionTests: XCTestCase {
     XCTAssertNil(BuiltinFunction("add"))
   }
 
+  func testAdvancedByBytes() throws {
+    let expectedType = { LambdaType(.builtin(.ptr), .builtin(.i($0)), to: .builtin(.ptr)) }
+    try assertParse(
+      instructions: ["advanced_by_bytes"],
+      parameterizedBy: [["i16"]],
+      createInstanceWithType: expectedType(16))
+    try assertParse(
+      instructions: ["advanced_by_bytes"],
+      parameterizedBy: [["i64"]],
+      createInstanceWithType: expectedType(64))
+  }
+
   func testIntegerArithmetic() throws {
     let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
     try assertParse(
