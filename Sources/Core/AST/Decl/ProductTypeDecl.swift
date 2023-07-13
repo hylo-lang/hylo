@@ -1,6 +1,8 @@
 /// A (nominal) product type declaration.
 public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericScope {
 
+  public static let manglingOperator = ManglingOperator.productTypeDecl
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.

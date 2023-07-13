@@ -1,6 +1,8 @@
 /// A type alias declaration.
 public struct TypeAliasDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericScope {
 
+  public static let manglingOperator = ManglingOperator.typealiasDecl
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.

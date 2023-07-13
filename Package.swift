@@ -74,6 +74,7 @@ let package = Package(
       name: "Core",
       dependencies: [
         "Utils",
+        .product(name: "Collections", package: "swift-collections"),
         .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
       swiftSettings: allTargetsSwiftSettings),
@@ -129,8 +130,13 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
+      name: "CoreTests",
+      dependencies: ["Core", "FrontEnd", "TestUtils"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
       name: "ValTests",
-      dependencies: ["FrontEnd", "Core", "IR", "TestUtils"],
+      dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
 
