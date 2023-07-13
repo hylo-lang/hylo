@@ -25,12 +25,20 @@ extension String {
     self = decoded.reduce(into: "", { (s, p) in s.append(contentsOf: String(p)) })
   }
 
+  /// `true` iff `self` is suitable as an identifier in LLVM assembly.
+  ///
+  /// - Complexity: O(*n*) where *n* is the length of `self`.
+  public var isAssemblySuitable: Bool {
+    unicodeScalars.allSatisfy { (point) in
+      (point == "$") || (Base64Digit(scalar: point) != nil)
+    }
+  }
+
   /// Returns an encoding of `self` sanitized for use as an identifier in LLVM assembly.
   ///
-  /// `self` is returned unchanged if it is already suitable as an identifier in LLVM assembly.
-  /// Otherwise, the returned value is the concatenation of two strings of `Base64Digit` separated
-  /// by a unique occurrence of the dollar sign ("$"). The part on the LHS is called *payload*, the
-  /// other is called *instruction sequence*.
+  /// `self` is returned unchanged if `s.isAssemblySuitable`. Otherwise, the returned value is the
+  /// concatenation of two strings of `Base64Digit` separated by a unique occurrence of the dollar
+  /// sign ("$"), called the *payload* and the *instruction sequence*.
   ///
   /// The literal contains a copy of the characters in `self` that are allowed in LLVM assembly
   /// identifiers, in the same order. The instruction sequence is a list of pairs `(d, p)` where
@@ -50,8 +58,7 @@ extension String {
   /// indicates that the unicode point 60 must be inserted in the literal at offset 5. The second
   /// indicates that the unicode point 61 must be inserted in the literal at offset 5 + 1.
   public var assemblySanitized: String {
-    // Inputs that only contains alphanumeric ASCII, "_", and "." don't require character encoding.
-    if utf8.allSatisfy({ Base64Digit(ascii: $0) != nil }) {
+    if isAssemblySuitable {
       return self
     }
 
