@@ -15,12 +15,7 @@ public struct ProductType: TypeProtocol {
   public init(_ decl: ProductTypeDecl.ID, ast: AST) {
     self.decl = decl
     self.name = Incidental(ast[decl].baseName)
-
-    var flags = TypeFlags.isCanonical
-    if ast[decl].genericClause != nil {
-      flags.insert(.isGeneric)
-    }
-    self.flags = flags
+    self.flags = TypeFlags.isCanonical
   }
 
 }

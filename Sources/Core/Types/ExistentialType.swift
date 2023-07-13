@@ -44,7 +44,7 @@ public struct ExistentialType: TypeProtocol {
     switch t.base {
     case is ProductType, is TypeAliasType:
       self.interface = .generic(t)
-      self.flags = t.flags.removing(.isGeneric)
+      self.flags = t.flags
     case is MetatypeType:
       self.interface = .metatype
       self.flags = .isCanonical
