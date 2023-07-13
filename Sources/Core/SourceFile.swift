@@ -60,15 +60,19 @@ public struct SourceFile {
     try self.init(contentsOf: URL(fileURLWithPath: String(filePath)))
   }
 
-  /// Creates a source file with the specified contents and a unique random `url`.
-  public init(synthesizedText text: String) {
-    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text[...] }
+  /// Creates a synthetic source file with the specified contents and base name.
+  public init(synthesizedText text: String, named baseName: String = UUID().uuidString) {
+    let storage = Storage(URL(string: "synthesized://\(baseName)")!) { text[...] }
     self.storage = storage
   }
 
   /// The name of the source file, sans path qualification or extension.
   public var baseName: String {
-    url.deletingPathExtension().lastPathComponent
+    if url.scheme == "synthesized" {
+      return url.host()!
+    } else {
+      return url.deletingPathExtension().lastPathComponent
+    }
   }
 
   /// The number of lines in the file.
