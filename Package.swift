@@ -131,12 +131,12 @@ let package = Package(
 
     .testTarget(
       name: "CoreTests",
-      dependencies: ["Core"],
+      dependencies: ["Core", "FrontEnd", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "ValTests",
-      dependencies: ["FrontEnd", "Core", "IR", "TestUtils"],
+      dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
 
