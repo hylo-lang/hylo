@@ -69,7 +69,7 @@ public struct SourceFile {
   /// The name of the source file, sans path qualification or extension.
   public var baseName: String {
     if url.scheme == "synthesized" {
-      return url.host()!
+      return url.host!
     } else {
       return url.deletingPathExtension().lastPathComponent
     }
