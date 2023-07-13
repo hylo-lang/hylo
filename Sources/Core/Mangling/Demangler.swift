@@ -43,6 +43,8 @@ struct Demangler {
         demangled = takeProductType(from: &stream)
       case .productTypeDecl:
         demangled = take(ProductTypeDecl.self, from: &stream)
+      case .reserved:
+        demangled = takeReserved(from: &stream)
       case .thinLambdaType:
         demangled = takeThinLambdaType(from: &stream)
       case .translatonUnit:
@@ -151,6 +153,17 @@ struct Demangler {
     return symbols[Int(position.rawValue)]
   }
 
+  /// Demangles a reserved symbol from `stream`.
+  mutating func takeReserved(from stream: inout Substring) -> Symbol? {
+    guard let s = take(ReservedSymbol.self, from: &stream) else { return nil }
+    switch s {
+    case .never:
+      return .type(.never)
+    case .void:
+      return .type(.void)
+    }
+  }
+
   /// Demangles a module from `stream`.
   mutating func takeModuleDecl(from stream: inout Substring) -> Symbol? {
     guard
@@ -241,7 +254,7 @@ struct Demangler {
   /// Assuming `stream` starts with a mangled name, consumes and returns it. Returns `nil` iff
   /// data seems corrupted
   func takeName(from stream: inout Substring) -> Name? {
-    guard let tag = stream.popFirst().flatMap(Base64Digit.init(_:)) else {
+    guard let tag = takeBase64Digit(from: &stream) else {
       return nil
     }
 
@@ -291,12 +304,18 @@ struct Demangler {
     return v
   }
 
+  /// Assuming `stream` starts with a base 64 digit, consumes and returns it. Returns `nil` iff
+  /// data seems corrupted
+  func takeBase64Digit(from stream: inout Substring) -> Base64Digit? {
+    stream.popFirst().flatMap(Base64Digit.init(_:))
+  }
+
   /// Assuming `stream` starts with a mangled `T`, consumes and returns it. Returns `nil` iff
   /// data seems corrupted
   func take<T: RawRepresentable>(
     _: T.Type, from stream: inout Substring
   ) -> T? where T.RawValue == UInt8 {
-    guard let d = stream.popFirst().flatMap(Base64Digit.init(_:)) else {
+    guard let d = takeBase64Digit(from: &stream) else {
       return nil
     }
     return T(rawValue: d.rawValue)

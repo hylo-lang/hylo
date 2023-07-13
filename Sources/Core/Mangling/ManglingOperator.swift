@@ -33,11 +33,13 @@ public enum ManglingOperator: String {
 
   case parameterDecl = "P"
 
+  case reserved = "R"
+
+  case typealiasDecl = "S"
+
   case parameterType = "pT"
 
   case remoteType = "rT"
-
-  case typealiasDecl = "S"
 
   case varDecl = "V"
 

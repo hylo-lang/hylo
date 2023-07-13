@@ -123,6 +123,20 @@ struct Mangler<Output: TextOutputStream> {
       mangle(AnyDeclID(t.decl), of: program, to: &output)
       ManglingOperator.endOfSequence.write(to: &output)
 
+    case let t as SumType:
+      if t == .never {
+        writeReserved(.never, to: &output)
+      } else {
+        fatalError("not implemented")
+      }
+
+    case let t as TupleType:
+      if t == .void {
+        writeReserved(.void, to: &output)
+      } else {
+        fatalError("not implemented")
+      }
+
     default:
       unreachable()
     }
@@ -147,6 +161,11 @@ struct Mangler<Output: TextOutputStream> {
       mangle(i.type, of: program, to: &output)
     }
     mangle(t.output, of: program, to: &output)
+  }
+
+  private func writeReserved(_ s: ReservedSymbol, to output: inout Output) {
+    ManglingOperator.reserved.write(to: &output)
+    s.write(to: &output)
   }
 
   /// If `s` has already been mangled into `output`, writes a lookup reference to its first
