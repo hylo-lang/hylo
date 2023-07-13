@@ -176,8 +176,8 @@ public struct TypeChecker {
     switch type.base {
     case let t as GenericTypeParameterType:
       // Generic parameters declared at trait scope conform to that trait.
-      if let decl = TraitDecl.ID(program[t.decl].scope) {
-        return conformedTraits(of: ^TraitType(decl, ast: ast), in: useScope)
+      if let d = TraitDecl.ID(program[t.decl].scope) {
+        return conformedTraits(of: ^TraitType(d, ast: ast), in: useScope)
       }
 
       // Conformances of other generic parameters are stored in generic environments.
