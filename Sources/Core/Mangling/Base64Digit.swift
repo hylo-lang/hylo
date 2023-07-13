@@ -7,11 +7,11 @@
 ///     | 00 ... 09 | \u{0030} ... \u{0039} | decimal digits     |
 ///     | 10 ... 35 | \u{0061} ... \u{007a} | lower case letters |
 ///     | 36 ... 61 | \u{0041} ... \u{005a} | upper case letters |
-///     | 62        | \u{002E}              | period             |
-///     | 63        | \u{005F}              | underscore         |
+///     | 62        | \u{002e}              | period             |
+///     | 63        | \u{005f}              | underscore         |
 ///     └────────────────────────────────────────────────────────┘
 ///
-/// This character is suitable for use in mangled identifiers.
+/// This character set is suitable for use in LLVM assembly identifiers.
 public struct Base64Digit: Hashable {
 
   /// The value of the digit, in the range `0 ..< 64`.
@@ -78,11 +78,11 @@ extension Base64Digit: LosslessStringConvertible {
       self.rawValue = 62
     } else if ascii == 95 {
       self.rawValue = 63
-    } else if ascii < 58 {
+    } else if (ascii >= 48) && (ascii < 58) {
       self.rawValue = ascii - 48
-    } else if ascii < 91 {
+    } else if (ascii >= 65) && (ascii < 91) {
       self.rawValue = ascii - (65 - 36)
-    } else if ascii < 123 {
+    } else if (ascii >= 97) && (ascii < 123) {
       self.rawValue = ascii - (97 - 10)
     } else {
       return nil
