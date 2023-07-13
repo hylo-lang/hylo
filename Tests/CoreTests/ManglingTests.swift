@@ -12,6 +12,8 @@ final class ManglingTests: XCTestCase {
       }
 
       fun foo(_ x: Int, label y: N.A) -> Int { 0 }
+
+      fun français() {}
       """
 
     let input = SourceFile(synthesizedText: text, named: "main")
