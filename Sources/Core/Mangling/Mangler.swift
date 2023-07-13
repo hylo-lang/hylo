@@ -25,9 +25,7 @@ struct Mangler<Output: TextOutputStream> {
 
     switch d.kind {
     case ParameterDecl.self:
-      ManglingOperator.parameterDecl.write(to: &output)
-      write(string: program.ast[ParameterDecl.ID(d)]!.baseName, to: &output)
-
+      write(entity: ParameterDecl.ID(d)!, of: program, to: &output)
     default:
       unreachable()
     }
@@ -53,32 +51,36 @@ struct Mangler<Output: TextOutputStream> {
 
     switch symbol.kind {
     case ModuleDecl.self:
-      ManglingOperator.moduleDecl.write(to: &output)
-      write(string: program.ast[ModuleDecl.ID(symbol)]!.baseName, to: &output)
-
+      write(entity: ModuleDecl.ID(symbol)!, of: program, to: &output)
     case TranslationUnit.self:
-      // Note: assumes all files in a module have a different base name.
-      ManglingOperator.translatonUnit.write(to: &output)
-      write(string: program.ast[TranslationUnit.ID(symbol)]!.site.file.baseName, to: &output)
-
+      write(translationUnit: TranslationUnit.ID(symbol)!, of: program, to: &output)
     case NamespaceDecl.self:
-      ManglingOperator.namespaceDecl.write(to: &output)
-      write(string: program.ast[NamespaceDecl.ID(symbol)]!.baseName, to: &output)
-
+      write(entity: NamespaceDecl.ID(symbol)!, of: program, to: &output)
     case FunctionDecl.self:
-      let d = FunctionDecl.ID(symbol)!
-      write(function: d, of: program, to: &output)
-
+      write(function: FunctionDecl.ID(symbol)!, of: program, to: &output)
     case ProductTypeDecl.self:
-      ManglingOperator.productTypeDecl.write(to: &output)
-      write(string: program.ast[ProductTypeDecl.ID(symbol)]!.baseName, to: &output)
-
+      write(entity: ProductTypeDecl.ID(symbol)!, of: program, to: &output)
     default:
       unreachable()
     }
 
     symbolID[.node(AnyNodeID(symbol))] = nextSymbolID
     nextSymbolID += 1
+  }
+
+  private mutating func write<T: SingleEntityDecl>(
+    entity d: T.ID, of program: TypedProgram, to output: inout Output
+  ) {
+    T.manglingOperator.write(to: &output)
+    write(string: program.ast[d].baseName, to: &output)
+  }
+
+  private mutating func write(
+    translationUnit u: TranslationUnit.ID, of program: TypedProgram, to output: inout Output
+  ) {
+    // Note: assumes all files in a module have a different base name.
+    ManglingOperator.translatonUnit.write(to: &output)
+    write(string: program.ast[u].site.file.baseName, to: &output)
   }
 
   private mutating func write(

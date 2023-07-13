@@ -54,6 +54,20 @@ struct Demangler {
         fatalError()
       case .remoteType:
         fatalError()
+      case .traitDecl:
+        fatalError()
+      case .associatedTypeDecl:
+        fatalError()
+      case .associatedValueDecl:
+        fatalError()
+      case .genericParameterDecl:
+        fatalError()
+      case .importDecl:
+        fatalError()
+      case .typealiasDecl:
+        fatalError()
+      case .varDecl:
+        fatalError()
       }
 
       // End of sequence reached if `demangled` is `nil`.
