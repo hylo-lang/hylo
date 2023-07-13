@@ -64,7 +64,7 @@ extension Base64VarUInt: TextOutputStreamable {
       assert(m > 0)
       while m > 0 {
         digits.append(Base64Digit(m % 64)!)
-        m /= 62
+        m /= 64
       }
 
       output.write(Base64Digit(52 + digits.count)!.description)
