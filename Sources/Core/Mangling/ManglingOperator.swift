@@ -1,15 +1,25 @@
 /// A one or two letter identifier specifying how to interpret mangled data.
-enum ManglingOperator: String {
+public enum ManglingOperator: String {
 
   case productTypeDecl = "A"
 
   case productType = "B"
+
+  case traitDecl = "C"
+
+  case associatedTypeDecl = "aD"
+
+  case associatedValueDecl = "vD"
 
   case functionDecl = "F"
 
   case anonymousFunctionDecl = "aF"
 
   case staticFunctionDecl = "sF"
+
+  case genericParameterDecl = "G"
+
+  case importDecl = "I"
 
   case lookup = "K"
 
@@ -26,6 +36,10 @@ enum ManglingOperator: String {
   case parameterType = "pT"
 
   case remoteType = "rT"
+
+  case typealiasDecl = "S"
+
+  case varDecl = "V"
 
   case translatonUnit = "U"
 

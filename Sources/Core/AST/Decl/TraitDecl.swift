@@ -3,6 +3,8 @@
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
 public struct TraitDecl: SingleEntityDecl, TypeScope {
 
+  public static let manglingOperator = ManglingOperator.traitDecl
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
