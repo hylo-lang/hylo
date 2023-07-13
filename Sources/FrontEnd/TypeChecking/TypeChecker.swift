@@ -181,7 +181,7 @@ public struct TypeChecker {
       }
 
       // Conformances of other generic parameters are stored in generic environments.
-      for s in program.scopes(from: useScope) where useScope.kind.value is GenericScope.Type {
+      for s in program.scopes(from: useScope) where s.kind.value is GenericScope.Type {
         let e = environment(of: s)
         result.formUnion(e.conformedTraits(of: type))
       }
