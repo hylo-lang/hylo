@@ -36,11 +36,12 @@ extension String {
 
   /// Returns an encoding of `self` sanitized for use as an identifier in LLVM assembly.
   ///
-  /// `self` is returned unchanged if `s.isAssemblySuitable`. Otherwise, the returned value is the
-  /// concatenation of two strings of `Base64Digit` separated by a unique occurrence of the dollar
-  /// sign ("$"), called the *payload* and the *instruction sequence*.
+  /// `self` is returned unchanged if and only if it does not contain any dollar sign ("$") and
+  /// `isAssemblySuitable` is `true` and. Otherwise, the returned value is the concatenation of
+  /// two strings of `Base64Digit` separated by a unique occurrence of the dollar sign. The part
+  /// on the LHS is called the *payload*, the other is called the *instruction sequence*.
   ///
-  /// The literal contains a copy of the characters in `self` that are allowed in LLVM assembly
+  /// The payload contains a copy of the characters in `self` that are allowed in LLVM assembly
   /// identifiers, in the same order. The instruction sequence is a list of pairs `(d, p)` where
   /// `p` is a code point and `d` denotes the position at which `p` should be inserted to decode
   /// the string. Both values are encoded as instances of `Base64VarUInt`.
@@ -58,7 +59,7 @@ extension String {
   /// indicates that the unicode point 60 must be inserted in the literal at offset 5. The second
   /// indicates that the unicode point 61 must be inserted in the literal at offset 5 + 1.
   public var assemblySanitized: String {
-    if isAssemblySuitable {
+    if unicodeScalars.allSatisfy({ Base64Digit(scalar: $0) != nil }) {
       return self
     }
 
