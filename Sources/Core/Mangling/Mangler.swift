@@ -8,9 +8,7 @@ struct Mangler<Output: TextOutputStream> {
   private var nextSymbolID = 0
 
   mutating func mangle(_ d: AnyDeclID, of program: TypedProgram, to output: inout Output) {
-    if let i = symbolID[.node(AnyNodeID(d))] {
-      ManglingOperator.lookup.write(to: &output)
-      Base64VarUInt(i).write(to: &output)
+    if writeLookup(.node(AnyNodeID(d)), to: &output) {
       return
     }
 
@@ -29,6 +27,9 @@ struct Mangler<Output: TextOutputStream> {
     default:
       unreachable()
     }
+
+    symbolID[.node(AnyNodeID(d))] = nextSymbolID
+    nextSymbolID += 1
   }
 
   /// Writes the mangled the qualification of `d` to `output`.
@@ -43,9 +44,7 @@ struct Mangler<Output: TextOutputStream> {
   private mutating func write(
     scope symbol: AnyScopeID, of program: TypedProgram, to output: inout Output
   ) {
-    if let i = symbolID[.node(AnyNodeID(symbol))] {
-      ManglingOperator.lookup.write(to: &output)
-      Base64VarUInt(i).write(to: &output)
+    if writeLookup(.node(AnyNodeID(symbol)), to: &output) {
       return
     }
 
@@ -105,12 +104,7 @@ struct Mangler<Output: TextOutputStream> {
   }
 
   mutating func mangle(_ symbol: AnyType, of program: TypedProgram, to output: inout Output) {
-    // Mangled types always require an end of sequence sentinel.
-    defer { ManglingOperator.endOfSequence.write(to: &output) }
-
-    if let i = symbolID[.type(symbol)] {
-      ManglingOperator.lookup.write(to: &output)
-      Base64VarUInt(i).write(to: &output)
+    if writeLookup(.type(symbol), to: &output) {
       return
     }
 
@@ -127,6 +121,7 @@ struct Mangler<Output: TextOutputStream> {
     case let t as ProductType:
       ManglingOperator.productType.write(to: &output)
       mangle(AnyDeclID(t.decl), of: program, to: &output)
+      ManglingOperator.endOfSequence.write(to: &output)
 
     default:
       unreachable()
@@ -152,6 +147,18 @@ struct Mangler<Output: TextOutputStream> {
       mangle(i.type, of: program, to: &output)
     }
     mangle(t.output, of: program, to: &output)
+  }
+
+  /// If `s` has already been mangled into `output`, writes a lookup reference to its first
+  /// occurrence and returns true. Otherwise, returns `false`.
+  private func writeLookup(_ s: Symbol, to output: inout Output) -> Bool {
+    guard let i = symbolID[s] else {
+      return false
+    }
+
+    ManglingOperator.lookup.write(to: &output)
+    Base64VarUInt(i).write(to: &output)
+    return true
   }
 
   private func write(name: Name, to output: inout Output) {

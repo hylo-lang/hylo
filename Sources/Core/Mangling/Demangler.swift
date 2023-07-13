@@ -72,19 +72,19 @@ struct Demangler {
 
       // End of sequence reached if `demangled` is `nil`.
       guard let d = demangled else { break }
-
-      // Otherwise, update the demangling state.
-      if case .type = d {
-        if o != .lookup {
-          symbols.append(d)
-        }
-      } else if case .node(let n) = d, let s = AnyScopeID(n) {
-        context = s
-        if o != .lookup {
-          symbols.append(d)
-        }
+      if o != .lookup {
+        symbols.append(d)
       }
-      lastDemangled = d
+
+      // Update the context and look for the next symbol if we demangled a scope.
+      if let n = d.node, let s = AnyScopeID(n) {
+        lastDemangled = d
+        context = s
+        continue
+      }
+
+      // Otherise, we're done.
+      return d
     }
 
     return lastDemangled
@@ -195,7 +195,7 @@ struct Demangler {
         let l = takeString(from: &stream),
         let t = demangleType(from: &stream)
       else { return nil }
-      inputs.append(.init(label: l.isEmpty ? nil : "", type: t))
+      inputs.append(.init(label: l.isEmpty ? nil : String(l), type: t))
     }
 
     guard let output = demangleType(from: &stream) else {
