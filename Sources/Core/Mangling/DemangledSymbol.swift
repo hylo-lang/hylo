@@ -32,3 +32,16 @@ public enum DemangledSymbol {
   }
 
 }
+
+extension DemangledSymbol: CustomStringConvertible {
+
+  public var description: String {
+    switch self {
+    case .entity(let e):
+      return e.description
+    case .type(let t):
+      return t.description
+    }
+  }
+
+}

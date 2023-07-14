@@ -39,3 +39,50 @@ public struct DemangledEntity {
   }
 
 }
+
+extension DemangledEntity: CustomStringConvertible {
+
+  public var description: String {
+    let q = Self.describe(qualification: qualification)
+
+    switch kind {
+    case FunctionDecl.self:
+      return q + functionDescription
+    case TranslationUnit.self:
+      return q + name.stem
+    default:
+      break
+    }
+
+    if kind.value is SingleEntityDecl.Type {
+      return q + name.stem
+    }
+
+    return "???"
+  }
+
+  /// A textual representation of `self` assuming it is a function declaration.
+  private var functionDescription: String {
+    guard case .lambda(_, _, let inputs, _) = type else {
+      return "???"
+    }
+
+    let i = inputs.reduce(into: "", { (s, p) in s += (p.label ?? "_") + ":" })
+    return "\(name)(\(i))"
+  }
+
+
+  /// Returns the textual description of a qualification.
+  private static func describe(qualification: Indirect<DemangledEntity>?) -> String {
+    guard let q = qualification else {
+      return ""
+    }
+
+    if q.value.kind == TranslationUnit.self {
+      return describe(qualification: q.value.qualification)
+    } else {
+      return q.description + "."
+    }
+  }
+
+}
