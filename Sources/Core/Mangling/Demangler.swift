@@ -40,7 +40,7 @@ struct Demangler {
       case .thinLambdaType:
         demangled = takeThinLambdaType(from: &stream)
       case .translatonUnit:
-        demangled = takeEntity(TranslationUnit.self,qualifiedBy: qualification, from: &stream)
+        demangled = takeEntity(TranslationUnit.self, qualifiedBy: qualification, from: &stream)
 
       case .anonymousFunctionDecl:
         fatalError()

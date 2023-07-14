@@ -71,7 +71,6 @@ extension DemangledEntity: CustomStringConvertible {
     return "\(name)(\(i))"
   }
 
-
   /// Returns the textual description of a qualification.
   private static func describe(qualification: Indirect<DemangledEntity>?) -> String {
     guard let q = qualification else {
