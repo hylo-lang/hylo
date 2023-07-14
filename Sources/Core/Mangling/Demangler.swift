@@ -1,24 +1,16 @@
 /// Val's demangling algorithm.
 struct Demangler {
 
-  /// The program in which the demangled symbols are defined.
-  let program: TypedProgram
-
-  /// The list of demangled symbols, in order of appearence.
+  /// The list of demangled symbols, in order of appearence (a.k.a. the demangling lookup table).
   private var symbols: [DemangledSymbol] = []
 
-  private var context: AnyScopeID? = nil
-
-  /// Creates an instance demangling a symbol defined in `program`.
-  init(program: TypedProgram) {
-    self.program = program
-  }
+  /// Creates an instance with an empty lookup table.
+  init() {}
 
   /// Demangles a symbol from `stream`.
   mutating func demangle(from stream: inout Substring) -> DemangledSymbol? {
-    context = nil
+    var qualification: DemangledEntity? = nil
 
-    var lastDemangled: DemangledSymbol? = nil
     while let o = takeOperator(from: &stream) {
       let demangled: DemangledSymbol?
 
@@ -26,7 +18,7 @@ struct Demangler {
       case .endOfSequence:
         demangled = nil
       case .functionDecl:
-        demangled = takeFunction(from: &stream)
+        demangled = takeFunction(qualifiedBy: qualification, from: &stream)
       case .lambdaType:
         fatalError()
       case .lookup:
@@ -34,21 +26,21 @@ struct Demangler {
       case .moduleDecl:
         demangled = takeModuleDecl(from: &stream)
       case .namespaceDecl:
-        demangled = take(NamespaceDecl.self, from: &stream)
+        demangled = takeEntity(NamespaceDecl.self, qualifiedBy: qualification, from: &stream)
       case .parameterDecl:
-        demangled = take(ParameterDecl.self, from: &stream)
+        demangled = takeEntity(ParameterDecl.self, qualifiedBy: qualification, from: &stream)
       case .parameterType:
         demangled = takeParameterType(from: &stream)
       case .productType:
         demangled = takeProductType(from: &stream)
       case .productTypeDecl:
-        demangled = take(ProductTypeDecl.self, from: &stream)
+        demangled = takeEntity(ProductTypeDecl.self, qualifiedBy: qualification, from: &stream)
       case .reserved:
         demangled = takeReserved(from: &stream)
       case .thinLambdaType:
         demangled = takeThinLambdaType(from: &stream)
       case .translatonUnit:
-        demangled = takeTranslationUnit(from: &stream)
+        demangled = takeEntity(TranslationUnit.self,qualifiedBy: qualification, from: &stream)
 
       case .anonymousFunctionDecl:
         fatalError()
@@ -79,9 +71,8 @@ struct Demangler {
       }
 
       // Update the context and look for the next symbol if we demangled a scope.
-      if let n = d.node, let s = AnyScopeID(n) {
-        lastDemangled = d
-        context = s
+      if let e = d.entity, e.isScope {
+        qualification = e
         continue
       }
 
@@ -89,19 +80,27 @@ struct Demangler {
       return d
     }
 
-    return lastDemangled
-  }
-
-  /// Demangles a node of type `T` from `stream`.
-  private mutating func demangle<T: Node>(_: T.Type, from stream: inout Substring) -> T.ID? {
-    guard case .node(let n) = demangle(from: &stream) else {
+    if let e = qualification {
+      return .entity(e)
+    } else {
       return nil
     }
-    return T.ID(n)
+  }
+
+  /// Demangles an entity of type `T` from `stream`.
+  private mutating func demangleEntity<T: Node>(
+    _: T.Type, from stream: inout Substring
+  ) -> DemangledEntity? {
+    guard
+      case .entity(let e) = demangle(from: &stream),
+      e.kind == T.self
+    else { return nil }
+
+    return e
   }
 
   /// Demangles a type from `stream`.
-  private mutating func demangleType(from stream: inout Substring) -> AnyType? {
+  private mutating func demangleType(from stream: inout Substring) -> DemangledType? {
     guard case .type(let t) = demangle(from: &stream) else {
       return nil
     }
@@ -109,47 +108,43 @@ struct Demangler {
   }
 
   /// Demangles an entity declaration of type `T` from `stream`.
-  private mutating func take<T: SingleEntityDecl>(
-    _ entity: T.Type, from stream: inout Substring
+  private mutating func takeEntity<T: Node>(
+    _ entity: T.Type, qualifiedBy qualification: DemangledEntity?,
+    from stream: inout Substring
   ) -> DemangledSymbol? {
     guard
-      let parent = context,
-      let baseName = takeString(from: &stream)
+      let q = qualification,
+      let s = takeString(from: &stream)
     else { return nil }
-
-    let d = program.scopeToDecls[parent, default: []].first { (d) in
-      guard let n = (program.ast[d] as? T)?.baseName else { return false }
-      return n == baseName
-    }
-    return d.map({ .node(AnyNodeID($0)) })
+    return .entity(.init(qualification: q, kind: NodeKind(T.self), name: Name(stem: String(s))))
   }
 
   /// Demangles a function from `stream`.
-  mutating func takeFunction(from stream: inout Substring) -> DemangledSymbol? {
+  mutating func takeFunction(
+    qualifiedBy qualification: DemangledEntity?,
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
     guard
-      let parent = context,
+      let q = qualification,
       let name = takeName(from: &stream),
       let genericParameterCount = takeInteger(from: &stream),
-      let type = LambdaType(demangleType(from: &stream))
+      let type = demangleType(from: &stream)
     else { return nil }
 
-    let d = program.scopeToDecls[parent, default: []].first { (d) in
-      guard
-        let f = program.ast[d] as? FunctionDecl,
-        f.identifier?.value == name.stem,
-        f.notation?.value == name.notation,
-        f.genericParameters.count == genericParameterCount.rawValue
-      else { return false }
-      return program.declTypes[d]! == type
-    }
-    return d.map({ .node(AnyNodeID($0)) })
+    let e = DemangledEntity(
+      qualification: q,
+      kind: NodeKind(FunctionDecl.self),
+      name: name,
+      genericArgumentLabels: .init(repeating: nil, count: Int(genericParameterCount.rawValue)),
+      type: type)
+    return .entity(e)
   }
 
   /// Demangles a reference to a symbol from `stream`.
   mutating func takeLookup(from stream: inout Substring) -> DemangledSymbol? {
-    guard let position = takeInteger(from: &stream) else {
-      return nil
-    }
+    guard
+      let position = takeInteger(from: &stream)
+    else { return nil }
     return symbols[Int(position.rawValue)]
   }
 
@@ -167,11 +162,12 @@ struct Demangler {
   /// Demangles a module from `stream`.
   mutating func takeModuleDecl(from stream: inout Substring) -> DemangledSymbol? {
     guard
-      let n = takeString(from: &stream),
-      let d = program.ast.modules.first(where: { program.ast[$0].baseName == n })
+      let s = takeString(from: &stream)
     else { return nil }
 
-    return .node(AnyNodeID(d))
+    let e = DemangledEntity(
+      qualification: nil, kind: NodeKind(ModuleDecl.self), name: Name(stem: String(s)))
+    return .entity(e)
   }
 
   /// Demangles a parameter type from `stream`.
@@ -180,56 +176,38 @@ struct Demangler {
       let a = take(AccessEffect.self, from: &stream),
       let b = demangleType(from: &stream)
     else { return nil }
-
-    let result = ParameterType(a, b)
-    return .type(^result)
+    return .type(.parameter(access: a, value: b))
   }
 
   /// Demangles a product type from `stream`.
   mutating func takeProductType(from stream: inout Substring) -> DemangledSymbol? {
-    guard let d = demangle(ProductTypeDecl.self, from: &stream) else {
-      return nil
-    }
-
-    let result = ProductType(d, ast: program.ast)
-    return .type(^result)
+    guard
+      let e = demangleEntity(ProductTypeDecl.self, from: &stream)
+    else { return nil }
+    return .type(.product(e))
   }
 
   /// Demangles a thin lambda type from `stream`.
   mutating func takeThinLambdaType(from stream: inout Substring) -> DemangledSymbol? {
-    guard let inputCount = takeInteger(from: &stream) else {
-      return nil
-    }
+    guard
+      let inputCount = takeInteger(from: &stream)
+    else { return nil }
 
-    var inputs: [CallableTypeParameter] = []
+    var inputs: [(label: String?, type: DemangledType)] = []
     inputs.reserveCapacity(Int(inputCount.rawValue))
     for _ in 0 ..< inputCount.rawValue {
       guard
         let l = takeString(from: &stream),
         let t = demangleType(from: &stream)
       else { return nil }
-      inputs.append(.init(label: l.isEmpty ? nil : String(l), type: t))
+      inputs.append((label: l.isEmpty ? nil : String(l), type: t))
     }
 
-    guard let output = demangleType(from: &stream) else {
-      return nil
-    }
-
-    let result = LambdaType(inputs: inputs, output: output)
-    return .type(^result)
-  }
-
-  /// Demangles a translation unit from `stream`.
-  mutating func takeTranslationUnit(from stream: inout Substring) -> DemangledSymbol? {
     guard
-      let parent = context.flatMap(ModuleDecl.ID.init(_:)),
-      let baseName = takeString(from: &stream)
+      let output = demangleType(from: &stream)
     else { return nil }
 
-    let u = program.ast[parent].sources.first { (u) in
-      program.ast[u].site.file.baseName == baseName
-    }
-    return u.map({ .node(AnyNodeID($0)) })
+    return .type(.lambda(effect: .let, environment: .void, inputs: inputs, output: output))
   }
 
   /// If `stream` starts with a mangling operator, consumes and returns it. Otherwise, returns
