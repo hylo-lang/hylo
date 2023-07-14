@@ -193,14 +193,14 @@ struct Demangler {
       let inputCount = takeInteger(from: &stream)
     else { return nil }
 
-    var inputs: [(label: String?, type: DemangledType)] = []
+    var inputs: [DemangledType.Parameter] = []
     inputs.reserveCapacity(Int(inputCount.rawValue))
     for _ in 0 ..< inputCount.rawValue {
       guard
         let l = takeString(from: &stream),
         let t = demangleType(from: &stream)
       else { return nil }
-      inputs.append((label: l.isEmpty ? nil : String(l), type: t))
+      inputs.append(.init(label: l.isEmpty ? nil : String(l), type: t))
     }
 
     guard

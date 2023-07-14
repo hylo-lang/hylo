@@ -1,7 +1,7 @@
 import Utils
 
 /// An unambiguous textual description of a type, scope, or declaration.
-public enum DemangledSymbol {
+public enum DemangledSymbol: Hashable {
 
   /// Creates an instance decoding the symbol mangled in `s`, returning `nil` if decoding failed.
   public init?(_ s: String) {

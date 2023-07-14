@@ -1,11 +1,11 @@
 /// The payload of a `DemangledSymbol.type`.
-public indirect enum DemangledType {
+public indirect enum DemangledType: Hashable {
 
   /// A lambda type.
   case lambda(
     effect: AccessEffect,
     environment: DemangledType,
-    inputs: [(label: String?, type: DemangledType)],
+    inputs: [Parameter],
     output: DemangledType)
 
   /// A parameter type.
@@ -19,6 +19,17 @@ public indirect enum DemangledType {
 
   /// The `Void` type.
   case void
+
+  /// A parameter of a callable symbol.
+  public struct Parameter: Hashable {
+
+    /// The argument label of the parameter.
+    let label: String?
+
+    /// The type of the parameter.
+    let type: DemangledType
+
+  }
 
 }
 

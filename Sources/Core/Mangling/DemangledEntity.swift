@@ -1,7 +1,7 @@
 import Utils
 
 /// The payload of a `DemangledSymbol.entity`.
-public struct DemangledEntity {
+public struct DemangledEntity: Hashable {
 
   /// The qualification of the symbol, if any.
   public let qualification: Indirect<DemangledEntity>?
