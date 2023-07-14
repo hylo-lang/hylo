@@ -1,6 +1,6 @@
 import Utils
 
-/// An unambiguous textual description of a type, scope, or declaration.
+/// The demangled description of a or entity.
 public enum DemangledSymbol: Hashable {
 
   /// Creates an instance decoding the symbol mangled in `s`, returning `nil` if decoding failed.
