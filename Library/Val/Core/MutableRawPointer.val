@@ -11,3 +11,5 @@ public type MutableRawPointer {
   }
 
 }
+
+public conformance MutableRawPointer: Deinitializable {}

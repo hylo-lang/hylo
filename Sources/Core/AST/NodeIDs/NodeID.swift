@@ -65,3 +65,14 @@ public struct NodeID<Subject: Node>: ConcreteNodeID {
   }
 
 }
+
+extension Sequence where Element: NodeIDProtocol {
+
+  /// Returns a sequence containing, in order, the elements of `self` that are IDs of a `Subject`.
+  public func filter<Subject: Node>(
+    _: Subject.Type
+  ) -> LazyMapSequence<LazyFilterSequence<LazyMapSequence<Self, Subject.ID?>>, Subject.ID> {
+    self.lazy.compactMap(Subject.ID.init(_:))
+  }
+
+}

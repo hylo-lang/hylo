@@ -5,16 +5,23 @@ import XCTest
 
 @testable import FrontEnd
 
-final class ParserTests: XCTestCase {
+extension XCTestCase {
 
-  func testParser() throws {
-    try checkAnnotatedValFileDiagnostics(
-      inSuiteAt: "TestCases/Parsing",
-      { (source, diagnostics) in
-        var ast = AST()
-        _ = try ast.makeModule(source.baseName, sourceCode: [source], diagnostics: &diagnostics)
-      })
+  /// Parses the val file at `valFilePath`, `XCTAssert`ing that diagnostics and thrown
+  /// errors match annotated expectations.
+  func parse(_ valFilePath: String, expectSuccess: Bool) throws {
+
+    try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath, expectSuccess: expectSuccess) {
+      (valSource, diagnostics) in
+      var ast = AST()
+      _ = try ast.makeModule(valSource.baseName, sourceCode: [valSource], diagnostics: &diagnostics)
+    }
+
   }
+
+}
+
+final class ParserTests: XCTestCase {
 
   // MARK: Unit tests
 
@@ -84,15 +91,24 @@ final class ParserTests: XCTestCase {
 
   func testNamespaceMember() throws {
     let input: SourceFile = "fun foo() {}"
-    let (declID, _) = try input.parse(inContext: .namespaceBody, with: Parser.parseDecl)
+    let (declID, ast) = try input.parse(inContext: .namespaceBody, with: Parser.parseDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
     XCTAssertNotNil(declID)
+    XCTAssertEqual(decl.accessModifier.value, .private)  // implicitly declared as private
+  }
+
+  func testNamespaceMemberPrivate() throws {
+    let input: SourceFile = "private fun foo() {}"
+    let (declID, ast) = try input.parse(inContext: .namespaceBody, with: Parser.parseDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
+    XCTAssertEqual(decl.accessModifier.value, .private)
   }
 
   func testNamespaceMemberPublic() throws {
     let input: SourceFile = "public fun foo() {}"
     let (declID, ast) = try input.parse(inContext: .namespaceBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
-    XCTAssertEqual(decl.accessModifier?.value, .public)
+    XCTAssertEqual(decl.accessModifier.value, .public)
   }
 
   func testTypeAliasDecl() throws {
@@ -100,6 +116,7 @@ final class ParserTests: XCTestCase {
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseTypeAliasDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertEqual(decl.identifier.value, "A")
+    XCTAssertEqual(decl.accessModifier.value, .private)  // implicitly declared as private
   }
 
   func testTypeAliasDeclWithGenericClause() throws {
@@ -107,6 +124,7 @@ final class ParserTests: XCTestCase {
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseTypeAliasDecl)
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertNotNil(decl.genericClause)
+    XCTAssertEqual(decl.accessModifier.value, .private)  // implicitly declared as private
   }
 
   func testProductTypeDecl() throws {
@@ -118,7 +136,7 @@ final class ParserTests: XCTestCase {
       """
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseProductTypeDecl)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.members.count, 4)  // 3 explicit decls + 1 implicit memberwise init
+    XCTAssertEqual(decl.members.count, 3)
   }
 
   func testProductTypeDeclWithGenericClause() throws {
@@ -156,25 +174,44 @@ final class ParserTests: XCTestCase {
     let decl = try XCTUnwrap(ast[declID])
     XCTAssertNotNil(decl.genericClause)
     XCTAssertNotNil(decl.conformances)
+    XCTAssertEqual(decl.accessModifier.value, .private)  // implicitly declared as private
   }
 
   func testProductTypeMember() throws {
     let input: SourceFile = "var x: Int"
-    let (declID, _) = try input.parse(inContext: .productBody, with: Parser.parseDecl)
+    let (declID, ast) = try input.parse(inContext: .productBody, with: Parser.parseDecl)
+    let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
     XCTAssertNotNil(declID)
+    XCTAssertEqual(decl.accessModifier.value, .private)  // implicitly declared as private
+  }
+
+  func testProductTypeMemberPrivate() throws {
+    let input: SourceFile = "private var x: Int"
+    let (declID, ast) = try input.parse(inContext: .productBody, with: Parser.parseDecl)
+    let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
+    XCTAssertEqual(decl.accessModifier.value, .private)
   }
 
   func testProductTypeMemberPublic() throws {
     let input: SourceFile = "public var x: Int"
     let (declID, ast) = try input.parse(inContext: .productBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
-    XCTAssertEqual(decl.accessModifier?.value, .public)
+    XCTAssertEqual(decl.accessModifier.value, .public)
   }
 
   func testProductTypeMemberStatic() throws {
     let input: SourceFile = "static var x: Int"
     let (declID, ast) = try input.parse(inContext: .productBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
+    XCTAssertEqual(decl.accessModifier.value, .private)  // implicitly declared as private
+    XCTAssertEqual(decl.memberModifier?.value, .static)
+  }
+
+  func testProductTypeMemberPrivateStatic() throws {
+    let input: SourceFile = "private static var x: Int"
+    let (declID, ast) = try input.parse(inContext: .productBody, with: Parser.parseDecl)
+    let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
+    XCTAssertEqual(decl.accessModifier.value, .private)
     XCTAssertEqual(decl.memberModifier?.value, .static)
   }
 
@@ -182,7 +219,7 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "public static var x: Int"
     let (declID, ast) = try input.parse(inContext: .productBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? BindingDecl)
-    XCTAssertEqual(decl.accessModifier?.value, .public)
+    XCTAssertEqual(decl.accessModifier.value, .public)
     XCTAssertEqual(decl.memberModifier?.value, .static)
   }
 
@@ -351,11 +388,19 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(decl.whereClause)
   }
 
-  func testExtensionMember() throws {
+  func testExtensionMemberPrivate() throws {
+    let input: SourceFile = "private static fun forty_two() -> Int { 42 }"
+    let (declID, ast) = try input.parse(inContext: .extensionBody, with: Parser.parseDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
+    XCTAssertEqual(decl.accessModifier.value, .private)
+    XCTAssertEqual(decl.memberModifier?.value, .static)
+  }
+
+  func testExtensionMemberPublic() throws {
     let input: SourceFile = "public static fun forty_two() -> Int { 42 }"
     let (declID, ast) = try input.parse(inContext: .extensionBody, with: Parser.parseDecl)
     let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
-    XCTAssertEqual(decl.accessModifier?.value, .public)
+    XCTAssertEqual(decl.accessModifier.value, .public)
     XCTAssertEqual(decl.memberModifier?.value, .static)
   }
 
@@ -414,7 +459,7 @@ final class ParserTests: XCTestCase {
   }
 
   func testFunctionDeclWithExprBody() throws {
-    let input: SourceFile = "fun id<T: Sinkable>(_ x: T) -> T { x }"
+    let input: SourceFile = "fun id<T: Movable>(_ x: T) -> T { x }"
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
     let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
     if case .expr = decl.body {
@@ -857,7 +902,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(callee.name.value.stem, "+")
     XCTAssertEqual(callee.name.value.notation, .prefix)
 
-    if case .expr(let receiverID) = callee.domain {
+    if case .explicit(let receiverID) = callee.domain {
       XCTAssertEqual(receiverID.kind, .init(NameExpr.self))
     } else {
       XCTFail()
@@ -874,7 +919,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(callee.name.value.stem, "+")
     XCTAssertEqual(callee.name.value.notation, .postfix)
 
-    if case .expr(let receiverID) = callee.domain {
+    if case .explicit(let receiverID) = callee.domain {
       XCTAssertEqual(receiverID.kind, .init(NameExpr.self))
     } else {
       XCTFail()
@@ -889,7 +934,7 @@ final class ParserTests: XCTestCase {
     var expr = try XCTUnwrap(ast[exprID] as? NameExpr)
     XCTAssertEqual(expr.name.value.stem, "c")
 
-    if case .expr(let domainID) = expr.domain {
+    if case .explicit(let domainID) = expr.domain {
       expr = try XCTUnwrap(ast[domainID] as? NameExpr)
       XCTAssertEqual(expr.name.value.stem, "b")
     } else {
@@ -913,7 +958,7 @@ final class ParserTests: XCTestCase {
     let expr = try XCTUnwrap(ast[exprID] as? NameExpr)
     XCTAssertEqual(expr.name.value.stem, "meta")
 
-    if case .expr(let domainID) = expr.domain {
+    if case .explicit(let domainID) = expr.domain {
       XCTAssertEqual(domainID.kind, .init(TupleTypeExpr.self))
     } else {
       XCTFail()
@@ -934,7 +979,7 @@ final class ParserTests: XCTestCase {
     let expr = try XCTUnwrap(ast[exprID] as? NameExpr)
     XCTAssertEqual(expr.name.value.stem, "A")
 
-    if case .expr(let domain) = expr.domain {
+    if case .explicit(let domain) = expr.domain {
       let d = try XCTUnwrap(ast[domain] as? ConformanceLensTypeExpr)
       XCTAssertEqual(d.subject.kind, .init(NameExpr.self))
       XCTAssertEqual(d.lens.kind, .init(NameExpr.self))
@@ -1374,9 +1419,9 @@ final class ParserTests: XCTestCase {
     let names = ast.names(in: p!)
     XCTAssertEqual(names.count, 2)
     if names.count == 2 {
-      XCTAssertEqual(names[0].path, [0])
+      XCTAssertEqual(names[0].subfield, [0])
       XCTAssertEqual(ast[ast[names[0].pattern].decl].baseName, "foo")
-      XCTAssertEqual(names[1].path, [1, 0])
+      XCTAssertEqual(names[1].subfield, [1, 0])
       XCTAssertEqual(ast[ast[names[1].pattern].decl].baseName, "bar")
     }
   }

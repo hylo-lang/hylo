@@ -18,7 +18,7 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
   /// Writes a textual representation of this instance into `output`.
   public func write<Target: TextOutputStream>(to output: inout Target) {
     output.write(contentsOf: globals.enumerated(), separatedBy: "\n\n") { (s, e) in
-      s.write("global @\(syntax.id).\(e.offset) = \(e.element)")
+      s.write("global @\(id).\(e.offset) = \(e.element)")
     }
     if !globals.isEmpty && !functions.isEmpty {
       output.write("\n\n")
@@ -57,7 +57,10 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
       for j in instructions(in: i) {
         output.write("  ")
         if !self[j].types.isEmpty {
-          let r = self[j].types.indices.map({ (k) in Operand.register(j, k).description })
+          let r = self[j].types.indices.map { (k) -> String in
+            let o = Operand.register(j, k)
+            return "\(o): \(type(of: o))"
+          }
           output.write("\(list: r) = ")
         }
         output.write("\(self[j])\n")

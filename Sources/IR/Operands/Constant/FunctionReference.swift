@@ -16,26 +16,35 @@ public struct FunctionReference: Constant, Hashable {
   public let arguments: GenericArguments
 
   /// Creates a reference to `f`, which is in `module`, used in `s`.
-  public init(to f: Function.ID, usedIn s: AnyScopeID, in module: Module) {
-    self.function = f
+  public init(
+    to f: Function.ID,
+    parameterizedBy a: GenericArguments = [:],
+    usedIn s: AnyScopeID,
+    in module: Module
+  ) {
+    let arguments = module.program.relations.canonical(a)
     let v = module[f]
-    let t = LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
+    let t = module.program.monomorphize(
+      ^LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output),
+      for: arguments)
+
+    self.function = f
     self.type = .address(t)
     self.useScope = s
-    self.arguments = [:]
+    self.arguments = arguments
   }
 
   /// Creates in `module` a reference to the lowered form of `d`, which is used in `s` and
   /// parameterized by `a`.
   public init(
-    to d: FunctionDecl.Typed,
+    to d: FunctionDecl.ID,
     parameterizedBy a: GenericArguments = [:],
     usedIn s: AnyScopeID,
     in module: inout Module
   ) {
     let arguments = module.program.relations.canonical(a)
     let t = module.program.relations.canonical(
-      module.program.monomorphize(d.type, for: arguments))
+      module.program.monomorphize(module.program[d].type, for: arguments))
 
     self.function = module.demandFunctionDeclaration(lowering: d)
     self.type = .address(LambdaType(t)!.lifted)
@@ -45,14 +54,14 @@ public struct FunctionReference: Constant, Hashable {
 
   /// Creates in `module` a reference to the lowered form of `d`, which is used in `s`.
   public init(
-    to d: InitializerDecl.Typed,
+    to d: InitializerDecl.ID,
     parameterizedBy a: GenericArguments = [:],
     usedIn s: AnyScopeID,
     in module: inout Module
   ) {
     let arguments = module.program.relations.canonical(a)
     let t = module.program.relations.canonical(
-      module.program.monomorphize(d.type, for: arguments))
+      module.program.monomorphize(module.program[d].type, for: arguments))
 
     self.function = module.demandInitializerDeclaration(lowering: d)
     self.type = .address(LambdaType(t)!.lifted)

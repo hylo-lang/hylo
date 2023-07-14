@@ -97,6 +97,11 @@ public struct ValCommand: ParsableCommand {
     help: "Use verbose output.")
   private var verbose: Bool = false
 
+  @Flag(
+    name: [.customShort("O")],
+    help: "Compile with optimizations.")
+  private var optimize: Bool = false
+
   @Argument(
     transform: URL.init(fileURLWithPath:))
   private var inputs: [URL]
@@ -112,7 +117,7 @@ public struct ValCommand: ParsableCommand {
     let (exitCode, diagnostics) = try execute()
 
     diagnostics.render(
-      into: &standardError, style: ProcessInfo.terminalIsConnected ? .styled : .unstyled)
+      into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
 
     ValCommand.exit(withError: exitCode)
   }
@@ -171,7 +176,12 @@ public struct ValCommand: ParsableCommand {
 
     let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
     var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
-    llvmProgram.applyMandatoryPasses()
+
+    if optimize {
+      llvmProgram.optimize()
+    } else {
+      llvmProgram.applyMandatoryPasses()
+    }
 
     if outputType == .llvm {
       let m = llvmProgram.llvmModules[sourceModule]!
@@ -342,8 +352,8 @@ public struct ValCommand: ParsableCommand {
     // Search in the PATH.
     #if os(Windows)
       let environment = ProcessInfo.processInfo.environment["Path"] ?? ""
-      for base in environment.split(separator: ";") {
-        candidate = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+      for root in environment.split(separator: ";") {
+        candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidate.path + ".exe") {
           ValCommand.executableLocationCache[executable] = candidate.path
           return candidate.path
@@ -351,8 +361,8 @@ public struct ValCommand: ParsableCommand {
       }
     #else
       let environment = ProcessInfo.processInfo.environment["PATH"] ?? ""
-      for base in environment.split(separator: ":") {
-        candidate = URL(fileURLWithPath: String(base)).appendingPathComponent(executable)
+      for root in environment.split(separator: ":") {
+        candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidate.path) {
           ValCommand.executableLocationCache[executable] = candidate.path
           return candidate.path

@@ -1,10 +1,12 @@
 /// A (nominal) product type declaration.
 public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, GenericScope {
 
+  public static let manglingOperator = ManglingOperator.productTypeDecl
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The identifier of the type.
   public let identifier: SourceRepresentable<Identifier>
@@ -18,34 +20,27 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, TypeScope, Generic
   /// The member declarations in the lexical scope of the trait.
   public let members: [AnyDeclID]
 
-  /// The memberwise initializer of the type.
-  public let memberwiseInit: InitializerDecl.ID
-
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     conformances: [NameExpr.ID],
     members: [AnyDeclID],
-    memberwiseInit: InitializerDecl.ID,
     site: SourceRange
   ) {
-    precondition(members.contains(AnyDeclID(memberwiseInit)))
-
     self.site = site
     self.accessModifier = accessModifier
     self.identifier = identifier
     self.genericClause = genericClause
     self.conformances = conformances
     self.members = members
-    self.memberwiseInit = memberwiseInit
   }
 
   public var baseName: String { identifier.value }
 
   /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier?.value != nil }
+  public var isPublic: Bool { accessModifier.value == .public }
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     for m in members {

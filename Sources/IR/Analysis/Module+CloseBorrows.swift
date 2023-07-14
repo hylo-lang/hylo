@@ -17,7 +17,7 @@ extension Module {
           // Delete the borrow if it's never used.
           if borrowLifetime.isEmpty {
             if let decl = borrow.binding {
-              diagnostics.insert(.unusedBinding(name: decl.baseName, at: borrow.site))
+              diagnostics.insert(.unusedBinding(name: program.ast[decl].baseName, at: borrow.site))
             }
             removeInstruction(i)
             continue
@@ -54,11 +54,10 @@ extension Module {
     // Extend the lifetime with that of its borrows.
     for use in uses {
       switch self[use.user] {
-      case is BorrowInstruction, is ElementAddrInstruction, is ProjectInstruction,
-        is WrapAddrInstruction:
-
-        let x = lifetime(of: results(of: use.user).uniqueElement!)
-        result = extend(lifetime: result, with: x)
+      case is LifetimeExtender:
+        for r in results(of: use.user) {
+          result = extend(lifetime: result, with: lifetime(of: r))
+        }
 
       default:
         continue
@@ -77,3 +76,18 @@ extension Diagnostic {
   }
 
 }
+
+/// An instruction that extends the lifetime of all its uses.
+private protocol LifetimeExtender {}
+
+extension BorrowInstruction: LifetimeExtender {}
+
+extension OpenSumInstruction: LifetimeExtender {}
+
+extension ProjectInstruction: LifetimeExtender {}
+
+extension ProjectBundleInstruction: LifetimeExtender {}
+
+extension SubfieldViewInstruction: LifetimeExtender {}
+
+extension WrapExistentialAddrInstruction: LifetimeExtender {}

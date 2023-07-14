@@ -1,0 +1,7 @@
+/// A type whose values can be destroyed.
+public trait Deinitializable {
+
+  /// Deinitializes self.
+  fun deinit() sink
+
+}

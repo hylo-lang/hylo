@@ -1,4 +1,4 @@
-//! expect-success
+//- typeCheck expecting: success
 
 public fun main() {
   let _ = () as Any

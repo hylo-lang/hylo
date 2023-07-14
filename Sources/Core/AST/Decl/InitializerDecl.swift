@@ -21,7 +21,7 @@ public struct InitializerDecl: GenericDecl, GenericScope {
   public let attributes: [SourceRepresentable<Attribute>]
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The generic clause of the declaration, if any.
   public let genericClause: SourceRepresentable<GenericClause>?
@@ -41,7 +41,7 @@ public struct InitializerDecl: GenericDecl, GenericScope {
   public init(
     introducer: SourceRepresentable<Introducer>,
     attributes: [SourceRepresentable<Attribute>],
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     parameters: [ParameterDecl.ID],
     receiver: ParameterDecl.ID,
@@ -64,10 +64,9 @@ public struct InitializerDecl: GenericDecl, GenericScope {
   public var isMemberwise: Bool { introducer.value == .memberwiseInit }
 
   /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier?.value == .public }
+  public var isPublic: Bool { accessModifier.value == .public }
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
-
     // Parameter declarations must have a type annotation.
     for p in parameters {
       if ast[p].annotation == nil {

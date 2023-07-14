@@ -24,7 +24,7 @@ public struct LLVMProgram {
   ) throws {
     self.target = try target ?? LLVM.TargetMachine(for: .host())
     for m in ir.modules.keys {
-      let transpilation = ir.transpile(m)
+      let transpilation = LLVM.Module(transpiling: m, from: ir)
       do {
         try transpilation.verify()
       } catch {
@@ -39,6 +39,15 @@ public struct LLVMProgram {
   public mutating func applyMandatoryPasses() {
     for k in llvmModules.keys {
       llvmModules[k]!.runDefaultModulePasses(optimization: .none, for: target)
+    }
+  }
+
+  /// Applies optimizations on each module in `self`.
+  ///
+  /// Optimization applied are similar to clang's `-O3`.
+  public mutating func optimize() {
+    for k in llvmModules.keys {
+      llvmModules[k]!.runDefaultModulePasses(optimization: .aggressive, for: target)
     }
   }
 

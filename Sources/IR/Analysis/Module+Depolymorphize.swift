@@ -11,11 +11,12 @@ extension Module {
       let f = functions[k]!
       if (f.linkage != .external) || (f.entry == nil) { continue }
 
-      // Existentialize public generic functions.
-      let j = f.isGeneric ? existentialize(k) : k
-
-      // Depolymorphize all public functions.
-      depolymorphize(j, in: ir)
+      if f.isGeneric {
+        // Existentialize public, non-inlinable generic functions.
+        _ = existentialize(k)
+      } else {
+        depolymorphize(k, in: ir)
+      }
     }
   }
 
@@ -23,19 +24,52 @@ extension Module {
   /// counterparts, reading definitions from `ir`.
   private mutating func depolymorphize(_ f: Function.ID, in ir: LoweredProgram) {
     for i in blocks(in: f).map(instructions(in:)).joined() {
-      guard
-        let s = self[i] as? CallInstruction,
-        let callee = s.callee.constant as? FunctionReference,
-        !callee.arguments.isEmpty
-      else { continue }
-
-      // TODO: Use existentialization unless the function is inlinable
-
-      let g = monomorphize(callee, in: ir)
-      let r = FunctionReference(to: g, usedIn: callee.useScope, in: self)
-      let newCall = makeCall(applying: .constant(r), to: Array(s.arguments), at: s.site)
-      replace(i, with: newCall)
+      switch self[i] {
+      case is CallInstruction:
+        depolymorphize(call: i, in: ir)
+      case is ProjectInstruction:
+        depolymorphize(project: i, in: ir)
+      default:
+        continue
+      }
     }
+  }
+
+  /// If `i` is a call to a generic function, replaces it by an instruction applying a
+  /// depolymorphized version of its callee. Otherwise, does nothing.
+  ///
+  /// - Requires: `i` identifies a `CallInstruction`
+  private mutating func depolymorphize(call i: InstructionID, in ir: LoweredProgram) {
+    let s = self[i] as! CallInstruction
+    guard
+      let callee = s.callee.constant as? FunctionReference,
+      !callee.arguments.isEmpty
+    else { return }
+
+    // TODO: Use existentialization unless the function is inlinable
+
+    let g = monomorphize(callee, in: ir)
+    let r = FunctionReference(to: g, usedIn: callee.useScope, in: self)
+    let new = makeCall(
+      applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
+    replace(i, with: new)
+  }
+
+  /// If `i` is the projection through a generic subscript, replaces it by an instruction applying
+  /// a depolymorphized version of its callee. Otherwise, does nothing.
+  ///
+  /// - Requires: `i` identifies a `ProjectInstruction`
+  private mutating func depolymorphize(project i: InstructionID, in ir: LoweredProgram) {
+    let s = self[i] as! ProjectInstruction
+    guard !s.parameterization.isEmpty else { return }
+
+    // TODO: Use existentialization unless the subscript is inlinable
+
+    let useScope = self[Block.ID(i.function, i.block)].scope
+    let g = monomorphize(s.callee, in: ir, for: s.parameterization, usedIn: useScope)
+    let new = makeProject(
+      s.projection, applying: g, parameterizedBy: [:], to: s.operands, at: s.site)
+    replace(i, with: new)
   }
 
   /// Returns a depolymorphized copy of `base` in which parametric parameters have been notionally
@@ -63,7 +97,18 @@ extension Module {
   private mutating func monomorphize(
     _ r: FunctionReference, in ir: LoweredProgram
   ) -> Function.ID {
-    let result = demandMonomorphizedDeclaration(r)
+    monomorphize(r.function, in: ir, for: r.arguments, usedIn: r.useScope)
+  }
+
+  /// Returns a reference to the monomorphized form of `f` for given `parameterization` in
+  /// `useScope`, reading definitions from `ir`.
+  @discardableResult
+  private mutating func monomorphize(
+    _ f: Function.ID, in ir: LoweredProgram,
+    for parameterization: GenericArguments, usedIn useScope: AnyScopeID
+  ) -> Function.ID {
+    let result = demandMonomorphizedDeclaration(
+      of: f, in: ir, for: parameterization, usedIn: useScope)
     if self[result].entry != nil {
       return result
     }
@@ -73,18 +118,19 @@ extension Module {
 
     // Iterate over the basic blocks of the source function in a way that guarantees we always
     // visit definitions before their uses.
-    let sourceModule = ir.modules[ir.module(defining: r.function)]!
-    let cfg = sourceModule[r.function].cfg()
-    let sourceBlocks = DominatorTree(function: r.function, cfg: cfg, in: sourceModule).bfs
+    let sourceModule = ir.modules[ir.module(defining: f)]!
+    let cfg = sourceModule[f].cfg()
+    let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: sourceModule).bfs
 
     for b in sourceBlocks {
-      let source = Block.ID(r.function, b)
+      let source = Block.ID(f, b)
 
       // Rewrite the source block in the monomorphized function.
+      let scope = sourceModule[source].scope
       let inputs = sourceModule[source].inputs.map { (t) in
-        program.monomorphize(t, applying: r.arguments)
+        program.monomorphize(t, applying: parameterization)
       }
-      let target = Block.ID(result, self[result].appendBlock(taking: inputs))
+      let target = Block.ID(result, self[result].appendBlock(in: scope, taking: inputs))
       rewrittenBlocks[source] = target
 
       // Rewrite all instructions from the source block.
@@ -100,6 +146,8 @@ extension Module {
       switch sourceModule[i] {
       case is AddressToPointerInstruction:
         rewrite(addressToPointer: i, to: b)
+      case is AdvancedByBytesInstruction:
+        rewrite(advancedByBytes: i, to: b)
       case is AllocStackInstruction:
         rewrite(allocStack: i, to: b)
       case is BorrowInstruction:
@@ -110,32 +158,38 @@ extension Module {
         rewrite(call: i, to: b)
       case is CallFFIInstruction:
         rewrite(callFFI: i, to: b)
+      case is CloseSumInstruction:
+        rewrite(closeSum: i, to: b)
       case is CondBranchInstruction:
         rewrite(condBranch: i, to: b)
       case is DeallocStackInstruction:
         rewrite(deallocStack: i, to: b)
-      case is DeinitInstruction:
-        break  // TODO: Should not be necessary
-      case is ElementAddrInstruction:
-        rewrite(elementAddr: i, to: b)
       case is EndBorrowInstruction:
         rewrite(endBorrow: i, to: b)
       case is EndProjectInstruction:
-        rewrite(endBorrow: i, to: b)
+        rewrite(endProject: i, to: b)
       case is GlobalAddrInstruction:
         rewrite(globalAddr: i, to: b)
       case is LLVMInstruction:
         rewrite(llvm: i, to: b)
       case is LoadInstruction:
         rewrite(load: i, to: b)
+      case is MarkStateInstruction:
+        rewrite(markState: i, to: b)
+      case is OpenSumInstruction:
+        rewrite(openSum: i, to: b)
+      case is PartialApplyInstruction:
+        rewrite(partialApply: i, to: b)
       case is PointerToAddressInstruction:
         rewrite(pointerToAddress: i, to: b)
-      case is RecordInstruction:
-        rewrite(record: i, to: b)
+      case is ProjectInstruction:
+        rewrite(project: i, to: b)
       case is ReturnInstruction:
         rewrite(return: i, to: b)
       case is StoreInstruction:
         rewrite(store: i, to: b)
+      case is SubfieldViewInstruction:
+        rewrite(subfieldView: i, to: b)
       case is UnrechableInstruction:
         rewrite(unreachable: i, to: b)
       case is YieldInstruction:
@@ -153,9 +207,17 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(advancedByBytes i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! AdvancedByBytesInstruction
+      append(
+        makeAdvancedByBytes(source: rewritten(s.base), offset: rewritten(s.byteOffset), at: s.site),
+        to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(allocStack i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! AllocStackInstruction
-      let t = program.monomorphize(s.allocatedType, for: r.arguments)
+      let t = program.monomorphize(s.allocatedType, for: parameterization)
       append(makeAllocStack(t, at: s.site), to: b)
     }
 
@@ -177,22 +239,30 @@ extension Module {
 
       let newCallee: Operand
       if let callee = s.callee.constant as? FunctionReference, !callee.arguments.isEmpty {
-        let g = monomorphize(callee, in: ir)
+        let p = program.monomorphize(callee.arguments, for: parameterization)
+        let g = monomorphize(callee.function, in: ir, for: p, usedIn: callee.useScope)
         newCallee = .constant(FunctionReference(to: g, usedIn: callee.useScope, in: self))
       } else {
         newCallee = rewritten(s.callee)
       }
 
       let a = s.arguments.map(rewritten(_:))
-      append(makeCall(applying: newCallee, to: a, at: s.site), to: b)
+      let o = rewritten(s.output)
+      append(makeCall(applying: newCallee, to: a, writingResultTo: o, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(callFFI i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! CallFFIInstruction
-      let t = program.monomorphize(s.returnType, applying: r.arguments)
+      let t = program.monomorphize(s.returnType, applying: parameterization)
       let o = s.operands.map(rewritten(_:))
       append(makeCallFFI(returning: t, applying: s.callee, to: o, at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(closeSum i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! CloseSumInstruction
+      append(makeCloseSum(rewritten(s.start), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -213,12 +283,6 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(elementAddr i: InstructionID, to b: Block.ID) {
-      let s = sourceModule[i] as! ElementAddrInstruction
-      append(makeElementAddr(rewritten(s.base), at: s.elementPath, at: s.site), to: b)
-    }
-
-    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(endBorrow i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! EndBorrowInstruction
       append(makeEndBorrow(rewritten(s.borrow), at: s.site), to: b)
@@ -233,7 +297,7 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(globalAddr i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! GlobalAddrInstruction
-      let t = program.monomorphize(s.valueType, for: r.arguments)
+      let t = program.monomorphize(s.valueType, for: parameterization)
       append(makeGlobalAddr(of: s.id, in: s.container, typed: t, at: s.site), to: b)
     }
 
@@ -244,14 +308,50 @@ extension Module {
       append(makeLLVM(applying: s.instruction, to: o, at: s.site), to: b)
     }
 
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(markState i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! MarkStateInstruction
+      append(makeMarkState(rewritten(s.storage), initialized: s.initialized, at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(load i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! LoadInstruction
       append(makeLoad(rewritten(s.source), at: s.site), to: b)
     }
 
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(openSum i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! OpenSumInstruction
+      let u = makeOpenSum(
+        rewritten(s.container), as: program.monomorphize(s.payloadType, for: parameterization),
+        forInitialization: s.isUsedForInitialization,
+        at: s.site)
+      append(u, to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(partialApply i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! PartialApplyInstruction
+
+      let newCallee: FunctionReference
+      if s.callee.arguments.isEmpty {
+        assert(!sourceModule[s.callee.function].isGeneric)
+        newCallee = s.callee
+      } else {
+        let p = program.monomorphize(s.callee.arguments, for: parameterization)
+        let g = monomorphize(s.callee.function, in: ir, for: p, usedIn: s.callee.useScope)
+        newCallee = FunctionReference(to: g, usedIn: s.callee.useScope, in: self)
+      }
+
+      let e = rewritten(s.environment)
+      append(makePartialApply(wrapping: newCallee, with: e, at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(pointerToAddress i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! PointerToAddressInstruction
-      let t = program.monomorphize(^s.target, for: r.arguments)
+      let t = program.monomorphize(^s.target, for: parameterization)
 
       let newInstruction = makePointerToAddress(
         rewritten(s.source), to: RemoteType(t)!, at: s.site)
@@ -259,23 +359,40 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(record i: InstructionID, to b: Block.ID) {
-      let s = sourceModule[i] as! RecordInstruction
-      let t = program.monomorphize(s.objectType.ast, for: r.arguments)
-      let o = s.operands.map(rewritten(_:))
-      append(makeRecord(t, aggregating: o, at: s.site), to: b)
+    func rewrite(project i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! ProjectInstruction
+
+      let newCallee: Function.ID
+      if s.parameterization.isEmpty {
+        newCallee = s.callee
+      } else {
+        let p = program.monomorphize(s.parameterization, for: parameterization)
+        newCallee = monomorphize(s.callee, in: ir, for: p, usedIn: self[b].scope)
+      }
+
+      let t = RemoteType(program.monomorphize(^s.projection, for: s.parameterization))!
+      let a = s.operands.map(rewritten(_:))
+      append(
+        makeProject(t, applying: newCallee, parameterizedBy: [:], to: a, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(return i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! ReturnInstruction
-      append(makeReturn(rewritten(s.object), at: s.site), to: b)
+      append(makeReturn(at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(store i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! StoreInstruction
       append(makeStore(rewritten(s.object), at: rewritten(s.target), at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(subfieldView i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! SubfieldViewInstruction
+      append(
+        makeSubfieldView(of: rewritten(s.recordAddress), subfield: s.subfield, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -290,11 +407,20 @@ extension Module {
       append(makeYield(s.capability, rewritten(s.projection), at: s.site), to: b)
     }
 
+    /// Returns the rewritten form of `c` for use in `result`.
+    func rewritten(_ c: any Constant) -> any Constant {
+      if let t = c as? MetatypeType {
+        return MetatypeType(program.monomorphize(^t, for: parameterization))!
+      } else {
+        return c
+      }
+    }
+
     /// Returns the rewritten form of `o`, which is used in `r.function`, for use in `result`.
     func rewritten(_ o: Operand) -> Operand {
       switch o {
-      case .constant:
-        return o
+      case .constant(let c):
+        return .constant(rewritten(c))
       case .parameter(let b, let i):
         return .parameter(rewrittenBlocks[b]!, i)
       case .register(let s, let i):
@@ -303,23 +429,28 @@ extension Module {
     }
   }
 
-  /// Returns the identity of the Val IR function monomorphizing the function referred to by `r`.
-  private mutating func demandMonomorphizedDeclaration(_ r: FunctionReference) -> Function.ID {
-    let result = Function.ID(monomorphized: r.function, for: r.arguments)
+  /// Returns the identity of the Val IR function monomorphizing `f` for given `parameterization`
+  /// in `useScope`.
+  private mutating func demandMonomorphizedDeclaration(
+    of f: Function.ID, in ir: LoweredProgram,
+    for parameterization: GenericArguments, usedIn useScope: AnyScopeID
+  ) -> Function.ID {
+    let result = Function.ID(monomorphized: f, for: parameterization)
     if functions[result] != nil { return result }
 
-    let source = self[r.function]
+    let m = ir.modules[ir.module(defining: f)]!
+    let source = m[f]
 
     let inputs = source.inputs.map { (p) in
-      let t = program.monomorphize(p.type.bareType, for: r.arguments)
+      let t = program.monomorphize(p.type.bareType, for: parameterization)
       return Parameter(decl: p.decl, type: ParameterType(p.type.access, t))
     }
 
-    let output = program.monomorphize(source.output, for: r.arguments)
+    let output = program.monomorphize(source.output, for: parameterization)
 
     let entity = Function(
       isSubscript: source.isSubscript,
-      name: "<\(list: r.arguments.values), \(r.useScope)>(\(source.name))",
+      name: "<\(list: parameterization.values), \(useScope)>(\(source.name))",
       site: source.site,
       linkage: .module,
       parameters: [],

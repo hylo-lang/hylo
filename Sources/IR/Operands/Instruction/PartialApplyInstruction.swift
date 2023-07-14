@@ -3,8 +3,8 @@ import Core
 /// Creates a lambda wrapping a function pointer and an environment.
 public struct PartialApplyInstruction: Instruction {
 
-  /// The address of the underlying function.
-  public private(set) var function: FunctionReference
+  /// The partially applied function.
+  public private(set) var callee: FunctionReference
 
   /// The environment of the lambda.
   public private(set) var environment: Operand
@@ -13,15 +13,15 @@ public struct PartialApplyInstruction: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(function: FunctionReference, environment: Operand, site: SourceRange) {
-    self.function = function
+  fileprivate init(callee: FunctionReference, environment: Operand, site: SourceRange) {
+    self.callee = callee
     self.environment = environment
     self.site = site
   }
 
-  public var types: [LoweredType] { [.object(function.type.ast)] }
+  public var types: [LoweredType] { [.object(callee.type.ast)] }
 
-  public var operands: [Operand] { [.constant(function), environment] }
+  public var operands: [Operand] { [.constant(callee), environment] }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     switch i {
@@ -29,7 +29,7 @@ public struct PartialApplyInstruction: Instruction {
       guard let f = new.constant as? FunctionReference else {
         preconditionFailure("invalid substitution")
       }
-      function = f
+      callee = f
     case 1:
       environment = new
     default:
@@ -49,7 +49,7 @@ extension Module {
   func makePartialApply(
     wrapping f: FunctionReference, with e: Operand, at site: SourceRange
   ) -> PartialApplyInstruction {
-    .init(function: f, environment: e, site: site)
+    .init(callee: f, environment: e, site: site)
   }
 
 }

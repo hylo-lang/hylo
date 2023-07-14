@@ -5,6 +5,8 @@ enum NameResolutionResult {
 
   /// Name resolution applied on the nominal prefix that doesn't require any overload resolution.
   /// The payload contains the collections of resolved and unresolved components.
+  ///
+  /// - Invariant: `resolved` is not empty.
   case done(resolved: [ResolvedComponent], unresolved: [NameExpr.ID])
 
   /// Name resolution failed.
@@ -12,6 +14,8 @@ enum NameResolutionResult {
 
   /// Name resolution couln't start because the first component of the expression isn't a name
   /// The payload contains the collection of unresolved components, after the first one.
+  ///
+  /// - Invariant: `components` is not empty.
   case inexecutable(_ components: [NameExpr.ID])
 
   /// The result of name resolution for a single name component.
@@ -37,31 +41,53 @@ enum NameResolutionResult {
     /// Declaration being referenced.
     let reference: DeclReference
 
-    /// The quantifier-free type of the declaration at its use site.
-    let type: InstantiatedType
+    /// The type of the declaration.
+    let type: AnyType
 
-    /// The diagnostics of the error related to this candidate's generic arguments, if any.
-    let argumentsDiagnostic: Diagnostic?
+    /// The constraints related to the open variables in `type`, if any.
+    let constraints: ConstraintSet
+
+    /// The diagnostics associated with to this candidate, if any.
+    let diagnostics: DiagnosticSet
 
     /// Creates an instance with the given properties.
-    init(reference: DeclReference, type: InstantiatedType, argumentsDiagnostic: Diagnostic?) {
+    init(
+      reference: DeclReference, type: AnyType, constraints: ConstraintSet,
+      diagnostics: DiagnosticSet
+    ) {
       self.reference = reference
       self.type = type
-      self.argumentsDiagnostic = argumentsDiagnostic
+      self.constraints = constraints
+      self.diagnostics = diagnostics
     }
 
     /// Creates an instance denoting a built-in function.
     init(_ f: BuiltinFunction) {
       self.reference = .builtinFunction(f)
-      self.type = .init(shape: ^f.type(), constraints: [])
-      self.argumentsDiagnostic = nil
+      self.type = ^f.type()
+      self.constraints = []
+      self.diagnostics = []
     }
 
     /// Creates an instance denoting a built-in type.
     init(_ t: BuiltinType) {
+      precondition(t != .module)
       self.reference = .builtinType
-      self.type = .init(shape: ^t, constraints: [])
-      self.argumentsDiagnostic = nil
+      self.type = ^MetatypeType(of: t)
+      self.constraints = []
+      self.diagnostics = []
+    }
+
+    /// A candidate denoting a reference to the built-in module.
+    static var builtinModule = Candidate(
+      reference: .builtinModule,
+      type: .builtin(.module),
+      constraints: [],
+      diagnostics: [])
+
+    /// Creates an instance denoting an intrinsic type.
+    static func intrinsic(_ t: AnyType) -> Self {
+      .init(reference: .intrinsicType, type: t, constraints: [], diagnostics: [])
     }
 
   }
@@ -76,6 +102,7 @@ enum NameResolutionResult {
     /// where used for name resolution.
     internal private(set) var viable: [Int] = []
 
+    /// Creates an instance from an array literal.
     init(arrayLiteral candidates: Candidate...) {
       for c in candidates {
         insert(c)
@@ -84,10 +111,17 @@ enum NameResolutionResult {
 
     /// Inserts `c` into `self`.
     mutating func insert(_ c: Candidate) {
-      if c.argumentsDiagnostic == nil {
+      if !c.diagnostics.containsError {
         viable.append(elements.count)
       }
       elements.append(c)
+    }
+
+    /// Inserts the contents of `other` into `self`.
+    mutating func formUnion(_ other: Self) {
+      for e in other.elements {
+        insert(e)
+      }
     }
 
   }

@@ -39,7 +39,7 @@ extension Module {
   func makeLoad(_ source: Operand, at site: SourceRange) -> LoadInstruction {
     let t = type(of: source)
     precondition(t.isAddress)
-    return LoadInstruction(objectType: .object(t.ast), from: source, site: site)
+    return .init(objectType: .object(t.ast), from: source, site: site)
   }
 
 }

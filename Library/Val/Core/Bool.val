@@ -26,6 +26,8 @@ public type Bool {
   }
 }
 
+public conformance Bool: Deinitializable {}
+
 public conformance Bool: Copyable {
 
   public fun copy() -> Self {

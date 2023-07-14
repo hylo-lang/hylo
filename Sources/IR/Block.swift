@@ -1,3 +1,4 @@
+import Core
 import Utils
 
 /// A basic block in a Val IR function.
@@ -8,6 +9,9 @@ public struct Block {
 
   /// A collection of instructions with stable identities.
   public typealias Instructions = DoublyLinkedList<Instruction>
+
+  /// The innermost lexical scope corresponding to the block's instructions.
+  public let scope: AnyScopeID
 
   /// The type input parameters of the block.
   public let inputs: [LoweredType]

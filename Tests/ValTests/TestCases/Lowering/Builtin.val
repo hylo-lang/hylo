@@ -1,5 +1,0 @@
-//! expect-success
-
-public fun main() {
-  let _ = Builtin.zeroinitializer_i64()
-}

@@ -32,9 +32,9 @@ public struct LoweredProgram {
   public func module(defining f: Function.ID) -> ModuleDecl.ID {
     switch f.value {
     case .lowered(let d):
-      return syntax.module(containing: syntax.declToScope[d]!)
+      return syntax.module(containing: syntax[d].scope)
     case .loweredSubscript(let d):
-      return syntax.module(containing: syntax.declToScope[d]!)
+      return syntax.module(containing: syntax[d].scope)
     case .monomorphized:
       fatalError("not implemented")
     case .existentialized(let i):

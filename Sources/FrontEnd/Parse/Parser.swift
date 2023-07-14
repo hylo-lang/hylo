@@ -66,15 +66,13 @@ public enum Parser {
       case .unterminatedBlockComment:
         // Nothing to parse after an unterminated block comment.
         state.diagnostics.insert(
-          .error(
-            unterminatedCommentEndingAt: head.site.last() ?? head.site.first()))
+          .error(unterminatedCommentEndingAt: head.site.last() ?? head.site.first()))
         break
 
       case .unterminatedString:
         // Nothing to parse after an unterminated string.
         state.diagnostics.insert(
-          .error(
-            unterminatedStringEndingAt: head.site.last() ?? head.site.first()))
+          .error(unterminatedStringEndingAt: head.site.last() ?? head.site.first()))
         break
 
       default:
@@ -131,6 +129,14 @@ public enum Parser {
             .error(
               memberModifier: member,
               appearsBeforeAccessModifier: access))
+        }
+
+        // Catch inconsistent access modifiers.
+        else if let p = accessModifiers.first, p != access {
+          state.diagnostics.insert(
+            .error(
+              inconsistentAccessModifiers: access,
+              appearsAfterPreviousAccessModifier: p))
         }
 
         // Catch duplicate access modifiers.
@@ -349,13 +355,11 @@ public enum Parser {
     // Associated type declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.accessModifiers.map(
-          Diagnostic.error(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.memberModifiers.map(
-          Diagnostic.error(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `AssociatedTypeDecl`.
@@ -389,13 +393,11 @@ public enum Parser {
     // Associated value declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.accessModifiers.map(
-          Diagnostic.error(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.memberModifiers.map(
-          Diagnostic.error(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `AssociatedValueDecl`.
@@ -424,12 +426,11 @@ public enum Parser {
     }
 
     // Create a new `BindingDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
     return state.insert(
       BindingDecl(
         attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         memberModifier: prologue.memberModifiers.first,
         pattern: pattern,
         initializer: initializer,
@@ -457,15 +458,13 @@ public enum Parser {
     // Conformance declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.memberModifiers.map(
-          Diagnostic.error(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `ConformanceDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       ConformanceDecl(
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         subject: parts.0.0.0.1,
         conformances: parts.0.0.1,
         whereClause: parts.0.1,
@@ -493,20 +492,17 @@ public enum Parser {
     // Extension declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.accessModifiers.map(
-          Diagnostic.error(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.memberModifiers.map(
-          Diagnostic.error(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `ExtensionDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       ExtensionDecl(
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         subject: parts.0.0.1,
         whereClause: parts.0.1,
         members: parts.1,
@@ -576,13 +572,12 @@ public enum Parser {
     }
 
     // Create a new `FunctionDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
     return state.insert(
       FunctionDecl(
         introducerSite: head.introducerSite,
         attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         memberModifier: prologue.memberModifiers.first,
         receiverEffect: signature.receiverEffect,
         notation: head.notation,
@@ -620,12 +615,11 @@ public enum Parser {
     }
 
     // Create a new `MethodDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       MethodDecl(
         introducerSite: head.introducerSite,
         attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         notation: head.notation,
         identifier: head.stem,
         genericClause: head.genericClause,
@@ -652,13 +646,11 @@ public enum Parser {
     // Import declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.accessModifiers.map(
-          Diagnostic.error(unexpectedAccessModifier:)))
+        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
-        prologue.memberModifiers.map(
-          Diagnostic.error(unexpectedMemberModifier:)))
+        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `ImportDecl`.
@@ -694,13 +686,12 @@ public enum Parser {
         site: introducer.site))
 
     // Create a new `InitializerDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.isEmpty)
     return state.insert(
       InitializerDecl(
         introducer: SourceRepresentable(value: .`init`, range: introducer.site),
         attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         genericClause: genericClause,
         parameters: parameters,
         receiver: receiver,
@@ -730,12 +721,11 @@ public enum Parser {
         site: introducerSite))
 
     // Create a new `InitializerDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       InitializerDecl(
         introducer: SourceRepresentable(value: .memberwiseInit, range: introducerSite),
         attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         genericClause: nil,
         parameters: [],
         receiver: receiver,
@@ -766,11 +756,10 @@ public enum Parser {
     }
 
     // Create a new `NamespaceDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       NamespaceDecl(
         introducerSite: parts.0.0.site,
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         identifier: state.token(parts.0.1),
         members: parts.1,
         site: state.range(from: prologue.startIndex)))
@@ -800,11 +789,10 @@ public enum Parser {
     }
 
     // Create a new `OperatorDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       OperatorDecl(
         introducerSite: parts.0.0.0.site,
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         notation: parts.0.0.1,
         name: parts.0.1,
         precedenceGroup: parts.1,
@@ -825,13 +813,12 @@ public enum Parser {
       using: { (s) in try parseSubscriptDeclBody(in: &s, asNonStaticMember: isNonStatic) })
 
     // Create a new `SubscriptDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
     return state.insert(
       SubscriptDecl(
         introducer: head.introducer,
         attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         memberModifier: prologue.memberModifiers.first,
         identifier: head.stem,
         genericClause: nil,
@@ -859,13 +846,12 @@ public enum Parser {
       using: { (s) in try parseSubscriptDeclBody(in: &s, asNonStaticMember: isNonStatic) })
 
     // Create a new `SubscriptDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     assert(prologue.memberModifiers.count <= 1)
     return state.insert(
       SubscriptDecl(
         introducer: head.introducer,
         attributes: prologue.attributes,
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         memberModifier: prologue.memberModifiers.first,
         identifier: head.stem,
         genericClause: head.genericClause,
@@ -999,10 +985,9 @@ public enum Parser {
     members.append(AnyDeclID(selfParameterDecl))
 
     // Create a new `TraitDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       TraitDecl(
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         identifier: state.token(name),
         refinements: refinements,
         members: members,
@@ -1034,55 +1019,15 @@ public enum Parser {
         prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
-    // Retrieve or synthesize the type's memberwise initializer.
-    var members = parts.1
-    let memberwiseInit = memberwiseInitializer(
-      ofDeclStartingAt: parts.0.0.0.0.site.start,
-      among: &members,
-      updating: &state)
-
     // Create a new `ProductTypeDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       ProductTypeDecl(
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
         conformances: parts.0.1 ?? [],
-        members: members,
-        memberwiseInit: memberwiseInit,
+        members: parts.1,
         site: state.range(from: prologue.startIndex)))
-  }
-
-  /// Returns the first memberwise initializer declaration in `members` or synthesizes an implicit
-  /// one, appends it into `members`, and returns it.
-  private static func memberwiseInitializer(
-    ofDeclStartingAt startIndex: SourceFile.Index,
-    among members: inout [AnyDeclID],
-    updating state: inout ParserState
-  ) -> InitializerDecl.ID {
-    for member in members where member.kind == InitializerDecl.self {
-      let m = InitializerDecl.ID(member)!
-      if state.ast[m].isMemberwise { return m }
-    }
-
-    let startOfTypeDecl = state.lexer.sourceCode.emptyRange(at: startIndex)
-    let receiver = state.insert(
-      synthesized: ParameterDecl(
-        identifier: SourceRepresentable(value: "self", range: startOfTypeDecl),
-        site: startOfTypeDecl))
-    let m = state.insert(
-      synthesized: InitializerDecl(
-        introducer: SourceRepresentable(value: .memberwiseInit, range: startOfTypeDecl),
-        attributes: [],
-        accessModifier: nil,
-        genericClause: nil,
-        parameters: [],
-        receiver: receiver,
-        body: nil,
-        site: startOfTypeDecl))
-    members.append(AnyDeclID(m))
-    return m
   }
 
   /// Parses an instance of `TypeAliasDecl`.
@@ -1110,14 +1055,25 @@ public enum Parser {
     }
 
     // Create a new `TypeAliasDecl`.
-    assert(prologue.accessModifiers.count <= 1)
     return state.insert(
       TypeAliasDecl(
-        accessModifier: prologue.accessModifiers.first,
+        accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
         aliasedType: parts.1,
         site: state.range(from: prologue.startIndex)))
+  }
+
+  /// Returns the specified access modifier of the provided `prologue`, or synthesizes an implicit one
+  private static func declAccessModifier(
+    ofDeclPrologue prologue: DeclPrologue,
+    in state: inout ParserState
+  ) -> SourceRepresentable<AccessModifier> {
+    // Declarations are private by default.
+    assert(prologue.accessModifiers.count <= 1)
+    return prologue.accessModifiers.first
+      ?? SourceRepresentable(
+        value: .private, range: state.lexer.sourceCode.emptyRange(at: prologue.startIndex))
   }
 
   static func parseFunctionDeclHead(
@@ -1330,11 +1286,10 @@ public enum Parser {
         SourceRepresentable(value: .static, range: token.site)
       }))
 
-  static let accessModifier =
-    (take(.public)
-      .map({ (_, token) -> SourceRepresentable<AccessModifier> in
-        SourceRepresentable(value: .public, range: token.site)
-      }))
+  static let accessModifier = translate([
+    .private: AccessModifier.private,
+    .public: AccessModifier.public,
+  ])
 
   static let captureList = inContext(
     .captureList,
@@ -1451,9 +1406,7 @@ public enum Parser {
         }
 
         // Otherwise, complain about missing whitespaces.
-        state.diagnostics.insert(
-          .error(
-            infixOperatorRequiresWhitespacesAt: operatorStem.site))
+        state.diagnostics.insert(.error(infixOperatorRequiresWhitespacesAt: operatorStem.site))
       }
 
       // If we can't parse an operand, the tail is empty.
@@ -1464,6 +1417,7 @@ public enum Parser {
 
       let `operator` = state.insert(
         NameExpr(
+          domain: .operand,
           name: SourceRepresentable(
             value: Name(stem: operatorStem.value, notation: .infix), range: operatorStem.site),
           site: operatorStem.site))
@@ -1497,7 +1451,7 @@ public enum Parser {
 
       let callee = state.insert(
         NameExpr(
-          domain: .expr(operand),
+          domain: .explicit(operand),
           name: SourceRepresentable(
             value: Name(stem: op.value, notation: .prefix),
             range: op.site),
@@ -1528,7 +1482,7 @@ public enum Parser {
 
       let callee = state.insert(
         NameExpr(
-          domain: .expr(operand),
+          domain: .explicit(operand),
           name: SourceRepresentable(
             value: Name(stem: op.value, notation: .postfix),
             range: op.site),
@@ -1643,7 +1597,7 @@ public enum Parser {
     if let component = try parseNameExprComponent(in: &state) {
       let e = state.insert(
         NameExpr(
-          domain: .expr(head),
+          domain: .explicit(head),
           name: component.name,
           arguments: component.arguments,
           site: state.range(from: state.ast[head].site.start)))
@@ -1976,6 +1930,7 @@ public enum Parser {
     let decl = state.insert(
       FunctionDecl(
         introducerSite: introducer.site,
+        accessModifier: SourceRepresentable(value: .private, range: introducer.site),
         receiverEffect: signature.receiverEffect,
         explicitCaptures: explicitCaptures ?? [],
         parameters: signature.parameters,
@@ -2138,6 +2093,7 @@ public enum Parser {
     let decl = state.insert(
       FunctionDecl(
         introducerSite: introducer.site,
+        accessModifier: SourceRepresentable(value: .private, range: introducer.site),
         receiverEffect: effect,
         explicitCaptures: explicitCaptures,
         output: output,
@@ -2369,11 +2325,13 @@ public enum Parser {
   static let conditionalClauseItem = Choose(
     bindingPattern.and(take(.assign)).and(expr)
       .map({ (state, tree) -> ConditionItem in
+        let startOfBindingDecl = state.ast[tree.0.0].site
         let id = state.insert(
           BindingDecl(
+            accessModifier: SourceRepresentable(value: .private, range: startOfBindingDecl),
             pattern: tree.0.0,
             initializer: tree.1,
-            site: state.ast[tree.0.0].site.extended(upTo: state.currentIndex)))
+            site: startOfBindingDecl.extended(upTo: state.currentIndex)))
         return .decl(id)
       }),
     or:
@@ -2792,11 +2750,13 @@ public enum Parser {
   static let forStmt =
     (take(.for).and(bindingPattern).and(forSite).and(maybe(forFilter)).and(loopBody)
       .map({ (state, tree) -> ForStmt.ID in
+        let startOfBindingDecl = state.ast[tree.0.0.0.1].site
         let decl = state.insert(
           BindingDecl(
+            accessModifier: SourceRepresentable(value: .private, range: startOfBindingDecl),
             pattern: tree.0.0.0.1,
             initializer: nil,
-            site: state.ast[tree.0.0.0.1].site))
+            site: startOfBindingDecl))
         return state.insert(
           ForStmt(
             binding: decl, domain: tree.0.0.1, filter: tree.0.1, body: tree.1,

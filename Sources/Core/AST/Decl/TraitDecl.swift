@@ -1,12 +1,14 @@
 /// A trait declaration.
 ///
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
-public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
+public struct TraitDecl: SingleEntityDecl, TypeScope {
+
+  public static let manglingOperator = ManglingOperator.traitDecl
 
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The identifier of the trait.
   public let identifier: SourceRepresentable<Identifier>
@@ -22,7 +24,7 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
 
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
     refinements: [NameExpr.ID],
     members: [AnyDeclID],
@@ -40,5 +42,21 @@ public struct TraitDecl: SingleEntityDecl, TypeScope, GenericScope {
   }
 
   public var baseName: String { identifier.value }
+
+  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+    for m in members {
+      if let d = InitializerDecl.ID(m), ast[d].isMemberwise {
+        diagnostics.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
+      }
+    }
+  }
+
+}
+
+extension TraitDecl: GenericScope {
+
+  public var genericParameters: [GenericParameterDecl.ID] {
+    [selfParameterDecl]
+  }
 
 }

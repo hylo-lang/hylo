@@ -93,12 +93,20 @@ extension TypeChecker {
   }
 
   /// The common state of all `inferTypes(...)` methods as they recursively visit the AST.
-  private typealias State = (facts: InferenceFacts, deferred: [DeferredQuery])
+  private struct Context {
+
+    /// Facts about the AST generated during constraint generation.
+    var facts: InferenceFacts
+
+    /// A set of type checking queries to be run after type inference.
+    var deferred: [DeferredQuery]
+
+  }
 
   // MARK: Expressions
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type
-  /// along with constraints on its sub-expressions and deferred type checking requests.
+  /// Knowing `subject` is shaped by `shape`, returns its inferred type along with constraints on
+  /// its sub-expressions and deferred type checking requests.
   ///
   /// The returned type is not suitable to annotate the AST; it may contain open variables to be
   /// resolved by solving type constraints. Use `checkedType(of:shapedBy:in:)` to get the deduced
@@ -108,108 +116,86 @@ extension TypeChecker {
   ///   - subject: The expression whose type should be deduced.
   ///   - shape: The shape of the type `subject` is expected to have given top-bottom information
   ///     flow, or `nil` of such shape is unknown.
-  ///   - scope: The innermost scope containing `subject`.
   mutating func inferredType(
-    of subject: AnyExprID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID
+    of subject: AnyExprID, shapedBy shape: AnyType?
   ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
-    var s: State = (facts: .init(), deferred: [])
+    var s = Context(facts: .init(), deferred: [])
     if let t = exprTypes[subject] {
       s.facts.assign(t, to: subject)
     }
 
-    let t = inferredType(of: subject, shapedBy: shape, in: scope, updating: &s)
+    let t = inferredType(of: subject, shapedBy: shape, updating: &s)
     return (t, s.facts, s.deferred)
   }
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type,
-  /// updating `state` with inference facts and deferred type checking requests.
+  /// Knowing `subject` is shaped by `shape`, returns its inferred type, updating `s` with
+  /// inference facts and deferred type checking requests.
   private mutating func inferredType(
-    of subject: AnyExprID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: AnyExprID, shapedBy shape: AnyType?,
+    updating s: inout Context
   ) -> AnyType {
-    defer { assert(state.facts.inferredTypes[subject] != nil) }
+    defer { assert(s.facts.inferredTypes[subject] != nil) }
 
     switch subject.kind {
     case BooleanLiteralExpr.self:
-      return inferredType(
-        ofBooleanLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: BooleanLiteralExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case CastExpr.self:
-      return inferredType(
-        ofCastExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: CastExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case ConditionalExpr.self:
-      return inferredType(
-        ofConditionalExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: ConditionalExpr.ID(subject)!, shapedBy: shape, updating: &s)
+    case ExistentialTypeExpr.self:
+      return inferredType(of: ExistentialTypeExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case FloatLiteralExpr.self:
-      return inferredType(
-        ofFloatLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: FloatLiteralExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case FunctionCallExpr.self:
-      return inferredType(
-        ofFunctionCallExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: FunctionCallExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case InoutExpr.self:
-      return inferredType(
-        ofInoutExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: InoutExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case IntegerLiteralExpr.self:
-      return inferredType(
-        ofIntegerLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: IntegerLiteralExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case LambdaExpr.self:
-      return inferredType(
-        ofLambdaExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: LambdaExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case MatchExpr.self:
-      return inferredType(
-        ofMatchExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: MatchExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case NameExpr.self:
-      return inferredType(
-        ofNameExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: NameExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case PragmaLiteralExpr.self:
-      return inferredType(
-        ofPragmaLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: PragmaLiteralExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case SequenceExpr.self:
-      return inferredType(
-        ofSequenceExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: SequenceExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case StringLiteralExpr.self:
-      return inferredType(
-        ofStringLiteralExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: StringLiteralExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case SubscriptCallExpr.self:
-      return inferredType(
-        ofSubscriptCallExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: SubscriptCallExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case TupleExpr.self:
-      return inferredType(
-        ofTupleExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: TupleExpr.ID(subject)!, shapedBy: shape, updating: &s)
     case TupleMemberExpr.self:
-      return inferredType(
-        ofTupleMemberExpr: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: TupleMemberExpr.ID(subject)!, shapedBy: shape, updating: &s)
     default:
       unexpected(subject, in: ast)
     }
   }
 
   private mutating func inferredType(
-    ofBooleanLiteralExpr subject: BooleanLiteralExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: BooleanLiteralExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("Bool")!)
   }
 
   private mutating func inferredType(
-    ofCastExpr subject: CastExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: CastExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     let syntax = ast[subject]
 
     // Realize the type to which the left operand should be converted.
-    guard let target = realize(syntax.right, in: scope)?.instance else {
+    guard let target = realize(syntax.right)?.instance else {
       return state.facts.assignErrorType(to: subject)
     }
 
-    let rhs = instantiate(target, in: scope, cause: ConstraintOrigin(.cast, at: syntax.site))
+    let useScope = program[subject].scope
+    let rhs = instantiate(target, in: useScope, cause: ConstraintOrigin(.cast, at: syntax.site))
     _ = state.facts.constrain(syntax.right, in: ast, toHaveType: MetatypeType(of: rhs.shape))
     state.facts.append(rhs.constraints)
 
@@ -218,11 +204,11 @@ extension TypeChecker {
     case .down:
       // Note: constraining the type of the left operand to be above the right operand wouldn't
       // contribute any useful information to the constraint system.
-      _ = inferredType(of: lhs, shapedBy: nil, in: scope, updating: &state)
+      _ = inferredType(of: lhs, shapedBy: nil, updating: &state)
 
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
-      let lhsType = inferredType(of: lhs, shapedBy: ^TypeVariable(), in: scope, updating: &state)
+      let lhsType = inferredType(of: lhs, shapedBy: ^TypeVariable(), updating: &state)
       state.facts.append(
         SubtypingConstraint(
           lhsType, rhs.shape,
@@ -235,7 +221,7 @@ extension TypeChecker {
         return state.facts.assignErrorType(to: subject)
       }
 
-      let lhsType = inferredType(of: lhs, shapedBy: nil, in: scope, updating: &state)
+      let lhsType = inferredType(of: lhs, shapedBy: nil, updating: &state)
       state.facts.append(
         EqualityConstraint(
           lhsType, .builtin(.ptr),
@@ -247,10 +233,8 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofConditionalExpr subject: ConditionalExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: ConditionalExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     let syntax = ast[subject]
 
@@ -261,17 +245,15 @@ extension TypeChecker {
       case .expr(let expr):
         // Condition must be Boolean.
         state.facts.assign(boolType, to: expr)
-        _ = inferredType(of: expr, shapedBy: boolType, in: scope, updating: &state)
+        _ = inferredType(of: expr, shapedBy: boolType, updating: &state)
 
       case .decl(let binding):
         if check(binding: binding).isError { state.facts.setConflictFound() }
       }
     }
 
-    let firstBranch = inferredType(
-      of: syntax.success, shapedBy: shape, in: scope, updating: &state)
-    let secondBranch = inferredType(
-      of: syntax.failure, shapedBy: shape, in: scope, updating: &state)
+    let firstBranch = inferredType(of: syntax.success, shapedBy: shape, updating: &state)
+    let secondBranch = inferredType(of: syntax.failure, shapedBy: shape, updating: &state)
 
     let t = ^TypeVariable()
     state.facts.append(
@@ -282,163 +264,93 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofFloatLiteralExpr subject: FloatLiteralExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: ExistentialTypeExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
-    let defaultType = ^ast.coreType("Double")!
-    return inferredType(
-      ofLiteralExpr: subject, shapedBy: shape, defaultingTo: defaultType,
-      in: scope, updating: &state)
+    // Inferring the type of an existential type expression is the equivalent to evaluating it.
+    if let t = realize(existentialType: subject) {
+      return state.facts.constrain(subject, in: ast, toHaveType: t)
+    } else {
+      return state.facts.assignErrorType(to: subject)
+    }
   }
 
   private mutating func inferredType(
-    ofFunctionCallExpr subject: FunctionCallExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: FloatLiteralExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
+  ) -> AnyType {
+    let defaultType = ^ast.coreType("Float64")!
+    return inferredType(
+      ofLiteralExpr: subject, shapedBy: shape, defaultingTo: defaultType, updating: &state)
+  }
+
+  private mutating func inferredType(
+    of subject: FunctionCallExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     let syntax = ast[subject]
-
-    let callee: AnyType
-    if let e = NameExpr.ID(syntax.callee) {
-      callee = inferredType(
-        ofNameExpr: e, withImplicitDomain: shape, shapedBy: nil, in: scope, updating: &state)
-    } else {
-      callee = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
-    }
+    let callee = inferredType(
+      ofCallee: syntax.callee, usedAs: .function, shapedBy: shape, updating: &state)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {
       return state.facts.assignErrorType(to: subject)
     }
 
-    // The callee has a metatype and is a name expression bound to a nominal type declaration,
-    // meaning that the call is actually a sugared initializer call.
-    if isBoundToNominalTypeDecl(syntax.callee, in: state) {
-      return inferredType(
-        ofInitializerCall: subject, initializing: MetatypeType(callee)!.instance,
-        in: scope, updating: &state)
-    }
-
-    // The callee has a callable type or its we need inferrence to determine its type. Either way,
+    // The callee has a callable type or we need inference to determine its type. Either way,
     // constraint the callee and its arguments with a function call constraints.
-    if (callee.base is CallableType) || (callee.base is TypeVariable) {
-      let returnType = shape ?? ^TypeVariable()
-
-      var arguments: [FunctionCallConstraint.Argument] = []
-      for a in syntax.arguments {
-        let p = inferredType(
-          of: a.value, shapedBy: ^TypeVariable(), in: scope, updating: &state)
-        arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
-      }
-
-      state.facts.append(
-        FunctionCallConstraint(
-          callee, accepts: arguments, returns: returnType,
-          origin: ConstraintOrigin(.callee, at: ast[syntax.callee].site)))
-
-      return state.facts.constrain(subject, in: ast, toHaveType: returnType)
+    if isArrow(callee) || (callee.base is TypeVariable) {
+      return inferredType(of: subject, withCallee: callee, shapedBy: shape, updating: &state)
     }
 
     // In any other case, the callee is known to be not callable.
-    report(
-      .error(
-        nonCallableType: state.facts.inferredTypes[syntax.callee]!,
-        at: ast[syntax.callee].site))
+    report(.error(cannotCall: callee, as: .function, at: ast[syntax.callee].site))
     return state.facts.assignErrorType(to: subject)
   }
 
-  /// Returns the inferred type of the initializer call `subject` in `scope`, assuming it returns
-  /// a value of type `instance`.
+  /// Knowing `subject` has a callee of type `callee` and returns a value of type `shape`,
+  /// returns its inferred type, updating `state`.
   private mutating func inferredType(
-    ofInitializerCall subject: FunctionCallExpr.ID,
-    initializing instance: AnyType,
-    in scope: AnyScopeID,
-    updating state: inout State
-  ) -> AnyType {
-    let callee = NameExpr.ID(ast[subject].callee)!
-    let initName = SourceRepresentable(
-      value: Name(stem: "init", labels: ["self"] + ast[subject].arguments.map(\.label?.value)),
-      range: ast[callee].name.site)
-    let initCandidates = resolve(initName, memberOf: instance, exposedTo: scope)
-
-    // We're done if we couldn't find any initializer.
-    assert(initCandidates.elements.count == initCandidates.viable.count)
-    if initCandidates.elements.isEmpty {
-      report(.error(undefinedName: initName.value, in: instance, at: initName.site))
-      _ = state.facts.assignErrorType(to: callee)
-      return state.facts.assignErrorType(to: subject)
-    }
-
-    if let pick = initCandidates.elements.uniqueElement {
-      // Rebind the callee and constrain its type.
-      let constructor = LambdaType(constructorFormOf: .init(pick.type.shape)!)
-      state.facts.assign(callee, to: DeclReference(constructor: pick.reference)!)
-      state.facts.assign(^constructor, to: callee)
-      state.facts.append(pick.type.constraints)
-
-      var arguments: [FunctionCallConstraint.Argument] = []
-      for a in ast[subject].arguments {
-        let p = inferredType(
-          of: a.value, shapedBy: ^TypeVariable(), in: scope, updating: &state)
-        arguments.append(.init(label: a.label, type: p, site: ast[a.value].site))
-      }
-
-      state.facts.append(
-        FunctionCallConstraint(
-          ^constructor, accepts: arguments, returns: constructor.output,
-          origin: ConstraintOrigin(.callee, at: ast[ast[subject].callee].site)))
-
-      return state.facts.constrain(subject, in: ast, toHaveType: constructor.output)
-    } else {
-      fatalError("not implemented")
-    }
-  }
-
-  /// Returns the constructor type corresponding to given `initializer`.
-  private func convertToConstructor(_ initializer: AnyType) -> AnyType {
-    switch initializer.base {
-    case let t as LambdaType:
-      return ^LambdaType(constructorFormOf: t)
-    case let t as BoundGenericType:
-      let c = LambdaType(constructorFormOf: .init(t.base)!)
-      return ^BoundGenericType(c, arguments: t.arguments)
-    default:
-      unreachable()
-    }
-  }
-
-  private mutating func inferredType(
-    ofInoutExpr subject: InoutExpr.ID,
+    of subject: FunctionCallExpr.ID,
+    withCallee callee: AnyType,
     shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    updating state: inout Context
+  ) -> AnyType {
+    var arguments: [CallConstraint.Argument] = []
+    for a in ast[subject].arguments {
+      let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
+      arguments.append(.init(label: a.label, type: p, valueSite: ast[a.value].site))
+    }
+
+    let output = ((callee.base as? CallableType)?.output ?? shape) ?? ^TypeVariable()
+    state.facts.append(
+      CallConstraint(
+        arrow: callee, takes: arguments, gives: output,
+        origin: ConstraintOrigin(.callee, at: program[subject].callee.site)))
+
+    return state.facts.constrain(subject, in: ast, toHaveType: output)
+  }
+
+  private mutating func inferredType(
+    of subject: InoutExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     state.facts.constrain(
       subject, in: ast,
-      toHaveType: inferredType(
-        of: ast[subject].subject, shapedBy: shape, in: scope, updating: &state))
+      toHaveType: inferredType(of: ast[subject].subject, shapedBy: shape, updating: &state))
   }
 
   private mutating func inferredType(
-    ofIntegerLiteralExpr subject: IntegerLiteralExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: IntegerLiteralExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
-    let defaultType = ^ast.coreType("Int")!
-    return inferredType(
-      ofLiteralExpr: subject, shapedBy: shape, defaultingTo: defaultType,
-      in: scope, updating: &state)
+    let t = ^ast.coreType("Int")!
+    return inferredType(ofLiteralExpr: subject, shapedBy: shape, defaultingTo: t, updating: &state)
   }
 
   private mutating func inferredType(
-    ofLambdaExpr subject: LambdaExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: LambdaExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     let syntax = ast[subject]
 
@@ -483,7 +395,7 @@ extension TypeChecker {
     let o = underlyingDeclType.output
     if o.base is TypeVariable {
       if case .expr(let body) = ast[syntax.decl].body {
-        let e = inferredType(of: body, shapedBy: o, in: AnyScopeID(syntax.decl), updating: &state)
+        let e = inferredType(of: body, shapedBy: o, updating: &state)
         state.facts.append(SubtypingConstraint(e, o, origin: .init(.return, at: ast[body].site)))
       } else {
         report(.error(cannotInferComplexReturnTypeAt: ast[syntax.decl].introducerSite))
@@ -495,24 +407,20 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofMatchExpr subject: MatchExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: MatchExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     let syntax = ast[subject]
 
     // Visit the subject of the match.
-    let subjectType = inferredType(of: syntax.subject, shapedBy: nil, in: scope, updating: &state)
+    let subjectType = inferredType(of: syntax.subject, shapedBy: nil, updating: &state)
     if subjectType.isError {
       return state.facts.assignErrorType(to: subject)
     }
 
     for c in syntax.cases {
       // Each pattern is expected to have the same type as the subject.
-      let caseType = inferredType(
-        of: ast[c].pattern, shapedBy: subjectType, in: scope, updating: &state)
-
+      let caseType = inferredType(of: ast[c].pattern, shapedBy: subjectType, updating: &state)
       if caseType.isError {
         return state.facts.assignErrorType(to: subject)
       }
@@ -522,64 +430,62 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofNameExpr subject: NameExpr.ID,
+    of subject: NameExpr.ID,
     withImplicitDomain domain: AnyType? = nil,
+    usedAs purpose: NameUse = .unapplied,
     shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    updating state: inout Context
   ) -> AnyType {
-    let resolution = resolveNominalPrefix(of: subject, in: scope)
-    let unresolvedComponents: [NameExpr.ID]
-    var lastVisitedComponentType: AnyType?
+    let resolution = resolve(subject, usedAs: purpose, withNonNominalPrefix: { (_, _) in nil })
+    let unresolved: [NameExpr.ID]
+    var lastVisited: AnyType?
 
     switch resolution {
     case .failed:
       return state.facts.assignErrorType(to: subject)
 
     case .inexecutable(let suffix):
-      switch ast[subject].domain {
+      switch ast[suffix[0]].domain {
       case .implicit:
         if let t = domain {
-          lastVisitedComponentType = t
+          lastVisited = t
         } else {
           report(.error(noContextToResolve: ast[subject].name.value, at: ast[subject].name.site))
           return state.facts.assignErrorType(to: subject)
         }
 
-      case .expr(let e):
-        lastVisitedComponentType = inferredType(of: e, shapedBy: nil, in: scope, updating: &state)
+      case .explicit(let e):
+        lastVisited = inferredType(of: e, shapedBy: nil, updating: &state)
 
-      case .none:
+      case .none, .operand:
         unreachable()
       }
-      unresolvedComponents = suffix
+      unresolved = suffix
 
     case .done(let prefix, let suffix):
-      unresolvedComponents = suffix
+      unresolved = suffix
       for p in prefix {
-        lastVisitedComponentType = bind(p.component, to: p.candidates, updating: &state)
+        lastVisited = bind(p.component, to: p.candidates, updating: &state)
       }
     }
 
     // Create the necessary constraints to let the solver resolve the remaining components.
-    for component in unresolvedComponents {
+    for (i, component) in unresolved.enumerated() {
       let memberType = ^TypeVariable()
       state.facts.append(
         MemberConstraint(
-          lastVisitedComponentType!, hasMemberReferredToBy: component, ofType: memberType,
-          in: ast,
+          lastVisited!, hasMember: memberType, referredToBy: component, in: ast,
+          usedAs: (i == unresolved.count - 1) ? purpose : .unapplied,
           origin: ConstraintOrigin(.member, at: ast[component].site)))
-      lastVisitedComponentType = state.facts.constrain(component, in: ast, toHaveType: memberType)
+      lastVisited = state.facts.constrain(component, in: ast, toHaveType: memberType)
     }
 
-    return lastVisitedComponentType!
+    return lastVisited!
   }
 
   private mutating func inferredType(
-    ofPragmaLiteralExpr subject: PragmaLiteralExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: PragmaLiteralExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     switch program.ast[subject].kind {
     case .file:
@@ -590,206 +496,120 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofSequenceExpr subject: SequenceExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: SequenceExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
-    // Fold the sequence and visit its sub-expressions.
-    let foldedSequence = fold(sequenceExpr: subject, in: scope)
-    foldedSequenceExprs[subject] = foldedSequence
+    // Transform the sequence into a binary tree.
+    guard let tree = fold(subject) else {
+      return state.facts.assignErrorType(to: subject)
+    }
 
     // Generate constraints from the folded sequence.
-    let rootType = inferredType(
-      ofSequenceExpr: foldedSequence, shapedBy: shape, in: scope, updating: &state)
+    let rootType = inferredType(of: tree, shapedBy: shape, updating: &state)
     return state.facts.constrain(subject, in: ast, toHaveType: rootType)
   }
 
   private mutating func inferredType(
-    ofSequenceExpr subject: FoldedSequenceExpr,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: FoldedSequenceExpr, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     switch subject {
     case .infix(let callee, let lhs, let rhs):
       // Infer the types of the operands.
-      let lhsType = inferredType(ofSequenceExpr: lhs, shapedBy: nil, in: scope, updating: &state)
-      let rhsType = inferredType(ofSequenceExpr: rhs, shapedBy: nil, in: scope, updating: &state)
+      let lhsType = inferredType(of: lhs, shapedBy: nil, updating: &state)
+      let rhsType = inferredType(of: rhs, shapedBy: nil, updating: &state)
 
       if lhsType.isError || rhsType.isError {
         return .error
       }
 
-      // Infer the type of the callee.
-      let parameterType = ^TypeVariable()
-      state.facts.append(
-        ParameterConstraint(
-          rhsType, parameterType,
-          origin: ConstraintOrigin(.argument, at: ast.site(of: rhs))))
-
+      let operatorType = ^TypeVariable()
       let outputType = ^TypeVariable()
-      let calleeType = LambdaType(
-        receiverEffect: .let,
-        environment: ^TupleType(labelsAndTypes: [("self", ^RemoteType(.let, lhsType))]),
-        inputs: [CallableTypeParameter(type: parameterType)],
-        output: outputType)
-      state.facts.assign(^calleeType, to: callee.expr)
+      state.facts.assign(operatorType, to: callee.expr)
 
-      // Create a member constraint for the operator.
+      // The operator is a member function of the left operand.
       state.facts.append(
         MemberConstraint(
-          lhsType, hasMemberReferredToBy: callee.expr, ofType: ^calleeType,
-          in: ast,
+          lhsType, hasMember: operatorType, referredToBy: callee.expr, in: ast,
+          usedAs: .unapplied,
           origin: ConstraintOrigin(.member, at: ast[callee.expr].site)))
+      state.facts.append(
+        CallConstraint(
+          arrow: operatorType,
+          takes: [.init(label: nil, type: rhsType, valueSite: ast.site(of: rhs))],
+          gives: outputType,
+          origin: ConstraintOrigin(.callee, at: ast.site(of: subject))))
 
       return outputType
 
     case .leaf(let expr):
-      return inferredType(of: expr, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: expr, shapedBy: shape, updating: &state)
     }
   }
 
   private mutating func inferredType(
-    ofStringLiteralExpr subject: StringLiteralExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: StringLiteralExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     state.facts.constrain(subject, in: ast, toHaveType: ast.coreType("String")!)
   }
 
   private mutating func inferredType(
-    ofSubscriptCallExpr subject: SubscriptCallExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: SubscriptCallExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     let syntax = ast[subject]
+    let callee = inferredType(
+      ofCallee: syntax.callee, usedAs: .subscript, shapedBy: shape, updating: &state)
 
-    // Infer the type of the callee.
-    let calleeType = inferredType(of: syntax.callee, shapedBy: nil, in: scope, updating: &state)
-
-    // The following cases must be considered:
-    //
-    // 1. We failed to infer the type of the callee. We can stop here.
-    // 2. We couldn't infer the exact type of the callee and must rely on bottom-up inference.
-    // 3. We determined the exact type of the callee, and:
-    //   a. it's a subscript type. In that case, we can use the parameters to validate the
-    //      arguments' labels and infer their types.
-    //   b. it's a metatype and the the callee is a name expression referring to a nominal type
-    //      declaration. In that case, the call is actually a sugared buffer type expression.
-    //   c. it's any other type. In that case we must look for an unnamed member subscript in that
-    //      type and use it at the callee's type.
-
-    // Case 1
-    if state.facts.inferredTypes[syntax.callee]!.isError {
+    // We failed to infer the type of the callee. We can stop here.
+    if callee.isError {
       return state.facts.assignErrorType(to: subject)
     }
 
-    // Case 2
-    if calleeType.base is TypeVariable {
-      let parameters = parametersMatching(arguments: syntax.arguments, in: scope, updating: &state)
-      let returnType = shape ?? ^TypeVariable()
-      let assumedCalleeType = SubscriptImplType(
-        isProperty: false,
-        receiverEffect: .let,
-        environment: ^TypeVariable(),
-        inputs: parameters,
-        output: returnType)
-
-      state.facts.append(
-        EqualityConstraint(
-          calleeType, ^assumedCalleeType,
-          origin: ConstraintOrigin(.callee, at: ast[syntax.callee].site)))
-
-      return state.facts.constrain(subject, in: ast, toHaveType: returnType)
-    }
-
-    // Case 3a
-    if let callable = SubscriptType(state.facts.inferredTypes[syntax.callee]!) {
-      if parametersMatching(
-        arguments: syntax.arguments, of: syntax.callee, in: scope,
-        shapedBy: callable.inputs, updating: &state)
-      {
-        return state.facts.constrain(subject, in: ast, toHaveType: callable.output)
-      } else {
-        return state.facts.assignErrorType(to: subject)
-      }
-    }
-
-    // Case 3b
+    // The callee has a metatype and is a name expression bound to a nominal type declaration,
+    // meaning that the call is actually a sugared buffer type expression.
     if isBoundToNominalTypeDecl(syntax.callee, in: state) {
-      assert(calleeType.base is MetatypeType)
-
-      // Buffer type expressions shall have exactly one argument.
-      if syntax.arguments.count != 1 {
-        report(.error(invalidBufferTypeExprArgumentCount: subject, in: ast))
-        return state.facts.assignErrorType(to: subject)
-      }
-
-      // Note: We'll need some form of compile-time evaluation here.
       fatalError("not implemented")
     }
 
-    // Case 3c
-    let candidates = lookup(
-      "[]", memberOf: state.facts.inferredTypes[syntax.callee]!, exposedTo: scope)
-    switch candidates.count {
-    case 0:
-      report(
-        .error(
-          noUnnamedSubscriptsIn: state.facts.inferredTypes[syntax.callee]!,
-          at: ast[syntax.callee].site))
-      return state.facts.assignErrorType(to: subject)
-
-    case 1:
-      // If there's a single candidate, we're looking at case 3a.
-      let decl = candidates.first!
-      let declType = realize(decl: decl)
-      assert(decl.kind == SubscriptDecl.self)
-
-      // Bail out if we can't get the type of the referred declaration.
-      if declType.isError {
-        return state.facts.assignErrorType(to: subject)
-      }
-
-      // Contextualize the type of the referred declaration.
-      let instantiatedType = instantiate(
-        declType, in: scope,
-        cause: ConstraintOrigin(.callee, at: ast[syntax.callee].site))
-
-      // Visit the arguments.
-      let calleeType = SubscriptType(instantiatedType.shape)!
-      if parametersMatching(
-        arguments: syntax.arguments, of: syntax.callee, in: scope,
-        shapedBy: calleeType.inputs, updating: &state)
-      {
-        // Register the callee's constraints.
-        state.facts.append(instantiatedType.constraints)
-
-        // Update the referred declaration map if necessary.
-        // FIXME: Handle generic arguments
-        if let c = NameExpr.ID(syntax.callee) {
-          state.facts.assign(c, to: .member(decl, [:]))
-        }
-
-        return state.facts.constrain(subject, in: ast, toHaveType: calleeType.output)
-      } else {
-        return state.facts.assignErrorType(to: subject)
-      }
-
-    default:
-      // Note: Create an overload constraint.
-      fatalError("not implemented")
+    // The callee has a callable type or we need inference to determine its type. Either way,
+    // constraint the callee and its arguments with a function call constraints.
+    if isSubscript(callee) || (callee.base is TypeVariable) {
+      return inferredType(of: subject, withCallee: callee, shapedBy: shape, updating: &state)
     }
+
+    // In any other case, the callee is known to be not callable.
+    report(.error(cannotCall: callee, as: .subscript, at: ast[syntax.callee].site))
+    return state.facts.assignErrorType(to: subject)
+  }
+
+  /// Knowing `subject` has a callee of type `callee` and projects a value of type `shape`,
+  /// returns its inferred type, updating `state`.
+  private mutating func inferredType(
+    of subject: SubscriptCallExpr.ID,
+    withCallee callee: AnyType,
+    shapedBy shape: AnyType?,
+    updating state: inout Context
+  ) -> AnyType {
+    var arguments: [CallConstraint.Argument] = []
+    for a in ast[subject].arguments {
+      let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
+      arguments.append(.init(label: a.label, type: p, valueSite: ast[a.value].site))
+    }
+
+    let output = ((callee.base as? CallableType)?.output ?? shape) ?? ^TypeVariable()
+    state.facts.append(
+      CallConstraint(
+        subscript: callee, takes: arguments, gives: output,
+        origin: ConstraintOrigin(.callee, at: program[subject].callee.site)))
+
+    return state.facts.constrain(subject, in: ast, toHaveType: output)
   }
 
   private mutating func inferredType(
-    ofTupleExpr subject: TupleExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: TupleExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     let elements = ast[subject].elements
     var elementTypes: [TupleType.Element] = []
@@ -800,16 +620,14 @@ extension TypeChecker {
     if let type = TupleType(shape),
       type.elements.elementsEqual(elements, by: { (a, b) in a.label == b.label?.value })
     {
-      for i in 0 ..< elements.count {
-        let elementType = inferredType(
-          of: elements[i].value, shapedBy: type.elements[i].type, in: scope, updating: &state)
-        elementTypes.append(.init(label: elements[i].label?.value, type: elementType))
+      for (t, e) in zip(type.elements, elements) {
+        let u = inferredType(of: e.value, shapedBy: t.type, updating: &state)
+        elementTypes.append(.init(label: e.label?.value, type: u))
       }
     } else {
-      for i in 0 ..< elements.count {
-        let elementType = inferredType(
-          of: elements[i].value, shapedBy: nil, in: scope, updating: &state)
-        elementTypes.append(.init(label: elements[i].label?.value, type: elementType))
+      for e in elements {
+        let u = inferredType(of: e.value, shapedBy: nil, updating: &state)
+        elementTypes.append(.init(label: e.label?.value, type: u))
       }
     }
 
@@ -817,12 +635,10 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofTupleMemberExpr subject: TupleMemberExpr.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: TupleMemberExpr.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
-    let s = inferredType(of: ast[subject].tuple, shapedBy: nil, in: scope, updating: &state)
+    let s = inferredType(of: ast[subject].tuple, shapedBy: nil, updating: &state)
     let t = ^TypeVariable()
     let i = ast[subject].index
     state.facts.append(
@@ -830,24 +646,37 @@ extension TypeChecker {
     return state.facts.constrain(subject, in: ast, toHaveType: t)
   }
 
-  /// Returns the inferred type of `literal`, updating `state` with inference facts and deferred
-  /// type checking requests.
+  /// Returns the inferred type of `callee`, which is the callee of a function, initializer, or
+  /// subscript called with `arguments`, updating `state` with inference facts and deferred type
+  /// checking requests.
+  private mutating func inferredType(
+    ofCallee callee: AnyExprID, usedAs purpose: NameUse, shapedBy shape: AnyType?,
+    updating state: inout Context
+  ) -> AnyType {
+    assert(purpose != .unapplied)
+    if let n = NameExpr.ID(callee) {
+      return inferredType(
+        of: n, withImplicitDomain: shape, usedAs: purpose, shapedBy: nil, updating: &state)
+    } else {
+      return inferredType(of: callee, shapedBy: nil, updating: &state)
+    }
+  }
+
+  /// Returns the inferred type of `literal`, which is a literal expression, updating `state` with
+  /// inference facts and deferred type checking requests.
   ///
   /// - Parameters:
   ///   - literal: A literal expression.
   ///   - shape: The shape of the type `subject` is expected to have given top-bottom information.
   ///   - defaultType: The type inferred for `literal` if the context isn't sufficient to deduce
   ///     another type.
-  ///   - scope: The innermost scope in which `literal` occurs.
   ///   - state: A collection of inference facts and deferred type checking requests.
   ///
   /// - Requires: `subject` is a literal expression.
   private mutating func inferredType<T: Expr>(
-    ofLiteralExpr subject: T.ID,
-    shapedBy shape: AnyType?,
+    ofLiteralExpr subject: T.ID, shapedBy shape: AnyType?,
     defaultingTo defaultType: AnyType,
-    in scope: AnyScopeID,
-    updating state: inout State
+    updating state: inout Context
   ) -> AnyType {
     // If there's shape, it must conform to `ExpressibleBy***Literal`. Otherwise, constrain the
     // subject to its default type.
@@ -888,39 +717,31 @@ extension TypeChecker {
 
   // MARK: Patterns
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type,
-  /// updating `state` with inference facts and deferred type checking requests.
+  /// Knowing `subject` is shaped by `shape`, returns its inferred type, updating `state` with
+  /// inference facts and deferred type checking requests.
   mutating func inferredType(
-    of subject: AnyPatternID,
-    in scope: AnyScopeID,
-    shapedBy shape: AnyType?
+    of subject: AnyPatternID, shapedBy shape: AnyType?
   ) -> (type: AnyType, facts: InferenceFacts, deferred: [DeferredQuery]) {
-    var s: State = (facts: .init(), deferred: [])
-    let t = inferredType(of: subject, shapedBy: shape, in: scope, updating: &s)
+    var s = Context(facts: .init(), deferred: [])
+    let t = inferredType(of: subject, shapedBy: shape, updating: &s)
     return (t, s.facts, s.deferred)
   }
 
-  /// Knowing `subject` occurs in `scope` and is shaped by `shape`, returns its inferred type
-  /// along, updating `state` with inference facts and deferred type checking requests.
+  /// Knowing `subject` is shaped by `shape`, returns its inferred type along, updating `state`
+  /// with inference facts and deferred type checking requests.
   private mutating func inferredType(
-    of subject: AnyPatternID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: AnyPatternID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     switch subject.kind {
     case BindingPattern.self:
-      return inferredType(
-        ofBindingPattern: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: BindingPattern.ID(subject)!, shapedBy: shape, updating: &state)
     case ExprPattern.self:
-      return inferredType(
-        ofExprPattern: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: ExprPattern.ID(subject)!, shapedBy: shape, updating: &state)
     case NamePattern.self:
-      return inferredType(
-        ofNamePattern: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: NamePattern.ID(subject)!, shapedBy: shape, updating: &state)
     case TuplePattern.self:
-      return inferredType(
-        ofTuplePattern: NodeID(subject)!, shapedBy: shape, in: scope, updating: &state)
+      return inferredType(of: TuplePattern.ID(subject)!, shapedBy: shape, updating: &state)
     case WildcardPattern.self:
       return shape ?? ^TypeVariable()
     default:
@@ -929,17 +750,15 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofBindingPattern subject: BindingPattern.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: BindingPattern.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     // A binding pattern introduces additional type information when it has a type annotation. In
     // that case, the type denoted by the annotation is used to infer the type of the sub-pattern
     // and constrained to be a subtype of the expected type, if any.
     var subpatternType = shape
     if let a = ast[subject].annotation {
-      if let subjectType = realize(a, in: scope)?.instance {
+      if let subjectType = realize(a)?.instance {
         if let t = shape {
           state.facts.append(
             SubtypingConstraint(
@@ -953,24 +772,19 @@ extension TypeChecker {
       }
     }
 
-    return inferredType(
-      of: ast[subject].subpattern, shapedBy: subpatternType, in: scope, updating: &state)
+    return inferredType(of: ast[subject].subpattern, shapedBy: subpatternType, updating: &state)
   }
 
   private mutating func inferredType(
-    ofExprPattern subject: ExprPattern.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: ExprPattern.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
-    inferredType(of: ast[subject].expr, shapedBy: shape, in: scope, updating: &state)
+    return inferredType(of: ast[subject].expr, shapedBy: shape, updating: &state)
   }
 
   private mutating func inferredType(
-    ofNamePattern subject: NamePattern.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: NamePattern.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     let nameDecl = ast[subject].decl
     state.deferred.append({ (checker, solution) in
@@ -988,10 +802,8 @@ extension TypeChecker {
   }
 
   private mutating func inferredType(
-    ofTuplePattern subject: TuplePattern.ID,
-    shapedBy shape: AnyType?,
-    in scope: AnyScopeID,
-    updating state: inout State
+    of subject: TuplePattern.ID, shapedBy shape: AnyType?,
+    updating state: inout Context
   ) -> AnyType {
     switch shape?.base {
     case let t as TupleType:
@@ -1007,7 +819,7 @@ extension TypeChecker {
 
       // Visit the elements pairwise.
       for (a, b) in zip(ast[subject].elements, t.elements) {
-        let t = inferredType(of: a.pattern, shapedBy: b.type, in: scope, updating: &state)
+        let t = inferredType(of: a.pattern, shapedBy: b.type, updating: &state)
         if t.isError { return .error }
         lhs.append(a.label?.value)
         rhs.append(b.label)
@@ -1034,17 +846,26 @@ extension TypeChecker {
       // Infer the shape of the expected type.
       return ^TupleType(
         ast[subject].elements.map { (a) in
-          .init(
-            label: a.label?.value,
-            type: inferredType(of: a.pattern, shapedBy: nil, in: scope, updating: &state))
+          let t = inferredType(of: a.pattern, shapedBy: nil, updating: &state)
+          return .init(label: a.label?.value, type: t)
         })
     }
   }
 
   // MARK: Helpers
 
+  /// Returns `true` iff `t` is known as an arrow type.
+  private func isArrow(_ t: AnyType) -> Bool {
+    (t.base as? CallableType)?.isArrow ?? false
+  }
+
+  /// Returns `true` iff `t` is known as a subscript type.
+  private func isSubscript(_ t: AnyType) -> Bool {
+    !isArrow(t)
+  }
+
   /// Returns `true` iff `e` is a name assumed bound to a nominal type declaration in `state`.
-  private mutating func isBoundToNominalTypeDecl(_ e: AnyExprID, in state: State) -> Bool {
+  private mutating func isBoundToNominalTypeDecl(_ e: AnyExprID, in state: Context) -> Bool {
     guard
       let c = NameExpr.ID(e),
       let d = state.facts.inferredBindings[c]?.decl,
@@ -1057,11 +878,9 @@ extension TypeChecker {
   /// to generate their type constraints assuming they have the corresponding type in `parameters`
   /// and returns `true`. Otherwise, returns `false`.
   private mutating func parametersMatching(
-    arguments: [LabeledArgument],
-    of callee: AnyExprID,
-    in scope: AnyScopeID,
+    arguments: [LabeledArgument], of callee: AnyExprID,
     shapedBy parameters: [CallableTypeParameter],
-    updating state: inout State
+    updating state: inout Context
   ) -> Bool {
     // Collect the argument and parameter labels.
     let argumentLabels = arguments.map(\.label?.value)
@@ -1081,10 +900,10 @@ extension TypeChecker {
       // Infer the type of the argument, expecting it's the same as the parameter's bare type.
       let argumentType: AnyType
       if let t = ParameterType(parameters[i].type)?.bareType {
-        argumentType = inferredType(of: argumentExpr, shapedBy: t, in: scope, updating: &state)
+        argumentType = inferredType(of: argumentExpr, shapedBy: t, updating: &state)
         if relations.areEquivalent(t, argumentType) { continue }
       } else {
-        argumentType = inferredType(of: argumentExpr, shapedBy: nil, in: scope, updating: &state)
+        argumentType = inferredType(of: argumentExpr, shapedBy: nil, updating: &state)
       }
 
       state.facts.append(
@@ -1099,15 +918,13 @@ extension TypeChecker {
   /// Visit `arguments` to generate their type constraints and returns a matching parameter list.
   private mutating func parametersMatching(
     arguments: [LabeledArgument],
-    in scope: AnyScopeID,
-    updating state: inout State
+    updating state: inout Context
   ) -> [CallableTypeParameter] {
     var parameters: [CallableTypeParameter] = []
     parameters.reserveCapacity(arguments.count)
 
     for a in arguments {
-      let p = inferredType(
-        of: a.value, shapedBy: ^TypeVariable(), in: scope, updating: &state)
+      let p = inferredType(of: a.value, shapedBy: ^TypeVariable(), updating: &state)
       parameters.append(CallableTypeParameter(label: a.label?.value, type: p))
     }
 
@@ -1120,23 +937,23 @@ extension TypeChecker {
   private mutating func bind(
     _ name: NameExpr.ID,
     to candidates: [NameResolutionResult.Candidate],
-    updating state: inout State
+    updating state: inout Context
   ) -> AnyType {
     precondition(!candidates.isEmpty)
 
     if let candidate = candidates.uniqueElement {
       // Bind the component to the resolved declaration and store its type.
       state.facts.assign(name, to: candidate.reference)
-      state.facts.append(candidate.type.constraints)
-      return state.facts.constrain(name, in: ast, toHaveType: candidate.type.shape)
+      state.facts.append(candidate.constraints)
+      return state.facts.constrain(name, in: ast, toHaveType: candidate.type)
     } else {
       // Create an overload set.
       let overloads: [OverloadConstraint.Predicate] = candidates.map({ (candidate) in
         let p = candidate.reference.decl.map({ program.isRequirement($0) ? 1 : 0 }) ?? 0
         return .init(
           reference: candidate.reference,
-          type: candidate.type.shape,
-          constraints: candidate.type.constraints,
+          type: candidate.type,
+          constraints: candidate.constraints,
           penalties: p)
       })
 
@@ -1148,50 +965,6 @@ extension TypeChecker {
           origin: ConstraintOrigin(.binding, at: ast[name].site)))
       return state.facts.constrain(name, in: ast, toHaveType: nameType)
     }
-  }
-
-  /// Folds a sequence of binary expressions.
-  private mutating func fold(
-    sequenceExpr expr: SequenceExpr.ID,
-    in scope: AnyScopeID
-  ) -> FoldedSequenceExpr {
-    let syntax = ast[expr]
-    return fold(sequenceExprTail: syntax.tail[0...], into: .leaf(syntax.head), in: scope)
-  }
-
-  /// Folds the remainder of a sequence of binary expressions into `initialResult`.
-  private mutating func fold(
-    sequenceExprTail tail: ArraySlice<SequenceExpr.TailElement>,
-    into initialResult: FoldedSequenceExpr,
-    in scope: AnyScopeID
-  ) -> FoldedSequenceExpr {
-    var accumulator = initialResult
-
-    for i in tail.indices {
-      // Search for the operator declaration.
-      let operatorStem = ast[tail[i].operator].name.value.stem
-      let candidates = lookup(operator: operatorStem, notation: .infix, exposedTo: scope)
-
-      switch candidates.count {
-      case 0:
-        report(.error(undefinedOperator: operatorStem, at: ast[tail[i].operator].site))
-        accumulator.append(
-          operator: (expr: tail[i].operator, precedence: nil),
-          right: tail[i].operand)
-
-      case 1:
-        let precedence = ast[candidates[0]].precedenceGroup?.value
-        accumulator.append(
-          operator: (expr: tail[i].operator, precedence: precedence),
-          right: tail[i].operand)
-
-      default:
-        // TODO: should probably emit a diagnostic. Operator declarations cannot be overloaded.
-        fatalError("not implemented")
-      }
-    }
-
-    return accumulator
   }
 
 }

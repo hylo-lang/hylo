@@ -1,9 +1,15 @@
-type A {
+//- compileAndRun expecting: success
+
+type A: Deinitializable {
+
   public var x: Int
+
   public memberwise init
+
   public property y: Int {
     let { let z = x - 1; yield z }
   }
+
 }
 
 public fun main() {

@@ -8,6 +8,18 @@ final class BuiltinFunctionTests: XCTestCase {
     XCTAssertNil(BuiltinFunction("add"))
   }
 
+  func testAdvancedByBytes() throws {
+    let expectedType = { LambdaType(.builtin(.ptr), .builtin(.i($0)), to: .builtin(.ptr)) }
+    try assertParse(
+      instructions: ["advanced_by_bytes"],
+      parameterizedBy: [["i16"]],
+      createInstanceWithType: expectedType(16))
+    try assertParse(
+      instructions: ["advanced_by_bytes"],
+      parameterizedBy: [["i64"]],
+      createInstanceWithType: expectedType(64))
+  }
+
   func testIntegerArithmetic() throws {
     let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
     try assertParse(
@@ -92,73 +104,73 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerToFloat() throws {
-    let expectedType = LambdaType(.builtin(.i(64)), to: .builtin(.double))
+    let expectedType = LambdaType(.builtin(.i(64)), to: .builtin(.float64))
     try assertParse(
       instructions: ["uitofp", "sitofp"],
-      parameterizedBy: [["i64", "double"]],
+      parameterizedBy: [["i64", "float64"]],
       createInstanceWithType: expectedType)
   }
 
   func testFloatArithmetic() throws {
-    let expectedType = LambdaType(.builtin(.double), .builtin(.double), to: .builtin(.double))
+    let expectedType = LambdaType(.builtin(.float64), .builtin(.float64), to: .builtin(.float64))
     try assertParse(
       instructions: ["fadd", "fsub", "fmul", "fdiv", "frem"],
       parameterizedBy: [
-        ["double"],
-        ["fast", "double"],
-        ["ninf", "nnan", "double"],
+        ["float64"],
+        ["fast", "float64"],
+        ["ninf", "nnan", "float64"],
       ],
       createInstanceWithType: expectedType)
   }
 
   func testFloatComparison() throws {
-    let expectedType = LambdaType(.builtin(.double), .builtin(.double), to: .builtin(.i(1)))
+    let expectedType = LambdaType(.builtin(.float64), .builtin(.float64), to: .builtin(.i(1)))
     try assertParse(
       instructions: ["fcmp"],
       parameterizedBy: [
-        ["oeq", "double"],
-        ["ogt", "double"],
-        ["oge", "double"],
-        ["olt", "double"],
-        ["ole", "double"],
-        ["one", "double"],
-        ["ord", "double"],
-        ["ueq", "double"],
-        ["ugt", "double"],
-        ["uge", "double"],
-        ["ult", "double"],
-        ["ule", "double"],
-        ["une", "double"],
-        ["uno", "double"],
-        ["true", "double"],
-        ["false", "double"],
-        ["fast", "false", "double"],
-        ["ninf", "nnan", "false", "double"],
+        ["oeq", "float64"],
+        ["ogt", "float64"],
+        ["oge", "float64"],
+        ["olt", "float64"],
+        ["ole", "float64"],
+        ["one", "float64"],
+        ["ord", "float64"],
+        ["ueq", "float64"],
+        ["ugt", "float64"],
+        ["uge", "float64"],
+        ["ult", "float64"],
+        ["ule", "float64"],
+        ["une", "float64"],
+        ["uno", "float64"],
+        ["true", "float64"],
+        ["false", "float64"],
+        ["fast", "false", "float64"],
+        ["ninf", "nnan", "false", "float64"],
       ],
       createInstanceWithType: expectedType)
   }
 
   func testFloatTruncate() throws {
-    let expectedType = LambdaType(.builtin(.double), to: .builtin(.float))
+    let expectedType = LambdaType(.builtin(.float64), to: .builtin(.float32))
     try assertParse(
       instructions: ["fptrunc"],
-      parameterizedBy: [["double", "float"]],
+      parameterizedBy: [["float64", "float32"]],
       createInstanceWithType: expectedType)
   }
 
   func testFloatExtend() throws {
-    let expectedType = LambdaType(.builtin(.float), to: .builtin(.double))
+    let expectedType = LambdaType(.builtin(.float32), to: .builtin(.float64))
     try assertParse(
       instructions: ["fpext"],
-      parameterizedBy: [["float", "double"]],
+      parameterizedBy: [["float32", "float64"]],
       createInstanceWithType: expectedType)
   }
 
   func testFloatToInteger() throws {
-    let expectedType = LambdaType(.builtin(.float), to: .builtin(.i(64)))
+    let expectedType = LambdaType(.builtin(.float32), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["fptoui", "fptosi"],
-      parameterizedBy: [["float", "i64"]],
+      parameterizedBy: [["float32", "i64"]],
       createInstanceWithType: expectedType)
   }
 

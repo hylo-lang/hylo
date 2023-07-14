@@ -1,4 +1,4 @@
-//! expect-failure
+//- typeCheck expecting: failure
 
 operator prefix-*
 operator infix-* : addition

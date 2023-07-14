@@ -3,13 +3,9 @@ public struct TypedProgram: Program {
 
   public let ast: AST
 
-  public let scopeToParent: ASTProperty<AnyScopeID>
+  public let nodeToScope: ASTProperty<AnyScopeID>
 
   public let scopeToDecls: ASTProperty<[AnyDeclID]>
-
-  public let declToScope: DeclProperty<AnyScopeID>
-
-  public let exprToScope: [NameExpr.ID: AnyScopeID]
 
   public let varToBinding: [VarDecl.ID: BindingDecl.ID]
 
@@ -40,11 +36,6 @@ public struct TypedProgram: Program {
   /// The type relations of the program.
   public let relations: TypeRelations
 
-  /// Val's core library.
-  public var coreLibrary: ModuleDecl.Typed? {
-    ast.coreLibrary.map({ self[$0] })
-  }
-
   /// Creates a typed program from a scoped program and property maps describing type annotations.
   ///
   /// - Requires: All modules in `program` have been sucessfully typed checked.
@@ -63,10 +54,8 @@ public struct TypedProgram: Program {
     precondition(program.ast.modules.allSatisfy({ declTypes[$0]?.base is ModuleType }))
 
     self.ast = program.ast
-    self.scopeToParent = program.scopeToParent
+    self.nodeToScope = program.nodeToScope
     self.scopeToDecls = program.scopeToDecls
-    self.declToScope = program.declToScope
-    self.exprToScope = program.exprToScope
     self.varToBinding = program.varToBinding
     self.imports = imports
     self.declTypes = declTypes
@@ -77,6 +66,11 @@ public struct TypedProgram: Program {
     self.referredDecls = referredDecls
     self.foldedSequenceExprs = foldedSequenceExprs
     self.relations = relations
+  }
+
+  /// Returns the canonical type of `d`, parameterized by `a`.
+  public func canonicalType<T: DeclID>(of d: T, parameterizedBy a: GenericArguments) -> AnyType {
+    relations.canonical(relations.monomorphize(declTypes[d]!, for: a))
   }
 
   /// Returns the declarations of `d`' captures.
@@ -105,7 +99,7 @@ public struct TypedProgram: Program {
     if let r = ast[d].receiver {
       result.append(AnyDeclID(r))
     } else {
-      let bundle = SubscriptDecl.ID(declToScope[d]!)!
+      let bundle = SubscriptDecl.ID(nodeToScope[d]!)!
       result.append(contentsOf: ast[bundle].explicitCaptures.map(AnyDeclID.init(_:)))
       result.append(contentsOf: implicitCaptures[bundle]!.map(\.decl))
     }
@@ -126,32 +120,98 @@ public struct TypedProgram: Program {
     return p.reversed().joined()
   }
 
-  /// Returns a copy of `generic` monomorphized for the given `arguments`.
-  ///
-  /// This method has no effect if `arguments` is empty.
-  public func monomorphize(_ generic: AnyType, for arguments: GenericArguments) -> AnyType {
-    relations.monomorphize(generic, for: arguments)
+  /// Returns a copy of `generic` monomorphized for the given `parameterization`.
+  public func monomorphize(_ generic: AnyType, for parameterization: GenericArguments) -> AnyType {
+    relations.monomorphize(generic, for: parameterization)
   }
 
-  /// If `t` has a record layout, returns the names and types of its stored properties. Otherwise,
-  /// returns an empty array.
-  public func storage(of t: AnyType) -> [StoredProperty] {
+  /// Returns `arguments` monomorphized for the given `parameterization`.
+  public func monomorphize(
+    _ arguments: GenericArguments, for parameterization: GenericArguments
+  ) -> GenericArguments {
+    relations.monomorphize(arguments, for: parameterization)
+  }
+
+  /// If `t` has a record layout, returns the names and types of its stored properties, replacing
+  /// generic parameters by their corresponding value in `parameterization`. Otherwise, returns an
+  /// empty array.
+  public func storage(
+    of t: AnyType, parameterizedBy parameterization: GenericArguments = [:]
+  ) -> [StoredProperty] {
     switch t.base {
     case let u as BoundGenericType:
-      return storage(of: u.base)
+      return storage(of: u.base, parameterizedBy: parameterization.appending(u.arguments))
 
     case let u as ProductType:
-      return self[u.decl].members.flatMap { (m) in
-        BindingDecl.Typed(m).map { (b) in
-          b.pattern.names.lazy.map({ (_, name) in (name.decl.baseName, name.decl.type) })
+      return ast[u.decl].members.flatMap { (m) in
+        BindingDecl.ID(m).map { (b) in
+          ast.names(in: ast[b].pattern).map { (_, name) in
+            let t = relations.monomorphize(declTypes[ast[name].decl]!, for: parameterization)
+            return (ast[ast[name].decl].baseName, t)
+          }
         } ?? []
       }
 
     case let u as TupleType:
-      return u.elements.map({ ($0.label, $0.type) })
+      return u.elements.map({ (l) in
+        let t = relations.monomorphize(l.type, for: parameterization)
+        return (l.label, t)
+      })
 
     default:
+      assert(!t.hasRecordLayout)
       return []
+    }
+  }
+
+  /// Returns the conformance of `model` to `Val.Deinitializable` exposed to `useScope` or `nil` if
+  /// no such conformance exists.
+  public func conformanceToDeinitializable(
+    of model: AnyType, exposedTo useScope: AnyScopeID
+  ) -> Conformance? {
+    conformance(of: model, to: ast.deinitializableTrait, exposedTo: useScope)
+  }
+
+  /// Returns the conformance of `model` to `Val.Movable` exposed to `useScope` or `nil` if no such
+  /// conformance exists.
+  public func conformanceToMovable(
+    of model: AnyType, exposedTo useScope: AnyScopeID
+  ) -> Conformance? {
+    conformance(of: model, to: ast.movableTrait, exposedTo: useScope)
+  }
+
+  /// Returns the conformance of `model` to `concept` exposed to `useScope` or `nil` if no such
+  /// conformance exists.
+  public func conformance(
+    of model: AnyType, to concept: TraitType, exposedTo useScope: AnyScopeID
+  ) -> Conformance? {
+    let m = relations.canonical(model)
+
+    // `A<X>: T` iff `A: T` whose conditions are satisfied by `X`.
+    if let t = BoundGenericType(m) {
+      guard let c = conformance(of: t.base, to: concept, exposedTo: useScope) else {
+        return nil
+      }
+
+      // TODO: translate generic arguments to conditions
+      return .init(
+        model: t.base, concept: concept, arguments: t.arguments, conditions: [],
+        source: c.source, scope: c.scope, implementations: c.implementations, site: c.site)
+    }
+
+    guard
+      let allConformances = relations.conformances[m],
+      let conformancesToConcept = allConformances[concept]
+    else { return nil }
+
+    // Return the first conformance exposed to `useSite`,
+    let fileImports = imports[source(containing: useScope), default: []]
+    return conformancesToConcept.first { (c) in
+      if let m = ModuleDecl.ID(c.scope), fileImports.contains(m) {
+        return true
+      } else {
+        return isContained(useScope, in: c.scope)
+      }
     }
   }
 

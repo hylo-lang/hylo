@@ -1,21 +1,20 @@
 /// A name denoting an object.
 public struct NameExpr: Expr {
 
-  /// A name's qualification
-  public enum Domain: ExpressibleByNilLiteral, Equatable, Codable {
+  /// A name's qualification.
+  public enum Domain: Codable, Hashable {
 
     /// Unqualified as in `bar`.
     case none
 
-    /// Implicit as the `.` in `.bar`; the whole name denotes a type member.
+    /// The left operand in an infix expression, as `foo` in `foo + bar`.
+    case operand
+
+    /// Implicit, as the `.` in `.bar`; the whole name denotes a type member.
     case implicit
 
     /// Explicit, as `foo.` in `foo.bar` or `.foo.` in `.foo.bar`.
-    case expr(AnyExprID)
-
-    public init(nilLiteral: ()) {
-      self = .none
-    }
+    case explicit(AnyExprID)
 
   }
 
@@ -30,6 +29,7 @@ public struct NameExpr: Expr {
   /// The type and value arguments of the referred entity.
   public let arguments: [LabeledArgument]
 
+  /// Creates an instance with given properties.
   public init(
     domain: Domain = .none,
     name: SourceRepresentable<Name>,

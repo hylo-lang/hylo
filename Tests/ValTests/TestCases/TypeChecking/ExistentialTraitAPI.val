@@ -1,4 +1,4 @@
-//! expect-failure
+//- typeCheck expecting: failure
 
 trait T {
   fun foo() -> Int
@@ -13,10 +13,15 @@ trait R {
 }
 
 type A: U, R {
+  public memberwise init
   public fun foo() -> Int { 42 }
   public fun bar() -> Int { 42 }
   public fun ham() -> Int { 42 }
 }
+
+type B<X> { public memberwise init }
+
+type C<X> { public memberwise init }
 
 fun check<T>(_ x: T) {}
 
@@ -53,4 +58,9 @@ public fun main() {
     // Note: resolves to `T.foo`.
     check<Int>(x1.foo())
   }
+
+  let y0: any B = B<Int>()
+
+  //! @+1 diagnostic existential generic type may have only one bound
+  let z0: any B & C = B<Int>()
 }

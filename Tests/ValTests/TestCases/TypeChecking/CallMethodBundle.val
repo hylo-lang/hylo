@@ -1,6 +1,8 @@
-//! expect-success
+//- typeCheck expecting: success
 
 type A {
+
+  memberwise init
 
   fun foo(_ x: Self) -> Self {
     let  { A() }

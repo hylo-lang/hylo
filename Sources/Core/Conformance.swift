@@ -30,6 +30,9 @@ public struct Conformance {
   /// The trait to which `model` conforms.
   public let concept: TraitType
 
+  /// The generic (a.k.a., compile-time) arguments of the conformance.
+  public let arguments: GenericArguments
+
   /// The conditions under which this conformance holds.
   public let conditions: [GenericConstraint]
 
@@ -49,6 +52,7 @@ public struct Conformance {
   public init(
     model: AnyType,
     concept: TraitType,
+    arguments: GenericArguments,
     conditions: [GenericConstraint],
     source: AnyDeclID,
     scope: AnyScopeID,
@@ -57,6 +61,7 @@ public struct Conformance {
   ) {
     self.model = model
     self.concept = concept
+    self.arguments = arguments
     self.conditions = conditions
     self.source = source
     self.scope = scope

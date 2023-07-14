@@ -5,13 +5,9 @@ public struct ScopedProgram: Program {
 
   public let ast: AST
 
-  public let scopeToParent: ASTProperty<AnyScopeID>
+  public let nodeToScope: ASTProperty<AnyScopeID>
 
   public let scopeToDecls: ASTProperty<[AnyDeclID]>
-
-  public let declToScope: DeclProperty<AnyScopeID>
-
-  public let exprToScope: [NameExpr.ID: AnyScopeID]
 
   public let varToBinding: [VarDecl.ID: BindingDecl.ID]
 
@@ -24,10 +20,8 @@ public struct ScopedProgram: Program {
     }
 
     self.ast = ast
-    self.scopeToParent = s.scopeToParent
+    self.nodeToScope = s.nodeToScope
     self.scopeToDecls = s.scopeToDecls
-    self.declToScope = s.declToScope
-    self.exprToScope = s.exprToScope
     self.varToBinding = s.varToBinding
   }
 
@@ -36,17 +30,11 @@ public struct ScopedProgram: Program {
 /// The state of the visitor building scope relationships.
 private struct ScopeVisitor: ASTWalkObserver {
 
-  /// A map from scope to its parent scope.
-  var scopeToParent = ASTProperty<AnyScopeID>()
+  /// A map from node to the innermost scope that contains it.
+  var nodeToScope = ASTProperty<AnyScopeID>()
 
   /// A map from scope to the declarations directly contained in them.
   var scopeToDecls = ASTProperty<[AnyDeclID]>()
-
-  /// A map from declaration to the innermost scope that contains it.
-  var declToScope = DeclProperty<AnyScopeID>()
-
-  /// A map from name expression to the innermost scope that contains it.
-  var exprToScope: [NameExpr.ID: AnyScopeID] = [:]
 
   /// A map from variable declaration its containing binding declaration.
   var varToBinding: [VarDecl.ID: BindingDecl.ID] = [:]
@@ -58,53 +46,46 @@ private struct ScopeVisitor: ASTWalkObserver {
   var innermost: AnyScopeID?
 
   /// Inserts `child` into `scope`.
-  private mutating func insert(child: AnyDeclID, into scope: AnyScopeID) {
-    precondition(child.kind != ModuleDecl.self)
-    if let parent = declToScope[child] {
-      if parent == scope {
-        // The relation is already established, we're done.
-        return
-      } else {
-        // Remove the existing edge scope container to containee.
-        scopeToDecls[scope]!.removeAll(where: { $0 == child })
-      }
+  private mutating func insert<T: NodeIDProtocol>(child: T, into scope: AnyScopeID) {
+    assert(child.kind != ModuleDecl.self)
+    nodeToScope[child] = scope
+
+    if let n = AnyDeclID(child) {
+      scopeToDecls[scope]!.append(n)
     }
-
-    // Create the edges.
-    declToScope[child] = scope
-    scopeToDecls[scope]!.append(child)
-  }
-
-  /// Inserts `child` into `scope`.
-  private mutating func insert(child: NameExpr.ID, into scope: AnyScopeID) {
-    exprToScope[child] = scope
   }
 
   mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
+    if let m = ModuleDecl.ID(n) {
+      return visit(moduleDecl: .init(m)!, in: ast)
+    }
+
+    insert(child: n, into: innermost!)
+
     switch n.kind {
     case BindingDecl.self:
-      return visit(bindingDecl: NodeID(n)!, in: ast)
-    case ModuleDecl.self:
-      return visit(moduleDecl: NodeID(n)!, in: ast)
+      return visit(bindingDecl: .init(n)!, in: ast)
+    case ConformanceDecl.self:
+      return visit(conformanceDecl: .init(n)!, in: ast)
+    case ExtensionDecl.self:
+      return visit(extensionDecl: .init(n)!, in: ast)
+    case ProductTypeDecl.self:
+      return visit(productTypeDecl: .init(n)!, in: ast)
+    case TraitDecl.self:
+      return visit(traitDecl: .init(n)!, in: ast)
     case VarDecl.self:
-      return visit(varDecl: NodeID(n)!, in: ast)
+      return visit(varDecl: .init(n)!, in: ast)
     case ConditionalExpr.self:
-      return visit(conditionalExpr: NodeID(n)!, in: ast)
-    case NameExpr.self:
-      return visit(nameExpr: NodeID(n)!, in: ast)
+      return visit(conditionalExpr: .init(n)!, in: ast)
     case ConditionalStmt.self:
-      return visit(conditionalStmt: NodeID(n)!, in: ast)
+      return visit(conditionalStmt: .init(n)!, in: ast)
     case DoWhileStmt.self:
-      return visit(doWhileStmt: NodeID(n)!, in: ast)
+      return visit(doWhileStmt: .init(n)!, in: ast)
     default:
       break
     }
 
-    if let d = AnyDeclID(n) {
-      insert(child: d, into: innermost!)
-    }
     if let s = AnyScopeID(n) {
-      scopeToParent[s] = innermost
       scopeToDecls[s] = []
       innermost = s
     }
@@ -118,15 +99,47 @@ private struct ScopeVisitor: ASTWalkObserver {
       assert(x)
     }
     if let s = AnyScopeID(n) {
-      innermost = scopeToParent[s]!
+      innermost = nodeToScope[s]!
     }
   }
 
   private mutating func visit(bindingDecl d: BindingDecl.ID, in ast: AST) -> Bool {
-    insert(child: AnyDeclID(d), into: innermost!)
     bindingDecls.append(d)
     ast.traverse(ast[d], notifying: &self)
     bindingDecls.removeLast()
+    return false
+  }
+
+  private mutating func visit(conformanceDecl d: ConformanceDecl.ID, in ast: AST) -> Bool {
+    scopeToDecls[d] = []
+
+    // The subject and conformance list reside in the parent's scope.
+    innermost = nodeToScope[d]
+    ast.walk(ast[d].subject, notifying: &self)
+    ast.walk(roots: ast[d].conformances, notifying: &self)
+
+    // Other parts reside in `d`.
+    innermost = AnyScopeID(d)
+    ast[d].whereClause.map({ ast.traverse(whereClause: $0.value, notifying: &self) })
+    ast.walk(roots: ast[d].members, notifying: &self)
+
+    innermost = nodeToScope[d]
+    return false
+  }
+
+  private mutating func visit(extensionDecl d: ExtensionDecl.ID, in ast: AST) -> Bool {
+    scopeToDecls[d] = []
+
+    // The subject resides in the parent's scope.
+    innermost = nodeToScope[d]
+    ast.walk(ast[d].subject, notifying: &self)
+
+    // Other parts reside in `d`.
+    innermost = AnyScopeID(d)
+    ast[d].whereClause.map({ ast.traverse(whereClause: $0.value, notifying: &self) })
+    ast.walk(roots: ast[d].members, notifying: &self)
+
+    innermost = nodeToScope[d]
     return false
   }
 
@@ -139,53 +152,76 @@ private struct ScopeVisitor: ASTWalkObserver {
     return false
   }
 
+  private mutating func visit(productTypeDecl d: ProductTypeDecl.ID, in ast: AST) -> Bool {
+    scopeToDecls[d] = []
+
+    // The conformance list resides in the parent's scope.
+    innermost = nodeToScope[d]
+    ast.walk(roots: ast[d].conformances, notifying: &self)
+
+    // Other parts reside in `d`.
+    innermost = AnyScopeID(d)
+    ast[d].genericClause.map({ ast.traverse(genericClause: $0.value, notifying: &self) })
+    ast.walk(roots: ast[d].members, notifying: &self)
+
+    innermost = nodeToScope[d]
+    return false
+  }
+
+  private mutating func visit(traitDecl d: TraitDecl.ID, in ast: AST) -> Bool {
+    scopeToDecls[d] = []
+
+    // The refinement list resides in the parent's scope.
+    innermost = nodeToScope[d]
+    ast.walk(roots: ast[d].refinements, notifying: &self)
+
+    // Other parts reside in `d`.
+    innermost = AnyScopeID(d)
+    ast.walk(roots: ast[d].members, notifying: &self)
+
+    innermost = nodeToScope[d]
+    return false
+  }
+
   private mutating func visit(varDecl d: VarDecl.ID, in ast: AST) -> Bool {
-    insert(child: AnyDeclID(d), into: innermost!)
     // FIXME: incorrect if we're in a match case
     varToBinding[d] = bindingDecls.last
     return false
   }
 
   private mutating func visit(conditionalExpr e: ConditionalExpr.ID, in ast: AST) -> Bool {
-    scopeToParent[e] = innermost
     scopeToDecls[e] = []
     innermost = AnyScopeID(e)
     ast.walk(conditionItems: ast[e].condition, notifying: &self)
     ast.walk(ast[e].success, notifying: &self)
 
     // The failure branch is not in the scope of the conditional expression.
-    innermost = scopeToParent[e]!
+    innermost = nodeToScope[e]!
     ast.walk(ast[e].failure, notifying: &self)
     return false
   }
 
-  private mutating func visit(nameExpr e: NameExpr.ID, in ast: AST) -> Bool {
-    insert(child: e, into: innermost!)
-    return true
-  }
-
   private mutating func visit(conditionalStmt s: ConditionalStmt.ID, in ast: AST) -> Bool {
-    scopeToParent[s] = innermost
     scopeToDecls[s] = []
     innermost = AnyScopeID(s)
     ast.walk(conditionItems: ast[s].condition, notifying: &self)
     ast.walk(ast[s].success, notifying: &self)
 
     // The failure branch is not in the scope of the conditional expression.
-    innermost = scopeToParent[s]!
+    innermost = nodeToScope[s]!
     ast.walk(ast[s].failure, notifying: &self)
     return false
   }
 
   private mutating func visit(doWhileStmt s: DoWhileStmt.ID, in ast: AST) -> Bool {
-    scopeToParent[ast[s].body] = innermost
+    insert(child: ast[s].body, into: innermost!)
     scopeToDecls[ast[s].body] = []
     innermost = AnyScopeID(ast[s].body)
     ast.walk(roots: ast[ast[s].body].stmts, notifying: &self)
 
     // The condition is in the same scope as the body.
     ast.walk(ast[s].condition, notifying: &self)
-    innermost = scopeToParent[ast[s].body]!
+    innermost = nodeToScope[ast[s].body]!
     return false
   }
 

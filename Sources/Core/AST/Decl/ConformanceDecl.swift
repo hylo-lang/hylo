@@ -4,7 +4,7 @@ public struct ConformanceDecl: TypeExtendingDecl {
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
-  public let accessModifier: SourceRepresentable<AccessModifier>?
+  public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The expression of the extended type.
   public let subject: AnyTypeExprID
@@ -20,7 +20,7 @@ public struct ConformanceDecl: TypeExtendingDecl {
 
   /// Creates an instance with the given properties.
   public init(
-    accessModifier: SourceRepresentable<AccessModifier>?,
+    accessModifier: SourceRepresentable<AccessModifier>,
     subject: AnyTypeExprID,
     conformances: [NameExpr.ID],
     whereClause: SourceRepresentable<WhereClause>?,
@@ -33,6 +33,14 @@ public struct ConformanceDecl: TypeExtendingDecl {
     self.conformances = conformances
     self.whereClause = whereClause
     self.members = members
+  }
+
+  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+    for m in members {
+      if let d = InitializerDecl.ID(m), ast[d].isMemberwise {
+        diagnostics.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
+      }
+    }
   }
 
 }

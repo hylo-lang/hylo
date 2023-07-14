@@ -6,17 +6,11 @@ public protocol Program {
   /// The AST of the program.
   var ast: AST { get }
 
-  /// A map from scope to its parent scope.
-  var scopeToParent: ASTProperty<AnyScopeID> { get }
+  /// A map from node to the innermost scope that contains it.
+  var nodeToScope: ASTProperty<AnyScopeID> { get }
 
   /// A map from scope to the declarations directly contained in them.
   var scopeToDecls: ASTProperty<[AnyDeclID]> { get }
-
-  /// A map from declaration to the innermost scope that contains it.
-  var declToScope: DeclProperty<AnyScopeID> { get }
-
-  /// A map from name expression to the innermost scope that contains it.
-  var exprToScope: [NameExpr.ID: AnyScopeID] { get }
 
   /// A map from variable declaration its containing binding declaration.
   var varToBinding: [VarDecl.ID: BindingDecl.ID] { get }
@@ -24,6 +18,18 @@ public protocol Program {
 }
 
 extension Program {
+
+  /// Projects the node associated with `id` bundled with its extrinsic relationships.
+  public subscript<T: NodeIDProtocol>(id: T) -> BundledNode<T, Self> {
+    .init(id, in: self)
+  }
+
+  /// Returns `true` iff `d` is a module's entry function.
+  public func isModuleEntry(_ d: FunctionDecl.ID) -> Bool {
+    let s = nodeToScope[d]!
+    let n = ast[d].identifier?.value
+    return (s.kind == TranslationUnit.self) && ast[d].isPublic && (n == "main")
+  }
 
   /// Returns whether `child` is contained in `ancestor`.
   ///
@@ -41,7 +47,7 @@ extension Program {
     while true {
       if ancestor.rawValue == current.rawValue {
         return true
-      } else if let p = scopeToParent[current] {
+      } else if let p = nodeToScope[current] {
         current = p.base
       } else {
         return false
@@ -62,18 +68,54 @@ extension Program {
     case ModuleDecl.self:
       return AnyScopeID(ModuleDecl.ID(d)!)
     default:
-      return declToScope[d]!
+      return nodeToScope[d]!
     }
   }
 
   /// Returns the scope introducing `d`.
   public func scopeIntroducing(initializer d: InitializerDecl.ID) -> AnyScopeID {
-    scopeToParent[declToScope[d]!]!
+    nodeToScope[nodeToScope[d]!]!
+  }
+
+  /// Returns the scope of `d`'s body, if any.
+  public func scopeContainingBody(of d: FunctionDecl.ID) -> AnyScopeID? {
+    switch ast[d].body {
+    case nil:
+      return nil
+    case .some(.block(let s)):
+      return AnyScopeID(s)
+    case .some(.expr):
+      return AnyScopeID(d)
+    }
+  }
+
+  /// Returns the scope of `d`'s body, if any.
+  public func scopeContainingBody(of d: MethodImpl.ID) -> AnyScopeID? {
+    switch ast[d].body {
+    case nil:
+      return nil
+    case .some(.block(let s)):
+      return AnyScopeID(s)
+    case .some(.expr):
+      return AnyScopeID(d)
+    }
+  }
+
+  /// Returns the scope of `d`'s body, if any.
+  public func scopeContainingBody(of d: SubscriptImpl.ID) -> AnyScopeID? {
+    switch ast[d].body {
+    case nil:
+      return nil
+    case .some(.block(let s)):
+      return AnyScopeID(s)
+    case .some(.expr):
+      return AnyScopeID(d)
+    }
   }
 
   /// Returns `true` iff `d` is at module scope.
   public func isAtModuleScope<T: DeclID>(_ d: T) -> Bool {
-    switch declToScope[d]!.kind {
+    switch nodeToScope[d]!.kind {
     case TranslationUnit.self, NamespaceDecl.self:
       return true
     default:
@@ -109,10 +151,9 @@ extension Program {
     }
 
     // Declarations at global scope are global.
-    switch declToScope[decl]!.kind {
+    switch nodeToScope[decl]!.kind {
     case TranslationUnit.self, NamespaceDecl.self:
       return true
-
     default:
       break
     }
@@ -121,24 +162,21 @@ extension Program {
     switch decl.kind {
     case BindingDecl.self:
       return ast[BindingDecl.ID(decl)!].isStatic
-
     case FunctionDecl.self:
       return ast[FunctionDecl.ID(decl)!].isStatic
-
     case InitializerDecl.self:
       return true
-
     case SubscriptDecl.self:
       return ast[SubscriptDecl.ID(decl)!].isStatic
-
     default:
       return false
     }
   }
 
-  /// Returns whether `decl` is member of a type declaration.
-  public func isMember<T: DeclID>(_ decl: T) -> Bool {
-    guard let parent = declToScope[decl] else { return false }
+  /// Returns whether `d` is member of a type declaration.
+  public func isMember<T: DeclID>(_ d: T) -> Bool {
+    guard let parent = nodeToScope[d] else { return false }
+
     switch parent.kind {
     case ConformanceDecl.self,
       ExtensionDecl.self,
@@ -146,6 +184,12 @@ extension Program {
       TraitDecl.self,
       TypeAliasDecl.self:
       return true
+
+    case MethodDecl.self:
+      return d.kind == MethodImpl.self
+
+    case SubscriptDecl.self:
+      return (d.kind == SubscriptImpl.self) && isMember(SubscriptDecl.ID(parent)!)
 
     default:
       return false
@@ -163,6 +207,11 @@ extension Program {
   }
 
   /// Returns whether `decl` is a non-static member of a type declaration.
+  public func isNonStaticMember(_ decl: MethodDecl.ID) -> Bool {
+    true
+  }
+
+  /// Returns whether `decl` is a non-static member of a type declaration.
   public func isNonStaticMember(_ decl: SubscriptDecl.ID) -> Bool {
     !ast[decl].isStatic && isMember(decl)
   }
@@ -176,40 +225,45 @@ extension Program {
   public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
     switch decl.kind {
     case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
-      return declToScope[decl]!.kind == TraitDecl.self
+      return nodeToScope[decl]!.kind == TraitDecl.self
     case MethodImpl.self:
-      return isRequirement(MethodDecl.ID(declToScope[decl]!)!)
+      return isRequirement(MethodDecl.ID(nodeToScope[decl]!)!)
     case SubscriptImpl.self:
-      return isRequirement(SubscriptDecl.ID(declToScope[decl]!)!)
+      return isRequirement(SubscriptDecl.ID(nodeToScope[decl]!)!)
     default:
       return false
     }
   }
 
-  /// Returns whether `scope` denotes a member context.
-  public func isMemberContext<S: ScopeID>(_ scope: S) -> Bool {
-    switch scope.kind {
+  /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
+  /// Otherwise, returns `nil`
+  public func innermostReceiver(in useScope: AnyScopeID) -> ParameterDecl.ID? {
+    switch useScope.kind {
     case FunctionDecl.self:
-      return isNonStaticMember(FunctionDecl.ID(scope)!)
-    case SubscriptDecl.self:
-      return isNonStaticMember(SubscriptDecl.ID(scope)!)
-    case MethodDecl.self, InitializerDecl.self:
-      return true
+      if let d = ast[FunctionDecl.ID(useScope)!].receiver { return d }
+    case InitializerDecl.self:
+      return ast[InitializerDecl.ID(useScope)!].receiver
+    case MethodImpl.self:
+      return ast[MethodImpl.ID(useScope)!].receiver
     case ModuleDecl.self:
-      return false
+      return nil
+    case SubscriptImpl.self:
+      if let d = ast[SubscriptImpl.ID(useScope)!].receiver { return d }
     default:
-      return isMemberContext(scopeToParent[scope]!)
+      break
     }
+
+    return innermostReceiver(in: nodeToScope[useScope]!)
   }
 
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
   public func scopes<S: ScopeID>(from scope: S) -> LexicalScopeSequence {
-    LexicalScopeSequence(scopeToParent: scopeToParent, from: scope)
+    LexicalScopeSequence(scopeToParent: nodeToScope, from: scope)
   }
 
   /// Returns the innermost type scope containing `d`.
   public func innermostType<T: DeclID>(containing d: T) -> AnyScopeID? {
-    scopes(from: declToScope[d]!).first(where: { $0.kind.value is TypeScope.Type })
+    scopes(from: nodeToScope[d]!).first(where: { $0.kind.value is TypeScope.Type })
   }
 
   /// Returns the module containing `scope`.
@@ -225,7 +279,7 @@ extension Program {
   }
 
   public func debugName<T: DeclID>(decl d: T) -> String {
-    let s = (declToScope[d].map(debugName(scope:)) ?? "") + "."
+    let s = (nodeToScope[d].map(debugName(scope:)) ?? "") + "."
     switch d.kind {
     case AssociatedTypeDecl.self:
       return s + ast[AssociatedTypeDecl.ID(d)!].baseName
@@ -279,7 +333,7 @@ extension Program {
     if let d = AnyDeclID(s) {
       return debugName(decl: d)
     } else {
-      let p = (scopeToParent[s].map(debugName(scope:)) ?? "") + "."
+      let p = (nodeToScope[s].map(debugName(scope:)) ?? "") + "."
       return "\(p)\(s.rawValue)"
     }
   }

@@ -1,4 +1,4 @@
-//! expect-success
+//- parse expecting: success
 
 ;;
 import Foo;

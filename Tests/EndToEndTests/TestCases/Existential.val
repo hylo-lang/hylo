@@ -1,10 +1,13 @@
+//- compileAndRun expecting: success
+
 fun use<T>(_ x: T) {}
 
-trait T {
+trait T: Deinitializable {
   fun foo() -> Int
 }
 
 type A: T {
+  memberwise init
   public fun foo() -> Int { 42 }
 }
 

@@ -1,3 +1,5 @@
+//- compileAndRun expecting: success
+
 fun apply(_ f: []() -> Int) -> Int { f() }
 
 public fun main() -> Int32 {

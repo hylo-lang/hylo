@@ -35,9 +35,12 @@ struct Solution {
   /// The diagnostics of the errors associated with the solution.
   private(set) var diagnostics: DiagnosticSet
 
+  /// The constraints that could not be solved.
+  private(set) var stale: [Constraint]
+
   /// Creates an empty solution.
   init() {
-    self.init(substitutions: [:], bindings: [:], penalties: 0, diagnostics: [])
+    self.init(substitutions: [:], bindings: [:], penalties: 0, diagnostics: [], stale: [])
   }
 
   /// Creates an instance with the given properties.
@@ -45,16 +48,25 @@ struct Solution {
     substitutions typeAssumptions: SubstitutionMap,
     bindings bindingAssumptions: [NameExpr.ID: DeclReference],
     penalties: Int,
-    diagnostics: DiagnosticSet
+    diagnostics: DiagnosticSet,
+    stale: [Constraint]
   ) {
     self.typeAssumptions = typeAssumptions
     self.bindingAssumptions = bindingAssumptions
     self.penalties = penalties
     self.diagnostics = diagnostics
+    self.stale = stale
+  }
+
+  /// `true` iff the solution has no error.
+  var isSound: Bool {
+    !diagnostics.containsError && stale.isEmpty
   }
 
   /// The score of the solution.
-  var score: Score { Score(errorCount: diagnostics.elements.count, penalties: penalties) }
+  var score: Score {
+    Score(errorCount: diagnostics.elements.count + stale.count, penalties: penalties)
+  }
 
   /// Incorporates `d` into `self`.
   mutating func incorporate(_ d: Diagnostic) {
@@ -67,7 +79,6 @@ struct Solution {
     typeAssumptions.formIntersection(other.typeAssumptions)
     bindingAssumptions.formIntersection(other.bindingAssumptions)
     penalties = max(penalties, other.penalties)
-    diagnostics.formUnion(other.diagnostics)
   }
 
 }

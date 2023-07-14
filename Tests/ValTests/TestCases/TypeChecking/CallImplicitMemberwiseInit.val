@@ -1,7 +1,0 @@
-//! expect-success
-
-// Note: The call to `A`'s initializer appears before `A`'s declaration, thus requiring the
-// initializer's declaration to be hoisted.
-let a = A()
-
-type A {}
