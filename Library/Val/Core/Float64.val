@@ -10,6 +10,45 @@ public type Float64 {
     &self.value = Builtin.zeroinitializer_float64()
   }
 
+  /// Returns the sum of `self` and `other`.
+  public fun infix+ (_ other: Self) -> Self {
+    Float64(value: Builtin.fadd_float64(value, other.value))
+  }
+
+  /// Returns `self` subtracted by `other`.
+  public fun infix- (_ other: Self) -> Self {
+    Float64(value: Builtin.fsub_float64(value, other.value))
+  }
+
+  /// Returns the product of `self` and `other`
+  public fun infix* (_ other: Self) -> Self {
+    Float64(value: Builtin.fmul_float64(value, other.value))
+  }
+
+  /// Returns the quotient of dividing `self` by `other`
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix/ (_ other: Self) -> Self {
+    Float64(value: Builtin.fdiv_float64(value, other.value))
+  }
+
+  /// Returns the remainder of dividing `self` by `other`
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix% (_ other: Self) -> Self {
+    Float64(value: Builtin.frem_float64(value, other.value))
+  }
+
+  /// Returns the additive inverse of `self`.
+  public fun prefix- () -> Self {
+    Float64() - self
+  }
+
+  /// Returns `self`.
+  public fun prefix+ () -> Self {
+    self.copy()
+  }
+
 }
 
 public conformance Float64: ExpressibleByFloatLiteral {}
