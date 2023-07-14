@@ -49,8 +49,20 @@ struct Mangler<Output: TextOutputStream> {
   mutating func writeQualification(
     of d: AnyDeclID, of program: TypedProgram, to output: inout Output
   ) {
-    for parent in program.scopes(from: program.nodeToScope[d]!).reversed() {
-      write(scope: parent, of: program, to: &output)
+    // Anonymous scopes corresponding to the body of a function aren't mangled.
+    var parent = program.nodeToScope[d]!
+    if parent.kind == BraceStmt.self {
+      let grandParant = program.nodeToScope[parent]!
+      switch grandParant.kind {
+      case FunctionDecl.self, InitializerDecl.self, MethodImpl.self, SubscriptImpl.self:
+        parent = grandParant
+      default:
+        break
+      }
+    }
+
+    for p in program.scopes(from: parent).reversed() {
+      write(scope: p, of: program, to: &output)
     }
   }
 
