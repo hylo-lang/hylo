@@ -115,7 +115,7 @@ jobs:
             (echo "error: generated tests failed to run; see
             https://github.com/apple/swift-package-manager/issues/6595" && false) )
           
-    build-native-windows:
+  build-native-windows:
     name: "Native: ${{ matrix.host.os }}/release"
     strategy:
       fail-fast: false
