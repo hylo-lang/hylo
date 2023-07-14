@@ -1,7 +1,7 @@
 import Utils
 
 /// An unambiguous textual description of a type, scope, or declaration.
-public enum Symbol: Hashable {
+public enum DemangledSymbol: Hashable {
 
   /// A declaration or lexical scope.
   case node(AnyNodeID)

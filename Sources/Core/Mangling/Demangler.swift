@@ -5,7 +5,7 @@ struct Demangler {
   let program: TypedProgram
 
   /// The list of demangled symbols, in order of appearence.
-  private var symbols: [Symbol] = []
+  private var symbols: [DemangledSymbol] = []
 
   private var context: AnyScopeID? = nil
 
@@ -15,12 +15,12 @@ struct Demangler {
   }
 
   /// Demangles a symbol from `stream`.
-  mutating func demangle(from stream: inout Substring) -> Symbol? {
+  mutating func demangle(from stream: inout Substring) -> DemangledSymbol? {
     context = nil
 
-    var lastDemangled: Symbol? = nil
+    var lastDemangled: DemangledSymbol? = nil
     while let o = takeOperator(from: &stream) {
-      let demangled: Symbol?
+      let demangled: DemangledSymbol?
 
       switch o {
       case .endOfSequence:
@@ -111,7 +111,7 @@ struct Demangler {
   /// Demangles an entity declaration of type `T` from `stream`.
   private mutating func take<T: SingleEntityDecl>(
     _ entity: T.Type, from stream: inout Substring
-  ) -> Symbol? {
+  ) -> DemangledSymbol? {
     guard
       let parent = context,
       let baseName = takeString(from: &stream)
@@ -125,7 +125,7 @@ struct Demangler {
   }
 
   /// Demangles a function from `stream`.
-  mutating func takeFunction(from stream: inout Substring) -> Symbol? {
+  mutating func takeFunction(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let parent = context,
       let name = takeName(from: &stream),
@@ -146,7 +146,7 @@ struct Demangler {
   }
 
   /// Demangles a reference to a symbol from `stream`.
-  mutating func takeLookup(from stream: inout Substring) -> Symbol? {
+  mutating func takeLookup(from stream: inout Substring) -> DemangledSymbol? {
     guard let position = takeInteger(from: &stream) else {
       return nil
     }
@@ -154,7 +154,7 @@ struct Demangler {
   }
 
   /// Demangles a reserved symbol from `stream`.
-  mutating func takeReserved(from stream: inout Substring) -> Symbol? {
+  mutating func takeReserved(from stream: inout Substring) -> DemangledSymbol? {
     guard let s = take(ReservedSymbol.self, from: &stream) else { return nil }
     switch s {
     case .never:
@@ -165,7 +165,7 @@ struct Demangler {
   }
 
   /// Demangles a module from `stream`.
-  mutating func takeModuleDecl(from stream: inout Substring) -> Symbol? {
+  mutating func takeModuleDecl(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let n = takeString(from: &stream),
       let d = program.ast.modules.first(where: { program.ast[$0].baseName == n })
@@ -175,7 +175,7 @@ struct Demangler {
   }
 
   /// Demangles a parameter type from `stream`.
-  mutating func takeParameterType(from stream: inout Substring) -> Symbol? {
+  mutating func takeParameterType(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let a = take(AccessEffect.self, from: &stream),
       let b = demangleType(from: &stream)
@@ -186,7 +186,7 @@ struct Demangler {
   }
 
   /// Demangles a product type from `stream`.
-  mutating func takeProductType(from stream: inout Substring) -> Symbol? {
+  mutating func takeProductType(from stream: inout Substring) -> DemangledSymbol? {
     guard let d = demangle(ProductTypeDecl.self, from: &stream) else {
       return nil
     }
@@ -196,7 +196,7 @@ struct Demangler {
   }
 
   /// Demangles a thin lambda type from `stream`.
-  mutating func takeThinLambdaType(from stream: inout Substring) -> Symbol? {
+  mutating func takeThinLambdaType(from stream: inout Substring) -> DemangledSymbol? {
     guard let inputCount = takeInteger(from: &stream) else {
       return nil
     }
@@ -220,7 +220,7 @@ struct Demangler {
   }
 
   /// Demangles a translation unit from `stream`.
-  mutating func takeTranslationUnit(from stream: inout Substring) -> Symbol? {
+  mutating func takeTranslationUnit(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let parent = context.flatMap(ModuleDecl.ID.init(_:)),
       let baseName = takeString(from: &stream)
