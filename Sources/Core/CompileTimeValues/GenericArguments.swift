@@ -47,9 +47,15 @@ public struct GenericArguments {
     return try .init(contents: contents.mapValues(transform))
   }
 
+  /// Returns `self` merged with `other`, appending new elements at the end of `self` and calling
+  /// `combine` to determine the value of duplicate keys.
+  public func merging(_ other: Self, uniquingKeysWith combine: (Value, Value) -> Value) -> Self {
+    .init(contents: contents.merging(other.contents, uniquingKeysWith: combine))
+  }
+
   /// Returns this argument list appended with `suffix`.
   ///
-  /// - Requires: `self` does not define a value for any of the values defined in `suffix`.
+  /// - Requires: `self` does not share any key with `suffix`.
   public func appending(_ suffix: Self) -> Self {
     var clone = self
     clone.append(suffix)
@@ -58,7 +64,7 @@ public struct GenericArguments {
 
   /// Appends `suffix` to `self`.
   ///
-  /// - Requires: `self` does not define a value for any of the values defined in `suffix`.
+  /// - Requires: `self` does not share any key with `suffix`.
   public mutating func append(_ suffix: Self) {
     // Note: `merging` perserves order.
     contents.merge(suffix.contents, uniquingKeysWith: { (_, _) in unreachable() })
