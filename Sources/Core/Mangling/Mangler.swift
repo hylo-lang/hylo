@@ -37,8 +37,10 @@ struct Mangler<Output: TextOutputStream> {
     switch d.kind {
     case ParameterDecl.self:
       write(entity: ParameterDecl.ID(d)!, of: program, to: &output)
+    case VarDecl.self:
+      write(entity: VarDecl.ID(d)!, of: program, to: &output)
     default:
-      unreachable()
+      unexpected(d, in: program.ast)
     }
 
     symbolID[.node(AnyNodeID(d))] = nextSymbolID
