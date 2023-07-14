@@ -76,18 +76,18 @@ struct Mangler<Output: TextOutputStream> {
     }
 
     switch symbol.kind {
-    case ModuleDecl.self:
-      write(entity: ModuleDecl.ID(symbol)!, of: program, to: &output)
-    case TranslationUnit.self:
-      write(translationUnit: TranslationUnit.ID(symbol)!, of: program, to: &output)
-    case NamespaceDecl.self:
-      write(entity: NamespaceDecl.ID(symbol)!, of: program, to: &output)
     case FunctionDecl.self:
       write(function: FunctionDecl.ID(symbol)!, of: program, to: &output)
+    case InitializerDecl.self:
+      write(initializer: InitializerDecl.ID(symbol)!, of: program, to: &output)
+    case ModuleDecl.self:
+      write(entity: ModuleDecl.ID(symbol)!, of: program, to: &output)
+    case NamespaceDecl.self:
+      write(entity: NamespaceDecl.ID(symbol)!, of: program, to: &output)
     case ProductTypeDecl.self:
       write(entity: ProductTypeDecl.ID(symbol)!, of: program, to: &output)
     default:
-      unreachable()
+      unexpected(symbol, in: program.ast)
     }
 
     symbolID[.node(AnyNodeID(symbol))] = nextSymbolID
@@ -126,6 +126,22 @@ struct Mangler<Output: TextOutputStream> {
     }
 
     write(name: n, to: &output)
+    Base64VarUInt(program.ast[d].genericParameters.count).write(to: &output)
+    mangle(program.declTypes[d]!, of: program, to: &output)
+  }
+
+  private mutating func write(
+    initializer d: InitializerDecl.ID, of program: TypedProgram, to output: inout Output
+  ) {
+    // There's a most one memberwise initializer per product type declaration.
+    if program.ast[d].isMemberwise {
+      ManglingOperator.memberwiseInitializerDecl.write(to: &output)
+      return
+    }
+
+    // Other initializers are mangled like static member functions.
+    ManglingOperator.staticFunctionDecl.write(to: &output)
+    write(name: Name(stem: "init"), to: &output)
     Base64VarUInt(program.ast[d].genericParameters.count).write(to: &output)
     mangle(program.declTypes[d]!, of: program, to: &output)
   }
