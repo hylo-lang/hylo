@@ -35,6 +35,14 @@ struct Mangler<Output: TextOutputStream> {
     }
 
     switch d.kind {
+    case AssociatedTypeDecl.self:
+      write(entity: AssociatedTypeDecl.ID(d)!, of: program, to: &output)
+    case AssociatedValueDecl.self:
+      write(entity: AssociatedValueDecl.ID(d)!, of: program, to: &output)
+    case ImportDecl.self:
+      write(entity: ImportDecl.ID(d)!, of: program, to: &output)
+    case GenericParameterDecl.self:
+      write(entity: GenericParameterDecl.ID(d)!, of: program, to: &output)
     case ParameterDecl.self:
       write(entity: ParameterDecl.ID(d)!, of: program, to: &output)
     case VarDecl.self:
@@ -86,6 +94,12 @@ struct Mangler<Output: TextOutputStream> {
       write(entity: NamespaceDecl.ID(symbol)!, of: program, to: &output)
     case ProductTypeDecl.self:
       write(entity: ProductTypeDecl.ID(symbol)!, of: program, to: &output)
+    case TraitDecl.self:
+      write(entity: TraitDecl.ID(symbol)!, of: program, to: &output)
+    case TranslationUnit.self:
+      write(translationUnit: TranslationUnit.ID(symbol)!, of: program, to: &output)
+    case TypeAliasDecl.self:
+      write(entity: TypeAliasDecl.ID(symbol)!, of: program, to: &output)
     default:
       unexpected(symbol, in: program.ast)
     }
