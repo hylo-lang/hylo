@@ -726,6 +726,11 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         register[.register(i, 0)] = insertFRem(l, r, at: insertionPoint)
 
+      case .fcmp(_, let p, _):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertFloatingPointComparison(p, l, r, at: insertionPoint)
+
       case .fptrunc(_, let t):
         let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
