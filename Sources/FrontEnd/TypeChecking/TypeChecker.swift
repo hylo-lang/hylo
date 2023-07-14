@@ -1753,7 +1753,15 @@ public struct TypeChecker {
         candidateArguments = openGenericParameters(of: m)
       }
 
-      let allArguments = parentArguments.appending(candidateArguments)
+      var allArguments = parentArguments
+
+      // If the match is introduced in a trait, parameterize its receiver as necessary.
+      let s = program.scopeIntroducing(m)
+      if let concept = TraitDecl.ID(s), let model = parent?.type {
+        allArguments[ast[concept].selfParameterDecl] = model
+      }
+      allArguments.append(candidateArguments)
+
       if keepImplicitArguments {
         candidateType = bind(candidateType, to: allArguments)
       }
@@ -1761,8 +1769,7 @@ public struct TypeChecker {
 
       var matchConstraints = ConstraintSet()
       if instantiateTypes {
-        let t = instantiate(
-          candidateType, in: program.scopeIntroducing(m), cause: .init(.binding, at: name.site))
+        let t = instantiate(candidateType, in: s, cause: .init(.binding, at: name.site))
         candidateType = t.shape
         matchConstraints = t.constraints
       }
