@@ -79,6 +79,11 @@ public type Float64 {
     Bool(value: Builtin.fcmp_une_float64(value, other.value))
   }
 
+  /// The mathematical constant pi (π), approximately equal to 3.14159.
+  public static fun pi() -> Self {
+    3.14159
+  }
+
 }
 
 public conformance Float64: ExpressibleByFloatLiteral {}
