@@ -2191,6 +2191,8 @@ public struct TypeChecker {
       return lookup(stem, memberOf: ^t.lens, exposedTo: useScope)
     case let t as ExistentialType:
       return lookup(stem, memberOf: t, exposedTo: useScope)
+    case let t as SkolemType:
+      return lookup(stem, memberOf: t, exposedTo: useScope)
     default:
       break
     }
@@ -2248,6 +2250,20 @@ public struct TypeChecker {
     case .metatype:
       return []
     }
+  }
+
+  /// Returns the declarations introducing a name with given `stem` as a member of `domain` and
+  /// exposed to `useScope`.
+  private mutating func lookup(
+    _ stem: String,
+    memberOf domain: SkolemType,
+    exposedTo useScope: AnyScopeID
+  ) -> DeclSet {
+    var matches = DeclSet()
+    for t in conformedTraits(of: domain.base, in: useScope) {
+      matches.formUnion(lookup(stem, memberOf: ^t, exposedTo: useScope))
+    }
+    return matches
   }
 
   /// Returns the declarations introducing a name with given `stem` in extensions of `domain`
