@@ -701,6 +701,31 @@ extension LLVM.Module {
         let source = llvm(s.operands[0])
         register[.register(i, 0)] = insertPtrToInt(source, to: target, at: insertionPoint)
 
+      case .fadd:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertFAdd(l, r, at: insertionPoint)
+
+      case .fsub:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertFSub(l, r, at: insertionPoint)
+
+      case .fmul:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertFMul(l, r, at: insertionPoint)
+
+      case .fdiv:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertFDiv(l, r, at: insertionPoint)
+
+      case .frem:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertFRem(l, r, at: insertionPoint)
+
       case .fptrunc(_, let t):
         let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
