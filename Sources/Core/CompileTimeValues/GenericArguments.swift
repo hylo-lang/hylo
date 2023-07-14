@@ -51,9 +51,17 @@ public struct GenericArguments {
   ///
   /// - Requires: `self` does not define a value for any of the values defined in `suffix`.
   public func appending(_ suffix: Self) -> Self {
+    var clone = self
+    clone.append(suffix)
+    return clone
+  }
+
+  /// Appends `suffix` to `self`.
+  ///
+  /// - Requires: `self` does not define a value for any of the values defined in `suffix`.
+  public mutating func append(_ suffix: Self) {
     // Note: `merging` perserves order.
-    let c = contents.merging(suffix.contents, uniquingKeysWith: { (_, _) in unreachable() })
-    return .init(contents: c)
+    contents.merge(suffix.contents, uniquingKeysWith: { (_, _) in unreachable() })
   }
 
 }

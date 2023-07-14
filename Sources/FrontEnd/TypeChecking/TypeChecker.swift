@@ -176,12 +176,12 @@ public struct TypeChecker {
     switch type.base {
     case let t as GenericTypeParameterType:
       // Generic parameters declared at trait scope conform to that trait.
-      if let decl = TraitDecl.ID(program[t.decl].scope) {
-        return conformedTraits(of: ^TraitType(decl, ast: ast), in: useScope)
+      if let d = TraitDecl.ID(program[t.decl].scope) {
+        return conformedTraits(of: ^TraitType(d, ast: ast), in: useScope)
       }
 
       // Conformances of other generic parameters are stored in generic environments.
-      for s in program.scopes(from: useScope) where useScope.kind.value is GenericScope.Type {
+      for s in program.scopes(from: useScope) where s.kind.value is GenericScope.Type {
         let e = environment(of: s)
         result.formUnion(e.conformedTraits(of: type))
       }
@@ -1753,7 +1753,15 @@ public struct TypeChecker {
         candidateArguments = openGenericParameters(of: m)
       }
 
-      let allArguments = parentArguments.appending(candidateArguments)
+      var allArguments = parentArguments
+
+      // If the match is introduced in a trait, parameterize its receiver as necessary.
+      let s = program.scopeIntroducing(m)
+      if let concept = TraitDecl.ID(s), let model = parent?.type {
+        allArguments[ast[concept].selfParameterDecl] = model
+      }
+      allArguments.append(candidateArguments)
+
       if keepImplicitArguments {
         candidateType = bind(candidateType, to: allArguments)
       }
@@ -1761,8 +1769,7 @@ public struct TypeChecker {
 
       var matchConstraints = ConstraintSet()
       if instantiateTypes {
-        let t = instantiate(
-          candidateType, in: program.scopeIntroducing(m), cause: .init(.binding, at: name.site))
+        let t = instantiate(candidateType, in: s, cause: .init(.binding, at: name.site))
         candidateType = t.shape
         matchConstraints = t.constraints
       }
@@ -2184,6 +2191,8 @@ public struct TypeChecker {
       return lookup(stem, memberOf: ^t.lens, exposedTo: useScope)
     case let t as ExistentialType:
       return lookup(stem, memberOf: t, exposedTo: useScope)
+    case let t as SkolemType:
+      return lookup(stem, memberOf: t, exposedTo: useScope)
     default:
       break
     }
@@ -2241,6 +2250,20 @@ public struct TypeChecker {
     case .metatype:
       return []
     }
+  }
+
+  /// Returns the declarations introducing a name with given `stem` as a member of `domain` and
+  /// exposed to `useScope`.
+  private mutating func lookup(
+    _ stem: String,
+    memberOf domain: SkolemType,
+    exposedTo useScope: AnyScopeID
+  ) -> DeclSet {
+    var matches = DeclSet()
+    for t in conformedTraits(of: domain.base, in: useScope) {
+      matches.formUnion(lookup(stem, memberOf: ^t, exposedTo: useScope))
+    }
+    return matches
   }
 
   /// Returns the declarations introducing a name with given `stem` in extensions of `domain`
