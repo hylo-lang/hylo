@@ -37,7 +37,7 @@ extension String {
   /// Returns an encoding of `self` sanitized for use as an identifier in LLVM assembly.
   ///
   /// `self` is returned unchanged if and only if it does not contain any dollar sign ("$") and
-  /// `isAssemblySuitable` is `true` and. Otherwise, the returned value is the concatenation of
+  /// `self.isAssemblySuitable` is `true`. Otherwise, the returned value is the concatenation of
   /// two strings of `Base64Digit` separated by a unique occurrence of the dollar sign. The part
   /// on the LHS is called the *payload*, the other is called the *instruction sequence*.
   ///
@@ -51,13 +51,13 @@ extension String {
   ///     var offset = 0
   ///     for (d, p) in instructions {
   ///       offset += d
-  ///       literal.insert(p, at: d)
+  ///       payload.insert(p, at: d)
   ///     }
   ///
   /// For example, let the input be the mangled string "infix$5P91Pa". The payload is "infix" and
   /// the instruction sequence is composed of the pairs ("5", "P9") and ("1", "Pa"). The first
-  /// indicates that the unicode point 60 must be inserted in the literal at offset 5. The second
-  /// indicates that the unicode point 61 must be inserted in the literal at offset 5 + 1.
+  /// indicates that the unicode point 60 must be inserted in the payload at offset 5. The second
+  /// indicates that the unicode point 61 must be inserted in the payload at offset 5 + 1.
   public var assemblySanitized: String {
     if unicodeScalars.allSatisfy({ Base64Digit(scalar: $0) != nil }) {
       return self

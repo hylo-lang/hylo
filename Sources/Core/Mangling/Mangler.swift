@@ -3,8 +3,21 @@ import Utils
 /// Val's mangling algorithm.
 struct Mangler<Output: TextOutputStream> {
 
+  /// The identity of a mangled symbol.
+  private enum Symbol: Hashable {
+
+    /// A declaration or lexical scope.
+    case node(AnyNodeID)
+
+    /// A canonical type.
+    case type(AnyType)
+
+  }
+
+  /// A table mapping mangled symbols to their position in the demangling lookup table.
   private var symbolID: [Symbol: Int] = [:]
 
+  /// The ID of the next symbol insertedin the demandling lookup table.
   private var nextSymbolID = 0
 
   mutating func mangle(_ d: AnyDeclID, of program: TypedProgram, to output: inout Output) {

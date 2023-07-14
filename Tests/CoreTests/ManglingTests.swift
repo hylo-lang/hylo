@@ -23,37 +23,52 @@ final class ManglingTests: XCTestCase {
       return (try TypedProgram(a, diagnostics: &d), m)
     }
 
-    var o = Observer(forNodesIn: p)
+    var o = SymbolCollector(forNodesIn: p)
     p.ast.walk(m, notifying: &o)
+
+    var expected: Set = [
+      "Main",
+      "Main.N",
+      "Main.N.A",
+      "Main.foo(_:label:)",
+      "Main.français()",
+    ]
+
+    for m in o.symbols.keys {
+      let demangled = try XCTUnwrap(DemangledSymbol(m), "unable to demangle \"\(m)\"")
+      expected.remove(demangled.description)
+    }
+    XCTAssert(expected.isEmpty, "symbols not found: \(list: expected)")
   }
 
 }
 
-private struct Observer: ASTWalkObserver {
+/// An AST visitation callback that collects mangled symbols, asserting that they are unique.
+private struct SymbolCollector: ASTWalkObserver {
 
   /// The program containing the visited AST nodes.
   let program: TypedProgram
 
   /// The line at which this instance has been created.
-  let diagnosticLine: UInt
+  let failuresReportingLine: UInt
 
-  /// Creates an instance observing the nodes in `p` and reporting diagnostics as though errors
-  /// occured at line `l` of this source file.
-  init(forNodesIn p: TypedProgram, reportingDiagnosticsAtLine l: UInt = #line) {
+  /// A table mapping mangled symbols to their source.
+  private(set) var symbols: [String: AnyDeclID] = [:]
+
+  /// Creates an instance observing the nodes in `p` and reporting assertion failures as though
+  /// they occured at line `l` of this source file..
+  init(forNodesIn p: TypedProgram, reportingFailuresAtLine l: UInt = #line) {
     self.program = p
-    self.diagnosticLine = l
+    self.failuresReportingLine = l
   }
 
-  func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
+  mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
     if let d = AnyDeclID(n) {
-      let mangled = program.mangled(d)
-
-      guard let demangled = program.demangle(mangled) else {
-        XCTFail("could not demangle '\(mangled)'", line: diagnosticLine)
-        return false
-      }
-
-      XCTAssertEqual(demangled.node, n, line: diagnosticLine)
+      let s = program.mangled(d)
+      let k = symbols.updateValue(d, forKey: s)
+      XCTAssert(
+        k == nil, "mangled representation of \(d.kind) collides with \(k!.kind)",
+        line: failuresReportingLine)
     }
 
     return true
