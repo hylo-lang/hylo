@@ -9,7 +9,7 @@ public struct DemangledEntity: Hashable {
   /// The kind of the symbol.
   public let kind: NodeKind
 
-  /// The name of the symbol.
+  /// The name of the symbol, if any.
   public let name: Name
 
   /// The arguments of the symbol's generic parameters if it is a function or subscript.
@@ -48,6 +48,12 @@ extension DemangledEntity: CustomStringConvertible {
     switch kind {
     case FunctionDecl.self:
       return q + functionDescription
+    case InitializerDecl.self:
+      return q + initializerDescription
+    case SubscriptDecl.self:
+      return q + subscriptBundleDescription
+    case SubscriptImpl.self:
+      return q + name.stem
     case TranslationUnit.self:
       return q + name.stem
     default:
@@ -64,6 +70,26 @@ extension DemangledEntity: CustomStringConvertible {
   /// A textual representation of `self` assuming it is a function declaration.
   private var functionDescription: String {
     guard case .lambda(_, _, let inputs, _) = type else {
+      return "???"
+    }
+
+    let i = inputs.reduce(into: "", { (s, p) in s += (p.label ?? "_") + ":" })
+    return "\(name)(\(i))"
+  }
+
+  /// A textual representation of `self` assuming it is an initializer declaration.
+  private var initializerDescription: String {
+    guard case .lambda(_, _, let inputs, _) = type else {
+      return "init"
+    }
+
+    let i = inputs.reduce(into: "", { (s, p) in s += (p.label ?? "_") + ":" })
+    return "init(\(i))"
+  }
+
+  /// A textual representation of `self` assuming it is a subscript bundle declaration.
+  private var subscriptBundleDescription: String {
+    guard case .subscriptBundle(_, _, let inputs, _) = type else {
       return "???"
     }
 

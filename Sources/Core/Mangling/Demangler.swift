@@ -1,7 +1,7 @@
 /// Val's demangling algorithm.
 struct Demangler {
 
-  /// The list of demangled symbols, in order of appearence (a.k.a. the demangling lookup table).
+  /// The list of demangled symbols, in order of appearence (a.k.a. the symbol lookup table).
   private var symbols: [DemangledSymbol] = []
 
   /// Creates an instance with an empty lookup table.
@@ -15,52 +15,70 @@ struct Demangler {
       let demangled: DemangledSymbol?
 
       switch o {
+      case .associatedTypeDecl:
+        demangled = take(AssociatedTypeDecl.self, qualifiedBy: qualification, from: &stream)
+      case .associatedValueDecl:
+        demangled = take(AssociatedValueDecl.self, qualifiedBy: qualification, from: &stream)
+      case .boundGenericType:
+        demangled = takeBoundGenericType(from: &stream)
       case .endOfSequence:
         demangled = nil
       case .functionDecl:
-        demangled = takeFunction(qualifiedBy: qualification, from: &stream)
+        demangled = takeFunctionDecl(qualifiedBy: qualification, from: &stream)
+      case .genericParameterDecl:
+        demangled = take(GenericParameterDecl.self, qualifiedBy: qualification, from: &stream)
+      case .importDecl:
+        demangled = take(ImportDecl.self, qualifiedBy: qualification, from: &stream)
       case .lambdaType:
         fatalError()
       case .lookup:
         demangled = takeLookup(from: &stream)
+      case .memberwiseInitializerDecl:
+        demangled = takeMemberwiseInitializerDecl(qualifiedBy: qualification, from: &stream)
       case .moduleDecl:
         demangled = takeModuleDecl(from: &stream)
       case .namespaceDecl:
-        demangled = takeEntity(NamespaceDecl.self, qualifiedBy: qualification, from: &stream)
+        demangled = take(NamespaceDecl.self, qualifiedBy: qualification, from: &stream)
       case .parameterDecl:
-        demangled = takeEntity(ParameterDecl.self, qualifiedBy: qualification, from: &stream)
+        demangled = take(ParameterDecl.self, qualifiedBy: qualification, from: &stream)
       case .parameterType:
         demangled = takeParameterType(from: &stream)
       case .productType:
         demangled = takeProductType(from: &stream)
+      case .propertyDecl:
+        demangled = takePropertyDecl(qualifiedBy: qualification, from: &stream)
       case .productTypeDecl:
-        demangled = takeEntity(ProductTypeDecl.self, qualifiedBy: qualification, from: &stream)
+        demangled = take(ProductTypeDecl.self, qualifiedBy: qualification, from: &stream)
+      case .remoteType:
+        demangled = takeRemoteType(from: &stream)
       case .reserved:
         demangled = takeReserved(from: &stream)
+      case .staticFunctionDecl:
+        demangled = takeFunctionDecl(qualifiedBy: qualification, from: &stream)
+      case .subscriptDecl:
+        demangled = takeSubscriptDecl(qualifiedBy: qualification, from: &stream)
+      case .subscriptImpl:
+        demangled = takeSubscriptImpl(qualifiedBy: qualification, from: &stream)
+      case .subscriptType:
+        demangled = takeSubscriptType(from: &stream)
       case .thinLambdaType:
         demangled = takeThinLambdaType(from: &stream)
+      case .sumType:
+        demangled = takeSumType(from: &stream)
+      case .traitDecl:
+        demangled = take(TraitDecl.self, qualifiedBy: qualification, from: &stream)
       case .translatonUnit:
-        demangled = takeEntity(TranslationUnit.self, qualifiedBy: qualification, from: &stream)
+        demangled = take(TranslationUnit.self, qualifiedBy: qualification, from: &stream)
+      case .tupleType:
+        demangled = takeTupleType(from: &stream)
+      case .typealiasDecl:
+        demangled = take(TypeAliasDecl.self, qualifiedBy: qualification, from: &stream)
+      case .varDecl:
+        demangled = take(VarDecl.self, qualifiedBy: qualification, from: &stream)
 
       case .anonymousFunctionDecl:
         fatalError()
-      case .staticFunctionDecl:
-        fatalError()
-      case .remoteType:
-        fatalError()
-      case .traitDecl:
-        fatalError()
-      case .associatedTypeDecl:
-        fatalError()
-      case .associatedValueDecl:
-        fatalError()
-      case .genericParameterDecl:
-        fatalError()
-      case .importDecl:
-        fatalError()
-      case .typealiasDecl:
-        fatalError()
-      case .varDecl:
+      case .subscriptImplType:
         fatalError()
       }
 
@@ -108,7 +126,7 @@ struct Demangler {
   }
 
   /// Demangles an entity declaration of type `T` from `stream`.
-  private mutating func takeEntity<T: Node>(
+  private mutating func take<T: Node>(
     _ entity: T.Type, qualifiedBy qualification: DemangledEntity?,
     from stream: inout Substring
   ) -> DemangledSymbol? {
@@ -120,7 +138,7 @@ struct Demangler {
   }
 
   /// Demangles a function from `stream`.
-  mutating func takeFunction(
+  private mutating func takeFunctionDecl(
     qualifiedBy qualification: DemangledEntity?,
     from stream: inout Substring
   ) -> DemangledSymbol? {
@@ -140,8 +158,81 @@ struct Demangler {
     return .entity(e)
   }
 
+  /// Demangles a memberwise initializer from `stream`.
+  private func takeMemberwiseInitializerDecl(
+    qualifiedBy qualification: DemangledEntity?,
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
+    guard
+      let q = qualification
+    else { return nil }
+
+    let e = DemangledEntity(
+      qualification: q,
+      kind: NodeKind(InitializerDecl.self),
+      name: Name(stem: "init"))
+    return .entity(e)
+  }
+
+  /// Demangles a property declaration from `stream`.
+  private mutating func takePropertyDecl(
+    qualifiedBy qualification: DemangledEntity?,
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
+    guard
+      let q = qualification,
+      let stem = takeString(from: &stream),
+      let type = demangleType(from: &stream)
+    else { return nil }
+
+    let e = DemangledEntity(
+      qualification: q,
+      kind: NodeKind(SubscriptDecl.self),
+      name: Name(stem: String(stem)),
+      type: type)
+    return .entity(e)
+  }
+
+  /// Demangles a property declaration from `stream`.
+  private mutating func takeSubscriptDecl(
+    qualifiedBy qualification: DemangledEntity?,
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
+    guard
+      let q = qualification,
+      let stem = takeString(from: &stream),
+      let genericParameterCount = takeInteger(from: &stream),
+      let type = demangleType(from: &stream)
+    else { return nil }
+
+    let e = DemangledEntity(
+      qualification: q,
+      kind: NodeKind(SubscriptDecl.self),
+      name: Name(stem: stem.isEmpty ? "[]" : String(stem)),
+      genericArgumentLabels: .init(repeating: nil, count: Int(genericParameterCount.rawValue)),
+      type: type)
+    return .entity(e)
+  }
+
+  /// Demangles a property declaration from `stream`.
+  private mutating func takeSubscriptImpl(
+    qualifiedBy qualification: DemangledEntity?,
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
+    guard
+      let q = qualification,
+      let a = take(AccessEffect.self, from: &stream)
+    else { return nil }
+
+    let e = DemangledEntity(
+      qualification: q,
+      kind: NodeKind(SubscriptImpl.self),
+      name: Name(stem: "\(a)"))
+    return .entity(e)
+  }
+
   /// Demangles a reference to a symbol from `stream`.
-  mutating func takeLookup(from stream: inout Substring) -> DemangledSymbol? {
+  private mutating func takeLookup(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let position = takeInteger(from: &stream)
     else { return nil }
@@ -149,7 +240,7 @@ struct Demangler {
   }
 
   /// Demangles a reserved symbol from `stream`.
-  mutating func takeReserved(from stream: inout Substring) -> DemangledSymbol? {
+  private mutating func takeReserved(from stream: inout Substring) -> DemangledSymbol? {
     guard let s = take(ReservedSymbol.self, from: &stream) else { return nil }
     switch s {
     case .never:
@@ -160,7 +251,7 @@ struct Demangler {
   }
 
   /// Demangles a module from `stream`.
-  mutating func takeModuleDecl(from stream: inout Substring) -> DemangledSymbol? {
+  private mutating func takeModuleDecl(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let s = takeString(from: &stream)
     else { return nil }
@@ -170,8 +261,27 @@ struct Demangler {
     return .entity(e)
   }
 
+  /// Demangles a bound generic type from `stream`.
+  private mutating func takeBoundGenericType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let b = demangleType(from: &stream),
+      let argumentCount = takeInteger(from: &stream)
+    else { return nil }
+
+    var arguments: [DemangledSymbol] = []
+    arguments.reserveCapacity(Int(argumentCount.rawValue))
+    for _ in 0 ..< argumentCount.rawValue {
+      guard
+        let a = demangle(from: &stream)
+      else { return nil }
+      arguments.append(a)
+    }
+
+    return .type(.boundGeneric(base: b, arguments: arguments))
+  }
+
   /// Demangles a parameter type from `stream`.
-  mutating func takeParameterType(from stream: inout Substring) -> DemangledSymbol? {
+  private mutating func takeParameterType(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let a = take(AccessEffect.self, from: &stream),
       let b = demangleType(from: &stream)
@@ -180,15 +290,90 @@ struct Demangler {
   }
 
   /// Demangles a product type from `stream`.
-  mutating func takeProductType(from stream: inout Substring) -> DemangledSymbol? {
+  private mutating func takeProductType(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let e = demangleEntity(ProductTypeDecl.self, from: &stream)
     else { return nil }
     return .type(.product(e))
   }
 
+  /// Demangles a remote type from `stream`.
+  private mutating func takeRemoteType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let a = take(AccessEffect.self, from: &stream),
+      let b = demangleType(from: &stream)
+    else { return nil }
+    return .type(.remote(access: a, value: b))
+  }
+
+  /// Demangles a subscript type from `stream`.
+  private mutating func takeSubscriptType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let capabilities = take(AccessEffectSet.self, from: &stream),
+      let environment = demangleType(from: &stream),
+      let inputCount = takeInteger(from: &stream)
+    else { return nil }
+
+    var inputs: [DemangledType.Parameter] = []
+    inputs.reserveCapacity(Int(inputCount.rawValue))
+    for _ in 0 ..< inputCount.rawValue {
+      guard
+        let l = takeString(from: &stream),
+        let t = demangleType(from: &stream)
+      else { return nil }
+      inputs.append(.init(label: l.isEmpty ? nil : String(l), type: t))
+    }
+
+    guard
+      let output = demangleType(from: &stream)
+    else { return nil }
+
+    let t = DemangledType.subscriptBundle(
+      capabilities: capabilities, environment: environment, inputs: inputs, output: output)
+    return .type(t)
+  }
+
+  /// Demangles a sum type from `stream`.
+  private mutating func takeSumType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let elementCount = takeInteger(from: &stream)
+    else { return nil }
+
+    var elements: [DemangledType] = []
+    elements.reserveCapacity(Int(elementCount.rawValue))
+    for _ in 0 ..< elementCount.rawValue {
+      // Elements only do not share the same symbol lookup table; only a prefix.
+      var d = self
+      guard
+        let e = d.demangleType(from: &stream)
+      else { return nil }
+      elements.append(e)
+    }
+
+    return .type(.sum(elements))
+  }
+
+  /// Demangles a tuple type from `stream`.
+  private mutating func takeTupleType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let count = takeInteger(from: &stream)
+    else { return nil }
+
+    var elements: [DemangledType.Parameter] = []
+    elements.reserveCapacity(Int(count.rawValue))
+    for _ in 0 ..< count.rawValue {
+      guard
+        let l = takeString(from: &stream),
+        let t = demangleType(from: &stream)
+      else { return nil }
+      elements.append(.init(label: l.isEmpty ? nil : String(l), type: t))
+    }
+
+    return .type(.tuple(elements))
+  }
+
   /// Demangles a thin lambda type from `stream`.
-  mutating func takeThinLambdaType(from stream: inout Substring) -> DemangledSymbol? {
+  private mutating func takeThinLambdaType(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let inputCount = takeInteger(from: &stream)
     else { return nil }
@@ -212,7 +397,7 @@ struct Demangler {
 
   /// If `stream` starts with a mangling operator, consumes and returns it. Otherwise, returns
   /// `nil` without mutating `stream`.
-  func takeOperator(from stream: inout Substring) -> ManglingOperator? {
+  private func takeOperator(from stream: inout Substring) -> ManglingOperator? {
     if stream.isEmpty { return nil }
 
     var i = stream.startIndex
@@ -231,7 +416,7 @@ struct Demangler {
 
   /// Assuming `stream` starts with a mangled name, consumes and returns it. Returns `nil` iff
   /// data seems corrupted
-  func takeName(from stream: inout Substring) -> Name? {
+  private func takeName(from stream: inout Substring) -> Name? {
     guard let tag = takeBase64Digit(from: &stream) else {
       return nil
     }
@@ -261,7 +446,7 @@ struct Demangler {
 
   /// Assuming `stream` starts with a mangled string, consumes and returns it. Returns `nil` iff
   ///the data seems corrupted
-  func takeString(from stream: inout Substring) -> Substring? {
+  private func takeString(from stream: inout Substring) -> Substring? {
     guard let length = takeInteger(from: &stream) else {
       return nil
     }
@@ -274,7 +459,7 @@ struct Demangler {
 
   /// Assuming `stream` starts with a mangled integer, consumes and returns it. Returns `nil` iff
   /// data seems corrupted.
-  func takeInteger(from stream: inout Substring) -> Base64VarUInt? {
+  private func takeInteger(from stream: inout Substring) -> Base64VarUInt? {
     guard let (v, i) = Base64VarUInt.decode(from: stream) else {
       return nil
     }
@@ -284,13 +469,13 @@ struct Demangler {
 
   /// Assuming `stream` starts with a base 64 digit, consumes and returns it. Returns `nil` iff
   /// data seems corrupted
-  func takeBase64Digit(from stream: inout Substring) -> Base64Digit? {
+  private func takeBase64Digit(from stream: inout Substring) -> Base64Digit? {
     stream.popFirst().flatMap(Base64Digit.init(_:))
   }
 
   /// Assuming `stream` starts with a mangled `T`, consumes and returns it. Returns `nil` iff
   /// data seems corrupted
-  func take<T: RawRepresentable>(
+  private func take<T: RawRepresentable>(
     _: T.Type, from stream: inout Substring
   ) -> T? where T.RawValue == UInt8 {
     guard let d = takeBase64Digit(from: &stream) else {

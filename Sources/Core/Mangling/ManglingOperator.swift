@@ -3,13 +3,13 @@ public enum ManglingOperator: String {
 
   case productTypeDecl = "A"
 
-  case productType = "B"
-
   case traitDecl = "C"
 
-  case associatedTypeDecl = "aD"
+  case importDecl = "iD"
 
-  case associatedValueDecl = "vD"
+  case associatedTypeDecl = "taD"
+
+  case associatedValueDecl = "vaD"
 
   case functionDecl = "F"
 
@@ -19,13 +19,15 @@ public enum ManglingOperator: String {
 
   case genericParameterDecl = "G"
 
-  case importDecl = "I"
+  case propertyDecl = "pH"
+
+  case subscriptDecl = "H"
+
+  case subscriptImpl = "iH"
+
+  case memberwiseInitializerDecl = "I"
 
   case lookup = "K"
-
-  case lambdaType = "L"
-
-  case thinLambdaType = "tL"
 
   case moduleDecl = "M"
 
@@ -37,13 +39,29 @@ public enum ManglingOperator: String {
 
   case typealiasDecl = "S"
 
+  case productType = "aT"
+
+  case boundGenericType = "bT"
+
+  case lambdaType = "lT"
+
+  case thinLambdaType = "mT"
+
   case parameterType = "pT"
 
   case remoteType = "rT"
 
-  case varDecl = "V"
+  case subscriptType = "sT"
+
+  case subscriptImplType = "siT"
+
+  case tupleType = "tT"
+
+  case sumType = "uT"
 
   case translatonUnit = "U"
+
+  case varDecl = "V"
 
   case endOfSequence = "Z"
 

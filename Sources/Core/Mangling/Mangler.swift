@@ -1,7 +1,9 @@
 import Utils
 
 /// Val's mangling algorithm.
-struct Mangler<Output: TextOutputStream> {
+struct Mangler {
+
+  typealias Output = String
 
   /// The identity of a mangled symbol.
   private enum Symbol: Hashable {
@@ -14,10 +16,10 @@ struct Mangler<Output: TextOutputStream> {
 
   }
 
-  /// A table mapping mangled symbols to their position in the demangling lookup table.
+  /// A table mapping mangled symbols to their position in the symbol lookup table.
   private var symbolID: [Symbol: Int] = [:]
 
-  /// The ID of the next symbol insertedin the demandling lookup table.
+  /// The ID of the next symbol inserted in the symbol lookup table.
   private var nextSymbolID = 0
 
   mutating func mangle(_ d: AnyDeclID, of program: TypedProgram, to output: inout Output) {
@@ -94,6 +96,10 @@ struct Mangler<Output: TextOutputStream> {
       write(entity: NamespaceDecl.ID(symbol)!, of: program, to: &output)
     case ProductTypeDecl.self:
       write(entity: ProductTypeDecl.ID(symbol)!, of: program, to: &output)
+    case SubscriptDecl.self:
+      write(subscriptDecl: SubscriptDecl.ID(symbol)!, of: program, to: &output)
+    case SubscriptImpl.self:
+      write(subscriptImpl: SubscriptImpl.ID(symbol)!, of: program, to: &output)
     case TraitDecl.self:
       write(entity: TraitDecl.ID(symbol)!, of: program, to: &output)
     case TranslationUnit.self:
@@ -111,7 +117,7 @@ struct Mangler<Output: TextOutputStream> {
   private mutating func write<T: SingleEntityDecl>(
     entity d: T.ID, of program: TypedProgram, to output: inout Output
   ) {
-    T.manglingOperator.write(to: &output)
+    write(operator: T.manglingOperator, to: &output)
     write(string: program.ast[d].baseName, to: &output)
   }
 
@@ -119,7 +125,7 @@ struct Mangler<Output: TextOutputStream> {
     translationUnit u: TranslationUnit.ID, of program: TypedProgram, to output: inout Output
   ) {
     // Note: assumes all files in a module have a different base name.
-    ManglingOperator.translatonUnit.write(to: &output)
+    write(operator: .translatonUnit, to: &output)
     write(string: program.ast[u].site.file.baseName, to: &output)
   }
 
@@ -128,71 +134,114 @@ struct Mangler<Output: TextOutputStream> {
   ) {
     // If the function is anonymous, just encode a unique ID.
     guard let n = Name(of: d, in: program.ast) else {
-      ManglingOperator.anonymousFunctionDecl.write(to: &output)
-      Base64VarUInt(d.rawValue).write(to: &output)
+      write(operator: .anonymousFunctionDecl, to: &output)
+      write(integer: d.rawValue, to: &output)
       return
     }
 
     if program.ast[d].isStatic {
-      ManglingOperator.staticFunctionDecl.write(to: &output)
+      write(operator: .staticFunctionDecl, to: &output)
     } else {
-      ManglingOperator.functionDecl.write(to: &output)
+      write(operator: .functionDecl, to: &output)
     }
 
     write(name: n, to: &output)
-    Base64VarUInt(program.ast[d].genericParameters.count).write(to: &output)
+    write(integer: program.ast[d].genericParameters.count, to: &output)
     mangle(program.declTypes[d]!, of: program, to: &output)
   }
 
   private mutating func write(
     initializer d: InitializerDecl.ID, of program: TypedProgram, to output: inout Output
   ) {
-    // There's a most one memberwise initializer per product type declaration.
+    // There's at most one memberwise initializer per product type declaration.
     if program.ast[d].isMemberwise {
-      ManglingOperator.memberwiseInitializerDecl.write(to: &output)
+      write(operator: .memberwiseInitializerDecl, to: &output)
       return
     }
 
     // Other initializers are mangled like static member functions.
-    ManglingOperator.staticFunctionDecl.write(to: &output)
+    write(operator: .staticFunctionDecl, to: &output)
     write(name: Name(stem: "init"), to: &output)
-    Base64VarUInt(program.ast[d].genericParameters.count).write(to: &output)
+    write(integer: program.ast[d].genericParameters.count, to: &output)
     mangle(program.declTypes[d]!, of: program, to: &output)
   }
 
-  mutating func mangle(_ symbol: AnyType, of program: TypedProgram, to output: inout Output) {
+  private mutating func write(
+    subscriptDecl d: SubscriptDecl.ID, of program: TypedProgram, to output: inout Output
+  ) {
+    if program.ast[d].isProperty {
+      write(operator: .propertyDecl, to: &output)
+      write(string: program.ast[d].identifier?.value ?? "", to: &output)
+    } else {
+      write(operator: .subscriptDecl, to: &output)
+      write(string: program.ast[d].identifier?.value ?? "", to: &output)
+      write(integer: program.ast[d].genericParameters.count, to: &output)
+    }
+
+    mangle(program.declTypes[d]!, of: program, to: &output)
+  }
+
+  private mutating func write(
+    subscriptImpl d: SubscriptImpl.ID, of program: TypedProgram, to output: inout Output
+  ) {
+    write(operator: .subscriptImpl, to: &output)
+    write(base64Didit: program.ast[d].introducer.value, to: &output)
+  }
+
+  private mutating func mangle(
+    _ symbol: any CompileTimeValue, of program: TypedProgram, to output: inout Output
+  ) {
+    if let t = symbol as? AnyType {
+      mangle(t, of: program, to: &output)
+    } else {
+      fatalError("not implemented")
+    }
+  }
+
+  private mutating func mangle(
+    _ symbol: AnyType, of program: TypedProgram, to output: inout Output
+  ) {
     if writeLookup(.type(symbol), to: &output) {
       return
     }
 
     assert(symbol[.isCanonical])
     switch symbol.base {
+    case .void:
+      writeReserved(.void, to: &output)
+
+    case .never:
+      writeReserved(.never, to: &output)
+
+    case let t as BoundGenericType:
+      write(boundGenericType: t, of: program, to: &output)
+
     case let t as LambdaType:
       write(lambda: t, of: program, to: &output)
 
     case let t as ParameterType:
-      ManglingOperator.parameterType.write(to: &output)
-      Base64Digit(rawValue: t.access.rawValue)!.description.write(to: &output)
+      write(operator: .parameterType, to: &output)
+      write(base64Didit: t.access, to: &output)
       mangle(t.bareType, of: program, to: &output)
 
     case let t as ProductType:
-      ManglingOperator.productType.write(to: &output)
+      write(operator: .productType, to: &output)
       mangle(AnyDeclID(t.decl), of: program, to: &output)
-      ManglingOperator.endOfSequence.write(to: &output)
+      write(operator: .endOfSequence, to: &output)
+
+    case let t as RemoteType:
+      write(operator: .remoteType, to: &output)
+      write(base64Didit: t.access, to: &output)
+      mangle(t.bareType, of: program, to: &output)
+
+    case let t as SubscriptType:
+      write(subscriptType: t, of: program, to: &output)
 
     case let t as SumType:
-      if t == .never {
-        writeReserved(.never, to: &output)
-      } else {
-        fatalError("not implemented")
-      }
+      write(sumType: t, of: program, to: &output)
 
     case let t as TupleType:
-      if t == .void {
-        writeReserved(.void, to: &output)
-      } else {
-        fatalError("not implemented")
-      }
+      write(tupleType: t, of: program, to: &output)
 
     default:
       unreachable()
@@ -203,25 +252,84 @@ struct Mangler<Output: TextOutputStream> {
   }
 
   private mutating func write(
+    boundGenericType t: BoundGenericType, of program: TypedProgram, to output: inout Output
+  ) {
+    write(operator: .boundGenericType, to: &output)
+    mangle(t.base, of: program, to: &output)
+    write(integer: t.arguments.count, to: &output)
+    for u in t.arguments.values {
+      mangle(u, of: program, to: &output)
+    }
+  }
+
+  private mutating func write(
     lambda t: LambdaType, of program: TypedProgram, to output: inout Output
   ) {
     if t.environment == .void {
-      ManglingOperator.thinLambdaType.write(to: &output)
+      write(operator: .thinLambdaType, to: &output)
     } else {
-      ManglingOperator.lambdaType.write(to: &output)
+      write(operator: .lambdaType, to: &output)
       mangle(t.environment, of: program, to: &output)
     }
 
-    Base64VarUInt(t.inputs.count).write(to: &output)
+    write(integer: t.inputs.count, to: &output)
     for i in t.inputs {
       write(string: i.label ?? "", to: &output)
       mangle(i.type, of: program, to: &output)
     }
+
     mangle(t.output, of: program, to: &output)
   }
 
+  private mutating func write(
+    subscriptType t: SubscriptType, of program: TypedProgram, to output: inout Output
+  ) {
+    write(operator: .subscriptType, to: &output)
+    write(base64Didit: t.capabilities, to: &output)
+    mangle(t.environment, of: program, to: &output)
+
+    write(integer: t.inputs.count, to: &output)
+    for i in t.inputs {
+      write(string: i.label ?? "", to: &output)
+      mangle(i.type, of: program, to: &output)
+    }
+
+    mangle(t.output, of: program, to: &output)
+  }
+
+  private mutating func write(
+    sumType t: SumType, of program: TypedProgram, to output: inout Output
+  ) {
+    write(operator: .sumType, to: &output)
+    write(integer: t.elements.count, to: &output)
+
+    var elements: [String] = []
+    for e in t.elements {
+      // Copy `self` to share the symbol looking table built so far.
+      var m = self
+      var s = ""
+      m.mangle(e, of: program, to: &s)
+      let i = elements.partitioningIndex(where: { s < $0 })
+      elements.insert(s, at: i)
+    }
+
+    elements.joined().write(to: &output)
+  }
+
+  private mutating func write(
+    tupleType t: TupleType, of program: TypedProgram, to output: inout Output
+  ) {
+    write(operator: .tupleType, to: &output)
+
+    write(integer: t.elements.count, to: &output)
+    for e in t.elements {
+      write(string: e.label ?? "", to: &output)
+      mangle(e.type, of: program, to: &output)
+    }
+  }
+
   private func writeReserved(_ s: ReservedSymbol, to output: inout Output) {
-    ManglingOperator.reserved.write(to: &output)
+    write(operator: .reserved, to: &output)
     s.write(to: &output)
   }
 
@@ -232,8 +340,8 @@ struct Mangler<Output: TextOutputStream> {
       return false
     }
 
-    ManglingOperator.lookup.write(to: &output)
-    Base64VarUInt(i).write(to: &output)
+    write(operator: .lookup, to: &output)
+    write(integer: i, to: &output)
     return true
   }
 
@@ -243,19 +351,41 @@ struct Mangler<Output: TextOutputStream> {
     if name.notation != nil { tag = 1 }
     if name.introducer != nil { tag = tag | 2 }
 
-    Base64Digit(rawValue: tag)!.description.write(to: &output)
+    write(base64Didit: tag, to: &output)
     if let n = name.notation {
-      Base64Digit(rawValue: n.rawValue)!.description.write(to: &output)
+      write(base64Didit: n, to: &output)
     }
     if let i = name.introducer {
-      Base64Digit(rawValue: i.rawValue)!.description.write(to: &output)
+      write(base64Didit: i, to: &output)
     }
     write(string: name.stem, to: &output)
   }
 
   private func write(string: String, to output: inout Output) {
-    Base64VarUInt(string.count).write(to: &output)
+    write(integer: string.count, to: &output)
     string.write(to: &output)
+  }
+
+  /// Writes `v` encoded as a variable-length integer to `output`.
+  private func write(integer v: Int, to output: inout Output) {
+    Base64VarUInt(v).write(to: &output)
+  }
+
+  /// Writes the raw value of `v` encoded as a base 64 digit to `output`.
+  private func write<T: RawRepresentable>(
+    base64Didit v: T, to output: inout Output
+  ) where T.RawValue == UInt8 {
+    write(base64Didit: v.rawValue, to: &output)
+  }
+
+  /// Writes `v` encoded as a base 64 digit to `output`.
+  private func write(base64Didit v: UInt8, to output: inout Output) {
+    Base64Digit(rawValue: v)!.description.write(to: &output)
+  }
+
+  /// Writes `o` to `output`.
+  private func write(operator o: ManglingOperator, to output: inout Output) {
+    o.write(to: &output)
   }
 
 }
