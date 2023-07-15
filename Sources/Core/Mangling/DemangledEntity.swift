@@ -6,10 +6,10 @@ public struct DemangledEntity: Hashable {
   /// The qualification of the symbol, if any.
   public let qualification: Indirect<DemangledEntity>?
 
-  /// The kind of the symbol.
-  public let kind: NodeKind
+  /// The kind of the symbol, if known.
+  public let kind: NodeKind?
 
-  /// The name of the symbol, if any.
+  /// The name of the symbol.
   public let name: Name
 
   /// The arguments of the symbol's generic parameters if it is a function or subscript.
@@ -17,6 +17,9 @@ public struct DemangledEntity: Hashable {
 
   /// The type of the symbol, if known.
   public let type: DemangledType?
+
+  /// `true` if `self` identifies a scope.
+  public let isScope: Bool
 
   /// Creates an instance with the given properties.
   public init(
@@ -31,17 +34,23 @@ public struct DemangledEntity: Hashable {
     self.name = name
     self.genericArgumentLabels = genericArgumentLabels
     self.type = type
+    self.isScope = kind.value is LexicalScope.Type
+  }
+
+  /// Creates an instance identifying an anonymous scope.
+  public init(anonymousScope id: Int, qualifiedBy q: DemangledEntity) {
+    self.qualification = Indirect(q)
+    self.kind = nil
+    self.name = Name(stem: id.description)
+    self.genericArgumentLabels = []
+    self.type = nil
+    self.isScope = true
   }
 
   /// Creates an instance representing a core type declaration.
   public init(coreType: String) {
     self.init(
       qualification: .val, kind: NodeKind(ProductTypeDecl.self), name: Name(stem: coreType))
-  }
-
-  /// `true` if `self` denotes a lexical scope.
-  public var isScope: Bool {
-    kind.value is LexicalScope.Type
   }
 
   /// The `Val` module.
@@ -56,7 +65,11 @@ extension DemangledEntity: CustomStringConvertible {
   public var description: String {
     let q = Self.describe(qualification: qualification)
 
-    switch kind {
+    guard let k = kind else {
+      return q + "$\(name)"
+    }
+
+    switch k {
     case FunctionDecl.self:
       return q + functionDescription
     case InitializerDecl.self:
@@ -71,7 +84,7 @@ extension DemangledEntity: CustomStringConvertible {
       break
     }
 
-    if kind.value is SingleEntityDecl.Type {
+    if k.value is SingleEntityDecl.Type {
       return q + name.stem
     }
 
@@ -81,8 +94,7 @@ extension DemangledEntity: CustomStringConvertible {
   /// A textual representation of `self` assuming it is a function declaration.
   private var functionDescription: String {
     guard case .lambda(_, _, let inputs, _) = type else {
-      // Function without a type is a lambda.
-      return "lambda[\(name)]"
+      return "\(name)(???)"
     }
 
     let i = inputs.reduce(into: "", { (s, p) in s += (p.label ?? "_") + ":" })

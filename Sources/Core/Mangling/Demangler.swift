@@ -15,8 +15,8 @@ struct Demangler {
       let demangled: DemangledSymbol?
 
       switch o {
-      case .anonymousFunctionDecl:
-        demangled = takeAnonymousFunctionDecl(qualifiedBy: qualification, from: &stream)
+      case .anonymousScope:
+        demangled = takeAnonymousScope(qualifiedBy: qualification, from: &stream)
       case .associatedTypeDecl:
         demangled = take(AssociatedTypeDecl.self, qualifiedBy: qualification, from: &stream)
       case .associatedValueDecl:
@@ -137,8 +137,8 @@ struct Demangler {
     return .entity(.init(qualification: q, kind: NodeKind(T.self), name: Name(stem: String(s))))
   }
 
-  /// Demangles an anonymous function from `stream`.
-  private mutating func takeAnonymousFunctionDecl(
+  /// Demangles an anonymous scope from `stream`.
+  private mutating func takeAnonymousScope(
     qualifiedBy qualification: DemangledEntity?,
     from stream: inout Substring
   ) -> DemangledSymbol? {
@@ -146,12 +146,7 @@ struct Demangler {
       let q = qualification,
       let i = takeInteger(from: &stream)
     else { return nil }
-
-    let e = DemangledEntity(
-      qualification: q,
-      kind: NodeKind(FunctionDecl.self),
-      name: Name(stem: i.description))
-    return .entity(e)
+    return .entity(.init(anonymousScope: Int(i.rawValue), qualifiedBy: q))
   }
 
   /// Demangles a function from `stream`.
