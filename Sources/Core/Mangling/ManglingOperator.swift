@@ -13,8 +13,6 @@ public enum ManglingOperator: String {
 
   case functionDecl = "F"
 
-  case anonymousFunctionDecl = "aF"
-
   case staticFunctionDecl = "sF"
 
   case genericParameterDecl = "G"
@@ -62,6 +60,8 @@ public enum ManglingOperator: String {
   case translatonUnit = "U"
 
   case varDecl = "V"
+
+  case anonymousScope = "Y"
 
   case endOfSequence = "Z"
 

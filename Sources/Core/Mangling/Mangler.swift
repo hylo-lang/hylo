@@ -108,10 +108,20 @@ struct Mangler {
     }
 
     switch symbol.kind {
+    case BraceStmt.self:
+      write(anonymousScope: symbol, to: &output)
+    case ConditionalExpr.self:
+      write(anonymousScope: symbol, to: &output)
+    case ConditionalStmt.self:
+      write(anonymousScope: symbol, to: &output)
+    case ForStmt.self:
+      write(anonymousScope: symbol, to: &output)
     case FunctionDecl.self:
       write(function: FunctionDecl.ID(symbol)!, to: &output)
     case InitializerDecl.self:
       write(initializer: InitializerDecl.ID(symbol)!, to: &output)
+    case MatchCase.self:
+      write(anonymousScope: symbol, to: &output)
     case ModuleDecl.self:
       write(entity: ModuleDecl.ID(symbol)!, to: &output)
     case NamespaceDecl.self:
@@ -128,6 +138,8 @@ struct Mangler {
       write(translationUnit: TranslationUnit.ID(symbol)!, to: &output)
     case TypeAliasDecl.self:
       write(entity: TypeAliasDecl.ID(symbol)!, to: &output)
+    case WhileStmt.self:
+      write(anonymousScope: symbol, to: &output)
     default:
       unexpected(symbol, in: program.ast)
     }
@@ -143,11 +155,16 @@ struct Mangler {
   }
 
   /// Writes the mangled the representation of `d` to `output`.
+  private mutating func write(anonymousScope d: AnyScopeID, to output: inout Output) {
+    write(operator: .anonymousScope, to: &output)
+    write(integer: uniqueID(in: program.nodeToScope[d]!), to: &output)
+  }
+
+  /// Writes the mangled the representation of `d` to `output`.
   private mutating func write(function d: FunctionDecl.ID, to output: inout Output) {
     // If the function is anonymous, just encode a unique ID.
     guard let n = Name(of: d, in: program.ast) else {
-      write(operator: .anonymousFunctionDecl, to: &output)
-      write(integer: uniqueID(in: program.nodeToScope[d]!), to: &output)
+      write(anonymousScope: AnyScopeID(d), to: &output)
       return
     }
 
