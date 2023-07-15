@@ -17,40 +17,48 @@ struct Mangler {
 
   }
 
+  /// The program defining the symbols being defined.
+  private let program: TypedProgram
+
   /// A table mapping mangled symbols to their position in the symbol lookup table.
   private var symbolID: [Symbol: Int] = [:]
 
   /// The ID of the next symbol inserted in the symbol lookup table.
   private var nextSymbolID = 0
 
-  /// Writes the mangled representation of `d`, defined in `program`, to `output`.
-  mutating func mangle(_ d: AnyDeclID, of program: TypedProgram, to output: inout Output) {
+  /// Creates an instance mangling symbols defined in `programs`.
+  init(_ program: TypedProgram) {
+    self.program = program
+  }
+
+  /// Writes the mangled representation of `d` to `output`.
+  mutating func mangle(_ d: AnyDeclID, to output: inout Output) {
     if writeLookup(.node(AnyNodeID(d)), to: &output) {
       return
     }
 
     if d.kind != ModuleDecl.self {
-      writeQualification(of: d, of: program, to: &output)
+      writeQualification(of: d, to: &output)
     }
 
     if let s = AnyScopeID(d) {
-      write(scope: s, of: program, to: &output)
+      write(scope: s, to: &output)
       return
     }
 
     switch d.kind {
     case AssociatedTypeDecl.self:
-      write(entity: AssociatedTypeDecl.ID(d)!, of: program, to: &output)
+      write(entity: AssociatedTypeDecl.ID(d)!, to: &output)
     case AssociatedValueDecl.self:
-      write(entity: AssociatedValueDecl.ID(d)!, of: program, to: &output)
+      write(entity: AssociatedValueDecl.ID(d)!, to: &output)
     case ImportDecl.self:
-      write(entity: ImportDecl.ID(d)!, of: program, to: &output)
+      write(entity: ImportDecl.ID(d)!, to: &output)
     case GenericParameterDecl.self:
-      write(entity: GenericParameterDecl.ID(d)!, of: program, to: &output)
+      write(entity: GenericParameterDecl.ID(d)!, to: &output)
     case ParameterDecl.self:
-      write(entity: ParameterDecl.ID(d)!, of: program, to: &output)
+      write(entity: ParameterDecl.ID(d)!, to: &output)
     case VarDecl.self:
-      write(entity: VarDecl.ID(d)!, of: program, to: &output)
+      write(entity: VarDecl.ID(d)!, to: &output)
     default:
       unexpected(d, in: program.ast)
     }
@@ -60,9 +68,7 @@ struct Mangler {
   }
 
   /// Writes the mangled the qualification of `d`, defined in program, to `output`.
-  private mutating func writeQualification(
-    of d: AnyDeclID, of program: TypedProgram, to output: inout Output
-  ) {
+  private mutating func writeQualification(of d: AnyDeclID, to output: inout Output) {
     // Anonymous scopes corresponding to the body of a function aren't mangled.
     var parent = program.nodeToScope[d]!
     if parent.kind == BraceStmt.self {
@@ -76,39 +82,37 @@ struct Mangler {
     }
 
     for p in program.scopes(from: parent).reversed() {
-      write(scope: p, of: program, to: &output)
+      write(scope: p, to: &output)
     }
   }
 
-  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
-  private mutating func write(
-    scope symbol: AnyScopeID, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `symbol` to `output`.
+  private mutating func write(scope symbol: AnyScopeID, to output: inout Output) {
     if writeLookup(.node(AnyNodeID(symbol)), to: &output) {
       return
     }
 
     switch symbol.kind {
     case FunctionDecl.self:
-      write(function: FunctionDecl.ID(symbol)!, of: program, to: &output)
+      write(function: FunctionDecl.ID(symbol)!, to: &output)
     case InitializerDecl.self:
-      write(initializer: InitializerDecl.ID(symbol)!, of: program, to: &output)
+      write(initializer: InitializerDecl.ID(symbol)!, to: &output)
     case ModuleDecl.self:
-      write(entity: ModuleDecl.ID(symbol)!, of: program, to: &output)
+      write(entity: ModuleDecl.ID(symbol)!, to: &output)
     case NamespaceDecl.self:
-      write(entity: NamespaceDecl.ID(symbol)!, of: program, to: &output)
+      write(entity: NamespaceDecl.ID(symbol)!, to: &output)
     case ProductTypeDecl.self:
-      write(entity: ProductTypeDecl.ID(symbol)!, of: program, to: &output)
+      write(entity: ProductTypeDecl.ID(symbol)!, to: &output)
     case SubscriptDecl.self:
-      write(subscriptDecl: SubscriptDecl.ID(symbol)!, of: program, to: &output)
+      write(subscriptDecl: SubscriptDecl.ID(symbol)!, to: &output)
     case SubscriptImpl.self:
-      write(subscriptImpl: SubscriptImpl.ID(symbol)!, of: program, to: &output)
+      write(subscriptImpl: SubscriptImpl.ID(symbol)!, to: &output)
     case TraitDecl.self:
-      write(entity: TraitDecl.ID(symbol)!, of: program, to: &output)
+      write(entity: TraitDecl.ID(symbol)!, to: &output)
     case TranslationUnit.self:
-      write(translationUnit: TranslationUnit.ID(symbol)!, of: program, to: &output)
+      write(translationUnit: TranslationUnit.ID(symbol)!, to: &output)
     case TypeAliasDecl.self:
-      write(entity: TypeAliasDecl.ID(symbol)!, of: program, to: &output)
+      write(entity: TypeAliasDecl.ID(symbol)!, to: &output)
     default:
       unexpected(symbol, in: program.ast)
     }
@@ -117,18 +121,14 @@ struct Mangler {
     nextSymbolID += 1
   }
 
-  /// Writes the mangled the representation of `d`, defined in `program`, to `output`.
-  private mutating func write<T: SingleEntityDecl>(
-    entity d: T.ID, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `d` to `output`.
+  private mutating func write<T: SingleEntityDecl>(entity d: T.ID, to output: inout Output) {
     write(operator: T.manglingOperator, to: &output)
     write(string: program.ast[d].baseName, to: &output)
   }
 
-  /// Writes the mangled the representation of `d`, defined in `program`, to `output`.
-  private mutating func write(
-    function d: FunctionDecl.ID, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `d` to `output`.
+  private mutating func write(function d: FunctionDecl.ID, to output: inout Output) {
     // If the function is anonymous, just encode a unique ID.
     guard let n = Name(of: d, in: program.ast) else {
       write(operator: .anonymousFunctionDecl, to: &output)
@@ -144,13 +144,11 @@ struct Mangler {
 
     write(name: n, to: &output)
     write(integer: program.ast[d].genericParameters.count, to: &output)
-    mangle(program.declTypes[d]!, of: program, to: &output)
+    mangle(program.declTypes[d]!, to: &output)
   }
 
-  /// Writes the mangled the representation of `d`, defined in `program`, to `output`.
-  private mutating func write(
-    initializer d: InitializerDecl.ID, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `d` to `output`.
+  private mutating func write(initializer d: InitializerDecl.ID, to output: inout Output) {
     // There's at most one memberwise initializer per product type declaration.
     if program.ast[d].isMemberwise {
       write(operator: .memberwiseInitializerDecl, to: &output)
@@ -161,13 +159,11 @@ struct Mangler {
     write(operator: .staticFunctionDecl, to: &output)
     write(name: Name(stem: "init"), to: &output)
     write(integer: program.ast[d].genericParameters.count, to: &output)
-    mangle(program.declTypes[d]!, of: program, to: &output)
+    mangle(program.declTypes[d]!, to: &output)
   }
 
-  /// Writes the mangled the representation of `d`, defined in `program`, to `output`.
-  private mutating func write(
-    subscriptDecl d: SubscriptDecl.ID, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `d` to `output`.
+  private mutating func write(subscriptDecl d: SubscriptDecl.ID, to output: inout Output) {
     if program.ast[d].isProperty {
       write(operator: .propertyDecl, to: &output)
       write(string: program.ast[d].identifier?.value ?? "", to: &output)
@@ -177,41 +173,33 @@ struct Mangler {
       write(integer: program.ast[d].genericParameters.count, to: &output)
     }
 
-    mangle(program.declTypes[d]!, of: program, to: &output)
+    mangle(program.declTypes[d]!, to: &output)
   }
 
-  /// Writes the mangled the representation of `u`, defined in `program`, to `output`.
-  private mutating func write(
-    subscriptImpl d: SubscriptImpl.ID, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `u` to `output`.
+  private mutating func write(subscriptImpl d: SubscriptImpl.ID, to output: inout Output) {
     write(operator: .subscriptImpl, to: &output)
     write(base64Didit: program.ast[d].introducer.value, to: &output)
   }
 
-  /// Writes the mangled the representation of `u`, defined in `program`, to `output`.
-  private mutating func write(
-    translationUnit u: TranslationUnit.ID, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `u` to `output`.
+  private mutating func write(translationUnit u: TranslationUnit.ID, to output: inout Output) {
     // Note: assumes all files in a module have a different base name.
     write(operator: .translatonUnit, to: &output)
     write(string: program.ast[u].site.file.baseName, to: &output)
   }
 
-  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
-  private mutating func mangle(
-    _ symbol: any CompileTimeValue, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `symbol` to `output`.
+  private mutating func mangle(_ symbol: any CompileTimeValue, to output: inout Output) {
     if let t = symbol as? AnyType {
-      mangle(t, of: program, to: &output)
+      mangle(t, to: &output)
     } else {
       fatalError("not implemented")
     }
   }
 
-  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
-  private mutating func mangle(
-    _ symbol: AnyType, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `symbol` to `output`.
+  private mutating func mangle(_ symbol: AnyType, to output: inout Output) {
     if writeLookup(.type(symbol), to: &output) {
       return
     }
@@ -225,34 +213,34 @@ struct Mangler {
       writeReserved(.never, to: &output)
 
     case let t as BoundGenericType:
-      write(boundGenericType: t, of: program, to: &output)
+      write(boundGenericType: t, to: &output)
 
     case let t as LambdaType:
-      write(lambda: t, of: program, to: &output)
+      write(lambda: t, to: &output)
 
     case let t as ParameterType:
       write(operator: .parameterType, to: &output)
       write(base64Didit: t.access, to: &output)
-      mangle(t.bareType, of: program, to: &output)
+      mangle(t.bareType, to: &output)
 
     case let t as ProductType:
       write(operator: .productType, to: &output)
-      mangle(AnyDeclID(t.decl), of: program, to: &output)
+      mangle(AnyDeclID(t.decl), to: &output)
       write(operator: .endOfSequence, to: &output)
 
     case let t as RemoteType:
       write(operator: .remoteType, to: &output)
       write(base64Didit: t.access, to: &output)
-      mangle(t.bareType, of: program, to: &output)
+      mangle(t.bareType, to: &output)
 
     case let t as SubscriptType:
-      write(subscriptType: t, of: program, to: &output)
+      write(subscriptType: t, to: &output)
 
     case let t as SumType:
-      write(sumType: t, of: program, to: &output)
+      write(sumType: t, to: &output)
 
     case let t as TupleType:
-      write(tupleType: t, of: program, to: &output)
+      write(tupleType: t, to: &output)
 
     default:
       unreachable()
@@ -262,59 +250,51 @@ struct Mangler {
     nextSymbolID += 1
   }
 
-  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
-  private mutating func write(
-    boundGenericType t: BoundGenericType, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `symbol` to `output`.
+  private mutating func write(boundGenericType t: BoundGenericType, to output: inout Output) {
     write(operator: .boundGenericType, to: &output)
-    mangle(t.base, of: program, to: &output)
+    mangle(t.base, to: &output)
     write(integer: t.arguments.count, to: &output)
     for u in t.arguments.values {
-      mangle(u, of: program, to: &output)
+      mangle(u, to: &output)
     }
   }
 
-  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
-  private mutating func write(
-    lambda t: LambdaType, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `symbol` to `output`.
+  private mutating func write(lambda t: LambdaType, to output: inout Output) {
     if t.environment == .void {
       write(operator: .thinLambdaType, to: &output)
     } else {
       write(operator: .lambdaType, to: &output)
-      mangle(t.environment, of: program, to: &output)
+      mangle(t.environment, to: &output)
     }
 
     write(integer: t.inputs.count, to: &output)
     for i in t.inputs {
       write(string: i.label ?? "", to: &output)
-      mangle(i.type, of: program, to: &output)
+      mangle(i.type, to: &output)
     }
 
-    mangle(t.output, of: program, to: &output)
+    mangle(t.output, to: &output)
   }
 
-  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
-  private mutating func write(
-    subscriptType t: SubscriptType, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `symbol` to `output`.
+  private mutating func write(subscriptType t: SubscriptType, to output: inout Output) {
     write(operator: .subscriptType, to: &output)
     write(base64Didit: t.capabilities, to: &output)
-    mangle(t.environment, of: program, to: &output)
+    mangle(t.environment, to: &output)
 
     write(integer: t.inputs.count, to: &output)
     for i in t.inputs {
       write(string: i.label ?? "", to: &output)
-      mangle(i.type, of: program, to: &output)
+      mangle(i.type, to: &output)
     }
 
-    mangle(t.output, of: program, to: &output)
+    mangle(t.output, to: &output)
   }
 
-  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
-  private mutating func write(
-    sumType t: SumType, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `symbol` to `output`.
+  private mutating func write(sumType t: SumType, to output: inout Output) {
     write(operator: .sumType, to: &output)
     write(integer: t.elements.count, to: &output)
 
@@ -323,7 +303,7 @@ struct Mangler {
       // Copy `self` to share the symbol looking table built so far.
       var m = self
       var s = ""
-      m.mangle(e, of: program, to: &s)
+      m.mangle(e, to: &s)
       let i = elements.partitioningIndex(where: { s < $0 })
       elements.insert(s, at: i)
     }
@@ -331,16 +311,14 @@ struct Mangler {
     elements.joined().write(to: &output)
   }
 
-  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
-  private mutating func write(
-    tupleType t: TupleType, of program: TypedProgram, to output: inout Output
-  ) {
+  /// Writes the mangled the representation of `symbol` to `output`.
+  private mutating func write(tupleType t: TupleType, to output: inout Output) {
     write(operator: .tupleType, to: &output)
 
     write(integer: t.elements.count, to: &output)
     for e in t.elements {
       write(string: e.label ?? "", to: &output)
-      mangle(e.type, of: program, to: &output)
+      mangle(e.type, to: &output)
     }
   }
 
