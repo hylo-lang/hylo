@@ -92,20 +92,12 @@ struct Mangler {
 
   /// Writes the mangled the qualification of `d`, defined in program, to `output`.
   private mutating func writeQualification(of d: AnyDeclID, to output: inout Output) {
-    // Anonymous scopes corresponding to the body of a function aren't mangled.
-    var parent = program.nodeToScope[d]!
-    if parent.kind == BraceStmt.self {
-      let grandParant = program.nodeToScope[parent]!
-      switch grandParant.kind {
-      case FunctionDecl.self, InitializerDecl.self, MethodImpl.self, SubscriptImpl.self:
-        parent = grandParant
-      default:
-        break
+    for parent in program.scopes(from: program.nodeToScope[d]!).reversed() {
+      // Anonymous scopes corresponding to the body of a function aren't mangled.
+      if let p = BraceStmt.ID(parent), program.isCallableBody(p) {
+        continue
       }
-    }
-
-    for p in program.scopes(from: parent).reversed() {
-      write(scope: p, to: &output)
+      write(scope: parent, to: &output)
     }
   }
 
@@ -404,10 +396,12 @@ struct Mangler {
 
   /// Returns an identifier guaranteed unique in `scope`.
   private mutating func uniqueID(in scope: AnyScopeID) -> Int {
-    modify(&nextAutoID[scope, default: 0], { (i) in
-      defer { i += 1 }
-      return i
-    })
+    modify(
+      &nextAutoID[scope, default: 0],
+      { (i) in
+        defer { i += 1 }
+        return i
+      })
   }
 
 }
