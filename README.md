@@ -100,6 +100,7 @@ A more detailed description of the current implementation status is available on
 | :-----: | :-----: | :--------: | :-----------: | :-------------------------------------------------------------------------------------: |
 | CppCast |   352   | 2023-01-20 | Dimi Racordon | [Val and Mutable Value Semantics](https://cppcast.com/val-and-mutable-value-semantics)  |
 |  ADSP   |   137   | 2023-07-07 |  Sean Parent  | [Sean Parent on Val (vs Rust)!](https://adspthepodcast.com/2023/07/07/Episode-137.html) |
+|  ADSP   |   138   | 2023-07-14 |  Sean Parent  | [Sean Parent on Val! (Part 2)](https://adspthepodcast.com/2023/07/14/Episode-138.html) |
 
 
 
