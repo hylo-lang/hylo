@@ -5,6 +5,10 @@ public enum ManglingOperator: String {
 
   case traitDecl = "C"
 
+  case conformanceDecl = "cD"
+
+  case extensionDecl = "eD"
+
   case importDecl = "iD"
 
   case associatedTypeDecl = "taD"
@@ -33,6 +37,8 @@ public enum ManglingOperator: String {
 
   case parameterDecl = "P"
 
+  case directDeclReference = "dQ"
+
   case reserved = "R"
 
   case typealiasDecl = "S"
@@ -41,9 +47,9 @@ public enum ManglingOperator: String {
 
   case boundGenericType = "bT"
 
-  case lambdaType = "lT"
+  case genericTypeParameterType = "gT"
 
-  case thinLambdaType = "mT"
+  case lambdaType = "lT"
 
   case parameterType = "pT"
 
@@ -60,6 +66,14 @@ public enum ManglingOperator: String {
   case translatonUnit = "U"
 
   case varDecl = "V"
+
+  case whereClause = "W"
+
+  case conformanceConstraint = "cW"
+
+  case equalityConstraint = "eW"
+
+  case valueConstraint = "vW"
 
   case anonymousScope = "Y"
 

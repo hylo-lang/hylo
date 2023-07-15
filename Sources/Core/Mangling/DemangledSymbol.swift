@@ -29,6 +29,8 @@ public enum DemangledSymbol: Hashable {
       self = .entity(.init(coreType: "Float64"))
     case .string:
       self = .entity(.init(coreType: "String"))
+    case .any:
+      self = .type(.any)
     case .never:
       self = .type(.never)
     case .void:

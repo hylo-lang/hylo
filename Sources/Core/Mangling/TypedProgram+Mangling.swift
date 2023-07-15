@@ -8,4 +8,12 @@ extension TypedProgram {
     return output.assemblySanitized
   }
 
+  /// Returns the mangled representation of `t`.
+  public func mangled<T: TypeProtocol>(_ t: T) -> String {
+    var output = ""
+    var m = Mangler(self)
+    m.mangle(AnyType(t), to: &output)
+    return output.assemblySanitized
+  }
+
 }

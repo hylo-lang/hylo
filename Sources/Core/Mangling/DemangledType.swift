@@ -1,6 +1,9 @@
 /// The payload of a `DemangledSymbol.type`.
 public indirect enum DemangledType: Hashable {
 
+  /// The `Any` type.
+  case any
+
   /// The `Never` type.
   case never
 
@@ -17,11 +20,11 @@ public indirect enum DemangledType: Hashable {
     inputs: [Parameter],
     output: DemangledType)
 
+  /// A nominal type.
+  case nominal(DemangledEntity)
+
   /// A parameter type.
   case parameter(access: AccessEffect, value: DemangledType)
-
-  /// A product type.
-  case product(DemangledEntity)
 
   /// A remote type.
   case remote(access: AccessEffect, value: DemangledType)
@@ -56,6 +59,8 @@ extension DemangledType: CustomStringConvertible {
 
   public var description: String {
     switch self {
+    case .any:
+      return "Any"
     case .never:
       return "Never"
     case .void:
@@ -70,11 +75,11 @@ extension DemangledType: CustomStringConvertible {
       }
       return "[\(environment)](\(list: i) \(effect) -> \(output)"
 
+    case .nominal(let e):
+      return e.description
+
     case .parameter(let access, let value):
       return "\(access) \(value)"
-
-    case .product(let e):
-      return e.description
 
     case .remote(let access, let value):
       return "\(access) \(value)"

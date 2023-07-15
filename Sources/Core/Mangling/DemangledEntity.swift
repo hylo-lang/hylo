@@ -70,6 +70,8 @@ extension DemangledEntity: CustomStringConvertible {
     }
 
     switch k {
+    case ConformanceDecl.self, ExtensionDecl.self:
+      return q + "[\(name.stem)]"
     case FunctionDecl.self:
       return q + functionDescription
     case InitializerDecl.self:

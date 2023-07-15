@@ -31,6 +31,7 @@ struct Mangler {
 
   /// A table mapping known symbols to their reserved mangled identifier.
   private var reserved: [Symbol: ReservedSymbol] = [
+    .type(.any): .any,
     .type(.void): .void,
     .type(.never): .never,
   ]
@@ -114,6 +115,10 @@ struct Mangler {
       write(anonymousScope: symbol, to: &output)
     case ConditionalStmt.self:
       write(anonymousScope: symbol, to: &output)
+    case ConformanceDecl.self:
+      write(conformance: ConformanceDecl.ID(symbol)!, to: &output)
+    case ExtensionDecl.self:
+      write(extension: ExtensionDecl.ID(symbol)!, to: &output)
     case ForStmt.self:
       write(anonymousScope: symbol, to: &output)
     case FunctionDecl.self:
@@ -158,6 +163,30 @@ struct Mangler {
   private mutating func write(anonymousScope d: AnyScopeID, to output: inout Output) {
     write(operator: .anonymousScope, to: &output)
     write(integer: uniqueID(in: program.nodeToScope[d]!), to: &output)
+  }
+
+  /// Writes the mangled the representation of `d` to `output`.
+  private mutating func write(conformance d: ConformanceDecl.ID, to output: inout Output) {
+    write(operator: .conformanceDecl, to: &output)
+    mangle(MetatypeType(program.declTypes[d])!.instance, to: &output)
+
+    if let c = program.ast[d].whereClause {
+      write(whereClause: c.value, to: &output)
+    } else {
+      write(operator: .endOfSequence, to: &output)
+    }
+  }
+
+  /// Writes the mangled the representation of `d` to `output`.
+  private mutating func write(extension d: ExtensionDecl.ID, to output: inout Output) {
+    write(operator: .extensionDecl, to: &output)
+    mangle(MetatypeType(program.declTypes[d])!.instance, to: &output)
+
+    if let c = program.ast[d].whereClause {
+      write(whereClause: c.value, to: &output)
+    } else {
+      write(operator: .endOfSequence, to: &output)
+    }
   }
 
   /// Writes the mangled the representation of `d` to `output`.
@@ -221,8 +250,46 @@ struct Mangler {
     write(string: program.ast[u].site.file.baseName, to: &output)
   }
 
+  /// Writes the mangled representation of `clause` to `output`.
+  private mutating func write(whereClause clause: WhereClause, to output: inout Output) {
+    write(operator: .whereClause, to: &output)
+    write(set: clause.constraints, to: &output) { (m, c) -> String in
+      var s = ""
+      m.write(constraint: c.value, to: &s)
+      return s
+    }
+  }
+
+  /// Writes the mangled representation of `c` to `output`.
+  private mutating func write(constraint c: WhereClause.ConstraintExpr, to output: inout Output) {
+    switch c {
+    case .value(let e):
+      write(operator: .valueConstraint, to: &output)
+      write(string: program.ast[e].site.text, to: &output)
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Writhe the mangled representation of `r` to `output`.
+  mutating func mangle(_ r: DeclReference, to output: inout Output) {
+    switch r {
+    case .direct(let d, let parameterization):
+      write(operator: .directDeclReference, to: &output)
+      mangle(d, to: &output)
+      write(integer: parameterization.count, to: &output)
+      for u in parameterization.values {
+        mangle(u, to: &output)
+      }
+
+    default:
+      fatalError("not implemented")
+    }
+  }
+
   /// Writes the mangled the representation of `symbol` to `output`.
-  private mutating func mangle(_ symbol: any CompileTimeValue, to output: inout Output) {
+  mutating func mangle(_ symbol: any CompileTimeValue, to output: inout Output) {
     if let t = symbol as? AnyType {
       mangle(t, to: &output)
     } else {
@@ -231,7 +298,7 @@ struct Mangler {
   }
 
   /// Writes the mangled the representation of `symbol` to `output`.
-  private mutating func mangle(_ symbol: AnyType, to output: inout Output) {
+  mutating func mangle(_ symbol: AnyType, to output: inout Output) {
     if writeLookup(.type(symbol), to: &output) {
       return
     }
@@ -240,6 +307,10 @@ struct Mangler {
     switch symbol.base {
     case let t as BoundGenericType:
       write(boundGenericType: t, to: &output)
+
+    case let t as GenericTypeParameterType:
+      write(operator: .genericTypeParameterType, to: &output)
+      mangle(AnyDeclID(t.decl), to: &output)
 
     case let t as LambdaType:
       write(lambda: t, to: &output)
@@ -252,6 +323,8 @@ struct Mangler {
     case let t as ProductType:
       write(operator: .productType, to: &output)
       mangle(AnyDeclID(t.decl), to: &output)
+
+      // End of sequence required because `t.decl` is a scope.
       write(operator: .endOfSequence, to: &output)
 
     case let t as RemoteType:
@@ -288,12 +361,8 @@ struct Mangler {
 
   /// Writes the mangled the representation of `symbol` to `output`.
   private mutating func write(lambda t: LambdaType, to output: inout Output) {
-    if t.environment == .void {
-      write(operator: .thinLambdaType, to: &output)
-    } else {
-      write(operator: .lambdaType, to: &output)
-      mangle(t.environment, to: &output)
-    }
+    write(operator: .lambdaType, to: &output)
+    mangle(t.environment, to: &output)
 
     write(integer: t.inputs.count, to: &output)
     for i in t.inputs {
@@ -322,19 +391,11 @@ struct Mangler {
   /// Writes the mangled the representation of `symbol` to `output`.
   private mutating func write(sumType t: SumType, to output: inout Output) {
     write(operator: .sumType, to: &output)
-    write(integer: t.elements.count, to: &output)
-
-    var elements: [String] = []
-    for e in t.elements {
-      // Copy `self` to share the symbol looking table built so far.
-      var m = self
+    write(set: t.elements, to: &output) { (m, e) -> String in
       var s = ""
       m.mangle(e, to: &s)
-      let i = elements.partitioningIndex(where: { s < $0 })
-      elements.insert(s, at: i)
+      return s
     }
-
-    elements.joined().write(to: &output)
   }
 
   /// Writes the mangled the representation of `symbol` to `output`.
@@ -384,7 +445,7 @@ struct Mangler {
   }
 
   /// Writes `string` to `output`, prefixed by its length encoded as a variable-length integer.
-  private func write(string: String, to output: inout Output) {
+  private func write<T: StringProtocol>(string: T, to output: inout Output) {
     write(integer: string.count, to: &output)
     string.write(to: &output)
   }
@@ -409,6 +470,26 @@ struct Mangler {
   /// Writes `o` to `output`.
   private func write(operator o: ManglingOperator, to output: inout Output) {
     o.write(to: &output)
+  }
+
+  /// Writes the mangled representation of `elements`, which is an unordered set, calling
+  /// `mangleElement` to mangle individual elements.
+  private mutating func write<S: Collection>(
+    set elements: S, to output: inout Output,
+    manglingElementsWith mangleElement: (inout Self, S.Element) -> String
+  ) {
+    write(integer: elements.count, to: &output)
+
+    var mangled: [String] = []
+    for e in elements {
+      // Copy `self` to share the symbol looking table built so far.
+      var m = self
+      let s = mangleElement(&m, e)
+      let i = mangled.partitioningIndex(where: { s < $0 })
+      mangled.insert(s, at: i)
+    }
+
+    mangled.joined().write(to: &output)
   }
 
   /// Returns an identifier guaranteed unique in `scope`.

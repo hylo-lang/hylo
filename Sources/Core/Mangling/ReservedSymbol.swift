@@ -16,6 +16,9 @@ enum ReservedSymbol: UInt8 {
   /// `Val.String`.
   case string
 
+  /// The `Any` type.
+  case any
+
   /// The `Never` type.
   case never
 
