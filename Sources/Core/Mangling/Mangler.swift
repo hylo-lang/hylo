@@ -26,9 +26,29 @@ struct Mangler {
   /// The ID of the next symbol inserted in the symbol lookup table.
   private var nextSymbolID = 0
 
+  /// A table mapping known symbols to their reserved mangled identifier.
+  private var reserved: [Symbol: ReservedSymbol] = [
+    .type(.void): .void,
+    .type(.never): .never,
+  ]
+
   /// Creates an instance mangling symbols defined in `programs`.
   init(_ program: TypedProgram) {
     self.program = program
+
+    if program.ast.isCoreModuleLoaded {
+      self.reserved[.node(AnyNodeID(program.ast.coreLibrary!))] = .val
+      register(coreType: "Bool", as: .bool)
+      register(coreType: "Int", as: .int)
+      register(coreType: "Float64", as: .float64)
+      register(coreType: "String", as: .string)
+    }
+  }
+
+  /// Associates `coreType` to `r`.
+  private mutating func register(coreType: String, as r: ReservedSymbol) {
+    let d = AnyNodeID(program.ast.coreType(coreType)!.decl)
+    reserved[.node(d)] = r
   }
 
   /// Writes the mangled representation of `d` to `output`.
@@ -206,12 +226,6 @@ struct Mangler {
 
     assert(symbol[.isCanonical])
     switch symbol.base {
-    case .void:
-      writeReserved(.void, to: &output)
-
-    case .never:
-      writeReserved(.never, to: &output)
-
     case let t as BoundGenericType:
       write(boundGenericType: t, to: &output)
 
@@ -322,21 +336,22 @@ struct Mangler {
     }
   }
 
-  private func writeReserved(_ s: ReservedSymbol, to output: inout Output) {
-    write(operator: .reserved, to: &output)
-    s.write(to: &output)
-  }
-
-  /// If `symbol` has already been mangled into `output`, writes a lookup reference to its first
-  /// occurrence and returns true. Otherwise, returns `false`.
+  /// If `symbol` is reserved or has already been inserted in the symbol lookup table, writes a
+  /// lookup reference to it and returns `true`. Otherwise, returns `false`.
   private func writeLookup(_ symbol: Symbol, to output: inout Output) -> Bool {
-    guard let i = symbolID[symbol] else {
-      return false
+    if let r = reserved[symbol] {
+      write(operator: .reserved, to: &output)
+      r.write(to: &output)
+      return true
     }
 
-    write(operator: .lookup, to: &output)
-    write(integer: i, to: &output)
-    return true
+    if let i = symbolID[symbol] {
+      write(operator: .lookup, to: &output)
+      write(integer: i, to: &output)
+      return true
+    }
+
+    return false
   }
 
   /// Writes the mangled representation of `name` to `output`.

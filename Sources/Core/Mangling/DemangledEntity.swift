@@ -33,9 +33,20 @@ public struct DemangledEntity: Hashable {
     self.type = type
   }
 
+  /// Creates an instance representing a core type declaration.
+  public init(coreType: String) {
+    self.init(
+      qualification: .val, kind: NodeKind(ProductTypeDecl.self), name: Name(stem: coreType))
+  }
+
   /// `true` if `self` denotes a lexical scope.
   public var isScope: Bool {
     kind.value is LexicalScope.Type
+  }
+
+  /// The `Val` module.
+  static var val: DemangledEntity {
+    .init(qualification: nil, kind: NodeKind(ModuleDecl.self), name: Name(stem: "Val"))
   }
 
 }

@@ -16,6 +16,26 @@ public enum DemangledSymbol: Hashable {
     }
   }
 
+  /// Creates an instance decoding a reserved symbol identifier.
+  init(reserved: ReservedSymbol) {
+    switch reserved {
+    case .val:
+      self = .entity(.val)
+    case .bool:
+      self = .entity(.init(coreType: "Bool"))
+    case .int:
+      self = .entity(.init(coreType: "Int"))
+    case .float64:
+      self = .entity(.init(coreType: "Float64"))
+    case .string:
+      self = .entity(.init(coreType: "String"))
+    case .never:
+      self = .type(.never)
+    case .void:
+      self = .type(.void)
+    }
+  }
+
   /// The declaration of an entity or bundle.
   case entity(DemangledEntity)
 

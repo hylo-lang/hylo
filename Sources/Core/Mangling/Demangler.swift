@@ -84,7 +84,7 @@ struct Demangler {
 
       // End of sequence reached if `demangled` is `nil`.
       guard let d = demangled else { break }
-      if o != .lookup {
+      if (o != .lookup) && (o != .reserved) {
         symbols.append(d)
       }
 
@@ -241,13 +241,10 @@ struct Demangler {
 
   /// Demangles a reserved symbol from `stream`.
   private mutating func takeReserved(from stream: inout Substring) -> DemangledSymbol? {
-    guard let s = take(ReservedSymbol.self, from: &stream) else { return nil }
-    switch s {
-    case .never:
-      return .type(.never)
-    case .void:
-      return .type(.void)
-    }
+    guard
+      let r = take(ReservedSymbol.self, from: &stream)
+    else { return nil }
+    return DemangledSymbol(reserved: r)
   }
 
   /// Demangles a module from `stream`.
