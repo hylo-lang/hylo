@@ -81,7 +81,8 @@ extension DemangledEntity: CustomStringConvertible {
   /// A textual representation of `self` assuming it is a function declaration.
   private var functionDescription: String {
     guard case .lambda(_, _, let inputs, _) = type else {
-      return "???"
+      // Function without a type is a lambda.
+      return "lambda[\(name)]"
     }
 
     let i = inputs.reduce(into: "", { (s, p) in s += (p.label ?? "_") + ":" })
