@@ -3,6 +3,7 @@ import Utils
 /// Val's mangling algorithm.
 struct Mangler {
 
+  /// The type of the stream to which data is written.
   typealias Output = String
 
   /// The identity of a mangled symbol.
@@ -22,6 +23,7 @@ struct Mangler {
   /// The ID of the next symbol inserted in the symbol lookup table.
   private var nextSymbolID = 0
 
+  /// Writes the mangled representation of `d`, defined in `program`, to `output`.
   mutating func mangle(_ d: AnyDeclID, of program: TypedProgram, to output: inout Output) {
     if writeLookup(.node(AnyNodeID(d)), to: &output) {
       return
@@ -57,8 +59,8 @@ struct Mangler {
     nextSymbolID += 1
   }
 
-  /// Writes the mangled the qualification of `d` to `output`.
-  mutating func writeQualification(
+  /// Writes the mangled the qualification of `d`, defined in program, to `output`.
+  private mutating func writeQualification(
     of d: AnyDeclID, of program: TypedProgram, to output: inout Output
   ) {
     // Anonymous scopes corresponding to the body of a function aren't mangled.
@@ -78,6 +80,7 @@ struct Mangler {
     }
   }
 
+  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
   private mutating func write(
     scope symbol: AnyScopeID, of program: TypedProgram, to output: inout Output
   ) {
@@ -114,6 +117,7 @@ struct Mangler {
     nextSymbolID += 1
   }
 
+  /// Writes the mangled the representation of `d`, defined in `program`, to `output`.
   private mutating func write<T: SingleEntityDecl>(
     entity d: T.ID, of program: TypedProgram, to output: inout Output
   ) {
@@ -121,14 +125,7 @@ struct Mangler {
     write(string: program.ast[d].baseName, to: &output)
   }
 
-  private mutating func write(
-    translationUnit u: TranslationUnit.ID, of program: TypedProgram, to output: inout Output
-  ) {
-    // Note: assumes all files in a module have a different base name.
-    write(operator: .translatonUnit, to: &output)
-    write(string: program.ast[u].site.file.baseName, to: &output)
-  }
-
+  /// Writes the mangled the representation of `d`, defined in `program`, to `output`.
   private mutating func write(
     function d: FunctionDecl.ID, of program: TypedProgram, to output: inout Output
   ) {
@@ -150,6 +147,7 @@ struct Mangler {
     mangle(program.declTypes[d]!, of: program, to: &output)
   }
 
+  /// Writes the mangled the representation of `d`, defined in `program`, to `output`.
   private mutating func write(
     initializer d: InitializerDecl.ID, of program: TypedProgram, to output: inout Output
   ) {
@@ -166,6 +164,7 @@ struct Mangler {
     mangle(program.declTypes[d]!, of: program, to: &output)
   }
 
+  /// Writes the mangled the representation of `d`, defined in `program`, to `output`.
   private mutating func write(
     subscriptDecl d: SubscriptDecl.ID, of program: TypedProgram, to output: inout Output
   ) {
@@ -181,6 +180,7 @@ struct Mangler {
     mangle(program.declTypes[d]!, of: program, to: &output)
   }
 
+  /// Writes the mangled the representation of `u`, defined in `program`, to `output`.
   private mutating func write(
     subscriptImpl d: SubscriptImpl.ID, of program: TypedProgram, to output: inout Output
   ) {
@@ -188,6 +188,16 @@ struct Mangler {
     write(base64Didit: program.ast[d].introducer.value, to: &output)
   }
 
+  /// Writes the mangled the representation of `u`, defined in `program`, to `output`.
+  private mutating func write(
+    translationUnit u: TranslationUnit.ID, of program: TypedProgram, to output: inout Output
+  ) {
+    // Note: assumes all files in a module have a different base name.
+    write(operator: .translatonUnit, to: &output)
+    write(string: program.ast[u].site.file.baseName, to: &output)
+  }
+
+  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
   private mutating func mangle(
     _ symbol: any CompileTimeValue, of program: TypedProgram, to output: inout Output
   ) {
@@ -198,6 +208,7 @@ struct Mangler {
     }
   }
 
+  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
   private mutating func mangle(
     _ symbol: AnyType, of program: TypedProgram, to output: inout Output
   ) {
@@ -251,6 +262,7 @@ struct Mangler {
     nextSymbolID += 1
   }
 
+  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
   private mutating func write(
     boundGenericType t: BoundGenericType, of program: TypedProgram, to output: inout Output
   ) {
@@ -262,6 +274,7 @@ struct Mangler {
     }
   }
 
+  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
   private mutating func write(
     lambda t: LambdaType, of program: TypedProgram, to output: inout Output
   ) {
@@ -281,6 +294,7 @@ struct Mangler {
     mangle(t.output, of: program, to: &output)
   }
 
+  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
   private mutating func write(
     subscriptType t: SubscriptType, of program: TypedProgram, to output: inout Output
   ) {
@@ -297,6 +311,7 @@ struct Mangler {
     mangle(t.output, of: program, to: &output)
   }
 
+  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
   private mutating func write(
     sumType t: SumType, of program: TypedProgram, to output: inout Output
   ) {
@@ -316,6 +331,7 @@ struct Mangler {
     elements.joined().write(to: &output)
   }
 
+  /// Writes the mangled the representation of `symbol`, defined in `program`, to `output`.
   private mutating func write(
     tupleType t: TupleType, of program: TypedProgram, to output: inout Output
   ) {
@@ -333,10 +349,10 @@ struct Mangler {
     s.write(to: &output)
   }
 
-  /// If `s` has already been mangled into `output`, writes a lookup reference to its first
+  /// If `symbol` has already been mangled into `output`, writes a lookup reference to its first
   /// occurrence and returns true. Otherwise, returns `false`.
-  private func writeLookup(_ s: Symbol, to output: inout Output) -> Bool {
-    guard let i = symbolID[s] else {
+  private func writeLookup(_ symbol: Symbol, to output: inout Output) -> Bool {
+    guard let i = symbolID[symbol] else {
       return false
     }
 
@@ -345,6 +361,7 @@ struct Mangler {
     return true
   }
 
+  /// Writes the mangled representation of `name` to `output`.
   private func write(name: Name, to output: inout Output) {
     // Only encode notation and introducer; labels are encoded in types.
     var tag: UInt8 = 0
@@ -361,6 +378,7 @@ struct Mangler {
     write(string: name.stem, to: &output)
   }
 
+  /// Writes `string` to `output`, prefixed by its length encoded as a variable-length integer.
   private func write(string: String, to output: inout Output) {
     write(integer: string.count, to: &output)
     string.write(to: &output)
