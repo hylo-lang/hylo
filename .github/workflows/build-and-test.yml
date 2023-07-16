@@ -171,9 +171,9 @@ jobs:
     - name: Test (Release)
       id: test
       continue-on-error: true
-      run: swift test -c release --parallel
+      run: swift test -c release
 
     - name: Retry on failure
       continue-on-error: false
       if: steps.test.outcome != 'success'
-      run: swift test -c release --parallel
+      run: swift test -c release
