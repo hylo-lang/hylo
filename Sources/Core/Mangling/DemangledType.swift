@@ -1,8 +1,13 @@
+import Utils
+
 /// The payload of a `DemangledSymbol.type`.
 public indirect enum DemangledType: Hashable {
 
   /// The `Any` type.
   case any
+
+  /// The existential metatype (`any Metatype`).
+  case anyMetatype
 
   /// The `Never` type.
   case never
@@ -13,12 +18,23 @@ public indirect enum DemangledType: Hashable {
   /// A bound generic type.
   case boundGeneric(base: DemangledType, arguments: [DemangledSymbol])
 
+  /// An existential generic type.
+  case existentialGeneric(DemangledType)
+
+  /// An existential trait type.
+  case existentialTrait([DemangledType])
+
+  /// An existential trait type.
+
   /// A lambda type.
   case lambda(
     effect: AccessEffect,
     environment: DemangledType,
     inputs: [Parameter],
     output: DemangledType)
+
+  /// A metatype.
+  case metatype(DemangledType)
 
   /// A nominal type.
   case nominal(DemangledEntity)
@@ -61,6 +77,8 @@ extension DemangledType: CustomStringConvertible {
     switch self {
     case .any:
       return "Any"
+    case .anyMetatype:
+      return "any Metatype"
     case .never:
       return "Never"
     case .void:
@@ -69,11 +87,20 @@ extension DemangledType: CustomStringConvertible {
     case .boundGeneric(let base, let arguments):
       return "\(base)<\(list: arguments)>"
 
+    case .existentialGeneric(let interface):
+      return "any \(interface)"
+
+      case .existentialTrait(let interface):
+        return "any \(list: interface)"
+
     case .lambda(let effect, let environment, let inputs, let output):
       let i = inputs.map { (p) -> String in
         (p.label.map({ $0 + ": " }) ?? "") + p.type.description
       }
       return "[\(environment)](\(list: i) \(effect) -> \(output)"
+
+    case .metatype(let t):
+      return "Metatype<\(t)>"
 
     case .nominal(let e):
       return e.description

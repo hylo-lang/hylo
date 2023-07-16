@@ -308,12 +308,19 @@ struct Mangler {
     case let t as BoundGenericType:
       write(boundGenericType: t, to: &output)
 
+    case let t as ExistentialType:
+      write(existentialType: t, to: &output)
+
     case let t as GenericTypeParameterType:
       write(operator: .genericTypeParameterType, to: &output)
       mangle(AnyDeclID(t.decl), to: &output)
 
     case let t as LambdaType:
       write(lambda: t, to: &output)
+
+    case let t as MetatypeType:
+      write(operator: .metatypeType, to: &output)
+      mangle(t.instance, to: &output)
 
     case let t as ParameterType:
       write(operator: .parameterType, to: &output)
@@ -338,6 +345,13 @@ struct Mangler {
     case let t as SumType:
       write(sumType: t, to: &output)
 
+    case let t as TraitType:
+      write(operator: .traitType, to: &output)
+      mangle(AnyDeclID(t.decl), to: &output)
+
+      // End of sequence required because `t.decl` is a scope.
+      write(operator: .endOfSequence, to: &output)
+
     case let t as TupleType:
       write(tupleType: t, to: &output)
 
@@ -356,6 +370,26 @@ struct Mangler {
     write(integer: t.arguments.count, to: &output)
     for u in t.arguments.values {
       mangle(u, to: &output)
+    }
+  }
+
+  /// Writes the mangled representation of `symbol` to `output`.
+  private mutating func write(existentialType t: ExistentialType, to output: inout Output) {
+    switch t.interface {
+    case .metatype:
+      write(operator: .existentialMetatype, to: &output)
+
+    case .generic(let interface):
+      write(operator: .existentialGenericType, to: &output)
+      mangle(interface, to: &output)
+
+    case .traits(let interface):
+      write(operator: .existentialTraitType, to: &output)
+      write(set: interface, to: &output) { (m, e) -> String in
+        var s = ""
+        m.mangle(^e, to: &s)
+        return s
+      }
     }
   }
 

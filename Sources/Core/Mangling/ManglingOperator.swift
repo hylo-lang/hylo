@@ -47,9 +47,19 @@ public enum ManglingOperator: String {
 
   case boundGenericType = "bT"
 
+  case traitType = "cT"
+
+  case existentialTraitType = "eT"
+
+  case existentialGenericType = "egT"
+
+  case existentialMetatype = "emT"
+
   case genericTypeParameterType = "gT"
 
   case lambdaType = "lT"
+
+  case metatypeType = "mT"
 
   case parameterType = "pT"
 

@@ -29,6 +29,12 @@ struct Demangler {
         demangled = takeDirectDeclReference(from: &stream)
       case .endOfSequence:
         demangled = nil
+      case .existentialMetatype:
+        demangled = .type(.anyMetatype)
+      case .existentialGenericType:
+        demangled = takeExistentialGenericType(from: &stream)
+      case .existentialTraitType:
+        demangled = takeExistentialTraitType(from: &stream)
       case .extensionDecl:
         demangled = take(ExtensionDecl.self, qualifiedBy: qualification, from: &stream)
       case .functionDecl:
@@ -45,6 +51,8 @@ struct Demangler {
         demangled = takeLookup(from: &stream)
       case .memberwiseInitializerDecl:
         demangled = takeMemberwiseInitializerDecl(qualifiedBy: qualification, from: &stream)
+      case .metatypeType:
+        demangled = takeMetatypeType(from: &stream)
       case .moduleDecl:
         demangled = takeModuleDecl(from: &stream)
       case .namespaceDecl:
@@ -75,6 +83,8 @@ struct Demangler {
         demangled = takeSumType(from: &stream)
       case .traitDecl:
         demangled = take(TraitDecl.self, qualifiedBy: qualification, from: &stream)
+      case .traitType:
+        demangled = takeNominalType(declaredBy: TraitDecl.self, from: &stream)
       case .translatonUnit:
         demangled = take(TranslationUnit.self, qualifiedBy: qualification, from: &stream)
       case .tupleType:
@@ -334,6 +344,36 @@ struct Demangler {
     return .type(.boundGeneric(base: b, arguments: parameterization))
   }
 
+  /// Demangles an existential generic type from `stream`.
+  private mutating func takeExistentialGenericType(
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
+    guard
+      let interface = demangleType(from: &stream)
+    else { return nil }
+    return .type(.existentialGeneric(interface))
+  }
+
+  /// Demangles an existential generic type from `stream`.
+  private mutating func takeExistentialTraitType(
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
+    guard
+      let traitCount = takeInteger(from: &stream)
+    else { return nil }
+
+    var traits: [DemangledType] = []
+    traits.reserveCapacity(Int(traitCount.rawValue))
+    for _ in 0 ..< traitCount.rawValue {
+      guard
+        let t = demangleType(from: &stream)
+      else { return nil }
+      traits.append(t)
+    }
+
+    return .type(.existentialTrait(traits))
+  }
+
   /// Demangles a lambda type from `stream`.
   private mutating func takeLambdaType(from stream: inout Substring) -> DemangledSymbol? {
     guard
@@ -366,6 +406,14 @@ struct Demangler {
       let e = demangleEntity(T.self, from: &stream)
     else { return nil }
     return .type(.nominal(e))
+  }
+
+  /// Demangles a metatype from `stream`.
+  private mutating func takeMetatypeType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let instance = demangleType(from: &stream)
+    else { return nil }
+    return .type(.metatype(instance))
   }
 
   /// Demangles a parameter type from `stream`.
