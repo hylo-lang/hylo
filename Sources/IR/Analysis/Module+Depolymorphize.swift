@@ -43,7 +43,7 @@ extension Module {
     let s = self[i] as! CallInstruction
     guard
       let callee = s.callee.constant as? FunctionReference,
-      !callee.arguments.isEmpty
+      !callee.genericArguments.isEmpty
     else { return }
 
     // TODO: Use existentialization unless the function is inlinable
@@ -97,7 +97,7 @@ extension Module {
   private mutating func monomorphize(
     _ r: FunctionReference, in ir: LoweredProgram
   ) -> Function.ID {
-    monomorphize(r.function, in: ir, for: r.arguments, usedIn: r.useScope)
+    monomorphize(r.function, in: ir, for: r.genericArguments, usedIn: r.useScope)
   }
 
   /// Returns a reference to the monomorphized form of `f` for given `parameterization` in
@@ -238,8 +238,8 @@ extension Module {
       let s = sourceModule[i] as! CallInstruction
 
       let newCallee: Operand
-      if let callee = s.callee.constant as? FunctionReference, !callee.arguments.isEmpty {
-        let p = program.monomorphize(callee.arguments, for: parameterization)
+      if let callee = s.callee.constant as? FunctionReference, !callee.genericArguments.isEmpty {
+        let p = program.monomorphize(callee.genericArguments, for: parameterization)
         let g = monomorphize(callee.function, in: ir, for: p, usedIn: callee.useScope)
         newCallee = .constant(FunctionReference(to: g, usedIn: callee.useScope, in: self))
       } else {
@@ -335,11 +335,11 @@ extension Module {
       let s = sourceModule[i] as! PartialApplyInstruction
 
       let newCallee: FunctionReference
-      if s.callee.arguments.isEmpty {
+      if s.callee.genericArguments.isEmpty {
         assert(!sourceModule[s.callee.function].isGeneric)
         newCallee = s.callee
       } else {
-        let p = program.monomorphize(s.callee.arguments, for: parameterization)
+        let p = program.monomorphize(s.callee.genericArguments, for: parameterization)
         let g = monomorphize(s.callee.function, in: ir, for: p, usedIn: s.callee.useScope)
         newCallee = FunctionReference(to: g, usedIn: s.callee.useScope, in: self)
       }
