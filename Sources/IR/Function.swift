@@ -20,7 +20,7 @@ public struct Function {
   public let linkage: Linkage
 
   /// The generic (a.k.a., compile-time) parameters of the function.
-  public let parameters: [GenericParameterDecl.ID]
+  public let genericParameters: [GenericParameterDecl.ID]
 
   /// The run-time parameters of the function.
   public let inputs: [Parameter]
@@ -44,7 +44,7 @@ public struct Function {
 
   /// `true` iff the function takes generic parameters.
   public var isGeneric: Bool {
-    !parameters.isEmpty
+    !genericParameters.isEmpty
   }
 
   /// Appends to `self` a basic block in `scope` that accepts `parameters`, returning its address.

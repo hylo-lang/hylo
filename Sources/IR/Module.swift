@@ -192,7 +192,7 @@ public struct Module {
       name: program.debugName(decl: d),
       site: program.ast[d].site,
       linkage: .external,
-      parameters: Array(parameters),
+      genericParameters: Array(parameters),
       inputs: inputs,
       output: output,
       blocks: [])
@@ -253,7 +253,7 @@ public struct Module {
       name: program.debugName(decl: d),
       site: program.ast[d].site,
       linkage: .external,
-      parameters: Array(parameters),
+      genericParameters: Array(parameters),
       inputs: inputs,
       output: output,
       blocks: [])
@@ -277,7 +277,7 @@ public struct Module {
       name: program.debugName(decl: d),
       site: program.ast[d].introducer.site,
       linkage: .external,
-      parameters: Array(parameters),
+      genericParameters: Array(parameters),
       inputs: inputs,
       output: .void,
       blocks: [])
@@ -345,7 +345,7 @@ public struct Module {
       name: "",
       site: .empty(at: program.ast[id].site.first()),
       linkage: .external,
-      parameters: [],  // TODO
+      genericParameters: [],  // TODO
       inputs: inputs,
       output: output,
       blocks: [])
@@ -386,7 +386,7 @@ public struct Module {
   /// - Requires: `f` is declared in `self`.
   public func parameterization(in f: Function.ID) -> GenericArguments {
     var result = GenericArguments()
-    for p in functions[f]!.parameters {
+    for p in functions[f]!.genericParameters {
       guard
         let t = MetatypeType(program[p].type),
         let u = GenericTypeParameterType(t.instance)
