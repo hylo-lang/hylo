@@ -453,7 +453,7 @@ extension Module {
       name: "<\(list: parameterization.values), \(useScope)>(\(source.name))",
       site: source.site,
       linkage: .module,
-      parameters: [],
+      genericParameters: [],
       inputs: inputs,
       output: output,
       blocks: [])
