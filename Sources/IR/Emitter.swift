@@ -531,10 +531,10 @@ public struct Emitter {
   /// Returns the lowered conformances of `model` that are exposed to `useScope`.
   private mutating func loweredConformances(
     of model: AnyType, exposedTo useScope: AnyScopeID
-  ) -> Set<LoweredConformance> {
+  ) -> Set<Conformance> {
     guard let conformances = program.relations.conformances[model] else { return [] }
 
-    var result: Set<LoweredConformance> = []
+    var result: Set<Conformance> = []
     for concept in conformances.keys {
       let c = program.conformance(of: model, to: concept, exposedTo: useScope)!
       result.insert(loweredConformance(c, in: useScope))
@@ -545,8 +545,8 @@ public struct Emitter {
   /// Returns the lowered form of `c`, generating function references in `useScope`.
   private mutating func loweredConformance(
     _ c: Core.Conformance, in useScope: AnyScopeID
-  ) -> LoweredConformance {
-    var implementations = LoweredConformance.ImplementationMap()
+  ) -> Conformance {
+    var implementations = Conformance.ImplementationMap()
     for (r, i) in c.implementations.storage {
       switch i {
       case .concrete(let d):
@@ -564,7 +564,7 @@ public struct Emitter {
   /// Returns the lowered form of the requirement implementation `d` in `useScope`.
   private mutating func loweredRequirementImplementation(
     _ d: AnyDeclID, in useScope: AnyScopeID
-  ) -> LoweredConformance.Implementation {
+  ) -> Conformance.Implementation {
     switch d.kind {
     case FunctionDecl.self:
       let r = FunctionReference(to: FunctionDecl.ID(d)!, usedIn: useScope, in: &module)

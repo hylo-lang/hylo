@@ -274,7 +274,7 @@ extension LLVM.Module {
 
   /// Returns the LLVM IR value of the requirement implementation `i`, which is in `ir`.
   private mutating func transpiledRequirementImplementation(
-    _ i: IR.LoweredConformance.Implementation, from ir: IR.Program
+    _ i: IR.Conformance.Implementation, from ir: IR.Program
   ) -> LLVM.Function {
     switch i {
     case .function(let f):
