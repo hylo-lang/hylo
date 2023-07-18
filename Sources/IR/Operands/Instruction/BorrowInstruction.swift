@@ -7,7 +7,7 @@ public struct BorrowInstruction: Instruction {
   public let capability: AccessEffect
 
   /// The type of the borrowed access.
-  public let borrowedType: IRType
+  public let borrowedType: IR.Type_
 
   /// The location of the root object on which an access is borrowed.
   public private(set) var location: Operand
@@ -20,7 +20,7 @@ public struct BorrowInstruction: Instruction {
 
   /// Creates an instance with the given properties.
   fileprivate init(
-    borrowedType: IRType,
+    borrowedType: IR.Type_,
     capability: AccessEffect,
     location: Operand,
     binding: VarDecl.ID?,
@@ -33,7 +33,7 @@ public struct BorrowInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IRType] { [borrowedType] }
+  public var types: [IR.Type_] { [borrowedType] }
 
   public var operands: [Operand] { [location] }
 

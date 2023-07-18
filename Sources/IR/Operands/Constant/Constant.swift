@@ -2,7 +2,7 @@
 public protocol Constant: Hashable {
 
   /// The type of the value.
-  var type: IRType { get }
+  var type: IR.Type_ { get }
 
   /// Returns `true` if `self` is equal to `other`.
   func equals(_ other: any Constant) -> Bool

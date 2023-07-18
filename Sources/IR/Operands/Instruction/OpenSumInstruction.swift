@@ -33,7 +33,7 @@ public struct OpenSumInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IRType] { [.address(payloadType)] }
+  public var types: [IR.Type_] { [.address(payloadType)] }
 
   public var operands: [Operand] { [container] }
 

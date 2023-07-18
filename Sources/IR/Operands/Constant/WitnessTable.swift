@@ -18,7 +18,7 @@ public struct WitnessTable: Constant, Hashable {
   }
 
   /// The Val IR type of this instance.
-  public var type: IRType { .object(WitnessTableType()) }
+  public var type: IR.Type_ { .object(WitnessTableType()) }
 
 }
 

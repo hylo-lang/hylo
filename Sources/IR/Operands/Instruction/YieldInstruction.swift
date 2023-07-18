@@ -19,7 +19,7 @@ public struct YieldInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IRType] { [] }
+  public var types: [IR.Type_] { [] }
 
   public var operands: [Operand] { [projection] }
 

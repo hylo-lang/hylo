@@ -12,7 +12,7 @@ public struct SubfieldViewInstruction: Instruction {
   public let subfield: RecordPath
 
   /// The type of the resulting address.
-  public let resultType: IRType
+  public let resultType: IR.Type_
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
@@ -21,7 +21,7 @@ public struct SubfieldViewInstruction: Instruction {
   fileprivate init(
     base: Operand,
     subfield: RecordPath,
-    subfieldType: IRType,
+    subfieldType: IR.Type_,
     site: SourceRange
   ) {
     self.recordAddress = base
@@ -30,7 +30,7 @@ public struct SubfieldViewInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IRType] { [resultType] }
+  public var types: [IR.Type_] { [resultType] }
 
   public var operands: [Operand] { [recordAddress] }
 

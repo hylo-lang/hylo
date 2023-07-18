@@ -19,7 +19,7 @@ public struct UnsafeCastInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IRType] { [.object(target)] }
+  public var types: [IR.Type_] { [.object(target)] }
 
   public var operands: [Operand] { [source] }
 

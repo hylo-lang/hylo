@@ -4,7 +4,7 @@ import Core
 public struct LoadInstruction: Instruction {
 
   /// The type of the object being loaded.
-  public let objectType: IRType
+  public let objectType: IR.Type_
 
   /// The location of the object is being loaded.
   public private(set) var source: Operand
@@ -13,13 +13,13 @@ public struct LoadInstruction: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(objectType: IRType, from source: Operand, site: SourceRange) {
+  fileprivate init(objectType: IR.Type_, from source: Operand, site: SourceRange) {
     self.objectType = objectType
     self.source = source
     self.site = site
   }
 
-  public var types: [IRType] { [objectType] }
+  public var types: [IR.Type_] { [objectType] }
 
   public var operands: [Operand] { [source] }
 

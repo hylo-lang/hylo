@@ -5,7 +5,7 @@ import Utils
 public protocol Instruction: CustomStringConvertible {
 
   /// The types of the instruction's results (empty for instructions with no result).
-  var types: [IRType] { get }
+  var types: [IR.Type_] { get }
 
   /// The operands of the instruction.
   var operands: [Operand] { get }

@@ -23,20 +23,20 @@ public struct Type: Hashable {
 
   /// Creates an object type.
   public static func object<T: TypeProtocol>(_ type: T) -> Self {
-    IRType(ast: type, isAddress: false)
+    IR.Type_(ast: type, isAddress: false)
   }
 
   /// Creates and address type.
   public static func address<T: TypeProtocol>(_ type: T) -> Self {
-    IRType(ast: type, isAddress: true)
+    IR.Type_(ast: type, isAddress: true)
   }
 
 }
 
-// workaround for https://github.com/apple/swift/issues/67378
-public typealias IRType = Type
+/// An alias for IR.Type that works around https://github.com/apple/swift/issues/67378
+public typealias Type_ = Type
 
-extension IRType: CustomStringConvertible {
+extension IR.Type_: CustomStringConvertible {
 
   public var description: String {
     if isAddress {
