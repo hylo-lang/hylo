@@ -137,7 +137,7 @@ public struct Module {
   }
 
   /// Applies `p` to in this module, which is in `ir`.
-  public mutating func applyPass(_ p: ModulePass, in ir: LoweredProgram) {
+  public mutating func applyPass(_ p: ModulePass, in ir: IR.Program) {
     switch p {
     case .depolymorphize:
       depolymorphize(in: ir)

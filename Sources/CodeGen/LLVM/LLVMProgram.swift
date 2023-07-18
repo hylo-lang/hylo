@@ -18,7 +18,7 @@ public struct LLVMProgram {
   /// - Parameters:
   ///   - target: The machine for which `ir` is transpiled. Defaults to the current host.
   public init(
-    _ ir: LoweredProgram,
+    _ ir: IR.Program,
     mainModule: ModuleDecl.ID,
     for target: LLVM.TargetMachine? = nil
   ) throws {

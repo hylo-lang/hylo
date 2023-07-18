@@ -3,7 +3,7 @@ import IR
 import LLVM
 import Utils
 
-extension LoweredProgram {
+extension IR.Program {
 
   /// Returns the LLVM form of `val` in `module`.
   ///

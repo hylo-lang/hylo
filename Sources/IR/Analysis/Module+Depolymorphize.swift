@@ -4,7 +4,7 @@ import Utils
 extension Module {
 
   /// Generates the non-parametric resilient API of `self`, reading definitions from `ir`.
-  public mutating func depolymorphize(in ir: LoweredProgram) {
+  public mutating func depolymorphize(in ir: IR.Program) {
     let work = functions.keys
     for k in work {
       // Ignore internal functions and functions without definitions.
@@ -22,7 +22,7 @@ extension Module {
 
   /// Replaces uses of parametric types and functions in `f` with their monomorphic or existential
   /// counterparts, reading definitions from `ir`.
-  private mutating func depolymorphize(_ f: Function.ID, in ir: LoweredProgram) {
+  private mutating func depolymorphize(_ f: Function.ID, in ir: IR.Program) {
     for i in blocks(in: f).map(instructions(in:)).joined() {
       switch self[i] {
       case is CallInstruction:
@@ -39,7 +39,7 @@ extension Module {
   /// depolymorphized version of its callee. Otherwise, does nothing.
   ///
   /// - Requires: `i` identifies a `CallInstruction`
-  private mutating func depolymorphize(call i: InstructionID, in ir: LoweredProgram) {
+  private mutating func depolymorphize(call i: InstructionID, in ir: IR.Program) {
     let s = self[i] as! CallInstruction
     guard
       let callee = s.callee.constant as? FunctionReference,
@@ -59,7 +59,7 @@ extension Module {
   /// a depolymorphized version of its callee. Otherwise, does nothing.
   ///
   /// - Requires: `i` identifies a `ProjectInstruction`
-  private mutating func depolymorphize(project i: InstructionID, in ir: LoweredProgram) {
+  private mutating func depolymorphize(project i: InstructionID, in ir: IR.Program) {
     let s = self[i] as! ProjectInstruction
     guard !s.parameterization.isEmpty else { return }
 
@@ -95,7 +95,7 @@ extension Module {
   /// Returns a reference to the monomorphized form of `r`, reading definitions from `ir`.
   @discardableResult
   private mutating func monomorphize(
-    _ r: FunctionReference, in ir: LoweredProgram
+    _ r: FunctionReference, in ir: IR.Program
   ) -> Function.ID {
     monomorphize(r.function, in: ir, for: r.genericArguments, usedIn: r.useScope)
   }
@@ -104,7 +104,7 @@ extension Module {
   /// `useScope`, reading definitions from `ir`.
   @discardableResult
   private mutating func monomorphize(
-    _ f: Function.ID, in ir: LoweredProgram,
+    _ f: Function.ID, in ir: IR.Program,
     for parameterization: GenericArguments, usedIn useScope: AnyScopeID
   ) -> Function.ID {
     let result = demandMonomorphizedDeclaration(
@@ -432,7 +432,7 @@ extension Module {
   /// Returns the identity of the Val IR function monomorphizing `f` for given `parameterization`
   /// in `useScope`.
   private mutating func demandMonomorphizedDeclaration(
-    of f: Function.ID, in ir: LoweredProgram,
+    of f: Function.ID, in ir: IR.Program,
     for parameterization: GenericArguments, usedIn useScope: AnyScopeID
   ) -> Function.ID {
     let result = Function.ID(monomorphized: f, for: parameterization)
