@@ -544,7 +544,7 @@ public struct Emitter {
 
   /// Returns the lowered form of `c`, generating function references in `useScope`.
   private mutating func loweredConformance(
-    _ c: Conformance, in useScope: AnyScopeID
+    _ c: Core.Conformance, in useScope: AnyScopeID
   ) -> LoweredConformance {
     var implementations = LoweredConformance.ImplementationMap()
     for (r, i) in c.implementations.storage {
@@ -1974,7 +1974,7 @@ public struct Emitter {
   /// Inserts the IR for deinitializing the contents of `storage` at `point` in `module`, using `c`
   /// to identify the deinitializer to apply, anchoring new instructions to `site`.
   private static func insertDeinit(
-    _ storage: Operand, withConformanceToDeinitializable c: Conformance, at site: SourceRange,
+    _ storage: Operand, withConformanceToDeinitializable c: Core.Conformance, at site: SourceRange,
     _ point: InsertionPoint, in module: inout Module
   ) {
     let d = module.demandDeinitDeclaration(from: c)
@@ -2075,7 +2075,7 @@ public struct Emitter {
     _ access: AccessEffect,
     of value: Operand,
     to storage: Operand,
-    withConformanceToMovable c: Conformance,
+    withConformanceToMovable c: Core.Conformance,
     at site: SourceRange
   ) {
     let oper = module.demandMoveOperatorDeclaration(access, from: c)

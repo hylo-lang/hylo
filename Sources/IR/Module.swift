@@ -209,7 +209,7 @@ public struct Module {
 
   /// Returns the identity of the Val IR function implementing the deinitializer defined in
   /// conformance `c`.
-  mutating func demandDeinitDeclaration(from c: Conformance) -> Function.ID {
+  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
     let d = program.ast.deinitRequirement()
     switch c.implementations[d]! {
     case .concrete:
@@ -226,7 +226,7 @@ public struct Module {
   ///
   /// - Requires: `k` is either `.set` or `.inout`
   mutating func demandMoveOperatorDeclaration(
-    _ k: AccessEffect, from c: Conformance
+    _ k: AccessEffect, from c: Core.Conformance
   ) -> Function.ID {
     let d = program.ast.moveRequirement(k)
     switch c.implementations[d]! {

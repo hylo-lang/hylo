@@ -10,13 +10,13 @@ public struct MoveInstruction: Instruction {
   public private(set) var target: Operand
 
   /// The conformance of `target`'s type to `Movable` implementing its move operators.
-  public let movable: Conformance
+  public let movable: Core.Conformance
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(object: Operand, target: Operand, movable: Conformance, site: SourceRange) {
+  fileprivate init(object: Operand, target: Operand, movable: Core.Conformance, site: SourceRange) {
     self.object = object
     self.target = target
     self.movable = movable
@@ -50,7 +50,7 @@ extension Module {
   ///   - object: The object to move. Must have an object type.
   ///   - target: The location to initialize or assign. Must have an address type.
   func makeMove(
-    _ object: Operand, to target: Operand, usingConformance movable: Conformance,
+    _ object: Operand, to target: Operand, usingConformance movable: Core.Conformance,
     at site: SourceRange
   ) -> MoveInstruction {
     precondition(type(of: object).isObject)
