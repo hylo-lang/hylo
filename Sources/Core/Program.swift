@@ -1,6 +1,6 @@
 import Utils
 
-/// A type representing a Val program and its properties at a some stage of compilation.
+/// Types representing Val programs at some stage after syntactic and scope analysis.
 public protocol Program {
 
   /// The AST of the program.
