@@ -6,7 +6,7 @@ import Utils
 extension LLVM.Module {
 
   /// Creates the LLVM transpilation of the Val IR module `m` in `ir`.
-  init(transpiling m: ModuleDecl.ID, from ir: LoweredProgram) {
+  init(lowering m: ModuleDecl.ID, from ir: LoweredProgram) {
     let source = ir.modules[m]!
     self.init(source.name)
 
@@ -18,28 +18,28 @@ extension LLVM.Module {
     }
   }
 
-  /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
+  /// Lowers and incorporates `g`, which is a function of `m` in `ir`.
   mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
-    let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
+    let v = loweredConstant(m.globals[g], usedIn: m, from: ir)
     let d = declareGlobalVariable("\(m.id)\(g)", v.type)
     setInitializer(v, for: d)
     setLinkage(.private, for: d)
     setGlobalConstant(true, for: d)
   }
 
-  /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
+  /// Lowers and incorporates `f`, which is a function or subscript of `m` in `ir`.
   mutating func incorporate(_ f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram) {
-    // Don't transpile generic functions.
+    // Don't lower generic functions.
     if m[f].isGeneric {
       return
     }
 
     if m[f].isSubscript {
       let d = declare(subscript: f, of: m, from: ir)
-      transpile(contentsOf: f, of: m, from: ir, into: d)
+      lower(contentsOf: f, of: m, from: ir, into: d)
     } else {
       let d = declare(function: f, of: m, from: ir)
-      transpile(contentsOf: f, of: m, from: ir, into: d)
+      lower(contentsOf: f, of: m, from: ir, into: d)
       if f == m.entryFunction {
         defineMain(calling: f, of: m, from: ir)
       }
@@ -142,11 +142,11 @@ extension LLVM.Module {
     return f
   }
 
-  /// Returns the type of a transpiled function whose type in Val is `t`.
+  /// Returns the lowered type of a function whose type in Val is `t`.
   ///
-  /// - Note: the type of a function in Val IR typically doesn't match the type of its transpiled
+  /// - Note: the type of a function in Val IR typically doesn't match the type of its lowerd
   ///   form 1-to-1, as return values are often passed by references.
-  private mutating func transpiledType(_ t: LambdaType) -> LLVM.FunctionType {
+  private mutating func lowerdType(_ t: LambdaType) -> LLVM.FunctionType {
     // Return values are passed by reference.
     var parameters: Int = t.inputs.count + 1
 
@@ -159,7 +159,7 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM IR value corresponding to the Val IR constant `c` when used in `m` in `ir`.
-  private mutating func transpiledConstant(
+  private mutating func loweredConstant(
     _ c: any IR.Constant,
     usedIn m: IR.Module,
     from ir: LoweredProgram
@@ -178,7 +178,7 @@ extension LLVM.Module {
       return LLVM.ArrayConstant(bytes: v.contents, in: &self)
 
     case let v as IR.WitnessTable:
-      return transpiledWitnessTable(v, usedIn: m, from: ir)
+      return loweredWitnessTable(v, usedIn: m, from: ir)
 
     case let v as IR.PointerConstant:
       return global(named: "\(v.container)\(v.id)")!
@@ -187,10 +187,10 @@ extension LLVM.Module {
       return declare(v, from: ir)
 
     case let v as MetatypeType:
-      return transpiledMetatype(of: v.instance, usedIn: m, from: ir)
+      return loweredMetatype(of: v.instance, usedIn: m, from: ir)
 
     case let v as TraitType:
-      return transpiledTrait(v, usedIn: m, from: ir)
+      return loweredTrait(v, usedIn: m, from: ir)
 
     case is IR.Poison:
       let t = ir.llvm(c.type.ast, in: &self)
@@ -205,7 +205,7 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM IR value of the witness table `t` used in `m` in `ir`.
-  private mutating func transpiledWitnessTable(
+  private mutating func loweredWitnessTable(
     _ t: WitnessTable,
     usedIn m: IR.Module,
     from ir: LoweredProgram
@@ -224,7 +224,7 @@ extension LLVM.Module {
 
     // Encode the table's header.
     var tableContents: [LLVM.IRValue] = [
-      transpiledMetatype(of: t.witness, usedIn: m, from: ir),
+      loweredMetatype(of: t.witness, usedIn: m, from: ir),
       word().constant(UInt64(t.conformances.count)),
     ]
 
@@ -233,7 +233,7 @@ extension LLVM.Module {
     var implementations: [LLVM.IRValue] = []
     for c in t.conformances {
       let entry: [LLVM.IRValue] = [
-        transpiledTrait(c.concept, usedIn: m, from: ir),
+        loweredTrait(c.concept, usedIn: m, from: ir),
         word().constant(UInt64(implementations.count)),
       ]
       entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
@@ -241,7 +241,7 @@ extension LLVM.Module {
       for (r, d) in c.implementations.storage {
         let requirement: [LLVM.IRValue] = [
           word().constant(UInt64(r.rawValue)),
-          transpiledRequirementImplementation(d, from: ir),
+          loweredRequirementImplementation(d, from: ir),
         ]
         implementations.append(LLVM.StructConstant(aggregating: requirement, in: &self))
       }
@@ -273,7 +273,7 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM IR value of the requirement implementation `i`, which is in `ir`.
-  private mutating func transpiledRequirementImplementation(
+  private mutating func loweredRequirementImplementation(
     _ i: IR.LoweredConformance.Implementation, from ir: LoweredProgram
   ) -> LLVM.Function {
     switch i {
@@ -285,21 +285,21 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
-  private mutating func transpiledMetatype(
+  private mutating func loweredMetatype(
     of t: AnyType,
     usedIn m: IR.Module,
     from ir: LoweredProgram
   ) -> LLVM.GlobalVariable {
     switch t.base {
     case let u as ProductType:
-      return transpiledMetatype(of: u, usedIn: m, from: ir)
+      return loweredMetatype(of: u, usedIn: m, from: ir)
     default:
       fatalError("not implemented")
     }
   }
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
-  private mutating func transpiledMetatype(
+  private mutating func loweredMetatype(
     of t: ProductType,
     usedIn m: IR.Module,
     from ir: LoweredProgram
@@ -333,7 +333,7 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
-  private mutating func transpiledTrait(
+  private mutating func loweredTrait(
     _ t: TraitType, usedIn m: IR.Module, from ir: LoweredProgram
   ) -> LLVM.GlobalVariable {
     // Check if we already created the trait's instance.
@@ -360,15 +360,15 @@ extension LLVM.Module {
     return instance
   }
 
-  /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
+  /// Inserts and returns the lowered declaration of `ref`, which is in `ir`.
   private mutating func declare(
     _ ref: IR.FunctionReference, from ir: LoweredProgram
   ) -> LLVM.Function {
-    let t = transpiledType(LambdaType(ref.type.ast)!)
+    let t = loweredType(LambdaType(ref.type.ast)!)
     return declareFunction(ir.mangle(ref.function), t)
   }
 
-  /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
+  /// Inserts and returns the lowered declaration of `f`, which is a function of `m` in `ir`.
   private mutating func declare(
     function f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram
   ) -> LLVM.Function {
@@ -385,7 +385,7 @@ extension LLVM.Module {
     return result
   }
 
-  /// Inserts and returns the transpiled declaration of `f`, which is a subscript of `m` in `ir`.
+  /// Inserts and returns the lowered declaration of `f`, which is a subscript of `m` in `ir`.
   private mutating func declare(
     subscript f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram
   ) -> LLVM.Function {
@@ -401,9 +401,9 @@ extension LLVM.Module {
     return coroutine
   }
 
-  /// Inserts into `transpilation `the transpiled contents of `f`, which is a function or subscript
+  /// Inserts into `transpilation `the lowered contents of `f`, which is a function or subscript
   /// of `m` in `ir`.
-  private mutating func transpile(
+  private mutating func lower(
     contentsOf f: IR.Function.ID,
     of m: IR.Module,
     from ir: LoweredProgram,
@@ -424,7 +424,7 @@ extension LLVM.Module {
     /// The address of the function's frame if `f` is a subscript. Otherwise, `nil`.
     let frame: LLVM.IRValue?
 
-    /// The prologue of the transpiled function, which contains its stack allocations.
+    /// The prologue of the lowered function, which contains its stack allocations.
     let prologue = appendBlock(named: "prologue", to: transpilation)
 
     // In subscripts, parameters are laid out after the frame buffer.
@@ -562,7 +562,7 @@ extension LLVM.Module {
       let callee: LLVM.IRValue
       let calleeType: LLVM.IRType
       if case .constant(let f) = s.callee {
-        callee = transpiledConstant(f, usedIn: m, from: ir)
+        callee = loweredConstant(f, usedIn: m, from: ir)
         calleeType = LLVM.Function(callee)!.valueType
       } else {
         let c = unpackLambda(s.callee)
@@ -764,7 +764,7 @@ extension LLVM.Module {
       let t = LambdaType(s.callee.type.ast)!
 
       if t.environment == .void {
-        register[.register(i, 0)] = transpiledConstant(s.callee, usedIn: m, from: ir)
+        register[.register(i, 0)] = loweredConstant(s.callee, usedIn: m, from: ir)
       } else {
         fatalError("not implemented")
       }
@@ -875,7 +875,7 @@ extension LLVM.Module {
     /// Returns the LLVM IR value corresponding to the Val IR operand `o`.
     func llvm(_ o: IR.Operand) -> LLVM.IRValue {
       if case .constant(let c) = o {
-        return transpiledConstant(c, usedIn: m, from: ir)
+        return loweredConstant(c, usedIn: m, from: ir)
       } else {
         return register[o]!
       }
@@ -893,7 +893,7 @@ extension LLVM.Module {
         lambda = insertLoad(ptr, from: llvm(o), at: insertionPoint)
       }
 
-      let llvmType = transpiledType(valType)
+      let llvmType = loweredType(valType)
       if valType.environment == .void {
         return .init(function: lambda, type: llvmType, environment: nil)
       } else {

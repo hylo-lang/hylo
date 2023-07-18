@@ -4,7 +4,7 @@ import IR
 import LLVM
 import Utils
 
-/// A Val program transpiled to LLVM.
+/// A Val program lowered to LLVM.
 public struct LLVMProgram {
 
   /// The machine for which the program is compiled.
@@ -13,10 +13,10 @@ public struct LLVMProgram {
   /// The LLVM modules in the program.
   public private(set) var llvmModules: [ModuleDecl.ID: LLVM.Module] = [:]
 
-  /// Creates a transpiling `ir`, whose main module is `mainModule`, for `target`.
+  /// Creates a lowered `ir`, whose main module is `mainModule`, for `target`.
   ///
   /// - Parameters:
-  ///   - target: The machine for which `ir` is transpiled. Defaults to the current host.
+  ///   - target: The machine for which `ir` is lowered. Defaults to the current host.
   public init(
     _ ir: LoweredProgram,
     mainModule: ModuleDecl.ID,
@@ -24,7 +24,7 @@ public struct LLVMProgram {
   ) throws {
     self.target = try target ?? LLVM.TargetMachine(for: .host())
     for m in ir.modules.keys {
-      let transpilation = LLVM.Module(transpiling: m, from: ir)
+      let transpilation = LLVM.Module(lowering: m, from: ir)
       do {
         try transpilation.verify()
       } catch {
