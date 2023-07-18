@@ -1,7 +1,7 @@
 import Core
 
 /// The lowered (static) type of an entity.
-public struct LoweredType: Hashable {
+public struct Type: Hashable {
 
   /// A high-level representation of the type.
   public let ast: AnyType
@@ -23,17 +23,20 @@ public struct LoweredType: Hashable {
 
   /// Creates an object type.
   public static func object<T: TypeProtocol>(_ type: T) -> Self {
-    IR.LoweredType(ast: type, isAddress: false)
+    IRType(ast: type, isAddress: false)
   }
 
   /// Creates and address type.
   public static func address<T: TypeProtocol>(_ type: T) -> Self {
-    IR.LoweredType(ast: type, isAddress: true)
+    IRType(ast: type, isAddress: true)
   }
 
 }
 
-extension IR.LoweredType: CustomStringConvertible {
+// workaround for https://github.com/apple/swift/issues/67378
+public typealias IRType = Type
+
+extension IRType: CustomStringConvertible {
 
   public var description: String {
     if isAddress {

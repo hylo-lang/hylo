@@ -22,7 +22,7 @@ public struct PointerToAddressInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IR.LoweredType] { [.address(target.bareType)] }
+  public var types: [IRType] { [.address(target.bareType)] }
 
   public var operands: [Operand] { [source] }
 

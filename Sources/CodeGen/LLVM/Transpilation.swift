@@ -595,7 +595,7 @@ extension LLVM.Module {
       let s = m[i] as! CallFFIInstruction
       let parameters = s.operands.map({ ir.llvm(m.type(of: $0).ast, in: &self) })
 
-      let returnType: IRType
+      let returnType: LLVM.IRType
       if s.returnType.ast.isVoidOrNever {
         returnType = void
       } else {

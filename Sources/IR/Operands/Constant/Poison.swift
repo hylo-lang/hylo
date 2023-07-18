@@ -2,7 +2,7 @@
 public struct Poison: Constant, Hashable {
 
   /// The type of the poison.
-  public let type: IR.LoweredType
+  public let type: IRType
 
 }
 

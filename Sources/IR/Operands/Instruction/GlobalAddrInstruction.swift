@@ -28,7 +28,7 @@ public struct GlobalAddrInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IR.LoweredType] { [.address(valueType)] }
+  public var types: [IRType] { [.address(valueType)] }
 
   public var operands: [Operand] { [] }
 

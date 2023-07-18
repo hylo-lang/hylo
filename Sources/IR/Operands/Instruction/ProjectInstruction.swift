@@ -37,7 +37,7 @@ public struct ProjectInstruction: Instruction {
   }
 
   /// The types of the instruction's results.
-  public var types: [IR.LoweredType] {
+  public var types: [IRType] {
     [.address(projection.bareType)]
   }
 

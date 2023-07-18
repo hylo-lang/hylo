@@ -11,20 +11,20 @@ public struct WrapExistentialAddrInstruction: Instruction {
   public private(set) var table: Operand
 
   /// The type of the existential container.
-  public let interface: IR.LoweredType
+  public let interface: IRType
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(witness: Operand, table: Operand, interface: IR.LoweredType, site: SourceRange) {
+  fileprivate init(witness: Operand, table: Operand, interface: IRType, site: SourceRange) {
     self.witness = witness
     self.table = table
     self.interface = interface
     self.site = site
   }
 
-  public var types: [IR.LoweredType] { [interface] }
+  public var types: [IRType] { [interface] }
 
   public var operands: [Operand] { [witness, table] }
 

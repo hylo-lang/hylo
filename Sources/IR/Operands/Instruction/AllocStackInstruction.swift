@@ -15,7 +15,7 @@ public struct AllocStackInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IR.LoweredType] { [.address(allocatedType)] }
+  public var types: [IRType] { [.address(allocatedType)] }
 
   public var operands: [Operand] { [] }
 

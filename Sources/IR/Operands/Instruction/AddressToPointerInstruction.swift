@@ -18,7 +18,7 @@ public struct AddressToPointerInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IR.LoweredType] { [.object(BuiltinType.ptr)] }
+  public var types: [IRType] { [.object(BuiltinType.ptr)] }
 
   public var operands: [Operand] { [source] }
 

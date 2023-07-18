@@ -13,7 +13,7 @@ public struct BufferConstant: Constant, Hashable {
   }
 
   /// The Val IR type of this instance.
-  public var type: IR.LoweredType { .object(BuiltinType.ptr) }
+  public var type: IRType { .object(BuiltinType.ptr) }
 
 }
 
