@@ -39,7 +39,7 @@ public struct Conformance {
 
 }
 
-extension Conformance: Equatable {
+extension IR.Conformance: Equatable {
 
   public static func == (l: Self, r: Self) -> Bool {
     (l.concept == r.concept) && (l.source == r.source)
@@ -47,7 +47,7 @@ extension Conformance: Equatable {
 
 }
 
-extension Conformance: Hashable {
+extension IR.Conformance: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     concept.hash(into: &hasher)
