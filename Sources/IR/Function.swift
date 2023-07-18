@@ -52,7 +52,7 @@ public struct Function {
   /// The new block will become the function's entry if `self` contains no block before
   /// `appendBlock` is called.
   mutating func appendBlock<T: ScopeID>(
-    in scope: T, taking parameters: [LoweredType]
+    in scope: T, taking parameters: [IR.LoweredType]
   ) -> Blocks.Address {
     blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters))
   }

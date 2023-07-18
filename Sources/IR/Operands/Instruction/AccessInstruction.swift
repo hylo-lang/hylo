@@ -41,7 +41,7 @@ public struct AccessInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [LoweredType] { [.address(accessedType)] }
+  public var types: [IR.LoweredType] { [.address(accessedType)] }
 
   public var operands: [Operand] { [source] }
 

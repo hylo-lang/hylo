@@ -23,17 +23,17 @@ public struct LoweredType: Hashable {
 
   /// Creates an object type.
   public static func object<T: TypeProtocol>(_ type: T) -> Self {
-    LoweredType(ast: type, isAddress: false)
+    IR.LoweredType(ast: type, isAddress: false)
   }
 
   /// Creates and address type.
   public static func address<T: TypeProtocol>(_ type: T) -> Self {
-    LoweredType(ast: type, isAddress: true)
+    IR.LoweredType(ast: type, isAddress: true)
   }
 
 }
 
-extension LoweredType: CustomStringConvertible {
+extension IR.LoweredType: CustomStringConvertible {
 
   public var description: String {
     if isAddress {

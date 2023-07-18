@@ -15,7 +15,7 @@ public struct BranchInstruction: Terminator {
     self.site = site
   }
 
-  public var types: [LoweredType] { [] }
+  public var types: [IR.LoweredType] { [] }
 
   public var operands: [Operand] { [] }
 

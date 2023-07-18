@@ -52,7 +52,7 @@ public struct ProjectBundleInstruction: Instruction {
   }
 
   /// The types of the instruction's results.
-  public var types: [LoweredType] {
+  public var types: [IR.LoweredType] {
     [.address(projection.bareType)]
   }
 
