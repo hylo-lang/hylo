@@ -146,7 +146,7 @@ extension LLVM.Module {
   ///
   /// - Note: the type of a function in Val IR typically doesn't match the type of its lowerd
   ///   form 1-to-1, as return values are often passed by references.
-  private mutating func lowerdType(_ t: LambdaType) -> LLVM.FunctionType {
+  private mutating func loweredType(_ t: LambdaType) -> LLVM.FunctionType {
     // Return values are passed by reference.
     var parameters: Int = t.inputs.count + 1
 
