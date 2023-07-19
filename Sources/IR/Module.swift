@@ -69,7 +69,7 @@ public struct Module {
   }
 
   /// Returns the type of `operand`.
-  public func type(of operand: Operand) -> IR.Type_ {
+  public func type(of operand: Operand) -> IR.`Type` {
     switch operand {
     case .register(let instruction, let index):
       return functions[instruction.function]![instruction.block][instruction.address].types[index]
@@ -416,7 +416,7 @@ public struct Module {
     assert(ir.blocks.isEmpty)
 
     // In functions, the last parameter of the entry denotes the function's return value.
-    var parameters = ir.inputs.map({ IR.Type_.address($0.type.bareType) })
+    var parameters = ir.inputs.map({ IR.`Type`.address($0.type.bareType) })
     if !ir.isSubscript {
       parameters.append(.address(ir.output))
     }
@@ -431,7 +431,7 @@ public struct Module {
   @discardableResult
   mutating func appendBlock<T: ScopeID>(
     in scope: T,
-    taking parameters: [IR.Type_] = [],
+    taking parameters: [IR.`Type`] = [],
     to f: Function.ID
   ) -> Block.ID {
     let a = functions[f]!.appendBlock(in: scope, taking: parameters)

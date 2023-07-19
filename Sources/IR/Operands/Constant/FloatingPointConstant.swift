@@ -7,7 +7,7 @@ public struct FloatingPointConstant: Constant, Hashable {
   public let value: String
 
   /// The Val IR type of this instance.
-  public let type: IR.Type_
+  public let type: IR.`Type`
 
   /// Creates a new floating-point Val IR constant with value `v` and the given `type`.
   private init(_ v: String, type: BuiltinType) {

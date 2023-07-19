@@ -470,8 +470,8 @@ extension TypedProgram {
   ///
   /// This method has no effect if `arguments` is empty.
   fileprivate func monomorphize(
-    _ generic: IR.Type_, applying arguments: GenericArguments
-  ) -> IR.Type_ {
+    _ generic: IR.`Type`, applying arguments: GenericArguments
+  ) -> IR.`Type` {
     let t = monomorphize(generic.ast, for: arguments)
     return .init(ast: t, isAddress: generic.isAddress)
   }

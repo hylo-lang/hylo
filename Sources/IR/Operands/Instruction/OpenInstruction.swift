@@ -20,7 +20,7 @@ public struct OpenInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IR.Type_] { [.address(type), .object(BuiltinType.i(1))] }
+  public var types: [IR.`Type`] { [.address(type), .object(BuiltinType.i(1))] }
 
   public var operands: [Operand] { [container] }
 

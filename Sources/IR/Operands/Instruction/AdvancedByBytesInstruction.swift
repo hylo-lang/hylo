@@ -23,7 +23,7 @@ public struct AdvancedByBytesInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [IR.Type_] { [.object(BuiltinType.ptr)] }
+  public var types: [IR.`Type`] { [.object(BuiltinType.ptr)] }
 
   public var operands: [Operand] { [base, byteOffset] }
 

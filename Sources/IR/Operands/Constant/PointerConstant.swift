@@ -16,7 +16,7 @@ public struct PointerConstant: Constant, Hashable {
   }
 
   /// The Val IR type of this instance.
-  public var type: IR.Type_ { .object(BuiltinType.ptr) }
+  public var type: IR.`Type` { .object(BuiltinType.ptr) }
 
 }
 

@@ -11,7 +11,7 @@ public struct UnrechableInstruction: Terminator {
     self.site = site
   }
 
-  public var types: [IR.Type_] { [] }
+  public var types: [IR.`Type`] { [] }
 
   public var operands: [Operand] { [] }
 

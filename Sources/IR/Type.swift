@@ -1,6 +1,9 @@
 import Core
 
 /// The lowered (static) type of an entity.
+///
+/// Note: when qualified, this must be spelled IR.`Type`
+/// (https://github.com/apple/swift/issues/67378)
 public struct Type: Hashable {
 
   /// A high-level representation of the type.
@@ -23,20 +26,17 @@ public struct Type: Hashable {
 
   /// Creates an object type.
   public static func object<T: TypeProtocol>(_ type: T) -> Self {
-    IR.Type_(ast: type, isAddress: false)
+    IR.`Type`(ast: type, isAddress: false)
   }
 
   /// Creates and address type.
   public static func address<T: TypeProtocol>(_ type: T) -> Self {
-    IR.Type_(ast: type, isAddress: true)
+    IR.`Type`(ast: type, isAddress: true)
   }
 
 }
 
-/// An alias for IR.Type that works around https://github.com/apple/swift/issues/67378
-public typealias Type_ = Type
-
-extension IR.Type_: CustomStringConvertible {
+extension IR.`Type`: CustomStringConvertible {
 
   public var description: String {
     if isAddress {
