@@ -1,7 +1,14 @@
 import Core
 
 /// A program lowered to Val IR.
-public struct Program {
+public struct Program: Core.Program {
+  public var ast: Core.AST { syntax.ast }
+
+  public var nodeToScope: Core.ASTProperty<Core.AnyScopeID> { syntax.nodeToScope }
+
+  public var scopeToDecls: Core.ASTProperty<[Core.AnyDeclID]> { syntax.scopeToDecls }
+
+  public var varToBinding: [Core.VarDecl.ID: Core.BindingDecl.ID] { syntax.varToBinding }
 
   /// The high-level form of the program.
   public let syntax: TypedProgram
@@ -23,7 +30,7 @@ public struct Program {
 
   /// Applies `p` to the modules in `self`.
   public mutating func applyPass(_ p: ModulePass) {
-    for k in syntax.ast.modules {
+    for k in ast.modules {
       modules[k]!.applyPass(p, in: self)
     }
   }
