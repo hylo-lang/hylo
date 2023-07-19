@@ -2,17 +2,46 @@ import Core
 import Foundation
 import Utils
 
+/// Types that can act as the context for an `IR.Module`.
+public protocol ModuleContext: Core.Program {
+
+  /// The type relations of the program.
+  //  var relations: TypeRelations { get }
+
+  var typed: TypedProgram { get }
+
+}
+
+extension Core.TypedProgram: ModuleContext {
+
+  public var typed: TypedProgram { self }
+
+}
+
+extension IR.Program: ModuleContext {
+
+  //  public var relations: Core.TypeRelations {
+  //    base.relations
+  //  }
+
+  public var typed: TypedProgram { base }
+
+}
+
+public typealias ModuleUnderConstruction = Module<Core.TypedProgram>
+public typealias FinishedModule = Module<IR.Program>
+
 /// A module lowered to Val IR.
 ///
 /// An IR module is notionally composed of a collection of functions, one of which may be
 /// designated as its entry point (i.e., the `main` function of a Val program).
-public struct ModuleUnderConstruction {
+public struct Module<Context: ModuleContext> {
 
   /// The identity of a global defined in a Val IR module.
   public typealias GlobalID = Int
 
   /// The program defining the functions in `self`.
-  public let program: TypedProgram
+  public let program: Context
 
   /// The module's identifier.
   public let id: ModuleDecl.ID
@@ -29,21 +58,28 @@ public struct ModuleUnderConstruction {
   /// The module's entry function, if any.
   public private(set) var entryFunction: Function.ID?
 
+}
+
+extension IR.ModuleUnderConstruction {
+
   /// Creates an instance lowering `m` in `p`, reporting errors and warnings to
   /// `diagnostics`.
   ///
   /// - Requires: `m` is a valid ID in `p`.
   /// - Throws: `Diagnostics` if lowering fails.
   public init(
-    lowering m: ModuleDecl.ID, in p: TypedProgram, diagnostics: inout DiagnosticSet
+    lowering m: ModuleDecl.ID, in p: Context, diagnostics: inout DiagnosticSet
   ) throws {
     self.program = p
     self.id = m
 
-    var emitter = Emitter(program: program)
+    var emitter = Emitter(program: program.typed)
     emitter.lower(module: m, into: &self, diagnostics: &diagnostics)
     try diagnostics.throwOnError()
   }
+}
+
+extension IR.Module {
 
   /// The module's name.
   public var name: String {
@@ -135,6 +171,9 @@ public struct ModuleUnderConstruction {
   public func isWellFormed(function f: Function.ID) -> Bool {
     return true
   }
+}
+
+extension ModuleUnderConstruction {
 
   /// Applies `p` to in this module, which is in `ir`.
   public mutating func applyPass(_ p: ModulePass, in ir: IR.Program) {

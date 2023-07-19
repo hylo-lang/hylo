@@ -90,7 +90,8 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(addressToPointer i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(addressToPointer i: InstructionID, in context: inout NormalizationContext) -> PC?
+    {
       initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
@@ -111,7 +112,8 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(advancedByBytes i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(advancedByBytes i: InstructionID, in context: inout NormalizationContext) -> PC?
+    {
       let s = self[i] as! AdvancedByBytesInstruction
       consume(s.base, with: i, at: s.site, in: &context)
       consume(s.byteOffset, with: i, at: s.site, in: &context)
@@ -405,7 +407,8 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(pointerToAddress i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(pointerToAddress i: InstructionID, in context: inout NormalizationContext) -> PC?
+    {
       let s = self[i] as! PointerToAddressInstruction
       consume(s.source, with: i, at: s.site, in: &context)
 
@@ -490,7 +493,9 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapExistentialAddr i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(wrapExistentialAddr i: InstructionID, in context: inout NormalizationContext)
+      -> PC?
+    {
       let s = self[i] as! WrapExistentialAddrInstruction
       if case .constant = s.witness {
         // Operand is a constant.
@@ -613,7 +618,9 @@ extension ModuleUnderConstruction {
   }
 
   /// Assigns in `context` a fully initialized object to each virtual register defined by `i`.
-  private func initializeRegisters(createdBy i: InstructionID, in context: inout NormalizationContext) {
+  private func initializeRegisters(
+    createdBy i: InstructionID, in context: inout NormalizationContext
+  ) {
     for (j, t) in self[i].types.enumerated() {
       context.locals[.register(i, j)] = .object(
         .init(layout: .init(of: t.ast, definedIn: program), value: .full(.initialized)))
@@ -681,7 +688,9 @@ extension NormalizationContext {
 
 /// A map fron function block to the context of the abstract interpreter before and after the
 /// evaluation of its instructions.
-private typealias Contexts = [Function.Blocks.Address: (before: NormalizationContext, after: NormalizationContext)]
+private typealias Contexts = [Function.Blocks.Address: (
+  before: NormalizationContext, after: NormalizationContext
+)]
 
 /// The initialization state of an object or sub-object.
 ///

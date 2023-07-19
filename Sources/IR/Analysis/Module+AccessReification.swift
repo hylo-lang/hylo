@@ -20,11 +20,11 @@ import Utils
 /// reifiable accesses form a forest whose leaves do not have reifiable user. Iterating over the
 /// elements in `W` eliminates those leaves, forming a smaller forest until `W` is empty.
 ///
-/// Step 2b is implemented by `Module.forEachClient(of:)` and `Module.requests(_:)`. The former
-/// iterates over all the uses of an instruction, traversing instructions that compute derived
-/// addresses (.e.g., `subfield_view`). The latter returns the set of requested capabilities for
-/// each user. As well-formed accesses to memory must be done via `borrow` or `load`, there's a
-/// fairly small number of instructions to consider.
+/// Step 2b is implemented by `ModuleUnderConstruction.forEachClient(of:)` and
+/// `ModuleUnderConstruction.requests(_:)`. The former iterates over all the uses of an instruction,
+/// traversing instructions that compute derived addresses (.e.g., `subfield_view`). The latter
+/// returns the set of requested capabilities for each user. As well-formed accesses to memory must
+/// be done via `borrow` or `load`, there's a fairly small number of instructions to consider.
 ///
 /// Note that `move` are assumed to request `inout` only as assignment should be preferred over
 /// initialization. This assumption is sound because if the reifiable access only provides `set`,

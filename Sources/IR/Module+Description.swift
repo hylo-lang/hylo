@@ -1,6 +1,6 @@
 import Utils
 
-extension ModuleUnderConstruction: CustomStringConvertible, TextOutputStreamable {
+extension IR.Module: CustomStringConvertible, TextOutputStreamable {
 
   public var description: String {
     var output = ""
