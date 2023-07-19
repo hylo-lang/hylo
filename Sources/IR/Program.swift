@@ -2,16 +2,16 @@ import Core
 
 /// A program lowered to Val IR.
 public struct Program: Core.Program {
-  public var ast: Core.AST { syntax.ast }
+  public var ast: Core.AST { base.ast }
 
-  public var nodeToScope: Core.ASTProperty<Core.AnyScopeID> { syntax.nodeToScope }
+  public var nodeToScope: Core.ASTProperty<Core.AnyScopeID> { base.nodeToScope }
 
-  public var scopeToDecls: Core.ASTProperty<[Core.AnyDeclID]> { syntax.scopeToDecls }
+  public var scopeToDecls: Core.ASTProperty<[Core.AnyDeclID]> { base.scopeToDecls }
 
-  public var varToBinding: [Core.VarDecl.ID : Core.BindingDecl.ID] { syntax.varToBinding }
+  public var varToBinding: [Core.VarDecl.ID : Core.BindingDecl.ID] { base.varToBinding }
 
   /// The high-level form of the program.
-  public let syntax: TypedProgram
+  public let base: TypedProgram
 
   /// A map from module ID to its lowered form.
   public private(set) var modules: [ModuleDecl.ID: IR.Module]
@@ -19,7 +19,7 @@ public struct Program: Core.Program {
   /// Creates an instance with the given properties.
   public init(syntax: TypedProgram, modules: [ModuleDecl.ID: IR.Module]) {
     precondition(modules.values.elementCount(where: { $0.entryFunction != nil }) <= 1)
-    self.syntax = syntax
+    self.base = syntax
     self.modules = modules
   }
 
@@ -39,9 +39,9 @@ public struct Program: Core.Program {
   public func module(defining f: Function.ID) -> ModuleDecl.ID {
     switch f.value {
     case .lowered(let d):
-      return syntax.module(containing: syntax[d].scope)
+      return base.module(containing: base[d].scope)
     case .loweredSubscript(let d):
-      return syntax.module(containing: syntax[d].scope)
+      return base.module(containing: base[d].scope)
     case .monomorphized:
       fatalError("not implemented")
     case .existentialized(let i):
@@ -67,12 +67,12 @@ public struct Program: Core.Program {
 
   /// Returns the mangled name of `t`.
   public func mangle(_ t: ProductType) -> String {
-    syntax.debugName(decl: t.decl)
+    base.debugName(decl: t.decl)
   }
 
   /// Returns the mangled name of `t`.
   public func mangle(_ t: TraitType) -> String {
-    syntax.debugName(decl: t.decl)
+    base.debugName(decl: t.decl)
   }
 
   /// Returns the mangled name of `t`.
@@ -104,9 +104,9 @@ public struct Program: Core.Program {
   /// Returns the mangled name of `f`.
   public func mangle<T: DeclID>(_ d: T) -> String {
     if let f = FunctionDecl.ID(d) {
-      return ast[f].llvmName ?? syntax.debugName(decl: f)
+      return ast[f].llvmName ?? base.debugName(decl: f)
     } else {
-      return syntax.debugName(decl: d)
+      return base.debugName(decl: d)
     }
   }
 

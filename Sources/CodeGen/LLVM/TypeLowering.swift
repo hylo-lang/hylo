@@ -61,8 +61,8 @@ extension IR.Program {
   func llvm(boundGenericType val: BoundGenericType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
-    let fields = syntax.storage(of: val.base).map { (_, t) in
-      let u = syntax.monomorphize(t, for: val.arguments)
+    let fields = base.storage(of: val.base).map { (_, t) in
+      let u = base.monomorphize(t, for: val.arguments)
       return llvm(u, in: &module)
     }
 
@@ -100,7 +100,7 @@ extension IR.Program {
       return t
     }
 
-    let l = AbstractTypeLayout(of: val, definedIn: syntax)
+    let l = AbstractTypeLayout(of: val, definedIn: base)
     var fields: [LLVM.IRType] = []
     for p in l.properties {
       fields.append(llvm(p.type, in: &module))

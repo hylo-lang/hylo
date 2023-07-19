@@ -314,7 +314,7 @@ extension LLVM.Module {
     // declare the symbol and let it be linked later.
     let metatype = metatypeType()
     let instance = declareGlobalVariable(globalName, metatype)
-    if m.id != ir.syntax.module(containing: t.decl) {
+    if m.id != ir.base.module(containing: t.decl) {
       return instance
     }
 
@@ -345,7 +345,7 @@ extension LLVM.Module {
     // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply
     // declare the symbol and let it be linked later.
     let instance = declareGlobalVariable(globalName, ptr)
-    if m.id != ir.syntax.module(containing: t.decl) {
+    if m.id != ir.base.module(containing: t.decl) {
       return instance
     }
 
