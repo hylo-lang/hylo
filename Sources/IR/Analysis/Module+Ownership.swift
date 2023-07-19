@@ -50,7 +50,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(allocStack i: InstructionID, in context: inout Context) {
+    func interpret(allocStack i: InstructionID, in context: inout OwnershipContext) {
       let s = self[i] as! AllocStackInstruction
       let l = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[l] == nil, "stack leak")
@@ -62,7 +62,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(borrow i: InstructionID, in context: inout Context) {
+    func interpret(borrow i: InstructionID, in context: inout OwnershipContext) {
       let borrow = self[i] as! BorrowInstruction
       if case .constant = borrow.location { unreachable("borrowed source is a constant") }
 
@@ -117,7 +117,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(closeSum i: InstructionID, in context: inout Context) {
+    func interpret(closeSum i: InstructionID, in context: inout OwnershipContext) {
       let s = self[i] as! CloseSumInstruction
       let payload = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
 
@@ -137,14 +137,14 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(deallocStack i: InstructionID, in context: inout Context) {
+    func interpret(deallocStack i: InstructionID, in context: inout OwnershipContext) {
       let dealloc = self[i] as! DeallocStackInstruction
       let l = context.locals[dealloc.location]!.unwrapLocations()!.uniqueElement!
       context.memory[l] = nil
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endBorrow i: InstructionID, in context: inout Context) {
+    func interpret(endBorrow i: InstructionID, in context: inout OwnershipContext) {
       let end = self[i] as! EndBorrowInstruction
 
       // Skip the instruction if an error occured upstream.
@@ -174,7 +174,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endProject i: InstructionID, in context: inout Context) {
+    func interpret(endProject i: InstructionID, in context: inout OwnershipContext) {
       let s = self[i] as! EndProjectInstruction
 
       // Skip the instruction if an error occured upstream.
@@ -185,7 +185,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, in context: inout Context) {
+    func interpret(globalAddr i: InstructionID, in context: inout OwnershipContext) {
       let s = self[i] as! GlobalAddrInstruction
       let l = AbstractLocation.root(.register(i, 0))
 
@@ -196,7 +196,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(openSum i: InstructionID, in context: inout Context) {
+    func interpret(openSum i: InstructionID, in context: inout OwnershipContext) {
       let s = self[i] as! OpenSumInstruction
       let l = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[l] == nil, "overlapping accesses to sum payload")
@@ -213,7 +213,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(pointerToAddress i: InstructionID, in context: inout Context) {
+    func interpret(pointerToAddress i: InstructionID, in context: inout OwnershipContext) {
       let s = self[i] as! PointerToAddressInstruction
       let l = AbstractLocation.root(.register(i, 0))
 
@@ -224,7 +224,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(project i: InstructionID, in context: inout Context) {
+    func interpret(project i: InstructionID, in context: inout OwnershipContext) {
       let s = self[i] as! ProjectInstruction
       let l = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[l] == nil, "projection leak")
@@ -236,7 +236,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(subfieldView i: InstructionID, in context: inout Context) {
+    func interpret(subfieldView i: InstructionID, in context: inout OwnershipContext) {
       let s = self[i] as! SubfieldViewInstruction
       if case .constant = s.recordAddress {
         // Operand is a constant.
@@ -254,7 +254,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapExistentialAddr i: InstructionID, in context: inout Context) {
+    func interpret(wrapExistentialAddr i: InstructionID, in context: inout OwnershipContext) {
       let s = self[i] as! WrapExistentialAddrInstruction
       if case .constant = s.witness {
         // Operand is a constant.
@@ -267,9 +267,9 @@ extension ModuleUnderConstruction {
   }
 
   /// Returns the initial context in which `f` should be interpreted.
-  private func entryContext(of f: Function.ID) -> Context {
+  private func entryContext(of f: Function.ID) -> OwnershipContext {
     let function = self[f]
-    var result = Context()
+    var result = OwnershipContext()
 
     let entry = Block.ID(f, function.entry!)
     addParameter(.set, function.output, of: entry, at: function.inputs.count, in: &result)
@@ -284,7 +284,7 @@ extension ModuleUnderConstruction {
   /// has type `t`.
   private func addParameter(
     _ t: ParameterType, of entry: Block.ID, at position: Int,
-    in context: inout Context
+    in context: inout OwnershipContext
   ) {
     addParameter(t.access, t.bareType, of: entry, at: position, in: &context)
   }
@@ -293,7 +293,7 @@ extension ModuleUnderConstruction {
   /// has type `t` passed with capability `k`.
   private func addParameter(
     _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
-    in context: inout Context
+    in context: inout OwnershipContext
   ) {
     let l = AbstractTypeLayout(of: t, definedIn: program)
     let p = Operand.parameter(entry, position)
@@ -350,14 +350,14 @@ extension ModuleUnderConstruction {
 }
 
 /// An abstract interpretation context.
-private typealias Context = AbstractContext<State>
+private typealias OwnershipContext = AbstractContext<OwnershipState>
 
 /// The ownership state of an object or sub-object.
 ///
 /// Instances form a lattice whose supremum is `.unique` and infimum is `.shared(by: s)`
 /// where `s` is the set of all instructions. The meet of two elements denotes the conservative
 /// superposition of two ownership states.
-private enum State: AbstractDomain {
+private enum OwnershipState: AbstractDomain {
 
   /// Object is unique.
   case unique
@@ -368,7 +368,7 @@ private enum State: AbstractDomain {
   case shared(by: Set<InstructionID>)
 
   /// Forms a new state by merging `lhs` with `rhs`.
-  static func && (lhs: State, rhs: State) -> State {
+  static func && (lhs: OwnershipState, rhs: OwnershipState) -> OwnershipState {
     switch lhs {
     case .unique:
       return rhs
@@ -384,7 +384,7 @@ private enum State: AbstractDomain {
 
 }
 
-extension State: CustomStringConvertible {
+extension OwnershipState: CustomStringConvertible {
 
   var description: String {
     switch self {
@@ -397,7 +397,7 @@ extension State: CustomStringConvertible {
 
 }
 
-extension AbstractObject.Value where Domain == State {
+extension AbstractObject.Value where Domain == OwnershipState {
 
   /// The set of instructions borrowing the object or a part thereof.
   fileprivate var borrowers: Set<InstructionID> {
