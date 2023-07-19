@@ -58,7 +58,7 @@ extension LLVM.Module {
 
     let transpilation = function(named: ir.syntax.mangled(f))!
 
-    let val32 = ir.syntax.ast.coreType("Int32")!
+    let val32 = ir.ast.coreType("Int32")!
     switch m[f].output {
     case val32:
       let t = StructType(ir.llvm(val32, in: &self))!
