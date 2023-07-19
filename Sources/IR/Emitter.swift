@@ -531,10 +531,10 @@ public struct Emitter {
   /// Returns the lowered conformances of `model` that are exposed to `useScope`.
   private mutating func loweredConformances(
     of model: AnyType, exposedTo useScope: AnyScopeID
-  ) -> Set<LoweredConformance> {
+  ) -> Set<IR.Conformance> {
     guard let conformances = program.relations.conformances[model] else { return [] }
 
-    var result: Set<LoweredConformance> = []
+    var result: Set<IR.Conformance> = []
     for concept in conformances.keys {
       let c = program.conformance(of: model, to: concept, exposedTo: useScope)!
       result.insert(loweredConformance(c, in: useScope))
@@ -544,9 +544,9 @@ public struct Emitter {
 
   /// Returns the lowered form of `c`, generating function references in `useScope`.
   private mutating func loweredConformance(
-    _ c: Conformance, in useScope: AnyScopeID
-  ) -> LoweredConformance {
-    var implementations = LoweredConformance.ImplementationMap()
+    _ c: Core.Conformance, in useScope: AnyScopeID
+  ) -> IR.Conformance {
+    var implementations = IR.Conformance.ImplementationMap()
     for (r, i) in c.implementations.storage {
       switch i {
       case .concrete(let d):
@@ -564,7 +564,7 @@ public struct Emitter {
   /// Returns the lowered form of the requirement implementation `d` in `useScope`.
   private mutating func loweredRequirementImplementation(
     _ d: AnyDeclID, in useScope: AnyScopeID
-  ) -> LoweredConformance.Implementation {
+  ) -> IR.Conformance.Implementation {
     switch d.kind {
     case FunctionDecl.self:
       let r = FunctionReference(to: FunctionDecl.ID(d)!, usedIn: useScope, in: &module)
@@ -1974,7 +1974,7 @@ public struct Emitter {
   /// Inserts the IR for deinitializing the contents of `storage` at `point` in `module`, using `c`
   /// to identify the deinitializer to apply, anchoring new instructions to `site`.
   private static func insertDeinit(
-    _ storage: Operand, withConformanceToDeinitializable c: Conformance, at site: SourceRange,
+    _ storage: Operand, withConformanceToDeinitializable c: Core.Conformance, at site: SourceRange,
     _ point: InsertionPoint, in module: inout Module
   ) {
     let d = module.demandDeinitDeclaration(from: c)
@@ -2075,7 +2075,7 @@ public struct Emitter {
     _ access: AccessEffect,
     of value: Operand,
     to storage: Operand,
-    withConformanceToMovable c: Conformance,
+    withConformanceToMovable c: Core.Conformance,
     at site: SourceRange
   ) {
     let oper = module.demandMoveOperatorDeclaration(access, from: c)

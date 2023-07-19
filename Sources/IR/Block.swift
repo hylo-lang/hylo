@@ -14,7 +14,7 @@ public struct Block {
   public let scope: AnyScopeID
 
   /// The type input parameters of the block.
-  public let inputs: [LoweredType]
+  public let inputs: [IR.`Type`]
 
   /// The instructions in the block.
   public internal(set) var instructions: Instructions = []

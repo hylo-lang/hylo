@@ -19,7 +19,7 @@ public struct MarkStateInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [LoweredType] { [] }
+  public var types: [IR.`Type`] { [] }
 
   public var operands: [Operand] { [storage] }
 

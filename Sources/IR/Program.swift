@@ -1,7 +1,7 @@
 import Core
 
 /// A program lowered to Val IR.
-public struct LoweredProgram {
+public struct Program {
 
   /// The high-level form of the program.
   public let syntax: TypedProgram

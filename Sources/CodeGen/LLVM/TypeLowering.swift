@@ -3,7 +3,7 @@ import IR
 import LLVM
 import Utils
 
-extension LoweredProgram {
+extension IR.Program {
 
   /// Returns the LLVM form of `val` in `module`.
   ///
@@ -115,7 +115,7 @@ extension LoweredProgram {
   func llvm(sumType val: SumType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
-    var payload: IRType = LLVM.StructType([], in: &module)
+    var payload: LLVM.IRType = LLVM.StructType([], in: &module)
     if val == .never {
       return payload
     }

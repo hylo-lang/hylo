@@ -19,7 +19,7 @@ public struct PartialApplyInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [LoweredType] { [.object(callee.type.ast)] }
+  public var types: [IR.`Type`] { [.object(callee.type.ast)] }
 
   public var operands: [Operand] { [.constant(callee), environment] }
 

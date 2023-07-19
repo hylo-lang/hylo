@@ -7,18 +7,18 @@ public struct WitnessTable: Constant, Hashable {
   public let witness: AnyType
 
   /// The conformances described by this table.
-  public let conformances: Set<LoweredConformance>
+  public let conformances: Set<IR.Conformance>
 
   /// Creates an instance describing `witness` and its `conformances`.
   ///
   /// - Requires: `witness` is canonical.
-  public init(for witness: AnyType, conformingTo conformances: Set<LoweredConformance>) {
+  public init(for witness: AnyType, conformingTo conformances: Set<IR.Conformance>) {
     self.witness = witness
     self.conformances = conformances
   }
 
   /// The Val IR type of this instance.
-  public var type: LoweredType { .object(WitnessTableType()) }
+  public var type: IR.`Type` { .object(WitnessTableType()) }
 
 }
 

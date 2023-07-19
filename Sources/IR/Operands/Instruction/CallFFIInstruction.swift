@@ -5,7 +5,7 @@ import Utils
 public struct CallFFIInstruction: Instruction {
 
   /// The type of the return value.
-  public let returnType: LoweredType
+  public let returnType: IR.`Type`
 
   /// The name of the foreign function.
   public let callee: String
@@ -18,7 +18,7 @@ public struct CallFFIInstruction: Instruction {
 
   /// Creates an instance with the given properties.
   fileprivate init(
-    returnType: LoweredType,
+    returnType: IR.`Type`,
     callee: String,
     arguments: [Operand],
     site: SourceRange
@@ -29,7 +29,7 @@ public struct CallFFIInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [LoweredType] { [returnType] }
+  public var types: [IR.`Type`] { [returnType] }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     operands[i] = new
@@ -56,7 +56,7 @@ extension Module {
   ///   - callee: The name of the foreign function to call
   ///   - arguments: The arguments of the call.
   func makeCallFFI(
-    returning returnType: LoweredType, applying callee: String, to arguments: [Operand],
+    returning returnType: IR.`Type`, applying callee: String, to arguments: [Operand],
     at site: SourceRange
   ) -> CallFFIInstruction {
     precondition(returnType.isObject)

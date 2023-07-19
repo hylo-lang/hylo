@@ -1,7 +1,7 @@
 import Core
 
 /// Where, how, and under what conditions a type satisfies the requirements of a trait.
-public struct LoweredConformance {
+public struct Conformance {
 
   /// A map from requirement to their implementation.
   public typealias ImplementationMap = DeclProperty<Implementation>
@@ -39,7 +39,7 @@ public struct LoweredConformance {
 
 }
 
-extension LoweredConformance: Equatable {
+extension IR.Conformance: Equatable {
 
   public static func == (l: Self, r: Self) -> Bool {
     (l.concept == r.concept) && (l.source == r.source)
@@ -47,7 +47,7 @@ extension LoweredConformance: Equatable {
 
 }
 
-extension LoweredConformance: Hashable {
+extension IR.Conformance: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     concept.hash(into: &hasher)

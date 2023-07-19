@@ -214,13 +214,13 @@ public struct ValCommand: ParsableCommand {
   /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
   private func lower(
     program: TypedProgram, reportingDiagnosticsInto log: inout DiagnosticSet
-  ) throws -> IR.LoweredProgram {
+  ) throws -> IR.Program {
     var loweredModules: [ModuleDecl.ID: IR.Module] = [:]
     for d in program.ast.modules {
       loweredModules[d] = try lower(d, in: program, reportingDiagnosticsInto: &log)
     }
 
-    var ir = IR.LoweredProgram(syntax: program, modules: loweredModules)
+    var ir = IR.Program(syntax: program, modules: loweredModules)
     if let t = transforms {
       for p in t.elements { ir.applyPass(p) }
     }

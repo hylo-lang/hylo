@@ -69,7 +69,7 @@ public struct Module {
   }
 
   /// Returns the type of `operand`.
-  public func type(of operand: Operand) -> LoweredType {
+  public func type(of operand: Operand) -> IR.`Type` {
     switch operand {
     case .register(let instruction, let index):
       return functions[instruction.function]![instruction.block][instruction.address].types[index]
@@ -137,7 +137,7 @@ public struct Module {
   }
 
   /// Applies `p` to in this module, which is in `ir`.
-  public mutating func applyPass(_ p: ModulePass, in ir: LoweredProgram) {
+  public mutating func applyPass(_ p: ModulePass, in ir: IR.Program) {
     switch p {
     case .depolymorphize:
       depolymorphize(in: ir)
@@ -209,7 +209,7 @@ public struct Module {
 
   /// Returns the identity of the Val IR function implementing the deinitializer defined in
   /// conformance `c`.
-  mutating func demandDeinitDeclaration(from c: Conformance) -> Function.ID {
+  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
     let d = program.ast.deinitRequirement()
     switch c.implementations[d]! {
     case .concrete:
@@ -226,7 +226,7 @@ public struct Module {
   ///
   /// - Requires: `k` is either `.set` or `.inout`
   mutating func demandMoveOperatorDeclaration(
-    _ k: AccessEffect, from c: Conformance
+    _ k: AccessEffect, from c: Core.Conformance
   ) -> Function.ID {
     let d = program.ast.moveRequirement(k)
     switch c.implementations[d]! {
@@ -416,7 +416,7 @@ public struct Module {
     assert(ir.blocks.isEmpty)
 
     // In functions, the last parameter of the entry denotes the function's return value.
-    var parameters = ir.inputs.map({ LoweredType.address($0.type.bareType) })
+    var parameters = ir.inputs.map({ IR.`Type`.address($0.type.bareType) })
     if !ir.isSubscript {
       parameters.append(.address(ir.output))
     }
@@ -431,7 +431,7 @@ public struct Module {
   @discardableResult
   mutating func appendBlock<T: ScopeID>(
     in scope: T,
-    taking parameters: [LoweredType] = [],
+    taking parameters: [IR.`Type`] = [],
     to f: Function.ID
   ) -> Block.ID {
     let a = functions[f]!.appendBlock(in: scope, taking: parameters)

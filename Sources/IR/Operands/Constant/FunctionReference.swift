@@ -7,7 +7,7 @@ public struct FunctionReference: Constant, Hashable {
   public let function: Function.ID
 
   /// The type of the referred IR function.
-  public let type: LoweredType
+  public let type: IR.`Type`
 
   /// The scope in Val sources from which the function is being referred to.
   public let useScope: AnyScopeID
