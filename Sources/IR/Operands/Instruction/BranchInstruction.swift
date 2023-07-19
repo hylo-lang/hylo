@@ -45,7 +45,7 @@ extension BranchInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `branch` anchored at `site` that unconditionally jumps at the start of a block.
   ///

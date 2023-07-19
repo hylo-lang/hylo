@@ -1,6 +1,6 @@
 import Core
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Removes unreachable code from `f`, reporting errors and warnings to `diagnostics`.
   ///

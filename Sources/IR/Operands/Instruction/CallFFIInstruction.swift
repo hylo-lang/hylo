@@ -46,7 +46,7 @@ extension CallFFIInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `call_ffi` anchored at `site` that applies `callee` on `arguments` using to return
   /// and returns a value of `returnType`.

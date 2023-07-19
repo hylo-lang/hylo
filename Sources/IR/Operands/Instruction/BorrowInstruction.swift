@@ -52,7 +52,7 @@ extension BorrowInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `borrow` anchored at `site` that takes `capability` from `source`.
   ///

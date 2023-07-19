@@ -4,7 +4,7 @@ import Core
 public struct GlobalAddrInstruction: Instruction {
 
   /// The ID of the global in `container`.
-  public let id: Module.GlobalID
+  public let id: ModuleUnderConstruction.GlobalID
 
   /// The module in which the global is defined.
   public let container: ModuleDecl.ID
@@ -17,7 +17,7 @@ public struct GlobalAddrInstruction: Instruction {
 
   /// Creates an instance with the given properties.
   fileprivate init(
-    id: Module.GlobalID,
+    id: ModuleUnderConstruction.GlobalID,
     container: ModuleDecl.ID,
     valueType: AnyType,
     site: SourceRange
@@ -46,12 +46,13 @@ extension GlobalAddrInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `global_addr` anchored at `site` that returns the address of `g` in `m`, which
   /// has type `t`.
   func makeGlobalAddr(
-    of g: Module.GlobalID, in m: ModuleDecl.ID, typed t: AnyType, at anchor: SourceRange
+    of g: ModuleUnderConstruction.GlobalID, in m: ModuleDecl.ID, typed t: AnyType,
+    at anchor: SourceRange
   ) -> GlobalAddrInstruction {
     .init(id: g, container: m, valueType: t, site: anchor)
   }

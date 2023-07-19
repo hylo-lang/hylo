@@ -30,7 +30,7 @@ public struct UnsafeCastInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `unsafe_cast` anchored at `site` that unsafely converts `source` to an object of
   /// type `target`.

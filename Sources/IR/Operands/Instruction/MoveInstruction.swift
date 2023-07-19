@@ -38,7 +38,7 @@ public struct MoveInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `move` instruction anchored at `site` that moves `object` into `target` using the
   /// move operators defined by `movable`.

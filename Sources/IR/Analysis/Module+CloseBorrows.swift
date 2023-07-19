@@ -1,6 +1,6 @@
 import Core
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Inserts `end_borrow` instructions after the last use of each `borrow` instruction in `f`,
   /// reporting errors and warnings to `diagnostics`.

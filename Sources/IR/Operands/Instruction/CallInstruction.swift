@@ -59,7 +59,7 @@ extension CallInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `call` anchored at `site` that applies `callee` on `arguments` and writes its
   /// result to `output`.

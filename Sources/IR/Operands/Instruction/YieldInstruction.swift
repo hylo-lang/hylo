@@ -36,7 +36,7 @@ public struct YieldInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `yield` anchored at `site` that projects `a` with capability `c`.
   func makeYield(_ c: AccessEffect, _ a: Operand, at site: SourceRange) -> YieldInstruction {

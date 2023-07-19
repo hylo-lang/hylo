@@ -59,7 +59,7 @@ extension ProjectInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `project` anchored at `site` that projects a value of type `t` by applying
   /// `callee`, which is parameterized by `parameterization`, on `arguments`.

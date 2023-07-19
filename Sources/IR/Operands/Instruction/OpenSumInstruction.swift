@@ -56,7 +56,7 @@ extension OpenSumInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `open_sum` anchored at `site` that projects the address of `container`'s payload
   /// viewed as an instance of `payloadType`. The projected address is suitable for initialization

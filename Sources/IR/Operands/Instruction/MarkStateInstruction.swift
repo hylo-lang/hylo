@@ -39,7 +39,7 @@ extension MarkStateInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `mark_state` instruction anchored at `site` that marks `storage` has being fully
   /// initialized if `initialized` is `true` or fully uninitialized otherwise.

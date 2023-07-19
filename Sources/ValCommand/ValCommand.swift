@@ -215,7 +215,7 @@ public struct ValCommand: ParsableCommand {
   private func lower(
     program: TypedProgram, reportingDiagnosticsInto log: inout DiagnosticSet
   ) throws -> IR.Program {
-    var loweredModules: [ModuleDecl.ID: IR.Module] = [:]
+    var loweredModules: [ModuleDecl.ID: IR.ModuleUnderConstruction] = [:]
     for d in program.ast.modules {
       loweredModules[d] = try lower(d, in: program, reportingDiagnosticsInto: &log)
     }
@@ -233,8 +233,8 @@ public struct ValCommand: ParsableCommand {
   /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
   private func lower(
     _ m: ModuleDecl.ID, in program: TypedProgram, reportingDiagnosticsInto log: inout DiagnosticSet
-  ) throws -> IR.Module {
-    var ir = try IR.Module(lowering: m, in: program, diagnostics: &log)
+  ) throws -> IR.ModuleUnderConstruction {
+    var ir = try IR.ModuleUnderConstruction(lowering: m, in: program, diagnostics: &log)
     if outputType != .rawIR {
       try ir.applyMandatoryPasses(reportingDiagnosticsInto: &log)
     }

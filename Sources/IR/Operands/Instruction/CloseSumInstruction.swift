@@ -26,7 +26,7 @@ public struct CloseSumInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `close_sum` anchored at `site` that ends an access to the payload of a sum opened
   /// previously by `start`.

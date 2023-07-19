@@ -35,7 +35,7 @@ extension LLVMInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a llvm instruction anchored at `site` that applies `f` to `operands`.
   ///

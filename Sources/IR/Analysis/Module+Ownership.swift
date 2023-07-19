@@ -2,7 +2,7 @@ import Core
 import DequeModule
 import Utils
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Ensures the Law of Exclusivity is satisfied in `f`, reporting errors and warnings to
   /// `diagnostics`.

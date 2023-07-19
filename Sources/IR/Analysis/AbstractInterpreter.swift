@@ -40,7 +40,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// Creates an interpreter analyzing `f` which is in `m`, starting with `entryContext`.
   init(
     analyzing f: Function.ID,
-    in m: Module,
+    in m: ModuleUnderConstruction,
     entryContext: Context
   ) {
     self.subject = f
@@ -55,7 +55,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   ///
   /// Call this method to update the control-flow information used by this instance to guide
   /// abstract interpretation.
-  mutating func recomputeControlFlow(_ m: Module) {
+  mutating func recomputeControlFlow(_ m: ModuleUnderConstruction) {
     cfg = m[subject].cfg()
     dominatorTree = .init(function: subject, cfg: cfg, in: m)
   }

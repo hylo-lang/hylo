@@ -23,7 +23,7 @@ struct DominatorTree {
   private var immediateDominators: [Node: Node?]
 
   /// Creates the dominator tree of `f`, which is in `m`, using the given `cfg`.
-  init(function f: Function.ID, cfg: ControlFlowGraph, in m: Module) {
+  init(function f: Function.ID, cfg: ControlFlowGraph, in m: ModuleUnderConstruction) {
     // The following is an implementation of Cooper et al.'s fast dominance iterative algorithm
     // (see "A Simple, Fast Dominance Algorithm", 2001). First, build any spanning tree rooted at
     // the function's entry.
@@ -105,7 +105,7 @@ struct DominatorTree {
   /// Returns `true` if the instruction identified by `definition` dominates `use`.
   ///
   /// - Requires: `definition` and `use` reside in the function associated with the true.
-  func dominates(definition: InstructionID, use: Use, in module: Module) -> Bool {
+  func dominates(definition: InstructionID, use: Use, in module: ModuleUnderConstruction) -> Bool {
     // If `definition` is in the same block as `use`, check which comes first.
     if definition.block == use.user.block {
       for i in module[definition.function][definition.block].instructions.indices {

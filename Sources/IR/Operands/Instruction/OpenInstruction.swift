@@ -39,7 +39,7 @@ extension OpenInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `unwrap` anchored at `site` that unwraps the witness of `container` as a value
   /// of type `t`.

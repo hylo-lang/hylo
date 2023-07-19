@@ -34,7 +34,7 @@ public struct StoreInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `record` anchored at `site` that stores `object` at `target.
   ///

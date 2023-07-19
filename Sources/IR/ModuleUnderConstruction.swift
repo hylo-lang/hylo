@@ -6,7 +6,7 @@ import Utils
 ///
 /// An IR module is notionally composed of a collection of functions, one of which may be
 /// designated as its entry point (i.e., the `main` function of a Val program).
-public struct Module {
+public struct ModuleUnderConstruction {
 
   /// The identity of a global defined in a Val IR module.
   public typealias GlobalID = Int

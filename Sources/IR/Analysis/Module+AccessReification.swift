@@ -30,7 +30,7 @@ import Utils
 /// initialization. This assumption is sound because if the reifiable access only provides `set`,
 /// then `move` will be rewritten as initialization during the DI pass.
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Replace uses of `access` instructions by either `borrow` or `load` depending on the weakest
   /// capability required on the access, reporting errors and warnings to `diagnostics`.

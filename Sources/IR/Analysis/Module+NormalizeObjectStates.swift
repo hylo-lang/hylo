@@ -2,7 +2,7 @@ import Core
 import DequeModule
 import Utils
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// A "program counter" in the abstract machine.
   private typealias PC = Block.Instructions.Address
@@ -882,7 +882,7 @@ extension Diagnostic {
 
   fileprivate static func illegalParameterEscape(
     consumedBy consumers: State.Consumers? = nil,
-    in module: Module,
+    in module: ModuleUnderConstruction,
     at site: SourceRange
   ) -> Diagnostic {
     if let c = consumers {
@@ -896,7 +896,7 @@ extension Diagnostic {
 
   fileprivate static func uninitializedSetParameter(
     beforeReturningFrom f: Function.ID,
-    in module: Module,
+    in module: ModuleUnderConstruction,
     at site: SourceRange
   ) -> Diagnostic {
     let e = module[f].isSubscript ? "subscript" : "function"

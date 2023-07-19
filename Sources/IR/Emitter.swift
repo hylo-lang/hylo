@@ -19,7 +19,7 @@ public struct Emitter {
   public let program: TypedProgram
 
   /// The module into which new IR is inserted.
-  private var module: Module!
+  private var module: ModuleUnderConstruction!
 
   /// The basic block in which new instructions are currently inserted.
   private var insertionBlock: Block.ID?
@@ -72,7 +72,7 @@ public struct Emitter {
   /// warnings to `diagnostics`.
   mutating func lower(
     module d: ModuleDecl.ID,
-    into module: inout Module,
+    into module: inout ModuleUnderConstruction,
     diagnostics: inout DiagnosticSet
   ) {
     self.module = module
@@ -1932,7 +1932,7 @@ public struct Emitter {
   /// conformance to `Val.Deinitializable`. The deinitializers of other types are synthesized.
   static func insertDeinit(
     _ storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID, at site: SourceRange,
-    _ point: InsertionPoint, in module: inout Module
+    _ point: InsertionPoint, in module: inout ModuleUnderConstruction
   ) -> Bool {
     // Use custom conformance to `Deinitializable` if possible.
     let t = module.type(of: storage).ast
@@ -1975,7 +1975,7 @@ public struct Emitter {
   /// to identify the deinitializer to apply, anchoring new instructions to `site`.
   private static func insertDeinit(
     _ storage: Operand, withConformanceToDeinitializable c: Core.Conformance, at site: SourceRange,
-    _ point: InsertionPoint, in module: inout Module
+    _ point: InsertionPoint, in module: inout ModuleUnderConstruction
   ) {
     let d = module.demandDeinitDeclaration(from: c)
     let f = Operand.constant(FunctionReference(to: d, usedIn: c.scope, in: module))
@@ -1995,7 +1995,7 @@ public struct Emitter {
   private static func insertDeinit(
     record storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID,
     at site: SourceRange,
-    _ point: InsertionPoint, in module: inout Module
+    _ point: InsertionPoint, in module: inout ModuleUnderConstruction
   ) -> Bool {
     let t = module.type(of: storage).ast
     precondition(t.hasRecordLayout)

@@ -29,7 +29,7 @@ public struct AddressToPointerInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `address_to_pointer` anchored at `site` that converts `source` to a built-in
   /// pointer value.

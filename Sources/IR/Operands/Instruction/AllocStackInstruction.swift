@@ -33,7 +33,7 @@ extension AllocStackInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `alloc_stack` anchored at `site` that allocates storage of type `allocatedType`.
   func makeAllocStack(_ allocatedType: AnyType, at site: SourceRange) -> AllocStackInstruction {

@@ -60,7 +60,7 @@ extension AccessInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `access` anchored at `site` that takes `capability` from `source`.
   ///

@@ -49,7 +49,7 @@ extension SubfieldViewInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `subfield_view` anchored at `site` computing the address of the
   /// given `subfield` of some record at `recordAddress`.

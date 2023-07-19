@@ -26,7 +26,7 @@ public struct EndProjectInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `end_project` anchored at `site` that ends the projection created by `p`.
   func makeEndProject(

@@ -20,7 +20,7 @@ public struct FunctionReference: Constant, Hashable {
     to f: Function.ID,
     parameterizedBy a: GenericArguments = [:],
     usedIn s: AnyScopeID,
-    in module: Module
+    in module: ModuleUnderConstruction
   ) {
     let arguments = module.program.relations.canonical(a)
     let v = module[f]
@@ -40,7 +40,7 @@ public struct FunctionReference: Constant, Hashable {
     to d: FunctionDecl.ID,
     parameterizedBy a: GenericArguments = [:],
     usedIn s: AnyScopeID,
-    in module: inout Module
+    in module: inout ModuleUnderConstruction
   ) {
     let arguments = module.program.relations.canonical(a)
     let t = module.program.relations.canonical(
@@ -57,7 +57,7 @@ public struct FunctionReference: Constant, Hashable {
     to d: InitializerDecl.ID,
     parameterizedBy a: GenericArguments = [:],
     usedIn s: AnyScopeID,
-    in module: inout Module
+    in module: inout ModuleUnderConstruction
   ) {
     let arguments = module.program.relations.canonical(a)
     let t = module.program.relations.canonical(

@@ -19,7 +19,9 @@ extension LLVM.Module {
   }
 
   /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
-  mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: IR.Program) {
+  mutating func incorporate(
+    _ g: IR.ModuleUnderConstruction.GlobalID, of m: IR.ModuleUnderConstruction, from ir: IR.Program
+  ) {
     let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
     let d = declareGlobalVariable("\(m.id)\(g)", v.type)
     setInitializer(v, for: d)
@@ -28,7 +30,9 @@ extension LLVM.Module {
   }
 
   /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
-  mutating func incorporate(_ f: IR.Function.ID, of m: IR.Module, from ir: IR.Program) {
+  mutating func incorporate(
+    _ f: IR.Function.ID, of m: IR.ModuleUnderConstruction, from ir: IR.Program
+  ) {
     // Don't transpile generic functions.
     if m[f].isGeneric {
       return
@@ -48,7 +52,7 @@ extension LLVM.Module {
 
   private mutating func defineMain(
     calling f: IR.Function.ID,
-    of m: IR.Module,
+    of m: IR.ModuleUnderConstruction,
     from ir: IR.Program
   ) {
     let main = declareFunction("main", FunctionType(from: [], to: i32, in: &self))
@@ -161,7 +165,7 @@ extension LLVM.Module {
   /// Returns the LLVM IR value corresponding to the Val IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
     _ c: any IR.Constant,
-    usedIn m: IR.Module,
+    usedIn m: IR.ModuleUnderConstruction,
     from ir: IR.Program
   ) -> LLVM.IRValue {
     switch c {
@@ -207,7 +211,7 @@ extension LLVM.Module {
   /// Returns the LLVM IR value of the witness table `t` used in `m` in `ir`.
   private mutating func transpiledWitnessTable(
     _ t: WitnessTable,
-    usedIn m: IR.Module,
+    usedIn m: IR.ModuleUnderConstruction,
     from ir: IR.Program
   ) -> LLVM.IRValue {
     // A witness table is composed of a header, a trait map, and a (possibly empty) sequence of
@@ -287,7 +291,7 @@ extension LLVM.Module {
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
   private mutating func transpiledMetatype(
     of t: AnyType,
-    usedIn m: IR.Module,
+    usedIn m: IR.ModuleUnderConstruction,
     from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     switch t.base {
@@ -301,7 +305,7 @@ extension LLVM.Module {
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
   private mutating func transpiledMetatype(
     of t: ProductType,
-    usedIn m: IR.Module,
+    usedIn m: IR.ModuleUnderConstruction,
     from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     // Check if we already created the metatype's instance.
@@ -334,7 +338,7 @@ extension LLVM.Module {
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
   private mutating func transpiledTrait(
-    _ t: TraitType, usedIn m: IR.Module, from ir: IR.Program
+    _ t: TraitType, usedIn m: IR.ModuleUnderConstruction, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     // Check if we already created the trait's instance.
     let globalName = ir.mangle(t)
@@ -370,7 +374,7 @@ extension LLVM.Module {
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
   private mutating func declare(
-    function f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
+    function f: IR.Function.ID, of m: IR.ModuleUnderConstruction, from ir: IR.Program
   ) -> LLVM.Function {
     precondition(!m[f].isSubscript)
 
@@ -387,7 +391,7 @@ extension LLVM.Module {
 
   /// Inserts and returns the transpiled declaration of `f`, which is a subscript of `m` in `ir`.
   private mutating func declare(
-    subscript f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
+    subscript f: IR.Function.ID, of m: IR.ModuleUnderConstruction, from ir: IR.Program
   ) -> LLVM.Function {
     precondition(m[f].isSubscript)
 
@@ -405,7 +409,7 @@ extension LLVM.Module {
   /// of `m` in `ir`.
   private mutating func transpile(
     contentsOf f: IR.Function.ID,
-    of m: IR.Module,
+    of m: IR.ModuleUnderConstruction,
     from ir: IR.Program,
     into transpilation: LLVM.Function
   ) {

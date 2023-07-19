@@ -8,16 +8,16 @@ public struct Program: Core.Program {
 
   public var scopeToDecls: Core.ASTProperty<[Core.AnyDeclID]> { base.scopeToDecls }
 
-  public var varToBinding: [Core.VarDecl.ID : Core.BindingDecl.ID] { base.varToBinding }
+  public var varToBinding: [Core.VarDecl.ID: Core.BindingDecl.ID] { base.varToBinding }
 
   /// The high-level form of the program.
   public let base: TypedProgram
 
   /// A map from module ID to its lowered form.
-  public private(set) var modules: [ModuleDecl.ID: IR.Module]
+  public private(set) var modules: [ModuleDecl.ID: IR.ModuleUnderConstruction]
 
   /// Creates an instance with the given properties.
-  public init(syntax: TypedProgram, modules: [ModuleDecl.ID: IR.Module]) {
+  public init(syntax: TypedProgram, modules: [ModuleDecl.ID: IR.ModuleUnderConstruction]) {
     precondition(modules.values.elementCount(where: { $0.entryFunction != nil }) <= 1)
     self.base = syntax
     self.modules = modules

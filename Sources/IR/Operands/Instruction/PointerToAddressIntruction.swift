@@ -41,7 +41,7 @@ extension PointerToAddressInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `pointer_to_address` anchored at `site` that converts `source`, which is a
   /// built-in pointer value, to an address of type `target`.

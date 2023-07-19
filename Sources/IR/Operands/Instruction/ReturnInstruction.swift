@@ -27,7 +27,7 @@ public struct ReturnInstruction: Terminator {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `return` anchored at `site`.
   func makeReturn(at site: SourceRange) -> ReturnInstruction {

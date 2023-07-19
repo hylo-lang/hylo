@@ -77,7 +77,7 @@ struct Lifetime {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Given `operand` is an instruction or block parameter, returns its live-range.
   ///

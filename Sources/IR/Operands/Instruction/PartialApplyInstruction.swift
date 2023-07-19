@@ -39,7 +39,7 @@ public struct PartialApplyInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a lambda instruction anchored at `site` that wraps `f` together with `environment`.
   ///

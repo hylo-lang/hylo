@@ -7,10 +7,10 @@ public struct PointerConstant: Constant, Hashable {
   public let container: ModuleDecl.ID
 
   /// The ID of the global in `container`.
-  public let id: Module.GlobalID
+  public let id: ModuleUnderConstruction.GlobalID
 
   /// Creates a pointer to the global identified by `id` in `container`.
-  public init(_ container: ModuleDecl.ID, _ id: Module.GlobalID) {
+  public init(_ container: ModuleDecl.ID, _ id: ModuleUnderConstruction.GlobalID) {
     self.container = container
     self.id = id
   }

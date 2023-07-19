@@ -26,7 +26,7 @@ public struct EndBorrowInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `end_borrow` anchored at `site` that ends a borrow previously created by `borrow`.
   ///

@@ -47,7 +47,7 @@ extension WrapExistentialAddrInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `wrap_existential_addr` anchored at `site` that creates an existential container of
   /// type `interface` wrapping `witness` and `table`.

@@ -74,7 +74,7 @@ extension ProjectBundleInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `project_bundle` anchored at `site` that projects a value by applying one of the
   /// given `variants` on `arguments`. The variants are defined in `bundle`, which is has type

@@ -26,7 +26,7 @@ public struct DeallocStackInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `dealloc_stack` anchored at `site` that deallocates memory allocated by `alloc`.
   ///

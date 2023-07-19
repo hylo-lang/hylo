@@ -42,7 +42,7 @@ extension AdvancedByBytesInstruction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates an `advanced by bytes` instruction anchored at `site` computing the `source` address
   /// value advanced by `offset` bytes.

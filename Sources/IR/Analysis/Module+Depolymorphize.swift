@@ -1,7 +1,7 @@
 import Core
 import Utils
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Generates the non-parametric resilient API of `self`, reading definitions from `ir`.
   public mutating func depolymorphize(in ir: IR.Program) {

@@ -30,7 +30,7 @@ public struct LoadInstruction: Instruction {
 
 }
 
-extension Module {
+extension ModuleUnderConstruction {
 
   /// Creates a `load` anchored at `site` that loads the object at `source`.
   ///
