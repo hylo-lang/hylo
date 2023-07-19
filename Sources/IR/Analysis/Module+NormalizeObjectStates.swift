@@ -90,14 +90,13 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(addressToPointer i: InstructionID, in context: inout NormalizationContext) -> PC?
-    {
+    func interpret(addressToPointer i: InstructionID, in context: inout Context) -> PC? {
       initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(allocStack i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
       // Create an abstract location denoting the newly allocated memory.
       let l = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[l] == nil, "stack leak")
@@ -112,8 +111,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(advancedByBytes i: InstructionID, in context: inout NormalizationContext) -> PC?
-    {
+    func interpret(advancedByBytes i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! AdvancedByBytesInstruction
       consume(s.base, with: i, at: s.site, in: &context)
       consume(s.byteOffset, with: i, at: s.site, in: &context)
@@ -122,7 +120,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(borrow i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(borrow i: InstructionID, in context: inout Context) -> PC? {
       let borrow = self[i] as! BorrowInstruction
 
       // Operand must be a location.
@@ -176,7 +174,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(call i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(call i: InstructionID, in context: inout Context) -> PC? {
       let call = self[i] as! CallInstruction
       let callee = LambdaType(type(of: call.callee).ast)!
 
@@ -214,7 +212,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(callFFI i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(callFFI i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CallFFIInstruction
       for a in s.operands {
         consume(a, with: i, at: s.site, in: &context)
@@ -224,7 +222,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(closeSum i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(closeSum i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CloseSumInstruction
       let payload = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
 
@@ -245,14 +243,14 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(condBranch i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(condBranch i: InstructionID, in context: inout Context) -> PC? {
       let branch = self[i] as! CondBranchInstruction
       consume(branch.condition, with: i, at: branch.site, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(deallocStack i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(deallocStack i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! DeallocStackInstruction
       let l = context.locals[s.location]!.unwrapLocations()!.uniqueElement!
 
@@ -267,7 +265,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endProject i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(endProject i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! EndProjectInstruction
       let l = context.locals[s.projection]!.unwrapLocations()!.uniqueElement!
       let projection = context.withObject(at: l, { $0 })
@@ -294,7 +292,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(globalAddr i: InstructionID, in context: inout Context) -> PC? {
       let l = AbstractLocation.root(.register(i, 0))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(
@@ -305,14 +303,14 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(llvm i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(llvm i: InstructionID, in context: inout Context) -> PC? {
       // TODO: Check that operands are initialized.
       initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(load i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(load i: InstructionID, in context: inout Context) -> PC? {
       let load = self[i] as! LoadInstruction
       if case .constant = load.source { unreachable("load source is a constant") }
 
@@ -347,7 +345,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(markState i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(markState i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! MarkStateInstruction
 
       let locations = context.locals[s.storage]!.unwrapLocations()!
@@ -361,7 +359,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(move i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(move i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! MoveInstruction
 
       let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
@@ -381,7 +379,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(openSum i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(openSum i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! OpenSumInstruction
       let l = AbstractLocation.root(.register(i, 0))
       precondition(context.memory[l] == nil, "overlapping accesses to sum payload")
@@ -399,7 +397,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(partialApply i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(partialApply i: InstructionID, in context: inout Context) -> PC? {
       let x = self[i] as! PartialApplyInstruction
       consume(x.environment, with: i, at: x.site, in: &context)
       initializeRegisters(createdBy: i, in: &context)
@@ -407,8 +405,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(pointerToAddress i: InstructionID, in context: inout NormalizationContext) -> PC?
-    {
+    func interpret(pointerToAddress i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! PointerToAddressInstruction
       consume(s.source, with: i, at: s.site, in: &context)
 
@@ -421,7 +418,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(project i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(project i: InstructionID, in context: inout Context) -> PC? {
       // TODO: Process arguments
 
       let s = self[i] as! ProjectInstruction
@@ -434,7 +431,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(return i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(return i: InstructionID, in context: inout Context) -> PC? {
       // Make sure that all non-sink parameters are initialized on exit.
       let entry = entry(of: f)!
       for (i, p) in self[f].inputs.enumerated() where p.type.access != .sink {
@@ -454,7 +451,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(store i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(store i: InstructionID, in context: inout Context) -> PC? {
       let store = self[i] as! StoreInstruction
       consume(store.object, with: i, at: store.site, in: &context)
       context.forEachObject(at: store.target) { (o) in
@@ -465,7 +462,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(subfieldView i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(subfieldView i: InstructionID, in context: inout Context) -> PC? {
       let addr = self[i] as! SubfieldViewInstruction
 
       // Operand must a location.
@@ -485,7 +482,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(unsafeCast i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(unsafeCast i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! UnsafeCastInstruction
       consume(s.source, with: i, at: s.site, in: &context)
       initializeRegisters(createdBy: i, in: &context)
@@ -493,9 +490,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapExistentialAddr i: InstructionID, in context: inout NormalizationContext)
-      -> PC?
-    {
+    func interpret(wrapExistentialAddr i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! WrapExistentialAddrInstruction
       if case .constant = s.witness {
         // Operand is a constant.
@@ -507,7 +502,7 @@ extension ModuleUnderConstruction {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(yield i: InstructionID, in context: inout NormalizationContext) -> PC? {
+    func interpret(yield i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! YieldInstruction
       assert(isBorrowOrConstant(s.projection))
       return successor(of: i)
@@ -519,7 +514,7 @@ extension ModuleUnderConstruction {
       _ o: Operand,
       with consumer: InstructionID,
       at site: SourceRange,
-      in context: inout NormalizationContext
+      in context: inout Context
     ) {
       // Constant values are synthesized on demand. Built-ins are never consumed.
       if case .constant = o { return }
@@ -537,7 +532,7 @@ extension ModuleUnderConstruction {
     /// Checks that entry parameter `p`, passed with capability `k`, is initialized in `context`,
     /// reporting diagnostics at `site` if it isn't.
     func ensureInitializedOnExit(
-      _ p: Operand, passed k: AccessEffect, in context: inout NormalizationContext,
+      _ p: Operand, passed k: AccessEffect, in context: inout Context,
       reportingDiagnosticsAt site: SourceRange
     ) {
       context.withObject(at: .root(p)) { (o) in
@@ -558,9 +553,9 @@ extension ModuleUnderConstruction {
   }
 
   /// Returns the initial context in which `f` should be interpreted.
-  private func entryContext(of f: Function.ID) -> NormalizationContext {
+  private func entryContext(of f: Function.ID) -> Context {
     let function = self[f]
-    var result = NormalizationContext()
+    var result = Context()
 
     let entry = Block.ID(f, function.entry!)
     addParameter(.set, function.output, of: entry, at: function.inputs.count, in: &result)
@@ -575,7 +570,7 @@ extension ModuleUnderConstruction {
   /// has type `t`.
   private func addParameter(
     _ t: ParameterType, of entry: Block.ID, at position: Int,
-    in context: inout NormalizationContext
+    in context: inout Context
   ) {
     addParameter(t.access, t.bareType, of: entry, at: position, in: &context)
   }
@@ -584,7 +579,7 @@ extension ModuleUnderConstruction {
   /// has type `t` passed with capability `k`.
   private func addParameter(
     _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
-    in context: inout NormalizationContext
+    in context: inout Context
   ) {
     let l = AbstractTypeLayout(of: t, definedIn: program)
     let p = Operand.parameter(entry, position)
@@ -618,9 +613,7 @@ extension ModuleUnderConstruction {
   }
 
   /// Assigns in `context` a fully initialized object to each virtual register defined by `i`.
-  private func initializeRegisters(
-    createdBy i: InstructionID, in context: inout NormalizationContext
-  ) {
+  private func initializeRegisters(createdBy i: InstructionID, in context: inout Context) {
     for (j, t) in self[i].types.enumerated() {
       context.locals[.register(i, j)] = .object(
         .init(layout: .init(of: t.ast, definedIn: program), value: .full(.initialized)))
@@ -660,9 +653,9 @@ extension ModuleUnderConstruction {
 }
 
 /// An abstract interpretation context.
-private typealias NormalizationContext = AbstractContext<NormalizationState>
+private typealias Context = AbstractContext<State>
 
-extension NormalizationContext {
+extension Context {
 
   /// Returns `true` iff the object at `a` is fully initialized.
   fileprivate mutating func isStaticallyInitialized(_ a: Operand) -> Bool {
@@ -688,16 +681,14 @@ extension NormalizationContext {
 
 /// A map fron function block to the context of the abstract interpreter before and after the
 /// evaluation of its instructions.
-private typealias Contexts = [Function.Blocks.Address: (
-  before: NormalizationContext, after: NormalizationContext
-)]
+private typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
 
 /// The initialization state of an object or sub-object.
 ///
 /// Instances form a lattice whose supremum is `.initialized` and infimum is `.consumed(by: s)`
 /// where `s` is the set of all instructions. The meet of two elements denotes the conservative
 /// superposition of two initialization states.
-private enum NormalizationState: AbstractDomain {
+private enum State: AbstractDomain {
 
   /// A set of consumers.
   typealias Consumers = Set<InstructionID>
@@ -717,7 +708,7 @@ private enum NormalizationState: AbstractDomain {
   case consumed(by: Consumers)
 
   /// Forms a new state by merging `lhs` with `rhs`.
-  static func && (lhs: NormalizationState, rhs: NormalizationState) -> NormalizationState {
+  static func && (lhs: State, rhs: State) -> State {
     switch lhs {
     case .initialized:
       return rhs
@@ -736,7 +727,7 @@ private enum NormalizationState: AbstractDomain {
 
 }
 
-extension NormalizationState: CustomStringConvertible {
+extension State: CustomStringConvertible {
 
   var description: String {
     switch self {
@@ -761,11 +752,11 @@ private struct SubfieldsByInitializationState {
   var uninitialized: [RecordPath]
 
   /// The paths to the consumed parts, along with the users that consumed them.
-  var consumed: [(subfield: RecordPath, consumers: NormalizationState.Consumers)]
+  var consumed: [(subfield: RecordPath, consumers: State.Consumers)]
 
 }
 
-extension AbstractObject.Value where Domain == NormalizationState {
+extension AbstractObject.Value where Domain == State {
 
   /// If `self` is `.partial`, the paths to `self`'s parts; otherwise, `nil`.
   fileprivate var subfields: SubfieldsByInitializationState? {
@@ -814,7 +805,7 @@ extension AbstractObject.Value where Domain == NormalizationState {
   }
 
   /// The consumers of the object.
-  fileprivate var consumers: NormalizationState.Consumers {
+  fileprivate var consumers: State.Consumers {
     switch self {
     case .full(.initialized), .full(.uninitialized):
       return []
@@ -890,7 +881,7 @@ extension Diagnostic {
   }
 
   fileprivate static func illegalParameterEscape(
-    consumedBy consumers: NormalizationState.Consumers? = nil,
+    consumedBy consumers: State.Consumers? = nil,
     in module: ModuleUnderConstruction,
     at site: SourceRange
   ) -> Diagnostic {
