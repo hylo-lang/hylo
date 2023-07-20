@@ -8,13 +8,14 @@ public protocol ModuleContext: Core.Program {
   /// The type relations of the program.
   var relations: Core.TypeRelations { get }
 
-  var typed: TypedProgram { get }
+  /// The typechecked program associated with this context.
+  var typedProgram: TypedProgram { get }
 
 }
 
 extension Core.TypedProgram: IR.ModuleContext {
 
-  public var typed: TypedProgram { self }
+  public var typedProgram: TypedProgram { self }
 
 }
 
@@ -24,11 +25,14 @@ extension IR.Program: IR.ModuleContext {
     base.relations
   }
 
-  public var typed: TypedProgram { base }
+  public var typedProgram: TypedProgram { base }
 
 }
 
+/// An IR Module in a program that has not been fully lowered to IR.
 public typealias ModuleUnderConstruction = Module<Core.TypedProgram>
+
+/// An IR Module in a program that has been fully lowered to IR.
 public typealias FinishedModule = Module<IR.Program>
 
 /// A module lowered to Val IR.
@@ -73,8 +77,9 @@ extension IR.ModuleUnderConstruction {
     self.program = p
     self.id = m
 
-    var emitter = Emitter(program: program.typed)
+    var emitter = Emitter(program: program.typedProgram)
     emitter.lower(module: m, into: &self, diagnostics: &diagnostics)
+
     try diagnostics.throwOnError()
   }
 }
