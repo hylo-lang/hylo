@@ -6,23 +6,23 @@ import Utils
 public protocol ModuleContext: Core.Program {
 
   /// The type relations of the program.
-  //  var relations: TypeRelations { get }
+  var relations: Core.TypeRelations { get }
 
   var typed: TypedProgram { get }
 
 }
 
-extension Core.TypedProgram: ModuleContext {
+extension Core.TypedProgram: IR.ModuleContext {
 
   public var typed: TypedProgram { self }
 
 }
 
-extension IR.Program: ModuleContext {
+extension IR.Program: IR.ModuleContext {
 
-  //  public var relations: Core.TypeRelations {
-  //    base.relations
-  //  }
+  public var relations: Core.TypeRelations {
+    base.relations
+  }
 
   public var typed: TypedProgram { base }
 
@@ -35,7 +35,7 @@ public typealias FinishedModule = Module<IR.Program>
 ///
 /// An IR module is notionally composed of a collection of functions, one of which may be
 /// designated as its entry point (i.e., the `main` function of a Val program).
-public struct Module<Context: ModuleContext> {
+public struct Module<Context: IR.ModuleContext> {
 
   /// The identity of a global defined in a Val IR module.
   public typealias GlobalID = Int
