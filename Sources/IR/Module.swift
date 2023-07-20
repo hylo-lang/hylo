@@ -324,6 +324,10 @@ extension ModuleUnderConstruction {
     addFunction(entity, for: f)
     return f
   }
+}
+
+// FIXME: remove where clause once we have TypedProgramProtocol
+extension IR.Module where Context == TypedProgram {
 
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
@@ -370,6 +374,10 @@ extension ModuleUnderConstruction {
     return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
   }
 
+}
+
+extension IR.ModuleUnderConstruction {
+
   /// Declares the synthetic function `f`, which has type `t`, if it wasn't already.
   mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) {
     if functions[f] != nil { return }
@@ -390,6 +398,9 @@ extension ModuleUnderConstruction {
       blocks: [])
     addFunction(entity, for: f)
   }
+}
+
+extension IR.Module {
 
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
   private func appendCaptures(
@@ -420,6 +431,11 @@ extension ModuleUnderConstruction {
     }
   }
 
+}
+
+// FIXME: remove where clause once we have TypedProgramProtocol
+extension IR.Module where Context == TypedProgram {
+
   /// Returns a map from `f`'s generic arguments to their skolemized form.
   ///
   /// - Requires: `f` is declared in `self`.
@@ -438,6 +454,9 @@ extension ModuleUnderConstruction {
     }
     return result
   }
+}
+
+extension IR.Module {
 
   /// Returns the entry of `f`.
   ///
@@ -445,6 +464,9 @@ extension ModuleUnderConstruction {
   public func entry(of f: Function.ID) -> Block.ID? {
     functions[f]!.entry.map({ Block.ID(f, $0) })
   }
+}
+
+extension IR.ModuleUnderConstruction {
 
   /// Appends to `f` an entry block that is in `scope`, returning its identifier.
   ///
@@ -630,11 +652,18 @@ extension ModuleUnderConstruction {
       removeInstruction(.init(i.function, i.block, a))
     }
   }
+}
+
+extension IR.Module {
 
   /// Returns the uses of all the registers assigned by `i`.
   private func allUses(of i: InstructionID) -> FlattenSequence<[[Use]]> {
     results(of: i).compactMap({ uses[$0] }).joined()
   }
+
+}
+
+extension IR.ModuleUnderConstruction {
 
   /// Removes `i` from the def-use chains of its operands.
   private mutating func removeUsesMadeBy(_ i: InstructionID) {
@@ -642,6 +671,10 @@ extension ModuleUnderConstruction {
       uses[o]?.removeAll(where: { $0.user == i })
     }
   }
+
+}
+
+extension IR.Module {
 
   /// Returns the operands from which the address denoted by `a` derives.
   ///
@@ -672,6 +705,11 @@ extension ModuleUnderConstruction {
       return [a]
     }
   }
+
+}
+
+// FIXME: remove where clause once we have TypedProgramProtocol
+extension Module where Context == TypedProgram {
 
   /// Returns `true` if `o` is sink in `f`.
   ///
