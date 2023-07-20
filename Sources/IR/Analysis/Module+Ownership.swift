@@ -56,7 +56,7 @@ extension ModuleUnderConstruction {
       precondition(context.memory[l] == nil, "stack leak")
 
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.allocatedType, definedIn: program),
+        layout: AbstractTypeLayout(of: s.allocatedType, definedIn: container),
         value: .full(.unique))
       context.locals[.register(i, 0)] = .locations([l])
     }
@@ -190,7 +190,7 @@ extension ModuleUnderConstruction {
       let l = AbstractLocation.root(.register(i, 0))
 
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.valueType, definedIn: program),
+        layout: AbstractTypeLayout(of: s.valueType, definedIn: container),
         value: .full(.unique))
       context.locals[.register(i, 0)] = .locations([l])
     }
@@ -206,7 +206,7 @@ extension ModuleUnderConstruction {
 
       // Objects at each location have the same state unless DI or LoE has been broken.
       let o = context.withObject(at: locations.first!, { $0 })
-      let t = AbstractTypeLayout(of: s.payloadType, definedIn: program)
+      let t = AbstractTypeLayout(of: s.payloadType, definedIn: container)
 
       context.memory[l] = .init(layout: t, value: o.value)
       context.locals[.register(i, 0)] = .locations([l])
@@ -218,7 +218,7 @@ extension ModuleUnderConstruction {
       let l = AbstractLocation.root(.register(i, 0))
 
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
+        layout: AbstractTypeLayout(of: s.target.bareType, definedIn: container),
         value: .full(.unique))
       context.locals[.register(i, 0)] = .locations([l])
     }
@@ -230,7 +230,7 @@ extension ModuleUnderConstruction {
       precondition(context.memory[l] == nil, "projection leak")
 
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
+        layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: container),
         value: .full(.unique))
       context.locals[.register(i, 0)] = .locations([l])
     }
@@ -295,7 +295,7 @@ extension ModuleUnderConstruction {
     _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
     in context: inout OwnershipContext
   ) {
-    let l = AbstractTypeLayout(of: t, definedIn: program)
+    let l = AbstractTypeLayout(of: t, definedIn: container)
     let p = Operand.parameter(entry, position)
 
     switch k {

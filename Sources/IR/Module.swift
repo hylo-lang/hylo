@@ -3,7 +3,7 @@ import Foundation
 import Utils
 
 /// Types that can act as the context for an `IR.Module`.
-public protocol ModuleContext: Core.Program {
+public protocol ModuleContainer: Core.Program {
 
   /// The type relations of the program.
   var relations: Core.TypeRelations { get }
@@ -13,13 +13,13 @@ public protocol ModuleContext: Core.Program {
 
 }
 
-extension Core.TypedProgram: IR.ModuleContext {
+extension Core.TypedProgram: IR.ModuleContainer {
 
   public var typedProgram: TypedProgram { self }
 
 }
 
-extension IR.Program: IR.ModuleContext {
+extension IR.Program: IR.ModuleContainer {
 
   public var relations: Core.TypeRelations {
     base.relations
@@ -39,13 +39,13 @@ public typealias FinishedModule = Module<IR.Program>
 ///
 /// An IR module is notionally composed of a collection of functions, one of which may be
 /// designated as its entry point (i.e., the `main` function of a Val program).
-public struct Module<Context: IR.ModuleContext> {
+public struct Module<Container: IR.ModuleContainer> {
 
   /// The identity of a global defined in a Val IR module.
   public typealias GlobalID = Int
 
   /// The program defining the functions in `self`.
-  public let program: Context
+  public let container: Container
 
   /// The module's identifier.
   public let id: ModuleDecl.ID
@@ -72,12 +72,12 @@ extension IR.ModuleUnderConstruction {
   /// - Requires: `m` is a valid ID in `p`.
   /// - Throws: `Diagnostics` if lowering fails.
   public init(
-    lowering m: ModuleDecl.ID, in p: Context, diagnostics: inout DiagnosticSet
+    lowering m: ModuleDecl.ID, in p: Container, diagnostics: inout DiagnosticSet
   ) throws {
-    self.program = p
+    self.container = p
     self.id = m
 
-    var emitter = Emitter(program: program.typedProgram)
+    var emitter = Emitter(program: container.typedProgram)
     emitter.lower(module: m, into: &self, diagnostics: &diagnostics)
 
     try diagnostics.throwOnError()
@@ -88,7 +88,7 @@ extension IR.Module {
 
   /// The module's name.
   public var name: String {
-    program.ast[id].baseName
+    container.ast[id].baseName
   }
 
   /// Accesses the given function.
@@ -227,14 +227,14 @@ extension ModuleUnderConstruction {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
-    let parameters = program.accumulatedGenericParameters(of: d)
-    let output = program.relations.canonical((program[d].type.base as! CallableType).output)
+    let parameters = container.accumulatedGenericParameters(of: d)
+    let output = container.relations.canonical((container[d].type.base as! CallableType).output)
     let inputs = loweredParameters(of: d)
 
     let entity = Function(
       isSubscript: false,
-      name: program.debugName(decl: d),
-      site: program.ast[d].site,
+      name: container.debugName(decl: d),
+      site: container.ast[d].site,
       linkage: .external,
       genericParameters: Array(parameters),
       inputs: inputs,
@@ -243,7 +243,7 @@ extension ModuleUnderConstruction {
     addFunction(entity, for: f)
 
     // Determine if the new function is the module's entry.
-    if program.isModuleEntry(d) {
+    if container.isModuleEntry(d) {
       assert(entryFunction == nil)
       entryFunction = f
     }
@@ -254,7 +254,7 @@ extension ModuleUnderConstruction {
   /// Returns the identity of the Val IR function implementing the deinitializer defined in
   /// conformance `c`.
   mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
-    let d = program.ast.deinitRequirement()
+    let d = container.ast.deinitRequirement()
     switch c.implementations[d]! {
     case .concrete:
       fatalError("not implemented")
@@ -272,7 +272,7 @@ extension ModuleUnderConstruction {
   mutating func demandMoveOperatorDeclaration(
     _ k: AccessEffect, from c: Core.Conformance
   ) -> Function.ID {
-    let d = program.ast.moveRequirement(k)
+    let d = container.ast.moveRequirement(k)
     switch c.implementations[d]! {
     case .concrete:
       fatalError("not implemented")
@@ -288,14 +288,14 @@ extension ModuleUnderConstruction {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
-    let parameters = program.accumulatedGenericParameters(of: d)
-    let output = program.relations.canonical(SubscriptImplType(program[d].type)!.output)
+    let parameters = container.accumulatedGenericParameters(of: d)
+    let output = container.relations.canonical(SubscriptImplType(container[d].type)!.output)
     let inputs = loweredParameters(of: d)
 
     let entity = Function(
       isSubscript: true,
-      name: program.debugName(decl: d),
-      site: program.ast[d].site,
+      name: container.debugName(decl: d),
+      site: container.ast[d].site,
       linkage: .external,
       genericParameters: Array(parameters),
       inputs: inputs,
@@ -308,18 +308,18 @@ extension ModuleUnderConstruction {
 
   /// Returns the identifier of the Val IR initializer corresponding to `d`.
   mutating func demandInitializerDeclaration(lowering d: InitializerDecl.ID) -> Function.ID {
-    precondition(!program.ast[d].isMemberwise)
+    precondition(!container.ast[d].isMemberwise)
 
     let f = Function.ID(initializer: d)
     if functions[f] != nil { return f }
 
-    let parameters = program.accumulatedGenericParameters(of: d)
+    let parameters = container.accumulatedGenericParameters(of: d)
     let inputs = loweredParameters(of: d)
 
     let entity = Function(
       isSubscript: false,
-      name: program.debugName(decl: d),
-      site: program.ast[d].introducer.site,
+      name: container.debugName(decl: d),
+      site: container.ast[d].introducer.site,
       linkage: .external,
       genericParameters: Array(parameters),
       inputs: inputs,
@@ -332,17 +332,17 @@ extension ModuleUnderConstruction {
 }
 
 // FIXME: remove where clause once we have TypedProgramProtocol
-extension IR.Module where Context == TypedProgram {
+extension IR.Module where Container == TypedProgram {
 
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
-    let captures = LambdaType(program[d].type)!.captures.lazy.map { (e) in
-      program.relations.canonical(e.type)
+    let captures = LambdaType(container[d].type)!.captures.lazy.map { (e) in
+      container.relations.canonical(e.type)
     }
-    var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
+    var result: [Parameter] = zip(container.captures(of: d), captures).map({ (c, e) in
       .init(c, capturedAs: e)
     })
-    result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
+    result.append(contentsOf: container.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
     return result
   }
 
@@ -351,22 +351,22 @@ extension IR.Module where Context == TypedProgram {
   /// `d`'s receiver comes first and is followed by `d`'s formal parameters, from left to right.
   private func loweredParameters(of d: InitializerDecl.ID) -> [Parameter] {
     var result: [Parameter] = []
-    result.append(pairedWithLoweredType(parameter: program.ast[d].receiver))
-    result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
+    result.append(pairedWithLoweredType(parameter: container.ast[d].receiver))
+    result.append(contentsOf: container.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
     return result
   }
 
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: SubscriptImpl.ID) -> [Parameter] {
-    let captures = SubscriptImplType(program[d].type)!.captures.lazy.map { (e) in
-      program.relations.canonical(e.type)
+    let captures = SubscriptImplType(container[d].type)!.captures.lazy.map { (e) in
+      container.relations.canonical(e.type)
     }
-    var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
+    var result: [Parameter] = zip(container.captures(of: d), captures).map({ (c, e) in
       .init(c, capturedAs: e)
     })
 
-    let bundle = SubscriptDecl.ID(program[d].scope)!
-    if let p = program.ast[bundle].parameters {
+    let bundle = SubscriptDecl.ID(container[d].scope)!
+    if let p = container.ast[bundle].parameters {
       result.append(contentsOf: p.map(pairedWithLoweredType(parameter:)))
     }
 
@@ -375,7 +375,7 @@ extension IR.Module where Context == TypedProgram {
 
   /// Returns `d`, which declares a parameter, paired with its lowered type.
   private func pairedWithLoweredType(parameter d: ParameterDecl.ID) -> Parameter {
-    let t = program.relations.canonical(program[d].type)
+    let t = container.relations.canonical(container[d].type)
     return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
   }
 
@@ -387,7 +387,7 @@ extension IR.ModuleUnderConstruction {
   mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) {
     if functions[f] != nil { return }
 
-    let output = program.relations.canonical(t.output)
+    let output = container.relations.canonical(t.output)
     var inputs: [Parameter] = []
     appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
     appendParameters(t.inputs, to: &inputs)
@@ -395,7 +395,7 @@ extension IR.ModuleUnderConstruction {
     let entity = Function(
       isSubscript: false,
       name: "",
-      site: .empty(at: program.ast[id].site.first()),
+      site: .empty(at: container.ast[id].site.first()),
       linkage: .external,
       genericParameters: [],  // TODO
       inputs: inputs,
@@ -413,7 +413,7 @@ extension IR.Module {
   ) {
     inputs.reserveCapacity(captures.count)
     for c in captures {
-      switch program.relations.canonical(c.type).base {
+      switch container.relations.canonical(c.type).base {
       case let p as RemoteType:
         precondition(p.access != .yielded, "cannot lower yielded parameter")
         inputs.append(.init(decl: nil, type: ParameterType(p)))
@@ -430,7 +430,7 @@ extension IR.Module {
   ) {
     inputs.reserveCapacity(parameters.count)
     for p in parameters {
-      let t = ParameterType(program.relations.canonical(p.type))!
+      let t = ParameterType(container.relations.canonical(p.type))!
       precondition(t.access != .yielded, "cannot lower yielded parameter")
       inputs.append(.init(decl: nil, type: t))
     }
@@ -439,7 +439,7 @@ extension IR.Module {
 }
 
 // FIXME: remove where clause once we have TypedProgramProtocol
-extension IR.Module where Context == TypedProgram {
+extension IR.Module where Container == TypedProgram {
 
   /// Returns a map from `f`'s generic arguments to their skolemized form.
   ///
@@ -448,7 +448,7 @@ extension IR.Module where Context == TypedProgram {
     var result = GenericArguments()
     for p in functions[f]!.genericParameters {
       guard
-        let t = MetatypeType(program[p].type),
+        let t = MetatypeType(container[p].type),
         let u = GenericTypeParameterType(t.instance)
       else {
         // TODO: Handle value parameters
@@ -714,7 +714,7 @@ extension IR.Module {
 }
 
 // FIXME: remove where clause once we have TypedProgramProtocol
-extension Module where Context == TypedProgram {
+extension Module where Container == TypedProgram {
 
   /// Returns `true` if `o` is sink in `f`.
   ///

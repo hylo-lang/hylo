@@ -104,7 +104,7 @@ extension ModuleUnderConstruction {
 
       // Update the context.
       let s = self[i] as! AllocStackInstruction
-      let t = AbstractTypeLayout(of: s.allocatedType, definedIn: program)
+      let t = AbstractTypeLayout(of: s.allocatedType, definedIn: container)
 
       context.memory[l] = .init(layout: t, value: .full(.uninitialized))
       context.locals[.register(i, 0)] = .locations([l])
@@ -298,7 +298,7 @@ extension ModuleUnderConstruction {
       let l = AbstractLocation.root(.register(i, 0))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(
-          of: (self[i] as! GlobalAddrInstruction).valueType, definedIn: program),
+          of: (self[i] as! GlobalAddrInstruction).valueType, definedIn: container),
         value: .full(.initialized))
       context.locals[.register(i, 0)] = .locations([l])
       return successor(of: i)
@@ -391,7 +391,7 @@ extension ModuleUnderConstruction {
 
       // Objects at each location have the same state unless DI or LoE has been broken.
       let o = context.withObject(at: locations.first!, { $0 })
-      let t = AbstractTypeLayout(of: s.payloadType, definedIn: program)
+      let t = AbstractTypeLayout(of: s.payloadType, definedIn: container)
 
       context.memory[l] = .init(layout: t, value: o.value)
       context.locals[.register(i, 0)] = .locations([l])
@@ -414,7 +414,7 @@ extension ModuleUnderConstruction {
 
       let l = AbstractLocation.root(.register(i, 0))
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
+        layout: AbstractTypeLayout(of: s.target.bareType, definedIn: container),
         value: .full(s.target.access == .set ? .uninitialized : .initialized))
       context.locals[.register(i, 0)] = .locations([l])
       return successor(of: i)
@@ -427,7 +427,7 @@ extension ModuleUnderConstruction {
       let s = self[i] as! ProjectInstruction
       let l = AbstractLocation.root(.register(i, 0))
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
+        layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: container),
         value: .full(s.projection.access == .set ? .uninitialized : .initialized))
       context.locals[.register(i, 0)] = .locations([l])
       return successor(of: i)
@@ -586,7 +586,7 @@ extension ModuleUnderConstruction {
     _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
     in context: inout NormalizationContext
   ) {
-    let l = AbstractTypeLayout(of: t, definedIn: program)
+    let l = AbstractTypeLayout(of: t, definedIn: container)
     let p = Operand.parameter(entry, position)
 
     switch k {
@@ -623,7 +623,7 @@ extension ModuleUnderConstruction {
   ) {
     for (j, t) in self[i].types.enumerated() {
       context.locals[.register(i, j)] = .object(
-        .init(layout: .init(of: t.ast, definedIn: program), value: .full(.initialized)))
+        .init(layout: .init(of: t.ast, definedIn: container), value: .full(.initialized)))
     }
   }
 
@@ -651,9 +651,9 @@ extension ModuleUnderConstruction {
     guard let d = p.decl else { return .empty(at: self[f].site.first()) }
     switch d.kind {
     case ParameterDecl.self:
-      return program.ast[ParameterDecl.ID(d)!].identifier.site
+      return container.ast[ParameterDecl.ID(d)!].identifier.site
     default:
-      return program.ast[d].site
+      return container.ast[d].site
     }
   }
 
