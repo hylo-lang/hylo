@@ -5,15 +5,57 @@ import XCTest
 
 final class ManglingTests: XCTestCase {
 
-  func testRoundtrip() throws {
+  func testDeclarations() throws {
     let text = """
-      namespace N {
+      import Val
+
+      namespace Stash {
         type A {}
+
+        trait Indexable {
+          value size
+          type Index
+        }
+
+        typealias Number = Int
       }
 
-      fun foo(_ x: Int, label y: N.A) -> Int { 0 }
+      type Angle {
+        public var radians: Float64
+        public memberwise init
+        public init(degrees: Float64) {
+          &self.radians = 0.0
+        }
+        public property degrees: Float64 {
+          let { 0.0 }
+          inout { var x = 0.0; yield &x }
+        }
+      }
 
-      fun français() {}
+      type B<X> {
+        public memberwise init
+      }
+
+      fun français(_ x: Int, label y: Stash.A) -> Int {
+        let (bar, ham) = (1, 2)
+        return bar + ham
+      }
+
+      fun 複雑(サ: B<Int>, シ: Sum<Int, Bool, B<Int>>) -> {ス: Int, セ: Bool} {}
+
+      fun foo(y: Int) {
+        let local = 0
+        let lambda = fun[let capture = local](x: Int) { local + x }
+        if true {
+          let z = lambda(x: y)
+        }
+
+        extension B {
+          fun hammer() {}
+        }
+
+        conformance Stash.A: Deinitializable {}
+      }
       """
 
     let input = SourceFile(synthesizedText: text, named: "main")
@@ -28,10 +70,12 @@ final class ManglingTests: XCTestCase {
 
     var expected: Set = [
       "Main",
-      "Main.N",
-      "Main.N.A",
-      "Main.foo(_:label:)",
-      "Main.français()",
+      "Main.Stash",
+      "Main.Stash.A",
+      "Main.Angle.init",
+      "Main.Angle.degrees().inout",
+      "Main.français(_:label:).bar",
+      "Main.foo(y:).$0.x",
     ]
 
     for m in o.symbols.keys {
@@ -39,6 +83,31 @@ final class ManglingTests: XCTestCase {
       expected.remove(demangled.description)
     }
     XCTAssert(expected.isEmpty, "symbols not found: \(list: expected)")
+  }
+
+  func testTypes() throws {
+    let p = try checkNoDiagnostic { (d) in
+      let a = AST.standardLibrary
+      return try TypedProgram(a, diagnostics: &d)
+    }
+
+    /// Asserts that demangling description of the mangled representation of `t` is `description`.
+    func assertDemangledOfMangled<T: TypeProtocol>(
+      _ t: T, is description: String, line: UInt = #line
+    ) throws {
+      let m = p.mangled(t)
+      let d = try XCTUnwrap(DemangledSymbol(m), "unable to demangle \"\(m)\"", line: line)
+      XCTAssertEqual(d.description, description, line: line)
+    }
+
+    try assertDemangledOfMangled(AnyType.any, is: "Any")
+    try assertDemangledOfMangled(AnyType.never, is: "Never")
+    try assertDemangledOfMangled(AnyType.void, is: "Void")
+    try assertDemangledOfMangled(MetatypeType(of: AnyType.void), is: "Metatype<Void>")
+    try assertDemangledOfMangled(p.ast.coreType("Int")!, is: "Val.Int")
+    try assertDemangledOfMangled(
+      ExistentialType(traits: [p.ast.coreTrait("Movable")!], constraints: []),
+      is: "any Val.Movable")
   }
 
 }
@@ -63,6 +132,11 @@ private struct SymbolCollector: ASTWalkObserver {
   }
 
   mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
+    // Binding declarations can't be mangled.
+    if n.kind == BindingDecl.self {
+      return true
+    }
+
     if let d = AnyDeclID(n) {
       let s = program.mangled(d)
       let k = symbols.updateValue(d, forKey: s)
