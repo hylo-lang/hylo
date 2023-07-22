@@ -1,5 +1,30 @@
+import Utils
+
 /// The payload of a `DemangledSymbol.type`.
 public indirect enum DemangledType: Hashable {
+
+  /// The `Any` type.
+  case any
+
+  /// The existential metatype (`any Metatype`).
+  case anyMetatype
+
+  /// The `Never` type.
+  case never
+
+  /// The `Void` type.
+  case void
+
+  /// A bound generic type.
+  case boundGeneric(base: DemangledType, arguments: [DemangledSymbol])
+
+  /// An existential generic type.
+  case existentialGeneric(DemangledType)
+
+  /// An existential trait type.
+  case existentialTrait([DemangledType])
+
+  /// An existential trait type.
 
   /// A lambda type.
   case lambda(
@@ -8,17 +33,30 @@ public indirect enum DemangledType: Hashable {
     inputs: [Parameter],
     output: DemangledType)
 
+  /// A metatype.
+  case metatype(DemangledType)
+
+  /// A nominal type.
+  case nominal(DemangledEntity)
+
   /// A parameter type.
   case parameter(access: AccessEffect, value: DemangledType)
 
-  /// A product type.
-  case product(DemangledEntity)
+  /// A remote type.
+  case remote(access: AccessEffect, value: DemangledType)
 
-  /// The `Never` type.
-  case never
+  /// A subscript type.
+  case subscriptBundle(
+    capabilities: AccessEffectSet,
+    environment: DemangledType,
+    inputs: [Parameter],
+    output: DemangledType)
 
-  /// The `Void` type.
-  case void
+  /// A sum type.
+  case sum([DemangledType])
+
+  /// A tuple type.
+  case tuple([Parameter])
 
   /// A parameter of a callable symbol.
   public struct Parameter: Hashable {
@@ -37,23 +75,57 @@ extension DemangledType: CustomStringConvertible {
 
   public var description: String {
     switch self {
+    case .any:
+      return "Any"
+    case .anyMetatype:
+      return "any Metatype"
+    case .never:
+      return "Never"
+    case .void:
+      return "Void"
+
+    case .boundGeneric(let base, let arguments):
+      return "\(base)<\(list: arguments)>"
+
+    case .existentialGeneric(let interface):
+      return "any \(interface)"
+
+    case .existentialTrait(let interface):
+      return "any \(list: interface)"
+
     case .lambda(let effect, let environment, let inputs, let output):
       let i = inputs.map { (p) -> String in
         (p.label.map({ $0 + ": " }) ?? "") + p.type.description
       }
       return "[\(environment)](\(list: i) \(effect) -> \(output)"
 
+    case .metatype(let t):
+      return "Metatype<\(t)>"
+
+    case .nominal(let e):
+      return e.description
+
     case .parameter(let access, let value):
       return "\(access) \(value)"
 
-    case .product(let e):
-      return e.description
+    case .remote(let access, let value):
+      return "\(access) \(value)"
 
-    case .never:
-      return "Never"
+    case .subscriptBundle(let capabilities, let environment, let inputs, let output):
+      let i = inputs.map { (p) -> String in
+        (p.label.map({ $0 + ": " }) ?? "") + p.type.description
+      }
+      let cs = capabilities.elements.descriptions(joinedBy: " ")
+      return "[\(environment)](\(list: i) : \(output) { \(cs) }"
 
-    case .void:
-      return "Void"
+    case .sum(let elements):
+      return "Sum<\(list: elements)>"
+
+    case .tuple(let elements):
+      let i = elements.map { (p) -> String in
+        (p.label.map({ $0 + ": " }) ?? "") + p.type.description
+      }
+      return "{\(list: i)}"
     }
   }
 

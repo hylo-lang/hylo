@@ -113,6 +113,14 @@ extension Program {
     }
   }
 
+  /// Returns `true` iff `s` is the body of a function, initializer, or subscript.
+  public func isCallableBody(_ s: BraceStmt.ID) -> Bool {
+    let p = nodeToScope[s]!
+    return
+      (p.kind == FunctionDecl.self) || (p.kind == InitializerDecl.self)
+      || (p.kind == MethodImpl.self) || (p.kind == SubscriptImpl.self)
+  }
+
   /// Returns `true` iff `d` is at module scope.
   public func isAtModuleScope<T: DeclID>(_ d: T) -> Bool {
     switch nodeToScope[d]!.kind {

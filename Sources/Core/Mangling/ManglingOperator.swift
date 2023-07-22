@@ -3,29 +3,33 @@ public enum ManglingOperator: String {
 
   case productTypeDecl = "A"
 
-  case productType = "B"
-
   case traitDecl = "C"
 
-  case associatedTypeDecl = "aD"
+  case conformanceDecl = "cD"
 
-  case associatedValueDecl = "vD"
+  case extensionDecl = "eD"
+
+  case importDecl = "iD"
+
+  case associatedTypeDecl = "taD"
+
+  case associatedValueDecl = "vaD"
 
   case functionDecl = "F"
-
-  case anonymousFunctionDecl = "aF"
 
   case staticFunctionDecl = "sF"
 
   case genericParameterDecl = "G"
 
-  case importDecl = "I"
+  case propertyDecl = "pH"
+
+  case subscriptDecl = "H"
+
+  case subscriptImpl = "iH"
+
+  case memberwiseInitializerDecl = "I"
 
   case lookup = "K"
-
-  case lambdaType = "L"
-
-  case thinLambdaType = "tL"
 
   case moduleDecl = "M"
 
@@ -33,17 +37,55 @@ public enum ManglingOperator: String {
 
   case parameterDecl = "P"
 
+  case directDeclReference = "dQ"
+
   case reserved = "R"
 
   case typealiasDecl = "S"
+
+  case productType = "aT"
+
+  case boundGenericType = "bT"
+
+  case traitType = "cT"
+
+  case existentialTraitType = "eT"
+
+  case existentialGenericType = "egT"
+
+  case existentialMetatype = "emT"
+
+  case genericTypeParameterType = "gT"
+
+  case lambdaType = "lT"
+
+  case metatypeType = "mT"
 
   case parameterType = "pT"
 
   case remoteType = "rT"
 
-  case varDecl = "V"
+  case subscriptType = "sT"
+
+  case subscriptImplType = "siT"
+
+  case tupleType = "tT"
+
+  case sumType = "uT"
 
   case translatonUnit = "U"
+
+  case varDecl = "V"
+
+  case whereClause = "W"
+
+  case conformanceConstraint = "cW"
+
+  case equalityConstraint = "eW"
+
+  case valueConstraint = "vW"
+
+  case anonymousScope = "Y"
 
   case endOfSequence = "Z"
 
