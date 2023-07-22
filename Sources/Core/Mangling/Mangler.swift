@@ -93,12 +93,21 @@ struct Mangler {
 
   /// Writes the mangled qualification of `d`, defined in program, to `output`.
   private mutating func writeQualification(of d: AnyDeclID, to output: inout Output) {
-    for parent in program.scopes(from: program.nodeToScope[d]!).reversed() {
+    var qualification: [AnyScopeID] = []
+    for s in program.scopes(from: program.nodeToScope[d]!) {
+      if writeLookup(.node(AnyNodeID(s)), to: &output) {
+        break
+      } else {
+        qualification.append(s)
+      }
+    }
+
+    for s in qualification.reversed() {
       // Anonymous scopes corresponding to the body of a function aren't mangled.
-      if let p = BraceStmt.ID(parent), program.isCallableBody(p) {
+      if let p = BraceStmt.ID(s), program.isCallableBody(p) {
         continue
       }
-      write(scope: parent, to: &output)
+      write(scope: s, to: &output)
     }
   }
 
