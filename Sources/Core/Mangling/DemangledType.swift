@@ -90,8 +90,8 @@ extension DemangledType: CustomStringConvertible {
     case .existentialGeneric(let interface):
       return "any \(interface)"
 
-      case .existentialTrait(let interface):
-        return "any \(list: interface)"
+    case .existentialTrait(let interface):
+      return "any \(list: interface)"
 
     case .lambda(let effect, let environment, let inputs, let output):
       let i = inputs.map { (p) -> String in
