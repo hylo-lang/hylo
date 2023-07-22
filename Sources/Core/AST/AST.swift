@@ -176,6 +176,11 @@ public struct AST {
   /// - Requires: The Core library must have been loaded.
   public var copyableTrait: TraitType { coreTrait("Copyable")! }
 
+  /// `Val.ForeignConvertiblae` trait from the Core library.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public var ForeignConvertibleTrait: TraitType { coreTrait("ForeignConvertible")! }
+
   // MARK: Helpers
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
