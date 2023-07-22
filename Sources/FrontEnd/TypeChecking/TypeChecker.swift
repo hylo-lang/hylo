@@ -1098,7 +1098,7 @@ public struct TypeChecker {
     // Target type must be `Movable`.
     guard let targetType = checkedType(of: ast[s].left) else { return }
     let lhsConstraint = ConformanceConstraint(
-      targetType, conformsTo: [ast.movableTrait],
+      targetType, conformsTo: ast.movableTrait,
       origin: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
 
     // Source type must be subtype of the target type.

@@ -698,7 +698,7 @@ extension TypeChecker {
       ]
       let alternative: ConstraintSet = [
         EqualityConstraint(t, e, origin: cause),
-        ConformanceConstraint(e, conformsTo: [p], origin: cause),
+        ConformanceConstraint(e, conformsTo: p, origin: cause),
       ]
 
       state.facts.append(
