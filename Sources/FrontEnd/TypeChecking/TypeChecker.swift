@@ -918,47 +918,66 @@ public struct TypeChecker {
     /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(function d: FunctionDecl.ID) {
-      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
-      guard !requiredType[.hasError] else { return }
-
-      let t = relations.canonical(requiredType)
       let requiredName = Name(of: d, in: ast)!
+      guard let requiredType = candidateType(d) else {
+        return
+      }
+
       if let c = implementation(
         of: requiredName, in: model,
-        withCallableType: LambdaType(t)!, specializedWith: specializations,
+        withCallableType: LambdaType(requiredType)!, specializedWith: specializations,
         exposedTo: useScope)
       {
         implementations[d] = .concrete(c)
-      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
+        return
+      }
+
+      if let k = ast.synthesizedImplementation(of: d, definedBy: trait) {
+        let i = SynthesizedDecl(k, typed: requiredType, in: useScope)
         implementations[d] = .synthetic(i)
         synthesizedDecls[program.module(containing: source), default: []].append(i)
-      } else {
-        notes.insert(
-          .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+        return
       }
+
+      notes.insert(
+        .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
     }
 
-    /// Checks if requirement `d` of a method bunde named `m` is satisfied by `model`, extending
+    /// Checks if requirement `d` of a method bundle named `m` is satisfied by `model`, extending
     /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
     func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
-      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
-      guard !requiredType[.hasError] else { return }
+      let requiredName = m.appending(ast[d].introducer.value)!
+      guard let requiredType = candidateType(d) else {
+        return
+      }
 
-      let t = relations.canonical(requiredType)
       if let c = implementation(
         of: m, in: model,
-        withCallableType: LambdaType(t)!, specializedWith: specializations,
+        withCallableType: LambdaType(requiredType)!, specializedWith: specializations,
         exposedTo: useScope)
       {
         implementations[d] = .concrete(c)
-      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
+        return
+      }
+
+      if let k = ast.synthesizedImplementation(of: d, definedBy: trait) {
+        let i = SynthesizedDecl(k, typed: requiredType, in: useScope)
         implementations[d] = .synthetic(i)
         synthesizedDecls[program.module(containing: d), default: []].append(i)
-      } else {
-        let requiredName = m.appending(ast[d].introducer.value)!
-        notes.insert(
-          .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+        return
       }
+
+      notes.insert(
+        .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+    }
+
+    /// Returns the type of `candidate` viewed as a member of `model` satisfying a requirement in
+    /// `concept`, or `nil` if this type could not be realized.
+    func candidateType<T: Decl>(_ candidate: T.ID) -> AnyType? {
+      let t = realize(decl: candidate)
+      let u = specialized(t, applying: specializations, in: useScope)
+      let v = relations.canonical(u)
+      return v[.hasError] ? nil : v
     }
   }
 
@@ -1014,45 +1033,6 @@ public struct TypeChecker {
     }
 
     return viableCandidates.uniqueElement
-  }
-
-  /// Returns the synthesized implementation of requirement `r` for type `t` in given `useScope`,
-  /// or `nil` if `r` is not synthesizable.
-  private func synthesizedImplementation<T: DeclID>(
-    of r: T, for t: AnyType, in useScope: AnyScopeID
-  ) -> SynthesizedDecl? {
-    guard let s = program.innermostType(containing: r).map(TraitDecl.ID.init(_:)) else {
-      return nil
-    }
-
-    // If the requirement is defined in `Destructible`, it must be the deinitialization method.
-    if s == ast.deinitializableTrait.decl {
-      assert(r.kind == FunctionDecl.self)
-      return .init(.deinitialize, for: t, in: useScope)
-    }
-
-    // If the requirement is defined in `Movable`, it must be either the move-initialization or
-    // move-assignment method.
-    if s == ast.movableTrait.decl {
-      let d = MethodImpl.ID(r)!
-      switch ast[d].introducer.value {
-      case .set:
-        return .init(.moveInitialization, for: t, in: useScope)
-      case .inout:
-        return .init(.moveAssignment, for: t, in: useScope)
-      default:
-        unreachable()
-      }
-    }
-
-    // If the requirement is defined in `Copyable`, it must be the copy method.
-    if s == ast.copyableTrait.decl {
-      assert(r.kind == FunctionDecl.self)
-      return .init(.copy, for: t, in: useScope)
-    }
-
-    // Requirement is not synthesizable.
-    return nil
   }
 
   /// Type checks `s`.
