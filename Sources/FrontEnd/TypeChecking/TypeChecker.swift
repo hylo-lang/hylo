@@ -934,9 +934,12 @@ public struct TypeChecker {
     /// `concept`, or `nil` if this type could not be realized.
     func candidateType<T: Decl>(_ candidate: T.ID) -> AnyType? {
       let t = realize(decl: candidate)
+      if t[.hasError] {
+        return nil
+      }
+
       let u = specialized(t, applying: specializations, in: useScope)
-      let v = relations.canonical(u)
-      return v[.hasError] ? nil : v
+      return relations.canonical(u)
     }
   }
 
