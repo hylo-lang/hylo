@@ -48,8 +48,8 @@ extension Module {
 
     // TODO: Use existentialization unless the function is inlinable
 
-    let g = monomorphize(callee, in: ir)
-    let r = FunctionReference(to: g, usedIn: callee.useScope, in: self)
+    let g = monomorphize(callee, in: ir, usedIn: scope(containing: i))
+    let r = FunctionReference(to: g, in: self)
     let new = makeCall(
       applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
     replace(i, with: new)
@@ -65,8 +65,7 @@ extension Module {
 
     // TODO: Use existentialization unless the subscript is inlinable
 
-    let useScope = self[Block.ID(i.function, i.block)].scope
-    let g = monomorphize(s.callee, in: ir, for: s.parameterization, usedIn: useScope)
+    let g = monomorphize(s.callee, in: ir, for: s.parameterization, usedIn: scope(containing: i))
     let new = makeProject(
       s.projection, applying: g, parameterizedBy: [:], to: s.operands, at: s.site)
     replace(i, with: new)
@@ -95,9 +94,9 @@ extension Module {
   /// Returns a reference to the monomorphized form of `r`, reading definitions from `ir`.
   @discardableResult
   private mutating func monomorphize(
-    _ r: FunctionReference, in ir: IR.Program
+    _ r: FunctionReference, in ir: IR.Program, usedIn useScope: AnyScopeID
   ) -> Function.ID {
-    monomorphize(r.function, in: ir, for: r.genericArguments, usedIn: r.useScope)
+    monomorphize(r.function, in: ir, for: r.genericArguments, usedIn: useScope)
   }
 
   /// Returns a reference to the monomorphized form of `f` for given `parameterization` in
@@ -239,9 +238,10 @@ extension Module {
 
       let newCallee: Operand
       if let callee = s.callee.constant as? FunctionReference, !callee.genericArguments.isEmpty {
+        let useScope = sourceModule.scope(containing: i)
         let p = program.monomorphize(callee.genericArguments, for: parameterization)
-        let g = monomorphize(callee.function, in: ir, for: p, usedIn: callee.useScope)
-        newCallee = .constant(FunctionReference(to: g, usedIn: callee.useScope, in: self))
+        let g = monomorphize(callee.function, in: ir, for: p, usedIn: useScope)
+        newCallee = .constant(FunctionReference(to: g, in: self))
       } else {
         newCallee = rewritten(s.callee)
       }
@@ -339,9 +339,10 @@ extension Module {
         assert(!sourceModule[s.callee.function].isGeneric)
         newCallee = s.callee
       } else {
+        let useScope = sourceModule.scope(containing: i)
         let p = program.monomorphize(s.callee.genericArguments, for: parameterization)
-        let g = monomorphize(s.callee.function, in: ir, for: p, usedIn: s.callee.useScope)
-        newCallee = FunctionReference(to: g, usedIn: s.callee.useScope, in: self)
+        let g = monomorphize(s.callee.function, in: ir, for: p, usedIn: useScope)
+        newCallee = FunctionReference(to: g, in: self)
       }
 
       let e = rewritten(s.environment)

@@ -554,7 +554,7 @@ public struct Emitter {
 
       case .synthetic(let d):
         let f = lower(synthesized: d)
-        implementations[r] = .function(.init(to: f, usedIn: useScope, in: module))
+        implementations[r] = .function(.init(to: f, in: module))
       }
     }
 
@@ -567,11 +567,11 @@ public struct Emitter {
   ) -> IR.Conformance.Implementation {
     switch d.kind {
     case FunctionDecl.self:
-      let r = FunctionReference(to: FunctionDecl.ID(d)!, usedIn: useScope, in: &module)
+      let r = FunctionReference(to: FunctionDecl.ID(d)!, in: &module)
       return .function(r)
 
     case InitializerDecl.self:
-      let r = FunctionReference(to: InitializerDecl.ID(d)!, usedIn: useScope, in: &module)
+      let r = FunctionReference(to: InitializerDecl.ID(d)!, in: &module)
       return .function(r)
 
     default:
@@ -1136,8 +1136,7 @@ public struct Emitter {
   private mutating func emitStore(lambda e: LambdaExpr.ID, to storage: Operand) {
     let f = lower(function: ast[e].decl)
     let r = FunctionReference(
-      to: f, parameterizedBy: module.parameterization(in: insertionBlock!.function),
-      usedIn: insertionScope!, in: module)
+      to: f, parameterizedBy: module.parameterization(in: insertionBlock!.function), in: module)
 
     let x0 = append(module.makePartialApply(wrapping: r, with: .void, at: ast[e].site))[0]
     let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
@@ -1183,8 +1182,7 @@ public struct Emitter {
 
       // The callee must be a reference to member function.
       guard case .member(let d, _, _) = program[callee.expr].referredDecl else { unreachable() }
-      let oper = Operand.constant(
-        FunctionReference(to: FunctionDecl.ID(d)!, usedIn: insertionScope!, in: &module))
+      let oper = Operand.constant(FunctionReference(to: FunctionDecl.ID(d)!, in: &module))
 
       // Emit the call.
       let site = ast.site(of: e)
@@ -1339,10 +1337,7 @@ public struct Emitter {
     let receiver = append(module.makeBorrow(.set, from: s, at: ast[call].site))[0]
 
     // Call is evaluated last.
-    let f = FunctionReference(
-      to: d, parameterizedBy: a,
-      usedIn: insertionScope!, in: &module)
-
+    let f = FunctionReference(to: d, parameterizedBy: a, in: &module)
     let x0 = emitAllocStack(for: .void, at: ast[call].site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: ast[call].site))[0]
     append(
@@ -1519,16 +1514,12 @@ public struct Emitter {
       }
 
       let p = module.parameterization(in: insertionBlock!.function).appending(a)
-      let r = FunctionReference(
-        to: FunctionDecl.ID(d)!, parameterizedBy: p,
-        usedIn: insertionScope!, in: &module)
+      let r = FunctionReference(to: FunctionDecl.ID(d)!, parameterizedBy: p, in: &module)
       return (.constant(r), [])
 
     case .member(let d, let a, let s) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
-      let r = FunctionReference(
-        to: FunctionDecl.ID(d)!, parameterizedBy: a,
-        usedIn: insertionScope!, in: &module)
+      let r = FunctionReference(to: FunctionDecl.ID(d)!, parameterizedBy: a, in: &module)
 
       // The callee's receiver is the sole capture.
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
@@ -1670,9 +1661,7 @@ public struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(
-        to: InitializerDecl.ID(m)!,
-        usedIn: insertionScope!, in: &module)
+      let convert = FunctionReference(to: InitializerDecl.ID(m)!, in: &module)
       let t = LambdaType(convert.type.ast)!.output
 
       let x0 = emitAllocStack(for: ir, at: site)
@@ -1703,9 +1692,7 @@ public struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(
-        to: FunctionDecl.ID(m)!,
-        usedIn: insertionScope!, in: &module)
+      let convert = FunctionReference(to: FunctionDecl.ID(m)!, in: &module)
       let t = LambdaType(convert.type.ast)!.output
 
       let x0 = append(module.makeBorrow(.let, from: o, at: site))
@@ -1978,7 +1965,7 @@ public struct Emitter {
     _ point: InsertionPoint, in module: inout Module
   ) {
     let d = module.demandDeinitDeclaration(from: c)
-    let f = Operand.constant(FunctionReference(to: d, usedIn: c.scope, in: module))
+    let f = Operand.constant(FunctionReference(to: d, in: module))
 
     let x0 = module.insert(module.makeLoad(storage, at: site), point)[0]
     let x1 = module.insert(module.makeAllocStack(.void, at: site), point)[0]
@@ -2079,7 +2066,7 @@ public struct Emitter {
     at site: SourceRange
   ) {
     let oper = module.demandMoveOperatorDeclaration(access, from: c)
-    let move = Operand.constant(FunctionReference(to: oper, usedIn: c.scope, in: module))
+    let move = Operand.constant(FunctionReference(to: oper, in: module))
 
     let x0 = append(module.makeBorrow(access, from: storage, at: site))[0]
     let x1 = emitAllocStack(for: .void, at: site)
