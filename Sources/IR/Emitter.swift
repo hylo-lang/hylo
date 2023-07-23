@@ -537,20 +537,18 @@ public struct Emitter {
     var result: Set<IR.Conformance> = []
     for concept in conformances.keys {
       let c = program.conformance(of: model, to: concept, exposedTo: useScope)!
-      result.insert(loweredConformance(c, in: useScope))
+      result.insert(loweredConformance(c))
     }
     return result
   }
 
   /// Returns the lowered form of `c`, generating function references in `useScope`.
-  private mutating func loweredConformance(
-    _ c: Core.Conformance, in useScope: AnyScopeID
-  ) -> IR.Conformance {
+  private mutating func loweredConformance(_ c: Core.Conformance) -> IR.Conformance {
     var implementations = IR.Conformance.ImplementationMap()
     for (r, i) in c.implementations.storage {
       switch i {
       case .concrete(let d):
-        implementations[r] = loweredRequirementImplementation(d, in: useScope)
+        implementations[r] = loweredRequirementImplementation(d)
 
       case .synthetic(let d):
         let f = lower(synthesized: d)
@@ -563,7 +561,7 @@ public struct Emitter {
 
   /// Returns the lowered form of the requirement implementation `d` in `useScope`.
   private mutating func loweredRequirementImplementation(
-    _ d: AnyDeclID, in useScope: AnyScopeID
+    _ d: AnyDeclID
   ) -> IR.Conformance.Implementation {
     switch d.kind {
     case FunctionDecl.self:
@@ -2001,8 +1999,7 @@ public struct Emitter {
       let x0 = module.insert(
         module.makeSubfieldView(of: storage, subfield: [i], at: site), point)[0]
       r =
-        insertDeinit(
-          x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module) && r
+        insertDeinit(x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module) && r
     }
     return r
   }
