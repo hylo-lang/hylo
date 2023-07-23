@@ -20,20 +20,12 @@ public struct Conformance {
   /// The trait associated with this conformance.
   public let concept: TraitType
 
-  /// The declaration that establishes this conformance.
-  public let source: AnyDeclID
-
   /// A map from requirement of `concept` to the declaration implementing it.
   public let implementations: ImplementationMap
 
   /// Creates an instance with the given properties.
-  public init(
-    concept: TraitType,
-    source: AnyDeclID,
-    implementations: ImplementationMap
-  ) {
+  public init(concept: TraitType, implementations: ImplementationMap) {
     self.concept = concept
-    self.source = source
     self.implementations = implementations
   }
 
@@ -42,7 +34,7 @@ public struct Conformance {
 extension IR.Conformance: Equatable {
 
   public static func == (l: Self, r: Self) -> Bool {
-    (l.concept == r.concept) && (l.source == r.source)
+    l.concept == r.concept
   }
 
 }
@@ -51,7 +43,6 @@ extension IR.Conformance: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     concept.hash(into: &hasher)
-    source.hash(into: &hasher)
   }
 
 }

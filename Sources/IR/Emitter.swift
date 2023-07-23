@@ -556,7 +556,7 @@ public struct Emitter {
       }
     }
 
-    return .init(concept: c.concept, source: c.source, implementations: implementations)
+    return .init(concept: c.concept, implementations: implementations)
   }
 
   /// Returns the lowered form of the requirement implementation `d` in `useScope`.

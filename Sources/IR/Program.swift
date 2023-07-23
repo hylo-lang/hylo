@@ -73,7 +73,6 @@ public struct Program {
     var result = "__VWT" + mangle(t.witness)
     for c in t.conformances {
       result.append(mangle(^c.concept))
-      result.append(String(describing: c.source.rawValue))
     }
     return result
   }
