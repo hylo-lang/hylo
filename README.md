@@ -14,7 +14,7 @@ You will need Swift 5.7 or higher to build the compiler from sources.
 
 ### Prerequisites
 
-You can skip this step if you're doing development exlusively in a [devcontainer](#building-val-devcontainer-with-vscode).  Otherwise:
+You can skip this step if you're doing development exclusively in a [devcontainer](#building-val-devcontainer-with-vscode).  Otherwise:
 
 1. Install LLVM 15 or later on your system (e.g. `brew install llvm`) 
 2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"`). 
