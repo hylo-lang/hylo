@@ -9,37 +9,27 @@ public struct FunctionReference: Constant, Hashable {
   /// The type of the referred IR function.
   public let type: IR.`Type`
 
-  /// The scope in Val sources from which the function is being referred to.
-  public let useScope: AnyScopeID
-
   /// If `function` is generic, actual arguments corresponding to its generic parameters.
   public let genericArguments: GenericArguments
 
-  /// Creates a reference to `f`, which is in `module`, used in `s`.
+  /// Creates a reference to `f`, which is in `module`, parameterized by `genericArguments`.
   public init(
-    to f: Function.ID,
-    parameterizedBy a: GenericArguments = [:],
-    usedIn s: AnyScopeID,
+    to f: Function.ID, parameterizedBy genericArguments: GenericArguments = [:],
     in module: Module
   ) {
-    let arguments = module.program.relations.canonical(a)
+    let a = module.program.relations.canonical(genericArguments)
     let v = module[f]
     let t = module.program.monomorphize(
-      ^LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output),
-      for: arguments)
+      ^LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output), for: a)
 
     self.function = f
     self.type = .address(t)
-    self.useScope = s
-    self.genericArguments = arguments
+    self.genericArguments = a
   }
 
-  /// Creates in `module` a reference to the lowered form of `d`, which is used in `s` and
-  /// parameterized by `a`.
+  /// Creates in `module` a reference to the lowered form of `d`, which is parameterized by `a`.
   public init(
-    to d: FunctionDecl.ID,
-    parameterizedBy a: GenericArguments = [:],
-    usedIn s: AnyScopeID,
+    to d: FunctionDecl.ID, parameterizedBy a: GenericArguments = [:],
     in module: inout Module
   ) {
     let arguments = module.program.relations.canonical(a)
@@ -48,15 +38,12 @@ public struct FunctionReference: Constant, Hashable {
 
     self.function = module.demandFunctionDeclaration(lowering: d)
     self.type = .address(LambdaType(t)!.lifted)
-    self.useScope = s
     self.genericArguments = arguments
   }
 
-  /// Creates in `module` a reference to the lowered form of `d`, which is used in `s`.
+  /// Creates in `module` a reference to the lowered form of `d`.
   public init(
-    to d: InitializerDecl.ID,
-    parameterizedBy a: GenericArguments = [:],
-    usedIn s: AnyScopeID,
+    to d: InitializerDecl.ID, parameterizedBy a: GenericArguments = [:],
     in module: inout Module
   ) {
     let arguments = module.program.relations.canonical(a)
@@ -65,7 +52,6 @@ public struct FunctionReference: Constant, Hashable {
 
     self.function = module.demandInitializerDeclaration(lowering: d)
     self.type = .address(LambdaType(t)!.lifted)
-    self.useScope = s
     self.genericArguments = arguments
   }
 
