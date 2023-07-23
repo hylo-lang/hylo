@@ -1027,7 +1027,7 @@ public struct TypeChecker {
       return nil
     }
 
-    // If the requirement is defined in `Destructible`, it must be the deinitialization method.
+    // If the requirement is defined in `Deinitializable`, it must be the deinitialization method.
     if s == ast.deinitializableTrait.decl {
       assert(r.kind == FunctionDecl.self)
       return .init(.deinitialize, for: t, in: useScope)
