@@ -1916,7 +1916,7 @@ public struct Emitter {
   /// exposed to `useScope`. The deinitializers of product types are searched by looking up their
   /// conformance to `Val.Deinitializable`. The deinitializers of other types are synthesized.
   static func insertDeinit(
-    _ storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID, at site: SourceRange,
+    _ storage: Operand, exposedTo useScope: AnyScopeID, at site: SourceRange,
     _ point: InsertionPoint, in module: inout Module
   ) -> Bool {
     // Use custom conformance to `Deinitializable` if possible.
@@ -1998,8 +1998,7 @@ public struct Emitter {
     for i in layout.properties.indices {
       let x0 = module.insert(
         module.makeSubfieldView(of: storage, subfield: [i], at: site), point)[0]
-      r =
-        insertDeinit(x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module) && r
+      r = insertDeinit(x0, exposedTo: useScope, at: site, point, in: &module) && r
     }
     return r
   }
@@ -2042,7 +2041,7 @@ public struct Emitter {
   /// Inserts the IR for deinitializing `storage`, anchoring new instructions at `site`.
   private mutating func emitDeinit(_ storage: Operand, at site: SourceRange) {
     let success = Emitter.insertDeinit(
-      storage, usingDeinitializerExposedTo: insertionScope!, at: site,
+      storage, exposedTo: insertionScope!, at: site,
       .at(endOf: insertionBlock!), in: &module)
 
     if !success {

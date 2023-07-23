@@ -629,7 +629,7 @@ extension Module {
     for path in initializedSubfields {
       let s = insert(makeSubfieldView(of: root, subfield: path, at: site), before: i)[0]
       let success = Emitter.insertDeinit(
-        s, usingDeinitializerExposedTo: scope(containing: i), at: site, .before(i), in: &self)
+        s, exposedTo: scope(containing: i), at: site, .before(i), in: &self)
 
       if !success {
         log.insert(.error(nonDeinitializable: type(of: s).ast, at: site))
