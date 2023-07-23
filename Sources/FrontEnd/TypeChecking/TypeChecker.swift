@@ -95,9 +95,13 @@ public struct TypeChecker {
       case let u as AssociatedTypeType:
         let d = u.domain.transform(mutating: &me) { (me, t) in specialize(mutating: &me, t) }
 
-        let candidates = me.lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: useScope)
-        if let c = candidates.uniqueElement {
-          return .stepOver(MetatypeType(me.realize(decl: c))?.instance ?? .error)
+        let candidates =
+          me
+          .lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: useScope)
+          .filter({ $0.kind != AssociatedTypeDecl.self })
+
+        if let selected = candidates.uniqueElement {
+          return .stepOver(MetatypeType(me.realize(decl: selected))?.instance ?? .error)
         } else {
           return .stepOver(.error)
         }
