@@ -251,6 +251,8 @@ public struct AST {
 
   /// Returns the synthesized implementation of `requirement`, which is defined by `concept`, for
   /// `model` in given `useScope`, or `nil` if `requirement` is not synthesizable.
+  ///
+  /// - Requires: `requirement` must be a requirement of `concept`.
   public func synthesizedImplementation<T: DeclID>(
     of requirement: T, definedBy concept: TraitType
   ) -> SynthesizedDecl.Kind? {

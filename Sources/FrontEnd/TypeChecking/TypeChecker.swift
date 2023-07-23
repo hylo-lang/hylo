@@ -841,8 +841,8 @@ public struct TypeChecker {
     // Check the trait's requirements.
     var implementations = Conformance.ImplementationMap()
     var notes: DiagnosticSet = []
-    for m in ast[trait.decl].members {
-      checkStatisifed(requirement: m)
+    for requirement in ast[trait.decl].members {
+      checkStatisifed(requirement)
     }
 
     if !notes.isEmpty {
@@ -862,12 +862,12 @@ public struct TypeChecker {
       model: m, concept: trait, arguments: [:], conditions: [],
       scope: expositionScope, implementations: implementations, site: declSite)
 
-    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
+    /// Checks if `requirement` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
-    func checkStatisifed(requirement d: AnyDeclID) {
-      switch d.kind {
+    func checkStatisifed(_ requirement: AnyDeclID) {
+      switch requirement.kind {
       case GenericParameterDecl.self:
-        assert(d == ast[trait.decl].selfParameterDecl, "unexpected declaration")
+        assert(requirement == ast[trait.decl].selfParameterDecl, "unexpected declaration")
 
       case AssociatedTypeDecl.self:
         // TODO: Implement me.
@@ -878,15 +878,19 @@ public struct TypeChecker {
         break
 
       case FunctionDecl.self:
-        checkSatisfied(function: .init(d)!)
+        let m = FunctionDecl.ID(requirement)!
+        checkSatisfied(callable: m, named: Name(of: m, in: ast)!)
 
       case InitializerDecl.self:
-        checkSatisfied(initializer: .init(d)!)
+        let m = InitializerDecl.ID(requirement)!
+        checkSatisfied(callable: m, named: Name(of: m, in: ast))
 
       case MethodDecl.self:
-        let r = MethodDecl.ID(d)!
+        let r = MethodDecl.ID(requirement)!
         let n = Name(of: r, in: ast)
-        ast[r].impls.forEach({ checkSatisfied(variant: $0, inMethod: n) })
+        ast[r].impls.forEach { (i) in
+          checkSatisfied(callable: i, named: n.appending(ast[i].introducer.value)!)
+        }
 
       case SubscriptDecl.self:
         // TODO: Implement me.
@@ -897,29 +901,10 @@ public struct TypeChecker {
       }
     }
 
-    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
+    /// Checks if `requirement` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
-    func checkSatisfied(initializer d: InitializerDecl.ID) {
-      let requiredType = relations.canonical(
-        specialized(realize(decl: d), applying: specializations, in: useScope))
-      guard !requiredType[.hasError] else { return }
-
-      if let c = implementation(
-        of: Name(of: d, in: ast), in: model,
-        withCallableType: LambdaType(requiredType)!, specializedWith: specializations,
-        exposedTo: useScope)
-      {
-        implementations[d] = .concrete(c)
-      } else {
-        notes.insert(.note(trait: trait, requiresInitializer: requiredType, at: declSite))
-      }
-    }
-
-    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
-    /// reporting a diagnostic in `notes` otherwise.
-    func checkSatisfied(function d: FunctionDecl.ID) {
-      let requiredName = Name(of: d, in: ast)!
-      guard let requiredType = candidateType(d) else {
+    func checkSatisfied<T: Decl>(callable requirement: T.ID, named requiredName: Name) {
+      guard let requiredType = candidateType(requirement) else {
         return
       }
 
@@ -928,47 +913,21 @@ public struct TypeChecker {
         withCallableType: LambdaType(requiredType)!, specializedWith: specializations,
         exposedTo: useScope)
       {
-        implementations[d] = .concrete(c)
+        implementations[requirement] = .concrete(c)
         return
       }
 
-      if let k = ast.synthesizedImplementation(of: d, definedBy: trait) {
+      if let k = ast.synthesizedImplementation(of: requirement, definedBy: trait) {
         let i = SynthesizedDecl(k, typed: requiredType, in: useScope)
-        implementations[d] = .synthetic(i)
+        implementations[requirement] = .synthetic(i)
         synthesizedDecls[program.module(containing: source), default: []].append(i)
         return
       }
 
-      notes.insert(
-        .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
-    }
-
-    /// Checks if requirement `d` of a method bundle named `m` is satisfied by `model`, extending
-    /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
-    func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
-      let requiredName = m.appending(ast[d].introducer.value)!
-      guard let requiredType = candidateType(d) else {
-        return
-      }
-
-      if let c = implementation(
-        of: m, in: model,
-        withCallableType: LambdaType(requiredType)!, specializedWith: specializations,
-        exposedTo: useScope)
-      {
-        implementations[d] = .concrete(c)
-        return
-      }
-
-      if let k = ast.synthesizedImplementation(of: d, definedBy: trait) {
-        let i = SynthesizedDecl(k, typed: requiredType, in: useScope)
-        implementations[d] = .synthetic(i)
-        synthesizedDecls[program.module(containing: d), default: []].append(i)
-        return
-      }
-
-      notes.insert(
-        .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+      let note = Diagnostic.note(
+        trait: trait, requires: requirement.kind, named: requiredName, typed: requiredType,
+        at: declSite)
+      notes.insert(note)
     }
 
     /// Returns the type of `candidate` viewed as a member of `model` satisfying a requirement in
