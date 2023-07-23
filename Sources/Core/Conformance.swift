@@ -45,6 +45,9 @@ public struct Conformance {
   /// The site at which the conformance is declared.
   public let site: SourceRange
 
+  /// `true` iff the conformance is implicitly synthesized for a structural type.
+  public let isStructural: Bool
+
   /// Creates an instance with the given properties.
   public init(
     model: AnyType,
@@ -53,6 +56,7 @@ public struct Conformance {
     conditions: [GenericConstraint],
     scope: AnyScopeID,
     implementations: ImplementationMap,
+    isStructural: Bool,
     site: SourceRange
   ) {
     self.model = model
@@ -61,6 +65,7 @@ public struct Conformance {
     self.conditions = conditions
     self.scope = scope
     self.implementations = implementations
+    self.isStructural = isStructural
     self.site = site
   }
 

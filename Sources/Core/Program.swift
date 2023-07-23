@@ -243,6 +243,11 @@ extension Program {
     }
   }
 
+  /// Returns a sequence with the requirements of `t`.
+  public func requirements(of t: TraitType) -> LazyFilterSequence<[AnyDeclID]> {
+    self[t.decl].members.lazy.filter(isRequirement(_:))
+  }
+
   /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
   /// Otherwise, returns `nil`
   public func innermostReceiver(in useScope: AnyScopeID) -> ParameterDecl.ID? {
