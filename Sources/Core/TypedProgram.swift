@@ -196,7 +196,7 @@ public struct TypedProgram: Program {
       // TODO: translate generic arguments to conditions
       return .init(
         model: t.base, concept: concept, arguments: t.arguments, conditions: [],
-        source: c.source, scope: c.scope, implementations: c.implementations, site: c.site)
+        scope: c.scope, implementations: c.implementations, site: c.site)
     }
 
     guard

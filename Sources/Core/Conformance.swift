@@ -36,9 +36,6 @@ public struct Conformance {
   /// The conditions under which this conformance holds.
   public let conditions: [GenericConstraint]
 
-  /// The declaration that establishes this conformance.
-  public let source: AnyDeclID
-
   /// The outermost scope in which this conformance is exposed.
   public let scope: AnyScopeID
 
@@ -54,7 +51,6 @@ public struct Conformance {
     concept: TraitType,
     arguments: GenericArguments,
     conditions: [GenericConstraint],
-    source: AnyDeclID,
     scope: AnyScopeID,
     implementations: ImplementationMap,
     site: SourceRange
@@ -63,7 +59,6 @@ public struct Conformance {
     self.concept = concept
     self.arguments = arguments
     self.conditions = conditions
-    self.source = source
     self.scope = scope
     self.implementations = implementations
     self.site = site
@@ -74,7 +69,7 @@ public struct Conformance {
 extension Conformance: Equatable {
 
   public static func == (l: Self, r: Self) -> Bool {
-    (l.model == r.model) && (l.concept == r.concept) && (l.source == r.source)
+    (l.model == r.model) && (l.concept == r.concept)
   }
 
 }
@@ -84,7 +79,6 @@ extension Conformance: Hashable {
   public func hash(into hasher: inout Hasher) {
     model.hash(into: &hasher)
     concept.hash(into: &hasher)
-    source.hash(into: &hasher)
   }
 
 }
