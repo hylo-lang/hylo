@@ -257,7 +257,7 @@ public struct TypedProgram: Program {
     }
 
     var implementations = Conformance.ImplementationMap()
-    for requirement in requirements(of: concept) {
+    for requirement in ast.requirements(of: concept.decl) {
       guard let k = ast.synthesizedImplementation(of: requirement, definedBy: concept) else {
         return nil
       }
