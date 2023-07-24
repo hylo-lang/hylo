@@ -158,15 +158,21 @@ extension Diagnostic {
   }
 
   static func note(
-    trait x: TraitType, requiresMethod m: Name, withType t: AnyType, at site: SourceRange
+    trait x: TraitType, requires r: NodeKind, named n: Name, typed t: AnyType, at site: SourceRange
   ) -> Diagnostic {
-    .note("trait '\(x)' requires method '\(m)' with type '\(t)'", at: site)
-  }
+    let entity: String
+    switch r {
+    case FunctionDecl.self:
+      entity = "function"
+    case InitializerDecl.self:
+      entity = "initializer"
+    case MethodImpl.self:
+      entity = "method"
+    default:
+      entity = "entity"
+    }
 
-  static func note(
-    trait x: TraitType, requiresInitializer t: AnyType, at site: SourceRange
-  ) -> Diagnostic {
-    .note("trait '\(x)' requires initializer with type '\(t)'", at: site)
+    return .note("trait '\(x)' requires \(entity) '\(n)' with type '\(t)'", at: site)
   }
 
   static func error(undefinedOperator name: String, at site: SourceRange) -> Diagnostic {

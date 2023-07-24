@@ -18,7 +18,7 @@ public struct SynthesizedDecl: Hashable {
 
   }
 
-  /// The type for which this declaration has been synthesized.
+  /// The type of this declaration.
   public let type: AnyType
 
   /// The scope in which the declaration is defined.
@@ -28,7 +28,7 @@ public struct SynthesizedDecl: Hashable {
   public let kind: Kind
 
   /// Creates an instance with the given properties.
-  public init(_ kind: Kind, for type: AnyType, in scope: AnyScopeID) {
+  public init(_ kind: Kind, typed type: AnyType, in scope: AnyScopeID) {
     self.kind = kind
     self.type = type
     self.scope = scope

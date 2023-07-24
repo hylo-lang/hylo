@@ -364,7 +364,7 @@ extension Module {
 
       let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
       let oper = demandMoveOperatorDeclaration(k, from: s.movable)
-      let move = FunctionReference(to: oper, usedIn: s.movable.scope, in: self)
+      let move = FunctionReference(to: oper, in: self)
 
       let x0 = insert(makeBorrow(k, from: s.target, at: s.site), before: i)[0]
       let x1 = insert(makeAllocStack(.void, at: s.site), before: i)[0]
@@ -628,10 +628,8 @@ extension Module {
   ) {
     for path in initializedSubfields {
       let s = insert(makeSubfieldView(of: root, subfield: path, at: site), before: i)[0]
-
-      let useScope = functions[i.function]![i.block].scope
       let success = Emitter.insertDeinit(
-        s, usingDeinitializerExposedTo: useScope, at: site, .before(i), in: &self)
+        s, exposedTo: scope(containing: i), at: site, .before(i), in: &self)
 
       if !success {
         log.insert(.error(nonDeinitializable: type(of: s).ast, at: site))

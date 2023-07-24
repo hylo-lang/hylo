@@ -82,6 +82,11 @@ public struct Module {
     }
   }
 
+  /// Returns the scope in which `i` is used.
+  public func scope(containing i: InstructionID) -> AnyScopeID {
+    functions[i.function]![i.block].scope
+  }
+
   /// Returns the IDs of the blocks in `f`.
   ///
   /// The first element of the returned collection is the function's entry; other elements are in

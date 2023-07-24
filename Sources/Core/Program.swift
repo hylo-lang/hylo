@@ -232,6 +232,8 @@ extension Program {
   /// Returns whether `decl` is a requirement.
   public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
     switch decl.kind {
+    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
+      return true
     case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
       return nodeToScope[decl]!.kind == TraitDecl.self
     case MethodImpl.self:
@@ -241,6 +243,11 @@ extension Program {
     default:
       return false
     }
+  }
+
+  /// Returns a sequence with the requirements of `t`.
+  public func requirements(of t: TraitType) -> LazyFilterSequence<[AnyDeclID]> {
+    self[t.decl].members.lazy.filter(isRequirement(_:))
   }
 
   /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
