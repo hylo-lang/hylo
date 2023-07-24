@@ -86,8 +86,8 @@ public struct Program {
       return mangle(d)
     case .monomorphized(let f, let a):
       return mangle(f) + "<\(list: a.values)>"
-    case .synthesized(let d, let t):
-      return "\(d)\(t)"
+    case .synthesized(let s):
+      return "\(s.kind)\(s.type)"
     case .existentialized:
       fatalError("not implemented")
     }

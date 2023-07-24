@@ -596,7 +596,7 @@ public struct Emitter {
   /// function.
   private mutating func lower(syntheticDeinit d: SynthesizedDecl) -> Function.ID {
     let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: ast.deinitRequirement(), for: ^t)
+    let f = Function.ID(d)
     module.declareSyntheticFunction(f, typed: t)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return f
@@ -634,7 +634,7 @@ public struct Emitter {
   /// the lowered function.
   private mutating func lower(syntheticMoveInit d: SynthesizedDecl) -> Function.ID {
     let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: ast.moveRequirement(.set), for: ^t)
+    let f = Function.ID(d)
     module.declareSyntheticFunction(f, typed: t)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return f
@@ -687,7 +687,7 @@ public struct Emitter {
   /// the lowered function.
   private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) -> Function.ID {
     let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: ast.moveRequirement(.inout), for: ^t)
+    let f = Function.ID(d)
     module.declareSyntheticFunction(f, typed: t)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return f

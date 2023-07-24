@@ -14,11 +14,8 @@ extension Function {
       /// The identity of a lowered subscript variant.
       case loweredSubscript(SubscriptImpl.ID)
 
-      /// The identity of a requirement synthesized for some type.
-      ///
-      /// The payload is a pair (D, U) where D is the declaration of a requirement and T is a type
-      /// conforming to the trait defining D.
-      case synthesized(AnyDeclID, for: AnyType)
+      /// The identity of a synthesized declaration.
+      case synthesized(SynthesizedDecl)
 
       /// The identity of an existentialized function.
       indirect case existentialized(base: ID)
@@ -36,19 +33,19 @@ extension Function {
       self.value = .lowered(AnyDeclID(f))
     }
 
-    /// Creates the identity of the lowered form of `s`.
-    public init(_ s: SubscriptImpl.ID) {
-      self.value = .loweredSubscript(s)
-    }
-
     /// Creates the identity of the lowered form of `f` used as an initializer.
     public init(initializer f: InitializerDecl.ID) {
       self.value = .lowered(AnyDeclID(f))
     }
 
-    /// Creates the identity of synthesized requirement `r` for type `t`.
-    public init<T: DeclID>(synthesized r: T, for t: AnyType) {
-      self.value = .synthesized(AnyDeclID(r), for: t)
+    /// Creates the identity of the lowered form of `s`.
+    public init(_ s: SubscriptImpl.ID) {
+      self.value = .loweredSubscript(s)
+    }
+
+    /// Creates the identity of the lowered form of `s`.
+    public init(_ s: SynthesizedDecl) {
+      self.value = .synthesized(s)
     }
 
     /// Creates the identity of the existentialized form of `base`.
@@ -76,8 +73,8 @@ extension Function.ID: CustomStringConvertible {
       return "\(d).lowered"
     case .loweredSubscript(let d):
       return "\(d).lowered"
-    case .synthesized(let r, let t):
-      return "\"synthesized \(r) for \(t)\""
+    case .synthesized(let s):
+      return "\"synthesized \(s)"
     case .existentialized(let b):
       return "\"existentialized \(b)\""
     case .monomorphized(let b, let a):
