@@ -870,7 +870,8 @@ public struct TypeChecker {
     let m = BoundGenericType(model).map(\.base) ?? model
     return Conformance(
       model: m, concept: trait, arguments: [:], conditions: [],
-      scope: expositionScope, implementations: implementations, isStructural: true, site: declSite)
+      scope: expositionScope, implementations: implementations, isStructural: false,
+      site: declSite)
 
     /// Checks if `requirement` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
