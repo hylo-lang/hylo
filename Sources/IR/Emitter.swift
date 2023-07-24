@@ -595,9 +595,7 @@ public struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic deinitializer, returning the ID of the lowered
   /// function.
   private mutating func lower(syntheticDeinit d: SynthesizedDecl) -> Function.ID {
-    let t = LambdaType(d.type)!
-    let f = Function.ID(d)
-    module.declareSyntheticFunction(f, typed: t)
+    let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return f
     }
@@ -613,7 +611,7 @@ public struct Emitter {
 
     let receiver = Operand.parameter(entry, 0)
 
-    switch program.relations.canonical(t.output).base {
+    switch module[f].output.base {
     case is ProductType, is TupleType:
       let success = Emitter.insertDeinit(
         record: receiver, usingDeinitializerExposedTo: insertionScope!, at: site,
@@ -633,9 +631,7 @@ public struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic move initialization method, returning the ID of
   /// the lowered function.
   private mutating func lower(syntheticMoveInit d: SynthesizedDecl) -> Function.ID {
-    let t = LambdaType(d.type)!
-    let f = Function.ID(d)
-    module.declareSyntheticFunction(f, typed: t)
+    let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return f
     }
@@ -652,7 +648,7 @@ public struct Emitter {
     let receiver = Operand.parameter(entry, 0)
     let argument = Operand.parameter(entry, 1)
 
-    switch program.relations.canonical(t.output).base {
+    switch module[f].output.base {
     case is ProductType, is TupleType:
       let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
 
@@ -686,9 +682,7 @@ public struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic move initialization method, returning the ID of
   /// the lowered function.
   private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) -> Function.ID {
-    let t = LambdaType(d.type)!
-    let f = Function.ID(d)
-    module.declareSyntheticFunction(f, typed: t)
+    let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return f
     }

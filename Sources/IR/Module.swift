@@ -221,9 +221,7 @@ public struct Module {
       fatalError("not implemented")
 
     case .synthetic(let s):
-      let f = Function.ID(s)
-      declareSyntheticFunction(f, typed: LambdaType(s.type)!)
-      return f
+      return demandSyntheticDeclaration(lowering: s)
     }
   }
 
@@ -240,9 +238,7 @@ public struct Module {
       fatalError("not implemented")
 
     case .synthetic(let s):
-      let f = Function.ID(s)
-      declareSyntheticFunction(f, typed: LambdaType(s.type)!)
-      return f
+      return demandSyntheticDeclaration(lowering: s)
     }
   }
 
@@ -293,6 +289,31 @@ public struct Module {
     return f
   }
 
+  /// Returns the identity of the Val IR function corresponding to `d`.
+  mutating func demandSyntheticDeclaration(lowering d: SynthesizedDecl) -> Function.ID {
+    let f = Function.ID(d)
+    if functions[f] != nil { return f }
+
+    let t = LambdaType(d.type)!
+    let output = program.relations.canonical(t.output)
+    var inputs: [Parameter] = []
+    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
+    appendParameters(t.inputs, to: &inputs)
+
+    let entity = Function(
+      isSubscript: false,
+      name: "",
+      site: .empty(at: program.ast[id].site.first()),
+      linkage: .external,
+      genericParameters: [],  // TODO
+      inputs: inputs,
+      output: output,
+      blocks: [])
+
+    addFunction(entity, for: f)
+    return f
+  }
+
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
     let captures = LambdaType(program[d].type)!.captures.lazy.map { (e) in
@@ -336,27 +357,6 @@ public struct Module {
   private func pairedWithLoweredType(parameter d: ParameterDecl.ID) -> Parameter {
     let t = program.relations.canonical(program[d].type)
     return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
-  }
-
-  /// Declares the synthetic function `f`, which has type `t`, if it wasn't already.
-  mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) {
-    if functions[f] != nil { return }
-
-    let output = program.relations.canonical(t.output)
-    var inputs: [Parameter] = []
-    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
-    appendParameters(t.inputs, to: &inputs)
-
-    let entity = Function(
-      isSubscript: false,
-      name: "",
-      site: .empty(at: program.ast[id].site.first()),
-      linkage: .external,
-      genericParameters: [],  // TODO
-      inputs: inputs,
-      output: output,
-      blocks: [])
-    addFunction(entity, for: f)
   }
 
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
