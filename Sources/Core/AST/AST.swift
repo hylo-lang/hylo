@@ -188,6 +188,11 @@ public struct AST {
     self[self[module].sources].map(\.decls).joined()
   }
 
+  /// Returns the requirements declared in `t`.
+  public func requirements(of t: TraitDecl.ID) -> RequirementSequence {
+    .init(t, in: self)
+  }
+
   /// Returns the requirements named `n` in `t`.
   ///
   /// If `n` is overloaded, the requirements are returned in the order in which they are declared
