@@ -94,10 +94,20 @@ public struct TypeChecker {
 
       case let u as AssociatedTypeType:
         let d = u.domain.transform(mutating: &me) { (me, t) in specialize(mutating: &me, t) }
+        var candidates = me.lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: useScope)
 
-        let candidates = me.lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: useScope)
-        if let c = candidates.uniqueElement {
-          return .stepOver(MetatypeType(me.realize(decl: c))?.instance ?? .error)
+        // Ignore associated type declaration unless they define a default value that isn't
+        // overridden in the conforming type.
+        if let i = candidates.firstIndex(where: { $0.kind == AssociatedTypeDecl.self }) {
+          if candidates.count > 1 {
+            candidates.remove(at: i)
+          } else if let v = me.ast[AssociatedTypeDecl.ID(candidates[i])!].defaultValue {
+            return .stepOver(me.realize(v)?.instance ?? .error)
+          }
+        }
+
+        if let selected = candidates.uniqueElement {
+          return .stepOver(MetatypeType(me.realize(decl: selected))?.instance ?? .error)
         } else {
           return .stepOver(.error)
         }
