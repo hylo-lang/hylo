@@ -1,5 +1,7 @@
 /// A method declaration.
-public struct MethodDecl: GenericDecl, GenericScope {
+public struct MethodDecl: BundleDecl, GenericDecl, GenericScope {
+
+  public typealias Variant = MethodImpl
 
   public let site: SourceRange
 
