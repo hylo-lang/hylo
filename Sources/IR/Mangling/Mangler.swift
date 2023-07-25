@@ -318,6 +318,9 @@ struct Mangler {
     case let t as BoundGenericType:
       write(boundGenericType: t, to: &output)
 
+    case let t as BuiltinType:
+      write(builtinType: t, to: &output)
+
     case let t as ExistentialType:
       write(existentialType: t, to: &output)
 
@@ -380,6 +383,33 @@ struct Mangler {
     write(integer: t.arguments.count, to: &output)
     for u in t.arguments.values {
       mangle(u, to: &output)
+    }
+  }
+
+  /// Writes the mangled representation of `symbol` to `output`.
+  private mutating func write(builtinType t: BuiltinType, to output: inout Output) {
+    switch t {
+    case .i(let width):
+      write(operator: .builtinIntegerType, to: &output)
+      write(integer: width, to: &output)
+    case .word:
+      write(operator: .builtinWordType, to: &output)
+    case .float16:
+      write(operator: .builtinFloatType, to: &output)
+      write(integer: 16, to: &output)
+    case .float32:
+      write(operator: .builtinFloatType, to: &output)
+      write(integer: 32, to: &output)
+    case .float64:
+      write(operator: .builtinFloatType, to: &output)
+      write(integer: 64, to: &output)
+    case .float128:
+      write(operator: .builtinFloatType, to: &output)
+      write(integer: 128, to: &output)
+    case .ptr:
+      write(operator: .builtinPointerType, to: &output)
+    case .module:
+      write(operator: .builtinModuleType, to: &output)
     }
   }
 

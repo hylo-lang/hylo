@@ -50,6 +50,16 @@ public enum ManglingOperator: String {
 
   case boundGenericType = "bT"
 
+  case builtinIntegerType = "biT"
+
+  case builtinFloatType = "bfT"
+
+  case builtinPointerType = "bpT"
+
+  case builtinModuleType = "bmT"
+
+  case builtinWordType = "bwT"
+
   case traitType = "cT"
 
   case existentialTraitType = "eT"

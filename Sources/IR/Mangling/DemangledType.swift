@@ -19,6 +19,9 @@ public indirect enum DemangledType: Hashable {
   /// A bound generic type.
   case boundGeneric(base: DemangledType, arguments: [DemangledSymbol])
 
+  /// A built-in type.
+  case builtin(BuiltinType)
+
   /// An existential generic type.
   case existentialGeneric(DemangledType)
 
@@ -87,6 +90,9 @@ extension DemangledType: CustomStringConvertible {
 
     case .boundGeneric(let base, let arguments):
       return "\(base)<\(list: arguments)>"
+
+    case .builtin(let t):
+      return t.description
 
     case .existentialGeneric(let interface):
       return "any \(interface)"
