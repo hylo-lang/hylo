@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import OrderedCollections
 import Utils
 
 /// A module lowered to Val IR.
@@ -26,6 +27,9 @@ public struct Module {
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
+  /// The synthesized functions used and defined in the module.
+  public private(set) var synthesizedDecls = OrderedSet<SynthesizedDecl>()
+
   /// The module's entry function, if any.
   public private(set) var entryFunction: Function.ID?
 
@@ -41,7 +45,8 @@ public struct Module {
     self.id = m
 
     var emitter = Emitter(program: program)
-    emitter.lower(module: m, into: &self, diagnostics: &diagnostics)
+    emitter.lower(module: m, into: &self)
+    diagnostics.formUnion(emitter.diagnostics)
     try diagnostics.throwOnError()
   }
 
@@ -149,10 +154,10 @@ public struct Module {
     }
   }
 
-  /// Applies all mandatory passes in this module, accumulating diagnostics into `log` and throwing
+  /// Applies all mandatory passes in this module, accumulating diagnostics in `log` and throwing
   /// if a pass reports an error.
   public mutating func applyMandatoryPasses(
-    reportingDiagnosticsInto log: inout DiagnosticSet
+    reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
     func run(_ pass: (Function.ID) -> Void) throws {
       for (k, f) in functions where f.entry != nil {
@@ -166,6 +171,19 @@ public struct Module {
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
+
+    try generateSyntheticImplementations(reportingDiagnosticsTo: &log)
+  }
+
+  /// Inserts the IR for the synthesized declarations defined in this module, reporting diagnostics
+  /// to `log` and throwing if a an error occurred.
+  mutating func generateSyntheticImplementations(
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) throws {
+    var emitter = Emitter(program: program)
+    emitter.generateSyntheticImplementations(in: &self)
+    log.formUnion(emitter.diagnostics)
+    try log.throwOnError()
   }
 
   /// Adds a global constant and returns its identity.
@@ -210,38 +228,6 @@ public struct Module {
     }
 
     return f
-  }
-
-  /// Returns the identity of the Val IR function implementing the deinitializer defined in
-  /// conformance `c`.
-  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
-    let d = program.ast.deinitRequirement()
-    switch c.implementations[d]! {
-    case .concrete:
-      fatalError("not implemented")
-    case .synthetic(let s):
-      let f = Function.ID(synthesized: d, for: s.type)
-      declareSyntheticFunction(f, typed: LambdaType(s.type)!)
-      return f
-    }
-  }
-
-  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
-  /// defined in conformance `c`.
-  ///
-  /// - Requires: `k` is either `.set` or `.inout`
-  mutating func demandMoveOperatorDeclaration(
-    _ k: AccessEffect, from c: Core.Conformance
-  ) -> Function.ID {
-    let d = program.ast.moveRequirement(k)
-    switch c.implementations[d]! {
-    case .concrete:
-      fatalError("not implemented")
-    case .synthetic(let s):
-      let f = Function.ID(synthesized: d, for: s.type)
-      declareSyntheticFunction(f, typed: LambdaType(s.type)!)
-      return f
-    }
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
@@ -291,6 +277,66 @@ public struct Module {
     return f
   }
 
+  /// Returns the identity of the Val IR function implementing the deinitializer defined in
+  /// conformance `c`.
+  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
+    let d = program.ast.deinitRequirement()
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+
+    case .synthetic(let s):
+      return demandSyntheticDeclaration(lowering: s)
+    }
+  }
+
+  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
+  /// defined in conformance `c`.
+  ///
+  /// - Requires: `k` is either `.set` or `.inout`
+  mutating func demandMoveOperatorDeclaration(
+    _ k: AccessEffect, from c: Core.Conformance
+  ) -> Function.ID {
+    let d = program.ast.moveRequirement(k)
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+
+    case .synthetic(let s):
+      return demandSyntheticDeclaration(lowering: s)
+    }
+  }
+
+  /// Returns the identity of the Val IR function corresponding to `d`.
+  mutating func demandSyntheticDeclaration(lowering d: SynthesizedDecl) -> Function.ID {
+    let f = Function.ID(d)
+    if functions[f] != nil { return f }
+
+    let t = LambdaType(d.type)!
+    let output = program.relations.canonical(t.output)
+    var inputs: [Parameter] = []
+    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
+    appendParameters(t.inputs, to: &inputs)
+
+    let entity = Function(
+      isSubscript: false,
+      name: "",
+      site: .empty(at: program.ast[id].site.first()),
+      linkage: .external,
+      genericParameters: [],  // TODO
+      inputs: inputs,
+      output: output,
+      blocks: [])
+
+    // Determine if the new function is defined in this module.
+    if program.module(containing: d.scope) == id {
+      synthesizedDecls.append(d)
+    }
+
+    addFunction(entity, for: f)
+    return f
+  }
+
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
     let captures = LambdaType(program[d].type)!.captures.lazy.map { (e) in
@@ -334,27 +380,6 @@ public struct Module {
   private func pairedWithLoweredType(parameter d: ParameterDecl.ID) -> Parameter {
     let t = program.relations.canonical(program[d].type)
     return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
-  }
-
-  /// Declares the synthetic function `f`, which has type `t`, if it wasn't already.
-  mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) {
-    if functions[f] != nil { return }
-
-    let output = program.relations.canonical(t.output)
-    var inputs: [Parameter] = []
-    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
-    appendParameters(t.inputs, to: &inputs)
-
-    let entity = Function(
-      isSubscript: false,
-      name: "",
-      site: .empty(at: program.ast[id].site.first()),
-      linkage: .external,
-      genericParameters: [],  // TODO
-      inputs: inputs,
-      output: output,
-      blocks: [])
-    addFunction(entity, for: f)
   }
 
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.

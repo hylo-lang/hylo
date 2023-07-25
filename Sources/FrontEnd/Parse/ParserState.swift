@@ -299,7 +299,7 @@ struct ParserState {
     while take(if: predicate) != nil {}
   }
 
-  /// Inserts `n` into `self.ast`, accumulating any diagnostics into `self.diagnostics`.
+  /// Inserts `n` into `self.ast`, accumulating any diagnostics in `self.diagnostics`.
   mutating func insert<T: Node>(_ n: T) -> T.ID {
     ast.insert(n, diagnostics: &diagnostics)
   }

@@ -281,7 +281,7 @@ public struct TypeChecker {
     declTypes[d] = type
   }
 
-  /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
+  /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`.
   ///
   /// This method is idempotent. After the first call for a module `m`, `self.declTypes[m]` is
   /// assigned to an instance of `ModuleType`. Subsequent calls have no effect on `self`.
@@ -870,7 +870,8 @@ public struct TypeChecker {
     let m = BoundGenericType(model).map(\.base) ?? model
     return Conformance(
       model: m, concept: trait, arguments: [:], conditions: [],
-      scope: expositionScope, implementations: implementations, isStructural: true, site: declSite)
+      scope: expositionScope, implementations: implementations, isStructural: false,
+      site: declSite)
 
     /// Checks if `requirement` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
@@ -1048,7 +1049,7 @@ public struct TypeChecker {
     // Target type must be `Movable`.
     guard let targetType = checkedType(of: ast[s].left) else { return }
     let lhsConstraint = ConformanceConstraint(
-      targetType, conformsTo: [ast.movableTrait],
+      targetType, conformsTo: ast.movableTrait,
       origin: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
 
     // Source type must be subtype of the target type.

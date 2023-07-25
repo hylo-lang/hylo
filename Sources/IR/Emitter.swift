@@ -13,10 +13,13 @@ import Utils
 ///
 /// The emitter transforms well-formed, typed ASTs to a representation suitable for flow-sensitive
 /// analysis and code generation.
-public struct Emitter {
+struct Emitter {
 
   /// The program being lowered.
-  public let program: TypedProgram
+  private let program: TypedProgram
+
+  /// The diagnostics of lowering errors.
+  private(set) var diagnostics: DiagnosticSet = []
 
   /// The module into which new IR is inserted.
   private var module: Module!
@@ -27,11 +30,8 @@ public struct Emitter {
   /// A stack of frames describing the variables and allocations of each traversed lexical scope.
   private var frames = Stack()
 
-  /// The diagnostics of lowering errors.
-  private var diagnostics: DiagnosticSet = []
-
   /// Creates an emitter with a well-typed AST.
-  public init(program: TypedProgram) {
+  init(program: TypedProgram) {
     self.program = program
   }
 
@@ -68,28 +68,29 @@ public struct Emitter {
 
   // MARK: Declarations
 
-  /// Inserts the IR for the top-level declarations of `d` into `module`, reporting errors and
-  /// warnings to `diagnostics`.
-  mutating func lower(
-    module d: ModuleDecl.ID,
-    into module: inout Module,
-    diagnostics: inout DiagnosticSet
-  ) {
-    self.module = module
-    swap(&self.diagnostics, &diagnostics)
-    defer {
-      module = self.module.release()
-      swap(&self.diagnostics, &diagnostics)
+  /// Inserts the IR for the top-level declarations of `d` into `module`, accumulating diagnostics
+  /// in `self.diagnostics`.
+  mutating func lower(module d: ModuleDecl.ID, into module: inout Module) {
+    insertingIR(into: &module) { (this) in
+      for u in this.program.ast.topLevelDecls(d) {
+        this.lower(topLevel: u)
+      }
     }
+  }
 
-    // Lower the top-level declarations.
-    for u in ast.topLevelDecls(d) {
-      lower(topLevel: u)
-    }
+  /// Inserts the IR for the synthesized declarations of `module`, accumulating diagnostics
+  /// in `self.diagnostics`.
+  mutating func generateSyntheticImplementations(in module: inout Module) {
+    insertingIR(into: &module) { (this) in
+      for d in this.program.synthesizedDecls[this.module.id, default: []] {
+        this.lower(synthesized: d)
+      }
 
-    // Lower the synthesized implementations.
-    for i in program.synthesizedDecls[d, default: []] {
-      lower(synthesized: i)
+      var i = 0
+      while i < this.module.synthesizedDecls.count {
+        this.lower(synthesized: this.module.synthesizedDecls[i])
+        i += 1
+      }
     }
   }
 
@@ -551,8 +552,8 @@ public struct Emitter {
         implementations[r] = loweredRequirementImplementation(d)
 
       case .synthetic(let d):
-        let f = lower(synthesized: d)
-        implementations[r] = .function(.init(to: f, in: module))
+        lower(synthesized: d)
+        implementations[r] = .function(.init(to: .init(d), in: module))
       }
     }
 
@@ -577,9 +578,8 @@ public struct Emitter {
     }
   }
 
-  /// Synthesizes the implementation of `d`, returning the ID of the corresponding IR function.
-  @discardableResult
-  private mutating func lower(synthesized d: SynthesizedDecl) -> Function.ID {
+  /// Synthesizes the implementation of `d`.
+  private mutating func lower(synthesized d: SynthesizedDecl) {
     switch d.kind {
     case .deinitialize:
       return withClearContext({ $0.lower(syntheticDeinit: d) })
@@ -592,14 +592,11 @@ public struct Emitter {
     }
   }
 
-  /// Inserts the IR for `d`, which is a synthetic deinitializer, returning the ID of the lowered
-  /// function.
-  private mutating func lower(syntheticDeinit d: SynthesizedDecl) -> Function.ID {
-    let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: ast.deinitRequirement(), for: ^t)
-    module.declareSyntheticFunction(f, typed: t)
+  /// Inserts the IR for `d`, which is a synthetic deinitializer.
+  private mutating func lower(syntheticDeinit d: SynthesizedDecl) {
+    let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return f
+      return
     }
 
     let site = ast[module.id].site
@@ -613,7 +610,7 @@ public struct Emitter {
 
     let receiver = Operand.parameter(entry, 0)
 
-    switch program.relations.canonical(t.output).base {
+    switch module[f].output.base {
     case is ProductType, is TupleType:
       let success = Emitter.insertDeinit(
         record: receiver, usingDeinitializerExposedTo: insertionScope!, at: site,
@@ -627,17 +624,13 @@ public struct Emitter {
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
-    return f
   }
 
-  /// Inserts the IR for `d`, which is a synthetic move initialization method, returning the ID of
-  /// the lowered function.
-  private mutating func lower(syntheticMoveInit d: SynthesizedDecl) -> Function.ID {
-    let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: ast.moveRequirement(.set), for: ^t)
-    module.declareSyntheticFunction(f, typed: t)
+  /// Inserts the IR for `d`, which is a synthetic move initialization method.
+  private mutating func lower(syntheticMoveInit d: SynthesizedDecl) {
+    let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return f
+      return
     }
 
     let site = ast[module.id].site
@@ -652,7 +645,7 @@ public struct Emitter {
     let receiver = Operand.parameter(entry, 0)
     let argument = Operand.parameter(entry, 1)
 
-    switch program.relations.canonical(t.output).base {
+    switch module[f].output.base {
     case is ProductType, is TupleType:
       let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
 
@@ -680,17 +673,13 @@ public struct Emitter {
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
-    return f
   }
 
-  /// Inserts the IR for `d`, which is a synthetic move initialization method, returning the ID of
-  /// the lowered function.
-  private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) -> Function.ID {
-    let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: ast.moveRequirement(.inout), for: ^t)
-    module.declareSyntheticFunction(f, typed: t)
+  /// Inserts the IR for `d`, which is a synthetic move initialization method.
+  private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) {
+    let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return f
+      return
     }
 
     let site = ast[module.id].site
@@ -716,7 +705,6 @@ public struct Emitter {
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
-    return f
   }
 
   // MARK: Statements
@@ -2094,6 +2082,15 @@ public struct Emitter {
     insertionBlock = failure
     append(module.makeUnreachable(at: site))
     insertionBlock = success
+  }
+
+  /// Returns the result of calling `action` on a copy of `self` inserting IR into `module`.
+  private mutating func insertingIR<T>(
+    into module: inout Module, _ action: (inout Self) -> T
+  ) -> T {
+    self.module = module
+    defer { module = self.module.release() }
+    return action(&self)
   }
 
   /// Returns the result of calling `action` on a copy of `self` in which a `newFrame` is the top
