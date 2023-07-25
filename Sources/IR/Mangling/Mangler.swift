@@ -316,12 +316,12 @@ struct Mangler {
 
   /// Writes the mangled representation of `symbol` to `output`.
   mutating func mangle(type symbol: AnyType, to output: inout Output) {
-    if writeLookup(.type(symbol), to: &output) {
+    let s = program.relations.canonical(symbol)
+    if writeLookup(.type(s), to: &output) {
       return
     }
 
-    assert(symbol[.isCanonical])
-    switch symbol.base {
+    switch s.base {
     case let t as BoundGenericType:
       write(boundGenericType: t, to: &output)
 
