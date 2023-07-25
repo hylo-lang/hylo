@@ -44,22 +44,4 @@ public struct Program {
     }
   }
 
-  // MARK: Mangling
-
-  /// Returns the mangled name of `f`.
-  public func mangle(_ f: Function.ID) -> String {
-    switch f.value {
-    case .lowered(let d):
-      return syntax.mangled(d)
-    case .loweredSubscript(let d):
-      return syntax.mangled(d)
-    case .monomorphized(let f, let a):
-      return mangle(f) + "<\(list: a.values)>"
-    case .synthesized(let s):
-      return "\(s.kind)\(s.type)"
-    case .existentialized:
-      fatalError("not implemented")
-    }
-  }
-
 }
