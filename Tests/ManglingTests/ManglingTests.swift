@@ -57,6 +57,11 @@ final class ManglingTests: XCTestCase {
 
         conformance Stash.A: Deinitializable {}
       }
+
+      fun bar() {
+        let f = fun (a: Int) -> Void {}
+        let g = fun (a: Int) -> Void {}
+      }
       """
 
     let input = SourceFile(synthesizedText: text, named: "main")
@@ -76,7 +81,6 @@ final class ManglingTests: XCTestCase {
       "Main.Angle.init",
       "Main.Angle.degrees().inout",
       "Main.français(_:label:).bar",
-      "Main.foo(y:).$0.x",
     ]
 
     for m in o.symbols.keys {
