@@ -305,7 +305,7 @@ extension LLVM.Module {
     from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     // Check if we already created the metatype's instance.
-    let globalName = ir.mangle(t)
+    let globalName = ir.syntax.mangled(t)
     if let g = global(named: globalName) {
       return g
     }
@@ -337,7 +337,7 @@ extension LLVM.Module {
     _ t: TraitType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     // Check if we already created the trait's instance.
-    let globalName = ir.mangle(t)
+    let globalName = ir.syntax.mangled(t)
     if let g = global(named: globalName) {
       return g
     }

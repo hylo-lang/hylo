@@ -94,7 +94,7 @@ extension IR.Program {
   func llvm(productType val: ProductType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
-    let n = mangle(val)
+    let n = syntax.mangled(val)
     if let t = module.type(named: n) {
       assert(LLVM.StructType(t) != nil)
       return t
