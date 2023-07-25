@@ -26,7 +26,8 @@ public struct RequirementSequence: IteratorProtocol, Sequence {
     while member != ast[base].members.count {
       let m = ast[base].members[member]
       switch m.kind {
-      case AssociatedTypeDecl.self, AssociatedValueDecl.self, FunctionDecl.self, InitializerDecl.self:
+      case AssociatedTypeDecl.self, AssociatedValueDecl.self, FunctionDecl.self,
+        InitializerDecl.self:
         member += 1
         return AnyDeclID(m)
 

@@ -179,7 +179,7 @@ public struct AST {
   /// `Val.ForeignConvertiblae` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
-  public var ForeignConvertibleTrait: TraitType { coreTrait("ForeignConvertible")! }
+  public var foreignConvertibleTrait: TraitType { coreTrait("ForeignConvertible")! }
 
   // MARK: Helpers
 

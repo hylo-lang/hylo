@@ -204,7 +204,7 @@ struct ConstraintSystem {
     case checker.ast.movableTrait:
       return goal.model.isBuiltin ? .success : solve(structualConformance: goal)
 
-    case checker.ast.ForeignConvertibleTrait:
+    case checker.ast.foreignConvertibleTrait:
       return goal.model.isBuiltin ? .success : .failure(failureToSolve(goal))
 
     default:

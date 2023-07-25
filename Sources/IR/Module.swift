@@ -277,7 +277,6 @@ public struct Module {
     return f
   }
 
-
   /// Returns the identity of the Val IR function implementing the deinitializer defined in
   /// conformance `c`.
   mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
