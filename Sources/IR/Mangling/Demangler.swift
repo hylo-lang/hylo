@@ -1,3 +1,5 @@
+import Core
+
 /// Val's demangling algorithm.
 struct Demangler {
 
@@ -130,7 +132,7 @@ struct Demangler {
   ) -> DemangledEntity? {
     guard
       case .entity(let e) = demangle(from: &stream),
-      e.kind == T.self
+      e.kind?.value == T.self
     else { return nil }
 
     return e

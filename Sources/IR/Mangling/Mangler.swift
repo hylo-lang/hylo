@@ -1,3 +1,4 @@
+import Core
 import Utils
 
 /// Val's mangling algorithm.
@@ -164,7 +165,7 @@ struct Mangler {
 
   /// Writes the mangled representation of `d` to `output`.
   private mutating func write<T: SingleEntityDecl>(entity d: T.ID, to output: inout Output) {
-    write(operator: T.manglingOperator, to: &output)
+    write(operator: .init(for: T.self), to: &output)
     write(string: program.ast[d].baseName, to: &output)
   }
 

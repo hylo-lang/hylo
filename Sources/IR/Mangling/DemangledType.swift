@@ -1,3 +1,4 @@
+import Core
 import Utils
 
 /// The payload of a `DemangledSymbol.type`.

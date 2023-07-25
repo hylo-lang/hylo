@@ -1,3 +1,5 @@
+import Core
+
 extension TypedProgram {
 
   /// Returns the mangled representation of `d`.

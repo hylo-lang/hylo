@@ -1,4 +1,4 @@
-import Core
+import IR
 import XCTest
 
 final class Base64VarUIntTests: XCTestCase {

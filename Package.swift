@@ -130,8 +130,8 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
-      name: "CoreTests",
-      dependencies: ["Core", "FrontEnd", "TestUtils"],
+      name: "ManglingTests",
+      dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
