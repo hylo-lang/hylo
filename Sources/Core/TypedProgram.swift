@@ -111,18 +111,58 @@ public struct TypedProgram: Program {
     return result
   }
 
-  /// Returns the generic parameters taken by `s`, in outer to inner, left to right.
+  /// Returns the generic parameters captured by `useScope`, outer to inner, left to right.
   ///
   /// A declaration may take generic parameters even if it doesn't declare any. For example, a
   /// nested function will implicitly capture the generic parameters introduced in its context.
   public func accumulatedGenericParameters<S: ScopeID>(
-    of s: S
-  ) -> some Collection<GenericParameterDecl.ID> {
-    let p = scopes(from: s).compactMap { (t) -> [GenericParameterDecl.ID]? in
-      if !(t.kind.value is GenericScope.Type) { return nil }
-      return environments[AnyDeclID(t)!]!.parameters
+    of useScope: S
+  ) -> ReversedCollection<[GenericParameterDecl.ID]> {
+    var parameters: [GenericParameterDecl.ID] = []
+    accumulateGenericParameters(of: useScope, in: &parameters)
+    return parameters.reversed()
+  }
+
+  /// Accumulates the generic parameters captured by `useScope` in `parameters`, inner to outer,
+  /// right to left.
+  private func accumulateGenericParameters<S: ScopeID>(
+    of useScope: S, in parameters: inout [GenericParameterDecl.ID]
+  ) {
+    for s in scopes(from: useScope) {
+      switch s.kind.value {
+      case is ConformanceDecl.Type:
+        if let p = scopeExtended(by: ConformanceDecl.ID(s)!) {
+          accumulateGenericParameters(of: p, in: &parameters)
+        }
+
+      case is ExtensionDecl.Type:
+        if let p = scopeExtended(by: ExtensionDecl.ID(s)!) {
+          accumulateGenericParameters(of: p, in: &parameters)
+        }
+
+      case is GenericScope.Type:
+        parameters.append(contentsOf: environments[AnyDeclID(s)!]!.parameters)
+
+      case is TranslationUnit.Type:
+        // No need to look further.
+        return
+
+      default:
+        continue
+      }
     }
-    return p.reversed().joined()
+  }
+
+  /// Returns the scope of the declaration extended by `d`, if any.
+  private func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
+    switch MetatypeType(declTypes[d])?.instance.base {
+    case let u as ProductType:
+      return AnyScopeID(u.decl)
+    case let u as TypeAliasType:
+      return AnyScopeID(u.decl)
+    default:
+      return nil
+    }
   }
 
   /// Returns a copy of `generic` monomorphized for the given `parameterization`.
