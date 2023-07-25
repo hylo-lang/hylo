@@ -1,6 +1,6 @@
 import Core
-import IR
 import FrontEnd
+import IR
 import TestUtils
 import XCTest
 

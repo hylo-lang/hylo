@@ -23,7 +23,7 @@ extension TypedProgram {
   }
 
   private func mangled<T>(
-    _ symbol: T, applying mangle: (T, inout Mangler, inout String) -> ()
+    _ symbol: T, applying mangle: (T, inout Mangler, inout String) -> Void
   ) -> String {
     var output = ""
     var m = Mangler(self)
