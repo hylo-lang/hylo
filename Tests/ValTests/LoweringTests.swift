@@ -25,7 +25,7 @@ extension XCTestCase {
       var irModule = try Module(lowering: module, in: typedProgram, diagnostics: &diagnostics)
 
       // Run mandatory IR analysis and transformation passes.
-      try irModule.applyMandatoryPasses(reportingDiagnosticsInto: &diagnostics)
+      try irModule.applyMandatoryPasses(reportingDiagnosticsTo: &diagnostics)
 
     }
 

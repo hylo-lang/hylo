@@ -281,7 +281,7 @@ public struct TypeChecker {
     declTypes[d] = type
   }
 
-  /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
+  /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`.
   ///
   /// This method is idempotent. After the first call for a module `m`, `self.declTypes[m]` is
   /// assigned to an instance of `ModuleType`. Subsequent calls have no effect on `self`.

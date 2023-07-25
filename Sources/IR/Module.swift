@@ -44,7 +44,8 @@ public struct Module {
     self.id = m
 
     var emitter = Emitter(program: program)
-    emitter.lower(module: m, into: &self, diagnostics: &diagnostics)
+    emitter.lower(module: m, into: &self)
+    diagnostics.formUnion(emitter.diagnostics)
     try diagnostics.throwOnError()
   }
 
@@ -152,10 +153,10 @@ public struct Module {
     }
   }
 
-  /// Applies all mandatory passes in this module, accumulating diagnostics into `log` and throwing
+  /// Applies all mandatory passes in this module, accumulating diagnostics in `log` and throwing
   /// if a pass reports an error.
   public mutating func applyMandatoryPasses(
-    reportingDiagnosticsInto log: inout DiagnosticSet
+    reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
     func run(_ pass: (Function.ID) -> Void) throws {
       for (k, f) in functions where f.entry != nil {
