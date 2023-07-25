@@ -215,36 +215,6 @@ public struct Module {
     return f
   }
 
-  /// Returns the identity of the Val IR function implementing the deinitializer defined in
-  /// conformance `c`.
-  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
-    let d = program.ast.deinitRequirement()
-    switch c.implementations[d]! {
-    case .concrete:
-      fatalError("not implemented")
-
-    case .synthetic(let s):
-      return demandSyntheticDeclaration(lowering: s)
-    }
-  }
-
-  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
-  /// defined in conformance `c`.
-  ///
-  /// - Requires: `k` is either `.set` or `.inout`
-  mutating func demandMoveOperatorDeclaration(
-    _ k: AccessEffect, from c: Core.Conformance
-  ) -> Function.ID {
-    let d = program.ast.moveRequirement(k)
-    switch c.implementations[d]! {
-    case .concrete:
-      fatalError("not implemented")
-
-    case .synthetic(let s):
-      return demandSyntheticDeclaration(lowering: s)
-    }
-  }
-
   /// Returns the identity of the Val IR function corresponding to `d`.
   mutating func demandSubscriptDeclaration(lowering d: SubscriptImpl.ID) -> Function.ID {
     let f = Function.ID(d)
@@ -290,6 +260,37 @@ public struct Module {
 
     addFunction(entity, for: f)
     return f
+  }
+
+
+  /// Returns the identity of the Val IR function implementing the deinitializer defined in
+  /// conformance `c`.
+  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
+    let d = program.ast.deinitRequirement()
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+
+    case .synthetic(let s):
+      return demandSyntheticDeclaration(lowering: s)
+    }
+  }
+
+  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
+  /// defined in conformance `c`.
+  ///
+  /// - Requires: `k` is either `.set` or `.inout`
+  mutating func demandMoveOperatorDeclaration(
+    _ k: AccessEffect, from c: Core.Conformance
+  ) -> Function.ID {
+    let d = program.ast.moveRequirement(k)
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+
+    case .synthetic(let s):
+      return demandSyntheticDeclaration(lowering: s)
+    }
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
