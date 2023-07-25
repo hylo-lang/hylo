@@ -111,6 +111,8 @@ struct Demangler {
 
       case .conformanceConstraint, .equalityConstraint, .valueConstraint, .whereClause:
         return nil
+      case .witnessTable:
+        return nil
       }
 
       // End of sequence reached if `demangled` is `nil`.

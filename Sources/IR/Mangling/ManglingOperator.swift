@@ -98,6 +98,8 @@ public enum ManglingOperator: String {
 
   case valueConstraint = "vW"
 
+  case witnessTable = "wW"
+
   case anonymousScope = "Y"
 
   case endOfSequence = "Z"

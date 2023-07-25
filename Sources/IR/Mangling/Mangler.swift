@@ -302,6 +302,13 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
+  mutating func mangle(table symbol: WitnessTable, to output: inout Output) {
+    write(operator: .witnessTable, to: &output)
+    write(scope: symbol.scope, to: &output)
+    mangle(type: symbol.witness, to: &output)
+  }
+
+  /// Writes the mangled representation of `symbol` to `output`.
   mutating func mangle(value symbol: any CompileTimeValue, to output: inout Output) {
     if let t = symbol as? AnyType {
       mangle(type: t, to: &output)

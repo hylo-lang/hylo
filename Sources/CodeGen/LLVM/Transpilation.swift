@@ -265,7 +265,7 @@ extension LLVM.Module {
 
     let table = LLVM.StructConstant(aggregating: tableContents, in: &self)
 
-    let g = declareGlobalVariable(ir.mangle(t), table.type)
+    let g = declareGlobalVariable(ir.syntax.mangled(t), table.type)
     setInitializer(table, for: g)
     setLinkage(.linkOnce, for: g)
     setGlobalConstant(true, for: g)

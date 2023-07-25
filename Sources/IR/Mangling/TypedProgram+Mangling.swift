@@ -12,6 +12,11 @@ extension TypedProgram {
     mangled(^t, applying: { (s, m, o) in m.mangle(type: s, to: &o) })
   }
 
+  /// Returns the mangled representation of `w`.
+  public func mangled(_ w: WitnessTable) -> String {
+    mangled(w, applying: { (s, m, o) in m.mangle(table: s, to: &o) })
+  }
+
   private func mangled<T>(
     _ symbol: T, applying mangle: (T, inout Mangler, inout String) -> ()
   ) -> String {

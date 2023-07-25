@@ -46,15 +46,6 @@ public struct Program {
 
   // MARK: Mangling
 
-  /// Returns the mangled name of `t`.
-  public func mangle(_ t: WitnessTable) -> String {
-    var result = "__VWT" + syntax.mangled(t.witness)
-    for c in t.conformances {
-      result.append(syntax.mangled(c.concept))
-    }
-    return result
-  }
-
   /// Returns the mangled name of `f`.
   public func mangle(_ f: Function.ID) -> String {
     switch f.value {
