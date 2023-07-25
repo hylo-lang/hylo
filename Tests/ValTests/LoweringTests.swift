@@ -26,7 +26,6 @@ extension XCTestCase {
 
       // Run mandatory IR analysis and transformation passes.
       try irModule.applyMandatoryPasses(reportingDiagnosticsTo: &diagnostics)
-
     }
 
   }
