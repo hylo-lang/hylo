@@ -1,3 +1,5 @@
+import Core
+
 /// Val's demangling algorithm.
 struct Demangler {
 
@@ -23,6 +25,16 @@ struct Demangler {
         demangled = take(AssociatedValueDecl.self, qualifiedBy: qualification, from: &stream)
       case .boundGenericType:
         demangled = takeBoundGenericType(from: &stream)
+      case .builtinIntegerType:
+        demangled = takeBuiltinIntegerType(from: &stream)
+      case .builtinFloatType:
+        demangled = takeBuiltinFloatType(from: &stream)
+      case .builtinPointerType:
+        demangled = .type(.builtin(.ptr))
+      case .builtinModuleType:
+        demangled = .type(.builtin(.module))
+      case .builtinWordType:
+        demangled = .type(.builtin(.word))
       case .conformanceDecl:
         demangled = take(ConformanceDecl.self, qualifiedBy: qualification, from: &stream)
       case .directDeclReference:
@@ -97,7 +109,15 @@ struct Demangler {
       case .subscriptImplType:
         fatalError()
 
+      case .existentializedFunctionDecl:
+        return nil
+      case .monomorphizedFunctionDecl:
+        return nil
+      case .synthesizedFunctionDecl:
+        return nil
       case .conformanceConstraint, .equalityConstraint, .valueConstraint, .whereClause:
+        return nil
+      case .witnessTable:
         return nil
       }
 
@@ -130,7 +150,7 @@ struct Demangler {
   ) -> DemangledEntity? {
     guard
       case .entity(let e) = demangle(from: &stream),
-      e.kind == T.self
+      e.kind?.value == T.self
     else { return nil }
 
     return e
@@ -342,6 +362,34 @@ struct Demangler {
     }
 
     return .type(.boundGeneric(base: b, arguments: parameterization))
+  }
+
+  /// Demangles a built-in integer type from `stream`.
+  private mutating func takeBuiltinIntegerType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let width = takeInteger(from: &stream)
+    else { return nil }
+    return .type(.builtin(.i(Int(width.rawValue))))
+  }
+
+  /// Demangles a built-in float type from `stream`.
+  private mutating func takeBuiltinFloatType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let width = takeInteger(from: &stream)
+    else { return nil }
+
+    switch width.rawValue {
+    case 16:
+      return .type(.builtin(.float16))
+    case 32:
+      return .type(.builtin(.float32))
+    case 64:
+      return .type(.builtin(.float64))
+    case 128:
+      return .type(.builtin(.float128))
+    default:
+      return nil
+    }
   }
 
   /// Demangles an existential generic type from `stream`.

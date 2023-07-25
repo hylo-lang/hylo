@@ -1,3 +1,4 @@
+import Core
 import Utils
 
 /// The payload of a `DemangledSymbol.entity`.
@@ -129,7 +130,7 @@ extension DemangledEntity: CustomStringConvertible {
       return ""
     }
 
-    if q.value.kind == TranslationUnit.self {
+    if q.value.kind?.value == TranslationUnit.self {
       return describe(qualification: q.value.qualification)
     } else {
       return q.description + "."

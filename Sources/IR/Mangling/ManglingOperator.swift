@@ -1,3 +1,6 @@
+import Core
+import Utils
+
 /// A one or two letter identifier specifying how to interpret mangled data.
 public enum ManglingOperator: String {
 
@@ -17,7 +20,13 @@ public enum ManglingOperator: String {
 
   case functionDecl = "F"
 
+  case existentializedFunctionDecl = "eF"
+
+  case monomorphizedFunctionDecl = "mF"
+
   case staticFunctionDecl = "sF"
+
+  case synthesizedFunctionDecl = "xF"
 
   case genericParameterDecl = "G"
 
@@ -46,6 +55,16 @@ public enum ManglingOperator: String {
   case productType = "aT"
 
   case boundGenericType = "bT"
+
+  case builtinIntegerType = "biT"
+
+  case builtinFloatType = "bfT"
+
+  case builtinPointerType = "bpT"
+
+  case builtinModuleType = "bmT"
+
+  case builtinWordType = "bwT"
 
   case traitType = "cT"
 
@@ -85,9 +104,41 @@ public enum ManglingOperator: String {
 
   case valueConstraint = "vW"
 
+  case witnessTable = "wW"
+
   case anonymousScope = "Y"
 
   case endOfSequence = "Z"
+
+  /// Creates the operator corresponding to `d`.
+  init<T: SingleEntityDecl>(for d: T.Type) {
+    switch NodeKind(d) {
+    case AssociatedTypeDecl.self:
+      self = .associatedTypeDecl
+    case AssociatedValueDecl.self:
+      self = .associatedValueDecl
+    case GenericParameterDecl.self:
+      self = .genericParameterDecl
+    case ImportDecl.self:
+      self = .importDecl
+    case ModuleDecl.self:
+      self = .moduleDecl
+    case NamespaceDecl.self:
+      self = .namespaceDecl
+    case ParameterDecl.self:
+      self = .parameterDecl
+    case ProductTypeDecl.self:
+      self = .productTypeDecl
+    case TraitDecl.self:
+      self = .traitDecl
+    case TypeAliasDecl.self:
+      self = .typealiasDecl
+    case VarDecl.self:
+      self = .varDecl
+    default:
+      unreachable()
+    }
+  }
 
 }
 

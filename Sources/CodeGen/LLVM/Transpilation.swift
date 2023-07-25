@@ -56,7 +56,7 @@ extension LLVM.Module {
     let b = appendBlock(to: main)
     let p = endOf(b)
 
-    let transpilation = function(named: ir.mangle(f))!
+    let transpilation = function(named: ir.syntax.mangled(f))!
 
     let val32 = ir.syntax.ast.coreType("Int32")!
     switch m[f].output {
@@ -265,7 +265,7 @@ extension LLVM.Module {
 
     let table = LLVM.StructConstant(aggregating: tableContents, in: &self)
 
-    let g = declareGlobalVariable(ir.mangle(t), table.type)
+    let g = declareGlobalVariable(ir.syntax.mangled(t), table.type)
     setInitializer(table, for: g)
     setLinkage(.linkOnce, for: g)
     setGlobalConstant(true, for: g)
@@ -305,7 +305,7 @@ extension LLVM.Module {
     from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     // Check if we already created the metatype's instance.
-    let globalName = ir.mangle(t)
+    let globalName = ir.syntax.mangled(t)
     if let g = global(named: globalName) {
       return g
     }
@@ -337,7 +337,7 @@ extension LLVM.Module {
     _ t: TraitType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     // Check if we already created the trait's instance.
-    let globalName = ir.mangle(t)
+    let globalName = ir.syntax.mangled(t)
     if let g = global(named: globalName) {
       return g
     }
@@ -365,7 +365,7 @@ extension LLVM.Module {
     _ ref: IR.FunctionReference, from ir: IR.Program
   ) -> LLVM.Function {
     let t = transpiledType(LambdaType(ref.type.ast)!)
-    return declareFunction(ir.mangle(ref.function), t)
+    return declareFunction(ir.syntax.mangled(ref.function), t)
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
@@ -376,7 +376,7 @@ extension LLVM.Module {
 
     // Parameters and return values are passed by reference.
     let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
-    let result = declareFunction(ir.mangle(f), .init(from: parameters, in: &self))
+    let result = declareFunction(ir.syntax.mangled(f), .init(from: parameters, in: &self))
 
     if m[f].output == .never {
       addAttribute(.init(.noreturn, in: &self), to: result)
@@ -396,7 +396,8 @@ extension LLVM.Module {
     // projected value.
     let r = LLVM.StructType([ptr, ptr], in: &self)
     let parameters = Array(repeating: ptr, count: m[f].inputs.count + 1)
-    let coroutine = declareFunction(ir.mangle(f), .init(from: parameters, to: r, in: &self))
+    let coroutine = declareFunction(
+      ir.syntax.mangled(f), .init(from: parameters, to: r, in: &self))
 
     return coroutine
   }

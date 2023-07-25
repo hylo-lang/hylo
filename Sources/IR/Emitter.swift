@@ -1707,7 +1707,7 @@ struct Emitter {
 
   /// Returns the witness table of `t` in `s`.
   private mutating func emitWitnessTable(of t: AnyType, usedIn s: AnyScopeID) -> WitnessTable {
-    .init(for: t, conformingTo: loweredConformances(of: t, exposedTo: s))
+    .init(for: t, conformingTo: loweredConformances(of: t, exposedTo: s), in: s)
   }
 
   // MARK: l-values

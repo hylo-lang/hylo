@@ -1,8 +1,6 @@
 /// A generic parameter declaration.
 public struct GenericParameterDecl: SingleEntityDecl {
 
-  public static let manglingOperator = ManglingOperator.genericParameterDecl
-
   public let site: SourceRange
 
   /// The identifier of the parameter.
