@@ -1,7 +1,7 @@
 extension TypedProgram {
 
   /// Returns the mangled representation of `d`.
-  public func mangled(_ d: AnyDeclID) -> String {
+  public func mangled<T: DeclID>(_ d: T) -> String {
     var output = ""
     var m = Mangler(self)
     m.mangle(d, to: &output)

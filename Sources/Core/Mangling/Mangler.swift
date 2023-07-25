@@ -56,7 +56,7 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  mutating func mangle(_ d: AnyDeclID, to output: inout Output) {
+  mutating func mangle<T: DeclID>(_ d: T, to output: inout Output) {
     if writeLookup(.node(AnyNodeID(d)), to: &output) {
       return
     }
@@ -92,7 +92,7 @@ struct Mangler {
   }
 
   /// Writes the mangled qualification of `d`, defined in program, to `output`.
-  private mutating func writeQualification(of d: AnyDeclID, to output: inout Output) {
+  private mutating func writeQualification<T: DeclID>(of d: T, to output: inout Output) {
     var qualification: [AnyScopeID] = []
     for s in program.scopes(from: program.nodeToScope[d]!) {
       if writeLookup(.node(AnyNodeID(s)), to: &output) {
