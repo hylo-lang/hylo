@@ -1,0 +1,11 @@
+//- lowerToFinishedIR expecting: success
+
+public type A: Deinitializable, Movable {
+  public memberwise init
+}
+
+public fun main() {
+  var x = (1, (false, A()))
+  &x = (0, (true, A()))
+  precondition((x.1).0)
+}
