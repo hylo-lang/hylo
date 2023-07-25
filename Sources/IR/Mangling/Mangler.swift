@@ -58,13 +58,16 @@ struct Mangler {
 
   /// Writes the mangled representation of `d` to `output`.
   mutating func mangle<T: DeclID>(_ d: T, to output: inout Output) {
+    if let m = ModuleDecl.ID(d) {
+      write(scope: AnyScopeID(m), to: &output)
+      return
+    }
+
     if writeLookup(.node(AnyNodeID(d)), to: &output) {
       return
     }
 
-    if d.kind != ModuleDecl.self {
-      writeQualification(of: d, to: &output)
-    }
+    writeQualification(of: d, to: &output)
 
     if let s = AnyScopeID(d) {
       write(scope: s, to: &output)
@@ -118,6 +121,9 @@ struct Mangler {
       return
     }
 
+    symbolID[.node(AnyNodeID(symbol))] = nextSymbolID
+    nextSymbolID += 1
+
     switch symbol.kind {
     case BraceStmt.self:
       write(anonymousScope: symbol, to: &output)
@@ -158,9 +164,6 @@ struct Mangler {
     default:
       unexpected(symbol, in: program.ast)
     }
-
-    symbolID[.node(AnyNodeID(symbol))] = nextSymbolID
-    nextSymbolID += 1
   }
 
   /// Writes the mangled representation of `d` to `output`.
