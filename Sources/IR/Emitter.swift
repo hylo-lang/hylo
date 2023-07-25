@@ -13,10 +13,13 @@ import Utils
 ///
 /// The emitter transforms well-formed, typed ASTs to a representation suitable for flow-sensitive
 /// analysis and code generation.
-public struct Emitter {
+struct Emitter {
 
   /// The program being lowered.
-  public let program: TypedProgram
+  private let program: TypedProgram
+
+  /// The diagnostics of lowering errors.
+  private(set) var diagnostics: DiagnosticSet = []
 
   /// The module into which new IR is inserted.
   private var module: Module!
@@ -27,11 +30,8 @@ public struct Emitter {
   /// A stack of frames describing the variables and allocations of each traversed lexical scope.
   private var frames = Stack()
 
-  /// The diagnostics of lowering errors.
-  private var diagnostics: DiagnosticSet = []
-
   /// Creates an emitter with a well-typed AST.
-  public init(program: TypedProgram) {
+  init(program: TypedProgram) {
     self.program = program
   }
 
