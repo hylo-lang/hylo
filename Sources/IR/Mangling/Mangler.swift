@@ -282,6 +282,42 @@ struct Mangler {
     }
   }
 
+  /// Writes the mangled representation of `symbol` to `output`.
+  mutating func mangle(function symbol: Function.ID, to output: inout Output) {
+    switch symbol.value {
+    case .lowered(let d):
+      mangle(decl: d, to: &output)
+    case .loweredSubscript(let d):
+      mangle(decl: d, to: &output)
+    case .monomorphized(let f, let a):
+      write(monomorphized: f, for: a, to: &output)
+    case .synthesized(let d):
+      write(synthesized: d, to: &output)
+    case .existentialized:
+      fatalError("not implemented")
+    }
+  }
+
+  /// Writes the mangled representation of `symbol` monomorphized for `arguments` to `output`.
+  private mutating func write(
+    monomorphized symbol: Function.ID, for arguments: GenericArguments, to output: inout Output
+  ) {
+    write(operator: .monomorphizedFunctionDecl, to: &output)
+    mangle(function: symbol, to: &output)
+    write(integer: arguments.count, to: &output)
+    for u in arguments.values {
+      mangle(value: u, to: &output)
+    }
+  }
+
+  /// Writes the mangled representation of `symbol` to `output`.
+  private mutating func write(synthesized symbol: SynthesizedDecl, to output: inout Output) {
+    write(operator: .synthesizedFunctionDecl, to: &output)
+    write(base64Didit: symbol.kind, to: &output)
+    write(scope: symbol.scope, to: &output)
+    mangle(type: symbol.type, to: &output)
+  }
+
   /// Writes the mangled representation of `r` to `output`.
   mutating func mangle(reference r: DeclReference, to output: inout Output) {
     switch r {

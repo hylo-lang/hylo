@@ -20,7 +20,13 @@ public enum ManglingOperator: String {
 
   case functionDecl = "F"
 
+  case existentializedFunctionDecl = "eF"
+
+  case monomorphizedFunctionDecl = "mF"
+
   case staticFunctionDecl = "sF"
+
+  case synthesizedFunctionDecl = "xF"
 
   case genericParameterDecl = "G"
 

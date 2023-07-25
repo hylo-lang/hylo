@@ -109,6 +109,12 @@ struct Demangler {
       case .subscriptImplType:
         fatalError()
 
+      case .existentializedFunctionDecl:
+        return nil
+      case .monomorphizedFunctionDecl:
+        return nil
+      case .synthesizedFunctionDecl:
+        return nil
       case .conformanceConstraint, .equalityConstraint, .valueConstraint, .whereClause:
         return nil
       case .witnessTable:

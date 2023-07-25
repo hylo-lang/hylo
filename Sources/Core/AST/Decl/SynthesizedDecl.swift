@@ -2,7 +2,7 @@
 public struct SynthesizedDecl: Hashable {
 
   /// The kind of a synthesized declaration.
-  public enum Kind {
+  public enum Kind: UInt8 {
 
     /// The deinitializer of a type.
     case deinitialize
