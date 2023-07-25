@@ -82,13 +82,14 @@ struct Emitter {
   /// in `self.diagnostics`.
   mutating func generateSyntheticImplementations(in module: inout Module) {
     insertingIR(into: &module) { (this) in
-      let declared = this.program.synthesizedDecls[this.module.id, default: []]
-      var work = this.module.synthesizedDecls.union(declared)
-
-      // var done: Set<Function.ID> = []
-      while let d = work.popFirst() {
+      for d in this.program.synthesizedDecls[this.module.id, default: []] {
         this.lower(synthesized: d)
-        // done.insert(f)
+      }
+
+      var i = 0
+      while i < this.module.synthesizedDecls.count {
+        this.lower(synthesized: this.module.synthesizedDecls[i])
+        i += 1
       }
     }
   }

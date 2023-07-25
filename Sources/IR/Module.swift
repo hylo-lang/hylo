@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import OrderedCollections
 import Utils
 
 /// A module lowered to Val IR.
@@ -27,7 +28,7 @@ public struct Module {
   public private(set) var functions: [Function.ID: Function] = [:]
 
   /// The synthesized functions used and defined in the module.
-  public private(set) var synthesizedDecls = Set<SynthesizedDecl>()
+  public private(set) var synthesizedDecls = OrderedSet<SynthesizedDecl>()
 
   /// The module's entry function, if any.
   public private(set) var entryFunction: Function.ID?
@@ -330,7 +331,7 @@ public struct Module {
 
     // Determine if the new function is defined in this module.
     if program.module(containing: d.scope) == id {
-      synthesizedDecls.insert(d)
+      synthesizedDecls.append(d)
     }
 
     addFunction(entity, for: f)
