@@ -87,7 +87,7 @@ struct Emitter {
 
       // var done: Set<Function.ID> = []
       while let d = work.popFirst() {
-        _ = this.lower(synthesized: d)
+        this.lower(synthesized: d)
         // done.insert(f)
       }
     }
@@ -551,8 +551,8 @@ struct Emitter {
         implementations[r] = loweredRequirementImplementation(d)
 
       case .synthetic(let d):
-        let f = lower(synthesized: d)
-        implementations[r] = .function(.init(to: f, in: module))
+        lower(synthesized: d)
+        implementations[r] = .function(.init(to: .init(d), in: module))
       }
     }
 
@@ -577,9 +577,8 @@ struct Emitter {
     }
   }
 
-  /// Synthesizes the implementation of `d`, returning the ID of the corresponding IR function.
-  @discardableResult
-  private mutating func lower(synthesized d: SynthesizedDecl) -> Function.ID {
+  /// Synthesizes the implementation of `d`.
+  private mutating func lower(synthesized d: SynthesizedDecl) {
     switch d.kind {
     case .deinitialize:
       return withClearContext({ $0.lower(syntheticDeinit: d) })
@@ -592,12 +591,11 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR for `d`, which is a synthetic deinitializer, returning the ID of the lowered
-  /// function.
-  private mutating func lower(syntheticDeinit d: SynthesizedDecl) -> Function.ID {
+  /// Inserts the IR for `d`, which is a synthetic deinitializer.
+  private mutating func lower(syntheticDeinit d: SynthesizedDecl) {
     let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return f
+      return
     }
 
     let site = ast[module.id].site
@@ -625,15 +623,13 @@ struct Emitter {
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
-    return f
   }
 
-  /// Inserts the IR for `d`, which is a synthetic move initialization method, returning the ID of
-  /// the lowered function.
-  private mutating func lower(syntheticMoveInit d: SynthesizedDecl) -> Function.ID {
+  /// Inserts the IR for `d`, which is a synthetic move initialization method.
+  private mutating func lower(syntheticMoveInit d: SynthesizedDecl) {
     let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return f
+      return
     }
 
     let site = ast[module.id].site
@@ -676,15 +672,13 @@ struct Emitter {
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
-    return f
   }
 
-  /// Inserts the IR for `d`, which is a synthetic move initialization method, returning the ID of
-  /// the lowered function.
-  private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) -> Function.ID {
+  /// Inserts the IR for `d`, which is a synthetic move initialization method.
+  private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) {
     let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return f
+      return
     }
 
     let site = ast[module.id].site
@@ -710,7 +704,6 @@ struct Emitter {
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
-    return f
   }
 
   // MARK: Statements
