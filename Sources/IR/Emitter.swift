@@ -68,28 +68,28 @@ public struct Emitter {
 
   // MARK: Declarations
 
-  /// Inserts the IR for the top-level declarations of `d` into `module`, reporting errors and
-  /// warnings to `diagnostics`.
-  mutating func lower(
-    module d: ModuleDecl.ID,
-    into module: inout Module,
-    diagnostics: inout DiagnosticSet
-  ) {
-    self.module = module
-    swap(&self.diagnostics, &diagnostics)
-    defer {
-      module = self.module.release()
-      swap(&self.diagnostics, &diagnostics)
+  /// Inserts the IR for the top-level declarations of `d` into `module`, accumulating diagnostics
+  /// in `self.diagnostics`.
+  mutating func lower(module d: ModuleDecl.ID, into module: inout Module) {
+    insertingIR(into: &module) { (this) in
+      for u in this.program.ast.topLevelDecls(d) {
+        this.lower(topLevel: u)
+      }
     }
+  }
 
-    // Lower the top-level declarations.
-    for u in ast.topLevelDecls(d) {
-      lower(topLevel: u)
-    }
+  /// Inserts the IR for the synthesized declarations of `module`, accumulating diagnostics
+  /// in `self.diagnostics`.
+  mutating func generateSyntheticImplementations(in module: inout Module) {
+    insertingIR(into: &module) { (this) in
+      let declared = this.program.synthesizedDecls[this.module.id, default: []]
+      var work = this.module.synthesizedDecls.union(declared)
 
-    // Lower the synthesized implementations.
-    for i in program.synthesizedDecls[d, default: []] {
-      lower(synthesized: i)
+      // var done: Set<Function.ID> = []
+      while let d = work.popFirst() {
+        _ = this.lower(synthesized: d)
+        // done.insert(f)
+      }
     }
   }
 
@@ -2088,6 +2088,15 @@ public struct Emitter {
     insertionBlock = failure
     append(module.makeUnreachable(at: site))
     insertionBlock = success
+  }
+
+  /// Returns the result of calling `action` on a copy of `self` inserting IR into `module`.
+  private mutating func insertingIR<T>(
+    into module: inout Module, _ action: (inout Self) -> T
+  ) -> T {
+    self.module = module
+    defer { module = self.module.release() }
+    return action(&self)
   }
 
   /// Returns the result of calling `action` on a copy of `self` in which a `newFrame` is the top

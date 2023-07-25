@@ -169,6 +169,19 @@ public struct Module {
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
+
+    try generateSyntheticImplementations(reportingDiagnosticsTo: &log)
+  }
+
+  /// Inserts the IR for the synthesized declarations defined in this module, reporting diagnostics
+  /// to `log` and throwing if a an error occurred.
+  mutating func generateSyntheticImplementations(
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) throws {
+    var emitter = Emitter(program: program)
+    emitter.generateSyntheticImplementations(in: &self)
+    log.formUnion(emitter.diagnostics)
+    try log.throwOnError()
   }
 
   /// Adds a global constant and returns its identity.
