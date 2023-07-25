@@ -25,6 +25,11 @@ public struct TypedProgram: Program {
   public let environments: DeclProperty<GenericEnvironment>
 
   /// A map from module to its synthesized declarations.
+  ///
+  /// This table contains the synthesized implementations of conformances declared explicitly.
+  /// These declarations are unconditionally lowered to Val IR as they may be part of a module's
+  /// API. Synthethized declarations that are part of a structural conformance are lowered lazily
+  /// after mandatory IR passes and are not part of this table.
   public let synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]]
 
   /// A map from name expression to its referred declaration.

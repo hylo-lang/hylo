@@ -26,6 +26,9 @@ public struct Module {
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
+  /// The synthesized functions used and defined in the module.
+  public private(set) var synthesizedDecls = Set<SynthesizedDecl>()
+
   /// The module's entry function, if any.
   public private(set) var entryFunction: Function.ID?
 
@@ -309,6 +312,11 @@ public struct Module {
       inputs: inputs,
       output: output,
       blocks: [])
+
+    // Determine if the new function is defined in this module.
+    if program.module(containing: d.scope) == id {
+      synthesizedDecls.insert(d)
+    }
 
     addFunction(entity, for: f)
     return f
