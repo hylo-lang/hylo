@@ -57,7 +57,7 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  mutating func mangle<T: DeclID>(_ d: T, to output: inout Output) {
+  mutating func mangle<T: DeclID>(decl d: T, to output: inout Output) {
     if let m = ModuleDecl.ID(d) {
       write(scope: AnyScopeID(m), to: &output)
       return
@@ -181,7 +181,7 @@ struct Mangler {
   /// Writes the mangled representation of `d` to `output`.
   private mutating func write(conformance d: ConformanceDecl.ID, to output: inout Output) {
     write(operator: .conformanceDecl, to: &output)
-    mangle(MetatypeType(program.declTypes[d])!.instance, to: &output)
+    mangle(type: MetatypeType(program.declTypes[d])!.instance, to: &output)
 
     if let c = program.ast[d].whereClause {
       write(whereClause: c.value, to: &output)
@@ -193,7 +193,7 @@ struct Mangler {
   /// Writes the mangled representation of `d` to `output`.
   private mutating func write(extension d: ExtensionDecl.ID, to output: inout Output) {
     write(operator: .extensionDecl, to: &output)
-    mangle(MetatypeType(program.declTypes[d])!.instance, to: &output)
+    mangle(type: MetatypeType(program.declTypes[d])!.instance, to: &output)
 
     if let c = program.ast[d].whereClause {
       write(whereClause: c.value, to: &output)
@@ -218,7 +218,7 @@ struct Mangler {
 
     write(name: n, to: &output)
     write(integer: program.ast[d].genericParameters.count, to: &output)
-    mangle(program.declTypes[d]!, to: &output)
+    mangle(type: program.declTypes[d]!, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
@@ -233,7 +233,7 @@ struct Mangler {
     write(operator: .staticFunctionDecl, to: &output)
     write(name: Name(stem: "init"), to: &output)
     write(integer: program.ast[d].genericParameters.count, to: &output)
-    mangle(program.declTypes[d]!, to: &output)
+    mangle(type: program.declTypes[d]!, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
@@ -247,7 +247,7 @@ struct Mangler {
       write(integer: program.ast[d].genericParameters.count, to: &output)
     }
 
-    mangle(program.declTypes[d]!, to: &output)
+    mangle(type: program.declTypes[d]!, to: &output)
   }
 
   /// Writes the mangled representation of `u` to `output`.
@@ -285,15 +285,15 @@ struct Mangler {
     }
   }
 
-  /// Writhe the mangled representation of `r` to `output`.
-  mutating func mangle(_ r: DeclReference, to output: inout Output) {
+  /// Writes the mangled representation of `r` to `output`.
+  mutating func mangle(reference r: DeclReference, to output: inout Output) {
     switch r {
     case .direct(let d, let parameterization):
       write(operator: .directDeclReference, to: &output)
-      mangle(d, to: &output)
+      mangle(decl: d, to: &output)
       write(integer: parameterization.count, to: &output)
       for u in parameterization.values {
-        mangle(u, to: &output)
+        mangle(value: u, to: &output)
       }
 
     default:
@@ -302,16 +302,16 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
-  mutating func mangle(_ symbol: any CompileTimeValue, to output: inout Output) {
+  mutating func mangle(value symbol: any CompileTimeValue, to output: inout Output) {
     if let t = symbol as? AnyType {
-      mangle(t, to: &output)
+      mangle(type: t, to: &output)
     } else {
       fatalError("not implemented")
     }
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
-  mutating func mangle(_ symbol: AnyType, to output: inout Output) {
+  mutating func mangle(type symbol: AnyType, to output: inout Output) {
     if writeLookup(.type(symbol), to: &output) {
       return
     }
@@ -329,23 +329,23 @@ struct Mangler {
 
     case let t as GenericTypeParameterType:
       write(operator: .genericTypeParameterType, to: &output)
-      mangle(AnyDeclID(t.decl), to: &output)
+      mangle(decl: AnyDeclID(t.decl), to: &output)
 
     case let t as LambdaType:
       write(lambda: t, to: &output)
 
     case let t as MetatypeType:
       write(operator: .metatypeType, to: &output)
-      mangle(t.instance, to: &output)
+      mangle(type: t.instance, to: &output)
 
     case let t as ParameterType:
       write(operator: .parameterType, to: &output)
       write(base64Didit: t.access, to: &output)
-      mangle(t.bareType, to: &output)
+      mangle(type: t.bareType, to: &output)
 
     case let t as ProductType:
       write(operator: .productType, to: &output)
-      mangle(AnyDeclID(t.decl), to: &output)
+      mangle(decl: AnyDeclID(t.decl), to: &output)
 
       // End of sequence required because `t.decl` is a scope.
       write(operator: .endOfSequence, to: &output)
@@ -353,7 +353,7 @@ struct Mangler {
     case let t as RemoteType:
       write(operator: .remoteType, to: &output)
       write(base64Didit: t.access, to: &output)
-      mangle(t.bareType, to: &output)
+      mangle(type: t.bareType, to: &output)
 
     case let t as SubscriptType:
       write(subscriptType: t, to: &output)
@@ -363,7 +363,7 @@ struct Mangler {
 
     case let t as TraitType:
       write(operator: .traitType, to: &output)
-      mangle(AnyDeclID(t.decl), to: &output)
+      mangle(decl: AnyDeclID(t.decl), to: &output)
 
       // End of sequence required because `t.decl` is a scope.
       write(operator: .endOfSequence, to: &output)
@@ -382,10 +382,10 @@ struct Mangler {
   /// Writes the mangled representation of `symbol` to `output`.
   private mutating func write(boundGenericType t: BoundGenericType, to output: inout Output) {
     write(operator: .boundGenericType, to: &output)
-    mangle(t.base, to: &output)
+    mangle(type: t.base, to: &output)
     write(integer: t.arguments.count, to: &output)
     for u in t.arguments.values {
-      mangle(u, to: &output)
+      mangle(value: u, to: &output)
     }
   }
 
@@ -424,13 +424,13 @@ struct Mangler {
 
     case .generic(let interface):
       write(operator: .existentialGenericType, to: &output)
-      mangle(interface, to: &output)
+      mangle(type: interface, to: &output)
 
     case .traits(let interface):
       write(operator: .existentialTraitType, to: &output)
       write(set: interface, to: &output) { (m, e) -> String in
         var s = ""
-        m.mangle(^e, to: &s)
+        m.mangle(type: ^e, to: &s)
         return s
       }
     }
@@ -439,30 +439,30 @@ struct Mangler {
   /// Writes the mangled representation of `symbol` to `output`.
   private mutating func write(lambda t: LambdaType, to output: inout Output) {
     write(operator: .lambdaType, to: &output)
-    mangle(t.environment, to: &output)
+    mangle(type: t.environment, to: &output)
 
     write(integer: t.inputs.count, to: &output)
     for i in t.inputs {
       write(string: i.label ?? "", to: &output)
-      mangle(i.type, to: &output)
+      mangle(type: i.type, to: &output)
     }
 
-    mangle(t.output, to: &output)
+    mangle(type: t.output, to: &output)
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
   private mutating func write(subscriptType t: SubscriptType, to output: inout Output) {
     write(operator: .subscriptType, to: &output)
     write(base64Didit: t.capabilities, to: &output)
-    mangle(t.environment, to: &output)
+    mangle(type: t.environment, to: &output)
 
     write(integer: t.inputs.count, to: &output)
     for i in t.inputs {
       write(string: i.label ?? "", to: &output)
-      mangle(i.type, to: &output)
+      mangle(type: i.type, to: &output)
     }
 
-    mangle(t.output, to: &output)
+    mangle(type: t.output, to: &output)
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
@@ -470,7 +470,7 @@ struct Mangler {
     write(operator: .sumType, to: &output)
     write(set: t.elements, to: &output) { (m, e) -> String in
       var s = ""
-      m.mangle(e, to: &s)
+      m.mangle(type: e, to: &s)
       return s
     }
   }
@@ -482,7 +482,7 @@ struct Mangler {
     write(integer: t.elements.count, to: &output)
     for e in t.elements {
       write(string: e.label ?? "", to: &output)
-      mangle(e.type, to: &output)
+      mangle(type: e.type, to: &output)
     }
   }
 
