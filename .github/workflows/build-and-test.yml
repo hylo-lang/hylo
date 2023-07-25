@@ -42,6 +42,7 @@ jobs:
       uses: devcontainers/ci@v0.3
       with:
         runCmd: |
+          set -e
           swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }} &&
           swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
             tee testoutput.txt && (
@@ -108,6 +109,7 @@ jobs:
 
     - name: Test (${{ matrix.configuration }})
       run: |
+        set -e
         export PKG_CONFIG_PATH=$PWD &&
         swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
           tee testoutput.txt && (
