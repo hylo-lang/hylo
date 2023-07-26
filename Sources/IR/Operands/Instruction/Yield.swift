@@ -1,7 +1,7 @@
 import Core
 
 /// Projects the address of an object.
-public struct YieldInstruction: Instruction {
+public struct Yield: Instruction {
 
   /// The capability being projected.
   public let capability: AccessEffect
@@ -39,7 +39,7 @@ public struct YieldInstruction: Instruction {
 extension Module {
 
   /// Creates a `yield` anchored at `site` that projects `a` with capability `c`.
-  func makeYield(_ c: AccessEffect, _ a: Operand, at site: SourceRange) -> YieldInstruction {
+  func makeYield(_ c: AccessEffect, _ a: Operand, at site: SourceRange) -> Yield {
     precondition(type(of: a).isAddress)
     return .init(capability: c, projection: a, site: site)
   }

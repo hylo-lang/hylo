@@ -24,7 +24,7 @@ public protocol Instruction: CustomStringConvertible {
 extension Instruction {
 
   public var description: String {
-    let n = String(describing: type(of: self)).removingSuffix("Instruction").snakeCased()
+    let n = String(describing: type(of: self)).snakeCased()
     return operands.isEmpty ? String(n) : "\(n) \(list: operands)"
   }
 

@@ -1,7 +1,7 @@
 import Core
 
 /// Ends the lifetime of a projection.
-public struct EndProjectInstruction: Instruction {
+public struct EndProject: Instruction {
 
   /// The projection whose lifetime is ended.
   public private(set) var projection: Operand
@@ -29,10 +29,8 @@ public struct EndProjectInstruction: Instruction {
 extension Module {
 
   /// Creates an `end_project` anchored at `site` that ends the projection created by `p`.
-  func makeEndProject(
-    _ p: Operand, anchoredAt anchor: SourceRange
-  ) -> EndProjectInstruction {
-    precondition(p.instruction.map({ self[$0] is ProjectInstruction }) ?? false)
+  func makeEndProject(_ p: Operand, anchoredAt anchor: SourceRange) -> EndProject {
+    precondition(p.instruction.map({ self[$0] is Project }) ?? false)
     return .init(projection: p, site: anchor)
   }
 

@@ -1,7 +1,7 @@
 import Core
 
 /// A return instruction.
-public struct ReturnInstruction: Terminator {
+public struct Return: Terminator {
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
@@ -30,7 +30,7 @@ public struct ReturnInstruction: Terminator {
 extension Module {
 
   /// Creates a `return` anchored at `site`.
-  func makeReturn(at site: SourceRange) -> ReturnInstruction {
+  func makeReturn(at site: SourceRange) -> Return {
     .init(site: site)
   }
 

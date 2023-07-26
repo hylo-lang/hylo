@@ -1,7 +1,7 @@
 import Core
 
 /// A load instruction.
-public struct LoadInstruction: Instruction {
+public struct Load: Instruction {
 
   /// The type of the object being loaded.
   public let objectType: IR.`Type`
@@ -36,7 +36,7 @@ extension Module {
   ///
   /// - Parameters:
   ///   - source: The location from which the object is loaded. Must have an address type.
-  func makeLoad(_ source: Operand, at site: SourceRange) -> LoadInstruction {
+  func makeLoad(_ source: Operand, at site: SourceRange) -> Load {
     let t = type(of: source)
     precondition(t.isAddress)
     return .init(objectType: .object(t.ast), from: source, site: site)

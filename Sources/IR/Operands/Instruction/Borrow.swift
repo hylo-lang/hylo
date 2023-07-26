@@ -1,7 +1,7 @@
 import Core
 
 /// Borrows an access on an object.
-public struct BorrowInstruction: Instruction {
+public struct Borrow: Instruction {
 
   /// The capability being borrowed.
   public let capability: AccessEffect
@@ -44,7 +44,7 @@ public struct BorrowInstruction: Instruction {
 
 }
 
-extension BorrowInstruction: CustomStringConvertible {
+extension Borrow: CustomStringConvertible {
 
   public var description: String {
     "borrow [\(capability)] \(location)"
@@ -64,7 +64,7 @@ extension Module {
     _ capability: AccessEffect, from source: Operand,
     correspondingTo binding: VarDecl.ID? = nil,
     at anchor: SourceRange
-  ) -> BorrowInstruction {
+  ) -> Borrow {
     precondition((capability == .let) || (capability == .inout) || (capability == .set))
     precondition(type(of: source).isAddress)
     return .init(

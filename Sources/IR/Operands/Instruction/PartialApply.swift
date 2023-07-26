@@ -1,7 +1,7 @@
 import Core
 
 /// Creates a lambda wrapping a function pointer and an environment.
-public struct PartialApplyInstruction: Instruction {
+public struct PartialApply: Instruction {
 
   /// The partially applied function.
   public private(set) var callee: FunctionReference
@@ -48,7 +48,7 @@ extension Module {
   ///   - e: The environment of the lambda.
   func makePartialApply(
     wrapping f: FunctionReference, with e: Operand, at site: SourceRange
-  ) -> PartialApplyInstruction {
+  ) -> PartialApply {
     .init(callee: f, environment: e, site: site)
   }
 

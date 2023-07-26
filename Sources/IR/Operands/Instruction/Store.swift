@@ -1,7 +1,7 @@
 import Core
 
 /// Stores `object` at the specified location.
-public struct StoreInstruction: Instruction {
+public struct Store: Instruction {
 
   /// The object to store.
   public private(set) var object: Operand
@@ -41,9 +41,7 @@ extension Module {
   /// - Parameters:
   ///   - object: The object to store. Must have an object type.
   ///   - target: The location at which `object` is stored. Must have an address type.
-  func makeStore(
-    _ object: Operand, at target: Operand, at site: SourceRange
-  ) -> StoreInstruction {
+  func makeStore(_ object: Operand, at target: Operand, at site: SourceRange) -> Store {
     precondition(type(of: object).isObject)
     precondition(type(of: target).isAddress)
     return .init(object: object, at: target, site: site)

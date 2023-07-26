@@ -1,7 +1,7 @@
 import Core
 
 /// Branches unconditionally to the start of a basic block.
-public struct BranchInstruction: Terminator {
+public struct Branch: Terminator {
 
   /// The target of the branch.
   public private(set) var target: Block.ID
@@ -37,7 +37,7 @@ public struct BranchInstruction: Terminator {
 
 }
 
-extension BranchInstruction: CustomStringConvertible {
+extension Branch: CustomStringConvertible {
 
   public var description: String {
     "branch \(target)"
@@ -51,7 +51,7 @@ extension Module {
   ///
   /// - Parameters:
   ///   - target: The block in which control flow jumps.
-  func makeBranch(to target: Block.ID, at anchor: SourceRange) -> BranchInstruction {
+  func makeBranch(to target: Block.ID, at anchor: SourceRange) -> Branch {
     .init(target: target, site: anchor)
   }
 

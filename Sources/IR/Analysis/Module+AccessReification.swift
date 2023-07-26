@@ -76,15 +76,15 @@ extension Module {
 
   private func requests(_ u: Use) -> AccessEffectSet {
     switch self[u.user] {
-    case let t as AccessInstruction:
+    case let t as Access:
       return t.capabilities
-    case let t as BorrowInstruction:
+    case let t as Borrow:
       return [t.capability]
-    case is LoadInstruction:
+    case is Load:
       return [.sink]
-    case is MoveInstruction:
+    case is Move:
       return [.inout]
-    case is ProjectBundleInstruction:
+    case is ProjectBundle:
       return requests(projectBundle: u)
     default:
       unreachable()
@@ -92,7 +92,7 @@ extension Module {
   }
 
   private func requests(projectBundle u: Use) -> AccessEffectSet {
-    let s = self[u.user] as! ProjectBundleInstruction
+    let s = self[u.user] as! ProjectBundle
     let t = s.parameters[u.index]
     return (t.access == .yielded) ? s.capabilities : [t.access]
   }
@@ -102,7 +102,7 @@ extension Module {
     guard let uses = self.uses[.register(i, 0)] else { return }
     for u in uses {
       switch self[u.user] {
-      case is OpenUnionInstruction, is SubfieldViewInstruction, is AdvancedByBytesInstruction:
+      case is OpenUnion, is SubfieldView, is AdvancedByBytes:
         forEachClient(of: u.user, action)
       default:
         action(u)
@@ -114,9 +114,9 @@ extension Module {
   /// with capability `k`.
   private mutating func reify(_ i: InstructionID, as k: AccessEffect) {
     switch self[i] {
-    case is AccessInstruction:
+    case is Access:
       reify(access: i, as: k)
-    case is ProjectBundleInstruction:
+    case is ProjectBundle:
       reify(projectBundle: i, as: k)
     default:
       unreachable()
@@ -126,7 +126,7 @@ extension Module {
   /// Replaces the uses of `i`, which is an `access` instruction, with uses of a borrow or load
   /// instruction for capability `k`.
   private mutating func reify(access i: InstructionID, as k: AccessEffect) {
-    let s = self[i] as! AccessInstruction
+    let s = self[i] as! Access
     if k == .sink {
       replaceUses(of: .register(i, 0), with: s.source, in: i.function)
       removeInstruction(i)
@@ -137,7 +137,7 @@ extension Module {
   }
 
   private mutating func reify(projectBundle i: InstructionID, as k: AccessEffect) {
-    let s = self[i] as! ProjectBundleInstruction
+    let s = self[i] as! ProjectBundle
 
     // Generate the proper instructions to prepare the projection's arguments.
     // Note: the relative order between `access` reified as `load` is not preserved.
@@ -166,6 +166,6 @@ private protocol ReifiableAccess {
 
 }
 
-extension AccessInstruction: ReifiableAccess {}
+extension Access: ReifiableAccess {}
 
-extension ProjectBundleInstruction: ReifiableAccess {}
+extension ProjectBundle: ReifiableAccess {}

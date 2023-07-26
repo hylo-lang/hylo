@@ -1,7 +1,7 @@
 import Core
 
 /// Deallocates memory previously allocated by `alloc_stack`.
-public struct DeallocStackInstruction: Instruction {
+public struct DeallocStack: Instruction {
 
   /// The location of the memory being deallocated.
   public private(set) var location: Operand
@@ -32,8 +32,8 @@ extension Module {
   ///
   /// - Parameters:
   ///   - alloc: The address of the memory to deallocate. Must be the result of `alloc`.
-  func makeDeallocStack(for alloc: Operand, at site: SourceRange) -> DeallocStackInstruction {
-    precondition(alloc.instruction.map({ self[$0] is AllocStackInstruction }) ?? false)
+  func makeDeallocStack(for alloc: Operand, at site: SourceRange) -> DeallocStack {
+    precondition(alloc.instruction.map({ self[$0] is AllocStack }) ?? false)
     return .init(location: alloc, site: site)
   }
 
