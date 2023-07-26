@@ -1,7 +1,7 @@
 import Core
 
 /// Ends the lifetime of a borrow.
-public struct EndBorrowInstruction: Instruction {
+public struct EndBorrow: Instruction {
 
   /// The borrow whose lifetime is ended.
   public private(set) var borrow: Operand
@@ -32,8 +32,8 @@ extension Module {
   ///
   /// - Parameters:
   ///   - borrow: The borrow to end. Must be the result of `borrow`.
-  func makeEndBorrow(_ borrow: Operand, at site: SourceRange) -> EndBorrowInstruction {
-    precondition(borrow.instruction.map({ self[$0] is BorrowInstruction }) ?? false)
+  func makeEndBorrow(_ borrow: Operand, at site: SourceRange) -> EndBorrow {
+    precondition(borrow.instruction.map({ self[$0] is Borrow }) ?? false)
     return .init(borrow: borrow, site: site)
   }
 

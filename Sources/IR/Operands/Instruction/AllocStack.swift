@@ -1,7 +1,7 @@
 import Core
 
 /// Allocates memory on the stack.
-public struct AllocStackInstruction: Instruction {
+public struct AllocStack: Instruction {
 
   /// The type for which storage is allocated.
   public let allocatedType: AnyType
@@ -25,7 +25,7 @@ public struct AllocStackInstruction: Instruction {
 
 }
 
-extension AllocStackInstruction: CustomStringConvertible {
+extension AllocStack: CustomStringConvertible {
 
   public var description: String {
     "alloc_stack \(allocatedType)"
@@ -36,7 +36,7 @@ extension AllocStackInstruction: CustomStringConvertible {
 extension Module {
 
   /// Creates an `alloc_stack` anchored at `site` that allocates storage of type `allocatedType`.
-  func makeAllocStack(_ allocatedType: AnyType, at site: SourceRange) -> AllocStackInstruction {
+  func makeAllocStack(_ allocatedType: AnyType, at site: SourceRange) -> AllocStack {
     .init(allocatedType: program.relations.canonical(allocatedType), site: site)
   }
 

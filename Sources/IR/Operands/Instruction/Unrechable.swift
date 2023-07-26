@@ -1,7 +1,7 @@
 import Core
 
 /// Marks this execution path as unreachable, causing a fatal error otherwise.
-public struct UnrechableInstruction: Terminator {
+public struct Unrechable: Terminator {
 
   /// The site of the code corresponding to that instruction.
   public var site: SourceRange
@@ -30,8 +30,8 @@ public struct UnrechableInstruction: Terminator {
 extension Module {
 
   /// Creates an `unreachable` anchored at `site` that marks the execution path unreachable.
-  func makeUnreachable(at site: SourceRange) -> UnrechableInstruction {
-    UnrechableInstruction(site: site)
+  func makeUnreachable(at site: SourceRange) -> Unrechable {
+    .init(site: site)
   }
 
 }

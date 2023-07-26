@@ -10,7 +10,7 @@ extension Module {
     for blockToProcess in blocks(in: f) {
       for i in instructions(in: blockToProcess) {
         switch self[i] {
-        case let borrow as BorrowInstruction:
+        case let borrow as Borrow:
           let result = Operand.register(i, 0)
           let borrowLifetime = lifetime(of: result)
 
@@ -29,7 +29,7 @@ extension Module {
             insert(s, after: lastUse.user)
           }
 
-        case is ProjectInstruction:
+        case is Project:
           // Insert `end_project` after the instruction's last users.
           let result = Operand.register(i, 0)
           for lastUse in lifetime(of: result).maximalElements() {
@@ -80,14 +80,14 @@ extension Diagnostic {
 /// An instruction that extends the lifetime of all its uses.
 private protocol LifetimeExtender {}
 
-extension BorrowInstruction: LifetimeExtender {}
+extension Borrow: LifetimeExtender {}
 
-extension OpenUnionInstruction: LifetimeExtender {}
+extension OpenUnion: LifetimeExtender {}
 
-extension ProjectInstruction: LifetimeExtender {}
+extension Project: LifetimeExtender {}
 
-extension ProjectBundleInstruction: LifetimeExtender {}
+extension ProjectBundle: LifetimeExtender {}
 
-extension SubfieldViewInstruction: LifetimeExtender {}
+extension SubfieldView: LifetimeExtender {}
 
-extension WrapExistentialAddrInstruction: LifetimeExtender {}
+extension WrapExistentialAddr: LifetimeExtender {}

@@ -7,7 +7,7 @@ import Core
 /// actually request a `sink` capability on its right hand side if the binding escapes. In these
 /// cases, IR generation will emit `access` instructions with the set capabilities that may be
 /// inferred from the syntax. These instructions are expected to be removed during IR analysis.
-public struct AccessInstruction: Instruction {
+public struct Access: Instruction {
 
   /// The capabilities of the access.
   ///
@@ -52,7 +52,7 @@ public struct AccessInstruction: Instruction {
 
 }
 
-extension AccessInstruction: CustomStringConvertible {
+extension Access: CustomStringConvertible {
 
   public var description: String {
     "access \(capabilities) \(source)"
@@ -72,7 +72,7 @@ extension Module {
     _ capabilities: AccessEffectSet, from source: Operand,
     correspondingTo binding: VarDecl.ID? = nil,
     at site: SourceRange
-  ) -> AccessInstruction {
+  ) -> Access {
     precondition(!capabilities.isEmpty)
     precondition(type(of: source).isAddress)
     return .init(

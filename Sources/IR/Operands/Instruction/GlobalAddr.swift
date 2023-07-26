@@ -1,7 +1,7 @@
 import Core
 
 /// Returns the address of a global value.
-public struct GlobalAddrInstruction: Instruction {
+public struct GlobalAddr: Instruction {
 
   /// The ID of the global in `container`.
   public let id: Module.GlobalID
@@ -38,7 +38,7 @@ public struct GlobalAddrInstruction: Instruction {
 
 }
 
-extension GlobalAddrInstruction: CustomStringConvertible {
+extension GlobalAddr: CustomStringConvertible {
 
   public var description: String {
     "global_addr @\(container).\(id)"
@@ -52,7 +52,7 @@ extension Module {
   /// has type `t`.
   func makeGlobalAddr(
     of g: Module.GlobalID, in m: ModuleDecl.ID, typed t: AnyType, at anchor: SourceRange
-  ) -> GlobalAddrInstruction {
+  ) -> GlobalAddr {
     .init(id: g, container: m, valueType: t, site: anchor)
   }
 

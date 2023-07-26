@@ -1,7 +1,7 @@
 import Core
 
 /// Computes a `source` address value advanced by `offset` bytes.
-public struct AdvancedByBytesInstruction: Instruction {
+public struct AdvancedByBytes: Instruction {
 
   /// The value of a pointer to be advanced.
   public private(set) var base: Operand
@@ -34,7 +34,7 @@ public struct AdvancedByBytesInstruction: Instruction {
 
 }
 
-extension AdvancedByBytesInstruction: CustomStringConvertible {
+extension AdvancedByBytes: CustomStringConvertible {
 
   public var description: String {
     "\(base) advanced by \(byteOffset) bytes"
@@ -46,9 +46,9 @@ extension Module {
 
   /// Creates an `advanced by bytes` instruction anchored at `site` computing the `source` address
   /// value advanced by `offset` bytes.
-  func makeAdvancedByBytes(source: Operand, offset: Operand, at site: SourceRange)
-    -> AdvancedByBytesInstruction
-  {
+  func makeAdvancedByBytes(
+    source: Operand, offset: Operand, at site: SourceRange
+  ) -> AdvancedByBytes {
     precondition(type(of: source).isAddress)
     precondition(type(of: offset).isAddress)
     return .init(

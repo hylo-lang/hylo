@@ -1,7 +1,7 @@
 import Core
 
 /// Projects a value from a subscript bundle.
-public struct ProjectBundleInstruction: Instruction {
+public struct ProjectBundle: Instruction {
 
   /// The subscript bundle implementing the projections.
   public let bundle: SubscriptBundleReference
@@ -62,7 +62,7 @@ public struct ProjectBundleInstruction: Instruction {
 
 }
 
-extension ProjectBundleInstruction: CustomStringConvertible {
+extension ProjectBundle: CustomStringConvertible {
 
   public var description: String {
     if operands.isEmpty {
@@ -87,7 +87,7 @@ extension Module {
     typed bundleType: SubscriptType,
     to arguments: [Operand],
     at site: SourceRange
-  ) -> ProjectBundleInstruction {
+  ) -> ProjectBundle {
     precondition(bundleType[.isCanonical])
     return .init(
       bundle: bundle,

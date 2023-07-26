@@ -1,7 +1,7 @@
 import Core
 
 /// Unsafely sets the initialization state of storage.
-public struct MarkStateInstruction: Instruction {
+public struct MarkState: Instruction {
 
   /// The storage whose initialization state is updated.
   public private(set) var storage: Operand
@@ -30,7 +30,7 @@ public struct MarkStateInstruction: Instruction {
 
 }
 
-extension MarkStateInstruction: CustomStringConvertible {
+extension MarkState: CustomStringConvertible {
 
   public var description: String {
     let s = initialized ? "initialized" : "deinitialized"
@@ -43,9 +43,7 @@ extension Module {
 
   /// Creates a `mark_state` instruction anchored at `site` that marks `storage` has being fully
   /// initialized if `initialized` is `true` or fully uninitialized otherwise.
-  func makeMarkState(
-    _ storage: Operand, initialized: Bool, at site: SourceRange
-  ) -> MarkStateInstruction {
+  func makeMarkState(_ storage: Operand, initialized: Bool, at site: SourceRange) -> MarkState {
     precondition(type(of: storage).isAddress)
     return .init(storage: storage, initialized: initialized, site: site)
   }

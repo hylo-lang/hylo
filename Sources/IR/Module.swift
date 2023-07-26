@@ -645,19 +645,19 @@ public struct Module {
     guard case .register(let i, _) = a else { return [a] }
 
     switch self[i] {
-    case let s as AdvancedByBytesInstruction:
+    case let s as AdvancedByBytes:
       return provenances(s.base)
-    case let s as BorrowInstruction:
+    case let s as Borrow:
       return provenances(s.location)
-    case let s as ProjectInstruction:
+    case let s as Project:
       return s.operands.reduce(
         into: [],
         { (p, o) in
           if type(of: o).isAddress { p.formUnion(provenances(o)) }
         })
-    case let s as SubfieldViewInstruction:
+    case let s as SubfieldView:
       return provenances(s.recordAddress)
-    case let s as WrapExistentialAddrInstruction:
+    case let s as WrapExistentialAddr:
       return provenances(s.witness)
     default:
       return [a]
@@ -676,9 +676,9 @@ public struct Module {
 
       case .register(let i, _):
         switch self[i] {
-        case let s as ProjectBundleInstruction:
+        case let s as ProjectBundle:
           return s.capabilities.contains(.sink)
-        case let s as ProjectInstruction:
+        case let s as Project:
           return s.projection.access == .sink
         default:
           return true

@@ -1,7 +1,7 @@
 import Core
 
 /// Projects the address of a union payload, viewed as an instance of a given type.
-public struct OpenUnionInstruction: Instruction {
+public struct OpenUnion: Instruction {
 
   /// The union whose payload should be projected.
   ///
@@ -44,7 +44,7 @@ public struct OpenUnionInstruction: Instruction {
 
 }
 
-extension OpenUnionInstruction: CustomStringConvertible {
+extension OpenUnion: CustomStringConvertible {
 
   public var description: String {
     if isUsedForInitialization {
@@ -64,7 +64,7 @@ extension Module {
   func makeOpenUnion(
     _ container: Operand, as payloadType: AnyType, forInitialization isUsedForInitialization: Bool,
     at site: SourceRange
-  ) -> OpenUnionInstruction {
+  ) -> OpenUnion {
     precondition(type(of: container).isAddress)
     precondition(payloadType[.isCanonical])
     return .init(
