@@ -460,59 +460,59 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(_ i: IR.InstructionID) {
       switch m[i] {
-      case is IR.AddressToPointerInstruction:
+      case is IR.AddressToPointer:
         insert(addressToPointer: i)
-      case is IR.AdvancedByBytesInstruction:
+      case is IR.AdvancedByBytes:
         insert(advancedByBytes: i)
-      case is IR.AllocStackInstruction:
+      case is IR.AllocStack:
         insert(allocStack: i)
-      case is IR.BorrowInstruction:
+      case is IR.Borrow:
         insert(borrow: i)
-      case is IR.BranchInstruction:
+      case is IR.Branch:
         insert(branch: i)
-      case is IR.CallInstruction:
+      case is IR.Call:
         insert(call: i)
-      case is IR.CallFFIInstruction:
+      case is IR.CallFFI:
         insert(callFFI: i)
-      case is IR.CloseUnionInstruction:
+      case is IR.CloseUnion:
         insert(closeUnion: i)
-      case is IR.CondBranchInstruction:
+      case is IR.CondBranch:
         insert(condBranch: i)
-      case is IR.DeallocStackInstruction:
+      case is IR.DeallocStack:
         return
-      case is IR.EndBorrowInstruction:
+      case is IR.EndBorrow:
         return
-      case is IR.EndProjectInstruction:
+      case is IR.EndProject:
         insert(endProjection: i)
-      case is IR.GlobalAddrInstruction:
+      case is IR.GlobalAddr:
         insert(globalAddr: i)
       case is IR.LLVMInstruction:
         insert(llvm: i)
-      case is IR.LoadInstruction:
+      case is IR.Load:
         insert(load: i)
-      case is IR.MarkStateInstruction:
+      case is IR.MarkState:
         return
-      case is IR.OpenUnionInstruction:
+      case is IR.OpenUnion:
         insert(openUnion: i)
-      case is IR.PartialApplyInstruction:
+      case is IR.PartialApply:
         insert(partialApply: i)
-      case is IR.PointerToAddressInstruction:
+      case is IR.PointerToAddress:
         insert(pointerToAddress: i)
-      case is IR.ProjectInstruction:
+      case is IR.Project:
         insert(project: i)
-      case is IR.ReturnInstruction:
+      case is IR.Return:
         insert(return: i)
-      case is IR.StoreInstruction:
+      case is IR.Store:
         insert(store: i)
-      case is IR.SubfieldViewInstruction:
+      case is IR.SubfieldView:
         insert(subfieldView: i)
-      case is IR.UnrechableInstruction:
+      case is IR.Unrechable:
         insert(unreachable: i)
-      case is IR.UnsafeCastInstruction:
+      case is IR.UnsafeCast:
         insert(unsafeCast: i)
-      case is IR.WrapExistentialAddrInstruction:
+      case is IR.WrapExistentialAddr:
         insert(wrapAddr: i)
-      case is IR.YieldInstruction:
+      case is IR.Yield:
         insert(yield: i)
       default:
         fatalError("not implemented")
@@ -521,13 +521,13 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(addressToPointer i: IR.InstructionID) {
-      let s = m[i] as! AddressToPointerInstruction
+      let s = m[i] as! AddressToPointer
       register[.register(i, 0)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(advancedByBytes i: IR.InstructionID) {
-      let s = m[i] as! AdvancedByBytesInstruction
+      let s = m[i] as! AdvancedByBytes
 
       let base = llvm(s.base)
       let v = insertGetElementPointerInBounds(
@@ -537,26 +537,26 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(allocStack i: IR.InstructionID) {
-      let s = m[i] as! AllocStackInstruction
+      let s = m[i] as! AllocStack
       let t = ir.llvm(s.allocatedType, in: &self)
       register[.register(i, 0)] = insertAlloca(t, atEntryOf: transpilation)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(borrow i: IR.InstructionID) {
-      let s = m[i] as! BorrowInstruction
+      let s = m[i] as! Borrow
       register[.register(i, 0)] = llvm(s.location)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(branch i: IR.InstructionID) {
-      let s = m[i] as! BranchInstruction
+      let s = m[i] as! Branch
       insertBr(to: block[s.target]!, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(call i: IR.InstructionID) {
-      let s = m[i] as! CallInstruction
+      let s = m[i] as! Call
       var arguments: [LLVM.IRValue] = []
 
       // Callee is evaluated first.
@@ -593,7 +593,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(callFFI i: IR.InstructionID) {
-      let s = m[i] as! CallFFIInstruction
+      let s = m[i] as! CallFFI
       let parameters = s.operands.map({ ir.llvm(m.type(of: $0).ast, in: &self) })
 
       let returnType: LLVM.IRType
@@ -616,7 +616,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(condBranch i: IR.InstructionID) {
-      let s = m[i] as! CondBranchInstruction
+      let s = m[i] as! CondBranch
       let c = llvm(s.condition)
       insertCondBr(
         if: c, then: block[s.targetIfTrue]!, else: block[s.targetIfFalse]!,
@@ -625,9 +625,9 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(endProjection i: IR.InstructionID) {
-      let s = m[i] as! EndProjectInstruction
+      let s = m[i] as! EndProject
       let start = s.projection.instruction!
-      assert(m[start] is ProjectInstruction)
+      assert(m[start] is Project)
 
       let t = LLVM.FunctionType(from: [ptr, i1], to: void, in: &self)
 
@@ -638,13 +638,13 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(globalAddr i: IR.InstructionID) {
-      let s = m[i] as! IR.GlobalAddrInstruction
+      let s = m[i] as! IR.GlobalAddr
       register[.register(i, 0)] = global(named: "\(s.container)\(s.id)")!
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(subfieldView i: IR.InstructionID) {
-      let s = m[i] as! SubfieldViewInstruction
+      let s = m[i] as! SubfieldView
 
       let base = llvm(s.recordAddress)
       let baseType = ir.llvm(m.type(of: s.recordAddress).ast, in: &self)
@@ -747,7 +747,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(load i: IR.InstructionID) {
-      let s = m[i] as! LoadInstruction
+      let s = m[i] as! Load
       let t = ir.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
       register[.register(i, 0)] = insertLoad(t, from: source, at: insertionPoint)
@@ -755,13 +755,13 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(openUnion i: IR.InstructionID) {
-      let s = m[i] as! OpenUnionInstruction
+      let s = m[i] as! OpenUnion
       register[.register(i, 0)] = llvm(s.container)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(partialApply i: IR.InstructionID) {
-      let s = m[i] as! IR.PartialApplyInstruction
+      let s = m[i] as! IR.PartialApply
       let t = LambdaType(s.callee.type.ast)!
 
       if t.environment == .void {
@@ -773,13 +773,13 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(pointerToAddress i: IR.InstructionID) {
-      let s = m[i] as! IR.PointerToAddressInstruction
+      let s = m[i] as! IR.PointerToAddress
       register[.register(i, 0)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(project i: IR.InstructionID) {
-      let s = m[i] as! IR.ProjectInstruction
+      let s = m[i] as! IR.Project
 
       // %0 = alloca [8 x i8], align 8
       let buffer = LLVM.ArrayType(8, i8, in: &self)
@@ -827,7 +827,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(store i: IR.InstructionID) {
-      let s = m[i] as! IR.StoreInstruction
+      let s = m[i] as! IR.Store
       insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
     }
 
@@ -838,7 +838,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(unsafeCast i: IR.InstructionID) {
-      let s = m[i] as! IR.UnsafeCastInstruction
+      let s = m[i] as! IR.UnsafeCast
 
       let lhs = llvm(s.source)
       let rhs = ir.llvm(s.target, in: &self)
@@ -854,7 +854,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(wrapAddr i: IR.InstructionID) {
-      let s = m[i] as! IR.WrapExistentialAddrInstruction
+      let s = m[i] as! IR.WrapExistentialAddr
       let t = containerType()
       let a = insertAlloca(t, atEntryOf: transpilation)
       insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)
@@ -863,7 +863,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(yield i: IR.InstructionID) {
-      let s = m[i] as! IR.YieldInstruction
+      let s = m[i] as! IR.Yield
       let p = llvm(s.projection)
 
       // The intrinsic will return a non-zero result if the subscript should resume abnormally.

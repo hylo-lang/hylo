@@ -5,7 +5,7 @@ import Utils
 ///
 /// `callee` must have a lambda type; the type of the instruction must be the same as output type
 /// of the callee. `operands` must contain as many operands as the callee's type.
-public struct CallInstruction: Instruction {
+public struct Call: Instruction {
 
   /// The callee and arguments of the call.
   public private(set) var operands: [Operand]
@@ -51,7 +51,7 @@ public struct CallInstruction: Instruction {
 
 }
 
-extension CallInstruction: CustomStringConvertible {
+extension Call: CustomStringConvertible {
 
   public var description: String {
     "call \(callee)(\(list: arguments)) to \(output)"
@@ -71,7 +71,7 @@ extension Module {
   func makeCall(
     applying callee: Operand, to arguments: [Operand], writingResultTo output: Operand,
     at site: SourceRange
-  ) -> CallInstruction {
+  ) -> Call {
     let calleeType = LambdaType(type(of: callee).ast)!.strippingEnvironment
     precondition(calleeType.inputs.count == arguments.count)
     precondition(isBorrowSet(output))
@@ -83,7 +83,7 @@ extension Module {
   fileprivate func isBorrowSet(_ o: Operand) -> Bool {
     guard
       let i = o.instruction,
-      let s = self[i] as? BorrowInstruction
+      let s = self[i] as? Borrow
     else { return false }
     return s.capability == .set
   }

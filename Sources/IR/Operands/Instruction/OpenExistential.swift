@@ -2,7 +2,7 @@ import Core
 
 /// Returns the address of the witness packaged in an existential container converted to a given
 /// type along with a flag indicating whether the conversion is legal.
-public struct OpenInstruction: Instruction {
+public struct OpenExistential: Instruction {
 
   /// The existential container whose witness should be unwrapped.
   public private(set) var container: Operand
@@ -31,23 +31,25 @@ public struct OpenInstruction: Instruction {
 
 }
 
-extension OpenInstruction: CustomStringConvertible {
+extension OpenExistential: CustomStringConvertible {
 
   public var description: String {
-    "open \(container) as \(type)"
+    "open_existential \(container) as \(type)"
   }
 
 }
 
 extension Module {
 
-  /// Creates an `unwrap` anchored at `site` that unwraps the witness of `container` as a value
-  /// of type `t`.
+  /// Creates an `open_existential` anchored at `site` that unwraps the witness of `container` as
+  /// a value of type `t`.
   ///
   /// - Parameters:
   ///   - container: An existential container. Must have an existential type.
   ///   - type: The type of the witness packaged in `container`.
-  func makeOpen(_ container: Operand, as t: AnyType, at site: SourceRange) -> OpenInstruction {
+  func makeOpenExistential(
+    _ container: Operand, as t: AnyType, at site: SourceRange
+  ) -> OpenExistential {
     precondition(type(of: container).isObject)
     precondition(t[.isCanonical])
     return .init(container: container, type: t, site: site)

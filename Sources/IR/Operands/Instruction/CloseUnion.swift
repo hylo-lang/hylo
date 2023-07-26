@@ -1,7 +1,7 @@
 import Core
 
 /// Close a previously created access to the payload of a union.
-public struct CloseUnionInstruction: Instruction {
+public struct CloseUnion: Instruction {
 
   /// The access being closed; must be the result of an `open_union` instruction.
   public private(set) var start: Operand
@@ -30,8 +30,8 @@ extension Module {
 
   /// Creates an `close_union` anchored at `site` that ends an access to the payload of a union
   /// opened previously by `start`.
-  func makeCloseUnion(_ start: Operand, at site: SourceRange) -> CloseUnionInstruction {
-    precondition(start.instruction.map({ self[$0] is OpenUnionInstruction }) ?? false)
+  func makeCloseUnion(_ start: Operand, at site: SourceRange) -> CloseUnion {
+    precondition(start.instruction.map({ self[$0] is OpenUnion }) ?? false)
     return .init(start: start, site: site)
   }
 

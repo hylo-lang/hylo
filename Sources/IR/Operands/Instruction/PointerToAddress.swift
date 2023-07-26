@@ -4,7 +4,7 @@ import Core
 ///
 /// This instruction doesn't extend the lifetime of its operand. The address unsafely refers to the
 /// memory referenced by the pointer.
-public struct PointerToAddressInstruction: Instruction {
+public struct PointerToAddress: Instruction {
 
   /// The pointer to convert.
   public private(set) var source: Operand
@@ -33,7 +33,7 @@ public struct PointerToAddressInstruction: Instruction {
 
 }
 
-extension PointerToAddressInstruction: CustomStringConvertible {
+extension PointerToAddress: CustomStringConvertible {
 
   public var description: String {
     "pointer_to_address \(source) as \(target)"
@@ -51,7 +51,7 @@ extension Module {
     _ source: Operand,
     to target: RemoteType,
     at site: SourceRange
-  ) -> PointerToAddressInstruction {
+  ) -> PointerToAddress {
     precondition(AccessEffectSet([.let, .inout, .set]).contains(target.access))
     return .init(source: source, target: target, site: site)
   }

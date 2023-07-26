@@ -1,7 +1,7 @@
 import Core
 
 /// Branches conditionally to the start of a basic block.
-public struct CondBranchInstruction: Terminator {
+public struct CondBranch: Terminator {
 
   /// A Boolean condition.
   public private(set) var condition: Operand
@@ -54,7 +54,7 @@ public struct CondBranchInstruction: Terminator {
 
 }
 
-extension CondBranchInstruction: CustomStringConvertible {
+extension CondBranch: CustomStringConvertible {
 
   public var description: String {
     "cond_branch \(condition), \(targetIfTrue), \(targetIfFalse)"
@@ -77,7 +77,7 @@ extension Module {
     then targetIfTrue: Block.ID,
     else targetIfFalse: Block.ID,
     at site: SourceRange
-  ) -> CondBranchInstruction {
+  ) -> CondBranch {
     precondition(type(of: condition) == .object(BuiltinType.i(1)))
     precondition(targetIfTrue.function == targetIfFalse.function)
     return .init(

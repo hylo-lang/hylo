@@ -1,7 +1,7 @@
 import Core
 
 /// Unsafely converts the type of an object.
-public struct UnsafeCastInstruction: Instruction {
+public struct UnsafeCast: Instruction {
 
   /// The object to convert.
   public private(set) var source: Operand
@@ -39,7 +39,7 @@ extension Module {
   /// is undefined.
   func makeUnsafeCast(
     _ source: Operand, to target: AnyType, at site: SourceRange
-  ) -> UnsafeCastInstruction {
+  ) -> UnsafeCast {
     precondition(type(of: source).isObject)
     return .init(source: source, target: target, site: site)
   }

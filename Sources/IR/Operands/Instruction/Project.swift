@@ -1,7 +1,7 @@
 import Core
 
 /// Projects a value.
-public struct ProjectInstruction: Instruction {
+public struct Project: Instruction {
 
   /// The type of the projected value.
   public let projection: RemoteType
@@ -47,7 +47,7 @@ public struct ProjectInstruction: Instruction {
 
 }
 
-extension ProjectInstruction: CustomStringConvertible {
+extension Project: CustomStringConvertible {
 
   public var description: String {
     if operands.isEmpty {
@@ -69,7 +69,7 @@ extension Module {
     parameterizedBy parameterization: GenericArguments,
     to arguments: [Operand],
     at site: SourceRange
-  ) -> ProjectInstruction {
+  ) -> Project {
     .init(
       projection: t,
       callee: callee,

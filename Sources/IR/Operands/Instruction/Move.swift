@@ -1,7 +1,7 @@
 import Core
 
 /// Initializes or assigns storage with a value.
-public struct MoveInstruction: Instruction {
+public struct Move: Instruction {
 
   /// The value moved into `target`.
   public private(set) var object: Operand
@@ -52,7 +52,7 @@ extension Module {
   func makeMove(
     _ object: Operand, to target: Operand, usingConformance movable: Core.Conformance,
     at site: SourceRange
-  ) -> MoveInstruction {
+  ) -> Move {
     precondition(type(of: object).isObject)
     precondition(type(of: target).isAddress)
     return .init(object: object, target: target, movable: movable, site: site)

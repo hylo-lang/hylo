@@ -4,7 +4,7 @@ import Core
 ///
 /// This instruction doesn't extend the lifetime of its operand. The value of the converted pointer
 /// is only valid within the scope of the source address.
-public struct AddressToPointerInstruction: Instruction {
+public struct AddressToPointer: Instruction {
 
   /// The address to convert.
   public private(set) var source: Operand
@@ -33,9 +33,7 @@ extension Module {
 
   /// Creates an `address_to_pointer` anchored at `site` that converts `source` to a built-in
   /// pointer value.
-  func makeAddressToPointer(
-    _ source: Operand, at site: SourceRange
-  ) -> AddressToPointerInstruction {
+  func makeAddressToPointer(_ source: Operand, at site: SourceRange) -> AddressToPointer {
     .init(source: source, site: site)
   }
 
