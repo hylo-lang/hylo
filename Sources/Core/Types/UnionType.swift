@@ -1,12 +1,12 @@
 import Utils
 
-/// A sum type.
-public struct SumType: TypeProtocol {
+/// A union of types.
+public struct UnionType: TypeProtocol {
 
-  /// A type representing the elements of a sum type.
+  /// The elements of a union type.
   public typealias Elements = Set<AnyType>
 
-  /// The elements of the sum.
+  /// The elements of the union.
   public let elements: Elements
 
   public let flags: TypeFlags
@@ -29,18 +29,18 @@ public struct SumType: TypeProtocol {
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
-    SumType(elements.map({ $0.transform(mutating: &m, transformer) }))
+    UnionType(elements.map({ $0.transform(mutating: &m, transformer) }))
   }
 
 }
 
-extension SumType: CustomStringConvertible {
+extension UnionType: CustomStringConvertible {
 
   public var description: String {
     if elements.isEmpty {
       return "Never"
     } else {
-      return "Sum<\(list: elements)>"
+      return "Union<\(list: elements)>"
     }
   }
 

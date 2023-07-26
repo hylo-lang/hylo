@@ -3,7 +3,7 @@
 fun modify<T>(_ x: inout T) {}
 
 fun foo<T>() {
-  var s: Sum<Int, Bool> = true
+  var s: Union<Int, Bool> = true
   modify(&s)
 }
 

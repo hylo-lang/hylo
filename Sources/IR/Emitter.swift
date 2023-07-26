@@ -450,12 +450,12 @@ struct Emitter {
 
         if program.relations.areEquivalent(lhsPartType, rhsPartType) {
           emitStore(value: rhs, to: lhsPart)
-        } else if lhsPartType.base is SumType {
+        } else if lhsPartType.base is UnionType {
           let x0 = append(
-            module.makeOpenSum(
+            module.makeOpenUnion(
               lhsPart, as: rhsPartType, forInitialization: true, at: ast[p].site))[0]
           emitStore(value: rhs, to: x0)
-          append(module.makeCloseSum(x0, at: ast[p].site))
+          append(module.makeCloseUnion(x0, at: ast[p].site))
         } else {
           fatalError("not implemented")
         }
@@ -1927,7 +1927,7 @@ struct Emitter {
         fatalError("not implemented")
       }
 
-    case is SumType:
+    case is UnionType:
       // TODO: implement me.
       module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
       return true

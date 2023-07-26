@@ -1766,7 +1766,7 @@ public struct TypeChecker {
   }
 
   /// Returns the declarations of `name` interpreted as an intrinsic type alias (e.g., `Never` or
-  /// `Sum<A, B>`) parameterized by `arguments`, or `nil` if an error occured.
+  /// `Union<A, B>`) parameterized by `arguments`, or `nil` if an error occured.
   private mutating func resolve(
     intrinsic name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue],
@@ -1791,8 +1791,8 @@ public struct TypeChecker {
     case "Builtin" where isBuiltinModuleVisible:
       return [.builtinModule]
 
-    case "Sum":
-      return resolve(sum: name, parameterizedBy: arguments)
+    case "Union":
+      return resolve(union: name, parameterizedBy: arguments)
 
     case "Self":
       guard let t = realizeReceiver(in: useScope) else {
@@ -1809,15 +1809,15 @@ public struct TypeChecker {
     }
   }
 
-  /// Resolves `name` as a reference to a sum type parameterized by `arguments`.
+  /// Resolves `name` as a reference to a union type parameterized by `arguments`.
   private mutating func resolve(
-    sum name: SourceRepresentable<Name>,
+    union name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue]
   ) -> NameResolutionResult.CandidateSet {
     var elements: [AnyType] = []
     for a in arguments {
       guard let t = a as? AnyType else {
-        report(.error(valueInSumTypeAt: name.site))
+        report(.error(valueInUnionTypeAt: name.site))
         return [.intrinsic(.error)]
       }
       elements.append(t)
@@ -1825,13 +1825,13 @@ public struct TypeChecker {
 
     switch arguments.count {
     case 0:
-      report(.warning(sumTypeWithZeroElementsAt: name.site))
+      report(.warning(unionTypeWithZeroElementsAt: name.site))
       return [.intrinsic(^MetatypeType(of: .never))]
     case 1:
-      report(.error(sumTypeWithOneElementAt: name.site))
+      report(.error(unionTypeWithOneElementAt: name.site))
       return [.intrinsic(.error)]
     default:
-      return [.intrinsic(^MetatypeType(of: SumType(elements)))]
+      return [.intrinsic(^MetatypeType(of: UnionType(elements)))]
     }
   }
 

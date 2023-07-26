@@ -42,7 +42,7 @@ final class ManglingTests: XCTestCase {
         return bar + ham
       }
 
-      fun 複雑(サ: B<Int>, シ: Sum<Int, Bool, B<Int>>) -> {ス: Int, セ: Bool} {}
+      fun 複雑(サ: B<Int>, シ: Union<Int, Bool, B<Int>>) -> {ス: Int, セ: Bool} {}
 
       fun foo(y: Int) {
         let local = 0

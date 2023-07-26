@@ -22,10 +22,10 @@ extension IR.Program {
       return module.ptr
     case let t as ProductType:
       return llvm(productType: t, in: &module)
-    case let t as SumType:
-      return llvm(sumType: t, in: &module)
     case let t as TupleType:
       return llvm(tupleType: t, in: &module)
+    case let t as UnionType:
+      return llvm(unionType: t, in: &module)
     default:
       notLLVMRepresentable(val)
     }
@@ -112,7 +112,21 @@ extension IR.Program {
   /// Returns the LLVM form of `val` in `module`.
   ///
   /// - Requires: `val` is representable in LLVM.
-  func llvm(sumType val: SumType, in module: inout LLVM.Module) -> LLVM.IRType {
+  func llvm(tupleType val: TupleType, in module: inout LLVM.Module) -> LLVM.IRType {
+    precondition(val[.isCanonical])
+
+    var fields: [LLVM.IRType] = []
+    for e in val.elements {
+      fields.append(llvm(e.type, in: &module))
+    }
+
+    return LLVM.StructType(fields, in: &module)
+  }
+
+  /// Returns the LLVM form of `val` in `module`.
+  ///
+  /// - Requires: `val` is representable in LLVM.
+  func llvm(unionType val: UnionType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
     var payload: LLVM.IRType = LLVM.StructType([], in: &module)
@@ -127,20 +141,6 @@ extension IR.Program {
       }
     }
     return StructType([payload, module.ptr], in: &module)
-  }
-
-  /// Returns the LLVM form of `val` in `module`.
-  ///
-  /// - Requires: `val` is representable in LLVM.
-  func llvm(tupleType val: TupleType, in module: inout LLVM.Module) -> LLVM.IRType {
-    precondition(val[.isCanonical])
-
-    var fields: [LLVM.IRType] = []
-    for e in val.elements {
-      fields.append(llvm(e.type, in: &module))
-    }
-
-    return LLVM.StructType(fields, in: &module)
   }
 
 }

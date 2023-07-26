@@ -56,8 +56,8 @@ public indirect enum DemangledType: Hashable {
     inputs: [Parameter],
     output: DemangledType)
 
-  /// A sum type.
-  case sum([DemangledType])
+  /// A union type.
+  case union([DemangledType])
 
   /// A tuple type.
   case tuple([Parameter])
@@ -125,8 +125,8 @@ extension DemangledType: CustomStringConvertible {
       let cs = capabilities.elements.descriptions(joinedBy: " ")
       return "[\(environment)](\(list: i) : \(output) { \(cs) }"
 
-    case .sum(let elements):
-      return "Sum<\(list: elements)>"
+    case .union(let elements):
+      return "Union<\(list: elements)>"
 
     case .tuple(let elements):
       let i = elements.map { (p) -> String in

@@ -249,16 +249,16 @@ extension Diagnostic {
     .error("reference to member '\(name)' cannot be resolved without context", at: site)
   }
 
-  static func warning(sumTypeWithZeroElementsAt site: SourceRange) -> Diagnostic {
-    .warning("empty sum type is better expressed as 'Never'", at: site)
+  static func warning(unionTypeWithZeroElementsAt site: SourceRange) -> Diagnostic {
+    .warning("empty union type is better expressed as 'Never'", at: site)
   }
 
-  static func error(sumTypeWithOneElementAt site: SourceRange) -> Diagnostic {
-    .error("sum types should contain at least 2 elements", at: site)
+  static func error(unionTypeWithOneElementAt site: SourceRange) -> Diagnostic {
+    .error("union types should contain at least 2 elements", at: site)
   }
 
-  static func error(valueInSumTypeAt site: SourceRange) -> Diagnostic {
-    .error("sum types cannot contain values", at: site)
+  static func error(valueInUnionTypeAt site: SourceRange) -> Diagnostic {
+    .error("union types cannot contain values", at: site)
   }
 
   static func error(_ l: AnyType, isNotSubtypeOf r: AnyType, at site: SourceRange) -> Diagnostic {

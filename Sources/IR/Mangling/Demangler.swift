@@ -91,8 +91,6 @@ struct Demangler {
         demangled = takeSubscriptImpl(qualifiedBy: qualification, from: &stream)
       case .subscriptType:
         demangled = takeSubscriptType(from: &stream)
-      case .sumType:
-        demangled = takeSumType(from: &stream)
       case .traitDecl:
         demangled = take(TraitDecl.self, qualifiedBy: qualification, from: &stream)
       case .traitType:
@@ -103,6 +101,8 @@ struct Demangler {
         demangled = takeTupleType(from: &stream)
       case .typealiasDecl:
         demangled = take(TypeAliasDecl.self, qualifiedBy: qualification, from: &stream)
+      case .unionType:
+        demangled = takeUnionType(from: &stream)
       case .varDecl:
         demangled = take(VarDecl.self, qualifiedBy: qualification, from: &stream)
 
@@ -509,26 +509,6 @@ struct Demangler {
     return .type(t)
   }
 
-  /// Demangles a sum type from `stream`.
-  private mutating func takeSumType(from stream: inout Substring) -> DemangledSymbol? {
-    guard
-      let elementCount = takeInteger(from: &stream)
-    else { return nil }
-
-    var elements: [DemangledType] = []
-    elements.reserveCapacity(Int(elementCount.rawValue))
-    for _ in 0 ..< elementCount.rawValue {
-      // Elements only do not share the same symbol lookup table; only a prefix.
-      var d = self
-      guard
-        let e = d.demangleType(from: &stream)
-      else { return nil }
-      elements.append(e)
-    }
-
-    return .type(.sum(elements))
-  }
-
   /// Demangles a tuple type from `stream`.
   private mutating func takeTupleType(from stream: inout Substring) -> DemangledSymbol? {
     guard
@@ -546,6 +526,26 @@ struct Demangler {
     }
 
     return .type(.tuple(elements))
+  }
+
+  /// Demangles a union type from `stream`.
+  private mutating func takeUnionType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let elementCount = takeInteger(from: &stream)
+    else { return nil }
+
+    var elements: [DemangledType] = []
+    elements.reserveCapacity(Int(elementCount.rawValue))
+    for _ in 0 ..< elementCount.rawValue {
+      // Elements only do not share the same symbol lookup table; only a prefix.
+      var d = self
+      guard
+        let e = d.demangleType(from: &stream)
+      else { return nil }
+      elements.append(e)
+    }
+
+    return .type(.union(elements))
   }
 
   /// If `stream` starts with a mangling operator, consumes and returns it. Otherwise, returns
