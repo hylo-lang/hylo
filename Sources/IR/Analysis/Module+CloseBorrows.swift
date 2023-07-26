@@ -82,7 +82,7 @@ private protocol LifetimeExtender {}
 
 extension BorrowInstruction: LifetimeExtender {}
 
-extension OpenSumInstruction: LifetimeExtender {}
+extension OpenUnionInstruction: LifetimeExtender {}
 
 extension ProjectInstruction: LifetimeExtender {}
 

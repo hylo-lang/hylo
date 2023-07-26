@@ -398,8 +398,8 @@ struct Mangler {
     case let t as SubscriptType:
       write(subscriptType: t, to: &output)
 
-    case let t as SumType:
-      write(sumType: t, to: &output)
+    case let t as UnionType:
+      write(unionType: t, to: &output)
 
     case let t as TraitType:
       write(operator: .traitType, to: &output)
@@ -506,16 +506,6 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(sumType t: SumType, to output: inout Output) {
-    write(operator: .sumType, to: &output)
-    write(set: t.elements, to: &output) { (m, e) -> String in
-      var s = ""
-      m.mangle(type: e, to: &s)
-      return s
-    }
-  }
-
-  /// Writes the mangled representation of `symbol` to `output`.
   private mutating func write(tupleType t: TupleType, to output: inout Output) {
     write(operator: .tupleType, to: &output)
 
@@ -523,6 +513,16 @@ struct Mangler {
     for e in t.elements {
       write(string: e.label ?? "", to: &output)
       mangle(type: e.type, to: &output)
+    }
+  }
+
+  /// Writes the mangled representation of `symbol` to `output`.
+  private mutating func write(unionType t: UnionType, to output: inout Output) {
+    write(operator: .unionType, to: &output)
+    write(set: t.elements, to: &output) { (m, e) -> String in
+      var s = ""
+      m.mangle(type: e, to: &s)
+      return s
     }
   }
 

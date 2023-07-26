@@ -58,7 +58,7 @@ public struct TypeRelations {
       return canonical(t.resolved.value)
     case let t as BoundGenericType:
       return canonical(t)
-    case let t as SumType:
+    case let t as UnionType:
       return canonical(t)
     default:
       return type.transformParts({ .stepOver(canonical($0)) })
@@ -75,11 +75,11 @@ public struct TypeRelations {
   }
 
   /// Returns the canonical form of `type`.
-  private func canonical(_ type: SumType) -> AnyType {
+  private func canonical(_ type: UnionType) -> AnyType {
     if type[.isCanonical] { return ^type }
 
     let elements = Set(type.elements.map(canonical(_:)))
-    return elements.uniqueElement ?? ^SumType(elements)
+    return elements.uniqueElement ?? ^UnionType(elements)
   }
 
   /// Returns `arguments` with all types replaced by their canonical form.

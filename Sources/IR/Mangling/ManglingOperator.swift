@@ -90,7 +90,7 @@ public enum ManglingOperator: String {
 
   case tupleType = "tT"
 
-  case sumType = "uT"
+  case unionType = "uT"
 
   case translatonUnit = "U"
 

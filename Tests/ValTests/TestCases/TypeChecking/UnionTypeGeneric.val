@@ -1,6 +1,6 @@
 //- typeCheck expecting: success
 
-typealias MysteryBox<T> = Sum<A<T>, B<T>>
+typealias MysteryBox<T> = Union<A<T>, B<T>>
 
 type A<T> { public memberwise init }
 type B<T> { public memberwise init }

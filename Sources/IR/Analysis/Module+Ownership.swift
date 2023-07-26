@@ -23,8 +23,8 @@ extension Module {
           interpret(allocStack: user, in: &context)
         case is BorrowInstruction:
           interpret(borrow: user, in: &context)
-        case is CloseSumInstruction:
-          interpret(closeSum: user, in: &context)
+        case is CloseUnionInstruction:
+          interpret(closeUnion: user, in: &context)
         case is DeallocStackInstruction:
           interpret(deallocStack: user, in: &context)
         case is EndBorrowInstruction:
@@ -33,8 +33,8 @@ extension Module {
           interpret(endProject: user, in: &context)
         case is GlobalAddrInstruction:
           interpret(globalAddr: user, in: &context)
-        case is OpenSumInstruction:
-          interpret(openSum: user, in: &context)
+        case is OpenUnionInstruction:
+          interpret(openUnion: user, in: &context)
         case is PointerToAddressInstruction:
           interpret(pointerToAddress: user, in: &context)
         case is ProjectInstruction:
@@ -117,8 +117,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(closeSum i: InstructionID, in context: inout Context) {
-      let s = self[i] as! CloseSumInstruction
+    func interpret(closeUnion i: InstructionID, in context: inout Context) {
+      let s = self[i] as! CloseUnionInstruction
       let payload = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
 
       // The state of the projected payload can't be partial.
@@ -128,7 +128,7 @@ extension Module {
       }
 
       // Copy the state of the payload to set the state of the container.
-      let start = self[s.start.instruction!] as! OpenSumInstruction
+      let start = self[s.start.instruction!] as! OpenUnionInstruction
       context.forEachObject(at: start.container) { (o) in
         o.value = .full(payloadInitializationState)
       }
@@ -196,10 +196,10 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(openSum i: InstructionID, in context: inout Context) {
-      let s = self[i] as! OpenSumInstruction
+    func interpret(openUnion i: InstructionID, in context: inout Context) {
+      let s = self[i] as! OpenUnionInstruction
       let l = AbstractLocation.root(.register(i, 0))
-      precondition(context.memory[l] == nil, "overlapping accesses to sum payload")
+      precondition(context.memory[l] == nil, "overlapping accesses to union payload")
 
       // Operand must be a location.
       let locations = context.locals[s.container]!.unwrapLocations()!

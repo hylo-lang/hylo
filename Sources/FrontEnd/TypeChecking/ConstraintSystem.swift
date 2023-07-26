@@ -282,8 +282,8 @@ struct ConstraintSystem {
     }
 
     switch (goal.left.base, goal.right.base) {
-    case (let l as SumType, _ as SumType):
-      // If both types are sums, all elements in `L` must be contained in `R`.
+    case (let l as UnionType, _ as UnionType):
+      // If both types are unions, all elements in `L` must be contained in `R`.
       var subordinates: [GoalIdentity] = []
       let o = goal.origin.subordinate()
       for e in l.elements {
@@ -291,8 +291,8 @@ struct ConstraintSystem {
       }
       return .product(subordinates, failureToSolve(goal))
 
-    case (_, let r as SumType):
-      // If `R` is an empty sum, so must be `L`.
+    case (_, let r as UnionType):
+      // If `R` is an empty union, so must be `L`.
       if r.elements.isEmpty {
         return unify(goal.left, goal.right, querying: checker.relations)
           ? .success
@@ -310,7 +310,7 @@ struct ConstraintSystem {
       // subtype of some strict subset of `R`.
       var candidates: [DisjunctionConstraint.Predicate] = []
       for subset in r.elements.combinations(of: r.elements.count - 1) {
-        let c = SubtypingConstraint(goal.left, ^SumType(subset), origin: o)
+        let c = SubtypingConstraint(goal.left, ^UnionType(subset), origin: o)
         candidates.append(.init(constraints: [c], penalties: 1))
       }
       if !goal.isStrict {
