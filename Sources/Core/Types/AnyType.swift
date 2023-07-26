@@ -120,6 +120,18 @@ public struct AnyType: TypeProtocol {
     return base is BuiltinType
   }
 
+  /// Indicates whether `self` is a built-in integer type.
+  ///
+  /// - Requires: `self` is canonical.
+  public var isBuiltinInteger: Bool {
+    precondition(self[.isCanonical])
+    if let b = BuiltinType(self) {
+      return b.isInteger
+    } else {
+      return false
+    }
+  }
+
   /// Indicates whether `self` is Val's `Void` or `Never` type.
   ///
   /// - Requires: `self` is canonical.
