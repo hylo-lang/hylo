@@ -297,6 +297,11 @@ public struct TypedProgram: Program {
         return nil
       }
 
+    case let m as UnionType:
+      guard m.elements.allSatisfy({ conforms($0, to: concept, in: useScope) }) else {
+        return nil
+      }
+
     default:
       return nil
     }
