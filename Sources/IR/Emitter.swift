@@ -608,18 +608,12 @@ struct Emitter {
       assert(self.frames.isEmpty)
     }
 
+    // The receiver is a sink parameter representing the object to deinitialize.
     let receiver = Operand.parameter(entry, 0)
-
-    switch module[f].output.base {
-    case is ProductType, is TupleType:
-      let success = Emitter.insertDeinit(
-        record: receiver, usingDeinitializerExposedTo: insertionScope!, at: site,
-        .at(endOf: entry), in: &module)
-      assert(success, "deinitialization is not synthesizable")
-
-    default:
-      fatalError("not implemented")
-    }
+    let s = Emitter.insertDeinitParts(
+      of: receiver, usingDeinitializersExposedTo: insertionScope!, at: site,
+      .at(endOf: entry), in: &module)
+    assert(s, "deinitialization is not synthesizable")
 
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
@@ -1910,12 +1904,13 @@ struct Emitter {
     // Use custom conformance to `Deinitializable` if possible.
     let t = module.type(of: storage).ast
     if let c = module.program.conformanceToDeinitializable(of: t, exposedTo: useScope) {
-      insertDeinit(storage, withConformanceToDeinitializable: c, at: site, point, in: &module)
+      insertDeinitParts(
+        of: storage, withConformanceToDeinitializable: c, at: site, point, in: &module)
       return true
     }
 
     switch t.base {
-    case is BuiltinType, is MetatypeType, AnyType.void, AnyType.never:
+    case is BuiltinType, is MetatypeType:
       module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
       return true
 
@@ -1927,16 +1922,6 @@ struct Emitter {
         fatalError("not implemented")
       }
 
-    case is UnionType:
-      // TODO: implement me.
-      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
-      return true
-
-    case is TupleType:
-      return insertDeinit(
-        record: storage, usingDeinitializerExposedTo: useScope, at: site,
-        point, in: &module)
-
     default:
       break
     }
@@ -1944,11 +1929,11 @@ struct Emitter {
     return false
   }
 
-  /// Inserts the IR for deinitializing the contents of `storage` at `point` in `module`, using `c`
-  /// to identify the deinitializer to apply, anchoring new instructions to `site`.
-  private static func insertDeinit(
-    _ storage: Operand, withConformanceToDeinitializable c: Core.Conformance, at site: SourceRange,
-    _ point: InsertionPoint, in module: inout Module
+  /// Inserts the IR for deinitializing the stored parts of `storage` at `point` in `module`, using
+  /// `c` to identify the deinitializer to apply and anchoring new instructions to `site`.
+  private static func insertDeinitParts(
+    of storage: Operand, withConformanceToDeinitializable c: Core.Conformance,
+    at site: SourceRange, _ point: InsertionPoint, in module: inout Module
   ) {
     let d = module.demandDeinitDeclaration(from: c)
     let f = Operand.constant(FunctionReference(to: d, in: module))
@@ -1962,13 +1947,36 @@ struct Emitter {
     module.insert(module.makeDeallocStack(for: x1, at: site), point)
   }
 
-  /// If `storage`, which holds a record, is deinitializable, inserts the IR for deinitializing its
-  /// contents at `point` in `module`, using `useScope` to lookup deinitializers, anchoring new
-  /// instructions to `site`, and returning `true`. Otherwise, returns `false`.
-  private static func insertDeinit(
-    record storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID,
-    at site: SourceRange,
-    _ point: InsertionPoint, in module: inout Module
+  /// Inserts the IR for deinitializing the stored parts of `storage` at `point` in `module`, using
+  /// `useScope` to lookup deinitializers, anchoring new instructions to `site`, and returning
+  /// `true` iff all parts are deinitializable.
+  private static func insertDeinitParts(
+    of storage: Operand, usingDeinitializersExposedTo useScope: AnyScopeID,
+    at site: SourceRange, _ point: InsertionPoint, in module: inout Module
+  ) -> Bool {
+    let t = module.type(of: storage).ast
+
+    if t.hasRecordLayout {
+      return insertDeinitRecordParts(
+        of: storage, usingDeinitializersExposedTo: useScope, at: site, point, in: &module)
+    }
+
+    if t.base is UnionType {
+      return insertDeinitUnionPayload(
+        of: storage, usingDeinitializersExposedTo: useScope, at: site, point, in: &module)
+    }
+
+    return false
+  }
+
+  /// Inserts the IR for deinitializing the stored parts of `storage`, which contains a record, at
+  /// `point` in `module`, using `useScope` to lookup deinitializers, anchoring new instructions to
+  /// `site`, and returning `true` iff all parts are deinitializable.
+  ///
+  /// - Requires: the type of `storage` has a record layout.
+  private static func insertDeinitRecordParts(
+    of storage: Operand, usingDeinitializersExposedTo useScope: AnyScopeID,
+    at site: SourceRange, _ point: InsertionPoint, in module: inout Module
   ) -> Bool {
     let t = module.type(of: storage).ast
     precondition(t.hasRecordLayout)
@@ -1989,6 +1997,26 @@ struct Emitter {
       r = insertDeinit(x0, exposedTo: useScope, at: site, point, in: &module) && r
     }
     return r
+  }
+
+  /// Inserts the IR for deinitializing the payload of `storage`, which contains a union, at
+  /// `point` in `module`, using `useScope` to lookup deinitializers, anchoring new instructions to
+  /// `site`, and returning `true` iff the payload is deinitializable.
+  ///
+  /// - Requires: the type of `storage` is a union.
+  private static func insertDeinitUnionPayload(
+    of storage: Operand, usingDeinitializersExposedTo useScope: AnyScopeID,
+    at site: SourceRange, _ point: InsertionPoint, in module: inout Module
+  ) -> Bool {
+    let t = UnionType(module.type(of: storage).ast)!
+
+    // If union is empty, simply mark it uninitialized.
+    if t.elements.isEmpty {
+      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+      return true
+    }
+
+    return false
   }
 
   // MARK: Helpers
