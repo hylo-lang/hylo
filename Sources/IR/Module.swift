@@ -28,7 +28,7 @@ public struct Module {
   public private(set) var functions: [Function.ID: Function] = [:]
 
   /// The synthesized functions used and defined in the module.
-  public private(set) var synthesizedDecls = OrderedSet<SynthesizedDecl>()
+  public private(set) var synthesizedDecls = OrderedSet<SynthesizedFunctionDecl>()
 
   /// The module's entry function, if any.
   public private(set) var entryFunction: Function.ID?
@@ -212,7 +212,6 @@ public struct Module {
 
     let entity = Function(
       isSubscript: false,
-      name: program.debugName(decl: d),
       site: program.ast[d].site,
       linkage: .external,
       genericParameters: Array(parameters),
@@ -241,7 +240,6 @@ public struct Module {
 
     let entity = Function(
       isSubscript: true,
-      name: program.debugName(decl: d),
       site: program.ast[d].site,
       linkage: .external,
       genericParameters: Array(parameters),
@@ -265,7 +263,6 @@ public struct Module {
 
     let entity = Function(
       isSubscript: false,
-      name: program.debugName(decl: d),
       site: program.ast[d].introducer.site,
       linkage: .external,
       genericParameters: Array(parameters),
@@ -308,19 +305,17 @@ public struct Module {
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func demandSyntheticDeclaration(lowering d: SynthesizedDecl) -> Function.ID {
+  mutating func demandSyntheticDeclaration(lowering d: SynthesizedFunctionDecl) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
-    let t = LambdaType(d.type)!
-    let output = program.relations.canonical(t.output)
+    let output = program.relations.canonical(d.type.output)
     var inputs: [Parameter] = []
-    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
-    appendParameters(t.inputs, to: &inputs)
+    appendCaptures(d.type.captures, passed: d.type.receiverEffect, to: &inputs)
+    appendParameters(d.type.inputs, to: &inputs)
 
     let entity = Function(
       isSubscript: false,
-      name: "",
       site: .empty(at: program.ast[id].site.first()),
       linkage: .external,
       genericParameters: [],  // TODO

@@ -68,11 +68,16 @@ public struct SourceFile {
 
   /// The name of the source file, sans path qualification or extension.
   public var baseName: String {
-    if url.scheme == "synthesized" {
+    if isSynthesized {
       return url.host!
     } else {
       return url.deletingPathExtension().lastPathComponent
     }
+  }
+
+  /// `true` if `self` is synthesized.
+  public var isSynthesized: Bool {
+    url.scheme == "synthesized"
   }
 
   /// The number of lines in the file.

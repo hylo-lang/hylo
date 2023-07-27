@@ -288,63 +288,41 @@ extension Program {
     scopes(from: scope).first(TranslationUnit.self)!
   }
 
-  public func debugName<T: DeclID>(decl d: T) -> String {
-    let s = (nodeToScope[d].map(debugName(scope:)) ?? "") + "."
-    switch d.kind {
-    case AssociatedTypeDecl.self:
-      return s + ast[AssociatedTypeDecl.ID(d)!].baseName
-    case AssociatedValueDecl.self:
-      return s + ast[AssociatedValueDecl.ID(d)!].baseName
-    case BindingDecl.self:
-      return s + "\(d.rawValue)"
-    case ConformanceDecl.self:
-      return s + "\(d.rawValue)"
-    case ExtensionDecl.self:
-      return s + "\(d.rawValue)"
-    case FunctionDecl.self:
-      return s + (ast[FunctionDecl.ID(d)!].identifier?.value ?? "\(d.rawValue)") + "#\(d.rawValue)"
-    case GenericParameterDecl.self:
-      return s + ast[GenericParameterDecl.ID(d)!].baseName
-    case ImportDecl.self:
-      return s + ast[ImportDecl.ID(d)!].baseName
-    case InitializerDecl.self:
-      return s + "init#\(d.rawValue)"
-    case MethodDecl.self:
-      return s + ast[ImportDecl.ID(d)!].baseName + "#\(d.rawValue)"
-    case MethodImpl.self:
-      return s + String(describing: ast[MethodImpl.ID(d)!].introducer.value)
-    case ModuleDecl.self:
-      return ast[ModuleDecl.ID(d)!].baseName
-    case NamespaceDecl.self:
-      return s + ast[NamespaceDecl.ID(d)!].baseName
-    case OperatorDecl.self:
-      return s + ast[OperatorDecl.ID(d)!].name.value
-    case ParameterDecl.self:
-      return s + ast[ParameterDecl.ID(d)!].baseName
-    case ProductTypeDecl.self:
-      return s + ast[ProductTypeDecl.ID(d)!].baseName
-    case SubscriptDecl.self:
-      let n = ast[SubscriptDecl.ID(d)!].identifier?.value ?? "\(d.rawValue)"
-      return s + "\(n)#\(d.rawValue)"
-    case SubscriptImpl.self:
-      return s + String(describing: ast[SubscriptImpl.ID(d)!].introducer.value)
-    case TraitDecl.self:
-      return s + ast[TraitDecl.ID(d)!].baseName
-    case TypeAliasDecl.self:
-      return s + ast[TypeAliasDecl.ID(d)!].baseName
-    case VarDecl.self:
-      return s + ast[VarDecl.ID(d)!].baseName
-    default:
-      unreachable()
+  /// Returns a textual description of `n` suitable for debugging.
+  public func debugDescription<T: NodeIDProtocol>(_ n: T) -> String {
+    if let d = ModuleDecl.ID(n) {
+      return ast[d].baseName
     }
-  }
 
-  public func debugName<T: ScopeID>(scope s: T) -> String {
-    if let d = AnyDeclID(s) {
-      return debugName(decl: d)
+    let qualification = debugDescription(nodeToScope[n]!)
+
+    switch n.kind {
+    case FunctionDecl.self:
+      let s = Name(of: FunctionDecl.ID(n)!, in: ast) ?? "lambda"
+      return qualification + ".\(s)"
+    case InitializerDecl.self:
+      let s = Name(of: InitializerDecl.ID(n)!, in: ast)
+      return qualification + ".\(s)"
+    case MethodDecl.self:
+      let s = Name(of: MethodDecl.ID(n)!, in: ast)
+      return qualification + ".\(s)"
+    case MethodImpl.self:
+      let s = ast[MethodImpl.ID(n)!].introducer.value
+      return qualification + ".\(s)"
+    case SubscriptDecl.self:
+      let s = Name(of: SubscriptDecl.ID(n)!, in: ast)
+      return qualification + ".\(s)"
+    case SubscriptImpl.self:
+      let s = ast[MethodImpl.ID(n)!].introducer.value
+      return qualification + ".\(s)"
+    default:
+      break
+    }
+
+    if let e = ast[n] as? SingleEntityDecl {
+      return qualification + "." + e.baseName
     } else {
-      let p = (nodeToScope[s].map(debugName(scope:)) ?? "") + "."
-      return "\(p)\(s.rawValue)"
+      return qualification
     }
   }
 
