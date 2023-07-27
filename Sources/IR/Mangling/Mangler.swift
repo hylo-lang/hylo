@@ -315,7 +315,7 @@ struct Mangler {
     write(operator: .synthesizedFunctionDecl, to: &output)
     write(base64Didit: symbol.kind, to: &output)
     write(scope: symbol.scope, to: &output)
-    mangle(type: symbol.type, to: &output)
+    mangle(type: ^symbol.type, to: &output)
   }
 
   /// Writes the mangled representation of `r` to `output`.

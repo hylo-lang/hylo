@@ -60,6 +60,11 @@ struct Emitter {
     diagnostics.insert(d)
   }
 
+  /// Appends a new basic block at the end of `self.insertionBlock.function`.
+  private mutating func appendBlock() -> Block.ID {
+    module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
+  }
+
   /// Appends `newInstruction` into `self.module`, at the end of `self.insertionBlock`.
   @discardableResult
   private mutating func append<I: Instruction>(_ newInstruction: I) -> [Operand] {
@@ -608,18 +613,10 @@ struct Emitter {
       assert(self.frames.isEmpty)
     }
 
+    // The receiver is a sink parameter representing the object to deinitialize.
     let receiver = Operand.parameter(entry, 0)
-
-    switch module[f].output.base {
-    case is ProductType, is TupleType:
-      let success = Emitter.insertDeinit(
-        record: receiver, usingDeinitializerExposedTo: insertionScope!, at: site,
-        .at(endOf: entry), in: &module)
-      assert(success, "deinitialization is not synthesizable")
-
-    default:
-      fatalError("not implemented")
-    }
+    let s = emitDeinitParts(of: receiver, at: site)
+    assert(s, "deinitialization is not synthesizable")
 
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
@@ -644,35 +641,103 @@ struct Emitter {
 
     let receiver = Operand.parameter(entry, 0)
     let argument = Operand.parameter(entry, 1)
+    let object = module.type(of: receiver).ast
 
-    switch module[f].output.base {
-    case is ProductType, is TupleType:
-      let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
-
-      // If the object is empty, simply mark it initialized.
-      if layout.properties.isEmpty {
-        let x0 = append(module.makeUnsafeCast(.void, to: layout.type, at: site))[0]
-        let x1 = append(module.makeBorrow(.set, from: receiver, at: site))[0]
-        append(module.makeStore(x0, at: x1, at: site))
-        emitDeinit(argument, at: site)
-        break
-      }
-
-      // Otherwise, move initialize each property.
-      for i in layout.properties.indices {
-        let source = emitSubfieldView(argument, at: [i], at: site)
-        let target = emitSubfieldView(receiver, at: [i], at: site)
-        let part = append(module.makeLoad(source, at: site))[0]
-        emitStore(value: part, to: target, at: site)
-      }
-
-    default:
-      fatalError("not implemented")
+    if object.hasRecordLayout {
+      emitMoveInitRecordParts(of: receiver, consuming: argument, at: site)
+    } else if object.base is UnionType {
+      emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
     }
 
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
+  }
+
+  /// Inserts the IR for initializing the stored parts of `receiver`, which stores a record,
+  /// consuming `argument` at `site`.
+  private mutating func emitMoveInitRecordParts(
+    of receiver: Operand, consuming argument: Operand, at site: SourceRange
+  ) {
+    let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
+
+    // If the object is empty, simply mark it initialized.
+    if layout.properties.isEmpty {
+      append(module.makeMarkState(receiver, initialized: true, at: site))
+      emitDeinit(argument, at: site)
+      return
+    }
+
+    // Otherwise, move initialize each property.
+    for i in layout.properties.indices {
+      let source = emitSubfieldView(argument, at: [i], at: site)
+      let target = emitSubfieldView(receiver, at: [i], at: site)
+      let part = append(module.makeLoad(source, at: site))[0]
+      emitStore(value: part, to: target, at: site)
+    }
+  }
+
+  /// Inserts the IR for initializing the payload of `receiver`, which stores a union container,
+  /// consuming `argument` at `site`.
+  private mutating func emitMoveInitUnionPayload(
+    of receiver: Operand, consuming argument: Operand, at site: SourceRange
+  ) {
+    let t = UnionType(module.type(of: receiver).ast)!
+
+    // If union is empty, simply mark it initialized.
+    if t.elements.isEmpty {
+      append(module.makeMarkState(receiver, initialized: true, at: site))
+      emitDeinit(argument, at: site)
+      return
+    }
+
+    // Trivial if the union has a single member.
+    if let e = t.elements.uniqueElement {
+      emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: e, at: site)
+      return
+    }
+
+    // Otherwise, use a switch to select the correct move-initialization.
+    let elements = program.discriminatorToElement(in: t)
+    var successors: [Block.ID] = []
+    for _ in t.elements {
+      successors.append(appendBlock())
+    }
+
+    let n = append(module.makeUnionDiscriminator(argument, at: site))[0]
+    append(module.makeSwitch(on: n, toOneOf: successors, at: site))
+
+    let tail = appendBlock()
+    for i in 0 ..< elements.count {
+      insertionBlock = successors[i]
+      emitMoveInitUnionPayload(
+        of: receiver, consuming: argument, containing: elements[i], at: site)
+      append(module.makeBranch(to: tail, at: site))
+    }
+
+    insertionBlock = tail
+  }
+
+  /// Inserts the IR for initializing the payload of `receiver`, which stores a union containing
+  /// a `payload`, consuming `argument` at `site`.
+  ///
+  /// - Requires: the type of `storage` is a union containing a `payload`.
+  private mutating func emitMoveInitUnionPayload(
+    of receiver: Operand, consuming argument: Operand, containing payload: AnyType,
+    at site: SourceRange
+  ) {
+    // Deinitialize the receiver.
+    let x0 = append(module.makeOpenUnion(receiver, as: payload, at: site))[0]
+    emitDeinit(x0, at: site)
+
+    // Move the argument.
+    let x1 = append(module.makeOpenUnion(argument, as: payload, at: site))[0]
+    let c = program.conformanceToMovable(of: payload, exposedTo: insertionScope!)!
+    emitMove(.set, of: x1, to: x0, withConformanceToMovable: c, at: site)
+
+    // Close the unions.
+    append(module.makeCloseUnion(x0, at: site))
+    append(module.makeCloseUnion(x1, at: site))
   }
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
@@ -803,7 +868,7 @@ struct Emitter {
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
     let (firstBranch, secondBranch) = emitTest(condition: ast[s].condition, in: AnyScopeID(s))
-    let tail = module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
+    let tail = appendBlock()
 
     insertionBlock = firstBranch
     switch emit(braceStmt: ast[s].success) {
@@ -1061,7 +1126,7 @@ struct Emitter {
 
   private mutating func emitStore(conditional e: ConditionalExpr.ID, to storage: Operand) {
     let (success, failure) = emitTest(condition: ast[e].condition, in: AnyScopeID(e))
-    let tail = module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
+    let tail = appendBlock()
 
     // Emit the success branch.
     insertionBlock = success
@@ -1915,7 +1980,7 @@ struct Emitter {
     }
 
     switch t.base {
-    case is BuiltinType, is MetatypeType, AnyType.void, AnyType.never:
+    case is BuiltinType, is MetatypeType:
       module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
       return true
 
@@ -1927,16 +1992,6 @@ struct Emitter {
         fatalError("not implemented")
       }
 
-    case is UnionType:
-      // TODO: implement me.
-      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
-      return true
-
-    case is TupleType:
-      return insertDeinit(
-        record: storage, usingDeinitializerExposedTo: useScope, at: site,
-        point, in: &module)
-
     default:
       break
     }
@@ -1944,11 +1999,11 @@ struct Emitter {
     return false
   }
 
-  /// Inserts the IR for deinitializing the contents of `storage` at `point` in `module`, using `c`
-  /// to identify the deinitializer to apply, anchoring new instructions to `site`.
+  /// Inserts the IR for deinitializing `storage` at `point` in `module`, using `c` to identify the
+  /// deinitializer to apply and anchoring new instructions to `site`.
   private static func insertDeinit(
-    _ storage: Operand, withConformanceToDeinitializable c: Core.Conformance, at site: SourceRange,
-    _ point: InsertionPoint, in module: inout Module
+    _ storage: Operand, withConformanceToDeinitializable c: Core.Conformance,
+    at site: SourceRange, _ point: InsertionPoint, in module: inout Module
   ) {
     let d = module.demandDeinitDeclaration(from: c)
     let f = Operand.constant(FunctionReference(to: d, in: module))
@@ -1962,13 +2017,14 @@ struct Emitter {
     module.insert(module.makeDeallocStack(for: x1, at: site), point)
   }
 
-  /// If `storage`, which holds a record, is deinitializable, inserts the IR for deinitializing its
-  /// contents at `point` in `module`, using `useScope` to lookup deinitializers, anchoring new
-  /// instructions to `site`, and returning `true`. Otherwise, returns `false`.
-  private static func insertDeinit(
-    record storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID,
-    at site: SourceRange,
-    _ point: InsertionPoint, in module: inout Module
+  /// Inserts the IR for deinitializing the stored parts of `storage`, which stores a record, at
+  /// `point` in `module`, using `useScope` to lookup deinitializers, anchoring new instructions to
+  /// `site`, and returning `true` iff all parts are deinitializable.
+  ///
+  /// - Requires: the type of `storage` has a record layout.
+  private static func insertDeinitRecordParts(
+    of storage: Operand, usingDeinitializersExposedTo useScope: AnyScopeID,
+    at site: SourceRange, _ point: InsertionPoint, in module: inout Module
   ) -> Bool {
     let t = module.type(of: storage).ast
     precondition(t.hasRecordLayout)
@@ -1989,6 +2045,78 @@ struct Emitter {
       r = insertDeinit(x0, exposedTo: useScope, at: site, point, in: &module) && r
     }
     return r
+  }
+
+  /// Inserts the IR for deinitializing the stored parts of `storage` at `site`, returning `true`
+  /// iff all parts are deinitializable.
+  private mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) -> Bool {
+    let t = module.type(of: storage).ast
+
+    if t.hasRecordLayout {
+      return Emitter.insertDeinitRecordParts(
+        of: storage, usingDeinitializersExposedTo: insertionScope!, at: site,
+        .at(endOf: insertionBlock!), in: &module)
+    }
+
+    if t.base is UnionType {
+      return emitDeinitUnionPayload(of: storage, at: site)
+    }
+
+    return false
+  }
+
+  /// Inserts the IR for deinitializing the payload of `storage`, which stores a union container,
+  /// at `site`, returning `true` iff the payload is deinitializable.
+  ///
+  /// - Requires: the type of `storage` is a union.
+  private mutating func emitDeinitUnionPayload(of storage: Operand, at site: SourceRange) -> Bool {
+    let t = UnionType(module.type(of: storage).ast)!
+
+    // If union is empty, simply mark it uninitialized.
+    if t.elements.isEmpty {
+      append(module.makeMarkState(storage, initialized: false, at: site))
+      return true
+    }
+
+    // Trivial if the union has a single member.
+    if let e = t.elements.uniqueElement {
+      return emitDeinitUnionPayload(of: storage, containing: e, at: site)
+    }
+
+    // One successor per member in the union, ordered by their mangled representation.
+    let elements = program.discriminatorToElement(in: t)
+    var successors: [Block.ID] = []
+    for _ in t.elements {
+      successors.append(appendBlock())
+    }
+
+    let n = append(module.makeUnionDiscriminator(storage, at: site))[0]
+    append(module.makeSwitch(on: n, toOneOf: successors, at: site))
+
+    let tail = appendBlock()
+    var success = true
+    for i in 0 ..< elements.count {
+      insertionBlock = successors[i]
+      success = emitDeinitUnionPayload(of: storage, containing: elements[i], at: site) && success
+      append(module.makeBranch(to: tail, at: site))
+    }
+
+    insertionBlock = tail
+    return success
+  }
+
+  /// Inserts the IR for deinitializing the payload of `storage`, which stores a union containing
+  /// a `payload`, at `site`, returning `true` iff the payload is deinitializable.
+  ///
+  /// - Requires: the type of `storage` is a union containing a `payload`.
+  private mutating func emitDeinitUnionPayload(
+    of storage: Operand, containing payload: AnyType, at site: SourceRange
+  ) -> Bool {
+    let x0 = append(module.makeOpenUnion(storage, as: payload, at: site))[0]
+    defer { append(module.makeCloseUnion(x0, at: site)) }
+
+    return Emitter.insertDeinit(
+      x0, exposedTo: insertionScope!, at: site, .at(endOf: insertionBlock!), in: &module)
   }
 
   // MARK: Helpers
@@ -2075,8 +2203,8 @@ struct Emitter {
   /// Emits the IR trapping iff `predicate`, which is an object of type `i1`, anchoring new
   /// instructions at `site`.
   private mutating func emitGuard(_ predicate: Operand, at site: SourceRange) {
-    let failure = module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
-    let success = module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
+    let failure = appendBlock()
+    let success = appendBlock()
     append(module.makeCondBranch(if: predicate, then: success, else: failure, at: site))
 
     insertionBlock = failure

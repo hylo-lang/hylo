@@ -220,22 +220,30 @@ struct ConstraintSystem {
   private mutating func solve(structualConformance goal: ConformanceConstraint) -> Outcome {
     assert(!goal.model.isTypeVariable)
 
-    let subordinateOrigin = goal.origin.subordinate()
-    var subordinates: [GoalIdentity] = []
-
     switch goal.model.base {
     case let t as TupleType:
-      for e in t.elements {
-        let c = ConformanceConstraint(e.type, conformsTo: goal.concept, origin: subordinateOrigin)
-        subordinates.append(schedule(c))
-      }
-
+      return delegate(structualConformance: goal, for: t.elements.lazy.map(\.type))
+    case let t as UnionType:
+      return delegate(structualConformance: goal, for: t.elements)
     default:
       return .failure(failureToSolve(goal))
     }
+  }
 
-    if subordinates.isEmpty {
+  /// Returns the outcome of breaking down `goal`, which is a structural conformance constraint,
+  /// into a set containing a conformance constraint for each type in `elements`.
+  private mutating func delegate<S: Collection<AnyType>>(
+    structualConformance goal: ConformanceConstraint, for elements: S
+  ) -> Outcome {
+    if elements.isEmpty {
       return .success
+    }
+
+    let subordinateOrigin = goal.origin.subordinate()
+    var subordinates: [GoalIdentity] = []
+    for e in elements {
+      let c = ConformanceConstraint(e, conformsTo: goal.concept, origin: subordinateOrigin)
+      subordinates.append(schedule(c))
     }
 
     return .product(subordinates) { (d, m, _) in

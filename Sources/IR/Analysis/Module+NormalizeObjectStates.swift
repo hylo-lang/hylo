@@ -70,6 +70,8 @@ extension Module {
           pc = interpret(store: user, in: &context)
         case is SubfieldView:
           pc = interpret(subfieldView: user, in: &context)
+        case is UnionDiscriminator:
+          pc = interpret(unionDiscriminator: user, in: &context)
         case is Unrechable:
           pc = successor(of: user)
         case is UnsafeCast:
@@ -478,6 +480,12 @@ extension Module {
       }
 
       context.locals[.register(i, 0)] = .locations(Set(locations))
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(unionDiscriminator i: InstructionID, in context: inout Context) -> PC? {
+      initializeRegisters(createdBy: i, in: &context)
       return successor(of: i)
     }
 

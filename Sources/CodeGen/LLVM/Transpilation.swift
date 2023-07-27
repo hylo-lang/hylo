@@ -506,6 +506,10 @@ extension LLVM.Module {
         insert(store: i)
       case is IR.SubfieldView:
         insert(subfieldView: i)
+      case is IR.Switch:
+        insert(switch: i)
+      case is IR.UnionDiscriminator:
+        insert(unionDiscriminator: i)
       case is IR.Unrechable:
         insert(unreachable: i)
       case is IR.UnsafeCast:
@@ -610,8 +614,20 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(closeUnion i: IR.InstructionID) {
-      // TODO: Implement me
-      // Set the discriminator of the union container.
+      let s = m[i] as! CloseUnion
+      let open = m[s.start.instruction!] as! OpenUnion
+
+      // TODO: Memoize somehow
+      let t = UnionType(m.type(of: open.container).ast)!
+      let e = m.program.discriminatorToElement(in: t)
+      let n = e.firstIndex(of: open.payloadType)!
+
+      let baseType = ir.llvm(unionType: t, in: &self)
+      let container = llvm(open.container)
+      let indices = [i32.constant(0), i32.constant(1)]
+      let discriminator = insertGetElementPointerInBounds(
+        of: container, typed: baseType, indices: indices, at: insertionPoint)
+      insertStore(word().constant(UInt64(n)), to: discriminator, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -829,6 +845,34 @@ extension LLVM.Module {
     func insert(store i: IR.InstructionID) {
       let s = m[i] as! IR.Store
       insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(switch i: IR.InstructionID) {
+      let s = m[i] as! Switch
+
+      // Pick the case 0 as the "default".
+      let cases = s.successors[1...].enumerated().map { (value, destination) in
+        (word().constant(UInt64(value)), block[destination]!)
+      }
+
+      let n = llvm(s.index)
+      insertSwitch(
+        on: n, cases: cases, default: block[s.successors[0]]!,
+        at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(unionDiscriminator i: IR.InstructionID) {
+      let s = m[i] as! UnionDiscriminator
+      let t = UnionType(m.type(of: s.container).ast)!
+
+      let baseType = ir.llvm(unionType: t, in: &self)
+      let container = llvm(s.container)
+      let indices = [i32.constant(0), i32.constant(1)]
+      let discriminator = insertGetElementPointerInBounds(
+        of: container, typed: baseType, indices: indices, at: insertionPoint)
+      register[.register(i, 0)] = insertLoad(word(), from: discriminator, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
