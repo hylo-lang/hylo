@@ -312,11 +312,10 @@ public struct Module {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
-    let t = LambdaType(d.type)!
-    let output = program.relations.canonical(t.output)
+    let output = program.relations.canonical(d.type.output)
     var inputs: [Parameter] = []
-    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
-    appendParameters(t.inputs, to: &inputs)
+    appendCaptures(d.type.captures, passed: d.type.receiverEffect, to: &inputs)
+    appendParameters(d.type.inputs, to: &inputs)
 
     let entity = Function(
       isSubscript: false,

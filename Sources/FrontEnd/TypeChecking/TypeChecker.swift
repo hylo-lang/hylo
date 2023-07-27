@@ -915,13 +915,13 @@ public struct TypeChecker {
     /// Checks if `requirement` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
     func checkSatisfied<T: Decl>(callable requirement: T.ID, named requiredName: Name) {
-      guard let requiredType = candidateType(requirement) else {
+      guard let requiredType = LambdaType(candidateType(requirement)) else {
         return
       }
 
       if let c = implementation(
         of: requiredName, in: model,
-        withCallableType: LambdaType(requiredType)!, specializedWith: specializations,
+        withCallableType: requiredType, specializedWith: specializations,
         exposedTo: useScope)
       {
         implementations[requirement] = .concrete(c)
@@ -936,7 +936,7 @@ public struct TypeChecker {
       }
 
       let note = Diagnostic.note(
-        trait: trait, requires: requirement.kind, named: requiredName, typed: requiredType,
+        trait: trait, requires: requirement.kind, named: requiredName, typed: ^requiredType,
         at: declSite)
       notes.insert(note)
     }

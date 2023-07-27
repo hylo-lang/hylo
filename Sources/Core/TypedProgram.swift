@@ -312,7 +312,7 @@ public struct TypedProgram: Program {
         return nil
       }
       let a: GenericArguments = [ast[concept.decl].selfParameterDecl: model]
-      let t = monomorphize(declTypes[requirement]!, for: a)
+      let t = LambdaType(monomorphize(declTypes[requirement]!, for: a))!
       let d = SynthesizedFunctionDecl(k, typed: t, in: useScope)
       implementations[requirement] = .synthetic(d)
     }
