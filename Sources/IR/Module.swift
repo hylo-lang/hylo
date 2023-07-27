@@ -212,7 +212,6 @@ public struct Module {
 
     let entity = Function(
       isSubscript: false,
-      name: program.debugName(decl: d),
       site: program.ast[d].site,
       linkage: .external,
       genericParameters: Array(parameters),
@@ -241,7 +240,6 @@ public struct Module {
 
     let entity = Function(
       isSubscript: true,
-      name: program.debugName(decl: d),
       site: program.ast[d].site,
       linkage: .external,
       genericParameters: Array(parameters),
@@ -265,7 +263,6 @@ public struct Module {
 
     let entity = Function(
       isSubscript: false,
-      name: program.debugName(decl: d),
       site: program.ast[d].introducer.site,
       linkage: .external,
       genericParameters: Array(parameters),
@@ -319,7 +316,6 @@ public struct Module {
 
     let entity = Function(
       isSubscript: false,
-      name: "",
       site: .empty(at: program.ast[id].site.first()),
       linkage: .external,
       genericParameters: [],  // TODO

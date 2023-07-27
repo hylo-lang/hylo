@@ -34,11 +34,11 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
     // Dumps the function in the module.
     if function.isSubscript {
-      output.write("subscript \(function.name)(")
+      output.write("subscript \(f)(")
       output.write(function.inputs.lazy.descriptions())
       output.write("): \(function.output)")
     } else {
-      output.write("fun \(function.name)(")
+      output.write("fun \(f)(")
       output.write(function.inputs.lazy.descriptions())
       output.write(") -> \(function.output)")
     }
