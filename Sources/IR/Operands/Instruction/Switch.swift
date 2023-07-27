@@ -60,6 +60,8 @@ extension Module {
   ) -> Switch {
     let t = type(of: index)
     precondition(t.isObject && t.ast.isBuiltinInteger)
+    precondition(!successors.isEmpty)
+
     return .init(index: index, successors: successors, site: site)
   }
 
