@@ -4,8 +4,8 @@
 ///   - alignment: The alignment of the allocated memory. Must be a valid alignment supported by
 ///     the implementation.
 ///   - size: The number of bytes to allocate. Must be an integral multiple of `alignment`.
-@ffi("aligned_malloc")
-fun aligned_malloc(_ alignment: Int, _ size: Int) -> RawPointer
+@ffi("aligned_alloc")
+fun aligned_alloc(_ alignment: Int, _ size: Int) -> RawPointer
 
 /// Deallocates the block of memory pointed at by `pointer`.
 @ffi("free")
