@@ -73,8 +73,8 @@ extension Function.ID: CustomStringConvertible {
       return "\(d).lowered"
     case .loweredSubscript(let d):
       return "\(d).lowered"
-    case .synthesized(let s):
-      return "\"synthesized \(s)"
+    case .synthesized(let d):
+      return d.description
     case .existentialized(let b):
       return "\"existentialized \(b)\""
     case .monomorphized(let b, let a):

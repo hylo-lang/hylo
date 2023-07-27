@@ -1,3 +1,5 @@
+import Utils
+
 /// A function declaration synthesized during compilation.
 public struct SynthesizedFunctionDecl: Hashable {
 
@@ -32,6 +34,16 @@ public struct SynthesizedFunctionDecl: Hashable {
     self.kind = kind
     self.type = type
     self.scope = scope
+  }
+
+}
+
+extension SynthesizedFunctionDecl: CustomStringConvertible {
+
+  public var description: String {
+    // Synthesized functions are methods, so their first capture is the receiver.
+    let receiver = read(type.captures[0].type, { RemoteType($0)?.bareType ?? $0 })
+    return "(\((receiver))).\(kind)"
   }
 
 }
