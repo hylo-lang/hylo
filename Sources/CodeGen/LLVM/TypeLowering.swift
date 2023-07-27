@@ -140,7 +140,7 @@ extension IR.Program {
         payload = t
       }
     }
-    return StructType([payload, module.ptr], in: &module)
+    return StructType([payload, module.word()], in: &module)
   }
 
 }

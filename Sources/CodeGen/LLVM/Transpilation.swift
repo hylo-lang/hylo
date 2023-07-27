@@ -508,6 +508,8 @@ extension LLVM.Module {
         insert(subfieldView: i)
       case is IR.Switch:
         insert(switch: i)
+      case is IR.UnionDiscriminator:
+        insert(unionDiscriminator: i)
       case is IR.Unrechable:
         insert(unreachable: i)
       case is IR.UnsafeCast:
@@ -846,6 +848,19 @@ extension LLVM.Module {
       insertSwitch(
         on: n, cases: cases, default: block[s.successors[0]]!,
         at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(unionDiscriminator i: IR.InstructionID) {
+      let s = m[i] as! UnionDiscriminator
+      let t = UnionType(m.type(of: s.container).ast)!
+
+      let baseType = ir.llvm(unionType: t, in: &self)
+      let container = llvm(s.container)
+      let indices = [i32.constant(0), i32.constant(1)]
+      let discriminator = insertGetElementPointerInBounds(
+        of: container, typed: baseType, indices: indices, at: insertionPoint)
+      register[.register(i, 0)] = insertLoad(word(), from: discriminator, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
