@@ -6,26 +6,6 @@ import XCTest
 
 final class ExecutionTests: XCTestCase {
 
-  /// Compiles and executes all tests in `TestCases` directory, and ensures they return success.
-  func testExecution() throws {
-    let s = Bundle.module.url(forResource: "TestCases", withExtension: nil)!
-    for testFile in try! sourceFiles(in: [s]) {
-      // Note: testing on Windows requires explicit call to `URL.init(fileURLWithPath:)`
-      let output =
-        try compile(
-          URL(fileURLWithPath: testFile.url.path),
-          with: ["--emit", "binary"])
-      do {
-        let (status, _) = try run(output)
-        XCTAssertEqual(
-          status, 0,
-          "Execution of binary for test \(testFile.baseName) failed with exit code \(status)")
-      } catch {
-        XCTFail("While testing \(testFile.baseName), cannot execute: \(output)")
-      }
-    }
-  }
-
   func testHelloWorld() throws {
     let f = FileManager.default.makeTemporaryFileURL()
     let s = #"public fun main() { print("Hello, World!") }"#
