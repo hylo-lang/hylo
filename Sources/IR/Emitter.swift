@@ -441,43 +441,96 @@ struct Emitter {
     // Declare all introduced names, initializing them if possible.
     let lhs = program[d].pattern.subpattern.id
     if let initializer = ast[d].initializer {
-      ast.walking(pattern: lhs, expression: initializer) { (path, p, rhs) in
-        // Nothing to assign if `p` isn't a name pattern.
-        guard let n = NamePattern.ID(p) else {
-          let s = emitStore(value: rhs)
-          emitDeinit(s, at: ast[p].site)
-          return
-        }
+      emitInitStoredLocalBindings(
+        in: lhs, referringTo: [], relativeTo: storage, consuming: initializer)
+      return
+    }
 
-        let lhsPart = declare(name: n, referringTo: path)
-        let lhsPartType = module.type(of: lhsPart).ast
-        let rhsPartType = program.relations.canonical(program[rhs].type)
+    for (path, name) in ast.names(in: lhs) {
+      _ = emitDeclaration(of: name, referringTo: path, relativeTo: storage)
+    }
+  }
 
-        if program.relations.areEquivalent(lhsPartType, rhsPartType) {
-          emitStore(value: rhs, to: lhsPart)
-        } else if lhsPartType.base is UnionType {
-          let x0 = append(
-            module.makeOpenUnion(
-              lhsPart, as: rhsPartType, forInitialization: true, at: ast[p].site))[0]
-          emitStore(value: rhs, to: x0)
-          append(module.makeCloseUnion(x0, at: ast[p].site))
-        } else {
-          fatalError("not implemented")
-        }
+  /// Inserts the IR to declare and initialize the names in `lhs`, which refer to subobjects of
+  /// `subfield` relative to `storage`, by consuming the value of `initializer`.
+  private mutating func emitInitStoredLocalBindings(
+    in lhs: AnyPatternID, referringTo subfield: RecordPath, relativeTo storage: Operand,
+    consuming initializer: AnyExprID
+  ) {
+    ast.walking(pattern: lhs, expression: initializer) { (path, p, rhs) in
+      switch p.kind {
+      case NamePattern.self:
+        emitInitStoredLocalBinding(
+          NamePattern.ID(p)!, referringTo: subfield + path, relativeTo: storage,
+          consuming: rhs)
+
+      case TuplePattern.self:
+        emitInitStoredLocalBindings(
+          in: TuplePattern.ID(p)!, referringTo: subfield + path, relativeTo: storage,
+          consuming: rhs)
+
+      case WildcardPattern.self:
+        let s = emitStore(value: rhs)
+        emitDeinit(s, at: ast[p].site)
+
+      default:
+        unexpected(p, in: ast)
       }
+    }
+  }
+
+  /// Inserts the IR to declare and initialize the names in `lhs`, which refer to subobjects of
+  /// `subfield` relative to `storage`, by consuming the value of `initializer`.
+  private mutating func emitInitStoredLocalBindings(
+    in lhs: TuplePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
+    consuming initializer: AnyExprID
+  ) {
+    let source = emitLValue(initializer)
+    for (path, name) in ast.names(in: lhs) {
+      let rhsPart = emitSubfieldView(source, at: path, at: ast[name].site)
+      let lhsPart = emitDeclaration(of: name, referringTo: subfield + path, relativeTo: storage)
+
+      let r = module.type(of: lhsPart).ast
+      let l = module.type(of: lhsPart).ast
+      precondition(l == r, "not implemented")
+
+      let c = program.conformanceToMovable(of: l, exposedTo: insertionScope!)!
+      let v = append(module.makeLoad(rhsPart, at: ast[name].site))[0]
+      emitMove(.set, of: v, to: lhsPart, withConformanceToMovable: c, at: ast[name].site)
+    }
+  }
+
+  /// Inserts the IR to declare and initialize `name`, which refers to the given `subfield`
+  /// relative to `storage`, by consuming the value of `initializer`.
+  private mutating func emitInitStoredLocalBinding(
+    _ name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
+    consuming initializer: AnyExprID
+  ) {
+    let lhsPart = emitDeclaration(of: name, referringTo: subfield, relativeTo: storage)
+    let lhsPartType = module.type(of: lhsPart).ast
+    let rhsPartType = program.relations.canonical(program[initializer].type)
+
+    if program.relations.areEquivalent(lhsPartType, rhsPartType) {
+      emitStore(value: initializer, to: lhsPart)
+    } else if lhsPartType.base is UnionType {
+      let x0 = append(
+        module.makeOpenUnion(
+          lhsPart, as: rhsPartType, forInitialization: true, at: ast[name].site))[0]
+      emitStore(value: initializer, to: x0)
+      append(module.makeCloseUnion(x0, at: ast[name].site))
     } else {
-      for (path, name) in ast.names(in: lhs) {
-        _ = declare(name: name, referringTo: path)
-      }
+      fatalError("not implemented")
     }
+  }
 
-    /// Inserts the IR to declare `name`, which refers to the given `subfield` (relative to
-    /// `storage`), returning that sub-location.
-    func declare(name: NamePattern.ID, referringTo subfield: RecordPath) -> Operand {
-      let s = emitSubfieldView(storage, at: subfield, at: ast[name].site)
-      frames[ast[name].decl] = s
-      return s
-    }
+  /// Inserts the IR to declare `name`, which refers to the given `subfield` relative to `storage`,
+  /// returning that sub-location.
+  private mutating func emitDeclaration(
+    of name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand
+  ) -> Operand {
+    let s = emitSubfieldView(storage, at: subfield, at: ast[name].site)
+    frames[ast[name].decl] = s
+    return s
   }
 
   /// Inserts the IR for projected local binding `d` .
