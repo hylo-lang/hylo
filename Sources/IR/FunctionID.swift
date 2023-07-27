@@ -70,13 +70,13 @@ extension Function.ID: CustomStringConvertible {
   public var description: String {
     switch value {
     case .lowered(let d):
-      return "\(d).lowered"
+      return d.description
     case .loweredSubscript(let d):
-      return "\(d).lowered"
+      return d.description
     case .synthesized(let d):
       return d.description
     case .existentialized(let b):
-      return "\"existentialized \(b)\""
+      return "\(b).existentialized"
     case .monomorphized(let b, let a):
       return "<\(list: a.values)>(\(b))"
     }
