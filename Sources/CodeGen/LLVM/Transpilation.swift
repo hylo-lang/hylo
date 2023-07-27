@@ -506,6 +506,8 @@ extension LLVM.Module {
         insert(store: i)
       case is IR.SubfieldView:
         insert(subfieldView: i)
+      case is IR.Switch:
+        insert(switch: i)
       case is IR.Unrechable:
         insert(unreachable: i)
       case is IR.UnsafeCast:
@@ -829,6 +831,21 @@ extension LLVM.Module {
     func insert(store i: IR.InstructionID) {
       let s = m[i] as! IR.Store
       insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(switch i: IR.InstructionID) {
+      let s = m[i] as! Switch
+
+      // Pick the case 0 as the "default".
+      let cases = s.successors[1...].enumerated().map { (value, destination) in
+        (word().constant(UInt64(value)), block[destination]!)
+      }
+
+      let n = llvm(s.index)
+      insertSwitch(
+        on: n, cases: cases, default: block[s.successors[0]]!,
+        at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
