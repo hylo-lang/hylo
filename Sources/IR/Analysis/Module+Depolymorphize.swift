@@ -189,6 +189,8 @@ extension Module {
         rewrite(store: i, to: b)
       case is SubfieldView:
         rewrite(subfieldView: i, to: b)
+      case is Switch:
+        rewrite(switch: i, to: b)
       case is Unrechable:
         rewrite(unreachable: i, to: b)
       case is Yield:
@@ -394,6 +396,16 @@ extension Module {
       let s = sourceModule[i] as! SubfieldView
       append(
         makeSubfieldView(of: rewritten(s.recordAddress), subfield: s.subfield, at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(switch i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! Switch
+      let n = rewritten(s.index)
+
+      let newInstruction = makeSwitch(
+        on: n, toOneOf: s.successors.map({ rewrittenBlocks[$0]! }), at: s.site)
+      append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
