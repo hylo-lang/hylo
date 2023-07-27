@@ -1,8 +1,6 @@
 /// A namespace declaration.
 public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
-  public static let manglingOperator = ManglingOperator.namespaceDecl
-
   public let site: SourceRange
 
   /// The site of the declaration's introducer.

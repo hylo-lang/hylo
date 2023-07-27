@@ -1,6 +1,6 @@
 import Utils
 
-/// A type representing a Val program and its properties at a some stage of compilation.
+/// Types representing Val programs at some stage after syntactic and scope analysis.
 public protocol Program {
 
   /// The AST of the program.
@@ -111,6 +111,14 @@ extension Program {
     case .some(.expr):
       return AnyScopeID(d)
     }
+  }
+
+  /// Returns `true` iff `s` is the body of a function, initializer, or subscript.
+  public func isCallableBody(_ s: BraceStmt.ID) -> Bool {
+    let p = nodeToScope[s]!
+    return
+      (p.kind == FunctionDecl.self) || (p.kind == InitializerDecl.self)
+      || (p.kind == MethodImpl.self) || (p.kind == SubscriptImpl.self)
   }
 
   /// Returns `true` iff `d` is at module scope.
@@ -224,6 +232,8 @@ extension Program {
   /// Returns whether `decl` is a requirement.
   public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
     switch decl.kind {
+    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
+      return true
     case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
       return nodeToScope[decl]!.kind == TraitDecl.self
     case MethodImpl.self:

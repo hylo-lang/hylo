@@ -1,8 +1,6 @@
 /// A parameter declaration in a function or subscript declaration.
 public struct ParameterDecl: SingleEntityDecl {
 
-  public static let manglingOperator = ManglingOperator.parameterDecl
-
   public let site: SourceRange
 
   /// The label of the parameter.

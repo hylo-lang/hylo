@@ -1,8 +1,6 @@
 /// An associated type declaration.
 public struct AssociatedTypeDecl: SingleEntityDecl {
 
-  public static let manglingOperator = ManglingOperator.associatedTypeDecl
-
   public let site: SourceRange
 
   /// The site of the declaration's introducer.

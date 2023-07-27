@@ -22,7 +22,7 @@ public struct IntegerConstant: Constant, Hashable {
     self.value = value
   }
 
-  public var type: LoweredType { .object(BuiltinType.i(value.bitWidth)) }
+  public var type: IR.`Type` { .object(BuiltinType.i(value.bitWidth)) }
 
 }
 

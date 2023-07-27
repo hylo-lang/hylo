@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import OrderedCollections
 import Utils
 
 /// A module lowered to Val IR.
@@ -26,6 +27,9 @@ public struct Module {
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
+  /// The synthesized functions used and defined in the module.
+  public private(set) var synthesizedDecls = OrderedSet<SynthesizedDecl>()
+
   /// The module's entry function, if any.
   public private(set) var entryFunction: Function.ID?
 
@@ -41,7 +45,8 @@ public struct Module {
     self.id = m
 
     var emitter = Emitter(program: program)
-    emitter.lower(module: m, into: &self, diagnostics: &diagnostics)
+    emitter.lower(module: m, into: &self)
+    diagnostics.formUnion(emitter.diagnostics)
     try diagnostics.throwOnError()
   }
 
@@ -69,7 +74,7 @@ public struct Module {
   }
 
   /// Returns the type of `operand`.
-  public func type(of operand: Operand) -> LoweredType {
+  public func type(of operand: Operand) -> IR.`Type` {
     switch operand {
     case .register(let instruction, let index):
       return functions[instruction.function]![instruction.block][instruction.address].types[index]
@@ -80,6 +85,11 @@ public struct Module {
     case .constant(let constant):
       return constant.type
     }
+  }
+
+  /// Returns the scope in which `i` is used.
+  public func scope(containing i: InstructionID) -> AnyScopeID {
+    functions[i.function]![i.block].scope
   }
 
   /// Returns the IDs of the blocks in `f`.
@@ -137,17 +147,17 @@ public struct Module {
   }
 
   /// Applies `p` to in this module, which is in `ir`.
-  public mutating func applyPass(_ p: ModulePass, in ir: LoweredProgram) {
+  public mutating func applyPass(_ p: ModulePass, in ir: IR.Program) {
     switch p {
     case .depolymorphize:
       depolymorphize(in: ir)
     }
   }
 
-  /// Applies all mandatory passes in this module, accumulating diagnostics into `log` and throwing
+  /// Applies all mandatory passes in this module, accumulating diagnostics in `log` and throwing
   /// if a pass reports an error.
   public mutating func applyMandatoryPasses(
-    reportingDiagnosticsInto log: inout DiagnosticSet
+    reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
     func run(_ pass: (Function.ID) -> Void) throws {
       for (k, f) in functions where f.entry != nil {
@@ -161,6 +171,19 @@ public struct Module {
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
+
+    try generateSyntheticImplementations(reportingDiagnosticsTo: &log)
+  }
+
+  /// Inserts the IR for the synthesized declarations defined in this module, reporting diagnostics
+  /// to `log` and throwing if a an error occurred.
+  mutating func generateSyntheticImplementations(
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) throws {
+    var emitter = Emitter(program: program)
+    emitter.generateSyntheticImplementations(in: &self)
+    log.formUnion(emitter.diagnostics)
+    try log.throwOnError()
   }
 
   /// Adds a global constant and returns its identity.
@@ -192,7 +215,7 @@ public struct Module {
       name: program.debugName(decl: d),
       site: program.ast[d].site,
       linkage: .external,
-      parameters: Array(parameters),
+      genericParameters: Array(parameters),
       inputs: inputs,
       output: output,
       blocks: [])
@@ -205,38 +228,6 @@ public struct Module {
     }
 
     return f
-  }
-
-  /// Returns the identity of the Val IR function implementing the deinitializer defined in
-  /// conformance `c`.
-  mutating func demandDeinitDeclaration(from c: Conformance) -> Function.ID {
-    let d = program.ast.deinitRequirement()
-    switch c.implementations[d]! {
-    case .concrete:
-      fatalError("not implemented")
-    case .synthetic(let s):
-      let f = Function.ID(synthesized: d, for: s.type)
-      declareSyntheticFunction(f, typed: LambdaType(s.type)!)
-      return f
-    }
-  }
-
-  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
-  /// defined in conformance `c`.
-  ///
-  /// - Requires: `k` is either `.set` or `.inout`
-  mutating func demandMoveOperatorDeclaration(
-    _ k: AccessEffect, from c: Conformance
-  ) -> Function.ID {
-    let d = program.ast.moveRequirement(k)
-    switch c.implementations[d]! {
-    case .concrete:
-      fatalError("not implemented")
-    case .synthetic(let s):
-      let f = Function.ID(synthesized: d, for: s.type)
-      declareSyntheticFunction(f, typed: LambdaType(s.type)!)
-      return f
-    }
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
@@ -253,7 +244,7 @@ public struct Module {
       name: program.debugName(decl: d),
       site: program.ast[d].site,
       linkage: .external,
-      parameters: Array(parameters),
+      genericParameters: Array(parameters),
       inputs: inputs,
       output: output,
       blocks: [])
@@ -277,10 +268,70 @@ public struct Module {
       name: program.debugName(decl: d),
       site: program.ast[d].introducer.site,
       linkage: .external,
-      parameters: Array(parameters),
+      genericParameters: Array(parameters),
       inputs: inputs,
       output: .void,
       blocks: [])
+
+    addFunction(entity, for: f)
+    return f
+  }
+
+  /// Returns the identity of the Val IR function implementing the deinitializer defined in
+  /// conformance `c`.
+  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
+    let d = program.ast.deinitRequirement()
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+
+    case .synthetic(let s):
+      return demandSyntheticDeclaration(lowering: s)
+    }
+  }
+
+  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
+  /// defined in conformance `c`.
+  ///
+  /// - Requires: `k` is either `.set` or `.inout`
+  mutating func demandMoveOperatorDeclaration(
+    _ k: AccessEffect, from c: Core.Conformance
+  ) -> Function.ID {
+    let d = program.ast.moveRequirement(k)
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+
+    case .synthetic(let s):
+      return demandSyntheticDeclaration(lowering: s)
+    }
+  }
+
+  /// Returns the identity of the Val IR function corresponding to `d`.
+  mutating func demandSyntheticDeclaration(lowering d: SynthesizedDecl) -> Function.ID {
+    let f = Function.ID(d)
+    if functions[f] != nil { return f }
+
+    let t = LambdaType(d.type)!
+    let output = program.relations.canonical(t.output)
+    var inputs: [Parameter] = []
+    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
+    appendParameters(t.inputs, to: &inputs)
+
+    let entity = Function(
+      isSubscript: false,
+      name: "",
+      site: .empty(at: program.ast[id].site.first()),
+      linkage: .external,
+      genericParameters: [],  // TODO
+      inputs: inputs,
+      output: output,
+      blocks: [])
+
+    // Determine if the new function is defined in this module.
+    if program.module(containing: d.scope) == id {
+      synthesizedDecls.append(d)
+    }
 
     addFunction(entity, for: f)
     return f
@@ -331,27 +382,6 @@ public struct Module {
     return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
   }
 
-  /// Declares the synthetic function `f`, which has type `t`, if it wasn't already.
-  mutating func declareSyntheticFunction(_ f: Function.ID, typed t: LambdaType) {
-    if functions[f] != nil { return }
-
-    let output = program.relations.canonical(t.output)
-    var inputs: [Parameter] = []
-    appendCaptures(t.captures, passed: t.receiverEffect, to: &inputs)
-    appendParameters(t.inputs, to: &inputs)
-
-    let entity = Function(
-      isSubscript: false,
-      name: "",
-      site: .empty(at: program.ast[id].site.first()),
-      linkage: .external,
-      parameters: [],  // TODO
-      inputs: inputs,
-      output: output,
-      blocks: [])
-    addFunction(entity, for: f)
-  }
-
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
   private func appendCaptures(
     _ captures: [TupleType.Element], passed effect: AccessEffect, to inputs: inout [Parameter]
@@ -386,7 +416,7 @@ public struct Module {
   /// - Requires: `f` is declared in `self`.
   public func parameterization(in f: Function.ID) -> GenericArguments {
     var result = GenericArguments()
-    for p in functions[f]!.parameters {
+    for p in functions[f]!.genericParameters {
       guard
         let t = MetatypeType(program[p].type),
         let u = GenericTypeParameterType(t.instance)
@@ -416,7 +446,7 @@ public struct Module {
     assert(ir.blocks.isEmpty)
 
     // In functions, the last parameter of the entry denotes the function's return value.
-    var parameters = ir.inputs.map({ LoweredType.address($0.type.bareType) })
+    var parameters = ir.inputs.map({ IR.`Type`.address($0.type.bareType) })
     if !ir.isSubscript {
       parameters.append(.address(ir.output))
     }
@@ -431,7 +461,7 @@ public struct Module {
   @discardableResult
   mutating func appendBlock<T: ScopeID>(
     in scope: T,
-    taking parameters: [LoweredType] = [],
+    taking parameters: [IR.`Type`] = [],
     to f: Function.ID
   ) -> Block.ID {
     let a = functions[f]!.appendBlock(in: scope, taking: parameters)
@@ -615,19 +645,19 @@ public struct Module {
     guard case .register(let i, _) = a else { return [a] }
 
     switch self[i] {
-    case let s as AdvancedByBytesInstruction:
+    case let s as AdvancedByBytes:
       return provenances(s.base)
-    case let s as BorrowInstruction:
+    case let s as Borrow:
       return provenances(s.location)
-    case let s as ProjectInstruction:
+    case let s as Project:
       return s.operands.reduce(
         into: [],
         { (p, o) in
           if type(of: o).isAddress { p.formUnion(provenances(o)) }
         })
-    case let s as SubfieldViewInstruction:
+    case let s as SubfieldView:
       return provenances(s.recordAddress)
-    case let s as WrapExistentialAddrInstruction:
+    case let s as WrapExistentialAddr:
       return provenances(s.witness)
     default:
       return [a]
@@ -646,9 +676,9 @@ public struct Module {
 
       case .register(let i, _):
         switch self[i] {
-        case let s as ProjectBundleInstruction:
+        case let s as ProjectBundle:
           return s.capabilities.contains(.sink)
-        case let s as ProjectInstruction:
+        case let s as Project:
           return s.projection.access == .sink
         default:
           return true

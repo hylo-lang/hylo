@@ -10,19 +10,20 @@ Please visit our [website](https://val-lang.dev) to get more information about t
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.7 or higher to build the compiler from sources.
 
-### Prerequisites
-
 *Note to Windows users: although this project is **not** Unix-specific, and is expected to run properly on Windows, but due to an unknown bug in SPM, it is not possible to ensure that Val runs correctly on Windows via CI.*
 
-You can skip this step if you're doing development exlusively in a [devcontainer](#building-val-devcontainer-with-vscode).  Otherwise:
+### Prerequisites
+
+You can skip this step if you're doing development exclusively in a [devcontainer](#building-val-devcontainer-with-vscode).  Otherwise:
 
 1. Install LLVM 15 or later on your system (e.g. `brew install llvm`) 
-2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"`). Then, in this project's root directory.
-3. `swift package resolve` to get the tool for step 3.
-4. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description.
-5. Either
-   1. `sudo mkdir -p /usr/local/lib/pkgconfig && sudo mv llvm.pc /usr/local/lib/pkgconfig/` (if you want to use Xcode), or
-   2. `export PKG_CONFIG_PATH=$PWD` in any shell where you want to work on this project
+2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"`). 
+3. In this project's root directory.
+    1. `swift package resolve` to get the `make-pkgconfig` tool.
+    2. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description 
+    3. Either
+        1. `sudo mkdir -p /usr/local/lib/pkgconfig && sudo mv llvm.pc /usr/local/lib/pkgconfig/` (if you want to use Xcode)
+        2. or, `export PKG_CONFIG_PATH=$PWD` in any shell where you want to work on this project
    
 ### Building the compiler
 
