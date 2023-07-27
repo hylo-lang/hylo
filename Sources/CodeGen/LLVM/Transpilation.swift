@@ -614,8 +614,20 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(closeUnion i: IR.InstructionID) {
-      // TODO: Implement me
-      // Set the discriminator of the union container.
+      let s = m[i] as! CloseUnion
+      let open = m[s.start.instruction!] as! OpenUnion
+
+      // TODO: Memoize somehow
+      let t = UnionType(m.type(of: open.container).ast)!
+      let e = m.program.discriminatorToElement(in: t)
+      let n = e.firstIndex(of: open.payloadType)!
+
+      let baseType = ir.llvm(unionType: t, in: &self)
+      let container = llvm(open.container)
+      let indices = [i32.constant(0), i32.constant(1)]
+      let discriminator = insertGetElementPointerInBounds(
+        of: container, typed: baseType, indices: indices, at: insertionPoint)
+      insertStore(word().constant(UInt64(n)), to: discriminator, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
