@@ -12,6 +12,8 @@ You will need Swift 5.7 or higher to build the compiler from sources.
 
 ### Prerequisites
 
+*Note to Windows users: although this project is **not** Unix-specific, and is expected to run properly on Windows, but due to an unknown bug in SPM, it is not possible to ensure that Val runs correctly on Windows via CI.*
+
 You can skip this step if you're doing development exlusively in a [devcontainer](#building-val-devcontainer-with-vscode).  Otherwise:
 
 1. Install LLVM 15 or later on your system (e.g. `brew install llvm`) 
