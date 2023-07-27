@@ -479,27 +479,6 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR to declare and initialize the names in `lhs`, which refer to subobjects of
-  /// `subfield` relative to `storage`, by consuming the value of `initializer`.
-  private mutating func emitInitStoredLocalBindings(
-    in lhs: TuplePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
-    consuming initializer: AnyExprID
-  ) {
-    let source = emitLValue(initializer)
-    for (path, name) in ast.names(in: lhs) {
-      let rhsPart = emitSubfieldView(source, at: path, at: ast[name].site)
-      let lhsPart = emitDeclaration(of: name, referringTo: subfield + path, relativeTo: storage)
-
-      let r = module.type(of: lhsPart).ast
-      let l = module.type(of: lhsPart).ast
-      precondition(l == r, "not implemented")
-
-      let c = program.conformanceToMovable(of: l, exposedTo: insertionScope!)!
-      let v = append(module.makeLoad(rhsPart, at: ast[name].site))[0]
-      emitMove(.set, of: v, to: lhsPart, withConformanceToMovable: c, at: ast[name].site)
-    }
-  }
-
   /// Inserts the IR to declare and initialize `name`, which refers to the given `subfield`
   /// relative to `storage`, by consuming the value of `initializer`.
   private mutating func emitInitStoredLocalBinding(
@@ -520,6 +499,19 @@ struct Emitter {
       append(module.makeCloseUnion(x0, at: ast[name].site))
     } else {
       fatalError("not implemented")
+    }
+  }
+
+  /// Inserts the IR to declare and initialize the names in `lhs`, which refer to subobjects of
+  /// `subfield` relative to `storage`, by consuming the value of `initializer`.
+  private mutating func emitInitStoredLocalBindings(
+    in lhs: TuplePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
+    consuming initializer: AnyExprID
+  ) {
+    let rhs = emitSubfieldView(storage, at: subfield, at: ast[lhs].site)
+    emitStore(value: initializer, to: rhs)
+    for (path, name) in ast.names(in: lhs) {
+      _ = emitDeclaration(of: name, referringTo: subfield + path, relativeTo: storage)
     }
   }
 
