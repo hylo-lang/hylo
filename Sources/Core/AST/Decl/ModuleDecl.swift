@@ -1,8 +1,6 @@
 /// A module declaration.
 public struct ModuleDecl: SingleEntityDecl, LexicalScope {
 
-  public static let manglingOperator = ManglingOperator.moduleDecl
-
   /// The name of the module.
   public let baseName: String
 

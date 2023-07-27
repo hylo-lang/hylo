@@ -68,31 +68,6 @@ extension NodeKind: Equatable {
 
 }
 
-/// Extend heterogeneous equality comparison with Node.Type to Optional<NodeKind>.
-extension Optional where Wrapped == NodeKind {
-
-  /// Returns `true` iff `l` and `r` denote the same node type.
-  static func == (l: Self, r: Node.Type) -> Bool {
-    l?.value == r
-  }
-
-  /// Returns `true` iff `l` and `r` do not denote the same node type.
-  static func != (l: Self, r: Node.Type) -> Bool {
-    l?.value != r
-  }
-
-  /// Returns `true` iff `l` and `r` denote the same node type.
-  static func == (l: Node.Type, r: Self) -> Bool {
-    l == r?.value
-  }
-
-  /// Returns `true` iff `l` and `r` do not denote the same node type.
-  static func != (l: Node.Type, r: Self) -> Bool {
-    l != r?.value
-  }
-
-}
-
 extension NodeKind: CustomStringConvertible {
 
   /// The name of the underlying Node type.

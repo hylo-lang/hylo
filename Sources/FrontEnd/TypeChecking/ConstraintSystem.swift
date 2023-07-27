@@ -179,7 +179,8 @@ struct ConstraintSystem {
     return s
   }
 
-  /// Returns either `.success` if `g.subject` conforms to `g.traits`, `.failure` if it doesn't, or
+  /// Determines whether `g.model` conforms to `g.concept` and returns: `.success` if it conforms
+  /// explicitly, `.product` if it may conform structurally,`.failure` if it doesn't conform, or
   /// `nil` if neither of these outcomes can be be determined yet.
   private mutating func solve(
     conformance g: GoalIdentity,
@@ -187,29 +188,75 @@ struct ConstraintSystem {
   ) -> Outcome? {
     let goal = goals[g] as! ConformanceConstraint
 
-    var missingTraits: Set<TraitType>
-    switch goal.subject.base {
-    case is TypeVariable:
+    // Nothing to do if the subject is still a type variable.
+    if goal.model.isTypeVariable {
       postpone(g)
       return nil
-
-    case is BuiltinType:
-      // Built-in types are `Movable` and `ForeignConvertible`.
-      missingTraits = goal.traits.subtracting(
-        [checker.ast.coreTrait("Movable")!, checker.ast.coreTrait("ForeignConvertible")!])
-
-    default:
-      missingTraits = goal.traits.subtracting(
-        checker.conformedTraits(of: goal.subject, in: scope))
     }
 
-    if missingTraits.isEmpty {
+    // Process explicit conformances.
+    if checker.conformedTraits(of: goal.model, in: scope).contains(goal.concept) {
       return .success
-    } else {
-      return .failure { (d, m, _) in
-        let t = m.reify(goal.subject)
-        d.formUnion(missingTraits.map({ .error(t, doesNotConformTo: $0, at: goal.origin.site) }))
-      }
+    }
+
+    // Process structural and built-in conformances.
+    switch goal.concept {
+    case checker.ast.movableTrait:
+      return goal.model.isBuiltin ? .success : solve(structualConformance: goal)
+
+    case checker.ast.foreignConvertibleTrait:
+      return goal.model.isBuiltin ? .success : .failure(failureToSolve(goal))
+
+    default:
+      return .failure(failureToSolve(goal))
+    }
+  }
+
+  /// Knowing `goal.concept` can be conformed structurally and `goal.model` is a structural type,
+  /// returns `.success` if `goal.model` is empty or `.product` otherwise. Returns `.failure` if
+  /// if `goal.model` isn't a structural type.
+  ///
+  /// - Requires: `goal.model` is not a type variable.
+  private mutating func solve(structualConformance goal: ConformanceConstraint) -> Outcome {
+    assert(!goal.model.isTypeVariable)
+
+    switch goal.model.base {
+    case let t as TupleType:
+      return delegate(structualConformance: goal, for: t.elements.lazy.map(\.type))
+    case let t as UnionType:
+      return delegate(structualConformance: goal, for: t.elements)
+    default:
+      return .failure(failureToSolve(goal))
+    }
+  }
+
+  /// Returns the outcome of breaking down `goal`, which is a structural conformance constraint,
+  /// into a set containing a conformance constraint for each type in `elements`.
+  private mutating func delegate<S: Collection<AnyType>>(
+    structualConformance goal: ConformanceConstraint, for elements: S
+  ) -> Outcome {
+    if elements.isEmpty {
+      return .success
+    }
+
+    let subordinateOrigin = goal.origin.subordinate()
+    var subordinates: [GoalIdentity] = []
+    for e in elements {
+      let c = ConformanceConstraint(e, conformsTo: goal.concept, origin: subordinateOrigin)
+      subordinates.append(schedule(c))
+    }
+
+    return .product(subordinates) { (d, m, _) in
+      let t = m.reify(goal.model)
+      d.insert(.error(t, doesNotConformTo: goal.concept, at: goal.origin.site))
+    }
+  }
+
+  /// Returns a clousre diagnosing a failure to solve `goal`.
+  private mutating func failureToSolve(_ goal: ConformanceConstraint) -> DiagnoseFailure {
+    return { (d, m, _) in
+      let t = m.reify(goal.model)
+      d.insert(.error(t, doesNotConformTo: goal.concept, at: goal.origin.site))
     }
   }
 
@@ -243,8 +290,8 @@ struct ConstraintSystem {
     }
 
     switch (goal.left.base, goal.right.base) {
-    case (let l as SumType, _ as SumType):
-      // If both types are sums, all elements in `L` must be contained in `R`.
+    case (let l as UnionType, _ as UnionType):
+      // If both types are unions, all elements in `L` must be contained in `R`.
       var subordinates: [GoalIdentity] = []
       let o = goal.origin.subordinate()
       for e in l.elements {
@@ -252,8 +299,8 @@ struct ConstraintSystem {
       }
       return .product(subordinates, failureToSolve(goal))
 
-    case (_, let r as SumType):
-      // If `R` is an empty sum, so must be `L`.
+    case (_, let r as UnionType):
+      // If `R` is an empty union, so must be `L`.
       if r.elements.isEmpty {
         return unify(goal.left, goal.right, querying: checker.relations)
           ? .success
@@ -271,7 +318,7 @@ struct ConstraintSystem {
       // subtype of some strict subset of `R`.
       var candidates: [DisjunctionConstraint.Predicate] = []
       for subset in r.elements.combinations(of: r.elements.count - 1) {
-        let c = SubtypingConstraint(goal.left, ^SumType(subset), origin: o)
+        let c = SubtypingConstraint(goal.left, ^UnionType(subset), origin: o)
         candidates.append(.init(constraints: [c], penalties: 1))
       }
       if !goal.isStrict {
@@ -329,9 +376,13 @@ struct ConstraintSystem {
           // All types conform to `Any`.
           return .success
         } else {
+          var subordinates: [GoalIdentity] = []
           let o = goal.origin.subordinate()
-          let s = schedule(ConformanceConstraint(goal.left, conformsTo: traits, origin: o))
-          return delegate(to: [s])
+          for t in traits {
+            subordinates.append(
+              schedule(ConformanceConstraint(goal.left, conformsTo: t, origin: o)))
+          }
+          return delegate(to: subordinates)
         }
 
       case .generic(let r):

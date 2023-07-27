@@ -25,6 +25,11 @@ public struct TypedProgram: Program {
   public let environments: DeclProperty<GenericEnvironment>
 
   /// A map from module to its synthesized declarations.
+  ///
+  /// This table contains the synthesized implementations of conformances declared explicitly.
+  /// These declarations are unconditionally lowered to Val IR as they may be part of a module's
+  /// API. Synthethized declarations that are part of a structural conformance are lowered lazily
+  /// after mandatory IR passes and are not part of this table.
   public let synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]]
 
   /// A map from name expression to its referred declaration.
@@ -106,18 +111,58 @@ public struct TypedProgram: Program {
     return result
   }
 
-  /// Returns the generic parameters taken by `s`, in outer to inner, left to right.
+  /// Returns the generic parameters captured by `useScope`, outer to inner, left to right.
   ///
   /// A declaration may take generic parameters even if it doesn't declare any. For example, a
   /// nested function will implicitly capture the generic parameters introduced in its context.
   public func accumulatedGenericParameters<S: ScopeID>(
-    of s: S
-  ) -> some Collection<GenericParameterDecl.ID> {
-    let p = scopes(from: s).compactMap { (t) -> [GenericParameterDecl.ID]? in
-      if !(t.kind.value is GenericScope.Type) { return nil }
-      return environments[AnyDeclID(t)!]!.parameters
+    of useScope: S
+  ) -> ReversedCollection<[GenericParameterDecl.ID]> {
+    var parameters: [GenericParameterDecl.ID] = []
+    accumulateGenericParameters(of: useScope, in: &parameters)
+    return parameters.reversed()
+  }
+
+  /// Accumulates the generic parameters captured by `useScope` in `parameters`, inner to outer,
+  /// right to left.
+  private func accumulateGenericParameters<S: ScopeID>(
+    of useScope: S, in parameters: inout [GenericParameterDecl.ID]
+  ) {
+    for s in scopes(from: useScope) {
+      switch s.kind.value {
+      case is ConformanceDecl.Type:
+        if let p = scopeExtended(by: ConformanceDecl.ID(s)!) {
+          accumulateGenericParameters(of: p, in: &parameters)
+        }
+
+      case is ExtensionDecl.Type:
+        if let p = scopeExtended(by: ExtensionDecl.ID(s)!) {
+          accumulateGenericParameters(of: p, in: &parameters)
+        }
+
+      case is GenericScope.Type:
+        parameters.append(contentsOf: environments[AnyDeclID(s)!]!.parameters)
+
+      case is TranslationUnit.Type:
+        // No need to look further.
+        return
+
+      default:
+        continue
+      }
     }
-    return p.reversed().joined()
+  }
+
+  /// Returns the scope of the declaration extended by `d`, if any.
+  private func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
+    switch MetatypeType(declTypes[d])?.instance.base {
+    case let u as ProductType:
+      return AnyScopeID(u.decl)
+    case let u as TypeAliasType:
+      return AnyScopeID(u.decl)
+    default:
+      return nil
+    }
   }
 
   /// Returns a copy of `generic` monomorphized for the given `parameterization`.
@@ -164,6 +209,11 @@ public struct TypedProgram: Program {
     }
   }
 
+  /// Returns `true` iff `model` conforms to `concept` in `useScope`.
+  public func conforms(_ model: AnyType, to concept: TraitType, in useScope: AnyScopeID) -> Bool {
+    conformance(of: model, to: concept, exposedTo: useScope) != nil
+  }
+
   /// Returns the conformance of `model` to `Val.Deinitializable` exposed to `useScope` or `nil` if
   /// no such conformance exists.
   public func conformanceToDeinitializable(
@@ -180,27 +230,46 @@ public struct TypedProgram: Program {
     conformance(of: model, to: ast.movableTrait, exposedTo: useScope)
   }
 
-  /// Returns the conformance of `model` to `concept` exposed to `useScope` or `nil` if no such
-  /// conformance exists.
+  /// Returns the conformance of `model` to `concept` that is exposed to `useScope`, or `nil` if
+  /// such a conformance doesn't exist
   public func conformance(
     of model: AnyType, to concept: TraitType, exposedTo useScope: AnyScopeID
   ) -> Conformance? {
     let m = relations.canonical(model)
 
-    // `A<X>: T` iff `A: T` whose conditions are satisfied by `X`.
-    if let t = BoundGenericType(m) {
+    if let c = declaredConformance(of: m, to: concept, exposedTo: useScope) {
+      return c
+    } else {
+      return structuralConformance(of: m, to: concept, exposedTo: useScope)
+    }
+  }
+
+  /// Returns the explicitly declared conformance of `model` to `concept` that is exposed to
+  /// `useScope`, or `nil` if such a conformance doesn't exist.
+  ///
+  /// This method returns `nil` if the conformance of `model` to `concept` is structural (e.g., a
+  /// tuple's synthesized conformance to `Movable`).
+  private func declaredConformance(
+    of model: AnyType, to concept: TraitType, exposedTo useScope: AnyScopeID
+  ) -> Conformance? {
+    assert(model[.isCanonical])
+
+    // `A<X>: T` iff `A: T`.
+    if let t = BoundGenericType(model) {
       guard let c = conformance(of: t.base, to: concept, exposedTo: useScope) else {
         return nil
       }
 
       // TODO: translate generic arguments to conditions
+
       return .init(
         model: t.base, concept: concept, arguments: t.arguments, conditions: [],
-        source: c.source, scope: c.scope, implementations: c.implementations, site: c.site)
+        scope: c.scope, implementations: c.implementations, isStructural: c.isStructural,
+        site: c.site)
     }
 
     guard
-      let allConformances = relations.conformances[m],
+      let allConformances = relations.conformances[model],
       let conformancesToConcept = allConformances[concept]
     else { return nil }
 
@@ -213,6 +282,45 @@ public struct TypedProgram: Program {
         return isContained(useScope, in: c.scope)
       }
     }
+  }
+
+  /// Returns the implicit structural conformance of `model` to `concept` that is exposed to
+  /// `useScope`, or `nil` if such a conformance doesn't exist.
+  private func structuralConformance(
+    of model: AnyType, to concept: TraitType, exposedTo useScope: AnyScopeID
+  ) -> Conformance? {
+    assert(model[.isCanonical])
+
+    switch model.base {
+    case let m as TupleType:
+      guard m.elements.allSatisfy({ conforms($0.type, to: concept, in: useScope) }) else {
+        return nil
+      }
+
+    case let m as UnionType:
+      guard m.elements.allSatisfy({ conforms($0, to: concept, in: useScope) }) else {
+        return nil
+      }
+
+    default:
+      return nil
+    }
+
+    var implementations = Conformance.ImplementationMap()
+    for requirement in ast.requirements(of: concept.decl) {
+      guard let k = ast.synthesizedImplementation(of: requirement, definedBy: concept) else {
+        return nil
+      }
+      let a: GenericArguments = [ast[concept.decl].selfParameterDecl: model]
+      let t = monomorphize(declTypes[requirement]!, for: a)
+      let d = SynthesizedDecl(k, typed: t, in: useScope)
+      implementations[requirement] = .synthetic(d)
+    }
+
+    return .init(
+      model: model, concept: concept, arguments: [:], conditions: [], scope: useScope,
+      implementations: implementations, isStructural: true,
+      site: .empty(at: ast[useScope].site.first()))
   }
 
 }

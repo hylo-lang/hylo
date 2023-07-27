@@ -28,6 +28,16 @@ public enum BuiltinType: TypeProtocol {
   /// The type of the built-in module.
   case module
 
+  /// `true` iff `self` is `.i` or `.word`.
+  public var isInteger: Bool {
+    switch self {
+    case .i, .word:
+      return true
+    default:
+      return false
+    }
+  }
+
   public var flags: TypeFlags { .isCanonical }
 
 }

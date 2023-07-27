@@ -176,11 +176,21 @@ public struct AST {
   /// - Requires: The Core library must have been loaded.
   public var copyableTrait: TraitType { coreTrait("Copyable")! }
 
+  /// `Val.ForeignConvertiblae` trait from the Core library.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public var foreignConvertibleTrait: TraitType { coreTrait("ForeignConvertible")! }
+
   // MARK: Helpers
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
     self[self[module].sources].map(\.decls).joined()
+  }
+
+  /// Returns the requirements declared in `t`.
+  public func requirements(of t: TraitDecl.ID) -> RequirementSequence {
+    .init(t, in: self)
   }
 
   /// Returns the requirements named `n` in `t`.
@@ -247,6 +257,43 @@ public struct AST {
       Name(stem: "take_value", labels: ["from"], introducer: access),
       in: movableTrait.decl)
     return MethodImpl.ID(d[0])!
+  }
+
+  /// Returns the synthesized implementation of `requirement`, which is defined by `concept`, for
+  /// `model` in given `useScope`, or `nil` if `requirement` is not synthesizable.
+  ///
+  /// - Requires: `requirement` must be a requirement of `concept`.
+  public func synthesizedImplementation<T: DeclID>(
+    of requirement: T, definedBy concept: TraitType
+  ) -> SynthesizedDecl.Kind? {
+    // If the requirement is defined in `Deinitializable`, it must be the deinitialization method.
+    if concept == deinitializableTrait {
+      assert(requirement.kind == FunctionDecl.self)
+      return .deinitialize
+    }
+
+    // If the requirement is defined in `Movable`, it must be either the move-initialization or
+    // move-assignment method.
+    if concept == movableTrait {
+      let d = MethodImpl.ID(requirement)!
+      switch self[d].introducer.value {
+      case .set:
+        return .moveInitialization
+      case .inout:
+        return .moveAssignment
+      default:
+        unreachable()
+      }
+    }
+
+    // If the requirement is defined in `Copyable`, it must be the copy method.
+    if concept == copyableTrait {
+      assert(requirement.kind == FunctionDecl.self)
+      return .copy
+    }
+
+    // Requirement is not synthesizable.
+    return nil
   }
 
   /// Returns a table mapping each parameter of `d` to its default argument if `d` is a function,

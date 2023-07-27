@@ -35,6 +35,10 @@ We greatly appreciate it if you can isolate the problem and provide a minimal re
 
 ## Contributing code
 
+All code must pass linting with [swift-format](https://github.com/apple/swift-format) in this project's 
+[style](.swift-format.json).  [Tools/run-swift-format.sh](Tools/run-swift-format.sh) can
+be used to build (if necessary) and run swift-format appropriately.
+
 We use the standard GitHub workflow to merge code contributions:
 
 1. Fork this repository.

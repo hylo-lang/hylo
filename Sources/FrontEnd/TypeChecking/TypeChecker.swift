@@ -94,10 +94,20 @@ public struct TypeChecker {
 
       case let u as AssociatedTypeType:
         let d = u.domain.transform(mutating: &me) { (me, t) in specialize(mutating: &me, t) }
+        var candidates = me.lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: useScope)
 
-        let candidates = me.lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: useScope)
-        if let c = candidates.uniqueElement {
-          return .stepOver(MetatypeType(me.realize(decl: c))?.instance ?? .error)
+        // Ignore associated type declaration unless they define a default value that isn't
+        // overridden in the conforming type.
+        if let i = candidates.firstIndex(where: { $0.kind == AssociatedTypeDecl.self }) {
+          if candidates.count > 1 {
+            candidates.remove(at: i)
+          } else if let v = me.ast[AssociatedTypeDecl.ID(candidates[i])!].defaultValue {
+            return .stepOver(me.realize(v)?.instance ?? .error)
+          }
+        }
+
+        if let selected = candidates.uniqueElement {
+          return .stepOver(MetatypeType(me.realize(decl: selected))?.instance ?? .error)
         } else {
           return .stepOver(.error)
         }
@@ -271,7 +281,7 @@ public struct TypeChecker {
     declTypes[d] = type
   }
 
-  /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`
+  /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`.
   ///
   /// This method is idempotent. After the first call for a module `m`, `self.declTypes[m]` is
   /// assigned to an instance of `ModuleType`. Subsequent calls have no effect on `self`.
@@ -841,8 +851,8 @@ public struct TypeChecker {
     // Check the trait's requirements.
     var implementations = Conformance.ImplementationMap()
     var notes: DiagnosticSet = []
-    for m in ast[trait.decl].members {
-      checkStatisifed(requirement: m)
+    for requirement in ast[trait.decl].members {
+      checkStatisifed(requirement)
     }
 
     if !notes.isEmpty {
@@ -860,16 +870,15 @@ public struct TypeChecker {
     let m = BoundGenericType(model).map(\.base) ?? model
     return Conformance(
       model: m, concept: trait, arguments: [:], conditions: [],
-      source: AnyDeclID(source), scope: expositionScope,
-      implementations: implementations,
+      scope: expositionScope, implementations: implementations, isStructural: false,
       site: declSite)
 
-    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
+    /// Checks if `requirement` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
-    func checkStatisifed(requirement d: AnyDeclID) {
-      switch d.kind {
+    func checkStatisifed(_ requirement: AnyDeclID) {
+      switch requirement.kind {
       case GenericParameterDecl.self:
-        assert(d == ast[trait.decl].selfParameterDecl, "unexpected declaration")
+        assert(requirement == ast[trait.decl].selfParameterDecl, "unexpected declaration")
 
       case AssociatedTypeDecl.self:
         // TODO: Implement me.
@@ -880,15 +889,19 @@ public struct TypeChecker {
         break
 
       case FunctionDecl.self:
-        checkSatisfied(function: .init(d)!)
+        let m = FunctionDecl.ID(requirement)!
+        checkSatisfied(callable: m, named: Name(of: m, in: ast)!)
 
       case InitializerDecl.self:
-        checkSatisfied(initializer: .init(d)!)
+        let m = InitializerDecl.ID(requirement)!
+        checkSatisfied(callable: m, named: Name(of: m, in: ast))
 
       case MethodDecl.self:
-        let r = MethodDecl.ID(d)!
+        let r = MethodDecl.ID(requirement)!
         let n = Name(of: r, in: ast)
-        ast[r].impls.forEach({ checkSatisfied(variant: $0, inMethod: n) })
+        ast[r].impls.forEach { (i) in
+          checkSatisfied(callable: i, named: n.appending(ast[i].introducer.value)!)
+        }
 
       case SubscriptDecl.self:
         // TODO: Implement me.
@@ -899,68 +912,45 @@ public struct TypeChecker {
       }
     }
 
-    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
+    /// Checks if `requirement` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
-    func checkSatisfied(initializer d: InitializerDecl.ID) {
-      let requiredType = relations.canonical(
-        specialized(realize(decl: d), applying: specializations, in: useScope))
-      guard !requiredType[.hasError] else { return }
+    func checkSatisfied<T: Decl>(callable requirement: T.ID, named requiredName: Name) {
+      guard let requiredType = candidateType(requirement) else {
+        return
+      }
 
       if let c = implementation(
-        of: Name(of: d, in: ast), in: model,
+        of: requiredName, in: model,
         withCallableType: LambdaType(requiredType)!, specializedWith: specializations,
         exposedTo: useScope)
       {
-        implementations[d] = .concrete(c)
-      } else {
-        notes.insert(.note(trait: trait, requiresInitializer: requiredType, at: declSite))
+        implementations[requirement] = .concrete(c)
+        return
       }
-    }
 
-    /// Checks if requirement `d` is satisfied by `model`, extending `implementations` if it is or
-    /// reporting a diagnostic in `notes` otherwise.
-    func checkSatisfied(function d: FunctionDecl.ID) {
-      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
-      guard !requiredType[.hasError] else { return }
-
-      let t = relations.canonical(requiredType)
-      let requiredName = Name(of: d, in: ast)!
-      if let c = implementation(
-        of: requiredName, in: model,
-        withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: useScope)
-      {
-        implementations[d] = .concrete(c)
-      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
-        implementations[d] = .synthetic(i)
+      if let k = ast.synthesizedImplementation(of: requirement, definedBy: trait) {
+        let i = SynthesizedDecl(k, typed: requiredType, in: useScope)
+        implementations[requirement] = .synthetic(i)
         synthesizedDecls[program.module(containing: source), default: []].append(i)
-      } else {
-        notes.insert(
-          .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+        return
       }
+
+      let note = Diagnostic.note(
+        trait: trait, requires: requirement.kind, named: requiredName, typed: requiredType,
+        at: declSite)
+      notes.insert(note)
     }
 
-    /// Checks if requirement `d` of a method bunde named `m` is satisfied by `model`, extending
-    /// `implementations` if it is or reporting a diagnostic in `notes` otherwise.
-    func checkSatisfied(variant d: MethodImpl.ID, inMethod m: Name) {
-      let requiredType = specialized(realize(decl: d), applying: specializations, in: useScope)
-      guard !requiredType[.hasError] else { return }
-
-      let t = relations.canonical(requiredType)
-      if let c = implementation(
-        of: m, in: model,
-        withCallableType: LambdaType(t)!, specializedWith: specializations,
-        exposedTo: useScope)
-      {
-        implementations[d] = .concrete(c)
-      } else if let i = synthesizedImplementation(of: d, for: t, in: useScope) {
-        implementations[d] = .synthetic(i)
-        synthesizedDecls[program.module(containing: d), default: []].append(i)
-      } else {
-        let requiredName = m.appending(ast[d].introducer.value)!
-        notes.insert(
-          .note(trait: trait, requiresMethod: requiredName, withType: requiredType, at: declSite))
+    /// Returns the type of `candidate` viewed as a member of `model` satisfying a requirement in
+    /// `concept`, or `nil` if this type could not be realized.
+    func candidateType<T: Decl>(_ candidate: T.ID) -> AnyType? {
+      let t = realize(decl: candidate)
+      if t[.hasError] {
+        return nil
       }
+
+      let u = specialized(t, applying: specializations, in: useScope)
+      return relations.canonical(u)
     }
   }
 
@@ -1018,45 +1008,6 @@ public struct TypeChecker {
     return viableCandidates.uniqueElement
   }
 
-  /// Returns the synthesized implementation of requirement `r` for type `t` in given `useScope`,
-  /// or `nil` if `r` is not synthesizable.
-  private func synthesizedImplementation<T: DeclID>(
-    of r: T, for t: AnyType, in useScope: AnyScopeID
-  ) -> SynthesizedDecl? {
-    guard let s = program.innermostType(containing: r).map(TraitDecl.ID.init(_:)) else {
-      return nil
-    }
-
-    // If the requirement is defined in `Destructible`, it must be the deinitialization method.
-    if s == ast.deinitializableTrait.decl {
-      assert(r.kind == FunctionDecl.self)
-      return .init(.deinitialize, for: t, in: useScope)
-    }
-
-    // If the requirement is defined in `Movable`, it must be either the move-initialization or
-    // move-assignment method.
-    if s == ast.movableTrait.decl {
-      let d = MethodImpl.ID(r)!
-      switch ast[d].introducer.value {
-      case .set:
-        return .init(.moveInitialization, for: t, in: useScope)
-      case .inout:
-        return .init(.moveAssignment, for: t, in: useScope)
-      default:
-        unreachable()
-      }
-    }
-
-    // If the requirement is defined in `Copyable`, it must be the copy method.
-    if s == ast.copyableTrait.decl {
-      assert(r.kind == FunctionDecl.self)
-      return .init(.copy, for: t, in: useScope)
-    }
-
-    // Requirement is not synthesizable.
-    return nil
-  }
-
   /// Type checks `s`.
   private mutating func check<T: StmtID>(stmt s: T) {
     switch s.kind {
@@ -1098,7 +1049,7 @@ public struct TypeChecker {
     // Target type must be `Movable`.
     guard let targetType = checkedType(of: ast[s].left) else { return }
     let lhsConstraint = ConformanceConstraint(
-      targetType, conformsTo: [ast.movableTrait],
+      targetType, conformsTo: ast.movableTrait,
       origin: ConstraintOrigin(.initializationOrAssignment, at: ast[s].site))
 
     // Source type must be subtype of the target type.
@@ -1815,7 +1766,7 @@ public struct TypeChecker {
   }
 
   /// Returns the declarations of `name` interpreted as an intrinsic type alias (e.g., `Never` or
-  /// `Sum<A, B>`) parameterized by `arguments`, or `nil` if an error occured.
+  /// `Union<A, B>`) parameterized by `arguments`, or `nil` if an error occured.
   private mutating func resolve(
     intrinsic name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue],
@@ -1840,8 +1791,8 @@ public struct TypeChecker {
     case "Builtin" where isBuiltinModuleVisible:
       return [.builtinModule]
 
-    case "Sum":
-      return resolve(sum: name, parameterizedBy: arguments)
+    case "Union":
+      return resolve(union: name, parameterizedBy: arguments)
 
     case "Self":
       guard let t = realizeReceiver(in: useScope) else {
@@ -1858,15 +1809,15 @@ public struct TypeChecker {
     }
   }
 
-  /// Resolves `name` as a reference to a sum type parameterized by `arguments`.
+  /// Resolves `name` as a reference to a union type parameterized by `arguments`.
   private mutating func resolve(
-    sum name: SourceRepresentable<Name>,
+    union name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue]
   ) -> NameResolutionResult.CandidateSet {
     var elements: [AnyType] = []
     for a in arguments {
       guard let t = a as? AnyType else {
-        report(.error(valueInSumTypeAt: name.site))
+        report(.error(valueInUnionTypeAt: name.site))
         return [.intrinsic(.error)]
       }
       elements.append(t)
@@ -1874,13 +1825,13 @@ public struct TypeChecker {
 
     switch arguments.count {
     case 0:
-      report(.warning(sumTypeWithZeroElementsAt: name.site))
+      report(.warning(unionTypeWithZeroElementsAt: name.site))
       return [.intrinsic(^MetatypeType(of: .never))]
     case 1:
-      report(.error(sumTypeWithOneElementAt: name.site))
+      report(.error(unionTypeWithOneElementAt: name.site))
       return [.intrinsic(.error)]
     default:
-      return [.intrinsic(^MetatypeType(of: SumType(elements)))]
+      return [.intrinsic(^MetatypeType(of: UnionType(elements)))]
     }
   }
 

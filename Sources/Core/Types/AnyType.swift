@@ -59,7 +59,7 @@ public struct AnyType: TypeProtocol {
   public static let any = ^ExistentialType(traits: [], constraints: [])
 
   /// Val's `Never` type.
-  public static let never = ^SumType([])
+  public static let never = ^UnionType([])
 
   /// Val's `Void` type.
   public static let void = ^TupleType([])
@@ -100,7 +100,7 @@ public struct AnyType: TypeProtocol {
     switch base {
     case is ExistentialType, is LambdaType, is TypeVariable:
       return false
-    case let type as SumType:
+    case let type as UnionType:
       return type.elements.isEmpty
     default:
       return true
@@ -118,6 +118,18 @@ public struct AnyType: TypeProtocol {
   public var isBuiltin: Bool {
     precondition(self[.isCanonical])
     return base is BuiltinType
+  }
+
+  /// Indicates whether `self` is a built-in integer type.
+  ///
+  /// - Requires: `self` is canonical.
+  public var isBuiltinInteger: Bool {
+    precondition(self[.isCanonical])
+    if let b = BuiltinType(self) {
+      return b.isInteger
+    } else {
+      return false
+    }
   }
 
   /// Indicates whether `self` is Val's `Void` or `Never` type.

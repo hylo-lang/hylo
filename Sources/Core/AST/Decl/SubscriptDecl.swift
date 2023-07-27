@@ -1,5 +1,7 @@
 /// A subscript declaration.
-public struct SubscriptDecl: GenericDecl, GenericScope {
+public struct SubscriptDecl: BundleDecl, GenericDecl, GenericScope {
+
+  public typealias Variant = SubscriptImpl
 
   public enum Introducer: Codable {
 

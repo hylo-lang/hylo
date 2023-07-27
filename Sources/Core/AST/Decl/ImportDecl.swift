@@ -1,8 +1,6 @@
 /// An import declaration.
 public struct ImportDecl: SingleEntityDecl {
 
-  public static let manglingOperator = ManglingOperator.importDecl
-
   public let site: SourceRange
 
   /// The site of the declaration's introducer.

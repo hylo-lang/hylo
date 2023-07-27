@@ -13,10 +13,13 @@ import Utils
 ///
 /// The emitter transforms well-formed, typed ASTs to a representation suitable for flow-sensitive
 /// analysis and code generation.
-public struct Emitter {
+struct Emitter {
 
   /// The program being lowered.
-  public let program: TypedProgram
+  private let program: TypedProgram
+
+  /// The diagnostics of lowering errors.
+  private(set) var diagnostics: DiagnosticSet = []
 
   /// The module into which new IR is inserted.
   private var module: Module!
@@ -27,11 +30,8 @@ public struct Emitter {
   /// A stack of frames describing the variables and allocations of each traversed lexical scope.
   private var frames = Stack()
 
-  /// The diagnostics of lowering errors.
-  private var diagnostics: DiagnosticSet = []
-
   /// Creates an emitter with a well-typed AST.
-  public init(program: TypedProgram) {
+  init(program: TypedProgram) {
     self.program = program
   }
 
@@ -60,6 +60,11 @@ public struct Emitter {
     diagnostics.insert(d)
   }
 
+  /// Appends a new basic block at the end of `self.insertionBlock.function`.
+  private mutating func appendBlock() -> Block.ID {
+    module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
+  }
+
   /// Appends `newInstruction` into `self.module`, at the end of `self.insertionBlock`.
   @discardableResult
   private mutating func append<I: Instruction>(_ newInstruction: I) -> [Operand] {
@@ -68,28 +73,29 @@ public struct Emitter {
 
   // MARK: Declarations
 
-  /// Inserts the IR for the top-level declarations of `d` into `module`, reporting errors and
-  /// warnings to `diagnostics`.
-  mutating func lower(
-    module d: ModuleDecl.ID,
-    into module: inout Module,
-    diagnostics: inout DiagnosticSet
-  ) {
-    self.module = module
-    swap(&self.diagnostics, &diagnostics)
-    defer {
-      module = self.module.release()
-      swap(&self.diagnostics, &diagnostics)
+  /// Inserts the IR for the top-level declarations of `d` into `module`, accumulating diagnostics
+  /// in `self.diagnostics`.
+  mutating func lower(module d: ModuleDecl.ID, into module: inout Module) {
+    insertingIR(into: &module) { (this) in
+      for u in this.program.ast.topLevelDecls(d) {
+        this.lower(topLevel: u)
+      }
     }
+  }
 
-    // Lower the top-level declarations.
-    for u in ast.topLevelDecls(d) {
-      lower(topLevel: u)
-    }
+  /// Inserts the IR for the synthesized declarations of `module`, accumulating diagnostics
+  /// in `self.diagnostics`.
+  mutating func generateSyntheticImplementations(in module: inout Module) {
+    insertingIR(into: &module) { (this) in
+      for d in this.program.synthesizedDecls[this.module.id, default: []] {
+        this.lower(synthesized: d)
+      }
 
-    // Lower the synthesized implementations.
-    for i in program.synthesizedDecls[d, default: []] {
-      lower(synthesized: i)
+      var i = 0
+      while i < this.module.synthesizedDecls.count {
+        this.lower(synthesized: this.module.synthesizedDecls[i])
+        i += 1
+      }
     }
   }
 
@@ -449,12 +455,12 @@ public struct Emitter {
 
         if program.relations.areEquivalent(lhsPartType, rhsPartType) {
           emitStore(value: rhs, to: lhsPart)
-        } else if lhsPartType.base is SumType {
+        } else if lhsPartType.base is UnionType {
           let x0 = append(
-            module.makeOpenSum(
+            module.makeOpenUnion(
               lhsPart, as: rhsPartType, forInitialization: true, at: ast[p].site))[0]
           emitStore(value: rhs, to: x0)
-          append(module.makeCloseSum(x0, at: ast[p].site))
+          append(module.makeCloseUnion(x0, at: ast[p].site))
         } else {
           fatalError("not implemented")
         }
@@ -531,47 +537,45 @@ public struct Emitter {
   /// Returns the lowered conformances of `model` that are exposed to `useScope`.
   private mutating func loweredConformances(
     of model: AnyType, exposedTo useScope: AnyScopeID
-  ) -> Set<LoweredConformance> {
+  ) -> Set<IR.Conformance> {
     guard let conformances = program.relations.conformances[model] else { return [] }
 
-    var result: Set<LoweredConformance> = []
+    var result: Set<IR.Conformance> = []
     for concept in conformances.keys {
       let c = program.conformance(of: model, to: concept, exposedTo: useScope)!
-      result.insert(loweredConformance(c, in: useScope))
+      result.insert(loweredConformance(c))
     }
     return result
   }
 
   /// Returns the lowered form of `c`, generating function references in `useScope`.
-  private mutating func loweredConformance(
-    _ c: Conformance, in useScope: AnyScopeID
-  ) -> LoweredConformance {
-    var implementations = LoweredConformance.ImplementationMap()
+  private mutating func loweredConformance(_ c: Core.Conformance) -> IR.Conformance {
+    var implementations = IR.Conformance.ImplementationMap()
     for (r, i) in c.implementations.storage {
       switch i {
       case .concrete(let d):
-        implementations[r] = loweredRequirementImplementation(d, in: useScope)
+        implementations[r] = loweredRequirementImplementation(d)
 
       case .synthetic(let d):
-        let f = lower(synthesized: d)
-        implementations[r] = .function(.init(to: f, usedIn: useScope, in: module))
+        lower(synthesized: d)
+        implementations[r] = .function(.init(to: .init(d), in: module))
       }
     }
 
-    return .init(concept: c.concept, source: c.source, implementations: implementations)
+    return .init(concept: c.concept, implementations: implementations)
   }
 
   /// Returns the lowered form of the requirement implementation `d` in `useScope`.
   private mutating func loweredRequirementImplementation(
-    _ d: AnyDeclID, in useScope: AnyScopeID
-  ) -> LoweredConformance.Implementation {
+    _ d: AnyDeclID
+  ) -> IR.Conformance.Implementation {
     switch d.kind {
     case FunctionDecl.self:
-      let r = FunctionReference(to: FunctionDecl.ID(d)!, usedIn: useScope, in: &module)
+      let r = FunctionReference(to: FunctionDecl.ID(d)!, in: &module)
       return .function(r)
 
     case InitializerDecl.self:
-      let r = FunctionReference(to: InitializerDecl.ID(d)!, usedIn: useScope, in: &module)
+      let r = FunctionReference(to: InitializerDecl.ID(d)!, in: &module)
       return .function(r)
 
     default:
@@ -579,9 +583,8 @@ public struct Emitter {
     }
   }
 
-  /// Synthesizes the implementation of `d`, returning the ID of the corresponding IR function.
-  @discardableResult
-  private mutating func lower(synthesized d: SynthesizedDecl) -> Function.ID {
+  /// Synthesizes the implementation of `d`.
+  private mutating func lower(synthesized d: SynthesizedDecl) {
     switch d.kind {
     case .deinitialize:
       return withClearContext({ $0.lower(syntheticDeinit: d) })
@@ -594,14 +597,11 @@ public struct Emitter {
     }
   }
 
-  /// Inserts the IR for `d`, which is a synthetic deinitializer, returning the ID of the lowered
-  /// function.
-  private mutating func lower(syntheticDeinit d: SynthesizedDecl) -> Function.ID {
-    let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: ast.deinitRequirement(), for: ^t)
-    module.declareSyntheticFunction(f, typed: t)
+  /// Inserts the IR for `d`, which is a synthetic deinitializer.
+  private mutating func lower(syntheticDeinit d: SynthesizedDecl) {
+    let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return f
+      return
     }
 
     let site = ast[module.id].site
@@ -613,33 +613,21 @@ public struct Emitter {
       assert(self.frames.isEmpty)
     }
 
+    // The receiver is a sink parameter representing the object to deinitialize.
     let receiver = Operand.parameter(entry, 0)
-
-    switch program.relations.canonical(t.output).base {
-    case is ProductType, is TupleType:
-      let success = Emitter.insertDeinit(
-        record: receiver, usingDeinitializerExposedTo: insertionScope!, at: site,
-        .at(endOf: entry), in: &module)
-      assert(success, "deinitialization is not synthesizable")
-
-    default:
-      fatalError("not implemented")
-    }
+    let s = emitDeinitParts(of: receiver, at: site)
+    assert(s, "deinitialization is not synthesizable")
 
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
-    return f
   }
 
-  /// Inserts the IR for `d`, which is a synthetic move initialization method, returning the ID of
-  /// the lowered function.
-  private mutating func lower(syntheticMoveInit d: SynthesizedDecl) -> Function.ID {
-    let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: ast.moveRequirement(.set), for: ^t)
-    module.declareSyntheticFunction(f, typed: t)
+  /// Inserts the IR for `d`, which is a synthetic move initialization method.
+  private mutating func lower(syntheticMoveInit d: SynthesizedDecl) {
+    let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return f
+      return
     }
 
     let site = ast[module.id].site
@@ -653,46 +641,110 @@ public struct Emitter {
 
     let receiver = Operand.parameter(entry, 0)
     let argument = Operand.parameter(entry, 1)
+    let object = module.type(of: receiver).ast
 
-    switch program.relations.canonical(t.output).base {
-    case is ProductType, is TupleType:
-      let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
-
-      // If the object is empty, simply mark it initialized.
-      if layout.properties.isEmpty {
-        let x0 = append(module.makeUnsafeCast(.void, to: layout.type, at: site))[0]
-        let x1 = append(module.makeBorrow(.set, from: receiver, at: site))[0]
-        append(module.makeStore(x0, at: x1, at: site))
-        emitDeinit(argument, at: site)
-        break
-      }
-
-      // Otherwise, move initialize each property.
-      for i in layout.properties.indices {
-        let source = emitSubfieldView(argument, at: [i], at: site)
-        let target = emitSubfieldView(receiver, at: [i], at: site)
-        let part = append(module.makeLoad(source, at: site))[0]
-        emitStore(value: part, to: target, at: site)
-      }
-
-    default:
-      fatalError("not implemented")
+    if object.hasRecordLayout {
+      emitMoveInitRecordParts(of: receiver, consuming: argument, at: site)
+    } else if object.base is UnionType {
+      emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
     }
 
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
-    return f
   }
 
-  /// Inserts the IR for `d`, which is a synthetic move initialization method, returning the ID of
-  /// the lowered function.
-  private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) -> Function.ID {
-    let t = LambdaType(d.type)!
-    let f = Function.ID(synthesized: ast.moveRequirement(.inout), for: ^t)
-    module.declareSyntheticFunction(f, typed: t)
+  /// Inserts the IR for initializing the stored parts of `receiver`, which stores a record,
+  /// consuming `argument` at `site`.
+  private mutating func emitMoveInitRecordParts(
+    of receiver: Operand, consuming argument: Operand, at site: SourceRange
+  ) {
+    let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
+
+    // If the object is empty, simply mark it initialized.
+    if layout.properties.isEmpty {
+      append(module.makeMarkState(receiver, initialized: true, at: site))
+      emitDeinit(argument, at: site)
+      return
+    }
+
+    // Otherwise, move initialize each property.
+    for i in layout.properties.indices {
+      let source = emitSubfieldView(argument, at: [i], at: site)
+      let target = emitSubfieldView(receiver, at: [i], at: site)
+      let part = append(module.makeLoad(source, at: site))[0]
+      emitStore(value: part, to: target, at: site)
+    }
+  }
+
+  /// Inserts the IR for initializing the payload of `receiver`, which stores a union container,
+  /// consuming `argument` at `site`.
+  private mutating func emitMoveInitUnionPayload(
+    of receiver: Operand, consuming argument: Operand, at site: SourceRange
+  ) {
+    let t = UnionType(module.type(of: receiver).ast)!
+
+    // If union is empty, simply mark it initialized.
+    if t.elements.isEmpty {
+      append(module.makeMarkState(receiver, initialized: true, at: site))
+      emitDeinit(argument, at: site)
+      return
+    }
+
+    // Trivial if the union has a single member.
+    if let e = t.elements.uniqueElement {
+      emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: e, at: site)
+      return
+    }
+
+    // Otherwise, use a switch to select the correct move-initialization.
+    let elements = program.discriminatorToElement(in: t)
+    var successors: [Block.ID] = []
+    for _ in t.elements {
+      successors.append(appendBlock())
+    }
+
+    let n = append(module.makeUnionDiscriminator(argument, at: site))[0]
+    append(module.makeSwitch(on: n, toOneOf: successors, at: site))
+
+    let tail = appendBlock()
+    for i in 0 ..< elements.count {
+      insertionBlock = successors[i]
+      emitMoveInitUnionPayload(
+        of: receiver, consuming: argument, containing: elements[i], at: site)
+      append(module.makeBranch(to: tail, at: site))
+    }
+
+    insertionBlock = tail
+  }
+
+  /// Inserts the IR for initializing the payload of `receiver`, which stores a union containing
+  /// a `payload`, consuming `argument` at `site`.
+  ///
+  /// - Requires: the type of `storage` is a union containing a `payload`.
+  private mutating func emitMoveInitUnionPayload(
+    of receiver: Operand, consuming argument: Operand, containing payload: AnyType,
+    at site: SourceRange
+  ) {
+    // Deinitialize the receiver.
+    let x0 = append(module.makeOpenUnion(receiver, as: payload, at: site))[0]
+    emitDeinit(x0, at: site)
+
+    // Move the argument.
+    let x1 = append(module.makeOpenUnion(argument, as: payload, at: site))[0]
+    let c = program.conformanceToMovable(of: payload, exposedTo: insertionScope!)!
+    emitMove(.set, of: x1, to: x0, withConformanceToMovable: c, at: site)
+
+    // Close the unions.
+    append(module.makeCloseUnion(x0, at: site))
+    append(module.makeCloseUnion(x1, at: site))
+  }
+
+  /// Inserts the IR for `d`, which is a synthetic move initialization method.
+  private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) {
+    let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return f
+      return
     }
 
     let site = ast[module.id].site
@@ -718,7 +770,6 @@ public struct Emitter {
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     append(module.makeReturn(at: site))
-    return f
   }
 
   // MARK: Statements
@@ -817,7 +868,7 @@ public struct Emitter {
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
     let (firstBranch, secondBranch) = emitTest(condition: ast[s].condition, in: AnyScopeID(s))
-    let tail = module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
+    let tail = appendBlock()
 
     insertionBlock = firstBranch
     switch emit(braceStmt: ast[s].success) {
@@ -1075,7 +1126,7 @@ public struct Emitter {
 
   private mutating func emitStore(conditional e: ConditionalExpr.ID, to storage: Operand) {
     let (success, failure) = emitTest(condition: ast[e].condition, in: AnyScopeID(e))
-    let tail = module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
+    let tail = appendBlock()
 
     // Emit the success branch.
     insertionBlock = success
@@ -1136,8 +1187,7 @@ public struct Emitter {
   private mutating func emitStore(lambda e: LambdaExpr.ID, to storage: Operand) {
     let f = lower(function: ast[e].decl)
     let r = FunctionReference(
-      to: f, parameterizedBy: module.parameterization(in: insertionBlock!.function),
-      usedIn: insertionScope!, in: module)
+      to: f, parameterizedBy: module.parameterization(in: insertionBlock!.function), in: module)
 
     let x0 = append(module.makePartialApply(wrapping: r, with: .void, at: ast[e].site))[0]
     let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
@@ -1183,8 +1233,7 @@ public struct Emitter {
 
       // The callee must be a reference to member function.
       guard case .member(let d, _, _) = program[callee.expr].referredDecl else { unreachable() }
-      let oper = Operand.constant(
-        FunctionReference(to: FunctionDecl.ID(d)!, usedIn: insertionScope!, in: &module))
+      let oper = Operand.constant(FunctionReference(to: FunctionDecl.ID(d)!, in: &module))
 
       // Emit the call.
       let site = ast.site(of: e)
@@ -1339,10 +1388,7 @@ public struct Emitter {
     let receiver = append(module.makeBorrow(.set, from: s, at: ast[call].site))[0]
 
     // Call is evaluated last.
-    let f = FunctionReference(
-      to: d, parameterizedBy: a,
-      usedIn: insertionScope!, in: &module)
-
+    let f = FunctionReference(to: d, parameterizedBy: a, in: &module)
     let x0 = emitAllocStack(for: .void, at: ast[call].site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: ast[call].site))[0]
     append(
@@ -1519,16 +1565,12 @@ public struct Emitter {
       }
 
       let p = module.parameterization(in: insertionBlock!.function).appending(a)
-      let r = FunctionReference(
-        to: FunctionDecl.ID(d)!, parameterizedBy: p,
-        usedIn: insertionScope!, in: &module)
+      let r = FunctionReference(to: FunctionDecl.ID(d)!, parameterizedBy: p, in: &module)
       return (.constant(r), [])
 
     case .member(let d, let a, let s) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
-      let r = FunctionReference(
-        to: FunctionDecl.ID(d)!, parameterizedBy: a,
-        usedIn: insertionScope!, in: &module)
+      let r = FunctionReference(to: FunctionDecl.ID(d)!, parameterizedBy: a, in: &module)
 
       // The callee's receiver is the sole capture.
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
@@ -1670,9 +1712,7 @@ public struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(
-        to: InitializerDecl.ID(m)!,
-        usedIn: insertionScope!, in: &module)
+      let convert = FunctionReference(to: InitializerDecl.ID(m)!, in: &module)
       let t = LambdaType(convert.type.ast)!.output
 
       let x0 = emitAllocStack(for: ir, at: site)
@@ -1703,9 +1743,7 @@ public struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(
-        to: FunctionDecl.ID(m)!,
-        usedIn: insertionScope!, in: &module)
+      let convert = FunctionReference(to: FunctionDecl.ID(m)!, in: &module)
       let t = LambdaType(convert.type.ast)!.output
 
       let x0 = append(module.makeBorrow(.let, from: o, at: site))
@@ -1734,7 +1772,7 @@ public struct Emitter {
 
   /// Returns the witness table of `t` in `s`.
   private mutating func emitWitnessTable(of t: AnyType, usedIn s: AnyScopeID) -> WitnessTable {
-    .init(for: t, conformingTo: loweredConformances(of: t, exposedTo: s))
+    .init(for: t, conformingTo: loweredConformances(of: t, exposedTo: s), in: s)
   }
 
   // MARK: l-values
@@ -1931,7 +1969,7 @@ public struct Emitter {
   /// exposed to `useScope`. The deinitializers of product types are searched by looking up their
   /// conformance to `Val.Deinitializable`. The deinitializers of other types are synthesized.
   static func insertDeinit(
-    _ storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID, at site: SourceRange,
+    _ storage: Operand, exposedTo useScope: AnyScopeID, at site: SourceRange,
     _ point: InsertionPoint, in module: inout Module
   ) -> Bool {
     // Use custom conformance to `Deinitializable` if possible.
@@ -1942,7 +1980,7 @@ public struct Emitter {
     }
 
     switch t.base {
-    case is BuiltinType, is MetatypeType, AnyType.void, AnyType.never:
+    case is BuiltinType, is MetatypeType:
       module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
       return true
 
@@ -1954,16 +1992,6 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
-    case is SumType:
-      // TODO: implement me.
-      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
-      return true
-
-    case is TupleType:
-      return insertDeinit(
-        record: storage, usingDeinitializerExposedTo: useScope, at: site,
-        point, in: &module)
-
     default:
       break
     }
@@ -1971,14 +1999,14 @@ public struct Emitter {
     return false
   }
 
-  /// Inserts the IR for deinitializing the contents of `storage` at `point` in `module`, using `c`
-  /// to identify the deinitializer to apply, anchoring new instructions to `site`.
+  /// Inserts the IR for deinitializing `storage` at `point` in `module`, using `c` to identify the
+  /// deinitializer to apply and anchoring new instructions to `site`.
   private static func insertDeinit(
-    _ storage: Operand, withConformanceToDeinitializable c: Conformance, at site: SourceRange,
-    _ point: InsertionPoint, in module: inout Module
+    _ storage: Operand, withConformanceToDeinitializable c: Core.Conformance,
+    at site: SourceRange, _ point: InsertionPoint, in module: inout Module
   ) {
     let d = module.demandDeinitDeclaration(from: c)
-    let f = Operand.constant(FunctionReference(to: d, usedIn: c.scope, in: module))
+    let f = Operand.constant(FunctionReference(to: d, in: module))
 
     let x0 = module.insert(module.makeLoad(storage, at: site), point)[0]
     let x1 = module.insert(module.makeAllocStack(.void, at: site), point)[0]
@@ -1989,13 +2017,14 @@ public struct Emitter {
     module.insert(module.makeDeallocStack(for: x1, at: site), point)
   }
 
-  /// If `storage`, which holds a record, is deinitializable, inserts the IR for deinitializing its
-  /// contents at `point` in `module`, using `useScope` to lookup deinitializers, anchoring new
-  /// instructions to `site`, and returning `true`. Otherwise, returns `false`.
-  private static func insertDeinit(
-    record storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID,
-    at site: SourceRange,
-    _ point: InsertionPoint, in module: inout Module
+  /// Inserts the IR for deinitializing the stored parts of `storage`, which stores a record, at
+  /// `point` in `module`, using `useScope` to lookup deinitializers, anchoring new instructions to
+  /// `site`, and returning `true` iff all parts are deinitializable.
+  ///
+  /// - Requires: the type of `storage` has a record layout.
+  private static func insertDeinitRecordParts(
+    of storage: Operand, usingDeinitializersExposedTo useScope: AnyScopeID,
+    at site: SourceRange, _ point: InsertionPoint, in module: inout Module
   ) -> Bool {
     let t = module.type(of: storage).ast
     precondition(t.hasRecordLayout)
@@ -2013,11 +2042,81 @@ public struct Emitter {
     for i in layout.properties.indices {
       let x0 = module.insert(
         module.makeSubfieldView(of: storage, subfield: [i], at: site), point)[0]
-      r =
-        insertDeinit(
-          x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module) && r
+      r = insertDeinit(x0, exposedTo: useScope, at: site, point, in: &module) && r
     }
     return r
+  }
+
+  /// Inserts the IR for deinitializing the stored parts of `storage` at `site`, returning `true`
+  /// iff all parts are deinitializable.
+  private mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) -> Bool {
+    let t = module.type(of: storage).ast
+
+    if t.hasRecordLayout {
+      return Emitter.insertDeinitRecordParts(
+        of: storage, usingDeinitializersExposedTo: insertionScope!, at: site,
+        .at(endOf: insertionBlock!), in: &module)
+    }
+
+    if t.base is UnionType {
+      return emitDeinitUnionPayload(of: storage, at: site)
+    }
+
+    return false
+  }
+
+  /// Inserts the IR for deinitializing the payload of `storage`, which stores a union container,
+  /// at `site`, returning `true` iff the payload is deinitializable.
+  ///
+  /// - Requires: the type of `storage` is a union.
+  private mutating func emitDeinitUnionPayload(of storage: Operand, at site: SourceRange) -> Bool {
+    let t = UnionType(module.type(of: storage).ast)!
+
+    // If union is empty, simply mark it uninitialized.
+    if t.elements.isEmpty {
+      append(module.makeMarkState(storage, initialized: false, at: site))
+      return true
+    }
+
+    // Trivial if the union has a single member.
+    if let e = t.elements.uniqueElement {
+      return emitDeinitUnionPayload(of: storage, containing: e, at: site)
+    }
+
+    // One successor per member in the union, ordered by their mangled representation.
+    let elements = program.discriminatorToElement(in: t)
+    var successors: [Block.ID] = []
+    for _ in t.elements {
+      successors.append(appendBlock())
+    }
+
+    let n = append(module.makeUnionDiscriminator(storage, at: site))[0]
+    append(module.makeSwitch(on: n, toOneOf: successors, at: site))
+
+    let tail = appendBlock()
+    var success = true
+    for i in 0 ..< elements.count {
+      insertionBlock = successors[i]
+      success = emitDeinitUnionPayload(of: storage, containing: elements[i], at: site) && success
+      append(module.makeBranch(to: tail, at: site))
+    }
+
+    insertionBlock = tail
+    return success
+  }
+
+  /// Inserts the IR for deinitializing the payload of `storage`, which stores a union containing
+  /// a `payload`, at `site`, returning `true` iff the payload is deinitializable.
+  ///
+  /// - Requires: the type of `storage` is a union containing a `payload`.
+  private mutating func emitDeinitUnionPayload(
+    of storage: Operand, containing payload: AnyType, at site: SourceRange
+  ) -> Bool {
+    let x0 = append(module.makeOpenUnion(storage, as: payload, at: site))[0]
+    defer { append(module.makeCloseUnion(x0, at: site)) }
+
+    return Emitter.insertDeinit(
+      x0, exposedTo: insertionScope!, at: site, .at(endOf: insertionBlock!), in: &module)
   }
 
   // MARK: Helpers
@@ -2058,7 +2157,7 @@ public struct Emitter {
   /// Inserts the IR for deinitializing `storage`, anchoring new instructions at `site`.
   private mutating func emitDeinit(_ storage: Operand, at site: SourceRange) {
     let success = Emitter.insertDeinit(
-      storage, usingDeinitializerExposedTo: insertionScope!, at: site,
+      storage, exposedTo: insertionScope!, at: site,
       .at(endOf: insertionBlock!), in: &module)
 
     if !success {
@@ -2075,11 +2174,11 @@ public struct Emitter {
     _ access: AccessEffect,
     of value: Operand,
     to storage: Operand,
-    withConformanceToMovable c: Conformance,
+    withConformanceToMovable c: Core.Conformance,
     at site: SourceRange
   ) {
     let oper = module.demandMoveOperatorDeclaration(access, from: c)
-    let move = Operand.constant(FunctionReference(to: oper, usedIn: c.scope, in: module))
+    let move = Operand.constant(FunctionReference(to: oper, in: module))
 
     let x0 = append(module.makeBorrow(access, from: storage, at: site))[0]
     let x1 = emitAllocStack(for: .void, at: site)
@@ -2104,13 +2203,22 @@ public struct Emitter {
   /// Emits the IR trapping iff `predicate`, which is an object of type `i1`, anchoring new
   /// instructions at `site`.
   private mutating func emitGuard(_ predicate: Operand, at site: SourceRange) {
-    let failure = module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
-    let success = module.appendBlock(in: insertionScope!, to: insertionBlock!.function)
+    let failure = appendBlock()
+    let success = appendBlock()
     append(module.makeCondBranch(if: predicate, then: success, else: failure, at: site))
 
     insertionBlock = failure
     append(module.makeUnreachable(at: site))
     insertionBlock = success
+  }
+
+  /// Returns the result of calling `action` on a copy of `self` inserting IR into `module`.
+  private mutating func insertingIR<T>(
+    into module: inout Module, _ action: (inout Self) -> T
+  ) -> T {
+    self.module = module
+    defer { module = self.module.release() }
+    return action(&self)
   }
 
   /// Returns the result of calling `action` on a copy of `self` in which a `newFrame` is the top

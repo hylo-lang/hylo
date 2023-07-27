@@ -162,7 +162,7 @@ public struct ValCommand: ParsableCommand {
 
     // IR
 
-    var ir = try lower(program: program, reportingDiagnosticsInto: &diagnostics)
+    var ir = try lower(program: program, reportingDiagnosticsTo: &diagnostics)
 
     if outputType == .ir || outputType == .rawIR {
       let m = ir.modules[sourceModule]!
@@ -211,35 +211,35 @@ public struct ValCommand: ParsableCommand {
     #endif
   }
 
-  /// Returns `program` lowered to Val IR, accumulating diagnostics into `log` and throwing if an
+  /// Returns `program` lowered to Val IR, accumulating diagnostics in `log` and throwing if an
   /// error occured.
   ///
   /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
   private func lower(
-    program: TypedProgram, reportingDiagnosticsInto log: inout DiagnosticSet
-  ) throws -> IR.LoweredProgram {
+    program: TypedProgram, reportingDiagnosticsTo log: inout DiagnosticSet
+  ) throws -> IR.Program {
     var loweredModules: [ModuleDecl.ID: IR.Module] = [:]
     for d in program.ast.modules {
-      loweredModules[d] = try lower(d, in: program, reportingDiagnosticsInto: &log)
+      loweredModules[d] = try lower(d, in: program, reportingDiagnosticsTo: &log)
     }
 
-    var ir = IR.LoweredProgram(syntax: program, modules: loweredModules)
+    var ir = IR.Program(syntax: program, modules: loweredModules)
     if let t = transforms {
       for p in t.elements { ir.applyPass(p) }
     }
     return ir
   }
 
-  /// Returns `m`, which is `program`, lowered to Val IR, accumulating diagnostics into `log` and
+  /// Returns `m`, which is `program`, lowered to Val IR, accumulating diagnostics in `log` and
   /// throwing if an error occured.
   ///
   /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
   private func lower(
-    _ m: ModuleDecl.ID, in program: TypedProgram, reportingDiagnosticsInto log: inout DiagnosticSet
+    _ m: ModuleDecl.ID, in program: TypedProgram, reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws -> IR.Module {
     var ir = try IR.Module(lowering: m, in: program, diagnostics: &log)
     if outputType != .rawIR {
-      try ir.applyMandatoryPasses(reportingDiagnosticsInto: &log)
+      try ir.applyMandatoryPasses(reportingDiagnosticsTo: &log)
     }
     return ir
   }

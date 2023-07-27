@@ -5,7 +5,7 @@ import Utils
 public protocol Instruction: CustomStringConvertible {
 
   /// The types of the instruction's results (empty for instructions with no result).
-  var types: [LoweredType] { get }
+  var types: [IR.`Type`] { get }
 
   /// The operands of the instruction.
   var operands: [Operand] { get }
@@ -24,7 +24,7 @@ public protocol Instruction: CustomStringConvertible {
 extension Instruction {
 
   public var description: String {
-    let n = String(describing: type(of: self)).removingSuffix("Instruction").snakeCased()
+    let n = String(describing: type(of: self)).snakeCased()
     return operands.isEmpty ? String(n) : "\(n) \(list: operands)"
   }
 

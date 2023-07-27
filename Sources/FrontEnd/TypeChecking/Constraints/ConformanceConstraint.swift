@@ -1,29 +1,26 @@
 import Core
 import Utils
 
-/// A constraint `L : T1 & ... & Tn` specifying that `L` conforms to the traits `T1, ..., Tn`.
+/// A constraint `L : T` specifying that `L` conforms to trait `T`.
 struct ConformanceConstraint: Constraint, Hashable {
 
-  /// The type that must conform to the traits in `traits`.
-  private(set) var subject: AnyType
+  /// The type that must conform to `concept`.
+  private(set) var model: AnyType
 
-  /// The traits to which `subject` must conform.
-  let traits: Set<TraitType>
+  /// The trait to which `model` must conform.
+  let concept: TraitType
 
   let origin: ConstraintOrigin
 
   /// Creates an instance with the given properties.
-  init(
-    _ subject: AnyType, conformsTo traits: Set<TraitType>,
-    origin: ConstraintOrigin
-  ) {
-    self.subject = subject
-    self.traits = traits
+  init(_ model: AnyType, conformsTo concept: TraitType, origin: ConstraintOrigin) {
+    self.model = model
+    self.concept = concept
     self.origin = origin
   }
 
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
-    update(&subject, with: transform)
+    update(&model, with: transform)
   }
 
 }
@@ -31,7 +28,7 @@ struct ConformanceConstraint: Constraint, Hashable {
 extension ConformanceConstraint: CustomStringConvertible {
 
   var description: String {
-    "\(subject) : \(list: traits)"
+    "\(model) : \(concept)"
   }
 
 }

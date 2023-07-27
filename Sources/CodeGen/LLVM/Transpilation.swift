@@ -6,7 +6,7 @@ import Utils
 extension LLVM.Module {
 
   /// Creates the LLVM transpilation of the Val IR module `m` in `ir`.
-  init(transpiling m: ModuleDecl.ID, from ir: LoweredProgram) {
+  init(transpiling m: ModuleDecl.ID, from ir: IR.Program) {
     let source = ir.modules[m]!
     self.init(source.name)
 
@@ -19,7 +19,7 @@ extension LLVM.Module {
   }
 
   /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
-  mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
+  mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: IR.Program) {
     let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
     let d = declareGlobalVariable("\(m.id)\(g)", v.type)
     setInitializer(v, for: d)
@@ -28,7 +28,7 @@ extension LLVM.Module {
   }
 
   /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
-  mutating func incorporate(_ f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram) {
+  mutating func incorporate(_ f: IR.Function.ID, of m: IR.Module, from ir: IR.Program) {
     // Don't transpile generic functions.
     if m[f].isGeneric {
       return
@@ -49,14 +49,14 @@ extension LLVM.Module {
   private mutating func defineMain(
     calling f: IR.Function.ID,
     of m: IR.Module,
-    from ir: LoweredProgram
+    from ir: IR.Program
   ) {
     let main = declareFunction("main", FunctionType(from: [], to: i32, in: &self))
 
     let b = appendBlock(to: main)
     let p = endOf(b)
 
-    let transpilation = function(named: ir.mangle(f))!
+    let transpilation = function(named: ir.syntax.mangled(f))!
 
     let val32 = ir.syntax.ast.coreType("Int32")!
     switch m[f].output {
@@ -162,7 +162,7 @@ extension LLVM.Module {
   private mutating func transpiledConstant(
     _ c: any IR.Constant,
     usedIn m: IR.Module,
-    from ir: LoweredProgram
+    from ir: IR.Program
   ) -> LLVM.IRValue {
     switch c {
     case let v as IR.IntegerConstant:
@@ -208,7 +208,7 @@ extension LLVM.Module {
   private mutating func transpiledWitnessTable(
     _ t: WitnessTable,
     usedIn m: IR.Module,
-    from ir: LoweredProgram
+    from ir: IR.Program
   ) -> LLVM.IRValue {
     // A witness table is composed of a header, a trait map, and a (possibly empty) sequence of
     // implementation maps. All parts are laid out inline without any padding.
@@ -265,7 +265,7 @@ extension LLVM.Module {
 
     let table = LLVM.StructConstant(aggregating: tableContents, in: &self)
 
-    let g = declareGlobalVariable(ir.mangle(t), table.type)
+    let g = declareGlobalVariable(ir.syntax.mangled(t), table.type)
     setInitializer(table, for: g)
     setLinkage(.linkOnce, for: g)
     setGlobalConstant(true, for: g)
@@ -274,7 +274,7 @@ extension LLVM.Module {
 
   /// Returns the LLVM IR value of the requirement implementation `i`, which is in `ir`.
   private mutating func transpiledRequirementImplementation(
-    _ i: IR.LoweredConformance.Implementation, from ir: LoweredProgram
+    _ i: IR.Conformance.Implementation, from ir: IR.Program
   ) -> LLVM.Function {
     switch i {
     case .function(let f):
@@ -288,7 +288,7 @@ extension LLVM.Module {
   private mutating func transpiledMetatype(
     of t: AnyType,
     usedIn m: IR.Module,
-    from ir: LoweredProgram
+    from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     switch t.base {
     case let u as ProductType:
@@ -302,10 +302,10 @@ extension LLVM.Module {
   private mutating func transpiledMetatype(
     of t: ProductType,
     usedIn m: IR.Module,
-    from ir: LoweredProgram
+    from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     // Check if we already created the metatype's instance.
-    let globalName = ir.mangle(t)
+    let globalName = ir.syntax.mangled(t)
     if let g = global(named: globalName) {
       return g
     }
@@ -334,10 +334,10 @@ extension LLVM.Module {
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
   private mutating func transpiledTrait(
-    _ t: TraitType, usedIn m: IR.Module, from ir: LoweredProgram
+    _ t: TraitType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     // Check if we already created the trait's instance.
-    let globalName = ir.mangle(t)
+    let globalName = ir.syntax.mangled(t)
     if let g = global(named: globalName) {
       return g
     }
@@ -362,21 +362,21 @@ extension LLVM.Module {
 
   /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
   private mutating func declare(
-    _ ref: IR.FunctionReference, from ir: LoweredProgram
+    _ ref: IR.FunctionReference, from ir: IR.Program
   ) -> LLVM.Function {
     let t = transpiledType(LambdaType(ref.type.ast)!)
-    return declareFunction(ir.mangle(ref.function), t)
+    return declareFunction(ir.syntax.mangled(ref.function), t)
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
   private mutating func declare(
-    function f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram
+    function f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
   ) -> LLVM.Function {
     precondition(!m[f].isSubscript)
 
     // Parameters and return values are passed by reference.
     let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
-    let result = declareFunction(ir.mangle(f), .init(from: parameters, in: &self))
+    let result = declareFunction(ir.syntax.mangled(f), .init(from: parameters, in: &self))
 
     if m[f].output == .never {
       addAttribute(.init(.noreturn, in: &self), to: result)
@@ -387,7 +387,7 @@ extension LLVM.Module {
 
   /// Inserts and returns the transpiled declaration of `f`, which is a subscript of `m` in `ir`.
   private mutating func declare(
-    subscript f: IR.Function.ID, of m: IR.Module, from ir: LoweredProgram
+    subscript f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
   ) -> LLVM.Function {
     precondition(m[f].isSubscript)
 
@@ -396,7 +396,8 @@ extension LLVM.Module {
     // projected value.
     let r = LLVM.StructType([ptr, ptr], in: &self)
     let parameters = Array(repeating: ptr, count: m[f].inputs.count + 1)
-    let coroutine = declareFunction(ir.mangle(f), .init(from: parameters, to: r, in: &self))
+    let coroutine = declareFunction(
+      ir.syntax.mangled(f), .init(from: parameters, to: r, in: &self))
 
     return coroutine
   }
@@ -406,7 +407,7 @@ extension LLVM.Module {
   private mutating func transpile(
     contentsOf f: IR.Function.ID,
     of m: IR.Module,
-    from ir: LoweredProgram,
+    from ir: IR.Program,
     into transpilation: LLVM.Function
   ) {
     /// The function's entry.
@@ -459,59 +460,63 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(_ i: IR.InstructionID) {
       switch m[i] {
-      case is IR.AddressToPointerInstruction:
+      case is IR.AddressToPointer:
         insert(addressToPointer: i)
-      case is IR.AdvancedByBytesInstruction:
+      case is IR.AdvancedByBytes:
         insert(advancedByBytes: i)
-      case is IR.AllocStackInstruction:
+      case is IR.AllocStack:
         insert(allocStack: i)
-      case is IR.BorrowInstruction:
+      case is IR.Borrow:
         insert(borrow: i)
-      case is IR.BranchInstruction:
+      case is IR.Branch:
         insert(branch: i)
-      case is IR.CallInstruction:
+      case is IR.Call:
         insert(call: i)
-      case is IR.CallFFIInstruction:
+      case is IR.CallFFI:
         insert(callFFI: i)
-      case is IR.CloseSumInstruction:
-        insert(closeSum: i)
-      case is IR.CondBranchInstruction:
+      case is IR.CloseUnion:
+        insert(closeUnion: i)
+      case is IR.CondBranch:
         insert(condBranch: i)
-      case is IR.DeallocStackInstruction:
+      case is IR.DeallocStack:
         return
-      case is IR.EndBorrowInstruction:
+      case is IR.EndBorrow:
         return
-      case is IR.EndProjectInstruction:
+      case is IR.EndProject:
         insert(endProjection: i)
-      case is IR.GlobalAddrInstruction:
+      case is IR.GlobalAddr:
         insert(globalAddr: i)
       case is IR.LLVMInstruction:
         insert(llvm: i)
-      case is IR.LoadInstruction:
+      case is IR.Load:
         insert(load: i)
-      case is IR.MarkStateInstruction:
+      case is IR.MarkState:
         return
-      case is IR.OpenSumInstruction:
-        insert(openSum: i)
-      case is IR.PartialApplyInstruction:
+      case is IR.OpenUnion:
+        insert(openUnion: i)
+      case is IR.PartialApply:
         insert(partialApply: i)
-      case is IR.PointerToAddressInstruction:
+      case is IR.PointerToAddress:
         insert(pointerToAddress: i)
-      case is IR.ProjectInstruction:
+      case is IR.Project:
         insert(project: i)
-      case is IR.ReturnInstruction:
+      case is IR.Return:
         insert(return: i)
-      case is IR.StoreInstruction:
+      case is IR.Store:
         insert(store: i)
-      case is IR.SubfieldViewInstruction:
+      case is IR.SubfieldView:
         insert(subfieldView: i)
-      case is IR.UnrechableInstruction:
+      case is IR.Switch:
+        insert(switch: i)
+      case is IR.UnionDiscriminator:
+        insert(unionDiscriminator: i)
+      case is IR.Unrechable:
         insert(unreachable: i)
-      case is IR.UnsafeCastInstruction:
+      case is IR.UnsafeCast:
         insert(unsafeCast: i)
-      case is IR.WrapExistentialAddrInstruction:
+      case is IR.WrapExistentialAddr:
         insert(wrapAddr: i)
-      case is IR.YieldInstruction:
+      case is IR.Yield:
         insert(yield: i)
       default:
         fatalError("not implemented")
@@ -520,13 +525,13 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(addressToPointer i: IR.InstructionID) {
-      let s = m[i] as! AddressToPointerInstruction
+      let s = m[i] as! AddressToPointer
       register[.register(i, 0)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(advancedByBytes i: IR.InstructionID) {
-      let s = m[i] as! AdvancedByBytesInstruction
+      let s = m[i] as! AdvancedByBytes
 
       let base = llvm(s.base)
       let v = insertGetElementPointerInBounds(
@@ -536,26 +541,26 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(allocStack i: IR.InstructionID) {
-      let s = m[i] as! AllocStackInstruction
+      let s = m[i] as! AllocStack
       let t = ir.llvm(s.allocatedType, in: &self)
       register[.register(i, 0)] = insertAlloca(t, atEntryOf: transpilation)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(borrow i: IR.InstructionID) {
-      let s = m[i] as! BorrowInstruction
+      let s = m[i] as! Borrow
       register[.register(i, 0)] = llvm(s.location)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(branch i: IR.InstructionID) {
-      let s = m[i] as! BranchInstruction
+      let s = m[i] as! Branch
       insertBr(to: block[s.target]!, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(call i: IR.InstructionID) {
-      let s = m[i] as! CallInstruction
+      let s = m[i] as! Call
       var arguments: [LLVM.IRValue] = []
 
       // Callee is evaluated first.
@@ -592,10 +597,10 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(callFFI i: IR.InstructionID) {
-      let s = m[i] as! CallFFIInstruction
+      let s = m[i] as! CallFFI
       let parameters = s.operands.map({ ir.llvm(m.type(of: $0).ast, in: &self) })
 
-      let returnType: IRType
+      let returnType: LLVM.IRType
       if s.returnType.ast.isVoidOrNever {
         returnType = void
       } else {
@@ -608,14 +613,26 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(closeSum i: IR.InstructionID) {
-      // TODO: Implement me
-      // Set the discriminator of the sum container.
+    func insert(closeUnion i: IR.InstructionID) {
+      let s = m[i] as! CloseUnion
+      let open = m[s.start.instruction!] as! OpenUnion
+
+      // TODO: Memoize somehow
+      let t = UnionType(m.type(of: open.container).ast)!
+      let e = m.program.discriminatorToElement(in: t)
+      let n = e.firstIndex(of: open.payloadType)!
+
+      let baseType = ir.llvm(unionType: t, in: &self)
+      let container = llvm(open.container)
+      let indices = [i32.constant(0), i32.constant(1)]
+      let discriminator = insertGetElementPointerInBounds(
+        of: container, typed: baseType, indices: indices, at: insertionPoint)
+      insertStore(word().constant(UInt64(n)), to: discriminator, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(condBranch i: IR.InstructionID) {
-      let s = m[i] as! CondBranchInstruction
+      let s = m[i] as! CondBranch
       let c = llvm(s.condition)
       insertCondBr(
         if: c, then: block[s.targetIfTrue]!, else: block[s.targetIfFalse]!,
@@ -624,9 +641,9 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(endProjection i: IR.InstructionID) {
-      let s = m[i] as! EndProjectInstruction
+      let s = m[i] as! EndProject
       let start = s.projection.instruction!
-      assert(m[start] is ProjectInstruction)
+      assert(m[start] is Project)
 
       let t = LLVM.FunctionType(from: [ptr, i1], to: void, in: &self)
 
@@ -637,13 +654,13 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(globalAddr i: IR.InstructionID) {
-      let s = m[i] as! IR.GlobalAddrInstruction
+      let s = m[i] as! IR.GlobalAddr
       register[.register(i, 0)] = global(named: "\(s.container)\(s.id)")!
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(subfieldView i: IR.InstructionID) {
-      let s = m[i] as! SubfieldViewInstruction
+      let s = m[i] as! SubfieldView
 
       let base = llvm(s.recordAddress)
       let baseType = ir.llvm(m.type(of: s.recordAddress).ast, in: &self)
@@ -746,21 +763,21 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(load i: IR.InstructionID) {
-      let s = m[i] as! LoadInstruction
+      let s = m[i] as! Load
       let t = ir.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
       register[.register(i, 0)] = insertLoad(t, from: source, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(openSum i: IR.InstructionID) {
-      let s = m[i] as! OpenSumInstruction
+    func insert(openUnion i: IR.InstructionID) {
+      let s = m[i] as! OpenUnion
       register[.register(i, 0)] = llvm(s.container)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(partialApply i: IR.InstructionID) {
-      let s = m[i] as! IR.PartialApplyInstruction
+      let s = m[i] as! IR.PartialApply
       let t = LambdaType(s.callee.type.ast)!
 
       if t.environment == .void {
@@ -772,13 +789,13 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(pointerToAddress i: IR.InstructionID) {
-      let s = m[i] as! IR.PointerToAddressInstruction
+      let s = m[i] as! IR.PointerToAddress
       register[.register(i, 0)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(project i: IR.InstructionID) {
-      let s = m[i] as! IR.ProjectInstruction
+      let s = m[i] as! IR.Project
 
       // %0 = alloca [8 x i8], align 8
       let buffer = LLVM.ArrayType(8, i8, in: &self)
@@ -826,8 +843,36 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(store i: IR.InstructionID) {
-      let s = m[i] as! IR.StoreInstruction
+      let s = m[i] as! IR.Store
       insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(switch i: IR.InstructionID) {
+      let s = m[i] as! Switch
+
+      // Pick the case 0 as the "default".
+      let cases = s.successors[1...].enumerated().map { (value, destination) in
+        (word().constant(UInt64(value)), block[destination]!)
+      }
+
+      let n = llvm(s.index)
+      insertSwitch(
+        on: n, cases: cases, default: block[s.successors[0]]!,
+        at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(unionDiscriminator i: IR.InstructionID) {
+      let s = m[i] as! UnionDiscriminator
+      let t = UnionType(m.type(of: s.container).ast)!
+
+      let baseType = ir.llvm(unionType: t, in: &self)
+      let container = llvm(s.container)
+      let indices = [i32.constant(0), i32.constant(1)]
+      let discriminator = insertGetElementPointerInBounds(
+        of: container, typed: baseType, indices: indices, at: insertionPoint)
+      register[.register(i, 0)] = insertLoad(word(), from: discriminator, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -837,7 +882,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(unsafeCast i: IR.InstructionID) {
-      let s = m[i] as! IR.UnsafeCastInstruction
+      let s = m[i] as! IR.UnsafeCast
 
       let lhs = llvm(s.source)
       let rhs = ir.llvm(s.target, in: &self)
@@ -853,7 +898,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(wrapAddr i: IR.InstructionID) {
-      let s = m[i] as! IR.WrapExistentialAddrInstruction
+      let s = m[i] as! IR.WrapExistentialAddr
       let t = containerType()
       let a = insertAlloca(t, atEntryOf: transpilation)
       insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)
@@ -862,7 +907,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(yield i: IR.InstructionID) {
-      let s = m[i] as! IR.YieldInstruction
+      let s = m[i] as! IR.Yield
       let p = llvm(s.projection)
 
       // The intrinsic will return a non-zero result if the subscript should resume abnormally.
