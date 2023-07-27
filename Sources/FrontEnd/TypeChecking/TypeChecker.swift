@@ -27,7 +27,7 @@ public struct TypeChecker {
   private(set) var environments = DeclProperty<GenericEnvironment>()
 
   /// A map from module to its synthesized declarations.
-  private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]] = [:]
+  private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedFunctionDecl]] = [:]
 
   /// A map from name expression to its referred declaration.
   private(set) var referredDecls: BindingMap = [:]
@@ -929,7 +929,7 @@ public struct TypeChecker {
       }
 
       if let k = ast.synthesizedImplementation(of: requirement, definedBy: trait) {
-        let i = SynthesizedDecl(k, typed: requiredType, in: useScope)
+        let i = SynthesizedFunctionDecl(k, typed: requiredType, in: useScope)
         implementations[requirement] = .synthetic(i)
         synthesizedDecls[program.module(containing: source), default: []].append(i)
         return

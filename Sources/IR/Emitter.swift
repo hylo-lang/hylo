@@ -584,7 +584,7 @@ struct Emitter {
   }
 
   /// Synthesizes the implementation of `d`.
-  private mutating func lower(synthesized d: SynthesizedDecl) {
+  private mutating func lower(synthesized d: SynthesizedFunctionDecl) {
     switch d.kind {
     case .deinitialize:
       return withClearContext({ $0.lower(syntheticDeinit: d) })
@@ -598,7 +598,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for `d`, which is a synthetic deinitializer.
-  private mutating func lower(syntheticDeinit d: SynthesizedDecl) {
+  private mutating func lower(syntheticDeinit d: SynthesizedFunctionDecl) {
     let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return
@@ -624,7 +624,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
-  private mutating func lower(syntheticMoveInit d: SynthesizedDecl) {
+  private mutating func lower(syntheticMoveInit d: SynthesizedFunctionDecl) {
     let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return
@@ -741,7 +741,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
-  private mutating func lower(syntheticMoveAssign d: SynthesizedDecl) {
+  private mutating func lower(syntheticMoveAssign d: SynthesizedFunctionDecl) {
     let f = module.demandSyntheticDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return

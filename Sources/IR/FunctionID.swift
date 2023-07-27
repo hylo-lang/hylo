@@ -15,7 +15,7 @@ extension Function {
       case loweredSubscript(SubscriptImpl.ID)
 
       /// The identity of a synthesized declaration.
-      case synthesized(SynthesizedDecl)
+      case synthesized(SynthesizedFunctionDecl)
 
       /// The identity of an existentialized function.
       indirect case existentialized(base: ID)
@@ -44,7 +44,7 @@ extension Function {
     }
 
     /// Creates the identity of the lowered form of `s`.
-    public init(_ s: SynthesizedDecl) {
+    public init(_ s: SynthesizedFunctionDecl) {
       self.value = .synthesized(s)
     }
 

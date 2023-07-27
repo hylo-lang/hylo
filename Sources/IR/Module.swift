@@ -28,7 +28,7 @@ public struct Module {
   public private(set) var functions: [Function.ID: Function] = [:]
 
   /// The synthesized functions used and defined in the module.
-  public private(set) var synthesizedDecls = OrderedSet<SynthesizedDecl>()
+  public private(set) var synthesizedDecls = OrderedSet<SynthesizedFunctionDecl>()
 
   /// The module's entry function, if any.
   public private(set) var entryFunction: Function.ID?
@@ -308,7 +308,7 @@ public struct Module {
   }
 
   /// Returns the identity of the Val IR function corresponding to `d`.
-  mutating func demandSyntheticDeclaration(lowering d: SynthesizedDecl) -> Function.ID {
+  mutating func demandSyntheticDeclaration(lowering d: SynthesizedFunctionDecl) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 

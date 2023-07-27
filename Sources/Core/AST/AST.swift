@@ -265,7 +265,7 @@ public struct AST {
   /// - Requires: `requirement` must be a requirement of `concept`.
   public func synthesizedImplementation<T: DeclID>(
     of requirement: T, definedBy concept: TraitType
-  ) -> SynthesizedDecl.Kind? {
+  ) -> SynthesizedFunctionDecl.Kind? {
     // If the requirement is defined in `Deinitializable`, it must be the deinitialization method.
     if concept == deinitializableTrait {
       assert(requirement.kind == FunctionDecl.self)

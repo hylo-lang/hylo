@@ -1,5 +1,5 @@
-/// A declaration synthesized during compilation.
-public struct SynthesizedDecl: Hashable {
+/// A function declaration synthesized during compilation.
+public struct SynthesizedFunctionDecl: Hashable {
 
   /// The kind of a synthesized declaration.
   public enum Kind: UInt8 {

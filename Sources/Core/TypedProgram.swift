@@ -30,7 +30,7 @@ public struct TypedProgram: Program {
   /// These declarations are unconditionally lowered to Val IR as they may be part of a module's
   /// API. Synthethized declarations that are part of a structural conformance are lowered lazily
   /// after mandatory IR passes and are not part of this table.
-  public let synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]]
+  public let synthesizedDecls: [ModuleDecl.ID: [SynthesizedFunctionDecl]]
 
   /// A map from name expression to its referred declaration.
   public let referredDecls: [NameExpr.ID: DeclReference]
@@ -51,7 +51,7 @@ public struct TypedProgram: Program {
     exprTypes: ExprProperty<AnyType>,
     implicitCaptures: DeclProperty<[ImplicitCapture]>,
     environments: DeclProperty<GenericEnvironment>,
-    synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]],
+    synthesizedDecls: [ModuleDecl.ID: [SynthesizedFunctionDecl]],
     referredDecls: [NameExpr.ID: DeclReference],
     foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr],
     relations: TypeRelations
@@ -313,7 +313,7 @@ public struct TypedProgram: Program {
       }
       let a: GenericArguments = [ast[concept.decl].selfParameterDecl: model]
       let t = monomorphize(declTypes[requirement]!, for: a)
-      let d = SynthesizedDecl(k, typed: t, in: useScope)
+      let d = SynthesizedFunctionDecl(k, typed: t, in: useScope)
       implementations[requirement] = .synthetic(d)
     }
 
