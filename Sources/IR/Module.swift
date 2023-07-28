@@ -518,22 +518,22 @@ public struct Module {
     uses[new] = newUses
   }
 
+  /// Inserts `newInstruction` at `boundary` and returns the identity of its result, if any.
+  @discardableResult
+  mutating func insert(_ newInstruction: Instruction, at boundary: InsertionPoint) -> Operand? {
+    switch boundary {
+    case .end(let b):
+      return append(newInstruction, to: b)
+    case .before(let i):
+      return insert(newInstruction, before: i)
+    }
+  }
+
   /// Adds `newInstruction` at the end of `block` and returns the identity of its result, if any.
   @discardableResult
   mutating func append(_ newInstruction: Instruction, to block: Block.ID) -> Operand? {
     insert(newInstruction) { (m, i) in
       InstructionID(block, m[block].instructions.append(newInstruction))
-    }
-  }
-
-  /// Inserts `newInstruction` at `p` and returns the identity of its result, if any.
-  @discardableResult
-  mutating func insert(_ newInstruction: Instruction, _ p: InsertionPoint) -> Operand? {
-    switch p {
-    case .at(endOf: let b):
-      return append(newInstruction, to: b)
-    case .before(let i):
-      return insert(newInstruction, before: i)
     }
   }
 

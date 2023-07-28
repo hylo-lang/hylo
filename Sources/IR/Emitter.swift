@@ -2086,12 +2086,12 @@ struct Emitter {
 
     switch t.base {
     case is BuiltinType, is MetatypeType:
-      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+      module.insert(module.makeMarkState(storage, initialized: false, at: site), at: point)
       return true
 
     case let u as LambdaType:
       if module.program.relations.canonical(u.environment) == .void {
-        module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+        module.insert(module.makeMarkState(storage, initialized: false, at: site), at: point)
         return true
       } else {
         fatalError("not implemented")
@@ -2113,13 +2113,13 @@ struct Emitter {
     let d = module.demandDeinitDeclaration(from: c)
     let f = Operand.constant(FunctionReference(to: d, in: module))
 
-    let x0 = module.insert(module.makeLoad(storage, at: site), point)!
-    let x1 = module.insert(module.makeAllocStack(.void, at: site), point)!
-    let x2 = module.insert(module.makeBorrow(.set, from: x1, at: site), point)!
-    module.insert(module.makeCall(applying: f, to: [x0], writingResultTo: x2, at: site), point)
-    module.insert(module.makeEndBorrow(x2, at: site), point)
-    module.insert(module.makeMarkState(x1, initialized: false, at: site), point)
-    module.insert(module.makeDeallocStack(for: x1, at: site), point)
+    let x0 = module.insert(module.makeLoad(storage, at: site), at: point)!
+    let x1 = module.insert(module.makeAllocStack(.void, at: site), at: point)!
+    let x2 = module.insert(module.makeBorrow(.set, from: x1, at: site), at: point)!
+    module.insert(module.makeCall(applying: f, to: [x0], writingResultTo: x2, at: site), at: point)
+    module.insert(module.makeEndBorrow(x2, at: site), at: point)
+    module.insert(module.makeMarkState(x1, initialized: false, at: site), at: point)
+    module.insert(module.makeDeallocStack(for: x1, at: site), at: point)
   }
 
   /// Inserts the IR for deinitializing the stored parts of `storage`, which stores a record, at
@@ -2138,7 +2138,7 @@ struct Emitter {
 
     // If the object is empty, simply mark it uninitialized.
     if layout.properties.isEmpty {
-      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+      module.insert(module.makeMarkState(storage, initialized: false, at: site), at: point)
       return true
     }
 
@@ -2146,7 +2146,7 @@ struct Emitter {
     var r = true
     for i in layout.properties.indices {
       let x0 = module.insert(
-        module.makeSubfieldView(of: storage, subfield: [i], at: site), point)!
+        module.makeSubfieldView(of: storage, subfield: [i], at: site), at: point)!
       r = insertDeinit(x0, exposedTo: useScope, at: site, point, in: &module) && r
     }
     return r
@@ -2160,7 +2160,7 @@ struct Emitter {
     if t.hasRecordLayout {
       return Emitter.insertDeinitRecordParts(
         of: storage, usingDeinitializersExposedTo: insertionScope!, at: site,
-        .at(endOf: insertionBlock!), in: &module)
+        .end(of: insertionBlock!), in: &module)
     }
 
     if t.base is UnionType {
@@ -2221,7 +2221,7 @@ struct Emitter {
     defer { append(module.makeCloseUnion(x0, at: site)) }
 
     return Emitter.insertDeinit(
-      x0, exposedTo: insertionScope!, at: site, .at(endOf: insertionBlock!), in: &module)
+      x0, exposedTo: insertionScope!, at: site, .end(of: insertionBlock!), in: &module)
   }
 
   // MARK: Helpers
@@ -2263,7 +2263,7 @@ struct Emitter {
   private mutating func emitDeinit(_ storage: Operand, at site: SourceRange) {
     let success = Emitter.insertDeinit(
       storage, exposedTo: insertionScope!, at: site,
-      .at(endOf: insertionBlock!), in: &module)
+      .end(of: insertionBlock!), in: &module)
 
     if !success {
       report(.error(nonDeinitializable: module.type(of: storage).ast, at: site))

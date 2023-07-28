@@ -2,7 +2,7 @@
 enum InsertionPoint {
 
   /// The end of a basic block.
-  case at(endOf: Block.ID)
+  case end(of: Block.ID)
 
   /// Before another instruction.
   case before(InstructionID)
