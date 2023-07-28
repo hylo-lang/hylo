@@ -6,17 +6,19 @@ import Utils
 /// Val's IR emitter.
 ///
 /// The emitter transforms well-formed, typed ASTs to a representation suitable for flow-sensitive
-/// analysis and code generation. IR generated from the emitter may be incomplete and must go
-/// through mandatory passes before it can be fed to code generation.
+/// analysis. IR generated from the emitter may be incomplete and must go through mandatory passes
+/// before it can be fed to code generation.
 ///
-/// The emitter has two main entry points:
-/// - `incorporateTopLevelDeclarations()`: incorporates the top-level declarations of a module's
-///   AST into its
-///   corresponding IR form.
-/// - `incorporateSyntheticDeclarations()`: generates the implementations of the synthetic
-///   declarations that are notionally part of a module.
+/// You create an instance by calling `Emitter.withInstance`, providing the module in which IR
+/// should be incorporated and a diagnostic log. Then, the two main entry points are:
 ///
-/// The latter must be called after definite deinitialization.
+/// - `incorporateTopLevelDeclarations`: incorporates the top-level declarations of a module's
+///   AST into its corresponding IR form.
+/// - `incorporateSyntheticDeclarations`: generates the implementations of the synthetic
+///   declarations that are notionally part of a module. This method should be called after
+///   definitie deinitialization.
+///
+/// Other entry points may be used during IR passes (e.g., `emitDeinit`).
 ///
 /// - Note: Unless documented otherwise, methods insert IR in `self.module` at `insertionPoint`.
 struct Emitter {
