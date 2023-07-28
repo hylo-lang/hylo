@@ -520,7 +520,7 @@ public struct Module {
 
   /// Adds `newInstruction` at the end of `block` and returns the identity of its result, if any.
   @discardableResult
-  mutating func append<I: Instruction>(_ newInstruction: I, to block: Block.ID) -> Operand? {
+  mutating func append(_ newInstruction: Instruction, to block: Block.ID) -> Operand? {
     insert(newInstruction) { (m, i) in
       InstructionID(block, m[block].instructions.append(newInstruction))
     }
@@ -528,7 +528,7 @@ public struct Module {
 
   /// Inserts `newInstruction` at `p` and returns the identity of its result, if any.
   @discardableResult
-  mutating func insert<I: Instruction>(_ newInstruction: I, _ p: InsertionPoint) -> Operand? {
+  mutating func insert(_ newInstruction: Instruction, _ p: InsertionPoint) -> Operand? {
     switch p {
     case .at(endOf: let b):
       return append(newInstruction, to: b)
@@ -542,8 +542,8 @@ public struct Module {
   /// The instruction is inserted before the instruction currently at `position`. You can pass a
   /// "past the end" position to append at the end of a block.
   @discardableResult
-  mutating func insert<I: Instruction>(
-    _ newInstruction: I, at position: InstructionIndex
+  mutating func insert(
+    _ newInstruction: Instruction, at position: InstructionIndex
   ) -> Operand? {
     insert(newInstruction) { (m, i) in
       let address = m.functions[position.function]![position.block].instructions
@@ -555,8 +555,8 @@ public struct Module {
   /// Inserts `newInstruction` before the instruction identified by `successor` and returns the
   /// identity of its result, if any.
   @discardableResult
-  mutating func insert<I: Instruction>(
-    _ newInstruction: I, before successor: InstructionID
+  mutating func insert(
+    _ newInstruction: Instruction, before successor: InstructionID
   ) -> Operand? {
     insert(newInstruction) { (m, i) in
       let address = m.functions[successor.function]![successor.block].instructions
@@ -568,8 +568,8 @@ public struct Module {
   /// Inserts `newInstruction` after the instruction identified by `predecessor` and returns the
   /// identity of its result, if any.
   @discardableResult
-  mutating func insert<I: Instruction>(
-    _ newInstruction: I, after predecessor: InstructionID
+  mutating func insert(
+    _ newInstruction: Instruction, after predecessor: InstructionID
   ) -> Operand? {
     insert(newInstruction) { (m, i) in
       let address = m.functions[predecessor.function]![predecessor.block].instructions
@@ -579,8 +579,8 @@ public struct Module {
   }
 
   /// Inserts `newInstruction` with `impl` and returns the identity of its result, if any.
-  private mutating func insert<I: Instruction>(
-    _ newInstruction: I, with impl: (inout Self, I) -> InstructionID
+  private mutating func insert(
+    _ newInstruction: Instruction, with impl: (inout Self, Instruction) -> InstructionID
   ) -> Operand? {
     // Insert the instruction.
     let user = impl(&self, newInstruction)
