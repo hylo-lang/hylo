@@ -18,3 +18,5 @@
 /Examples/**.pdb
 /Examples/**.exe
 /Examples/**.obj
+**.lib
+**.7z

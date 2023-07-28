@@ -292,7 +292,7 @@ public struct ValCommand: ParsableCommand {
     diagnostics: inout DiagnosticSet
   ) throws {
     var arguments = [
-      "-defaultlib:msvcrt", "-out:" + binaryPath,
+      "-defaultlib:ValLibC", "-defaultlib:msvcrt", "-out:" + binaryPath,
     ]
     arguments.append(contentsOf: objects.map(\.path))
 

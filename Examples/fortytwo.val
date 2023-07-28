@@ -1,3 +1,3 @@
-public fun main() -> Int32 {
+public fun main() -> Int {
   0x2a
 }
