@@ -14,7 +14,8 @@ You will need Swift 5.7 or higher to build the compiler from sources.
 
 ### Prerequisites
 
-You can skip this step if you're doing development exclusively in a [devcontainer](#building-val-devcontainer-with-vscode).  Otherwise:
+You can skip directly to step 3 if you're doing development exclusively in a [devcontainer](#building-val-devcontainer-with-vscode).
+Otherwise:
 
 1. Install LLVM 15 or later on your system (e.g. `brew install llvm`) 
 2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"`). 
@@ -54,7 +55,9 @@ Then, build the Devcontainer with the VSCode command: `> Dev Containers: Rebuild
 
 Finally, open a new integrated terminal in VSCode and confirm that the shell user is `vscode`. You can run `whoami` to check this.
 
-That integrated terminal is connected to the Devcontainer, as if by ssh. You can now run `swift test -c release` to build and test for Linux. 
+That integrated terminal is connected to the Devcontainer, as if by ssh.
+Use the `make-pkgconfig` tool to configure LLVM's library description (see steps 3 in [prerequisites](#prerequisites)).
+You can now run `swift test -c release` to build and test for Linux.
 
 The Val repository files are mounted into the container, so any changes made locally (in VSCode or in other editors) will be automatically propagated into the Devcontainer. However, if you need to modifiy any of the files in the `.devcontainer` directory, you will need to rebuild the container with `> Dev Containers: Rebuild and Reopen in Container`.
 
