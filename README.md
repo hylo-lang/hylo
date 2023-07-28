@@ -10,7 +10,7 @@ Please visit our [website](https://val-lang.dev) to get more information about t
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.7 or higher to build the compiler from sources.
 
-*Note to Windows users: although this project is **not** Unix-specific, and is expected to run properly on Windows, but due to an unknown bug in SPM, we are unable to ensure Val is running correctly on Windows via CI testing.*
+*Note to Windows users: although this project is **not** Unix-specific, and is expected to run properly on Windows, but due to an unknown bug in SPM, we are unable to ensure Val is running correctly on Windows via CI testing. For details about the environment configuration, see CI build setting.*
 
 ### Prerequisites
 
@@ -36,8 +36,6 @@ swift build -c release
 That command will create an executable named `valc` in `.build/release`.
 That's Val compiler!
 
-For details about the environment configuration, see CI Settings.
-
 ### Running the tests
 
 To test your compiler, 
@@ -45,7 +43,6 @@ To test your compiler,
 ```bash
 swift test -c release --parallel
 ```
-
 
 ### Building Val Devcontainer with VSCode
 
