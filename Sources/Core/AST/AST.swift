@@ -265,7 +265,7 @@ public struct AST {
   /// - Requires: `requirement` must be a requirement of `concept`.
   public func synthesizedImplementation<T: DeclID>(
     of requirement: T, definedBy concept: TraitType
-  ) -> SynthesizedDecl.Kind? {
+  ) -> SynthesizedFunctionDecl.Kind? {
     // If the requirement is defined in `Deinitializable`, it must be the deinitialization method.
     if concept == deinitializableTrait {
       assert(requirement.kind == FunctionDecl.self)
@@ -357,7 +357,7 @@ public struct AST {
   /// `expression`, along with the path to this sub-pattern, relative to `root`.
   ///
   /// Use this method to walk a pattern and a corresponding expression side by side and perform an
-  /// action for each pair. Children of tuple patterns are visited in pre-order if and only ifs the
+  /// action for each pair. Children of tuple patterns are visited in pre-order if and only if the
   /// corresponding expression is also a tuple. Otherwise, `action` is called on the tuple and the
   /// sub-patterns are not visited.
   ///
@@ -376,7 +376,7 @@ public struct AST {
 
     case TuplePattern.kind:
       guard let e = TupleExpr.ID(expression) else {
-        walking(pattern: pattern, expression: expression, at: root, action)
+        action(root, pattern, expression)
         return
       }
 

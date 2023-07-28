@@ -311,7 +311,9 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(synthesized symbol: SynthesizedDecl, to output: inout Output) {
+  private mutating func write(
+    synthesized symbol: SynthesizedFunctionDecl, to output: inout Output
+  ) {
     write(operator: .synthesizedFunctionDecl, to: &output)
     write(base64Didit: symbol.kind, to: &output)
     write(scope: symbol.scope, to: &output)
