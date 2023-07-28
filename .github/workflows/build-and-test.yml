@@ -20,7 +20,6 @@ on:
 
 jobs:
   build-devcontainer:
-    if: ${{ false }}  # disable for now
     name: "Devcontainer: ${{ matrix.host.os }}/${{ matrix.configuration }}"
     strategy:
       fail-fast: false
@@ -43,6 +42,9 @@ jobs:
       uses: devcontainers/ci@v0.3
       with:
         runCmd: |
+          swift package resolve &&
+          .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc &&
+          export PKG_CONFIG_PATH=$PWD &&
           swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }} &&
           swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
             tee testoutput.txt && (
