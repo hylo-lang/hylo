@@ -20,6 +20,7 @@ on:
 
 jobs:
   build-devcontainer:
+    if: ${{ false }}  # disable for now
     name: "Devcontainer: ${{ matrix.host.os }}/${{ matrix.configuration }}"
     strategy:
       fail-fast: false
