@@ -1712,9 +1712,17 @@ struct Emitter {
     condition: [ConditionItem], in scope: AnyScopeID
   ) -> (success: Block.ID, failure: Block.ID) {
     let f = insertionBlock!.function
-    let failure = module.appendBlock(in: scope, to: f)
 
-    for item in condition {
+    // Allocate storage for all the declarations in the condition before branching so that all
+    // `dealloc_stack` are to dominated by their corresponding `alloc_stack`.
+    var allocs: [Operand] = []
+    for case .decl(let d) in condition {
+      let a = append(module.makeAllocStack(program[d].type, at: ast[d].site))[0]
+      allocs.append(a)
+    }
+
+    let failure = module.appendBlock(in: scope, to: f)
+    for (i, item) in condition.enumerated() {
       switch item {
       case .expr(let e):
         let test = pushing(Frame(), { $0.emit(branchCondition: e) })
@@ -1722,12 +1730,63 @@ struct Emitter {
         append(module.makeCondBranch(if: test, then: next, else: failure, at: ast[e].site))
         insertionBlock = next
 
-      case .decl:
+      case .decl(let d):
+        let subject = emitLValue(ast[d].initializer!)
+
+        if let t = UnionType(module.type(of: subject).ast) {
+          let u = program.relations.canonical(program[d].type)
+          let b = emitConditionalNarrowing(
+            of: subject, typed: t, as: ast[d].pattern, typed: u,
+            to: allocs[i],
+            else: failure, in: scope)
+
+          insertionBlock = b
+          continue
+        }
+
         fatalError("not implemented")
       }
     }
 
     return (success: insertionBlock!, failure: failure)
+  }
+
+  /// Returns a basic block in which the names in `pattern` have been declared and initialized by
+  /// consuming the payload of `container` as an instance of `patternType`.
+  private mutating func emitConditionalNarrowing(
+    of container: Operand, typed containerType: UnionType,
+    as pattern: BindingPattern.ID, typed patternType: AnyType,
+    to storage: Operand,
+    else failure: Block.ID, in scope: AnyScopeID
+  ) -> Block.ID {
+    // TODO: Implement narrowing to an arbitrary subtype.
+    assert(containerType.elements.contains(patternType), "not implemented")
+    let site = ast[pattern].site
+
+    let i = program.discriminatorToElement(in: containerType).firstIndex(of: patternType)!
+    let expected = IntegerConstant(i, bitWidth: 64)  // FIXME: should be width of 'word'
+    let actual = append(module.makeUnionDiscriminator(container, at: site))[0]
+
+    let test = append(
+      module.makeLLVM(applying: .icmp(.eq, .word), to: [.constant(expected), actual], at: site))[0]
+    let next = module.appendBlock(in: scope, to: insertionBlock!.function)
+    append(module.makeCondBranch(if: test, then: next, else: failure, at: site))
+
+    insertionBlock = next
+    let x0 = append(module.makeOpenUnion(container, as: patternType, at: site))[0]
+    let x1 = append(module.makeLoad(x0, at: site))[0]
+    append(module.makeCloseUnion(x0, at: site))
+
+    let c = program.conformanceToMovable(of: patternType, exposedTo: scope)!
+    pushing(Frame()) { (this) in
+      this.emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: site)
+    }
+
+    for (path, name) in ast.names(in: pattern) {
+      _ = emitDeclaration(of: name, referringTo: path, relativeTo: storage)
+    }
+
+    return next
   }
 
   /// Inserts the IR for branch condition `e`.
