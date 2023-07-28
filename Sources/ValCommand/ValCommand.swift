@@ -245,6 +245,7 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
+  /// logging diagnostics to `log`.
   private func makeMacOSExecutable(
     at binaryPath: String, linking objects: [URL], diagnostics: inout DiagnosticSet
   ) throws {
@@ -285,7 +286,8 @@ public struct ValCommand: ParsableCommand {
     try runCommandLine(find("clang++"), arguments, diagnostics: &diagnostics)
   }
 
-  /// `binaryPath`, logging diagnostics to `log`.
+  /// Combines the object files located at `objects` into an executable file at `binaryPath`,
+  /// logging diagnostics to `log`.
   private func makeWindowsExecutable(
     at binaryPath: String,
     linking objects: [URL],
@@ -296,8 +298,6 @@ public struct ValCommand: ParsableCommand {
     ]
     arguments.append(contentsOf: objects.map(\.path))
 
-    // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
-    // See https://stackoverflow.com/questions/51677440
     try runCommandLine(find("lld-link"), arguments, diagnostics: &diagnostics)
   }
 

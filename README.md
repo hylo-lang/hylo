@@ -10,7 +10,7 @@ Please visit our [website](https://val-lang.dev) to get more information about t
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.7 or higher to build the compiler from sources.
 
-*Note to Windows users: although this project is **not** Unix-specific, and is expected to run properly on Windows, but due to an unknown bug in SPM, we are unable to ensure Val is running correctly on Windows via CI testing. For details about the environment configuration, see CI build setting.*
+*Note to Windows users: although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see https://github.com/val-lang/val/issues/805).*
 
 ### Prerequisites
 
