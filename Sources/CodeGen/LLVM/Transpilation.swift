@@ -517,7 +517,7 @@ extension LLVM.Module {
         insert(switch: i)
       case is IR.UnionDiscriminator:
         insert(unionDiscriminator: i)
-      case is IR.Unrechable:
+      case is IR.Unreachable:
         insert(unreachable: i)
       case is IR.UnsafeCast:
         insert(unsafeCast: i)

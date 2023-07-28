@@ -147,7 +147,7 @@ extension Module {
         (k == .sink)
         ? makeLoad(arguments[a], at: s.site)
         : makeBorrow(k, from: arguments[a], at: s.site)
-      arguments[a] = insert(b, before: i)!
+      arguments[a] = .register(insert(b, before: i))
     }
 
     let o = RemoteType(k, s.projection.bareType)

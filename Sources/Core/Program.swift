@@ -313,7 +313,7 @@ extension Program {
       let s = Name(of: SubscriptDecl.ID(n)!, in: ast)
       return qualification + ".\(s)"
     case SubscriptImpl.self:
-      let s = ast[MethodImpl.ID(n)!].introducer.value
+      let s = ast[SubscriptImpl.ID(n)!].introducer.value
       return qualification + ".\(s)"
     default:
       break

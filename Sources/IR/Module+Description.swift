@@ -66,7 +66,7 @@ extension Module: TextOutputStreamable {
       for j in instructions(in: i) {
         output.write("  ")
         if let t = self[j].result {
-          output.write("\(Operand.register(j)): \(t) =")
+          output.write("\(Operand.register(j)): \(t) = ")
         }
         output.write("\(self[j])\n")
       }
