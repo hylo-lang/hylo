@@ -22,7 +22,7 @@ import Utils
 struct Emitter {
 
   /// The diagnostics of lowering errors.
-  private(set) var diagnostics: DiagnosticSet = []
+  private var diagnostics: DiagnosticSet = []
 
   /// The module into which new IR is inserted.
   private var module: Module!
