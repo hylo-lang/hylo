@@ -72,7 +72,7 @@ extension Module {
           pc = interpret(subfieldView: user, in: &context)
         case is UnionDiscriminator:
           pc = interpret(unionDiscriminator: user, in: &context)
-        case is Unrechable:
+        case is Unreachable:
           pc = successor(of: user)
         case is UnsafeCast:
           pc = interpret(unsafeCast: user, in: &context)

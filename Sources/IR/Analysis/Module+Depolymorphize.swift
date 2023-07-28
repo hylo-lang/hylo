@@ -193,7 +193,7 @@ extension Module {
         rewrite(switch: i, to: b)
       case is UnionDiscriminator:
         rewrite(unionDiscriminator: i, to: b)
-      case is Unrechable:
+      case is Unreachable:
         rewrite(unreachable: i, to: b)
       case is Yield:
         rewrite(yield: i, to: b)
@@ -418,7 +418,7 @@ extension Module {
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(unreachable i: InstructionID, to b: Block.ID) {
-      let s = sourceModule[i] as! Unrechable
+      let s = sourceModule[i] as! Unreachable
       append(makeUnreachable(at: s.site), to: b)
     }
 
