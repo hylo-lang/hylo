@@ -168,19 +168,19 @@ jobs:
     - name: Build (Release)
       id: build
       continue-on-error: true
-      run: swift build -v -c release
+      run: swift build -c release -v --build-tests -Xswiftc -enable-testing
 
     - name: Retry on failure
       continue-on-error: false
       if: steps.build.outcome != 'success'
-      run: swift build -v -c release
+      run: swift build -c release -v --build-tests -Xswiftc -enable-testing
 
-#    - name: Test (Release)
-#      id: test
-#      continue-on-error: true
-#      run: swift test -c release
+    - name: Test (Release)
+      id: test
+      continue-on-error: true
+      run: swift test -c release
 
-#    - name: Retry on failure
-#      continue-on-error: false
-#      if: steps.test.outcome != 'success'
-#      run: swift test -c release
+    - name: Retry on failure
+      continue-on-error: false
+      if: steps.test.outcome != 'success'
+      run: swift test -c release
