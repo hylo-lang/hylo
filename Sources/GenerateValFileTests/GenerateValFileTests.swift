@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import Utils
 
+#if !os(Windows)
 /// A command-line tool that generates XCTest cases for a list of annotated .val
 /// files as part of our build process.
 @main
@@ -122,3 +123,4 @@ struct FirstLineError: Error {
   /// A detailed description of the cause of this failure.
   let details: String
 }
+#endif
