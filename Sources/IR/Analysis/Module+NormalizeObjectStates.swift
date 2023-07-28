@@ -636,11 +636,9 @@ extension Module {
   ) {
     for path in initializedSubfields {
       let s = insert(makeSubfieldView(of: root, subfield: path, at: site), before: i)
-      let success = Emitter.insertDeinit(
-        result(of: s)!, exposedTo: scope(containing: i), at: site, .before(i), in: &self)
-
-      if !success {
-        log.insert(.error(nonDeinitializable: self[s].result!.ast, at: site))
+      Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+        e.insertionPoint = .before(i)
+        e.emitDeinit(.register(s), at: site)
       }
     }
   }
