@@ -479,16 +479,17 @@ public struct Module {
     return functions[block.function]!.removeBlock(block.address)
   }
 
-  /// Swaps `old` by `new` and returns the identity of the latter's result, if any.
+  /// Swaps `old` by `new`.
   ///
-  /// `old` is removed from to module and the def-use chains are updated.
+  /// `old` is removed and the def-use chains are updated so that the uses made by `old` are
+  /// replaced by the uses made by `new` and all uses of `old` refer to `new`. After the call,
+  /// `self[old] == new`.
   ///
   /// - Requires: `new` produces results with the same types as `old`.
-  @discardableResult
-  mutating func replace<I: Instruction>(_ old: InstructionID, with new: I) -> Operand? {
+  mutating func replace<I: Instruction>(_ old: InstructionID, with new: I) {
     precondition(self[old].result == new.result)
     removeUsesMadeBy(old)
-    return insert(new) { (m, i) in
+    _ = insert(new) { (m, i) in
       m[old] = i
       return old
     }
@@ -518,9 +519,11 @@ public struct Module {
     uses[new] = newUses
   }
 
-  /// Inserts `newInstruction` at `boundary` and returns the identity of its result, if any.
+  /// Inserts `newInstruction` at `boundary` and returns its identity.
   @discardableResult
-  mutating func insert(_ newInstruction: Instruction, at boundary: InsertionPoint) -> Operand? {
+  mutating func insert(
+    _ newInstruction: Instruction, at boundary: InsertionPoint
+  ) -> InstructionID {
     switch boundary {
     case .end(let b):
       return append(newInstruction, to: b)
@@ -529,22 +532,22 @@ public struct Module {
     }
   }
 
-  /// Adds `newInstruction` at the end of `block` and returns the identity of its result, if any.
+  /// Adds `newInstruction` at the end of `block` and returns its identity.
   @discardableResult
-  mutating func append(_ newInstruction: Instruction, to block: Block.ID) -> Operand? {
+  mutating func append(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID {
     insert(newInstruction) { (m, i) in
       InstructionID(block, m[block].instructions.append(newInstruction))
     }
   }
 
-  /// Inserts `newInstruction` at `position` and returns the identity of its result, if any.
+  /// Inserts `newInstruction` at `position` and returns its identity.
   ///
   /// The instruction is inserted before the instruction currently at `position`. You can pass a
   /// "past the end" position to append at the end of a block.
   @discardableResult
   mutating func insert(
     _ newInstruction: Instruction, at position: InstructionIndex
-  ) -> Operand? {
+  ) -> InstructionID {
     insert(newInstruction) { (m, i) in
       let address = m.functions[position.function]![position.block].instructions
         .insert(newInstruction, at: position.index)
@@ -552,12 +555,11 @@ public struct Module {
     }
   }
 
-  /// Inserts `newInstruction` before the instruction identified by `successor` and returns the
-  /// identity of its result, if any.
+  /// Inserts `newInstruction` before `successor` and returns its identity.
   @discardableResult
   mutating func insert(
     _ newInstruction: Instruction, before successor: InstructionID
-  ) -> Operand? {
+  ) -> InstructionID {
     insert(newInstruction) { (m, i) in
       let address = m.functions[successor.function]![successor.block].instructions
         .insert(newInstruction, before: successor.address)
@@ -565,12 +567,11 @@ public struct Module {
     }
   }
 
-  /// Inserts `newInstruction` after the instruction identified by `predecessor` and returns the
-  /// identity of its result, if any.
+  /// Inserts `newInstruction` after `predecessor` and returns its identity.
   @discardableResult
   mutating func insert(
     _ newInstruction: Instruction, after predecessor: InstructionID
-  ) -> Operand? {
+  ) -> InstructionID {
     insert(newInstruction) { (m, i) in
       let address = m.functions[predecessor.function]![predecessor.block].instructions
         .insert(newInstruction, after: predecessor.address)
@@ -578,10 +579,10 @@ public struct Module {
     }
   }
 
-  /// Inserts `newInstruction` with `impl` and returns the identity of its result, if any.
+  /// Inserts `newInstruction` with `impl` and returns its identity.
   private mutating func insert(
     _ newInstruction: Instruction, with impl: (inout Self, Instruction) -> InstructionID
-  ) -> Operand? {
+  ) -> InstructionID {
     // Insert the instruction.
     let user = impl(&self, newInstruction)
 
@@ -590,7 +591,7 @@ public struct Module {
       uses[newInstruction.operands[i], default: []].append(Use(user: user, index: i))
     }
 
-    return result(of: user)
+    return user
   }
 
   /// Removes instruction `i` and updates def-use chains.

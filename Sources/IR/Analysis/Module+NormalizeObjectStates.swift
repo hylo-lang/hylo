@@ -368,9 +368,9 @@ extension Module {
       let oper = demandMoveOperatorDeclaration(k, from: s.movable)
       let move = FunctionReference(to: oper, in: self)
 
-      let x0 = insert(makeBorrow(k, from: s.target, at: s.site), before: i)!
-      let x1 = insert(makeAllocStack(.void, at: s.site), before: i)!
-      let x2 = insert(makeBorrow(.set, from: x1, at: s.site), before: i)!
+      let x0 = Operand.register(insert(makeBorrow(k, from: s.target, at: s.site), before: i))
+      let x1 = Operand.register(insert(makeAllocStack(.void, at: s.site), before: i))
+      let x2 = Operand.register(insert(makeBorrow(.set, from: x1, at: s.site), before: i))
       let call = makeCall(
         applying: .constant(move), to: [x0, s.object], writingResultTo: x2, at: s.site)
       insert(call, before: i)
@@ -635,12 +635,12 @@ extension Module {
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedSubfields {
-      let s = insert(makeSubfieldView(of: root, subfield: path, at: site), before: i)!
+      let s = insert(makeSubfieldView(of: root, subfield: path, at: site), before: i)
       let success = Emitter.insertDeinit(
-        s, exposedTo: scope(containing: i), at: site, .before(i), in: &self)
+        result(of: s)!, exposedTo: scope(containing: i), at: site, .before(i), in: &self)
 
       if !success {
-        log.insert(.error(nonDeinitializable: type(of: s).ast, at: site))
+        log.insert(.error(nonDeinitializable: self[s].result!.ast, at: site))
       }
     }
   }

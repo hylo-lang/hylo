@@ -68,7 +68,8 @@ struct Emitter {
   /// Appends `newInstruction` into `self.module`, at the end of `self.insertionBlock`.
   @discardableResult
   private mutating func append<I: Instruction>(_ newInstruction: I) -> Operand? {
-    module.append(newInstruction, to: insertionBlock!)
+    let i = module.append(newInstruction, to: insertionBlock!)
+    return module.result(of: i)
   }
 
   // MARK: Declarations
@@ -2113,9 +2114,9 @@ struct Emitter {
     let d = module.demandDeinitDeclaration(from: c)
     let f = Operand.constant(FunctionReference(to: d, in: module))
 
-    let x0 = module.insert(module.makeLoad(storage, at: site), at: point)!
-    let x1 = module.insert(module.makeAllocStack(.void, at: site), at: point)!
-    let x2 = module.insert(module.makeBorrow(.set, from: x1, at: site), at: point)!
+    let x0 = Operand.register(module.insert(module.makeLoad(storage, at: site), at: point))
+    let x1 = Operand.register(module.insert(module.makeAllocStack(.void, at: site), at: point))
+    let x2 = Operand.register(module.insert(module.makeBorrow(.set, from: x1, at: site), at: point))
     module.insert(module.makeCall(applying: f, to: [x0], writingResultTo: x2, at: site), at: point)
     module.insert(module.makeEndBorrow(x2, at: site), at: point)
     module.insert(module.makeMarkState(x1, initialized: false, at: site), at: point)
@@ -2145,8 +2146,9 @@ struct Emitter {
     // Otherwise, deinitialize each property.
     var r = true
     for i in layout.properties.indices {
-      let x0 = module.insert(
-        module.makeSubfieldView(of: storage, subfield: [i], at: site), at: point)!
+      let x0 = Operand.register(
+        module.insert(
+          module.makeSubfieldView(of: storage, subfield: [i], at: site), at: point))
       r = insertDeinit(x0, exposedTo: useScope, at: site, point, in: &module) && r
     }
     return r
