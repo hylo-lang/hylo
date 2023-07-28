@@ -24,9 +24,13 @@ public struct WrapExistentialAddr: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [interface] }
+  public var result: IR.`Type`? {
+    interface
+  }
 
-  public var operands: [Operand] { [witness, table] }
+  public var operands: [Operand] {
+    [witness, table]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     switch i {

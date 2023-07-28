@@ -52,13 +52,13 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
       let s = self[i] as! AllocStack
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "stack leak")
 
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.allocatedType, definedIn: program),
         value: .full(.unique))
-      context.locals[.register(i, 0)] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -112,7 +112,7 @@ extension Module {
 
       // Don't set the locals if an error occured to avoid cascading errors downstream.
       if !hasConflict {
-        context.locals[.register(i, 0)] = context.locals[borrow.location]!
+        context.locals[.register(i)] = context.locals[borrow.location]!
       }
     }
 
@@ -187,18 +187,18 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, in context: inout Context) {
       let s = self[i] as! GlobalAddr
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.root(.register(i))
 
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.valueType, definedIn: program),
         value: .full(.unique))
-      context.locals[.register(i, 0)] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(openUnion i: InstructionID, in context: inout Context) {
       let s = self[i] as! OpenUnion
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "overlapping accesses to union payload")
 
       // Operand must be a location.
@@ -209,30 +209,30 @@ extension Module {
       let t = AbstractTypeLayout(of: s.payloadType, definedIn: program)
 
       context.memory[l] = .init(layout: t, value: o.value)
-      context.locals[.register(i, 0)] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(pointerToAddress i: InstructionID, in context: inout Context) {
       let s = self[i] as! PointerToAddress
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.root(.register(i))
 
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
         value: .full(.unique))
-      context.locals[.register(i, 0)] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(project i: InstructionID, in context: inout Context) {
       let s = self[i] as! Project
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "projection leak")
 
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
         value: .full(.unique))
-      context.locals[.register(i, 0)] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -250,7 +250,7 @@ extension Module {
       }
 
       let newLocations = base.unwrapLocations()!.map({ $0.appending(s.subfield) })
-      context.locals[.register(i, 0)] = .locations(Set(newLocations))
+      context.locals[.register(i)] = .locations(Set(newLocations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -261,7 +261,7 @@ extension Module {
         fatalError("not implemented")
       }
 
-      context.locals[.register(i, 0)] = context.locals[s.witness]
+      context.locals[.register(i)] = context.locals[s.witness]
     }
 
   }
@@ -340,7 +340,7 @@ extension Module {
   ///
   /// - Requires: `o` denotes a location.
   private func accessSource(_ o: Operand) -> Operand {
-    if case .register(let i, _) = o, let a = self[i] as? SubfieldView {
+    if case .register(let i) = o, let a = self[i] as? SubfieldView {
       return accessSource(a.recordAddress)
     } else {
       return o

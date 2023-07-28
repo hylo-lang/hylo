@@ -33,9 +33,13 @@ public struct OpenUnion: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [.address(payloadType)] }
+  public var result: IR.`Type`? {
+    .address(payloadType)
+  }
 
-  public var operands: [Operand] { [container] }
+  public var operands: [Operand] {
+    [container]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)

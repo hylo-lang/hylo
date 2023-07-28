@@ -30,9 +30,13 @@ public struct SubfieldView: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [resultType] }
+  public var result: IR.`Type`? {
+    resultType
+  }
 
-  public var operands: [Operand] { [recordAddress] }
+  public var operands: [Operand] {
+    [recordAddress]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)

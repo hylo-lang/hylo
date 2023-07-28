@@ -99,7 +99,7 @@ extension Module {
 
   /// Calls `action` on the uses of a capability on the access at the origin of `i`.
   private func forEachClient(of i: InstructionID, _ action: (Use) -> Void) {
-    guard let uses = self.uses[.register(i, 0)] else { return }
+    guard let uses = self.uses[.register(i)] else { return }
     for u in uses {
       switch self[u.user] {
       case is OpenUnion, is SubfieldView, is AdvancedByBytes:
@@ -128,7 +128,7 @@ extension Module {
   private mutating func reify(access i: InstructionID, as k: AccessEffect) {
     let s = self[i] as! Access
     if k == .sink {
-      replaceUses(of: .register(i, 0), with: s.source, in: i.function)
+      replaceUses(of: .register(i), with: s.source, in: i.function)
       removeInstruction(i)
     } else {
       let reified = makeBorrow(k, from: s.source, correspondingTo: s.binding, at: s.site)
@@ -147,7 +147,7 @@ extension Module {
         (k == .sink)
         ? makeLoad(arguments[a], at: s.site)
         : makeBorrow(k, from: arguments[a], at: s.site)
-      arguments[a] = insert(b, before: i)[0]
+      arguments[a] = insert(b, before: i)!
     }
 
     let o = RemoteType(k, s.projection.bareType)

@@ -29,7 +29,9 @@ public struct CallFFI: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [returnType] }
+  public var result: IR.`Type`? {
+    returnType
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     operands[i] = new
