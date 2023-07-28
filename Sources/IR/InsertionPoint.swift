@@ -7,4 +7,14 @@ enum InsertionPoint {
   /// Before another instruction.
   case before(InstructionID)
 
+  /// The block in which this insertion point falls.
+  var block: Block.ID {
+    switch self {
+    case .end(let b):
+      return b
+    case .before(let i):
+      return .init(i.function, i.block)
+    }
+  }
+
 }

@@ -33,21 +33,21 @@ public struct Module {
   /// The module's entry function, if any.
   public private(set) var entryFunction: Function.ID?
 
-  /// Creates an instance lowering `m` in `p`, reporting errors and warnings to
-  /// `diagnostics`.
+  /// Creates an instance lowering `m` in `p`, reporting errors and warnings to `log`.
   ///
   /// - Requires: `m` is a valid ID in `p`.
   /// - Throws: `Diagnostics` if lowering fails.
   public init(
-    lowering m: ModuleDecl.ID, in p: TypedProgram, diagnostics: inout DiagnosticSet
+    lowering m: ModuleDecl.ID, in p: TypedProgram,
+    reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
     self.program = p
     self.id = m
 
-    var emitter = Emitter(program: program)
-    emitter.lower(module: m, into: &self)
-    diagnostics.formUnion(emitter.diagnostics)
-    try diagnostics.throwOnError()
+    Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+      e.incorporateTopLevelDeclarations()
+    }
+    try log.throwOnError()
   }
 
   /// The module's name.
@@ -184,9 +184,9 @@ public struct Module {
   mutating func generateSyntheticImplementations(
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
-    var emitter = Emitter(program: program)
-    emitter.generateSyntheticImplementations(in: &self)
-    log.formUnion(emitter.diagnostics)
+    Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+      e.incorporateSyntheticDeclarations()
+    }
     try log.throwOnError()
   }
 
