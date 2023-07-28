@@ -159,6 +159,12 @@ jobs:
 
     - run: llvm-config --version
 
+    - name: Build support library
+      run: clang -c ./Library/Val/LibC.c -o ValLibC.lib
+
+    - name: Copy support library
+      run: xcopy ValLibC.lib c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\14.35.32215\lib\x64\
+
     - name: Build (Release)
       id: build
       continue-on-error: true
