@@ -115,6 +115,12 @@ public struct Module {
       .map({ InstructionID(i.function, i.block, $0) })
   }
 
+  /// Returns the ID the instruction after `i`.
+  func instruction(after i: InstructionID) -> InstructionID? {
+    functions[i.function]![i.block].instructions.address(after: i.address)
+      .map({ InstructionID(i.function, i.block, $0) })
+  }
+
   /// Returns the global identity of `block`'s terminator, if it exists.
   func terminator(of block: Block.ID) -> InstructionID? {
     if let a = functions[block.function]!.blocks[block.address].instructions.lastAddress {
@@ -535,7 +541,8 @@ public struct Module {
   /// Adds `newInstruction` at the end of `block` and returns its identity.
   @discardableResult
   mutating func append(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID {
-    insert(newInstruction) { (m, i) in
+    precondition(!(self[block].instructions.last is Terminator), "insertion after terminator")
+    return insert(newInstruction) { (m, i) in
       InstructionID(block, m[block].instructions.append(newInstruction))
     }
   }
@@ -548,7 +555,8 @@ public struct Module {
   mutating func insert(
     _ newInstruction: Instruction, at position: InstructionIndex
   ) -> InstructionID {
-    insert(newInstruction) { (m, i) in
+    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
+    return insert(newInstruction) { (m, i) in
       let address = m.functions[position.function]![position.block].instructions
         .insert(newInstruction, at: position.index)
       return InstructionID(position.function, position.block, address)
@@ -560,7 +568,8 @@ public struct Module {
   mutating func insert(
     _ newInstruction: Instruction, before successor: InstructionID
   ) -> InstructionID {
-    insert(newInstruction) { (m, i) in
+    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
+    return insert(newInstruction) { (m, i) in
       let address = m.functions[successor.function]![successor.block].instructions
         .insert(newInstruction, before: successor.address)
       return InstructionID(successor.function, successor.block, address)
@@ -572,7 +581,8 @@ public struct Module {
   mutating func insert(
     _ newInstruction: Instruction, after predecessor: InstructionID
   ) -> InstructionID {
-    insert(newInstruction) { (m, i) in
+    precondition(!(instruction(after: predecessor) is Terminator), "insertion after terminator")
+    return insert(newInstruction) { (m, i) in
       let address = m.functions[predecessor.function]![predecessor.block].instructions
         .insert(newInstruction, after: predecessor.address)
       return InstructionID(predecessor.function, predecessor.block, address)
