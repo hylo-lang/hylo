@@ -28,9 +28,9 @@ public struct GlobalAddr: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [.address(valueType)] }
-
-  public var operands: [Operand] { [] }
+  public var result: IR.`Type`? {
+    .address(valueType)
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     preconditionFailure()

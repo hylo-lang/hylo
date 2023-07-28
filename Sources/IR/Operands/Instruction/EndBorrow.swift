@@ -15,9 +15,9 @@ public struct EndBorrow: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [] }
-
-  public var operands: [Operand] { [borrow] }
+  public var operands: [Operand] {
+    [borrow]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)

@@ -15,10 +15,6 @@ public struct Branch: Terminator {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [] }
-
-  public var operands: [Operand] { [] }
-
   public var successors: [Block.ID] { [target] }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {

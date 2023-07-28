@@ -41,9 +41,13 @@ public struct Access: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [.address(accessedType)] }
+  public var result: IR.`Type`? {
+    .address(accessedType)
+  }
 
-  public var operands: [Operand] { [source] }
+  public var operands: [Operand] {
+    [source]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)

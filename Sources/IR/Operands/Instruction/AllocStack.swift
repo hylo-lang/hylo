@@ -15,9 +15,9 @@ public struct AllocStack: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [.address(allocatedType)] }
-
-  public var operands: [Operand] { [] }
+  public var result: IR.`Type`? {
+    .address(allocatedType)
+  }
 
   public func replaceOperand(at i: Int, with new: Operand) {
     preconditionFailure()

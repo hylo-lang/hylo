@@ -4,8 +4,8 @@ import Utils
 /// A Val IR instruction.
 public protocol Instruction: CustomStringConvertible {
 
-  /// The types of the instruction's results (empty for instructions with no result).
-  var types: [IR.`Type`] { get }
+  /// The type of the instruction's result, if any.
+  var result: IR.`Type`? { get }
 
   /// The operands of the instruction.
   var operands: [Operand] { get }
@@ -22,6 +22,14 @@ public protocol Instruction: CustomStringConvertible {
 }
 
 extension Instruction {
+
+  public var result: IR.`Type`? {
+    nil
+  }
+
+  public var operands: [Operand] {
+    []
+  }
 
   public var description: String {
     let n = String(describing: type(of: self)).snakeCased()

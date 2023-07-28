@@ -67,7 +67,7 @@ struct Emitter {
 
   /// Appends `newInstruction` into `self.module`, at the end of `self.insertionBlock`.
   @discardableResult
-  private mutating func append<I: Instruction>(_ newInstruction: I) -> [Operand] {
+  private mutating func append<I: Instruction>(_ newInstruction: I) -> Operand? {
     module.append(newInstruction, to: insertionBlock!)
   }
 
@@ -254,7 +254,7 @@ struct Emitter {
     let returnType = module.functions[f]!.output
     let foreignResult = append(
       module.makeCallFFI(
-        returning: .object(returnType), applying: ast[d].foreignName!, to: arguments, at: site))[0]
+        returning: .object(returnType), applying: ast[d].foreignName!, to: arguments, at: site))!
 
     // Convert the result of the FFI to its Val representation and return it.
     switch returnType {
@@ -356,7 +356,7 @@ struct Emitter {
       pushing(Frame(locals: locals)) { (this) in
         let x0 = this.emitLValue(e)
         let x1 = this.append(
-          this.module.makeBorrow(this.ast[d].introducer.value, from: x0, at: this.ast[e].site))[0]
+          this.module.makeBorrow(this.ast[d].introducer.value, from: x0, at: this.ast[e].site))!
         this.append(this.module.makeYield(this.ast[d].introducer.value, x1, at: this.ast[e].site))
       }
       append(module.makeReturn(at: ast[e].site))
@@ -494,7 +494,7 @@ struct Emitter {
     } else if lhsPartType.base is UnionType {
       let x0 = append(
         module.makeOpenUnion(
-          lhsPart, as: rhsPartType, forInitialization: true, at: ast[name].site))[0]
+          lhsPart, as: rhsPartType, forInitialization: true, at: ast[name].site))!
       emitStore(value: initializer, to: x0)
       append(module.makeCloseUnion(x0, at: ast[name].site))
     } else {
@@ -570,11 +570,11 @@ struct Emitter {
       if isSink {
         let b = module.makeAccess(
           [.sink, access], from: part, correspondingTo: partDecl, at: ast[partDecl].site)
-        frames[partDecl] = append(b)[0]
+        frames[partDecl] = append(b)!
       } else {
         let b = module.makeBorrow(
           access, from: part, correspondingTo: partDecl, at: ast[partDecl].site)
-        frames[partDecl] = append(b)[0]
+        frames[partDecl] = append(b)!
       }
     }
   }
@@ -717,7 +717,7 @@ struct Emitter {
     for i in layout.properties.indices {
       let source = emitSubfieldView(argument, at: [i], at: site)
       let target = emitSubfieldView(receiver, at: [i], at: site)
-      let part = append(module.makeLoad(source, at: site))[0]
+      let part = append(module.makeLoad(source, at: site))!
       emitStore(value: part, to: target, at: site)
     }
   }
@@ -749,7 +749,7 @@ struct Emitter {
       successors.append(appendBlock())
     }
 
-    let n = append(module.makeUnionDiscriminator(argument, at: site))[0]
+    let n = append(module.makeUnionDiscriminator(argument, at: site))!
     append(module.makeSwitch(on: n, toOneOf: successors, at: site))
 
     let tail = appendBlock()
@@ -772,11 +772,11 @@ struct Emitter {
     at site: SourceRange
   ) {
     // Deinitialize the receiver.
-    let x0 = append(module.makeOpenUnion(receiver, as: payload, at: site))[0]
+    let x0 = append(module.makeOpenUnion(receiver, as: payload, at: site))!
     emitDeinit(x0, at: site)
 
     // Move the argument.
-    let x1 = append(module.makeOpenUnion(argument, as: payload, at: site))[0]
+    let x1 = append(module.makeOpenUnion(argument, as: payload, at: site))!
     let c = program.conformanceToMovable(of: payload, exposedTo: insertionScope!)!
     emitMove(.set, of: x1, to: x0, withConformanceToMovable: c, at: site)
 
@@ -809,7 +809,7 @@ struct Emitter {
 
     // Apply the move-initializer.
     let c = program.conformanceToMovable(of: module.type(of: receiver).ast, exposedTo: d.scope)!
-    let r = append(module.makeLoad(argument, at: site))[0]
+    let r = append(module.makeLoad(argument, at: site))!
     emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
 
     emitStore(value: .void, to: returnValue!, at: site)
@@ -883,7 +883,7 @@ struct Emitter {
 
     // The RHS is evaluated before the LHS.
     let x0 = emitStore(value: ast[s].right)
-    let x1 = append(module.makeLoad(x0, at: ast[s].site))[0]
+    let x1 = append(module.makeLoad(x0, at: ast[s].site))!
     let x2 = emitLValue(ast[s].left)
     emitStore(value: x1, to: x2, at: ast[s].site)
     return .next
@@ -1049,7 +1049,7 @@ struct Emitter {
     // TODO: Read mutability of current subscript
 
     let x0 = emitLValue(ast[s].value)
-    let x1 = append(module.makeBorrow(.let, from: x0, at: ast[s].site))[0]
+    let x1 = append(module.makeBorrow(.let, from: x0, at: ast[s].site))!
     append(module.makeYield(.let, x1, at: ast[s].site))
     return .next
   }
@@ -1064,7 +1064,7 @@ struct Emitter {
     // the move-initializer of `Val.Void` would cause infinite recursion. Since the latter should
     // always be inlined anyway, we can emit a simple store in all cases.
     if t.isBuiltin || (t == .void) {
-      let x0 = append(module.makeBorrow(.set, from: storage, at: site))[0]
+      let x0 = append(module.makeBorrow(.set, from: storage, at: site))!
       append(module.makeStore(value, at: x0, at: site))
     } else {
       let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
@@ -1122,7 +1122,7 @@ struct Emitter {
     booleanLiteral e: BooleanLiteralExpr.ID, to storage: Operand
   ) {
     let x0 = emitSubfieldView(storage, at: [0], at: ast[e].site)
-    let x1 = append(module.makeBorrow(.set, from: x0, at: ast[e].site))[0]
+    let x1 = append(module.makeBorrow(.set, from: x0, at: ast[e].site))!
     append(module.makeStore(.i1(ast[e].value), at: x1, at: ast[e].site))
   }
 
@@ -1196,7 +1196,7 @@ struct Emitter {
       switch program[n].referredDecl {
       case .builtinFunction(let f):
         let x0 = emit(apply: f, to: ast[e].arguments, at: ast[e].site)
-        let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
+        let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))!
         append(module.makeStore(x0, at: x1, at: ast[e].site))
         return
 
@@ -1219,7 +1219,7 @@ struct Emitter {
     let arguments = captures + explicitArguments
 
     // Call is evaluated last.
-    let o = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
+    let o = append(module.makeBorrow(.set, from: storage, at: ast[e].site))!
     append(module.makeCall(applying: callee, to: arguments, writingResultTo: o, at: ast[e].site))
   }
 
@@ -1234,14 +1234,14 @@ struct Emitter {
     let r = FunctionReference(
       to: f, parameterizedBy: module.parameterization(in: insertionBlock!.function), in: module)
 
-    let x0 = append(module.makePartialApply(wrapping: r, with: .void, at: ast[e].site))[0]
-    let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
+    let x0 = append(module.makePartialApply(wrapping: r, with: .void, at: ast[e].site))!
+    let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))!
     append(module.makeStore(x0, at: x1, at: ast[e].site))
   }
 
   private mutating func emitStore(name e: NameExpr.ID, to storage: Operand) {
     let x0 = emitLValue(name: e)
-    let x1 = append(module.makeLoad(x0, at: ast[e].site))[0]
+    let x1 = append(module.makeLoad(x0, at: ast[e].site))!
     emitStore(value: x1, to: storage, at: ast[e].site)
   }
 
@@ -1282,7 +1282,7 @@ struct Emitter {
 
       // Emit the call.
       let site = ast.site(of: e)
-      let x0 = append(module.makeBorrow(.set, from: storage, at: site))[0]
+      let x0 = append(module.makeBorrow(.set, from: storage, at: site))!
       append(module.makeCall(applying: oper, to: [l, r], writingResultTo: x0, at: site))
 
     case .leaf(let v):
@@ -1297,8 +1297,8 @@ struct Emitter {
   private mutating func emitStore(tuple e: TupleExpr.ID, to storage: Operand) {
     if ast[e].elements.isEmpty {
       let t = program.relations.canonical(program[e].type)
-      let x0 = append(module.makeUnsafeCast(.void, to: t, at: ast[e].site))[0]
-      let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
+      let x0 = append(module.makeUnsafeCast(.void, to: t, at: ast[e].site))!
+      let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))!
       append(module.makeStore(x0, at: x1, at: ast[e].site))
       return
     }
@@ -1311,7 +1311,7 @@ struct Emitter {
 
   private mutating func emitStore(tupleMember e: TupleMemberExpr.ID, to storage: Operand) {
     let x0 = emitLValue(tupleMember: e)
-    let x1 = append(module.makeLoad(x0, at: ast[e].site))[0]
+    let x1 = append(module.makeLoad(x0, at: ast[e].site))!
     emitStore(value: x1, to: storage, at: ast[e].site)
   }
 
@@ -1347,7 +1347,7 @@ struct Emitter {
   ) {
     let syntax = ast[literal]
     let x0 = emitSubfieldView(storage, at: [0], at: syntax.site)
-    let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))[0]
+    let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))!
     let x2 = Operand.constant(evaluate(syntax.value))
     append(module.makeStore(x2, at: x1, at: syntax.site))
   }
@@ -1368,7 +1368,7 @@ struct Emitter {
     }
 
     let x0 = emitSubfieldView(storage, at: [0], at: syntax.site)
-    let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))[0]
+    let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))!
     let x2 = Operand.constant(IntegerConstant(bits))
     append(module.makeStore(x2, at: x1, at: syntax.site))
   }
@@ -1379,7 +1379,7 @@ struct Emitter {
   /// - Requires: `storage` is the address of uninitialized memory of type `Val.Int`.
   private mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
     let x0 = emitSubfieldView(storage, at: [0], at: site)
-    let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
+    let x1 = append(module.makeBorrow(.set, from: x0, at: site))!
     append(module.makeStore(.word(v), at: x1, at: site))
   }
 
@@ -1399,7 +1399,7 @@ struct Emitter {
     emitStore(int: size, to: x0, at: site)
 
     let x1 = emitSubfieldView(storage, at: [1, 0], at: site)
-    let x2 = append(module.makeBorrow(.set, from: x1, at: site))[0]
+    let x2 = append(module.makeBorrow(.set, from: x1, at: site))!
     append(module.makeStore(.constant(utf8), at: x2, at: site))
   }
 
@@ -1430,12 +1430,12 @@ struct Emitter {
       synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[call].site))
 
     // Receiver is captured next.
-    let receiver = append(module.makeBorrow(.set, from: s, at: ast[call].site))[0]
+    let receiver = append(module.makeBorrow(.set, from: s, at: ast[call].site))!
 
     // Call is evaluated last.
     let f = FunctionReference(to: d, parameterizedBy: a, in: &module)
     let x0 = emitAllocStack(for: .void, at: ast[call].site)
-    let x1 = append(module.makeBorrow(.set, from: x0, at: ast[call].site))[0]
+    let x1 = append(module.makeBorrow(.set, from: x0, at: ast[call].site))!
     append(
       module.makeCall(
         applying: .constant(f), to: [receiver] + arguments, writingResultTo: x1,
@@ -1455,8 +1455,8 @@ struct Emitter {
 
     if callee.inputs.isEmpty {
       let t = program.relations.canonical(program[call].type)
-      let x0 = append(module.makeUnsafeCast(.void, to: t, at: ast[call].site))[0]
-      let x1 = append(module.makeBorrow(.set, from: receiver, at: ast[call].site))[0]
+      let x0 = append(module.makeUnsafeCast(.void, to: t, at: ast[call].site))!
+      let x1 = append(module.makeBorrow(.set, from: receiver, at: ast[call].site))!
       append(module.makeStore(x0, at: x1, at: ast[call].site))
       return
     }
@@ -1519,7 +1519,7 @@ struct Emitter {
 
     if let e = PragmaLiteralExpr.ID(syntax) {
       argumentSite = site ?? ast[e].site
-      storage = append(module.makeAllocStack(program[e].type, at: argumentSite))[0]
+      storage = append(module.makeAllocStack(program[e].type, at: argumentSite))!
       emitStore(pragma: e, to: storage, at: argumentSite)
     } else {
       argumentSite = ast[syntax].site
@@ -1558,14 +1558,14 @@ struct Emitter {
       var a: [Operand] = []
       for e in arguments {
         let x0 = emitStore(value: e.value)
-        let x1 = append(module.makeLoad(x0, at: site))[0]
+        let x1 = append(module.makeLoad(x0, at: site))!
         a.append(x1)
       }
-      return append(module.makeLLVM(applying: n, to: a, at: site))[0]
+      return append(module.makeLLVM(applying: n, to: a, at: site))!
 
     case .addressOf:
       let source = emitLValue(arguments[0].value)
-      return append(module.makeAddressToPointer(source, at: site))[0]
+      return append(module.makeAddressToPointer(source, at: site))!
     }
   }
 
@@ -1620,11 +1620,11 @@ struct Emitter {
       // The callee's receiver is the sole capture.
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
       if let t = RemoteType(calleeType.captures[0].type) {
-        let i = append(module.makeBorrow(t.access, from: receiver, at: ast[callee].site))
-        return (Operand.constant(r), i)
+        let i = append(module.makeBorrow(t.access, from: receiver, at: ast[callee].site))!
+        return (Operand.constant(r), [i])
       } else {
-        let i = append(module.makeLoad(receiver, at: ast[callee].site))
-        return (Operand.constant(r), i)
+        let i = append(module.makeLoad(receiver, at: ast[callee].site))!
+        return (Operand.constant(r), [i])
       }
 
     case .builtinFunction, .builtinType:
@@ -1651,7 +1651,7 @@ struct Emitter {
     case let k:
       let l = emitLValue(callee)
       let b = module.makeBorrow(k, from: l, at: ast[callee].site)
-      return append(b)[0]
+      return append(b)!
     }
   }
 
@@ -1693,8 +1693,8 @@ struct Emitter {
       // The callee's receiver is the sole capture.
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
       let t = SubscriptType(program[d].type)!
-      let i = append(module.makeAccess(t.capabilities, from: receiver, at: ast[callee].site))
-      return (b, i)
+      let i = append(module.makeAccess(t.capabilities, from: receiver, at: ast[callee].site))!
+      return (b, [i])
 
     case .builtinFunction, .builtinType:
       // There are no built-in subscripts.
@@ -1717,7 +1717,7 @@ struct Emitter {
     // `dealloc_stack` are to dominated by their corresponding `alloc_stack`.
     var allocs: [Operand] = []
     for case .decl(let d) in condition {
-      let a = append(module.makeAllocStack(program[d].type, at: ast[d].site))[0]
+      let a = append(module.makeAllocStack(program[d].type, at: ast[d].site))!
       allocs.append(a)
     }
 
@@ -1765,16 +1765,16 @@ struct Emitter {
 
     let i = program.discriminatorToElement(in: containerType).firstIndex(of: patternType)!
     let expected = IntegerConstant(i, bitWidth: 64)  // FIXME: should be width of 'word'
-    let actual = append(module.makeUnionDiscriminator(container, at: site))[0]
+    let actual = append(module.makeUnionDiscriminator(container, at: site))!
 
     let test = append(
-      module.makeLLVM(applying: .icmp(.eq, .word), to: [.constant(expected), actual], at: site))[0]
+      module.makeLLVM(applying: .icmp(.eq, .word), to: [.constant(expected), actual], at: site))!
     let next = module.appendBlock(in: scope, to: insertionBlock!.function)
     append(module.makeCondBranch(if: test, then: next, else: failure, at: site))
 
     insertionBlock = next
-    let x0 = append(module.makeOpenUnion(container, as: patternType, at: site))[0]
-    let x1 = append(module.makeLoad(x0, at: site))[0]
+    let x0 = append(module.makeOpenUnion(container, as: patternType, at: site))!
+    let x1 = append(module.makeLoad(x0, at: site))!
     append(module.makeCloseUnion(x0, at: site))
 
     let c = program.conformanceToMovable(of: patternType, exposedTo: scope)!
@@ -1796,7 +1796,7 @@ struct Emitter {
     precondition(program.relations.canonical(program[e].type) == ast.coreType("Bool")!)
     let x0 = emitLValue(e)
     let x1 = emitSubfieldView(x0, at: [0], at: ast[e].site)
-    let x2 = append(module.makeLoad(x1, at: ast[e].site))[0]
+    let x2 = append(module.makeLoad(x1, at: ast[e].site))!
     return x2
   }
 
@@ -1820,13 +1820,13 @@ struct Emitter {
       let t = LambdaType(convert.type.ast)!.output
 
       let x0 = emitAllocStack(for: ir, at: site)
-      let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
+      let x1 = append(module.makeBorrow(.set, from: x0, at: site))!
       let x2 = emitAllocStack(for: t, at: site)
-      let x3 = append(module.makeBorrow(.set, from: x2, at: site))[0]
+      let x3 = append(module.makeBorrow(.set, from: x2, at: site))!
       append(
         module.makeCall(
           applying: .constant(convert), to: [x1, foreign], writingResultTo: x3, at: site))
-      return append(module.makeLoad(x0, at: site))[0]
+      return append(module.makeLoad(x0, at: site))!
 
     case .synthetic:
       fatalError("not implemented")
@@ -1850,11 +1850,12 @@ struct Emitter {
       let convert = FunctionReference(to: FunctionDecl.ID(m)!, in: &module)
       let t = LambdaType(convert.type.ast)!.output
 
-      let x0 = append(module.makeBorrow(.let, from: o, at: site))
+      let x0 = append(module.makeBorrow(.let, from: o, at: site))!
       let x1 = emitAllocStack(for: t, at: site)
-      let x2 = append(module.makeBorrow(.set, from: x1, at: site))[0]
-      append(module.makeCall(applying: .constant(convert), to: x0, writingResultTo: x2, at: site))
-      return append(module.makeLoad(x1, at: site))[0]
+      let x2 = append(module.makeBorrow(.set, from: x1, at: site))!
+      append(
+        module.makeCall(applying: .constant(convert), to: [x0], writingResultTo: x2, at: site))
+      return append(module.makeLoad(x1, at: site))!
 
     case .synthetic:
       fatalError("not implemented")
@@ -1869,8 +1870,8 @@ struct Emitter {
     let witnessTable = emitWitnessTable(of: module.type(of: witness).ast, usedIn: insertionScope!)
     let g = PointerConstant(module.id, module.addGlobal(witnessTable))
 
-    let x0 = append(module.makeBorrow(access, from: witness, at: site))[0]
-    let x1 = append(module.makeWrapExistentialAddr(x0, .constant(g), as: t, at: site))[0]
+    let x0 = append(module.makeBorrow(access, from: witness, at: site))!
+    let x1 = append(module.makeWrapExistentialAddr(x0, .constant(g), as: t, at: site))!
     return x1
   }
 
@@ -1903,9 +1904,9 @@ struct Emitter {
     switch ast[e].direction {
     case .pointerConversion:
       let x0 = emitLValue(ast[e].left)
-      let x1 = append(module.makeLoad(x0, at: ast[e].site))[0]
+      let x1 = append(module.makeLoad(x0, at: ast[e].site))!
       let target = RemoteType(program.relations.canonical(program[e].type))!
-      return append(module.makePointerToAddress(x1, to: target, at: ast[e].site))[0]
+      return append(module.makePointerToAddress(x1, to: target, at: ast[e].site))!
 
     default:
       fatalError("not implemented")
@@ -1997,7 +1998,7 @@ struct Emitter {
       program.canonicalType(of: callee.bundle, parameterizedBy: callee.arguments))!
     return append(
       module.makeProjectBundle(
-        applying: variants, of: callee, typed: t, to: arguments, at: ast[e].site))[0]
+        applying: variants, of: callee, typed: t, to: arguments, at: ast[e].site))!
   }
 
   private mutating func emitLValue(tupleMember e: TupleMemberExpr.ID) -> Operand {
@@ -2038,7 +2039,7 @@ struct Emitter {
     }
 
     let t = SubscriptType(program.canonicalType(of: d, parameterizedBy: a))!
-    let r = append(module.makeAccess(t.capabilities, from: receiver, at: site))[0]
+    let r = append(module.makeAccess(t.capabilities, from: receiver, at: site))!
 
     var variants: [AccessEffect: Function.ID] = [:]
     for v in ast[d].impls {
@@ -2047,7 +2048,7 @@ struct Emitter {
 
     return append(
       module.makeProjectBundle(
-        applying: variants, of: .init(to: d, parameterizedBy: a), typed: t, to: [r], at: site))[0]
+        applying: variants, of: .init(to: d, parameterizedBy: a), typed: t, to: [r], at: site))!
   }
 
   /// Returns the projection of the property declared by `d`, parameterized by `a`, and bound to
@@ -2058,9 +2059,9 @@ struct Emitter {
   ) -> Operand {
     let t = SubscriptImplType(program.canonicalType(of: d, parameterizedBy: a))!
     let o = RemoteType(ast[d].introducer.value, program.relations.canonical(t.output))
-    let r = append(module.makeBorrow(o.access, from: receiver, at: site))[0]
+    let r = append(module.makeBorrow(o.access, from: receiver, at: site))!
     let f = module.demandSubscriptDeclaration(lowering: d)
-    return append(module.makeProject(o, applying: f, parameterizedBy: a, to: [r], at: site))[0]
+    return append(module.makeProject(o, applying: f, parameterizedBy: a, to: [r], at: site))!
   }
 
   // MARK: Deinitialization
@@ -2112,9 +2113,9 @@ struct Emitter {
     let d = module.demandDeinitDeclaration(from: c)
     let f = Operand.constant(FunctionReference(to: d, in: module))
 
-    let x0 = module.insert(module.makeLoad(storage, at: site), point)[0]
-    let x1 = module.insert(module.makeAllocStack(.void, at: site), point)[0]
-    let x2 = module.insert(module.makeBorrow(.set, from: x1, at: site), point)[0]
+    let x0 = module.insert(module.makeLoad(storage, at: site), point)!
+    let x1 = module.insert(module.makeAllocStack(.void, at: site), point)!
+    let x2 = module.insert(module.makeBorrow(.set, from: x1, at: site), point)!
     module.insert(module.makeCall(applying: f, to: [x0], writingResultTo: x2, at: site), point)
     module.insert(module.makeEndBorrow(x2, at: site), point)
     module.insert(module.makeMarkState(x1, initialized: false, at: site), point)
@@ -2145,7 +2146,7 @@ struct Emitter {
     var r = true
     for i in layout.properties.indices {
       let x0 = module.insert(
-        module.makeSubfieldView(of: storage, subfield: [i], at: site), point)[0]
+        module.makeSubfieldView(of: storage, subfield: [i], at: site), point)!
       r = insertDeinit(x0, exposedTo: useScope, at: site, point, in: &module) && r
     }
     return r
@@ -2194,7 +2195,7 @@ struct Emitter {
       successors.append(appendBlock())
     }
 
-    let n = append(module.makeUnionDiscriminator(storage, at: site))[0]
+    let n = append(module.makeUnionDiscriminator(storage, at: site))!
     append(module.makeSwitch(on: n, toOneOf: successors, at: site))
 
     let tail = appendBlock()
@@ -2216,7 +2217,7 @@ struct Emitter {
   private mutating func emitDeinitUnionPayload(
     of storage: Operand, containing payload: AnyType, at site: SourceRange
   ) -> Bool {
-    let x0 = append(module.makeOpenUnion(storage, as: payload, at: site))[0]
+    let x0 = append(module.makeOpenUnion(storage, as: payload, at: site))!
     defer { append(module.makeCloseUnion(x0, at: site)) }
 
     return Emitter.insertDeinit(
@@ -2231,9 +2232,9 @@ struct Emitter {
   ) -> Operand {
     switch access {
     case .let, .inout, .set:
-      return append(module.makeBorrow(access, from: source, at: site))[0]
+      return append(module.makeBorrow(access, from: source, at: site))!
     case .sink:
-      return append(module.makeLoad(source, at: site))[0]
+      return append(module.makeLoad(source, at: site))!
     case .yielded:
       unreachable()
     }
@@ -2244,7 +2245,7 @@ struct Emitter {
     for t: AnyType, at site: SourceRange
   ) -> Operand {
     let u = program.relations.canonical(t)
-    let s = append(module.makeAllocStack(u, at: site))[0]
+    let s = append(module.makeAllocStack(u, at: site))!
     frames.top.allocs.append(s)
     return s
   }
@@ -2255,7 +2256,7 @@ struct Emitter {
     _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
-    return append(module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site))[0]
+    return append(module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site))!
   }
 
   /// Inserts the IR for deinitializing `storage`, anchoring new instructions at `site`.
@@ -2284,9 +2285,9 @@ struct Emitter {
     let oper = module.demandMoveOperatorDeclaration(access, from: c)
     let move = Operand.constant(FunctionReference(to: oper, in: module))
 
-    let x0 = append(module.makeBorrow(access, from: storage, at: site))[0]
+    let x0 = append(module.makeBorrow(access, from: storage, at: site))!
     let x1 = emitAllocStack(for: .void, at: site)
-    let x2 = append(module.makeBorrow(.set, from: x1, at: site))[0]
+    let x2 = append(module.makeBorrow(.set, from: x1, at: site))!
     append(module.makeCall(applying: move, to: [x0, value], writingResultTo: x2, at: site))
   }
 

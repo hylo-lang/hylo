@@ -19,9 +19,13 @@ public struct PartialApply: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [.object(callee.type.ast)] }
+  public var result: IR.`Type`? {
+    .object(callee.type.ast)
+  }
 
-  public var operands: [Operand] { [.constant(callee), environment] }
+  public var operands: [Operand] {
+    [.constant(callee), environment]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     switch i {

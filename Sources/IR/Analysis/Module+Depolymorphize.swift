@@ -444,8 +444,8 @@ extension Module {
         return .constant(rewritten(c))
       case .parameter(let b, let i):
         return .parameter(rewrittenBlocks[b]!, i)
-      case .register(let s, let i):
-        return .register(rewrittenIntructions[s]!, i)
+      case .register(let s):
+        return .register(rewrittenIntructions[s]!)
       }
     }
   }
