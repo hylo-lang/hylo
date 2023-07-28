@@ -471,7 +471,6 @@ extension Module {
 
     let entity = Function(
       isSubscript: source.isSubscript,
-      name: "<\(list: parameterization.values), \(useScope)>(\(source.name))",
       site: source.site,
       linkage: .module,
       genericParameters: [],

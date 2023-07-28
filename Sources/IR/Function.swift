@@ -10,9 +10,6 @@ public struct Function {
   /// `true` iff the function implements a subscript.
   public let isSubscript: Bool
 
-  /// The mangled name of the function.
-  public let name: String
-
   /// The site in the source code to which the function corresponds..
   public let site: SourceRange
 
@@ -75,11 +72,5 @@ public struct Function {
 
     return result
   }
-
-}
-
-extension Function: CustomStringConvertible {
-
-  public var description: String { "@\(name)" }
 
 }

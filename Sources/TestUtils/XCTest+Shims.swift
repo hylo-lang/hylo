@@ -74,10 +74,10 @@ import XCTest
 
     /// Creates and runs an activity with the provided block of code.
     public static func runActivity<Result>(
-      named name: String,
+      named debugName: String,
       block: (XCTActivity) throws -> Result
     ) rethrows -> Result {
-      try block(XCTActivity(name: name))
+      try block(XCTActivity(debugName: debugName))
     }
 
   }
@@ -86,7 +86,7 @@ import XCTest
   public struct XCTActivity {
 
     /// A human-readable name for the activity.
-    public var name: String
+    public var debugName: String
 
   }
 

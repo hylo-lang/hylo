@@ -27,7 +27,7 @@ public struct TypeChecker {
   private(set) var environments = DeclProperty<GenericEnvironment>()
 
   /// A map from module to its synthesized declarations.
-  private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedDecl]] = [:]
+  private(set) var synthesizedDecls: [ModuleDecl.ID: [SynthesizedFunctionDecl]] = [:]
 
   /// A map from name expression to its referred declaration.
   private(set) var referredDecls: BindingMap = [:]
@@ -915,13 +915,13 @@ public struct TypeChecker {
     /// Checks if `requirement` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
     func checkSatisfied<T: Decl>(callable requirement: T.ID, named requiredName: Name) {
-      guard let requiredType = candidateType(requirement) else {
+      guard let requiredType = LambdaType(candidateType(requirement)) else {
         return
       }
 
       if let c = implementation(
         of: requiredName, in: model,
-        withCallableType: LambdaType(requiredType)!, specializedWith: specializations,
+        withCallableType: requiredType, specializedWith: specializations,
         exposedTo: useScope)
       {
         implementations[requirement] = .concrete(c)
@@ -929,14 +929,14 @@ public struct TypeChecker {
       }
 
       if let k = ast.synthesizedImplementation(of: requirement, definedBy: trait) {
-        let i = SynthesizedDecl(k, typed: requiredType, in: useScope)
+        let i = SynthesizedFunctionDecl(k, typed: requiredType, in: useScope)
         implementations[requirement] = .synthetic(i)
         synthesizedDecls[program.module(containing: source), default: []].append(i)
         return
       }
 
       let note = Diagnostic.note(
-        trait: trait, requires: requirement.kind, named: requiredName, typed: requiredType,
+        trait: trait, requires: requirement.kind, named: requiredName, typed: ^requiredType,
         at: declSite)
       notes.insert(note)
     }
