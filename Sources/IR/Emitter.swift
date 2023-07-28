@@ -15,9 +15,6 @@ import Utils
 /// analysis and code generation.
 struct Emitter {
 
-  /// The program being lowered.
-  private let program: TypedProgram
-
   /// The diagnostics of lowering errors.
   private(set) var diagnostics: DiagnosticSet = []
 
@@ -30,9 +27,12 @@ struct Emitter {
   /// A stack of frames describing the variables and allocations of each traversed lexical scope.
   private var frames = Stack()
 
-  /// Creates an emitter with a well-typed AST.
-  init(program: TypedProgram) {
-    self.program = program
+  /// Creates an empty instance.
+  init() {}
+
+  /// The program being lowered.
+  private var program: TypedProgram {
+    module.program
   }
 
   /// The AST of the program being lowered.
