@@ -89,7 +89,7 @@ struct Emitter {
     return module.result(of: i)
   }
 
-  // MARK: Entry points
+  // MARK: Top-level entry points
 
   /// Calls `action` with an emitter configured to generate IR in `module` and accumulate
   /// diagnostics in `log`.
@@ -197,7 +197,9 @@ struct Emitter {
     // Emit the body.
     switch b {
     case .block(let s):
-      lower(body: s, of: d, in: bodyFrame)
+      let returnType = LambdaType(program[d].type)!.output
+      let returnSite = pushing(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
+      insert(module.makeReturn(at: returnSite))
 
     case .expr(let e):
       pushing(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
@@ -239,20 +241,22 @@ struct Emitter {
     return Frame(locals: locals)
   }
 
-  /// Inserts the IR for `b`, which is the body of `d` and is enclosed in frame `f`.
-  private mutating func lower(body b: BraceStmt.ID, of d: FunctionDecl.ID, in f: Frame) {
-    switch pushing(f, { $0.emit(braceStmt: b) }) {
+  /// Inserts the IR for the statements of `b`, which is the body of a function returning instances
+  /// of `returnType`, and returns the site of the return statement.
+  private mutating func lowerStatements(
+    _ b: BraceStmt.ID, expecting returnType: AnyType
+  ) -> SourceRange {
+    switch emit(braceStmt: b) {
     case .next:
-      if !module[insertionFunction!].output.isVoidOrNever {
-        let t = LambdaType(program[d].type)!.output
-        report(.error(missingReturn: t, at: .empty(atEndOf: ast[b].site)))
+      if !program.relations.canonical(returnType).isVoidOrNever {
+        report(.error(missingReturn: returnType, at: .empty(atEndOf: ast[b].site)))
       } else {
-        emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: ast[b].site))
-        insert(module.makeReturn(at: .empty(atEndOf: ast[b].site)))
+        emitMove([.set], .void, to: returnValue!, at: .empty(atEndOf: ast[b].site))
       }
+      return ast[b].site
 
     case .return(let s):
-      insert(module.makeReturn(at: ast[s].site))
+      return ast[s].site
 
     default:
       fatalError("not implemented")
@@ -295,13 +299,13 @@ struct Emitter {
       insert(module.makeUnreachable(at: site))
 
     case .void:
-      emitStore(value: .void, to: returnValue!, at: site)
+      emitMove([.set], .void, to: returnValue!, at: site)
       emitDeallocTopFrame(at: site)
       insert(module.makeReturn(at: site))
 
     default:
       let v = emitConvert(foreign: foreignResult, to: returnType, at: site)
-      emitStore(value: v, to: returnValue!, at: site)
+      emitMove([.set], v, to: returnValue!, at: site)
       emitDeallocTopFrame(at: site)
       insert(module.makeReturn(at: site))
     }
@@ -325,17 +329,9 @@ struct Emitter {
 
     // Emit the body.
     insertionPoint = .end(of: entry)
-    switch pushing(Frame(locals: locals), { $0.emit(braceStmt: $0.ast[d].body!) }) {
-    case .next:
-      emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: ast[d].site))
-      insert(module.makeReturn(at: .empty(atEndOf: ast[d].site)))
-
-    case .return(let s):
-      insert(module.makeReturn(at: ast[s].site))
-
-    default:
-      fatalError("not implemented")
-    }
+    let bodyFrame = Frame(locals: locals)
+    let returnSite = pushing(bodyFrame, { $0.lowerStatements($0.ast[d].body!, expecting: .void) })
+    insert(module.makeReturn(at: returnSite))
   }
 
   /// Inserts the IR for `d`.
@@ -661,6 +657,8 @@ struct Emitter {
     }
   }
 
+  // MARK: Synthetic declarations
+
   /// Synthesizes the implementation of `d`.
   private mutating func lower(synthesized d: SynthesizedFunctionDecl) {
     switch d.kind {
@@ -695,7 +693,7 @@ struct Emitter {
     let receiver = Operand.parameter(entry, 0)
     emitDeinitParts(of: receiver, at: site)
 
-    emitStore(value: .void, to: returnValue!, at: site)
+    emitMove([.set], .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -720,13 +718,21 @@ struct Emitter {
     let argument = Operand.parameter(entry, 1)
     let object = module.type(of: receiver).ast
 
+    // Move-initialization of `Void` is a special case.
+    if object == .void {
+      insert(module.makeMarkState(argument, initialized: false, at: site))
+      insert(module.makeMarkState(receiver, initialized: true, at: site))
+      insert(module.makeReturn(at: site))
+      return
+    }
+
     if object.hasRecordLayout {
       emitMoveInitRecordParts(of: receiver, consuming: argument, at: site)
     } else if object.base is UnionType {
       emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
     }
 
-    emitStore(value: .void, to: returnValue!, at: site)
+    emitMove([.set], .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -750,7 +756,7 @@ struct Emitter {
       let source = emitSubfieldView(argument, at: [i], at: site)
       let target = emitSubfieldView(receiver, at: [i], at: site)
       let part = insert(module.makeLoad(source, at: site))!
-      emitStore(value: part, to: target, at: site)
+      emitMove([.set], part, to: target, at: site)
     }
   }
 
@@ -804,13 +810,13 @@ struct Emitter {
     at site: SourceRange
   ) {
     // Deinitialize the receiver.
-    let x0 = insert(module.makeOpenUnion(receiver, as: payload, at: site))!
+    let x0 = insert(
+      module.makeOpenUnion(receiver, as: payload, forInitialization: true, at: site))!
     emitDeinit(x0, at: site)
 
     // Move the argument.
     let x1 = insert(module.makeOpenUnion(argument, as: payload, at: site))!
-    let c = program.conformanceToMovable(of: payload, exposedTo: insertionScope!)!
-    emitMove(.set, of: x1, to: x0, withConformanceToMovable: c, at: site)
+    emitMove([.set], x1, to: x0, at: site)
 
     // Close the unions.
     insert(module.makeCloseUnion(x0, at: site))
@@ -840,11 +846,9 @@ struct Emitter {
     emitDeinit(receiver, at: site)
 
     // Apply the move-initializer.
-    let c = program.conformanceToMovable(of: module.type(of: receiver).ast, exposedTo: d.scope)!
     let r = insert(module.makeLoad(argument, at: site))!
-    emitMove(.set, of: r, to: receiver, withConformanceToMovable: c, at: site)
-
-    emitStore(value: .void, to: returnValue!, at: site)
+    emitMove([.set], r, to: receiver, at: site)
+    emitMove([.set], .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -908,8 +912,8 @@ struct Emitter {
     // The left operand of an assignment should always be marked for mutation, even if the
     // statement actually denotes initialization.
     guard ast[s].left.kind == InoutExpr.self else {
-      report(
-        .error(assignmentLHSRequiresMutationMarkerAt: .empty(at: program[s].left.site.first())))
+      let p = program[s].left.site.first()
+      report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: p)))
       return .next
     }
 
@@ -917,7 +921,7 @@ struct Emitter {
     let x0 = emitStore(value: ast[s].right)
     let x1 = insert(module.makeLoad(x0, at: ast[s].site))!
     let x2 = emitLValue(ast[s].left)
-    emitStore(value: x1, to: x2, at: ast[s].site)
+    emitMove([.inout, .set], x1, to: x2, at: ast[s].site)
     return .next
   }
 
@@ -1045,7 +1049,7 @@ struct Emitter {
     if let e = ast[s].value {
       emitStore(value: e, to: returnValue!)
     } else {
-      emitStore(value: .void, to: returnValue!, at: ast[s].site)
+      emitMove([.set], .void, to: returnValue!, at: ast[s].site)
     }
 
     // The return instruction is emitted by the caller handling this control-flow effect.
@@ -1087,22 +1091,6 @@ struct Emitter {
   }
 
   // MARK: Values
-
-  /// Inserts the IR for storing `value` to `storage`, anchoring new instructions at `site`.
-  private mutating func emitStore(value: Operand, to storage: Operand, at site: SourceRange) {
-    let t = module.type(of: storage).ast
-
-    // Because `emitStore(value:to:at:)` is used to synthesize conformances to `Movable`, calling
-    // the move-initializer of `Val.Void` would cause infinite recursion. Since the latter should
-    // always be inlined anyway, we can emit a simple store in all cases.
-    if t.isBuiltin || (t == .void) {
-      let x0 = insert(module.makeBorrow(.set, from: storage, at: site))!
-      insert(module.makeStore(value, at: x0, at: site))
-    } else {
-      let c = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
-      emitMove(.set, of: value, to: storage, withConformanceToMovable: c, at: site)
-    }
-  }
 
   /// Inserts the IR for storing the value of `syntax` to a fresh stack allocation, returning the
   /// address of this allocation.
@@ -1274,7 +1262,7 @@ struct Emitter {
   private mutating func emitStore(name e: NameExpr.ID, to storage: Operand) {
     let x0 = emitLValue(name: e)
     let x1 = insert(module.makeLoad(x0, at: ast[e].site))!
-    emitStore(value: x1, to: storage, at: ast[e].site)
+    emitMove([.inout, .set], x1, to: storage, at: ast[e].site)
   }
 
   /// Writes the value of `e` to `storage`.
@@ -1344,7 +1332,7 @@ struct Emitter {
   private mutating func emitStore(tupleMember e: TupleMemberExpr.ID, to storage: Operand) {
     let x0 = emitLValue(tupleMember: e)
     let x1 = insert(module.makeLoad(x0, at: ast[e].site))!
-    emitStore(value: x1, to: storage, at: ast[e].site)
+    emitMove([.inout, .set], x1, to: storage, at: ast[e].site)
   }
 
   /// Writes the value of `literal` to `storage`.
@@ -1808,10 +1796,8 @@ struct Emitter {
     let x0 = insert(module.makeOpenUnion(container, as: patternType, at: site))!
     let x1 = insert(module.makeLoad(x0, at: site))!
     insert(module.makeCloseUnion(x0, at: site))
-
-    let c = program.conformanceToMovable(of: patternType, exposedTo: scope)!
     pushing(Frame()) { (this) in
-      this.emitMove(.set, of: x1, to: storage, withConformanceToMovable: c, at: site)
+      this.emitMove([.set], x1, to: storage, at: site)
     }
 
     for (path, name) in ast.names(in: pattern) {
@@ -2096,6 +2082,76 @@ struct Emitter {
     return insert(module.makeProject(o, applying: f, parameterizedBy: a, to: [r], at: site))!
   }
 
+  // MARK: Move
+
+  /// Replaces `i`, which is a `move` instruction with move-assignment of `semantics == .inout` or
+  /// move-initialization if `semantics == .set`, returning the identity of the first instruction
+  /// taking the place of `i`.
+  ///
+  /// After the call, `insertionPoint` set to `nil`.
+  mutating func replaceMove(_ i: InstructionID, with semantics: AccessEffect) -> InstructionID {
+    let s = module[i] as! Move
+    let predecessor = module.instruction(before: i)
+
+    insertionPoint = .before(i)
+    emitMove([semantics], s.object, to: s.target, at: s.site)
+    module.removeInstruction(i)
+
+    if let p = predecessor {
+      return module.instruction(after: p)!
+    } else {
+      let b = insertionBlock!
+      return .init(b, module[b].instructions.firstAddress!)
+    }
+  }
+
+  /// Appends the IR for a call to move-initialize/assign `storage` with `value`, anchoring new
+  /// instructions at `site`.
+  ///
+  /// The type of `value` must a built-in or conform to `Movable` in `insertionScope`.
+  ///
+  /// The value of `semantics` defines the type of move to emit:
+  /// - `[.set]` unconditionally emits move-initialization.
+  /// - `[.inout]` unconditionally emits move-assignment.
+  /// - `[.inout, .set]` (default) emits a `move` instruction that will is later replaced during
+  ///   definite initialization analysis by move-assignment if `storage` is found initialized or
+  ///   move-initialization otherwise. after
+  private mutating func emitMove(
+    _ semantics: AccessEffectSet, _ value: Operand, to storage: Operand, at site: SourceRange
+  ) {
+    precondition(!semantics.isEmpty && semantics.isSubset(of: [.set, .inout]))
+
+    // Built-in are always stored.
+    let t = module.type(of: storage).ast
+    if t.isBuiltin {
+      let x0 = insert(module.makeBorrow(.set, from: storage, at: site))!
+      insert(module.makeStore(value, at: x0, at: site))
+      insert(module.makeEndBorrow(x0, at: site))
+      return
+    }
+
+    // Other types must be movable.
+    let movable = program.conformanceToMovable(of: t, exposedTo: insertionScope!)!
+
+    // If the semantics of the move is known, emit a call to the corresponding move method.
+    if let k = semantics.uniqueElement {
+      let oper = module.demandMoveOperatorDeclaration(k, from: movable)
+      let move = Operand.constant(FunctionReference(to: oper, in: module))
+
+      let x0 = insert(module.makeAllocStack(.void, at: site))!
+      let x1 = insert(module.makeBorrow(k, from: storage, at: site))!
+      let x2 = insert(module.makeBorrow(.set, from: x0, at: site))!
+      insert(module.makeCall(applying: move, to: [x1, value], writingResultTo: x2, at: site))
+      insert(module.makeEndBorrow(x2, at: site))
+      insert(module.makeEndBorrow(x1, at: site))
+      insert(module.makeDeallocStack(for: x0, at: site))
+      return
+    }
+
+    // Otherwise, emit a move.
+    insert(module.makeMove(value, to: storage, usingConformance: movable, at: site))
+  }
+
   // MARK: Deinitialization
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
@@ -2268,27 +2324,6 @@ struct Emitter {
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
     return insert(module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site))!
-  }
-
-  /// Appends the IR for a call to move-initialize/assign `storage` with `value`, using `c` to
-  /// identify the implementations of these operations and anchoring new instructions at `site`.
-  ///
-  /// Use pass `.set` or `.inout` to `access` to use the move-initialization or move-assignment,
-  /// respectively.
-  private mutating func emitMove(
-    _ access: AccessEffect,
-    of value: Operand,
-    to storage: Operand,
-    withConformanceToMovable c: Core.Conformance,
-    at site: SourceRange
-  ) {
-    let oper = module.demandMoveOperatorDeclaration(access, from: c)
-    let move = Operand.constant(FunctionReference(to: oper, in: module))
-
-    let x0 = insert(module.makeBorrow(access, from: storage, at: site))!
-    let x1 = emitAllocStack(for: .void, at: site)
-    let x2 = insert(module.makeBorrow(.set, from: x1, at: site))!
-    insert(module.makeCall(applying: move, to: [x0, value], writingResultTo: x2, at: site))
   }
 
   /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`, anchoring

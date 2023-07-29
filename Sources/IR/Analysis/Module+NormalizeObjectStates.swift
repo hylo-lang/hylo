@@ -363,21 +363,11 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(move i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Move
-
       let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
-      let oper = demandMoveOperatorDeclaration(k, from: s.movable)
-      let move = FunctionReference(to: oper, in: self)
-
-      let x0 = Operand.register(insert(makeBorrow(k, from: s.target, at: s.site), before: i))
-      let x1 = Operand.register(insert(makeAllocStack(.void, at: s.site), before: i))
-      let x2 = Operand.register(insert(makeBorrow(.set, from: x1, at: s.site), before: i))
-      let call = makeCall(
-        applying: .constant(move), to: [x0, s.object], writingResultTo: x2, at: s.site)
-      insert(call, before: i)
-      insert(makeEndBorrow(x0, at: s.site), before: i)
-      removeInstruction(i)
-
-      return x0.instruction!.address
+      let n = Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &diagnostics) {
+        $0.replaceMove(i, with: k)
+      }
+      return n.address
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
