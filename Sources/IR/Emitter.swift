@@ -89,7 +89,7 @@ struct Emitter {
     return module.result(of: i)
   }
 
-  // MARK: Entry points
+  // MARK: Top-level entry points
 
   /// Calls `action` with an emitter configured to generate IR in `module` and accumulate
   /// diagnostics in `log`.
@@ -656,6 +656,8 @@ struct Emitter {
       fatalError("not implemented")
     }
   }
+
+  // MARK: Synthetic declarations
 
   /// Synthesizes the implementation of `d`.
   private mutating func lower(synthesized d: SynthesizedFunctionDecl) {
