@@ -65,12 +65,8 @@ extension Module: TextOutputStreamable {
 
       for j in instructions(in: i) {
         output.write("  ")
-        if !self[j].types.isEmpty {
-          let r = self[j].types.indices.map { (k) -> String in
-            let o = Operand.register(j, k)
-            return "\(o): \(type(of: o))"
-          }
-          output.write("\(list: r) = ")
+        if let t = self[j].result {
+          output.write("\(Operand.register(j)): \(t) = ")
         }
         output.write("\(self[j])\n")
       }

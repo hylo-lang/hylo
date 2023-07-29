@@ -33,9 +33,6 @@ public struct Call: Instruction {
   /// The arguments of the call.
   public var arguments: ArraySlice<Operand> { operands[2...] }
 
-  /// The types of the instruction's results.
-  public var types: [IR.`Type`] { [] }
-
   /// `true` iff the instruction denotes a call to a generic function.
   public var isGeneric: Bool {
     if let f = callee.constant as? FunctionReference {

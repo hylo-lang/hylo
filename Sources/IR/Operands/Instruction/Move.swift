@@ -23,9 +23,9 @@ public struct Move: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [] }
-
-  public var operands: [Operand] { [object, target] }
+  public var operands: [Operand] {
+    [object, target]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     switch i {

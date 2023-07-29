@@ -237,7 +237,7 @@ public struct ValCommand: ParsableCommand {
   private func lower(
     _ m: ModuleDecl.ID, in program: TypedProgram, reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws -> IR.Module {
-    var ir = try IR.Module(lowering: m, in: program, diagnostics: &log)
+    var ir = try IR.Module(lowering: m, in: program, reportingDiagnosticsTo: &log)
     if outputType != .rawIR {
       try ir.applyMandatoryPasses(reportingDiagnosticsTo: &log)
     }

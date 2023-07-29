@@ -422,6 +422,13 @@ extension LLVM.Module {
     /// A map from Val IR register to its LLVM counterpart.
     var register: [IR.Operand: LLVM.IRValue] = [:]
 
+    /// A map from projection to its side results in LLVM.
+    ///
+    /// Projection calls is transpiled as coroutine calls, producing a slide and a frame pointer in
+    /// addition to the projected value. These values are stored here so that `register` can be a
+    /// one-to-one mapping from Val registers to LLVM registers.
+    var byproduct: [IR.InstructionID: (slide: LLVM.IRValue, frame: LLVM.IRValue)] = [:]
+
     /// The address of the function's frame if `f` is a subscript. Otherwise, `nil`.
     let frame: LLVM.IRValue?
 
@@ -510,7 +517,7 @@ extension LLVM.Module {
         insert(switch: i)
       case is IR.UnionDiscriminator:
         insert(unionDiscriminator: i)
-      case is IR.Unrechable:
+      case is IR.Unreachable:
         insert(unreachable: i)
       case is IR.UnsafeCast:
         insert(unsafeCast: i)
@@ -526,7 +533,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(addressToPointer i: IR.InstructionID) {
       let s = m[i] as! AddressToPointer
-      register[.register(i, 0)] = llvm(s.source)
+      register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -536,20 +543,20 @@ extension LLVM.Module {
       let base = llvm(s.base)
       let v = insertGetElementPointerInBounds(
         of: base, typed: ptr, indices: [llvm(s.byteOffset)], at: insertionPoint)
-      register[.register(i, 0)] = v
+      register[.register(i)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(allocStack i: IR.InstructionID) {
       let s = m[i] as! AllocStack
       let t = ir.llvm(s.allocatedType, in: &self)
-      register[.register(i, 0)] = insertAlloca(t, atEntryOf: transpilation)
+      register[.register(i)] = insertAlloca(t, atEntryOf: transpilation)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(borrow i: IR.InstructionID) {
       let s = m[i] as! Borrow
-      register[.register(i, 0)] = llvm(s.location)
+      register[.register(i)] = llvm(s.location)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -609,7 +616,7 @@ extension LLVM.Module {
 
       let callee = declareFunction(s.callee, .init(from: parameters, to: returnType, in: &self))
       let arguments = s.operands.map({ llvm($0) })
-      register[.register(i, 0)] = insertCall(callee, on: arguments, at: insertionPoint)
+      register[.register(i)] = insertCall(callee, on: arguments, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -646,16 +653,14 @@ extension LLVM.Module {
       assert(m[start] is Project)
 
       let t = LLVM.FunctionType(from: [ptr, i1], to: void, in: &self)
-
-      let slide = register[.register(start, 1)]!
-      let buffer = register[.register(start, 2)]!
-      _ = insertCall(slide, typed: t, on: [buffer, i1.zero], at: insertionPoint)
+      let p = byproduct[start]!
+      _ = insertCall(p.slide, typed: t, on: [p.frame, i1.zero], at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(globalAddr i: IR.InstructionID) {
       let s = m[i] as! IR.GlobalAddr
-      register[.register(i, 0)] = global(named: "\(s.container)\(s.id)")!
+      register[.register(i)] = global(named: "\(s.container)\(s.id)")!
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -667,7 +672,7 @@ extension LLVM.Module {
       let indices = [i32.constant(0)] + s.subfield.map({ i32.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
-      register[.register(i, 0)] = v
+      register[.register(i)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -677,84 +682,84 @@ extension LLVM.Module {
       case .add(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertAdd(overflow: p, l, r, at: insertionPoint)
+        register[.register(i)] = insertAdd(overflow: p, l, r, at: insertionPoint)
 
       case .sub(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertSub(overflow: p, l, r, at: insertionPoint)
+        register[.register(i)] = insertSub(overflow: p, l, r, at: insertionPoint)
 
       case .mul(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertMul(overflow: p, l, r, at: insertionPoint)
+        register[.register(i)] = insertMul(overflow: p, l, r, at: insertionPoint)
 
       case .sdiv(let e, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertSignedDiv(exact: e, l, r, at: insertionPoint)
+        register[.register(i)] = insertSignedDiv(exact: e, l, r, at: insertionPoint)
 
       case .srem(_):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertSignedRem(l, r, at: insertionPoint)
+        register[.register(i)] = insertSignedRem(l, r, at: insertionPoint)
 
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertIntegerComparison(p, l, r, at: insertionPoint)
+        register[.register(i)] = insertIntegerComparison(p, l, r, at: insertionPoint)
 
       case .trunc(_, let t):
         let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
-        register[.register(i, 0)] = insertTrunc(source, to: target, at: insertionPoint)
+        register[.register(i)] = insertTrunc(source, to: target, at: insertionPoint)
 
       case .inttoptr(_):
         let source = llvm(s.operands[0])
-        register[.register(i, 0)] = insertIntToPtr(source, at: insertionPoint)
+        register[.register(i)] = insertIntToPtr(source, at: insertionPoint)
 
       case .ptrtoint(let t):
         let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
-        register[.register(i, 0)] = insertPtrToInt(source, to: target, at: insertionPoint)
+        register[.register(i)] = insertPtrToInt(source, to: target, at: insertionPoint)
 
       case .fadd:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertFAdd(l, r, at: insertionPoint)
+        register[.register(i)] = insertFAdd(l, r, at: insertionPoint)
 
       case .fsub:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertFSub(l, r, at: insertionPoint)
+        register[.register(i)] = insertFSub(l, r, at: insertionPoint)
 
       case .fmul:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertFMul(l, r, at: insertionPoint)
+        register[.register(i)] = insertFMul(l, r, at: insertionPoint)
 
       case .fdiv:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertFDiv(l, r, at: insertionPoint)
+        register[.register(i)] = insertFDiv(l, r, at: insertionPoint)
 
       case .frem:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertFRem(l, r, at: insertionPoint)
+        register[.register(i)] = insertFRem(l, r, at: insertionPoint)
 
       case .fcmp(_, let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i, 0)] = insertFloatingPointComparison(p, l, r, at: insertionPoint)
+        register[.register(i)] = insertFloatingPointComparison(p, l, r, at: insertionPoint)
 
       case .fptrunc(_, let t):
         let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
-        register[.register(i, 0)] = insertFPTrunc(source, to: target, at: insertionPoint)
+        register[.register(i)] = insertFPTrunc(source, to: target, at: insertionPoint)
 
       case .zeroinitializer(let t):
-        register[.register(i, 0)] = ir.llvm(builtinType: t, in: &self).null
+        register[.register(i)] = ir.llvm(builtinType: t, in: &self).null
 
       default:
         unreachable("unexpected LLVM instruction '\(s.instruction)'")
@@ -766,13 +771,13 @@ extension LLVM.Module {
       let s = m[i] as! Load
       let t = ir.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
-      register[.register(i, 0)] = insertLoad(t, from: source, at: insertionPoint)
+      register[.register(i)] = insertLoad(t, from: source, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(openUnion i: IR.InstructionID) {
       let s = m[i] as! OpenUnion
-      register[.register(i, 0)] = llvm(s.container)
+      register[.register(i)] = llvm(s.container)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -781,7 +786,7 @@ extension LLVM.Module {
       let t = LambdaType(s.callee.type.ast)!
 
       if t.environment == .void {
-        register[.register(i, 0)] = transpiledConstant(s.callee, usedIn: m, from: ir)
+        register[.register(i)] = transpiledConstant(s.callee, usedIn: m, from: ir)
       } else {
         fatalError("not implemented")
       }
@@ -790,7 +795,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(pointerToAddress i: IR.InstructionID) {
       let s = m[i] as! IR.PointerToAddress
-      register[.register(i, 0)] = llvm(s.source)
+      register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -806,7 +811,7 @@ extension LLVM.Module {
       var arguments: [LLVM.IRValue] = [x0]
       for a in s.operands {
         if m.type(of: a).isObject {
-          let t = ir.llvm(s.types[0].ast, in: &self)
+          let t = ir.llvm(s.result!.ast, in: &self)
           let l = insertAlloca(t, atEntryOf: transpilation)
           insertStore(llvm(a), to: l, at: insertionPoint)
           arguments.append(l)
@@ -823,9 +828,8 @@ extension LLVM.Module {
       // %2 = call {ptr, ptr} %1(...)
       let x2 = insertCall(x1, typed: f.valueType, on: arguments, at: insertionPoint)
 
-      register[.register(i, 0)] = insertExtractValue(from: x2, at: 1, at: insertionPoint)
-      register[.register(i, 1)] = insertExtractValue(from: x2, at: 0, at: insertionPoint)
-      register[.register(i, 2)] = x0
+      register[.register(i)] = insertExtractValue(from: x2, at: 1, at: insertionPoint)
+      byproduct[i] = (slide: insertExtractValue(from: x2, at: 0, at: insertionPoint), frame: x0)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -872,7 +876,7 @@ extension LLVM.Module {
       let indices = [i32.constant(0), i32.constant(1)]
       let discriminator = insertGetElementPointerInBounds(
         of: container, typed: baseType, indices: indices, at: insertionPoint)
-      register[.register(i, 0)] = insertLoad(word(), from: discriminator, at: insertionPoint)
+      register[.register(i)] = insertLoad(word(), from: discriminator, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -888,9 +892,9 @@ extension LLVM.Module {
       let rhs = ir.llvm(s.target, in: &self)
 
       if lhs.type == rhs {
-        register[.register(i, 0)] = lhs
+        register[.register(i)] = lhs
       } else if layout.storageSize(of: rhs) == 0 {
-        register[.register(i, 0)] = rhs.null
+        register[.register(i)] = rhs.null
       } else {
         fatalError("not implemented")
       }
@@ -902,7 +906,7 @@ extension LLVM.Module {
       let t = containerType()
       let a = insertAlloca(t, atEntryOf: transpilation)
       insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)
-      register[.register(i, 0)] = a
+      register[.register(i)] = a
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.

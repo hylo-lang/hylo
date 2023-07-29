@@ -23,9 +23,13 @@ public struct AdvancedByBytes: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [.object(BuiltinType.ptr)] }
+  public var result: IR.`Type`? {
+    .object(BuiltinType.ptr)
+  }
 
-  public var operands: [Operand] { [base, byteOffset] }
+  public var operands: [Operand] {
+    [base, byteOffset]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i >= 0 && i < 2)

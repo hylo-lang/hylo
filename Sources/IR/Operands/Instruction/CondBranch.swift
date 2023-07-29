@@ -28,9 +28,9 @@ public struct CondBranch: Terminator {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [] }
-
-  public var operands: [Operand] { [condition] }
+  public var operands: [Operand] {
+    [condition]
+  }
 
   public var successors: [Block.ID] { [targetIfTrue, targetIfFalse] }
 

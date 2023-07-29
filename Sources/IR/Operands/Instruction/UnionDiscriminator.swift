@@ -15,9 +15,13 @@ public struct UnionDiscriminator: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [.object(BuiltinType.word)] }
+  public var result: IR.`Type`? {
+    .object(BuiltinType.word)
+  }
 
-  public var operands: [Operand] { [container] }
+  public var operands: [Operand] {
+    [container]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)

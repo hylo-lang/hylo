@@ -19,9 +19,9 @@ public struct Yield: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [] }
-
-  public var operands: [Operand] { [projection] }
+  public var operands: [Operand] {
+    [projection]
+  }
 
   public var successors: [Block.ID] { [] }
 

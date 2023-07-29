@@ -22,7 +22,8 @@ extension XCTestCase {
       let typedProgram = try TypedProgram(ast, diagnostics: &diagnostics)
 
       // Emit Val's IR.
-      var irModule = try Module(lowering: module, in: typedProgram, diagnostics: &diagnostics)
+      var irModule = try Module(
+        lowering: module, in: typedProgram, reportingDiagnosticsTo: &diagnostics)
 
       // Run mandatory IR analysis and transformation passes.
       try irModule.applyMandatoryPasses(reportingDiagnosticsTo: &diagnostics)

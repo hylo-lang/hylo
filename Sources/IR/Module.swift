@@ -33,21 +33,21 @@ public struct Module {
   /// The module's entry function, if any.
   public private(set) var entryFunction: Function.ID?
 
-  /// Creates an instance lowering `m` in `p`, reporting errors and warnings to
-  /// `diagnostics`.
+  /// Creates an instance lowering `m` in `p`, reporting errors and warnings to `log`.
   ///
   /// - Requires: `m` is a valid ID in `p`.
   /// - Throws: `Diagnostics` if lowering fails.
   public init(
-    lowering m: ModuleDecl.ID, in p: TypedProgram, diagnostics: inout DiagnosticSet
+    lowering m: ModuleDecl.ID, in p: TypedProgram,
+    reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
     self.program = p
     self.id = m
 
-    var emitter = Emitter(program: program)
-    emitter.lower(module: m, into: &self)
-    diagnostics.formUnion(emitter.diagnostics)
-    try diagnostics.throwOnError()
+    Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+      e.incorporateTopLevelDeclarations()
+    }
+    try log.throwOnError()
   }
 
   /// The module's name.
@@ -76,8 +76,8 @@ public struct Module {
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> IR.`Type` {
     switch operand {
-    case .register(let instruction, let index):
-      return functions[instruction.function]![instruction.block][instruction.address].types[index]
+    case .register(let instruction):
+      return functions[instruction.function]![instruction.block][instruction.address].result!
 
     case .parameter(let block, let index):
       return functions[block.function]![block.address].inputs[index]
@@ -115,6 +115,12 @@ public struct Module {
       .map({ InstructionID(i.function, i.block, $0) })
   }
 
+  /// Returns the ID the instruction after `i`.
+  func instruction(after i: InstructionID) -> InstructionID? {
+    functions[i.function]![i.block].instructions.address(after: i.address)
+      .map({ InstructionID(i.function, i.block, $0) })
+  }
+
   /// Returns the global identity of `block`'s terminator, if it exists.
   func terminator(of block: Block.ID) -> InstructionID? {
     if let a = functions[block.function]!.blocks[block.address].instructions.lastAddress {
@@ -124,9 +130,13 @@ public struct Module {
     }
   }
 
-  /// Returns the registers asssigned by `i`.
-  func results(of i: InstructionID) -> [Operand] {
-    (0 ..< self[i].types.count).map({ .register(i, $0) })
+  /// Returns the register asssigned by `i`, if any.
+  func result(of i: InstructionID) -> Operand? {
+    if self[i].result != nil {
+      return .register(i)
+    } else {
+      return nil
+    }
   }
 
   /// Returns whether the IR in `self` is well-formed.
@@ -180,9 +190,9 @@ public struct Module {
   mutating func generateSyntheticImplementations(
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
-    var emitter = Emitter(program: program)
-    emitter.generateSyntheticImplementations(in: &self)
-    log.formUnion(emitter.diagnostics)
+    Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+      e.incorporateSyntheticDeclarations()
+    }
     try log.throwOnError()
   }
 
@@ -475,16 +485,17 @@ public struct Module {
     return functions[block.function]!.removeBlock(block.address)
   }
 
-  /// Swaps `old` by `new` and returns the identities of the latter's return values.
+  /// Swaps `old` by `new`.
   ///
-  /// `old` is removed from to module and the def-use chains are updated.
+  /// `old` is removed and the def-use chains are updated so that the uses made by `old` are
+  /// replaced by the uses made by `new` and all uses of `old` refer to `new`. After the call,
+  /// `self[old] == new`.
   ///
   /// - Requires: `new` produces results with the same types as `old`.
-  @discardableResult
-  mutating func replace<I: Instruction>(_ old: InstructionID, with new: I) -> [Operand] {
-    precondition(self[old].types == new.types)
+  mutating func replace<I: Instruction>(_ old: InstructionID, with new: I) {
+    precondition(self[old].result == new.result)
     removeUsesMadeBy(old)
-    return insert(new) { (m, i) in
+    _ = insert(new) { (m, i) in
       m[old] = i
       return old
     }
@@ -514,79 +525,74 @@ public struct Module {
     uses[new] = newUses
   }
 
-  /// Adds `newInstruction` at the end of `block` and returns the identities of its return values.
+  /// Inserts `newInstruction` at `boundary` and returns its identity.
   @discardableResult
-  mutating func append<I: Instruction>(
-    _ newInstruction: I,
-    to block: Block.ID
-  ) -> [Operand] {
-    insert(
-      newInstruction,
-      with: { (m, i) in
-        InstructionID(block, m[block].instructions.append(newInstruction))
-      })
-  }
-
-  /// Inserts `newInstruction` at `p` and returns the identities of its resutls.
-  @discardableResult
-  mutating func insert<I: Instruction>(_ newInstruction: I, _ p: InsertionPoint) -> [Operand] {
-    switch p {
-    case .at(endOf: let b):
+  mutating func insert(
+    _ newInstruction: Instruction, at boundary: InsertionPoint
+  ) -> InstructionID {
+    switch boundary {
+    case .end(let b):
       return append(newInstruction, to: b)
     case .before(let i):
       return insert(newInstruction, before: i)
     }
   }
 
-  /// Inserts `newInstruction` at `position` and returns the identities of its return values.
+  /// Adds `newInstruction` at the end of `block` and returns its identity.
+  @discardableResult
+  mutating func append(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID {
+    precondition(!(self[block].instructions.last is Terminator), "insertion after terminator")
+    return insert(newInstruction) { (m, i) in
+      InstructionID(block, m[block].instructions.append(newInstruction))
+    }
+  }
+
+  /// Inserts `newInstruction` at `position` and returns its identity.
   ///
   /// The instruction is inserted before the instruction currently at `position`. You can pass a
   /// "past the end" position to append at the end of a block.
   @discardableResult
-  mutating func insert<I: Instruction>(
-    _ newInstruction: I,
-    at position: InstructionIndex
-  ) -> [Operand] {
-    insert(newInstruction) { (m, i) in
+  mutating func insert(
+    _ newInstruction: Instruction, at position: InstructionIndex
+  ) -> InstructionID {
+    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
+    return insert(newInstruction) { (m, i) in
       let address = m.functions[position.function]![position.block].instructions
         .insert(newInstruction, at: position.index)
       return InstructionID(position.function, position.block, address)
     }
   }
 
-  /// Inserts `newInstruction` before the instruction identified by `successor` and returns the
-  /// identities of its results.
+  /// Inserts `newInstruction` before `successor` and returns its identity.
   @discardableResult
-  mutating func insert<I: Instruction>(
-    _ newInstruction: I,
-    before successor: InstructionID
-  ) -> [Operand] {
-    insert(newInstruction) { (m, i) in
+  mutating func insert(
+    _ newInstruction: Instruction, before successor: InstructionID
+  ) -> InstructionID {
+    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
+    return insert(newInstruction) { (m, i) in
       let address = m.functions[successor.function]![successor.block].instructions
         .insert(newInstruction, before: successor.address)
       return InstructionID(successor.function, successor.block, address)
     }
   }
 
-  /// Inserts `newInstruction` after the instruction identified by `predecessor` and returns the
-  /// identities of its results.
+  /// Inserts `newInstruction` after `predecessor` and returns its identity.
   @discardableResult
-  mutating func insert<I: Instruction>(
-    _ newInstruction: I,
-    after predecessor: InstructionID
-  ) -> [Operand] {
-    insert(newInstruction) { (m, i) in
+  mutating func insert(
+    _ newInstruction: Instruction, after predecessor: InstructionID
+  ) -> InstructionID {
+    precondition(!(instruction(after: predecessor) is Terminator), "insertion after terminator")
+    return insert(newInstruction) { (m, i) in
       let address = m.functions[predecessor.function]![predecessor.block].instructions
         .insert(newInstruction, after: predecessor.address)
       return InstructionID(predecessor.function, predecessor.block, address)
     }
   }
 
-  /// Inserts `newInstruction` with `impl` and returns the identities of its return values.
-  private mutating func insert<I: Instruction>(
-    _ newInstruction: I,
-    with impl: (inout Self, I) -> InstructionID
-  ) -> [Operand] {
+  /// Inserts `newInstruction` with `impl` and returns its identity.
+  private mutating func insert(
+    _ newInstruction: Instruction, with impl: (inout Self, Instruction) -> InstructionID
+  ) -> InstructionID {
     // Insert the instruction.
     let user = impl(&self, newInstruction)
 
@@ -595,14 +601,14 @@ public struct Module {
       uses[newInstruction.operands[i], default: []].append(Use(user: user, index: i))
     }
 
-    return results(of: user)
+    return user
   }
 
   /// Removes instruction `i` and updates def-use chains.
   ///
-  /// - Requires: The results of `i` have no users.
+  /// - Requires: The result of `i` have no users.
   mutating func removeInstruction(_ i: InstructionID) {
-    precondition(results(of: i).allSatisfy({ uses[$0, default: []].isEmpty }))
+    precondition(result(of: i).map(default: true, { uses[$0, default: []].isEmpty }))
     removeUsesMadeBy(i)
     self[i.function][i.block].instructions.remove(at: i.address)
   }
@@ -618,8 +624,8 @@ public struct Module {
   }
 
   /// Returns the uses of all the registers assigned by `i`.
-  private func allUses(of i: InstructionID) -> FlattenSequence<[[Use]]> {
-    results(of: i).compactMap({ uses[$0] }).joined()
+  private func allUses(of i: InstructionID) -> [Use] {
+    result(of: i).map(default: [], { uses[$0, default: []] })
   }
 
   /// Removes `i` from the def-use chains of its operands.
@@ -637,7 +643,7 @@ public struct Module {
   /// predecessors depends on that bock's arguments.
   func provenances(_ a: Operand) -> Set<Operand> {
     // TODO: Block arguments
-    guard case .register(let i, _) = a else { return [a] }
+    guard let i = a.instruction else { return [a] }
 
     switch self[i] {
     case let s as AdvancedByBytes:
@@ -669,7 +675,7 @@ public struct Module {
       case .parameter(e, let i):
         return self.functions[f]!.inputs[i].type.access == .sink
 
-      case .register(let i, _):
+      case .register(let i):
         switch self[i] {
         case let s as ProjectBundle:
           return s.capabilities.contains(.sink)

@@ -72,7 +72,7 @@ extension Module {
           pc = interpret(subfieldView: user, in: &context)
         case is UnionDiscriminator:
           pc = interpret(unionDiscriminator: user, in: &context)
-        case is Unrechable:
+        case is Unreachable:
           pc = successor(of: user)
         case is UnsafeCast:
           pc = interpret(unsafeCast: user, in: &context)
@@ -93,14 +93,14 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(addressToPointer i: InstructionID, in context: inout Context) -> PC? {
-      initializeRegisters(createdBy: i, in: &context)
+      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
       // Create an abstract location denoting the newly allocated memory.
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "stack leak")
 
       // Update the context.
@@ -108,7 +108,7 @@ extension Module {
       let t = AbstractTypeLayout(of: s.allocatedType, definedIn: program)
 
       context.memory[l] = .init(layout: t, value: .full(.uninitialized))
-      context.locals[.register(i, 0)] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
       return successor(of: i)
     }
 
@@ -117,7 +117,7 @@ extension Module {
       let s = self[i] as! AdvancedByBytes
       consume(s.base, with: i, at: s.site, in: &context)
       consume(s.byteOffset, with: i, at: s.site, in: &context)
-      initializeRegisters(createdBy: i, in: &context)
+      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
@@ -171,7 +171,7 @@ extension Module {
         unreachable()
       }
 
-      context.locals[.register(i, 0)] = .locations(locations)
+      context.locals[.register(i)] = .locations(locations)
       return successor(of: i)
     }
 
@@ -219,7 +219,7 @@ extension Module {
       for a in s.operands {
         consume(a, with: i, at: s.site, in: &context)
       }
-      initializeRegisters(createdBy: i, in: &context)
+      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
@@ -295,19 +295,19 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, in context: inout Context) -> PC? {
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.root(.register(i))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(
           of: (self[i] as! GlobalAddr).valueType, definedIn: program),
         value: .full(.initialized))
-      context.locals[.register(i, 0)] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(llvm i: InstructionID, in context: inout Context) -> PC? {
       // TODO: Check that operands are initialized.
-      initializeRegisters(createdBy: i, in: &context)
+      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
@@ -342,7 +342,7 @@ extension Module {
         }
       }
 
-      initializeRegisters(createdBy: i, in: &context)
+      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
@@ -368,9 +368,9 @@ extension Module {
       let oper = demandMoveOperatorDeclaration(k, from: s.movable)
       let move = FunctionReference(to: oper, in: self)
 
-      let x0 = insert(makeBorrow(k, from: s.target, at: s.site), before: i)[0]
-      let x1 = insert(makeAllocStack(.void, at: s.site), before: i)[0]
-      let x2 = insert(makeBorrow(.set, from: x1, at: s.site), before: i)[0]
+      let x0 = Operand.register(insert(makeBorrow(k, from: s.target, at: s.site), before: i))
+      let x1 = Operand.register(insert(makeAllocStack(.void, at: s.site), before: i))
+      let x2 = Operand.register(insert(makeBorrow(.set, from: x1, at: s.site), before: i))
       let call = makeCall(
         applying: .constant(move), to: [x0, s.object], writingResultTo: x2, at: s.site)
       insert(call, before: i)
@@ -383,7 +383,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(openUnion i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! OpenUnion
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "overlapping accesses to union payload")
 
       // Operand must be a location.
@@ -394,7 +394,7 @@ extension Module {
       let t = AbstractTypeLayout(of: s.payloadType, definedIn: program)
 
       context.memory[l] = .init(layout: t, value: o.value)
-      context.locals[.register(i, 0)] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
       return successor(of: i)
     }
 
@@ -402,7 +402,7 @@ extension Module {
     func interpret(partialApply i: InstructionID, in context: inout Context) -> PC? {
       let x = self[i] as! PartialApply
       consume(x.environment, with: i, at: x.site, in: &context)
-      initializeRegisters(createdBy: i, in: &context)
+      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
@@ -411,11 +411,11 @@ extension Module {
       let s = self[i] as! PointerToAddress
       consume(s.source, with: i, at: s.site, in: &context)
 
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.root(.register(i))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
         value: .full(s.target.access == .set ? .uninitialized : .initialized))
-      context.locals[.register(i, 0)] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
       return successor(of: i)
     }
 
@@ -424,11 +424,11 @@ extension Module {
       // TODO: Process arguments
 
       let s = self[i] as! Project
-      let l = AbstractLocation.root(.register(i, 0))
+      let l = AbstractLocation.root(.register(i))
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
         value: .full(s.projection.access == .set ? .uninitialized : .initialized))
-      context.locals[.register(i, 0)] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
       return successor(of: i)
     }
 
@@ -479,13 +479,13 @@ extension Module {
           })
       }
 
-      context.locals[.register(i, 0)] = .locations(Set(locations))
+      context.locals[.register(i)] = .locations(Set(locations))
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(unionDiscriminator i: InstructionID, in context: inout Context) -> PC? {
-      initializeRegisters(createdBy: i, in: &context)
+      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
@@ -493,7 +493,7 @@ extension Module {
     func interpret(unsafeCast i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! UnsafeCast
       consume(s.source, with: i, at: s.site, in: &context)
-      initializeRegisters(createdBy: i, in: &context)
+      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
@@ -505,7 +505,7 @@ extension Module {
         fatalError("not implemented")
       }
 
-      context.locals[.register(i, 0)] = context.locals[s.witness]
+      context.locals[.register(i)] = context.locals[s.witness]
       return successor(of: i)
     }
 
@@ -615,15 +615,15 @@ extension Module {
       return true
     case .parameter:
       return false
-    case .register(let i, _):
+    case .register(let i):
       return self[i] is Borrow
     }
   }
 
-  /// Assigns in `context` a fully initialized object to each virtual register defined by `i`.
-  private func initializeRegisters(createdBy i: InstructionID, in context: inout Context) {
-    for (j, t) in self[i].types.enumerated() {
-      context.locals[.register(i, j)] = .object(
+  /// Assigns in `context` a fully initialized object to the virtual register defined by `i`.
+  private func initializeRegister(createdBy i: InstructionID, in context: inout Context) {
+    if let t = self[i].result {
+      context.locals[.register(i)] = .object(
         .init(layout: .init(of: t.ast, definedIn: program), value: .full(.initialized)))
     }
   }
@@ -635,12 +635,10 @@ extension Module {
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedSubfields {
-      let s = insert(makeSubfieldView(of: root, subfield: path, at: site), before: i)[0]
-      let success = Emitter.insertDeinit(
-        s, exposedTo: scope(containing: i), at: site, .before(i), in: &self)
-
-      if !success {
-        log.insert(.error(nonDeinitializable: type(of: s).ast, at: site))
+      let s = insert(makeSubfieldView(of: root, subfield: path, at: site), before: i)
+      Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+        e.insertionPoint = .before(i)
+        e.emitDeinit(.register(s), at: site)
       }
     }
   }

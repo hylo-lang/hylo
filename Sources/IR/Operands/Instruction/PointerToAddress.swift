@@ -22,9 +22,13 @@ public struct PointerToAddress: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [.address(target.bareType)] }
+  public var result: IR.`Type`? {
+    .address(target.bareType)
+  }
 
-  public var operands: [Operand] { [source] }
+  public var operands: [Operand] {
+    [source]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)

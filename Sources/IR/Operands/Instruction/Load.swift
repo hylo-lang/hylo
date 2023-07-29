@@ -19,9 +19,13 @@ public struct Load: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [objectType] }
+  public var result: IR.`Type`? {
+    objectType
+  }
 
-  public var operands: [Operand] { [source] }
+  public var operands: [Operand] {
+    [source]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)

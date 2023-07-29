@@ -19,9 +19,9 @@ public struct Switch: Terminator {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [] }
-
-  public var operands: [Operand] { [index] }
+  public var operands: [Operand] {
+    [index]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)

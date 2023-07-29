@@ -15,9 +15,9 @@ public struct DeallocStack: Instruction {
     self.site = site
   }
 
-  public var types: [IR.`Type`] { [] }
-
-  public var operands: [Operand] { [location] }
+  public var operands: [Operand] {
+    [location]
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)
