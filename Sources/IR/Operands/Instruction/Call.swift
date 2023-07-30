@@ -69,20 +69,21 @@ extension Module {
     applying callee: Operand, to arguments: [Operand], writingResultTo output: Operand,
     at site: SourceRange
   ) -> Call {
-    let calleeType = LambdaType(type(of: callee).ast)!.strippingEnvironment
-    precondition(calleeType.inputs.count == arguments.count)
+    let t = LambdaType(type(of: callee).ast)!.strippingEnvironment
+    precondition(t.inputs.count == arguments.count)
+    precondition(arguments.allSatisfy({ self[$0] is Access }))
     precondition(isBorrowSet(output))
 
     return .init(callee: callee, output: output, arguments: arguments, site: site)
   }
 
-  /// Returns `true` iff `o` is a `borrow [set]` instruction.
+  /// Returns `true` iff `o` is an `access [set]` instruction.
   fileprivate func isBorrowSet(_ o: Operand) -> Bool {
     guard
       let i = o.instruction,
-      let s = self[i] as? Borrow
+      let s = self[i] as? Access
     else { return false }
-    return s.capability == .set
+    return s.capabilities == [.set]
   }
 
 }
