@@ -21,8 +21,8 @@ extension Module {
         switch blockInstructions[i] {
         case is AllocStack:
           interpret(allocStack: user, in: &context)
-        case is Borrow:
-          interpret(borrow: user, in: &context)
+        case is Access:
+          interpret(access: user, in: &context)
         case is CloseUnion:
           interpret(closeUnion: user, in: &context)
         case is DeallocStack:
@@ -61,20 +61,24 @@ extension Module {
       context.locals[.register(i)] = .locations([l])
     }
 
+
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(borrow i: InstructionID, in context: inout Context) {
-      let borrow = self[i] as! Borrow
-      if case .constant = borrow.location { unreachable("borrowed source is a constant") }
+    func interpret(access i: InstructionID, in context: inout Context) {
+      let s = self[i] as! Access
+      precondition(s.source.constant == nil, "borrowed source is a constant")
+
+      // Access is expected to be reified at this stage.
+      let request = s.capabilities.uniqueElement!
 
       // Skip the instruction if an error occured upstream.
-      guard context.locals[borrow.location] != nil else {
+      guard context.locals[s.source] != nil else {
         assert(diagnostics.containsError)
         return
       }
 
-      let former = reborrowedSource(borrow)
+      let former = reborrowedSource(s)
       var hasConflict = false
-      context.forEachObject(at: borrow.location) { (o) in
+      context.forEachObject(at: s.source) { (o) in
         // We can always create new borrows if there aren't any.
         // TODO: immutable sources
         let borrowers = o.value.borrowers
@@ -83,36 +87,37 @@ extension Module {
           return
         }
 
-        // Otherwise, we can form a new borrow if and only if:
-        // * we're reborrowing from a unique mutable borrower; or
-        // * we're borrowing a `let` and there's at least one immutable borrowers.
-        switch borrow.capability {
+        // Otherwise, we can form a new access if and only if ...
+        // * we're borrowing a `let` and there's at least one immutable borrowers; or
+        // * we're reborrowing from a unique borrower with a stronger or equal capability.
+        switch request {
+        case .yielded:
+          unreachable()
+
         case .let:
-          let isImmutable = borrowers.contains(where: isImmutableBorrow(_:))
+          let isImmutable = borrowers.contains(where: { self[$0].isAccess(.let) })
           if isImmutable || former.map(borrowers.containsOnly(_:)) ?? false {
             o.value.insertBorrower(i)
           } else {
-            diagnostics.insert(.error(illegalImmutableAccessAt: borrow.site))
+            diagnostics.insert(.error(illegalImmutableAccessAt: s.site))
             hasConflict = true
           }
 
-        case .inout, .set:
-          if former.map({ borrowers.containsOnly($0) && isMutableBorrow($0) }) ?? false {
+        case let request:
+          let ks = AccessEffectSet([.set, .inout, .sink]).filter(strongerOrEqualTo: request)
+          if let f = former, borrowers.containsOnly(f) && self[f].isAccess(in: ks) {
             o.value.removeBorrower(former!)
             o.value.insertBorrower(i)
           } else {
-            diagnostics.insert(.error(illegalMutableAccessAt: borrow.site))
+            diagnostics.insert(.error(illegalMutableAccessAt: s.site))
             hasConflict = true
           }
-
-        case .sink, .yielded:
-          unreachable()
         }
       }
 
       // Don't set the locals if an error occured to avoid cascading errors downstream.
       if !hasConflict {
-        context.locals[.register(i)] = context.locals[borrow.location]!
+        context.locals[.register(i)] = context.locals[s.source]!
       }
     }
 
@@ -161,12 +166,12 @@ extension Module {
       context.forEachObject(at: end.borrow) { (o) in
         if !o.value.removeBorrower(borrowID) { return }
         if let s = former {
-          switch borrow.capability {
+          switch borrow.capabilities.uniqueElement! {
           case .let:
             assert(o.value.borrowers.contains(s))
-          case .set, .inout:
+          case .set, .inout, .sink:
             o.value.insertBorrower(s)
-          case .sink, .yielded:
+          case .yielded:
             unreachable()
           }
         }
@@ -309,27 +314,9 @@ extension Module {
     }
   }
 
-  /// Returns `true` iff `i` is a `borrow` instruction taking the `inout` or `set` capability.
-  private func isMutableBorrow(_ i: InstructionID) -> Bool {
-    if let borrow = self[i] as? Borrow {
-      return borrow.capability == .inout || borrow.capability == .set
-    } else {
-      return false
-    }
-  }
-
-  /// Returns `true` iff `i` is a `borrow` instruction taking the `let` capability.
-  private func isImmutableBorrow(_ i: InstructionID) -> Bool {
-    if let borrow = self[i] as? Borrow {
-      return borrow.capability == .let
-    } else {
-      return false
-    }
-  }
-
   /// Returns the borrowed instruction from which `b` reborrows, if any.
-  private func reborrowedSource(_ b: Borrow) -> InstructionID? {
-    if let s = accessSource(b.location).instruction, self[s] is Borrow {
+  private func reborrowedSource(_ b: Access) -> InstructionID? {
+    if let s = accessSource(b.source).instruction, self[s] is Access {
       return s
     } else {
       return nil
@@ -340,7 +327,7 @@ extension Module {
   ///
   /// - Requires: `o` denotes a location.
   private func accessSource(_ o: Operand) -> Operand {
-    if case .register(let i) = o, let a = self[i] as? SubfieldView {
+    if let a = self[o] as? SubfieldView {
       return accessSource(a.recordAddress)
     } else {
       return o
