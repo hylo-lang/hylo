@@ -39,6 +39,11 @@ public struct AccessEffectSet: OptionSet, Hashable {
     elements.reduce(k, max)
   }
 
+  /// Returns a set containing the effects in `self` that are stronger or equal to `k`.
+  public func filter(strongerOrEqualTo k: AccessEffect) -> AccessEffectSet {
+    .init(rawValue: rawValue & ~(k.rawValue - 1))
+  }
+
   @discardableResult
   public mutating func insert(
     _ newMember: AccessEffect
@@ -51,6 +56,7 @@ public struct AccessEffectSet: OptionSet, Hashable {
     }
   }
 
+  @discardableResult
   public mutating func remove(_ member: AccessEffect) -> AccessEffect? {
     if contains(member) {
       rawValue &= ~member.rawValue
