@@ -39,11 +39,11 @@ extension Module {
   /// Creates a `load` anchored at `site` that loads the object at `source`.
   ///
   /// - Parameters:
-  ///   - source: The location from which the object is loaded. Must have an address type.
+  ///   - source: The location from which the object is loaded. Must be the result of an `access`
+  ///     instruction requesting a `sink` capability.
   func makeLoad(_ source: Operand, at site: SourceRange) -> Load {
-    let t = type(of: source)
-    precondition(t.isAddress)
-    return .init(objectType: .object(t.ast), from: source, site: site)
+    precondition(self[source] is Access)
+    return .init(objectType: .object(type(of: source).ast), from: source, site: site)
   }
 
 }
