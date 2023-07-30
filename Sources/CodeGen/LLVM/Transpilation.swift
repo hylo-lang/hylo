@@ -473,8 +473,8 @@ extension LLVM.Module {
         insert(advancedByBytes: i)
       case is IR.AllocStack:
         insert(allocStack: i)
-      case is IR.Borrow:
-        insert(borrow: i)
+      case is IR.Access:
+        insert(access: i)
       case is IR.Branch:
         insert(branch: i)
       case is IR.Call:
@@ -554,9 +554,9 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(borrow i: IR.InstructionID) {
-      let s = m[i] as! Borrow
-      register[.register(i)] = llvm(s.location)
+    func insert(access i: IR.InstructionID) {
+      let s = m[i] as! Access
+      register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -587,18 +587,8 @@ extension LLVM.Module {
       }
 
       // Arguments and return value are passed by reference.
-      for a in s.arguments {
-        if m.type(of: a).isObject {
-          let t = ir.llvm(m.type(of: a).ast, in: &self)
-          let l = insertAlloca(t, atEntryOf: transpilation)
-          insertStore(llvm(a), to: l, at: insertionPoint)
-          arguments.append(l)
-        } else {
-          arguments.append(llvm(a))
-        }
-      }
+      arguments.append(contentsOf: s.arguments.map(llvm(_:)))
       arguments.append(llvm(s.output))
-
       _ = insertCall(callee, typed: calleeType, on: arguments, at: insertionPoint)
     }
 
