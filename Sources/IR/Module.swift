@@ -73,6 +73,15 @@ public struct Module {
     _modify { yield &functions[i.function]![i.block].instructions[i.address] }
   }
 
+  /// Accesses the instruction denoted by `o` if it is `.register`. Otherwise, returns `nil`.
+  public subscript(o: Operand) -> Instruction? {
+    if case .register(let i) = o {
+      return self[i]
+    } else {
+      return nil
+    }
+  }
+
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> IR.`Type` {
     switch operand {
