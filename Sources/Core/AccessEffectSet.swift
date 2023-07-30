@@ -13,13 +13,19 @@ public struct AccessEffectSet: OptionSet, Hashable {
     self.rawValue = rawValue
   }
 
+  /// Returns `true` if `self` contains `member`.
   public func contains(_ member: AccessEffect) -> Bool {
     (rawValue & member.rawValue) == member.rawValue
   }
 
+  /// `true` if `self` is a singleton.
+  public var isSingleton: Bool {
+    (rawValue != 0) && (rawValue & (rawValue - 1) == 0)
+  }
+
   /// The unique element in `self` if `self` is a singleton. Otherwise, `nil`.
   public var uniqueElement: AccessEffect? {
-    (rawValue != 0) && (rawValue & (rawValue - 1) == 0) ? .init(rawValue: rawValue) : nil
+    .init(rawValue: rawValue)
   }
 
   /// The weakest capability in `self`, or `nil` if `self` is empty.
