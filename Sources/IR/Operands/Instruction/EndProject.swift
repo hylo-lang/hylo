@@ -29,7 +29,7 @@ public struct EndProject: Instruction {
 extension Module {
 
   /// Creates an `end_project` anchored at `site` that ends the projection created by `p`.
-  func makeEndProject(_ p: Operand, anchoredAt anchor: SourceRange) -> EndProject {
+  func makeEndProject(_ p: Operand, at anchor: SourceRange) -> EndProject {
     precondition(p.instruction.map({ self[$0] is Project }) ?? false)
     return .init(projection: p, site: anchor)
   }
