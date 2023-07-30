@@ -60,6 +60,11 @@ public enum Operand {
     }
   }
 
+  /// `true` iff `self` is `.constant`.
+  public var isConstant: Bool {
+    constant != nil
+  }
+
 }
 
 extension Operand: Equatable {
