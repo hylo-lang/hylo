@@ -3443,41 +3443,11 @@ public struct TypeChecker {
   // MARK: Type role determination
 
   /// Replaces occurrences of associated types and generic type parameters in `type` by fresh
-  /// type variables variables.
-  func open(type: AnyType) -> InstantiatedType {
-    /// A map from generic parameter type to its opened type.
-    var openedParameters: [AnyType: AnyType] = [:]
-
-    func _impl(type: AnyType) -> TypeTransformAction {
-      switch type.base {
-      case is AssociatedTypeType:
-        fatalError("not implemented")
-
-      case is GenericTypeParameterType:
-        if let opened = openedParameters[type] {
-          // The parameter was already opened.
-          return .stepOver(opened)
-        } else {
-          // Open the parameter.
-          let opened = ^TypeVariable()
-          openedParameters[type] = opened
-
-          // TODO: Collect constraints
-
-          return .stepOver(opened)
-        }
-
-      default:
-        // Nothing to do if `type` isn't parameterized.
-        if type[.hasGenericTypeParameter] || type[.hasGenericValueParameter] {
-          return .stepInto(type)
-        } else {
-          return .stepOver(type)
-        }
-      }
-    }
-
-    return InstantiatedType(shape: type.transform(_impl(type:)), constraints: [])
+  /// type variables variables, forming constraints at `site`.
+  mutating func open(type: AnyType, at site: SourceRange) -> InstantiatedType {
+    // Since no generic parameter can be introduced at module scope, passing a module here will
+    // force all parameters to be opened rather than skolemized.
+    instantiate(type, in: ast.coreLibrary!, cause: .init(.structural, at: site))
   }
 
   /// Returns the type declared by `d` bound to open variables for each generic parameter

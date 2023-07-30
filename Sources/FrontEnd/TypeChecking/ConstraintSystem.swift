@@ -1050,7 +1050,7 @@ struct ConstraintSystem {
     querying checker: inout TypeChecker
   ) -> Bool {
     // Open the right operand.
-    let openedRight = checker.open(type: rhs)
+    let openedRight = checker.open(type: rhs, at: site)
     var constraints = openedRight.constraints
 
     // Create pairwise subtyping constraints on the parameters.
