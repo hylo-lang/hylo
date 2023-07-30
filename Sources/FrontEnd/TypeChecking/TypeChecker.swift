@@ -779,7 +779,7 @@ public struct TypeChecker {
         return .done
       } else {
         // Note: Because the type realization of certain declarations may escalate to type
-        // checking perform type checking, we should re-check the status of the request.
+        // checking, we should re-check the status of the request.
         return prepareForTypeChecking(d)
       }
 
