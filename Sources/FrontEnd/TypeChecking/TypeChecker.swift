@@ -3474,36 +3474,20 @@ public struct TypeChecker {
   /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the
   /// whether their declaration is contained in `useScope`.
   mutating func instantiate<S: ScopeID>(
-    _ subject: AnyType, in useScope: S,
-    cause: ConstraintOrigin
+    _ subject: AnyType, in useScope: S, cause: ConstraintOrigin
   ) -> InstantiatedType {
-    /// A map from generic parameter declaration to its substitution.
     var substitutions: [GenericParameterDecl.ID: AnyType] = [:]
-    /// The scope bridged to `useScope` by an extension, if any.
+    return instantiate(subject, in: useScope, cause: cause, updating: &substitutions)
+  }
+
+  /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the
+  /// whether their declaration is contained in `useScope`, writing choices to `substitutions`.
+  mutating func instantiate<S: ScopeID>(
+    _ subject: AnyType, in useScope: S, cause: ConstraintOrigin,
+    updating substitutions: inout [GenericParameterDecl.ID: AnyType]
+  ) -> InstantiatedType {
     let extendedScope = bridgedScope(of: useScope)
 
-    return InstantiatedType(shape: subject.transform(instantiate(type:)), constraints: [])
-
-    /// Returns `true` iff `p` should be skolemized rather than opened as fresh variables.
-    func shouldSkolemize(_ p: GenericTypeParameterType) -> Bool {
-      // Identify the generic environment that introduces the parameter.
-      let introductionScope: AnyScopeID
-      if p.decl.kind == TraitDecl.self {
-        introductionScope = AnyScopeID(p.decl)!
-      } else {
-        introductionScope = program[p.decl].scope
-      }
-
-      if program.isContained(useScope, in: introductionScope) {
-        return true
-      } else if let s = extendedScope {
-        return program.isContained(s, in: introductionScope)
-      } else {
-        return false
-      }
-    }
-
-    /// Returns how to instantiate `type`
     func instantiate(type: AnyType) -> TypeTransformAction {
       switch type.base {
       case is AssociatedTypeType:
@@ -3512,7 +3496,7 @@ public struct TypeChecker {
       case let p as GenericTypeParameterType:
         if let t = substitutions[p.decl] {
           return .stepOver(t)
-        } else if shouldSkolemize(p) {
+        } else if shouldSkolemize(p, in: useScope, extending: extendedScope) {
           return .stepOver(substitutions[p.decl].setIfNil(^SkolemType(quantifying: type)))
         } else {
           // TODO: Collect constraints
@@ -3527,6 +3511,31 @@ public struct TypeChecker {
           return .stepOver(type)
         }
       }
+    }
+
+    let shape = subject.transform(instantiate(type:))
+    return InstantiatedType(shape:shape, constraints: [])
+  }
+
+  /// Returns `true` iff `p` should be skolemized rather than opened as fresh variables if referred
+  /// to from `useScope`, which optionally extends `extendedScope`.
+  private func shouldSkolemize<S: ScopeID>(
+    _ p: GenericTypeParameterType, in useScope: S, extending extendedScope: AnyScopeID?
+  ) -> Bool {
+    // Identify the generic environment that introduces the parameter.
+    let introductionScope: AnyScopeID
+    if p.decl.kind == TraitDecl.self {
+      introductionScope = AnyScopeID(p.decl)!
+    } else {
+      introductionScope = program[p.decl].scope
+    }
+
+    if program.isContained(useScope, in: introductionScope) {
+      return true
+    } else if let s = extendedScope {
+      return program.isContained(s, in: introductionScope)
+    } else {
+      return false
     }
   }
 
