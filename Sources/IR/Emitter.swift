@@ -251,7 +251,7 @@ struct Emitter {
       if !program.relations.canonical(returnType).isVoidOrNever {
         report(.error(missingReturn: returnType, at: .empty(atEndOf: ast[b].site)))
       } else {
-        emitMove([.set], .void, to: returnValue!, at: .empty(atEndOf: ast[b].site))
+        emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: ast[b].site))
       }
       return ast[b].site
 
@@ -299,7 +299,7 @@ struct Emitter {
       insert(module.makeUnreachable(at: site))
 
     case .void:
-      emitMove([.set], .void, to: returnValue!, at: site)
+      emitStore(value: .void, to: returnValue!, at: site)
       emitDeallocTopFrame(at: site)
       insert(module.makeReturn(at: site))
 
@@ -693,7 +693,7 @@ struct Emitter {
     let receiver = Operand.parameter(entry, 0)
     emitDeinitParts(of: receiver, at: site)
 
-    emitMove([.set], .void, to: returnValue!, at: site)
+    emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -732,7 +732,7 @@ struct Emitter {
       emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
     }
 
-    emitMove([.set], .void, to: returnValue!, at: site)
+    emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -755,8 +755,7 @@ struct Emitter {
     for i in layout.properties.indices {
       let source = emitSubfieldView(argument, at: [i], at: site)
       let target = emitSubfieldView(receiver, at: [i], at: site)
-      let part = insert(module.makeLoad(source, at: site))!
-      emitMove([.set], part, to: target, at: site)
+      emitMove([.set], source, to: target, at: site)
     }
   }
 
@@ -846,9 +845,8 @@ struct Emitter {
     emitDeinit(receiver, at: site)
 
     // Apply the move-initializer.
-    let r = insert(module.makeLoad(argument, at: site))!
-    emitMove([.set], r, to: receiver, at: site)
-    emitMove([.set], .void, to: returnValue!, at: site)
+    emitMove([.set], argument, to: receiver, at: site)
+    emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -919,9 +917,8 @@ struct Emitter {
 
     // The RHS is evaluated before the LHS.
     let x0 = emitStore(value: ast[s].right)
-    let x1 = insert(module.makeLoad(x0, at: ast[s].site))!
-    let x2 = emitLValue(ast[s].left)
-    emitMove([.inout, .set], x1, to: x2, at: ast[s].site)
+    let x1 = emitLValue(ast[s].left)
+    emitMove([.inout, .set], x0, to: x1, at: ast[s].site)
     return .next
   }
 
@@ -1049,7 +1046,7 @@ struct Emitter {
     if let e = ast[s].value {
       emitStore(value: e, to: returnValue!)
     } else {
-      emitMove([.set], .void, to: returnValue!, at: ast[s].site)
+      emitStore(value: .void, to: returnValue!, at: ast[s].site)
     }
 
     // The return instruction is emitted by the caller handling this control-flow effect.
@@ -1091,6 +1088,15 @@ struct Emitter {
   }
 
   // MARK: Values
+
+  /// - Note: should be renamed `emitInit`.
+  private mutating func emitStore(
+    value: Operand, to storage: Operand, at site: SourceRange
+  ) {
+    let x0 = insert(module.makeBorrow(.set, from: storage, at: site))!
+    insert(module.makeStore(value, at: x0, at: site))
+    insert(module.makeEndBorrow(x0, at: site))
+  }
 
   /// Inserts the IR for storing the value of `syntax` to a fresh stack allocation, returning the
   /// address of this allocation.
@@ -1261,8 +1267,7 @@ struct Emitter {
 
   private mutating func emitStore(name e: NameExpr.ID, to storage: Operand) {
     let x0 = emitLValue(name: e)
-    let x1 = insert(module.makeLoad(x0, at: ast[e].site))!
-    emitMove([.inout, .set], x1, to: storage, at: ast[e].site)
+    emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
   }
 
   /// Writes the value of `e` to `storage`.
@@ -1331,8 +1336,7 @@ struct Emitter {
 
   private mutating func emitStore(tupleMember e: TupleMemberExpr.ID, to storage: Operand) {
     let x0 = emitLValue(tupleMember: e)
-    let x1 = insert(module.makeLoad(x0, at: ast[e].site))!
-    emitMove([.inout, .set], x1, to: storage, at: ast[e].site)
+    emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
   }
 
   /// Writes the value of `literal` to `storage`.
@@ -1546,7 +1550,7 @@ struct Emitter {
       storage = emitLValue(syntax)
     }
 
-    return emitAcquire(parameter.access, on: storage, at: argumentSite)
+    return insert(module.makeBorrow(parameter.access, from: storage, at: argumentSite))!
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.
@@ -1566,7 +1570,7 @@ struct Emitter {
       storage = emitLValue(e)
     }
 
-    return emitAcquire(access, on: storage, at: ast.site(of: e))
+    return insert(module.makeBorrow(access, from: storage, at: ast.site(of: e)))!
   }
 
   /// Emits the IR of a call to `f` with given `arguments` at `site`.
@@ -1578,8 +1582,10 @@ struct Emitter {
       var a: [Operand] = []
       for e in arguments {
         let x0 = emitStore(value: e.value)
-        let x1 = insert(module.makeLoad(x0, at: site))!
-        a.append(x1)
+        let x1 = insert(module.makeBorrow(.sink, from: x0, at: site))!
+        let x2 = insert(module.makeLoad(x1, at: site))!
+        a.append(x2)
+        insert(module.makeEndBorrow(x1, at: site))
       }
       return insert(module.makeLLVM(applying: n, to: a, at: site))!
 
@@ -1639,13 +1645,9 @@ struct Emitter {
 
       // The callee's receiver is the sole capture.
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
-      if let t = RemoteType(calleeType.captures[0].type) {
-        let i = insert(module.makeBorrow(t.access, from: receiver, at: ast[callee].site))!
-        return (Operand.constant(r), [i])
-      } else {
-        let i = insert(module.makeLoad(receiver, at: ast[callee].site))!
-        return (Operand.constant(r), [i])
-      }
+      let k = RemoteType(calleeType.captures[0].type)?.access ?? .sink
+      let i = insert(module.makeBorrow(k, from: receiver, at: ast[callee].site))!
+      return (Operand.constant(r), [i])
 
     case .builtinFunction, .builtinType:
       // Calls to built-ins should have been handled already.
@@ -1794,11 +1796,10 @@ struct Emitter {
 
     insertionPoint = .end(of: next)
     let x0 = insert(module.makeOpenUnion(container, as: patternType, at: site))!
-    let x1 = insert(module.makeLoad(x0, at: site))!
-    insert(module.makeCloseUnion(x0, at: site))
     pushing(Frame()) { (this) in
-      this.emitMove([.set], x1, to: storage, at: site)
+      this.emitMove([.set], x0, to: storage, at: site)
     }
+    insert(module.makeCloseUnion(x0, at: site))
 
     for (path, name) in ast.names(in: pattern) {
       _ = emitDeclaration(of: name, referringTo: path, relativeTo: storage)
@@ -1814,15 +1815,15 @@ struct Emitter {
     precondition(program.relations.canonical(program[e].type) == ast.coreType("Bool")!)
     let x0 = emitLValue(e)
     let x1 = emitSubfieldView(x0, at: [0], at: ast[e].site)
-    let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
-    return x2
+    let x2 = insert(module.makeBorrow(.sink, from: x1, at: ast[e].site))!
+    let x3 = insert(module.makeLoad(x2, at: ast[e].site))!
+    insert(module.makeEndBorrow(x2, at: ast[e].site))
+    return x3
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
   private mutating func emitConvert(
-    foreign: Operand,
-    to ir: AnyType,
-    at site: SourceRange
+    foreign: Operand, to ir: AnyType, at site: SourceRange
   ) -> Operand {
     precondition(module.type(of: foreign).isObject)
 
@@ -1831,6 +1832,10 @@ struct Emitter {
       of: ir, to: foreignConvertible, exposedTo: insertionScope!)!
     let r = ast.requirements(
       Name(stem: "init", labels: ["foreign_value"]), in: foreignConvertible.decl)[0]
+
+    // Store the foreign representation in memory to call the converter.
+    let source = emitAllocStack(for: module.type(of: foreign).ast, at: site)
+    emitStore(value: foreign, to: source, at: site)
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
@@ -1841,10 +1846,14 @@ struct Emitter {
       let x1 = insert(module.makeBorrow(.set, from: x0, at: site))!
       let x2 = emitAllocStack(for: t, at: site)
       let x3 = insert(module.makeBorrow(.set, from: x2, at: site))!
+      let x4 = insert(module.makeBorrow(.sink, from: source, at: site))!
       insert(
         module.makeCall(
-          applying: .constant(convert), to: [x1, foreign], writingResultTo: x3, at: site))
-      return insert(module.makeLoad(x0, at: site))!
+          applying: .constant(convert), to: [x1, x4], writingResultTo: x3, at: site))
+      insert(module.makeEndBorrow(x4, at: site))
+      insert(module.makeEndBorrow(x3, at: site))
+      insert(module.makeEndBorrow(x1, at: site))
+      return x0
 
     case .synthetic:
       fatalError("not implemented")
@@ -1852,6 +1861,8 @@ struct Emitter {
   }
 
   /// Appends the IR to convert `o` to a FFI argument.
+  ///
+  /// The returned operand is the result of a `load` instruction.
   private mutating func emitConvertToForeign(_ o: Operand, at site: SourceRange) -> Operand {
     let t = module.type(of: o)
     precondition(t.isAddress)
@@ -1873,7 +1884,13 @@ struct Emitter {
       let x2 = insert(module.makeBorrow(.set, from: x1, at: site))!
       insert(
         module.makeCall(applying: .constant(convert), to: [x0], writingResultTo: x2, at: site))
-      return insert(module.makeLoad(x1, at: site))!
+      insert(module.makeEndBorrow(x2, at: site))
+      insert(module.makeEndBorrow(x0, at: site))
+
+      let x3 = insert(module.makeBorrow(.sink, from: x1, at: site))!
+      let x4 = insert(module.makeLoad(x3, at: site))!
+      insert(module.makeEndBorrow(x3, at: site))
+      return x4
 
     case .synthetic:
       fatalError("not implemented")
@@ -1922,9 +1939,11 @@ struct Emitter {
     switch ast[e].direction {
     case .pointerConversion:
       let x0 = emitLValue(ast[e].left)
-      let x1 = insert(module.makeLoad(x0, at: ast[e].site))!
+      let x1 = insert(module.makeBorrow(.sink, from: x0, at: ast[e].site))!
+      let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
+      insert(module.makeEndBorrow(x1, at: ast[e].site))
       let target = RemoteType(program.relations.canonical(program[e].type))!
-      return insert(module.makePointerToAddress(x1, to: target, at: ast[e].site))!
+      return insert(module.makePointerToAddress(x2, to: target, at: ast[e].site))!
 
     default:
       fatalError("not implemented")
@@ -1988,7 +2007,7 @@ struct Emitter {
     // Handle references to type declarations.
     if let t = MetatypeType(program[d].type) {
       let s = emitAllocStack(for: ^t, at: site)
-      insert(module.makeStore(.constant(t), at: s, at: site))
+      emitStore(value: .constant(t), to: s, at: site)
       return s
     }
 
@@ -2125,7 +2144,10 @@ struct Emitter {
     let t = module.type(of: storage).ast
     if t.isBuiltin {
       let x0 = insert(module.makeBorrow(.set, from: storage, at: site))!
-      insert(module.makeStore(value, at: x0, at: site))
+      let x1 = insert(module.makeBorrow(.sink, from: value, at: site))!
+      let x2 = insert(module.makeLoad(x1, at: site))!
+      insert(module.makeStore(x2, at: x0, at: site))
+      insert(module.makeEndBorrow(x1, at: site))
       insert(module.makeEndBorrow(x0, at: site))
       return
     }
@@ -2139,9 +2161,11 @@ struct Emitter {
       let move = Operand.constant(FunctionReference(to: oper, in: module))
 
       let x0 = insert(module.makeAllocStack(.void, at: site))!
-      let x1 = insert(module.makeBorrow(k, from: storage, at: site))!
-      let x2 = insert(module.makeBorrow(.set, from: x0, at: site))!
-      insert(module.makeCall(applying: move, to: [x1, value], writingResultTo: x2, at: site))
+      let x1 = insert(module.makeBorrow(.set, from: x0, at: site))!
+      let x2 = insert(module.makeBorrow(k, from: storage, at: site))!
+      let x3 = insert(module.makeBorrow(.sink, from: value, at: site))!
+      insert(module.makeCall(applying: move, to: [x2, x3], writingResultTo: x1, at: site))
+      insert(module.makeEndBorrow(x3, at: site))
       insert(module.makeEndBorrow(x2, at: site))
       insert(module.makeEndBorrow(x1, at: site))
       insert(module.makeDeallocStack(for: x0, at: site))
@@ -2192,13 +2216,14 @@ struct Emitter {
     let d = module.demandDeinitDeclaration(from: c)
     let f = Operand.constant(FunctionReference(to: d, in: module))
 
-    let x0 = insert(module.makeLoad(storage, at: site))!
-    let x1 = insert(module.makeAllocStack(.void, at: site))!
-    let x2 = insert(module.makeBorrow(.set, from: x1, at: site))!
-    insert(module.makeCall(applying: f, to: [x0], writingResultTo: x2, at: site))
+    let x0 = insert(module.makeAllocStack(.void, at: site))!
+    let x1 = insert(module.makeBorrow(.set, from: x0, at: site))!
+    let x2 = insert(module.makeBorrow(.sink, from: storage, at: site))!
+    insert(module.makeCall(applying: f, to: [x2], writingResultTo: x1, at: site))
     insert(module.makeEndBorrow(x2, at: site))
-    insert(module.makeMarkState(x1, initialized: false, at: site))
-    insert(module.makeDeallocStack(for: x1, at: site))
+    insert(module.makeEndBorrow(x1, at: site))
+    insert(module.makeMarkState(x0, initialized: false, at: site))
+    insert(module.makeDeallocStack(for: x0, at: site))
   }
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
@@ -2292,20 +2317,6 @@ struct Emitter {
   }
 
   // MARK: Helpers
-
-  /// Inserts the IR for aquiring `access` on `source` at `site`.
-  private mutating func emitAcquire(
-    _ access: AccessEffect, on source: Operand, at site: SourceRange
-  ) -> Operand {
-    switch access {
-    case .let, .inout, .set:
-      return insert(module.makeBorrow(access, from: source, at: site))!
-    case .sink:
-      return insert(module.makeLoad(source, at: site))!
-    case .yielded:
-      unreachable()
-    }
-  }
 
   /// Inserts a stack allocation for an object of type `t`.
   private mutating func emitAllocStack(
