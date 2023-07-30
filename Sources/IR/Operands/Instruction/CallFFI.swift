@@ -62,6 +62,7 @@ extension Module {
     at site: SourceRange
   ) -> CallFFI {
     precondition(returnType.isObject)
+    precondition(arguments.allSatisfy({ self[$0] is Load }))
     return .init(returnType: returnType, callee: callee, arguments: arguments, site: site)
   }
 
