@@ -1523,13 +1523,6 @@ public struct TypeChecker {
   /// This property is used to memoize the results of `lookup(_:memberOf:in)`.
   private var memberLookupTables: [MemberLookupKey: LookupTable] = [:]
 
-  /// A set containing the type extending declarations being currently looked into.
-  ///
-  /// This property is used during to avoid infinite recursion through qualified lookups into the
-  /// extended type. Such a recursion would otherwise occur if the expression of the extended type
-  /// is being evaluated while the members of the extending declarations are being gathered.
-  private var extensionsOnStack = DeclSet()
-
   /// Resolves the name components of `name` from left to right until either all components have
   /// been resolved or one components requires overload resolution.
   ///
@@ -2353,8 +2346,10 @@ public struct TypeChecker {
 
     for d in decls where (d.kind == ConformanceDecl.self) || (d.kind == ExtensionDecl.self) {
       // Skip extending declarations that are already on the lookup stack.
-      guard extensionsOnStack.insert(d).inserted else { continue }
-      defer { extensionsOnStack.remove(d) }
+      // Note: This check assumes this thread has exclusive access to `declRequests`, so that the
+      // only way type realization can have started is if we did. Without this assumption we may
+      // incorrectly skip an extension that's been type checked in another thread.
+      if declRequests[d] == .typeRealizationStarted { continue }
 
       // Check for matches.
       guard let extendedType = realize(decl: d).base as? MetatypeType else { continue }
