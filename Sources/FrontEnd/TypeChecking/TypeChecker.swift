@@ -3504,12 +3504,11 @@ public struct TypeChecker {
   /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the
   /// whether their declaration is contained in `useScope`.
   mutating func instantiate<S: ScopeID>(
-    _ subject: AnyType,
-    in useScope: S,
+    _ subject: AnyType, in useScope: S,
     cause: ConstraintOrigin
   ) -> InstantiatedType {
-    /// A map from generic parameter type to its opened type.
-    var openedParameters: [AnyType: AnyType] = [:]
+    /// A map from generic parameter declaration to its substitution.
+    var substitutions: [GenericParameterDecl.ID: AnyType] = [:]
     /// The scope bridged to `useScope` by an extension, if any.
     let extendedScope = bridgedScope(of: useScope)
 
@@ -3541,20 +3540,13 @@ public struct TypeChecker {
         fatalError("not implemented")
 
       case let p as GenericTypeParameterType:
-        if shouldSkolemize(p) {
-          // Skolemize.
-          return .stepOver(^SkolemType(quantifying: type))
-        } else if let opened = openedParameters[type] {
-          // The parameter was already opened.
-          return .stepOver(opened)
+        if let t = substitutions[p.decl] {
+          return .stepOver(t)
+        } else if shouldSkolemize(p) {
+          return .stepOver(substitutions[p.decl].setIfNil(^SkolemType(quantifying: type)))
         } else {
-          // Open the parameter.
-          let opened = ^TypeVariable()
-          openedParameters[type] = opened
-
           // TODO: Collect constraints
-
-          return .stepOver(opened)
+          return .stepOver(substitutions[p.decl].setIfNil(^TypeVariable()))
         }
 
       default:
