@@ -1472,6 +1472,7 @@ public struct TypeChecker {
     let solution = s.solution(querying: &self)
 
     if shouldLogTrace {
+      print("---")
       print(solution)
     }
 

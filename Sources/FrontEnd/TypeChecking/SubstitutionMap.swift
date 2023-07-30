@@ -14,8 +14,11 @@ struct SubstitutionMap {
 
   }
 
+  /// The internal storage of a substitution table.
+  typealias Storage = [TypeVariable: AnyType]
+
   /// The internal storage of the map.
-  private var storage: [TypeVariable: AnyType] = [:]
+  private(set) var storage: Storage = [:]
 
   /// Creates an empty substitution map.
   init() {}
