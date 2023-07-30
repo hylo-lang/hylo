@@ -671,7 +671,7 @@ public struct Module {
     case let s as AdvancedByBytes:
       return provenances(s.base)
     case let s as Borrow:
-      return provenances(s.location)
+      return provenances(s.source)
     case let s as Project:
       return s.operands.reduce(
         into: [],

@@ -66,7 +66,7 @@ extension Access: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates an `access` anchored at `site` that takes `capability` from `source`.
+  /// Creates an `access` anchored at `site` that takes `capabilities` from `source`.
   ///
   /// - Parameters:
   ///   - capabilities: The capability being borrowed. Must not be empty.
@@ -87,4 +87,15 @@ extension Module {
       site: site)
   }
 
+  /// Creates an `access` anchored at `site` that takes `capability` from `source`.
+  func makeBorrow(
+    _ capability: AccessEffect, from source: Operand,
+    correspondingTo binding: VarDecl.ID? = nil,
+    at site: SourceRange
+  ) -> Access {
+    makeAccess([capability], from: source, correspondingTo: binding, at: site)
+  }
+
 }
+
+public typealias Borrow = Access
