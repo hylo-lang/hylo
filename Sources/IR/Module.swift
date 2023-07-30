@@ -531,10 +531,23 @@ public struct Module {
     _ newInstruction: Instruction, at boundary: InsertionPoint
   ) -> InstructionID {
     switch boundary {
+    case .start(let b):
+      return prepend(newInstruction, to: b)
     case .end(let b):
       return append(newInstruction, to: b)
     case .before(let i):
       return insert(newInstruction, before: i)
+    case .after(let i):
+      return insert(newInstruction, after: i)
+    }
+  }
+
+  /// Adds `newInstruction` at the start of `block` and returns its identity.
+  @discardableResult
+  mutating func prepend(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID {
+    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
+    return insert(newInstruction) { (m, i) in
+      InstructionID(block, m[block].instructions.prepend(newInstruction))
     }
   }
 
