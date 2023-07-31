@@ -3308,11 +3308,9 @@ public struct TypeChecker {
     if program.isContained(program[c].scope, in: d) { return false }
     if program.isGlobal(c) { return false }
     if program.isMember(c) {
-      // Since the use collector doesn't visit type scopes, if `c` is member then we know that `d`
-      // is also a member. If `c` and `d` don't belong to the same type, then the capture is an
-      // illegal reference to a foreign receiver.
-      assert(program.isMember(d))
-      if program.innermostType(containing: c) != program.innermostType(containing: AnyDeclID(d)) {
+      let lhs = realizeReceiver(in: program[c].scope)
+      let rhs = realizeReceiver(in: program[d].scope)
+      if lhs != rhs {
         return false
       }
     }
