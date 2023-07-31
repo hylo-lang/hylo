@@ -1482,12 +1482,12 @@ public struct TypeChecker {
     }
 
     for (n, r) in solution.bindingAssumptions {
-      var s = solution.typeAssumptions.reify(r, withVariables: .keep)
+      var s = solution.typeAssumptions.reify(r, withVariables: .kept)
 
       // https://github.com/apple/swift/issues/65844
       if s.arguments.values.contains(where: { $0.isTypeVariable }) {
         report(.error(notEnoughContextToInferArgumentsAt: ast[n].site))
-        s = solution.typeAssumptions.reify(s, withVariables: .substituteByError)
+        s = solution.typeAssumptions.reify(s, withVariables: .substitutedByError)
       }
       referredDecls[n] = s
     }

@@ -966,7 +966,7 @@ struct ConstraintSystem {
     for i in (0 ..< stale.count).reversed() {
       var changed = false
       goals[stale[i]].modifyTypes({ (type) in
-        let u = typeAssumptions.reify(type, withVariables: .keep)
+        let u = typeAssumptions.reify(type, withVariables: .kept)
         changed = changed || (type != u)
         return u
       })
