@@ -73,96 +73,88 @@ public struct TypeChecker {
 
   // MARK: Type system
 
-  /// Returns a copy of `generic` where occurrences of parameters keying `subtitutions` are
-  /// replaced by their corresponding value, performing necessary name lookups from `useScope`.
+  /// Returns `generic` with occurrences of parameters keying `subtitutions` replaced by their
+  /// corresponding value, performing necessary name lookups from `useScope`.
   ///
   /// This method has no effect if `substitutions` is empty.
   private mutating func specialized(
     _ generic: AnyType, applying substitutions: GenericArguments, in useScope: AnyScopeID
   ) -> AnyType {
-    return substitutions.isEmpty
-      ? generic : generic.transform(mutating: &self, specialize(mutating:_:))
+    return substitutions.isEmpty ? generic : generic.transform(mutating: &self, transform)
 
-    func specialize(mutating me: inout Self, _ t: AnyType) -> TypeTransformAction {
+    func transform(mutating me: inout Self, _ t: AnyType) -> TypeTransformAction {
       switch t.base {
-      case let u as GenericTypeParameterType:
-        if let v = substitutions[u.decl] {
-          return .stepOver((v as? AnyType) ?? .error)
-        } else {
-          return .stepOver(t)
-        }
-
       case let u as AssociatedTypeType:
-        let d = u.domain.transform(mutating: &me) { (me, t) in specialize(mutating: &me, t) }
-        var candidates = me.lookup(me.ast[u.decl].baseName, memberOf: d, exposedTo: useScope)
-
-        // Ignore associated type declaration unless they define a default value that isn't
-        // overridden in the conforming type.
-        if let i = candidates.firstIndex(where: { $0.kind == AssociatedTypeDecl.self }) {
-          if candidates.count > 1 {
-            candidates.remove(at: i)
-          } else if let v = me.ast[AssociatedTypeDecl.ID(candidates[i])!].defaultValue {
-            return .stepOver(me.realize(v)?.instance ?? .error)
-          }
-        }
-
-        if let selected = candidates.uniqueElement {
-          return .stepOver(MetatypeType(me.realize(decl: selected))?.instance ?? .error)
-        } else {
-          return .stepOver(.error)
-        }
-
+        return .stepOver(transform(mutating: &me, u))
       case let u as BoundGenericType:
-        let updatedArguments = u.arguments.mapValues { (v) -> any CompileTimeValue in
-          if let w = v as? AnyType {
-            return me.specialized(w, applying: substitutions, in: useScope)
-          } else {
-            return v
-          }
-        }
-        return .stepOver(^BoundGenericType(u.base, arguments: updatedArguments))
-
+        return .stepOver(transform(mutating: &me, u))
+      case let u as GenericTypeParameterType:
+        return .stepOver(transform(mutating: &me, u))
+      case let u as ProductType:
+        return .stepOver(transform(mutating: &me, u, declaredBy: u.decl))
+      case let u as TypeAliasType:
+        return .stepOver(transform(mutating: &me, u, declaredBy: u.decl))
       default:
         return .stepInto(t)
       }
     }
-  }
 
-  /// If `generic` is an unbound generic type, returns a bound generic type mapping its parameters
-  /// to corresponding value in `substitutions` or a fresh variable if no such value exists.
-  /// Otherwise, returns `generic` unchanged.
-  private mutating func bind(_ generic: AnyType, to substitutions: GenericArguments) -> AnyType {
-    let filtered: GenericArguments?
+    func transform(mutating me: inout Self, _ t: AssociatedTypeType) -> AnyType {
+      let d = t.domain.transform(mutating: &me, transform)
+      var candidates = me.lookup(me.ast[t.decl].baseName, memberOf: d, exposedTo: useScope)
 
-    switch generic.base {
-    case let u as ProductType:
-      filtered = extractArguments(of: u.decl, from: substitutions)
-    case let u as TypeAliasType:
-      filtered = extractArguments(of: u.decl, from: substitutions)
-    case let u as MetatypeType:
-      return ^MetatypeType(of: bind(u.instance, to: substitutions))
-    default:
-      return generic
+      // Ignore associated type declaration unless they define a default value that isn't
+      // overridden in the conforming type.
+      if let i = candidates.firstIndex(where: { $0.kind == AssociatedTypeDecl.self }) {
+        if candidates.count > 1 {
+          candidates.remove(at: i)
+        } else if let v = me.ast[AssociatedTypeDecl.ID(candidates[i])!].defaultValue {
+          return me.realize(v)?.instance ?? .error
+        }
+      }
+
+      if let selected = candidates.uniqueElement {
+        return MetatypeType(me.realize(decl: selected))?.instance ?? .error
+      } else {
+        return .error
+      }
     }
 
-    return filtered.map({ ^BoundGenericType(generic, arguments: $0) }) ?? generic
-  }
+    func transform(mutating me: inout Self, _ t: BoundGenericType) -> AnyType {
+      ^t.transformArguments(mutating: &me) { (me, v) in
+        let w = (v as? AnyType) ?? fatalError("not implemented")
+        return w.transform(mutating: &me, transform)
+      }
+    }
 
-  /// If `d` has generic parameters, returns a table from those parameters to corresponding value
-  /// in `substitutions`. Otherwise, returns `nil`.
-  ///
-  /// - Requires: `substitutions` has a value for each generic parameter introduced by `d`.
-  private mutating func extractArguments<T: GenericDecl>(
-    of d: T.ID,
-    from substitutions: GenericArguments
-  ) -> GenericArguments? {
-    let e = environment(of: d)
-    if e.parameters.isEmpty { return nil }
+    func transform(mutating me: inout Self, _ t: GenericTypeParameterType) -> AnyType {
+      if let v = substitutions[t.decl] {
+        return (v as? AnyType) ?? preconditionFailure("expected type")
+      } else {
+        return ^t
+      }
+    }
 
-    return GenericArguments(
-      uniqueKeysWithValues: e.parameters.map({ (p) in
-        (key: p, value: substitutions[p]!)
-      }))
+    /// If `t` is an unparameterized generic type, returns its specialization taking the arguments
+    /// in `substitutions` corresponding to the parameters introduced by `d`. Otherwise, returns
+    /// `t` unchanged.
+    ///
+    /// - Requires: `t` is not a trait.
+    func transform<T: TypeProtocol, D: GenericScope>(
+      mutating me: inout Self, _ t: T, declaredBy d: D.ID
+    ) -> AnyType {
+      assert(!(t is TraitType))
+      let parameters = me.ast[d].genericParameters
+      if parameters.isEmpty {
+        return ^t
+      }
+
+      var arguments: GenericArguments = [:]
+      for p in parameters {
+        arguments[p] = substitutions[p] ?? ^TypeVariable()
+      }
+      return ^BoundGenericType(t, arguments: arguments)
+    }
   }
 
   /// Returns `s` extended with traits refined by the elements of `s` in `useScope`.
