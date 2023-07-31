@@ -1469,19 +1469,20 @@ public struct TypeChecker {
     }
 
     // Apply the solution.
-    for (e, t) in facts.inferredTypes.storage {
-      exprTypes[e] = solution.typeAssumptions.reify(t)
-    }
-
     for (n, r) in solution.bindingAssumptions {
       var s = solution.typeAssumptions.reify(r, withVariables: .kept)
 
-      // https://github.com/apple/swift/issues/65844
-      if s.arguments.values.contains(where: { $0.isTypeVariable }) {
+      let t = solution.typeAssumptions.reify(facts.inferredTypes[n]!, withVariables: .kept)
+      if t[.hasVariable] || s.arguments.values.contains(where: { $0.isTypeVariable }) {
         report(.error(notEnoughContextToInferArgumentsAt: ast[n].site))
         s = solution.typeAssumptions.reify(s, withVariables: .substitutedByError)
       }
+
       referredDecls[n] = s
+    }
+
+    for (e, t) in facts.inferredTypes.storage {
+      exprTypes[e] = solution.typeAssumptions.reify(t, withVariables: .substitutedByError)
     }
 
     // Run deferred queries.
