@@ -935,36 +935,34 @@ extension TypeChecker {
   ///
   /// - Requires: `candidates` is not empty
   private mutating func bind(
-    _ name: NameExpr.ID,
-    to candidates: [NameResolutionResult.Candidate],
+    _ name: NameExpr.ID, to candidates: [NameResolutionResult.Candidate],
     updating state: inout Context
   ) -> AnyType {
     precondition(!candidates.isEmpty)
 
-    if let candidate = candidates.uniqueElement {
-      // Bind the component to the resolved declaration and store its type.
-      state.facts.assign(name, to: candidate.reference)
-      state.facts.append(candidate.constraints)
-      return state.facts.constrain(name, in: ast, toHaveType: candidate.type)
-    } else {
-      // Create an overload set.
-      let overloads: [OverloadConstraint.Predicate] = candidates.map({ (candidate) in
-        let p = candidate.reference.decl.map({ program.isRequirement($0) ? 1 : 0 }) ?? 0
-        return .init(
-          reference: candidate.reference,
-          type: candidate.type,
-          constraints: candidate.constraints,
-          penalties: p)
-      })
-
-      // Constrain the name to refer to one of the overloads.
-      let nameType = ^TypeVariable()
-      state.facts.append(
-        OverloadConstraint(
-          name, withType: nameType, refersToOneOf: overloads,
-          origin: ConstraintOrigin(.binding, at: ast[name].site)))
-      return state.facts.constrain(name, in: ast, toHaveType: nameType)
+    // If there's only one candidate, commit to this choice.
+    if var pick = candidates.uniqueElement {
+      pick = instantiate(pick, in: program[name].scope, cause: .init(.binding, at: ast[name].site))
+      state.facts.assign(name, to: pick.reference)
+      state.facts.append(pick.constraints)
+      return state.facts.constrain(name, in: ast, toHaveType: pick.type)
     }
+
+    // Otherwise, create an overload set.
+    let overloads: [OverloadConstraint.Predicate] = candidates.map({ (candidate) in
+      let penalties = candidate.reference.decl.map({ program.isRequirement($0) ? 1 : 0 }) ?? 0
+      let pick = instantiate(
+        candidate, in: program[name].scope, cause: .init(.binding, at: ast[name].site))
+      return .init(pick, penalties: penalties)
+    })
+
+    // Constrain the name to refer to one of the overloads.
+    let nameType = ^TypeVariable()
+    state.facts.append(
+      OverloadConstraint(
+        name, withType: nameType, refersToOneOf: overloads,
+        origin: ConstraintOrigin(.binding, at: ast[name].site)))
+    return state.facts.constrain(name, in: ast, toHaveType: nameType)
   }
 
 }

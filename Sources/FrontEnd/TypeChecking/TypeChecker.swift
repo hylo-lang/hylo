@@ -1525,16 +1525,10 @@ public struct TypeChecker {
   /// type `T` of `l`'s domain. If a type is returned, name resolution proceeds, looking for `l` as
   /// a member of `T`. Otherwise, name resolution is cancled and `.inexecutable` is returned.
   ///
-  /// If `keepImplicitArguments` is `false`, generic entities referenced without explicit arguments
-  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables. If
-  /// `instantiateTypes` is `false`, generic parameters are not instantiated.
-  ///
   /// - Postcondition: `r[i].candidates` has a single element for `0 < i < r.count`.
   mutating func resolve(
     _ name: NameExpr.ID,
     usedAs purpose: NameUse = .unapplied,
-    keepingImplicitArguments keepImplicitArguments: Bool = true,
-    instantiatingTypes instantiateTypes: Bool = true,
     withNonNominalPrefix resolveNonNominalPrefix: (inout Self, NameExpr.ID) -> AnyType?
   ) -> NameResolutionResult {
     var (unresolved, domain) = splitNominalComponents(of: name)
@@ -1567,9 +1561,7 @@ public struct TypeChecker {
       let n = ast[component].name
       let candidates = resolve(
         n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[component].scope,
-        usedAs: unresolved.isEmpty ? purpose : .unapplied,
-        keepingImplicitArguments: keepImplicitArguments,
-        instantiatingTypes: instantiateTypes)
+        usedAs: unresolved.isEmpty ? purpose : .unapplied)
 
       if candidates.elements.isEmpty {
         report(.error(undefinedName: n.value, in: parent?.type, at: n.site))
@@ -1593,17 +1585,12 @@ public struct TypeChecker {
       // the current component or if we found a type variable. Otherwise, configure `parent` to
       // resolve the next name component.
       if (selected.count > 1) || (selected[0].type.base is TypeVariable) { break }
-      let c = selected[0]
+      let pick = selected[0]
 
-      // If the candidate is a direct reference to a type declaration, the next component should be
-      // looked up in the referred type's declaration space rather than that of its metatype.
+      // If the candidate is a metatype, perform the next lookup in its instance.
       let receiver = DeclReference.Receiver.explicit(AnyExprID(component))
-      if let d = c.reference.decl, isNominalTypeDecl(d) {
-        let t = MetatypeType(c.type)!.instance
-        parent = .init(type: t, arguments: c.reference.arguments, receiver: receiver)
-      } else {
-        parent = .init(type: c.type, arguments: c.reference.arguments, receiver: receiver)
-      }
+      let receiverType = MetatypeType(pick.type)?.instance ?? pick.type
+      parent = .init(type: receiverType, arguments: pick.reference.arguments, receiver: receiver)
     }
 
     precondition(!resolved.isEmpty)
@@ -1634,18 +1621,12 @@ public struct TypeChecker {
   /// The declarations are searched with an unqualified lookup unless `parent` is set, in which
   /// case they are searched in the declaration space of `parent.type`. Generic candidates are
   /// specialized with `arguments` appended to `parent.arguments`.
-  ///
-  /// If `keepImplicitArguments` is `false`, generic entities referenced without explicit arguments
-  /// are returned unparameterized. Otherwise, generic arguments are opened as fresh variables. If
-  /// `instantiateTypes` is `false`, generic parameters are not instantiated.
   mutating func resolve(
     _ name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue],
     memberOf parent: NameResolutionContext?,
     exposedTo useScope: AnyScopeID,
-    usedAs purpose: NameUse,
-    keepingImplicitArguments keepImplicitArguments: Bool = true,
-    instantiatingTypes instantiateTypes: Bool = true
+    usedAs purpose: NameUse
   ) -> NameResolutionResult.CandidateSet {
     // Resolve references to the built-in symbols.
     if parent?.type == .builtin(.module) {
@@ -1668,13 +1649,17 @@ public struct TypeChecker {
     var candidates: NameResolutionResult.CandidateSet = []
     let parentArguments = parent?.arguments ?? [:]
     for m in matches {
-      var candidateDiagnostics = DiagnosticSet()
+      guard var candidateType = resolvedType(of: m) else { continue }
 
-      guard
-        var candidateType = resolvedType(of: m),
-        var candidateArguments = associateGenericParameters(
-          of: name, declaredBy: m, to: arguments, reportingDiagnosticsTo: &candidateDiagnostics)
-      else { continue }
+      var candidateDiagnostics = DiagnosticSet()
+      let candidateParameters = genericParameters(introducedBy: m)
+
+      guard var candidateArguments = associateGenericParameters(
+        candidateParameters, of: name, to: arguments,
+        reportingDiagnosticsTo: &candidateDiagnostics)
+      else {
+        continue
+      }
 
       // If the name resolves to an initializer, determine if it is used as a constructor.
       let isConstructor =
@@ -1684,32 +1669,33 @@ public struct TypeChecker {
         candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
       }
 
+      // If the receiver is an existential, replace its receiver.
+      if let t = ExistentialType(parent?.type) {
+        candidateType = opacize(candidateType, for: t)
+      }
+
+      // Keep track of generic arguments that should be captured later on.
       if let g = BoundGenericType(candidateType) {
         assert(candidateArguments.isEmpty, "generic declaration bound twice")
         candidateArguments = g.arguments
-      } else if candidateArguments.isEmpty && keepImplicitArguments {
-        candidateArguments = openGenericParameters(of: m)
       }
 
-      var allArguments = parentArguments
-
       // If the match is introduced in a trait, parameterize its receiver as necessary.
-      let s = program.scopeIntroducing(m)
-      if let concept = TraitDecl.ID(s), let model = parent?.type {
+      var allArguments = parentArguments
+      if let concept = TraitDecl.ID(program.scopeIntroducing(m)), let model = parent?.type {
         allArguments[ast[concept].selfParameterDecl] = model
       }
       allArguments.append(candidateArguments)
-
-      if keepImplicitArguments {
-        candidateType = bind(candidateType, to: allArguments)
-      }
       candidateType = specialized(candidateType, applying: allArguments, in: useScope)
 
-      var matchConstraints = ConstraintSet()
-      if instantiateTypes {
-        let t = instantiate(candidateType, in: s, cause: .init(.binding, at: name.site))
-        candidateType = t.shape
-        matchConstraints = t.constraints
+      // If no candidate argument was provided, make sure the declaration reference still keeps
+      // track of generic parameters.
+      if !candidateParameters.isEmpty && candidateArguments.isEmpty {
+        let a = GenericArguments(
+          uniqueKeysWithValues: candidateParameters.map { (p) in
+            (key: p, value: ^GenericTypeParameterType(p, ast: ast))
+          })
+        allArguments.append(a)
       }
 
       let r = makeReference(
@@ -1732,8 +1718,7 @@ public struct TypeChecker {
 
       candidates.insert(
         .init(
-          reference: r, type: candidateType, constraints: matchConstraints,
-          diagnostics: candidateDiagnostics))
+          reference: r, type: candidateType, constraints: [], diagnostics: candidateDiagnostics))
     }
 
     return candidates
@@ -1894,23 +1879,32 @@ public struct TypeChecker {
     return result
   }
 
-  /// Returns a sequence of key-value pairs associating the generic parameters introduced by `d`,
-  /// which declares `name`, to corresponding values in `arguments` if they match `d`'s generic
-  /// parameters. Otherwise, returns `nil`, reporting diagnostics to `log`.
+  private func opacize(_ member: AnyType, for receiver: ExistentialType) -> AnyType {
+    let m = LambdaType(member) ?? fatalError("not implemented")
+
+    var r = m.captures[0].type
+    if let s = RemoteType(r) {
+      r = ^RemoteType(s.access, ^receiver)
+    } else {
+      r = ^receiver
+    }
+
+    return ^LambdaType(
+      receiverEffect: m.receiverEffect,
+      environment: ^TupleType(labelsAndTypes: [("self", r)]),
+      inputs: m.inputs, output: m.output)
+  }
+
+  /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
+  /// values in `arguments` if the two arrays have the same length. Otherwise, returns `nil`,
+  /// reporting diagnostics to `log`.
   private mutating func associateGenericParameters(
-    of name: SourceRepresentable<Name>,
-    declaredBy d: AnyDeclID,
+    _ parameters: [GenericParameterDecl.ID], of name: SourceRepresentable<Name>,
     to arguments: [any CompileTimeValue],
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) -> GenericArguments? {
     if arguments.isEmpty { return [:] }
 
-    guard d.kind.value is GenericScope.Type else {
-      log.insert(.error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 0))
-      return nil
-    }
-
-    let parameters = environment(of: d).parameters
     guard parameters.count == arguments.count else {
       let (f, e) = (arguments.count, parameters.count)
       log.insert(.error(invalidGenericArgumentCountTo: name, found: f, expected: e))
@@ -1920,20 +1914,13 @@ public struct TypeChecker {
     return .init(uniqueKeysWithValues: zip(parameters, arguments))
   }
 
-  /// Returns a sequence of key-value pairs associated the generic parameters introduced by `d`
-  /// to open variables.
-  private mutating func openGenericParameters(of d: AnyDeclID) -> GenericArguments {
-    // Nothing to do if `d` declares a trait or if `d` has no generic parameters.
-    guard
-      d.kind != TraitDecl.self,
-      let parameters = (ast[d] as? GenericScope)?.genericParameters
-    else { return [:] }
-
-    return .init(
-      uniqueKeysWithValues: parameters.map { (p) in
-        // TODO: Handle generic value parameters
-        (key: p, value: ^TypeVariable())
-      })
+  /// Returns the generic parameters introduced by `d`.
+  private func genericParameters(introducedBy d: AnyDeclID) -> [GenericParameterDecl.ID] {
+    if let g = ast[d] as? GenericScope {
+      return (d.kind == TraitDecl.self) ? [] : g.genericParameters
+    } else {
+      return []
+    }
   }
 
   /// Returns a reference to `d` as a member of `parent`, parameterized by `parametrization`,
@@ -1973,9 +1960,7 @@ public struct TypeChecker {
   ///
   ///     conformance Array: P where Element == Int {}
   mutating func resolve(interface e: NameExpr.ID) -> AnyType? {
-    let resolution = resolve(
-      e, keepingImplicitArguments: false, instantiatingTypes: false,
-      withNonNominalPrefix: { (_, _) in nil })
+    let resolution = resolve(e, withNonNominalPrefix: { (_, _) in nil })
 
     switch resolution {
     case .done(let prefix, let suffix) where suffix.isEmpty:
@@ -2658,10 +2643,7 @@ public struct TypeChecker {
   }
 
   private mutating func realize(name e: NameExpr.ID) -> MetatypeType? {
-    let resolution = resolve(
-      e, keepingImplicitArguments: true, instantiatingTypes: false,
-      withNonNominalPrefix: { (this, p) in this.realize(domainOf: p) })
-
+    let resolution = resolve(e, withNonNominalPrefix: { (this, p) in this.realize(domainOf: p) })
     switch resolution {
     case .done(let prefix, let suffix) where suffix.isEmpty:
       // Nominal type expressions shall not be overloaded.
