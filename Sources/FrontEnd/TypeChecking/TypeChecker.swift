@@ -1552,42 +1552,20 @@ public struct TypeChecker {
     // information to resolve overload sets.
     var resolved: [NameResolutionResult.ResolvedComponent] = []
     while let component = unresolved.popLast() {
-      // Evaluate the static argument list.
-      var arguments: [AnyType] = []
-      for a in ast[component].arguments {
-        guard let type = realize(a.value)?.instance else { return .failed }
-        arguments.append(type)
-      }
-
-      // Resolve the component.
-      let n = ast[component].name
       let candidates = resolve(
-        n, parameterizedBy: arguments, memberOf: parent, exposedTo: program[component].scope,
-        usedAs: unresolved.isEmpty ? purpose : .unapplied)
-
-      if candidates.elements.isEmpty {
-        report(.error(undefinedName: n.value, in: parent?.type, at: n.site))
-        return .failed
-      }
-
-      if candidates.viable.isEmpty {
-        if let c = candidates.elements.uniqueElement {
-          report(c.diagnostics.elements)
-        } else {
-          report(.error(noViableCandidateToResolve: n, notes: []))
-        }
+        component: component, in: parent, usedAs: unresolved.isEmpty ? purpose : .unapplied)
+      if candidates.isEmpty {
         return .failed
       }
 
       // Append the resolved component to the nominal prefix.
-      let selected = candidates.viable.map({ candidates.elements[$0] })
-      resolved.append(.init(component, selected))
+      resolved.append(.init(component, candidates))
 
       // Defer resolution of the remaining name components if there are multiple candidates for
       // the current component or if we found a type variable. Otherwise, configure `parent` to
       // resolve the next name component.
-      if (selected.count > 1) || (selected[0].type.base is TypeVariable) { break }
-      let pick = selected[0]
+      if (candidates.count > 1) || (candidates[0].type.base is TypeVariable) { break }
+      let pick = candidates[0]
 
       // If the candidate is a metatype, perform the next lookup in its instance.
       let receiver = DeclReference.Receiver.explicit(AnyExprID(component))
@@ -1618,29 +1596,63 @@ public struct TypeChecker {
     }
   }
 
+  /// Resolves a single name component `n` being used as `purpose` in `context`.
+  private mutating func resolve(
+    component n: NameExpr.ID, in context: NameResolutionContext?, usedAs purpose: NameUse
+  ) -> [NameResolutionResult.Candidate] {
+    // Evaluate the static argument list.
+    var arguments: [AnyType] = []
+    for a in ast[n].arguments {
+      arguments.append(realize(a.value)?.instance ?? .error)
+    }
+
+    // Resolve the component.
+    let candidates = resolve(
+      ast[n].name, parameterizedBy: arguments,
+      in: context, exposedTo: program[n].scope, usedAs: purpose)
+
+    // Diagnose undefined symbols.
+    if candidates.elements.isEmpty {
+      report(.error(undefinedName: ast[n].name.value, in: context?.type, at: ast[n].name.site))
+      return []
+    }
+
+    // Diagnose symbols with no viable candidates.
+    if candidates.viable.isEmpty {
+      if let c = candidates.elements.uniqueElement {
+        report(c.diagnostics.elements)
+      } else {
+        report(.error(noViableCandidateToResolve: ast[n].name, notes: []))
+      }
+      return []
+    }
+
+    return candidates.viable.map({ candidates.elements[$0] })
+  }
+
   /// Returns the declarations of `name` exposed to `useScope` and parameterized by `arguments`.
   ///
-  /// The declarations are searched with an unqualified lookup unless `parent` is set, in which
-  /// case they are searched in the declaration space of `parent.type`. Generic candidates are
+  /// The declarations are searched with an unqualified lookup unless `context` is set, in which
+  /// case they are searched in the declaration space of `context.type`. Generic candidates are
   /// specialized with `arguments` appended to `parent.arguments`.
   mutating func resolve(
     _ name: SourceRepresentable<Name>,
     parameterizedBy arguments: [any CompileTimeValue],
-    memberOf parent: NameResolutionContext?,
+    in context: NameResolutionContext?,
     exposedTo useScope: AnyScopeID,
     usedAs purpose: NameUse
   ) -> NameResolutionResult.CandidateSet {
     // Resolve references to the built-in symbols.
-    if parent?.type == .builtin(.module) {
+    if context?.type == .builtin(.module) {
       return resolve(builtin: name)
     }
 
     // Gather declarations qualified by `parent` if it isn't `nil` or unqualified otherwise.
-    let matches = lookup(name, memberOf: parent?.type, exposedTo: useScope)
+    let matches = lookup(name, memberOf: context?.type, exposedTo: useScope)
 
     // Resolve intrinsic type aliases if no match was found.
     if matches.isEmpty {
-      if parent == nil {
+      if context == nil {
         return resolve(intrinsic: name, parameterizedBy: arguments, exposedTo: useScope)
       } else {
         return []
@@ -1649,7 +1661,7 @@ public struct TypeChecker {
 
     // Create declaration references to all candidates.
     var candidates: NameResolutionResult.CandidateSet = []
-    let parentArguments = parent?.arguments ?? [:]
+    let parentArguments = context?.arguments ?? [:]
     for m in matches {
       guard var candidateType = resolvedType(of: m) else { continue }
 
@@ -1673,7 +1685,7 @@ public struct TypeChecker {
       }
 
       // If the receiver is an existential, replace its receiver.
-      if let t = ExistentialType(parent?.type) {
+      if let t = ExistentialType(context?.type) {
         candidateType = opacize(candidateType, for: t)
       }
 
@@ -1685,7 +1697,7 @@ public struct TypeChecker {
 
       // If the match is introduced in a trait, parameterize its receiver as necessary.
       var allArguments = parentArguments
-      if let concept = TraitDecl.ID(program.scopeIntroducing(m)), let model = parent?.type {
+      if let concept = TraitDecl.ID(program.scopeIntroducing(m)), let model = context?.type {
         allArguments[ast[concept].selfParameterDecl] = model
       }
       allArguments.append(candidateArguments)
@@ -1702,7 +1714,7 @@ public struct TypeChecker {
       }
 
       let r = makeReference(
-        to: m, parameterizedBy: allArguments, memberOf: parent, exposedTo: useScope,
+        to: m, parameterizedBy: allArguments, memberOf: context, exposedTo: useScope,
         usedAsConstructor: isConstructor)
 
       if let sugars = resolve(
@@ -1714,7 +1726,7 @@ public struct TypeChecker {
         continue
       }
 
-      if (parent?.type.base is TraitType) && (m.kind == AssociatedTypeDecl.self) {
+      if (context?.type.base is TraitType) && (m.kind == AssociatedTypeDecl.self) {
         candidateDiagnostics.insert(
           .error(invalidUseOfAssociatedType: name.value.stem, at: name.site))
       }
@@ -1847,7 +1859,7 @@ public struct TypeChecker {
       let n = SourceRepresentable(value: Name(stem: "init"), range: name.site)
       let r = resolve(
         n, parameterizedBy: [],
-        memberOf: .init(type: t, arguments: parent.arguments, receiver: nil),
+        in: .init(type: t, arguments: parent.arguments, receiver: nil),
         exposedTo: useScope, usedAs: .constructor)
       return r.elements.isEmpty ? nil : r
 
@@ -1855,7 +1867,7 @@ public struct TypeChecker {
       let n = SourceRepresentable(value: Name(stem: "[]"), range: name.site)
       let r = resolve(
         n, parameterizedBy: [],
-        memberOf: parent,
+        in: parent,
         exposedTo: useScope, usedAs: .subscript)
       return r.elements.isEmpty ? nil : r
 
