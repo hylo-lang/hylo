@@ -3696,13 +3696,18 @@ private struct CaptureVisitor: ASTWalkObserver {
   }
 
   mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
-    if let e = InoutExpr.ID(n) {
-      return visit(inoutExpr: e, in: ast)
+    switch n.kind {
+    case InoutExpr.self:
+      return visit(inoutExpr: .init(n)!, in: ast)
+    case NameExpr.self:
+      return visit(nameExpr: .init(n)!, in: ast)
+    case ProductTypeDecl.self, TraitDecl.self, TypeAliasDecl.self:
+      return false
+    case ConformanceDecl.self, ExtensionDecl.self:
+      return false
+    default:
+      return true
     }
-    if let e = NameExpr.ID(n) {
-      return visit(nameExpr: e, in: ast)
-    }
-    return !(n.kind.value is TypeScope)
   }
 
   private mutating func visit(inoutExpr e: InoutExpr.ID, in ast: AST) -> Bool {

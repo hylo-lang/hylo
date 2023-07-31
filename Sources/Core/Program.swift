@@ -271,11 +271,6 @@ extension Program {
     LexicalScopeSequence(scopeToParent: nodeToScope, from: scope)
   }
 
-  /// Returns the innermost type scope containing `d`.
-  public func innermostType<T: DeclID>(containing d: T) -> AnyScopeID? {
-    scopes(from: nodeToScope[d]!).first(where: { $0.kind.value is TypeScope.Type })
-  }
-
   /// Returns the module containing `scope`.
   public func module<S: ScopeID>(containing scope: S) -> ModuleDecl.ID {
     scopes(from: scope).first(ModuleDecl.self)!
