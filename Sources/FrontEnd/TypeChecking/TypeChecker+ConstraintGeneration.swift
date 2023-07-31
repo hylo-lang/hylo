@@ -965,3 +965,28 @@ extension TypeChecker {
   }
 
 }
+
+extension TypeChecker.InferenceFacts: CustomStringConvertible {
+
+  var description: String {
+    var result = ""
+
+    result.append("inferredTypes:\n")
+    for (k, v) in inferredTypes.storage {
+      result.append("  \(k) : \(v)\n")
+    }
+
+    result.append("inferredBindings:\n")
+    for (k, v) in inferredBindings {
+      result.append("  \(k) : \(v)\n")
+    }
+
+    result.append("constraints:\n")
+    for c in constraints {
+      result.append("  \(c)\n")
+    }
+
+    return result
+  }
+
+}
