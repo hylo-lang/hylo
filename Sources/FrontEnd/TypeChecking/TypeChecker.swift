@@ -1535,12 +1535,16 @@ public struct TypeChecker {
     // Continue iff `name` is prefixed by nominal components only.
     var parent: NameResolutionContext? = nil
     if domain != .none {
-      switch resolveNonNominalPrefix(&self, unresolved.last!) {
-      case nil:
-        return .inexecutable(unresolved)
-      case .some(.error):
+      guard let p = resolveNonNominalPrefix(&self, unresolved.last!) else {
+        return .canceled(nil, unresolved)
+      }
+
+      switch p.base {
+      case .error:
         return .failed
-      case .some(let p):
+      case is TypeVariable:
+        return .canceled(p, unresolved)
+      default:
         parent = .init(type: p, arguments: [:], receiver: .init(domain))
       }
     }
@@ -2679,7 +2683,7 @@ public struct TypeChecker {
     case .failed:
       return nil
 
-    case .inexecutable:
+    case .canceled:
       // Non-nominal prefixes are handled by the closure passed to `resolveNominalPrefix`.
       unreachable()
 

@@ -16,7 +16,7 @@ enum NameResolutionResult {
   /// The payload contains the collection of unresolved components, after the first one.
   ///
   /// - Invariant: `components` is not empty.
-  case inexecutable(_ components: [NameExpr.ID])
+  case canceled(AnyType?, _ components: [NameExpr.ID])
 
   /// The result of name resolution for a single name component.
   struct ResolvedComponent {

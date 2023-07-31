@@ -436,7 +436,17 @@ extension TypeChecker {
     shapedBy shape: AnyType?,
     updating state: inout Context
   ) -> AnyType {
-    let resolution = resolve(subject, usedAs: purpose, withNonNominalPrefix: { (_, _) in nil })
+    let resolution = resolve(subject, usedAs: purpose) { (this, n) in
+      switch this.ast[n].domain {
+      case .explicit(let e):
+        return this.inferredType(of: e, shapedBy: nil, updating: &state)
+      case .implicit:
+        return domain
+      case .none, .operand:
+        unreachable()
+      }
+    }
+
     let unresolved: [NameExpr.ID]
     var lastVisited: AnyType?
 
@@ -444,28 +454,18 @@ extension TypeChecker {
     case .failed:
       return state.facts.assignErrorType(to: subject)
 
-    case .inexecutable(let suffix):
-      switch ast[suffix[0]].domain {
-      case .implicit:
-        if let t = domain {
-          lastVisited = t
-        } else {
-          report(.error(noContextToResolve: ast[subject].name.value, at: ast[subject].name.site))
-          return state.facts.assignErrorType(to: subject)
-        }
-
-      case .explicit(let e):
-        lastVisited = inferredType(of: e, shapedBy: nil, updating: &state)
-
-      case .none, .operand:
-        unreachable()
+    case .canceled(let p, let suffix):
+      if p == nil {
+        report(.error(noContextToResolve: ast[subject].name.value, at: ast[subject].name.site))
+        return state.facts.assignErrorType(to: subject)
       }
       unresolved = suffix
+      lastVisited = p
 
     case .done(let prefix, let suffix):
       unresolved = suffix
       for p in prefix {
-        lastVisited = bind(p.component, to: p.candidates, updating: &state)
+        lastVisited = bind(p.component, to: p.candidates, updating: &state)  // FIXME: share subst.
       }
     }
 
