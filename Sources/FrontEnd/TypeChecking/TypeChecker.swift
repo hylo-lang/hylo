@@ -3136,6 +3136,11 @@ public struct TypeChecker {
       return .error
     }
 
+    // FIXME: Temporary hack to let 'extendingDecls()' find us
+    if let t = TraitType(i) {
+      return ^MetatypeType(of: t)
+    }
+
     if let m = MetatypeType(i), let b = BuiltinType(m.instance) {
       diagnostics.insert(.error(cannotExtend: b, at: ast[ast[d].subject].site))
       return .error
