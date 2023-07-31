@@ -3475,6 +3475,28 @@ public struct TypeChecker {
     instantiate(type, in: AnyScopeID(ast.coreLibrary!), cause: .init(.structural, at: site))
   }
 
+  /// Replaces the generic parameters in `candidate` by skolems or fresh variables depending on the
+  /// relation between scope introducing them and `useScope`, assigning `cause` to instantiation
+  /// constraints.
+  mutating func instantiate(
+    _ candidate: NameResolutionResult.Candidate, in useScope: AnyScopeID, cause: ConstraintOrigin
+  ) -> NameResolutionResult.Candidate {
+    let ctx = InstantiationContext(candidate.reference, in: useScope, mutating: &self)
+    var substitutions: [GenericParameterDecl.ID: AnyType] = [:]
+
+    let t = instantiate(candidate.type, in: ctx, cause: cause, updating: &substitutions)
+    let r = candidate.reference.modifyingArguments(mutating: &substitutions) { (s, v) in
+      let v = (v as? AnyType) ?? fatalError("not implemented")
+      let x = instantiate(v, in: ctx, cause: cause, updating: &s)
+      assert(x.constraints.isEmpty, "not implemented")
+      return x.shape
+    }
+
+    assert(candidate.constraints.isEmpty, "not implemented")
+    return .init(
+      reference: r, type: t.shape, constraints: t.constraints, diagnostics: candidate.diagnostics)
+  }
+
   /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on
   /// whether their declaration is contained in `useScope`, assigning `cause` to instantiation
   /// constraints.
@@ -3749,6 +3771,44 @@ extension TypeChecker.DeclSet {
     } else {
       insert(AnyDeclID(newMatch))
       return nil
+    }
+  }
+
+}
+
+extension DeclReference {
+
+  /// Returns a copy of `self` in which the generic arguments of the referred declaration and that
+  /// of its receiver (if any) have been mutated by applying `modify` to `m`.
+  fileprivate func modifyingArguments<M>(
+    mutating m: inout M, _ modify: (inout M, GenericArguments.Value) -> GenericArguments.Value
+  ) -> Self {
+    switch self {
+    case .direct(let d, let a):
+      return .direct(d, a.mapValues({ modify(&m, $0) }))
+    case .member(let d, let a, let r):
+      return .member(d, a.mapValues({ modify(&m, $0) }), r)
+    case .constructor(let d, let a):
+      return .constructor(d, a.mapValues({ modify(&m, $0) }))
+    default:
+      return self
+    }
+  }
+
+}
+
+extension DeclReference.Receiver {
+
+  /// Returns a copy of `self` in which generic arguments (if any) have been mutated by applying
+  /// `modify` to `m`.
+  fileprivate func modifyingArguments<M>(
+    mutating m: inout M, _ modify: (inout M, GenericArguments.Value) -> GenericArguments.Value
+  ) -> Self {
+    switch self {
+    case .elided(let r):
+      return .elided(r.modifyingArguments(mutating: &m, modify))
+    default:
+      return self
     }
   }
 
