@@ -3433,8 +3433,40 @@ public struct TypeChecker {
 
   // MARK: Type role determination
 
-  /// Replaces occurrences of associated types and generic type parameters in `type` by fresh
-  /// type variables variables, forming constraints at `site`.
+  /// A context in which a generic parameter can be instantiated.
+  private struct InstantiationContext {
+
+    /// The scope in which the parameter is being used.
+    let useScope: AnyScopeID
+
+    /// The scope extended by `useScope` if the latter is contained in an extension.
+    let extendedScope: AnyScopeID?
+
+    /// Creates an instance for instantiating parameters used in `useScope`, using `checker` to
+    /// resolve extensions.
+    init(_ useScope: AnyScopeID, mutating checker: inout TypeChecker) {
+      self.useScope = AnyScopeID(useScope)
+      self.extendedScope = checker.bridgedScope(of: useScope)
+    }
+
+    /// Creates an instance for instantiating parameters used in `useScope` by a name referring to
+    /// `r`, using `checker` to resolve extensions.
+    init(_ r: DeclReference, in useScope: AnyScopeID, mutating checker: inout TypeChecker) {
+      // References to constructors are always opened.
+      if case .constructor(let d, _) = r {
+        self.init(checker.program[checker.program[d].scope].scope, mutating: &checker)
+        return
+      }
+
+      if let d = r.decl, checker.isRecursive(useOf: d, in: useScope) {
+        self.init(checker.program[d].scope, mutating: &checker)
+      } else {
+        self.init(useScope, mutating: &checker)
+      }
+    }
+
+  }
+
   mutating func open(type: AnyType, at site: SourceRange) -> InstantiatedType {
     // Since no generic parameter can be introduced at module scope, passing a module here will
     // force all parameters to be opened rather than skolemized.
@@ -3505,6 +3537,15 @@ public struct TypeChecker {
       return true
     } else if let s = extendedScope {
       return program.isContained(s, in: introductionScope)
+    } else {
+      return false
+    }
+  }
+
+  /// Returns `true` iff a use of `d` in `useScope` is recursive.
+  private func isRecursive(useOf d: AnyDeclID, in useScope: AnyScopeID) -> Bool {
+    if let s = AnyScopeID(d) {
+      return (d.kind.value as! Decl.Type).isCallable && program.isContained(useScope, in: s)
     } else {
       return false
     }
