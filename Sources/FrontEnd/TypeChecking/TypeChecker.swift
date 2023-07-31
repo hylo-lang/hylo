@@ -1520,11 +1520,10 @@ public struct TypeChecker {
   /// been resolved or one components requires overload resolution.
   ///
   /// If `name` is prefixed by a non-nominal component, `resolveNonNominalPrefix` is called with a
-  /// mutable projection of `self` and the leftmost nominal component `l` of `name`, expecting the
-  /// type `T` of `l`'s domain. If a type is returned, name resolution proceeds, looking for `l` as
-  /// a member of `T`. Otherwise, name resolution is cancled and `.inexecutable` is returned.
-  ///
-  /// - Postcondition: `r[i].candidates` has a single element for `0 < i < r.count`.
+  /// mutable projection of `self` and the leftmost nominal component `lhs` of `name`, expecting
+  /// the type `T` of `lhs`'s domain. If a type is returned, name resolution proceeds, looking for
+  /// `lhs` as a member of `T`. Otherwise, the method returns `.canceled(T, u)` is returned, where
+  /// `u` is the nominal suffix of `name`, starting from `lhs`.
   mutating func resolve(
     _ name: NameExpr.ID,
     usedAs purpose: NameUse = .unapplied,
