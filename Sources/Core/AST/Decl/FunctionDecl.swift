@@ -3,6 +3,8 @@ import Utils
 /// A function declaration.
 public struct FunctionDecl: GenericDecl, GenericScope {
 
+  public static let isCallable = true
+
   public let site: SourceRange
 
   /// The site of the `fun` introducer.

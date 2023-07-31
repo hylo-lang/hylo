@@ -13,6 +13,8 @@ public struct SubscriptDecl: BundleDecl, GenericDecl, GenericScope {
 
   }
 
+  public static let isCallable = true
+
   public let site: SourceRange
 
   /// The introducer of the declaration.
