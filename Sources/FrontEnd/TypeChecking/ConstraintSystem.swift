@@ -543,13 +543,9 @@ struct ConstraintSystem {
     }
 
     let selected = candidates.viable.map { (i) in
-      let c = candidates.elements[i]
-      let isRequirement = c.reference.decl.map(default: false, checker.program.isRequirement(_:))
-      return OverloadConstraint.Predicate(
-        reference: c.reference,
-        type: c.type,
-        constraints: c.constraints,
-        penalties: isRequirement ? 1 : 0)
+      let pick = candidates.elements[i]
+      let penalties = pick.reference.decl.map({ checker.program.isRequirement($0) ? 1 : 0 }) ?? 0
+      return OverloadConstraint.Predicate(pick, penalties: penalties)
     }
 
     let s = schedule(
