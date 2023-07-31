@@ -2427,6 +2427,11 @@ public struct TypeChecker {
       return realize(tuple: .init(e)!)
     case WildcardExpr.self:
       return MetatypeType(of: TypeVariable())
+
+    case BooleanLiteralExpr.self:
+      report(.error(typeExprDenotesValue: e, in: ast))
+      return nil
+
     default:
       unexpected(e, in: ast)
     }
