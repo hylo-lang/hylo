@@ -1664,16 +1664,18 @@ public struct TypeChecker {
     let parentArguments = context?.arguments ?? [:]
     for m in matches {
       guard var candidateType = resolvedType(of: m) else { continue }
+      var log = DiagnosticSet()
 
-      var candidateDiagnostics = DiagnosticSet()
-      let candidateParameters = genericParameters(introducedBy: m)
-
-      guard
-        var candidateArguments = associateGenericParameters(
-          candidateParameters, of: name, to: arguments,
-          reportingDiagnosticsTo: &candidateDiagnostics)
-      else {
-        continue
+      // Keep track of generic arguments that should be captured later on.
+      let candidateArguments: GenericArguments
+      if let g = BoundGenericType(candidateType) {
+        assert(arguments.isEmpty, "generic declaration bound twice")
+        candidateArguments = g.arguments
+      } else {
+        candidateArguments =
+          associateGenericParameters(
+            genericParameters(introducedBy: m), of: name, to: arguments,
+            reportingDiagnosticsTo: &log)
       }
 
       // If the name resolves to an initializer, determine if it is used as a constructor.
@@ -1689,12 +1691,6 @@ public struct TypeChecker {
         candidateType = opacize(candidateType, for: t)
       }
 
-      // Keep track of generic arguments that should be captured later on.
-      if let g = BoundGenericType(candidateType) {
-        assert(candidateArguments.isEmpty, "generic declaration bound twice")
-        candidateArguments = g.arguments
-      }
-
       // If the match is introduced in a trait, parameterize its receiver as necessary.
       var allArguments = parentArguments
       if let concept = TraitDecl.ID(program.scopeIntroducing(m)), let model = context?.type {
@@ -1702,16 +1698,6 @@ public struct TypeChecker {
       }
       allArguments.append(candidateArguments)
       candidateType = specialized(candidateType, applying: allArguments, in: useScope)
-
-      // If no candidate argument was provided, make sure the declaration reference still keeps
-      // track of generic parameters.
-      if !candidateParameters.isEmpty && candidateArguments.isEmpty {
-        let a = GenericArguments(
-          uniqueKeysWithValues: candidateParameters.map { (p) in
-            (key: p, value: ^GenericTypeParameterType(p, ast: ast))
-          })
-        allArguments.append(a)
-      }
 
       let r = makeReference(
         to: m, parameterizedBy: allArguments, memberOf: context, exposedTo: useScope,
@@ -1727,13 +1713,11 @@ public struct TypeChecker {
       }
 
       if (context?.type.base is TraitType) && (m.kind == AssociatedTypeDecl.self) {
-        candidateDiagnostics.insert(
-          .error(invalidUseOfAssociatedType: name.value.stem, at: name.site))
+        log.insert(.error(invalidUseOfAssociatedType: name.value.stem, at: name.site))
       }
 
       candidates.insert(
-        .init(
-          reference: r, type: candidateType, constraints: [], diagnostics: candidateDiagnostics))
+        .init(reference: r, type: candidateType, constraints: [], diagnostics: log))
     }
 
     return candidates
@@ -1917,16 +1901,21 @@ public struct TypeChecker {
     _ parameters: [GenericParameterDecl.ID], of name: SourceRepresentable<Name>,
     to arguments: [any CompileTimeValue],
     reportingDiagnosticsTo log: inout DiagnosticSet
-  ) -> GenericArguments? {
-    if arguments.isEmpty { return [:] }
-
-    guard parameters.count == arguments.count else {
-      let (f, e) = (arguments.count, parameters.count)
-      log.insert(.error(invalidGenericArgumentCountTo: name, found: f, expected: e))
-      return nil
+  ) -> GenericArguments {
+    var result = GenericArguments()
+    for (a, p) in zip(arguments, parameters) {
+      result[p] = a
+    }
+    for p in parameters.dropFirst(arguments.count) {
+      result[p] = ^GenericTypeParameterType(p, ast: ast)
     }
 
-    return .init(uniqueKeysWithValues: zip(parameters, arguments))
+    if !arguments.isEmpty && (parameters.count != arguments.count) {
+      let (f, e) = (arguments.count, parameters.count)
+      log.insert(.error(invalidGenericArgumentCountTo: name, found: f, expected: e))
+    }
+
+    return result
   }
 
   /// Returns the generic parameters introduced by `d`.
