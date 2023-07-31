@@ -3448,26 +3448,6 @@ public struct TypeChecker {
     instantiate(type, in: ast.coreLibrary!, cause: .init(.structural, at: site))
   }
 
-  /// Returns the type declared by `d` bound to open variables for each generic parameter
-  /// introduced by `d`.
-  ///
-  /// - Requires: `d` is a a generic product type or type alias declaration.
-  func openForUnification(_ d: AnyDeclID) -> BoundGenericType {
-    let parameters: [GenericParameterDecl.ID]
-    if let decl = ProductTypeDecl.ID(d) {
-      parameters = ast[decl].genericClause!.value.parameters
-    } else if let decl = TypeAliasDecl.ID(d) {
-      parameters = ast[decl].genericClause!.value.parameters
-    } else {
-      preconditionFailure()
-    }
-
-    let b = MetatypeType(declTypes[d])!.instance
-    let a = GenericArguments(
-      uniqueKeysWithValues: parameters.map({ (key: $0, value: ^TypeVariable()) }))
-
-    return BoundGenericType(b, arguments: a)
-  }
 
   /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the
   /// whether their declaration is contained in `useScope`.

@@ -396,7 +396,7 @@ struct ConstraintSystem {
           unreachable()
         }
 
-        let r = checker.openForUnification(d)
+        let r = openForUnification(d, using: checker)
         let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
         return delegate(to: [s])
 
@@ -439,6 +439,27 @@ struct ConstraintSystem {
           : .failure(failureToSolve(goal))
       }
     }
+  }
+
+  /// Returns the type declared by `d` bound to open variables for each generic parameter
+  /// introduced by `d`.
+  ///
+  /// - Requires: `d` is a a generic product type or type alias declaration.
+  private func openForUnification(_ d: AnyDeclID, using checker: TypeChecker) -> BoundGenericType {
+    let parameters: [GenericParameterDecl.ID]
+    if let decl = ProductTypeDecl.ID(d) {
+      parameters = checker.ast[decl].genericClause!.value.parameters
+    } else if let decl = TypeAliasDecl.ID(d) {
+      parameters = checker.ast[decl].genericClause!.value.parameters
+    } else {
+      preconditionFailure()
+    }
+
+    let b = MetatypeType(checker.declTypes[d])!.instance
+    let a = GenericArguments(
+      uniqueKeysWithValues: parameters.map({ (key: $0, value: ^TypeVariable()) }))
+
+    return BoundGenericType(b, arguments: a)
   }
 
   /// Returns a clousre diagnosing a failure to solve `g`.
