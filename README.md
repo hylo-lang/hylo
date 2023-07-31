@@ -97,6 +97,7 @@ A more detailed description of the current implementation status is available on
 |  CppNorth  | 2022-07 |         Dave Abrahams         |  [Lightning Talk: An Object Model for Safety and Efficiency by Definition](https://www.youtube.com/watch?v=KGL02mSaplE)   |
 |   CppCon   | 2022-09 |         Dave Abrahams         | [Value Semantics: Safety, Independence, Projection, & Future of Programming](https://www.youtube.com/watch?v=QthAU-t3PQ4) |
 |   CppCon   | 2022-09 |         Dimi Racordon         |               [Val: A Safe Language to Interoperate with C++](https://www.youtube.com/watch?v=ws-Z8xKbP4w)                |
+|   ACCU     | 2023-03 |     Lucian Radu Teodorescu    |             [Concurrency Approaches: Past, Present, and Future](https://www.youtube.com/watch?v=uSG240pJGPM)              |
 
 ### Podcasts
 
