@@ -1553,7 +1553,7 @@ public struct TypeChecker {
     var resolved: [NameResolutionResult.ResolvedComponent] = []
     while let component = unresolved.popLast() {
       let candidates = resolve(
-        component: component, in: parent, usedAs: unresolved.isEmpty ? purpose : .unapplied)
+        component, in: parent, usedAs: unresolved.isEmpty ? purpose : .unapplied)
       if candidates.isEmpty {
         return .failed
       }
@@ -1598,7 +1598,7 @@ public struct TypeChecker {
 
   /// Resolves a single name component `n` being used as `purpose` in `context`.
   private mutating func resolve(
-    component n: NameExpr.ID, in context: NameResolutionContext?, usedAs purpose: NameUse
+    _ n: NameExpr.ID, in context: NameResolutionContext?, usedAs purpose: NameUse
   ) -> [NameResolutionResult.Candidate] {
     // Evaluate the static argument list.
     var arguments: [AnyType] = []
