@@ -396,7 +396,7 @@ struct ConstraintSystem {
           unreachable()
         }
 
-        let r = checker.openForUnification(d)
+        let r = openForUnification(d, using: checker)
         let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
         return delegate(to: [s])
 
@@ -439,6 +439,27 @@ struct ConstraintSystem {
           : .failure(failureToSolve(goal))
       }
     }
+  }
+
+  /// Returns the type declared by `d` bound to open variables for each generic parameter
+  /// introduced by `d`.
+  ///
+  /// - Requires: `d` is a a generic product type or type alias declaration.
+  private func openForUnification(_ d: AnyDeclID, using checker: TypeChecker) -> BoundGenericType {
+    let parameters: [GenericParameterDecl.ID]
+    if let decl = ProductTypeDecl.ID(d) {
+      parameters = checker.ast[decl].genericClause!.value.parameters
+    } else if let decl = TypeAliasDecl.ID(d) {
+      parameters = checker.ast[decl].genericClause!.value.parameters
+    } else {
+      preconditionFailure()
+    }
+
+    let b = MetatypeType(checker.declTypes[d])!.instance
+    let a = GenericArguments(
+      uniqueKeysWithValues: parameters.map({ (key: $0, value: ^TypeVariable()) }))
+
+    return BoundGenericType(b, arguments: a)
   }
 
   /// Returns a clousre diagnosing a failure to solve `g`.
@@ -511,7 +532,7 @@ struct ConstraintSystem {
     let n = SourceRepresentable(value: goal.memberName, range: goal.origin.site)
 
     let context = NameResolutionContext(
-      type: goal.subject, arguments: [:], receiver: .init(checker.ast[goal.memberExpr].domain))
+      type: goal.subject, receiver: .init(checker.ast[goal.memberExpr].domain))
     let candidates = checker.resolve(
       n, parameterizedBy: [], memberOf: context, exposedTo: scope, usedAs: goal.purpose)
 
@@ -543,13 +564,9 @@ struct ConstraintSystem {
     }
 
     let selected = candidates.viable.map { (i) in
-      let c = candidates.elements[i]
-      let isRequirement = c.reference.decl.map(default: false, checker.program.isRequirement(_:))
-      return OverloadConstraint.Predicate(
-        reference: c.reference,
-        type: c.type,
-        constraints: c.constraints,
-        penalties: isRequirement ? 1 : 0)
+      let pick = candidates.elements[i]
+      let penalties = pick.reference.decl.map({ checker.program.isRequirement($0) ? 1 : 0 }) ?? 0
+      return OverloadConstraint.Predicate(pick, penalties: penalties)
     }
 
     let s = schedule(
@@ -949,7 +966,7 @@ struct ConstraintSystem {
     for i in (0 ..< stale.count).reversed() {
       var changed = false
       goals[stale[i]].modifyTypes({ (type) in
-        let u = typeAssumptions.reify(type, withVariables: .keep)
+        let u = typeAssumptions.reify(type, withVariables: .kept)
         changed = changed || (type != u)
         return u
       })
@@ -1050,7 +1067,7 @@ struct ConstraintSystem {
     querying checker: inout TypeChecker
   ) -> Bool {
     // Open the right operand.
-    let openedRight = checker.open(type: rhs)
+    let openedRight = checker.open(type: rhs, at: site)
     var constraints = openedRight.constraints
 
     // Create pairwise subtyping constraints on the parameters.

@@ -42,6 +42,11 @@ public struct GenericArguments {
     set { contents[key] = newValue }
   }
 
+  /// Accesses the value associated with the given key.
+  public subscript(key: Key, default value: @autoclosure () -> Value) -> Value {
+    contents[key, default: value()]
+  }
+
   /// Returns a new map containing the keys of `self` with the values transformed `transform`.
   public func mapValues(_ transform: (Value) throws -> Value) rethrows -> Self {
     return try .init(contents: contents.mapValues(transform))

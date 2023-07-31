@@ -2,6 +2,6 @@
 
 public fun main() {
   let x = 42
-  let y = Pointer.to[x]
+  let y = Pointer<Int>.to[x]
   y.with_pointee(fun(_ i) -> Void { precondition(i == 42) })
 }

@@ -12,6 +12,8 @@ public struct InitializerDecl: GenericDecl, GenericScope {
 
   }
 
+  public static let isCallable = true
+
   public let site: SourceRange
 
   /// The introducer of the declaration.

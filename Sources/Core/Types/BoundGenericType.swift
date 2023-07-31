@@ -56,6 +56,14 @@ public struct BoundGenericType: TypeProtocol {
       }))
   }
 
+  /// Applies `transform` on `m` and the generic arguments that are part of `self`.
+  public func transformArguments<M>(
+    mutating m: inout M, _ transform: (inout M, any CompileTimeValue) -> any CompileTimeValue
+  ) -> Self {
+    let transformed = arguments.mapValues({ (a) in transform(&m, a) })
+    return .init(base, arguments: transformed)
+  }
+
 }
 
 extension BoundGenericType: Equatable {

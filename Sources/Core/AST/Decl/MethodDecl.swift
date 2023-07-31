@@ -3,6 +3,8 @@ public struct MethodDecl: BundleDecl, GenericDecl, GenericScope {
 
   public typealias Variant = MethodImpl
 
+  public static let isCallable = true
+
   public let site: SourceRange
 
   /// The site of the `fun` introducer.
