@@ -1959,49 +1959,25 @@ public struct TypeChecker {
   ///
   ///     conformance Array<Int>: P {}
   ///
-  /// In this declaration, the extended type is `Array` and `Int` is viewed as a constraint on
-  /// `Array`'s associated type, just like if it had been declared in a where clause:
-  ///
-  ///     conformance Array: P where Element == Int {}
-  mutating func resolve(interface e: NameExpr.ID) -> AnyType? {
-    let resolution = resolve(e, withNonNominalPrefix: { (_, _) in nil })
+  /// Here, the extended type is `Array` and `Int` is viewed as a constraint on `Array`.
+  private mutating func resolve(interface e: AnyExprID) -> AnyType? {
+    guard let i = realize(e) else { return nil }
 
-    switch resolution {
-    case .done(let prefix, let suffix) where suffix.isEmpty:
-      // Return the type of the expression if it could be resolved without further type checking.
-      guard let candidate = prefix.last!.candidates.uniqueElement else {
-        return nil
-      }
-
-      // Last component must resolve to a type or trait.
-      switch candidate.type.base {
-      case is MetatypeType, is TraitType:
-        break
-      case is ErrorType:
-        return nil
-      default:
-        report(.error(typeExprDenotesValue: prefix.last!.component, in: ast))
-        return nil
-      }
-
-      // Bind each component of the name expression and gather type constraints.
-      for p in prefix {
-        // TODO: Handle generic arguments and candidate constraints
-        exprTypes[p.component] = p.candidates[0].type
-        referredDecls[p.component] = p.candidates[0].reference
-      }
-
-      return exprTypes[e]!
-
-    case .failed:
-      // Nothing more to do if resolution failed.
-      exprTypes[e] = .error
-      return .error
-
-    default:
-      // Otherwise, fallback to the regular path.
-      return nil
+    if let t = TraitType(i.instance) {
+      return ^t
     }
+
+    // Arguments to bound generic types desugar like where clauses. No constraint is created when
+    // an argument refers to its corresponding parameter, unless the `d` is nested in the scope
+    // where that parameter is introduced.
+    if let b = BoundGenericType(i.instance) {
+      for (p, a) in b.arguments {
+        assert(GenericTypeParameterType(a as! AnyType)?.decl == p, "not implemented")
+      }
+      return ^MetatypeType(of: b.base)
+    }
+
+    return ^i
   }
 
   /// Returns the declarations exposing a name with given `stem` to `useScope` without
@@ -2560,20 +2536,15 @@ public struct TypeChecker {
     // Realize the interface.
     var interface: [AnyType] = []
     for n in ast[e].traits {
-      // Expression must resolve to a nominal type.
-      guard let t = resolve(interface: n) else {
-        report(.error(invalidExistentialInterface: n, in: ast))
-        return nil
-      }
-
       // Expression must refer to a type or trait.
+      guard let t = resolve(interface: AnyExprID(n)) else { return nil }
       switch t.base {
       case let u as MetatypeType:
         interface.append(u.instance)
       case let u as TraitType:
         interface.append(^u)
       default:
-        report(.error(typeExprDenotesValue: n, in: ast))
+        report(.error(invalidExistentialInterface: n, in: ast))
         return nil
       }
     }
@@ -3156,31 +3127,16 @@ public struct TypeChecker {
   }
 
   private mutating func _realize<T: TypeExtendingDecl>(typeExtendingDecl d: T.ID) -> AnyType {
-    let interface: MetatypeType
-
-    // Realize the extended type.
-    if let e = NameExpr.ID(ast[d].subject), let t = resolve(interface: e) {
-      guard let u = MetatypeType(t) else {
-        return .error
-      }
-      interface = u
-    } else if let t = checkedType(of: ast[d].subject) {
-      guard let u = MetatypeType(t) else {
-        report(.error(typeExprDenotesValue: ast[d].subject, in: ast))
-        return .error
-      }
-      interface = u
-    } else {
+    guard let i = resolve(interface: ast[d].subject) else {
       return .error
     }
 
-    // Built-in types can't be extended.
-    if let b = BuiltinType(interface.instance) {
+    if let m = MetatypeType(i), let b = BuiltinType(m.instance) {
       diagnostics.insert(.error(cannotExtend: b, at: ast[ast[d].subject].site))
       return .error
     }
 
-    return ^interface
+    return i
   }
 
   /// Returns the overarching type of `d`.
