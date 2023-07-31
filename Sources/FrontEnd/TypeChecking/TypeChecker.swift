@@ -3467,30 +3467,32 @@ public struct TypeChecker {
 
   }
 
+  /// Replaces the generic parameters in `subject` by fresh variables, forming instantiation
+  /// constraints at `site`.
   mutating func open(type: AnyType, at site: SourceRange) -> InstantiatedType {
     // Since no generic parameter can be introduced at module scope, passing a module here will
     // force all parameters to be opened rather than skolemized.
-    instantiate(type, in: ast.coreLibrary!, cause: .init(.structural, at: site))
+    instantiate(type, in: AnyScopeID(ast.coreLibrary!), cause: .init(.structural, at: site))
   }
 
-
-  /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the
-  /// whether their declaration is contained in `useScope`.
-  mutating func instantiate<S: ScopeID>(
-    _ subject: AnyType, in useScope: S, cause: ConstraintOrigin
+  /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on
+  /// whether their declaration is contained in `useScope`, assigning `cause` to instantiation
+  /// constraints.
+  mutating func instantiate(
+    _ subject: AnyType, in useScope: AnyScopeID, cause: ConstraintOrigin
   ) -> InstantiatedType {
+    let ctx = InstantiationContext(useScope, mutating: &self)
     var substitutions: [GenericParameterDecl.ID: AnyType] = [:]
-    return instantiate(subject, in: useScope, cause: cause, updating: &substitutions)
+    return instantiate(subject, in: ctx, cause: cause, updating: &substitutions)
   }
 
-  /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the
-  /// whether their declaration is contained in `useScope`, writing choices to `substitutions`.
-  mutating func instantiate<S: ScopeID>(
-    _ subject: AnyType, in useScope: S, cause: ConstraintOrigin,
+  /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on
+  /// whether their declaration is contained in `useScope` assigning `cause` to instantiation
+  /// constraints and writing choices to `substitutions`.
+  private func instantiate(
+    _ subject: AnyType, in context: InstantiationContext, cause: ConstraintOrigin,
     updating substitutions: inout [GenericParameterDecl.ID: AnyType]
   ) -> InstantiatedType {
-    let extendedScope = bridgedScope(of: useScope)
-
     func instantiate(type: AnyType) -> TypeTransformAction {
       switch type.base {
       case is AssociatedTypeType:
@@ -3499,7 +3501,7 @@ public struct TypeChecker {
       case let p as GenericTypeParameterType:
         if let t = substitutions[p.decl] {
           return .stepOver(t)
-        } else if shouldSkolemize(p, in: useScope, extending: extendedScope) {
+        } else if shouldSkolemize(p, in: context) {
           return .stepOver(substitutions[p.decl].setIfNil(^SkolemType(quantifying: type)))
         } else {
           // TODO: Collect constraints
@@ -3520,22 +3522,15 @@ public struct TypeChecker {
     return InstantiatedType(shape:shape, constraints: [])
   }
 
-  /// Returns `true` iff `p` should be skolemized rather than opened as fresh variables if referred
-  /// to from `useScope`, which optionally extends `extendedScope`.
-  private func shouldSkolemize<S: ScopeID>(
-    _ p: GenericTypeParameterType, in useScope: S, extending extendedScope: AnyScopeID?
+  /// Returns `true` iff `p` is declared in a scope containing `context`.
+  private func shouldSkolemize(
+    _ p: GenericTypeParameterType, in context: InstantiationContext
   ) -> Bool {
-    // Identify the generic environment that introduces the parameter.
-    let introductionScope: AnyScopeID
-    if p.decl.kind == TraitDecl.self {
-      introductionScope = AnyScopeID(p.decl)!
-    } else {
-      introductionScope = program[p.decl].scope
-    }
+    let introductionScope = program[p.decl].scope
 
-    if program.isContained(useScope, in: introductionScope) {
+    if program.isContained(context.useScope, in: introductionScope) {
       return true
-    } else if let s = extendedScope {
+    } else if let s = context.extendedScope {
       return program.isContained(s, in: introductionScope)
     } else {
       return false
