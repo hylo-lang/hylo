@@ -40,7 +40,7 @@ public struct ExistentialType: TypeProtocol {
   public init(unparameterized t: AnyType, constraints: Set<GenericConstraint>) {
     self.constraints = constraints
 
-    // TODO: Consider the flags of the types in the cosntraints?
+    // TODO: Consider the flags of the types in the constraints?
     switch t.base {
     case is ProductType, is TypeAliasType:
       self.interface = .generic(t)

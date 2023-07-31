@@ -193,7 +193,7 @@ extension Diagnostic {
       return .error(
         """
         too \(found > expected ? "many" : "few") generic arguments to entity '\(entity.value)' \
-        (found \(found), expected \(expected)
+        (found \(found), expected \(expected))
         """, at: entity.site)
     }
   }
