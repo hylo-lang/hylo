@@ -19,7 +19,7 @@ struct NameResolutionContext {
   let receiver: DeclReference.Receiver?
 
   /// Creates an instance with the given properties.
-  init(type: AnyType, arguments: GenericArguments, receiver: DeclReference.Receiver?) {
+  init(type: AnyType, arguments: GenericArguments = [:], receiver: DeclReference.Receiver?) {
     var a = arguments
 
     if let t = BoundGenericType(type) {

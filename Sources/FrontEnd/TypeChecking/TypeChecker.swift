@@ -1544,7 +1544,7 @@ public struct TypeChecker {
       case is TypeVariable:
         return .canceled(p, unresolved)
       default:
-        parent = .init(type: p, arguments: [:], receiver: .init(domain))
+        parent = .init(type: p, receiver: .init(domain))
       }
     }
 

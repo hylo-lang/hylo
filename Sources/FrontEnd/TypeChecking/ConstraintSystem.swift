@@ -532,7 +532,7 @@ struct ConstraintSystem {
     let n = SourceRepresentable(value: goal.memberName, range: goal.origin.site)
 
     let context = NameResolutionContext(
-      type: goal.subject, arguments: [:], receiver: .init(checker.ast[goal.memberExpr].domain))
+      type: goal.subject, receiver: .init(checker.ast[goal.memberExpr].domain))
     let candidates = checker.resolve(
       n, parameterizedBy: [], memberOf: context, exposedTo: scope, usedAs: goal.purpose)
 
