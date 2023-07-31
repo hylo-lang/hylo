@@ -159,8 +159,7 @@ public struct TypeChecker {
 
   /// Returns `s` extended with traits refined by the elements of `s` in `useScope`.
   private mutating func derivedTraits(
-    of s: Set<TraitType>,
-    in useScope: AnyScopeID
+    of s: Set<TraitType>, in useScope: AnyScopeID
   ) -> Set<TraitType> {
     s.reduce(into: Set<TraitType>()) { (r, t) in
       r.formUnion(conformedTraits(of: ^t, in: useScope))
@@ -1654,9 +1653,10 @@ public struct TypeChecker {
       var candidateDiagnostics = DiagnosticSet()
       let candidateParameters = genericParameters(introducedBy: m)
 
-      guard var candidateArguments = associateGenericParameters(
-        candidateParameters, of: name, to: arguments,
-        reportingDiagnosticsTo: &candidateDiagnostics)
+      guard
+        var candidateArguments = associateGenericParameters(
+          candidateParameters, of: name, to: arguments,
+          reportingDiagnosticsTo: &candidateDiagnostics)
       else {
         continue
       }
@@ -3523,7 +3523,7 @@ public struct TypeChecker {
     }
 
     let shape = subject.transform(instantiate(type:))
-    return InstantiatedType(shape:shape, constraints: [])
+    return InstantiatedType(shape: shape, constraints: [])
   }
 
   /// Returns `true` iff `p` is declared in a scope containing `context`.

@@ -764,7 +764,6 @@ extension TypeChecker {
             SubtypingConstraint(
               subjectType, t,
               origin: ConstraintOrigin(.annotation, at: ast[subject].site)))
-
         }
         subpatternType = subjectType
       } else {
