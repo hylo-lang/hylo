@@ -61,7 +61,6 @@ extension Module {
       context.locals[.register(i)] = .locations([l])
     }
 
-
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(access i: InstructionID, in context: inout Context) {
       let s = self[i] as! Access

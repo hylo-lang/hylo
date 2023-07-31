@@ -12,11 +12,12 @@ enum NameResolutionResult {
   /// Name resolution failed.
   case failed
 
-  /// Name resolution couln't start because the first component of the expression isn't a name
-  /// The payload contains the collection of unresolved components, after the first one.
+  /// Name resolution couldn't complete because the first component of the expression couldn't be
+  /// resolved without type inference. The payload contains the type of the resolved part, unless
+  /// it was left implicit, and the remaning unresolved components.
   ///
   /// - Invariant: `components` is not empty.
-  case inexecutable(_ components: [NameExpr.ID])
+  case canceled(AnyType?, _ components: [NameExpr.ID])
 
   /// The result of name resolution for a single name component.
   struct ResolvedComponent {

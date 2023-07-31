@@ -436,7 +436,17 @@ extension TypeChecker {
     shapedBy shape: AnyType?,
     updating state: inout Context
   ) -> AnyType {
-    let resolution = resolve(subject, usedAs: purpose, withNonNominalPrefix: { (_, _) in nil })
+    let resolution = resolve(subject, usedAs: purpose) { (this, n) in
+      switch this.ast[n].domain {
+      case .explicit(let e):
+        return this.inferredType(of: e, shapedBy: nil, updating: &state)
+      case .implicit:
+        return domain
+      case .none, .operand:
+        unreachable()
+      }
+    }
+
     let unresolved: [NameExpr.ID]
     var lastVisited: AnyType?
 
@@ -444,28 +454,18 @@ extension TypeChecker {
     case .failed:
       return state.facts.assignErrorType(to: subject)
 
-    case .inexecutable(let suffix):
-      switch ast[suffix[0]].domain {
-      case .implicit:
-        if let t = domain {
-          lastVisited = t
-        } else {
-          report(.error(noContextToResolve: ast[subject].name.value, at: ast[subject].name.site))
-          return state.facts.assignErrorType(to: subject)
-        }
-
-      case .explicit(let e):
-        lastVisited = inferredType(of: e, shapedBy: nil, updating: &state)
-
-      case .none, .operand:
-        unreachable()
+    case .canceled(let p, let suffix):
+      if p == nil {
+        report(.error(noContextToResolve: ast[subject].name.value, at: ast[subject].name.site))
+        return state.facts.assignErrorType(to: subject)
       }
       unresolved = suffix
+      lastVisited = p
 
     case .done(let prefix, let suffix):
       unresolved = suffix
       for p in prefix {
-        lastVisited = bind(p.component, to: p.candidates, updating: &state)
+        lastVisited = bind(p.component, to: p.candidates, updating: &state)  // FIXME: share subst.
       }
     }
 
@@ -764,7 +764,6 @@ extension TypeChecker {
             SubtypingConstraint(
               subjectType, t,
               origin: ConstraintOrigin(.annotation, at: ast[subject].site)))
-
         }
         subpatternType = subjectType
       } else {
@@ -935,36 +934,59 @@ extension TypeChecker {
   ///
   /// - Requires: `candidates` is not empty
   private mutating func bind(
-    _ name: NameExpr.ID,
-    to candidates: [NameResolutionResult.Candidate],
+    _ name: NameExpr.ID, to candidates: [NameResolutionResult.Candidate],
     updating state: inout Context
   ) -> AnyType {
     precondition(!candidates.isEmpty)
 
-    if let candidate = candidates.uniqueElement {
-      // Bind the component to the resolved declaration and store its type.
-      state.facts.assign(name, to: candidate.reference)
-      state.facts.append(candidate.constraints)
-      return state.facts.constrain(name, in: ast, toHaveType: candidate.type)
-    } else {
-      // Create an overload set.
-      let overloads: [OverloadConstraint.Predicate] = candidates.map({ (candidate) in
-        let p = candidate.reference.decl.map({ program.isRequirement($0) ? 1 : 0 }) ?? 0
-        return .init(
-          reference: candidate.reference,
-          type: candidate.type,
-          constraints: candidate.constraints,
-          penalties: p)
-      })
-
-      // Constrain the name to refer to one of the overloads.
-      let nameType = ^TypeVariable()
-      state.facts.append(
-        OverloadConstraint(
-          name, withType: nameType, refersToOneOf: overloads,
-          origin: ConstraintOrigin(.binding, at: ast[name].site)))
-      return state.facts.constrain(name, in: ast, toHaveType: nameType)
+    // If there's only one candidate, commit to this choice.
+    if var pick = candidates.uniqueElement {
+      pick = instantiate(pick, in: program[name].scope, cause: .init(.binding, at: ast[name].site))
+      state.facts.assign(name, to: pick.reference)
+      state.facts.append(pick.constraints)
+      return state.facts.constrain(name, in: ast, toHaveType: pick.type)
     }
+
+    // Otherwise, create an overload set.
+    let overloads: [OverloadConstraint.Predicate] = candidates.map({ (candidate) in
+      let penalties = candidate.reference.decl.map({ program.isRequirement($0) ? 1 : 0 }) ?? 0
+      let pick = instantiate(
+        candidate, in: program[name].scope, cause: .init(.binding, at: ast[name].site))
+      return .init(pick, penalties: penalties)
+    })
+
+    // Constrain the name to refer to one of the overloads.
+    let nameType = ^TypeVariable()
+    state.facts.append(
+      OverloadConstraint(
+        name, withType: nameType, refersToOneOf: overloads,
+        origin: ConstraintOrigin(.binding, at: ast[name].site)))
+    return state.facts.constrain(name, in: ast, toHaveType: nameType)
+  }
+
+}
+
+extension TypeChecker.InferenceFacts: CustomStringConvertible {
+
+  var description: String {
+    var result = ""
+
+    result.append("inferredTypes:\n")
+    for (k, v) in inferredTypes.storage {
+      result.append("  \(k) : \(v)\n")
+    }
+
+    result.append("inferredBindings:\n")
+    for (k, v) in inferredBindings {
+      result.append("  \(k) : \(v)\n")
+    }
+
+    result.append("constraints:\n")
+    for c in constraints {
+      result.append("  \(c)\n")
+    }
+
+    return result
   }
 
 }
