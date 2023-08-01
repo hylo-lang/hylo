@@ -670,7 +670,7 @@ public struct Module {
     switch self[i] {
     case let s as AdvancedByBytes:
       return provenances(s.base)
-    case let s as Borrow:
+    case let s as Access:
       return provenances(s.source)
     case let s as Project:
       return s.operands.reduce(

@@ -159,13 +159,13 @@ extension Module {
 
       // Remove the ended borrow from the objects' borrowers, putting the borrowed source back in
       // case the ended borrow was a reborrow.
-      let borrowID = end.borrow.instruction!
-      let borrow = self[borrowID] as! Borrow
-      let former = reborrowedSource(borrow)
+      let borrower = end.borrow.instruction!
+      let start = self[borrower] as! Access
+      let former = reborrowedSource(start)
       context.forEachObject(at: end.borrow) { (o) in
-        if !o.value.removeBorrower(borrowID) { return }
+        if !o.value.removeBorrower(borrower) { return }
         if let s = former {
-          switch borrow.capabilities.uniqueElement! {
+          switch start.capabilities.uniqueElement! {
           case .let:
             assert(o.value.borrowers.contains(s))
           case .set, .inout, .sink:

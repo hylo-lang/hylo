@@ -88,7 +88,7 @@ extension Module {
   }
 
   /// Creates an `access` anchored at `site` that takes `capability` from `source`.
-  func makeBorrow(
+  func makeAccess(
     _ capability: AccessEffect, from source: Operand,
     correspondingTo binding: VarDecl.ID? = nil,
     at site: SourceRange
@@ -97,5 +97,3 @@ extension Module {
   }
 
 }
-
-public typealias Borrow = Access
