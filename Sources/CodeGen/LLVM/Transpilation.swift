@@ -487,7 +487,7 @@ extension LLVM.Module {
         insert(condBranch: i)
       case is IR.DeallocStack:
         return
-      case is IR.EndBorrow:
+      case is IR.EndAccess:
         return
       case is IR.EndProject:
         insert(endProjection: i)

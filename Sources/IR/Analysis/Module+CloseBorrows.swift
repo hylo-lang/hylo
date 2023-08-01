@@ -34,7 +34,7 @@ extension Module {
       }
 
       insertClose(i, atBoundariesOf: region) { (this, site) in
-        this.makeEndBorrow(.register(i), at: site)
+        this.makeEndAccess(.register(i), at: site)
       }
 
     case is Project:
@@ -136,7 +136,7 @@ private protocol LifetimeCloser: Instruction {
 
 }
 
-extension EndBorrow: LifetimeCloser {
+extension EndAccess: LifetimeCloser {
 
   var start: Operand { borrow }
 

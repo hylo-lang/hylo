@@ -1,7 +1,7 @@
 import Core
 
-/// Ends the lifetime of a borrow.
-public struct EndBorrow: Instruction {
+/// Ends the lifetime of an access.
+public struct EndAccess: Instruction {
 
   /// The borrow whose lifetime is ended.
   public private(set) var borrow: Operand
@@ -28,12 +28,12 @@ public struct EndBorrow: Instruction {
 
 extension Module {
 
-  /// Creates an `end_borrow` anchored at `site` that ends a borrow previously created by `borrow`.
+  /// Creates an `end_access` anchored at `site` that ends an access previously created by `access`.
   ///
   /// - Parameters:
-  ///   - borrow: The borrow to end. Must be the result of `borrow`.
-  func makeEndBorrow(_ borrow: Operand, at site: SourceRange) -> EndBorrow {
-    precondition(borrow.instruction.map({ self[$0] is Borrow }) ?? false)
+  ///   - access: The borrow to end. Must be the result of `borrow`.
+  func makeEndAccess(_ borrow: Operand, at site: SourceRange) -> EndAccess {
+    precondition(borrow.instruction.map({ self[$0] is Access }) ?? false)
     return .init(borrow: borrow, site: site)
   }
 

@@ -27,7 +27,7 @@ extension Module {
           interpret(closeUnion: user, in: &context)
         case is DeallocStack:
           interpret(deallocStack: user, in: &context)
-        case is EndBorrow:
+        case is EndAccess:
           interpret(endBorrow: user, in: &context)
         case is EndProject:
           interpret(endProject: user, in: &context)
@@ -149,7 +149,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endBorrow i: InstructionID, in context: inout Context) {
-      let end = self[i] as! EndBorrow
+      let end = self[i] as! EndAccess
 
       // Skip the instruction if an error occured upstream.
       guard context.locals[end.borrow] != nil else {

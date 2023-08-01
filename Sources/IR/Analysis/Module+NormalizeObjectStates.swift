@@ -42,7 +42,7 @@ extension Module {
           pc = interpret(condBranch: user, in: &context)
         case is DeallocStack:
           pc = interpret(deallocStack: user, in: &context)
-        case is EndBorrow:
+        case is EndAccess:
           pc = successor(of: user)
         case is EndProject:
           pc = interpret(endProject: user, in: &context)
