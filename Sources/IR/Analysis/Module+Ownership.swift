@@ -19,10 +19,10 @@ extension Module {
         let user = InstructionID(f, b, i.address)
 
         switch blockInstructions[i] {
-        case is AllocStack:
-          interpret(allocStack: user, in: &context)
         case is Access:
           interpret(access: user, in: &context)
+        case is AllocStack:
+          interpret(allocStack: user, in: &context)
         case is CloseUnion:
           interpret(closeUnion: user, in: &context)
         case is DeallocStack:
@@ -47,18 +47,6 @@ extension Module {
           continue
         }
       }
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(allocStack i: InstructionID, in context: inout Context) {
-      let s = self[i] as! AllocStack
-      let l = AbstractLocation.root(.register(i))
-      precondition(context.memory[l] == nil, "stack leak")
-
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.allocatedType, definedIn: program),
-        value: .full(.unique))
-      context.locals[.register(i)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -118,6 +106,18 @@ extension Module {
       if !hasConflict {
         context.locals[.register(i)] = context.locals[s.source]!
       }
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(allocStack i: InstructionID, in context: inout Context) {
+      let s = self[i] as! AllocStack
+      let l = AbstractLocation.root(.register(i))
+      precondition(context.memory[l] == nil, "stack leak")
+
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: s.allocatedType, definedIn: program),
+        value: .full(.unique))
+      context.locals[.register(i)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.

@@ -143,14 +143,14 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(_ i: InstructionID, to b: Block.ID) {
       switch sourceModule[i] {
+      case is Access:
+        rewrite(access: i, to: b)
       case is AddressToPointer:
         rewrite(addressToPointer: i, to: b)
       case is AdvancedByBytes:
         rewrite(advancedByBytes: i, to: b)
       case is AllocStack:
         rewrite(allocStack: i, to: b)
-      case is Access:
-        rewrite(access: i, to: b)
       case is Branch:
         rewrite(branch: i, to: b)
       case is Call:
@@ -204,6 +204,12 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(access i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! Access
+      append(makeAccess(s.capabilities, from: rewritten(s.source), at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(addressToPointer i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! AddressToPointer
       append(makeAddressToPointer(rewritten(s.source), at: s.site), to: b)
@@ -222,12 +228,6 @@ extension Module {
       let s = sourceModule[i] as! AllocStack
       let t = program.monomorphize(s.allocatedType, for: parameterization)
       append(makeAllocStack(t, at: s.site), to: b)
-    }
-
-    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(access i: InstructionID, to b: Block.ID) {
-      let s = sourceModule[i] as! Access
-      append(makeAccess(s.capabilities, from: rewritten(s.source), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
