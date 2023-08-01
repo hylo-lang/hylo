@@ -61,15 +61,19 @@ struct Lifetime {
     return true
   }
 
-  /// Returns the instructions in `self` that do not preceed any other instruction in `self`.
-  func maximalElements() -> [Use] {
-    coverage.values.compactMap { (blockCoverage) in
-      switch blockCoverage {
+  /// The upper boundaries of the region formed by the elements in `self`.
+  ///
+  /// There's one upper boundary per basic block covered in the lifetime that isn't live-out. It
+  /// falls immediately after the last element of `self` also contained in that block, or, in the
+  /// case of a live-in block with no use, immediately before the first instruction.
+  var upperBoundaries: some Sequence<InsertionPoint> {
+    coverage.lazy.compactMap { (b, c) -> InsertionPoint? in
+      switch c {
       case .liveIn(let use):
-        return use
+        return use.map({ .after($0.user) }) ?? .start(of: .init(operand.function!, b))
       case .closed(let use):
-        return use
-      default:
+        return use.map({ .after($0.user) }) ?? .after(operand.instruction!)
+      case .liveInAndOut, .liveOut:
         return nil
       }
     }
@@ -113,7 +117,6 @@ extension Module {
       }
     }
 
-    // Refine the coverage.
     var coverage: Lifetime.Coverage = [:]
 
     // If the operand isn't live out of its defining block, its last use is in that block.
@@ -123,18 +126,26 @@ extension Module {
     }
 
     // Find the last use in each block for which the operand is not live out.
+    var successors: Set<Function.Blocks.Address> = []
     for (block, bounds) in approximateCoverage {
       switch bounds {
       case (true, true):
         coverage[block] = .liveInAndOut
+        successors.formUnion(cfg.successors(of: block))
       case (false, true):
         coverage[block] = .liveOut
+        successors.formUnion(cfg.successors(of: block))
       case (true, false):
         let id = Block.ID(site.function, block)
         coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: id))
       case (false, false):
         continue
       }
+    }
+
+    // Mark successors of live out blocks as live in if they haven't been already.
+    for block in successors where coverage[block] == nil {
+      coverage[block] = .liveIn(lastUse: nil)
     }
 
     return Lifetime(operand: operand, coverage: coverage)

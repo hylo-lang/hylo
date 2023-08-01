@@ -40,22 +40,22 @@ public struct Move: Instruction {
 
 extension Module {
 
-  /// Creates a `move` instruction anchored at `site` that moves `object` into `target` using the
-  /// move operators defined by `movable`.
+  /// Creates a `move` anchored at `site` that moves `value` into `storage` using the move
+  /// operations defined by `movable`.
   ///
   /// This instruction is replaced during IR transformation by either the initialization or
-  /// assignment of `target`, depending on its initialization state.
+  /// assignment of `storage`, depending on its initialization state.
   ///
   /// - Parameters:
-  ///   - object: The object to move. Must have an object type.
-  ///   - target: The location to initialize or assign. Must have an address type.
+  ///   - value: The object to move. Must have an address type.
+  ///   - storage: The location to initialize or assign. Must have an address type.
   func makeMove(
-    _ object: Operand, to target: Operand, usingConformance movable: Core.Conformance,
+    _ value: Operand, to storage: Operand, usingConformance movable: Core.Conformance,
     at site: SourceRange
   ) -> Move {
-    precondition(type(of: object).isObject)
-    precondition(type(of: target).isAddress)
-    return .init(object: object, target: target, movable: movable, site: site)
+    precondition(type(of: value).isAddress)
+    precondition(type(of: storage).isAddress)
+    return .init(object: value, target: storage, movable: movable, site: site)
   }
 
 }

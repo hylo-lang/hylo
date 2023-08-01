@@ -10,7 +10,7 @@ extension Module {
   /// Ensures that objects in `f` are initialized before use and deinitialized after last use,
   /// reporting errors and warnings to `diagnostics`.
   ///
-  /// - Requires: `f` is in `self`.
+  /// - Requires: Borrows in `self` have been closed. `f` is in `self`.
   public mutating func normalizeObjectStates(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     var machine = AbstractInterpreter(analyzing: f, in: self, entryContext: entryContext(of: f))
 
@@ -28,8 +28,8 @@ extension Module {
           pc = interpret(advancedByBytes: user, in: &context)
         case is AllocStack:
           pc = interpret(allocStack: user, in: &context)
-        case is Borrow:
-          pc = interpret(borrow: user, in: &context)
+        case is Access:
+          pc = interpret(access: user, in: &context)
         case is Branch:
           pc = successor(of: user)
         case is Call:
@@ -42,7 +42,7 @@ extension Module {
           pc = interpret(condBranch: user, in: &context)
         case is DeallocStack:
           pc = interpret(deallocStack: user, in: &context)
-        case is EndBorrow:
+        case is EndAccess:
           pc = successor(of: user)
         case is EndProject:
           pc = interpret(endProject: user, in: &context)
@@ -122,52 +122,32 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(borrow i: InstructionID, in context: inout Context) -> PC? {
-      let borrow = self[i] as! Borrow
+    func interpret(access i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! Access
+      precondition(s.source.constant == nil, "source is a constant")
 
-      // Operand must be a location.
-      let locations: Set<AbstractLocation>
-      if case .constant = borrow.location {
-        // Operand is a constant.
-        fatalError("not implemented")
-      } else {
-        locations = context.locals[borrow.location]!.unwrapLocations()!
-      }
+      // Access is expected to be reified at this stage.
+      let request = s.capabilities.uniqueElement!
 
-      // Objects at each location have the same state unless DI or LoE has been broken.
-      let o = context.withObject(at: locations.first!, { $0 })
+      // Operand must be a location; objects at each location have the same state unless DI or LoE
+      // has been broken, in which case we can assume an error has been/will be diagnosed.
+      let locations = context.locals[s.source]!.unwrapLocations()!
+      var o = context.withObject(at: locations.first!, { $0 })
 
-      switch borrow.capability {
-      case .let, .inout:
-        // `let` and `inout` require the borrowed object to be initialized.
-        switch o.value {
-        case .full(.initialized):
-          break
-        case .full(.uninitialized):
-          diagnostics.insert(.useOfUninitializedObject(at: borrow.site))
-        case .full(.consumed):
-          diagnostics.insert(.useOfConsumedObject(at: borrow.site))
-        case .partial:
-          if o.value.subfields!.consumed.isEmpty {
-            diagnostics.insert(.useOfPartiallyInitializedObject(at: borrow.site))
-          } else {
-            diagnostics.insert(.useOfPartiallyConsumedObject(at: borrow.site))
-          }
-        }
+      switch request {
+      case .let, .inout, .sink:
+        o.value.checkInitialized(at: s.site, reportingDiagnosticsTo: &diagnostics)
 
       case .set:
-        // `set` requires the borrowed object to be uninitialized.
         let p = o.value.initializedSubfields
         if p.isEmpty { break }
 
         insertDeinit(
-          borrow.location, at: p, anchoredTo: borrow.site, before: i,
-          reportingDiagnosticsTo: &diagnostics)
-        for l in locations {
-          context.withObject(at: l, { $0.value = .full(.uninitialized) })
-        }
+          s.source, at: p, anchoredTo: s.site, before: i, reportingDiagnosticsTo: &diagnostics)
+        o.value = .full(.uninitialized)
+        context.forEachObject(at: s.source, { $0 = o })
 
-      case .yielded, .sink:
+      case .yielded:
         unreachable()
       }
 
@@ -177,38 +157,31 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) -> PC? {
-      let call = self[i] as! Call
-      let callee = LambdaType(type(of: call.callee).ast)!
+      let s = self[i] as! Call
+      let callee = LambdaType(type(of: s.callee).ast)!
 
-      if callee.receiverEffect == .sink {
-        consume(call.callee, with: i, at: call.site, in: &context)
+      // Evaluate the callee.
+      let k = callee.receiverEffect
+      if k == .sink {
+        sink(s.callee, with: i, in: &context)
       } else {
-        assert(isBorrowOrConstant(call.callee))
+        assert(s.callee.isConstant || self[s.callee.instruction!].isAccess(k))
       }
 
-      for (p, a) in zip(callee.inputs, call.arguments) {
+      // Evaluate the arguments.
+      for (p, a) in zip(callee.inputs, s.arguments) {
         switch ParameterType(p.type)!.access {
-        case .let, .inout:
-          assert(isBorrowOrConstant(call.callee))
-
         case .set:
-          context.forEachObject(at: a) { (o) in
-            assert(o.value.initializedSubfields.isEmpty || o.layout.type.base is BuiltinType)
-            o.value = .full(.initialized)
-          }
-
+          initialize(a, in: &context)
         case .sink:
-          consume(a, with: i, at: call.site, in: &context)
-
-        case .yielded:
-          unreachable()
+          sink(a, with: i, in: &context)
+        case let request:
+          assert(self[a.instruction!].isAccess(request))
         }
       }
 
-      context.forEachObject(at: call.output) { (o) in
-        assert(o.value.initializedSubfields.isEmpty || o.layout.type.base is BuiltinType)
-        o.value = .full(.initialized)
-      }
+      // Evaluate the return value.
+      initialize(s.output, in: &context)
 
       return successor(of: i)
     }
@@ -269,10 +242,10 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endProject i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! EndProject
-      let l = context.locals[s.projection]!.unwrapLocations()!.uniqueElement!
+      let l = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
       let projection = context.withObject(at: l, { $0 })
 
-      let source = self[s.projection.instruction!] as! Project
+      let source = self[s.start.instruction!] as! Project
 
       switch source.projection.access {
       case .let, .inout, .set:
@@ -282,7 +255,7 @@ extension Module {
 
       case .sink:
         insertDeinit(
-          s.projection, at: projection.value.initializedSubfields, anchoredTo: s.site, before: i,
+          s.start, at: projection.value.initializedSubfields, anchoredTo: s.site, before: i,
           reportingDiagnosticsTo: &diagnostics)
         context.withObject(at: l, { $0.value = .full(.uninitialized) })
 
@@ -313,35 +286,8 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(load i: InstructionID, in context: inout Context) -> PC? {
-      let load = self[i] as! Load
-      if case .constant = load.source { unreachable("load source is a constant") }
-
-      // Operand must be a location.
-      let locations = context.locals[load.source]!.unwrapLocations()!
-
-      // Object at target location must be initialized.
-      for l in locations {
-        context.withObject(at: l) { (o) in
-          switch o.value {
-          case .full(.initialized):
-            if !o.layout.type.isBuiltin {
-              o.value = .full(.consumed(by: [i]))
-            }
-          case .full(.uninitialized):
-            diagnostics.insert(.useOfUninitializedObject(at: load.site))
-          case .full(.consumed):
-            diagnostics.insert(.useOfConsumedObject(at: load.site))
-          case .partial:
-            let p = o.value.subfields!
-            if p.consumed.isEmpty {
-              diagnostics.insert(.useOfPartiallyInitializedObject(at: load.site))
-            } else {
-              diagnostics.insert(.useOfPartiallyConsumedObject(at: load.site))
-            }
-          }
-        }
-      }
-
+      let s = self[i] as! Load
+      sink(s.source, with: i, in: &context)
       initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
@@ -446,10 +392,7 @@ extension Module {
     func interpret(store i: InstructionID, in context: inout Context) -> PC? {
       let store = self[i] as! Store
       consume(store.object, with: i, at: store.site, in: &context)
-      context.forEachObject(at: store.target) { (o) in
-        assert(o.value.initializedSubfields.isEmpty || o.layout.type.isBuiltin)
-        o.value = .full(.initialized)
-      }
+      initialize(store.target, in: &context)
       return successor(of: i)
     }
 
@@ -502,17 +445,36 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(yield i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Yield
-      assert(isBorrowOrConstant(s.projection))
+      assert(self[s.projection.instruction!].isAccess(s.capability))
       return successor(of: i)
+    }
+
+    /// Updates `context` to mark all ibjects at `source`, which is an `access [.set]`, as having
+    /// been fully initialized.
+    func initialize(_ source: Operand, in context: inout Context) {
+      assert(self[source.instruction!].isAccess(.set), "bad source")
+      context.forEachObject(at: source) { (o) in
+        o.value = .full(.initialized)
+      }
+    }
+
+    /// Updates `context` to mark all objects at `source`, which is an `access [.sink]`, as having
+    /// been consumed by `consumer`.
+    func sink(_ source: Operand, with consumer: InstructionID, in context: inout Context) {
+      assert(self[source.instruction!].isAccess(.sink), "bad source")
+
+      // Built-in values are copied implicitly.
+      if !type(of: source).ast.isBuiltin {
+        context.forEachObject(at: source) { (o) in
+          o.value = .full(.consumed(by: [consumer]))
+        }
+      }
     }
 
     /// Updates the state of the `o` in `context` to mark it has been consumed by `consumer` at
     /// `site` or reports a diagnostic explaining why `o` can't be consumed.
     func consume(
-      _ o: Operand,
-      with consumer: InstructionID,
-      at site: SourceRange,
-      in context: inout Context
+      _ o: Operand, with consumer: InstructionID, at site: SourceRange, in context: inout Context
     ) {
       // Constant values are synthesized on demand. Built-ins are never consumed.
       if case .constant = o { return }
@@ -595,18 +557,6 @@ extension Module {
 
     case .yielded:
       preconditionFailure("cannot represent instance of yielded type")
-    }
-  }
-
-  /// Returns `true` iff `o` is the result of a borrow instruction or a constant value.
-  private func isBorrowOrConstant(_ o: Operand) -> Bool {
-    switch o {
-    case .constant:
-      return true
-    case .parameter:
-      return false
-    case .register(let i):
-      return self[i] is Borrow
     }
   }
 
@@ -807,6 +757,29 @@ extension AbstractObject.Value where Domain == State {
       return c
     case .partial(let parts):
       return parts.reduce(into: [], { (s, p) in s.formUnion(p.consumers) })
+    }
+  }
+
+  /// Reports a diagnostic to `log` at `site` if `self != .full(.initialized)`.
+  fileprivate func checkInitialized(
+    at site: SourceRange, reportingDiagnosticsTo log: inout DiagnosticSet
+  ) {
+    switch self {
+    case .full(.initialized):
+      return
+
+    case .full(.uninitialized):
+      log.insert(.useOfUninitializedObject(at: site))
+
+    case .full(.consumed):
+      log.insert(.useOfConsumedObject(at: site))
+
+    case .partial:
+      if subfields!.consumed.isEmpty {
+        log.insert(.useOfPartiallyInitializedObject(at: site))
+      } else {
+        log.insert(.useOfPartiallyConsumedObject(at: site))
+      }
     }
   }
 

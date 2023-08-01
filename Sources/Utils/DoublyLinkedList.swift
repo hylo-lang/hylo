@@ -180,7 +180,7 @@ public struct DoublyLinkedList<Element> {
       storage = [Bucket(previousOffset: -1, nextOffset: -1, element: newElement)]
       return Address(0)
     } else {
-      return insert(newElement, before: Address(tailOffset))
+      return insert(newElement, before: Address(headOffset))
     }
   }
 

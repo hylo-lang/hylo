@@ -1,9 +1,9 @@
 import Core
 
-/// Ends the lifetime of a projection.
-public struct EndProject: Instruction {
+/// Ends the lifetime of an access.
+public struct EndAccess: Instruction {
 
-  /// The projection whose lifetime is ended.
+  /// The access whose lifetime is ended.
   public private(set) var start: Operand
 
   /// The site of the code corresponding to that instruction.
@@ -28,10 +28,13 @@ public struct EndProject: Instruction {
 
 extension Module {
 
-  /// Creates an `end_project` anchored at `site` that ends the projection created by `start`.
-  func makeEndProject(_ start: Operand, at anchor: SourceRange) -> EndProject {
-    precondition(start.instruction.map({ self[$0] is Project }) ?? false)
-    return .init(start: start, site: anchor)
+  /// Creates an `end_access` anchored at `site` that ends an access previously created by `start`.
+  ///
+  /// - Parameters:
+  ///   - access: The borrow to end. Must be the result of `borrow`.
+  func makeEndAccess(_ start: Operand, at site: SourceRange) -> EndAccess {
+    precondition(start.instruction.map({ self[$0] is Access }) ?? false)
+    return .init(start: start, site: site)
   }
 
 }

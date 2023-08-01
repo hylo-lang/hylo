@@ -11,8 +11,8 @@ import Utils
 /// 2. While an instruction `i` can be popped from `W`:
 ///   a. Initialize a set `R` with the weakest capability offered by `i`.
 ///   b. Gather the requested capabilities on `i` from all its uses into `R`.
-///   c. If `R` is the singleton `{k}`, reify `i` as an access providing `k`. Otherwise, insert `i`
-///      back into `W`.
+///   c. If `R` is the singleton `{k}`, reify `i` as an access providing just `k`. Otherwise,
+///      insert `i` back into `W`.
 ///   d. Go back to step 2.
 ///
 /// The algorithm converges because a reifiable `i` is put back into `W` if and only if all its
@@ -23,8 +23,8 @@ import Utils
 /// Step 2b is implemented by `Module.forEachClient(of:)` and `Module.requests(_:)`. The former
 /// iterates over all the uses of an instruction, traversing instructions that compute derived
 /// addresses (.e.g., `subfield_view`). The latter returns the set of requested capabilities for
-/// each user. As well-formed accesses to memory must be done via `borrow` or `load`, there's a
-/// fairly small number of instructions to consider.
+/// each user. As well-formed accesses to memory must be done via `access`, there's a fairly small
+/// number of instructions to consider.
 ///
 /// Note that `move` are assumed to request `inout` only as assignment should be preferred over
 /// initialization. This assumption is sound because if the reifiable access only provides `set`,
@@ -32,12 +32,8 @@ import Utils
 
 extension Module {
 
-  /// Replace uses of `access` instructions by either `borrow` or `load` depending on the weakest
-  /// capability required on the access, reporting errors and warnings to `diagnostics`.
-  ///
-  /// This pass uses def-use chains to identify the weakest capability required on an `access`. If
-  /// it is `sink`, the instruction is removed and its uses are replaced be uses of its source.
-  /// Otherwise, a `borrow` instruction is substitutde for the access.
+  /// Replace uses of instructions requesting multiple capabilities by one requesting the weakest
+  /// actually required, reporting errors and warnings to `diagnostics`.
   ///
   /// - Requires: `f` is in `self`.
   public mutating func reifyAccesses(in f: Function.ID, diagnostics: inout DiagnosticSet) {
@@ -45,8 +41,14 @@ extension Module {
     for i in blocks(in: f).map(instructions(in:)).joined() {
       guard let s = self[i] as? ReifiableAccess else { continue }
 
+      // Fast path if the request set is already a singleton.
+      if let k = s.capabilities.uniqueElement {
+        reify(i, as: k)
+        continue
+      }
+
       // Algorithm assumes no access or projection can offer `set` and `let` without also offering
-      // `inout` so that `move` instruction can be treated as though they only requested `inout`.
+      // `inout` so that `move` instructions can be treated as though they only requested `inout`.
       let k = s.capabilities
       precondition(!k.isSuperset(of: [.set, .let]) || k.contains(.inout))
       work.append(i)
@@ -78,8 +80,6 @@ extension Module {
     switch self[u.user] {
     case let t as Access:
       return t.capabilities
-    case let t as Borrow:
-      return [t.capability]
     case is Load:
       return [.sink]
     case is Move:
@@ -123,30 +123,26 @@ extension Module {
     }
   }
 
-  /// Replaces the uses of `i`, which is an `access` instruction, with uses of a borrow or load
-  /// instruction for capability `k`.
+  /// Narrows the capabilities requested by `i`, which is an `access` instruction, to just `k`.
   private mutating func reify(access i: InstructionID, as k: AccessEffect) {
     let s = self[i] as! Access
-    if k == .sink {
-      replaceUses(of: .register(i), with: s.source, in: i.function)
-      removeInstruction(i)
-    } else {
-      let reified = makeBorrow(k, from: s.source, correspondingTo: s.binding, at: s.site)
-      replace(i, with: reified)
-    }
+    assert(s.capabilities.contains(k))
+
+    // Nothing to do if the request set is already a singleton.
+    if s.capabilities == [k] { return }
+
+    let reified = makeAccess(k, from: s.source, correspondingTo: s.binding, at: s.site)
+    replace(i, with: reified)
   }
 
   private mutating func reify(projectBundle i: InstructionID, as k: AccessEffect) {
     let s = self[i] as! ProjectBundle
+    assert(s.capabilities.contains(k))
 
     // Generate the proper instructions to prepare the projection's arguments.
-    // Note: the relative order between `access` reified as `load` is not preserved.
     var arguments = s.operands
     for a in arguments.indices where s.parameters[a].access == .yielded {
-      let b: Instruction =
-        (k == .sink)
-        ? makeLoad(arguments[a], at: s.site)
-        : makeBorrow(k, from: arguments[a], at: s.site)
+      let b = makeAccess(k, from: arguments[a], at: s.site)
       arguments[a] = .register(insert(b, before: i))
     }
 
@@ -158,7 +154,7 @@ extension Module {
 
 }
 
-/// An instruction denoting an access to reify.
+/// An instruction denoting an access that may be refiable.
 private protocol ReifiableAccess {
 
   /// The capabilities available on the access.

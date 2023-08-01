@@ -73,6 +73,15 @@ public struct Module {
     _modify { yield &functions[i.function]![i.block].instructions[i.address] }
   }
 
+  /// Accesses the instruction denoted by `o` if it is `.register`. Otherwise, returns `nil`.
+  public subscript(o: Operand) -> Instruction? {
+    if case .register(let i) = o {
+      return self[i]
+    } else {
+      return nil
+    }
+  }
+
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> IR.`Type` {
     switch operand {
@@ -531,10 +540,23 @@ public struct Module {
     _ newInstruction: Instruction, at boundary: InsertionPoint
   ) -> InstructionID {
     switch boundary {
+    case .start(let b):
+      return prepend(newInstruction, to: b)
     case .end(let b):
       return append(newInstruction, to: b)
     case .before(let i):
       return insert(newInstruction, before: i)
+    case .after(let i):
+      return insert(newInstruction, after: i)
+    }
+  }
+
+  /// Adds `newInstruction` at the start of `block` and returns its identity.
+  @discardableResult
+  mutating func prepend(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID {
+    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
+    return insert(newInstruction) { (m, i) in
+      InstructionID(block, m[block].instructions.prepend(newInstruction))
     }
   }
 
@@ -648,8 +670,8 @@ public struct Module {
     switch self[i] {
     case let s as AdvancedByBytes:
       return provenances(s.base)
-    case let s as Borrow:
-      return provenances(s.location)
+    case let s as Access:
+      return provenances(s.source)
     case let s as Project:
       return s.operands.reduce(
         into: [],

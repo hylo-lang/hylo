@@ -149,8 +149,8 @@ extension Module {
         rewrite(advancedByBytes: i, to: b)
       case is AllocStack:
         rewrite(allocStack: i, to: b)
-      case is Borrow:
-        rewrite(borrow: i, to: b)
+      case is Access:
+        rewrite(access: i, to: b)
       case is Branch:
         rewrite(branch: i, to: b)
       case is Call:
@@ -163,7 +163,7 @@ extension Module {
         rewrite(condBranch: i, to: b)
       case is DeallocStack:
         rewrite(deallocStack: i, to: b)
-      case is EndBorrow:
+      case is EndAccess:
         rewrite(endBorrow: i, to: b)
       case is EndProject:
         rewrite(endProject: i, to: b)
@@ -225,9 +225,9 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(borrow i: InstructionID, to b: Block.ID) {
-      let s = sourceModule[i] as! Borrow
-      append(makeBorrow(s.capability, from: rewritten(s.location), at: s.site), to: b)
+    func rewrite(access i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! Access
+      append(makeAccess(s.capabilities, from: rewritten(s.source), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -288,14 +288,14 @@ extension Module {
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(endBorrow i: InstructionID, to b: Block.ID) {
-      let s = sourceModule[i] as! EndBorrow
-      append(makeEndBorrow(rewritten(s.borrow), at: s.site), to: b)
+      let s = sourceModule[i] as! EndAccess
+      append(makeEndAccess(rewritten(s.start), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(endProject i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! EndProject
-      append(makeEndProject(rewritten(s.projection), anchoredAt: s.site), to: b)
+      append(makeEndProject(rewritten(s.start), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

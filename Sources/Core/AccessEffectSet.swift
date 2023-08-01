@@ -13,13 +13,19 @@ public struct AccessEffectSet: OptionSet, Hashable {
     self.rawValue = rawValue
   }
 
+  /// Returns `true` if `self` contains `member`.
   public func contains(_ member: AccessEffect) -> Bool {
     (rawValue & member.rawValue) == member.rawValue
   }
 
+  /// `true` if `self` is a singleton.
+  public var isSingleton: Bool {
+    (rawValue != 0) && (rawValue & (rawValue - 1) == 0)
+  }
+
   /// The unique element in `self` if `self` is a singleton. Otherwise, `nil`.
   public var uniqueElement: AccessEffect? {
-    (rawValue != 0) && (rawValue & (rawValue - 1) == 0) ? .init(rawValue: rawValue) : nil
+    .init(rawValue: rawValue)
   }
 
   /// The weakest capability in `self`, or `nil` if `self` is empty.
@@ -31,6 +37,11 @@ public struct AccessEffectSet: OptionSet, Hashable {
   /// Returns the strongest capability in `self` including `k`.
   public func strongest(including k: AccessEffect) -> AccessEffect {
     elements.reduce(k, max)
+  }
+
+  /// Returns a set containing the effects in `self` that are stronger or equal to `k`.
+  public func filter(strongerOrEqualTo k: AccessEffect) -> AccessEffectSet {
+    .init(rawValue: rawValue & ~(k.rawValue - 1))
   }
 
   @discardableResult
@@ -45,6 +56,7 @@ public struct AccessEffectSet: OptionSet, Hashable {
     }
   }
 
+  @discardableResult
   public mutating func remove(_ member: AccessEffect) -> AccessEffect? {
     if contains(member) {
       rawValue &= ~member.rawValue
