@@ -13,7 +13,7 @@ extension Module {
 
     // Verify that access instructions in `b` satisfy the Law of Exclusivity given `context`,
     // reporting violations of exclusivity in `diagnostics`.
-    machine.fixedPoint { (b, _, context) in
+    machine.fixedPoint { (b, context) in
       let blockInstructions = self[f][b].instructions
       for i in blockInstructions.indices {
         let user = InstructionID(f, b, i.address)
