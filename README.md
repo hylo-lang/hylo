@@ -19,12 +19,18 @@ Otherwise:
 
 1. Install LLVM 15 or later on your system (e.g. `brew install llvm`) 
 2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"`). 
-3. In this project's root directory.
+3. In this project's root directory,
     1. `swift package resolve` to get the `make-pkgconfig` tool.
     2. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description 
     3. Either
         1. `sudo mkdir -p /usr/local/lib/pkgconfig && sudo mv llvm.pc /usr/local/lib/pkgconfig/` (if you want to use Xcode)
         2. or, `export PKG_CONFIG_PATH=$PWD` in any shell where you want to work on this project
+4. Install [zstd](https://github.com/facebook/zstd). If you're using homebrew, that is achieved with `brew install zstd`.
+5. Edit `llvm.pc`, adding a library search path to find system libraries (e.g. `libzstd.a`). If you're using homebrew, that path will be the result of `$(brew --prefix)/lib` (as of homebrew 4.0.22, that is `/opt/homebrew/lib`). For example:
+```diff
+- Libs: -lc++ -L/opt/local/libexec/llvm-15/lib ...
++ Libs: -lc++ -L/opt/homebrew/lib -L/opt/local/libexec/llvm-15/lib ...
+```
    
 ### Building the compiler
 
