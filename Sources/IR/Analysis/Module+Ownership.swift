@@ -182,7 +182,7 @@ extension Module {
       let s = self[i] as! EndProject
 
       // Skip the instruction if an error occured upstream.
-      guard context.locals[s.projection] != nil else {
+      guard context.locals[s.start] != nil else {
         assert(diagnostics.containsError)
         return
       }

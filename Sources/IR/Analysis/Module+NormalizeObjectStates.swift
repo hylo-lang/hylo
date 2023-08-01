@@ -242,10 +242,10 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endProject i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! EndProject
-      let l = context.locals[s.projection]!.unwrapLocations()!.uniqueElement!
+      let l = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
       let projection = context.withObject(at: l, { $0 })
 
-      let source = self[s.projection.instruction!] as! Project
+      let source = self[s.start.instruction!] as! Project
 
       switch source.projection.access {
       case .let, .inout, .set:
@@ -255,7 +255,7 @@ extension Module {
 
       case .sink:
         insertDeinit(
-          s.projection, at: projection.value.initializedSubfields, anchoredTo: s.site, before: i,
+          s.start, at: projection.value.initializedSubfields, anchoredTo: s.site, before: i,
           reportingDiagnosticsTo: &diagnostics)
         context.withObject(at: l, { $0.value = .full(.uninitialized) })
 

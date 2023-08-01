@@ -131,14 +131,11 @@ extension WrapExistentialAddr: LifetimeExtender {}
 /// An instruction that ends the lifetime of a borrow.
 private protocol LifetimeCloser: Instruction {
 
-  /// The borrow being closed.
+  /// The lifetime being closed.
   var start: Operand { get }
 
 }
 
 extension EndAccess: LifetimeCloser {}
 
-extension EndProject: LifetimeCloser {
-
-  var start: Operand { projection }
-}
+extension EndProject: LifetimeCloser {}

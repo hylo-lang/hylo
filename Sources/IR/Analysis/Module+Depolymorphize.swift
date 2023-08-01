@@ -295,7 +295,7 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(endProject i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! EndProject
-      append(makeEndProject(rewritten(s.projection), at: s.site), to: b)
+      append(makeEndProject(rewritten(s.start), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

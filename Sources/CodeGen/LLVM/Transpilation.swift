@@ -639,7 +639,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(endProjection i: IR.InstructionID) {
       let s = m[i] as! EndProject
-      let start = s.projection.instruction!
+      let start = s.start.instruction!
       assert(m[start] is Project)
 
       let t = LLVM.FunctionType(from: [ptr, i1], to: void, in: &self)
