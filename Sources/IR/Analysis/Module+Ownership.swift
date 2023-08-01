@@ -11,7 +11,7 @@ extension Module {
   public func ensureExclusivity(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     var machine = AbstractInterpreter(analyzing: f, in: self, entryContext: entryContext(of: f))
 
-    // Verify that the borrow instructions in `b` satisfy the Law of Exclusivity given `context`,
+    // Verify that access instructions in `b` satisfy the Law of Exclusivity given `context`,
     // reporting violations of exclusivity in `diagnostics`.
     machine.fixedPoint { (b, _, context) in
       let blockInstructions = self[f][b].instructions

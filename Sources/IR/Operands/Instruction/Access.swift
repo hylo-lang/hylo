@@ -1,12 +1,13 @@
 import Core
 
-/// Creates a borrowed or consumed an access on an object.
+/// Creates an access on an object.
 ///
 /// IR generation sometimes cannot determine the capability used to access an object, as this
 /// information is kept implicit in Val sources. For example, a `let`-binding declaration will
 /// actually request a `sink` capability on its right hand side if the binding escapes. In these
 /// cases, IR generation will emit `access` instructions with the set capabilities that may be
-/// inferred from the syntax. These instructions are expected to be removed during IR analysis.
+/// inferred from the syntax. These instructions are expected to be "reifed" during IR analysis
+/// so that only a single capability is requested.
 public struct Access: Instruction {
 
   /// The capabilities of the access.
@@ -17,7 +18,7 @@ public struct Access: Instruction {
   /// The type of the accessed type.
   public let accessedType: AnyType
 
-  /// The location of the root object on which an access is borrowed or consumed.
+  /// The address from which the capability is borrowed.
   public private(set) var source: Operand
 
   /// The binding in source program to which the instruction corresponds, if any.
@@ -66,12 +67,8 @@ extension Access: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates an `access` anchored at `site` that takes `capabilities` from `source`.
-  ///
-  /// - Parameters:
-  ///   - capabilities: The capability being borrowed. Must not be empty.
-  ///   - source: The address from which the capability is borrowed. Must have an address type.
-  ///   - binding: The declaration of the binding to which the borrow corresponds, if any.
+  /// Creates an `access` anchored at `site` that may take any of `capabilities` from `source`,
+  /// optionally associated with a variable declaration in the AST.
   func makeAccess(
     _ capabilities: AccessEffectSet, from source: Operand,
     correspondingTo binding: VarDecl.ID? = nil,
@@ -87,7 +84,8 @@ extension Module {
       site: site)
   }
 
-  /// Creates an `access` anchored at `site` that takes `capability` from `source`.
+  /// Creates an `access` anchored at `site` that takes `capability` from `source`, optionally
+  /// associated with a variable declaration in the AST.
   func makeAccess(
     _ capability: AccessEffect, from source: Operand,
     correspondingTo binding: VarDecl.ID? = nil,
