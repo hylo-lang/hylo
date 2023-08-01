@@ -152,17 +152,17 @@ extension Module {
       let end = self[i] as! EndAccess
 
       // Skip the instruction if an error occured upstream.
-      guard context.locals[end.borrow] != nil else {
+      guard context.locals[end.start] != nil else {
         assert(diagnostics.containsError)
         return
       }
 
       // Remove the ended borrow from the objects' borrowers, putting the borrowed source back in
       // case the ended borrow was a reborrow.
-      let borrower = end.borrow.instruction!
+      let borrower = end.start.instruction!
       let start = self[borrower] as! Access
       let former = reborrowedSource(start)
-      context.forEachObject(at: end.borrow) { (o) in
+      context.forEachObject(at: end.start) { (o) in
         if !o.value.removeBorrower(borrower) { return }
         if let s = former {
           switch start.capabilities.uniqueElement! {

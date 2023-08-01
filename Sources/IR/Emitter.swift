@@ -1095,7 +1095,7 @@ struct Emitter {
   ) {
     let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
     insert(module.makeStore(value, at: x0, at: site))
-    insert(module.makeEndBorrow(x0, at: site))
+    insert(module.makeEndAccess(x0, at: site))
   }
 
   /// Inserts the IR for storing the value of `syntax` to a fresh stack allocation, returning the
@@ -1585,7 +1585,7 @@ struct Emitter {
         let x1 = insert(module.makeAccess(.sink, from: x0, at: site))!
         let x2 = insert(module.makeLoad(x1, at: site))!
         a.append(x2)
-        insert(module.makeEndBorrow(x1, at: site))
+        insert(module.makeEndAccess(x1, at: site))
       }
       return insert(module.makeLLVM(applying: n, to: a, at: site))!
 
@@ -1817,7 +1817,7 @@ struct Emitter {
     let x1 = emitSubfieldView(x0, at: [0], at: ast[e].site)
     let x2 = insert(module.makeAccess(.sink, from: x1, at: ast[e].site))!
     let x3 = insert(module.makeLoad(x2, at: ast[e].site))!
-    insert(module.makeEndBorrow(x2, at: ast[e].site))
+    insert(module.makeEndAccess(x2, at: ast[e].site))
     return x3
   }
 
@@ -1850,9 +1850,9 @@ struct Emitter {
       insert(
         module.makeCall(
           applying: .constant(convert), to: [x1, x4], writingResultTo: x3, at: site))
-      insert(module.makeEndBorrow(x4, at: site))
-      insert(module.makeEndBorrow(x3, at: site))
-      insert(module.makeEndBorrow(x1, at: site))
+      insert(module.makeEndAccess(x4, at: site))
+      insert(module.makeEndAccess(x3, at: site))
+      insert(module.makeEndAccess(x1, at: site))
       return x0
 
     case .synthetic:
@@ -1884,12 +1884,12 @@ struct Emitter {
       let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
       insert(
         module.makeCall(applying: .constant(convert), to: [x0], writingResultTo: x2, at: site))
-      insert(module.makeEndBorrow(x2, at: site))
-      insert(module.makeEndBorrow(x0, at: site))
+      insert(module.makeEndAccess(x2, at: site))
+      insert(module.makeEndAccess(x0, at: site))
 
       let x3 = insert(module.makeAccess(.sink, from: x1, at: site))!
       let x4 = insert(module.makeLoad(x3, at: site))!
-      insert(module.makeEndBorrow(x3, at: site))
+      insert(module.makeEndAccess(x3, at: site))
       return x4
 
     case .synthetic:
@@ -1941,7 +1941,7 @@ struct Emitter {
       let x0 = emitLValue(ast[e].left)
       let x1 = insert(module.makeAccess(.sink, from: x0, at: ast[e].site))!
       let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
-      insert(module.makeEndBorrow(x1, at: ast[e].site))
+      insert(module.makeEndAccess(x1, at: ast[e].site))
       let target = RemoteType(program.relations.canonical(program[e].type))!
       return insert(module.makePointerToAddress(x2, to: target, at: ast[e].site))!
 
@@ -2147,8 +2147,8 @@ struct Emitter {
       let x1 = insert(module.makeAccess(.sink, from: value, at: site))!
       let x2 = insert(module.makeLoad(x1, at: site))!
       insert(module.makeStore(x2, at: x0, at: site))
-      insert(module.makeEndBorrow(x1, at: site))
-      insert(module.makeEndBorrow(x0, at: site))
+      insert(module.makeEndAccess(x1, at: site))
+      insert(module.makeEndAccess(x0, at: site))
       return
     }
 
@@ -2165,9 +2165,9 @@ struct Emitter {
       let x2 = insert(module.makeAccess(k, from: storage, at: site))!
       let x3 = insert(module.makeAccess(.sink, from: value, at: site))!
       insert(module.makeCall(applying: move, to: [x2, x3], writingResultTo: x1, at: site))
-      insert(module.makeEndBorrow(x3, at: site))
-      insert(module.makeEndBorrow(x2, at: site))
-      insert(module.makeEndBorrow(x1, at: site))
+      insert(module.makeEndAccess(x3, at: site))
+      insert(module.makeEndAccess(x2, at: site))
+      insert(module.makeEndAccess(x1, at: site))
       insert(module.makeDeallocStack(for: x0, at: site))
       return
     }
@@ -2220,8 +2220,8 @@ struct Emitter {
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
     let x2 = insert(module.makeAccess(.sink, from: storage, at: site))!
     insert(module.makeCall(applying: f, to: [x2], writingResultTo: x1, at: site))
-    insert(module.makeEndBorrow(x2, at: site))
-    insert(module.makeEndBorrow(x1, at: site))
+    insert(module.makeEndAccess(x2, at: site))
+    insert(module.makeEndAccess(x1, at: site))
     insert(module.makeMarkState(x0, initialized: false, at: site))
     insert(module.makeDeallocStack(for: x0, at: site))
   }
