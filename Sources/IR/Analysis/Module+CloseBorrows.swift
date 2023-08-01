@@ -136,11 +136,7 @@ private protocol LifetimeCloser: Instruction {
 
 }
 
-extension EndAccess: LifetimeCloser {
-
-  var start: Operand { borrow }
-
-}
+extension EndAccess: LifetimeCloser {}
 
 extension EndProject: LifetimeCloser {
 

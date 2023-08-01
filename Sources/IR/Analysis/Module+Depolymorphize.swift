@@ -289,7 +289,7 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(endBorrow i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! EndAccess
-      append(makeEndAccess(rewritten(s.borrow), at: s.site), to: b)
+      append(makeEndAccess(rewritten(s.start), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
