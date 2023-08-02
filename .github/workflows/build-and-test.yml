@@ -42,6 +42,7 @@ jobs:
       uses: devcontainers/ci@v0.3
       with:
         runCmd: >
+          set -o pipefail &&
           swift package resolve &&
           .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc &&
           export PKG_CONFIG_PATH=$PWD &&
@@ -99,17 +100,20 @@ jobs:
     - run: llvm-config --version
 
     - name: Generate LLVM pkgconfig file
+      shell: bash
       run: >
         swift package resolve &&
         .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc &&
         cat llvm.pc
 
     - name: Build (${{ matrix.configuration }})
+      shell: bash
       run: >
         export PKG_CONFIG_PATH=$PWD &&
         swift build -c ${{ matrix.configuration }} ${{ matrix.host.build-options }}
 
     - name: Test (${{ matrix.configuration }})
+      shell: bash
       run: >
         export PKG_CONFIG_PATH=$PWD &&
         swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
