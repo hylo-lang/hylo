@@ -14,7 +14,7 @@ final class ExecutionTests: XCTestCase {
     let output = try compile(f, with: ["--emit", "binary", "-o", "hello"])
     let result = try run(output)
     XCTAssertEqual(result.status, 0, "Exit code is \(result.status)")
-    XCTAssertEqual(result.standardOutput, "Hello, World!\n")
+    XCTAssertEqual(result.standardOutput, "Hello, Dave!\n")
   }
 
 }
