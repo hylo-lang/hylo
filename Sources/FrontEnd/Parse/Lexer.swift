@@ -17,6 +17,8 @@ public struct Lexer: IteratorProtocol, Sequence {
 
   /// The current location of the lexer in `sourceCode`.
   public var location: SourcePosition { sourceCode.position(index) }
+
+  /// `true` iff the last scanned token was `.int`.
   private var previousTokenWasInt = false
 
   /// Advances to the next token and returns it, or returns `nil` if no next token exists.
