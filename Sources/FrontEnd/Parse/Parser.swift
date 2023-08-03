@@ -1621,19 +1621,16 @@ public enum Parser {
       return AnyExprID(expr)
 
     case .int:
-      // Integer literal.
-      _ = state.take()
+      // Integer or Float literal.
+
+      // Try to parse a float literal first.
+      if let expr = try parseFloatLiteralExpr(in: &state) {
+        return AnyExprID(expr)
+      }
+
+      // Note: state.take(.int) is called in `parseFloatLiteralExpr(in:)`.
       let expr = state.insert(
         IntegerLiteralExpr(
-          value: state.lexer.sourceCode[head.site].filter({ $0 != "_" }),
-          site: head.site))
-      return AnyExprID(expr)
-
-    case .float:
-      // Floating-point literal.
-      _ = state.take()
-      let expr = state.insert(
-        FloatLiteralExpr(
           value: state.lexer.sourceCode[head.site].filter({ $0 != "_" }),
           site: head.site))
       return AnyExprID(expr)
@@ -1712,6 +1709,27 @@ public enum Parser {
     default:
       return nil
     }
+  }
+
+  private static func parseFloatLiteralExpr(in state: inout ParserState) throws -> FloatLiteralExpr.ID? {
+    guard let first = state.take(.int) else { return nil }
+
+    if let _ = state.take(if: { $0.kind == .dot }) {
+      guard let _ = state.take(if: { $0.kind == .int }) else { return nil }
+    } else {
+      if state.peek()?.kind != .exponent {
+        return nil
+      }
+    }
+
+    _ = state.take(if: { $0.kind == .exponent })
+
+    let site = first.site.extended(upTo: state.currentIndex)
+
+    return state.insert(
+      FloatLiteralExpr(
+        value: state.lexer.sourceCode[site].filter({ $0 != "_" }),
+        site: site))
   }
 
   private static func parseExistentialTypeExpr(
