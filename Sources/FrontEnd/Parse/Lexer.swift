@@ -17,9 +17,15 @@ public struct Lexer: IteratorProtocol, Sequence {
 
   /// The current location of the lexer in `sourceCode`.
   public var location: SourcePosition { sourceCode.position(index) }
+  private var pendingExponentToken: Token? = nil
 
   /// Advances to the next token and returns it, or returns `nil` if no next token exists.
   public mutating func next() -> Token? {
+    if let exponentToken = pendingExponentToken {
+      pendingExponentToken = nil
+      return exponentToken
+    }
+
     // Skip whitespaces and comments.
     while true {
       if index == sourceCode.text.endIndex { return nil }
@@ -159,10 +165,25 @@ public struct Lexer: IteratorProtocol, Sequence {
       return token
     }
 
-    // Scan numeric literals.
-    if let k = scanNumericLiteral() {
+    // Scan integral literals.
+    if let k = scanIntegralLiteral() {
       token.kind = k
       token.site.extend(upTo: index)
+
+      if let nextChar = peek(), (nextChar == "e" || nextChar == "E") {
+        var exponent = Token(kind: .exponent, site: location ..< location)
+        discard()
+        exponent.site.extend(upTo: index)
+
+        if let _ = scanIntegralLiteral(true) {
+          exponent.site.extend(upTo: index)
+        } else {
+          exponent.kind = .invalid
+        }
+
+        pendingExponentToken = exponent
+      }
+
       return token
     }
 
@@ -322,10 +343,10 @@ public struct Lexer: IteratorProtocol, Sequence {
     return sourceCode.text[start ..< index]
   }
 
-  /// Consumes a numeric literal and returns its kind, or returns `nil` if the stream starts with a
+  /// Consumes an integral literal and returns its kind, or returns `nil` if the stream starts with a
   /// different token.
-  private mutating func scanNumericLiteral() -> Token.Kind? {
-    let i = take("-") ?? index
+  private mutating func scanIntegralLiteral(_ allowPlus: Bool = false) -> Token.Kind? {
+    let i = (allowPlus ? take("+") : nil) ?? take("-") ?? index
     guard let head = peek(), head.isDecDigit else {
       index = i
       return nil
@@ -363,28 +384,8 @@ public struct Lexer: IteratorProtocol, Sequence {
     }
 
     // Consume the integer part.
-    var kind = Token.Kind.int
+    let kind = Token.Kind.int
     _ = take(while: { $0.isDecDigit })
-
-    // Consume the floating-point part, if any.
-    if let i = take(".") {
-      if (peek() != "_") && !take(while: { $0.isDecDigit }).isEmpty {
-        kind = .float
-      } else {
-        index = i
-      }
-    }
-
-    // Consume the exponent, if any.
-    if let i = take("e") ?? take("E") {
-      _ = take("+") ?? take("-")
-
-      if (peek() != "_") && !take(while: { $0.isDecDigit }).isEmpty {
-        kind = .float
-      } else {
-        index = i
-      }
-    }
 
     return kind
   }
