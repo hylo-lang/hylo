@@ -166,7 +166,7 @@ public struct Lexer: IteratorProtocol, Sequence {
     }
 
     // Scan integral literals.
-    if let k = scanIntegralLiteral() {
+    if let k = scanIntegralLiteral(allowingPlus: false) {
       token.kind = k
       token.site.extend(upTo: index)
 
@@ -175,7 +175,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         discard()
         exponent.site.extend(upTo: index)
 
-        if let _ = scanIntegralLiteral(true) {
+        if let _ = scanIntegralLiteral(allowingPlus: true) {
           exponent.site.extend(upTo: index)
         } else {
           exponent.kind = .invalid
@@ -343,9 +343,10 @@ public struct Lexer: IteratorProtocol, Sequence {
     return sourceCode.text[start ..< index]
   }
 
-  /// Consumes an integral literal and returns its kind, or returns `nil` if the stream starts with a
-  /// different token.
-  private mutating func scanIntegralLiteral(_ allowPlus: Bool = false) -> Token.Kind? {
+  /// Consumes an integral literal and returns its kind, or returns `nil` if it fails to scan a valid integer.
+  /// - Parameter allowingPlus: If set to `true`, allows the integral literal to begin with a "+" sign.
+  ///                           If set to `false` (the default), only allows "-" or no sign at the beginning.
+  private mutating func scanIntegralLiteral(allowingPlus allowPlus: Bool = false) -> Token.Kind? {
     let i = (allowPlus ? take("+") : nil) ?? take("-") ?? index
     guard let head = peek(), head.isDecDigit else {
       index = i
