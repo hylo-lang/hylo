@@ -1711,7 +1711,9 @@ public enum Parser {
     }
   }
 
-  private static func parseFloatLiteralExpr(in state: inout ParserState) throws -> FloatLiteralExpr.ID? {
+  private static func parseFloatLiteralExpr(in state: inout ParserState) throws -> FloatLiteralExpr
+    .ID?
+  {
     guard let first = state.take(.int) else { return nil }
 
     if let _ = state.take(if: { $0.kind == .dot }) {

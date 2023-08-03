@@ -170,7 +170,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       token.kind = k
       token.site.extend(upTo: index)
 
-      if let nextChar = peek(), (nextChar == "e" || nextChar == "E") {
+      if let nextChar = peek(), nextChar == "e" || nextChar == "E" {
         var exponent = Token(kind: .exponent, site: location ..< location)
         discard()
         exponent.site.extend(upTo: index)
