@@ -17,15 +17,10 @@ public struct Lexer: IteratorProtocol, Sequence {
 
   /// The current location of the lexer in `sourceCode`.
   public var location: SourcePosition { sourceCode.position(index) }
-  private var pendingExponentToken: Token? = nil
+  private var previousTokenWasInt = false
 
   /// Advances to the next token and returns it, or returns `nil` if no next token exists.
   public mutating func next() -> Token? {
-    if let exponentToken = pendingExponentToken {
-      pendingExponentToken = nil
-      return exponentToken
-    }
-
     // Skip whitespaces and comments.
     while true {
       if index == sourceCode.text.endIndex { return nil }
@@ -73,6 +68,17 @@ public struct Lexer: IteratorProtocol, Sequence {
     // Scan a new token.
     let head = sourceCode.text[index]
     var token = Token(kind: .invalid, site: location ..< location)
+
+    // Try scan for exponent if previous token was .int
+    if previousTokenWasInt, let next = peek(), next == "e" || next == "E" {
+        discard()
+        if let _ = scanIntegralLiteral(allowingPlus: true) {
+          token.kind = .exponent
+          token.site.extend(upTo: index)
+        }
+        return token
+    }
+    previousTokenWasInt = false
 
     // Scan names and keywords.
     if head.isLetter || (head == "_") {
@@ -169,21 +175,7 @@ public struct Lexer: IteratorProtocol, Sequence {
     if let k = scanIntegralLiteral(allowingPlus: false) {
       token.kind = k
       token.site.extend(upTo: index)
-
-      if let next = peek(), next == "e" || next == "E" {
-        var exponent = Token(kind: .exponent, site: location ..< location)
-        discard()
-        exponent.site.extend(upTo: index)
-
-        if let _ = scanIntegralLiteral(allowingPlus: true) {
-          exponent.site.extend(upTo: index)
-        } else {
-          exponent.kind = .invalid
-        }
-
-        pendingExponentToken = exponent
-      }
-
+      previousTokenWasInt = true
       return token
     }
 
