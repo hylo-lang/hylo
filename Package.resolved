@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",
       "state" : {
-        "revision" : "9f39744e025c7d377987f30b03770805dcb0bcd1",
-        "version" : "1.1.4"
+        "revision" : "fee6933f37fde9a5e12a1e4aeaa93fe60116ff2a",
+        "version" : "1.2.2"
       }
     },
     {
@@ -39,10 +39,10 @@
     {
       "identity" : "swift-format",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/val-lang/swift-format",
+      "location" : "https://github.com/apple/swift-format",
       "state" : {
-        "branch" : "main",
-        "revision" : "7fc9c9102e5eeb9e15489d0e1cb769e41cf21fbc"
+        "revision" : "fbfe1869527923dd9f9b2edac148baccfce0dce7",
+        "version" : "508.0.1"
       }
     },
     {
@@ -50,8 +50,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
       "state" : {
-        "branch" : "main",
-        "revision" : "250b431726c7b05309770caaa9989a4166ea6ba7"
+        "revision" : "2c49d66d34dfd6f8130afdba889de77504b58ec0",
+        "version" : "508.0.1"
       }
     },
     {
@@ -68,8 +68,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-tools-support-core.git",
       "state" : {
-        "revision" : "284a41800b7c5565512ec6ae21ee818aac1f84ac",
-        "version" : "0.4.0"
+        "revision" : "93784c59434dbca8e8a9e4b700d0d6d94551da6a",
+        "version" : "0.5.2"
       }
     },
     {
