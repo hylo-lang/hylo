@@ -384,10 +384,8 @@ public struct Lexer: IteratorProtocol, Sequence {
     }
 
     // Consume the integer part.
-    let kind = Token.Kind.int
     _ = take(while: { $0.isDecDigit })
-
-    return kind
+    return .int
   }
 
 }
