@@ -344,6 +344,7 @@ public struct Lexer: IteratorProtocol, Sequence {
   }
 
   /// Consumes an integral literal and returns its kind, or returns `nil` if it fails to scan a valid integer.
+  ///
   /// - Parameter allowingPlus: If set to `true`, allows the integral literal to begin with a "+" sign.
   ///                           If set to `false` (the default), only allows "-" or no sign at the beginning.
   private mutating func scanIntegralLiteral(allowingPlus allowPlus: Bool = false) -> Token.Kind? {
