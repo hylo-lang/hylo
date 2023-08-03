@@ -393,7 +393,7 @@ public struct TypeChecker {
 
     // Determine the type of the declaration's pattern.
     let pattern = inferredType(of: AnyPatternID(ast[d].pattern), shapedBy: nil)
-    assert(pattern.facts.inferredTypes.storage.isEmpty, "expression in binding pattern")
+    assert(pattern.facts.inferredTypes.isEmpty, "expression in binding pattern")
     if pattern.type[.hasError] {
       return complete(.error)
     }
@@ -1480,7 +1480,7 @@ public struct TypeChecker {
       referredDecls[n] = s
     }
 
-    for (e, t) in facts.inferredTypes.storage {
+    for (e, t) in facts.inferredTypes {
       exprTypes[e] = solution.typeAssumptions.reify(t, withVariables: .substitutedByError)
     }
 

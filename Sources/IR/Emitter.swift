@@ -625,7 +625,7 @@ struct Emitter {
   /// Returns the lowered form of `c`, generating function references in `useScope`.
   private mutating func loweredConformance(_ c: Core.Conformance) -> IR.Conformance {
     var implementations = IR.Conformance.ImplementationMap()
-    for (r, i) in c.implementations.storage {
+    for (r, i) in c.implementations {
       switch i {
       case .concrete(let d):
         implementations[r] = loweredRequirementImplementation(d)
