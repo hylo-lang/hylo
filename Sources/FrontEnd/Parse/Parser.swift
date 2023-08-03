@@ -1716,8 +1716,8 @@ public enum Parser {
   {
     guard let first = state.take(.int) else { return nil }
 
-    if let _ = state.take(if: { $0.kind == .dot }) {
-      guard let _ = state.take(if: { $0.kind == .int }) else { return nil }
+    if state.take(if: { $0.kind == .dot }) != nil {
+      guard state.take(if: { $0.kind == .int }) != nil else { return nil }
     } else {
       if state.peek()?.kind != .exponent {
         return nil
