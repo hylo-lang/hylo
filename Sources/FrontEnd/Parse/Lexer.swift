@@ -73,12 +73,12 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     // Try scan for exponent if previous token was .int
     if previousTokenWasInt, let next = peek(), next == "e" || next == "E" {
-        discard()
-        if let _ = scanIntegralLiteral(allowingPlus: true) {
-          token.kind = .exponent
-          token.site.extend(upTo: index)
-        }
-        return token
+      discard()
+      if let _ = scanIntegralLiteral(allowingPlus: true) {
+        token.kind = .exponent
+        token.site.extend(upTo: index)
+      }
+      return token
     }
     previousTokenWasInt = false
 
