@@ -82,22 +82,36 @@ final class LexerTests: XCTestCase {
       in: input)
   }
 
-  func testFloatingPoint() {
+  func testFloatingPointSequences() {
     let input: SourceFile = "0.0 001.00 0.1_2__34__ 1e1_000 1.12e+123 3.45E-6 1. 1e -1e2"
     assert(
       tokenize(input),
       matches: [
-        TokenSpecification(.float, "0.0"),
-        TokenSpecification(.float, "001.00"),
-        TokenSpecification(.float, "0.1_2__34__"),
-        TokenSpecification(.float, "1e1_000"),
-        TokenSpecification(.float, "1.12e+123"),
-        TokenSpecification(.float, "3.45E-6"),
+        TokenSpecification(.int, "0"),
+        TokenSpecification(.dot, "."),
+        TokenSpecification(.int, "0"),
+        TokenSpecification(.int, "001"),
+        TokenSpecification(.dot, "."),
+        TokenSpecification(.int, "00"),
+        TokenSpecification(.int, "0"),
+        TokenSpecification(.dot, "."),
+        TokenSpecification(.int, "1_2__34__"),
+        TokenSpecification(.int, "1"),
+        TokenSpecification(.exponent, "e1_000"),
+        TokenSpecification(.int, "1"),
+        TokenSpecification(.dot, "."),
+        TokenSpecification(.int, "12"),
+        TokenSpecification(.exponent, "e+123"),
+        TokenSpecification(.int, "3"),
+        TokenSpecification(.dot, "."),
+        TokenSpecification(.int, "45"),
+        TokenSpecification(.exponent, "E-6"),
         TokenSpecification(.int, "1"),
         TokenSpecification(.dot, "."),
         TokenSpecification(.int, "1"),
-        TokenSpecification(.name, "e"),
-        TokenSpecification(.float, "-1e2"),
+        TokenSpecification(.invalid, "e"),
+        TokenSpecification(.int, "-1"),
+        TokenSpecification(.exponent, "e2"),
       ],
       in: input)
   }
