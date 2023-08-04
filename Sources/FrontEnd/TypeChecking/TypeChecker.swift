@@ -3514,7 +3514,7 @@ public struct TypeChecker {
   /// Returns `true` iff a use of `d` in `useScope` is recursive.
   private func isRecursive(useOf d: AnyDeclID, in useScope: AnyScopeID) -> Bool {
     if let s = AnyScopeID(d) {
-      return (d.kind.value as! Decl.Type).isCallable && program.isContained(useScope, in: s)
+      return d.isCallable && program.isContained(useScope, in: s)
     } else {
       return false
     }
