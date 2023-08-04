@@ -76,8 +76,8 @@ public struct Lexer: IteratorProtocol, Sequence {
       discard()
       if let _ = scanIntegralLiteral(allowingPlus: true) {
         token.kind = .exponent
-        token.site.extend(upTo: index)
       }
+      token.site.extend(upTo: index)
       return token
     }
     previousTokenWasInt = false
