@@ -70,11 +70,12 @@ Emit the specified output type (default: `binary`).  Each type represents a stag
 
 | `<output-type>` | Description |
 |--|--|
-| `raw-ast` | AST before type checking |
-| `raw-ir`  | Val IR before mandatory transformations |
-| `ir`      | Val IR |
-| `llvm`    | LLVM IR |
-| `binary`  | Executable binary |
+| `raw-ast`   | AST before type checking |
+| `raw-ir`    | Val IR before mandatory transformations |
+| `ir`        | Val IR |
+| `llvm`      | LLVM IR |
+| `intel-asm` | Intel Assembly |
+| `binary`    | Executable binary |
 
 **Example:**
 ```bash
