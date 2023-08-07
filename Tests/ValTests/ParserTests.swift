@@ -1083,10 +1083,29 @@ final class ParserTests: XCTestCase {
   }
 
   func testFloatingPointLiteral() throws {
-    let input: SourceFile = "4.2e+1"
-    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? FloatLiteralExpr)
-    XCTAssertEqual(expr.value, "4.2e+1")
+    let literals: [(String, String)] = [
+      ("3.14159", "3.14159"),
+      ("0.0", "0.0"),
+      ("001.00", "001.00"),
+      ("0.1_2__34__", "0.1234"),
+      ("1e1_000", "1e1000"),
+      ("1.12e+123", "1.12e+123"),
+      ("1.12e+123_456", "1.12e+123456"),
+      ("3.45E-6", "3.45E-6"),
+      ("1.1e2", "1.1e2"),
+      ("1.1e+2", "1.1e+2"),
+      ("1.1e-2", "1.1e-2"),
+      ("1e2", "1e2"),
+      ("1e+2", "1e+2"),
+      ("1e-2", "1e-2"),
+    ]
+
+    for (lit, expected) in literals {
+      let input = SourceFile(stringLiteral: lit)
+      let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
+      let expr = try XCTUnwrap(ast[exprID] as? FloatLiteralExpr)
+      XCTAssertEqual(expr.value, expected)
+    }
   }
 
   func testStringLiteral() throws {
