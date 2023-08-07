@@ -293,12 +293,10 @@ public struct ValCommand: ParsableCommand {
     linking objects: [URL],
     diagnostics: inout DiagnosticSet
   ) throws {
-    var arguments = [
-      "-defaultlib:ValLibC", "-defaultlib:msvcrt", "-out:" + binaryPath,
-    ]
-    arguments.append(contentsOf: objects.map(\.path))
-
-    try runCommandLine(find("lld-link"), arguments, diagnostics: &diagnostics)
+    try runCommandLine(
+      find("lld-link"), 
+      ["-defaultlib:ValLibC", "-defaultlib:msvcrt", "-out:" + binaryPath] + objects.map(\.path),
+      diagnostics: &diagnostics)
   }
 
   /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`
