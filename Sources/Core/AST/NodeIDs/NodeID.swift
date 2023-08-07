@@ -75,4 +75,14 @@ extension Sequence where Element: NodeIDProtocol {
     self.lazy.compactMap(Subject.ID.init(_:))
   }
 
+  /// Returns the unique element in `self` that is an ID of `Subject`, if any.
+  public func unique<Subject: Node>(_ s: Subject.Type) -> Subject.ID? {
+    var result: Subject.ID? = nil
+    for n in self.filter(s) {
+      guard result == nil else { return nil }
+      result = n
+    }
+    return result
+  }
+
 }
