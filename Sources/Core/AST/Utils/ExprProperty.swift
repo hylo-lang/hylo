@@ -1,39 +1,19 @@
-/// A mapping from indices of expressions to properties of a given type.
-public struct ExprProperty<Value> {
+/// A mapping from expression to `Property` value.
+public typealias ExprProperty<Value> = [AnyExprID: Value]
 
-  /// The internal storage of the map.
-  public var storage: [AnyExprID: Value]
+extension Dictionary where Key == AnyExprID {
 
-  /// Creates an empty node map.
-  public init() {
-    storage = [:]
+  /// Accesses the `Property` this map associates with `n`.
+  public subscript<T: ExprID>(n: T) -> Value? {
+    _read { yield self[AnyExprID(n)] }
+    _modify { yield &self[AnyExprID(n)] }
   }
 
-  /// Accesses the property associated with the specified ID.
-  public subscript<T: ExprID>(id: T) -> Value? {
-    _read { yield storage[AnyExprID(id)] }
-    _modify { yield &storage[AnyExprID(id)] }
-  }
-
-  /// Accesses the property associated with the specified ID.
-  public subscript<T: ExprID>(
-    id: T,
-    default defaultValue: @autoclosure () -> Value
-  ) -> Value {
-    _read {
-      yield storage[AnyExprID(id), default: defaultValue()]
-    }
-    _modify {
-      var value = storage[AnyExprID(id)] ?? defaultValue()
-      defer { storage[AnyExprID(id)] = value }
-      yield &value
-    }
+  /// Accesses the `Property` this map associates with `n`, or `defaultProperty` if this map makes
+  /// no such association.
+  public subscript<T: ExprID>(n: T, default defaultProperty: @autoclosure () -> Value) -> Value {
+    _read { yield self[AnyExprID(n), default: defaultProperty()] }
+    _modify { yield &self[AnyExprID(n), default: defaultProperty()] }
   }
 
 }
-
-extension ExprProperty: Equatable where Value: Equatable {}
-
-extension ExprProperty: Hashable where Value: Hashable {}
-
-extension ExprProperty: Codable where Value: Codable {}

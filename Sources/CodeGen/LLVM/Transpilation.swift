@@ -238,7 +238,7 @@ extension LLVM.Module {
       ]
       entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
 
-      for (r, d) in c.implementations.storage {
+      for (r, d) in c.implementations {
         let requirement: [LLVM.IRValue] = [
           word().constant(UInt64(r.rawValue)),
           transpiledRequirementImplementation(d, from: ir),

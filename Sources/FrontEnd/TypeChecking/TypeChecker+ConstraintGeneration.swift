@@ -972,7 +972,7 @@ extension TypeChecker.InferenceFacts: CustomStringConvertible {
     var result = ""
 
     result.append("inferredTypes:\n")
-    for (k, v) in inferredTypes.storage {
+    for (k, v) in inferredTypes {
       result.append("  \(k) : \(v)\n")
     }
 

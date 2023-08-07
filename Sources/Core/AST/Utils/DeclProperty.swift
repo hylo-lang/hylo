@@ -1,39 +1,19 @@
-/// A mapping from indices of declarations to properties of a given type.
-public struct DeclProperty<Value> {
+/// A mapping from expression to `Property` value.
+public typealias DeclProperty<Value> = [AnyDeclID: Value]
 
-  /// The internal storage of the map.
-  public var storage: [AnyDeclID: Value]
+extension Dictionary where Key == AnyDeclID {
 
-  /// Creates an empty node map.
-  public init() {
-    storage = [:]
+  /// Accesses the `Property` this map associates with `n`.
+  public subscript<T: DeclID>(n: T) -> Value? {
+    _read { yield self[AnyDeclID(n)] }
+    _modify { yield &self[AnyDeclID(n)] }
   }
 
-  /// Accesses the property associated with the specified ID.
-  public subscript<T: DeclID>(id: T) -> Value? {
-    _read { yield storage[AnyDeclID(id)] }
-    _modify { yield &storage[AnyDeclID(id)] }
-  }
-
-  /// Accesses the property associated with the specified ID.
-  public subscript<T: DeclID>(
-    id: T,
-    default defaultValue: @autoclosure () -> Value
-  ) -> Value {
-    _read {
-      yield storage[AnyDeclID(id), default: defaultValue()]
-    }
-    _modify {
-      var value = storage[AnyDeclID(id)] ?? defaultValue()
-      defer { storage[AnyDeclID(id)] = value }
-      yield &value
-    }
+  /// Accesses the `Property` this map associates with `n`, or `defaultProperty` if this map makes
+  /// no such association.
+  public subscript<T: DeclID>(n: T, default defaultProperty: @autoclosure () -> Value) -> Value {
+    _read { yield self[AnyDeclID(n), default: defaultProperty()] }
+    _modify { yield &self[AnyDeclID(n), default: defaultProperty()] }
   }
 
 }
-
-extension DeclProperty: Equatable where Value: Equatable {}
-
-extension DeclProperty: Hashable where Value: Hashable {}
-
-extension DeclProperty: Codable where Value: Codable {}
