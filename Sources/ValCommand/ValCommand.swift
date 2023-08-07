@@ -294,7 +294,7 @@ public struct ValCommand: ParsableCommand {
     diagnostics: inout DiagnosticSet
   ) throws {
     try runCommandLine(
-      find("lld-link"), 
+      find("lld-link"),
       ["-defaultlib:ValLibC", "-defaultlib:msvcrt", "-out:" + binaryPath] + objects.map(\.path),
       diagnostics: &diagnostics)
   }
