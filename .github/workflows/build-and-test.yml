@@ -60,11 +60,11 @@ jobs:
       uses: devcontainers/ci@v0.3
       with:
         runCmd: |
-          set -eo pipefail &&
-          swift package resolve &&
-          .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc &&
-          export PKG_CONFIG_PATH=$PWD &&
-          swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }} &&
+          set -eo pipefail
+          swift package resolve
+          .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
+          export PKG_CONFIG_PATH=$PWD
+          swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }}
           swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
             tee testoutput.txt && (
               (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']ValTests[/. ]test_" testoutput.txt) ||
@@ -119,21 +119,21 @@ jobs:
 
     - name: Generate LLVM pkgconfig file
       run: |
-        set -eo pipefail &&
-        swift package resolve &&
-        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc &&
+        set -eo pipefail
+        swift package resolve
+        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
         cat llvm.pc
 
     - name: Build (${{ matrix.configuration }})
       run: |
-        set -eo pipefail &&
-        export PKG_CONFIG_PATH=$PWD &&
+        set -eo pipefail
+        export PKG_CONFIG_PATH=$PWD
         swift build -c ${{ matrix.configuration }} ${{ matrix.host.build-options }}
 
     - name: Test (${{ matrix.configuration }})
       run: |
-        set -eo pipefail &&
-        export PKG_CONFIG_PATH=$PWD &&
+        set -eo pipefail
+        export PKG_CONFIG_PATH=$PWD
         swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
           tee testoutput.txt && (
             (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']ValTests[/. ]test_" testoutput.txt) ||
