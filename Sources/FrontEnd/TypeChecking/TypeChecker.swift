@@ -3554,7 +3554,7 @@ public struct TypeChecker {
       case 1:
         let precedence = ast[candidates[0]].precedenceGroup?.value
         accumulator.append(
-          operator: (expr: tail[i].operator, precedence: precedence),
+          operator: .init(expr: tail[i].operator, precedence: precedence),
           right: tail[i].operand)
 
       default:
