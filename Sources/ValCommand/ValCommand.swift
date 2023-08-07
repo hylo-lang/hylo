@@ -195,7 +195,8 @@ public struct ValCommand: ParsableCommand {
     // Intel ASM
 
     if outputType == .intelAsm {
-      try llvmProgram.llvmModules[sourceModule]!.write(.assembly, for: target, to: intelASMFile(productName).path)
+      try llvmProgram.llvmModules[sourceModule]!.write(
+        .assembly, for: target, to: intelASMFile(productName).path)
       return
     }
 
