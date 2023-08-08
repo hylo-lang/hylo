@@ -178,7 +178,7 @@ struct Mangler {
   /// Writes the mangled representation of `d` to `output`.
   private mutating func write(conformance d: ConformanceDecl.ID, to output: inout Output) {
     write(operator: .conformanceDecl, to: &output)
-    mangle(type: MetatypeType(program.declTypes[d])!.instance, to: &output)
+    mangle(type: MetatypeType(program.declType[d])!.instance, to: &output)
 
     if let c = program.ast[d].whereClause {
       write(whereClause: c.value, to: &output)
@@ -190,7 +190,7 @@ struct Mangler {
   /// Writes the mangled representation of `d` to `output`.
   private mutating func write(extension d: ExtensionDecl.ID, to output: inout Output) {
     write(operator: .extensionDecl, to: &output)
-    mangle(type: MetatypeType(program.declTypes[d])!.instance, to: &output)
+    mangle(type: MetatypeType(program.declType[d])!.instance, to: &output)
 
     if let c = program.ast[d].whereClause {
       write(whereClause: c.value, to: &output)
@@ -215,7 +215,7 @@ struct Mangler {
 
     write(name: n, to: &output)
     write(integer: program.ast[d].genericParameters.count, to: &output)
-    mangle(type: program.declTypes[d]!, to: &output)
+    mangle(type: program.declType[d]!, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
@@ -230,7 +230,7 @@ struct Mangler {
     write(operator: .staticFunctionDecl, to: &output)
     write(name: Name(stem: "init"), to: &output)
     write(integer: program.ast[d].genericParameters.count, to: &output)
-    mangle(type: program.declTypes[d]!, to: &output)
+    mangle(type: program.declType[d]!, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
@@ -244,7 +244,7 @@ struct Mangler {
       write(integer: program.ast[d].genericParameters.count, to: &output)
     }
 
-    mangle(type: program.declTypes[d]!, to: &output)
+    mangle(type: program.declType[d]!, to: &output)
   }
 
   /// Writes the mangled representation of `u` to `output`.

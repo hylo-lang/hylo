@@ -16,20 +16,20 @@ extension Module {
 
     // Verify that object states are properly initialized/deinitialized in `b` given `context`,
     // updating `self` as necessary and reporting violations in `diagnostics`.
-    machine.fixedPoint { (b, machine, context) in
+    machine.fixedPoint { (b, context) in
       var pc = self[f][b].instructions.firstAddress
       while let a = pc {
         let user = InstructionID(f, b, a)
 
         switch self[f][b].instructions[a] {
+        case is Access:
+          pc = interpret(access: user, in: &context)
         case is AddressToPointer:
           pc = interpret(addressToPointer: user, in: &context)
         case is AdvancedByBytes:
           pc = interpret(advancedByBytes: user, in: &context)
         case is AllocStack:
           pc = interpret(allocStack: user, in: &context)
-        case is Access:
-          pc = interpret(access: user, in: &context)
         case is Branch:
           pc = successor(of: user)
         case is Call:
@@ -92,36 +92,6 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(addressToPointer i: InstructionID, in context: inout Context) -> PC? {
-      initializeRegister(createdBy: i, in: &context)
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
-      // Create an abstract location denoting the newly allocated memory.
-      let l = AbstractLocation.root(.register(i))
-      precondition(context.memory[l] == nil, "stack leak")
-
-      // Update the context.
-      let s = self[i] as! AllocStack
-      let t = AbstractTypeLayout(of: s.allocatedType, definedIn: program)
-
-      context.memory[l] = .init(layout: t, value: .full(.uninitialized))
-      context.locals[.register(i)] = .locations([l])
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(advancedByBytes i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! AdvancedByBytes
-      consume(s.base, with: i, at: s.site, in: &context)
-      consume(s.byteOffset, with: i, at: s.site, in: &context)
-      initializeRegister(createdBy: i, in: &context)
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(access i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Access
       precondition(s.source.constant == nil, "source is a constant")
@@ -152,6 +122,36 @@ extension Module {
       }
 
       context.locals[.register(i)] = .locations(locations)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(addressToPointer i: InstructionID, in context: inout Context) -> PC? {
+      initializeRegister(createdBy: i, in: &context)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
+      // Create an abstract location denoting the newly allocated memory.
+      let l = AbstractLocation.root(.register(i))
+      precondition(context.memory[l] == nil, "stack leak")
+
+      // Update the context.
+      let s = self[i] as! AllocStack
+      let t = AbstractTypeLayout(of: s.allocatedType, definedIn: program)
+
+      context.memory[l] = .init(layout: t, value: .full(.uninitialized))
+      context.locals[.register(i)] = .locations([l])
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(advancedByBytes i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! AdvancedByBytes
+      consume(s.base, with: i, at: s.site, in: &context)
+      consume(s.byteOffset, with: i, at: s.site, in: &context)
+      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 

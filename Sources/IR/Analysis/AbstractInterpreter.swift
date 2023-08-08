@@ -12,12 +12,8 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// evaluation of its instructions.
   typealias State = [Function.Blocks.Address: BlockState]
 
-  /// A closure that processes `block` in `context`, given an abstract `machine`.
-  typealias Interpret = (
-    _ block: Function.Blocks.Address,
-    _ machine: inout Self,
-    _ context: inout Context
-  ) -> Void
+  /// A closure that processes `block` in `context`.
+  typealias Interpret = (_ block: Function.Blocks.Address, _ context: inout Context) -> Void
 
   /// The function being interpreted.
   private let subject: Function.ID
@@ -156,7 +152,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
     processingBlockWith interpret: Interpret
   ) -> Context {
     var newContext = initialContext
-    interpret(b, &self, &newContext)
+    interpret(b, &newContext)
     return newContext
   }
 

@@ -1,40 +1,21 @@
 /// A mapping from AST node to `Property` value.
-public struct ASTProperty<Property> {
+public typealias ASTProperty<Property> = [AnyNodeID: Property]
 
-  /// The internal storage of the map.
-  private var storage: [AnyNodeID: Property]
+extension Dictionary where Key == AnyNodeID {
 
-  /// Creates an empty instance.
-  public init() {
-    storage = [:]
+  /// Accesses the `Property` this map associates with `n`.
+  public subscript<T: NodeIDProtocol>(n: T) -> Value? {
+    _read { yield self[AnyNodeID(n)] }
+    _modify { yield &self[AnyNodeID(n)] }
   }
 
-  /// Accesses the `Property` this map associates with `id`.
-  public subscript<T: NodeIDProtocol>(id: T) -> Property? {
-    _read { yield storage[AnyNodeID(id)] }
-    _modify { yield &storage[AnyNodeID(id)] }
-  }
-
-  /// Accesses the property this map associates with `id`, or `defaultProperty` if this map makes
+  /// Accesses the property this map associates with `n`, or `defaultProperty` if this map makes
   /// no such association.
   public subscript<T: NodeIDProtocol>(
-    id: T,
-    default defaultProperty: @autoclosure () -> Property
-  ) -> Property {
-    _read {
-      yield storage[AnyNodeID(id), default: defaultProperty()]
-    }
-    _modify {
-      var value = storage[AnyNodeID(id)] ?? defaultProperty()
-      defer { storage[AnyNodeID(id)] = value }
-      yield &value
-    }
+    n: T, default defaultProperty: @autoclosure () -> Value
+  ) -> Value {
+    _read { yield self[AnyNodeID(n), default: defaultProperty()] }
+    _modify { yield &self[AnyNodeID(n), default: defaultProperty()] }
   }
 
 }
-
-extension ASTProperty: Equatable where Property: Equatable {}
-
-extension ASTProperty: Hashable where Property: Hashable {}
-
-extension ASTProperty: Codable where Property: Codable {}
