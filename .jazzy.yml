@@ -1,0 +1,6 @@
+module: Val
+author: Dimi Racordon
+theme: fullwidth
+output: ./.generated-docs
+author_url: "https://val-lang.dev"
+github_url: "https://github.com/val-lang"
