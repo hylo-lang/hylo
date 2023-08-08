@@ -13,16 +13,16 @@ public struct TypedProgram: Program {
   public let imports: [TranslationUnit.ID: Set<ModuleDecl.ID>]
 
   /// The overarching type of each declaration.
-  public let declTypes: DeclProperty<AnyType>
+  public let declType: DeclProperty<AnyType>
 
   /// The type of each expression.
-  public let exprTypes: ExprProperty<AnyType>
+  public let exprType: ExprProperty<AnyType>
 
   /// A map from function and subscript declarations to their implicit captures.
   public let implicitCaptures: DeclProperty<[ImplicitCapture]>
 
   /// A map from generic declarations to their environment.
-  public let environments: DeclProperty<GenericEnvironment>
+  public let environment: DeclProperty<GenericEnvironment>
 
   /// A map from module to its synthesized declarations.
   ///
@@ -33,10 +33,10 @@ public struct TypedProgram: Program {
   public let synthesizedDecls: [ModuleDecl.ID: [SynthesizedFunctionDecl]]
 
   /// A map from name expression to its referred declaration.
-  public let referredDecls: [NameExpr.ID: DeclReference]
+  public let referredDecl: [NameExpr.ID: DeclReference]
 
   /// A map from sequence expressions to their evaluation order.
-  public let foldedSequenceExprs: [SequenceExpr.ID: FoldedSequenceExpr]
+  public let foldedForm: [SequenceExpr.ID: FoldedSequenceExpr]
 
   /// The type relations of the program.
   public let relations: TypeRelations
@@ -63,19 +63,19 @@ public struct TypedProgram: Program {
     self.scopeToDecls = program.scopeToDecls
     self.varToBinding = program.varToBinding
     self.imports = imports
-    self.declTypes = declTypes
-    self.exprTypes = exprTypes
+    self.declType = declTypes
+    self.exprType = exprTypes
     self.implicitCaptures = implicitCaptures
-    self.environments = environments
+    self.environment = environments
     self.synthesizedDecls = synthesizedDecls
-    self.referredDecls = referredDecls
-    self.foldedSequenceExprs = foldedSequenceExprs
+    self.referredDecl = referredDecls
+    self.foldedForm = foldedSequenceExprs
     self.relations = relations
   }
 
   /// Returns the canonical type of `d`, parameterized by `a`.
   public func canonicalType<T: DeclID>(of d: T, parameterizedBy a: GenericArguments) -> AnyType {
-    relations.canonical(relations.monomorphize(declTypes[d]!, for: a))
+    relations.canonical(relations.monomorphize(declType[d]!, for: a))
   }
 
   /// Returns the declarations of `d`' captures.
@@ -141,7 +141,7 @@ public struct TypedProgram: Program {
         }
 
       case is GenericScope.Type:
-        parameters.append(contentsOf: environments[AnyDeclID(s)!]!.parameters)
+        parameters.append(contentsOf: environment[AnyDeclID(s)!]!.parameters)
 
       case is TranslationUnit.Type:
         // No need to look further.
@@ -155,7 +155,7 @@ public struct TypedProgram: Program {
 
   /// Returns the scope of the declaration extended by `d`, if any.
   private func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
-    switch MetatypeType(declTypes[d])?.instance.base {
+    switch MetatypeType(declType[d])?.instance.base {
     case let u as ProductType:
       return AnyScopeID(u.decl)
     case let u as TypeAliasType:
@@ -191,7 +191,7 @@ public struct TypedProgram: Program {
       return ast[u.decl].members.flatMap { (m) in
         BindingDecl.ID(m).map { (b) in
           ast.names(in: ast[b].pattern).map { (_, name) in
-            let t = relations.monomorphize(declTypes[ast[name].decl]!, for: parameterization)
+            let t = relations.monomorphize(declType[ast[name].decl]!, for: parameterization)
             return (ast[ast[name].decl].baseName, t)
           }
         } ?? []
@@ -312,7 +312,7 @@ public struct TypedProgram: Program {
         return nil
       }
       let a: GenericArguments = [ast[concept.decl].selfParameterDecl: model]
-      let t = LambdaType(monomorphize(declTypes[requirement]!, for: a))!
+      let t = LambdaType(monomorphize(declType[requirement]!, for: a))!
       let d = SynthesizedFunctionDecl(k, typed: t, in: useScope)
       implementations[requirement] = .synthetic(d)
     }

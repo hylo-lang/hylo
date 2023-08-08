@@ -66,7 +66,7 @@ extension BundledNode where T: DeclID, P == TypedProgram {
 
   /// The type of the declared entity.
   public var type: AnyType {
-    container.declTypes[id]!
+    container.declType[id]!
   }
 
 }
@@ -93,7 +93,7 @@ extension BundledNode where T: ExprID, P == TypedProgram {
 
   /// The type of this expression
   public var type: AnyType {
-    container.exprTypes[id]!
+    container.exprType[id]!
   }
 
 }
@@ -102,7 +102,7 @@ extension BundledNode where T == NameExpr.ID, P == TypedProgram {
 
   /// The declaration referenced by this expression.
   public var referredDecl: DeclReference {
-    container.referredDecls[id]!
+    container.referredDecl[id]!
   }
 
 }
@@ -111,7 +111,7 @@ extension BundledNode where T == SequenceExpr.ID, P == TypedProgram {
 
   /// A representation of `self` that encodes its evaluation order.
   public var folded: FoldedSequenceExpr {
-    container.foldedSequenceExprs[id]!
+    container.foldedForm[id]!
   }
 
 }
