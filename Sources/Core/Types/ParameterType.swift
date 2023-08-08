@@ -13,6 +13,7 @@ public struct ParameterType: TypeProtocol {
 
   /// Creates an instance with the given properties.
   public init(_ access: AccessEffect, _ bareType: AnyType) {
+    assert(!(bareType.base is ParameterType), "bad type")
     self.access = access
     self.bareType = bareType
     self.flags = bareType.flags
