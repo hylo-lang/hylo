@@ -78,7 +78,7 @@ jobs:
         MINIMUM_COVERAGE: 84
         CODECOV_JSON: .build/${{ matrix.configuration }}/codecov/*.json
 
-  build-native:
+  build-native-macos:
     name: "Native: ${{ matrix.host.os }}/${{ matrix.configuration }}"
     strategy:
       fail-fast: false
@@ -139,3 +139,52 @@ jobs:
             (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']ValTests[/. ]test_" testoutput.txt) ||
             (echo "error: generated tests failed to run; see
             https://github.com/apple/swift-package-manager/issues/6595" && false) )
+          
+  build-native-windows:
+    name: "Native: windows-latest/release"
+    strategy:
+      fail-fast: false
+    runs-on: windows-latest
+    steps:
+    - name: Setup swift
+      uses: compnerd/gha-setup-swift@main
+      with:
+        branch: swift-5.8.1-release
+        tag: 5.8.1-RELEASE
+
+    - run: |
+        git config --global core.autocrlf input
+    - uses: actions/checkout@v3
+
+    - name: Swift version
+      run: swift --version
+
+    - name: Set up LLVM 15.0.6
+      run: |
+        curl.exe -L -O -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"https://github.com/c3lang/win-llvm/releases/download/llvm_15_0_6/llvm-15.0.6-windows-x86-msvc17-msvcrt.7z
+        7z x llvm-15.0.6-windows-x86-msvc17-msvcrt.7z -oC:\
+        Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-msvcrt\bin'
+        
+    - name: Copy LLVM's include and lib to include and lib folder of MSVC
+      run: |
+        xcopy c:\llvm-15.0.6-windows-x86-msvc17-msvcrt\include\*.* c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\include\ /s /h
+        xcopy c:\llvm-15.0.6-windows-x86-msvc17-msvcrt\lib\*.* c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\ /s /h
+
+    - run: llvm-config --version
+
+    - name: Build support library
+      run: clang -c ./Library/Val/LibC.c -o ValLibC.lib
+
+    - name: Copy support library
+      run: xcopy ValLibC.lib c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\
+
+    - name: Build (Release)
+      id: build
+      continue-on-error: true
+      run: swift build -v -c release
+
+    - name: Retry on failure
+      continue-on-error: false
+      if: steps.build.outcome != 'success'
+      run: swift build -v -c release
+

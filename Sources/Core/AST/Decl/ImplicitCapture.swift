@@ -1,5 +1,5 @@
 /// An implicit capture in a function or subscript declaration.
-public struct ImplicitCapture {
+public struct ImplicitCapture: Hashable {
 
   /// The name of the capture.
   public let name: Name

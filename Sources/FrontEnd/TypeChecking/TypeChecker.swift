@@ -274,7 +274,7 @@ public struct TypeChecker {
 
   /// Type checks the specified module, accumulating diagnostics in `self.diagnostics`.
   ///
-  /// This method is idempotent. After the first call for a module `m`, `self.declTypes[m]` is
+  /// This method is idempotent. After the first call for a module `m`, `self.declType[m]` is
   /// assigned to an instance of `ModuleType`. Subsequent calls have no effect on `self`.
   ///
   /// - Requires: `m` is a valid ID in the type checker's AST.
@@ -2995,7 +2995,7 @@ public struct TypeChecker {
 
   /// Returns the overarching type of `d`.
   private mutating func realize(methodImpl d: MethodImpl.ID) -> AnyType {
-    // `declTypes[d]` is set by the realization of the containing method declaration.
+    // `declType[d]` is set by the realization of the containing method declaration.
     _realize(decl: d) { (this, d) in
       _ = this.realize(methodDecl: NodeID(this.program[d].scope)!)
       return this.declTypes[d] ?? .error
@@ -3151,7 +3151,7 @@ public struct TypeChecker {
 
   /// Returns the overarching type of `d`.
   private mutating func realize(varDecl d: VarDecl.ID) -> AnyType {
-    // `declTypes[d]` is set by the realization of the containing binding declaration.
+    // `declType[d]` is set by the realization of the containing binding declaration.
     return _realize(decl: d) { (this, d) in
       _ = this.realize(bindingDecl: this.program[d].binding)
       return this.declTypes[d] ?? .error
@@ -3514,7 +3514,7 @@ public struct TypeChecker {
   /// Returns `true` iff a use of `d` in `useScope` is recursive.
   private func isRecursive(useOf d: AnyDeclID, in useScope: AnyScopeID) -> Bool {
     if let s = AnyScopeID(d) {
-      return (d.kind.value as! Decl.Type).isCallable && program.isContained(useScope, in: s)
+      return d.isCallable && program.isContained(useScope, in: s)
     } else {
       return false
     }
@@ -3554,7 +3554,7 @@ public struct TypeChecker {
       case 1:
         let precedence = ast[candidates[0]].precedenceGroup?.value
         accumulator.append(
-          operator: (expr: tail[i].operator, precedence: precedence),
+          operator: .init(expr: tail[i].operator, precedence: precedence),
           right: tail[i].operand)
 
       default:

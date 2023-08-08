@@ -5,7 +5,7 @@
 # IDEs
 /.vscode
 /.swiftpm
-
+/.vscode/launch.json
 # macOS
 .DS_Store
 
@@ -18,3 +18,5 @@
 /Examples/**.pdb
 /Examples/**.exe
 /Examples/**.obj
+**.lib
+**.7z

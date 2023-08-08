@@ -201,6 +201,9 @@ public struct ValCommand: ParsableCommand {
       try makeMacOSExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
     #elseif os(Linux)
       try makeLinuxExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
+    #elseif os(Windows)
+      try makeWindowsExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
+
     #else
       _ = objectFiles
       _ = binaryPath
@@ -242,6 +245,7 @@ public struct ValCommand: ParsableCommand {
   }
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
+  /// logging diagnostics to `log`.
   private func makeMacOSExecutable(
     at binaryPath: String, linking objects: [URL], diagnostics: inout DiagnosticSet
   ) throws {
@@ -280,6 +284,19 @@ public struct ValCommand: ParsableCommand {
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
     try runCommandLine(find("clang++"), arguments, diagnostics: &diagnostics)
+  }
+
+  /// Combines the object files located at `objects` into an executable file at `binaryPath`,
+  /// logging diagnostics to `log`.
+  private func makeWindowsExecutable(
+    at binaryPath: String,
+    linking objects: [URL],
+    diagnostics: inout DiagnosticSet
+  ) throws {
+    try runCommandLine(
+      find("lld-link"),
+      ["-defaultlib:ValLibC", "-defaultlib:msvcrt", "-out:" + binaryPath] + objects.map(\.path),
+      diagnostics: &diagnostics)
   }
 
   /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`

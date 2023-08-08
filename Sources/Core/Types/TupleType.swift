@@ -29,16 +29,11 @@ public struct TupleType: TypeProtocol {
   public init<S: Sequence>(_ elements: S) where S.Element == Element {
     self.elements = Array(elements)
 
-    var fs = TypeFlags(merging: self.elements.map({ $0.type.flags }))
-    switch self.elements.count {
-    case 0:
-      fs.insert(.isCanonical)
-    case 1 where self.elements[0].label == nil:
+    var fs = TypeFlags(merging: self.elements.map(\.type.flags))
+    if (self.elements.count == 1) && (self.elements[0].label == nil) {
       fs.remove(.isCanonical)
-    default:
-      break
     }
-    flags = fs
+    self.flags = fs
   }
 
   /// Creates a tuple type with a sequence of label-type pairs.

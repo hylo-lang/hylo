@@ -86,6 +86,11 @@ extension CustomWitnessedSet: SetAlgebra {
     return result
   }
 
+  /// Inserts the elements in `members` into `self`.
+  public mutating func formUnion<S: Sequence>(_ members: S) where S.Element == Element {
+    for m in members { contents.insert(_Element(m)) }
+  }
+
   public mutating func formUnion(_ other: Self) {
     contents.formUnion(other.contents)
   }

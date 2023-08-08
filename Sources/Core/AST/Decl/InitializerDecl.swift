@@ -62,6 +62,9 @@ public struct InitializerDecl: GenericDecl, GenericScope {
     self.body = body
   }
 
+  /// `true` iff `self` is a definition of the entity that it declares.
+  public var isDefinition: Bool { body != nil }
+
   /// Returns whether the declaration is a memberwise initializer.
   public var isMemberwise: Bool { introducer.value == .memberwiseInit }
 
