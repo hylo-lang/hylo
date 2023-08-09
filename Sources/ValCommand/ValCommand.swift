@@ -157,8 +157,9 @@ public struct ValCommand: ParsableCommand {
     }
 
     let program = try TypedProgram(
-      annotating: ScopedProgram(ast), reportingDiagnosticsTo: &diagnostics,
-      tracingInferenceIf: nil)
+      annotating: ScopedProgram(ast), inParallel: true,
+      reportingDiagnosticsTo: &diagnostics,
+      tracingInferenceIf: shouldTraceInference)
     if typeCheckOnly { return }
 
     // IR
@@ -211,6 +212,16 @@ public struct ValCommand: ParsableCommand {
       fatalError("not implemented")
     #endif
   }
+
+  /// Returns `true` if type inference related to `n`, which is in `p`, whould be traced.
+  private func shouldTraceInference(_ n: AnyNodeID, _ p: TypedProgram) -> Bool {
+    if let s = inferenceTracingSite {
+      return s.bounds.contains(p[n].site.first())
+    } else {
+      return false
+    }
+  }
+
 
   /// Returns `program` lowered to Val IR, accumulating diagnostics in `log` and throwing if an
   /// error occured.

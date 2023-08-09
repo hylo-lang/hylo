@@ -51,33 +51,80 @@ public struct TypedProgram {
   ///   - isTypeCheckingParallel: if `true`, the program is partitioned into chucks that are type
   ///     checked separately. Otherwise, type checking is performed sequentially. Either way, the
   ///     order in which declarations are being checked is undeterministic.
-  ///   - shouldTraceInference: A closure accepting a node and returning `true` if a trace of type
-  ///     inference should be logged on the console for that node.
+  ///   - shouldTraceInference: A closure accepting a node and its containing program, returning
+  ///     `true` if a trace of type inference should be logged on the console for that node. The
+  ///     closure is not called if `isTypeCheckingParallel` is `true`.
   public init(
     annotating base: ScopedProgram,
     inParallel isTypeCheckingParallel: Bool = false,
     reportingDiagnosticsTo log: inout DiagnosticSet,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID) -> Bool)? = nil
+    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
-    let checkingLog = SharedMutable(DiagnosticSet())
 
-    let chunks = [base.ast.modules.map(AnyDeclID.init(_:))]
-    let queue = OperationQueue()
-    for (i, c) in chunks.enumerated() {
-      queue.addOperation {
-        var checker = TypeChecker(
-          UInt8(i), collaborativelyConstructing: instanceUnderConstruction,
-          tracingInferenceIf: shouldTraceInference)
-        checker.check(c)
-        checkingLog.modify(applying: { $0.formUnion(checker.diagnostics) })
+    if isTypeCheckingParallel {
+      let sources = base.ast[base.ast.modules].map(\.sources).joined()
+      var tasks: [TypeCheckTask] = []
+
+      for (i, chunk) in sources.chunked(maxSplits: 255).enumerated() {
+        let t = TypeCheckTask(
+          Array(chunk), withCheckerIdentifiedBy: UInt8(i),
+          collaborativelyConstructing: instanceUnderConstruction,
+          tracingInferenceIf: nil)
+        tasks.append(t)
+      }
+
+      let queue = OperationQueue()
+      queue.addOperations(tasks, waitUntilFinished: true)
+      for t in tasks {
+        log.formUnion(t.diagnostics)
       }
     }
 
-    queue.waitUntilAllOperationsAreFinished()
-    log.formUnion(checkingLog.wrapped)
+    var checker = TypeChecker(
+      constructing: instanceUnderConstruction.wrapped,
+      tracingInferenceIf: isTypeCheckingParallel ? nil : shouldTraceInference)
+    checker.checkAllDeclarations()
+
+    log.formUnion(checker.diagnostics)
     try log.throwOnError()
-    self = instanceUnderConstruction.wrapped
+    self = checker.program
+  }
+
+  /// The type checking of a collection of source files.
+  private final class TypeCheckTask: Operation {
+
+    /// The sources to check.
+    private let sources: [TranslationUnit.ID]
+
+    /// The checker used by this operation.
+    private var checker: TypeChecker
+
+    /// Creates a task type checking `sources` with a checker identified by `checkerIdentifier`,
+    /// constructing `instanceUnderConstruction`.
+    init(
+      _ sources: [TranslationUnit.ID],
+      withCheckerIdentifiedBy checkerIdentifier: UInt8,
+      collaborativelyConstructing instanceUnderConstruction: SharedMutable<TypedProgram>,
+      tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?
+    ) {
+      self.sources = sources
+      self.checker = TypeChecker(
+        checkerIdentifier, collaborativelyConstructing: instanceUnderConstruction,
+        tracingInferenceIf: shouldTraceInference)
+    }
+
+    /// Executes the operation.
+    override func main() {
+      checker.check(sources)
+      checker.synchronize()
+    }
+
+    /// The diagnostic reported during type checker.
+    var diagnostics: DiagnosticSet {
+      checker.diagnostics
+    }
+
   }
 
   /// Creates a partially formed instance with empty property in preparation for type checking.

@@ -17,28 +17,13 @@ struct TypeChecker {
   /// The representation under construction.
   private var cache: Cache
 
-  /// A closure accepting a node and returning `true` if a trace of type inference should be logged
-  /// on the console for that node.
-  private let shouldTraceInference: ((AnyNodeID) -> Bool)?
+  /// A closure that takes a node and its containing program, and returns `true` if a trace of type
+  /// inference should be logged on the console for that node.
+  private let shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?
 
   /// The local copy of the program being type checked.
   var program: TypedProgram {
     cache.local
-  }
-
-  /// Creates an instance with given `identifier` for constructing `program` collaboratively with
-  /// other instances.
-  ///
-  /// - Requires: `identifier` is unique across collaborating instances.
-  init(
-    _ identifier: UInt8,
-    collaborativelyConstructing program: SharedMutable<TypedProgram>,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID) -> Bool)?
-  ) {
-    self.identifier = identifier
-    self.nextFreshVariableIdentifier = UInt64(identifier) << 56
-    self.cache = Cache(local: program.wrapped, shared: program)
-    self.shouldTraceInference = shouldTraceInference
   }
 
   /// Creates an instance as context for algorithms on `p`, whose property are already complete.
@@ -46,6 +31,31 @@ struct TypeChecker {
     self.identifier = 0
     self.cache = Cache(local: p)
     self.shouldTraceInference = nil
+  }
+
+  /// Creates an instance for constructing `instanceUnderConstruction`.
+  init(
+    constructing instanceUnderConstruction: TypedProgram,
+    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?
+  ) {
+    self.identifier = 0
+    self.cache = Cache(local: instanceUnderConstruction)
+    self.shouldTraceInference = shouldTraceInference
+  }
+
+  /// Creates an instance with given `identifier` for constructing `instanceUnderConstruction`
+  /// collaboratively with other instances.
+  ///
+  /// - Requires: `identifier` is unique across collaborating instances.
+  init(
+    _ identifier: UInt8,
+    collaborativelyConstructing instanceUnderConstruction: SharedMutable<TypedProgram>,
+    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?
+  ) {
+    self.identifier = identifier
+    self.nextFreshVariableIdentifier = UInt64(identifier) << 56
+    self.cache = Cache(local: instanceUnderConstruction.wrapped, shared: instanceUnderConstruction)
+    self.shouldTraceInference = shouldTraceInference
   }
 
   /// Reports the given diagnostic.
@@ -319,8 +329,33 @@ struct TypeChecker {
     cache.synchronize()
   }
 
+  /// Type checks all declarations in `self.program`.
+  mutating func checkAllDeclarations() {
+    check(program.ast.modules)
+  }
+
+  /// Type checks the sources in `batch`.
+  mutating func check<S: Sequence<TranslationUnit.ID>>(_ batch: S) {
+    batch.forEach({ check($0) })
+  }
+
+  /// Type checks `u` and all declarations nested in `d`.
+  mutating func check(_ u: TranslationUnit.ID) {
+    // The core library is always implicitly imported.
+    var imports = Set<ModuleDecl.ID>()
+    if let m = program.ast.coreLibrary {
+      imports.insert(m)
+    }
+    for d in program[u].decls.lazy.compactMap(ImportDecl.ID.init(_:)) {
+      insertImport(d, from: u, in: &imports)
+    }
+
+    cache.write(imports, at: \.imports[u])
+    check(program[u].decls)
+  }
+
   /// Type checks the declarations in `batch`.
-  mutating func check<S: Sequence<T>, T: DeclID>(
+  private mutating func check<S: Sequence<T>, T: DeclID>(
     _ batch: S, ignoringSharedCache ignoreSharedCache: Bool = false
   ) {
     batch.forEach({ check($0, ignoringSharedCache: ignoreSharedCache) })
@@ -820,21 +855,6 @@ struct TypeChecker {
         checkedType(of: d, usedAsCondition: true, ignoringSharedCache: true)
       }
     }
-  }
-
-  /// Type checks `u` and all declarations nested in `d`.
-  private mutating func check(_ u: TranslationUnit.ID) {
-    // The core library is always implicitly imported.
-    var imports = Set<ModuleDecl.ID>()
-    if let m = program.ast.coreLibrary {
-      imports.insert(m)
-    }
-    for d in program[u].decls.lazy.compactMap(ImportDecl.ID.init(_:)) {
-      insertImport(d, from: u, in: &imports)
-    }
-
-    cache.write(imports, at: \.imports[u])
-    check(program[u].decls)
   }
 
   /// If `d` is a valid import in `u`, inserts the module referred by `d` in `imports`. Otherwise,
@@ -4150,7 +4170,7 @@ struct TypeChecker {
   private mutating func tracingInference<T: NodeIDProtocol>(
     relatedTo n: T, _ action: (inout Self, Bool) -> Solution
   ) -> Solution {
-    guard let f = shouldTraceInference, f(AnyNodeID(n)) else {
+    guard let f = shouldTraceInference, f(AnyNodeID(n), program) else {
       return action(&self, false)
     }
 
