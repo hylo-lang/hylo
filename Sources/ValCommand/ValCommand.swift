@@ -227,7 +227,6 @@ public struct ValCommand: ParsableCommand {
     }
   }
 
-
   /// Returns `program` lowered to Val IR, accumulating diagnostics in `log` and throwing if an
   /// error occured.
   ///

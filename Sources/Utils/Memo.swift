@@ -2,7 +2,11 @@
 /// detect cycles.
 public enum Memo<T: Equatable>: Equatable {
 
-  case inProgress, computed(T)
+  /// Computation is in progress.
+  case inProgress
+
+  /// Result has been computed and stored in the payload.
+  case computed(T)
 
   /// The payload of the `.computed` case, if any, or `nil` if `self == .inProgress`.
   public var computed: T? {

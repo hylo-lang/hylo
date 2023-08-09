@@ -518,7 +518,7 @@ struct TypeChecker {
     let t = MethodType(uncheckedType(of: MethodDecl.ID(program[d].scope)!))!
     cache.write(
       ^ParameterType(program[d].introducer.value, t.receiver),
-       at: \.declType[program[d].receiver])
+      at: \.declType[program[d].receiver])
 
     switch program[d].body {
     case .block(let b):
@@ -587,7 +587,7 @@ struct TypeChecker {
       let u = RemoteType(t.captures[0].type)!
       cache.write(
         ^ParameterType(program[d].introducer.value, u.bareType),
-         at: \.declType[r])
+        at: \.declType[r])
     }
 
     switch program[d].body {
@@ -683,11 +683,11 @@ struct TypeChecker {
   ) -> AnyType {
     // Note: in theory, we should make sure this update is monotonic. In practice, such a test
     // would require prohibitively expensive structural comparisons.
-    modify(&cache.uncheckedType[d]!, { (u) in
+    modify(&cache.uncheckedType[d]!) { (u) in
       let v = solution.typeAssumptions.reify(u.computed!)
       u = .computed(v)
       return v
-    })
+    }
   }
 
   /// Type checks `e` as the body of a function returning or susbscript projecting `r`.
@@ -1160,7 +1160,6 @@ struct TypeChecker {
     return s.typeAssumptions.reify(t)
   }
 
-
   /// Type checks `e` as an argument to `p` and returns its type.
   private mutating func checkedType(
     of e: AnyExprID, asArgumentTo p: AnyType
@@ -1415,10 +1414,10 @@ struct TypeChecker {
 
     /// Commits `t` as the unchecked type of `d` to the local cache.
     func commit(_ t: AnyType) -> AnyType {
-      modify(&cache.uncheckedType[d]!, { (old) in
+      modify(&cache.uncheckedType[d]!) { (old) in
         if let u = old.computed { assert(u == t, "non-monotonic update") }
         old = .computed(t)
-      })
+      }
       return t
     }
   }
@@ -2158,7 +2157,7 @@ struct TypeChecker {
     // an argument refers to its corresponding parameter, unless the `d` is nested in the scope
     // where that parameter is introduced.
     if let b = BoundGenericType(i) {
-     for (p, a) in b.arguments {
+      for (p, a) in b.arguments {
         assert(GenericTypeParameterType(a as! AnyType)?.decl == p, "not implemented")
       }
       return (b.base, [])
@@ -4561,7 +4560,6 @@ struct TypeChecker {
     }
 
   }
-
 
 }
 
