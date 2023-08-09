@@ -183,6 +183,11 @@ public struct AST {
 
   // MARK: Helpers
 
+  /// Returns the ID of the module named `n` if such a module has been loaded, or `nil` otherwise.
+  public func module(named n: String) -> ModuleDecl.ID? {
+    modules.first(where: { self[$0].baseName == n })
+  }
+
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
     self[self[module].sources].map(\.decls).joined()
