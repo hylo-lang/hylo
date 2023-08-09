@@ -1,42 +1,68 @@
-/// A sequence of chunks partitioning a collection.
-public struct ChunkSequence<Base: Collection>: IteratorProtocol, Sequence {
+/// A collection contiguous slices partitioning a some base collection.
+public struct Chunks<Base: Collection> {
 
-  /// A chunk in the base collection.
-  public typealias Element = Base.SubSequence
-
-  /// The collection being partitioned into chunks.
+  /// The collection being partitioned.
   private let base: Base
 
   /// The maximum number of elements in a single chunk.
   private let chunkCapacity: Int
 
-  /// The index of the next chunk.
-  private var nextChunkStart: Base.Index
-
-  /// Creates an instance partitioning `base` into at most `maxChunkCount` chunks.
-  public init(partitioning base: Base, intoMax maxChunkCount: Int) {
+  /// Creates an instance that partitions `base` into batches at most `maxCount` slices.
+  ///
+  /// If `maxCount` is greater than or equal to `base.count`, `self` will contain `base.count`
+  /// collections of one element from `base`. Otherwise, `self` will contain `maxCount` elements
+  /// of at most `base.count / maxCount + 1` element.
+  ///
+  /// - Requires: `maxCount > 0`
+  public init(partitioning base: Base, inMax maxCount: Int) {
+    precondition(maxCount > 0)
     self.base = base
-    let q = base.count / maxChunkCount
-    self.chunkCapacity = (base.count % maxChunkCount == 0) ? q : q + 1
-    self.nextChunkStart = base.startIndex
+    let q = base.count / maxCount
+    self.chunkCapacity = (base.count % maxCount == 0) ? q : q + 1
   }
 
-  /// Returns the next chunk in the sequence or `nil` if the sequence is empty.
-  public mutating func next() -> Element? {
-    if nextChunkStart == base.endIndex { return nil }
-    let end = base.index(
-      nextChunkStart, offsetBy: chunkCapacity, limitedBy: base.endIndex) ?? base.endIndex
-    defer { nextChunkStart = end }
-    return base[nextChunkStart ..< end]
+  /// Returns `base`.
+  public func joined() -> Base {
+    base
+  }
+
+}
+
+extension Chunks: Collection {
+
+  /// A position in `Chunks`.
+  public typealias Index = Base.Index
+
+  /// An element in `Chunks`.
+  public typealias Element = Base.SubSequence
+
+  /// The first position in `self`.
+  public var startIndex: Index {
+    base.startIndex
+  }
+
+  /// The "past the end" position in `self`.
+  public var endIndex: Index {
+    base.endIndex
+  }
+
+  /// The position after `i` in `self`.
+  public func index(after i: Index) -> Index {
+    base.index(i, offsetBy: chunkCapacity, limitedBy: base.endIndex) ?? endIndex
+  }
+
+  /// Accesses the chunk at `position`.
+  public subscript(position: Index) -> Element {
+    base[position ..< index(after: position)]
   }
 
 }
 
 extension Collection {
 
-  /// Returns a partition of self with at most `maxSplits` chunks.
-  public func chunked(maxSplits: Int) -> ChunkSequence<Self> {
-    .init(partitioning: self, intoMax: maxSplits)
+  /// Returns a partition of self with at most `maxCount` chunks.
+  public func chunked(inMax maxCount: Int) -> Chunks<Self> {
+    .init(partitioning: self, inMax: maxCount)
   }
 
 }

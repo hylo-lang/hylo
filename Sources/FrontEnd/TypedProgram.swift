@@ -66,7 +66,7 @@ public struct TypedProgram {
       let sources = base.ast[base.ast.modules].map(\.sources).joined()
       var tasks: [TypeCheckTask] = []
 
-      for (i, chunk) in sources.chunked(maxSplits: 255).enumerated() {
+      for (i, chunk) in sources.chunked(inMax: 255).enumerated() {
         let t = TypeCheckTask(
           Array(chunk), withCheckerIdentifiedBy: UInt8(i),
           collaborativelyConstructing: instanceUnderConstruction,
