@@ -87,12 +87,6 @@ extension Diagnostic {
       at: site)
   }
 
-  static func error(
-    expectedLambdaParameterCount n: Int, found: Int, at site: SourceRange
-  ) -> Diagnostic {
-    .error("contextual lambda type requires \(n) argument(s), found \(found)", at: site)
-  }
-
   static func error(invalidDestructuringOfType type: AnyType, at site: SourceRange) -> Diagnostic {
     .error("invalid destructuring of type '\(type)'", at: site)
   }
@@ -298,10 +292,6 @@ extension Diagnostic {
 
   static func error(cannotExtend t: BuiltinType, at site: SourceRange) -> Diagnostic {
     .error("cannot extend built-in type '\(t)'", at: site)
-  }
-
-  static func error(mutatingBundleMustReturn t: TupleType, at site: SourceRange) -> Diagnostic {
-    .error("mutating bundle must return '\(t)'", at: site)
   }
 
   static func error(mutatingBundleMustReturnTupleAt site: SourceRange) -> Diagnostic {
