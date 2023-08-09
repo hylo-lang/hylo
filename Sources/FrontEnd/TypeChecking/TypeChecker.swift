@@ -4443,6 +4443,11 @@ struct TypeChecker {
       self.shared = shared
     }
 
+    /// Returns the value of the cache at `path`.
+    ///
+    /// The value at `path` in `self.local` is read and returned if it isn't `nil`. Otherwise, the
+    /// value at `path` in `self.shared` is read, stored in `self.local`, and returned if it isn't
+    /// `nil`, unless `self.cache` is `nil` or `ignoreSharedCache` is true.
     mutating func read<V>(
       _ path: WritableKeyPath<TypedProgram, V?>,
       ignoringSharedCache ignoreSharedCache: Bool = false
@@ -4457,6 +4462,13 @@ struct TypeChecker {
       }
     }
 
+    /// Writes `value` to the cache at `path`, applying the update with `merge`.
+    ///
+    /// After the call, `self.local[keyPath: path] == value`. If `self.shared` isn't `nil`, the
+    /// update is recorded for the next synchronization round and `self.earlyUpdateCount` is
+    /// incremented, unless `ignoreSharedCache` is `true`.
+    ///
+    /// `merge` asserts that the update is monotonic.
     mutating func write<V>(
       _ value: V, at path: WritableKeyPath<TypedProgram, V>,
       ignoringSharedCache ignoreSharedCache: Bool = false,
@@ -4480,6 +4492,11 @@ struct TypeChecker {
       }
     }
 
+    /// Writes `value` to the cache at `path`, applying the update with `merge`.
+    ///
+    /// After the call, `self.local[keyPath: path] == value`. If `self.shared` isn't `nil`, the
+    /// update is recorded for the next synchronization round and `self.earlyUpdateCount` is
+    /// incremented, unless `ignoreSharedCache` is `true`.
     mutating func write<V>(
       _ value: V, at path: WritableKeyPath<TypedProgram, V>,
       ignoringSharedCache ignoreSharedCache: Bool = false
