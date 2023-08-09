@@ -8,6 +8,12 @@ struct TypeChecker {
   /// The diagnostics of the type errors.
   private(set) var diagnostics = DiagnosticSet()
 
+  /// An identifier for this instance, unique across concurrent type checking tasks.
+  private let identifier: UInt8
+
+  /// The identifier of the next fresh variable.
+  private var nextFreshVariableIdentifier: UInt64 = 0
+
   /// The representation under construction.
   private var cache: Cache
 
@@ -20,17 +26,24 @@ struct TypeChecker {
     cache.local
   }
 
-  /// Creates an instance constructing `program` collaboratively with other instances.
+  /// Creates an instance with given `identifier` for constructing `program` collaboratively with
+  /// other instances.
+  ///
+  /// - Requires: `identifier` is unique across collaborating instances.
   init(
+    _ identifier: UInt8,
     collaborativelyConstructing program: SharedMutable<TypedProgram>,
     tracingInferenceIf shouldTraceInference: ((AnyNodeID) -> Bool)?
   ) {
+    self.identifier = identifier
+    self.nextFreshVariableIdentifier = UInt64(identifier) << 56
     self.cache = Cache(local: program.wrapped, shared: program)
     self.shouldTraceInference = shouldTraceInference
   }
 
   /// Creates an instance as context for algorithms on `p`, whose property are already complete.
   init(asContextFor p: TypedProgram) {
+    self.identifier = 0
     self.cache = Cache(local: p)
     self.shouldTraceInference = nil
   }
@@ -273,7 +286,7 @@ struct TypeChecker {
 
       var arguments: GenericArguments = [:]
       for p in parameters {
-        arguments[p] = specialization[p] ?? ^TypeVariable()
+        arguments[p] = specialization[p] ?? ^me.freshVariable()
       }
       return ^BoundGenericType(t, arguments: arguments)
     }
@@ -295,7 +308,7 @@ struct TypeChecker {
 
     let b = MetatypeType(uncheckedType(of: d))!.instance
     let a = GenericArguments(
-      uniqueKeysWithValues: parameters.map({ (key: $0, value: ^TypeVariable()) }))
+      uniqueKeysWithValues: parameters.map({ (key: $0, value: ^freshVariable()) }))
     return BoundGenericType(b, arguments: a)
   }
 
@@ -1716,7 +1729,7 @@ struct TypeChecker {
       } else if let u = cache.uncheckedType[p]?.computed {
         t = u
       } else {
-        t = inputHints?[i].type ?? ^ParameterType(inferredConventions[i], ^TypeVariable())
+        t = inputHints?[i].type ?? ^ParameterType(inferredConventions[i], ^freshVariable())
         cache.uncheckedType[p] = .computed(t)
       }
       result.append(.init(label: program[p].label?.value, type: t))
@@ -2024,7 +2037,7 @@ struct TypeChecker {
 
   /// Evaluates and returns the value of `e`, which is a type annotation.
   private mutating func evalTypeAnnotation(_ e: WildcardExpr.ID) -> AnyType {
-    ^TypeVariable()
+    ^freshVariable()
   }
 
   /// Evaluates and returns the qualification of `e`, which is a type annotation.
@@ -2061,7 +2074,7 @@ struct TypeChecker {
     if let o = program[d].output {
       return evalTypeAnnotation(o)
     } else if program[d].isInExprContext {
-      return ^TypeVariable()
+      return ^freshVariable()
     } else {
       return .void
     }
@@ -2862,7 +2875,7 @@ struct TypeChecker {
     builtin name: SourceRepresentable<Name>
   ) -> NameResolutionResult.CandidateSet {
     if let f = BuiltinFunction(name.value.stem) {
-      return [.init(f)]
+      return [.init(f, makingFreshVariableWith: { freshVariable() })]
     }
     if let t = BuiltinType(name.value.stem) {
       return [.init(t)]
@@ -2946,7 +2959,7 @@ struct TypeChecker {
     }
 
     if arguments.isEmpty {
-      return [.intrinsic(^MetatypeType(of: MetatypeType(of: TypeVariable())))]
+      return [.intrinsic(^MetatypeType(of: MetatypeType(of: freshVariable())))]
     }
 
     report(.error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 1))
@@ -3214,11 +3227,11 @@ struct TypeChecker {
   /// Replaces the generic parameters in `subject` by skolems or fresh variables depending on the
   /// relation between their introduction scope and `context`, assigning `cause` to instantiation
   /// and writing choices to `substitutions`.
-  private func instantiate(
+  private mutating func instantiate(
     _ subject: AnyType, in context: InstantiationContext, cause: ConstraintOrigin,
     updating substitutions: inout [GenericParameterDecl.ID: AnyType]
   ) -> InstantiatedType {
-    func instantiate(type: AnyType) -> TypeTransformAction {
+    func instantiate(mutating me: inout Self, type: AnyType) -> TypeTransformAction {
       switch type.base {
       case is AssociatedTypeType:
         fatalError("not implemented")
@@ -3226,11 +3239,11 @@ struct TypeChecker {
       case let p as GenericTypeParameterType:
         if let t = substitutions[p.decl] {
           return .stepOver(t)
-        } else if shouldSkolemize(p, in: context) {
+        } else if me.shouldSkolemize(p, in: context) {
           return .stepOver(substitutions[p.decl].setIfNil(^SkolemType(quantifying: type)))
         } else {
           // TODO: Collect constraints
-          return .stepOver(substitutions[p.decl].setIfNil(^TypeVariable()))
+          return .stepOver(substitutions[p.decl].setIfNil(^me.freshVariable()))
         }
 
       default:
@@ -3243,7 +3256,7 @@ struct TypeChecker {
       }
     }
 
-    let shape = subject.transform(instantiate(type:))
+    let shape = subject.transform(mutating: &self, instantiate(mutating:type:))
     return InstantiatedType(shape: shape, constraints: [])
   }
 
@@ -3290,7 +3303,7 @@ struct TypeChecker {
 
     // Note: `i` should not have been assigned a type if before `d` is checked.
     assert(cache.local.exprType[i] == nil)
-    let initializer = constrain(i, to: ^TypeVariable(), in: &obligations)
+    let initializer = constrain(i, to: ^freshVariable(), in: &obligations)
 
     // If `d` has no annotation, its type is inferred as that of its initializer. Otherwise, the
     // type of the initializer must be subtype of the pattern unless `d` is used as a condition.
@@ -3396,7 +3409,7 @@ struct TypeChecker {
     case .up:
       // The type of the left operand must be statically known to subtype of the right operand.
       let lhs = inferredType(
-        of: program[e].left, withHint: ^TypeVariable(), updating: &obligations)
+        of: program[e].left, withHint: ^freshVariable(), updating: &obligations)
       obligations.insert(SubtypingConstraint(lhs, rhs.shape, origin: cause))
 
     case .pointerConversion:
@@ -3425,7 +3438,7 @@ struct TypeChecker {
 
     let a = inferredType(of: program[e].success, withHint: hint, updating: &obligations)
     let b = inferredType(of: program[e].failure, withHint: hint, updating: &obligations)
-    let t = ^TypeVariable()
+    let t = ^freshVariable()
     obligations.insert(
       MergingConstraint(t, [a, b], origin: .init(.branchMerge, at: program[e].introducerSite)))
     return constrain(e, to: t, in: &obligations)
@@ -3488,11 +3501,11 @@ struct TypeChecker {
   ) -> AnyType {
     var arguments: [CallConstraint.Argument] = []
     for a in program[e].arguments {
-      let p = inferredType(of: a.value, withHint: ^TypeVariable(), updating: &obligations)
+      let p = inferredType(of: a.value, withHint: ^freshVariable(), updating: &obligations)
       arguments.append(.init(label: a.label, type: p, valueSite: program[a.value].site))
     }
 
-    let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^TypeVariable()
+    let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
     obligations.insert(
       CallConstraint(
         arrow: callee, takes: arguments, gives: output,
@@ -3620,7 +3633,7 @@ struct TypeChecker {
 
     // Create the necessary constraints to let the solver resolve the remaining components.
     for (i, component) in unresolved.enumerated() {
-      let memberType = ^TypeVariable()
+      let memberType = ^freshVariable()
       obligations.insert(
         MemberConstraint(
           lastVisited!, hasMember: memberType, referredToBy: component, in: program.ast,
@@ -3678,8 +3691,8 @@ struct TypeChecker {
         return .error
       }
 
-      let operatorType = ^TypeVariable()
-      let outputType = ^TypeVariable()
+      let operatorType = ^freshVariable()
+      let outputType = ^freshVariable()
       constrain(callee.expr, to: operatorType, in: &obligations)
 
       // The operator is a member function of the left operand.
@@ -3751,11 +3764,11 @@ struct TypeChecker {
   ) -> AnyType {
     var arguments: [CallConstraint.Argument] = []
     for a in program[e].arguments {
-      let p = inferredType(of: a.value, withHint: ^TypeVariable(), updating: &obligations)
+      let p = inferredType(of: a.value, withHint: ^freshVariable(), updating: &obligations)
       arguments.append(.init(label: a.label, type: p, valueSite: program[a.value].site))
     }
 
-    let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^TypeVariable()
+    let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
     obligations.insert(
       CallConstraint(
         subscript: callee, takes: arguments, gives: output,
@@ -3800,7 +3813,7 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let s = inferredType(of: program[e].tuple, withHint: nil, updating: &obligations)
-    let t = ^TypeVariable()
+    let t = ^freshVariable()
     let i = program[e].index
     obligations.insert(
       TupleMemberConstraint(s, at: i.value, hasType: t, origin: .init(.member, at: i.site)))
@@ -3848,7 +3861,7 @@ struct TypeChecker {
     }
 
     let cause = ConstraintOrigin(.literal, at: program[literal].site)
-    let t = ^TypeVariable()
+    let t = ^freshVariable()
     let p = program.ast.coreTrait(forTypesExpressibleBy: T.self)!
 
     let preferred: ConstraintSet = [
@@ -3947,7 +3960,7 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     // Note: `declType` is set only if we're visiting the containing pattern more than once.
-    let t = cache.local.declType[program[p].decl] ?? hint ?? ^TypeVariable()
+    let t = cache.local.declType[program[p].decl] ?? hint ?? ^freshVariable()
     obligations.assign(t, to: AnyDeclID(program[p].decl))
     return t
   }
@@ -4012,7 +4025,7 @@ struct TypeChecker {
     of p: WildcardPattern.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    hint ?? ^TypeVariable()
+    hint ?? ^freshVariable()
   }
 
   /// Constrains `name` to be a reference to either of the declarations in `candidates` in
@@ -4042,7 +4055,7 @@ struct TypeChecker {
     })
 
     // Constrain the name to refer to one of the overloads.
-    let t = ^TypeVariable()
+    let t = ^freshVariable()
     let overload = OverloadConstraint(
       name, withType: t, refersToOneOf: overloads, origin: .init(.binding, at: site))
     obligations.insert(overload)
@@ -4291,6 +4304,14 @@ struct TypeChecker {
   }
 
   // MARK: Helpers
+
+  /// Creates a fresh type variable.
+  ///
+  /// The returned instance is unique accress concurrent type checker instances.
+  mutating func freshVariable() -> TypeVariable {
+    defer { nextFreshVariableIdentifier += 1 }
+    return .init(nextFreshVariableIdentifier)
+  }
 
   /// Returns `true` iff `t` is known as an arrow type.
   private func isArrow(_ t: AnyType) -> Bool {

@@ -64,10 +64,10 @@ public struct TypedProgram {
 
     let chunks = [base.ast.modules.map(AnyDeclID.init(_:))]
     let queue = OperationQueue()
-    for c in chunks {
+    for (i, c) in chunks.enumerated() {
       queue.addOperation {
         var checker = TypeChecker(
-          collaborativelyConstructing: instanceUnderConstruction,
+          UInt8(i), collaborativelyConstructing: instanceUnderConstruction,
           tracingInferenceIf: shouldTraceInference)
         checker.check(c)
         checkingLog.modify(applying: { $0.formUnion(checker.diagnostics) })

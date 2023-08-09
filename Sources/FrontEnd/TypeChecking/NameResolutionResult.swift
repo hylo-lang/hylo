@@ -62,10 +62,11 @@ enum NameResolutionResult {
       self.diagnostics = diagnostics
     }
 
-    /// Creates an instance denoting a built-in function.
-    init(_ f: BuiltinFunction) {
+    /// Creates an instance denoting a built-in function, calling `freshVariable` to create fresh
+    /// type variables.
+    init(_ f: BuiltinFunction, makingFreshVariableWith freshVariable: () -> TypeVariable) {
       self.reference = .builtinFunction(f)
-      self.type = ^f.type()
+      self.type = ^f.type(makingFreshVariableWith: freshVariable)
       self.constraints = []
       self.diagnostics = []
     }

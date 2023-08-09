@@ -383,7 +383,7 @@ struct ConstraintSystem {
         return delegate(to: [s])
 
       case .metatype:
-        let r = MetatypeType(of: TypeVariable())
+        let r = MetatypeType(of: checker.freshVariable())
         let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
         return delegate(to: [s])
       }

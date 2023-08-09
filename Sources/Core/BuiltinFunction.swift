@@ -7,11 +7,11 @@ public struct BuiltinFunction: Hashable {
   /// The name of the function.
   public let name: Name
 
-  /// Returns the type of the function.
-  public func type() -> LambdaType {
+  /// Returns the type of the function, calling `freshVariable` to create fresh type variables.
+  public func type(makingFreshVariableWith freshVariable: () -> TypeVariable) -> LambdaType {
     switch self.name {
     case .addressOf:
-      let p = ParameterType(.let, ^TypeVariable())
+      let p = ParameterType(.let, ^freshVariable())
       return .init(inputs: [.init(label: "of", type: ^p)], output: .builtin(.ptr))
 
     case .llvm(let s):
