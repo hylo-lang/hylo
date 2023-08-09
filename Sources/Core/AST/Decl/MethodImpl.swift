@@ -16,7 +16,7 @@ public struct MethodImpl: Decl, LexicalScope {
   /// The body of the method, if any.
   public let body: FunctionBody?
 
-  /// Creates an instance with the given properties and no `receiver`.
+  /// Creates an instance with the given properties.
   public init(
     introducer: SourceRepresentable<AccessEffect>,
     receiver: ParameterDecl.ID,

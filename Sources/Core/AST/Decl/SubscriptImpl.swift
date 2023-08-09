@@ -16,6 +16,7 @@ public struct SubscriptImpl: Decl, LexicalScope {
   /// The body of the subscript, if any.
   public let body: FunctionBody?
 
+  /// Creates an instance with the given properties.
   public init(
     introducer: SourceRepresentable<AccessEffect>,
     receiver: ParameterDecl.ID?,
