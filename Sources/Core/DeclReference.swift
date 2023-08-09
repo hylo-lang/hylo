@@ -50,8 +50,8 @@ public enum DeclReference: Hashable {
   /// A reference to a built-in function.
   case builtinFunction(BuiltinFunction)
 
-  /// A reference to a intrinsic type.
-  case intrinsicType
+  /// A reference to a compiler-known type.
+  case compilerKnownType
 
   /// Converts a direct initializer reference to a constructor reference.
   public init?(constructor other: DeclReference) {

@@ -2797,7 +2797,7 @@ struct TypeChecker {
     // Gather declarations qualified by `parent` if it isn't `nil` or unqualified otherwise.
     let matches = lookup(name, memberOf: context?.type, exposedTo: scopeOfUse)
 
-    // Resolve intrinsic type aliases if no match was found.
+    // Resolve compilerKnown type aliases if no match was found.
     if matches.isEmpty {
       if context == nil {
         return resolve(compilerKnownAlias: name, specializedBy: arguments, exposedTo: scopeOfUse)
@@ -2894,7 +2894,7 @@ struct TypeChecker {
       if arguments.count > 0 {
         report(.error(argumentToNonGenericType: t.instance, at: name.site))
       }
-      return [.intrinsic(^t)]
+      return [.compilerKnown(^t)]
     }
 
     // TODO: Check labels and notations.
@@ -2932,7 +2932,7 @@ struct TypeChecker {
     for a in arguments {
       guard let t = a as? AnyType else {
         report(.error(valueInUnionTypeAt: name.site))
-        return [.intrinsic(.error)]
+        return [.compilerKnown(.error)]
       }
       elements.append(t)
     }
@@ -2940,12 +2940,12 @@ struct TypeChecker {
     switch arguments.count {
     case 0:
       report(.warning(unionTypeWithZeroElementsAt: name.site))
-      return [.intrinsic(^MetatypeType(of: .never))]
+      return [.compilerKnown(^MetatypeType(of: .never))]
     case 1:
       report(.error(unionTypeWithOneElementAt: name.site))
-      return [.intrinsic(.error)]
+      return [.compilerKnown(.error)]
     default:
-      return [.intrinsic(^MetatypeType(of: UnionType(elements)))]
+      return [.compilerKnown(^MetatypeType(of: UnionType(elements)))]
     }
   }
 
@@ -2955,15 +2955,15 @@ struct TypeChecker {
   ) -> NameResolutionResult.CandidateSet {
     if let a = arguments.uniqueElement {
       let instance = (a as? AnyType) ?? fatalError("not implemented")
-      return [.intrinsic(^MetatypeType(of: MetatypeType(of: instance)))]
+      return [.compilerKnown(^MetatypeType(of: MetatypeType(of: instance)))]
     }
 
     if arguments.isEmpty {
-      return [.intrinsic(^MetatypeType(of: MetatypeType(of: freshVariable())))]
+      return [.compilerKnown(^MetatypeType(of: MetatypeType(of: freshVariable())))]
     }
 
     report(.error(invalidGenericArgumentCountTo: name, found: arguments.count, expected: 1))
-    return [.intrinsic(.error)]
+    return [.compilerKnown(.error)]
   }
 
   /// Resolves `name` as a sugared reference to a constructor or nameless subscript declaration or
@@ -4339,7 +4339,7 @@ struct TypeChecker {
     if let d = r.decl {
       return isNominalTypeDecl(d)
     } else {
-      return (r == .builtinType) || (r == .intrinsicType)
+      return (r == .builtinType) || (r == .compilerKnownType)
     }
   }
 

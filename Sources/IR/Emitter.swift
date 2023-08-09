@@ -1972,8 +1972,8 @@ struct Emitter {
     case .constructor:
       fatalError("not implemented")
 
-    case .builtinModule, .builtinFunction, .builtinType, .intrinsicType:
-      // Built-in symbols and intrinsic types are never used as l-value.
+    case .builtinModule, .builtinFunction, .builtinType, .compilerKnownType:
+      // Built-in symbols and compiler-known types are never used as l-value.
       unreachable()
     }
   }

@@ -87,9 +87,9 @@ enum NameResolutionResult {
       constraints: [],
       diagnostics: [])
 
-    /// Creates an instance denoting an intrinsic type.
-    static func intrinsic(_ t: AnyType) -> Self {
-      .init(reference: .intrinsicType, type: t, constraints: [], diagnostics: [])
+    /// Creates an instance denoting an compiler-known type.
+    static func compilerKnown(_ t: AnyType) -> Self {
+      .init(reference: .compilerKnownType, type: t, constraints: [], diagnostics: [])
     }
 
   }
