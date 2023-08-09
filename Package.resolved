@@ -19,6 +19,15 @@
       }
     },
     {
+      "identity" : "spimanifest",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SwiftPackageIndex/SPIManifest.git",
+      "state" : {
+        "revision" : "59b957c55c274ae08da9aaa36efcaac3fb7a326c",
+        "version" : "0.19.0"
+      }
+    },
+    {
       "identity" : "swift-argument-parser",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",
@@ -79,6 +88,15 @@
       "state" : {
         "branch" : "main",
         "revision" : "4ba25d9615b6931033161ffcfc0a73a06809d781"
+      }
+    },
+    {
+      "identity" : "yams",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/Yams.git",
+      "state" : {
+        "revision" : "0d9ee7ea8c4ebd4a489ad7a73d5c6cad55d6fed3",
+        "version" : "5.0.6"
       }
     }
   ],

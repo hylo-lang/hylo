@@ -36,6 +36,7 @@ let package = Package(
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),
+    .package(url: "https://github.com/SwiftPackageIndex/SPIManifest.git", from: "0.12.0")
   ],
 
   targets: [
