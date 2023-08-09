@@ -7,6 +7,10 @@ public protocol NodeIDProtocol: Hashable, Codable, CustomStringConvertible {
   /// The identifier of type of the referred node.
   var kind: NodeKind { get }
 
+  /// Creates an instance with the same raw value as `x`, failing iff `x.kind` is incompatible with
+  /// the kind of nodes that `Self` denotes.
+  init?<Other: NodeIDProtocol>(_ x: Other)
+
 }
 
 extension NodeIDProtocol {

@@ -16,6 +16,15 @@ public struct AnyStmtID: StmtID {
     base = AnyNodeID(other)
   }
 
+  /// Creates an instance with the same raw value as `x` failing iff `!(x.kind is Stmt)`.
+  public init?<T: NodeIDProtocol>(_ x: T) {
+    if x.kind.value is Stmt.Type {
+      self.base = AnyNodeID(x)
+    } else {
+      return nil
+    }
+  }
+
   public var rawValue: Int { base.rawValue }
 
   public var kind: NodeKind { base.kind }
