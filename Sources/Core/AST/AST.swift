@@ -389,6 +389,25 @@ public struct AST {
     return result
   }
 
+  /// Returns `(head, tail)` where `head` contains the nominal components of `name` from right to
+  /// left and `tail` is the non-nominal component of `name`, if any.
+  ///
+  /// Name expressions are rperesented as linked-list, whose elements are the components of a
+  /// name in reverse order. This method splits such lists at the first non-nominal component.
+  public func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain) {
+    var suffix = [name]
+    while true {
+      let d = self[suffix.last!].domain
+      switch d {
+      case .none, .implicit, .operand:
+        return (suffix, d)
+      case .explicit(let e):
+        guard let p = NameExpr.ID(e) else { return (suffix, d) }
+        suffix.append(p)
+      }
+    }
+  }
+
   /// Calls `action` on each sub-pattern in `pattern` and its corresponding sub-expression in
   /// `expression`, along with the path to this sub-pattern, relative to `root`.
   ///
