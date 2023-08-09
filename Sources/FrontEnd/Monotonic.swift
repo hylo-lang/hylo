@@ -38,7 +38,6 @@ extension Optional: Monotonic where Wrapped: Monotonic {
 extension Set: Monotonic {
 
   mutating func updateMonotonically(_ other: Self) {
-    assert(other.isSuperset(of: self))
     formUnion(other)
   }
 
