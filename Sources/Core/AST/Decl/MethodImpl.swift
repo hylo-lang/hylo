@@ -29,4 +29,7 @@ public struct MethodImpl: Decl, LexicalScope {
     self.body = body
   }
 
+  /// `true` iff `self` is a definition of the entity that it declares.
+  public var isDefinition: Bool { body != nil }
+
 }
