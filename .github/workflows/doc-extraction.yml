@@ -32,7 +32,7 @@ jobs:
         cat llvm.pc
 
     - name: Make site Directory
-      run: mkdir _site/implementation
+      run: mkdir _site
 
     - name: Extract Documentation
       run: |
@@ -42,8 +42,7 @@ jobs:
           --output-path ./_site \
           --experimental-documentation-coverage \
           --enable-inherited-docs \
-          --transform-for-static-hosting \
-          --hosting-base-path val/implementation-docs
+          --transform-for-static-hosting
 
       - name: Setup Pages
         uses: actions/configure-pages@v3
