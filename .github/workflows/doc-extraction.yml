@@ -57,7 +57,8 @@ jobs:
           --output-path ./_site \
           --experimental-documentation-coverage \
           --enable-inherited-docs \
-          --transform-for-static-hosting
+          --transform-for-static-hosting \
+          --hosting-base-path Val
 
     - name: Setup Pages
       uses: actions/configure-pages@v3
