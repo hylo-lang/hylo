@@ -166,6 +166,20 @@ public struct AnyType: TypeProtocol {
   ) -> AnyType {
     AnyType(wrapped.transformParts(mutating: &m, transformer))
   }
+
+  /// Returns `self` with occurrences of free type variables replaced by errors.
+  public var replacingVariablesWithErrors: AnyType {
+    self.transform { (t) in
+      if t.isTypeVariable {
+        return .stepOver(.error)
+      } else if t[.hasVariable] {
+        return .stepInto(t)
+      } else {
+        return .stepOver(t)
+      }
+    }
+  }
+
 }
 
 extension AnyType: CompileTimeValue {
