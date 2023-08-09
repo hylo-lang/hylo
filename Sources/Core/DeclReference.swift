@@ -90,4 +90,38 @@ public enum DeclReference: Hashable {
     }
   }
 
+  /// Returns a copy of `self` in which the generic arguments of the referred declaration and that
+  /// of its receiver (if any) have been mutated by applying `modify` to `m`.
+  public func modifyingArguments<M>(
+    mutating m: inout M, _ modify: (inout M, GenericArguments.Value) -> GenericArguments.Value
+  ) -> Self {
+    switch self {
+    case .direct(let d, let a):
+      return .direct(d, a.mapValues({ modify(&m, $0) }))
+    case .member(let d, let a, let r):
+      return .member(d, a.mapValues({ modify(&m, $0) }), r)
+    case .constructor(let d, let a):
+      return .constructor(d, a.mapValues({ modify(&m, $0) }))
+    default:
+      return self
+    }
+  }
+
+}
+
+extension DeclReference.Receiver {
+
+  /// Returns a copy of `self` in which generic arguments (if any) have been mutated by applying
+  /// `modify` to `m`.
+  public func modifyingArguments<M>(
+    mutating m: inout M, _ modify: (inout M, GenericArguments.Value) -> GenericArguments.Value
+  ) -> Self {
+    switch self {
+    case .elided(let r):
+      return .elided(r.modifyingArguments(mutating: &m, modify))
+    default:
+      return self
+    }
+  }
+
 }
