@@ -290,19 +290,19 @@ extension Program {
 
     switch n.kind {
     case FunctionDecl.self:
-      let s = Name(of: FunctionDecl.ID(n)!, in: ast) ?? "lambda"
+      let s = ast.name(of: FunctionDecl.ID(n)!) ?? "lambda"
       return qualification + ".\(s)"
     case InitializerDecl.self:
-      let s = Name(of: InitializerDecl.ID(n)!, in: ast)
+      let s = ast.name(of: InitializerDecl.ID(n)!)
       return qualification + ".\(s)"
     case MethodDecl.self:
-      let s = Name(of: MethodDecl.ID(n)!, in: ast)
+      let s = ast.name(of: MethodDecl.ID(n)!)
       return qualification + ".\(s)"
     case MethodImpl.self:
       let s = ast[MethodImpl.ID(n)!].introducer.value
       return qualification + ".\(s)"
     case SubscriptDecl.self:
-      let s = Name(of: SubscriptDecl.ID(n)!, in: ast)
+      let s = ast.name(of: SubscriptDecl.ID(n)!)
       return qualification + ".\(s)"
     case SubscriptImpl.self:
       let s = ast[SubscriptImpl.ID(n)!].introducer.value

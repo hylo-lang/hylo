@@ -202,7 +202,7 @@ struct Mangler {
   /// Writes the mangled representation of `d` to `output`.
   private mutating func write(function d: FunctionDecl.ID, to output: inout Output) {
     // If the function is anonymous, just encode a unique ID.
-    guard let n = Name(of: d, in: program.ast) else {
+    guard let n = program.ast.name(of: d) else {
       write(anonymousScope: AnyScopeID(d), to: &output)
       return
     }
