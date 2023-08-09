@@ -280,6 +280,24 @@ extension Program {
     scopes(from: scope).first(TranslationUnit.self)!
   }
 
+  /// Returns the name of `d` if it introduces a single entity.
+  public func name(of d: AnyDeclID) -> Name? {
+    if let e = self.ast[d] as? SingleEntityDecl { return Name(stem: e.baseName) }
+
+    switch d.kind {
+    case FunctionDecl.self:
+      return ast.name(of: FunctionDecl.ID(d)!)!
+    case InitializerDecl.self:
+      return ast.name(of: InitializerDecl.ID(d)!)
+    case MethodImpl.self:
+      return ast.name(of: MethodDecl.ID(self[d].scope)!)
+    case SubscriptImpl.self:
+      return ast.name(of: SubscriptDecl.ID(self[d].scope)!)
+    default:
+      return nil
+    }
+  }
+
   /// Returns a textual description of `n` suitable for debugging.
   public func debugDescription<T: NodeIDProtocol>(_ n: T) -> String {
     if let d = ModuleDecl.ID(n) {
