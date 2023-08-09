@@ -36,14 +36,18 @@ public struct SynthesizedFunctionDecl: Hashable {
     self.scope = scope
   }
 
+  /// The type of the function's receiver.
+  public var receiver: AnyType {
+    // Synthesized functions are methods, so their first capture is the receiver.
+    read(type.captures[0].type, { (r) in RemoteType(r)?.bareType ?? r })
+  }
+
 }
 
 extension SynthesizedFunctionDecl: CustomStringConvertible {
 
   public var description: String {
-    // Synthesized functions are methods, so their first capture is the receiver.
-    let receiver = read(type.captures[0].type, { RemoteType($0)?.bareType ?? $0 })
-    return "(\((receiver))).\(kind)"
+    "(\((receiver))).\(kind)"
   }
 
 }
