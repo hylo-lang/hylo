@@ -1,0 +1,30 @@
+name: Publish Documentation
+
+on:
+  push:
+    branches: [ main, doc-generation ]
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Extract Documentation
+      run: |
+        swift package --allow-writing-to-directory ./docc \
+        generate-documentation \
+        --output-path ./docc \
+        --enable-inherited-docs \
+        --transform-for-static-hosting \
+        --hosting-base-path implementation-docs/val
+    - name: Commit docs
+      run: |
+        git config --local user.email "bot@github.com"
+        git config --local user.name "GitHub Actions"
+        git fetch origin generated-docs-${GITHUB_REF}
+        git checkout --detach origin/generated-docs-${GITHUB_REF}
+        rm -rf ./docs/*
+        mv ./docc docs
+        git add ./docs
+        git commit -m "Update docs"
+        git push origin HEAD:generated-docs-${GITHUB_REF}
