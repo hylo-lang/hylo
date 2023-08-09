@@ -1,0 +1,21 @@
+version: 1
+builder:
+  configs:
+  - documentation_targets:
+    - CLI
+    - CodeGenLLVM
+    - Core
+    - FrontEnd
+    - GenerateValFileTests
+    - IR
+    - TestUtils
+    - Utils
+    - ValCommand
+    - ValModule
+
+    custom_documentation_parameters: [
+    --include-extended-types, --enable-inherited-docs,
+    --source-service, github,
+    --source-service-base-url, https://github.com/val-lang/val/blob/main,
+    --checkout-path, .
+    ]
