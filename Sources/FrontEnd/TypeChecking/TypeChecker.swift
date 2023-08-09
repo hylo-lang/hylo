@@ -381,7 +381,7 @@ struct TypeChecker {
   ) {
     // Handle binding declarations as a special case.
     if let b = BindingDecl.ID(d) {
-      checkedType(of: b)
+      checkedType(of: b, ignoringSharedCache: ignoreSharedCache)
       return
     }
 
@@ -1690,7 +1690,7 @@ struct TypeChecker {
 
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType(of d: VarDecl.ID) -> AnyType {
-    check(program[d].binding)
+    check(program[d].binding, ignoringSharedCache: true)
     return cache.local.declType[d]!
   }
 
