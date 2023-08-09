@@ -24,9 +24,9 @@ public fun main() {
   //! @+1 diagnostic cannot infer complex return type; add an explicit return type annotation
   let _ = fun (x: sink Int) {}
 
-  //! @+1 diagnostic contextual lambda type requires 1 argument(s), found 0
+  //! @+1 diagnostic cannot initialize object of type '[{}] (x: let Int) let -> Int' with value of type '[{}] () let -> Int'
   let _: [](x: Int) -> Int = fun () { 42 }
 
-  //! @+1 diagnostic incompatible labels: found '(y:)', expected '(x:)'
+  //! @+1 diagnostic cannot initialize object of type '[{}] (x: let Int) let -> Int' with value of type '[{}] (y: let Int) let -> Int'
   let _: [](x: Int) -> Int = fun (y: Int) { 42 }
 }
