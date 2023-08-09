@@ -16,12 +16,12 @@ type A {
 
   fun m2(_ x: Int) -> A {
     let   { A() }
-    inout {}      //! diagnostic mutating bundle must return '{self: A, A}'
+    inout {}      //! diagnostic mutating bundle must return '{self: Self, _}'
   }
 
   fun m2(_ x: Int) {
     let   {}
-    inout {}      //! diagnostic mutating bundle must return '{self: A, {}}'
+    inout {}      //! diagnostic mutating bundle must return '{self: Self, _}'
   }
 
 }
