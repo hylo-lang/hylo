@@ -314,6 +314,11 @@ struct TypeChecker {
 
   // MARK: Type checking
 
+  /// Applies all pending updates to the shared instance.
+  mutating func synchronize() {
+    cache.synchronize()
+  }
+
   /// Type checks the declarations in `batch`.
   mutating func check<S: Sequence<T>, T: DeclID>(
     _ batch: S, ignoringSharedCache ignoreSharedCache: Bool = false
@@ -4368,7 +4373,7 @@ struct TypeChecker {
     return es[1].type
   }
 
-  // MARK: Cache
+  // MARK: Caching
 
   /// A possibly shared instance of a typed program.
   struct Cache {
@@ -4384,6 +4389,15 @@ struct TypeChecker {
 
     /// The instance being collaboratively typed checked.
     private var shared: SharedMutable<TypedProgram>?
+
+    /// The updates of the shared cache currently pending.
+    private var pendingUpdates: [SynchronizationUpdate] = []
+
+    /// The number of updates in `pendingUpdates` that should be synchronized early.
+    private var earlyUpdateCount = 0
+
+    /// The number of early updates that are accumulated before being synchronized.
+    private static let earlyUpdateThreshold = 100
 
     /// The declarations being currently type checked.
     var declsUnderChecking = Set<AnyDeclID>()
@@ -4426,11 +4440,23 @@ struct TypeChecker {
     mutating func write<V>(
       _ value: V, at path: WritableKeyPath<TypedProgram, V>,
       ignoringSharedCache ignoreSharedCache: Bool = false,
-      mergingWith merge: (inout V, V) -> Void
+      mergingWith merge: @escaping (inout V, V) -> Void
     ) {
       local.write(value, at: path, mergingWith: merge)
-      if !ignoreSharedCache {
-        shared?.modify(applying: { (p) in p.write(value, at: path, mergingWith: merge) })
+
+      if shared != nil {
+        func update(
+          _ value: Any, at path: PartialKeyPath<TypedProgram>, in program: inout TypedProgram
+        ) {
+          let p = path as! WritableKeyPath<TypedProgram, V>
+          merge(&program[keyPath: p], value as! V)
+        }
+
+        pendingUpdates.append(.init(path, applying: update))
+        if !ignoreSharedCache {
+          earlyUpdateCount += 1
+        }
+        synchronizeIfThresholdReached()
       }
     }
 
@@ -4441,12 +4467,64 @@ struct TypeChecker {
       write(value, at: path) { (u, v) in u.updateMonotonically(v) }
     }
 
+    /// Applies `self.read(path)`.
     subscript<V>(m: WritableKeyPath<TypedProgram, V?>) -> V? where V: Equatable {
       mutating get { read(m) }
-//      set { write(newValue!, at: m) }
+    }
+
+    /// Applies all pending updates to the shared instance iff `earlyUpdateThreshold` has been
+    /// reached, resetting `self.earlyUpdateCount`.
+    private mutating func synchronizeIfThresholdReached() {
+      if earlyUpdateCount >= Self.earlyUpdateThreshold { synchronize() }
+    }
+
+    /// Applies all pending updates to the shared instance.
+    fileprivate mutating func synchronize() {
+      shared?.modify { (p) in
+        for u in pendingUpdates {
+          u.apply(local[keyPath: u.pathToUpdate], u.pathToUpdate, &p)
+        }
+      }
+      pendingUpdates.removeAll(keepingCapacity: true)
+      earlyUpdateCount = 0
     }
 
   }
+
+  /// A synchronization update to perform on a shared instance.
+  private struct SynchronizationUpdate: Hashable {
+
+    /// A closure that accepts a `path` in `instance` and a `value` to write.
+    typealias Apply = (
+      _ value: Any,
+      _ path: PartialKeyPath<TypedProgram>,
+      _ instance: inout TypedProgram
+    ) -> Void
+
+    /// The path to the value to update.
+    let pathToUpdate: PartialKeyPath<TypedProgram>
+
+    /// A closure executing the update.
+    let apply: Apply
+
+    /// Hashes the salient parts of `self` into `hasher`.
+    func hash(into hasher: inout Hasher) {
+      hasher.combine(pathToUpdate)
+    }
+
+    /// Returns `true` iff `l` is equal to `r`.
+    static func == (l: Self, r: Self) -> Bool {
+      l.pathToUpdate == r.pathToUpdate
+    }
+
+    /// Creates an instance that writes `value` at `pathToUpdate` in a typed program.
+    init(_ pathToUpdate: PartialKeyPath<TypedProgram>, applying apply: @escaping Apply) {
+      self.pathToUpdate = pathToUpdate
+      self.apply = apply
+    }
+
+  }
+
 
 }
 
