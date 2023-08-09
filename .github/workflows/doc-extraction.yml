@@ -9,14 +9,38 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v3
+    - run: git config --global core.autocrlf input
+
+    - name: Setup swift
+      uses: swift-actions/setup-swift@v1
+      with:
+        swift-version: ${{ matrix.swift.version }}
+
+    - run: swift --version
+
+    - name: Setup LLVM
+      uses: KyleMayes/install-llvm-action@v1
+      with:
+        version: "15.0"
+
+    - run: llvm-config --version
+
+    - name: Generate LLVM pkgconfig file
+      run: |
+        swift package resolve &&
+        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc &&
+        cat llvm.pc
+
     - name: Extract Documentation
       run: |
+        export PKG_CONFIG_PATH=$PWD
         swift package --allow-writing-to-directory ./docc \
         generate-documentation \
         --output-path ./docc \
         --enable-inherited-docs \
         --transform-for-static-hosting \
         --hosting-base-path implementation-docs/val
+
     - name: Commit docs
       run: |
         git config --local user.email "bot@github.com"
