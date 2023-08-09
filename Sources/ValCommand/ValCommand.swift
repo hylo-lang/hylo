@@ -47,6 +47,11 @@ public struct ValCommand: ParsableCommand {
   private var noStandardLibrary: Bool = false
 
   @Flag(
+    name: [.customLong("sequential")],
+    help: "Execute the compilation pipeline sequentially.")
+  private var compileSequentially: Bool = false
+
+  @Flag(
     name: [.customLong("typecheck")],
     help: "Type-check the input file(s).")
   private var typeCheckOnly: Bool = false
@@ -157,7 +162,7 @@ public struct ValCommand: ParsableCommand {
     }
 
     let program = try TypedProgram(
-      annotating: ScopedProgram(ast), inParallel: true,
+      annotating: ScopedProgram(ast), inParallel: !compileSequentially,
       reportingDiagnosticsTo: &diagnostics,
       tracingInferenceIf: shouldTraceInference)
     if typeCheckOnly { return }
