@@ -9,50 +9,67 @@ public struct FunctionReference: Constant, Hashable {
   /// The type of the referred IR function.
   public let type: IR.`Type`
 
-  /// If `function` is generic, actual arguments corresponding to its generic parameters.
-  public let genericArguments: GenericArguments
+  /// If `function` is generic, arguments corresponding to its generic parameters.
+  public let specialization: GenericArguments
 
-  /// Creates a reference to `f`, which is in `module`, parameterized by `genericArguments`.
-  public init(
-    to f: Function.ID, parameterizedBy genericArguments: GenericArguments = [:],
-    in module: Module
-  ) {
-    let a = module.program.relations.canonical(genericArguments)
+  /// Creates a reference to `f`, which is in `module`, without specialization.
+  public init(to f: Function.ID, in module: Module) {
     let v = module[f]
-    let t = module.program.monomorphize(
-      ^LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output), for: a)
+    let t = LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
+    assert(t[.isCanonical])
 
     self.function = f
     self.type = .address(t)
-    self.genericArguments = a
+    self.specialization = [:]
   }
 
-  /// Creates in `module` a reference to the lowered form of `d`, which is parameterized by `a`.
+  /// Creates a reference to `f`, which is in `module`, specialized by `specialization` in
+  /// `scopeOfUse`.
   public init(
-    to d: FunctionDecl.ID, parameterizedBy a: GenericArguments = [:],
-    in module: inout Module
+    to f: Function.ID, in module: Module,
+    specializedBy specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) {
-    let arguments = module.program.relations.canonical(a)
-    let t = module.program.relations.canonical(
-      module.program.monomorphize(module.program[d].type, for: arguments))
+    let v = module[f]
+    let t = LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
+    let a = module.program.canonical(specialization, in: scopeOfUse)
+    let u = module.program.specialize(^t, for: a, in: scopeOfUse)
+    assert(t[.isCanonical])
 
-    self.function = module.demandFunctionDeclaration(lowering: d)
-    self.type = .address(LambdaType(t)!.lifted)
-    self.genericArguments = arguments
+    self.function = f
+    self.type = .address(u)
+    self.specialization = a
   }
 
-  /// Creates in `module` a reference to the lowered form of `d`.
-  public init(
-    to d: InitializerDecl.ID, parameterizedBy a: GenericArguments = [:],
-    in module: inout Module
-  ) {
-    let arguments = module.program.relations.canonical(a)
-    let t = module.program.relations.canonical(
-      module.program.monomorphize(module.program[d].type, for: arguments))
+  /// Creates a reference to the lowered form of `d` in `module`, without specialization.
+  public init(to d: FunctionDecl.ID, in module: inout Module) {
+    let f = module.demandFunctionDeclaration(lowering: d)
+    self.init(to: f, in: module)
+  }
 
-    self.function = module.demandInitializerDeclaration(lowering: d)
-    self.type = .address(LambdaType(t)!.lifted)
-    self.genericArguments = arguments
+  /// Creates a reference to the lowered form of `d` in `module`, specialized by `specialization`
+  /// in `scopeOfUse`.
+  public init(
+    to d: FunctionDecl.ID, in module: inout Module,
+    specializedBy specialization: GenericArguments, in scopeOfUse: AnyScopeID
+  ) {
+    let f = module.demandFunctionDeclaration(lowering: d)
+    self.init(to: f, in: module, specializedBy: specialization, in: scopeOfUse)
+  }
+
+  /// Creates a reference to the lowered form of `d` in `module`, without specialization.
+  public init(to d: InitializerDecl.ID, in module: inout Module) {
+    let f = module.demandInitializerDeclaration(lowering: d)
+    self.init(to: f, in: module)
+  }
+
+  /// Creates a reference to the lowered form of `d` in `module`, specialized by `specialization`
+  /// in `scopeOfUse`.
+  public init(
+    to d: InitializerDecl.ID, in module: inout Module,
+    specializedBy specialization: GenericArguments, in scopeOfUse: AnyScopeID
+  ) {
+    let f = module.demandInitializerDeclaration(lowering: d)
+    self.init(to: f, in: module, specializedBy: specialization, in: scopeOfUse)
   }
 
 }
@@ -60,10 +77,10 @@ public struct FunctionReference: Constant, Hashable {
 extension FunctionReference: CustomStringConvertible {
 
   public var description: String {
-    if genericArguments.isEmpty {
+    if specialization.isEmpty {
       return "@\(function)"
     } else {
-      return "@\(function)<\(list: genericArguments.values)>"
+      return "@\(function)<\(list: specialization.values)>"
     }
   }
 

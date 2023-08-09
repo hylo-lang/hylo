@@ -1,4 +1,5 @@
 import Core
+import FrontEnd
 
 /// A program lowered to Val IR.
 public struct Program: Core.Program {

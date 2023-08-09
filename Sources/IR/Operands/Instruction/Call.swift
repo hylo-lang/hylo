@@ -36,7 +36,7 @@ public struct Call: Instruction {
   /// `true` iff the instruction denotes a call to a generic function.
   public var isGeneric: Bool {
     if let f = callee.constant as? FunctionReference {
-      return !f.genericArguments.isEmpty
+      return !f.specialization.isEmpty
     } else {
       return false
     }

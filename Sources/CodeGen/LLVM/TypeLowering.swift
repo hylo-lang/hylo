@@ -61,8 +61,8 @@ extension IR.Program {
   func llvm(boundGenericType val: BoundGenericType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
-    let fields = base.storage(of: val.base).map { (_, t) in
-      let u = base.monomorphize(t, for: val.arguments)
+    let fields = base.storage(of: val.base).map { (part) in
+      let u = base.specialize(part.type, for: val.arguments, in: AnyScopeID(base.ast.coreLibrary!))
       return llvm(u, in: &module)
     }
 
