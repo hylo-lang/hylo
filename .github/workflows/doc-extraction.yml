@@ -45,10 +45,10 @@ jobs:
       run: |
         git config --local user.email "bot@github.com"
         git config --local user.name "GitHub Actions"
-        git fetch origin generated-docs-${GITHUB_REF}
-        git checkout --detach origin/generated-docs-${GITHUB_REF}
+        git fetch origin generated-docs-main
+        git checkout --detach origin/generated-docs-main
         rm -rf ./docs/*
         mv ./docc docs
         git add ./docs
         git commit -m "Update docs"
-        git push origin HEAD:generated-docs-${GITHUB_REF}
+        git push origin HEAD:generated-docs-main
