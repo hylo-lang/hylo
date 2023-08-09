@@ -25,6 +25,9 @@ public struct ValCommand: ParsableCommand {
     /// LLVM IR
     case llvm = "llvm"
 
+    /// Intel ASM
+    case intelAsm = "intel-asm"
+
     /// Executable binary.
     case binary = "binary"
   }
@@ -61,7 +64,7 @@ public struct ValCommand: ParsableCommand {
   @Option(
     name: [.customLong("emit")],
     help: ArgumentHelp(
-      "Emit the specified type output files. From: raw-ast, raw-ir, ir, llvm, binary",
+      "Emit the specified type output files. From: raw-ast, raw-ir, ir, llvm, intel-asm, binary",
       valueName: "output-type"))
   private var outputType: OutputType = .binary
 
@@ -186,6 +189,14 @@ public struct ValCommand: ParsableCommand {
     if outputType == .llvm {
       let m = llvmProgram.llvmModules[sourceModule]!
       try m.description.write(to: llvmFile(productName), atomically: true, encoding: .utf8)
+      return
+    }
+
+    // Intel ASM
+
+    if outputType == .intelAsm {
+      try llvmProgram.llvmModules[sourceModule]!.write(
+        .assembly, for: target, to: intelASMFile(productName).path)
       return
     }
 
@@ -400,7 +411,7 @@ public struct ValCommand: ParsableCommand {
   /// A map from executable name to path of the named binary.
   private static var executableLocationCache: [String: String] = [:]
 
-  /// Writes a textual descriptioni of `input` to the given `output` file.
+  /// Writes a textual description of `input` to the given `output` file.
   func write(_ input: AST, to output: URL) throws {
     let encoder = JSONEncoder().forAST
     try encoder.encode(input).write(to: output, options: .atomic)
@@ -422,6 +433,12 @@ public struct ValCommand: ParsableCommand {
   /// selected as the output type.
   private func llvmFile(_ productName: String) -> URL {
     outputURL ?? URL(fileURLWithPath: productName + ".ll")
+  }
+
+  /// Given the desired name of the compiler's product, returns the file to write when "intel-asm" is
+  /// selected as the output type.
+  private func intelASMFile(_ productName: String) -> URL {
+    outputURL ?? URL(fileURLWithPath: productName + ".s")
   }
 
   /// Given the desired name of the compiler's product, returns the file to write when "binary" is

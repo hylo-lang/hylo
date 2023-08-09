@@ -80,6 +80,7 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--emit raw-ir`: Lower the typed AST into Val IR and output the result in a file.
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
 - `--emit llvm`: Transpile the program to LLVM and output LLVM IR.
+- `--emit intel-asm`: Output Intel assembly for all user module(s).
 - `--emit binary` (default): Produce an executable.
 
 For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.

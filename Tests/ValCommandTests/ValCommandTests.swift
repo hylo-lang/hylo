@@ -52,6 +52,13 @@ final class ValCommandTests: XCTestCase {
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
+  func testIntelASM() throws {
+    let result = try compile(["--emit", "intel-asm"], newFile(containing: "public fun main() {}"))
+    XCTAssert(result.status.isSuccess)
+    XCTAssert(result.diagnosticText.isEmpty)
+    XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
+  }
+
   func testBinary() throws {
     let result = try compile(["--emit", "binary"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
