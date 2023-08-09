@@ -1,7 +1,17 @@
 version: 1
 builder:
   configs:
-  - documentation_targets: [CLI, ValCommand, FrontEnd, Core, IR, CodeGenLLVM, Utils, TestUtils, ValModule, GenerateValFileTests]
+  - documentation_targets:
+    - CLI
+    - CodeGenLLVM
+    - Core
+    - FrontEnd
+    - GenerateValFileTests
+    - IR
+    - TestUtils
+    - Utils
+    - ValCommand
+    - ValModule
 
     custom_documentation_parameters: [
     --include-extended-types, --enable-inherited-docs,
