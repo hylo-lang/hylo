@@ -1,5 +1,5 @@
 /// A (nominal) product type declaration.
-public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, LexicalScope, GenericScope {
+public struct ProductTypeDecl: ExposableDecl, GenericDecl, SingleEntityDecl, GenericScope {
 
   public let site: SourceRange
 

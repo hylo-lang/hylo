@@ -1,7 +1,7 @@
 /// A trait declaration.
 ///
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
-public struct TraitDecl: SingleEntityDecl, LexicalScope {
+public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
 
   public let site: SourceRange
 

@@ -1,7 +1,7 @@
 import Utils
 
 /// A function declaration.
-public struct FunctionDecl: GenericDecl, GenericScope {
+public struct FunctionDecl: ExposableDecl, GenericDecl, GenericScope {
 
   public static let isCallable = true
 

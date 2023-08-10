@@ -1,5 +1,5 @@
 /// An initializer declaration.
-public struct InitializerDecl: GenericDecl, GenericScope {
+public struct InitializerDecl: ExposableDecl, GenericDecl, GenericScope {
 
   /// The introducer of an initializer declaration.
   public enum Introducer: Codable {

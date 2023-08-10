@@ -1,5 +1,5 @@
 /// A binding declaration.
-public struct BindingDecl: Decl {
+public struct BindingDecl: ExposableDecl {
 
   public let site: SourceRange
 

@@ -1,5 +1,5 @@
 /// A type alias declaration.
-public struct TypeAliasDecl: SingleEntityDecl, GenericDecl, LexicalScope, GenericScope {
+public struct TypeAliasDecl: ExposableDecl, GenericDecl, SingleEntityDecl, GenericScope {
 
   public let site: SourceRange
 
