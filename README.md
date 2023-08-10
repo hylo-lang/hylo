@@ -1,16 +1,19 @@
-# Val
+# Hylo
 
-Val is a programming language that leverages [mutable value semantics](https://www.jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
+> **Warning**
+> Val is getting renamed to Hylo. We apologize for any broken links and confusion this may cause. We're working on it.
 
-This repository contains the sources of the reference implementation of Val.
-Please visit our [website](https://val-lang.dev) to get more information about the language itself.
+Hylo is a programming language that leverages [mutable value semantics](https://www.jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
+
+This repository contains the sources of the reference implementation of Hylo.
+Please visit our [website](https://hylo-lang.org) to get more information about the language itself.
 
 ## Installation
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.7 or higher to build the compiler from sources.
 
-*Note to Windows users: although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see https://github.com/val-lang/val/issues/252 and https://github.com/val-lang/val/issues/805).*
+*Note to Windows users: although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see https://github.com/hylo-lang/hyloc/issues/252 and https://github.com/hylo-lang/hyloc/issues/805).*
 
 ### Prerequisites
 
@@ -28,14 +31,14 @@ Otherwise:
    
 ### Building the compiler
 
-You may compile Val's compiler with the following commands:
+You may compile Hylo's compiler with the following commands:
 
 ```bash
 swift build -c release
 ```
 
 That command will create an executable named `valc` in `.build/release`.
-That's Val compiler!
+That's Hylo's compiler!
 
 ### Running the tests
 
@@ -45,11 +48,11 @@ To test your compiler,
 swift test -c release --parallel
 ```
 
-### Building Val Devcontainer with VSCode
+### Building a Hylo Devcontainer with VSCode
 
-While Val supports Linux natively, it also provides a [Devcontainer](https://containers.dev/) specification to develop for Linux on other platforms through a Docker container. Our [Linux CI](.github/workflows/build-and-test.yml) uses this specification; this makes it possible to run Linux CI locally on other operating systems like macOS. While this specification should work for any IDE that supports devcontainers, keep in mind this team only uses VSCode. 
+While Hylo supports Linux natively, it also provides a [Devcontainer](https://containers.dev/) specification to develop for Linux on other platforms through a Docker container. Our [Linux CI](.github/workflows/build-and-test.yml) uses this specification; this makes it possible to run Linux CI locally on other operating systems like macOS. While this specification should work for any IDE that supports devcontainers, keep in mind this team only uses VSCode. 
 
-When opening the Val project in VSCode for the first time, you should be prompted to install the extension `recommendations` in `.vscode/extensions.json`. If you are not prompted, manually install the extensions by searching for the extension identifiers in the Extensions Marketplace.
+When opening the Hylo project in VSCode for the first time, you should be prompted to install the extension `recommendations` in `.vscode/extensions.json`. If you are not prompted, manually install the extensions by searching for the extension identifiers in the Extensions Marketplace.
 
 Then, build the Devcontainer with the VSCode command: `> Dev Containers: Rebuild and Reopen in Container`.
 
@@ -59,7 +62,7 @@ That integrated terminal is connected to the Devcontainer, as if by ssh.
 Use the `make-pkgconfig` tool to configure LLVM's library description (see steps 3 in [prerequisites](#prerequisites)).
 You can now run `swift test -c release` to build and test for Linux.
 
-The Val repository files are mounted into the container, so any changes made locally (in VSCode or in other editors) will be automatically propagated into the Devcontainer. However, if you need to modifiy any of the files in the `.devcontainer` directory, you will need to rebuild the container with `> Dev Containers: Rebuild and Reopen in Container`.
+The Hylo repository files are mounted into the container, so any changes made locally (in VSCode or in other editors) will be automatically propagated into the Devcontainer. However, if you need to modifiy any of the files in the `.devcontainer` directory, you will need to rebuild the container with `> Dev Containers: Rebuild and Reopen in Container`.
 
 ## Implementation status
 
@@ -77,7 +80,7 @@ Incidentally, early stages of this pipeline are more stable than later ones.
 You can select how deep the compiler should go through the pipeline with the following options:
 - `--emit raw-ast`: Only parse the input files and output an untyped AST as a JSON file.
 - `--typecheck`: Run the type checker on the input.
-- `--emit raw-ir`: Lower the typed AST into Val IR and output the result in a file.
+- `--emit raw-ir`: Lower the typed AST into Hylo IR and output the result in a file.
 - `--emit ir`: Run mandatory IR passes and output the result in a file.
 - `--emit llvm`: Transpile the program to LLVM and output LLVM IR.
 - `--emit intel-asm`: Output Intel assembly for all user module(s).
@@ -85,7 +88,7 @@ You can select how deep the compiler should go through the pipeline with the fol
 
 For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
 
-A more detailed description of the current implementation status is available on our [roadmap page](https://www.val-lang.dev/pages/implementation-status.html).
+A more detailed description of the current implementation status is available on our [roadmap page](https://www.hylo-lang.org/pages/implementation-status.html).
 
 ## Related video and audio
 
@@ -105,7 +108,7 @@ A more detailed description of the current implementation status is available on
 | Podcast | Episode |    Date    |     Guest     |                                          Title                                          |
 | :-----: | :-----: | :--------: | :-----------: | :-------------------------------------------------------------------------------------: |
 | CppCast |   352   | 2023-01-20 | Dimi Racordon | [Val and Mutable Value Semantics](https://cppcast.com/val-and-mutable-value-semantics)  |
-|  ADSP   |   137   | 2023-07-07 |  Sean Parent  | [Sean Parent on Val (vs Rust)!](https://adspthepodcast.com/2023/07/07/Episode-137.html) |
+|  ADSP   |   137   | 2023-07-07 |  Sean Parent  | [Sean Parent on Hylo (vs Rust)!](https://adspthepodcast.com/2023/07/07/Episode-137.html) |
 |  ADSP   |   138   | 2023-07-14 |  Sean Parent  | [Sean Parent on Val! (Part 2)](https://adspthepodcast.com/2023/07/14/Episode-138.html) |
 
 ## Contributing
@@ -117,5 +120,5 @@ You can also get in touch with the community by joining our [Slack](https://join
 
 ## License
 
-Val is distributed under the terms of the Apache-2.0 license.
+Hylo is distributed under the terms of the Apache-2.0 license.
 See [LICENSE](LICENSE) for details.
