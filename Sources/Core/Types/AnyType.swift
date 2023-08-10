@@ -152,7 +152,7 @@ public struct AnyType: TypeProtocol {
   }
 
   /// Indicates whether `self` is a generic type parameter or associated type.
-  public var isTypeParam: Bool {
+  public var isTypeParameter: Bool {
     (base is AssociatedTypeType) || (base is GenericTypeParameterType)
   }
 

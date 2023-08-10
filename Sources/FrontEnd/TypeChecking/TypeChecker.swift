@@ -1315,7 +1315,7 @@ struct TypeChecker {
         let rhs = evalTypeAnnotation(r).errorFree
       else { return }
 
-      if lhs.isTypeParam || rhs.isTypeParam {
+      if lhs.isTypeParameter || rhs.isTypeParameter {
         e.insertConstraint(.init(.equality(lhs, rhs), at: c.site))
       } else {
         report(.error(invalidEqualityConstraintBetween: lhs, and: rhs, at: c.site))
@@ -1323,7 +1323,7 @@ struct TypeChecker {
 
     case .conformance(let l, let r):
       guard let lhs = evalTypeAnnotation(l).errorFree else { return }
-      guard lhs.isTypeParam else {
+      guard lhs.isTypeParameter else {
         report(.error(invalidConformanceConstraintTo: lhs, at: c.site))
         return
       }
