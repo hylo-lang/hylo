@@ -1,4 +1,5 @@
 import Core
+import FrontEnd
 import Utils
 
 /// The value of a register in an abstract interpreter.

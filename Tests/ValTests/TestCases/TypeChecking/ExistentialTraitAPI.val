@@ -61,6 +61,7 @@ public fun main() {
 
   let y0: any B = B<Int>()
 
-  //! @+1 diagnostic existential generic type may have only one bound
+  //! @+2 diagnostic type 'B' is not a trait
+  //! @+1 diagnostic type 'C' is not a trait
   let z0: any B & C = B<Int>()
 }

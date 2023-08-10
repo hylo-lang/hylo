@@ -1,4 +1,5 @@
 import Core
+import FrontEnd
 import Utils
 
 /// Val's mangling algorithm.
@@ -21,6 +22,9 @@ struct Mangler {
   /// The program defining the symbols being defined.
   private let program: TypedProgram
 
+  /// The scope in which names are mangled.
+  private let scopeOfUse: AnyScopeID
+
   /// A table mapping mangled symbols to their position in the symbol lookup table.
   private var symbolID: [Symbol: Int] = [:]
 
@@ -34,9 +38,10 @@ struct Mangler {
     .type(.never): .never,
   ]
 
-  /// Creates an instance mangling symbols defined in `programs`.
-  init(_ program: TypedProgram) {
+  /// Creates an instance mangling symbols defined in `programs` in `scopeOfUse`.
+  init(_ program: TypedProgram, in scopeOfUse: AnyScopeID) {
     self.program = program
+    self.scopeOfUse = scopeOfUse
 
     if program.ast.isCoreModuleLoaded {
       self.reserved[.node(AnyNodeID(program.ast.coreLibrary!))] = .val
@@ -95,7 +100,7 @@ struct Mangler {
   /// Writes the mangled qualification of `d`, defined in program, to `output`.
   private mutating func writeQualification<T: DeclID>(of d: T, to output: inout Output) {
     var qualification: [AnyScopeID] = []
-    for s in program.scopes(from: program.nodeToScope[d]!) {
+    for s in program.scopes(from: program[d].scope) {
       if writeLookup(.node(AnyNodeID(s)), to: &output) {
         break
       } else {
@@ -178,7 +183,7 @@ struct Mangler {
   /// Writes the mangled representation of `d` to `output`.
   private mutating func write(conformance d: ConformanceDecl.ID, to output: inout Output) {
     write(operator: .conformanceDecl, to: &output)
-    mangle(type: MetatypeType(program.declType[d])!.instance, to: &output)
+    mangle(type: program[d].type, to: &output)
 
     if let c = program.ast[d].whereClause {
       write(whereClause: c.value, to: &output)
@@ -190,7 +195,7 @@ struct Mangler {
   /// Writes the mangled representation of `d` to `output`.
   private mutating func write(extension d: ExtensionDecl.ID, to output: inout Output) {
     write(operator: .extensionDecl, to: &output)
-    mangle(type: MetatypeType(program.declType[d])!.instance, to: &output)
+    mangle(type: program[d].type, to: &output)
 
     if let c = program.ast[d].whereClause {
       write(whereClause: c.value, to: &output)
@@ -202,7 +207,7 @@ struct Mangler {
   /// Writes the mangled representation of `d` to `output`.
   private mutating func write(function d: FunctionDecl.ID, to output: inout Output) {
     // If the function is anonymous, just encode a unique ID.
-    guard let n = Name(of: d, in: program.ast) else {
+    guard let n = program.ast.name(of: d) else {
       write(anonymousScope: AnyScopeID(d), to: &output)
       return
     }
@@ -215,7 +220,7 @@ struct Mangler {
 
     write(name: n, to: &output)
     write(integer: program.ast[d].genericParameters.count, to: &output)
-    mangle(type: program.declType[d]!, to: &output)
+    mangle(type: program[d].type, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
@@ -230,7 +235,7 @@ struct Mangler {
     write(operator: .staticFunctionDecl, to: &output)
     write(name: Name(stem: "init"), to: &output)
     write(integer: program.ast[d].genericParameters.count, to: &output)
-    mangle(type: program.declType[d]!, to: &output)
+    mangle(type: program[d].type, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
@@ -244,7 +249,7 @@ struct Mangler {
       write(integer: program.ast[d].genericParameters.count, to: &output)
     }
 
-    mangle(type: program.declType[d]!, to: &output)
+    mangle(type: program[d].type, to: &output)
   }
 
   /// Writes the mangled representation of `u` to `output`.
@@ -354,7 +359,8 @@ struct Mangler {
 
   /// Writes the mangled representation of `symbol` to `output`.
   mutating func mangle(type symbol: AnyType, to output: inout Output) {
-    let s = program.relations.canonical(symbol)
+    let s = program.canonical(symbol, in: scopeOfUse)
+
     if writeLookup(.type(s), to: &output) {
       return
     }
@@ -417,7 +423,7 @@ struct Mangler {
       unreachable()
     }
 
-    symbolID[.type(symbol)] = nextSymbolID
+    symbolID[.type(s)] = nextSymbolID
     nextSymbolID += 1
   }
 

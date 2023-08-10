@@ -46,6 +46,12 @@ extension Diagnostic {
     .error("duplicate capture name '\(name)'", at: site)
   }
 
+  static func error(
+    cannotCaptureOverloadedNameImplicitly name: SourceRepresentable<Name>
+  ) -> Diagnostic {
+    .error("cannot capture overloaded name '\(name.value)' implicitly", at: name.site)
+  }
+
   static func error(duplicateOperatorNamed name: String, at site: SourceRange) -> Diagnostic {
     .error("duplicate operator declaration '\(name)'", at: site)
   }
@@ -79,15 +85,6 @@ extension Diagnostic {
     .error(
       "associated type '\(name)' can only be used with a concrete type or generic type parameter",
       at: site)
-  }
-
-  static func error(expectedLambdaParameterCount: Int, found: Int, at site: SourceRange)
-    -> Diagnostic
-  {
-    .error(
-      """
-      contextual lambda type requires \(expectedLambdaParameterCount) argument(s), found \(found)
-      """, at: site)
   }
 
   static func error(invalidDestructuringOfType type: AnyType, at site: SourceRange) -> Diagnostic {
@@ -297,8 +294,8 @@ extension Diagnostic {
     .error("cannot extend built-in type '\(t)'", at: site)
   }
 
-  static func error(mutatingBundleMustReturn t: TupleType, at site: SourceRange) -> Diagnostic {
-    .error("mutating bundle must return '\(t)'", at: site)
+  static func error(mutatingBundleMustReturnTupleAt site: SourceRange) -> Diagnostic {
+    .error("mutating bundle must return '{self: Self, _}'", at: site)
   }
 
   static func error(

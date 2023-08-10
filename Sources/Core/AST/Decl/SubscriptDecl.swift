@@ -79,9 +79,6 @@ public struct SubscriptDecl: BundleDecl, GenericDecl, GenericScope {
   /// Returns whether the declaration introduces a property.
   public var isProperty: Bool { introducer.value == .property }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
-
   /// Returns whether the declaration denotes a static subscript.
   public var isStatic: Bool { memberModifier?.value == .static }
 

@@ -44,37 +44,6 @@ public struct Name: Hashable, Codable {
     self.introducer = introducer
   }
 
-  /// Creates the name introduced by `decl` in `ast`.
-  public init?(of d: FunctionDecl.ID, in ast: AST) {
-    guard let stem = ast[d].identifier?.value else { return nil }
-    if let notation = ast[d].notation?.value {
-      self.init(stem: stem, notation: notation)
-    } else {
-      self.init(stem: stem, labels: ast[ast[d].parameters].map(\.label?.value))
-    }
-  }
-
-  /// Creates the name introduced by `d` in `ast`.
-  public init(of d: InitializerDecl.ID, in ast: AST) {
-    self.init(stem: "init", labels: ast[ast[d].parameters].map(\.label?.value))
-  }
-
-  /// Creates the name introduced by `d` in `ast`.
-  public init(of d: MethodDecl.ID, in ast: AST) {
-    let stem = ast[d].identifier.value
-    if let notation = ast[d].notation?.value {
-      self.init(stem: stem, notation: notation)
-    } else {
-      self.init(stem: stem, labels: ast[ast[d].parameters].map(\.label?.value))
-    }
-  }
-
-  /// Creates the name introduced by `d` in `ast`.
-  public init(of d: SubscriptDecl.ID, in ast: AST) {
-    let stem = ast[d].identifier?.value ?? "[]"
-    self.init(stem: stem, labels: ast[ast[d].parameters ?? []].map(\.label?.value))
-  }
-
   /// Returns `self` appending `x` or `nil` if `self` already has an introducer.
   public func appending(_ x: AccessEffect) -> Name? {
     introducer == nil

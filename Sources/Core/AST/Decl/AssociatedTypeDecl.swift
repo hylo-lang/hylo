@@ -1,5 +1,5 @@
 /// An associated type declaration.
-public struct AssociatedTypeDecl: SingleEntityDecl {
+public struct AssociatedTypeDecl: SingleEntityDecl, ConstrainedGenericTypeDecl {
 
   public let site: SourceRange
 

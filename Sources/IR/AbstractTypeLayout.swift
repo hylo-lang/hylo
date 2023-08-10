@@ -1,4 +1,5 @@
 import Core
+import FrontEnd
 
 /// The astract layout of a type, describing the relative offsets of its stored properties.
 public struct AbstractTypeLayout {
@@ -13,7 +14,7 @@ public struct AbstractTypeLayout {
   public let type: AnyType
 
   /// The stored properties in `type`, in the order in which they are laid out.
-  public let properties: [StoredProperty]
+  public let properties: [TupleType.Element]
 
   /// Creates the abstract layout of `t` defined in `p`.
   public init<T: TypeProtocol>(of t: T, definedIn p: TypedProgram) {
@@ -41,7 +42,7 @@ public struct AbstractTypeLayout {
 
   /// Returns the offset of the stored poperty named `n` or `nil` if no such property exists.
   public func offset(of n: String) -> Int? {
-    properties.firstIndex(where: { $0.name == n })
+    properties.firstIndex(where: { $0.label == n })
   }
 
 }

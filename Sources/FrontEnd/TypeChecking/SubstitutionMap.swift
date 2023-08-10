@@ -114,7 +114,7 @@ struct SubstitutionMap {
       return .member(d, reify(a, withVariables: substitutionPolicy), r)
     case .constructor(let d, let a):
       return .constructor(d, reify(a, withVariables: substitutionPolicy))
-    case .builtinModule, .builtinType, .builtinFunction, .intrinsicType:
+    case .builtinModule, .builtinType, .builtinFunction, .compilerKnownType:
       return r
     }
   }

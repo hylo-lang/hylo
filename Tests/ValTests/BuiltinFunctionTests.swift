@@ -192,12 +192,19 @@ final class BuiltinFunctionTests: XCTestCase {
     file: StaticString = #file,
     line: UInt = #line
   ) throws {
+    var i: UInt64 = 0
+    func freshVariable() -> TypeVariable {
+      i += 1
+      return .init(i)
+    }
+
     for s in instructions {
       for p in parameters {
         let n = "\(s)_\(list: p, joinedBy: "_")"
         let f = try XCTUnwrap(BuiltinFunction(n), file: file, line: line)
         XCTAssertEqual(f.name.description, n, file: file, line: line)
-        XCTAssertEqual(f.type(), expectedType, file: file, line: line)
+        XCTAssertEqual(
+          f.type(makingFreshVariableWith: freshVariable), expectedType, file: file, line: line)
       }
     }
   }

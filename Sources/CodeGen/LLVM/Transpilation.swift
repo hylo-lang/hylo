@@ -35,10 +35,10 @@ extension LLVM.Module {
     }
 
     if m[f].isSubscript {
-      let d = declare(subscript: f, of: m, from: ir)
+      let d = declareSubscript(transpiledFrom: f, of: m, from: ir)
       transpile(contentsOf: f, of: m, from: ir, into: d)
     } else {
-      let d = declare(function: f, of: m, from: ir)
+      let d = declareFunction(transpiledFrom: f, of: m, from: ir)
       transpile(contentsOf: f, of: m, from: ir, into: d)
       if f == m.entryFunction {
         defineMain(calling: f, of: m, from: ir)
@@ -369,25 +369,24 @@ extension LLVM.Module {
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
-  private mutating func declare(
-    function f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
+  private mutating func declareFunction(
+    transpiledFrom f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
   ) -> LLVM.Function {
     precondition(!m[f].isSubscript)
 
     // Parameters and return values are passed by reference.
     let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
-    let result = declareFunction(ir.base.mangled(f), .init(from: parameters, in: &self))
+    let transpilation = declareFunction(ir.base.mangled(f), .init(from: parameters, in: &self))
 
-    if m[f].output == .never {
-      addAttribute(.init(.noreturn, in: &self), to: result)
-    }
+    configureAttributes(transpilation, transpiledFrom: f, of: m)
+    configureInputAttributes(transpilation.parameters.dropFirst(), transpiledFrom: f, in: m)
 
-    return result
+    return transpilation
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a subscript of `m` in `ir`.
-  private mutating func declare(
-    subscript f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
+  private mutating func declareSubscript(
+    transpiledFrom f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
   ) -> LLVM.Function {
     precondition(m[f].isSubscript)
 
@@ -395,11 +394,62 @@ extension LLVM.Module {
     // type is a pair `(c, p)` where `c` points to a subscript slide and `p` is the address of the
     // projected value.
     let r = LLVM.StructType([ptr, ptr], in: &self)
-    let parameters = Array(repeating: ptr, count: m[f].inputs.count + 1)
-    let coroutine = declareFunction(
+    let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
+    let transpilation = declareFunction(
       ir.base.mangled(f), .init(from: parameters, to: r, in: &self))
 
-    return coroutine
+    configureAttributes(transpilation, transpiledFrom: f, of: m)
+    configureInputAttributes(transpilation.parameters.dropFirst(), transpiledFrom: f, in: m)
+
+    return transpilation
+  }
+
+  /// Adds to `llvmFunction` the attributes implied by its IR form `f`, which is in `m`.
+  private mutating func configureAttributes(
+    _ llvmFunction: LLVM.Function, transpiledFrom f: IR.Function.ID, of m: IR.Module
+  ) {
+    switch m[f].linkage {
+    case .external:
+      setLinkage(.external, for: llvmFunction)
+    case .module:
+      setLinkage(.private, for: llvmFunction)
+    }
+
+    // Functions that return `Never` have the `noreturn` attribute.
+    if !m[f].isSubscript && (m[f].output == .never) {
+      addAttribute(.init(.noreturn, in: &self), to: llvmFunction)
+    }
+  }
+
+  /// Adds to each parameter in `llvmParameters` the attributes implied by its corresponding IR
+  /// form in `m[f].inputs`.
+  private mutating func configureInputAttributes(
+    _ llvmParameters: LLVM.Function.Parameters.SubSequence,
+    transpiledFrom f: IR.Function.ID, in m: IR.Module
+  ) {
+    assert(llvmParameters.count == m[f].inputs.count)
+    for (p, l) in llvmParameters.enumerated() {
+      configureInputAttributes(l, transpiledFrom: p, in: f, in: m)
+    }
+  }
+
+  /// Adds to `llvmParameter` the attributes implied by its IR form in `m[f].inputs[p]`.
+  private mutating func configureInputAttributes(
+    _ llvmParameter: LLVM.Parameter,
+    transpiledFrom p: Int, in f: IR.Function.ID, in m: IR.Module
+  ) {
+    addAttribute(named: .noalias, to: llvmParameter)
+    addAttribute(named: .nofree, to: llvmParameter)
+    addAttribute(named: .nonnull, to: llvmParameter)
+    addAttribute(named: .noundef, to: llvmParameter)
+
+    if !m[f].isSubscript {
+      addAttribute(named: .nocapture, to: llvmParameter)
+    }
+
+    if m[f].inputs[p].type.access == .let {
+      addAttribute(named: .readonly, to: llvmParameter)
+    }
   }
 
   /// Inserts into `transpilation `the transpiled contents of `f`, which is a function or subscript
@@ -811,7 +861,7 @@ extension LLVM.Module {
       }
 
       // %1 = call ptr @llvm.coro.prepare.retcon(ptr @s)
-      let f = declare(subscript: s.callee, of: m, from: ir)
+      let f = declareSubscript(transpiledFrom: s.callee, of: m, from: ir)
       let prepare = intrinsic(named: Intrinsic.llvm.coro.prepare.retcon)!
       let x1 = insertCall(LLVM.Function(prepare)!, on: [f], at: insertionPoint)
 

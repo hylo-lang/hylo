@@ -41,5 +41,5 @@ public fun main() {
   let _: B<Int, Int> = B(foo: true, bar: 42)
 
   //! @+1 diagnostic not enough contextual information to infer generic arguments
-  _ = C()
+  C()
 }

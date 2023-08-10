@@ -4,23 +4,26 @@ import Utils
 public struct TypeVariable: TypeProtocol {
 
   /// The identifier of the variable.
-  public let id: Int
+  public let rawValue: UInt64
 
+  /// A set of flags describing recursive properties.
   public let flags: TypeFlags = [.isCanonical, .hasVariable]
 
-  /// Creates a new type variable.
-  public init() {
-    defer { TypeVariable.nextID += 1 }
-    self.id = TypeVariable.nextID
+  /// Creates an instance with given `rawValue`.
+  public init(_ rawValue: UInt64) {
+    self.rawValue = rawValue
   }
 
-  /// The next type variable identifier.
-  private static var nextID = 0
+  /// The context in which this instance was created.
+  var context: UInt8 { UInt8(rawValue >> 56) }
+
+  /// The identifier of this instance.
+  var identifier: UInt64 { ~(255 << 56) | rawValue }
 
 }
 
 extension TypeVariable: CustomStringConvertible {
 
-  public var description: String { "%\(id)" }
+  public var description: String { "%\(context).\(identifier)" }
 
 }

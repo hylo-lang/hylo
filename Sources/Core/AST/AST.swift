@@ -183,6 +183,11 @@ public struct AST {
 
   // MARK: Helpers
 
+  /// Returns the ID of the module named `n` if such a module has been loaded, or `nil` otherwise.
+  public func module(named n: String) -> ModuleDecl.ID? {
+    modules.first(where: { self[$0].baseName == n })
+  }
+
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
     self[self[module].sources].map(\.decls).joined()
@@ -207,31 +212,31 @@ public struct AST {
         return (n == Name(stem: self[AssociatedTypeDecl.ID(m)!].baseName)) ? m : nil
 
       case FunctionDecl.self:
-        return (n == Name(of: FunctionDecl.ID(m)!, in: self)) ? m : nil
+        return (n == name(of: FunctionDecl.ID(m)!)) ? m : nil
 
       case InitializerDecl.self:
-        return (n == Name(of: InitializerDecl.ID(m)!, in: self)) ? m : nil
+        return (n == name(of: InitializerDecl.ID(m)!)) ? m : nil
 
       case MethodDecl.self:
         let d = MethodDecl.ID(m)!
         if let i = n.introducer {
-          guard n.removingIntroducer() == Name(of: d, in: self) else { return nil }
+          guard n.removingIntroducer() == name(of: d) else { return nil }
           return self[d].impls
             .first(where: { self[$0].introducer.value == i })
             .map(AnyDeclID.init(_:))
         } else {
-          return (Name(of: d, in: self) == n) ? m : nil
+          return (name(of: d) == n) ? m : nil
         }
 
       case SubscriptDecl.self:
         let d = SubscriptDecl.ID(m)!
         if let i = n.introducer {
-          guard n.removingIntroducer() == Name(of: d, in: self) else { return nil }
+          guard n.removingIntroducer() == name(of: d) else { return nil }
           return self[d].impls
             .first(where: { self[$0].introducer.value == i })
             .map(AnyDeclID.init(_:))
         } else {
-          return (Name(of: d, in: self) == n) ? m : nil
+          return (name(of: d) == n) ? m : nil
         }
 
       default:
@@ -315,6 +320,37 @@ public struct AST {
     return self[parameters].map(\.defaultValue)
   }
 
+  /// Returns the name of `d` unless `d` is anonymous.
+  public func name(of d: FunctionDecl.ID) -> Name? {
+    guard let stem = self[d].identifier?.value else { return nil }
+    if let notation = self[d].notation?.value {
+      return .init(stem: stem, notation: notation)
+    } else {
+      return .init(stem: stem, labels: self[self[d].parameters].map(\.label?.value))
+    }
+  }
+
+  /// Returns the name of `d`.
+  public func name(of d: InitializerDecl.ID) -> Name {
+    .init(stem: "init", labels: self[self[d].parameters].map(\.label?.value))
+  }
+
+  /// Returns the name of `d`.
+  public func name(of d: MethodDecl.ID) -> Name {
+    let stem = self[d].identifier.value
+    if let notation = self[d].notation?.value {
+      return .init(stem: stem, notation: notation)
+    } else {
+      return .init(stem: stem, labels: self[self[d].parameters].map(\.label?.value))
+    }
+  }
+
+  /// Returns the name of `d`.
+  public func name(of d: SubscriptDecl.ID) -> Name {
+    let stem = self[d].identifier?.value ?? "[]"
+    return .init(stem: stem, labels: self[self[d].parameters ?? []].map(\.label?.value))
+  }
+
   /// Returns the subfields and pattern IDs of the named patterns contained in `p`.
   public func names<T: PatternID>(in p: T) -> [(subfield: RecordPath, pattern: NamePattern.ID)] {
     func visit(
@@ -351,6 +387,25 @@ public struct AST {
     var result: [(subfield: RecordPath, pattern: NamePattern.ID)] = []
     visit(pattern: AnyPatternID(p), subfield: [], result: &result)
     return result
+  }
+
+  /// Returns `(head, tail)` where `head` contains the nominal components of `name` from right to
+  /// left and `tail` is the non-nominal component of `name`, if any.
+  ///
+  /// Name expressions are rperesented as linked-list, whose elements are the components of a
+  /// name in reverse order. This method splits such lists at the first non-nominal component.
+  public func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain) {
+    var suffix = [name]
+    while true {
+      let d = self[suffix.last!].domain
+      switch d {
+      case .none, .implicit, .operand:
+        return (suffix, d)
+      case .explicit(let e):
+        guard let p = NameExpr.ID(e) else { return (suffix, d) }
+        suffix.append(p)
+      }
+    }
   }
 
   /// Calls `action` on each sub-pattern in `pattern` and its corresponding sub-expression in

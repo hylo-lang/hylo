@@ -50,6 +50,11 @@ public struct ValCommand: ParsableCommand {
   private var noStandardLibrary: Bool = false
 
   @Flag(
+    name: [.customLong("sequential")],
+    help: "Execute the compilation pipeline sequentially.")
+  private var compileSequentially: Bool = false
+
+  @Flag(
     name: [.customLong("typecheck")],
     help: "Type-check the input file(s).")
   private var typeCheckOnly: Bool = false
@@ -160,7 +165,9 @@ public struct ValCommand: ParsableCommand {
     }
 
     let program = try TypedProgram(
-      ast, tracingInferenceIn: inferenceTracingSite, diagnostics: &diagnostics)
+      annotating: ScopedProgram(ast), inParallel: !compileSequentially,
+      reportingDiagnosticsTo: &diagnostics,
+      tracingInferenceIf: shouldTraceInference)
     if typeCheckOnly { return }
 
     // IR
@@ -220,6 +227,15 @@ public struct ValCommand: ParsableCommand {
       _ = binaryPath
       fatalError("not implemented")
     #endif
+  }
+
+  /// Returns `true` if type inference related to `n`, which is in `p`, whould be traced.
+  private func shouldTraceInference(_ n: AnyNodeID, _ p: TypedProgram) -> Bool {
+    if let s = inferenceTracingSite {
+      return s.bounds.contains(p[n].site.first())
+    } else {
+      return false
+    }
   }
 
   /// Returns `program` lowered to Val IR, accumulating diagnostics in `log` and throwing if an

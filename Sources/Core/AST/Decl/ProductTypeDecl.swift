@@ -1,5 +1,5 @@
 /// A (nominal) product type declaration.
-public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, LexicalScope, GenericScope {
+public struct ProductTypeDecl: ExposableDecl, GenericDecl, SingleEntityDecl, GenericScope {
 
   public let site: SourceRange
 
@@ -36,9 +36,6 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, LexicalScope, Gene
   }
 
   public var baseName: String { identifier.value }
-
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     for m in members {

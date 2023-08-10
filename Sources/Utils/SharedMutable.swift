@@ -2,6 +2,7 @@ import Dispatch
 
 /// A threadsafe shared mutable wrapper for a `WrappedType` instance.
 public class SharedMutable<WrappedType> {
+
   /// The synchronization mechanism that makes `self` threadsafe.
   private let mutex = DispatchQueue(label: "org.val-lang.\(WrappedType.self)")
 
@@ -26,4 +27,5 @@ public class SharedMutable<WrappedType> {
       return r
     }
   }
+
 }

@@ -1,7 +1,7 @@
 import Utils
 
 /// A function declaration.
-public struct FunctionDecl: GenericDecl, GenericScope {
+public struct FunctionDecl: ExposableDecl, GenericDecl, GenericScope {
 
   public static let isCallable = true
 
@@ -86,8 +86,8 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     self.isInExprContext = isInExprContext
   }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
+  /// `true` iff `self` is a definition of the entity that it declares.
+  public var isDefinition: Bool { body != nil }
 
   /// Returns whether the declaration denotes a static member function.
   public var isStatic: Bool { memberModifier?.value == .static }
