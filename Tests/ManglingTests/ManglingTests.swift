@@ -66,9 +66,10 @@ final class ManglingTests: XCTestCase {
 
     let input = SourceFile(synthesizedText: text, named: "main")
     let (p, m) = try checkNoDiagnostic { (d) in
-      var a = AST.standardLibrary
-      let m = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
-      return (try TypedProgram(a, diagnostics: &d), m)
+      var ast = AST.standardLibrary
+      let main = try ast.makeModule("Main", sourceCode: [input], diagnostics: &d)
+      let base = ScopedProgram(ast)
+      return (try TypedProgram(annotating: base, reportingDiagnosticsTo: &d), main)
     }
 
     var o = SymbolCollector(forNodesIn: p)
@@ -92,8 +93,9 @@ final class ManglingTests: XCTestCase {
 
   func testTypes() throws {
     let p = try checkNoDiagnostic { (d) in
-      let a = AST.standardLibrary
-      return try TypedProgram(a, diagnostics: &d)
+      let ast = AST.standardLibrary
+      let base = ScopedProgram(ast)
+      return try TypedProgram(annotating: base, reportingDiagnosticsTo: &d)
     }
 
     /// Asserts that demangling description of the mangled representation of `t` is `description`.

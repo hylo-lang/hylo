@@ -16,7 +16,8 @@ extension XCTestCase {
       _ = try ast.makeModule(
         source.baseName, sourceCode: [source], builtinModuleAccess: true,
         diagnostics: &diagnostics)
-      _ = try TypedProgram(ast, diagnostics: &diagnostics)
+      let base = ScopedProgram(ast)
+      _ = try TypedProgram(annotating: base, reportingDiagnosticsTo: &diagnostics)
     }
 
   }

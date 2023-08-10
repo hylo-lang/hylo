@@ -41,6 +41,16 @@ public struct BoundGenericType: TypeProtocol {
     self.flags = flags
   }
 
+  /// `self` with `self.arguments` mapping each parameter to an uninstantiated genetic type.
+  public func despecialized(in ast: AST) -> Self {
+    var a: GenericArguments = [:]
+    for (p, v) in arguments {
+      assert(v is AnyType)
+      a[p] = ^GenericTypeParameterType(p, ast: ast)
+    }
+    return BoundGenericType(base, arguments: a)
+  }
+
   /// Applies `TypeProtocol.transform(mutating:_:)` on `m` and the types that are part of `self`.
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction

@@ -1,4 +1,5 @@
 import Core
+import FrontEnd
 
 extension TypedProgram {
 
@@ -22,11 +23,13 @@ extension TypedProgram {
     mangled(f, applying: { (s, m, o) in m.mangle(function: s, to: &o) })
   }
 
+  /// Returns the mangled representation of `symbol` in `scopeOfuse`, applying `mangle` to compute
+  /// that representation.
   private func mangled<T>(
     _ symbol: T, applying mangle: (T, inout Mangler, inout String) -> Void
   ) -> String {
     var output = ""
-    var m = Mangler(self)
+    var m = Mangler(self, in: AnyScopeID(ast.coreLibrary!))  // FIXME: use actual scope
     mangle(symbol, &m, &output)
     return output.assemblySanitized
   }

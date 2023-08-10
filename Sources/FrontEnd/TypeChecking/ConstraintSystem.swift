@@ -8,6 +8,9 @@ struct ConstraintSystem {
   /// The scope in which the goals are solved.
   private let scope: AnyScopeID
 
+  /// The type checker used to query type relations and resolve names.
+  private var checker: TypeChecker! = nil
+
   /// The goals in the system.
   private var goals: [Constraint] = []
 
@@ -34,7 +37,7 @@ struct ConstraintSystem {
   /// This map is monotonically extended during constraint solving to assign a declaration to each
   /// unresolved name expression in the constraint system. A system is complete if it can be used
   /// to derive a complete name binding map w.r.t. its unresolved name expressions.
-  private var bindingAssumptions: [NameExpr.ID: DeclReference] = [:]
+  private var bindingAssumptions: [NameExpr.ID: DeclReference]
 
   /// The penalties associated with the constraint system.
   ///
@@ -48,31 +51,26 @@ struct ConstraintSystem {
   /// The current indentation level for logging messages.
   private var indentation = 0
 
-  /// Creates an instance with given `constraints` and `bindings` defined in `scope`.
-  init<S: Sequence<Constraint>>(
-    _ constraints: S,
-    bindings: [NameExpr.ID: DeclReference],
-    in scope: AnyScopeID,
-    loggingTrace isLoggingEnabled: Bool
-  ) {
-    self.scope = scope
-    self.bindingAssumptions = bindings
+  /// Creates an instance for solving the constraints in `obligations`, logging a trace of
+  /// `solution(querying:)` iff `isLoggingEnabled` is `true`.
+  init(_ obligations: ProofObligations, logging isLoggingEnabled: Bool) {
+    self.scope = obligations.scope
+    self.bindingAssumptions = obligations.referredDecl
     self.isLoggingEnabled = isLoggingEnabled
-    _ = insert(fresh: constraints)
+    _ = insert(fresh: obligations.constraints)
   }
 
-  /// Solves this instance using `checker` to query type relations and resolve names, returning the
-  /// best solution.
+  /// Solves this instance, using `checker` to query type relations and resolve names and returning
+  /// the best solution found.
   mutating func solution(querying checker: inout TypeChecker) -> Solution {
-    solution(notWorseThan: .worst, querying: &checker)!
+    self.checker = checker
+    defer { checker = self.checker.release() }
+    return solution(notWorseThan: .worst)!
   }
 
-  /// Solves this instance using `checker` to query type relations and resolve names, returning the
-  /// best solution with a score inferior or equal to `maxScore` or `nil` if no such solution with
-  /// can be found.
-  private mutating func solution(
-    notWorseThan maxScore: Solution.Score, querying checker: inout TypeChecker
-  ) -> Solution? {
+  /// Solves this instance and returns the best solution with a score inferior or equal to
+  /// `self.maxScore`, or `nil` if no such solution can be found.
+  private mutating func solution(notWorseThan maxScore: Solution.Score) -> Solution? {
     logState()
     log("steps:")
 
@@ -86,36 +84,44 @@ struct ConstraintSystem {
       goals[g].modifyTypes({ typeAssumptions[$0] })
       log("- solve: \"\(goals[g])\"")
       indentation += 1
-      defer { indentation -= 1 }
       log("actions:")
+      defer { indentation -= 1 }
 
-      switch goals[g] {
-      case is ConformanceConstraint:
-        setOutcome(solve(conformance: g, using: &checker), for: g)
-      case is EqualityConstraint:
-        setOutcome(solve(equality: g, using: &checker), for: g)
-      case is SubtypingConstraint:
-        setOutcome(solve(subtyping: g, using: &checker), for: g)
-      case is ParameterConstraint:
-        setOutcome(solve(parameter: g, using: &checker), for: g)
-      case is MemberConstraint:
-        setOutcome(solve(member: g, using: &checker), for: g)
-      case is TupleMemberConstraint:
-        setOutcome(solve(tupleMember: g, using: &checker), for: g)
-      case is CallConstraint:
-        setOutcome(solve(call: g, using: &checker), for: g)
-      case is MergingConstraint:
-        setOutcome(solve(merging: g, using: &checker), for: g)
-      case is DisjunctionConstraint:
-        return solve(disjunction: g, using: &checker)
-      case is OverloadConstraint:
-        return solve(overload: g, using: &checker)
-      default:
-        unreachable()
-      }
+      if let s = solve(g) { return s }
     }
 
     return formSolution()
+  }
+
+  /// Eliminates `g`, storing the necessary assumptions about its open variables in `self` and
+  /// returning a solution if there are no more goals to solve.
+  private mutating func solve(_ g: GoalIdentity) -> Solution? {
+    switch goals[g] {
+    case is ConformanceConstraint:
+      setOutcome(solve(conformance: g), for: g)
+    case is EqualityConstraint:
+      setOutcome(solve(equality: g), for: g)
+    case is SubtypingConstraint:
+      setOutcome(solve(subtyping: g), for: g)
+    case is ParameterConstraint:
+      setOutcome(solve(parameter: g), for: g)
+    case is MemberConstraint:
+      setOutcome(solve(member: g), for: g)
+    case is TupleMemberConstraint:
+      setOutcome(solve(tupleMember: g), for: g)
+    case is CallConstraint:
+      setOutcome(solve(call: g), for: g)
+    case is MergingConstraint:
+      setOutcome(solve(merging: g), for: g)
+    case is DisjunctionConstraint:
+      return solve(disjunction: g)
+    case is OverloadConstraint:
+      return solve(overload: g)
+    default:
+      unreachable()
+    }
+
+    return nil
   }
 
   /// Returns the currently known cost of the solution being computed.
@@ -132,21 +138,11 @@ struct ConstraintSystem {
     (goals[g].origin.parent == nil) && (outcomes.succeeded(g) == false)
   }
 
-  /// Records the outcome `value` for the goal `key`.
-  private mutating func setOutcome(_ value: Outcome?, for key: GoalIdentity) {
-    switch value {
-    case nil:
-      log("- defer")
-    case .some(.success):
-      log("- success")
-    case .some(.failure):
-      log("- failure")
-    case .some(.product):
-      log("- break")
-    }
-
+  /// Records the outcome `o` for the goal `key`.
+  private mutating func setOutcome(_ o: Outcome?, for key: GoalIdentity) {
+    log(outcome: o)
     assert(outcomes[key] == nil)
-    outcomes[key] = value
+    outcomes[key] = o
   }
 
   /// Creates a solution from the current state.
@@ -171,8 +167,7 @@ struct ConstraintSystem {
 
   /// Creates an ambiguous solution.
   private func formAmbiguousSolution<T>(
-    _ results: Explorations<T>,
-    diagnosedBy d: Diagnostic
+    _ results: Explorations<T>, diagnosedBy d: Diagnostic
   ) -> Solution {
     var s = results.elements.reduce(into: Solution(), { (s, r) in s.merge(r.solution) })
     s.incorporate(d)
@@ -182,10 +177,7 @@ struct ConstraintSystem {
   /// Determines whether `g.model` conforms to `g.concept` and returns: `.success` if it conforms
   /// explicitly, `.product` if it may conform structurally,`.failure` if it doesn't conform, or
   /// `nil` if neither of these outcomes can be be determined yet.
-  private mutating func solve(
-    conformance g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome? {
+  private mutating func solve(conformance g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! ConformanceConstraint
 
     // Nothing to do if the subject is still a type variable.
@@ -201,12 +193,12 @@ struct ConstraintSystem {
 
     // Process structural and built-in conformances.
     switch goal.concept {
-    case checker.ast.movableTrait:
+    case checker.program.ast.movableTrait:
       return goal.model.isBuiltin ? .success : solve(structualConformance: goal)
-
-    case checker.ast.foreignConvertibleTrait:
+    case checker.program.ast.deinitializableTrait:
+      return goal.model.isBuiltin ? .success : solve(structualConformance: goal)
+    case checker.program.ast.foreignConvertibleTrait:
       return goal.model.isBuiltin ? .success : .failure(failureToSolve(goal))
-
     default:
       return .failure(failureToSolve(goal))
     }
@@ -261,12 +253,9 @@ struct ConstraintSystem {
   }
 
   /// Returns eiteher `.success` if `g.left` is unifiable with `g.right` or `.failure` otherwise.
-  private mutating func solve(
-    equality g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome {
+  private mutating func solve(equality g: GoalIdentity) -> Outcome {
     let goal = goals[g] as! EqualityConstraint
-    if unify(goal.left, goal.right, querying: checker.relations) {
+    if unify(goal.left, goal.right) {
       return .success
     } else {
       return .failure { (d, m, _) in
@@ -280,12 +269,9 @@ struct ConstraintSystem {
   /// if `g` must be broken down to smaller goals, or `nil` if that can't be determined yet.
   ///
   /// If the constraint is strict, then `g.left` must be different than `g.right`.
-  private mutating func solve(
-    subtyping g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome? {
+  private mutating func solve(subtyping g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! SubtypingConstraint
-    if checker.relations.areEquivalent(goal.left, goal.right) {
+    if checker.areEquivalent(goal.left, goal.right, in: scope) {
       return goal.isStrict ? .failure(failureToSolve(goal)) : .success
     }
 
@@ -302,9 +288,7 @@ struct ConstraintSystem {
     case (_, let r as UnionType):
       // If `R` is an empty union, so must be `L`.
       if r.elements.isEmpty {
-        return unify(goal.left, goal.right, querying: checker.relations)
-          ? .success
-          : .failure(failureToSolve(goal))
+        return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
       }
 
       // If `R` has a single element, it must be equal to (the canonical form of) `L`.
@@ -346,9 +330,7 @@ struct ConstraintSystem {
       // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
       // If it isn't, we have no choice but to postpone the goal.
       if goal.right.isLeaf {
-        return unify(goal.left, goal.right, querying: checker.relations)
-          ? .success
-          : .failure(failureToSolve(goal))
+        return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
       } else if goal.isStrict {
         postpone(g)
         return nil
@@ -396,12 +378,12 @@ struct ConstraintSystem {
           unreachable()
         }
 
-        let r = openForUnification(d, using: checker)
+        let r = checker.openForUnification(d)
         let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
         return delegate(to: [s])
 
       case .metatype:
-        let r = MetatypeType(of: TypeVariable())
+        let r = MetatypeType(of: checker.freshVariable())
         let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
         return delegate(to: [s])
       }
@@ -424,8 +406,8 @@ struct ConstraintSystem {
 
     default:
       if !goal.left[.isCanonical] || !goal.right[.isCanonical] {
-        let l = checker.relations.canonical(goal.left)
-        let r = checker.relations.canonical(goal.right)
+        let l = checker.canonical(goal.left, in: scope)
+        let r = checker.canonical(goal.right, in: scope)
         let s = schedule(
           SubtypingConstraint(l, r, strictly: goal.isStrict, origin: goal.origin.subordinate()))
         return delegate(to: [s])
@@ -434,32 +416,9 @@ struct ConstraintSystem {
       if goal.isStrict {
         return .failure(failureToSolve(goal))
       } else {
-        return unify(goal.left, goal.right, querying: checker.relations)
-          ? .success
-          : .failure(failureToSolve(goal))
+        return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
       }
     }
-  }
-
-  /// Returns the type declared by `d` bound to open variables for each generic parameter
-  /// introduced by `d`.
-  ///
-  /// - Requires: `d` is a a generic product type or type alias declaration.
-  private func openForUnification(_ d: AnyDeclID, using checker: TypeChecker) -> BoundGenericType {
-    let parameters: [GenericParameterDecl.ID]
-    if let decl = ProductTypeDecl.ID(d) {
-      parameters = checker.ast[decl].genericClause!.value.parameters
-    } else if let decl = TypeAliasDecl.ID(d) {
-      parameters = checker.ast[decl].genericClause!.value.parameters
-    } else {
-      preconditionFailure()
-    }
-
-    let b = MetatypeType(checker.declTypes[d])!.instance
-    let a = GenericArguments(
-      uniqueKeysWithValues: parameters.map({ (key: $0, value: ^TypeVariable()) }))
-
-    return BoundGenericType(b, arguments: a)
   }
 
   /// Returns a clousre diagnosing a failure to solve `g`.
@@ -483,12 +442,9 @@ struct ConstraintSystem {
 
   /// Returns either `.success` if instances of `g.left` can be passed to a parameter `g.right`,
   /// `.failure` if they can't, or `nil` if neither of these outcomes can be determined yet.
-  private mutating func solve(
-    parameter g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome? {
+  private mutating func solve(parameter g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! ParameterConstraint
-    if checker.relations.areEquivalent(goal.left, goal.right) {
+    if checker.areEquivalent(goal.left, goal.right, in: scope) {
       return .success
     }
 
@@ -518,10 +474,7 @@ struct ConstraintSystem {
   /// Returns either `.success` if `g.subject` has a member `g.memberName` of type `g.memberType`,
   /// `.failure` if it doesn't, `.product` if `g` must be broken down to smaller goals, or `nil` if
   /// if neither of these outcomes can be determined yet.
-  private mutating func solve(
-    member g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome? {
+  private mutating func solve(member g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! MemberConstraint
 
     if goal.subject.base is TypeVariable {
@@ -532,9 +485,9 @@ struct ConstraintSystem {
     let n = SourceRepresentable(value: goal.memberName, range: goal.origin.site)
 
     let context = NameResolutionContext(
-      type: goal.subject, receiver: .init(checker.ast[goal.memberExpr].domain))
+      type: goal.subject, receiver: .init(checker.program[goal.memberExpr].domain))
     let candidates = checker.resolve(
-      n, parameterizedBy: [], in: context, exposedTo: scope, usedAs: goal.purpose)
+      n, specializedBy: [], in: context, exposedTo: scope, usedAs: goal.purpose)
 
     if candidates.elements.isEmpty {
       return .failure { (d, m, _) in
@@ -579,10 +532,7 @@ struct ConstraintSystem {
   /// Returns either `.success` if `g.subject` is a tuple type whose `g.elementIndex`-th element
   /// has type `g.elementType`, `.failure` if it doesn't, `.product` if `g` must be broken down to
   /// smaller goals, or `nil` if if neither of these outcomes can be determined yet.
-  private mutating func solve(
-    tupleMember g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome? {
+  private mutating func solve(tupleMember g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! TupleMemberConstraint
 
     switch goal.subject.base {
@@ -594,7 +544,7 @@ struct ConstraintSystem {
       guard goal.elementIndex < s.elements.count else { break }
 
       let t = s.elements[goal.elementIndex].type
-      if unify(t, goal.elementType, querying: checker.relations) {
+      if unify(t, goal.elementType) {
         return .success
       } else {
         return .failure { (d, m, _) in
@@ -617,10 +567,7 @@ struct ConstraintSystem {
   /// Returns either `.success` if `g.callee` is a callable type with parameters `g.parameters`
   /// and return type `g.output`, `.failure` if it doesn't, `.product` if `g` must be broken
   /// down to smaller goals, or `nil` if neither of these outcomes can be determined yet.
-  private mutating func solve(
-    call g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome? {
+  private mutating func solve(call g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! CallConstraint
 
     if goal.callee.base is TypeVariable {
@@ -687,10 +634,7 @@ struct ConstraintSystem {
     return (i == labels.endIndex) ? result : nil
   }
 
-  private mutating func solve(
-    merging g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Outcome? {
+  private mutating func solve(merging g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! MergingConstraint
     guard !goal.branches.isEmpty else { return .success }
 
@@ -706,18 +650,13 @@ struct ConstraintSystem {
   }
 
   /// Solves the remaining goals separately for each choice in `g` and returns the best solution.
-  private mutating func solve(
-    disjunction g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Solution? {
+  private mutating func solve(disjunction g: GoalIdentity) -> Solution? {
     let goal = goals[g] as! DisjunctionConstraint
 
-    let results: Explorations<DisjunctionConstraint> = explore(
-      g, using: &checker,
-      configuringSubSystemWith: { (solver, choice) in
-        solver.penalties += choice.penalties
-        return solver.insert(fresh: choice.constraints)
-      })
+    let results: Explorations<DisjunctionConstraint> = explore(g) { (solver, choice) in
+      solver.penalties += choice.penalties
+      return solver.insert(fresh: choice.constraints)
+    }
 
     if let pick = results.elements.uniqueElement?.solution {
       return pick
@@ -730,19 +669,14 @@ struct ConstraintSystem {
   }
 
   /// Solves the remaining goals separately for each choice in `g` and returns the best solution.
-  private mutating func solve(
-    overload g: GoalIdentity,
-    using checker: inout TypeChecker
-  ) -> Solution? {
+  private mutating func solve(overload g: GoalIdentity) -> Solution? {
     let goal = goals[g] as! OverloadConstraint
 
-    let results: Explorations<OverloadConstraint> = explore(
-      g, using: &checker,
-      configuringSubSystemWith: { (solver, choice) in
-        solver.penalties += choice.penalties
-        solver.bindingAssumptions[goal.overloadedExpr] = choice.reference
-        return solver.insert(fresh: choice.constraints)
-      })
+    let results: Explorations<OverloadConstraint> = explore(g) { (solver, choice) in
+      solver.penalties += choice.penalties
+      solver.bindingAssumptions[goal.overloadedExpr] = choice.reference
+      return solver.insert(fresh: choice.constraints)
+    }
 
     if let pick = results.elements.uniqueElement?.solution {
       return pick
@@ -754,7 +688,7 @@ struct ConstraintSystem {
       results,
       diagnosedBy: .error(
         ambiguousUse: goal.overloadedExpr,
-        in: checker.ast,
+        in: checker.program.ast,
         candidates: results.elements.compactMap(\.choice.reference.decl)))
   }
 
@@ -768,7 +702,6 @@ struct ConstraintSystem {
   ///     choices and returns the identities of the goals added to that system.
   private mutating func explore<T: DisjunctiveConstraintProtocol>(
     _ g: GoalIdentity,
-    using checker: inout TypeChecker,
     configuringSubSystemWith configureSubSystem: (inout Self, T.Predicate) -> [GoalIdentity]
   ) -> Explorations<T> {
     log("- fork:")
@@ -793,14 +726,12 @@ struct ConstraintSystem {
       var exploration = self
       let s = configureSubSystem(&exploration, choice)
       exploration.setOutcome(s.isEmpty ? .success : delegate(to: s), for: g)
-      guard let new = exploration.solution(notWorseThan: results.score, querying: &checker) else {
+      guard let new = exploration.solution(notWorseThan: results.score) else {
         continue
       }
 
       // Insert the new result.
-      results.insert(
-        (choice, new),
-        rankingSolutionWith: { (a, b) in rank(a, b, querying: &checker) })
+      results.insert((choice, new), rankingSolutionWith: { (a, b) in checker.rank(a, b) })
     }
 
     return results
@@ -858,11 +789,9 @@ struct ConstraintSystem {
   /// Type unification consists of finding substitutions that makes `lhs` and `rhs` equal. The
   /// algorithm recursively visits both types in lockstep, updating `self.typeAssumptions` every
   /// time either side is a type variable for which no substitution has been made yet.
-  private mutating func unify(
-    _ lhs: AnyType, _ rhs: AnyType, querying relations: TypeRelations
-  ) -> Bool {
+  private mutating func unify(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
     let (a, b) = (typeAssumptions[lhs], typeAssumptions[rhs])
-    if relations.areEquivalent(a, b) { return true }
+    if checker.areEquivalent(a, b, in: scope) { return true }
 
     switch (a.base, b.base) {
     case (let v as TypeVariable, _):
@@ -874,17 +803,16 @@ struct ConstraintSystem {
       return true
 
     case (let l as BoundGenericType, let r as BoundGenericType):
-      guard
-        unify(l.base, r.base, querying: relations),
-        l.arguments.count == r.arguments.count
-      else { return false }
+      guard unify(l.base, r.base), l.arguments.count == r.arguments.count else {
+        return false
+      }
 
       var result = true
       for (a, b) in zip(l.arguments, r.arguments) {
         result = (a.key == b.key) && result
         switch (a.value, b.value) {
         case (let vl as AnyType, let vr as AnyType):
-          result = unify(vl, vr, querying: relations) && result
+          result = unify(vl, vr) && result
         default:
           result = a.value.equals(b.value) && result
         }
@@ -892,7 +820,7 @@ struct ConstraintSystem {
       return result
 
     case (let l as MetatypeType, let r as MetatypeType):
-      return unify(l.instance, r.instance, querying: relations)
+      return unify(l.instance, r.instance)
 
     case (let l as TupleType, let r as TupleType):
       if !l.labels.elementsEqual(r.labels) {
@@ -901,7 +829,7 @@ struct ConstraintSystem {
 
       var result = true
       for (a, b) in zip(l.elements, r.elements) {
-        result = unify(a.type, b.type, querying: relations) && result
+        result = unify(a.type, b.type) && result
       }
       return result
 
@@ -912,10 +840,10 @@ struct ConstraintSystem {
 
       var result = true
       for (a, b) in zip(l.inputs, r.inputs) {
-        result = unify(a.type, b.type, querying: relations) && result
+        result = unify(a.type, b.type) && result
       }
-      result = unify(l.output, r.output, querying: relations) && result
-      result = unify(l.environment, r.environment, querying: relations) && result
+      result = unify(l.output, r.output) && result
+      result = unify(l.environment, r.environment) && result
       return result
 
     case (let l as MethodType, let r as MethodType):
@@ -928,30 +856,30 @@ struct ConstraintSystem {
 
       var result = true
       for (a, b) in zip(l.inputs, r.inputs) {
-        result = unify(a.type, b.type, querying: relations) && result
+        result = unify(a.type, b.type) && result
       }
-      result = unify(l.output, r.output, querying: relations) && result
-      result = unify(l.receiver, r.receiver, querying: relations) && result
+      result = unify(l.output, r.output) && result
+      result = unify(l.receiver, r.receiver) && result
       return result
 
     case (let l as ParameterType, let r as ParameterType):
       if l.access != r.access {
         return false
       }
-      return unify(l.bareType, r.bareType, querying: relations)
+      return unify(l.bareType, r.bareType)
 
     case (let l as RemoteType, let r as RemoteType):
       if l.access != r.access {
         return false
       }
-      return unify(l.bareType, r.bareType, querying: relations)
+      return unify(l.bareType, r.bareType)
 
     default:
       if !lhs[.isCanonical] {
-        return unify(relations.canonical(lhs), rhs, querying: relations)
+        return unify(checker.canonical(lhs, in: scope), rhs)
       }
       if !rhs[.isCanonical] {
-        return unify(lhs, relations.canonical(rhs), querying: relations)
+        return unify(lhs, checker.canonical(rhs, in: scope))
       }
       return false
     }
@@ -978,117 +906,27 @@ struct ConstraintSystem {
     }
   }
 
-  /// Returns the rank of `lhs` relative ro `rhs` comparing types using `checker` to query type
-  /// relations and resolve names.
-  private func rank(
-    _ lhs: Solution,
-    _ rhs: Solution,
-    querying checker: inout TypeChecker
-  ) -> StrictPartialOrdering {
-    var ranking: StrictPartialOrdering = .equal
-    var namesInCommon = 0
-
-    for (n, lhsDeclRef) in lhs.bindingAssumptions {
-      guard let rhsDeclRef = rhs.bindingAssumptions[n] else { continue }
-      namesInCommon += 1
-
-      // Nothing to do if both functions have the binding.
-      if lhsDeclRef == rhsDeclRef { continue }
-      let lhs = checker.declTypes[lhsDeclRef.decl!]!
-      let rhs = checker.declTypes[rhsDeclRef.decl!]!
-
-      switch compareSpecificity(lhs, rhs, at: checker.ast[n].site, querying: &checker) {
-      case .ascending:
-        if ranking == .descending { return nil }
-        ranking = .ascending
-      case .descending:
-        if ranking == .ascending { return nil }
-        ranking = .descending
-      default:
-        return nil
-      }
-    }
-
-    if lhs.bindingAssumptions.count < rhs.bindingAssumptions.count {
-      if namesInCommon == lhs.bindingAssumptions.count {
-        return ranking != .ascending ? .descending : nil
-      } else {
-        return nil
-      }
-    }
-
-    if lhs.bindingAssumptions.count > rhs.bindingAssumptions.count {
-      if namesInCommon == rhs.bindingAssumptions.count {
-        return ranking != .descending ? .ascending : nil
-      } else {
-        return nil
-      }
-    }
-
-    return namesInCommon == lhs.bindingAssumptions.count ? ranking : nil
-  }
-
-  /// Compares `lhs` and `rhs` and returns whether one is more specific than the other.
-  ///
-  /// `t1` is more specific than `t2` if both are callable types with the same labels and `t1`
-  /// accepts stricly less arguments than `t2`.
-  private func compareSpecificity(
-    _ lhs: AnyType, _ rhs: AnyType, at site: SourceRange, querying checker: inout TypeChecker
-  ) -> StrictPartialOrdering {
-    guard
-      let l = lhs.base as? CallableType,
-      let r = rhs.base as? CallableType
-    else { return nil }
-
-    guard
-      l.inputs.count == r.inputs.count,
-      l.inputs.elementsEqual(r.inputs, by: { $0.label == $1.label })
-    else { return nil }
-
-    let lRefinesR = isMoreSpecific(lhs, rhs, at: site, querying: &checker)
-    let rRefinesL = isMoreSpecific(rhs, lhs, at: site, querying: &checker)
-
-    if lRefinesR {
-      return rRefinesL ? nil : .ascending
-    }
-    if rRefinesL {
-      return lRefinesR ? nil : .descending
-    }
-    return nil
-  }
-
-  /// Returns `true` iff `lhs` is more specific than `rhs`.
-  ///
-  /// - Requires: `lhs` and `rhs` are `CallableType`s.
-  private func isMoreSpecific(
-    _ lhs: AnyType,
-    _ rhs: AnyType,
-    at site: SourceRange,
-    querying checker: inout TypeChecker
-  ) -> Bool {
-    // Open the right operand.
-    let openedRight = checker.open(type: rhs, at: site)
-    var constraints = openedRight.constraints
-
-    // Create pairwise subtyping constraints on the parameters.
-    let l = lhs.skolemized.base as! CallableType
-    let r = openedRight.shape.base as! CallableType
-    for (a, b) in zip(l.inputs, r.inputs) {
-      constraints.insert(SubtypingConstraint(a.type, b.type, origin: .init(.binding, at: site)))
-    }
-
-    // Solve the constraint system.
-    var s = ConstraintSystem(constraints, bindings: [:], in: scope, loggingTrace: isLoggingEnabled)
-    return !s.solution(querying: &checker).isSound
-  }
-
-  /// Logs a line of text in the standard output.
+  /// Logs a line of text in the standard output if `self.isLoggingEnabled` is `true`.
   private func log(_ line: @autoclosure () -> String) {
     if !isLoggingEnabled { return }
     print(String(repeating: "  ", count: indentation) + line())
   }
 
-  /// Logs the current state of `self` in the standard output.
+  /// Logs `outcome` in the standard output if `self.isLoggingEnabled` is `true`.
+  private func log(outcome: Outcome?) {
+    switch outcome {
+    case nil:
+      log("- defer")
+    case .some(.success):
+      log("- success")
+    case .some(.failure):
+      log("- failure")
+    case .some(.product):
+      log("- break")
+    }
+  }
+
+  /// Logs `self`'s current state in the standard output if `self.isLoggingEnabled` is `true`.
   private func logState() {
     if !isLoggingEnabled { return }
     log("fresh:")

@@ -19,7 +19,8 @@ extension XCTestCase {
         diagnostics: &diagnostics)
 
       // Run the type checker
-      let typedProgram = try TypedProgram(ast, diagnostics: &diagnostics)
+      let base = ScopedProgram(ast)
+      let typedProgram = try TypedProgram(annotating: base, reportingDiagnosticsTo: &diagnostics)
 
       // Emit Val's IR.
       var irModule = try Module(

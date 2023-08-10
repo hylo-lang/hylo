@@ -62,10 +62,11 @@ enum NameResolutionResult {
       self.diagnostics = diagnostics
     }
 
-    /// Creates an instance denoting a built-in function.
-    init(_ f: BuiltinFunction) {
+    /// Creates an instance denoting a built-in function, calling `freshVariable` to create fresh
+    /// type variables.
+    init(_ f: BuiltinFunction, makingFreshVariableWith freshVariable: () -> TypeVariable) {
       self.reference = .builtinFunction(f)
-      self.type = ^f.type()
+      self.type = ^f.type(makingFreshVariableWith: freshVariable)
       self.constraints = []
       self.diagnostics = []
     }
@@ -86,9 +87,9 @@ enum NameResolutionResult {
       constraints: [],
       diagnostics: [])
 
-    /// Creates an instance denoting an intrinsic type.
-    static func intrinsic(_ t: AnyType) -> Self {
-      .init(reference: .intrinsicType, type: t, constraints: [], diagnostics: [])
+    /// Creates an instance denoting an compiler-known type.
+    static func compilerKnown(_ t: AnyType) -> Self {
+      .init(reference: .compilerKnownType, type: t, constraints: [], diagnostics: [])
     }
 
   }

@@ -24,6 +24,9 @@ struct ConstraintOrigin: Hashable {
     /// The constraint is caused by a cast expression.
     case cast
 
+    /// The constraint is caused by a discard statement.
+    case discard
+
     /// The constraint is caused by an initialization or assignment.
     case initializationOrAssignment
 

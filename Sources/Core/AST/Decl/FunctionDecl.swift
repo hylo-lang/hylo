@@ -86,6 +86,9 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     self.isInExprContext = isInExprContext
   }
 
+  /// `true` iff `self` is a definition of the entity that it declares.
+  public var isDefinition: Bool { body != nil }
+
   /// Returns whether the declaration is public.
   public var isPublic: Bool { accessModifier.value == .public }
 

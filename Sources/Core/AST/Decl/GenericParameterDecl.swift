@@ -1,5 +1,5 @@
 /// A generic parameter declaration.
-public struct GenericParameterDecl: SingleEntityDecl {
+public struct GenericParameterDecl: SingleEntityDecl, ConstrainedGenericTypeDecl {
 
   public let site: SourceRange
 

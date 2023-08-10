@@ -93,6 +93,17 @@ public struct AnyType: TypeProtocol {
     set { wrapped = AnyType(newValue).wrapped }
   }
 
+  /// `self` if `!self[.hasError]`; otherwise, `nil`.
+  public var errorFree: AnyType? {
+    self[.hasError] ? nil : self
+  }
+
+  /// `self` transformed as the type of a member of `receiver`, which is existential.
+  public func asMember(of receiver: ExistentialType) -> AnyType {
+    let m = LambdaType(self) ?? fatalError("not implemented")
+    return ^m.asMember(of: receiver)
+  }
+
   /// Indicates whether `self` is a leaf type.
   ///
   /// A leaf type is a type whose only subtypes are itself and `Never`.
@@ -166,6 +177,20 @@ public struct AnyType: TypeProtocol {
   ) -> AnyType {
     AnyType(wrapped.transformParts(mutating: &m, transformer))
   }
+
+  /// Returns `self` with occurrences of free type variables replaced by errors.
+  public var replacingVariablesWithErrors: AnyType {
+    self.transform { (t) in
+      if t.isTypeVariable {
+        return .stepOver(.error)
+      } else if t[.hasVariable] {
+        return .stepInto(t)
+      } else {
+        return .stepOver(t)
+      }
+    }
+  }
+
 }
 
 extension AnyType: CompileTimeValue {
