@@ -1,5 +1,5 @@
 /// A namespace declaration.
-public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
+public struct NamespaceDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
 
   public let site: SourceRange
 

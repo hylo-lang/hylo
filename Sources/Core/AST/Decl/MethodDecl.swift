@@ -61,9 +61,6 @@ public struct MethodDecl: BundleDecl, GenericDecl, GenericScope {
     self.impls = impls
   }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
-
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
     for p in parameters {

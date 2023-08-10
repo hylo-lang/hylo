@@ -28,7 +28,7 @@ extension Program {
   public func isModuleEntry(_ d: FunctionDecl.ID) -> Bool {
     let s = nodeToScope[d]!
     let n = ast[d].identifier?.value
-    return (s.kind == TranslationUnit.self) && ast[d].isPublic && (n == "main")
+    return (s.kind == TranslationUnit.self) && isPublic(d) && (n == "main")
   }
 
   /// Returns whether `child` is contained in `ancestor`.
@@ -224,6 +224,51 @@ extension Program {
   /// Returns whether `decl` is local in `ast`.
   public func isLocal<T: DeclID>(_ decl: T) -> Bool {
     !isGlobal(decl) && !isMember(decl)
+  }
+
+  /// Returns `true` iff `d` is public.
+  public func isPublic<T: DeclID>(_ d: T) -> Bool {
+    switch d.kind {
+    case SubscriptImpl.self:
+      return isPublic(SubscriptDecl.ID(nodeToScope[d]!)!)
+    case MethodImpl.self:
+      return isPublic(MethodDecl.ID(nodeToScope[d]!)!)
+    case VarDecl.self:
+      return isPublic(varToBinding[.init(d)!]!)
+    default:
+      return (ast[d] as? ExposableDecl)?.accessModifier.value == .public
+    }
+  }
+
+  /// Returns `true` iff `d` is visible outside of its module.
+  ///
+  /// - Note: modules are considered exported.
+  public func isExported<T: DeclID>(_ d: T) -> Bool {
+    (d.kind == ModuleDecl.self) || (isPublic(d) && isExportingDecls(nodeToScope[d]!))
+  }
+
+  /// Returns `true` iff the public declarations in `s` are visible outside of their module.
+  public func isExportingDecls(_ s: AnyScopeID) -> Bool {
+    switch s.kind {
+    case ConformanceDecl.self:
+      return isExported(ConformanceDecl.ID(s)!)
+    case ExtensionDecl.self:
+      return isExported(ExtensionDecl.ID(s)!)
+    case ModuleDecl.self:
+      return true
+    case NamespaceDecl.self:
+      return isExported(NamespaceDecl.ID(s)!)
+    case ProductTypeDecl.self:
+      return isExported(ProductTypeDecl.ID(s)!)
+    case TraitDecl.self:
+      return isExported(TraitDecl.ID(s)!)
+    case TypeAliasDecl.self:
+      return isExported(TypeAliasDecl.ID(s)!)
+    case TranslationUnit.self:
+      return true
+    default:
+      return false
+    }
   }
 
   /// Returns whether `decl` is a requirement.

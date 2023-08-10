@@ -378,6 +378,13 @@ extension LLVM.Module {
     let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
     let result = declareFunction(ir.base.mangled(f), .init(from: parameters, in: &self))
 
+    switch m[f].linkage {
+    case .external:
+      setLinkage(.external, for: result)
+    case .module:
+      setLinkage(.private, for: result)
+    }
+
     if m[f].output == .never {
       addAttribute(.init(.noreturn, in: &self), to: result)
     }
