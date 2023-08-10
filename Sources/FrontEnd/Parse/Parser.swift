@@ -489,11 +489,7 @@ public enum Parser {
       throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
-    // Extension declarations shall not have modifiers.
-    if !prologue.accessModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
-    }
+    // Extension declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
         prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
