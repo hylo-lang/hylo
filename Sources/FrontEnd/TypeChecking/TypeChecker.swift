@@ -905,7 +905,7 @@ public struct TypeChecker {
 
     /// Checks if `requirement` is satisfied by `model`, extending `implementations` if it is or
     /// reporting a diagnostic in `notes` otherwise.
-    func checkSatisfied<T: Decl>(callable requirement: T.ID, named requiredName: Name) {
+    func checkSatisfied<D: Decl>(callable requirement: D.ID, named requiredName: Name) {
       guard let requiredType = LambdaType(candidateType(requirement)) else {
         return
       }
@@ -934,7 +934,7 @@ public struct TypeChecker {
 
     /// Returns the type of `candidate` viewed as a member of `model` satisfying a requirement in
     /// `concept`, or `nil` if this type could not be realized.
-    func candidateType<T: Decl>(_ candidate: T.ID) -> AnyType? {
+    func candidateType<D: Decl>(_ candidate: D.ID) -> AnyType? {
       let t = realize(decl: candidate)
       if t[.hasError] {
         return nil
