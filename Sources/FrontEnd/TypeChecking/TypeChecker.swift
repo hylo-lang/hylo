@@ -1041,16 +1041,16 @@ struct TypeChecker {
 
     /// Returns the implementation of `r` in `model`, with `r` a requirement of `concept` with type
     /// `t` and name `n`, or returns `nil` if no such implementation exist.
-    func implementation<T: DeclID>(
+    func implementation<D: DeclID>(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name,
-      identifiedBy: T.Type = T.self,
-      collectingCandidatesWith appendDefinitions: (T, AnyType, inout [AnyDeclID]) -> Void
+      identifiedBy: D.Type = D.self,
+      collectingCandidatesWith appendDefinitions: (D, AnyType, inout [AnyDeclID]) -> Void
     ) -> AnyDeclID? {
       guard !t[.hasError] else { return nil }
 
       let candidates = lookup(n.stem, memberOf: m, exposedTo: scopeOfExposition)
       let viable: [AnyDeclID] = candidates.reduce(into: []) { (s, c) in
-        guard let d = T(c) else { return }
+        guard let d = D(c) else { return }
         appendDefinitions(d, t, &s)
       }
 
@@ -1075,7 +1075,7 @@ struct TypeChecker {
     }
 
     /// Appends `d` to `s` iff it's a a definition with type `t`.
-    func appendIfDefinition<T: Decl>(_ d: T.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
+    func appendIfDefinition<D: Decl>(_ d: D.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
       let u = type(ofMember: AnyDeclID(d))
       if program[d].isDefinition && areEquivalent(t, u, in: scopeOfExposition) {
         s.append(AnyDeclID(d))
