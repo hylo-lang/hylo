@@ -1,10 +1,10 @@
-# Contributing to Val
+# Contributing to Hylo
 
-So you want to contribute to Val?
+So you want to contribute to Hylo?
 Thanks, that's amazing!
 Let's get you started.
 
-There are several ways you may contribute to the Val project (see below) and we greatly appreciate all of them.
+There are several ways you may contribute to the Hylo project (see below) and we greatly appreciate all of them.
 We'd like to ask every contributor to read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) and expect every member of our community to be welcoming, helpful, and respectful.
 
 Please fill an issue if you have any questions.
@@ -29,7 +29,7 @@ If it hasn't, you can create a new issue with the label `bug` with the following
 - the steps to reproduce it (typically in the form of a program);
 - the expected result;
 - the actual result; and
-- the version of your operating system and the version of the Val compiler you are using.
+- the version of your operating system and the version of the Hylo compiler you are using.
 
 We greatly appreciate it if you can isolate the problem and provide a minimal reproducer.
 
