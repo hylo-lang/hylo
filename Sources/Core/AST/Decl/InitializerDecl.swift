@@ -68,9 +68,6 @@ public struct InitializerDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration is a memberwise initializer.
   public var isMemberwise: Bool { introducer.value == .memberwiseInit }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
-
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
     for p in parameters {

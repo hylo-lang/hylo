@@ -37,9 +37,6 @@ public struct ProductTypeDecl: SingleEntityDecl, GenericDecl, LexicalScope, Gene
 
   public var baseName: String { identifier.value }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
-
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     for m in members {
       ast.validateTypeMember(m, into: &diagnostics)

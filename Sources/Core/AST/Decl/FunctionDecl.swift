@@ -89,9 +89,6 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   /// `true` iff `self` is a definition of the entity that it declares.
   public var isDefinition: Bool { body != nil }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
-
   /// Returns whether the declaration denotes a static member function.
   public var isStatic: Bool { memberModifier?.value == .static }
 

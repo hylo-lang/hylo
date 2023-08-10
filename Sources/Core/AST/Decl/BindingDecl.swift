@@ -35,9 +35,6 @@ public struct BindingDecl: Decl {
     self.initializer = initializer
   }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
-
   /// Returns whether the declaration denotes a static member.
   public var isStatic: Bool { memberModifier?.value == .static }
 

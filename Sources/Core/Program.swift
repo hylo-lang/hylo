@@ -28,7 +28,7 @@ extension Program {
   public func isModuleEntry(_ d: FunctionDecl.ID) -> Bool {
     let s = nodeToScope[d]!
     let n = ast[d].identifier?.value
-    return (s.kind == TranslationUnit.self) && ast[d].isPublic && (n == "main")
+    return (s.kind == TranslationUnit.self) && isPublic(d) && (n == "main")
   }
 
   /// Returns whether `child` is contained in `ancestor`.
@@ -224,6 +224,40 @@ extension Program {
   /// Returns whether `decl` is local in `ast`.
   public func isLocal<T: DeclID>(_ decl: T) -> Bool {
     !isGlobal(decl) && !isMember(decl)
+  }
+
+  /// Returns `true` iff `d` is public.
+  public func isPublic<T: DeclID>(_ d: T) -> Bool {
+    switch d.kind {
+    case BindingDecl.self:
+      return ast[BindingDecl.ID(d)!].accessModifier.value == .public
+    case ConformanceDecl.self:
+      return ast[ConformanceDecl.ID(d)!].accessModifier.value == .public
+    case ExtensionDecl.self:
+      return ast[ExtensionDecl.ID(d)!].accessModifier.value == .public
+    case FunctionDecl.self:
+      return ast[FunctionDecl.ID(d)!].accessModifier.value == .public
+    case InitializerDecl.self:
+      return ast[InitializerDecl.ID(d)!].accessModifier.value == .public
+    case MethodDecl.self:
+      return ast[MethodDecl.ID(d)!].accessModifier.value == .public
+    case NamespaceDecl.self:
+      return ast[NamespaceDecl.ID(d)!].accessModifier.value == .public
+    case OperatorDecl.self:
+      return ast[OperatorDecl.ID(d)!].accessModifier.value == .public
+    case ProductTypeDecl.self:
+      return ast[ProductTypeDecl.ID(d)!].accessModifier.value == .public
+    case SubscriptDecl.self:
+      return ast[SubscriptDecl.ID(d)!].accessModifier.value == .public
+    case TraitDecl.self:
+      return ast[TraitDecl.ID(d)!].accessModifier.value == .public
+    case TypeAliasDecl.self:
+      return ast[TypeAliasDecl.ID(d)!].accessModifier.value == .public
+    case VarDecl.self:
+      return isPublic(varToBinding[.init(d)!]!)
+    default:
+      return false
+    }
   }
 
   /// Returns whether `decl` is a requirement.
