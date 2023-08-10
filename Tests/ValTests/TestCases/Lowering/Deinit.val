@@ -10,5 +10,5 @@ type A {
 public fun main() {
   var a = A(x: 1)
   use(a)
-  //! @+1 diagnostic type 'A' is not deinitializable
+  //! @+1 diagnostic type 'A' does not conform to trait 'Deinitializable'
 }

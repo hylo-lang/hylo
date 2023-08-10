@@ -2211,7 +2211,7 @@ struct Emitter {
     }
 
     // Object is not deinitializable.
-    report(.error(nonDeinitializable: module.type(of: storage).ast, at: site))
+    report(.error(module.type(of: storage).ast, doesNotConformTo: concept, at: site))
   }
 
   /// Inserts the IR for deinitializing `storage`, using `c` to identify the deinitializer to apply
@@ -2244,7 +2244,7 @@ struct Emitter {
     } else if t.base is UnionType {
       emitDeinitUnionPayload(of: storage, at: site)
     } else {
-      report(.error(nonDeinitializable: module.type(of: storage).ast, at: site))
+      report(.error(t, doesNotConformTo: ast.deinitializableTrait, at: site))
     }
   }
 
@@ -2481,10 +2481,6 @@ extension Diagnostic {
 
   static func error(assignmentLHSRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
-  }
-
-  static func error(nonDeinitializable t: AnyType, at site: SourceRange) -> Diagnostic {
-    .error("type '\(t)' is not deinitializable", at: site)
   }
 
   static func error(
