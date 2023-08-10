@@ -260,6 +260,37 @@ extension Program {
     }
   }
 
+  /// Returns `true` iff `d` is visible outside of its module.
+  ///
+  /// - Note: modules are considered exported.
+  public func isExported<T: DeclID>(_ d: T) -> Bool {
+    (d.kind == ModuleDecl.self) || (isPublic(d) && isExportingDecls(nodeToScope[d]!))
+  }
+
+  /// Returns `true` iff the public declarations in `s` are visible outside of their module.
+  public func isExportingDecls(_ s: AnyScopeID) -> Bool {
+    switch s.kind {
+    case ConformanceDecl.self:
+      return isExported(ConformanceDecl.ID(s)!)
+    case ExtensionDecl.self:
+      return isExported(ExtensionDecl.ID(s)!)
+    case ModuleDecl.self:
+      return true
+    case NamespaceDecl.self:
+      return isExported(NamespaceDecl.ID(s)!)
+    case ProductTypeDecl.self:
+      return isExported(ProductTypeDecl.ID(s)!)
+    case TraitDecl.self:
+      return isExported(TraitDecl.ID(s)!)
+    case TypeAliasDecl.self:
+      return isExported(TypeAliasDecl.ID(s)!)
+    case TranslationUnit.self:
+      return true
+    default:
+      return false
+    }
+  }
+
   /// Returns whether `decl` is a requirement.
   public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
     switch decl.kind {
