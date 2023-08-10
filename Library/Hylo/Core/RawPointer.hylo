@@ -15,6 +15,11 @@ public type RawPointer {
     &self.value = other.value
   }
 
+  /// Creates a copy of `other`.
+  public init(_ other: MutableRawPointer) {
+    &self.value = other.value
+  }
+
   /// Creates a null pointer.
   public static fun null() -> Self {
     .new(value: Builtin.zeroinitializer_ptr())
