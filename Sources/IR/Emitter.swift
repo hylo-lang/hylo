@@ -2195,29 +2195,23 @@ struct Emitter {
   /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
   /// exposed to `self.insertionScope`.
   mutating func emitDeinit(_ storage: Operand, at site: SourceRange) {
-    // Use custom conformance to `Deinitializable` if possible.
     let model = module.type(of: storage).ast
-    let concept = program.ast.deinitializableTrait
 
+    // Use a no-ip if the object is trivially deinitializable.
+    if program.isTriviallyDeinitializable(model, in: insertionScope!) {
+      insert(module.makeMarkState(storage, initialized: false, at: site))
+      return
+    }
+
+    // Use custom conformance to `Deinitializable` if possible.
+    let concept = program.ast.deinitializableTrait
     if let c = module.program.conformance(of: model, to: concept, exposedTo: insertionScope!) {
       emitDeinit(storage, withConformanceToDeinitializable: c, at: site)
       return
     }
 
-    switch model.base {
-    case is BuiltinType, is MetatypeType:
-      insert(module.makeMarkState(storage, initialized: false, at: site))
-
-    case let u as LambdaType:
-      if canonical(u.environment) == .void {
-        insert(module.makeMarkState(storage, initialized: false, at: site))
-      } else {
-        fatalError("not implemented")
-      }
-
-    default:
-      report(.error(nonDeinitializable: module.type(of: storage).ast, at: site))
-    }
+    // Object is not deinitializable.
+    report(.error(module.type(of: storage).ast, doesNotConformTo: concept, at: site))
   }
 
   /// Inserts the IR for deinitializing `storage`, using `c` to identify the deinitializer to apply
@@ -2250,7 +2244,7 @@ struct Emitter {
     } else if t.base is UnionType {
       emitDeinitUnionPayload(of: storage, at: site)
     } else {
-      report(.error(nonDeinitializable: module.type(of: storage).ast, at: site))
+      report(.error(t, doesNotConformTo: ast.deinitializableTrait, at: site))
     }
   }
 
@@ -2487,10 +2481,6 @@ extension Diagnostic {
 
   static func error(assignmentLHSRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
-  }
-
-  static func error(nonDeinitializable t: AnyType, at site: SourceRange) -> Diagnostic {
-    .error("type '\(t)' is not deinitializable", at: site)
   }
 
   static func error(
