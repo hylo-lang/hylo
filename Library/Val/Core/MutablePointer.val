@@ -15,6 +15,11 @@ public type MutablePointer<Pointee> {
     &self.value = other.value
   }
 
+  /// Creates a null pointer.
+  public static fun null() -> Self {
+    .new(value: Builtin.zeroinitializer_ptr())
+  }
+
   /// Returns the result of applying `action` to a projection of the value referenced by `self`.
   public fun with_uninitialized_pointee<T>(_ action: [](set Pointee) -> T) -> T {
     action(value as* (remote set Pointee))

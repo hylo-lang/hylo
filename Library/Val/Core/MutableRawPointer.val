@@ -10,6 +10,11 @@ public type MutableRawPointer {
     &self.value = other.value
   }
 
+  /// Creates a null pointer.
+  public static fun null() -> Self {
+    .new(value: Builtin.zeroinitializer_ptr())
+  }
+
 }
 
 public conformance MutableRawPointer: Deinitializable {}
