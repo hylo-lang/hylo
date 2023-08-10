@@ -234,7 +234,7 @@ public struct Module {
     let entity = Function(
       isSubscript: false,
       site: program.ast[d].site,
-      linkage: .external,
+      linkage: program.isExported(d) ? .external : .module,
       genericParameters: Array(parameters),
       inputs: inputs,
       output: output,
@@ -263,7 +263,7 @@ public struct Module {
     let entity = Function(
       isSubscript: true,
       site: program.ast[d].site,
-      linkage: .external,
+      linkage: program.isExported(d) ? .external : .module,
       genericParameters: Array(parameters),
       inputs: inputs,
       output: output,
@@ -286,7 +286,7 @@ public struct Module {
     let entity = Function(
       isSubscript: false,
       site: program.ast[d].introducer.site,
-      linkage: .external,
+      linkage: program.isExported(d) ? .external : .module,
       genericParameters: Array(parameters),
       inputs: inputs,
       output: .void,
