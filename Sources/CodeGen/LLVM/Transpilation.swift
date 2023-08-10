@@ -35,10 +35,10 @@ extension LLVM.Module {
     }
 
     if m[f].isSubscript {
-      let d = declare(subscript: f, of: m, from: ir)
+      let d = declareSubscript(transpiledFrom: f, of: m, from: ir)
       transpile(contentsOf: f, of: m, from: ir, into: d)
     } else {
-      let d = declare(function: f, of: m, from: ir)
+      let d = declareFunction(transpiledFrom: f, of: m, from: ir)
       transpile(contentsOf: f, of: m, from: ir, into: d)
       if f == m.entryFunction {
         defineMain(calling: f, of: m, from: ir)
@@ -369,8 +369,8 @@ extension LLVM.Module {
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
-  private mutating func declare(
-    function f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
+  private mutating func declareFunction(
+    transpiledFrom f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
   ) -> LLVM.Function {
     precondition(!m[f].isSubscript)
 
@@ -393,8 +393,8 @@ extension LLVM.Module {
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a subscript of `m` in `ir`.
-  private mutating func declare(
-    subscript f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
+  private mutating func declareSubscript(
+    transpiledFrom f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
   ) -> LLVM.Function {
     precondition(m[f].isSubscript)
 
@@ -818,7 +818,7 @@ extension LLVM.Module {
       }
 
       // %1 = call ptr @llvm.coro.prepare.retcon(ptr @s)
-      let f = declare(subscript: s.callee, of: m, from: ir)
+      let f = declareSubscript(transpiledFrom: s.callee, of: m, from: ir)
       let prepare = intrinsic(named: Intrinsic.llvm.coro.prepare.retcon)!
       let x1 = insertCall(LLVM.Function(prepare)!, on: [f], at: insertionPoint)
 
