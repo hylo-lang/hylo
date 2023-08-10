@@ -179,6 +179,45 @@ public struct TypedProgram {
     }
   }
 
+  /// Returns `true` iff deinitializing an instance of `t` in `scopeOfUse` is a no-op.
+  ///
+  /// A type is trivially deinitializable in a scope `s` if it is built-in, or if its conformance
+  /// to `Deinitializable` exposed to `s` does not involve any user-defined function.
+  public func isTriviallyDeinitializable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
+    let model = canonical(t, in: scopeOfUse)
+
+    guard
+      let c = conformance(of: model, to: ast.deinitializableTrait, exposedTo: scopeOfUse),
+      case .synthetic = c.implementations.uniqueElement!.value
+    else {
+      switch model.base {
+      case is BuiltinType:
+        // Built-in types never have conformances.
+        return true
+
+      // FIXME: (see #855)
+      case let u as LambdaType:
+        return u.environment == .void
+      case is MetatypeType:
+        return true
+
+      default:
+        return false
+      }
+    }
+
+    switch model.base {
+    case is BuiltinType:
+      return true
+    case let u as TupleType:
+      return u.elements.allSatisfy({ isTriviallyDeinitializable($0.type, in: scopeOfUse) })
+    case let u as UnionType:
+      return u.elements.allSatisfy({ isTriviallyDeinitializable($0, in: scopeOfUse) })
+    default:
+      return false
+    }
+  }
+
   /// If `t` has a record layout, returns the names and types of its stored properties.
   public func storage(of t: AnyType) -> [TupleType.Element] {
     switch t.base {
