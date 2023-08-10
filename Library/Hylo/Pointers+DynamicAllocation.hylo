@@ -14,6 +14,13 @@ public extension MutableRawPointer {
 
 public extension MutablePointer {
 
+  /// Allocates memory for `count` instances of `Pointee`.
+  public static fun allocate(count: Int) -> Self {
+    .new(MutableRawPointer.allocate(
+      count: MemoryLayout<Pointee>.stride(),
+      aligned_at: MemoryLayout<Pointee>.alignment()))
+  }
+
   /// Deallocates the memory previously allocated at `self`.
   public fun deallocate() {
     free(RawPointer(self))
