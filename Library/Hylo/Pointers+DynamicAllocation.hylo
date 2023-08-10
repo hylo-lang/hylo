@@ -5,6 +5,11 @@ public extension MutableRawPointer {
     .new(mutating: aligned_alloc(alignment, count))
   }
 
+  /// Deallocates the memory previously allocated at `self`.
+  public fun deallocate() {
+    free(RawPointer(self))
+  }
+
 }
 
 public extension MutablePointer {
