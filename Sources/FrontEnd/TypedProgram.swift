@@ -195,9 +195,7 @@ public struct TypedProgram {
         // Built-in types never have conformances.
         return true
 
-      // FIXME: (see #855)
-      case let u as LambdaType:
-        return u.environment == .void
+      // FIXME: Should have structural conformance
       case is MetatypeType:
         return true
 
@@ -223,6 +221,8 @@ public struct TypedProgram {
     switch t.base {
     case let u as BoundGenericType:
       return storage(of: u.base)
+    case let u as LambdaType:
+      return u.captures
     case let u as ProductType:
       return storage(of: u)
     case let u as TupleType:
@@ -233,7 +233,7 @@ public struct TypedProgram {
     }
   }
 
-  /// If `t` has a record layout, returns the names and types of its stored properties.
+  /// Returns the names and types of `t`'s stored properties.
   public func storage(of t: ProductType) -> [TupleType.Element] {
     var result: [TupleType.Element] = []
     for b in ast[t.decl].members.filter(BindingDecl.self) {
