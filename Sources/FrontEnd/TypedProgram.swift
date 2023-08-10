@@ -296,6 +296,13 @@ public struct TypedProgram {
     conformance(of: model, to: concept, exposedTo: scopeOfUse) != nil
   }
 
+  /// Returns `true` iff all elements in `models` conform to `concept` in `scopeOfUse`.
+  public func allConform<S: Sequence<AnyType>>(
+    _ models: S, to concept: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    models.allSatisfy({ conforms($0, to: concept, in: scopeOfUse) })
+  }
+
   /// Returns the conformance of `model` to `concept` that is exposed to `scopeOfUse`, or `nil` if
   /// such a conformance doesn't exist.
   public func conformance(
@@ -357,14 +364,16 @@ public struct TypedProgram {
     assert(model[.isCanonical])
 
     switch model.base {
+    case let m as LambdaType:
+      guard allConform(m.captures.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as TupleType:
-      guard m.elements.allSatisfy({ conforms($0.type, to: concept, in: scopeOfUse) }) else {
-        return nil
-      }
-
+      guard allConform(m.elements.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as UnionType:
-      guard m.elements.allSatisfy({ conforms($0, to: concept, in: scopeOfUse) }) else {
-        return nil
+      guard allConform(m.elements, to: concept, in: scopeOfUse) else { return nil }
+
+    case let m as RemoteType:
+      if m.access == .sink {
+        return conformance(of: m.bareType, to: concept, exposedTo: scopeOfUse)
       }
 
     default:
