@@ -33,3 +33,5 @@ public type MutablePointer<Pointee> {
 }
 
 public conformance MutablePointer: Deinitializable {}
+
+public conformance MutablePointer: Movable {}
