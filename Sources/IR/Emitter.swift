@@ -1963,6 +1963,36 @@ struct Emitter {
     emitLValue(reference: program[e].referredDecl, at: ast[e].site)
   }
 
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
+    // Explicit arguments are evaluated first, from left to right.
+    let explicitArguments = emit(
+      arguments: ast[e].arguments, to: ast[e].callee,
+      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[e].site))
+
+    // Callee and captures are evaluated next.
+    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
+    let arguments = captures + explicitArguments
+
+    var variants: [AccessEffect: Function.ID] = [:]
+    for v in ast[callee.bundle].impls {
+      variants[ast[v].introducer.value] = module.demandSubscriptDeclaration(lowering: v)
+    }
+
+    // Projection is evaluated last.
+    let t = canonicalType(of: callee.bundle, specializedBy: callee.arguments)
+    return insert(
+      module.makeProjectBundle(
+        applying: variants, of: callee, typed: SubscriptType(t)!,
+        to: arguments, at: ast[e].site))!
+  }
+
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(_ e: TupleMemberExpr.ID) -> Operand {
+    let base = emitLValue(ast[e].tuple)
+    return emitSubfieldView(base, at: [ast[e].index.value], at: ast[e].index.site)
+  }
+
   /// Inserts the IR for `r` used a lvalue at `site`.
   private mutating func emitLValue(reference r: DeclReference, at site: SourceRange) -> Operand {
     switch r {
@@ -2019,36 +2049,6 @@ struct Emitter {
 
     // Handle references to global functions.
     fatalError("not implemented")
-  }
-
-  /// Inserts the IR for lvalue `e`.
-  private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
-    // Explicit arguments are evaluated first, from left to right.
-    let explicitArguments = emit(
-      arguments: ast[e].arguments, to: ast[e].callee,
-      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[e].site))
-
-    // Callee and captures are evaluated next.
-    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
-    let arguments = captures + explicitArguments
-
-    var variants: [AccessEffect: Function.ID] = [:]
-    for v in ast[callee.bundle].impls {
-      variants[ast[v].introducer.value] = module.demandSubscriptDeclaration(lowering: v)
-    }
-
-    // Projection is evaluated last.
-    let t = canonicalType(of: callee.bundle, specializedBy: callee.arguments)
-    return insert(
-      module.makeProjectBundle(
-        applying: variants, of: callee, typed: SubscriptType(t)!,
-        to: arguments, at: ast[e].site))!
-  }
-
-  /// Inserts the IR for lvalue `e`.
-  private mutating func emitLValue(_ e: TupleMemberExpr.ID) -> Operand {
-    let base = emitLValue(ast[e].tuple)
-    return emitSubfieldView(base, at: [ast[e].index.value], at: ast[e].index.site)
   }
 
   /// Returns the address of the member declared by `d`, specialized with `specialization` and
