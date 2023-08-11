@@ -1919,21 +1919,21 @@ struct Emitter {
 
   // MARK: l-values
 
-  /// Inserts the IR for the lvalue `syntax` block.
-  private mutating func emitLValue(_ syntax: AnyExprID) -> Operand {
-    switch syntax.kind {
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(_ e: AnyExprID) -> Operand {
+    switch e.kind {
     case CastExpr.self:
-      return emitLValue(cast: .init(syntax)!)
+      return emitLValue(cast: .init(e)!)
     case InoutExpr.self:
-      return emitLValue(inoutExpr: .init(syntax)!)
+      return emitLValue(inoutExpr: .init(e)!)
     case NameExpr.self:
-      return emitLValue(name: .init(syntax)!)
+      return emitLValue(name: .init(e)!)
     case SubscriptCallExpr.self:
-      return emitLValue(subscriptCall: .init(syntax)!)
+      return emitLValue(subscriptCall: .init(e)!)
     case TupleMemberExpr.self:
-      return emitLValue(tupleMember: .init(syntax)!)
+      return emitLValue(tupleMember: .init(e)!)
     default:
-      return emitStore(value: syntax)
+      return emitStore(value: e)
     }
   }
 
