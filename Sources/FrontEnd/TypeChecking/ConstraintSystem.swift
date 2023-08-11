@@ -276,14 +276,10 @@ struct ConstraintSystem {
     }
 
     switch (goal.left.base, goal.right.base) {
-    case (let l as UnionType, _ as UnionType):
-      // If both types are unions, all elements in `L` must be contained in `R`.
-      var subordinates: [GoalIdentity] = []
-      let o = goal.origin.subordinate()
-      for e in l.elements {
-        subordinates.append(schedule(SubtypingConstraint(e, goal.right, origin: o)))
-      }
-      return .product(subordinates, failureToSolve(goal))
+    case (let l as LambdaType, let r as LambdaType):
+      return solve(subtyping: g, between: l, and: r)
+    case (let l as UnionType, let r as UnionType):
+      return solve(subtyping: g, between: l, and: r)
 
     case (_, let r as UnionType):
       // If `R` is an empty union, so must be `L`.
@@ -291,7 +287,7 @@ struct ConstraintSystem {
         return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
       }
 
-      // If `R` has a single element, it must be equal to (the canonical form of) `L`.
+      // If `R` has a single element, it must be above (the canonical form of) `L`.
       let o = goal.origin.subordinate()
       if let e = r.elements.uniqueElement {
         let s = schedule(SubtypingConstraint(goal.left, e, origin: o))
@@ -388,22 +384,6 @@ struct ConstraintSystem {
         return delegate(to: [s])
       }
 
-    case (let l as LambdaType, let r as LambdaType):
-      if !l.labels.elementsEqual(r.labels) {
-        return .failure(failureToSolve(goal))
-      }
-
-      var subordinates: [GoalIdentity] = []
-      let o = goal.origin.subordinate()
-      subordinates.append(schedule(SubtypingConstraint(l.environment, r.environment, origin: o)))
-
-      // Parameters are contravariant; return types are covariant.
-      for (a, b) in zip(l.inputs, r.inputs) {
-        subordinates.append(schedule(SubtypingConstraint(b.type, a.type, origin: o)))
-      }
-      subordinates.append(schedule(SubtypingConstraint(l.output, r.output, origin: o)))
-      return .product(subordinates, failureToSolve(goal))
-
     default:
       if !goal.left[.isCanonical] || !goal.right[.isCanonical] {
         let l = checker.canonical(goal.left, in: scope)
@@ -419,6 +399,43 @@ struct ConstraintSystem {
         return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
       }
     }
+  }
+
+  /// Implements of `solve(subtyping:)` for two `LambdaType`s.
+  private mutating func solve(
+    subtyping g: GoalIdentity, between l: LambdaType, and r: LambdaType
+  ) -> Outcome? {
+    let goal = goals[g] as! SubtypingConstraint
+
+    if !l.labels.elementsEqual(r.labels) {
+      return .failure(failureToSolve(goal))
+    }
+
+    var subordinates: [GoalIdentity] = []
+    let o = goal.origin.subordinate()
+    subordinates.append(schedule(SubtypingConstraint(l.environment, r.environment, origin: o)))
+
+    // Parameters are contravariant; return types are covariant.
+    for (a, b) in zip(l.inputs, r.inputs) {
+      subordinates.append(schedule(SubtypingConstraint(b.type, a.type, origin: o)))
+    }
+    subordinates.append(schedule(SubtypingConstraint(l.output, r.output, origin: o)))
+    return .product(subordinates, failureToSolve(goal))
+  }
+
+  /// Implements of `solve(subtyping:)` for two `UnionType`s.
+  private mutating func solve(
+    subtyping g: GoalIdentity, between l: UnionType, and r: UnionType
+  ) -> Outcome? {
+    let goal = goals[g] as! SubtypingConstraint
+
+    // If both types are unions, all elements in `L` must be contained in `R`.
+    var subordinates: [GoalIdentity] = []
+    let o = goal.origin.subordinate()
+    for e in l.elements {
+      subordinates.append(schedule(SubtypingConstraint(e, goal.right, origin: o)))
+    }
+    return .product(subordinates, failureToSolve(goal))
   }
 
   /// Returns a clousre diagnosing a failure to solve `g`.
@@ -444,19 +461,16 @@ struct ConstraintSystem {
   /// `.failure` if they can't, or `nil` if neither of these outcomes can be determined yet.
   private mutating func solve(parameter g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! ParameterConstraint
-    if checker.areEquivalent(goal.left, goal.right, in: scope) {
-      return .success
-    }
 
     switch goal.right.base {
+    case _ where checker.areEquivalent(goal.left, goal.right, in: scope):
+      return .success
+
     case is TypeVariable:
-      // Postpone the goal until we can infer the parameter passing convention of `R`.
       postpone(g)
       return nil
 
     case let p as ParameterType:
-      // Either `L` is equal to the bare type of `R`, or it's a. Note: the equality requirement for
-      // arguments passed mutably is verified after type inference.
       let s = schedule(
         SubtypingConstraint(goal.left, p.bareType, origin: goal.origin.subordinate()))
       return .product([s]) { (d, m, r) in

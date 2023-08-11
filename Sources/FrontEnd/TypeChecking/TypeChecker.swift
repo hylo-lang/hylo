@@ -562,7 +562,8 @@ struct TypeChecker {
   /// Type checks `d` and all declarations nested in `d`.
   private mutating func _check(_ d: ParameterDecl.ID) {
     if let e = program[d].defaultValue {
-      _ = checkedType(of: e, asArgumentTo: uncheckedType(of: d))
+      guard let p = uncheckedType(of: d).errorFree else { return }
+      _ = checkedType(of: e, asArgumentTo: ParameterType(p)!)
     }
   }
 
@@ -1162,13 +1163,12 @@ struct TypeChecker {
 
   /// Type checks `e` as an argument to `p` and returns its type.
   private mutating func checkedType(
-    of e: AnyExprID, asArgumentTo p: AnyType
+    of e: AnyExprID, asArgumentTo p: ParameterType
   ) -> AnyType {
     var obligations = ProofObligations(scope: program[e].scope)
 
-    let h = ParameterType(p)?.bareType
-    let t = inferredType(of: e, withHint: h, updating: &obligations)
-    obligations.insert(ParameterConstraint(t, p, origin: .init(.argument, at: program[e].site)))
+    let t = inferredType(of: e, withHint: p.bareType, updating: &obligations)
+    obligations.insert(ParameterConstraint(t, ^p, origin: .init(.argument, at: program[e].site)))
 
     let s = discharge(obligations, relatedTo: e)
     return s.typeAssumptions.reify(t)
