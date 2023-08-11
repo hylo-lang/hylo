@@ -1926,8 +1926,8 @@ struct TypeChecker {
       return evalTypeAnnotation(NameExpr.ID(e)!)
     case ParameterTypeExpr.self:
       return evalTypeAnnotation(ParameterTypeExpr.ID(e)!)
-    case RemoteTypeExpr.self:
-      return evalTypeAnnotation(RemoteTypeExpr.ID(e)!)
+    case RemoteExpr.self:
+      return evalTypeAnnotation(RemoteExpr.ID(e)!)
     case TupleTypeExpr.self:
       return evalTypeAnnotation(TupleTypeExpr.ID(e)!)
     case WildcardExpr.self:
@@ -2044,7 +2044,7 @@ struct TypeChecker {
   }
 
   /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: RemoteTypeExpr.ID) -> AnyType {
+  private mutating func evalTypeAnnotation(_ e: RemoteExpr.ID) -> AnyType {
     let t = evalTypeAnnotation(program[e].operand)
     return ^RemoteType(program[e].convention.value, t)
   }
