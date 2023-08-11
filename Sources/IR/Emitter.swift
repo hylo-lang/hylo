@@ -1098,61 +1098,61 @@ struct Emitter {
     insert(module.makeEndAccess(x0, at: site))
   }
 
-  /// Inserts the IR for storing the value of `syntax` to a fresh stack allocation, returning the
+  /// Inserts the IR for storing the value of `e` to a fresh stack allocation, returning the
   /// address of this allocation.
   @discardableResult
-  private mutating func emitStore<T: ExprID>(value syntax: T) -> Operand {
-    let s = emitAllocStack(for: program[syntax].type, at: ast[syntax].site)
-    emitStore(value: syntax, to: s)
+  private mutating func emitStore<T: ExprID>(value e: T) -> Operand {
+    let s = emitAllocStack(for: program[e].type, at: ast[e].site)
+    emitStore(value: e, to: s)
     return s
   }
 
-  /// Inserts the IR for storing the value of `syntax` to `storage`.
+  /// Inserts the IR for storing the value of `e` to `storage`.
   ///
-  /// `storage` must be the address of some uninitialized memory block capable of storing the value
-  /// of `syntax`.
-  private mutating func emitStore<T: ExprID>(value syntax: T, to storage: Operand) {
-    switch syntax.kind {
+  /// - Requires: `storage` is the address of some uninitialized memory block capable of storing
+  ///   the value of `e`.
+  private mutating func emitStore<T: ExprID>(value e: T, to storage: Operand) {
+    switch e.kind {
     case BooleanLiteralExpr.self:
-      emitStore(booleanLiteral: .init(syntax)!, to: storage)
+      emitStore(BooleanLiteralExpr.ID(e)!, to: storage)
     case CastExpr.self:
-      emitStore(cast: .init(syntax)!, to: storage)
+      emitStore(CastExpr.ID(e)!, to: storage)
     case ConditionalExpr.self:
-      emitStore(conditional: .init(syntax)!, to: storage)
+      emitStore(ConditionalExpr.ID(e)!, to: storage)
     case FloatLiteralExpr.self:
-      emitStore(floatLiteral: .init(syntax)!, to: storage)
+      emitStore(FloatLiteralExpr.ID(e)!, to: storage)
     case FunctionCallExpr.self:
-      emitStore(functionCall: .init(syntax)!, to: storage)
+      emitStore(FunctionCallExpr.ID(e)!, to: storage)
     case IntegerLiteralExpr.self:
-      emitStore(integerLiteral: .init(syntax)!, to: storage)
+      emitStore(IntegerLiteralExpr.ID(e)!, to: storage)
     case LambdaExpr.self:
-      emitStore(lambda: .init(syntax)!, to: storage)
+      emitStore(LambdaExpr.ID(e)!, to: storage)
     case NameExpr.self:
-      emitStore(name: .init(syntax)!, to: storage)
+      emitStore(NameExpr.ID(e)!, to: storage)
     case PragmaLiteralExpr.self:
-      emitStore(pragma: .init(syntax)!, to: storage)
+      emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
     case SequenceExpr.self:
-      emitStore(sequence: .init(syntax)!, to: storage)
+      emitStore(SequenceExpr.ID(e)!, to: storage)
     case StringLiteralExpr.self:
-      emitStore(stringLiteral: .init(syntax)!, to: storage)
+      emitStore(StringLiteralExpr.ID(e)!, to: storage)
     case TupleExpr.self:
-      emitStore(tuple: .init(syntax)!, to: storage)
+      emitStore(TupleExpr.ID(e)!, to: storage)
     case TupleMemberExpr.self:
-      emitStore(tupleMember: .init(syntax)!, to: storage)
+      emitStore(TupleMemberExpr.ID(e)!, to: storage)
     default:
-      unexpected(syntax, in: ast)
+      unexpected(e, in: ast)
     }
   }
 
-  private mutating func emitStore(
-    booleanLiteral e: BooleanLiteralExpr.ID, to storage: Operand
-  ) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: BooleanLiteralExpr.ID, to storage: Operand) {
     let x0 = emitSubfieldView(storage, at: [0], at: ast[e].site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: ast[e].site))!
     insert(module.makeStore(.i1(ast[e].value), at: x1, at: ast[e].site))
   }
 
-  private mutating func emitStore(cast e: CastExpr.ID, to storage: Operand) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: CastExpr.ID, to storage: Operand) {
     switch ast[e].direction {
     case .up:
       emitStore(upcast: e, to: storage)
@@ -1163,6 +1163,7 @@ struct Emitter {
     }
   }
 
+  /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(upcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .up)
     let target = MetatypeType(program[ast[e].right].type)!.instance
@@ -1177,6 +1178,7 @@ struct Emitter {
     fatalError("not implemented")
   }
 
+  /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(downcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .down)
     let target = MetatypeType(program[ast[e].right].type)!.instance
@@ -1195,7 +1197,8 @@ struct Emitter {
     fatalError("not implementeds")
   }
 
-  private mutating func emitStore(conditional e: ConditionalExpr.ID, to storage: Operand) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: ConditionalExpr.ID, to storage: Operand) {
     let (success, failure) = emitTest(condition: ast[e].condition, in: AnyScopeID(e))
     let tail = appendBlock()
 
@@ -1212,11 +1215,13 @@ struct Emitter {
     insertionPoint = .end(of: tail)
   }
 
-  private mutating func emitStore(floatLiteral e: FloatLiteralExpr.ID, to storage: Operand) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: FloatLiteralExpr.ID, to storage: Operand) {
     emitStore(numericLiteral: e, to: storage)
   }
 
-  private mutating func emitStore(functionCall e: FunctionCallExpr.ID, to storage: Operand) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: FunctionCallExpr.ID, to storage: Operand) {
     // Handle built-ins and constructor calls.
     if let n = NameExpr.ID(ast[e].callee) {
       switch program[n].referredDecl {
@@ -1249,13 +1254,13 @@ struct Emitter {
     insert(module.makeCall(applying: callee, to: arguments, writingResultTo: o, at: ast[e].site))
   }
 
-  private mutating func emitStore(
-    integerLiteral e: IntegerLiteralExpr.ID, to storage: Operand
-  ) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: IntegerLiteralExpr.ID, to storage: Operand) {
     emitStore(numericLiteral: e, to: storage)
   }
 
-  private mutating func emitStore(lambda e: LambdaExpr.ID, to storage: Operand) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: LambdaExpr.ID, to storage: Operand) {
     let f = lower(function: ast[e].decl)
     let r = FunctionReference(
       to: f, in: module,
@@ -1266,17 +1271,18 @@ struct Emitter {
     insert(module.makeStore(x0, at: x1, at: ast[e].site))
   }
 
-  private mutating func emitStore(name e: NameExpr.ID, to storage: Operand) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: NameExpr.ID, to storage: Operand) {
     let x0 = emitLValue(e)
     emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
   }
 
-  /// Writes the value of `e` to `storage`.
+  /// Inserts the IR for storing the value of `e` to `storage`.
   ///
   /// - Parameters:
   ///   - site: The source range in which `e` is being evaluated. Defaults to `e.site`.
   private mutating func emitStore(
-    pragma e: PragmaLiteralExpr.ID, to storage: Operand,
+    _ e: PragmaLiteralExpr.ID, to storage: Operand,
     at site: SourceRange? = nil
   ) {
     let anchor = site ?? ast[e].site
@@ -1288,11 +1294,13 @@ struct Emitter {
     }
   }
 
-  private mutating func emitStore(sequence e: SequenceExpr.ID, to storage: Operand) {
-    emitStore(foldedSequence: program[e].folded, to: storage)
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: SequenceExpr.ID, to storage: Operand) {
+    emitStore(program[e].folded, to: storage)
   }
 
-  private mutating func emitStore(foldedSequence e: FoldedSequenceExpr, to storage: Operand) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: FoldedSequenceExpr, to storage: Operand) {
     switch e {
     case .infix(let callee, let lhs, let rhs):
       let t = program[callee.expr].type
@@ -1316,11 +1324,13 @@ struct Emitter {
     }
   }
 
-  private mutating func emitStore(stringLiteral e: StringLiteralExpr.ID, to storage: Operand) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: StringLiteralExpr.ID, to storage: Operand) {
     emitStore(string: ast[e].value, to: storage, at: ast[e].site)
   }
 
-  private mutating func emitStore(tuple e: TupleExpr.ID, to storage: Operand) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: TupleExpr.ID, to storage: Operand) {
     if ast[e].elements.isEmpty {
       let t = canonical(program[e].type)
       let x0 = insert(module.makeUnsafeCast(.void, to: t, at: ast[e].site))!
@@ -1335,7 +1345,8 @@ struct Emitter {
     }
   }
 
-  private mutating func emitStore(tupleMember e: TupleMemberExpr.ID, to storage: Operand) {
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: TupleMemberExpr.ID, to storage: Operand) {
     let x0 = emitLValue(e)
     emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
   }
@@ -1531,24 +1542,24 @@ struct Emitter {
     return result
   }
 
-  /// Inserts the IR for the argument `expr` passed to a parameter of type `parameter`.
+  /// Inserts the IR for the argument `e` passed to a parameter of type `parameter`.
   ///
   /// - Parameters:
   ///   - site: The source range in which `syntax` is being evaluated if it's a pragma literals.
   ///     Defaults to `syntax.site`.
   private mutating func emit(
-    argument syntax: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
+    argument e: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
   ) -> Operand {
     let argumentSite: SourceRange
     let storage: Operand
 
-    if let e = PragmaLiteralExpr.ID(syntax) {
-      argumentSite = site ?? ast[e].site
-      storage = insert(module.makeAllocStack(program[e].type, at: argumentSite))!
-      emitStore(pragma: e, to: storage, at: argumentSite)
+    if let a = PragmaLiteralExpr.ID(e) {
+      argumentSite = site ?? ast[a].site
+      storage = insert(module.makeAllocStack(program[a].type, at: argumentSite))!
+      emitStore(a, to: storage, at: argumentSite)
     } else {
-      argumentSite = ast[syntax].site
-      storage = emitLValue(syntax)
+      argumentSite = ast[e].site
+      storage = emitLValue(e)
     }
 
     return insert(module.makeAccess(parameter.access, from: storage, at: argumentSite))!
@@ -1564,7 +1575,7 @@ struct Emitter {
     case .infix(let callee, _, _):
       let t = LambdaType(canonical(program[callee.expr].type))!.lifted
       storage = emitAllocStack(for: t.output, at: ast.site(of: e))
-      emitStore(foldedSequence: e, to: storage)
+      emitStore(e, to: storage)
 
     case .leaf(let e):
       storage = emitLValue(e)
