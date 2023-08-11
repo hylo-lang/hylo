@@ -1131,6 +1131,8 @@ struct Emitter {
       emitStore(NameExpr.ID(e)!, to: storage)
     case PragmaLiteralExpr.self:
       emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
+    case RemoteExpr.self:
+      emitStore(RemoteExpr.ID(e)!, to: storage)
     case SequenceExpr.self:
       emitStore(SequenceExpr.ID(e)!, to: storage)
     case StringLiteralExpr.self:
@@ -1292,6 +1294,18 @@ struct Emitter {
     case .line:
       emitStore(int: anchor.first().line.number, to: storage, at: anchor)
     }
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: RemoteExpr.ID, to storage: Operand) {
+    let t = RemoteType(program[e].type)!
+    let s = program[e].site
+
+    let x0 = emitLValue(program[e].operand)
+    let x1 = insert(module.makeAccess(t.access, from: x0, at: s))!
+    let x2 = insert(module.makeAccess(.set, from: storage, at: s))!
+    insert(module.makeCaptureIn(t.access, from: x1, in: x2, at: s))
+    insert(module.makeEndAccess(x2, at: s))
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
