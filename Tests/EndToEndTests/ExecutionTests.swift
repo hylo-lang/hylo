@@ -22,7 +22,7 @@ final class ExecutionTests: XCTestCase {
 
 extension XCTestCase {
 
-  /// Compiles and runs the val file at `hyloFilePath`, `XCTAssert`ing that diagnostics and exit
+  /// Compiles and runs the hylo file at `hyloFilePath`, `XCTAssert`ing that diagnostics and exit
   /// codes match annotated expectations.
   func compileAndRun(_ hyloFilePath: String, expectSuccess: Bool) throws {
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
@@ -30,6 +30,7 @@ extension XCTestCase {
 
       var executable: URL
 
+      //Test debugged builds
       do {
         executable = try compile(hyloSource.url, with: ["--emit", "binary"])
       } catch let d as DiagnosticSet {
@@ -40,10 +41,27 @@ extension XCTestCase {
         throw d
       }
 
-      let (status, _) = try run(executable)
+      var (status, _) = try run(executable)
       if status != 0 {
         throw NonzeroExitCode(value: status)
       }
+
+      //Test optimized builds
+      do {
+        executable = try compile(hyloSource.url, with: ["--emit", "binary", "-O"])
+      } catch let r as DiagnosticSet {
+        // Recapture the diagnostics so the annotation testing framework can use them.  The need for
+        // this ugliness makes me wonder how important it is to test cli.execute, which after all is
+        // just a thin wrapper over cli.executeCommand (currently private).
+        diagnostics = r
+        throw r
+      }
+
+      (status, _) = try run(executable)
+      if status != 0 {
+        throw NonzeroExitCode(value: status)
+      }
+
     }
   }
 
