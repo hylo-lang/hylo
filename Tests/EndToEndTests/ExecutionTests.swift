@@ -30,17 +30,33 @@ extension XCTestCase {
 
       var executable: URL
 
-      do {
-        executable = try compile(valSource.url, with: ["--emit", "binary"])
-      } catch let d as DiagnosticSet {
-        // Recapture the diagnostics so the annotation testing framework can use them.  The need for
-        // this ugliness makes me wonder how important it is to test cli.execute, which after all is
-        // just a thin wrapper over cli.executeCommand (currently private).
-        diagnostics = d
-        throw d
+      //Test debugged builds
+      {
+        do {
+          executable = try compile(valSource.url, with: ["--emit", "binary"])
+        } catch let d as DiagnosticSet {
+          // Recapture the diagnostics so the annotation testing framework can use them.  The need for
+          // this ugliness makes me wonder how important it is to test cli.execute, which after all is
+          // just a thin wrapper over cli.executeCommand (currently private).
+          diagnostics = d
+          throw d
+        }
+        
+        let (status, _) = try run(executable)
       }
-
-      let (status, _) = try run(executable)
+      //Test optimized builds
+      {
+        do {
+          executable = try compile(valSource.url, with: ["--emit", "binary", "-O"])
+        } catch let d as DiagnosticSet {
+          // Recapture the diagnostics so the annotation testing framework can use them.  The need for
+          // this ugliness makes me wonder how important it is to test cli.execute, which after all is
+          // just a thin wrapper over cli.executeCommand (currently private).
+          diagnostics = d
+          throw d
+        }
+        let (status, _) = try run(executable)
+      }
       if status != 0 {
         throw NonzeroExitCode(value: status)
       }
