@@ -7,7 +7,7 @@ public struct ExtensionDecl: TypeExtendingDecl {
   public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The expression of the extended type.
-  public let subject: AnyTypeExprID
+  public let subject: AnyExprID
 
   /// The condition of the extension, if any.
   public let whereClause: SourceRepresentable<WhereClause>?
@@ -18,7 +18,7 @@ public struct ExtensionDecl: TypeExtendingDecl {
   /// Creates an instance with the given properties.
   public init(
     accessModifier: SourceRepresentable<AccessModifier>,
-    subject: AnyTypeExprID,
+    subject: AnyExprID,
     whereClause: SourceRepresentable<WhereClause>?,
     members: [AnyDeclID],
     site: SourceRange
