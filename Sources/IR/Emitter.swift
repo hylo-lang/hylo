@@ -1267,7 +1267,7 @@ struct Emitter {
   }
 
   private mutating func emitStore(name e: NameExpr.ID, to storage: Operand) {
-    let x0 = emitLValue(name: e)
+    let x0 = emitLValue(e)
     emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
   }
 
@@ -1336,7 +1336,7 @@ struct Emitter {
   }
 
   private mutating func emitStore(tupleMember e: TupleMemberExpr.ID, to storage: Operand) {
-    let x0 = emitLValue(tupleMember: e)
+    let x0 = emitLValue(e)
     emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
   }
 
@@ -1923,21 +1923,22 @@ struct Emitter {
   private mutating func emitLValue(_ e: AnyExprID) -> Operand {
     switch e.kind {
     case CastExpr.self:
-      return emitLValue(cast: .init(e)!)
+      return emitLValue(CastExpr.ID(e)!)
     case InoutExpr.self:
-      return emitLValue(inoutExpr: .init(e)!)
+      return emitLValue(InoutExpr.ID(e)!)
     case NameExpr.self:
-      return emitLValue(name: .init(e)!)
+      return emitLValue(NameExpr.ID(e)!)
     case SubscriptCallExpr.self:
-      return emitLValue(subscriptCall: .init(e)!)
+      return emitLValue(SubscriptCallExpr.ID(e)!)
     case TupleMemberExpr.self:
-      return emitLValue(tupleMember: .init(e)!)
+      return emitLValue(TupleMemberExpr.ID(e)!)
     default:
       return emitStore(value: e)
     }
   }
 
-  private mutating func emitLValue(cast e: CastExpr.ID) -> Operand {
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(_ e: CastExpr.ID) -> Operand {
     switch ast[e].direction {
     case .pointerConversion:
       let x0 = emitLValue(ast[e].left)
@@ -1952,14 +1953,17 @@ struct Emitter {
     }
   }
 
-  private mutating func emitLValue(inoutExpr e: InoutExpr.ID) -> Operand {
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(_ e: InoutExpr.ID) -> Operand {
     emitLValue(ast[e].subject)
   }
 
-  private mutating func emitLValue(name e: NameExpr.ID) -> Operand {
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(_ e: NameExpr.ID) -> Operand {
     emitLValue(reference: program[e].referredDecl, at: ast[e].site)
   }
 
+  /// Inserts the IR for `r` used a lvalue at `site`.
   private mutating func emitLValue(reference r: DeclReference, at site: SourceRange) -> Operand {
     switch r {
     case .direct(let d, _):
@@ -2017,7 +2021,8 @@ struct Emitter {
     fatalError("not implemented")
   }
 
-  private mutating func emitLValue(subscriptCall e: SubscriptCallExpr.ID) -> Operand {
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
     // Explicit arguments are evaluated first, from left to right.
     let explicitArguments = emit(
       arguments: ast[e].arguments, to: ast[e].callee,
@@ -2040,7 +2045,8 @@ struct Emitter {
         to: arguments, at: ast[e].site))!
   }
 
-  private mutating func emitLValue(tupleMember e: TupleMemberExpr.ID) -> Operand {
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(_ e: TupleMemberExpr.ID) -> Operand {
     let base = emitLValue(ast[e].tuple)
     return emitSubfieldView(base, at: [ast[e].index.value], at: ast[e].index.site)
   }
