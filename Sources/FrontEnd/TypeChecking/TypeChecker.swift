@@ -3384,6 +3384,8 @@ struct TypeChecker {
       return _inferredType(of: NameExpr.ID(e)!, withHint: hint, updating: &obligations)
     case PragmaLiteralExpr.self:
       return _inferredType(of: PragmaLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case RemoteExpr.self:
+      return _inferredType(of: RemoteExpr.ID(e)!, withHint: hint, updating: &obligations)
     case SequenceExpr.self:
       return _inferredType(of: SequenceExpr.ID(e)!, withHint: hint, updating: &obligations)
     case StringLiteralExpr.self:
@@ -3681,6 +3683,16 @@ struct TypeChecker {
     case .line:
       return constrain(e, to: ^program.ast.coreType("Int")!, in: &obligations)
     }
+  }
+
+  /// Returns the inferred type of `e`, using `hint` for context and updating `obligations`.
+  private mutating func _inferredType(
+    of e: RemoteExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let t = inferredType(
+      of: program[e].operand, withHint: RemoteType(hint)?.bareType, updating: &obligations)
+    return constrain(e, to: ^RemoteType(program[e].convention.value, t), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
