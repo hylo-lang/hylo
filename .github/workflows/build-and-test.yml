@@ -85,7 +85,7 @@ jobs:
       matrix:
         host: [
           {
-            type: macos, os: macos-13,
+            type: macos, os: macos-latest,
             build-options: "-v --build-tests -Xswiftc -enable-testing",
             # No coverage support on MacOS
             test-options: "-v"
