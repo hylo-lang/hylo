@@ -2510,28 +2510,32 @@ extension Emitter {
 
 extension Diagnostic {
 
-  static func error(assignmentLHSRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
+  fileprivate static func error(
+    assignmentLHSRequiresMutationMarkerAt site: SourceRange
+  ) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
   }
 
-  static func error(
+  fileprivate static func error(
     binding a: AccessEffect, requiresInitializerAt site: SourceRange
   ) -> Diagnostic {
     .error("declaration of \(a) binding requires an initializer", at: site)
   }
 
-  static func error(
+  fileprivate static func error(
     integerLiteral s: String, overflowsWhenStoredInto t: AnyType,
     at site: SourceRange
   ) -> Diagnostic {
     .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
   }
 
-  static func error(missingReturn returnType: AnyType, at site: SourceRange) -> Diagnostic {
+  fileprivate static func error(
+    missingReturn returnType: AnyType, at site: SourceRange
+  ) -> Diagnostic {
     .error("missing return in function expected to return '\(returnType)'", at: site)
   }
 
-  static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
+  fileprivate static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
     .error("statement will never be executed", at: .empty(at: ast[s].site.first()))
   }
 
