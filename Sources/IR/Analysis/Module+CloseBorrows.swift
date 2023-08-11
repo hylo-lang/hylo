@@ -92,7 +92,7 @@ extension Module {
       switch self[use.user] {
       case is LifetimeExtender:
         if let o = result(of: use.user) {
-          r = extend(lifetime: r, with: lifetime(of: o))
+          r = extend(lifetime: r, toCover: lifetime(of: o))
         }
 
       default:

@@ -155,7 +155,7 @@ extension Module {
   ///
   /// - Requires: `left` and `right` must be defined in the same function, which must be defined in
   ///   `self`. The operand for which `right` is defined must be in `left`.
-  func extend(lifetime left: Lifetime, with right: Lifetime) -> Lifetime {
+  func extend(lifetime left: Lifetime, toCover right: Lifetime) -> Lifetime {
     precondition(left.operand.function! == right.operand.function!)
 
     /// Returns the use that executes last.
