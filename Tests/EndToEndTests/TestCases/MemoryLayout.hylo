@@ -11,6 +11,6 @@ type Vector2 {
 }
 
 public fun main() {
-  let x = Val.MemoryLayout<Vector2>.stride()
+  let x = Hylo.MemoryLayout<Vector2>.stride()
   precondition(x == 16)
 }

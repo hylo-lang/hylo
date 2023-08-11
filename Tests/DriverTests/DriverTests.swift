@@ -1,10 +1,10 @@
 import ArgumentParser
 import Core
+import Driver
 import Utils
-import ValCommand
 import XCTest
 
-final class ValCommandTests: XCTestCase {
+final class DriverTests: XCTestCase {
 
   /// The result of a compiler invokation.
   private struct CompilationResult {
@@ -21,7 +21,7 @@ final class ValCommandTests: XCTestCase {
   }
 
   func testNoInput() throws {
-    XCTAssertThrowsError(try ValCommand.parse([]))
+    XCTAssertThrowsError(try Driver.parse([]))
   }
 
   func testRawAST() throws {
@@ -124,7 +124,7 @@ final class ValCommandTests: XCTestCase {
     let output = FileManager.default.makeTemporaryFileURL()
 
     // Parse the command line's arguments.
-    let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
+    let cli = try Driver.parse(arguments + ["-o", output.relativePath, input.relativePath])
 
     // Execute the command.
     let (status, diagnostics) = try cli.execute()

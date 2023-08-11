@@ -1,4 +1,4 @@
-/// A diagnostic related to a region of Val source code.
+/// A diagnostic related to a region of Hylo source code.
 public struct Diagnostic: Hashable {
 
   /// The severity of a diagnostic.

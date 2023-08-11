@@ -7,14 +7,15 @@ import XCTest
 
 extension XCTestCase {
 
-  /// Parses the val file at `valFilePath`, `XCTAssert`ing that diagnostics and thrown
+  /// Parses the hylo file at `hyloFilePath`, `XCTAssert`ing that diagnostics and thrown
   /// errors match annotated expectations.
-  func parse(_ valFilePath: String, expectSuccess: Bool) throws {
+  func parse(_ hyloFilePath: String, expectSuccess: Bool) throws {
 
-    try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath, expectSuccess: expectSuccess) {
-      (valSource, diagnostics) in
+    try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
+      (hyloSource, diagnostics) in
       var ast = AST()
-      _ = try ast.makeModule(valSource.baseName, sourceCode: [valSource], diagnostics: &diagnostics)
+      _ = try ast.makeModule(
+        hyloSource.baseName, sourceCode: [hyloSource], diagnostics: &diagnostics)
     }
 
   }
@@ -1109,10 +1110,10 @@ final class ParserTests: XCTestCase {
   }
 
   func testStringLiteral() throws {
-    let input: SourceFile = #""Val""#
+    let input: SourceFile = #""Hylo""#
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let expr = try XCTUnwrap(ast[exprID] as? StringLiteralExpr)
-    XCTAssertEqual(expr.value, "Val")
+    XCTAssertEqual(expr.value, "Hylo")
   }
 
   func testNilLiteralExpr() throws {
@@ -1663,7 +1664,7 @@ final class ParserTests: XCTestCase {
   }
 
   func testDeclAttributeWithArguments() throws {
-    let input: SourceFile = #"@attr(8, "Val")"#
+    let input: SourceFile = #"@attr(8, "Hylo")"#
     let attribute = try XCTUnwrap(input.parse(with: Parser.parseDeclAttribute).element)
     XCTAssertEqual(attribute.value.name.value, "@attr")
     XCTAssertEqual(attribute.value.arguments.count, 2)

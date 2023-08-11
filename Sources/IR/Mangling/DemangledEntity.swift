@@ -51,12 +51,12 @@ public struct DemangledEntity: Hashable {
   /// Creates an instance representing a core type declaration.
   public init(coreType: String) {
     self.init(
-      qualification: .val, kind: NodeKind(ProductTypeDecl.self), name: Name(stem: coreType))
+      qualification: .hylo, kind: NodeKind(ProductTypeDecl.self), name: Name(stem: coreType))
   }
 
-  /// The `Val` module.
-  static var val: DemangledEntity {
-    .init(qualification: nil, kind: NodeKind(ModuleDecl.self), name: Name(stem: "Val"))
+  /// The `Hylo` module.
+  static var hylo: DemangledEntity {
+    .init(qualification: nil, kind: NodeKind(ModuleDecl.self), name: Name(stem: "Hylo"))
   }
 
 }

@@ -3,7 +3,7 @@ import Core
 import FrontEnd
 import Utils
 
-/// Val's IR emitter.
+/// Hylo's IR emitter.
 ///
 /// The emitter transforms well-formed, typed ASTs to a representation suitable for flow-sensitive
 /// analysis. IR generated from the emitter may be incomplete and must go through mandatory passes
@@ -279,7 +279,7 @@ struct Emitter {
 
     let site = ast[d].site
 
-    // Convert Val arguments to their foreign representation. Note that the last parameter of the
+    // Convert Hylo arguments to their foreign representation. Note that the last parameter of the
     // entry is the address of the FFI's return value.
     var arguments: [Operand] = []
     for i in 0 ..< module[entry].inputs.count - 1 {
@@ -293,7 +293,7 @@ struct Emitter {
       module.makeCallFFI(
         returning: .object(returnType), applying: ast[d].foreignName!, to: arguments, at: site))!
 
-    // Convert the result of the FFI to its Val representation and return it.
+    // Convert the result of the FFI to its Hylo representation and return it.
     switch returnType {
     case .never:
       insert(module.makeUnreachable(at: site))
@@ -1383,7 +1383,7 @@ struct Emitter {
     integer literal: T.ID, signed: Bool, bitWidth: Int, to storage: Operand
   ) {
     let syntax = ast[literal]
-    guard let bits = WideUInt(valLiteral: syntax.value, signed: signed, bitWidth: bitWidth) else {
+    guard let bits = WideUInt(hyloLiteral: syntax.value, signed: signed, bitWidth: bitWidth) else {
       diagnostics.insert(
         .error(
           integerLiteral: syntax.value,
@@ -1398,20 +1398,20 @@ struct Emitter {
     insert(module.makeStore(x2, at: x1, at: syntax.site))
   }
 
-  /// Writes an instance of `Val.Int` with value `v` to `storage`, anchoring new instruction at
+  /// Writes an instance of `Hylo.Int` with value `v` to `storage`, anchoring new instruction at
   /// `site`.
   ///
-  /// - Requires: `storage` is the address of uninitialized memory of type `Val.Int`.
+  /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
   private mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
     let x0 = emitSubfieldView(storage, at: [0], at: site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
     insert(module.makeStore(.word(v), at: x1, at: site))
   }
 
-  /// Writes an instance of `Val.String` with value `v` to `storage`, anchoring new instruction at
+  /// Writes an instance of `Hylo.String` with value `v` to `storage`, anchoring new instruction at
   /// `site`.
   ///
-  /// - Requires: `storage` is the address of uninitialized memory of type `Val.String`.
+  /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.String`.
   private mutating func emitStore(string v: String, to storage: Operand, at site: SourceRange) {
     var bytes = v.unescaped.data(using: .utf8)!
     let utf8 = PointerConstant(module.id, module.addGlobal(BufferConstant(bytes)))
@@ -1812,7 +1812,7 @@ struct Emitter {
 
   /// Inserts the IR for branch condition `e`.
   ///
-  /// - Requires: `e.type` is `Val.Bool`
+  /// - Requires: `e.type` is `Hylo.Bool`
   private mutating func emit(branchCondition e: AnyExprID) -> Operand {
     precondition(canonical(program[e].type) == ast.coreType("Bool")!)
     let x0 = emitLValue(e)

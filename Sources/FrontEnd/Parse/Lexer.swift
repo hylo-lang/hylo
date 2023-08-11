@@ -3,7 +3,7 @@ import Core
 /// A type that tokenize a source file.
 public struct Lexer: IteratorProtocol, Sequence {
 
-  /// The Val source being tokenized.
+  /// The Hylo source being tokenized.
   public let sourceCode: SourceFile
 
   /// The current position in the source file.

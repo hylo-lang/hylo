@@ -6,11 +6,11 @@ import XCTest
 
 extension XCTestCase {
 
-  /// Lowers the val file at `valFilePath` to IR, applying any mandatory passes, and `XCTAssert`s
+  /// Lowers the hylo file at `hyloFilePath` to IR, applying any mandatory passes, and `XCTAssert`s
   /// that diagnostics and thrown errors match annotated expectations.
-  func lowerToFinishedIR(_ valFilePath: String, expectSuccess: Bool) throws {
+  func lowerToFinishedIR(_ hyloFilePath: String, expectSuccess: Bool) throws {
 
-    try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath, expectSuccess: expectSuccess) {
+    try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (valSource, diagnostics) in
       // Note: built-in module is visible so that we can test built-in function calls.
       var ast = AST.coreModule
@@ -22,7 +22,7 @@ extension XCTestCase {
       let base = ScopedProgram(ast)
       let typedProgram = try TypedProgram(annotating: base, reportingDiagnosticsTo: &diagnostics)
 
-      // Emit Val's IR.
+      // Emit Hylo IR.
       var irModule = try Module(
         lowering: module, in: typedProgram, reportingDiagnosticsTo: &diagnostics)
 

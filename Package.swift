@@ -7,14 +7,14 @@ let allTargetsSwiftSettings: [SwiftSetting] = [
 ]
 
 let package = Package(
-  name: "Val",
+  name: "Hylo",
 
   platforms: [
     .macOS(.v12)
   ],
 
   products: [
-    .executable(name: "valc", targets: ["CLI"])
+    .executable(name: "hyloc", targets: ["CLI"])
   ],
 
   dependencies: [
@@ -25,13 +25,13 @@ let package = Package(
       url: "https://github.com/apple/swift-collections.git",
       from: "1.0.0"),
     .package(
-      url: "https://github.com/val-lang/Durian.git",
+      url: "https://github.com/hylo-lang/Durian.git",
       from: "1.2.0"),
     .package(
       url: "https://github.com/attaswift/BigInt.git",
       from: "5.3.0"),
     .package(
-      url: "https://github.com/val-lang/Swifty-LLVM",
+      url: "https://github.com/hylo-lang/Swifty-LLVM",
       branch: "main"),
     .package(
       url: "https://github.com/apple/swift-format",
@@ -46,12 +46,12 @@ let package = Package(
     .executableTarget(
       name: "CLI",
       dependencies: [
-        "ValCommand"
+        "Driver"
       ],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
-      name: "ValCommand",
+      name: "Driver",
       dependencies: [
         "FrontEnd",
         "IR",
@@ -66,7 +66,7 @@ let package = Package(
       dependencies: [
         "Utils",
         "Core",
-        "ValModule",
+        "HyloModule",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
@@ -109,17 +109,17 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
-      name: "ValModule",
+      name: "HyloModule",
       path: "Library",
-      resources: [.copy("Val")],
+      resources: [.copy("Hylo")],
       swiftSettings: allTargetsSwiftSettings),
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
-      dependencies: [.target(name: "GenerateValFileTests")]),
+      dependencies: [.target(name: "GenerateHyloFileTests")]),
 
     .executableTarget(
-      name: "GenerateValFileTests",
+      name: "GenerateHyloFileTests",
       dependencies: [
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         "Utils",
@@ -138,19 +138,19 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
-      name: "ValTests",
+      name: "HyloTests",
       dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
 
     .testTarget(
-      name: "ValCommandTests",
-      dependencies: ["ValCommand"],
+      name: "DriverTests",
+      dependencies: ["Driver"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "EndToEndTests",
-      dependencies: ["ValCommand", "TestUtils"],
+      dependencies: ["Driver", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
   ])

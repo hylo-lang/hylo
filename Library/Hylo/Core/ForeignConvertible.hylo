@@ -1,7 +1,7 @@
 /// A type that can be converted to and from an a foreign representation.
 ///
 /// Types conforming to `ForeignConvertible` can appear in foreign function interfaces (FFI) and
-/// are automatically converted from Val to their foreign representation, or vice versa.
+/// are automatically converted from Hylo to their foreign representation, or vice versa.
 public trait ForeignConvertible {
 
   /// The foreign representation of the type.

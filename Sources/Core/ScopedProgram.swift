@@ -1,6 +1,6 @@
 import Utils
 
-/// A data structure representing a scoped Val program ready to be type checked.
+/// A data structure representing a scoped Hylo program ready to be type checked.
 public struct ScopedProgram: Program {
 
   public let ast: AST

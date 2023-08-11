@@ -1,6 +1,6 @@
 # Notes about subscript implementation
 
-A subscript is lowered as a single Val IR function.
+A subscript is lowered as a single Hylo IR function.
 This function has no return value but is expected to execute exactly one `yield` instruction on every possible path from entry to each `return` instruction.
 
 At the call site, a subscript is invoked with the `project` instruction.
@@ -8,7 +8,7 @@ The lifetime pass closes a projection with `end_project` after its last use.
 
 **Example:**
 
-Consider the following Val code:
+Consider the following Hylo code:
 
 ```swift
 subscript sum(_ x: Int, _ y: Int): Int { x + y }
@@ -84,7 +84,7 @@ The advantage of this approach is that it requires involves code transformation.
 One important challenge to implement subscripts-as-continuations is to identity the scope of continuations.
 Specifically, the continuation passed from the caller to a ramp can only contain instructions that are dominated by the start of the projection and must terminate all projections that it starts.
 
-For example, consider the following Val program:
+For example, consider the following Hylo program:
 
 ```swift
 public fun main() {

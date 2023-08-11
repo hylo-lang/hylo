@@ -23,7 +23,7 @@ public struct WitnessTable: Constant, Hashable {
     self.conformances = conformances
   }
 
-  /// The Val IR type of this instance.
+  /// The Hylo IR type of this instance.
   public var type: IR.`Type` { .object(WitnessTableType()) }
 
 }

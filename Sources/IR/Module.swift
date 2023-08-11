@@ -4,13 +4,13 @@ import FrontEnd
 import OrderedCollections
 import Utils
 
-/// A module lowered to Val IR.
+/// A module lowered to Hylo IR.
 ///
 /// An IR module is notionally composed of a collection of functions, one of which may be
-/// designated as its entry point (i.e., the `main` function of a Val program).
+/// designated as its entry point (i.e., the `main` function of a Hylo program).
 public struct Module {
 
-  /// The identity of a global defined in a Val IR module.
+  /// The identity of a global defined in a Hylo IR module.
   public typealias GlobalID = Int
 
   /// The program defining the functions in `self`.
@@ -221,7 +221,7 @@ public struct Module {
     functions[identity] = function
   }
 
-  /// Returns the identity of the Val IR function corresponding to `d`.
+  /// Returns the identity of the Hylo IR function corresponding to `d`.
   mutating func demandFunctionDeclaration(lowering d: FunctionDecl.ID) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
@@ -250,7 +250,7 @@ public struct Module {
     return f
   }
 
-  /// Returns the identity of the Val IR function corresponding to `d`.
+  /// Returns the identity of the Hylo IR function corresponding to `d`.
   mutating func demandSubscriptDeclaration(lowering d: SubscriptImpl.ID) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
@@ -273,7 +273,7 @@ public struct Module {
     return f
   }
 
-  /// Returns the identifier of the Val IR initializer corresponding to `d`.
+  /// Returns the identifier of the Hylo IR initializer corresponding to `d`.
   mutating func demandInitializerDeclaration(lowering d: InitializerDecl.ID) -> Function.ID {
     precondition(!program.ast[d].isMemberwise)
 
@@ -296,7 +296,7 @@ public struct Module {
     return f
   }
 
-  /// Returns the identity of the Val IR function implementing the deinitializer defined in
+  /// Returns the identity of the Hylo IR function implementing the deinitializer defined in
   /// conformance `c`.
   mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
     let d = program.ast.deinitRequirement()
@@ -309,7 +309,7 @@ public struct Module {
     }
   }
 
-  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
+  /// Returns the identity of the Hylo IR function implementing the `k` variant move-operator
   /// defined in conformance `c`.
   ///
   /// - Requires: `k` is either `.set` or `.inout`
@@ -326,7 +326,7 @@ public struct Module {
     }
   }
 
-  /// Returns the identity of the Val IR function corresponding to `d`.
+  /// Returns the identity of the Hylo IR function corresponding to `d`.
   mutating func demandSyntheticDeclaration(lowering d: SynthesizedFunctionDecl) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }

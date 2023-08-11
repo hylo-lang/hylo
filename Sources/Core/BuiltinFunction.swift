@@ -1,7 +1,7 @@
 import LLVM
 import Utils
 
-/// A function representing an IR instruction in Val source code.
+/// A function representing an IR instruction in Hylo source code.
 public struct BuiltinFunction: Hashable {
 
   /// The name of the function.

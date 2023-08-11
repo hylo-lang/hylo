@@ -41,5 +41,5 @@ The default keyboard shortcut for running the formatter for the open document is
 ### XCode
 
 The `lint-source-code` and `format-source-code` commands can be directly applied from XCode.
-Right-click on the `val` package in the "Project navigator" tab, and select "Lint Source Code" or "Format Source Code".
+Right-click on the `hyloc` package in the "Project navigator" tab, and select "Lint Source Code" or "Format Source Code".
 Ensure to add `--configuration .swift-format.json` inside "Arguments" expansion area, select the targets to run on, and then hit "Run".

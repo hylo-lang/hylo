@@ -2,7 +2,7 @@ import Core
 import Foundation
 import Utils
 
-/// A data structure representing a typed Val program ready to be lowered.
+/// A data structure representing a typed Hylo program ready to be lowered.
 public struct TypedProgram {
 
   /// A set of conformances represented to answer "does A conform to T in S" efficiently.
