@@ -10,12 +10,12 @@ public struct RemoteTypeExpr: Expr {
   public var convention: SourceRepresentable<AccessEffect>
 
   /// The expression of the projected type.
-  public let operand: AnyTypeExprID
+  public let operand: AnyExprID
 
   public init(
     introducerSite: SourceRange,
     convention: SourceRepresentable<AccessEffect>,
-    operand: AnyTypeExprID,
+    operand: AnyExprID,
     site: SourceRange
   ) {
     self.site = site
