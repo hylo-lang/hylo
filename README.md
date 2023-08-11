@@ -17,7 +17,7 @@ You will need Swift 5.7 or higher to build the compiler from sources.
 
 ### Prerequisites
 
-You can skip directly to step 3 if you're doing development exclusively in a [devcontainer](#building-val-devcontainer-with-vscode).
+You can skip directly to step 3 if you're doing development exclusively in a [devcontainer](#building-a-hylo-devcontainer-with-vscode).
 Otherwise:
 
 1. Install LLVM 15 or later on your system (e.g. `brew install llvm`) 
