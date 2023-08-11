@@ -5,7 +5,7 @@ import Utils
 
 extension LLVM.Module {
 
-  /// Creates the LLVM transpilation of the Val IR module `m` in `ir`.
+  /// Creates the LLVM transpilation of the Hylo IR module `m` in `ir`.
   init(transpiling m: ModuleDecl.ID, from ir: IR.Program) {
     let source = ir.modules[m]!
     self.init(source.name)
@@ -142,9 +142,9 @@ extension LLVM.Module {
     return f
   }
 
-  /// Returns the type of a transpiled function whose type in Val is `t`.
+  /// Returns the type of a transpiled function whose type in Hylo is `t`.
   ///
-  /// - Note: the type of a function in Val IR typically doesn't match the type of its transpiled
+  /// - Note: the type of a function in Val Hylo typically doesn't match the type of its transpiled
   ///   form 1-to-1, as return values are often passed by references.
   private mutating func transpiledType(_ t: LambdaType) -> LLVM.FunctionType {
     // Return values are passed by reference.
@@ -158,7 +158,7 @@ extension LLVM.Module {
     return .init(from: Array(repeating: ptr, count: parameters), to: void, in: &self)
   }
 
-  /// Returns the LLVM IR value corresponding to the Val IR constant `c` when used in `m` in `ir`.
+  /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
     _ c: any IR.Constant,
     usedIn m: IR.Module,
@@ -466,17 +466,17 @@ extension LLVM.Module {
     /// Where new LLVM IR instruction are inserted.
     var insertionPoint: LLVM.InsertionPoint!
 
-    /// A map from Val IR basic block to its LLVM counterpart.
+    /// A map from Hylo IR basic block to its LLVM counterpart.
     var block: [IR.Block.ID: LLVM.BasicBlock] = [:]
 
-    /// A map from Val IR register to its LLVM counterpart.
+    /// A map from Hylo IR register to its LLVM counterpart.
     var register: [IR.Operand: LLVM.IRValue] = [:]
 
     /// A map from projection to its side results in LLVM.
     ///
     /// Projection calls is transpiled as coroutine calls, producing a slide and a frame pointer in
     /// addition to the projected value. These values are stored here so that `register` can be a
-    /// one-to-one mapping from Val registers to LLVM registers.
+    /// one-to-one mapping from Hylo registers to LLVM registers.
     var byproduct: [IR.InstructionID: (slide: LLVM.IRValue, frame: LLVM.IRValue)] = [:]
 
     /// The address of the function's frame if `f` is a subscript. Otherwise, `nil`.
@@ -961,7 +961,7 @@ extension LLVM.Module {
         at: insertionPoint)
     }
 
-    /// Returns the LLVM IR value corresponding to the Val IR operand `o`.
+    /// Returns the LLVM IR value corresponding to the Hylo IR operand `o`.
     func llvm(_ o: IR.Operand) -> LLVM.IRValue {
       if case .constant(let c) = o {
         return transpiledConstant(c, usedIn: m, from: ir)

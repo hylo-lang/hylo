@@ -17,7 +17,7 @@ import Utils
 ///
 ///     let p2 = attempt(foo.and(bar)).or(foo)
 
-/// A namespace for the routines of Val's parser.
+/// A namespace for the routines of Hylo's parser.
 public enum Parser {
 
   /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to

@@ -37,7 +37,7 @@ You may compile Hylo's compiler with the following commands:
 swift build -c release
 ```
 
-That command will create an executable named `valc` in `.build/release`.
+That command will create an executable named `hyloc` in `.build/release`.
 That's Hylo's compiler!
 
 ### Running the tests
@@ -86,7 +86,7 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--emit intel-asm`: Output Intel assembly for all user module(s).
 - `--emit binary` (default): Produce an executable.
 
-For example, `valc --emit raw-ast -o main.json main.val` will parse `main.val`, write the untyped AST in `main.json`, and exit the pipeline.
+For example, `hyloc --emit raw-ast -o main.json main.hylo` will parse `main.hylo`, write the untyped AST in `main.json`, and exit the pipeline.
 
 A more detailed description of the current implementation status is available on our [roadmap page](https://www.hylo-lang.org/pages/implementation-status.html).
 
@@ -109,11 +109,11 @@ A more detailed description of the current implementation status is available on
 | :-----: | :-----: | :--------: | :-----------: | :-------------------------------------------------------------------------------------: |
 | CppCast |   352   | 2023-01-20 | Dimi Racordon | [Val and Mutable Value Semantics](https://cppcast.com/val-and-mutable-value-semantics)  |
 |  ADSP   |   137   | 2023-07-07 |  Sean Parent  | [Sean Parent on Hylo (vs Rust)!](https://adspthepodcast.com/2023/07/07/Episode-137.html) |
-|  ADSP   |   138   | 2023-07-14 |  Sean Parent  | [Sean Parent on Val! (Part 2)](https://adspthepodcast.com/2023/07/14/Episode-138.html) |
+|  ADSP   |   138   | 2023-07-14 |  Sean Parent  | [Sean Parent on Hylo! (Part 2)](https://adspthepodcast.com/2023/07/14/Episode-138.html) |
 
 ## Contributing
 
-We welcome contributions to Val.
+We welcome contributions to Hylo.
 Please read through [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
 
 You can also get in touch with the community by joining our [Slack](https://join.slack.com/t/val-qs97696/shared_invite/zt-1z3dsblrq-y4qXfEE6wr6uMEJSN9uFyg) or one of our [Teams Meetings](https://teams.microsoft.com/l/meetup-join/19%3ameeting_YjZmOTJiMjUtNDZhNy00MTcxLWJjY2YtMTQ0ZGEzY2RkY2E4%40thread.v2/0?context=%7b%22Tid%22%3a%22fa7b1b5a-7b34-4387-94ae-d2c178decee1%22%2c%22Oid%22%3a%22a102b458-98db-4c5e-acad-cfa08a096ae3%22%7d) (ID: 298 158 296 273, Passcode: D2beKF) on Tuesdays and Thursdays, 12:30-1:00 PST.

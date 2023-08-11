@@ -1,4 +1,4 @@
-/// A constant value in Val IR.
+/// A constant value in Hylo IR.
 public protocol Constant: Hashable {
 
   /// The type of the value.

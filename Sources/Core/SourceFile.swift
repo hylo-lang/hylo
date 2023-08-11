@@ -1,8 +1,8 @@
 import Foundation
 import Utils
 
-/// A Val source file, a synthesized fragment of Val source, or a fragment of Val source embedded in
-/// a Swift string literal.
+/// A Hylo source file, a synthesized fragment of Hylo source, or a fragment Hylo source embedded
+/// in a Swift string literal.
 public struct SourceFile {
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
@@ -287,15 +287,17 @@ extension SourceFile: CustomStringConvertible {
 
 }
 
-/// Given a collection of file and directory paths as specified on the valc command line, returns
+/// Given a collection of file and directory paths as specified on the hyloc command line, returns
 /// the actual source files to process.
 ///
-/// Paths of files in `sourcePaths` are unconditionally treated as Val source files. Paths of
-/// directories are recursively searched for `.val` files, which are considered Val source files;
+/// Paths of files in `sourcePaths` are unconditionally treated as Hylo source files. Paths of
+/// directories are recursively searched for `.hylo` files, which are considered Hylo source files;
 /// all others are treated as non-source files and are ignored.
 public func sourceFiles<S: Sequence<URL>>(in sourcePaths: S) throws -> [SourceFile] {
   try sourcePaths.flatMap { (p) in
-    try p.hasDirectoryPath ? sourceFiles(in: p, withExtension: "val") : [SourceFile(contentsOf: p)]
+    try p.hasDirectoryPath
+      ? sourceFiles(in: p, withExtension: "hylo")
+      : [SourceFile(contentsOf: p)]
   }
 }
 

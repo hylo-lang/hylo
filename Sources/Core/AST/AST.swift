@@ -18,7 +18,7 @@ public struct AST {
     /// - Invariant: All referred modules have a different name.
     public var modules: [ModuleDecl.ID] = []
 
-    /// The ID of the module containing Val's core library, if any.
+    /// The ID of the module containing Hylo's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
 
   }
@@ -42,7 +42,7 @@ public struct AST {
     _modify { yield &storage.modules }
   }
 
-  /// The ID of the module containing Val's core library, if any.
+  /// The ID of the module containing Hylo's core library, if any.
   public var coreLibrary: ModuleDecl.ID? {
     get { storage.coreLibrary }
     set { storage.coreLibrary = newValue }
@@ -161,22 +161,22 @@ public struct AST {
     }
   }
 
-  /// `Val.Deinitializable` trait from the Core library.
+  /// `Hylo.Deinitializable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
   public var deinitializableTrait: TraitType { coreTrait("Deinitializable")! }
 
-  /// `Val.Movable` trait from the Core library.
+  /// `Hylo.Movable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
   public var movableTrait: TraitType { coreTrait("Movable")! }
 
-  /// `Val.Copyable` trait from the Core library.
+  /// `Hylo.Copyable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
   public var copyableTrait: TraitType { coreTrait("Copyable")! }
 
-  /// `Val.ForeignConvertiblae` trait from the Core library.
+  /// `Hylo.ForeignConvertiblae` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
   public var foreignConvertibleTrait: TraitType { coreTrait("ForeignConvertible")! }

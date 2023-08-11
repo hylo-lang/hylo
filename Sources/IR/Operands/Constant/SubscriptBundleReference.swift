@@ -1,6 +1,6 @@
 import Core
 
-/// A Val IR reference to a user subscript bundle.
+/// A Hylo IR reference to a user subscript bundle.
 public struct SubscriptBundleReference: Hashable {
 
   /// The ID of the referred IR subscript bundle.

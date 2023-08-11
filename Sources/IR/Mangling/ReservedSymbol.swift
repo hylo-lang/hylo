@@ -1,19 +1,19 @@
 /// An unambiguous textual description of a type, scope, or declaration known to the compiler.
 enum ReservedSymbol: UInt8 {
 
-  /// The `Val` module.
-  case val
+  /// The `Hylo` module.
+  case hylo
 
-  /// `Val.Bool`.
+  /// `Hylo.Bool`.
   case bool
 
-  /// `Val.Int`.
+  /// `Hylo.Int`.
   case int
 
-  /// `Val.Float64`.
+  /// `Hylo.Float64`.
   case float64
 
-  /// `Val.String`.
+  /// `Hylo.String`.
   case string
 
   /// The `Any` type.

@@ -7,9 +7,9 @@ import LLVM
 ///
 /// LLVM instructions are "generic" in the sense that they can be parameterized by types and flags.
 /// For example, `add i32` and `add i64` represent the integer addition parameterized for 32-bit
-/// and 64-bit integer values, respectively. In Val, this parameterization is encoded directly into
-/// the name of a built-in function. For example, `Builtin.add_i64` corresponds to LLVM's `add i64`
-/// instruction.
+/// and 64-bit integer values, respectively. In Hylo, this parameterization is encoded directly
+/// into the name of a built-in function. For example, `Builtin.add_i64` corresponds to LLVM's
+/// `add i64` instruction.
 ///
 /// The name of a native instruction is given by the name of the corresponding LLVM instruction
 /// concatenated with all its generic parameters, separated by underscores. For example:

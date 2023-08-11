@@ -1,6 +1,6 @@
 import Core
 
-/// The possibly synthetic declaration of a parameter to a Val IR function.
+/// The possibly synthetic declaration of a parameter to a Hylo IR function.
 public struct Parameter {
 
   /// The declaration of the parameter, if any.

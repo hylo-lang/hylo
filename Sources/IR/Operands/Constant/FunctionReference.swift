@@ -1,6 +1,6 @@
 import Core
 
-/// A Val IR reference to a user function.
+/// A Hylo IR reference to a user function.
 public struct FunctionReference: Constant, Hashable {
 
   /// The ID of the referred IR function.

@@ -8,7 +8,7 @@ final class ManglingTests: XCTestCase {
 
   func testDeclarations() throws {
     let text = """
-      import Val
+      import Hylo
 
       namespace Stash {
         type A {}
@@ -111,10 +111,10 @@ final class ManglingTests: XCTestCase {
     try assertDemangledOfMangled(AnyType.never, is: "Never")
     try assertDemangledOfMangled(AnyType.void, is: "Void")
     try assertDemangledOfMangled(MetatypeType(of: AnyType.void), is: "Metatype<Void>")
-    try assertDemangledOfMangled(p.ast.coreType("Int")!, is: "Val.Int")
+    try assertDemangledOfMangled(p.ast.coreType("Int")!, is: "Hylo.Int")
     try assertDemangledOfMangled(
       ExistentialType(traits: [p.ast.coreTrait("Movable")!], constraints: []),
-      is: "any Val.Movable")
+      is: "any Hylo.Movable")
   }
 
 }

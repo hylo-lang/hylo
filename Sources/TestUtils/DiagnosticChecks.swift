@@ -46,7 +46,7 @@ extension XCTIssue {
 
 extension XCTSourceCodeLocation {
 
-  /// Creates an instance from a location in a Val source file.
+  /// Creates an instance from a location in a Hylo source file.
   fileprivate convenience init(_ l: SourcePosition) {
     self.init(fileURL: l.file.url, lineNumber: l.line.number)
   }

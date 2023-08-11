@@ -4,7 +4,7 @@ import IR
 import LLVM
 import Utils
 
-/// A Val program transpiled to LLVM.
+/// A Hylo program transpiled to LLVM.
 public struct LLVMProgram {
 
   /// The machine for which the program is compiled.

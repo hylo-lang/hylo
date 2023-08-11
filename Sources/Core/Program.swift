@@ -1,6 +1,6 @@
 import Utils
 
-/// Types representing Val programs at some stage after syntactic and scope analysis.
+/// Types representing Hylo programs at some stage after syntactic and scope analysis.
 public protocol Program {
 
   /// The AST of the program.

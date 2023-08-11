@@ -5,11 +5,11 @@ import XCTest
 
 extension XCTestCase {
 
-  /// Type-checks the val file at `valFilePath`, `XCTAssert`ing that diagnostics and thrown
+  /// Type-checks the Hylo file at `hyloFilePath`, `XCTAssert`ing that diagnostics and thrown
   /// errors match annotated expectations.
-  func typeCheck(_ valFilePath: String, expectSuccess: Bool) throws {
+  func typeCheck(_ hyloFilePath: String, expectSuccess: Bool) throws {
 
-    try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath, expectSuccess: expectSuccess) {
+    try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (source, diagnostics) in
 
       var ast = AST.coreModule

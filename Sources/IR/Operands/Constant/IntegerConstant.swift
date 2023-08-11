@@ -5,19 +5,19 @@ import Utils
 // https://github.com/apple/swift/issues/62498.
 extension WideUInt: UnsignedInteger {}
 
-/// An unsigned integer Val IR constant.
+/// An unsigned integer Hylo IR constant.
 public struct IntegerConstant: Constant, Hashable {
 
   public let value: WideUInt
 
-  /// Creates a new integer Val IR constant with value `x` and the given `bitWidth`.
+  /// Creates a new integer Hylo IR constant with value `x` and the given `bitWidth`.
   ///
   /// - Precondition: `x` is non-negative and representable in `bitWidth` bits.
   public init<V: BinaryInteger>(_ x: V, bitWidth: Int) {
     self.value = WideUInt(exactly: x, bitWidth: bitWidth)!
   }
 
-  /// Creates a new Val IR constant with given `value`.
+  /// Creates a new Hylo IR constant with given `value`.
   public init(_ value: WideUInt) {
     self.value = value
   }

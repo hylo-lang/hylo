@@ -4,7 +4,7 @@ import Dispatch
 public class SharedMutable<WrappedType> {
 
   /// The synchronization mechanism that makes `self` threadsafe.
-  private let mutex = DispatchQueue(label: "org.val-lang.\(WrappedType.self)")
+  private let mutex = DispatchQueue(label: "org.hylo-lang.\(WrappedType.self)")
 
   /// The (thread-unsafe) stored instance.
   private var storage: WrappedType
