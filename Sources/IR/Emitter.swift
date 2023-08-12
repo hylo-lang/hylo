@@ -1303,9 +1303,7 @@ struct Emitter {
 
     let x0 = emitLValue(program[e].operand)
     let x1 = insert(module.makeAccess(t.access, from: x0, at: s))!
-    let x2 = insert(module.makeAccess(.set, from: storage, at: s))!
-    insert(module.makeCaptureIn(t.access, from: x1, in: x2, at: s))
-    insert(module.makeEndAccess(x2, at: s))
+    emitStore(access: x1, to: storage, at: s)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1451,6 +1449,23 @@ struct Emitter {
     let x1 = emitSubfieldView(storage, at: [1, 0], at: site)
     let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
     insert(module.makeStore(.constant(utf8), at: x2, at: site))
+  }
+
+  /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
+  ///
+  /// - Parameter storage: an `alloc_stack` that is outlived by the provenances of `a`.
+  private mutating func emitStore(
+    access a: Operand, to storage: Operand, at site: SourceRange
+  ) {
+    guard module[storage] is AllocStack else {
+      report(.error(cannotCaptureAccessAt: site))
+      return
+    }
+
+    let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
+    insert(module.makeCapture(a, in: x0, at: site))
+    insert(module.makeEndAccess(x0, at: site))
+    frames.top.setMayHoldCaptures(storage)
   }
 
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
@@ -2374,17 +2389,8 @@ struct Emitter {
     for t: AnyType, at site: SourceRange
   ) -> Operand {
     let s = insert(module.makeAllocStack(canonical(t), at: site))!
-    frames.top.allocs.append(s)
+    frames.top.allocs.append((source: s, mayHoldCaptures: false))
     return s
-  }
-
-  /// Appends the IR for computing the address of the given `subfield` of the record at
-  /// `recordAddress` and returns the resulting address, anchoring new instructions at `site`.
-  private mutating func emitSubfieldView(
-    _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
-  ) -> Operand {
-    if subfield.isEmpty { return recordAddress }
-    return insert(module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site))!
   }
 
   /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`, anchoring
@@ -2397,8 +2403,20 @@ struct Emitter {
   /// Inserts the IR for deallocating each allocation in `f`, anchoring new instructions at `site`.
   private mutating func emitDeallocs(for f: Frame, at site: SourceRange) {
     for a in f.allocs.reversed() {
-      insert(module.makeDeallocStack(for: a, at: site))
+      if a.mayHoldCaptures {
+        insert(module.makeReleaseCapture(a.source, at: site))
+      }
+      insert(module.makeDeallocStack(for: a.source, at: site))
     }
+  }
+
+  /// Appends the IR for computing the address of the given `subfield` of the record at
+  /// `recordAddress` and returns the resulting address, anchoring new instructions at `site`.
+  private mutating func emitSubfieldView(
+    _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
+  ) -> Operand {
+    if subfield.isEmpty { return recordAddress }
+    return insert(module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site))!
   }
 
   /// Emits the IR trapping iff `predicate`, which is an object of type `i1`, anchoring new
@@ -2453,8 +2471,15 @@ extension Emitter {
     /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = DeclProperty<Operand>()
 
-    /// The allocations in the frame, in FILO order.
-    var allocs: [Operand] = []
+    /// The allocations in the frame, in FILO order, paired with a flag that's `true` iff they may
+    /// hold captured accesses.
+    var allocs: [(source: Operand, mayHoldCaptures: Bool)] = []
+
+    /// Sets the `maxHoldCaptures` on the allocation corresponding to `source`.
+    mutating func setMayHoldCaptures(_ source: Operand) {
+      let i = allocs.firstIndex(where: { $0.source == source })!
+      allocs[i].mayHoldCaptures = true
+    }
 
   }
 
@@ -2520,6 +2545,10 @@ extension Diagnostic {
     binding a: AccessEffect, requiresInitializerAt site: SourceRange
   ) -> Diagnostic {
     .error("declaration of \(a) binding requires an initializer", at: site)
+  }
+
+  fileprivate static func error(cannotCaptureAccessAt site: SourceRange) -> Diagnostic {
+    .error("cannot capture access", at: site)
   }
 
   fileprivate static func error(

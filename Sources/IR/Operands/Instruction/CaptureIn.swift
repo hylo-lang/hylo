@@ -4,9 +4,6 @@ import Utils
 /// Captures and stores a remote part.
 public struct CaptureIn: Instruction {
 
-  /// The access capability being captured.
-  public let capability: AccessEffect
-
   /// The operands of the instruction.
   public private(set) var operands: [Operand]
 
@@ -14,8 +11,7 @@ public struct CaptureIn: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(capability: AccessEffect, source: Operand, target: Operand, site: SourceRange) {
-    self.capability = capability
+  fileprivate init(source: Operand, target: Operand, site: SourceRange) {
     self.operands = [source, target]
     self.site = site
   }
@@ -35,22 +31,19 @@ public struct CaptureIn: Instruction {
 extension CaptureIn: CustomStringConvertible {
 
   public var description: String {
-    "capture [\(capability)] \(source) in \(target)"
+    "capture \(source) in \(target)"
   }
 
 }
 
 extension Module {
 
-  /// Creates a `capture in` anchored at `site` that captures `capability` on `source` and stores
-  /// it in `target`.
-  func makeCaptureIn(
-    _ capability: AccessEffect, from source: Operand, in target: Operand,
-    at site: SourceRange
-  ) -> CaptureIn {
+  /// Creates a `capture ... in` anchored at `site` that captures `source`, which is an access, and
+  /// stores it in `target`.
+  func makeCapture(_ source: Operand, in target: Operand, at site: SourceRange) -> CaptureIn {
     precondition(type(of: source).isAddress)
     precondition(type(of: target).isAddress)
-    return .init(capability: capability, source: source, target: target, site: site)
+    return .init(source: source, target: target, site: site)
   }
 
 }
