@@ -1454,12 +1454,14 @@ struct TypeChecker {
     let (i, cs) = eval(existentialBound: program[d].subject)
     assert(cs.isEmpty, "not implemented")
 
-    if let b = BuiltinType(i) {
-      report(.error(cannotExtend: b, at: program[d].subject.site))
-      return .error
+    switch i.base {
+    case is BuiltinType, is RemoteType:
+      report(.error(cannotExtend: i, at: program[d].subject.site))
+    default:
+      return i
     }
 
-    return i
+    return .error
   }
 
   /// Computes and returns the type of `d`.
