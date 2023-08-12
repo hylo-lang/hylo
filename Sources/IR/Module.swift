@@ -149,6 +149,21 @@ public struct Module {
     }
   }
 
+  /// Returns `true` iff `lhs` is sequenced before `rhs`.
+  func dominates(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
+    if lhs.function != rhs.function { return false }
+
+    // Fast path: both instructions are in the same block.
+    if lhs.block == rhs.block {
+      let sequence = functions[lhs.function]![lhs.block].instructions
+      return lhs.address.precedes(rhs.address, in: sequence)
+    }
+
+    // Slow path: use the dominator tree.
+    let d = DominatorTree(function: lhs.function, cfg: self[lhs.function].cfg(), in: self)
+    return d.dominates(lhs.block, rhs.block)
+  }
+
   /// Returns whether the IR in `self` is well-formed.
   ///
   /// Use this method as a sanity check to verify the module's invariants.
