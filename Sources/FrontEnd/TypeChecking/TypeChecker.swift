@@ -913,13 +913,10 @@ struct TypeChecker {
     // TODO: Verify requirement constraints
     // TODO: Use arguments to bound generic types as constraints
 
-    let arguments: GenericArguments
     var m = canonical(model, in: scopeOfExposition)
+    let arguments: GenericArguments = [program[concept.decl].selfParameterDecl: m]
     if let b = BoundGenericType(m) {
       m = b.base
-      arguments = [program[concept.decl].selfParameterDecl: ^b.despecialized(in: program.ast)]
-    } else {
-      arguments = [program[concept.decl].selfParameterDecl: m]
     }
 
     if let s = cache.local.conformances[m, default: [:]][concept] {
