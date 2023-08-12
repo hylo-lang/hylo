@@ -9,14 +9,14 @@ public struct RemoteExpr: Expr {
   /// The passing convention of the remote type.
   public var convention: SourceRepresentable<AccessEffect>
 
-  /// The expression of the remote type or value.
-  public let operand: AnyTypeExprID
+  /// The expression of the projected type.
+  public let operand: AnyExprID
 
   /// Creates an isntance with the given properties.
   public init(
     introducerSite: SourceRange,
     convention: SourceRepresentable<AccessEffect>,
-    operand: AnyTypeExprID,
+    operand: AnyExprID,
     site: SourceRange
   ) {
     self.site = site

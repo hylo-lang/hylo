@@ -44,7 +44,7 @@ public struct SubscriptDecl: BundleDecl, GenericDecl, GenericScope {
   public let parameters: [ParameterDecl.ID]?
 
   /// The output type annotation of the subscript.
-  public let output: AnyTypeExprID
+  public let output: AnyExprID
 
   /// The implementations of the subscript.
   public let impls: [SubscriptImpl.ID]
@@ -59,7 +59,7 @@ public struct SubscriptDecl: BundleDecl, GenericDecl, GenericScope {
     genericClause: SourceRepresentable<GenericClause>?,
     explicitCaptures: [BindingDecl.ID],
     parameters: [ParameterDecl.ID]?,
-    output: AnyTypeExprID,
+    output: AnyExprID,
     impls: [SubscriptImpl.ID],
     site: SourceRange
   ) {

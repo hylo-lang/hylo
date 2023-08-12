@@ -81,30 +81,4 @@ extension TypeProtocol {
     return transformParts(mutating: &ignored) { (_, t) in transformer(t) }
   }
 
-  /// `self` with all generic parameters replaced by skolems.
-  public var skolemized: AnyType {
-    func _impl(type: AnyType) -> TypeTransformAction {
-      switch type.base {
-      case let base as AssociatedTypeType:
-        return .stepOver(^SkolemType(quantifying: base))
-
-      case let base as GenericTypeParameterType:
-        return .stepOver(^SkolemType(quantifying: base))
-
-      case is AssociatedValueType:
-        fatalError("not implemented")
-
-      default:
-        // Nothing to do if `type` isn't parameterized.
-        if type[.hasGenericTypeParameter] || type[.hasGenericValueParameter] {
-          return .stepInto(type)
-        } else {
-          return .stepOver(type)
-        }
-      }
-    }
-
-    return transform(_impl(type:))
-  }
-
 }
