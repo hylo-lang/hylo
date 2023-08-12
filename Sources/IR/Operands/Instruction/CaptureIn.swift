@@ -2,6 +2,11 @@ import Core
 import Utils
 
 /// Captures and stores a remote part.
+///
+/// Well-formed IR guarantees the following invariants:
+/// - The provenances of `target` contain a single `alloc_stack`.
+/// - A `capture ... in` is post-dominated by at least one `release_captures` on the storage in
+///   which it has stored an access.
 public struct CaptureIn: Instruction {
 
   /// The operands of the instruction.
