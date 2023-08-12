@@ -7,6 +7,13 @@ public fun main() {
   let y = remote let x
   check<remote let Int>(y)
 
-  // 'remote let Int' <: 'Int'
+  // Note: 'remote let Int' <: 'Int'
   check<Int>(y)
+
+  // Note: inference preserves "remoteness".
+  let z = y
+  check<remote let Int>(z)
+
+  // Note: APIs are preserved.
+  _ = (z == 0)
 }
