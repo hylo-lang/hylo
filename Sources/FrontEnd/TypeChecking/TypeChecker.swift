@@ -2868,12 +2868,6 @@ struct TypeChecker {
       }
 
       specialization.append(candidateSpecialization)
-
-      // If the match is a generic parameter, keep track of its specialization.
-      if let d = GenericParameterDecl.ID(m), specialization[d] == nil {
-        specialization[d] = ^GenericTypeParameterType(d, ast: program.ast)
-      }
-
       candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
 
       let r = program.makeReference(
