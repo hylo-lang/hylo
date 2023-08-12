@@ -18,7 +18,7 @@ public struct TypeVariable: TypeProtocol {
   var context: UInt8 { UInt8(rawValue >> 56) }
 
   /// The identifier of this instance.
-  var identifier: UInt64 { ~(255 << 56) | rawValue }
+  var identifier: UInt64 { ~(255 << 56) & rawValue }
 
 }
 

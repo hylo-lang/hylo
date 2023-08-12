@@ -446,7 +446,7 @@ public struct Module {
         fatalError("not implemented")
       }
 
-      result[p] = ^SkolemType(quantifying: u)
+      result[p] = ^u
     }
     return result
   }
@@ -467,9 +467,9 @@ public struct Module {
     assert(ir.blocks.isEmpty)
 
     // In functions, the last parameter of the entry denotes the function's return value.
-    var parameters = ir.inputs.map({ IR.`Type`.address($0.type.bareType.skolemized) })
+    var parameters = ir.inputs.map({ IR.`Type`.address($0.type.bareType) })
     if !ir.isSubscript {
-      parameters.append(.address(ir.output.skolemized))
+      parameters.append(.address(ir.output))
     }
 
     return appendBlock(in: scope, taking: parameters, to: f)
