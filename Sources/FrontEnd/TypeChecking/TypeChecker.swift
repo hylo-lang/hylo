@@ -2351,6 +2351,8 @@ struct TypeChecker {
       return lookup(stem, memberOf: ^t.lens, exposedTo: scopeOfUse)
     case let t as ExistentialType:
       return lookup(stem, memberOf: t, exposedTo: scopeOfUse)
+    case let t as RemoteType:
+      return lookup(stem, memberOf: t.bareType, exposedTo: scopeOfUse)
     case let t as SkolemType:
       return lookup(stem, memberOf: t, exposedTo: scopeOfUse)
     default:
