@@ -170,8 +170,6 @@ public struct AnyType: TypeProtocol {
 
   public var flags: TypeFlags { base.flags }
 
-  public var skolemized: AnyType { base.skolemized }
-
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> AnyType {

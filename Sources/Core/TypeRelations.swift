@@ -102,8 +102,6 @@ public struct TypeRelations {
         return transform(u)
       case let u as GenericTypeParameterType:
         return .stepOver((parameterization[u.decl] as? AnyType) ?? .error)
-      case let u as SkolemType:
-        return transform(u)
       default:
         return .stepInto(t)
       }
@@ -126,11 +124,6 @@ public struct TypeRelations {
         }
       }
       return .stepOver(^BoundGenericType(t.base, arguments: updatedParameterization))
-    }
-
-    /// Returns how to monomorphize `t`.
-    func transform(_ t: SkolemType) -> TypeTransformAction {
-      .stepOver(monomorphize(t.base, for: parameterization))
     }
   }
 
