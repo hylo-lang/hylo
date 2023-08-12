@@ -36,6 +36,8 @@ extension Module {
           pc = interpret(call: user, in: &context)
         case is CallFFI:
           pc = interpret(callFFI: user, in: &context)
+        case is CaptureIn:
+          pc = interpret(captureIn: user, in: &context)
         case is CloseUnion:
           pc = interpret(closeUnion: user, in: &context)
         case is CondBranch:
@@ -64,6 +66,8 @@ extension Module {
           pc = interpret(pointerToAddress: user, in: &context)
         case is Project:
           pc = interpret(project: user, in: &context)
+        case is ReleaseCaptures:
+          pc = successor(of: user)
         case is Return:
           pc = interpret(return: user, in: &context)
         case is Store:
@@ -193,6 +197,13 @@ extension Module {
         consume(a, with: i, at: s.site, in: &context)
       }
       initializeRegister(createdBy: i, in: &context)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(captureIn i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! CaptureIn
+      initialize(s.target, in: &context)
       return successor(of: i)
     }
 
