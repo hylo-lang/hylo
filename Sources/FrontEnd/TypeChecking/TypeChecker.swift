@@ -2832,21 +2832,21 @@ struct TypeChecker {
 
     // Create declaration references to all candidates.
     var candidates: NameResolutionResult.CandidateSet = []
-    let parentArguments = context?.arguments ?? [:]
     for m in matches {
       guard var candidateType = resolveType(of: m) else { continue }
       var log = DiagnosticSet()
 
       // Keep track of generic arguments that should be captured later on.
-      let candidateArguments: GenericArguments
+      let candidateSpecialization: GenericArguments
+      var specialization = context?.arguments ?? [:]
+
       if let g = BoundGenericType(candidateType) {
         assert(arguments.isEmpty, "generic declaration bound twice")
-        candidateArguments = g.arguments
+        candidateSpecialization = g.arguments
       } else {
-        candidateArguments =
-          associateGenericParameters(
-            genericParameters(introducedBy: m), of: name, to: arguments,
-            reportingDiagnosticsTo: &log)
+        let p = genericParameters(introducedBy: m)
+        candidateSpecialization =
+          associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)
       }
 
       // If the name resolves to an initializer, determine if it is used as a constructor.
@@ -2863,20 +2863,20 @@ struct TypeChecker {
       }
 
       // If the match is introduced in a trait, specialize its receiver as necessary.
-      var allArguments = parentArguments
       if let concept = TraitDecl.ID(program.scopeIntroducing(m)), let model = context?.type {
-        allArguments[program[concept].selfParameterDecl] = model
+        specialization[program[concept].selfParameterDecl] = model
       }
-      allArguments.append(candidateArguments)
-      candidateType = specialize(candidateType, for: allArguments, in: scopeOfUse)
+
+      specialization.append(candidateSpecialization)
+      candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
 
       let r = program.makeReference(
-        to: m, specializedBy: allArguments, memberOf: context, exposedTo: scopeOfUse,
+        to: m, specializedBy: specialization, memberOf: context, exposedTo: scopeOfUse,
         usedAsConstructor: isConstructor)
 
       if let sugars = resolve(
         sugared: name,
-        memberOf: .init(type: candidateType, arguments: allArguments, receiver: .elided(r)),
+        memberOf: .init(type: candidateType, arguments: specialization, receiver: .elided(r)),
         exposedTo: scopeOfUse, usedAs: purpose)
       {
         candidates.formUnion(sugars)

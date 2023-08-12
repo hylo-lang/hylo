@@ -467,9 +467,9 @@ public struct Module {
     assert(ir.blocks.isEmpty)
 
     // In functions, the last parameter of the entry denotes the function's return value.
-    var parameters = ir.inputs.map({ IR.`Type`.address($0.type.bareType) })
+    var parameters = ir.inputs.map({ IR.`Type`.address($0.type.bareType.skolemized) })
     if !ir.isSubscript {
-      parameters.append(.address(ir.output))
+      parameters.append(.address(ir.output.skolemized))
     }
 
     return appendBlock(in: scope, taking: parameters, to: f)
