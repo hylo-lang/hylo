@@ -1,0 +1,12 @@
+//- compileAndRun expecting: success
+
+fun inefficient_eq(_ x: Int, _ y: Int) {
+  precondition(x - y == 0)
+}
+
+public fun main() {
+  let x = 42
+  let y = remote let x
+  inefficient_eq(y, y)
+  inefficient_eq(y, 42)
+}
