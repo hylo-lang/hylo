@@ -3,42 +3,35 @@ import Core
 /// Creates a lambda wrapping a function pointer and an environment.
 public struct PartialApply: Instruction {
 
-  /// The partially applied function.
-  public private(set) var callee: FunctionReference
-
-  /// The environment of the lambda.
-  public private(set) var environment: Operand
+  /// The operands of the instruction.
+  public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
   fileprivate init(callee: FunctionReference, environment: Operand, site: SourceRange) {
-    self.callee = callee
-    self.environment = environment
+    self.operands = [.constant(callee), environment]
     self.site = site
+  }
+
+  /// The partially applied function.
+  public var callee: FunctionReference {
+    operands[0].constant as! FunctionReference
+  }
+
+  /// The environment of the lambda.
+  public var environment: Operand {
+    operands[1]
   }
 
   public var result: IR.`Type`? {
     .object(callee.type.ast)
   }
 
-  public var operands: [Operand] {
-    [.constant(callee), environment]
-  }
-
   public mutating func replaceOperand(at i: Int, with new: Operand) {
-    switch i {
-    case 0:
-      guard let f = new.constant as? FunctionReference else {
-        preconditionFailure("invalid substitution")
-      }
-      callee = f
-    case 1:
-      environment = new
-    default:
-      preconditionFailure()
-    }
+    precondition((i != 0) || (new.constant is FunctionReference), "invalid substitution")
+    operands[i] = new
   }
 
 }
