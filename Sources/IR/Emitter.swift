@@ -581,7 +581,7 @@ struct Emitter {
     }
 
     let source = emitLValue(initializer)
-    let isSink = module.isSink(source, in: insertionFunction!)
+    let isSink = module.isSink(source)
 
     for (path, name) in ast.names(in: program[d].pattern.subpattern) {
       var part = emitSubfieldView(source, at: path, at: program[name].decl.site)
