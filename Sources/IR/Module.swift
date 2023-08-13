@@ -446,7 +446,7 @@ public struct Module {
         fatalError("not implemented")
       }
 
-      result[p] = ^SkolemType(quantifying: u)
+      result[p] = ^u
     }
     return result
   }

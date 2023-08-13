@@ -144,7 +144,7 @@ extension LLVM.Module {
 
   /// Returns the type of a transpiled function whose type in Hylo is `t`.
   ///
-  /// - Note: the type of a function in Val Hylo typically doesn't match the type of its transpiled
+  /// - Note: the type of a function in Hylo IR typically doesn't match the type of its transpiled
   ///   form 1-to-1, as return values are often passed by references.
   private mutating func transpiledType(_ t: LambdaType) -> LLVM.FunctionType {
     // Return values are passed by reference.
