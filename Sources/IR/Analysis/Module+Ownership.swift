@@ -214,7 +214,7 @@ extension Module {
     func interpret(openUnion i: InstructionID, in context: inout Context) {
       let s = self[i] as! OpenUnion
       let l = AbstractLocation.root(.register(i))
-      precondition(context.memory[l] == nil, "overlapping accesses to union payload")
+      precondition(context.memory[l] == nil, "projection leak")
 
       // Operand must be a location.
       let locations = context.locals[s.container]!.unwrapLocations()!
