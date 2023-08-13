@@ -129,7 +129,7 @@ extension Module {
         unreachable()
       }
 
-      context.locals[.register(i)] = .locations(locations)
+      context.locals[.register(i)] = context.locals[s.source]
       return successor(of: i)
     }
 
@@ -412,9 +412,11 @@ extension Module {
 
       let s = self[i] as! Project
       let l = AbstractLocation.root(.register(i))
+      let t = s.projection
+
       context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
-        value: .full(s.projection.access == .set ? .uninitialized : .initialized))
+        layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
+        value: .full(t.access == .set ? .uninitialized : .initialized))
       context.locals[.register(i)] = .locations([l])
       return successor(of: i)
     }
