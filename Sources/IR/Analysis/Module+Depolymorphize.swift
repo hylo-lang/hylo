@@ -497,11 +497,23 @@ extension Module {
 
     /// Returns the rewritten form of `c` monomorphized for use in `scopeOfuse`.
     func rewritten(_ c: any Constant, forUseIn scopeOfUse: AnyScopeID) -> any Constant {
-      if let t = c as? MetatypeType {
+      switch c {
+      case let r as FunctionReference:
+        return rewritten(r, forUseIn: scopeOfUse)
+      case let t as MetatypeType:
         return MetatypeType(monomorphize(^t, for: specialization, in: scopeOfUse))!
-      } else {
+      default:
         return c
       }
+    }
+
+    /// Returns the rewritten form of `c` monomorphized for use in `scopeOfuse`.
+    func rewritten(_ c: FunctionReference, forUseIn scopeOfUse: AnyScopeID) -> FunctionReference {
+      if c.specialization.isEmpty { return c }
+
+      let p = program.specialize(c.specialization, for: specialization, in: scopeOfUse)
+      let f = monomorphize(c.function, in: ir, for: p, in: scopeOfUse)
+      return FunctionReference(to: f, in: self)
     }
 
     /// Returns the rewritten form of `o` for use in `scopeOfUse`.
