@@ -120,12 +120,12 @@ struct Emitter {
   /// Inserts the IR for the synthesized declarations of `self.module`.
   mutating func incorporateSyntheticDeclarations() {
     for d in program.synthesizedDecls[module.id, default: []] {
-      lower(synthesized: d)
+      lower(synthetic: d)
     }
 
     var i = 0
     while i < module.synthesizedDecls.count {
-      lower(synthesized: module.synthesizedDecls[i])
+      lower(synthetic: module.synthesizedDecls[i])
       i += 1
     }
   }
@@ -631,7 +631,7 @@ struct Emitter {
         implementations[r] = loweredRequirementImplementation(d)
 
       case .synthetic(let d):
-        lower(synthesized: d)
+        lower(synthetic: d)
         implementations[r] = .function(.init(to: .init(d), in: module))
       }
     }
@@ -660,7 +660,7 @@ struct Emitter {
   // MARK: Synthetic declarations
 
   /// Synthesizes the implementation of `d`.
-  private mutating func lower(synthesized d: SynthesizedFunctionDecl) {
+  private mutating func lower(synthetic d: SynthesizedFunctionDecl) {
     switch d.kind {
     case .deinitialize:
       return withClearContext({ $0.lower(syntheticDeinit: d) })
