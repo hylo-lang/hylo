@@ -357,6 +357,9 @@ public struct TypedProgram {
     assert(model[.isCanonical])
 
     switch model.base {
+    case is RemoteType:
+      break
+
     case let m as TupleType:
       guard m.elements.allSatisfy({ conforms($0.type, to: concept, in: scopeOfUse) }) else {
         return nil

@@ -581,7 +581,7 @@ struct Emitter {
     }
 
     let source = emitLValue(initializer)
-    let isSink = module.isSink(source, in: insertionFunction!)
+    let isSink = module.isSink(source)
 
     for (path, name) in ast.names(in: program[d].pattern.subpattern) {
       var part = emitSubfieldView(source, at: path, at: program[name].decl.site)
@@ -1131,6 +1131,8 @@ struct Emitter {
       emitStore(NameExpr.ID(e)!, to: storage)
     case PragmaLiteralExpr.self:
       emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
+    case RemoteExpr.self:
+      emitStore(RemoteExpr.ID(e)!, to: storage)
     case SequenceExpr.self:
       emitStore(SequenceExpr.ID(e)!, to: storage)
     case StringLiteralExpr.self:
@@ -1295,6 +1297,16 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: RemoteExpr.ID, to storage: Operand) {
+    let t = RemoteType(program[e].type)!
+    let s = program[e].site
+
+    let x0 = emitLValue(program[e].operand)
+    let x1 = insert(module.makeAccess(t.access, from: x0, at: s))!
+    emitStore(access: x1, to: storage, at: s)
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: SequenceExpr.ID, to storage: Operand) {
     emitStore(program[e].folded, to: storage)
   }
@@ -1439,6 +1451,23 @@ struct Emitter {
     insert(module.makeStore(.constant(utf8), at: x2, at: site))
   }
 
+  /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
+  ///
+  /// - Parameter storage: an `alloc_stack` that is outlived by the provenances of `a`.
+  private mutating func emitStore(
+    access a: Operand, to storage: Operand, at site: SourceRange
+  ) {
+    guard module[storage] is AllocStack else {
+      report(.error(cannotCaptureAccessAt: site))
+      return
+    }
+
+    let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
+    insert(module.makeCapture(a, in: x0, at: site))
+    insert(module.makeEndAccess(x0, at: site))
+    frames.top.setMayHoldCaptures(storage)
+  }
+
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
   /// initializer `d` parameterized by `a`.
   ///
@@ -1545,8 +1574,8 @@ struct Emitter {
   /// Inserts the IR for the argument `e` passed to a parameter of type `parameter`.
   ///
   /// - Parameters:
-  ///   - site: The source range in which `syntax` is being evaluated if it's a pragma literals.
-  ///     Defaults to `syntax.site`.
+  ///   - site: The source range in which `e` is being evaluated if it's a pragma literals.
+  ///     Defaults to `e.site`.
   private mutating func emit(
     argument e: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
   ) -> Operand {
@@ -1562,7 +1591,8 @@ struct Emitter {
       storage = emitLValue(e)
     }
 
-    return insert(module.makeAccess(parameter.access, from: storage, at: argumentSite))!
+    let s = emitCoerce(storage, to: parameter.bareType, at: argumentSite)
+    return insert(module.makeAccess(parameter.access, from: s, at: argumentSite))!
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.
@@ -1832,6 +1862,28 @@ struct Emitter {
     let x3 = insert(module.makeLoad(x2, at: ast[e].site))!
     insert(module.makeEndAccess(x2, at: ast[e].site))
     return x3
+  }
+
+  /// Inserts the IR for coercing `source` to an address of type `target`.
+  ///
+  /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR for
+  /// producing an address of type `target` is inserted, consuming `source` if necessary.
+  private mutating func emitCoerce(
+    _ source: Operand, to target: AnyType, at site: SourceRange
+  ) -> Operand {
+    let target = program.canonical(target, in: insertionScope!)
+
+    let sourceType = module.type(of: source).ast
+    if program.areEquivalent(sourceType, target, in: insertionScope!) {
+      return source
+    }
+
+    if sourceType.base is RemoteType {
+      let v = insert(module.makeOpenCapture(source, at: site))!
+      return emitCoerce(v, to: target, at: site)
+    }
+
+    unreachable("unexpected coercion from '\(sourceType)' to \(target)")
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
@@ -2360,17 +2412,8 @@ struct Emitter {
     for t: AnyType, at site: SourceRange
   ) -> Operand {
     let s = insert(module.makeAllocStack(canonical(t), at: site))!
-    frames.top.allocs.append(s)
+    frames.top.allocs.append((source: s, mayHoldCaptures: false))
     return s
-  }
-
-  /// Appends the IR for computing the address of the given `subfield` of the record at
-  /// `recordAddress` and returns the resulting address, anchoring new instructions at `site`.
-  private mutating func emitSubfieldView(
-    _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
-  ) -> Operand {
-    if subfield.isEmpty { return recordAddress }
-    return insert(module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site))!
   }
 
   /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`, anchoring
@@ -2383,8 +2426,20 @@ struct Emitter {
   /// Inserts the IR for deallocating each allocation in `f`, anchoring new instructions at `site`.
   private mutating func emitDeallocs(for f: Frame, at site: SourceRange) {
     for a in f.allocs.reversed() {
-      insert(module.makeDeallocStack(for: a, at: site))
+      if a.mayHoldCaptures {
+        insert(module.makeReleaseCapture(a.source, at: site))
+      }
+      insert(module.makeDeallocStack(for: a.source, at: site))
     }
+  }
+
+  /// Appends the IR for computing the address of the given `subfield` of the record at
+  /// `recordAddress` and returns the resulting address, anchoring new instructions at `site`.
+  private mutating func emitSubfieldView(
+    _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
+  ) -> Operand {
+    if subfield.isEmpty { return recordAddress }
+    return insert(module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site))!
   }
 
   /// Emits the IR trapping iff `predicate`, which is an object of type `i1`, anchoring new
@@ -2439,8 +2494,15 @@ extension Emitter {
     /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = DeclProperty<Operand>()
 
-    /// The allocations in the frame, in FILO order.
-    var allocs: [Operand] = []
+    /// The allocations in the frame, in FILO order, paired with a flag that's `true` iff they may
+    /// hold captured accesses.
+    var allocs: [(source: Operand, mayHoldCaptures: Bool)] = []
+
+    /// Sets the `maxHoldCaptures` on the allocation corresponding to `source`.
+    mutating func setMayHoldCaptures(_ source: Operand) {
+      let i = allocs.firstIndex(where: { $0.source == source })!
+      allocs[i].mayHoldCaptures = true
+    }
 
   }
 
@@ -2496,28 +2558,36 @@ extension Emitter {
 
 extension Diagnostic {
 
-  static func error(assignmentLHSRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
+  fileprivate static func error(
+    assignmentLHSRequiresMutationMarkerAt site: SourceRange
+  ) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
   }
 
-  static func error(
+  fileprivate static func error(
     binding a: AccessEffect, requiresInitializerAt site: SourceRange
   ) -> Diagnostic {
     .error("declaration of \(a) binding requires an initializer", at: site)
   }
 
-  static func error(
+  fileprivate static func error(cannotCaptureAccessAt site: SourceRange) -> Diagnostic {
+    .error("cannot capture access", at: site)
+  }
+
+  fileprivate static func error(
     integerLiteral s: String, overflowsWhenStoredInto t: AnyType,
     at site: SourceRange
   ) -> Diagnostic {
     .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
   }
 
-  static func error(missingReturn returnType: AnyType, at site: SourceRange) -> Diagnostic {
+  fileprivate static func error(
+    missingReturn returnType: AnyType, at site: SourceRange
+  ) -> Diagnostic {
     .error("missing return in function expected to return '\(returnType)'", at: site)
   }
 
-  static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
+  fileprivate static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
     .error("statement will never be executed", at: .empty(at: ast[s].site.first()))
   }
 

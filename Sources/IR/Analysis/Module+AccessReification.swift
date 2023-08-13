@@ -97,12 +97,12 @@ extension Module {
     return (t.access == .yielded) ? s.capabilities : [t.access]
   }
 
-  /// Calls `action` on the uses of a capability on the access at the origin of `i`.
+  /// Calls `action` on the uses of a capability of the access at the origin of `i`.
   private func forEachClient(of i: InstructionID, _ action: (Use) -> Void) {
     guard let uses = self.uses[.register(i)] else { return }
     for u in uses {
       switch self[u.user] {
-      case is OpenUnion, is SubfieldView, is AdvancedByBytes:
+      case is AdvancedByBytes, is OpenCapture, is OpenUnion, is SubfieldView:
         forEachClient(of: u.user, action)
       default:
         action(u)

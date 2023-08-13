@@ -149,6 +149,21 @@ public struct Module {
     }
   }
 
+  /// Returns `true` iff `lhs` is sequenced before `rhs`.
+  func dominates(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
+    if lhs.function != rhs.function { return false }
+
+    // Fast path: both instructions are in the same block.
+    if lhs.block == rhs.block {
+      let sequence = functions[lhs.function]![lhs.block].instructions
+      return lhs.address.precedes(rhs.address, in: sequence)
+    }
+
+    // Slow path: use the dominator tree.
+    let d = DominatorTree(function: lhs.function, cfg: self[lhs.function].cfg(), in: self)
+    return d.dominates(lhs.block, rhs.block)
+  }
+
   /// Returns whether the IR in `self` is well-formed.
   ///
   /// Use this method as a sanity check to verify the module's invariants.
@@ -694,15 +709,16 @@ public struct Module {
     }
   }
 
-  /// Returns `true` if `o` is sink in `f`.
-  ///
-  /// - Requires: `o` is defined in `f`.
-  func isSink(_ o: Operand, in f: Function.ID) -> Bool {
-    let e = entry(of: f)!
+  /// Returns `true` if `o` can be sunken.
+  func isSink(_ o: Operand) -> Bool {
     return provenances(o).allSatisfy { (p) -> Bool in
       switch p {
-      case .parameter(e, let i):
-        return self.functions[f]!.inputs[i].type.access == .sink
+      case .parameter(let e, let i):
+        if entry(of: e.function) == e {
+          return self[e.function].inputs[i].type.access == .sink
+        } else {
+          return false
+        }
 
       case .register(let i):
         switch self[i] {

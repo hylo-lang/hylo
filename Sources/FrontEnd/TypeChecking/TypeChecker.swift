@@ -552,7 +552,8 @@ struct TypeChecker {
   /// Type checks `d` and all declarations nested in `d`.
   private mutating func _check(_ d: ParameterDecl.ID) {
     if let e = program[d].defaultValue {
-      _ = checkedType(of: e, asArgumentTo: uncheckedType(of: d))
+      guard let p = uncheckedType(of: d).errorFree else { return }
+      _ = checkedType(of: e, asArgumentTo: ParameterType(p)!)
     }
   }
 
@@ -1149,13 +1150,12 @@ struct TypeChecker {
 
   /// Type checks `e` as an argument to `p` and returns its type.
   private mutating func checkedType(
-    of e: AnyExprID, asArgumentTo p: AnyType
+    of e: AnyExprID, asArgumentTo p: ParameterType
   ) -> AnyType {
     var obligations = ProofObligations(scope: program[e].scope)
 
-    let h = ParameterType(p)?.bareType
-    let t = inferredType(of: e, withHint: h, updating: &obligations)
-    obligations.insert(ParameterConstraint(t, p, origin: .init(.argument, at: program[e].site)))
+    let t = inferredType(of: e, withHint: p.bareType, updating: &obligations)
+    obligations.insert(ParameterConstraint(t, ^p, origin: .init(.argument, at: program[e].site)))
 
     let s = discharge(obligations, relatedTo: e)
     return s.typeAssumptions.reify(t)
@@ -1441,12 +1441,14 @@ struct TypeChecker {
     let (i, cs) = eval(existentialBound: program[d].subject)
     assert(cs.isEmpty, "not implemented")
 
-    if let b = BuiltinType(i) {
-      report(.error(cannotExtend: b, at: program[d].subject.site))
-      return .error
+    switch i.base {
+    case is BuiltinType, is RemoteType:
+      report(.error(cannotExtend: i, at: program[d].subject.site))
+    default:
+      return i
     }
 
-    return i
+    return .error
   }
 
   /// Computes and returns the type of `d`.
@@ -1913,8 +1915,8 @@ struct TypeChecker {
       return evalTypeAnnotation(NameExpr.ID(e)!)
     case ParameterTypeExpr.self:
       return evalTypeAnnotation(ParameterTypeExpr.ID(e)!)
-    case RemoteTypeExpr.self:
-      return evalTypeAnnotation(RemoteTypeExpr.ID(e)!)
+    case RemoteExpr.self:
+      return evalTypeAnnotation(RemoteExpr.ID(e)!)
     case TupleTypeExpr.self:
       return evalTypeAnnotation(TupleTypeExpr.ID(e)!)
     case WildcardExpr.self:
@@ -2031,7 +2033,7 @@ struct TypeChecker {
   }
 
   /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: RemoteTypeExpr.ID) -> AnyType {
+  private mutating func evalTypeAnnotation(_ e: RemoteExpr.ID) -> AnyType {
     let t = evalTypeAnnotation(program[e].operand)
     return ^RemoteType(program[e].convention.value, t)
   }
@@ -2338,6 +2340,8 @@ struct TypeChecker {
       return lookup(stem, memberOf: ^t.lens, exposedTo: scopeOfUse)
     case let t as ExistentialType:
       return lookup(stem, memberOf: t, exposedTo: scopeOfUse)
+    case let t as RemoteType:
+      return lookup(stem, memberOf: t.bareType, exposedTo: scopeOfUse)
     case let t as GenericTypeParameterType:
       return lookup(stem, memberOf: t, exposedTo: scopeOfUse)
     default:
@@ -3369,6 +3373,8 @@ struct TypeChecker {
       return _inferredType(of: NameExpr.ID(e)!, withHint: hint, updating: &obligations)
     case PragmaLiteralExpr.self:
       return _inferredType(of: PragmaLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case RemoteExpr.self:
+      return _inferredType(of: RemoteExpr.ID(e)!, withHint: hint, updating: &obligations)
     case SequenceExpr.self:
       return _inferredType(of: SequenceExpr.ID(e)!, withHint: hint, updating: &obligations)
     case StringLiteralExpr.self:
@@ -3666,6 +3672,16 @@ struct TypeChecker {
     case .line:
       return constrain(e, to: ^program.ast.coreType("Int")!, in: &obligations)
     }
+  }
+
+  /// Returns the inferred type of `e`, using `hint` for context and updating `obligations`.
+  private mutating func _inferredType(
+    of e: RemoteExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let t = inferredType(
+      of: program[e].operand, withHint: RemoteType(hint)?.bareType, updating: &obligations)
+    return constrain(e, to: ^RemoteType(program[e].convention.value, t), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
