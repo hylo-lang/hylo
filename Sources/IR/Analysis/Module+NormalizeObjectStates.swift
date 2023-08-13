@@ -38,6 +38,8 @@ extension Module {
           pc = interpret(callFFI: user, in: &context)
         case is CaptureIn:
           pc = interpret(captureIn: user, in: &context)
+        case is CloseCapture:
+          pc = interpret(closeCapture: user, in: &context)
         case is CloseUnion:
           pc = interpret(closeUnion: user, in: &context)
         case is CondBranch:
@@ -58,6 +60,8 @@ extension Module {
           pc = interpret(markState: user, in: &context)
         case is Move:
           pc = interpret(move: user, in: &context)
+        case is OpenCapture:
+          pc = interpret(openCapture: user, in: &context)
         case is OpenUnion:
           pc = interpret(openUnion: user, in: &context)
         case is PartialApply:
@@ -208,6 +212,34 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(closeCapture i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! CloseCapture
+      let l = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
+      let projection = context.withObject(at: l, { $0 })
+
+      let start = self[s.start.instruction!] as! OpenCapture
+      let t = RemoteType(self.type(of: start.source).ast)!
+
+      switch t.access {
+      case .let, .inout, .set:
+        for c in projection.value.consumers {
+          diagnostics.insert(.error(cannotConsume: t.access, at: self[c].site))
+        }
+
+      case .sink:
+        insertDeinit(
+          s.start, at: projection.value.initializedSubfields, anchoredTo: s.site, before: i,
+          reportingDiagnosticsTo: &diagnostics)
+        context.withObject(at: l, { $0.value = .full(.uninitialized) })
+
+      case .yielded:
+        unreachable()
+      }
+
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(closeUnion i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CloseUnion
       let payload = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
@@ -325,6 +357,14 @@ extension Module {
         $0.replaceMove(i, with: k)
       }
       return n.address
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(openCapture i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! OpenCapture
+      let t = RemoteType(self.type(of: s.source).ast)!
+      initializeRegister(createdBy: i, projecting: t, in: &context)
+      return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -460,7 +500,7 @@ extension Module {
       return successor(of: i)
     }
 
-    /// Updates `context` to mark all ibjects at `source`, which is an `access [.set]`, as having
+    /// Updates `context` to mark all objects at `source`, which is an `access [.set]`, as having
     /// been fully initialized.
     func initialize(_ source: Operand, in context: inout Context) {
       assert(self[source.instruction!].isAccess(.set), "bad source")
@@ -571,12 +611,24 @@ extension Module {
     }
   }
 
-  /// Assigns in `context` a fully initialized object to the virtual register defined by `i`.
+  /// Assigns a fully initialized object to the virtual register defined by `i` in `context`.
   private func initializeRegister(createdBy i: InstructionID, in context: inout Context) {
     if let t = self[i].result {
       context.locals[.register(i)] = .object(
         .init(layout: .init(of: t.ast, definedIn: program), value: .full(.initialized)))
     }
+  }
+
+  /// Assigns the virtual register defined by `i` to the location of the storage projected by `i`,
+  /// using `t` to set the initial state of that storage.
+  private func initializeRegister(
+    createdBy i: InstructionID, projecting t: RemoteType, in context: inout Context
+  ) {
+    let l = AbstractLocation.root(.register(i))
+    context.memory[l] = .init(
+      layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
+      value: .full(t.access == .set ? .uninitialized : .initialized))
+    context.locals[.register(i)] = .locations([l])
   }
 
   /// Inserts IR for the deinitialization of `root` at given `initializedSubfields` before
