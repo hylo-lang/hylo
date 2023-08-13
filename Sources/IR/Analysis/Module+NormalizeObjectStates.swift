@@ -64,8 +64,6 @@ extension Module {
           pc = interpret(openCapture: user, in: &context)
         case is OpenUnion:
           pc = interpret(openUnion: user, in: &context)
-        case is PartialApply:
-          pc = interpret(partialApply: user, in: &context)
         case is PointerToAddress:
           pc = interpret(pointerToAddress: user, in: &context)
         case is Project:
@@ -386,14 +384,6 @@ extension Module {
 
       context.memory[l] = .init(layout: t, value: o.value)
       context.locals[.register(i)] = .locations([l])
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(partialApply i: InstructionID, in context: inout Context) -> PC? {
-      let x = self[i] as! PartialApply
-      consume(x.environment, with: i, at: x.site, in: &context)
-      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 

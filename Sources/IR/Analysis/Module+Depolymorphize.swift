@@ -199,8 +199,6 @@ extension Module {
         rewrite(openCapture: i, to: b)
       case is OpenUnion:
         rewrite(openUnion: i, to: b)
-      case is PartialApply:
-        rewrite(partialApply: i, to: b)
       case is PointerToAddress:
         rewrite(pointerToAddress: i, to: b)
       case is Project:
@@ -385,24 +383,6 @@ extension Module {
       let newInstruction = makeOpenUnion(
         c, as: t, forInitialization: s.isUsedForInitialization, at: s.site)
       append(newInstruction, to: b.value)
-    }
-
-    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(partialApply i: InstructionID, to b: ScopedValue<Block.ID>) {
-      let s = sourceModule[i] as! PartialApply
-
-      let newCallee: FunctionReference
-      if s.callee.specialization.isEmpty {
-        assert(!sourceModule[s.callee.function].isGeneric)
-        newCallee = s.callee
-      } else {
-        let p = program.specialize(s.callee.specialization, for: specialization, in: b.scope)
-        let g = monomorphize(s.callee.function, in: ir, for: p, in: b.scope)
-        newCallee = FunctionReference(to: g, in: self)
-      }
-
-      let e = rewritten(s.environment, forUseIn: b.scope)
-      append(makePartialApply(wrapping: newCallee, with: e, at: s.site), to: b.value)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

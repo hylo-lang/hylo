@@ -557,8 +557,6 @@ extension LLVM.Module {
         insert(openCapture: i)
       case is IR.OpenUnion:
         insert(openUnion: i)
-      case is IR.PartialApply:
-        insert(partialApply: i)
       case is IR.PointerToAddress:
         insert(pointerToAddress: i)
       case is IR.Project:
@@ -828,18 +826,6 @@ extension LLVM.Module {
     func insert(openUnion i: IR.InstructionID) {
       let s = m[i] as! OpenUnion
       register[.register(i)] = llvm(s.container)
-    }
-
-    /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(partialApply i: IR.InstructionID) {
-      let s = m[i] as! IR.PartialApply
-      let t = LambdaType(s.callee.type.ast)!
-
-      if t.environment == .void {
-        register[.register(i)] = transpiledConstant(s.callee, usedIn: m, from: ir)
-      } else {
-        fatalError("not implemented")
-      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
