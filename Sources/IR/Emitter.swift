@@ -1591,7 +1591,8 @@ struct Emitter {
       storage = emitLValue(e)
     }
 
-    return insert(module.makeAccess(parameter.access, from: storage, at: argumentSite))!
+    let s = emitCoerce(storage, to: parameter.bareType, at: argumentSite)
+    return insert(module.makeAccess(parameter.access, from: s, at: argumentSite))!
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.
@@ -1861,6 +1862,28 @@ struct Emitter {
     let x3 = insert(module.makeLoad(x2, at: ast[e].site))!
     insert(module.makeEndAccess(x2, at: ast[e].site))
     return x3
+  }
+
+  /// Inserts the IR for coercing `source` to an address of type `target`.
+  ///
+  /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR for
+  /// producing an address of type `target` is inserted, consuming `source` if necessary.
+  private mutating func emitCoerce(
+    _ source: Operand, to target: AnyType, at site: SourceRange
+  ) -> Operand {
+    let target = program.canonical(target, in: insertionScope!)
+
+    let sourceType = module.type(of: source).ast
+    if program.areEquivalent(sourceType, target, in: insertionScope!) {
+      return source
+    }
+
+    if sourceType.base is RemoteType {
+      let v = insert(module.makeOpenCapture(source, at: site))!
+      return emitCoerce(v, to: target, at: site)
+    }
+
+    unreachable("unexpected coercion from '\(sourceType)' to \(target)")
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
