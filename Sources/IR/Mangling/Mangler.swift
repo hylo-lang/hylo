@@ -2,7 +2,7 @@ import Core
 import FrontEnd
 import Utils
 
-/// Val's mangling algorithm.
+/// Hylo's mangling algorithm.
 struct Mangler {
 
   /// The type of the stream to which data is written.
@@ -44,7 +44,7 @@ struct Mangler {
     self.scopeOfUse = scopeOfUse
 
     if program.ast.isCoreModuleLoaded {
-      self.reserved[.node(AnyNodeID(program.ast.coreLibrary!))] = .val
+      self.reserved[.node(AnyNodeID(program.ast.coreLibrary!))] = .hylo
       register(coreType: "Bool", as: .bool)
       register(coreType: "Int", as: .int)
       register(coreType: "Float64", as: .float64)

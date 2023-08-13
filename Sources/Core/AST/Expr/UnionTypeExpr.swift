@@ -4,9 +4,9 @@ public struct UnionTypeExpr: Expr {
   public let site: SourceRange
 
   /// The elements of the union.
-  public let elements: [AnyTypeExprID]
+  public let elements: [AnyExprID]
 
-  public init(elements: [AnyTypeExprID], site: SourceRange) {
+  public init(elements: [AnyExprID], site: SourceRange) {
     self.site = site
     self.elements = elements
   }

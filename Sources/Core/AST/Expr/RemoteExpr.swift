@@ -1,5 +1,5 @@
-/// The type expression of a remote type (e.g., `remote let Int`).
-public struct RemoteTypeExpr: Expr {
+/// The type expression of a remote type or value (e.g., `remote let Int`).
+public struct RemoteExpr: Expr {
 
   public let site: SourceRange
 
@@ -10,12 +10,13 @@ public struct RemoteTypeExpr: Expr {
   public var convention: SourceRepresentable<AccessEffect>
 
   /// The expression of the projected type.
-  public let operand: AnyTypeExprID
+  public let operand: AnyExprID
 
+  /// Creates an isntance with the given properties.
   public init(
     introducerSite: SourceRange,
     convention: SourceRepresentable<AccessEffect>,
-    operand: AnyTypeExprID,
+    operand: AnyExprID,
     site: SourceRange
   ) {
     self.site = site

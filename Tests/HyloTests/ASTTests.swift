@@ -7,11 +7,11 @@ final class ASTTests: XCTestCase {
   func testAppendModule() throws {
     var ast = AST()
     let i = checkNoDiagnostic { (d) in
-      ast.insert(ModuleDecl("Val", sources: []), diagnostics: &d)
+      ast.insert(ModuleDecl("Hylo", sources: []), diagnostics: &d)
     }
     XCTAssert(ast.modules.contains(i))
 
-    let j = ast.insert(synthesized: ModuleDecl("Val1", sources: []))
+    let j = ast.insert(synthesized: ModuleDecl("Hylo1", sources: []))
     XCTAssert(ast.modules.contains(j))
   }
 

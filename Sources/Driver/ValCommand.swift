@@ -3,12 +3,12 @@ import CodeGenLLVM
 import Core
 import Foundation
 import FrontEnd
+import HyloModule
 import IR
 import LLVM
 import Utils
-import ValModule
 
-public struct ValCommand: ParsableCommand {
+public struct Driver: ParsableCommand {
 
   /// The type of the output files to generate.
   private enum OutputType: String, ExpressibleByArgument {
@@ -16,10 +16,10 @@ public struct ValCommand: ParsableCommand {
     /// AST before type-checking.
     case rawAST = "raw-ast"
 
-    /// Val IR before mandatory transformations.
+    /// Hylo IR before mandatory transformations.
     case rawIR = "raw-ir"
 
-    /// Val IR.
+    /// Hylo IR.
     case ir = "ir"
 
     /// LLVM IR
@@ -32,7 +32,7 @@ public struct ValCommand: ParsableCommand {
     case binary = "binary"
   }
 
-  public static let configuration = CommandConfiguration(commandName: "valc")
+  public static let configuration = CommandConfiguration(commandName: "hyloc")
 
   @Flag(
     name: [.customLong("modules")],
@@ -127,12 +127,12 @@ public struct ValCommand: ParsableCommand {
     diagnostics.render(
       into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
 
-    ValCommand.exit(withError: exitCode)
+    Driver.exit(withError: exitCode)
   }
 
   /// Executes the command, returning its exit status and any generated diagnostics.
   ///
-  /// Propagates any thrown errors that are not Val diagnostics,
+  /// Propagates any thrown errors that are not Hylo diagnostics,
   public func execute() throws -> (ExitCode, DiagnosticSet) {
     var diagnostics = DiagnosticSet()
     do {
@@ -154,7 +154,7 @@ public struct ValCommand: ParsableCommand {
     let productName = makeProductName(inputs)
     var ast = noStandardLibrary ? AST.coreModule : AST.standardLibrary
 
-    // The module whose Val files were given on the command-line
+    // The module whose Hylo files were given on the command-line
     let sourceModule = try ast.makeModule(
       productName, sourceCode: sourceFiles(in: inputs),
       builtinModuleAccess: importBuiltinModule, diagnostics: &diagnostics)
@@ -238,7 +238,7 @@ public struct ValCommand: ParsableCommand {
     }
   }
 
-  /// Returns `program` lowered to Val IR, accumulating diagnostics in `log` and throwing if an
+  /// Returns `program` lowered to Hylo IR, accumulating diagnostics in `log` and throwing if an
   /// error occured.
   ///
   /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
@@ -257,7 +257,7 @@ public struct ValCommand: ParsableCommand {
     return ir
   }
 
-  /// Returns `m`, which is `program`, lowered to Val IR, accumulating diagnostics in `log` and
+  /// Returns `m`, which is `program`, lowered to Hylo IR, accumulating diagnostics in `log` and
   /// throwing if an error occured.
   ///
   /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
@@ -322,7 +322,7 @@ public struct ValCommand: ParsableCommand {
   ) throws {
     try runCommandLine(
       find("lld-link"),
-      ["-defaultlib:ValLibC", "-defaultlib:msvcrt", "-out:" + binaryPath] + objects.map(\.path),
+      ["-defaultlib:HyloLibC", "-defaultlib:msvcrt", "-out:" + binaryPath] + objects.map(\.path),
       diagnostics: &diagnostics)
   }
 
@@ -365,12 +365,12 @@ public struct ValCommand: ParsableCommand {
 
   /// Returns the path of the specified executable.
   private func find(_ executable: String) throws -> String {
-    if let path = ValCommand.executableLocationCache[executable] { return path }
+    if let path = Driver.executableLocationCache[executable] { return path }
 
     // Search in the current working directory.
     var candidate = currentDirectory.appendingPathComponent(executable)
     if FileManager.default.fileExists(atPath: candidate.path) {
-      ValCommand.executableLocationCache[executable] = candidate.path
+      Driver.executableLocationCache[executable] = candidate.path
       return candidate.path
     }
 
@@ -380,7 +380,7 @@ public struct ValCommand: ParsableCommand {
       for root in environment.split(separator: ";") {
         candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidate.path + ".exe") {
-          ValCommand.executableLocationCache[executable] = candidate.path
+          Driver.executableLocationCache[executable] = candidate.path
           return candidate.path
         }
       }
@@ -389,7 +389,7 @@ public struct ValCommand: ParsableCommand {
       for root in environment.split(separator: ":") {
         candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
         if FileManager.default.fileExists(atPath: candidate.path) {
-          ValCommand.executableLocationCache[executable] = candidate.path
+          Driver.executableLocationCache[executable] = candidate.path
           return candidate.path
         }
       }

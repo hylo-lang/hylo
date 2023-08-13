@@ -7,7 +7,7 @@ public struct ConformanceDecl: TypeExtendingDecl {
   public let accessModifier: SourceRepresentable<AccessModifier>
 
   /// The expression of the extended type.
-  public let subject: AnyTypeExprID
+  public let subject: AnyExprID
 
   /// The names of traits to which conformance is declared.
   public let conformances: [NameExpr.ID]
@@ -21,7 +21,7 @@ public struct ConformanceDecl: TypeExtendingDecl {
   /// Creates an instance with the given properties.
   public init(
     accessModifier: SourceRepresentable<AccessModifier>,
-    subject: AnyTypeExprID,
+    subject: AnyExprID,
     conformances: [NameExpr.ID],
     whereClause: SourceRepresentable<WhereClause>?,
     members: [AnyDeclID],

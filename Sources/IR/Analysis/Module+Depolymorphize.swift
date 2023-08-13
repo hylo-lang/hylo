@@ -173,6 +173,10 @@ extension Module {
         rewrite(call: i, to: b)
       case is CallFFI:
         rewrite(callFFI: i, to: b)
+      case is CaptureIn:
+        rewrite(captureIn: i, to: b)
+      case is CloseCapture:
+        rewrite(closeUnion: i, to: b)
       case is CloseUnion:
         rewrite(closeUnion: i, to: b)
       case is CondBranch:
@@ -191,6 +195,8 @@ extension Module {
         rewrite(load: i, to: b)
       case is MarkState:
         rewrite(markState: i, to: b)
+      case is OpenCapture:
+        rewrite(openCapture: i, to: b)
       case is OpenUnion:
         rewrite(openUnion: i, to: b)
       case is PartialApply:
@@ -199,6 +205,8 @@ extension Module {
         rewrite(pointerToAddress: i, to: b)
       case is Project:
         rewrite(project: i, to: b)
+      case is ReleaseCaptures:
+        rewrite(releaseCaptures: i, to: b)
       case is Return:
         rewrite(return: i, to: b)
       case is Store:
@@ -282,6 +290,21 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(captureIn i: InstructionID, to b: ScopedValue<Block.ID>) {
+      let s = sourceModule[i] as! CaptureIn
+      let newInstruction = makeCapture(
+        rewritten(s.source, forUseIn: b.scope), in: rewritten(s.target, forUseIn: b.scope),
+        at: s.site)
+      append(newInstruction, to: b.value)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(closeCapture i: InstructionID, to b: ScopedValue<Block.ID>) {
+      let s = sourceModule[i] as! CloseCapture
+      append(makeCloseCapture(rewritten(s.start, forUseIn: b.scope), at: s.site), to: b.value)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(closeUnion i: InstructionID, to b: ScopedValue<Block.ID>) {
       let s = sourceModule[i] as! CloseUnion
       append(makeCloseUnion(rewritten(s.start, forUseIn: b.scope), at: s.site), to: b.value)
@@ -346,6 +369,14 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(openCapture i: InstructionID, to b: ScopedValue<Block.ID>) {
+      let s = sourceModule[i] as! OpenCapture
+      let newInstruction = makeOpenCapture(
+        rewritten(s.source, forUseIn: b.scope), at: s.site)
+      append(newInstruction, to: b.value)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(openUnion i: InstructionID, to b: ScopedValue<Block.ID>) {
       let s = sourceModule[i] as! OpenUnion
       let t = monomorphize(s.payloadType, for: specialization, in: b.scope)
@@ -400,6 +431,14 @@ extension Module {
       let a = s.operands.map({ rewritten($0, forUseIn: b.scope) })
       let newInstruction = makeProject(
         projection, applying: newCallee, specializedBy: [:], to: a, at: s.site)
+      append(newInstruction, to: b.value)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(releaseCaptures i: InstructionID, to b: ScopedValue<Block.ID>) {
+      let s = sourceModule[i] as! ReleaseCaptures
+      let newInstruction = makeReleaseCapture(
+        rewritten(s.container, forUseIn: b.scope), at: s.site)
       append(newInstruction, to: b.value)
     }
 

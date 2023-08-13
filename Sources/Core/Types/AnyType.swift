@@ -55,13 +55,13 @@ private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
 /// The (static) type of an entity.
 public struct AnyType: TypeProtocol {
 
-  /// Val's `Any` type.
+  /// Hylo's `Any` type.
   public static let any = ^ExistentialType(traits: [], constraints: [])
 
-  /// Val's `Never` type.
+  /// Hylo's `Never` type.
   public static let never = ^UnionType([])
 
-  /// Val's `Void` type.
+  /// Hylo's `Void` type.
   public static let void = ^TupleType([])
 
   /// A shorthand for `^ErrorType()`.
@@ -143,7 +143,7 @@ public struct AnyType: TypeProtocol {
     }
   }
 
-  /// Indicates whether `self` is Val's `Void` or `Never` type.
+  /// Indicates whether `self` is Hylo's `Void` or `Never` type.
   ///
   /// - Requires: `self` is canonical.
   public var isVoidOrNever: Bool {
@@ -169,8 +169,6 @@ public struct AnyType: TypeProtocol {
   }
 
   public var flags: TypeFlags { base.flags }
-
-  public var skolemized: AnyType { base.skolemized }
 
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction

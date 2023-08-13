@@ -9,7 +9,7 @@ public struct AdvancedByBytes: Instruction {
   /// The value of an integer number of bytes by which to advance the source value.
   public private(set) var byteOffset: Operand
 
-  /// The site of the val source from which `self` was generated.
+  /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.

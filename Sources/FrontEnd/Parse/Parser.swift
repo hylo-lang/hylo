@@ -17,7 +17,7 @@ import Utils
 ///
 ///     let p2 = attempt(foo.and(bar)).or(foo)
 
-/// A namespace for the routines of Val's parser.
+/// A namespace for the routines of Hylo's parser.
 public enum Parser {
 
   /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to
@@ -1682,7 +1682,7 @@ public enum Parser {
 
     case .remote:
       // Remote type expression.
-      return try parseRemoteTypeExpr(in: &state).map(AnyExprID.init)
+      return try parseRemotExpr(in: &state).map(AnyExprID.init)
 
     case .spawn:
       // Spawn expression.
@@ -2072,16 +2072,16 @@ public enum Parser {
     return .block(s)
   }
 
-  private static func parseRemoteTypeExpr(
+  private static func parseRemotExpr(
     in state: inout ParserState
-  ) throws -> RemoteTypeExpr.ID? {
+  ) throws -> RemoteExpr.ID? {
     guard let introducer = state.take(.remote) else { return nil }
 
     let convention = try state.expect("access effect", using: accessEffect)
-    let operand = try state.expect("type expression", using: parseExpr(in:))
+    let operand = try state.expect("expression", using: parseExpr(in:))
 
     return state.insert(
-      RemoteTypeExpr(
+      RemoteExpr(
         introducerSite: introducer.site,
         convention: convention,
         operand: operand,

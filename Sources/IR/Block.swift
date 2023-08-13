@@ -1,7 +1,7 @@
 import Core
 import Utils
 
-/// A basic block in a Val IR function.
+/// A basic block in a Hylo IR function.
 ///
 /// A basic blocks is sequence of instructions free of conditional control flow. It may also accept
 /// arguments representing values that are notionally defined before its first instruction.

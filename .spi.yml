@@ -5,17 +5,17 @@ builder:
     - CLI
     - CodeGenLLVM
     - Core
+    - Driver
     - FrontEnd
-    - GenerateValFileTests
+    - GenerateHyloFileTests
+    - HyloModule
     - IR
     - TestUtils
     - Utils
-    - ValCommand
-    - ValModule
 
     custom_documentation_parameters: [
     --include-extended-types, --enable-inherited-docs,
     --source-service, github,
-    --source-service-base-url, https://github.com/val-lang/val/blob/main,
+    --source-service-base-url, https://github.com/hylo-lang/hylo/blob/main,
     --checkout-path, .
     ]

@@ -67,7 +67,7 @@ jobs:
           swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }}
           swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
             tee testoutput.txt && (
-              (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']ValTests[/. ]test_" testoutput.txt) ||
+              (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
               (echo "error: generated tests failed to run; see
               https://github.com/apple/swift-package-manager/issues/6595" && false) )
 
@@ -85,7 +85,7 @@ jobs:
       matrix:
         host: [
           {
-            type: macos, os: macos-latest,
+            type: macos, os: macos-13,
             build-options: "-v --build-tests -Xswiftc -enable-testing",
             # No coverage support on MacOS
             test-options: "-v"
@@ -136,7 +136,7 @@ jobs:
         export PKG_CONFIG_PATH=$PWD
         swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
           tee testoutput.txt && (
-            (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']ValTests[/. ]test_" testoutput.txt) ||
+            (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
             (echo "error: generated tests failed to run; see
             https://github.com/apple/swift-package-manager/issues/6595" && false) )
           
@@ -173,10 +173,10 @@ jobs:
     - run: llvm-config --version
 
     - name: Build support library
-      run: clang -c ./Library/Val/LibC.c -o ValLibC.lib
+      run: clang -c ./Library/Hylo/LibC.c -o HyloLibC.lib
 
     - name: Copy support library
-      run: xcopy ValLibC.lib c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\
+      run: xcopy HyloLibC.lib c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\
 
     - name: Build (Release)
       id: build

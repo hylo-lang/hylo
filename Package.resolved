@@ -12,7 +12,7 @@
     {
       "identity" : "durian",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/val-lang/Durian.git",
+      "location" : "https://github.com/hylo-lang/Durian.git",
       "state" : {
         "revision" : "3d802c00e9063b8bba8ba3fff5691e82df7949e1",
         "version" : "1.2.0"
@@ -84,7 +84,7 @@
     {
       "identity" : "swifty-llvm",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/val-lang/Swifty-LLVM",
+      "location" : "https://github.com/hylo-lang/Swifty-LLVM",
       "state" : {
         "branch" : "main",
         "revision" : "4ba25d9615b6931033161ffcfc0a73a06809d781"

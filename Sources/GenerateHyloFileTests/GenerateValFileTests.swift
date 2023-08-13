@@ -2,9 +2,9 @@ import ArgumentParser
 import Foundation
 import Utils
 
-/// A command-line tool that generates XCTest cases for a list of annotated ".val"
+/// A command-line tool that generates XCTest cases for a list of annotated ".hylo"
 /// files as part of our build process.
-struct GenerateValFileTests: ParsableCommand {
+struct GenerateHyloFileTests: ParsableCommand {
 
   @Option(
     name: [.customShort("o")],
@@ -18,16 +18,16 @@ struct GenerateValFileTests: ParsableCommand {
   var testCaseName: String
 
   @Argument(
-    help: "Paths of annotated val source files to be tested.",
+    help: "Paths of annotated hylo source files to be tested.",
     transform: URL.init(fileURLWithPath:))
-  var valSourceFiles: [URL]
+  var hyloSourceFiles: [URL]
 
-  /// Returns the Swift source of the test function for the Val file at `source`.
+  /// Returns the Swift source of the test function for the Hylo file at `source`.
   func swiftFunctionTesting(valAt source: URL) throws -> String {
     let firstLine =
       try String(contentsOf: source)
       .split(separator: "\n", maxSplits: 1).first ?? ""
-    let parsed = try firstLine.parsedAsFirstLineOfAnnotatedValFileTest()
+    let parsed = try firstLine.parsedAsFirstLineOfAnnotatedHyloFileTest()
     let testID = source.deletingPathExtension().lastPathComponent.asSwiftIdentifier
 
     return """
@@ -49,13 +49,13 @@ struct GenerateValFileTests: ParsableCommand {
 
       """
 
-    for f in valSourceFiles {
+    for f in hyloSourceFiles {
       do {
         output += try swiftFunctionTesting(valAt: f)
       } catch let e as FirstLineError {
         try! FileHandle.standardError.write(
           contentsOf: Data("\(f.path):1: error: \(e.details)\n".utf8))
-        GenerateValFileTests.exit(withError: ExitCode(-1))
+        GenerateHyloFileTests.exit(withError: ExitCode(-1))
       }
     }
 
@@ -79,9 +79,9 @@ extension String {
 
 extension StringProtocol where Self.SubSequence == Substring {
 
-  /// Interpreting `self` as the first line of an annotated Val test file, returns the embedded test
-  /// method name and expectation of success.
-  fileprivate func parsedAsFirstLineOfAnnotatedValFileTest() throws -> (
+  /// Interpreting `self` as the first line of an annotated Hylo test file, returns the embedded
+  /// test method name and expectation of success.
+  fileprivate func parsedAsFirstLineOfAnnotatedHyloFileTest() throws -> (
     methodName: Substring, expectSuccess: Bool
   ) {
     var text = self[...]
@@ -113,7 +113,7 @@ extension StringProtocol where Self.SubSequence == Substring {
 
 }
 
-/// A failure to parse the first line of an annotated Val file.
+/// A failure to parse the first line of an annotated Hylo file.
 struct FirstLineError: Error {
   /// Creates an instance whose detailed description is `details`.
   init(_ details: String) { self.details = details }

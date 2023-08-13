@@ -1,6 +1,6 @@
 # Definite (De)Initialization
 
-Definite (De)Initialization (DI, a.k.a. [definite assignment analyis](https://en.wikipedia.org/wiki/Definite_assignment_analysis) is a mandatory transformation pass that is applied on Val's intermediate representation, before code generation.
+Definite (De)Initialization (DI, a.k.a. [definite assignment analyis](https://en.wikipedia.org/wiki/Definite_assignment_analysis) is a mandatory transformation pass that is applied on Hylo's intermediate representation, before code generation.
 This pass ensures that all objects are initialized before use (definite initialization) and deinitialized before the end of their storage's lifetime (definite deinitialization), inserting additional instructions if necessary.
 
 The pass is expected to run early in the IR transformation pipeline, after __Implicit Return Insertion__ and __Unreachable Code Elimination__.
@@ -73,7 +73,7 @@ For example, consider the following function, which encodes a very simple loop:
 bb0(%0 : &Bool):
  %1 = alloc_stack Bool, binding="y"
  %2 = borrow [let] %0
- %3 = call [let, let] @Val.Bool.Copy, %2
+ %3 = call [let, let] @Hylo.Bool.Copy, %2
  %4 = borrow [set] %1
  store %3, %4
  branch bb1
@@ -117,7 +117,7 @@ Sets are being used as a conservative approximation of the actual memory locatio
 
 To illustrate, consider the following statements, which create a projection:
 
-```val
+```hylo
 var pair = (4, 2)
 inout x = &min[&pair.0, &pair.1]
 ```

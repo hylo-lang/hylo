@@ -8,7 +8,7 @@ extension Function {
     /// The value of a function IR identity.
     public enum Value: Hashable {
 
-      /// The identity of a lowered Val function, initializer, or method variant.
+      /// The identity of a lowered Hylo function, initializer, or method variant.
       case lowered(AnyDeclID)
 
       /// The identity of a lowered subscript variant.

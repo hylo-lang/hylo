@@ -15,7 +15,7 @@ public struct GenericEnvironment {
   }
 
   /// The generic parameters introduced in the environment, in the order there declaration appears
-  /// in Val sources.
+  /// in Hylo sources.
   public let parameters: [GenericParameterDecl.ID]
 
   /// The uninstantiated type constraints.

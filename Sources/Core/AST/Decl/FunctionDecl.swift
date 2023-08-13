@@ -43,7 +43,7 @@ public struct FunctionDecl: ExposableDecl, GenericDecl, GenericScope {
   public let receiver: ParameterDecl.ID?
 
   /// The return type annotation of the function, if any.
-  public let output: AnyTypeExprID?
+  public let output: AnyExprID?
 
   /// The body of the declaration, if any.
   public let body: FunctionBody?
@@ -64,7 +64,7 @@ public struct FunctionDecl: ExposableDecl, GenericDecl, GenericScope {
     explicitCaptures: [BindingDecl.ID] = [],
     parameters: [ParameterDecl.ID] = [],
     receiver: ParameterDecl.ID? = nil,
-    output: AnyTypeExprID? = nil,
+    output: AnyExprID? = nil,
     body: FunctionBody? = nil,
     isInExprContext: Bool = false,
     site: SourceRange
