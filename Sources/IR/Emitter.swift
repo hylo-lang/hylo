@@ -1574,8 +1574,8 @@ struct Emitter {
   /// Inserts the IR for the argument `e` passed to a parameter of type `parameter`.
   ///
   /// - Parameters:
-  ///   - site: The source range in which `syntax` is being evaluated if it's a pragma literals.
-  ///     Defaults to `syntax.site`.
+  ///   - site: The source range in which `e` is being evaluated if it's a pragma literals.
+  ///     Defaults to `e.site`.
   private mutating func emit(
     argument e: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
   ) -> Operand {
