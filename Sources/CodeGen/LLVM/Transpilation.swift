@@ -531,6 +531,10 @@ extension LLVM.Module {
         insert(call: i)
       case is IR.CallFFI:
         insert(callFFI: i)
+      case is IR.CaptureIn:
+        insert(captureIn: i)
+      case is IR.CloseCapture:
+        return
       case is IR.CloseUnion:
         insert(closeUnion: i)
       case is IR.CondBranch:
@@ -549,6 +553,8 @@ extension LLVM.Module {
         insert(load: i)
       case is IR.MarkState:
         return
+      case is IR.OpenCapture:
+        insert(openCapture: i)
       case is IR.OpenUnion:
         insert(openUnion: i)
       case is IR.PartialApply:
@@ -557,6 +563,8 @@ extension LLVM.Module {
         insert(pointerToAddress: i)
       case is IR.Project:
         insert(project: i)
+      case is IR.ReleaseCaptures:
+        return
       case is IR.Return:
         insert(return: i)
       case is IR.Store:
@@ -657,6 +665,12 @@ extension LLVM.Module {
       let callee = declareFunction(s.callee, .init(from: parameters, to: returnType, in: &self))
       let arguments = s.operands.map({ llvm($0) })
       register[.register(i)] = insertCall(callee, on: arguments, at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(captureIn i: IR.InstructionID) {
+      let s = m[i] as! CaptureIn
+      insertStore(llvm(s.source), to: llvm(s.target), at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -812,6 +826,12 @@ extension LLVM.Module {
       let t = ir.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
       register[.register(i)] = insertLoad(t, from: source, at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(openCapture i: IR.InstructionID) {
+      let s = m[i] as! OpenCapture
+      register[.register(i)] = insertLoad(ptr, from: llvm(s.source), at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.

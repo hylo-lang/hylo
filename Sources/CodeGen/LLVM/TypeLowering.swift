@@ -22,6 +22,8 @@ extension IR.Program {
       return module.ptr
     case let t as ProductType:
       return llvm(productType: t, in: &module)
+    case is RemoteType:
+      return module.ptr
     case let t as TupleType:
       return llvm(tupleType: t, in: &module)
     case let t as UnionType:
