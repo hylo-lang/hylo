@@ -166,14 +166,18 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Call
-      let callee = LambdaType(type(of: s.callee).ast)!
+      let f = s.callee
+      let callee = LambdaType(type(of: f).ast)!
 
       // Evaluate the callee.
-      let k = callee.receiverEffect
-      if k == .sink {
-        sink(s.callee, with: i, in: &context)
-      } else {
-        assert(s.callee.isConstant || self[s.callee.instruction!].isAccess(k))
+
+      switch callee.receiverEffect {
+      case .let:
+        assert(f.isConstant || self[f.instruction!].isAccess(callee.receiverEffect))
+      case .inout:
+        assert(self[f.instruction!].isAccess(callee.receiverEffect))
+      default:
+        fatalError("not implemented")
       }
 
       // Evaluate the arguments.
