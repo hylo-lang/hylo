@@ -33,6 +33,8 @@ extension Module {
           interpret(endProject: user, in: &context)
         case is GlobalAddr:
           interpret(globalAddr: user, in: &context)
+        case is OpenCapture:
+          interpret(openCapture: user, in: &context)
         case is OpenUnion:
           interpret(openUnion: user, in: &context)
         case is PointerToAddress:
@@ -197,6 +199,15 @@ extension Module {
         layout: AbstractTypeLayout(of: s.valueType, definedIn: program),
         value: .full(.unique))
       context.locals[.register(i)] = .locations([l])
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(openCapture i: InstructionID, in context: inout Context) {
+      let s = self[i] as! OpenCapture
+
+      // Simply share the ownership state of the capture container.
+      let source = s.source.instruction!
+      context.locals[.register(i)] = context.locals[.register(source)]
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
