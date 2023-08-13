@@ -629,25 +629,15 @@ extension LLVM.Module {
       var arguments: [LLVM.IRValue] = []
 
       // Callee is evaluated first.
-      let callee: LLVM.IRValue
-      let calleeType: LLVM.IRType
-      if case .constant(let f) = s.callee {
-        callee = transpiledConstant(f, usedIn: m, from: ir)
-        calleeType = LLVM.Function(callee)!.valueType
-      } else {
-        let c = unpackLambda(s.callee)
-        callee = c.function
-        calleeType = c.type
-
-        if let e = c.environment {
-          arguments.append(e)
-        }
+      let callee = unpackCallee(of: s.callee)
+      if let e = callee.environment {
+        arguments.append(e)
       }
 
       // Arguments and return value are passed by reference.
       arguments.append(contentsOf: s.arguments.map(llvm(_:)))
       arguments.append(llvm(s.output))
-      _ = insertCall(callee, typed: calleeType, on: arguments, at: insertionPoint)
+      _ = insertCall(callee.function, typed: callee.type, on: arguments, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -990,24 +980,26 @@ extension LLVM.Module {
       }
     }
 
-    /// Returns the contents of the lambda `o`.
-    func unpackLambda(_ o: Operand) -> LambdaContents {
-      let virType = m.type(of: o)
-      let valType = LambdaType(virType.ast)!
-
-      let lambda: LLVM.IRValue
-      if virType.isObject {
-        lambda = llvm(o)
-      } else {
-        lambda = insertLoad(ptr, from: llvm(o), at: insertionPoint)
+    /// Returns the callee of `s`.
+    func unpackCallee(of s: Operand) -> LambdaContents {
+      if case .constant(let f) = s {
+        let f = transpiledConstant(f, usedIn: m, from: ir)
+        let t = LLVM.Function(f)!.valueType
+        return .init(function: f, type: t, environment: nil)
       }
 
-      let llvmType = transpiledType(valType)
-      if valType.environment == .void {
-        return .init(function: lambda, type: llvmType, environment: nil)
-      } else {
-        fatalError("not implemented")
-      }
+      // `s` is a lambda.
+      let hyloType = LambdaType(m.type(of: s).ast)!
+      let llvmType = StructType(ir.llvm(hyloType, in: &self))!
+      let lambda = llvm(s)
+
+      // The first element of the representation is the function pointer.
+      var f = insertGetStructElementPointer(
+        of: lambda, typed: llvmType, index: 0, at: insertionPoint)
+      f = insertLoad(ptr, from: f, at: insertionPoint)
+
+      let t = transpiledType(hyloType)
+      return .init(function: f, type: t, environment: nil)
     }
 
     /// Returns an existential container wrapping the given `witness` and witness `table`.
