@@ -1324,12 +1324,12 @@ struct Emitter {
 
       // The callee must be a reference to member function.
       guard case .member(let d, _, _) = program[callee.expr].referredDecl else { unreachable() }
-      let oper = Operand.constant(FunctionReference(to: FunctionDecl.ID(d)!, in: &module))
+      let f = Operand.constant(FunctionReference(to: FunctionDecl.ID(d)!, in: &module))
 
       // Emit the call.
       let site = ast.site(of: e)
-      let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
-      insert(module.makeCall(applying: oper, to: [l, r], writingResultTo: x0, at: site))
+      let result = insert(module.makeAccess(.set, from: storage, at: site))!
+      insert(module.makeCall(applying: f, to: [l, r], writingResultTo: result, at: site))
 
     case .leaf(let v):
       emitStore(value: v, to: storage)
@@ -1498,13 +1498,14 @@ struct Emitter {
     let receiver = insert(module.makeAccess(.set, from: s, at: ast[call].site))!
 
     // Call is evaluated last.
-    let f = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
+    let f = Operand.constant(
+      FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!))
     let x0 = emitAllocStack(for: .void, at: ast[call].site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: ast[call].site))!
-    insert(
-      module.makeCall(
-        applying: .constant(f), to: [receiver] + arguments, writingResultTo: x1,
-        at: ast[call].site))
+
+    let s = module.makeCall(
+      applying: f, to: [receiver] + arguments, writingResultTo: x1, at: ast[call].site)
+    insert(s)
   }
 
   /// Inserts the IR for given memberwise constructor `call`, which initializes `receiver`.
@@ -1655,8 +1656,7 @@ struct Emitter {
       return emit(functionCallee: ast[InoutExpr.ID(callee)!].subject)
 
     default:
-      let f = emit(lambdaCallee: callee)
-      return (f, [])
+      return (emit(lambdaCallee: callee), [])
     }
   }
 
@@ -1912,9 +1912,11 @@ struct Emitter {
       let x2 = emitAllocStack(for: t, at: site)
       let x3 = insert(module.makeAccess(.set, from: x2, at: site))!
       let x4 = insert(module.makeAccess(.sink, from: source, at: site))!
-      insert(
-        module.makeCall(
-          applying: .constant(convert), to: [x1, x4], writingResultTo: x3, at: site))
+
+      let s = module.makeCall(
+        applying: .constant(convert), to: [x1, x4], writingResultTo: x3, at: site)
+      insert(s)
+
       insert(module.makeEndAccess(x4, at: site))
       insert(module.makeEndAccess(x3, at: site))
       insert(module.makeEndAccess(x1, at: site))
