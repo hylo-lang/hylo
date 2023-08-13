@@ -37,6 +37,12 @@ extension Module {
         this.makeEndAccess(.register(i), at: site)
       }
 
+    case is OpenCapture:
+      let region = extendedLiveRange(of: .register(i))
+      insertClose(i, atBoundariesOf: region) { (this, site) in
+        this.makeCloseCapture(.register(i), at: site)
+      }
+
     case is Project:
       let region = extendedLiveRange(of: .register(i))
       insertClose(i, atBoundariesOf: region) { (this, site) in
@@ -154,3 +160,5 @@ private protocol LifetimeCloser: Instruction {
 extension EndAccess: LifetimeCloser {}
 
 extension EndProject: LifetimeCloser {}
+
+extension CloseCapture: LifetimeCloser {}
