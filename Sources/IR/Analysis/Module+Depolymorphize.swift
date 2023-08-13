@@ -264,19 +264,10 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(call i: InstructionID, to b: ScopedValue<Block.ID>) {
       let s = sourceModule[i] as! Call
-
-      let newCallee: Operand
-      if let callee = s.callee.constant as? FunctionReference, !callee.specialization.isEmpty {
-        let p = program.specialize(callee.specialization, for: specialization, in: b.scope)
-        let g = monomorphize(callee.function, in: ir, for: p, in: b.scope)
-        newCallee = .constant(FunctionReference(to: g, in: self))
-      } else {
-        newCallee = rewritten(s.callee, forUseIn: b.scope)
-      }
-
+      let f = rewritten(s.callee, forUseIn: b.scope)
       let a = s.arguments.map({ rewritten($0, forUseIn: b.scope) })
       let o = rewritten(s.output, forUseIn: b.scope)
-      append(makeCall(applying: newCallee, to: a, writingResultTo: o, at: s.site), to: b.value)
+      append(makeCall(applying: f, to: a, writingResultTo: o, at: s.site), to: b.value)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
