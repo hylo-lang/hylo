@@ -222,7 +222,7 @@ public struct TypedProgram {
     case let u as BoundGenericType:
       return storage(of: u.base)
     case let u as LambdaType:
-      return u.captures
+      return storage(of: u)
     case let u as ProductType:
       return storage(of: u)
     case let u as TupleType:
@@ -231,6 +231,12 @@ public struct TypedProgram {
       assert(!t.hasRecordLayout)
       return []
     }
+  }
+
+  /// Returns the names and types of `t`'s stored properties.
+  public func storage(of t: LambdaType) -> [TupleType.Element] {
+    let callee = TupleType.Element(label: "__f", type: .builtin(.ptr))
+    return [callee] + t.captures
   }
 
   /// Returns the names and types of `t`'s stored properties.

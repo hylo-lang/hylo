@@ -1263,14 +1263,15 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: LambdaExpr.ID, to storage: Operand) {
-    let f = lower(function: ast[e].decl)
+    let callee = lower(function: ast[e].decl)
     let r = FunctionReference(
-      to: f, in: module,
+      to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    let x0 = insert(module.makePartialApply(wrapping: r, with: .void, at: ast[e].site))!
-    let x1 = insert(module.makeAccess(.set, from: storage, at: ast[e].site))!
-    insert(module.makeStore(x0, at: x1, at: ast[e].site))
+    let site = ast[e].site
+    let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
+    let x1 = insert(module.makeSubfieldView(of: storage, subfield: [0], at: site))!
+    emitStore(value: x0, to: x1, at: ast[e].site)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
