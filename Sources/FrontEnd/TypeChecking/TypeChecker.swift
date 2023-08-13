@@ -983,7 +983,7 @@ struct TypeChecker {
     func syntheticImplementation(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name
     ) -> SynthesizedFunctionDecl? {
-      if let k = program.ast.synthesizedImplementation(of: requirement, definedBy: concept) {
+      if let k = program.ast.synthesizedKind(of: requirement, definedBy: concept) {
         // Note: compiler-known requirement is expected to be well-typed.
         let scopeOfDefinition = AnyScopeID(source) ?? program[source].scope
         return .init(k, typed: LambdaType(t)!, in: scopeOfDefinition)

@@ -264,11 +264,11 @@ public struct AST {
     return MethodImpl.ID(d[0])!
   }
 
-  /// Returns the synthesized implementation of `requirement`, which is defined by `concept`, for
-  /// `model` in given `useScope`, or `nil` if `requirement` is not synthesizable.
+  /// Returns the kind identifying synthesized declarations of `requirement`, which is defined by
+  /// `concept`, or `nil` if `requirement` is not synthesizable.
   ///
   /// - Requires: `requirement` must be a requirement of `concept`.
-  public func synthesizedImplementation<T: DeclID>(
+  public func synthesizedKind<T: DeclID>(
     of requirement: T, definedBy concept: TraitType
   ) -> SynthesizedFunctionDecl.Kind? {
     // If the requirement is defined in `Deinitializable`, it must be the deinitialization method.
