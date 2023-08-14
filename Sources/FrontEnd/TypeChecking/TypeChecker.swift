@@ -1860,22 +1860,28 @@ struct TypeChecker {
       return []
     }
 
-    var captures: Set<ImplicitCapture> = []
+    var captureToStemAndEffect: [AnyDeclID: (stem: String, effect: AccessEffect)] = [:]
     for (name, mutability) in program.ast.uses(in: AnyDeclID(d)) {
       guard
         let (stem, pick) = resolveImplicitCapture(name, occuringIn: d),
         !explictCaptures.contains(stem)
       else { continue }
 
-      let c = ImplicitCapture(
-        name: .init(stem: stem),
-        type: .init(mutability, uncheckedType(of: pick)),
-        decl: pick)
-      captures.insert(c)
+      modify(&captureToStemAndEffect[pick, default: (stem, .let)]) { (x) in
+        x.effect = max(x.effect, mutability)
+      }
+    }
+
+    var captures: Set<ImplicitCapture> = []
+    var types: [TupleType.Element] = []
+    for (d, x) in captureToStemAndEffect {
+      let t = RemoteType(x.effect, uncheckedType(of: d))
+      captures.insert(ImplicitCapture(name: .init(stem: x.stem), type: t, decl: d))
+      types.append(.init(label: x.stem, type: ^t))
     }
 
     cache.write(captures, at: \.implicitCaptures[d])
-    return captures.map({ .init(label: $0.name.stem, type: ^$0.type) })
+    return types
   }
 
   /// Returns type of `d`'s memberwise initializer.

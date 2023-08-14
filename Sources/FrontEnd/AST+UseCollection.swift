@@ -7,7 +7,7 @@ extension AST {
   ///
   /// This method collects all name expressions that occurs in `d`, visiting its children in
   /// pre-order. Nested type and extension declarations are not visited.
-  func uses(in d: AnyDeclID) -> [NameExpr.ID: AccessEffect] {
+  func uses(in d: AnyDeclID) -> [(NameExpr.ID, AccessEffect)] {
     var v = UseVisitor()
     walk(d, notifying: &v)
     return v.uses
@@ -18,12 +18,12 @@ extension AST {
 /// The state of the visitor gathering uses.
 private struct UseVisitor: ASTWalkObserver {
 
-  /// A map from used name to its mutability.
-  private(set) var uses: [NameExpr.ID: AccessEffect] = [:]
+  /// The names being used with their visibility.
+  private(set) var uses: [(NameExpr.ID, AccessEffect)] = []
 
   /// Records a use of `n` that with mutability `k`.
   private mutating func recordOccurence(_ k: AccessEffect, _ n: NameExpr.ID) {
-    modify(&uses[n, default: .let], { $0 = max($0, k) })
+    uses.append((n, k))
   }
 
   /// Returns the name at the root of the given `lvalue`.
