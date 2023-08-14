@@ -80,8 +80,6 @@ extension Module {
           pc = interpret(unionDiscriminator: user, in: &context)
         case is Unreachable:
           pc = successor(of: user)
-        case is UnsafeCast:
-          pc = interpret(unsafeCast: user, in: &context)
         case is WrapExistentialAddr:
           pc = interpret(wrapExistentialAddr: user, in: &context)
         case is Yield:
@@ -465,14 +463,6 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(unionDiscriminator i: InstructionID, in context: inout Context) -> PC? {
-      initializeRegister(createdBy: i, in: &context)
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(unsafeCast i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! UnsafeCast
-      consume(s.source, with: i, at: s.site, in: &context)
       initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }

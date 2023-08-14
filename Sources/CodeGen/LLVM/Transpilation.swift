@@ -575,8 +575,6 @@ extension LLVM.Module {
         insert(unionDiscriminator: i)
       case is IR.Unreachable:
         insert(unreachable: i)
-      case is IR.UnsafeCast:
-        insert(unsafeCast: i)
       case is IR.WrapExistentialAddr:
         insert(wrapAddr: i)
       case is IR.Yield:
@@ -916,22 +914,6 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(unreachable i: IR.InstructionID) {
       insertUnreachable(at: insertionPoint)
-    }
-
-    /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(unsafeCast i: IR.InstructionID) {
-      let s = m[i] as! IR.UnsafeCast
-
-      let lhs = llvm(s.source)
-      let rhs = ir.llvm(s.target, in: &self)
-
-      if lhs.type == rhs {
-        register[.register(i)] = lhs
-      } else if layout.storageSize(of: rhs) == 0 {
-        register[.register(i)] = rhs.null
-      } else {
-        fatalError("not implemented")
-      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
