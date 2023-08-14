@@ -1,5 +1,5 @@
 /// A subscript declaration.
-public struct SubscriptDecl: BundleDecl, GenericDecl, GenericScope {
+public struct SubscriptDecl: BundleDecl, CapturingDecl, GenericDecl, GenericScope {
 
   public typealias Variant = SubscriptImpl
 
