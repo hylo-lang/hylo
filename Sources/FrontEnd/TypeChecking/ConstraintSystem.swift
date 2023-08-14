@@ -411,6 +411,10 @@ struct ConstraintSystem {
       return .failure(failureToSolve(goal))
     }
 
+    if l.receiverEffect > r.receiverEffect {
+      return .failure(failureToSolve(goal))
+    }
+
     var subordinates: [GoalIdentity] = []
     let o = goal.origin.subordinate()
     subordinates.append(schedule(SubtypingConstraint(l.environment, r.environment, origin: o)))
