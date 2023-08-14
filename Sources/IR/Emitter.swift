@@ -1331,10 +1331,7 @@ struct Emitter {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: TupleExpr.ID, to storage: Operand) {
     if ast[e].elements.isEmpty {
-      let t = canonical(program[e].type)
-      let x0 = insert(module.makeUnsafeCast(.void, to: t, at: ast[e].site))!
-      let x1 = insert(module.makeAccess(.set, from: storage, at: ast[e].site))!
-      insert(module.makeStore(x0, at: x1, at: ast[e].site))
+      insert(module.makeMarkState(storage, initialized: true, at: ast[e].site))
       return
     }
 
@@ -1506,10 +1503,7 @@ struct Emitter {
     let callee = LambdaType(canonical(program[ast[call].callee].type))!
 
     if callee.inputs.isEmpty {
-      let t = canonical(program[call].type)
-      let x0 = insert(module.makeUnsafeCast(.void, to: t, at: ast[call].site))!
-      let x1 = insert(module.makeAccess(.set, from: receiver, at: ast[call].site))!
-      insert(module.makeStore(x0, at: x1, at: ast[call].site))
+      insert(module.makeMarkState(receiver, initialized: true, at: ast[call].site))
       return
     }
 
