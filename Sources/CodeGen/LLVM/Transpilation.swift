@@ -628,9 +628,7 @@ extension LLVM.Module {
 
       // Callee is evaluated first.
       let callee = unpackCallee(of: s.callee)
-      if let e = callee.environment {
-        arguments.append(e)
-      }
+      arguments.append(contentsOf: callee.environment)
 
       // Arguments and return value are passed by reference.
       arguments.append(contentsOf: s.arguments.map(llvm(_:)))
@@ -971,7 +969,7 @@ extension LLVM.Module {
       if case .constant(let f) = s {
         let f = transpiledConstant(f, usedIn: m, from: ir)
         let t = LLVM.Function(f)!.valueType
-        return .init(function: f, type: t, environment: nil)
+        return .init(function: f, type: t, environment: [])
       }
 
       // `s` is a lambda.
@@ -984,8 +982,17 @@ extension LLVM.Module {
         of: lambda, typed: llvmType, index: 0, at: insertionPoint)
       f = insertLoad(ptr, from: f, at: insertionPoint)
 
+      var environment: [LLVM.IRValue] = []
+      for (i, c) in hyloType.captures.enumerated() {
+        assert(!(c.type.base is RemoteType), "not implemented")
+
+        let x = insertGetStructElementPointer(
+          of: lambda, typed: llvmType, index: i + 1, at: insertionPoint)
+        environment.append(x)
+      }
+
       let t = transpiledType(hyloType)
-      return .init(function: f, type: t, environment: nil)
+      return .init(function: f, type: t, environment: environment)
     }
 
     /// Returns an existential container wrapping the given `witness` and witness `table`.
@@ -1034,7 +1041,7 @@ private struct LambdaContents {
   /// The type `function`.
   let type: LLVM.IRType
 
-  /// A pointer to the lambda's environment, if any.
-  let environment: LLVM.IRValue?
+  /// The lambda's environment.
+  let environment: [LLVM.IRValue]
 
 }
