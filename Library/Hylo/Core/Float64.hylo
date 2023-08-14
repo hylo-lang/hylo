@@ -15,14 +15,29 @@ public type Float64 {
     Float64(value: Builtin.fadd_float64(value, other.value))
   }
 
+  /// Writes the sum of `self` and `other` to `self`.
+  public fun infix+= (_ other: Self) inout {
+    &self.value = Builtin.fadd_float64(value, other.value)
+  }
+
   /// Returns `self` subtracted by `other`.
   public fun infix- (_ other: Self) -> Self {
     Float64(value: Builtin.fsub_float64(value, other.value))
   }
 
+  /// Writes the result of `self` subtracted by `other` to `self`.
+  public fun infix-= (_ other: Self) inout {
+    &self.value = Builtin.fsub_float64(value, other.value)
+  }
+
   /// Returns the product of `self` and `other`
   public fun infix* (_ other: Self) -> Self {
     Float64(value: Builtin.fmul_float64(value, other.value))
+  }
+
+  /// Writes the product of `self` and `other` to `self`.
+  public fun infix*= (_ other: Self) inout {
+    &self.value = Builtin.fmul_float64(value, other.value)
   }
 
   /// Returns the quotient of dividing `self` by `other`
@@ -32,11 +47,25 @@ public type Float64 {
     Float64(value: Builtin.fdiv_float64(value, other.value))
   }
 
+  /// Writes the quotient of dividing `self` by `other` to `self`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix/= (_ other: Self) inout {
+    &self.value = Builtin.fdiv_float64(value, other.value)
+  }
+
   /// Returns the remainder of dividing `self` by `other`
   ///
   /// - Requires: `other` is different from `0`.
   public fun infix% (_ other: Self) -> Self {
     Float64(value: Builtin.frem_float64(value, other.value))
+  }
+
+  /// Writes the remainder of dividing `self` by `other` to `self`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix%= (_ other: Self) inout {
+    &self.value = Builtin.frem_float64(value, other.value)
   }
 
   /// Returns the additive inverse of `self`.
