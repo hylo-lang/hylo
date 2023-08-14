@@ -1467,7 +1467,7 @@ struct TypeChecker {
 
     assert(program[d].receiver == nil)
     let captures = uncheckedCaptureTypes(of: d)
-    let e = TupleType(captures)
+    let e = TupleType(captures.explict + captures.implicit)
     return ^LambdaType(environment: ^e, inputs: inputs, output: output)
   }
 
@@ -1613,7 +1613,7 @@ struct TypeChecker {
       e = TupleType([.init(label: "self", type: ^RemoteType(.yielded, r))])
     } else {
       let captures = uncheckedCaptureTypes(of: d)
-      e = TupleType(captures)
+      e = TupleType(captures.explict + captures.implicit)
     }
 
     return ^SubscriptType(
@@ -1680,10 +1680,10 @@ struct TypeChecker {
   /// - Requires: `d` is not a member declaration.
   private mutating func uncheckedCaptureTypes<T: CapturingDecl>(
     of d: T.ID
-  ) -> [TupleType.Element] {
+  ) -> (explict: [TupleType.Element], implicit: [TupleType.Element]) {
     let e = explicitCaptures(program[d].explicitCaptures, of: d)
     let i = implicitCaptures(of: d, ignoring: Set(e.map(\.label!)))
-    return e + i
+    return (e, i)
   }
 
   /// Computes and returns the type of `d`.
@@ -3564,7 +3564,7 @@ struct TypeChecker {
     let inputs = uncheckedInputTypes(of: e, withHint: h)
 
     let captures = uncheckedCaptureTypes(of: d)
-    let environment = TupleType(captures)
+    let environment = TupleType(captures.explict + captures.implicit)
 
     let output = inferredReturnType(of: e, withHint: h?.output, updating: &obligations)
     if output.isError {
@@ -3574,10 +3574,12 @@ struct TypeChecker {
     let effect: AccessEffect
     if let k = program[d].receiverEffect {
       effect = k.value
+    } else if program[d].explicitCaptures.contains(where: isVar(_:)) {
+      effect = .inout
+    } else if captures.implicit.contains(where: { RemoteType($0.type)!.access == .inout }) {
+      effect = .inout
     } else {
-      effect = environment.elements.reduce(.let) { (k, l) in
-        max(ParameterType(RemoteType(l.type)!).access, k)
-      }
+      effect = .let
     }
 
     let result = ^LambdaType(
@@ -4380,6 +4382,11 @@ struct TypeChecker {
     default:
       return false
     }
+  }
+
+  /// Returns `true` iff `d` introduces `var` bindings.
+  private func isVar(_ d: BindingDecl.ID) -> Bool {
+    program[d].pattern.introducer.value == .var
   }
 
   /// If `t` is the type of a mutating bundle in `scopeOfUse`, returns the output of a mutating
