@@ -732,6 +732,16 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         register[.register(i)] = insertMul(overflow: p, l, r, at: insertionPoint)
 
+      case .shl:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertShl(l, r, at: insertionPoint)
+
+      case .lshr:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertLShr(l, r, at: insertionPoint)
+
       case .sdiv(let e, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
