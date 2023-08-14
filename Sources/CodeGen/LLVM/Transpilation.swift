@@ -732,6 +732,16 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         register[.register(i)] = insertMul(overflow: p, l, r, at: insertionPoint)
 
+      case .shl:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertShl(l, r, at: insertionPoint)
+
+      case .lshr:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertLShr(l, r, at: insertionPoint)
+
       case .sdiv(let e, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
@@ -746,6 +756,21 @@ extension LLVM.Module {
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         register[.register(i)] = insertIntegerComparison(p, l, r, at: insertionPoint)
+
+      case .and(_):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertBitwiseAnd(l, r, at: insertionPoint)
+
+      case .or(_):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertBitwiseOr(l, r, at: insertionPoint)
+
+      case .xor(_):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertBitwiseXor(l, r, at: insertionPoint)
 
       case .trunc(_, let t):
         let target = ir.llvm(builtinType: t, in: &self)
