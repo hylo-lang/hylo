@@ -1265,9 +1265,18 @@ struct Emitter {
 
     var i = 1
     for b in program[e].decl.explicitCaptures {
+      // TODO: See #878
       precondition(program[b].pattern.subpattern.kind == NamePattern.self, "not implemented")
       let y0 = insert(module.makeSubfieldView(of: storage, subfield: [i], at: site))!
       emitStore(value: program[b].initializer!, to: y0)
+      i += 1
+    }
+
+    for c in program[e].decl.implicitCaptures {
+      let y0 = emitLValue(directReferenceTo: c.decl, at: site)
+      let y1 = insert(module.makeAccess(c.type.access, from: y0, at: site))!
+      let y2 = insert(module.makeSubfieldView(of: storage, subfield: [i], at: site))!
+      emitStore(access: y1, to: y2, at: site)
       i += 1
     }
   }
@@ -1452,11 +1461,12 @@ struct Emitter {
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
   ///
-  /// - Parameter storage: an `alloc_stack` that is outlived by the provenances of `a`.
+  /// - Parameter storage: an address derived from an `alloc_stack` that is outlived by the
+  ///   provenances of `a`.
   private mutating func emitStore(
     access a: Operand, to storage: Operand, at site: SourceRange
   ) {
-    guard module[storage] is AllocStack else {
+    guard let s = module.provenances(storage).uniqueElement, module[s] is AllocStack else {
       report(.error(cannotCaptureAccessAt: site))
       return
     }
@@ -1464,7 +1474,7 @@ struct Emitter {
     let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
     insert(module.makeCapture(a, in: x0, at: site))
     insert(module.makeEndAccess(x0, at: site))
-    frames.top.setMayHoldCaptures(storage)
+    frames.top.setMayHoldCaptures(s)
   }
 
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
