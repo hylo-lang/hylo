@@ -1259,6 +1259,17 @@ struct Emitter {
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
     let x1 = insert(module.makeSubfieldView(of: storage, subfield: [0], at: site))!
     emitStore(value: x0, to: x1, at: ast[e].site)
+
+    let lambda = LambdaType(program.canonical(program[e].type, in: insertionScope!))!
+    if lambda.environment == .void { return }
+
+    var i = 1
+    for b in program[e].decl.explicitCaptures {
+      precondition(program[b].pattern.subpattern.kind == NamePattern.self, "not implemented")
+      let y0 = insert(module.makeSubfieldView(of: storage, subfield: [i], at: site))!
+      emitStore(value: program[b].initializer!, to: y0)
+      i += 1
+    }
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
