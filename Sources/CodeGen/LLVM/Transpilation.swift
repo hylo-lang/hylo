@@ -982,12 +982,17 @@ extension LLVM.Module {
         of: lambda, typed: llvmType, index: 0, at: insertionPoint)
       f = insertLoad(ptr, from: f, at: insertionPoint)
 
+      // Following elements constitute the environment.
       var environment: [LLVM.IRValue] = []
       for (i, c) in hyloType.captures.enumerated() {
-        assert(!(c.type.base is RemoteType), "not implemented")
-
-        let x = insertGetStructElementPointer(
+        var x = insertGetStructElementPointer(
           of: lambda, typed: llvmType, index: i + 1, at: insertionPoint)
+
+        // Remote captures are passed deferenced.
+        if c.type.base is RemoteType {
+          x = insertLoad(ptr, from: x, at: insertionPoint)
+        }
+
         environment.append(x)
       }
 
