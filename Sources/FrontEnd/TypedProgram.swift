@@ -408,33 +408,41 @@ public struct TypedProgram {
 
   /// Returns the declarations of `d`' captures.
   ///
-  /// If `d` is a member function, its receiver is its only capture. Otherwise, its explicit
-  /// captures come first, in the order they appear in its capture list, from left to right.
-  /// Implicit captures come next, in the order they were found during type checking.
+  /// If `d` is a member, its receiver is its only capture. Otherwise, this method returns
+  /// `nonMemberCaptures(d)`.
   public func captures(of d: FunctionDecl.ID) -> [AnyDeclID] {
-    var result: [AnyDeclID] = []
     if let r = ast[d].receiver {
-      result.append(AnyDeclID(r))
-    } else {
-      result.append(contentsOf: ast[d].explicitCaptures.map(AnyDeclID.init(_:)))
-      result.append(contentsOf: implicitCaptures[d]!.map(\.decl))
+      return [AnyDeclID(r)]
     }
-    return result
+    return nonMemberCaptures(of: d)
   }
 
   /// Returns the declarations of `d`' captures.
   ///
-  /// If `d` is a member subscript, its receiver is its only capture. Otherwise, its explicit
-  /// captures come first, in the order they appear in its capture list, from left to right.
-  /// Implicit captures come next, in the order they were found during type checking.
+  /// If `d` is a member, its receiver is its only capture. Otherwise, this method returns
+  /// `nonMemberCaptures(d)`.
   public func captures(of d: SubscriptImpl.ID) -> [AnyDeclID] {
-    var result: [AnyDeclID] = []
     if let r = ast[d].receiver {
-      result.append(AnyDeclID(r))
-    } else {
-      let bundle = SubscriptDecl.ID(nodeToScope[d]!)!
-      result.append(contentsOf: ast[bundle].explicitCaptures.map(AnyDeclID.init(_:)))
-      result.append(contentsOf: implicitCaptures[bundle]!.map(\.decl))
+      return [AnyDeclID(r)]
+    }
+    return nonMemberCaptures(of: SubscriptDecl.ID(nodeToScope[d]!)!)
+  }
+
+  /// Returns the declarations of `d`'s captures.
+  ///
+  /// Explicit captures come first, in the order they appear in its capture list, from left to
+  /// right. Implicit captures come next, in the order they were found during type checking.
+  ///
+  /// - Requires: `d` is not a member declaration.
+  public func nonMemberCaptures<T: CapturingDecl>(of d: T.ID) -> [AnyDeclID] {
+    var result: [AnyDeclID] = []
+    for e in ast[d].explicitCaptures {
+      for (_, n) in ast.names(in: ast[e].pattern) {
+        result.append(AnyDeclID(ast[n].decl))
+      }
+    }
+    for n in implicitCaptures[d]! {
+      result.append(AnyDeclID(n.decl))
     }
     return result
   }

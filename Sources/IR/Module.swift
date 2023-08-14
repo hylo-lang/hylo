@@ -402,10 +402,8 @@ public struct Module {
     })
 
     let bundle = SubscriptDecl.ID(program[d].scope)!
-    if let p = program.ast[bundle].parameters {
-      result.append(contentsOf: p.map(pairedWithLoweredType(parameter:)))
-    }
-
+    let inputs = program.ast[bundle].parameters
+    result.append(contentsOf: inputs.map(pairedWithLoweredType(parameter:)))
     return result
   }
 
