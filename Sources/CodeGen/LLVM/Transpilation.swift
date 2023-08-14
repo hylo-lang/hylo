@@ -747,6 +747,21 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         register[.register(i)] = insertIntegerComparison(p, l, r, at: insertionPoint)
 
+      case .and(_):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertBitwiseAnd(l, r, at: insertionPoint)
+
+      case .or(_):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertBitwiseOr(l, r, at: insertionPoint)
+
+      case .xor(_):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertBitwiseXor(l, r, at: insertionPoint)
+
       case .trunc(_, let t):
         let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
