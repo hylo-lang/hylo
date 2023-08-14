@@ -213,27 +213,11 @@ struct Emitter {
   private func outermostFrame(of d: FunctionDecl.ID, entering entry: Block.ID) -> Frame {
     var locals = DeclProperty<Operand>()
 
-    let explicit = program[d].explicitCaptures
-    let implicit = program[d].implicitCaptures
-
-    // Exlicit captures appear first.
-    for (i, c) in explicit.enumerated() {
+    for (i, c) in program.captures(of: d).enumerated() {
       locals[c] = .parameter(entry, i)
     }
 
-    // Implicit captures appear next.
-    for (i, c) in implicit.enumerated() {
-      locals[c.decl] = .parameter(entry, i + explicit.count)
-    }
-
-    // Function receiver appears next.
-    var captureCount = explicit.count + implicit.count
-    if let r = ast[d].receiver {
-      locals[r] = .parameter(entry, captureCount)
-      captureCount += 1
-    }
-
-    // Explicit parameters appear last.
+    let captureCount = locals.count
     for (i, p) in ast[d].parameters.enumerated() {
       locals[p] = .parameter(entry, i + captureCount)
     }
@@ -356,23 +340,26 @@ struct Emitter {
     let explicit = program[bundle].explicitCaptures
     let implicit = program[bundle].implicitCaptures
 
+    // Exlicit captures appear first.
     for (i, c) in explicit.enumerated() {
       locals[c] = .parameter(entry, i)
     }
+
+    // Implicit captures appear next.
     for (i, c) in implicit.enumerated() {
       locals[c.decl] = .parameter(entry, i + explicit.count)
     }
 
+    // Receiver appears next.
     var captureCount = explicit.count + implicit.count
     if let r = ast[d].receiver {
       locals[r] = .parameter(entry, captureCount)
       captureCount += 1
     }
 
-    if let parameters = ast[bundle].parameters {
-      for (i, p) in parameters.enumerated() {
-        locals[p] = .parameter(entry, i + captureCount)
-      }
+    // Explicit parameters appear last.
+    for (i, p) in ast[bundle].parameters.enumerated() {
+      locals[p] = .parameter(entry, i + captureCount)
     }
 
     // Emit the body.

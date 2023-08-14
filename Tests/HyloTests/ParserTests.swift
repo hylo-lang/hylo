@@ -604,8 +604,9 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "property foo: T { T() }"
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parsePropertyDecl)
     let decl = try XCTUnwrap(ast[declID])
+    XCTAssert(decl.isProperty)
     XCTAssertEqual(decl.identifier?.value, "foo")
-    XCTAssertNil(decl.parameters)
+    XCTAssertEqual(decl.parameters.count, 0)
     XCTAssertEqual(decl.impls.count, 1)
   }
 
@@ -613,8 +614,9 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "subscript foo(): T { T() }"
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseSubscriptDecl)
     let decl = try XCTUnwrap(ast[declID])
+    XCTAssertFalse(decl.isProperty)
     XCTAssertEqual(decl.identifier?.value, "foo")
-    XCTAssertNotNil(decl.parameters)
+    XCTAssertEqual(decl.parameters.count, 0)
     XCTAssertEqual(decl.impls.count, 1)
   }
 
@@ -622,8 +624,9 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "subscript (): T { T() }"
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseSubscriptDecl)
     let decl = try XCTUnwrap(ast[declID])
+    XCTAssertFalse(decl.isProperty)
     XCTAssertNil(decl.identifier)
-    XCTAssertNotNil(decl.parameters)
+    XCTAssertEqual(decl.parameters.count, 0)
     XCTAssertEqual(decl.impls.count, 1)
   }
 
@@ -631,8 +634,9 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "subscript foo[let x = 42](): T { T() }"
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseSubscriptDecl)
     let decl = try XCTUnwrap(ast[declID])
+    XCTAssertFalse(decl.isProperty)
     XCTAssertEqual(decl.explicitCaptures.count, 1)
-    XCTAssertNotNil(decl.parameters)
+    XCTAssertEqual(decl.parameters.count, 0)
     XCTAssertEqual(decl.impls.count, 1)
   }
 
@@ -640,6 +644,8 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "subscript foo<T: Foo>(_ x: T): T { yield x }"
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseSubscriptDecl)
     let decl = try XCTUnwrap(ast[declID])
+    XCTAssertFalse(decl.isProperty)
+    XCTAssertEqual(decl.parameters.count, 1)
     XCTAssertEqual(decl.impls.count, 1)
   }
 
@@ -647,6 +653,8 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "subscript foo<T: Foo>(_ x: T): T { x }"
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseSubscriptDecl)
     let decl = try XCTUnwrap(ast[declID])
+    XCTAssertFalse(decl.isProperty)
+    XCTAssertEqual(decl.parameters.count, 1)
     XCTAssertEqual(decl.impls.count, 1)
   }
 
@@ -659,6 +667,8 @@ final class ParserTests: XCTestCase {
       """
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseSubscriptDecl)
     let decl = try XCTUnwrap(ast[declID])
+    XCTAssertFalse(decl.isProperty)
+    XCTAssertEqual(decl.parameters.count, 0)
     XCTAssertEqual(decl.impls.count, 2)
   }
 

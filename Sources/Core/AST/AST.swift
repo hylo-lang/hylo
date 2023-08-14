@@ -313,7 +313,7 @@ public struct AST {
     case MethodDecl.self:
       parameters = self[MethodDecl.ID(d)!].parameters
     case SubscriptDecl.self:
-      parameters = self[SubscriptDecl.ID(d)!].parameters ?? []
+      parameters = self[SubscriptDecl.ID(d)!].parameters
     default:
       return nil
     }
@@ -348,7 +348,7 @@ public struct AST {
   /// Returns the name of `d`.
   public func name(of d: SubscriptDecl.ID) -> Name {
     let stem = self[d].identifier?.value ?? "[]"
-    return .init(stem: stem, labels: self[self[d].parameters ?? []].map(\.label?.value))
+    return .init(stem: stem, labels: self[self[d].parameters].map(\.label?.value))
   }
 
   /// Returns the subfields and pattern IDs of the named patterns contained in `p`.

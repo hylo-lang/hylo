@@ -819,7 +819,7 @@ public enum Parser {
         identifier: head.stem,
         genericClause: nil,
         explicitCaptures: [],
-        parameters: nil,
+        parameters: [],
         output: signature,
         impls: impls,
         site: state.range(from: prologue.startIndex)))

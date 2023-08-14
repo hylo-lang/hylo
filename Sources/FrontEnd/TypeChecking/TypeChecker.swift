@@ -567,7 +567,7 @@ struct TypeChecker {
   /// Type checks `d` and all declarations nested in `d`.
   private mutating func _check(_ d: SubscriptDecl.ID) {
     checkEnvironment(of: d)
-    checkParameters(program[d].parameters ?? [], of: d)
+    checkParameters(program[d].parameters, of: d)
     check(program[d].impls)
   }
 
@@ -1456,10 +1456,6 @@ struct TypeChecker {
     let inputs = uncheckedInputTypes(of: program[d].parameters, declaredBy: d)
     let output = evalReturnTypeAnnotation(of: d)
 
-    let explicitCaptures = self.explicitCaptures(program[d].explicitCaptures, of: d)
-    let implictCaptures = self.implicitCaptures(
-      of: d, ignoring: Set(explicitCaptures.map(\.label!)))
-
     if program.isNonStaticMember(d) {
       let k = program[d].receiverEffect?.value ?? .let
       let r = resolveReceiverMetatype(in: program[d].scope)!.instance
@@ -1470,8 +1466,8 @@ struct TypeChecker {
     }
 
     assert(program[d].receiver == nil)
-
-    let e = TupleType(explicitCaptures + implictCaptures)
+    let captures = uncheckedCaptureTypes(of: d)
+    let e = TupleType(captures)
     return ^LambdaType(environment: ^e, inputs: inputs, output: output)
   }
 
@@ -1608,23 +1604,20 @@ struct TypeChecker {
 
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType(of d: SubscriptDecl.ID) -> AnyType {
-    let inputs = uncheckedInputTypes(of: program[d].parameters ?? [], declaredBy: d)
+    let inputs = uncheckedInputTypes(of: program[d].parameters, declaredBy: d)
     let output = evalTypeAnnotation(program[d].output)
-
-    let explicitCaptures = self.explicitCaptures(program[d].explicitCaptures, of: d)
-    let implictCaptures = self.implicitCaptures(
-      of: d, ignoring: Set(explicitCaptures.map(\.label!)))
 
     let e: TupleType
     if program.isNonStaticMember(d) {
       let r = resolveReceiverMetatype(in: program[d].scope)!.instance
       e = TupleType([.init(label: "self", type: ^RemoteType(.yielded, r))])
     } else {
-      e = TupleType(explicitCaptures + implictCaptures)
+      let captures = uncheckedCaptureTypes(of: d)
+      e = TupleType(captures)
     }
 
     return ^SubscriptType(
-      isProperty: program[d].parameters == nil,
+      isProperty: program[d].isProperty,
       capabilities: .init(program[d].impls.map({ program[$0].introducer.value })),
       environment: ^e,
       inputs: inputs,
@@ -1680,6 +1673,17 @@ struct TypeChecker {
   private mutating func _uncheckedType(of d: VarDecl.ID) -> AnyType {
     check(program[d].binding, ignoringSharedCache: true)
     return cache.local.declType[d]!
+  }
+
+  /// Computes and returns the types of `d`'s captures.
+  ///
+  /// - Requires: `d` is not a member declaration.
+  private mutating func uncheckedCaptureTypes<T: CapturingDecl>(
+    of d: T.ID
+  ) -> [TupleType.Element] {
+    let e = explicitCaptures(program[d].explicitCaptures, of: d)
+    let i = implicitCaptures(of: d, ignoring: Set(e.map(\.label!)))
+    return e + i
   }
 
   /// Computes and returns the type of `d`.
@@ -2631,7 +2635,7 @@ struct TypeChecker {
     case MethodDecl.self:
       return ast[ast[MethodDecl.ID(d)!].parameters].map(\.label?.value)
     case SubscriptDecl.self:
-      return ast[ast[SubscriptDecl.ID(d)!].parameters ?? []].map(\.label?.value)
+      return ast[ast[SubscriptDecl.ID(d)!].parameters].map(\.label?.value)
     default:
       return []
     }
@@ -3559,10 +3563,8 @@ struct TypeChecker {
     let d = program[e].decl.id
     let inputs = uncheckedInputTypes(of: e, withHint: h)
 
-    let explicitCaptures = self.explicitCaptures(program[d].explicitCaptures, of: d)
-    let implictCaptures = self.implicitCaptures(
-      of: d, ignoring: Set(explicitCaptures.map(\.label!)))
-    let environment = TupleType(explicitCaptures + implictCaptures)
+    let captures = uncheckedCaptureTypes(of: d)
+    let environment = TupleType(captures)
 
     let output = inferredReturnType(of: e, withHint: h?.output, updating: &obligations)
     if output.isError {
@@ -3570,8 +3572,8 @@ struct TypeChecker {
     }
 
     let effect: AccessEffect
-    if let e = program[d].receiverEffect {
-      effect = e.value
+    if let k = program[d].receiverEffect {
+      effect = k.value
     } else {
       effect = environment.elements.reduce(.let) { (k, l) in
         max(ParameterType(RemoteType(l.type)!).access, k)
