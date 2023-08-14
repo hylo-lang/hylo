@@ -442,7 +442,7 @@ public struct Driver: ParsableCommand {
   /// Given the desired name of the compiler's product, returns the file to write when "ir" or
   /// "raw-ir" is selected as the output type.
   private func irFile(_ productName: String) -> URL {
-    outputURL ?? URL(fileURLWithPath: productName + ".vir")
+    outputURL ?? URL(fileURLWithPath: productName + ".ir")
   }
 
   /// Given the desired name of the compiler's product, returns the file to write when "llvm" is
