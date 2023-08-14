@@ -1882,7 +1882,33 @@ struct Emitter {
       return emitCoerce(v, to: target, at: site)
     }
 
+    if let t = LambdaType(target), let o = _emitCoerce(source, to: t, at: site) {
+      return o
+    }
+
     unreachable("unexpected coercion from '\(sourceType)' to \(target)")
+  }
+
+  /// Inserts the IR for coercing `source` to an address of type `target`, returning `nil` if such
+  /// a coercion is not possible.
+  ///
+  /// - Requires: `target` is canonical.
+  private mutating func _emitCoerce(
+    _ source: Operand, to target: LambdaType, at site: SourceRange
+  ) -> Operand? {
+    precondition(target[.isCanonical])
+    guard let s = LambdaType(module.type(of: source).ast) else { return nil }
+
+    // TODO: Handle variance
+    let t = LambdaType(
+      receiverEffect: s.receiverEffect,
+      environment: target.environment,
+      inputs: target.inputs,
+      output: target.output)
+    if !program.areEquivalent(^s, ^t, in: insertionScope!) { return nil }
+
+    // If we're here, then `t` and `u` only differ on their effects.
+    return source
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
