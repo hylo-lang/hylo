@@ -195,9 +195,7 @@ public struct TypedProgram {
         // Built-in types never have conformances.
         return true
 
-      // FIXME: (see #855)
-      case let u as LambdaType:
-        return u.environment == .void
+      // FIXME: Should have structural conformance
       case is MetatypeType:
         return true
 
@@ -223,6 +221,8 @@ public struct TypedProgram {
     switch t.base {
     case let u as BoundGenericType:
       return storage(of: u.base)
+    case let u as LambdaType:
+      return storage(of: u)
     case let u as ProductType:
       return storage(of: u)
     case let u as TupleType:
@@ -233,7 +233,13 @@ public struct TypedProgram {
     }
   }
 
-  /// If `t` has a record layout, returns the names and types of its stored properties.
+  /// Returns the names and types of `t`'s stored properties.
+  public func storage(of t: LambdaType) -> [TupleType.Element] {
+    let callee = TupleType.Element(label: "__f", type: .builtin(.ptr))
+    return [callee] + t.captures
+  }
+
+  /// Returns the names and types of `t`'s stored properties.
   public func storage(of t: ProductType) -> [TupleType.Element] {
     var result: [TupleType.Element] = []
     for b in ast[t.decl].members.filter(BindingDecl.self) {
@@ -294,6 +300,13 @@ public struct TypedProgram {
     _ model: AnyType, to concept: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     conformance(of: model, to: concept, exposedTo: scopeOfUse) != nil
+  }
+
+  /// Returns `true` iff all elements in `models` conform to `concept` in `scopeOfUse`.
+  public func allConform<S: Sequence<AnyType>>(
+    _ models: S, to concept: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    models.allSatisfy({ conforms($0, to: concept, in: scopeOfUse) })
   }
 
   /// Returns the conformance of `model` to `concept` that is exposed to `scopeOfUse`, or `nil` if
@@ -357,26 +370,21 @@ public struct TypedProgram {
     assert(model[.isCanonical])
 
     switch model.base {
+    case let m as LambdaType:
+      guard allConform(m.captures.map(\.type), to: concept, in: scopeOfUse) else { return nil }
+    case let m as TupleType:
+      guard allConform(m.elements.map(\.type), to: concept, in: scopeOfUse) else { return nil }
+    case let m as UnionType:
+      guard allConform(m.elements, to: concept, in: scopeOfUse) else { return nil }
     case is RemoteType:
       break
-
-    case let m as TupleType:
-      guard m.elements.allSatisfy({ conforms($0.type, to: concept, in: scopeOfUse) }) else {
-        return nil
-      }
-
-    case let m as UnionType:
-      guard m.elements.allSatisfy({ conforms($0, to: concept, in: scopeOfUse) }) else {
-        return nil
-      }
-
     default:
       return nil
     }
 
     var implementations = Conformance.ImplementationMap()
     for requirement in ast.requirements(of: concept.decl) {
-      guard let k = ast.synthesizedImplementation(of: requirement, definedBy: concept) else {
+      guard let k = ast.synthesizedKind(of: requirement, definedBy: concept) else {
         return nil
       }
       let a: GenericArguments = [ast[concept.decl].selfParameterDecl: model]

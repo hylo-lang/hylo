@@ -199,8 +199,6 @@ extension Module {
         rewrite(openCapture: i, to: b)
       case is OpenUnion:
         rewrite(openUnion: i, to: b)
-      case is PartialApply:
-        rewrite(partialApply: i, to: b)
       case is PointerToAddress:
         rewrite(pointerToAddress: i, to: b)
       case is Project:
@@ -266,19 +264,10 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(call i: InstructionID, to b: ScopedValue<Block.ID>) {
       let s = sourceModule[i] as! Call
-
-      let newCallee: Operand
-      if let callee = s.callee.constant as? FunctionReference, !callee.specialization.isEmpty {
-        let p = program.specialize(callee.specialization, for: specialization, in: b.scope)
-        let g = monomorphize(callee.function, in: ir, for: p, in: b.scope)
-        newCallee = .constant(FunctionReference(to: g, in: self))
-      } else {
-        newCallee = rewritten(s.callee, forUseIn: b.scope)
-      }
-
+      let f = rewritten(s.callee, forUseIn: b.scope)
       let a = s.arguments.map({ rewritten($0, forUseIn: b.scope) })
       let o = rewritten(s.output, forUseIn: b.scope)
-      append(makeCall(applying: newCallee, to: a, writingResultTo: o, at: s.site), to: b.value)
+      append(makeCall(applying: f, to: a, writingResultTo: o, at: s.site), to: b.value)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -388,24 +377,6 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(partialApply i: InstructionID, to b: ScopedValue<Block.ID>) {
-      let s = sourceModule[i] as! PartialApply
-
-      let newCallee: FunctionReference
-      if s.callee.specialization.isEmpty {
-        assert(!sourceModule[s.callee.function].isGeneric)
-        newCallee = s.callee
-      } else {
-        let p = program.specialize(s.callee.specialization, for: specialization, in: b.scope)
-        let g = monomorphize(s.callee.function, in: ir, for: p, in: b.scope)
-        newCallee = FunctionReference(to: g, in: self)
-      }
-
-      let e = rewritten(s.environment, forUseIn: b.scope)
-      append(makePartialApply(wrapping: newCallee, with: e, at: s.site), to: b.value)
-    }
-
-    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(pointerToAddress i: InstructionID, to b: ScopedValue<Block.ID>) {
       let s = sourceModule[i] as! PointerToAddress
       let t = monomorphize(^s.target, for: specialization, in: b.scope)
@@ -497,11 +468,23 @@ extension Module {
 
     /// Returns the rewritten form of `c` monomorphized for use in `scopeOfuse`.
     func rewritten(_ c: any Constant, forUseIn scopeOfUse: AnyScopeID) -> any Constant {
-      if let t = c as? MetatypeType {
+      switch c {
+      case let r as FunctionReference:
+        return rewritten(r, forUseIn: scopeOfUse)
+      case let t as MetatypeType:
         return MetatypeType(monomorphize(^t, for: specialization, in: scopeOfUse))!
-      } else {
+      default:
         return c
       }
+    }
+
+    /// Returns the rewritten form of `c` monomorphized for use in `scopeOfuse`.
+    func rewritten(_ c: FunctionReference, forUseIn scopeOfUse: AnyScopeID) -> FunctionReference {
+      if c.specialization.isEmpty { return c }
+
+      let p = program.specialize(c.specialization, for: specialization, in: scopeOfUse)
+      let f = monomorphize(c.function, in: ir, for: p, in: scopeOfUse)
+      return FunctionReference(to: f, in: self)
     }
 
     /// Returns the rewritten form of `o` for use in `scopeOfUse`.

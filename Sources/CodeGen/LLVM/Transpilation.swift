@@ -557,8 +557,6 @@ extension LLVM.Module {
         insert(openCapture: i)
       case is IR.OpenUnion:
         insert(openUnion: i)
-      case is IR.PartialApply:
-        insert(partialApply: i)
       case is IR.PointerToAddress:
         insert(pointerToAddress: i)
       case is IR.Project:
@@ -629,25 +627,13 @@ extension LLVM.Module {
       var arguments: [LLVM.IRValue] = []
 
       // Callee is evaluated first.
-      let callee: LLVM.IRValue
-      let calleeType: LLVM.IRType
-      if case .constant(let f) = s.callee {
-        callee = transpiledConstant(f, usedIn: m, from: ir)
-        calleeType = LLVM.Function(callee)!.valueType
-      } else {
-        let c = unpackLambda(s.callee)
-        callee = c.function
-        calleeType = c.type
-
-        if let e = c.environment {
-          arguments.append(e)
-        }
-      }
+      let callee = unpackCallee(of: s.callee)
+      arguments.append(contentsOf: callee.environment)
 
       // Arguments and return value are passed by reference.
       arguments.append(contentsOf: s.arguments.map(llvm(_:)))
       arguments.append(llvm(s.output))
-      _ = insertCall(callee, typed: calleeType, on: arguments, at: insertionPoint)
+      _ = insertCall(callee.function, typed: callee.type, on: arguments, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -841,18 +827,6 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(partialApply i: IR.InstructionID) {
-      let s = m[i] as! IR.PartialApply
-      let t = LambdaType(s.callee.type.ast)!
-
-      if t.environment == .void {
-        register[.register(i)] = transpiledConstant(s.callee, usedIn: m, from: ir)
-      } else {
-        fatalError("not implemented")
-      }
-    }
-
-    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(pointerToAddress i: IR.InstructionID) {
       let s = m[i] as! IR.PointerToAddress
       register[.register(i)] = llvm(s.source)
@@ -990,24 +964,40 @@ extension LLVM.Module {
       }
     }
 
-    /// Returns the contents of the lambda `o`.
-    func unpackLambda(_ o: Operand) -> LambdaContents {
-      let virType = m.type(of: o)
-      let valType = LambdaType(virType.ast)!
-
-      let lambda: LLVM.IRValue
-      if virType.isObject {
-        lambda = llvm(o)
-      } else {
-        lambda = insertLoad(ptr, from: llvm(o), at: insertionPoint)
+    /// Returns the callee of `s`.
+    func unpackCallee(of s: Operand) -> LambdaContents {
+      if case .constant(let f) = s {
+        let f = transpiledConstant(f, usedIn: m, from: ir)
+        let t = LLVM.Function(f)!.valueType
+        return .init(function: f, type: t, environment: [])
       }
 
-      let llvmType = transpiledType(valType)
-      if valType.environment == .void {
-        return .init(function: lambda, type: llvmType, environment: nil)
-      } else {
-        fatalError("not implemented")
+      // `s` is a lambda.
+      let hyloType = LambdaType(m.type(of: s).ast)!
+      let llvmType = StructType(ir.llvm(hyloType, in: &self))!
+      let lambda = llvm(s)
+
+      // The first element of the representation is the function pointer.
+      var f = insertGetStructElementPointer(
+        of: lambda, typed: llvmType, index: 0, at: insertionPoint)
+      f = insertLoad(ptr, from: f, at: insertionPoint)
+
+      // Following elements constitute the environment.
+      var environment: [LLVM.IRValue] = []
+      for (i, c) in hyloType.captures.enumerated() {
+        var x = insertGetStructElementPointer(
+          of: lambda, typed: llvmType, index: i + 1, at: insertionPoint)
+
+        // Remote captures are passed deferenced.
+        if c.type.base is RemoteType {
+          x = insertLoad(ptr, from: x, at: insertionPoint)
+        }
+
+        environment.append(x)
       }
+
+      let t = transpiledType(hyloType)
+      return .init(function: f, type: t, environment: environment)
     }
 
     /// Returns an existential container wrapping the given `witness` and witness `table`.
@@ -1056,7 +1046,7 @@ private struct LambdaContents {
   /// The type `function`.
   let type: LLVM.IRType
 
-  /// A pointer to the lambda's environment, if any.
-  let environment: LLVM.IRValue?
+  /// The lambda's environment.
+  let environment: [LLVM.IRValue]
 
 }

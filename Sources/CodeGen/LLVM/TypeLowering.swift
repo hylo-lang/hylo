@@ -51,7 +51,7 @@ extension IR.Program {
     case .float128:
       return LLVM.FloatingPointType.fp128(in: &module)
     case .ptr:
-      return LLVM.PointerType(in: &module)
+      return module.ptr
     case .module:
       notLLVMRepresentable(val)
     }
@@ -83,11 +83,9 @@ extension IR.Program {
   /// - Requires: `val` is representable in LLVM.
   func llvm(lambdaType val: LambdaType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
-    if val.environment != .void {
-      notLLVMRepresentable(val)
-    }
 
-    return LLVM.PointerType(in: &module)
+    let fields = Array(repeating: module.ptr, count: base.storage(of: val).count)
+    return LLVM.StructType(fields, in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.

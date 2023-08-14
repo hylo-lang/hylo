@@ -120,12 +120,12 @@ struct Emitter {
   /// Inserts the IR for the synthesized declarations of `self.module`.
   mutating func incorporateSyntheticDeclarations() {
     for d in program.synthesizedDecls[module.id, default: []] {
-      lower(synthesized: d)
+      lower(synthetic: d)
     }
 
     var i = 0
     while i < module.synthesizedDecls.count {
-      lower(synthesized: module.synthesizedDecls[i])
+      lower(synthetic: module.synthesizedDecls[i])
       i += 1
     }
   }
@@ -618,7 +618,7 @@ struct Emitter {
         implementations[r] = loweredRequirementImplementation(d)
 
       case .synthetic(let d):
-        lower(synthesized: d)
+        lower(synthetic: d)
         implementations[r] = .function(.init(to: .init(d), in: module))
       }
     }
@@ -647,7 +647,7 @@ struct Emitter {
   // MARK: Synthetic declarations
 
   /// Synthesizes the implementation of `d`.
-  private mutating func lower(synthesized d: SynthesizedFunctionDecl) {
+  private mutating func lower(synthetic d: SynthesizedFunctionDecl) {
     switch d.kind {
     case .deinitialize:
       return withClearContext({ $0.lower(syntheticDeinit: d) })
@@ -1250,14 +1250,35 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: LambdaExpr.ID, to storage: Operand) {
-    let f = lower(function: ast[e].decl)
+    let callee = lower(function: ast[e].decl)
     let r = FunctionReference(
-      to: f, in: module,
+      to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    let x0 = insert(module.makePartialApply(wrapping: r, with: .void, at: ast[e].site))!
-    let x1 = insert(module.makeAccess(.set, from: storage, at: ast[e].site))!
-    insert(module.makeStore(x0, at: x1, at: ast[e].site))
+    let site = ast[e].site
+    let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
+    let x1 = insert(module.makeSubfieldView(of: storage, subfield: [0], at: site))!
+    emitStore(value: x0, to: x1, at: ast[e].site)
+
+    let lambda = LambdaType(program.canonical(program[e].type, in: insertionScope!))!
+    if lambda.environment == .void { return }
+
+    var i = 1
+    for b in program[e].decl.explicitCaptures {
+      // TODO: See #878
+      precondition(program[b].pattern.subpattern.kind == NamePattern.self, "not implemented")
+      let y0 = insert(module.makeSubfieldView(of: storage, subfield: [i], at: site))!
+      emitStore(value: program[b].initializer!, to: y0)
+      i += 1
+    }
+
+    for c in program[e].decl.implicitCaptures {
+      let y0 = emitLValue(directReferenceTo: c.decl, at: site)
+      let y1 = insert(module.makeAccess(c.type.access, from: y0, at: site))!
+      let y2 = insert(module.makeSubfieldView(of: storage, subfield: [i], at: site))!
+      emitStore(access: y1, to: y2, at: site)
+      i += 1
+    }
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1311,12 +1332,12 @@ struct Emitter {
 
       // The callee must be a reference to member function.
       guard case .member(let d, _, _) = program[callee.expr].referredDecl else { unreachable() }
-      let oper = Operand.constant(FunctionReference(to: FunctionDecl.ID(d)!, in: &module))
+      let f = Operand.constant(FunctionReference(to: FunctionDecl.ID(d)!, in: &module))
 
       // Emit the call.
       let site = ast.site(of: e)
-      let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
-      insert(module.makeCall(applying: oper, to: [l, r], writingResultTo: x0, at: site))
+      let result = insert(module.makeAccess(.set, from: storage, at: site))!
+      insert(module.makeCall(applying: f, to: [l, r], writingResultTo: result, at: site))
 
     case .leaf(let v):
       emitStore(value: v, to: storage)
@@ -1440,11 +1461,12 @@ struct Emitter {
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
   ///
-  /// - Parameter storage: an `alloc_stack` that is outlived by the provenances of `a`.
+  /// - Parameter storage: an address derived from an `alloc_stack` that is outlived by the
+  ///   provenances of `a`.
   private mutating func emitStore(
     access a: Operand, to storage: Operand, at site: SourceRange
   ) {
-    guard module[storage] is AllocStack else {
+    guard let s = module.provenances(storage).uniqueElement, module[s] is AllocStack else {
       report(.error(cannotCaptureAccessAt: site))
       return
     }
@@ -1452,7 +1474,7 @@ struct Emitter {
     let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
     insert(module.makeCapture(a, in: x0, at: site))
     insert(module.makeEndAccess(x0, at: site))
-    frames.top.setMayHoldCaptures(storage)
+    frames.top.setMayHoldCaptures(s)
   }
 
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
@@ -1485,13 +1507,14 @@ struct Emitter {
     let receiver = insert(module.makeAccess(.set, from: s, at: ast[call].site))!
 
     // Call is evaluated last.
-    let f = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
+    let f = Operand.constant(
+      FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!))
     let x0 = emitAllocStack(for: .void, at: ast[call].site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: ast[call].site))!
-    insert(
-      module.makeCall(
-        applying: .constant(f), to: [receiver] + arguments, writingResultTo: x1,
-        at: ast[call].site))
+
+    let s = module.makeCall(
+      applying: f, to: [receiver] + arguments, writingResultTo: x1, at: ast[call].site)
+    insert(s)
   }
 
   /// Inserts the IR for given memberwise constructor `call`, which initializes `receiver`.
@@ -1642,8 +1665,7 @@ struct Emitter {
       return emit(functionCallee: ast[InoutExpr.ID(callee)!].subject)
 
     default:
-      let f = emit(lambdaCallee: callee)
-      return (f, [])
+      return (emit(lambdaCallee: callee), [])
     }
   }
 
@@ -1870,7 +1892,33 @@ struct Emitter {
       return emitCoerce(v, to: target, at: site)
     }
 
+    if let t = LambdaType(target), let o = _emitCoerce(source, to: t, at: site) {
+      return o
+    }
+
     unreachable("unexpected coercion from '\(sourceType)' to \(target)")
+  }
+
+  /// Inserts the IR for coercing `source` to an address of type `target`, returning `nil` if such
+  /// a coercion is not possible.
+  ///
+  /// - Requires: `target` is canonical.
+  private mutating func _emitCoerce(
+    _ source: Operand, to target: LambdaType, at site: SourceRange
+  ) -> Operand? {
+    precondition(target[.isCanonical])
+    guard let s = LambdaType(module.type(of: source).ast) else { return nil }
+
+    // TODO: Handle variance
+    let t = LambdaType(
+      receiverEffect: s.receiverEffect,
+      environment: target.environment,
+      inputs: target.inputs,
+      output: target.output)
+    if !program.areEquivalent(^s, ^t, in: insertionScope!) { return nil }
+
+    // If we're here, then `t` and `u` only differ on their effects.
+    return source
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
@@ -1899,9 +1947,11 @@ struct Emitter {
       let x2 = emitAllocStack(for: t, at: site)
       let x3 = insert(module.makeAccess(.set, from: x2, at: site))!
       let x4 = insert(module.makeAccess(.sink, from: source, at: site))!
-      insert(
-        module.makeCall(
-          applying: .constant(convert), to: [x1, x4], writingResultTo: x3, at: site))
+
+      let s = module.makeCall(
+        applying: .constant(convert), to: [x1, x4], writingResultTo: x3, at: site)
+      insert(s)
+
       insert(module.makeEndAccess(x4, at: site))
       insert(module.makeEndAccess(x3, at: site))
       insert(module.makeEndAccess(x1, at: site))

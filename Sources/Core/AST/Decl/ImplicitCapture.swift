@@ -17,9 +17,4 @@ public struct ImplicitCapture: Hashable {
     self.decl = decl
   }
 
-  /// Returns a copy of `self` where `type` is `inout`.
-  public func mutable() -> Self {
-    ImplicitCapture(name: name, type: .init(.inout, type.bareType), decl: decl)
-  }
-
 }

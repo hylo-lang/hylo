@@ -152,14 +152,14 @@ public struct AnyType: TypeProtocol {
   }
 
   /// Indicates whether `self` is a generic type parameter or associated type.
-  public var isTypeParam: Bool {
+  public var isTypeParameter: Bool {
     (base is AssociatedTypeType) || (base is GenericTypeParameterType)
   }
 
   /// Indicates whether `self` has a record layout.
   public var hasRecordLayout: Bool {
     switch base {
-    case is ProductType, is TupleType:
+    case is LambdaType, is ProductType, is TupleType:
       return true
     case let type as BoundGenericType:
       return type.base.hasRecordLayout
