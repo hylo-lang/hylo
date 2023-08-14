@@ -567,7 +567,7 @@ struct TypeChecker {
   /// Type checks `d` and all declarations nested in `d`.
   private mutating func _check(_ d: SubscriptDecl.ID) {
     checkEnvironment(of: d)
-    checkParameters(program[d].parameters ?? [], of: d)
+    checkParameters(program[d].parameters, of: d)
     check(program[d].impls)
   }
 
@@ -1608,7 +1608,7 @@ struct TypeChecker {
 
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType(of d: SubscriptDecl.ID) -> AnyType {
-    let inputs = uncheckedInputTypes(of: program[d].parameters ?? [], declaredBy: d)
+    let inputs = uncheckedInputTypes(of: program[d].parameters, declaredBy: d)
     let output = evalTypeAnnotation(program[d].output)
 
     let explicitCaptures = self.explicitCaptures(program[d].explicitCaptures, of: d)
@@ -1624,7 +1624,7 @@ struct TypeChecker {
     }
 
     return ^SubscriptType(
-      isProperty: program[d].parameters == nil,
+      isProperty: program[d].isProperty,
       capabilities: .init(program[d].impls.map({ program[$0].introducer.value })),
       environment: ^e,
       inputs: inputs,
@@ -2631,7 +2631,7 @@ struct TypeChecker {
     case MethodDecl.self:
       return ast[ast[MethodDecl.ID(d)!].parameters].map(\.label?.value)
     case SubscriptDecl.self:
-      return ast[ast[SubscriptDecl.ID(d)!].parameters ?? []].map(\.label?.value)
+      return ast[ast[SubscriptDecl.ID(d)!].parameters].map(\.label?.value)
     default:
       return []
     }

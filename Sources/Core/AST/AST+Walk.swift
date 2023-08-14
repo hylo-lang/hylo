@@ -389,7 +389,7 @@ extension AST {
   ) {
     n.genericClause.map({ traverse(genericClause: $0.value, notifying: &o) })
     walk(roots: n.explicitCaptures, notifying: &o)
-    walk(roots: n.parameters ?? [], notifying: &o)
+    walk(roots: n.parameters, notifying: &o)
     walk(n.output, notifying: &o)
     walk(roots: n.impls, notifying: &o)
   }

@@ -38,10 +38,10 @@ public struct SubscriptDecl: BundleDecl, GenericDecl, GenericScope {
   /// The explicit capture declarations of the subscript.
   public let explicitCaptures: [BindingDecl.ID]
 
-  /// The parameters of the subscript, unless the declaration denotes a computed property.
+  /// The parameters of the subscript, empty for a property declaration.
   ///
   /// These declarations must have a type annotation.
-  public let parameters: [ParameterDecl.ID]?
+  public let parameters: [ParameterDecl.ID]
 
   /// The output type annotation of the subscript.
   public let output: AnyExprID
@@ -58,7 +58,7 @@ public struct SubscriptDecl: BundleDecl, GenericDecl, GenericScope {
     identifier: SourceRepresentable<Identifier>?,
     genericClause: SourceRepresentable<GenericClause>?,
     explicitCaptures: [BindingDecl.ID],
-    parameters: [ParameterDecl.ID]?,
+    parameters: [ParameterDecl.ID],
     output: AnyExprID,
     impls: [SubscriptImpl.ID],
     site: SourceRange
@@ -84,7 +84,7 @@ public struct SubscriptDecl: BundleDecl, GenericDecl, GenericScope {
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
-    for p in parameters ?? [] {
+    for p in parameters {
       if ast[p].annotation == nil {
         diagnostics.insert(.error(missingTypeAnnotation: ast[p], in: ast))
       }
