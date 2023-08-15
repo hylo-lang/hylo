@@ -9,20 +9,11 @@ extension BundledNode where T: DeclID, P == TypedProgram {
 
 }
 
-extension BundledNode where T == FunctionDecl.ID, P == TypedProgram {
+extension BundledNode where T: ConcreteNodeID, T.Subject: CapturingDecl, P == TypedProgram {
 
   /// The implicit captures for the declared entity.
-  public var implicitCaptures: Set<ImplicitCapture> {
-    container.implicitCaptures[id, default: []]
-  }
-
-}
-
-extension BundledNode where T == SubscriptDecl.ID, P == TypedProgram {
-
-  /// The implicit captures for the declared entity.
-  public var implicitCaptures: Set<ImplicitCapture> {
-    container.implicitCaptures[id, default: []]
+  public var implicitCaptures: [ImplicitCapture] {
+    container.implicitCaptures[AnyDeclID(id)!, default: []]
   }
 
 }
