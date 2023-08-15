@@ -220,7 +220,7 @@ public struct TypedProgram {
   public func storage(of t: AnyType) -> [TupleType.Element] {
     switch t.base {
     case let u as BoundGenericType:
-      return storage(of: u.base)
+      return storage(of: u)
     case let u as LambdaType:
       return storage(of: u)
     case let u as ProductType:
@@ -230,6 +230,14 @@ public struct TypedProgram {
     default:
       assert(!t.hasRecordLayout)
       return []
+    }
+  }
+
+  /// Returns the names and types of `t`'s stored properties.
+  public func storage(of t: BoundGenericType) -> [TupleType.Element] {
+    storage(of: t.base).map { (p) in
+      let t = specialize(p.type, for: t.arguments, in: AnyScopeID(base.ast.coreLibrary!))
+      return .init(label: p.label, type: t)
     }
   }
 
