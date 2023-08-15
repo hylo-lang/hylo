@@ -1863,7 +1863,7 @@ struct TypeChecker {
     var captureToStemAndEffect: [AnyDeclID: (stem: String, effect: AccessEffect)] = [:]
     for (name, mutability) in program.ast.uses(in: AnyDeclID(d)) {
       guard
-        let (stem, pick) = resolveImplicitCapture(name, occuringIn: d),
+        let (stem, pick) = lookupImplicitCapture(name, occuringIn: d),
         !explictCaptures.contains(stem)
       else { continue }
 
@@ -2485,6 +2485,28 @@ struct TypeChecker {
     return nil
   }
 
+  /// Returns the stem and declaration of `c`, which occurs in `d`, or `nil` if either `c` doesn't
+  /// have to be captured or lookup failed.
+  private mutating func lookupImplicitCapture<T: Decl & LexicalScope>(
+    _ c: NameExpr.ID, occuringIn d: T.ID
+  ) -> (stem: String, decl: AnyDeclID)? {
+    let n = program[c].name
+    var candidates = lookup(unqualified: n.value.stem, in: program[c].scope)
+    candidates.removeAll(where: { isCaptured(referenceTo: $0, occuringIn: AnyScopeID(d)) })
+    if candidates.isEmpty { return nil }
+
+    guard let pick = candidates.uniqueElement else {
+      report(.error(cannotCaptureOverloadedNameImplicitly: n))
+      return nil
+    }
+
+    if program.isMember(pick) {
+      return ("self", lookup(unqualified: "self", in: AnyScopeID(d)).uniqueElement!)
+    } else {
+      return (n.value.stem, pick)
+    }
+  }
+
   /// Returns the names introduced in `s`.
   ///
   /// The returned table only contains names whose declaration are lexically contained directly in
@@ -3102,28 +3124,6 @@ struct TypeChecker {
   /// Computes and returns the type of `Self` in `scopeOfUse`.
   private mutating func resolveReceiverMetatype(in scopeOfUse: TraitDecl.ID) -> MetatypeType? {
     MetatypeType(of: GenericTypeParameterType(selfParameterOf: scopeOfUse, in: program.ast))
-  }
-
-  /// Resolves `c`, which occurs in `d`, returning its name and declaration or `nil` if either `c`
-  /// doesn't have to be captured or name resolution failed.
-  private mutating func resolveImplicitCapture<T: Decl & LexicalScope>(
-    _ c: NameExpr.ID, occuringIn d: T.ID
-  ) -> (stem: String, decl: AnyDeclID)? {
-    let n = program[c].name
-    var candidates = lookup(unqualified: n.value.stem, in: program[c].scope)
-    candidates.removeAll(where: { isCaptured(referenceTo: $0, occuringIn: AnyScopeID(d)) })
-    if candidates.isEmpty { return nil }
-
-    guard let pick = candidates.uniqueElement else {
-      report(.error(cannotCaptureOverloadedNameImplicitly: n))
-      return nil
-    }
-
-    if program.isMember(pick) {
-      return ("self", lookup(unqualified: "self", in: AnyScopeID(d)).uniqueElement!)
-    } else {
-      return (n.value.stem, pick)
-    }
   }
 
   /// Returns `true` if references to `d` are captured if they occur in `scopeOfUse`.
