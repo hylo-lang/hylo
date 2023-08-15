@@ -2456,7 +2456,7 @@ struct TypeChecker {
   }
 
   /// Returns the declarations of an operator specified operator that are visible in `scopeOfUse`.
-  func lookup<T: ScopeID>(
+  private func lookup<T: ScopeID>(
     operator operatorName: Identifier, used notation: OperatorNotation,
     in scopeOfUse: T
   ) -> [OperatorDecl.ID] {
@@ -2473,7 +2473,7 @@ struct TypeChecker {
 
   /// Returns the declaration of the specified operator that are visible in `scopeOfUse`, or `nil`
   /// if no such operator is declared in `scopeOfUse`.
-  func lookup(
+  private func lookup(
     operator operatorName: Identifier, used notation: OperatorNotation,
     in scopeOfUse: ModuleDecl.ID
   ) -> OperatorDecl.ID? {
