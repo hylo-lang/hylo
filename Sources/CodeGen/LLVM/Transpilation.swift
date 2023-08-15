@@ -286,12 +286,12 @@ extension LLVM.Module {
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
   private mutating func transpiledMetatype(
-    of t: AnyType,
-    usedIn m: IR.Module,
-    from ir: IR.Program
+    of t: AnyType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     switch t.base {
     case let u as ProductType:
+      return transpiledMetatype(of: u, usedIn: m, from: ir)
+    case let u as TupleType:
       return transpiledMetatype(of: u, usedIn: m, from: ir)
     default:
       fatalError("not implemented")
@@ -300,15 +300,10 @@ extension LLVM.Module {
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
   private mutating func transpiledMetatype(
-    of t: ProductType,
-    usedIn m: IR.Module,
-    from ir: IR.Program
+    of t: ProductType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
-    // Check if we already created the metatype's instance.
     let globalName = ir.base.mangled(t)
-    if let g = global(named: globalName) {
-      return g
-    }
+    if let g = global(named: globalName) { return g }
 
     // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply
     // declare the symbol and let it be linked later.
@@ -318,18 +313,54 @@ extension LLVM.Module {
       return instance
     }
 
-    let u = ir.llvm(t, in: &self)
-    let initializer = metatype.constant(
-      aggregating: [
-        word().constant(truncatingIfNeeded: self.layout.storageSize(of: u)),
-        word().constant(truncatingIfNeeded: self.layout.preferredAlignment(of: u)),
-        ptr.null,
-      ],
+    // If `t` is generic, its metatype is only a stub.
+    let layout: LLVMMemoryLayout
+    if !ir.base[t.decl].genericParameters.isEmpty {
+      layout = .init(size: word().zero, preferredAlignment: word().zero)
+    } else {
+      layout = memoryLayout(of: t, from: ir)
+    }
+
+    let v = metatype.constant(
+      aggregating: [layout.size, layout.preferredAlignment, ptr.null],
       in: &self)
 
-    setInitializer(initializer, for: instance)
+    setInitializer(v, for: instance)
     setGlobalConstant(true, for: instance)
     return instance
+  }
+
+  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
+  private mutating func transpiledMetatype(
+    of t: TupleType, usedIn m: IR.Module, from ir: IR.Program
+  ) -> LLVM.GlobalVariable {
+    let globalName = ir.base.mangled(t)
+    if let g = global(named: globalName) { return g }
+
+    let metatype = metatypeType()
+    let instance = declareGlobalVariable(globalName, metatype)
+    setLinkage(.linkOnce, for: instance)
+
+    let layout = memoryLayout(of: t, from: ir)
+    let v = metatype.constant(
+      aggregating: [layout.size, layout.preferredAlignment, ptr.null],
+      in: &self)
+
+    setInitializer(v, for: instance)
+    setGlobalConstant(true, for: instance)
+    return instance
+  }
+
+  /// Returns the memory layout of `t`, which is a canonical type in `ir`.
+  ///
+  /// - Requires: `t` is representable in LLVM.
+  private mutating func memoryLayout<T: TypeProtocol>(
+    of t: T, from ir: IR.Program
+  ) -> LLVMMemoryLayout {
+    let u = ir.llvm(t, in: &self)
+    return .init(
+      size: word().constant(truncatingIfNeeded: layout.storageSize(of: u)),
+      preferredAlignment: word().constant(truncatingIfNeeded: layout.preferredAlignment(of: u)))
   }
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
@@ -1055,5 +1086,16 @@ private struct LambdaContents {
 
   /// The lambda's environment.
   let environment: [LLVM.IRValue]
+
+}
+
+/// The memory layout of a Hylo type represented in LLVM.
+private struct LLVMMemoryLayout {
+
+  /// The contiguous memory footprint of the type's instances, in bytes.
+  let size: LLVM.IRValue
+
+  /// The preferred memory alignment of the `T`'s instances, in bytes.
+  let preferredAlignment: LLVM.IRValue
 
 }
