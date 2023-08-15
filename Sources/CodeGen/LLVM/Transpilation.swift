@@ -286,12 +286,12 @@ extension LLVM.Module {
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
   private mutating func transpiledMetatype(
-    of t: AnyType,
-    usedIn m: IR.Module,
-    from ir: IR.Program
+    of t: AnyType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     switch t.base {
     case let u as ProductType:
+      return transpiledMetatype(of: u, usedIn: m, from: ir)
+    case let u as TupleType:
       return transpiledMetatype(of: u, usedIn: m, from: ir)
     default:
       fatalError("not implemented")
@@ -300,15 +300,10 @@ extension LLVM.Module {
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
   private mutating func transpiledMetatype(
-    of t: ProductType,
-    usedIn m: IR.Module,
-    from ir: IR.Program
+    of t: ProductType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
-    // Check if we already created the metatype's instance.
     let globalName = ir.base.mangled(t)
-    if let g = global(named: globalName) {
-      return g
-    }
+    if let g = global(named: globalName) { return g }
 
     // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply
     // declare the symbol and let it be linked later.
@@ -319,7 +314,7 @@ extension LLVM.Module {
     }
 
     let u = ir.llvm(t, in: &self)
-    let initializer = metatype.constant(
+    let v = metatype.constant(
       aggregating: [
         word().constant(truncatingIfNeeded: self.layout.storageSize(of: u)),
         word().constant(truncatingIfNeeded: self.layout.preferredAlignment(of: u)),
@@ -327,7 +322,32 @@ extension LLVM.Module {
       ],
       in: &self)
 
-    setInitializer(initializer, for: instance)
+    setInitializer(v, for: instance)
+    setGlobalConstant(true, for: instance)
+    return instance
+  }
+
+  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
+  private mutating func transpiledMetatype(
+    of t: TupleType, usedIn m: IR.Module, from ir: IR.Program
+  ) -> LLVM.GlobalVariable {
+    let globalName = ir.base.mangled(t)
+    if let g = global(named: globalName) { return g }
+
+    let metatype = metatypeType()
+    let instance = declareGlobalVariable(globalName, metatype)
+    setLinkage(.linkOnce, for: instance)
+
+    let u = ir.llvm(t, in: &self)
+    let v = metatype.constant(
+      aggregating: [
+        word().constant(truncatingIfNeeded: self.layout.storageSize(of: u)),
+        word().constant(truncatingIfNeeded: self.layout.preferredAlignment(of: u)),
+        ptr.null,
+      ],
+      in: &self)
+
+    setInitializer(v, for: instance)
     setGlobalConstant(true, for: instance)
     return instance
   }
