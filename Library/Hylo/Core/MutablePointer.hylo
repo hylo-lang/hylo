@@ -21,12 +21,12 @@ public type MutablePointer<Pointee> {
   }
 
   /// Returns the result of applying `action` to a projection of the value referenced by `self`.
-  public fun with_uninitialized_pointee<T>(_ action: [](set Pointee) -> T) -> T {
+  public fun with_uninitialized_pointee<E, R>(_ action: [E](set Pointee) -> R) -> R {
     action(value as* (remote set Pointee))
   }
 
   /// Returns the result of applying `action` to a projection of the value referenced by `self`.
-  public fun with_mutable_pointee<T>(_ action: [](inout Pointee) -> T) -> T {
+  public fun with_mutable_pointee<E, R>(_ action: [E](inout Pointee) -> R) -> R {
     action(value as* (remote inout Pointee))
   }
 
