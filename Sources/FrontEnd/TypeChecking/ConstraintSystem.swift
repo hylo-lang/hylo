@@ -558,18 +558,18 @@ struct ConstraintSystem {
       postpone(g)
       return nil
 
-    case let s as TupleType:
-      guard goal.elementIndex < s.elements.count else { break }
+    case let t as TupleType:
+      if goal.elementIndex >= t.elements.count { break }
+      let e = t.elements[goal.elementIndex].type
+      let s = schedule(EqualityConstraint(e, goal.elementType, origin: goal.origin.subordinate()))
+      return delegate(to: [s])
 
-      let t = s.elements[goal.elementIndex].type
-      if unify(t, goal.elementType) {
-        return .success
-      } else {
-        return .failure { (d, m, _) in
-          let (l, r) = (m.reify(t), m.reify(goal.elementType))
-          d.insert(.error(type: l, incompatibleWith: r, at: goal.origin.site))
-        }
-      }
+    case let t as TypeAliasType:
+      let c = TupleMemberConstraint(
+        t.resolved.value, at: goal.elementIndex, hasType: goal.elementType,
+        origin: goal.origin.subordinate())
+      let s = schedule(c)
+      return delegate(to: [s])
 
     default:
       // TODO: Handle bound generic typess
