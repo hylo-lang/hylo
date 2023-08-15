@@ -2272,14 +2272,16 @@ struct Emitter {
 
     // If the semantics of the move is known, emit a call to the corresponding move method.
     if let k = semantics.uniqueElement {
-      let oper = module.demandMoveOperatorDeclaration(k, from: movable)
-      let move = Operand.constant(FunctionReference(to: oper, in: module))
+      let d = module.demandMoveOperatorDeclaration(k, from: movable)
+      let r = FunctionReference(
+        to: d, in: module, specializedBy: movable.arguments, in: insertionScope!)
+      let f = Operand.constant(r)
 
       let x0 = insert(module.makeAllocStack(.void, at: site))!
       let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
       let x2 = insert(module.makeAccess(k, from: storage, at: site))!
       let x3 = insert(module.makeAccess(.sink, from: value, at: site))!
-      insert(module.makeCall(applying: move, to: [x2, x3], writingResultTo: x1, at: site))
+      insert(module.makeCall(applying: f, to: [x2, x3], writingResultTo: x1, at: site))
       insert(module.makeEndAccess(x3, at: site))
       insert(module.makeEndAccess(x2, at: site))
       insert(module.makeEndAccess(x1, at: site))
@@ -2325,7 +2327,8 @@ struct Emitter {
     at site: SourceRange
   ) {
     let d = module.demandDeinitDeclaration(from: c)
-    let f = Operand.constant(FunctionReference(to: d, in: module))
+    let f = Operand.constant(
+      FunctionReference(to: d, in: module, specializedBy: c.arguments, in: insertionScope!))
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
