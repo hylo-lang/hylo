@@ -14,9 +14,9 @@ import Utils
 ///
 /// - `incorporateTopLevelDeclarations`: incorporates the top-level declarations of a module's
 ///   AST into its corresponding IR form.
-/// - `incorporateSyntheticDeclarations`: generates the implementations of the synthetic
-///   declarations that are notionally part of a module. This method should be called after
-///   definitie deinitialization.
+/// - `incorporateSyntheticDeclarations`: generates the implementations of the synthesized
+///   declarations that are notionally part of a module. This method is called after definite
+///   deinitialization.
 ///
 /// Other entry points may be used during IR passes (e.g., `emitDeinit`).
 ///
@@ -123,6 +123,7 @@ struct Emitter {
       lower(synthetic: d)
     }
 
+    // `lower(synthetic:)` may append additional declarations to `module.synthesizedDecls`.
     var i = 0
     while i < module.synthesizedDecls.count {
       lower(synthetic: module.synthesizedDecls[i])
