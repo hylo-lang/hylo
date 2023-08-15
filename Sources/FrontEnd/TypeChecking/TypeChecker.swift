@@ -1875,8 +1875,9 @@ struct TypeChecker {
     var captures: Set<ImplicitCapture> = []
     var types: [TupleType.Element] = []
     for (d, x) in captureToStemAndEffect {
-      let t = RemoteType(x.effect, uncheckedType(of: d))
-      captures.insert(ImplicitCapture(name: .init(stem: x.stem), type: t, decl: d))
+      guard let t = resolveType(of: d) else { continue }
+      let u = RemoteType(x.effect, t)
+      captures.insert(ImplicitCapture(name: .init(stem: x.stem), type: u, decl: d))
       types.append(.init(label: x.stem, type: ^t))
     }
 
