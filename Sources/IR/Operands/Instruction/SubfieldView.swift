@@ -62,7 +62,7 @@ extension Module {
     of recordAddress: Operand, subfield elementPath: RecordPath, at site: SourceRange
   ) -> SubfieldView {
     precondition(type(of: recordAddress).isAddress)
-    let l = AbstractTypeLayout(of: type(of: recordAddress).ast, definedIn: program)
+    let l = AbstractTypeLayout(of: self.type(of: recordAddress).ast, definedIn: program)
     return .init(
       base: recordAddress,
       subfield: elementPath,
