@@ -52,12 +52,11 @@ public struct GenericArguments {
     return try .init(contents: contents.mapValues(transform))
   }
 
-  /// Returns this argument list appended with `suffix`.
-  ///
-  /// - Requires: `self` does not define a value for any of the values defined in `suffix`.
-  public func appending(_ suffix: Self) -> Self {
+  /// Returns `self` merged with `other`, applying `combine` to determine the value of any
+  /// duplicate key.
+  public func merging(_ other: Self, uniquingKeysWith combine: (Value, Value) -> Value) -> Self {
     var clone = self
-    clone.append(suffix)
+    clone.contents.merge(other.contents, uniquingKeysWith: combine)
     return clone
   }
 

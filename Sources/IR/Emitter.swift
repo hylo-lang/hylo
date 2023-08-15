@@ -1679,9 +1679,13 @@ struct Emitter {
         fatalError("not implemented")
       }
 
-      let a = module.specialization(in: insertionFunction!).appending(a)
+      let specialization = module.specialization(in: insertionFunction!).merging(a) { (x, y) in
+        assert(x.equals(y))
+        return x
+      }
+
       let r = FunctionReference(
-        to: FunctionDecl.ID(d)!, in: &module, specializedBy: a, in: insertionScope!)
+        to: FunctionDecl.ID(d)!, in: &module, specializedBy: specialization, in: insertionScope!)
       return (.constant(r), [])
 
     case .member(let d, let a, let s) where d.kind == FunctionDecl.self:
