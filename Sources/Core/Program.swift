@@ -271,20 +271,9 @@ extension Program {
     }
   }
 
-  /// Returns whether `decl` is a requirement.
-  public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
-    switch decl.kind {
-    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
-      return true
-    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
-      return nodeToScope[decl]!.kind == TraitDecl.self
-    case MethodImpl.self:
-      return isRequirement(MethodDecl.ID(nodeToScope[decl]!)!)
-    case SubscriptImpl.self:
-      return isRequirement(SubscriptDecl.ID(nodeToScope[decl]!)!)
-    default:
-      return false
-    }
+  /// Returns whether `d` is a requirement.
+  public func isRequirement<T: DeclID>(_ d: T) -> Bool {
+    trait(defining: d) != nil
   }
 
   /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
@@ -323,6 +312,22 @@ extension Program {
   /// - Requires:`scope` is not a module.
   public func source<S: ScopeID>(containing scope: S) -> TranslationUnit.ID {
     scopes(from: scope).first(TranslationUnit.self)!
+  }
+
+  /// Returns the trait defining `d` iff `d` is a requirement. Otherwise, returns nil.
+  public func trait<T: DeclID>(defining d: T) -> TraitDecl.ID? {
+    switch d.kind {
+    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
+      return TraitDecl.ID(nodeToScope[d]!)!
+    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
+      return TraitDecl.ID(nodeToScope[d]!)
+    case MethodImpl.self:
+      return trait(defining: MethodDecl.ID(nodeToScope[d]!)!)
+    case SubscriptImpl.self:
+      return trait(defining: SubscriptDecl.ID(nodeToScope[d]!)!)
+    default:
+      return nil
+    }
   }
 
   /// Returns the name of `d` if it introduces a single entity.

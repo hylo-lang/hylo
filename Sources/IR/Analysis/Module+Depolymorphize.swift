@@ -485,6 +485,8 @@ extension Module {
 
     /// Returns the rewritten form of `c` monomorphized for use in `scopeOfuse`.
     func rewritten(_ c: FunctionReference, forUseIn scopeOfUse: AnyScopeID) -> FunctionReference {
+      // Unspecialized references cannot refer to trait members, which are specialized for the
+      // implicit `Self` parameter.
       if c.specialization.isEmpty { return c }
 
       let p = program.specialize(c.specialization, for: specialization, in: scopeOfUse)
