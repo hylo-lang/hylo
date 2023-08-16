@@ -184,7 +184,7 @@ struct Emitter {
   ///
   /// - Requires: `self` has a clear lowering context.
   private mutating func lowerInClearContext(function d: FunctionDecl.ID) -> Function.ID {
-    let f = module.demandFunctionDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
     guard let b = ast[d].body else {
       if ast[d].isForeignInterface { lower(ffi: d) }
       return f
@@ -250,7 +250,7 @@ struct Emitter {
 
   /// Inserts the IR for calling `d`, which is a foreign function interface.
   private mutating func lower(ffi d: FunctionDecl.ID) {
-    let f = module.demandFunctionDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
 
     // Configure the emitter context.
     let entry = module.appendEntry(in: d, to: f)
@@ -300,7 +300,7 @@ struct Emitter {
   private mutating func lower(initializer d: InitializerDecl.ID) {
     // Nothing to do for memberwise initializer.
     if ast[d].isMemberwise { return }
-    let f = module.demandInitializerDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
 
     // Create the function entry.
     let entry = module.appendEntry(in: ast[d].body!, to: f)
@@ -328,7 +328,7 @@ struct Emitter {
 
   /// Inserts the IR for `d`.
   private mutating func lower(subscriptImpl d: SubscriptImpl.ID) {
-    let f = module.demandSubscriptDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
     guard let b = ast[d].body else { return }
 
     // Create the function entry.
@@ -663,7 +663,7 @@ struct Emitter {
 
   /// Inserts the IR for `d`, which is a synthetic deinitializer.
   private mutating func lower(syntheticDeinit d: SynthesizedFunctionDecl) {
-    let f = module.demandSyntheticDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return
     }
@@ -688,7 +688,7 @@ struct Emitter {
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveInit d: SynthesizedFunctionDecl) {
-    let f = module.demandSyntheticDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return
     }
@@ -812,7 +812,7 @@ struct Emitter {
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveAssign d: SynthesizedFunctionDecl) {
-    let f = module.demandSyntheticDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
     if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
       return
     }
@@ -2075,7 +2075,7 @@ struct Emitter {
 
     var variants: [AccessEffect: Function.ID] = [:]
     for v in ast[callee.bundle].impls {
-      variants[ast[v].introducer.value] = module.demandSubscriptDeclaration(lowering: v)
+      variants[ast[v].introducer.value] = module.demandDeclaration(lowering: v)
     }
 
     // Projection is evaluated last.
@@ -2189,7 +2189,7 @@ struct Emitter {
 
     var variants: [AccessEffect: Function.ID] = [:]
     for v in ast[d].impls {
-      variants[ast[v].introducer.value] = module.demandSubscriptDeclaration(lowering: v)
+      variants[ast[v].introducer.value] = module.demandDeclaration(lowering: v)
     }
 
     let s = module.makeProjectBundle(
@@ -2208,7 +2208,7 @@ struct Emitter {
     let t = SubscriptImplType(canonicalType(of: d, specializedBy: specialization))!
     let o = RemoteType(ast[d].introducer.value, t.output)
     let r = insert(module.makeAccess(o.access, from: receiver, at: site))!
-    let f = module.demandSubscriptDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
 
     let s = module.makeProject(
       o, applying: f, specializedBy: specialization,

@@ -241,18 +241,18 @@ public struct Module {
   mutating func demandDeclaration(lowering d: AnyDeclID) -> Function.ID? {
     switch d.kind {
     case FunctionDecl.self:
-      return demandFunctionDeclaration(lowering: .init(d)!)
+      return demandDeclaration(lowering: .init(d)!)
     case InitializerDecl.self:
-      return demandInitializerDeclaration(lowering: .init(d)!)
+      return demandDeclaration(lowering: .init(d)!)
     case SubscriptDecl.self:
-      return demandSubscriptDeclaration(lowering: .init(d)!)
+      return demandDeclaration(lowering: .init(d)!)
     default:
       return nil
     }
   }
 
   /// Returns the identity of the IR function corresponding to `d`.
-  mutating func demandFunctionDeclaration(lowering d: FunctionDecl.ID) -> Function.ID {
+  mutating func demandDeclaration(lowering d: FunctionDecl.ID) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
@@ -281,7 +281,7 @@ public struct Module {
   }
 
   /// Returns the identity of the IR function corresponding to `d`.
-  mutating func demandSubscriptDeclaration(lowering d: SubscriptImpl.ID) -> Function.ID {
+  mutating func demandDeclaration(lowering d: SubscriptImpl.ID) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
@@ -304,7 +304,7 @@ public struct Module {
   }
 
   /// Returns the identifier of the IR initializer corresponding to `d`.
-  mutating func demandInitializerDeclaration(lowering d: InitializerDecl.ID) -> Function.ID {
+  mutating func demandDeclaration(lowering d: InitializerDecl.ID) -> Function.ID {
     precondition(!program.ast[d].isMemberwise)
 
     let f = Function.ID(initializer: d)
@@ -332,42 +332,12 @@ public struct Module {
     case .concrete(let d):
       return demandDeclaration(lowering: d)
     case .synthetic(let d):
-      return demandSyntheticDeclaration(lowering: d)
-    }
-  }
-
-  /// Returns the identity of the IR function implementing the deinitializer defined in
-  /// conformance `c`.
-  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
-    let d = program.ast.deinitRequirement()
-    switch c.implementations[d]! {
-    case .concrete:
-      fatalError("not implemented")
-
-    case .synthetic(let s):
-      return demandSyntheticDeclaration(lowering: s)
-    }
-  }
-
-  /// Returns the identity of the IR function implementing the `k` variant move-operator defined in
-  /// conformance `c`.
-  ///
-  /// - Requires: `k` is either `.set` or `.inout`
-  mutating func demandMoveOperatorDeclaration(
-    _ k: AccessEffect, from c: Core.Conformance
-  ) -> Function.ID {
-    let d = program.ast.moveRequirement(k)
-    switch c.implementations[d]! {
-    case .concrete:
-      fatalError("not implemented")
-
-    case .synthetic(let s):
-      return demandSyntheticDeclaration(lowering: s)
+      return demandDeclaration(lowering: d)
     }
   }
 
   /// Returns the identity of the IR function corresponding to `d`.
-  mutating func demandSyntheticDeclaration(lowering d: SynthesizedFunctionDecl) -> Function.ID {
+  mutating func demandDeclaration(lowering d: SynthesizedFunctionDecl) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
@@ -394,6 +364,36 @@ public struct Module {
 
     addFunction(entity, for: f)
     return f
+  }
+
+  /// Returns the identity of the IR function implementing the deinitializer defined in
+  /// conformance `c`.
+  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
+    let d = program.ast.deinitRequirement()
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+
+    case .synthetic(let s):
+      return demandDeclaration(lowering: s)
+    }
+  }
+
+  /// Returns the identity of the IR function implementing the `k` variant move-operator defined in
+  /// conformance `c`.
+  ///
+  /// - Requires: `k` is either `.set` or `.inout`
+  mutating func demandMoveOperatorDeclaration(
+    _ k: AccessEffect, from c: Core.Conformance
+  ) -> Function.ID {
+    let d = program.ast.moveRequirement(k)
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+
+    case .synthetic(let s):
+      return demandDeclaration(lowering: s)
+    }
   }
 
   /// Returns the lowered declarations of `d`'s parameters.
