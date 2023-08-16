@@ -69,7 +69,7 @@ public enum NativeInstruction: Hashable {
   case signedMultiplicationWithOverflow(BuiltinType)
 
   // Corresponding LLVM instruction: umul.with.overflow
-  case unsingedMultiplicationWithOverflow(BuiltinType)
+  case unsignedMultiplicationWithOverflow(BuiltinType)
 
   case icmp(LLVM.IntegerPredicate, BuiltinType)
 
@@ -184,7 +184,7 @@ extension NativeInstruction {
       return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
     case .signedMultiplicationWithOverflow(let t):
       return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
-    case .unsingedMultiplicationWithOverflow(let t):
+    case .unsignedMultiplicationWithOverflow(let t):
       return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
     case .icmp(_, let t):
       return .init(^t, ^t, to: .builtin(.i(1)))
@@ -271,7 +271,7 @@ extension NativeInstruction: CustomStringConvertible {
       return "usub_with_overflow_\(t)"
     case .signedMultiplicationWithOverflow(let t):
       return "smul_with_overflow_\(t)"
-    case .unsingedMultiplicationWithOverflow(let t):
+    case .unsignedMultiplicationWithOverflow(let t):
       return "umul_with_overflow_\(t)"
     case .icmp(let p, let t):
       return "icmp_\(p)_\(t)"

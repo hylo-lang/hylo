@@ -811,6 +811,20 @@ extension LLVM.Module {
           named: Intrinsic.llvm.usub.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
         register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
+      case .signedMultiplicationWithOverflow(let t):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        let f = intrinsic(
+          named: Intrinsic.llvm.smul.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+
+      case .unsignedMultiplicationWithOverflow(let t):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        let f = intrinsic(
+          named: Intrinsic.llvm.umul.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])

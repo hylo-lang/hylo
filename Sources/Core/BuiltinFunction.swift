@@ -153,7 +153,7 @@ extension BuiltinFunction {
 
     case "umul":
       guard let t = integerArithmeticWithOverflowTail(&tokens) else { return nil }
-      self = .init(name: .llvm(.unsingedMultiplicationWithOverflow(t)))
+      self = .init(name: .llvm(.unsignedMultiplicationWithOverflow(t)))
 
     case "icmp":
       guard let (p, t) = integerComparisonTail(&tokens) else { return nil }
