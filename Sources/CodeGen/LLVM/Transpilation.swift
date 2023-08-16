@@ -168,7 +168,7 @@ extension LLVM.Module {
     case let v as IR.IntegerConstant:
       guard v.value.bitWidth <= 64 else { fatalError("not implemented") }
       let t = LLVM.IntegerType(v.value.bitWidth, in: &self)
-      return t.constant(UInt64(v.value.words[0]))
+      return t.constant(v.value.words[0])
 
     case let v as IR.FloatingPointConstant:
       let t = LLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
@@ -225,7 +225,7 @@ extension LLVM.Module {
     // Encode the table's header.
     var tableContents: [LLVM.IRValue] = [
       transpiledMetatype(of: t.witness, usedIn: m, from: ir),
-      word().constant(UInt64(t.conformances.count)),
+      word().constant(t.conformances.count),
     ]
 
     // Encode the table's trait and implementation maps.
@@ -234,13 +234,13 @@ extension LLVM.Module {
     for c in t.conformances {
       let entry: [LLVM.IRValue] = [
         transpiledTrait(c.concept, usedIn: m, from: ir),
-        word().constant(UInt64(implementations.count)),
+        word().constant(implementations.count),
       ]
       entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
 
       for (r, d) in c.implementations {
         let requirement: [LLVM.IRValue] = [
-          word().constant(UInt64(r.rawValue)),
+          word().constant(r.rawValue),
           transpiledRequirementImplementation(d, from: ir),
         ]
         implementations.append(LLVM.StructConstant(aggregating: requirement, in: &self))
@@ -359,8 +359,8 @@ extension LLVM.Module {
   ) -> LLVMMemoryLayout {
     let u = ir.llvm(t, in: &self)
     return .init(
-      size: word().constant(truncatingIfNeeded: layout.storageSize(of: u)),
-      preferredAlignment: word().constant(truncatingIfNeeded: layout.preferredAlignment(of: u)))
+      size: word().constant(layout.storageSize(of: u)),
+      preferredAlignment: word().constant(layout.preferredAlignment(of: u)))
   }
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
