@@ -1,6 +1,5 @@
-module: Val
+module: Hylo
 author: Dimi Racordon
 theme: fullwidth
-output: ./.generated-docs
-author_url: "https://val-lang.dev"
-github_url: "https://github.com/val-lang"
+author_url: "https://hylo-lang.dev"
+github_url: "https://github.com/hylo-lang"

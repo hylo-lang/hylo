@@ -1,4 +1,4 @@
-name: Publish Documentation
+name: Extract And Publish Documentation
 
 on:
   push:
@@ -42,23 +42,52 @@ jobs:
 
     - name: Generate LLVM pkgconfig file
       run: |
-        swift package resolve &&
-        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc &&
+        set -eo pipefail
+        swift package resolve
+        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
         cat llvm.pc
 
     - name: Make site Directory
       run: mkdir _site
 
-    - name: Extract Documentation
+    - name: Install jq
       run: |
+        set -eo pipefail
+        brew update
+        brew install jq
+
+    - name: Extract with DocC
+      run: |
+        set -eo pipefail
         export PKG_CONFIG_PATH=$PWD
-        swift package --allow-writing-to-directory ./_site \
+
+        for TARGET in ($(swift package dump-package | jq '.targets | .[].name')); do
+          swift package --allow-writing-to-directory ./_site \
           generate-documentation \
-          --output-path ./_site \
-          --experimental-documentation-coverage \
+          --target "$TARGET" \
+          --output-path _site/docc/"$TARGET" \
+          --experimental-documentation-coverage --level brief \
           --enable-inherited-docs \
           --transform-for-static-hosting \
-          --hosting-base-path Val
+          --hosting-base-path Hylo/docc/"$TARGET"
+        done
+
+    - name: Extract with Jazzy
+      run: |
+        set -eo pipefail
+        gem install jazzy
+
+        export PKG_CONFIG_PATH=$PWD
+
+        for TARGET in ($(swift package dump-package | jq '.targets | .[].name')); do
+          jazzy \
+          --source-host-files-url "https://github.com/${GITHUB_REPOSITORY}/tree/${GITHUB_REF}" \
+          --module "$TARGET" \
+          --module-version "${{ github.event.release.tag_name }}" \
+          --copyright "© $(date '+%Y') The Hylo Authors. (Last updated: $(date '+%Y-%m-%d'))" \
+          --config .jazzy.yml \
+          --output _site/jazzy/"$TARGET"
+        done
 
     - name: Setup Pages
       uses: actions/configure-pages@v3
