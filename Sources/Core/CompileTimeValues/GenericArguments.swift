@@ -31,6 +31,11 @@ public struct GenericArguments {
     self.contents = .init(uniqueKeysWithValues: keysAndValues)
   }
 
+  /// A collection with the parameters to which arguments are passed.
+  public var keys: some Collection<Key> {
+    contents.keys
+  }
+
   /// A collection with the values of the arguments.
   public var values: some Collection<Value> {
     contents.values

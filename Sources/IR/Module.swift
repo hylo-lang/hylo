@@ -352,11 +352,12 @@ public struct Module {
       d.type.captures, passed: d.type.receiverEffect, to: &inputs, canonicalizedIn: d.scope)
     appendParameters(d.type.inputs, to: &inputs, canonicalizedIn: d.scope)
 
+    let genericParameters = BoundGenericType(d.receiver).map({ Array($0.arguments.keys) }) ?? []
     let entity = Function(
       isSubscript: false,
       site: .empty(at: program.ast[id].site.first()),
       linkage: .external,
-      genericParameters: [],  // TODO: See #844
+      genericParameters: genericParameters,
       inputs: inputs,
       output: output,
       blocks: [])

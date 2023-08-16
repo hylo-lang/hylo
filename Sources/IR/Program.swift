@@ -47,8 +47,8 @@ public struct Program: Core.Program {
       fatalError("not implemented")
     case .existentialized(let i):
       return module(defining: i)
-    case .synthesized:
-      fatalError("not implemented")
+    case .synthesized(let d):
+      return base.module(containing: d.scope)
     }
   }
 
