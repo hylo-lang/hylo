@@ -198,6 +198,13 @@ public type Int {
     &self.value = Builtin.lshr_word(value, n.value)
   }
 
+  /// Returns the sum of `self` and `other` along with a flag indicating whether overflow occurred
+  /// in the operation.
+  public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.sadd_with_overflow_word(value, other.value)
+    return (partial_value: Int(value: r.0), overflow: Bool(value: r.1))
+  }
+
 }
 
 public conformance Int: ExpressibleByIntegerLiteral {}
