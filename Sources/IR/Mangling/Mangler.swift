@@ -459,8 +459,6 @@ struct Mangler {
       write(integer: 128, to: &output)
     case .ptr:
       write(operator: .builtinPointerType, to: &output)
-    case .tuple(let elements):
-      write(tupleType: TupleType(types: elements.map(AnyType.init(_:))), to: &output)
     case .module:
       write(operator: .builtinModuleType, to: &output)
     }

@@ -25,11 +25,6 @@ public enum BuiltinType: TypeProtocol {
   /// A built-in opaque pointer.
   case ptr
 
-  /// A built-in tuple.
-  ///
-  /// Built-in tuples are used in the signature of built-in functions returning several values.
-  case tuple([BuiltinType])
-
   /// The type of the built-in module.
   case module
 
@@ -65,8 +60,6 @@ extension BuiltinType: CustomStringConvertible {
       return "float128"
     case .ptr:
       return "ptr"
-    case .tuple(let elements):
-      return "{\(list: elements)}"
     case .module:
       return "Builtin"
     }

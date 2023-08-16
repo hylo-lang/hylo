@@ -52,8 +52,6 @@ extension IR.Program {
       return LLVM.FloatingPointType.fp128(in: &module)
     case .ptr:
       return module.ptr
-    case .tuple(let elements):
-      return llvm(tupleType: TupleType(types: elements.map(AnyType.init(_:))), in: &module)
     case .module:
       notLLVMRepresentable(val)
     }
