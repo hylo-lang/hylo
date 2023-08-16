@@ -241,11 +241,11 @@ public struct Module {
   mutating func demandDeclaration(lowering d: AnyDeclID) -> Function.ID? {
     switch d.kind {
     case FunctionDecl.self:
-      return demandDeclaration(lowering: .init(d)!)
+      return demandDeclaration(lowering: FunctionDecl.ID(d)!)
     case InitializerDecl.self:
-      return demandDeclaration(lowering: .init(d)!)
-    case SubscriptDecl.self:
-      return demandDeclaration(lowering: .init(d)!)
+      return demandDeclaration(lowering: InitializerDecl.ID(d)!)
+    case SubscriptImpl.self:
+      return demandDeclaration(lowering: SubscriptImpl.ID(d)!)
     default:
       return nil
     }
