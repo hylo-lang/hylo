@@ -50,12 +50,6 @@ jobs:
     - name: Make site Directory
       run: mkdir _site
 
-    - name: Install jq
-      run: |
-        set -eo pipefail
-        brew update
-        brew install jq
-
     - name: Extract with DocC
       run: |
         set -eo pipefail
