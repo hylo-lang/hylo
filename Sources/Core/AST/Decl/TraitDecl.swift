@@ -18,7 +18,7 @@ public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
   public let members: [AnyDeclID]
 
   /// The declaration of the trait's `Self` parameter.
-  public let selfParameterDecl: GenericParameterDecl.ID
+  public let receiver: GenericParameterDecl.ID
 
   /// Creates an instance with the given properties.
   public init(
@@ -35,7 +35,7 @@ public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
     self.accessModifier = accessModifier
     self.identifier = identifier
     self.refinements = refinements
-    self.selfParameterDecl = selfParameterDecl
+    self.receiver = selfParameterDecl
     self.members = members
   }
 
@@ -54,7 +54,7 @@ public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
 extension TraitDecl: GenericScope {
 
   public var genericParameters: [GenericParameterDecl.ID] {
-    [selfParameterDecl]
+    [receiver]
   }
 
 }

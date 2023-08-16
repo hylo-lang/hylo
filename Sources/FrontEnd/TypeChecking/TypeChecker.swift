@@ -915,7 +915,7 @@ struct TypeChecker {
     // TODO: Use arguments to bound generic types as constraints
 
     var m = canonical(model, in: scopeOfExposition)
-    let arguments: GenericArguments = [program[concept.decl].selfParameterDecl: m]
+    let arguments: GenericArguments = [program[concept.decl].receiver: m]
     if let b = BoundGenericType(m) {
       m = b.base
     }
@@ -1216,7 +1216,7 @@ struct TypeChecker {
     // Check if work has to be done.
     if let e = cache.read(\.environment[d]) { return e }
 
-    let receiver = program[d].selfParameterDecl.id
+    let receiver = program[d].receiver.id
     var result = GenericEnvironment(introducing: [receiver])
 
     for m in program[d].members {
@@ -2866,7 +2866,7 @@ struct TypeChecker {
 
       // If the match is introduced in a trait, specialize its receiver as necessary.
       if let concept = TraitDecl.ID(program.scopeIntroducing(m)), let model = context?.type {
-        specialization[program[concept].selfParameterDecl] = model
+        specialization[program[concept].receiver] = model
       }
 
       specialization.append(candidateSpecialization)
