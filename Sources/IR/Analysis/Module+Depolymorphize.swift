@@ -481,7 +481,13 @@ extension Module {
       if c.specialization.isEmpty { return c }
 
       let p = program.specialize(c.specialization, for: specialization, in: scopeOfUse)
-      let f = monomorphize(c.function, in: ir, for: p, in: scopeOfUse)
+      let f: Function.ID
+      if let r = program.requirement(referredBy: c) {
+        f = monomorphize(requirement: r.declaration, of: r.trait, in: ir, for: p, in: scopeOfUse)
+      } else {
+        f = monomorphize(c.function, in: ir, for: p, in: scopeOfUse)
+      }
+
       return FunctionReference(to: f, in: self)
     }
 
@@ -495,6 +501,23 @@ extension Module {
       case .register(let s):
         return .register(rewrittenIntructions[s]!)
       }
+    }
+  }
+
+  /// Returns a reference to the monomorphized form of `requirement` for `specialization` in
+  /// `scopeOfUse`, reading definitions from `ir`.
+  private mutating func monomorphize(
+    requirement: AnyDeclID, of trait: TraitType, in ir: IR.Program,
+    for specialization: GenericArguments, in scopeOfUse: AnyScopeID
+  ) -> Function.ID {
+    let model = specialization[program[trait.decl].receiver]! as! AnyType
+    let c = program.conformance(of: model, to: trait, exposedTo: scopeOfUse)!
+
+    let lowered = demandDeclaration(lowering: c.implementations[requirement]!)!
+    if self[lowered].genericParameters.isEmpty {
+      return lowered
+    } else {
+      return monomorphize(lowered, in: ir, for: specialization, in: scopeOfUse)
     }
   }
 
@@ -527,6 +550,29 @@ extension Module {
 
     addFunction(entity, for: result)
     return result
+  }
+
+}
+
+extension TypedProgram {
+
+  /// If `r` refers to a requirement, returns the declaration of that requirement along with the
+  /// trait that defines it. Otherwise, returns `nil`.
+  fileprivate func requirement(
+    referredBy r: FunctionReference
+  ) -> (declaration: AnyDeclID, trait: TraitType)? {
+    switch r.function.value {
+    case .lowered(let d):
+      guard let t = trait(defining: d) else { return nil }
+      return (declaration: d, trait: TraitType(t, ast: ast))
+
+    case .loweredSubscript(let d):
+      guard let t = trait(defining: d) else { return nil }
+      return (declaration: AnyDeclID(d), trait: TraitType(t, ast: ast))
+
+    default:
+      return nil
+    }
   }
 
 }
