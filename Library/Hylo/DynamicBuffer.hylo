@@ -11,7 +11,8 @@ public type DynamicBuffer<Header, Element>: Deinitializable {
   /// Returns the number of bytes from a base pointer to the payload in instances of `Self`.
   static fun payload_offset() -> Int {
     let a = MemoryLayout<Element>.alignment()
-    return (a - MemoryLayout<Element>.size() % a) % a
+    let s = MemoryLayout<BufferHeader>.size()
+    return s + (a - s % a) % a
   }
 
   /// A pointer to the base of the buffer's out-of-line storage.
