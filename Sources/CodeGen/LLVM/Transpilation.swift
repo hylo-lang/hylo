@@ -439,12 +439,13 @@ extension LLVM.Module {
   private mutating func configureAttributes(
     _ llvmFunction: LLVM.Function, transpiledFrom f: IR.Function.ID, of m: IR.Module
   ) {
-    switch m[f].linkage {
-    case .external:
-      setLinkage(.external, for: llvmFunction)
-    case .module:
-      setLinkage(.private, for: llvmFunction)
-    }
+    // FIXME: See #888
+    // switch m[f].linkage {
+    // case .external:
+    //   setLinkage(.external, for: llvmFunction)
+    // case .module:
+    //   setLinkage(.private, for: llvmFunction)
+    // }
 
     // Functions that return `Never` have the `noreturn` attribute.
     if !m[f].isSubscript && (m[f].output == .never) {
