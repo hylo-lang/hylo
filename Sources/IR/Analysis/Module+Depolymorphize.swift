@@ -8,15 +8,20 @@ extension Module {
   public mutating func depolymorphize(in ir: IR.Program) {
     let work = functions.keys
     for k in work {
-      // Ignore internal functions and functions without definitions.
       let f = functions[k]!
-      if (f.linkage != .external) || (f.entry == nil) { continue }
 
-      if f.isGeneric {
-        // Existentialize public, non-inlinable generic functions.
-        _ = existentialize(k)
-      } else {
+      // Ignore declarations without definition.
+      if f.entry == nil { continue }
+
+      // All non-generic functions are deploymorphized.
+      if !f.isGeneric {
         depolymorphize(k, in: ir)
+        continue
+      }
+
+      // Public generic functions are existentialized.
+      if f.linkage == .external {
+        _ = existentialize(k)
       }
     }
   }
