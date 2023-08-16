@@ -1,6 +1,6 @@
 import Core
 
-/// Val's demangling algorithm.
+/// Hylo's demangling algorithm.
 struct Demangler {
 
   /// The list of demangled symbols, in order of appearence (a.k.a. the symbol lookup table).

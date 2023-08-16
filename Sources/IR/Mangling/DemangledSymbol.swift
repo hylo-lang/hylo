@@ -19,8 +19,8 @@ public enum DemangledSymbol: Hashable {
   /// Creates an instance decoding a reserved symbol identifier.
   init(reserved: ReservedSymbol) {
     switch reserved {
-    case .val:
-      self = .entity(.val)
+    case .hylo:
+      self = .entity(.hylo)
     case .bool:
       self = .entity(.init(coreType: "Bool"))
     case .int:

@@ -31,7 +31,7 @@ public struct MethodDecl: BundleDecl, GenericDecl, GenericScope {
   public let parameters: [ParameterDecl.ID]
 
   /// The return type annotation of the method, if any.
-  public let output: AnyTypeExprID?
+  public let output: AnyExprID?
 
   /// The implementations of the method.
   public let impls: [MethodImpl.ID]
@@ -45,7 +45,7 @@ public struct MethodDecl: BundleDecl, GenericDecl, GenericScope {
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     parameters: [ParameterDecl.ID],
-    output: AnyTypeExprID?,
+    output: AnyExprID?,
     impls: [MethodImpl.ID],
     site: SourceRange
   ) {
@@ -60,9 +60,6 @@ public struct MethodDecl: BundleDecl, GenericDecl, GenericScope {
     self.output = output
     self.impls = impls
   }
-
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.

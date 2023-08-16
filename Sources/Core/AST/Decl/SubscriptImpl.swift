@@ -16,6 +16,7 @@ public struct SubscriptImpl: Decl, LexicalScope {
   /// The body of the subscript, if any.
   public let body: FunctionBody?
 
+  /// Creates an instance with the given properties.
   public init(
     introducer: SourceRepresentable<AccessEffect>,
     receiver: ParameterDecl.ID?,
@@ -27,5 +28,8 @@ public struct SubscriptImpl: Decl, LexicalScope {
     self.receiver = receiver
     self.body = body
   }
+
+  /// `true` iff `self` is a definition of the entity that it declares.
+  public var isDefinition: Bool { body != nil }
 
 }

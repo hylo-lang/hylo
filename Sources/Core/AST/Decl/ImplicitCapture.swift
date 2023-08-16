@@ -1,5 +1,5 @@
 /// An implicit capture in a function or subscript declaration.
-public struct ImplicitCapture {
+public struct ImplicitCapture: Hashable {
 
   /// The name of the capture.
   public let name: Name
@@ -15,11 +15,6 @@ public struct ImplicitCapture {
     self.name = name
     self.type = type
     self.decl = decl
-  }
-
-  /// Returns a copy of `self` where `type` is `inout`.
-  public func mutable() -> Self {
-    ImplicitCapture(name: name, type: .init(.inout, type.bareType), decl: decl)
   }
 
 }

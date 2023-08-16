@@ -1,0 +1,130 @@
+/// A double-precision, floating-point value.
+public type Float64 {
+
+  var value: Builtin.float64
+
+  memberwise init
+
+  /// Creates an instance with value `0.0`.
+  public init() {
+    &self.value = Builtin.zeroinitializer_float64()
+  }
+
+  /// Returns the sum of `self` and `other`.
+  public fun infix+ (_ other: Self) -> Self {
+    Float64(value: Builtin.fadd_float64(value, other.value))
+  }
+
+  /// Writes the sum of `self` and `other` to `self`.
+  public fun infix+= (_ other: Self) inout {
+    &self.value = Builtin.fadd_float64(value, other.value)
+  }
+
+  /// Returns `self` subtracted by `other`.
+  public fun infix- (_ other: Self) -> Self {
+    Float64(value: Builtin.fsub_float64(value, other.value))
+  }
+
+  /// Writes the result of `self` subtracted by `other` to `self`.
+  public fun infix-= (_ other: Self) inout {
+    &self.value = Builtin.fsub_float64(value, other.value)
+  }
+
+  /// Returns the product of `self` and `other`
+  public fun infix* (_ other: Self) -> Self {
+    Float64(value: Builtin.fmul_float64(value, other.value))
+  }
+
+  /// Writes the product of `self` and `other` to `self`.
+  public fun infix*= (_ other: Self) inout {
+    &self.value = Builtin.fmul_float64(value, other.value)
+  }
+
+  /// Returns the quotient of dividing `self` by `other`
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix/ (_ other: Self) -> Self {
+    Float64(value: Builtin.fdiv_float64(value, other.value))
+  }
+
+  /// Writes the quotient of dividing `self` by `other` to `self`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix/= (_ other: Self) inout {
+    &self.value = Builtin.fdiv_float64(value, other.value)
+  }
+
+  /// Returns the remainder of dividing `self` by `other`
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix% (_ other: Self) -> Self {
+    Float64(value: Builtin.frem_float64(value, other.value))
+  }
+
+  /// Writes the remainder of dividing `self` by `other` to `self`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix%= (_ other: Self) inout {
+    &self.value = Builtin.frem_float64(value, other.value)
+  }
+
+  /// Returns the additive inverse of `self`.
+  public fun prefix- () -> Self {
+    Float64() - self
+  }
+
+  /// Returns `self`.
+  public fun prefix+ () -> Self {
+    self.copy()
+  }
+
+  /// Returns `true` if `self` is smaller than `other`. Otherwise, returns `false`.
+  public fun infix< (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_ult_float64(value, other.value))
+  }
+
+  /// Returns `true` if `self` is smaller than or equal to `other`. Otherwise, returns `false`.
+  public fun infix<= (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_ule_float64(value, other.value))
+  }
+
+  /// Returns `true` if `self` is greater than `other`. Otherwise, returns `false`.
+  public fun infix> (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_ugt_float64(value, other.value))
+  }
+
+  /// Returns `true` if `self` is greater than or equal to `other`. Otherwise, returns `false`.
+  public fun infix>= (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_uge_float64(value, other.value))
+  }
+
+  /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_ueq_float64(value, other.value))
+  }
+
+  /// Returns `true` if `self` is not equal to `other`. Otherwise, returns `false`.
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_une_float64(value, other.value))
+  }
+
+  /// The mathematical constant pi (π), approximately equal to 3.14159.
+  public static fun pi() -> Self {
+    3.14159
+  }
+
+}
+
+public conformance Float64: ExpressibleByFloatLiteral {}
+
+public conformance Float64: ExpressibleByIntegerLiteral {}
+
+public conformance Float64: Deinitializable {}
+
+public conformance Float64: Copyable {
+
+  public fun copy() -> Self {
+    Float64(value: value)
+  }
+
+}

@@ -1,7 +1,7 @@
 import Core
 import Utils
 
-/// A Val IR instruction.
+/// A Hylo IR instruction.
 public protocol Instruction: CustomStringConvertible {
 
   /// The type of the instruction's result, if any.

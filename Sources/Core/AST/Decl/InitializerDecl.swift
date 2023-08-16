@@ -1,5 +1,5 @@
 /// An initializer declaration.
-public struct InitializerDecl: GenericDecl, GenericScope {
+public struct InitializerDecl: ExposableDecl, GenericDecl, GenericScope {
 
   /// The introducer of an initializer declaration.
   public enum Introducer: Codable {
@@ -62,11 +62,11 @@ public struct InitializerDecl: GenericDecl, GenericScope {
     self.body = body
   }
 
+  /// `true` iff `self` is a definition of the entity that it declares.
+  public var isDefinition: Bool { body != nil }
+
   /// Returns whether the declaration is a memberwise initializer.
   public var isMemberwise: Bool { introducer.value == .memberwiseInit }
-
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.

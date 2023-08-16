@@ -1,4 +1,5 @@
 import Core
+import FrontEnd
 
 extension TypedProgram {
 

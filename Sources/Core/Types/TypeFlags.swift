@@ -13,11 +13,13 @@ public struct TypeFlags: Hashable {
   }
 
   /// Create a new set of type flags that merges all sets in `elements`.
+  ///
+  /// - Note: `self` only contains `.isCanonical` if `elements` is empty.
   public init<C: Collection>(merging elements: C) where C.Element == TypeFlags {
     if let first = elements.first {
       self = elements.dropFirst().reduce(into: first, { (a, b) in a.merge(b) })
     } else {
-      self.init(universal: 0, existential: 0)
+      self = .isCanonical
     }
   }
 

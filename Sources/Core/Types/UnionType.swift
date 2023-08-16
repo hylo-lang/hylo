@@ -15,15 +15,11 @@ public struct UnionType: TypeProtocol {
   public init<S: Sequence>(_ elements: S) where S.Element == AnyType {
     self.elements = Set(elements)
 
-    let f = TypeFlags(merging: self.elements.map({ $0.flags }))
-    switch self.elements.count {
-    case 0:
-      self.flags = .isCanonical
-    case 1:
-      self.flags = f.removing(.isCanonical)
-    default:
-      self.flags = f
+    var fs = TypeFlags(merging: self.elements.map(\.flags))
+    if self.elements.count == 1 {
+      fs.remove(.isCanonical)
     }
+    self.flags = fs
   }
 
   public func transformParts<M>(

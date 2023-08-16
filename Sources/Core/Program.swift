@@ -1,6 +1,6 @@
 import Utils
 
-/// Types representing Val programs at some stage after syntactic and scope analysis.
+/// Types representing Hylo programs at some stage after syntactic and scope analysis.
 public protocol Program {
 
   /// The AST of the program.
@@ -28,7 +28,7 @@ extension Program {
   public func isModuleEntry(_ d: FunctionDecl.ID) -> Bool {
     let s = nodeToScope[d]!
     let n = ast[d].identifier?.value
-    return (s.kind == TranslationUnit.self) && ast[d].isPublic && (n == "main")
+    return (s.kind == TranslationUnit.self) && isPublic(d) && (n == "main")
   }
 
   /// Returns whether `child` is contained in `ancestor`.
@@ -115,10 +115,7 @@ extension Program {
 
   /// Returns `true` iff `s` is the body of a function, initializer, or subscript.
   public func isCallableBody(_ s: BraceStmt.ID) -> Bool {
-    let p = nodeToScope[s]!
-    return
-      (p.kind == FunctionDecl.self) || (p.kind == InitializerDecl.self)
-      || (p.kind == MethodImpl.self) || (p.kind == SubscriptImpl.self)
+    AnyDeclID(nodeToScope[s]!)?.isCallable ?? false
   }
 
   /// Returns `true` iff `d` is at module scope.
@@ -229,20 +226,54 @@ extension Program {
     !isGlobal(decl) && !isMember(decl)
   }
 
-  /// Returns whether `decl` is a requirement.
-  public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
-    switch decl.kind {
-    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
-      return true
-    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
-      return nodeToScope[decl]!.kind == TraitDecl.self
-    case MethodImpl.self:
-      return isRequirement(MethodDecl.ID(nodeToScope[decl]!)!)
+  /// Returns `true` iff `d` is public.
+  public func isPublic<T: DeclID>(_ d: T) -> Bool {
+    switch d.kind {
     case SubscriptImpl.self:
-      return isRequirement(SubscriptDecl.ID(nodeToScope[decl]!)!)
+      return isPublic(SubscriptDecl.ID(nodeToScope[d]!)!)
+    case MethodImpl.self:
+      return isPublic(MethodDecl.ID(nodeToScope[d]!)!)
+    case VarDecl.self:
+      return isPublic(varToBinding[.init(d)!]!)
+    default:
+      return (ast[d] as? ExposableDecl)?.accessModifier.value == .public
+    }
+  }
+
+  /// Returns `true` iff `d` is visible outside of its module.
+  ///
+  /// - Note: modules are considered exported.
+  public func isExported<T: DeclID>(_ d: T) -> Bool {
+    (d.kind == ModuleDecl.self) || (isPublic(d) && isExportingDecls(nodeToScope[d]!))
+  }
+
+  /// Returns `true` iff the public declarations in `s` are visible outside of their module.
+  public func isExportingDecls(_ s: AnyScopeID) -> Bool {
+    switch s.kind {
+    case ConformanceDecl.self:
+      return isExported(ConformanceDecl.ID(s)!)
+    case ExtensionDecl.self:
+      return isExported(ExtensionDecl.ID(s)!)
+    case ModuleDecl.self:
+      return true
+    case NamespaceDecl.self:
+      return isExported(NamespaceDecl.ID(s)!)
+    case ProductTypeDecl.self:
+      return isExported(ProductTypeDecl.ID(s)!)
+    case TraitDecl.self:
+      return isExported(TraitDecl.ID(s)!)
+    case TypeAliasDecl.self:
+      return isExported(TypeAliasDecl.ID(s)!)
+    case TranslationUnit.self:
+      return true
     default:
       return false
     }
+  }
+
+  /// Returns whether `d` is a requirement.
+  public func isRequirement<T: DeclID>(_ d: T) -> Bool {
+    trait(defining: d) != nil
   }
 
   /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
@@ -283,6 +314,40 @@ extension Program {
     scopes(from: scope).first(TranslationUnit.self)!
   }
 
+  /// Returns the trait defining `d` iff `d` is a requirement. Otherwise, returns nil.
+  public func trait<T: DeclID>(defining d: T) -> TraitDecl.ID? {
+    switch d.kind {
+    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
+      return TraitDecl.ID(nodeToScope[d]!)!
+    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
+      return TraitDecl.ID(nodeToScope[d]!)
+    case MethodImpl.self:
+      return trait(defining: MethodDecl.ID(nodeToScope[d]!)!)
+    case SubscriptImpl.self:
+      return trait(defining: SubscriptDecl.ID(nodeToScope[d]!)!)
+    default:
+      return nil
+    }
+  }
+
+  /// Returns the name of `d` if it introduces a single entity.
+  public func name(of d: AnyDeclID) -> Name? {
+    if let e = self.ast[d] as? SingleEntityDecl { return Name(stem: e.baseName) }
+
+    switch d.kind {
+    case FunctionDecl.self:
+      return ast.name(of: FunctionDecl.ID(d)!)!
+    case InitializerDecl.self:
+      return ast.name(of: InitializerDecl.ID(d)!)
+    case MethodImpl.self:
+      return ast.name(of: MethodDecl.ID(self[d].scope)!)
+    case SubscriptImpl.self:
+      return ast.name(of: SubscriptDecl.ID(self[d].scope)!)
+    default:
+      return nil
+    }
+  }
+
   /// Returns a textual description of `n` suitable for debugging.
   public func debugDescription<T: NodeIDProtocol>(_ n: T) -> String {
     if let d = ModuleDecl.ID(n) {
@@ -293,19 +358,19 @@ extension Program {
 
     switch n.kind {
     case FunctionDecl.self:
-      let s = Name(of: FunctionDecl.ID(n)!, in: ast) ?? "lambda"
+      let s = ast.name(of: FunctionDecl.ID(n)!) ?? "lambda"
       return qualification + ".\(s)"
     case InitializerDecl.self:
-      let s = Name(of: InitializerDecl.ID(n)!, in: ast)
+      let s = ast.name(of: InitializerDecl.ID(n)!)
       return qualification + ".\(s)"
     case MethodDecl.self:
-      let s = Name(of: MethodDecl.ID(n)!, in: ast)
+      let s = ast.name(of: MethodDecl.ID(n)!)
       return qualification + ".\(s)"
     case MethodImpl.self:
       let s = ast[MethodImpl.ID(n)!].introducer.value
       return qualification + ".\(s)"
     case SubscriptDecl.self:
-      let s = Name(of: SubscriptDecl.ID(n)!, in: ast)
+      let s = ast.name(of: SubscriptDecl.ID(n)!)
       return qualification + ".\(s)"
     case SubscriptImpl.self:
       let s = ast[SubscriptImpl.ID(n)!].introducer.value

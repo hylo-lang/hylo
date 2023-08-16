@@ -18,7 +18,7 @@ public struct AST {
     /// - Invariant: All referred modules have a different name.
     public var modules: [ModuleDecl.ID] = []
 
-    /// The ID of the module containing Val's core library, if any.
+    /// The ID of the module containing Hylo's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
 
   }
@@ -42,7 +42,7 @@ public struct AST {
     _modify { yield &storage.modules }
   }
 
-  /// The ID of the module containing Val's core library, if any.
+  /// The ID of the module containing Hylo's core library, if any.
   public var coreLibrary: ModuleDecl.ID? {
     get { storage.coreLibrary }
     set { storage.coreLibrary = newValue }
@@ -161,27 +161,32 @@ public struct AST {
     }
   }
 
-  /// `Val.Deinitializable` trait from the Core library.
+  /// `Hylo.Deinitializable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
   public var deinitializableTrait: TraitType { coreTrait("Deinitializable")! }
 
-  /// `Val.Movable` trait from the Core library.
+  /// `Hylo.Movable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
   public var movableTrait: TraitType { coreTrait("Movable")! }
 
-  /// `Val.Copyable` trait from the Core library.
+  /// `Hylo.Copyable` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
   public var copyableTrait: TraitType { coreTrait("Copyable")! }
 
-  /// `Val.ForeignConvertiblae` trait from the Core library.
+  /// `Hylo.ForeignConvertiblae` trait from the Core library.
   ///
   /// - Requires: The Core library must have been loaded.
   public var foreignConvertibleTrait: TraitType { coreTrait("ForeignConvertible")! }
 
   // MARK: Helpers
+
+  /// Returns the ID of the module named `n` if such a module has been loaded, or `nil` otherwise.
+  public func module(named n: String) -> ModuleDecl.ID? {
+    modules.first(where: { self[$0].baseName == n })
+  }
 
   /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
   public func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
@@ -207,31 +212,31 @@ public struct AST {
         return (n == Name(stem: self[AssociatedTypeDecl.ID(m)!].baseName)) ? m : nil
 
       case FunctionDecl.self:
-        return (n == Name(of: FunctionDecl.ID(m)!, in: self)) ? m : nil
+        return (n == name(of: FunctionDecl.ID(m)!)) ? m : nil
 
       case InitializerDecl.self:
-        return (n == Name(of: InitializerDecl.ID(m)!, in: self)) ? m : nil
+        return (n == name(of: InitializerDecl.ID(m)!)) ? m : nil
 
       case MethodDecl.self:
         let d = MethodDecl.ID(m)!
         if let i = n.introducer {
-          guard n.removingIntroducer() == Name(of: d, in: self) else { return nil }
+          guard n.removingIntroducer() == name(of: d) else { return nil }
           return self[d].impls
             .first(where: { self[$0].introducer.value == i })
             .map(AnyDeclID.init(_:))
         } else {
-          return (Name(of: d, in: self) == n) ? m : nil
+          return (name(of: d) == n) ? m : nil
         }
 
       case SubscriptDecl.self:
         let d = SubscriptDecl.ID(m)!
         if let i = n.introducer {
-          guard n.removingIntroducer() == Name(of: d, in: self) else { return nil }
+          guard n.removingIntroducer() == name(of: d) else { return nil }
           return self[d].impls
             .first(where: { self[$0].introducer.value == i })
             .map(AnyDeclID.init(_:))
         } else {
-          return (Name(of: d, in: self) == n) ? m : nil
+          return (name(of: d) == n) ? m : nil
         }
 
       default:
@@ -259,11 +264,11 @@ public struct AST {
     return MethodImpl.ID(d[0])!
   }
 
-  /// Returns the synthesized implementation of `requirement`, which is defined by `concept`, for
-  /// `model` in given `useScope`, or `nil` if `requirement` is not synthesizable.
+  /// Returns the kind identifying synthesized declarations of `requirement`, which is defined by
+  /// `concept`, or `nil` if `requirement` is not synthesizable.
   ///
   /// - Requires: `requirement` must be a requirement of `concept`.
-  public func synthesizedImplementation<T: DeclID>(
+  public func synthesizedKind<T: DeclID>(
     of requirement: T, definedBy concept: TraitType
   ) -> SynthesizedFunctionDecl.Kind? {
     // If the requirement is defined in `Deinitializable`, it must be the deinitialization method.
@@ -308,11 +313,42 @@ public struct AST {
     case MethodDecl.self:
       parameters = self[MethodDecl.ID(d)!].parameters
     case SubscriptDecl.self:
-      parameters = self[SubscriptDecl.ID(d)!].parameters ?? []
+      parameters = self[SubscriptDecl.ID(d)!].parameters
     default:
       return nil
     }
     return self[parameters].map(\.defaultValue)
+  }
+
+  /// Returns the name of `d` unless `d` is anonymous.
+  public func name(of d: FunctionDecl.ID) -> Name? {
+    guard let stem = self[d].identifier?.value else { return nil }
+    if let notation = self[d].notation?.value {
+      return .init(stem: stem, notation: notation)
+    } else {
+      return .init(stem: stem, labels: self[self[d].parameters].map(\.label?.value))
+    }
+  }
+
+  /// Returns the name of `d`.
+  public func name(of d: InitializerDecl.ID) -> Name {
+    .init(stem: "init", labels: self[self[d].parameters].map(\.label?.value))
+  }
+
+  /// Returns the name of `d`.
+  public func name(of d: MethodDecl.ID) -> Name {
+    let stem = self[d].identifier.value
+    if let notation = self[d].notation?.value {
+      return .init(stem: stem, notation: notation)
+    } else {
+      return .init(stem: stem, labels: self[self[d].parameters].map(\.label?.value))
+    }
+  }
+
+  /// Returns the name of `d`.
+  public func name(of d: SubscriptDecl.ID) -> Name {
+    let stem = self[d].identifier?.value ?? "[]"
+    return .init(stem: stem, labels: self[self[d].parameters].map(\.label?.value))
   }
 
   /// Returns the subfields and pattern IDs of the named patterns contained in `p`.
@@ -351,6 +387,25 @@ public struct AST {
     var result: [(subfield: RecordPath, pattern: NamePattern.ID)] = []
     visit(pattern: AnyPatternID(p), subfield: [], result: &result)
     return result
+  }
+
+  /// Returns `(head, tail)` where `head` contains the nominal components of `name` from right to
+  /// left and `tail` is the non-nominal component of `name`, if any.
+  ///
+  /// Name expressions are rperesented as linked-list, whose elements are the components of a
+  /// name in reverse order. This method splits such lists at the first non-nominal component.
+  public func splitNominalComponents(of name: NameExpr.ID) -> ([NameExpr.ID], NameExpr.Domain) {
+    var suffix = [name]
+    while true {
+      let d = self[suffix.last!].domain
+      switch d {
+      case .none, .implicit, .operand:
+        return (suffix, d)
+      case .explicit(let e):
+        guard let p = NameExpr.ID(e) else { return (suffix, d) }
+        suffix.append(p)
+      }
+    }
   }
 
   /// Calls `action` on each sub-pattern in `pattern` and its corresponding sub-expression in

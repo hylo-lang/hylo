@@ -29,7 +29,7 @@ Though metatypes will probably be essential to implement countless exciting refl
 Clearly the most important information we need to access at this point is size and alignment, which is necessary to allocate storage beyond resilience boundaries.
 Additional information can be used to support debuggability (e.g., print any value), which I think is also very valuable at this stage.
 
-For other, more advanced use cases, my sense is that if we store the additional information mentioned above, we'll likely be able to build a robust reflective API in the future by exposing the runtime functions that will be part of Val's implementation.
+For other, more advanced use cases, my sense is that if we store the additional information mentioned above, we'll likely be able to build a robust reflective API in the future by exposing the runtime functions that will be part of Hylo's implementation.
 
 ## Detailed design
 
@@ -38,7 +38,7 @@ This, the question is: what is the representation of this generated data?
 
 An arbitrary metatype is represented by the following structure:
 ```c++
-struct val_metatype {
+struct hylo_metatype {
 
   /// The contiguous memory footprint of the type, in bytes.
   int64_t size;
@@ -59,17 +59,17 @@ Because every different types can have widely different representations, this pr
 **Product types:**
 
 ```c++
-struct val_stored_property {
+struct hylo_stored_property {
 
   /// The name of the property, null-terminated.
   const char* name;
 
   /// The type of the property.
-  val_metatype* type;
+  hylo_metatype* type;
 
 };
 
-struct val_product_type_mirror {
+struct hylo_product_type_mirror {
 
   /// The mangled name of the type, null-terminated.
   const char* name;
@@ -78,7 +78,7 @@ struct val_product_type_mirror {
   int64_t property_count;
 
   /// The type's stored properties.
-  val_stored_property* properties;
+  hylo_stored_property* properties;
 
 };
 ```
@@ -86,7 +86,7 @@ struct val_product_type_mirror {
 **Lambda types:**
 
 ```c++
-struct val_lambda_type_mirror {
+struct hylo_lambda_type_mirror {
 
   /// The number of parameters in the type.
   int64_t parameter_count;
@@ -95,7 +95,7 @@ struct val_lambda_type_mirror {
   const char** labels;
 
   /// The types of the parameters, return value, and environment.
-  val_metatype* types;
+  hylo_metatype* types;
 
 };
 ```

@@ -1,5 +1,23 @@
 name: Build and test
 
+# README:
+#
+# The semantics for running shell commands in GitHub actions is non-obvious. Please read
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
+# before modifying this file. Our strategy is to rely on the built-in (unspecified) shell, and
+# explicitly set the shell settings we want (with `set -eo pipefail`) at the beginning of any
+# bash script. For more information on these settings, see `man bash`.
+#
+# GitHub Actions files can be difficult to modify with confidence, because testing changes often
+# requires pushing to a branch and running CI remotely. To make this process easier, consider
+# the following:
+#
+# 1) Use Visual Studio Code with the GitHub Actions Extension (github.vscode-github-actions).
+#    This allows you to check the validity of your action schema and syntax without pushing to a
+#    branch.
+# 2) Use https://github.com/nektos/act to run your CI steps locally. Note this will only work with
+#    steps run on Linux platforms, as `act` is implemented with Docker containers.
+
 on:
   push:
     branches: [ main, rewrite ]
@@ -42,13 +60,14 @@ jobs:
       uses: devcontainers/ci@v0.3
       with:
         runCmd: |
-          swift package resolve &&
-          .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc &&
-          export PKG_CONFIG_PATH=$PWD &&
-          swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }} &&
+          set -eo pipefail
+          swift package resolve
+          .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
+          export PKG_CONFIG_PATH=$PWD
+          swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }}
           swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
             tee testoutput.txt && (
-              (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']ValTests[/. ]test_" testoutput.txt) ||
+              (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
               (echo "error: generated tests failed to run; see
               https://github.com/apple/swift-package-manager/issues/6595" && false) )
 
@@ -66,7 +85,7 @@ jobs:
       matrix:
         host: [
           {
-            type: macos, os: macos-latest,
+            type: macos, os: macos-13,
             build-options: "-v --build-tests -Xswiftc -enable-testing",
             # No coverage support on MacOS
             test-options: "-v"
@@ -100,21 +119,24 @@ jobs:
 
     - name: Generate LLVM pkgconfig file
       run: |
-        swift package resolve &&
-        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc &&
+        set -eo pipefail
+        swift package resolve
+        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
         cat llvm.pc
 
     - name: Build (${{ matrix.configuration }})
       run: |
-        export PKG_CONFIG_PATH=$PWD &&
+        set -eo pipefail
+        export PKG_CONFIG_PATH=$PWD
         swift build -c ${{ matrix.configuration }} ${{ matrix.host.build-options }}
 
     - name: Test (${{ matrix.configuration }})
       run: |
-        export PKG_CONFIG_PATH=$PWD &&
+        set -eo pipefail
+        export PKG_CONFIG_PATH=$PWD
         swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
           tee testoutput.txt && (
-            (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']ValTests[/. ]test_" testoutput.txt) ||
+            (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
             (echo "error: generated tests failed to run; see
             https://github.com/apple/swift-package-manager/issues/6595" && false) )
           
@@ -151,10 +173,10 @@ jobs:
     - run: llvm-config --version
 
     - name: Build support library
-      run: clang -c ./Library/Val/LibC.c -o ValLibC.lib
+      run: clang -c ./Library/Hylo/LibC.c -o HyloLibC.lib
 
     - name: Copy support library
-      run: xcopy ValLibC.lib c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\
+      run: xcopy HyloLibC.lib c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\
 
     - name: Build (Release)
       id: build

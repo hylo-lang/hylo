@@ -1,5 +1,5 @@
 /// An operator declaration.
-public struct OperatorDecl: Decl {
+public struct OperatorDecl: ExposableDecl {
 
   public let site: SourceRange
 

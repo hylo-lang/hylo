@@ -12,10 +12,19 @@
     {
       "identity" : "durian",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/val-lang/Durian.git",
+      "location" : "https://github.com/hylo-lang/Durian.git",
       "state" : {
         "revision" : "3d802c00e9063b8bba8ba3fff5691e82df7949e1",
         "version" : "1.2.0"
+      }
+    },
+    {
+      "identity" : "spimanifest",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SwiftPackageIndex/SPIManifest.git",
+      "state" : {
+        "revision" : "59b957c55c274ae08da9aaa36efcaac3fb7a326c",
+        "version" : "0.19.0"
       }
     },
     {
@@ -93,10 +102,19 @@
     {
       "identity" : "swifty-llvm",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/val-lang/Swifty-LLVM",
+      "location" : "https://github.com/hylo-lang/Swifty-LLVM",
       "state" : {
         "branch" : "main",
-        "revision" : "4ba25d9615b6931033161ffcfc0a73a06809d781"
+        "revision" : "8e00abf2dd4a0e40b403c49816c69a07e829abff"
+      }
+    },
+    {
+      "identity" : "yams",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/Yams.git",
+      "state" : {
+        "revision" : "0d9ee7ea8c4ebd4a489ad7a73d5c6cad55d6fed3",
+        "version" : "5.0.6"
       }
     }
   ],

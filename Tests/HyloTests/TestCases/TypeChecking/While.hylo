@@ -1,0 +1,13 @@
+//- typeCheck expecting: failure
+
+public fun main() {
+  var x = true
+  while x {
+    &x = false
+  }
+
+  var y = 1
+  while y {   //! diagnostic 'Int' is not subtype of 'Bool'
+    &y = 0
+  }
+}

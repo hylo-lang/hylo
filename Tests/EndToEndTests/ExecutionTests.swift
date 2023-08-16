@@ -1,7 +1,7 @@
 import ArgumentParser
 import Core
+import Driver
 import TestUtils
-import ValCommand
 import XCTest
 
 final class ExecutionTests: XCTestCase {
@@ -22,16 +22,16 @@ final class ExecutionTests: XCTestCase {
 
 extension XCTestCase {
 
-  /// Compiles and runs the val file at `valFilePath`, `XCTAssert`ing that diagnostics and exit
+  /// Compiles and runs the val file at `hyloFilePath`, `XCTAssert`ing that diagnostics and exit
   /// codes match annotated expectations.
-  func compileAndRun(_ valFilePath: String, expectSuccess: Bool) throws {
-    try checkAnnotatedValFileDiagnostics(inFileAt: valFilePath, expectSuccess: expectSuccess) {
-      (valSource, diagnostics) in
+  func compileAndRun(_ hyloFilePath: String, expectSuccess: Bool) throws {
+    try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
+      (hyloSource, diagnostics) in
 
       var executable: URL
 
       do {
-        executable = try compile(valSource.url, with: ["--emit", "binary"])
+        executable = try compile(hyloSource.url, with: ["--emit", "binary"])
       } catch let d as DiagnosticSet {
         // Recapture the diagnostics so the annotation testing framework can use them.  The need for
         // this ugliness makes me wonder how important it is to test cli.execute, which after all is
@@ -51,7 +51,7 @@ extension XCTestCase {
   /// diagnostics if there are any errors.
   fileprivate func compile(_ input: URL, with arguments: [String]) throws -> URL {
     let output = FileManager.default.makeTemporaryFileURL()
-    let cli = try ValCommand.parse(arguments + ["-o", output.relativePath, input.relativePath])
+    let cli = try Driver.parse(arguments + ["-o", output.relativePath, input.relativePath])
     let (status, diagnostics) = try cli.execute()
     if !status.isSuccess {
       throw diagnostics

@@ -1,6 +1,6 @@
 import Core
 
-/// A pointer to a global value in Val IR.
+/// A pointer to a global value in Hylo IR.
 public struct PointerConstant: Constant, Hashable {
 
   /// The module in which the global is defined.
@@ -15,7 +15,7 @@ public struct PointerConstant: Constant, Hashable {
     self.id = id
   }
 
-  /// The Val IR type of this instance.
+  /// The Hylo IR type of this instance.
   public var type: IR.`Type` { .object(BuiltinType.ptr) }
 
 }

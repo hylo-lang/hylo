@@ -1,0 +1,17 @@
+public extension MutableRawPointer {
+
+  /// Allocates memory for `count` bytes at given `alignment`.
+  public static fun allocate(count: Int, aligned_at alignment: Int) -> Self {
+    .new(mutating: aligned_alloc(alignment, count))
+  }
+
+}
+
+public extension MutablePointer {
+
+  /// Deallocates the memory previously allocated at `self`.
+  public fun deallocate() {
+    free(RawPointer(self))
+  }
+
+}

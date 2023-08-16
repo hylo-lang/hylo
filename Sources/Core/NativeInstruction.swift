@@ -7,9 +7,9 @@ import LLVM
 ///
 /// LLVM instructions are "generic" in the sense that they can be parameterized by types and flags.
 /// For example, `add i32` and `add i64` represent the integer addition parameterized for 32-bit
-/// and 64-bit integer values, respectively. In Val, this parameterization is encoded directly into
-/// the name of a built-in function. For example, `Builtin.add_i64` corresponds to LLVM's `add i64`
-/// instruction.
+/// and 64-bit integer values, respectively. In Hylo, this parameterization is encoded directly
+/// into the name of a built-in function. For example, `Builtin.add_i64` corresponds to LLVM's
+/// `add i64` instruction.
 ///
 /// The name of a native instruction is given by the name of the corresponding LLVM instruction
 /// concatenated with all its generic parameters, separated by underscores. For example:
@@ -28,9 +28,6 @@ import LLVM
 public enum NativeInstruction: Hashable {
 
   case add(LLVM.OverflowBehavior, BuiltinType)
-
-  // Corresponding LLVM instruction: get_elementptr_inbounds.
-  case advancedByBytes(byteOffset: BuiltinType)
 
   case sub(LLVM.OverflowBehavior, BuiltinType)
 
@@ -55,6 +52,24 @@ public enum NativeInstruction: Hashable {
   case or(BuiltinType)
 
   case xor(BuiltinType)
+
+  // Corresponding LLVM instruction: sadd.with.overflow
+  case signedAdditionWithOverflow(BuiltinType)
+
+  // Corresponding LLVM instruction: uadd.with.overflow
+  case unsignedAdditionWithOverflow(BuiltinType)
+
+  // Corresponding LLVM instruction: ssub.with.overflow
+  case signedSubtractionWithOverflow(BuiltinType)
+
+  // Corresponding LLVM instruction: usub.with.overflow
+  case unsignedSubtractionWithOverflow(BuiltinType)
+
+  // Corresponding LLVM instruction: smul.with.overflow
+  case signedMultiplicationWithOverflow(BuiltinType)
+
+  // Corresponding LLVM instruction: umul.with.overflow
+  case unsignedMultiplicationWithOverflow(BuiltinType)
 
   case icmp(LLVM.IntegerPredicate, BuiltinType)
 
@@ -94,6 +109,9 @@ public enum NativeInstruction: Hashable {
 
   case zeroinitializer(BuiltinType)
 
+  // Corresponding LLVM instruction: get_elementptr_inbounds.
+  case advancedByBytes(byteOffset: BuiltinType)
+
   /// The parameters of a floating-point LLVM instruction.
   public struct MathFlags: OptionSet, Hashable {
 
@@ -132,8 +150,6 @@ extension NativeInstruction {
     switch self {
     case .add(_, let t):
       return .init(^t, ^t, to: ^t)
-    case .advancedByBytes(let byteOffset):
-      return .init(.builtin(.ptr), ^byteOffset, to: .builtin(.ptr))
     case .sub(_, let t):
       return .init(^t, ^t, to: ^t)
     case .mul(_, let t):
@@ -158,6 +174,18 @@ extension NativeInstruction {
       return .init(^t, ^t, to: ^t)
     case .xor(let t):
       return .init(^t, ^t, to: ^t)
+    case .signedAdditionWithOverflow(let t):
+      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .unsignedAdditionWithOverflow(let t):
+      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .signedSubtractionWithOverflow(let t):
+      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .unsignedSubtractionWithOverflow(let t):
+      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .signedMultiplicationWithOverflow(let t):
+      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .unsignedMultiplicationWithOverflow(let t):
+      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
     case .icmp(_, let t):
       return .init(^t, ^t, to: .builtin(.i(1)))
     case .trunc(let s, let d):
@@ -196,6 +224,8 @@ extension NativeInstruction {
       return .init(^s, to: ^d)
     case .zeroinitializer(let t):
       return .init(to: ^t)
+    case .advancedByBytes(let byteOffset):
+      return .init(.builtin(.ptr), ^byteOffset, to: .builtin(.ptr))
     }
   }
 
@@ -205,8 +235,6 @@ extension NativeInstruction: CustomStringConvertible {
 
   public var description: String {
     switch self {
-    case .advancedByBytes(let byteOffset):
-      return "advanced_by_bytes_\(byteOffset)"
     case .add(let p, let t):
       return (p != .ignore) ? "add_\(p)_\(t)" : "add_\(t)"
     case .sub(let p, let t):
@@ -233,6 +261,18 @@ extension NativeInstruction: CustomStringConvertible {
       return "or_\(t)"
     case .xor(let t):
       return "xor_\(t)"
+    case .signedAdditionWithOverflow(let t):
+      return "sadd_with_overflow_\(t)"
+    case .unsignedAdditionWithOverflow(let t):
+      return "uadd_with_overflow_\(t)"
+    case .signedSubtractionWithOverflow(let t):
+      return "ssub_with_overflow_\(t)"
+    case .unsignedSubtractionWithOverflow(let t):
+      return "usub_with_overflow_\(t)"
+    case .signedMultiplicationWithOverflow(let t):
+      return "smul_with_overflow_\(t)"
+    case .unsignedMultiplicationWithOverflow(let t):
+      return "umul_with_overflow_\(t)"
     case .icmp(let p, let t):
       return "icmp_\(p)_\(t)"
     case .trunc(let l, let r):
@@ -271,6 +311,8 @@ extension NativeInstruction: CustomStringConvertible {
       return "fptosi_\(l)_\(r)"
     case .zeroinitializer(let t):
       return "zeroinitializer_\(t)"
+    case .advancedByBytes(let byteOffset):
+      return "advanced_by_bytes_\(byteOffset)"
     }
   }
 

@@ -55,13 +55,13 @@ private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
 /// The (static) type of an entity.
 public struct AnyType: TypeProtocol {
 
-  /// Val's `Any` type.
+  /// Hylo's `Any` type.
   public static let any = ^ExistentialType(traits: [], constraints: [])
 
-  /// Val's `Never` type.
+  /// Hylo's `Never` type.
   public static let never = ^UnionType([])
 
-  /// Val's `Void` type.
+  /// Hylo's `Void` type.
   public static let void = ^TupleType([])
 
   /// A shorthand for `^ErrorType()`.
@@ -91,6 +91,17 @@ public struct AnyType: TypeProtocol {
   public var base: any TypeProtocol {
     get { wrapped.unwrap() }
     set { wrapped = AnyType(newValue).wrapped }
+  }
+
+  /// `self` if `!self[.hasError]`; otherwise, `nil`.
+  public var errorFree: AnyType? {
+    self[.hasError] ? nil : self
+  }
+
+  /// `self` transformed as the type of a member of `receiver`, which is existential.
+  public func asMember(of receiver: ExistentialType) -> AnyType {
+    let m = LambdaType(self) ?? fatalError("not implemented")
+    return ^m.asMember(of: receiver)
   }
 
   /// Indicates whether `self` is a leaf type.
@@ -132,7 +143,7 @@ public struct AnyType: TypeProtocol {
     }
   }
 
-  /// Indicates whether `self` is Val's `Void` or `Never` type.
+  /// Indicates whether `self` is Hylo's `Void` or `Never` type.
   ///
   /// - Requires: `self` is canonical.
   public var isVoidOrNever: Bool {
@@ -141,14 +152,14 @@ public struct AnyType: TypeProtocol {
   }
 
   /// Indicates whether `self` is a generic type parameter or associated type.
-  public var isTypeParam: Bool {
+  public var isTypeParameter: Bool {
     (base is AssociatedTypeType) || (base is GenericTypeParameterType)
   }
 
   /// Indicates whether `self` has a record layout.
   public var hasRecordLayout: Bool {
     switch base {
-    case is ProductType, is TupleType:
+    case is LambdaType, is ProductType, is TupleType:
       return true
     case let type as BoundGenericType:
       return type.base.hasRecordLayout
@@ -159,13 +170,25 @@ public struct AnyType: TypeProtocol {
 
   public var flags: TypeFlags { base.flags }
 
-  public var skolemized: AnyType { base.skolemized }
-
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> AnyType {
     AnyType(wrapped.transformParts(mutating: &m, transformer))
   }
+
+  /// Returns `self` with occurrences of free type variables replaced by errors.
+  public var replacingVariablesWithErrors: AnyType {
+    self.transform { (t) in
+      if t.isTypeVariable {
+        return .stepOver(.error)
+      } else if t[.hasVariable] {
+        return .stepInto(t)
+      } else {
+        return .stepOver(t)
+      }
+    }
+  }
+
 }
 
 extension AnyType: CompileTimeValue {

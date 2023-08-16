@@ -1,15 +1,16 @@
 import Core
 import Foundation
+import FrontEnd
 import OrderedCollections
 import Utils
 
-/// A module lowered to Val IR.
+/// A module lowered to Hylo IR.
 ///
 /// An IR module is notionally composed of a collection of functions, one of which may be
-/// designated as its entry point (i.e., the `main` function of a Val program).
+/// designated as its entry point (i.e., the `main` function of a Hylo program).
 public struct Module {
 
-  /// The identity of a global defined in a Val IR module.
+  /// The identity of a global defined in a Hylo IR module.
   public typealias GlobalID = Int
 
   /// The program defining the functions in `self`.
@@ -148,6 +149,21 @@ public struct Module {
     }
   }
 
+  /// Returns `true` iff `lhs` is sequenced before `rhs`.
+  func dominates(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
+    if lhs.function != rhs.function { return false }
+
+    // Fast path: both instructions are in the same block.
+    if lhs.block == rhs.block {
+      let sequence = functions[lhs.function]![lhs.block].instructions
+      return lhs.address.precedes(rhs.address, in: sequence)
+    }
+
+    // Slow path: use the dominator tree.
+    let d = DominatorTree(function: lhs.function, cfg: self[lhs.function].cfg(), in: self)
+    return d.dominates(lhs.block, rhs.block)
+  }
+
   /// Returns whether the IR in `self` is well-formed.
   ///
   /// Use this method as a sanity check to verify the module's invariants.
@@ -220,19 +236,20 @@ public struct Module {
     functions[identity] = function
   }
 
-  /// Returns the identity of the Val IR function corresponding to `d`.
+  /// Returns the identity of the Hylo IR function corresponding to `d`.
   mutating func demandFunctionDeclaration(lowering d: FunctionDecl.ID) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
-    let parameters = program.accumulatedGenericParameters(of: d)
-    let output = program.relations.canonical((program[d].type.base as! CallableType).output)
+    let parameters = program.accumulatedGenericParameters(in: d)
+    let output = program.canonical(
+      (program[d].type.base as! CallableType).output, in: program[d].scope)
     let inputs = loweredParameters(of: d)
 
     let entity = Function(
       isSubscript: false,
       site: program.ast[d].site,
-      linkage: .external,
+      linkage: program.isExported(d) ? .external : .module,
       genericParameters: Array(parameters),
       inputs: inputs,
       output: output,
@@ -248,19 +265,20 @@ public struct Module {
     return f
   }
 
-  /// Returns the identity of the Val IR function corresponding to `d`.
+  /// Returns the identity of the Hylo IR function corresponding to `d`.
   mutating func demandSubscriptDeclaration(lowering d: SubscriptImpl.ID) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
-    let parameters = program.accumulatedGenericParameters(of: d)
-    let output = program.relations.canonical(SubscriptImplType(program[d].type)!.output)
+    let parameters = program.accumulatedGenericParameters(in: d)
+    let output = program.canonical(
+      SubscriptImplType(program[d].type)!.output, in: program[d].scope)
     let inputs = loweredParameters(of: d)
 
     let entity = Function(
       isSubscript: true,
       site: program.ast[d].site,
-      linkage: .external,
+      linkage: program.isExported(d) ? .external : .module,
       genericParameters: Array(parameters),
       inputs: inputs,
       output: output,
@@ -270,20 +288,20 @@ public struct Module {
     return f
   }
 
-  /// Returns the identifier of the Val IR initializer corresponding to `d`.
+  /// Returns the identifier of the Hylo IR initializer corresponding to `d`.
   mutating func demandInitializerDeclaration(lowering d: InitializerDecl.ID) -> Function.ID {
     precondition(!program.ast[d].isMemberwise)
 
     let f = Function.ID(initializer: d)
     if functions[f] != nil { return f }
 
-    let parameters = program.accumulatedGenericParameters(of: d)
+    let parameters = program.accumulatedGenericParameters(in: d)
     let inputs = loweredParameters(of: d)
 
     let entity = Function(
       isSubscript: false,
       site: program.ast[d].introducer.site,
-      linkage: .external,
+      linkage: program.isExported(d) ? .external : .module,
       genericParameters: Array(parameters),
       inputs: inputs,
       output: .void,
@@ -293,7 +311,7 @@ public struct Module {
     return f
   }
 
-  /// Returns the identity of the Val IR function implementing the deinitializer defined in
+  /// Returns the identity of the Hylo IR function implementing the deinitializer defined in
   /// conformance `c`.
   mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
     let d = program.ast.deinitRequirement()
@@ -306,7 +324,7 @@ public struct Module {
     }
   }
 
-  /// Returns the identity of the Val IR function implementing the `k` variant move-operator
+  /// Returns the identity of the Hylo IR function implementing the `k` variant move-operator
   /// defined in conformance `c`.
   ///
   /// - Requires: `k` is either `.set` or `.inout`
@@ -323,21 +341,23 @@ public struct Module {
     }
   }
 
-  /// Returns the identity of the Val IR function corresponding to `d`.
+  /// Returns the identity of the Hylo IR function corresponding to `d`.
   mutating func demandSyntheticDeclaration(lowering d: SynthesizedFunctionDecl) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
-    let output = program.relations.canonical(d.type.output)
+    let output = program.canonical(d.type.output, in: d.scope)
     var inputs: [Parameter] = []
-    appendCaptures(d.type.captures, passed: d.type.receiverEffect, to: &inputs)
-    appendParameters(d.type.inputs, to: &inputs)
+    appendCaptures(
+      d.type.captures, passed: d.type.receiverEffect, to: &inputs, canonicalizedIn: d.scope)
+    appendParameters(d.type.inputs, to: &inputs, canonicalizedIn: d.scope)
 
+    let genericParameters = BoundGenericType(d.receiver).map({ Array($0.arguments.keys) }) ?? []
     let entity = Function(
       isSubscript: false,
       site: .empty(at: program.ast[id].site.first()),
       linkage: .external,
-      genericParameters: [],  // TODO
+      genericParameters: genericParameters,
       inputs: inputs,
       output: output,
       blocks: [])
@@ -354,7 +374,7 @@ public struct Module {
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
     let captures = LambdaType(program[d].type)!.captures.lazy.map { (e) in
-      program.relations.canonical(e.type)
+      program.canonical(e.type, in: program[d].scope)
     }
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
       .init(c, capturedAs: e)
@@ -376,33 +396,33 @@ public struct Module {
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: SubscriptImpl.ID) -> [Parameter] {
     let captures = SubscriptImplType(program[d].type)!.captures.lazy.map { (e) in
-      program.relations.canonical(e.type)
+      program.canonical(e.type, in: program[d].scope)
     }
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
       .init(c, capturedAs: e)
     })
 
     let bundle = SubscriptDecl.ID(program[d].scope)!
-    if let p = program.ast[bundle].parameters {
-      result.append(contentsOf: p.map(pairedWithLoweredType(parameter:)))
-    }
-
+    let inputs = program.ast[bundle].parameters
+    result.append(contentsOf: inputs.map(pairedWithLoweredType(parameter:)))
     return result
   }
 
   /// Returns `d`, which declares a parameter, paired with its lowered type.
   private func pairedWithLoweredType(parameter d: ParameterDecl.ID) -> Parameter {
-    let t = program.relations.canonical(program[d].type)
+    let t = program.canonical(program[d].type, in: program[d].scope)
     return .init(decl: AnyDeclID(d), type: ParameterType(t)!)
   }
 
-  /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
+  /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`,
+  /// canonicalizing theirs type in `scopeOfUse`.
   private func appendCaptures(
-    _ captures: [TupleType.Element], passed effect: AccessEffect, to inputs: inout [Parameter]
+    _ captures: [TupleType.Element], passed effect: AccessEffect, to inputs: inout [Parameter],
+    canonicalizedIn scopeOfUse: AnyScopeID
   ) {
     inputs.reserveCapacity(captures.count)
     for c in captures {
-      switch program.relations.canonical(c.type).base {
+      switch program.canonical(c.type, in: scopeOfUse).base {
       case let p as RemoteType:
         precondition(p.access != .yielded, "cannot lower yielded parameter")
         inputs.append(.init(decl: nil, type: ParameterType(p)))
@@ -413,13 +433,14 @@ public struct Module {
     }
   }
 
-  /// Appends `parameters` to `inputs`, ensuring that their types are canonical.
+  /// Appends `parameters` to `inputs`, canonicalizing their types in `scopeOfUse`.
   private func appendParameters(
-    _ parameters: [CallableTypeParameter], to inputs: inout [Parameter]
+    _ parameters: [CallableTypeParameter], to inputs: inout [Parameter],
+    canonicalizedIn scopeOfUse: AnyScopeID
   ) {
     inputs.reserveCapacity(parameters.count)
     for p in parameters {
-      let t = ParameterType(program.relations.canonical(p.type))!
+      let t = ParameterType(program.canonical(p.type, in: scopeOfUse))!
       precondition(t.access != .yielded, "cannot lower yielded parameter")
       inputs.append(.init(decl: nil, type: t))
     }
@@ -428,7 +449,7 @@ public struct Module {
   /// Returns a map from `f`'s generic arguments to their skolemized form.
   ///
   /// - Requires: `f` is declared in `self`.
-  public func parameterization(in f: Function.ID) -> GenericArguments {
+  public func specialization(in f: Function.ID) -> GenericArguments {
     var result = GenericArguments()
     for p in functions[f]!.genericParameters {
       guard
@@ -439,7 +460,7 @@ public struct Module {
         fatalError("not implemented")
       }
 
-      result[p] = ^SkolemType(quantifying: u)
+      result[p] = ^u
     }
     return result
   }
@@ -687,15 +708,16 @@ public struct Module {
     }
   }
 
-  /// Returns `true` if `o` is sink in `f`.
-  ///
-  /// - Requires: `o` is defined in `f`.
-  func isSink(_ o: Operand, in f: Function.ID) -> Bool {
-    let e = entry(of: f)!
+  /// Returns `true` if `o` can be sunken.
+  func isSink(_ o: Operand) -> Bool {
     return provenances(o).allSatisfy { (p) -> Bool in
       switch p {
-      case .parameter(e, let i):
-        return self.functions[f]!.inputs[i].type.access == .sink
+      case .parameter(let e, let i):
+        if entry(of: e.function) == e {
+          return self[e.function].inputs[i].type.access == .sink
+        } else {
+          return false
+        }
 
       case .register(let i):
         switch self[i] {

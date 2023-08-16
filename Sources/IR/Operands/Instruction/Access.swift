@@ -3,7 +3,7 @@ import Core
 /// Creates an access on an object.
 ///
 /// IR generation sometimes cannot determine the capability used to access an object, as this
-/// information is kept implicit in Val sources. For example, a `let`-binding declaration will
+/// information is kept implicit in Hylo sources. For example, a `let`-binding declaration will
 /// actually request a `sink` capability on its right hand side if the binding escapes. In these
 /// cases, IR generation will emit `access` instructions with the set capabilities that may be
 /// inferred from the syntax. These instructions are expected to be "reifed" during IR analysis

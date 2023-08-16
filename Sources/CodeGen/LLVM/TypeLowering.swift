@@ -22,6 +22,8 @@ extension IR.Program {
       return module.ptr
     case let t as ProductType:
       return llvm(productType: t, in: &module)
+    case is RemoteType:
+      return module.ptr
     case let t as TupleType:
       return llvm(tupleType: t, in: &module)
     case let t as UnionType:
@@ -49,7 +51,7 @@ extension IR.Program {
     case .float128:
       return LLVM.FloatingPointType.fp128(in: &module)
     case .ptr:
-      return LLVM.PointerType(in: &module)
+      return module.ptr
     case .module:
       notLLVMRepresentable(val)
     }
@@ -61,8 +63,8 @@ extension IR.Program {
   func llvm(boundGenericType val: BoundGenericType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
-    let fields = base.storage(of: val.base).map { (_, t) in
-      let u = base.monomorphize(t, for: val.arguments)
+    let fields = base.storage(of: val.base).map { (part) in
+      let u = base.specialize(part.type, for: val.arguments, in: AnyScopeID(base.ast.coreLibrary!))
       return llvm(u, in: &module)
     }
 
@@ -81,11 +83,9 @@ extension IR.Program {
   /// - Requires: `val` is representable in LLVM.
   func llvm(lambdaType val: LambdaType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
-    if val.environment != .void {
-      notLLVMRepresentable(val)
-    }
 
-    return LLVM.PointerType(in: &module)
+    let fields = Array(repeating: module.ptr, count: base.storage(of: val).count)
+    return LLVM.StructType(fields, in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.

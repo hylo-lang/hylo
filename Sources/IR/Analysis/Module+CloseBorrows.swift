@@ -22,12 +22,12 @@ extension Module {
   ) {
     switch self[i] {
     case let s as Access:
-      let region = lifetime(of: .register(i))
+      let region = extendedLiveRange(of: .register(i))
 
       // Delete the borrow if it's never used.
       if region.isEmpty {
         if let decl = s.binding {
-          log.insert(.unusedBinding(name: program.ast[decl].baseName, at: s.site))
+          log.insert(.warning(unusedBinding: program.ast[decl].baseName, at: s.site))
         }
         removeInstruction(i)
         return
@@ -37,8 +37,14 @@ extension Module {
         this.makeEndAccess(.register(i), at: site)
       }
 
+    case is OpenCapture:
+      let region = extendedLiveRange(of: .register(i))
+      insertClose(i, atBoundariesOf: region) { (this, site) in
+        this.makeCloseCapture(.register(i), at: site)
+      }
+
     case is Project:
-      let region = lifetime(of: .register(i))
+      let region = extendedLiveRange(of: .register(i))
       insertClose(i, atBoundariesOf: region) { (this, site) in
         this.makeEndProject(.register(i), at: site)
       }
@@ -79,21 +85,34 @@ extension Module {
     }
   }
 
-  /// Returns the lifetime of `operand`.
-  private func lifetime(of operand: Operand) -> Lifetime {
+  /// Returns the extended live-range of `definition`.
+  ///
+  /// A definition is *live* over an instruction if it is is used by that instruction or may be
+  /// used by another instruction in the future. The live-range of a definition `d` is the region
+  /// of a function containing all instructions over which `d` is live. The extended live-range of
+  /// `d` is its live-range merged with the extended live-ranges of the definitions extending `d`.
+  ///
+  /// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
+  private func extendedLiveRange(of definition: Operand) -> Lifetime {
     // Nothing to do if the operand has no use.
-    guard let uses = uses[operand] else { return Lifetime(operand: operand) }
+    guard let uses = self.uses[definition] else { return Lifetime(operand: definition) }
 
-    // Compute the live-range of the operand.
-    var r = liveRange(of: operand, definedIn: operand.block!)
+    // Compute the live-range of the definition.
+    var r = liveRange(of: definition, definedIn: definition.block!)
 
     // Extend the lifetime with that of its borrows.
     for use in uses {
       switch self[use.user] {
       case is LifetimeExtender:
         if let o = result(of: use.user) {
-          r = extend(lifetime: r, with: lifetime(of: o))
+          r = extend(lifetime: r, toCover: extendedLiveRange(of: o))
         }
+
+      case let s as CaptureIn where use.index == 0:
+        let p = provenances(s.target).uniqueElement!
+        assert(self[p] is AllocStack, "not implemented")
+        let u = self.uses[p, default: []].first(where: { self[$0.user] is ReleaseCaptures })!
+        return extend(lifetime: r, toInclude: u)
 
       default:
         continue
@@ -107,8 +126,10 @@ extension Module {
 
 extension Diagnostic {
 
-  fileprivate static func unusedBinding(name: Identifier, at site: SourceRange) -> Diagnostic {
-    .warning("binding '\(name)' was never used", at: site)
+  fileprivate static func warning(
+    unusedBinding n: Identifier, at site: SourceRange
+  ) -> Diagnostic {
+    .warning("binding '\(n)' was never used", at: site)
   }
 
 }
@@ -139,3 +160,5 @@ private protocol LifetimeCloser: Instruction {
 extension EndAccess: LifetimeCloser {}
 
 extension EndProject: LifetimeCloser {}
+
+extension CloseCapture: LifetimeCloser {}
