@@ -39,9 +39,9 @@ public struct ProductTypeDecl: ExposableDecl, GenericDecl, SingleEntityDecl, Gen
 
   public var baseName: String { identifier.value }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     for m in members {
-      ast.validateTypeMember(m, into: &diagnostics)
+      ast.validateTypeMember(m, into: &log)
     }
   }
 

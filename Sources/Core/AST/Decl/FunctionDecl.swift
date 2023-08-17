@@ -125,12 +125,12 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericSc
     }
   }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     if !isInExprContext {
       // Parameter declarations must have a type annotation.
       for p in parameters {
         if ast[p].annotation == nil {
-          diagnostics.insert(.error(missingTypeAnnotation: ast[p], in: ast))
+          log.insert(.error(missingTypeAnnotation: ast[p], in: ast))
         }
       }
     }

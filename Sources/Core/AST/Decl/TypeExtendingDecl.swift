@@ -14,17 +14,17 @@ public protocol TypeExtendingDecl: ExposableDecl, GenericScope {
 
 extension TypeExtendingDecl {
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     for m in members {
       switch m.kind {
       case ConformanceDecl.self:
-        diagnostics.insert(.error(unexpected: ConformanceDecl.ID(m)!, in: ast))
+        log.insert(.error(unexpected: ConformanceDecl.ID(m)!, in: ast))
       case ExtensionDecl.self:
-        diagnostics.insert(.error(unexpected: ExtensionDecl.ID(m)!, in: ast))
+        log.insert(.error(unexpected: ExtensionDecl.ID(m)!, in: ast))
       case InitializerDecl.self:
         let d = InitializerDecl.ID(m)!
         if ast[d].isMemberwise {
-          diagnostics.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
+          log.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
         }
       default:
         continue
