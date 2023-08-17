@@ -46,6 +46,11 @@
 
       </header>
       <section>
+	<h1>Implementation Documentation</h1>
+	<p>None of the available documentation extraction tools can merge and cross-link
+	documentation from different targets, so they are presented separately and each has its own
+	link.</p>
+	<h2>Targets</h2>
 	<ul>
 % for m in EXTRACTION_TARGETS.split(" "):
           <li>${m} (<a href="docc/${m}/documentation/${m.lower()}">docc</a>, <a href="jazzy/${m}">jazzy</a>)</li>
