@@ -52,7 +52,11 @@ jobs:
         set -eo pipefail
         export PKG_CONFIG_PATH=$PWD
 
-        for TARGET in $(swift package dump-package | jq '.targets | .[].name' | xargs); do
+        for TARGET in $(
+          swift package dump-package |
+          jq '.targets | map(select(.type | test("^(regular|executable)$"))) | .[].name' |
+          xargs
+        ); do
           mkdir -p _site/docc/"$TARGET"
           swift package --allow-writing-to-directory ./_site \
           generate-documentation \
@@ -71,7 +75,11 @@ jobs:
 
         export PKG_CONFIG_PATH=$PWD
 
-        for TARGET in $(swift package dump-package | jq '.targets | .[].name' | xargs); do
+        for TARGET in $(
+          swift package dump-package |
+          jq '.targets | map(select(.type | test("^(regular|executable)$"))) | .[].name' |
+          xargs
+        ); do
           mkdir -p _site/jazzy/"$TARGET"
           jazzy \
           --source-host-files-url "https://github.com/${GITHUB_REPOSITORY}/tree/${GITHUB_REF}" \
