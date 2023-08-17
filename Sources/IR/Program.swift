@@ -3,6 +3,7 @@ import FrontEnd
 
 /// A program lowered to Hylo IR.
 public struct Program: Core.Program {
+
   public var ast: Core.AST { base.ast }
 
   public var nodeToScope: Core.ASTProperty<Core.AnyScopeID> { base.nodeToScope }
