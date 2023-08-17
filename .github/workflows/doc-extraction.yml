@@ -51,6 +51,7 @@ jobs:
       run: |
         set -eo pipefail
         export PKG_CONFIG_PATH=$PWD
+        REPO_SANS_OWNER="${GITHUB_REPOSITORY##*/}"
 
         for TARGET in $(
           swift package dump-package |
@@ -65,7 +66,7 @@ jobs:
           --experimental-documentation-coverage --level brief \
           --enable-inherited-docs \
           --transform-for-static-hosting \
-          --hosting-base-path Hylo/docc/"$TARGET"
+          --hosting-base-path "$REPO_SANS_OWNER/docc/$TARGET"
         done
 
     - name: Extract with Jazzy
