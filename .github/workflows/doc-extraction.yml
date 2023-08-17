@@ -1,5 +1,9 @@
 name: Extract And Publish Documentation
 
+defaults:
+  run:
+    shell: bash -eo pipefail
+
 on:
   push:
     branches: [ main, doc-generation ]
@@ -43,9 +47,7 @@ jobs:
     - name: Prepare Shell Environment
       # FIXME: REF_URL_COMPONENT computation is probably wrong for some refs.
       run: |
-        set -eo pipefail
-        echo "set -eo pipefail
-        export PKG_CONFIG_PATH=$PWD
+        echo "export PKG_CONFIG_PATH=$PWD
         REPO_SANS_OWNER='${GITHUB_REPOSITORY##*/}'
         REF_URL_COMPONENT='${GITHUB_REF##*/}'
         EXTRACTION_TARGETS='$(
