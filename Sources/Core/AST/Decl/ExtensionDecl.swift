@@ -1,6 +1,8 @@
 /// A declaration that extends a type with new members.
 public struct ExtensionDecl: TypeExtendingDecl {
 
+  public static let constructDescription = "extension declaration"
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.

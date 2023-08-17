@@ -1,6 +1,8 @@
 /// A namespace declaration.
 public struct NamespaceDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
 
+  public static let constructDescription = "namespace declaration"
+
   public let site: SourceRange
 
   /// The site of the declaration's introducer.

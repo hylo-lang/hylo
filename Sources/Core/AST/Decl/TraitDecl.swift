@@ -3,6 +3,8 @@
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
 public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
 
+  public static let constructDescription = "trait declaration"
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.

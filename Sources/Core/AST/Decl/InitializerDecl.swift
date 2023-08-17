@@ -1,6 +1,8 @@
 /// An initializer declaration.
 public struct InitializerDecl: ExposableDecl, GenericDecl, GenericScope {
 
+  public static let constructDescription = "initializer declaration"
+
   /// The introducer of an initializer declaration.
   public enum Introducer: Codable {
 

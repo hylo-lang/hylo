@@ -1,6 +1,8 @@
 /// A (nominal) product type declaration.
 public struct ProductTypeDecl: ExposableDecl, GenericDecl, SingleEntityDecl, GenericScope {
 
+  public static let constructDescription = "product type declaration"
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.

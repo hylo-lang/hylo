@@ -3,6 +3,8 @@ import Utils
 /// A function declaration.
 public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericScope {
 
+  public static let constructDescription = "function declaration"
+
   public static let isCallable = true
 
   public let site: SourceRange

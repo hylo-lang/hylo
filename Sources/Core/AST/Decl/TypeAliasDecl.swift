@@ -1,6 +1,8 @@
 /// A type alias declaration.
 public struct TypeAliasDecl: ExposableDecl, GenericDecl, SingleEntityDecl, GenericScope {
 
+  public static let constructDescription = "type alias declaration"
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.

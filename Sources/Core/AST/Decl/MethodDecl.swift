@@ -1,6 +1,8 @@
 /// A method declaration.
 public struct MethodDecl: BundleDecl, GenericDecl, GenericScope {
 
+  public static let constructDescription = "method declaration"
+
   public typealias Variant = MethodImpl
 
   public static let isCallable = true
