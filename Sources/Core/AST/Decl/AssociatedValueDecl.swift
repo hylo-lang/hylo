@@ -1,6 +1,8 @@
 /// An associated value declaration.
 public struct AssociatedValueDecl: SingleEntityDecl {
 
+  public static let constructDescription = "associated value declaration"
+
   public let site: SourceRange
 
   /// The site of the declaration's introducer.

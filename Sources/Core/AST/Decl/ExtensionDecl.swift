@@ -1,6 +1,8 @@
 /// A declaration that extends a type with new members.
 public struct ExtensionDecl: TypeExtendingDecl {
 
+  public static let constructDescription = "extension declaration"
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
@@ -28,14 +30,6 @@ public struct ExtensionDecl: TypeExtendingDecl {
     self.subject = subject
     self.whereClause = whereClause
     self.members = members
-  }
-
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
-    for m in members {
-      if let d = InitializerDecl.ID(m), ast[d].isMemberwise {
-        diagnostics.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
-      }
-    }
   }
 
 }

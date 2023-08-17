@@ -1,6 +1,8 @@
 /// A module declaration.
 public struct ModuleDecl: SingleEntityDecl, LexicalScope {
 
+  public static let constructDescription = "module declaration"
+
   /// The name of the module.
   public let baseName: String
 

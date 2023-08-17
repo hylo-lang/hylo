@@ -1,6 +1,8 @@
 /// An initializer declaration.
 public struct InitializerDecl: ExposableDecl, GenericDecl, GenericScope {
 
+  public static let constructDescription = "initializer declaration"
+
   /// The introducer of an initializer declaration.
   public enum Introducer: Codable {
 
@@ -68,11 +70,11 @@ public struct InitializerDecl: ExposableDecl, GenericDecl, GenericScope {
   /// Returns whether the declaration is a memberwise initializer.
   public var isMemberwise: Bool { introducer.value == .memberwiseInit }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
     for p in parameters {
       if ast[p].annotation == nil {
-        diagnostics.insert(.error(missingTypeAnnotation: ast[p], in: ast))
+        log.insert(.error(missingTypeAnnotation: ast[p], in: ast))
       }
     }
   }

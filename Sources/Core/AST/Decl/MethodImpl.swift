@@ -3,6 +3,8 @@
 /// Instances of this type represent individual variant inside a method declaration.
 public struct MethodImpl: Decl, LexicalScope {
 
+  public static let constructDescription = "method variant declaration"
+
   public static let isCallable = true
 
   public let site: SourceRange
