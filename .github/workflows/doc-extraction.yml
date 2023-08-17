@@ -109,12 +109,13 @@ jobs:
 
     - name: Generate Index Page
       run: |
+        mkdir -p _site
         Tools/gyb.py \
         --line-directive '<!-- file: %(file)s line: %(line)s -->' \
         -DROOT_URL="https://hylo-lang.org/${REPO_SANS_OWNER}" \
         -DEXTRACTION_TARGETS="${EXTRACTION_TARGETS}" \
         -DGITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
-        Tools/doc-index.html.gyb -o _site/index.html
+        Tools/doc-index.html.gyb -o ${PWD}/_site/index.html
 
     - name: Setup Pages
       uses: actions/configure-pages@v3
