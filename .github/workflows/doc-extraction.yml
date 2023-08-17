@@ -40,25 +40,30 @@ jobs:
 
     - run: llvm-config --version
 
-    - name: Generate LLVM pkgconfig file
+    - name: Prepare Shell Environment
+      # FIXME: REF_URL_COMPONENT computation is probably wrong for some refs.
       run: |
         set -eo pipefail
+        echo "set -eo pipefail
+        export PKG_CONFIG_PATH=$PWD
+        REPO_SANS_OWNER='${GITHUB_REPOSITORY##*/}'
+        REF_URL_COMPONENT='${GITHUB_REF##*/}'
+        EXTRACTION_TARGETS='$(
+          swift package dump-package |
+          jq '.targets | map(select(.type | test("^(regular|executable)$"))) | .[].name' |
+          xargs
+        )'
+        " >> "${GITHUB_ENV}"
+
+    - name: Generate LLVM pkgconfig file
+      run: |
         swift package resolve
         .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
         cat llvm.pc
 
     - name: Extract with DocC
       run: |
-        set -eo pipefail
-        export PKG_CONFIG_PATH=$PWD
-        REPO_SANS_OWNER="${GITHUB_REPOSITORY##*/}"
-        REF_URL_COMPONENT="${GITHUB_REF##*/}" # FIXME: this is probably wrong for some refs.
-
-        for TARGET in $(
-          swift package dump-package |
-          jq '.targets | map(select(.type | test("^(regular|executable)$"))) | .[].name' |
-          xargs
-        ); do
+        for TARGET in ${EXTRACTION_TARGETS}; do
           mkdir -p _site/docc/"$TARGET"
           swift package --allow-writing-to-directory ./_site \
           generate-documentation \
@@ -75,17 +80,8 @@ jobs:
 
     - name: Extract with Jazzy
       run: |
-        set -eo pipefail
         gem install jazzy
-
-        export PKG_CONFIG_PATH=$PWD
-        REF_URL_COMPONENT="${GITHUB_REF##*/}" # FIXME: this is probably wrong for some refs.
-
-        for TARGET in $(
-          swift package dump-package |
-          jq '.targets | map(select(.type | test("^(regular|executable)$"))) | .[].name' |
-          xargs
-        ); do
+        for TARGET in ${EXTRACTION_TARGETS}; do
           mkdir -p _site/jazzy/"$TARGET"
           jazzy \
           --source-host-files-url "https://github.com/${GITHUB_REPOSITORY}/blob/${REF_URL_COMPONENT}" \
