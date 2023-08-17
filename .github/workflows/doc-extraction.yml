@@ -2,7 +2,7 @@ name: Extract And Publish Documentation
 
 defaults:
   run:
-    shell: bash -eo pipefail
+    shell: bash -eo pipefail {0}
 
 on:
   push:
