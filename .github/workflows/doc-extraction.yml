@@ -82,7 +82,7 @@ jobs:
         ); do
           mkdir -p _site/jazzy/"$TARGET"
           jazzy \
-          --source-host-files-url "https://github.com/${GITHUB_REPOSITORY}/tree/${GITHUB_REF}" \
+          --source-host-files-url "https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF}" \
           --module "$TARGET" \
           --module-version "${{ github.event.release.tag_name }}" \
           --copyright "© $(date '+%Y') The Hylo Authors. (Last updated: $(date '+%Y-%m-%d'))" \
