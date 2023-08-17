@@ -10,9 +10,9 @@ extension AST {
   ) {
     switch d.kind {
     case AssociatedTypeDecl.self:
-      log.insert(.error(unexpectedAssociatedTypeDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: AssociatedTypeDecl.ID(d)!, in: self))
     case AssociatedValueDecl.self:
-      log.insert(.error(unexpectedAssociatedValueDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: AssociatedValueDecl.ID(d)!, in: self))
     case BindingDecl.self:
       validateGlobalScopeMember(BindingDecl.ID(d)!, reportingDiagnosticsTo: &log)
     case ConformanceDecl.self:
@@ -22,40 +22,39 @@ extension AST {
     case FunctionDecl.self:
       validateGlobalScopeMember(FunctionDecl.ID(d)!, reportingDiagnosticsTo: &log)
     case GenericParameterDecl.self:
-      log.insert(.error(unexpectedGenericParameterDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: GenericParameterDecl.ID(d)!, in: self))
     case ImportDecl.self:
-      if !atTopLevel { log.insert(.error(unexpectedImportDecl: self[NodeID(d)!])) }
+      if !atTopLevel { log.insert(.error(unexpected: ImportDecl.ID(d)!, in: self)) }
     case InitializerDecl.self:
-      log.insert(.error(unexpectedInitializerDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: InitializerDecl.ID(d)!, in: self))
     case MethodDecl.self:
-      log.insert(.error(unexpectedMethodDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: MethodDecl.ID(d)!, in: self))
     case MethodImpl.self:
-      log.insert(.error(unexpectedMethodImpl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: MethodImpl.ID(d)!, in: self))
     case NamespaceDecl.self:
       break
     case OperatorDecl.self:
-      if !atTopLevel { log.insert(.error(unexpectedOperatorDecl: self[NodeID(d)!])) }
+      if !atTopLevel { log.insert(.error(unexpected: OperatorDecl.ID(d)!, in: self)) }
     case ParameterDecl.self:
-      log.insert(.error(unexpectedParameterDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: ParameterDecl.ID(d)!, in: self))
     case ProductTypeDecl.self:
       break
     case SubscriptDecl.self:
       validateGlobalScopeMember(SubscriptDecl.ID(d)!, reportingDiagnosticsTo: &log)
     case SubscriptImpl.self:
-      log.insert(.error(unexpectedSubscriptImpl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: SubscriptImpl.ID(d)!, in: self))
     case TraitDecl.self:
       break
     case TypeAliasDecl.self:
       break
     case VarDecl.self:
-      log.insert(.error(unexpectedVarDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: VarDecl.ID(d)!, in: self))
     default:
       unexpected(d, in: self)
     }
   }
 
-  /// Returns `.success` if `d` is a well-formed declaration ar global scope. Otherwise, returns
-  /// `.failure`, reporting the diagnostics of the broken invariants in `log`.
+  /// Reports any well-formedness problems with `d` occurring at global scope into `log`.
   func validateGlobalScopeMember(
     _ d: BindingDecl.ID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
@@ -72,8 +71,7 @@ extension AST {
     }
   }
 
-  /// Returns `.success` if `d` is a well-formed declaration ar global scope. Otherwise, returns
-  /// `.failure`, reporting the diagnostics of the broken invariants in `log`.
+  /// Reports any well-formedness problems with `d` occurring at global scope into `log`.
   func validateGlobalScopeMember(
     _ d: FunctionDecl.ID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
@@ -85,8 +83,7 @@ extension AST {
     }
   }
 
-  /// Returns `.success` if `d` is a well-formed declaration ar global scope. Otherwise, returns
-  /// `.failure`, reporting the diagnostics of the broken invariants in `log`.
+  /// Reports any well-formedness problems with `d` occurring at global scope into `log`.
   func validateGlobalScopeMember(
     _ d: SubscriptDecl.ID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
@@ -105,9 +102,9 @@ extension AST {
   func validateTypeMember(_ d: AnyDeclID, into log: inout DiagnosticSet) {
     switch d.kind {
     case AssociatedTypeDecl.self:
-      log.insert(.error(unexpectedAssociatedTypeDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: AssociatedTypeDecl.ID(d)!, in: self))
     case AssociatedValueDecl.self:
-      log.insert(.error(unexpectedAssociatedValueDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: AssociatedValueDecl.ID(d)!, in: self))
     case BindingDecl.self:
       validateTypeMember(BindingDecl.ID(d)!, reportingDiagnosticsTo: &log)
     case ConformanceDecl.self:
@@ -117,33 +114,33 @@ extension AST {
     case FunctionDecl.self:
       validateTypeMember(FunctionDecl.ID(d)!, reportingDiagnosticsTo: &log)
     case GenericParameterDecl.self:
-      log.insert(.error(unexpectedGenericParameterDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: GenericParameterDecl.ID(d)!, in: self))
     case ImportDecl.self:
-      log.insert(.error(unexpectedImportDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: ImportDecl.ID(d)!, in: self))
     case InitializerDecl.self:
       break
     case MethodDecl.self:
       break
     case MethodImpl.self:
-      log.insert(.error(unexpectedMethodImpl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: MethodImpl.ID(d)!, in: self))
     case NamespaceDecl.self:
-      log.insert(.error(unexpectedNamespaceDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: NamespaceDecl.ID(d)!, in: self))
     case OperatorDecl.self:
-      log.insert(.error(unexpectedOperatorDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: OperatorDecl.ID(d)!, in: self))
     case ParameterDecl.self:
-      log.insert(.error(unexpectedParameterDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: ParameterDecl.ID(d)!, in: self))
     case ProductTypeDecl.self:
       break
     case SubscriptDecl.self:
       break
     case SubscriptImpl.self:
-      log.insert(.error(unexpectedSubscriptImpl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: SubscriptImpl.ID(d)!, in: self))
     case TraitDecl.self:
-      log.insert(.error(unexpectedTraitDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: TraitDecl.ID(d)!, in: self))
     case TypeAliasDecl.self:
       break
     case VarDecl.self:
-      log.insert(.error(unexpectedVarDecl: self[NodeID(d)!]))
+      log.insert(.error(unexpected: VarDecl.ID(d)!, in: self))
     default:
       unexpected(d, in: self)
     }
