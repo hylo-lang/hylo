@@ -2839,17 +2839,9 @@ struct TypeChecker {
       var log = DiagnosticSet()
 
       // Keep track of generic arguments that should be captured later on.
-      let candidateSpecialization: GenericArguments
-      var specialization = context?.arguments ?? [:]
-
-      if let g = BoundGenericType(candidateType) {
-        assert(arguments.isEmpty, "generic declaration bound twice")
-        candidateSpecialization = g.arguments
-      } else {
-        let p = genericParameters(introducedBy: m)
-        candidateSpecialization =
-          associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)
-      }
+      let candidateSpecialization = genericArguments(
+        passedTo: m, typed: candidateType, referredToBy: name, specializedBy: arguments,
+        reportingDiagnosticsTo: &log)
 
       // If the name resolves to an initializer, determine if it is used as a constructor.
       let isConstructor =
@@ -2865,6 +2857,7 @@ struct TypeChecker {
       }
 
       // If the match is introduced in a trait, specialize its receiver as necessary.
+      var specialization = context?.arguments ?? [:]
       if let concept = TraitDecl.ID(program.scopeIntroducing(m)), let model = context?.type {
         specialization[program[concept].receiver] = model
       }
@@ -3146,6 +3139,22 @@ struct TypeChecker {
         LambdaType(uncheckedType(of: d))?.environment ?? .error, .void, in: scopeOfUse)
     } else {
       return true
+    }
+  }
+
+  /// Returns the list of generic arguments passed to `d`, which has type `t` and is being referred
+  /// to by `name`, reporting diagnostics to `log.`
+  private mutating func genericArguments(
+    passedTo d: AnyDeclID, typed t: AnyType,
+    referredToBy name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue],
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) -> GenericArguments {
+    if let g = BoundGenericType(t) {
+      assert(arguments.isEmpty, "generic declaration bound twice")
+      return g.arguments
+    } else {
+      let p = genericParameters(introducedBy: d)
+      return associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)
     }
   }
 
