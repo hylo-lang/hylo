@@ -52,6 +52,7 @@ jobs:
         set -eo pipefail
         export PKG_CONFIG_PATH=$PWD
         REPO_SANS_OWNER="${GITHUB_REPOSITORY##*/}"
+        REF_URL_COMPONENT="${GITHUB_REF##*/}" # FIXME: this is probably wrong for some refs.
 
         for TARGET in $(
           swift package dump-package |
@@ -68,7 +69,7 @@ jobs:
           --transform-for-static-hosting \
           --hosting-base-path "${REPO_SANS_OWNER}/docc/${TARGET}" \
           --source-service github \
-          --source-service-base-url "https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF}" \
+          --source-service-base-url "https://github.com/${GITHUB_REPOSITORY}/blob/${REF_URL_COMPONENT}" \
           --checkout-path "$(pwd)"
         done
 
@@ -78,6 +79,7 @@ jobs:
         gem install jazzy
 
         export PKG_CONFIG_PATH=$PWD
+        REF_URL_COMPONENT="${GITHUB_REF##*/}" # FIXME: this is probably wrong for some refs.
 
         for TARGET in $(
           swift package dump-package |
@@ -86,7 +88,7 @@ jobs:
         ); do
           mkdir -p _site/jazzy/"$TARGET"
           jazzy \
-          --source-host-files-url "https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF}" \
+          --source-host-files-url "https://github.com/${GITHUB_REPOSITORY}/blob/${REF_URL_COMPONENT}" \
           --module "$TARGET" \
           --module-version "${{ github.event.release.tag_name }}" \
           --copyright "© $(date '+%Y') The Hylo Authors. (Last updated: $(date '+%Y-%m-%d'))" \
