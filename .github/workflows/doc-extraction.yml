@@ -68,7 +68,8 @@ jobs:
           --transform-for-static-hosting \
           --hosting-base-path "${REPO_SANS_OWNER}/docc/${TARGET}" \
           --source-service github \
-          --source-service-base-url "https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF}"
+          --source-service-base-url "https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF}" \
+          --checkout-path "$(pwd)"
         done
 
     - name: Extract with Jazzy
