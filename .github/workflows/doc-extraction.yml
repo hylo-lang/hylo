@@ -45,16 +45,24 @@ jobs:
     - run: llvm-config --version
 
     - name: Prepare Shell Environment
+      # The format of the ${GITHUB_ENV} file is extremely restrictive; it apparently only supports
+      # lines of the form:
+      #
+      #   <variable-name>=<one-line-of-text>
+      #
+      # It is not interpreted directly by a shell, so any quotes or other special characters are
+      # taken literally.
+
       # FIXME: REF_URL_COMPONENT computation is probably wrong for some refs.
       run: |
         echo "PKG_CONFIG_PATH=$PWD
-        REPO_SANS_OWNER='${GITHUB_REPOSITORY##*/}'
-        REF_URL_COMPONENT='${GITHUB_REF##*/}'
-        EXTRACTION_TARGETS='$(
+        REPO_SANS_OWNER=${GITHUB_REPOSITORY##*/}
+        REF_URL_COMPONENT=${GITHUB_REF##*/}
+        EXTRACTION_TARGETS=$(
           swift package dump-package |
           jq '.targets | map(select(.type | test("^(regular|executable)$"))) | .[].name' |
           xargs
-        )'
+        )
         " >> "${GITHUB_ENV}"
 
     - name: Generate LLVM pkgconfig file
