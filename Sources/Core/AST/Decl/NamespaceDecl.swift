@@ -34,7 +34,7 @@ public struct NamespaceDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     for m in members {
-      ast.validateGlobalScopeMember(m, into: &diagnostics, atTopLevel: false)
+      ast.validateGlobalScopeMember(m, atTopLevel: false, reportingDiagnosticsTo: &diagnostics)
     }
   }
 

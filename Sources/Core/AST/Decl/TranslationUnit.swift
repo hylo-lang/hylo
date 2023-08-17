@@ -14,7 +14,7 @@ public struct TranslationUnit: Node, LexicalScope {
 
   public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
     for d in decls {
-      ast.validateGlobalScopeMember(d, into: &diagnostics, atTopLevel: true)
+      ast.validateGlobalScopeMember(d, atTopLevel: true, reportingDiagnosticsTo: &diagnostics)
     }
   }
 
