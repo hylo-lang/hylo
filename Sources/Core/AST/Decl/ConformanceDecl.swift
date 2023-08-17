@@ -37,12 +37,4 @@ public struct ConformanceDecl: TypeExtendingDecl {
     self.members = members
   }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
-    for m in members {
-      if let d = InitializerDecl.ID(m), ast[d].isMemberwise {
-        diagnostics.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
-      }
-    }
-  }
-
 }
