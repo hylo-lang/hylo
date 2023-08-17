@@ -48,7 +48,7 @@
       <section>
 	<ul>
 % for m in EXTRACTION_TARGETS.split(" "):
-          <li>${m} (<a href="">docc/${m}/documentation/${m.lower()}</a>, <a href="jazzy/${m}">jazzy</a>)</li>
+          <li>${m} (<a href="docc/${m}/documentation/${m.lower()}">docc</a>, <a href="jazzy/${m}">jazzy</a>)</li>
 % end
 	</ul>
       </section>
