@@ -2702,6 +2702,8 @@ struct TypeChecker {
     switch t.base {
     case let u as ProductType:
       return AnyScopeID(u.decl)
+    case let u as TraitType:
+      return AnyScopeID(u.decl)
     case let u as TypeAliasType:
       return AnyScopeID(u.decl)
     default:
@@ -2856,12 +2858,7 @@ struct TypeChecker {
         candidateType = candidateType.asMember(of: t)
       }
 
-      // If the match is introduced in a trait, specialize its receiver as necessary.
       var specialization = context?.arguments ?? [:]
-      if let concept = TraitDecl.ID(program.scopeIntroducing(m)), let model = context?.type {
-        specialization[program[concept].receiver] = model
-      }
-
       specialization.append(candidateSpecialization)
       candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
 
@@ -3085,6 +3082,8 @@ struct TypeChecker {
     switch t.base {
     case let u as ProductType:
       return resolveReceiverMetatype(in: u.decl)
+    case let u as TraitType:
+      return resolveReceiverMetatype(in: u.decl)
     case let u as TypeAliasType:
       return resolveReceiverMetatype(in: u.decl)
     default:
@@ -3197,7 +3196,7 @@ struct TypeChecker {
 
   /// Creates a context for instantiating generic parameters used in `scopeOfUse`.
   private mutating func instantiationContext(in scopeOfUse: AnyScopeID) -> InstantiationContext {
-    .init(scopeOfUse: AnyScopeID(scopeOfUse), extendedScope: bridgedScope(of: scopeOfUse))
+    .init(scopeOfUse: scopeOfUse, extendedScope: bridgedScope(of: scopeOfUse))
   }
 
   /// Creates a context for instantiating generic parameters used in `scopeOfUse` by a name
