@@ -50,6 +50,8 @@ jobs:
       #
       #   <variable-name>=<one-line-of-text>
       #
+      # And a multiline version
+      # (https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings).
       # It is not interpreted directly by a shell, so any quotes or other special characters are
       # taken literally.
 
@@ -104,6 +106,15 @@ jobs:
           --output _site/jazzy/"$TARGET" \
           --min-acl private
         done
+
+    - name: Generate Index Page
+      run: |
+        Tools/gyb.py \
+        --line-directive '<!-- file: %(file)s line: %(line)s -->' \
+        -DROOT_URL="https://hylo-lang.org/${REPO_SANS_OWNER}" \
+        -DEXTRACTION_TARGETS="${EXTRACTION_TARGETS}" \
+        -DGITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
+        Tools/doc-index.html.gyb -o _site/index.html
 
     - name: Setup Pages
       uses: actions/configure-pages@v3
