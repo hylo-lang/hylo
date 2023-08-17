@@ -7,12 +7,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <!-- Begin Jekyll SEO tag v2.8.0 -->
-<title>${GITHUB_REPOSITORY} Extracted Documentation</title>
+<title>${GITHUB_REPOSITORY} Implementation Documentation</title>
 <meta name="generator" content="Jekyll v3.9.3" />
 <meta property="og:title" content="${GITHUB_REPOSITORY}" />
 <meta property="og:locale" content="en_US" />
-<meta name="description" content="${GITHUB_REPOSITORY} Extracted Documentation" />
-<meta property="og:description" content="${GITHUB_REPOSITORY} Extracted Documentation" />
+<meta name="description" content="${GITHUB_REPOSITORY} Implementation Documentation" />
+<meta property="og:description" content="${GITHUB_REPOSITORY} Implementation Documentation" />
 <link rel="canonical" href="${ROOT_URL}/index.html" />
 <meta property="og:url" content="${ROOT_URL}/index.html" />
 <meta property="og:site_name" content="Hylo" />
@@ -46,7 +46,7 @@
 
       </header>
       <section>
-	<h1>Implementation Documentation</h1>
+	<h1>${GITHUB_REPOSITORY} Implementation Documentation</h1>
 	<p>None of the available documentation extraction tools can merge and cross-link
 	documentation from different targets, so they are presented separately and each has its own
 	link.</p>
