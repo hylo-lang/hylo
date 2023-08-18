@@ -29,6 +29,7 @@ public struct Lexer: IteratorProtocol, Sequence {
 
       // Skip whitespaces.
       if sourceCode.text[index].isWhitespace {
+        previousTokenWasInt = false
         discard()
         continue
       }

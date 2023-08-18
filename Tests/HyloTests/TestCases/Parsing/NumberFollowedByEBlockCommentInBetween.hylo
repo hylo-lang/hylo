@@ -1,0 +1,6 @@
+//- parse expecting: success
+
+public fun main() {
+  var x = 0 /*hello*/
+  eat(x)
+}
