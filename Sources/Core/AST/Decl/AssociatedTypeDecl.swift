@@ -1,6 +1,8 @@
 /// An associated type declaration.
 public struct AssociatedTypeDecl: SingleEntityDecl, ConstrainedGenericTypeDecl {
 
+  public static let constructDescription = "associated type declaration"
+
   public let site: SourceRange
 
   /// The site of the declaration's introducer.

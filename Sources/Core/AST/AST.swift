@@ -54,7 +54,7 @@ public struct AST {
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
   public mutating func insert<T: Node>(_ n: T, diagnostics: inout DiagnosticSet) -> T.ID {
-    n.validateForm(in: self, into: &diagnostics)
+    n.validateForm(in: self, reportingDiagnosticsTo: &diagnostics)
 
     let i = T.ID(rawValue: nodes.count)
     if let n = n as? ModuleDecl {

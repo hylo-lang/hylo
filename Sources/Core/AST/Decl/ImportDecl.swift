@@ -1,6 +1,8 @@
 /// An import declaration.
 public struct ImportDecl: SingleEntityDecl {
 
+  public static let constructDescription = "import declaration"
+
   public let site: SourceRange
 
   /// The site of the declaration's introducer.

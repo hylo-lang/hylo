@@ -3,6 +3,8 @@
 /// Instances of this type represent individual variant inside a subscript declaration.
 public struct SubscriptImpl: Decl, LexicalScope {
 
+  public static let constructDescription = "subscript variant declaration"
+
   public static let isCallable = true
 
   public let site: SourceRange

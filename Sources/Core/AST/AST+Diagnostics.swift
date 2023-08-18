@@ -51,28 +51,12 @@ extension Diagnostic {
     .error("missing type annotation", at: p.identifier.site)
   }
 
-  static func error(unexpectedAssociatedTypeDecl d: AssociatedTypeDecl) -> Diagnostic {
-    .error("associated type declaration is not allowed here", at: d.introducerSite)
-  }
-
-  static func error(unexpectedAssociatedValueDecl d: AssociatedValueDecl) -> Diagnostic {
-    .error("associated value declaration is not allowed here", at: d.introducerSite)
+  static func error<T: Decl>(unexpected d: T.ID, in ast: AST) -> Diagnostic {
+    .error("\(T.constructDescription) is not allowed here", at: .empty(at: ast[d].site.first()))
   }
 
   public static func error(unexpectedCapture p: BindingPattern) -> Diagnostic {
     .error("explicit capture is not allowed here", at: p.introducer.site)
-  }
-
-  static func error(unexpectedImportDecl d: ImportDecl) -> Diagnostic {
-    .error("import declaration is not allowed here", at: d.introducerSite)
-  }
-
-  static func error(unexpectedGenericParameterDecl d: GenericParameterDecl) -> Diagnostic {
-    .error("generic parameter declaration is not allowed here", at: d.identifier.site)
-  }
-
-  static func error(unexpectedInitializerDecl d: InitializerDecl) -> Diagnostic {
-    .error("initializer declaration is not allowed here", at: d.introducer.site)
   }
 
   static func error(unexpectedMemberwiseInitializerDecl d: InitializerDecl) -> Diagnostic {
@@ -87,39 +71,8 @@ extension Diagnostic {
     .error("unexpected member modifier '\(m.value)'", at: m.site)
   }
 
-  public static func error(unexpectedMethodDecl d: MethodDecl) -> Diagnostic {
-    .error("method bundle declaration is not allowed here", at: d.introducerSite)
-  }
-
-  public static func error(unexpectedMethodImpl d: MethodImpl) -> Diagnostic {
-    .error("method implementation declaration is not allowed here", at: d.introducer.site)
-  }
-
-  public static func error(unexpectedNamespaceDecl d: NamespaceDecl) -> Diagnostic {
-    .error("namespace declaration is not allowed here", at: d.introducerSite)
-  }
-
-  public static func error(unexpectedOperatorDecl d: OperatorDecl) -> Diagnostic {
-    .error("operator declaration is not allowed here", at: d.introducerSite)
-  }
-
-  public static func error(unexpectedParameterDecl d: ParameterDecl) -> Diagnostic {
-    .error("parameter declaration is not allowed here", at: d.identifier.site)
-  }
-
   public static func error(unexpectedPropertyDecl d: SubscriptDecl) -> Diagnostic {
     .error("property declaration is not allowed here", at: d.introducer.site)
   }
 
-  public static func error(unexpectedSubscriptImpl d: SubscriptImpl) -> Diagnostic {
-    .error("subscript implementation declaration is not allowed here", at: d.introducer.site)
-  }
-
-  public static func error(unexpectedTraitDecl d: TraitDecl) -> Diagnostic {
-    .error("trait declaration is not allowed here", at: d.identifier.site)
-  }
-
-  public static func error(unexpectedVarDecl d: VarDecl) -> Diagnostic {
-    .error("variable declaration is not allowed here", at: d.identifier.site)
-  }
 }

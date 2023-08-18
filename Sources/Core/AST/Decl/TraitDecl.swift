@@ -3,6 +3,8 @@
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
 public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
 
+  public static let constructDescription = "trait declaration"
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
@@ -41,10 +43,10 @@ public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
 
   public var baseName: String { identifier.value }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     for m in members {
       if let d = InitializerDecl.ID(m), ast[d].isMemberwise {
-        diagnostics.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
+        log.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
       }
     }
   }

@@ -1,6 +1,8 @@
 /// A subscript declaration.
 public struct SubscriptDecl: BundleDecl, CapturingDecl, GenericDecl, GenericScope {
 
+  public static let constructDescription = "subscript declaration"
+
   public typealias Variant = SubscriptImpl
 
   public enum Introducer: Codable {
@@ -82,11 +84,11 @@ public struct SubscriptDecl: BundleDecl, CapturingDecl, GenericDecl, GenericScop
   /// Returns whether the declaration denotes a static subscript.
   public var isStatic: Bool { memberModifier?.value == .static }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
     for p in parameters {
       if ast[p].annotation == nil {
-        diagnostics.insert(.error(missingTypeAnnotation: ast[p], in: ast))
+        log.insert(.error(missingTypeAnnotation: ast[p], in: ast))
       }
     }
 

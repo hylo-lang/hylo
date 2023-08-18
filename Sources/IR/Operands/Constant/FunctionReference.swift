@@ -42,7 +42,7 @@ public struct FunctionReference: Constant, Hashable {
 
   /// Creates a reference to the lowered form of `d` in `module`, without specialization.
   public init(to d: FunctionDecl.ID, in module: inout Module) {
-    let f = module.demandFunctionDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
     self.init(to: f, in: module)
   }
 
@@ -52,13 +52,13 @@ public struct FunctionReference: Constant, Hashable {
     to d: FunctionDecl.ID, in module: inout Module,
     specializedBy specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) {
-    let f = module.demandFunctionDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
     self.init(to: f, in: module, specializedBy: specialization, in: scopeOfUse)
   }
 
   /// Creates a reference to the lowered form of `d` in `module`, without specialization.
   public init(to d: InitializerDecl.ID, in module: inout Module) {
-    let f = module.demandInitializerDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
     self.init(to: f, in: module)
   }
 
@@ -68,7 +68,7 @@ public struct FunctionReference: Constant, Hashable {
     to d: InitializerDecl.ID, in module: inout Module,
     specializedBy specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) {
-    let f = module.demandInitializerDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)
     self.init(to: f, in: module, specializedBy: specialization, in: scopeOfUse)
   }
 
