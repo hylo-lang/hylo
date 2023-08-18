@@ -132,6 +132,8 @@ struct TypeChecker {
       return conformedTraits(of: u, in: scopeOfUse)
     case let u as TraitType:
       return conformedTraits(of: u, in: scopeOfUse)
+    case let u as WitnessType:
+      return conformedTraits(of: u, in: scopeOfUse)
     default:
       return conformedTraits(declaredInExtensionsOf: t, exposedTo: scopeOfUse)
     }
@@ -190,6 +192,21 @@ struct TypeChecker {
 
     // Traits can't be refined in extensions; we're done.
     return result
+  }
+
+  /// Returns the traits to which `t` can be assumed to be conforming in `scopeOfUse`.
+  private mutating func conformedTraits(
+    of t: WitnessType, in scopeOfUse: AnyScopeID
+  ) -> Set<TraitType> {
+    switch t.container.interface {
+    case .traits(let traits):
+      return traits.reduce(into: []) { (r, c) in
+        r.formUnion(conformedTraits(of: c, in: scopeOfUse))
+      }
+
+    default:
+      fatalError("not implemented")
+    }
   }
 
   /// Returns the traits to which `t` is declared conforming by conformance declarations exposed
@@ -2887,8 +2904,11 @@ struct TypeChecker {
       }
 
       // If the receiver is an existential, replace its receiver.
-      if let t = ExistentialType(context?.type) {
-        candidateType = candidateType.asMember(of: t)
+      if let container = ExistentialType(context?.type) {
+        candidateType = candidateType.asMember(of: container)
+        if let t = program.trait(defining: m) {
+          specialization[program[t].receiver] = ^WitnessType(of: container)
+        }
       }
 
       specialization.append(candidateSpecialization)
