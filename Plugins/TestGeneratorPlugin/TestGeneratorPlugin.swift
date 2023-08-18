@@ -11,7 +11,7 @@ struct TestGeneratorPlugin: BuildToolPlugin {
     let outputPath = context.pluginWorkDirectory.appending("HyloFileTests.swift")
 
     let cmd = Command.buildCommand(
-      displayName: "Generating XCTestCases for \(inputPaths.map(\.stem)) into \(outputPath)",
+      displayName: "Generating XCTestCases into \(outputPath)",
       executable: try context.tool(named: "GenerateHyloFileTests").path,
       arguments: ["-o", outputPath, "-n", target.moduleName] + inputPaths,
       inputFiles: inputPaths,
