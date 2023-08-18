@@ -6,7 +6,8 @@ import NotFound //! diagnostic no such module 'NotFound'
 
 fun check<T>(_ x: T) {}
 
+let x: Hylo.Int
+
 public fun main() {
-  let x: Hylo.Int
   check<Int>(x)
 }

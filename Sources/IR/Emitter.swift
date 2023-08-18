@@ -550,16 +550,7 @@ struct Emitter {
     precondition(access == .let || access == .inout)
     precondition(program.isLocal(d))
 
-    // Borrowed binding requires an initializer.
-    guard let initializer = ast[d].initializer else {
-      report(.error(binding: access, requiresInitializerAt: program[d].pattern.introducer.site))
-      for (_, name) in ast.names(in: program[d].pattern.subpattern) {
-        let t = canonical(program[program[name].decl].type)
-        frames[ast[name].decl] = .constant(Poison(type: .address(t)))
-      }
-      return
-    }
-
+    let initializer = ast[d].initializer!
     let source = emitLValue(initializer)
     let isSink = module.isSink(source)
 
@@ -2593,12 +2584,6 @@ extension Diagnostic {
     assignmentLHSRequiresMutationMarkerAt site: SourceRange
   ) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
-  }
-
-  fileprivate static func error(
-    binding a: AccessEffect, requiresInitializerAt site: SourceRange
-  ) -> Diagnostic {
-    .error("declaration of \(a) binding requires an initializer", at: site)
   }
 
   fileprivate static func error(cannotCaptureAccessAt site: SourceRange) -> Diagnostic {
