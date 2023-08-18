@@ -109,10 +109,14 @@ public struct AnyType: TypeProtocol {
   /// A leaf type is a type whose only subtypes are itself and `Never`.
   public var isLeaf: Bool {
     switch base {
+    case let t as BoundGenericType:
+      return t.base.isLeaf
     case is ExistentialType, is LambdaType, is TypeVariable:
       return false
-    case let type as UnionType:
-      return type.elements.isEmpty
+    case let t as TypeAliasType:
+      return t.resolved.isLeaf
+    case let t as UnionType:
+      return t.elements.isEmpty
     default:
       return true
     }

@@ -76,7 +76,7 @@ struct TypeChecker {
 
     switch t.base {
     case let u as TypeAliasType:
-      return canonical(u.resolved.value, in: scopeOfUse)
+      return canonical(u.aliasee.value, in: scopeOfUse)
     case let u as BoundGenericType:
       return canonical(u, in: scopeOfUse)
     case let u as UnionType:

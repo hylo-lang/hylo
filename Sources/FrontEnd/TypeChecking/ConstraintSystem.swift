@@ -281,13 +281,26 @@ struct ConstraintSystem {
   /// If the constraint is strict, then `g.left` must be different than `g.right`.
   private mutating func solve(subtyping g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! SubtypingConstraint
-    if checker.areEquivalent(goal.left, goal.right, in: scope) {
+
+    // Note: we're not using canonical equality here since we'll be dealing with aliases and
+    // structural equivalences during unification anyway.
+    if goal.left == goal.right {
       return goal.isStrict ? .failure(failureToSolve(goal)) : .success
     }
 
     switch (goal.left.base, goal.right.base) {
+    case (let l as TypeAliasType, let r as TypeAliasType):
+      return simplify(goal, as: l.resolved, isSubtypeOf: r.resolved)
+
+    case (let l as TypeAliasType, _):
+      return simplify(goal, as: l.resolved, isSubtypeOf: goal.right)
+
+    case (_, let r as TypeAliasType):
+      return simplify(goal, as: goal.left, isSubtypeOf: r.resolved)
+
     case (let l as LambdaType, let r as LambdaType):
       return solve(subtyping: g, between: l, and: r)
+
     case (let l as UnionType, let r as UnionType):
       return solve(subtyping: g, between: l, and: r)
 
@@ -452,6 +465,15 @@ struct ConstraintSystem {
     return .product(subordinates, failureToSolve(goal))
   }
 
+  /// Returns the outcome of solving `subtype <: suprtype` as a simplification of `goal`.
+  private mutating func simplify(
+    _ goal: SubtypingConstraint, as subtype: AnyType, isSubtypeOf supertype: AnyType
+  ) -> Outcome {
+    let o = goal.origin.subordinate()
+    let s = schedule(SubtypingConstraint(subtype, supertype, strictly: goal.isStrict, origin: o))
+    return .product([s], failureToSolve(goal))
+  }
+
   /// Returns a clousre diagnosing a failure to solve `goal`.
   private mutating func failureToSolve(_ goal: SubtypingConstraint) -> DiagnoseFailure {
     { (d, m, _) in
@@ -576,7 +598,7 @@ struct ConstraintSystem {
 
     case let t as TypeAliasType:
       let c = TupleMemberConstraint(
-        t.resolved.value, at: goal.elementIndex, hasType: goal.elementType,
+        t.aliasee.value, at: goal.elementIndex, hasType: goal.elementType,
         origin: goal.origin.subordinate())
       let s = schedule(c)
       return delegate(to: [s])
