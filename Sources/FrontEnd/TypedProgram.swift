@@ -27,7 +27,7 @@ public struct TypedProgram {
   public internal(set) var patternType: [AnyPatternID: AnyType] = [:]
 
   /// A map from function and subscript declarations to their implicit captures.
-  public internal(set) var implicitCaptures: [AnyDeclID: Set<ImplicitCapture>] = [:]
+  public internal(set) var implicitCaptures: [AnyDeclID: [ImplicitCapture]] = [:]
 
   /// A map from generic declarations to their environment.
   public internal(set) var environment: [AnyDeclID: GenericEnvironment] = [:]

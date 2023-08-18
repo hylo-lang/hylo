@@ -35,6 +35,15 @@ extension Optional: Monotonic where Wrapped: Monotonic {
 
 }
 
+extension Array: Monotonic where Element: Monotonic {
+
+  mutating func updateMonotonically(_ other: [Element]) {
+    assert(elementsEqual(other.prefix(count)))
+    append(contentsOf: other.suffix(from: count))
+  }
+
+}
+
 extension Set: Monotonic {
 
   mutating func updateMonotonically(_ other: Self) {

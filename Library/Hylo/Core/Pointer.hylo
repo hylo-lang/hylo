@@ -10,6 +10,16 @@ public type Pointer<Pointee> {
     &self.value = other.value
   }
 
+  /// Creates a copy of `other`.
+  public init(_ other: MutableRawPointer) {
+    &self.value = other.value
+  }
+
+  /// Creates a null pointer.
+  public static fun null() -> Self {
+    .new(value: Builtin.zeroinitializer_ptr())
+  }
+
   /// Returns the result of applying `action` to a projection of the value referenced by `self`.
   public fun with_pointee<T>(_ action: [](Pointee) -> T) -> T {
     action(value as* (remote let Pointee))

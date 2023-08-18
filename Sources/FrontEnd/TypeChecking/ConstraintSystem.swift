@@ -452,20 +452,20 @@ struct ConstraintSystem {
     return .product(subordinates, failureToSolve(goal))
   }
 
-  /// Returns a clousre diagnosing a failure to solve `g`.
-  private mutating func failureToSolve(_ g: SubtypingConstraint) -> DiagnoseFailure {
+  /// Returns a clousre diagnosing a failure to solve `goal`.
+  private mutating func failureToSolve(_ goal: SubtypingConstraint) -> DiagnoseFailure {
     { (d, m, _) in
-      let (l, r) = (m.reify(g.left), m.reify(g.right))
-      switch g.origin.kind {
+      let (l, r) = (m.reify(goal.left), m.reify(goal.right))
+      switch goal.origin.kind {
       case .initializationWithHint:
-        d.insert(.error(cannotInitialize: r, with: l, at: g.origin.site))
+        d.insert(.error(cannotInitialize: r, with: l, at: goal.origin.site))
       case .initializationWithPattern:
-        d.insert(.error(l, doesNotMatch: r, at: g.origin.site))
+        d.insert(.error(l, doesNotMatch: r, at: goal.origin.site))
       default:
-        if g.isStrict {
-          d.insert(.error(l, isNotStrictSubtypeOf: r, at: g.origin.site))
+        if goal.isStrict {
+          d.insert(.error(l, isNotStrictSubtypeOf: r, at: goal.origin.site))
         } else {
-          d.insert(.error(l, isNotSubtypeOf: r, at: g.origin.site))
+          d.insert(.error(l, isNotSubtypeOf: r, at: goal.origin.site))
         }
       }
     }
@@ -568,18 +568,18 @@ struct ConstraintSystem {
       postpone(g)
       return nil
 
-    case let s as TupleType:
-      guard goal.elementIndex < s.elements.count else { break }
+    case let t as TupleType:
+      if goal.elementIndex >= t.elements.count { break }
+      let e = t.elements[goal.elementIndex].type
+      let s = schedule(EqualityConstraint(e, goal.elementType, origin: goal.origin.subordinate()))
+      return delegate(to: [s])
 
-      let t = s.elements[goal.elementIndex].type
-      if unify(t, goal.elementType) {
-        return .success
-      } else {
-        return .failure { (d, m, _) in
-          let (l, r) = (m.reify(t), m.reify(goal.elementType))
-          d.insert(.error(type: l, incompatibleWith: r, at: goal.origin.site))
-        }
-      }
+    case let t as TypeAliasType:
+      let c = TupleMemberConstraint(
+        t.resolved.value, at: goal.elementIndex, hasType: goal.elementType,
+        origin: goal.origin.subordinate())
+      let s = schedule(c)
+      return delegate(to: [s])
 
     default:
       // TODO: Handle bound generic typess

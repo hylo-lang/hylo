@@ -371,9 +371,8 @@ public struct Module {
   mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
     let d = program.ast.deinitRequirement()
     switch c.implementations[d]! {
-    case .concrete:
-      fatalError("not implemented")
-
+    case .concrete(let s):
+      return demandDeclaration(lowering: FunctionDecl.ID(s)!)
     case .synthetic(let s):
       return demandDeclaration(lowering: s)
     }

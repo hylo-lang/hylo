@@ -1,0 +1,60 @@
+/// A buffer of elements stored in a contiguous region of memory, whose size is determined at
+/// instance creation.
+public type DynamicBuffer<Header, Element>: Deinitializable {
+
+  /// The description of payloads in `DynamicBuffer`s.
+  typealias BufferHeader = {
+    capacity: Int,
+    payload_header: Header
+  }
+
+  /// Returns the number of bytes from a base pointer to the payload in instances of `Self`.
+  static fun payload_offset() -> Int {
+    let a = MemoryLayout<Element>.alignment()
+    let s = MemoryLayout<BufferHeader>.size()
+    return s + (a - s % a) % a
+  }
+
+  /// A pointer to the base of the buffer's out-of-line storage.
+  ///
+  /// A null value denotes an empty buffer. Otherwise, `storage` points at an instance of
+  /// `BufferHeader` that is followed by a region capable of storing at most `self.capacity`
+  /// instances of `Element`, offset to satisfy `Element`'s alignment requirement'.
+  var storage: MutableRawPointer
+
+  /// Creates an empty instance.
+  public init() {
+    &storage = .null()
+  }
+
+  /// Creates an instance for storing `capacity` instances of `Element` and calling `init_header`
+  /// to initialize a `Header`.
+  public init<E>(
+    capacity: Int,
+    initializing_header_with init_header: [E](set Header) -> Void
+  ) {
+    &storage = .allocate(
+      count: Self.payload_offset() + capacity * MemoryLayout<Element>.stride(),
+      aligned_at: MemoryLayout<BufferHeader>.alignment())
+
+    let p = MutablePointer<BufferHeader>(storage)
+    p.with_uninitialized_pointee(fun (_ h: set BufferHeader) -> Void {
+      &h.0 = capacity.copy()
+      init_header(&h.1)
+    })
+  }
+
+  /// Deinitializes `self`.
+  public fun deinit() sink {
+    storage.deallocate()
+  }
+
+  /// The number of elements that can be stored in `self`.
+  public fun capacity() -> Int {
+    let p = Pointer<BufferHeader>(storage)
+    return p.with_pointee(fun (_ h: BufferHeader) -> Int {
+      h.0.copy()
+    })
+  }
+
+}

@@ -147,12 +147,12 @@ extension LLVM.Module {
   /// - Note: the type of a function in Hylo IR typically doesn't match the type of its transpiled
   ///   form 1-to-1, as return values are often passed by references.
   private mutating func transpiledType(_ t: LambdaType) -> LLVM.FunctionType {
-    // Return values are passed by reference.
+    // Return value is passed by reference.
     var parameters: Int = t.inputs.count + 1
 
-    // Environments are passed before explicit arguments.
+    // Environment is passed before explicit arguments.
     if t.environment != .void {
-      parameters += 1
+      parameters += t.captures.count
     }
 
     return .init(from: Array(repeating: ptr, count: parameters), to: void, in: &self)
@@ -439,12 +439,13 @@ extension LLVM.Module {
   private mutating func configureAttributes(
     _ llvmFunction: LLVM.Function, transpiledFrom f: IR.Function.ID, of m: IR.Module
   ) {
-    switch m[f].linkage {
-    case .external:
-      setLinkage(.external, for: llvmFunction)
-    case .module:
-      setLinkage(.private, for: llvmFunction)
-    }
+    // FIXME: See #888
+    // switch m[f].linkage {
+    // case .external:
+    //   setLinkage(.external, for: llvmFunction)
+    // case .module:
+    //   setLinkage(.private, for: llvmFunction)
+    // }
 
     // Functions that return `Never` have the `noreturn` attribute.
     if !m[f].isSubscript && (m[f].output == .never) {
@@ -655,7 +656,7 @@ extension LLVM.Module {
       let s = m[i] as! Call
       var arguments: [LLVM.IRValue] = []
 
-      // Callee is evaluated first.
+      // Callee is evaluated first; environment is passed before explicit arguments.
       let callee = unpackCallee(of: s.callee)
       arguments.append(contentsOf: callee.environment)
 
