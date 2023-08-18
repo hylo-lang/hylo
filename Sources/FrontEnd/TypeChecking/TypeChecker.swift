@@ -3223,7 +3223,7 @@ struct TypeChecker {
   ) -> ConstraintSet {
     let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
 
-    let origin = ConstraintOrigin(.binding, at: site)
+    let origin = ConstraintOrigin(.whereClause, at: site)
     var result = ConstraintSet()
     for s in program.scopes(from: program[d].scope) {
       if s == lca { break }
