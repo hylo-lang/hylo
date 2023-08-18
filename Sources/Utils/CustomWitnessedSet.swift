@@ -22,6 +22,11 @@ public struct CustomWitnessedSet<Witness: HashableWitness> {
     contents.reserveCapacity(minimumCapacity)
   }
 
+  /// Removes and returns an element from `self`.
+  public mutating func popFirst() -> Element? {
+    contents.popFirst()?.base
+  }
+
 }
 
 extension CustomWitnessedSet: Collection {
