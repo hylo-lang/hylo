@@ -3221,6 +3221,7 @@ struct TypeChecker {
     associatedWith d: AnyDeclID, specializedBy specialization: GenericArguments,
     in scopeOfUse: AnyScopeID, at site: SourceRange
   ) -> ConstraintSet {
+    if d.kind == ModuleDecl.self { return [] }
     let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
 
     let origin = ConstraintOrigin(.whereClause, at: site)
