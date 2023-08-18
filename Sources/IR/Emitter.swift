@@ -546,17 +546,9 @@ struct Emitter {
   ///
   /// - Requires: `d` is a local `let` or `inout` binding.
   private mutating func lower(projectedLocalBinding d: BindingDecl.ID) {
+    let access = AccessEffect(program[d].pattern.introducer.value)
+    precondition(access == .let || access == .inout)
     precondition(program.isLocal(d))
-
-    let access: AccessEffect
-    switch program[d].pattern.introducer.value {
-    case .let:
-      access = .let
-    case .inout:
-      access = .inout
-    default:
-      preconditionFailure()
-    }
 
     // Borrowed binding requires an initializer.
     guard let initializer = ast[d].initializer else {
