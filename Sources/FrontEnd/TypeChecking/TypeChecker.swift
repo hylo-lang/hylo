@@ -149,7 +149,7 @@ struct TypeChecker {
     // Conformances of other generic parameters are stored in generic environments.
     var result = Set<TraitType>()
     for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
-      let e = environment(of: s)
+      let e = environment(of: s)!
       result.formUnion(e.conformedTraits(of: ^t))
     }
 
@@ -1161,9 +1161,13 @@ struct TypeChecker {
     return s.typeAssumptions.reify(t)
   }
 
-  /// Returns the generic environment introduced by `s`.
-  private mutating func environment(of s: AnyScopeID) -> GenericEnvironment {
+  /// Returns the generic environment introduced by `s`, if any.
+  private mutating func environment(of s: AnyScopeID) -> GenericEnvironment? {
     switch s.kind {
+    case ConformanceDecl.self:
+      return environment(of: ConformanceDecl.ID(s)!)
+    case ExtensionDecl.self:
+      return environment(of: ExtensionDecl.ID(s)!)
     case FunctionDecl.self:
       return environment(of: FunctionDecl.ID(s)!)
     case InitializerDecl.self:
@@ -1179,7 +1183,7 @@ struct TypeChecker {
     case TraitDecl.self:
       return environment(of: TraitDecl.ID(s)!)
     default:
-      unexpected(s, in: program.ast)
+      return nil
     }
   }
 
