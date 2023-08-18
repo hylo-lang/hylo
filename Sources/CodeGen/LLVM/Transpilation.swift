@@ -192,10 +192,6 @@ extension LLVM.Module {
     case let v as TraitType:
       return transpiledTrait(v, usedIn: m, from: ir)
 
-    case is IR.Poison:
-      let t = ir.llvm(c.type.ast, in: &self)
-      return LLVM.Poison(of: t)
-
     case is IR.VoidConstant:
       return LLVM.StructConstant(aggregating: [], in: &self)
 
