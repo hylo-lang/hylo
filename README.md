@@ -13,7 +13,7 @@ Please visit our [website](https://hylo-lang.org) to get more information about 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.7 or higher to build the compiler from sources.
 
-*Note to Windows users: although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see https://github.com/hylo-lang/hyloc/issues/252 and https://github.com/hylo-lang/hyloc/issues/805).*
+*Note to Windows users: although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see https://github.com/hylo-lang/hylo/issues/252 and https://github.com/hylo-lang/hylo/issues/805).*
 
 ### Prerequisites
 
@@ -37,7 +37,7 @@ You may compile Hylo's compiler with the following commands:
 swift build -c release
 ```
 
-That command will create an executable named `hyloc` in `.build/release`.
+That command will create an executable named `hc` in `.build/release`.
 That's Hylo's compiler!
 
 ### Running the tests
@@ -86,7 +86,7 @@ You can select how deep the compiler should go through the pipeline with the fol
 - `--emit intel-asm`: Output Intel assembly for all user module(s).
 - `--emit binary` (default): Produce an executable.
 
-For example, `hyloc --emit raw-ast -o main.json main.hylo` will parse `main.hylo`, write the untyped AST in `main.json`, and exit the pipeline.
+For example, `hc --emit raw-ast -o main.json main.hylo` will parse `main.hylo`, write the untyped AST in `main.json`, and exit the pipeline.
 
 A more detailed description of the current implementation status is available on our [roadmap page](https://www.hylo-lang.org/pages/implementation-status.html).
 

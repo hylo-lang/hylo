@@ -32,7 +32,7 @@ public struct Driver: ParsableCommand {
     case binary = "binary"
   }
 
-  public static let configuration = CommandConfiguration(commandName: "hyloc")
+  public static let configuration = CommandConfiguration(commandName: "hc")
 
   @Flag(
     name: [.customLong("modules")],

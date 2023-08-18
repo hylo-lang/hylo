@@ -14,7 +14,7 @@ let package = Package(
   ],
 
   products: [
-    .executable(name: "hyloc", targets: ["CLI"])
+    .executable(name: "hc", targets: ["CLI"])
   ],
 
   dependencies: [

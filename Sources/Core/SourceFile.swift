@@ -287,7 +287,7 @@ extension SourceFile: CustomStringConvertible {
 
 }
 
-/// Given a collection of file and directory paths as specified on the hyloc command line, returns
+/// Given a collection of file and directory paths as specified on the hc command line, returns
 /// the actual source files to process.
 ///
 /// Paths of files in `sourcePaths` are unconditionally treated as Hylo source files. Paths of

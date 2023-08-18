@@ -3,7 +3,7 @@
 ## Usage
 
 ```bash
-hyloc [--modules] [--import-builtin] [--no-std] [--typecheck] [--trace-inference <file:line>] [--emit <output-type>] [-o <file>] [--verbose] [<inputs> ...]
+hc [--modules] [--import-builtin] [--no-std] [--typecheck] [--trace-inference <file:line>] [--emit <output-type>] [-o <file>] [--verbose] [<inputs> ...]
 ```
 
 Compiles `<inputs>` and produces an output `<file>` of the specified `<output-type>`.
@@ -32,7 +32,7 @@ public fun greet(_ name: String) {
 ```
 
 ```bash
-hyloc --modules Sources/Hello Sources/Greet -o hello
+hc --modules Sources/Hello Sources/Greet -o hello
 ```
 
 Running this command will:
@@ -59,7 +59,7 @@ Enable tracing of type inference requests at the given line.
 **Example:**
 
 ```bash
-hyloc --typecheck --trace-inference main.hylo:16 main.hylo
+hc --typecheck --trace-inference main.hylo:16 main.hylo
 ```
 
 Running this command will show a trace of the type constraint solver for all root expressions at line 16 of `main.hylo`.
@@ -79,7 +79,7 @@ Emit the specified output type (default: `binary`).  Each type represents a stag
 
 **Example:**
 ```bash
-hyloc --emit raw-ast -o main.json main.hylo
+hc --emit raw-ast -o main.json main.hylo
 ```
 Running this command will parse `main.hylo`, write the untyped AST in `main.json`, and exit the compilation pipeline.
 
