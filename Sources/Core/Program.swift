@@ -285,6 +285,20 @@ extension Program {
     LexicalScopeSequence(scopeToParent: nodeToScope, from: scope)
   }
 
+  /// Returns the innermost scope that is a common ancestor of `a` and `b` or `nil` if `a` and `b`
+  /// are in different modules.
+  public func innermostCommonScope(_ a: AnyScopeID, _ b: AnyScopeID) -> AnyScopeID? {
+    let x = scopes(from: a).reversed()
+    let y = scopes(from: b).reversed()
+
+    var result: AnyScopeID?
+    for i in x.indices {
+      if (i == y.count) || (x[i] != y[i]) { break }
+      result = x[i]
+    }
+    return result
+  }
+
   /// Returns the module containing `scope`.
   public func module<S: ScopeID>(containing scope: S) -> ModuleDecl.ID {
     scopes(from: scope).first(ModuleDecl.self)!
