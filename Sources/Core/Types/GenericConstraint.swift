@@ -10,8 +10,8 @@ public struct GenericConstraint: Hashable {
     /// A constraint specifying that `lhs` is an instance of `rhs`, defined at `site`.
     case instance(_ lhs: AnyExprID, _ rhs: AnyType)
 
-    /// A constraint specifying that `lhs` conforms to the trais in `rhs`, defined at `site`.
-    case conformance(_ lhs: AnyType, _ rhs: Set<TraitType>)
+    /// A constraint specifying that `lhs` conforms to trait `rhs`, defined at `site`.
+    case conformance(_ lhs: AnyType, _ rhs: TraitType)
 
     /// A constraint specifying that the payload evaluates to `true`.
     case predicate(AnyExprID)

@@ -1233,9 +1233,9 @@ struct TypeChecker {
     // Synthesize `Self: T`.
     let s = GenericTypeParameterType(receiver, ast: program.ast)
     let t = TraitType(uncheckedType(of: d))!
-    let c = GenericConstraint(
-      .conformance(^s, conformedTraits(of: t, in: AnyScopeID(d))), at: program[d].identifier.site)
-    result.insertConstraint(c)
+    for c in conformedTraits(of: t, in: AnyScopeID(d)) {
+      result.insertConstraint(.init(.conformance(^s, c), at: program[d].identifier.site))
+    }
 
     cache.write(result, at: \.environment[d])
     return result
@@ -1286,8 +1286,9 @@ struct TypeChecker {
 
     // Synthesize sugared conformance constraint, if any.
     for (n, t) in evalTraitComposition(program[p].conformances) {
-      let concepts = conformedTraits(of: t, in: program[p].scope)
-      e.insertConstraint(.init(.conformance(lhs, concepts), at: program[n].site))
+      for c in conformedTraits(of: t, in: program[p].scope) {
+        e.insertConstraint(.init(.conformance(lhs, c), at: program[n].site))
+      }
     }
   }
 
@@ -1315,11 +1316,9 @@ struct TypeChecker {
         return
       }
 
-      var rhs: Set<TraitType> = []
-      for (_, t) in evalTraitComposition(r) {
-        rhs.formUnion(conformedTraits(of: t, in: program[l].scope))
+      for (_, rhs) in evalTraitComposition(r) {
+        e.insertConstraint(.init(.conformance(lhs, rhs), at: c.site))
       }
-      e.insertConstraint(.init(.conformance(lhs, rhs), at: c.site))
 
     case .value(let p):
       // TODO: Symbolic execution
