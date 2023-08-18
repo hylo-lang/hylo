@@ -1,7 +1,7 @@
 import Core
 import Utils
 
-/// A type consraint used to perform type checking or inference.
+/// A constraint used to perform type checking or inference.
 ///
 /// A constraint is a predicate over one or multiple types, including type variables, that must be
 /// satisfied in order for a program to be well-typed. Constraints also server to infer implicit

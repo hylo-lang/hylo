@@ -60,23 +60,6 @@ extension Program {
     isContained(l, in: r) || isContained(r, in: l)
   }
 
-  /// Returns the scope introducing `d`.
-  public func scopeIntroducing(_ d: AnyDeclID) -> AnyScopeID {
-    switch d.kind {
-    case InitializerDecl.self:
-      return scopeIntroducing(initializer: .init(d)!)
-    case ModuleDecl.self:
-      return AnyScopeID(ModuleDecl.ID(d)!)
-    default:
-      return nodeToScope[d]!
-    }
-  }
-
-  /// Returns the scope introducing `d`.
-  public func scopeIntroducing(initializer d: InitializerDecl.ID) -> AnyScopeID {
-    nodeToScope[nodeToScope[d]!]!
-  }
-
   /// Returns the scope of `d`'s body, if any.
   public func scopeContainingBody(of d: FunctionDecl.ID) -> AnyScopeID? {
     switch ast[d].body {
@@ -300,6 +283,20 @@ extension Program {
   /// Returns a sequence containing `scope` and all its ancestors, from inner to outer.
   public func scopes<S: ScopeID>(from scope: S) -> LexicalScopeSequence {
     LexicalScopeSequence(scopeToParent: nodeToScope, from: scope)
+  }
+
+  /// Returns the innermost scope that is a common ancestor of `a` and `b` or `nil` if `a` and `b`
+  /// are in different modules.
+  public func innermostCommonScope(_ a: AnyScopeID, _ b: AnyScopeID) -> AnyScopeID? {
+    let x = scopes(from: a).reversed()
+    let y = scopes(from: b).reversed()
+
+    var result: AnyScopeID?
+    for i in x.indices {
+      if (i == y.count) || (x[i] != y[i]) { break }
+      result = x[i]
+    }
+    return result
   }
 
   /// Returns the module containing `scope`.

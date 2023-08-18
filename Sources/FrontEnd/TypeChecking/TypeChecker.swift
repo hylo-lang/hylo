@@ -132,6 +132,8 @@ struct TypeChecker {
       return conformedTraits(of: u, in: scopeOfUse)
     case let u as TraitType:
       return conformedTraits(of: u, in: scopeOfUse)
+    case let u as WitnessType:
+      return conformedTraits(of: u, in: scopeOfUse)
     default:
       return conformedTraits(declaredInExtensionsOf: t, exposedTo: scopeOfUse)
     }
@@ -149,7 +151,7 @@ struct TypeChecker {
     // Conformances of other generic parameters are stored in generic environments.
     var result = Set<TraitType>()
     for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
-      let e = environment(of: s)
+      let e = environment(of: s)!
       result.formUnion(e.conformedTraits(of: ^t))
     }
 
@@ -190,6 +192,21 @@ struct TypeChecker {
 
     // Traits can't be refined in extensions; we're done.
     return result
+  }
+
+  /// Returns the traits to which `t` can be assumed to be conforming in `scopeOfUse`.
+  private mutating func conformedTraits(
+    of t: WitnessType, in scopeOfUse: AnyScopeID
+  ) -> Set<TraitType> {
+    switch t.container.interface {
+    case .traits(let traits):
+      return traits.reduce(into: []) { (r, c) in
+        r.formUnion(conformedTraits(of: c, in: scopeOfUse))
+      }
+
+    default:
+      fatalError("not implemented")
+    }
   }
 
   /// Returns the traits to which `t` is declared conforming by conformance declarations exposed
@@ -289,6 +306,27 @@ struct TypeChecker {
         arguments[p] = specialization[p] ?? ^me.freshVariable()
       }
       return ^BoundGenericType(t, arguments: arguments)
+    }
+  }
+
+  /// Returns the type checking constraint anchored at `origin` that spedcializes `generic` by
+  /// applying `self.specialize` on its types for `specialization` in `scopeOfUse`.
+  private mutating func specialize(
+    _ generic: GenericConstraint, for specialization: GenericArguments, in scopeOfUse: AnyScopeID,
+    origin: ConstraintOrigin
+  ) -> Constraint {
+    switch generic.value {
+    case .conformance(let lhs, let rhs):
+      let a = specialize(lhs, for: specialization, in: scopeOfUse)
+      return ConformanceConstraint(a, conformsTo: rhs, origin: origin)
+
+    case .equality(let lhs, let rhs):
+      let a = specialize(lhs, for: specialization, in: scopeOfUse)
+      let b = specialize(rhs, for: specialization, in: scopeOfUse)
+      return EqualityConstraint(a, b, origin: origin)
+
+    case .instance, .predicate:
+      fatalError("not implemented")
     }
   }
 
@@ -1161,9 +1199,13 @@ struct TypeChecker {
     return s.typeAssumptions.reify(t)
   }
 
-  /// Returns the generic environment introduced by `s`.
-  private mutating func environment(of s: AnyScopeID) -> GenericEnvironment {
+  /// Returns the generic environment introduced by `s`, if any.
+  private mutating func environment(of s: AnyScopeID) -> GenericEnvironment? {
     switch s.kind {
+    case ConformanceDecl.self:
+      return environment(of: ConformanceDecl.ID(s)!)
+    case ExtensionDecl.self:
+      return environment(of: ExtensionDecl.ID(s)!)
     case FunctionDecl.self:
       return environment(of: FunctionDecl.ID(s)!)
     case InitializerDecl.self:
@@ -1179,7 +1221,7 @@ struct TypeChecker {
     case TraitDecl.self:
       return environment(of: TraitDecl.ID(s)!)
     default:
-      unexpected(s, in: program.ast)
+      return nil
     }
   }
 
@@ -1233,9 +1275,9 @@ struct TypeChecker {
     // Synthesize `Self: T`.
     let s = GenericTypeParameterType(receiver, ast: program.ast)
     let t = TraitType(uncheckedType(of: d))!
-    let c = GenericConstraint(
-      .conformance(^s, conformedTraits(of: t, in: AnyScopeID(d))), at: program[d].identifier.site)
-    result.insertConstraint(c)
+    for c in conformedTraits(of: t, in: AnyScopeID(d)) {
+      result.insertConstraint(.init(.conformance(^s, c), at: program[d].identifier.site))
+    }
 
     cache.write(result, at: \.environment[d])
     return result
@@ -1286,8 +1328,9 @@ struct TypeChecker {
 
     // Synthesize sugared conformance constraint, if any.
     for (n, t) in evalTraitComposition(program[p].conformances) {
-      let concepts = conformedTraits(of: t, in: program[p].scope)
-      e.insertConstraint(.init(.conformance(lhs, concepts), at: program[n].site))
+      for c in conformedTraits(of: t, in: program[p].scope) {
+        e.insertConstraint(.init(.conformance(lhs, c), at: program[n].site))
+      }
     }
   }
 
@@ -1315,11 +1358,9 @@ struct TypeChecker {
         return
       }
 
-      var rhs: Set<TraitType> = []
-      for (_, t) in evalTraitComposition(r) {
-        rhs.formUnion(conformedTraits(of: t, in: program[l].scope))
+      for (_, rhs) in evalTraitComposition(r) {
+        e.insertConstraint(.init(.conformance(lhs, rhs), at: c.site))
       }
-      e.insertConstraint(.init(.conformance(lhs, rhs), at: c.site))
 
     case .value(let p):
       // TODO: Symbolic execution
@@ -2702,6 +2743,8 @@ struct TypeChecker {
     switch t.base {
     case let u as ProductType:
       return AnyScopeID(u.decl)
+    case let u as TraitType:
+      return AnyScopeID(u.decl)
     case let u as TypeAliasType:
       return AnyScopeID(u.decl)
     default:
@@ -2843,6 +2886,15 @@ struct TypeChecker {
         passedTo: m, typed: candidateType, referredToBy: name, specializedBy: arguments,
         reportingDiagnosticsTo: &log)
 
+      // The specialization of the match includes that of context in which it was looked up.
+      var specialization = context?.arguments ?? [:]
+
+      // If the match is a trait requirement, specialize its receiver as necessary.
+      if let t = program.trait(defining: m) {
+        assert(specialization[program[t].receiver] == nil)
+        specialization[program[t].receiver] = context?.type
+      }
+
       // If the name resolves to an initializer, determine if it is used as a constructor.
       let isConstructor =
         (m.kind == InitializerDecl.self)
@@ -2852,14 +2904,11 @@ struct TypeChecker {
       }
 
       // If the receiver is an existential, replace its receiver.
-      if let t = ExistentialType(context?.type) {
-        candidateType = candidateType.asMember(of: t)
-      }
-
-      // If the match is introduced in a trait, specialize its receiver as necessary.
-      var specialization = context?.arguments ?? [:]
-      if let concept = TraitDecl.ID(program.scopeIntroducing(m)), let model = context?.type {
-        specialization[program[concept].receiver] = model
+      if let container = ExistentialType(context?.type) {
+        candidateType = candidateType.asMember(of: container)
+        if let t = program.trait(defining: m) {
+          specialization[program[t].receiver] = ^WitnessType(of: container)
+        }
       }
 
       specialization.append(candidateSpecialization)
@@ -2882,8 +2931,10 @@ struct TypeChecker {
         log.insert(.error(invalidUseOfAssociatedType: name.value.stem, at: name.site))
       }
 
+      let cs = collectConstraints(
+        associatedWith: m, specializedBy: specialization, in: scopeOfUse, at: name.site)
       candidates.insert(
-        .init(reference: r, type: candidateType, constraints: [], diagnostics: log))
+        .init(reference: r, type: candidateType, constraints: cs, diagnostics: log))
     }
 
     return candidates
@@ -3085,6 +3136,8 @@ struct TypeChecker {
     switch t.base {
     case let u as ProductType:
       return resolveReceiverMetatype(in: u.decl)
+    case let u as TraitType:
+      return resolveReceiverMetatype(in: u.decl)
     case let u as TypeAliasType:
       return resolveReceiverMetatype(in: u.decl)
     default:
@@ -3182,6 +3235,28 @@ struct TypeChecker {
     return result
   }
 
+  /// Returns the type checking constraints associated with a reference to `d` in `scopeOfUse`,
+  /// anchoring those constraints at `site`.
+  private mutating func collectConstraints(
+    associatedWith d: AnyDeclID, specializedBy specialization: GenericArguments,
+    in scopeOfUse: AnyScopeID, at site: SourceRange
+  ) -> ConstraintSet {
+    if d.kind == ModuleDecl.self { return [] }
+    let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
+
+    let origin = ConstraintOrigin(.whereClause, at: site)
+    var result = ConstraintSet()
+    for s in program.scopes(from: program[d].scope) {
+      if s == lca { break }
+      if let e = environment(of: s) {
+        for c in e.constraints {
+          result.insert(specialize(c, for: specialization, in: scopeOfUse, origin: origin))
+        }
+      }
+    }
+    return result
+  }
+
   // MARK: Quantifier elimination
 
   /// A context in which a generic parameter can be instantiated.
@@ -3197,7 +3272,7 @@ struct TypeChecker {
 
   /// Creates a context for instantiating generic parameters used in `scopeOfUse`.
   private mutating func instantiationContext(in scopeOfUse: AnyScopeID) -> InstantiationContext {
-    .init(scopeOfUse: AnyScopeID(scopeOfUse), extendedScope: bridgedScope(of: scopeOfUse))
+    .init(scopeOfUse: scopeOfUse, extendedScope: bridgedScope(of: scopeOfUse))
   }
 
   /// Creates a context for instantiating generic parameters used in `scopeOfUse` by a name
@@ -3237,16 +3312,20 @@ struct TypeChecker {
     let ctx = instantiationContext(candidate.reference, in: scopeOfUse)
 
     let t = instantiate(candidate.type, in: ctx, cause: cause, updating: &substitutions)
+    var cs = candidate.constraints.union(t.constraints)
+
     let r = candidate.reference.modifyingArguments(mutating: &substitutions) { (s, v) in
       let v = (v as? AnyType) ?? fatalError("not implemented")
       let x = instantiate(v, in: ctx, cause: cause, updating: &s)
-      assert(x.constraints.isEmpty, "not implemented")
+      cs.formUnion(x.constraints)
       return x.shape
     }
 
-    assert(candidate.constraints.isEmpty, "not implemented")
-    return .init(
-      reference: r, type: t.shape, constraints: t.constraints, diagnostics: candidate.diagnostics)
+    instantiate(
+      constraints: &cs, in: ctx, updating: &substitutions,
+      anchoringInstantiationConstraintsAt: cause)
+
+    return .init(reference: r, type: t.shape, constraints: cs, diagnostics: candidate.diagnostics)
   }
 
   /// Replaces the generic parameters in `subject` by fresh variables if their environments don't
@@ -3292,6 +3371,26 @@ struct TypeChecker {
 
     let shape = subject.transform(mutating: &self, instantiate(mutating:type:))
     return InstantiatedType(shape: shape, constraints: [])
+  }
+
+  /// Instantiates the contents of `constraints` in `contextOfUse`, updating `substitutions` with
+  /// opened generic parameters and anchoring instantiation constraints at `cause`.
+  private mutating func instantiate(
+    constraints: inout ConstraintSet, in contextOfUse: InstantiationContext,
+    updating substitutions: inout [GenericParameterDecl.ID: AnyType],
+    anchoringInstantiationConstraintsAt cause: ConstraintOrigin
+  ) {
+    var work = ConstraintSet()
+    swap(&work, &constraints)
+
+    while var c = work.popFirst() {
+      c.modifyTypes { (t) in
+        let x = instantiate(t, in: contextOfUse, cause: cause, updating: &substitutions)
+        work.formUnion(x.constraints)
+        return x.shape
+      }
+      constraints.insert(c)
+    }
   }
 
   /// Returns `true` iff `contextOfUse` is not contained in `p`'s environment.
