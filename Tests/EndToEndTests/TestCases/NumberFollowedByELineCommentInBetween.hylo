@@ -1,0 +1,8 @@
+//- compileAndRun expecting: success
+
+fun eat(_ x: sink Int) {}
+
+public fun main() {
+  var x = 0 //hello
+  eat(x)
+}
