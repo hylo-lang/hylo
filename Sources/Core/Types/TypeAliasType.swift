@@ -23,6 +23,18 @@ public struct TypeAliasType: TypeProtocol {
     self.flags = resolved.flags.removing(.isCanonical)
   }
 
+  /// The transitive aliasee of this alias.
+  ///
+  /// If `aliasee.value` is another alias `a`, this property is equal to `a.resolved`. Otherwise,
+  /// it is equal to `aliasee.value`. In either case, `resolved` is not necessarily canonical.
+  public var resolved: AnyType {
+    if let a = TypeAliasType(aliasee.value) {
+      return a.resolved
+    } else {
+      return aliasee.value
+    }
+  }
+
 }
 
 extension TypeAliasType: CustomStringConvertible {
