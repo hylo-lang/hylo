@@ -576,7 +576,7 @@ struct ConstraintSystem {
 
     case let t as TypeAliasType:
       let c = TupleMemberConstraint(
-        t.resolved.value, at: goal.elementIndex, hasType: goal.elementType,
+        t.aliasee.value, at: goal.elementIndex, hasType: goal.elementType,
         origin: goal.origin.subordinate())
       let s = schedule(c)
       return delegate(to: [s])
