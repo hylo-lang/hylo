@@ -2845,6 +2845,15 @@ struct TypeChecker {
         passedTo: m, typed: candidateType, referredToBy: name, specializedBy: arguments,
         reportingDiagnosticsTo: &log)
 
+      // The specialization of the match includes that of context in which it was looked up.
+      var specialization = context?.arguments ?? [:]
+
+      // If the match is a trait requirement, specialize its receiver as necessary.
+      if let t = program.trait(defining: m) {
+        assert(specialization[program[t].receiver] == nil)
+        specialization[program[t].receiver] = context?.type
+      }
+
       // If the name resolves to an initializer, determine if it is used as a constructor.
       let isConstructor =
         (m.kind == InitializerDecl.self)
@@ -2858,7 +2867,6 @@ struct TypeChecker {
         candidateType = candidateType.asMember(of: t)
       }
 
-      var specialization = context?.arguments ?? [:]
       specialization.append(candidateSpecialization)
       candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
 
