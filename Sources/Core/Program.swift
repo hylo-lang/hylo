@@ -60,23 +60,6 @@ extension Program {
     isContained(l, in: r) || isContained(r, in: l)
   }
 
-  /// Returns the scope introducing `d`.
-  public func scopeIntroducing(_ d: AnyDeclID) -> AnyScopeID {
-    switch d.kind {
-    case InitializerDecl.self:
-      return scopeIntroducing(initializer: .init(d)!)
-    case ModuleDecl.self:
-      return AnyScopeID(ModuleDecl.ID(d)!)
-    default:
-      return nodeToScope[d]!
-    }
-  }
-
-  /// Returns the scope introducing `d`.
-  public func scopeIntroducing(initializer d: InitializerDecl.ID) -> AnyScopeID {
-    nodeToScope[nodeToScope[d]!]!
-  }
-
   /// Returns the scope of `d`'s body, if any.
   public func scopeContainingBody(of d: FunctionDecl.ID) -> AnyScopeID? {
     switch ast[d].body {
