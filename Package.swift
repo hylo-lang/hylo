@@ -106,7 +106,7 @@ let package = Package(
 
     .target(
       name: "TestUtils",
-      dependencies: ["Core", "Utils"],
+      dependencies: ["Core", "Driver", "Utils"],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
@@ -134,6 +134,11 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
+      name: "DriverTests",
+      dependencies: ["Driver"],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
       name: "ManglingTests",
       dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings),
@@ -145,12 +150,13 @@ let package = Package(
       plugins: ["TestGeneratorPlugin"]),
 
     .testTarget(
-      name: "DriverTests",
-      dependencies: ["Driver"],
-      swiftSettings: allTargetsSwiftSettings),
+      name: "EndToEndTests",
+      dependencies: ["Driver", "TestUtils"],
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: ["TestGeneratorPlugin"]),
 
     .testTarget(
-      name: "EndToEndTests",
+      name: "LibraryTests",
       dependencies: ["Driver", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
