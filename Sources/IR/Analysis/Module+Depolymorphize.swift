@@ -133,28 +133,27 @@ extension Module {
       return result
     }
 
+    let sourceModule = ir.modules[ir.module(defining: f)]!
     var rewrittenBlocks: [Block.ID: Block.ID] = [:]
     var rewrittenIntructions: [InstructionID: InstructionID] = [:]
 
-    // Iterate over the basic blocks of the source function in a way that guarantees we always
-    // visit definitions before their uses.
-    let sourceModule = ir.modules[ir.module(defining: f)]!
-    let cfg = sourceModule[f].cfg()
-    let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: sourceModule).bfs
-
-    for b in sourceBlocks {
+    for b in sourceModule[f].blocks.addresses {
       let source = Block.ID(f, b)
-
-      // Rewrite the source block in the monomorphized function.
       let inputs = sourceModule[source].inputs.map { (t) in
         monomorphize(t, for: specialization, in: scopeOfUse)
       }
-      let target = Block.ID(
+      rewrittenBlocks[source] = Block.ID(
         result,
         self[result].appendBlock(in: sourceModule[source].scope, taking: inputs))
-      rewrittenBlocks[source] = target
+    }
 
-      // Rewrite all instructions from the source block.
+    // Iterate over the basic blocks of the source function in a way that guarantees we always
+    // visit definitions before their uses.
+    let cfg = sourceModule[f].cfg()
+    let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: sourceModule).bfs
+    for b in sourceBlocks {
+      let source = Block.ID(f, b)
+      let target = rewrittenBlocks[source]!
       for i in sourceModule[source].instructions.addresses {
         rewrite(InstructionID(source, i), to: target)
       }
