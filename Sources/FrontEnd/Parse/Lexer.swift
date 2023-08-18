@@ -27,15 +27,9 @@ public struct Lexer: IteratorProtocol, Sequence {
     while true {
       if index == sourceCode.text.endIndex { return nil }
 
-      // Skip newlines.
-      if sourceCode.text[index].isNewline {
-        previousTokenWasInt = false
-        discard()
-        continue
-      }
-
       // Skip whitespaces.
       if sourceCode.text[index].isWhitespace {
+        previousTokenWasInt = false
         discard()
         continue
       }
