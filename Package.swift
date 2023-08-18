@@ -106,7 +106,7 @@ let package = Package(
 
     .target(
       name: "TestUtils",
-      dependencies: ["Core", "Utils"],
+      dependencies: ["Core", "Driver", "Utils"],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
