@@ -85,7 +85,7 @@ jobs:
         export PKG_CONFIG_PATH
         for TARGET in ${EXTRACTION_TARGETS}; do
           mkdir -p _site/docc/"$TARGET"
-          swift package --allow-writing-to-directory ./_site \
+          Tools/retry-once swift package --allow-writing-to-directory ./_site \
           generate-documentation \
           --target "$TARGET" \
           --output-path _site/docc/"${TARGET}" \
