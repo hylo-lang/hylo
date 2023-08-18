@@ -81,14 +81,14 @@ public struct GenericEnvironment {
     }
   }
 
-  private mutating func registerConformance(_ l: AnyType, to traits: Set<TraitType>) {
+  private mutating func registerConformance(_ l: AnyType, to trait: TraitType) {
     if let i = ledger[l] {
       // `l` is part of a class.
-      entries[i].conformances.formUnion(traits)
+      entries[i].conformances.insert(trait)
     } else {
       // `l` isn't part of a class.
       ledger[l] = entries.count
-      entries.append(.init(equivalences: [l], conformances: traits))
+      entries.append(.init(equivalences: [l], conformances: [trait]))
     }
   }
 

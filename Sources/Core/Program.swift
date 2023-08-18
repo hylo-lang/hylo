@@ -60,23 +60,6 @@ extension Program {
     isContained(l, in: r) || isContained(r, in: l)
   }
 
-  /// Returns the scope introducing `d`.
-  public func scopeIntroducing(_ d: AnyDeclID) -> AnyScopeID {
-    switch d.kind {
-    case InitializerDecl.self:
-      return scopeIntroducing(initializer: .init(d)!)
-    case ModuleDecl.self:
-      return AnyScopeID(ModuleDecl.ID(d)!)
-    default:
-      return nodeToScope[d]!
-    }
-  }
-
-  /// Returns the scope introducing `d`.
-  public func scopeIntroducing(initializer d: InitializerDecl.ID) -> AnyScopeID {
-    nodeToScope[nodeToScope[d]!]!
-  }
-
   /// Returns the scope of `d`'s body, if any.
   public func scopeContainingBody(of d: FunctionDecl.ID) -> AnyScopeID? {
     switch ast[d].body {
@@ -271,20 +254,9 @@ extension Program {
     }
   }
 
-  /// Returns whether `decl` is a requirement.
-  public func isRequirement<T: DeclID>(_ decl: T) -> Bool {
-    switch decl.kind {
-    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
-      return true
-    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
-      return nodeToScope[decl]!.kind == TraitDecl.self
-    case MethodImpl.self:
-      return isRequirement(MethodDecl.ID(nodeToScope[decl]!)!)
-    case SubscriptImpl.self:
-      return isRequirement(SubscriptDecl.ID(nodeToScope[decl]!)!)
-    default:
-      return false
-    }
+  /// Returns whether `d` is a requirement.
+  public func isRequirement<T: DeclID>(_ d: T) -> Bool {
+    trait(defining: d) != nil
   }
 
   /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
@@ -313,6 +285,20 @@ extension Program {
     LexicalScopeSequence(scopeToParent: nodeToScope, from: scope)
   }
 
+  /// Returns the innermost scope that is a common ancestor of `a` and `b` or `nil` if `a` and `b`
+  /// are in different modules.
+  public func innermostCommonScope(_ a: AnyScopeID, _ b: AnyScopeID) -> AnyScopeID? {
+    let x = scopes(from: a).reversed()
+    let y = scopes(from: b).reversed()
+
+    var result: AnyScopeID?
+    for i in x.indices {
+      if (i == y.count) || (x[i] != y[i]) { break }
+      result = x[i]
+    }
+    return result
+  }
+
   /// Returns the module containing `scope`.
   public func module<S: ScopeID>(containing scope: S) -> ModuleDecl.ID {
     scopes(from: scope).first(ModuleDecl.self)!
@@ -323,6 +309,22 @@ extension Program {
   /// - Requires:`scope` is not a module.
   public func source<S: ScopeID>(containing scope: S) -> TranslationUnit.ID {
     scopes(from: scope).first(TranslationUnit.self)!
+  }
+
+  /// Returns the trait defining `d` iff `d` is a requirement. Otherwise, returns nil.
+  public func trait<T: DeclID>(defining d: T) -> TraitDecl.ID? {
+    switch d.kind {
+    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
+      return TraitDecl.ID(nodeToScope[d]!)!
+    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
+      return TraitDecl.ID(nodeToScope[d]!)
+    case MethodImpl.self:
+      return trait(defining: MethodDecl.ID(nodeToScope[d]!)!)
+    case SubscriptImpl.self:
+      return trait(defining: SubscriptDecl.ID(nodeToScope[d]!)!)
+    default:
+      return nil
+    }
   }
 
   /// Returns the name of `d` if it introduces a single entity.

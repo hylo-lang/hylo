@@ -236,8 +236,23 @@ public struct Module {
     functions[identity] = function
   }
 
-  /// Returns the identity of the Hylo IR function corresponding to `d`.
-  mutating func demandFunctionDeclaration(lowering d: FunctionDecl.ID) -> Function.ID {
+  /// Returns the identity of the IR function corresponding to `d`, or `nil` if `d` can't be
+  /// lowered to an IR function.
+  mutating func demandDeclaration(lowering d: AnyDeclID) -> Function.ID? {
+    switch d.kind {
+    case FunctionDecl.self:
+      return demandDeclaration(lowering: FunctionDecl.ID(d)!)
+    case InitializerDecl.self:
+      return demandDeclaration(lowering: InitializerDecl.ID(d)!)
+    case SubscriptImpl.self:
+      return demandDeclaration(lowering: SubscriptImpl.ID(d)!)
+    default:
+      return nil
+    }
+  }
+
+  /// Returns the identity of the IR function corresponding to `d`.
+  mutating func demandDeclaration(lowering d: FunctionDecl.ID) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
@@ -265,8 +280,8 @@ public struct Module {
     return f
   }
 
-  /// Returns the identity of the Hylo IR function corresponding to `d`.
-  mutating func demandSubscriptDeclaration(lowering d: SubscriptImpl.ID) -> Function.ID {
+  /// Returns the identity of the IR function corresponding to `d`.
+  mutating func demandDeclaration(lowering d: SubscriptImpl.ID) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
@@ -288,8 +303,8 @@ public struct Module {
     return f
   }
 
-  /// Returns the identifier of the Hylo IR initializer corresponding to `d`.
-  mutating func demandInitializerDeclaration(lowering d: InitializerDecl.ID) -> Function.ID {
+  /// Returns the identifier of the IR initializer corresponding to `d`.
+  mutating func demandDeclaration(lowering d: InitializerDecl.ID) -> Function.ID {
     precondition(!program.ast[d].isMemberwise)
 
     let f = Function.ID(initializer: d)
@@ -311,37 +326,18 @@ public struct Module {
     return f
   }
 
-  /// Returns the identity of the Hylo IR function implementing the deinitializer defined in
-  /// conformance `c`.
-  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
-    let d = program.ast.deinitRequirement()
-    switch c.implementations[d]! {
-    case .concrete(let s):
-      return demandFunctionDeclaration(lowering: FunctionDecl.ID(s)!)
-    case .synthetic(let s):
-      return demandSyntheticDeclaration(lowering: s)
+  /// Returns the identity of the IR function `i`.
+  mutating func demandDeclaration(lowering i: Core.Conformance.Implementation) -> Function.ID? {
+    switch i {
+    case .concrete(let d):
+      return demandDeclaration(lowering: d)
+    case .synthetic(let d):
+      return demandDeclaration(lowering: d)
     }
   }
 
-  /// Returns the identity of the Hylo IR function implementing the `k` variant move-operator
-  /// defined in conformance `c`.
-  ///
-  /// - Requires: `k` is either `.set` or `.inout`
-  mutating func demandMoveOperatorDeclaration(
-    _ k: AccessEffect, from c: Core.Conformance
-  ) -> Function.ID {
-    let d = program.ast.moveRequirement(k)
-    switch c.implementations[d]! {
-    case .concrete:
-      fatalError("not implemented")
-
-    case .synthetic(let s):
-      return demandSyntheticDeclaration(lowering: s)
-    }
-  }
-
-  /// Returns the identity of the Hylo IR function corresponding to `d`.
-  mutating func demandSyntheticDeclaration(lowering d: SynthesizedFunctionDecl) -> Function.ID {
+  /// Returns the identity of the IR function corresponding to `d`.
+  mutating func demandDeclaration(lowering d: SynthesizedFunctionDecl) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
 
@@ -368,6 +364,35 @@ public struct Module {
 
     addFunction(entity, for: f)
     return f
+  }
+
+  /// Returns the identity of the IR function implementing the deinitializer defined in
+  /// conformance `c`.
+  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
+    let d = program.ast.deinitRequirement()
+    switch c.implementations[d]! {
+    case .concrete(let s):
+      return demandDeclaration(lowering: FunctionDecl.ID(s)!)
+    case .synthetic(let s):
+      return demandDeclaration(lowering: s)
+    }
+  }
+
+  /// Returns the identity of the IR function implementing the `k` variant move-operator defined in
+  /// conformance `c`.
+  ///
+  /// - Requires: `k` is either `.set` or `.inout`
+  mutating func demandMoveOperatorDeclaration(
+    _ k: AccessEffect, from c: Core.Conformance
+  ) -> Function.ID {
+    let d = program.ast.moveRequirement(k)
+    switch c.implementations[d]! {
+    case .concrete:
+      fatalError("not implemented")
+
+    case .synthetic(let s):
+      return demandDeclaration(lowering: s)
+    }
   }
 
   /// Returns the lowered declarations of `d`'s parameters.

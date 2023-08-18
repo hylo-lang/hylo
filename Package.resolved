@@ -46,6 +46,24 @@
       }
     },
     {
+      "identity" : "swift-docc-plugin",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-docc-plugin.git",
+      "state" : {
+        "revision" : "26ac5758409154cc448d7ab82389c520fa8a8247",
+        "version" : "1.3.0"
+      }
+    },
+    {
+      "identity" : "swift-docc-symbolkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-docc-symbolkit",
+      "state" : {
+        "revision" : "b45d1f2ed151d057b54504d653e0da5552844e34",
+        "version" : "1.0.0"
+      }
+    },
+    {
       "identity" : "swift-format",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-format",
@@ -87,7 +105,7 @@
       "location" : "https://github.com/hylo-lang/Swifty-LLVM",
       "state" : {
         "branch" : "main",
-        "revision" : "4ba25d9615b6931033161ffcfc0a73a06809d781"
+        "revision" : "8e00abf2dd4a0e40b403c49816c69a07e829abff"
       }
     },
     {

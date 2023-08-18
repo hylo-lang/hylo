@@ -1,6 +1,8 @@
 /// A (nominal) product type declaration.
 public struct ProductTypeDecl: ExposableDecl, GenericDecl, SingleEntityDecl, GenericScope {
 
+  public static let constructDescription = "product type declaration"
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
@@ -37,9 +39,9 @@ public struct ProductTypeDecl: ExposableDecl, GenericDecl, SingleEntityDecl, Gen
 
   public var baseName: String { identifier.value }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     for m in members {
-      ast.validateTypeMember(m, into: &diagnostics)
+      ast.validateTypeMember(m, into: &log)
     }
   }
 

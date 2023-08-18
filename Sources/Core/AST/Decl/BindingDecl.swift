@@ -1,6 +1,8 @@
 /// A binding declaration.
 public struct BindingDecl: ExposableDecl {
 
+  public static let constructDescription = "binding declaration"
+
   public let site: SourceRange
 
   /// The attributes of the declaration.

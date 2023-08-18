@@ -186,14 +186,14 @@ public struct TypedProgram {
   public func isTriviallyDeinitializable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
     let model = canonical(t, in: scopeOfUse)
 
-    guard
-      let c = conformance(of: model, to: ast.deinitializableTrait, exposedTo: scopeOfUse),
-      case .synthetic = c.implementations.uniqueElement!.value
+    guard let c = conformance(of: model, to: ast.deinitializableTrait, exposedTo: scopeOfUse)
     else {
+      // Built-in types never have conformances.
       switch model.base {
       case is BuiltinType:
-        // Built-in types never have conformances.
         return true
+      case let u as TupleType:
+        return u.elements.allSatisfy(\.type.isBuiltin)
 
       // FIXME: Should have structural conformance
       case is MetatypeType:
@@ -203,6 +203,8 @@ public struct TypedProgram {
         return false
       }
     }
+
+    guard case .synthetic = c.implementations.uniqueElement!.value else { return false }
 
     switch model.base {
     case is BuiltinType:
@@ -395,7 +397,7 @@ public struct TypedProgram {
       guard let k = ast.synthesizedKind(of: requirement, definedBy: concept) else {
         return nil
       }
-      let a: GenericArguments = [ast[concept.decl].selfParameterDecl: model]
+      let a: GenericArguments = [ast[concept.decl].receiver: model]
       let t = LambdaType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!
       let d = SynthesizedFunctionDecl(k, typed: t, in: scopeOfUse)
       implementations[requirement] = .synthetic(d)

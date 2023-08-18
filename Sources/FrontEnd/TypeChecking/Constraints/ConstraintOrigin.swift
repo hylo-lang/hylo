@@ -51,6 +51,9 @@ struct ConstraintOrigin: Hashable {
     /// The constraint is caused by a return statement.
     case `return`
 
+    /// The constraint is caused by the use of an entity declared under a where clause.
+    case whereClause
+
     /// The constraint is caused by a yield statement.
     case `yield`
 

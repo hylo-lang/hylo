@@ -168,7 +168,7 @@ extension LLVM.Module {
     case let v as IR.IntegerConstant:
       guard v.value.bitWidth <= 64 else { fatalError("not implemented") }
       let t = LLVM.IntegerType(v.value.bitWidth, in: &self)
-      return t.constant(UInt64(v.value.words[0]))
+      return t.constant(v.value.words[0])
 
     case let v as IR.FloatingPointConstant:
       let t = LLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
@@ -225,7 +225,7 @@ extension LLVM.Module {
     // Encode the table's header.
     var tableContents: [LLVM.IRValue] = [
       transpiledMetatype(of: t.witness, usedIn: m, from: ir),
-      word().constant(UInt64(t.conformances.count)),
+      word().constant(t.conformances.count),
     ]
 
     // Encode the table's trait and implementation maps.
@@ -234,13 +234,13 @@ extension LLVM.Module {
     for c in t.conformances {
       let entry: [LLVM.IRValue] = [
         transpiledTrait(c.concept, usedIn: m, from: ir),
-        word().constant(UInt64(implementations.count)),
+        word().constant(implementations.count),
       ]
       entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
 
       for (r, d) in c.implementations {
         let requirement: [LLVM.IRValue] = [
-          word().constant(UInt64(r.rawValue)),
+          word().constant(r.rawValue),
           transpiledRequirementImplementation(d, from: ir),
         ]
         implementations.append(LLVM.StructConstant(aggregating: requirement, in: &self))
@@ -359,8 +359,8 @@ extension LLVM.Module {
   ) -> LLVMMemoryLayout {
     let u = ir.llvm(t, in: &self)
     return .init(
-      size: word().constant(truncatingIfNeeded: layout.storageSize(of: u)),
-      preferredAlignment: word().constant(truncatingIfNeeded: layout.preferredAlignment(of: u)))
+      size: word().constant(layout.storageSize(of: u)),
+      preferredAlignment: word().constant(layout.preferredAlignment(of: u)))
   }
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
@@ -783,6 +783,48 @@ extension LLVM.Module {
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         register[.register(i)] = insertSignedRem(l, r, at: insertionPoint)
+
+      case .signedAdditionWithOverflow(let t):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        let f = intrinsic(
+          named: Intrinsic.llvm.sadd.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+
+      case .unsignedAdditionWithOverflow(let t):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        let f = intrinsic(
+          named: Intrinsic.llvm.uadd.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+
+      case .signedSubtractionWithOverflow(let t):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        let f = intrinsic(
+          named: Intrinsic.llvm.ssub.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+
+      case .unsignedSubtractionWithOverflow(let t):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        let f = intrinsic(
+          named: Intrinsic.llvm.usub.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+
+      case .signedMultiplicationWithOverflow(let t):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        let f = intrinsic(
+          named: Intrinsic.llvm.smul.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+
+      case .unsignedMultiplicationWithOverflow(let t):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        let f = intrinsic(
+          named: Intrinsic.llvm.umul.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .icmp(let p, _):
         let l = llvm(s.operands[0])

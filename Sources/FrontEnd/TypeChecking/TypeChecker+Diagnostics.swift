@@ -144,6 +144,10 @@ extension Diagnostic {
       """, at: site)
   }
 
+  static func error(unsatisfiedWhereClauseAt site: SourceRange) -> Diagnostic {
+    .error("unsatisfied where clause", at: site)
+  }
+
   static func error(notEnoughContextToInferArgumentsAt site: SourceRange) -> Diagnostic {
     .error("not enough contextual information to infer generic arguments", at: site)
   }

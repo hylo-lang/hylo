@@ -2,191 +2,174 @@ import Utils
 
 extension AST {
 
-  /// Returns `.success` if `decl` is a well-formed top-level or namespace member declaration.
-  /// Otherwise, returns `.failure` with the diagnostics of the broken invariants.
+  /// Reports any well-formedness problems with `d` occurring at global scope into `log`.
+  ///
+  /// `atTopLevel` is `true` iff `d` isn't nested in any declaration.
   func validateGlobalScopeMember(
-    _ decl: AnyDeclID,
-    into diagnostics: inout DiagnosticSet,
-    atTopLevel: Bool
+    _ d: AnyDeclID, atTopLevel: Bool, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
-    switch decl.kind {
+    switch d.kind {
     case AssociatedTypeDecl.self:
-      diagnostics.insert(.error(unexpectedAssociatedTypeDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: AssociatedTypeDecl.ID(d)!, in: self))
     case AssociatedValueDecl.self:
-      diagnostics.insert(.error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: AssociatedValueDecl.ID(d)!, in: self))
     case BindingDecl.self:
-      let d = self[BindingDecl.ID(decl)!]
-      if let m = d.memberModifier {
-        diagnostics.insert(.error(unexpectedMemberModifier: m))
-      }
-      if self[d.pattern].introducer.value != .let {
-        diagnostics.insert(.error(illegalGlobalBindingIntroducer: self[d.pattern].introducer))
-      }
-      if (d.initializer == nil) && (self[d.pattern].annotation == nil) {
-        diagnostics.insert(.error(missingTypeAnnotation: self[d.pattern], in: self))
-      }
-
+      validateGlobalScopeMember(BindingDecl.ID(d)!, reportingDiagnosticsTo: &log)
     case ConformanceDecl.self:
       break
-
     case ExtensionDecl.self:
       break
-
     case FunctionDecl.self:
-      let d = self[FunctionDecl.ID(decl)!]
-      if let m = d.memberModifier {
-        diagnostics.insert(.error(unexpectedMemberModifier: m))
-      }
-      if d.identifier == nil {
-        diagnostics.insert(.error(missingFunctionIdentifier: d))
-      }
-
+      validateGlobalScopeMember(FunctionDecl.ID(d)!, reportingDiagnosticsTo: &log)
     case GenericParameterDecl.self:
-      diagnostics.insert(.error(unexpectedGenericParameterDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: GenericParameterDecl.ID(d)!, in: self))
     case ImportDecl.self:
-      if !atTopLevel {
-        diagnostics.insert(.error(unexpectedImportDecl: self[NodeID(decl)!]))
-      }
-
+      if !atTopLevel { log.insert(.error(unexpected: ImportDecl.ID(d)!, in: self)) }
     case InitializerDecl.self:
-      diagnostics.insert(.error(unexpectedInitializerDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: InitializerDecl.ID(d)!, in: self))
     case MethodDecl.self:
-      diagnostics.insert(.error(unexpectedMethodDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: MethodDecl.ID(d)!, in: self))
     case MethodImpl.self:
-      diagnostics.insert(.error(unexpectedMethodImpl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: MethodImpl.ID(d)!, in: self))
     case NamespaceDecl.self:
       break
-
     case OperatorDecl.self:
-      if !atTopLevel {
-        diagnostics.insert(.error(unexpectedOperatorDecl: self[NodeID(decl)!]))
-      }
-
+      if !atTopLevel { log.insert(.error(unexpected: OperatorDecl.ID(d)!, in: self)) }
     case ParameterDecl.self:
-      diagnostics.insert(.error(unexpectedParameterDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: ParameterDecl.ID(d)!, in: self))
     case ProductTypeDecl.self:
       break
-
     case SubscriptDecl.self:
-      let d = self[SubscriptDecl.ID(decl)!]
-      if d.isProperty {
-        diagnostics.insert(.error(unexpectedPropertyDecl: d))
-      }
-      if let m = d.memberModifier {
-        diagnostics.insert(.error(unexpectedMemberModifier: m))
-      }
-      if d.identifier == nil {
-        diagnostics.insert(.error(missingSubscriptIdentifier: d))
-      }
-
+      validateGlobalScopeMember(SubscriptDecl.ID(d)!, reportingDiagnosticsTo: &log)
     case SubscriptImpl.self:
-      diagnostics.insert(.error(unexpectedSubscriptImpl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: SubscriptImpl.ID(d)!, in: self))
     case TraitDecl.self:
       break
-
     case TypeAliasDecl.self:
       break
-
     case VarDecl.self:
-      diagnostics.insert(.error(unexpectedVarDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: VarDecl.ID(d)!, in: self))
     default:
-      unexpected(decl, in: self)
+      unexpected(d, in: self)
     }
-
   }
 
-  /// Reports any well-formedness problems with `decl` into `diagnostics`.
-  func validateTypeMember(_ decl: AnyDeclID, into diagnostics: inout DiagnosticSet) {
-    switch decl.kind {
+  /// Reports any well-formedness problems with `d` occurring at global scope into `log`.
+  func validateGlobalScopeMember(
+    _ d: BindingDecl.ID, reportingDiagnosticsTo log: inout DiagnosticSet
+  ) {
+    if let m = self[d].memberModifier {
+      log.insert(.error(unexpectedMemberModifier: m))
+    }
+
+    let p = self[d].pattern
+    if self[p].introducer.value != .let {
+      log.insert(.error(illegalGlobalBindingIntroducer: self[p].introducer))
+    }
+    if (self[d].initializer == nil) && (self[p].annotation == nil) {
+      log.insert(.error(missingTypeAnnotation: self[p], in: self))
+    }
+  }
+
+  /// Reports any well-formedness problems with `d` occurring at global scope into `log`.
+  func validateGlobalScopeMember(
+    _ d: FunctionDecl.ID, reportingDiagnosticsTo log: inout DiagnosticSet
+  ) {
+    if let m = self[d].memberModifier {
+      log.insert(.error(unexpectedMemberModifier: m))
+    }
+    if self[d].identifier == nil {
+      log.insert(.error(missingFunctionIdentifier: self[d]))
+    }
+  }
+
+  /// Reports any well-formedness problems with `d` occurring at global scope into `log`.
+  func validateGlobalScopeMember(
+    _ d: SubscriptDecl.ID, reportingDiagnosticsTo log: inout DiagnosticSet
+  ) {
+    if self[d].isProperty {
+      log.insert(.error(unexpectedPropertyDecl: self[d]))
+    }
+    if let m = self[d].memberModifier {
+      log.insert(.error(unexpectedMemberModifier: m))
+    }
+    if self[d].identifier == nil {
+      log.insert(.error(missingSubscriptIdentifier: self[d]))
+    }
+  }
+
+  /// Reports any well-formedness problems with `d` occurring at type scope into `log`.
+  func validateTypeMember(_ d: AnyDeclID, into log: inout DiagnosticSet) {
+    switch d.kind {
     case AssociatedTypeDecl.self:
-      diagnostics.insert(.error(unexpectedAssociatedTypeDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: AssociatedTypeDecl.ID(d)!, in: self))
     case AssociatedValueDecl.self:
-      diagnostics.insert(.error(unexpectedAssociatedValueDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: AssociatedValueDecl.ID(d)!, in: self))
     case BindingDecl.self:
-      let d = self[BindingDecl.ID(decl)!]
-      let introducer = self[d.pattern].introducer
-      if introducer.value != .let {
-        if introducer.value != .var {
-          diagnostics.insert(.error(illegalMemberBindingIntroducer: self[d.pattern].introducer))
-        }
-        if d.memberModifier?.value == .static {
-          diagnostics.insert(.error(illegalGlobalBindingIntroducer: self[d.pattern].introducer))
-        }
-      }
-      if (d.initializer == nil) && (self[d.pattern].annotation == nil) {
-        diagnostics.insert(.error(missingTypeAnnotation: self[d.pattern], in: self))
-      }
-
+      validateTypeMember(BindingDecl.ID(d)!, reportingDiagnosticsTo: &log)
     case ConformanceDecl.self:
       break
-
     case ExtensionDecl.self:
       break
-
     case FunctionDecl.self:
-      let d = self[FunctionDecl.ID(decl)!]
-      if d.identifier == nil {
-        diagnostics.insert(.error(missingFunctionIdentifier: d))
-      }
-      if let c = d.explicitCaptures.first {
-        diagnostics.insert(.error(unexpectedCapture: self[self[c].pattern]))
-      }
-
+      validateTypeMember(FunctionDecl.ID(d)!, reportingDiagnosticsTo: &log)
     case GenericParameterDecl.self:
-      diagnostics.insert(.error(unexpectedGenericParameterDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: GenericParameterDecl.ID(d)!, in: self))
     case ImportDecl.self:
-      diagnostics.insert(.error(unexpectedImportDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: ImportDecl.ID(d)!, in: self))
     case InitializerDecl.self:
       break
-
     case MethodDecl.self:
       break
-
     case MethodImpl.self:
-      diagnostics.insert(.error(unexpectedMethodImpl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: MethodImpl.ID(d)!, in: self))
     case NamespaceDecl.self:
-      diagnostics.insert(.error(unexpectedNamespaceDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: NamespaceDecl.ID(d)!, in: self))
     case OperatorDecl.self:
-      diagnostics.insert(.error(unexpectedOperatorDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: OperatorDecl.ID(d)!, in: self))
     case ParameterDecl.self:
-      diagnostics.insert(.error(unexpectedParameterDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: ParameterDecl.ID(d)!, in: self))
     case ProductTypeDecl.self:
       break
-
     case SubscriptDecl.self:
       break
-
     case SubscriptImpl.self:
-      diagnostics.insert(.error(unexpectedSubscriptImpl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: SubscriptImpl.ID(d)!, in: self))
     case TraitDecl.self:
-      diagnostics.insert(.error(unexpectedTraitDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: TraitDecl.ID(d)!, in: self))
     case TypeAliasDecl.self:
       break
-
     case VarDecl.self:
-      diagnostics.insert(.error(unexpectedVarDecl: self[NodeID(decl)!]))
-
+      log.insert(.error(unexpected: VarDecl.ID(d)!, in: self))
     default:
-      unexpected(decl, in: self)
+      unexpected(d, in: self)
+    }
+  }
+
+  /// Reports any well-formedness problems with `d` occurring at type scope into `log`.
+  func validateTypeMember(_ d: BindingDecl.ID, reportingDiagnosticsTo log: inout DiagnosticSet) {
+    let p = self[d].pattern
+    let introducer = self[p].introducer
+    if introducer.value != .let {
+      if introducer.value != .var {
+        log.insert(.error(illegalMemberBindingIntroducer: self[p].introducer))
+      }
+      if self[d].memberModifier?.value == .static {
+        log.insert(.error(illegalGlobalBindingIntroducer: self[p].introducer))
+      }
+    }
+    if (self[d].initializer == nil) && (self[p].annotation == nil) {
+      log.insert(.error(missingTypeAnnotation: self[p], in: self))
+    }
+  }
+
+  /// Reports any well-formedness problems with `d` occurring at type scope into `log`.
+  func validateTypeMember(_ d: FunctionDecl.ID, reportingDiagnosticsTo log: inout DiagnosticSet) {
+    if self[d].identifier == nil {
+      log.insert(.error(missingFunctionIdentifier: self[d]))
+    }
+    if let c = self[d].explicitCaptures.first {
+      log.insert(.error(unexpectedCapture: self[self[c].pattern]))
     }
   }
 

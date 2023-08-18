@@ -1,6 +1,8 @@
 /// A declaration that extends a type with new conformances.
 public struct ConformanceDecl: TypeExtendingDecl {
 
+  public static let constructDescription = "conformance declaration"
+
   public let site: SourceRange
 
   /// The access modifier of the declaration, if any.
@@ -33,14 +35,6 @@ public struct ConformanceDecl: TypeExtendingDecl {
     self.conformances = conformances
     self.whereClause = whereClause
     self.members = members
-  }
-
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
-    for m in members {
-      if let d = InitializerDecl.ID(m), ast[d].isMemberwise {
-        diagnostics.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
-      }
-    }
   }
 
 }

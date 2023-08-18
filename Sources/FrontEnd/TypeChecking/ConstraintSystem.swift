@@ -244,7 +244,7 @@ struct ConstraintSystem {
     }
   }
 
-  /// Returns a clousre diagnosing a failure to solve `goal`.
+  /// Returns a closure diagnosing a failure to solve `goal`.
   private mutating func failureToSolve(_ goal: ConformanceConstraint) -> DiagnoseFailure {
     return { (d, m, _) in
       let t = m.reify(goal.model)
@@ -258,8 +258,18 @@ struct ConstraintSystem {
     if unify(goal.left, goal.right) {
       return .success
     } else {
-      return .failure { (d, m, _) in
-        let (l, r) = (m.reify(goal.left), m.reify(goal.right))
+      return .failure(failureToSolve(goal))
+    }
+  }
+
+  /// Returns a closure diagnosing a failure to solve `goal`.
+  private mutating func failureToSolve(_ goal: EqualityConstraint) -> DiagnoseFailure {
+    { (d, m, _) in
+      let (l, r) = (m.reify(goal.left), m.reify(goal.right))
+      switch goal.origin.kind {
+      case .whereClause:
+        d.insert(.error(unsatisfiedWhereClauseAt: goal.origin.site))
+      default:
         d.insert(.error(type: l, incompatibleWith: r, at: goal.origin.site))
       }
     }
