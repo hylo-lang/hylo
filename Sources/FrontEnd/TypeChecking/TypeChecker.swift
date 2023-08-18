@@ -2839,17 +2839,9 @@ struct TypeChecker {
       var log = DiagnosticSet()
 
       // Keep track of generic arguments that should be captured later on.
-      let candidateSpecialization: GenericArguments
-      var specialization = context?.arguments ?? [:]
-
-      if let g = BoundGenericType(candidateType) {
-        assert(arguments.isEmpty, "generic declaration bound twice")
-        candidateSpecialization = g.arguments
-      } else {
-        let p = genericParameters(introducedBy: m)
-        candidateSpecialization =
-          associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)
-      }
+      let candidateSpecialization = genericArguments(
+        passedTo: m, typed: candidateType, referredToBy: name, specializedBy: arguments,
+        reportingDiagnosticsTo: &log)
 
       // If the name resolves to an initializer, determine if it is used as a constructor.
       let isConstructor =
@@ -2865,6 +2857,7 @@ struct TypeChecker {
       }
 
       // If the match is introduced in a trait, specialize its receiver as necessary.
+      var specialization = context?.arguments ?? [:]
       if let concept = TraitDecl.ID(program.scopeIntroducing(m)), let model = context?.type {
         specialization[program[concept].receiver] = model
       }
@@ -3149,6 +3142,22 @@ struct TypeChecker {
     }
   }
 
+  /// Returns the list of generic arguments passed to `d`, which has type `t` and is being referred
+  /// to by `name`, reporting diagnostics to `log.`
+  private mutating func genericArguments(
+    passedTo d: AnyDeclID, typed t: AnyType,
+    referredToBy name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue],
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) -> GenericArguments {
+    if let g = BoundGenericType(t) {
+      assert(arguments.isEmpty, "generic declaration bound twice")
+      return g.arguments
+    } else {
+      let p = genericParameters(introducedBy: d)
+      return associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)
+    }
+  }
+
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
   /// values in `arguments` if the two arrays have the same length. Otherwise, returns `nil`,
   /// reporting diagnostics to `log`.
@@ -3218,12 +3227,14 @@ struct TypeChecker {
   }
 
   /// Replaces the generic parameters in `candidate` by fresh variables if their environments don't
-  /// contain `scopeOfUse`, assigning `cause` to instantiation constraints.
+  /// contain `scopeOfUse`, updating `substitutions` with opened generic parameters and anchoring
+  /// instantiation constraints at `cause`.
   mutating func instantiate(
-    _ candidate: NameResolutionResult.Candidate, in scopeOfUse: AnyScopeID, cause: ConstraintOrigin
+    _ candidate: NameResolutionResult.Candidate, in scopeOfUse: AnyScopeID,
+    updating substitutions: inout [GenericParameterDecl.ID: AnyType],
+    anchoringInstantiationConstraintsAt cause: ConstraintOrigin
   ) -> NameResolutionResult.Candidate {
     let ctx = instantiationContext(candidate.reference, in: scopeOfUse)
-    var substitutions: [GenericParameterDecl.ID: AnyType] = [:]
 
     let t = instantiate(candidate.type, in: ctx, cause: cause, updating: &substitutions)
     let r = candidate.reference.modifyingArguments(mutating: &substitutions) { (s, v) in
@@ -3650,10 +3661,7 @@ struct TypeChecker {
 
     case .done(let prefix, let suffix):
       unresolved = suffix
-      for p in prefix {
-        // FIXME: share subst.
-        lastVisited = constrain(p.component, to: p.candidates, in: &obligations)
-      }
+      lastVisited = constrain(prefix, in: &obligations)
     }
 
     // Create the necessary constraints to let the solver resolve the remaining components.
@@ -4063,20 +4071,38 @@ struct TypeChecker {
     hint ?? ^freshVariable()
   }
 
-  /// Constrains `name` to be a reference to either of the declarations in `candidates` in
-  /// `obligations`, returning the inferred type of `name`.
+  /// Inserts in `obligations` the constraints implied by the result of name resolution for each
+  /// nominal component in `components`.
+  private mutating func constrain(
+    _ components: [NameResolutionResult.ResolvedComponent], in obligations: inout ProofObligations
+  ) -> AnyType {
+    var last: AnyType?
+    var substitutions: [GenericParameterDecl.ID: AnyType] = [:]
+    for p in components {
+      last = constrain(p.component, to: p.candidates, in: &obligations, updating: &substitutions)
+    }
+    return last!
+  }
+
+  /// Inserts in `obligations` the constraint that `name` refers to one of the declarations in
+  /// `candidates`, updating `substitutions` with opened generic parameters, and returning the
+  /// inferred type of `name`.
   ///
   /// - Requires: `candidates` is not empty
   private mutating func constrain(
     _ name: NameExpr.ID, to candidates: [NameResolutionResult.Candidate],
-    in obligations: inout ProofObligations
+    in obligations: inout ProofObligations,
+    updating substitutions: inout [GenericParameterDecl.ID: AnyType]
   ) -> AnyType {
     precondition(!candidates.isEmpty)
     let site = program[name].site
 
     // If there's only one candidate, commit to this choice.
     if var pick = candidates.uniqueElement {
-      pick = instantiate(pick, in: program[name].scope, cause: .init(.binding, at: site))
+      pick = instantiate(
+        pick, in: program[name].scope,
+        updating: &substitutions,
+        anchoringInstantiationConstraintsAt: .init(.binding, at: site))
       obligations.assign(pick.reference, to: name)
       obligations.insert(pick.constraints)
       return constrain(name, to: pick.type, in: &obligations)
@@ -4085,7 +4111,10 @@ struct TypeChecker {
     // Otherwise, create an overload set.
     let overloads: [OverloadConstraint.Predicate] = candidates.map({ (candidate) in
       let penalties = candidate.reference.decl.map({ program.isRequirement($0) ? 1 : 0 }) ?? 0
-      let pick = instantiate(candidate, in: program[name].scope, cause: .init(.binding, at: site))
+      let pick = instantiate(
+        candidate, in: program[name].scope,
+        updating: &substitutions,
+        anchoringInstantiationConstraintsAt: .init(.binding, at: site))
       return .init(pick, penalties: penalties)
     })
 
