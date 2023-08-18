@@ -292,6 +292,27 @@ struct TypeChecker {
     }
   }
 
+  /// Returns the type checking constraint anchored at `origin` that spedcializes `generic` by
+  /// applying `self.specialize` on its types for `specialization` in `scopeOfUse`.
+  private mutating func specialize(
+    _ generic: GenericConstraint, for specialization: GenericArguments, in scopeOfUse: AnyScopeID,
+    origin: ConstraintOrigin
+  ) -> Constraint {
+    switch generic.value {
+    case .conformance(let lhs, let rhs):
+      let a = specialize(lhs, for: specialization, in: scopeOfUse)
+      return ConformanceConstraint(a, conformsTo: rhs, origin: origin)
+
+    case .equality(let lhs, let rhs):
+      let a = specialize(lhs, for: specialization, in: scopeOfUse)
+      let b = specialize(rhs, for: specialization, in: scopeOfUse)
+      return EqualityConstraint(a, b, origin: origin)
+
+    case .instance, .predicate:
+      fatalError("not implemented")
+    }
+  }
+
   /// Returns the type declared by `d` bound to open variables for each generic parameter
   /// introduced by `d`.
   ///
