@@ -1875,6 +1875,8 @@ struct Emitter {
     }
 
     switch rhs.base {
+    case let t as ExistentialType:
+      return _emitCoerce(source, to: t, at: site)
     case let t as LambdaType:
       return _emitCoerce(source, to: t, at: site)
     default:
@@ -1886,9 +1888,26 @@ struct Emitter {
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
+    _ source: Operand, to target: ExistentialType, at site: SourceRange
+  ) -> Operand {
+    let t = module.type(of: source).ast
+    if t.base is ExistentialType {
+      return source
+    }
+
+    let x0 = emitAllocStack(for: ^target, at: site)
+    let x1 = insert(module.makeProjectWitness(of: x0, as: .init(.set, t), at: site))!
+    emitMove([.set], source, to: x1, at: site)
+    insert(module.makeEndProjectWitness(x1, at: site))
+    return x0
+  }
+
+  /// Inserts the IR for coercing `source` to an address of type `target`.
+  ///
+  /// - Requires: `target` is canonical.
+  private mutating func _emitCoerce(
     _ source: Operand, to target: LambdaType, at site: SourceRange
   ) -> Operand {
-    precondition(target[.isCanonical])
     let t = module.type(of: source).ast
     guard let lhs = LambdaType(t) else {
       unexpectedCoercion(from: t, to: ^target)
