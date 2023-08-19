@@ -36,6 +36,8 @@ extension RegionExit: CustomStringConvertible {
       return "close_union \(start)"
     case let s where s == Project.self:
       return "end_project \(start)"
+    case let s where s == ProjectWitness.self:
+      return "end_project_witness \(start)"
     default:
       return "end_region \(start)"
     }
