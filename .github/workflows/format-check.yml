@@ -37,9 +37,9 @@ jobs:
 
     - name: Setup swift
       uses: sersoft-gmbh/swifty-linux-action@v2
-        with:
-          release-version: '5.8'
-          github-token: ${{secrets.GITHUB_TOKEN}}
+      with:
+        release-version: '5.8'
+        github-token: ${{secrets.GITHUB_TOKEN}}
 
     - name: Swift version
       run: swift --version
