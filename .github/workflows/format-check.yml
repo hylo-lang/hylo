@@ -21,7 +21,7 @@ on:
 jobs:
   build:
     name: Format check
-    runs-on: ubuntu-latest
+    runs-on: macos-13
     steps:
     - uses: actions/cache@v3
       with:
