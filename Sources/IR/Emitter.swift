@@ -1830,6 +1830,8 @@ struct Emitter {
       return _emitCoerce(source, to: t, at: site)
     case let t as LambdaType:
       return _emitCoerce(source, to: t, at: site)
+    case let t as UnionType:
+      return _emitCoerce(source, to: t, at: site)
     default:
       unexpectedCoercion(from: lhs, to: rhs)
     }
@@ -1873,6 +1875,17 @@ struct Emitter {
 
     // If we're here, then `t` and `u` only differ on their effects.
     return source
+  }
+
+  /// Inserts the IR for coercing `source` to an address of type `target`.
+  ///
+  /// - Requires: `target` is canonical.
+  private mutating func _emitCoerce(
+    _ source: Operand, to target: UnionType, at site: SourceRange
+  ) -> Operand {
+    let x0 = emitAllocStack(for: ^target, at: site)
+    emitMove([.set], source, to: x0, at: site)
+    return x0
   }
 
   /// Traps on this execution path becauses of un unexpected coercion from `lhs` to `rhs`.
