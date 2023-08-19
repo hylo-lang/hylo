@@ -157,8 +157,4 @@ private protocol LifetimeCloser: Instruction {
 
 }
 
-extension EndAccess: LifetimeCloser {}
-
-extension EndProject: LifetimeCloser {}
-
-extension CloseCapture: LifetimeCloser {}
+extension RegionExit: LifetimeCloser {}

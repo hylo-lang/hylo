@@ -1,7 +1,9 @@
 import Core
 
 /// Projects a value.
-public struct Project: Instruction {
+public struct Project: RegionEntry {
+
+  public typealias Exit = EndProject
 
   /// The type of the projected value.
   public let projection: RemoteType
