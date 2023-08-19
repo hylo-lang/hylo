@@ -128,7 +128,7 @@ jobs:
 
     - name: Fix permissions
       run: |
-        chmod -v -R +rX "_site/" | while read line; do
+        chmod -v -R +rX "_site/" | while read -r line; do
           echo "::warning title=Invalid file permissions automatically fixed::$line"
         done
 
