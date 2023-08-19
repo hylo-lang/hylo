@@ -1,0 +1,4 @@
+#!/usr/bin/env bash -e
+# retry-once command... executes command... and if it fails, executes it again.
+# because we seem to get spurious failures in various places with GitHub actions,
+"$@" || "$@"
