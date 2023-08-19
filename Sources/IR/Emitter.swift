@@ -562,7 +562,7 @@ struct Emitter {
       let t = canonical(program[partDecl].type)
       if !program.areEquivalent(t, partType, in: program[d].scope) {
         if let u = ExistentialType(t) {
-          let box = emitExistential(u, borrowing: access, from: part, at: ast[partDecl].site)
+          let box = emitExistential(u, wrapping: part, at: ast[partDecl].site)
           part = box
         }
       }
@@ -576,55 +576,6 @@ struct Emitter {
           access, from: part, correspondingTo: partDecl, at: ast[partDecl].site)
         frames[partDecl] = insert(b)!
       }
-    }
-  }
-
-  /// Returns the lowered conformances of `model` that are exposed to `useScope`.
-  private mutating func loweredConformances(
-    of model: AnyType, exposedTo useScope: AnyScopeID
-  ) -> Set<IR.Conformance> {
-    guard let conformances = program.conformances[model] else { return [] }
-
-    var result: Set<IR.Conformance> = []
-    for concept in conformances.keys {
-      let c = program.conformance(of: model, to: concept, exposedTo: useScope)!
-      result.insert(loweredConformance(c))
-    }
-    return result
-  }
-
-  /// Returns the lowered form of `c`, generating function references in `useScope`.
-  private mutating func loweredConformance(_ c: Core.Conformance) -> IR.Conformance {
-    var implementations = IR.Conformance.ImplementationMap()
-    for (r, i) in c.implementations {
-      switch i {
-      case .concrete(let d):
-        implementations[r] = loweredRequirementImplementation(d)
-
-      case .synthetic(let d):
-        lower(synthetic: d)
-        implementations[r] = .function(.init(to: .init(d), in: module))
-      }
-    }
-
-    return .init(concept: c.concept, implementations: implementations)
-  }
-
-  /// Returns the lowered form of the requirement implementation `d` in `useScope`.
-  private mutating func loweredRequirementImplementation(
-    _ d: AnyDeclID
-  ) -> IR.Conformance.Implementation {
-    switch d.kind {
-    case FunctionDecl.self:
-      let r = FunctionReference(to: FunctionDecl.ID(d)!, in: &module)
-      return .function(r)
-
-    case InitializerDecl.self:
-      let r = FunctionReference(to: InitializerDecl.ID(d)!, in: &module)
-      return .function(r)
-
-    default:
-      fatalError("not implemented")
     }
   }
 
@@ -1895,11 +1846,7 @@ struct Emitter {
       return source
     }
 
-    let x0 = emitAllocStack(for: ^target, at: site)
-    let x1 = insert(module.makeProjectWitness(of: x0, as: .init(.set, t), at: site))!
-    emitMove([.set], source, to: x1, at: site)
-    insert(module.makeEndProjectWitness(x1, at: site))
-    return x0
+    return emitExistential(target, wrapping: source, at: site)
   }
 
   /// Inserts the IR for coercing `source` to an address of type `target`.
@@ -2013,22 +1960,13 @@ struct Emitter {
     }
   }
 
-  /// Returns an existential container of type `t` borrowing `access` on `witness`.
+  /// Returns an existential container of type `t` wrappring `witness`.
   private mutating func emitExistential(
-    _ t: ExistentialType, borrowing access: AccessEffect, from witness: Operand,
-    at site: SourceRange
+    _ t: ExistentialType, wrapping witness: Operand, at site: SourceRange
   ) -> Operand {
-    let witnessTable = emitWitnessTable(of: module.type(of: witness).ast, usedIn: insertionScope!)
-    let g = PointerConstant(module.id, module.addGlobal(witnessTable))
-
-    let x0 = insert(module.makeAccess(access, from: witness, at: site))!
-    let x1 = insert(module.makeWrapExistentialAddr(x0, .constant(g), as: t, at: site))!
-    return x1
-  }
-
-  /// Returns the witness table of `t` in `s`.
-  private mutating func emitWitnessTable(of t: AnyType, usedIn s: AnyScopeID) -> WitnessTable {
-    .init(for: t, conformingTo: loweredConformances(of: t, exposedTo: s), in: s)
+    let w = module.type(of: witness).ast
+    let table = Operand.constant(module.demandWitnessTable(w, in: insertionScope!))
+    return insert(module.makeWrapExistentialAddr(witness, table, as: t, at: site))!
   }
 
   // MARK: l-values
