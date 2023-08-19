@@ -31,6 +31,8 @@ extension Module {
           interpret(endBorrow: user, in: &context)
         case is EndProject:
           interpret(endProject: user, in: &context)
+        case is EndProject:
+          interpret(endProjectWitness: user, in: &context)
         case is GlobalAddr:
           interpret(globalAddr: user, in: &context)
         case is OpenCapture:
@@ -41,6 +43,8 @@ extension Module {
           interpret(pointerToAddress: user, in: &context)
         case is Project:
           interpret(project: user, in: &context)
+        case is ProjectWitness:
+          interpret(projectWitness: user, in: &context)
         case is SubfieldView:
           interpret(subfieldView: user, in: &context)
         case is WrapExistentialAddr:
@@ -182,12 +186,15 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endProject i: InstructionID, in context: inout Context) {
       let s = self[i] as! EndProject
+      let r = self[s.start.instruction!] as! Project
+      finalize(region: s.start, projecting: r.projection.access, exitedWith: i, in: &context)
+    }
 
-      // Skip the instruction if an error occured upstream.
-      guard context.locals[s.start] != nil else {
-        assert(diagnostics.containsError)
-        return
-      }
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(endProjectWitness i: InstructionID, in context: inout Context) {
+      let s = self[i] as! EndProjectWitness
+      let r = self[s.start.instruction!] as! Project
+      finalize(region: s.start, projecting: r.projection.access, exitedWith: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -241,13 +248,13 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(project i: InstructionID, in context: inout Context) {
       let s = self[i] as! Project
-      let l = AbstractLocation.root(.register(i))
-      precondition(context.memory[l] == nil, "projection leak")
+      initializeRegister(createdBy: i, projecting: s.projection, in: &context)
+    }
 
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.projection.bareType, definedIn: program),
-        value: .full(.unique))
-      context.locals[.register(i)] = .locations([l])
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(projectWitness i: InstructionID, in context: inout Context) {
+      let s = self[i] as! Project
+      initializeRegister(createdBy: i, projecting: s.projection, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -279,6 +286,19 @@ extension Module {
       context.locals[.register(i)] = context.locals[s.witness]
     }
 
+    /// Checks that the state of the object projected in the region defined at `start` and exited
+    /// with `exit` is consistent with `access`, updating `context` accordingly.
+    func finalize(
+      region start: Operand, projecting access: AccessEffect, exitedWith exit: InstructionID,
+      in context: inout Context
+    ) {
+      // Skip the instruction if an error occured upstream.
+      guard let v = context.locals[start] else {
+        assert(diagnostics.containsError)
+        return
+      }
+      context.memory[v.unwrapLocations()!.uniqueElement!] = nil
+    }
   }
 
   /// Returns the initial context in which `f` should be interpreted.
@@ -322,6 +342,20 @@ extension Module {
     case .yielded:
       preconditionFailure("cannot represent instance of yielded type")
     }
+  }
+
+  /// Assigns the virtual register defined by `i` to the location of the storage projected by `i`,
+  /// using `t` to set the initial state of that storage.
+  private func initializeRegister(
+    createdBy i: InstructionID, projecting t: RemoteType, in context: inout Context
+  ) {
+    let l = AbstractLocation.root(.register(i))
+    precondition(context.memory[l] == nil, "projection leak")
+
+    context.memory[l] = .init(
+      layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
+      value: .full(.unique))
+    context.locals[.register(i)] = .locations([l])
   }
 
   /// Returns the borrowed instruction from which `b` reborrows, if any.
