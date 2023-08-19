@@ -389,27 +389,18 @@ extension Module {
     func interpret(pointerToAddress i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! PointerToAddress
       consume(s.source, with: i, at: s.site, in: &context)
-
-      let l = AbstractLocation.root(.register(i))
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
-        value: .full(s.target.access == .set ? .uninitialized : .initialized))
-      context.locals[.register(i)] = .locations([l])
+      initializeRegister(createdBy: i, projecting: s.target, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(project i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! Project
+
       // TODO: Process arguments
 
-      let s = self[i] as! Project
-      let l = AbstractLocation.root(.register(i))
-      let t = s.projection
+      initializeRegister(createdBy: i, projecting: s.projection, in: &context)
 
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
-        value: .full(t.access == .set ? .uninitialized : .initialized))
-      context.locals[.register(i)] = .locations([l])
       return successor(of: i)
     }
 
@@ -546,6 +537,58 @@ extension Module {
         diagnostics.insert(
           .illegalParameterEscape(consumedBy: o.value.consumers, in: self, at: site))
       }
+    }
+
+    /// Checks that the state of the projection of `sources` in the region defined at `start` and
+    /// exited with `exit` is consistent with `access`, updating `context` accordingly.
+    ///
+    /// `start` is the definition of projection (e.g., the result of `project`) dominating `i`,
+    /// which is a corresponding exit. `context.locals[start]` is the unique address of the object
+    /// `o` being projected in that region. `sources` are the addresses of the objects notionally
+    /// containing `o`.
+    ///
+    /// If `access` is `.let`, `.inout`, or `.set`, `o` must be fully initialized. If `access` is
+    /// `sink`, `o` must be fully deinitialized. implicit deinitialization is inserted to maintain
+    /// the latter requirement.
+    func finalize(
+      region start: Operand, projecting access: AccessEffect, from sources: Set<AbstractLocation>,
+      exitedWith exit: InstructionID,
+      in context: inout Context
+    ) {
+      // Skip the instruction if an error occured upstream.
+      guard let v = context.locals[start] else {
+        assert(diagnostics.containsError)
+        return
+      }
+
+      let l = v.unwrapLocations()!.uniqueElement!
+      let projection = context.withObject(at: l, { $0 })
+
+      switch access {
+      case .let, .inout:
+        for c in projection.value.consumers {
+          diagnostics.insert(.error(cannotConsume: access, at: self[c].site))
+        }
+
+      case .set:
+        for c in projection.value.consumers {
+          diagnostics.insert(.error(cannotConsume: access, at: self[c].site))
+        }
+        for s in sources {
+          context.withObject(at: s, { $0.value = .full(.initialized) })
+        }
+
+      case .sink:
+        insertDeinit(
+          start, at: projection.value.initializedSubfields, anchoredTo: self[exit].site,
+          before: exit, reportingDiagnosticsTo: &diagnostics)
+        context.withObject(at: l, { $0.value = .full(.uninitialized) })
+
+      case .yielded:
+        unreachable()
+      }
+
+      context.memory[l] = nil
     }
   }
 
