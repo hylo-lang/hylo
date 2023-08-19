@@ -50,6 +50,8 @@ extension Module {
           pc = successor(of: user)
         case is EndProject:
           pc = interpret(endProject: user, in: &context)
+        case is EndProjectWitness:
+          pc = interpret(endProjectWitness: user, in: &context)
         case is GlobalAddr:
           pc = interpret(globalAddr: user, in: &context)
         case is LLVMInstruction:
@@ -68,6 +70,8 @@ extension Module {
           pc = interpret(pointerToAddress: user, in: &context)
         case is Project:
           pc = interpret(project: user, in: &context)
+        case is ProjectWitness:
+          pc = interpret(projectWitness: user, in: &context)
         case is ReleaseCaptures:
           pc = successor(of: user)
         case is Return:
@@ -285,27 +289,24 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endProject i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! EndProject
-      let l = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
-      let projection = context.withObject(at: l, { $0 })
+      let r = self[s.start.instruction!] as! Project
 
-      let source = self[s.start.instruction!] as! Project
+      // TODO: Process projection arguments
+      finalize(
+        region: s.start, projecting: r.projection.access, from: [],
+        exitedWith: i, in: &context)
+      return successor(of: i)
+    }
 
-      switch source.projection.access {
-      case .let, .inout, .set:
-        for c in projection.value.consumers {
-          diagnostics.insert(.error(cannotConsume: source.projection.access, at: self[c].site))
-        }
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(endProjectWitness i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! EndProjectWitness
+      let r = self[s.start.instruction!] as! ProjectWitness
 
-      case .sink:
-        insertDeinit(
-          s.start, at: projection.value.initializedSubfields, anchoredTo: s.site, before: i,
-          reportingDiagnosticsTo: &diagnostics)
-        context.withObject(at: l, { $0.value = .full(.uninitialized) })
-
-      case .yielded:
-        unreachable()
-      }
-
+      let sources = context.locals[r.container]!.unwrapLocations()!
+      finalize(
+        region: s.start, projecting: r.projection.access, from: sources,
+        exitedWith: i, in: &context)
       return successor(of: i)
     }
 
@@ -400,7 +401,13 @@ extension Module {
       // TODO: Process arguments
 
       initializeRegister(createdBy: i, projecting: s.projection, in: &context)
+      return successor(of: i)
+    }
 
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(projectWitness i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! ProjectWitness
+      initializeRegister(createdBy: i, projecting: s.projection, in: &context)
       return successor(of: i)
     }
 
