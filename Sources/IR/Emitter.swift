@@ -1857,50 +1857,63 @@ struct Emitter {
 
   /// Inserts the IR for coercing `source` to an address of type `target`.
   ///
-  /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR for
+  /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR
   /// producing an address of type `target` is inserted, consuming `source` if necessary.
   private mutating func emitCoerce(
     _ source: Operand, to target: AnyType, at site: SourceRange
   ) -> Operand {
-    let target = program.canonical(target, in: insertionScope!)
+    let lhs = module.type(of: source).ast
+    let rhs = program.canonical(target, in: insertionScope!)
 
-    let sourceType = module.type(of: source).ast
-    if program.areEquivalent(sourceType, target, in: insertionScope!) {
+    if program.areEquivalent(lhs, rhs, in: insertionScope!) {
       return source
     }
 
-    if sourceType.base is RemoteType {
-      let v = insert(module.makeOpenCapture(source, at: site))!
-      return emitCoerce(v, to: target, at: site)
+    if lhs.base is RemoteType {
+      let s = insert(module.makeOpenCapture(source, at: site))!
+      return emitCoerce(s, to: rhs, at: site)
     }
 
-    if let t = LambdaType(target), let o = _emitCoerce(source, to: t, at: site) {
-      return o
+    switch rhs.base {
+    case let t as LambdaType:
+      return _emitCoerce(source, to: t, at: site)
+    default:
+      unexpectedCoercion(from: lhs, to: rhs)
     }
-
-    unreachable("unexpected coercion from '\(sourceType)' to \(target)")
   }
 
-  /// Inserts the IR for coercing `source` to an address of type `target`, returning `nil` if such
-  /// a coercion is not possible.
+  /// Inserts the IR for coercing `source` to an address of type `target`.
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
     _ source: Operand, to target: LambdaType, at site: SourceRange
-  ) -> Operand? {
+  ) -> Operand {
     precondition(target[.isCanonical])
-    guard let s = LambdaType(module.type(of: source).ast) else { return nil }
+    let t = module.type(of: source).ast
+    guard let lhs = LambdaType(t) else {
+      unexpectedCoercion(from: t, to: ^target)
+    }
 
     // TODO: Handle variance
-    let t = LambdaType(
-      receiverEffect: s.receiverEffect,
+    let rhs = LambdaType(
+      receiverEffect: lhs.receiverEffect,
       environment: target.environment,
       inputs: target.inputs,
       output: target.output)
-    if !program.areEquivalent(^s, ^t, in: insertionScope!) { return nil }
+
+    if !program.areEquivalent(^lhs, ^rhs, in: insertionScope!) {
+      unexpectedCoercion(from: t, to: ^target)
+    }
 
     // If we're here, then `t` and `u` only differ on their effects.
     return source
+  }
+
+  /// Traps on this execution path becauses of un unexpected coercion from `lhs` to `rhs`.
+  private func unexpectedCoercion(
+    from lhs: AnyType, to rhs: AnyType, file: StaticString = #file, line: UInt = #line
+  ) -> Never {
+    fatalError("unexpected coercion from '\(lhs)' to \(rhs)", file: file, line: line)
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
