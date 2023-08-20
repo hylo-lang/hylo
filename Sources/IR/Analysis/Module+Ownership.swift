@@ -371,9 +371,18 @@ extension Module {
   ///
   /// - Requires: `o` denotes a location.
   private func accessSource(_ o: Operand) -> Operand {
-    if let a = self[o] as? SubfieldView {
+    switch self[o] {
+    case let a as AdvancedByBytes:
+      return accessSource(a.base)
+    case let a as OpenCapture:
+      return accessSource(a.source)
+    case let a as OpenUnion:
+      return accessSource(a.container)
+    case let a as SubfieldView:
       return accessSource(a.recordAddress)
-    } else {
+    case let a as WrapExistentialAddr:
+      return accessSource(a.witness)
+    default:
       return o
     }
   }
