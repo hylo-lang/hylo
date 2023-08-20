@@ -556,16 +556,10 @@ struct Emitter {
 
     for (path, name) in ast.names(in: program[d].pattern.subpattern) {
       var part = emitSubfieldView(source, at: path, at: program[name].decl.site)
-      let partType = module.type(of: part).ast
       let partDecl = ast[name].decl
 
       let t = canonical(program[partDecl].type)
-      if !program.areEquivalent(t, partType, in: program[d].scope) {
-        if let u = ExistentialType(t) {
-          let box = emitExistential(u, wrapping: part, at: ast[partDecl].site)
-          part = box
-        }
-      }
+      part = emitCoerce(part, to: t, at: ast[partDecl].site)
 
       if isSink {
         let b = module.makeAccess(
