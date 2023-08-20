@@ -139,6 +139,10 @@ private protocol LifetimeExtender {}
 
 extension Access: LifetimeExtender {}
 
+extension AdvancedByBytes: LifetimeExtender {}
+
+extension OpenCapture: LifetimeExtender {}
+
 extension OpenUnion: LifetimeExtender {}
 
 extension Project: LifetimeExtender {}
