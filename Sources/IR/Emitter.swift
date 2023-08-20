@@ -702,7 +702,7 @@ struct Emitter {
       successors.append(appendBlock())
     }
 
-    let n = insert(module.makeUnionDiscriminator(argument, at: site))!
+    let n = emitUnionDiscriminator(argument, at: site)
     insert(module.makeSwitch(on: n, toOneOf: successors, at: site))
 
     let tail = appendBlock()
@@ -1766,7 +1766,7 @@ struct Emitter {
 
     let i = program.discriminatorToElement(in: containerType).firstIndex(of: patternType)!
     let expected = IntegerConstant(i, bitWidth: 64)  // FIXME: should be width of 'word'
-    let actual = insert(module.makeUnionDiscriminator(container, at: site))!
+    let actual = emitUnionDiscriminator(container, at: site)
 
     let test = insert(
       module.makeLLVM(applying: .icmp(.eq, .word), to: [.constant(expected), actual], at: site))!
@@ -2367,7 +2367,7 @@ struct Emitter {
       successors.append(appendBlock())
     }
 
-    let n = insert(module.makeUnionDiscriminator(storage, at: site))!
+    let n = emitUnionDiscriminator(storage, at: site)
     insert(module.makeSwitch(on: n, toOneOf: successors, at: site))
 
     let tail = appendBlock()
@@ -2451,6 +2451,17 @@ struct Emitter {
     insertionPoint = .end(of: failure)
     insert(module.makeUnreachable(at: site))
     insertionPoint = .end(of: success)
+  }
+
+  /// Emits the IR for copying the union discriminator of `container`, which is the address of
+  /// a union container, anchoring new instructions at `site`.
+  private mutating func emitUnionDiscriminator(
+    _ container: Operand, at site: SourceRange
+  ) -> Operand {
+    let x0 = insert(module.makeAccess(.let, from: container, at: site))!
+    let x1 = insert(module.makeUnionDiscriminator(x0, at: site))!
+    insert(module.makeEndAccess(x0, at: site))
+    return x1
   }
 
   /// Returns the result of calling `action` on a copy of `self` in which a `newFrame` is the top
