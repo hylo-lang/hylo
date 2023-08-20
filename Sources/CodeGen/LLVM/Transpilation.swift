@@ -916,7 +916,13 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(openUnion i: IR.InstructionID) {
       let s = m[i] as! OpenUnion
-      register[.register(i)] = llvm(s.container)
+      let t = UnionType(m.type(of: s.container).ast)!
+
+      let baseType = ir.llvm(unionType: t, in: &self)
+      let container = llvm(s.container)
+      let indices = [i32.constant(0), i32.constant(0)]
+      register[.register(i)] = insertGetElementPointerInBounds(
+        of: container, typed: baseType, indices: indices, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
