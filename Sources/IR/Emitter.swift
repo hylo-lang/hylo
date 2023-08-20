@@ -1877,8 +1877,12 @@ struct Emitter {
   private mutating func _emitCoerce(
     _ source: Operand, to target: UnionType, at site: SourceRange
   ) -> Operand {
+    let lhs = module.type(of: source).ast
+
     let x0 = emitAllocStack(for: ^target, at: site)
-    emitMove([.set], source, to: x0, at: site)
+    let x1 = insert(module.makeOpenUnion(x0, as: lhs, forInitialization: true, at: site))!
+    emitMove([.set], source, to: x1, at: site)
+    insert(module.makeCloseUnion(x1, at: site))
     return x0
   }
 
