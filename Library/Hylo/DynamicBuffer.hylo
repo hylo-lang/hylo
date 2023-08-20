@@ -51,6 +51,10 @@ public type DynamicBuffer<Header, Element>: Deinitializable {
 
   /// The number of elements that can be stored in `self`.
   public fun capacity() -> Int {
+    if storage == MutableRawPointer.null() {
+      return 0
+    }
+
     let p = Pointer<BufferHeader>(storage)
     return p.with_pointee(fun (_ h: BufferHeader) -> Int {
       h.0.copy()
