@@ -1,5 +1,9 @@
 /// A buffer of elements stored in a contiguous region of memory, whose size is determined at
 /// instance creation.
+///
+/// - Warning: The deinitializer of `DynamicBuffer` does not deinitialize the elements that may
+///   be stored in its payload. You must ensure that they are propertly deinitialized before
+///   `deinit` is called.
 public type DynamicBuffer<Header, Element>: Deinitializable {
 
   /// The description of payloads in `DynamicBuffer`s.
@@ -45,6 +49,8 @@ public type DynamicBuffer<Header, Element>: Deinitializable {
   }
 
   /// Deinitializes `self`.
+  ///
+  /// - Requires: No element is stored in `self`.
   public fun deinit() sink {
     storage.deallocate()
   }
