@@ -87,7 +87,7 @@ extension Module {
     case is ProjectBundle:
       return requests(projectBundle: u)
     default:
-      unreachable()
+      return []
     }
   }
 
