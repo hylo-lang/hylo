@@ -1,0 +1,18 @@
+//- compileAndRun expecting: success
+
+fun test_init_empty() {
+  var d = DynamicBuffer<Int, Int>()
+  precondition(d.capacity() == 0)
+}
+
+fun test_init_with_capacity() {
+  var d = DynamicBuffer<Int, Int>(
+    capacity: 5,
+    initializing_header_with: fun(_ h: set Int) -> Void { &h = 0 })
+  precondition(d.capacity() == 5)
+}
+
+public fun main() {
+  test_init_empty()
+  test_init_with_capacity()  
+}
