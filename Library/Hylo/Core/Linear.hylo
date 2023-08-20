@@ -1,0 +1,2 @@
+/// A type whose instances are movable and deinitializable.
+public trait Linear: Deinitializable, Movable {}
