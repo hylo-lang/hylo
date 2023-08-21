@@ -25,9 +25,13 @@ on:
 jobs:
   build:
     name: Format check
-    runs-on: ubuntu-latest
-    container: swift:5.8
+    runs-on: macos-latest
+
     steps:
+    - name: install swift-format
+      run: |
+        brew install swift-format
+
     - name: Checkout
       uses: actions/checkout@v3
 
