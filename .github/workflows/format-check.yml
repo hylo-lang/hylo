@@ -26,23 +26,12 @@ jobs:
   build:
     name: Format check
     runs-on: ubuntu-latest
-    container: swift:5.8
     steps:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - uses: actions/cache@v3
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-
-
-    - run: git config --global core.autocrlf input
-
-    - name: Swift version
-      run: swift --version
+    - name: Install swift-format
+    - run: brew install swift-format
 
     - name: Check code format
-      run: Tools/run-swift-format.sh -d lint
-
+    - run: swift-format lint -r --configuration .swift-format.json -p Sources Tests Package.swift
