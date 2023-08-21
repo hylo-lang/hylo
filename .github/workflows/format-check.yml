@@ -41,3 +41,9 @@ jobs:
 
     - name: Check code format
       run: Tools/run-swift-format.sh -d lint
+
+    - name: Fix permissions
+      run: |
+        chmod -v -R +rX .build Package.resolved | while read -r line; do
+          echo "::warning title=Invalid file permissions automatically fixed::$line"
+        done
