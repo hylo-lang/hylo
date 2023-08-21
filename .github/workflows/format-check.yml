@@ -1,5 +1,9 @@
 name: Format check
 
+defaults:
+  run:
+    shell: bash -eo pipefail {0}
+
 on:
   push:
     branches: [ main ]
@@ -44,6 +48,6 @@ jobs:
 
     - name: Fix permissions
       run: |
-        chmod -v -R +rX .build Package.resolved | while read -r line; do
+        chmod -v -R +rX .build Package.resolved 2> /dev/null | while read -r line; do
           echo "::warning title=Invalid file permissions automatically fixed::$line"
         done
