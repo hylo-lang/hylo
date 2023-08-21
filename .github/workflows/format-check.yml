@@ -46,8 +46,3 @@ jobs:
     - name: Check code format
       run: Tools/run-swift-format.sh -d lint
 
-    - name: Fix permissions to keep cache happy.
-      run: |
-        chmod -v -R +rX .build | (grep -v "mode of '.*' retained as " || true) | while read -r message; do
-          echo "::warning title=Invalid file permissions automatically fixed::$message"
-        done
