@@ -1,5 +1,9 @@
 name: Format check
 
+defaults:
+  run:
+    shell: bash -eo pipefail {0}
+
 on:
   push:
     branches: [ main ]
@@ -22,6 +26,7 @@ jobs:
   build:
     name: Format check
     runs-on: ubuntu-latest
+    container: swift:5.8
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -35,13 +40,9 @@ jobs:
 
     - run: git config --global core.autocrlf input
 
-    - name: Setup swift
-      uses: slashmo/install-swift@v0.4.0
-      with:
-        version: 5.8
-
     - name: Swift version
       run: swift --version
 
     - name: Check code format
       run: Tools/run-swift-format.sh -d lint
+
