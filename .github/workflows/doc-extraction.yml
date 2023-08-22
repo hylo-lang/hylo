@@ -37,11 +37,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-spm-
 
-    - name: Setup swift
-      uses: swift-actions/setup-swift@v1
-      with:
-        swift-version: 5.8
-
     - run: swift --version
 
     - name: Cache LLVM
