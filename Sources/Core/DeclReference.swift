@@ -1,11 +1,42 @@
 /// A reference to a declaration.
 public enum DeclReference: Hashable {
 
+  /// A member reference's qualification.
+  public indirect enum Receiver: Hashable {
+
+    /// The left operand in an infix expression, as `foo` in `foo + bar`.
+    case operand
+
+    /// Implicit, as the `.` in `.bar`; the whole name denotes a type member.
+    case implicit
+
+    /// Explicit, as `foo.` in `foo.bar` or `.foo.` in `.foo.bar`.
+    case explicit(AnyExprID)
+
+    /// Elided in a member context.
+    case elided(DeclReference)
+
+    /// Creates an instance from the qualification of a name expression.
+    public init?(_ r: NameExpr.Domain) {
+      switch r {
+      case .none:
+        return nil
+      case .operand:
+        self = .operand
+      case .implicit:
+        self = .implicit
+      case .explicit(let e):
+        self = .explicit(e)
+      }
+    }
+
+  }
+
   /// A direct reference.
   case direct(AnyDeclID, GenericArguments)
 
   /// A reference to a member declaration bound to a receiver.
-  case member(AnyDeclID, GenericArguments)
+  case member(AnyDeclID, GenericArguments, Receiver)
 
   /// A reference to an initializer used as a constructor.
   case constructor(InitializerDecl.ID, GenericArguments)
@@ -36,7 +67,7 @@ public enum DeclReference: Hashable {
     switch self {
     case .direct(let d, _):
       return d
-    case .member(let d, _):
+    case .member(let d, _, _):
       return d
     case .constructor(let d, _):
       return AnyDeclID(d)
@@ -50,7 +81,7 @@ public enum DeclReference: Hashable {
     switch self {
     case .direct(_, let a):
       return a
-    case .member(_, let a):
+    case .member(_, let a, _):
       return a
     case .constructor(_, let a):
       return a

@@ -136,7 +136,7 @@ final class ParserTests: XCTestCase {
       """
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseProductTypeDecl)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.members.count, 4)  // 3 explicit decls + 1 implicit memberwise init
+    XCTAssertEqual(decl.members.count, 3)
   }
 
   func testProductTypeDeclWithGenericClause() throws {
@@ -902,7 +902,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(callee.name.value.stem, "+")
     XCTAssertEqual(callee.name.value.notation, .prefix)
 
-    if case .expr(let receiverID) = callee.domain {
+    if case .explicit(let receiverID) = callee.domain {
       XCTAssertEqual(receiverID.kind, .init(NameExpr.self))
     } else {
       XCTFail()
@@ -919,7 +919,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(callee.name.value.stem, "+")
     XCTAssertEqual(callee.name.value.notation, .postfix)
 
-    if case .expr(let receiverID) = callee.domain {
+    if case .explicit(let receiverID) = callee.domain {
       XCTAssertEqual(receiverID.kind, .init(NameExpr.self))
     } else {
       XCTFail()
@@ -934,7 +934,7 @@ final class ParserTests: XCTestCase {
     var expr = try XCTUnwrap(ast[exprID] as? NameExpr)
     XCTAssertEqual(expr.name.value.stem, "c")
 
-    if case .expr(let domainID) = expr.domain {
+    if case .explicit(let domainID) = expr.domain {
       expr = try XCTUnwrap(ast[domainID] as? NameExpr)
       XCTAssertEqual(expr.name.value.stem, "b")
     } else {
@@ -958,7 +958,7 @@ final class ParserTests: XCTestCase {
     let expr = try XCTUnwrap(ast[exprID] as? NameExpr)
     XCTAssertEqual(expr.name.value.stem, "meta")
 
-    if case .expr(let domainID) = expr.domain {
+    if case .explicit(let domainID) = expr.domain {
       XCTAssertEqual(domainID.kind, .init(TupleTypeExpr.self))
     } else {
       XCTFail()
@@ -979,7 +979,7 @@ final class ParserTests: XCTestCase {
     let expr = try XCTUnwrap(ast[exprID] as? NameExpr)
     XCTAssertEqual(expr.name.value.stem, "A")
 
-    if case .expr(let domain) = expr.domain {
+    if case .explicit(let domain) = expr.domain {
       let d = try XCTUnwrap(ast[domain] as? ConformanceLensTypeExpr)
       XCTAssertEqual(d.subject.kind, .init(NameExpr.self))
       XCTAssertEqual(d.lens.kind, .init(NameExpr.self))
@@ -1419,9 +1419,9 @@ final class ParserTests: XCTestCase {
     let names = ast.names(in: p!)
     XCTAssertEqual(names.count, 2)
     if names.count == 2 {
-      XCTAssertEqual(names[0].path, [0])
+      XCTAssertEqual(names[0].subfield, [0])
       XCTAssertEqual(ast[ast[names[0].pattern].decl].baseName, "foo")
-      XCTAssertEqual(names[1].path, [1, 0])
+      XCTAssertEqual(names[1].subfield, [1, 0])
       XCTAssertEqual(ast[ast[names[1].pattern].decl].baseName, "bar")
     }
   }

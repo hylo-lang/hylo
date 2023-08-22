@@ -354,9 +354,7 @@ public struct Module {
 
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`.
   private func appendCaptures(
-    _ captures: [TupleType.Element],
-    passed effect: AccessEffect,
-    to inputs: inout [Parameter]
+    _ captures: [TupleType.Element], passed effect: AccessEffect, to inputs: inout [Parameter]
   ) {
     inputs.reserveCapacity(captures.count)
     for c in captures {
@@ -373,8 +371,7 @@ public struct Module {
 
   /// Appends `parameters` to `inputs`, ensuring that their types are canonical.
   private func appendParameters(
-    _ parameters: [CallableTypeParameter],
-    to inputs: inout [Parameter]
+    _ parameters: [CallableTypeParameter], to inputs: inout [Parameter]
   ) {
     inputs.reserveCapacity(parameters.count)
     for p in parameters {
@@ -382,6 +379,25 @@ public struct Module {
       precondition(t.access != .yielded, "cannot lower yielded parameter")
       inputs.append(.init(decl: nil, type: t))
     }
+  }
+
+  /// Returns a map from `f`'s generic arguments to their skolemized form.
+  ///
+  /// - Requires: `f` is declared in `self`.
+  public func parameterization(in f: Function.ID) -> GenericArguments {
+    var result = GenericArguments()
+    for p in functions[f]!.parameters {
+      guard
+        let t = MetatypeType(program[p].type),
+        let u = GenericTypeParameterType(t.instance)
+      else {
+        // TODO: Handle value parameters
+        fatalError("not implemented")
+      }
+
+      result[p] = ^SkolemType(quantifying: u)
+    }
+    return result
   }
 
   /// Returns the entry of `f`.
@@ -599,17 +615,19 @@ public struct Module {
     guard case .register(let i, _) = a else { return [a] }
 
     switch self[i] {
+    case let s as AdvancedByBytesInstruction:
+      return provenances(s.base)
     case let s as BorrowInstruction:
       return provenances(s.location)
-    case let s as ElementAddrInstruction:
-      return provenances(s.base)
     case let s as ProjectInstruction:
       return s.operands.reduce(
         into: [],
         { (p, o) in
           if type(of: o).isAddress { p.formUnion(provenances(o)) }
         })
-    case let s as WrapAddrInstruction:
+    case let s as SubfieldViewInstruction:
+      return provenances(s.recordAddress)
+    case let s as WrapExistentialAddrInstruction:
       return provenances(s.witness)
     default:
       return [a]

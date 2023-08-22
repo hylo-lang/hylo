@@ -4,7 +4,7 @@ public fun main() {
   let a = 42 as Any
 
   match a {
-    let x: Double {}
+    let x: Float64 {}
     let y {}
   }
 }

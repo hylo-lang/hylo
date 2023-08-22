@@ -1,32 +1,32 @@
 /// A singe-precision, floating-point value.
-public type Float {
+public type Float32 {
 
-  var value: Builtin.float
+  var value: Builtin.float32
 
   memberwise init
 
   /// Creates an instance with value `0.0`.
   public init() {
-    &self.value = Builtin.zeroinitializer_float()
+    &self.value = Builtin.zeroinitializer_float32()
   }
 
   /// Creates an instance that approximates `other`.
-  public init(_ other: Double) {
-    &self = Float(value: Builtin.fptrunc_double_float(other.value))
+  public init(_ other: Float64) {
+    &self = Float32(value: Builtin.fptrunc_float64_float32(other.value))
   }
 
 }
 
-public conformance Float: ExpressibleByFloatLiteral {}
+public conformance Float32: ExpressibleByFloatLiteral {}
 
-public conformance Float: ExpressibleByIntegerLiteral {}
+public conformance Float32: ExpressibleByIntegerLiteral {}
 
-public conformance Float: Deinitializable {}
+public conformance Float32: Deinitializable {}
 
-public conformance Float: Copyable {
+public conformance Float32: Copyable {
 
   public fun copy() -> Self {
-    Float(value: value)
+    Float32(value: value)
   }
 
 }

@@ -31,8 +31,10 @@ extension BuiltinFunction {
 
     /// `Builtin.address<T>(of v: T) -> Builtin.ptr`
     ///
-    /// Returns a pointer to a value passed as a `let` or `inout` argument. The returned pointer
-    /// is only valid within the function in which `address_of` is being called.
+    /// Returns a pointer to the storage of the argument.
+    ///
+    /// The resulting pointer is dereferenceable only for the lifetime of the argument; additional
+    /// measures may be needed to keep the argument alive during the pointer's use.
     case addressOf
 
   }
@@ -72,8 +74,13 @@ extension BuiltinFunction {
     var tokens = n.split(separator: "_")[...]
 
     // The first token is the LLVM instruction name.
-    guard let instruction = tokens.popFirst().map(String.init(_:)) else { return nil }
-    switch instruction {
+    guard let head = tokens.popFirst() else { return nil }
+    switch head {
+    case "advanced":
+      guard let ((_, _), t) = (exactly("by") ++ exactly("bytes") ++ builtinType)(&tokens)
+      else { return nil }
+      self = .init(name: .llvm(.advancedByBytes(byteOffset: t)))
+
     case "add":
       guard let (p, t) = integerArithmeticTail(&tokens) else { return nil }
       self = .init(name: .llvm(.add(p, t)))
@@ -247,12 +254,15 @@ private typealias Parser<T> = (_ tokens: inout ArraySlice<Substring>) -> T?
 /// `.some(nil)` if such an element can't be consumed.
 private func maybe(_ s: String) -> Parser<String?> {
   { (stream: inout ArraySlice<Substring>) -> String?? in
-    if let t = stream.first, t == s {
-      stream.removeFirst()
-      return .some(s)
-    } else {
-      return .some(nil)
-    }
+    if let r = exactly(s)(&stream) { return .some(r) }
+    return .some(nil)
+  }
+}
+
+/// Returns a parser that consumes and returns an element equal to `s`.
+private func exactly(_ s: String) -> Parser<String> {
+  { (stream: inout ArraySlice<Substring>) -> String? in
+    return stream.first == s[...] ? (stream.popFirst(), .some(s)).1 : nil
   }
 }
 

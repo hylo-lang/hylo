@@ -3,6 +3,8 @@ public type Int32 {
 
   var value: Builtin.i32
 
+  memberwise init
+
   /// Creates an instance with value `0`.
   public init() {
     &self.value = Builtin.zeroinitializer_i32()
@@ -12,7 +14,7 @@ public type Int32 {
   ///
   /// - Requires: The value of `other` must be representable in this type.
   public init(_ other: Int) {
-    &self = Int32(value: Builtin.trunc_i64_i32(other.value))
+    &self.value = Builtin.trunc_word_i32(other.value)
   }
 
 }

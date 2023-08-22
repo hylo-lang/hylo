@@ -49,16 +49,37 @@ public struct TypeRelations {
     return false
   }
 
-  /// Returns the canonical form of `t`.
+  /// Returns the canonical form of `type`.
   public func canonical(_ type: AnyType) -> AnyType {
     if type[.isCanonical] { return type }
 
     switch type.base {
     case let t as TypeAliasType:
       return canonical(t.resolved.value)
+    case let t as BoundGenericType:
+      return canonical(t)
+    case let t as SumType:
+      return canonical(t)
     default:
-      return type.transformParts({ (t) in .stepOver(canonical(t)) })
+      return type.transformParts({ .stepOver(canonical($0)) })
     }
+  }
+
+  /// Returns the canonical form of `type`.
+  private func canonical(_ type: BoundGenericType) -> AnyType {
+    if type[.isCanonical] { return ^type }
+
+    let arguments = canonical(type.arguments)
+    let base = monomorphize(canonical(type.base), for: arguments)
+    return canonical(base)
+  }
+
+  /// Returns the canonical form of `type`.
+  private func canonical(_ type: SumType) -> AnyType {
+    if type[.isCanonical] { return ^type }
+
+    let elements = Set(type.elements.map(canonical(_:)))
+    return elements.uniqueElement ?? ^SumType(elements)
   }
 
   /// Returns `arguments` with all types replaced by their canonical form.
@@ -68,11 +89,9 @@ public struct TypeRelations {
     }
   }
 
-  /// Returns a copy of `generic` monomorphized for the given `arguments`.
-  ///
-  /// This method has no effect if `arguments` is empty.
-  public func monomorphize(_ generic: AnyType, for arguments: GenericArguments) -> AnyType {
-    return arguments.isEmpty ? generic : generic.transform(transform(_:))
+  /// Returns `generic` monomorphized for the given `parameterization`.
+  public func monomorphize(_ generic: AnyType, for parameterization: GenericArguments) -> AnyType {
+    return parameterization.isEmpty ? generic : generic.transform(transform(_:))
 
     /// Returns how to specialize `t`.
     func transform(_ t: AnyType) -> TypeTransformAction {
@@ -82,7 +101,7 @@ public struct TypeRelations {
       case let u as BoundGenericType:
         return transform(u)
       case let u as GenericTypeParameterType:
-        return .stepOver((arguments[u.decl] as? AnyType) ?? .error)
+        return .stepOver((parameterization[u.decl] as? AnyType) ?? .error)
       case let u as SkolemType:
         return transform(u)
       default:
@@ -99,19 +118,32 @@ public struct TypeRelations {
 
     /// Returns how to monomorphize `t`.
     func transform(_ t: BoundGenericType) -> TypeTransformAction {
-      let updatedArguments = t.arguments.mapValues { (v) -> any CompileTimeValue in
+      let updatedParameterization = t.arguments.mapValues { (v) -> any CompileTimeValue in
         if let w = v as? AnyType {
-          return monomorphize(w, for: arguments)
+          return monomorphize(w, for: parameterization)
         } else {
           return v
         }
       }
-      return .stepOver(^BoundGenericType(t.base, arguments: updatedArguments))
+      return .stepOver(^BoundGenericType(t.base, arguments: updatedParameterization))
     }
 
     /// Returns how to monomorphize `t`.
     func transform(_ t: SkolemType) -> TypeTransformAction {
-      .stepOver(monomorphize(t.base, for: arguments))
+      .stepOver(monomorphize(t.base, for: parameterization))
+    }
+  }
+
+  /// Returns `arguments` monomorphized for the given `parameterization`.
+  public func monomorphize(
+    _ arguments: GenericArguments, for parameterization: GenericArguments
+  ) -> GenericArguments {
+    arguments.mapValues { (v) in
+      if let t = v as? AnyType {
+        return monomorphize(t, for: parameterization)
+      } else {
+        fatalError("not implemented")
+      }
     }
   }
 

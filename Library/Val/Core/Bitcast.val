@@ -1,0 +1,11 @@
+/// Projects `value` with its memory representation reinterpreted as a value of type `U`.
+public subscript unsafe_bitcast<T, U>(_ value: T): U {
+  let {
+    let p = Pointer.to[value]
+    yield p.value as* (remote let U)
+  }
+  inout {
+    let p = Pointer.to[value]
+    yield &(p.value as* (remote inout U))
+  }
+}

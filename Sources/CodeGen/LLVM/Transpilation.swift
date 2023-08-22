@@ -5,10 +5,22 @@ import Utils
 
 extension LLVM.Module {
 
+  /// Creates the LLVM transpilation of the Val IR module `m` in `ir`.
+  init(transpiling m: ModuleDecl.ID, from ir: LoweredProgram) {
+    let source = ir.modules[m]!
+    self.init(source.name)
+
+    for g in source.globals.indices {
+      incorporate(g, of: source, from: ir)
+    }
+    for f in source.functions.keys {
+      incorporate(f, of: source, from: ir)
+    }
+  }
+
   /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
   mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: LoweredProgram) {
     let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
-
     let d = declareGlobalVariable("\(m.id)\(g)", v.type)
     setInitializer(v, for: d)
     setLinkage(.private, for: d)
@@ -65,17 +77,18 @@ extension LLVM.Module {
     }
   }
 
-  /// Returns the LLVM type of a machine word.
-  private mutating func word() -> LLVM.IntegerType {
-    IntegerType(64, in: &self)
-  }
-
   /// Returns the LLVM type of a metatype instance.
   private mutating func metatypeType() -> LLVM.StructType {
     if let t = type(named: "_val_metatype") {
       return .init(t)!
     }
-    return StructType([i64, i64, ptr], in: &self)
+
+    let fields: [LLVM.IRType] = [
+      word(),  // size
+      word(),  // alignment
+      ptr,  // representation
+    ]
+    return LLVM.StructType(fields, in: &self)
   }
 
   /// Returns the LLVM type of an existential container.
@@ -164,9 +177,6 @@ extension LLVM.Module {
     case let v as IR.BufferConstant:
       return LLVM.ArrayConstant(bytes: v.contents, in: &self)
 
-    case let v as IR.MetatypeConstant:
-      return transpiledMetatype(of: v.value.instance, usedIn: m, from: ir)
-
     case let v as IR.WitnessTable:
       return transpiledWitnessTable(v, usedIn: m, from: ir)
 
@@ -175,6 +185,12 @@ extension LLVM.Module {
 
     case let v as IR.FunctionReference:
       return declare(v, from: ir)
+
+    case let v as MetatypeType:
+      return transpiledMetatype(of: v.instance, usedIn: m, from: ir)
+
+    case let v as TraitType:
+      return transpiledTrait(v, usedIn: m, from: ir)
 
     case is IR.Poison:
       let t = ir.llvm(c.type.ast, in: &self)
@@ -217,7 +233,7 @@ extension LLVM.Module {
     var implementations: [LLVM.IRValue] = []
     for c in t.conformances {
       let entry: [LLVM.IRValue] = [
-        transpiledMetatype(of: c.concept, usedIn: m, from: ir),
+        transpiledTrait(c.concept, usedIn: m, from: ir),
         word().constant(UInt64(implementations.count)),
       ]
       entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
@@ -277,8 +293,6 @@ extension LLVM.Module {
     switch t.base {
     case let u as ProductType:
       return transpiledMetatype(of: u, usedIn: m, from: ir)
-    case let u as TraitType:
-      return transpiledMetatype(of: u, usedIn: m, from: ir)
     default:
       fatalError("not implemented")
     }
@@ -291,41 +305,51 @@ extension LLVM.Module {
     from ir: LoweredProgram
   ) -> LLVM.GlobalVariable {
     // Check if we already created the metatype's instance.
-    let n = ir.mangle(t)
-    if let g = global(named: n) { return g }
+    let globalName = ir.mangle(t)
+    if let g = global(named: globalName) {
+      return g
+    }
 
+    // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply
+    // declare the symbol and let it be linked later.
     let metatype = metatypeType()
-    let instance = declareGlobalVariable(n, metatype)
-
-    // Initialize the instance if it's being used in the module defining `t`.
+    let instance = declareGlobalVariable(globalName, metatype)
     if m.id != ir.syntax.module(containing: t.decl) {
       return instance
     }
 
-    // TODO: compute size, alignment, and representation
-    setInitializer(metatype.null, for: instance)
+    let u = ir.llvm(t, in: &self)
+    let initializer = metatype.constant(
+      aggregating: [
+        word().constant(truncatingIfNeeded: self.layout.storageSize(of: u)),
+        word().constant(truncatingIfNeeded: self.layout.preferredAlignment(of: u)),
+        ptr.null,
+      ],
+      in: &self)
+
+    setInitializer(initializer, for: instance)
     setGlobalConstant(true, for: instance)
     return instance
   }
 
-  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
-  private mutating func transpiledMetatype(
-    of t: TraitType,
-    usedIn m: IR.Module,
-    from ir: LoweredProgram
+  /// Returns the LLVM IR value of `t` used in `m` in `ir`.
+  private mutating func transpiledTrait(
+    _ t: TraitType, usedIn m: IR.Module, from ir: LoweredProgram
   ) -> LLVM.GlobalVariable {
-    // Check if we already created the metatype's instance.
-    let n = ir.mangle(t)
-    if let g = global(named: n) { return g }
+    // Check if we already created the trait's instance.
+    let globalName = ir.mangle(t)
+    if let g = global(named: globalName) {
+      return g
+    }
 
-    let instance = declareGlobalVariable(n, ptr)
-
-    // Initialize the instance if it's being used in the module defining `t`.
+    // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply
+    // declare the symbol and let it be linked later.
+    let instance = declareGlobalVariable(globalName, ptr)
     if m.id != ir.syntax.module(containing: t.decl) {
       return instance
     }
 
-    let s = LLVM.StringConstant(n, nullTerminated: true, in: &self)
+    let s = LLVM.StringConstant(globalName, nullTerminated: true, in: &self)
     let g = addGlobalVariable("str", s.type)
     setInitializer(s, for: g)
     setLinkage(.private, for: g)
@@ -437,6 +461,8 @@ extension LLVM.Module {
       switch m[i] {
       case is IR.AddressToPointerInstruction:
         insert(addressToPointer: i)
+      case is IR.AdvancedByBytesInstruction:
+        insert(advancedByBytes: i)
       case is IR.AllocStackInstruction:
         insert(allocStack: i)
       case is IR.BorrowInstruction:
@@ -447,22 +473,26 @@ extension LLVM.Module {
         insert(call: i)
       case is IR.CallFFIInstruction:
         insert(callFFI: i)
+      case is IR.CloseSumInstruction:
+        insert(closeSum: i)
       case is IR.CondBranchInstruction:
         insert(condBranch: i)
       case is IR.DeallocStackInstruction:
         return
-      case is IR.ElementAddrInstruction:
-        insert(elementAddr: i)
       case is IR.EndBorrowInstruction:
         return
       case is IR.EndProjectInstruction:
         insert(endProjection: i)
+      case is IR.GlobalAddrInstruction:
+        insert(globalAddr: i)
       case is IR.LLVMInstruction:
         insert(llvm: i)
       case is IR.LoadInstruction:
         insert(load: i)
       case is IR.MarkStateInstruction:
         return
+      case is IR.OpenSumInstruction:
+        insert(openSum: i)
       case is IR.PartialApplyInstruction:
         insert(partialApply: i)
       case is IR.PointerToAddressInstruction:
@@ -473,11 +503,13 @@ extension LLVM.Module {
         insert(return: i)
       case is IR.StoreInstruction:
         insert(store: i)
+      case is IR.SubfieldViewInstruction:
+        insert(subfieldView: i)
       case is IR.UnrechableInstruction:
         insert(unreachable: i)
       case is IR.UnsafeCastInstruction:
         insert(unsafeCast: i)
-      case is IR.WrapAddrInstruction:
+      case is IR.WrapExistentialAddrInstruction:
         insert(wrapAddr: i)
       case is IR.YieldInstruction:
         insert(yield: i)
@@ -490,6 +522,16 @@ extension LLVM.Module {
     func insert(addressToPointer i: IR.InstructionID) {
       let s = m[i] as! AddressToPointerInstruction
       register[.register(i, 0)] = llvm(s.source)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(advancedByBytes i: IR.InstructionID) {
+      let s = m[i] as! AdvancedByBytesInstruction
+
+      let base = llvm(s.base)
+      let v = insertGetElementPointerInBounds(
+        of: base, typed: ptr, indices: [llvm(s.byteOffset)], at: insertionPoint)
+      register[.register(i, 0)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -566,24 +608,18 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(closeSum i: IR.InstructionID) {
+      // TODO: Implement me
+      // Set the discriminator of the sum container.
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(condBranch i: IR.InstructionID) {
       let s = m[i] as! CondBranchInstruction
       let c = llvm(s.condition)
       insertCondBr(
         if: c, then: block[s.targetIfTrue]!, else: block[s.targetIfFalse]!,
         at: insertionPoint)
-    }
-
-    /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(elementAddr i: IR.InstructionID) {
-      let s = m[i] as! ElementAddrInstruction
-
-      let base = llvm(s.base)
-      let baseType = ir.llvm(m.type(of: s.base).ast, in: &self)
-      let indices = [i32.constant(0)] + s.elementPath.map({ i32.constant(UInt64($0)) })
-      let v = insertGetElementPointerInBounds(
-        of: base, typed: baseType, indices: indices, at: insertionPoint)
-      register[.register(i, 0)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -597,6 +633,24 @@ extension LLVM.Module {
       let slide = register[.register(start, 1)]!
       let buffer = register[.register(start, 2)]!
       _ = insertCall(slide, typed: t, on: [buffer, i1.zero], at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(globalAddr i: IR.InstructionID) {
+      let s = m[i] as! IR.GlobalAddrInstruction
+      register[.register(i, 0)] = global(named: "\(s.container)\(s.id)")!
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(subfieldView i: IR.InstructionID) {
+      let s = m[i] as! SubfieldViewInstruction
+
+      let base = llvm(s.recordAddress)
+      let baseType = ir.llvm(m.type(of: s.recordAddress).ast, in: &self)
+      let indices = [i32.constant(0)] + s.subfield.map({ i32.constant(UInt64($0)) })
+      let v = insertGetElementPointerInBounds(
+        of: base, typed: baseType, indices: indices, at: insertionPoint)
+      register[.register(i, 0)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -617,6 +671,16 @@ extension LLVM.Module {
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         register[.register(i, 0)] = insertMul(overflow: p, l, r, at: insertionPoint)
+
+      case .sdiv(let e, _):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertSignedDiv(exact: e, l, r, at: insertionPoint)
+
+      case .srem(_):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i, 0)] = insertSignedRem(l, r, at: insertionPoint)
 
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
@@ -659,12 +723,18 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(openSum i: IR.InstructionID) {
+      let s = m[i] as! OpenSumInstruction
+      register[.register(i, 0)] = llvm(s.container)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(partialApply i: IR.InstructionID) {
       let s = m[i] as! IR.PartialApplyInstruction
-      let t = LambdaType(s.function.type.ast)!
+      let t = LambdaType(s.callee.type.ast)!
 
       if t.environment == .void {
-        register[.register(i, 0)] = transpiledConstant(s.function, usedIn: m, from: ir)
+        register[.register(i, 0)] = transpiledConstant(s.callee, usedIn: m, from: ir)
       } else {
         fatalError("not implemented")
       }
@@ -753,7 +823,7 @@ extension LLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(wrapAddr i: IR.InstructionID) {
-      let s = m[i] as! IR.WrapAddrInstruction
+      let s = m[i] as! IR.WrapExistentialAddrInstruction
       let t = containerType()
       let a = insertAlloca(t, atEntryOf: transpilation)
       insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)

@@ -16,7 +16,7 @@ import LLVM
 ///
 ///     add i64 -> Builtin.add_i64
 ///     icmp ne i32 -> Builtin.icmp_ne_i32
-///     fmul fast double -> Builtin.fmul_fast_double
+///     fmul fast float64 -> Builtin.fmul_fast_float64
 ///
 /// An exception is made for LLVM conversion instructions: we omit the keyword `to` that appears
 /// between the first argument and result type. For example:
@@ -28,6 +28,9 @@ import LLVM
 public enum NativeInstruction: Hashable {
 
   case add(LLVM.OverflowBehavior, BuiltinType)
+
+  // Corresponding LLVM instruction: get_elementptr_inbounds.
+  case advancedByBytes(byteOffset: BuiltinType)
 
   case sub(LLVM.OverflowBehavior, BuiltinType)
 
@@ -129,6 +132,8 @@ extension NativeInstruction {
     switch self {
     case .add(_, let t):
       return .init(^t, ^t, to: ^t)
+    case .advancedByBytes(let byteOffset):
+      return .init(.builtin(.ptr), ^byteOffset, to: .builtin(.ptr))
     case .sub(_, let t):
       return .init(^t, ^t, to: ^t)
     case .mul(_, let t):
@@ -200,6 +205,8 @@ extension NativeInstruction: CustomStringConvertible {
 
   public var description: String {
     switch self {
+    case .advancedByBytes(let byteOffset):
+      return "advanced_by_bytes_\(byteOffset)"
     case .add(let p, let t):
       return (p != .ignore) ? "add_\(p)_\(t)" : "add_\(t)"
     case .sub(let p, let t):

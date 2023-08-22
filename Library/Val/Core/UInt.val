@@ -1,0 +1,45 @@
+/// An unsigned integer value.
+public type UInt {
+
+  var value: Builtin.word
+
+  memberwise init
+
+  /// Creates an instance with value `0`.
+  public init() {
+    &self.value = Builtin.zeroinitializer_word()
+  }
+
+  /// Creates an instance with the same memory representation as `other`.
+  public init(bit_pattern other: Int) {
+    &self.value = other.value
+  }
+
+  /// Creates an instance with the same memory representation as `address`.
+  public init(bit_pattern address: RawPointer) {
+    &self.value = Builtin.ptrtoint_word(address.value)
+  }
+
+  /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_word(value, other.value))
+  }
+
+  /// Returns `true` if `self` is not equal to `other`. Otherwise, returns `false`.
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_word(value, other.value))
+  }
+
+}
+
+public conformance UInt: ExpressibleByIntegerLiteral {}
+
+public conformance UInt: Deinitializable {}
+
+public conformance UInt: Copyable {
+
+  public fun copy() -> Self {
+    UInt(value: value)
+  }
+
+}

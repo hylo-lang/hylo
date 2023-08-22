@@ -27,6 +27,17 @@ public struct BoundGenericType: TypeProtocol {
         fatalError("not implemented")
       }
     }
+
+    // The type isn't canonical if `base` is structural.
+    switch self.base.base {
+    case let t as GenericTypeParameterType where arguments[t.decl] == nil:
+      break
+    case is ProductType:
+      break
+    default:
+      flags.remove(.isCanonical)
+    }
+
     self.flags = flags
   }
 

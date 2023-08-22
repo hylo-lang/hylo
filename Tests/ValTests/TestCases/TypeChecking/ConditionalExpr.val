@@ -6,12 +6,12 @@ public fun main() {
   let x0 = if true { 1 } else { 2 }
   check<Int>(x0)
 
-  let x1 = if true { 1 } else { 2 as Double }
-  check<Double>(x1)
+  let x1 = if true { 1 } else { 2 as Float64 }
+  check<Float64>(x1)
 
   //! @+1 diagnostic type 'Bool' does not conform to trait 'ExpressibleByIntegerLiteral'
   let x2 = if true { 1 } else { false }
 
-  //! @+1 diagnostic conditional expression has mismatching types 'Int' and 'Double'
+  //! @+1 diagnostic conditional expression has mismatching types 'Int' and 'Float64'
   let x3 = if true { x0 } else { x1 }
 }

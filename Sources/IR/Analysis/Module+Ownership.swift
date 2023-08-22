@@ -23,22 +23,26 @@ extension Module {
           interpret(allocStack: user, in: &context)
         case is BorrowInstruction:
           interpret(borrow: user, in: &context)
+        case is CloseSumInstruction:
+          interpret(closeSum: user, in: &context)
         case is DeallocStackInstruction:
           interpret(deallocStack: user, in: &context)
-        case is ElementAddrInstruction:
-          interpret(elementAddr: user, in: &context)
         case is EndBorrowInstruction:
           interpret(endBorrow: user, in: &context)
         case is EndProjectInstruction:
           interpret(endProject: user, in: &context)
         case is GlobalAddrInstruction:
           interpret(globalAddr: user, in: &context)
+        case is OpenSumInstruction:
+          interpret(openSum: user, in: &context)
         case is PointerToAddressInstruction:
           interpret(pointerToAddress: user, in: &context)
         case is ProjectInstruction:
           interpret(project: user, in: &context)
-        case is WrapAddrInstruction:
-          interpret(wrapAddr: user, in: &context)
+        case is SubfieldViewInstruction:
+          interpret(subfieldView: user, in: &context)
+        case is WrapExistentialAddrInstruction:
+          interpret(wrapExistentialAddr: user, in: &context)
         default:
           continue
         }
@@ -113,28 +117,30 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(closeSum i: InstructionID, in context: inout Context) {
+      let s = self[i] as! CloseSumInstruction
+      let payload = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
+
+      // The state of the projected payload can't be partial.
+      let o = context.withObject(at: payload, { $0 })
+      guard case .full(let payloadInitializationState) = o.value else {
+        fatalError()
+      }
+
+      // Copy the state of the payload to set the state of the container.
+      let start = self[s.start.instruction!] as! OpenSumInstruction
+      context.forEachObject(at: start.container) { (o) in
+        o.value = .full(payloadInitializationState)
+      }
+
+      context.memory[payload] = nil
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) {
       let dealloc = self[i] as! DeallocStackInstruction
       let l = context.locals[dealloc.location]!.unwrapLocations()!.uniqueElement!
       context.memory[l] = nil
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(elementAddr i: InstructionID, in context: inout Context) {
-      let s = self[i] as! ElementAddrInstruction
-      if case .constant = s.base {
-        // Operand is a constant.
-        fatalError("not implemented")
-      }
-
-      // Skip the instruction if an error occured upstream.
-      guard let base = context.locals[s.base] else {
-        assert(diagnostics.containsError)
-        return
-      }
-
-      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.elementPath) })
-      context.locals[.register(i, 0)] = .locations(Set(newLocations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -190,6 +196,23 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(openSum i: InstructionID, in context: inout Context) {
+      let s = self[i] as! OpenSumInstruction
+      let l = AbstractLocation.root(.register(i, 0))
+      precondition(context.memory[l] == nil, "overlapping accesses to sum payload")
+
+      // Operand must be a location.
+      let locations = context.locals[s.container]!.unwrapLocations()!
+
+      // Objects at each location have the same state unless DI or LoE has been broken.
+      let o = context.withObject(at: locations.first!, { $0 })
+      let t = AbstractTypeLayout(of: s.payloadType, definedIn: program)
+
+      context.memory[l] = .init(layout: t, value: o.value)
+      context.locals[.register(i, 0)] = .locations([l])
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(pointerToAddress i: InstructionID, in context: inout Context) {
       let s = self[i] as! PointerToAddressInstruction
       let l = AbstractLocation.root(.register(i, 0))
@@ -213,8 +236,26 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapAddr i: InstructionID, in context: inout Context) {
-      let s = self[i] as! WrapAddrInstruction
+    func interpret(subfieldView i: InstructionID, in context: inout Context) {
+      let s = self[i] as! SubfieldViewInstruction
+      if case .constant = s.recordAddress {
+        // Operand is a constant.
+        fatalError("not implemented")
+      }
+
+      // Skip the instruction if an error occured upstream.
+      guard let base = context.locals[s.recordAddress] else {
+        assert(diagnostics.containsError)
+        return
+      }
+
+      let newLocations = base.unwrapLocations()!.map({ $0.appending(s.subfield) })
+      context.locals[.register(i, 0)] = .locations(Set(newLocations))
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(wrapExistentialAddr i: InstructionID, in context: inout Context) {
+      let s = self[i] as! WrapExistentialAddrInstruction
       if case .constant = s.witness {
         // Operand is a constant.
         fatalError("not implemented")
@@ -299,8 +340,8 @@ extension Module {
   ///
   /// - Requires: `o` denotes a location.
   private func accessSource(_ o: Operand) -> Operand {
-    if case .register(let i, _) = o, let a = self[i] as? ElementAddrInstruction {
-      return accessSource(a.base)
+    if case .register(let i, _) = o, let a = self[i] as? SubfieldViewInstruction {
+      return accessSource(a.recordAddress)
     } else {
       return o
     }

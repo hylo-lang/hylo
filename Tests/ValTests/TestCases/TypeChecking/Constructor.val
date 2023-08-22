@@ -1,10 +1,15 @@
 //- typeCheck expecting: success
 
 type Message {
+
   public var value: String
+
+  public memberwise init
+
   public static fun greetings() -> Message {
     .new(value: "Hello")
   }
+
 }
 
 fun check<T>(_ x: T) {}

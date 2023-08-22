@@ -1,7 +1,9 @@
 import Utils
 import XCTest
 
-final class WideUIntTests: XCTestCase {
+@testable import IR
+
+final class WideUIntExtensionsTests: XCTestCase {
 
   func testInitFromValLiteral() throws {
     assert(WideUInt(valLiteral: "0", signed: true, bitWidth: 8), is: "0", withWidth: 8)

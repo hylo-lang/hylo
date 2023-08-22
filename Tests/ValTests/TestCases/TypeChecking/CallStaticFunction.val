@@ -2,9 +2,12 @@
 
 type A {
 
+  memberwise init
+
   public static fun make() -> A { A() }
 
   public static fun make_overloaded() -> A { A() }
+
   public static fun make_overloaded(_ x: Bool) -> A { A() }
 
 }

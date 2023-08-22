@@ -1,7 +1,8 @@
 //- typeCheck expecting: success
 
 type A {
-  fun foo() inout {}
+  public memberwise init
+  public fun foo() inout {}
 }
 
 public fun main() {

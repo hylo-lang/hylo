@@ -79,7 +79,6 @@ struct Solution {
     typeAssumptions.formIntersection(other.typeAssumptions)
     bindingAssumptions.formIntersection(other.bindingAssumptions)
     penalties = max(penalties, other.penalties)
-    diagnostics.formUnion(other.diagnostics)
   }
 
 }

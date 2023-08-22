@@ -14,16 +14,22 @@ public struct SumType: TypeProtocol {
   /// Creates an instance type with the specified elements.
   public init<S: Sequence>(_ elements: S) where S.Element == AnyType {
     self.elements = Set(elements)
-    self.flags =
-      self.elements.isEmpty
-      ? [.isCanonical]
-      : TypeFlags(merging: self.elements.map({ $0.flags }))
+
+    let f = TypeFlags(merging: self.elements.map({ $0.flags }))
+    switch self.elements.count {
+    case 0:
+      self.flags = .isCanonical
+    case 1:
+      self.flags = f.removing(.isCanonical)
+    default:
+      self.flags = f
+    }
   }
 
-  public func transform<M>(
+  public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
-    SumType(elements.map({ (e) -> AnyType in e.transform(mutating: &m, transformer) }))
+    SumType(elements.map({ $0.transform(mutating: &m, transformer) }))
   }
 
 }

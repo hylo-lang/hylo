@@ -7,17 +7,20 @@ public enum BuiltinType: TypeProtocol {
   /// and does not specify signedness.
   case i(Int)
 
+  /// An alias for `.i(n)` where `n` is the width of `.ptr`.
+  case word
+
   /// A built-in 16-bit floating-point type (specifically, "binary16" in IEEE 754).
-  case half
+  case float16
 
   /// A built-in 32-bit floating-point type (specifically, "binary32" in IEEE 754).
-  case float
+  case float32
 
   /// A built-in 64-bit floating-point type (specifically, "binary64" in IEEE 754).
-  case double
+  case float64
 
   /// A built-in 128-bit floating-point type (specifically, "binary128" in IEEE 754).
-  case fp128
+  case float128
 
   /// A built-in opaque pointer.
   case ptr
@@ -35,14 +38,16 @@ extension BuiltinType: CustomStringConvertible {
     switch self {
     case .i(let bitWidth):
       return "i\(bitWidth)"
-    case .half:
-      return "half"
-    case .float:
-      return "float"
-    case .double:
-      return "double"
-    case .fp128:
-      return "fp128"
+    case .word:
+      return "word"
+    case .float16:
+      return "float16"
+    case .float32:
+      return "float32"
+    case .float64:
+      return "float64"
+    case .float128:
+      return "float128"
     case .ptr:
       return "ptr"
     case .module:
@@ -56,14 +61,16 @@ extension BuiltinType: LosslessStringConvertible {
 
   public init?<S: StringProtocol>(_ description: S) {
     switch description {
-    case "half":
-      self = .half
-    case "float":
-      self = .float
-    case "double":
-      self = .double
-    case "fp128":
-      self = .fp128
+    case "word":
+      self = .word
+    case "float16":
+      self = .float16
+    case "float32":
+      self = .float32
+    case "float64":
+      self = .float64
+    case "float128":
+      self = .float128
     case "ptr":
       self = .ptr
     case "Builtin":

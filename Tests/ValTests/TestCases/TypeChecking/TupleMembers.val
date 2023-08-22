@@ -8,10 +8,10 @@ public fun main() {
   let x0 = s.0
   check<Int>(x0)
   let x1 = s.1
-  check<Double>(x1)
+  check<Float64>(x1)
   let x2 = s.2
   check<Bool>(x2)
 
-  //! @+1 diagnostic type '{first: Int, second: Double, Bool}' has no member '3'
+  //! @+1 diagnostic type '{first: Int, second: Float64, Bool}' has no member '3'
   let y0 = s.3
 }

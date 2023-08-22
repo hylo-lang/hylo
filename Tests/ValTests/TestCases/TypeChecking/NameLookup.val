@@ -21,8 +21,10 @@ extension A {
 }
 
 type A {
+  public memberwise init
+
   public typealias B = C
-  public type E {}
+  public type E { public memberwise init }
 
   public fun m0() {}
   public fun m2() {

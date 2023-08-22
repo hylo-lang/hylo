@@ -27,9 +27,6 @@ public struct Emitter {
   /// A stack of frames describing the variables and allocations of each traversed lexical scope.
   private var frames = Stack()
 
-  /// The receiver of the function or subscript currently being lowered, if any.
-  private var receiver: ParameterDecl.ID?
-
   /// The diagnostics of lowering errors.
   private var diagnostics: DiagnosticSet = []
 
@@ -156,9 +153,7 @@ public struct Emitter {
     // Configure the emitter context.
     let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
     let bodyFrame = outermostFrame(of: d, entering: entry)
-
     self.insertionBlock = entry
-    self.receiver = ast[d].receiver
 
     // Emit the body.
     switch b {
@@ -232,12 +227,9 @@ public struct Emitter {
     // Configure the emitter context.
     let entry = module.appendEntry(in: d, to: f)
 
-    let r = self.receiver
     self.insertionBlock = entry
-    self.receiver = nil
     self.frames.push()
     defer {
-      self.receiver = r
       self.frames.pop()
       assert(self.frames.isEmpty)
     }
@@ -292,13 +284,8 @@ public struct Emitter {
       locals[p] = .parameter(entry, i + 1)
     }
 
-    // Configure the emitter context.
-    let r = self.receiver
-    insertionBlock = entry
-    receiver = ast[d].receiver
-    defer { receiver = r }
-
     // Emit the body.
+    insertionBlock = entry
     switch pushing(Frame(locals: locals), { $0.emit(braceStmt: $0.ast[d].body!) }) {
     case .next:
       emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: ast[d].site))
@@ -353,13 +340,8 @@ public struct Emitter {
       }
     }
 
-    // Configure the emitter context.
-    let r = self.receiver
-    self.insertionBlock = entry
-    self.receiver = ast[d].receiver
-    defer { receiver = r }
-
     // Emit the body.
+    self.insertionBlock = entry
     switch b {
     case .block(let s):
       lower(body: s, of: d, in: Frame(locals: locals))
@@ -396,13 +378,13 @@ public struct Emitter {
 
   /// Inserts the IR for `d`.
   private mutating func lower(product d: ProductTypeDecl.ID) {
-    _ = module.addGlobal(MetatypeConstant(.init(program[d].type)!))
+    _ = module.addGlobal(MetatypeType(program[d].type)!)
     lower(members: ast[d].members)
   }
 
   /// Inserts the IR for `d`.
   private mutating func lower(trait d: TraitDecl.ID) {
-    _ = module.addGlobal(MetatypeConstant(.init(program[d].type)!))
+    _ = module.addGlobal(TraitType(program[d].type)!)
   }
 
   /// Inserts the IR for given declaration `members`.
@@ -447,21 +429,34 @@ public struct Emitter {
     precondition(program.isLocal(d))
     precondition(read(program[d].pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
 
-    // Allocate storage for all the names declared by `decl`.
+    // Allocate storage for all the names declared by `d` in a single aggregate.
     let storage = emitAllocStack(for: program[d].type, at: ast[d].site)
 
-    // Declare each introduced name and initialize them if possible.
+    // Declare all introduced names, initializing them if possible.
     let lhs = program[d].pattern.subpattern.id
     if let initializer = ast[d].initializer {
       ast.walking(pattern: lhs, expression: initializer) { (path, p, rhs) in
-        // Declare the introduced name if `p` is a name pattern. Otherwise, drop the value of the
-        // the corresponding expression.
-        if let name = NamePattern.ID(p) {
-          let part = declare(name: name, referringTo: path)
-          emitStore(value: rhs, to: part)
+        // Nothing to assign if `p` isn't a name pattern.
+        guard let n = NamePattern.ID(p) else {
+          let s = emitStore(value: rhs)
+          emitDeinit(s, at: ast[p].site)
+          return
+        }
+
+        let lhsPart = declare(name: n, referringTo: path)
+        let lhsPartType = module.type(of: lhsPart).ast
+        let rhsPartType = program.relations.canonical(program[rhs].type)
+
+        if program.relations.areEquivalent(lhsPartType, rhsPartType) {
+          emitStore(value: rhs, to: lhsPart)
+        } else if lhsPartType.base is SumType {
+          let x0 = append(
+            module.makeOpenSum(
+              lhsPart, as: rhsPartType, forInitialization: true, at: ast[p].site))[0]
+          emitStore(value: rhs, to: x0)
+          append(module.makeCloseSum(x0, at: ast[p].site))
         } else {
-          let part = emitStore(value: rhs)
-          emitDeinit(part, at: ast[p].site)
+          fatalError("not implemented")
         }
       }
     } else {
@@ -470,10 +465,10 @@ public struct Emitter {
       }
     }
 
-    /// Inserts the IR to declare `name`, which refers to the sub-location at `pathInStorage`,
-    /// returning that sub-location.
-    func declare(name: NamePattern.ID, referringTo pathInStorage: PartPath) -> Operand {
-      let s = emitElementAddr(storage, at: pathInStorage, at: ast[name].site)
+    /// Inserts the IR to declare `name`, which refers to the given `subfield` (relative to
+    /// `storage`), returning that sub-location.
+    func declare(name: NamePattern.ID, referringTo subfield: RecordPath) -> Operand {
+      let s = emitSubfieldView(storage, at: subfield, at: ast[name].site)
       frames[ast[name].decl] = s
       return s
     }
@@ -505,17 +500,11 @@ public struct Emitter {
       return
     }
 
-    // Initializing inout bindings requires a mutation marker.
-    if (access == .inout) && (initializer.kind != InoutExpr.self) {
-      report(
-        .error(inoutBindingRequiresMutationMarkerAt: .empty(at: ast[initializer].site.first())))
-    }
-
     let source = emitLValue(initializer)
     let isSink = module.isSink(source, in: insertionBlock!.function)
 
     for (path, name) in ast.names(in: program[d].pattern.subpattern) {
-      var part = emitElementAddr(source, at: path, at: program[name].decl.site)
+      var part = emitSubfieldView(source, at: path, at: program[name].decl.site)
       let partType = module.type(of: part).ast
       let partDecl = ast[name].decl
 
@@ -680,8 +669,8 @@ public struct Emitter {
 
       // Otherwise, move initialize each property.
       for i in layout.properties.indices {
-        let source = emitElementAddr(argument, at: [i], at: site)
-        let target = emitElementAddr(receiver, at: [i], at: site)
+        let source = emitSubfieldView(argument, at: [i], at: site)
+        let target = emitSubfieldView(receiver, at: [i], at: site)
         let part = append(module.makeLoad(source, at: site))[0]
         emitStore(value: part, to: target, at: site)
       }
@@ -1036,7 +1025,7 @@ public struct Emitter {
   private mutating func emitStore(
     booleanLiteral e: BooleanLiteralExpr.ID, to storage: Operand
   ) {
-    let x0 = emitElementAddr(storage, at: [0], at: ast[e].site)
+    let x0 = emitSubfieldView(storage, at: [0], at: ast[e].site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: ast[e].site))[0]
     append(module.makeStore(.i1(ast[e].value), at: x1, at: ast[e].site))
   }
@@ -1146,7 +1135,9 @@ public struct Emitter {
 
   private mutating func emitStore(lambda e: LambdaExpr.ID, to storage: Operand) {
     let f = lower(function: ast[e].decl)
-    let r = FunctionReference(to: f, usedIn: insertionScope!, in: module)
+    let r = FunctionReference(
+      to: f, parameterizedBy: module.parameterization(in: insertionBlock!.function),
+      usedIn: insertionScope!, in: module)
 
     let x0 = append(module.makePartialApply(wrapping: r, with: .void, at: ast[e].site))[0]
     let x1 = append(module.makeBorrow(.set, from: storage, at: ast[e].site))[0]
@@ -1191,7 +1182,7 @@ public struct Emitter {
       let l = emit(infixOperand: lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
 
       // The callee must be a reference to member function.
-      guard case .member(let d, _) = program[callee.expr].referredDecl else { unreachable() }
+      guard case .member(let d, _, _) = program[callee.expr].referredDecl else { unreachable() }
       let oper = Operand.constant(
         FunctionReference(to: FunctionDecl.ID(d)!, usedIn: insertionScope!, in: &module))
 
@@ -1219,7 +1210,7 @@ public struct Emitter {
     }
 
     for (i, element) in ast[e].elements.enumerated() {
-      let xi = emitElementAddr(storage, at: [i], at: ast[element.value].site)
+      let xi = emitSubfieldView(storage, at: [i], at: ast[element.value].site)
       emitStore(value: element.value, to: xi)
     }
   }
@@ -1243,10 +1234,12 @@ public struct Emitter {
       emitStore(integer: literal, signed: true, bitWidth: 32, to: storage)
     case ast.coreType("Int8")!:
       emitStore(integer: literal, signed: true, bitWidth: 8, to: storage)
-    case ast.coreType("Double")!:
-      emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.double(_:))
-    case ast.coreType("Float")!:
-      emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float(_:))
+    case ast.coreType("UInt")!:
+      emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
+    case ast.coreType("Float64")!:
+      emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
+    case ast.coreType("Float32")!:
+      emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float32(_:))
     default:
       fatalError("not implemented")
     }
@@ -1259,7 +1252,7 @@ public struct Emitter {
     evaluatedBy evaluate: (String) -> FloatingPointConstant
   ) {
     let syntax = ast[literal]
-    let x0 = emitElementAddr(storage, at: [0], at: syntax.site)
+    let x0 = emitSubfieldView(storage, at: [0], at: syntax.site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))[0]
     let x2 = Operand.constant(evaluate(syntax.value))
     append(module.makeStore(x2, at: x1, at: syntax.site))
@@ -1280,7 +1273,7 @@ public struct Emitter {
       return
     }
 
-    let x0 = emitElementAddr(storage, at: [0], at: syntax.site)
+    let x0 = emitSubfieldView(storage, at: [0], at: syntax.site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: syntax.site))[0]
     let x2 = Operand.constant(IntegerConstant(bits))
     append(module.makeStore(x2, at: x1, at: syntax.site))
@@ -1291,7 +1284,7 @@ public struct Emitter {
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Val.Int`.
   private mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
-    let x0 = emitElementAddr(storage, at: [0], at: site)
+    let x0 = emitSubfieldView(storage, at: [0], at: site)
     let x1 = append(module.makeBorrow(.set, from: x0, at: site))[0]
     append(module.makeStore(.word(v), at: x1, at: site))
   }
@@ -1308,10 +1301,10 @@ public struct Emitter {
     // Make sure the string is null-terminated.
     bytes.append(contentsOf: [0])
 
-    let x0 = emitElementAddr(storage, at: [0], at: site)
+    let x0 = emitSubfieldView(storage, at: [0], at: site)
     emitStore(int: size, to: x0, at: site)
 
-    let x1 = emitElementAddr(storage, at: [1, 0], at: site)
+    let x1 = emitSubfieldView(storage, at: [1, 0], at: site)
     let x2 = append(module.makeBorrow(.set, from: x1, at: site))[0]
     append(module.makeStore(.constant(utf8), at: x2, at: site))
   }
@@ -1384,7 +1377,7 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
-      let s = emitElementAddr(receiver, at: [i], at: ast[call].site)
+      let s = emitSubfieldView(receiver, at: [i], at: ast[call].site)
       emitStore(value: ast[call].arguments[i].value, to: s)
     }
   }
@@ -1481,8 +1474,7 @@ public struct Emitter {
 
     case .addressOf:
       let source = emitLValue(arguments[0].value)
-      return append(
-        module.makeAddressToPointer(source, at: site))[0]
+      return append(module.makeAddressToPointer(source, at: site))[0]
     }
   }
 
@@ -1526,29 +1518,20 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
+      let p = module.parameterization(in: insertionBlock!.function).appending(a)
       let r = FunctionReference(
-        to: FunctionDecl.ID(d)!, parameterizedBy: a,
+        to: FunctionDecl.ID(d)!, parameterizedBy: p,
         usedIn: insertionScope!, in: &module)
       return (.constant(r), [])
 
-    case .member(let d, let a) where d.kind == FunctionDecl.self:
+    case .member(let d, let a, let s) where d.kind == FunctionDecl.self:
       // Callee is a member reference to a function or method.
       let r = FunctionReference(
         to: FunctionDecl.ID(d)!, parameterizedBy: a,
         usedIn: insertionScope!, in: &module)
 
-      // Emit the location of the receiver.
-      let receiver: Operand
-      switch ast[callee].domain {
-      case .none:
-        receiver = frames[self.receiver!]!
-      case .expr(let e):
-        receiver = emitLValue(e)
-      case .implicit:
-        unreachable()
-      }
-
-      // Load or borrow the receiver.
+      // The callee's receiver is the sole capture.
+      let receiver = emitLValue(receiver: s, at: ast[callee].site)
       if let t = RemoteType(calleeType.captures[0].type) {
         let i = append(module.makeBorrow(t.access, from: receiver, at: ast[callee].site))
         return (Operand.constant(r), i)
@@ -1585,7 +1568,9 @@ public struct Emitter {
     }
   }
 
-  private mutating func emit(subscriptCallee callee: AnyExprID) -> SubscriptBundleReference {
+  private mutating func emit(
+    subscriptCallee callee: AnyExprID
+  ) -> (callee: SubscriptBundleReference, captures: [Operand]) {
     // TODO: Handle captures
     switch callee.kind {
     case NameExpr.self:
@@ -1602,14 +1587,34 @@ public struct Emitter {
 
   private mutating func emit(
     namedSubscriptCallee callee: NameExpr.ID
-  ) -> SubscriptBundleReference {
+  ) -> (callee: SubscriptBundleReference, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == SubscriptDecl.self:
-      // Direct reference to a subscript declaration.
-      return .init(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+      // Callee is a direct reference to a subscript declaration.
+      let t = SubscriptType(program.relations.canonical(program[d].type))!
+      guard t.environment == .void else {
+        fatalError("not implemented")
+      }
+
+      let b = SubscriptBundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+      return (b, [])
+
+    case .member(let d, let a, let s) where d.kind == SubscriptDecl.self:
+      // Callee is a member reference to a subscript declaration.
+      let b = SubscriptBundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+
+      // The callee's receiver is the sole capture.
+      let receiver = emitLValue(receiver: s, at: ast[callee].site)
+      let t = SubscriptType(program[d].type)!
+      let i = append(module.makeAccess(t.capabilities, from: receiver, at: ast[callee].site))
+      return (b, i)
+
+    case .builtinFunction, .builtinType:
+      // There are no built-in subscripts.
+      unreachable()
 
     default:
-      fatalError()
+      fatalError("not implemented")
     }
   }
 
@@ -1644,7 +1649,7 @@ public struct Emitter {
   private mutating func emit(branchCondition e: AnyExprID) -> Operand {
     precondition(program.relations.canonical(program[e].type) == ast.coreType("Bool")!)
     let x0 = emitLValue(e)
-    let x1 = emitElementAddr(x0, at: [0], at: ast[e].site)
+    let x1 = emitSubfieldView(x0, at: [0], at: ast[e].site)
     let x2 = append(module.makeLoad(x1, at: ast[e].site))[0]
     return x2
   }
@@ -1723,7 +1728,7 @@ public struct Emitter {
     let g = PointerConstant(module.id, module.addGlobal(witnessTable))
 
     let x0 = append(module.makeBorrow(access, from: witness, at: site))[0]
-    let x1 = append(module.makeWrapAddr(x0, .constant(g), as: t, at: site))[0]
+    let x1 = append(module.makeWrapExistentialAddr(x0, .constant(g), as: t, at: site))[0]
     return x1
   }
 
@@ -1766,17 +1771,21 @@ public struct Emitter {
   }
 
   private mutating func emitLValue(inoutExpr e: InoutExpr.ID) -> Operand {
-    return emitLValue(ast[e].subject)
+    emitLValue(ast[e].subject)
   }
 
   private mutating func emitLValue(name e: NameExpr.ID) -> Operand {
-    switch program[e].referredDecl {
-    case .direct(let d, _):
-      return emitLValue(directReferenceTo: d)
+    emitLValue(reference: program[e].referredDecl, at: ast[e].site)
+  }
 
-    case .member(let d, let a):
-      let r = emitLValue(receiverOf: e)
-      return emitProperty(boundTo: r, declaredBy: d, parameterizedBy: a, at: ast[e].site)
+  private mutating func emitLValue(reference r: DeclReference, at site: SourceRange) -> Operand {
+    switch r {
+    case .direct(let d, _):
+      return emitLValue(directReferenceTo: d, at: site)
+
+    case .member(let d, let a, let s):
+      let receiver = emitLValue(receiver: s, at: site)
+      return emitProperty(boundTo: receiver, declaredBy: d, parameterizedBy: a, at: site)
 
     case .constructor:
       fatalError("not implemented")
@@ -1787,34 +1796,43 @@ public struct Emitter {
     }
   }
 
-  /// Inserts the IR denoting a direct reference to `d` at the end of the current insertion block.
-  private mutating func emitLValue(directReferenceTo d: AnyDeclID) -> Operand {
-    // Check if `d` is a local.
-    if let s = frames[d] { return s }
-
-    switch d.kind {
-    case ProductTypeDecl.self:
-      let t = MetatypeType(of: program[d].type)
-      let g = module.addGlobal(MetatypeConstant(MetatypeType(program[d].type)!))
-      let s = module.makeGlobalAddr(
-        of: g, in: module.id, typed: ^MetatypeType(of: t), at: ast[d].site)
-      return append(s)[0]
-
-    default:
-      fatalError("not implemented")
+  /// Returns the address of the `operation`'s receiver, which refers to a member declaration.
+  private mutating func emitLValue(
+    receiver r: DeclReference.Receiver, at site: SourceRange
+  ) -> Operand {
+    switch r {
+    case .operand, .implicit:
+      unreachable()
+    case .explicit(let e):
+      return emitLValue(e)
+    case .elided(let s):
+      return emitLValue(reference: s, at: site)
     }
   }
 
-  /// Inserts the IR denoting the domain of `syntax`.
-  private mutating func emitLValue(receiverOf e: NameExpr.ID) -> Operand {
-    switch ast[e].domain {
-    case .none:
-      return frames[receiver!]!
-    case .implicit:
-      fatalError("not implemented")
-    case .expr(let e):
-      return emitLValue(e)
+  /// Inserts the IR denoting a direct reference to `d`.
+  private mutating func emitLValue(
+    directReferenceTo d: AnyDeclID, at site: SourceRange
+  ) -> Operand {
+    // Handle local bindings.
+    if let s = frames[d] {
+      return s
     }
+
+    // Handle global bindings.
+    if d.kind == VarDecl.self {
+      fatalError("not implemented")
+    }
+
+    // Handle references to type declarations.
+    if let t = MetatypeType(program[d].type) {
+      let s = emitAllocStack(for: ^t, at: site)
+      append(module.makeStore(.constant(t), at: s, at: site))
+      return s
+    }
+
+    // Handle references to global functions.
+    fatalError("not implemented")
   }
 
   private mutating func emitLValue(subscriptCall e: SubscriptCallExpr.ID) -> Operand {
@@ -1824,19 +1842,17 @@ public struct Emitter {
       synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[e].site))
 
     // Callee and captures are evaluated next.
-    // TODO: Handle captures
-    let callee = emit(subscriptCallee: ast[e].callee)
-    let arguments = explicitArguments
-
-    // Projection is evaluated last.
-    let t = SubscriptType(
-      program.canonicalType(of: callee.bundle, parameterizedBy: callee.arguments))!
+    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
+    let arguments = captures + explicitArguments
 
     var variants: [AccessEffect: Function.ID] = [:]
     for v in ast[callee.bundle].impls {
       variants[ast[v].introducer.value] = module.demandSubscriptDeclaration(lowering: v)
     }
 
+    // Projection is evaluated last.
+    let t = SubscriptType(
+      program.canonicalType(of: callee.bundle, parameterizedBy: callee.arguments))!
     return append(
       module.makeProjectBundle(
         applying: variants, of: callee, typed: t, to: arguments, at: ast[e].site))[0]
@@ -1844,7 +1860,7 @@ public struct Emitter {
 
   private mutating func emitLValue(tupleMember e: TupleMemberExpr.ID) -> Operand {
     let base = emitLValue(ast[e].tuple)
-    return emitElementAddr(base, at: [ast[e].index.value], at: ast[e].index.site)
+    return emitSubfieldView(base, at: [ast[e].index.value], at: ast[e].index.site)
   }
 
   /// Returns the address of the member declared by `d`, parameterized by `a`, and bound to
@@ -1861,7 +1877,7 @@ public struct Emitter {
     case VarDecl.self:
       let l = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
       let i = l.offset(of: ast[VarDecl.ID(d)!].baseName)!
-      return emitElementAddr(receiver, at: [i], at: site)
+      return emitSubfieldView(receiver, at: [i], at: site)
 
     default:
       fatalError("not implemented")
@@ -1918,15 +1934,15 @@ public struct Emitter {
     _ storage: Operand, usingDeinitializerExposedTo useScope: AnyScopeID, at site: SourceRange,
     _ point: InsertionPoint, in module: inout Module
   ) -> Bool {
+    // Use custom conformance to `Deinitializable` if possible.
     let t = module.type(of: storage).ast
-    switch t.base {
-    case is BuiltinType:
-      // Deinitialization of built-in types is a no-op.
-      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+    if let c = module.program.conformanceToDeinitializable(of: t, exposedTo: useScope) {
+      insertDeinit(storage, withConformanceToDeinitializable: c, at: site, point, in: &module)
       return true
+    }
 
-    case AnyType.void, AnyType.never:
-      // Deinitialization of `Void` and `Never` is no-op.
+    switch t.base {
+    case is BuiltinType, is MetatypeType, AnyType.void, AnyType.never:
       module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
       return true
 
@@ -1938,6 +1954,11 @@ public struct Emitter {
         fatalError("not implemented")
       }
 
+    case is SumType:
+      // TODO: implement me.
+      module.insert(module.makeMarkState(storage, initialized: false, at: site), point)
+      return true
+
     case is TupleType:
       return insertDeinit(
         record: storage, usingDeinitializerExposedTo: useScope, at: site,
@@ -1947,10 +1968,15 @@ public struct Emitter {
       break
     }
 
-    guard let c = module.program.conformanceToDeinitializable(of: t, exposedTo: useScope) else {
-      return false
-    }
+    return false
+  }
 
+  /// Inserts the IR for deinitializing the contents of `storage` at `point` in `module`, using `c`
+  /// to identify the deinitializer to apply, anchoring new instructions to `site`.
+  private static func insertDeinit(
+    _ storage: Operand, withConformanceToDeinitializable c: Conformance, at site: SourceRange,
+    _ point: InsertionPoint, in module: inout Module
+  ) {
     let d = module.demandDeinitDeclaration(from: c)
     let f = Operand.constant(FunctionReference(to: d, usedIn: c.scope, in: module))
 
@@ -1961,8 +1987,6 @@ public struct Emitter {
     module.insert(module.makeEndBorrow(x2, at: site), point)
     module.insert(module.makeMarkState(x1, initialized: false, at: site), point)
     module.insert(module.makeDeallocStack(for: x1, at: site), point)
-
-    return true
   }
 
   /// If `storage`, which holds a record, is deinitializable, inserts the IR for deinitializing its
@@ -1987,9 +2011,11 @@ public struct Emitter {
     // Otherwise, deinitialize each property.
     var r = true
     for i in layout.properties.indices {
-      let x0 = module.insert(module.makeElementAddr(storage, at: [i], at: site), point)[0]
+      let x0 = module.insert(
+        module.makeSubfieldView(of: storage, subfield: [i], at: site), point)[0]
       r =
-        insertDeinit(x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module) && r
+        insertDeinit(
+          x0, usingDeinitializerExposedTo: useScope, at: site, point, in: &module) && r
     }
     return r
   }
@@ -2020,16 +2046,13 @@ public struct Emitter {
     return s
   }
 
-  /// Appends the IR for computing the address of the property at `path` rooted at `base`,
-  /// anchoring new instructions at `site`.
-  ///
-  /// - Returns: The result of `element_addr base, path` instruction if `path` is not empty;
-  ///   otherwise, returns `base` unchanged.
-  private mutating func emitElementAddr(
-    _ base: Operand, at path: PartPath, at site: SourceRange
+  /// Appends the IR for computing the address of the given `subfield` of the record at
+  /// `recordAddress` and returns the resulting address, anchoring new instructions at `site`.
+  private mutating func emitSubfieldView(
+    _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
   ) -> Operand {
-    if path.isEmpty { return base }
-    return append(module.makeElementAddr(base, at: path, at: site))[0]
+    if subfield.isEmpty { return recordAddress }
+    return append(module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site))[0]
   }
 
   /// Inserts the IR for deinitializing `storage`, anchoring new instructions at `site`.
@@ -2105,19 +2128,16 @@ public struct Emitter {
     return action(&self)
   }
 
-  /// Returns the result of calling `action` on a copy of `self` whose insertion block, frames,
-  /// and receiver are clear.
+  /// Returns the result of calling `action` on a copy of `self` whose insertion block and frames
+  /// are clear.
   private mutating func withClearContext<T>(_ action: (inout Self) throws -> T) rethrows -> T {
     var b: Block.ID? = nil
-    var r: ParameterDecl.ID? = nil
     var f = Stack()
 
     swap(&b, &insertionBlock)
-    swap(&r, &receiver)
     swap(&f, &frames)
     defer {
       swap(&b, &insertionBlock)
-      swap(&r, &receiver)
       swap(&f, &frames)
     }
     return try action(&self)
@@ -2192,10 +2212,6 @@ extension Diagnostic {
 
   static func error(assignmentLHSRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
-  }
-
-  static func error(inoutBindingRequiresMutationMarkerAt site: SourceRange) -> Diagnostic {
-    .error("initialization of inout binding must be marked for mutation", at: site)
   }
 
   static func error(nonDeinitializable t: AnyType, at site: SourceRange) -> Diagnostic {

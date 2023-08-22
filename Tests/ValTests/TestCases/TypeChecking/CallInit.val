@@ -4,6 +4,8 @@ type A: Movable {
 
   var x: Int
 
+  memberwise init
+
   public init(value: sink Int) {
     &self = A(x: value)
   }
@@ -16,6 +18,6 @@ public fun main() {
   let x0 = A(x: 42)
   check<A>(x0)
 
-  //! @+1 diagnostic type 'A' has no member 'init(self:y:)'
+  //! @+1 diagnostic ambiguous use of 'A'
   let x1 = A(y: 42)
 }

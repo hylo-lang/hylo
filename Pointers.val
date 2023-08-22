@@ -1,7 +1,46 @@
 // TODO: Equatable, Comparable
 
-// A regular type (per Stepanov).
-public trait Regular: Deinitializable, Copyable, Movable {}
+/// A type whose instances' values can be compared for equivalence.
+///
+/// `==` is an equivalence relation; i.e. `a == a`, `a == b` ⟺ `b == a`, and `a == b` ∧ `b == c` ⟹
+/// `a == c`.
+public trait Equatable {
+
+  /// Returns `true` iff `other` has an equivalent value.
+  fun infix== (_ other: Self) -> Bool
+
+}
+
+extension Equatable {
+
+  /// Returns `false` iff `other` has an equivalent value.
+  public fun infix!= (_ other: Self) -> Bool { !(self == other) }
+
+}
+
+/// A type whose instances' values have a standard total ordering
+///
+/// Two equal values `a` and `b` are unordered, i.e. `a < b` and `b < a` are both false.
+public trait Comparable: Equatable {
+
+  /// Returns `true` iff `self` is ordered before `other`.
+  fun infix< (_ other: Self) -> Bool
+
+  // TODO: make the following not-a-requirement and instead extension methods once that is supported
+  // (https://github.com/val-lang/val/issues/693).
+
+  /// Returns `true` iff `self` is ordered after `other`.
+  fun infix> (_ other: Self) -> Bool // { (other < self) }
+
+  /// Returns `false` iff `self` is ordered after `other`.
+  fun infix<= (_ other: Self) -> Bool // { !(other < self) }
+
+  /// Returns `false` iff `self` is ordered before `other`.
+  fun infix>= (_ other: Self) -> Bool // { !(self < other) }
+}
+
+/// A regular type (per Stepanov).
+public trait Regular: Deinitializable, Copyable, Movable, Equatable {}
 
 /// A typed memory address whose contents can be read.
 public type Pointer<Pointee>: Regular {
@@ -11,27 +50,50 @@ public type Pointer<Pointee>: Regular {
 
   memberwise init
 
-  public fun copy() -> Self {
-    Pointer(base: base)
-  }
-
   /// The value at the given address.
   ///
   /// - Requires: the address stores an object of type Pointee and nothing modifies
   ///   that storage during the lifetime of this projection.
-  public subscript unsafe(): Pointee {
+  // TODO: replace with `subscript unsafe()` and then with `unsafe subscript()`, when the compiler
+  // supports them.
+  public property unsafe_pointee: Pointee {
     yield base as* (remote let Pointee)
   }
 
   /// Creates an instance referring to the same address as `p`.
-  public init(_ p: MutatingPointer<Pointee>) {
+  public init(_ p: PointerToMutable<Pointee>) {
     &base = p.base
+  }
+
+  // Copyable conformace
+
+  public fun copy() -> Self {
+    Pointer(base: base)
+  }
+
+  // Equatable conformance
+
+  /// Returns `true` iff `other` has an equivalent value.
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_word(Builtin.ptrtoint_word(base), Builtin.ptrtoint_word(other.base)))
   }
 
 }
 
+/// Accesses the address of `x`.
+public subscript pointer<T>(to x: T): Pointer<T> {
+  let { yield Pointer(base: Builtin.address(of: x)) }
+}
+
+/// Accesses the address of `x`.
+// TODO: replace with overload of `pointer(to:) if possible`
+public subscript pointerTo<T>(mutable x: inout T): PointerToMutable<T> {
+  let { yield PointerToMutable(base: Builtin.address(of: x)) }
+}
+
+
 /// A typed memory address whose contents can be read and written.
-public type MutatingPointer<Pointee>: Regular {
+public type PointerToMutable<Pointee>: Regular {
 
   /// The raw bits of the address.
   var base: Builtin.ptr
@@ -41,32 +103,40 @@ public type MutatingPointer<Pointee>: Regular {
   /// Returns an equivalent instance.
   ///
   /// Because we don't have a `nonmutating` keyword yet, writing to the pointee of a `let`-bound
-  /// `MutatingPointer` is only possible by copying, e.g.  `&p.copy().unsafe[] = x`.
+  /// `PointerToMutable` is only possible by copying, e.g.  `&p.copy().unsafe_pointee.mutate()`.
   public fun copy() -> Self {
-    MutatingPointer(base: base)
+    PointerToMutable(base: base)
   }
 
   /// The value at the given address.
   ///
   /// - Requires: the address stores a mutable object of type Pointee and nothing accesses that
   ///   storage except through this projection during its lifetime.
-  public subscript unsafe(): Pointee {
+  // TODO: replace with `subscript unsafe()` and then with `unsafe subscript()`, when the compiler
+  // supports them.
+  public property unsafe_pointee: Pointee {
     let { yield base as* (remote let Pointee) }
     inout { yield &(base as* (remote let Pointee)) }
   }
 
   /// Creates an instance with mutable access to the memory pointed to by `p`.
   ///
-  /// - Warning: while this initializer is not in itself unsafe, it should be used with caution.
+  /// - Warning: while this initializer is not in itself unsafe, it should be
+  ///   used with caution.
   public init(adding_mutation_to p: Pointer<Pointee>) {
     &base = p.base
+  }
+
+  /// Returns `true` iff `other` has an equivalent value.
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_word(Builtin.ptrtoint_word(base), Builtin.ptrtoint_word(other.base)))
   }
 
 }
 
 extension Int {
 
-  fun infix+= (_ other: Int) {
+  public fun infix+= (_ other: Int) inout {
     &self = self + other
   }
 
@@ -86,7 +156,7 @@ public conformance Pointer: ForeignConvertible {
 
 }
 
-public conformance MutatingPointer: ForeignConvertible {
+public conformance PointerToMutable: ForeignConvertible {
 
   public typealias ForeignRepresentation = Builtin.ptr
 
@@ -100,12 +170,15 @@ public conformance MutatingPointer: ForeignConvertible {
 
 }
 
-fun test(p: Pointer<Int>, m: MutatingPointer<Int>) {
-  var x: Int = p.unsafe[].copy()
-  x += m.unsafe[]
-  var m1 = m.copy()
-  m1.unsafe[] += x
-  m1.unsafe[] += p.unsafe[]
-}
+public fun main() {
+  var x: Int = 3
+  var y: Int = 7
 
-public fun main() {}
+  y += x
+  let px = pointer[to: x]
+  let pmy = pointerTo[mutable: &y]
+  let z = pmy.copy().unsafe_pointee + 1
+  &yy += px.unsafe_pointee
+//  pmy.copy().unsafe_pointee += px.unsafe_pointee
+  precondition(y == 10)
+}

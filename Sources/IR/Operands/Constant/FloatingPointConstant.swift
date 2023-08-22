@@ -15,14 +15,14 @@ public struct FloatingPointConstant: Constant, Hashable {
     self.type = .object(type)
   }
 
-  /// Creates a new Val IR `double` constant with value `v`.
-  public static func double(_ v: String) -> Self {
-    .init(v, type: .double)
+  /// Creates a new Val IR `float64` constant with value `v`.
+  public static func float64(_ v: String) -> Self {
+    .init(v, type: .float64)
   }
 
-  /// Creates a new Val IR `float` constant with value `v`.
-  public static func float(_ v: String) -> Self {
-    .init(v, type: .float)
+  /// Creates a new Val IR `float32` constant with value `v`.
+  public static func float32(_ v: String) -> Self {
+    .init(v, type: .float32)
   }
 
 }

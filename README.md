@@ -84,17 +84,24 @@ A more detailed description of the current implementation status is available on
 
 ## Related video and audio
 
-[Lightning Talk: An Object Model for Safety and Efficiency by Definition - Dave Abrahams CppNorth 22](https://www.youtube.com/watch?v=KGL02mSaplE)
+### Conference Talks
 
-[Keynote: A Future of Value Semantics and Generic Programming Part 1 - Dave Abrahams - CppNow 2022](https://www.youtube.com/watch?v=4Ri8bly-dJs)
+| Conference |  Year   |            Speaker            |                                                           Title                                                           |
+| :--------: | :-----: | :---------------------------: | :-----------------------------------------------------------------------------------------------------------------------: |
+|   C++Now   | 2022-05 |         Dave Abrahams         |    [Keynote: A Future of Value Semantics and Generic Programming Part 1](https://www.youtube.com/watch?v=4Ri8bly-dJs)     |
+|   C++Now   | 2022-05 | Dave Abrahams & Dimi Racordon |    [Keynote: A Future of Value Semantics and Generic Programming Part 2](https://www.youtube.com/watch?v=GsxYnEAZoNI)     |
+|  CppNorth  | 2022-07 |         Dave Abrahams         |  [Lightning Talk: An Object Model for Safety and Efficiency by Definition](https://www.youtube.com/watch?v=KGL02mSaplE)   |
+|   CppCon   | 2022-09 |         Dave Abrahams         | [Value Semantics: Safety, Independence, Projection, & Future of Programming](https://www.youtube.com/watch?v=QthAU-t3PQ4) |
+|   CppCon   | 2022-09 |         Dimi Racordon         |               [Val: A Safe Language to Interoperate with C++](https://www.youtube.com/watch?v=ws-Z8xKbP4w)                |
 
-[Keynote: A Future of Value Semantics and Generic Programming Part 2 - Dave Abrahams & Dimi Racordon - CppNow 2022](https://www.youtube.com/watch?v=GsxYnEAZoNI)
+### Podcasts
 
-[Value Semantics: Safety, Independence, Projection, & Future of Programming - Dave Abrahams CppCon 22](https://www.youtube.com/watch?v=QthAU-t3PQ4)
+| Podcast | Episode |    Date    |     Guest     |                                          Title                                          |
+| :-----: | :-----: | :--------: | :-----------: | :-------------------------------------------------------------------------------------: |
+| CppCast |   352   | 2023-01-20 | Dimi Racordon | [Val and Mutable Value Semantics](https://cppcast.com/val-and-mutable-value-semantics)  |
+|  ADSP   |   137   | 2023-07-07 |  Sean Parent  | [Sean Parent on Val (vs Rust)!](https://adspthepodcast.com/2023/07/07/Episode-137.html) |
 
-[Val and Mutable Value Semantics - Dimi Racordon](https://cppcast.com/val-and-mutable-value-semantics) 
 
-[Val: A Safe Language to Interoperate with C++ - Dimi Racordon - CppCon 2022](https://www.youtube.com/watch?v=ws-Z8xKbP4w)
 
 ## Contributing
 

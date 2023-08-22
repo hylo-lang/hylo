@@ -2,7 +2,7 @@ import Core
 import Utils
 
 /// Creates existential container wrapping the address of a witness.
-public struct WrapAddrInstruction: Instruction {
+public struct WrapExistentialAddrInstruction: Instruction {
 
   /// The address wrapped in the existential container.
   public private(set) var witness: Operand
@@ -39,27 +39,27 @@ public struct WrapAddrInstruction: Instruction {
 
 }
 
-extension WrapAddrInstruction: CustomStringConvertible {
+extension WrapExistentialAddrInstruction: CustomStringConvertible {
 
   public var description: String {
-    "wrap_addr \(witness), \(table) as \(interface)"
+    "wrap_existential_addr \(witness), \(table) as \(interface)"
   }
 
 }
 
 extension Module {
 
-  /// Creates a `wrap_addr` anchored at `site` that creates an existential container of type
-  /// `interface` wrapping `witness` and `table`.
+  /// Creates a `wrap_existential_addr` anchored at `site` that creates an existential container of
+  /// type `interface` wrapping `witness` and `table`.
   ///
   /// - Parameters:
   ///   - witness: The address of the object wrapped in the container.
   ///   - interface: The type of the container.
   ///   - table: The witness table of the wrapped value. Must be a pointer to a witness table.
-  func makeWrapAddr(
+  func makeWrapExistentialAddr(
     _ witness: Operand, _ table: Operand, as interface: ExistentialType,
     at site: SourceRange
-  ) -> WrapAddrInstruction {
+  ) -> WrapExistentialAddrInstruction {
     precondition(type(of: witness).isAddress)
     return .init(witness: witness, table: table, interface: .address(interface), site: site)
   }

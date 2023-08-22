@@ -15,14 +15,14 @@ public fun main() {
   let x1 = f(42, true)
   check<Int>(x1)
 
-  let x2 = g(0, 42 as Double)
-  check<Double>(x2)
+  let x2 = g(0, 42 as Float64)
+  check<Float64>(x2)
 
   h((), (b: ()))
 
   //! @+1 diagnostic cannot pass value of type '{a: {}}' to parameter 'sink {}'
   h((a: ()), (b: ()))
 
-  //! @+1 diagnostic cannot pass value of type '{b: Double}' to parameter 'sink {b: Int}'
+  //! @+1 diagnostic cannot pass value of type '{b: Float64}' to parameter 'sink {b: Int}'
   h<Int>(0, (b: x2))
 }

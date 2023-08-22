@@ -8,11 +8,14 @@ trait P {
 trait Q {}
 
 type A0: P, Q {
+
   fun f() {}
+
   fun g() {
     let  {}
     sink {}
   }
+
 }
 
 //! @+1 diagnostic conformance to non-trait type 'Int'
@@ -23,6 +26,7 @@ type A2: P {}
 
 //! @+1 diagnostic type 'A3' does not conform to trait 'P'
 type A3: P {
+  memberwise init
   fun f() -> Self { A3() }
 }
 

@@ -1,35 +1,75 @@
 /// A signed integer value.
 public type Int {
 
-  var value: Builtin.i64
+  var value: Builtin.word
 
   memberwise init
 
   /// Creates an instance with value `0`.
   public init() {
-    &self.value = Builtin.zeroinitializer_i64()
+    &self.value = Builtin.zeroinitializer_word()
   }
 
-  /// Creates an instance with the bit pattern of `address`.
+  /// Creates an instance with the same memory representation as `other`.
+  public init(bit_pattern other: UInt) {
+    &self.value = other.value
+  }
+
+  /// Creates an instance with the same memory representation as `address`.
   public init(bit_pattern address: RawPointer) {
-    &self.value = Builtin.ptrtoint_i64(address.value)
+    &self.value = Builtin.ptrtoint_word(address.value)
+  }
+
+  /// Returns the absolute value of `self`.
+  public fun abs() -> Int {
+    if self < 0 { -self } else { +self }
+  }
+
+  /// Returns `self` rounded up to the nearest multiple of `stride`.
+  public fun round_up(nearest_multiple_of stride: Int) -> Int {
+    if stride == 0 {
+      return self.copy()
+    }
+
+    let r = abs() % stride
+    if r == 0 {
+      return self.copy()
+    } else if r < 0 {
+      return -(abs() - r);
+    }
+
+    return self + stride - r;
   }
 
   /// Returns the sum of `self` and `other`.
   ///
   /// - Requires: The sum of the two arguments must be representable in the arguments' type.
   public fun infix+ (_ other: Self) -> Self {
-    Int(value: Builtin.add_i64(value, other.value))
+    Int(value: Builtin.add_word(value, other.value))
   }
 
   /// Returns `self` subtracted by `other`.
   public fun infix- (_ other: Self) -> Self {
-    Int(value: Builtin.sub_i64(value, other.value))
+    Int(value: Builtin.sub_word(value, other.value))
   }
 
   /// Returns the product of `self` and `other`
   public fun infix* (_ other: Self) -> Self {
-    Int(value: Builtin.mul_i64(value, other.value))
+    Int(value: Builtin.mul_word(value, other.value))
+  }
+
+  /// Returns the quotient of dividing `self` by `other`
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix/ (_ other: Self) -> Self {
+    Int(value: Builtin.sdiv_word(value, other.value))
+  }
+
+  /// Returns the remainder of dividing `self` by `other`
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix% (_ other: Self) -> Self {
+    Int(value: Builtin.srem_word(value, other.value))
   }
 
   /// Returns the additive inverse of `self`.
@@ -44,32 +84,32 @@ public type Int {
 
   /// Returns `true` if `self` is smaller than `other`. Otherwise, returns `false`.
   public fun infix< (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_slt_i64(value, other.value))
+    Bool(value: Builtin.icmp_slt_word(value, other.value))
   }
 
   /// Returns `true` if `self` is smaller than or equal to `other`. Otherwise, returns `false`.
   public fun infix<= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sle_i64(value, other.value))
+    Bool(value: Builtin.icmp_sle_word(value, other.value))
   }
 
   /// Returns `true` if `self` is greater than `other`. Otherwise, returns `false`.
   public fun infix> (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sgt_i64(value, other.value))
+    Bool(value: Builtin.icmp_sgt_word(value, other.value))
   }
 
   /// Returns `true` if `self` is greater than or equal to `other`. Otherwise, returns `false`.
   public fun infix>= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sge_i64(value, other.value))
+    Bool(value: Builtin.icmp_sge_word(value, other.value))
   }
 
   /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
   public fun infix== (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_eq_i64(value, other.value))
+    Bool(value: Builtin.icmp_eq_word(value, other.value))
   }
 
   /// Returns `true` if `self` is not equal to `other`. Otherwise, returns `false`.
   public fun infix!= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_ne_i64(value, other.value))
+    Bool(value: Builtin.icmp_ne_word(value, other.value))
   }
 
 }
@@ -88,13 +128,13 @@ public conformance Int: Copyable {
 
 public conformance Int: ForeignConvertible {
 
-  public typealias ForeignRepresentation = Builtin.i64
+  public typealias ForeignRepresentation = Builtin.word
 
-  public init(foreign_value: sink Builtin.i64) {
+  public init(foreign_value: sink Builtin.word) {
     &self.value = foreign_value
   }
 
-  public fun foreign_value() -> Builtin.i64 {
+  public fun foreign_value() -> Builtin.word {
     value
   }
 

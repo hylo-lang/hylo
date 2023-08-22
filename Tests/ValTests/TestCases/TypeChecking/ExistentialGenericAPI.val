@@ -1,6 +1,7 @@
 //- typeCheck expecting: success
 
 type A<X> {
+  public memberwise init
   public fun foo() -> Int { 42 }
 }
 

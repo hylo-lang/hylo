@@ -1019,13 +1019,6 @@ public enum Parser {
         prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
-    // Retrieve or synthesize the type's memberwise initializer.
-    var members = parts.1
-    let memberwiseInit = memberwiseInitializer(
-      ofDeclStartingAt: parts.0.0.0.0.site.start,
-      among: &members,
-      updating: &state)
-
     // Create a new `ProductTypeDecl`.
     return state.insert(
       ProductTypeDecl(
@@ -1033,40 +1026,8 @@ public enum Parser {
         identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
         conformances: parts.0.1 ?? [],
-        members: members,
-        memberwiseInit: memberwiseInit,
+        members: parts.1,
         site: state.range(from: prologue.startIndex)))
-  }
-
-  /// Returns the first memberwise initializer declaration in `members` or synthesizes an implicit
-  /// one, appends it into `members`, and returns it.
-  private static func memberwiseInitializer(
-    ofDeclStartingAt startIndex: SourceFile.Index,
-    among members: inout [AnyDeclID],
-    updating state: inout ParserState
-  ) -> InitializerDecl.ID {
-    for member in members where member.kind == InitializerDecl.self {
-      let m = InitializerDecl.ID(member)!
-      if state.ast[m].isMemberwise { return m }
-    }
-
-    let startOfTypeDecl = state.lexer.sourceCode.emptyRange(at: startIndex)
-    let receiver = state.insert(
-      synthesized: ParameterDecl(
-        identifier: SourceRepresentable(value: "self", range: startOfTypeDecl),
-        site: startOfTypeDecl))
-    let m = state.insert(
-      synthesized: InitializerDecl(
-        introducer: SourceRepresentable(value: .memberwiseInit, range: startOfTypeDecl),
-        attributes: [],
-        accessModifier: SourceRepresentable(value: .private, range: startOfTypeDecl),
-        genericClause: nil,
-        parameters: [],
-        receiver: receiver,
-        body: nil,
-        site: startOfTypeDecl))
-    members.append(AnyDeclID(m))
-    return m
   }
 
   /// Parses an instance of `TypeAliasDecl`.
@@ -1456,6 +1417,7 @@ public enum Parser {
 
       let `operator` = state.insert(
         NameExpr(
+          domain: .operand,
           name: SourceRepresentable(
             value: Name(stem: operatorStem.value, notation: .infix), range: operatorStem.site),
           site: operatorStem.site))
@@ -1489,7 +1451,7 @@ public enum Parser {
 
       let callee = state.insert(
         NameExpr(
-          domain: .expr(operand),
+          domain: .explicit(operand),
           name: SourceRepresentable(
             value: Name(stem: op.value, notation: .prefix),
             range: op.site),
@@ -1520,7 +1482,7 @@ public enum Parser {
 
       let callee = state.insert(
         NameExpr(
-          domain: .expr(operand),
+          domain: .explicit(operand),
           name: SourceRepresentable(
             value: Name(stem: op.value, notation: .postfix),
             range: op.site),
@@ -1635,7 +1597,7 @@ public enum Parser {
     if let component = try parseNameExprComponent(in: &state) {
       let e = state.insert(
         NameExpr(
-          domain: .expr(head),
+          domain: .explicit(head),
           name: component.name,
           arguments: component.arguments,
           site: state.range(from: state.ast[head].site.start)))

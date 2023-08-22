@@ -5,19 +5,6 @@ import Utils
 
 extension LoweredProgram {
 
-  /// Returns the LLVM transpilation of the Val IR module `m`.
-  func transpile(_ m: ModuleDecl.ID) -> LLVM.Module {
-    let ir = modules[m]!
-    var transpilation = LLVM.Module(ir.name)
-    for g in ir.globals.indices {
-      transpilation.incorporate(g, of: ir, from: self)
-    }
-    for f in ir.functions.keys {
-      transpilation.incorporate(f, of: ir, from: self)
-    }
-    return transpilation
-  }
-
   /// Returns the LLVM form of `val` in `module`.
   ///
   /// - Requires: `val` is representable in LLVM.
@@ -31,6 +18,8 @@ extension LoweredProgram {
       return llvm(boundGenericType: t, in: &module)
     case let t as LambdaType:
       return llvm(lambdaType: t, in: &module)
+    case is MetatypeType:
+      return module.ptr
     case let t as ProductType:
       return llvm(productType: t, in: &module)
     case let t as SumType:
@@ -49,13 +38,15 @@ extension LoweredProgram {
     switch val {
     case .i(let width):
       return LLVM.IntegerType(width, in: &module)
-    case .half:
+    case .word:
+      return module.word()
+    case .float16:
       return LLVM.FloatingPointType.half(in: &module)
-    case .float:
+    case .float32:
       return LLVM.FloatingPointType.float(in: &module)
-    case .double:
+    case .float64:
       return LLVM.FloatingPointType.double(in: &module)
-    case .fp128:
+    case .float128:
       return LLVM.FloatingPointType.fp128(in: &module)
     case .ptr:
       return LLVM.PointerType(in: &module)
@@ -124,11 +115,18 @@ extension LoweredProgram {
   func llvm(sumType val: SumType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
+    var payload: IRType = LLVM.StructType([], in: &module)
     if val == .never {
-      return LLVM.StructType([], in: &module)
+      return payload
     }
 
-    fatalError("not implemented")
+    for e in val.elements {
+      let t = llvm(e, in: &module)
+      if module.layout.storageSize(of: t) > module.layout.storageSize(of: payload) {
+        payload = t
+      }
+    }
+    return StructType([payload, module.ptr], in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.
@@ -148,6 +146,8 @@ extension LoweredProgram {
 }
 
 /// Traps indicating that `t` is not representable in LLVM.
-private func notLLVMRepresentable<T: TypeProtocol>(_ t: T) -> Never {
-  preconditionFailure("'\(t)' is not representable in LLVM")
+private func notLLVMRepresentable<T: TypeProtocol>(
+  _ t: T, file: StaticString = #filePath, line: UInt = #line
+) -> Never {
+  preconditionFailure("'\(t)' is not representable in LLVM", file: (file), line: line)
 }

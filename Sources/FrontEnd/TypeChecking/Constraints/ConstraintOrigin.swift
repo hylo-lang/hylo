@@ -33,6 +33,9 @@ struct ConstraintOrigin: Hashable {
     /// The constraint is caused by a binding initialization with a pattern.
     case initializationWithPattern
 
+    /// The constraint is caused by optional binding.
+    case optionalBinding
+
     /// The constraint is caused by the evaluation of a literal expression.
     case literal
 

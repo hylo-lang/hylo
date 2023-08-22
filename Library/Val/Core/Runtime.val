@@ -1,0 +1,24 @@
+public namespace Runtime {
+
+  /// The data structure referred to by a metatype instance.
+  ///
+  /// At run-time, an instance of `Metatype<T>` is represented by a pointer to an instance of
+  /// `MetatypeHeader`, which is used by `MemoryLayout<T>` to interpret the representation of a
+  /// metatype and provide access to properties such as `T`'s size and alignment.
+  ///
+  /// The layout of `MetatypeHeader`'s stored properties is known by the compiler and therefore
+  /// must not change.
+  public type MetatypeHeader {
+
+    /// The contiguous memory footprint of the type's instances, in bytes.
+    let size: Int
+
+    /// The preferred memory alignment of the type's instances, in bytes.
+    let alignment: Int
+
+    /// The description of the type's layout.
+    let representation: RawPointer
+
+  }
+
+}
