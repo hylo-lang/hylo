@@ -54,9 +54,7 @@ public type Pointer<Pointee>: Regular {
   ///
   /// - Requires: the address stores an object of type Pointee and nothing modifies
   ///   that storage during the lifetime of this projection.
-  // TODO: replace with `subscript unsafe()` and then with `unsafe subscript()`, when the compiler
-  // supports them.
-  public property unsafe_pointee: Pointee {
+  public subscript unsafe(): Pointee {
     yield base as* (remote let Pointee)
   }
 
@@ -103,7 +101,7 @@ public type PointerToMutable<Pointee>: Regular {
   /// Returns an equivalent instance.
   ///
   /// Because we don't have a `nonmutating` keyword yet, writing to the pointee of a `let`-bound
-  /// `PointerToMutable` is only possible by copying, e.g.  `&p.copy().unsafe_pointee.mutate()`.
+  /// `PointerToMutable` is only possible by copying, e.g.  `&p.copy().unsafe[] = x`.
   public fun copy() -> Self {
     PointerToMutable(base: base)
   }
@@ -112,32 +110,16 @@ public type PointerToMutable<Pointee>: Regular {
   ///
   /// - Requires: the address stores a mutable object of type Pointee and nothing accesses that
   ///   storage except through this projection during its lifetime.
-  // TODO: replace with `subscript unsafe()` and then with `unsafe subscript()`, when the compiler
-  // supports them.
-  public property unsafe_pointee: Pointee {
+  public subscript unsafe(): Pointee {
     let { yield base as* (remote let Pointee) }
     inout { yield &(base as* (remote let Pointee)) }
   }
 
   /// Creates an instance with mutable access to the memory pointed to by `p`.
   ///
-  /// - Warning: while this initializer is not in itself unsafe, it should be
-  ///   used with caution.
+  /// - Warning: while this initializer is not in itself unsafe, it should be used with caution.
   public init(adding_mutation_to p: Pointer<Pointee>) {
     &base = p.base
-  }
-
-  /// Returns `true` iff `other` has an equivalent value.
-  public fun infix== (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_eq_word(Builtin.ptrtoint_word(base), Builtin.ptrtoint_word(other.base)))
-  }
-
-}
-
-extension Int {
-
-  public fun infix+= (_ other: Int) inout {
-    &self = self + other
   }
 
 }
