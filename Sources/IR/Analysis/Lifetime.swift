@@ -1,10 +1,10 @@
 import Utils
 
-/// The lifetime of an operand.
+/// A region of the program rooted at a definition.
 ///
-/// The lifetime of an operand `o` is the set containing all instructions using `o`, partially
-/// ordered by the function's evaluation order. The maximal elements of `o`'s lifetime are the its
-/// last users.
+/// A lifetime rooted at a definition `d` is a region starting immediately after `d` and covering
+/// a set of uses dominated by `d`. The "upper boundaries" of a lifetime are the program points
+/// immediately after the uses seqenced last in that region.
 ///
 /// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
 struct Lifetime {
@@ -43,6 +43,7 @@ struct Lifetime {
     self.coverage = [:]
   }
 
+  /// Creates an instance with the given properties.
   fileprivate init(operand: Operand, coverage: Coverage) {
     self.operand = operand
     self.coverage = coverage
@@ -61,15 +62,19 @@ struct Lifetime {
     return true
   }
 
-  /// Returns the instructions in `self` that do not preceed any other instruction in `self`.
-  func maximalElements() -> [Use] {
-    coverage.values.compactMap { (blockCoverage) in
-      switch blockCoverage {
+  /// The upper boundaries of the region formed by the elements in `self`.
+  ///
+  /// There's one upper boundary per basic block covered in the lifetime that isn't live-out. It
+  /// falls immediately after the last element of `self` also contained in that block, or, in the
+  /// case of a live-in block with no use, immediately before the first instruction.
+  var upperBoundaries: some Sequence<InsertionPoint> {
+    coverage.lazy.compactMap { (b, c) -> InsertionPoint? in
+      switch c {
       case .liveIn(let use):
-        return use
+        return use.map({ .after($0.user) }) ?? .start(of: .init(operand.function!, b))
       case .closed(let use):
-        return use
-      default:
+        return use.map({ .after($0.user) }) ?? .after(operand.instruction!)
+      case .liveInAndOut, .liveOut:
         return nil
       }
     }
@@ -113,7 +118,6 @@ extension Module {
       }
     }
 
-    // Refine the coverage.
     var coverage: Lifetime.Coverage = [:]
 
     // If the operand isn't live out of its defining block, its last use is in that block.
@@ -123,12 +127,15 @@ extension Module {
     }
 
     // Find the last use in each block for which the operand is not live out.
+    var successors: Set<Function.Blocks.Address> = []
     for (block, bounds) in approximateCoverage {
       switch bounds {
       case (true, true):
         coverage[block] = .liveInAndOut
+        successors.formUnion(cfg.successors(of: block))
       case (false, true):
         coverage[block] = .liveOut
+        successors.formUnion(cfg.successors(of: block))
       case (true, false):
         let id = Block.ID(site.function, block)
         coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: id))
@@ -137,54 +144,59 @@ extension Module {
       }
     }
 
+    // Mark successors of live out blocks as live in if they haven't been already.
+    for block in successors where coverage[block] == nil {
+      coverage[block] = .liveIn(lastUse: nil)
+    }
+
     return Lifetime(operand: operand, coverage: coverage)
+  }
+
+  /// Returns `l` in which `i` has been inserted.
+  ///
+  /// - Requires: The definition of `l` dominates `u`.
+  func extend(lifetime l: Lifetime, toInclude u: Use) -> Lifetime {
+    precondition(l.operand.function! == u.user.function)
+
+    var coverage = l.coverage
+    switch coverage[u.user.block] {
+    case .closed(let lastUser):
+      coverage[u.user.block] = .closed(lastUse: last(lastUser, u))
+    case .liveIn(let lastUser):
+      coverage[u.user.block] = .liveIn(lastUse: last(lastUser, u))
+    default:
+      break
+    }
+
+    return .init(operand: l.operand, coverage: coverage)
   }
 
   /// Returns `left` extended to cover the instructions in `right`.
   ///
-  /// - Requires: `left` and `right` must be defined in the same function, which must be defined in
-  ///   `self`. The operand for which `right` is defined must be in `left`.
-  func extend(lifetime left: Lifetime, with right: Lifetime) -> Lifetime {
+  /// - Requires: `left` and `right` are defined in the same function, which is in `self`. The
+  ///   operand for which `right` is defined must be in `left`.
+  func extend(lifetime left: Lifetime, toCover right: Lifetime) -> Lifetime {
     precondition(left.operand.function! == right.operand.function!)
 
-    /// Returns the use that executes last.
-    func last(_ lhs: Use?, _ rhs: Use?) -> Use? {
-      guard let lhs = lhs else { return rhs }
-      guard let rhs = rhs else { return lhs }
-
-      if lhs.user == rhs.user {
-        return lhs.index < rhs.index ? rhs : lhs
-      }
-
-      let block = functions[lhs.user.function]![lhs.user.block]
-      if lhs.user.address.precedes(rhs.user.address, in: block.instructions) {
-        return rhs
-      } else {
-        return lhs
+    let coverage = left.coverage.merging(right.coverage) { (a, b) in
+      switch (a, b) {
+      case (.liveOut, .liveIn), (.liveIn, .liveOut):
+        unreachable("definition does not dominate all uses")
+      case (.liveInAndOut, _), (_, .liveInAndOut):
+        return .liveInAndOut
+      case (.liveOut, _), (_, .liveOut):
+        return .liveOut
+      case (.liveIn(let lhs), .liveIn(let rhs)):
+        return .liveIn(lastUse: last(lhs, rhs))
+      case (.liveIn(let lhs), .closed(let rhs)):
+        return .liveIn(lastUse: last(lhs, rhs))
+      case (.closed(let lhs), .liveIn(let rhs)):
+        return .liveIn(lastUse: last(lhs, rhs))
+      case (.closed(let lhs), .closed(let rhs)):
+        return .liveIn(lastUse: last(lhs, rhs))
       }
     }
-
-    let coverage = left.coverage.merging(
-      right.coverage,
-      uniquingKeysWith: { (a, b) in
-        switch (a, b) {
-        case (.liveOut, .liveIn), (.liveIn, .liveOut):
-          unreachable("definition does not dominate all uses")
-        case (.liveInAndOut, _), (_, .liveInAndOut):
-          return .liveInAndOut
-        case (.liveOut, _), (_, .liveOut):
-          return .liveOut
-        case (.liveIn(let lhs), .liveIn(let rhs)):
-          return .liveIn(lastUse: last(lhs, rhs))
-        case (.liveIn(let lhs), .closed(let rhs)):
-          return .liveIn(lastUse: last(lhs, rhs))
-        case (.closed(let lhs), .liveIn(let rhs)):
-          return .liveIn(lastUse: last(lhs, rhs))
-        case (.closed(let lhs), .closed(let rhs)):
-          return .liveIn(lastUse: last(lhs, rhs))
-        }
-      })
-    return Lifetime(operand: left.operand, coverage: coverage)
+    return .init(operand: left.operand, coverage: coverage)
   }
 
   /// Returns the last use of `operand` in `block`.
@@ -200,6 +212,23 @@ extension Module {
 
     // No use of `operand` in `block`.
     return nil
+  }
+
+  /// Returns the use that executes last.
+  private func last(_ lhs: Use?, _ rhs: Use?) -> Use? {
+    guard let lhs = lhs else { return rhs }
+    guard let rhs = rhs else { return lhs }
+
+    if lhs.user == rhs.user {
+      return lhs.index < rhs.index ? rhs : lhs
+    }
+
+    let block = functions[lhs.user.function]![lhs.user.block]
+    if lhs.user.address.precedes(rhs.user.address, in: block.instructions) {
+      return rhs
+    } else {
+      return lhs
+    }
   }
 
 }

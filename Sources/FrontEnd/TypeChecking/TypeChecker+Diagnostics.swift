@@ -46,6 +46,12 @@ extension Diagnostic {
     .error("duplicate capture name '\(name)'", at: site)
   }
 
+  static func error(
+    cannotCaptureOverloadedNameImplicitly name: SourceRepresentable<Name>
+  ) -> Diagnostic {
+    .error("cannot capture overloaded name '\(name.value)' implicitly", at: name.site)
+  }
+
   static func error(duplicateOperatorNamed name: String, at site: SourceRange) -> Diagnostic {
     .error("duplicate operator declaration '\(name)'", at: site)
   }
@@ -79,15 +85,6 @@ extension Diagnostic {
     .error(
       "associated type '\(name)' can only be used with a concrete type or generic type parameter",
       at: site)
-  }
-
-  static func error(expectedLambdaParameterCount: Int, found: Int, at site: SourceRange)
-    -> Diagnostic
-  {
-    .error(
-      """
-      contextual lambda type requires \(expectedLambdaParameterCount) argument(s), found \(found)
-      """, at: site)
   }
 
   static func error(invalidDestructuringOfType type: AnyType, at site: SourceRange) -> Diagnostic {
@@ -147,6 +144,10 @@ extension Diagnostic {
       """, at: site)
   }
 
+  static func error(unsatisfiedWhereClauseAt site: SourceRange) -> Diagnostic {
+    .error("unsatisfied where clause", at: site)
+  }
+
   static func error(notEnoughContextToInferArgumentsAt site: SourceRange) -> Diagnostic {
     .error("not enough contextual information to infer generic arguments", at: site)
   }
@@ -158,15 +159,21 @@ extension Diagnostic {
   }
 
   static func note(
-    trait x: TraitType, requiresMethod m: Name, withType t: AnyType, at site: SourceRange
+    trait x: TraitType, requires r: NodeKind, named n: Name, typed t: AnyType, at site: SourceRange
   ) -> Diagnostic {
-    .note("trait '\(x)' requires method '\(m)' with type '\(t)'", at: site)
-  }
+    let entity: String
+    switch r {
+    case FunctionDecl.self:
+      entity = "function"
+    case InitializerDecl.self:
+      entity = "initializer"
+    case MethodImpl.self:
+      entity = "method"
+    default:
+      entity = "entity"
+    }
 
-  static func note(
-    trait x: TraitType, requiresInitializer t: AnyType, at site: SourceRange
-  ) -> Diagnostic {
-    .note("trait '\(x)' requires initializer with type '\(t)'", at: site)
+    return .note("trait '\(x)' requires \(entity) '\(n)' with type '\(t)'", at: site)
   }
 
   static func error(undefinedOperator name: String, at site: SourceRange) -> Diagnostic {
@@ -187,7 +194,7 @@ extension Diagnostic {
       return .error(
         """
         too \(found > expected ? "many" : "few") generic arguments to entity '\(entity.value)' \
-        (found \(found), expected \(expected)
+        (found \(found), expected \(expected))
         """, at: entity.site)
     }
   }
@@ -243,16 +250,16 @@ extension Diagnostic {
     .error("reference to member '\(name)' cannot be resolved without context", at: site)
   }
 
-  static func warning(sumTypeWithZeroElementsAt site: SourceRange) -> Diagnostic {
-    .warning("empty sum type is better expressed as 'Never'", at: site)
+  static func warning(unionTypeWithZeroElementsAt site: SourceRange) -> Diagnostic {
+    .warning("empty union type is better expressed as 'Never'", at: site)
   }
 
-  static func error(sumTypeWithOneElementAt site: SourceRange) -> Diagnostic {
-    .error("sum types should contain at least 2 elements", at: site)
+  static func error(unionTypeWithOneElementAt site: SourceRange) -> Diagnostic {
+    .error("union types should contain at least 2 elements", at: site)
   }
 
-  static func error(valueInSumTypeAt site: SourceRange) -> Diagnostic {
-    .error("sum types cannot contain values", at: site)
+  static func error(valueInUnionTypeAt site: SourceRange) -> Diagnostic {
+    .error("union types cannot contain values", at: site)
   }
 
   static func error(_ l: AnyType, isNotSubtypeOf r: AnyType, at site: SourceRange) -> Diagnostic {
@@ -287,12 +294,12 @@ extension Diagnostic {
       notes: candidates.map { .note("candidate here", at: ast[$0].site) })
   }
 
-  static func error(cannotExtend t: BuiltinType, at site: SourceRange) -> Diagnostic {
-    .error("cannot extend built-in type '\(t)'", at: site)
+  static func error(cannotExtend t: AnyType, at site: SourceRange) -> Diagnostic {
+    .error("cannot extend type '\(t)'", at: site)
   }
 
-  static func error(mutatingBundleMustReturn t: TupleType, at site: SourceRange) -> Diagnostic {
-    .error("mutating bundle must return '\(t)'", at: site)
+  static func error(mutatingBundleMustReturnTupleAt site: SourceRange) -> Diagnostic {
+    .error("mutating bundle must return '{self: Self, _}'", at: site)
   }
 
   static func error(

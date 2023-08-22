@@ -17,7 +17,7 @@ import Utils
 ///
 ///     let p2 = attempt(foo.and(bar)).or(foo)
 
-/// A namespace for the routines of Val's parser.
+/// A namespace for the routines of Hylo's parser.
 public enum Parser {
 
   /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to
@@ -489,11 +489,7 @@ public enum Parser {
       throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
-    // Extension declarations shall not have modifiers.
-    if !prologue.accessModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
-    }
+    // Extension declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
       throw DiagnosticSet(
         prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
@@ -823,7 +819,7 @@ public enum Parser {
         identifier: head.stem,
         genericClause: nil,
         explicitCaptures: [],
-        parameters: nil,
+        parameters: [],
         output: signature,
         impls: impls,
         site: state.range(from: prologue.startIndex)))
@@ -1621,19 +1617,16 @@ public enum Parser {
       return AnyExprID(expr)
 
     case .int:
-      // Integer literal.
-      _ = state.take()
+      // Integer or Float literal.
+
+      // Try to parse a float literal first.
+      if let expr = try parseFloatLiteralExpr(in: &state) {
+        return AnyExprID(expr)
+      }
+
+      // Note: state.take(.int) is called in `parseFloatLiteralExpr(in:)`.
       let expr = state.insert(
         IntegerLiteralExpr(
-          value: state.lexer.sourceCode[head.site].filter({ $0 != "_" }),
-          site: head.site))
-      return AnyExprID(expr)
-
-    case .float:
-      // Floating-point literal.
-      _ = state.take()
-      let expr = state.insert(
-        FloatLiteralExpr(
           value: state.lexer.sourceCode[head.site].filter({ $0 != "_" }),
           site: head.site))
       return AnyExprID(expr)
@@ -1689,7 +1682,7 @@ public enum Parser {
 
     case .remote:
       // Remote type expression.
-      return try parseRemoteTypeExpr(in: &state).map(AnyExprID.init)
+      return try parseRemotExpr(in: &state).map(AnyExprID.init)
 
     case .spawn:
       // Spawn expression.
@@ -1712,6 +1705,29 @@ public enum Parser {
     default:
       return nil
     }
+  }
+
+  private static func parseFloatLiteralExpr(in state: inout ParserState) throws -> FloatLiteralExpr
+    .ID?
+  {
+    guard let first = state.take(.int) else { return nil }
+
+    if state.take(if: { $0.kind == .dot }) != nil {
+      guard state.take(if: { $0.kind == .int }) != nil else { return nil }
+    } else {
+      if state.peek()?.kind != .exponent {
+        return nil
+      }
+    }
+
+    _ = state.take(if: { $0.kind == .exponent })
+
+    let site = first.site.extended(upTo: state.currentIndex)
+
+    return state.insert(
+      FloatLiteralExpr(
+        value: state.lexer.sourceCode[site].filter({ $0 != "_" }),
+        site: site))
   }
 
   private static func parseExistentialTypeExpr(
@@ -2056,16 +2072,16 @@ public enum Parser {
     return .block(s)
   }
 
-  private static func parseRemoteTypeExpr(
+  private static func parseRemotExpr(
     in state: inout ParserState
-  ) throws -> RemoteTypeExpr.ID? {
+  ) throws -> RemoteExpr.ID? {
     guard let introducer = state.take(.remote) else { return nil }
 
     let convention = try state.expect("access effect", using: accessEffect)
-    let operand = try state.expect("type expression", using: parseExpr(in:))
+    let operand = try state.expect("expression", using: parseExpr(in:))
 
     return state.insert(
-      RemoteTypeExpr(
+      RemoteExpr(
         introducerSite: introducer.site,
         convention: convention,
         operand: operand,

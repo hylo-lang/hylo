@@ -1,5 +1,9 @@
 name: Format check
 
+defaults:
+  run:
+    shell: bash -eo pipefail {0}
+
 on:
   push:
     branches: [ main ]
@@ -21,17 +25,15 @@ on:
 jobs:
   build:
     name: Format check
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
+
     steps:
-    - name: Setup swift
-      uses: swift-actions/setup-swift@v1
-      with:
-        swift-version: "5.7"
+    - name: install swift-format
+      run: |
+        brew install swift-format
 
-    - uses: actions/checkout@v3
-
-    - name: Swift version
-      run: swift --version
+    - name: Checkout
+      uses: actions/checkout@v3
 
     - name: Check code format
-      run: Tools/run-swift-format.sh -d lint
+      run: swift-format lint -r --configuration .swift-format.json -p Sources Tests Package.swift

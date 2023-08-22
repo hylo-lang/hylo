@@ -72,9 +72,24 @@ public struct LambdaType: TypeProtocol {
     return .init(receiverEffect: .let, environment: .void, inputs: p + inputs, output: output)
   }
 
-  /// Returns `self` with a thin environment.
+  /// `self` sans environment.
   public var strippingEnvironment: LambdaType {
     LambdaType(receiverEffect: receiverEffect, environment: .void, inputs: inputs, output: output)
+  }
+
+  /// `self` transformed as the type of a member of `receiver`, which is existential.
+  public func asMember(of receiver: ExistentialType) -> AnyType {
+    var r = captures[0].type
+    if let s = RemoteType(r) {
+      r = ^RemoteType(s.access, ^receiver)
+    } else {
+      r = ^receiver
+    }
+
+    return ^LambdaType(
+      receiverEffect: receiverEffect,
+      environment: ^TupleType(labelsAndTypes: [("self", r)]),
+      inputs: inputs, output: output)
   }
 
   /// Accesses the individual elements of the lambda's environment.

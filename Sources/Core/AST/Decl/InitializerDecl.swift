@@ -1,5 +1,7 @@
 /// An initializer declaration.
-public struct InitializerDecl: GenericDecl, GenericScope {
+public struct InitializerDecl: ExposableDecl, GenericDecl, GenericScope {
+
+  public static let constructDescription = "initializer declaration"
 
   /// The introducer of an initializer declaration.
   public enum Introducer: Codable {
@@ -11,6 +13,8 @@ public struct InitializerDecl: GenericDecl, GenericScope {
     case memberwiseInit
 
   }
+
+  public static let isCallable = true
 
   public let site: SourceRange
 
@@ -60,17 +64,17 @@ public struct InitializerDecl: GenericDecl, GenericScope {
     self.body = body
   }
 
+  /// `true` iff `self` is a definition of the entity that it declares.
+  public var isDefinition: Bool { body != nil }
+
   /// Returns whether the declaration is a memberwise initializer.
   public var isMemberwise: Bool { introducer.value == .memberwiseInit }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
-
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
     for p in parameters {
       if ast[p].annotation == nil {
-        diagnostics.insert(.error(missingTypeAnnotation: ast[p], in: ast))
+        log.insert(.error(missingTypeAnnotation: ast[p], in: ast))
       }
     }
   }

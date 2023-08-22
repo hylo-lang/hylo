@@ -29,12 +29,12 @@ public struct BindingPattern: Pattern {
   public let subpattern: AnyPatternID
 
   /// The type annotation of the pattern, if any.
-  public let annotation: AnyTypeExprID?
+  public let annotation: AnyExprID?
 
   public init(
     introducer: SourceRepresentable<BindingPattern.Introducer>,
     subpattern: AnyPatternID,
-    annotation: AnyTypeExprID?,
+    annotation: AnyExprID?,
     site: SourceRange
   ) {
     self.site = site

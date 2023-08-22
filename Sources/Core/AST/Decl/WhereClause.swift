@@ -9,7 +9,7 @@ public struct WhereClause: Codable {
     /// An equality constraint involving one or two skolems.
     case equality(
       l: NameExpr.ID,
-      r: AnyTypeExprID)
+      r: AnyExprID)
 
     /// A conformance constraint on a skolem.
     case conformance(

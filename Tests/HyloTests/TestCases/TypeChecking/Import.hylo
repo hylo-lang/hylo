@@ -1,0 +1,12 @@
+//- typeCheck expecting: failure
+
+import Hylo
+import Import   //! diagnostic needless import: source file is part of 'Import'
+import NotFound //! diagnostic no such module 'NotFound'
+
+fun check<T>(_ x: T) {}
+
+public fun main() {
+  let x: Hylo.Int
+  check<Int>(x)
+}

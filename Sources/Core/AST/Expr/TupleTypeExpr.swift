@@ -8,9 +8,9 @@ public struct TupleTypeExpr: Expr {
     public var label: SourceRepresentable<Identifier>?
 
     /// The type expression of the element.
-    public var type: AnyTypeExprID
+    public var type: AnyExprID
 
-    public init(label: SourceRepresentable<Identifier>? = nil, type: AnyTypeExprID) {
+    public init(label: SourceRepresentable<Identifier>? = nil, type: AnyExprID) {
       self.label = label
       self.type = type
     }

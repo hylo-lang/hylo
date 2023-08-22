@@ -1,5 +1,11 @@
 /// A method declaration.
-public struct MethodDecl: GenericDecl, GenericScope {
+public struct MethodDecl: BundleDecl, GenericDecl, GenericScope {
+
+  public static let constructDescription = "method declaration"
+
+  public typealias Variant = MethodImpl
+
+  public static let isCallable = true
 
   public let site: SourceRange
 
@@ -27,7 +33,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
   public let parameters: [ParameterDecl.ID]
 
   /// The return type annotation of the method, if any.
-  public let output: AnyTypeExprID?
+  public let output: AnyExprID?
 
   /// The implementations of the method.
   public let impls: [MethodImpl.ID]
@@ -41,7 +47,7 @@ public struct MethodDecl: GenericDecl, GenericScope {
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     parameters: [ParameterDecl.ID],
-    output: AnyTypeExprID?,
+    output: AnyExprID?,
     impls: [MethodImpl.ID],
     site: SourceRange
   ) {
@@ -57,14 +63,11 @@ public struct MethodDecl: GenericDecl, GenericScope {
     self.impls = impls
   }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
-
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
     for p in parameters {
       if ast[p].annotation == nil {
-        diagnostics.insert(.error(missingTypeAnnotation: ast[p], in: ast))
+        log.insert(.error(missingTypeAnnotation: ast[p], in: ast))
       }
     }
   }

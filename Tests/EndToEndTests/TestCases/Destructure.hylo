@@ -1,0 +1,10 @@
+//- compileAndRun expecting: success
+
+fun triplet() -> {Int, Int, Int} {
+  (1, 2, 3)
+}
+
+public fun main() {
+  var ((x, _, y), (_, z)) = (triplet(), (4, 5))
+  precondition((x + y + z) == 9)
+}

@@ -1,5 +1,7 @@
 /// An associated type declaration.
-public struct AssociatedTypeDecl: SingleEntityDecl {
+public struct AssociatedTypeDecl: SingleEntityDecl, ConstrainedGenericTypeDecl {
+
+  public static let constructDescription = "associated type declaration"
 
   public let site: SourceRange
 
@@ -16,7 +18,7 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
   public let whereClause: SourceRepresentable<WhereClause>?
 
   /// The default value of the declaration, if any.
-  public let defaultValue: AnyTypeExprID?
+  public let defaultValue: AnyExprID?
 
   /// Creates an instance with the given properties.
   public init(
@@ -24,7 +26,7 @@ public struct AssociatedTypeDecl: SingleEntityDecl {
     identifier: SourceRepresentable<Identifier>,
     conformances: [NameExpr.ID],
     whereClause: SourceRepresentable<WhereClause>?,
-    defaultValue: AnyTypeExprID?,
+    defaultValue: AnyExprID?,
     site: SourceRange
   ) {
     self.site = site

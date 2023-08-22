@@ -3,15 +3,15 @@ import Utils
 
 extension WideUInt {
 
-  /// Creates an instance from a Val integer literal `s` with given `bitWidth`, applying two's
+  /// Creates an instance from a Hylo integer literal `s` with given `bitWidth`, applying two's
   /// complement to represent negative numbers; fails if the representation of `s` requires more
   /// too many bits or if `s` is negative and `signed` is false.
   ///
-  /// - Requires: `s` must be a valid Val integer literal.
-  init?<S: StringProtocol>(valLiteral s: S, signed: Bool, bitWidth: Int) {
+  /// - Requires: `s` must be a valid Hylo integer literal.
+  init?<S: StringProtocol>(hyloLiteral s: S, signed: Bool, bitWidth: Int) {
     guard
       let bits = BigUInt.parse(
-        valLiteral: String(s.filter({ $0 != "_" })), signed: signed, bitWidth: bitWidth)
+        hyloLiteral: String(s.filter({ $0 != "_" })), signed: signed, bitWidth: bitWidth)
     else { return nil }
     self.init(truncatingIfNeeded: bits, toWidth: bitWidth)
   }
@@ -20,13 +20,13 @@ extension WideUInt {
 
 extension BigUInt {
 
-  /// Creates an instance from a Val integer literal `s` with given `bitWidth`, applying two's
+  /// Creates an instance from a Hylo integer literal `s` with given `bitWidth`, applying two's
   /// complement to represent negative numbers; fails if the representation of `s` requires more
   /// too many bits or if `s` is negative and `signed` is false.
   ///
-  /// - Requires: `s` must be a valid Val integer literal.
+  /// - Requires: `s` must be a valid Hylo integer literal.
   fileprivate static func parse<S: StringProtocol>(
-    valLiteral s: S, signed: Bool, bitWidth: Int
+    hyloLiteral s: S, signed: Bool, bitWidth: Int
   ) -> Self? {
     let result: BigUInt
 
@@ -34,7 +34,7 @@ extension BigUInt {
       // Parse the positive part.
       guard
         signed,
-        let p = BigUInt.parse(valLiteral: s.dropFirst(), signed: false, bitWidth: bitWidth + 1)
+        let p = BigUInt.parse(hyloLiteral: s.dropFirst(), signed: false, bitWidth: bitWidth + 1)
       else { return nil }
 
       // Nothing else to do if there are no digits in the pattern.

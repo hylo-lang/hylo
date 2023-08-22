@@ -19,7 +19,9 @@ public struct LLVMInstruction: Instruction {
     self.site = site
   }
 
-  public var types: [LoweredType] { [.object(instruction.type.output)] }
+  public var result: IR.`Type`? {
+    .object(instruction.type.output)
+  }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     operands[i] = new

@@ -1,0 +1,19 @@
+//- compileAndRun expecting: success
+
+trait P { fun foo() -> Int }
+
+type A: P, Deinitializable {
+  public memberwise init
+  public fun foo() -> Int { 42 }
+}
+
+type B: P, Deinitializable {
+  public memberwise init
+  public fun foo() -> Int { -42 }
+}
+
+fun f<X: P>(_ x: X) -> Int { x.foo() }
+
+public fun main() {
+  precondition(f(A()) + f(B()) == 0)
+}

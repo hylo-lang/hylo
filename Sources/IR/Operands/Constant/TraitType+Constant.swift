@@ -2,7 +2,7 @@ import Core
 
 extension TraitType: Constant {
 
-  /// The Val IR type of this instance.
-  public var type: LoweredType { .object(self) }
+  /// The Hylo IR type of this instance.
+  public var type: IR.`Type` { .object(self) }
 
 }

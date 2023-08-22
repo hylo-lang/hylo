@@ -17,7 +17,7 @@ public struct GenericTypeParameterType: TypeProtocol {
 
   /// Creates an instance denoting the `Self` parameter of `trait`.
   public init(selfParameterOf trait: TraitDecl.ID, in ast: AST) {
-    self.init(ast[trait].selfParameterDecl, ast: ast)
+    self.init(ast[trait].receiver, ast: ast)
   }
 
   public var flags: TypeFlags { [.isCanonical, .hasGenericTypeParameter] }

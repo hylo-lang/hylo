@@ -13,8 +13,8 @@ public struct Token {
 
     // Scalar literals
     case bool = 1000
+    case exponent
     case int
-    case float
     case string
 
     // Identifiers

@@ -1,5 +1,7 @@
 /// A binding declaration.
-public struct BindingDecl: Decl {
+public struct BindingDecl: ExposableDecl {
+
+  public static let constructDescription = "binding declaration"
 
   public let site: SourceRange
 
@@ -34,9 +36,6 @@ public struct BindingDecl: Decl {
     self.pattern = pattern
     self.initializer = initializer
   }
-
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
 
   /// Returns whether the declaration denotes a static member.
   public var isStatic: Bool { memberModifier?.value == .static }

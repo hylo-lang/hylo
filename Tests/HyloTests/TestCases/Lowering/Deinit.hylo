@@ -1,0 +1,14 @@
+//- lowerToFinishedIR expecting: failure
+
+fun use<T>(_ x: T) {}
+
+type A {
+  var x: Int
+  public memberwise init
+}
+
+public fun main() {
+  var a = A(x: 1)
+  use(a)
+  //! @+1 diagnostic type 'A' does not conform to trait 'Deinitializable'
+}

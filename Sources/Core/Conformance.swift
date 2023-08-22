@@ -11,7 +11,7 @@ public struct Conformance {
     case concrete(AnyDeclID)
 
     /// Synthesized implementation with given type.
-    case synthetic(SynthesizedDecl)
+    case synthetic(SynthesizedFunctionDecl)
 
     /// The payload of `.concrete` or `nil` if `self == .synthetic`.
     public var decl: AnyDeclID? {
@@ -36,9 +36,6 @@ public struct Conformance {
   /// The conditions under which this conformance holds.
   public let conditions: [GenericConstraint]
 
-  /// The declaration that establishes this conformance.
-  public let source: AnyDeclID
-
   /// The outermost scope in which this conformance is exposed.
   public let scope: AnyScopeID
 
@@ -48,24 +45,27 @@ public struct Conformance {
   /// The site at which the conformance is declared.
   public let site: SourceRange
 
+  /// `true` iff the conformance is implicitly synthesized for a structural type.
+  public let isStructural: Bool
+
   /// Creates an instance with the given properties.
   public init(
     model: AnyType,
     concept: TraitType,
     arguments: GenericArguments,
     conditions: [GenericConstraint],
-    source: AnyDeclID,
     scope: AnyScopeID,
     implementations: ImplementationMap,
+    isStructural: Bool,
     site: SourceRange
   ) {
     self.model = model
     self.concept = concept
     self.arguments = arguments
     self.conditions = conditions
-    self.source = source
     self.scope = scope
     self.implementations = implementations
+    self.isStructural = isStructural
     self.site = site
   }
 
@@ -74,7 +74,7 @@ public struct Conformance {
 extension Conformance: Equatable {
 
   public static func == (l: Self, r: Self) -> Bool {
-    (l.model == r.model) && (l.concept == r.concept) && (l.source == r.source)
+    (l.model == r.model) && (l.concept == r.concept) && (l.scope == r.scope)
   }
 
 }
@@ -84,7 +84,7 @@ extension Conformance: Hashable {
   public func hash(into hasher: inout Hasher) {
     model.hash(into: &hasher)
     concept.hash(into: &hasher)
-    source.hash(into: &hasher)
+    scope.hash(into: &hasher)
   }
 
 }

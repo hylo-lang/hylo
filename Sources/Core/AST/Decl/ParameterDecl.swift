@@ -1,6 +1,8 @@
 /// A parameter declaration in a function or subscript declaration.
 public struct ParameterDecl: SingleEntityDecl {
 
+  public static let constructDescription = "parameter declaration"
+
   public let site: SourceRange
 
   /// The label of the parameter.

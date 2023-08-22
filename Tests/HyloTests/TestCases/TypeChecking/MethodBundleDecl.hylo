@@ -1,0 +1,27 @@
+//- typeCheck expecting: failure
+
+type A {
+
+  memberwise init
+
+  fun m0(_ x: Int) -> A {
+    let   { A() }
+    sink  { A() }
+  }
+
+  fun m1(_ x: Int) -> {self: A, Int} {
+    let   { (self: A(), 0) }
+    inout { 0 }
+  }
+
+  fun m2(_ x: Int) -> A {
+    let   { A() }
+    inout {}      //! diagnostic mutating bundle must return '{self: Self, _}'
+  }
+
+  fun m2(_ x: Int) {
+    let   {}
+    inout {}      //! diagnostic mutating bundle must return '{self: Self, _}'
+  }
+
+}

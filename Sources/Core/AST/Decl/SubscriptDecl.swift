@@ -1,5 +1,9 @@
 /// A subscript declaration.
-public struct SubscriptDecl: GenericDecl, GenericScope {
+public struct SubscriptDecl: BundleDecl, CapturingDecl, GenericDecl, GenericScope {
+
+  public static let constructDescription = "subscript declaration"
+
+  public typealias Variant = SubscriptImpl
 
   public enum Introducer: Codable {
 
@@ -10,6 +14,8 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     case property
 
   }
+
+  public static let isCallable = true
 
   public let site: SourceRange
 
@@ -34,13 +40,13 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// The explicit capture declarations of the subscript.
   public let explicitCaptures: [BindingDecl.ID]
 
-  /// The parameters of the subscript, unless the declaration denotes a computed property.
+  /// The parameters of the subscript, empty for a property declaration.
   ///
   /// These declarations must have a type annotation.
-  public let parameters: [ParameterDecl.ID]?
+  public let parameters: [ParameterDecl.ID]
 
   /// The output type annotation of the subscript.
-  public let output: AnyTypeExprID
+  public let output: AnyExprID
 
   /// The implementations of the subscript.
   public let impls: [SubscriptImpl.ID]
@@ -54,8 +60,8 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
     identifier: SourceRepresentable<Identifier>?,
     genericClause: SourceRepresentable<GenericClause>?,
     explicitCaptures: [BindingDecl.ID],
-    parameters: [ParameterDecl.ID]?,
-    output: AnyTypeExprID,
+    parameters: [ParameterDecl.ID],
+    output: AnyExprID,
     impls: [SubscriptImpl.ID],
     site: SourceRange
   ) {
@@ -75,17 +81,14 @@ public struct SubscriptDecl: GenericDecl, GenericScope {
   /// Returns whether the declaration introduces a property.
   public var isProperty: Bool { introducer.value == .property }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
-
   /// Returns whether the declaration denotes a static subscript.
   public var isStatic: Bool { memberModifier?.value == .static }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
-    for p in parameters ?? [] {
+    for p in parameters {
       if ast[p].annotation == nil {
-        diagnostics.insert(.error(missingTypeAnnotation: ast[p], in: ast))
+        log.insert(.error(missingTypeAnnotation: ast[p], in: ast))
       }
     }
 

@@ -1,9 +1,9 @@
 # Code of Conduct
 
-The Val community works to foster a positive environment for individuals from all walks of life and commits to treating each and everyone with kindness and respect, regardless of age, gender identity and expression, sexual identity and orientation, ethnicity, race, nationality, religion, socio-economic status, disability or level of experience.
+The Hylo community works to foster a positive environment for individuals from all walks of life and commits to treating each and everyone with kindness and respect, regardless of age, gender identity and expression, sexual identity and orientation, ethnicity, race, nationality, religion, socio-economic status, disability or level of experience.
 
 To that end, this code of conduct gives clarity over what is expected of the members of our community.
-This document applies to everyone engaging with the spaces managed by the Val project, and to anyone speaking as a member of the Val community in any space, regardless of the method of communication.
+This document applies to everyone engaging with the spaces managed by the Hylo project, and to anyone speaking as a member of the Hylo community in any space, regardless of the method of communication.
 
 ## Guidelines
 
@@ -32,6 +32,6 @@ In contrast, here are examples of unacceptable behavior:
 
 ## Enforcement
 
-At present, instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at [coc@val-lang.dev](mailto:coc@val-lang.dev).
+At present, instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team at [coc@hylo-lang.org](mailto:coc@hylo-lang.org).
 All complaints will be reviewed and investigated and will result in a response that is deemed necessary and appropriate to the circumstances.
 The project team will maintain confidentiality with regard to the reporter of an incident.

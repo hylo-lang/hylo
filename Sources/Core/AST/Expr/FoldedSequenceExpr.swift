@@ -4,10 +4,24 @@
 /// once the precedence groups of its operators have been determined. A tree is created by calling
 /// `append(operator:right:)` to append an operator and its right operand to the sub-sequence
 /// represented by `self`.
-public indirect enum FoldedSequenceExpr {
+public indirect enum FoldedSequenceExpr: Equatable {
 
   /// The expression of an operator in the AST together with its precedence.
-  public typealias Operator = (expr: NameExpr.ID, precedence: PrecedenceGroup?)
+  public struct Operator: Equatable {
+
+    /// The expression of an operator.
+    public let expr: NameExpr.ID
+
+    /// The precedence group of `expr`.
+    public let precedence: PrecedenceGroup?
+
+    /// Creates an instance with the given properties.
+    public init(expr: NameExpr.ID, precedence: PrecedenceGroup?) {
+      self.expr = expr
+      self.precedence = precedence
+    }
+
+  }
 
   /// The application of an infix operator to its `left` and `right` operands.
   case infix(Operator, left: FoldedSequenceExpr, right: FoldedSequenceExpr)

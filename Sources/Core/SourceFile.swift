@@ -1,8 +1,8 @@
 import Foundation
 import Utils
 
-/// A Val source file, a synthesized fragment of Val source, or a fragment of Val source embedded in
-/// a Swift string literal.
+/// A Hylo source file, a synthesized fragment of Hylo source, or a fragment Hylo source embedded
+/// in a Swift string literal.
 public struct SourceFile {
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
@@ -60,15 +60,24 @@ public struct SourceFile {
     try self.init(contentsOf: URL(fileURLWithPath: String(filePath)))
   }
 
-  /// Creates a source file with the specified contents and a unique random `url`.
-  public init(synthesizedText text: String) {
-    let storage = Storage(URL(string: "synthesized://\(UUID().uuidString)")!) { text[...] }
+  /// Creates a synthetic source file with the specified contents and base name.
+  public init(synthesizedText text: String, named baseName: String = UUID().uuidString) {
+    let storage = Storage(URL(string: "synthesized://\(baseName)")!) { text[...] }
     self.storage = storage
   }
 
   /// The name of the source file, sans path qualification or extension.
   public var baseName: String {
-    url.deletingPathExtension().lastPathComponent
+    if isSynthesized {
+      return url.host!
+    } else {
+      return url.deletingPathExtension().lastPathComponent
+    }
+  }
+
+  /// `true` if `self` is synthesized.
+  public var isSynthesized: Bool {
+    url.scheme == "synthesized"
   }
 
   /// The number of lines in the file.
@@ -278,15 +287,17 @@ extension SourceFile: CustomStringConvertible {
 
 }
 
-/// Given a collection of file and directory paths as specified on the valc command line, returns
+/// Given a collection of file and directory paths as specified on the hc command line, returns
 /// the actual source files to process.
 ///
-/// Paths of files in `sourcePaths` are unconditionally treated as Val source files. Paths of
-/// directories are recursively searched for `.val` files, which are considered Val source files;
+/// Paths of files in `sourcePaths` are unconditionally treated as Hylo source files. Paths of
+/// directories are recursively searched for `.hylo` files, which are considered Hylo source files;
 /// all others are treated as non-source files and are ignored.
 public func sourceFiles<S: Sequence<URL>>(in sourcePaths: S) throws -> [SourceFile] {
   try sourcePaths.flatMap { (p) in
-    try p.hasDirectoryPath ? sourceFiles(in: p, withExtension: "val") : [SourceFile(contentsOf: p)]
+    try p.hasDirectoryPath
+      ? sourceFiles(in: p, withExtension: "hylo")
+      : [SourceFile(contentsOf: p)]
   }
 }
 

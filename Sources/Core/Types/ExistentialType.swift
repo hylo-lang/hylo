@@ -15,6 +15,18 @@ public struct ExistentialType: TypeProtocol {
     /// An unparameterized metatype.
     case metatype
 
+    /// A set of flags describing recursive properties.
+    public var flags: TypeFlags {
+      switch self {
+      case .traits(let ts):
+        return .init(merging: ts.map(\.flags))
+      case .generic(let t):
+        return t.flags
+      case .metatype:
+        return .isCanonical
+      }
+    }
+
   }
 
   /// The interface of this type's instances.
@@ -27,27 +39,27 @@ public struct ExistentialType: TypeProtocol {
 
   public let flags: TypeFlags
 
-  /// Creates a new existential type bound by the given traits and constraints.
-  public init(traits: Set<TraitType>, constraints: Set<GenericConstraint>) {
-    self.interface = .traits(traits)
+  /// Creates a new existential type bound by the given interface and constraints.
+  public init(_ interface: Interface, constraints: Set<GenericConstraint>) {
+    self.interface = interface
     self.constraints = constraints
 
     // TODO: Consider the flags of the types in the cosntraints?
-    self.flags = traits.reduce(into: TypeFlags.isCanonical, { (a, b) in a.merge(b.flags) })
+    self.flags = interface.flags
+  }
+
+  /// Creates a new existential type bound by the given traits and constraints.
+  public init(traits: Set<TraitType>, constraints: Set<GenericConstraint>) {
+    self.init(.traits(traits), constraints: constraints)
   }
 
   /// Creates a new existential type bound by an unparameterized generic type and constraints.
   public init(unparameterized t: AnyType, constraints: Set<GenericConstraint>) {
-    self.constraints = constraints
-
-    // TODO: Consider the flags of the types in the cosntraints?
     switch t.base {
     case is ProductType, is TypeAliasType:
-      self.interface = .generic(t)
-      self.flags = t.flags.removing(.isGeneric)
+      self.init(.generic(t), constraints: constraints)
     case is MetatypeType:
-      self.interface = .metatype
-      self.flags = .isCanonical
+      self.init(.metatype, constraints: constraints)
     default:
       preconditionFailure()
     }

@@ -22,6 +22,11 @@ public struct CustomWitnessedSet<Witness: HashableWitness> {
     contents.reserveCapacity(minimumCapacity)
   }
 
+  /// Removes and returns an element from `self`.
+  public mutating func popFirst() -> Element? {
+    contents.popFirst()?.base
+  }
+
 }
 
 extension CustomWitnessedSet: Collection {
@@ -84,6 +89,11 @@ extension CustomWitnessedSet: SetAlgebra {
     var result = self
     result.contents.formUnion(other.contents)
     return result
+  }
+
+  /// Inserts the elements in `members` into `self`.
+  public mutating func formUnion<S: Sequence>(_ members: S) where S.Element == Element {
+    for m in members { contents.insert(_Element(m)) }
   }
 
   public mutating func formUnion(_ other: Self) {

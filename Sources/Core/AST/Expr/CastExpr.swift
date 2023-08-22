@@ -24,13 +24,13 @@ public struct CastExpr: Expr {
   public let left: AnyExprID
 
   /// The type to which the left operand is being converted.
-  public let right: AnyTypeExprID
+  public let right: AnyExprID
 
   /// The direction of the cast.
   public let direction: Direction
 
   /// Creates an instance with the given properties.
-  public init(left: AnyExprID, right: AnyTypeExprID, direction: Direction, site: SourceRange) {
+  public init(left: AnyExprID, right: AnyExprID, direction: Direction, site: SourceRange) {
     self.site = site
     self.left = left
     self.right = right

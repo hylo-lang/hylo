@@ -1,0 +1,6 @@
+//- compileAndRun expecting: success
+
+public fun main() {
+  // Int.init()
+  precondition(Int() == 0)
+}

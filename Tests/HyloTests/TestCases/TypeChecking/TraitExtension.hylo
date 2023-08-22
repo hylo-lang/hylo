@@ -1,0 +1,11 @@
+//- typeCheck expecting: success
+
+trait T {
+  fun foo() -> Int
+}
+
+extension T {
+  fun bar() -> Int {
+    self.foo()
+  }
+}

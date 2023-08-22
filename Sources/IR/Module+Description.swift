@@ -1,6 +1,6 @@
 import Utils
 
-extension Module: CustomStringConvertible, TextOutputStreamable {
+extension Module: CustomStringConvertible {
 
   public var description: String {
     var output = ""
@@ -8,12 +8,9 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     return output
   }
 
-  /// Returns a textual representation of the specified function.
-  public func describe(function functionID: Function.ID) -> String {
-    var output = ""
-    write(function: functionID, to: &output)
-    return output
-  }
+}
+
+extension Module: TextOutputStreamable {
 
   /// Writes a textual representation of this instance into `output`.
   public func write<Target: TextOutputStream>(to output: inout Target) {
@@ -28,17 +25,29 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
     }
   }
 
+  /// Returns a textual representation of the specified function.
+  public func describe(function f: Function.ID) -> String {
+    var output = ""
+    write(function: f, to: &output)
+    return output
+  }
+
   /// Writes a textual representation of the specified function into `output`.
   public func write<Target: TextOutputStream>(function f: Function.ID, to output: inout Target) {
     let function = functions[f]!
 
     // Dumps the function in the module.
+    output.write("// \(debugDescription(f))\n")
+    if !function.site.file.isSynthesized {
+      output.write("// \(function.site)\n")
+    }
+
     if function.isSubscript {
-      output.write("subscript \(function.name)(")
+      output.write("subscript \(f)(")
       output.write(function.inputs.lazy.descriptions())
       output.write("): \(function.output)")
     } else {
-      output.write("fun \(function.name)(")
+      output.write("fun \(f)(")
       output.write(function.inputs.lazy.descriptions())
       output.write(") -> \(function.output)")
     }
@@ -56,18 +65,30 @@ extension Module: CustomStringConvertible, TextOutputStreamable {
 
       for j in instructions(in: i) {
         output.write("  ")
-        if !self[j].types.isEmpty {
-          let r = self[j].types.indices.map { (k) -> String in
-            let o = Operand.register(j, k)
-            return "\(o): \(type(of: o))"
-          }
-          output.write("\(list: r) = ")
+        if let t = self[j].result {
+          output.write("\(Operand.register(j)): \(t) = ")
         }
         output.write("\(self[j])\n")
       }
     }
 
     output.write("}")
+  }
+
+  /// Returns a textual description of `f` suitable for debugging.
+  private func debugDescription(_ f: Function.ID) -> String {
+    switch f.value {
+    case .existentialized(let base):
+      return "Existentialized form of '\(debugDescription(base))'"
+    case .lowered(let d):
+      return program.debugDescription(d)
+    case .loweredSubscript(let d):
+      return program.debugDescription(d)
+    case .monomorphized(let base, let arguments):
+      return "Monomorphized form of '\(debugDescription(base))' for <\(list: arguments.values)>"
+    case .synthesized(let d):
+      return d.description
+    }
   }
 
 }

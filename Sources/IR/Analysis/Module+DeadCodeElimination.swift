@@ -31,7 +31,7 @@ extension Module {
     let t = terminator(of: b)
     for i in instructions(in: b) where i != t {
       switch self[i] {
-      case is UnrechableInstruction:
+      case is Unreachable:
         removeAllInstructionsAfter(i)
         return true
 

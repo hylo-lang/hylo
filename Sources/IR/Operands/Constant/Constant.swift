@@ -1,8 +1,8 @@
-/// A constant value in Val IR.
+/// A constant value in Hylo IR.
 public protocol Constant: Hashable {
 
   /// The type of the value.
-  var type: LoweredType { get }
+  var type: IR.`Type` { get }
 
   /// Returns `true` if `self` is equal to `other`.
   func equals(_ other: any Constant) -> Bool

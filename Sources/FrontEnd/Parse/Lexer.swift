@@ -3,7 +3,7 @@ import Core
 /// A type that tokenize a source file.
 public struct Lexer: IteratorProtocol, Sequence {
 
-  /// The Val source being tokenized.
+  /// The Hylo source being tokenized.
   public let sourceCode: SourceFile
 
   /// The current position in the source file.
@@ -18,6 +18,9 @@ public struct Lexer: IteratorProtocol, Sequence {
   /// The current location of the lexer in `sourceCode`.
   public var location: SourcePosition { sourceCode.position(index) }
 
+  /// `true` iff the last scanned token was `.int`.
+  private var previousTokenWasInt = false
+
   /// Advances to the next token and returns it, or returns `nil` if no next token exists.
   public mutating func next() -> Token? {
     // Skip whitespaces and comments.
@@ -26,6 +29,7 @@ public struct Lexer: IteratorProtocol, Sequence {
 
       // Skip whitespaces.
       if sourceCode.text[index].isWhitespace {
+        previousTokenWasInt = false
         discard()
         continue
       }
@@ -67,6 +71,17 @@ public struct Lexer: IteratorProtocol, Sequence {
     // Scan a new token.
     let head = sourceCode.text[index]
     var token = Token(kind: .invalid, site: location ..< location)
+
+    // Try scan for exponent if previous token was .int
+    if previousTokenWasInt, let next = peek(), next == "e" || next == "E" {
+      discard()
+      if let _ = scanIntegralLiteral(allowingPlus: true) {
+        token.kind = .exponent
+      }
+      token.site.extend(upTo: index)
+      return token
+    }
+    previousTokenWasInt = false
 
     // Scan names and keywords.
     if head.isLetter || (head == "_") {
@@ -159,10 +174,11 @@ public struct Lexer: IteratorProtocol, Sequence {
       return token
     }
 
-    // Scan numeric literals.
-    if let k = scanNumericLiteral() {
+    // Scan integral literals.
+    if let k = scanIntegralLiteral(allowingPlus: false) {
       token.kind = k
       token.site.extend(upTo: index)
+      previousTokenWasInt = true
       return token
     }
 
@@ -322,10 +338,12 @@ public struct Lexer: IteratorProtocol, Sequence {
     return sourceCode.text[start ..< index]
   }
 
-  /// Consumes a numeric literal and returns its kind, or returns `nil` if the stream starts with a
-  /// different token.
-  private mutating func scanNumericLiteral() -> Token.Kind? {
-    let i = take("-") ?? index
+  /// Consumes an integral literal and returns its kind, or returns `nil` if it fails to scan a valid integer.
+  ///
+  /// - Parameter allowingPlus: If set to `true`, allows the integral literal to begin with a "+" sign.
+  ///                           If set to `false` (the default), only allows "-" or no sign at the beginning.
+  private mutating func scanIntegralLiteral(allowingPlus allowPlus: Bool = false) -> Token.Kind? {
+    let i = (allowPlus ? take("+") : nil) ?? take("-") ?? index
     guard let head = peek(), head.isDecDigit else {
       index = i
       return nil
@@ -363,30 +381,8 @@ public struct Lexer: IteratorProtocol, Sequence {
     }
 
     // Consume the integer part.
-    var kind = Token.Kind.int
     _ = take(while: { $0.isDecDigit })
-
-    // Consume the floating-point part, if any.
-    if let i = take(".") {
-      if (peek() != "_") && !take(while: { $0.isDecDigit }).isEmpty {
-        kind = .float
-      } else {
-        index = i
-      }
-    }
-
-    // Consume the exponent, if any.
-    if let i = take("e") ?? take("E") {
-      _ = take("+") ?? take("-")
-
-      if (peek() != "_") && !take(while: { $0.isDecDigit }).isEmpty {
-        kind = .float
-      } else {
-        index = i
-      }
-    }
-
-    return kind
+    return .int
   }
 
 }

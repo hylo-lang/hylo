@@ -1,0 +1,15 @@
+//- typeCheck expecting: failure
+
+public fun main() {
+  // Standard cases.
+  let _ : Union<Int, Bool>
+  let _ : Union<Int, Bool, Void>
+
+  // Special cases.
+  let _ : Union      //! diagnostic empty union type is better expressed as 'Never'
+  let _ : Union<Int> //! diagnostic union types should contain at least 2 elements
+
+  // Initialization with subtype.
+  let _ : Union<Int, Bool> = true
+  let _ : Union<Int, Bool> = 0 as Int
+}

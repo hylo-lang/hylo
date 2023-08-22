@@ -4,7 +4,7 @@ import IR
 import LLVM
 import Utils
 
-/// A Val program transpiled to LLVM.
+/// A Hylo program transpiled to LLVM.
 public struct LLVMProgram {
 
   /// The machine for which the program is compiled.
@@ -18,7 +18,7 @@ public struct LLVMProgram {
   /// - Parameters:
   ///   - target: The machine for which `ir` is transpiled. Defaults to the current host.
   public init(
-    _ ir: LoweredProgram,
+    _ ir: IR.Program,
     mainModule: ModuleDecl.ID,
     for target: LLVM.TargetMachine? = nil
   ) throws {

@@ -3,7 +3,7 @@ import IR
 import LLVM
 import Utils
 
-extension LoweredProgram {
+extension IR.Program {
 
   /// Returns the LLVM form of `val` in `module`.
   ///
@@ -22,10 +22,12 @@ extension LoweredProgram {
       return module.ptr
     case let t as ProductType:
       return llvm(productType: t, in: &module)
-    case let t as SumType:
-      return llvm(sumType: t, in: &module)
+    case is RemoteType:
+      return module.ptr
     case let t as TupleType:
       return llvm(tupleType: t, in: &module)
+    case let t as UnionType:
+      return llvm(unionType: t, in: &module)
     default:
       notLLVMRepresentable(val)
     }
@@ -49,7 +51,7 @@ extension LoweredProgram {
     case .float128:
       return LLVM.FloatingPointType.fp128(in: &module)
     case .ptr:
-      return LLVM.PointerType(in: &module)
+      return module.ptr
     case .module:
       notLLVMRepresentable(val)
     }
@@ -61,8 +63,8 @@ extension LoweredProgram {
   func llvm(boundGenericType val: BoundGenericType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
-    let fields = syntax.storage(of: val.base).map { (_, t) in
-      let u = syntax.monomorphize(t, for: val.arguments)
+    let fields = base.storage(of: val.base).map { (part) in
+      let u = base.specialize(part.type, for: val.arguments, in: AnyScopeID(base.ast.coreLibrary!))
       return llvm(u, in: &module)
     }
 
@@ -81,11 +83,9 @@ extension LoweredProgram {
   /// - Requires: `val` is representable in LLVM.
   func llvm(lambdaType val: LambdaType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
-    if val.environment != .void {
-      notLLVMRepresentable(val)
-    }
 
-    return LLVM.PointerType(in: &module)
+    let fields = Array(repeating: module.ptr, count: base.storage(of: val).count)
+    return LLVM.StructType(fields, in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.
@@ -94,39 +94,19 @@ extension LoweredProgram {
   func llvm(productType val: ProductType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
-    let n = mangle(val)
+    let n = base.mangled(val)
     if let t = module.type(named: n) {
       assert(LLVM.StructType(t) != nil)
       return t
     }
 
-    let l = AbstractTypeLayout(of: val, definedIn: syntax)
+    let l = AbstractTypeLayout(of: val, definedIn: base)
     var fields: [LLVM.IRType] = []
     for p in l.properties {
       fields.append(llvm(p.type, in: &module))
     }
 
     return LLVM.StructType(named: n, fields, in: &module)
-  }
-
-  /// Returns the LLVM form of `val` in `module`.
-  ///
-  /// - Requires: `val` is representable in LLVM.
-  func llvm(sumType val: SumType, in module: inout LLVM.Module) -> LLVM.IRType {
-    precondition(val[.isCanonical])
-
-    var payload: IRType = LLVM.StructType([], in: &module)
-    if val == .never {
-      return payload
-    }
-
-    for e in val.elements {
-      let t = llvm(e, in: &module)
-      if module.layout.storageSize(of: t) > module.layout.storageSize(of: payload) {
-        payload = t
-      }
-    }
-    return StructType([payload, module.ptr], in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.
@@ -141,6 +121,26 @@ extension LoweredProgram {
     }
 
     return LLVM.StructType(fields, in: &module)
+  }
+
+  /// Returns the LLVM form of `val` in `module`.
+  ///
+  /// - Requires: `val` is representable in LLVM.
+  func llvm(unionType val: UnionType, in module: inout LLVM.Module) -> LLVM.IRType {
+    precondition(val[.isCanonical])
+
+    var payload: LLVM.IRType = LLVM.StructType([], in: &module)
+    if val == .never {
+      return payload
+    }
+
+    for e in val.elements {
+      let t = llvm(e, in: &module)
+      if module.layout.storageSize(of: t) > module.layout.storageSize(of: payload) {
+        payload = t
+      }
+    }
+    return StructType([payload, module.word()], in: &module)
   }
 
 }

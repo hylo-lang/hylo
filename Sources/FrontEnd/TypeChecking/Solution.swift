@@ -82,3 +82,32 @@ struct Solution {
   }
 
 }
+
+extension Solution: CustomStringConvertible {
+
+  public var description: String {
+    var result = ""
+
+    result.append("typeAssumptions:\n")
+    for (k, v) in typeAssumptions.storage {
+      result.append("  \(k) : \(v)\n")
+    }
+
+    result.append("bindingAssumptions:\n")
+    for (k, v) in bindingAssumptions {
+      result.append("  \(k) : \(v)\n")
+    }
+
+    result.append("penalities: \(penalties)\n")
+
+    result.append("diagnostics: \(diagnostics.elements.count)\n")
+
+    result.append("stale:\n")
+    for c in stale {
+      result.append("  \(c)")
+    }
+
+    return result
+  }
+
+}

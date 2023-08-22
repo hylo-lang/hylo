@@ -13,11 +13,13 @@ public struct TypeFlags: Hashable {
   }
 
   /// Create a new set of type flags that merges all sets in `elements`.
+  ///
+  /// - Note: `self` only contains `.isCanonical` if `elements` is empty.
   public init<C: Collection>(merging elements: C) where C.Element == TypeFlags {
     if let first = elements.first {
       self = elements.dropFirst().reduce(into: first, { (a, b) in a.merge(b) })
     } else {
-      self.init(universal: 0, existential: 0)
+      self = .isCanonical
     }
   }
 
@@ -68,9 +70,6 @@ public struct TypeFlags: Hashable {
 
   /// The type is in canonical from.
   public static let isCanonical = TypeFlags(universal: 1 << 0, existential: 0)
-
-  /// The type is generic.
-  public static let isGeneric = TypeFlags(universal: 1 << 1, existential: 0)
 
   /// The type contains one or more error types.
   public static let hasError = TypeFlags(universal: 0, existential: 1 << 0)

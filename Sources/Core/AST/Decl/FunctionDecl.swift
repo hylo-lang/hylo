@@ -1,7 +1,11 @@
 import Utils
 
 /// A function declaration.
-public struct FunctionDecl: GenericDecl, GenericScope {
+public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericScope {
+
+  public static let constructDescription = "function declaration"
+
+  public static let isCallable = true
 
   public let site: SourceRange
 
@@ -41,7 +45,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
   public let receiver: ParameterDecl.ID?
 
   /// The return type annotation of the function, if any.
-  public let output: AnyTypeExprID?
+  public let output: AnyExprID?
 
   /// The body of the declaration, if any.
   public let body: FunctionBody?
@@ -62,7 +66,7 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     explicitCaptures: [BindingDecl.ID] = [],
     parameters: [ParameterDecl.ID] = [],
     receiver: ParameterDecl.ID? = nil,
-    output: AnyTypeExprID? = nil,
+    output: AnyExprID? = nil,
     body: FunctionBody? = nil,
     isInExprContext: Bool = false,
     site: SourceRange
@@ -84,8 +88,8 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     self.isInExprContext = isInExprContext
   }
 
-  /// Returns whether the declaration is public.
-  public var isPublic: Bool { accessModifier.value == .public }
+  /// `true` iff `self` is a definition of the entity that it declares.
+  public var isDefinition: Bool { body != nil }
 
   /// Returns whether the declaration denotes a static member function.
   public var isStatic: Bool { memberModifier?.value == .static }
@@ -121,12 +125,12 @@ public struct FunctionDecl: GenericDecl, GenericScope {
     }
   }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     if !isInExprContext {
       // Parameter declarations must have a type annotation.
       for p in parameters {
         if ast[p].annotation == nil {
-          diagnostics.insert(.error(missingTypeAnnotation: ast[p], in: ast))
+          log.insert(.error(missingTypeAnnotation: ast[p], in: ast))
         }
       }
     }

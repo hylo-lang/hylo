@@ -72,6 +72,22 @@ struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
     /// The penalties associated with this choice.
     let penalties: Int
 
+    /// Creates an instance with the given properties.
+    init(reference: DeclReference, type: AnyType, constraints: ConstraintSet, penalties: Int) {
+      self.reference = reference
+      self.type = type
+      self.constraints = constraints
+      self.penalties = penalties
+    }
+
+    /// Creates an instance representing the selection of `pick`, penalized by `penalties`.
+    init(_ pick: NameResolutionResult.Candidate, penalties: Int) {
+      self.reference = pick.reference
+      self.type = pick.type
+      self.constraints = pick.constraints
+      self.penalties = penalties
+    }
+
   }
 
 }

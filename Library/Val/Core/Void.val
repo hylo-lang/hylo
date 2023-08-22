@@ -1,6 +1,0 @@
-/// The type whose instance denote the absence of any specific value.
-public typealias Void = {}
-
-public conformance Void: Deinitializable {}
-
-public conformance Void: Movable {}

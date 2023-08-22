@@ -31,6 +31,11 @@ public struct GenericArguments {
     self.contents = .init(uniqueKeysWithValues: keysAndValues)
   }
 
+  /// A collection with the parameters to which arguments are passed.
+  public var keys: some Collection<Key> {
+    contents.keys
+  }
+
   /// A collection with the values of the arguments.
   public var values: some Collection<Value> {
     contents.values
@@ -42,18 +47,30 @@ public struct GenericArguments {
     set { contents[key] = newValue }
   }
 
+  /// Accesses the value associated with the given key.
+  public subscript(key: Key, default value: @autoclosure () -> Value) -> Value {
+    contents[key, default: value()]
+  }
+
   /// Returns a new map containing the keys of `self` with the values transformed `transform`.
   public func mapValues(_ transform: (Value) throws -> Value) rethrows -> Self {
     return try .init(contents: contents.mapValues(transform))
   }
 
-  /// Returns this argument list appended with `suffix`.
+  /// Returns `self` merged with `other`, applying `combine` to determine the value of any
+  /// duplicate key.
+  public func merging(_ other: Self, uniquingKeysWith combine: (Value, Value) -> Value) -> Self {
+    var clone = self
+    clone.contents.merge(other.contents, uniquingKeysWith: combine)
+    return clone
+  }
+
+  /// Appends `suffix` to `self`.
   ///
   /// - Requires: `self` does not define a value for any of the values defined in `suffix`.
-  public func appending(_ suffix: Self) -> Self {
+  public mutating func append(_ suffix: Self) {
     // Note: `merging` perserves order.
-    let c = contents.merging(suffix.contents, uniquingKeysWith: { (_, _) in unreachable() })
-    return .init(contents: c)
+    contents.merge(suffix.contents, uniquingKeysWith: { (_, _) in unreachable() })
   }
 
 }

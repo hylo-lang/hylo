@@ -3,7 +3,9 @@
 public struct BundledNode<T: NodeIDProtocol, P: Program> {
 
   /// The program of which this node is a notional part.
-  private let container: P
+  ///
+  /// FIXME: make me private.
+  public let container: P
 
   /// The node's identity in `container.ast`.
   public let id: T
@@ -58,60 +60,6 @@ extension BundledNode where T == VarDecl.ID {
   /// The binding declaration containing this variable declaration.
   public var binding: BindingDecl.ID {
     container.varToBinding[id]!
-  }
-
-}
-
-extension BundledNode where T: DeclID, P == TypedProgram {
-
-  /// The type of the declared entity.
-  public var type: AnyType {
-    container.declTypes[id]!
-  }
-
-}
-
-extension BundledNode where T == FunctionDecl.ID, P == TypedProgram {
-
-  /// The implicit captures for the declared entity.
-  public var implicitCaptures: [ImplicitCapture] {
-    container.implicitCaptures[id, default: []]
-  }
-
-}
-
-extension BundledNode where T == SubscriptDecl.ID, P == TypedProgram {
-
-  /// The implicit captures for the declared entity.
-  public var implicitCaptures: [ImplicitCapture] {
-    container.implicitCaptures[id, default: []]
-  }
-
-}
-
-extension BundledNode where T: ExprID, P == TypedProgram {
-
-  /// The type of this expression
-  public var type: AnyType {
-    container.exprTypes[id]!
-  }
-
-}
-
-extension BundledNode where T == NameExpr.ID, P == TypedProgram {
-
-  /// The declaration referenced by this expression.
-  public var referredDecl: DeclReference {
-    container.referredDecls[id]!
-  }
-
-}
-
-extension BundledNode where T == SequenceExpr.ID, P == TypedProgram {
-
-  /// A representation of `self` that encodes its evaluation order.
-  public var folded: FoldedSequenceExpr {
-    container.foldedSequenceExprs[id]!
   }
 
 }

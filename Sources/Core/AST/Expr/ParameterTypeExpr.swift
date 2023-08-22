@@ -7,11 +7,11 @@ public struct ParameterTypeExpr: Expr {
   public let convention: SourceRepresentable<AccessEffect>
 
   /// The expression of the parameter's bare type.
-  public let bareType: AnyTypeExprID
+  public let bareType: AnyExprID
 
   public init(
     convention: SourceRepresentable<AccessEffect>,
-    bareType: AnyTypeExprID,
+    bareType: AnyExprID,
     site: SourceRange
   ) {
     self.site = site

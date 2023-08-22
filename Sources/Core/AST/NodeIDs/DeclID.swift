@@ -15,6 +15,11 @@ extension DeclID {
     }
   }
 
+  /// `true` iff `self` denotes the declaration of a callable entity.
+  public var isCallable: Bool {
+    (kind.value as! Decl.Type).isCallable
+  }
+
 }
 
 extension NodeID: DeclID where Subject: Decl {}

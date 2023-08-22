@@ -1,8 +1,8 @@
 import Core
 import Utils
 
-/// A constraint `L ⤷ R` specifying that `R` is a parameter type and `L` the type of a compatible
-/// argument.
+/// A constraint `L ⤷ R` specifying that `R` is the type of a parameter and `L` the type of an
+/// argument that may be passed to that parameter.
 ///
 /// - Note: Solving a constraint `l ⤷ R` where `R` is a type variable requires that there be
 ///   another constraint on `R` fixing its parameter passing convention.

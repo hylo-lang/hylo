@@ -5,7 +5,7 @@ public struct VoidConstant: Constant, Hashable {
 
   public init() {}
 
-  public var type: LoweredType { .object(AnyType.void) }
+  public var type: IR.`Type` { .object(AnyType.void) }
 
 }
 

@@ -1,5 +1,5 @@
 /// An operator notation.
-public enum OperatorNotation: String, Codable {
+public enum OperatorNotation: UInt8, Codable {
 
   /// The infix notation.
   case infix

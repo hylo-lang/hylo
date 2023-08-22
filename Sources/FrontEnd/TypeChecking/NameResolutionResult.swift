@@ -12,11 +12,12 @@ enum NameResolutionResult {
   /// Name resolution failed.
   case failed
 
-  /// Name resolution couln't start because the first component of the expression isn't a name
-  /// The payload contains the collection of unresolved components, after the first one.
+  /// Name resolution couldn't complete because the first component of the expression couldn't be
+  /// resolved without type inference. The payload contains the type of the resolved part, unless
+  /// it was left implicit, and the remaning unresolved components.
   ///
   /// - Invariant: `components` is not empty.
-  case inexecutable(_ components: [NameExpr.ID])
+  case canceled(AnyType?, _ components: [NameExpr.ID])
 
   /// The result of name resolution for a single name component.
   struct ResolvedComponent {
@@ -61,10 +62,11 @@ enum NameResolutionResult {
       self.diagnostics = diagnostics
     }
 
-    /// Creates an instance denoting a built-in function.
-    init(_ f: BuiltinFunction) {
+    /// Creates an instance denoting a built-in function, calling `freshVariable` to create fresh
+    /// type variables.
+    init(_ f: BuiltinFunction, makingFreshVariableWith freshVariable: () -> TypeVariable) {
       self.reference = .builtinFunction(f)
-      self.type = ^f.type()
+      self.type = ^f.type(makingFreshVariableWith: freshVariable)
       self.constraints = []
       self.diagnostics = []
     }
@@ -85,9 +87,9 @@ enum NameResolutionResult {
       constraints: [],
       diagnostics: [])
 
-    /// Creates an instance denoting an intrinsic type.
-    static func intrinsic(_ t: AnyType) -> Self {
-      .init(reference: .intrinsicType, type: t, constraints: [], diagnostics: [])
+    /// Creates an instance denoting an compiler-known type.
+    static func compilerKnown(_ t: AnyType) -> Self {
+      .init(reference: .compilerKnownType, type: t, constraints: [], diagnostics: [])
     }
 
   }

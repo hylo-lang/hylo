@@ -1,5 +1,7 @@
 /// A namespace declaration.
-public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
+public struct NamespaceDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
+
+  public static let constructDescription = "namespace declaration"
 
   public let site: SourceRange
 
@@ -32,9 +34,9 @@ public struct NamespaceDecl: SingleEntityDecl, LexicalScope {
 
   public var baseName: String { identifier.value }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     for m in members {
-      ast.validateGlobalScopeMember(m, into: &diagnostics, atTopLevel: false)
+      ast.validateGlobalScopeMember(m, atTopLevel: false, reportingDiagnosticsTo: &log)
     }
   }
 

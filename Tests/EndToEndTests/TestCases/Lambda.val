@@ -1,8 +1,0 @@
-//- compileAndRun expecting: success
-
-fun apply(_ f: []() -> Int) -> Int { f() }
-
-public fun main() -> Int32 {
-  let x0 = apply(fun(){ 0 })
-  return Int32(x0)
-}

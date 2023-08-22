@@ -1,7 +1,7 @@
 import Core
 import Foundation
 
-/// A constant buffer of bytes in Val IR.
+/// A constant buffer of bytes in Hylo IR.
 public struct BufferConstant: Constant, Hashable {
 
   /// The contents of this instance.
@@ -12,8 +12,8 @@ public struct BufferConstant: Constant, Hashable {
     self.contents = contents
   }
 
-  /// The Val IR type of this instance.
-  public var type: LoweredType { .object(BuiltinType.ptr) }
+  /// The Hylo IR type of this instance.
+  public var type: IR.`Type` { .object(BuiltinType.ptr) }
 
 }
 

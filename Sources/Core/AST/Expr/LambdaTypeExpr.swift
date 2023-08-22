@@ -23,7 +23,7 @@ public struct LambdaTypeExpr: Expr {
   public let receiverEffect: SourceRepresentable<AccessEffect>?
 
   /// The environment of the lambda, or `nil` if it is thin.
-  public private(set) var environment: AnyTypeExprID?
+  public private(set) var environment: AnyExprID?
 
   /// The parameters of the lambda.
   public let parameters: [Parameter]
@@ -35,7 +35,7 @@ public struct LambdaTypeExpr: Expr {
     receiverEffect: SourceRepresentable<AccessEffect>?,
     environment: AnyExprID?,
     parameters: [Parameter],
-    output: AnyTypeExprID,
+    output: AnyExprID,
     site: SourceRange
   ) {
     self.site = site

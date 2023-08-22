@@ -6,16 +6,19 @@ struct SubstitutionMap {
   /// A policy for substituting type variales during reification.
   enum SubstitutionPolicy {
 
-    /// Substitute free variables by error types.
-    case substituteByError
+    /// Free variables are substituted by errors.
+    case substitutedByError
 
-    /// Do not substitute free variables.
-    case keep
+    /// Free variables are kept.
+    case kept
 
   }
 
+  /// The internal storage of a substitution table.
+  typealias Storage = [TypeVariable: AnyType]
+
   /// The internal storage of the map.
-  private var storage: [TypeVariable: AnyType] = [:]
+  private(set) var storage: Storage = [:]
 
   /// Creates an empty substitution map.
   init() {}
@@ -70,20 +73,20 @@ struct SubstitutionMap {
   /// having built a complete solution and therefore don't expect its result to still contain open
   /// type variables.
   func reify(
-    _ type: AnyType,
-    withVariables substitutionPolicy: SubstitutionPolicy = .substituteByError
+    _ type: AnyType, withVariables substitutionPolicy: SubstitutionPolicy = .substitutedByError
   ) -> AnyType {
-    func _impl(type: AnyType) -> TypeTransformAction {
+    return type.transform(transform(type:))
+
+    func transform(type: AnyType) -> TypeTransformAction {
       if type.base is TypeVariable {
-        // Walk `type`.
         let walked = self[type]
 
         // Substitute `walked` for `type`.
         if walked.base is TypeVariable {
           switch substitutionPolicy {
-          case .substituteByError:
-            return .stepInto(.error)
-          case .keep:
+          case .substitutedByError:
+            return .stepOver(.error)
+          case .kept:
             return .stepOver(type)
           }
         } else {
@@ -97,8 +100,6 @@ struct SubstitutionMap {
         return .stepInto(type)
       }
     }
-
-    return type.transform(_impl(type:))
   }
 
   /// Returns `r` where each type variable occuring in its generic arguments of `r` are replaced by
@@ -113,7 +114,7 @@ struct SubstitutionMap {
       return .member(d, reify(a, withVariables: substitutionPolicy), r)
     case .constructor(let d, let a):
       return .constructor(d, reify(a, withVariables: substitutionPolicy))
-    case .builtinModule, .builtinType, .builtinFunction, .intrinsicType:
+    case .builtinModule, .builtinType, .builtinFunction, .compilerKnownType:
       return r
     }
   }

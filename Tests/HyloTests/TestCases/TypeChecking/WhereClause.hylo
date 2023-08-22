@@ -1,0 +1,14 @@
+//- typeCheck expecting: failure
+
+type A<X>: Deinitializable {
+  public memberwise init
+}
+
+extension A where X == Bool {
+  fun koala() {}
+}
+
+public fun main() {
+  A<Bool>().koala()
+  A<Int8>().koala() //! diagnostic unsatisfied where clause
+}

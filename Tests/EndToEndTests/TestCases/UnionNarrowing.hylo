@@ -1,0 +1,10 @@
+//- compileAndRun expecting: success
+
+public fun main() {
+  var x: Union<{a: Bool}, {b: Int}> = (b: 42)
+  if let y: {b: _} = x {
+    precondition(y.0 == 42)
+  } else {
+    fatal_error()
+  }
+}

@@ -1,11 +1,11 @@
 import Core
 import Utils
 
-/// A Val IR instruction.
+/// A Hylo IR instruction.
 public protocol Instruction: CustomStringConvertible {
 
-  /// The types of the instruction's results (empty for instructions with no result).
-  var types: [LoweredType] { get }
+  /// The type of the instruction's result, if any.
+  var result: IR.`Type`? { get }
 
   /// The operands of the instruction.
   var operands: [Operand] { get }
@@ -23,8 +23,34 @@ public protocol Instruction: CustomStringConvertible {
 
 extension Instruction {
 
+  public var result: IR.`Type`? {
+    nil
+  }
+
+  public var operands: [Operand] {
+    []
+  }
+
+  /// Returns `true` iff `self` is an `access [k]` instruction.
+  func isAccess(_ k: AccessEffect) -> Bool {
+    if let s = self as? Access {
+      return s.capabilities == [k]
+    } else {
+      return false
+    }
+  }
+
+  /// Returns `true` iff `self` is an `access k` instruction where `k` is subset of `ks`.
+  func isAccess(in ks: AccessEffectSet) -> Bool {
+    if let s = self as? Access {
+      return s.capabilities.isSubset(of: ks)
+    } else {
+      return false
+    }
+  }
+
   public var description: String {
-    let n = String(describing: type(of: self)).removingSuffix("Instruction").snakeCased()
+    let n = String(describing: type(of: self)).snakeCased()
     return operands.isEmpty ? String(n) : "\(n) \(list: operands)"
   }
 

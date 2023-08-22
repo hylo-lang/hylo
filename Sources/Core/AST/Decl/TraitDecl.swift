@@ -1,7 +1,9 @@
 /// A trait declaration.
 ///
 /// - Note: `TraitDecl` does not conform to `GenericDecl`.
-public struct TraitDecl: SingleEntityDecl, TypeScope {
+public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
+
+  public static let constructDescription = "trait declaration"
 
   public let site: SourceRange
 
@@ -18,7 +20,7 @@ public struct TraitDecl: SingleEntityDecl, TypeScope {
   public let members: [AnyDeclID]
 
   /// The declaration of the trait's `Self` parameter.
-  public let selfParameterDecl: GenericParameterDecl.ID
+  public let receiver: GenericParameterDecl.ID
 
   /// Creates an instance with the given properties.
   public init(
@@ -35,16 +37,16 @@ public struct TraitDecl: SingleEntityDecl, TypeScope {
     self.accessModifier = accessModifier
     self.identifier = identifier
     self.refinements = refinements
-    self.selfParameterDecl = selfParameterDecl
+    self.receiver = selfParameterDecl
     self.members = members
   }
 
   public var baseName: String { identifier.value }
 
-  public func validateForm(in ast: AST, into diagnostics: inout DiagnosticSet) {
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     for m in members {
       if let d = InitializerDecl.ID(m), ast[d].isMemberwise {
-        diagnostics.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
+        log.insert(.error(unexpectedMemberwiseInitializerDecl: ast[d]))
       }
     }
   }
@@ -54,7 +56,7 @@ public struct TraitDecl: SingleEntityDecl, TypeScope {
 extension TraitDecl: GenericScope {
 
   public var genericParameters: [GenericParameterDecl.ID] {
-    [selfParameterDecl]
+    [receiver]
   }
 
 }

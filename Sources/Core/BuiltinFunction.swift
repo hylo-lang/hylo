@@ -1,17 +1,17 @@
 import LLVM
 import Utils
 
-/// A function representing an IR instruction in Val source code.
+/// A function representing an IR instruction in Hylo source code.
 public struct BuiltinFunction: Hashable {
 
   /// The name of the function.
   public let name: Name
 
-  /// Returns the type of the function.
-  public func type() -> LambdaType {
+  /// Returns the type of the function, calling `freshVariable` to create fresh type variables.
+  public func type(makingFreshVariableWith freshVariable: () -> TypeVariable) -> LambdaType {
     switch self.name {
     case .addressOf:
-      let p = ParameterType(.let, ^TypeVariable())
+      let p = ParameterType(.let, ^freshVariable())
       return .init(inputs: [.init(label: "of", type: ^p)], output: .builtin(.ptr))
 
     case .llvm(let s):
@@ -132,6 +132,30 @@ extension BuiltinFunction {
     case "xor":
       guard let t = builtinType(&tokens) else { return nil }
       self = .init(name: .llvm(.xor(t)))
+
+    case "sadd":
+      guard let t = integerArithmeticWithOverflowTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.signedAdditionWithOverflow(t)))
+
+    case "uadd":
+      guard let t = integerArithmeticWithOverflowTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.unsignedAdditionWithOverflow(t)))
+
+    case "ssub":
+      guard let t = integerArithmeticWithOverflowTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.signedSubtractionWithOverflow(t)))
+
+    case "usub":
+      guard let t = integerArithmeticWithOverflowTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.unsignedSubtractionWithOverflow(t)))
+
+    case "smul":
+      guard let t = integerArithmeticWithOverflowTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.signedMultiplicationWithOverflow(t)))
+
+    case "umul":
+      guard let t = integerArithmeticWithOverflowTail(&tokens) else { return nil }
+      self = .init(name: .llvm(.unsignedMultiplicationWithOverflow(t)))
 
     case "icmp":
       guard let (p, t) = integerComparisonTail(&tokens) else { return nil }
@@ -274,7 +298,8 @@ private func ++ <A, B>(_ a: @escaping Parser<A>, _ b: @escaping Parser<B>) -> Pa
   }
 }
 
-/// Returns a parser that returns an elements in `choices` if an equal value can be consumed.
+/// Returns a parser that returns an instance of `T` if it can be built by consuming the next
+/// element in the stream.
 private func take<T: RawRepresentable>(_: T.Type) -> Parser<T> where T.RawValue == String {
   { (stream: inout ArraySlice<Substring>) -> T? in
     stream.popFirst().flatMap({ T(rawValue: .init($0)) })
@@ -311,7 +336,15 @@ private func overflowBehavior(_ stream: inout ArraySlice<Substring>) -> LLVM.Ove
   }
 }
 
-/// Parses the parameters and type of an integer arithmetic function instruction.
+/// Parses the parameters and type of an integer arithmetic instruction with overflow reporting.
+private func integerArithmeticWithOverflowTail(
+  _ stream: inout ArraySlice<Substring>
+) -> BuiltinType? {
+  let p = exactly("with") ++ exactly("overflow") ++ builtinType
+  return p(&stream).map(\.1)
+}
+
+/// Parses the parameters and type of an integer arithmetic instruction.
 private let integerArithmeticTail =
   overflowBehavior ++ builtinType
 

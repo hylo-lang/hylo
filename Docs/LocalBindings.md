@@ -3,7 +3,7 @@
 A binding declaration at the source level introduces zero or more bindings that are treated individually after their declaration.
 For example:
 
-```val
+```hylo
 public fun foo() -> Int {
   let (one, two): { Int, Int }
   one = 1
@@ -14,7 +14,7 @@ public fun foo() -> Int {
 ```
 
 Although `one` and `two` are introduced by the same declaration, they are neither initialized nor deinitialized at the same time.
-To accurately keep track of local bindings individually, initialization, lifetime, and ownership analyses are done at a lower level of abstraction: Val's intermediate representation.
+To accurately keep track of local bindings individually, initialization, lifetime, and ownership analyses are done at a lower level of abstraction: Hylo's intermediate representation.
 
 ## Local storage
 
@@ -29,7 +29,7 @@ At the IR level, that lifetime is equal to the live-range of the `alloc_stack` r
 
 A `var` binding always have storage.
 
-```val
+```hylo
 public fun main() {
   var foo = 42
 }
@@ -41,8 +41,8 @@ In raw IR, `main` is translated as follows:
 ```
 @lowered fun main() -> Void {
 bb0:
-  %0 = record Val.Int, i64(0x2a)
-  %1 = alloc_stack Val.Int, binding="foo"
+  %0 = record Hylo.Int, i64(0x2a)
+  %1 = alloc_stack Hylo.Int, binding="foo"
   %2 = start_borrow [set] %0
   store %0, %2
   dealloc_stack %0
@@ -62,7 +62,7 @@ At the source level, the initializer of a binding is the expression of an object
 A `let` binding may several possible initializers if its initialization depends on control flow.
 For example, `bar` has two initializers in the following snippet: one in each branch of the conditional expression.
 
-```val
+```hylo
 public fun main() {
   let bar = if condition { 1 } else { 2 }
 }
@@ -78,7 +78,7 @@ For a `let` binding of type `T`:
 In the second case, storage is allocated with a `nil` value on every execution path where the corresponding `let` binding is initialized with a lvalue.
 For example:
 
-```val
+```hylo
 public fun main() {
   var foo = 42
   let bar = if condition { foo } else { 42 }
@@ -91,32 +91,32 @@ In raw IR, `main` is translated as follows:
 ```
 @lowered fun main() -> Void {
 bb0:
-  %0 = record Val.Int, i64(0x2a)
-  %1 = alloc_stack Val.Int, binding="foo"
+  %0 = record Hylo.Int, i64(0x2a)
+  %1 = alloc_stack Hylo.Int, binding="foo"
   %2 = start_borrow [set] %0
   store %2, %0
-  %3 = alloc_stack Val.Option<Val.Int>
+  %3 = alloc_stack Hylo.Option<Hylo.Int>
   %4 = start_borrow [let] @condition, 0
   %5 = call [let, let] @Builtin.i1_copy, %4
   cond_branch %5, bb1, bb2
 bb1:
-  %6 = record Val.Optional<Val.Int>.Nil
-  %7 = union Val.Option<Val.Int>, %6
+  %6 = record Hylo.Optional<Hylo.Int>.Nil
+  %7 = union Hylo.Option<Hylo.Int>, %6
   %8 = start_borrow [set] %3
   store %7, %8
   %9 = start_borrow [let] %0, binding="bar"
   branch bb3, %9
 bb2:
-  %10 = record Val.Int, i64(0x2a)
-  %11 = record Val.Optional<Val.Int>.Some, %10
-  %12 = union Val.Option<Val.Int>, %11
+  %10 = record Hylo.Int, i64(0x2a)
+  %11 = record Hylo.Optional<Hylo.Int>.Some, %10
+  %12 = union Hylo.Option<Hylo.Int>, %11
   %13 = start_borrow [set] %3
   store %12, %13
   %14 = start_borrow [let] %3, 1, binding="bar"
   branch bb3, %14
 bb3(%15 : &Int):
   %16 = start_borrow [let] %15
-  %17 = call [let, let] Val.Int.copy, %16
+  %17 = call [let, let] Hylo.Int.copy, %16
   deinit %17
   dealloc_stack %3
   dealloc_stack %0
@@ -138,7 +138,7 @@ Hence, it will be safe to deinitialize that storage in `bb3` with `Optional`'s d
 An `inout` binding never have storage and is always represented as a borrowed access at the IR level.
 For example:
 
-```val
+```hylo
 public fun main() {
   var foo = 42
   inout bar = &foo
@@ -150,8 +150,8 @@ In raw IR, `main` is translated as follows:
 ```
 @lowered fun main() -> Void {
 bb0:
-  %0 = record Val.Int, i64(0x2a)
-  %1 = alloc_stack Val.Int, binding="foo"
+  %0 = record Hylo.Int, i64(0x2a)
+  %1 = alloc_stack Hylo.Int, binding="foo"
   %2 = start_borrow [set] %0
   store %0, %2
   %3 = start_borrow [inout] %0, binding="bar"
@@ -173,13 +173,13 @@ For example:
 bb0(%0 : &Int, %1 : &Int):
   %2 = start_borrow [let] %0
   %3 = start_borrow [let] %1
-  %4 = call [let, let, let] @Val.Int.infix+, %2, %3
+  %4 = call [let, let, let] @Hylo.Int.infix+, %2, %3
   return %4
 ```
 
 `add` has two `let` parameters accepting integer arguments.
 In the scope of the function, those arguments live in memory at the locations denoted by `%0` and `%1`.
-Meanwhile, the result of the call to `Val.Int.infix+(_:_:)` lives in register and is assigned to `%4`.
+Meanwhile, the result of the call to `Hylo.Int.infix+(_:_:)` lives in register and is assigned to `%4`.
 
 Objects that live in register are *initialized* when first assigned to a register and get eventually *consumed* before the function returns.
 Because they are treated as linear resources, any operation in which an object appears as an operand consumes it.

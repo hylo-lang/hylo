@@ -3,8 +3,19 @@ import Utils
 /// An object that provides context to interpret the generic parameters of a declaration.
 public struct GenericEnvironment {
 
+  /// An equivalence class and its associated conformances.
+  private struct EquivalenceClass: Equatable {
+
+    /// A set of types known to be equivalent to each others.
+    var equivalences: Set<AnyType> = []
+
+    /// The set of traits to which types in this class are known to conform.
+    var conformances: Set<TraitType> = []
+
+  }
+
   /// The generic parameters introduced in the environment, in the order there declaration appears
-  /// in Val sources.
+  /// in Hylo sources.
   public let parameters: [GenericParameterDecl.ID]
 
   /// The uninstantiated type constraints.
@@ -14,7 +25,7 @@ public struct GenericEnvironment {
   private var ledger: [AnyType: Int] = [:]
 
   /// The equivalence classes and their associated conformance sets.
-  private var entries: [(equivalences: Set<AnyType>, conformances: Set<TraitType>)] = []
+  private var entries: [EquivalenceClass] = []
 
   /// Creates an environment that introduces `parameters` in a declaration space.
   public init(introducing parameters: [GenericParameterDecl.ID]) {
@@ -50,7 +61,7 @@ public struct GenericEnvironment {
         // `r` is part of a class too; merge the entries.
         entries[i].equivalences.formUnion(entries[j].equivalences)
         entries[i].conformances.formUnion(entries[j].conformances)
-        entries[j] = ([], [])
+        entries[j] = .init()
       } else {
         // `r` isn't part of a class.
         entries[i].equivalences.insert(r)
@@ -66,19 +77,36 @@ public struct GenericEnvironment {
       // Neither `l` nor `r` are part of a class.
       ledger[l] = entries.count
       ledger[l] = entries.count
-      entries.append((equivalences: [l, r], conformances: []))
+      entries.append(.init(equivalences: [l, r], conformances: []))
     }
   }
 
-  private mutating func registerConformance(_ l: AnyType, to traits: Set<TraitType>) {
+  private mutating func registerConformance(_ l: AnyType, to trait: TraitType) {
     if let i = ledger[l] {
       // `l` is part of a class.
-      entries[i].conformances.formUnion(traits)
+      entries[i].conformances.insert(trait)
     } else {
       // `l` isn't part of a class.
       ledger[l] = entries.count
-      entries.append((equivalences: [l], conformances: traits))
+      entries.append(.init(equivalences: [l], conformances: [trait]))
     }
+  }
+
+}
+
+extension GenericEnvironment: Equatable {
+
+  public static func == (l: Self, r: Self) -> Bool {
+    guard l.parameters == r.parameters else { return false }
+
+    var s = Set(0 ..< r.entries.count)
+    for (t, i) in l.ledger {
+      guard let j = r.ledger[t] else { return false }
+      guard l.entries[i] == r.entries[j] else { return false }
+      s.remove(j)
+    }
+
+    return s.isEmpty
   }
 
 }
