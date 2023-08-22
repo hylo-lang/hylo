@@ -117,10 +117,18 @@ jobs:
 
     - run: swift --version
 
+    - name: Cache LLVM
+      id: cache-llvm
+      uses: actions/cache@v3
+      with:
+        path: ./llvm
+        key: llvm-15
+
     - name: Setup LLVM
       uses: KyleMayes/install-llvm-action@v1
       with:
         version: "15.0"
+        cached: ${{ steps.cache-llvm.outputs.cache-hit }}
 
     - run: llvm-config --version
 
