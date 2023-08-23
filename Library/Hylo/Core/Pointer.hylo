@@ -1,43 +1,67 @@
-/// A pointer for accessing typed data.
-public type Pointer<Pointee> {
+/// A typed memory address whose contents can be read.
+public type Pointer<Pointee>: Regular {
 
-  var value: Builtin.ptr
+  /// The raw bits of the address.
+  var base: Builtin.ptr
 
   memberwise init
 
-  /// Creates a copy of `other`.
-  public init(_ other: RawPointer) {
-    &self.value = other.value
+  /// The value at the given address.
+  ///
+  /// - Requires: the address stores an object of type Pointee and nothing modifies
+  ///   that storage during the lifetime of this projection.
+  public subscript unsafe(): Pointee {
+    yield base as* (remote let Pointee)
   }
 
-  /// Creates a copy of `other`.
-  public init(_ other: MutableRawPointer) {
-    &self.value = other.value
+  /// Creates an instance referring to the same address as `p`.
+  public init(_ p: PointerToMutable<Pointee>) {
+    &base = p.base
   }
 
-  /// Creates a null pointer.
-  public static fun null() -> Self {
-    .new(value: Builtin.zeroinitializer_ptr())
-  }
-
-  /// Returns the result of applying `action` to a projection of the value referenced by `self`.
-  public fun with_pointee<T>(_ action: [](Pointee) -> T) -> T {
-    action(value as* (remote let Pointee))
-  }
-
-  /// Projects a pointer to `pointee`.
-  public static subscript to(_ pointee: Pointee): Self {
-    Pointer(value: Builtin.address(of: pointee))
+  /// Creates an instance referring to the same address as `p`.
+  ///
+  /// Note that dereferencing type punned pointers will cause problems unless the rules for the
+  /// `usafe[]` subscript (which see) are followed.
+  public init<Other>(typePunning p: Pointer<Other>) {
+    &base = p.base
   }
 
 }
 
-public conformance Pointer: Deinitializable {}
-
 public conformance Pointer: Copyable {
 
   public fun copy() -> Self {
-    Pointer(value: value)
+    Pointer(base: base)
+  }
+
+}
+
+public conformance Pointer: Equatable {
+
+  /// Returns `true` iff `other` has an equivalent value.
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_word(Builtin.ptrtoint_word(base), Builtin.ptrtoint_word(other.base)))
+  }
+
+}
+
+/// The address of `x`.
+public subscript pointer<T>(to x: T): Pointer<T> {
+  let { yield Pointer(base: Builtin.address(of: x)) }
+}
+
+
+public conformance Pointer: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.ptr
+
+  public init(foreign_value: sink Builtin.ptr) {
+    &self.base = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.ptr {
+    base
   }
 
 }

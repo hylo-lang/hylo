@@ -1,5 +1,7 @@
 /// A set of `Diagnostic` that can answer the question “was there an error?” in O(1).
-public struct DiagnosticSet {
+public struct DiagnosticSet: Error {
+
+  public var localizedDescription: String { description }
 
   /// The elements of `self`.
   public private(set) var elements: Set<Diagnostic> = []
@@ -59,9 +61,9 @@ extension DiagnosticSet: CustomStringConvertible {
 
 }
 
-extension DiagnosticSet: Error {
+extension DiagnosticSet {
 
-  var localizedDescription: String { description }
+//  public var localizedDescription: String { description }
 
 }
 
