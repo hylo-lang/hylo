@@ -20,14 +20,17 @@ public type Pointer<Pointee>: Regular {
   public init(_ p: PointerToMutable<Pointee>) {
     &base = p.base
   }
+}
 
-  // Copyable conformace
+public conformance Pointer: Copyable {
 
   public fun copy() -> Self {
     Pointer(base: base)
   }
 
-  // Equatable conformance
+}
+
+public conformance Pointer: Equatable {
 
   /// Returns `true` iff `other` has an equivalent value.
   public fun infix== (_ other: Self) -> Bool {
@@ -56,14 +59,6 @@ public type PointerToMutable<Pointee>: Regular {
 
   memberwise init
 
-  /// Returns an equivalent instance.
-  ///
-  /// Because we don't have a `nonmutating` keyword yet, writing to the pointee of a `let`-bound
-  /// `PointerToMutable` is only possible by copying, e.g.  `&p.copy().unsafe[] = x`.
-  public fun copy() -> Self {
-    PointerToMutable(base: base)
-  }
-
   /// The value at the given address.
   ///
   /// - Requires: the address stores a mutable object of type Pointee and nothing accesses that
@@ -79,6 +74,22 @@ public type PointerToMutable<Pointee>: Regular {
   public init(adding_mutation_to p: Pointer<Pointee>) {
     &base = p.base
   }
+
+}
+
+public conformance PointerToMutable: Copyable {
+
+  /// Returns an equivalent instance.
+  ///
+  /// Because we don't have a `nonmutating` keyword yet, writing to the pointee of a `let`-bound
+  /// `PointerToMutable` is only possible by copying, e.g.  `&p.copy().unsafe[] = x`.
+  public fun copy() -> Self {
+    PointerToMutable(base: base)
+  }
+
+}
+
+public conformance PointerToMutable: Equatable {
 
   /// Returns `true` iff `other` has an equivalent value.
   public fun infix== (_ other: Self) -> Bool {
