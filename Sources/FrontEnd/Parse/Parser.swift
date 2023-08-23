@@ -55,7 +55,7 @@ public enum Parser {
         state.diagnostics.insert(
           Diagnostic(
             level: .error,
-            message: error.localizedDescription,
+            message: "\(type(of: error)): \(error)",
             site: state.lexer.sourceCode.range(startIndex ..< state.currentIndex)))
         continue
       }
