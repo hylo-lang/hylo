@@ -20,7 +20,7 @@ public type DynamicBuffer<Header, Element>: Deinitializable {
   /// A null value denotes an empty buffer. Otherwise, `storage` points at an instance of
   /// `BufferHeader` that is followed by a region capable of storing at most `self.capacity`
   /// instances of `Element`, offset to satisfy `Element`'s alignment requirement'.
-  var storage: MutableRawPointer
+  var storage: PointerToMutable<Never>
 
   /// Creates an empty instance.
   public init() {
@@ -33,15 +33,13 @@ public type DynamicBuffer<Header, Element>: Deinitializable {
     capacity: Int,
     initializing_header_with init_header: [E](set Header) -> Void
   ) {
-    &storage = .allocate(
+    &storage = .allocate_bytes(
       count: Self.payload_offset() + capacity * MemoryLayout<Element>.stride(),
       aligned_at: MemoryLayout<BufferHeader>.alignment())
 
-    let p = MutablePointer<BufferHeader>(storage)
-    p.with_uninitialized_pointee(fun (_ h: set BufferHeader) -> Void {
-      &h.0 = capacity.copy()
-      init_header(&h.1)
-    })
+    let p = PointerToMutable<BufferHeader>(typePunning: storage)
+    p.unsafe[].0 = capacity.copy()
+    init_header(&p.unsafe[].1)
   }
 
   /// Deinitializes `self`.
@@ -51,10 +49,8 @@ public type DynamicBuffer<Header, Element>: Deinitializable {
 
   /// The number of elements that can be stored in `self`.
   public fun capacity() -> Int {
-    let p = Pointer<BufferHeader>(storage)
-    return p.with_pointee(fun (_ h: BufferHeader) -> Int {
-      h.0.copy()
-    })
+    let p = PointerToMutable<BufferHeader>(typePunning: storage)
+    return p.unsafe[].0.copy()
   }
 
 }

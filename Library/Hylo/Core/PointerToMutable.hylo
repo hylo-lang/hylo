@@ -30,6 +30,11 @@ public type PointerToMutable<Pointee>: Regular {
     &base = p.base
   }
 
+  /// Creates an instance that does not address any usable storage.
+  public static fun null() -> Self {
+    .new(base: Builtin.zeroinitializer_ptr())
+  }
+
 }
 
 
