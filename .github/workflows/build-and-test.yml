@@ -61,8 +61,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-spm-
 
-    - run: git config --global core.autocrlf input
-
     - name: Build and Test
       uses: devcontainers/ci@v0.3
       with:
@@ -107,8 +105,6 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
-
-    - run: git config --global core.autocrlf input
 
     - name: Setup swift
       uses: swift-actions/setup-swift@v1
@@ -159,8 +155,6 @@ jobs:
         branch: swift-5.8.1-release
         tag: 5.8.1-RELEASE
 
-    - run: |
-        git config --global core.autocrlf input
     - uses: actions/checkout@v3
 
     - name: Swift version
