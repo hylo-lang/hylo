@@ -6,6 +6,8 @@ let allTargetsSwiftSettings: [SwiftSetting] = [
   .unsafeFlags(["-warnings-as-errors"])
 ]
 
+let standardPlugins: [Target.PluginUsage] = ["FatalFilePathPlugin"]
+
 let package = Package(
   name: "Hylo",
 
@@ -49,7 +51,8 @@ let package = Package(
       dependencies: [
         "Driver"
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     .target(
       name: "Driver",
@@ -59,7 +62,8 @@ let package = Package(
         "CodeGenLLVM",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     // Targets related to the compiler's internal library.
     .target(
@@ -72,7 +76,8 @@ let package = Package(
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     .target(
       name: "Core",
@@ -81,12 +86,14 @@ let package = Package(
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     .target(
       name: "IR",
       dependencies: ["Utils", "Core", "FrontEnd"],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     .target(
       name: "CodeGenLLVM",
@@ -97,27 +104,36 @@ let package = Package(
         .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
       path: "Sources/CodeGen/LLVM",
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     .target(
       name: "Utils",
       dependencies: [.product(name: "BigInt", package: "BigInt")],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     .target(
       name: "TestUtils",
       dependencies: ["Core", "Driver", "Utils"],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     .target(
       name: "HyloModule",
       path: "Library",
       resources: [.copy("Hylo")],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins
+    ),
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
       dependencies: [.target(name: "GenerateHyloFileTests")]),
+
+    .plugin(
+      name: "FatalFilePathPlugin", capability: .buildTool(),
+      dependencies: [.target(name: "GenerateFatalFilePathOverrides")]),
 
     .executableTarget(
       name: "GenerateHyloFileTests",
@@ -125,39 +141,50 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         "Utils",
       ],
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
+
+    .executableTarget(
+      name: "GenerateFatalFilePathOverrides",
+      dependencies: [
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+      ],
       swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
     .testTarget(
       name: "UtilsTests",
       dependencies: ["Utils"],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     .testTarget(
       name: "DriverTests",
       dependencies: ["Driver"],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     .testTarget(
       name: "ManglingTests",
       dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: standardPlugins),
 
     .testTarget(
       name: "HyloTests",
       dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
-      plugins: ["TestGeneratorPlugin"]),
+      plugins: ["TestGeneratorPlugin"] + standardPlugins),
 
     .testTarget(
       name: "EndToEndTests",
       dependencies: ["Driver", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
-      plugins: ["TestGeneratorPlugin"]),
+      plugins: ["TestGeneratorPlugin"] + standardPlugins),
 
     .testTarget(
       name: "LibraryTests",
       dependencies: ["Driver", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings,
-      plugins: ["TestGeneratorPlugin"]),
+      plugins: ["TestGeneratorPlugin"] + standardPlugins),
   ])
