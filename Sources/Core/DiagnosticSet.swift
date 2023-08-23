@@ -59,10 +59,4 @@ extension DiagnosticSet: CustomStringConvertible {
 
 }
 
-extension DiagnosticSet: Error {
-
-  var localizedDescription: String { description }
-
-}
-
 extension DiagnosticSet: Equatable {}

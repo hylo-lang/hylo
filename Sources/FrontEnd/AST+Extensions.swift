@@ -23,7 +23,7 @@ extension AST {
         diagnostics: &diagnostics)
       assert(isCoreModuleLoaded)
     } catch let error {
-      fatalError("Error parsing the Hylo module:\n\(error.localizedDescription)")
+      fatalError("Error parsing the Hylo module:\n\(error)")
     }
   }
 
