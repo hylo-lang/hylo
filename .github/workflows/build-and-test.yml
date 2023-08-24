@@ -179,13 +179,11 @@ jobs:
     - name: Copy support library
       run: xcopy HyloLibC.lib c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\
 
-    - name: Build (Release)
+    - name: Build and Test (Debug)
+      run: swift test -c debug
+
+    - name: Build and Test (Release)
       id: build
-      continue-on-error: true
-      run: swift build -v -c release
+      run: swift test -c release
 
-    - name: Retry on failure
-      continue-on-error: false
-      if: steps.build.outcome != 'success'
-      run: swift build -v -c release
-
+  
