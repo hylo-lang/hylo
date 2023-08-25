@@ -13,7 +13,9 @@ Please visit our [website](https://hylo-lang.org) to get more information about 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.7 or higher to build the compiler from sources.
 
-*Note to Windows users: although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see https://github.com/hylo-lang/hylo/issues/252 and https://github.com/hylo-lang/hylo/issues/805).*
+**Windows users:** 
+1. although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see [issue 252](https://github.com/hylo-lang/hylo/issues/252) and [issue 805](https://github.com/hylo-lang/hylo/issues/805).
+2. This repository contains symbolic links, so you'll need to [enable support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) for them before checking it out.
 
 ### Prerequisites
 

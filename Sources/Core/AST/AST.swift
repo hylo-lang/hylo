@@ -1,4 +1,3 @@
-import Foundation
 import Utils
 
 /// An abstract syntax tree.
