@@ -189,7 +189,7 @@ final class BuiltinFunctionTests: XCTestCase {
     instructions: [String],
     parameterizedBy parameters: [[String]],
     createInstanceWithType expectedType: LambdaType,
-    file: StaticString = #file,
+    file: StaticString = #filePath,
     line: UInt = #line
   ) throws {
     var i: UInt64 = 0
