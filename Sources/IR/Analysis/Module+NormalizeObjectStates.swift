@@ -173,7 +173,7 @@ extension Module {
       case .inout:
         assert(self[f.instruction!].isAccess(callee.receiverEffect))
       default:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       // Evaluate the arguments.
@@ -449,7 +449,7 @@ extension Module {
       let locations: [AbstractLocation]
       if case .constant = addr.recordAddress {
         // Operand is a constant.
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       } else {
         locations =
           context.locals[addr.recordAddress]!.unwrapLocations()!.map({
@@ -472,7 +472,7 @@ extension Module {
       let s = self[i] as! WrapExistentialAddr
       if case .constant = s.witness {
         // Operand is a constant.
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       context.locals[.register(i)] = context.locals[s.witness]
@@ -666,7 +666,7 @@ extension Context {
     case .full(.uninitialized), .full(.consumed):
       return false
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 

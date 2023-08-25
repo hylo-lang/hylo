@@ -225,7 +225,7 @@ public struct Driver: ParsableCommand {
     #else
       _ = objectFiles
       _ = binaryPath
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     #endif
   }
 
@@ -360,7 +360,7 @@ public struct Driver: ParsableCommand {
   ///
   /// - Requires: `url` must denote a directly.
   private func addModule(url: URL) {
-    fatalError("not implemented")
+    UNIMPLEMENTED()
   }
 
   /// Returns the path of the specified executable.

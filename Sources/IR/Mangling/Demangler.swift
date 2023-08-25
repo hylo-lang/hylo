@@ -191,7 +191,7 @@ struct Demangler {
     case .endOfSequence:
       break
     case .whereClause:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     default:
       return nil
     }

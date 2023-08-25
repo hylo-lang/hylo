@@ -255,7 +255,7 @@ extension Module {
       let s = self[i] as! SubfieldView
       if case .constant = s.recordAddress {
         // Operand is a constant.
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       // Skip the instruction if an error occured upstream.
@@ -273,7 +273,7 @@ extension Module {
       let s = self[i] as! WrapExistentialAddr
       if case .constant = s.witness {
         // Operand is a constant.
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       context.locals[.register(i)] = context.locals[s.witness]

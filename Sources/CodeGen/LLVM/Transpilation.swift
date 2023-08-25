@@ -166,7 +166,7 @@ extension LLVM.Module {
   ) -> LLVM.IRValue {
     switch c {
     case let v as IR.IntegerConstant:
-      guard v.value.bitWidth <= 64 else { fatalError("not implemented") }
+      guard v.value.bitWidth <= 64 else { UNIMPLEMENTED() }
       let t = LLVM.IntegerType(v.value.bitWidth, in: &self)
       return t.constant(v.value.words[0])
 
@@ -280,7 +280,7 @@ extension LLVM.Module {
     case .function(let f):
       return declare(f, from: ir)
     case .value:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -294,7 +294,7 @@ extension LLVM.Module {
     case let u as TupleType:
       return transpiledMetatype(of: u, usedIn: m, from: ir)
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -612,7 +612,7 @@ extension LLVM.Module {
       case is IR.Yield:
         insert(yield: i)
       default:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
     }
 

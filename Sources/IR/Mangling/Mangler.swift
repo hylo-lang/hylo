@@ -283,7 +283,7 @@ struct Mangler {
       write(string: program.ast[e].site.text, to: &output)
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -299,7 +299,7 @@ struct Mangler {
     case .synthesized(let d):
       write(synthesized: d, to: &output)
     case .existentialized:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -337,7 +337,7 @@ struct Mangler {
       }
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -353,7 +353,7 @@ struct Mangler {
     if let t = symbol as? AnyType {
       mangle(type: t, to: &output)
     } else {
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 

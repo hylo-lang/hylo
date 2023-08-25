@@ -45,7 +45,7 @@ public struct Program: Core.Program {
     case .loweredSubscript(let d):
       return base.module(containing: base[d].scope)
     case .monomorphized:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     case .existentialized(let i):
       return module(defining: i)
     case .synthesized(let d):
