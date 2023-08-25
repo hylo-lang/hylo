@@ -26,15 +26,6 @@ func fatalError(
   Swift.fatalError(message(), file: (file), line: line)
 }
 
-/// Just like Swift.fatal, but includes the full file path in the diagnostic.
-func fatal(
-  _ message: @autoclosure () -> String = String(),
-  file: StaticString = #filePath,
-  line: UInt = #line
-) -> Never {
-  Swift.fatalError(message(), file: (file), line: line)
-}
-
 /// Just like Swift.assert, but includes the full file path in the diagnostic.
 func assert(
     _ condition: @autoclosure () -> Bool,
