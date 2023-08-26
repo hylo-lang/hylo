@@ -1,6 +1,6 @@
 // Can't really use this for anything yet due to https://github.com/hylo-lang/hylo/issues/936
 /// A memory address.
-typealias RawPointer = PointerToMutable<Never>
+typealias MemoryAddress = PointerToMutable<Never>
 
 public extension PointerToMutable where Pointee == Never {
 

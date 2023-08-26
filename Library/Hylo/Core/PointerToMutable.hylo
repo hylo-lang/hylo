@@ -64,17 +64,3 @@ public conformance PointerToMutable: Equatable {
   }
 
 }
-
-public conformance PointerToMutable: ForeignConvertible {
-
-  public typealias ForeignRepresentation = Builtin.ptr
-
-  public init(foreign_value: sink Builtin.ptr) {
-    &self.base = foreign_value
-  }
-
-  public fun foreign_value() -> Builtin.ptr {
-    base
-  }
-
-}

@@ -55,18 +55,3 @@ public conformance Pointer: Equatable {
 public subscript pointer<T>(to x: T): Pointer<T> {
   let { yield Pointer(base: Builtin.address(of: x)) }
 }
-
-
-public conformance Pointer: ForeignConvertible {
-
-  public typealias ForeignRepresentation = Builtin.ptr
-
-  public init(foreign_value: sink Builtin.ptr) {
-    &self.base = foreign_value
-  }
-
-  public fun foreign_value() -> Builtin.ptr {
-    base
-  }
-
-}

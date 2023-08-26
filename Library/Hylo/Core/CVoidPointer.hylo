@@ -1,0 +1,33 @@
+// This type only exists because we don't seem to be able to make generic types like Pointer ForeignConvertible.
+/// A pointer type for use in @ffi signatures.
+type CVoidPointer: Regular {
+
+  var base: Builtin.ptr
+
+  memberwise init
+
+}
+
+public conformance CVoidPointer: Deinitializable {}
+
+public conformance CVoidPointer: Copyable {
+
+  public fun copy() -> Self {
+    CVoidPointer(base: value)
+  }
+
+}
+
+public conformance CVoidPointer: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.ptr
+
+  public init(foreign_value: sink Builtin.ptr) {
+    &self.base = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.ptr {
+    base
+  }
+
+}
