@@ -1,11 +1,11 @@
 /// Writes the textual representation of `item` to the standard output.
 public fun print(_ item: String, terminator: String = "\n") {
   let stream = stdout()
-  _ = fwrite(item.utf8, 1, item.size, stream)
-  _ = fwrite(terminator.utf8, 1, 1, stream)
+  _ = fwrite(item.utf8.base, 1, item.size, stream.base)
+  _ = fwrite(terminator.utf8.base, 1, 1, stream.base)
 }
 
 /// The standard output of the current process.
 fun stdout() -> PointerToMutable<Never> {
-  fdopen(1, "w".utf8)
+  .new(base: fdopen(1, "w".utf8.base))
 }
