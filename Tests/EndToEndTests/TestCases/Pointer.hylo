@@ -1,7 +1,7 @@
 //- compileAndRun expecting: success
 
 public fun main() {
-  let p: MutableRawPointer = .allocate(count: 8, aligned_at: 8)
+  let p: RawPointer = .allocate(count: 8, aligned_at: 8)
   let q = MutablePointer<Int>(p)
   q.with_uninitialized_pointee(fun (_ i: set Int) -> Void {
     &i = 42
