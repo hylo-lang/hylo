@@ -366,7 +366,7 @@ struct ConstraintSystem {
       return delegate(to: [s])
 
     case (_, let r as ExistentialType):
-      guard r.constraints.isEmpty else { fatalError("not implemented") }
+      guard r.constraints.isEmpty else { UNIMPLEMENTED() }
 
       // Penalize type coercion.
       penalties += 1

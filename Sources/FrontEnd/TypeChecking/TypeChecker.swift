@@ -205,7 +205,7 @@ struct TypeChecker {
       }
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -274,7 +274,7 @@ struct TypeChecker {
 
     func transform(mutating me: inout Self, _ t: BoundGenericType) -> AnyType {
       ^t.transformArguments(mutating: &me) { (me, v) in
-        let w = (v as? AnyType) ?? fatalError("not implemented")
+        let w = (v as? AnyType) ?? UNIMPLEMENTED()
         return w.transform(mutating: &me, transform)
       }
     }
@@ -326,7 +326,7 @@ struct TypeChecker {
       return EqualityConstraint(a, b, origin: origin)
 
     case .instance, .predicate:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -1037,10 +1037,10 @@ struct TypeChecker {
     ) -> AnyDeclID? {
       switch requirement.kind {
       case AssociatedTypeDecl.self:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
 
       case AssociatedValueDecl.self:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
 
       case FunctionDecl.self:
         return implementation(
@@ -1058,7 +1058,7 @@ struct TypeChecker {
           collectingCandidatesWith: collectFunction)
 
       case SubscriptImpl.self:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
 
       default:
         unexpected(requirement, in: program.ast)
@@ -1480,7 +1480,7 @@ struct TypeChecker {
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType<T: TypeExtendingDecl>(of d: T.ID) -> AnyType {
     let (i, cs) = eval(existentialBound: program[d].subject)
-    assert(cs.isEmpty, "not implemented")
+    guard cs.isEmpty else { UNIMPLEMENTED() }
 
     switch i.base {
     case is BuiltinType, is RemoteType:
@@ -2011,8 +2011,8 @@ struct TypeChecker {
   private mutating func evalTypeAnnotation(_ e: ExistentialTypeExpr.ID) -> AnyType {
     let (i, cs) = eval(existentialInterface: program[e].traits)
 
-    assert(cs.isEmpty, "not implemented")
-    assert(program[e].whereClause == nil, "not implemented")
+    guard cs.isEmpty else { UNIMPLEMENTED() }
+    guard program[e].whereClause == nil else { UNIMPLEMENTED() }
 
     return ^ExistentialType(i, constraints: cs)
   }
@@ -2074,7 +2074,7 @@ struct TypeChecker {
       unreachable()
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -2199,7 +2199,7 @@ struct TypeChecker {
     // where that parameter is introduced.
     if let b = BoundGenericType(i) {
       for (p, a) in b.arguments {
-        assert(GenericTypeParameterType(a as! AnyType)?.decl == p, "not implemented")
+        if GenericTypeParameterType(a as! AnyType)?.decl != p { UNIMPLEMENTED() }
       }
       return (b.base, [])
     }
@@ -3047,7 +3047,7 @@ struct TypeChecker {
     metatype name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue]
   ) -> NameResolutionResult.CandidateSet {
     if let a = arguments.uniqueElement {
-      let instance = (a as? AnyType) ?? fatalError("not implemented")
+      let instance = (a as? AnyType) ?? UNIMPLEMENTED()
       return [.compilerKnown(^MetatypeType(of: MetatypeType(of: instance)))]
     }
 
@@ -3316,7 +3316,7 @@ struct TypeChecker {
     var cs = candidate.constraints.union(t.constraints)
 
     let r = candidate.reference.modifyingArguments(mutating: &substitutions) { (s, v) in
-      let v = (v as? AnyType) ?? fatalError("not implemented")
+      let v = (v as? AnyType) ?? UNIMPLEMENTED()
       let x = instantiate(v, in: ctx, cause: cause, updating: &s)
       cs.formUnion(x.constraints)
       return x.shape
@@ -3348,7 +3348,7 @@ struct TypeChecker {
     func instantiate(mutating me: inout Self, type: AnyType) -> TypeTransformAction {
       switch type.base {
       case is AssociatedTypeType:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
 
       case let p as GenericTypeParameterType:
         if let t = substitutions[p.decl] {
@@ -3885,7 +3885,7 @@ struct TypeChecker {
     // The callee has a metatype and is a name expression bound to a nominal type declaration,
     // meaning that the call is actually a sugared buffer type expression.
     if isBoundToNominalTypeDecl(program[e].callee, in: obligations) {
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
 
     // The callee has a callable type or we need inference to determine its type. Either way,
@@ -4460,7 +4460,7 @@ struct TypeChecker {
 
       default:
         // TODO: should probably emit a diagnostic. Operator declarations cannot be overloaded.
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
     }
 

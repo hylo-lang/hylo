@@ -174,7 +174,7 @@ public struct TypedProgram {
       if let t = v as? AnyType {
         return checker.specialize(t, for: specialization, in: scopeOfUse)
       } else {
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
     }
   }

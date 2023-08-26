@@ -225,7 +225,7 @@ extension Module {
       case is Yield:
         rewrite(yield: i, to: b)
       default:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
       rewrittenIntructions[i] = InstructionID(b, self[b].instructions.lastAddress!)
     }
