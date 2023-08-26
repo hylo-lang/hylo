@@ -23,7 +23,7 @@ public type Pointer<Pointee>: Regular {
   ///
   /// Note that dereferencing type punned pointers will cause problems unless the rules for the
   /// `usafe[]` subscript (which see) are followed.
-  public init<Other>(typePunning p: Pointer<Other>) {
+  public init<Other>(type_punning p: Pointer<Other>) {
     &base = p.base
   }
 

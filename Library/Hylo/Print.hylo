@@ -6,6 +6,6 @@ public fun print(_ item: String, terminator: String = "\n") {
 }
 
 /// The standard output of the current process.
-fun stdout() -> RawPointer {
+fun stdout() -> PointerToMutable<Never> {
   fdopen(1, "w".utf8)
 }

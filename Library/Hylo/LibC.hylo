@@ -5,20 +5,20 @@
 ///     the implementation.
 ///   - size: The number of bytes to allocate. Must be an integral multiple of `alignment`.
 @ffi("aligned_alloc")
-fun aligned_alloc(_ alignment: Int, _ size: Int) -> RawPointer
+fun aligned_alloc(_ alignment: Int, _ size: Int) -> PointerToMutable<Never>
 
 /// Deallocates the block of memory pointed at by `pointer`.
 @ffi("free")
-fun free(_ pointer: RawPointer)
+fun free(_ pointer: PointerToMutable<Never>)
 
 /// Terminates the program abnormally.
 @ffi("abort")
 public fun fatal_error() -> Never
 
 @ffi("fdopen")
-public fun fdopen(_ descriptor: Int, _ mode: RawPointer) -> RawPointer
+public fun fdopen(_ descriptor: Int, _ mode: PointerToMutable<Never>) -> PointerToMutable<Never>
 
 /// Writes to `stream` the contents of `data`, which containts `count` elements of `size` bytes,
 /// returning the number of elements written.
 @ffi("fwrite")
-public fun fwrite(_ data: RawPointer, _ size: Int, _ count: Int, _ stream: RawPointer) -> Int
+public fun fwrite(_ data: PointerToMutable<Never>, _ size: Int, _ count: Int, _ stream: PointerToMutable<Never>) -> Int

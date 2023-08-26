@@ -1,12 +1,13 @@
+// Can't really use this for anything yet due to https://github.com/hylo-lang/hylo/issues/936
 /// A memory address.
 typealias RawPointer = PointerToMutable<Never>
 
 public extension PointerToMutable where Pointee == Never {
 
   /// Creates an instance pointing to the same address as `p`
-  public init<T>(_ p: PointerToMutable<T>) { self.base = p.base }
+  public init<T>(_ p: PointerToMutable<T>) { &self.base = p.base }
 
   /// Creates an instance pointing to the same address as `p`
-  public init<T>(_ p: Pointer<T>) { self.base = p.base }
+  public init<T>(_ p: Pointer<T>) { &self.base = p.base }
 
 }

@@ -1,11 +1,11 @@
 /// Projects `value` with its memory representation reinterpreted as a value of type `U`.
 public subscript unsafe_bitcast<T, U>(_ value: T): U {
   let {
-    sink let p: Pointer<U> = Pointer(typePunning: pointer[to: value])
+    sink let p: Pointer<U> = Pointer(type_punning: pointer[to: value])
     yield p.unsafe[]
   }
   inout {
-    sink let p: PointerToMutable<U> = PointerToMutable(typePunning: pointerToMutable[&value])
-    yield p.unsafe[]
+    sink let p: PointerToMutable<U> = PointerToMutable(type_punning: pointerToMutable[&value])
+    yield &p.unsafe[]
   }
 }
