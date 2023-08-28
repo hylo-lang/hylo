@@ -15,16 +15,6 @@ public type PointerToMutable<Pointee>: Regular {
     inout { yield &(base as* (remote let Pointee)) }
   }
 
-  public fun with_uninitialized_pointee()
-
-  /// The value at the given address.
-  ///
-  /// - Requires: the address stores a mutable object of type Pointee and nothing accesses that
-  ///   storage except through this projection during its lifetime.
-  public subscript unsafe_uninitialized(): Pointee {
-    set { base as* (remote set Pointee) = new_value }
-  }
-
   /// Creates an instance with mutable access to the memory pointed to by `p`.
   ///
   /// - Warning: while this initializer is not in itself unsafe, it should be used with caution.
@@ -43,6 +33,14 @@ public type PointerToMutable<Pointee>: Regular {
   /// Creates an instance that does not address any usable storage.
   public static fun null() -> Self {
     .new(base: Builtin.zeroinitializer_ptr())
+  }
+
+  /// Returns the result of applying `initialize` to the uninitialized `Pointee` storage.
+  ///
+  /// - Requires: the `MemoryLayout<Pointee>.size()` bytes starting at the address are uninitialized
+  ///   and suitably aligned for `Pointee`.
+  public fun unsafe_initialize_pointee<E, R>(_ initialize: inout [E](set Pointee) -> R) -> R {
+    initialize(base as* (remote set Pointee))
   }
 
 }
