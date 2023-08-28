@@ -1,0 +1,20 @@
+/// A type whose instances' values have a standard total ordering
+///
+/// Two equal values `a` and `b` are unordered, i.e. `a < b` and `b < a` are both false.
+public trait Comparable: Equatable {
+
+  /// Returns `true` iff `self` is ordered before `other`.
+  fun infix< (_ other: Self) -> Bool
+
+  // TODO: make the following not-a-requirement and instead extension methods once that is supported
+  // (https://github.com/val-lang/val/issues/693).
+
+  /// Returns `true` iff `self` is ordered after `other`.
+  fun infix> (_ other: Self) -> Bool // { (other < self) }
+
+  /// Returns `false` iff `self` is ordered after `other`.
+  fun infix<= (_ other: Self) -> Bool // { !(other < self) }
+
+  /// Returns `false` iff `self` is ordered before `other`.
+  fun infix>= (_ other: Self) -> Bool // { !(self < other) }
+}

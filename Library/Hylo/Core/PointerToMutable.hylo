@@ -30,6 +30,14 @@ public type PointerToMutable<Pointee>: Regular {
     &base = p.base
   }
 
+  /// Creates an instance referring to the same address as `p`.
+  ///
+  /// Note that dereferencing type punned pointers will cause problems unless the rules for the
+  /// `usafe[]` subscript (which see) are followed.
+  public init(downcasting p: CVoidPointer) {
+    &base = p.base
+  }
+
   /// Creates an instance that does not address any usable storage.
   public static fun null() -> Self {
     .new(base: Builtin.zeroinitializer_ptr())
