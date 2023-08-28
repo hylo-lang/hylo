@@ -15,6 +15,16 @@ public type PointerToMutable<Pointee>: Regular {
     inout { yield &(base as* (remote let Pointee)) }
   }
 
+  public fun with_uninitialized_pointee()
+
+  /// The value at the given address.
+  ///
+  /// - Requires: the address stores a mutable object of type Pointee and nothing accesses that
+  ///   storage except through this projection during its lifetime.
+  public subscript unsafe_uninitialized(): Pointee {
+    set { base as* (remote set Pointee) = new_value }
+  }
+
   /// Creates an instance with mutable access to the memory pointed to by `p`.
   ///
   /// - Warning: while this initializer is not in itself unsafe, it should be used with caution.
@@ -27,14 +37,6 @@ public type PointerToMutable<Pointee>: Regular {
   /// Note that dereferencing type punned pointers will cause problems unless the rules for the
   /// `usafe[]` subscript (which see) are followed.
   public init<Other>(type_punning p: PointerToMutable<Other>) {
-    &base = p.base
-  }
-
-  /// Creates an instance referring to the same address as `p`.
-  ///
-  /// Note that dereferencing type punned pointers will cause problems unless the rules for the
-  /// `usafe[]` subscript (which see) are followed.
-  public init(downcasting p: CVoidPointer) {
     &base = p.base
   }
 

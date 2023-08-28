@@ -10,14 +10,6 @@ type CVoidPointer: Regular {
 
 public conformance CVoidPointer: Deinitializable {}
 
-public conformance CVoidPointer: Copyable {
-
-  public fun copy() -> Self {
-    CVoidPointer(base: base)
-  }
-
-}
-
 public conformance CVoidPointer: ForeignConvertible {
 
   public typealias ForeignRepresentation = Builtin.ptr

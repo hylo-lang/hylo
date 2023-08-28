@@ -1,14 +1,9 @@
 //- compileAndRun expecting: success
 
 public fun main() {
-  let p: PointerToMutable<Never> = .allocate(count: 8, aligned_at: 8)
-  let q = MutablePointer<Int>(p)
-  q.with_uninitialized_pointee(fun (_ i: set Int) -> Void {
-    &i = 42
-  })
-  let x = q.with_mutable_pointee(fun (_ i: inout Int) -> Int {
-    i.copy()
-  })
+  let q = PointerToMutable<Int>.allocate(count: 1)
+  q.unsafe_initialize_pointee(fun (_ i: set Int) -> Void { &i = 42 })
+  let x = q.unsafe[].copy()
   q.deallocate()
 
   precondition(x == 42)
