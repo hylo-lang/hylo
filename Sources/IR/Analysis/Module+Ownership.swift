@@ -59,7 +59,7 @@ extension Module {
       // Access is expected to be reified at this stage.
       let request = s.capabilities.uniqueElement!
 
-      // Skip the instruction if an error occured upstream.
+      // Skip the instruction if an error occurred upstream.
       guard context.locals[s.source] != nil else {
         assert(diagnostics.containsError)
         return
@@ -104,7 +104,7 @@ extension Module {
         }
       }
 
-      // Don't set the locals if an error occured to avoid cascading errors downstream.
+      // Don't set the locals if an error occurred to avoid cascading errors downstream.
       if !hasConflict {
         context.locals[.register(i)] = context.locals[s.source]!
       }
@@ -153,7 +153,7 @@ extension Module {
     func interpret(endBorrow i: InstructionID, in context: inout Context) {
       let end = self[i] as! EndAccess
 
-      // Skip the instruction if an error occured upstream.
+      // Skip the instruction if an error occurred upstream.
       guard context.locals[end.start] != nil else {
         assert(diagnostics.containsError)
         return
@@ -183,7 +183,7 @@ extension Module {
     func interpret(endProject i: InstructionID, in context: inout Context) {
       let s = self[i] as! EndProject
 
-      // Skip the instruction if an error occured upstream.
+      // Skip the instruction if an error occurred upstream.
       guard context.locals[s.start] != nil else {
         assert(diagnostics.containsError)
         return
@@ -258,7 +258,7 @@ extension Module {
         UNIMPLEMENTED()
       }
 
-      // Skip the instruction if an error occured upstream.
+      // Skip the instruction if an error occurred upstream.
       guard let base = context.locals[s.recordAddress] else {
         assert(diagnostics.containsError)
         return

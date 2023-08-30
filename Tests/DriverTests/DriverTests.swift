@@ -6,7 +6,7 @@ import XCTest
 
 final class DriverTests: XCTestCase {
 
-  /// The result of a compiler invokation.
+  /// The result of a compiler invocation.
   private struct CompilationResult {
 
     /// The exit status of the compiler.

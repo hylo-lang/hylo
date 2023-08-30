@@ -753,21 +753,21 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(decl.defaultValue)
   }
 
-  func testParameterIntefaceLabelAndName() throws {
+  func testParameterInterfaceLabelAndName() throws {
     let input: SourceFile = "for name"
     let interface = try XCTUnwrap(try apply(Parser.parameterInterface, on: input).element)
     XCTAssertEqual(interface.label?.value, "for")
     XCTAssertEqual(interface.name.value, "name")
   }
 
-  func testParameterIntefaceUnderscoreAndName() throws {
+  func testParameterInterfaceUnderscoreAndName() throws {
     let input: SourceFile = "_ name"
     let interface = try XCTUnwrap(try apply(Parser.parameterInterface, on: input).element)
     XCTAssertNil(interface.label)
     XCTAssertEqual(interface.name.value, "name")
   }
 
-  func testParameterIntefaceOnlyName() throws {
+  func testParameterInterfaceOnlyName() throws {
     let input: SourceFile = "name"
     let interface = try XCTUnwrap(try apply(Parser.parameterInterface, on: input).element)
     XCTAssertEqual(interface.label?.value, "name")
@@ -782,7 +782,7 @@ final class ParserTests: XCTestCase {
     XCTAssertNil(decl.precedenceGroup)
   }
 
-  func testOperatorDeclWithPredecenceGroup() throws {
+  func testOperatorDeclWithPrecedenceGroup() throws {
     let input: SourceFile = "operator infix+ : addition"
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseOperatorDecl)
     let decl = try XCTUnwrap(ast[declID])

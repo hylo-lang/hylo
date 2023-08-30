@@ -1,6 +1,6 @@
 import BigInt
 
-/// An unisgned integer with an arbitrary, but fixed, bit width.
+/// An unsigned integer with an arbitrary, but fixed, bit width.
 public struct WideUInt {
 
   /// The underlying value.

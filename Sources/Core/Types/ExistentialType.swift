@@ -44,7 +44,7 @@ public struct ExistentialType: TypeProtocol {
     self.interface = interface
     self.constraints = constraints
 
-    // TODO: Consider the flags of the types in the cosntraints?
+    // TODO: Consider the flags of the types in the constraints?
     self.flags = interface.flags
   }
 

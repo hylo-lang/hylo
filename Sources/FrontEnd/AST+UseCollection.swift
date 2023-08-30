@@ -22,7 +22,7 @@ private struct UseVisitor: ASTWalkObserver {
   private(set) var uses: [(NameExpr.ID, AccessEffect)] = []
 
   /// Records a use of `n` that with mutability `k`.
-  private mutating func recordOccurence(_ k: AccessEffect, _ n: NameExpr.ID) {
+  private mutating func recordOccurrence(_ k: AccessEffect, _ n: NameExpr.ID) {
     uses.append((n, k))
   }
 
@@ -55,7 +55,7 @@ private struct UseVisitor: ASTWalkObserver {
 
   private mutating func visit(inoutExpr e: InoutExpr.ID, in ast: AST) -> Bool {
     if let x = root(ast[e].subject, in: ast) {
-      recordOccurence(.inout, x)
+      recordOccurrence(.inout, x)
       return false
     } else {
       return true
@@ -64,7 +64,7 @@ private struct UseVisitor: ASTWalkObserver {
 
   private mutating func visit(nameExpr e: NameExpr.ID, in ast: AST) -> Bool {
     if ast[e].domain == .none {
-      recordOccurence(.let, e)
+      recordOccurrence(.let, e)
       return false
     } else {
       return true

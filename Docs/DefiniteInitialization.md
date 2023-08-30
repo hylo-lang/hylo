@@ -1,6 +1,6 @@
 # Definite (De)Initialization
 
-Definite (De)Initialization (DI, a.k.a. [definite assignment analyis](https://en.wikipedia.org/wiki/Definite_assignment_analysis) is a mandatory transformation pass that is applied on Hylo's intermediate representation, before code generation.
+Definite (De)Initialization (DI, a.k.a. [definite assignment analysis](https://en.wikipedia.org/wiki/Definite_assignment_analysis) is a mandatory transformation pass that is applied on Hylo's intermediate representation, before code generation.
 This pass ensures that all objects are initialized before use (definite initialization) and deinitialized before the end of their storage's lifetime (definite deinitialization), inserting additional instructions if necessary.
 
 The pass is expected to run early in the IR transformation pipeline, after __Implicit Return Insertion__ and __Unreachable Code Elimination__.

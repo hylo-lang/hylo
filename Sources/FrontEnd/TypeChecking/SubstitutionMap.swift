@@ -66,7 +66,7 @@ struct SubstitutionMap {
     storage[walked] = substitution
   }
 
-  /// Subtitutes each type variable occuring in `type` by its corresponding substitution in `self`,
+  /// Substitutes each type variable occurring in `type` by its corresponding substitution in `self`,
   /// apply `substitutionPolicy` to deal with free variables.
   ///
   /// The default substitution policy is `substituteByError` because we typically use `reify` after
@@ -102,7 +102,7 @@ struct SubstitutionMap {
     }
   }
 
-  /// Returns `r` where each type variable occuring in its generic arguments of `r` are replaced by
+  /// Returns `r` where each type variable occurring in its generic arguments of `r` are replaced by
   /// their corresponding value in `self`, applying `substitutionPolicy` to handle free variables.
   func reify(
     _ r: DeclReference, withVariables substitutionPolicy: SubstitutionPolicy

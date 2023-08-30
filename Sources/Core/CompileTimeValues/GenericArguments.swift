@@ -69,7 +69,7 @@ public struct GenericArguments {
   ///
   /// - Requires: `self` does not define a value for any of the values defined in `suffix`.
   public mutating func append(_ suffix: Self) {
-    // Note: `merging` perserves order.
+    // Note: `merging` preserves order.
     contents.merge(suffix.contents, uniquingKeysWith: { (_, _) in unreachable() })
   }
 

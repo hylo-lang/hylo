@@ -24,7 +24,7 @@ The compiler should emit a warning if a remote part is taken as a parameter of a
 Local `var` bindings operate differently than stored `var` properties.
 When we assign into a local `var`, the value that it held is destroyed (unless we do the `copy(into:)` optimization).
 When we assign into a stored `var`, the value of its container is modified in place.
-The thoeretical rationale is that a dotted access is always projection: the LHS of `foo.bar = 2` is not actually a `var`.
+The theoretical rationale is that a dotted access is always projection: the LHS of `foo.bar = 2` is not actually a `var`.
 Example:
 
 ```

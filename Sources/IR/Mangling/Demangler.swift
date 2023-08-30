@@ -3,7 +3,7 @@ import Core
 /// Hylo's demangling algorithm.
 struct Demangler {
 
-  /// The list of demangled symbols, in order of appearence (a.k.a. the symbol lookup table).
+  /// The list of demangled symbols, in order of appearance (a.k.a. the symbol lookup table).
   private var symbols: [DemangledSymbol] = []
 
   /// Creates an instance with an empty lookup table.
@@ -133,7 +133,7 @@ struct Demangler {
         continue
       }
 
-      // Otherise, we're done.
+      // Otherwise, we're done.
       return d
     }
 

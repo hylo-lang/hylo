@@ -15,7 +15,7 @@ public protocol Instruction: CustomStringConvertible {
 
   /// Replaces the operand at position `i` with `o`.
   ///
-  /// Do not call this method direcly. Use `Module.replaceUses(of:with:)` instead to ensure def-use
+  /// Do not call this method directly. Use `Module.replaceUses(of:with:)` instead to ensure def-use
   /// ensure def-use chains are kept updated.
   mutating func replaceOperand(at i: Int, with new: Operand)
 

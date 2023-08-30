@@ -12,7 +12,7 @@ public struct RemoteExpr: Expr {
   /// The expression of the projected type.
   public let operand: AnyExprID
 
-  /// Creates an isntance with the given properties.
+  /// Creates an instance with the given properties.
   public init(
     introducerSite: SourceRange,
     convention: SourceRepresentable<AccessEffect>,

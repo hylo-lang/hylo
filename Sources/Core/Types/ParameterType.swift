@@ -1,6 +1,6 @@
 import Utils
 
-/// The type of a paramter in a lambda, method, or subscript type.
+/// The type of a parameter in a lambda, method, or subscript type.
 public struct ParameterType: TypeProtocol {
 
   /// The passing convention of the parameter.
