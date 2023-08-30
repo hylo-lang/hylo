@@ -672,7 +672,7 @@ extension Context {
 
 }
 
-/// A map fron function block to the context of the abstract interpreter before and after the
+/// A map from function block to the context of the abstract interpreter before and after the
 /// evaluation of its instructions.
 private typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
 

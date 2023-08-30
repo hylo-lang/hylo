@@ -989,7 +989,7 @@ struct TypeChecker {
     }
 
     /// Returns a concrete or syntheszed implementation of requirement `r` in `concept` for `model`
-    /// exposed ot `scopeOfUse`, or `nil` if no such implementation exist.
+    /// exposed to `scopeOfUse`, or `nil` if no such implementation exist.
     func implementation(of r: AnyDeclID) {
       // FIXME: remove me
       if r.kind == AssociatedTypeDecl.self { return }

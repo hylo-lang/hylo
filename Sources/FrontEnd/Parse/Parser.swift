@@ -3054,7 +3054,7 @@ public enum Parser {
 
 }
 
-/// The attributes and modifiers preceeding a declaration.
+/// The attributes and modifiers preceding a declaration.
 struct DeclPrologue {
 
   /// Indicates whether the prologue is empty.
@@ -3364,7 +3364,7 @@ private func inContext<Base: Combinator>(
   WrapInContext(context: context, base: base)
 }
 
-/// Creates a combinator that applies `base` only if its input is not preceeded by whitespaces.
+/// Creates a combinator that applies `base` only if its input is not preceded by whitespaces.
 private func withoutLeadingWhitespace<Base: Combinator>(
   _ base: Base
 ) -> Apply<ParserState, Base.Element>
@@ -3372,7 +3372,7 @@ where Base.Context == ParserState {
   Apply({ (state) in try state.hasLeadingWhitespace ? nil : base.parse(&state) })
 }
 
-/// Creates a combinator that applies `base` only if its input is not preceeded by newlines.
+/// Creates a combinator that applies `base` only if its input is not preceded by newlines.
 private func onSameLine<Base: Combinator>(
   _ base: Base
 ) -> Apply<ParserState, Base.Element>
