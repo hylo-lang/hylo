@@ -201,7 +201,7 @@ struct ParserState {
   }
 
   /// Consumes and returns the next token, only if it has the specified kind and if it is not
-  /// preceeded by any whitespace.
+  /// preceded by any whitespace.
   mutating func takeWithoutSkippingWhitespace(_ kind: Token.Kind) -> Token? {
     if hasLeadingWhitespace { return nil }
     return take(kind)

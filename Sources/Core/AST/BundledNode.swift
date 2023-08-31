@@ -23,7 +23,7 @@ public struct BundledNode<T: NodeIDProtocol, P: Program> {
 
   /// The scope in which the node resides.
   ///
-  /// - Requres: `self` does not identify a module.
+  /// - Requires: `self` does not identify a module.
   public var scope: AnyScopeID {
     container.nodeToScope[id]!
   }

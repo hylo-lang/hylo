@@ -18,7 +18,7 @@ public fun fatal_error() -> Never
 @ffi("fdopen")
 public fun fdopen(_ descriptor: Int, _ mode: RawPointer) -> RawPointer
 
-/// Writes to `stream` the contents of `data`, which containts `count` elements of `size` bytes,
+/// Writes to `stream` the contents of `data`, which contains `count` elements of `size` bytes,
 /// returning the number of elements written.
 @ffi("fwrite")
 public fun fwrite(_ data: RawPointer, _ size: Int, _ count: Int, _ stream: RawPointer) -> Int

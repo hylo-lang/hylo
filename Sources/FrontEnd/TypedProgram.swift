@@ -415,7 +415,7 @@ public struct TypedProgram {
     return checker.scopeExtended(by: d)
   }
 
-  /// Returns the modules visibles to `s`:
+  /// Returns the modules visible to `s`:
   private func modules(exposedTo s: AnyScopeID) -> Set<ModuleDecl.ID> {
     if let m = ModuleDecl.ID(s) {
       return [m]

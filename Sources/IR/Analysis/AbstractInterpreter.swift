@@ -8,7 +8,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// The knowledge of the abstract interpreter about a single block.
   typealias BlockState = (sources: Set<Function.Blocks.Address>, before: Context, after: Context)
 
-  /// A map fron function block to the context of the abstract interpreter before and after the
+  /// A map from function block to the context of the abstract interpreter before and after the
   /// evaluation of its instructions.
   typealias State = [Function.Blocks.Address: BlockState]
 

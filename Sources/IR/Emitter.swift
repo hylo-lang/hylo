@@ -341,7 +341,7 @@ struct Emitter {
     let explicit = program[bundle].explicitCaptures
     let implicit = program[bundle].implicitCaptures
 
-    // Exlicit captures appear first.
+    // Explicit captures appear first.
     for (i, c) in explicit.enumerated() {
       locals[c] = .parameter(entry, i)
     }
@@ -1149,7 +1149,7 @@ struct Emitter {
     case .down:
       emitStore(downcast: e, to: storage)
     case .pointerConversion:
-      unreachable("pointer to address conversion evalutes to a lvalue")
+      unreachable("pointer to address conversion evaluates to a lvalue")
     }
   }
 
@@ -2173,7 +2173,7 @@ struct Emitter {
   }
 
   /// Returns the projection the property declared by `d`, specialized with `specialization` and
-  /// bound to `reciever`, inserting IR anchored at `site`.
+  /// bound to `receiver`, inserting IR anchored at `site`.
   private mutating func emitComputedProperty(
     boundTo receiver: Operand, declaredByBundle d: SubscriptDecl.ID,
     specializedBy specialization: GenericArguments,

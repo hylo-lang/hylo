@@ -148,7 +148,7 @@ public struct Token {
     }
   }
 
-  /// Indicates whether `self` may be at the begining of a declaration.
+  /// Indicates whether `self` may be at the beginning of a declaration.
   public var mayBeginDecl: Bool {
     switch kind {
     case .`conformance`,
@@ -177,7 +177,7 @@ public struct Token {
     }
   }
 
-  /// Indicates whether `self` may be at the begining of a control statement.
+  /// Indicates whether `self` may be at the beginning of a control statement.
   public var mayBeginCtrlStmt: Bool {
     switch kind {
     case .break, .continue, .for, .if, .lBrace, .return, .while:

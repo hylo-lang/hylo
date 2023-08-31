@@ -133,7 +133,7 @@ These two restrictions serve two goals:
 1. Guarantee that continuations cannot break control flow and cannot.
 2. Handle overlapping projections that do not nest.
 
-One over-approximation of a continuation's scope is the dominance frontier of the basic block in which the projection starts, excluding the instructions before the start of the projeciton.
+One over-approximation of a continuation's scope is the dominance frontier of the basic block in which the projection starts, excluding the instructions before the start of the projection.
 In the above example, the continuation associated with `t` would contain all instructions in `loop.body` after the definition of `%t`.
 
 Using dominance frontiers also obviates the difficulty to identify definitions may escape a continuation.

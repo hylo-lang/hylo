@@ -135,7 +135,7 @@ extension Module {
 
     let sourceModule = ir.modules[ir.module(defining: f)]!
     var rewrittenBlocks: [Block.ID: Block.ID] = [:]
-    var rewrittenIntructions: [InstructionID: InstructionID] = [:]
+    var rewrittenInstructions: [InstructionID: InstructionID] = [:]
 
     for b in sourceModule[f].blocks.addresses {
       let source = Block.ID(f, b)
@@ -227,7 +227,7 @@ extension Module {
       default:
         UNIMPLEMENTED()
       }
-      rewrittenIntructions[i] = InstructionID(b, self[b].instructions.lastAddress!)
+      rewrittenInstructions[i] = InstructionID(b, self[b].instructions.lastAddress!)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -498,7 +498,7 @@ extension Module {
       case .parameter(let b, let i):
         return .parameter(rewrittenBlocks[b]!, i)
       case .register(let s):
-        return .register(rewrittenIntructions[s]!)
+        return .register(rewrittenInstructions[s]!)
       }
     }
   }

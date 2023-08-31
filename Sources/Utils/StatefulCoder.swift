@@ -4,7 +4,7 @@ import Foundation
 private let stateKey = CodingUserInfoKey(rawValue: UUID().uuidString)!
 
 /// An object that flattens values into—or reconstitutes values from—a serialized `Encoding`,
-/// maintaing state across the (de)serialization of individual parts.
+/// maintaining state across the (de)serialization of individual parts.
 ///
 /// - Note: this protocol matches Foundation's `XXXEncoder`/`XXXDecoder` types,
 ///   which—confusingly—do not themselves conform to the `Encoder`/`Decoder` protocols.
@@ -27,7 +27,7 @@ extension StatefulCoder {
 
 }
 
-/// An object that flattens values into a serialized `Encoding`, maintaing state across the
+/// An object that flattens values into a serialized `Encoding`, maintaining state across the
 /// serialization of individual parts.
 ///
 /// - Note: this protocol matches Foundation's `XXXEncoder` types, which—confusingly—do not
@@ -52,7 +52,7 @@ extension StatefulEncoder {
 
 }
 
-/// An object that reconstitutes values from a serialized `Encoding`, maintaing state across the
+/// An object that reconstitutes values from a serialized `Encoding`, maintaining state across the
 /// deserialization of individual parts.
 ///
 /// - Note: this protocol matches Foundation's `XXXEncoder` types, which—confusingly—do not
