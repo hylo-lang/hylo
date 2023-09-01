@@ -233,9 +233,7 @@ struct Emitter {
   ) -> SourceRange {
     switch emit(braceStmt: b) {
     case .next:
-      if !canonical(returnType).isVoidOrNever {
-        report(.error(missingReturn: returnType, at: .empty(atEndOf: ast[b].site)))
-      } else {
+      if canonical(returnType).isVoidOrNever {
         emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: ast[b].site))
       }
       return ast[b].site
@@ -2607,12 +2605,6 @@ extension Diagnostic {
     at site: SourceRange
   ) -> Diagnostic {
     .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
-  }
-
-  fileprivate static func error(
-    missingReturn returnType: AnyType, at site: SourceRange
-  ) -> Diagnostic {
-    .error("missing return in function expected to return '\(returnType)'", at: site)
   }
 
   fileprivate static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
