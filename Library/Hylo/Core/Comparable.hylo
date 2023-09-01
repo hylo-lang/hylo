@@ -1,6 +1,6 @@
 /// A type whose instances' values have a standard total ordering
 ///
-/// Two equal values `a` and `b` are unordered, i.e. `a < b` and `b < a` are both false.
+/// `<` is a total ordering; `a == b` implies that `a < b` and `b < a` are both false.
 public trait Comparable: Equatable {
 
   /// Returns `true` iff `self` is ordered before `other`.
