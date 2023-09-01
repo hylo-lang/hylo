@@ -2,13 +2,12 @@
 /// A pointer type for use in @ffi signatures.
 type CVoidPointer: Regular {
 
+  /// The underlying representation.
   var base: Builtin.ptr
 
   memberwise init
 
 }
-
-public conformance CVoidPointer: Deinitializable {}
 
 public conformance CVoidPointer: ForeignConvertible {
 
