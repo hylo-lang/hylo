@@ -38,7 +38,7 @@ final class WideUIntExtensionsTests: XCTestCase {
   /// Asserts that `a` has given `description` and `bitWidth`.
   private func assert(
     _ a: WideUInt?, is description: String, withWidth bitWidth: Int,
-    file: StaticString = #file, line: UInt = #line
+    file: StaticString = #filePath, line: UInt = #line
   ) {
     guard let w = a else {
       XCTFail("expected '\(description)'", file: file, line: line)

@@ -44,7 +44,7 @@ public struct DoublyLinkedList<Element> {
   /// - Note: A bucket is said to be used if its element is not `nil`.
   fileprivate struct Bucket {
 
-    /// If the bucket is used, represents the offset of the preceeding bucket in the list, or `-1`
+    /// If the bucket is used, represents the offset of the preceding bucket in the list, or `-1`
     /// if such a bucket is not defined. Unspecified otherwise.
     var previousOffset: Int
 

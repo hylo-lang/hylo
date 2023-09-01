@@ -15,7 +15,7 @@ public struct ProjectBundle: Instruction {
   /// The arguments of the call.
   ///
   /// Operands to non-`sink` inputs must be the result of an `access` instruction requesting a
-  /// capability for each variant in `calle` and having no use before `project`.
+  /// capability for each variant in `callee` and having no use before `project`.
   public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.

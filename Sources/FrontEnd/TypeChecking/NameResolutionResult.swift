@@ -14,7 +14,7 @@ enum NameResolutionResult {
 
   /// Name resolution couldn't complete because the first component of the expression couldn't be
   /// resolved without type inference. The payload contains the type of the resolved part, unless
-  /// it was left implicit, and the remaning unresolved components.
+  /// it was left implicit, and the remaining unresolved components.
   ///
   /// - Invariant: `components` is not empty.
   case canceled(AnyType?, _ components: [NameExpr.ID])

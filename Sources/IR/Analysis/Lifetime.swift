@@ -4,7 +4,7 @@ import Utils
 ///
 /// A lifetime rooted at a definition `d` is a region starting immediately after `d` and covering
 /// a set of uses dominated by `d`. The "upper boundaries" of a lifetime are the program points
-/// immediately after the uses seqenced last in that region.
+/// immediately after the uses sequenced last in that region.
 ///
 /// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
 struct Lifetime {
@@ -94,7 +94,7 @@ extension Module {
     // al.'s "Computing Liveness Sets for SSA-Form Programs".
 
     // Find all blocks in which the operand is being used.
-    var occurences = uses[operand, default: []].reduce(
+    var occurrences = uses[operand, default: []].reduce(
       into: Set<Function.Blocks.Address>(),
       { (blocks, use) in blocks.insert(use.user.block) })
 
@@ -102,19 +102,19 @@ extension Module {
     let cfg = functions[site.function]!.cfg()
     var approximateCoverage: [Function.Blocks.Address: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
     while true {
-      guard let occurence = occurences.popFirst() else { break }
+      guard let occurrence = occurrences.popFirst() else { break }
 
-      // `occurence` is the defining block.
-      if site.address == occurence { continue }
+      // `occurrence` is the defining block.
+      if site.address == occurrence { continue }
 
       // We already propagated liveness to the block's live-in set.
-      if approximateCoverage[occurence]?.isLiveIn ?? false { continue }
+      if approximateCoverage[occurrence]?.isLiveIn ?? false { continue }
 
       // Mark that the definition is live at the block's entry and propagate to its predecessors.
-      approximateCoverage[occurence, default: (false, false)].isLiveIn = true
-      for predecessor in cfg.predecessors(of: occurence) {
+      approximateCoverage[occurrence, default: (false, false)].isLiveIn = true
+      for predecessor in cfg.predecessors(of: occurrence) {
         approximateCoverage[predecessor, default: (false, false)].isLiveOut = true
-        occurences.insert(predecessor)
+        occurrences.insert(predecessor)
       }
     }
 

@@ -24,7 +24,7 @@ public struct BoundGenericType: TypeProtocol {
       if let t = a as? AnyType {
         flags.merge(t.flags)
       } else {
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
     }
 
@@ -51,7 +51,7 @@ public struct BoundGenericType: TypeProtocol {
         if let t = a as? AnyType {
           return t.transform(mutating: &m, transformer)
         } else {
-          fatalError("not implemented")
+          UNIMPLEMENTED()
         }
       }))
   }

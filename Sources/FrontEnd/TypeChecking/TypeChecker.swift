@@ -205,7 +205,7 @@ struct TypeChecker {
       }
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -274,7 +274,7 @@ struct TypeChecker {
 
     func transform(mutating me: inout Self, _ t: BoundGenericType) -> AnyType {
       ^t.transformArguments(mutating: &me) { (me, v) in
-        let w = (v as? AnyType) ?? fatalError("not implemented")
+        let w = (v as? AnyType) ?? UNIMPLEMENTED()
         return w.transform(mutating: &me, transform)
       }
     }
@@ -326,7 +326,7 @@ struct TypeChecker {
       return EqualityConstraint(a, b, origin: origin)
 
     case .instance, .predicate:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -398,7 +398,7 @@ struct TypeChecker {
   /// if type checking failed.
   ///
   /// Type checking typically consists of visiting a declaration to generate proof obligations that
-  /// are then discharged by solving type constrants and/or type checking additional declarations.
+  /// are then discharged by solving type constraints and/or type checking additional declarations.
   ///
   /// - Parameters:
   ///   - d: The declaration to type check.
@@ -989,7 +989,7 @@ struct TypeChecker {
     }
 
     /// Returns a concrete or syntheszed implementation of requirement `r` in `concept` for `model`
-    /// exposed ot `scopeOfUse`, or `nil` if no such implementation exist.
+    /// exposed to `scopeOfUse`, or `nil` if no such implementation exist.
     func implementation(of r: AnyDeclID) {
       // FIXME: remove me
       if r.kind == AssociatedTypeDecl.self { return }
@@ -1037,10 +1037,10 @@ struct TypeChecker {
     ) -> AnyDeclID? {
       switch requirement.kind {
       case AssociatedTypeDecl.self:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
 
       case AssociatedValueDecl.self:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
 
       case FunctionDecl.self:
         return implementation(
@@ -1058,7 +1058,7 @@ struct TypeChecker {
           collectingCandidatesWith: collectFunction)
 
       case SubscriptImpl.self:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
 
       default:
         unexpected(requirement, in: program.ast)
@@ -1480,7 +1480,7 @@ struct TypeChecker {
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType<T: TypeExtendingDecl>(of d: T.ID) -> AnyType {
     let (i, cs) = eval(existentialBound: program[d].subject)
-    assert(cs.isEmpty, "not implemented")
+    guard cs.isEmpty else { UNIMPLEMENTED() }
 
     switch i.base {
     case is BuiltinType, is RemoteType:
@@ -1508,7 +1508,7 @@ struct TypeChecker {
 
     assert(program[d].receiver == nil)
     let captures = uncheckedCaptureTypes(of: d)
-    let e = TupleType(captures.explict + captures.implicit)
+    let e = TupleType(captures.explicit + captures.implicit)
     return ^LambdaType(environment: ^e, inputs: inputs, output: output)
   }
 
@@ -1654,7 +1654,7 @@ struct TypeChecker {
       e = TupleType([.init(label: "self", type: ^RemoteType(.yielded, r))])
     } else {
       let captures = uncheckedCaptureTypes(of: d)
-      e = TupleType(captures.explict + captures.implicit)
+      e = TupleType(captures.explicit + captures.implicit)
     }
 
     return ^SubscriptType(
@@ -1721,7 +1721,7 @@ struct TypeChecker {
   /// - Requires: `d` is not a member declaration.
   private mutating func uncheckedCaptureTypes<T: CapturingDecl>(
     of d: T.ID
-  ) -> (explict: [TupleType.Element], implicit: [TupleType.Element]) {
+  ) -> (explicit: [TupleType.Element], implicit: [TupleType.Element]) {
     let e = explicitCaptures(program[d].explicitCaptures, of: d)
     let i = implicitCaptures(of: d, ignoring: Set(e.map(\.label!)))
     return (e, i)
@@ -1893,7 +1893,7 @@ struct TypeChecker {
 
   /// Returns the implicit captures found in the body of `d`.
   private mutating func implicitCaptures<T: Decl & LexicalScope>(
-    of d: T.ID, ignoring explictCaptures: Set<String>
+    of d: T.ID, ignoring explicitCaptures: Set<String>
   ) -> [TupleType.Element] {
     // Only local declarations have captures.
     if !program.isLocal(d) {
@@ -1904,8 +1904,8 @@ struct TypeChecker {
     var captureToStemAndEffect: [AnyDeclID: (stem: String, effect: AccessEffect)] = [:]
     for (name, mutability) in program.ast.uses(in: AnyDeclID(d)) {
       guard
-        let (stem, pick) = lookupImplicitCapture(name, occuringIn: d),
-        !explictCaptures.contains(stem)
+        let (stem, pick) = lookupImplicitCapture(name, occurringIn: d),
+        !explicitCaptures.contains(stem)
       else { continue }
 
       modify(&captureToStemAndEffect[pick, default: (stem, .let)]) { (x) in
@@ -2011,8 +2011,8 @@ struct TypeChecker {
   private mutating func evalTypeAnnotation(_ e: ExistentialTypeExpr.ID) -> AnyType {
     let (i, cs) = eval(existentialInterface: program[e].traits)
 
-    assert(cs.isEmpty, "not implemented")
-    assert(program[e].whereClause == nil, "not implemented")
+    guard cs.isEmpty else { UNIMPLEMENTED() }
+    guard program[e].whereClause == nil else { UNIMPLEMENTED() }
 
     return ^ExistentialType(i, constraints: cs)
   }
@@ -2074,7 +2074,7 @@ struct TypeChecker {
       unreachable()
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -2118,7 +2118,7 @@ struct TypeChecker {
     }
   }
 
-  /// Evalutes and returns the parameter annotations of `e`.ns.
+  /// Evaluates and returns the parameter annotations of `e`.ns.
   private mutating func evalParameterAnnotations(
     of e: LambdaTypeExpr.ID
   ) -> [CallableTypeParameter] {
@@ -2134,7 +2134,7 @@ struct TypeChecker {
   ///
   /// The value of `d`'s explicit return type annotation is returned if it is defined. Otherwise,
   /// a fresh type variable is returned if `d` appears in an expression context (i.e., `d` is the
-  /// underlyng declaration of a lambda). Otherwise, `.void` is returned.
+  /// underlying declaration of a lambda). Otherwise, `.void` is returned.
   private mutating func evalReturnTypeAnnotation(of d: FunctionDecl.ID) -> AnyType {
     if let o = program[d].output {
       return evalTypeAnnotation(o)
@@ -2199,7 +2199,7 @@ struct TypeChecker {
     // where that parameter is introduced.
     if let b = BoundGenericType(i) {
       for (p, a) in b.arguments {
-        assert(GenericTypeParameterType(a as! AnyType)?.decl == p, "not implemented")
+        if GenericTypeParameterType(a as! AnyType)?.decl != p { UNIMPLEMENTED() }
       }
       return (b.base, [])
     }
@@ -2530,11 +2530,11 @@ struct TypeChecker {
   /// Returns the stem and declaration of `c`, which occurs in `d`, or `nil` if either `c` doesn't
   /// have to be captured or lookup failed.
   private mutating func lookupImplicitCapture<T: Decl & LexicalScope>(
-    _ c: NameExpr.ID, occuringIn d: T.ID
+    _ c: NameExpr.ID, occurringIn d: T.ID
   ) -> (stem: String, decl: AnyDeclID)? {
     let n = program[c].name
     var candidates = lookup(unqualified: n.value.stem, in: program[c].scope)
-    candidates.removeAll(where: { isCaptured(referenceTo: $0, occuringIn: AnyScopeID(d)) })
+    candidates.removeAll(where: { isCaptured(referenceTo: $0, occurringIn: AnyScopeID(d)) })
     if candidates.isEmpty { return nil }
 
     guard let pick = candidates.uniqueElement else {
@@ -2977,7 +2977,7 @@ struct TypeChecker {
   }
 
   /// Returns the declarations of `name` interpreted as a compiler-known type alias (e.g., `Never`
-  /// or `Union<A, B>`) specialized by `arguments`, or `nil` if an error occured.
+  /// or `Union<A, B>`) specialized by `arguments`, or `nil` if an error occurred.
   private mutating func resolve(
     compilerKnownAlias name: SourceRepresentable<Name>,
     specializedBy arguments: [any CompileTimeValue],
@@ -3047,7 +3047,7 @@ struct TypeChecker {
     metatype name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue]
   ) -> NameResolutionResult.CandidateSet {
     if let a = arguments.uniqueElement {
-      let instance = (a as? AnyType) ?? fatalError("not implemented")
+      let instance = (a as? AnyType) ?? UNIMPLEMENTED()
       return [.compilerKnown(^MetatypeType(of: MetatypeType(of: instance)))]
     }
 
@@ -3175,7 +3175,7 @@ struct TypeChecker {
 
   /// Returns `true` if references to `d` are captured if they occur in `scopeOfUse`.
   private mutating func isCaptured(
-    referenceTo d: AnyDeclID, occuringIn scopeOfUse: AnyScopeID
+    referenceTo d: AnyDeclID, occurringIn scopeOfUse: AnyScopeID
   ) -> Bool {
     if program.isContained(program[d].scope, in: scopeOfUse) { return false }
     if program.isGlobal(d) { return false }
@@ -3316,7 +3316,7 @@ struct TypeChecker {
     var cs = candidate.constraints.union(t.constraints)
 
     let r = candidate.reference.modifyingArguments(mutating: &substitutions) { (s, v) in
-      let v = (v as? AnyType) ?? fatalError("not implemented")
+      let v = (v as? AnyType) ?? UNIMPLEMENTED()
       let x = instantiate(v, in: ctx, cause: cause, updating: &s)
       cs.formUnion(x.constraints)
       return x.shape
@@ -3348,7 +3348,7 @@ struct TypeChecker {
     func instantiate(mutating me: inout Self, type: AnyType) -> TypeTransformAction {
       switch type.base {
       case is AssociatedTypeType:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
 
       case let p as GenericTypeParameterType:
         if let t = substitutions[p.decl] {
@@ -3681,7 +3681,7 @@ struct TypeChecker {
     let inputs = uncheckedInputTypes(of: e, withHint: h)
 
     let captures = uncheckedCaptureTypes(of: d)
-    let environment = TupleType(captures.explict + captures.implicit)
+    let environment = TupleType(captures.explicit + captures.implicit)
 
     let output = inferredReturnType(of: e, withHint: h?.output, updating: &obligations)
     if output.isError {
@@ -3885,7 +3885,7 @@ struct TypeChecker {
     // The callee has a metatype and is a name expression bound to a nominal type declaration,
     // meaning that the call is actually a sugared buffer type expression.
     if isBoundToNominalTypeDecl(program[e].callee, in: obligations) {
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
 
     // The callee has a callable type or we need inference to determine its type. Either way,
@@ -4370,7 +4370,7 @@ struct TypeChecker {
   /// `scopeOfUse`, instantiating generic type constraints at `site`.
   ///
   /// `t1` is more specific than `t2` if both are callable types with the same labels and `t1`
-  /// accepts stricly less arguments than `t2`.
+  /// accepts strictly less arguments than `t2`.
   private mutating func compareSpecificity(
     _ lhs: AnyType, _ rhs: AnyType, in scopeOfUse: AnyScopeID, at site: SourceRange
   ) -> StrictPartialOrdering {
@@ -4460,7 +4460,7 @@ struct TypeChecker {
 
       default:
         // TODO: should probably emit a diagnostic. Operator declarations cannot be overloaded.
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
     }
 
@@ -4471,7 +4471,7 @@ struct TypeChecker {
 
   /// Creates a fresh type variable.
   ///
-  /// The returned instance is unique accress concurrent type checker instances.
+  /// The returned instance is unique access concurrent type checker instances.
   mutating func freshVariable() -> TypeVariable {
     defer { nextFreshVariableIdentifier += 1 }
     return .init(nextFreshVariableIdentifier)

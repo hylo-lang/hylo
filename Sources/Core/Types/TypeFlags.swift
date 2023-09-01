@@ -35,7 +35,7 @@ public struct TypeFlags: Hashable {
     existential = existential | flags.existential
   }
 
-  /// Retuns a set of flags in which `flags` have been inserted.
+  /// Returns a set of flags in which `flags` have been inserted.
   public func inserting(_ flags: TypeFlags) -> TypeFlags {
     var newFlags = self
     newFlags.insert(flags)
@@ -48,7 +48,7 @@ public struct TypeFlags: Hashable {
     existential = existential & ~flags.existential
   }
 
-  /// Retuns a set of flags in which `flags` have been removed.
+  /// Returns a set of flags in which `flags` have been removed.
   public func removing(_ flags: TypeFlags) -> TypeFlags {
     var newFlags = self
     newFlags.remove(flags)
@@ -61,7 +61,7 @@ public struct TypeFlags: Hashable {
     existential = existential | flags.existential
   }
 
-  /// Retuns a set of flags in which `flags` have been merged.
+  /// Returns a set of flags in which `flags` have been merged.
   public func merging(_ flags: TypeFlags) -> TypeFlags {
     var newFlags = self
     newFlags.merge(flags)

@@ -40,7 +40,7 @@ public struct AbstractTypeLayout {
     offset(of: n).map({ self[$0] })
   }
 
-  /// Returns the offset of the stored poperty named `n` or `nil` if no such property exists.
+  /// Returns the offset of the stored property named `n` or `nil` if no such property exists.
   public func offset(of n: String) -> Int? {
     properties.firstIndex(where: { $0.label == n })
   }

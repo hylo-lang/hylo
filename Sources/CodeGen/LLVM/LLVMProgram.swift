@@ -35,7 +35,7 @@ public struct LLVMProgram {
     }
   }
 
-  /// Applies the mandatory IR simplication passes on each module in `self`.
+  /// Applies the mandatory IR simplification passes on each module in `self`.
   public mutating func applyMandatoryPasses() {
     for k in llvmModules.keys {
       llvmModules[k]!.runDefaultModulePasses(optimization: .none, for: target)

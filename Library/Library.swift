@@ -1,7 +1,9 @@
-import class Foundation.Bundle
+import Foundation
+
+fileprivate let libraryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 
 /// The root URL of Hylo's core library.
-public let core = Bundle.module.url(forResource: "Hylo/Core", withExtension: nil)
+public let core = libraryRoot.appendingPathComponent("Hylo/Core")
 
 /// The root URL of Hylo's standard library.
-public let standardLibrary = Bundle.module.url(forResource: "Hylo", withExtension: nil)
+public let standardLibrary = libraryRoot.appendingPathComponent("Hylo")

@@ -1,0 +1,3 @@
+[default.extend-words]
+inout = "inout" # Mutable projection keyword
+olt = "olt" # Abbreviation for "ordered less than"

@@ -388,7 +388,7 @@ public struct Module {
     let d = program.ast.moveRequirement(k)
     switch c.implementations[d]! {
     case .concrete:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
 
     case .synthetic(let s):
       return demandDeclaration(lowering: s)
@@ -481,7 +481,7 @@ public struct Module {
         let u = GenericTypeParameterType(t.instance)
       else {
         // TODO: Handle value parameters
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       result[p] = ^u

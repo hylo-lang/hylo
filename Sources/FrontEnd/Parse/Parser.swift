@@ -1682,7 +1682,7 @@ public enum Parser {
 
     case .remote:
       // Remote type expression.
-      return try parseRemotExpr(in: &state).map(AnyExprID.init)
+      return try parseRemoteExpr(in: &state).map(AnyExprID.init)
 
     case .spawn:
       // Spawn expression.
@@ -2072,7 +2072,7 @@ public enum Parser {
     return .block(s)
   }
 
-  private static func parseRemotExpr(
+  private static func parseRemoteExpr(
     in state: inout ParserState
   ) throws -> RemoteExpr.ID? {
     guard let introducer = state.take(.remote) else { return nil }
@@ -2184,7 +2184,7 @@ public enum Parser {
     guard let opener = state.take(.lBrack) else { return nil }
 
     // Parse the environment, if any.
-    let environement = try parseExpr(in: &state)
+    let environment = try parseExpr(in: &state)
 
     // If we don't find the closing bracket, backtrack and parse a compound literal.
     if state.take(.rBrack) == nil {
@@ -2196,7 +2196,7 @@ public enum Parser {
     if !state.isNext(.lParen) {
       let expr = state.insert(
         BufferLiteralExpr(
-          elements: environement != nil ? [environement!] : [],
+          elements: environment != nil ? [environment!] : [],
           site: state.range(from: opener.site.start)))
       return AnyExprID(expr)
     }
@@ -2223,7 +2223,7 @@ public enum Parser {
 
     // Synthesize the environment as an empty tuple if we parsed `[]`.
     let s = state.lexer.sourceCode.emptyRange(at: opener.site.start)
-    let e = environement ?? AnyExprID(state.insert(TupleTypeExpr(elements: [], site: s)))
+    let e = environment ?? AnyExprID(state.insert(TupleTypeExpr(elements: [], site: s)))
 
     let expr = state.insert(
       LambdaTypeExpr(
@@ -3054,7 +3054,7 @@ public enum Parser {
 
 }
 
-/// The attributes and modifiers preceeding a declaration.
+/// The attributes and modifiers preceding a declaration.
 struct DeclPrologue {
 
   /// Indicates whether the prologue is empty.
@@ -3364,7 +3364,7 @@ private func inContext<Base: Combinator>(
   WrapInContext(context: context, base: base)
 }
 
-/// Creates a combinator that applies `base` only if its input is not preceeded by whitespaces.
+/// Creates a combinator that applies `base` only if its input is not preceded by whitespaces.
 private func withoutLeadingWhitespace<Base: Combinator>(
   _ base: Base
 ) -> Apply<ParserState, Base.Element>
@@ -3372,7 +3372,7 @@ where Base.Context == ParserState {
   Apply({ (state) in try state.hasLeadingWhitespace ? nil : base.parse(&state) })
 }
 
-/// Creates a combinator that applies `base` only if its input is not preceeded by newlines.
+/// Creates a combinator that applies `base` only if its input is not preceded by newlines.
 private func onSameLine<Base: Combinator>(
   _ base: Base
 ) -> Apply<ParserState, Base.Element>

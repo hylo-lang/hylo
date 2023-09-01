@@ -225,11 +225,11 @@ public struct Driver: ParsableCommand {
     #else
       _ = objectFiles
       _ = binaryPath
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     #endif
   }
 
-  /// Returns `true` if type inference related to `n`, which is in `p`, whould be traced.
+  /// Returns `true` if type inference related to `n`, which is in `p`, would be traced.
   private func shouldTraceInference(_ n: AnyNodeID, _ p: TypedProgram) -> Bool {
     if let s = inferenceTracingSite {
       return s.bounds.contains(p[n].site.first())
@@ -239,7 +239,7 @@ public struct Driver: ParsableCommand {
   }
 
   /// Returns `program` lowered to Hylo IR, accumulating diagnostics in `log` and throwing if an
-  /// error occured.
+  /// error occurred.
   ///
   /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
   private func lower(
@@ -258,7 +258,7 @@ public struct Driver: ParsableCommand {
   }
 
   /// Returns `m`, which is `program`, lowered to Hylo IR, accumulating diagnostics in `log` and
-  /// throwing if an error occured.
+  /// throwing if an error occurred.
   ///
   /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
   private func lower(
@@ -360,7 +360,7 @@ public struct Driver: ParsableCommand {
   ///
   /// - Requires: `url` must denote a directly.
   private func addModule(url: URL) {
-    fatalError("not implemented")
+    UNIMPLEMENTED()
   }
 
   /// Returns the path of the specified executable.

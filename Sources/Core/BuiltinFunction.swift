@@ -322,7 +322,7 @@ private func mathFlags(_ stream: inout ArraySlice<Substring>) -> NativeInstructi
   return result
 }
 
-/// Returns an overlflow behavior parsed from `stream` or `.ignore` if none can be parsed.
+/// Returns an overflow behavior parsed from `stream` or `.ignore` if none can be parsed.
 private func overflowBehavior(_ stream: inout ArraySlice<Substring>) -> LLVM.OverflowBehavior {
   switch stream.first {
   case "nuw":

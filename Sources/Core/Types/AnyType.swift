@@ -100,7 +100,7 @@ public struct AnyType: TypeProtocol {
 
   /// `self` transformed as the type of a member of `receiver`, which is existential.
   public func asMember(of receiver: ExistentialType) -> AnyType {
-    let m = LambdaType(self) ?? fatalError("not implemented")
+    let m = LambdaType(self) ?? UNIMPLEMENTED()
     return ^m.asMember(of: receiver)
   }
 
