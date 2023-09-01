@@ -1,4 +1,4 @@
-//- compileAndRun expecting: failure
+//- compileAndRun expecting: success
 
 public fun main() {
   let _ = f()
@@ -6,4 +6,4 @@ public fun main() {
 
 public fun f() -> Int {
   if true { return 0 } else { return 1 }
-} //! diagnostic missing return in function expected to return 'Int'
+}
