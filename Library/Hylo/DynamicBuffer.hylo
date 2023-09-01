@@ -24,7 +24,7 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
 
   /// Creates an empty instance.
   public init() {
-    &storage = .null()
+    &storage = .null.copy()
   }
 
   /// Creates an instance for storing `capacity` instances of `Element` and calling `init_header`

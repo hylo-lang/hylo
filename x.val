@@ -1,0 +1,19 @@
+// TODO: Equatable, Comparable
+
+// A regular type (per Stepanov).
+
+let x: Int = 0
+
+type Q {
+
+  subscript(): Int {
+    yield x
+  }
+
+}
+
+fun test(p: Q) {
+  let y = p[]
+}
+
+public fun main() {}

@@ -30,10 +30,8 @@ public type PointerToMutable<Pointee>: Regular {
     &base = p.base
   }
 
-  /// Creates an instance that does not address any usable storage.
-  public static fun null() -> Self {
-    .new(base: Builtin.zeroinitializer_ptr())
-  }
+  /// An instance that does not address any usable storage.
+  public static let null = Self(base: Builtin.zeroinitializer_ptr())
 
   /// Returns the result of applying `initialize` to the uninitialized `Pointee` storage.
   ///
