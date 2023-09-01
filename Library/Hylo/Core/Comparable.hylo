@@ -6,15 +6,17 @@ public trait Comparable: Equatable {
   /// Returns `true` iff `self` is ordered before `other`.
   fun infix< (_ other: Self) -> Bool
 
-  // TODO: make the following not-a-requirement and instead extension methods once that is supported
-  // (https://github.com/val-lang/val/issues/693).
+}
+
+extension Comparable {
 
   /// Returns `true` iff `self` is ordered after `other`.
-  fun infix> (_ other: Self) -> Bool // { (other < self) }
+  fun infix> (_ other: Self) -> Bool { (other < self) }
 
   /// Returns `false` iff `self` is ordered after `other`.
-  fun infix<= (_ other: Self) -> Bool // { !(other < self) }
+  fun infix<= (_ other: Self) -> Bool { !(other < self) }
 
   /// Returns `false` iff `self` is ordered before `other`.
-  fun infix>= (_ other: Self) -> Bool // { !(self < other) }
+  fun infix>= (_ other: Self) -> Bool { !(self < other) }
+
 }
