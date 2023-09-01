@@ -12,7 +12,7 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
   static fun payload_offset() -> Int {
     let a = MemoryLayout<Element>.alignment()
     let s = MemoryLayout<BufferHeader>.size()
-    return s + (a - s % a) % a
+    return s + (a - s % a)
   }
 
   /// A pointer to the base of the buffer's out-of-line storage.
@@ -36,7 +36,6 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
     &storage = .allocate_bytes(
       count: Self.payload_offset() + capacity * MemoryLayout<Element>.stride(),
       aligned_at: MemoryLayout<BufferHeader>.alignment())
-
   }
 
   /// Deinitializes `self`.
