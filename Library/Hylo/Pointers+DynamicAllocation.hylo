@@ -1,29 +1,22 @@
-public extension MutableRawPointer {
+public extension PointerToMutable where Pointee == Never {
 
   /// Allocates memory for `count` bytes at given `alignment`.
-  public static fun allocate(count: Int, aligned_at alignment: Int) -> Self {
-    .new(mutating: aligned_alloc(alignment, count))
-  }
-
-  /// Deallocates the memory previously allocated at `self`.
-  public fun deallocate() {
-    free(RawPointer(self))
+  public static fun allocate_bytes(count: Int, aligned_at alignment: Int) -> Self {
+    Self.new(base: aligned_alloc(alignment, count).base)
   }
 
 }
 
-public extension MutablePointer {
+public extension PointerToMutable {
 
   /// Allocates memory for `count` instances of `Pointee`.
   public static fun allocate(count: Int) -> Self {
-    .new(MutableRawPointer.allocate(
-      count: MemoryLayout<Pointee>.stride(),
-      aligned_at: MemoryLayout<Pointee>.alignment()))
+    Self.new(base: aligned_alloc(MemoryLayout<Pointee>.alignment(), MemoryLayout<Pointee>.stride() * count).base)
   }
 
   /// Deallocates the memory previously allocated at `self`.
   public fun deallocate() {
-    free(RawPointer(self))
+    free(CVoidPointer(base: base))
   }
 
 }

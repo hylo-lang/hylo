@@ -2,6 +2,7 @@
 
 public fun main() {
   let x = 42
-  let y = Pointer<Int>.to[x]
-  y.with_pointee(fun(_ i) -> Void { precondition(i == 42) })
+  let y = pointer[to: x]
+  let z = y.unsafe[]
+  precondition(z == 42)
 }
