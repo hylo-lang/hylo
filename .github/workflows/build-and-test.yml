@@ -196,4 +196,3 @@ jobs:
       continue-on-error: false
       if: steps.build.outcome != 'success'
       run: swift build -v -c release
-
