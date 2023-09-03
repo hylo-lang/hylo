@@ -18,6 +18,12 @@ name: Build and test
 # 2) Use https://github.com/nektos/act to run your CI steps locally. Note this will only work with
 #    steps run on Linux platforms, as `act` is implemented with Docker containers.
 
+
+# To factor this we likely require yaml anchors and aliases:
+# https://yaml.org/spec/1.2-old/spec.html#id2765878
+#
+# GitHub-actions YAML does not support achors and aliases:
+# https://github.com/actions/runner/issues/1182
 on:
   push:
     branches: [ main, rewrite ]

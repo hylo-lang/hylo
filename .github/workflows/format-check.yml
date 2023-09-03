@@ -4,6 +4,11 @@ defaults:
   run:
     shell: bash -eo pipefail {0}
 
+# To factor this we likely require yaml anchors and aliases:
+# https://yaml.org/spec/1.2-old/spec.html#id2765878
+#
+# GitHub-actions YAML does not support achors and aliases:
+# https://github.com/actions/runner/issues/1182
 on:
   push:
     branches: [ main ]
