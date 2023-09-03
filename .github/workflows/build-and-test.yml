@@ -68,6 +68,7 @@ jobs:
           set -eo pipefail
           swift package resolve
           .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
+          # Don't try and use GITHUB_ENV here. This is run inside a container.
           export PKG_CONFIG_PATH=$PWD
           swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }}
           swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
@@ -103,6 +104,9 @@ jobs:
 
     runs-on: ${{ matrix.host.os }}
     steps:
+    - name: Prepare Shell Environment
+      run: echo "PKG_CONFIG_PATH=$PWD" >> "${GITHUB_ENV}"
+
     - name: Checkout
       uses: actions/checkout@v3
 
@@ -130,13 +134,11 @@ jobs:
     - name: Build (${{ matrix.configuration }})
       run: |
         set -eo pipefail
-        export PKG_CONFIG_PATH=$PWD
         swift build -c ${{ matrix.configuration }} ${{ matrix.host.build-options }}
 
     - name: Test (${{ matrix.configuration }})
       run: |
         set -eo pipefail
-        export PKG_CONFIG_PATH=$PWD
         swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
           tee testoutput.txt && (
             (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
