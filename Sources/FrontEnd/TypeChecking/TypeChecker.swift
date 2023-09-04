@@ -2040,8 +2040,12 @@ struct TypeChecker {
   private mutating func evalTypeAnnotation(_ e: NameExpr.ID) -> AnyType {
     let resolution = resolve(e, withNonNominalPrefix: { (me, p) in me.evalQualification(of: p) })
     switch resolution {
-    case .done(let prefix, let suffix) where suffix.isEmpty:
+    case .done(let prefix, let suffix):
       // Nominal type expressions shall not be overloaded.
+      if let c = suffix.first {
+        report(.error(ambiguousUse: c, in: program.ast))
+        return .error
+      }
       guard let candidate = prefix.last!.candidates.uniqueElement else {
         report(.error(ambiguousUse: prefix.last!.component, in: program.ast))
         return .error
@@ -2072,9 +2076,6 @@ struct TypeChecker {
     case .canceled:
       // Non-nominal prefixes are handled by the closure passed to `resolveNominalPrefix`.
       unreachable()
-
-    default:
-      UNIMPLEMENTED()
     }
   }
 
