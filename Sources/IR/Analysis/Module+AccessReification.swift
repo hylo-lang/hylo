@@ -87,7 +87,7 @@ extension Module {
     case is ProjectBundle:
       return requests(projectBundle: u)
     default:
-      unreachable()
+      return []
     }
   }
 
@@ -101,10 +101,9 @@ extension Module {
   private func forEachClient(of i: InstructionID, _ action: (Use) -> Void) {
     guard let uses = self.uses[.register(i)] else { return }
     for u in uses {
-      switch self[u.user] {
-      case is AdvancedByBytes, is OpenCapture, is OpenUnion, is SubfieldView:
+      if self[u.user].isTransparentOffset {
         forEachClient(of: u.user, action)
-      default:
+      } else {
         action(u)
       }
     }
@@ -165,3 +164,18 @@ private protocol ReifiableAccess {
 extension Access: ReifiableAccess {}
 
 extension ProjectBundle: ReifiableAccess {}
+
+extension Instruction {
+
+  /// `true` iff `self` is an instruction computing an address derived from its operand without
+  /// accessing them.
+  fileprivate var isTransparentOffset: Bool {
+    switch self {
+    case is AdvancedByBytes, is OpenCapture, is OpenUnion, is SubfieldView, is WrapExistentialAddr:
+      return true
+    default:
+      return false
+    }
+  }
+
+}

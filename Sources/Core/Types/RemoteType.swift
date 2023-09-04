@@ -16,6 +16,11 @@ public struct RemoteType: TypeProtocol {
     self.flags = bareType.flags.inserting(.hasRemoteType)
   }
 
+  /// Creates an instance converting `t`.
+  public init(_ t: ParameterType) {
+    self.init(t.access, t.bareType)
+  }
+
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {

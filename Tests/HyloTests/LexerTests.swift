@@ -357,7 +357,7 @@ final class LexerTests: XCTestCase {
     file: StaticString = #filePath,
     line: UInt = #line
   ) {
-    // The list of tokens should have the same lenght as that of the specifications.
+    // The list of tokens should have the same length as that of the specifications.
     XCTAssert(
       tokens.count == specs.count,
       "expected \(specs.count) token(s), found \(tokens.count)",

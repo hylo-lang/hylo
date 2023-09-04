@@ -388,7 +388,7 @@ public struct Module {
     let d = program.ast.moveRequirement(k)
     switch c.implementations[d]! {
     case .concrete:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
 
     case .synthetic(let s):
       return demandDeclaration(lowering: s)
@@ -470,6 +470,38 @@ public struct Module {
     }
   }
 
+  /// Returns a pointer to the witness table of `t` used in `scopeOfUse`.
+  mutating func demandWitnessTable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> PointerConstant {
+    let w = WitnessTable(
+      for: t, conformingTo: loweredConformances(of: t, exposedTo: scopeOfUse),
+      in: scopeOfUse)
+    return PointerConstant(id, addGlobal(w))
+  }
+
+  /// Returns the lowered conformances of `model` that are exposed to `useScope`.
+  private mutating func loweredConformances(
+    of model: AnyType, exposedTo useScope: AnyScopeID
+  ) -> Set<IR.Conformance> {
+    guard let conformances = program.conformances[model] else { return [] }
+
+    var result: Set<IR.Conformance> = []
+    for concept in conformances.keys {
+      let c = program.conformance(of: model, to: concept, exposedTo: useScope)!
+      result.insert(loweredConformance(c))
+    }
+    return result
+  }
+
+  /// Returns the lowered form of `c`.
+  private mutating func loweredConformance(_ c: Core.Conformance) -> IR.Conformance {
+    var implementations = IR.Conformance.ImplementationMap()
+    for (r, i) in c.implementations {
+      let f = demandDeclaration(lowering: i)!
+      implementations[r] = .function(FunctionReference(to: f, in: self))
+    }
+    return .init(concept: c.concept, implementations: implementations)
+  }
+
   /// Returns a map from `f`'s generic arguments to their skolemized form.
   ///
   /// - Requires: `f` is declared in `self`.
@@ -481,7 +513,7 @@ public struct Module {
         let u = GenericTypeParameterType(t.instance)
       else {
         // TODO: Handle value parameters
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       result[p] = ^u

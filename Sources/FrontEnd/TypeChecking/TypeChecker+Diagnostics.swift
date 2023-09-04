@@ -6,6 +6,12 @@ extension Diagnostic {
     .error("ambiguous disjunction", at: site)
   }
 
+  static func error(
+    binding a: BindingPattern.Introducer, requiresInitializerAt site: SourceRange
+  ) -> Diagnostic {
+    .error("declaration of \(a) binding requires an initializer", at: site)
+  }
+
   static func error(circularRefinementAt site: SourceRange) -> Diagnostic {
     .error("circular trait refinement", at: site)
   }

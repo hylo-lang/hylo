@@ -27,15 +27,14 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
+    - uses: actions/checkout@v3
+
     - uses: actions/cache@v3
       with:
         path: .build
         key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
         restore-keys: |
           ${{ runner.os }}-spm-
-
-    - uses: actions/checkout@v3
-    - run: git config --global core.autocrlf input
 
     - name: Setup swift
       uses: swift-actions/setup-swift@v1

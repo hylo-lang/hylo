@@ -8,7 +8,9 @@ import Core
 /// cases, IR generation will emit `access` instructions with the set capabilities that may be
 /// inferred from the syntax. These instructions are expected to be "reifed" during IR analysis
 /// so that only a single capability is requested.
-public struct Access: Instruction {
+public struct Access: RegionEntry {
+
+  public typealias Exit = EndAccess
 
   /// The capabilities of the access.
   ///

@@ -50,6 +50,8 @@ extension Module {
           pc = successor(of: user)
         case is EndProject:
           pc = interpret(endProject: user, in: &context)
+        case is EndProjectWitness:
+          pc = interpret(endProjectWitness: user, in: &context)
         case is GlobalAddr:
           pc = interpret(globalAddr: user, in: &context)
         case is LLVMInstruction:
@@ -68,6 +70,8 @@ extension Module {
           pc = interpret(pointerToAddress: user, in: &context)
         case is Project:
           pc = interpret(project: user, in: &context)
+        case is ProjectWitness:
+          pc = interpret(projectWitness: user, in: &context)
         case is ReleaseCaptures:
           pc = successor(of: user)
         case is Return:
@@ -173,7 +177,7 @@ extension Module {
       case .inout:
         assert(self[f.instruction!].isAccess(callee.receiverEffect))
       default:
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       // Evaluate the arguments.
@@ -285,27 +289,24 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endProject i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! EndProject
-      let l = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
-      let projection = context.withObject(at: l, { $0 })
+      let r = self[s.start.instruction!] as! Project
 
-      let source = self[s.start.instruction!] as! Project
+      // TODO: Process projection arguments
+      finalize(
+        region: s.start, projecting: r.projection.access, from: [],
+        exitedWith: i, in: &context)
+      return successor(of: i)
+    }
 
-      switch source.projection.access {
-      case .let, .inout, .set:
-        for c in projection.value.consumers {
-          diagnostics.insert(.error(cannotConsume: source.projection.access, at: self[c].site))
-        }
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(endProjectWitness i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! EndProjectWitness
+      let r = self[s.start.instruction!] as! ProjectWitness
 
-      case .sink:
-        insertDeinit(
-          s.start, at: projection.value.initializedSubfields, anchoredTo: s.site, before: i,
-          reportingDiagnosticsTo: &diagnostics)
-        context.withObject(at: l, { $0.value = .full(.uninitialized) })
-
-      case .yielded:
-        unreachable()
-      }
-
+      let sources = context.locals[r.container]!.unwrapLocations()!
+      finalize(
+        region: s.start, projecting: r.projection.access, from: sources,
+        exitedWith: i, in: &context)
       return successor(of: i)
     }
 
@@ -389,27 +390,24 @@ extension Module {
     func interpret(pointerToAddress i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! PointerToAddress
       consume(s.source, with: i, at: s.site, in: &context)
-
-      let l = AbstractLocation.root(.register(i))
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
-        value: .full(s.target.access == .set ? .uninitialized : .initialized))
-      context.locals[.register(i)] = .locations([l])
+      initializeRegister(createdBy: i, projecting: s.target, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(project i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! Project
+
       // TODO: Process arguments
 
-      let s = self[i] as! Project
-      let l = AbstractLocation.root(.register(i))
-      let t = s.projection
+      initializeRegister(createdBy: i, projecting: s.projection, in: &context)
+      return successor(of: i)
+    }
 
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
-        value: .full(t.access == .set ? .uninitialized : .initialized))
-      context.locals[.register(i)] = .locations([l])
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(projectWitness i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! ProjectWitness
+      initializeRegister(createdBy: i, projecting: s.projection, in: &context)
       return successor(of: i)
     }
 
@@ -449,7 +447,7 @@ extension Module {
       let locations: [AbstractLocation]
       if case .constant = addr.recordAddress {
         // Operand is a constant.
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       } else {
         locations =
           context.locals[addr.recordAddress]!.unwrapLocations()!.map({
@@ -472,7 +470,7 @@ extension Module {
       let s = self[i] as! WrapExistentialAddr
       if case .constant = s.witness {
         // Operand is a constant.
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       context.locals[.register(i)] = context.locals[s.witness]
@@ -546,6 +544,58 @@ extension Module {
         diagnostics.insert(
           .illegalParameterEscape(consumedBy: o.value.consumers, in: self, at: site))
       }
+    }
+
+    /// Checks that the state of the projection of `sources` in the region defined at `start` and
+    /// exited with `exit` is consistent with `access`, updating `context` accordingly.
+    ///
+    /// `start` is the definition of projection (e.g., the result of `project`) dominating `i`,
+    /// which is a corresponding exit. `context.locals[start]` is the unique address of the object
+    /// `o` being projected in that region. `sources` are the addresses of the objects notionally
+    /// containing `o`.
+    ///
+    /// If `access` is `.let`, `.inout`, or `.set`, `o` must be fully initialized. If `access` is
+    /// `sink`, `o` must be fully deinitialized. implicit deinitialization is inserted to maintain
+    /// the latter requirement.
+    func finalize(
+      region start: Operand, projecting access: AccessEffect, from sources: Set<AbstractLocation>,
+      exitedWith exit: InstructionID,
+      in context: inout Context
+    ) {
+      // Skip the instruction if an error occurred upstream.
+      guard let v = context.locals[start] else {
+        assert(diagnostics.containsError)
+        return
+      }
+
+      let l = v.unwrapLocations()!.uniqueElement!
+      let projection = context.withObject(at: l, { $0 })
+
+      switch access {
+      case .let, .inout:
+        for c in projection.value.consumers {
+          diagnostics.insert(.error(cannotConsume: access, at: self[c].site))
+        }
+
+      case .set:
+        for c in projection.value.consumers {
+          diagnostics.insert(.error(cannotConsume: access, at: self[c].site))
+        }
+        for s in sources {
+          context.withObject(at: s, { $0.value = .full(.initialized) })
+        }
+
+      case .sink:
+        insertDeinit(
+          start, at: projection.value.initializedSubfields, anchoredTo: self[exit].site,
+          before: exit, reportingDiagnosticsTo: &diagnostics)
+        context.withObject(at: l, { $0.value = .full(.uninitialized) })
+
+      case .yielded:
+        unreachable()
+      }
+
+      context.memory[l] = nil
     }
   }
 
@@ -666,13 +716,13 @@ extension Context {
     case .full(.uninitialized), .full(.consumed):
       return false
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
 }
 
-/// A map fron function block to the context of the abstract interpreter before and after the
+/// A map from function block to the context of the abstract interpreter before and after the
 /// evaluation of its instructions.
 private typealias Contexts = [Function.Blocks.Address: (before: Context, after: Context)]
 

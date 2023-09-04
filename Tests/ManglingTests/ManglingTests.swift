@@ -132,7 +132,7 @@ private struct SymbolCollector: ASTWalkObserver {
   private(set) var symbols: [String: AnyDeclID] = [:]
 
   /// Creates an instance observing the nodes in `p` and reporting assertion failures as though
-  /// they occured at line `l` of this source file..
+  /// they occurred at line `l` of this source file..
   init(forNodesIn p: TypedProgram, reportingFailuresAtLine l: UInt = #line) {
     self.program = p
     self.failuresReportingLine = l

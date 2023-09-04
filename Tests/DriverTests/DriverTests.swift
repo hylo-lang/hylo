@@ -6,7 +6,7 @@ import XCTest
 
 final class DriverTests: XCTestCase {
 
-  /// The result of a compiler invokation.
+  /// The result of a compiler invocation.
   private struct CompilationResult {
 
     /// The exit status of the compiler.
@@ -18,6 +18,13 @@ final class DriverTests: XCTestCase {
     /// The text of generated diagnostics.
     let diagnosticText: String
 
+    /// `XCTAssert`'s that `diagnosticText` matches `expectedDiagnostics`, with better output
+    /// formatting on failure.
+    func checkDiagnosticText(
+      `is` expectedDiagnostics: String, file: StaticString = #filePath, line: UInt = #line
+    ) {
+      XCTAssertEqual("\n" + diagnosticText, "\n" + expectedDiagnostics, file: file, line: line)
+    }
   }
 
   func testNoInput() throws {
@@ -28,41 +35,41 @@ final class DriverTests: XCTestCase {
     let result = try compile(["--emit", "raw-ast"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
-    XCTAssert(result.diagnosticText.isEmpty)
+    result.checkDiagnosticText(is: "")
   }
 
   func testRawIR() throws {
     let result = try compile(["--emit", "raw-ir"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.diagnosticText.isEmpty)
+    result.checkDiagnosticText(is: "")
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testIR() throws {
     let result = try compile(["--emit", "ir"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.diagnosticText.isEmpty)
+    result.checkDiagnosticText(is: "")
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testLLVM() throws {
     let result = try compile(["--emit", "llvm"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.diagnosticText.isEmpty)
+    result.checkDiagnosticText(is: "")
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testIntelASM() throws {
     let result = try compile(["--emit", "intel-asm"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.diagnosticText.isEmpty)
+    result.checkDiagnosticText(is: "")
     XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
   func testBinary() throws {
     let result = try compile(["--emit", "binary"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.diagnosticText.isEmpty)
+    result.checkDiagnosticText(is: "")
 
     #if os(Windows)
       XCTAssert(FileManager.default.fileExists(atPath: result.output.relativePath + ".exe"))
@@ -75,20 +82,19 @@ final class DriverTests: XCTestCase {
     let valSource = try newFile(containing: "fun x")
     let result = try compile([], valSource)
     XCTAssertFalse(result.status.isSuccess)
-    XCTAssertEqual(
-      result.diagnosticText,
-      """
-      \(valSource.relativePath):1.6: error: expected function signature
-      fun x
-           ^
+    result.checkDiagnosticText(
+      is: """
+        \(valSource.relativePath):1.6: error: expected function signature
+        fun x
+             ^
 
-      """)
+        """)
   }
 
   func testTypeCheckSuccess() throws {
     let result = try compile(["--typecheck"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
-    XCTAssert(result.diagnosticText.isEmpty)
+    result.checkDiagnosticText(is: "")
     XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
@@ -96,14 +102,13 @@ final class DriverTests: XCTestCase {
     let valSource = try newFile(containing: "public fun main() { foo() }")
     let result = try compile(["--typecheck"], valSource)
     XCTAssertFalse(result.status.isSuccess)
-    XCTAssertEqual(
-      result.diagnosticText,
-      """
-      \(valSource.relativePath):1.21-24: error: undefined name 'foo' in this scope
-      public fun main() { foo() }
-                          ~~~
+    result.checkDiagnosticText(
+      is: """
+        \(valSource.relativePath):1.21-24: error: undefined name 'foo' in this scope
+        public fun main() { foo() }
+                            ~~~
 
-      """)
+        """)
     XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 

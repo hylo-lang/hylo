@@ -1,0 +1,11 @@
+/// Types that can be moved, destroyed, and compared for equality, but might not be copyable
+/// (roughly per Stepanov).
+///
+/// - Move is value-preserving.
+/// - Destruction has no side-effects.
+public trait SemiRegular: Deinitializable, Movable, Equatable {}
+
+/// Regular types (roughly per Stepanov).
+///
+/// Copies have equal value.
+public trait Regular: Deinitializable, Copyable, Movable, Equatable {}

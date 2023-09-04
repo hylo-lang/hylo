@@ -110,7 +110,7 @@ extension Module {
 
       case let s as CaptureIn where use.index == 0:
         let p = provenances(s.target).uniqueElement!
-        assert(self[p] is AllocStack, "not implemented")
+        guard self[p] is AllocStack else { UNIMPLEMENTED() }
         let u = self.uses[p, default: []].first(where: { self[$0.user] is ReleaseCaptures })!
         return extend(lifetime: r, toInclude: u)
 
@@ -139,6 +139,10 @@ private protocol LifetimeExtender {}
 
 extension Access: LifetimeExtender {}
 
+extension AdvancedByBytes: LifetimeExtender {}
+
+extension OpenCapture: LifetimeExtender {}
+
 extension OpenUnion: LifetimeExtender {}
 
 extension Project: LifetimeExtender {}
@@ -157,8 +161,4 @@ private protocol LifetimeCloser: Instruction {
 
 }
 
-extension EndAccess: LifetimeCloser {}
-
-extension EndProject: LifetimeCloser {}
-
-extension CloseCapture: LifetimeCloser {}
+extension RegionExit: LifetimeCloser {}

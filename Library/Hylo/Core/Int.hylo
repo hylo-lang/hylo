@@ -16,8 +16,8 @@ public type Int {
   }
 
   /// Creates an instance with the same memory representation as `address`.
-  public init(bit_pattern address: RawPointer) {
-    &self.value = Builtin.ptrtoint_word(address.value)
+  public init(bit_pattern address: PointerToMutable<Never>) {
+    &self.value = Builtin.ptrtoint_word(address.base)
   }
 
   /// Returns the absolute value of `self`.

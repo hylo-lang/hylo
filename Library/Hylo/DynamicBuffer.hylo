@@ -4,7 +4,7 @@
 /// - Warning: The deinitializer of `DynamicBuffer` does not deinitialize the elements that may
 ///   be stored in its payload. You must ensure that they are propertly deinitialized before
 ///   `deinit` is called.
-public type DynamicBuffer<Header, Element>: Deinitializable {
+public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
 
   /// The description of payloads in `DynamicBuffer`s.
   typealias BufferHeader = {
@@ -16,7 +16,7 @@ public type DynamicBuffer<Header, Element>: Deinitializable {
   static fun payload_offset() -> Int {
     let a = MemoryLayout<Element>.alignment()
     let s = MemoryLayout<BufferHeader>.size()
-    return s + (a - s % a) % a
+    return s + (a - s % a)
   }
 
   /// A pointer to the base of the buffer's out-of-line storage.
@@ -24,7 +24,7 @@ public type DynamicBuffer<Header, Element>: Deinitializable {
   /// A null value denotes an empty buffer. Otherwise, `storage` points at an instance of
   /// `BufferHeader` that is followed by a region capable of storing at most `self.capacity`
   /// instances of `Element`, offset to satisfy `Element`'s alignment requirement'.
-  var storage: MutableRawPointer
+  var storage: PointerToMutable<Never>
 
   /// Creates an empty instance.
   public init() {
@@ -37,15 +37,9 @@ public type DynamicBuffer<Header, Element>: Deinitializable {
     capacity: Int,
     initializing_header_with init_header: [E](set Header) -> Void
   ) {
-    &storage = .allocate(
+    &storage = .allocate_bytes(
       count: Self.payload_offset() + capacity * MemoryLayout<Element>.stride(),
       aligned_at: MemoryLayout<BufferHeader>.alignment())
-
-    let p = MutablePointer<BufferHeader>(storage)
-    p.with_uninitialized_pointee(fun (_ h: set BufferHeader) -> Void {
-      &h.0 = capacity.copy()
-      init_header(&h.1)
-    })
   }
 
   /// Deinitializes `self`.
@@ -57,14 +51,12 @@ public type DynamicBuffer<Header, Element>: Deinitializable {
 
   /// The number of elements that can be stored in `self`.
   public fun capacity() -> Int {
-    if storage == MutableRawPointer.null() {
+    if storage == PointerToMutable.null() {
       return 0
     }
 
-    let p = Pointer<BufferHeader>(storage)
-    return p.with_pointee(fun (_ h: BufferHeader) -> Int {
-      h.0.copy()
-    })
+    let p = PointerToMutable<BufferHeader>(type_punning: storage)
+    return p.unsafe[].0.copy()
   }
 
 }

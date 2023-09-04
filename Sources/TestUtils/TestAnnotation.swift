@@ -25,7 +25,7 @@ import XCTest
 ///
 /// An annotation body corresponds to a single annotation. When present, the line offset is parsed
 /// as a natural number prefixed by either `@+` or `@-`. The next sequence of non-whitespace
-/// characters is parsed as the command. Preceeding whitespaces are ignored; following whitespaces
+/// characters is parsed as the command. Preceding whitespaces are ignored; following whitespaces
 /// are ignored only if they are on the same line as the command. The remainder of the annotation
 /// body is parsed as the argument.
 ///
