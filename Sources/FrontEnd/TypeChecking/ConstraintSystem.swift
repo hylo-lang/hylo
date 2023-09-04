@@ -194,9 +194,9 @@ struct ConstraintSystem {
     // Process structural and built-in conformances.
     switch goal.concept {
     case checker.program.ast.movableTrait:
-      return goal.model.isBuiltin ? .success : solve(structualConformance: goal)
+      return goal.model.isBuiltin ? .success : solve(structuralConformance: goal)
     case checker.program.ast.deinitializableTrait:
-      return goal.model.isBuiltin ? .success : solve(structualConformance: goal)
+      return goal.model.isBuiltin ? .success : solve(structuralConformance: goal)
     case checker.program.ast.foreignConvertibleTrait:
       return goal.model.isBuiltin ? .success : .failure(failureToSolve(goal))
     default:
@@ -209,14 +209,14 @@ struct ConstraintSystem {
   /// if `goal.model` isn't a structural type.
   ///
   /// - Requires: `goal.model` is not a type variable.
-  private mutating func solve(structualConformance goal: ConformanceConstraint) -> Outcome {
+  private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
     assert(!goal.model.isTypeVariable)
 
     switch goal.model.base {
     case let t as TupleType:
-      return delegate(structualConformance: goal, for: t.elements.lazy.map(\.type))
+      return delegate(structuralConformance: goal, for: t.elements.lazy.map(\.type))
     case let t as UnionType:
-      return delegate(structualConformance: goal, for: t.elements)
+      return delegate(structuralConformance: goal, for: t.elements)
     default:
       return .failure(failureToSolve(goal))
     }
@@ -225,7 +225,7 @@ struct ConstraintSystem {
   /// Returns the outcome of breaking down `goal`, which is a structural conformance constraint,
   /// into a set containing a conformance constraint for each type in `elements`.
   private mutating func delegate<S: Collection<AnyType>>(
-    structualConformance goal: ConformanceConstraint, for elements: S
+    structuralConformance goal: ConformanceConstraint, for elements: S
   ) -> Outcome {
     if elements.isEmpty {
       return .success
@@ -366,7 +366,7 @@ struct ConstraintSystem {
       return delegate(to: [s])
 
     case (_, let r as ExistentialType):
-      guard r.constraints.isEmpty else { fatalError("not implemented") }
+      guard r.constraints.isEmpty else { UNIMPLEMENTED() }
 
       // Penalize type coercion.
       penalties += 1
@@ -474,7 +474,7 @@ struct ConstraintSystem {
     return .product([s], failureToSolve(goal))
   }
 
-  /// Returns a clousre diagnosing a failure to solve `goal`.
+  /// Returns a closure diagnosing a failure to solve `goal`.
   private mutating func failureToSolve(_ goal: SubtypingConstraint) -> DiagnoseFailure {
     { (d, m, _) in
       let (l, r) = (m.reify(goal.left), m.reify(goal.right))
@@ -604,7 +604,7 @@ struct ConstraintSystem {
       return delegate(to: [s])
 
     default:
-      // TODO: Handle bound generic typess
+      // TODO: Handle bound generic types
       break
     }
 
@@ -649,7 +649,7 @@ struct ConstraintSystem {
     return delegate(to: subordinates)
   }
 
-  /// Returns a clousre diagnosing a failure to solve `g` because of an invalid callee.
+  /// Returns a closure diagnosing a failure to solve `g` because of an invalid callee.
   private mutating func invalidCallee(_ g: CallConstraint) -> DiagnoseFailure {
     { (d, m, _) in
       if g.isArrow {
@@ -746,7 +746,7 @@ struct ConstraintSystem {
   /// systems configured with `configureSubSystem` returns the best solution of each exploration.
   ///
   /// - Parameters:
-  ///   - g: the goal whose choices whould be explored; must denote a constraint of type `T`.
+  ///   - g: the goal whose choices would be explored; must denote a constraint of type `T`.
   ///   - checker: an instance used to query type relations and resolve names.
   ///   - configureSubSystem: A closure that prepares a constraint system using one of `g`'s
   ///     choices and returns the identities of the goals added to that system.

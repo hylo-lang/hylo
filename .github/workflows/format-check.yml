@@ -1,5 +1,9 @@
 name: Format check
 
+defaults:
+  run:
+    shell: bash -eo pipefail {0}
+
 on:
   push:
     branches: [ main ]
@@ -21,27 +25,15 @@ on:
 jobs:
   build:
     name: Format check
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
+
     steps:
-    - uses: actions/cache@v3
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-
+    - name: install swift-format
+      run: |
+        brew install swift-format
 
     - name: Checkout
       uses: actions/checkout@v3
 
-    - run: git config --global core.autocrlf input
-
-    - name: Setup swift
-      uses: swift-actions/setup-swift@v1
-      with:
-        swift-version: "5.8"
-
-    - name: Swift version
-      run: swift --version
-
     - name: Check code format
-      run: Tools/run-swift-format.sh -d lint
+      run: swift-format lint -r --configuration .swift-format.json -p Sources Tests Package.swift

@@ -98,7 +98,7 @@ extension Solution: CustomStringConvertible {
       result.append("  \(k) : \(v)\n")
     }
 
-    result.append("penalities: \(penalties)\n")
+    result.append("penalties: \(penalties)\n")
 
     result.append("diagnostics: \(diagnostics.elements.count)\n")
 

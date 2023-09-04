@@ -24,7 +24,7 @@ struct ControlFlowGraph {
 
   }
 
-  /// The way a control-flow relation is represeted internally.
+  /// The way a control-flow relation is represented internally.
   private typealias Relation = DirectedGraph<Vertex, Label>
 
   /// The relation encoded by the graph.

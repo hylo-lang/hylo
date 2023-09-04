@@ -1,0 +1,22 @@
+/// A type whose instances' values have a standard total ordering
+///
+/// `<` is a total ordering; `a == b` implies that `a < b` and `b < a` are both false.
+public trait Comparable: Equatable {
+
+  /// Returns `true` iff `self` is ordered before `other`.
+  fun infix< (_ other: Self) -> Bool
+
+}
+
+extension Comparable {
+
+  /// Returns `true` iff `self` is ordered after `other`.
+  fun infix> (_ other: Self) -> Bool { (other < self) }
+
+  /// Returns `false` iff `self` is ordered after `other`.
+  fun infix<= (_ other: Self) -> Bool { !(other < self) }
+
+  /// Returns `false` iff `self` is ordered before `other`.
+  fun infix>= (_ other: Self) -> Bool { !(self < other) }
+
+}

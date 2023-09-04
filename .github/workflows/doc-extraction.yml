@@ -27,15 +27,14 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
+    - uses: actions/checkout@v3
+
     - uses: actions/cache@v3
       with:
         path: .build
         key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
         restore-keys: |
           ${{ runner.os }}-spm-
-
-    - uses: actions/checkout@v3
-    - run: git config --global core.autocrlf input
 
     - name: Setup swift
       uses: swift-actions/setup-swift@v1
@@ -85,7 +84,7 @@ jobs:
         export PKG_CONFIG_PATH
         for TARGET in ${EXTRACTION_TARGETS}; do
           mkdir -p _site/docc/"$TARGET"
-          swift package --allow-writing-to-directory ./_site \
+          Tools/retry-once swift package --allow-writing-to-directory ./_site \
           generate-documentation \
           --target "$TARGET" \
           --output-path _site/docc/"${TARGET}" \
@@ -128,7 +127,7 @@ jobs:
 
     - name: Fix permissions
       run: |
-        chmod -v -R +rX "_site/" | while read line; do
+        chmod -v -R +rX "_site/" | while read -r line; do
           echo "::warning title=Invalid file permissions automatically fixed::$line"
         done
 

@@ -31,8 +31,10 @@ extension BuiltinFunction {
 
     /// `Builtin.address<T>(of v: T) -> Builtin.ptr`
     ///
-    /// Returns a pointer to a value passed as a `let` or `inout` argument. The returned pointer
-    /// is only valid within the function in which `address_of` is being called.
+    /// Returns a pointer to the storage of the argument.
+    ///
+    /// The resulting pointer is dereferenceable only for the lifetime of the argument; additional
+    /// measures may be needed to keep the argument alive during the pointer's use.
     case addressOf
 
   }
@@ -320,7 +322,7 @@ private func mathFlags(_ stream: inout ArraySlice<Substring>) -> NativeInstructi
   return result
 }
 
-/// Returns an overlflow behavior parsed from `stream` or `.ignore` if none can be parsed.
+/// Returns an overflow behavior parsed from `stream` or `.ignore` if none can be parsed.
 private func overflowBehavior(_ stream: inout ArraySlice<Substring>) -> LLVM.OverflowBehavior {
   switch stream.first {
   case "nuw":

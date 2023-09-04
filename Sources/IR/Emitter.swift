@@ -244,7 +244,7 @@ struct Emitter {
       return ast[s].site
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -341,7 +341,7 @@ struct Emitter {
     let explicit = program[bundle].explicitCaptures
     let implicit = program[bundle].implicitCaptures
 
-    // Exlicit captures appear first.
+    // Explicit captures appear first.
     for (i, c) in explicit.enumerated() {
       locals[c] = .parameter(entry, i)
     }
@@ -388,7 +388,7 @@ struct Emitter {
     case .return(let s):
       insert(module.makeReturn(at: ast[s].site))
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -430,7 +430,7 @@ struct Emitter {
   ///
   /// - Requires: `d` is a global binding.
   private mutating func lower(globalBinding d: BindingDecl.ID) {
-    fatalError("not implemented")
+    UNIMPLEMENTED()
   }
 
   /// Inserts the IR for the local binding `d`.
@@ -515,7 +515,7 @@ struct Emitter {
       emitStore(value: initializer, to: x0)
       insert(module.makeCloseUnion(x0, at: ast[name].site))
     } else {
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -585,7 +585,7 @@ struct Emitter {
     case .moveAssignment:
       return withClearContext({ $0.lower(syntheticMoveAssign: d) })
     case .copy:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -871,7 +871,7 @@ struct Emitter {
     case .return(let s):
       emitControlFlow(return: s)
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
 
     insertionPoint = .end(of: secondBranch)
@@ -887,7 +887,7 @@ struct Emitter {
     case .return(let s):
       emitControlFlow(return: s)
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
 
     insertionPoint = .end(of: tail)
@@ -934,7 +934,7 @@ struct Emitter {
       if case .return = a {
         return a
       } else {
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
     }
 
@@ -953,7 +953,7 @@ struct Emitter {
     emitDeinit(v, at: ast[s].site)
     if !module.type(of: v).ast.isVoidOrNever {
       // TODO: complain about unused value
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
     return .next
   }
@@ -986,7 +986,7 @@ struct Emitter {
     case .return(let s):
       emitControlFlow(return: s)
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
 
     // Exit.
@@ -1077,7 +1077,7 @@ struct Emitter {
     case .down:
       emitStore(downcast: e, to: storage)
     case .pointerConversion:
-      unreachable("pointer to address conversion evalutes to a lvalue")
+      unreachable("pointer to address conversion evaluates to a lvalue")
     }
   }
 
@@ -1093,7 +1093,7 @@ struct Emitter {
     }
 
     // Otherwise, wrap the LHS.
-    fatalError("not implemented")
+    UNIMPLEMENTED()
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1112,7 +1112,7 @@ struct Emitter {
 
     // TODO
     _ = lhs
-    fatalError("not implementeds")
+    UNIMPLEMENTED()
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1195,7 +1195,7 @@ struct Emitter {
     var i = 1
     for b in program[e].decl.explicitCaptures {
       // TODO: See #878
-      precondition(program[b].pattern.subpattern.kind == NamePattern.self, "not implemented")
+      guard program[b].pattern.subpattern.kind == NamePattern.self else { UNIMPLEMENTED() }
       let y0 = insert(module.makeSubfieldView(of: storage, subfield: [i], at: site))!
       emitStore(value: program[b].initializer!, to: y0)
       i += 1
@@ -1317,7 +1317,7 @@ struct Emitter {
     case ast.coreType("Float32")!:
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float32(_:))
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -1463,7 +1463,7 @@ struct Emitter {
       // TODO: Handle remote types
       let p = ParameterType(callee.inputs[i].type)!
       if p.bareType.base is RemoteType {
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       let s = emitSubfieldView(receiver, at: [i], at: ast[call].site)
@@ -1605,7 +1605,7 @@ struct Emitter {
     case .direct(let d, let a) where d.kind == FunctionDecl.self:
       // Callee is a direct reference to a function declaration.
       guard calleeType.environment == .void else {
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       let specialization = module.specialization(in: insertionFunction!).merging(a) { (x, y) in
@@ -1647,7 +1647,7 @@ struct Emitter {
     case .yielded:
       unreachable()
     case .set, .sink:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
 
     case let k:
       let l = emitLValue(callee)
@@ -1669,7 +1669,7 @@ struct Emitter {
       return emit(subscriptCallee: ast[InoutExpr.ID(callee)!].subject)
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -1681,7 +1681,7 @@ struct Emitter {
       // Callee is a direct reference to a subscript declaration.
       let t = SubscriptType(canonical(program[d].type))!
       guard t.environment == .void else {
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
 
       let b = SubscriptBundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
@@ -1702,7 +1702,7 @@ struct Emitter {
       unreachable()
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -1745,7 +1745,7 @@ struct Emitter {
           continue
         }
 
-        fatalError("not implemented")
+        UNIMPLEMENTED()
       }
     }
 
@@ -1761,7 +1761,7 @@ struct Emitter {
     else failure: Block.ID, in scope: AnyScopeID
   ) -> Block.ID {
     // TODO: Implement narrowing to an arbitrary subtype.
-    assert(containerType.elements.contains(patternType), "not implemented")
+    guard containerType.elements.contains(patternType) else { UNIMPLEMENTED() }
     let site = ast[pattern].site
 
     let i = program.discriminatorToElement(in: containerType).firstIndex(of: patternType)!
@@ -1930,7 +1930,7 @@ struct Emitter {
       return x0
 
     case .synthetic:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -1967,7 +1967,7 @@ struct Emitter {
       return x4
 
     case .synthetic:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -2012,7 +2012,7 @@ struct Emitter {
       return insert(module.makePointerToAddress(x2, to: target, at: ast[e].site))!
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
@@ -2067,7 +2067,7 @@ struct Emitter {
       return emitProperty(boundTo: receiver, declaredBy: d, specializedBy: a, at: site)
 
     case .constructor:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
 
     case .builtinModule, .builtinFunction, .builtinType, .compilerKnownType:
       // Built-in symbols and compiler-known types are never used as l-value.
@@ -2100,7 +2100,7 @@ struct Emitter {
 
     // Handle global bindings.
     if d.kind == VarDecl.self {
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
 
     // Handle references to type declarations.
@@ -2111,7 +2111,7 @@ struct Emitter {
     }
 
     // Handle references to global functions.
-    fatalError("not implemented")
+    UNIMPLEMENTED()
   }
 
   /// Returns the address of the member declared by `d`, specialized with `specialization` and
@@ -2132,12 +2132,12 @@ struct Emitter {
       return emitSubfieldView(receiver, at: [i], at: site)
 
     default:
-      fatalError("not implemented")
+      UNIMPLEMENTED()
     }
   }
 
   /// Returns the projection the property declared by `d`, specialized with `specialization` and
-  /// bound to `reciever`, inserting IR anchored at `site`.
+  /// bound to `receiver`, inserting IR anchored at `site`.
   private mutating func emitComputedProperty(
     boundTo receiver: Operand, declaredByBundle d: SubscriptDecl.ID,
     specializedBy specialization: GenericArguments,

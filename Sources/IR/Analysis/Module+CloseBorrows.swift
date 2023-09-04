@@ -110,7 +110,7 @@ extension Module {
 
       case let s as CaptureIn where use.index == 0:
         let p = provenances(s.target).uniqueElement!
-        assert(self[p] is AllocStack, "not implemented")
+        guard self[p] is AllocStack else { UNIMPLEMENTED() }
         let u = self.uses[p, default: []].first(where: { self[$0.user] is ReleaseCaptures })!
         return extend(lifetime: r, toInclude: u)
 
