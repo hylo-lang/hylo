@@ -139,6 +139,10 @@ private protocol LifetimeExtender {}
 
 extension Access: LifetimeExtender {}
 
+extension AdvancedByBytes: LifetimeExtender {}
+
+extension OpenCapture: LifetimeExtender {}
+
 extension OpenUnion: LifetimeExtender {}
 
 extension Project: LifetimeExtender {}
@@ -157,8 +161,4 @@ private protocol LifetimeCloser: Instruction {
 
 }
 
-extension EndAccess: LifetimeCloser {}
-
-extension EndProject: LifetimeCloser {}
-
-extension CloseCapture: LifetimeCloser {}
+extension RegionExit: LifetimeCloser {}

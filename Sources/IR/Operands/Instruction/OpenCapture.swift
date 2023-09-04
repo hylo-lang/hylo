@@ -2,7 +2,9 @@ import Core
 import Utils
 
 /// Exposes a captured access.
-public struct OpenCapture: Instruction {
+public struct OpenCapture: RegionEntry {
+
+  public typealias Exit = CloseCapture
 
   /// The type of the address being loaded.
   public let result: IR.`Type`?

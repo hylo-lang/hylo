@@ -1,7 +1,9 @@
 import Core
 
 /// Projects the address of a union payload, viewed as an instance of a given type.
-public struct OpenUnion: Instruction {
+public struct OpenUnion: RegionEntry {
+
+  public typealias Exit = CloseUnion
 
   /// The union whose payload should be projected.
   ///

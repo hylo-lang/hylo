@@ -32,7 +32,8 @@ public struct UnionDiscriminator: Instruction {
 
 extension Module {
 
-  /// Creates an `unreachable` anchored at `site` that marks the execution path unreachable.
+  /// Creates a `union_discriminator` anchored at `site` that returns the discriminator of the
+  /// element stored in `container`.
   func makeUnionDiscriminator(
     _ container: Operand, at site: SourceRange
   ) -> UnionDiscriminator {

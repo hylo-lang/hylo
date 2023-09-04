@@ -3432,7 +3432,14 @@ struct TypeChecker {
 
     guard let i = program[d].initializer else {
       assert(program[d].pattern.annotation != nil, "expected type annotation")
-      return pattern
+
+      let a = program[d].pattern.introducer.value
+      if ((a == .let) || (a == .inout)) && program.isLocal(d) {
+        report(.error(binding: a, requiresInitializerAt: program[d].pattern.introducer.site))
+        return .error
+      } else {
+        return pattern
+      }
     }
 
     // Note: `i` should not have been assigned a type if before `d` is checked.

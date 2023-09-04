@@ -546,43 +546,20 @@ struct Emitter {
   ///
   /// - Requires: `d` is a local `let` or `inout` binding.
   private mutating func lower(projectedLocalBinding d: BindingDecl.ID) {
+    let access = AccessEffect(program[d].pattern.introducer.value)
+    precondition(access == .let || access == .inout)
     precondition(program.isLocal(d))
 
-    let access: AccessEffect
-    switch program[d].pattern.introducer.value {
-    case .let:
-      access = .let
-    case .inout:
-      access = .inout
-    default:
-      preconditionFailure()
-    }
-
-    // Borrowed binding requires an initializer.
-    guard let initializer = ast[d].initializer else {
-      report(.error(binding: access, requiresInitializerAt: program[d].pattern.introducer.site))
-      for (_, name) in ast.names(in: program[d].pattern.subpattern) {
-        let t = canonical(program[program[name].decl].type)
-        frames[ast[name].decl] = .constant(Poison(type: .address(t)))
-      }
-      return
-    }
-
+    let initializer = ast[d].initializer!
     let source = emitLValue(initializer)
     let isSink = module.isSink(source)
 
     for (path, name) in ast.names(in: program[d].pattern.subpattern) {
       var part = emitSubfieldView(source, at: path, at: program[name].decl.site)
-      let partType = module.type(of: part).ast
       let partDecl = ast[name].decl
 
       let t = canonical(program[partDecl].type)
-      if !program.areEquivalent(t, partType, in: program[d].scope) {
-        if let u = ExistentialType(t) {
-          let box = emitExistential(u, borrowing: access, from: part, at: ast[partDecl].site)
-          part = box
-        }
-      }
+      part = emitCoerce(part, to: t, at: ast[partDecl].site)
 
       if isSink {
         let b = module.makeAccess(
@@ -593,55 +570,6 @@ struct Emitter {
           access, from: part, correspondingTo: partDecl, at: ast[partDecl].site)
         frames[partDecl] = insert(b)!
       }
-    }
-  }
-
-  /// Returns the lowered conformances of `model` that are exposed to `useScope`.
-  private mutating func loweredConformances(
-    of model: AnyType, exposedTo useScope: AnyScopeID
-  ) -> Set<IR.Conformance> {
-    guard let conformances = program.conformances[model] else { return [] }
-
-    var result: Set<IR.Conformance> = []
-    for concept in conformances.keys {
-      let c = program.conformance(of: model, to: concept, exposedTo: useScope)!
-      result.insert(loweredConformance(c))
-    }
-    return result
-  }
-
-  /// Returns the lowered form of `c`, generating function references in `useScope`.
-  private mutating func loweredConformance(_ c: Core.Conformance) -> IR.Conformance {
-    var implementations = IR.Conformance.ImplementationMap()
-    for (r, i) in c.implementations {
-      switch i {
-      case .concrete(let d):
-        implementations[r] = loweredRequirementImplementation(d)
-
-      case .synthetic(let d):
-        lower(synthetic: d)
-        implementations[r] = .function(.init(to: .init(d), in: module))
-      }
-    }
-
-    return .init(concept: c.concept, implementations: implementations)
-  }
-
-  /// Returns the lowered form of the requirement implementation `d` in `useScope`.
-  private mutating func loweredRequirementImplementation(
-    _ d: AnyDeclID
-  ) -> IR.Conformance.Implementation {
-    switch d.kind {
-    case FunctionDecl.self:
-      let r = FunctionReference(to: FunctionDecl.ID(d)!, in: &module)
-      return .function(r)
-
-    case InitializerDecl.self:
-      let r = FunctionReference(to: InitializerDecl.ID(d)!, in: &module)
-      return .function(r)
-
-    default:
-      UNIMPLEMENTED()
     }
   }
 
@@ -774,7 +702,7 @@ struct Emitter {
       successors.append(appendBlock())
     }
 
-    let n = insert(module.makeUnionDiscriminator(argument, at: site))!
+    let n = emitUnionDiscriminator(argument, at: site)
     insert(module.makeSwitch(on: n, toOneOf: successors, at: site))
 
     let tail = appendBlock()
@@ -1838,7 +1766,7 @@ struct Emitter {
 
     let i = program.discriminatorToElement(in: containerType).firstIndex(of: patternType)!
     let expected = IntegerConstant(i, bitWidth: 64)  // FIXME: should be width of 'word'
-    let actual = insert(module.makeUnionDiscriminator(container, at: site))!
+    let actual = emitUnionDiscriminator(container, at: site)
 
     let test = insert(
       module.makeLLVM(applying: .icmp(.eq, .word), to: [.constant(expected), actual], at: site))!
@@ -1874,50 +1802,95 @@ struct Emitter {
 
   /// Inserts the IR for coercing `source` to an address of type `target`.
   ///
-  /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR for
+  /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR
   /// producing an address of type `target` is inserted, consuming `source` if necessary.
   private mutating func emitCoerce(
     _ source: Operand, to target: AnyType, at site: SourceRange
   ) -> Operand {
-    let target = program.canonical(target, in: insertionScope!)
+    let lhs = module.type(of: source).ast
+    let rhs = program.canonical(target, in: insertionScope!)
 
-    let sourceType = module.type(of: source).ast
-    if program.areEquivalent(sourceType, target, in: insertionScope!) {
+    if program.areEquivalent(lhs, rhs, in: insertionScope!) {
       return source
     }
 
-    if sourceType.base is RemoteType {
-      let v = insert(module.makeOpenCapture(source, at: site))!
-      return emitCoerce(v, to: target, at: site)
+    if lhs.base is RemoteType {
+      let s = insert(module.makeOpenCapture(source, at: site))!
+      return emitCoerce(s, to: rhs, at: site)
     }
 
-    if let t = LambdaType(target), let o = _emitCoerce(source, to: t, at: site) {
-      return o
+    switch rhs.base {
+    case let t as ExistentialType:
+      return _emitCoerce(source, to: t, at: site)
+    case let t as LambdaType:
+      return _emitCoerce(source, to: t, at: site)
+    case let t as UnionType:
+      return _emitCoerce(source, to: t, at: site)
+    default:
+      unexpectedCoercion(from: lhs, to: rhs)
     }
-
-    unreachable("unexpected coercion from '\(sourceType)' to \(target)")
   }
 
-  /// Inserts the IR for coercing `source` to an address of type `target`, returning `nil` if such
-  /// a coercion is not possible.
+  /// Inserts the IR for coercing `source` to an address of type `target`.
+  ///
+  /// - Requires: `target` is canonical.
+  private mutating func _emitCoerce(
+    _ source: Operand, to target: ExistentialType, at site: SourceRange
+  ) -> Operand {
+    let t = module.type(of: source).ast
+    if t.base is ExistentialType {
+      return source
+    }
+
+    return emitExistential(target, wrapping: source, at: site)
+  }
+
+  /// Inserts the IR for coercing `source` to an address of type `target`.
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
     _ source: Operand, to target: LambdaType, at site: SourceRange
-  ) -> Operand? {
-    precondition(target[.isCanonical])
-    guard let s = LambdaType(module.type(of: source).ast) else { return nil }
+  ) -> Operand {
+    let t = module.type(of: source).ast
+    guard let lhs = LambdaType(t) else {
+      unexpectedCoercion(from: t, to: ^target)
+    }
 
     // TODO: Handle variance
-    let t = LambdaType(
-      receiverEffect: s.receiverEffect,
+    let rhs = LambdaType(
+      receiverEffect: lhs.receiverEffect,
       environment: target.environment,
       inputs: target.inputs,
       output: target.output)
-    if !program.areEquivalent(^s, ^t, in: insertionScope!) { return nil }
+
+    if !program.areEquivalent(^lhs, ^rhs, in: insertionScope!) {
+      unexpectedCoercion(from: t, to: ^target)
+    }
 
     // If we're here, then `t` and `u` only differ on their effects.
     return source
+  }
+
+  /// Inserts the IR for coercing `source` to an address of type `target`.
+  ///
+  /// - Requires: `target` is canonical.
+  private mutating func _emitCoerce(
+    _ source: Operand, to target: UnionType, at site: SourceRange
+  ) -> Operand {
+    let lhs = module.type(of: source).ast
+
+    let x0 = emitAllocStack(for: ^target, at: site)
+    let x1 = insert(module.makeOpenUnion(x0, as: lhs, forInitialization: true, at: site))!
+    emitMove([.set], source, to: x1, at: site)
+    insert(module.makeCloseUnion(x1, at: site))
+    return x0
+  }
+
+  /// Traps on this execution path becauses of un unexpected coercion from `lhs` to `rhs`.
+  private func unexpectedCoercion(
+    from lhs: AnyType, to rhs: AnyType, file: StaticString = #file, line: UInt = #line
+  ) -> Never {
+    fatalError("unexpected coercion from '\(lhs)' to \(rhs)", file: file, line: line)
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
@@ -1998,22 +1971,13 @@ struct Emitter {
     }
   }
 
-  /// Returns an existential container of type `t` borrowing `access` on `witness`.
+  /// Returns an existential container of type `t` wrappring `witness`.
   private mutating func emitExistential(
-    _ t: ExistentialType, borrowing access: AccessEffect, from witness: Operand,
-    at site: SourceRange
+    _ t: ExistentialType, wrapping witness: Operand, at site: SourceRange
   ) -> Operand {
-    let witnessTable = emitWitnessTable(of: module.type(of: witness).ast, usedIn: insertionScope!)
-    let g = PointerConstant(module.id, module.addGlobal(witnessTable))
-
-    let x0 = insert(module.makeAccess(access, from: witness, at: site))!
-    let x1 = insert(module.makeWrapExistentialAddr(x0, .constant(g), as: t, at: site))!
-    return x1
-  }
-
-  /// Returns the witness table of `t` in `s`.
-  private mutating func emitWitnessTable(of t: AnyType, usedIn s: AnyScopeID) -> WitnessTable {
-    .init(for: t, conformingTo: loweredConformances(of: t, exposedTo: s), in: s)
+    let w = module.type(of: witness).ast
+    let table = Operand.constant(module.demandWitnessTable(w, in: insertionScope!))
+    return insert(module.makeWrapExistentialAddr(witness, table, as: t, at: site))!
   }
 
   // MARK: l-values
@@ -2407,7 +2371,7 @@ struct Emitter {
       successors.append(appendBlock())
     }
 
-    let n = insert(module.makeUnionDiscriminator(storage, at: site))!
+    let n = emitUnionDiscriminator(storage, at: site)
     insert(module.makeSwitch(on: n, toOneOf: successors, at: site))
 
     let tail = appendBlock()
@@ -2491,6 +2455,17 @@ struct Emitter {
     insertionPoint = .end(of: failure)
     insert(module.makeUnreachable(at: site))
     insertionPoint = .end(of: success)
+  }
+
+  /// Emits the IR for copying the union discriminator of `container`, which is the address of
+  /// a union container, anchoring new instructions at `site`.
+  private mutating func emitUnionDiscriminator(
+    _ container: Operand, at site: SourceRange
+  ) -> Operand {
+    let x0 = insert(module.makeAccess(.let, from: container, at: site))!
+    let x1 = insert(module.makeUnionDiscriminator(x0, at: site))!
+    insert(module.makeEndAccess(x0, at: site))
+    return x1
   }
 
   /// Returns the result of calling `action` on a copy of `self` in which a `newFrame` is the top
@@ -2601,12 +2576,6 @@ extension Diagnostic {
     assignmentLHSRequiresMutationMarkerAt site: SourceRange
   ) -> Diagnostic {
     .error("left-hand side of assignment must be marked for mutation", at: site)
-  }
-
-  fileprivate static func error(
-    binding a: AccessEffect, requiresInitializerAt site: SourceRange
-  ) -> Diagnostic {
-    .error("declaration of \(a) binding requires an initializer", at: site)
   }
 
   fileprivate static func error(cannotCaptureAccessAt site: SourceRange) -> Diagnostic {

@@ -84,11 +84,11 @@ final class DriverTests: XCTestCase {
     XCTAssertFalse(result.status.isSuccess)
     result.checkDiagnosticText(
       is: """
-      \(valSource.relativePath):1.6: error: expected function signature
-      fun x
-           ^
+        \(valSource.relativePath):1.6: error: expected function signature
+        fun x
+             ^
 
-      """)
+        """)
   }
 
   func testTypeCheckSuccess() throws {
@@ -104,11 +104,11 @@ final class DriverTests: XCTestCase {
     XCTAssertFalse(result.status.isSuccess)
     result.checkDiagnosticText(
       is: """
-      \(valSource.relativePath):1.21-24: error: undefined name 'foo' in this scope
-      public fun main() { foo() }
-                          ~~~
+        \(valSource.relativePath):1.21-24: error: undefined name 'foo' in this scope
+        public fun main() { foo() }
+                            ~~~
 
-      """)
+        """)
     XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
   }
 
