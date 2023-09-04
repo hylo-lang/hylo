@@ -43,10 +43,19 @@ jobs:
 
     - run: swift --version
 
-    - name: Setup LLVM
+    - name: Cache LLVM and Clang
+      id: cache-llvm
+      uses: actions/cache@v3
+      with:
+        path: |
+          C:/Program Files/LLVM
+          ./llvm
+        key: llvm-15.0
+    - name: Install LLVM and Clang
       uses: KyleMayes/install-llvm-action@v1
       with:
         version: "15.0"
+        cached: ${{ steps.cache-llvm.outputs.cache-hit }}
 
     - run: llvm-config --version
 

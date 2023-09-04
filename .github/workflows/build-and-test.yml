@@ -113,10 +113,20 @@ jobs:
 
     - run: swift --version
 
-    - name: Setup LLVM
+    - name: Cache LLVM and Clang
+      id: cache-llvm
+      uses: actions/cache@v3
+      with:
+        path: |
+          C:/Program Files/LLVM
+          ./llvm
+        key: llvm-15.0
+
+    - name: Install LLVM and Clang
       uses: KyleMayes/install-llvm-action@v1
       with:
         version: "15.0"
+        cached: ${{ steps.cache-llvm.outputs.cache-hit }}
 
     - run: llvm-config --version
 
@@ -160,9 +170,20 @@ jobs:
     - name: Swift version
       run: swift --version
 
-    - name: Set up LLVM 15.0.6
+    - name: Cache LLVM
+      id: cache-llvm-windows
+      uses: actions/cache@v3
+      with:
+        path: llvm-15.0.6-windows-x86-msvc17-msvcrt.7z
+        key: llvm-windows-15.0.6
+
+    - name: Download LLVM windows
+      if: steps.cache-llvm-windows.outputs.cache-hit != 'true'
       run: |
         curl.exe -L -O -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"https://github.com/c3lang/win-llvm/releases/download/llvm_15_0_6/llvm-15.0.6-windows-x86-msvc17-msvcrt.7z
+
+    - name: Setup LLVM windows
+      run: |
         7z x llvm-15.0.6-windows-x86-msvc17-msvcrt.7z -oC:\
         Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-msvcrt\bin'
         
