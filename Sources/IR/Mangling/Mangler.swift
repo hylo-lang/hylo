@@ -255,7 +255,7 @@ struct Mangler {
   /// Writes the mangled representation of `u` to `output`.
   private mutating func write(subscriptImpl d: SubscriptImpl.ID, to output: inout Output) {
     write(operator: .subscriptImpl, to: &output)
-    write(base64Didit: program.ast[d].introducer.value, to: &output)
+    write(base64Digit: program.ast[d].introducer.value, to: &output)
   }
 
   /// Writes the mangled representation of `u` to `output`.
@@ -321,7 +321,7 @@ struct Mangler {
     synthesized symbol: SynthesizedFunctionDecl, to output: inout Output
   ) {
     write(operator: .synthesizedFunctionDecl, to: &output)
-    write(base64Didit: symbol.kind, to: &output)
+    write(base64Digit: symbol.kind, to: &output)
     write(scope: symbol.scope, to: &output)
     mangle(type: ^symbol.type, to: &output)
   }
@@ -389,7 +389,7 @@ struct Mangler {
 
     case let t as ParameterType:
       write(operator: .parameterType, to: &output)
-      write(base64Didit: t.access, to: &output)
+      write(base64Digit: t.access, to: &output)
       mangle(type: t.bareType, to: &output)
 
     case let t as ProductType:
@@ -401,7 +401,7 @@ struct Mangler {
 
     case let t as RemoteType:
       write(operator: .remoteType, to: &output)
-      write(base64Didit: t.access, to: &output)
+      write(base64Digit: t.access, to: &output)
       mangle(type: t.bareType, to: &output)
 
     case let t as SubscriptType:
@@ -502,7 +502,7 @@ struct Mangler {
   /// Writes the mangled representation of `symbol` to `output`.
   private mutating func write(subscriptType t: SubscriptType, to output: inout Output) {
     write(operator: .subscriptType, to: &output)
-    write(base64Didit: t.capabilities, to: &output)
+    write(base64Digit: t.capabilities, to: &output)
     mangle(type: t.environment, to: &output)
 
     write(integer: t.inputs.count, to: &output)
@@ -562,10 +562,10 @@ struct Mangler {
 
     write(base64Didit: tag, to: &output)
     if let n = name.notation {
-      write(base64Didit: n, to: &output)
+      write(base64Digit: n, to: &output)
     }
     if let i = name.introducer {
-      write(base64Didit: i, to: &output)
+      write(base64Digit: i, to: &output)
     }
     write(string: name.stem, to: &output)
   }
@@ -583,7 +583,7 @@ struct Mangler {
 
   /// Writes the raw value of `v` encoded as a base 64 digit to `output`.
   private func write<T: RawRepresentable>(
-    base64Didit v: T, to output: inout Output
+    base64Digit v: T, to output: inout Output
   ) where T.RawValue == UInt8 {
     write(base64Didit: v.rawValue, to: &output)
   }
