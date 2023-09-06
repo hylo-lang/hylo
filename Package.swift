@@ -51,6 +51,13 @@ let package = Package(
       ],
       swiftSettings: allTargetsSwiftSettings),
 
+    .executableTarget(
+      name: "hylo-demangle",
+      dependencies: [
+        "IR"
+      ],
+      swiftSettings: allTargetsSwiftSettings),
+
     .target(
       name: "Driver",
       dependencies: [
