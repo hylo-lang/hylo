@@ -2040,8 +2040,12 @@ struct TypeChecker {
   private mutating func evalTypeAnnotation(_ e: NameExpr.ID) -> AnyType {
     let resolution = resolve(e, withNonNominalPrefix: { (me, p) in me.evalQualification(of: p) })
     switch resolution {
-    case .done(let prefix, let suffix) where suffix.isEmpty:
+    case .done(let prefix, let suffix):
       // Nominal type expressions shall not be overloaded.
+      guard suffix.isEmpty else {
+        report(.error(ambiguousUse: suffix.first!, in: program.ast))
+        return .error
+      }
       guard let candidate = prefix.last!.candidates.uniqueElement else {
         report(.error(ambiguousUse: prefix.last!.component, in: program.ast))
         return .error
@@ -2058,13 +2062,9 @@ struct TypeChecker {
         return .error
       }
 
-      // FIXME: Should we update `referredDecl`?
-      let c = prefix.last!.candidates[0]
-      if isBoundToNominalTypeDecl(c.reference) {
-        return MetatypeType(c.type)!.instance
-      } else {
-        return c.type
-      }
+      var t: AnyType?
+      for r in prefix { t = bindTypeAnnotation(r) }
+      return t!
 
     case .failed:
       return .error
@@ -2072,9 +2072,6 @@ struct TypeChecker {
     case .canceled:
       // Non-nominal prefixes are handled by the closure passed to `resolveNominalPrefix`.
       unreachable()
-
-    default:
-      UNIMPLEMENTED()
     }
   }
 
@@ -3538,9 +3535,7 @@ struct TypeChecker {
     }
 
     let cause = ConstraintOrigin(.cast, at: program[e].site)
-
     let rhs = instantiate(target, in: program[e].scope, cause: cause)
-    constrain(program[e].right, to: ^MetatypeType(of: rhs.shape), in: &obligations)
     obligations.insert(rhs.constraints)
 
     switch program[e].direction {
@@ -4276,7 +4271,7 @@ struct TypeChecker {
     return solution
   }
 
-  /// Commits the choices made in `solution` to satisfy `obligations`.
+  /// Commits the choices made in `solution` to satisfy `obligations` in the program.
   private mutating func commit(
     _ solution: Solution, satisfying obligations: ProofObligations,
     ignoringSharedCache ignoreSharedCache: Bool
@@ -4309,6 +4304,26 @@ struct TypeChecker {
 
     report(solution.diagnostics.elements)
     assert(solution.isSound || diagnostics.containsError, "inference failed without diagnostics")
+  }
+
+  /// Commits `r` in the program, where `r` is the name resolution result for a name component
+  /// used in a type expression, returning the type of that component.
+  ///
+  /// - Precondition: `r` has a single candidate.
+  private mutating func bindTypeAnnotation(
+    _ r: NameResolutionResult.ResolvedComponent
+  ) -> AnyType {
+    let c = r.candidates.uniqueElement!
+    cache.write(c.reference, at: \.referredDecl[r.component], ignoringSharedCache: true)
+
+    let t: AnyType
+    if isBoundToNominalTypeDecl(c.reference) {
+      t = MetatypeType(c.type)!.instance
+    } else {
+      t = c.type
+    }
+    cache.write(t, at: \.exprType[r.component], ignoringSharedCache: true)
+    return t
   }
 
   /// Calls `action` on `self`, logging a trace of constraint solving iff `shouldTraceInference(n)`

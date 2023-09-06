@@ -1084,7 +1084,7 @@ struct Emitter {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(upcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .up)
-    let target = MetatypeType(program[ast[e].right].type)!.instance
+    let target = program[ast[e].right].type
 
     // Store the LHS to `storage` if it already has the desired type.
     if program.areEquivalent(program[ast[e].left].type, target, in: program[e].scope) {
@@ -1099,7 +1099,7 @@ struct Emitter {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(downcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .down)
-    let target = MetatypeType(program[ast[e].right].type)!.instance
+    let target = program[ast[e].right].type
 
     // Store the LHS to `storage` if it already has the desired type.
     if program.areEquivalent(program[ast[e].left].type, target, in: program[e].scope) {

@@ -14,7 +14,8 @@ let package = Package(
   ],
 
   products: [
-    .executable(name: "hc", targets: ["CLI"])
+    .executable(name: "hc", targets: ["hc"]),
+    .executable(name: "hylo-demangle", targets: ["hylo-demangle"]),
   ],
 
   dependencies: [
@@ -45,9 +46,16 @@ let package = Package(
   targets: [
     // The compiler's executable target.
     .executableTarget(
-      name: "CLI",
+      name: "hc",
       dependencies: [
         "Driver"
+      ],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .executableTarget(
+      name: "hylo-demangle",
+      dependencies: [
+        "IR"
       ],
       swiftSettings: allTargetsSwiftSettings),
 
