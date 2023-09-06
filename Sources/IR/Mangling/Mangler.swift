@@ -278,12 +278,13 @@ struct Mangler {
   /// Writes the mangled representation of `c` to `output`.
   private mutating func write(constraint c: WhereClause.ConstraintExpr, to output: inout Output) {
     switch c {
-    case .value(let e):
-      write(operator: .valueConstraint, to: &output)
-      write(string: program.ast[e].site.text, to: &output)
-
-    default:
+    case .conformance, .value:
       UNIMPLEMENTED()
+
+    case .equality(let lhs, let rhs):
+      write(operator: .equalityConstraint, to: &output)
+      mangle(type: program[lhs].type, to: &output)
+      mangle(type: program[rhs].type, to: &output)
     }
   }
 
