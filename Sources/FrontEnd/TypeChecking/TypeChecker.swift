@@ -3535,9 +3535,7 @@ struct TypeChecker {
     }
 
     let cause = ConstraintOrigin(.cast, at: program[e].site)
-
     let rhs = instantiate(target, in: program[e].scope, cause: cause)
-    constrain(program[e].right, to: ^MetatypeType(of: rhs.shape), in: &obligations)
     obligations.insert(rhs.constraints)
 
     switch program[e].direction {
