@@ -443,6 +443,11 @@ extension LLVM.Module {
     //   setLinkage(.private, for: llvmFunction)
     // }
 
+    // Monomorphized functions always have private linkage.
+    if f.isMonomorphized {
+      setLinkage(.private, for: llvmFunction)
+    }
+
     // Functions that return `Never` have the `noreturn` attribute.
     if !m[f].isSubscript && (m[f].output == .never) {
       addAttribute(.init(.noreturn, in: &self), to: llvmFunction)

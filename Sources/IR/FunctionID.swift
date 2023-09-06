@@ -61,6 +61,16 @@ extension Function {
       self.value = .monomorphized(base: base, arguments: arguments)
     }
 
+    /// `true` if `self` is the identity of a monomorphized function.
+    public var isMonomorphized: Bool {
+      switch value {
+      case .monomorphized:
+        return true
+      default:
+        return false
+      }
+    }
+
   }
 
 }
