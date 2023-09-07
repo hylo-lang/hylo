@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.repository == 'hylo-lang/hylo'
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v3
@@ -136,6 +137,7 @@ jobs:
 
   # Deployment job
   deploy:
+    if: github.repository == 'hylo-lang/hylo'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
