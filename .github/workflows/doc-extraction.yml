@@ -70,6 +70,7 @@ jobs:
         EXTRACTION_TARGETS=$(
           swift package dump-package |
           jq '.targets | map(select(.type | test("^(regular|executable)$"))) | .[].name' |
+          sed -e 's/-/_/g' |
           xargs
         )
         " >> "${GITHUB_ENV}"
