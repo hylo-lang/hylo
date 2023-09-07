@@ -2,7 +2,7 @@
 /// instance creation.
 ///
 /// - Warning: The deinitializer of `DynamicBuffer` does not deinitialize the elements that may
-///   be stored in its payload. You must ensure that they are propertly deinitialized before
+///   be stored in its payload. You must ensure that they are properly deinitialized before
 ///   `deinit` is called.
 public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
 
