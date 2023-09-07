@@ -30,7 +30,7 @@ public struct MethodType: TypeProtocol {
     self.output = output
 
     var fs = receiver.flags
-    inputs.forEach({ fs.merge($0.type.flags) })
+    for i in inputs { fs.merge(i.type.flags) }
     fs.merge(output.flags)
     flags = fs
   }

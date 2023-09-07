@@ -364,7 +364,7 @@ struct TypeChecker {
 
   /// Type checks the sources in `batch`.
   mutating func check<S: Sequence<TranslationUnit.ID>>(_ batch: S) {
-    batch.forEach({ check($0) })
+    for u in batch { check(u) }
   }
 
   /// Type checks `u` and all declarations nested in `d`.
@@ -386,7 +386,7 @@ struct TypeChecker {
   private mutating func check<S: Sequence<T>, T: DeclID>(
     _ batch: S, ignoringSharedCache ignoreSharedCache: Bool = false
   ) {
-    batch.forEach({ check($0, ignoringSharedCache: ignoreSharedCache) })
+    for d in batch { check(d, ignoringSharedCache: ignoreSharedCache) }
   }
 
   /// Type checks `d` and all declarations nested in `d`.
@@ -565,7 +565,7 @@ struct TypeChecker {
 
   /// Type checks `d` and all declarations nested in `d`.
   private mutating func _check(_ d: ModuleDecl.ID) {
-    program[d].sources.forEach({ check($0) })
+    check(program[d].sources)
   }
 
   /// Type checks `d` and all declarations nested in `d`.
@@ -785,7 +785,7 @@ struct TypeChecker {
 
   /// Type checks `s`.
   private mutating func check(_ s: BraceStmt.ID) {
-    program[s].stmts.forEach({ check($0) })
+    for t in program[s].stmts { check(t) }
   }
 
   /// Type checks `s`.
@@ -1097,7 +1097,7 @@ struct TypeChecker {
 
     /// Appends each variant of `c` to `candidates` that is has type `t`.
     func appendDefinitions(of d: MethodDecl.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
-      program[d].impls.forEach({ appendIfDefinition($0, matching: t, in: &s) })
+      for v in program[d].impls { appendIfDefinition(v, matching: t, in: &s) }
     }
 
     /// Appends `d` to `s` iff it's a a definition with type `t`.
