@@ -70,7 +70,6 @@ jobs:
         EXTRACTION_TARGETS=$(
           swift package dump-package |
           jq '.targets | map(select(.type | test("^(regular|executable)$"))) | .[].name' |
-          sed -e 's/-/_/g' |
           xargs
         )
         " >> "${GITHUB_ENV}"
@@ -107,7 +106,7 @@ jobs:
           mkdir -p _site/jazzy/"$TARGET"
           jazzy \
           --source-host-files-url "https://github.com/${GITHUB_REPOSITORY}/blob/${REF_URL_COMPONENT}" \
-          --module "$TARGET" \
+          --module $(echo "$TARGET" | sed -e 's/-/_/g') \
           --module-version "${{ github.event.release.tag_name }}" \
           --copyright "© $(date '+%Y') The Hylo Authors. (Last updated: $(date '+%Y-%m-%d'))" \
           --config .jazzy.yml \
