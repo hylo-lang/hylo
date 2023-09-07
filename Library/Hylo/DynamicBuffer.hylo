@@ -40,6 +40,12 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
     &storage = .allocate_bytes(
       count: Self.payload_offset() + capacity * MemoryLayout<Element>.stride(),
       aligned_at: MemoryLayout<BufferHeader>.alignment())
+
+    let p = PointerToMutable<BufferHeader>(type_punning: storage)
+    p.unsafe_initialize_pointee(fun (_ h: set BufferHeader) -> Void {
+      &h.0 = capacity.copy()
+      init_header(&h.1)
+    })
   }
 
   /// Deinitializes `self`.
