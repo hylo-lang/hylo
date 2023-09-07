@@ -20,7 +20,7 @@ import Utils
 ///       }
 ///     }
 ///     var v = V()
-///     ast.modules.forEach({ ast.walk($0, notifying: &v) })
+///     for m in ast.modules { ast.walk(m, notifying: &v) }
 ///     print(v.outermostFunctions)
 ///
 /// This program prints the IDs of the outermost function declarations in `ast`.
@@ -222,7 +222,7 @@ extension AST {
   /// Visits all nodes in `roots` and their children in pre-order, notifying `o` when a node is
   /// entered or left.
   public func walk<T: NodeIDProtocol, O: ASTWalkObserver>(roots: [T], notifying o: inout O) {
-    roots.forEach({ walk(AnyNodeID($0), notifying: &o) })
+    for r in roots { walk(AnyNodeID(r), notifying: &o) }
   }
 
   /// Visits all condition items in `i` and their children in pre-order, notifying `o` when a node
@@ -806,7 +806,7 @@ extension AST {
 
   /// Visits the children of `c` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(whereClause c: WhereClause, notifying o: inout O) {
-    c.constraints.forEach({ traverse(constraintExpr: $0.value, notifying: &o) })
+    for k in c.constraints { traverse(constraintExpr: k.value, notifying: &o) }
   }
 
   /// Visits the children of `c` in pre-order, notifying `o` when a node is entered or left.
@@ -816,7 +816,7 @@ extension AST {
     switch c {
     case .conformance(let lhs, let traits):
       walk(lhs, notifying: &o)
-      traits.forEach({ walk($0, notifying: &o) })
+      for t in traits { walk(t, notifying: &o) }
     case .equality(let lhs, let rhs):
       walk(lhs, notifying: &o)
       walk(rhs, notifying: &o)

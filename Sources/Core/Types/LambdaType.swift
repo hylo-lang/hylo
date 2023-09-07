@@ -30,7 +30,7 @@ public struct LambdaType: TypeProtocol {
     self.output = output
 
     var fs = environment.flags
-    inputs.forEach({ fs.merge($0.type.flags) })
+    for i in inputs { fs.merge(i.type.flags) }
     fs.merge(output.flags)
     flags = fs
   }
