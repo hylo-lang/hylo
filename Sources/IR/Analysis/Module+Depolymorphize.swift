@@ -6,8 +6,7 @@ extension Module {
 
   /// Generates the non-parametric resilient API of `self`, reading definitions from `ir`.
   public mutating func depolymorphize(in ir: IR.Program) {
-    let work = functions.keys
-    for k in work {
+    for k in functions.keys {
       let f = functions[k]!
 
       // Ignore declarations without definition.
