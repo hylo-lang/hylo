@@ -1260,8 +1260,13 @@ struct Emitter {
       let l = emit(infixOperand: lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
 
       // The callee must be a reference to member function.
-      guard case .member(let d, _, _) = program[callee.expr].referredDecl else { unreachable() }
-      let f = Operand.constant(FunctionReference(to: FunctionDecl.ID(d)!, in: &module))
+      guard case .member(let d, let a, _) = program[callee.expr].referredDecl else {
+        unreachable()
+      }
+
+      let o = FunctionReference(
+        to: FunctionDecl.ID(d)!, in: &module, specializedBy: a, in: insertionScope!)
+      let f = Operand.constant(o)
 
       // Emit the call.
       let site = ast.site(of: e)
