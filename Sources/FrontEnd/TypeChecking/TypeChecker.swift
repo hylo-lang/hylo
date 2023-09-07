@@ -2393,6 +2393,8 @@ struct TypeChecker {
       return lookup(stem, memberOf: t.bareType, exposedTo: scopeOfUse)
     case let t as GenericTypeParameterType:
       return lookup(stem, memberOf: t, exposedTo: scopeOfUse)
+    case let t as TypeAliasType:
+      return lookup(stem, memberOf: t, exposedTo: scopeOfUse)
     default:
       break
     }
@@ -2413,8 +2415,6 @@ struct TypeChecker {
     case let t as NamespaceType:
       matches = names(introducedIn: t.decl)[stem, default: []]
     case let t as TraitType:
-      matches = names(introducedIn: t.decl)[stem, default: []]
-    case let t as TypeAliasType:
       matches = names(introducedIn: t.decl)[stem, default: []]
     default:
       matches = []
@@ -2459,6 +2459,19 @@ struct TypeChecker {
       matches.formUnion(lookup(stem, memberOf: ^t, exposedTo: scopeOfUse))
     }
     return matches
+  }
+
+  /// Returns the declarations that introduce a name with given `stem` as member of `nominalScope`
+  /// and are exposed to `scopeOfUse`.
+  private mutating func lookup(
+    _ stem: String, memberOf nominalScope: TypeAliasType,
+    exposedTo scopeOfUse: AnyScopeID
+  ) -> Set<AnyDeclID> {
+    if let d = names(introducedIn: nominalScope.decl)[stem] {
+      return d
+    } else {
+      return lookup(stem, memberOf: nominalScope.aliasee.value, exposedTo: scopeOfUse)
+    }
   }
 
   /// Returns the declarations that introduce a name with given `stem` in extensions of
