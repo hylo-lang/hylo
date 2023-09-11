@@ -11,7 +11,7 @@ Please file an issue if you have any questions.
 
 ## Suggesting feature requests
 
-Features ideas from the community should be pitched [here](https://github.com/val-lang/val-lang.github.io/discussions/categories/feature-pitches) before being formally proposed as a pull request.
+Feature ideas from the community should be pitched [here](https://github.com/val-lang/val-lang.github.io/discussions/categories/feature-pitches) before being formally proposed as a pull request.
 
 First, please search existing pitches to make sure your feature has not already been requested.
 You may then create a new discussion to present your idea.
