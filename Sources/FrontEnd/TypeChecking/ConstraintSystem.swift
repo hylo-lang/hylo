@@ -192,13 +192,14 @@ struct ConstraintSystem {
     }
 
     // Process structural and built-in conformances.
+    let lhs = checker.canonical(goal.model, in: scope)
     switch goal.concept {
     case checker.program.ast.movableTrait:
-      return goal.model.isBuiltin ? .success : solve(structuralConformance: goal)
+      return lhs.isBuiltin ? .success : solve(structuralConformance: goal)
     case checker.program.ast.deinitializableTrait:
-      return goal.model.isBuiltin ? .success : solve(structuralConformance: goal)
+      return lhs.isBuiltin ? .success : solve(structuralConformance: goal)
     case checker.program.ast.foreignConvertibleTrait:
-      return goal.model.isBuiltin ? .success : .failure(failureToSolve(goal))
+      return lhs.isBuiltin ? .success : .failure(failureToSolve(goal))
     default:
       return .failure(failureToSolve(goal))
     }
