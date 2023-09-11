@@ -104,6 +104,18 @@ public struct AnyType: TypeProtocol {
     return ^m.asMember(of: receiver)
   }
 
+  /// Returns the generic arguments specializing `self`.
+  public var specialization: GenericArguments {
+    switch base {
+    case let u as BoundGenericType:
+      return u.arguments
+    case let u as TypeAliasType:
+      return u.resolved.specialization
+    default:
+      return [:]
+    }
+  }
+
   /// Indicates whether `self` is a leaf type.
   ///
   /// A leaf type is a type whose only subtypes are itself and `Never`.

@@ -20,25 +20,15 @@ struct NameResolutionContext {
 
   /// Creates an instance with the given properties.
   init(type: AnyType, arguments: GenericArguments = [:], receiver: DeclReference.Receiver?) {
-    var a = arguments
-
-    if let t = BoundGenericType(type) {
-      if a.isEmpty {
-        a = t.arguments
-      } else {
-        for (k, v) in t.arguments {
-          if let u = a[k] {
-            assert(u.equals(v))
-          } else {
-            a[k] = v
-          }
-        }
-      }
-    }
-
     self.type = type
-    self.arguments = a
     self.receiver = receiver
+
+    let a = type.specialization
+    if arguments.isEmpty {
+      self.arguments = a
+    } else {
+      self.arguments = arguments.merging(a)
+    }
   }
 
 }
