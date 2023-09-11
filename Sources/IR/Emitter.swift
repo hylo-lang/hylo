@@ -1609,11 +1609,7 @@ struct Emitter {
         UNIMPLEMENTED()
       }
 
-      let specialization = module.specialization(in: insertionFunction!).merging(a) { (x, y) in
-        assert(x.equals(y))
-        return x
-      }
-
+      let specialization = module.specialization(in: insertionFunction!).merging(a)
       let r = FunctionReference(
         to: FunctionDecl.ID(d)!, in: &module, specializedBy: specialization, in: insertionScope!)
       return (.constant(r), [])
