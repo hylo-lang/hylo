@@ -10,11 +10,6 @@ public type Bool {
     &self.value = Builtin.zeroinitializer_i1()
   }
 
-  /// Returns negation of `self`.
-  public fun prefix! () -> Bool {
-    Bool(value: Builtin.icmp_eq_i1(value, Builtin.zeroinitializer_i1()))
-  }
-
   /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
   public fun infix== (_ other: Self) -> Bool {
     Bool(value: Builtin.icmp_eq_i1(value, other.value))
@@ -23,6 +18,44 @@ public type Bool {
   /// Returns `true` if `self` is not equal to `other`. Otherwise, returns `false`.
   public fun infix!= (_ other: Self) -> Bool {
     Bool(value: Builtin.icmp_ne_i1(value, other.value))
+  }
+
+  /// Toggles the Boolean variable's value.
+  public fun toggle() inout {
+    &self = !self
+  }
+
+  /// Returns negation of `self`.
+  public fun prefix! () -> Bool {
+    // Non-obvious; implement negation by comparing to 0.
+    Bool(value: Builtin.icmp_eq_i1(value, Builtin.zeroinitializer_i1()))
+  }
+
+  public fun infix&& (_ rhs: Bool) -> Bool {
+    Bool(value: Builtin.and_i1(self.value, rhs.value))
+  }
+
+  public fun infix|| (_ rhs: Bool) -> Bool {
+    Bool(value: Builtin.or_i1(self.value, rhs.value))
+  }
+
+  /// Performs a logical AND on two boolean values.
+  public fun infix&& <E> (_ rhs: [E]() -> Bool) -> Bool {
+    if self { rhs() } else { false }
+  }
+
+  /// Performs a logical OR on two boolean values.
+  public fun infix|| <E> (_ rhs: [E]() -> Bool) -> Bool {
+    if self { true } else { rhs() }
+  }
+
+//  static fun random<G: RandomNumberGenerator>(using generator: inout G) -> Bool {
+//    generator.next() % (2 as UInt) == 0
+//  }
+
+  /// A textual representation of the Boolean value.
+  property description: String {
+    if self { "true" } else { "false" }
   }
 }
 

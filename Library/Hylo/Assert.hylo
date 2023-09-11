@@ -14,6 +14,7 @@ public fun precondition(
   line: Int = #line
 ) {
   if !condition {
+    print(message)
     fatal_error()
   }
 }
