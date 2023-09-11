@@ -951,10 +951,6 @@ struct Emitter {
   private mutating func emit(exprStmt s: ExprStmt.ID) -> ControlFlow {
     let v = emitStore(value: ast[s].expr)
     emitDeinit(v, at: ast[s].site)
-    if !module.type(of: v).ast.isVoidOrNever {
-      // TODO: complain about unused value
-      UNIMPLEMENTED()
-    }
     return .next
   }
 
