@@ -30,7 +30,7 @@ If it hasn't, you can create a new issue with the label `bug` with the following
 - the expected result;
 - the actual result;
 - the version of your operating system; and
-- the commit hash of the code you are using.
+- the commit hash and public repository of the code you are using.
 
 We greatly appreciate it if you can isolate the problem and provide a minimal reproducer.
 
