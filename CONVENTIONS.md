@@ -84,3 +84,4 @@ Use the function `unreachable` to document that a particular code path is assume
 ## Reporting bugs
 
 Please attach a commit hash to issues reporting a bug.
+Please try to include a minimal Hylo reproducer.
