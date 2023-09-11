@@ -134,6 +134,8 @@ struct TypeChecker {
       return conformedTraits(of: u, in: scopeOfUse)
     case let u as TraitType:
       return conformedTraits(of: u, in: scopeOfUse)
+    case let u as TypeAliasType:
+      return conformedTraits(of: u.resolved, in: scopeOfUse)
     case let u as WitnessType:
       return conformedTraits(of: u, in: scopeOfUse)
     default:
