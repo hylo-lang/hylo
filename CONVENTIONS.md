@@ -75,7 +75,8 @@ Usually, conformances are small and are defined in the same file as the type to 
 #### Unimplemented features
 
 It may be sometimes beneficial to stub the API of a feature before it is implemented.
-In those cases, use the function `UNIMPLEMENTED` from the `Utils` module to mark a particular code path as being unimplemented.
+In those cases,  file an issue with a reproducer for the missing feature and call `Utils.UNIMPLEMENTED("description of feature #issue-number")` to mark the unimplemented code path.
+Many uses of `UNIMPLEMENTED()` predate this policy and don't include the string argument; if you hit one, please file the issue and submit a PR that adds the appropriate string.
 
 #### Unreachable code paths
 
