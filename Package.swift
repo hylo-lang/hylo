@@ -41,6 +41,7 @@ let package = Package(
     .package(
       url: "https://github.com/SwiftPackageIndex/SPIManifest.git",
       from: "0.12.0"),
+    .package(url: "https://github.com/hylo-lang/swift-gyb-build-tool.git", branch: "main"),
   ],
 
   targets: [
@@ -121,7 +122,11 @@ let package = Package(
       name: "HyloModule",
       path: "Library",
       resources: [.copy("Hylo")],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: [
+        .plugin(name: "swift-gyb-build-tool", package: "swift-gyb-build-tool"),
+      ]
+    ),
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
