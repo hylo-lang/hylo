@@ -5,7 +5,7 @@ public type String {
   public var size: Int
 
   /// The contents of the string, encoded in UTF8.
-  public var utf8: PointerToMutable<Never>
+  public var utf8: MemoryAddress
 
   memberwise init
 

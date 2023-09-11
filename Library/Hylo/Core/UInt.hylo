@@ -16,7 +16,7 @@ public type UInt {
   }
 
   /// Creates an instance with the same memory representation as `address`.
-  public init(bit_pattern address: PointerToMutable<Never>) {
+  public init(bit_pattern address: MemoryAddress) {
     &self.value = Builtin.ptrtoint_word(address.base)
   }
 
