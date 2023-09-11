@@ -1182,7 +1182,7 @@ struct Emitter {
 
     let site = ast[e].site
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
-    let x1 = insert(module.makeSubfieldView(of: storage, subfield: [0], at: site))!
+    let x1 = emitSubfieldView(storage, at: [0], at: site)
     emitStore(value: x0, to: x1, at: ast[e].site)
 
     let lambda = LambdaType(program.canonical(program[e].type, in: insertionScope!))!
@@ -1192,7 +1192,7 @@ struct Emitter {
     for b in program[e].decl.explicitCaptures {
       // TODO: See #878
       guard program[b].pattern.subpattern.kind == NamePattern.self else { UNIMPLEMENTED() }
-      let y0 = insert(module.makeSubfieldView(of: storage, subfield: [i], at: site))!
+      let y0 = emitSubfieldView(storage, at: [i], at: site)
       emitStore(value: program[b].initializer!, to: y0)
       i += 1
     }
@@ -1200,7 +1200,7 @@ struct Emitter {
     for c in program[e].decl.implicitCaptures {
       let y0 = emitLValue(directReferenceTo: c.decl, at: site)
       let y1 = insert(module.makeAccess(c.type.access, from: y0, at: site))!
-      let y2 = insert(module.makeSubfieldView(of: storage, subfield: [i], at: site))!
+      let y2 = emitSubfieldView(storage, at: [i], at: site)
       emitStore(access: y1, to: y2, at: site)
       i += 1
     }
@@ -2336,7 +2336,7 @@ struct Emitter {
 
     // Otherwise, deinitialize each property.
     for i in layout.properties.indices {
-      let x0 = insert(module.makeSubfieldView(of: storage, subfield: [i], at: site))!
+      let x0 = emitSubfieldView(storage, at: [i], at: site)
       emitDeinit(x0, at: site)
     }
   }
@@ -2435,11 +2435,12 @@ struct Emitter {
 
   /// Appends the IR for computing the address of the given `subfield` of the record at
   /// `recordAddress` and returns the resulting address, anchoring new instructions at `site`.
-  private mutating func emitSubfieldView(
+  mutating func emitSubfieldView(
     _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
-    return insert(module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site))!
+    let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site)
+    return insert(s)!
   }
 
   /// Emits the IR trapping iff `predicate`, which is an object of type `i1`, anchoring new
