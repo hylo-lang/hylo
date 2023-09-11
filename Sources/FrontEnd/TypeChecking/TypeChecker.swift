@@ -3286,18 +3286,37 @@ struct TypeChecker {
     .init(scopeOfUse: scopeOfUse, extendedScope: bridgedScope(of: scopeOfUse))
   }
 
-  /// Creates a context for instantiating generic parameters used in `scopeOfUse` by a name
-  /// referring to `r`.
+  /// Creates a context for instantiating generic parameters in `scopeOfUse` by for using `r`.
   private mutating func instantiationContext(
     _ r: DeclReference, in scopeOfUse: AnyScopeID
   ) -> InstantiationContext {
-    // References to constructors are always opened.
-    if case .constructor(let d, _) = r {
-      return instantiationContext(in: program[program[d].scope].scope)
+    if let d = r.decl {
+      return instantiationContext(forUsing: d, in: scopeOfUse)
+    } else {
+      return instantiationContext(in: scopeOfUse)
     }
+  }
 
-    if let d = r.decl, isRecursive(useOf: d, in: scopeOfUse) {
+  /// Creates a context for instantiating generic parameters in `scopeOfUse` by for using `d`.
+  private mutating func instantiationContext(
+    forUsing d: AnyDeclID, in scopeOfUse: AnyScopeID
+  ) -> InstantiationContext {
+    if let i = InitializerDecl.ID(d) {
+      return instantiationContext(forUsing: i, in: scopeOfUse)
+    } else if isRecursive(useOf: d, in: scopeOfUse) {
       return instantiationContext(in: program[d].scope)
+    } else {
+      return instantiationContext(in: scopeOfUse)
+    }
+  }
+
+  /// Creates a context for instantiating generic parameters in `scopeOfUse` by for using `d`.
+  private mutating func instantiationContext(
+    forUsing d: InitializerDecl.ID, in scopeOfUse: AnyScopeID
+  ) -> InstantiationContext {
+    let container = program[d].scope
+    if program.isContained(scopeOfUse, in: container) {
+      return instantiationContext(in: program[container].scope)
     } else {
       return instantiationContext(in: scopeOfUse)
     }
