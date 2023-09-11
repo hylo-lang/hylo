@@ -7,7 +7,7 @@ Let's get you started.
 There are several ways you may contribute to the Hylo project (see below) and we greatly appreciate all of them.
 We'd like to ask every contributor to read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) and expect every member of our community to be welcoming, helpful, and respectful.
 
-Please fill an issue if you have any questions.
+Please file an issue if you have any questions.
 
 ## Suggesting feature requests
 
