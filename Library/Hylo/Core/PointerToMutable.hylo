@@ -28,7 +28,7 @@ public type PointerToMutable<Pointee>: Regular {
   /// Creates an instance referring to the same address as `p`.
   ///
   /// Note that dereferencing type-punned pointers will cause problems unless the rules for the
-  /// `usafe[]` subscript (which see) are followed.
+  /// `unsafe[]` subscript (which see) are followed.
   public init<Other>(type_punning p: PointerToMutable<Other>) {
     &base = p.base
   }
