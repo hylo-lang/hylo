@@ -13,7 +13,7 @@ public extension PointerToMutable where Pointee == Never {
   public fun advance(by offset_in_elements: Int) -> Self {
     let offset_in_bytes = 1 * offset_in_elements
     return PointerToMutable<Pointee>.new(
-      base: Builtin.advanced_by_bytes_word(base, offset_in_bytes.foreign_value()))
+      base: Builtin.advanced_by_bytes_word(base, offset_in_bytes.value))
   }
 
 }
