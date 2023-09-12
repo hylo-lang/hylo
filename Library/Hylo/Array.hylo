@@ -42,9 +42,10 @@ public type Array<Element: Movable> : Deinitializable {
     var e = _storage.first_element_address()
     var f = new_storage.first_element_address()
     while( i < count() ) {
-      f.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
-        &x = e.unsafe[]
-      } )
+      // TODO: This is currently blocked by #1003
+      // f.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
+      //   &x = e.unsafe[]
+      // } )
 
       &e = e.advance( by: 1 )
       &f = f.advance( by: 1 )
@@ -57,10 +58,10 @@ public type Array<Element: Movable> : Deinitializable {
   public fun append(from source: sink Element) {
     reserveCapacity( count() + 1 )
     var p = _storage.first_element_address().advance(by: count())
-
-    p.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
-      &x = source
-    } )
+    // TODO: Currently blocked by #1003
+    // p.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
+    //   &x = source
+    // } )
   }
 }
 
