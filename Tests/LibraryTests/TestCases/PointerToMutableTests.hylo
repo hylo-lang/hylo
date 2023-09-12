@@ -1,9 +1,22 @@
 //- compileAndRun expecting: success
 
-fun test_advance() {
+fun test_advance_by_bytes() {
   var d = PointerToMutable<Never>.allocate_bytes(
     count: 2,
     aligned_at: 1)
+  var e = d.advance(by_bytes: 1)
+  var f = e.advance(by_bytes: -1)
+  precondition(d == f)
+  precondition(!(d == e))
+  precondition(!(f == e))
+}
+
+fun test_advance() {
+  var c = PointerToMutable<Never>.allocate_bytes(
+    count: MemoryLayout<Int>.stride(),
+    aligned_at: 1)
+  var d = PointerToMutable<Int>( type_punning: c )
+
   var e = d.advance(by: 1)
   var f = e.advance(by: -1)
   precondition(d == f)
@@ -12,5 +25,6 @@ fun test_advance() {
 }
 
 public fun main() {
+  test_advance_by_bytes()
   test_advance()
 }
