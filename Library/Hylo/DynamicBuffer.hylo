@@ -24,7 +24,7 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
   /// A null value denotes an empty buffer. Otherwise, `storage` points at an instance of
   /// `BufferHeader` that is followed by a region capable of storing at most `self.capacity`
   /// instances of `Element`, offset to satisfy `Element`'s alignment requirement'.
-  var storage: PointerToMutable<Never>
+  var storage: MemoryAddress
 
   /// Creates an empty instance.
   public init() {

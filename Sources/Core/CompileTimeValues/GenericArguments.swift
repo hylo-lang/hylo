@@ -65,6 +65,14 @@ public struct GenericArguments {
     return clone
   }
 
+  /// Returns `self` merged with `other`, asserting that duplicate keys have the same value.
+  public func merging(_ other: Self) -> Self {
+    merging(other) { (a, b) in
+      assert(a.equals(b))
+      return a
+    }
+  }
+
   /// Appends `suffix` to `self`.
   ///
   /// - Requires: `self` does not define a value for any of the values defined in `suffix`.

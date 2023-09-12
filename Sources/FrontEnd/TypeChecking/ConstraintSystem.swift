@@ -191,28 +191,27 @@ struct ConstraintSystem {
       return .success
     }
 
-    // Process structural and built-in conformances.
+    // Process structural conformances.
     switch goal.concept {
     case checker.program.ast.movableTrait:
-      return goal.model.isBuiltin ? .success : solve(structuralConformance: goal)
+      return solve(structuralConformance: goal)
     case checker.program.ast.deinitializableTrait:
-      return goal.model.isBuiltin ? .success : solve(structuralConformance: goal)
-    case checker.program.ast.foreignConvertibleTrait:
-      return goal.model.isBuiltin ? .success : .failure(failureToSolve(goal))
+      return solve(structuralConformance: goal)
     default:
       return .failure(failureToSolve(goal))
     }
   }
 
-  /// Knowing `goal.concept` can be conformed structurally and `goal.model` is a structural type,
-  /// returns `.success` if `goal.model` is empty or `.product` otherwise. Returns `.failure` if
-  /// if `goal.model` isn't a structural type.
+  /// Knowing types can conform to `goal.concept` structurally, if `goal.model` is a structural
+  /// type, creates and returns sub-goals checking that its parts conform to `goal.concept`.
+  /// Otherwise, returns `.failure`.
   ///
   /// - Requires: `goal.model` is not a type variable.
   private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
-    assert(!goal.model.isTypeVariable)
+    let model = checker.canonical(goal.model, in: scope)
+    assert(!model.isTypeVariable)
 
-    switch goal.model.base {
+    switch model.base {
     case let t as TupleType:
       return delegate(structuralConformance: goal, for: t.elements.lazy.map(\.type))
     case let t as UnionType:

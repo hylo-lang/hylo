@@ -229,6 +229,8 @@ public struct TypedProgram {
       return storage(of: u)
     case let u as TupleType:
       return u.elements
+    case let u as TypeAliasType:
+      return storage(of: u.resolved)
     default:
       assert(!t.hasRecordLayout)
       return []
@@ -254,7 +256,9 @@ public struct TypedProgram {
     var result: [TupleType.Element] = []
     for b in ast[t.decl].members.filter(BindingDecl.self) {
       for (_, n) in ast.names(in: ast[b].pattern) {
-        result.append(.init(label: ast[ast[n].decl].baseName, type: declType[ast[n].decl]!))
+        let partName = ast[ast[n].decl].baseName
+        let partType = canonical(declType[ast[n].decl]!, in: AnyScopeID(t.decl))
+        result.append(.init(label: partName, type: partType))
       }
     }
     return result

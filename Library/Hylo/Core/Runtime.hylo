@@ -17,7 +17,7 @@ public namespace Runtime {
     let alignment: Int
 
     /// The description of the type's layout.
-    let representation: PointerToMutable<Never>
+    let representation: MemoryAddress
 
   }
 

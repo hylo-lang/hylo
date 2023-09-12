@@ -126,17 +126,34 @@ struct TypeChecker {
     switch t.base {
     case let u as BoundGenericType:
       return conformedTraits(of: u.base, in: scopeOfUse)
+    case let u as BuiltinType:
+      return conformedTraits(of: u, in: scopeOfUse)
     case let u as GenericTypeParameterType:
       return conformedTraits(of: u, in: scopeOfUse)
     case let u as ProductType:
       return conformedTraits(of: u, in: scopeOfUse)
     case let u as TraitType:
       return conformedTraits(of: u, in: scopeOfUse)
+    case let u as TypeAliasType:
+      return conformedTraits(of: u.resolved, in: scopeOfUse)
     case let u as WitnessType:
       return conformedTraits(of: u, in: scopeOfUse)
     default:
       return conformedTraits(declaredInExtensionsOf: t, exposedTo: scopeOfUse)
     }
+  }
+
+  /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
+  private func conformedTraits(
+    of t: BuiltinType, in scopeOfUse: AnyScopeID
+  ) -> Set<TraitType> {
+    if t == .module { return [] }
+
+    return [
+      program.ast.movableTrait,
+      program.ast.deinitializableTrait,
+      program.ast.foreignConvertibleTrait
+    ]
   }
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.

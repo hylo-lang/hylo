@@ -428,7 +428,8 @@ extension Module {
     func rewrite(subfieldView i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! SubfieldView
       let a = rewritten(s.recordAddress)
-      append(makeSubfieldView(of: a, subfield: s.subfield, at: s.site), to: b)
+      let newInstruction = makeSubfieldView(of: a, subfield: s.subfield, at: s.site)
+      append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

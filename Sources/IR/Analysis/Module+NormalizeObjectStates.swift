@@ -674,10 +674,10 @@ extension Module {
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedSubfields {
-      let s = insert(makeSubfieldView(of: root, subfield: path, at: site), before: i)
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
         e.insertionPoint = .before(i)
-        e.emitDeinit(.register(s), at: site)
+        let s = e.emitSubfieldView(root, at: path, at: site)
+        e.emitDeinit(s, at: site)
       }
     }
   }

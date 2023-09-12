@@ -6,6 +6,6 @@ public fun print(_ item: String, terminator: String = "\n") {
 }
 
 /// The standard output of the current process.
-fun stdout() -> PointerToMutable<Never> {
+fun stdout() -> MemoryAddress {
   .new(base: fdopen(1, CVoidPointer(base: "w".utf8.base)).base)
 }
