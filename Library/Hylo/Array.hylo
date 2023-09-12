@@ -1,5 +1,5 @@
 /// An ordered, random-access collection.
-public type Array<Element: Movable> : Regular {
+public type Array<Element: Movable> : Deinitializable {
 
   // TODO: Change from `Int` header to `Void` once #1000 is fixed
   var _storage: DynamicBuffer<Int, Element>
@@ -64,6 +64,13 @@ public type Array<Element: Movable> : Regular {
   }
 }
 
+/*
+
+// TODO: Make Array conform to Regular instead of Deinitializable once #1002 is fixed.
+// Currently that issue prevents the copy() function below from compiling.
+//
+// Error is "type 'Element' does not conform to trait 'Movable'"
+
 public conformance Array: Equatable {
 
   /// Returns `true` iff `other` has an equivalent value.
@@ -81,3 +88,5 @@ public conformance Array: Copyable {
     .new()
   }
 }
+
+*/
