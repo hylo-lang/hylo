@@ -31,7 +31,7 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
     &storage = .null()
   }
 
-  /// Creates an instance for storing `capacity` instances of `Element` and calling `init_header`
+  /// Creates an instance for storing `capacity` instances of `Element` and calls `init_header`
   /// to initialize a `Header`.
   public init<E>(
     capacity: Int,
@@ -46,6 +46,14 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
       &h.0 = capacity.copy()
       init_header(&h.1)
     })
+  }
+
+  /// Returns the address of the initial element.
+  /// - Precondition: `capacity != 0`
+  public fun first_element_address() -> PointerToMutable<Element> {
+    // TODO: Uncomment the following line when #995 is fixed
+    // precondition(self.capacity() == 0)
+    return PointerToMutable<Element>(type_punning: storage.advance(by_bytes: payload_offset()))
   }
 
   /// Deinitializes `self`.
