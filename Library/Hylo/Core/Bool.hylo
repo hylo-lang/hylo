@@ -39,20 +39,10 @@ public type Bool {
     Bool(value: Builtin.or_i1(self.value, rhs.value))
   }
 
-  /// Performs a logical AND on two boolean values.
-  public fun infix&& <E> (_ rhs: [E]() -> Bool) -> Bool {
-    if self { rhs() } else { false }
-  }
-
-  /// Performs a logical OR on two boolean values.
-  public fun infix|| <E> (_ rhs: [E]() -> Bool) -> Bool {
-    if self { true } else { rhs() }
-  }
-
-  /// A textual representation of the Boolean value.
-  property description: String {
+  public fun description() -> String {
     if self { "true" } else { "false" }
   }
+
 }
 
 public conformance Bool: Deinitializable {}
