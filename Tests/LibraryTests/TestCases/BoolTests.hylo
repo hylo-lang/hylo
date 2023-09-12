@@ -1,0 +1,25 @@
+//- compileAndRun expecting: success
+public fun main() {
+  // Bool.init(), infix==, infix!=
+  precondition(Bool() == false)
+  precondition(false == Bool())
+  precondition(Bool() != true)
+  precondition(true != Bool())
+  
+  // Negation
+  precondition(!Bool() == true)
+  precondition(!true == false)
+
+  // toggle
+  var one = false;
+  one.toggle()
+  precondition(one == true, "false should toggle to true")
+  one.toggle()
+  precondition(one == false, "true should toggle to false")
+
+  // infix&&
+  precondition((true && true) == true)
+  precondition((true && false) == false)
+  precondition((false && true) == false)
+  precondition((false && false) == false)
+}
