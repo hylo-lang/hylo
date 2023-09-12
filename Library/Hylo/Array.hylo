@@ -1,0 +1,83 @@
+/// An ordered, random-access collection.
+public type Array<Element: Movable> : Regular {
+
+  // TODO: Change from `Int` header to `Void` once #1000 is fixed
+  var _storage: DynamicBuffer<Int, Element>
+  var _count: Int
+
+  /// Creates a new, empty array
+  public init() {
+    &_storage = .new()
+    &_count = 0
+  }
+
+  /// The number of elements in the array
+  public fun count() -> Int {
+    return _count.copy()
+  }
+  public fun capacity() -> Int {
+    return _storage.capacity()
+  }
+
+  /// Reserves enough space to store `x` elements
+  public fun reserveCapacity( _ x : Int) {
+    if( x >= capacity() ) {
+      return
+    }
+    var new_capacity : Int;
+    if( capacity() == 0 ) {
+      &new_capacity = 1;
+    } else {
+      &new_capacity = capacity();
+    }
+    while (new_capacity < x) {
+      &new_capacity = capacity() + capacity()
+    }
+    var new_storage = DynamicBuffer<Int,Element>(
+      capacity: new_capacity,
+      initializing_header_with: fun(_ h: set Int) -> Void { &h = 0 }
+    )
+
+    var i = 0
+    var e = _storage.first_element_address()
+    var f = new_storage.first_element_address()
+    while( i < count() ) {
+      f.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
+        &x = &e.unsafe[]
+      } )
+
+      &e = e.advance( by: 1 )
+      &f = f.advance( by: 1 )
+    }
+
+    &_storage = new_storage
+  }
+
+  /// Adds a new element at the end of the array.
+  public fun append(from source: sink Element) {
+    reserveCapacity( count() + 1 )
+    var p = _storage.first_element_address().advance(by: count())
+
+    p.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
+      &x = source
+    } )
+  }
+}
+
+public conformance Array: Equatable {
+
+  /// Returns `true` iff `other` has an equivalent value.
+  public fun infix== (_ other: Self) -> Bool {
+    // TODO
+    return true
+  }
+
+}
+
+public conformance Array: Copyable {
+  /// Returns an equivalent instance.
+  public fun copy() -> Self {
+    // TODO
+    .new()
+  }
+}

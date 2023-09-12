@@ -1,0 +1,10 @@
+//- compileAndRun expecting: success
+
+fun test_init_empty() {
+  var d = Array<Int>()
+  precondition(d.count() == 0)
+}
+
+public fun main() {
+  test_init_empty()
+}
