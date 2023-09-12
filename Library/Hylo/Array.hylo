@@ -43,7 +43,7 @@ public type Array<Element: Movable> : Deinitializable {
     var f = new_storage.first_element_address()
     while( i < count() ) {
       f.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
-        &x = &e.unsafe[]
+        &x = e.unsafe[]
       } )
 
       &e = e.advance( by: 1 )
