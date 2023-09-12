@@ -73,6 +73,15 @@
       }
     },
     {
+      "identity" : "swift-gyb-build-tool",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hylo-lang/swift-gyb-build-tool.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "9c5980b1944a650b795f0dc4aab06772ba9803ef"
+      }
+    },
+    {
       "identity" : "swift-syntax",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
