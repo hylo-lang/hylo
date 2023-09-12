@@ -75,6 +75,8 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable, Mo
 
 }
 
+// TODO: This trait was added as a workaround for #1002 since DynamicBuffer
+// is initialized in the Array constructor
 public conformance DynamicBuffer: Movable {
 
   fun take_value(from source: sink Self) -> {self: Self, Void} {
