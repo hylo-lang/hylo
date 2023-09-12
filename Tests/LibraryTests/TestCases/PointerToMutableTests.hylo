@@ -3,9 +3,9 @@
 fun test_advance() {
   var d = PointerToMutable<Never>.allocate_bytes(
     count: 2,
-    aligned_at: 1 )
+    aligned_at: 1)
   var e = d.advance(by: 1)
-  var f = e.advance(by:-1)
+  var f = e.advance(by: -1)
   precondition(d == f)
   precondition(!(d == e))
   precondition(!(f == e))

@@ -899,7 +899,7 @@ extension LLVM.Module {
       case .zeroinitializer(let t):
         register[.register(i)] = ir.llvm(builtinType: t, in: &self).null
 
-      case .advancedByBytes(_):
+      case .advancedByBytes:
         let base = llvm(s.operands[0])
         let byteOffset = llvm(s.operands[1])
         register[.register(i)] = insertGetElementPointerInBounds(
