@@ -12,7 +12,24 @@ fun test_init_with_capacity() {
   precondition(d.capacity() == 5)
 }
 
+fun test_first_element_address() {
+  var d = DynamicBuffer<Int, Int>(
+    capacity: 2,
+    initializing_header_with: fun(_ h: set Int) -> Void { &h = 0 })
+  let element0 = d.first_element_address()
+  let element1 = element0.advance(by: 1)
+  element0.unsafe_initialize_pointee(fun (_ i: set Int) -> Void {
+    &i = 0
+  })
+  element1.unsafe_initialize_pointee(fun (_ i: set Int) -> Void {
+    &i = 1
+  })
+  precondition(element0.unsafe[] == 0)
+  precondition(element1.unsafe[] == 1)
+}
+
 public fun main() {
   test_init_empty()
   test_init_with_capacity()  
+  test_first_element_address()
 }
