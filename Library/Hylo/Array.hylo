@@ -23,12 +23,12 @@ public type Array<Element: Movable> : Deinitializable {
     return _storage.capacity()
   }
 
-  /// Reserves enough space to store `x` elements
-  public fun reserveCapacity(_ x : Int) {
-    if x >= capacity() { return }
+  /// Reserves enough space to store `n` elements
+  public fun reserve_capacity(_ n: Int) {
+    if n >= capacity() { return }
 
     var new_capacity = max[1, capacity()].copy()
-    while new_capacity < x {
+    while new_capacity < n {
       &new_capacity = capacity() + capacity()
     }
 
@@ -54,7 +54,7 @@ public type Array<Element: Movable> : Deinitializable {
 
   /// Adds a new element at the end of the array.
   public fun append(from source: sink Element) {
-    reserveCapacity(count() + 1)
+    reserve_capacity(count() + 1)
     var p = _storage.first_element_address().advance(by: count())
     // TODO: Currently blocked by #1003
     // p.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
