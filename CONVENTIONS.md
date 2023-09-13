@@ -80,7 +80,7 @@ Many uses of `UNIMPLEMENTED()` predate this policy and don't include the string 
 
 #### Unreachable code paths
 
-Use the function `unreachable` to document that a particular code path is assumed to be unreachable because of some code logic that the type checker cannot verify.
+Call `unreachable()` (defined in `Utils`) on any code path that indicates a bug in the Hylo compiler if ever reached. 
 
 ## Reporting bugs
 
