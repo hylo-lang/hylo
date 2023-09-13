@@ -22,11 +22,11 @@ extension Comparable {
 }
 
 /// Returns the lesser of `x` and `y`.
-public subscript min<T: Comparable & Copyable>(_ x: T, _ y: T): T {
+public subscript min<T: Comparable>(_ x: T, _ y: T): T {
   if y < x { yield y } else { yield x }
 }
 
 /// Returns the greater of `x` and `y`.
-public subscript max<T: Comparable & Copyable>(_ x: T, _ y: T): T {
+public subscript max<T: Comparable>(_ x: T, _ y: T): T {
   if x < y { yield y } else { yield x }
 }
