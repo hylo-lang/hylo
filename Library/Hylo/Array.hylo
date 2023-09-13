@@ -1,8 +1,7 @@
 /// An ordered, random-access collection.
 public type Array<Element: Movable> : Deinitializable {
 
-  // TODO: Change from `Int` header to `Void` once #1000 is fixed
-  var _storage: DynamicBuffer<Int, Element>
+  var _storage: DynamicBuffer<Void, Element>
   var _count: Int
 
   /// Creates a new, empty array
@@ -33,10 +32,10 @@ public type Array<Element: Movable> : Deinitializable {
     while (new_capacity < x) {
       &new_capacity = capacity() + capacity()
     }
-    var new_storage = DynamicBuffer<Int,Element>(
+
+    var new_storage = DynamicBuffer<Void, Element>(
       capacity: new_capacity,
-      initializing_header_with: fun(_ h: set Int) -> Void { &h = 0 }
-    )
+      initializing_header_with: fun (_ h: set Void) -> Void { &h = () })
 
     var i = 0
     var e = _storage.first_element_address()
