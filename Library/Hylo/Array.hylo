@@ -7,32 +7,33 @@ public type Array<Element: Movable> : Deinitializable {
   /// The number of elements in the array.
   var _count: Int
 
-  /// Creates a new, empty array
+  /// Creates a new, empty array.
   public init() {
     &_storage = .new()
     &_count = 0
   }
 
-  /// The number of elements in the array
+  /// The number of elements in the array.
   public fun count() -> Int {
     return _count.copy()
   }
+
+  /// The number of elements that can be stored in the array before new storage must be allocated.
   public fun capacity() -> Int {
     return _storage.capacity()
   }
 
   /// Reserves enough space to store `x` elements
-  public fun reserveCapacity( _ x : Int) {
-    if( x >= capacity() ) {
-      return
-    }
-    var new_capacity : Int;
-    if( capacity() == 0 ) {
-      &new_capacity = 1;
+  public fun reserveCapacity(_ x : Int) {
+    if x >= capacity() { return }
+
+    var new_capacity: Int
+    if capacity() == 0 {
+      &new_capacity = 1
     } else {
-      &new_capacity = capacity();
+      &new_capacity = capacity()
     }
-    while (new_capacity < x) {
+    while new_capacity < x {
       &new_capacity = capacity() + capacity()
     }
 
@@ -43,14 +44,14 @@ public type Array<Element: Movable> : Deinitializable {
     var i = 0
     var e = _storage.first_element_address()
     var f = new_storage.first_element_address()
-    while( i < count() ) {
+    while i < count() {
       // TODO: This is currently blocked by #1003
       // f.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
       //   &x = e.unsafe[]
       // } )
 
-      &e = e.advance( by: 1 )
-      &f = f.advance( by: 1 )
+      &e = e.advance(by: 1)
+      &f = f.advance(by: 1)
     }
 
     &_storage = new_storage
@@ -58,7 +59,7 @@ public type Array<Element: Movable> : Deinitializable {
 
   /// Adds a new element at the end of the array.
   public fun append(from source: sink Element) {
-    reserveCapacity( count() + 1 )
+    reserveCapacity(count() + 1)
     var p = _storage.first_element_address().advance(by: count())
     // TODO: Currently blocked by #1003
     // p.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
