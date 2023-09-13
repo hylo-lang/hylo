@@ -56,10 +56,10 @@ public type Array<Element: Movable> : Deinitializable {
   public fun append(from source: sink Element) {
     reserve_capacity(count() + 1)
     var p = _storage.first_element_address().advance(by: count())
-    // TODO: Currently blocked by #1003
-    // p.unsafe_initialize_pointee( fun(_ x:set Element) -> Void {
-    //   &x = source
-    // } )
+    // TODO: This is currently blocked by #1006
+    // p.unsafe_initialize_pointee(fun[sink let s = source] (_ x: set Element) -> Void {
+    //   &x = s
+    // })
   }
 }
 
