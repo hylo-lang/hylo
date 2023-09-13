@@ -27,12 +27,7 @@ public type Array<Element: Movable> : Deinitializable {
   public fun reserveCapacity(_ x : Int) {
     if x >= capacity() { return }
 
-    var new_capacity: Int
-    if capacity() == 0 {
-      &new_capacity = 1
-    } else {
-      &new_capacity = capacity()
-    }
+    var new_capacity = max[1, capacity()].copy()
     while new_capacity < x {
       &new_capacity = capacity() + capacity()
     }
