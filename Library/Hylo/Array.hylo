@@ -1,7 +1,10 @@
 /// An ordered, random-access collection.
 public type Array<Element: Movable> : Deinitializable {
 
+  /// The out-of-line storage of the array.
   var _storage: DynamicBuffer<Void, Element>
+
+  /// The number of elements in the array.
   var _count: Int
 
   /// Creates a new, empty array
