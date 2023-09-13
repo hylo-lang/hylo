@@ -234,13 +234,3 @@ public conformance Int: ForeignConvertible {
   }
 
 }
-
-/// Returns the lesser of `x` and `y`.
-public fun min(_ x: Int, _ y: Int) -> Int {
-  if y < x { y.copy() } else { x.copy() }
-}
-
-/// Returns the greater of `x` and `y`.
-public fun max(_ x: Int, _ y: Int) -> Int {
-  if x < y { y.copy() } else { x.copy() }
-}

@@ -1,15 +1,15 @@
 //- compileAndRun expecting: success
 
 fun test_min() {
-  precondition(min(1, 2) == 1)
-  precondition(min(1, 1) == 1)
-  precondition(min(2, 1) == 1)
+  precondition(min[1, 2] == 1)
+  precondition(min[1, 1] == 1)
+  precondition(min[2, 1] == 1)
 }
 
 fun test_max() {
-  precondition(max(1, 2) == 2)
-  precondition(max(1, 1) == 1)
-  precondition(max(2, 1) == 2)
+  precondition(max[1, 2] == 2)
+  precondition(max[1, 1] == 1)
+  precondition(max[2, 1] == 2)
 }
 
 public fun main() {
