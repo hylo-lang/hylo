@@ -219,6 +219,8 @@ public conformance Int: Copyable {
 
 }
 
+public conformance Int: Comparable {}
+
 public conformance Int: ForeignConvertible {
 
   public typealias ForeignRepresentation = Builtin.word
