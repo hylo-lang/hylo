@@ -28,17 +28,15 @@ If it hasn't, you can create a new issue with the label `bug` with the following
 - a description of the bug that you encountered;
 - the steps to reproduce it (typically in the form of a program);
 - the expected result;
-- the actual result; and
-- the version of your operating system and the version of the Hylo compiler you are using.
+- the actual result;
+- the version of your operating system; and
+- the commit hash and public repository of the code you are using.
 
 We greatly appreciate it if you can isolate the problem and provide a minimal reproducer.
 
 ## Contributing code
 
-All code must pass linting with [swift-format](https://github.com/apple/swift-format) in this project's 
-[style](.swift-format.json).  [Tools/run-swift-format.sh](Tools/run-swift-format.sh) can
-be used to build (if necessary) and run swift-format appropriately.
-
+Please get familiar with our [CONVENTIONS.md](project conventions).
 We use the standard GitHub workflow to merge code contributions:
 
 1. Fork this repository.
