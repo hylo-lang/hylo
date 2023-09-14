@@ -1,0 +1,5 @@
+//- lowerToFinishedIR expecting: failure
+
+public type Foo {
+  public init() { }  //! diagnostic set parameter not initialized before function returns
+}
