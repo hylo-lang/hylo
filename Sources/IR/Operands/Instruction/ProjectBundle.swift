@@ -14,8 +14,8 @@ public struct ProjectBundle: Instruction {
 
   /// The arguments of the call.
   ///
-  /// Operands to non-`sink` inputs must be the result of an `access` instruction requesting a
-  /// capability for each variant in `callee` and having no use before `project`.
+  /// Operands to must be the result of an `access` instruction requesting a capability for each
+  /// variant in `callee` and having no use before `project_bundle`.
   public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.
@@ -77,24 +77,24 @@ extension ProjectBundle: CustomStringConvertible {
 extension Module {
 
   /// Creates a `project_bundle` anchored at `site` that projects a value by applying one of the
-  /// given `variants` on `arguments`. The variants are defined in `bundle`, which is has type
-  /// `bundleType`.
-  ///
-  /// - Requires: `bundleType` is canonical and `variants` is not empty.
-  func makeProjectBundle(
-    applying variants: [AccessEffect: Function.ID],
-    of bundle: BundleReference<SubscriptDecl>,
-    typed bundleType: SubscriptType,
+  /// variants in `bundle` on `arguments`, canonicalizing types in `scopeOfUse`.
+  mutating func makeProjectBundle(
+    applying bundle: BundleReference<SubscriptDecl>,
     to arguments: [Operand],
+    in scopeOfUse: AnyScopeID,
     at site: SourceRange
   ) -> ProjectBundle {
-    precondition(bundleType[.isCanonical])
+    var variants: [AccessEffect: Function.ID] = [:]
+    for v in program[bundle.bundle].impls {
+      variants[program[v].introducer.value] = demandDeclaration(lowering: v)
+    }
+
+    let bundleType = program.canonicalType(
+      of: bundle.bundle, specializedBy: bundle.arguments, in: scopeOfUse)
+    let t = SubscriptType(bundleType)!.pure
+
     return .init(
-      bundle: bundle,
-      pureCalleeType: bundleType.pure,
-      variants: variants,
-      operands: arguments,
-      site: site)
+      bundle: bundle, pureCalleeType: t, variants: variants, operands: arguments, site: site)
   }
 
 }
