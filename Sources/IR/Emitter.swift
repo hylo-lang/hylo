@@ -1655,7 +1655,7 @@ struct Emitter {
 
   private mutating func emit(
     subscriptCallee callee: AnyExprID
-  ) -> (callee: SubscriptBundleReference, captures: [Operand]) {
+  ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
     // TODO: Handle captures
     switch callee.kind {
     case NameExpr.self:
@@ -1672,7 +1672,7 @@ struct Emitter {
 
   private mutating func emit(
     namedSubscriptCallee callee: NameExpr.ID
-  ) -> (callee: SubscriptBundleReference, captures: [Operand]) {
+  ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == SubscriptDecl.self:
       // Callee is a direct reference to a subscript declaration.
@@ -1681,12 +1681,12 @@ struct Emitter {
         UNIMPLEMENTED()
       }
 
-      let b = SubscriptBundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+      let b = BundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
       return (b, [])
 
     case .member(let d, let a, let s) where d.kind == SubscriptDecl.self:
       // Callee is a member reference to a subscript declaration.
-      let b = SubscriptBundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+      let b = BundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
 
       // The callee's receiver is the sole capture.
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
