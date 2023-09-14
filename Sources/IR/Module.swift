@@ -307,7 +307,7 @@ public struct Module {
   mutating func demandDeclaration(lowering d: InitializerDecl.ID) -> Function.ID {
     precondition(!program.ast[d].isMemberwise)
 
-    let f = Function.ID(initializer: d)
+    let f = Function.ID(d)
     if functions[f] != nil { return f }
 
     let parameters = program.accumulatedGenericParameters(in: d)
