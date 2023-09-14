@@ -30,8 +30,8 @@ extension Function {
     public let value: Value
 
     /// Creates the identity of the lowered form of `d`, which is the declaration of a function,
-    /// initializer or subscript implementation.s
-    public init<T: DeclID>(_ d: T) {
+    /// initializer, or subscript implementation.s
+    init<T: DeclID>(_ d: T) {
       switch d.kind {
       case FunctionDecl.self, InitializerDecl.self:
         self.value = .lowered(AnyDeclID(d))
@@ -43,7 +43,7 @@ extension Function {
     }
 
     /// Creates the identity of the lowered form of `s`.
-    public init(_ s: SynthesizedFunctionDecl) {
+    init(_ s: SynthesizedFunctionDecl) {
       self.value = .synthesized(s)
     }
 
