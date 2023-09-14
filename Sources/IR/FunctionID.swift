@@ -34,7 +34,7 @@ extension Function {
     }
 
     /// Creates the identity of the lowered form of `f` used as an initializer.
-    public init(initializer f: InitializerDecl.ID) {
+    public init(_ f: InitializerDecl.ID) {
       self.value = .lowered(AnyDeclID(f))
     }
 
