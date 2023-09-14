@@ -329,11 +329,17 @@ public struct TypedProgram {
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
     let m = canonical(model, in: scopeOfUse)
+
     if let c = explicitConformance(of: m, to: concept, exposedTo: scopeOfUse) {
       return c
-    } else {
-      return structuralConformance(of: m, to: concept, exposedTo: scopeOfUse)
     }
+
+    if let c = impliedConformance(of: m, to: concept, exposedTo: scopeOfUse) {
+      return c
+    }
+
+    // Last resort; maybe the conformance is structural.
+    return structuralConformance(of: m, to: concept, exposedTo: scopeOfUse)
   }
 
   /// Returns the explicitly declared conformance of `model` to `concept` that is exposed to
@@ -375,6 +381,28 @@ public struct TypedProgram {
         return isContained(scopeOfUse, in: c.scope)
       }
     }
+  }
+
+  /// Returns the conformance of `model` to `concept` that is implied by the generic environment
+  /// introducing `model` in `scopeOfUse`, or `nil` if such a conformance doesn't exist.
+  private func impliedConformance(
+    of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
+  ) -> Conformance? {
+    var checker = TypeChecker(asContextFor: self)
+    let bounds = checker.conformedTraits(
+      declaredInEnvironmentIntroducing: model,
+      exposedTo: scopeOfUse)
+    guard bounds.contains(concept) else { return nil }
+
+    var implementations = Conformance.ImplementationMap()
+    for requirement in ast.requirements(of: concept.decl) {
+      implementations[requirement] = .concrete(requirement)
+    }
+
+    return .init(
+      model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
+      implementations: implementations, isStructural: true,
+      site: .empty(at: ast[scopeOfUse].site.first()))
   }
 
   /// Returns the implicit structural conformance of `model` to `concept` that is exposed to
