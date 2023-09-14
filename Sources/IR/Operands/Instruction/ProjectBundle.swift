@@ -4,7 +4,7 @@ import Core
 public struct ProjectBundle: Instruction {
 
   /// The subscript bundle implementing the projections.
-  public let bundle: SubscriptBundleReference
+  public let bundle: BundleReference<SubscriptDecl>
 
   /// The pure functional type of the callee.
   public let pureCalleeType: LambdaType
@@ -23,7 +23,7 @@ public struct ProjectBundle: Instruction {
 
   /// Creates an instance with the given properties.
   fileprivate init(
-    bundle: SubscriptBundleReference,
+    bundle: BundleReference<SubscriptDecl>,
     pureCalleeType: LambdaType,
     variants: [AccessEffect: Function.ID],
     operands: [Operand],
@@ -83,7 +83,7 @@ extension Module {
   /// - Requires: `bundleType` is canonical and `variants` is not empty.
   func makeProjectBundle(
     applying variants: [AccessEffect: Function.ID],
-    of bundle: SubscriptBundleReference,
+    of bundle: BundleReference<SubscriptDecl>,
     typed bundleType: SubscriptType,
     to arguments: [Operand],
     at site: SourceRange
