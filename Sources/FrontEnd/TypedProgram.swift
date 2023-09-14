@@ -329,7 +329,7 @@ public struct TypedProgram {
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
     let m = canonical(model, in: scopeOfUse)
-    if let c = declaredConformance(of: m, to: concept, exposedTo: scopeOfUse) {
+    if let c = explicitConformance(of: m, to: concept, exposedTo: scopeOfUse) {
       return c
     } else {
       return structuralConformance(of: m, to: concept, exposedTo: scopeOfUse)
@@ -340,8 +340,9 @@ public struct TypedProgram {
   /// `scopeOfUse`, or `nil` if such a conformance doesn't exist.
   ///
   /// This method returns `nil` if the conformance of `model` to `concept` is structural (e.g., a
-  /// tuple's synthesized conformance to `Movable`).
-  private func declaredConformance(
+  /// tuple's synthesized conformance to `Movable`) or if the conformance is implied by a trait
+  /// bound (e.g., `T: P` in `fun f<T: P>() {}`).
+  private func explicitConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
     assert(model[.isCanonical])
