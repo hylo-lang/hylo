@@ -77,13 +77,4 @@ extension Module {
     return .init(callee: callee, output: output, arguments: arguments, site: site)
   }
 
-  /// Returns `true` iff `o` is an `access [set]` instruction.
-  fileprivate func isBorrowSet(_ o: Operand) -> Bool {
-    guard
-      let i = o.instruction,
-      let s = self[i] as? Access
-    else { return false }
-    return s.capabilities == [.set]
-  }
-
 }

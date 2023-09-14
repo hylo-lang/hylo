@@ -791,4 +791,13 @@ public struct Module {
     }
   }
 
+  /// Returns `true` iff `o` is an `access [set]` instruction.
+  func isBorrowSet(_ o: Operand) -> Bool {
+    guard
+      let i = o.instruction,
+      let s = self[i] as? Access
+    else { return false }
+    return s.capabilities == [.set]
+  }
+
 }
