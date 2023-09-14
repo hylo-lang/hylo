@@ -428,6 +428,14 @@ public struct TypedProgram {
     }
   }
 
+  /// Returns the type of `d` specialized by `specialization` in `scopeOfUse`.
+  public func canonicalType<T: Decl>(
+    of d: T.ID, specializedBy specialization: GenericArguments, in scopeOfUse: AnyScopeID
+  ) -> AnyType {
+    let t = specialize(self[d].type, for: specialization, in: scopeOfUse)
+    return canonical(t, in: scopeOfUse)
+  }
+
   /// Returns the declarations of `d`' captures.
   ///
   /// If `d` is a member, its receiver is its only capture. Otherwise, this method returns

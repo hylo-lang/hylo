@@ -2034,17 +2034,9 @@ struct Emitter {
     let (callee, captures) = emit(subscriptCallee: ast[e].callee)
     let arguments = captures + explicitArguments
 
-    var variants: [AccessEffect: Function.ID] = [:]
-    for v in ast[callee.bundle].impls {
-      variants[ast[v].introducer.value] = module.demandDeclaration(lowering: v)
-    }
-
-    // Projection is evaluated last.
-    let t = canonicalType(of: callee.bundle, specializedBy: callee.arguments)
-    return insert(
-      module.makeProjectBundle(
-        applying: variants, of: callee, typed: SubscriptType(t)!,
-        to: arguments, at: ast[e].site))!
+    let s = module.makeProjectBundle(
+      applying: callee, to: arguments, in: insertionScope!, at: ast[e].site)
+    return insert(s)!
   }
 
   /// Inserts the IR for lvalue `e`.
@@ -2148,14 +2140,9 @@ struct Emitter {
     let t = SubscriptType(canonicalType(of: d, specializedBy: specialization))!
     let r = insert(module.makeAccess(t.capabilities, from: receiver, at: site))!
 
-    var variants: [AccessEffect: Function.ID] = [:]
-    for v in ast[d].impls {
-      variants[ast[v].introducer.value] = module.demandDeclaration(lowering: v)
-    }
-
     let s = module.makeProjectBundle(
-      applying: variants, of: .init(to: d, parameterizedBy: specialization), typed: t,
-      to: [r], at: site)
+      applying: .init(to: d, parameterizedBy: specialization), to: [r],
+      in: insertionScope!, at: site)
     return insert(s)!
   }
 
