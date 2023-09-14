@@ -145,7 +145,7 @@ extension Module {
       arguments[a] = .register(insert(b, before: i))
     }
 
-    let o = RemoteType(k, s.projection.bareType)
+    let o = RemoteType(k, s.projection)
     let reified = makeProject(
       o, applying: s.variants[k]!, specializedBy: s.bundle.arguments, to: arguments, at: s.site)
     replace(i, with: reified)

@@ -6,8 +6,11 @@ public struct ProjectBundle: Instruction {
   /// The subscript bundle implementing the projections.
   public let bundle: BundleReference<SubscriptDecl>
 
-  /// The pure functional type of the callee.
-  public let pureCalleeType: LambdaType
+  /// The parameters of the subscript.
+  public let parameters: [ParameterType]
+
+  /// The type of the projected value.
+  public let projection: AnyType
 
   /// The subscripts implementing the projection.
   public let variants: [AccessEffect: Function.ID]
@@ -24,14 +27,16 @@ public struct ProjectBundle: Instruction {
   /// Creates an instance with the given properties.
   fileprivate init(
     bundle: BundleReference<SubscriptDecl>,
-    pureCalleeType: LambdaType,
     variants: [AccessEffect: Function.ID],
+    parameters: [ParameterType],
+    projection: AnyType,
     operands: [Operand],
     site: SourceRange
   ) {
     self.bundle = bundle
-    self.pureCalleeType = pureCalleeType
     self.variants = variants
+    self.parameters = parameters
+    self.projection = projection
     self.operands = operands
     self.site = site
   }
@@ -41,19 +46,9 @@ public struct ProjectBundle: Instruction {
     .init(variants.keys)
   }
 
-  /// The type of the projected value.
-  public var projection: RemoteType {
-    RemoteType(pureCalleeType.output)!
-  }
-
-  /// The parameters of the projection.
-  public var parameters: LazyMapSequence<[CallableTypeParameter], ParameterType> {
-    pureCalleeType.inputs.lazy.map({ ParameterType($0.type)! })
-  }
-
   /// The types of the instruction's results.
   public var result: IR.`Type`? {
-    .address(projection.bareType)
+    .address(projection)
   }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
@@ -94,7 +89,10 @@ extension Module {
     let t = SubscriptType(bundleType)!.pure
 
     return .init(
-      bundle: bundle, pureCalleeType: t, variants: variants, operands: arguments, site: site)
+      bundle: bundle, variants: variants,
+      parameters: t.inputs.lazy.map({ ParameterType($0.type)! }),
+      projection: RemoteType(t.output)!.bareType,
+      operands: arguments, site: site)
   }
 
 }
