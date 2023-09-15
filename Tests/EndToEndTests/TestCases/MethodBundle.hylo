@@ -1,0 +1,20 @@
+//- compileAndRun expecting: success
+
+type A: Deinitializable {
+
+  public var x: Int
+
+  public memberwise init
+
+  public fun foo() -> Int {
+    let  { x.copy() }
+    sink { x }
+  }
+
+}
+
+public fun main() {
+  var a = A(x: 42)
+  precondition(a.foo() == 42)
+  precondition(a.foo() == 42)
+}

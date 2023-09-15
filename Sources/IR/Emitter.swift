@@ -318,6 +318,46 @@ struct Emitter {
   }
 
   /// Inserts the IR for `d`.
+  private mutating func lower(method d: MethodDecl.ID) {
+    for i in ast[d].impls {
+      lower(methodImpl: i)
+    }
+  }
+
+  /// Inserts the IR for `d`.
+  private mutating func lower(methodImpl d: MethodImpl.ID) {
+    let f = module.demandDeclaration(lowering: d)
+    guard let b = ast[d].body else { return }
+
+    // Create the function entry.
+    let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
+
+    // Configure the locals.
+    var locals = DeclProperty<Operand>()
+    locals[ast[d].receiver] = .parameter(entry, 0)
+
+    let bundle = MethodDecl.ID(program[d].scope)!
+    for (i, p) in ast[bundle].parameters.enumerated() {
+      locals[p] = .parameter(entry, i + 1)
+    }
+
+    let bodyFrame = Frame(locals: locals)
+
+    // Emit the body.
+    self.insertionPoint = .end(of: entry)
+    switch b {
+    case .block(let s):
+      let returnType = LambdaType(program[d].type)!.output
+      let returnSite = pushing(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
+      insert(module.makeReturn(at: returnSite))
+
+    case .expr(let e):
+      pushing(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
+      insert(module.makeReturn(at: ast[e].site))
+    }
+  }
+
+  /// Inserts the IR for `d`.
   private mutating func lower(subscript d: SubscriptDecl.ID) {
     for i in ast[d].impls {
       lower(subscriptImpl: i)
@@ -416,6 +456,8 @@ struct Emitter {
         lower(function: .init(m)!)
       case InitializerDecl.self:
         lower(initializer: .init(m)!)
+      case MethodDecl.self:
+        lower(method: .init(m)!)
       case SubscriptDecl.self:
         lower(subscript: .init(m)!)
       default:
@@ -1424,8 +1466,9 @@ struct Emitter {
     writingResultTo storage: Operand, at site: SourceRange
   ) {
     let o = insert(module.makeAccess(.set, from: storage, at: site))!
-    insert(module.makeCallBundle(
-      applying: .init(callee, in: insertionScope!), to: arguments, writingResultTo: o, at: site))
+    insert(
+      module.makeCallBundle(
+        applying: .init(callee, in: insertionScope!), to: arguments, writingResultTo: o, at: site))
     insert(module.makeEndAccess(o, at: site))
   }
 

@@ -145,6 +145,10 @@ struct Mangler {
       write(initializer: InitializerDecl.ID(symbol)!, to: &output)
     case MatchCase.self:
       write(anonymousScope: symbol, to: &output)
+    case MethodDecl.self:
+      write(methodDecl: MethodDecl.ID(symbol)!, to: &output)
+    case MethodImpl.self:
+      write(methodImpl: MethodImpl.ID(symbol)!, to: &output)
     case ModuleDecl.self:
       write(entity: ModuleDecl.ID(symbol)!, to: &output)
     case NamespaceDecl.self:
@@ -236,6 +240,19 @@ struct Mangler {
     write(name: Name(stem: "init"), to: &output)
     write(integer: program.ast[d].genericParameters.count, to: &output)
     mangle(type: program[d].type, to: &output)
+  }
+
+  /// Writes the mangled representation of `d` to `output`.
+  private mutating func write(methodDecl d: MethodDecl.ID, to output: inout Output) {
+    write(operator: .methodDecl, to: &output)
+    write(string: program.ast[d].identifier.value, to: &output)
+    mangle(type: program[d].type, to: &output)
+  }
+
+  /// Writes the mangled representation of `d` to `output`.
+  private mutating func write(methodImpl d: MethodImpl.ID, to output: inout Output) {
+    write(operator: .methodImpl, to: &output)
+    write(base64Digit: program.ast[d].introducer.value, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
@@ -383,6 +400,9 @@ struct Mangler {
     case let t as LambdaType:
       write(lambda: t, to: &output)
 
+    case let t as MethodType:
+      write(method: t, to: &output)
+
     case let t as MetatypeType:
       write(operator: .metatypeType, to: &output)
       mangle(type: t.instance, to: &output)
@@ -489,6 +509,21 @@ struct Mangler {
   private mutating func write(lambda t: LambdaType, to output: inout Output) {
     write(operator: .lambdaType, to: &output)
     mangle(type: t.environment, to: &output)
+
+    write(integer: t.inputs.count, to: &output)
+    for i in t.inputs {
+      write(string: i.label ?? "", to: &output)
+      mangle(type: i.type, to: &output)
+    }
+
+    mangle(type: t.output, to: &output)
+  }
+
+  /// Writes the mangled representation of `symbol` to `output`.
+  private mutating func write(method t: MethodType, to output: inout Output) {
+    write(operator: .methodType, to: &output)
+    write(base64Digit: t.capabilities, to: &output)
+    mangle(type: t.receiver, to: &output)
 
     write(integer: t.inputs.count, to: &output)
     for i in t.inputs {
