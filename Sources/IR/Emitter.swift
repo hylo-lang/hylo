@@ -2035,7 +2035,7 @@ struct Emitter {
     let arguments = captures + explicitArguments
 
     let s = module.makeProjectBundle(
-      applying: callee, to: arguments, in: insertionScope!, at: ast[e].site)
+      applying: .init(callee, in: insertionScope!), to: arguments, at: ast[e].site)
     return insert(s)!
   }
 
@@ -2142,8 +2142,7 @@ struct Emitter {
     let r = insert(module.makeAccess(t.capabilities, from: receiver, at: site))!
 
     let s = module.makeProjectBundle(
-      applying: .init(to: d, parameterizedBy: specialization), to: [r],
-      in: insertionScope!, at: site)
+      applying: .init(callee, in: insertionScope!), to: [r], at: site)
     return insert(s)!
   }
 

@@ -72,24 +72,23 @@ extension ProjectBundle: CustomStringConvertible {
 extension Module {
 
   /// Creates a `project_bundle` anchored at `site` that projects a value by applying one of the
-  /// variants in `bundle` on `arguments`, canonicalizing types in `scopeOfUse`.
+  /// variants in `bundle` on `arguments`.
   mutating func makeProjectBundle(
-    applying bundle: BundleReference<SubscriptDecl>,
+    applying bundle: ScopedValue<BundleReference<SubscriptDecl>>,
     to arguments: [Operand],
-    in scopeOfUse: AnyScopeID,
     at site: SourceRange
   ) -> ProjectBundle {
     var variants: [AccessEffect: Function.ID] = [:]
-    for v in program[bundle.bundle].impls {
+    for v in program[bundle.value.bundle].impls {
       variants[program[v].introducer.value] = demandDeclaration(lowering: v)
     }
 
     let bundleType = program.canonicalType(
-      of: bundle.bundle, specializedBy: bundle.arguments, in: scopeOfUse)
+      of: bundle.value.bundle, specializedBy: bundle.value.arguments, in: bundle.scope)
     let t = SubscriptType(bundleType)!.pure
 
     return .init(
-      bundle: bundle, variants: variants,
+      bundle: bundle.value, variants: variants,
       parameters: t.inputs.lazy.map({ ParameterType($0.type)! }),
       projection: RemoteType(t.output)!.bareType,
       operands: arguments, site: site)
