@@ -1466,8 +1466,9 @@ struct Emitter {
     writingResultTo storage: Operand, at site: SourceRange
   ) {
     let o = insert(module.makeAccess(.set, from: storage, at: site))!
-    insert(module.makeCallBundle(
-      applying: .init(callee, in: insertionScope!), to: arguments, writingResultTo: o, at: site))
+    insert(
+      module.makeCallBundle(
+        applying: .init(callee, in: insertionScope!), to: arguments, writingResultTo: o, at: site))
     insert(module.makeEndAccess(o, at: site))
   }
 
