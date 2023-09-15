@@ -7,7 +7,7 @@ import Utils
 /// of the callee. `operands` must contain as many operands as the callee's type.
 public struct Call: Instruction {
 
-  /// The callee and arguments of the call.
+  /// The callee, the return storage, and arguments of the call.
   public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.

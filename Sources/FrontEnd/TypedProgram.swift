@@ -436,7 +436,7 @@ public struct TypedProgram {
     return canonical(t, in: scopeOfUse)
   }
 
-  /// Returns the declarations of `d`' captures.
+  /// Returns the declarations of `d`'s captures.
   ///
   /// If `d` is a member, its receiver is its only capture. Otherwise, this method returns
   /// `nonMemberCaptures(d)`.
@@ -447,7 +447,7 @@ public struct TypedProgram {
     return nonMemberCaptures(of: d)
   }
 
-  /// Returns the declarations of `d`' captures.
+  /// Returns the declarations of `d`'s captures.
   ///
   /// If `d` is a member, its receiver is its only capture. Otherwise, this method returns
   /// `nonMemberCaptures(d)`.
