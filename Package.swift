@@ -16,6 +16,7 @@ let package = Package(
   products: [
     .executable(name: "hc", targets: ["hc"]),
     .executable(name: "hylo-demangle", targets: ["hylo-demangle"]),
+    .library(name: "hc-lib", targets: ["Driver"])
   ],
 
   dependencies: [
