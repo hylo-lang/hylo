@@ -83,7 +83,7 @@ extension Module {
     case is Load:
       return [.sink]
     case is Move:
-      return [.inout]
+      return u.index == 0 ? [.sink] : [.inout]
     case is ProjectBundle:
       return requests(projectBundle: u)
     default:
