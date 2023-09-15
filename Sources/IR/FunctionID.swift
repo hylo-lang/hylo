@@ -1,4 +1,5 @@
 import Core
+import Utils
 
 extension Function {
 
@@ -28,23 +29,21 @@ extension Function {
     /// The value of this identity.
     public let value: Value
 
-    /// Creates the identity of the lowered form of `f`.
-    public init(_ f: FunctionDecl.ID) {
-      self.value = .lowered(AnyDeclID(f))
-    }
-
-    /// Creates the identity of the lowered form of `f` used as an initializer.
-    public init(initializer f: InitializerDecl.ID) {
-      self.value = .lowered(AnyDeclID(f))
+    /// Creates the identity of the lowered form of `d`, which is the declaration of a function,
+    /// initializer, method implementation, or subscript implementation.s
+    init<T: DeclID>(_ d: T) {
+      switch d.kind {
+      case FunctionDecl.self, InitializerDecl.self, MethodImpl.self:
+        self.value = .lowered(AnyDeclID(d))
+      case SubscriptImpl.self:
+        self.value = .loweredSubscript(SubscriptImpl.ID(d)!)
+      default:
+        unreachable()
+      }
     }
 
     /// Creates the identity of the lowered form of `s`.
-    public init(_ s: SubscriptImpl.ID) {
-      self.value = .loweredSubscript(s)
-    }
-
-    /// Creates the identity of the lowered form of `s`.
-    public init(_ s: SynthesizedFunctionDecl) {
+    init(_ s: SynthesizedFunctionDecl) {
       self.value = .synthesized(s)
     }
 

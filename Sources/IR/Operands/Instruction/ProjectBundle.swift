@@ -4,18 +4,21 @@ import Core
 public struct ProjectBundle: Instruction {
 
   /// The subscript bundle implementing the projections.
-  public let bundle: SubscriptBundleReference
+  public let bundle: BundleReference<SubscriptDecl>
 
-  /// The pure functional type of the callee.
-  public let pureCalleeType: LambdaType
+  /// The parameters of the subscript.
+  public let parameters: [ParameterType]
+
+  /// The type of the projected value.
+  public let projection: AnyType
 
   /// The subscripts implementing the projection.
   public let variants: [AccessEffect: Function.ID]
 
   /// The arguments of the call.
   ///
-  /// Operands to non-`sink` inputs must be the result of an `access` instruction requesting a
-  /// capability for each variant in `callee` and having no use before `project`.
+  /// Operands to must be the result of an `access` instruction requesting a capability for each
+  /// variant in `callee` and having no use before `project_bundle`.
   public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.
@@ -23,15 +26,17 @@ public struct ProjectBundle: Instruction {
 
   /// Creates an instance with the given properties.
   fileprivate init(
-    bundle: SubscriptBundleReference,
-    pureCalleeType: LambdaType,
+    bundle: BundleReference<SubscriptDecl>,
     variants: [AccessEffect: Function.ID],
+    parameters: [ParameterType],
+    projection: AnyType,
     operands: [Operand],
     site: SourceRange
   ) {
     self.bundle = bundle
-    self.pureCalleeType = pureCalleeType
     self.variants = variants
+    self.parameters = parameters
+    self.projection = projection
     self.operands = operands
     self.site = site
   }
@@ -41,19 +46,9 @@ public struct ProjectBundle: Instruction {
     .init(variants.keys)
   }
 
-  /// The type of the projected value.
-  public var projection: RemoteType {
-    RemoteType(pureCalleeType.output)!
-  }
-
-  /// The parameters of the projection.
-  public var parameters: LazyMapSequence<[CallableTypeParameter], ParameterType> {
-    pureCalleeType.inputs.lazy.map({ ParameterType($0.type)! })
-  }
-
   /// The types of the instruction's results.
   public var result: IR.`Type`? {
-    .address(projection.bareType)
+    .address(projection)
   }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
@@ -77,24 +72,26 @@ extension ProjectBundle: CustomStringConvertible {
 extension Module {
 
   /// Creates a `project_bundle` anchored at `site` that projects a value by applying one of the
-  /// given `variants` on `arguments`. The variants are defined in `bundle`, which is has type
-  /// `bundleType`.
-  ///
-  /// - Requires: `bundleType` is canonical and `variants` is not empty.
-  func makeProjectBundle(
-    applying variants: [AccessEffect: Function.ID],
-    of bundle: SubscriptBundleReference,
-    typed bundleType: SubscriptType,
+  /// variants in `bundle` on `arguments`.
+  mutating func makeProjectBundle(
+    applying bundle: ScopedValue<BundleReference<SubscriptDecl>>,
     to arguments: [Operand],
     at site: SourceRange
   ) -> ProjectBundle {
-    precondition(bundleType[.isCanonical])
+    var variants: [AccessEffect: Function.ID] = [:]
+    for v in program[bundle.value.bundle].impls {
+      variants[program[v].introducer.value] = demandDeclaration(lowering: v)
+    }
+
+    let bundleType = program.canonicalType(
+      of: bundle.value.bundle, specializedBy: bundle.value.arguments, in: bundle.scope)
+    let t = SubscriptType(bundleType)!.pure
+
     return .init(
-      bundle: bundle,
-      pureCalleeType: bundleType.pure,
-      variants: variants,
-      operands: arguments,
-      site: site)
+      bundle: bundle.value, variants: variants,
+      parameters: t.inputs.lazy.map({ ParameterType($0.type)! }),
+      projection: RemoteType(t.output)!.bareType,
+      operands: arguments, site: site)
   }
 
 }
