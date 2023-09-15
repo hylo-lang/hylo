@@ -411,14 +411,33 @@ extension Module {
       return successor(of: i)
     }
 
+    /// Checks if the function is an empty initializer of a type.
+    func isEmptyInitializer(function f: Function.ID) -> Bool {
+        if case .lowered(let d) = f.value, let i = InitializerDecl.ID(d) {
+          if program.ast[i].isInit {
+            let layout = AbstractTypeLayout(
+              of: self[f].inputs[0].type.bareType,
+              definedIn: program
+            )
+            if layout.properties.isEmpty { return true }
+          }
+        }
+        return false
+    }
+
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) -> PC? {
       // Make sure that all non-sink parameters are initialized on exit.
       let entry = entry(of: f)!
-      for (i, p) in self[f].inputs.enumerated() where p.type.access != .sink {
-        ensureInitializedOnExit(
-          .parameter(entry, i), passed: p.type.access, in: &context,
-          reportingDiagnosticsAt: diagnosticSite(for: p, in: f))
+
+      // Unless we're looking at an empty initializer function, we need to make
+      // ensure all non-sink parameters are initialized on exit.
+      if !isEmptyInitializer(function: f) {
+        for (i, p) in self[f].inputs.enumerated() where p.type.access != .sink {
+          ensureInitializedOnExit(
+            .parameter(entry, i), passed: p.type.access, in: &context,
+            reportingDiagnosticsAt: diagnosticSite(for: p, in: f))
+        }
       }
 
       // Make sure that the return value is initialized on exit.

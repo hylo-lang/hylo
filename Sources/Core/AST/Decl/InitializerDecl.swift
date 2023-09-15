@@ -70,6 +70,9 @@ public struct InitializerDecl: ExposableDecl, GenericDecl, GenericScope {
   /// Returns whether the declaration is a memberwise initializer.
   public var isMemberwise: Bool { introducer.value == .memberwiseInit }
 
+  /// Returns whether the declaration is a standard initializer. I.e. not a memberwise initializer.
+  public var isInit: Bool { introducer.value == .`init` }
+
   public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
     for p in parameters {
