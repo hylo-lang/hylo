@@ -202,6 +202,7 @@ public struct Module {
     }
 
     try run({ removeDeadCode(in: $0, diagnostics: &log) })
+    try run({ reifyCallsToBundles(in: $0, diagnostics: &log) })
     try run({ reifyAccesses(in: $0, diagnostics: &log) })
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
