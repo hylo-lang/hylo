@@ -1164,8 +1164,14 @@ struct Emitter {
     let arguments = captures + explicitArguments
 
     // Call is evaluated last.
-    let o = insert(module.makeAccess(.set, from: storage, at: ast[e].site))!
-    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: o, at: ast[e].site))
+    switch callee {
+    case .direct(let r):
+      emitApply(.constant(r), to: arguments, writingResultTo: storage, at: ast[e].site)
+    case .lambda(let r):
+      emitApply(r, to: arguments, writingResultTo: storage, at: ast[e].site)
+    case .bundle(let r):
+      emitApply(r, to: arguments, writingResultTo: storage, at: ast[e].site)
+    }
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1404,6 +1410,27 @@ struct Emitter {
     frames.top.setMayHoldCaptures(s)
   }
 
+  /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
+  private mutating func emitApply(
+    _ callee: Operand, to arguments: [Operand],
+    writingResultTo storage: Operand, at site: SourceRange
+  ) {
+    let o = insert(module.makeAccess(.set, from: storage, at: site))!
+    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: o, at: site))
+    insert(module.makeEndAccess(o, at: site))
+  }
+
+  /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
+  private mutating func emitApply(
+    _ callee: BundleReference<MethodDecl>, to arguments: [Operand],
+    writingResultTo storage: Operand, at site: SourceRange
+  ) {
+    let o = insert(module.makeAccess(.set, from: storage, at: site))!
+    insert(module.makeCallBundle(
+      applying: .init(callee, in: insertionScope!), to: arguments, writingResultTo: o, at: site))
+    insert(module.makeEndAccess(o, at: site))
+  }
+
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
   /// initializer `d` parameterized by `a`.
   ///
@@ -1579,7 +1606,7 @@ struct Emitter {
   /// - Requires: `callee` has a lambda type.
   private mutating func emit(
     functionCallee callee: AnyExprID
-  ) -> (callee: Operand, captures: [Operand]) {
+  ) -> (callee: Callee, captures: [Operand]) {
     switch callee.kind {
     case NameExpr.self:
       return emit(namedFunctionCallee: .init(callee)!)
@@ -1589,41 +1616,36 @@ struct Emitter {
       return emit(functionCallee: ast[InoutExpr.ID(callee)!].subject)
 
     default:
-      return (emit(lambdaCallee: callee), [])
+      let f = emit(lambdaCallee: callee)
+      return (.lambda(f), [])
     }
   }
 
   /// Inserts the IR for given `callee` and returns `(c, a)`, where `c` is the callee's value and
   /// `a` are arguments to lifted parameters.
-  ///
-  /// - Requires: `callee` has a lambda type.
   private mutating func emit(
     namedFunctionCallee callee: NameExpr.ID
-  ) -> (callee: Operand, captures: [Operand]) {
-    let calleeType = LambdaType(canonical(program[callee].type))!
-
+  ) -> (callee: Callee, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == FunctionDecl.self:
       // Callee is a direct reference to a function declaration.
-      guard calleeType.environment == .void else {
+      guard LambdaType(canonical(program[callee].type))!.environment == .void else {
         UNIMPLEMENTED()
       }
 
       let specialization = module.specialization(in: insertionFunction!).merging(a)
-      let r = FunctionReference(
+      let f = FunctionReference(
         to: FunctionDecl.ID(d)!, in: &module, specializedBy: specialization, in: insertionScope!)
-      return (.constant(r), [])
+      return (.direct(f), [])
 
-    case .member(let d, let a, let s) where d.kind == FunctionDecl.self:
-      // Callee is a member reference to a function or method.
-      let r = FunctionReference(
-        to: FunctionDecl.ID(d)!, in: &module, specializedBy: a, in: insertionScope!)
-
-      // The callee's receiver is the sole capture.
+    case .member(let d, let a, let s):
+      // Callee is a member reference to a function or method. Its receiver is the only capture.
+      let specialization = module.specialization(in: insertionFunction!).merging(a)
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
-      let k = RemoteType(calleeType.captures[0].type)?.access ?? .sink
-      let i = insert(module.makeAccess(k, from: receiver, at: ast[callee].site))!
-      return (Operand.constant(r), [i])
+      let k = receiverCapabilities(program[callee].type)
+      let c = insert(module.makeAccess(k, from: receiver, at: ast[callee].site))!
+      let f = Callee(d, specializedBy: specialization, in: &module, usedIn: insertionScope!)
+      return (f, [c])
 
     case .builtinFunction, .builtinType:
       // Calls to built-ins should have been handled already.
@@ -1632,7 +1654,7 @@ struct Emitter {
     default:
       // Callee is a lambda.
       let f = emit(lambdaCallee: .init(callee))
-      return (f, [])
+      return (.lambda(f), [])
     }
   }
 
@@ -2392,6 +2414,19 @@ struct Emitter {
   ) -> AnyType {
     let t = program.specialize(program[d].type, for: specialization, in: insertionScope!)
     return canonical(t)
+  }
+
+  /// Returns the capabilities required by the receiver of `callee`, which is the type of a member
+  /// function or method bundle.
+  private func receiverCapabilities(_ callee: AnyType) -> AccessEffectSet {
+    switch canonical(callee).base {
+    case let t as LambdaType:
+      return [RemoteType(t.captures[0].type)?.access ?? .sink]
+    case let t as MethodType:
+      return t.capabilities
+    default:
+      unreachable()
+    }
   }
 
   /// Inserts a stack allocation for an object of type `t`.

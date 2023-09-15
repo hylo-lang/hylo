@@ -281,6 +281,30 @@ public struct Module {
   }
 
   /// Returns the identity of the IR function corresponding to `d`.
+  mutating func demandDeclaration(lowering d: MethodImpl.ID) -> Function.ID {
+    let f = Function.ID(d)
+    if functions[f] != nil { return f }
+
+    let parameters = program.accumulatedGenericParameters(in: d)
+    let output = program.canonical(
+      (program[d].type.base as! CallableType).output, in: program[d].scope)
+
+    let inputs = loweredParameters(of: d)
+
+    let entity = Function(
+      isSubscript: false,
+      site: program.ast[d].site,
+      linkage: program.isExported(d) ? .external : .module,
+      genericParameters: Array(parameters),
+      inputs: inputs,
+      output: output,
+      blocks: [])
+    addFunction(entity, for: f)
+
+    return f
+  }
+
+  /// Returns the identity of the IR function corresponding to `d`.
   mutating func demandDeclaration(lowering d: SubscriptImpl.ID) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
@@ -405,6 +429,14 @@ public struct Module {
     })
     result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
     return result
+  }
+
+  /// Returns the lowered declarations of `d`'s parameters.
+  private func loweredParameters(of d: MethodImpl.ID) -> [Parameter] {
+    let bundle = MethodDecl.ID(program[d].scope)!
+    let inputs = program.ast[bundle].parameters
+    let r = Parameter(AnyDeclID(program[d].receiver), capturedAs: program[d].receiver.type)
+    return [r] + inputs.map(pairedWithLoweredType(parameter:))
   }
 
   /// Returns the lowered declarations of `d`'s parameters.
