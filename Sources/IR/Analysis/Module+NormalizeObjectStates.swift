@@ -534,8 +534,8 @@ extension Module {
         if o.value == .full(.initialized) { return }
 
         if k == .set {
-          // If the parameter is a return value (index == 0) we emit specialised diagnostics
-          if case .parameter(_, let index) = p, index == 0 {
+          // If the parameter is a return value (index == 0) we emit specialized diagnostics.
+          if case .parameter(_, 0) = p {
             let t = self[f].output
             if !t.isVoidOrNever {
               diagnostics.insert(
