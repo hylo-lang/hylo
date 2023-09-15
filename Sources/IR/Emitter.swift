@@ -1681,12 +1681,12 @@ struct Emitter {
         UNIMPLEMENTED()
       }
 
-      let b = BundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+      let b = BundleReference(to: SubscriptDecl.ID(d)!, specializedBy: a)
       return (b, [])
 
     case .member(let d, let a, let s) where d.kind == SubscriptDecl.self:
       // Callee is a member reference to a subscript declaration.
-      let b = BundleReference(to: SubscriptDecl.ID(d)!, parameterizedBy: a)
+      let b = BundleReference(to: SubscriptDecl.ID(d)!, specializedBy: a)
 
       // The callee's receiver is the sole capture.
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
@@ -2137,6 +2137,7 @@ struct Emitter {
         boundTo: receiver, declaredBy: i, specializedBy: specialization, at: site)
     }
 
+    let callee = BundleReference(to: d, specializedBy: specialization)
     let t = SubscriptType(canonicalType(of: d, specializedBy: specialization))!
     let r = insert(module.makeAccess(t.capabilities, from: receiver, at: site))!
 
