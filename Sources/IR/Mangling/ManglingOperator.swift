@@ -22,6 +22,10 @@ public enum ManglingOperator: String {
 
   case existentializedFunctionDecl = "eF"
 
+  case methodDecl = "hF"
+
+  case methodImpl = "iF"
+
   case monomorphizedFunctionDecl = "mF"
 
   case staticFunctionDecl = "sF"
@@ -75,6 +79,8 @@ public enum ManglingOperator: String {
   case existentialMetatype = "emT"
 
   case genericTypeParameterType = "gT"
+
+  case methodType = "hT"
 
   case lambdaType = "lT"
 
