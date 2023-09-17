@@ -237,6 +237,16 @@ public struct Module {
     functions[identity] = function
   }
 
+  /// Returns the identity of the IR function corresponding to `i`.
+  mutating func demandDeclaration(lowering i: Core.Conformance.Implementation) -> Function.ID {
+    switch i {
+    case .concrete(let d):
+      return demandDeclaration(lowering: d)!
+    case .synthetic(let d):
+      return demandDeclaration(lowering: d)
+    }
+  }
+
   /// Returns the identity of the IR function corresponding to `d`, or `nil` if `d` can't be
   /// lowered to an IR function.
   mutating func demandDeclaration(lowering d: AnyDeclID) -> Function.ID? {
