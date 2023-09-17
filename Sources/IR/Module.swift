@@ -253,6 +253,8 @@ public struct Module {
     switch d.kind {
     case FunctionDecl.self:
       return demandDeclaration(lowering: FunctionDecl.ID(d)!)
+    case MethodImpl.self:
+      return demandDeclaration(lowering: MethodImpl.ID(d)!)
     case InitializerDecl.self:
       return demandDeclaration(lowering: InitializerDecl.ID(d)!)
     case SubscriptImpl.self:
