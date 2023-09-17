@@ -1,0 +1,32 @@
+//- compileAndRun expecting: success
+
+type A: Deinitializable {
+  var witness: Int
+  public var x: Int
+  public init(x: sink Int) {
+    &self.x = x
+    &self.witness = 0
+  }
+}
+
+conformance A: Movable {
+  public fun take_value(from source: sink Self) -> {self: Self, Void} {
+    set {
+      &self.x = source.x
+      &self.witness = 0
+    }
+    inout {
+      &self.x = source.x
+      &self.witness += 1
+    }
+  }
+}
+
+public fun main() {
+  var s = A(x: 1)
+  &s = A(x: 2)
+  &s = A(x: 2)
+
+  precondition(s.x == 2)
+  precondition(s.witness == 2)
+}

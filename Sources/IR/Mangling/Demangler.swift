@@ -113,6 +113,12 @@ struct Demangler {
         return nil
       case .monomorphizedFunctionDecl:
         return nil
+      case .methodDecl:
+        return nil
+      case .methodImpl:
+        return nil
+      case .methodType:
+        return nil
       case .synthesizedFunctionDecl:
         return nil
       case .conformanceConstraint, .equalityConstraint, .valueConstraint, .whereClause:

@@ -202,6 +202,7 @@ public struct Module {
     }
 
     try run({ removeDeadCode(in: $0, diagnostics: &log) })
+    try run({ reifyCallsToBundles(in: $0, diagnostics: &log) })
     try run({ reifyAccesses(in: $0, diagnostics: &log) })
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
@@ -236,12 +237,24 @@ public struct Module {
     functions[identity] = function
   }
 
+  /// Returns the identity of the IR function corresponding to `i`.
+  mutating func demandDeclaration(lowering i: Core.Conformance.Implementation) -> Function.ID {
+    switch i {
+    case .concrete(let d):
+      return demandDeclaration(lowering: d)!
+    case .synthetic(let d):
+      return demandDeclaration(lowering: d)
+    }
+  }
+
   /// Returns the identity of the IR function corresponding to `d`, or `nil` if `d` can't be
   /// lowered to an IR function.
   mutating func demandDeclaration(lowering d: AnyDeclID) -> Function.ID? {
     switch d.kind {
     case FunctionDecl.self:
       return demandDeclaration(lowering: FunctionDecl.ID(d)!)
+    case MethodImpl.self:
+      return demandDeclaration(lowering: MethodImpl.ID(d)!)
     case InitializerDecl.self:
       return demandDeclaration(lowering: InitializerDecl.ID(d)!)
     case SubscriptImpl.self:
@@ -281,6 +294,30 @@ public struct Module {
   }
 
   /// Returns the identity of the IR function corresponding to `d`.
+  mutating func demandDeclaration(lowering d: MethodImpl.ID) -> Function.ID {
+    let f = Function.ID(d)
+    if functions[f] != nil { return f }
+
+    let parameters = program.accumulatedGenericParameters(in: d)
+    let output = program.canonical(
+      (program[d].type.base as! CallableType).output, in: program[d].scope)
+
+    let inputs = loweredParameters(of: d)
+
+    let entity = Function(
+      isSubscript: false,
+      site: program.ast[d].site,
+      linkage: program.isExported(d) ? .external : .module,
+      genericParameters: Array(parameters),
+      inputs: inputs,
+      output: output,
+      blocks: [])
+    addFunction(entity, for: f)
+
+    return f
+  }
+
+  /// Returns the identity of the IR function corresponding to `d`.
   mutating func demandDeclaration(lowering d: SubscriptImpl.ID) -> Function.ID {
     let f = Function.ID(d)
     if functions[f] != nil { return f }
@@ -307,7 +344,7 @@ public struct Module {
   mutating func demandDeclaration(lowering d: InitializerDecl.ID) -> Function.ID {
     precondition(!program.ast[d].isMemberwise)
 
-    let f = Function.ID(initializer: d)
+    let f = Function.ID(d)
     if functions[f] != nil { return f }
 
     let parameters = program.accumulatedGenericParameters(in: d)
@@ -368,31 +405,22 @@ public struct Module {
 
   /// Returns the identity of the IR function implementing the deinitializer defined in
   /// conformance `c`.
-  mutating func demandDeinitDeclaration(from c: Core.Conformance) -> Function.ID {
+  mutating func demandDeinitDeclaration(
+    from c: Core.Conformance
+  ) -> Function.ID {
     let d = program.ast.deinitRequirement()
-    switch c.implementations[d]! {
-    case .concrete(let s):
-      return demandDeclaration(lowering: FunctionDecl.ID(s)!)
-    case .synthetic(let s):
-      return demandDeclaration(lowering: s)
-    }
+    return demandDeclaration(lowering: c.implementations[d]!)
   }
 
-  /// Returns the identity of the IR function implementing the `k` variant move-operator defined in
-  /// conformance `c`.
+  /// Returns the identity of the IR function implementing the `k` variant move-operation defined
+  /// in conformance `c`.
   ///
   /// - Requires: `k` is either `.set` or `.inout`
   mutating func demandMoveOperatorDeclaration(
     _ k: AccessEffect, from c: Core.Conformance
   ) -> Function.ID {
     let d = program.ast.moveRequirement(k)
-    switch c.implementations[d]! {
-    case .concrete:
-      UNIMPLEMENTED()
-
-    case .synthetic(let s):
-      return demandDeclaration(lowering: s)
-    }
+    return demandDeclaration(lowering: c.implementations[d]!)
   }
 
   /// Returns the lowered declarations of `d`'s parameters.
@@ -405,6 +433,14 @@ public struct Module {
     })
     result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
     return result
+  }
+
+  /// Returns the lowered declarations of `d`'s parameters.
+  private func loweredParameters(of d: MethodImpl.ID) -> [Parameter] {
+    let bundle = MethodDecl.ID(program[d].scope)!
+    let inputs = program.ast[bundle].parameters
+    let r = Parameter(AnyDeclID(program[d].receiver), capturedAs: program[d].receiver.type)
+    return [r] + inputs.map(pairedWithLoweredType(parameter:))
   }
 
   /// Returns the lowered declarations of `d`'s parameters.
@@ -789,6 +825,15 @@ public struct Module {
         return true
       }
     }
+  }
+
+  /// Returns `true` iff `o` is an `access [set]` instruction.
+  func isBorrowSet(_ o: Operand) -> Bool {
+    guard
+      let i = o.instruction,
+      let s = self[i] as? Access
+    else { return false }
+    return s.capabilities == [.set]
   }
 
 }

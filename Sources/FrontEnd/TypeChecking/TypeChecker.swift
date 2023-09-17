@@ -152,7 +152,7 @@ struct TypeChecker {
     return [
       program.ast.movableTrait,
       program.ast.deinitializableTrait,
-      program.ast.foreignConvertibleTrait
+      program.ast.foreignConvertibleTrait,
     ]
   }
 

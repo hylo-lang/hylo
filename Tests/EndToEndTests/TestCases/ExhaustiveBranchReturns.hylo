@@ -1,0 +1,9 @@
+//- compileAndRun expecting: success
+
+public fun main() {
+  let _ = f()
+}
+
+public fun f() -> Int {
+  if true { return 0 } else { return 1 }
+}

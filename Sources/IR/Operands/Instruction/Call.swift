@@ -7,7 +7,7 @@ import Utils
 /// of the callee. `operands` must contain as many operands as the callee's type.
 public struct Call: Instruction {
 
-  /// The callee and arguments of the call.
+  /// The callee, the return storage, and arguments of the call.
   public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.
@@ -75,15 +75,6 @@ extension Module {
     precondition(isBorrowSet(output))
 
     return .init(callee: callee, output: output, arguments: arguments, site: site)
-  }
-
-  /// Returns `true` iff `o` is an `access [set]` instruction.
-  fileprivate func isBorrowSet(_ o: Operand) -> Bool {
-    guard
-      let i = o.instruction,
-      let s = self[i] as? Access
-    else { return false }
-    return s.capabilities == [.set]
   }
 
 }
