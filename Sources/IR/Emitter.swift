@@ -2258,31 +2258,25 @@ struct Emitter {
     }
   }
 
-  /// Appends the IR for a call to move-initialize/assign `storage` with `value`, anchoring new
-  /// instructions at `site`.
+  /// Inserts the IR to move-initialize/assign `storage` with `value`, anchoring new instructions
+  /// at `site`.
   ///
   /// The type of `value` must a built-in or conform to `Movable` in `insertionScope`.
   ///
   /// The value of `semantics` defines the type of move to emit:
   /// - `[.set]` unconditionally emits move-initialization.
   /// - `[.inout]` unconditionally emits move-assignment.
-  /// - `[.inout, .set]` (default) emits a `move` instruction that will is later replaced during
-  ///   definite initialization analysis by move-assignment if `storage` is found initialized or
-  ///   move-initialization otherwise. after
+  /// - `[.inout, .set]` emits a `move` instruction that will is later replaced during definite
+  ///   initialization analysis by either move-assignment if `storage` is found initialized or
+  ///   by move-initialization otherwise.
   private mutating func emitMove(
     _ semantics: AccessEffectSet, _ value: Operand, to storage: Operand, at site: SourceRange
   ) {
     precondition(!semantics.isEmpty && semantics.isSubset(of: [.set, .inout]))
 
-    // Built-in are always stored.
     let t = module.type(of: storage).ast
     if t.isBuiltin {
-      let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
-      let x1 = insert(module.makeAccess(.sink, from: value, at: site))!
-      let x2 = insert(module.makeLoad(x1, at: site))!
-      insert(module.makeStore(x2, at: x0, at: site))
-      insert(module.makeEndAccess(x1, at: site))
-      insert(module.makeEndAccess(x0, at: site))
+      emitMoveBuiltIn(value, to: storage, at: site)
       return
     }
 
@@ -2311,6 +2305,19 @@ struct Emitter {
 
     // Otherwise, emit a move.
     insert(module.makeMove(value, to: storage, usingConformance: movable, at: site))
+  }
+
+  /// Implements `emitMove` for built-in types.
+  private mutating func emitMoveBuiltIn(
+    _ value: Operand, to storage: Operand, at site: SourceRange
+  ) {
+    // Built-in are always stored.
+    let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
+    let x1 = insert(module.makeAccess(.sink, from: value, at: site))!
+    let x2 = insert(module.makeLoad(x1, at: site))!
+    insert(module.makeStore(x2, at: x0, at: site))
+    insert(module.makeEndAccess(x1, at: site))
+    insert(module.makeEndAccess(x0, at: site))
   }
 
   // MARK: Deinitialization
