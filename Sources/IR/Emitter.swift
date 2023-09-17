@@ -2247,7 +2247,7 @@ struct Emitter {
     let predecessor = module.instruction(before: i)
 
     insertionPoint = .before(i)
-    emitMove([semantics], s.object, to: s.target, at: s.site)
+    emitMove(semantics, s.object, to: s.target, usingConformance: s.movable, at: s.site)
     module.removeInstruction(i)
 
     if let p = predecessor {
@@ -2264,8 +2264,8 @@ struct Emitter {
   /// The type of `value` must a built-in or conform to `Movable` in `insertionScope`.
   ///
   /// The value of `semantics` defines the type of move to emit:
-  /// - `[.set]` unconditionally emits move-initialization.
-  /// - `[.inout]` unconditionally emits move-assignment.
+  /// - `[.set]` emits move-initialization.
+  /// - `[.inout]` emits move-assignment.
   /// - `[.inout, .set]` emits a `move` instruction that will is later replaced during definite
   ///   initialization analysis by either move-assignment if `storage` is found initialized or
   ///   by move-initialization otherwise.
@@ -2275,6 +2275,8 @@ struct Emitter {
     precondition(!semantics.isEmpty && semantics.isSubset(of: [.set, .inout]))
 
     let t = module.type(of: storage).ast
+
+    // Built-in types are handled as a special case.
     if t.isBuiltin {
       emitMoveBuiltIn(value, to: storage, at: site)
       return
@@ -2284,27 +2286,13 @@ struct Emitter {
     let movable = program.conformance(
       of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
 
-    // If the semantics of the move is known, emit a call to the corresponding move method.
+    // Insert a call to the approriate move implementation if its semantics is unambiguous.
+    // Otherwise, insert a call to the method bundle.
     if let k = semantics.uniqueElement {
-      let d = module.demandMoveOperatorDeclaration(k, from: movable)
-      let r = FunctionReference(
-        to: d, in: module, specializedBy: movable.arguments, in: insertionScope!)
-      let f = Operand.constant(r)
-
-      let x0 = insert(module.makeAllocStack(.void, at: site))!
-      let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
-      let x2 = insert(module.makeAccess(k, from: storage, at: site))!
-      let x3 = insert(module.makeAccess(.sink, from: value, at: site))!
-      insert(module.makeCall(applying: f, to: [x2, x3], writingResultTo: x1, at: site))
-      insert(module.makeEndAccess(x3, at: site))
-      insert(module.makeEndAccess(x2, at: site))
-      insert(module.makeEndAccess(x1, at: site))
-      insert(module.makeDeallocStack(for: x0, at: site))
-      return
+      emitMove(k, value, to: storage, usingConformance: movable, at: site)
+    } else {
+      insert(module.makeMove(value, to: storage, usingConformance: movable, at: site))
     }
-
-    // Otherwise, emit a move.
-    insert(module.makeMove(value, to: storage, usingConformance: movable, at: site))
   }
 
   /// Implements `emitMove` for built-in types.
@@ -2318,6 +2306,33 @@ struct Emitter {
     insert(module.makeStore(x2, at: x0, at: site))
     insert(module.makeEndAccess(x1, at: site))
     insert(module.makeEndAccess(x0, at: site))
+  }
+
+  /// Inserts IR for move-initializing/assigning `storage` with `value` using `movable` to locate
+  /// the implementations of these operations.
+  ///
+  /// The value of `semantics` defines the type of move to emit:
+  /// - `.set` emits move-initialization.
+  /// - `.inout` emits move-assignment.
+  ///
+  /// - Requires: `storage` does not have a built-in type.
+  private mutating func emitMove(
+    _ semantics: AccessEffect, _ value: Operand, to storage: Operand,
+    usingConformance movable: Core.Conformance, at site: SourceRange
+  ) {
+    let d = module.demandMoveOperatorDeclaration(semantics, from: movable)
+    let a = module.specialization(in: insertionFunction!).merging(movable.arguments)
+    let f = FunctionReference(to: d, in: module, specializedBy: a, in: insertionScope!)
+
+    let x0 = insert(module.makeAllocStack(.void, at: site))!
+    let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
+    let x2 = insert(module.makeAccess(semantics, from: storage, at: site))!
+    let x3 = insert(module.makeAccess(.sink, from: value, at: site))!
+    insert(module.makeCall(applying: .constant(f), to: [x2, x3], writingResultTo: x1, at: site))
+    insert(module.makeEndAccess(x3, at: site))
+    insert(module.makeEndAccess(x2, at: site))
+    insert(module.makeEndAccess(x1, at: site))
+    insert(module.makeDeallocStack(for: x0, at: site))
   }
 
   // MARK: Deinitialization
