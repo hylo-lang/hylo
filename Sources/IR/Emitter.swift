@@ -2313,7 +2313,13 @@ struct Emitter {
     usingConformance movable: Core.Conformance, at site: SourceRange
   ) {
     let d = module.demandMoveOperatorDeclaration(semantics, from: movable)
-    let a = module.specialization(in: insertionFunction!).merging(movable.arguments)
+
+    var a = module.specialization(in: insertionFunction!).merging(movable.arguments)
+    if let m = program.traitMember(referredBy: d) {
+      let t = module.type(of: storage).ast
+      a = a.merging([program[m.trait.decl].receiver: t])
+    }
+
     let f = FunctionReference(to: d, in: module, specializedBy: a, in: insertionScope!)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
