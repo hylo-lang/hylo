@@ -565,10 +565,6 @@ extension TypedProgram {
       guard let t = trait(defining: d) else { return nil }
       return (declaration: d, trait: TraitType(t, ast: ast))
 
-    case .loweredSubscript(let d):
-      guard let t = trait(defining: d) else { return nil }
-      return (declaration: AnyDeclID(d), trait: TraitType(t, ast: ast))
-
     default:
       return nil
     }

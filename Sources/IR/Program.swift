@@ -42,8 +42,6 @@ public struct Program: Core.Program {
     switch f.value {
     case .lowered(let d):
       return base.module(containing: base[d].scope)
-    case .loweredSubscript(let d):
-      return base.module(containing: base[d].scope)
     case .monomorphized:
       UNIMPLEMENTED()
     case .existentialized(let i):

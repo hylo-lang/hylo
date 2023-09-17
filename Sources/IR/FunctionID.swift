@@ -9,11 +9,8 @@ extension Function {
     /// The value of a function IR identity.
     public enum Value: Hashable {
 
-      /// The identity of a lowered Hylo function, initializer, or method variant.
+      /// The identity of a lowered function, initializer, method variant, or subscript variant.
       case lowered(AnyDeclID)
-
-      /// The identity of a lowered subscript variant.
-      case loweredSubscript(SubscriptImpl.ID)
 
       /// The identity of a synthesized declaration.
       case synthesized(SynthesizedFunctionDecl)
@@ -33,10 +30,8 @@ extension Function {
     /// initializer, method implementation, or subscript implementation.s
     init<T: DeclID>(_ d: T) {
       switch d.kind {
-      case FunctionDecl.self, InitializerDecl.self, MethodImpl.self:
+      case FunctionDecl.self, InitializerDecl.self, MethodImpl.self, SubscriptImpl.self:
         self.value = .lowered(AnyDeclID(d))
-      case SubscriptImpl.self:
-        self.value = .loweredSubscript(SubscriptImpl.ID(d)!)
       default:
         unreachable()
       }
@@ -79,8 +74,6 @@ extension Function.ID: CustomStringConvertible {
   public var description: String {
     switch value {
     case .lowered(let d):
-      return d.description
-    case .loweredSubscript(let d):
       return d.description
     case .synthesized(let d):
       return d.description
