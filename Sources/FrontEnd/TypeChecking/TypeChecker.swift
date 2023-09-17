@@ -2949,7 +2949,7 @@ struct TypeChecker {
       // The specialization of the match includes that of context in which it was looked up.
       var specialization = context?.arguments ?? [:]
 
-      // If the match is a trait requirement, specialize its receiver as necessary.
+      // If the match is a trait member, specialize its receiver as necessary.
       if let t = program.trait(defining: m) {
         assert(specialization[program[t].receiver] == nil)
         specialization[program[t].receiver] = context?.type

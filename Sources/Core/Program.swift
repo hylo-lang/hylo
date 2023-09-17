@@ -311,7 +311,7 @@ extension Program {
     scopes(from: scope).first(TranslationUnit.self)!
   }
 
-  /// Returns the trait defining `d` iff `d` is a requirement. Otherwise, returns nil.
+  /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
   public func trait<T: DeclID>(defining d: T) -> TraitDecl.ID? {
     switch d.kind {
     case AssociatedTypeDecl.self, AssociatedValueDecl.self:
