@@ -415,21 +415,15 @@ public struct Module {
     }
   }
 
-  /// Returns the identity of the IR function implementing the `k` variant move-operator defined in
-  /// conformance `c`.
+  /// Returns the identity of the IR function implementing the `k` variant move-operation defined
+  /// in conformance `c`.
   ///
   /// - Requires: `k` is either `.set` or `.inout`
   mutating func demandMoveOperatorDeclaration(
     _ k: AccessEffect, from c: Core.Conformance
   ) -> Function.ID {
     let d = program.ast.moveRequirement(k)
-    switch c.implementations[d]! {
-    case .concrete:
-      UNIMPLEMENTED()
-
-    case .synthetic(let s):
-      return demandDeclaration(lowering: s)
-    }
+    return demandDeclaration(lowering: c.implementations[d]!)
   }
 
   /// Returns the lowered declarations of `d`'s parameters.
