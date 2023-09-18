@@ -481,8 +481,8 @@ extension Module {
 
       let p = program.specialize(c.specialization, for: specialization, in: scopeOfUse)
       let f: Function.ID
-      if let r = program.requirement(referredBy: c) {
-        f = monomorphize(requirement: r.declaration, of: r.trait, in: ir, for: p, in: scopeOfUse)
+      if let m = program.traitMember(referredBy: c.function) {
+        f = monomorphize(requirement: m.declaration, of: m.trait, in: ir, for: p, in: scopeOfUse)
       } else {
         f = monomorphize(c.function, in: ir, for: p, in: scopeOfUse)
       }
@@ -549,29 +549,6 @@ extension Module {
 
     addFunction(entity, for: result)
     return result
-  }
-
-}
-
-extension TypedProgram {
-
-  /// If `r` refers to a requirement, returns the declaration of that requirement along with the
-  /// trait that defines it. Otherwise, returns `nil`.
-  fileprivate func requirement(
-    referredBy r: FunctionReference
-  ) -> (declaration: AnyDeclID, trait: TraitType)? {
-    switch r.function.value {
-    case .lowered(let d):
-      guard let t = trait(defining: d) else { return nil }
-      return (declaration: d, trait: TraitType(t, ast: ast))
-
-    case .loweredSubscript(let d):
-      guard let t = trait(defining: d) else { return nil }
-      return (declaration: AnyDeclID(d), trait: TraitType(t, ast: ast))
-
-    default:
-      return nil
-    }
   }
 
 }

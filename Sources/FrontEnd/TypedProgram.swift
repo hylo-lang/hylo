@@ -329,19 +329,26 @@ public struct TypedProgram {
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
     let m = canonical(model, in: scopeOfUse)
-    if let c = declaredConformance(of: m, to: concept, exposedTo: scopeOfUse) {
+
+    if let c = explicitConformance(of: m, to: concept, exposedTo: scopeOfUse) {
       return c
-    } else {
-      return structuralConformance(of: m, to: concept, exposedTo: scopeOfUse)
     }
+
+    if let c = impliedConformance(of: m, to: concept, exposedTo: scopeOfUse) {
+      return c
+    }
+
+    // Last resort; maybe the conformance is structural.
+    return structuralConformance(of: m, to: concept, exposedTo: scopeOfUse)
   }
 
   /// Returns the explicitly declared conformance of `model` to `concept` that is exposed to
   /// `scopeOfUse`, or `nil` if such a conformance doesn't exist.
   ///
   /// This method returns `nil` if the conformance of `model` to `concept` is structural (e.g., a
-  /// tuple's synthesized conformance to `Movable`).
-  private func declaredConformance(
+  /// tuple's synthesized conformance to `Movable`) or if the conformance is implied by a trait
+  /// bound (e.g., `T: P` in `fun f<T: P>() {}`).
+  private func explicitConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
     assert(model[.isCanonical])
@@ -374,6 +381,28 @@ public struct TypedProgram {
         return isContained(scopeOfUse, in: c.scope)
       }
     }
+  }
+
+  /// Returns the conformance of `model` to `concept` that is implied by the generic environment
+  /// introducing `model` in `scopeOfUse`, or `nil` if such a conformance doesn't exist.
+  private func impliedConformance(
+    of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
+  ) -> Conformance? {
+    var checker = TypeChecker(asContextFor: self)
+    let bounds = checker.conformedTraits(
+      declaredInEnvironmentIntroducing: model,
+      exposedTo: scopeOfUse)
+    guard bounds.contains(concept) else { return nil }
+
+    var implementations = Conformance.ImplementationMap()
+    for requirement in ast.requirements(of: concept.decl) {
+      implementations[requirement] = .concrete(requirement)
+    }
+
+    return .init(
+      model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
+      implementations: implementations, isStructural: true,
+      site: .empty(at: ast[scopeOfUse].site.first()))
   }
 
   /// Returns the implicit structural conformance of `model` to `concept` that is exposed to

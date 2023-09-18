@@ -310,8 +310,6 @@ struct Mangler {
     switch symbol.value {
     case .lowered(let d):
       mangle(decl: d, to: &output)
-    case .loweredSubscript(let d):
-      mangle(decl: d, to: &output)
     case .monomorphized(let f, let a):
       write(monomorphized: f, for: a, to: &output)
     case .synthesized(let d):

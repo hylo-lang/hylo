@@ -2247,7 +2247,7 @@ struct Emitter {
     let predecessor = module.instruction(before: i)
 
     insertionPoint = .before(i)
-    emitMove([semantics], s.object, to: s.target, at: s.site)
+    emitMove(semantics, s.object, to: s.target, withMovableConformance: s.movable, at: s.site)
     module.removeInstruction(i)
 
     if let p = predecessor {
@@ -2258,31 +2258,27 @@ struct Emitter {
     }
   }
 
-  /// Appends the IR for a call to move-initialize/assign `storage` with `value`, anchoring new
-  /// instructions at `site`.
+  /// Inserts the IR to move-initialize/assign `storage` with `value`, anchoring new instructions
+  /// at `site`.
   ///
   /// The type of `value` must a built-in or conform to `Movable` in `insertionScope`.
   ///
   /// The value of `semantics` defines the type of move to emit:
-  /// - `[.set]` unconditionally emits move-initialization.
-  /// - `[.inout]` unconditionally emits move-assignment.
-  /// - `[.inout, .set]` (default) emits a `move` instruction that will is later replaced during
-  ///   definite initialization analysis by move-assignment if `storage` is found initialized or
-  ///   move-initialization otherwise. after
+  /// - `[.set]` emits move-initialization.
+  /// - `[.inout]` emits move-assignment.
+  /// - `[.inout, .set]` emits a `move` instruction that will is later replaced during definite
+  ///   initialization analysis by either move-assignment if `storage` is found initialized or
+  ///   by move-initialization otherwise.
   private mutating func emitMove(
     _ semantics: AccessEffectSet, _ value: Operand, to storage: Operand, at site: SourceRange
   ) {
     precondition(!semantics.isEmpty && semantics.isSubset(of: [.set, .inout]))
 
-    // Built-in are always stored.
     let t = module.type(of: storage).ast
+
+    // Built-in types are handled as a special case.
     if t.isBuiltin {
-      let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
-      let x1 = insert(module.makeAccess(.sink, from: value, at: site))!
-      let x2 = insert(module.makeLoad(x1, at: site))!
-      insert(module.makeStore(x2, at: x0, at: site))
-      insert(module.makeEndAccess(x1, at: site))
-      insert(module.makeEndAccess(x0, at: site))
+      emitMoveBuiltIn(value, to: storage, at: site)
       return
     }
 
@@ -2290,27 +2286,52 @@ struct Emitter {
     let movable = program.conformance(
       of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
 
-    // If the semantics of the move is known, emit a call to the corresponding move method.
+    // Insert a call to the approriate move implementation if its semantics is unambiguous.
+    // Otherwise, insert a call to the method bundle.
     if let k = semantics.uniqueElement {
-      let d = module.demandMoveOperatorDeclaration(k, from: movable)
-      let r = FunctionReference(
-        to: d, in: module, specializedBy: movable.arguments, in: insertionScope!)
-      let f = Operand.constant(r)
-
-      let x0 = insert(module.makeAllocStack(.void, at: site))!
-      let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
-      let x2 = insert(module.makeAccess(k, from: storage, at: site))!
-      let x3 = insert(module.makeAccess(.sink, from: value, at: site))!
-      insert(module.makeCall(applying: f, to: [x2, x3], writingResultTo: x1, at: site))
-      insert(module.makeEndAccess(x3, at: site))
-      insert(module.makeEndAccess(x2, at: site))
-      insert(module.makeEndAccess(x1, at: site))
-      insert(module.makeDeallocStack(for: x0, at: site))
-      return
+      emitMove(k, value, to: storage, withMovableConformance: movable, at: site)
+    } else {
+      insert(module.makeMove(value, to: storage, usingConformance: movable, at: site))
     }
+  }
 
-    // Otherwise, emit a move.
-    insert(module.makeMove(value, to: storage, usingConformance: movable, at: site))
+  /// Implements `emitMove` for built-in types.
+  private mutating func emitMoveBuiltIn(
+    _ value: Operand, to storage: Operand, at site: SourceRange
+  ) {
+    // Built-in are always stored.
+    let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
+    let x1 = insert(module.makeAccess(.sink, from: value, at: site))!
+    let x2 = insert(module.makeLoad(x1, at: site))!
+    insert(module.makeStore(x2, at: x0, at: site))
+    insert(module.makeEndAccess(x1, at: site))
+    insert(module.makeEndAccess(x0, at: site))
+  }
+
+  /// Inserts IR for move-initializing/assigning `storage` with `value` using `movable` to locate
+  /// the implementations of these operations.
+  ///
+  /// The value of `semantics` defines the type of move to emit:
+  /// - `.set` emits move-initialization.
+  /// - `.inout` emits move-assignment.
+  ///
+  /// - Requires: `storage` does not have a built-in type.
+  private mutating func emitMove(
+    _ semantics: AccessEffect, _ value: Operand, to storage: Operand,
+    withMovableConformance movable: Core.Conformance, at site: SourceRange
+  ) {
+    let d = module.demandMoveOperatorDeclaration(semantics, from: movable)
+    let f = reference(to: d, implementedFor: movable)
+
+    let x0 = insert(module.makeAllocStack(.void, at: site))!
+    let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
+    let x2 = insert(module.makeAccess(semantics, from: storage, at: site))!
+    let x3 = insert(module.makeAccess(.sink, from: value, at: site))!
+    insert(module.makeCall(applying: .constant(f), to: [x2, x3], writingResultTo: x1, at: site))
+    insert(module.makeEndAccess(x3, at: site))
+    insert(module.makeEndAccess(x2, at: site))
+    insert(module.makeEndAccess(x1, at: site))
+    insert(module.makeDeallocStack(for: x0, at: site))
   }
 
   // MARK: Deinitialization
@@ -2332,7 +2353,7 @@ struct Emitter {
     // Use custom conformance to `Deinitializable` if possible.
     let concept = program.ast.deinitializableTrait
     if let c = module.program.conformance(of: model, to: concept, exposedTo: insertionScope!) {
-      emitDeinit(storage, withConformanceToDeinitializable: c, at: site)
+      emitDeinit(storage, withDeinitializableConformance: c, at: site)
       return
     }
 
@@ -2340,20 +2361,19 @@ struct Emitter {
     report(.error(module.type(of: storage).ast, doesNotConformTo: concept, at: site))
   }
 
-  /// Inserts the IR for deinitializing `storage`, using `c` to identify the deinitializer to apply
-  /// and anchoring new instructions at `site`.
+  /// Inserts the IR for deinitializing `storage`, using `deinitializable` to identify the locate
+  /// the deinitializer to apply.
   private mutating func emitDeinit(
-    _ storage: Operand, withConformanceToDeinitializable c: Core.Conformance,
+    _ storage: Operand, withDeinitializableConformance deinitializable: Core.Conformance,
     at site: SourceRange
   ) {
-    let d = module.demandDeinitDeclaration(from: c)
-    let f = Operand.constant(
-      FunctionReference(to: d, in: module, specializedBy: c.arguments, in: insertionScope!))
+    let d = module.demandDeinitDeclaration(from: deinitializable)
+    let f = reference(to: d, implementedFor: deinitializable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
     let x2 = insert(module.makeAccess(.sink, from: storage, at: site))!
-    insert(module.makeCall(applying: f, to: [x2], writingResultTo: x1, at: site))
+    insert(module.makeCall(applying: .constant(f), to: [x2], writingResultTo: x1, at: site))
     insert(module.makeEndAccess(x2, at: site))
     insert(module.makeEndAccess(x1, at: site))
     insert(module.makeMarkState(x0, initialized: false, at: site))
@@ -2451,6 +2471,17 @@ struct Emitter {
   }
 
   // MARK: Helpers
+
+  /// Returns a function reference to `d`, which is an implementation that's part of `c`.
+  private func reference(
+    to d: Function.ID, implementedFor c: Core.Conformance
+  ) -> FunctionReference {
+    var a = module.specialization(in: insertionFunction!).merging(c.arguments)
+    if let m = program.traitMember(referredBy: d) {
+      a = a.merging([program[m.trait.decl].receiver: c.model])
+    }
+    return FunctionReference(to: d, in: module, specializedBy: a, in: insertionScope!)
+  }
 
   /// Returns the canonical form of `t` in the current insertion scope.
   private func canonical(_ t: AnyType) -> AnyType {

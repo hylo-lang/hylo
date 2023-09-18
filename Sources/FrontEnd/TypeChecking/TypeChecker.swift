@@ -165,13 +165,7 @@ struct TypeChecker {
       return conformedTraits(of: TraitType(d, ast: program.ast), in: scopeOfUse)
     }
 
-    // Conformances of other generic parameters are stored in generic environments.
-    var result = Set<TraitType>()
-    for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
-      let e = environment(of: s)!
-      result.formUnion(e.conformedTraits(of: ^t))
-    }
-
+    var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
   }
@@ -236,6 +230,22 @@ struct TypeChecker {
       for (_, u) in evalTraitComposition(program[e].conformances) {
         result.formUnion(conformedTraits(of: u, in: scopeOfUse))
       }
+    }
+    return result
+  }
+
+  /// Returns the traits to which `t` is declared conforming in its generic environment.
+  ///
+  /// `t` is a generic type parameter or an associated type introduced by a generic environment
+  /// logically containing `scopeOfUse`. The return value is the set of traits used as bounds of
+  /// `t` in that environment.
+  mutating func conformedTraits(
+    declaredInEnvironmentIntroducing t: AnyType, exposedTo scopeOfUse: AnyScopeID
+  ) -> Set<TraitType> {
+    var result = Set<TraitType>()
+    for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
+      let e = environment(of: s)!
+      result.formUnion(e.conformedTraits(of: ^t))
     }
     return result
   }
@@ -2939,7 +2949,7 @@ struct TypeChecker {
       // The specialization of the match includes that of context in which it was looked up.
       var specialization = context?.arguments ?? [:]
 
-      // If the match is a trait requirement, specialize its receiver as necessary.
+      // If the match is a trait member, specialize its receiver as necessary.
       if let t = program.trait(defining: m) {
         assert(specialization[program[t].receiver] == nil)
         specialization[program[t].receiver] = context?.type

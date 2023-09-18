@@ -82,8 +82,6 @@ extension Module: TextOutputStreamable {
       return "Existentialized form of '\(debugDescription(base))'"
     case .lowered(let d):
       return program.debugDescription(d)
-    case .loweredSubscript(let d):
-      return program.debugDescription(d)
     case .monomorphized(let base, let arguments):
       return "Monomorphized form of '\(debugDescription(base))' for <\(list: arguments.values)>"
     case .synthesized(let d):
