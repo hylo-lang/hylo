@@ -1,0 +1,9 @@
+//- lowerToFinishedIR expecting: success
+
+fun identity<T: Movable>(_ x: sink T) -> T {
+  return x
+}
+
+public fun main() {
+  _ = identity(42)
+}
