@@ -20,7 +20,9 @@ import Utils
 ///
 /// Other entry points may be used during IR passes (e.g., `emitDeinit`).
 ///
-/// - Note: Unless documented otherwise, methods insert IR in `self.module` at `insertionPoint`.
+/// - Note: Unless documented otherwise, the methods of `Emitter` type insert IR in `self.module`
+///   at `self.insertionPoint`, anchoring new instructions at the given source range, named `site`
+///   in their parameter lists.
 struct Emitter {
 
   /// The diagnostics of lowering errors.
@@ -834,7 +836,7 @@ struct Emitter {
 
   }
 
-  /// Inserts IR for returning from current function, anchoring instructions to `s`.
+  /// Inserts IR for returning from current function, anchoring instructions at `s`.
   private mutating func emitControlFlow(return s: ReturnStmt.ID) {
     for f in frames.elements.reversed() {
       emitDeallocs(for: f, at: ast[s].site)
@@ -1410,8 +1412,7 @@ struct Emitter {
     insert(module.makeStore(x2, at: x1, at: syntax.site))
   }
 
-  /// Writes an instance of `Hylo.Int` with value `v` to `storage`, anchoring new instruction at
-  /// `site`.
+  /// Writes an instance of `Hylo.Int` with value `v` to `storage`.
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
   private mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
@@ -1420,8 +1421,7 @@ struct Emitter {
     insert(module.makeStore(.word(v), at: x1, at: site))
   }
 
-  /// Writes an instance of `Hylo.String` with value `v` to `storage`, anchoring new instruction at
-  /// `site`.
+  /// Writes an instance of `Hylo.String` with value `v` to `storage`.
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.String`.
   private mutating func emitStore(string v: String, to storage: Operand, at site: SourceRange) {
@@ -2174,8 +2174,8 @@ struct Emitter {
     UNIMPLEMENTED()
   }
 
-  /// Returns the address of the member declared by `d`, specialized with `specialization` and
-  /// bound to `receiver`, inserting IR anchored at `site`.
+  /// Inserts IR to return the address of the member declared by `d`, bound to `receiver`, and
+  /// specialized by `specialization`.
   private mutating func emitProperty(
     boundTo receiver: Operand, declaredBy d: AnyDeclID,
     specializedBy specialization: GenericArguments,
@@ -2196,8 +2196,8 @@ struct Emitter {
     }
   }
 
-  /// Returns the projection the property declared by `d`, specialized with `specialization` and
-  /// bound to `receiver`, inserting IR anchored at `site`.
+  /// Returns the projection the property declared by `d`, bound to `receiver`, and specialized by
+  /// `specialization`.
   private mutating func emitComputedProperty(
     boundTo receiver: Operand, declaredByBundle d: SubscriptDecl.ID,
     specializedBy specialization: GenericArguments,
@@ -2217,8 +2217,8 @@ struct Emitter {
     return insert(s)!
   }
 
-  /// Returns the projection of the property declared by `d`, specialized with `specialization` and
-  /// bound to `receiver`, inserting IR anchored at `site`.
+  /// Returns the projection of the property declared by `d`, bound to `receiver`, and specialized
+  /// by `specialization`.
   private mutating func emitComputedProperty(
     boundTo receiver: Operand, declaredBy d: SubscriptImpl.ID,
     specializedBy specialization: GenericArguments,
@@ -2258,8 +2258,7 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR to move-initialize/assign `storage` with `value`, anchoring new instructions
-  /// at `site`.
+  /// Inserts IR for move-initializing/assigning `storage` with `value`.
   ///
   /// The type of `value` must a built-in or conform to `Movable` in `insertionScope`.
   ///
@@ -2337,7 +2336,7 @@ struct Emitter {
   // MARK: Deinitialization
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
-  /// it, anchoring new instructions at `site`. Otherwise, reports a diagnostic.
+  /// it. Otherwise, reports a diagnostic.
   ///
   /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
   /// exposed to `self.insertionScope`.
@@ -2381,8 +2380,7 @@ struct Emitter {
   }
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
-  /// it, anchoring new instructions at `site`. Otherwise, reports a diagnostic for each part that
-  /// isn't deinitializable.
+  /// it. Otherwise, reports a diagnostic for each part that isn't deinitializable.
   private mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
     let t = module.type(of: storage).ast
 
@@ -2396,8 +2394,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a record, is deinitializable in `self.insertionScope`, inserts
-  /// the IR for deinitializing it, anchoring new instructions at `site`. Otherwise, reports a
-  /// diagnostic for each part that isn't deinitializable.
+  /// the IR for deinitializing it. Otherwise, reports a diagnostic for each part that isn't
+  /// deinitializable.
   ///
   /// - Requires: the type of `storage` has a record layout.
   private mutating func emitDeinitRecordParts(of storage: Operand, at site: SourceRange) {
@@ -2420,8 +2418,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a union. is deinitializable in `self.insertionScope`, inserts
-  /// the IR for deinitializing it, anchoring new instructions at `site`. Otherwise, reports a
-  /// diagnostic for each part that isn't deinitializable.
+  /// the IR for deinitializing it. Otherwise, reports a diagnostic for each part that isn't
+  /// deinitializable.
   ///
   /// - Requires: the type of `storage` is a union.
   private mutating func emitDeinitUnionPayload(of storage: Operand, at site: SourceRange) {
@@ -2460,8 +2458,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a union container holding a `payload`, is deinitializable in
-  /// `self.insertionScope`, inserts the IR for deinitializing it, anchoring new instructions at
-  /// `site`. Otherwise, reports a diagnostic for each part that isn't deinitializable.
+  /// `self.insertionScope`, inserts the IR for deinitializing it. Otherwise, reports a diagnostic
+  /// for each part that isn't deinitializable.
   private mutating func emitDeinitUnionPayload(
     of storage: Operand, containing payload: AnyType, at site: SourceRange
   ) {
@@ -2518,14 +2516,13 @@ struct Emitter {
     return s
   }
 
-  /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`, anchoring
-  /// new instructions at `site`.
+  /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`.
   private mutating func emitDeallocTopFrame(at site: SourceRange) {
     emitDeallocs(for: frames.top, at: site)
     frames.top.allocs.removeAll()
   }
 
-  /// Inserts the IR for deallocating each allocation in `f`, anchoring new instructions at `site`.
+  /// Inserts the IR for deallocating each allocation in `f`.
   private mutating func emitDeallocs(for f: Frame, at site: SourceRange) {
     for a in f.allocs.reversed() {
       if a.mayHoldCaptures {
@@ -2536,7 +2533,7 @@ struct Emitter {
   }
 
   /// Appends the IR for computing the address of the given `subfield` of the record at
-  /// `recordAddress` and returns the resulting address, anchoring new instructions at `site`.
+  /// `recordAddress` and returns the resulting address.
   mutating func emitSubfieldView(
     _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
   ) -> Operand {
@@ -2545,8 +2542,7 @@ struct Emitter {
     return insert(s)!
   }
 
-  /// Emits the IR trapping iff `predicate`, which is an object of type `i1`, anchoring new
-  /// instructions at `site`.
+  /// Emits the IR trapping iff `predicate`, which is an object of type `i1`.
   private mutating func emitGuard(_ predicate: Operand, at site: SourceRange) {
     let failure = appendBlock()
     let success = appendBlock()
@@ -2558,7 +2554,7 @@ struct Emitter {
   }
 
   /// Emits the IR for copying the union discriminator of `container`, which is the address of
-  /// a union container, anchoring new instructions at `site`.
+  /// a union container.
   private mutating func emitUnionDiscriminator(
     _ container: Operand, at site: SourceRange
   ) -> Operand {
