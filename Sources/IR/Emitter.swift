@@ -2239,7 +2239,7 @@ struct Emitter {
     let predecessor = module.instruction(before: i)
 
     insertionPoint = .before(i)
-    emitMove(semantics, s.object, to: s.target, usingConformance: s.movable, at: s.site)
+    emitMove(semantics, s.object, to: s.target, withMovableConformance: s.movable, at: s.site)
     module.removeInstruction(i)
 
     if let p = predecessor {
@@ -2281,7 +2281,7 @@ struct Emitter {
     // Insert a call to the approriate move implementation if its semantics is unambiguous.
     // Otherwise, insert a call to the method bundle.
     if let k = semantics.uniqueElement {
-      emitMove(k, value, to: storage, usingConformance: movable, at: site)
+      emitMove(k, value, to: storage, withMovableConformance: movable, at: site)
     } else {
       insert(module.makeMove(value, to: storage, usingConformance: movable, at: site))
     }
@@ -2310,17 +2310,10 @@ struct Emitter {
   /// - Requires: `storage` does not have a built-in type.
   private mutating func emitMove(
     _ semantics: AccessEffect, _ value: Operand, to storage: Operand,
-    usingConformance movable: Core.Conformance, at site: SourceRange
+    withMovableConformance movable: Core.Conformance, at site: SourceRange
   ) {
     let d = module.demandMoveOperatorDeclaration(semantics, from: movable)
-
-    var a = module.specialization(in: insertionFunction!).merging(movable.arguments)
-    if let m = program.traitMember(referredBy: d) {
-      let t = module.type(of: storage).ast
-      a = a.merging([program[m.trait.decl].receiver: t])
-    }
-
-    let f = FunctionReference(to: d, in: module, specializedBy: a, in: insertionScope!)
+    let f = reference(to: d, implementedFor: movable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
@@ -2352,7 +2345,7 @@ struct Emitter {
     // Use custom conformance to `Deinitializable` if possible.
     let concept = program.ast.deinitializableTrait
     if let c = module.program.conformance(of: model, to: concept, exposedTo: insertionScope!) {
-      emitDeinit(storage, withConformanceToDeinitializable: c, at: site)
+      emitDeinit(storage, withDeinitializableConformance: c, at: site)
       return
     }
 
@@ -2360,20 +2353,19 @@ struct Emitter {
     report(.error(module.type(of: storage).ast, doesNotConformTo: concept, at: site))
   }
 
-  /// Inserts the IR for deinitializing `storage`, using `c` to identify the deinitializer to apply
-  /// and anchoring new instructions at `site`.
+  /// Inserts the IR for deinitializing `storage`, using `deinitializable` to identify the locate
+  /// the deinitializer to apply.
   private mutating func emitDeinit(
-    _ storage: Operand, withConformanceToDeinitializable c: Core.Conformance,
+    _ storage: Operand, withDeinitializableConformance deinitializable: Core.Conformance,
     at site: SourceRange
   ) {
-    let d = module.demandDeinitDeclaration(from: c)
-    let f = Operand.constant(
-      FunctionReference(to: d, in: module, specializedBy: c.arguments, in: insertionScope!))
+    let d = module.demandDeinitDeclaration(from: deinitializable)
+    let f = reference(to: d, implementedFor: deinitializable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
     let x2 = insert(module.makeAccess(.sink, from: storage, at: site))!
-    insert(module.makeCall(applying: f, to: [x2], writingResultTo: x1, at: site))
+    insert(module.makeCall(applying: .constant(f), to: [x2], writingResultTo: x1, at: site))
     insert(module.makeEndAccess(x2, at: site))
     insert(module.makeEndAccess(x1, at: site))
     insert(module.makeMarkState(x0, initialized: false, at: site))
@@ -2471,6 +2463,17 @@ struct Emitter {
   }
 
   // MARK: Helpers
+
+  /// Returns a function reference to `d`, which is an implementation that's part of `c`.
+  private func reference(
+    to d: Function.ID, implementedFor c: Core.Conformance
+  ) -> FunctionReference {
+    var a = module.specialization(in: insertionFunction!).merging(c.arguments)
+    if let m = program.traitMember(referredBy: d) {
+      a = a.merging([program[m.trait.decl].receiver: c.model])
+    }
+    return FunctionReference(to: d, in: module, specializedBy: a, in: insertionScope!)
+  }
 
   /// Returns the canonical form of `t` in the current insertion scope.
   private func canonical(_ t: AnyType) -> AnyType {
