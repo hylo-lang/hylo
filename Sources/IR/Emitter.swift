@@ -1123,7 +1123,7 @@ struct Emitter {
     case .down:
       emitStore(downcast: e, to: storage)
     case .pointerConversion:
-      unreachable("pointer to address conversion evaluates to a lvalue")
+      emitStore(pointerConversion: e, to: storage)
     }
   }
 
@@ -1159,6 +1159,21 @@ struct Emitter {
     // TODO
     _ = lhs
     UNIMPLEMENTED()
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(pointerConversion e: CastExpr.ID, to storage: Operand) {
+    let x0 = emitLValue(pointerConversion: e)
+
+    // Consuming a pointee requires a conformance to `Movable`.
+    let target = RemoteType(canonical(program[e].type))!
+    let movable = program.ast.movableTrait
+    if !program.conforms(target.bareType, to: movable, in: insertionScope!) {
+      report(.error(module.type(of: x0).ast, doesNotConformTo: movable, at: ast[e].site))
+      return
+    }
+
+    emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -2072,16 +2087,21 @@ struct Emitter {
   private mutating func emitLValue(_ e: CastExpr.ID) -> Operand {
     switch ast[e].direction {
     case .pointerConversion:
-      let x0 = emitLValue(ast[e].left)
-      let x1 = insert(module.makeAccess(.sink, from: x0, at: ast[e].site))!
-      let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
-      insert(module.makeEndAccess(x1, at: ast[e].site))
-      let target = RemoteType(canonical(program[e].type))!
-      return insert(module.makePointerToAddress(x2, to: target, at: ast[e].site))!
-
+      return emitLValue(pointerConversion: e)
     default:
       UNIMPLEMENTED()
     }
+  }
+
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(pointerConversion e: CastExpr.ID) -> Operand {
+    let x0 = emitLValue(ast[e].left)
+    let x1 = insert(module.makeAccess(.sink, from: x0, at: ast[e].site))!
+    let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
+    insert(module.makeEndAccess(x1, at: ast[e].site))
+
+    let target = RemoteType(canonical(program[e].type))!
+    return insert(module.makePointerToAddress(x2, to: target, at: ast[e].site))!
   }
 
   /// Inserts the IR for lvalue `e`.

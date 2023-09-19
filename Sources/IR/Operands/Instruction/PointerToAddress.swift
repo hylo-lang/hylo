@@ -49,14 +49,10 @@ extension Module {
 
   /// Creates a `pointer_to_address` anchored at `site` that converts `source`, which is a
   /// built-in pointer value, to an address of type `target`.
-  ///
-  /// - Requires: `target.access` is `.let`, `.inout`, or `.set`
   func makePointerToAddress(
-    _ source: Operand,
-    to target: RemoteType,
-    at site: SourceRange
+    _ source: Operand, to target: RemoteType, at site: SourceRange
   ) -> PointerToAddress {
-    precondition(AccessEffectSet([.let, .inout, .set]).contains(target.access))
+    precondition(target.access != .yielded)
     return .init(source: source, target: target, site: site)
   }
 
