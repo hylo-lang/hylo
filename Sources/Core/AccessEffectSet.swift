@@ -30,8 +30,7 @@ public struct AccessEffectSet: OptionSet, Hashable {
 
   /// The weakest capability in `self`, or `nil` if `self` is empty.
   public var weakest: AccessEffect? {
-    var s = elements
-    return s.next()
+    elements.first
   }
 
   /// Returns the strongest capability in `self` including `k`.
@@ -74,33 +73,39 @@ public struct AccessEffectSet: OptionSet, Hashable {
 
 extension AccessEffectSet {
 
-  /// A sequence with the elements of an access effect set.
-  public struct Elements: Sequence, IteratorProtocol {
+  /// A collection with the elements of an access effect set.
+  public struct Elements: Collection {
+
+    public typealias Index = UInt8
+
+    public typealias Element = AccessEffect
 
     /// The contents of the set being iterated over.
     private let base: AccessEffectSet
 
-    /// The next effect returned by the iterator.
-    private var position: UInt8
-
     /// Creates an iterator over `s`.
     public init(_ s: AccessEffectSet) {
       self.base = s
-      self.position = s.rawValue & (~s.rawValue + 1)
-      if self.position == 0 {
-        self.position = 1 << 7
-      }
     }
 
-    /// Returns the next element in the sequence.
-    public mutating func next() -> AccessEffect? {
-      if position == (1 << 7) { return nil }
-      defer {
-        repeat {
-          position = position << 1
-        } while (position != (1 << 7)) && ((position & base.rawValue) != position)
-      }
-      return .init(rawValue: position)
+    public var startIndex: UInt8 {
+      base.rawValue & (~base.rawValue + 1)
+    }
+
+    public var endIndex: UInt8 {
+      1 << 7
+    }
+
+    public func index(after position: UInt8) -> UInt8 {
+      var next = position
+      repeat {
+        next = next << 1
+      } while (next != endIndex) && ((next & base.rawValue) != next)
+      return next
+    }
+
+    public subscript(position: UInt8) -> AccessEffect {
+      AccessEffect(rawValue: position)!
     }
 
   }
