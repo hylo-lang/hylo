@@ -406,7 +406,7 @@ extension LLVM.Module {
     let transpilation = declareFunction(ir.base.mangled(f), .init(from: parameters, in: &self))
 
     configureAttributes(transpilation, transpiledFrom: f, of: m)
-    configureInputAttributes(transpilation.parameters.dropFirst(), transpiledFrom: f, in: m)
+    configureInputAttributes(transpilation.parameters.dropLast(), transpiledFrom: f, in: m)
 
     return transpilation
   }
