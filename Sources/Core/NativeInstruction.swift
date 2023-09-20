@@ -311,8 +311,8 @@ extension NativeInstruction: CustomStringConvertible {
       return "fptosi_\(l)_\(r)"
     case .zeroinitializer(let t):
       return "zeroinitializer_\(t)"
-    case .advancedByBytes(let byteOffset):
-      return "advanced_by_bytes_\(byteOffset)"
+    case .advancedByBytes(let t):
+      return "advanced_by_bytes_\(t)"
     }
   }
 
