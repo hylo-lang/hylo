@@ -34,10 +34,10 @@ public type PointerToMutable<Pointee>: Regular {
   }
 
   /// Returns `self` offset forward by `n` array elements of `Pointee` type.
-  public fun advance( by n: Int ) -> Self {
+  public fun advance(by n: Int) -> Self {
     let offset_in_bytes = MemoryLayout<Pointee>.stride() * n
     return PointerToMutable<Pointee>.new(
-      base: Builtin.advanced_by_bytes_word( base, offset_in_bytes.value ) )
+      base: Builtin.advanced_by_bytes_word(base, offset_in_bytes.value))
   }
 
   /// Creates an instance that does not address any usable storage.
