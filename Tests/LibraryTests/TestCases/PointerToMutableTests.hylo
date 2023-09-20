@@ -24,7 +24,16 @@ fun test_advance() {
   precondition(!(f == e))
 }
 
+fun test_pointee() {
+  let p = PointerToMutable<Int>.allocate(count: 1)
+  p.unsafe_initialize_pointee(fun (_ i: set Int) -> Void { &i = 42 })
+  let y = p.unsafe_pointee()
+  precondition(42 == y)
+  p.deallocate()
+}
+
 public fun main() {
   test_advance_by_bytes()
   test_advance()
+  test_pointee()
 }
