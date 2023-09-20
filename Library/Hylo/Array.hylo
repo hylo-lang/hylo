@@ -2,15 +2,13 @@
 public type Array<Element: Movable & Deinitializable>: Deinitializable {
 
   /// The out-of-line storage of the array.
-  var storage: DynamicBuffer<Void, Element>
-
-  /// The number of elements in the array.
-  var _count: Int
+  ///
+  /// The header of the buffer indicates the number of elements contained in the array.
+  var storage: DynamicBuffer<Int, Element>
 
   /// Creates a new, empty array.
   public init() {
     &storage = .new()
-    &_count = 0
   }
 
   /// Deinitializes `self`.
@@ -24,7 +22,7 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
 
   /// The number of elements in the array.
   public fun count() -> Int {
-    return _count.copy()
+    if storage.capacity() == 0 { 0 } else { storage.header.copy() }
   }
 
   /// The number of elements that can be stored in the array before new storage must be allocated.
@@ -41,9 +39,11 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
       &new_capacity += new_capacity.copy()
     }
 
-    var new_storage = DynamicBuffer<Void, Element>(
+    // TODO: Call `self.copy()` directly in the lambda.
+    let c = count()
+    var new_storage = DynamicBuffer<Int, Element>(
       capacity: new_capacity,
-      initializing_header_with: fun (_ h: set Void) -> Void { &h = () })
+      initializing_header_with: fun (_ h: set Int) -> Void { &h = c.copy() })
 
     var i = 0
     var e = storage.first_element_address()
@@ -64,7 +64,7 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
   public fun append(_ source: sink Element) inout {
     &reserve_capacity(count() + 1)
     pointer_to_element(at: count()).unsafe_initialize_pointee(source)
-    &_count += 1
+    &storage.header += 1
   }
 
   /// Accesses the element at `position`.
