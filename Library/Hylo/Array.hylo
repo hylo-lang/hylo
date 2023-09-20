@@ -2,14 +2,14 @@
 public type Array<Element: Movable>: Deinitializable {
 
   /// The out-of-line storage of the array.
-  var _storage: DynamicBuffer<Void, Element>
+  var storage: DynamicBuffer<Void, Element>
 
   /// The number of elements in the array.
   var _count: Int
 
   /// Creates a new, empty array.
   public init() {
-    &_storage = .new()
+    &storage = .new()
     &_count = 0
   }
 
@@ -20,7 +20,7 @@ public type Array<Element: Movable>: Deinitializable {
 
   /// The number of elements that can be stored in the array before new storage must be allocated.
   public fun capacity() -> Int {
-    return _storage.capacity()
+    return storage.capacity()
   }
 
   /// Reserves enough space to store `n` elements
@@ -37,7 +37,7 @@ public type Array<Element: Movable>: Deinitializable {
       initializing_header_with: fun (_ h: set Void) -> Void { &h = () })
 
     var i = 0
-    var e = _storage.first_element_address()
+    var e = storage.first_element_address()
     var f = new_storage.first_element_address()
     while i < count() {
       f.unsafe_initialize_pointee(e.unsafe_pointee())
@@ -45,13 +45,13 @@ public type Array<Element: Movable>: Deinitializable {
       &f = f.advance(by: 1)
     }
 
-    &_storage = new_storage
+    &storage = new_storage
   }
 
   /// Adds a new element at the end of the array.
   public fun append(_ source: sink Element) {
     reserve_capacity(count() + 1)
-    var p = _storage.first_element_address().advance(by: count())
+    var p = storage.first_element_address().advance(by: count())
     p.unsafe_initialize_pointee(source)
   }
 
