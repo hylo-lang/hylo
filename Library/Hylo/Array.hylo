@@ -1,5 +1,5 @@
 /// An ordered, random-access collection.
-public type Array<Element: Movable> : Deinitializable {
+public type Array<Element: Movable>: Deinitializable {
 
   /// The out-of-line storage of the array.
   var _storage: DynamicBuffer<Void, Element>
@@ -61,6 +61,7 @@ public type Array<Element: Movable> : Deinitializable {
     //   &x = s
     // })
   }
+
 }
 
 /*
