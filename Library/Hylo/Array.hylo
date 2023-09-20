@@ -57,6 +57,20 @@ public type Array<Element: Movable>: Deinitializable {
     p.unsafe_initialize_pointee(source)
   }
 
+  /// Accesses the element at `position`.
+  ///
+  /// - Requires: `position` is in the range `0 ..< count()`.
+  public subscript(_ position: Int): Element {
+    let {
+      // precondition(position >= 0 && position < count())
+      storage.first_element_address().advance(by: count()).unsafe[]
+    }
+    inout {
+      // precondition(position >= 0 && position < count())
+      &storage.first_element_address().advance(by: count()).unsafe[]
+    }
+  }
+
 }
 
 /*
