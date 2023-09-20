@@ -53,9 +53,9 @@ public type Array<Element: Movable>: Deinitializable {
 
   /// Adds a new element at the end of the array.
   public fun append(_ source: sink Element) inout {
-    reserve_capacity(count() + 1)
-    var p = storage.first_element_address().advance(by: count())
-    p.unsafe_initialize_pointee(source)
+    &reserve_capacity(count() + 1)
+    pointer_to_element(at: count()).unsafe_initialize_pointee(source)
+    &_count += 1
   }
 
   /// Accesses the element at `position`.
@@ -64,12 +64,19 @@ public type Array<Element: Movable>: Deinitializable {
   public subscript(_ position: Int): Element {
     let {
       // precondition(position >= 0 && position < count())
-      storage.first_element_address().advance(by: count()).unsafe[]
+      pointer_to_element(at: position).unsafe[]
     }
     inout {
       // precondition(position >= 0 && position < count())
-      &storage.first_element_address().advance(by: count()).unsafe[]
+      pointer_to_element(at: position).unsafe[]
     }
+  }
+
+  /// Returns the address of the element at `position`.
+  ///
+  /// - Requires: `position` is in the range `0 ..< capacity()`.
+  fun pointer_to_element(at position: Int) -> PointerToMutable<Element> {
+    storage.first_element_address().advance(by: position)
   }
 
 }
