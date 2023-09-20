@@ -49,7 +49,7 @@ public type Array<Element: Movable>: Deinitializable {
   }
 
   /// Adds a new element at the end of the array.
-  public fun append(from source: sink Element) {
+  public fun append(_ source: sink Element) {
     reserve_capacity(count() + 1)
     var p = _storage.first_element_address().advance(by: count())
     p.unsafe_initialize_pointee(source)
