@@ -1,5 +1,5 @@
 /// An ordered, random-access collection.
-public type Array<Element: Movable>: Deinitializable {
+public type Array<Element: Movable & Deinitializable>: Deinitializable {
 
   /// The out-of-line storage of the array.
   var storage: DynamicBuffer<Void, Element>
@@ -11,6 +11,15 @@ public type Array<Element: Movable>: Deinitializable {
   public init() {
     &storage = .new()
     &_count = 0
+  }
+
+  /// Deinitializes `self`.
+  public fun deinit() sink {
+    var i = 0
+    while i < count() {
+      &pointer_to_element(at: i).unsafe_pointee().deinit()
+      &i += 1
+    }
   }
 
   /// The number of elements in the array.
