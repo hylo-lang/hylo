@@ -25,7 +25,7 @@ public type Array<Element: Movable>: Deinitializable {
 
   /// Reserves enough space to store `n` elements
   public fun reserve_capacity(_ n: Int) {
-    if n >= capacity() { return }
+    if n < capacity() { return }
 
     var new_capacity = max[1, capacity()].copy()
     while new_capacity < n {
