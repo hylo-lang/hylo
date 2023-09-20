@@ -87,6 +87,8 @@ public extension PointerToMutable where Pointee: Movable {
 
   /// Returns the value at the address represented by `self`, leaving the storage at this address
   /// uninitialized.
+  ///
+  /// Note: This method should be deprecated once nonmutating subscripts are implemented.
   public fun unsafe_pointee() -> Pointee {
     return base as* (remote sink Pointee)
   }
