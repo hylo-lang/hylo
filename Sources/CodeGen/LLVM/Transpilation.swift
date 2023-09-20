@@ -903,10 +903,7 @@ extension LLVM.Module {
         let base = llvm(s.operands[0])
         let byteOffset = llvm(s.operands[1])
         register[.register(i)] = insertGetElementPointerInBounds(
-          of: base,
-          typed: ptr,
-          indices: [byteOffset],
-          at: insertionPoint)
+          of: base, typed: i8, indices: [byteOffset], at: insertionPoint)
 
       default:
         unreachable("unexpected LLVM instruction '\(s.instruction)'")

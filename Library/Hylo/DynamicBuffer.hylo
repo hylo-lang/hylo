@@ -4,7 +4,7 @@
 /// - Warning: The deinitializer of `DynamicBuffer` does not deinitialize the elements that may
 ///   be stored in its payload. You must ensure that they are properly deinitialized before
 ///   `deinit` is called.
-public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
+public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable, Movable {
 
   /// The description of payloads in `DynamicBuffer`s.
   typealias BufferHeader = {
@@ -16,7 +16,7 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
   static fun payload_offset() -> Int {
     let a = MemoryLayout<Element>.alignment()
     let s = MemoryLayout<BufferHeader>.size()
-    return s + (a - s % a)
+    return s + (a - s) % a
   }
 
   /// A pointer to the base of the buffer's out-of-line storage.
@@ -49,11 +49,12 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
   }
 
   /// Returns the address of the initial element.
-  /// - Precondition: `capacity != 0`
+  ///
+  /// - Requires: `capacity() > 0`.
   public fun first_element_address() -> PointerToMutable<Element> {
     // TODO: Uncomment the following line when #995 is fixed
-    // precondition(self.capacity() == 0)
-    return PointerToMutable<Element>(type_punning: storage.advance(by_bytes: payload_offset()))
+    // precondition(self.capacity() > 0)
+    PointerToMutable<Element>(type_punning: storage.advance(by_bytes: payload_offset()))
   }
 
   /// Deinitializes `self`.
@@ -71,6 +72,31 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable {
 
     let p = PointerToMutable<BufferHeader>(type_punning: storage)
     return p.unsafe[].0.copy()
+  }
+
+  /// Accesses the header of `self`.
+  ///
+  /// - Requires: `capacity() > 0`.
+  public property header: Header {
+    let { buffer_header().unsafe[].1 }
+    inout { &buffer_header().unsafe[].1 }
+  }
+
+  /// Returns the address of the `self`'s header.
+  fun buffer_header() -> PointerToMutable<BufferHeader> {
+    PointerToMutable<BufferHeader>(type_punning: storage)
+  }
+
+}
+
+// TODO: This trait was added as a workaround for #1002 since DynamicBuffer
+// is initialized in the Array constructor
+public conformance DynamicBuffer: Movable {
+
+  fun take_value(from source: sink Self) -> {self: Self, Void} {
+    // TODO: Fix defects preventing the following line from working
+    // &storage.base = source.storage.base
+    (self: source, ())
   }
 
 }

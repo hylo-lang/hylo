@@ -1,0 +1,118 @@
+/// An ordered, random-access collection.
+public type Array<Element: Movable & Deinitializable>: Deinitializable {
+
+  /// The out-of-line storage of the array.
+  ///
+  /// The header of the buffer indicates the number of elements contained in the array.
+  var storage: DynamicBuffer<Int, Element>
+
+  /// Creates a new, empty array.
+  public init() {
+    &storage = .new()
+  }
+
+  /// Deinitializes `self`.
+  public fun deinit() sink {
+    var i = 0
+    while i < count() {
+      &pointer_to_element(at: i).unsafe_pointee().deinit()
+      &i += 1
+    }
+  }
+
+  /// The number of elements in the array.
+  public fun count() -> Int {
+    if storage.capacity() == 0 { 0 } else { storage.header.copy() }
+  }
+
+  /// The number of elements that can be stored in the array before new storage must be allocated.
+  public fun capacity() -> Int {
+    return storage.capacity()
+  }
+
+  /// Reserves enough space to store `n` elements
+  public fun reserve_capacity(_ n: Int) inout {
+    if n < capacity() { return }
+
+    var new_capacity = max[1, capacity()].copy()
+    while new_capacity < n {
+      &new_capacity += new_capacity.copy()
+    }
+
+    // TODO: Call `self.copy()` directly in the lambda.
+    let c = count()
+    var new_storage = DynamicBuffer<Int, Element>(
+      capacity: new_capacity,
+      initializing_header_with: fun (_ h: set Int) -> Void { &h = c.copy() })
+
+    var i = 0
+    var e = storage.first_element_address()
+    var f = new_storage.first_element_address()
+    while i < count() {
+      f.unsafe_initialize_pointee(e.unsafe_pointee())
+      &e = e.advance(by: 1)
+      &f = f.advance(by: 1)
+      &i += 1
+    }
+
+    // Deinitializing the `self.storage` is safe at this point because all its elements must have
+    // been moved to `new_storage`.
+    &storage = new_storage
+  }
+
+  /// Adds a new element at the end of the array.
+  public fun append(_ source: sink Element) inout {
+    &reserve_capacity(count() + 1)
+    pointer_to_element(at: count()).unsafe_initialize_pointee(source)
+    &storage.header += 1
+  }
+
+  /// Accesses the element at `position`.
+  ///
+  /// - Requires: `position` is in the range `0 ..< count()`.
+  public subscript(_ position: Int): Element {
+    let {
+      // precondition(position >= 0 && position < count())
+      pointer_to_element(at: position).unsafe[]
+    }
+    inout {
+      // precondition(position >= 0 && position < count())
+      pointer_to_element(at: position).unsafe[]
+    }
+  }
+
+  /// Returns the address of the element at `position`.
+  ///
+  /// - Requires: `position` is in the range `0 ..< capacity()`.
+  fun pointer_to_element(at position: Int) -> PointerToMutable<Element> {
+    storage.first_element_address().advance(by: position)
+  }
+
+}
+
+/*
+
+// TODO: Make Array conform to Regular instead of Deinitializable once #1002 is fixed.
+// Currently that issue prevents the copy() function below from compiling.
+//
+// Error is "type 'Element' does not conform to trait 'Movable'"
+
+public conformance Array: Equatable {
+
+  /// Returns `true` iff `other` has an equivalent value.
+  public fun infix== (_ other: Self) -> Bool {
+    // TODO
+    return true
+  }
+
+}
+
+public conformance Array: Copyable {
+  /// Returns an equivalent instance.
+  public fun copy() -> Self {
+    // TODO
+    .new()
+  }
+}
+
+*/
