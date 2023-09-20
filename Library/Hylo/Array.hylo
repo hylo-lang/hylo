@@ -29,7 +29,7 @@ public type Array<Element: Movable>: Deinitializable {
 
     var new_capacity = max[1, capacity()].copy()
     while new_capacity < n {
-      &new_capacity = capacity() + capacity()
+      &new_capacity += new_capacity.copy()
     }
 
     var new_storage = DynamicBuffer<Void, Element>(
@@ -43,6 +43,7 @@ public type Array<Element: Movable>: Deinitializable {
       f.unsafe_initialize_pointee(e.unsafe_pointee())
       &e = e.advance(by: 1)
       &f = f.advance(by: 1)
+      &i += 1
     }
 
     // Deinitializing the `self.storage` is safe at this point because all its elements must have
