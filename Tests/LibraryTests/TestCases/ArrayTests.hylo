@@ -5,6 +5,18 @@ fun test_init_empty() {
   precondition(d.count() == 0)
 }
 
+fun test_append() {
+  var d = Array<Int>()
+  &d.append(21)
+  &d.append(42)
+  &d.append(84)
+
+  precondition(d[0] == 21)
+  precondition(d[1] == 42)
+  precondition(d[2] == 84)
+}
+
 public fun main() {
   test_init_empty()
+  test_append()
 }
