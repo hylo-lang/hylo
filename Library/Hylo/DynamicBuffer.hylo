@@ -50,7 +50,7 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable, Mo
 
   /// Returns the address of the initial element.
   ///
-  /// - Requires: `capacity > 0`.
+  /// - Requires: `capacity() > 0`.
   public fun first_element_address() -> PointerToMutable<Element> {
     // TODO: Uncomment the following line when #995 is fixed
     // precondition(self.capacity() > 0)
@@ -72,6 +72,19 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable, Mo
 
     let p = PointerToMutable<BufferHeader>(type_punning: storage)
     return p.unsafe[].0.copy()
+  }
+
+  /// Accesses the header of `self`.
+  ///
+  /// - Requires: `capacity() > 0`.
+  public property header: Header {
+    let { buffer_header().unsafe[].1 }
+    inout { &buffer_header().unsafe[].1 }
+  }
+
+  /// Returns the address of the `self`'s header.
+  fun buffer_header() -> PointerToMutable<BufferHeader> {
+    PointerToMutable<BufferHeader>(type_punning: storage)
   }
 
 }
