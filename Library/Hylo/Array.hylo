@@ -45,6 +45,8 @@ public type Array<Element: Movable>: Deinitializable {
       &f = f.advance(by: 1)
     }
 
+    // Deinitializing the `self.storage` is safe at this point because all its elements must have
+    // been moved to `new_storage`.
     &storage = new_storage
   }
 
