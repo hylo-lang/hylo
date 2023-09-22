@@ -14,7 +14,7 @@ public struct SourceRange: Hashable {
   public var end: SourceFile.Index { indices.upperBound }
 
   /// Creates an instance with the given properties.
-  init(_ indices: Range<SourceFile.Index>, in file: SourceFile) {
+  public init(_ indices: Range<SourceFile.Index>, in file: SourceFile) {
     self.file = file
     self.indices = indices
   }
