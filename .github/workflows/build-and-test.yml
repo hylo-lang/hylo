@@ -144,7 +144,7 @@ jobs:
             https://github.com/apple/swift-package-manager/issues/6595" && false) )
           
   build-native-windows:
-    name: "Native, no testing: windows-latest/release"
+    name: "Native: windows-latest/release"
     strategy:
       fail-fast: false
     runs-on: windows-latest
@@ -189,3 +189,5 @@ jobs:
       if: steps.build.outcome != 'success'
       run: swift build -v -c release
 
+    - name: Test (Release)
+      run: swift test -c release
