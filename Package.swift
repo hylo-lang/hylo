@@ -1,6 +1,12 @@
 // swift-tools-version:5.7
 import PackageDescription
 
+#if os(Windows)
+let onWindows = true
+#else
+let onWindows = false
+#endif
+
 /// Settings to be passed to swiftc for all targets.
 let allTargetsSwiftSettings: [SwiftSetting] = [
   .unsafeFlags(["-warnings-as-errors"])
@@ -126,7 +132,7 @@ let package = Package(
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
-      dependencies: [.target(name: "GenerateHyloFileTests")]),
+      dependencies: onWindows ? [] : ["GenerateHyloFileTests"]),
 
     .executableTarget(
       name: "GenerateHyloFileTests",
