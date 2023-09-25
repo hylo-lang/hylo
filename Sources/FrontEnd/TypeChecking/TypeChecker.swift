@@ -2941,17 +2941,19 @@ struct TypeChecker {
       guard var candidateType = resolveType(of: m) else { continue }
       var log = DiagnosticSet()
 
+      // The specialization of the match includes that of context in which it was looked up.
+      var specialization = genericArguments(inScopeIntroducing: m, resolvedIn: context)
+
       // Keep track of generic arguments that should be captured later on.
       let candidateSpecialization = genericArguments(
         passedTo: m, typed: candidateType, referredToBy: name, specializedBy: arguments,
         reportingDiagnosticsTo: &log)
+      for (p, a) in candidateSpecialization {
+        specialization[p] = a
+      }
 
-      // The specialization of the match includes that of context in which it was looked up.
-      var specialization = context?.arguments ?? [:]
-
-      // If the match is a trait member, specialize its receiver as necessary.
+      // If the match is a trait member looked up with qualification, specialize its receiver.
       if let t = program.trait(defining: m) {
-        assert(specialization[program[t].receiver] == nil)
         specialization[program[t].receiver] = context?.type
       }
 
@@ -2971,7 +2973,6 @@ struct TypeChecker {
         }
       }
 
-      specialization.append(candidateSpecialization)
       candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
 
       let r = program.makeReference(
@@ -3244,6 +3245,24 @@ struct TypeChecker {
       let p = genericParameters(introducedBy: d)
       return associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)
     }
+  }
+
+  /// Returns the list of generic arguments passed to a symbol occurring in `scope` of use and
+  /// looked up in `context`.
+  ///
+  /// The arguments of `context` are returned if the latter isn't `nil`. Otherwise, the arguments
+  /// captured in the scope introducing `d` are returned in the form of a table mapping accumulated
+  /// generic parameters to a skolem.
+  private mutating func genericArguments(
+    inScopeIntroducing d: AnyDeclID, resolvedIn context: NameResolutionContext?
+  ) -> GenericArguments {
+    if let a = context?.arguments { return a }
+
+    // References to modules can never capture any generic arguments.
+    if d.kind == ModuleDecl.self { return [:] }
+
+    let parameters = accumulatedGenericParameters(in: program[d].scope)
+    return .init(skolemizing: parameters, in: program.ast)
   }
 
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
