@@ -1015,8 +1015,8 @@ struct TypeChecker {
       return specialize(t, for: arguments, in: scopeOfExposition)
     }
 
-    /// Returns a concrete or syntheszed implementation of requirement `r` in `concept` for `model`
-    /// exposed to `scopeOfUse`, or `nil` if no such implementation exist.
+    /// Returns a concrete or synthesized implementation of requirement `r` in `concept` for
+    /// `model` exposed to `scopeOfUse`, or `nil` if no such implementation exist.
     func implementation(of r: AnyDeclID) {
       // FIXME: remove me
       if r.kind == AssociatedTypeDecl.self { return }
@@ -2941,17 +2941,19 @@ struct TypeChecker {
       guard var candidateType = resolveType(of: m) else { continue }
       var log = DiagnosticSet()
 
+      // The specialization of the match includes that of context in which it was looked up.
+      var specialization = genericArguments(inScopeIntroducing: m, resolvedIn: context)
+
       // Keep track of generic arguments that should be captured later on.
       let candidateSpecialization = genericArguments(
         passedTo: m, typed: candidateType, referredToBy: name, specializedBy: arguments,
         reportingDiagnosticsTo: &log)
+      for (p, a) in candidateSpecialization {
+        specialization[p] = a
+      }
 
-      // The specialization of the match includes that of context in which it was looked up.
-      var specialization = context?.arguments ?? [:]
-
-      // If the match is a trait member, specialize its receiver as necessary.
+      // If the match is a trait member looked up with qualification, specialize its receiver.
       if let t = program.trait(defining: m) {
-        assert(specialization[program[t].receiver] == nil)
         specialization[program[t].receiver] = context?.type
       }
 
@@ -2971,7 +2973,6 @@ struct TypeChecker {
         }
       }
 
-      specialization.append(candidateSpecialization)
       candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
 
       let r = program.makeReference(
@@ -3180,10 +3181,7 @@ struct TypeChecker {
       return unspecialized
     }
 
-    let arguments = GenericArguments(
-      uniqueKeysWithValues: parameters.map({ (p) in
-        (key: p, value: ^GenericTypeParameterType(p, ast: program.ast))
-      }))
+    let arguments = GenericArguments(skolemizing: parameters, in: program.ast)
     return MetatypeType(of: BoundGenericType(unspecialized.instance, arguments: arguments))
   }
 
@@ -3249,6 +3247,24 @@ struct TypeChecker {
     }
   }
 
+  /// Returns the list of generic arguments passed to a symbol occurring in `scope` of use and
+  /// looked up in `context`.
+  ///
+  /// The arguments of `context` are returned if the latter isn't `nil`. Otherwise, the arguments
+  /// captured in the scope introducing `d` are returned in the form of a table mapping accumulated
+  /// generic parameters to a skolem.
+  private mutating func genericArguments(
+    inScopeIntroducing d: AnyDeclID, resolvedIn context: NameResolutionContext?
+  ) -> GenericArguments {
+    if let a = context?.arguments { return a }
+
+    // References to modules can never capture any generic arguments.
+    if d.kind == ModuleDecl.self { return [:] }
+
+    let parameters = accumulatedGenericParameters(in: program[d].scope)
+    return .init(skolemizing: parameters, in: program.ast)
+  }
+
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
   /// values in `arguments` if the two arrays have the same length. Otherwise, returns `nil`,
   /// reporting diagnostics to `log`.
@@ -3293,6 +3309,61 @@ struct TypeChecker {
       }
     }
     return result
+  }
+
+  /// Returns generic parameters captured by `s` and the scopes semantically containing `s`.
+  ///
+  /// A declaration may take generic parameters even if it doesn't declare any. For example, a
+  /// nested function will implicitly capture the generic parameters introduced in its context.
+  ///
+  /// Parameters are returned outer to inner, left to right: the first parameter of the outermost
+  /// generic scope appears first; the last parameter of the innermost generic scope appears last.
+  public mutating func accumulatedGenericParameters<T: ScopeID>(
+    in s: T
+  ) -> ReversedCollection<[GenericParameterDecl.ID]> {
+    var result: [GenericParameterDecl.ID] = []
+    appendGenericParameters(in: s, to: &result)
+    return result.reversed()
+  }
+
+  /// Appends generic parameters captured by `s` and the scopes semantically containing `s` to
+  /// `accumulatedParameters`, right to left, inner to outer.
+  private mutating func appendGenericParameters<T: ScopeID>(
+    in s: T, to accumulatedParameters: inout [GenericParameterDecl.ID]
+  ) {
+    switch s.kind.value {
+    case is ConformanceDecl.Type:
+      appendGenericParameters(in: ConformanceDecl.ID(s)!, to: &accumulatedParameters)
+    case is ExtensionDecl.Type:
+      appendGenericParameters(in: ExtensionDecl.ID(s)!, to: &accumulatedParameters)
+    case is GenericScope.Type:
+      accumulatedParameters.append(contentsOf: (program.ast[s] as! GenericScope).genericParameters)
+    case is TranslationUnit.Type, is ModuleDecl.Type:
+      return
+    default:
+      break
+    }
+
+    appendGenericParameters(in: program[s].scope, to: &accumulatedParameters)
+  }
+
+  /// Appends generic parameters captured by `s` and the scopes semantically containing `s` to
+  /// `accumulatedParameters`, right to left, inner to outer.
+  private mutating func appendGenericParameters<T: TypeExtendingDecl>(
+    in d: T.ID, to accumulatedParameters: inout [GenericParameterDecl.ID]
+  ) {
+    guard let p = scopeExtended(by: d) else { return }
+    appendGenericParameters(in: p, to: &accumulatedParameters)
+  }
+
+  /// Appends generic parameters captured by `s` and the scopes semantically containing `s` to
+  /// `accumulatedParameters`, right to left, inner to outer.
+  private func appendGenericParameters<T: GenericDecl>(
+    in d: T.ID, to accumulatedParameters: inout [GenericParameterDecl.ID]
+  ) {
+    if let clause = program[d].genericClause {
+      accumulatedParameters.append(contentsOf: clause.value.parameters)
+    }
   }
 
   // MARK: Quantifier elimination
