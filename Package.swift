@@ -139,7 +139,7 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         "Utils",
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings + [ .unsafeFlags(["-parse-as-library"]) ]),
 
     // Test targets.
     .testTarget(

@@ -4,6 +4,7 @@ import Utils
 
 /// A command-line tool that generates XCTest cases for a list of annotated ".hylo"
 /// files as part of our build process.
+@main
 struct GenerateHyloFileTests: ParsableCommand {
 
   @Option(
@@ -24,9 +25,7 @@ struct GenerateHyloFileTests: ParsableCommand {
 
   /// Returns the Swift source of the test function for the Hylo file at `source`.
   func swiftFunctionTesting(valAt source: URL) throws -> String {
-    let firstLine =
-      try String(contentsOf: source)
-      .split(separator: "\n", maxSplits: 1).first ?? ""
+    let firstLine = try String(contentsOf: source).prefix { !$0.isNewline }
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedHyloFileTest()
     let testID = source.deletingPathExtension().lastPathComponent.asSwiftIdentifier
 
@@ -62,6 +61,8 @@ struct GenerateHyloFileTests: ParsableCommand {
     output += "\n}\n"
 
     try output.write(to: outputURL, atomically: true, encoding: .utf8)
+    print("########## Generated \(outputURL.path)...")
+
   }
 
 }
