@@ -3180,10 +3180,7 @@ struct TypeChecker {
       return unspecialized
     }
 
-    let arguments = GenericArguments(
-      uniqueKeysWithValues: parameters.map({ (p) in
-        (key: p, value: ^GenericTypeParameterType(p, ast: program.ast))
-      }))
+    let arguments = GenericArguments(skolemizing: parameters, in: program.ast)
     return MetatypeType(of: BoundGenericType(unspecialized.instance, arguments: arguments))
   }
 
