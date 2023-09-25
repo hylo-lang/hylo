@@ -1697,18 +1697,16 @@ struct Emitter {
         UNIMPLEMENTED()
       }
 
-      let specialization = module.specialization(in: insertionFunction!).merging(a)
       let f = FunctionReference(
-        to: FunctionDecl.ID(d)!, in: &module, specializedBy: specialization, in: insertionScope!)
+        to: FunctionDecl.ID(d)!, in: &module, specializedBy: a, in: insertionScope!)
       return (.direct(f), [])
 
     case .member(let d, let a, let s):
       // Callee is a member reference to a function or method. Its receiver is the only capture.
-      let specialization = module.specialization(in: insertionFunction!).merging(a)
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
       let k = receiverCapabilities(program[callee].type)
       let c = insert(module.makeAccess(k, from: receiver, at: ast[callee].site))!
-      let f = Callee(d, specializedBy: specialization, in: &module, usedIn: insertionScope!)
+      let f = Callee(d, specializedBy: a, in: &module, usedIn: insertionScope!)
       return (f, [c])
 
     case .builtinFunction, .builtinType:
