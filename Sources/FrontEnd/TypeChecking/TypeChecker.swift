@@ -1015,8 +1015,8 @@ struct TypeChecker {
       return specialize(t, for: arguments, in: scopeOfExposition)
     }
 
-    /// Returns a concrete or syntheszed implementation of requirement `r` in `concept` for `model`
-    /// exposed to `scopeOfUse`, or `nil` if no such implementation exist.
+    /// Returns a concrete or synthesized implementation of requirement `r` in `concept` for
+    /// `model` exposed to `scopeOfUse`, or `nil` if no such implementation exist.
     func implementation(of r: AnyDeclID) {
       // FIXME: remove me
       if r.kind == AssociatedTypeDecl.self { return }
