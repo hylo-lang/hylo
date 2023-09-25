@@ -292,7 +292,7 @@ public enum PortableBuildCommand {
     case preInstalled(file: PackagePlugin.Path)
   }
 
-  /// A command that runs when any of its ouput files are needed by
+  /// A command that runs when any of its output files are needed by
   /// the build, but out-of-date.
   ///
   /// An output file is out-of-date if it doesn't exist, or if any
