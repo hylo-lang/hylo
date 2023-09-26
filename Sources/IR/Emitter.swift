@@ -2492,7 +2492,7 @@ struct Emitter {
   private func reference(
     to d: Function.ID, implementedFor c: Core.Conformance
   ) -> FunctionReference {
-    var a = module.specialization(in: insertionFunction!).merging(c.arguments)
+    var a = c.arguments
     if let m = program.traitMember(referredBy: d) {
       a = a.merging([program[m.trait.decl].receiver: c.model])
     }
