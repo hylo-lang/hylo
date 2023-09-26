@@ -1440,19 +1440,14 @@ struct Emitter {
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.String`.
   private mutating func emitStore(string v: String, to storage: Operand, at site: SourceRange) {
-    var bytes = v.unescaped.data(using: .utf8)!
-    let utf8 = PointerConstant(module.id, module.addGlobal(BufferConstant(bytes)))
-    let size = bytes.count
-
-    // Make sure the string is null-terminated.
-    bytes.append(contentsOf: [0])
+    let bytes = v.unescaped.data(using: .utf8)!
 
     let x0 = emitSubfieldView(storage, at: [0], at: site)
-    emitStore(int: size, to: x0, at: site)
+    emitStore(int: bytes.count, to: x0, at: site)
 
     let x1 = emitSubfieldView(storage, at: [1, 0], at: site)
-    let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
-    insert(module.makeStore(.constant(utf8), at: x2, at: site))
+    let x2 = insert(module.makeConstantString(utf8: bytes, at: site))!
+    emitStore(value: x2, to: x1, at: site)
   }
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
