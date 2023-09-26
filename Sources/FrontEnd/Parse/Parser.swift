@@ -464,6 +464,7 @@ public enum Parser {
     // Create a new `ConformanceDecl`.
     return state.insert(
       ConformanceDecl(
+        introducerSite: parts.0.0.0.0.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         subject: parts.0.0.0.1,
         conformances: parts.0.0.1,
@@ -498,6 +499,7 @@ public enum Parser {
     // Create a new `ExtensionDecl`.
     return state.insert(
       ExtensionDecl(
+        introducerSite: parts.0.0.0.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         subject: parts.0.0.1,
         whereClause: parts.0.1,
@@ -1018,6 +1020,7 @@ public enum Parser {
     // Create a new `ProductTypeDecl`.
     return state.insert(
       ProductTypeDecl(
+        introducerSite: parts.0.0.0.0.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
@@ -1053,6 +1056,7 @@ public enum Parser {
     // Create a new `TypeAliasDecl`.
     return state.insert(
       TypeAliasDecl(
+        introducerSite: parts.0.0.0.0.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
