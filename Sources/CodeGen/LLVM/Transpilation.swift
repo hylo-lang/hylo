@@ -175,9 +175,6 @@ extension LLVM.Module {
       let t = LLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
       return t.constant(parsing: v.value)
 
-    case let v as IR.BufferConstant:
-      return LLVM.ArrayConstant(bytes: v.contents, in: &self)
-
     case let v as IR.WitnessTable:
       return transpiledWitnessTable(v, usedIn: m, from: ir)
 
