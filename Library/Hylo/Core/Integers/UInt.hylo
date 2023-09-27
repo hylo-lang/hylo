@@ -20,6 +20,11 @@ public type UInt {
     &self.value = Builtin.ptrtoint_word(address.base)
   }
 
+  /// Returns `true` if `self` is greater than `other`. Otherwise, returns `false`.
+  public fun infix> (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ugt_word(value, other.value))
+  }
+
   /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
   public fun infix== (_ other: Self) -> Bool {
     Bool(value: Builtin.icmp_eq_word(value, other.value))
@@ -79,19 +84,35 @@ public conformance UInt: Copyable {
 
 }
 
+public conformance UInt: BinaryInteger {
+
+  public fun instance_bit_width() -> Int {
+    Self.bit_width()
+  }
+
+  public fun signum() -> Int {
+    Int(value: Builtin.zext_i1_word((self > UInt()).value))
+  }
+
+  public fun nonzero_bit_count() -> Int {
+    Int(value: Builtin.ctpop_word(value))
+  }
+
+  public fun leading_zeros() -> Int {
+    Int(value: Builtin.ctlz_word(value))
+  }
+
+  public fun trailing_zeros() -> Int {
+    Int(value: Builtin.cttz_word(value))
+  }
+
+  public static fun is_signed() -> Bool {
+    false
+  }
+
+}
+
 public conformance UInt: FixedWidthInteger {
-
-  public static fun bit_width() -> Int {
-    MemoryLayout<Builtin.word>.size() * 8
-  }
-
-  public static fun max() -> Self {
-    ~UInt()
-  }
-
-  public static fun min() -> Self {
-    0
-  }
 
   public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
     let r = Builtin.uadd_with_overflow_word(value, other.value)
@@ -126,6 +147,18 @@ public conformance UInt: FixedWidthInteger {
       return (partial_value: self.copy(), overflow: true)
     }
     return (partial_value: UInt(value: Builtin.urem_word(value, other.value)), overflow: false)
+  }
+
+  public static fun bit_width() -> Int {
+    MemoryLayout<Builtin.word>.size() * 8
+  }
+
+  public static fun max() -> Self {
+    ~UInt()
+  }
+
+  public static fun min() -> Self {
+    0
   }
 
 }
