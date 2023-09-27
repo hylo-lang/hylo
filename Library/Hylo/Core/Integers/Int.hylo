@@ -245,18 +245,6 @@ public conformance Int: BinaryInteger {
 
 public conformance Int: FixedWidthInteger {
 
-  public static fun bit_width() -> Int {
-    MemoryLayout<Builtin.word>.size() * 8
-  }
-
-  public static fun max() -> Self {
-    ~0 &>> 1
-  }
-
-  public static fun min() -> Self {
-    1 &<< (bit_width() - 1)
-  }
-
   public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
     let r = Builtin.sadd_with_overflow_word(value, other.value)
     return (partial_value: Int(value: r.0), overflow: Bool(value: r.1))
@@ -296,6 +284,18 @@ public conformance Int: FixedWidthInteger {
       return (partial_value: 0, overflow: true)
     }
     return (partial_value: Int(value: Builtin.srem_word(value, other.value)), overflow: false)
+  }
+
+  public static fun bit_width() -> Int {
+    MemoryLayout<Builtin.word>.size() * 8
+  }
+
+  public static fun max() -> Self {
+    ~0 &>> 1
+  }
+
+  public static fun min() -> Self {
+    1 &<< (bit_width() - 1)
   }
 
 }
