@@ -36,7 +36,7 @@ We greatly appreciate it if you can isolate the problem and provide a minimal re
 
 ## Contributing code
 
-Please get familiar with our [CONVENTIONS.md](project conventions). See
+Please get familiar with our [project conventions](CONVENTIONS.md). See
 [CompilerArchitecture.md] for an overview on the design of the compiler.
 We use the standard GitHub workflow to merge code contributions:
 
