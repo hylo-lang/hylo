@@ -30,6 +30,41 @@ public type UInt {
     Bool(value: Builtin.icmp_ne_word(value, other.value))
   }
 
+  /// Returns the bitwise AND of `self` and `other`.
+  public fun infix& (_ other: Self) -> Self {
+    UInt(value: Builtin.and_word(value, other.value))
+  }
+
+  /// Writes the bitwise AND of `self` and `other` to `self`.
+  public fun infix&= (_ other: Self) inout {
+    &self.value = Builtin.and_word(value, other.value)
+  }
+
+  /// Returns the bitwise OR of `self` and `other`.
+  public fun infix| (_ other: Self) -> Self {
+    UInt(value: Builtin.or_word(value, other.value))
+  }
+
+  /// Writes the bitwise OR of `self` and `other` to `self`.
+  public fun infix|= (_ other: Self) inout {
+    &self.value = Builtin.or_word(value, other.value)
+  }
+
+  /// Returns the bitwise XOR of `self` and `other`.
+  public fun infix^ (_ other: Self) -> Self {
+    UInt(value: Builtin.xor_word(value, other.value))
+  }
+
+  /// Writes the bitwise XOR of `self` and `other` to `self`.
+  public fun infix^= (_ other: Self) inout {
+    &self.value = Builtin.xor_word(value, other.value)
+  }
+
+  /// Returns the bitwise inverse of `self`.
+  public fun prefix~ () -> Self {
+    self ^ UInt(bit_pattern: -1)
+  }
+
 }
 
 public conformance UInt: ExpressibleByIntegerLiteral {}
