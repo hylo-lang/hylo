@@ -36,7 +36,8 @@ We greatly appreciate it if you can isolate the problem and provide a minimal re
 
 ## Contributing code
 
-Please get familiar with our [CONVENTIONS.md](project conventions).
+Please get familiar with our [CONVENTIONS.md](project conventions). See
+[CompilerArchitecture.md] for an overview on the design of the compiler.
 We use the standard GitHub workflow to merge code contributions:
 
 1. Fork this repository.
@@ -65,3 +66,4 @@ Do not hesitate to reach out if you are lost in the process.
 [typos-action]: https://github.com/marketplace/actions/typos-action
 [install typos]: https://github.com/crate-ci/typos#install
 [typos false positives documentation]: https://github.com/crate-ci/typos#false-positives
+[CompilerArchitecture.md]: Docs/CompilerArchitecture.md
