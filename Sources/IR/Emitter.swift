@@ -1440,19 +1440,14 @@ struct Emitter {
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.String`.
   private mutating func emitStore(string v: String, to storage: Operand, at site: SourceRange) {
-    var bytes = v.unescaped.data(using: .utf8)!
-    let utf8 = PointerConstant(module.id, module.addGlobal(BufferConstant(bytes)))
-    let size = bytes.count
-
-    // Make sure the string is null-terminated.
-    bytes.append(contentsOf: [0])
+    let bytes = v.unescaped.data(using: .utf8)!
 
     let x0 = emitSubfieldView(storage, at: [0], at: site)
-    emitStore(int: size, to: x0, at: site)
+    emitStore(int: bytes.count, to: x0, at: site)
 
     let x1 = emitSubfieldView(storage, at: [1, 0], at: site)
-    let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
-    insert(module.makeStore(.constant(utf8), at: x2, at: site))
+    let x2 = insert(module.makeConstantString(utf8: bytes, at: site))!
+    emitStore(value: x2, to: x1, at: site)
   }
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
@@ -1697,18 +1692,16 @@ struct Emitter {
         UNIMPLEMENTED()
       }
 
-      let specialization = module.specialization(in: insertionFunction!).merging(a)
       let f = FunctionReference(
-        to: FunctionDecl.ID(d)!, in: &module, specializedBy: specialization, in: insertionScope!)
+        to: FunctionDecl.ID(d)!, in: &module, specializedBy: a, in: insertionScope!)
       return (.direct(f), [])
 
     case .member(let d, let a, let s):
       // Callee is a member reference to a function or method. Its receiver is the only capture.
-      let specialization = module.specialization(in: insertionFunction!).merging(a)
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
       let k = receiverCapabilities(program[callee].type)
       let c = insert(module.makeAccess(k, from: receiver, at: ast[callee].site))!
-      let f = Callee(d, specializedBy: specialization, in: &module, usedIn: insertionScope!)
+      let f = Callee(d, specializedBy: a, in: &module, usedIn: insertionScope!)
       return (f, [c])
 
     case .builtinFunction, .builtinType:
@@ -2494,7 +2487,7 @@ struct Emitter {
   private func reference(
     to d: Function.ID, implementedFor c: Core.Conformance
   ) -> FunctionReference {
-    var a = module.specialization(in: insertionFunction!).merging(c.arguments)
+    var a = c.arguments
     if let m = program.traitMember(referredBy: d) {
       a = a.merging([program[m.trait.decl].receiver: c.model])
     }

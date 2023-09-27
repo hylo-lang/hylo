@@ -44,6 +44,8 @@ extension Module {
           pc = interpret(closeUnion: user, in: &context)
         case is CondBranch:
           pc = interpret(condBranch: user, in: &context)
+        case is ConstantString:
+          pc = interpret(constantString: user, in: &context)
         case is DeallocStack:
           pc = interpret(deallocStack: user, in: &context)
         case is EndAccess:
@@ -268,6 +270,12 @@ extension Module {
     func interpret(condBranch i: InstructionID, in context: inout Context) -> PC? {
       let branch = self[i] as! CondBranch
       consume(branch.condition, with: i, at: branch.site, in: &context)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(constantString i: InstructionID, in context: inout Context) -> PC? {
+      initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 

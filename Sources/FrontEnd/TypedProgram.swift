@@ -265,48 +265,11 @@ public struct TypedProgram {
   }
 
   /// Returns generic parameters captured by `s` and the scopes semantically containing `s`.
-  ///
-  /// A declaration may take generic parameters even if it doesn't declare any. For example, a
-  /// nested function will implicitly capture the generic parameters introduced in its context.
-  ///
-  /// Parameters are returned outer to inner, left to right: the first parameter of the outermost
-  /// generic scope appears first; the last parameter of the innermost generic scope appears last.
   public func accumulatedGenericParameters<T: ScopeID>(
     in s: T
   ) -> ReversedCollection<[GenericParameterDecl.ID]> {
-    var result: [GenericParameterDecl.ID] = []
-    appendGenericParameters(in: s, to: &result)
-    return result.reversed()
-  }
-
-  /// Appends generic parameters captured by `s` and the scopes semantically containing `s` to
-  /// `accumulatedParameters`, right to left, inner to outer.
-  private func appendGenericParameters<T: ScopeID>(
-    in s: T, to accumulatedParameters: inout [GenericParameterDecl.ID]
-  ) {
-    switch s.kind.value {
-    case is ConformanceDecl.Type:
-      appendGenericParameters(in: ConformanceDecl.ID(s)!, to: &accumulatedParameters)
-    case is ExtensionDecl.Type:
-      appendGenericParameters(in: ExtensionDecl.ID(s)!, to: &accumulatedParameters)
-    case is GenericScope.Type:
-      accumulatedParameters.append(contentsOf: environment[AnyDeclID(s)!]!.parameters)
-    case is TranslationUnit.Type, is ModuleDecl.Type:
-      return
-    default:
-      break
-    }
-
-    appendGenericParameters(in: nodeToScope[s]!, to: &accumulatedParameters)
-  }
-
-  /// Appends generic parameters captured by `s` and the scopes semantically containing `s` to
-  /// `accumulatedParameters`, right to left, inner to outer.
-  private func appendGenericParameters<T: TypeExtendingDecl>(
-    in d: T.ID, to accumulatedParameters: inout [GenericParameterDecl.ID]
-  ) {
-    guard let p = scopeExtended(by: d) else { return }
-    appendGenericParameters(in: p, to: &accumulatedParameters)
+    var checker = TypeChecker(asContextFor: self)
+    return checker.accumulatedGenericParameters(in: s)
   }
 
   /// Returns `true` iff `model` conforms to `concept` in `scopeOfUse`.

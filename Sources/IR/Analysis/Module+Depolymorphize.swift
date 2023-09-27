@@ -185,6 +185,8 @@ extension Module {
         rewrite(closeUnion: i, to: b)
       case is CondBranch:
         rewrite(condBranch: i, to: b)
+      case is ConstantString:
+        rewrite(constantString: i, to: b)
       case is DeallocStack:
         rewrite(deallocStack: i, to: b)
       case is EndAccess:
@@ -309,6 +311,12 @@ extension Module {
         if: c, then: rewrittenBlocks[s.targetIfTrue]!, else: rewrittenBlocks[s.targetIfFalse]!,
         at: s.site)
       append(newInstruction, to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(constantString i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! ConstantString
+      append(makeConstantString(utf8: s.value, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

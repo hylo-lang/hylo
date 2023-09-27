@@ -1,5 +1,6 @@
 import Core
 import IR
+import Foundation
 import LLVM
 import Utils
 
@@ -173,9 +174,6 @@ extension LLVM.Module {
     case let v as IR.FloatingPointConstant:
       let t = LLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
       return t.constant(parsing: v.value)
-
-    case let v as IR.BufferConstant:
-      return LLVM.ArrayConstant(bytes: v.contents, in: &self)
 
     case let v as IR.WitnessTable:
       return transpiledWitnessTable(v, usedIn: m, from: ir)
@@ -572,6 +570,8 @@ extension LLVM.Module {
         insert(closeUnion: i)
       case is IR.CondBranch:
         insert(condBranch: i)
+      case is IR.ConstantString:
+        insert(constantString: i)
       case is IR.DeallocStack:
         return
       case is IR.EndAccess:
@@ -706,6 +706,17 @@ extension LLVM.Module {
       let discriminator = insertGetElementPointerInBounds(
         of: container, typed: baseType, indices: indices, at: insertionPoint)
       insertStore(word().constant(UInt64(n)), to: discriminator, at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(constantString i: IR.InstructionID) {
+      let s = m[i] as! ConstantString
+      let v = LLVM.ArrayConstant(bytes: s.value, in: &self)
+      let d = declareGlobalVariable(UUID().uuidString, v.type)
+      setInitializer(v, for: d)
+      setLinkage(.private, for: d)
+      setGlobalConstant(true, for: d)
+      register[.register(i)] = d
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
