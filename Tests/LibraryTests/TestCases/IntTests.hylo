@@ -18,4 +18,11 @@ public fun main() {
 
   test_min()
   test_max()
+
+  // TODO:
+  // These tests assume they are running on a 64-bit architecture.
+  // They should be wrapped in a conditional compilation block (see #1035).
+  precondition(Int.bit_width() == 64)
+  precondition(Int.max() == 9223372036854775807)
+  precondition(Int.min() == -9223372036854775808)
 }

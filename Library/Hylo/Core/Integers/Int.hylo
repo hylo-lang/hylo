@@ -219,6 +219,22 @@ public conformance Int: Copyable {
 
 }
 
+public conformance Int: FixedWidthInteger {
+
+  public static fun bit_width() -> Int {
+    MemoryLayout<Builtin.word>.size() * 8
+  }
+
+  public static fun max() -> Int {
+    ~0 >> 1
+  }
+
+  public static fun min() -> Int {
+    1 << (bit_width() - 1)
+  }
+
+}
+
 public conformance Int: Comparable {}
 
 public conformance Int: ForeignConvertible {
