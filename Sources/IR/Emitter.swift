@@ -931,7 +931,7 @@ struct Emitter {
       return .next
     }
 
-    switch emit(stmt: failure) {
+    switch emit(stmt: failure.value) {
     case .next:
       insert(module.makeBranch(to: tail, at: ast[s].site))
     case .return(let s):
@@ -988,7 +988,7 @@ struct Emitter {
       }
     }
 
-    let c = emit(branchCondition: ast[s].condition)
+    let c = emit(branchCondition: ast[s].condition.value)
     emitDeallocTopFrame(at: ast[s].site)
     frames.pop()
 
@@ -1188,7 +1188,7 @@ struct Emitter {
 
     // Emit the failure branch.
     insertionPoint = .end(of: failure)
-    pushing(Frame(), { $0.emitStore(value: $0.ast[e].failure, to: storage) })
+    pushing(Frame(), { $0.emitStore(value: $0.ast[e].failure.value, to: storage) })
     insert(module.makeBranch(to: tail, at: ast[e].site))
 
     insertionPoint = .end(of: tail)

@@ -837,7 +837,7 @@ struct TypeChecker {
     check(program[s].condition)
     check(program[s].success)
     if let b = program[s].failure {
-      check(b)
+      check(b.value)
     }
   }
 
@@ -874,7 +874,7 @@ struct TypeChecker {
   /// Type checks `s`.
   private mutating func check(_ s: DoWhileStmt.ID) {
     check(program[s].body)
-    check(program[s].condition, coercibleTo: ^program.ast.coreType("Bool")!)
+    check(program[s].condition.value, coercibleTo: ^program.ast.coreType("Bool")!)
   }
 
   /// Type checks `s`.
@@ -3705,7 +3705,7 @@ struct TypeChecker {
     check(program[e].condition)
 
     let a = inferredType(of: program[e].success, withHint: hint, updating: &obligations)
-    let b = inferredType(of: program[e].failure, withHint: hint, updating: &obligations)
+    let b = inferredType(of: program[e].failure.value, withHint: hint, updating: &obligations)
     let t = ^freshVariable()
     obligations.insert(
       MergingConstraint(t, [a, b], origin: .init(.branchMerge, at: program[e].introducerSite)))
