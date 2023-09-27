@@ -796,10 +796,15 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         register[.register(i)] = insertUnsignedDiv(exact: e, l, r, at: insertionPoint)
 
-      case .srem(_):
+      case .srem:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         register[.register(i)] = insertSignedRem(l, r, at: insertionPoint)
+
+      case .urem:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertUnsignedRem(l, r, at: insertionPoint)
 
       case .signedAdditionWithOverflow(let t):
         let l = llvm(s.operands[0])
