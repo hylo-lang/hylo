@@ -791,6 +791,11 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         register[.register(i)] = insertSignedDiv(exact: e, l, r, at: insertionPoint)
 
+      case .udiv(let e, _):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertUnsignedDiv(exact: e, l, r, at: insertionPoint)
+
       case .srem(_):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
