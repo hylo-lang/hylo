@@ -190,6 +190,14 @@ final class BuiltinFunctionTests: XCTestCase {
       createInstanceWithType: expectedType)
   }
 
+  func testCountTrailingZeros() throws {
+    let expectedType = LambdaType(.builtin(.i(16)), to: .builtin(.i(16)))
+    try assertParse(
+      instructions: ["cttz"],
+      parameterizedBy: [["i16"]],
+      createInstanceWithType: expectedType)
+  }
+
   func testZeroInitializer() throws {
     let expectedType = LambdaType(to: .builtin(.i(64)))
     try assertParse(

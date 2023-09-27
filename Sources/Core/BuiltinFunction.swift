@@ -237,6 +237,10 @@ extension BuiltinFunction {
       guard let t = builtinType(&tokens) else { return nil }
       self = .init(name: .llvm(.ctlz(t)))
 
+    case "cttz":
+      guard let t = builtinType(&tokens) else { return nil }
+      self = .init(name: .llvm(.cttz(t)))
+
     case "zeroinitializer":
       guard let t = builtinType(&tokens) else { return nil }
       self = .init(name: .llvm(.zeroinitializer(t)))

@@ -938,6 +938,12 @@ extension LLVM.Module {
         register[.register(i)] = insertCall(
           LLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
 
+      case .cttz(let t):
+        let source = llvm(s.operands[0])
+        let f = intrinsic(named: Intrinsic.llvm.cttz, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          LLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
+
       case .zeroinitializer(let t):
         register[.register(i)] = ir.llvm(builtinType: t, in: &self).null
 
