@@ -307,11 +307,11 @@ public conformance Int: FixedWidthInteger {
   }
 
   public static fun max() -> Self {
-    ~0 &>> 1
+    Int(value: Builtin.lshr_word((~0).value, (1).value))
   }
 
   public static fun min() -> Self {
-    1 &<< (bit_width() - 1)
+    Int(value: Builtin.shl_word((1).value, (bit_width() - 1).value))
   }
 
 }
