@@ -218,11 +218,11 @@ public conformance Int: FixedWidthInteger {
     MemoryLayout<Builtin.word>.size() * 8
   }
 
-  public static fun max() -> Int {
+  public static fun max() -> Self {
     ~0 >> 1
   }
 
-  public static fun min() -> Int {
+  public static fun min() -> Self {
     1 << (bit_width() - 1)
   }
 

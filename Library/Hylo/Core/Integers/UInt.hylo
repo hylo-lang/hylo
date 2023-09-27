@@ -78,3 +78,54 @@ public conformance UInt: Copyable {
   }
 
 }
+
+public conformance UInt: FixedWidthInteger {
+
+  public static fun bit_width() -> Int {
+    MemoryLayout<Builtin.word>.size() * 8
+  }
+
+  public static fun max() -> Self {
+    ~UInt()
+  }
+
+  public static fun min() -> Self {
+    0
+  }
+
+  public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.uadd_with_overflow_word(value, other.value)
+    return (partial_value: UInt(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun subtracting_reporting_overflow(
+    _ other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.usub_with_overflow_word(value, other.value)
+    return (partial_value: UInt(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun multiplied_reporting_overflow(
+    by other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.umul_with_overflow_word(value, other.value)
+    return (partial_value: UInt(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool} {
+    if other == UInt() {
+      return (partial_value: self.copy(), overflow: true)
+    }
+    return (partial_value: UInt(value: Builtin.udiv_word(value, other.value)), overflow: false)
+  }
+
+  public fun remainder_reporting_overflow(
+    dividing_by other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    if other == UInt() {
+      return (partial_value: self.copy(), overflow: true)
+    }
+    return (partial_value: UInt(value: Builtin.urem_word(value, other.value)), overflow: false)
+  }
+
+}
