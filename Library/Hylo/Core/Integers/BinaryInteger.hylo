@@ -1,0 +1,16 @@
+/// An integer type with a binary representation.
+public trait BinaryInteger {
+
+  /// Creates an instance with value `0`.
+  init()
+
+  /// Returns `-1` if `self` is negative, `1` if it is positive, or `0` otherwise.
+  fun signum() -> Int
+
+  /// Returns `true` if this type is a signed integer.
+  static fun is_signed() -> Bool
+
+  /// Returns the number of bits in the representation of an instance of this type.
+  static fun bit_width() -> Int
+
+}
