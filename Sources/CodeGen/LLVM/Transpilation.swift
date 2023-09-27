@@ -786,6 +786,11 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         register[.register(i)] = insertLShr(l, r, at: insertionPoint)
 
+      case .ashr:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertAShr(l, r, at: insertionPoint)
+
       case .sdiv(let e, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
