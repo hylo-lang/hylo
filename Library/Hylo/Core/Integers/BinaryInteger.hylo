@@ -11,6 +11,17 @@ public trait BinaryInteger {
   /// Returns `-1` if `self` is negative, `1` if it is positive, or `0` otherwise.
   fun signum() -> Int
 
+  /// Returns the number of bits equal to `1` in the representation of `self`.
+  fun nonzero_bit_count() -> Int
+
+  /// Returns the number of bits equal to `0` on the left of the most significant bit equal to
+  /// `1` in the representation of `self`.
+  fun leading_zeros() -> Int
+
+  /// Returns the number of bits equal to `0` on the right of the least significant bit equal to
+  /// `1` in the representation of `self`.
+  fun trailing_zeros() -> Int
+
   /// Returns `true` if this type is a signed integer.
   static fun is_signed() -> Bool
 

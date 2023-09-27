@@ -241,6 +241,22 @@ public conformance Int: BinaryInteger {
     return positive | (self &>> (Self.bit_width() - 1))
   }
 
+  public fun nonzero_bit_count() -> Int {
+    Int(value: Builtin.ctpop_word(value))
+  }
+
+  public fun leading_zeros() -> Int {
+    Int(value: Builtin.ctlz_word(value))
+  }
+
+  public fun trailing_zeros() -> Int {
+    Int(value: Builtin.cttz_word(value))
+  }
+
+  public static fun is_signed() -> Bool {
+    true
+  }
+
 }
 
 public conformance Int: FixedWidthInteger {
