@@ -929,9 +929,14 @@ extension LLVM.Module {
 
       case .ctpop(let t):
         let source = llvm(s.operands[0])
-        let f = intrinsic(
-          named: Intrinsic.llvm.ctpop, for: [ir.llvm(builtinType: t, in: &self)])!
+        let f = intrinsic(named: Intrinsic.llvm.ctpop, for: [ir.llvm(builtinType: t, in: &self)])!
         register[.register(i)] = insertCall(LLVM.Function(f)!, on: [source], at: insertionPoint)
+
+      case .ctlz(let t):
+        let source = llvm(s.operands[0])
+        let f = intrinsic(named: Intrinsic.llvm.ctlz, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          LLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
 
       case .zeroinitializer(let t):
         register[.register(i)] = ir.llvm(builtinType: t, in: &self).null

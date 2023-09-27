@@ -109,6 +109,8 @@ public enum NativeInstruction: Hashable {
 
   case ctpop(BuiltinType)
 
+  case ctlz(BuiltinType)
+
   case zeroinitializer(BuiltinType)
 
   // Corresponding LLVM instruction: get_elementptr_inbounds.
@@ -226,6 +228,8 @@ extension NativeInstruction {
       return .init(^s, to: ^d)
     case .ctpop(let t):
       return .init(^t, to: ^t)
+    case .ctlz(let t):
+      return .init(^t, to: ^t)
     case .zeroinitializer(let t):
       return .init(to: ^t)
     case .advancedByBytes(let byteOffset):
@@ -315,6 +319,8 @@ extension NativeInstruction: CustomStringConvertible {
       return "fptosi_\(l)_\(r)"
     case .ctpop(let t):
       return "ctpop_\(t)"
+    case .ctlz(let t):
+      return "ctlz_\(t)"
     case .zeroinitializer(let t):
       return "zeroinitializer_\(t)"
     case .advancedByBytes(let t):
