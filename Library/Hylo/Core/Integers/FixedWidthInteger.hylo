@@ -1,0 +1,16 @@
+/// An integer type with a binary representation of a fixed size for every instance.
+///
+/// Use this trait to write algorithms that depend on bit shifting, perform bitwise opeperations,
+/// catch overflows, or access the minimum or maximum representable values of an integer type.
+public trait FixedWidthInteger {
+
+  /// Returns the number of bits in the representation of an instance of this type.
+  public static fun bit_width() -> Int
+
+  /// Returns the maximum value representable by this type.
+  public static fun max() -> Self
+
+  /// Returns the minimum value representable by this type.
+  public static fun min() -> Self
+
+}
