@@ -4,6 +4,28 @@
 /// catch overflows, or access the minimum or maximum representable values of an integer type.
 public trait FixedWidthInteger {
 
+  /// Returns the sum of `self` and `other` along with a flag indicating whether overflow occurred
+  /// in the operation.
+  fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool}
+
+  /// Returns `self` subtracted by `other` along with a flag indicating whether overflow occurred
+  /// in the operation.
+  fun subtracting_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool}
+
+  /// Returns the product of `self` and `other` along with a flag indicating whether overflow
+  /// occurred in the operation.
+  fun multiplied_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool}
+
+  /// Returns the quotient of dividing `self` by `other` along with a flag indicating whether
+  /// overflow occurred in the operation.
+  fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool}
+
+  /// Returns the remainder of dividing `self` by `other` along with a flag indicating whether
+  /// overflow occurred in the operation.
+  fun remainder_reporting_overflow(
+    dividing_by other: Self
+  ) -> {partial_value: Self, overflow: Bool}
+
   /// Returns the number of bits in the representation of an instance of this type.
   public static fun bit_width() -> Int
 

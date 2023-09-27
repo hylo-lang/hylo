@@ -198,13 +198,6 @@ public type Int {
     &self.value = Builtin.lshr_word(value, n.value)
   }
 
-  /// Returns the sum of `self` and `other` along with a flag indicating whether overflow occurred
-  /// in the operation.
-  public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
-    let r = Builtin.sadd_with_overflow_word(value, other.value)
-    return (partial_value: Int(value: r.0), overflow: Bool(value: r.1))
-  }
-
 }
 
 public conformance Int: ExpressibleByIntegerLiteral {}
@@ -231,6 +224,47 @@ public conformance Int: FixedWidthInteger {
 
   public static fun min() -> Int {
     1 << (bit_width() - 1)
+  }
+
+  public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.sadd_with_overflow_word(value, other.value)
+    return (partial_value: Int(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun subtracting_reporting_overflow(
+    _ other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.ssub_with_overflow_word(value, other.value)
+    return (partial_value: Int(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun multiplied_reporting_overflow(
+    by other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.smul_with_overflow_word(value, other.value)
+    return (partial_value: Int(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool} {
+    if other == 0 {
+      return (partial_value: self.copy(), overflow: true)
+    }
+    if (self == Self.min()) && (other == -1) {
+      return (partial_value: self.copy(), overflow: true)
+    }
+    return (partial_value: Int(value: Builtin.sdiv_word(value, other.value)), overflow: false)
+  }
+
+  public fun remainder_reporting_overflow(
+    dividing_by other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    if other == 0 {
+      return (partial_value: self.copy(), overflow: true)
+    }
+    if (self == Self.min()) && (other == -1) {
+      return (partial_value: 0, overflow: true)
+    }
+    return (partial_value: Int(value: Builtin.srem_word(value, other.value)), overflow: false)
   }
 
 }
