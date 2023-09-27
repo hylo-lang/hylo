@@ -232,8 +232,8 @@ public conformance Int: Copyable {
 
 public conformance Int: BinaryInteger {
 
-  public static fun is_signed() -> Bool {
-    true
+  public fun instance_bit_width() -> Int {
+    Self.bit_width()
   }
 
   public fun signum() -> Int {
