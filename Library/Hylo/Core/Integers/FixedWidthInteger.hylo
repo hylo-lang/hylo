@@ -27,12 +27,12 @@ public trait FixedWidthInteger {
   ) -> {partial_value: Self, overflow: Bool}
 
   /// Returns the number of bits in the representation of an instance of this type.
-  public static fun bit_width() -> Int
+  static fun bit_width() -> Int
 
   /// Returns the maximum value representable by this type.
-  public static fun max() -> Self
+  static fun max() -> Self
 
   /// Returns the minimum value representable by this type.
-  public static fun min() -> Self
+  static fun min() -> Self
 
 }
