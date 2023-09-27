@@ -2,7 +2,7 @@
 ///
 /// Use this trait to write algorithms that depend on bit shifting, perform bitwise opeperations,
 /// catch overflows, or access the minimum or maximum representable values of an integer type.
-public trait FixedWidthInteger {
+public trait FixedWidthInteger: BinaryInteger {
 
   /// Returns the sum of `self` and `other` along with a flag indicating whether overflow occurred
   /// in the operation.
