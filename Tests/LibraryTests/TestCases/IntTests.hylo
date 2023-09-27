@@ -12,6 +12,12 @@ fun test_max() {
   precondition(max[2, 1] == 2)
 }
 
+fun test_signum() {
+  precondition(Int().signum() == 0)
+  precondition((+10).signum() == +1)
+  precondition((-10).signum() == -1)
+}
+
 fun test_adding_reporting_overflow() {
   let a0 = (1).adding_reporting_overflow(1)
   precondition(a0.0 == 2)
@@ -48,8 +54,12 @@ public fun main() {
   // Int.init()
   precondition(Int() == 0)
 
+  // Int.is_signed()
+  precondition(Int.is_signed())
+
   test_min()
   test_max()
+  test_signum()
   test_adding_reporting_overflow()
   test_multiplied_reporting_overflow()
   test_divided_reporting_overflow()

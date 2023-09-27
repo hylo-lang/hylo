@@ -230,6 +230,19 @@ public conformance Int: Copyable {
 
 }
 
+public conformance Int: BinaryInteger {
+
+  public static fun is_signed() -> Bool {
+    true
+  }
+
+  public fun signum() -> Int {
+    let positive = Int(value: Builtin.zext_i1_word((self > 0).value))
+    return positive | (self &>> (Self.bit_width() - 1))
+  }
+
+}
+
 public conformance Int: FixedWidthInteger {
 
   public static fun bit_width() -> Int {
