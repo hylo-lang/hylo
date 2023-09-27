@@ -12,12 +12,48 @@ fun test_max() {
   precondition(max[2, 1] == 2)
 }
 
+fun test_adding_reporting_overflow() {
+  let a0 = (1).adding_reporting_overflow(1)
+  precondition(a0.0 == 2)
+  precondition(a0.1 == false)
+
+  let a1 = Int.max().adding_reporting_overflow(1)
+  precondition(a1.0 == Int.min())
+  precondition(a1.1 == true)
+}
+
+fun test_multiplied_reporting_overflow() {
+  let a0 = (1).multiplied_reporting_overflow(by: 2)
+  precondition(a0.0 == 2)
+  precondition(a0.1 == false)
+
+  let a1 = Int.max().multiplied_reporting_overflow(by: 2)
+  precondition(a1.0 == -2)
+  precondition(a1.1 == true)
+}
+
+fun test_divided_reporting_overflow() {
+  let a0 = (1).divided_reporting_overflow(by: 0)
+  precondition(a0.0 == 1)
+  precondition(a0.1 == true)
+}
+
+fun test_remainder_reporting_overflow() {
+  let a0 = (1).remainder_reporting_overflow(dividing_by: 0)
+  precondition(a0.0 == 1)
+  precondition(a0.1 == true)
+}
+
 public fun main() {
   // Int.init()
   precondition(Int() == 0)
 
   test_min()
   test_max()
+  test_adding_reporting_overflow()
+  test_multiplied_reporting_overflow()
+  test_divided_reporting_overflow()
+  test_remainder_reporting_overflow()
 
   // TODO:
   // These tests assume they are running on a 64-bit architecture.
