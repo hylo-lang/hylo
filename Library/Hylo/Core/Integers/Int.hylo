@@ -41,11 +41,6 @@ public type Int {
     return self + stride - r;
   }
 
-  /// Returns the additive inverse of `self`.
-  public fun prefix- () -> Self {
-    Int() - self
-  }
-
   /// Returns `self`.
   public fun prefix+ () -> Self {
     self.copy()
@@ -118,6 +113,18 @@ public conformance Int: Numeric {
 
   public fun infix*= (_ other: Self) inout {
     &self.value = Builtin.mul_word(value, other.value)
+  }
+
+}
+
+public conformance Int: SignedNumeric {
+
+  public fun prefix- () -> Self {
+    Int() - self
+  }
+
+  public fun negate() inout {
+    &self = -self
   }
 
 }
