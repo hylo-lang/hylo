@@ -253,6 +253,10 @@ public conformance Int: BinaryInteger {
     Int(value: Builtin.cttz_word(value))
   }
 
+  public fun words() -> CollectionOfOne<UInt> {
+    CollectionOfOne(UInt(bit_pattern: self))
+  }
+
   public static fun is_signed() -> Bool {
     true
   }

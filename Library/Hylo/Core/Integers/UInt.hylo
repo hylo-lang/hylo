@@ -106,6 +106,10 @@ public conformance UInt: BinaryInteger {
     Int(value: Builtin.cttz_word(value))
   }
 
+  public fun words() -> CollectionOfOne<UInt> {
+    CollectionOfOne(self.copy())
+  }
+
   public static fun is_signed() -> Bool {
     false
   }
