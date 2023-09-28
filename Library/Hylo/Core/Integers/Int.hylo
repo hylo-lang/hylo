@@ -65,16 +65,6 @@ public type Int {
     &self.value = Builtin.sub_word(value, other.value)
   }
 
-  /// Returns the product of `self` and `other`
-  public fun infix* (_ other: Self) -> Self {
-    Int(value: Builtin.mul_word(value, other.value))
-  }
-
-  /// Writes the product of `self` and `other` to `self`.
-  public fun infix*= (_ other: Self) inout {
-    &self.value = Builtin.mul_word(value, other.value)
-  }
-
   /// Returns the additive inverse of `self`.
   public fun prefix- () -> Self {
     Int() - self
@@ -110,6 +100,24 @@ public conformance Int: Copyable {
 
   public fun copy() -> Self {
     Int(value: value)
+  }
+
+}
+
+public conformance Int: Numeric {
+
+  public typealias Magnitude = UInt
+
+  public fun magnitude() -> UInt {
+    UInt(bit_pattern: self)
+  }
+
+  public fun infix* (_ other: Self) -> Self {
+    Int(value: Builtin.mul_word(value, other.value))
+  }
+
+  public fun infix*= (_ other: Self) inout {
+    &self.value = Builtin.mul_word(value, other.value)
   }
 
 }
