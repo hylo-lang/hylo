@@ -1092,11 +1092,17 @@ struct TypeChecker {
       }
     }
 
-    /// Returns the implementation of `r` in `model`, with `r` a requirement of `concept` with type
-    /// `t` and name `n`, or returns `nil` if no such implementation exist.
+    /// Returns the implementation of `requirement` in `model` or returns `nil` if no such
+    /// implementation exist.
+    ///
+    /// `requirement` is defined by `concept` and `t` is the type it is expected to have when
+    /// implemented by `model`. `idKind` specifies the kinds of declarations that are considered
+    /// as candidate implementations. `appendDefinitions` is called for each candidate in the
+    /// declaration space of `model` to gather those that are definitions (i.e., declarations with
+    /// a body) of type `t`.
     func implementation<D: DeclID>(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name,
-      identifiedBy: D.Type = D.self,
+      identifiedBy idKind: D.Type = D.self,
       collectingCandidatesWith appendDefinitions: (D, AnyType, inout [AnyDeclID]) -> Void
     ) -> AnyDeclID? {
       guard !t[.hasError] else { return nil }
@@ -1110,7 +1116,7 @@ struct TypeChecker {
       return viable.uniqueElement
     }
 
-    /// Appends to `s` the function definitions of `d` that have type `t`.
+    /// Appends the function definitions of `d` that have type `t` to `s` .
     func collectFunction(of d: AnyDeclID, matching t: AnyType, to s: inout [AnyDeclID]) {
       switch d.kind {
       case FunctionDecl.self:
@@ -1122,12 +1128,12 @@ struct TypeChecker {
       }
     }
 
-    /// Appends each variant of `c` to `candidates` that is has type `t`.
+    /// Appends each variant of `c` to `candidates` that is has type `t` to `s`.
     func appendDefinitions(of d: MethodDecl.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
       for v in program[d].impls { appendIfDefinition(v, matching: t, in: &s) }
     }
 
-    /// Appends `d` to `s` iff it's a a definition with type `t`.
+    /// Appends `d` to `s` iff `d` is a definition with type `t`.
     func appendIfDefinition<D: Decl>(_ d: D.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
       let u = type(ofMember: AnyDeclID(d))
       if program[d].isDefinition && areEquivalent(t, u, in: scopeOfExposition) {
