@@ -1072,7 +1072,7 @@ struct TypeChecker {
       case FunctionDecl.self:
         return implementation(
           of: requirement, typed: t, named: n,
-          collectingCandidatesWith: collectFunction)
+          collectingCandidatesWith: appendFunctionDefinitions)
 
       case InitializerDecl.self:
         return implementation(
@@ -1082,10 +1082,12 @@ struct TypeChecker {
       case MethodImpl.self:
         return implementation(
           of: requirement, typed: t, named: n,
-          collectingCandidatesWith: collectFunction)
+          collectingCandidatesWith: appendFunctionDefinitions)
 
       case SubscriptImpl.self:
-        UNIMPLEMENTED()
+        return implementation(
+          of: requirement, typed: t, named: n, identifiedBy: SubscriptDecl.ID.self,
+          collectingCandidatesWith: appendDefinitions)
 
       default:
         unexpected(requirement, in: program.ast)
@@ -1117,24 +1119,29 @@ struct TypeChecker {
     }
 
     /// Appends the function definitions of `d` that have type `t` to `s` .
-    func collectFunction(of d: AnyDeclID, matching t: AnyType, to s: inout [AnyDeclID]) {
+    func appendFunctionDefinitions(of d: AnyDeclID, matching t: AnyType, to s: inout [AnyDeclID]) {
       switch d.kind {
       case FunctionDecl.self:
-        appendIfDefinition(FunctionDecl.ID(d)!, matching: t, in: &s)
+        appendIfDefinition(FunctionDecl.ID(d)!, matching: t, to: &s)
       case MethodDecl.self:
-        appendDefinitions(of: MethodDecl.ID(d)!, matching: t, in: &s)
+        appendDefinitions(of: MethodDecl.ID(d)!, matching: t, to: &s)
       default:
         break
       }
     }
 
     /// Appends each variant of `c` to `candidates` that is has type `t` to `s`.
-    func appendDefinitions(of d: MethodDecl.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
-      for v in program[d].impls { appendIfDefinition(v, matching: t, in: &s) }
+    func appendDefinitions(of d: MethodDecl.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
+      for v in program[d].impls { appendIfDefinition(v, matching: t, to: &s) }
+    }
+
+    /// Appends each variant of `c` to `candidates` that is has type `t` to `s`.
+    func appendDefinitions(of d: SubscriptDecl.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
+      for v in program[d].impls { appendIfDefinition(v, matching: t, to: &s) }
     }
 
     /// Appends `d` to `s` iff `d` is a definition with type `t`.
-    func appendIfDefinition<D: Decl>(_ d: D.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
+    func appendIfDefinition<D: Decl>(_ d: D.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
       let u = type(ofMember: AnyDeclID(d))
       if program[d].isDefinition && areEquivalent(t, u, in: scopeOfExposition) {
         s.append(AnyDeclID(d))
