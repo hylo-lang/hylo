@@ -49,6 +49,25 @@ public conformance UInt: Copyable {
 
 }
 
+// TODO: Rewrite as a conformance to `Numeric` when #1047 is fixed
+public extension UInt {
+
+//   public typealias Magnitude = UInt
+
+  public fun magnitude() -> UInt {
+    self.copy()
+  }
+
+  public fun infix* (_ other: Self) -> Self {
+    UInt(value: Builtin.mul_word(value, other.value))
+  }
+
+  public fun infix*= (_ other: Self) inout {
+    &self.value = Builtin.mul_word(value, other.value)
+  }
+
+}
+
 public conformance UInt: BinaryInteger {
 
   public init<T: BinaryInteger>(truncating_or_extending source: T) {
