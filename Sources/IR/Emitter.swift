@@ -188,7 +188,8 @@ struct Emitter {
   private mutating func lowerInClearContext(function d: FunctionDecl.ID) -> Function.ID {
     let f = module.demandDeclaration(lowering: d)
     guard let b = ast[d].body else {
-      if ast[d].isForeignInterface { lower(ffi: d) }
+      assert(ast[d].isForeignInterface)
+      lower(ffi: d)
       return f
     }
 
@@ -456,6 +457,25 @@ struct Emitter {
   /// Inserts the IR for `d`.
   private mutating func lower(trait d: TraitDecl.ID) {
     _ = module.addGlobal(TraitType(program[d].type)!)
+    for m in ast[d].members {
+      lower(traitMember: m)
+    }
+  }
+
+  /// Inserts the IR for `d`, which is declared in a trait.
+  private mutating func lower(traitMember d: AnyDeclID) {
+    switch d.kind {
+    case FunctionDecl.self:
+      lower(traitMember: FunctionDecl.ID(d)!)
+    default:
+      break
+    }
+  }
+
+  /// Inserts the IR for `d`, which is declared in a trait.
+  private mutating func lower(traitMember d: FunctionDecl.ID) {
+    if program.isRequirement(d) && ast[d].body == nil { return }
+    lower(function: d)
   }
 
   /// Inserts the IR for given declaration `members`.
