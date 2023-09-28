@@ -3670,18 +3670,18 @@ struct TypeChecker {
 
     switch program[e].direction {
     case .down:
-      // Note: constraining the type of the left operand to be above the right operand wouldn't
-      // contribute any useful information to the constraint system.
+      // Note: constraining the type of the LHS to be above the RHS wouldn't contribute any useful
+      // information to the constraint system.
       _ = inferredType(of: program[e].left, updating: &obligations)
 
     case .up:
-      // The type of the left operand must be statically known to subtype of the right operand.
+      // The type of thr LHS must be statically known to subtype of the RHS.
       let lhs = inferredType(
         of: program[e].left, withHint: ^freshVariable(), updating: &obligations)
       obligations.insert(SubtypingConstraint(lhs, rhs.shape, origin: cause))
 
     case .pointerConversion:
-      // The left operand must be a `Builtin.ptr`. The right operand must be a remote type.
+      // The LHS be a `Builtin.ptr`. The RHS must be a remote type.
       if !(rhs.shape.base is RemoteType) {
         report(.error(invalidPointerConversionAt: program[e].right.site))
         return constrain(e, to: .error, in: &obligations)
