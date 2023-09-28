@@ -82,14 +82,6 @@ public conformance UInt: BinaryInteger {
     Int(value: Builtin.zext_i1_word((self > UInt()).value))
   }
 
-  public fun nonzero_bit_count() -> Int {
-    Int(value: Builtin.ctpop_word(value))
-  }
-
-  public fun leading_zeros() -> Int {
-    Int(value: Builtin.ctlz_word(value))
-  }
-
   public fun trailing_zeros() -> Int {
     Int(value: Builtin.cttz_word(value))
   }
@@ -215,6 +207,14 @@ public conformance UInt: FixedWidthInteger {
       return (partial_value: self.copy(), overflow: true)
     }
     return (partial_value: UInt(value: Builtin.urem_word(value, other.value)), overflow: false)
+  }
+
+  public fun nonzero_bit_count() -> Int {
+    Int(value: Builtin.ctpop_word(value))
+  }
+
+  public fun leading_zeros() -> Int {
+    Int(value: Builtin.ctlz_word(value))
   }
 
   public static fun bit_width() -> Int {

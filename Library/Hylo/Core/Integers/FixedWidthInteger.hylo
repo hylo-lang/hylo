@@ -26,6 +26,13 @@ public trait FixedWidthInteger: BinaryInteger {
     dividing_by other: Self
   ) -> {partial_value: Self, overflow: Bool}
 
+  /// Returns the number of bits equal to `1` in the representation of `self`.
+  fun nonzero_bit_count() -> Int
+
+  /// Returns the number of bits equal to `0` on the left of the most significant bit equal to
+  /// `1` in the representation of `self`.
+  fun leading_zeros() -> Int
+
   /// Returns the number of bits in the representation of an instance of this type.
   static fun bit_width() -> Int
 
