@@ -75,34 +75,6 @@ public type Int {
     &self.value = Builtin.mul_word(value, other.value)
   }
 
-  /// Returns the quotient of dividing `self` by `other`.
-  ///
-  /// - Requires: `other` is different from `0`.
-  public fun infix/ (_ other: Self) -> Self {
-    Int(value: Builtin.sdiv_word(value, other.value))
-  }
-
-  /// Writes the quotient of dividing `self` by `other` to `self`.
-  ///
-  /// - Requires: `other` is different from `0`.
-  public fun infix/= (_ other: Self) inout {
-    &self.value = Builtin.sdiv_word(value, other.value)
-  }
-
-  /// Returns the remainder of dividing `self` by `other`.
-  ///
-  /// - Requires: `other` is different from `0`.
-  public fun infix% (_ other: Self) -> Self {
-    Int(value: Builtin.srem_word(value, other.value))
-  }
-
-  /// Writes the remainder of dividing `self` by `other` to `self`.
-  ///
-  /// - Requires: `other` is different from `0`.
-  public fun infix%= (_ other: Self) inout {
-    &self.value = Builtin.srem_word(value, other.value)
-  }
-
   /// Returns the additive inverse of `self`.
   public fun prefix- () -> Self {
     Int() - self
@@ -111,26 +83,6 @@ public type Int {
   /// Returns `self`.
   public fun prefix+ () -> Self {
     self.copy()
-  }
-
-  /// Returns `true` if `self` is smaller than `other`. Otherwise, returns `false`.
-  public fun infix< (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_slt_word(value, other.value))
-  }
-
-  /// Returns `true` if `self` is smaller than or equal to `other`. Otherwise, returns `false`.
-  public fun infix<= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sle_word(value, other.value))
-  }
-
-  /// Returns `true` if `self` is greater than `other`. Otherwise, returns `false`.
-  public fun infix> (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sgt_word(value, other.value))
-  }
-
-  /// Returns `true` if `self` is greater than or equal to `other`. Otherwise, returns `false`.
-  public fun infix>= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sge_word(value, other.value))
   }
 
   /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
@@ -143,44 +95,9 @@ public type Int {
     Bool(value: Builtin.icmp_ne_word(value, other.value))
   }
 
-  /// Returns the bitwise AND of `self` and `other`.
-  public fun infix& (_ other: Self) -> Self {
-    Int(value: Builtin.and_word(value, other.value))
-  }
-
-  /// Writes the bitwise AND of `self` and `other` to `self`.
-  public fun infix&= (_ other: Self) inout {
-    &self.value = Builtin.and_word(value, other.value)
-  }
-
-  /// Returns the bitwise OR of `self` and `other`.
-  public fun infix| (_ other: Self) -> Self {
-    Int(value: Builtin.or_word(value, other.value))
-  }
-
-  /// Writes the bitwise OR of `self` and `other` to `self`.
-  public fun infix|= (_ other: Self) inout {
-    &self.value = Builtin.or_word(value, other.value)
-  }
-
-  /// Returns the bitwise XOR of `self` and `other`.
-  public fun infix^ (_ other: Self) -> Self {
-    Int(value: Builtin.xor_word(value, other.value))
-  }
-
-  /// Writes the bitwise XOR of `self` and `other` to `self`.
-  public fun infix^= (_ other: Self) inout {
-    &self.value = Builtin.xor_word(value, other.value)
-  }
-
   /// Returns the bitwise inverse of `self`.
   public fun prefix~ () -> Self {
     self ^ -1
-  }
-
-  /// Returns `self` with its binary representation shifted by `n` digits to the left.
-  public fun infix<< (_ n: Int) -> Self {
-    Int(value: Builtin.shl_word(value, n.value))
   }
 
   /// Returns `self` with its binary representation shifted by `n` digits to the left, masking the
@@ -192,16 +109,6 @@ public type Int {
     Int(value: Builtin.shl_word(value, n.value))
   }
 
-  /// Shifts the binary representation of `self` by `n` digits to the left.
-  public fun infix<<= (_ n: Int) inout {
-    &self.value = Builtin.shl_word(value, n.value)
-  }
-
-  /// Returns `self` with its binary representation shifted by `n` digits to the right.
-  public fun infix>> (_ n: Int) -> Self {
-    Int(value: Builtin.ashr_word(value, n.value))
-  }
-
   /// Returns `self` with its binary representation shifted by `n` digits to the right, masking the
   /// shift amount to the bit width of `Self`.
   ///
@@ -209,11 +116,6 @@ public type Int {
   /// the range `0 ..< Self.bit_width()`.
   public fun infix&>> (_ n: Int) -> Self {
     Int(value: Builtin.ashr_word(value, n.value))
-  }
-
-  /// Shifts the binary representation of `self` by `n` digits to the right.
-  public fun infix>>= (_ n: Int) inout {
-    &self.value = Builtin.ashr_word(value, n.value)
   }
 
 }
@@ -264,6 +166,78 @@ public conformance Int: BinaryInteger {
 
   public fun words() -> CollectionOfOne<UInt> {
     CollectionOfOne(UInt(bit_pattern: self))
+  }
+
+  public fun infix/ (_ other: Self) -> Self {
+    Int(value: Builtin.sdiv_word(value, other.value))
+  }
+
+  public fun infix/= (_ other: Self) inout {
+    &self.value = Builtin.sdiv_word(value, other.value)
+  }
+
+  public fun infix% (_ other: Self) -> Self {
+    Int(value: Builtin.srem_word(value, other.value))
+  }
+
+  public fun infix%= (_ other: Self) inout {
+    &self.value = Builtin.srem_word(value, other.value)
+  }
+
+  public fun infix< (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_slt_word(value, other.value))
+  }
+
+  public fun infix<= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_sle_word(value, other.value))
+  }
+
+  public fun infix> (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_sgt_word(value, other.value))
+  }
+
+  public fun infix>= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_sge_word(value, other.value))
+  }
+
+  public fun infix& (_ other: Self) -> Self {
+    Int(value: Builtin.and_word(value, other.value))
+  }
+
+  public fun infix&= (_ other: Self) inout {
+    &self.value = Builtin.and_word(value, other.value)
+  }
+
+  public fun infix| (_ other: Self) -> Self {
+    Int(value: Builtin.or_word(value, other.value))
+  }
+
+  public fun infix|= (_ other: Self) inout {
+    &self.value = Builtin.or_word(value, other.value)
+  }
+
+  public fun infix^ (_ other: Self) -> Self {
+    Int(value: Builtin.xor_word(value, other.value))
+  }
+
+  public fun infix^= (_ other: Self) inout {
+    &self.value = Builtin.xor_word(value, other.value)
+  }
+
+  public fun infix<< (_ n: Int) -> Self {
+    Int(value: Builtin.shl_word(value, n.value))
+  }
+
+  public fun infix<<= (_ n: Int) inout {
+    &self.value = Builtin.shl_word(value, n.value)
+  }
+
+  public fun infix>> (_ n: Int) -> Self {
+    Int(value: Builtin.ashr_word(value, n.value))
+  }
+
+  public fun infix>>= (_ n: Int) inout {
+    &self.value = Builtin.ashr_word(value, n.value)
   }
 
   public static fun is_signed() -> Bool {
