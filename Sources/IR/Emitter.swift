@@ -988,12 +988,14 @@ struct Emitter {
       }
     }
 
-    let c = emit(branchCondition: ast[s].condition.value)
+    let condition = ast[s].condition.value
+    let c = emit(branchCondition: condition)
     emitDeallocTopFrame(at: ast[s].site)
     frames.pop()
 
     insert(
-      module.makeCondBranch(if: c, then: loopBody, else: loopTail, at: program[s].condition.site))
+      module.makeCondBranch(if: c, then: loopBody, else: loopTail, at: ast[condition].site
+))
     insertionPoint = .end(of: loopTail)
     return .next
   }
