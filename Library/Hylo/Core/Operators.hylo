@@ -33,7 +33,9 @@ public operator infix|    : disjunction
 public operator infix||   : disjunction
 
 public operator infix<<=  : assignment
+public operator infix&<<= : assignment
 public operator infix>>=  : assignment
+public operator infix&>>= : assignment
 public operator infix*=   : assignment
 public operator infix/=   : assignment
 public operator infix%=   : assignment

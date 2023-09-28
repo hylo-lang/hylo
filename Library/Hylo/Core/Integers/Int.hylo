@@ -275,8 +275,16 @@ public conformance Int: FixedWidthInteger {
     Int(value: Builtin.shl_word(value, n.value))
   }
 
+  public fun infix&<<= (_ n: Int) inout {
+    &self.value = Builtin.shl_word(value, n.value)
+  }
+
   public fun infix&>> (_ n: Int) -> Self {
     Int(value: Builtin.ashr_word(value, n.value))
+  }
+
+  public fun infix&>>= (_ n: Int) inout {
+    &self.value = Builtin.ashr_word(value, n.value)
   }
 
   public static fun bit_width() -> Int {

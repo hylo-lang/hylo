@@ -203,8 +203,16 @@ public conformance UInt: FixedWidthInteger {
     UInt(value: Builtin.shl_word(value, n.value))
   }
 
+  public fun infix&<<= (_ n: Int) inout {
+    &self.value = Builtin.shl_word(value, n.value)
+  }
+
   public fun infix&>> (_ n: Int) -> Self {
-    UInt(value: Builtin.ashr_word(value, n.value))
+    UInt(value: Builtin.lshr_word(value, n.value))
+  }
+
+  public fun infix&>>= (_ n: Int) inout {
+    &self.value = Builtin.lshr_word(value, n.value)
   }
 
   public static fun bit_width() -> Int {
