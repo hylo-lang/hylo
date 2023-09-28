@@ -1072,7 +1072,7 @@ struct TypeChecker {
       case FunctionDecl.self:
         return implementation(
           of: requirement, typed: t, named: n,
-          collectingCandidatesWith: collectFunction)
+          collectingCandidatesWith: appendFunctionDefinitions)
 
       case InitializerDecl.self:
         return implementation(
@@ -1082,21 +1082,29 @@ struct TypeChecker {
       case MethodImpl.self:
         return implementation(
           of: requirement, typed: t, named: n,
-          collectingCandidatesWith: collectFunction)
+          collectingCandidatesWith: appendFunctionDefinitions)
 
       case SubscriptImpl.self:
-        UNIMPLEMENTED()
+        return implementation(
+          of: requirement, typed: t, named: n, identifiedBy: SubscriptDecl.ID.self,
+          collectingCandidatesWith: appendDefinitions)
 
       default:
         unexpected(requirement, in: program.ast)
       }
     }
 
-    /// Returns the implementation of `r` in `model`, with `r` a requirement of `concept` with type
-    /// `t` and name `n`, or returns `nil` if no such implementation exist.
+    /// Returns the implementation of `requirement` in `model` or returns `nil` if no such
+    /// implementation exist.
+    ///
+    /// `requirement` is defined by `concept` and `t` is the type it is expected to have when
+    /// implemented by `model`. `idKind` specifies the kinds of declarations that are considered
+    /// as candidate implementations. `appendDefinitions` is called for each candidate in the
+    /// declaration space of `model` to gather those that are definitions (i.e., declarations with
+    /// a body) of type `t`.
     func implementation<D: DeclID>(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name,
-      identifiedBy: D.Type = D.self,
+      identifiedBy idKind: D.Type = D.self,
       collectingCandidatesWith appendDefinitions: (D, AnyType, inout [AnyDeclID]) -> Void
     ) -> AnyDeclID? {
       guard !t[.hasError] else { return nil }
@@ -1110,25 +1118,30 @@ struct TypeChecker {
       return viable.uniqueElement
     }
 
-    /// Appends to `s` the function definitions of `d` that have type `t`.
-    func collectFunction(of d: AnyDeclID, matching t: AnyType, to s: inout [AnyDeclID]) {
+    /// Appends the function definitions of `d` that have type `t` to `s` .
+    func appendFunctionDefinitions(of d: AnyDeclID, matching t: AnyType, to s: inout [AnyDeclID]) {
       switch d.kind {
       case FunctionDecl.self:
-        appendIfDefinition(FunctionDecl.ID(d)!, matching: t, in: &s)
+        appendIfDefinition(FunctionDecl.ID(d)!, matching: t, to: &s)
       case MethodDecl.self:
-        appendDefinitions(of: MethodDecl.ID(d)!, matching: t, in: &s)
+        appendDefinitions(of: MethodDecl.ID(d)!, matching: t, to: &s)
       default:
         break
       }
     }
 
-    /// Appends each variant of `c` to `candidates` that is has type `t`.
-    func appendDefinitions(of d: MethodDecl.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
-      for v in program[d].impls { appendIfDefinition(v, matching: t, in: &s) }
+    /// Appends each variant of `c` to `candidates` that is has type `t` to `s`.
+    func appendDefinitions(of d: MethodDecl.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
+      for v in program[d].impls { appendIfDefinition(v, matching: t, to: &s) }
     }
 
-    /// Appends `d` to `s` iff it's a a definition with type `t`.
-    func appendIfDefinition<D: Decl>(_ d: D.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
+    /// Appends each variant of `c` to `candidates` that is has type `t` to `s`.
+    func appendDefinitions(of d: SubscriptDecl.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
+      for v in program[d].impls { appendIfDefinition(v, matching: t, to: &s) }
+    }
+
+    /// Appends `d` to `s` iff `d` is a definition with type `t`.
+    func appendIfDefinition<D: Decl>(_ d: D.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
       let u = type(ofMember: AnyDeclID(d))
       if program[d].isDefinition && areEquivalent(t, u, in: scopeOfExposition) {
         s.append(AnyDeclID(d))
@@ -3475,7 +3488,7 @@ struct TypeChecker {
     func instantiate(mutating me: inout Self, type: AnyType) -> TypeTransformAction {
       switch type.base {
       case is AssociatedTypeType:
-        UNIMPLEMENTED()
+        UNIMPLEMENTED("quantifier elimination for associated types (#1043)")
 
       case let p as GenericTypeParameterType:
         if let t = substitutions[p.decl] {

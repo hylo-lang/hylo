@@ -1,0 +1,11 @@
+//- typeCheck expecting: success
+
+trait P {
+  type X
+  subscript(_ i: Int): X { let }
+}
+
+type B: P {
+  typealias X = Bool
+  subscript(_ i: Int): Bool { true }
+}
