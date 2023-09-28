@@ -100,24 +100,6 @@ public type Int {
     self ^ -1
   }
 
-  /// Returns `self` with its binary representation shifted by `n` digits to the left, masking the
-  /// shift amount to the bit width of `Self`.
-  ///
-  /// Use this operator when you need to perform a shift and are sure that the shift amount is in
-  /// the range `0 ..< Self.bit_width()`.
-  public fun infix&<< (_ n: Int) -> Self {
-    Int(value: Builtin.shl_word(value, n.value))
-  }
-
-  /// Returns `self` with its binary representation shifted by `n` digits to the right, masking the
-  /// shift amount to the bit width of `Self`.
-  ///
-  /// Use this operator when you need to perform a shift and are sure that the shift amount is in
-  /// the range `0 ..< Self.bit_width()`.
-  public fun infix&>> (_ n: Int) -> Self {
-    Int(value: Builtin.ashr_word(value, n.value))
-  }
-
 }
 
 public conformance Int: ExpressibleByIntegerLiteral {}
@@ -287,6 +269,14 @@ public conformance Int: FixedWidthInteger {
 
   public fun leading_zeros() -> Int {
     Int(value: Builtin.ctlz_word(value))
+  }
+
+  public fun infix&<< (_ n: Int) -> Self {
+    Int(value: Builtin.shl_word(value, n.value))
+  }
+
+  public fun infix&>> (_ n: Int) -> Self {
+    Int(value: Builtin.ashr_word(value, n.value))
   }
 
   public static fun bit_width() -> Int {
