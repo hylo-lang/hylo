@@ -27,6 +27,11 @@ public trait BinaryInteger {
   /// `1` in the representation of `self`.
   fun trailing_zeros() -> Int
 
+  /// Returns the quotient and remainder of dividing `self` by `other`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  fun quotient_and_remainder(dividing_by other: Self) -> {quotient: Self, remainder: Self}
+
   // TODO: Define an associated type when #1042 is fixed.
   /// Returns the words of in the representation of `self`, from the least to most significant.
   ///
