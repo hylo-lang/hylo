@@ -1,6 +1,4 @@
-// Child node with introducer keyword, eg else clause in if-else
-// The NodeIDProtocol conformance is used for BundledNode compatibility
-// eg DoWhileStmt in Emitter.swift: `program[s].condition.site``
+/// A node and the site of its introducer in program sources.
 public struct Introduced<T: NodeIDProtocol>: NodeIDProtocol {
   public let introducerSite: SourceRange
   public let value: T
