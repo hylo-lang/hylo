@@ -19,6 +19,21 @@ public trait Collection {
   /// - Requires: `i != end_index()`.
   fun index(after i: Index) -> Index
 
+  /// The number of elements in the collection.
+  fun count() -> Int
+
+  // FIXME: Uncomment when #1043 is fixed
+  // {
+  //   var n = 0
+  //   var i = start_index()
+  //   let e = end_index()
+  //   while i != e {
+  //     &n += 1
+  //     &i = index(after: i)
+  //   }
+  //   return n
+  // }
+
   /// Accesses the elment at position `i`.
   subscript(_ i: Index): Element { let }
 
