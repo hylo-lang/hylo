@@ -1,0 +1,25 @@
+/// A collection of elements accessible via an indexed subscript.
+public trait Collection {
+
+  /// The type of the elements contained in `Self`.
+  type Element
+
+  /// The type of the positions in `Self`.
+  type Index: SemiRegular
+
+  /// Returns the position of the first element in `self`, or `end_index()` if `self` is empty.
+  fun start_index() -> Index
+
+  /// Returns the "past the end" position in `self`, that is, the position immediately after the
+  /// last element in `self`.
+  fun end_index() -> Index
+
+  /// Returns the position immediately after `i`.
+  ///
+  /// - Requires: `i != end_index()`.
+  fun index(after i: Index) -> Index
+
+  /// Accesses the elment at position `i`.
+  subscript(_ i: Index): Element { let }
+
+}
