@@ -5,11 +5,6 @@ public type Int {
 
   memberwise init
 
-  /// Creates an instance with value `0`.
-  public init() {
-    &self.value = Builtin.zeroinitializer_word()
-  }
-
   /// Creates an instance with the same memory representation as `other`.
   public init(bit_pattern other: UInt) {
     &self.value = other.value
@@ -46,16 +41,6 @@ public type Int {
     self.copy()
   }
 
-  /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
-  public fun infix== (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_eq_word(value, other.value))
-  }
-
-  /// Returns `true` if `self` is not equal to `other`. Otherwise, returns `false`.
-  public fun infix!= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_ne_word(value, other.value))
-  }
-
   /// Returns the bitwise inverse of `self`.
   public fun prefix~ () -> Self {
     self ^ -1
@@ -71,6 +56,38 @@ public conformance Int: Copyable {
 
   public fun copy() -> Self {
     Int(value: value)
+  }
+
+}
+
+public conformance Int: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_word(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_word(value, other.value))
+  }
+
+}
+
+public conformance Int: Comparable {
+
+  public fun infix< (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_slt_word(value, other.value))
+  }
+
+  public fun infix<= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_sle_word(value, other.value))
+  }
+
+  public fun infix> (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_sgt_word(value, other.value))
+  }
+
+  public fun infix>= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_sge_word(value, other.value))
   }
 
 }
@@ -131,6 +148,10 @@ public conformance Int: SignedNumeric {
 
 public conformance Int: BinaryInteger {
 
+  public init() {
+    &self.value = Builtin.zeroinitializer_word()
+  }
+
   public init<T: BinaryInteger>(truncating_or_extending source: T) {
     let w = source.words()
     &self.value = w[w.start_index()].value
@@ -171,22 +192,6 @@ public conformance Int: BinaryInteger {
 
   public fun infix%= (_ other: Self) inout {
     &self.value = Builtin.srem_word(value, other.value)
-  }
-
-  public fun infix< (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_slt_word(value, other.value))
-  }
-
-  public fun infix<= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sle_word(value, other.value))
-  }
-
-  public fun infix> (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sgt_word(value, other.value))
-  }
-
-  public fun infix>= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sge_word(value, other.value))
   }
 
   public fun infix& (_ other: Self) -> Self {
@@ -315,8 +320,6 @@ public conformance Int: FixedWidthInteger {
   }
 
 }
-
-public conformance Int: Comparable {}
 
 public conformance Int: ForeignConvertible {
 
