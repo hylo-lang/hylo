@@ -1,0 +1,10 @@
+/// A numeric type with an additive inverse.
+public trait SignedNumeric: Numeric {
+
+  /// Returns the additive inverse of `self`.
+  fun prefix- () -> Self
+
+  /// Replaces `self` with its additive inverse.
+  fun negate() inout
+
+}

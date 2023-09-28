@@ -1,0 +1,102 @@
+// TODO: Make `BinaryInteger` a refinement of `Numeric` when #1047 is fixed
+
+/// An integer type with a binary representation.
+public trait BinaryInteger: Comparable {
+
+  /// Creates an instance with value `0`.
+  init()
+
+  // TODO: Uncomment when #1045 is fixed.
+  // /// Creates an instance with the bit representation of `source`, truncating or sign-extending it
+  // // to fit the bit representation of `Self`.
+  // init<T: BinaryInteger>(truncating_or_extending source: T)
+
+  // TODO: Rename to `bit_width` when #1041 is fixed.
+  /// Returns the number of bits in the representation of `self`.
+  fun instance_bit_width() -> Int
+
+  /// Returns `-1` if `self` is negative, `1` if it is positive, or `0` otherwise.
+  fun signum() -> Int
+
+  /// Returns the number of bits equal to `0` on the right of the least significant bit equal to
+  /// `1` in the representation of `self`.
+  fun trailing_zeros() -> Int
+
+  /// Returns the quotient and remainder of dividing `self` by `other`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  fun quotient_and_remainder(dividing_by other: Self) -> {quotient: Self, remainder: Self}
+
+  // TODO: Define an associated type when #1042 is fixed.
+  /// Returns the words of in the representation of `self`, from the least to most significant.
+  ///
+  /// If `self.instance_bit_width()` is smaller than `UInt.bit_width()`, the returned collection
+  /// contains a single word obtained by sign-extending the representation of `self`.
+  fun words() -> CollectionOfOne<UInt>
+
+  /// Returns the quotient of dividing `self` by `other`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  fun infix/ (_ other: Self) -> Self
+
+  /// Writes the quotient of dividing `self` by `other` to `self`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  fun infix/= (_ other: Self) inout
+
+  /// Returns the remainder of dividing `self` by `other`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  fun infix% (_ other: Self) -> Self
+
+  /// Writes the remainder of dividing `self` by `other` to `self`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  fun infix%= (_ other: Self) inout
+
+  /// Returns `true` if `self` is smaller than `other`. Otherwise, returns `false`.
+  fun infix< (_ other: Self) -> Bool
+
+  /// Returns `true` if `self` is smaller than or equal to `other`. Otherwise, returns `false`.
+  fun infix<= (_ other: Self) -> Bool
+
+  /// Returns `true` if `self` is greater than `other`. Otherwise, returns `false`.
+  fun infix> (_ other: Self) -> Bool
+
+  /// Returns `true` if `self` is greater than or equal to `other`. Otherwise, returns `false`.
+  fun infix>= (_ other: Self) -> Bool
+
+  /// Returns the bitwise AND of `self` and `other`.
+  fun infix& (_ other: Self) -> Self
+
+  /// Writes the bitwise AND of `self` and `other` to `self`.
+  fun infix&= (_ other: Self) inout
+
+  /// Returns the bitwise OR of `self` and `other`.
+  fun infix| (_ other: Self) -> Self
+
+  /// Writes the bitwise OR of `self` and `other` to `self`.
+  fun infix|= (_ other: Self) inout
+
+  /// Returns the bitwise XOR of `self` and `other`.
+  fun infix^ (_ other: Self) -> Self
+
+  /// Writes the bitwise XOR of `self` and `other` to `self`.
+  fun infix^= (_ other: Self) inout
+
+  /// Returns `self` with its binary representation shifted by `n` digits to the left.
+  fun infix<< (_ n: Int) -> Self
+
+  /// Shifts the binary representation of `self` by `n` digits to the left.
+  fun infix<<= (_ n: Int) inout
+
+  /// Returns `self` with its binary representation shifted by `n` digits to the right.
+  fun infix>> (_ n: Int) -> Self
+
+  /// Shifts the binary representation of `self` by `n` digits to the right.
+  fun infix>>= (_ n: Int) inout
+
+  /// Returns `true` if this type is a signed integer.
+  static fun is_signed() -> Bool
+
+}
