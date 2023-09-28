@@ -41,30 +41,6 @@ public type Int {
     return self + stride - r;
   }
 
-  /// Returns the sum of `self` and `other`.
-  ///
-  /// - Requires: The sum of the two arguments is representable in `Self`.
-  public fun infix+ (_ other: Self) -> Self {
-    Int(value: Builtin.add_word(value, other.value))
-  }
-
-  /// Writes the sum of `self` and `other` to `self`.
-  ///
-  /// - Requires: The sum of the two arguments is representable in `Self`.
-  public fun infix+= (_ other: Self) inout {
-    &self.value = Builtin.add_word(value, other.value)
-  }
-
-  /// Returns `self` subtracted by `other`.
-  public fun infix- (_ other: Self) -> Self {
-    Int(value: Builtin.sub_word(value, other.value))
-  }
-
-  /// Writes the result of `self` subtracted by `other` to `self`.
-  public fun infix-= (_ other: Self) inout {
-    &self.value = Builtin.sub_word(value, other.value)
-  }
-
   /// Returns the additive inverse of `self`.
   public fun prefix- () -> Self {
     Int() - self
@@ -100,6 +76,30 @@ public conformance Int: Copyable {
 
   public fun copy() -> Self {
     Int(value: value)
+  }
+
+}
+
+public conformance Int: AdditiveArithmetic {
+
+  public fun infix+ (_ other: Self) -> Self {
+    Int(value: Builtin.add_word(value, other.value))
+  }
+
+  public fun infix+= (_ other: Self) inout {
+    &self.value = Builtin.add_word(value, other.value)
+  }
+
+  public fun infix- (_ other: Self) -> Self {
+    Int(value: Builtin.sub_word(value, other.value))
+  }
+
+  public fun infix-= (_ other: Self) inout {
+    &self.value = Builtin.sub_word(value, other.value)
+  }
+
+  public static fun zero() -> Self {
+    Int()
   }
 
 }
