@@ -34,6 +34,11 @@ public trait Collection {
   //   return n
   // }
 
+  /// Returns `true` is `self` is empty.
+  fun is_empty() -> Bool {
+    count() == 0
+  }
+
   /// Accesses the elment at position `i`.
   subscript(_ i: Index): Element { let }
 
