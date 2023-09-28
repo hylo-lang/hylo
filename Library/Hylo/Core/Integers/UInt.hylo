@@ -49,6 +49,30 @@ public conformance UInt: Copyable {
 
 }
 
+public conformance UInt: AdditiveArithmetic {
+
+  public fun infix+ (_ other: Self) -> Self {
+    UInt(value: Builtin.add_word(value, other.value))
+  }
+
+  public fun infix+= (_ other: Self) inout {
+    &self.value = Builtin.add_word(value, other.value)
+  }
+
+  public fun infix- (_ other: Self) -> Self {
+    UInt(value: Builtin.sub_word(value, other.value))
+  }
+
+  public fun infix-= (_ other: Self) inout {
+    &self.value = Builtin.sub_word(value, other.value)
+  }
+
+  public static fun zero() -> Self {
+    UInt()
+  }
+
+}
+
 // TODO: Rewrite as a conformance to `Numeric` when #1047 is fixed
 public extension UInt {
 
