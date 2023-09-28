@@ -2079,10 +2079,24 @@ struct Emitter {
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: CastExpr.ID) -> Operand {
     switch ast[e].direction {
+    case .up:
+      return emitLValue(upcast: e)
     case .pointerConversion:
       return emitLValue(pointerConversion: e)
     default:
-      UNIMPLEMENTED()
+      UNIMPLEMENTED("lvalue lowering for cast expressions #1049")
+    }
+  }
+
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(upcast e: CastExpr.ID) -> Operand {
+    switch ast[e].left.kind {
+    case FloatLiteralExpr.self:
+      emitStore(value: ast[e].left)
+    case IntegerLiteralExpr.self:
+      emitStore(value: ast[e].left)
+    default:
+      UNIMPLEMENTED("lvalue lowering for cast expressions #1049")
     }
   }
 
