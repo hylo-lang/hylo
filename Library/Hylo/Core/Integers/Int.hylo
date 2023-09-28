@@ -232,6 +232,11 @@ public conformance Int: Copyable {
 
 public conformance Int: BinaryInteger {
 
+  public init<T: BinaryInteger>(truncating_or_extending source: T) {
+    let w = source.words()
+    &self.value = w[w.start_index()].value
+  }
+
   public fun instance_bit_width() -> Int {
     Self.bit_width()
   }
