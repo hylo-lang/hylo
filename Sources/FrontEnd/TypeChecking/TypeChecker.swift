@@ -3488,7 +3488,7 @@ struct TypeChecker {
     func instantiate(mutating me: inout Self, type: AnyType) -> TypeTransformAction {
       switch type.base {
       case is AssociatedTypeType:
-        UNIMPLEMENTED()
+        UNIMPLEMENTED("quantifier elimination for associated types (#1043)")
 
       case let p as GenericTypeParameterType:
         if let t = substitutions[p.decl] {
