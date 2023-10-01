@@ -282,30 +282,39 @@ extension LLVM.Module {
   private mutating func transpiledMetatype(
     of t: AnyType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
-    switch t.base {
-    case let u as ProductType:
-      return transpiledMetatype(of: u, usedIn: m, from: ir)
-    case let u as TupleType:
-      return transpiledMetatype(of: u, usedIn: m, from: ir)
-    default:
-      UNIMPLEMENTED()
+    demandMetatype(of: t, usedIn: m, from: ir) { (me, v) in
+      if let u = ProductType(t) {
+        me.initializeTranspiledProductTypeMetatype(v, of: u, usedIn: m, from: ir)
+      } else {
+        me.initializeTranspiledMetatype(v, of: t, usedIn: m, from: ir)
+      }
     }
   }
 
-  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
-  private mutating func transpiledMetatype(
-    of t: ProductType, usedIn m: IR.Module, from ir: IR.Program
-  ) -> LLVM.GlobalVariable {
-    let globalName = ir.base.mangled(t)
-    if let g = global(named: globalName) { return g }
+  /// Initializes `instance` with the value of the metatype of `t` used in `m` in `ir`.
+  private mutating func initializeTranspiledMetatype<T: TypeProtocol>(
+    _ instance: LLVM.GlobalVariable,
+    of t: T, usedIn m: IR.Module, from ir: IR.Program
+  ) {
+    setLinkage(.linkOnce, for: instance)
 
-    // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply
-    // declare the symbol and let it be linked later.
-    let metatype = metatypeType()
-    let instance = declareGlobalVariable(globalName, metatype)
-    if m.id != ir.base.module(containing: t.decl) {
-      return instance
-    }
+    let layout = memoryLayout(of: t, from: ir)
+    let v = LLVM.StructType(instance.valueType)!.constant(
+      aggregating: [layout.size, layout.preferredAlignment, ptr.null],
+      in: &self)
+
+    setInitializer(v, for: instance)
+    setGlobalConstant(true, for: instance)
+  }
+
+  /// Initializes `instance` with the value of the metatype of `t` used in `m` in `ir`.
+  private mutating func initializeTranspiledProductTypeMetatype(
+    _ instance: LLVM.GlobalVariable,
+    of t: ProductType, usedIn m: IR.Module, from ir: IR.Program
+  ) {
+    // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply let
+    // the symbol be linked to its definition later.
+    if m.id != ir.base.module(containing: t.decl) { return }
 
     // If `t` is generic, its metatype is only a stub.
     let layout: LLVMMemoryLayout
@@ -315,33 +324,24 @@ extension LLVM.Module {
       layout = memoryLayout(of: t, from: ir)
     }
 
-    let v = metatype.constant(
+    let v = LLVM.StructType(instance.valueType)!.constant(
       aggregating: [layout.size, layout.preferredAlignment, ptr.null],
       in: &self)
 
     setInitializer(v, for: instance)
     setGlobalConstant(true, for: instance)
-    return instance
   }
 
-  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
-  private mutating func transpiledMetatype(
-    of t: TupleType, usedIn m: IR.Module, from ir: IR.Program
-  ) -> LLVM.GlobalVariable {
+  private mutating func demandMetatype<T: TypeProtocol>(
+    of t: T, usedIn m: IR.Module, from ir: IR.Program,
+    initializedWith initializeInstance: (inout Self, LLVM.GlobalVariable) -> Void
+  ) -> LLVM.GlobalVariable{
     let globalName = ir.base.mangled(t)
     if let g = global(named: globalName) { return g }
 
     let metatype = metatypeType()
     let instance = declareGlobalVariable(globalName, metatype)
-    setLinkage(.linkOnce, for: instance)
-
-    let layout = memoryLayout(of: t, from: ir)
-    let v = metatype.constant(
-      aggregating: [layout.size, layout.preferredAlignment, ptr.null],
-      in: &self)
-
-    setInitializer(v, for: instance)
-    setGlobalConstant(true, for: instance)
+    initializeInstance(&self, instance)
     return instance
   }
 
@@ -786,15 +786,30 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         register[.register(i)] = insertLShr(l, r, at: insertionPoint)
 
+      case .ashr:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertAShr(l, r, at: insertionPoint)
+
       case .sdiv(let e, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         register[.register(i)] = insertSignedDiv(exact: e, l, r, at: insertionPoint)
 
-      case .srem(_):
+      case .udiv(let e, _):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertUnsignedDiv(exact: e, l, r, at: insertionPoint)
+
+      case .srem:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         register[.register(i)] = insertSignedRem(l, r, at: insertionPoint)
+
+      case .urem:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertUnsignedRem(l, r, at: insertionPoint)
 
       case .signedAdditionWithOverflow(let t):
         let l = llvm(s.operands[0])
@@ -863,6 +878,11 @@ extension LLVM.Module {
         let source = llvm(s.operands[0])
         register[.register(i)] = insertTrunc(source, to: target, at: insertionPoint)
 
+      case .zext(_, let t):
+        let target = ir.llvm(builtinType: t, in: &self)
+        let source = llvm(s.operands[0])
+        register[.register(i)] = insertZeroExtend(source, to: target, at: insertionPoint)
+
       case .inttoptr(_):
         let source = llvm(s.operands[0])
         register[.register(i)] = insertIntToPtr(source, at: insertionPoint)
@@ -906,6 +926,23 @@ extension LLVM.Module {
         let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i)] = insertFPTrunc(source, to: target, at: insertionPoint)
+
+      case .ctpop(let t):
+        let source = llvm(s.operands[0])
+        let f = intrinsic(named: Intrinsic.llvm.ctpop, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [source], at: insertionPoint)
+
+      case .ctlz(let t):
+        let source = llvm(s.operands[0])
+        let f = intrinsic(named: Intrinsic.llvm.ctlz, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          LLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
+
+      case .cttz(let t):
+        let source = llvm(s.operands[0])
+        let f = intrinsic(named: Intrinsic.llvm.cttz, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          LLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
 
       case .zeroinitializer(let t):
         register[.register(i)] = ir.llvm(builtinType: t, in: &self).null

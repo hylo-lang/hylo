@@ -1,0 +1,23 @@
+/// A type whose instances support addition and subtraction.
+public trait AdditiveArithmetic: Equatable {
+
+  /// Returns the sum of `self` and `other`.
+  ///
+  /// - Requires: The sum of the two arguments is representable in `Self`.
+  fun infix+ (_ other: Self) -> Self
+
+  /// Writes the sum of `self` and `other` to `self`.
+  ///
+  /// - Requires: The sum of the two arguments is representable in `Self`.
+  fun infix+= (_ other: Self) inout
+
+  /// Returns `self` subtracted by `other`.
+  fun infix- (_ other: Self) -> Self
+
+  /// Writes the result of `self` subtracted by `other` to `self`.
+  fun infix-= (_ other: Self) inout
+
+  /// Returns the value `0` represented in `Self`.
+  static fun zero() -> Self
+
+}
