@@ -1990,7 +1990,7 @@ public enum Parser {
         try parseConditionalExpr(in: &s).map(AnyExprID.init(_:)) ?? parseBracedExpr(in: &s)
       })
 
-    let elseClause = Introduced(introducerSite: elseIntroducer.site, value: b)
+    let elseClause = Introduced(b, at: elseIntroducer.site)
 
     return state.insert(
       ConditionalExpr(
@@ -2740,11 +2740,11 @@ public enum Parser {
 
     if let s = try parseConditionalStmt(in: &state) {
       let s = AnyStmtID(s)
-      return Introduced(introducerSite: introducer.site, value: s)
+      return Introduced(s, at: introducer.site)
     }
     else {
       let s = AnyStmtID(try state.expect("'{'", using: braceStmt))
-      return Introduced(introducerSite: introducer.site, value: s)
+      return Introduced(s, at: introducer.site)
     }
   }
 
@@ -2771,7 +2771,7 @@ public enum Parser {
         state.insert(
           DoWhileStmt(
             introducerSite: tree.0.0.0.site,
-            body: tree.0.0.1, condition: Introduced(introducerSite: tree.0.1.site, value: tree.1),
+            body: tree.0.0.1, condition: Introduced(tree.1, at: tree.0.1.site),
             site: tree.0.0.0.site.extended(upTo: state.currentIndex)))
       }))
 
@@ -2802,9 +2802,9 @@ public enum Parser {
             site: tree.0.0.0.0.site.extended(upTo: state.currentIndex)))
       }))
 
-  static let forSite = (take(.in).and(expr).map({ (state, tree) in Introduced(introducerSite: tree.0.site, value: tree.1)}))
+  static let forSite = (take(.in).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site)}))
 
-  static let forFilter = (take(.where).and(expr).map({ (state, tree) in Introduced(introducerSite: tree.0.site, value: tree.1)}))
+  static let forFilter = (take(.where).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site)}))
 
   static let loopBody = inContext(.loopBody, apply: braceStmt)
 
