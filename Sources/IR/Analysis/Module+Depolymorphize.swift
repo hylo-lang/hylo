@@ -127,6 +127,14 @@ extension Module {
     _ f: Function.ID, in ir: IR.Program,
     for specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
+    // TODO: Avoid monomorphizing non-generic entities (#
+    // let parameters = ir.base.liftedGenericParameters(of: f)
+    // if parameters.isEmpty {
+    //   return f
+    // }
+    // let specialization = GenericArguments(
+    //   uniqueKeysWithValues: parameters.map({ ($0, specialization[$0]!) }))
+
     let result = demandMonomorphizedDeclaration(of: f, in: ir, for: specialization, in: scopeOfUse)
     if self[result].entry != nil {
       return result
