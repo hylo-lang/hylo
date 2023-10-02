@@ -560,3 +560,25 @@ extension Module {
   }
 
 }
+
+extension TypedProgram {
+
+  /// Returns the generic parameters captured in the scope of `f`.
+  fileprivate func liftedGenericParameters(of f: Function.ID) -> [GenericParameterDecl.ID] {
+    switch f.value {
+    case .lowered(let d):
+      return liftedGenericParameters(of: d)
+
+    case .synthesized(let d):
+      if let a = BoundGenericType(d.receiver)?.arguments {
+        return Array(a.keys)
+      } else {
+        return []
+      }
+
+    case .existentialized, .monomorphized:
+      return []
+    }
+  }
+
+}
