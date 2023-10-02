@@ -3960,7 +3960,7 @@ struct TypeChecker {
     case .infix(let callee, let lhs, let rhs):
       // Infer the types of the operands.
       let lhsType = _inferredType(of: lhs, updating: &obligations)
-      let rhsType = _inferredType(of: rhs, updating: &obligations)
+      let rhsType = _inferredType(of: rhs, withHint: ^freshVariable(), updating: &obligations)
 
       if lhsType.isError || rhsType.isError {
         return .error
