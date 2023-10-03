@@ -109,3 +109,15 @@ public conformance Int8: Numeric {
   }
 
 }
+
+public conformance Int8: SignedNumeric {
+
+  public fun prefix- () -> Self {
+    Int8() - self
+  }
+
+  public fun negate() inout {
+    &self = -self
+  }
+
+}
