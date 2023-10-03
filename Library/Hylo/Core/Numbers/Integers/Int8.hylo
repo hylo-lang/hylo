@@ -10,6 +10,11 @@ public type Int8 {
     &self.value = Builtin.zeroinitializer_i8()
   }
 
+  /// Creates an instance with the same memory representation as `other`.
+  public init(bit_pattern other: UInt8) {
+    &self.value = other.value
+  }
+
   /// Creates a copy of `other`.
   ///
   /// - Requires: The value of `other` must be representable in this type.

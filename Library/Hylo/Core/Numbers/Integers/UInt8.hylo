@@ -1,0 +1,30 @@
+/// A 8-bit unsigned integer value.
+public type UInt8 {
+
+  var value: Builtin.i8
+
+  memberwise init
+
+  /// Creates an instance with value `0`.
+  public init() {
+    &self.value = Builtin.zeroinitializer_i8()
+  }
+
+  /// Creates an instance with the same memory representation as `other`.
+  public init(bit_pattern other: Int8) {
+    &self.value = other.value
+  }
+
+}
+
+public conformance UInt8: ExpressibleByIntegerLiteral {}
+
+public conformance UInt8: Deinitializable {}
+
+public conformance UInt8: Copyable {
+
+  public fun copy() -> Self {
+    UInt8(value: value)
+  }
+
+}
