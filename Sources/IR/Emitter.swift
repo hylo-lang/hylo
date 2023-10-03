@@ -2095,9 +2095,9 @@ struct Emitter {
   private mutating func emitLValue(upcast e: CastExpr.ID) -> Operand {
     switch ast[e].left.kind {
     case FloatLiteralExpr.self:
-      emitStore(value: ast[e].left)
+      return emitStore(value: ast[e].left)
     case IntegerLiteralExpr.self:
-      emitStore(value: ast[e].left)
+      return emitStore(value: ast[e].left)
     default:
       UNIMPLEMENTED("lvalue lowering for cast expressions #1049")
     }
