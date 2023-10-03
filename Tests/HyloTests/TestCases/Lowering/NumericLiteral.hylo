@@ -17,4 +17,7 @@ public fun main() {
 
   let _: Float32 = 1
   let _: Float32 = 1.0
+
+  let _ = 1 as Int8
+  let _ = 1 as Float64
 }
