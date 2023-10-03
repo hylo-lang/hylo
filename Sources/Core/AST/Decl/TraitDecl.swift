@@ -7,7 +7,7 @@ public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
 
   public let site: SourceRange
 
-    /// The site of the `trait` introducer.
+  /// The site of the `trait` introducer.
   public let introducerSite: SourceRange
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>

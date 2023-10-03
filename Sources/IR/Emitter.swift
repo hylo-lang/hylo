@@ -994,8 +994,9 @@ struct Emitter {
     frames.pop()
 
     insert(
-      module.makeCondBranch(if: c, then: loopBody, else: loopTail, at: ast[condition].site
-))
+      module.makeCondBranch(
+        if: c, then: loopBody, else: loopTail, at: ast[condition].site
+      ))
     insertionPoint = .end(of: loopTail)
     return .next
   }

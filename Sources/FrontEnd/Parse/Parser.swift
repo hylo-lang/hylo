@@ -2741,8 +2741,7 @@ public enum Parser {
     if let s = try parseConditionalStmt(in: &state) {
       let s = AnyStmtID(s)
       return Introduced(s, at: introducer.site)
-    }
-    else {
+    } else {
       let s = AnyStmtID(try state.expect("'{'", using: braceStmt))
       return Introduced(s, at: introducer.site)
     }
@@ -2802,9 +2801,11 @@ public enum Parser {
             site: tree.0.0.0.0.site.extended(upTo: state.currentIndex)))
       }))
 
-  static let forSite = (take(.in).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site)}))
+  static let forSite =
+    (take(.in).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site) }))
 
-  static let forFilter = (take(.where).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site)}))
+  static let forFilter =
+    (take(.where).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site) }))
 
   static let loopBody = inContext(.loopBody, apply: braceStmt)
 
