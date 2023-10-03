@@ -468,7 +468,7 @@ extension Module {
       append(newInstruction, to: b)
     }
 
-    /// Returns the rewritten form of `c` monomorphized for use in `scopeOfuse`.
+    /// Returns a monomorphized copy of `c` monomorphized for use in `scopeOfuse`.
     func rewritten(_ c: any Constant) -> any Constant {
       switch c {
       case let r as FunctionReference:
@@ -480,7 +480,7 @@ extension Module {
       }
     }
 
-    /// Returns the rewritten form of `c` monomorphized for use in `scopeOfuse`.
+    /// Returns a monomorphized copy of `c` monomorphized for use in `scopeOfuse`.
     func rewritten(_ c: FunctionReference) -> FunctionReference {
       // Unspecialized references cannot refer to trait members, which are specialized for the
       // implicit `Self` parameter.
@@ -490,6 +490,11 @@ extension Module {
       return FunctionReference(to: f, in: self)
     }
 
+    /// Returns a monomorphized copy of `f` specialized by `a` for use in `scopeOfUse`.
+    ///
+    /// If `f` is a trait requirement, the result is a monomorphized version of that requirement's
+    /// implementation, using `a` to identify the requirement's receiver. Otherwise, the result is
+    /// a monomorphized copy of `f`.
     func rewritten(_ f: Function.ID, specializedBy a: GenericArguments) -> Function.ID {
       let p = program.specialize(a, for: specialization, in: scopeOfUse)
       if let m = program.traitMember(referredBy: f) {
@@ -500,7 +505,7 @@ extension Module {
       }
     }
 
-    /// Returns the rewritten form of `o` for use in `scopeOfUse`.
+    /// Returns a monomorphized copy of `o` for use in `scopeOfUse`.
     func rewritten(_ o: Operand) -> Operand {
       switch o {
       case .constant(let c):
