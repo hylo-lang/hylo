@@ -127,6 +127,14 @@ extension Module {
     _ f: Function.ID, in ir: IR.Program,
     for specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
+    // TODO: Avoid monomorphizing non-generic entities (#
+    // let parameters = ir.base.liftedGenericParameters(of: f)
+    // if parameters.isEmpty {
+    //   return f
+    // }
+    // let specialization = GenericArguments(
+    //   uniqueKeysWithValues: parameters.map({ ($0, specialization[$0]!) }))
+
     let result = demandMonomorphizedDeclaration(of: f, in: ir, for: specialization, in: scopeOfUse)
     if self[result].entry != nil {
       return result
@@ -399,8 +407,7 @@ extension Module {
       if s.specialization.isEmpty {
         newCallee = s.callee
       } else {
-        let p = program.specialize(s.specialization, for: specialization, in: scopeOfUse)
-        newCallee = monomorphize(s.callee, in: ir, for: p, in: scopeOfUse)
+        newCallee = rewritten(s.callee, specializedBy: s.specialization)
       }
 
       let projection = RemoteType(
@@ -469,7 +476,7 @@ extension Module {
       append(newInstruction, to: b)
     }
 
-    /// Returns the rewritten form of `c` monomorphized for use in `scopeOfuse`.
+    /// Returns a monomorphized copy of `c` monomorphized for use in `scopeOfuse`.
     func rewritten(_ c: any Constant) -> any Constant {
       switch c {
       case let r as FunctionReference:
@@ -481,24 +488,32 @@ extension Module {
       }
     }
 
-    /// Returns the rewritten form of `c` monomorphized for use in `scopeOfuse`.
+    /// Returns a monomorphized copy of `c` monomorphized for use in `scopeOfuse`.
     func rewritten(_ c: FunctionReference) -> FunctionReference {
       // Unspecialized references cannot refer to trait members, which are specialized for the
       // implicit `Self` parameter.
       if c.specialization.isEmpty { return c }
 
-      let p = program.specialize(c.specialization, for: specialization, in: scopeOfUse)
-      let f: Function.ID
-      if let m = program.traitMember(referredBy: c.function) {
-        f = monomorphize(requirement: m.declaration, of: m.trait, in: ir, for: p, in: scopeOfUse)
-      } else {
-        f = monomorphize(c.function, in: ir, for: p, in: scopeOfUse)
-      }
-
+      let f = rewritten(c.function, specializedBy: c.specialization)
       return FunctionReference(to: f, in: self)
     }
 
-    /// Returns the rewritten form of `o` for use in `scopeOfUse`.
+    /// Returns a monomorphized copy of `f` specialized by `a` for use in `scopeOfUse`.
+    ///
+    /// If `f` is a trait requirement, the result is a monomorphized version of that requirement's
+    /// implementation, using `a` to identify the requirement's receiver. Otherwise, the result is
+    /// a monomorphized copy of `f`.
+    func rewritten(_ f: Function.ID, specializedBy a: GenericArguments) -> Function.ID {
+      let p = program.specialize(a, for: specialization, in: scopeOfUse)
+      if let m = program.traitMember(referredBy: f) {
+        return monomorphize(
+          requirement: m.declaration, of: m.trait, in: ir, for: p, in: scopeOfUse)
+      } else {
+        return monomorphize(f, in: ir, for: p, in: scopeOfUse)
+      }
+    }
+
+    /// Returns a monomorphized copy of `o` for use in `scopeOfUse`.
     func rewritten(_ o: Operand) -> Operand {
       switch o {
       case .constant(let c):
@@ -557,6 +572,28 @@ extension Module {
 
     addFunction(entity, for: result)
     return result
+  }
+
+}
+
+extension TypedProgram {
+
+  /// Returns the generic parameters captured in the scope of `f`.
+  fileprivate func liftedGenericParameters(of f: Function.ID) -> [GenericParameterDecl.ID] {
+    switch f.value {
+    case .lowered(let d):
+      return liftedGenericParameters(of: d)
+
+    case .synthesized(let d):
+      if let a = BoundGenericType(d.receiver)?.arguments {
+        return Array(a.keys)
+      } else {
+        return []
+      }
+
+    case .existentialized, .monomorphized:
+      return []
+    }
   }
 
 }

@@ -1,6 +1,6 @@
 import Core
-import IR
 import Foundation
+import IR
 import LLVM
 import Utils
 
@@ -335,7 +335,7 @@ extension LLVM.Module {
   private mutating func demandMetatype<T: TypeProtocol>(
     of t: T, usedIn m: IR.Module, from ir: IR.Program,
     initializedWith initializeInstance: (inout Self, LLVM.GlobalVariable) -> Void
-  ) -> LLVM.GlobalVariable{
+  ) -> LLVM.GlobalVariable {
     let globalName = ir.base.mangled(t)
     if let g = global(named: globalName) { return g }
 

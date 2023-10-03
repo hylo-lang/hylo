@@ -837,7 +837,7 @@ struct TypeChecker {
     check(program[s].condition)
     check(program[s].success)
     if let b = program[s].failure {
-      check(b)
+      check(b.value)
     }
   }
 
@@ -874,7 +874,7 @@ struct TypeChecker {
   /// Type checks `s`.
   private mutating func check(_ s: DoWhileStmt.ID) {
     check(program[s].body)
-    check(program[s].condition, coercibleTo: ^program.ast.coreType("Bool")!)
+    check(program[s].condition.value, coercibleTo: ^program.ast.coreType("Bool")!)
   }
 
   /// Type checks `s`.
@@ -1072,7 +1072,7 @@ struct TypeChecker {
       case FunctionDecl.self:
         return implementation(
           of: requirement, typed: t, named: n,
-          collectingCandidatesWith: collectFunction)
+          collectingCandidatesWith: appendFunctionDefinitions)
 
       case InitializerDecl.self:
         return implementation(
@@ -1082,21 +1082,29 @@ struct TypeChecker {
       case MethodImpl.self:
         return implementation(
           of: requirement, typed: t, named: n,
-          collectingCandidatesWith: collectFunction)
+          collectingCandidatesWith: appendFunctionDefinitions)
 
       case SubscriptImpl.self:
-        UNIMPLEMENTED()
+        return implementation(
+          of: requirement, typed: t, named: n, identifiedBy: SubscriptDecl.ID.self,
+          collectingCandidatesWith: appendDefinitions)
 
       default:
         unexpected(requirement, in: program.ast)
       }
     }
 
-    /// Returns the implementation of `r` in `model`, with `r` a requirement of `concept` with type
-    /// `t` and name `n`, or returns `nil` if no such implementation exist.
+    /// Returns the implementation of `requirement` in `model` or returns `nil` if no such
+    /// implementation exist.
+    ///
+    /// `requirement` is defined by `concept` and `t` is the type it is expected to have when
+    /// implemented by `model`. `idKind` specifies the kinds of declarations that are considered
+    /// as candidate implementations. `appendDefinitions` is called for each candidate in the
+    /// declaration space of `model` to gather those that are definitions (i.e., declarations with
+    /// a body) of type `t`.
     func implementation<D: DeclID>(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name,
-      identifiedBy: D.Type = D.self,
+      identifiedBy idKind: D.Type = D.self,
       collectingCandidatesWith appendDefinitions: (D, AnyType, inout [AnyDeclID]) -> Void
     ) -> AnyDeclID? {
       guard !t[.hasError] else { return nil }
@@ -1110,25 +1118,30 @@ struct TypeChecker {
       return viable.uniqueElement
     }
 
-    /// Appends to `s` the function definitions of `d` that have type `t`.
-    func collectFunction(of d: AnyDeclID, matching t: AnyType, to s: inout [AnyDeclID]) {
+    /// Appends the function definitions of `d` that have type `t` to `s` .
+    func appendFunctionDefinitions(of d: AnyDeclID, matching t: AnyType, to s: inout [AnyDeclID]) {
       switch d.kind {
       case FunctionDecl.self:
-        appendIfDefinition(FunctionDecl.ID(d)!, matching: t, in: &s)
+        appendIfDefinition(FunctionDecl.ID(d)!, matching: t, to: &s)
       case MethodDecl.self:
-        appendDefinitions(of: MethodDecl.ID(d)!, matching: t, in: &s)
+        appendDefinitions(of: MethodDecl.ID(d)!, matching: t, to: &s)
       default:
         break
       }
     }
 
-    /// Appends each variant of `c` to `candidates` that is has type `t`.
-    func appendDefinitions(of d: MethodDecl.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
-      for v in program[d].impls { appendIfDefinition(v, matching: t, in: &s) }
+    /// Appends each variant of `c` to `candidates` that is has type `t` to `s`.
+    func appendDefinitions(of d: MethodDecl.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
+      for v in program[d].impls { appendIfDefinition(v, matching: t, to: &s) }
     }
 
-    /// Appends `d` to `s` iff it's a a definition with type `t`.
-    func appendIfDefinition<D: Decl>(_ d: D.ID, matching t: AnyType, in s: inout [AnyDeclID]) {
+    /// Appends each variant of `c` to `candidates` that is has type `t` to `s`.
+    func appendDefinitions(of d: SubscriptDecl.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
+      for v in program[d].impls { appendIfDefinition(v, matching: t, to: &s) }
+    }
+
+    /// Appends `d` to `s` iff `d` is a definition with type `t`.
+    func appendIfDefinition<D: Decl>(_ d: D.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
       let u = type(ofMember: AnyDeclID(d))
       if program[d].isDefinition && areEquivalent(t, u, in: scopeOfExposition) {
         s.append(AnyDeclID(d))
@@ -3257,12 +3270,16 @@ struct TypeChecker {
     inScopeIntroducing d: AnyDeclID, resolvedIn context: NameResolutionContext?
   ) -> GenericArguments {
     if let a = context?.arguments { return a }
-
-    // References to modules can never capture any generic arguments.
-    if d.kind == ModuleDecl.self { return [:] }
+    if !mayCaptureGenericParameters(d) { return [:] }
 
     let parameters = accumulatedGenericParameters(in: program[d].scope)
     return .init(skolemizing: parameters, in: program.ast)
+  }
+
+  /// Returns `true` if a reference to `d` may capture generic parameters from the surrounding
+  /// lookup context.
+  private func mayCaptureGenericParameters(_ d: AnyDeclID) -> Bool {
+    d.kind.value is GenericScope.Type
   }
 
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
@@ -3475,7 +3492,7 @@ struct TypeChecker {
     func instantiate(mutating me: inout Self, type: AnyType) -> TypeTransformAction {
       switch type.base {
       case is AssociatedTypeType:
-        UNIMPLEMENTED()
+        UNIMPLEMENTED("quantifier elimination for associated types (#1043)")
 
       case let p as GenericTypeParameterType:
         if let t = substitutions[p.decl] {
@@ -3705,7 +3722,7 @@ struct TypeChecker {
     check(program[e].condition)
 
     let a = inferredType(of: program[e].success, withHint: hint, updating: &obligations)
-    let b = inferredType(of: program[e].failure, withHint: hint, updating: &obligations)
+    let b = inferredType(of: program[e].failure.value, withHint: hint, updating: &obligations)
     let t = ^freshVariable()
     obligations.insert(
       MergingConstraint(t, [a, b], origin: .init(.branchMerge, at: program[e].introducerSite)))

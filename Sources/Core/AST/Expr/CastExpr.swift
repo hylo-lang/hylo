@@ -20,6 +20,9 @@ public struct CastExpr: Expr {
 
   public let site: SourceRange
 
+  /// The site of the `as` keyword.
+  public let introducerSite: SourceRange
+
   /// The left operand.
   public let left: AnyExprID
 
@@ -30,8 +33,15 @@ public struct CastExpr: Expr {
   public let direction: Direction
 
   /// Creates an instance with the given properties.
-  public init(left: AnyExprID, right: AnyExprID, direction: Direction, site: SourceRange) {
+  public init(
+    introducerSite: SourceRange,
+    left: AnyExprID,
+    right: AnyExprID,
+    direction: Direction,
+    site: SourceRange
+  ) {
     self.site = site
+    self.introducerSite = introducerSite
     self.left = left
     self.right = right
     self.direction = direction
