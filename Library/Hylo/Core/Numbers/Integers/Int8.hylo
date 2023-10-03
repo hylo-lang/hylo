@@ -62,3 +62,27 @@ public conformance Int8: Comparable {
   }
 
 }
+
+public conformance Int8: AdditiveArithmetic {
+
+  public fun infix+ (_ other: Self) -> Self {
+    Int8(value: Builtin.add_i8(value, other.value))
+  }
+
+  public fun infix+= (_ other: Self) inout {
+    &self.value = Builtin.add_i8(value, other.value)
+  }
+
+  public fun infix- (_ other: Self) -> Self {
+    Int8(value: Builtin.sub_i8(value, other.value))
+  }
+
+  public fun infix-= (_ other: Self) inout {
+    &self.value = Builtin.sub_i8(value, other.value)
+  }
+
+  public static fun zero() -> Self {
+    Int8()
+  }
+
+}
