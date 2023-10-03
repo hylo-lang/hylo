@@ -5,6 +5,9 @@ public struct ProductTypeDecl: ExposableDecl, GenericDecl, SingleEntityDecl, Gen
 
   public let site: SourceRange
 
+  /// The site of the `type` introducer.
+  public let introducerSite: SourceRange
+
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>
 
@@ -22,6 +25,7 @@ public struct ProductTypeDecl: ExposableDecl, GenericDecl, SingleEntityDecl, Gen
 
   /// Creates an instance with the given properties.
   public init(
+    introducerSite: SourceRange,
     accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
@@ -29,6 +33,7 @@ public struct ProductTypeDecl: ExposableDecl, GenericDecl, SingleEntityDecl, Gen
     members: [AnyDeclID],
     site: SourceRange
   ) {
+    self.introducerSite = introducerSite
     self.site = site
     self.accessModifier = accessModifier
     self.identifier = identifier

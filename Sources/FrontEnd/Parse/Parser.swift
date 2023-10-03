@@ -464,6 +464,7 @@ public enum Parser {
     // Create a new `ConformanceDecl`.
     return state.insert(
       ConformanceDecl(
+        introducerSite: parts.0.0.0.0.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         subject: parts.0.0.0.1,
         conformances: parts.0.0.1,
@@ -498,6 +499,7 @@ public enum Parser {
     // Create a new `ExtensionDecl`.
     return state.insert(
       ExtensionDecl(
+        introducerSite: parts.0.0.0.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         subject: parts.0.0.1,
         whereClause: parts.0.1,
@@ -957,7 +959,7 @@ public enum Parser {
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
   ) throws -> TraitDecl.ID? {
-    if state.take(.trait) == nil { return nil }
+    guard let introducer = state.take(.trait) else { return nil }
 
     // Parse the parts of the declaration.
     let name = try state.expect("identifier", using: { $0.take(.name) })
@@ -983,6 +985,7 @@ public enum Parser {
     // Create a new `TraitDecl`.
     return state.insert(
       TraitDecl(
+        introducerSite: introducer.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         identifier: state.token(name),
         refinements: refinements,
@@ -1018,6 +1021,7 @@ public enum Parser {
     // Create a new `ProductTypeDecl`.
     return state.insert(
       ProductTypeDecl(
+        introducerSite: parts.0.0.0.0.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
@@ -1053,6 +1057,7 @@ public enum Parser {
     // Create a new `TypeAliasDecl`.
     return state.insert(
       TypeAliasDecl(
+        introducerSite: parts.0.0.0.0.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         identifier: state.token(parts.0.0.0.1),
         genericClause: parts.0.0.1,
@@ -1372,6 +1377,7 @@ public enum Parser {
     return AnyExprID(
       state.insert(
         CastExpr(
+          introducerSite: infixOperator.site,
           left: lhs,
           right: rhs,
           direction: castKind,
@@ -1742,6 +1748,7 @@ public enum Parser {
 
     return state.insert(
       ExistentialTypeExpr(
+        introducerSite: introducer.site,
         traits: traits,
         whereClause: clause,
         site: introducer.site.extended(
@@ -1976,16 +1983,18 @@ public enum Parser {
 
     let c = try state.expect("condition", using: conditionalClause)
     let a = try state.expect("'{'", using: parseBracedExpr(in:))
-    _ = try state.expect("'else'", using: { $0.take(.else) })
+    let elseIntroducer = try state.expect("'else'", using: { $0.take(.else) })
     let b: AnyExprID = try state.expect(
       "expression",
       using: { (s) in
         try parseConditionalExpr(in: &s).map(AnyExprID.init(_:)) ?? parseBracedExpr(in: &s)
       })
 
+    let elseClause = Introduced(b, at: elseIntroducer.site)
+
     return state.insert(
       ConditionalExpr(
-        introducerSite: introducer.site, condition: c, success: a, failure: b,
+        introducerSite: introducer.site, condition: c, success: a, failure: elseClause,
         site: state.range(from: introducer.site.start)))
   }
 
@@ -2011,6 +2020,7 @@ public enum Parser {
 
     return state.insert(
       MatchExpr(
+        introducerSite: introducer.site,
         subject: subject,
         cases: cases,
         site: state.range(from: introducer.site.start)))
@@ -2723,6 +2733,21 @@ public enum Parser {
           DiscardStmt(expr: tree.1, site: tree.0.0.site.extended(upTo: state.currentIndex)))
       }))
 
+  private static func parseElseClause(
+    in state: inout ParserState
+  ) throws -> Introduced<AnyStmtID>? {
+    guard let introducer = state.take(.else) else { return nil }
+
+    if let s = try parseConditionalStmt(in: &state) {
+      let s = AnyStmtID(s)
+      return Introduced(s, at: introducer.site)
+    }
+    else {
+      let s = AnyStmtID(try state.expect("'{'", using: braceStmt))
+      return Introduced(s, at: introducer.site)
+    }
+  }
+
   /// Parses a conditional statement.
   private static func parseConditionalStmt(
     in state: inout ParserState
@@ -2731,16 +2756,11 @@ public enum Parser {
 
     let c = try state.expect("condition", using: conditionalClause)
     let a = try state.expect("'{'", using: braceStmt)
-    let b = try state.take(.else).map({ _ in
-      if let s = try parseConditionalStmt(in: &state) {
-        return AnyStmtID(s)
-      } else {
-        return AnyStmtID(try state.expect("'{'", using: braceStmt))
-      }
-    })
+    let b = try parseElseClause(in: &state)
 
     return state.insert(
       ConditionalStmt(
+        introducerSite: introducer.site,
         condition: c, success: a, failure: b,
         site: state.range(from: introducer.site.start)))
   }
@@ -2750,7 +2770,8 @@ public enum Parser {
       .map({ (state, tree) -> DoWhileStmt.ID in
         state.insert(
           DoWhileStmt(
-            body: tree.0.0.1, condition: tree.1,
+            introducerSite: tree.0.0.0.site,
+            body: tree.0.0.1, condition: Introduced(tree.1, at: tree.0.1.site),
             site: tree.0.0.0.site.extended(upTo: state.currentIndex)))
       }))
 
@@ -2759,6 +2780,7 @@ public enum Parser {
       .map({ (state, tree) -> WhileStmt.ID in
         state.insert(
           WhileStmt(
+            introducerSite: tree.0.0.site,
             condition: tree.0.1, body: tree.1,
             site: tree.0.0.site.extended(upTo: state.currentIndex)))
       }))
@@ -2775,13 +2797,14 @@ public enum Parser {
             site: startOfBindingDecl))
         return state.insert(
           ForStmt(
+            introducerSite: tree.0.0.0.0.site,
             binding: decl, domain: tree.0.0.1, filter: tree.0.1, body: tree.1,
             site: tree.0.0.0.0.site.extended(upTo: state.currentIndex)))
       }))
 
-  static let forSite = (take(.in).and(expr).second)
+  static let forSite = (take(.in).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site)}))
 
-  static let forFilter = (take(.where).and(expr).second)
+  static let forFilter = (take(.where).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site)}))
 
   static let loopBody = inContext(.loopBody, apply: braceStmt)
 
@@ -2790,6 +2813,7 @@ public enum Parser {
       .map({ (state, tree) -> ReturnStmt.ID in
         state.insert(
           ReturnStmt(
+            introducerSite: tree.0.site,
             value: tree.1,
             site: tree.0.site.extended(upTo: state.currentIndex)))
       }))
@@ -2799,6 +2823,7 @@ public enum Parser {
       .map({ (state, tree) -> YieldStmt.ID in
         state.insert(
           YieldStmt(
+            introducerSite: tree.0.site,
             value: tree.1,
             site: tree.0.site.extended(upTo: state.currentIndex)))
       }))
@@ -2969,7 +2994,7 @@ public enum Parser {
     (take(.where).and(whereClauseConstraintList)
       .map({ (state, tree) -> SourceRepresentable<WhereClause> in
         SourceRepresentable(
-          value: WhereClause(constraints: tree.1),
+          value: WhereClause(introducerSite: tree.0.site, constraints: tree.1),
           range: tree.0.site.extended(upTo: state.currentIndex))
       }))
 
