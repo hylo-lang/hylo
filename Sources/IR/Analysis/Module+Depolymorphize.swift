@@ -399,8 +399,7 @@ extension Module {
       if s.specialization.isEmpty {
         newCallee = s.callee
       } else {
-        let p = program.specialize(s.specialization, for: specialization, in: scopeOfUse)
-        newCallee = monomorphize(s.callee, in: ir, for: p, in: scopeOfUse)
+        newCallee = rewritten(s.callee, specializedBy: s.specialization)
       }
 
       let projection = RemoteType(
@@ -487,15 +486,18 @@ extension Module {
       // implicit `Self` parameter.
       if c.specialization.isEmpty { return c }
 
-      let p = program.specialize(c.specialization, for: specialization, in: scopeOfUse)
-      let f: Function.ID
-      if let m = program.traitMember(referredBy: c.function) {
-        f = monomorphize(requirement: m.declaration, of: m.trait, in: ir, for: p, in: scopeOfUse)
-      } else {
-        f = monomorphize(c.function, in: ir, for: p, in: scopeOfUse)
-      }
-
+      let f = rewritten(c.function, specializedBy: c.specialization)
       return FunctionReference(to: f, in: self)
+    }
+
+    func rewritten(_ f: Function.ID, specializedBy a: GenericArguments) -> Function.ID {
+      let p = program.specialize(a, for: specialization, in: scopeOfUse)
+      if let m = program.traitMember(referredBy: f) {
+        return monomorphize(
+          requirement: m.declaration, of: m.trait, in: ir, for: p, in: scopeOfUse)
+      } else {
+        return monomorphize(f, in: ir, for: p, in: scopeOfUse)
+      }
     }
 
     /// Returns the rewritten form of `o` for use in `scopeOfUse`.
