@@ -36,9 +36,10 @@ public struct GenericArguments {
   public init<S: Sequence>(
     skolemizing parameters: S, in ast: AST
   ) where S.Element == GenericParameterDecl.ID {
-    self.contents = .init(uniqueKeysWithValues: parameters.map { (p) in
-      (key: p, value: ^GenericTypeParameterType(p, ast: ast))
-    })
+    self.contents = .init(
+      uniqueKeysWithValues: parameters.map { (p) in
+        (key: p, value: ^GenericTypeParameterType(p, ast: ast))
+      })
   }
 
   /// A collection with the parameters to which arguments are passed.

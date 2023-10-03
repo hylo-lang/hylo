@@ -127,6 +127,14 @@ extension Module {
     _ f: Function.ID, in ir: IR.Program,
     for specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
+    // TODO: Avoid monomorphizing non-generic entities (#
+    // let parameters = ir.base.liftedGenericParameters(of: f)
+    // if parameters.isEmpty {
+    //   return f
+    // }
+    // let specialization = GenericArguments(
+    //   uniqueKeysWithValues: parameters.map({ ($0, specialization[$0]!) }))
+
     let result = demandMonomorphizedDeclaration(of: f, in: ir, for: specialization, in: scopeOfUse)
     if self[result].entry != nil {
       return result
@@ -564,6 +572,28 @@ extension Module {
 
     addFunction(entity, for: result)
     return result
+  }
+
+}
+
+extension TypedProgram {
+
+  /// Returns the generic parameters captured in the scope of `f`.
+  fileprivate func liftedGenericParameters(of f: Function.ID) -> [GenericParameterDecl.ID] {
+    switch f.value {
+    case .lowered(let d):
+      return liftedGenericParameters(of: d)
+
+    case .synthesized(let d):
+      if let a = BoundGenericType(d.receiver)?.arguments {
+        return Array(a.keys)
+      } else {
+        return []
+      }
+
+    case .existentialized, .monomorphized:
+      return []
+    }
   }
 
 }

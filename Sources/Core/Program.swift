@@ -156,6 +156,8 @@ extension Program {
       return true
     case SubscriptDecl.self:
       return ast[SubscriptDecl.ID(decl)!].isStatic
+    case VarDecl.self:
+      return isGlobal(varToBinding[VarDecl.ID(decl)!]!)
     default:
       return false
     }

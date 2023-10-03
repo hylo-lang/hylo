@@ -3270,12 +3270,16 @@ struct TypeChecker {
     inScopeIntroducing d: AnyDeclID, resolvedIn context: NameResolutionContext?
   ) -> GenericArguments {
     if let a = context?.arguments { return a }
-
-    // References to modules can never capture any generic arguments.
-    if d.kind == ModuleDecl.self { return [:] }
+    if !mayCaptureGenericParameters(d) { return [:] }
 
     let parameters = accumulatedGenericParameters(in: program[d].scope)
     return .init(skolemizing: parameters, in: program.ast)
+  }
+
+  /// Returns `true` if a reference to `d` may capture generic parameters from the surrounding
+  /// lookup context.
+  private func mayCaptureGenericParameters(_ d: AnyDeclID) -> Bool {
+    d.kind.value is GenericScope.Type
   }
 
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
