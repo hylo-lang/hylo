@@ -1,4 +1,3 @@
-
 /// A conditional statement.
 ///
 /// Unlike a `ConditionalExpr`, the branches of a conditional statement are represented by brace

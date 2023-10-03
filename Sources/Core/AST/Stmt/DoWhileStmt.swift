@@ -14,7 +14,10 @@ public struct DoWhileStmt: Stmt {
   /// - Note: The condition is evaluated in the lexical scope of the body.
   public let condition: Introduced<AnyExprID>
 
-  public init(introducerSite: SourceRange, body: BraceStmt.ID, condition: Introduced<AnyExprID>, site: SourceRange) {
+  public init(
+    introducerSite: SourceRange, body: BraceStmt.ID, condition: Introduced<AnyExprID>,
+    site: SourceRange
+  ) {
     self.site = site
     self.introducerSite = introducerSite
     self.body = body
