@@ -91,3 +91,21 @@ public conformance Int8: AdditiveArithmetic {
   }
 
 }
+
+public conformance Int8: Numeric {
+
+  public typealias Magnitude = UInt8
+
+  public fun magnitude() -> UInt8 {
+    UInt8(bit_pattern: self)
+  }
+
+  public fun infix* (_ other: Self) -> Self {
+    Int8(value: Builtin.mul_i8(value, other.value))
+  }
+
+  public fun infix*= (_ other: Self) inout {
+    &self.value = Builtin.mul_i8(value, other.value)
+  }
+
+}
