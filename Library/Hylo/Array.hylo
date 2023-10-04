@@ -6,7 +6,7 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
   /// The header of the buffer indicates the number of elements contained in the array.
   var storage: DynamicBuffer<Int, Element>
 
-  /// Creates a new, empty array.
+  /// Creates an empty array.
   public init() {
     &storage = .new()
   }
@@ -20,7 +20,7 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     }
   }
 
-  /// The number of elements in the array.
+  /// Returns the number of elements in `self`.
   public fun count() -> Int {
     if storage.capacity() == 0 { 0 } else { storage.header.copy() }
   }
@@ -30,7 +30,7 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     return storage.capacity()
   }
 
-  /// Reserves enough space to store `n` elements
+  /// Reserves enough space to store `n` elements in `self`.
   public fun reserve_capacity(_ n: Int) inout {
     if n < capacity() { return }
 
