@@ -3692,7 +3692,7 @@ struct TypeChecker {
       _ = inferredType(of: program[e].left, updating: &obligations)
 
     case .up:
-      // The type of thr LHS must be statically known to subtype of the RHS.
+      // The type of the LHS must be statically known to subtype of the RHS.
       let lhs = inferredType(
         of: program[e].left, withHint: ^freshVariable(), updating: &obligations)
       obligations.insert(SubtypingConstraint(lhs, rhs.shape, origin: cause))
