@@ -103,6 +103,12 @@ public extension PointerToMutable where Pointee: Movable {
 
 }
 
+/// The address of `x`.
+public subscript mutable_pointer<T>(to x: inout T): PointerToMutable<T> {
+  let { yield PointerToMutable(base: Builtin.address(of: x)) }
+}
+
+
 /// Initializes `x` to `y`.
 ///
 /// - Note: This function is a workaround for the lack of `set` bindings (see #925).
