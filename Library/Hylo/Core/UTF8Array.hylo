@@ -1,0 +1,211 @@
+/// A collection of UTF-8 code units.
+public type UTF8Array {
+
+  // TODO: Remove when `UInt64` is implemented
+  typealias UInt64 = UInt
+
+  /// The units in the collection.
+  ///
+  /// The two highest bits of `units`, b63 and b62, encode the representation discriminator:
+  ///
+  /// ┌──────────────────────╥─────┬─────┐
+  /// │ Form                 ║ b63 │ b62 │
+  /// ├──────────────────────╫─────┼─────┤
+  /// │ inline, owned        ║  0  │  0  │
+  /// │ out-of-line, owned   ║  1  │  0  │
+  /// │ out-of-line, unowned ║  1  │  1  │
+  /// └──────────────────────╨─────┴─────┘
+  ///
+  /// b63 indicates whether the payload of the view is stored out-of-line. If it is, `units` with
+  /// b63 and b62 unset stores a pointer to the out-of-line payload, which is a buffer storing an
+  /// `Int`, which is the number of units in the view, followed by a contiguous array of bytes,
+  /// with contains the units themselves, and finally a null terminator.
+  ///
+  /// If the payload is inline, the number of units in the view is stored in the 6 lowest bits of
+  /// `units`'s most significant byte and the units themselves are stored in the following bytes.
+  /// For example, the inline UTF-8 view of "Salut" is as follows:
+  ///
+  ///   most significant byte
+  ///   ↓
+  /// ┌────┬────┬────┬────┬────┬────┬────┬────┐
+  /// | 05 | 53 | 61 | 6C | 75 | 74 | 00 | 00 |
+  /// └────┴────┴────┴────┴────┴────┴────┴────┘ 
+  ///
+  /// b62 indicates if the view owns its storage and is responsible for its deallocation if it is
+  /// out-of-line. Unowned, out-of-line storage typically correspond to static allocations.
+  let units: UInt64
+
+  /// Creates an instance with given representation.
+  memberwise init
+
+}
+
+/// A collection of UTF-8 code units.
+public extension UTF8Array {
+
+  /// Creates a view taking ownership of the out-of-line payload referred by `p`.
+  init(taking_ownership_of p: MemoryAddress) {
+    var u = UInt64(truncating_or_extending: UInt(bit_pattern: p))
+    &u |= (0b10 as UInt64) << 62
+    &self = .new(units: u)
+  }
+
+  /// Creates an empty view.
+  public init() {
+    &self = .new(units: 0)
+  }
+
+  /// Projects the units in `self` as a null-terminated buffer.
+  ///
+  /// Use this method to read the contents of the view as a C-style null-terminated string. The
+  /// returned buffer has a size `count() + 1`. It is alive only for the duration of the projection
+  /// and shall not be mutated.
+  public property nullterminated: Pointer<Int8> {
+    let {
+      if is_inline() {
+        var storage: UInt = 0
+        let buffer = PointerToMutable<Int8>(type_punning: mutable_pointer[to: &storage])
+
+        // Note: The copy could be optimized away if we stored the units in memory the same way
+        // they would be stored in an array, i.e., in reverse order on big-endian machines.
+        var i = 0
+        while i < 7 {
+          let s = 8 * (6 - i)
+          let v = Int8(truncating_or_extending: units >> s)
+          buffer.unsafe_initialize_pointee(v)
+          &i += 1
+        }
+
+        yield Pointer<Int8>(buffer)
+      } else {
+        yield unsafe_heap_payload.0        
+      }
+    }
+  }
+
+  /// Returns `true` if the payload of the `self` is stored inline.
+  fun is_inline() -> Bool {
+    // Note: the flag is stored inversed so that `0` is an empty string.
+    (units & ((1 as UInt64) << 63)) == 0
+  }
+
+  /// Returns `true` if `self` owns its payload.
+  fun is_owned() -> Bool {
+    (units & ((1 as UInt64) << 62)) == 0
+  }
+
+  /// Projects the address and size of `self`'s payload, assuming it is allocated out-of-line.
+  ///
+  /// - Requires: `!is_inline()`.
+  property unsafe_heap_payload: {start: Pointer<Int8>, count: Int} {
+    let {
+      // TODO: uncomment when #1046 is implemented
+      // assert(!is_inline())
+      let buffer = Pointer<Int>(
+        bit_pattern: UInt(truncating_or_extending: units & ~((0xff as UInt64) << 56)))
+      yield (
+        start: Pointer<Int8>(type_punning: buffer.advance(by: 1)),
+        count: buffer.unsafe[].copy())
+    }
+  }
+
+}
+
+public conformance UTF8Array: Deinitializable {
+
+  public fun deinit() sink {
+    if !is_inline() {
+      PointerToMutable(adding_mutation_to: unsafe_heap_payload.0).deallocate()
+    }
+  }
+
+}
+
+public conformance UTF8Array: Copyable {
+
+  public fun copy() -> Self {
+    if is_inline() || !is_owned() {
+      return .new(units: units.copy())
+    } else {
+      let payload = unsafe_heap_payload
+      let payload_size = MemoryLayout<Int>.stride() + payload.1 + 1
+      let payload_clone = MemoryAddress.allocate_bytes(
+        count: payload_size,
+        aligned_at: MemoryLayout<Int>.alignment())
+
+      // Note: copy the entire payload at once.
+      let d = CVoidPointer(base: payload_clone.base)
+      let s = CVoidPointer(base: payload.0.copy().base)
+      _ = memmove(d, s, payload_size)
+
+      return .new(taking_ownership_of: payload_clone)
+    }
+  }
+
+}
+
+public conformance UTF8Array: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    // If both LHS and RHS are stored inline, their representation are bitwise equal.
+    if self.is_inline() && other.is_inline() {
+      return self.units == other.units
+    }
+
+    // LHS and RHS are equal if they point to the same buffer.
+    if !self.is_inline() && !other.is_inline() {
+      return self.unsafe_heap_payload.0 == other.unsafe_heap_payload.0
+    }
+
+    // LHS and RHS are equal if they contain the same elements in the same order.
+    // TODO: Rewrite as `self.elements_equal(other)`.
+    if self.count() != other.count() { return false }
+    var i = 0
+    while i < self.count() {
+      if self[i] != other[i] { return false }
+      &i += 1
+    }
+    return true
+  }
+
+}
+
+// public conformance UTF8Array: Collection {
+public extension UTF8Array {
+
+  /// An index in an UTF8Array.
+  public typealias Index = Int
+
+  /// A single UTF-8 code unit.
+  public typealias Element = Int
+
+  public fun start_index() -> Int {
+    0
+  }
+
+  /// Returns the number of elements in `self`.
+  public fun count() -> Int {
+    if is_inline() {
+      Int(truncating_or_extending: units >> 56)
+    } else {
+      unsafe_heap_payload.1.copy()
+    }
+  }
+
+  /// Accesses the unit at `position` in `self`.
+  public subscript(_ position: Int): Int8 {
+    yield 0
+    if is_inline() {
+      // TODO: uncomment when #1046 is implemented
+      // precondition((0 <= position) && (position < Int(units >> 56)))
+      let s = 8 * (6 - position)
+      yield Int8(truncating_or_extending: units >> s)
+    } else {
+      let p = unsafe_heap_payload
+      // TODO: uncomment when #1046 is implemented
+      // precondition((0 <= position) && (position < p.1))
+      yield p.0.advance(by: position).unsafe[]
+    }
+  }
+
+}
