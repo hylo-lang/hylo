@@ -65,6 +65,24 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     &storage = new_storage
   }
 
+  /// Projects a pointer to the start of the array's contiguous storage.
+  ///
+  /// The projected pointer is valid only for the duration of the projection and can be advanced up
+  /// to `count()`. It may be null if `self` is empty.
+  public property contiguous_storage: Pointer<Element> {
+    yield if capacity() == 0 { .null() } else { .new(pointer_to_element[at: 0]) }
+  }
+
+  /// Calls `action` with a pointer to the start of the array's mutable contiguous storage.
+  ///
+  /// The projected pointer is valid only for the duration of the projection and can be advanced up
+  /// to `count()`. It may be null if `self` is empty.
+  public fun with_mutable_contiguous_storage<E, T>(
+    _ action: inout [E](PointerToMutable<Element>) inout -> T
+  ) inout -> T {
+    if capacity() == 0 { &action(.null()) } else { &action(pointer_to_element[at: 0]) }
+  }
+
   /// Adds a new element at the end of the array.
   public fun append(_ source: sink Element) inout {
     &reserve_capacity(count() + 1)
