@@ -25,6 +25,11 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     if storage.capacity() == 0 { 0 } else { storage.header.copy() }
   }
 
+  /// Returns `true` if `self` is empty.
+  public fun is_empty() -> Bool {
+    count() == 0
+  }
+
   /// The number of elements that can be stored in the array before new storage must be allocated.
   public fun capacity() -> Int {
     return storage.capacity()
