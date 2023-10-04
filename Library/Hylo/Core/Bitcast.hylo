@@ -5,7 +5,7 @@ public subscript unsafe_bitcast<T, U>(_ value: T): U {
     yield p.unsafe[]
   }
   inout {
-    sink let p: PointerToMutable<U> = PointerToMutable(type_punning: pointerToMutable[&value])
+    sink let p: PointerToMutable<U> = PointerToMutable(type_punning: mutable_pointer[to: &value])
     yield &p.unsafe[]
   }
 }
