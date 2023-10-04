@@ -32,6 +32,13 @@ public type Pointer<Pointee>: Regular {
     &base = p.base
   }
 
+  /// Returns `self` offset forward by `n` array elements of `Pointee` type.
+  public fun advance(by n: Int) -> Self {
+    let offset_in_bytes = MemoryLayout<Pointee>.stride() * n
+    return Pointer<Pointee>.new(
+      base: Builtin.advanced_by_bytes_word(base, offset_in_bytes.value))
+  }
+
   /// Creates an instance that does not address any usable storage.
   public static fun null() -> Self {
     .new(base: Builtin.zeroinitializer_ptr())
