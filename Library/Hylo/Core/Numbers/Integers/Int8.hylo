@@ -5,11 +5,6 @@ public type Int8 {
 
   memberwise init
 
-  /// Creates an instance with value `0`.
-  public init() {
-    &self.value = Builtin.zeroinitializer_i8()
-  }
-
   /// Creates an instance with the same memory representation as `other`.
   public init(bit_pattern other: UInt8) {
     &self.value = other.value
@@ -118,6 +113,19 @@ public conformance Int8: SignedNumeric {
 
   public fun negate() inout {
     &self = -self
+  }
+
+}
+
+public extension Int8 {
+
+  public init() {
+    &self.value = Builtin.zeroinitializer_i8()
+  }
+
+  public init<T: BinaryInteger>(truncating_or_extending source: T) {
+    let w = source.words()
+    &self.value = Builtin.trunc_word_i8(w[w.start_index()].value)
   }
 
 }
