@@ -41,8 +41,11 @@ public operator infix/=   : assignment
 public operator infix%=   : assignment
 public operator infix+=   : assignment
 public operator infix-=   : assignment
+public operator infix^=   : assignment
 public operator infix&=   : assignment
 public operator infix&&=  : assignment
+public operator infix|=   : assignment
+public operator infix||=  : assignment
 
 public operator infix**   : exponentiation
 
