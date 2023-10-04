@@ -11,16 +11,16 @@ public type CollectionOfOne<Element: Movable & Deinitializable>: Deinitializable
     &self.contents = contents
   }
 
-  public fun start_index() -> Bool { true }
+  public fun start_index() -> Bool { false }
 
-  public fun end_index() -> Bool { false }
+  public fun end_index() -> Bool { true }
 
-  public fun index(after i: Bool) -> Bool { false }
+  public fun index(after i: Bool) -> Bool { true }
 
   public subscript(_ position: Bool): Element {
     let {
       // TODO: uncomment when #1046 is implemented
-      // precondition(position, "index is out of bounds")
+      // precondition(!position, "index is out of bounds")
       yield contents
     }
   }
