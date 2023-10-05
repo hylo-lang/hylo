@@ -2979,6 +2979,7 @@ struct TypeChecker {
 
       // The specialization of the match includes that of context in which it was looked up.
       var specialization = genericArguments(inScopeIntroducing: m, resolvedIn: context)
+      candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
 
       // Keep track of generic arguments that should be captured later on.
       let candidateSpecialization = genericArguments(
@@ -3009,6 +3010,12 @@ struct TypeChecker {
         }
       }
 
+      // Re-specialize the candidate's type now that the substitution map is complete.
+      //
+      // The specialization map now contains the substitutions accumulated from the candidate's
+      // qualification as well as the ones related to the resolution of the candidate itself. For
+      // example, if we resolved `A<X>.f<Y>`, we'd get `X` from the resolution of the qualification
+      // and `Y` from the resolution of the candidate.
       candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
 
       let r = program.makeReference(
