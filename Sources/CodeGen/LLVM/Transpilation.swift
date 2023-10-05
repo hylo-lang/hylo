@@ -80,7 +80,7 @@ extension LLVM.Module {
 
   /// Returns the LLVM type of a metatype instance.
   private mutating func metatypeType() -> LLVM.StructType {
-    if let t = type(named: "_val_metatype") {
+    if let t = type(named: "_hylo_metatype") {
       return .init(t)!
     }
 
