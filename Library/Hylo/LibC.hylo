@@ -22,3 +22,28 @@ public fun fdopen(_ descriptor: Int, _ mode: CVoidPointer) -> CVoidPointer
 /// returning the number of elements written.
 @ffi("fwrite")
 public fun fwrite(_ data: CVoidPointer, _ size: Int, _ count: Int, _ stream: CVoidPointer) -> Int
+
+/// Copies `count` elements from the object pointed to by `source` to the object pointed to by
+/// `destination` and returns `destination`.
+///
+/// Both objects are reinterpreted as buffers of `Int8`.
+///
+/// If the objects overlap, the behavior is undefined. If either `source` or `destination` is
+/// invalid or null, the behavior is undefined.
+@ffi("memcpy")
+public fun memcpy(
+  _ destination: CVoidPointer, _ source: CVoidPointer, _ count: Int
+) -> CVoidPointer
+
+/// Copies `count` elements from the object pointed to by `source` to the object pointed to by
+/// `destination` and returns `destination`.
+///
+/// Both objects are reinterpreted as buffers of `Int8`.
+///
+/// Objects may overlap: copying takes place as if the elements from `source` were copied to a
+/// temporary buffer and then copied to `destination`. If either `source` or `destination` is
+/// invalid or null, the behavior is undefined.
+@ffi("memmove")
+public fun memmove(
+  _ destination: CVoidPointer, _ source: CVoidPointer, _ count: Int
+) -> CVoidPointer

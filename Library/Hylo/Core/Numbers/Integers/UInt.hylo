@@ -204,6 +204,10 @@ public conformance UInt: BinaryInteger {
 
 public conformance UInt: FixedWidthInteger {
 
+  public fun matches(_ mask: Self) -> Bool {
+    (self & mask) == mask
+  }
+
   public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
     let r = Builtin.uadd_with_overflow_word(value, other.value)
     return (partial_value: UInt(value: r.0), overflow: Bool(value: r.1))

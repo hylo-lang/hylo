@@ -4,6 +4,9 @@
 /// catch overflows, or access the minimum or maximum representable values of an integer type.
 public trait FixedWidthInteger: BinaryInteger {
 
+  /// Returns `true` if the bits set in `mask` are also set in `self`.
+  fun matches(_ mask: Self) -> Bool
+
   /// Returns the sum of `self` and `other` along with a flag indicating whether overflow occurred
   /// in the operation.
   fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool}

@@ -14,6 +14,11 @@ public type Pointer<Pointee>: Regular {
     yield base as* (remote let Pointee)
   }
 
+  /// Creates an instance with the same memory representation as `address`.
+  public init(bit_pattern address: UInt) {
+    &self.base = Builtin.inttoptr_word(address.value)
+  }
+
   /// Creates an instance representing the same address as `p`.
   public init(_ p: PointerToMutable<Pointee>) {
     &base = p.base
@@ -25,6 +30,13 @@ public type Pointer<Pointee>: Regular {
   /// `usafe[]` subscript (which see) are followed.
   public init<Other>(type_punning p: Pointer<Other>) {
     &base = p.base
+  }
+
+  /// Returns `self` offset forward by `n` array elements of `Pointee` type.
+  public fun advance(by n: Int) -> Self {
+    let offset_in_bytes = MemoryLayout<Pointee>.stride() * n
+    return Pointer<Pointee>.new(
+      base: Builtin.advanced_by_bytes_word(base, offset_in_bytes.value))
   }
 
   /// Creates an instance that does not address any usable storage.
