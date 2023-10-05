@@ -246,6 +246,15 @@ struct TypeChecker {
     for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
       let e = environment(of: s)!
       result.formUnion(e.conformedTraits(of: ^t))
+
+      // Note: `s` might be extending the type whose declaration introduced the generic environment
+      // that declared `t`.
+      if s.kind.value is TypeExtendingDecl.Type {
+        let d = AnyDeclID(s)!
+        if let g = environment(introducedByDeclOf: uncheckedType(of: d)) {
+          result.formUnion(g.conformedTraits(of: ^t))
+        }
+      }
     }
     return result
   }
@@ -1335,6 +1344,20 @@ struct TypeChecker {
 
     cache.write(result, at: \.environment[d])
     return result
+  }
+
+  /// Returns the generic environment introduced by the declaration of `t`, if any.
+  private mutating func environment(introducedByDeclOf t: AnyType) -> GenericEnvironment? {
+    switch t.base {
+    case let u as ProductType:
+      return environment(of: u.decl)
+    case let u as TraitType:
+      return environment(of: u.decl)
+    case let u as TypeAliasType:
+      return environment(of: u.decl)
+    default:
+      return nil
+    }
   }
 
   /// Insert's `d`'s constraints in `e`.
