@@ -5,6 +5,33 @@ public fun print(_ item: String, terminator: String = "\n") {
   _ = fwrite(CVoidPointer(base: terminator.utf8.base), 1, 1, CVoidPointer(base: stream.base))
 }
 
+/// Writes the textual representation of `item` to the standard output.
+public fun print(_ item: Int, radix: Int = 10, terminator: String = "\n") {
+  if item == 0 {
+    print("0")
+    return
+  }
+
+  var a = Array<Int8>()
+  var v = item.abs()
+
+  while v != 0 {
+    let i = v % radix
+    &v /= radix
+    // Note: 48 = "0" and 97 = "a"
+    &a.append((Int8(truncating_or_extending: i + if i < 10 { 48 } else { 97 })))
+  }
+
+  // Note: 45 = "-"
+  if item < 0 { &a.append(45) }
+  &a.reverse()
+
+  let stream = stdout()
+  let buffer = a.contiguous_storage.base
+  _ = fwrite(CVoidPointer(base: buffer), 1, a.count(), CVoidPointer(base: stream.base))
+  _ = fwrite(CVoidPointer(base: terminator.utf8.base), 1, 1, CVoidPointer(base: stream.base))
+}
+
 /// The standard output of the current process.
 fun stdout() -> MemoryAddress {
   .new(base: fdopen(1, CVoidPointer(base: "w".utf8.base)).base)
