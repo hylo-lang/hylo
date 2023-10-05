@@ -21,9 +21,16 @@ struct ConcreteTypeLayout {
   ///
   /// - Requires: `l.type` is representable in LLVM.
   init(_ l: AbstractTypeLayout, definedIn ir: IR.Program, forUseIn m: inout LLVM.Module) {
-    if let u = BuiltinType(l.type) {
-      self.init(of: u, forUseIn: &m)
-    } else {
+    switch l.type.base {
+    case let t as BuiltinType:
+      self.init(of: t, forUseIn: &m)
+
+    case is ProductType where l.properties.count == 1:
+      // Note: Hack to get the correct alignment of built-in wrappers until we implement a proper
+      // layout algorithm (#1067).
+      self.init(of: l.properties[0].type, definedIn: ir, forUseIn: &m)
+
+    default:
       let u = ir.llvm(l.type, in: &m)
       self.init(size: m.layout.storageSize(of: u), alignment: m.layout.preferredAlignment(of: u))
     }
