@@ -98,6 +98,19 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     swap(&pointer_to_element[at: i].unsafe[], &pointer_to_element[at: j].unsafe[])
   }
 
+  /// Reverses the elements of `self` in place.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun reverse() inout {
+    var i = count() - 1
+    var j = 0
+    while i > j {
+      swap_at(i, j)
+      &i -= 1
+      &j += 1
+    }
+  }
+
   /// Accesses the element at `position`.
   ///
   /// - Requires: `position` is in the range `0 ..< count()`.

@@ -24,8 +24,21 @@ fun test_swap_at() {
   precondition(a[0])
 }
 
+fun test_reverse() {
+  var a = Array<Int>()
+  &a.append(21)
+  &a.append(42)
+  &a.append(84)
+
+  &a.reverse()
+  precondition(a[0] == 84)
+  precondition(a[1] == 42)
+  precondition(a[2] == 21)
+}
+
 public fun main() {
   test_init_empty()
   test_append()
   test_swap_at()
+  test_reverse()
 }
