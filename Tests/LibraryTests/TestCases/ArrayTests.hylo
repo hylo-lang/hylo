@@ -16,7 +16,16 @@ fun test_append() {
   precondition(d[2] == 84)
 }
 
+fun test_swap_at() {
+  var a = Array<Bool>()
+  &a.append(false)
+  &a.append(true)
+  &a.swap_at(0, 1)
+  precondition(a[0])
+}
+
 public fun main() {
   test_init_empty()
   test_append()
+  test_swap_at()
 }

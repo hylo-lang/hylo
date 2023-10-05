@@ -90,6 +90,14 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     &storage.header += 1
   }
 
+  /// Exchanges the values at the given positions in `self`.
+  public fun swap_at(_ i: Int, _ j: Int) inout {
+    // precondition(i >= 0 && i < count())
+    // precondition(j >= 0 && j < count())
+    if i == j { return }
+    swap(&pointer_to_element[at: i].unsafe[], &pointer_to_element[at: j].unsafe[])
+  }
+
   /// Accesses the element at `position`.
   ///
   /// - Requires: `position` is in the range `0 ..< count()`.
