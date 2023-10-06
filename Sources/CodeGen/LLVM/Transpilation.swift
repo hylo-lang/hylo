@@ -303,7 +303,7 @@ extension LLVM.Module {
       aggregating: [
         word().constant(layout.size),
         word().constant(layout.alignment),
-        ptr.null
+        ptr.null,
       ],
       in: &self)
 
@@ -332,7 +332,7 @@ extension LLVM.Module {
       aggregating: [
         word().constant(layout.size),
         word().constant(layout.alignment),
-        ptr.null
+        ptr.null,
       ],
       in: &self)
 
