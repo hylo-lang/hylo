@@ -33,6 +33,11 @@ public type PointerToMutable<Pointee>: Regular {
     &base = p.base
   }
 
+  /// Creates an instance with the same memory representation as `address`.
+  public init(bit_pattern address: Int) {
+    &self.base = Builtin.inttoptr_word(address.value)
+  }
+
   /// Returns `self` offset forward by `n` array elements of `Pointee` type.
   public fun advance(by n: Int) -> Self {
     let offset_in_bytes = MemoryLayout<Pointee>.stride() * n
