@@ -2726,6 +2726,11 @@ struct TypeChecker {
   private mutating func extensions(
     of subject: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> [AnyDeclID] {
+    let key = Cache.TypeLookupKey(subject, in: scopeOfUse)
+    if let r = cache.typeToExtensions[key] {
+      return r
+    }
+
     let subject = canonical(subject, in: scopeOfUse)
     var matches: [AnyDeclID] = []
     var root: ModuleDecl.ID? = nil
@@ -2756,6 +2761,7 @@ struct TypeChecker {
       reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
     }
 
+    cache.typeToExtensions[key] = matches
     return matches
   }
 
@@ -4818,6 +4824,11 @@ struct TypeChecker {
     ///
     /// This map serves as cache for `conformedTraits(of:in:)`.
     var typeToConformedTraits: [TypeLookupKey: Set<TraitType>] = [:]
+
+    /// A map from type to its extensions in a given scope.
+    ///
+    /// This map serves as cache for `extensions(of:exposedTo:)`.
+    var typeToExtensions: [TypeLookupKey: [AnyDeclID]] = [:]
 
     /// Creates an instance for memoizing type checking results in `local` and comminicating them
     /// to concurrent type checkers using `shared`.
