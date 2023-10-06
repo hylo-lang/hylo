@@ -2488,7 +2488,7 @@ struct TypeChecker {
       break
     }
 
-    let key = Cache.MemberLookupKey(nominalScope, in: scopeOfUse)
+    let key = Cache.TypeLookupKey(nominalScope, in: scopeOfUse)
     if let m = cache.scopeToMembers[key]?[stem] {
       return m
     }
@@ -4770,8 +4770,8 @@ struct TypeChecker {
     /// A lookup table.
     typealias LookupTable = [String: Set<AnyDeclID>]
 
-    /// A key in a member lookup table.
-    typealias MemberLookupKey = ScopedValue<AnyType>
+    /// A key in a type lookup table.
+    typealias TypeLookupKey = ScopedValue<AnyType>
 
     /// The local instance being type checked.
     private(set) var local: TypedProgram
@@ -4798,7 +4798,7 @@ struct TypeChecker {
     ///
     /// This map serves as cache for `lookup(_:memberOf:exposedTo)`. At no point is it guaranteed
     /// to be complete.
-    var scopeToMembers: [MemberLookupKey: LookupTable] = [:]
+    var scopeToMembers: [TypeLookupKey: LookupTable] = [:]
 
     /// A map from lexical scope to the names introduced in it.
     ///
