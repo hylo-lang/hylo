@@ -2123,6 +2123,10 @@ struct TypeChecker {
 
   /// Evaluates and returns the value of `e`, which is a type annotation.
   private mutating func evalTypeAnnotation(_ e: NameExpr.ID) -> AnyType {
+    if let t = cache.local.exprType[e] {
+      return t
+    }
+
     let resolution = resolve(e, withNonNominalPrefix: { (me, p) in me.evalQualification(of: p) })
     switch resolution {
     case .done(let prefix, let suffix):
