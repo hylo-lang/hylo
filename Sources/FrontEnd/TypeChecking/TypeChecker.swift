@@ -123,24 +123,33 @@ struct TypeChecker {
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
   mutating func conformedTraits(of t: AnyType, in scopeOfUse: AnyScopeID) -> Set<TraitType> {
+    let key = Cache.TypeLookupKey(t, in: scopeOfUse)
+    if let r = cache.typeToConformedTraits[key] {
+      return r
+    }
+
+    var result: Set<TraitType>
     switch t.base {
     case let u as BoundGenericType:
-      return conformedTraits(of: u.base, in: scopeOfUse)
+      result = conformedTraits(of: u.base, in: scopeOfUse)
     case let u as BuiltinType:
-      return conformedTraits(of: u, in: scopeOfUse)
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as GenericTypeParameterType:
-      return conformedTraits(of: u, in: scopeOfUse)
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as ProductType:
-      return conformedTraits(of: u, in: scopeOfUse)
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as TraitType:
-      return conformedTraits(of: u, in: scopeOfUse)
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as TypeAliasType:
-      return conformedTraits(of: u.resolved, in: scopeOfUse)
+      result = conformedTraits(of: u.resolved, in: scopeOfUse)
     case let u as WitnessType:
-      return conformedTraits(of: u, in: scopeOfUse)
+      result = conformedTraits(of: u, in: scopeOfUse)
     default:
-      return conformedTraits(declaredInExtensionsOf: t, exposedTo: scopeOfUse)
+      result = conformedTraits(declaredInExtensionsOf: t, exposedTo: scopeOfUse)
     }
+
+    cache.typeToConformedTraits[key] = result
+    return result
   }
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
@@ -4804,6 +4813,11 @@ struct TypeChecker {
     ///
     /// This map serves as cache for `names(introducedIn:)`.
     var scopeToNames: [AnyScopeID: LookupTable] = [:]
+
+    /// A map from type to the traits to which in conforms in a given scope.
+    ///
+    /// This map serves as cache for `conformedTraits(of:in:)`.
+    var typeToConformedTraits: [TypeLookupKey: Set<TraitType>] = [:]
 
     /// Creates an instance for memoizing type checking results in `local` and comminicating them
     /// to concurrent type checkers using `shared`.
