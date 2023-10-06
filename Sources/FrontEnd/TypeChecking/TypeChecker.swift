@@ -246,6 +246,15 @@ struct TypeChecker {
     for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
       let e = environment(of: s)!
       result.formUnion(e.conformedTraits(of: ^t))
+
+      // Note: `s` might be extending the type whose declaration introduced the generic environment
+      // that declared `t`.
+      if s.kind.value is TypeExtendingDecl.Type {
+        let d = AnyDeclID(s)!
+        if let g = environment(introducedByDeclOf: uncheckedType(of: d)) {
+          result.formUnion(g.conformedTraits(of: ^t))
+        }
+      }
     }
     return result
   }
@@ -1357,6 +1366,20 @@ struct TypeChecker {
 
     cache.write(result, at: \.environment[d])
     return result
+  }
+
+  /// Returns the generic environment introduced by the declaration of `t`, if any.
+  private mutating func environment(introducedByDeclOf t: AnyType) -> GenericEnvironment? {
+    switch t.base {
+    case let u as ProductType:
+      return environment(of: u.decl)
+    case let u as TraitType:
+      return environment(of: u.decl)
+    case let u as TypeAliasType:
+      return environment(of: u.decl)
+    default:
+      return nil
+    }
   }
 
   /// Insert's `d`'s constraints in `e`.
@@ -2978,6 +3001,7 @@ struct TypeChecker {
 
       // The specialization of the match includes that of context in which it was looked up.
       var specialization = genericArguments(inScopeIntroducing: m, resolvedIn: context)
+      candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
 
       // Keep track of generic arguments that should be captured later on.
       let candidateSpecialization = genericArguments(
@@ -3008,6 +3032,12 @@ struct TypeChecker {
         }
       }
 
+      // Re-specialize the candidate's type now that the substitution map is complete.
+      //
+      // The specialization map now contains the substitutions accumulated from the candidate's
+      // qualification as well as the ones related to the resolution of the candidate itself. For
+      // example, if we resolved `A<X>.f<Y>`, we'd get `X` from the resolution of the qualification
+      // and `Y` from the resolution of the candidate.
       candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
 
       let r = program.makeReference(

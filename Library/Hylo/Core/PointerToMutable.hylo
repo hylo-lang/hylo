@@ -60,13 +60,6 @@ public type PointerToMutable<Pointee>: Regular {
 
 }
 
-
-// FIXME: rename pointer[toMutable:]
-/// The address of `x`.
-public subscript pointerToMutable<T>(_ x: inout T): PointerToMutable<T> {
-  let { yield PointerToMutable(base: Builtin.address(of: x)) }
-}
-
 public conformance PointerToMutable: Copyable {
 
   /// Returns an equivalent instance.
@@ -113,11 +106,11 @@ public extension PointerToMutable where Pointee: Movable {
 
 }
 
+// TODO: Rename to `pointer[to_mutable:]`
 /// The address of `x`.
 public subscript mutable_pointer<T>(to x: inout T): PointerToMutable<T> {
   let { yield PointerToMutable(base: Builtin.address(of: x)) }
 }
-
 
 /// Initializes `x` to `y`.
 ///
