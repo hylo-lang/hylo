@@ -531,7 +531,7 @@ public struct Module {
   /// Returns the lowered form of `c`.
   private mutating func loweredConformance(_ c: Core.Conformance) -> IR.Conformance {
     var implementations = IR.Conformance.ImplementationMap()
-    for (r, i) in c.implementations {
+    for (r, i) in c.implementations where (r.kind != AssociatedTypeDecl.self) {
       let f = demandDeclaration(lowering: i)!
       implementations[r] = .function(FunctionReference(to: f, in: self))
     }

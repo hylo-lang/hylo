@@ -1,0 +1,12 @@
+//- compileAndRun expecting: success
+
+public fun main() {
+  let p = hylo_aligned_alloc(16, 8)
+  precondition(Int(bit_pattern: p) % 16 == 0, "pointer isn't aligned at 16")
+
+  let q = PointerToMutable<Int>(type_punning: p)
+  q.unsafe_initialize_pointee(42)
+  precondition(q.unsafe[] == 42, "store/load failed")
+
+  hylo_aligned_free(p)
+}

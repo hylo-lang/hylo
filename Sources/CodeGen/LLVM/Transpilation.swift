@@ -122,7 +122,7 @@ extension LLVM.Module {
 
     let f = declareFunction(
       "malloc",
-      FunctionType(from: [i32], to: ptr, in: &self))
+      FunctionType(from: [word()], to: ptr, in: &self))
     addAttribute(named: .noundef, to: f.parameters[0])
     addAttribute(named: .noalias, to: f.returnValue)
 
@@ -303,7 +303,7 @@ extension LLVM.Module {
       aggregating: [
         word().constant(layout.size),
         word().constant(layout.alignment),
-        ptr.null
+        ptr.null,
       ],
       in: &self)
 
@@ -332,7 +332,7 @@ extension LLVM.Module {
       aggregating: [
         word().constant(layout.size),
         word().constant(layout.alignment),
-        ptr.null
+        ptr.null,
       ],
       in: &self)
 

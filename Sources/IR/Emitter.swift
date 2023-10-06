@@ -272,8 +272,12 @@ struct Emitter {
       arguments.append(a)
     }
 
+    // Return type must be foreign convertible unless it is `Void` or `Never`.
+    let returnType = read(module.functions[f]!.output) { (t) in
+      t.isVoidOrNever ? t : program.foreignRepresentation(of: t, exposedTo: insertionScope!)
+    }
+
     // Emit the call to the foreign function.
-    let returnType = module.functions[f]!.output
     let foreignResult = insert(
       module.makeCallFFI(
         returning: .object(returnType), applying: ast[d].foreignName!, to: arguments, at: site))!
@@ -289,7 +293,7 @@ struct Emitter {
       insert(module.makeReturn(at: site))
 
     default:
-      let v = emitConvert(foreign: foreignResult, to: returnType, at: site)
+      let v = emitConvert(foreign: foreignResult, to: module.functions[f]!.output, at: site)
       emitMove([.set], v, to: returnValue!, at: site)
       emitDeallocTopFrame(at: site)
       insert(module.makeReturn(at: site))
@@ -1984,6 +1988,8 @@ struct Emitter {
     let r = ast.requirements(
       Name(stem: "init", labels: ["foreign_value"]), in: foreignConvertible.decl)[0]
 
+    // TODO: Handle cases where the foreign representation of `t` is not built-in.
+
     // Store the foreign representation in memory to call the converter.
     let source = emitAllocStack(for: module.type(of: foreign).ast, at: site)
     emitStore(value: foreign, to: source, at: site)
@@ -2025,7 +2031,7 @@ struct Emitter {
       of: t.ast, to: foreignConvertible, exposedTo: insertionScope!)!
     let r = ast.requirements("foreign_value", in: foreignConvertible.decl)[0]
 
-    // TODO: Handle cases where the foreign representation of `t` is not built-in
+    // TODO: Handle cases where the foreign representation of `t` is not built-in.
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
