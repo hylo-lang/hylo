@@ -422,6 +422,28 @@ public struct TypedProgram {
       site: .empty(at: ast[scopeOfUse].site.first()))
   }
 
+  /// Returns the foreign representation of `t` using its conformance to `ForeignConvertible` in
+  /// `scopeOfUse`.
+  ///
+  /// - Requires: `t` conforms to `ForeignConvertible` in `scopeOfUse`.
+  public func foreignRepresentation(
+    of t: AnyType, exposedTo scopeOfUse: AnyScopeID
+  ) -> AnyType {
+    let f = ast.coreTrait("ForeignConvertible")!
+    let d = ast.requirements("ForeignRepresentation", in: f.decl)[0]
+
+    // Since conformances of built-in types are not stored in property maps, we'll exit the loop
+    // when we assign one to `result`.
+    var result = t
+    while let c = conformance(of: result, to: f, exposedTo: scopeOfUse) {
+      // `d` is an associated type declaration so its implementations must have a metatype.
+      let i = c.implementations[d]!.decl!
+      result = MetatypeType(canonical(self[i].type, in: self[d].scope))!.instance
+    }
+
+    return result
+  }
+
   /// Returns the scope of the declaration extended by `d`, if any.
   public func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
     var checker = TypeChecker(asContextFor: self)

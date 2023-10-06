@@ -9,8 +9,7 @@ public extension PointerToMutable where Pointee == Never {
 
 public extension PointerToMutable where Pointee == Never {
 
-  // This function should be replaced with the normal advance function once #989 is fixed.
-
+  // TODO: This function should be replaced with the normal advance function once #989 is fixed.
   /// Returns a pointer advanced by `offset_in_bytes`.
   public fun advance(by_bytes offset_in_bytes: Int) -> Self {
     let offset_in_bytes = 1 * offset_in_bytes

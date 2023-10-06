@@ -1027,9 +1027,6 @@ struct TypeChecker {
     /// Returns a concrete or synthesized implementation of requirement `r` in `concept` for
     /// `model` exposed to `scopeOfUse`, or `nil` if no such implementation exist.
     func implementation(of r: AnyDeclID) {
-      // FIXME: remove me
-      if r.kind == AssociatedTypeDecl.self { return }
-
       // Note: `t` is used for generating diagnostics, `u` is used for testing equivalences.
       let t = type(ofMember: r)
       let u = canonical(t, in: scopeOfExposition)
@@ -1057,13 +1054,13 @@ struct TypeChecker {
     func syntheticImplementation(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name
     ) -> SynthesizedFunctionDecl? {
-      if let k = program.ast.synthesizedKind(of: requirement, definedBy: concept) {
-        // Note: compiler-known requirement is expected to be well-typed.
-        let scopeOfDefinition = AnyScopeID(source) ?? program[source].scope
-        return .init(k, typed: LambdaType(t)!, in: scopeOfDefinition)
-      } else {
+      guard let k = program.ast.synthesizedKind(of: requirement, definedBy: concept) else {
         return nil
       }
+
+      // Note: compiler-known requirement is assumed to be well-typed.
+      let scopeOfDefinition = AnyScopeID(source) ?? program[source].scope
+      return .init(k, typed: LambdaType(t)!, in: scopeOfDefinition)
     }
 
     /// Returns a concrete implementation of `requirement` in `concept`, which has type `t` and
@@ -1073,7 +1070,7 @@ struct TypeChecker {
     ) -> AnyDeclID? {
       switch requirement.kind {
       case AssociatedTypeDecl.self:
-        UNIMPLEMENTED()
+        return implementation(of: AssociatedTypeDecl.ID(requirement)!)
 
       case AssociatedValueDecl.self:
         UNIMPLEMENTED()
@@ -1100,6 +1097,31 @@ struct TypeChecker {
 
       default:
         unexpected(requirement, in: program.ast)
+      }
+    }
+
+    /// Returns the implementation of `requirement` in `model` or returns `nil` if no such
+    /// implementation exist.
+    ///
+    /// `requirement` is an associated type of `concept`.
+    func implementation(of requirement: AssociatedTypeDecl.ID) -> AnyDeclID? {
+      let n = program[requirement].baseName
+      let candidates = lookup(n, memberOf: m, exposedTo: scopeOfExposition)
+      let viable: [AnyDeclID] = candidates.reduce(into: []) { (s, c) in
+        // Candidate is viable iff it denotes a metatype.
+        if !(uncheckedType(of: c).base is MetatypeType) { return }
+
+        // Ignore associated type declaration without a default value.
+        if let d = AssociatedTypeDecl.ID(c), program[d].defaultValue == nil { return }
+
+        s.append(c)
+      }
+
+      // Exclude associated types if they are other viable candidates.
+      if viable.count > 1 {
+        return viable.filter({ $0.kind != AssociatedTypeDecl.self }).uniqueElement
+      } else {
+        return viable.uniqueElement
       }
     }
 

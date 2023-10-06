@@ -1,4 +1,4 @@
-/// Allocate `size` bytes of uninitialized storage whose alignment is specified by `alignment`.
+/// Allocates `size` bytes of uninitialized storage whose alignment is specified by `alignment`.
 ///
 /// - Parameters:
 ///   - alignment: The alignment of the allocated memory. Must be a valid alignment supported by
@@ -6,6 +6,10 @@
 ///   - size: The number of bytes to allocate. Must be an integral multiple of `alignment`.
 @ffi("aligned_alloc")
 fun aligned_alloc(_ alignment: Int, _ size: Int) -> CVoidPointer
+
+/// Allocates `size` bytes of uninitialized storage.
+@ffi("malloc")
+fun malloc(_ size: Int) -> CVoidPointer
 
 /// Deallocates the block of memory pointed at by `pointer`.
 @ffi("free")

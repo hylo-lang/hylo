@@ -1,0 +1,41 @@
+/// Allocates `size` bytes of uninitialized storage whose alignment is specified by `alignment`.
+///
+/// This function is similar to `aligned_alloc` from libc, except that it accepts any non-negative
+/// `size` whereas `aligned_alloc` requires `size` to be an integral multiple of `alignment`. Use
+/// this function when you need memory aligned at a specific boundary. Othwewise, use `malloc`.
+///
+/// Memory allocated with `hylo_aligned_alloc` must be deallocated with `hylo_aligned_free`.
+///
+/// - Parameters:
+///   - alignment: The alignment of the allocated memory. Must be a power of 2.
+///   - size: The number of bytes to allocate. Must be greater than 0.
+/// - Returns: a pointer to newly allocated memory.
+public fun hylo_aligned_alloc(_ alignment: Int, _ size: Int) -> MemoryAddress {
+
+  // We allocate `size` plus the storage for a pointer and some padding to satisfy the alignment
+  // requirement. The pointer to the allocated memory `p` is aligned to `alignment` and assigned
+  // to `r`. The value of `p` is stored "behind" `r` for use in `hylo_aligned_alloc`.
+
+  let s = MemoryLayout<MemoryAddress>.size()
+  let a = alignment - 1
+  let p = MemoryAddress(base: malloc(s + a + size).base)
+  precondition(p != .null(), "out of memory")
+
+  // precondition(((Int(bit_pattern: p) + s + a) & ~a) == (Int(bit_pattern: p) + 8))
+  let r = MemoryAddress(bit_pattern: (Int(bit_pattern: p) + s + a) & ~a)
+  let h = r.advance(by_bytes: -s)
+  PointerToMutable<MemoryAddress>(type_punning: h).unsafe_initialize_pointee(p.copy())
+  return r
+}
+
+/// Deallocates memory allocated by `hylo_aligned_alloc`.
+///
+/// No operation is performed if `pointer == .null()`.
+public fun hylo_aligned_free(_ pointer: MemoryAddress) {
+  if pointer == .null() { return }
+
+  let s = MemoryLayout<MemoryAddress>.size()
+  let h = pointer.advance(by_bytes: -s)
+  let p = PointerToMutable<MemoryAddress>(type_punning: h).unsafe[].copy()
+  free(CVoidPointer(base: p.base))
+}

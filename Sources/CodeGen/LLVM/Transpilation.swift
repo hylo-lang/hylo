@@ -80,7 +80,7 @@ extension LLVM.Module {
 
   /// Returns the LLVM type of a metatype instance.
   private mutating func metatypeType() -> LLVM.StructType {
-    if let t = type(named: "_val_metatype") {
+    if let t = type(named: "_hylo_metatype") {
       return .init(t)!
     }
 
@@ -122,7 +122,7 @@ extension LLVM.Module {
 
     let f = declareFunction(
       "malloc",
-      FunctionType(from: [i32], to: ptr, in: &self))
+      FunctionType(from: [word()], to: ptr, in: &self))
     addAttribute(named: .noundef, to: f.parameters[0])
     addAttribute(named: .noalias, to: f.returnValue)
 
@@ -298,9 +298,13 @@ extension LLVM.Module {
   ) {
     setLinkage(.linkOnce, for: instance)
 
-    let layout = memoryLayout(of: t, from: ir)
+    let layout = ConcreteTypeLayout(of: ^t, definedIn: ir, forUseIn: &self)
     let v = LLVM.StructType(instance.valueType)!.constant(
-      aggregating: [layout.size, layout.preferredAlignment, ptr.null],
+      aggregating: [
+        word().constant(layout.size),
+        word().constant(layout.alignment),
+        ptr.null,
+      ],
       in: &self)
 
     setInitializer(v, for: instance)
@@ -317,15 +321,19 @@ extension LLVM.Module {
     if m.id != ir.base.module(containing: t.decl) { return }
 
     // If `t` is generic, its metatype is only a stub.
-    let layout: LLVMMemoryLayout
+    let layout: ConcreteTypeLayout
     if !ir.base[t.decl].genericParameters.isEmpty {
-      layout = .init(size: word().zero, preferredAlignment: word().zero)
+      layout = ConcreteTypeLayout(size: 0, alignment: 0)
     } else {
-      layout = memoryLayout(of: t, from: ir)
+      layout = ConcreteTypeLayout(of: ^t, definedIn: ir, forUseIn: &self)
     }
 
     let v = LLVM.StructType(instance.valueType)!.constant(
-      aggregating: [layout.size, layout.preferredAlignment, ptr.null],
+      aggregating: [
+        word().constant(layout.size),
+        word().constant(layout.alignment),
+        ptr.null,
+      ],
       in: &self)
 
     setInitializer(v, for: instance)
@@ -343,18 +351,6 @@ extension LLVM.Module {
     let instance = declareGlobalVariable(globalName, metatype)
     initializeInstance(&self, instance)
     return instance
-  }
-
-  /// Returns the memory layout of `t`, which is a canonical type in `ir`.
-  ///
-  /// - Requires: `t` is representable in LLVM.
-  private mutating func memoryLayout<T: TypeProtocol>(
-    of t: T, from ir: IR.Program
-  ) -> LLVMMemoryLayout {
-    let u = ir.llvm(t, in: &self)
-    return .init(
-      size: word().constant(layout.storageSize(of: u)),
-      preferredAlignment: word().constant(layout.preferredAlignment(of: u)))
   }
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
@@ -1190,16 +1186,5 @@ private struct LambdaContents {
 
   /// The lambda's environment.
   let environment: [LLVM.IRValue]
-
-}
-
-/// The memory layout of a Hylo type represented in LLVM.
-private struct LLVMMemoryLayout {
-
-  /// The contiguous memory footprint of the type's instances, in bytes.
-  let size: LLVM.IRValue
-
-  /// The preferred memory alignment of the `T`'s instances, in bytes.
-  let preferredAlignment: LLVM.IRValue
 
 }
