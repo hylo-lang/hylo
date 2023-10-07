@@ -3003,7 +3003,7 @@ struct TypeChecker {
     // Gather declarations qualified by `parent` if it isn't `nil` or unqualified otherwise.
     let matches = lookup(name, memberOf: context?.type, exposedTo: scopeOfUse)
 
-    // Resolve compilerKnown type aliases if no match was found.
+    // Resolve compiler-known type aliases if no match was found.
     if matches.isEmpty {
       if context == nil {
         return resolve(compilerKnownAlias: name, specializedBy: arguments, exposedTo: scopeOfUse)
