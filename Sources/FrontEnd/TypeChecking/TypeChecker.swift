@@ -123,24 +123,33 @@ struct TypeChecker {
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
   mutating func conformedTraits(of t: AnyType, in scopeOfUse: AnyScopeID) -> Set<TraitType> {
+    let key = Cache.TypeLookupKey(t, in: scopeOfUse)
+    if let r = cache.typeToConformedTraits[key] {
+      return r
+    }
+
+    var result: Set<TraitType>
     switch t.base {
     case let u as BoundGenericType:
-      return conformedTraits(of: u.base, in: scopeOfUse)
+      result = conformedTraits(of: u.base, in: scopeOfUse)
     case let u as BuiltinType:
-      return conformedTraits(of: u, in: scopeOfUse)
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as GenericTypeParameterType:
-      return conformedTraits(of: u, in: scopeOfUse)
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as ProductType:
-      return conformedTraits(of: u, in: scopeOfUse)
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as TraitType:
-      return conformedTraits(of: u, in: scopeOfUse)
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as TypeAliasType:
-      return conformedTraits(of: u.resolved, in: scopeOfUse)
+      result = conformedTraits(of: u.resolved, in: scopeOfUse)
     case let u as WitnessType:
-      return conformedTraits(of: u, in: scopeOfUse)
+      result = conformedTraits(of: u, in: scopeOfUse)
     default:
-      return conformedTraits(declaredInExtensionsOf: t, exposedTo: scopeOfUse)
+      result = conformedTraits(declaredInExtensionsOf: t, exposedTo: scopeOfUse)
     }
+
+    cache.typeToConformedTraits[key] = result
+    return result
   }
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
@@ -2123,6 +2132,10 @@ struct TypeChecker {
 
   /// Evaluates and returns the value of `e`, which is a type annotation.
   private mutating func evalTypeAnnotation(_ e: NameExpr.ID) -> AnyType {
+    if let t = cache.local.exprType[e] {
+      return t
+    }
+
     let resolution = resolve(e, withNonNominalPrefix: { (me, p) in me.evalQualification(of: p) })
     switch resolution {
     case .done(let prefix, let suffix):
@@ -2484,7 +2497,7 @@ struct TypeChecker {
       break
     }
 
-    let key = Cache.MemberLookupKey(nominalScope, in: scopeOfUse)
+    let key = Cache.TypeLookupKey(nominalScope, in: scopeOfUse)
     if let m = cache.scopeToMembers[key]?[stem] {
       return m
     }
@@ -2713,6 +2726,11 @@ struct TypeChecker {
   private mutating func extensions(
     of subject: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> [AnyDeclID] {
+    let key = Cache.TypeLookupKey(subject, in: scopeOfUse)
+    if let r = cache.typeToExtensions[key] {
+      return r
+    }
+
     let subject = canonical(subject, in: scopeOfUse)
     var matches: [AnyDeclID] = []
     var root: ModuleDecl.ID? = nil
@@ -2743,6 +2761,7 @@ struct TypeChecker {
       reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
     }
 
+    cache.typeToExtensions[key] = matches
     return matches
   }
 
@@ -4766,8 +4785,8 @@ struct TypeChecker {
     /// A lookup table.
     typealias LookupTable = [String: Set<AnyDeclID>]
 
-    /// A key in a member lookup table.
-    typealias MemberLookupKey = ScopedValue<AnyType>
+    /// A key in a type lookup table.
+    typealias TypeLookupKey = ScopedValue<AnyType>
 
     /// The local instance being type checked.
     private(set) var local: TypedProgram
@@ -4794,12 +4813,22 @@ struct TypeChecker {
     ///
     /// This map serves as cache for `lookup(_:memberOf:exposedTo)`. At no point is it guaranteed
     /// to be complete.
-    var scopeToMembers: [MemberLookupKey: LookupTable] = [:]
+    var scopeToMembers: [TypeLookupKey: LookupTable] = [:]
 
     /// A map from lexical scope to the names introduced in it.
     ///
     /// This map serves as cache for `names(introducedIn:)`.
     var scopeToNames: [AnyScopeID: LookupTable] = [:]
+
+    /// A map from type to the traits to which in conforms in a given scope.
+    ///
+    /// This map serves as cache for `conformedTraits(of:in:)`.
+    var typeToConformedTraits: [TypeLookupKey: Set<TraitType>] = [:]
+
+    /// A map from type to its extensions in a given scope.
+    ///
+    /// This map serves as cache for `extensions(of:exposedTo:)`.
+    var typeToExtensions: [TypeLookupKey: [AnyDeclID]] = [:]
 
     /// Creates an instance for memoizing type checking results in `local` and comminicating them
     /// to concurrent type checkers using `shared`.
