@@ -2518,7 +2518,10 @@ struct TypeChecker {
       matches = []
     }
 
-    matches.formUnion(lookup(stem, inExtensionsOf: nominalScope, exposedTo: scopeOfUse))
+    if matches.allSatisfy(\.isOverloadable) {
+      matches.formUnion(lookup(stem, inExtensionsOf: nominalScope, exposedTo: scopeOfUse))
+    }
+
     return matches
   }
 
