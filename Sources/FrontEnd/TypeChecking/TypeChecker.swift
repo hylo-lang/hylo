@@ -354,8 +354,8 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the type checking constraint anchored at `origin` that spedcializes `generic` by
-  /// applying `self.specialize` on its types for `specialization` in `scopeOfUse`.
+  /// Returns the type checking constraint that specializes `generic` for `specialization` in
+  /// `scopeOfUse`, anchoring it at `origin`.
   private mutating func specialize(
     _ generic: GenericConstraint, for specialization: GenericArguments, in scopeOfUse: AnyScopeID,
     origin: ConstraintOrigin
@@ -1391,7 +1391,9 @@ struct TypeChecker {
     }
   }
 
-  /// Insert's `d`'s constraints in `e`.
+  /// Inserts `d`'s constraints in `e`.
+  ///
+  /// `e` is the environment in which `d` is introduced.
   private mutating func insertConstraints(
     of d: AssociatedTypeDecl.ID, in e: inout GenericEnvironment
   ) {
@@ -1401,7 +1403,9 @@ struct TypeChecker {
     }
   }
 
-  /// Insert's `d`'s constraints in `e`.
+  /// Inserts `d`'s constraints in `e`.
+  ///
+  /// `e` is the environment in which `d` is introduced.
   private mutating func insertConstraints(
     of d: AssociatedValueDecl.ID, in e: inout GenericEnvironment
   ) {
@@ -1411,6 +1415,9 @@ struct TypeChecker {
   }
 
   /// Inserts the constraints declared as `p`'s annotations in `e`.
+  ///
+  /// `p` is a generic parameter, associated type, or associated value declaration. `e` is the
+  /// environment in which `p` is introduced.
   private mutating func insertAnnotatedConstraints<T: ConstrainedGenericTypeDecl>(
     on p: T.ID, in e: inout GenericEnvironment
   ) {
