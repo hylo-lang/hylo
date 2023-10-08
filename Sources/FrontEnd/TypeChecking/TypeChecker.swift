@@ -1421,11 +1421,9 @@ struct TypeChecker {
   private mutating func insertAnnotatedConstraints<T: ConstrainedGenericTypeDecl>(
     on p: T.ID, in e: inout GenericEnvironment
   ) {
+    // TODO: Constraints on generic value parameters
     let t = uncheckedType(of: p)
-
-    // TODO: Value constraints
-    guard let lhs = MetatypeType(t)?.instance, lhs.base is GenericTypeParameterType
-    else { return }
+    guard let lhs = MetatypeType(t)?.instance else { return }
 
     // Synthesize sugared conformance constraint, if any.
     for (n, t) in evalTraitComposition(program[p].conformances) {
@@ -3401,8 +3399,9 @@ struct TypeChecker {
     for s in program.scopes(from: program[d].scope) {
       if s == lca { break }
       if let e = environment(of: s) {
-        for c in e.constraints {
-          result.insert(specialize(c, for: specialization, in: scopeOfUse, origin: origin))
+        for g in e.constraints {
+          let c = specialize(g, for: specialization, in: scopeOfUse, origin: origin)
+          result.insert(c)
         }
       }
     }
