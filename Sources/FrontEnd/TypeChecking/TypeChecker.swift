@@ -994,11 +994,10 @@ struct TypeChecker {
       (s.kind == TranslationUnit.self) ? program[s].scope : s
     }
 
-    // TODO: Verify requirement constraints
-    // TODO: Use arguments to bound generic types as constraints
-
     var m = canonical(model, in: scopeOfExposition)
-    let arguments: GenericArguments = [program[concept.decl].receiver: m]
+    let traitReceiverToModel: GenericArguments = [program[concept.decl].receiver: m]
+
+    // TODO: Use arguments to bound generic types as constraints
     if let b = BoundGenericType(m) {
       m = b.base
     }
@@ -1014,7 +1013,7 @@ struct TypeChecker {
       implementation(of: r)
     }
 
-    if !conformanceDiagnostics.isEmpty {
+    if !conformanceDiagnostics.isEmpty || !checkRequirementConstraints() {
       report(.error(model, doesNotConformTo: concept, at: site, because: conformanceDiagnostics))
       return nil
     }
@@ -1030,7 +1029,24 @@ struct TypeChecker {
     /// in `scopeOfUse`, or `nil` no such type can be constructed.
     func type(ofMember m: AnyDeclID) -> AnyType {
       let t = uncheckedType(of: m)
-      return specialize(t, for: arguments, in: scopeOfExposition)
+      return specialize(t, for: traitReceiverToModel, in: scopeOfExposition)
+    }
+
+    /// Checks whether the constraints on the requirements of `concept` are satisfied by `model` in
+    /// `scopeOfuse`, reporting diagnostics in `conformanceDiagnostics`.
+    func checkRequirementConstraints() -> Bool {
+      var obligations = ProofObligations(scope: scopeOfExposition)
+
+      let e = environment(of: concept.decl)
+      for g in e.constraints {
+        let c = specialize(
+          g, for: traitReceiverToModel, in: scopeOfExposition,
+          origin: .init(.structural, at: site))
+        obligations.insert(c)
+      }
+
+      let s = discharge(obligations, relatedTo: source)
+      return s.isSound
     }
 
     /// Returns a concrete or synthesized implementation of requirement `r` in `concept` for
@@ -1116,22 +1132,16 @@ struct TypeChecker {
     func implementation(of requirement: AssociatedTypeDecl.ID) -> AnyDeclID? {
       let n = program[requirement].baseName
       let candidates = lookup(n, memberOf: m, exposedTo: scopeOfExposition)
+
+      // Candidates are viable iff they declare a metatype and have a definition.
       let viable: [AnyDeclID] = candidates.reduce(into: []) { (s, c) in
-        // Candidate is viable iff it denotes a metatype.
         if !(uncheckedType(of: c).base is MetatypeType) { return }
-
-        // Ignore associated type declaration without a default value.
         if let d = AssociatedTypeDecl.ID(c), program[d].defaultValue == nil { return }
-
         s.append(c)
       }
 
-      // Exclude associated types if they are other viable candidates.
-      if viable.count > 1 {
-        return viable.filter({ $0.kind != AssociatedTypeDecl.self }).uniqueElement
-      } else {
-        return viable.uniqueElement
-      }
+      // Conformance is ambiguous if there are multiple viable candidates.
+      return viable.uniqueElement
     }
 
     /// Returns the implementation of `requirement` in `model` or returns `nil` if no such
