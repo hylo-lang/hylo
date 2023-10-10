@@ -3049,8 +3049,8 @@ struct TypeChecker {
       }
 
       // If the match is a trait member looked up with qualification, specialize its receiver.
-      if let t = program.trait(defining: m) {
-        specialization[program[t].receiver] = context?.type
+      if let t = traitDefining(m) {
+        specialization[program[t.decl].receiver] = context?.type
       }
 
       // If the name resolves to an initializer, determine if it is used as a constructor.
@@ -3064,8 +3064,8 @@ struct TypeChecker {
       // If the receiver is an existential, replace its receiver.
       if let container = ExistentialType(context?.type) {
         candidateType = candidateType.asMember(of: container)
-        if let t = program.trait(defining: m) {
-          specialization[program[t].receiver] = ^WitnessType(of: container)
+        if let t = traitDefining(m) {
+          specialization[program[t.decl].receiver] = ^WitnessType(of: container)
         }
       }
 
@@ -3470,6 +3470,27 @@ struct TypeChecker {
   ) {
     if let clause = program[d].genericClause {
       accumulatedParameters.append(contentsOf: clause.value.parameters)
+    }
+  }
+
+  /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
+  mutating func traitDefining<T: DeclID>(_ d: T) -> TraitType? {
+    guard let p = program.nodeToScope[d] else {
+      assert(d.kind == ModuleDecl.self)
+      return nil
+    }
+
+    switch p.kind {
+    case TraitDecl.self:
+      return TraitType(TraitDecl.ID(p)!, ast: program.ast)
+    case ExtensionDecl.self:
+      return TraitType(uncheckedType(of: ExtensionDecl.ID(p)!))
+    case MethodDecl.self:
+      return traitDefining(MethodDecl.ID(p)!)
+    case SubscriptDecl.self:
+      return traitDefining(SubscriptDecl.ID(p)!)
+    default:
+      return nil
     }
   }
 
