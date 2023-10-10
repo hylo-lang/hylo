@@ -1,5 +1,3 @@
-import LLVM
-
 /// The name of an native instruction mapped to a built-in function.
 ///
 /// Native instructions implement basis operations on built-in types, such as `Builtin.i64`, with
@@ -27,13 +25,13 @@ import LLVM
 /// integral and floating-point numbers as well as conversions from and to these types.
 public enum NativeInstruction: Hashable {
 
-  case add(LLVM.OverflowBehavior, BuiltinType)
+  case add(OverflowBehavior, BuiltinType)
 
-  case sub(LLVM.OverflowBehavior, BuiltinType)
+  case sub(OverflowBehavior, BuiltinType)
 
-  case mul(LLVM.OverflowBehavior, BuiltinType)
+  case mul(OverflowBehavior, BuiltinType)
 
-  case shl(LLVM.OverflowBehavior, BuiltinType)
+  case shl(OverflowBehavior, BuiltinType)
 
   case udiv(exact: Bool, BuiltinType)
 
@@ -71,7 +69,7 @@ public enum NativeInstruction: Hashable {
   // Corresponding LLVM instruction: umul.with.overflow
   case unsignedMultiplicationWithOverflow(BuiltinType)
 
-  case icmp(LLVM.IntegerPredicate, BuiltinType)
+  case icmp(IntegerPredicate, BuiltinType)
 
   case trunc(BuiltinType, BuiltinType)
 
@@ -97,7 +95,7 @@ public enum NativeInstruction: Hashable {
 
   case frem(MathFlags, BuiltinType)
 
-  case fcmp(MathFlags, LLVM.FloatingPointPredicate, BuiltinType)
+  case fcmp(MathFlags, FloatingPointPredicate, BuiltinType)
 
   case fptrunc(BuiltinType, BuiltinType)
 

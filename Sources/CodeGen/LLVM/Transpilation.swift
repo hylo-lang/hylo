@@ -760,17 +760,17 @@ extension LLVM.Module {
       case .add(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i)] = insertAdd(overflow: p, l, r, at: insertionPoint)
+        register[.register(i)] = insertAdd(overflow: OverflowBehavior(p), l, r, at: insertionPoint)
 
       case .sub(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i)] = insertSub(overflow: p, l, r, at: insertionPoint)
+        register[.register(i)] = insertSub(overflow: OverflowBehavior(p), l, r, at: insertionPoint)
 
       case .mul(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i)] = insertMul(overflow: p, l, r, at: insertionPoint)
+        register[.register(i)] = insertMul(overflow: OverflowBehavior(p), l, r, at: insertionPoint)
 
       case .shl:
         let l = llvm(s.operands[0])
@@ -852,7 +852,7 @@ extension LLVM.Module {
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i)] = insertIntegerComparison(p, l, r, at: insertionPoint)
+        register[.register(i)] = insertIntegerComparison(IntegerPredicate(p), l, r, at: insertionPoint)
 
       case .and(_):
         let l = llvm(s.operands[0])
@@ -916,7 +916,7 @@ extension LLVM.Module {
       case .fcmp(_, let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i)] = insertFloatingPointComparison(p, l, r, at: insertionPoint)
+        register[.register(i)] = insertFloatingPointComparison(FloatingPointPredicate(p), l, r, at: insertionPoint)
 
       case .fptrunc(_, let t):
         let target = ir.llvm(builtinType: t, in: &self)
