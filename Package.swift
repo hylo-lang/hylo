@@ -17,6 +17,7 @@ let package = Package(
     .executable(name: "hc", targets: ["hc"]),
     .executable(name: "hylo-demangle", targets: ["hylo-demangle"]),
     .library(name: "Hylo", targets: ["Driver"]),
+    .library(name: "HyloFrontEnd", targets: ["FrontEnd"]),
   ],
 
   dependencies: [
@@ -87,7 +88,6 @@ let package = Package(
       dependencies: [
         "Utils",
         .product(name: "Collections", package: "swift-collections"),
-        .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
