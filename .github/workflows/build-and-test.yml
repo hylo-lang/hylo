@@ -164,7 +164,7 @@ jobs:
     - name: Generate LLVM pkgconfig file
       run: |
         swift package resolve
-        "C:\Program Files\Git\bin\bash.exe" .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
+        & "C:\Program Files\Git\bin\bash.exe" .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
         type llvm.pc
 
     - name: Build support library
