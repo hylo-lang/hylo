@@ -159,7 +159,7 @@ jobs:
         7z x llvm-15.0.6-windows-x86-msvc17-msvcrt.7z -oC:\
         Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-msvcrt\bin'
         
-      run: llvm-config --version
+    - run: llvm-config --version
 
     - name: Generate LLVM pkgconfig file
       run: |
