@@ -121,6 +121,11 @@ struct TypeChecker {
     canonical(t, in: scopeOfUse) == canonical(u, in: scopeOfUse)
   }
 
+  /// Returns `true` iff `t` is a refinement of `u` in `scopeOfUse`.
+  mutating func isRefinement(_ t: TraitType, of u: TraitType, in scopeOfUse: AnyScopeID) -> Bool {
+    (t != u) && conformedTraits(of: t, in: scopeOfUse).contains(u)
+  }
+
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
   mutating func conformedTraits(of t: AnyType, in scopeOfUse: AnyScopeID) -> Set<TraitType> {
     let key = Cache.TypeLookupKey(t, in: scopeOfUse)
@@ -4606,16 +4611,16 @@ struct TypeChecker {
     var ranking: StrictPartialOrdering = .equal
     var namesInCommon = 0
 
-    for (n, lhsDeclRef) in lhs.bindingAssumptions {
-      guard let rhsDeclRef = rhs.bindingAssumptions[n] else { continue }
+    for (n, lhs) in lhs.bindingAssumptions {
+      guard let rhs = rhs.bindingAssumptions[n] else { continue }
       namesInCommon += 1
 
-      // Nothing to do if both functions have the binding.
-      if lhsDeclRef == rhsDeclRef { continue }
-      let lhs = uncheckedType(of: lhsDeclRef.decl!)
-      let rhs = uncheckedType(of: rhsDeclRef.decl!)
+      // Nothing to do if both functions have the same binding.
+      if lhs == rhs { continue }
 
-      switch compareSpecificity(lhs, rhs, in: program[n].scope, at: program[n].site) {
+      let o = compareBindingPrecedence(
+        lhs.decl!, rhs.decl!, in: program[n].scope, at: program[n].site)
+      switch o {
       case .ascending:
         if ranking == .descending { return nil }
         ranking = .ascending
@@ -4646,11 +4651,74 @@ struct TypeChecker {
     return namesInCommon == lhs.bindingAssumptions.count ? ranking : nil
   }
 
-  /// Compares `lhs` and `rhs` and returns whether one is more specific than the other in
-  /// `scopeOfUse`, instantiating generic type constraints at `site`.
+  /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one has either shadows or is
+  /// more specific than the other.
   ///
-  /// `t1` is more specific than `t2` if both are callable types with the same labels and `t1`
-  /// accepts strictly less arguments than `t2`.
+  /// `lhs` and `rhs` are assumed to have compatible types.
+  private mutating func compareBindingPrecedence(
+    _ lhs: AnyDeclID, _ rhs: AnyDeclID, in scopeOfUse: AnyScopeID, at site: SourceRange
+  ) -> StrictPartialOrdering {
+    if let o = compareDepth(lhs, rhs, in: scopeOfUse) {
+      return o
+    }
+
+    let t = uncheckedType(of: lhs)
+    let u = uncheckedType(of: rhs)
+    return compareSpecificity(t, u, in: scopeOfUse, at: site)
+  }
+
+  /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one shadows the other.
+  ///
+  /// `lhs` is deeper than `rhs` w.r.t. `scopeOfUse` if either of these statements hold:
+  /// - `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, and `t1` refines `t2`
+  /// - `lhs` isn't member of a trait and `rhs` is.
+  /// - `lhs` is declared in the module containg `scopeOfUse` and `rhs` isn't.
+  /// - `lhs` and `rhs` are declared in module containg `scopeOfUse` and `lhs` has more ancestors
+  ///   than `rhs`.
+  private mutating func compareDepth(
+    _ lhs: AnyDeclID, _ rhs: AnyDeclID, in scopeOfUse: AnyScopeID
+  ) -> StrictPartialOrdering {
+    if let l = traitDefining(lhs) {
+      // If `lhs` is a trait member but `rhs` isn't, then `rhs` shadows `lhs`.
+      guard let r = traitDefining(rhs) else { return .descending }
+
+      // If `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, then `lhs` shadows
+      // `rhs` iff `t1` refines `t2`.
+      if isRefinement(l, of: r, in: scopeOfUse) { return .ascending }
+      if isRefinement(r, of: l, in: scopeOfUse) { return .descending }
+      return nil
+    }
+
+    if traitDefining(rhs) != nil {
+      // If `rhs` is a trait member but `lhs` isn't, then `lhs` shadows `rhs`.
+      return .ascending
+    }
+
+    let m = program.module(containing: scopeOfUse)
+    if program.isContained(lhs, in: m) {
+      // If `lhs` is in the same module as `scopeOfUse` but `rhs` isn't, then `lhs` shadows `rhs`.
+      guard program.isContained(rhs, in: m) else { return .ascending }
+
+      // If `lhs` and `rhs` are in the same module as `scopeOfUse`, then `lhs` shadows `rhs` iff
+      // it has more ancestors than `rhs`.
+      if program.hasMoreAncestors(lhs, than: rhs) { return .ascending }
+      if program.hasMoreAncestors(rhs, than: lhs) { return .descending }
+      return nil
+    }
+
+    if program.isContained(rhs, in: m) {
+      // If `rhs` is in the same module as `scopeOfUse` but `lhs` isn't, then `rhs` shadows `lhs`.
+      return .descending
+    }
+
+    return nil
+  }
+
+  /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one is more specific than the
+  /// other, instantiating generic type constraints at `site`.
+  ///
+  /// `lhs` is more specific than `rhs` iff both `lhs` and `rhs` are callable types with the same
+  /// labels and `lhs` accepts strictly less arguments than `rhs`.
   private mutating func compareSpecificity(
     _ lhs: AnyType, _ rhs: AnyType, in scopeOfUse: AnyScopeID, at site: SourceRange
   ) -> StrictPartialOrdering {

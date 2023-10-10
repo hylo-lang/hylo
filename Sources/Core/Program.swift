@@ -60,6 +60,19 @@ extension Program {
     isContained(l, in: r) || isContained(r, in: l)
   }
 
+  /// Returns `true` iff `l` is lexically enclosed in more scopes than `r`.
+  public func hasMoreAncestors(_ l: AnyDeclID, than r: AnyDeclID) -> Bool {
+    guard let s = nodeToScope[l] else { return false }
+    guard let t = nodeToScope[r] else { return true }
+
+    var a = scopes(from: s)
+    var b = scopes(from: t)
+    while a.next() != nil {
+      if b.next() == nil { return true }
+    }
+    return false
+  }
+
   /// Returns the scope of `d`'s body, if any.
   public func scopeContainingBody(of d: FunctionDecl.ID) -> AnyScopeID? {
     switch ast[d].body {
