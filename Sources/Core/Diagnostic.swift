@@ -56,7 +56,7 @@ public struct Diagnostic: Hashable {
     Diagnostic(level: .error, message: message, site: site, notes: notes)
   }
 
-  /// Returns a warning with the given `message` highlighting `range`..
+  /// Returns a warning with the given `message` highlighting `range`.
   ///
   /// - Precondition: elements of `notes` have `self.level == .note`
   public static func warning(

@@ -354,8 +354,8 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the type checking constraint anchored at `origin` that spedcializes `generic` by
-  /// applying `self.specialize` on its types for `specialization` in `scopeOfUse`.
+  /// Returns the type checking constraint that specializes `generic` for `specialization` in
+  /// `scopeOfUse`, anchoring it at `origin`.
   private mutating func specialize(
     _ generic: GenericConstraint, for specialization: GenericArguments, in scopeOfUse: AnyScopeID,
     origin: ConstraintOrigin
@@ -994,11 +994,10 @@ struct TypeChecker {
       (s.kind == TranslationUnit.self) ? program[s].scope : s
     }
 
-    // TODO: Verify requirement constraints
-    // TODO: Use arguments to bound generic types as constraints
-
     var m = canonical(model, in: scopeOfExposition)
-    let arguments: GenericArguments = [program[concept.decl].receiver: m]
+    let traitReceiverToModel: GenericArguments = [program[concept.decl].receiver: m]
+
+    // TODO: Use arguments to bound generic types as constraints
     if let b = BoundGenericType(m) {
       m = b.base
     }
@@ -1014,7 +1013,7 @@ struct TypeChecker {
       implementation(of: r)
     }
 
-    if !conformanceDiagnostics.isEmpty {
+    if !conformanceDiagnostics.isEmpty || !checkRequirementConstraints() {
       report(.error(model, doesNotConformTo: concept, at: site, because: conformanceDiagnostics))
       return nil
     }
@@ -1030,7 +1029,24 @@ struct TypeChecker {
     /// in `scopeOfUse`, or `nil` no such type can be constructed.
     func type(ofMember m: AnyDeclID) -> AnyType {
       let t = uncheckedType(of: m)
-      return specialize(t, for: arguments, in: scopeOfExposition)
+      return specialize(t, for: traitReceiverToModel, in: scopeOfExposition)
+    }
+
+    /// Checks whether the constraints on the requirements of `concept` are satisfied by `model` in
+    /// `scopeOfuse`, reporting diagnostics in `conformanceDiagnostics`.
+    func checkRequirementConstraints() -> Bool {
+      var obligations = ProofObligations(scope: scopeOfExposition)
+
+      let e = environment(of: concept.decl)
+      for g in e.constraints {
+        let c = specialize(
+          g, for: traitReceiverToModel, in: scopeOfExposition,
+          origin: .init(.structural, at: site))
+        obligations.insert(c)
+      }
+
+      let s = discharge(obligations, relatedTo: source)
+      return s.isSound
     }
 
     /// Returns a concrete or synthesized implementation of requirement `r` in `concept` for
@@ -1116,22 +1132,16 @@ struct TypeChecker {
     func implementation(of requirement: AssociatedTypeDecl.ID) -> AnyDeclID? {
       let n = program[requirement].baseName
       let candidates = lookup(n, memberOf: m, exposedTo: scopeOfExposition)
+
+      // Candidates are viable iff they declare a metatype and have a definition.
       let viable: [AnyDeclID] = candidates.reduce(into: []) { (s, c) in
-        // Candidate is viable iff it denotes a metatype.
         if !(uncheckedType(of: c).base is MetatypeType) { return }
-
-        // Ignore associated type declaration without a default value.
         if let d = AssociatedTypeDecl.ID(c), program[d].defaultValue == nil { return }
-
         s.append(c)
       }
 
-      // Exclude associated types if they are other viable candidates.
-      if viable.count > 1 {
-        return viable.filter({ $0.kind != AssociatedTypeDecl.self }).uniqueElement
-      } else {
-        return viable.uniqueElement
-      }
+      // Conformance is ambiguous if there are multiple viable candidates.
+      return viable.uniqueElement
     }
 
     /// Returns the implementation of `requirement` in `model` or returns `nil` if no such
@@ -1391,7 +1401,9 @@ struct TypeChecker {
     }
   }
 
-  /// Insert's `d`'s constraints in `e`.
+  /// Inserts `d`'s constraints in `e`.
+  ///
+  /// `e` is the environment in which `d` is introduced.
   private mutating func insertConstraints(
     of d: AssociatedTypeDecl.ID, in e: inout GenericEnvironment
   ) {
@@ -1401,7 +1413,9 @@ struct TypeChecker {
     }
   }
 
-  /// Insert's `d`'s constraints in `e`.
+  /// Inserts `d`'s constraints in `e`.
+  ///
+  /// `e` is the environment in which `d` is introduced.
   private mutating func insertConstraints(
     of d: AssociatedValueDecl.ID, in e: inout GenericEnvironment
   ) {
@@ -1411,14 +1425,15 @@ struct TypeChecker {
   }
 
   /// Inserts the constraints declared as `p`'s annotations in `e`.
+  ///
+  /// `p` is a generic parameter, associated type, or associated value declaration. `e` is the
+  /// environment in which `p` is introduced.
   private mutating func insertAnnotatedConstraints<T: ConstrainedGenericTypeDecl>(
     on p: T.ID, in e: inout GenericEnvironment
   ) {
+    // TODO: Constraints on generic value parameters
     let t = uncheckedType(of: p)
-
-    // TODO: Value constraints
-    guard let lhs = MetatypeType(t)?.instance, lhs.base is GenericTypeParameterType
-    else { return }
+    guard let lhs = MetatypeType(t)?.instance else { return }
 
     // Synthesize sugared conformance constraint, if any.
     for (n, t) in evalTraitComposition(program[p].conformances) {
@@ -2518,7 +2533,10 @@ struct TypeChecker {
       matches = []
     }
 
-    matches.formUnion(lookup(stem, inExtensionsOf: nominalScope, exposedTo: scopeOfUse))
+    if matches.allSatisfy(\.isOverloadable) {
+      matches.formUnion(lookup(stem, inExtensionsOf: nominalScope, exposedTo: scopeOfUse))
+    }
+
     return matches
   }
 
@@ -3003,7 +3021,7 @@ struct TypeChecker {
     // Gather declarations qualified by `parent` if it isn't `nil` or unqualified otherwise.
     let matches = lookup(name, memberOf: context?.type, exposedTo: scopeOfUse)
 
-    // Resolve compilerKnown type aliases if no match was found.
+    // Resolve compiler-known type aliases if no match was found.
     if matches.isEmpty {
       if context == nil {
         return resolve(compilerKnownAlias: name, specializedBy: arguments, exposedTo: scopeOfUse)
@@ -3391,8 +3409,9 @@ struct TypeChecker {
     for s in program.scopes(from: program[d].scope) {
       if s == lca { break }
       if let e = environment(of: s) {
-        for c in e.constraints {
-          result.insert(specialize(c, for: specialization, in: scopeOfUse, origin: origin))
+        for g in e.constraints {
+          let c = specialize(g, for: specialization, in: scopeOfUse, origin: origin)
+          result.insert(c)
         }
       }
     }
