@@ -1,12 +1,12 @@
-import Core
 import LLVM
+import Core
 
 extension LLVM.OverflowBehavior {
   public init(_ ob: Core.OverflowBehavior) {
-    self = switch ob {
-      case .ignore: .ignore
-      case .nuw: .nuw
-      case .nsw: .nsw
+    switch ob {
+      case .ignore: self = OverflowBehavior.ignore
+      case .nuw: self = OverflowBehavior.nuw
+      case .nsw: self = OverflowBehavior.nsw
     }
   }
 }

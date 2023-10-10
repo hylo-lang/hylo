@@ -1,5 +1,5 @@
-import Core
 import LLVM
+import Core
 
 extension LLVM.IntegerPredicate {
   public init(_ p: Core.IntegerPredicate) {
