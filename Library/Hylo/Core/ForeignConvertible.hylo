@@ -54,10 +54,10 @@
 ///
 /// You should avoid using `ForeignConvertible` to implement long chains of conversions through
 /// intermediate foreign representations.
-public trait ForeignConvertible {
+public trait ForeignConvertible: Equatable {
 
   /// The foreign representation of the type.
-  type ForeignRepresentation: ForeignConvertible
+  type ForeignRepresentation
 
   /// Creates a new instance from its foreign representation.
   init(foreign_value: sink ForeignRepresentation)
