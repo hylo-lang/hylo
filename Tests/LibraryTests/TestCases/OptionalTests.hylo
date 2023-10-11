@@ -1,0 +1,11 @@
+//- compileAndRun expecting: success
+
+public fun main() {
+  var x: Optional<Int> = 42
+  let y = if let i: Int = x { i.copy() } else { 0 }
+  precondition(y == 42)
+
+  &x = None()
+  let z = if let i: Int = x { i.copy() } else { 0 }
+  precondition(z == 0)
+}
