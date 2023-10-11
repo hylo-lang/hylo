@@ -146,7 +146,7 @@ jobs:
       uses: compnerd/gha-setup-swift@main
       with:
         github-repo: thebrowsercompany/swift-build
-        github-release-asset-name: installer-amd64.exe
+        release-asset-name: installer-amd64.exe
         release-tag-name: 20231010.3
 
     - uses: actions/checkout@v3
