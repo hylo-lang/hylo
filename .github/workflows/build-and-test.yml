@@ -146,7 +146,7 @@ jobs:
       uses: compnerd/gha-setup-swift@main
       with:
         branch: swift-5.9-release
-        tag: 5.9-RELEASE
+        tag: swift-5.9-DEVELOPMENT-SNAPSHOT-2023-10-09-a
 
     - uses: actions/checkout@v3
 
