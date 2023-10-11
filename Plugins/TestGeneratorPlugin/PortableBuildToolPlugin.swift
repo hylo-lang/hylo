@@ -203,6 +203,7 @@ public extension PortableBuildCommand.Tool {
         executable: swift.spmPath,
         argumentPrefix: [
           "run",
+          "--verbose",
           // Only Macs currently use sandboxing, but nested sandboxes are prohibited, so for future
           // resilience in case Windows gets a sandbox, disable it on these reentrant builds.
           //
