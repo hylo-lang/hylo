@@ -174,3 +174,4 @@ jobs:
 
     - name: Build and test
       run: swift test --pkg-config-path .
+      shell: cmd
