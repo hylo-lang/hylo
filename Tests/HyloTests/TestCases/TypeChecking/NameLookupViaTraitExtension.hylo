@@ -1,0 +1,14 @@
+//- typeCheck expecting: success
+
+trait P {}
+
+extension P {
+  public fun foo() { print("a") }
+}
+
+conformance Int: P {}
+
+public fun main() {
+  let a = 1
+  a.foo()
+}

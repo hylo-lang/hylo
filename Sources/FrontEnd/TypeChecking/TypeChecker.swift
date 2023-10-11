@@ -2612,16 +2612,8 @@ struct TypeChecker {
       // TODO: Read source of conformance to disambiguate associated names
       let newMatches = lookup(stem, memberOf: ^t, exposedTo: scopeOfUse)
 
-      // Associated type and value declarations are not inherited by conformance. Traits do not
-      // inherit the generic parameters.
-      switch nominalScope.base {
-      case is AssociatedTypeType, is GenericTypeParameterType:
-        matches.formUnion(newMatches)
-      case is TraitType:
-        matches.formUnion(newMatches.filter({ $0.kind != GenericParameterDecl.self }))
-      default:
-        matches.formUnion(newMatches.filter(program.isRequirement(_:)))
-      }
+      // Generic parameters introduced by traits are not inherited.
+      matches.formUnion(newMatches.filter({ $0.kind != GenericParameterDecl.self }))
     }
 
     return matches
@@ -4672,8 +4664,8 @@ struct TypeChecker {
   /// `lhs` is deeper than `rhs` w.r.t. `scopeOfUse` if either of these statements hold:
   /// - `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, and `t1` refines `t2`
   /// - `lhs` isn't member of a trait and `rhs` is.
-  /// - `lhs` is declared in the module containg `scopeOfUse` and `rhs` isn't.
-  /// - `lhs` and `rhs` are declared in module containg `scopeOfUse` and `lhs` has more ancestors
+  /// - `lhs` is declared in the module containing `scopeOfUse` and `rhs` isn't.
+  /// - `lhs` and `rhs` are declared in module containing `scopeOfUse` and `lhs` has more ancestors
   ///   than `rhs`.
   private mutating func compareDepth(
     _ lhs: AnyDeclID, _ rhs: AnyDeclID, in scopeOfUse: AnyScopeID
