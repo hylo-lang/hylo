@@ -1,4 +1,4 @@
-/// Either an instance of `T` or or the absence thereof.
+/// Either an instance of `T` or the absence thereof.
 ///
 /// Use `Optional` when you need to represent a value that may or may not be present.
 public typealias Optional<T> = Union<T, None<T>>
