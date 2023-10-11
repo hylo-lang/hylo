@@ -1165,11 +1165,13 @@ struct TypeChecker {
       guard !t[.hasError] else { return nil }
 
       let candidates = lookup(n.stem, memberOf: m, exposedTo: scopeOfExposition)
-      let viable: [AnyDeclID] = candidates.reduce(into: []) { (s, c) in
-        guard let d = D(c) else { return }
-        appendDefinitions(d, t, &s)
+      var viable: [AnyDeclID] = []
+      for c in candidates {
+        guard let d = D(c) else { continue }
+        appendDefinitions(d, t, &viable)
       }
 
+      viable = viable.minimalElements(by: { (a, b) in compareDepth(a, b, in: scopeOfExposition) })
       return viable.uniqueElement
     }
 

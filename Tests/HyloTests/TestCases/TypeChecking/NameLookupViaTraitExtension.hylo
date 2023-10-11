@@ -1,14 +1,18 @@
 //- typeCheck expecting: success
 
-trait P {}
+trait P { fun foo() }
 
 extension P {
-  public fun foo() { print("a") }
+  public fun foo() {}
 }
 
 conformance Int: P {}
 
+conformance Bool: P {
+  fun foo() {}
+}
+
 public fun main() {
-  let a = 1
-  a.foo()
+  (1 + 1).foo()
+  (1 < 1).foo()
 }
