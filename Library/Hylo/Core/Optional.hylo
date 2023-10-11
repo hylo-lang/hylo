@@ -6,7 +6,7 @@ public typealias Optional<T> = Union<T, None<T>>
 /// The absence of an instance of `T`.
 public type None<T> {
 
-  /// Creates a denoting the absence of an instance of `T`.
+  /// Creates a value denoting the absence of an instance of `T`.
   public memberwise init
 
 }
