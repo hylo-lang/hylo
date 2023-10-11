@@ -6,6 +6,9 @@ public struct ConditionalStmt: Stmt, LexicalScope {
 
   public let site: SourceRange
 
+  /// The site of the `if` introducer.
+  public let introducerSite: SourceRange
+
   /// The condition of the expression.
   ///
   /// - Requires: `condition.count > 0`
@@ -17,20 +20,22 @@ public struct ConditionalStmt: Stmt, LexicalScope {
   /// The branch that's executed if the condition does not hold.
   ///
   /// - Requires: `failure` is either a `ConditionalStmt`, a `BraceStmt`, or `nil`.
-  public let failure: AnyStmtID?
+  public let failure: Introduced<AnyStmtID>?
 
   public init(
+    introducerSite: SourceRange,
     condition: [ConditionItem],
     success: BraceStmt.ID,
-    failure: AnyStmtID?,
+    failure: Introduced<AnyStmtID>?,
     site: SourceRange
   ) {
     precondition(condition.count > 0)
     if let f = failure {
-      precondition(f.kind == ConditionalStmt.self || f.kind == BraceStmt.self)
+      precondition(f.value.kind == ConditionalStmt.self || f.value.kind == BraceStmt.self)
     }
 
     self.site = site
+    self.introducerSite = introducerSite
     self.condition = condition
     self.success = success
     self.failure = failure

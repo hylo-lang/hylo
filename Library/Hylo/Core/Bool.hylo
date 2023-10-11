@@ -15,6 +15,16 @@ public type Bool {
     Bool(value: Builtin.icmp_eq_i1(value, Builtin.zeroinitializer_i1()))
   }
 
+  /// Returns the logical conjunction of `self` and `other`.
+  public fun infix&& (_ rhs: Bool) -> Bool {
+    Bool(value: Builtin.and_i1(self.value, rhs.value))
+  }
+
+  /// Returns the logical disjunction of `self` and `other`.
+  public fun infix|| (_ rhs: Bool) -> Bool {
+    Bool(value: Builtin.or_i1(self.value, rhs.value))
+  }
+
   /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
   public fun infix== (_ other: Self) -> Bool {
     Bool(value: Builtin.icmp_eq_i1(value, other.value))

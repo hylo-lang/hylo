@@ -13,4 +13,7 @@ type Vector2 {
 public fun main() {
   let x = Hylo.MemoryLayout<Vector2>.stride()
   precondition(x == 16)
+
+  precondition(Hylo.MemoryLayout<Int8>.alignment() == 1)
+  precondition(Hylo.MemoryLayout<Int32>.alignment() == 4)
 }

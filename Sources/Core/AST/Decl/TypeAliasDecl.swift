@@ -5,6 +5,9 @@ public struct TypeAliasDecl: ExposableDecl, GenericDecl, SingleEntityDecl, Gener
 
   public let site: SourceRange
 
+  /// The site of the `typealias` introducer.
+  public let introducerSite: SourceRange
+
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>
 
@@ -19,12 +22,14 @@ public struct TypeAliasDecl: ExposableDecl, GenericDecl, SingleEntityDecl, Gener
 
   /// Creates an instance with the given properties.
   public init(
+    introducerSite: SourceRange,
     accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
     genericClause: SourceRepresentable<GenericClause>?,
     aliasedType: AnyExprID,
     site: SourceRange
   ) {
+    self.introducerSite = introducerSite
     self.site = site
     self.accessModifier = accessModifier
     self.identifier = identifier

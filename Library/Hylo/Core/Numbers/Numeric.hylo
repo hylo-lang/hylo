@@ -1,0 +1,17 @@
+/// A type whose instances support multiplication.
+public trait Numeric: AdditiveArithmetic {
+
+  // TODO: Uncomment the constraint to `Numeric` when #1047 is fixed
+  /// A type that can represent the absolute value of any instance of `Self`.
+  type Magnitude: Comparable//, Numeric
+
+  /// Returns the magnitude of `self`.
+  fun magnitude() -> Magnitude
+
+  /// Returns the product of `self` and `other`
+  fun infix* (_ other: Self) -> Self
+
+  /// Writes the product of `self` and `other` to `self`.
+  fun infix*= (_ other: Self) inout
+
+}

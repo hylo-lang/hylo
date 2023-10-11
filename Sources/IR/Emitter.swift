@@ -272,8 +272,12 @@ struct Emitter {
       arguments.append(a)
     }
 
+    // Return type must be foreign convertible unless it is `Void` or `Never`.
+    let returnType = read(module.functions[f]!.output) { (t) in
+      t.isVoidOrNever ? t : program.foreignRepresentation(of: t, exposedTo: insertionScope!)
+    }
+
     // Emit the call to the foreign function.
-    let returnType = module.functions[f]!.output
     let foreignResult = insert(
       module.makeCallFFI(
         returning: .object(returnType), applying: ast[d].foreignName!, to: arguments, at: site))!
@@ -289,7 +293,7 @@ struct Emitter {
       insert(module.makeReturn(at: site))
 
     default:
-      let v = emitConvert(foreign: foreignResult, to: returnType, at: site)
+      let v = emitConvert(foreign: foreignResult, to: module.functions[f]!.output, at: site)
       emitMove([.set], v, to: returnValue!, at: site)
       emitDeallocTopFrame(at: site)
       insert(module.makeReturn(at: site))
@@ -931,7 +935,7 @@ struct Emitter {
       return .next
     }
 
-    switch emit(stmt: failure) {
+    switch emit(stmt: failure.value) {
     case .next:
       insert(module.makeBranch(to: tail, at: ast[s].site))
     case .return(let s):
@@ -988,12 +992,15 @@ struct Emitter {
       }
     }
 
-    let c = emit(branchCondition: ast[s].condition)
+    let condition = ast[s].condition.value
+    let c = emit(branchCondition: condition)
     emitDeallocTopFrame(at: ast[s].site)
     frames.pop()
 
     insert(
-      module.makeCondBranch(if: c, then: loopBody, else: loopTail, at: program[s].condition.site))
+      module.makeCondBranch(
+        if: c, then: loopBody, else: loopTail, at: ast[condition].site
+      ))
     insertionPoint = .end(of: loopTail)
     return .next
   }
@@ -1188,7 +1195,7 @@ struct Emitter {
 
     // Emit the failure branch.
     insertionPoint = .end(of: failure)
-    pushing(Frame(), { $0.emitStore(value: $0.ast[e].failure, to: storage) })
+    pushing(Frame(), { $0.emitStore(value: $0.ast[e].failure.value, to: storage) })
     insert(module.makeBranch(to: tail, at: ast[e].site))
 
     insertionPoint = .end(of: tail)
@@ -1440,19 +1447,14 @@ struct Emitter {
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.String`.
   private mutating func emitStore(string v: String, to storage: Operand, at site: SourceRange) {
-    var bytes = v.unescaped.data(using: .utf8)!
-    let utf8 = PointerConstant(module.id, module.addGlobal(BufferConstant(bytes)))
-    let size = bytes.count
-
-    // Make sure the string is null-terminated.
-    bytes.append(contentsOf: [0])
+    let bytes = v.unescaped.data(using: .utf8)!
 
     let x0 = emitSubfieldView(storage, at: [0], at: site)
-    emitStore(int: size, to: x0, at: site)
+    emitStore(int: bytes.count, to: x0, at: site)
 
     let x1 = emitSubfieldView(storage, at: [1, 0], at: site)
-    let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
-    insert(module.makeStore(.constant(utf8), at: x2, at: site))
+    let x2 = insert(module.makeConstantString(utf8: bytes, at: site))!
+    emitStore(value: x2, to: x1, at: site)
   }
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
@@ -1697,18 +1699,16 @@ struct Emitter {
         UNIMPLEMENTED()
       }
 
-      let specialization = module.specialization(in: insertionFunction!).merging(a)
       let f = FunctionReference(
-        to: FunctionDecl.ID(d)!, in: &module, specializedBy: specialization, in: insertionScope!)
+        to: FunctionDecl.ID(d)!, in: &module, specializedBy: a, in: insertionScope!)
       return (.direct(f), [])
 
     case .member(let d, let a, let s):
       // Callee is a member reference to a function or method. Its receiver is the only capture.
-      let specialization = module.specialization(in: insertionFunction!).merging(a)
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
       let k = receiverCapabilities(program[callee].type)
       let c = insert(module.makeAccess(k, from: receiver, at: ast[callee].site))!
-      let f = Callee(d, specializedBy: specialization, in: &module, usedIn: insertionScope!)
+      let f = Callee(d, specializedBy: a, in: &module, usedIn: insertionScope!)
       return (f, [c])
 
     case .builtinFunction, .builtinType:
@@ -1988,6 +1988,8 @@ struct Emitter {
     let r = ast.requirements(
       Name(stem: "init", labels: ["foreign_value"]), in: foreignConvertible.decl)[0]
 
+    // TODO: Handle cases where the foreign representation of `t` is not built-in.
+
     // Store the foreign representation in memory to call the converter.
     let source = emitAllocStack(for: module.type(of: foreign).ast, at: site)
     emitStore(value: foreign, to: source, at: site)
@@ -2029,7 +2031,7 @@ struct Emitter {
       of: t.ast, to: foreignConvertible, exposedTo: insertionScope!)!
     let r = ast.requirements("foreign_value", in: foreignConvertible.decl)[0]
 
-    // TODO: Handle cases where the foreign representation of `t` is not built-in
+    // TODO: Handle cases where the foreign representation of `t` is not built-in.
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
@@ -2086,10 +2088,24 @@ struct Emitter {
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: CastExpr.ID) -> Operand {
     switch ast[e].direction {
+    case .up:
+      return emitLValue(upcast: e)
     case .pointerConversion:
       return emitLValue(pointerConversion: e)
     default:
-      UNIMPLEMENTED()
+      UNIMPLEMENTED("lvalue lowering for cast expressions #1049")
+    }
+  }
+
+  /// Inserts the IR for lvalue `e`.
+  private mutating func emitLValue(upcast e: CastExpr.ID) -> Operand {
+    switch ast[e].left.kind {
+    case FloatLiteralExpr.self:
+      return emitStore(value: ast[e].left)
+    case IntegerLiteralExpr.self:
+      return emitStore(value: ast[e].left)
+    default:
+      UNIMPLEMENTED("lvalue lowering for cast expressions #1049")
     }
   }
 
@@ -2494,7 +2510,7 @@ struct Emitter {
   private func reference(
     to d: Function.ID, implementedFor c: Core.Conformance
   ) -> FunctionReference {
-    var a = module.specialization(in: insertionFunction!).merging(c.arguments)
+    var a = c.arguments
     if let m = program.traitMember(referredBy: d) {
       a = a.merging([program[m.trait.decl].receiver: c.model])
     }

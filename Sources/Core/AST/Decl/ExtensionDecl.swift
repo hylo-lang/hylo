@@ -5,6 +5,9 @@ public struct ExtensionDecl: TypeExtendingDecl {
 
   public let site: SourceRange
 
+  /// The site of the `extension` introducer.
+  public let introducerSite: SourceRange
+
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>
 
@@ -19,12 +22,14 @@ public struct ExtensionDecl: TypeExtendingDecl {
 
   /// Creates an instance with the given properties.
   public init(
+    introducerSite: SourceRange,
     accessModifier: SourceRepresentable<AccessModifier>,
     subject: AnyExprID,
     whereClause: SourceRepresentable<WhereClause>?,
     members: [AnyDeclID],
     site: SourceRange
   ) {
+    self.introducerSite = introducerSite
     self.site = site
     self.accessModifier = accessModifier
     self.subject = subject

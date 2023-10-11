@@ -197,7 +197,7 @@ private struct ScopeVisitor: ASTWalkObserver {
 
     // The failure branch is not in the scope of the conditional expression.
     innermost = nodeToScope[e]!
-    ast.walk(ast[e].failure, notifying: &self)
+    ast.walk(ast[e].failure.value, notifying: &self)
     return false
   }
 
@@ -209,7 +209,7 @@ private struct ScopeVisitor: ASTWalkObserver {
 
     // The failure branch is not in the scope of the conditional expression.
     innermost = nodeToScope[s]!
-    ast.walk(ast[s].failure, notifying: &self)
+    ast.walk(ast[s].failure?.value, notifying: &self)
     return false
   }
 
@@ -220,7 +220,7 @@ private struct ScopeVisitor: ASTWalkObserver {
     ast.walk(roots: ast[ast[s].body].stmts, notifying: &self)
 
     // The condition is in the same scope as the body.
-    ast.walk(ast[s].condition, notifying: &self)
+    ast.walk(ast[s].condition.value, notifying: &self)
     innermost = nodeToScope[ast[s].body]!
     return false
   }

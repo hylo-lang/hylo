@@ -33,6 +33,11 @@ public type PointerToMutable<Pointee>: Regular {
     &base = p.base
   }
 
+  /// Creates an instance with the same memory representation as `address`.
+  public init(bit_pattern address: Int) {
+    &self.base = Builtin.inttoptr_word(address.value)
+  }
+
   /// Returns `self` offset forward by `n` array elements of `Pointee` type.
   public fun advance(by n: Int) -> Self {
     let offset_in_bytes = MemoryLayout<Pointee>.stride() * n
@@ -55,13 +60,6 @@ public type PointerToMutable<Pointee>: Regular {
 
 }
 
-
-// FIXME: rename pointer[toMutable:]
-/// The address of `x`.
-public subscript pointerToMutable<T>(_ x: inout T): PointerToMutable<T> {
-  let { yield PointerToMutable(base: Builtin.address(of: x)) }
-}
-
 public conformance PointerToMutable: Copyable {
 
   /// Returns an equivalent instance.
@@ -79,6 +77,11 @@ public conformance PointerToMutable: Equatable {
   /// Returns `true` iff `other` has an equivalent value.
   public fun infix== (_ other: Self) -> Bool {
     Bool(value: Builtin.icmp_eq_ptr(base, other.base))
+  }
+
+  /// Returns `false` iff `other` has an equivalent value.
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_ptr(base, other.base))
   }
 
 }
@@ -101,6 +104,12 @@ public extension PointerToMutable where Pointee: Movable {
     initialize<Pointee>(&(base as* (remote set Pointee)), to: value)
   }
 
+}
+
+// TODO: Rename to `pointer[to_mutable:]`
+/// The address of `x`.
+public subscript mutable_pointer<T>(to x: inout T): PointerToMutable<T> {
+  let { yield PointerToMutable(base: Builtin.address(of: x)) }
 }
 
 /// Initializes `x` to `y`.

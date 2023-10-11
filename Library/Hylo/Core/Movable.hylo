@@ -8,3 +8,21 @@ public trait Movable {
   }
 
 }
+
+public extension Movable {
+
+  /// Exchanges the value of `self` with that of `other`.
+  public fun exchange(with other: inout Self) inout {
+    sink let x = self
+    &self = other
+    &other = x
+  }
+
+}
+
+// TODO: Remove in favor of `Movable.exchange(with:)` when #1064 is fixed
+public fun swap<T: Movable>(_ a: inout T, _ b: inout T) {
+  sink let x = a
+  &a = b
+  &b = x
+}

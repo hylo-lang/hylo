@@ -1,0 +1,70 @@
+/// An integer type with a binary representation of a fixed size for every instance.
+///
+/// Use this trait to write algorithms that depend on bit shifting, perform bitwise opeperations,
+/// catch overflows, or access the minimum or maximum representable values of an integer type.
+public trait FixedWidthInteger: BinaryInteger {
+
+  /// Returns `true` if the bits set in `mask` are also set in `self`.
+  fun matches(_ mask: Self) -> Bool
+
+  /// Returns the sum of `self` and `other` along with a flag indicating whether overflow occurred
+  /// in the operation.
+  fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool}
+
+  /// Returns `self` subtracted by `other` along with a flag indicating whether overflow occurred
+  /// in the operation.
+  fun subtracting_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool}
+
+  /// Returns the product of `self` and `other` along with a flag indicating whether overflow
+  /// occurred in the operation.
+  fun multiplied_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool}
+
+  /// Returns the quotient of dividing `self` by `other` along with a flag indicating whether
+  /// overflow occurred in the operation.
+  fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool}
+
+  /// Returns the remainder of dividing `self` by `other` along with a flag indicating whether
+  /// overflow occurred in the operation.
+  fun remainder_reporting_overflow(
+    dividing_by other: Self
+  ) -> {partial_value: Self, overflow: Bool}
+
+  /// Returns the number of bits equal to `1` in the representation of `self`.
+  fun nonzero_bit_count() -> Int
+
+  /// Returns the number of bits equal to `0` on the left of the most significant bit equal to
+  /// `1` in the representation of `self`.
+  fun leading_zeros() -> Int
+
+  /// Returns `self` with its binary representation shifted by `n` digits to the left, masking the
+  /// shift amount to the bit width of `Self`.
+  ///
+  /// Use this operator when you need to perform a shift and are sure that the shift amount is in
+  /// the range `0 ..< Self.bit_width()`.
+  fun infix&<< (_ n: Int) -> Self
+
+  /// Shifts the binary representation of `self` by `n` digits to the left, masking the shift
+  /// amount to the bit width of `Self`.
+  fun infix&<<= (_ n: Int) inout
+
+  /// Returns `self` with its binary representation shifted by `n` digits to the right, masking the
+  /// shift amount to the bit width of `Self`.
+  ///
+  /// Use this operator when you need to perform a shift and are sure that the shift amount is in
+  /// the range `0 ..< Self.bit_width()`.
+  fun infix&>> (_ n: Int) -> Self
+
+  /// Shifts the binary representation of `self` by `n` digits to the right, masking the shift
+  /// amount to the bit width of `Self`.
+  fun infix&>>= (_ n: Int) inout
+
+  /// Returns the number of bits in the representation of an instance of this type.
+  static fun bit_width() -> Int
+
+  /// Returns the maximum value representable by this type.
+  static fun max() -> Self
+
+  /// Returns the minimum value representable by this type.
+  static fun min() -> Self
+
+}

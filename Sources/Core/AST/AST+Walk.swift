@@ -451,7 +451,7 @@ extension AST {
   ) {
     walk(conditionItems: n.condition, notifying: &o)
     walk(n.success, notifying: &o)
-    walk(n.failure, notifying: &o)
+    walk(n.failure.value, notifying: &o)
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
@@ -706,7 +706,7 @@ extension AST {
   ) {
     walk(conditionItems: n.condition, notifying: &o)
     walk(n.success, notifying: &o)
-    walk(n.failure, notifying: &o)
+    walk(n.failure?.value, notifying: &o)
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
@@ -733,7 +733,7 @@ extension AST {
     _ n: DoWhileStmt, notifying o: inout O
   ) {
     walk(n.body, notifying: &o)
-    walk(n.condition, notifying: &o)
+    walk(n.condition.value, notifying: &o)
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
@@ -748,8 +748,8 @@ extension AST {
     _ n: ForStmt, notifying o: inout O
   ) {
     walk(n.binding, notifying: &o)
-    walk(n.domain, notifying: &o)
-    walk(n.filter, notifying: &o)
+    walk(n.domain.value, notifying: &o)
+    walk(n.filter?.value, notifying: &o)
     walk(n.body, notifying: &o)
   }
 

@@ -3,6 +3,9 @@ import Utils
 /// A where clause.
 public struct WhereClause: Codable {
 
+  /// The site of the `where` introducer.
+  public let introducerSite: SourceRange
+
   /// The expression of a type constraint defined in a generic clause.
   public enum ConstraintExpr: Codable {
 
@@ -24,7 +27,11 @@ public struct WhereClause: Codable {
   /// The constraint expressions in the clause.
   public let constraints: [SourceRepresentable<ConstraintExpr>]
 
-  public init(constraints: [SourceRepresentable<WhereClause.ConstraintExpr>]) {
+  public init(
+    introducerSite: SourceRange,
+    constraints: [SourceRepresentable<WhereClause.ConstraintExpr>]
+  ) {
+    self.introducerSite = introducerSite
     self.constraints = constraints
   }
 
