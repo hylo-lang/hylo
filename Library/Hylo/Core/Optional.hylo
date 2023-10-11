@@ -1,0 +1,26 @@
+/// Either an instance of `T` or or the absence thereof.
+///
+/// Use `Optional` when you need to represent a value that may or may not be present.
+public typealias Optional<T> = Union<T, None<T>>
+
+/// The absence of an instance of `T`.
+public type None<T> {
+
+  /// Creates a denoting the absence of an instance of `T`.
+  public memberwise init
+
+}
+
+public conformance None: Regular {
+
+  // TODO: Remove when #1078 is implemented.
+  public fun copy() -> Self {
+    None()
+  }
+
+  // TODO: Remove when #1078 is implemented.
+  public fun infix==(_ other: Self) -> Bool {
+    true
+  }
+
+}
