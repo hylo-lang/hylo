@@ -289,6 +289,12 @@ public struct TypedProgram {
     return checker.accumulatedGenericParameters(in: s)
   }
 
+  /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
+  public func traitDefining<T: DeclID>(_ d: T) -> TraitType? {
+    var checker = TypeChecker(asContextFor: self)
+    return checker.traitDefining(d)
+  }
+
   /// Returns `true` iff `model` conforms to `concept` in `scopeOfUse`.
   public func conforms(
     _ model: AnyType, to concept: TraitType, in scopeOfUse: AnyScopeID

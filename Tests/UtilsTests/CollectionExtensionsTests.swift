@@ -18,6 +18,27 @@ final class CollectionExtensionsTests: XCTestCase {
     XCTAssertEqual([0, 2].partitioningIndex(at: 3), 2)
   }
 
+  func testMinimalElements() {
+    XCTAssertEqual([Int]().minimalElements(by: compare(_:_:)), [])
+    XCTAssertEqual([2].minimalElements(by: compare(_:_:)), [2])
+
+    let x = [4, 8, 3, 2, 5, 6]
+    XCTAssertEqual(Set(x.minimalElements(by: compare(_:_:))), [2, 3, 5])
+
+    /// Returns whether `a` is divisor of `b` or vice versa.
+    func compare(_ a: Int, _ b: Int) -> StrictPartialOrdering {
+      if a == b {
+        return .equal
+      } else if a % b == 0 {
+        return .descending
+      } else if b % a == 0 {
+        return .ascending
+      } else {
+        return nil
+      }
+    }
+  }
+
 }
 
 final class BidirectionalCollectionExtensionsTests: XCTestCase {

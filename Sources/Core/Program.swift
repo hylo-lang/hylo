@@ -60,6 +60,19 @@ extension Program {
     isContained(l, in: r) || isContained(r, in: l)
   }
 
+  /// Returns `true` iff `l` is lexically enclosed in more scopes than `r`.
+  public func hasMoreAncestors(_ l: AnyDeclID, than r: AnyDeclID) -> Bool {
+    guard let s = nodeToScope[l] else { return false }
+    guard let t = nodeToScope[r] else { return true }
+
+    var a = scopes(from: s)
+    var b = scopes(from: t)
+    while a.next() != nil {
+      if b.next() == nil { return true }
+    }
+    return false
+  }
+
   /// Returns the scope of `d`'s body, if any.
   public func scopeContainingBody(of d: FunctionDecl.ID) -> AnyScopeID? {
     switch ast[d].body {
@@ -256,9 +269,34 @@ extension Program {
     }
   }
 
-  /// Returns whether `d` is a requirement.
+  /// Returns `true` iff `d` is defined in an extension.
+  public func isDefinedInExtension<T: DeclID>(_ d: T) -> Bool {
+    switch d.kind {
+    case ModuleDecl.self:
+      return false
+    case MethodImpl.self:
+      return isDefinedInExtension(MethodDecl.ID(nodeToScope[d]!)!)
+    case SubscriptImpl.self:
+      return isDefinedInExtension(SubscriptDecl.ID(nodeToScope[d]!)!)
+    default:
+      return nodeToScope[d]!.kind == ExtensionDecl.self
+    }
+  }
+
+  /// Returns `true` iff `d` is a trait requirement.
   public func isRequirement<T: DeclID>(_ d: T) -> Bool {
-    trait(defining: d) != nil
+    switch d.kind {
+    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
+      return true
+    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
+      return nodeToScope[d]!.kind == TraitDecl.self
+    case MethodImpl.self:
+      return isRequirement(MethodDecl.ID(nodeToScope[d]!)!)
+    case SubscriptImpl.self:
+      return isRequirement(SubscriptDecl.ID(nodeToScope[d]!)!)
+    default:
+      return false
+    }
   }
 
   /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
@@ -311,22 +349,6 @@ extension Program {
   /// - Requires:`scope` is not a module.
   public func source<S: ScopeID>(containing scope: S) -> TranslationUnit.ID {
     scopes(from: scope).first(TranslationUnit.self)!
-  }
-
-  /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
-  public func trait<T: DeclID>(defining d: T) -> TraitDecl.ID? {
-    switch d.kind {
-    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
-      return TraitDecl.ID(nodeToScope[d]!)!
-    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
-      return TraitDecl.ID(nodeToScope[d]!)
-    case MethodImpl.self:
-      return trait(defining: MethodDecl.ID(nodeToScope[d]!)!)
-    case SubscriptImpl.self:
-      return trait(defining: SubscriptDecl.ID(nodeToScope[d]!)!)
-    default:
-      return nil
-    }
   }
 
   /// Returns the name of `d` if it introduces a single entity.
