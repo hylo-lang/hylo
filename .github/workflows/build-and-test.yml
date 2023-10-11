@@ -145,8 +145,9 @@ jobs:
     - name: Setup swift
       uses: compnerd/gha-setup-swift@main
       with:
-        branch: swift-5.9-release
-        tag: 5.9-DEVELOPMENT-SNAPSHOT-2023-10-09-a
+        github-repo: thebrowsercompany/swift-build
+        github-release-asset-name: installer-amd64.exe
+        release-tag-name: 20231010.3
 
     - uses: actions/checkout@v3
 
