@@ -979,7 +979,9 @@ struct TypeChecker {
     // Nothing to do if no conformance is declared.
     if program[d].conformances.isEmpty { return }
 
-    guard let r = resolveReceiverMetatype(in: AnyScopeID(d))!.instance.errorFree else { return }
+    guard var r = extendedModel(AnyDeclID(d)).errorFree else { return }
+    r = canonical(r, in: program[d].scope)
+
     for (n, rhs) in evalTraitComposition(program[d].conformances) {
       for t in conformedTraits(of: rhs, in: program[d].scope) {
         _ = checkConformance(of: r, to: t, declaredBy: .init(d, at: program[n].site))
@@ -989,24 +991,25 @@ struct TypeChecker {
 
   /// Type checks the conformance of `model` to `concept`, which is declared by `source`, returning
   /// it iff it is valid. Otherwise, returns `nil` and reports a diagnostic.
+  ///
+  /// - Requires: `model` is canonical.
   private mutating func checkConformance(
     of model: AnyType, to concept: TraitType, declaredBy origin: ConformanceOrigin
   ) -> Conformance? {
+    assert(model[.isCanonical])
+
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
     let scopeOfExposition = read(program[origin.source].scope) { (s) in
       (s.kind == TranslationUnit.self) ? program[s].scope : s
     }
 
-    var m = canonical(model, in: scopeOfExposition)
-    let traitReceiverToModel: GenericArguments = [program[concept.decl].receiver: m]
+    let traitReceiverToModel: GenericArguments = [program[concept.decl].receiver: model]
+    let conformanceCacheKey = BoundGenericType(model)?.base ?? model
 
     // TODO: Use arguments to bound generic types as constraints
-    if let b = BoundGenericType(m) {
-      m = b.base
-    }
 
-    if let s = cache.local.conformances[m, default: [:]][concept] {
+    if let s = cache.local.conformances[conformanceCacheKey, default: [:]][concept] {
       if let c = s.first(where: { $0.scope == scopeOfExposition }) { return c }
     }
 
@@ -1018,13 +1021,15 @@ struct TypeChecker {
     }
 
     if !conformanceDiagnostics.isEmpty || !checkRequirementConstraints() {
+      // Use `extendedModel(_:)` to get `model` as it was declared in program sources.
+      let m = extendedModel(origin.source)
       report(
-        .error(model, doesNotConformTo: concept, at: origin.site, because: conformanceDiagnostics))
+        .error(m, doesNotConformTo: concept, at: origin.site, because: conformanceDiagnostics))
       return nil
     }
 
     let c = Conformance(
-      model: m, concept: concept,
+      model: conformanceCacheKey, concept: concept,
       arguments: [:], conditions: [], scope: scopeOfExposition,
       implementations: implementations, isStructural: false, site: origin.site)
     insertConformance(c)
@@ -1136,7 +1141,7 @@ struct TypeChecker {
     /// `requirement` is an associated type of `concept`.
     func implementation(of requirement: AssociatedTypeDecl.ID) -> AnyDeclID? {
       let n = program[requirement].baseName
-      let candidates = lookup(n, memberOf: m, exposedTo: scopeOfExposition)
+      let candidates = lookup(n, memberOf: model, exposedTo: scopeOfExposition)
 
       // Candidates are viable iff they declare a metatype and have a definition.
       let viable: [AnyDeclID] = candidates.reduce(into: []) { (s, c) in
@@ -1164,7 +1169,7 @@ struct TypeChecker {
     ) -> AnyDeclID? {
       guard !t[.hasError] else { return nil }
 
-      let candidates = lookup(n.stem, memberOf: m, exposedTo: scopeOfExposition)
+      let candidates = lookup(n.stem, memberOf: model, exposedTo: scopeOfExposition)
       var viable: [AnyDeclID] = []
       for c in candidates {
         guard let d = D(c) else { continue }
@@ -2057,6 +2062,20 @@ struct TypeChecker {
     }
 
     return LambdaType(environment: .void, inputs: inputs, output: .void)
+  }
+
+  /// Returns the model for which `d` declares conformances.
+  ///
+  /// - Requires: `d` is a conformance source.
+  private mutating func extendedModel(_ d: AnyDeclID) -> AnyType {
+    switch d.kind {
+    case ProductTypeDecl.self:
+      return resolveReceiverMetatype(in: ProductTypeDecl.ID(d)!)!.instance
+    case ConformanceDecl.self:
+      return resolveReceiverMetatype(in: ConformanceDecl.ID(d)!)!.instance
+    default:
+      unexpected(d, in: program.ast)
+    }
   }
 
   // MARK: Evaluation
