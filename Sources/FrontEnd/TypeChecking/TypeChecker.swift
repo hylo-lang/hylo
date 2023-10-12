@@ -273,6 +273,59 @@ struct TypeChecker {
     return result
   }
 
+  /// Returns the checked conformance of `model` to `trait` that is exposed to `scopeOfUse`, or
+  /// `nil` if such a conformance doesn't exist or hasn't been checked yet.
+  ///
+  /// - Requires: `model` is canonical.
+  func findCachedConformance(
+    of model: AnyType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
+  ) -> Conformance? {
+    assert(model[.isCanonical])
+
+    // `A<X>: T` iff `A: T`.
+    if let t = BoundGenericType(model) {
+      guard let c = cache.local.conformance(of: t.base, to: trait, exposedTo: scopeOfUse) else {
+        return nil
+      }
+
+      // TODO: translate generic arguments to conditions
+
+      return .init(
+        model: t.base, concept: trait, arguments: t.arguments, conditions: [],
+        scope: c.scope, implementations: c.implementations, isStructural: c.isStructural,
+        site: c.site)
+    }
+
+    guard
+      let allConformances = cache.local.conformances[model],
+      let conformancesToTrait = allConformances[trait]
+    else { return nil }
+
+    return closestConformance(in: conformancesToTrait, exposedTo: scopeOfUse)
+  }
+
+  /// Returns the innermost element in `conformances` that is exposed to `scopeOfUse`.
+  private func closestConformance<C: Collection<Conformance>>(
+    in conformances: C, exposedTo scopeOfUse: AnyScopeID
+  ) -> Conformance? {
+    let exposed = program.modules(exposedTo: scopeOfUse)
+    return conformances
+      .filter { (c) in
+        if let m = ModuleDecl.ID(c.scope), exposed.contains(m) {
+          return true
+        } else {
+          return program.isContained(scopeOfUse, in: c.scope)
+        }
+      }
+      .minimalElements { (a, b) in
+        if a.scope == b.scope { return .equal }
+        if program.isContained(a.scope, in: b.scope) { return .ascending }
+        if program.isContained(b.scope, in: a.scope) { return .descending }
+        return nil
+      }
+      .uniqueElement
+  }
+
   // MARK: Type transformations
 
   /// Returns `generic` with occurrences of parameters keying `specialization` replaced by their
