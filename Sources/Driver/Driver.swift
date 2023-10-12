@@ -203,7 +203,7 @@ public struct Driver: ParsableCommand {
 
     if outputType == .intelAsm {
       try llvmProgram.llvmModules[sourceModule]!.write(
-        .assembly, for: target, to: intelASMFile(productName).path)
+        .assembly, for: target, to: intelASMFile(productName).fileSystemPath)
       return
     }
 
@@ -276,7 +276,7 @@ public struct Driver: ParsableCommand {
   private func makeMacOSExecutable(
     at binaryPath: String, linking objects: [URL], diagnostics: inout DiagnosticSet
   ) throws {
-    let xcrun = try find("xcrun")
+    let xcrun = try findExecutable(invokedAs: "xcrun").fileSystemPath
     let sdk =
       try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"], diagnostics: &diagnostics)
       ?? ""
@@ -286,7 +286,7 @@ public struct Driver: ParsableCommand {
       "-L\(sdk)/usr/lib",
     ]
     arguments.append(contentsOf: librarySearchPaths.map({ "-L\($0)" }))
-    arguments.append(contentsOf: objects.map(\.path))
+    arguments.append(contentsOf: objects.map(\.fileSystemPath))
     arguments.append("-lSystem")
     arguments.append("-lc++")
     arguments.append(contentsOf: libraries.map({ "-l\($0)" }))
@@ -305,12 +305,12 @@ public struct Driver: ParsableCommand {
       "-o", binaryPath,
     ]
     arguments.append(contentsOf: librarySearchPaths.map({ "-L\($0)" }))
-    arguments.append(contentsOf: objects.map(\.path))
+    arguments.append(contentsOf: objects.map(\.fileSystemPath))
     arguments.append(contentsOf: libraries.map({ "-l\($0)" }))
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
-    try runCommandLine(find("clang++"), arguments, diagnostics: &diagnostics)
+    try runCommandLine(findExecutable(invokedAs: "clang++").fileSystemPath, arguments, diagnostics: &diagnostics)
   }
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
@@ -321,8 +321,8 @@ public struct Driver: ParsableCommand {
     diagnostics: inout DiagnosticSet
   ) throws {
     try runCommandLine(
-      find("lld-link"),
-      ["-defaultlib:HyloLibC", "-defaultlib:msvcrt", "-out:" + binaryPath] + objects.map(\.path),
+      findExecutable(invokedAs: "lld-link").fileSystemPath,
+      ["-defaultlib:HyloLibC", "-defaultlib:msvcrt", "-out:" + binaryPath] + objects.map(\.fileSystemPath),
       diagnostics: &diagnostics)
   }
 
@@ -331,7 +331,7 @@ public struct Driver: ParsableCommand {
   ///
   /// The returned path has a `.exe` extension on Windows.
   private func executableOutputPath(default productName: String) -> String {
-    var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).path
+    var binaryPath = outputURL?.fileSystemPath ?? URL(fileURLWithPath: productName).fileSystemPath
     #if os(Windows)
       if !binaryPath.hasSuffix(".exe") { binaryPath += ".exe" }
     #endif
@@ -363,39 +363,32 @@ public struct Driver: ParsableCommand {
     UNIMPLEMENTED()
   }
 
-  /// Returns the path of the specified executable.
-  private func find(_ executable: String) throws -> String {
-    if let path = Driver.executableLocationCache[executable] { return path }
+  /// Returns the path of the executable that is invoked at the command-line with the name given by
+  /// `invocationName`.
+  private func findExecutable(invokedAs invocationName: String) throws -> URL {
+    if let cached = Driver.executableLocationCache[invocationName] { return cached }
+
+    let executableFileName
+      = invocationName.hasSuffix(executableSuffix) ? invocationName : invocationName + executableSuffix
 
     // Search in the current working directory.
-    var candidate = currentDirectory.appendingPathComponent(executable)
-    if FileManager.default.fileExists(atPath: candidate.path) {
-      Driver.executableLocationCache[executable] = candidate.path
-      return candidate.path
+    var candidate = currentDirectory.appendingPathComponent(executableFileName)
+    if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
+      Driver.executableLocationCache[invocationName] = candidate
+      return candidate
     }
 
     // Search in the PATH.
-    #if os(Windows)
-      let environment = ProcessInfo.processInfo.environment["Path"] ?? ""
-      for root in environment.split(separator: ";") {
-        candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
-        if FileManager.default.fileExists(atPath: candidate.path + ".exe") {
-          Driver.executableLocationCache[executable] = candidate.path
-          return candidate.path
-        }
+    let environment = ProcessInfo.processInfo.environment[pathEnvironmentVariable] ?? ""
+    for root in environment.split(separator: pathEnvironmentSeparator) {
+      candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(invocationName + executableSuffix)
+      if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
+        Driver.executableLocationCache[invocationName] = candidate
+        return candidate
       }
-    #else
-      let environment = ProcessInfo.processInfo.environment["PATH"] ?? ""
-      for root in environment.split(separator: ":") {
-        candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
-        if FileManager.default.fileExists(atPath: candidate.path) {
-          Driver.executableLocationCache[executable] = candidate.path
-          return candidate.path
-        }
-      }
-    #endif
+    }
 
-    throw EnvironmentError("executable not found: \(executable)")
+    throw EnvironmentError("not found: executable invoked as \(invocationName)")
   }
 
   /// Executes the program at `path` with the specified arguments in a subprocess.
@@ -424,8 +417,8 @@ public struct Driver: ParsableCommand {
     })
   }
 
-  /// A map from executable name to path of the named binary.
-  private static var executableLocationCache: [String: String] = [:]
+  /// A map from the name by which an executable is invoked to path of the named binary.
+  private static var executableLocationCache: [String: URL] = [:]
 
   /// Writes a textual description of `input` to the given `output` file.
   func write(_ input: AST, to output: URL) throws {
