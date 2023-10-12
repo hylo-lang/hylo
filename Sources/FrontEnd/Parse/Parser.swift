@@ -1297,12 +1297,24 @@ public enum Parser {
     .public: AccessModifier.public,
   ])
 
-  static let captureList = inContext(
-    .captureList,
-    apply: (take(.lBrack)
-      .and(bindingDecl.and(zeroOrMany(take(.comma).and(bindingDecl).second)))
-      .and(take(.rBrack))
-      .map({ (_, tree) -> [BindingDecl.ID] in [tree.0.1.0] + tree.0.1.1 })))
+  static let captureList = Apply(parseCaptureList(in:))
+
+  /// Parses a capture list.
+  private static func parseCaptureList(in state: inout ParserState) throws -> [BindingDecl.ID]? {
+    try parseList(in: &state, with: captureListSpecification)
+  }
+
+  /// Parses an explicit capture declaration.
+  private static func parseCaptureDecl(in state: inout ParserState) throws -> BindingDecl.ID? {
+    try parseBindingDecl(in: &state)
+  }
+
+  /// The specification of a capture list, for use in `parseList(in:with:)`.
+  private static let captureListSpecification = DelimitedCommaSeparatedList(
+    openerKind: .lBrack,
+    closerKind: .rBrack,
+    closerDescription: "]",
+    elementParser: Apply(parseCaptureDecl(in:)))
 
   static let genericClause =
     (take(.lAngle).and(genericParameterListContents).and(maybe(whereClause)).and(take(.rAngle))
