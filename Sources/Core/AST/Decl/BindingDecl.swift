@@ -24,7 +24,7 @@ public struct BindingDecl: ExposableDecl {
   public init(
     attributes: [SourceRepresentable<Attribute>] = [],
     accessModifier: SourceRepresentable<AccessModifier>,
-    memberModifier: SourceRepresentable<MemberModifier>? = nil,
+    memberModifier: SourceRepresentable<MemberModifier>?,
     pattern: BindingPattern.ID,
     initializer: AnyExprID?,
     site: SourceRange
