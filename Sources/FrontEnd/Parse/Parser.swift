@@ -1228,16 +1228,6 @@ public enum Parser {
 
   static let subscriptImpl = (implIntroducer.and(maybe(functionBody)))
 
-  static let bindingDecl =
-    (Apply<ParserState, BindingDecl.ID>({ (state) -> BindingDecl.ID? in
-      switch state.peek()?.kind {
-      case .let, .inout, .var, .sink:
-        return try parseDeclPrologue(in: &state, then: parseBindingDecl(withPrologue:in:))
-      default:
-        return nil
-      }
-    }))
-
   static let parameterDecl =
     (parameterInterface
       .and(maybe(take(.colon).and(parameterTypeExpr)))
