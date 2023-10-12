@@ -340,7 +340,7 @@ public struct TypedProgram {
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
     let checker = TypeChecker(asContextFor: self)
-    return checker.findCachedConformance(of: model, to: concept, exposedTo: scopeOfUse)
+    return checker.cachedConformance(of: model, to: concept, exposedTo: scopeOfUse)
   }
 
   /// Returns the conformance of `model` to `concept` that is implied by the generic environment
