@@ -2800,28 +2800,48 @@ public enum Parser {
             site: tree.0.0.site.extended(upTo: state.currentIndex)))
       }))
 
-  static let forStmt =
-    (take(.for).and(bindingPattern).and(forSite).and(maybe(forFilter)).and(loopBody)
-      .map({ (state, tree) -> ForStmt.ID in
-        let startOfBindingDecl = state.ast[tree.0.0.0.1].site
-        let decl = state.insert(
-          BindingDecl(
-            accessModifier: SourceRepresentable(value: .private, range: startOfBindingDecl),
-            pattern: tree.0.0.0.1,
-            initializer: nil,
-            site: startOfBindingDecl))
-        return state.insert(
-          ForStmt(
-            introducerSite: tree.0.0.0.0.site,
-            binding: decl, domain: tree.0.0.1, filter: tree.0.1, body: tree.1,
-            site: tree.0.0.0.0.site.extended(upTo: state.currentIndex)))
-      }))
+  static let forStmt = Apply(parseForLoop(in:))
 
-  static let forSite =
-    (take(.in).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site) }))
+  /// Parses a for-loop.
+  private static func parseForLoop(in state: inout ParserState) throws -> ForStmt.ID? {
+    guard let introducer = state.take(.for) else { return nil }
 
-  static let forFilter =
-    (take(.where).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site) }))
+    let binding = try state.expect("binding", using: parseForLoopBinding(in:))
+    let domainIntroducer = try state.expect("in", using: { $0.take(.in) })
+    let domain = try state.expect("expression", using: parseExpr(in:))
+    let filter = try parseForLoopFilter(in: &state)
+    let body = try state.expect("loop body", using: loopBody)
+
+    return state.insert(
+      ForStmt(
+        introducerSite: introducer.site,
+        binding: binding,
+        domain: .init(domain, at: domainIntroducer.site),
+        filter: filter, body: body,
+        site: introducer.site.extended(upTo: state.currentIndex)))
+  }
+
+  /// Parses the binding of a for-loop.
+  private static func parseForLoopBinding(in state: inout ParserState) throws -> BindingDecl.ID? {
+    guard let pattern = try parseBindingPattern(in: &state) else { return nil }
+    let s = state.ast[pattern].site
+    return state.insert(
+      BindingDecl(
+        accessModifier: SourceRepresentable(value: .private, range: s),
+        memberModifier: nil,
+        pattern: pattern,
+        initializer: nil,
+        site: s))
+  }
+
+  /// Parses the filter of a for-loop.
+  private static func parseForLoopFilter(
+    in state: inout ParserState
+  ) throws -> Introduced<AnyExprID>? {
+    guard let introducer = state.take(.where) else { return nil }
+    let e = try state.expect("expression", using: parseExpr(in:))
+    return .init(e, at: introducer.site)
+  }
 
   static let loopBody = inContext(.loopBody, apply: braceStmt)
 
