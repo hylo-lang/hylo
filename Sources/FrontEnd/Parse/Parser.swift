@@ -410,7 +410,12 @@ public enum Parser {
         site: state.range(from: prologue.startIndex)))
   }
 
-  /// Parses an instance of `BindingDecl`.
+  /// Parses a declaration of bindings.
+  private static func parseBindingDecl(in state: inout ParserState) throws -> BindingDecl.ID? {
+    try parseDeclPrologue(in: &state, then: parseBindingDecl(withPrologue:in:))
+  }
+
+  /// Parses a declaration of bindings prefixed by the given (already parsed) `prologue`.
   static func parseBindingDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
@@ -2877,44 +2882,34 @@ public enum Parser {
         state.insert(ContinueStmt(site: token.site))
       }))
 
-  static let bindingStmt =
-    (Apply<ParserState, AnyStmtID>({ (state) -> AnyStmtID? in
-      let backup = state.backup()
-      do {
-        if let element = try conditionalBindingStmt.parse(&state) { return AnyStmtID(element) }
-      } catch {}
-      state.restore(from: backup)
+  static let bindingStmt = Apply(parseBindingStmt(in:))
 
-      if let decl = try bindingDecl.parse(&state) {
-        let id = state.insert(
-          DeclStmt(
-            decl: AnyDeclID(decl),
-            site: state.ast[decl].site))
-        return AnyStmtID(id)
-      } else {
-        return nil
-      }
-    }))
+  /// Parses a binding statement.
+  private static func parseBindingStmt(in state: inout ParserState) throws -> AnyStmtID? {
+    guard let d = try parseBindingDecl(in: &state) else { return nil }
 
-  static let conditionalBindingStmt =
-    (bindingDecl.and(take(.else)).and(conditionalBindingFallback)
-      .map({ (state, tree) -> CondBindingStmt.ID in
-        let bindingSite = state.ast[tree.0.0].site
+    if state.take(.else) == nil {
+      // No fallback introducer; be satisfied with just the binding declaration.
+      let s = state.insert(DeclStmt(decl: AnyDeclID(d), site: state.ast[d].site))
+      return AnyStmtID(s)
+    }
 
-        if state.ast[tree.0.0].initializer == nil {
-          throw [
-            .error(
-              "conditional binding requires an initializer",
-              at: bindingSite.extended(upTo: bindingSite.start))
-          ] as DiagnosticSet
-        }
+    if state.ast[d].initializer == nil {
+      throw [
+        .error(
+          "conditional binding requires an initializer",
+          at: .empty(atEndOf: state.ast[d].site))
+        ] as DiagnosticSet
+    }
 
-        return state.insert(
-          CondBindingStmt(
-            binding: tree.0.0,
-            fallback: tree.1,
-            site: bindingSite.extended(upTo: state.currentIndex)))
-      }))
+    let fallback = try state.expect("fallback", using: conditionalBindingFallback)
+    let s = state.insert(
+      CondBindingStmt(
+        binding: d,
+        fallback: fallback,
+        site: state.ast[d].site.extended(upTo: state.currentIndex)))
+    return AnyStmtID(s)
+  }
 
   static let conditionalBindingFallback =
     (conditionalBindingFallbackStmt.or(conditionalBindingFallbackExpr))
