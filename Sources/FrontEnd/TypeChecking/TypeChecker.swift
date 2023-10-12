@@ -530,7 +530,7 @@ struct TypeChecker {
   /// Type checks `d` and all declarations nested in `d`.
   private mutating func _check(_ d: ConformanceDecl.ID) {
     checkEnvironment(of: d)
-    checkConformance(of: d, to: program[d].conformances)
+    checkConformance(declaredBy: d)
     check(program[d].members)
   }
 
@@ -648,7 +648,7 @@ struct TypeChecker {
   /// Type checks `d` and all declarations nested in `d`.
   private mutating func _check(_ d: ProductTypeDecl.ID) {
     checkEnvironment(of: d)
-    checkConformance(of: d, to: program[d].conformances)
+    checkConformance(declaredBy: d)
     check(program[d].members)
   }
 
@@ -971,16 +971,16 @@ struct TypeChecker {
     check(e.parameters)
   }
 
-  /// Type checks the conformances of the type declared by `d` to `concepts` and inserts valid ones
-  /// in `self.conformances`, reporting diagnostics for each ill-typed conformance.
-  private mutating func checkConformance<T: Decl & LexicalScope>(
-    of d: T.ID, to concepts: [NameExpr.ID]
+  /// Type checks the conformances declared by `d` and inserts valid ones in `self.conformances`,
+  /// reporting diagnostics for each ill-typed conformance.
+  private mutating func checkConformance<T: ConformanceSource & LexicalScope>(
+    declaredBy d: T.ID
   ) {
-    // Nothing to do if `concepts` is empty.
-    if concepts.isEmpty { return }
+    // Nothing to do if no conformance is declared.
+    if program[d].conformances.isEmpty { return }
 
     guard let r = resolveReceiverMetatype(in: AnyScopeID(d))!.instance.errorFree else { return }
-    for (n, rhs) in evalTraitComposition(concepts) {
+    for (n, rhs) in evalTraitComposition(program[d].conformances) {
       for t in conformedTraits(of: rhs, in: program[d].scope) {
         _ = checkConformance(of: r, to: t, declaredBy: d, at: program[n].site)
       }
