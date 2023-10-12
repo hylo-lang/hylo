@@ -2901,7 +2901,7 @@ public enum Parser {
         .error(
           "conditional binding requires an initializer",
           at: .empty(atEndOf: state.ast[d].site))
-        ] as DiagnosticSet
+      ] as DiagnosticSet
     }
 
     let fallback = try state.expect("fallback", using: conditionalBindingFallback)
