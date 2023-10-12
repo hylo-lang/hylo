@@ -530,7 +530,7 @@ struct TypeChecker {
   /// Type checks `d` and all declarations nested in `d`.
   private mutating func _check(_ d: ConformanceDecl.ID) {
     checkEnvironment(of: d)
-    checkConformance(declaredBy: d)
+    checkAllConformances(declaredBy: d)
     check(program[d].members)
   }
 
@@ -648,7 +648,7 @@ struct TypeChecker {
   /// Type checks `d` and all declarations nested in `d`.
   private mutating func _check(_ d: ProductTypeDecl.ID) {
     checkEnvironment(of: d)
-    checkConformance(declaredBy: d)
+    checkAllConformances(declaredBy: d)
     check(program[d].members)
   }
 
@@ -973,7 +973,7 @@ struct TypeChecker {
 
   /// Type checks the conformances declared by `d` and inserts valid ones in `self.conformances`,
   /// reporting diagnostics for each ill-typed conformance.
-  private mutating func checkConformance<T: ConformanceSource & LexicalScope>(
+  private mutating func checkAllConformances<T: ConformanceSource & LexicalScope>(
     declaredBy d: T.ID
   ) {
     // Nothing to do if no conformance is declared.
