@@ -1053,7 +1053,7 @@ struct TypeChecker {
       case .expr(let e):
         check(e, coercibleTo: bool)
       case .decl(let d):
-        checkedType(of: d, usedAsCondition: true, ignoringSharedCache: true)
+        checkedType(of: d, usedAs: .condition, ignoringSharedCache: true)
       }
     }
   }
@@ -1363,11 +1363,13 @@ struct TypeChecker {
 
   /// Type checks `d` and all declarations nested in `d`, returning the type of `d`.
   ///
+  ///
+  ///
   /// - Requires: `!cache.declsUnderChecking.contains(d)`
   @discardableResult
   private mutating func checkedType(
     of d: BindingDecl.ID,
-    usedAsCondition isConditional: Bool = false,
+    usedAs purpose: BindingDeclUse = .irrefutable,
     ignoringSharedCache ignoreSharedCache: Bool = false
   ) -> AnyType {
     // Check if work has to be done.
@@ -1395,7 +1397,7 @@ struct TypeChecker {
     }
 
     var obligations = ProofObligations(scope: program[d].scope)
-    let t = inferredType(of: d, usedAsCondition: isConditional, updating: &obligations)
+    let t = inferredType(of: d, usedAs: purpose, updating: &obligations)
     let s = discharge(obligations, relatedTo: d)
     let u = s.typeAssumptions.reify(t)
     cache.write(s.isSound ? u : .error, at: \.declType[d], ignoringSharedCache: ignoreSharedCache)
@@ -3825,7 +3827,7 @@ struct TypeChecker {
   ///
   /// `isConditional` is `true` iff `d` is used for pattern matching.
   private mutating func inferredType(
-    of d: BindingDecl.ID, usedAsCondition isConditional: Bool,
+    of d: BindingDecl.ID, usedAs purpose: BindingDeclUse,
     updating obligations: inout ProofObligations
   ) -> AnyType {
     guard let pattern = inferredType(of: program[d].pattern, updating: &obligations).errorFree
@@ -3848,12 +3850,12 @@ struct TypeChecker {
     let initializer = constrain(i, to: ^freshVariable(), in: &obligations)
 
     // If `d` has no annotation, its type is inferred as that of its initializer. Otherwise, the
-    // type of the initializer must be subtype of the pattern unless `d` is used as a condition.
-    // In that case, it must be supertype of the pattern.
+    // type of the initializer must be subtype or supertype of the pattern if the latter is used
+    // irrefutably or as a condition/filter, respectively.
     if program[d].pattern.annotation == nil {
       let o = ConstraintOrigin(.initializationWithPattern, at: program[i].site)
       obligations.insert(EqualityConstraint(initializer, pattern, origin: o))
-    } else if !isConditional {
+    } else if purpose == .irrefutable {
       let o = ConstraintOrigin(.initializationWithHint, at: program[i].site)
       obligations.insert(SubtypingConstraint(initializer, pattern, origin: o))
     } else {
