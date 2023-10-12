@@ -982,20 +982,19 @@ struct TypeChecker {
     guard let r = resolveReceiverMetatype(in: AnyScopeID(d))!.instance.errorFree else { return }
     for (n, rhs) in evalTraitComposition(program[d].conformances) {
       for t in conformedTraits(of: rhs, in: program[d].scope) {
-        _ = checkConformance(of: r, to: t, declaredBy: d, at: program[n].site)
+        _ = checkConformance(of: r, to: t, declaredBy: .init(d, at: program[n].site))
       }
     }
   }
 
-  /// Type checks the conformance of `model` to `concept`, which declared by `source` at `site`,
-  /// returning it iff it is valid. Otherwise, returns `nil` and reports a diagnostic.
-  private mutating func checkConformance<T: Decl>(
-    of model: AnyType, to concept: TraitType,
-    declaredBy source: T.ID, at site: SourceRange
+  /// Type checks the conformance of `model` to `concept`, which is declared by `source`, returning
+  /// it iff it is valid. Otherwise, returns `nil` and reports a diagnostic.
+  private mutating func checkConformance(
+    of model: AnyType, to concept: TraitType, declaredBy origin: ConformanceOrigin
   ) -> Conformance? {
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
-    let scopeOfExposition = read(program[source].scope) { (s) in
+    let scopeOfExposition = read(program[origin.source].scope) { (s) in
       (s.kind == TranslationUnit.self) ? program[s].scope : s
     }
 
@@ -1019,14 +1018,15 @@ struct TypeChecker {
     }
 
     if !conformanceDiagnostics.isEmpty || !checkRequirementConstraints() {
-      report(.error(model, doesNotConformTo: concept, at: site, because: conformanceDiagnostics))
+      report(
+        .error(model, doesNotConformTo: concept, at: origin.site, because: conformanceDiagnostics))
       return nil
     }
 
     let c = Conformance(
       model: m, concept: concept,
       arguments: [:], conditions: [], scope: scopeOfExposition,
-      implementations: implementations, isStructural: false, site: site)
+      implementations: implementations, isStructural: false, site: origin.site)
     insertConformance(c)
     return c
 
@@ -1046,11 +1046,11 @@ struct TypeChecker {
       for g in e.constraints {
         let c = specialize(
           g, for: traitReceiverToModel, in: scopeOfExposition,
-          origin: .init(.structural, at: site))
+          origin: .init(.structural, at: origin.site))
         obligations.insert(c)
       }
 
-      let s = discharge(obligations, relatedTo: source)
+      let s = discharge(obligations, relatedTo: origin.source)
       return s.isSound
     }
 
@@ -1068,7 +1068,7 @@ struct TypeChecker {
       } else if let d = syntheticImplementation(of: r, typed: u, named: n) {
         implementations[r] = .synthetic(d)
 
-        let m = program.module(containing: program[source].scope)
+        let m = program.module(containing: program[origin.source].scope)
         var s = cache.local.synthesizedDecls[m] ?? []
         s.insert(d)
         cache.write(s, at: \.synthesizedDecls[m], ignoringSharedCache: true)
@@ -1076,7 +1076,7 @@ struct TypeChecker {
       }
 
       conformanceDiagnostics.insert(
-        .note(trait: concept, requires: r.kind, named: n, typed: t, at: site))
+        .note(trait: concept, requires: r.kind, named: n, typed: t, at: origin.site))
     }
 
     /// Returns a synthetic implementation of `requirement` in `concept`, which has type `t` and
@@ -1089,7 +1089,7 @@ struct TypeChecker {
       }
 
       // Note: compiler-known requirement is assumed to be well-typed.
-      let scopeOfDefinition = AnyScopeID(source) ?? program[source].scope
+      let scopeOfDefinition = AnyScopeID(origin.source)!
       return .init(k, typed: LambdaType(t)!, in: scopeOfDefinition)
     }
 
