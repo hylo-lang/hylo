@@ -2749,6 +2749,12 @@ struct TypeChecker {
     }
 
     let subject = canonical(subject, in: scopeOfUse)
+    if let t = BoundGenericType(subject) {
+      let r = extensions(of: t.base, exposedTo: scopeOfUse)
+      cache.typeToExtensions[key] = r
+      return r
+    }
+
     var matches: [AnyDeclID] = []
     var root: ModuleDecl.ID? = nil
 
