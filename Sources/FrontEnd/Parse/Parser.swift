@@ -2348,22 +2348,38 @@ public enum Parser {
     (conditionalClauseItem.and(zeroOrMany(take(.comma).and(conditionalClauseItem).second))
       .map({ (_, tree) -> [ConditionItem] in [tree.0] + tree.1 }))
 
-  static let conditionalClauseItem = Choose(
-    bindingPattern.and(take(.assign)).and(expr)
-      .map({ (state, tree) -> ConditionItem in
-        let startOfBindingDecl = state.ast[tree.0.0].site
-        let id = state.insert(
-          BindingDecl(
-            accessModifier: SourceRepresentable(value: .private, range: startOfBindingDecl),
-            pattern: tree.0.0,
-            initializer: tree.1,
-            site: startOfBindingDecl.extended(upTo: state.currentIndex)))
-        return .decl(id)
-      }),
-    or:
-      expr
-      .map({ (_, id) -> ConditionItem in .expr(id) })
-  )
+  static let conditionalClauseItem = Apply(parseConditionalClauseItem(in:))
+
+  /// Parses a part of a conditional clause.
+  private static func parseConditionalClauseItem(
+    in state: inout ParserState
+  ) throws -> ConditionItem? {
+    if let item = try parseConditionalClauseBinding(in: &state) {
+      return item
+    } else {
+      return try parseExpr(in: &state).map({ .expr($0) })
+    }
+  }
+
+  /// Parses a binding declaration used as part of a conditional clause.
+  private static func parseConditionalClauseBinding(
+    in state: inout ParserState
+  ) throws -> ConditionItem? {
+    guard let pattern = try parseBindingPattern(in: &state) else { return nil }
+
+    _ = try state.expect("'='", using: { $0.take(.assign) })
+    let rhs = try state.expect("expression", using: parseExpr(in:))
+
+    let s = state.ast[pattern].site
+    let d = state.insert(
+      BindingDecl(
+        accessModifier: SourceRepresentable(value: .private, range: s),
+        memberModifier: nil,
+        pattern: pattern,
+        initializer: rhs,
+        site: s.extended(upTo: state.currentIndex)))
+    return .decl(d)
+  }
 
   // MARK: Comma-separated lists
 
