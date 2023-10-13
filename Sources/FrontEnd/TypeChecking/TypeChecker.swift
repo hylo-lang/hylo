@@ -1128,7 +1128,8 @@ struct TypeChecker {
 
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
-    let scopeOfExposition = read(program[origin.source].scope) { (s) in
+    let scopeOfDefinition = program[origin.source].scope
+    let scopeOfExposition = read(scopeOfDefinition) { (s) in
       (s.kind == TranslationUnit.self) ? program[s].scope : s
     }
 
@@ -1141,7 +1142,7 @@ struct TypeChecker {
       let fileImports = imports(exposedTo: program[origin.source].scope)
       for c in s {
         if let d = ModuleDecl.ID(c.scope), fileImports.contains(d) { return }
-        if program.isContained(scopeOfExposition, in: c.scope) { return }
+        if program.isContained(scopeOfDefinition, in: c.scope) { return }
       }
     }
 
@@ -1171,18 +1172,18 @@ struct TypeChecker {
     /// in `scopeOfUse`, or `nil` no such type can be constructed.
     func type(ofMember m: AnyDeclID) -> AnyType {
       let t = uncheckedType(of: m)
-      return specialize(t, for: traitReceiverToModel, in: scopeOfExposition)
+      return specialize(t, for: traitReceiverToModel, in: scopeOfDefinition)
     }
 
     /// Checks whether the constraints on the requirements of `concept` are satisfied by `model` in
     /// `scopeOfuse`, reporting diagnostics in `conformanceDiagnostics`.
     func checkRequirementConstraints() -> Bool {
-      var obligations = ProofObligations(scope: scopeOfExposition)
+      var obligations = ProofObligations(scope: scopeOfDefinition)
 
       let e = environment(of: concept.decl)
       for g in e.constraints {
         let c = specialize(
-          g, for: traitReceiverToModel, in: scopeOfExposition,
+          g, for: traitReceiverToModel, in: scopeOfDefinition,
           origin: .init(.structural, at: origin.site))
         obligations.insert(c)
       }
@@ -1196,7 +1197,7 @@ struct TypeChecker {
     func implementation(of r: AnyDeclID) {
       // Note: `t` is used for generating diagnostics, `u` is used for testing equivalences.
       let t = type(ofMember: r)
-      let u = canonical(t, in: scopeOfExposition)
+      let u = canonical(t, in: scopeOfDefinition)
 
       let n = program.name(of: r)!
       if let d = concreteImplementation(of: r, typed: u, named: n) {
@@ -1273,7 +1274,7 @@ struct TypeChecker {
     /// `requirement` is an associated type of `concept`.
     func implementation(of requirement: AssociatedTypeDecl.ID) -> AnyDeclID? {
       let n = program[requirement].baseName
-      let candidates = lookup(n, memberOf: model, exposedTo: scopeOfExposition)
+      let candidates = lookup(n, memberOf: model, exposedTo: scopeOfDefinition)
 
       // Candidates are viable iff they declare a metatype and have a definition.
       let viable: [AnyDeclID] = candidates.reduce(into: []) { (s, c) in
@@ -1301,14 +1302,14 @@ struct TypeChecker {
     ) -> AnyDeclID? {
       guard !t[.hasError] else { return nil }
 
-      let candidates = lookup(n.stem, memberOf: model, exposedTo: scopeOfExposition)
+      let candidates = lookup(n.stem, memberOf: model, exposedTo: scopeOfDefinition)
       var viable: [AnyDeclID] = []
       for c in candidates {
         guard let d = D(c) else { continue }
         appendDefinitions(d, t, &viable)
       }
 
-      viable = viable.minimalElements(by: { (a, b) in compareDepth(a, b, in: scopeOfExposition) })
+      viable = viable.minimalElements(by: { (a, b) in compareDepth(a, b, in: scopeOfDefinition) })
       return viable.uniqueElement
     }
 
@@ -1337,7 +1338,7 @@ struct TypeChecker {
     /// Appends `d` to `s` iff `d` is a definition with type `t`.
     func appendIfDefinition<D: Decl>(_ d: D.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
       let u = type(ofMember: AnyDeclID(d))
-      if program[d].isDefinition && areEquivalent(t, u, in: scopeOfExposition) {
+      if program[d].isDefinition && areEquivalent(t, u, in: scopeOfDefinition) {
         s.append(AnyDeclID(d))
       }
     }
