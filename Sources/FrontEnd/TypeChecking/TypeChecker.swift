@@ -1132,7 +1132,11 @@ struct TypeChecker {
     // TODO: Use arguments to bound generic types as constraints
 
     if let s = cache.local.conformances[conformanceCacheKey, default: [:]][concept] {
-      if let c = s.first(where: { $0.scope == scopeOfExposition }) { return c }
+      let fileImports = imports(exposedTo: program[origin.source].scope)
+      for c in s {
+        if let d = ModuleDecl.ID(c.scope), fileImports.contains(d) { return c }
+        if program.isContained(scopeOfExposition, in: c.scope) { return c }
+      }
     }
 
     var implementations = Conformance.ImplementationMap()
@@ -2921,8 +2925,8 @@ struct TypeChecker {
     if scopeOfUse.kind == ModuleDecl.self { return matches }
 
     // Look for extension declarations in imported modules.
-    let imports = cache.local.imports[program.source(containing: scopeOfUse), default: []]
-    for m in imports where m != root {
+    let fileImports = imports(exposedTo: scopeOfUse)
+    for m in fileImports where m != root {
       let symbols = program.ast.topLevelDecls(m)
       reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
     }
@@ -4966,6 +4970,11 @@ struct TypeChecker {
   mutating func freshVariable() -> TypeVariable {
     defer { nextFreshVariableIdentifier += 1 }
     return .init(nextFreshVariableIdentifier)
+  }
+
+  /// Returns the module imports exposed to `s`.
+  private func imports(exposedTo s: AnyScopeID) -> Set<ModuleDecl.ID> {
+    cache.local.imports[program.source(containing: s), default: []]
   }
 
   /// Returns `true` iff `t` is known as an arrow type.
