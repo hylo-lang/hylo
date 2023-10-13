@@ -286,15 +286,14 @@ struct TypeChecker {
     // If the conformance isn't already in cache, check sources defining a conformance of `model`
     // to `trait` in scope, thus filling the cache before we look again.
     let s = originsOfConformance(of: m, to: trait, exposedTo: scopeOfUse)
-    var conformances: [Conformance] = []
     for o in s {
-      if let c = checkConformance(of: m, to: trait, declaredBy: o) {
-        conformances.append(c)
-      }
+      guard var r = extendedModel(o.source).errorFree else { continue }
+      r = canonical(r, in: program[o.source].scope)
+      checkConformance(of: r, to: trait, declaredBy: o)
     }
 
     // If the conformance is still not in cache, `model` does not conform to `trait`.
-    return closestConformance(in: conformances, exposedTo: scopeOfUse)
+    return cachedConformance(of: m, to: trait, exposedTo: scopeOfUse)
   }
 
   /// Returns the checked conformance of `model` to `trait` that is exposed to `scopeOfUse`, or
@@ -308,24 +307,31 @@ struct TypeChecker {
 
     // `A<X>: T` iff `A: T`.
     if let t = BoundGenericType(model) {
-      guard let c = cache.local.conformance(of: t.base, to: trait, exposedTo: scopeOfUse) else {
-        return nil
-      }
-
-      // TODO: translate generic arguments to conditions
-
-      return .init(
-        model: t.base, concept: trait, arguments: t.arguments, conditions: [],
-        scope: c.scope, implementations: c.implementations, isStructural: c.isStructural,
-        site: c.site)
+      return cachedConformance(of: t, to: trait, exposedTo: scopeOfUse)
     }
 
     guard
       let allConformances = cache.local.conformances[model],
       let conformancesToTrait = allConformances[trait]
     else { return nil }
-
     return closestConformance(in: conformancesToTrait, exposedTo: scopeOfUse)
+  }
+
+  /// Returns the checked conformance of `model` to `trait` that is exposed to `scopeOfUse`, or
+  /// `nil` if such a conformance doesn't exist or hasn't been checked yet.
+  ///
+  /// - Requires: `model` is canonical.
+  private func cachedConformance(
+    of model: BoundGenericType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
+  ) -> Conformance? {
+    guard let c = cachedConformance(of: model.base, to: trait, exposedTo: scopeOfUse) else {
+      return nil
+    }
+
+    return .init(
+      model: model.base, concept: trait, arguments: model.arguments, conditions: [],
+      scope: c.scope, implementations: c.implementations, isStructural: c.isStructural,
+      site: c.site)
   }
 
   /// Returns the innermost element in `conformances` that is exposed to `scopeOfUse`.
@@ -1106,18 +1112,18 @@ struct TypeChecker {
 
     for (n, rhs) in evalTraitComposition(program[d].conformances) {
       for t in conformedTraits(of: rhs, in: program[d].scope) {
-        _ = checkConformance(of: r, to: t, declaredBy: .init(d, at: program[n].site))
+        checkConformance(of: r, to: t, declaredBy: .init(d, at: program[n].site))
       }
     }
   }
 
-  /// Type checks the conformance of `model` to `concept`, which is declared by `source`, returning
-  /// it iff it is valid. Otherwise, returns `nil` and reports a diagnostic.
+  /// Type checks the conformance of `model` to `concept`, which is declared by `source`, reporting
+  /// diagnostics if it isn't valid.
   ///
   /// - Requires: `model` is canonical.
   private mutating func checkConformance(
     of model: AnyType, to concept: TraitType, declaredBy origin: ConformanceOrigin
-  ) -> Conformance? {
+  ) {
     assert(model[.isCanonical])
 
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
@@ -1134,8 +1140,8 @@ struct TypeChecker {
     if let s = cache.local.conformances[conformanceCacheKey, default: [:]][concept] {
       let fileImports = imports(exposedTo: program[origin.source].scope)
       for c in s {
-        if let d = ModuleDecl.ID(c.scope), fileImports.contains(d) { return c }
-        if program.isContained(scopeOfExposition, in: c.scope) { return c }
+        if let d = ModuleDecl.ID(c.scope), fileImports.contains(d) { return }
+        if program.isContained(scopeOfExposition, in: c.scope) { return }
       }
     }
 
@@ -1151,7 +1157,7 @@ struct TypeChecker {
       let m = extendedModel(origin.source)
       report(
         .error(m, doesNotConformTo: concept, at: origin.site, because: conformanceDiagnostics))
-      return nil
+      return
     }
 
     let c = Conformance(
@@ -1159,7 +1165,7 @@ struct TypeChecker {
       arguments: [:], conditions: [], scope: scopeOfExposition,
       implementations: implementations, isStructural: false, site: origin.site)
     insertConformance(c)
-    return c
+    return
 
     /// Returns the type of `d` viewed as a member of `model` through its conformance to `concept`
     /// in `scopeOfUse`, or `nil` no such type can be constructed.
