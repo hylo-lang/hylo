@@ -1,0 +1,18 @@
+//- typeCheck expecting: success
+
+trait P { fun foo() }
+
+extension P {
+  public fun foo() {}
+}
+
+conformance Int: P {}
+
+conformance Bool: P {
+  fun foo() {}
+}
+
+public fun main() {
+  (1 + 1).foo()
+  (1 < 1).foo()
+}
