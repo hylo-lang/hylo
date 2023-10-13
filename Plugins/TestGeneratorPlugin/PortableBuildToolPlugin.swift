@@ -29,6 +29,10 @@ fileprivate extension URL {
     return r
   }
 
+  /// The representation used by the native filesystem.
+  var fileSystemPath: String {
+    self.withUnsafeFileSystemRepresentation { String(cString: $0!) }
+  }
 }
 
 fileprivate extension PackagePlugin.Target {
@@ -197,7 +201,7 @@ public extension PortableBuildCommand.Tool {
         ?? context.tool(named: "swift").path.url
 
       let scratchPath = FileManager().temporaryDirectory
-        .appendingPathComponent(UUID().uuidString).path
+        .appendingPathComponent(UUID().uuidString)
 
       return .init(
         executable: swift.spmPath,
@@ -213,8 +217,8 @@ public extension PortableBuildCommand.Tool {
           // context.workDirectory and add an explicit build step to delete it to keep its contents
           // from being incorporated into the resources of the target we're building.
           "--disable-sandbox",
-          "--scratch-path", scratchPath,
-          "--package-path", context.package.directory.url.path,
+          "--scratch-path", scratchPath.fileSystemPath,
+          "--package-path", context.package.directory.url.fileSystemPath,
           productName ],
         additionalSources:
           try context.package.sourceDependencies(ofProductNamed: productName))
