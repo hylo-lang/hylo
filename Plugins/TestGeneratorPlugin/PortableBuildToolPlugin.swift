@@ -33,6 +33,30 @@ fileprivate extension URL {
   var fileSystemPath: String {
     self.withUnsafeFileSystemRepresentation { String(cString: $0!) }
   }
+
+  func relative(toDirectory start: URL) -> URL {
+    var myComponents = self.absoluteURL.standardizedFileURL.pathComponents[...]
+    var startComponents = start.absoluteURL.standardizedFileURL.pathComponents[...]
+    while !myComponents.isEmpty && myComponents.first == startComponents.first {
+      _ = myComponents.popFirst()
+      _ = startComponents.popFirst()
+    }
+    return URL(pathComponents: Array(repeating: "..", count: startComponents.count) + myComponents)
+  }
+
+  init(pathComponents: [String]) {
+    var source = pathComponents[...]
+    guard let head = source.popFirst() else {
+      self = URL(string: ".")!
+      return
+    }
+    var result = URL(string: head)!
+    while let x = source.popFirst() {
+      result.appendPathComponent(x)
+    }
+    self = result
+  }
+
 }
 
 fileprivate extension PackagePlugin.Target {
@@ -203,6 +227,8 @@ public extension PortableBuildCommand.Tool {
       let scratchPath = FileManager().temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
 
+      let pluginWorkDirectory = context.pluginWorkDirectory.url
+
       return .init(
         executable: swift.spmPath,
         argumentPrefix: [
@@ -217,8 +243,8 @@ public extension PortableBuildCommand.Tool {
           // context.workDirectory and add an explicit build step to delete it to keep its contents
           // from being incorporated into the resources of the target we're building.
           "--disable-sandbox",
-          "--scratch-path", scratchPath.fileSystemPath,
-          "--package-path", context.package.directory.url.fileSystemPath,
+          "--scratch-path", scratchPath.relative(toDirectory: pluginWorkDirectory).fileSystemPath,
+          "--package-path", context.package.directory.url.relative(toDirectory: pluginWorkDirectory).fileSystemPath,
           productName ],
         additionalSources:
           try context.package.sourceDependencies(ofProductNamed: productName))
