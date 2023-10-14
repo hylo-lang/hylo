@@ -401,6 +401,20 @@ struct TypeChecker {
     return result
   }
 
+  /// Returns the type satisfying `requirement` for `model` in `scopeOfUse`, or `nil` if `model`
+  /// does not satisfy such a requirement.
+  private mutating func demandImplementation(
+    of requirement: AssociatedTypeDecl.ID, for model: AnyType, in scopeOfUse: AnyScopeID
+  ) -> AnyType? {
+    let trait = traitDefining(requirement)!
+    guard
+      let c = demandConformance(of: model, to: trait, exposedTo: scopeOfUse),
+      let a = MetatypeType(uncheckedType(of: c.implementations[requirement]!.decl!))
+    else { return nil }
+
+    return specialize(a.instance, for: c.arguments, in: scopeOfUse)
+  }
+
   // MARK: Type transformations
 
   /// Returns `generic` with occurrences of parameters keying `specialization` replaced by their
