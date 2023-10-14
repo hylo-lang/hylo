@@ -19,4 +19,13 @@ enum BindingDeclUse: Hashable {
   /// The pattern acts as a condition that is satisfied iff it matches an instance of the payload.
   case filter(matching: AnyType)
 
+  /// The type that is narrowed by the pattern of the declaration if it is used as a filter.
+  var filteredType: AnyType? {
+    if case .filter(let t) = self {
+      return t
+    } else {
+      return nil
+    }
+  }
+
 }

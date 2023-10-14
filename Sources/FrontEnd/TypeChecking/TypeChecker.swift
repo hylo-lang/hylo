@@ -339,7 +339,8 @@ struct TypeChecker {
     in conformances: C, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
     let exposed = program.modules(exposedTo: scopeOfUse)
-    return conformances
+    return
+      conformances
       .filter { (c) in
         if let m = ModuleDecl.ID(c.scope), exposed.contains(m) {
           return true
@@ -964,6 +965,8 @@ struct TypeChecker {
       check(DiscardStmt.ID(s)!)
     case DoWhileStmt.self:
       check(DoWhileStmt.ID(s)!)
+    case ForStmt.self:
+      check(ForStmt.ID(s)!)
     case ReturnStmt.self:
       check(ReturnStmt.ID(s)!)
     case WhileStmt.self:
@@ -1040,6 +1043,18 @@ struct TypeChecker {
   private mutating func check(_ s: DoWhileStmt.ID) {
     check(program[s].body)
     check(program[s].condition.value, coercibleTo: ^program.ast.coreType("Bool")!)
+  }
+
+  /// Type checks `s`.
+  private mutating func check(_ s: ForStmt.ID) {
+    guard let element = inferredIterationElementType(of: s) else { return }
+
+    let e = checkedType(of: program[s].binding, usedAs: .filter(matching: element))
+    checkedType(of: program[s].binding, usedAs: .filter(matching: e), ignoringSharedCache: true)
+    if let e = program[s].filter {
+      check(e.value, coercibleTo: ^program.ast.coreType("Bool")!)
+    }
+    check(program[s].body)
   }
 
   /// Type checks `s`.
@@ -3848,24 +3863,37 @@ struct TypeChecker {
 
   // MARK: Type inference
 
-  /// Returns the inferred type of `d`, inserting new proof obligations in `obligations`.
-  ///
-  /// `isConditional` is `true` iff `d` is used for pattern matching.
+  /// Returns the inferred type of `d`, which is is used as `purpose`, inserting new proof
+  /// obligations in `obligations`.
   private mutating func inferredType(
     of d: BindingDecl.ID, usedAs purpose: BindingDeclUse,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    guard let pattern = inferredType(of: program[d].pattern, updating: &obligations).errorFree
+    let p = program[d].pattern
+    guard
+      let pattern = inferredType(
+        of: p.id, withHint: purpose.filteredType, updating: &obligations
+      ).errorFree
     else { return .error }
 
+    // If `d` has no initializer, its type is that of its annotation, if present. Otherwise, its
+    // pattern must be used as a filter and the is inferred to have the same type.
     guard let i = program[d].initializer else {
-      assert(program[d].pattern.annotation != nil, "expected type annotation")
+      switch purpose {
+      case .irrefutable:
+        assert(p.annotation != nil, "expected type annotation")
+        if !p.introducer.value.isConsuming && program.isLocal(d) {
+          report(.error(binding: p.introducer.value, requiresInitializerAt: p.introducer.site))
+          return .error
+        } else {
+          return pattern
+        }
 
-      let a = program[d].pattern.introducer.value
-      if ((a == .let) || (a == .inout)) && program.isLocal(d) {
-        report(.error(binding: a, requiresInitializerAt: program[d].pattern.introducer.site))
-        return .error
-      } else {
+      case .condition:
+        assert(p.annotation != nil, "expected type annotation")
+        return pattern
+
+      case .filter:
         return pattern
       }
     }
@@ -3875,9 +3903,9 @@ struct TypeChecker {
     let initializer = constrain(i, to: ^freshVariable(), in: &obligations)
 
     // If `d` has no annotation, its type is inferred as that of its initializer. Otherwise, the
-    // type of the initializer must be subtype or supertype of the pattern if the latter is used
+    // type of its initializer must be subtype or supertype of its pattern if the latter is used
     // irrefutably or as a condition/filter, respectively.
-    if program[d].pattern.annotation == nil {
+    if p.annotation == nil {
       let o = ConstraintOrigin(.initializationWithPattern, at: program[i].site)
       obligations.insert(EqualityConstraint(initializer, pattern, origin: o))
     } else if purpose == .irrefutable {
@@ -4602,6 +4630,44 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     hint ?? ^freshVariable()
+  }
+
+  /// Returns the inferred type of the elements over which `s` iterates.
+  ///
+  /// The returned type is obtained by looking at the traits implemented by the type `D` of the
+  /// loop's iteration domain. For a non-consuming loop (i.e., a loop whose pattern is introduced
+  /// with `let` or `inout`), the return value is the implementation of `Collection.Element` for
+  /// `D`'s conformance to `Collection` in the innermost scope enclosing `s`. If such a conformance
+  /// does not exist, or if the loop is consuming, then the return value is the implementation of
+  /// `Iterator.Element` for `D`'s conformance to `Iterator`, or `nil` if such a conformance doesn
+  /// not exist.
+  private mutating func inferredIterationElementType(of s: ForStmt.ID) -> AnyType? {
+    guard let domain = checkedType(of: program[s].domain.value).errorFree else { return nil }
+
+    let isConsuming = program[s].binding.pattern.introducer.value.isConsuming
+    let domainTraits = conformedTraits(of: domain, in: program[s].scope)
+    let collection = program.ast.coreTrait("Collection")!
+
+    // By default, non-consuming loops use `Collection`.
+    if !isConsuming && domainTraits.contains(collection) {
+      let r = AssociatedTypeDecl.ID(program.ast.requirements("Element", in: collection.decl)[0])!
+      return demandImplementation(of: r, for: domain, in: program[s].scope)
+    }
+
+    let iterator = program.ast.coreTrait("Iterator")!
+
+    // Any kind of for loop can consume an iterator.
+    if domainTraits.contains(iterator) {
+      let r = AssociatedTypeDecl.ID(program.ast.requirements("Element", in: iterator.decl)[0])!
+      return demandImplementation(of: r, for: domain, in: program[s].scope)
+    }
+
+    let d = Diagnostic.error(
+      invalidForLoopDomain: domain,
+      consuming: isConsuming,
+      at: program[program[s].domain.value].site)
+    report(d)
+    return nil
   }
 
   /// Inserts in `obligations` the constraints implied by the result of name resolution for each
