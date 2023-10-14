@@ -43,7 +43,9 @@ fileprivate extension URL {
     }
 
     // If the paths start on different drives, just return the original
-    if myComponents.first.isAbsolutePath { return self }
+    if let firstComponent = myComponents.first, firstComponent.isAbsolutePath {
+      return self
+    }
 
     return URL(pathComponents: Array(repeating: "..", count: startComponents.count) + myComponents)
   }
