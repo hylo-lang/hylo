@@ -179,4 +179,4 @@ jobs:
       run: swift build --build-tests --pkg-config-path .
 
     - name: Test
-      run: swift test --skip-tests --pkg-config-path .
+      run: swift test --skip-build --pkg-config-path .
