@@ -33,36 +33,6 @@ fileprivate extension URL {
   var fileSystemPath: String {
     self.withUnsafeFileSystemRepresentation { String(cString: $0!) }
   }
-
-  func relative(toDirectory start: URL) -> URL {
-    var myComponents = self.absoluteURL.standardizedFileURL.pathComponents[...]
-    var startComponents = start.absoluteURL.standardizedFileURL.pathComponents[...]
-    while !myComponents.isEmpty && myComponents.first == startComponents.first {
-      _ = myComponents.popFirst()
-      _ = startComponents.popFirst()
-    }
-
-    // If the paths start on different drives, just return the original
-    if let firstComponent = myComponents.first, firstComponent.isAbsolutePath {
-      return self
-    }
-
-    return URL(pathComponents: Array(repeating: "..", count: startComponents.count) + myComponents)
-  }
-
-  init(pathComponents: [String]) {
-    var source = pathComponents[...]
-    guard let head = source.popFirst() else {
-      self = URL(string: ".")!
-      return
-    }
-    var result = URL(string: head)!
-    while let x = source.popFirst() {
-      result.appendPathComponent(x)
-    }
-    self = result
-  }
-
 }
 
 fileprivate extension PackagePlugin.Target {
@@ -233,13 +203,10 @@ public extension PortableBuildCommand.Tool {
       let scratchPath = FileManager().temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
 
-      let pluginWorkDirectory = context.pluginWorkDirectory.url
-
       return .init(
         executable: swift.spmPath,
         argumentPrefix: [
           "run",
-          "--verbose",
           // Only Macs currently use sandboxing, but nested sandboxes are prohibited, so for future
           // resilience in case Windows gets a sandbox, disable it on these reentrant builds.
           //
@@ -248,9 +215,9 @@ public extension PortableBuildCommand.Tool {
           // I think that's an SPM bug. If they fix it, we'll need to nest scratchPath in
           // context.workDirectory and add an explicit build step to delete it to keep its contents
           // from being incorporated into the resources of the target we're building.
-          // "--disable-sandbox",
-          "--scratch-path", scratchPath.relative(toDirectory: pluginWorkDirectory).fileSystemPath,
-          "--package-path", context.package.directory.url.relative(toDirectory: pluginWorkDirectory).fileSystemPath,
+          "--disable-sandbox",
+          "--scratch-path", scratchPath.fileSystemPath,
+          "--package-path", context.package.directory.url.fileSystemPath,
           productName ],
         additionalSources:
           try context.package.sourceDependencies(ofProductNamed: productName))
