@@ -200,8 +200,8 @@ public extension PortableBuildCommand.Tool {
         .first { FileManager().isExecutableFile(atPath: $0.path) }
         ?? context.tool(named: "swift").path.url
 
-      let scratchPath = FileManager().temporaryDirectory
-        .appendingPathComponent(UUID().uuidString)
+//      let scratchPath = FileManager().temporaryDirectory
+//        .appendingPathComponent(UUID().uuidString)
 
       return .init(
         executable: swift.spmPath,
@@ -216,7 +216,8 @@ public extension PortableBuildCommand.Tool {
           // context.workDirectory and add an explicit build step to delete it to keep its contents
           // from being incorporated into the resources of the target we're building.
           "--disable-sandbox",
-          "--scratch-path", scratchPath.fileSystemPath,
+          "--skip-build",
+          // "--scratch-path", scratchPath.fileSystemPath,
           "--package-path", context.package.directory.url.fileSystemPath,
           productName ],
         additionalSources:
