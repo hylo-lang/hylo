@@ -2,15 +2,14 @@ public extension PointerToMutable where Pointee == Never {
 
   /// Allocates memory for `count` bytes at given `alignment`.
   public static fun allocate_bytes(count: Int, aligned_at alignment: Int) -> Self {
-    Self.new(base: aligned_alloc(alignment, count).base)
+    Self.new(base: hylo_aligned_alloc(alignment, count).base)
   }
 
 }
 
 public extension PointerToMutable where Pointee == Never {
 
-  // This function should be replaced with the normal advance function once #989 is fixed.
-
+  // TODO: This function should be replaced with the normal advance function once #989 is fixed.
   /// Returns a pointer advanced by `offset_in_bytes`.
   public fun advance(by_bytes offset_in_bytes: Int) -> Self {
     let offset_in_bytes = 1 * offset_in_bytes
@@ -24,12 +23,14 @@ public extension PointerToMutable {
 
   /// Allocates memory for `count` instances of `Pointee`.
   public static fun allocate(count: Int) -> Self {
-    Self.new(base: aligned_alloc(MemoryLayout<Pointee>.alignment(), MemoryLayout<Pointee>.stride() * count).base)
+    return Self.new(base: hylo_aligned_alloc(
+      MemoryLayout<Pointee>.alignment(),
+      MemoryLayout<Pointee>.stride() * count).base)
   }
 
   /// Deallocates the memory previously allocated at `self`.
   public fun deallocate() {
-    free(CVoidPointer(base: base))
+    hylo_aligned_free(MemoryAddress(base: base))
   }
 
 }

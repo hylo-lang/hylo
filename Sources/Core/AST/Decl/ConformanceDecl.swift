@@ -5,6 +5,9 @@ public struct ConformanceDecl: TypeExtendingDecl {
 
   public let site: SourceRange
 
+  /// The site of the `conformance` introducer.
+  public let introducerSite: SourceRange
+
   /// The access modifier of the declaration, if any.
   public let accessModifier: SourceRepresentable<AccessModifier>
 
@@ -22,6 +25,7 @@ public struct ConformanceDecl: TypeExtendingDecl {
 
   /// Creates an instance with the given properties.
   public init(
+    introducerSite: SourceRange,
     accessModifier: SourceRepresentable<AccessModifier>,
     subject: AnyExprID,
     conformances: [NameExpr.ID],
@@ -29,6 +33,7 @@ public struct ConformanceDecl: TypeExtendingDecl {
     members: [AnyDeclID],
     site: SourceRange
   ) {
+    self.introducerSite = introducerSite
     self.site = site
     self.accessModifier = accessModifier
     self.subject = subject

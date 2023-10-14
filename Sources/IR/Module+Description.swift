@@ -42,6 +42,8 @@ extension Module: TextOutputStreamable {
       output.write("// \(function.site)\n")
     }
 
+    output.write("\(function.linkage) ")
+
     if function.isSubscript {
       output.write("subscript \(f)(")
       output.write(function.inputs.lazy.descriptions())

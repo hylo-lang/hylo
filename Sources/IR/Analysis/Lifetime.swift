@@ -193,7 +193,7 @@ extension Module {
       case (.closed(let lhs), .liveIn(let rhs)):
         return .liveIn(lastUse: last(lhs, rhs))
       case (.closed(let lhs), .closed(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs))
+        return .closed(lastUse: last(lhs, rhs))
       }
     }
     return .init(operand: left.operand, coverage: coverage)

@@ -264,49 +264,29 @@ public struct TypedProgram {
     return result
   }
 
+  /// Returns the generic parameters captured in the scope of `d` if `d` is callable. Otherwise,
+  /// returns an empty collection.
+  public func liftedGenericParameters(of d: AnyDeclID) -> [GenericParameterDecl.ID] {
+    switch d.kind {
+    case FunctionDecl.self:
+      return Array(accumulatedGenericParameters(in: FunctionDecl.ID(d)!))
+    case InitializerDecl.self:
+      return Array(accumulatedGenericParameters(in: InitializerDecl.ID(d)!))
+    case SubscriptImpl.self:
+      return Array(accumulatedGenericParameters(in: SubscriptImpl.ID(d)!))
+    case MethodImpl.self:
+      return Array(accumulatedGenericParameters(in: MethodImpl.ID(d)!))
+    default:
+      return []
+    }
+  }
+
   /// Returns generic parameters captured by `s` and the scopes semantically containing `s`.
-  ///
-  /// A declaration may take generic parameters even if it doesn't declare any. For example, a
-  /// nested function will implicitly capture the generic parameters introduced in its context.
-  ///
-  /// Parameters are returned outer to inner, left to right: the first parameter of the outermost
-  /// generic scope appears first; the last parameter of the innermost generic scope appears last.
   public func accumulatedGenericParameters<T: ScopeID>(
     in s: T
   ) -> ReversedCollection<[GenericParameterDecl.ID]> {
-    var result: [GenericParameterDecl.ID] = []
-    appendGenericParameters(in: s, to: &result)
-    return result.reversed()
-  }
-
-  /// Appends generic parameters captured by `s` and the scopes semantically containing `s` to
-  /// `accumulatedParameters`, right to left, inner to outer.
-  private func appendGenericParameters<T: ScopeID>(
-    in s: T, to accumulatedParameters: inout [GenericParameterDecl.ID]
-  ) {
-    switch s.kind.value {
-    case is ConformanceDecl.Type:
-      appendGenericParameters(in: ConformanceDecl.ID(s)!, to: &accumulatedParameters)
-    case is ExtensionDecl.Type:
-      appendGenericParameters(in: ExtensionDecl.ID(s)!, to: &accumulatedParameters)
-    case is GenericScope.Type:
-      accumulatedParameters.append(contentsOf: environment[AnyDeclID(s)!]!.parameters)
-    case is TranslationUnit.Type, is ModuleDecl.Type:
-      return
-    default:
-      break
-    }
-
-    appendGenericParameters(in: nodeToScope[s]!, to: &accumulatedParameters)
-  }
-
-  /// Appends generic parameters captured by `s` and the scopes semantically containing `s` to
-  /// `accumulatedParameters`, right to left, inner to outer.
-  private func appendGenericParameters<T: TypeExtendingDecl>(
-    in d: T.ID, to accumulatedParameters: inout [GenericParameterDecl.ID]
-  ) {
-    guard let p = scopeExtended(by: d) else { return }
-    appendGenericParameters(in: p, to: &accumulatedParameters)
+    var checker = TypeChecker(asContextFor: self)
+    return checker.accumulatedGenericParameters(in: s)
   }
 
   /// Returns `true` iff `model` conforms to `concept` in `scopeOfUse`.
@@ -440,6 +420,28 @@ public struct TypedProgram {
       model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
       implementations: implementations, isStructural: true,
       site: .empty(at: ast[scopeOfUse].site.first()))
+  }
+
+  /// Returns the foreign representation of `t` using its conformance to `ForeignConvertible` in
+  /// `scopeOfUse`.
+  ///
+  /// - Requires: `t` conforms to `ForeignConvertible` in `scopeOfUse`.
+  public func foreignRepresentation(
+    of t: AnyType, exposedTo scopeOfUse: AnyScopeID
+  ) -> AnyType {
+    let f = ast.coreTrait("ForeignConvertible")!
+    let d = ast.requirements("ForeignRepresentation", in: f.decl)[0]
+
+    // Since conformances of built-in types are not stored in property maps, we'll exit the loop
+    // when we assign one to `result`.
+    var result = t
+    while let c = conformance(of: result, to: f, exposedTo: scopeOfUse) {
+      // `d` is an associated type declaration so its implementations must have a metatype.
+      let i = c.implementations[d]!.decl!
+      result = MetatypeType(canonical(self[i].type, in: self[d].scope))!.instance
+    }
+
+    return result
   }
 
   /// Returns the scope of the declaration extended by `d`, if any.

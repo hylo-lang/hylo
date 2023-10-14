@@ -1,7 +1,7 @@
 import Core
 import FrontEnd
 
-/// The astract layout of a type, describing the relative offsets of its stored properties.
+/// The abstract layout of a type, describing the relative offsets of its stored properties.
 public struct AbstractTypeLayout {
 
   /// The name and type of a stored property.

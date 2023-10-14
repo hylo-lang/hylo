@@ -1,4 +1,5 @@
 import Core
+import Foundation
 import IR
 import LLVM
 import Utils
@@ -79,7 +80,7 @@ extension LLVM.Module {
 
   /// Returns the LLVM type of a metatype instance.
   private mutating func metatypeType() -> LLVM.StructType {
-    if let t = type(named: "_val_metatype") {
+    if let t = type(named: "_hylo_metatype") {
       return .init(t)!
     }
 
@@ -121,7 +122,7 @@ extension LLVM.Module {
 
     let f = declareFunction(
       "malloc",
-      FunctionType(from: [i32], to: ptr, in: &self))
+      FunctionType(from: [word()], to: ptr, in: &self))
     addAttribute(named: .noundef, to: f.parameters[0])
     addAttribute(named: .noalias, to: f.returnValue)
 
@@ -173,9 +174,6 @@ extension LLVM.Module {
     case let v as IR.FloatingPointConstant:
       let t = LLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
       return t.constant(parsing: v.value)
-
-    case let v as IR.BufferConstant:
-      return LLVM.ArrayConstant(bytes: v.contents, in: &self)
 
     case let v as IR.WitnessTable:
       return transpiledWitnessTable(v, usedIn: m, from: ir)
@@ -284,79 +282,75 @@ extension LLVM.Module {
   private mutating func transpiledMetatype(
     of t: AnyType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
-    switch t.base {
-    case let u as ProductType:
-      return transpiledMetatype(of: u, usedIn: m, from: ir)
-    case let u as TupleType:
-      return transpiledMetatype(of: u, usedIn: m, from: ir)
-    default:
-      UNIMPLEMENTED()
+    demandMetatype(of: t, usedIn: m, from: ir) { (me, v) in
+      if let u = ProductType(t) {
+        me.initializeTranspiledProductTypeMetatype(v, of: u, usedIn: m, from: ir)
+      } else {
+        me.initializeTranspiledMetatype(v, of: t, usedIn: m, from: ir)
+      }
     }
   }
 
-  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
-  private mutating func transpiledMetatype(
-    of t: ProductType, usedIn m: IR.Module, from ir: IR.Program
-  ) -> LLVM.GlobalVariable {
-    let globalName = ir.base.mangled(t)
-    if let g = global(named: globalName) { return g }
-
-    // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply
-    // declare the symbol and let it be linked later.
-    let metatype = metatypeType()
-    let instance = declareGlobalVariable(globalName, metatype)
-    if m.id != ir.base.module(containing: t.decl) {
-      return instance
-    }
-
-    // If `t` is generic, its metatype is only a stub.
-    let layout: LLVMMemoryLayout
-    if !ir.base[t.decl].genericParameters.isEmpty {
-      layout = .init(size: word().zero, preferredAlignment: word().zero)
-    } else {
-      layout = memoryLayout(of: t, from: ir)
-    }
-
-    let v = metatype.constant(
-      aggregating: [layout.size, layout.preferredAlignment, ptr.null],
-      in: &self)
-
-    setInitializer(v, for: instance)
-    setGlobalConstant(true, for: instance)
-    return instance
-  }
-
-  /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
-  private mutating func transpiledMetatype(
-    of t: TupleType, usedIn m: IR.Module, from ir: IR.Program
-  ) -> LLVM.GlobalVariable {
-    let globalName = ir.base.mangled(t)
-    if let g = global(named: globalName) { return g }
-
-    let metatype = metatypeType()
-    let instance = declareGlobalVariable(globalName, metatype)
+  /// Initializes `instance` with the value of the metatype of `t` used in `m` in `ir`.
+  private mutating func initializeTranspiledMetatype<T: TypeProtocol>(
+    _ instance: LLVM.GlobalVariable,
+    of t: T, usedIn m: IR.Module, from ir: IR.Program
+  ) {
     setLinkage(.linkOnce, for: instance)
 
-    let layout = memoryLayout(of: t, from: ir)
-    let v = metatype.constant(
-      aggregating: [layout.size, layout.preferredAlignment, ptr.null],
+    let layout = ConcreteTypeLayout(of: ^t, definedIn: ir, forUseIn: &self)
+    let v = LLVM.StructType(instance.valueType)!.constant(
+      aggregating: [
+        word().constant(layout.size),
+        word().constant(layout.alignment),
+        ptr.null,
+      ],
       in: &self)
 
     setInitializer(v, for: instance)
     setGlobalConstant(true, for: instance)
-    return instance
   }
 
-  /// Returns the memory layout of `t`, which is a canonical type in `ir`.
-  ///
-  /// - Requires: `t` is representable in LLVM.
-  private mutating func memoryLayout<T: TypeProtocol>(
-    of t: T, from ir: IR.Program
-  ) -> LLVMMemoryLayout {
-    let u = ir.llvm(t, in: &self)
-    return .init(
-      size: word().constant(layout.storageSize(of: u)),
-      preferredAlignment: word().constant(layout.preferredAlignment(of: u)))
+  /// Initializes `instance` with the value of the metatype of `t` used in `m` in `ir`.
+  private mutating func initializeTranspiledProductTypeMetatype(
+    _ instance: LLVM.GlobalVariable,
+    of t: ProductType, usedIn m: IR.Module, from ir: IR.Program
+  ) {
+    // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply let
+    // the symbol be linked to its definition later.
+    if m.id != ir.base.module(containing: t.decl) { return }
+
+    // If `t` is generic, its metatype is only a stub.
+    let layout: ConcreteTypeLayout
+    if !ir.base[t.decl].genericParameters.isEmpty {
+      layout = ConcreteTypeLayout(size: 0, alignment: 0)
+    } else {
+      layout = ConcreteTypeLayout(of: ^t, definedIn: ir, forUseIn: &self)
+    }
+
+    let v = LLVM.StructType(instance.valueType)!.constant(
+      aggregating: [
+        word().constant(layout.size),
+        word().constant(layout.alignment),
+        ptr.null,
+      ],
+      in: &self)
+
+    setInitializer(v, for: instance)
+    setGlobalConstant(true, for: instance)
+  }
+
+  private mutating func demandMetatype<T: TypeProtocol>(
+    of t: T, usedIn m: IR.Module, from ir: IR.Program,
+    initializedWith initializeInstance: (inout Self, LLVM.GlobalVariable) -> Void
+  ) -> LLVM.GlobalVariable {
+    let globalName = ir.base.mangled(t)
+    if let g = global(named: globalName) { return g }
+
+    let metatype = metatypeType()
+    let instance = declareGlobalVariable(globalName, metatype)
+    initializeInstance(&self, instance)
+    return instance
   }
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
@@ -572,6 +566,8 @@ extension LLVM.Module {
         insert(closeUnion: i)
       case is IR.CondBranch:
         insert(condBranch: i)
+      case is IR.ConstantString:
+        insert(constantString: i)
       case is IR.DeallocStack:
         return
       case is IR.EndAccess:
@@ -709,6 +705,17 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(constantString i: IR.InstructionID) {
+      let s = m[i] as! ConstantString
+      let v = LLVM.ArrayConstant(bytes: s.value, in: &self)
+      let d = declareGlobalVariable(UUID().uuidString, v.type)
+      setInitializer(v, for: d)
+      setLinkage(.private, for: d)
+      setGlobalConstant(true, for: d)
+      register[.register(i)] = d
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(condBranch i: IR.InstructionID) {
       let s = m[i] as! CondBranch
       let c = llvm(s.condition)
@@ -775,15 +782,30 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         register[.register(i)] = insertLShr(l, r, at: insertionPoint)
 
+      case .ashr:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertAShr(l, r, at: insertionPoint)
+
       case .sdiv(let e, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         register[.register(i)] = insertSignedDiv(exact: e, l, r, at: insertionPoint)
 
-      case .srem(_):
+      case .udiv(let e, _):
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertUnsignedDiv(exact: e, l, r, at: insertionPoint)
+
+      case .srem:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         register[.register(i)] = insertSignedRem(l, r, at: insertionPoint)
+
+      case .urem:
+        let l = llvm(s.operands[0])
+        let r = llvm(s.operands[1])
+        register[.register(i)] = insertUnsignedRem(l, r, at: insertionPoint)
 
       case .signedAdditionWithOverflow(let t):
         let l = llvm(s.operands[0])
@@ -852,6 +874,11 @@ extension LLVM.Module {
         let source = llvm(s.operands[0])
         register[.register(i)] = insertTrunc(source, to: target, at: insertionPoint)
 
+      case .zext(_, let t):
+        let target = ir.llvm(builtinType: t, in: &self)
+        let source = llvm(s.operands[0])
+        register[.register(i)] = insertZeroExtend(source, to: target, at: insertionPoint)
+
       case .inttoptr(_):
         let source = llvm(s.operands[0])
         register[.register(i)] = insertIntToPtr(source, at: insertionPoint)
@@ -895,6 +922,23 @@ extension LLVM.Module {
         let target = ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i)] = insertFPTrunc(source, to: target, at: insertionPoint)
+
+      case .ctpop(let t):
+        let source = llvm(s.operands[0])
+        let f = intrinsic(named: Intrinsic.llvm.ctpop, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [source], at: insertionPoint)
+
+      case .ctlz(let t):
+        let source = llvm(s.operands[0])
+        let f = intrinsic(named: Intrinsic.llvm.ctlz, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          LLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
+
+      case .cttz(let t):
+        let source = llvm(s.operands[0])
+        let f = intrinsic(named: Intrinsic.llvm.cttz, for: [ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          LLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
 
       case .zeroinitializer(let t):
         register[.register(i)] = ir.llvm(builtinType: t, in: &self).null
@@ -1142,16 +1186,5 @@ private struct LambdaContents {
 
   /// The lambda's environment.
   let environment: [LLVM.IRValue]
-
-}
-
-/// The memory layout of a Hylo type represented in LLVM.
-private struct LLVMMemoryLayout {
-
-  /// The contiguous memory footprint of the type's instances, in bytes.
-  let size: LLVM.IRValue
-
-  /// The preferred memory alignment of the `T`'s instances, in bytes.
-  let preferredAlignment: LLVM.IRValue
 
 }

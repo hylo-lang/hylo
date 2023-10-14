@@ -1,0 +1,28 @@
+/// A collection containing a single element.
+public type CollectionOfOne<Element: Movable & Deinitializable>: Deinitializable {
+
+  public typealias Index = Bool
+
+  /// The element contained in `self`.
+  var contents: Element
+
+  /// Creates a collection containing just `contents`.
+  public init(_ contents: sink Element) {
+    &self.contents = contents
+  }
+
+  public fun start_index() -> Bool { false }
+
+  public fun end_index() -> Bool { true }
+
+  public fun index(after i: Bool) -> Bool { true }
+
+  public subscript(_ position: Bool): Element {
+    let {
+      // TODO: uncomment when #1046 is implemented
+      // precondition(!position, "index is out of bounds")
+      yield contents
+    }
+  }
+
+}

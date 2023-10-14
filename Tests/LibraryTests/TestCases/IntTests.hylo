@@ -12,10 +12,71 @@ fun test_max() {
   precondition(max[2, 1] == 2)
 }
 
+fun test_init_truncating_or_extending() {
+  let a = Int(truncating_or_extending: UInt.max())
+  precondition(a == -1)
+}
+
+fun test_signum() {
+  precondition(Int().signum() == 0)
+  precondition((+10).signum() == +1)
+  precondition((-10).signum() == -1)
+}
+
+fun test_adding_reporting_overflow() {
+  let a0 = (1).adding_reporting_overflow(1)
+  precondition(a0.0 == 2)
+  precondition(a0.1 == false)
+
+  let a1 = Int.max().adding_reporting_overflow(1)
+  precondition(a1.0 == Int.min())
+  precondition(a1.1 == true)
+}
+
+fun test_multiplied_reporting_overflow() {
+  let a0 = (1).multiplied_reporting_overflow(by: 2)
+  precondition(a0.0 == 2)
+  precondition(a0.1 == false)
+
+  let a1 = Int.max().multiplied_reporting_overflow(by: 2)
+  precondition(a1.0 == -2)
+  precondition(a1.1 == true)
+}
+
+fun test_divided_reporting_overflow() {
+  let a0 = (1).divided_reporting_overflow(by: 0)
+  precondition(a0.0 == 1)
+  precondition(a0.1 == true)
+}
+
+fun test_remainder_reporting_overflow() {
+  let a0 = (1).remainder_reporting_overflow(dividing_by: 0)
+  precondition(a0.0 == 1)
+  precondition(a0.1 == true)
+}
+
 public fun main() {
   // Int.init()
   precondition(Int() == 0)
 
+  // Int.is_signed()
+  precondition(Int.is_signed())
+
   test_min()
   test_max()
+  test_signum()
+  test_adding_reporting_overflow()
+  test_multiplied_reporting_overflow()
+  test_divided_reporting_overflow()
+  test_remainder_reporting_overflow()
+
+  // TODO:
+  // These tests assume they are running on a 64-bit architecture.
+  // They should be wrapped in a conditional compilation block (see #1035).
+  precondition(Int.bit_width() == 64)
+  precondition(Int.max() == 9223372036854775807)
+  precondition(Int.min() == -9223372036854775808)
+  precondition((-1).nonzero_bit_count() == 64)
+  precondition((10).leading_zeros() == 60)
+  precondition((10).trailing_zeros() == 1)
 }

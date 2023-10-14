@@ -1,5 +1,6 @@
 import Core
 import XCTest
+import Utils
 
 /// A test annotation in a source file.
 ///
@@ -58,8 +59,7 @@ public struct TestAnnotation: Hashable {
   /// - Parameters:
   ///   - location: The line location of the annotation.
   ///   - body: A collection of characters representing an annotation body.
-  init<S: Collection>(in url: URL, atLine line: Int, parsing body: S)
-  where S.Element == Character {
+  init<S: StringProtocol>(in url: URL, atLine line: Int, parsing body: S) {
     var s = body.drop(while: { $0.isWhitespace })
 
     // Parse the line offset, if any.
@@ -87,7 +87,7 @@ public struct TestAnnotation: Hashable {
     let indentation = s.prefix(while: { $0.isWhitespace && !$0.isNewline })
 
     // Parse the argument.
-    let lines = s.split(separator: "\n")
+    let lines = s.lineContents()
     if lines.isEmpty {
       self.argument = nil
     } else {

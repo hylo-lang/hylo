@@ -31,6 +31,17 @@ public struct GenericArguments {
     self.contents = .init(uniqueKeysWithValues: keysAndValues)
   }
 
+  /// Creates an instance mapping each element of `parameters`, which is defined in `ast`, to its
+  /// skolemized form.
+  public init<S: Sequence>(
+    skolemizing parameters: S, in ast: AST
+  ) where S.Element == GenericParameterDecl.ID {
+    self.contents = .init(
+      uniqueKeysWithValues: parameters.map { (p) in
+        (key: p, value: ^GenericTypeParameterType(p, ast: ast))
+      })
+  }
+
   /// A collection with the parameters to which arguments are passed.
   public var keys: some Collection<Key> {
     contents.keys

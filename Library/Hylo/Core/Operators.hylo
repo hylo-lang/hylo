@@ -1,5 +1,7 @@
 public operator infix<<   : shift
+public operator infix&<<  : shift
 public operator infix>>   : shift
+public operator infix&>>  : shift
 
 public operator infix*    : multiplication
 public operator infix*!   : multiplication
@@ -31,14 +33,19 @@ public operator infix|    : disjunction
 public operator infix||   : disjunction
 
 public operator infix<<=  : assignment
+public operator infix&<<= : assignment
 public operator infix>>=  : assignment
+public operator infix&>>= : assignment
 public operator infix*=   : assignment
 public operator infix/=   : assignment
 public operator infix%=   : assignment
 public operator infix+=   : assignment
 public operator infix-=   : assignment
+public operator infix^=   : assignment
 public operator infix&=   : assignment
 public operator infix&&=  : assignment
+public operator infix|=   : assignment
+public operator infix||=  : assignment
 
 public operator infix**   : exponentiation
 

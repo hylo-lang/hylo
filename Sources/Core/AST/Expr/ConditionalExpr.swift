@@ -15,13 +15,13 @@ public struct ConditionalExpr: Expr, LexicalScope {
   public let success: AnyExprID
 
   /// The the expression that's executed if the condition does not hold.
-  public let failure: AnyExprID
+  public let failure: Introduced<AnyExprID>
 
   public init(
     introducerSite: SourceRange,
     condition: [ConditionItem],
     success: AnyExprID,
-    failure: AnyExprID,
+    failure: Introduced<AnyExprID>,
     site: SourceRange
   ) {
     precondition(condition.count > 0)

@@ -1,0 +1,282 @@
+/// An unsigned integer value.
+public type UInt {
+
+  var value: Builtin.word
+
+  memberwise init
+
+  /// Creates an instance with the same memory representation as `other`.
+  public init(bit_pattern other: Int) {
+    &self.value = other.value
+  }
+
+  /// Creates an instance with the same memory representation as `address`.
+  public init(bit_pattern address: MemoryAddress) {
+    &self.value = Builtin.ptrtoint_word(address.base)
+  }
+
+  /// Returns the bitwise inverse of `self`.
+  public fun prefix~ () -> Self {
+    self ^ UInt(bit_pattern: -1)
+  }
+
+}
+
+public conformance UInt: ExpressibleByIntegerLiteral {}
+
+public conformance UInt: Deinitializable {}
+
+public conformance UInt: Copyable {
+
+  public fun copy() -> Self {
+    UInt(value: value)
+  }
+
+}
+
+public conformance UInt: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_word(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_word(value, other.value))
+  }
+
+}
+
+public conformance UInt: Comparable {
+
+  public fun infix< (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ult_word(value, other.value))
+  }
+
+  public fun infix<= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ule_word(value, other.value))
+  }
+
+  public fun infix> (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ugt_word(value, other.value))
+  }
+
+  public fun infix>= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_uge_word(value, other.value))
+  }
+
+}
+
+public conformance UInt: AdditiveArithmetic {
+
+  public fun infix+ (_ other: Self) -> Self {
+    UInt(value: Builtin.add_word(value, other.value))
+  }
+
+  public fun infix+= (_ other: Self) inout {
+    &self.value = Builtin.add_word(value, other.value)
+  }
+
+  public fun infix- (_ other: Self) -> Self {
+    UInt(value: Builtin.sub_word(value, other.value))
+  }
+
+  public fun infix-= (_ other: Self) inout {
+    &self.value = Builtin.sub_word(value, other.value)
+  }
+
+  public static fun zero() -> Self {
+    UInt()
+  }
+
+}
+
+// TODO: Rewrite as a conformance to `Numeric` when #1047 is fixed
+public extension UInt {
+
+//   public typealias Magnitude = UInt
+
+  public fun magnitude() -> UInt {
+    self.copy()
+  }
+
+  public fun infix* (_ other: Self) -> Self {
+    UInt(value: Builtin.mul_word(value, other.value))
+  }
+
+  public fun infix*= (_ other: Self) inout {
+    &self.value = Builtin.mul_word(value, other.value)
+  }
+
+}
+
+public conformance UInt: BinaryInteger {
+
+  public init() {
+    &self.value = Builtin.zeroinitializer_word()
+  }
+
+  public init<T: BinaryInteger>(truncating_or_extending source: T) {
+    let w = source.words()
+    &self.value = w[w.start_index()].value
+  }
+
+  public fun instance_bit_width() -> Int {
+    Self.bit_width()
+  }
+
+  public fun signum() -> Int {
+    Int(value: Builtin.zext_i1_word((self > UInt()).value))
+  }
+
+  public fun trailing_zeros() -> Int {
+    Int(value: Builtin.cttz_word(value))
+  }
+
+  public fun quotient_and_remainder(dividing_by other: Self) -> {quotient: Self, remainder: Self} {
+    (quotient: self / other, remainder: self & other)
+  }
+
+  public fun words() -> CollectionOfOne<UInt> {
+    CollectionOfOne(self.copy())
+  }
+
+  public fun infix/ (_ other: Self) -> Self {
+    UInt(value: Builtin.udiv_word(value, other.value))
+  }
+
+  public fun infix/= (_ other: Self) inout {
+    &self.value = Builtin.udiv_word(value, other.value)
+  }
+
+  public fun infix% (_ other: Self) -> Self {
+    UInt(value: Builtin.urem_word(value, other.value))
+  }
+
+  public fun infix%= (_ other: Self) inout {
+    &self.value = Builtin.urem_word(value, other.value)
+  }
+
+  public fun infix& (_ other: Self) -> Self {
+    UInt(value: Builtin.and_word(value, other.value))
+  }
+
+  public fun infix&= (_ other: Self) inout {
+    &self.value = Builtin.and_word(value, other.value)
+  }
+
+  public fun infix| (_ other: Self) -> Self {
+    UInt(value: Builtin.or_word(value, other.value))
+  }
+
+  public fun infix|= (_ other: Self) inout {
+    &self.value = Builtin.or_word(value, other.value)
+  }
+
+  public fun infix^ (_ other: Self) -> Self {
+    UInt(value: Builtin.xor_word(value, other.value))
+  }
+
+  public fun infix^= (_ other: Self) inout {
+    &self.value = Builtin.xor_word(value, other.value)
+  }
+
+  public fun infix<< (_ n: Int) -> Self {
+    UInt(value: Builtin.shl_word(value, n.value))
+  }
+
+  public fun infix<<= (_ n: Int) inout {
+    &self.value = Builtin.shl_word(value, n.value)
+  }
+
+  public fun infix>> (_ n: Int) -> Self {
+    UInt(value: Builtin.lshr_word(value, n.value))
+  }
+
+  public fun infix>>= (_ n: Int) inout {
+    &self.value = Builtin.lshr_word(value, n.value)
+  }
+
+  public static fun is_signed() -> Bool {
+    false
+  }
+
+}
+
+public conformance UInt: FixedWidthInteger {
+
+  public fun matches(_ mask: Self) -> Bool {
+    (self & mask) == mask
+  }
+
+  public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.uadd_with_overflow_word(value, other.value)
+    return (partial_value: UInt(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun subtracting_reporting_overflow(
+    _ other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.usub_with_overflow_word(value, other.value)
+    return (partial_value: UInt(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun multiplied_reporting_overflow(
+    by other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.umul_with_overflow_word(value, other.value)
+    return (partial_value: UInt(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool} {
+    if other == UInt() {
+      return (partial_value: self.copy(), overflow: true)
+    }
+    return (partial_value: UInt(value: Builtin.udiv_word(value, other.value)), overflow: false)
+  }
+
+  public fun remainder_reporting_overflow(
+    dividing_by other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    if other == UInt() {
+      return (partial_value: self.copy(), overflow: true)
+    }
+    return (partial_value: UInt(value: Builtin.urem_word(value, other.value)), overflow: false)
+  }
+
+  public fun nonzero_bit_count() -> Int {
+    Int(value: Builtin.ctpop_word(value))
+  }
+
+  public fun leading_zeros() -> Int {
+    Int(value: Builtin.ctlz_word(value))
+  }
+
+  public fun infix&<< (_ n: Int) -> Self {
+    UInt(value: Builtin.shl_word(value, n.value))
+  }
+
+  public fun infix&<<= (_ n: Int) inout {
+    &self.value = Builtin.shl_word(value, n.value)
+  }
+
+  public fun infix&>> (_ n: Int) -> Self {
+    UInt(value: Builtin.lshr_word(value, n.value))
+  }
+
+  public fun infix&>>= (_ n: Int) inout {
+    &self.value = Builtin.lshr_word(value, n.value)
+  }
+
+  public static fun bit_width() -> Int {
+    MemoryLayout<Builtin.word>.size() * 8
+  }
+
+  public static fun max() -> Self {
+    ~UInt()
+  }
+
+  public static fun min() -> Self {
+    0
+  }
+
+}
