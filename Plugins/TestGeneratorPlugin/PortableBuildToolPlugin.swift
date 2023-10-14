@@ -41,6 +41,10 @@ fileprivate extension URL {
       _ = myComponents.popFirst()
       _ = startComponents.popFirst()
     }
+
+    // If the paths start on different drives, just return the original
+    if myComponents.first.isAbsolutePath { return self }
+
     return URL(pathComponents: Array(repeating: "..", count: startComponents.count) + myComponents)
   }
 
