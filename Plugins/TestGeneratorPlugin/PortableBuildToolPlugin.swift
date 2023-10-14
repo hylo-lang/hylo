@@ -242,7 +242,7 @@ public extension PortableBuildCommand.Tool {
           // I think that's an SPM bug. If they fix it, we'll need to nest scratchPath in
           // context.workDirectory and add an explicit build step to delete it to keep its contents
           // from being incorporated into the resources of the target we're building.
-          "--disable-sandbox",
+          // "--disable-sandbox",
           "--scratch-path", scratchPath.relative(toDirectory: pluginWorkDirectory).fileSystemPath,
           "--package-path", context.package.directory.url.relative(toDirectory: pluginWorkDirectory).fileSystemPath,
           productName ],
