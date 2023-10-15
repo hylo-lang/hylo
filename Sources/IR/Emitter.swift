@@ -1338,8 +1338,7 @@ struct Emitter {
         unreachable()
       }
 
-      let o = FunctionReference(
-        to: FunctionDecl.ID(d)!, in: &module, specializedBy: a, in: insertionScope!)
+      let o = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
       let f = Operand.constant(o)
 
       // Emit the call.
@@ -1528,7 +1527,7 @@ struct Emitter {
 
     // Call is evaluated last.
     let f = Operand.constant(
-      FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!))
+      FunctionReference(to: AnyDeclID(d), in: &module, specializedBy: a, in: insertionScope!))
     let x0 = emitAllocStack(for: .void, at: ast[call].site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: ast[call].site))!
 
@@ -1694,13 +1693,11 @@ struct Emitter {
   ) -> (callee: Callee, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == FunctionDecl.self:
-      // Callee is a direct reference to a function declaration.
+      // Callee is a direct reference to an arrow declaration.
       guard LambdaType(canonical(program[callee].type))!.environment == .void else {
-        UNIMPLEMENTED()
+        UNIMPLEMENTED("Generate IR for calls to local functions with captures #1088")
       }
-
-      let f = FunctionReference(
-        to: FunctionDecl.ID(d)!, in: &module, specializedBy: a, in: insertionScope!)
+      let f = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
       return (.direct(f), [])
 
     case .member(let d, let a, let s):
@@ -1996,7 +1993,7 @@ struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(to: InitializerDecl.ID(m)!, in: &module)
+      let convert = FunctionReference(to: m, in: &module)
       let t = LambdaType(convert.type.ast)!.output
 
       let x0 = emitAllocStack(for: ir, at: site)
@@ -2035,7 +2032,7 @@ struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(to: FunctionDecl.ID(m)!, in: &module)
+      let convert = FunctionReference(to: m, in: &module)
       let t = LambdaType(convert.type.ast)!.output
 
       let x0 = insert(module.makeAccess(.let, from: o, at: site))!
