@@ -2737,6 +2737,7 @@ public enum Parser {
       anyStmt(bindingStmt),
       anyStmt(declStmt),
       anyStmt(exprStmt),
+      anyStmt(compilerConditionStmt),
     ]))
 
   static let braceStmt =
@@ -2958,6 +2959,160 @@ public enum Parser {
         right: rhs,
         site: state.range(from: state.ast[lhs].site.start)))
     return AnyStmtID(stmt)
+  }
+
+  static let compilerConditionStmt = Apply(parseCompilerConditionStmt(in:))
+
+  private static func parseCompilerConditionStmt(in state: inout ParserState) throws -> AnyStmtID? {
+    let head = state.take(.poundIf)
+    return head != nil ? try parseCompilerConditionTail(head: head!, in: &state) : nil
+  }
+  /// Parses a compiler condition structure, after the initial token (#if or #elseif).
+  private static func parseCompilerConditionTail(head: Token, in state: inout ParserState) throws
+    -> AnyStmtID
+  {
+    // Parse the condition.
+    let condition = try parseCompilerCondition(in: &state)
+
+    // Now read the body of the compiler condition.
+    let stmts = try parseCompilerConditionBody(
+      in: &state, justSkip: condition.mayNotNeedParsing && !condition.isTrue())
+
+    let fallback: [AnyStmtID]
+
+    // The next token may be #endif, #else or #elseif.
+    if state.take(.poundEndif) != nil {
+      fallback = []
+    } else if state.take(.poundElse) != nil {
+      fallback = try parseCompilerConditionBody(
+        in: &state, justSkip: condition.mayNotNeedParsing && condition.isTrue())
+    } else if let head2 = state.take(.poundElseif) {
+      // We continue with another conditional compilation statement.
+      fallback = [try parseCompilerConditionTail(head: head2, in: &state)]
+    } else {
+      throw [.error(expected: "#endif, #else or #elseif", at: state.currentLocation)]
+        as DiagnosticSet
+    }
+
+    let r = state.insert(
+      CondCompilationStmt(
+        condition: condition,
+        stmts: stmts,
+        fallback: fallback,
+        site: head.site.extended(upTo: state.currentIndex)))
+    return AnyStmtID(r)
+  }
+  /// Parses the body of a compiler condition structure branch.
+  private static func parseCompilerConditionBody(in state: inout ParserState, justSkip: Bool) throws
+    -> [AnyStmtID]
+  {
+    if justSkip {
+      var innerCompilerConditions = 0
+      while let head = state.peek() {
+        let closing: Bool
+        switch head.kind {
+        case .poundElse: closing = true
+        case .poundElseif: closing = true
+        case .poundEndif: closing = true
+        default: closing = false
+        }
+        if closing {
+          if innerCompilerConditions == 0 {
+            // We are done skipping all the tokens from the body.
+            break
+          } else {
+            innerCompilerConditions -= 1
+          }
+        }
+        // Consume this token.
+        _ = state.take()
+
+        // Are opening another nested compiler condition?
+        if head.kind == .poundIf {
+          innerCompilerConditions += 1
+        }
+      }
+      return []
+    } else {
+      let stmtsParser =
+        (zeroOrMany(take(.semi))
+          .and(zeroOrMany(stmt.and(zeroOrMany(take(.semi))).first))
+          .second)
+      return try stmtsParser.parse(&state) ?? []
+    }
+  }
+
+  /// Parses the condition of a compiler conditional.
+  private static func parseCompilerCondition(in state: inout ParserState) throws
+    -> CondCompilationStmt.Condition
+  {
+    if let boolLiteral = state.take(.bool) {
+      return state.lexer.sourceCode[boolLiteral.site] == "true" ? .`true` : .`false`
+    } else if let name = state.take(.name) {
+      let expectVersionNumber: Bool
+      let conditionName = state.token(name).value
+      switch conditionName {
+      case "compilerversion": expectVersionNumber = true
+      case "hyloversion": expectVersionNumber = true
+      default: expectVersionNumber = false
+      }
+
+      if expectVersionNumber {
+        // returns Int
+        let integerParser = (take(.int)).map({ (state, tree) -> Int in Int(state.token(tree).value)!
+        })
+        // returns [Int]
+        let versionNumberParser =
+          (integerParser.and(zeroOrMany(take(.dot).and(integerParser).second)).map({
+            (state, tree) -> [Int] in [tree.0] + tree.1
+          }))
+        let operParser =
+          (operatorIdentifier.map({
+            (_, operName) -> CondCompilationStmt.VersionComparison in
+            switch operName.value {
+            case ">=": return .greaterOrEqual
+            case "<": return .less
+            default:
+              throw [.error(expected: "'>=' or '<'", at: operName.site.first())] as DiagnosticSet
+            }
+          }))
+        let parser =
+          (take(.lParen)  // => TakeKind
+            .and(operParser).second  // => VersionComparison
+            .and(versionNumberParser)  // => (VersionComparison, [Int])
+            .and(take(.rParen)).first  // => (VersionComparison, [Int])
+          )
+        guard let p = try parser.parse(&state) else {
+          throw [.error(expected: "version number comparison", at: state.currentLocation)]
+            as DiagnosticSet
+        }
+        switch conditionName {
+        case "compilerversion": return .compilerVersion(comparison: p.0, versionNumber: p.1)
+        case "hyloversion": return .hyloVersion(comparison: p.0, versionNumber: p.1)
+        default: unreachable()
+        }
+      } else {
+        // we have the form #if identifier(identifier), and our current parsing state starts at '('.
+        let parser =
+          (take(.lParen)  // => TakeKind
+            .and(take(.name).map({ (state, token) -> String in state.token(token).value })).second
+            // => String
+            .and(take(.rParen)).first  // => String
+          )
+        guard let id = try parser.parse(&state) else {
+          throw [.error(expected: "identifier", at: state.currentLocation)] as DiagnosticSet
+        }
+        switch conditionName {
+        case "os": return .os(id)
+        case "arch": return .arch(id)
+        case "compiler": return .compiler(id)
+        default:
+          throw [.error(expected: "compiler condition", at: state.currentLocation)] as DiagnosticSet
+        }
+      }
+    } else {
+      throw [.error(expected: "compiler condition", at: state.currentLocation)] as DiagnosticSet
+    }
   }
 
   // MARK: Type expressions

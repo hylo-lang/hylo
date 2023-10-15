@@ -1648,6 +1648,58 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(try apply(Parser.exprStmt, on: input))
   }
 
+  func testSimpleConditionalControl() throws {
+    let input: SourceFile = "#if os(MacOs) foo() #endif"
+    let r = try apply(Parser.stmt, on: input)
+    XCTAssertNotNil(r.element)
+  }
+  func testConditionalControlTrue() throws {
+    let input: SourceFile = "#if true foo() #else awgr() #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+  func testConditionalControlFalse() throws {
+    let input: SourceFile = "#if false awgr() #else foo() #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+  func testConditionalControlOs() throws {
+    let input: SourceFile =
+      "#if os(MacOs) foo() #elseif os(Linux) bar() #elseif os(Windows) bazz() #else awgr() #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+  func testConditionalControlArch() throws {
+    let input: SourceFile =
+      "#if arch(x86_64) foo() #elseif arch(i386) bar() #elseif arch(arm64) bazz() #elseif arch(arm) fizz() #else awgr() #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+  func testConditionalControlCompiler() throws {
+    let input: SourceFile = "#if compiler(hc) foo() #else awgr() #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+  func testConditionalControlCompilerVersionGreater() throws {
+    let input: SourceFile = "#if compilerversion(>= 0.1) foo() #else awgr() #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+  func testConditionalControlCompilerVersionLess() throws {
+    let input: SourceFile = "#if compilerversion(< 100.1.2.3.4.5) foo() #else awgr() #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+  func testConditionalControlHyloVersionGreater() throws {
+    let input: SourceFile = "#if hyloversion(>= 0.1) foo() #else awgr() #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+  func testConditionalControlHyloVersionLess() throws {
+    let input: SourceFile = "#if hyloversion(< 100.1.2.3.4.5) foo() #else awgr() #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+  func testConditionalControlParsingInsideDisabledBlocks() throws {
+    let input: SourceFile = "#if false this should have a parse error #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+  func testConditionalControlParsingInsideVersiojnBlocks() throws {
+    let input: SourceFile = "#if hyloversion(< 0.1) this should not have a parse error #endif"
+    XCTAssertNotNil(try apply(Parser.stmt, on: input))
+  }
+
   // MARK: Operators
 
   func testTakeOperator() throws {
