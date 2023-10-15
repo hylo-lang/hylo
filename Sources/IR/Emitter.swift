@@ -1218,7 +1218,7 @@ struct Emitter {
         return
 
       case .constructor:
-        emit(initializerCall: e, initializing: storage)
+        emit(constructorCall: e, initializing: storage)
         return
 
       default:
@@ -1503,9 +1503,7 @@ struct Emitter {
   ///   - call: The syntax of the call.
   ///   - s: The address of uninitialized storage typed by the receiver of `call`. This storage is
   ///     borrowed for initialization after evaluating `call`'s arguments and before the call.
-  private mutating func emit(
-    initializerCall call: FunctionCallExpr.ID, initializing s: Operand
-  ) {
+  private mutating func emit(constructorCall call: FunctionCallExpr.ID, initializing s: Operand) {
     let callee = NameExpr.ID(ast[call].callee)!
     guard case .constructor(let d, let a) = program[callee].referredDecl else {
       preconditionFailure()
