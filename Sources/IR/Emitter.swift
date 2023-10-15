@@ -1692,7 +1692,7 @@ struct Emitter {
     namedFunctionCallee callee: NameExpr.ID
   ) -> (callee: Callee, captures: [Operand]) {
     switch program[callee].referredDecl {
-    case .direct(let d, let a) where d.kind == FunctionDecl.self:
+    case .direct(let d, let a) where d.isCallable:
       // Callee is a direct reference to an arrow declaration.
       guard LambdaType(canonical(program[callee].type))!.environment == .void else {
         UNIMPLEMENTED("Generate IR for calls to local functions with captures #1088")
