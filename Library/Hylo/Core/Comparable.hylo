@@ -6,18 +6,24 @@ public trait Comparable: Equatable {
   /// Returns `true` iff `self` is ordered before `other`.
   fun infix< (_ other: Self) -> Bool
 
-}
-
-extension Comparable {
-
   /// Returns `true` iff `self` is ordered after `other`.
-  fun infix> (_ other: Self) -> Bool { (other < self) }
+  fun infix> (_ other: Self) -> Bool
 
   /// Returns `false` iff `self` is ordered after `other`.
-  fun infix<= (_ other: Self) -> Bool { !(other < self) }
+  fun infix<= (_ other: Self) -> Bool
 
   /// Returns `false` iff `self` is ordered before `other`.
-  fun infix>= (_ other: Self) -> Bool { !(self < other) }
+  fun infix>= (_ other: Self) -> Bool
+
+}
+
+public extension Comparable {
+
+  public fun infix> (_ other: Self) -> Bool { (other < self) }
+
+  public fun infix<= (_ other: Self) -> Bool { !(other < self) }
+
+  public fun infix>= (_ other: Self) -> Bool { !(self < other) }
 
 }
 
