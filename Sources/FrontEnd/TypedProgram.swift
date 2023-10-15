@@ -334,43 +334,19 @@ public struct TypedProgram {
   /// This method returns `nil` if the conformance of `model` to `concept` is structural (e.g., a
   /// tuple's synthesized conformance to `Movable`) or if the conformance is implied by a trait
   /// bound (e.g., `T: P` in `fun f<T: P>() {}`).
+  ///
+  /// - Requires: `model` is canonical.
   private func explicitConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
-    assert(model[.isCanonical])
-
-    // `A<X>: T` iff `A: T`.
-    if let t = BoundGenericType(model) {
-      guard let c = conformance(of: t.base, to: concept, exposedTo: scopeOfUse) else {
-        return nil
-      }
-
-      // TODO: translate generic arguments to conditions
-
-      return .init(
-        model: t.base, concept: concept, arguments: t.arguments, conditions: [],
-        scope: c.scope, implementations: c.implementations, isStructural: c.isStructural,
-        site: c.site)
-    }
-
-    guard
-      let allConformances = conformances[model],
-      let conformancesToConcept = allConformances[concept]
-    else { return nil }
-
-    // Return the first conformance exposed to `scopeOfUse`.
-    let exposed = modules(exposedTo: scopeOfUse)
-    return conformancesToConcept.first { (c) in
-      if let m = ModuleDecl.ID(c.scope), exposed.contains(m) {
-        return true
-      } else {
-        return isContained(scopeOfUse, in: c.scope)
-      }
-    }
+    let checker = TypeChecker(asContextFor: self)
+    return checker.cachedConformance(of: model, to: concept, exposedTo: scopeOfUse)
   }
 
   /// Returns the conformance of `model` to `concept` that is implied by the generic environment
   /// introducing `model` in `scopeOfUse`, or `nil` if such a conformance doesn't exist.
+  ///
+  /// - Requires: `model` is canonical.
   private func impliedConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
@@ -457,7 +433,7 @@ public struct TypedProgram {
   }
 
   /// Returns the modules visible to `s`:
-  private func modules(exposedTo s: AnyScopeID) -> Set<ModuleDecl.ID> {
+  public func modules(exposedTo s: AnyScopeID) -> Set<ModuleDecl.ID> {
     if let m = ModuleDecl.ID(s) {
       return [m]
     } else {

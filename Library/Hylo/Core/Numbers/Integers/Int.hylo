@@ -52,6 +52,8 @@ public conformance Int: ExpressibleByIntegerLiteral {}
 
 public conformance Int: Deinitializable {}
 
+public conformance Int: Movable {}
+
 public conformance Int: Copyable {
 
   public fun copy() -> Self {
@@ -71,6 +73,8 @@ public conformance Int: Equatable {
   }
 
 }
+
+public conformance Int: Regular {}
 
 public conformance Int: Comparable {
 
