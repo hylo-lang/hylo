@@ -65,6 +65,10 @@ public struct Token {
     case `while`
     case `yield`
     case `yielded`
+    case poundIf
+    case poundElse
+    case poundElseif
+    case poundEndif
 
     // Attributes
     case attribute = 4000

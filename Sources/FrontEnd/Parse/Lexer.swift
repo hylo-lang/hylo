@@ -213,12 +213,21 @@ public struct Lexer: IteratorProtocol, Sequence {
       return token
     }
 
-    // Scan pragmas.
+    // Scan pragmas & pound-control keywords.
     if head == "#" {
       discard()
       let tail = take(while: { $0.isLetter || ($0 == "_") })
       token.site.extend(upTo: index)
-      token.kind = tail.isEmpty ? .invalid : .pragmaLiteral
+
+      switch tail {
+      case "if": token.kind = .poundIf
+      case "else": token.kind = .poundElse
+      case "elseif": token.kind = .poundElseif
+      case "endif": token.kind = .poundEndif
+      case "": token.kind = .invalid
+      default: token.kind = .pragmaLiteral
+      }
+
       return token
     }
 
