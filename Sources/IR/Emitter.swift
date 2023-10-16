@@ -453,13 +453,13 @@ struct Emitter {
 
   /// Inserts the IR for `d`.
   private mutating func lower(product d: ProductTypeDecl.ID) {
-    _ = module.addGlobal(MetatypeType(program[d].type)!)
+    module.addProductType(ProductType(d, ast: program.ast))
     lower(members: ast[d].members)
   }
 
   /// Inserts the IR for `d`.
   private mutating func lower(trait d: TraitDecl.ID) {
-    _ = module.addGlobal(TraitType(program[d].type)!)
+    module.addTrait(TraitType(d, ast: program.ast))
   }
 
   /// Inserts the IR for given declaration `members`.

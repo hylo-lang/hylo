@@ -22,6 +22,12 @@ public struct Module {
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
 
+  /// The nominal product types defined in the module.
+  public private(set) var productTypes: [ProductType] = []
+
+  /// The traits defined in the module.
+  public private(set) var traits: [TraitType] = []
+
   /// The globals in the module.
   public private(set) var globals: [any Constant] = []
 
@@ -222,7 +228,17 @@ public struct Module {
     try log.throwOnError()
   }
 
-  /// Adds a global constant and returns its identity.
+  /// Adds `t` to the set of nominal product types defined in `self`.
+  mutating func addProductType(_ t: ProductType) {
+    productTypes.append(t)
+  }
+
+  /// Adds `t` to the set of traits defined in `self`.
+  mutating func addTrait(_ t: TraitType) {
+    traits.append(t)
+  }
+
+  /// Adds a global constant with the given `value` in `self`.
   mutating func addGlobal<C: Constant>(_ value: C) -> GlobalID {
     let id = globals.count
     globals.append(value)

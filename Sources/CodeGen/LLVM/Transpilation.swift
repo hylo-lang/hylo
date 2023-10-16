@@ -11,6 +11,12 @@ extension LLVM.Module {
     let source = ir.modules[m]!
     self.init(source.name)
 
+    for t in source.productTypes {
+      _ = transpiledMetatype(of: ^t, usedIn: source, from: ir)
+    }
+    for t in source.traits {
+      _ = transpiledTrait(t, usedIn: source, from: ir)
+    }
     for g in source.globals.indices {
       incorporate(g, of: source, from: ir)
     }
