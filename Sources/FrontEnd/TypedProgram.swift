@@ -290,7 +290,7 @@ public struct TypedProgram {
   }
 
   /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
-  public func traitDefining<T: DeclID>(_ d: T) -> TraitType? {
+  public func traitDeclaring<T: DeclID>(_ d: T) -> TraitType? {
     var checker = TypeChecker(asContextFor: self)
     return checker.traitDefining(d)
   }
@@ -298,7 +298,7 @@ public struct TypedProgram {
   /// If `d` is member of a trait `c`, returns `(d, c)` if `d` is a requirement, or `(r, c)` if `d`
   /// is a default implementation of a requirement `r`. Otherwise, returns `nil`.
   public func requirementDeclaring(_ d: AnyDeclID) -> (decl: AnyDeclID, trait: TraitType)? {
-    guard let c = traitDefining(d) else { return nil }
+    guard let c = traitDeclaring(d) else { return nil }
 
     // `d` might be the default definition of itself.
     if isRequirement(d) { return (d, c) }

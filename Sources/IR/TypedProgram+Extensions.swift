@@ -8,7 +8,7 @@ extension TypedProgram {
   func traitMember(referredBy f: Function.ID) -> (declaration: AnyDeclID, trait: TraitType)? {
     switch f.value {
     case .lowered(let d):
-      guard let t = traitDefining(d) else { return nil }
+      guard let t = traitDeclaring(d) else { return nil }
       return (declaration: d, trait: t)
 
     default:
