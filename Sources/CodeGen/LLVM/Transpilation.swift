@@ -190,9 +190,6 @@ extension LLVM.Module {
     case let v as MetatypeType:
       return transpiledMetatype(of: v.instance, usedIn: m, from: ir)
 
-    case let v as TraitType:
-      return transpiledTrait(v, usedIn: m, from: ir)
-
     case is IR.VoidConstant:
       return LLVM.StructConstant(aggregating: [], in: &self)
 
