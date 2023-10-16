@@ -484,7 +484,14 @@ struct Emitter {
   ///
   /// - Requires: `d` is a global binding.
   private mutating func lower(globalBinding d: BindingDecl.ID) {
-    UNIMPLEMENTED()
+    precondition(program.isGlobal(d))
+    precondition(read(program[d].pattern.introducer.value, { ($0 == .let) || ($0 == .sinklet) }))
+
+    let r = RemoteType(.set, program[d].type)
+    let l = LambdaType(
+      receiverEffect: .set, environment: ^TupleType(types: [^r]), inputs: [], output: .void)
+    let f = SynthesizedFunctionDecl(.globalInitialization(d), typed: l, in: program[d].scope)
+    lower(globalBindingInitializer: f)
   }
 
   /// Inserts the IR for the local binding `d`.
@@ -638,6 +645,8 @@ struct Emitter {
       return withClearContext({ $0.lower(syntheticMoveInit: d) })
     case .moveAssignment:
       return withClearContext({ $0.lower(syntheticMoveAssign: d) })
+    case .globalInitialization:
+      return withClearContext({ $0.lower(globalBindingInitializer: d) })
     case .copy:
       UNIMPLEMENTED()
     }
@@ -813,6 +822,37 @@ struct Emitter {
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
+  }
+
+  /// Inserts the IR for lowering `d`, which is a global binding initializer, returning the ID of
+  /// the lowered function.
+  @discardableResult
+  private mutating func lower(globalBindingInitializer d: SynthesizedFunctionDecl) -> Function.ID {
+    let f = module.demandDeclaration(lowering: d)
+    if !shouldEmitBody(of: d, loweredTo: f) {
+      return f
+    }
+
+    let entry = module.appendEntry(in: d.scope, to: f)
+    insertionPoint = .end(of: entry)
+    self.frames.push()
+    defer {
+      self.frames.pop()
+      assert(self.frames.isEmpty)
+    }
+
+    let storage = Operand.parameter(entry, 0)
+    guard case .globalInitialization(let binding) = d.kind else { unreachable() }
+    let initializer = program[binding].initializer!
+
+    emitInitStoredLocalBindings(
+      in: program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
+      consuming: initializer)
+    emitStore(value: .void, to: returnValue!, at: program[initializer].site)
+    emitDeallocTopFrame(at: program[initializer].site)
+    insert(module.makeReturn(at: program[initializer].site))
+
+    return f
   }
 
   /// Returns `true` if the body of `d`, which has been lowered to `f` in `self`, has yet to be
