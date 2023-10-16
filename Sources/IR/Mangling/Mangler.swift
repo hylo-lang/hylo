@@ -81,6 +81,8 @@ struct Mangler {
       write(entity: AssociatedTypeDecl.ID(d)!, to: &output)
     case AssociatedValueDecl.self:
       write(entity: AssociatedValueDecl.ID(d)!, to: &output)
+    case BindingDecl.self:
+      write(entity: BindingDecl.ID(d)!, to: &output)
     case ImportDecl.self:
       write(entity: ImportDecl.ID(d)!, to: &output)
     case GenericParameterDecl.self:
@@ -97,7 +99,14 @@ struct Mangler {
     nextSymbolID += 1
   }
 
-  /// Writes the mangled qualification of `d`, defined in program, to `output`.
+  /// Writes the mangled representation of `d` to `output`.
+  private mutating func write(entity d: BindingDecl.ID, to output: inout Output) {
+    let n = program.ast.names(in: program[d].pattern).first!
+    let v = program.ast[n.pattern].decl
+    mangle(decl: v, to: &output)
+  }
+
+  /// Writes the mangled qualification of `d` to `output`.
   private mutating func writeQualification<T: DeclID>(of d: T, to output: inout Output) {
     var qualification: [AnyScopeID] = []
     for s in program.scopes(from: program[d].scope) {
@@ -344,9 +353,28 @@ struct Mangler {
     synthesized symbol: SynthesizedFunctionDecl, to output: inout Output
   ) {
     write(operator: .synthesizedFunctionDecl, to: &output)
-    write(base64Digit: symbol.kind, to: &output)
+    write(synthesizedKind: symbol.kind, to: &output)
     write(scope: symbol.scope, to: &output)
     mangle(type: ^symbol.type, to: &output)
+  }
+
+  /// Writes the mangled representation of `k` to `output`.
+  private mutating func write(
+    synthesizedKind k: SynthesizedFunctionDecl.Kind, to output: inout Output
+  ) {
+    switch k {
+    case .deinitialize:
+      write(base64Didit: 0, to: &output)
+    case .moveInitialization:
+      write(base64Didit: 1, to: &output)
+    case .moveAssignment:
+      write(base64Didit: 2, to: &output)
+    case .copy:
+      write(base64Didit: 3, to: &output)
+    case .globalInitialization(let d):
+      write(base64Didit: 4, to: &output)
+      write(entity: d, to: &output)
+    }
   }
 
   /// Writes the mangled representation of `r` to `output`.

@@ -4,7 +4,7 @@ import Utils
 public struct SynthesizedFunctionDecl: Hashable {
 
   /// The kind of a synthesized declaration.
-  public enum Kind: UInt8 {
+  public enum Kind: Hashable {
 
     /// A deinitializer.
     case deinitialize
@@ -17,6 +17,9 @@ public struct SynthesizedFunctionDecl: Hashable {
 
     /// A copy method.
     case copy
+
+    /// A global initializer for a binding declaration.
+    case globalInitialization(BindingDecl.ID)
 
   }
 
