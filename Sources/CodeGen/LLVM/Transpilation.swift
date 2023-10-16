@@ -12,10 +12,10 @@ extension LLVM.Module {
     self.init(source.name)
 
     for t in source.productTypes {
-      _ = transpiledMetatype(of: ^t, usedIn: source, from: ir)
+      _ = demandMetatype(of: ^t, usedIn: source, from: ir)
     }
     for t in source.traits {
-      _ = transpiledTrait(t, usedIn: source, from: ir)
+      _ = demandTrait(t, usedIn: source, from: ir)
     }
     for g in source.globals.indices {
       incorporate(g, of: source, from: ir)
@@ -188,7 +188,7 @@ extension LLVM.Module {
       return declare(v, from: ir)
 
     case let v as MetatypeType:
-      return transpiledMetatype(of: v.instance, usedIn: m, from: ir)
+      return demandMetatype(of: v.instance, usedIn: m, from: ir)
 
     case is IR.VoidConstant:
       return LLVM.StructConstant(aggregating: [], in: &self)
@@ -218,7 +218,7 @@ extension LLVM.Module {
 
     // Encode the table's header.
     var tableContents: [LLVM.IRValue] = [
-      transpiledMetatype(of: t.witness, usedIn: m, from: ir),
+      demandMetatype(of: t.witness, usedIn: m, from: ir),
       word().constant(t.conformances.count),
     ]
 
@@ -227,7 +227,7 @@ extension LLVM.Module {
     var implementations: [LLVM.IRValue] = []
     for c in t.conformances {
       let entry: [LLVM.IRValue] = [
-        transpiledTrait(c.concept, usedIn: m, from: ir),
+        demandTrait(c.concept, usedIn: m, from: ir),
         word().constant(implementations.count),
       ]
       entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
@@ -279,7 +279,7 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
-  private mutating func transpiledMetatype(
+  private mutating func demandMetatype(
     of t: AnyType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     demandMetatype(of: t, usedIn: m, from: ir) { (me, v) in
@@ -340,6 +340,8 @@ extension LLVM.Module {
     setGlobalConstant(true, for: instance)
   }
 
+  /// Returns the LLVM IR value of `t` used in `m` in `ir`, calling `initializeInstance` to
+  /// initialize it.
   private mutating func demandMetatype<T: TypeProtocol>(
     of t: T, usedIn m: IR.Module, from ir: IR.Program,
     initializedWith initializeInstance: (inout Self, LLVM.GlobalVariable) -> Void
@@ -354,7 +356,7 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
-  private mutating func transpiledTrait(
+  private mutating func demandTrait(
     _ t: TraitType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     // Check if we already created the trait's instance.
