@@ -28,7 +28,7 @@ public struct Module {
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
-  /// The synthesized functions used and defined in the module.
+  /// The synthesized declarations used and defined in the module.
   public private(set) var synthesizedDecls = OrderedSet<SynthesizedFunctionDecl>()
 
   /// The module's entry function, if any.

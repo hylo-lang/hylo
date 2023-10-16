@@ -6,16 +6,16 @@ public struct SynthesizedFunctionDecl: Hashable {
   /// The kind of a synthesized declaration.
   public enum Kind: UInt8 {
 
-    /// The deinitializer of a type.
+    /// A deinitializer.
     case deinitialize
 
-    /// The move-initialization operator of a type.
+    /// A move-initialization method.
     case moveInitialization
 
-    /// The move-assignment operator of a type.
+    /// A move-assignment method.
     case moveAssignment
 
-    /// The copy method of a type.
+    /// A copy method.
     case copy
 
   }
@@ -36,10 +36,11 @@ public struct SynthesizedFunctionDecl: Hashable {
     self.scope = scope
   }
 
-  /// The type of the function's receiver.
+  /// The type of the declaration's receiver.
   public var receiver: AnyType {
-    // Synthesized functions are methods, so their first capture is the receiver.
-    read(type.captures[0].type, { (r) in RemoteType(r)?.bareType ?? r })
+    // Synthesized are members, so their receiver is part of their captures.
+    let r = type.captures[0].type
+    return RemoteType(r)?.bareType ?? r
   }
 
 }
@@ -47,7 +48,7 @@ public struct SynthesizedFunctionDecl: Hashable {
 extension SynthesizedFunctionDecl: CustomStringConvertible {
 
   public var description: String {
-    "(\((receiver))).\(kind)"
+    "(\(receiver)).\(kind)"
   }
 
 }
