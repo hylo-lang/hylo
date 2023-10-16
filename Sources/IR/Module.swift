@@ -507,11 +507,9 @@ public struct Module {
   }
 
   /// Returns a pointer to the witness table of `t` used in `scopeOfUse`.
-  mutating func demandWitnessTable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> PointerConstant {
-    let w = WitnessTable(
-      for: t, conformingTo: loweredConformances(of: t, exposedTo: scopeOfUse),
-      in: scopeOfUse)
-    return PointerConstant(id, addGlobal(w))
+  mutating func demandWitnessTable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> WitnessTable {
+    let cs = loweredConformances(of: t, exposedTo: scopeOfUse)
+    return WitnessTable(for: t, conformingTo: cs, in: scopeOfUse)
   }
 
   /// Returns the lowered conformances of `model` that are exposed to `useScope`.
