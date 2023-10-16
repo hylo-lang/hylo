@@ -6,8 +6,9 @@ import Utils
 
 /// A module lowered to Hylo IR.
 ///
-/// An IR module is notionally composed of a collection of functions, one of which may be
-/// designated as its entry point (i.e., the `main` function of a Hylo program).
+/// A lowered module is a collection of IR functions and a collection of constant IR values, which
+/// represent nominal types, traits, and global bindings. These entities may not necessarily have
+/// a definition. When they don't, they denote a declaration known to be defined in another module.
 public struct Module {
 
   /// The identity of a global defined in a Hylo IR module.
@@ -22,6 +23,12 @@ public struct Module {
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
 
+  /// The nominal product types defined in the module.
+  public private(set) var productTypes: [ProductType] = []
+
+  /// The traits defined in the module.
+  public private(set) var traits: [TraitType] = []
+
   /// The globals in the module.
   public private(set) var globals: [any Constant] = []
 
@@ -32,6 +39,10 @@ public struct Module {
   public private(set) var synthesizedDecls = OrderedSet<SynthesizedFunctionDecl>()
 
   /// The module's entry function, if any.
+  ///
+  /// An entry function is the lowered form of a program's entry point, that is the `main` function
+  /// of a Hylo program. A module with an entry function is called an entry module. There can be
+  /// only one entry module in a program.
   public private(set) var entryFunction: Function.ID?
 
   /// Creates an instance lowering `m` in `p`, reporting errors and warnings to `log`.
@@ -222,7 +233,17 @@ public struct Module {
     try log.throwOnError()
   }
 
-  /// Adds a global constant and returns its identity.
+  /// Adds `t` to the set of nominal product types defined in `self`.
+  mutating func addProductType(_ t: ProductType) {
+    productTypes.append(t)
+  }
+
+  /// Adds `t` to the set of traits defined in `self`.
+  mutating func addTrait(_ t: TraitType) {
+    traits.append(t)
+  }
+
+  /// Adds a global constant with the given `value` in `self`.
   mutating func addGlobal<C: Constant>(_ value: C) -> GlobalID {
     let id = globals.count
     globals.append(value)
@@ -507,11 +528,9 @@ public struct Module {
   }
 
   /// Returns a pointer to the witness table of `t` used in `scopeOfUse`.
-  mutating func demandWitnessTable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> PointerConstant {
-    let w = WitnessTable(
-      for: t, conformingTo: loweredConformances(of: t, exposedTo: scopeOfUse),
-      in: scopeOfUse)
-    return PointerConstant(id, addGlobal(w))
+  mutating func demandWitnessTable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> WitnessTable {
+    let cs = loweredConformances(of: t, exposedTo: scopeOfUse)
+    return WitnessTable(for: t, conformingTo: cs, in: scopeOfUse)
   }
 
   /// Returns the lowered conformances of `model` that are exposed to `useScope`.
