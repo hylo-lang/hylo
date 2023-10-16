@@ -2990,7 +2990,7 @@ public enum Parser {
       // We continue with another conditional compilation statement.
       fallback = [try parseCompilerConditionTail(head: head2, in: &state)]
     } else {
-      throw [.error(expected: "#endif, #else or #elseif", at: state.currentLocation)]
+      throw [.error(expected: "statement, #endif, #else or #elseif", at: state.currentLocation)]
         as DiagnosticSet
     }
 

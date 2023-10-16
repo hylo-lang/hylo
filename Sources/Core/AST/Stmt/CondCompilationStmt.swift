@@ -8,7 +8,7 @@ public struct CondCompilationStmt: Stmt {
 
   }
 
-  public enum Condition: Codable {
+  public enum Condition: Codable, Equatable {
 
     case `true`
     case `false`
