@@ -178,9 +178,6 @@ extension LLVM.Module {
     case let v as IR.WitnessTable:
       return transpiledWitnessTable(v, usedIn: m, from: ir)
 
-    case let v as IR.PointerConstant:
-      return global(named: "\(v.container)\(v.id)")!
-
     case let v as IR.FunctionReference:
       return declare(v, from: ir)
 
