@@ -491,7 +491,9 @@ struct Emitter {
     let l = LambdaType(
       receiverEffect: .set, environment: ^TupleType(types: [^r]), inputs: [], output: .void)
     let f = SynthesizedFunctionDecl(.globalInitialization(d), typed: l, in: program[d].scope)
-    lower(globalBindingInitializer: f)
+    let i = lower(globalBindingInitializer: f)
+
+    _ = module.addGlobal(StaticStorage(r.bareType, initializedWith: i))
   }
 
   /// Inserts the IR for the local binding `d`.
