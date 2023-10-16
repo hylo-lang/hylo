@@ -518,7 +518,7 @@ struct Emitter {
     }
 
     for (path, name) in ast.names(in: lhs) {
-      _ = emitDeclaration(of: name, referringTo: path, relativeTo: storage)
+      _ = emitLocalDeclaration(of: name, referringTo: path, relativeTo: storage)
     }
   }
 
@@ -556,7 +556,7 @@ struct Emitter {
     _ name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
     consuming initializer: AnyExprID
   ) {
-    let lhsPart = emitDeclaration(of: name, referringTo: subfield, relativeTo: storage)
+    let lhsPart = emitLocalDeclaration(of: name, referringTo: subfield, relativeTo: storage)
     let lhsPartType = module.type(of: lhsPart).ast
     let rhsPartType = canonical(program[initializer].type)
 
@@ -582,13 +582,13 @@ struct Emitter {
     let rhs = emitSubfieldView(storage, at: subfield, at: ast[lhs].site)
     emitStore(value: initializer, to: rhs)
     for (path, name) in ast.names(in: lhs) {
-      _ = emitDeclaration(of: name, referringTo: subfield + path, relativeTo: storage)
+      _ = emitLocalDeclaration(of: name, referringTo: subfield + path, relativeTo: storage)
     }
   }
 
   /// Inserts the IR to declare `name`, which refers to the given `subfield` relative to `storage`,
   /// returning that sub-location.
-  private mutating func emitDeclaration(
+  private mutating func emitLocalDeclaration(
     of name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand
   ) -> Operand {
     let s = emitSubfieldView(storage, at: subfield, at: ast[name].site)
@@ -1859,7 +1859,7 @@ struct Emitter {
     insert(module.makeCloseUnion(x0, at: site))
 
     for (path, name) in ast.names(in: pattern) {
-      _ = emitDeclaration(of: name, referringTo: path, relativeTo: storage)
+      _ = emitLocalDeclaration(of: name, referringTo: path, relativeTo: storage)
     }
 
     return next
