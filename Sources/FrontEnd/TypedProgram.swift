@@ -295,6 +295,24 @@ public struct TypedProgram {
     return checker.traitDefining(d)
   }
 
+  /// If `d` is member of a trait `c`, returns `(d, c)` if `d` is a requirement, or `(r, c)` if `d`
+  /// is a default implementation of a requirement `r`. Otherwise, returns `nil`.
+  public func requirementDeclaring(_ d: AnyDeclID) -> (decl: AnyDeclID, trait: TraitType)? {
+    guard let c = traitDefining(d) else { return nil }
+
+    // `d` might be the default definition of itself.
+    if isRequirement(d) { return (d, c) }
+
+    // `d` might be the default implementation of some requirement with the same type.
+    let s = nodeToScope[d]!
+    let n = name(of: d)
+    let t = canonical(declType[d]!, in: s)
+    let r = ast.requirements(of: c.decl).first { (m) in
+      n == name(of: m) && areEquivalent(t, declType[m]!, in: s)
+    }
+    return r.map({ ($0, c) })
+  }
+
   /// Returns `true` iff `model` conforms to `concept` in `scopeOfUse`.
   public func conforms(
     _ model: AnyType, to concept: TraitType, in scopeOfUse: AnyScopeID

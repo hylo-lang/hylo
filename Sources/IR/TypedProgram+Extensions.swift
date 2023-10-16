@@ -16,4 +16,17 @@ extension TypedProgram {
     }
   }
 
+  /// If `f` refers to the member `d` of trait `c`, returns `(d, c)` if `d` is a requirement, or
+  /// `(r, c)` if `d` is a default implementation of a requirement `r`. Otherwise, returns `nil`.
+  func requirementDeclaring(
+    memberReferredBy f: Function.ID
+  ) -> (decl: AnyDeclID, trait: TraitType)? {
+    switch f.value {
+    case .lowered(let d):
+      return requirementDeclaring(d)
+    default:
+      return nil
+    }
+  }
+
 }
