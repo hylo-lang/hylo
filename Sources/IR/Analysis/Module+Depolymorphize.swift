@@ -505,9 +505,8 @@ extension Module {
     /// a monomorphized copy of `f`.
     func rewritten(_ f: Function.ID, specializedBy a: GenericArguments) -> Function.ID {
       let p = program.specialize(a, for: specialization, in: scopeOfUse)
-      if let m = program.traitMember(referredBy: f) {
-        return monomorphize(
-          requirement: m.declaration, of: m.trait, in: ir, for: p, in: scopeOfUse)
+      if let m = program.requirementDeclaring(memberReferredBy: f) {
+        return monomorphize(requirement: m.decl, of: m.trait, in: ir, for: p, in: scopeOfUse)
       } else {
         return monomorphize(f, in: ir, for: p, in: scopeOfUse)
       }

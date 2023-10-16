@@ -1,8 +1,6 @@
 /// A collection containing a single element.
 public type CollectionOfOne<Element: Movable & Deinitializable>: Deinitializable {
 
-  public typealias Index = Bool
-
   /// The element contained in `self`.
   var contents: Element
 
@@ -10,6 +8,12 @@ public type CollectionOfOne<Element: Movable & Deinitializable>: Deinitializable
   public init(_ contents: sink Element) {
     &self.contents = contents
   }
+
+}
+
+public conformance CollectionOfOne: Collection {
+
+  public typealias Index = Bool
 
   public fun start_index() -> Bool { false }
 

@@ -377,34 +377,15 @@ extension Program {
 
     let qualification = debugDescription(nodeToScope[n]!)
 
-    switch n.kind {
-    case FunctionDecl.self:
-      let s = ast.name(of: FunctionDecl.ID(n)!) ?? "lambda"
-      return qualification + ".\(s)"
-    case InitializerDecl.self:
-      let s = ast.name(of: InitializerDecl.ID(n)!)
-      return qualification + ".\(s)"
-    case MethodDecl.self:
-      let s = ast.name(of: MethodDecl.ID(n)!)
-      return qualification + ".\(s)"
-    case MethodImpl.self:
-      let s = ast[MethodImpl.ID(n)!].introducer.value
-      return qualification + ".\(s)"
-    case SubscriptDecl.self:
-      let s = ast.name(of: SubscriptDecl.ID(n)!)
-      return qualification + ".\(s)"
-    case SubscriptImpl.self:
-      let s = ast[SubscriptImpl.ID(n)!].introducer.value
-      return qualification + ".\(s)"
-    default:
-      break
+    if let d = AnyDeclID(n) {
+      if let s = name(of: d) {
+        return qualification + ".\(s)"
+      } else if d.kind == FunctionDecl.self {
+        return qualification + ".lambda"
+      }
     }
 
-    if let e = ast[n] as? SingleEntityDecl {
-      return qualification + "." + e.baseName
-    } else {
-      return qualification
-    }
+    return qualification
   }
 
 }
