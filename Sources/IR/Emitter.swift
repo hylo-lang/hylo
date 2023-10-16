@@ -646,9 +646,7 @@ struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic deinitializer.
   private mutating func lower(syntheticDeinit d: SynthesizedFunctionDecl) {
     let f = module.demandDeclaration(lowering: d)
-    if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return
-    }
+    if !shouldEmitBody(of: d, loweredTo: f) { return }
 
     let site = ast[module.id].site
     let entry = module.appendEntry(in: d.scope, to: f)
@@ -671,9 +669,7 @@ struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveInit d: SynthesizedFunctionDecl) {
     let f = module.demandDeclaration(lowering: d)
-    if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return
-    }
+    if !shouldEmitBody(of: d, loweredTo: f) { return }
 
     let site = ast[module.id].site
     let entry = module.appendEntry(in: d.scope, to: f)
@@ -795,9 +791,7 @@ struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveAssign d: SynthesizedFunctionDecl) {
     let f = module.demandDeclaration(lowering: d)
-    if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return
-    }
+    if !shouldEmitBody(of: d, loweredTo: f) { return }
 
     let site = ast[module.id].site
     let entry = module.appendEntry(in: d.scope, to: f)
@@ -819,6 +813,12 @@ struct Emitter {
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
+  }
+
+  /// Returns `true` if the body of `d`, which has been lowered to `f` in `self`, has yet to be
+  /// generated in `self`.
+  private func shouldEmitBody(of d: SynthesizedFunctionDecl, loweredTo f: Function.ID) -> Bool {
+    (module[f].entry == nil) && (program.module(containing: d.scope) == module.id)
   }
 
   // MARK: Statements
