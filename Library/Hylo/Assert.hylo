@@ -30,12 +30,17 @@ public fun fatal_error(
 ///   - line: The line number to print along with message if the precondition fails. The default is
 ///     the line where this function is called.
 public fun precondition(
-  _ condition: Bool,
-  _ message: String = "",
-  file: String = #file,
-  line: Int = #line
+  _ condition: Bool, _ message: String = "", file: String = #file, line: Int = #line
 ) {
-  if !condition {
-    fatal_error()
+  if condition { return }
+
+  print(file, terminator: ":")
+  print(line, terminator: ": precondition failure")
+  if message.size != 0 {
+    print(": ", terminator: "")
+    print(message)
+  } else {
+    print("")
   }
+  abort()
 }
