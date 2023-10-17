@@ -369,6 +369,18 @@ extension Program {
     }
   }
 
+  /// Returns `(root: r, path: p)` where `root` is the binding declaration introducing `d` and `p`
+  /// is the path to the object bound to `d` relative to `root`.
+  public func subfieldRelativeToRoot(
+    of d: VarDecl.ID
+  ) -> (root: BindingDecl.ID, path: RecordPath) {
+    let root = varToBinding[d]!
+    for (p, n) in ast.names(in: ast[root].pattern) {
+      if ast[n].decl == d { return (root, p) }
+    }
+    unreachable()
+  }
+
   /// Returns a textual description of `n` suitable for debugging.
   public func debugDescription<T: NodeIDProtocol>(_ n: T) -> String {
     switch n.kind {

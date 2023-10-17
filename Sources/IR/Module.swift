@@ -245,19 +245,14 @@ public struct Module {
     allocations.append(s)
   }
 
-  /// Adds a global constant with the given `value` in `self`.
-  mutating func addGlobal<C: Constant>(_ value: C) -> GlobalID {
-    let id = globals.count
-    globals.append(value)
-    return id
-  }
-
-  /// Assigns `identity` to `function` in `self`.
+  /// Assigns `identity` to `value` in `self`.
   ///
   /// - Requires: `identity` is not already assigned.
-  mutating func addFunction(_ function: Function, for identity: Function.ID) {
-    precondition(functions[identity] == nil)
-    functions[identity] = function
+  mutating func addFunction(_ value: Function, for identity: Function.ID) {
+    modify(&functions[identity]) { (f) in
+      precondition(f == nil)
+      f = value
+    }
   }
 
   /// Returns the identity of the IR function corresponding to `i`.

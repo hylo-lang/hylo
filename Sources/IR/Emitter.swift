@@ -2233,7 +2233,9 @@ struct Emitter {
 
     // Handle global bindings.
     if d.kind == VarDecl.self {
-      UNIMPLEMENTED()
+      let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
+      let s = insert(module.makeGlobalAddr(of: root, at: site))!
+      return emitSubfieldView(s, at: subfied, at: site)
     }
 
     // Handle references to type declarations.
