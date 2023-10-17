@@ -440,6 +440,17 @@ public struct Module {
     return demandDeclaration(lowering: c.implementations[d]!)
   }
 
+  /// Returns a function reference to `d`, which is an implementation that's part of `witness`.
+  func reference(
+    to d: Function.ID, implementedFor witness: Core.Conformance
+  ) -> FunctionReference {
+    var a = witness.arguments
+    if let m = program.traitMember(referredBy: d) {
+      a = a.merging([program[m.trait.decl].receiver: witness.model])
+    }
+    return FunctionReference(to: d, in: self, specializedBy: a, in: witness.scope)
+  }
+
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
     let captures = LambdaType(program[d].type)!.captures.lazy.map { (e) in

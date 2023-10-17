@@ -2395,7 +2395,7 @@ struct Emitter {
     withMovableConformance movable: Core.Conformance, at site: SourceRange
   ) {
     let d = module.demandMoveOperatorDeclaration(semantics, from: movable)
-    let f = reference(to: d, implementedFor: movable)
+    let f = module.reference(to: d, implementedFor: movable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
@@ -2442,7 +2442,7 @@ struct Emitter {
     at site: SourceRange
   ) {
     let d = module.demandDeinitDeclaration(from: deinitializable)
-    let f = reference(to: d, implementedFor: deinitializable)
+    let f = module.reference(to: d, implementedFor: deinitializable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
@@ -2544,17 +2544,6 @@ struct Emitter {
   }
 
   // MARK: Helpers
-
-  /// Returns a function reference to `d`, which is an implementation that's part of `c`.
-  private func reference(
-    to d: Function.ID, implementedFor c: Core.Conformance
-  ) -> FunctionReference {
-    var a = c.arguments
-    if let m = program.traitMember(referredBy: d) {
-      a = a.merging([program[m.trait.decl].receiver: c.model])
-    }
-    return FunctionReference(to: d, in: module, specializedBy: a, in: insertionScope!)
-  }
 
   /// Returns the canonical form of `t` in the current insertion scope.
   private func canonical(_ t: AnyType) -> AnyType {
