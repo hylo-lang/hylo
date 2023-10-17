@@ -17,7 +17,7 @@ fun free(_ pointer: CVoidPointer)
 
 /// Terminates the program abnormally.
 @ffi("abort")
-public fun fatal_error() -> Never
+public fun abort() -> Never
 
 @ffi("fdopen")
 public fun fdopen(_ descriptor: Int, _ mode: CVoidPointer) -> CVoidPointer
