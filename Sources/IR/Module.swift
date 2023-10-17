@@ -29,6 +29,9 @@ public struct Module {
   /// The traits defined in the module.
   public private(set) var traits: [TraitType] = []
 
+  /// The static allocations defined in the module.
+  public private(set) var allocations: [StaticStorage] = []
+
   /// The globals in the module.
   public private(set) var globals: [any Constant] = []
 
@@ -241,6 +244,11 @@ public struct Module {
   /// Adds `t` to the set of traits defined in `self`.
   mutating func addTrait(_ t: TraitType) {
     traits.append(t)
+  }
+
+  /// Adds `d` to the set of static allocations in `self`.
+  mutating func addStaticStorage(_ s: StaticStorage) {
+    allocations.append(s)
   }
 
   /// Adds a global constant with the given `value` in `self`.

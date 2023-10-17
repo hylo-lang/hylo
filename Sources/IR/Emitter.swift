@@ -492,8 +492,8 @@ struct Emitter {
       receiverEffect: .set, environment: ^TupleType(types: [^r]), inputs: [], output: .void)
     let f = SynthesizedFunctionDecl(.globalInitialization(d), typed: l, in: program[d].scope)
     let i = lower(globalBindingInitializer: f)
-
-    _ = module.addGlobal(StaticStorage(r.bareType, initializedWith: i))
+    let s = StaticStorage(r.bareType, identifiedBy: AnyDeclID(d), initializedWith: i)
+    module.addStaticStorage(s)
   }
 
   /// Inserts the IR for the local binding `d`.
