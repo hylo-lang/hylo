@@ -172,9 +172,6 @@ jobs:
     - name: Build support library
       run: clang -c ./Library/Hylo/LibC.c -o HyloLibC.lib
 
-    - name: Build
-      run: swift build --pkg-config-path .
-
     - name: Build tests
       run: swift build --build-tests --pkg-config-path .
 

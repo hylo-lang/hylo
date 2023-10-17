@@ -200,8 +200,11 @@ public extension PortableBuildCommand.Tool {
         .first { FileManager().isExecutableFile(atPath: $0.path) }
         ?? context.tool(named: "swift").path.url
 
-//      let scratchPath = FileManager().temporaryDirectory
-//        .appendingPathComponent(UUID().uuidString)
+      let packageDirectory = context.package.directory.url
+      // Locate the scratch directory inside the package directory to work around 
+      // SPM's broken Windows path handling
+      let scratchDirectory = packageDirectory.appendingPathComponent(".build")
+        .appendingPathComponent(UUID().uuidString)
 
       return .init(
         executable: swift.spmPath,
@@ -216,9 +219,8 @@ public extension PortableBuildCommand.Tool {
           // context.workDirectory and add an explicit build step to delete it to keep its contents
           // from being incorporated into the resources of the target we're building.
           "--disable-sandbox",
-          "--skip-build",
-          // "--scratch-path", scratchPath.fileSystemPath,
-          "--package-path", context.package.directory.url.fileSystemPath,
+          "--scratch-path", scratchDirectory.fileSystemPath,
+          "--package-path", packageDirectory.fileSystemPath,
           productName ],
         additionalSources:
           try context.package.sourceDependencies(ofProductNamed: productName))
