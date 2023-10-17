@@ -11,9 +11,6 @@ import Utils
 /// a definition. When they don't, they denote a declaration known to be defined in another module.
 public struct Module {
 
-  /// The identity of a global defined in a Hylo IR module.
-  public typealias GlobalID = Int
-
   /// The program defining the functions in `self`.
   public let program: TypedProgram
 
@@ -31,9 +28,6 @@ public struct Module {
 
   /// The static allocations defined in the module.
   public private(set) var allocations: [StaticStorage] = []
-
-  /// The globals in the module.
-  public private(set) var globals: [any Constant] = []
 
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]

@@ -17,21 +17,9 @@ extension LLVM.Module {
     for t in source.traits {
       _ = demandTrait(t, usedIn: source, from: ir)
     }
-    for g in source.globals.indices {
-      incorporate(g, of: source, from: ir)
-    }
     for f in source.functions.keys {
       incorporate(f, of: source, from: ir)
     }
-  }
-
-  /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
-  mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: IR.Program) {
-    let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
-    let d = declareGlobalVariable("\(m.id)\(g)", v.type)
-    setInitializer(v, for: d)
-    setLinkage(.private, for: d)
-    setGlobalConstant(true, for: d)
   }
 
   /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
