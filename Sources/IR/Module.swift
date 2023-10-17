@@ -11,9 +11,6 @@ import Utils
 /// a definition. When they don't, they denote a declaration known to be defined in another module.
 public struct Module {
 
-  /// The identity of a global defined in a Hylo IR module.
-  public typealias GlobalID = Int
-
   /// The program defining the functions in `self`.
   public let program: TypedProgram
 
@@ -29,13 +26,13 @@ public struct Module {
   /// The traits defined in the module.
   public private(set) var traits: [TraitType] = []
 
-  /// The globals in the module.
-  public private(set) var globals: [any Constant] = []
+  /// The static allocations defined in the module.
+  public private(set) var allocations: [StaticStorage] = []
 
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
-  /// The synthesized functions used and defined in the module.
+  /// The synthesized declarations used and defined in the module.
   public private(set) var synthesizedDecls = OrderedSet<SynthesizedFunctionDecl>()
 
   /// The module's entry function, if any.
@@ -243,19 +240,19 @@ public struct Module {
     traits.append(t)
   }
 
-  /// Adds a global constant with the given `value` in `self`.
-  mutating func addGlobal<C: Constant>(_ value: C) -> GlobalID {
-    let id = globals.count
-    globals.append(value)
-    return id
+  /// Adds `d` to the set of static allocations in `self`.
+  mutating func addStaticStorage(_ s: StaticStorage) {
+    allocations.append(s)
   }
 
-  /// Assigns `identity` to `function` in `self`.
+  /// Assigns `identity` to `value` in `self`.
   ///
   /// - Requires: `identity` is not already assigned.
-  mutating func addFunction(_ function: Function, for identity: Function.ID) {
-    precondition(functions[identity] == nil)
-    functions[identity] = function
+  mutating func addFunction(_ value: Function, for identity: Function.ID) {
+    modify(&functions[identity]) { (f) in
+      precondition(f == nil)
+      f = value
+    }
   }
 
   /// Returns the identity of the IR function corresponding to `i`.

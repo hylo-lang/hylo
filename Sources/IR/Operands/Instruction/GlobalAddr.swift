@@ -1,15 +1,12 @@
 import Core
 
-/// Returns the address of a global value.
+/// Returns the address of a global binding.
 public struct GlobalAddr: Instruction {
 
-  /// The ID of the global in `container`.
-  public let id: Module.GlobalID
+  /// The ID of the global global binding to access.
+  public let binding: BindingDecl.ID
 
-  /// The module in which the global is defined.
-  public let container: ModuleDecl.ID
-
-  /// The type of the global value.
+  /// The type of the binding value.
   public let valueType: AnyType
 
   /// The site of the code corresponding to that instruction.
@@ -17,13 +14,11 @@ public struct GlobalAddr: Instruction {
 
   /// Creates an instance with the given properties.
   fileprivate init(
-    id: Module.GlobalID,
-    container: ModuleDecl.ID,
+    binding: BindingDecl.ID,
     valueType: AnyType,
     site: SourceRange
   ) {
-    self.container = container
-    self.id = id
+    self.binding = binding
     self.valueType = valueType
     self.site = site
   }
@@ -41,19 +36,16 @@ public struct GlobalAddr: Instruction {
 extension GlobalAddr: CustomStringConvertible {
 
   public var description: String {
-    "global_addr @\(container).\(id)"
+    "global_addr @\(binding)"
   }
 
 }
 
 extension Module {
 
-  /// Creates an `global_addr` anchored at `site` that returns the address of `g` in `m`, which
-  /// has type `t`.
-  func makeGlobalAddr(
-    of g: Module.GlobalID, in m: ModuleDecl.ID, typed t: AnyType, at anchor: SourceRange
-  ) -> GlobalAddr {
-    .init(id: g, container: m, valueType: t, site: anchor)
+  /// Creates an `global_addr` anchored at `site` that returns the address of `binding`.
+  func makeGlobalAddr(of binding: BindingDecl.ID, at anchor: SourceRange) -> GlobalAddr {
+    .init(binding: binding, valueType: program[binding].type, site: anchor)
   }
 
 }

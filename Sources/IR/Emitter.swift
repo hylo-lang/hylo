@@ -484,7 +484,16 @@ struct Emitter {
   ///
   /// - Requires: `d` is a global binding.
   private mutating func lower(globalBinding d: BindingDecl.ID) {
-    UNIMPLEMENTED()
+    precondition(program.isGlobal(d))
+    precondition(read(program[d].pattern.introducer.value, { ($0 == .let) || ($0 == .sinklet) }))
+
+    let r = RemoteType(.set, program[d].type)
+    let l = LambdaType(
+      receiverEffect: .set, environment: ^TupleType(types: [^r]), inputs: [], output: .void)
+    let f = SynthesizedFunctionDecl(.globalInitialization(d), typed: l, in: program[d].scope)
+    let i = lower(globalBindingInitializer: f)
+    let s = StaticStorage(r.bareType, identifiedBy: AnyDeclID(d), initializedWith: i)
+    module.addStaticStorage(s)
   }
 
   /// Inserts the IR for the local binding `d`.
@@ -518,7 +527,7 @@ struct Emitter {
     }
 
     for (path, name) in ast.names(in: lhs) {
-      _ = emitDeclaration(of: name, referringTo: path, relativeTo: storage)
+      _ = emitLocalDeclaration(of: name, referringTo: path, relativeTo: storage)
     }
   }
 
@@ -556,7 +565,7 @@ struct Emitter {
     _ name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
     consuming initializer: AnyExprID
   ) {
-    let lhsPart = emitDeclaration(of: name, referringTo: subfield, relativeTo: storage)
+    let lhsPart = emitLocalDeclaration(of: name, referringTo: subfield, relativeTo: storage)
     let lhsPartType = module.type(of: lhsPart).ast
     let rhsPartType = canonical(program[initializer].type)
 
@@ -582,13 +591,13 @@ struct Emitter {
     let rhs = emitSubfieldView(storage, at: subfield, at: ast[lhs].site)
     emitStore(value: initializer, to: rhs)
     for (path, name) in ast.names(in: lhs) {
-      _ = emitDeclaration(of: name, referringTo: subfield + path, relativeTo: storage)
+      _ = emitLocalDeclaration(of: name, referringTo: subfield + path, relativeTo: storage)
     }
   }
 
   /// Inserts the IR to declare `name`, which refers to the given `subfield` relative to `storage`,
   /// returning that sub-location.
-  private mutating func emitDeclaration(
+  private mutating func emitLocalDeclaration(
     of name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand
   ) -> Operand {
     let s = emitSubfieldView(storage, at: subfield, at: ast[name].site)
@@ -638,6 +647,8 @@ struct Emitter {
       return withClearContext({ $0.lower(syntheticMoveInit: d) })
     case .moveAssignment:
       return withClearContext({ $0.lower(syntheticMoveAssign: d) })
+    case .globalInitialization:
+      return withClearContext({ $0.lower(globalBindingInitializer: d) })
     case .copy:
       UNIMPLEMENTED()
     }
@@ -646,9 +657,7 @@ struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic deinitializer.
   private mutating func lower(syntheticDeinit d: SynthesizedFunctionDecl) {
     let f = module.demandDeclaration(lowering: d)
-    if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return
-    }
+    if !shouldEmitBody(of: d, loweredTo: f) { return }
 
     let site = ast[module.id].site
     let entry = module.appendEntry(in: d.scope, to: f)
@@ -671,9 +680,7 @@ struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveInit d: SynthesizedFunctionDecl) {
     let f = module.demandDeclaration(lowering: d)
-    if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return
-    }
+    if !shouldEmitBody(of: d, loweredTo: f) { return }
 
     let site = ast[module.id].site
     let entry = module.appendEntry(in: d.scope, to: f)
@@ -795,9 +802,7 @@ struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveAssign d: SynthesizedFunctionDecl) {
     let f = module.demandDeclaration(lowering: d)
-    if (module[f].entry != nil) || (program.module(containing: d.scope) != module.id) {
-      return
-    }
+    if !shouldEmitBody(of: d, loweredTo: f) { return }
 
     let site = ast[module.id].site
     let entry = module.appendEntry(in: d.scope, to: f)
@@ -819,6 +824,43 @@ struct Emitter {
     emitStore(value: .void, to: returnValue!, at: site)
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
+  }
+
+  /// Inserts the IR for lowering `d`, which is a global binding initializer, returning the ID of
+  /// the lowered function.
+  @discardableResult
+  private mutating func lower(globalBindingInitializer d: SynthesizedFunctionDecl) -> Function.ID {
+    let f = module.demandDeclaration(lowering: d)
+    if !shouldEmitBody(of: d, loweredTo: f) {
+      return f
+    }
+
+    let entry = module.appendEntry(in: d.scope, to: f)
+    insertionPoint = .end(of: entry)
+    self.frames.push()
+    defer {
+      self.frames.pop()
+      assert(self.frames.isEmpty)
+    }
+
+    let storage = Operand.parameter(entry, 0)
+    guard case .globalInitialization(let binding) = d.kind else { unreachable() }
+    let initializer = program[binding].initializer!
+
+    emitInitStoredLocalBindings(
+      in: program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
+      consuming: initializer)
+    emitStore(value: .void, to: returnValue!, at: program[initializer].site)
+    emitDeallocTopFrame(at: program[initializer].site)
+    insert(module.makeReturn(at: program[initializer].site))
+
+    return f
+  }
+
+  /// Returns `true` if the body of `d`, which has been lowered to `f` in `self`, has yet to be
+  /// generated in `self`.
+  private func shouldEmitBody(of d: SynthesizedFunctionDecl, loweredTo f: Function.ID) -> Bool {
+    (module[f].entry == nil) && (program.module(containing: d.scope) == module.id)
   }
 
   // MARK: Statements
@@ -1859,7 +1901,7 @@ struct Emitter {
     insert(module.makeCloseUnion(x0, at: site))
 
     for (path, name) in ast.names(in: pattern) {
-      _ = emitDeclaration(of: name, referringTo: path, relativeTo: storage)
+      _ = emitLocalDeclaration(of: name, referringTo: path, relativeTo: storage)
     }
 
     return next
@@ -2191,7 +2233,9 @@ struct Emitter {
 
     // Handle global bindings.
     if d.kind == VarDecl.self {
-      UNIMPLEMENTED()
+      let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
+      let s = insert(module.makeGlobalAddr(of: root, at: site))!
+      return emitSubfieldView(s, at: subfied, at: site)
     }
 
     // Handle references to type declarations.
