@@ -46,6 +46,18 @@ public struct SynthesizedFunctionDecl: Hashable {
     return RemoteType(r)?.bareType ?? r
   }
 
+  /// Returns the generic parameters of the declaration.
+  public var genericParameters: [GenericParameterDecl.ID] {
+    guard let t = BoundGenericType(receiver) else { return [] }
+    return t.arguments.compactMap { (k, v) -> GenericParameterDecl.ID? in
+      if let u = v as? AnyType {
+        return GenericTypeParameterType(u)?.decl == k ? k : nil
+      } else {
+        UNIMPLEMENTED("compile time values")
+      }
+    }
+  }
+
 }
 
 extension SynthesizedFunctionDecl: CustomStringConvertible {
