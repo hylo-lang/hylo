@@ -413,7 +413,7 @@ struct TypeChecker {
       let a = MetatypeType(uncheckedType(of: c.implementations[requirement]!.decl!))
     else { return nil }
 
-    return specialize(a.instance, for: c.arguments, in: scopeOfUse)
+    return specialize(a.instance, for: c.arguments, in: c.scope)
   }
 
   // MARK: Type transformations
