@@ -328,13 +328,11 @@ public struct Driver: ParsableCommand {
 
   /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`
   /// as a default name if `outputURL` is `nil`.
-  ///
-  /// The returned path has a `.exe` extension on Windows.
   private func executableOutputPath(default productName: String) -> String {
     var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).path
-    #if os(Windows)
-      if !binaryPath.hasSuffix(".exe") { binaryPath += ".exe" }
-    #endif
+    if !binaryPath.hasSuffix(HostPlatform.executableSuffix) {
+      binaryPath += HostPlatform.executableSuffix
+    }
     return binaryPath
   }
 
@@ -375,25 +373,14 @@ public struct Driver: ParsableCommand {
     }
 
     // Search in the PATH.
-    #if os(Windows)
-      let environment = ProcessInfo.processInfo.environment["Path"] ?? ""
-      for root in environment.split(separator: ";") {
-        candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
-        if FileManager.default.fileExists(atPath: candidate.path + ".exe") {
-          Driver.executableLocationCache[executable] = candidate.path
-          return candidate.path
-        }
+    let environment = ProcessInfo.processInfo.environment[HostPlatform.pathEnvironmentVariable] ?? ""
+    for root in environment.split(separator: HostPlatform.pathEnvironmentSeparator) {
+      candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
+      if FileManager.default.fileExists(atPath: candidate.path + HostPlatform.executableSuffix) {
+        Driver.executableLocationCache[executable] = candidate.path
+        return candidate.path
       }
-    #else
-      let environment = ProcessInfo.processInfo.environment["PATH"] ?? ""
-      for root in environment.split(separator: ":") {
-        candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
-        if FileManager.default.fileExists(atPath: candidate.path) {
-          Driver.executableLocationCache[executable] = candidate.path
-          return candidate.path
-        }
-      }
-    #endif
+    }
 
     throw EnvironmentError("executable not found: \(executable)")
   }
