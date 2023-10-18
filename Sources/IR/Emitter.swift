@@ -1948,12 +1948,18 @@ struct Emitter {
   /// - Requires: `e.type` is `Hylo.Bool`
   private mutating func emit(branchCondition e: AnyExprID) -> Operand {
     precondition(canonical(program[e].type) == ast.coreType("Bool")!)
-    let x0 = emitLValue(e)
-    let x1 = emitSubfieldView(x0, at: [0], at: ast[e].site)
-    let x2 = insert(module.makeAccess(.sink, from: x1, at: ast[e].site))!
-    let x3 = insert(module.makeLoad(x2, at: ast[e].site))!
-    insert(module.makeEndAccess(x2, at: ast[e].site))
-    return x3
+    let wrapper = emitLValue(e)
+    return emitLoadBuiltinBool(wrapper, at: ast[e].site)
+  }
+
+  /// Inserts the IR for extracting the built-in value stored in an instance of `Hylo.Bool`.
+  private mutating func emitLoadBuiltinBool(_ wrapper: Operand, at site: SourceRange) -> Operand {
+    precondition(module.type(of: wrapper) == .address(ast.coreType("Bool")!))
+    let x0 = emitSubfieldView(wrapper, at: [0], at: site)
+    let x1 = insert(module.makeAccess(.sink, from: x0, at: site))!
+    let x2 = insert(module.makeLoad(x1, at: site))!
+    insert(module.makeEndAccess(x1, at: site))
+    return x2
   }
 
   /// Inserts the IR for coercing `source` to an address of type `target`.
