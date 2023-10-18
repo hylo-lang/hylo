@@ -1866,40 +1866,65 @@ struct Emitter {
 
       case .decl(let d):
         let subject = emitLValue(ast[d].initializer!)
-
-        if let t = UnionType(module.type(of: subject).ast) {
-          let u = canonical(program[d].type)
-          let b = emitConditionalNarrowing(
-            of: subject, typed: t, as: ast[d].pattern, typed: u,
-            to: allocs[i],
-            else: failure, in: scope)
-
-          insertionPoint = .end(of: b)
-          continue
-        }
-
-        UNIMPLEMENTED()
+        let patternType = canonical(program[d].type)
+        let next = emitConditionalNarrowing(
+          subject, as: ast[d].pattern, typed: patternType, to: allocs[i],
+          else: failure, in: scope)
+        insertionPoint = .end(of: next)
       }
     }
 
     return (success: insertionBlock!, failure: failure)
   }
 
-  /// Returns a basic block in which the names in `pattern` have been declared and initialized by
-  /// consuming the payload of `container` as an instance of `patternType`.
+  /// Returns a basic block in which the names in `pattern` have been declared and initialized.
+  ///
+  /// This method emits IR to:
+  ///
+  /// - check whether the value in `subject` is an instance of `patternType`;
+  /// - if it isn't, jump to `failure`;
+  /// - if it is, jump to a new basic block *b*, coerce the contents of `subject` into `storage`,
+  ///   applying consuming coercions as necessary, and define the bindings declared in `pattern`.
+  ///
+  /// If `subject` always matches `patternType`, the narrowing is irrefutable and `failure` is
+  /// unreachable in the generated IR.
+  ///
+  /// The return value is the new basic block *b*, which is defined in `scope`. The emitter context
+  /// is updated to associate the bindings declared in `pattern` to their address in `storage`.
   private mutating func emitConditionalNarrowing(
-    of container: Operand, typed containerType: UnionType,
+    _ subject: Operand,
+    as pattern: BindingPattern.ID, typed patternType: AnyType,
+    to storage: Operand,
+    else failure: Block.ID, in scope: AnyScopeID
+  ) -> Block.ID {
+    switch module.type(of: subject).ast.base {
+    case let t as UnionType:
+      return emitConditionalNarrowing(
+        subject, typed: t, as: pattern, typed: patternType, to: storage,
+        else: failure, in: scope)
+    default:
+      break
+    }
+
+    UNIMPLEMENTED()
+  }
+
+  /// Returns a basic block in which the names in `pattern` have been declared and initialized.
+  ///
+  /// This method method implements conditional narrowing for union types.
+  private mutating func emitConditionalNarrowing(
+    _ subject: Operand, typed subjectType: UnionType,
     as pattern: BindingPattern.ID, typed patternType: AnyType,
     to storage: Operand,
     else failure: Block.ID, in scope: AnyScopeID
   ) -> Block.ID {
     // TODO: Implement narrowing to an arbitrary subtype.
-    guard containerType.elements.contains(patternType) else { UNIMPLEMENTED() }
+    guard subjectType.elements.contains(patternType) else { UNIMPLEMENTED() }
     let site = ast[pattern].site
 
-    let i = program.discriminatorToElement(in: containerType).firstIndex(of: patternType)!
+    let i = program.discriminatorToElement(in: subjectType).firstIndex(of: patternType)!
     let expected = IntegerConstant(i, bitWidth: 64)  // FIXME: should be width of 'word'
-    let actual = emitUnionDiscriminator(container, at: site)
+    let actual = emitUnionDiscriminator(subject, at: site)
 
     let test = insert(
       module.makeLLVM(applying: .icmp(.eq, .word), to: [.constant(expected), actual], at: site))!
@@ -1907,7 +1932,7 @@ struct Emitter {
     insert(module.makeCondBranch(if: test, then: next, else: failure, at: site))
 
     insertionPoint = .end(of: next)
-    let x0 = insert(module.makeOpenUnion(container, as: patternType, at: site))!
+    let x0 = insert(module.makeOpenUnion(subject, as: patternType, at: site))!
     pushing(Frame()) { (this) in
       this.emitMove([.set], x0, to: storage, at: site)
     }
