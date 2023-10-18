@@ -77,9 +77,15 @@ struct Emitter {
     diagnostics.insert(d)
   }
 
-  /// Appends a new basic block at the end of `self.insertionBlock.function`.
+  /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
+  private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
+    module.appendBlock(in: s, to: insertionFunction!)
+  }
+
+  /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
+  /// as `self.insertionBlock`.
   private mutating func appendBlock() -> Block.ID {
-    module.appendBlock(in: insertionScope!, to: insertionFunction!)
+    appendBlock(in: insertionScope!)
   }
 
   /// Inserts `newInstruction` into `self.module` at the end of `self.insertionPoint`.
@@ -1007,8 +1013,8 @@ struct Emitter {
   }
 
   private mutating func emit(doWhileStmt s: DoWhileStmt.ID) -> ControlFlow {
-    let loopBody = module.appendBlock(in: ast[s].body, to: insertionFunction!)
-    let loopTail = module.appendBlock(in: ast[s].body, to: insertionFunction!)
+    let loopBody = appendBlock(in: ast[s].body)
+    let loopTail = appendBlock(in: ast[s].body)
     insert(module.makeBranch(to: loopBody, at: .empty(at: ast[s].site.first())))
     insertionPoint = .end(of: loopBody)
 
@@ -1066,7 +1072,7 @@ struct Emitter {
 
   private mutating func emit(whileStmt s: WhileStmt.ID) -> ControlFlow {
     // Enter the loop.
-    let head = module.appendBlock(in: s, to: insertionFunction!)
+    let head = appendBlock(in: s)
     insert(module.makeBranch(to: head, at: .empty(at: ast[s].site.first())))
 
     // Test the conditions.
@@ -1890,7 +1896,7 @@ struct Emitter {
 
     let test = insert(
       module.makeLLVM(applying: .icmp(.eq, .word), to: [.constant(expected), actual], at: site))!
-    let next = module.appendBlock(in: scope, to: insertionFunction!)
+    let next = appendBlock(in: scope)
     insert(module.makeCondBranch(if: test, then: next, else: failure, at: site))
 
     insertionPoint = .end(of: next)
