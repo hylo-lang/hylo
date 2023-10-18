@@ -292,7 +292,7 @@ public struct TypedProgram {
   /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
   public func traitDeclaring<T: DeclID>(_ d: T) -> TraitType? {
     var checker = TypeChecker(asContextFor: self)
-    return checker.traitDefining(d)
+    return checker.traitDeclaring(d)
   }
 
   /// If `d` is member of a trait `c`, returns `(d, c)` if `d` is a requirement, or `(r, c)` if `d`

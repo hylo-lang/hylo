@@ -407,7 +407,7 @@ struct TypeChecker {
   private mutating func demandImplementation(
     of requirement: AssociatedTypeDecl.ID, for model: AnyType, in scopeOfUse: AnyScopeID
   ) -> AnyType? {
-    let trait = traitDefining(requirement)!
+    let trait = traitDeclaring(requirement)!
     guard
       let c = demandConformance(of: model, to: trait, exposedTo: scopeOfUse),
       let a = MetatypeType(uncheckedType(of: c.implementations[requirement]!.decl!))
@@ -3237,7 +3237,7 @@ struct TypeChecker {
       }
 
       // If the match is a trait member looked up with qualification, specialize its receiver.
-      if let t = traitDefining(m) {
+      if let t = traitDeclaring(m) {
         specialization[program[t.decl].receiver] = context?.type
       }
 
@@ -3252,7 +3252,7 @@ struct TypeChecker {
       // If the receiver is an existential, replace its receiver.
       if let container = ExistentialType(context?.type) {
         candidateType = candidateType.asMember(of: container)
-        if let t = traitDefining(m) {
+        if let t = traitDeclaring(m) {
           specialization[program[t.decl].receiver] = ^WitnessType(of: container)
         }
       }
@@ -3662,7 +3662,7 @@ struct TypeChecker {
   }
 
   /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
-  mutating func traitDefining<T: DeclID>(_ d: T) -> TraitType? {
+  mutating func traitDeclaring<T: DeclID>(_ d: T) -> TraitType? {
     guard let p = program.nodeToScope[d] else {
       assert(d.kind == ModuleDecl.self)
       return nil
@@ -3674,9 +3674,9 @@ struct TypeChecker {
     case ExtensionDecl.self:
       return TraitType(uncheckedType(of: ExtensionDecl.ID(p)!))
     case MethodDecl.self:
-      return traitDefining(MethodDecl.ID(p)!)
+      return traitDeclaring(MethodDecl.ID(p)!)
     case SubscriptDecl.self:
-      return traitDefining(SubscriptDecl.ID(p)!)
+      return traitDeclaring(SubscriptDecl.ID(p)!)
     default:
       return nil
     }
@@ -4912,9 +4912,9 @@ struct TypeChecker {
   private mutating func compareDepth(
     _ lhs: AnyDeclID, _ rhs: AnyDeclID, in scopeOfUse: AnyScopeID
   ) -> StrictPartialOrdering {
-    if let l = traitDefining(lhs) {
+    if let l = traitDeclaring(lhs) {
       // If `lhs` is a trait member but `rhs` isn't, then `rhs` shadows `lhs`.
-      guard let r = traitDefining(rhs) else { return .descending }
+      guard let r = traitDeclaring(rhs) else { return .descending }
 
       // If `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, then `lhs` shadows
       // `rhs` iff `t1` refines `t2`.
@@ -4923,7 +4923,7 @@ struct TypeChecker {
       return nil
     }
 
-    if traitDefining(rhs) != nil {
+    if traitDeclaring(rhs) != nil {
       // If `rhs` is a trait member but `lhs` isn't, then `lhs` shadows `rhs`.
       return .ascending
     }
