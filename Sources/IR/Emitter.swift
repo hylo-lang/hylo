@@ -920,6 +920,8 @@ struct Emitter {
       return emit(doWhileStmt: .init(s)!)
     case ExprStmt.self:
       return emit(exprStmt: .init(s)!)
+    case ForStmt.self:
+      return emit(forStmt: .init(s)!)
     case ReturnStmt.self:
       return emit(returnStmt: .init(s)!)
     case WhileStmt.self:
@@ -1064,6 +1066,118 @@ struct Emitter {
     let v = emitStore(value: ast[s].expr)
     emitDeinit(v, at: ast[s].site)
     return .next
+  }
+
+  /// Inserts the IR for loop `s`, returning its effect on control flow.
+  private mutating func emit(forStmt s: ForStmt.ID) -> ControlFlow {
+    if program.ast.isConsuming(s) {
+      UNIMPLEMENTED("consuming for loops")
+    } else {
+      return emit(nonConsumingForStmt: s)
+    }
+  }
+
+  /// Inserts the IR for non-consuming loop `s`, returning its effect on control flow.
+  private mutating func emit(nonConsumingForStmt s: ForStmt.ID) -> ControlFlow {
+    let domainType = program[program[s].domain.value].type
+
+    let collection = ast.coreTrait("Collection")!
+    let collectionConformance = program.conformance(
+      of: domainType, to: collection, exposedTo: program[s].scope)!
+    let collectionWitness = CollectionWitness(collectionConformance, in: &module)
+
+    let equatable = ast.coreTrait("Equatable")!
+    let equatableConformance = program.conformance(
+      of: collectionWitness.index, to: equatable, exposedTo: program[s].scope)!
+    let equal = module.reference(
+      toImplementationOf: Name(stem: "==", notation: .infix), for: equatableConformance)
+
+    let introducer = program[s].introducerSite
+
+    // The collection on which the loop iterates.
+    let domain = emitLValue(program[s].domain.value)
+    // The storage allocated for the result of the exit condition.
+    let quit = emitAllocStack(for: ^ast.coreType("Bool")!, at: introducer)
+    // The start and end positions of the collection; the former is updated with each iteration.
+    let (currentPosition, endPosition) = emitPositions(
+      forIteratingOver: domain, usingWitness: collectionWitness, at: introducer)
+
+    // The "head" of the loop; tests for the exit condition.
+    let head = appendBlock(in: s)
+    // The "lens" of the loop; tests for narrowing conditions and applies filters.
+    let enter = appendBlock(in: s)
+    // The "tail" of the loop; increments the index and jumps back to the head.
+    let tail = appendBlock(in: s)
+    // The remainder of the program, after the loop.
+    let exit = appendBlock()
+
+    insert(module.makeBranch(to: head, at: introducer))
+
+    insertionPoint = .end(of: head)
+    let x0 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
+    let x1 = insert(module.makeAccess(.let, from: endPosition, at: introducer))!
+    emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit, at: introducer)
+    insert(module.makeEndAccess(x1, at: introducer))
+    insert(module.makeEndAccess(x0, at: introducer))
+    let x2 = emitLoadBuiltinBool(quit, at: introducer)
+    insert(module.makeCondBranch(if: x2, then: exit, else: enter, at: introducer))
+
+    insertionPoint = .end(of: enter)
+    let x6 = insert(module.makeAccess(.let, from: domain, at: introducer))!
+    let x7 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
+    let x8 = insert(
+      module.makeProject(
+        .init(.let, collectionWitness.element), applying: collectionWitness.accessLet,
+        specializedBy: collectionConformance.arguments, to: [x6, x7], at: introducer))!
+
+    if module.type(of: x8).ast != collectionWitness.element {
+      UNIMPLEMENTED("narrowing projections #1099")
+    }
+
+    emitLocalDeclarations(
+      introducedBy: program[s].binding.pattern, referringTo: [], relativeTo: x8)
+
+    // TODO: Filter
+
+    switch emit(stmt: ast[s].body) {
+    case .next:
+      insert(module.makeBranch(to: tail, at: .empty(atEndOf: program[s].body.site)))
+    case .return(let s):
+      emitControlFlow(return: s)
+    default:
+      UNIMPLEMENTED()
+    }
+
+    insertionPoint = .end(of: tail)
+    let x3 = insert(module.makeAllocStack(collectionWitness.index, at: introducer))!
+    let x4 = insert(module.makeAccess(.let, from: domain, at: introducer))!
+    let x5 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
+    emitApply(collectionWitness.indexAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
+    insert(module.makeEndAccess(x4, at: introducer))
+    insert(module.makeEndAccess(x5, at: introducer))
+    emitMove([.inout], x3, to: currentPosition, at: introducer)
+    insert(module.makeDeallocStack(for: x3, at: introducer))
+    insert(module.makeBranch(to: head, at: introducer))
+
+    insertionPoint = .end(of: exit)
+    return .next
+  }
+
+  /// Inserts the IR for initializing the start and end positions of `domain`, whose conformance to
+  /// the collection trait is witnessed by `witness`, returning these positions.
+  private mutating func emitPositions(
+    forIteratingOver domain: Operand,
+    usingWitness witness: CollectionWitness, at site: SourceRange
+  ) -> (startIndex: Operand, endIndex: Operand) {
+    let start = emitAllocStack(for: witness.index, at: site)
+    let end = emitAllocStack(for: witness.index, at: site)
+
+    let x0 = insert(module.makeAccess(.let, from: domain, at: site))!
+    emitApply(witness.startIndex, to: [x0], writingResultTo: start, at: site)
+    emitApply(witness.endIndex, to: [x0], writingResultTo: end, at: site)
+    insert(module.makeEndAccess(x0, at: site))
+
+    return (startIndex: start, endIndex: end)
   }
 
   private mutating func emit(returnStmt s: ReturnStmt.ID) -> ControlFlow {

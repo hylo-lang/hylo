@@ -422,6 +422,14 @@ public struct TypedProgram {
       site: .empty(at: ast[scopeOfUse].site.first()))
   }
 
+  /// Returns the type satisfying the associated type requirement named `n` in conformance `c`.
+  public func associatedType(_ n: String, for c: Core.Conformance) -> AnyType {
+    let r = ast.requirements(Name(stem: n), in: c.concept.decl)[0]
+    let d = c.implementations[r]!.decl!
+    let t = specialize(MetatypeType(declType[d]!)!.instance, for: c.arguments, in: c.scope)
+    return canonical(t, in: c.scope)
+  }
+
   /// Returns the foreign representation of `t` using its conformance to `ForeignConvertible` in
   /// `scopeOfUse`.
   ///
