@@ -172,6 +172,12 @@ jobs:
     - name: Build support library
       run: clang -c ./Library/Hylo/LibC.c -o HyloLibC.lib
 
+    - name: Prevent reentrant builds for speed
+      run: echo 'HYLO_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
+
+    - name: Non-test build ensuring that build tools have been built
+      run: swift build --pkg-config-path .
+
     - name: Build tests
       run: swift build --build-tests --pkg-config-path .
 
