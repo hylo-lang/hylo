@@ -373,7 +373,8 @@ public struct Driver: ParsableCommand {
     }
 
     // Search in the PATH.
-    let environment = ProcessInfo.processInfo.environment[HostPlatform.pathEnvironmentVariable] ?? ""
+    let environment =
+      ProcessInfo.processInfo.environment[HostPlatform.pathEnvironmentVariable] ?? ""
     for root in environment.split(separator: HostPlatform.pathEnvironmentSeparator) {
       candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
       if FileManager.default.fileExists(atPath: candidate.path + HostPlatform.executableSuffix) {
