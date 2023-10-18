@@ -446,6 +446,11 @@ public struct AST {
     }
   }
 
+  /// Returns `true` iff `s` is a consuming for-loop.
+  public func isConsuming(_ s: ForStmt.ID) -> Bool {
+    self[self[self[s].binding].pattern].introducer.value.isConsuming
+  }
+
   /// Returns the source site of `expr`
   public func site(of expr: FoldedSequenceExpr) -> SourceRange {
     switch expr {

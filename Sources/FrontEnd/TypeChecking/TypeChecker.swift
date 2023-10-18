@@ -4644,7 +4644,7 @@ struct TypeChecker {
   private mutating func inferredIterationElementType(of s: ForStmt.ID) -> AnyType? {
     guard let domain = checkedType(of: program[s].domain.value).errorFree else { return nil }
 
-    let isConsuming = program[s].binding.pattern.introducer.value.isConsuming
+    let isConsuming = program.ast.isConsuming(s)
     let domainTraits = conformedTraits(of: domain, in: program[s].scope)
     let collection = program.ast.coreTrait("Collection")!
 
