@@ -125,7 +125,7 @@ public extension Int8 {
 
   public init<T: BinaryInteger>(truncating_or_extending source: T) {
     let w = source.words()
-    &self.value = Builtin.trunc_word_i8(w[w.start_index()].value)
+    &self.value = Builtin.trunc_word_i8(w[w.start_position()].value)
   }
 
 }

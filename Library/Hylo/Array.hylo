@@ -122,17 +122,17 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
 
 public conformance Array: Collection {
 
-  public typealias Index = Int
+  public typealias Position = Int
 
-  public fun start_index() -> Int { 0 }
+  public fun start_position() -> Int { 0 }
 
-  public fun end_index() -> Int { count() }
+  public fun end_position() -> Int { count() }
 
   /// Returns the position immediately after `i`.
   ///
-  /// - Requires: `i != end_index()`.
+  /// - Requires: `i != end_position()`.
   /// - Complexity: O(1).
-  public fun index(after i: Int) -> Int { i + 1 }
+  public fun position(after i: Int) -> Int { i + 1 }
 
   /// Accesses the element at `position`.
   ///
@@ -140,11 +140,11 @@ public conformance Array: Collection {
   public subscript(_ position: Int): Element {
     let {
       // TODO: uncomment when #1046 is implemented
-      // precondition(position >= 0 && position < count(), "index is out of bounds")
+      // precondition(position >= 0 && position < count(), "position is out of bounds")
       pointer_to_element[at: position].unsafe[]
     }
     inout {
-      // precondition(position >= 0 && position < count())
+      // precondition(position >= 0 && position < count(), "position is out of bounds")
       pointer_to_element[at: position].unsafe[]
     }
   }
