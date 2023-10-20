@@ -2975,23 +2975,33 @@ public enum Parser {
     let condition = try parseCompilerCondition(in: &state)
 
     // Now read the body of the compiler condition.
-    let stmts = try parseCompilerConditionBody(
-      in: &state,
-      justSkip: condition.mayNotNeedParsing && !condition.isTrue(for: CompilerInfo.instance))
-
-    let fallback: [AnyStmtID]
+    let stmts: [AnyStmtID]
+    if condition.mayNotNeedParsing && !condition.isTrue(for: CompilerInfo.instance) {
+      try skipConditionalCompilationBranch(in: &state, stoppingAtElse: true)
+      stmts = []
+    } else {
+      stmts = try parseConditionalCompilationBranch(in: &state)
+    }
 
     // The next token may be #endif, #else or #elseif.
+    let fallback: [AnyStmtID]
     if state.take(.poundEndif) != nil {
       fallback = []
     } else if state.take(.poundElse) != nil {
-      fallback = try parseCompilerConditionBody(
-        in: &state,
-        justSkip: condition.mayNotNeedParsing && condition.isTrue(for: CompilerInfo.instance))
+      if condition.mayNotNeedParsing && condition.isTrue(for: CompilerInfo.instance) {
+        try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
+        fallback = []
+      } else {
+        fallback = try parseConditionalCompilationBranch(in: &state)
+      }
     } else if let head2 = state.take(.poundElseif) {
-      // TODO: also skip here
-      // We continue with another conditional compilation statement.
-      fallback = [try parseCompilerConditionTail(head: head2, in: &state)]
+      if condition.mayNotNeedParsing && condition.isTrue(for: CompilerInfo.instance) {
+        try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
+        fallback = []
+      } else {
+        // We continue with another conditional compilation statement.
+        fallback = [try parseCompilerConditionTail(head: head2, in: &state)]
+      }
     } else {
       throw [.error(expected: "statement, #endif, #else or #elseif", at: state.currentLocation)]
         as DiagnosticSet
@@ -3005,44 +3015,47 @@ public enum Parser {
         site: head.site.extended(upTo: state.currentIndex)))
     return AnyStmtID(r)
   }
-  /// Parses the body of a compiler condition structure branch.
-  private static func parseCompilerConditionBody(in state: inout ParserState, justSkip: Bool) throws
-    -> [AnyStmtID]
-  {
-    if justSkip {
-      var innerCompilerConditions = 0
-      while let head = state.peek() {
-        let closing: Bool
-        switch head.kind {
-        case .poundElse: closing = true
-        case .poundElseif: closing = true
-        case .poundEndif: closing = true
-        default: closing = false
-        }
-        if closing {
-          if innerCompilerConditions == 0 {
-            // We are done skipping all the tokens from the body.
-            break
-          } else {
-            innerCompilerConditions -= 1
-          }
-        }
-        // Consume this token.
-        _ = state.take()
-
-        // Are opening another nested compiler condition?
-        if head.kind == .poundIf {
-          innerCompilerConditions += 1
+  /// Skips the branch body of a conditional compilation statement.
+  /// Skip over nested conditional compilation statements.
+  private static func skipConditionalCompilationBranch(
+    in state: inout ParserState, stoppingAtElse: Bool
+  ) throws {
+    var innerCompilerConditions = 0
+    while let head = state.peek() {
+      let closing: Bool
+      switch head.kind {
+      case .poundEndif: closing = true
+      case .poundElse, .poundElseif:
+        // Check if we need to stop at the corresponding #else[if].
+        closing = stoppingAtElse && innerCompilerConditions == 0
+      default: closing = false
+      }
+      if closing {
+        if innerCompilerConditions == 0 {
+          // We are done skipping all the tokens from the body.
+          break
+        } else {
+          innerCompilerConditions -= 1
         }
       }
-      return []
-    } else {
-      let stmtsParser =
-        (zeroOrMany(take(.semi))
-          .and(zeroOrMany(stmt.and(zeroOrMany(take(.semi))).first))
-          .second)
-      return try stmtsParser.parse(&state) ?? []
+      // Consume this token.
+      _ = state.take()
+
+      // Are opening another nested compiler condition?
+      if head.kind == .poundIf {
+        innerCompilerConditions += 1
+      }
     }
+  }
+  /// Parses the body of a compiler condition structure branch.
+  private static func parseConditionalCompilationBranch(in state: inout ParserState) throws
+    -> [AnyStmtID]
+  {
+    let stmtsParser =
+      (zeroOrMany(take(.semi))
+        .and(zeroOrMany(stmt.and(zeroOrMany(take(.semi))).first))
+        .second)
+    return try stmtsParser.parse(&state) ?? []
   }
 
   /// Parses the condition of a compiler conditional.
