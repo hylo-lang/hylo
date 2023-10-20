@@ -1088,7 +1088,7 @@ struct Emitter {
 
     let equatable = ast.coreTrait("Equatable")!
     let equatableConformance = program.conformance(
-      of: collectionWitness.index, to: equatable, exposedTo: program[s].scope)!
+      of: collectionWitness.position, to: equatable, exposedTo: program[s].scope)!
     let equal = module.reference(
       toImplementationOf: Name(stem: "==", notation: .infix), for: equatableConformance)
 
@@ -1149,10 +1149,10 @@ struct Emitter {
     }
 
     insertionPoint = .end(of: tail)
-    let x3 = insert(module.makeAllocStack(collectionWitness.index, at: introducer))!
+    let x3 = insert(module.makeAllocStack(collectionWitness.position, at: introducer))!
     let x4 = insert(module.makeAccess(.let, from: domain, at: introducer))!
     let x5 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
-    emitApply(collectionWitness.indexAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
+    emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
     insert(module.makeEndAccess(x4, at: introducer))
     insert(module.makeEndAccess(x5, at: introducer))
     emitMove([.inout], x3, to: currentPosition, at: introducer)
@@ -1169,12 +1169,12 @@ struct Emitter {
     forIteratingOver domain: Operand,
     usingWitness witness: CollectionWitness, at site: SourceRange
   ) -> (startIndex: Operand, endIndex: Operand) {
-    let start = emitAllocStack(for: witness.index, at: site)
-    let end = emitAllocStack(for: witness.index, at: site)
+    let start = emitAllocStack(for: witness.position, at: site)
+    let end = emitAllocStack(for: witness.position, at: site)
 
     let x0 = insert(module.makeAccess(.let, from: domain, at: site))!
-    emitApply(witness.startIndex, to: [x0], writingResultTo: start, at: site)
-    emitApply(witness.endIndex, to: [x0], writingResultTo: end, at: site)
+    emitApply(witness.startPosition, to: [x0], writingResultTo: start, at: site)
+    emitApply(witness.endPosition, to: [x0], writingResultTo: end, at: site)
     insert(module.makeEndAccess(x0, at: site))
 
     return (startIndex: start, endIndex: end)
