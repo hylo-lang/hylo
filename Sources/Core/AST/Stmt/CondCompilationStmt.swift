@@ -70,4 +70,13 @@ public struct CondCompilationStmt: Stmt {
     self.fallback = fallback
   }
 
+  /// Returns the statements that this expands to.
+  public var expansion: [AnyStmtID] {
+    if condition.isTrue(for: CompilerInfo.instance) {
+      return stmts
+    } else {
+      return fallback
+    }
+  }
+
 }

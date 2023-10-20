@@ -871,6 +871,8 @@ struct Emitter {
       return emit(whileStmt: .init(s)!)
     case YieldStmt.self:
       return emit(yieldStmt: .init(s)!)
+    case BraceStmt.self:
+      return emit(condCompilationStmt: .init(s)!)
     default:
       unexpected(s, in: ast)
     }
@@ -1053,6 +1055,23 @@ struct Emitter {
     let x0 = emitLValue(ast[s].value)
     let x1 = insert(module.makeAccess(.let, from: x0, at: ast[s].site))!
     insert(module.makeYield(.let, x1, at: ast[s].site))
+    return .next
+  }
+
+  private mutating func emit(condCompilationStmt s: CondCompilationStmt.ID) -> ControlFlow {
+
+    for i in ast[s].expansion.indices {
+      let a = emit(stmt: ast[s].stmts[i])
+      if a == .next { continue }
+
+      // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the
+      // last statement of the code block.
+      if i != ast[s].stmts.count - 1 {
+        report(.warning(unreachableStatement: ast[s].stmts[i + 1], in: ast))
+      }
+      return a
+    }
+
     return .next
   }
 

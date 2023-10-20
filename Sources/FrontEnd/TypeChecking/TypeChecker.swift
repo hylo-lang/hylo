@@ -973,6 +973,8 @@ struct TypeChecker {
       check(WhileStmt.ID(s)!)
     case YieldStmt.self:
       check(YieldStmt.ID(s)!)
+    case CondCompilationStmt.self:
+      check(CondCompilationStmt.ID(s)!)
     default:
       unexpected(s, in: program.ast)
     }
@@ -1078,6 +1080,11 @@ struct TypeChecker {
   private mutating func check(_ s: YieldStmt.ID) {
     let output = uncheckedOutputType(in: program[s].scope)!
     check(program[s].value, coercibleTo: output)
+  }
+
+  /// Type checks `s`.
+  private mutating func check(_ s: CondCompilationStmt.ID) {
+    for t in program[s].stmts { check(t) }
   }
 
   /// Type checks `condition`.
