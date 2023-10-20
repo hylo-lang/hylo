@@ -111,25 +111,42 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     }
   }
 
+  /// Projects the address of the element at `position`.
+  ///
+  /// - Requires: `position` is in the range `0 ..< capacity()`.
+  subscript pointer_to_element(at position: Int): PointerToMutable<Element> {
+    storage.first_element_address().advance(by: position)
+  }
+
+}
+
+public conformance Array: Collection {
+
+  public typealias Index = Int
+
+  public fun start_index() -> Int { 0 }
+
+  public fun end_index() -> Int { count() }
+
+  /// Returns the position immediately after `i`.
+  ///
+  /// - Requires: `i != end_index()`.
+  /// - Complexity: O(1).
+  public fun index(after i: Int) -> Int { i + 1 }
+
   /// Accesses the element at `position`.
   ///
   /// - Requires: `position` is in the range `0 ..< count()`.
   public subscript(_ position: Int): Element {
     let {
-      // precondition(position >= 0 && position < count())
+      // TODO: uncomment when #1046 is implemented
+      // precondition(position >= 0 && position < count(), "index is out of bounds")
       pointer_to_element[at: position].unsafe[]
     }
     inout {
       // precondition(position >= 0 && position < count())
       pointer_to_element[at: position].unsafe[]
     }
-  }
-
-  /// Projects the address of the element at `position`.
-  ///
-  /// - Requires: `position` is in the range `0 ..< capacity()`.
-  subscript pointer_to_element(at position: Int): PointerToMutable<Element> {
-    storage.first_element_address().advance(by: position)
   }
 
 }

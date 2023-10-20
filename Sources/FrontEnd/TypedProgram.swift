@@ -292,7 +292,7 @@ public struct TypedProgram {
   /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
   public func traitDeclaring<T: DeclID>(_ d: T) -> TraitType? {
     var checker = TypeChecker(asContextFor: self)
-    return checker.traitDefining(d)
+    return checker.traitDeclaring(d)
   }
 
   /// If `d` is member of a trait `c`, returns `(d, c)` if `d` is a requirement, or `(r, c)` if `d`
@@ -420,6 +420,14 @@ public struct TypedProgram {
       model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
       implementations: implementations, isStructural: true,
       site: .empty(at: ast[scopeOfUse].site.first()))
+  }
+
+  /// Returns the type satisfying the associated type requirement named `n` in conformance `c`.
+  public func associatedType(_ n: String, for c: Core.Conformance) -> AnyType {
+    let r = ast.requirements(Name(stem: n), in: c.concept.decl)[0]
+    let d = c.implementations[r]!.decl!
+    let t = specialize(MetatypeType(declType[d]!)!.instance, for: c.arguments, in: c.scope)
+    return canonical(t, in: c.scope)
   }
 
   /// Returns the foreign representation of `t` using its conformance to `ForeignConvertible` in

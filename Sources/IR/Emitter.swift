@@ -77,9 +77,15 @@ struct Emitter {
     diagnostics.insert(d)
   }
 
-  /// Appends a new basic block at the end of `self.insertionBlock.function`.
+  /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
+  private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
+    module.appendBlock(in: s, to: insertionFunction!)
+  }
+
+  /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
+  /// as `self.insertionBlock`.
   private mutating func appendBlock() -> Block.ID {
-    module.appendBlock(in: insertionScope!, to: insertionFunction!)
+    appendBlock(in: insertionScope!)
   }
 
   /// Inserts `newInstruction` into `self.module` at the end of `self.insertionPoint`.
@@ -526,9 +532,7 @@ struct Emitter {
       return
     }
 
-    for (path, name) in ast.names(in: lhs) {
-      _ = emitLocalDeclaration(of: name, referringTo: path, relativeTo: storage)
-    }
+    emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: storage)
   }
 
   /// Inserts the IR to declare and initialize the names in `lhs`, which refer to subobjects of
@@ -590,13 +594,22 @@ struct Emitter {
   ) {
     let rhs = emitSubfieldView(storage, at: subfield, at: ast[lhs].site)
     emitStore(value: initializer, to: rhs)
-    for (path, name) in ast.names(in: lhs) {
+    emitLocalDeclarations(introducedBy: lhs, referringTo: subfield, relativeTo: storage)
+  }
+
+  /// Inserts the IR to declare the names in `pattern`, which refer to parts of `subfield` relative
+  /// to `storage`.
+  private mutating func emitLocalDeclarations<T: PatternID>(
+    introducedBy pattern: T,
+    referringTo subfield: RecordPath, relativeTo storage: Operand
+  ) {
+    for (path, name) in ast.names(in: pattern) {
       _ = emitLocalDeclaration(of: name, referringTo: subfield + path, relativeTo: storage)
     }
   }
 
-  /// Inserts the IR to declare `name`, which refers to the given `subfield` relative to `storage`,
-  /// returning that sub-location.
+  /// Inserts the IR to declare `name`, which refers to `subfield` relative to `storage`, returning
+  /// that sub-location.
   private mutating func emitLocalDeclaration(
     of name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand
   ) -> Operand {
@@ -907,6 +920,8 @@ struct Emitter {
       return emit(doWhileStmt: .init(s)!)
     case ExprStmt.self:
       return emit(exprStmt: .init(s)!)
+    case ForStmt.self:
+      return emit(forStmt: .init(s)!)
     case ReturnStmt.self:
       return emit(returnStmt: .init(s)!)
     case WhileStmt.self:
@@ -1007,8 +1022,8 @@ struct Emitter {
   }
 
   private mutating func emit(doWhileStmt s: DoWhileStmt.ID) -> ControlFlow {
-    let loopBody = module.appendBlock(in: ast[s].body, to: insertionFunction!)
-    let loopTail = module.appendBlock(in: ast[s].body, to: insertionFunction!)
+    let loopBody = appendBlock(in: ast[s].body)
+    let loopTail = appendBlock(in: ast[s].body)
     insert(module.makeBranch(to: loopBody, at: .empty(at: ast[s].site.first())))
     insertionPoint = .end(of: loopBody)
 
@@ -1053,6 +1068,118 @@ struct Emitter {
     return .next
   }
 
+  /// Inserts the IR for loop `s`, returning its effect on control flow.
+  private mutating func emit(forStmt s: ForStmt.ID) -> ControlFlow {
+    if program.ast.isConsuming(s) {
+      UNIMPLEMENTED("consuming for loops")
+    } else {
+      return emit(nonConsumingForStmt: s)
+    }
+  }
+
+  /// Inserts the IR for non-consuming loop `s`, returning its effect on control flow.
+  private mutating func emit(nonConsumingForStmt s: ForStmt.ID) -> ControlFlow {
+    let domainType = program[program[s].domain.value].type
+
+    let collection = ast.coreTrait("Collection")!
+    let collectionConformance = program.conformance(
+      of: domainType, to: collection, exposedTo: program[s].scope)!
+    let collectionWitness = CollectionWitness(collectionConformance, in: &module)
+
+    let equatable = ast.coreTrait("Equatable")!
+    let equatableConformance = program.conformance(
+      of: collectionWitness.index, to: equatable, exposedTo: program[s].scope)!
+    let equal = module.reference(
+      toImplementationOf: Name(stem: "==", notation: .infix), for: equatableConformance)
+
+    let introducer = program[s].introducerSite
+
+    // The collection on which the loop iterates.
+    let domain = emitLValue(program[s].domain.value)
+    // The storage allocated for the result of the exit condition.
+    let quit = emitAllocStack(for: ^ast.coreType("Bool")!, at: introducer)
+    // The start and end positions of the collection; the former is updated with each iteration.
+    let (currentPosition, endPosition) = emitPositions(
+      forIteratingOver: domain, usingWitness: collectionWitness, at: introducer)
+
+    // The "head" of the loop; tests for the exit condition.
+    let head = appendBlock(in: s)
+    // The "lens" of the loop; tests for narrowing conditions and applies filters.
+    let enter = appendBlock(in: s)
+    // The "tail" of the loop; increments the index and jumps back to the head.
+    let tail = appendBlock(in: s)
+    // The remainder of the program, after the loop.
+    let exit = appendBlock()
+
+    insert(module.makeBranch(to: head, at: introducer))
+
+    insertionPoint = .end(of: head)
+    let x0 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
+    let x1 = insert(module.makeAccess(.let, from: endPosition, at: introducer))!
+    emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit, at: introducer)
+    insert(module.makeEndAccess(x1, at: introducer))
+    insert(module.makeEndAccess(x0, at: introducer))
+    let x2 = emitLoadBuiltinBool(quit, at: introducer)
+    insert(module.makeCondBranch(if: x2, then: exit, else: enter, at: introducer))
+
+    insertionPoint = .end(of: enter)
+    let x6 = insert(module.makeAccess(.let, from: domain, at: introducer))!
+    let x7 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
+    let x8 = insert(
+      module.makeProject(
+        .init(.let, collectionWitness.element), applying: collectionWitness.accessLet,
+        specializedBy: collectionConformance.arguments, to: [x6, x7], at: introducer))!
+
+    if module.type(of: x8).ast != collectionWitness.element {
+      UNIMPLEMENTED("narrowing projections #1099")
+    }
+
+    emitLocalDeclarations(
+      introducedBy: program[s].binding.pattern, referringTo: [], relativeTo: x8)
+
+    // TODO: Filter
+
+    switch emit(stmt: ast[s].body) {
+    case .next:
+      insert(module.makeBranch(to: tail, at: .empty(atEndOf: program[s].body.site)))
+    case .return(let s):
+      emitControlFlow(return: s)
+    default:
+      UNIMPLEMENTED()
+    }
+
+    insertionPoint = .end(of: tail)
+    let x3 = insert(module.makeAllocStack(collectionWitness.index, at: introducer))!
+    let x4 = insert(module.makeAccess(.let, from: domain, at: introducer))!
+    let x5 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
+    emitApply(collectionWitness.indexAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
+    insert(module.makeEndAccess(x4, at: introducer))
+    insert(module.makeEndAccess(x5, at: introducer))
+    emitMove([.inout], x3, to: currentPosition, at: introducer)
+    insert(module.makeDeallocStack(for: x3, at: introducer))
+    insert(module.makeBranch(to: head, at: introducer))
+
+    insertionPoint = .end(of: exit)
+    return .next
+  }
+
+  /// Inserts the IR for initializing the start and end positions of `domain`, whose conformance to
+  /// the collection trait is witnessed by `witness`, returning these positions.
+  private mutating func emitPositions(
+    forIteratingOver domain: Operand,
+    usingWitness witness: CollectionWitness, at site: SourceRange
+  ) -> (startIndex: Operand, endIndex: Operand) {
+    let start = emitAllocStack(for: witness.index, at: site)
+    let end = emitAllocStack(for: witness.index, at: site)
+
+    let x0 = insert(module.makeAccess(.let, from: domain, at: site))!
+    emitApply(witness.startIndex, to: [x0], writingResultTo: start, at: site)
+    emitApply(witness.endIndex, to: [x0], writingResultTo: end, at: site)
+    insert(module.makeEndAccess(x0, at: site))
+
+    return (startIndex: start, endIndex: end)
+  }
+
   private mutating func emit(returnStmt s: ReturnStmt.ID) -> ControlFlow {
     if let e = ast[s].value {
       emitStore(value: e, to: returnValue!)
@@ -1066,7 +1193,7 @@ struct Emitter {
 
   private mutating func emit(whileStmt s: WhileStmt.ID) -> ControlFlow {
     // Enter the loop.
-    let head = module.appendBlock(in: s, to: insertionFunction!)
+    let head = appendBlock(in: s)
     insert(module.makeBranch(to: head, at: .empty(at: ast[s].site.first())))
 
     // Test the conditions.
@@ -1853,56 +1980,79 @@ struct Emitter {
 
       case .decl(let d):
         let subject = emitLValue(ast[d].initializer!)
-
-        if let t = UnionType(module.type(of: subject).ast) {
-          let u = canonical(program[d].type)
-          let b = emitConditionalNarrowing(
-            of: subject, typed: t, as: ast[d].pattern, typed: u,
-            to: allocs[i],
-            else: failure, in: scope)
-
-          insertionPoint = .end(of: b)
-          continue
-        }
-
-        UNIMPLEMENTED()
+        let patternType = canonical(program[d].type)
+        let next = emitConditionalNarrowing(
+          subject, as: ast[d].pattern, typed: patternType, to: allocs[i],
+          else: failure, in: scope)
+        insertionPoint = .end(of: next)
       }
     }
 
     return (success: insertionBlock!, failure: failure)
   }
 
-  /// Returns a basic block in which the names in `pattern` have been declared and initialized by
-  /// consuming the payload of `container` as an instance of `patternType`.
+  /// Returns a basic block in which the names in `pattern` have been declared and initialized.
+  ///
+  /// This method emits IR to:
+  ///
+  /// - check whether the value in `subject` is an instance of `patternType`;
+  /// - if it isn't, jump to `failure`;
+  /// - if it is, jump to a new basic block *b*, coerce the contents of `subject` into `storage`,
+  ///   applying consuming coercions as necessary, and define the bindings declared in `pattern`.
+  ///
+  /// If `subject` always matches `patternType`, the narrowing is irrefutable and `failure` is
+  /// unreachable in the generated IR.
+  ///
+  /// The return value is the new basic block *b*, which is defined in `scope`. The emitter context
+  /// is updated to associate the bindings declared in `pattern` to their address in `storage`.
   private mutating func emitConditionalNarrowing(
-    of container: Operand, typed containerType: UnionType,
+    _ subject: Operand,
+    as pattern: BindingPattern.ID, typed patternType: AnyType,
+    to storage: Operand,
+    else failure: Block.ID, in scope: AnyScopeID
+  ) -> Block.ID {
+    switch module.type(of: subject).ast.base {
+    case let t as UnionType:
+      return emitConditionalNarrowing(
+        subject, typed: t, as: pattern, typed: patternType, to: storage,
+        else: failure, in: scope)
+    default:
+      break
+    }
+
+    UNIMPLEMENTED()
+  }
+
+  /// Returns a basic block in which the names in `pattern` have been declared and initialized.
+  ///
+  /// This method method implements conditional narrowing for union types.
+  private mutating func emitConditionalNarrowing(
+    _ subject: Operand, typed subjectType: UnionType,
     as pattern: BindingPattern.ID, typed patternType: AnyType,
     to storage: Operand,
     else failure: Block.ID, in scope: AnyScopeID
   ) -> Block.ID {
     // TODO: Implement narrowing to an arbitrary subtype.
-    guard containerType.elements.contains(patternType) else { UNIMPLEMENTED() }
+    guard subjectType.elements.contains(patternType) else { UNIMPLEMENTED() }
     let site = ast[pattern].site
 
-    let i = program.discriminatorToElement(in: containerType).firstIndex(of: patternType)!
+    let i = program.discriminatorToElement(in: subjectType).firstIndex(of: patternType)!
     let expected = IntegerConstant(i, bitWidth: 64)  // FIXME: should be width of 'word'
-    let actual = emitUnionDiscriminator(container, at: site)
+    let actual = emitUnionDiscriminator(subject, at: site)
 
     let test = insert(
       module.makeLLVM(applying: .icmp(.eq, .word), to: [.constant(expected), actual], at: site))!
-    let next = module.appendBlock(in: scope, to: insertionFunction!)
+    let next = appendBlock(in: scope)
     insert(module.makeCondBranch(if: test, then: next, else: failure, at: site))
 
     insertionPoint = .end(of: next)
-    let x0 = insert(module.makeOpenUnion(container, as: patternType, at: site))!
+    let x0 = insert(module.makeOpenUnion(subject, as: patternType, at: site))!
     pushing(Frame()) { (this) in
       this.emitMove([.set], x0, to: storage, at: site)
     }
     insert(module.makeCloseUnion(x0, at: site))
 
-    for (path, name) in ast.names(in: pattern) {
-      _ = emitLocalDeclaration(of: name, referringTo: path, relativeTo: storage)
-    }
+    emitLocalDeclarations(introducedBy: pattern, referringTo: [], relativeTo: storage)
 
     return next
   }
@@ -1912,12 +2062,18 @@ struct Emitter {
   /// - Requires: `e.type` is `Hylo.Bool`
   private mutating func emit(branchCondition e: AnyExprID) -> Operand {
     precondition(canonical(program[e].type) == ast.coreType("Bool")!)
-    let x0 = emitLValue(e)
-    let x1 = emitSubfieldView(x0, at: [0], at: ast[e].site)
-    let x2 = insert(module.makeAccess(.sink, from: x1, at: ast[e].site))!
-    let x3 = insert(module.makeLoad(x2, at: ast[e].site))!
-    insert(module.makeEndAccess(x2, at: ast[e].site))
-    return x3
+    let wrapper = emitLValue(e)
+    return emitLoadBuiltinBool(wrapper, at: ast[e].site)
+  }
+
+  /// Inserts the IR for extracting the built-in value stored in an instance of `Hylo.Bool`.
+  private mutating func emitLoadBuiltinBool(_ wrapper: Operand, at site: SourceRange) -> Operand {
+    precondition(module.type(of: wrapper) == .address(ast.coreType("Bool")!))
+    let x0 = emitSubfieldView(wrapper, at: [0], at: site)
+    let x1 = insert(module.makeAccess(.sink, from: x0, at: site))!
+    let x2 = insert(module.makeLoad(x1, at: site))!
+    insert(module.makeEndAccess(x1, at: site))
+    return x2
   }
 
   /// Inserts the IR for coercing `source` to an address of type `target`.
@@ -2395,7 +2551,7 @@ struct Emitter {
     withMovableConformance movable: Core.Conformance, at site: SourceRange
   ) {
     let d = module.demandMoveOperatorDeclaration(semantics, from: movable)
-    let f = reference(to: d, implementedFor: movable)
+    let f = module.reference(to: d, implementedFor: movable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
@@ -2442,7 +2598,7 @@ struct Emitter {
     at site: SourceRange
   ) {
     let d = module.demandDeinitDeclaration(from: deinitializable)
-    let f = reference(to: d, implementedFor: deinitializable)
+    let f = module.reference(to: d, implementedFor: deinitializable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
@@ -2544,17 +2700,6 @@ struct Emitter {
   }
 
   // MARK: Helpers
-
-  /// Returns a function reference to `d`, which is an implementation that's part of `c`.
-  private func reference(
-    to d: Function.ID, implementedFor c: Core.Conformance
-  ) -> FunctionReference {
-    var a = c.arguments
-    if let m = program.traitMember(referredBy: d) {
-      a = a.merging([program[m.trait.decl].receiver: c.model])
-    }
-    return FunctionReference(to: d, in: module, specializedBy: a, in: insertionScope!)
-  }
 
   /// Returns the canonical form of `t` in the current insertion scope.
   private func canonical(_ t: AnyType) -> AnyType {

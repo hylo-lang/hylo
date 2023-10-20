@@ -420,8 +420,18 @@ public struct Module {
     return f
   }
 
-  /// Returns the identity of the IR function implementing the deinitializer defined in
-  /// conformance `c`.
+  /// Returns the implementation of the requirement named `r` in `c`.
+  ///
+  /// `r` unambiguously identifies a single function or subscript requirement in the trait for
+  /// which `c` has been established.
+  mutating func demandImplementation(
+    of r: Name, for c: Core.Conformance
+  ) -> Function.ID {
+    let requirement = program.ast.requirements(r, in: c.concept.decl)[0]
+    return demandDeclaration(lowering: c.implementations[requirement]!)
+  }
+
+  /// Returns the IR function implementing the deinitializer defined in `c`.
   mutating func demandDeinitDeclaration(
     from c: Core.Conformance
   ) -> Function.ID {
@@ -429,8 +439,7 @@ public struct Module {
     return demandDeclaration(lowering: c.implementations[d]!)
   }
 
-  /// Returns the identity of the IR function implementing the `k` variant move-operation defined
-  /// in conformance `c`.
+  /// Returns the IR function implementing the `k` variant move-operation defined in `c`.
   ///
   /// - Requires: `k` is either `.set` or `.inout`
   mutating func demandMoveOperatorDeclaration(
@@ -438,6 +447,28 @@ public struct Module {
   ) -> Function.ID {
     let d = program.ast.moveRequirement(k)
     return demandDeclaration(lowering: c.implementations[d]!)
+  }
+
+  /// Returns a function reference to the implementation of the requirement named `r` in `c`.
+  ///
+  /// `r` unambiguously identifies a single function requirement in the trait for which `c` has
+  /// been established. The returned reference is defined in the scope in which `c` is exposed.
+  mutating func reference(
+    toImplementationOf r: Name, for c: Core.Conformance
+  ) -> FunctionReference {
+    let d = demandImplementation(of: r, for: c)
+    return reference(to: d, implementedFor: c)
+  }
+
+  /// Returns a function reference to `d`, which is an implementation that's part of `witness`.
+  func reference(
+    to d: Function.ID, implementedFor witness: Core.Conformance
+  ) -> FunctionReference {
+    var a = witness.arguments
+    if let m = program.traitMember(referredBy: d) {
+      a = a.merging([program[m.trait.decl].receiver: witness.model])
+    }
+    return FunctionReference(to: d, in: self, specializedBy: a, in: witness.scope)
   }
 
   /// Returns the lowered declarations of `d`'s parameters.
