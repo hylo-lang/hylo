@@ -2976,7 +2976,8 @@ public enum Parser {
 
     // Now read the body of the compiler condition.
     let stmts = try parseCompilerConditionBody(
-      in: &state, justSkip: condition.mayNotNeedParsing && !condition.isTrue())
+      in: &state,
+      justSkip: condition.mayNotNeedParsing && !condition.isTrue(for: CompilerInfo.instance))
 
     let fallback: [AnyStmtID]
 
@@ -2985,8 +2986,10 @@ public enum Parser {
       fallback = []
     } else if state.take(.poundElse) != nil {
       fallback = try parseCompilerConditionBody(
-        in: &state, justSkip: condition.mayNotNeedParsing && condition.isTrue())
+        in: &state,
+        justSkip: condition.mayNotNeedParsing && condition.isTrue(for: CompilerInfo.instance))
     } else if let head2 = state.take(.poundElseif) {
+      // TODO: also skip here
       // We continue with another conditional compilation statement.
       fallback = [try parseCompilerConditionTail(head: head2, in: &state)]
     } else {
@@ -3061,11 +3064,11 @@ public enum Parser {
         // returns Int
         let integerParser = (take(.int)).map({ (state, tree) -> Int in Int(state.token(tree).value)!
         })
-        // returns [Int]
+        // returns CompilerInfo.VersionNumber
         let versionNumberParser =
           (integerParser.and(zeroOrMany(take(.dot).and(integerParser).second)).map({
             (state, tree) -> [Int] in [tree.0] + tree.1
-          }))
+          })).map({ (_, arr) in CompilerInfo.VersionNumber(arr) })
         let operParser =
           (operatorIdentifier.map({
             (_, operName) -> CondCompilationStmt.VersionComparison in
@@ -3079,8 +3082,8 @@ public enum Parser {
         let parser =
           (take(.lParen)  // => TakeKind
             .and(operParser).second  // => VersionComparison
-            .and(versionNumberParser)  // => (VersionComparison, [Int])
-            .and(take(.rParen)).first  // => (VersionComparison, [Int])
+            .and(versionNumberParser)  // => (VersionComparison, VersionNumber)
+            .and(take(.rParen)).first  // => (VersionComparison, VersionNumber)
           )
         guard let p = try parser.parse(&state) else {
           throw [.error(expected: "version number comparison", at: state.currentLocation)]

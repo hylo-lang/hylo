@@ -6,6 +6,13 @@ public struct CondCompilationStmt: Stmt {
     case greaterOrEqual
     case less
 
+    func compare<T: Comparable>(_ lhs: T, _ rhs: T) -> Bool {
+      switch self {
+      case .greaterOrEqual: return !(lhs < rhs)
+      case .less: return lhs < rhs
+      }
+    }
+
   }
 
   public enum Condition: Codable, Equatable {
@@ -15,8 +22,8 @@ public struct CondCompilationStmt: Stmt {
     case os(Identifier)
     case arch(Identifier)
     case compiler(Identifier)
-    case compilerVersion(comparison: VersionComparison, versionNumber: [Int])
-    case hyloVersion(comparison: VersionComparison, versionNumber: [Int])
+    case compilerVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
+    case hyloVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
 
     /// Indicates if we may need to skip parsing the body of the conditional-compilation.
     public var mayNotNeedParsing: Bool {
@@ -29,11 +36,17 @@ public struct CondCompilationStmt: Stmt {
     }
 
     /// Indicates if the condition is true for the current instance of the compiler.
-    public func isTrue() -> Bool {
+    public func isTrue(for info: CompilerInfo) -> Bool {
       switch self {
       case .`true`: return true
-      // TODO
-      default: return false
+      case .`false`: return false
+      case .os(let id): return id == info.os
+      case .arch(let id): return id == info.arch
+      case .compiler(let id): return id == info.compiler
+      case .compilerVersion(let comparison, let version):
+        return comparison.compare(version, info.compilerVersion)
+      case .hyloVersion(let comparison, let version):
+        return comparison.compare(version, info.hyloVersion)
       }
     }
 
