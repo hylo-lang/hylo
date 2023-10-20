@@ -95,7 +95,7 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     // precondition(i >= 0 && i < count())
     // precondition(j >= 0 && j < count())
     if i == j { return }
-    swap(&pointer_to_element[at: i].unsafe[], &pointer_to_element[at: j].unsafe[])
+    &pointer_to_element[at: i].unsafe[].exchange(with: &pointer_to_element[at: j].unsafe[])
   }
 
   /// Reverses the elements of `self` in place.
