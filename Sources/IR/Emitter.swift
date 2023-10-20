@@ -1089,8 +1089,7 @@ struct Emitter {
     let equatable = ast.core.equatable
     let equatableConformance = program.conformance(
       of: collectionWitness.position, to: equatable.type, exposedTo: program[s].scope)!
-    let equal = module.reference(
-      toImplementationOf: Name(stem: "==", notation: .infix), for: equatableConformance)
+    let equal = module.reference(toImplementationOf: equatable.equal, for: equatableConformance)
 
     let introducer = program[s].introducerSite
 
@@ -1127,7 +1126,7 @@ struct Emitter {
     let x7 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
     let x8 = insert(
       module.makeProject(
-        .init(.let, collectionWitness.element), applying: collectionWitness.accessLet,
+        .init(.let, collectionWitness.element), applying: collectionWitness.access,
         specializedBy: collectionConformance.arguments, to: [x6, x7], at: introducer))!
 
     if module.type(of: x8).ast != collectionWitness.element {
@@ -2550,7 +2549,7 @@ struct Emitter {
     _ semantics: AccessEffect, _ value: Operand, to storage: Operand,
     withMovableConformance movable: Core.Conformance, at site: SourceRange
   ) {
-    let d = module.demandMoveOperatorDeclaration(semantics, from: movable)
+    let d = module.demandTakeValueDeclaration(semantics, from: movable)
     let f = module.reference(to: d, implementedFor: movable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!

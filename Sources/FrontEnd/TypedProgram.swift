@@ -422,10 +422,11 @@ public struct TypedProgram {
       site: .empty(at: ast[scopeOfUse].site.first()))
   }
 
-  /// Returns the type satisfying the associated type requirement named `n` in conformance `c`.
-  public func associatedType(_ n: String, for c: Core.Conformance) -> AnyType {
-    let r = ast.requirements(Name(stem: n), in: c.concept.decl)[0]
-    let d = c.implementations[r]!.decl!
+  /// Returns the type satisfying the associated type requirement `n` in conformance `c`.
+  ///
+  /// - Requires: `n` is declared by the trait for which `c` has been established.
+  public func associatedType(_ n: AssociatedTypeDecl.ID, for c: Core.Conformance) -> AnyType {
+    let d = c.implementations[n]!.decl!
     let t = specialize(MetatypeType(declType[d]!)!.instance, for: c.arguments, in: c.scope)
     return canonical(t, in: c.scope)
   }
