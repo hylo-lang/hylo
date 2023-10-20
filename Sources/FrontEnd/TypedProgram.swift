@@ -186,7 +186,7 @@ public struct TypedProgram {
   public func isTriviallyDeinitializable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
     let model = canonical(t, in: scopeOfUse)
 
-    guard let c = conformance(of: model, to: ast.deinitializableTrait, exposedTo: scopeOfUse)
+    guard let c = conformance(of: model, to: ast.core.deinitializable.type, exposedTo: scopeOfUse)
     else {
       // Built-in types never have conformances.
       switch model.base {
@@ -437,13 +437,13 @@ public struct TypedProgram {
   public func foreignRepresentation(
     of t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> AnyType {
-    let f = ast.coreTrait("ForeignConvertible")!
-    let d = ast.requirements("ForeignRepresentation", in: f.decl)[0]
+    let f = ast.core.foreignConvertible
+    let d = f.foreignRepresentation
 
     // Since conformances of built-in types are not stored in property maps, we'll exit the loop
     // when we assign one to `result`.
     var result = t
-    while let c = conformance(of: result, to: f, exposedTo: scopeOfUse) {
+    while let c = conformance(of: result, to: f.type, exposedTo: scopeOfUse) {
       // `d` is an associated type declaration so its implementations must have a metatype.
       let i = c.implementations[d]!.decl!
       result = MetatypeType(canonical(self[i].type, in: self[d].scope))!.instance

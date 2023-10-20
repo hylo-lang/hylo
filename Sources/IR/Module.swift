@@ -435,7 +435,7 @@ public struct Module {
   mutating func demandDeinitDeclaration(
     from c: Core.Conformance
   ) -> Function.ID {
-    let d = program.ast.deinitRequirement()
+    let d = program.ast.core.deinitializable.deinitialize
     return demandDeclaration(lowering: c.implementations[d]!)
   }
 
@@ -445,8 +445,16 @@ public struct Module {
   mutating func demandMoveOperatorDeclaration(
     _ k: AccessEffect, from c: Core.Conformance
   ) -> Function.ID {
-    let d = program.ast.moveRequirement(k)
-    return demandDeclaration(lowering: c.implementations[d]!)
+    switch k {
+    case .set:
+      let d = program.ast.core.movable.moveInitialize
+      return demandDeclaration(lowering: c.implementations[d]!)
+    case .inout:
+      let d = program.ast.core.movable.moveAssign
+      return demandDeclaration(lowering: c.implementations[d]!)
+    default:
+      preconditionFailure()
+    }
   }
 
   /// Returns a function reference to the implementation of the requirement named `r` in `c`.

@@ -1081,14 +1081,14 @@ struct Emitter {
   private mutating func emit(nonConsumingForStmt s: ForStmt.ID) -> ControlFlow {
     let domainType = program[program[s].domain.value].type
 
-    let collection = ast.coreTrait("Collection")!
+    let collection = ast.core.collection
     let collectionConformance = program.conformance(
-      of: domainType, to: collection, exposedTo: program[s].scope)!
+      of: domainType, to: collection.type, exposedTo: program[s].scope)!
     let collectionWitness = CollectionWitness(collectionConformance, in: &module)
 
-    let equatable = ast.coreTrait("Equatable")!
+    let equatable = ast.core.equatable
     let equatableConformance = program.conformance(
-      of: collectionWitness.position, to: equatable, exposedTo: program[s].scope)!
+      of: collectionWitness.position, to: equatable.type, exposedTo: program[s].scope)!
     let equal = module.reference(
       toImplementationOf: Name(stem: "==", notation: .infix), for: equatableConformance)
 
@@ -1343,7 +1343,7 @@ struct Emitter {
 
     // Consuming a pointee requires a conformance to `Movable`.
     let target = RemoteType(canonical(program[e].type))!
-    let movable = program.ast.movableTrait
+    let movable = program.ast.core.movable.type
     if !program.conforms(target.bareType, to: movable, in: insertionScope!) {
       report(.error(module.type(of: x0).ast, doesNotConformTo: movable, at: ast[e].site))
       return
@@ -2175,7 +2175,7 @@ struct Emitter {
   ) -> Operand {
     precondition(module.type(of: foreign).isObject)
 
-    let foreignConvertible = ast.coreTrait("ForeignConvertible")!
+    let foreignConvertible = ast.core.foreignConvertible.type
     let foreignConvertibleConformance = program.conformance(
       of: ir, to: foreignConvertible, exposedTo: insertionScope!)!
     let r = ast.requirements(
@@ -2219,7 +2219,7 @@ struct Emitter {
     let t = module.type(of: o)
     precondition(t.isAddress)
 
-    let foreignConvertible = ast.coreTrait("ForeignConvertible")!
+    let foreignConvertible = ast.core.foreignConvertible.type
     let foreignConvertibleConformance = program.conformance(
       of: t.ast, to: foreignConvertible, exposedTo: insertionScope!)!
     let r = ast.requirements("foreign_value", in: foreignConvertible.decl)[0]
@@ -2514,7 +2514,7 @@ struct Emitter {
 
     // Other types must be movable.
     let movable = program.conformance(
-      of: t, to: program.ast.movableTrait, exposedTo: insertionScope!)!
+      of: t, to: program.ast.core.movable.type, exposedTo: insertionScope!)!
 
     // Insert a call to the approriate move implementation if its semantics is unambiguous.
     // Otherwise, insert a call to the method bundle.
@@ -2581,7 +2581,7 @@ struct Emitter {
     }
 
     // Use custom conformance to `Deinitializable` if possible.
-    let concept = program.ast.deinitializableTrait
+    let concept = program.ast.core.deinitializable.type
     if let c = module.program.conformance(of: model, to: concept, exposedTo: insertionScope!) {
       emitDeinit(storage, withDeinitializableConformance: c, at: site)
       return
@@ -2620,7 +2620,7 @@ struct Emitter {
     } else if t.base is UnionType {
       emitDeinitUnionPayload(of: storage, at: site)
     } else {
-      report(.error(t, doesNotConformTo: ast.deinitializableTrait, at: site))
+      report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: site))
     }
   }
 

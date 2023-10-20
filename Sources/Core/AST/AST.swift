@@ -17,13 +17,16 @@ public struct AST {
     /// - Invariant: All referred modules have a different name.
     public var modules: [ModuleDecl.ID] = []
 
-    /// The ID of the module containing Hylo's core library, if any.
+    /// The module containing Hylo's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
 
   }
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
   private var storage = Storage()
+
+  /// The traits in Hylo's standard library that are known by the compiler.
+  public var coreTraits: CoreTraits?
 
   /// The nodes in `self`.
   private var nodes: [AnyNode] {
@@ -41,11 +44,10 @@ public struct AST {
     _modify { yield &storage.modules }
   }
 
-  /// The ID of the module containing Hylo's core library, if any.
+  /// The module containing Hylo's core library, if any.
   public var coreLibrary: ModuleDecl.ID? {
     get { storage.coreLibrary }
     set { storage.coreLibrary = newValue }
-    _modify { yield &storage.coreLibrary }
   }
 
   /// Creates an empty AST.
@@ -152,33 +154,13 @@ public struct AST {
   public func coreTrait<T: Expr>(forTypesExpressibleBy literal: T.Type) -> TraitType? {
     switch literal.kind {
     case FloatLiteralExpr.self:
-      return coreTrait("ExpressibleByFloatLiteral")
+      return core.expressibleByFloatLiteral.type
     case IntegerLiteralExpr.self:
-      return coreTrait("ExpressibleByIntegerLiteral")
+      return core.expressibleByIntegerLiteral.type
     default:
       return nil
     }
   }
-
-  /// `Hylo.Deinitializable` trait from the Core library.
-  ///
-  /// - Requires: The Core library must have been loaded.
-  public var deinitializableTrait: TraitType { coreTrait("Deinitializable")! }
-
-  /// `Hylo.Movable` trait from the Core library.
-  ///
-  /// - Requires: The Core library must have been loaded.
-  public var movableTrait: TraitType { coreTrait("Movable")! }
-
-  /// `Hylo.Copyable` trait from the Core library.
-  ///
-  /// - Requires: The Core library must have been loaded.
-  public var copyableTrait: TraitType { coreTrait("Copyable")! }
-
-  /// `Hylo.ForeignConvertiblae` trait from the Core library.
-  ///
-  /// - Requires: The Core library must have been loaded.
-  public var foreignConvertibleTrait: TraitType { coreTrait("ForeignConvertible")! }
 
   // MARK: Helpers
 
@@ -244,25 +226,6 @@ public struct AST {
     })
   }
 
-  /// Returns the declaration of `Deinitializable.deinit`.
-  public func deinitRequirement() -> FunctionDecl.ID {
-    let d = requirements(Name(stem: "deinit"), in: deinitializableTrait.decl)
-    return FunctionDecl.ID(d[0])!
-  }
-
-  /// Returns the declaration of `Movable.take_value`'s requirement for variant `access`.
-  ///
-  /// Use the `.set` or `.inout` access in order to get the declaration of the move-initialization
-  /// or move-assignment, respectively.
-  ///
-  /// - Requires: `access` is either `.set` or `.inout`.
-  public func moveRequirement(_ access: AccessEffect) -> MethodImpl.ID {
-    let d = requirements(
-      Name(stem: "take_value", labels: ["from"], introducer: access),
-      in: movableTrait.decl)
-    return MethodImpl.ID(d[0])!
-  }
-
   /// Returns the kind identifying synthesized declarations of `requirement`, which is defined by
   /// `concept`, or `nil` if `requirement` is not synthesizable.
   ///
@@ -271,14 +234,14 @@ public struct AST {
     of requirement: T, definedBy concept: TraitType
   ) -> SynthesizedFunctionDecl.Kind? {
     // If the requirement is defined in `Deinitializable`, it must be the deinitialization method.
-    if concept == deinitializableTrait {
+    if concept == core.deinitializable.type {
       assert(requirement.kind == FunctionDecl.self)
       return .deinitialize
     }
 
     // If the requirement is defined in `Movable`, it must be either the move-initialization or
     // move-assignment method.
-    if concept == movableTrait {
+    if concept == core.movable.type {
       let d = MethodImpl.ID(requirement)!
       switch self[d].introducer.value {
       case .set:
@@ -291,7 +254,7 @@ public struct AST {
     }
 
     // If the requirement is defined in `Copyable`, it must be the copy method.
-    if concept == copyableTrait {
+    if concept == core.copyable.type {
       assert(requirement.kind == FunctionDecl.self)
       return .copy
     }
