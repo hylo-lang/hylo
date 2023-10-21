@@ -871,7 +871,7 @@ struct Emitter {
       return emit(whileStmt: .init(s)!)
     case YieldStmt.self:
       return emit(yieldStmt: .init(s)!)
-    case BraceStmt.self:
+    case CondCompilationStmt.self:
       return emit(condCompilationStmt: .init(s)!)
     default:
       unexpected(s, in: ast)

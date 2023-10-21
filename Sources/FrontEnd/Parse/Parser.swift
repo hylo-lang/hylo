@@ -2994,6 +2994,10 @@ public enum Parser {
       } else {
         fallback = try parseConditionalCompilationBranch(in: &state)
       }
+      // Expect #endif.
+      if state.take(.poundEndif) == nil {
+        throw [.error(expected: "#endif", at: state.currentLocation)] as DiagnosticSet
+      }
     } else if let head2 = state.take(.poundElseif) {
       if condition.mayNotNeedParsing && condition.isTrue(for: CompilerInfo.instance) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)

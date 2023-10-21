@@ -1,0 +1,19 @@
+//- compileAndRun expecting: success
+
+fun use<T>(_ x: T) {}
+
+fun testTrue() {
+
+  #if true
+    let a = 2
+  #else
+    error()
+  #endif
+  use(a)
+}
+
+public fun main() {
+
+  testTrue()
+
+}
