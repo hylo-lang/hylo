@@ -26,6 +26,8 @@ public struct CompilerInfo {
   let compilerVersion: VersionNumber
   /// The version of the Hylo language version we are targeting.
   let hyloVersion: VersionNumber
+  /// The set of features supported in the current compilation.
+  let features: [String]
 
   /// We only need one instance of this struct, to represent the compiler information.
   public static let instance = CompilerInfo()
@@ -36,6 +38,7 @@ public struct CompilerInfo {
     compiler = "hc"
     compilerVersion = VersionNumber([0, 1])
     hyloVersion = VersionNumber([0, 1])
+    features = ["useLibC"]
   }
 
   /// The current OS name.
