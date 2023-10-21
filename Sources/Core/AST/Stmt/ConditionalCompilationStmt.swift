@@ -19,11 +19,17 @@ public struct ConditionalCompilationStmt: Stmt {
   public enum Condition: Codable, Equatable {
 
     case `true`
+
     case `false`
+
     case os(Identifier)
+
     case arch(Identifier)
+
     case compiler(Identifier)
+
     case compilerVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
+
     case hyloVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
 
     /// `true` iff the body of the conditional-compilation shouldn't be parsed.
