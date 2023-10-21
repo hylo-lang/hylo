@@ -1,9 +1,10 @@
 /// A conditional-compilation statement.
-public struct CondCompilationStmt: Stmt {
+public struct ConditionalCompilationStmt: Stmt {
 
   public enum VersionComparison: Codable {
 
     case greaterOrEqual
+
     case less
 
     func compare<T: Comparable>(_ lhs: T, _ rhs: T) -> Bool {
@@ -25,7 +26,7 @@ public struct CondCompilationStmt: Stmt {
     case compilerVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
     case hyloVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
 
-    /// Indicates if we may need to skip parsing the body of the conditional-compilation.
+    /// `true` iff the body of the conditional-compilation shouldn't be parsed.
     public var mayNotNeedParsing: Bool {
       switch self {
       case .compiler: return true
@@ -35,8 +36,8 @@ public struct CondCompilationStmt: Stmt {
       }
     }
 
-    /// Indicates if the condition is true for the current instance of the compiler.
-    public func isTrue(for info: CompilerInfo) -> Bool {
+    /// Returns `true` iff `self` holds for the current process.
+    public func holds(for info: CompilerInfo) -> Bool {
       switch self {
       case .`true`: return true
       case .`false`: return false
