@@ -1737,8 +1737,8 @@ final class ParserTests: XCTestCase {
       stmt.condition,
       .compilerVersion(
         comparison: .less, versionNumber: CompilerInfo.VersionNumber([100, 1, 2, 3, 4, 5])))
-    XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
-    XCTAssertEqual(stmt.fallback.count, 1)
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
   }
   func testConditionalControlHyloVersionGreater() throws {
     let input: SourceFile = "#if hyloversion(>= 0.1) foo() #else awgr() #endif"
@@ -1758,8 +1758,8 @@ final class ParserTests: XCTestCase {
       stmt.condition,
       .hyloVersion(
         comparison: .less, versionNumber: CompilerInfo.VersionNumber([100, 1, 2, 3, 4, 5])))
-    XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
-    XCTAssertEqual(stmt.fallback.count, 1)
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
   }
   func testConditionalControlParsingInsideDisabledBlocks() throws {
     let input: SourceFile = "#if false < parse error > #endif"

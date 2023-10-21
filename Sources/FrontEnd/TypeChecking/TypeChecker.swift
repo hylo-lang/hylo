@@ -1084,7 +1084,7 @@ struct TypeChecker {
 
   /// Type checks `s`.
   private mutating func check(_ s: CondCompilationStmt.ID) {
-    for t in program[s].stmts { check(t) }
+    for t in program[s].expansion { check(t) }
   }
 
   /// Type checks `condition`.

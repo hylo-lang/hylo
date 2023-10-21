@@ -13,14 +13,144 @@ fun testTrue() {
 
 fun testFalse() {
   #if false
-    // error()
+    error()
   #else
     let a = 3
   #endif
   use(a)
 }
 
+fun testOs() {
+  #if os(MacOS)
+    let a = 5
+  #elseif os(Linux)
+    let a = 7
+  #elseif os(Windows)
+    let a = 11
+  #else
+    error()
+  #endif
+  use(a)
+}
+
+fun testArch() {
+  #if arch(i386)
+    let a = 13
+  #elseif arch(x86_64)
+    let a = 17
+  #elseif arch(arm)
+    let a = 19
+  #elseif arch(arm64)
+    let a = 23
+  #else
+    error()
+  #endif
+  use(a)
+}
+
+fun testCompiler() {
+  #if compiler(hc)
+    let a = 29
+  #else
+    error()
+  #endif
+  use(a)
+}
+
+fun testCompilerVersion() {
+  #if compilerversion(< 99.9.9.9)
+    let a = 31
+  #else
+    <something that would not be parsed>
+  #endif
+  #if compilerversion(>= 0.1)
+    let b = 37
+  #else
+    <something that would not be parsed>
+  #endif
+  use(a)
+  use(b)
+}
+
+fun testHyloVersion() {
+  #if hyloversion(< 99.9.9.9)
+    let a = 41
+  #else
+    <something that would not be parsed>
+  #endif
+  #if hyloversion(>= 0.1)
+    let b = 43
+  #else
+    <something that would not be parsed>
+  #endif
+  use(a)
+  use(b)
+}
+
+fun testSkipParsingNested() {
+  #if compiler(noncompiler)
+    <can't parse this>
+    #if os(unicorn)
+      <>?
+    #elseif os(minotaur)
+      <>?
+    #else
+      <>?
+    #endif
+    ??!??!
+  #else
+    let a = 47
+  #endif
+  use(a)
+
+  #if compiler(hc)
+    let b = 53
+  #else
+    <can't parse this>
+    #if os(unicorn)
+      <>?
+    #elseif os(minotaur)
+      <>?
+    #else
+      <>?
+    #endif
+    ??!??!
+  #endif
+  use(b)
+
+  #if compiler(noncompiler)
+    <can't parse this>
+    #if os(unicorn)
+      <>?
+    #elseif os(minotaur)
+      <>?
+    #else
+      <>?
+    #endif
+    ??!??!
+  #elseif compiler(hc)
+    let c = 59
+  #else
+    <can't parse this>
+    #if os(unicorn)
+      <>?
+    #elseif os(minotaur)
+      <>?
+    #else
+      <>?
+    #endif
+    ??!??!
+  #endif
+  use(c)
+}
+
 public fun main() {
   testTrue()
   testFalse()
+  testOs()
+  testArch()
+  testCompiler()
+  testCompilerVersion()
+  testHyloVersion()
+  testSkipParsingNested()
 }

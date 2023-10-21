@@ -44,9 +44,9 @@ public struct CondCompilationStmt: Stmt {
       case .arch(let id): return id == info.arch
       case .compiler(let id): return id == info.compiler
       case .compilerVersion(let comparison, let version):
-        return comparison.compare(version, info.compilerVersion)
+        return comparison.compare(info.compilerVersion, version)
       case .hyloVersion(let comparison, let version):
-        return comparison.compare(version, info.hyloVersion)
+        return comparison.compare(info.hyloVersion, version)
       }
     }
 
