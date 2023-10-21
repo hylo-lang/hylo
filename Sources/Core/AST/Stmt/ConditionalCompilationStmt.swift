@@ -56,7 +56,7 @@ public struct ConditionalCompilationStmt: Stmt {
         return comparison.compare(info.compilerVersion, version)
       case .hyloVersion(let comparison, let version):
         return comparison.compare(info.hyloVersion, version)
-      case .not(let c): return !c.isTrue(for: info)
+      case .not(let c): return !c.holds(for: info)
       }
     }
 

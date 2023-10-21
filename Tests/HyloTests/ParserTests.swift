@@ -1840,28 +1840,28 @@ final class ParserTests: XCTestCase {
   func testConditionalControlNotOperatorOnFalse() throws {
     let input: SourceFile = "#if !os(abracadabra) foo() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
-    let stmt = try XCTUnwrap(ast[stmtID] as? CondCompilationStmt)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     // We should expand to the body of the #if
     XCTAssertEqual(stmt.expansion.count, 1)
   }
   func testConditionalControlNotOperatorOnTrue() throws {
     let input: SourceFile = "#if !true foo() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
-    let stmt = try XCTUnwrap(ast[stmtID] as? CondCompilationStmt)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     // We should expand to nothing.
     XCTAssertEqual(stmt.expansion.count, 0)
   }
   func testConditionalControlNotNot() throws {
     let input: SourceFile = "#if ! !true foo() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
-    let stmt = try XCTUnwrap(ast[stmtID] as? CondCompilationStmt)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     // We should expand to the body.
     XCTAssertEqual(stmt.expansion.count, 1)
   }
   func testConditionalControlSkipParsingAfterNot() throws {
     let input: SourceFile = "#if !compilerversion(< 0.1) foo() #else <won't parse> #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
-    let stmt = try XCTUnwrap(ast[stmtID] as? CondCompilationStmt)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)  // don't parse the #else part
   }
