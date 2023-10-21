@@ -1060,8 +1060,9 @@ struct Emitter {
 
   private mutating func emit(condCompilationStmt s: CondCompilationStmt.ID) -> ControlFlow {
 
-    for i in ast[s].expansion.indices {
-      let a = emit(stmt: ast[s].stmts[i])
+    let stmts = ast[s].expansion
+    for i in stmts.indices {
+      let a = emit(stmt: stmts[i])
       if a == .next { continue }
 
       // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the

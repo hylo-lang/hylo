@@ -3,7 +3,6 @@
 fun use<T>(_ x: T) {}
 
 fun testTrue() {
-
   #if true
     let a = 2
   #else
@@ -12,8 +11,16 @@ fun testTrue() {
   use(a)
 }
 
+fun testFalse() {
+  #if false
+    // error()
+  #else
+    let a = 3
+  #endif
+  use(a)
+}
+
 public fun main() {
-
   testTrue()
-
+  testFalse()
 }
