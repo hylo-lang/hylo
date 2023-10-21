@@ -31,6 +31,7 @@ public struct ConditionalCompilationStmt: Stmt {
     case compilerVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
 
     case hyloVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
+
     case not(Condition)
 
     /// `true` iff the body of the conditional-compilation shouldn't be parsed.
