@@ -32,6 +32,7 @@ public struct CondCompilationStmt: Stmt {
       case .compiler: return true
       case .compilerVersion: return true
       case .hyloVersion: return true
+      case .not(let c): return c.mayNotNeedParsing
       default: return false
       }
     }
