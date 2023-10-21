@@ -871,7 +871,7 @@ struct Emitter {
       return emit(whileStmt: .init(s)!)
     case YieldStmt.self:
       return emit(yieldStmt: .init(s)!)
-    case CondCompilationStmt.self:
+    case ConditionalCompilationStmt.self:
       return emit(condCompilationStmt: .init(s)!)
     default:
       unexpected(s, in: ast)
@@ -1058,7 +1058,7 @@ struct Emitter {
     return .next
   }
 
-  private mutating func emit(condCompilationStmt s: CondCompilationStmt.ID) -> ControlFlow {
+  private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
 
     let stmts = ast[s].expansion
     for i in stmts.indices {

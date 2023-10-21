@@ -2976,7 +2976,7 @@ public enum Parser {
 
     // Now read the body of the compiler condition.
     let stmts: [AnyStmtID]
-    if condition.mayNotNeedParsing && !condition.isTrue(for: CompilerInfo.instance) {
+    if condition.mayNotNeedParsing && !condition.holds(for: CompilerInfo.instance) {
       try skipConditionalCompilationBranch(in: &state, stoppingAtElse: true)
       stmts = []
     } else {
@@ -2988,7 +2988,7 @@ public enum Parser {
     if state.take(.poundEndif) != nil {
       fallback = []
     } else if state.take(.poundElse) != nil {
-      if condition.mayNotNeedParsing && condition.isTrue(for: CompilerInfo.instance) {
+      if condition.mayNotNeedParsing && condition.holds(for: CompilerInfo.instance) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -2999,7 +2999,7 @@ public enum Parser {
         throw [.error(expected: "#endif", at: state.currentLocation)] as DiagnosticSet
       }
     } else if let head2 = state.take(.poundElseif) {
-      if condition.mayNotNeedParsing && condition.isTrue(for: CompilerInfo.instance) {
+      if condition.mayNotNeedParsing && condition.holds(for: CompilerInfo.instance) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -3012,7 +3012,7 @@ public enum Parser {
     }
 
     let r = state.insert(
-      CondCompilationStmt(
+      ConditionalCompilationStmt(
         condition: condition,
         stmts: stmts,
         fallback: fallback,
@@ -3064,7 +3064,7 @@ public enum Parser {
 
   /// Parses the condition of a compiler conditional.
   private static func parseCompilerCondition(in state: inout ParserState) throws
-    -> CondCompilationStmt.Condition
+    -> ConditionalCompilationStmt.Condition
   {
     if let boolLiteral = state.take(.bool) {
       return state.lexer.sourceCode[boolLiteral.site] == "true" ? .`true` : .`false`
@@ -3094,7 +3094,7 @@ public enum Parser {
           })).map({ (_, arr) in CompilerInfo.VersionNumber(arr) })
         let operParser =
           (operatorIdentifier.map({
-            (_, operName) -> CondCompilationStmt.VersionComparison in
+            (_, operName) -> ConditionalCompilationStmt.VersionComparison in
             switch operName.value {
             case ">=": return .greaterOrEqual
             case "<": return .less

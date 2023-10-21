@@ -973,8 +973,8 @@ struct TypeChecker {
       check(WhileStmt.ID(s)!)
     case YieldStmt.self:
       check(YieldStmt.ID(s)!)
-    case CondCompilationStmt.self:
-      check(CondCompilationStmt.ID(s)!)
+    case ConditionalCompilationStmt.self:
+      check(ConditionalCompilationStmt.ID(s)!)
     default:
       unexpected(s, in: program.ast)
     }
@@ -1083,7 +1083,7 @@ struct TypeChecker {
   }
 
   /// Type checks `s`.
-  private mutating func check(_ s: CondCompilationStmt.ID) {
+  private mutating func check(_ s: ConditionalCompilationStmt.ID) {
     for t in program[s].expansion { check(t) }
   }
 
