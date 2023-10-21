@@ -26,6 +26,8 @@ public struct ConditionalCompilationStmt: Stmt {
 
     case arch(Identifier)
 
+    case feature(Identifier)
+
     case compiler(Identifier)
 
     case compilerVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
@@ -52,6 +54,7 @@ public struct ConditionalCompilationStmt: Stmt {
       case .`false`: return false
       case .os(let id): return id == info.os
       case .arch(let id): return id == info.arch
+      case .feature(let id): return info.features.contains(id)
       case .compiler(let id): return id == info.compiler
       case .compilerVersion(let comparison, let version):
         return comparison.compare(info.compilerVersion, version)

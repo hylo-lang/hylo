@@ -1710,6 +1710,15 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(stmt4.stmts.count, 1)
     XCTAssertEqual(stmt4.fallback.count, 1)
   }
+  func testConditionalControlFeature() throws {
+    let input: SourceFile =
+      "#if feature(useLibC) foo() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt.condition, .feature("useLibC"))
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)
+  }
   func testConditionalControlCompiler() throws {
     let input: SourceFile = "#if compiler(hc) foo() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
