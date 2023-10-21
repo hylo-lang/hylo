@@ -144,6 +144,18 @@ fun testSkipParsingNested() {
   use(c)
 }
 
+fun testNot() {
+  #if !false
+    let a = 61
+  #endif
+  use(a)
+
+  #if ! ! true
+    let b = 67
+  #endif
+  use(b)
+}
+
 public fun main() {
   testTrue()
   testFalse()
@@ -153,4 +165,5 @@ public fun main() {
   testCompilerVersion()
   testHyloVersion()
   testSkipParsingNested()
+  testNot()
 }

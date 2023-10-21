@@ -3071,8 +3071,7 @@ public enum Parser {
     } else if let op = state.take(.oper) {
       if state.token(op).value == "!" {
         return .not(try parseCompilerCondition(in: &state))
-      }
-      else {
+      } else {
         throw [.error(expected: "compiler condition", at: state.currentLocation)] as DiagnosticSet
       }
     } else if let name = state.take(.name) {
