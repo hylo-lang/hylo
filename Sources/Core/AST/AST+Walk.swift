@@ -197,8 +197,8 @@ extension AST {
       traverse(self[n] as! WhileStmt, notifying: &o)
     case YieldStmt.self:
       traverse(self[n] as! YieldStmt, notifying: &o)
-    case CondCompilationStmt.self:
-      traverse(self[n] as! CondCompilationStmt, notifying: &o)
+    case ConditionalCompilationStmt.self:
+      traverse(self[n] as! ConditionalCompilationStmt, notifying: &o)
 
     case MatchCase.self:
       traverse(self[n] as! MatchCase, notifying: &o)
@@ -779,7 +779,7 @@ extension AST {
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
-    _ n: CondCompilationStmt, notifying o: inout O
+    _ n: ConditionalCompilationStmt, notifying o: inout O
   ) {
     walk(roots: n.expansion, notifying: &o)
   }

@@ -73,7 +73,7 @@ public struct ConditionalCompilationStmt: Stmt {
 
   /// Returns the statements that this expands to.
   public var expansion: [AnyStmtID] {
-    if condition.isTrue(for: CompilerInfo.instance) {
+    if condition.holds(for: CompilerInfo.instance) {
       return stmts
     } else {
       return fallback

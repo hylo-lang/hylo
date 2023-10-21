@@ -151,7 +151,7 @@ extension NodeKind {
     ReturnStmt.self,
     WhileStmt.self,
     YieldStmt.self,
-    CondCompilationStmt.self,
+    ConditionalCompilationStmt.self,
 
     MatchCase.self,
     TranslationUnit.self,
