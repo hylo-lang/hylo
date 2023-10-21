@@ -18,6 +18,12 @@ name: Build and test
 # 2) Use https://github.com/nektos/act to run your CI steps locally. Note this will only work with
 #    steps run on Linux platforms, as `act` is implemented with Docker containers.
 
+
+# To factor this we likely require yaml anchors and aliases:
+# https://yaml.org/spec/1.2-old/spec.html#id2765878
+#
+# GitHub-actions YAML does not support achors and aliases:
+# https://github.com/actions/runner/issues/1182
 on:
   push:
     branches: [ main, rewrite ]
@@ -61,6 +67,7 @@ jobs:
           set -eo pipefail
           swift package resolve
           .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
+          # Don't try and use GITHUB_ENV here. This is run inside a container.
           export PKG_CONFIG_PATH=$PWD
           swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }}
           swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
@@ -96,6 +103,9 @@ jobs:
 
     runs-on: ${{ matrix.host.os }}
     steps:
+    - name: Prepare Shell Environment
+      run: echo "PKG_CONFIG_PATH=$PWD" >> "${GITHUB_ENV}"
+
     - name: Checkout
       uses: actions/checkout@v3
 
@@ -123,13 +133,11 @@ jobs:
     - name: Build (${{ matrix.configuration }})
       run: |
         set -eo pipefail
-        export PKG_CONFIG_PATH=$PWD
         swift build -c ${{ matrix.configuration }} ${{ matrix.host.build-options }}
 
     - name: Test (${{ matrix.configuration }})
       run: |
         set -eo pipefail
-        export PKG_CONFIG_PATH=$PWD
         swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
           tee testoutput.txt && (
             (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
@@ -155,14 +163,14 @@ jobs:
 
     - name: Set up LLVM 15.0.6
       run: |
-        curl.exe -L -O -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"https://github.com/c3lang/win-llvm/releases/download/llvm_15_0_6/llvm-15.0.6-windows-x86-msvc17-msvcrt.7z
-        7z x llvm-15.0.6-windows-x86-msvc17-msvcrt.7z -oC:\
-        Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-msvcrt\bin'
-        
+        curl.exe -L -O -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://github.com/c3lang/win-llvm/releases/download/llvm_15_0_6/llvm-15.0.6-windows-x86-msvc17-msvcrt.7z
+        7z x llvm-15.0.6-windows-x86-msvc17-msvcrt.7z -o"/c/"
+        Add-Content $env:GITHUB_PATH "/c/llvm-15.0.6-windows-x86-msvc17-msvcrt/bin"
+
     - name: Copy LLVM's include and lib to include and lib folder of MSVC
       run: |
-        xcopy c:\llvm-15.0.6-windows-x86-msvc17-msvcrt\include\*.* c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\include\ /s /h
-        xcopy c:\llvm-15.0.6-windows-x86-msvc17-msvcrt\lib\*.* c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\ /s /h
+        cp -r "c:/llvm-15.0.6-windows-x86-msvc17-msvcrt/include/*.*" "c:/program files/microsoft visual studio/2022/enterprise/vc/tools/msvc/${env.VCToolsVersion}/include/"
+        cp -r "/c/llvm-15.0.6-windows-x86-msvc17-msvcrt/lib/*.*" "/c/program files/microsoft visual studio/2022/enterprise/vc/tools/msvc/${{ env.VCToolsVersion }}/lib/x64/"
 
     - run: llvm-config --version
 
@@ -170,7 +178,7 @@ jobs:
       run: clang -c ./Library/Hylo/LibC.c -o HyloLibC.lib
 
     - name: Copy support library
-      run: xcopy HyloLibC.lib c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\
+      run: cp HyloLibC.lib "/c/program files/microsoft visual studio/2022/enterprise/vc/tools/msvc/${{ env.VCToolsVersion }}/lib/x64/"
 
     - name: Build (Release)
       id: build
@@ -181,4 +189,3 @@ jobs:
       continue-on-error: false
       if: steps.build.outcome != 'success'
       run: swift build -v -c release
-
