@@ -1163,7 +1163,6 @@ struct TypeChecker {
       (s.kind == TranslationUnit.self) ? program[s].scope : s
     }
 
-    let traitReceiverToModel: GenericArguments = [program[concept.decl].receiver: model]
     let conformanceCacheKey = BoundGenericType(model)?.base ?? model
 
     // TODO: Use arguments to bound generic types as constraints
@@ -1174,6 +1173,12 @@ struct TypeChecker {
         if let d = ModuleDecl.ID(c.scope), fileImports.contains(d) { return }
         if program.isContained(scopeOfDefinition, in: c.scope) { return }
       }
+    }
+
+    // TODO: This is hack until #1106 is fixed
+    var traitReceiverToModel = GenericArguments()
+    for t in conformedTraits(of: concept, in: scopeOfDefinition) {
+      traitReceiverToModel[program[t.decl].receiver] = model
     }
 
     var implementations = Conformance.ImplementationMap()
