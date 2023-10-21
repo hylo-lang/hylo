@@ -25,8 +25,6 @@ public struct CondCompilationStmt: Stmt {
     case compilerVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
     case hyloVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
     case not(Condition)
-    case and(Condition, Condition)
-    case or(Condition, Condition)
 
     /// Indicates if we may need to skip parsing the body of the conditional-compilation.
     public var mayNotNeedParsing: Bool {
@@ -51,8 +49,6 @@ public struct CondCompilationStmt: Stmt {
       case .hyloVersion(let comparison, let version):
         return comparison.compare(info.hyloVersion, version)
       case .not(let c): return !c.isTrue(for: info)
-      case .and(let c1, let c2): return c1.isTrue(for: info) && c2.isTrue(for: info)
-      case .or(let c1, let c2): return c1.isTrue(for: info) || c2.isTrue(for: info)
       }
     }
 
