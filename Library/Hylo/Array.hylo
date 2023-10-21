@@ -90,14 +90,6 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     &storage.header += 1
   }
 
-  /// Exchanges the values at the given positions in `self`.
-  public fun swap_at(_ i: Int, _ j: Int) inout {
-    // precondition(i >= 0 && i < count())
-    // precondition(j >= 0 && j < count())
-    if i == j { return }
-    &pointer_to_element[at: i].unsafe[].exchange(with: &pointer_to_element[at: j].unsafe[])
-  }
-
   /// Reverses the elements of `self` in place.
   ///
   /// - Complexity: O(n), where n is the number of elements in `self`.
@@ -147,6 +139,17 @@ public conformance Array: Collection {
       // precondition(position >= 0 && position < count(), "position is out of bounds")
       pointer_to_element[at: position].unsafe[]
     }
+  }
+
+}
+
+public conformance Array: MutableCollection {
+
+  public fun swap_at(_ i: Int, _ j: Int) inout {
+    // precondition(i >= 0 && i < count())
+    // precondition(j >= 0 && j < count())
+    if i == j { return }
+    &pointer_to_element[at: i].unsafe[].exchange(with: &pointer_to_element[at: j].unsafe[])
   }
 
 }
