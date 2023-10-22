@@ -898,6 +898,23 @@ struct Emitter {
 
   }
 
+  /// Inserts IR for handling the given control flow, applying `handleNext` to generate the IR
+  /// corresponding to `.next`.
+  private mutating func emitControlFlow(
+    _ f: ControlFlow, handlingNextWith handleNext: (inout Self) -> Void
+  ) {
+    switch f {
+    case .next:
+      handleNext(&self)
+    case .return(let s):
+      emitControlFlow(return: s)
+    case .break(let s):
+      emitControlFlow(break: s)
+    default:
+      UNIMPLEMENTED()
+    }
+  }
+
   /// Inserts IR for returning from current function, anchoring instructions at `s`.
   private mutating func emitControlFlow(return s: ReturnStmt.ID) {
     for f in frames.elements.reversed() {
@@ -994,15 +1011,9 @@ struct Emitter {
     let tail = appendBlock()
 
     insertionPoint = .end(of: firstBranch)
-    switch emit(braceStmt: ast[s].success) {
-    case .next:
-      insert(module.makeBranch(to: tail, at: ast[s].site))
-    case .return(let s):
-      emitControlFlow(return: s)
-    case .break(let s):
-      emitControlFlow(break: s)
-    default:
-      UNIMPLEMENTED()
+    let f1 = emit(braceStmt: ast[s].success)
+    emitControlFlow(f1) { (me) in
+      me.insert(me.module.makeBranch(to: tail, at: me.ast[s].site))
     }
 
     insertionPoint = .end(of: secondBranch)
@@ -1012,15 +1023,9 @@ struct Emitter {
       return .next
     }
 
-    switch emit(stmt: failure.value) {
-    case .next:
-      insert(module.makeBranch(to: tail, at: ast[s].site))
-    case .return(let s):
-      emitControlFlow(return: s)
-    case .break(let s):
-      emitControlFlow(break: s)
-    default:
-      UNIMPLEMENTED()
+    let f2 = emit(stmt: failure.value)
+    emitControlFlow(f2) { (me) in
+      me.insert(me.module.makeBranch(to: tail, at: me.ast[s].site))
     }
 
     insertionPoint = .end(of: tail)
@@ -1059,17 +1064,8 @@ struct Emitter {
     let statements = program[s].body.stmts
     for i in statements.indices {
       let flow = emit(stmt: statements[i])
-
-      switch flow {
-      case .next:
-        continue
-      case .return(let s):
-        emitControlFlow(return: s)
-      case .break(let s):
-        emitControlFlow(break: s)
-      default:
-        UNIMPLEMENTED()
-      }
+      if flow == .next { continue }
+      emitControlFlow(flow, handlingNextWith: { _ in unreachable() })
 
       // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the
       // last statement of the code block.
@@ -1169,15 +1165,9 @@ struct Emitter {
 
     // TODO: Filter
 
-    switch emit(stmt: ast[s].body) {
-    case .next:
-      insert(module.makeBranch(to: tail, at: .empty(atEndOf: program[s].body.site)))
-    case .return(let s):
-      emitControlFlow(return: s)
-    case .break(let s):
-      emitControlFlow(break: s)
-    default:
-      UNIMPLEMENTED()
+    let flow = emit(braceStmt: ast[s].body)
+    emitControlFlow(flow) { (me) in
+      me.insert(me.module.makeBranch(to: tail, at: .empty(atEndOf: me.program[s].body.site)))
     }
 
     insertionPoint = .end(of: tail)
@@ -1238,15 +1228,9 @@ struct Emitter {
 
     // Execute the body.
     insertionPoint = .end(of: body)
-    switch emit(stmt: ast[s].body) {
-    case .next:
-      insert(module.makeBranch(to: head, at: .empty(atEndOf: program[s].body.site)))
-    case .return(let s):
-      emitControlFlow(return: s)
-    case .break(let s):
-      emitControlFlow(break: s)
-    default:
-      UNIMPLEMENTED()
+    let flow = emit(braceStmt: ast[s].body)
+    emitControlFlow(flow) { (me) in
+      me.insert(me.module.makeBranch(to: head, at: .empty(atEndOf: me.program[s].body.site)))
     }
 
     // Exit.
