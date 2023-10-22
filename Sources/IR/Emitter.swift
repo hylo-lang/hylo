@@ -34,6 +34,9 @@ struct Emitter {
   /// A stack of frames describing the variables and allocations of each traversed lexical scope.
   private var frames = Stack()
 
+  /// The loops in which control flow has currently entered.
+  private var loops = LoopIDs()
+
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?
 
@@ -888,10 +891,10 @@ struct Emitter {
     case `return`(ReturnStmt.ID)
 
     /// Break from the innermost loop.
-    case `break`
+    case `break`(BreakStmt.ID)
 
     /// Continue the innermost loop.
-    case `continue`
+    case `continue`(ContinueStmt.ID)
 
   }
 
@@ -903,6 +906,15 @@ struct Emitter {
     insert(module.makeReturn(at: ast[s].site))
   }
 
+  /// Inserts IR for breaking from innermost loop, anchoring instructions at `s`.
+  private mutating func emitControlFlow(break s: BreakStmt.ID) {
+    let innermost = loops.last!
+    for f in frames.elements[frames.depth...].reversed() {
+      emitDeallocs(for: f, at: ast[s].site)
+    }
+    insert(module.makeBranch(to: innermost.exit, at: ast[s].site))
+  }
+
   /// Inserts the IR for `s`, returning its effect on control flow.
   private mutating func emit<T: StmtID>(stmt s: T) -> ControlFlow {
     switch s.kind {
@@ -910,6 +922,8 @@ struct Emitter {
       return emit(assignStmt: .init(s)!)
     case BraceStmt.self:
       return emit(braceStmt: .init(s)!)
+    case BreakStmt.self:
+      return emit(breakStmt: .init(s)!)
     case ConditionalStmt.self:
       return emit(conditionalStmt: .init(s)!)
     case DeclStmt.self:
@@ -971,6 +985,10 @@ struct Emitter {
     return .next
   }
 
+  private mutating func emit(breakStmt s: BreakStmt.ID) -> ControlFlow {
+    return .break(s)
+  }
+
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
     let (firstBranch, secondBranch) = emitTest(condition: ast[s].condition, in: AnyScopeID(s))
     let tail = appendBlock()
@@ -981,6 +999,8 @@ struct Emitter {
       insert(module.makeBranch(to: tail, at: ast[s].site))
     case .return(let s):
       emitControlFlow(return: s)
+    case .break(let s):
+      emitControlFlow(break: s)
     default:
       UNIMPLEMENTED()
     }
@@ -997,6 +1017,8 @@ struct Emitter {
       insert(module.makeBranch(to: tail, at: ast[s].site))
     case .return(let s):
       emitControlFlow(return: s)
+    case .break(let s):
+      emitControlFlow(break: s)
     default:
       UNIMPLEMENTED()
     }
@@ -1022,31 +1044,40 @@ struct Emitter {
   }
 
   private mutating func emit(doWhileStmt s: DoWhileStmt.ID) -> ControlFlow {
-    let loopBody = appendBlock(in: ast[s].body)
-    let loopTail = appendBlock(in: ast[s].body)
-    insert(module.makeBranch(to: loopBody, at: .empty(at: ast[s].site.first())))
-    insertionPoint = .end(of: loopBody)
+    let body = appendBlock(in: ast[s].body)
+    let exit = appendBlock(in: ast[s].body)
+    loops.append(LoopID(depth: frames.depth, exit: exit))
+    defer { loops.removeLast() }
+
+    insert(module.makeBranch(to: body, at: .empty(at: ast[s].site.first())))
+    insertionPoint = .end(of: body)
 
     // We're not using `emit(braceStmt:into:)` because we need to evaluate the loop condition
     // before exiting the scope.
     frames.push()
 
-    let body = program[s].body.stmts
-    for i in body.indices {
-      let a = emit(stmt: body[i])
-      if a == .next { continue }
+    let statements = program[s].body.stmts
+    for i in statements.indices {
+      let flow = emit(stmt: statements[i])
+
+      switch flow {
+      case .next:
+        continue
+      case .return(let s):
+        emitControlFlow(return: s)
+      case .break(let s):
+        emitControlFlow(break: s)
+      default:
+        UNIMPLEMENTED()
+      }
 
       // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the
       // last statement of the code block.
-      if i != body.count - 1 {
-        report(.warning(unreachableStatement: body[i + 1], in: ast))
+      if i != statements.count - 1 {
+        report(.warning(unreachableStatement: statements[i + 1], in: ast))
       }
 
-      if case .return = a {
-        return a
-      } else {
-        UNIMPLEMENTED()
-      }
+      return flow
     }
 
     let condition = ast[s].condition.value
@@ -1054,11 +1085,8 @@ struct Emitter {
     emitDeallocTopFrame(at: ast[s].site)
     frames.pop()
 
-    insert(
-      module.makeCondBranch(
-        if: c, then: loopBody, else: loopTail, at: ast[condition].site
-      ))
-    insertionPoint = .end(of: loopTail)
+    insert(module.makeCondBranch(if: c, then: body, else: exit, at: ast[condition].site))
+    insertionPoint = .end(of: exit)
     return .next
   }
 
@@ -1110,6 +1138,9 @@ struct Emitter {
     // The remainder of the program, after the loop.
     let exit = appendBlock()
 
+    loops.append(LoopID(depth: frames.depth, exit: exit))
+    defer { loops.removeLast() }
+
     insert(module.makeBranch(to: head, at: introducer))
 
     insertionPoint = .end(of: head)
@@ -1143,6 +1174,8 @@ struct Emitter {
       insert(module.makeBranch(to: tail, at: .empty(atEndOf: program[s].body.site)))
     case .return(let s):
       emitControlFlow(return: s)
+    case .break(let s):
+      emitControlFlow(break: s)
     default:
       UNIMPLEMENTED()
     }
@@ -1199,6 +1232,10 @@ struct Emitter {
     insertionPoint = .end(of: head)
     let (body, exit) = emitTest(condition: ast[s].condition, in: AnyScopeID(s))
 
+    // Add the current loop to the emitter context.
+    loops.append(LoopID(depth: frames.depth, exit: exit))
+    defer { loops.removeLast() }
+
     // Execute the body.
     insertionPoint = .end(of: body)
     switch emit(stmt: ast[s].body) {
@@ -1206,6 +1243,8 @@ struct Emitter {
       insert(module.makeBranch(to: head, at: .empty(atEndOf: program[s].body.site)))
     case .return(let s):
       emitControlFlow(return: s)
+    case .break(let s):
+      emitControlFlow(break: s)
     default:
       UNIMPLEMENTED()
     }
@@ -2803,12 +2842,15 @@ struct Emitter {
   private mutating func withClearContext<T>(_ action: (inout Self) throws -> T) rethrows -> T {
     var p: InsertionPoint? = nil
     var f = Stack()
+    var l = LoopIDs()
 
     swap(&p, &insertionPoint)
     swap(&f, &frames)
+    swap(&l, &loops)
     defer {
       swap(&p, &insertionPoint)
       swap(&f, &frames)
+      swap(&l, &loops)
     }
     return try action(&self)
   }
@@ -2827,7 +2869,7 @@ extension Emitter {
     /// hold captured accesses.
     var allocs: [(source: Operand, mayHoldCaptures: Bool)] = []
 
-    /// Sets the `maxHoldCaptures` on the allocation corresponding to `source`.
+    /// Sets the `mayHoldCaptures` on the allocation corresponding to `source`.
     mutating func setMayHoldCaptures(_ source: Operand) {
       let i = allocs.firstIndex(where: { $0.source == source })!
       allocs[i].mayHoldCaptures = true
@@ -2841,8 +2883,11 @@ extension Emitter {
     /// The frames in the stack, ordered from bottom to top.
     private(set) var elements: [Frame] = []
 
-    /// True iff the stack is empty.
+    /// `true` iff the stack is empty.
     var isEmpty: Bool { elements.isEmpty }
+
+    /// The depth of the stack.
+    var depth: Int { elements.count }
 
     /// Accesses the top frame.
     ///
@@ -2882,6 +2927,20 @@ extension Emitter {
     }
 
   }
+
+  /// The identifier of a loop lexically enclosing newly generated IR.
+  fileprivate struct LoopID {
+
+    /// The innermost frame enclosing the loop in the emitter context.
+    let depth: Int
+
+    /// The block to which control flow jumps when it exits the loop.
+    let exit: Block.ID
+
+  }
+
+  /// A stack of loop identifiers.
+  fileprivate typealias LoopIDs = [LoopID]
 
 }
 
