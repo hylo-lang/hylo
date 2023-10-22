@@ -19,10 +19,3 @@ public extension Movable {
   }
 
 }
-
-// TODO: Remove in favor of `Movable.exchange(with:)` when #1064 is fixed
-public fun swap<T: Movable>(_ a: inout T, _ b: inout T) {
-  sink let x = a
-  &a = b
-  &b = x
-}
