@@ -966,8 +966,12 @@ struct TypeChecker {
       check(AssignStmt.ID(s)!)
     case BraceStmt.self:
       check(BraceStmt.ID(s)!)
+    case BreakStmt.self:
+      break
     case ConditionalStmt.self:
       check(ConditionalStmt.ID(s)!)
+    case ContinueStmt.self:
+      break
     case ExprStmt.self:
       check(ExprStmt.ID(s)!)
     case DeclStmt.self:
