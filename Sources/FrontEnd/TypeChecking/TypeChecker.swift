@@ -3875,15 +3875,22 @@ struct TypeChecker {
   private func shouldOpen(
     _ p: GenericTypeParameterType, in contextOfUse: InstantiationContext
   ) -> Bool {
+    // Generic parameters introduced by a trait can't be referenced outside of their environment.
     let introductionScope = program[p.decl].scope
+    if introductionScope.kind == TraitDecl.self {
+      return false
+    }
 
+    // Reference is contained if it's lexically enclosed in the parameter's environment or if it
+    // occurs in an extension of the scope associated with that environment.
     if program.isContained(contextOfUse.scopeOfUse, in: introductionScope) {
       return false
     } else if let s = contextOfUse.extendedScope {
       return !program.isContained(s, in: introductionScope)
-    } else {
-      return true
     }
+
+    // Reference is not contained.
+    return true
   }
 
   /// Returns `true` iff a use of `d` in `scopeOfUse` is recursive.
