@@ -135,6 +135,8 @@ struct TypeChecker {
 
     var result: Set<TraitType>
     switch t.base {
+    case let u as AssociatedTypeType:
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as BoundGenericType:
       result = conformedTraits(of: u.base, in: scopeOfUse)
     case let u as BuiltinType:
@@ -154,6 +156,15 @@ struct TypeChecker {
     }
 
     cache.typeToConformedTraits[key] = result
+    return result
+  }
+
+  /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
+  private mutating func conformedTraits(
+    of t: AssociatedTypeType, in scopeOfUse: AnyScopeID
+  ) -> Set<TraitType> {
+    var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
+    result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
   }
 
