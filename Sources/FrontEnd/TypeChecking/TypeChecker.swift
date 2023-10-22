@@ -164,9 +164,9 @@ struct TypeChecker {
     if t == .module { return [] }
 
     return [
-      program.ast.movableTrait,
-      program.ast.deinitializableTrait,
-      program.ast.foreignConvertibleTrait,
+      program.ast.core.movable.type,
+      program.ast.core.deinitializable.type,
+      program.ast.core.foreignConvertible.type,
     ]
   }
 
@@ -990,7 +990,8 @@ struct TypeChecker {
 
     // `lhs` must be `Movable`.
     let lhs = inferredType(of: program[s].left, updating: &obligations)
-    obligations.insert(ConformanceConstraint(lhs, conformsTo: program.ast.movableTrait, origin: o))
+    obligations.insert(
+      ConformanceConstraint(lhs, conformsTo: program.ast.core.movable.type, origin: o))
 
     // `rhs` must be subtype of `lhs`.
     let rhs = inferredType(
@@ -1033,7 +1034,7 @@ struct TypeChecker {
     // Expression must be `Deinitializable`.
     obligations.insert(
       ConformanceConstraint(
-        t, conformsTo: program.ast.deinitializableTrait,
+        t, conformsTo: program.ast.core.deinitializable.type,
         origin: .init(.discard, at: program[s].site)))
 
     discharge(obligations, relatedTo: s)
@@ -4646,7 +4647,7 @@ struct TypeChecker {
 
     let isConsuming = program.ast.isConsuming(s)
     let domainTraits = conformedTraits(of: domain, in: program[s].scope)
-    let collection = program.ast.coreTrait("Collection")!
+    let collection = program.ast.core.collection.type
 
     // By default, non-consuming loops use `Collection`.
     if !isConsuming && domainTraits.contains(collection) {
@@ -4654,7 +4655,7 @@ struct TypeChecker {
       return demandImplementation(of: r, for: domain, in: program[s].scope)
     }
 
-    let iterator = program.ast.coreTrait("Iterator")!
+    let iterator = program.ast.core.iterator.type
 
     // Any kind of for loop can consume an iterator.
     if domainTraits.contains(iterator) {

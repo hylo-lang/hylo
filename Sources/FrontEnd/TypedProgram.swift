@@ -186,7 +186,7 @@ public struct TypedProgram {
   public func isTriviallyDeinitializable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
     let model = canonical(t, in: scopeOfUse)
 
-    guard let c = conformance(of: model, to: ast.deinitializableTrait, exposedTo: scopeOfUse)
+    guard let c = conformance(of: model, to: ast.core.deinitializable.type, exposedTo: scopeOfUse)
     else {
       // Built-in types never have conformances.
       switch model.base {
@@ -422,10 +422,11 @@ public struct TypedProgram {
       site: .empty(at: ast[scopeOfUse].site.first()))
   }
 
-  /// Returns the type satisfying the associated type requirement named `n` in conformance `c`.
-  public func associatedType(_ n: String, for c: Core.Conformance) -> AnyType {
-    let r = ast.requirements(Name(stem: n), in: c.concept.decl)[0]
-    let d = c.implementations[r]!.decl!
+  /// Returns the type satisfying the associated type requirement `n` in conformance `c`.
+  ///
+  /// - Requires: `n` is declared by the trait for which `c` has been established.
+  public func associatedType(_ n: AssociatedTypeDecl.ID, for c: Core.Conformance) -> AnyType {
+    let d = c.implementations[n]!.decl!
     let t = specialize(MetatypeType(declType[d]!)!.instance, for: c.arguments, in: c.scope)
     return canonical(t, in: c.scope)
   }
@@ -437,13 +438,13 @@ public struct TypedProgram {
   public func foreignRepresentation(
     of t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> AnyType {
-    let f = ast.coreTrait("ForeignConvertible")!
-    let d = ast.requirements("ForeignRepresentation", in: f.decl)[0]
+    let f = ast.core.foreignConvertible
+    let d = f.foreignRepresentation
 
     // Since conformances of built-in types are not stored in property maps, we'll exit the loop
     // when we assign one to `result`.
     var result = t
-    while let c = conformance(of: result, to: f, exposedTo: scopeOfUse) {
+    while let c = conformance(of: result, to: f.type, exposedTo: scopeOfUse) {
       // `d` is an associated type declaration so its implementations must have a metatype.
       let i = c.implementations[d]!.decl!
       result = MetatypeType(canonical(self[i].type, in: self[d].scope))!.instance

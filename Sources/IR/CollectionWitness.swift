@@ -19,22 +19,21 @@ struct CollectionWitness {
   let positionAfter: Operand
 
   /// The implementation of `Collection.[].let`.
-  let accessLet: Function.ID
+  let access: Function.ID
 
-  /// Creates the witness of the conformance `c` for use in `module`.
+  /// Creates the lowered witness of the conformance `c` for use in `module`.
   init(_ c: Core.Conformance, in module: inout Module) {
-    self.position = module.program.associatedType("Position", for: c)
-    self.element = module.program.associatedType("Element", for: c)
+    let collection = module.program.ast.core.collection
 
+    self.position = module.program.associatedType(collection.position, for: c)
+    self.element = module.program.associatedType(collection.element, for: c)
     self.startPosition = .constant(
-      module.reference(toImplementationOf: Name(stem: "start_position"), for: c))
+      module.reference(toImplementationOf: collection.startPosition, for: c))
     self.endPosition = .constant(
-      module.reference(toImplementationOf: Name(stem: "end_position"), for: c))
+      module.reference(toImplementationOf: collection.endPosition, for: c))
     self.positionAfter = .constant(
-      module.reference(toImplementationOf: Name(stem: "position", labels: ["after"]), for: c))
-
-    self.accessLet = module.demandImplementation(
-      of: Name(stem: "[]", labels: [nil], introducer: .let), for: c)
+      module.reference(toImplementationOf: collection.positionAfter, for: c))
+    self.access = module.demandImplementation(of: collection.access, for: c)
   }
 
 }

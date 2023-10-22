@@ -420,44 +420,51 @@ public struct Module {
     return f
   }
 
-  /// Returns the implementation of the requirement named `r` in `c`.
+  /// Returns the implementation of the requirement named `r` in `witness`.
   ///
-  /// `r` unambiguously identifies a single function or subscript requirement in the trait for
-  /// which `c` has been established.
-  mutating func demandImplementation(
-    of r: Name, for c: Core.Conformance
+  /// - Requires: `r` identifies a function or subscript requirement in the trait for which
+  ///   `witness` has been established.
+  mutating func demandImplementation<T: Decl>(
+    of r: T.ID, for witness: Core.Conformance
   ) -> Function.ID {
-    let requirement = program.ast.requirements(r, in: c.concept.decl)[0]
-    return demandDeclaration(lowering: c.implementations[requirement]!)
+    demandDeclaration(lowering: witness.implementations[r]!)
   }
 
   /// Returns the IR function implementing the deinitializer defined in `c`.
   mutating func demandDeinitDeclaration(
     from c: Core.Conformance
   ) -> Function.ID {
-    let d = program.ast.deinitRequirement()
+    let d = program.ast.core.deinitializable.deinitialize
     return demandDeclaration(lowering: c.implementations[d]!)
   }
 
   /// Returns the IR function implementing the `k` variant move-operation defined in `c`.
   ///
   /// - Requires: `k` is either `.set` or `.inout`
-  mutating func demandMoveOperatorDeclaration(
+  mutating func demandTakeValueDeclaration(
     _ k: AccessEffect, from c: Core.Conformance
   ) -> Function.ID {
-    let d = program.ast.moveRequirement(k)
-    return demandDeclaration(lowering: c.implementations[d]!)
+    switch k {
+    case .set:
+      let d = program.ast.core.movable.moveInitialize
+      return demandDeclaration(lowering: c.implementations[d]!)
+    case .inout:
+      let d = program.ast.core.movable.moveAssign
+      return demandDeclaration(lowering: c.implementations[d]!)
+    default:
+      preconditionFailure()
+    }
   }
 
-  /// Returns a function reference to the implementation of the requirement named `r` in `c`.
+  /// Returns a function reference to the implementation of the requirement `r` in `witness`.
   ///
-  /// `r` unambiguously identifies a single function requirement in the trait for which `c` has
-  /// been established. The returned reference is defined in the scope in which `c` is exposed.
-  mutating func reference(
-    toImplementationOf r: Name, for c: Core.Conformance
+  /// - Requires: `r` identifies a function or subscript requirement in the trait for which
+  ///   `witness` has been established.
+  mutating func reference<T: Decl>(
+    toImplementationOf r: T.ID, for witness: Core.Conformance
   ) -> FunctionReference {
-    let d = demandImplementation(of: r, for: c)
-    return reference(to: d, implementedFor: c)
+    let d = demandImplementation(of: r, for: witness)
+    return reference(to: d, implementedFor: witness)
   }
 
   /// Returns a function reference to `d`, which is an implementation that's part of `witness`.

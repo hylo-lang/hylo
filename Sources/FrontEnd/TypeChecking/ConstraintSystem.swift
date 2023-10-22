@@ -193,9 +193,9 @@ struct ConstraintSystem {
 
     // Process structural conformances.
     switch goal.concept {
-    case checker.program.ast.movableTrait:
+    case checker.program.ast.core.movable.type:
       return solve(structuralConformance: goal)
-    case checker.program.ast.deinitializableTrait:
+    case checker.program.ast.core.deinitializable.type:
       return solve(structuralConformance: goal)
     default:
       return .failure(failureToSolve(goal))
