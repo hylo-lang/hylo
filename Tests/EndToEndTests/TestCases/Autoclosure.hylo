@@ -1,0 +1,21 @@
+//- compileAndRun expecting: success
+
+let counter: Int = 0
+
+fun prime() -> Int {
+  &counter += 1
+  return 17
+}
+
+fun logic<E>(withDelayed value: /*@autoclosure*/ ([E]() -> Int)) {
+  precondition(counter == 0)
+  let x = value()
+  precondition(counter == 1)
+  precondition(x == 17)
+}
+
+public fun main() {
+  // TODO
+  // logic(withDelayed: prime())
+  logic(withDelayed: fun(){ prime() })
+}
