@@ -418,6 +418,9 @@ struct Mangler {
     }
 
     switch s.base {
+    case let t as AssociatedTypeType:
+      write(associatedType: t, to: &output)
+
     case let t as BoundGenericType:
       write(boundGenericType: t, to: &output)
 
@@ -480,6 +483,13 @@ struct Mangler {
 
     symbolID[.type(s)] = nextSymbolID
     nextSymbolID += 1
+  }
+
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func write(associatedType t: AssociatedTypeType, to output: inout Output) {
+    write(operator: .associatedType, to: &output)
+    mangle(decl: t.decl, to: &output)
+    mangle(type: t.domain, to: &output)
   }
 
   /// Writes the mangled representation of `symbol` to `output`.

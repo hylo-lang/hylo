@@ -135,6 +135,8 @@ struct TypeChecker {
 
     var result: Set<TraitType>
     switch t.base {
+    case let u as AssociatedTypeType:
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as BoundGenericType:
       result = conformedTraits(of: u.base, in: scopeOfUse)
     case let u as BuiltinType:
@@ -154,6 +156,15 @@ struct TypeChecker {
     }
 
     cache.typeToConformedTraits[key] = result
+    return result
+  }
+
+  /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
+  private mutating func conformedTraits(
+    of t: AssociatedTypeType, in scopeOfUse: AnyScopeID
+  ) -> Set<TraitType> {
+    var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
+    result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
   }
 
@@ -3242,9 +3253,16 @@ struct TypeChecker {
         specialization[p] = a
       }
 
-      // If the match is a trait member looked up with qualification, specialize its receiver.
-      if let t = traitDeclaring(m) {
-        specialization[program[t.decl].receiver] = context?.type
+      // If the match is a trait member looked, specialize its receiver.
+      // TODO: Remove `mayCaptureGenericParameters` when
+      if let t = traitDeclaring(m), mayCaptureGenericParameters(m) {
+        // DR: `mayCaptureGenericParameters` is used to avoid populating the specialization table
+        // when `m` is an associated type declaration. Otherwise, `specialize` causes resolution
+        // to systematically pick the default value. I suspect that `specialize` shouldn't do that
+        // when the associated type is rooted at a trait. Substitution of associated type should
+        // rely on conformances rather than lookup.
+        let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance
+        specialization[program[t.decl].receiver] = r
       }
 
       // If the name resolves to an initializer, determine if it is used as a constructor.
@@ -3794,33 +3812,43 @@ struct TypeChecker {
     _ subject: AnyType, in contextOfUse: InstantiationContext, cause: ConstraintOrigin,
     updating substitutions: inout [GenericParameterDecl.ID: AnyType]
   ) -> InstantiatedType {
-    func instantiate(mutating me: inout Self, type: AnyType) -> TypeTransformAction {
-      switch type.base {
-      case is AssociatedTypeType:
-        UNIMPLEMENTED("quantifier elimination for associated types (#1043)")
+    let shape = subject.transform(mutating: &self, transform)
+    return InstantiatedType(shape: shape, constraints: [])
 
-      case let p as GenericTypeParameterType:
-        if let t = substitutions[p.decl] {
-          return .stepOver(t)
-        } else if me.shouldOpen(p, in: contextOfUse) {
-          // TODO: Collect constraints
-          return .stepOver(substitutions[p.decl].setIfNil(^me.freshVariable()))
-        } else {
-          return .stepOver(substitutions[p.decl].setIfNil(type))
-        }
+    func transform(mutating me: inout Self, _ t: AnyType) -> TypeTransformAction {
+      // Nothing to do if `t` doesn't contain any generic parameter.
+      if !t[.hasGenericTypeParameter] && !t[.hasGenericValueParameter] {
+        return .stepOver(t)
+      }
 
+      switch t.base {
+      case let u as AssociatedTypeType:
+        return transform(mutating: &me, u)
+      case let u as GenericTypeParameterType:
+        return transform(mutating: &me, u)
       default:
-        // Nothing to do if `type` isn't parameterized.
-        if type[.hasGenericTypeParameter] || type[.hasGenericValueParameter] {
-          return .stepInto(type)
-        } else {
-          return .stepOver(type)
-        }
+        return .stepInto(t)
       }
     }
 
-    let shape = subject.transform(mutating: &self, instantiate(mutating:type:))
-    return InstantiatedType(shape: shape, constraints: [])
+    func transform(
+      mutating me: inout Self, _ t: AssociatedTypeType
+    ) -> TypeTransformAction {
+      UNIMPLEMENTED("quantifier elimination for associated types (#1043)")
+    }
+
+    func transform(
+      mutating me: inout Self, _ t: GenericTypeParameterType
+    ) -> TypeTransformAction {
+      if let t = substitutions[t.decl] {
+        return .stepOver(t)
+      } else if me.shouldOpen(t, in: contextOfUse) {
+        // TODO: Collect constraints
+        return .stepOver(substitutions[t.decl].setIfNil(^me.freshVariable()))
+      } else {
+        return .stepOver(substitutions[t.decl].setIfNil(^t))
+      }
+    }
   }
 
   /// Instantiates the contents of `constraints` in `contextOfUse`, updating `substitutions` with
@@ -3847,15 +3875,22 @@ struct TypeChecker {
   private func shouldOpen(
     _ p: GenericTypeParameterType, in contextOfUse: InstantiationContext
   ) -> Bool {
+    // Generic parameters introduced by a trait can't be referenced outside of their environment.
     let introductionScope = program[p.decl].scope
+    if introductionScope.kind == TraitDecl.self {
+      return false
+    }
 
+    // Reference is contained if it's lexically enclosed in the parameter's environment or if it
+    // occurs in an extension of the scope associated with that environment.
     if program.isContained(contextOfUse.scopeOfUse, in: introductionScope) {
       return false
     } else if let s = contextOfUse.extendedScope {
       return !program.isContained(s, in: introductionScope)
-    } else {
-      return true
     }
+
+    // Reference is not contained.
+    return true
   }
 
   /// Returns `true` iff a use of `d` in `scopeOfUse` is recursive.
