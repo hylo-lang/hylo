@@ -1,11 +1,13 @@
 /// A half-open interval from a lower bound up to, but not including, an uppor bound.
 public type Range<Bound: SemiRegular & Comparable> {
 
+  // TODO: private(set)
   /// The minimum value included in `self`.
-  public let lower_bound: Bound
+  public var lower_bound: Bound
 
+  // TODO: private(set)
   /// The minimum value greater than `lower_bound` but not included in `self`.
-  public let upper_bound: Bound
+  public var upper_bound: Bound
 
   /// Creates an instance with the given properties.
   memberwise init
@@ -44,3 +46,15 @@ extension Int {
   }
 
 }
+
+// TODO
+// public conformance: Iterator Range where: Bound: Strideable, Bound.Stride: SignedInteger {
+//
+//   public fun next() inout -> Optional<Bound> {
+//     if lower_bound == upper_bound { return None() }
+//     let r = lower_bound.copy()
+//     &lower_bound += (1 as Bound)
+//     return r
+//   }
+//
+// }
