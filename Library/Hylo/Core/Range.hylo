@@ -37,6 +37,14 @@ public conformance Range: Deinitializable {}
 
 public conformance Range: Movable {}
 
+public conformance Range: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    (self.lower_bound == other.lower_bound) && (self.upper_bound == other.upper_bound)
+  }
+
+}
+
 // TODO: Remove when #1111 is fixed
 extension Int {
 
