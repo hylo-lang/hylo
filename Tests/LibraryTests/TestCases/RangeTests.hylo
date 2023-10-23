@@ -1,0 +1,14 @@
+//- compileAndRun expecting: success
+
+public fun main() {
+  let r0 = Range(from: 0, up_to: 10)
+
+  precondition(r0 == (0 ..< 10))
+
+  precondition(r0.contains(5))
+  precondition(r0.contains(0 ..< 9))
+  
+  precondition(!r0.contains(11))
+  precondition(!r0.contains(-1))
+  precondition(!r0.contains(5 ..< 15))
+}
