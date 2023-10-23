@@ -1,0 +1,46 @@
+/// A half-open interval from a lower bound up to, but not including, an uppor bound.
+public type Range<Bound: SemiRegular & Comparable> {
+
+  /// The minimum value included in `self`.
+  public let lower_bound: Bound
+
+  /// The minimum value greater than `lower_bound` but not included in `self`.
+  public let upper_bound: Bound
+
+  /// Creates an instance with the given properties.
+  memberwise init
+
+  /// Creates a half-open interval [`lower_bound`, `upper_bound`).
+  ///
+  /// - Requires: `lower_bound <= upper_bound`.
+  public init(from lower_bound: sink Bound, up_to upper_bound: sink Bound) {
+    // precondition(lower_bound <= upper_bound)
+    &self.lower_bound = lower_bound
+    &self.upper_bound = upper_bound
+  }
+
+  /// Returns `true` iff `element` is contained in `self`.
+  public fun contains(_ element: Bound) -> Bool {
+    (element >= lower_bound) && (element < upper_bound)
+  }
+
+  /// Returns `true` iff `other` is contained in `self`.
+  public fun contains(_ other: Self) -> Bool {
+    (other.lower_bound >= self.lower_bound) && (other.upper_bound <= self.upper_bound)
+  }
+
+}
+
+public conformance Range: Deinitializable {}
+
+public conformance Range: Movable {}
+
+// TODO: Remove when #1111 is fixed
+extension Int {
+
+  /// Creates a half-open interval from `self` up to, but not including, `upper_bound`.
+  public fun infix..< (_ upper_bound: Self) -> Range<Self> {
+    Range(from: copy(), up_to: upper_bound.copy())
+  }
+
+}
