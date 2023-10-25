@@ -16,29 +16,41 @@ public struct ConditionalCompilationStmt: Stmt {
 
   }
 
+  /// A condition in a conditional compilation statement.
   public enum Condition: Codable, Equatable {
 
+    /// Always holds.
     case `true`
 
+    /// Never holds.
     case `false`
 
+    /// Holds iff the operating system for which the code is compiled matches the payload.
     case os(Identifier)
 
+    /// Holds iff the processor architecture for which the code is compiled matches the payload.
     case arch(Identifier)
 
+    /// Holds iff the name of the compiler processing the file matches the payload.
     case compiler(Identifier)
 
-    case compilerVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
+    /// Holds iff `version`, which describes the version of the compiler processing the file, satisfies the `comparison`.
+    case compilerVersion(comparison: VersionComparison, version: CompilerInfo.VersionNumber)
 
-    case hyloVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
+    /// Holds iff `version`, which describes the version of Hylo for which this file is compiled, satisfies `comparison`.
+    case hyloVersion(comparison: VersionComparison, version: CompilerInfo.VersionNumber)
 
     /// `true` iff the body of the conditional-compilation shouldn't be parsed.
     public var mayNotNeedParsing: Bool {
       switch self {
-      case .compiler: return true
-      case .compilerVersion: return true
-      case .hyloVersion: return true
-      default: return false
+      case .compiler:
+        return true
+      case .compilerVersion:
+        return true
+      case .hyloVersion:
+        return true
+      default:
+        return false
       }
     }
 
@@ -70,6 +82,7 @@ public struct ConditionalCompilationStmt: Stmt {
   /// The statements to be used if the condition is false.
   public let fallback: [AnyStmtID]
 
+  /// Creates an instance with the given properties.
   public init(condition: Condition, stmts: [AnyStmtID], fallback: [AnyStmtID], site: SourceRange) {
     self.site = site
     self.condition = condition

@@ -1725,7 +1725,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(
       stmt.condition,
       .compilerVersion(
-        comparison: .greaterOrEqual, versionNumber: CompilerInfo.VersionNumber([0, 1])))
+        comparison: .greaterOrEqual, version: CompilerInfo.VersionNumber([0, 1])))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
   }
@@ -1736,7 +1736,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(
       stmt.condition,
       .compilerVersion(
-        comparison: .less, versionNumber: CompilerInfo.VersionNumber([100, 1, 2, 3, 4, 5])))
+        comparison: .less, version: CompilerInfo.VersionNumber([100, 1, 2, 3, 4, 5])))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
   }
@@ -1746,7 +1746,7 @@ final class ParserTests: XCTestCase {
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     XCTAssertEqual(
       stmt.condition,
-      .hyloVersion(comparison: .greaterOrEqual, versionNumber: CompilerInfo.VersionNumber([0, 1])))
+      .hyloVersion(comparison: .greaterOrEqual, version: CompilerInfo.VersionNumber([0, 1])))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
   }
@@ -1757,7 +1757,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(
       stmt.condition,
       .hyloVersion(
-        comparison: .less, versionNumber: CompilerInfo.VersionNumber([100, 1, 2, 3, 4, 5])))
+        comparison: .less, version: CompilerInfo.VersionNumber([100, 1, 2, 3, 4, 5])))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
   }
@@ -1776,7 +1776,7 @@ final class ParserTests: XCTestCase {
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     XCTAssertEqual(
       stmt.condition,
-      .hyloVersion(comparison: .less, versionNumber: CompilerInfo.VersionNumber([0, 1])))
+      .hyloVersion(comparison: .less, version: CompilerInfo.VersionNumber([0, 1])))
     XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
     XCTAssertEqual(stmt.fallback.count, 0)
   }
@@ -1787,7 +1787,7 @@ final class ParserTests: XCTestCase {
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     XCTAssertEqual(
       stmt.condition,
-      .hyloVersion(comparison: .less, versionNumber: CompilerInfo.VersionNumber([0, 1])))
+      .hyloVersion(comparison: .less, version: CompilerInfo.VersionNumber([0, 1])))
     XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
     XCTAssertEqual(stmt.fallback.count, 0)
   }
@@ -1798,7 +1798,7 @@ final class ParserTests: XCTestCase {
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     XCTAssertEqual(
       stmt.condition,
-      .hyloVersion(comparison: .less, versionNumber: CompilerInfo.VersionNumber([0, 1])))
+      .hyloVersion(comparison: .less, version: CompilerInfo.VersionNumber([0, 1])))
     XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
     XCTAssertEqual(stmt.fallback.count, 1)
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
@@ -1813,7 +1813,7 @@ final class ParserTests: XCTestCase {
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     XCTAssertEqual(
       stmt.condition,
-      .hyloVersion(comparison: .greaterOrEqual, versionNumber: CompilerInfo.VersionNumber([0, 1])))
+      .hyloVersion(comparison: .greaterOrEqual, version: CompilerInfo.VersionNumber([0, 1])))
     XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
     XCTAssertEqual(stmt.fallback.count, 0)
   }
@@ -1824,7 +1824,7 @@ final class ParserTests: XCTestCase {
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     XCTAssertEqual(
       stmt.condition,
-      .hyloVersion(comparison: .greaterOrEqual, versionNumber: CompilerInfo.VersionNumber([0, 1])))
+      .hyloVersion(comparison: .greaterOrEqual, version: CompilerInfo.VersionNumber([0, 1])))
     XCTAssertEqual(stmt.stmts.count, 0)
     XCTAssertEqual(stmt.fallback.count, 0)
   }

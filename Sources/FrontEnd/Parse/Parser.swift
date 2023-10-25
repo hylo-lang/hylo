@@ -3107,8 +3107,8 @@ public enum Parser {
             as DiagnosticSet
         }
         switch conditionName {
-        case "compilerversion": return .compilerVersion(comparison: p.0, versionNumber: p.1)
-        case "hyloversion": return .hyloVersion(comparison: p.0, versionNumber: p.1)
+        case "compilerversion": return .compilerVersion(comparison: p.0, version: p.1)
+        case "hyloversion": return .hyloVersion(comparison: p.0, version: p.1)
         default: unreachable()
         }
       } else {
