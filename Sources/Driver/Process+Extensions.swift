@@ -15,7 +15,7 @@ extension Process {
   public typealias OutputStreams = (standardOutput: Pipe, standardError: Pipe)
 
   /// The results of a process run that exited with a nonzero code.
-  public class NonZeroExit: Error {
+  public class NonzeroExit: Error {
 
     /// The nonzero exit code of the process run.
     public let terminationStatus: Int32
@@ -52,7 +52,7 @@ extension Process {
     p.waitUntilExit()
 
     if p.terminationStatus != 0 {
-      throw NonZeroExit(
+      throw NonzeroExit(
         terminationStatus: p.terminationStatus,
         output: output,
         commandLine: [executable.fileSystemPath] + arguments)
@@ -63,7 +63,7 @@ extension Process {
 
 }
 
-extension Process.NonZeroExit: CustomStringConvertible {
+extension Process.NonzeroExit: CustomStringConvertible {
 
   public var description: String {
     if outputMemo == nil {
@@ -71,7 +71,7 @@ extension Process.NonZeroExit: CustomStringConvertible {
     }
 
     return """
-      NonZeroExit(
+      NonzeroExit(
         terminationStatus: \(terminationStatus),
         standardOutput: \(String(reflecting: outputMemo!.standardOutput)),
         standardError: \(String(reflecting: outputMemo!.standardError)),
