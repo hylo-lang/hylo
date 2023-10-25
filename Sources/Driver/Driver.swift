@@ -12,11 +12,13 @@ extension Process {
 
   /// Information about a process that exited with an error.
   struct Failure: Error {
+
     /// The process' exit code.
     let terminationStatus: Int32
 
     /// Any output captured from the process' output pipe.
     let rawOutput: String
+
   }
 
 }
@@ -399,7 +401,8 @@ public struct Driver: ParsableCommand {
     throw EnvironmentError("executable not found: \(executable)")
   }
 
-  /// Executes the program at `path` with the specified arguments in a subprocess, returning
+  /// Runs the executable at `path`, passing `arguments` on the command line, and returns
+  /// its standard output sans any leading or trailing whitespace.
   @discardableResult
   private func runCommandLine(
     _ programPath: String,
