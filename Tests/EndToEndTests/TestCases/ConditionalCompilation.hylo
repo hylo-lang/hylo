@@ -58,12 +58,12 @@ fun testCompiler() {
 }
 
 fun testCompilerVersion() {
-  #if compilerversion(< 99.9.9.9)
+  #if compiler_version(< 99.9.9.9)
     let a = 31
   #else
     <something that would not be parsed>
   #endif
-  #if compilerversion(>= 0.1)
+  #if compiler_version(>= 0.1)
     let b = 37
   #else
     <something that would not be parsed>
@@ -73,12 +73,12 @@ fun testCompilerVersion() {
 }
 
 fun testHyloVersion() {
-  #if hyloversion(< 99.9.9.9)
+  #if hylo_version(< 99.9.9.9)
     let a = 41
   #else
     <something that would not be parsed>
   #endif
-  #if hyloversion(>= 0.1)
+  #if hylo_version(>= 0.1)
     let b = 43
   #else
     <something that would not be parsed>

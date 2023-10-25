@@ -30,6 +30,7 @@ public struct CompilerInfo {
   /// We only need one instance of this struct, to represent the compiler information.
   public static let instance = CompilerInfo()
 
+  /// Creates an instance with the properties of the machine running this initializer.
   private init() {
     os = CompilerInfo.currentOS()
     arch = CompilerInfo.currentArch()
@@ -38,7 +39,7 @@ public struct CompilerInfo {
     hyloVersion = VersionNumber([0, 1])
   }
 
-  /// The current OS name.
+  /// The name of the operating system on which this function is run.
   private static func currentOS() -> String {
     #if os(macOS)
       return "MacOS"
@@ -51,7 +52,7 @@ public struct CompilerInfo {
     #endif
   }
 
-  /// The current OS name.
+  /// The architecture on which this function is run.
   private static func currentArch() -> String {
     #if arch(i386)
       return "i386"
