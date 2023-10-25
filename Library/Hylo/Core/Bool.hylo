@@ -25,18 +25,11 @@ public type Bool {
     Bool(value: Builtin.or_i1(self.value, rhs.value))
   }
 
-  /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
-  public fun infix== (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_eq_i1(value, other.value))
-  }
-
-  /// Returns `true` if `self` is not equal to `other`. Otherwise, returns `false`.
-  public fun infix!= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_ne_i1(value, other.value))
-  }
 }
 
 public conformance Bool: Deinitializable {}
+
+public conformance Bool: Movable {}
 
 public conformance Bool: Copyable {
 
@@ -45,3 +38,17 @@ public conformance Bool: Copyable {
   }
 
 }
+
+public conformance Bool: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_i1(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_i1(value, other.value))
+  }
+
+}
+
+public conformance Bool: Regular {}

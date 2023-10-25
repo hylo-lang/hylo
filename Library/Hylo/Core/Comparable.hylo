@@ -1,23 +1,39 @@
 /// A type whose instances' values have a standard total ordering
 ///
-/// `<` is a total ordering; `a == b` implies that `a < b` and `b < a` are both false.
+/// Types conforming to `Comparable` implement `infix==` and `infix<`. These to operations describe
+/// a **strict total order** all instances of the conforming type. A strict total order on a type
+/// `T` is a binary relation that satisfies the following for all instances `a`, `b`, and `c`:
+///
+/// - `a < a` is always `false` (irreflexivity)
+/// - if `a < b` then `b < a` is `false` (asymmetry)
+/// - if `a < b` and `b < b` then `a < c` (transitivity)
+/// - if `a == b` is `false` then either `a < b` or `b < a` (totality)
+///
+/// Making `T` conform to `Comparable` automatically equips `T` with members `infix>`, `infix>=`,
+/// and `infix<=`, which may be overridden for `T`.
 public trait Comparable: Equatable {
 
   /// Returns `true` iff `self` is ordered before `other`.
   fun infix< (_ other: Self) -> Bool
 
-}
-
-extension Comparable {
-
   /// Returns `true` iff `self` is ordered after `other`.
-  fun infix> (_ other: Self) -> Bool { (other < self) }
+  fun infix> (_ other: Self) -> Bool
 
   /// Returns `false` iff `self` is ordered after `other`.
-  fun infix<= (_ other: Self) -> Bool { !(other < self) }
+  fun infix<= (_ other: Self) -> Bool
 
   /// Returns `false` iff `self` is ordered before `other`.
-  fun infix>= (_ other: Self) -> Bool { !(self < other) }
+  fun infix>= (_ other: Self) -> Bool
+
+}
+
+public extension Comparable {
+
+  public fun infix> (_ other: Self) -> Bool { (other < self) }
+
+  public fun infix<= (_ other: Self) -> Bool { !(other < self) }
+
+  public fun infix>= (_ other: Self) -> Bool { !(self < other) }
 
 }
 

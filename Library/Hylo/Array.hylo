@@ -90,14 +90,6 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     &storage.header += 1
   }
 
-  /// Exchanges the values at the given positions in `self`.
-  public fun swap_at(_ i: Int, _ j: Int) inout {
-    // precondition(i >= 0 && i < count())
-    // precondition(j >= 0 && j < count())
-    if i == j { return }
-    swap(&pointer_to_element[at: i].unsafe[], &pointer_to_element[at: j].unsafe[])
-  }
-
   /// Reverses the elements of `self` in place.
   ///
   /// - Complexity: O(n), where n is the number of elements in `self`.
@@ -111,25 +103,53 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     }
   }
 
-  /// Accesses the element at `position`.
-  ///
-  /// - Requires: `position` is in the range `0 ..< count()`.
-  public subscript(_ position: Int): Element {
-    let {
-      // precondition(position >= 0 && position < count())
-      pointer_to_element[at: position].unsafe[]
-    }
-    inout {
-      // precondition(position >= 0 && position < count())
-      pointer_to_element[at: position].unsafe[]
-    }
-  }
-
   /// Projects the address of the element at `position`.
   ///
   /// - Requires: `position` is in the range `0 ..< capacity()`.
   subscript pointer_to_element(at position: Int): PointerToMutable<Element> {
     storage.first_element_address().advance(by: position)
+  }
+
+}
+
+public conformance Array: Collection {
+
+  public typealias Position = Int
+
+  public fun start_position() -> Int { 0 }
+
+  public fun end_position() -> Int { count() }
+
+  /// Returns the position immediately after `i`.
+  ///
+  /// - Requires: `i != end_position()`.
+  /// - Complexity: O(1).
+  public fun position(after i: Int) -> Int { i + 1 }
+
+  /// Accesses the element at `position`.
+  ///
+  /// - Requires: `position` is in the range `0 ..< count()`.
+  public subscript(_ position: Int): Element {
+    let {
+      // TODO: uncomment when #1046 is implemented
+      // precondition(position >= 0 && position < count(), "position is out of bounds")
+      pointer_to_element[at: position].unsafe[]
+    }
+    inout {
+      // precondition(position >= 0 && position < count(), "position is out of bounds")
+      pointer_to_element[at: position].unsafe[]
+    }
+  }
+
+}
+
+public conformance Array: MutableCollection {
+
+  public fun swap_at(_ i: Int, _ j: Int) inout {
+    // precondition(i >= 0 && i < count())
+    // precondition(j >= 0 && j < count())
+    if i == j { return }
+    &pointer_to_element[at: i].unsafe[].exchange(with: &pointer_to_element[at: j].unsafe[])
   }
 
 }

@@ -1,0 +1,21 @@
+/// A type that supplies the elements of a list one at a type.
+///
+/// An iterator encapsulates the necessary state and logic to produce the elements of a possibly
+/// unbounded list, one after the other.  Elements are returned by `next()`, which returns either
+/// the next element in the list or `None` if all elements have been returned.
+///
+/// Use `Iterator` to implement single-pass iteration algorithms that take ownership of the values
+/// on which they iterate. You can "step through" the elements of an iterator using a for-loop:
+///
+///     for let x in some_iterator { print(x) }
+///
+/// An `Iterator` typically does not model a `Collection`.
+public trait Iterator {
+
+  /// The type of the elements produced by `Self`.
+  type Element
+
+  /// Advances to the next element and returns it, or `None` if no next element exists.
+  fun next() inout -> Optional<Element>
+
+}

@@ -1,0 +1,68 @@
+/// A half-open interval from a lower bound up to, but not including, an uppor bound.
+public type Range<Bound: SemiRegular & Comparable> {
+
+  // TODO: private(set)
+  /// The minimum value included in `self`.
+  public var lower_bound: Bound
+
+  // TODO: private(set)
+  /// The minimum value greater than `lower_bound` but not included in `self`.
+  public var upper_bound: Bound
+
+  /// Creates an instance with the given properties.
+  memberwise init
+
+  /// Creates a half-open interval [`lower_bound`, `upper_bound`).
+  ///
+  /// - Requires: `lower_bound <= upper_bound`.
+  public init(from lower_bound: sink Bound, up_to upper_bound: sink Bound) {
+    // precondition(lower_bound <= upper_bound)
+    &self.lower_bound = lower_bound
+    &self.upper_bound = upper_bound
+  }
+
+  /// Returns `true` iff `element` is contained in `self`.
+  public fun contains(_ element: Bound) -> Bool {
+    (element >= lower_bound) && (element < upper_bound)
+  }
+
+  /// Returns `true` iff `other` is contained in `self`.
+  public fun contains(_ other: Self) -> Bool {
+    (other.lower_bound >= self.lower_bound) && (other.upper_bound <= self.upper_bound)
+  }
+
+}
+
+public conformance Range: Deinitializable {}
+
+public conformance Range: Movable {}
+
+public conformance Range: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    (self.lower_bound == other.lower_bound) && (self.upper_bound == other.upper_bound)
+  }
+
+}
+
+// TODO: Remove when #1111 is fixed
+extension Int {
+
+  /// Creates a half-open interval from `self` up to, but not including, `upper_bound`.
+  public fun infix..< (_ upper_bound: Self) -> Range<Self> {
+    Range(from: copy(), up_to: upper_bound.copy())
+  }
+
+}
+
+// TODO
+// public conformance: Iterator Range where: Bound: Strideable, Bound.Stride: SignedInteger {
+//
+//   public fun next() inout -> Optional<Bound> {
+//     if lower_bound == upper_bound { return None() }
+//     let r = lower_bound.copy()
+//     &lower_bound += (1 as Bound)
+//     return r
+//   }
+//
+// }

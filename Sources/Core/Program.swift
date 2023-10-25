@@ -60,6 +60,19 @@ extension Program {
     isContained(l, in: r) || isContained(r, in: l)
   }
 
+  /// Returns `true` iff `l` is lexically enclosed in more scopes than `r`.
+  public func hasMoreAncestors(_ l: AnyDeclID, than r: AnyDeclID) -> Bool {
+    guard let s = nodeToScope[l] else { return false }
+    guard let t = nodeToScope[r] else { return true }
+
+    var a = scopes(from: s)
+    var b = scopes(from: t)
+    while a.next() != nil {
+      if b.next() == nil { return true }
+    }
+    return false
+  }
+
   /// Returns the scope of `d`'s body, if any.
   public func scopeContainingBody(of d: FunctionDecl.ID) -> AnyScopeID? {
     switch ast[d].body {
@@ -256,9 +269,34 @@ extension Program {
     }
   }
 
-  /// Returns whether `d` is a requirement.
+  /// Returns `true` iff `d` is defined in an extension.
+  public func isDefinedInExtension<T: DeclID>(_ d: T) -> Bool {
+    switch d.kind {
+    case ModuleDecl.self:
+      return false
+    case MethodImpl.self:
+      return isDefinedInExtension(MethodDecl.ID(nodeToScope[d]!)!)
+    case SubscriptImpl.self:
+      return isDefinedInExtension(SubscriptDecl.ID(nodeToScope[d]!)!)
+    default:
+      return nodeToScope[d]!.kind == ExtensionDecl.self
+    }
+  }
+
+  /// Returns `true` iff `d` is a trait requirement.
   public func isRequirement<T: DeclID>(_ d: T) -> Bool {
-    trait(defining: d) != nil
+    switch d.kind {
+    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
+      return true
+    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
+      return nodeToScope[d]!.kind == TraitDecl.self
+    case MethodImpl.self:
+      return isRequirement(MethodDecl.ID(nodeToScope[d]!)!)
+    case SubscriptImpl.self:
+      return isRequirement(SubscriptDecl.ID(nodeToScope[d]!)!)
+    default:
+      return false
+    }
   }
 
   /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
@@ -313,22 +351,6 @@ extension Program {
     scopes(from: scope).first(TranslationUnit.self)!
   }
 
-  /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
-  public func trait<T: DeclID>(defining d: T) -> TraitDecl.ID? {
-    switch d.kind {
-    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
-      return TraitDecl.ID(nodeToScope[d]!)!
-    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
-      return TraitDecl.ID(nodeToScope[d]!)
-    case MethodImpl.self:
-      return trait(defining: MethodDecl.ID(nodeToScope[d]!)!)
-    case SubscriptImpl.self:
-      return trait(defining: SubscriptDecl.ID(nodeToScope[d]!)!)
-    default:
-      return nil
-    }
-  }
-
   /// Returns the name of `d` if it introduces a single entity.
   public func name(of d: AnyDeclID) -> Name? {
     if let e = self.ast[d] as? SingleEntityDecl { return Name(stem: e.baseName) }
@@ -347,42 +369,48 @@ extension Program {
     }
   }
 
+  /// Returns `(root: r, path: p)` where `root` is the binding declaration introducing `d` and `p`
+  /// is the path to the object bound to `d` relative to `root`.
+  public func subfieldRelativeToRoot(
+    of d: VarDecl.ID
+  ) -> (root: BindingDecl.ID, path: RecordPath) {
+    let root = varToBinding[d]!
+    for (p, n) in ast.names(in: ast[root].pattern) {
+      if ast[n].decl == d { return (root, p) }
+    }
+    unreachable()
+  }
+
   /// Returns a textual description of `n` suitable for debugging.
   public func debugDescription<T: NodeIDProtocol>(_ n: T) -> String {
-    if let d = ModuleDecl.ID(n) {
-      return ast[d].baseName
-    }
-
-    let qualification = debugDescription(nodeToScope[n]!)
-
     switch n.kind {
-    case FunctionDecl.self:
-      let s = ast.name(of: FunctionDecl.ID(n)!) ?? "lambda"
-      return qualification + ".\(s)"
-    case InitializerDecl.self:
-      let s = ast.name(of: InitializerDecl.ID(n)!)
-      return qualification + ".\(s)"
-    case MethodDecl.self:
-      let s = ast.name(of: MethodDecl.ID(n)!)
-      return qualification + ".\(s)"
-    case MethodImpl.self:
-      let s = ast[MethodImpl.ID(n)!].introducer.value
-      return qualification + ".\(s)"
-    case SubscriptDecl.self:
-      let s = ast.name(of: SubscriptDecl.ID(n)!)
-      return qualification + ".\(s)"
-    case SubscriptImpl.self:
-      let s = ast[SubscriptImpl.ID(n)!].introducer.value
-      return qualification + ".\(s)"
+    case BindingDecl.self:
+      return debugDescription(BindingDecl.ID(n)!)
+    case ModuleDecl.self:
+      return ast[ModuleDecl.ID(n)!].baseName
     default:
       break
     }
 
-    if let e = ast[n] as? SingleEntityDecl {
-      return qualification + "." + e.baseName
-    } else {
-      return qualification
+    let qualification = debugDescription(nodeToScope[n]!)
+
+    if let d = AnyDeclID(n) {
+      if let s = name(of: d) {
+        return qualification + ".\(s)"
+      } else if d.kind == FunctionDecl.self {
+        return qualification + ".lambda"
+      }
     }
+
+    return qualification
+  }
+
+  /// Returns a textual description of `d` suitable for debugging.
+  public func debugDescription(_ d: BindingDecl.ID) -> String {
+    let ns = ast.names(in: self[d].pattern.subpattern)
+      .map({ ast[ast[$0.pattern].decl].baseName })
+      .joined()
+    return debugDescription(nodeToScope[d]!) + ".(\(ns))"
   }
 
 }

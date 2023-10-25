@@ -113,7 +113,7 @@ final class ManglingTests: XCTestCase {
     try assertDemangledOfMangled(MetatypeType(of: AnyType.void), is: "Metatype<Void>")
     try assertDemangledOfMangled(p.ast.coreType("Int")!, is: "Hylo.Int")
     try assertDemangledOfMangled(
-      ExistentialType(traits: [p.ast.coreTrait("Movable")!], constraints: []),
+      ExistentialType(traits: [p.ast.core.movable.type], constraints: []),
       is: "any Hylo.Movable")
   }
 

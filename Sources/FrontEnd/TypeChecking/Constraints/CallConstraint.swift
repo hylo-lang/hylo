@@ -29,7 +29,7 @@ struct CallConstraint: Constraint, Hashable {
   /// The expected output type of `callee`.
   private(set) var output: AnyType
 
-  /// `true` if `callee` is expected to be an arrow; `false` if it's expected t obe a subscript.
+  /// `true` if `callee` is expected to be an arrow; `false` if it's expected to be a subscript.
   let isArrow: Bool
 
   let origin: ConstraintOrigin

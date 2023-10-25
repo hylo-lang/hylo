@@ -332,6 +332,18 @@ extension Diagnostic {
     .error("right operand of built-in pointer conversion must be a remote type", at: site)
   }
 
+  static func error(
+    invalidForLoopDomain m: AnyType, consuming: Bool, at site: SourceRange
+  ) -> Diagnostic {
+    if consuming {
+      return .error(
+        "consuming for loop requires '\(m)' to conform to 'Iterator'", at: site)
+    } else {
+      return .error(
+        "non-consuming for loop requires '\(m)' to conform to 'Collection' or 'Iterator'", at: site)
+    }
+  }
+
   static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {
     let s = ast[d].identifier
     return .warning("needless import: source file is part of '\(s.value)'", at: s.site)

@@ -15,26 +15,10 @@ public struct Name: Hashable, Codable {
   /// The introducer, if any, is incorporated during parsing, after the original `Name` is created.
   public let introducer: AccessEffect?
 
-  /// Creates a new name.
-  public init(stem: Identifier, labels: [String?] = []) {
-    self.stem = stem
-    self.labels = labels
-    self.notation = nil
-    self.introducer = nil
-  }
-
-  /// Creates a new operator name.
-  public init(stem: Identifier, notation: OperatorNotation) {
-    self.stem = stem
-    self.labels = []
-    self.notation = notation
-    self.introducer = nil
-  }
-
   /// Creates an instance with the given properties.
   public init(
     stem: Identifier,
-    labels: [String?],
+    labels: [String?] = [],
     notation: OperatorNotation? = nil,
     introducer: AccessEffect? = nil
   ) {

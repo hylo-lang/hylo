@@ -21,9 +21,7 @@ enum Callee {
     if let m = MethodDecl.ID(d) {
       self = .bundle(BundleReference(to: m, specializedBy: a))
     } else {
-      let r = FunctionReference(
-        to: FunctionDecl.ID(d)!, in: &module, specializedBy: a, in: scopeOfUse)
-      self = .direct(r)
+      self = .direct(FunctionReference(to: d, in: &module, specializedBy: a, in: scopeOfUse))
     }
   }
 

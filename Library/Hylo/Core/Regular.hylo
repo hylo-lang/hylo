@@ -8,4 +8,4 @@ public trait SemiRegular: Deinitializable, Movable, Equatable {}
 /// Regular types (roughly per Stepanov).
 ///
 /// Copies have equal value.
-public trait Regular: Deinitializable, Copyable, Movable, Equatable {}
+public trait Regular: SemiRegular, Copyable {}

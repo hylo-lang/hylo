@@ -13,7 +13,11 @@ public struct FunctionReference: Constant, Hashable {
   public let specialization: GenericArguments
 
   /// Creates a reference to `f`, which is in `module`, without specialization.
+  ///
+  /// - Requires: `f` accepts no generic parameters.
   public init(to f: Function.ID, in module: Module) {
+    precondition(module[f].genericParameters.isEmpty, "underspecialized function reference")
+
     let v = module[f]
     let t = LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
     assert(t[.isCanonical])
@@ -25,15 +29,21 @@ public struct FunctionReference: Constant, Hashable {
 
   /// Creates a reference to `f`, which is in `module`, specialized by `specialization` in
   /// `scopeOfUse`.
+  ///
+  /// - Requires: `specialization` supplies arguments for all generic parameters of `f`.
   public init(
     to f: Function.ID, in module: Module,
     specializedBy specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) {
+    precondition(
+      module[f].genericParameters.count <= specialization.count,
+      "underspecialized function reference")
+
     let v = module[f]
     let t = LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
     let a = module.program.canonical(specialization, in: scopeOfUse)
-    let u = module.program.specialize(^t, for: a, in: scopeOfUse)
-    assert(t[.isCanonical])
+    let u = module.program.canonical(
+      module.program.specialize(^t, for: a, in: scopeOfUse), in: scopeOfUse)
 
     self.function = f
     self.type = .address(u)
@@ -41,34 +51,22 @@ public struct FunctionReference: Constant, Hashable {
   }
 
   /// Creates a reference to the lowered form of `d` in `module`, without specialization.
-  public init(to d: FunctionDecl.ID, in module: inout Module) {
-    let f = module.demandDeclaration(lowering: d)
+  ///
+  /// - Requires: `d` can be lowered to an IR function.
+  public init(to d: AnyDeclID, in module: inout Module) {
+    let f = module.demandDeclaration(lowering: d)!
     self.init(to: f, in: module)
   }
 
   /// Creates a reference to the lowered form of `d` in `module`, specialized by `specialization`
   /// in `scopeOfUse`.
+  ///
+  /// - Requires: `d` can be lowered to an IR function.
   public init(
-    to d: FunctionDecl.ID, in module: inout Module,
+    to d: AnyDeclID, in module: inout Module,
     specializedBy specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) {
-    let f = module.demandDeclaration(lowering: d)
-    self.init(to: f, in: module, specializedBy: specialization, in: scopeOfUse)
-  }
-
-  /// Creates a reference to the lowered form of `d` in `module`, without specialization.
-  public init(to d: InitializerDecl.ID, in module: inout Module) {
-    let f = module.demandDeclaration(lowering: d)
-    self.init(to: f, in: module)
-  }
-
-  /// Creates a reference to the lowered form of `d` in `module`, specialized by `specialization`
-  /// in `scopeOfUse`.
-  public init(
-    to d: InitializerDecl.ID, in module: inout Module,
-    specializedBy specialization: GenericArguments, in scopeOfUse: AnyScopeID
-  ) {
-    let f = module.demandDeclaration(lowering: d)
+    let f = module.demandDeclaration(lowering: d)!
     self.init(to: f, in: module, specializedBy: specialization, in: scopeOfUse)
   }
 
