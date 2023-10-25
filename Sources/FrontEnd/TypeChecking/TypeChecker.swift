@@ -955,6 +955,8 @@ struct TypeChecker {
       check(AssignStmt.ID(s)!)
     case BraceStmt.self:
       check(BraceStmt.ID(s)!)
+    case ConditionalCompilationStmt.self:
+      check(ConditionalCompilationStmt.ID(s)!)
     case ConditionalStmt.self:
       check(ConditionalStmt.ID(s)!)
     case ExprStmt.self:
@@ -973,8 +975,6 @@ struct TypeChecker {
       check(WhileStmt.ID(s)!)
     case YieldStmt.self:
       check(YieldStmt.ID(s)!)
-    case ConditionalCompilationStmt.self:
-      check(ConditionalCompilationStmt.ID(s)!)
     default:
       unexpected(s, in: program.ast)
     }
@@ -1000,6 +1000,11 @@ struct TypeChecker {
     obligations.insert(SubtypingConstraint(rhs, lhs, origin: o))
 
     discharge(obligations, relatedTo: s)
+  }
+
+  /// Type checks `s`.
+  private mutating func check(_ s: ConditionalCompilationStmt.ID) {
+    for t in program[s].expansion { check(t) }
   }
 
   /// Type checks `s`.
@@ -1080,11 +1085,6 @@ struct TypeChecker {
   private mutating func check(_ s: YieldStmt.ID) {
     let output = uncheckedOutputType(in: program[s].scope)!
     check(program[s].value, coercibleTo: output)
-  }
-
-  /// Type checks `s`.
-  private mutating func check(_ s: ConditionalCompilationStmt.ID) {
-    for t in program[s].expansion { check(t) }
   }
 
   /// Type checks `condition`.

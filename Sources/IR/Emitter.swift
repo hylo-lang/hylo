@@ -855,6 +855,8 @@ struct Emitter {
       return emit(assignStmt: .init(s)!)
     case BraceStmt.self:
       return emit(braceStmt: .init(s)!)
+    case ConditionalCompilationStmt.self:
+      return emit(condCompilationStmt: .init(s)!)
     case ConditionalStmt.self:
       return emit(conditionalStmt: .init(s)!)
     case DeclStmt.self:
@@ -871,8 +873,6 @@ struct Emitter {
       return emit(whileStmt: .init(s)!)
     case YieldStmt.self:
       return emit(yieldStmt: .init(s)!)
-    case ConditionalCompilationStmt.self:
-      return emit(condCompilationStmt: .init(s)!)
     default:
       unexpected(s, in: ast)
     }
@@ -901,19 +901,27 @@ struct Emitter {
       frames.pop()
     }
 
-    for i in ast[s].stmts.indices {
-      let a = emit(stmt: ast[s].stmts[i])
+    return emit(stmtList: ast[s].stmts)
+  }
+
+  private mutating func emit(stmtList stmts: [AnyStmtID]) -> ControlFlow {
+    for i in stmts.indices {
+      let a = emit(stmt: stmts[i])
       if a == .next { continue }
 
       // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the
       // last statement of the code block.
-      if i != ast[s].stmts.count - 1 {
-        report(.warning(unreachableStatement: ast[s].stmts[i + 1], in: ast))
+      if i != stmts.count - 1 {
+        report(.warning(unreachableStatement: stmts[i + 1], in: ast))
       }
       return a
     }
 
     return .next
+  }
+
+  private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
+    return emit(stmtList: ast[s].expansion)
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
@@ -1055,24 +1063,6 @@ struct Emitter {
     let x0 = emitLValue(ast[s].value)
     let x1 = insert(module.makeAccess(.let, from: x0, at: ast[s].site))!
     insert(module.makeYield(.let, x1, at: ast[s].site))
-    return .next
-  }
-
-  private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
-
-    let stmts = ast[s].expansion
-    for i in stmts.indices {
-      let a = emit(stmt: stmts[i])
-      if a == .next { continue }
-
-      // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the
-      // last statement of the code block.
-      if i != ast[s].stmts.count - 1 {
-        report(.warning(unreachableStatement: ast[s].stmts[i + 1], in: ast))
-      }
-      return a
-    }
-
     return .next
   }
 
