@@ -2967,7 +2967,7 @@ public enum Parser {
     let head = state.take(.poundIf)
     return head != nil ? try parseCompilerConditionTail(head: head!, in: &state) : nil
   }
-  
+
   /// Parses a compiler condition structure, after the initial token (#if or #elseif).
   private static func parseCompilerConditionTail(
     head: Token, in state: inout ParserState
