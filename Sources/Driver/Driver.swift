@@ -8,21 +8,6 @@ import IR
 import LLVM
 import Utils
 
-extension Process {
-
-  /// Information about a process that exited with an error.
-  struct Failure: Error {
-
-    /// The process' exit code.
-    let terminationStatus: Int32
-
-    /// Any output captured from the process' output pipe.
-    let rawOutput: String
-
-  }
-
-}
-
 public struct Driver: ParsableCommand {
 
   /// The type of the output files to generate.
