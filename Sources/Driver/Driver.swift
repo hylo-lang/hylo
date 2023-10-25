@@ -386,7 +386,8 @@ public struct Driver: ParsableCommand {
     throw EnvironmentError("executable not found: \(executable)")
   }
 
-  /// Executes the program at `path` with the specified arguments in a subprocess.
+  /// Runs the executable at `path`, passing `arguments` on the command line, and returns
+  /// its standard output sans any leading or trailing whitespace.
   @discardableResult
   private func runCommandLine(
     _ programPath: String,
@@ -397,19 +398,9 @@ public struct Driver: ParsableCommand {
       standardError.write(([programPath] + arguments).joined(separator: " "))
     }
 
-    let pipe = Pipe()
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: programPath)
-    process.arguments = arguments
-    process.standardOutput = pipe
-    try process.run()
-    process.waitUntilExit()
+    let r = try Process.run(URL(fileURLWithPath: programPath), arguments: arguments)
 
-    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-    return String(data: data, encoding: .utf8).flatMap({ (result) -> String? in
-      let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
-      return trimmed.isEmpty ? nil : trimmed
-    })
+    return r.standardOutput.readUTF8().trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
   /// A map from executable name to path of the named binary.
