@@ -3081,11 +3081,11 @@ public enum Parser {
       }
 
       if expectVersionNumber {
-        // returns Int
+        // Returns Int.
         let integerParser = (take(.int)).map { (state, tree) -> Int in
           Int(state.token(tree).value)!
         }
-        // returns SemanticVersion
+        // Returns SemanticVersion.
         let versionNumberParser =
           (integerParser.and(
             maybe(take(.dot).and(integerParser).and(maybe(take(.dot).and(integerParser))))
@@ -3121,7 +3121,7 @@ public enum Parser {
           unreachable()
         }
       } else {
-        // we have the form #if identifier(identifier), and our current parsing state starts at '('.
+        // We have the form #if identifier(identifier), and our current parsing state starts at '('.
         let parser =
           (take(.lParen)  // => TakeKind
             .and(take(.name).map({ (state, token) -> String in state.token(token).value })).second
