@@ -3,12 +3,16 @@ public struct CompilerInfo {
 
   /// The operating-system used when performing the compilation.
   let os: String
+
   /// The architecture of the machine doing the compilation.
   let arch: String
+
   /// The name of the compiler.
   let compiler: String
+
   /// The version of the compiler.
   let compilerVersion: SemanticVersion
+
   /// The version of the Hylo language version we are targeting.
   let hyloVersion: SemanticVersion
 
@@ -27,7 +31,7 @@ public struct CompilerInfo {
   /// The name of the operating system on which this function is run.
   private static func currentOS() -> String {
     #if os(macOS)
-      return "MacOS"
+      return "macOS"
     #elseif os(Linux)
       return "Linux"
     #elseif os(Windows)

@@ -1649,10 +1649,10 @@ final class ParserTests: XCTestCase {
   }
 
   func testSimpleConditionalControl() throws {
-    let input: SourceFile = "#if os(MacOs) foo() #endif"
+    let input: SourceFile = "#if os(macOs) foo() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt.condition, .os("MacOs"))
+    XCTAssertEqual(stmt.condition, .os("macOs"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)
   }
@@ -1674,10 +1674,10 @@ final class ParserTests: XCTestCase {
   }
   func testConditionalControlOs() throws {
     let input: SourceFile =
-      "#if os(MacOs) foo() #elseif os(Linux) bar() #elseif os(Windows) bazz() #else awgr() #endif"
+      "#if os(macOs) foo() #elseif os(Linux) bar() #elseif os(Windows) bazz() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt.condition, .os("MacOs"))
+    XCTAssertEqual(stmt.condition, .os("macOs"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 1)
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)

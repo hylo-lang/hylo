@@ -21,7 +21,7 @@ fun testFalse() {
 }
 
 fun testOs() {
-  #if os(MacOS)
+  #if os(macOS)
     let a = 5
   #elseif os(Linux)
     let a = 7
