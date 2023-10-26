@@ -3083,36 +3083,38 @@ public enum Parser {
         let integerParser = (take(.int)).map { (state, tree) -> Int in
           Int(state.token(tree).value)!
         }
-        // returns CompilerInfo.VersionNumber
+        // returns SemanticVersion
         let versionNumberParser =
-          (integerParser.and(zeroOrMany(take(.dot).and(integerParser).second)).map({
-            (state, tree) -> [Int] in [tree.0] + tree.1
-          })).map({ (_, arr) in CompilerInfo.VersionNumber(arr) })
-        let operParser =
-          (operatorIdentifier.map({
-            (_, operName) -> ConditionalCompilationStmt.VersionComparison in
-            switch operName.value {
-            case ">=": return .greaterOrEqual
-            case "<": return .less
-            default:
-              throw [.error(expected: "'>=' or '<'", at: operName.site.first())] as DiagnosticSet
-            }
+          (integerParser.and(
+            maybe(take(.dot).and(integerParser).and(maybe(take(.dot).and(integerParser))))
+          ).map({
+            (state, tree) -> SemanticVersion in
+            SemanticVersion(major: tree.0, minor: tree.1?.0.1 ?? 0, patch: tree.1?.1?.1 ?? 0)
           }))
         let parser =
           (take(.lParen)  // => TakeKind
-            .and(operParser).second  // => VersionComparison
-            .and(versionNumberParser)  // => (VersionComparison, VersionNumber)
-            .and(take(.rParen)).first  // => (VersionComparison, VersionNumber)
+            .and(operatorIdentifier).second  // => SourceRepresentable<Identifier>
+            .and(versionNumberParser)  // => (SourceRepresentable<Identifier>, SemanticVersion)
+            .and(take(.rParen)).first  // => (SourceRepresentable<Identifier>, SemanticVersion)
           )
         guard let p = try parser.parse(&state) else {
           throw [.error(expected: "version number comparison", at: state.currentLocation)]
             as DiagnosticSet
         }
+        let comparison: ConditionalCompilationStmt.VersionComparison
+        switch p.0.value {
+        case ">=":
+          comparison = .greaterOrEqual(p.1)
+        case "<":
+          comparison = .less(p.1)
+        default:
+          throw [.error(expected: "'>=' or '<'", at: p.0.site.first())] as DiagnosticSet
+        }
         switch conditionName {
         case "compiler_version":
-          return .compilerVersion(comparison: p.0, version: p.1)
+          return .compilerVersion(comparison: comparison)
         case "hylo_version":
-          return .hyloVersion(comparison: p.0, version: p.1)
+          return .hyloVersion(comparison: comparison)
         default:
           unreachable()
         }

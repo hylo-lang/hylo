@@ -1,21 +1,6 @@
 /// Describes the compiler; used as source of truth for conditional compilation.
 public struct CompilerInfo {
 
-  /// A version number with multiple parts; form: x(.y)*
-  public struct VersionNumber: Codable, Comparable {
-
-    public let parts: [Int]
-
-    public init(_ p: [Int]) {
-      parts = p
-    }
-
-    public static func < (lhs: Self, rhs: Self) -> Bool {
-      return lhs.parts.lexicographicallyPrecedes(rhs.parts)
-    }
-
-  }
-
   /// The operating-system used when performing the compilation.
   let os: String
   /// The architecture of the machine doing the compilation.
@@ -23,9 +8,9 @@ public struct CompilerInfo {
   /// The name of the compiler.
   let compiler: String
   /// The version of the compiler.
-  let compilerVersion: VersionNumber
+  let compilerVersion: SemanticVersion
   /// The version of the Hylo language version we are targeting.
-  let hyloVersion: VersionNumber
+  let hyloVersion: SemanticVersion
 
   /// We only need one instance of this struct, to represent the compiler information.
   public static let instance = CompilerInfo()
@@ -35,8 +20,8 @@ public struct CompilerInfo {
     os = CompilerInfo.currentOS()
     arch = CompilerInfo.currentArch()
     compiler = "hc"
-    compilerVersion = VersionNumber([0, 1])
-    hyloVersion = VersionNumber([0, 1])
+    compilerVersion = SemanticVersion(major: 0, minor: 1, patch: 0)
+    hyloVersion = SemanticVersion(major: 0, minor: 1, patch: 0)
   }
 
   /// The name of the operating system on which this function is run.

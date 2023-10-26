@@ -1,16 +1,22 @@
 /// A conditional-compilation statement.
 public struct ConditionalCompilationStmt: Stmt {
 
-  public enum VersionComparison: Codable {
+  /// A comparison test for semantic version.
+  public enum VersionComparison: Codable, Equatable {
 
-    case greaterOrEqual
+    /// Represents "_ >= payload".
+    case greaterOrEqual(SemanticVersion)
 
-    case less
+    /// Represents "_ < payload".
+    case less(SemanticVersion)
 
-    func compare<T: Comparable>(_ lhs: T, _ rhs: T) -> Bool {
+    /// Evaluate the comparison predicate for `lhs`.
+    func evaluate(for lhs: SemanticVersion) -> Bool {
       switch self {
-      case .greaterOrEqual: return !(lhs < rhs)
-      case .less: return lhs < rhs
+      case .greaterOrEqual(let target):
+        return !(lhs < target)
+      case .less(let target):
+        return lhs < target
       }
     }
 
@@ -34,11 +40,11 @@ public struct ConditionalCompilationStmt: Stmt {
     /// Holds iff the name of the compiler processing the file matches the payload.
     case compiler(Identifier)
 
-    /// Holds iff `version`, which describes the version of the compiler processing the file, satisfies the `comparison`.
-    case compilerVersion(comparison: VersionComparison, version: CompilerInfo.VersionNumber)
+    /// Holds iff the version of the compiler processing the file, satisfies the `comparison`.
+    case compilerVersion(comparison: VersionComparison)
 
-    /// Holds iff `version`, which describes the version of Hylo for which this file is compiled, satisfies `comparison`.
-    case hyloVersion(comparison: VersionComparison, version: CompilerInfo.VersionNumber)
+    /// Holds iff the version of Hylo for which this file is compiled, satisfies `comparison`.
+    case hyloVersion(comparison: VersionComparison)
 
     /// `true` iff the body of the conditional-compilation shouldn't be parsed.
     public var mayNotNeedParsing: Bool {
@@ -62,10 +68,10 @@ public struct ConditionalCompilationStmt: Stmt {
       case .os(let id): return id == info.os
       case .arch(let id): return id == info.arch
       case .compiler(let id): return id == info.compiler
-      case .compilerVersion(let comparison, let version):
-        return comparison.compare(info.compilerVersion, version)
-      case .hyloVersion(let comparison, let version):
-        return comparison.compare(info.hyloVersion, version)
+      case .compilerVersion(let comparison):
+        return comparison.evaluate(for: info.compilerVersion)
+      case .hyloVersion(let comparison):
+        return comparison.evaluate(for: info.hyloVersion)
       }
     }
 
