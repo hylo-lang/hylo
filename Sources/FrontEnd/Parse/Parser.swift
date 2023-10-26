@@ -107,14 +107,10 @@ public enum Parser {
     then continuation: (_ prologue: DeclPrologue, _ state: inout ParserState) throws -> R?
   ) throws -> R? {
     guard let startIndex = state.peek()?.site.start else { return nil }
-    var isPrologueEmpty = true
 
     // Parse attributes.
-    var attributes: [SourceRepresentable<Attribute>] = []
-    while let a = try parseDeclAttribute(in: &state) {
-      attributes.append(a)
-      isPrologueEmpty = false
-    }
+    let attributes = try attributesList.parse(&state) ?? []
+    var isPrologueEmpty = attributes.isEmpty
 
     // Parse modifiers.
     var accessModifiers: Set<SourceRepresentable<AccessModifier>> = []
@@ -2996,21 +2992,32 @@ public enum Parser {
     return nil
   }
 
-  static let parameterTypeExpr =
-    (maybe(passingConvention)
-      .andCollapsingSoftFailures(expr)
-      .map({ (state, tree) -> ParameterTypeExpr.ID in
-        let s = state.range(from: tree.0?.site.start ?? state.ast[tree.1].site.start)
-        return state.insert(
-          ParameterTypeExpr(
-            convention: tree.0
-              ?? SourceRepresentable(
-                value: .let,
-                range: state.lexer.sourceCode.emptyRange(at: s.start)),
-            bareType: tree.1,
-            site: s
-          ))
-      }))
+  static let parameterTypeExpr = Apply(parseParameterTypeExpr(in:))
+
+  private static func parseParameterTypeExpr(
+    in state: inout ParserState
+  ) throws -> NodeID<ParameterTypeExpr>? {
+    let backup = state.backup()
+    let startIndex = state.currentIndex
+
+    let accessEffect = try passingConvention.parse(&state)
+    let attributes = try attributesList.parse(&state)
+    guard let bareType = try expr.parse(&state) else {
+      state.restore(from: backup)
+      return nil
+    }
+
+    return state.insert(
+      ParameterTypeExpr(
+        convention: accessEffect
+          ?? SourceRepresentable(
+            value: .let,
+            range: state.lexer.sourceCode.emptyRange(at: startIndex)),
+        attributes: attributes ?? [],
+        bareType: bareType,
+        site: state.range(from: startIndex)
+      ))
+  }
 
   static let receiverEffect = accessEffect
 
@@ -3076,6 +3083,10 @@ public enum Parser {
       .map({ (state, tree) -> TraitComposition in [tree.0] + tree.1 }))
 
   // MARK: Attributes
+
+  static let attributesList =
+    (zeroOrMany(Apply(parseDeclAttribute(in:)))
+      .map({ (_, tree) -> [SourceRepresentable<Attribute>] in tree }))
 
   static func parseDeclAttribute(
     in state: inout ParserState

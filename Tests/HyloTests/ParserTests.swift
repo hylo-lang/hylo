@@ -477,6 +477,21 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(decl.body)
   }
 
+  func testFunctionDeclWithAutoclosure() throws {
+    let input: SourceFile = "fun foo<E>(value: @autoclosure ([E]() -> Int)) { &value() }"
+    let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
+    let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
+    XCTAssertNotNil(decl)
+    XCTAssertEqual(decl.parameters.count, 1)
+    let param = ast[decl.parameters[0]]
+    XCTAssertNotNil(param)
+    XCTAssertNotNil(param.annotation)
+    let paramTypeExpr = ast[param.annotation]
+    XCTAssertNotNil(paramTypeExpr)
+    XCTAssertEqual(paramTypeExpr!.attributes.count, 1)
+    XCTAssertEqual(paramTypeExpr!.attributes[0].value.name.value, "@autoclosure")
+  }
+
   func testMethodBundle() throws {
     let input: SourceFile = """
       fun foo() {
