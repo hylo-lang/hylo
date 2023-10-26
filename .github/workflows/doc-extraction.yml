@@ -30,6 +30,10 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Install Jazzy
+      run: |
+        sudo gem install jazzy
+
     - name: Setup swift
       uses: swift-actions/setup-swift@v1
       with:
@@ -72,10 +76,6 @@ jobs:
         swift package resolve
         .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
         cat llvm.pc
-
-    - name: Install Jazzy
-      run: |
-        sudo gem install jazzy
 
     - name: Extract with DocC
       run: |
