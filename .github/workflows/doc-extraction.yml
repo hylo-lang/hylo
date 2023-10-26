@@ -6,7 +6,7 @@ defaults:
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, fix-doc-generation ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -73,6 +73,10 @@ jobs:
         .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
         cat llvm.pc
 
+    - name: Install Jazzy
+      run: |
+        sudo gem install jazzy
+
     - name: Extract with DocC
       run: |
         export PKG_CONFIG_PATH
@@ -94,7 +98,6 @@ jobs:
     - name: Extract with Jazzy
       run: |
         export PKG_CONFIG_PATH
-        gem install jazzy
         for TARGET in ${EXTRACTION_TARGETS}; do
           mkdir -p _site/jazzy/"$TARGET"
           jazzy \
