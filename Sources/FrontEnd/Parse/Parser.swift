@@ -3068,7 +3068,9 @@ public enum Parser {
   ) throws -> ConditionalCompilationStmt.Condition {
     if let boolLiteral = state.take(.bool) {
       return state.lexer.sourceCode[boolLiteral.site] == "true" ? .`true` : .`false`
-    } else if let name = state.take(.name) {
+    }
+    
+    if let name = state.take(.name) {
       let expectVersionNumber: Bool
       let conditionName = state.token(name).value
       switch conditionName {
