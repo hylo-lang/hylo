@@ -1,14 +1,14 @@
 /// Writes the textual representation of `item` to the standard output.
 public fun print(_ item: String, terminator: String = "\n") {
-  let stream = stdout()
-  _ = fwrite(CVoidPointer(base: item.utf8.base), 1, item.size, CVoidPointer(base: stream.base))
-  _ = fwrite(CVoidPointer(base: terminator.utf8.base), 1, 1, CVoidPointer(base: stream.base))
+  let o = stdout
+  _ = fwrite(CVoidPointer(base: item.utf8.base), 1, item.size, CVoidPointer(base: o.base))
+  _ = fwrite(CVoidPointer(base: terminator.utf8.base), 1, terminator.size, CVoidPointer(base: o.base))
 }
 
 /// Writes the textual representation of `item` to the standard output.
 public fun print(_ item: Int, radix: Int = 10, terminator: String = "\n") {
   if item == 0 {
-    print("0")
+    print("0", terminator: terminator)
     return
   }
 
@@ -26,13 +26,11 @@ public fun print(_ item: Int, radix: Int = 10, terminator: String = "\n") {
   if item < 0 { &a.append(45) }
   &a.reverse()
 
-  let stream = stdout()
+  let o = stdout
   let buffer = a.contiguous_storage.base
-  _ = fwrite(CVoidPointer(base: buffer), 1, a.count(), CVoidPointer(base: stream.base))
-  _ = fwrite(CVoidPointer(base: terminator.utf8.base), 1, 1, CVoidPointer(base: stream.base))
+  _ = fwrite(CVoidPointer(base: buffer), 1, a.count(), CVoidPointer(base: o.base))
+  _ = fwrite(CVoidPointer(base: terminator.utf8.base), 1, terminator.size, CVoidPointer(base: o.base))
 }
 
 /// The standard output of the current process.
-fun stdout() -> MemoryAddress {
-  .new(base: fdopen(1, CVoidPointer(base: "w".utf8.base)).base)
-}
+let stdout = MemoryAddress.new(base: fdopen(1, CVoidPointer(base: "w".utf8.base)).base)

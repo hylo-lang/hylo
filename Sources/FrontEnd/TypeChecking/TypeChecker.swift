@@ -135,6 +135,8 @@ struct TypeChecker {
 
     var result: Set<TraitType>
     switch t.base {
+    case let u as AssociatedTypeType:
+      result = conformedTraits(of: u, in: scopeOfUse)
     case let u as BoundGenericType:
       result = conformedTraits(of: u.base, in: scopeOfUse)
     case let u as BuiltinType:
@@ -158,15 +160,24 @@ struct TypeChecker {
   }
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
+  private mutating func conformedTraits(
+    of t: AssociatedTypeType, in scopeOfUse: AnyScopeID
+  ) -> Set<TraitType> {
+    var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
+    result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
+    return result
+  }
+
+  /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
   private func conformedTraits(
     of t: BuiltinType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
     if t == .module { return [] }
 
     return [
-      program.ast.movableTrait,
-      program.ast.deinitializableTrait,
-      program.ast.foreignConvertibleTrait,
+      program.ast.core.movable.type,
+      program.ast.core.deinitializable.type,
+      program.ast.core.foreignConvertible.type,
     ]
   }
 
@@ -407,13 +418,13 @@ struct TypeChecker {
   private mutating func demandImplementation(
     of requirement: AssociatedTypeDecl.ID, for model: AnyType, in scopeOfUse: AnyScopeID
   ) -> AnyType? {
-    let trait = traitDefining(requirement)!
+    let trait = traitDeclaring(requirement)!
     guard
       let c = demandConformance(of: model, to: trait, exposedTo: scopeOfUse),
       let a = MetatypeType(uncheckedType(of: c.implementations[requirement]!.decl!))
     else { return nil }
 
-    return specialize(a.instance, for: c.arguments, in: scopeOfUse)
+    return specialize(a.instance, for: c.arguments, in: c.scope)
   }
 
   // MARK: Type transformations
@@ -955,10 +966,14 @@ struct TypeChecker {
       check(AssignStmt.ID(s)!)
     case BraceStmt.self:
       check(BraceStmt.ID(s)!)
+    case BreakStmt.self:
+      break
     case ConditionalCompilationStmt.self:
       check(ConditionalCompilationStmt.ID(s)!)
     case ConditionalStmt.self:
       check(ConditionalStmt.ID(s)!)
+    case ContinueStmt.self:
+      break
     case ExprStmt.self:
       check(ExprStmt.ID(s)!)
     case DeclStmt.self:
@@ -992,7 +1007,8 @@ struct TypeChecker {
 
     // `lhs` must be `Movable`.
     let lhs = inferredType(of: program[s].left, updating: &obligations)
-    obligations.insert(ConformanceConstraint(lhs, conformsTo: program.ast.movableTrait, origin: o))
+    obligations.insert(
+      ConformanceConstraint(lhs, conformsTo: program.ast.core.movable.type, origin: o))
 
     // `rhs` must be subtype of `lhs`.
     let rhs = inferredType(
@@ -1040,7 +1056,7 @@ struct TypeChecker {
     // Expression must be `Deinitializable`.
     obligations.insert(
       ConformanceConstraint(
-        t, conformsTo: program.ast.deinitializableTrait,
+        t, conformsTo: program.ast.core.deinitializable.type,
         origin: .init(.discard, at: program[s].site)))
 
     discharge(obligations, relatedTo: s)
@@ -1169,7 +1185,6 @@ struct TypeChecker {
       (s.kind == TranslationUnit.self) ? program[s].scope : s
     }
 
-    let traitReceiverToModel: GenericArguments = [program[concept.decl].receiver: model]
     let conformanceCacheKey = BoundGenericType(model)?.base ?? model
 
     // TODO: Use arguments to bound generic types as constraints
@@ -1180,6 +1195,12 @@ struct TypeChecker {
         if let d = ModuleDecl.ID(c.scope), fileImports.contains(d) { return }
         if program.isContained(scopeOfDefinition, in: c.scope) { return }
       }
+    }
+
+    // TODO: This is hack until #1106 is fixed
+    var traitReceiverToModel = GenericArguments()
+    for t in conformedTraits(of: concept, in: scopeOfDefinition) {
+      traitReceiverToModel[program[t.decl].receiver] = model
     }
 
     var implementations = Conformance.ImplementationMap()
@@ -3243,9 +3264,16 @@ struct TypeChecker {
         specialization[p] = a
       }
 
-      // If the match is a trait member looked up with qualification, specialize its receiver.
-      if let t = traitDefining(m) {
-        specialization[program[t.decl].receiver] = context?.type
+      // If the match is a trait member looked, specialize its receiver.
+      // TODO: Remove `mayCaptureGenericParameters` when
+      if let t = traitDeclaring(m), mayCaptureGenericParameters(m) {
+        // DR: `mayCaptureGenericParameters` is used to avoid populating the specialization table
+        // when `m` is an associated type declaration. Otherwise, `specialize` causes resolution
+        // to systematically pick the default value. I suspect that `specialize` shouldn't do that
+        // when the associated type is rooted at a trait. Substitution of associated type should
+        // rely on conformances rather than lookup.
+        let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance
+        specialization[program[t.decl].receiver] = r
       }
 
       // If the name resolves to an initializer, determine if it is used as a constructor.
@@ -3259,7 +3287,7 @@ struct TypeChecker {
       // If the receiver is an existential, replace its receiver.
       if let container = ExistentialType(context?.type) {
         candidateType = candidateType.asMember(of: container)
-        if let t = traitDefining(m) {
+        if let t = traitDeclaring(m) {
           specialization[program[t.decl].receiver] = ^WitnessType(of: container)
         }
       }
@@ -3669,7 +3697,7 @@ struct TypeChecker {
   }
 
   /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
-  mutating func traitDefining<T: DeclID>(_ d: T) -> TraitType? {
+  mutating func traitDeclaring<T: DeclID>(_ d: T) -> TraitType? {
     guard let p = program.nodeToScope[d] else {
       assert(d.kind == ModuleDecl.self)
       return nil
@@ -3681,9 +3709,9 @@ struct TypeChecker {
     case ExtensionDecl.self:
       return TraitType(uncheckedType(of: ExtensionDecl.ID(p)!))
     case MethodDecl.self:
-      return traitDefining(MethodDecl.ID(p)!)
+      return traitDeclaring(MethodDecl.ID(p)!)
     case SubscriptDecl.self:
-      return traitDefining(SubscriptDecl.ID(p)!)
+      return traitDeclaring(SubscriptDecl.ID(p)!)
     default:
       return nil
     }
@@ -3795,33 +3823,43 @@ struct TypeChecker {
     _ subject: AnyType, in contextOfUse: InstantiationContext, cause: ConstraintOrigin,
     updating substitutions: inout [GenericParameterDecl.ID: AnyType]
   ) -> InstantiatedType {
-    func instantiate(mutating me: inout Self, type: AnyType) -> TypeTransformAction {
-      switch type.base {
-      case is AssociatedTypeType:
-        UNIMPLEMENTED("quantifier elimination for associated types (#1043)")
+    let shape = subject.transform(mutating: &self, transform)
+    return InstantiatedType(shape: shape, constraints: [])
 
-      case let p as GenericTypeParameterType:
-        if let t = substitutions[p.decl] {
-          return .stepOver(t)
-        } else if me.shouldOpen(p, in: contextOfUse) {
-          // TODO: Collect constraints
-          return .stepOver(substitutions[p.decl].setIfNil(^me.freshVariable()))
-        } else {
-          return .stepOver(substitutions[p.decl].setIfNil(type))
-        }
+    func transform(mutating me: inout Self, _ t: AnyType) -> TypeTransformAction {
+      // Nothing to do if `t` doesn't contain any generic parameter.
+      if !t[.hasGenericTypeParameter] && !t[.hasGenericValueParameter] {
+        return .stepOver(t)
+      }
 
+      switch t.base {
+      case let u as AssociatedTypeType:
+        return transform(mutating: &me, u)
+      case let u as GenericTypeParameterType:
+        return transform(mutating: &me, u)
       default:
-        // Nothing to do if `type` isn't parameterized.
-        if type[.hasGenericTypeParameter] || type[.hasGenericValueParameter] {
-          return .stepInto(type)
-        } else {
-          return .stepOver(type)
-        }
+        return .stepInto(t)
       }
     }
 
-    let shape = subject.transform(mutating: &self, instantiate(mutating:type:))
-    return InstantiatedType(shape: shape, constraints: [])
+    func transform(
+      mutating me: inout Self, _ t: AssociatedTypeType
+    ) -> TypeTransformAction {
+      UNIMPLEMENTED("quantifier elimination for associated types (#1043)")
+    }
+
+    func transform(
+      mutating me: inout Self, _ t: GenericTypeParameterType
+    ) -> TypeTransformAction {
+      if let t = substitutions[t.decl] {
+        return .stepOver(t)
+      } else if me.shouldOpen(t, in: contextOfUse) {
+        // TODO: Collect constraints
+        return .stepOver(substitutions[t.decl].setIfNil(^me.freshVariable()))
+      } else {
+        return .stepOver(substitutions[t.decl].setIfNil(^t))
+      }
+    }
   }
 
   /// Instantiates the contents of `constraints` in `contextOfUse`, updating `substitutions` with
@@ -3848,15 +3886,22 @@ struct TypeChecker {
   private func shouldOpen(
     _ p: GenericTypeParameterType, in contextOfUse: InstantiationContext
   ) -> Bool {
+    // Generic parameters introduced by a trait can't be referenced outside of their environment.
     let introductionScope = program[p.decl].scope
+    if introductionScope.kind == TraitDecl.self {
+      return false
+    }
 
+    // Reference is contained if it's lexically enclosed in the parameter's environment or if it
+    // occurs in an extension of the scope associated with that environment.
     if program.isContained(contextOfUse.scopeOfUse, in: introductionScope) {
       return false
     } else if let s = contextOfUse.extendedScope {
       return !program.isContained(s, in: introductionScope)
-    } else {
-      return true
     }
+
+    // Reference is not contained.
+    return true
   }
 
   /// Returns `true` iff a use of `d` in `scopeOfUse` is recursive.
@@ -4651,9 +4696,9 @@ struct TypeChecker {
   private mutating func inferredIterationElementType(of s: ForStmt.ID) -> AnyType? {
     guard let domain = checkedType(of: program[s].domain.value).errorFree else { return nil }
 
-    let isConsuming = program[s].binding.pattern.introducer.value.isConsuming
+    let isConsuming = program.ast.isConsuming(s)
     let domainTraits = conformedTraits(of: domain, in: program[s].scope)
-    let collection = program.ast.coreTrait("Collection")!
+    let collection = program.ast.core.collection.type
 
     // By default, non-consuming loops use `Collection`.
     if !isConsuming && domainTraits.contains(collection) {
@@ -4661,7 +4706,7 @@ struct TypeChecker {
       return demandImplementation(of: r, for: domain, in: program[s].scope)
     }
 
-    let iterator = program.ast.coreTrait("Iterator")!
+    let iterator = program.ast.core.iterator.type
 
     // Any kind of for loop can consume an iterator.
     if domainTraits.contains(iterator) {
@@ -4919,9 +4964,9 @@ struct TypeChecker {
   private mutating func compareDepth(
     _ lhs: AnyDeclID, _ rhs: AnyDeclID, in scopeOfUse: AnyScopeID
   ) -> StrictPartialOrdering {
-    if let l = traitDefining(lhs) {
+    if let l = traitDeclaring(lhs) {
       // If `lhs` is a trait member but `rhs` isn't, then `rhs` shadows `lhs`.
-      guard let r = traitDefining(rhs) else { return .descending }
+      guard let r = traitDeclaring(rhs) else { return .descending }
 
       // If `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, then `lhs` shadows
       // `rhs` iff `t1` refines `t2`.
@@ -4930,7 +4975,7 @@ struct TypeChecker {
       return nil
     }
 
-    if traitDefining(rhs) != nil {
+    if traitDeclaring(rhs) != nil {
       // If `rhs` is a trait member but `lhs` isn't, then `lhs` shadows `rhs`.
       return .ascending
     }

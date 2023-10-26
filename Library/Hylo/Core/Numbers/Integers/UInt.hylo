@@ -117,7 +117,7 @@ public conformance UInt: BinaryInteger {
 
   public init<T: BinaryInteger>(truncating_or_extending source: T) {
     let w = source.words()
-    &self.value = w[w.start_index()].value
+    &self.value = w[w.start_position()].value
   }
 
   public fun instance_bit_width() -> Int {

@@ -11,21 +11,18 @@ extension LLVM.Module {
     let source = ir.modules[m]!
     self.init(source.name)
 
-    for g in source.globals.indices {
-      incorporate(g, of: source, from: ir)
+    for t in source.productTypes {
+      _ = demandMetatype(of: ^t, usedIn: source, from: ir)
+    }
+    for t in source.traits {
+      _ = demandTrait(t, usedIn: source, from: ir)
+    }
+    for a in source.allocations {
+      incorporate(a, of: source, from: ir)
     }
     for f in source.functions.keys {
       incorporate(f, of: source, from: ir)
     }
-  }
-
-  /// Transpiles and incorporates `g`, which is a function of `m` in `ir`.
-  mutating func incorporate(_ g: IR.Module.GlobalID, of m: IR.Module, from ir: IR.Program) {
-    let v = transpiledConstant(m.globals[g], usedIn: m, from: ir)
-    let d = declareGlobalVariable("\(m.id)\(g)", v.type)
-    setInitializer(v, for: d)
-    setLinkage(.private, for: d)
-    setGlobalConstant(true, for: d)
   }
 
   /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
@@ -45,6 +42,58 @@ extension LLVM.Module {
         defineMain(calling: f, of: m, from: ir)
       }
     }
+  }
+
+  /// Transpiles and incorates `s`, which is a static allocation of `m` in `ir`.
+  ///
+  /// The storage is allocated along with a flag keeping track of its initialization state. Access
+  /// is provided by an addressor that initializes the storage the first time it is called using
+  /// `s.initializer`.
+  private mutating func incorporate(_ s: StaticStorage, of m: IR.Module, from ir: IR.Program) {
+    let prefix = ir.base.mangled(s.id)
+
+    // Define the static allocation.
+    let t = ir.llvm(s.pointee, in: &self)
+    let u = LLVM.StructType(named: prefix + ".T", [t, self.i1], in: &self)
+    let storage = addGlobalVariable(prefix + ".S", u)
+    setInitializer(u.null, for: storage)
+    setLinkage(.private, for: storage)
+
+    // Define the addressor projecting the allocated access.
+    incorporate(s.initializer, of: m, from: ir)
+    let initializer = function(named: ir.base.mangled(s.initializer))!
+    let addressor = declareFunction(prefix, .init(from: [], to: ptr, in: &self))
+
+    let entry = appendBlock(to: addressor)
+    var insertionPoint = endOf(entry)
+
+    // %0 = getelementptr @storage, 0
+    // %1 = getelementptr @storage, 1
+    // %2 = load %1
+    let x0 = insertGetStructElementPointer(
+      of: storage, typed: u, index: 0, at: insertionPoint)
+    let x1 = insertGetStructElementPointer(
+      of: storage, typed: u, index: 1, at: insertionPoint)
+    let x2 = insertLoad(i1, from: x1, at: insertionPoint)
+
+    // b1 %2, b0, b1
+    let b0 = appendBlock(named: "project", to: addressor)
+    let b1 = appendBlock(named: "init", to: addressor)
+    insertCondBr(if: x2, then: b0, else: b1, at: insertionPoint)
+
+    // %3 = alloca {}
+    // call void initializer(%0, %3)
+    // store true, %1
+    // br b0
+    insertionPoint = endOf(b1)
+    let x3 = insertAlloca(ir.llvm(AnyType.void, in: &self), at: insertionPoint)
+    _ = insertCall(initializer, on: [x0, x3], at: insertionPoint)
+    _ = insertStore(i1.constant(1), to: x1, at: insertionPoint)
+    insertBr(to: b0, at: insertionPoint)
+
+    // ret %1
+    insertionPoint = endOf(b0)
+    insertReturn(x0, at: insertionPoint)
   }
 
   private mutating func defineMain(
@@ -167,35 +216,37 @@ extension LLVM.Module {
   ) -> LLVM.IRValue {
     switch c {
     case let v as IR.IntegerConstant:
-      guard v.value.bitWidth <= 64 else { UNIMPLEMENTED() }
-      let t = LLVM.IntegerType(v.value.bitWidth, in: &self)
-      return t.constant(v.value.words[0])
-
+      return transpiledConstant(v, usedIn: m, from: ir)
     case let v as IR.FloatingPointConstant:
-      let t = LLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
-      return t.constant(parsing: v.value)
-
+      return transpiledConstant(v, usedIn: m, from: ir)
     case let v as IR.WitnessTable:
       return transpiledWitnessTable(v, usedIn: m, from: ir)
-
-    case let v as IR.PointerConstant:
-      return global(named: "\(v.container)\(v.id)")!
-
     case let v as IR.FunctionReference:
       return declare(v, from: ir)
-
     case let v as MetatypeType:
-      return transpiledMetatype(of: v.instance, usedIn: m, from: ir)
-
-    case let v as TraitType:
-      return transpiledTrait(v, usedIn: m, from: ir)
-
+      return demandMetatype(of: v.instance, usedIn: m, from: ir)
     case is IR.VoidConstant:
       return LLVM.StructConstant(aggregating: [], in: &self)
-
     default:
       unreachable()
     }
+  }
+
+  /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
+  private mutating func transpiledConstant(
+    _ c: IR.IntegerConstant, usedIn m: IR.Module, from ir: IR.Program
+  ) -> LLVM.IRValue {
+    guard c.value.bitWidth <= 64 else { UNIMPLEMENTED() }
+    let t = LLVM.IntegerType(c.value.bitWidth, in: &self)
+    return t.constant(c.value.words[0])
+  }
+
+  /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
+  private mutating func transpiledConstant(
+    _ c: IR.FloatingPointConstant, usedIn m: IR.Module, from ir: IR.Program
+  ) -> LLVM.IRValue {
+    let t = LLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
+    return t.constant(parsing: c.value)
   }
 
   /// Returns the LLVM IR value of the witness table `t` used in `m` in `ir`.
@@ -218,7 +269,7 @@ extension LLVM.Module {
 
     // Encode the table's header.
     var tableContents: [LLVM.IRValue] = [
-      transpiledMetatype(of: t.witness, usedIn: m, from: ir),
+      demandMetatype(of: t.witness, usedIn: m, from: ir),
       word().constant(t.conformances.count),
     ]
 
@@ -227,7 +278,7 @@ extension LLVM.Module {
     var implementations: [LLVM.IRValue] = []
     for c in t.conformances {
       let entry: [LLVM.IRValue] = [
-        transpiledTrait(c.concept, usedIn: m, from: ir),
+        demandTrait(c.concept, usedIn: m, from: ir),
         word().constant(implementations.count),
       ]
       entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
@@ -279,7 +330,7 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
-  private mutating func transpiledMetatype(
+  private mutating func demandMetatype(
     of t: AnyType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     demandMetatype(of: t, usedIn: m, from: ir) { (me, v) in
@@ -340,6 +391,8 @@ extension LLVM.Module {
     setGlobalConstant(true, for: instance)
   }
 
+  /// Returns the LLVM IR value of `t` used in `m` in `ir`, calling `initializeInstance` to
+  /// initialize it.
   private mutating func demandMetatype<T: TypeProtocol>(
     of t: T, usedIn m: IR.Module, from ir: IR.Program,
     initializedWith initializeInstance: (inout Self, LLVM.GlobalVariable) -> Void
@@ -354,7 +407,7 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
-  private mutating func transpiledTrait(
+  private mutating func demandTrait(
     _ t: TraitType, usedIn m: IR.Module, from ir: IR.Program
   ) -> LLVM.GlobalVariable {
     // Check if we already created the trait's instance.
@@ -738,7 +791,9 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(globalAddr i: IR.InstructionID) {
       let s = m[i] as! IR.GlobalAddr
-      register[.register(i)] = global(named: "\(s.container)\(s.id)")!
+      let n = ir.base.mangled(s.binding)
+      let a = declareFunction(n, .init(from: [], to: ptr, in: &self))
+      register[.register(i)] = insertCall(a, on: [], at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
