@@ -7,7 +7,7 @@ fun prime() -> Int {
   return 17
 }
 
-fun logic<E>(withDelayed value: @autoclosure ([E]() -> Int)) {
+fun logic<E>(withDelayed value: @autoclosure [E]() -> Int) {
   precondition(counter == 0)
   let x = value()
   precondition(counter == 1)
