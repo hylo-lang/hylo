@@ -288,7 +288,6 @@ public struct Driver: ParsableCommand {
     arguments.append(contentsOf: librarySearchPaths.map({ "-L\($0)" }))
     arguments.append(contentsOf: objects.map(\.path))
     arguments.append("-lSystem")
-    arguments.append("-lc++")
     arguments.append(contentsOf: libraries.map({ "-l\($0)" }))
 
     try runCommandLine(xcrun, arguments, diagnostics: &diagnostics)
