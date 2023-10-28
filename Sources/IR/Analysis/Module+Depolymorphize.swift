@@ -349,8 +349,7 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(globalAddr i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! GlobalAddr
-      let t = monomorphize(s.valueType, for: specialization, in: scopeOfUse)
-      append(makeGlobalAddr(of: s.id, in: s.container, typed: t, at: s.site), to: b)
+      append(makeGlobalAddr(of: s.binding, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
@@ -505,9 +504,8 @@ extension Module {
     /// a monomorphized copy of `f`.
     func rewritten(_ f: Function.ID, specializedBy a: GenericArguments) -> Function.ID {
       let p = program.specialize(a, for: specialization, in: scopeOfUse)
-      if let m = program.traitMember(referredBy: f) {
-        return monomorphize(
-          requirement: m.declaration, of: m.trait, in: ir, for: p, in: scopeOfUse)
+      if let m = program.requirementDeclaring(memberReferredBy: f) {
+        return monomorphize(requirement: m.decl, of: m.trait, in: ir, for: p, in: scopeOfUse)
       } else {
         return monomorphize(f, in: ir, for: p, in: scopeOfUse)
       }

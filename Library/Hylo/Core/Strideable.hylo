@@ -1,0 +1,21 @@
+/// A contiguous, one-dimensional space whose values can be offset and measured.
+public trait Strideable: Comparable {
+
+  /// A distance between two instances of `Self`.
+  type Stride: SignedNumeric, Comparable
+
+  /// Returns the offset to be added to `self` to get `other`.
+  ///
+  /// - Complexity: O(1).
+  fun offset(to other: Self) -> Stride
+
+  /// Returns `self` offset by the given amount.
+  ///
+  /// The absolute value of `offset` is the distance between `self` and the returned value. If
+  /// `offset` is positive or negative, the returned value is greater or lesser then `self`,
+  /// respectively. Otherwise, the returned value is equal to `self`.
+  ///
+  /// - Complexity: O(1).
+  fun advance(by offset: Stride) -> Self
+
+}

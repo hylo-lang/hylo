@@ -6,12 +6,10 @@ import Utils
 
 /// A module lowered to Hylo IR.
 ///
-/// An IR module is notionally composed of a collection of functions, one of which may be
-/// designated as its entry point (i.e., the `main` function of a Hylo program).
+/// A lowered module is a collection of IR functions and a collection of constant IR values, which
+/// represent nominal types, traits, and global bindings. These entities may not necessarily have
+/// a definition. When they don't, they denote a declaration known to be defined in another module.
 public struct Module {
-
-  /// The identity of a global defined in a Hylo IR module.
-  public typealias GlobalID = Int
 
   /// The program defining the functions in `self`.
   public let program: TypedProgram
@@ -22,16 +20,26 @@ public struct Module {
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
 
-  /// The globals in the module.
-  public private(set) var globals: [any Constant] = []
+  /// The nominal product types defined in the module.
+  public private(set) var productTypes: [ProductType] = []
+
+  /// The traits defined in the module.
+  public private(set) var traits: [TraitType] = []
+
+  /// The static allocations defined in the module.
+  public private(set) var allocations: [StaticStorage] = []
 
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
-  /// The synthesized functions used and defined in the module.
+  /// The synthesized declarations used and defined in the module.
   public private(set) var synthesizedDecls = OrderedSet<SynthesizedFunctionDecl>()
 
   /// The module's entry function, if any.
+  ///
+  /// An entry function is the lowered form of a program's entry point, that is the `main` function
+  /// of a Hylo program. A module with an entry function is called an entry module. There can be
+  /// only one entry module in a program.
   public private(set) var entryFunction: Function.ID?
 
   /// Creates an instance lowering `m` in `p`, reporting errors and warnings to `log`.
@@ -222,19 +230,29 @@ public struct Module {
     try log.throwOnError()
   }
 
-  /// Adds a global constant and returns its identity.
-  mutating func addGlobal<C: Constant>(_ value: C) -> GlobalID {
-    let id = globals.count
-    globals.append(value)
-    return id
+  /// Adds `t` to the set of nominal product types defined in `self`.
+  mutating func addProductType(_ t: ProductType) {
+    productTypes.append(t)
   }
 
-  /// Assigns `identity` to `function` in `self`.
+  /// Adds `t` to the set of traits defined in `self`.
+  mutating func addTrait(_ t: TraitType) {
+    traits.append(t)
+  }
+
+  /// Adds `d` to the set of static allocations in `self`.
+  mutating func addStaticStorage(_ s: StaticStorage) {
+    allocations.append(s)
+  }
+
+  /// Assigns `identity` to `value` in `self`.
   ///
   /// - Requires: `identity` is not already assigned.
-  mutating func addFunction(_ function: Function, for identity: Function.ID) {
-    precondition(functions[identity] == nil)
-    functions[identity] = function
+  mutating func addFunction(_ value: Function, for identity: Function.ID) {
+    modify(&functions[identity]) { (f) in
+      precondition(f == nil)
+      f = value
+    }
   }
 
   /// Returns the identity of the IR function corresponding to `i`.
@@ -384,12 +402,11 @@ public struct Module {
       d.type.captures, passed: d.type.receiverEffect, to: &inputs, canonicalizedIn: d.scope)
     appendParameters(d.type.inputs, to: &inputs, canonicalizedIn: d.scope)
 
-    let genericParameters = BoundGenericType(d.receiver).map({ Array($0.arguments.keys) }) ?? []
     let entity = Function(
       isSubscript: false,
       site: .empty(at: program.ast[id].site.first()),
       linkage: .external,
-      genericParameters: genericParameters,
+      genericParameters: d.genericParameters,
       inputs: inputs,
       output: output,
       blocks: [])
@@ -403,24 +420,62 @@ public struct Module {
     return f
   }
 
-  /// Returns the identity of the IR function implementing the deinitializer defined in
-  /// conformance `c`.
+  /// Returns the implementation of the requirement named `r` in `witness`.
+  ///
+  /// - Requires: `r` identifies a function or subscript requirement in the trait for which
+  ///   `witness` has been established.
+  mutating func demandImplementation<T: Decl>(
+    of r: T.ID, for witness: Core.Conformance
+  ) -> Function.ID {
+    demandDeclaration(lowering: witness.implementations[r]!)
+  }
+
+  /// Returns the IR function implementing the deinitializer defined in `c`.
   mutating func demandDeinitDeclaration(
     from c: Core.Conformance
   ) -> Function.ID {
-    let d = program.ast.deinitRequirement()
+    let d = program.ast.core.deinitializable.deinitialize
     return demandDeclaration(lowering: c.implementations[d]!)
   }
 
-  /// Returns the identity of the IR function implementing the `k` variant move-operation defined
-  /// in conformance `c`.
+  /// Returns the IR function implementing the `k` variant move-operation defined in `c`.
   ///
   /// - Requires: `k` is either `.set` or `.inout`
-  mutating func demandMoveOperatorDeclaration(
+  mutating func demandTakeValueDeclaration(
     _ k: AccessEffect, from c: Core.Conformance
   ) -> Function.ID {
-    let d = program.ast.moveRequirement(k)
-    return demandDeclaration(lowering: c.implementations[d]!)
+    switch k {
+    case .set:
+      let d = program.ast.core.movable.moveInitialize
+      return demandDeclaration(lowering: c.implementations[d]!)
+    case .inout:
+      let d = program.ast.core.movable.moveAssign
+      return demandDeclaration(lowering: c.implementations[d]!)
+    default:
+      preconditionFailure()
+    }
+  }
+
+  /// Returns a function reference to the implementation of the requirement `r` in `witness`.
+  ///
+  /// - Requires: `r` identifies a function or subscript requirement in the trait for which
+  ///   `witness` has been established.
+  mutating func reference<T: Decl>(
+    toImplementationOf r: T.ID, for witness: Core.Conformance
+  ) -> FunctionReference {
+    let d = demandImplementation(of: r, for: witness)
+    return reference(to: d, implementedFor: witness)
+  }
+
+  /// Returns a function reference to `d`, which is an implementation that's part of `witness`.
+  func reference(
+    to d: Function.ID, implementedFor witness: Core.Conformance
+  ) -> FunctionReference {
+    var a = witness.arguments
+    if let m = program.traitMember(referredBy: d) {
+      a = a.merging([program[m.trait.decl].receiver: witness.model])
+    }
+    return FunctionReference(to: d, in: self, specializedBy: a, in: witness.scope)
   }
 
   /// Returns the lowered declarations of `d`'s parameters.
@@ -507,11 +562,9 @@ public struct Module {
   }
 
   /// Returns a pointer to the witness table of `t` used in `scopeOfUse`.
-  mutating func demandWitnessTable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> PointerConstant {
-    let w = WitnessTable(
-      for: t, conformingTo: loweredConformances(of: t, exposedTo: scopeOfUse),
-      in: scopeOfUse)
-    return PointerConstant(id, addGlobal(w))
+  mutating func demandWitnessTable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> WitnessTable {
+    let cs = loweredConformances(of: t, exposedTo: scopeOfUse)
+    return WitnessTable(for: t, conformingTo: cs, in: scopeOfUse)
   }
 
   /// Returns the lowered conformances of `model` that are exposed to `useScope`.

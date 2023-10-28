@@ -1,8 +1,6 @@
 /// A collection containing a single element.
 public type CollectionOfOne<Element: Movable & Deinitializable>: Deinitializable {
 
-  public typealias Index = Bool
-
   /// The element contained in `self`.
   var contents: Element
 
@@ -11,16 +9,22 @@ public type CollectionOfOne<Element: Movable & Deinitializable>: Deinitializable
     &self.contents = contents
   }
 
-  public fun start_index() -> Bool { false }
+}
 
-  public fun end_index() -> Bool { true }
+public conformance CollectionOfOne: Collection {
 
-  public fun index(after i: Bool) -> Bool { true }
+  public typealias Position = Bool
+
+  public fun start_position() -> Bool { false }
+
+  public fun end_position() -> Bool { true }
+
+  public fun position(after i: Bool) -> Bool { true }
 
   public subscript(_ position: Bool): Element {
     let {
       // TODO: uncomment when #1046 is implemented
-      // precondition(!position, "index is out of bounds")
+      // precondition(!position, "position is out of bounds")
       yield contents
     }
   }

@@ -186,7 +186,7 @@ public struct TypedProgram {
   public func isTriviallyDeinitializable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
     let model = canonical(t, in: scopeOfUse)
 
-    guard let c = conformance(of: model, to: ast.deinitializableTrait, exposedTo: scopeOfUse)
+    guard let c = conformance(of: model, to: ast.core.deinitializable.type, exposedTo: scopeOfUse)
     else {
       // Built-in types never have conformances.
       switch model.base {
@@ -289,6 +289,30 @@ public struct TypedProgram {
     return checker.accumulatedGenericParameters(in: s)
   }
 
+  /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
+  public func traitDeclaring<T: DeclID>(_ d: T) -> TraitType? {
+    var checker = TypeChecker(asContextFor: self)
+    return checker.traitDeclaring(d)
+  }
+
+  /// If `d` is member of a trait `c`, returns `(d, c)` if `d` is a requirement, or `(r, c)` if `d`
+  /// is a default implementation of a requirement `r`. Otherwise, returns `nil`.
+  public func requirementDeclaring(_ d: AnyDeclID) -> (decl: AnyDeclID, trait: TraitType)? {
+    guard let c = traitDeclaring(d) else { return nil }
+
+    // `d` might be the default definition of itself.
+    if isRequirement(d) { return (d, c) }
+
+    // `d` might be the default implementation of some requirement with the same type.
+    let s = nodeToScope[d]!
+    let n = name(of: d)
+    let t = canonical(declType[d]!, in: s)
+    let r = ast.requirements(of: c.decl).first { (m) in
+      n == name(of: m) && areEquivalent(t, declType[m]!, in: s)
+    }
+    return r.map({ ($0, c) })
+  }
+
   /// Returns `true` iff `model` conforms to `concept` in `scopeOfUse`.
   public func conforms(
     _ model: AnyType, to concept: TraitType, in scopeOfUse: AnyScopeID
@@ -328,43 +352,19 @@ public struct TypedProgram {
   /// This method returns `nil` if the conformance of `model` to `concept` is structural (e.g., a
   /// tuple's synthesized conformance to `Movable`) or if the conformance is implied by a trait
   /// bound (e.g., `T: P` in `fun f<T: P>() {}`).
+  ///
+  /// - Requires: `model` is canonical.
   private func explicitConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
-    assert(model[.isCanonical])
-
-    // `A<X>: T` iff `A: T`.
-    if let t = BoundGenericType(model) {
-      guard let c = conformance(of: t.base, to: concept, exposedTo: scopeOfUse) else {
-        return nil
-      }
-
-      // TODO: translate generic arguments to conditions
-
-      return .init(
-        model: t.base, concept: concept, arguments: t.arguments, conditions: [],
-        scope: c.scope, implementations: c.implementations, isStructural: c.isStructural,
-        site: c.site)
-    }
-
-    guard
-      let allConformances = conformances[model],
-      let conformancesToConcept = allConformances[concept]
-    else { return nil }
-
-    // Return the first conformance exposed to `scopeOfUse`.
-    let exposed = modules(exposedTo: scopeOfUse)
-    return conformancesToConcept.first { (c) in
-      if let m = ModuleDecl.ID(c.scope), exposed.contains(m) {
-        return true
-      } else {
-        return isContained(scopeOfUse, in: c.scope)
-      }
-    }
+    let checker = TypeChecker(asContextFor: self)
+    return checker.cachedConformance(of: model, to: concept, exposedTo: scopeOfUse)
   }
 
   /// Returns the conformance of `model` to `concept` that is implied by the generic environment
   /// introducing `model` in `scopeOfUse`, or `nil` if such a conformance doesn't exist.
+  ///
+  /// - Requires: `model` is canonical.
   private func impliedConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
@@ -422,6 +422,15 @@ public struct TypedProgram {
       site: .empty(at: ast[scopeOfUse].site.first()))
   }
 
+  /// Returns the type satisfying the associated type requirement `n` in conformance `c`.
+  ///
+  /// - Requires: `n` is declared by the trait for which `c` has been established.
+  public func associatedType(_ n: AssociatedTypeDecl.ID, for c: Core.Conformance) -> AnyType {
+    let d = c.implementations[n]!.decl!
+    let t = specialize(MetatypeType(declType[d]!)!.instance, for: c.arguments, in: c.scope)
+    return canonical(t, in: c.scope)
+  }
+
   /// Returns the foreign representation of `t` using its conformance to `ForeignConvertible` in
   /// `scopeOfUse`.
   ///
@@ -429,13 +438,13 @@ public struct TypedProgram {
   public func foreignRepresentation(
     of t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> AnyType {
-    let f = ast.coreTrait("ForeignConvertible")!
-    let d = ast.requirements("ForeignRepresentation", in: f.decl)[0]
+    let f = ast.core.foreignConvertible
+    let d = f.foreignRepresentation
 
     // Since conformances of built-in types are not stored in property maps, we'll exit the loop
     // when we assign one to `result`.
     var result = t
-    while let c = conformance(of: result, to: f, exposedTo: scopeOfUse) {
+    while let c = conformance(of: result, to: f.type, exposedTo: scopeOfUse) {
       // `d` is an associated type declaration so its implementations must have a metatype.
       let i = c.implementations[d]!.decl!
       result = MetatypeType(canonical(self[i].type, in: self[d].scope))!.instance
@@ -451,7 +460,7 @@ public struct TypedProgram {
   }
 
   /// Returns the modules visible to `s`:
-  private func modules(exposedTo s: AnyScopeID) -> Set<ModuleDecl.ID> {
+  public func modules(exposedTo s: AnyScopeID) -> Set<ModuleDecl.ID> {
     if let m = ModuleDecl.ID(s) {
       return [m]
     } else {

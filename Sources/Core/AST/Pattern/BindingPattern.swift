@@ -6,6 +6,7 @@ import Utils
 /// bindings, instead of referring to existing declarations.
 public struct BindingPattern: Pattern {
 
+  /// An introducer in a binding pattern.
   public enum Introducer: Codable {
 
     case `let`
@@ -15,6 +16,11 @@ public struct BindingPattern: Pattern {
     case sinklet
 
     case `inout`
+
+    /// `true` if `self` is `var` or `sinklet`.
+    public var isConsuming: Bool {
+      (self == .var) || (self == .sinklet)
+    }
 
   }
 

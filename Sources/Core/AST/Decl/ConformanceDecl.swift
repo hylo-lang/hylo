@@ -1,5 +1,5 @@
 /// A declaration that extends a type with new conformances.
-public struct ConformanceDecl: TypeExtendingDecl {
+public struct ConformanceDecl: ConformanceSource, TypeExtendingDecl {
 
   public static let constructDescription = "conformance declaration"
 

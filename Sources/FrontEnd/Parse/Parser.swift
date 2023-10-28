@@ -410,7 +410,12 @@ public enum Parser {
         site: state.range(from: prologue.startIndex)))
   }
 
-  /// Parses an instance of `BindingDecl`.
+  /// Parses a declaration of bindings.
+  private static func parseBindingDecl(in state: inout ParserState) throws -> BindingDecl.ID? {
+    try parseDeclPrologue(in: &state, then: parseBindingDecl(withPrologue:in:))
+  }
+
+  /// Parses a declaration of bindings prefixed by the given (already parsed) `prologue`.
   static func parseBindingDecl(
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
@@ -1223,16 +1228,6 @@ public enum Parser {
 
   static let subscriptImpl = (implIntroducer.and(maybe(functionBody)))
 
-  static let bindingDecl =
-    (Apply<ParserState, BindingDecl.ID>({ (state) -> BindingDecl.ID? in
-      switch state.peek()?.kind {
-      case .let, .inout, .var, .sink:
-        return try parseDeclPrologue(in: &state, then: parseBindingDecl(withPrologue:in:))
-      default:
-        return nil
-      }
-    }))
-
   static let parameterDecl =
     (parameterInterface
       .and(maybe(take(.colon).and(parameterTypeExpr)))
@@ -1292,12 +1287,24 @@ public enum Parser {
     .public: AccessModifier.public,
   ])
 
-  static let captureList = inContext(
-    .captureList,
-    apply: (take(.lBrack)
-      .and(bindingDecl.and(zeroOrMany(take(.comma).and(bindingDecl).second)))
-      .and(take(.rBrack))
-      .map({ (_, tree) -> [BindingDecl.ID] in [tree.0.1.0] + tree.0.1.1 })))
+  static let captureList = Apply(parseCaptureList(in:))
+
+  /// Parses a capture list.
+  private static func parseCaptureList(in state: inout ParserState) throws -> [BindingDecl.ID]? {
+    try parseList(in: &state, with: captureListSpecification)
+  }
+
+  /// Parses an explicit capture declaration.
+  private static func parseCaptureDecl(in state: inout ParserState) throws -> BindingDecl.ID? {
+    try parseBindingDecl(in: &state)
+  }
+
+  /// The specification of a capture list, for use in `parseList(in:with:)`.
+  private static let captureListSpecification = DelimitedCommaSeparatedList(
+    openerKind: .lBrack,
+    closerKind: .rBrack,
+    closerDescription: "]",
+    elementParser: Apply(parseCaptureDecl(in:)))
 
   static let genericClause =
     (take(.lAngle).and(genericParameterListContents).and(maybe(whereClause)).and(take(.rAngle))
@@ -2348,22 +2355,38 @@ public enum Parser {
     (conditionalClauseItem.and(zeroOrMany(take(.comma).and(conditionalClauseItem).second))
       .map({ (_, tree) -> [ConditionItem] in [tree.0] + tree.1 }))
 
-  static let conditionalClauseItem = Choose(
-    bindingPattern.and(take(.assign)).and(expr)
-      .map({ (state, tree) -> ConditionItem in
-        let startOfBindingDecl = state.ast[tree.0.0].site
-        let id = state.insert(
-          BindingDecl(
-            accessModifier: SourceRepresentable(value: .private, range: startOfBindingDecl),
-            pattern: tree.0.0,
-            initializer: tree.1,
-            site: startOfBindingDecl.extended(upTo: state.currentIndex)))
-        return .decl(id)
-      }),
-    or:
-      expr
-      .map({ (_, id) -> ConditionItem in .expr(id) })
-  )
+  static let conditionalClauseItem = Apply(parseConditionalClauseItem(in:))
+
+  /// Parses a part of a conditional clause.
+  private static func parseConditionalClauseItem(
+    in state: inout ParserState
+  ) throws -> ConditionItem? {
+    if let item = try parseConditionalClauseBinding(in: &state) {
+      return item
+    } else {
+      return try parseExpr(in: &state).map({ .expr($0) })
+    }
+  }
+
+  /// Parses a binding declaration used as part of a conditional clause.
+  private static func parseConditionalClauseBinding(
+    in state: inout ParserState
+  ) throws -> ConditionItem? {
+    guard let pattern = try parseBindingPattern(in: &state) else { return nil }
+
+    _ = try state.expect("'='", using: { $0.take(.assign) })
+    let rhs = try state.expect("expression", using: parseExpr(in:))
+
+    let s = state.ast[pattern].site
+    let d = state.insert(
+      BindingDecl(
+        accessModifier: SourceRepresentable(value: .private, range: s),
+        memberModifier: nil,
+        pattern: pattern,
+        initializer: rhs,
+        site: s.extended(upTo: state.currentIndex)))
+    return .decl(d)
+  }
 
   // MARK: Comma-separated lists
 
@@ -2784,28 +2807,48 @@ public enum Parser {
             site: tree.0.0.site.extended(upTo: state.currentIndex)))
       }))
 
-  static let forStmt =
-    (take(.for).and(bindingPattern).and(forSite).and(maybe(forFilter)).and(loopBody)
-      .map({ (state, tree) -> ForStmt.ID in
-        let startOfBindingDecl = state.ast[tree.0.0.0.1].site
-        let decl = state.insert(
-          BindingDecl(
-            accessModifier: SourceRepresentable(value: .private, range: startOfBindingDecl),
-            pattern: tree.0.0.0.1,
-            initializer: nil,
-            site: startOfBindingDecl))
-        return state.insert(
-          ForStmt(
-            introducerSite: tree.0.0.0.0.site,
-            binding: decl, domain: tree.0.0.1, filter: tree.0.1, body: tree.1,
-            site: tree.0.0.0.0.site.extended(upTo: state.currentIndex)))
-      }))
+  static let forStmt = Apply(parseForLoop(in:))
 
-  static let forSite =
-    (take(.in).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site) }))
+  /// Parses a for-loop.
+  private static func parseForLoop(in state: inout ParserState) throws -> ForStmt.ID? {
+    guard let introducer = state.take(.for) else { return nil }
 
-  static let forFilter =
-    (take(.where).and(expr).map({ (state, tree) in Introduced(tree.1, at: tree.0.site) }))
+    let binding = try state.expect("binding", using: parseForLoopBinding(in:))
+    let domainIntroducer = try state.expect("in", using: { $0.take(.in) })
+    let domain = try state.expect("expression", using: parseExpr(in:))
+    let filter = try parseForLoopFilter(in: &state)
+    let body = try state.expect("loop body", using: loopBody)
+
+    return state.insert(
+      ForStmt(
+        introducerSite: introducer.site,
+        binding: binding,
+        domain: .init(domain, at: domainIntroducer.site),
+        filter: filter, body: body,
+        site: introducer.site.extended(upTo: state.currentIndex)))
+  }
+
+  /// Parses the binding of a for-loop.
+  private static func parseForLoopBinding(in state: inout ParserState) throws -> BindingDecl.ID? {
+    guard let pattern = try parseBindingPattern(in: &state) else { return nil }
+    let s = state.ast[pattern].site
+    return state.insert(
+      BindingDecl(
+        accessModifier: SourceRepresentable(value: .private, range: s),
+        memberModifier: nil,
+        pattern: pattern,
+        initializer: nil,
+        site: s))
+  }
+
+  /// Parses the filter of a for-loop.
+  private static func parseForLoopFilter(
+    in state: inout ParserState
+  ) throws -> Introduced<AnyExprID>? {
+    guard let introducer = state.take(.where) else { return nil }
+    let e = try state.expect("expression", using: parseExpr(in:))
+    return .init(e, at: introducer.site)
+  }
 
   static let loopBody = inContext(.loopBody, apply: braceStmt)
 
@@ -2841,44 +2884,34 @@ public enum Parser {
         state.insert(ContinueStmt(site: token.site))
       }))
 
-  static let bindingStmt =
-    (Apply<ParserState, AnyStmtID>({ (state) -> AnyStmtID? in
-      let backup = state.backup()
-      do {
-        if let element = try conditionalBindingStmt.parse(&state) { return AnyStmtID(element) }
-      } catch {}
-      state.restore(from: backup)
+  static let bindingStmt = Apply(parseBindingStmt(in:))
 
-      if let decl = try bindingDecl.parse(&state) {
-        let id = state.insert(
-          DeclStmt(
-            decl: AnyDeclID(decl),
-            site: state.ast[decl].site))
-        return AnyStmtID(id)
-      } else {
-        return nil
-      }
-    }))
+  /// Parses a binding statement.
+  private static func parseBindingStmt(in state: inout ParserState) throws -> AnyStmtID? {
+    guard let d = try parseBindingDecl(in: &state) else { return nil }
 
-  static let conditionalBindingStmt =
-    (bindingDecl.and(take(.else)).and(conditionalBindingFallback)
-      .map({ (state, tree) -> CondBindingStmt.ID in
-        let bindingSite = state.ast[tree.0.0].site
+    if state.take(.else) == nil {
+      // No fallback introducer; be satisfied with just the binding declaration.
+      let s = state.insert(DeclStmt(decl: AnyDeclID(d), site: state.ast[d].site))
+      return AnyStmtID(s)
+    }
 
-        if state.ast[tree.0.0].initializer == nil {
-          throw [
-            .error(
-              "conditional binding requires an initializer",
-              at: bindingSite.extended(upTo: bindingSite.start))
-          ] as DiagnosticSet
-        }
+    if state.ast[d].initializer == nil {
+      throw [
+        .error(
+          "conditional binding requires an initializer",
+          at: .empty(atEndOf: state.ast[d].site))
+      ] as DiagnosticSet
+    }
 
-        return state.insert(
-          CondBindingStmt(
-            binding: tree.0.0,
-            fallback: tree.1,
-            site: bindingSite.extended(upTo: state.currentIndex)))
-      }))
+    let fallback = try state.expect("fallback", using: conditionalBindingFallback)
+    let s = state.insert(
+      CondBindingStmt(
+        binding: d,
+        fallback: fallback,
+        site: state.ast[d].site.extended(upTo: state.currentIndex)))
+    return AnyStmtID(s)
+  }
 
   static let conditionalBindingFallback =
     (conditionalBindingFallbackStmt.or(conditionalBindingFallbackExpr))
