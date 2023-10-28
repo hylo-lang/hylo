@@ -6,6 +6,13 @@ extension Diagnostic {
     .error("ambiguous disjunction", at: site)
   }
 
+  static func error(autoclosureExpectsEmptyLambdaAt site: SourceRange, given: AnyType) -> Diagnostic
+  {
+    .error(
+      "autoclosure parameter expects lambda type with no parameters (given type: \(given))",
+      at: site)
+  }
+
   static func error(
     binding a: BindingPattern.Introducer, requiresInitializerAt site: SourceRange
   ) -> Diagnostic {

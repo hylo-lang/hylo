@@ -2409,10 +2409,22 @@ struct TypeChecker {
         report(.error(unexpectedAttribute: a.value, at: a.site))
       }
     }
-    // TODO: more type checking for autoclosure.
-    let _ = hasAutoclosure
 
     let t = evalTypeAnnotation(program[e].bareType)
+
+    if hasAutoclosure {
+      switch t.base {
+      case let u as LambdaType:
+        if !u.inputs.isEmpty {
+          report(
+            .error(autoclosureExpectsEmptyLambdaAt: program[program[e].bareType].site, given: t))
+        }
+        let _ = u
+      default:
+        report(.error(autoclosureExpectsEmptyLambdaAt: program[program[e].bareType].site, given: t))
+      }
+    }
+
     return ^ParameterType(program[e].convention.value, t)
   }
 
