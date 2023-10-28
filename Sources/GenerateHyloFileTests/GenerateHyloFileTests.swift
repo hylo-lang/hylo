@@ -33,7 +33,7 @@ struct GenerateHyloFileTests: ParsableCommand {
 
         func test_\(parsed.methodName)_\(testID)() throws {
           try \(parsed.methodName)(
-            \(String(reflecting: source.path)), expectSuccess: \(parsed.expectSuccess))
+            \(String(reflecting: source.fileSystemPath)), expectSuccess: \(parsed.expectSuccess))
         }
 
       """
@@ -53,7 +53,7 @@ struct GenerateHyloFileTests: ParsableCommand {
         output += try swiftFunctionTesting(valAt: f)
       } catch let e as FirstLineError {
         try! FileHandle.standardError.write(
-          contentsOf: Data("\(f.path):1: error: \(e.details)\n".utf8))
+          contentsOf: Data("\(f.fileSystemPath):1: error: \(e.details)\n".utf8))
         GenerateHyloFileTests.exit(withError: ExitCode(-1))
       }
     }

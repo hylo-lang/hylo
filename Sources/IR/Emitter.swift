@@ -1492,7 +1492,7 @@ struct Emitter {
     let anchor = site ?? ast[e].site
     switch ast[e].kind {
     case .file:
-      emitStore(string: anchor.file.url.absoluteURL.path, to: storage, at: anchor)
+      emitStore(string: anchor.file.url.absoluteURL.fileSystemPath, to: storage, at: anchor)
     case .line:
       emitStore(int: anchor.first().line.number, to: storage, at: anchor)
     }
