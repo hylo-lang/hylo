@@ -122,12 +122,18 @@ public struct Driver: ParsableCommand {
   }
 
   public func run() throws {
-    let (exitCode, diagnostics) = try execute()
+    do {
+      let (exitCode, diagnostics) = try execute()
 
-    diagnostics.render(
-      into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
+      diagnostics.render(
+        into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
 
-    Driver.exit(withError: exitCode)
+      Driver.exit(withError: exitCode)
+    }
+    catch let e {
+      print("Unexpected error\n\(e)")
+      Driver.exit(withError: e)
+    }
   }
 
   /// Executes the command, returning its exit status and any generated diagnostics.
@@ -182,19 +188,44 @@ public struct Driver: ParsableCommand {
 
     // LLVM
 
+    if verbose {
+      standardError.write("begin depolymorphization pass.\n")
+    }
     ir.applyPass(.depolymorphize)
 
+    if verbose {
+      standardError.write("create LLVM target machine.\n")
+    }
+    #if os(Windows)
+    let target = try LLVM.TargetMachine(for: .host())
+    #else
     let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
+    #endif
+    if verbose {
+      standardError.write("create LLVM program.\n")
+    }
     var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
 
     if optimize {
+      if verbose {
+        standardError.write("LLVM optimization.\n")
+      }
       llvmProgram.optimize()
     } else {
+      if verbose {
+        standardError.write("LLVM mandatory passes.\n")
+      }
       llvmProgram.applyMandatoryPasses()
     }
 
+    if verbose {
+      standardError.write("LLVM processing complete.\n")
+    }
     if outputType == .llvm {
       let m = llvmProgram.llvmModules[sourceModule]!
+      if verbose {
+        standardError.write("writing LLVM output.")
+      }
       try m.description.write(to: llvmFile(productName), atomically: true, encoding: .utf8)
       return
     }
