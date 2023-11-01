@@ -2410,7 +2410,7 @@ struct TypeChecker {
       }
     }
 
-    let t = evalTypeAnnotation(program[e].bareType)
+    var t = evalTypeAnnotation(program[e].bareType)
 
     if hasAutoclosure {
       switch t.base {
@@ -2419,7 +2419,7 @@ struct TypeChecker {
           report(
             .error(autoclosureExpectsEmptyLambdaAt: program[program[e].bareType].site, given: t))
         }
-        let _ = u
+        t = ^LambdaType(addingAutoclosureTo: u)
       default:
         report(.error(autoclosureExpectsEmptyLambdaAt: program[program[e].bareType].site, given: t))
       }

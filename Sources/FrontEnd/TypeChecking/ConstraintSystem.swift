@@ -506,6 +506,15 @@ struct ConstraintSystem {
       return nil
 
     case let p as ParameterType:
+      if p.flags.contains(TypeFlags.hasAutoclosure) {
+        let destinationType = (p.bareType.base as! LambdaType).output
+        let s = schedule(
+          ParameterConstraint(goal.left, destinationType, origin: goal.origin.subordinate()))
+        return .product([s]) { (d, m, r) in
+          let (l, r) = (m.reify(goal.left), m.reify(goal.right))
+          d.insert(.error(cannotPass: l, toParameter: r, at: goal.origin.site))
+        }
+      }
       let s = schedule(
         SubtypingConstraint(goal.left, p.bareType, origin: goal.origin.subordinate()))
       return .product([s]) { (d, m, r) in
