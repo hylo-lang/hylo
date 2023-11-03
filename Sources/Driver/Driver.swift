@@ -152,7 +152,9 @@ public struct Driver: ParsableCommand {
     }
 
     let productName = makeProductName(inputs)
-    var ast = noStandardLibrary ? AST.coreModule : AST.standardLibrary
+
+    /// An instance that includes just the standard library.
+    var ast = AST(libraryRoot: noStandardLibrary ? HyloModule.core : HyloModule.standardLibrary)
 
     // The module whose Hylo files were given on the command-line
     let sourceModule = try ast.makeModule(
