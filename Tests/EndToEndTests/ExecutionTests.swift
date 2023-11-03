@@ -4,6 +4,8 @@ import XCTest
 final class ExecutionTests: XCTestCase {
 
   func testHelloWorld() throws {
+    if swiftyLLVMMandatoryPassesCrash { return }
+
     let f = FileManager.default.makeTemporaryFileURL()
     let s = #"public fun main() { print("Hello, World!") }"#
     try s.write(to: f, atomically: true, encoding: .utf8)

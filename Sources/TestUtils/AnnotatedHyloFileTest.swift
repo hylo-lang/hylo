@@ -150,6 +150,7 @@ extension XCTestCase {
   /// Compiles and runs the val file at `hyloFilePath`, `XCTAssert`ing that diagnostics and exit
   /// codes match annotated expectations.
   public func compileAndRun(_ hyloFilePath: String, expectSuccess: Bool) throws {
+    if swiftyLLVMMandatoryPassesCrash { return }
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (hyloSource, diagnostics) in
 

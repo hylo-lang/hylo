@@ -1,6 +1,12 @@
 // swift-tools-version:5.7
 import PackageDescription
 
+#if os(Windows)
+let onWindows = true
+#else
+let onWindows = false
+#endif
+
 /// Settings to be passed to swiftc for all targets.
 let allTargetsSwiftSettings: [SwiftSetting] = [
   .unsafeFlags(["-warnings-as-errors"])
@@ -126,7 +132,8 @@ let package = Package(
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
-      dependencies: [.target(name: "GenerateHyloFileTests")]),
+      // Workaround for SPM bug; see PortableBuildToolPlugin.swift
+      dependencies: onWindows ? [] : ["GenerateHyloFileTests"]),
 
     .executableTarget(
       name: "GenerateHyloFileTests",
@@ -134,7 +141,7 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         "Utils",
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings + [ .unsafeFlags(["-parse-as-library"]) ]),
 
     // Test targets.
     .testTarget(
@@ -144,7 +151,7 @@ let package = Package(
 
     .testTarget(
       name: "DriverTests",
-      dependencies: ["Driver"],
+      dependencies: ["Driver", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(

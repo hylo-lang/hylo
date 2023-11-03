@@ -137,7 +137,7 @@ jobs:
             https://github.com/apple/swift-package-manager/issues/6595" && false) )
           
   build-native-windows:
-    name: "Native, no testing: windows-latest/release"
+    name: "Native: windows-latest, debug"
     strategy:
       fail-fast: false
     runs-on: windows-latest
@@ -145,8 +145,10 @@ jobs:
     - name: Setup swift
       uses: compnerd/gha-setup-swift@main
       with:
-        branch: swift-5.8.1-release
-        tag: 5.8.1-RELEASE
+        github-repo: thebrowsercompany/swift-build
+        release-asset-name: installer-amd64.exe
+        release-tag-name: 20231010.3
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - uses: actions/checkout@v3
 
@@ -159,26 +161,25 @@ jobs:
         7z x llvm-15.0.6-windows-x86-msvc17-msvcrt.7z -oC:\
         Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-msvcrt\bin'
         
-    - name: Copy LLVM's include and lib to include and lib folder of MSVC
-      run: |
-        xcopy c:\llvm-15.0.6-windows-x86-msvc17-msvcrt\include\*.* c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\include\ /s /h
-        xcopy c:\llvm-15.0.6-windows-x86-msvc17-msvcrt\lib\*.* c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\ /s /h
-
     - run: llvm-config --version
+
+    - name: Generate LLVM pkgconfig file
+      run: |
+        swift package resolve
+        & "C:\Program Files\Git\bin\bash.exe" .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
+        type llvm.pc
 
     - name: Build support library
       run: clang -c ./Library/Hylo/LibC.c -o HyloLibC.lib
 
-    - name: Copy support library
-      run: xcopy HyloLibC.lib c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\
+    - name: Prevent reentrant builds for speed
+      run: echo 'HYLO_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
 
-    - name: Build (Release)
-      id: build
-      continue-on-error: true
-      run: swift build -v -c release
+    - name: Non-test build ensuring that build tools have been built
+      run: swift build --pkg-config-path .
 
-    - name: Retry on failure
-      continue-on-error: false
-      if: steps.build.outcome != 'success'
-      run: swift build -v -c release
+    - name: Build tests
+      run: swift build --build-tests --pkg-config-path .
 
+    - name: Test
+      run: swift test --skip-build --pkg-config-path .
