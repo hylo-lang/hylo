@@ -132,6 +132,7 @@ let package = Package(
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
+      // Workaround for SPM bug; see PortableBuildToolPlugin.swift
       dependencies: onWindows ? [] : ["GenerateHyloFileTests"]),
 
     .executableTarget(
@@ -150,7 +151,7 @@ let package = Package(
 
     .testTarget(
       name: "DriverTests",
-      dependencies: ["Driver"],
+      dependencies: ["Driver", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(

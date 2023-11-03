@@ -137,7 +137,7 @@ jobs:
             https://github.com/apple/swift-package-manager/issues/6595" && false) )
           
   build-native-windows:
-    name: "Native: windows-latest/release"
+    name: "Native: windows-latest, debug"
     strategy:
       fail-fast: false
     runs-on: windows-latest
