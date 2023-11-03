@@ -33,6 +33,11 @@ public struct SourceFile {
     try self.init(contentsOf: URL(fileURLWithPath: filePath))
   }
 
+  public init(filePath: URL, withContent content: String) {
+    let storage = Storage(filePath, replace: true) { content[...] }
+    self.storage = storage
+  }
+
   /// Creates an instance for the `text` given by a multiline string literal in the given
   /// `swiftFile`, the literal's textual content (the line after the opening quotes) being
   /// startLine.
@@ -344,17 +349,23 @@ extension SourceFile {
     }
 
     /// The owner of all instances of `Storage`.
-    private static var allInstances = SharedMutable<[URL: Storage]>([:])
+    private static let allInstances = SharedMutable<[URL: Storage]>([:])
 
     /// Creates an alias to the instance with the given `url` if it exists, or creates a new
     /// instance having the given `url` and the text resulting from `makeText()`.
     fileprivate convenience init(
-      _ url: URL, lineStarts: [Index]? = nil, makeText: () throws -> Substring
+      _ url: URL, lineStarts: [Index]? = nil, replace: Bool = false, makeText: () throws -> Substring
     ) rethrows {
       self.init(
         aliasing: try Self.allInstances.modify { (c: inout [URL: Storage]) -> Storage in
           try modify(&c[url]) { v in
-            let r = try v ?? Storage(url: url, lineStarts: lineStarts, text: makeText())
+            let r: Storage
+            if !replace && v != nil {
+              r = v!
+            }
+            else {
+              r = try Storage(url: url, lineStarts: lineStarts, text: makeText())
+            }
             v = r
             return r
           }
