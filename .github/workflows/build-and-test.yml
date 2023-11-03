@@ -181,6 +181,5 @@ jobs:
     - name: Build tests
       run: swift build --build-tests --pkg-config-path .
 
-# Disabled until they pass.
-#    - name: Test
-#      run: swift test --skip-build --pkg-config-path .
+    - name: Test
+      run: swift test --skip-build --pkg-config-path .

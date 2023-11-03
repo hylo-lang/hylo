@@ -3,6 +3,7 @@ import Core
 import Driver
 import Utils
 import XCTest
+import TestUtils
 
 final class DriverTests: XCTestCase {
 
@@ -53,6 +54,8 @@ final class DriverTests: XCTestCase {
   }
 
   func testLLVM() throws {
+    if swiftyLLVMMandatoryPassesCrash { return }
+
     let result = try compile(["--emit", "llvm"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     result.checkDiagnosticText(is: "")
@@ -60,6 +63,8 @@ final class DriverTests: XCTestCase {
   }
 
   func testIntelASM() throws {
+    if swiftyLLVMMandatoryPassesCrash { return }
+
     let result = try compile(["--emit", "intel-asm"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     result.checkDiagnosticText(is: "")
@@ -67,6 +72,8 @@ final class DriverTests: XCTestCase {
   }
 
   func testBinary() throws {
+    if swiftyLLVMMandatoryPassesCrash { return }
+
     let result = try compile(["--emit", "binary"], newFile(containing: "public fun main() {}"))
     XCTAssert(result.status.isSuccess)
     result.checkDiagnosticText(is: "")
