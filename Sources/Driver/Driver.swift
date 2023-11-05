@@ -434,7 +434,7 @@ public struct Driver: ParsableCommand {
 
     let r = try Process.run(URL(fileURLWithPath: programPath), arguments: arguments)
 
-    return r.standardOutput.readUTF8().trimmingCharacters(in: .whitespacesAndNewlines)
+    return r.standardOutput[].trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
   /// A map from the name by which an executable is invoked to path of the named binary.
