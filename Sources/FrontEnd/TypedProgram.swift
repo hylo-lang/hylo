@@ -82,7 +82,7 @@ public struct TypedProgram {
     }
 
     var checker = TypeChecker(
-      constructing: instanceUnderConstruction.wrapped,
+      constructing: instanceUnderConstruction[],
       tracingInferenceIf: isTypeCheckingParallel ? nil : shouldTraceInference)
     checker.checkAllDeclarations()
 
