@@ -1,15 +1,15 @@
 import Core
 import Foundation
-import HyloModule
+import StandardLibrary
 import Utils
 
 extension AST {
 
   /// An instance that includes just the core module.
-  public static var coreModule = AST(libraryRoot: HyloModule.core)
+  public static var coreModule = AST(libraryRoot: StandardLibrary.core)
 
   /// An instance that includes just the standard library.
-  public static var standardLibrary = AST(libraryRoot: HyloModule.standardLibrary)
+  public static var standardLibrary = AST(libraryRoot: StandardLibrary.standardLibrary)
 
   /// Creates an instance that includes the Hylo library rooted at `libraryRoot`.
   private init(libraryRoot: URL) {
