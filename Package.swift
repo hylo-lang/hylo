@@ -71,6 +71,7 @@ let package = Package(
         "FrontEnd",
         "IR",
         "CodeGenLLVM",
+        "StandardLibrary",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: allTargetsSwiftSettings),
@@ -81,7 +82,6 @@ let package = Package(
       dependencies: [
         "Utils",
         "Core",
-        "StandardLibrary",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
@@ -155,12 +155,12 @@ let package = Package(
 
     .testTarget(
       name: "ManglingTests",
-      dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
+      dependencies: ["Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "HyloTests",
-      dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
+      dependencies: ["Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
 
