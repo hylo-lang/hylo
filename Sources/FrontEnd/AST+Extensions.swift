@@ -6,10 +6,10 @@ import Utils
 extension AST {
 
   /// An instance that includes just the core module.
-  public static var coreModule = AST(libraryRoot: StandardLibrary.core)
+  public static var coreModule = AST(libraryRoot: coreLibrarySourceRoot)
 
   /// An instance that includes just the standard library.
-  public static var standardLibrary = AST(libraryRoot: StandardLibrary.standardLibrary)
+  public static var standardLibrary = AST(libraryRoot: standardLibrarySourceRoot)
 
   /// Creates an instance that includes the Hylo library rooted at `libraryRoot`.
   private init(libraryRoot: URL) {
