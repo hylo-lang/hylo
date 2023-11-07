@@ -3,7 +3,7 @@ import CodeGenLLVM
 import Core
 import Foundation
 import FrontEnd
-import HyloModule
+import StandardLibrary
 import IR
 import LLVM
 import Utils
@@ -45,9 +45,9 @@ public struct Driver: ParsableCommand {
   private var importBuiltinModule: Bool = false
 
   @Flag(
-    name: [.customLong("no-std")],
-    help: "Do not include the standard library.")
-  private var noStandardLibrary: Bool = false
+    name: [.customLong("unhosted")],
+    help: "Load only the core library, omitting any definitions that depend on OS support.")
+  private var unhosted: Bool = false
 
   @Flag(
     name: [.customLong("sequential")],
@@ -158,7 +158,9 @@ public struct Driver: ParsableCommand {
     }
 
     let productName = makeProductName(inputs)
-    var ast = noStandardLibrary ? AST.coreModule : AST.standardLibrary
+
+    /// An instance that includes just the standard library.
+    var ast = AST(libraryRoot: unhosted ? coreLibrarySourceRoot : standardLibrarySourceRoot)
 
     // The module whose Hylo files were given on the command-line
     let sourceModule = try ast.makeModule(
