@@ -127,7 +127,9 @@ let package = Package(
       name: "StandardLibrary",
       path: "StandardLibrary",
       resources: [.copy("Sources")],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: []//["StandardLibraryBuilderPlugin"]
+    ),
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
@@ -139,6 +141,18 @@ let package = Package(
       dependencies: [
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         "Utils",
+      ],
+      swiftSettings: allTargetsSwiftSettings + [ .unsafeFlags(["-parse-as-library"]) ]),
+
+    .plugin(
+      name: "StandardLibraryBuilderPlugin", capability: .buildTool(),
+      dependencies: onWindows ? [] : ["BuildStandardLibrary"]),
+
+    .executableTarget(
+      name: "BuildStandardLibrary",
+      dependencies: [
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        "Utils", "FrontEnd"
       ],
       swiftSettings: allTargetsSwiftSettings + [ .unsafeFlags(["-parse-as-library"]) ]),
 
