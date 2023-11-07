@@ -128,7 +128,7 @@ let package = Package(
       path: "StandardLibrary",
       resources: [.copy("Sources")],
       swiftSettings: allTargetsSwiftSettings,
-      plugins: []//["StandardLibraryBuilderPlugin"]
+      plugins: [] // ["StandardLibraryBuilderPlugin"]
     ),
 
     .plugin(

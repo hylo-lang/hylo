@@ -12,6 +12,7 @@ struct StandardLibraryBuilderPlugin: PortableBuildToolPlugin {
     let inputPaths = target.sourceFiles(withSuffix: ".hylo").map(\.path)
     let outputPath = context.pluginWorkDirectory
 
+    if true {return []}
     return [
       .buildCommand(
         displayName: "Building standard library module into .",
