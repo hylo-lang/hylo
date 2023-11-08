@@ -126,7 +126,10 @@ let package = Package(
 
     .target(
       name: "StandardLibrary",
-      dependencies: [.product(name: "CBORCoding", package: "CBORCoding")],
+      dependencies: [
+        "FrontEnd", "Core",
+        .product(name: "CBORCoding", package: "CBORCoding")
+      ],
       path: "StandardLibrary",
       resources: [.copy("Sources")],
       swiftSettings: allTargetsSwiftSettings,
