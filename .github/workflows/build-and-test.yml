@@ -44,11 +44,17 @@ jobs:
       matrix:
         host: [
           { type: linux, os: ubuntu-latest,
-            build-options: "-v --build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
-            test-options: "-v --enable-code-coverage --explicit-target-dependency-import-check error"
+            build-options: "--build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
+            test-options: "--enable-code-coverage --explicit-target-dependency-import-check error",
           }
         ]
         configuration: [ "debug", "release" ]
+        include:
+          - configuration: "debug"
+            parallel-test: "--parallel"
+          # See https://github.com/apple/swift-package-manager/issues/7069
+          - configuration: "release"
+            parallel-test: ""
 
     runs-on: ${{ matrix.host.os }}
     steps:
@@ -63,7 +69,7 @@ jobs:
           .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
           export PKG_CONFIG_PATH=$PWD
           swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }}
-          swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
+          swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} ${{ matrix.parallel-test }} |
             tee testoutput.txt && (
               (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
               (echo "error: generated tests failed to run; see
@@ -84,9 +90,9 @@ jobs:
         host: [
           {
             type: macos, os: macos-13,
-            build-options: "-v --build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
+            build-options: "--build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
             # No coverage support on MacOS
-            test-options: "-v"
+            test-options: "--parallel"
           }
         ]
         swift: [
@@ -182,4 +188,4 @@ jobs:
       run: swift build --explicit-target-dependency-import-check error --build-tests --pkg-config-path .
 
     - name: Test
-      run: swift test --skip-build --pkg-config-path .
+      run: swift test --parallel --skip-build --pkg-config-path . 
