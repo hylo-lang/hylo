@@ -45,7 +45,7 @@ jobs:
         host: [
           { type: linux, os: ubuntu-latest,
             build-options: "-v --build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
-            test-options: "-v --enable-code-coverage --explicit-target-dependency-import-check error"
+            test-options: "--parallel -v --enable-code-coverage --explicit-target-dependency-import-check error"
           }
         ]
         configuration: [ "debug", "release" ]
@@ -86,7 +86,7 @@ jobs:
             type: macos, os: macos-13,
             build-options: "-v --build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
             # No coverage support on MacOS
-            test-options: "-v"
+            test-options: "-v --parallel"
           }
         ]
         swift: [
@@ -182,4 +182,4 @@ jobs:
       run: swift build --explicit-target-dependency-import-check error --build-tests --pkg-config-path .
 
     - name: Test
-      run: swift test --skip-build --pkg-config-path .
+      run: swift test --parallel --skip-build --pkg-config-path . 
