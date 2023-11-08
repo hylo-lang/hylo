@@ -83,7 +83,6 @@ let package = Package(
       dependencies: [
         "Utils",
         "Core",
-        "StandardLibrary",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
