@@ -14,7 +14,7 @@ extension XCTestCase {
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (valSource, diagnostics) in
       // Note: built-in module is visible so that we can test built-in function calls.
-      var ast = AST(libraryRoot: coreLibrarySourceRoot)
+      var ast = coreLibraryModule[]
       let module = try ast.makeModule(
         valSource.baseName, sourceCode: [valSource], builtinModuleAccess: true,
         diagnostics: &diagnostics)

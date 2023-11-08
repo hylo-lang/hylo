@@ -1,10 +1,15 @@
 import Foundation
+import Utils
+import Core
+import FrontEnd
 
-fileprivate let libraryRoot = Bundle.module.resourceURL!
+private let libraryRoot = Bundle.module.resourceURL!
 
 /// The root URL of Hylo's standard library.
-public let standardLibrarySourceRoot = libraryRoot.appendingPathComponent("Sources")
+private let standardLibrarySourceRoot: URL = libraryRoot.appendingPathComponent("Sources")
 
 /// The root URL of Hylo's core library.
-public let coreLibrarySourceRoot = standardLibrarySourceRoot.appendingPathComponent("Core")
+private let coreLibrarySourceRoot: URL = standardLibrarySourceRoot.appendingPathComponent("Core")
 
+public let standardLibraryModule = Lazy { AST(libraryRoot: standardLibrarySourceRoot) }
+public let coreLibraryModule = Lazy { AST(libraryRoot: coreLibrarySourceRoot) }
