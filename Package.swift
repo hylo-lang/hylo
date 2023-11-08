@@ -44,6 +44,7 @@ let package = Package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),
     .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.1.0"),
+    .package(url: "https://github.com/SomeRandomiOSDev/CBORCoding.git", from: "1.0.0"),
     .package(
       url: "https://github.com/SwiftPackageIndex/SPIManifest.git",
       from: "0.12.0"),
@@ -126,6 +127,7 @@ let package = Package(
 
     .target(
       name: "StandardLibrary",
+      dependencies: [.product(name: "CBORCoding", package: "CBORCoding")],
       path: "StandardLibrary",
       resources: [.copy("Sources")],
       swiftSettings: allTargetsSwiftSettings,
@@ -153,6 +155,7 @@ let package = Package(
       name: "BuildStandardLibrary",
       dependencies: [
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "CBORCoding", package: "CBORCoding"),
         "Utils", "FrontEnd"
       ],
       swiftSettings: allTargetsSwiftSettings + [ .unsafeFlags(["-parse-as-library"]) ]),
