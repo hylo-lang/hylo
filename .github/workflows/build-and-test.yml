@@ -44,8 +44,8 @@ jobs:
       matrix:
         host: [
           { type: linux, os: ubuntu-latest,
-            build-options: "-v --build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
-            test-options: "--parallel -v --enable-code-coverage --explicit-target-dependency-import-check error"
+            build-options: "--build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
+            test-options: "--parallel --enable-code-coverage --explicit-target-dependency-import-check error"
           }
         ]
         configuration: [ "debug", "release" ]
@@ -84,9 +84,9 @@ jobs:
         host: [
           {
             type: macos, os: macos-13,
-            build-options: "-v --build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
+            build-options: "--build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
             # No coverage support on MacOS
-            test-options: "-v --parallel"
+            test-options: "--parallel"
           }
         ]
         swift: [
