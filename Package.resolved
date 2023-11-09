@@ -12,10 +12,10 @@
     {
       "identity" : "cborcoding",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SomeRandomiOSDev/CBORCoding.git",
+      "location" : "https://github.com/christophhagen/CBORCoding.git",
       "state" : {
-        "revision" : "48b1a2790eb2987bfcbe844f31b7c477e67f7db8",
-        "version" : "1.3.2"
+        "branch" : "main",
+        "revision" : "1e52c77523fca12cc290b17eed12fadb50ad72af"
       }
     },
     {
@@ -25,15 +25,6 @@
       "state" : {
         "revision" : "3d802c00e9063b8bba8ba3fff5691e82df7949e1",
         "version" : "1.2.0"
-      }
-    },
-    {
-      "identity" : "half",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SomeRandomiOSDev/Half",
-      "state" : {
-        "revision" : "9f95ddc774eefae46d92492ed8d49457dcf031f4",
-        "version" : "1.3.2"
       }
     },
     {
