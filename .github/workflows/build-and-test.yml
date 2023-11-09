@@ -181,8 +181,10 @@ jobs:
     - name: Prevent reentrant builds for speed
       run: echo 'HYLO_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
 
-    - name: Non-test build ensuring that build tools have been built
-      run: swift build --explicit-target-dependency-import-check error --pkg-config-path .
+    - name: Ensure that build tools have been built, since reentrancy is disabled
+      run: >
+        swift build --explicit-target-dependency-import-check error --pkg-config-path .
+        --target BuildStandardLibrary --target GenerateHyloFileTests
 
     - name: Build tests
       run: swift build --explicit-target-dependency-import-check error --build-tests --pkg-config-path .
