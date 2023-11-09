@@ -12,7 +12,7 @@
     {
       "identity" : "cborcoding",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/christophhagen/CBORCoding.git",
+      "location" : "https://github.com/dabrahams/CBORCoding.git",
       "state" : {
         "branch" : "main",
         "revision" : "1e52c77523fca12cc290b17eed12fadb50ad72af"
