@@ -22,8 +22,7 @@ fun logic2<E>(withDelayed value: @autoclosure [E]() -> Int) {
 }
 
 public fun main() {
-  // TODO
-  // logic(withDelayed: prime())
+  logic(withDelayed: prime())
 
   &counter = 0
   // logic2(withDelayed: prime())
