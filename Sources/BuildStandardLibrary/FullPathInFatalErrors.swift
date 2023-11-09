@@ -1,1 +1,1 @@
-/Users/dave/src/hylo/Sources/GenerateHyloFileTests/FullPathInFatalErrors.swift
+../GenerateHyloFileTests/FullPathInFatalErrors.swift
