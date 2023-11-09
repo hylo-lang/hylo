@@ -3018,6 +3018,7 @@ public enum Parser {
         site: head.site.extended(upTo: state.currentIndex)))
     return AnyStmtID(r)
   }
+
   /// Skips the branch body of a conditional compilation statement and nested conditional compilation statements.
   private static func skipConditionalCompilationBranch(
     in state: inout ParserState, stoppingAtElse: Bool
