@@ -2,7 +2,9 @@
 public struct SemanticVersion: Codable, Comparable {
 
   public let major: Int
+
   public let minor: Int
+
   public let patch: Int
 
   public init(major: Int, minor: Int, patch: Int) {
