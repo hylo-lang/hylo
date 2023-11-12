@@ -1656,6 +1656,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)
   }
+
   func testConditionalControlTrue() throws {
     let input: SourceFile = "#if true foo() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
