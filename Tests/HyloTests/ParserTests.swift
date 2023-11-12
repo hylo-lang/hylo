@@ -1844,6 +1844,7 @@ final class ParserTests: XCTestCase {
     // We should expand to the body of the #if
     XCTAssertEqual(stmt.expansion.count, 1)
   }
+
   func testConditionalControlNotOperatorOnTrue() throws {
     let input: SourceFile = "#if !true foo() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)

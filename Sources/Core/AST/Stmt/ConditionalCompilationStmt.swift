@@ -32,6 +32,7 @@ public struct ConditionalCompilationStmt: Stmt {
 
     case hyloVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
 
+    /// Holds iff the payload doesn't.
     case not(Condition)
 
     /// `true` iff the body of the conditional-compilation shouldn't be parsed.
