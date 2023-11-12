@@ -22,6 +22,7 @@ extension AST {
         builtinModuleAccess: true,
         diagnostics: &diagnostics)
       assert(isCoreModuleLoaded)
+      self.coreTraits = .init(self)
     } catch let error {
       fatalError("Error parsing the Hylo module:\n\(error)")
     }

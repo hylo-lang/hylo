@@ -369,10 +369,27 @@ extension Program {
     }
   }
 
+  /// Returns `(root: r, path: p)` where `root` is the binding declaration introducing `d` and `p`
+  /// is the path to the object bound to `d` relative to `root`.
+  public func subfieldRelativeToRoot(
+    of d: VarDecl.ID
+  ) -> (root: BindingDecl.ID, path: RecordPath) {
+    let root = varToBinding[d]!
+    for (p, n) in ast.names(in: ast[root].pattern) {
+      if ast[n].decl == d { return (root, p) }
+    }
+    unreachable()
+  }
+
   /// Returns a textual description of `n` suitable for debugging.
   public func debugDescription<T: NodeIDProtocol>(_ n: T) -> String {
-    if let d = ModuleDecl.ID(n) {
-      return ast[d].baseName
+    switch n.kind {
+    case BindingDecl.self:
+      return debugDescription(BindingDecl.ID(n)!)
+    case ModuleDecl.self:
+      return ast[ModuleDecl.ID(n)!].baseName
+    default:
+      break
     }
 
     let qualification = debugDescription(nodeToScope[n]!)
@@ -386,6 +403,14 @@ extension Program {
     }
 
     return qualification
+  }
+
+  /// Returns a textual description of `d` suitable for debugging.
+  public func debugDescription(_ d: BindingDecl.ID) -> String {
+    let ns = ast.names(in: self[d].pattern.subpattern)
+      .map({ ast[ast[$0.pattern].decl].baseName })
+      .joined()
+    return debugDescription(nodeToScope[d]!) + ".(\(ns))"
   }
 
 }

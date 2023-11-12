@@ -173,13 +173,13 @@ public conformance UTF8Array: Equatable {
 // public conformance UTF8Array: Collection {
 public extension UTF8Array {
 
-  /// An index in an UTF8Array.
-  public typealias Index = Int
+  /// A position in an UTF8Array.
+  public typealias Position = Int
 
   /// A single UTF-8 code unit.
   public typealias Element = Int
 
-  public fun start_index() -> Int {
+  public fun start_position() -> Int {
     0
   }
 

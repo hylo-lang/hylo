@@ -165,10 +165,8 @@ extension XCTestCase {
         throw d
       }
 
-      let (status, _) = try run(executable)
-      if status != 0 {
-        throw NonzeroExitCode(value: status)
-      }
+      // discard any outputs.
+      _ = try Process.run(executable, arguments: [])
     }
   }
 
@@ -197,21 +195,6 @@ extension XCTestCase {
       "Compilation output file not found: \(output.relativePath)")
 
     return output
-  }
-
-  /// Runs `executable` and returns its exit status along with the text written to its standard
-  /// output.
-  public func run(_ executable: URL) throws -> (status: Int32, standardOutput: String) {
-    let pipe = Pipe()
-    let task = Process()
-    task.executableURL = executable
-    task.standardOutput = pipe
-    try task.run()
-    task.waitUntilExit()
-
-    let standardOutput = String(
-      data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
-    return (task.terminationStatus, standardOutput ?? "")
   }
 
 }

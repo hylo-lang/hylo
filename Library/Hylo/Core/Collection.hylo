@@ -5,21 +5,23 @@ public trait Collection {
   type Element
 
   /// The type of the positions in `Self`.
-  type Index: SemiRegular
+  type Position: Regular
 
-  /// Returns the position of the first element in `self`, or `end_index()` if `self` is empty.
-  fun start_index() -> Index
+  /// Returns the position of the first element in `self`, or `end_position()` if `self` is empty.
+  fun start_position() -> Position
 
   /// Returns the "past the end" position in `self`, that is, the position immediately after the
   /// last element in `self`.
-  fun end_index() -> Index
+  fun end_position() -> Position
 
   /// Returns the position immediately after `i`.
   ///
-  /// - Requires: `i != end_index()`.
-  fun index(after i: Index) -> Index
+  /// - Requires: `i != end_position()`.
+  fun position(after i: Position) -> Position
 
   /// Accesses the elment at position `i`.
-  subscript(_ i: Index): Element { let }
+  ///
+  /// - Requires: `i` is a valid position in `self` different from `end_position()`.
+  subscript(_ i: Position): Element { let }
 
 }

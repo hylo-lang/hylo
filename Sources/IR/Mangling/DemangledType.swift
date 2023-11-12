@@ -16,6 +16,9 @@ public indirect enum DemangledType: Hashable {
   /// The `Void` type.
   case void
 
+  /// An associated type.
+  case associatedType(domain: DemangledType, name: String)
+
   /// A bound generic type.
   case boundGeneric(base: DemangledType, arguments: [DemangledSymbol])
 
@@ -87,6 +90,9 @@ extension DemangledType: CustomStringConvertible {
       return "Never"
     case .void:
       return "Void"
+
+    case .associatedType(let domain, let name):
+      return "\(domain).\(name)"
 
     case .boundGeneric(let base, let arguments):
       return "\(base)<\(list: arguments)>"

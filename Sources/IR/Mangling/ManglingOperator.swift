@@ -58,6 +58,8 @@ public enum ManglingOperator: String {
 
   case productType = "aT"
 
+  case associatedType = "aaT"
+
   case boundGenericType = "bT"
 
   case builtinIntegerType = "biT"

@@ -184,10 +184,10 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.`while`, "while"),
         TokenSpecification(.`yield`, "yield"),
         TokenSpecification(.`yielded`, "yielded"),
-        TokenSpecification(.poundIf, "#if"),
-        TokenSpecification(.poundElse, "#else"),
-        TokenSpecification(.poundElseif, "#elseif"),
-        TokenSpecification(.poundEndif, "#endif"),
+        TokenSpecification(.`poundIf`, "#if"),
+        TokenSpecification(.`poundElse`, "#else"),
+        TokenSpecification(.`poundElseif`, "#elseif"),
+        TokenSpecification(.`poundEndif`, "#endif"),
       ],
       in: input)
   }

@@ -4,19 +4,22 @@ import Utils
 public struct SynthesizedFunctionDecl: Hashable {
 
   /// The kind of a synthesized declaration.
-  public enum Kind: UInt8 {
+  public enum Kind: Hashable {
 
-    /// The deinitializer of a type.
+    /// A deinitializer.
     case deinitialize
 
-    /// The move-initialization operator of a type.
+    /// A move-initialization method.
     case moveInitialization
 
-    /// The move-assignment operator of a type.
+    /// A move-assignment method.
     case moveAssignment
 
-    /// The copy method of a type.
+    /// A copy method.
     case copy
+
+    /// A global initializer for a binding declaration.
+    case globalInitialization(BindingDecl.ID)
 
   }
 
@@ -36,10 +39,23 @@ public struct SynthesizedFunctionDecl: Hashable {
     self.scope = scope
   }
 
-  /// The type of the function's receiver.
+  /// The type of the declaration's receiver.
   public var receiver: AnyType {
-    // Synthesized functions are methods, so their first capture is the receiver.
-    read(type.captures[0].type, { (r) in RemoteType(r)?.bareType ?? r })
+    // Synthesized are members, so their receiver is part of their captures.
+    let r = type.captures[0].type
+    return RemoteType(r)?.bareType ?? r
+  }
+
+  /// Returns the generic parameters of the declaration.
+  public var genericParameters: [GenericParameterDecl.ID] {
+    guard let t = BoundGenericType(receiver) else { return [] }
+    return t.arguments.compactMap { (k, v) -> GenericParameterDecl.ID? in
+      if let u = v as? AnyType {
+        return GenericTypeParameterType(u)?.decl == k ? k : nil
+      } else {
+        UNIMPLEMENTED("compile time values")
+      }
+    }
   }
 
 }
@@ -47,7 +63,7 @@ public struct SynthesizedFunctionDecl: Hashable {
 extension SynthesizedFunctionDecl: CustomStringConvertible {
 
   public var description: String {
-    "(\((receiver))).\(kind)"
+    "(\(receiver)).\(kind)"
   }
 
 }
