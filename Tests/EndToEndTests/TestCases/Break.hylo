@@ -1,0 +1,30 @@
+//- compileAndRun expecting: success
+
+public fun main() {
+  // Break from a do-while loop.
+  var i = 2
+  do {
+    &i -= 1
+    if i == 0 { break }
+  } while true
+  precondition(i == 0)
+
+  // Break from a while loop.
+  &i = 2
+  while true {
+    &i -= 1
+    if i == 0 { break }
+  }
+  precondition(i == 0)
+
+  // Break from a for loop.
+  var a = Array<Bool>()
+  &a.append(false)
+  &a.append(false)
+  &i = 0
+  for let flag in a {
+    if !flag { break }
+    &i -= 1
+  }
+  precondition(i == 0)
+}

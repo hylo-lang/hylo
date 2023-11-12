@@ -19,6 +19,8 @@ struct Demangler {
       switch o {
       case .anonymousScope:
         demangled = takeAnonymousScope(qualifiedBy: qualification, from: &stream)
+      case .associatedType:
+        demangled = takeAssociatedType(from: &stream)
       case .associatedTypeDecl:
         demangled = take(AssociatedTypeDecl.self, qualifiedBy: qualification, from: &stream)
       case .associatedValueDecl:
@@ -349,6 +351,15 @@ struct Demangler {
       let r = take(ReservedSymbol.self, from: &stream)
     else { return nil }
     return DemangledSymbol(reserved: r)
+  }
+
+  /// Demangles an associated type from `stream`.
+  private mutating func takeAssociatedType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let d = demangleType(from: &stream),
+      let n = demangleEntity(AssociatedTypeDecl.self, from: &stream)
+    else { return nil }
+    return .type(.associatedType(domain: d, name: n.name.stem))
   }
 
   /// Demangles a bound generic type from `stream`.

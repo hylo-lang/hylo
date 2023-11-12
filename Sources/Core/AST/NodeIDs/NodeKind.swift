@@ -141,6 +141,7 @@ extension NodeKind {
     BraceStmt.self,
     BreakStmt.self,
     CondBindingStmt.self,
+    ConditionalCompilationStmt.self,
     ConditionalStmt.self,
     ContinueStmt.self,
     DeclStmt.self,
@@ -151,7 +152,6 @@ extension NodeKind {
     ReturnStmt.self,
     WhileStmt.self,
     YieldStmt.self,
-    ConditionalCompilationStmt.self,
 
     MatchCase.self,
     TranslationUnit.self,

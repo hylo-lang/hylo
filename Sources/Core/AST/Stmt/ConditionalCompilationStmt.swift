@@ -1,36 +1,50 @@
 /// A conditional-compilation statement.
 public struct ConditionalCompilationStmt: Stmt {
 
-  public enum VersionComparison: Codable {
+  /// A comparison test for semantic version.
+  public enum VersionComparison: Codable, Equatable {
 
-    case greaterOrEqual
+    /// Represents "_ >= payload".
+    case greaterOrEqual(SemanticVersion)
 
-    case less
+    /// Represents "_ < payload".
+    case less(SemanticVersion)
 
-    func compare<T: Comparable>(_ lhs: T, _ rhs: T) -> Bool {
+    /// Evaluate the comparison predicate for `lhs`.
+    func evaluate(for lhs: SemanticVersion) -> Bool {
       switch self {
-      case .greaterOrEqual: return !(lhs < rhs)
-      case .less: return lhs < rhs
+      case .greaterOrEqual(let target):
+        return !(lhs < target)
+      case .less(let target):
+        return lhs < target
       }
     }
 
   }
 
+  /// A condition in a conditional compilation statement.
   public indirect enum Condition: Codable, Equatable {
 
+    /// Always holds.
     case `true`
 
+    /// Never holds.
     case `false`
 
+    /// Holds iff the operating system for which the code is compiled matches the payload.
     case os(Identifier)
 
+    /// Holds iff the processor architecture for which the code is compiled matches the payload.
     case arch(Identifier)
 
+    /// Holds iff the name of the compiler processing the file matches the payload.
     case compiler(Identifier)
 
-    case compilerVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
+    /// Holds iff the version of the compiler processing the file, satisfies the `comparison`.
+    case compilerVersion(comparison: VersionComparison)
 
-    case hyloVersion(comparison: VersionComparison, versionNumber: CompilerInfo.VersionNumber)
+    /// Holds iff the version of Hylo for which this file is compiled, satisfies `comparison`.
+    case hyloVersion(comparison: VersionComparison)
 
     /// Holds iff the payload doesn't.
     case not(Condition)
@@ -38,11 +52,16 @@ public struct ConditionalCompilationStmt: Stmt {
     /// `true` iff the body of the conditional-compilation shouldn't be parsed.
     public var mayNotNeedParsing: Bool {
       switch self {
-      case .compiler: return true
-      case .compilerVersion: return true
-      case .hyloVersion: return true
-      case .not(let c): return c.mayNotNeedParsing
-      default: return false
+      case .compiler:
+        return true
+      case .compilerVersion:
+        return true
+      case .hyloVersion:
+        return true
+      case .not(let c):
+        return c.mayNotNeedParsing
+      default:
+        return false
       }
     }
 
@@ -54,11 +73,12 @@ public struct ConditionalCompilationStmt: Stmt {
       case .os(let id): return id == info.os
       case .arch(let id): return id == info.arch
       case .compiler(let id): return id == info.compiler
-      case .compilerVersion(let comparison, let version):
-        return comparison.compare(info.compilerVersion, version)
-      case .hyloVersion(let comparison, let version):
-        return comparison.compare(info.hyloVersion, version)
-      case .not(let c): return !c.holds(for: info)
+      case .compilerVersion(let comparison):
+        return comparison.evaluate(for: info.compilerVersion)
+      case .hyloVersion(let comparison):
+        return comparison.evaluate(for: info.hyloVersion)
+      case .not(let c):
+        return !c.holds(for: info)
       }
     }
 
@@ -75,6 +95,7 @@ public struct ConditionalCompilationStmt: Stmt {
   /// The statements to be used if the condition is false.
   public let fallback: [AnyStmtID]
 
+  /// Creates an instance with the given properties.
   public init(condition: Condition, stmts: [AnyStmtID], fallback: [AnyStmtID], site: SourceRange) {
     self.site = site
     self.condition = condition

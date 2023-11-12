@@ -1,3 +1,4 @@
+import Core
 import Utils
 
 extension Module: CustomStringConvertible {
@@ -14,12 +15,6 @@ extension Module: TextOutputStreamable {
 
   /// Writes a textual representation of this instance into `output`.
   public func write<Target: TextOutputStream>(to output: inout Target) {
-    output.write(contentsOf: globals.enumerated(), separatedBy: "\n\n") { (s, e) in
-      s.write("global @\(id).\(e.offset) = \(e.element)")
-    }
-    if !globals.isEmpty && !functions.isEmpty {
-      output.write("\n\n")
-    }
     output.write(contentsOf: functions.keys, separatedBy: "\n\n") { (s, f) in
       write(function: f, to: &s)
     }
@@ -78,7 +73,7 @@ extension Module: TextOutputStreamable {
   }
 
   /// Returns a textual description of `f` suitable for debugging.
-  private func debugDescription(_ f: Function.ID) -> String {
+  func debugDescription(_ f: Function.ID) -> String {
     switch f.value {
     case .existentialized(let base):
       return "Existentialized form of '\(debugDescription(base))'"
@@ -87,7 +82,17 @@ extension Module: TextOutputStreamable {
     case .monomorphized(let base, let arguments):
       return "Monomorphized form of '\(debugDescription(base))' for <\(list: arguments.values)>"
     case .synthesized(let d):
-      return d.description
+      return debugDescription(d)
+    }
+  }
+
+  /// Returns a textual description of `d` suitable for debugging.
+  func debugDescription(_ f: SynthesizedFunctionDecl) -> String {
+    switch f.kind {
+    case .globalInitialization(let d):
+      return "Global initializer of '\(program.debugDescription(d))'"
+    default:
+      return f.description
     }
   }
 

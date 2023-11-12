@@ -349,8 +349,7 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(globalAddr i: InstructionID, to b: Block.ID) {
       let s = sourceModule[i] as! GlobalAddr
-      let t = monomorphize(s.valueType, for: specialization, in: scopeOfUse)
-      append(makeGlobalAddr(of: s.id, in: s.container, typed: t, at: s.site), to: b)
+      append(makeGlobalAddr(of: s.binding, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.

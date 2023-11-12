@@ -1,0 +1,14 @@
+/// A collection that can be mutated in place.
+trait MutableCollection: Collection {
+
+  /// Accesses the elment at position `i`.
+  ///
+  /// - Requires: `i` is a valid position in `self` different from `end_position()`.
+  subscript(_ i: Position): Element { inout }
+
+  /// Exchanges the values at the given positions in `self`.
+  ///
+  /// - Requires: `i` and `j` are valid positions in `self` different from `end_position()`.
+  fun swap_at(_ i: Position, _ j: Position) inout
+
+}

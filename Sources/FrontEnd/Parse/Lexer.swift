@@ -220,12 +220,18 @@ public struct Lexer: IteratorProtocol, Sequence {
       token.site.extend(upTo: index)
 
       switch tail {
-      case "if": token.kind = .poundIf
-      case "else": token.kind = .poundElse
-      case "elseif": token.kind = .poundElseif
-      case "endif": token.kind = .poundEndif
-      case "": token.kind = .invalid
-      default: token.kind = .pragmaLiteral
+      case "if":
+        token.kind = .poundIf
+      case "else":
+        token.kind = .poundElse
+      case "elseif":
+        token.kind = .poundElseif
+      case "endif":
+        token.kind = .poundEndif
+      case "":
+        token.kind = .invalid
+      default:
+        token.kind = .pragmaLiteral
       }
 
       return token
