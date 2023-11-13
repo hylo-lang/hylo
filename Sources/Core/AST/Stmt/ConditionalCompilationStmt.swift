@@ -108,8 +108,8 @@ public struct ConditionalCompilationStmt: Stmt {
   }
 
   /// Returns the statements that this expands to.
-  public var expansion: [AnyStmtID] {
-    if condition.holds(for: CompilerInfo.instance) {
+  public func expansion(for compilerInfo: CompilerInfo) -> [AnyStmtID] {
+    if condition.holds(for: compilerInfo) {
       return stmts
     } else {
       return fallback

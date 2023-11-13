@@ -19,9 +19,6 @@ public struct CompilerInfo: Codable {
   /// The set of features supported in the current compilation.
   let features: [String]
 
-  /// We only need one instance of this struct, to represent the compiler information.
-  public static let instance = CompilerInfo()
-
   /// Creates an instance with the properties of the machine running this initializer, using features `f`.
   public init(_ f: [String] = []) {
     os = CompilerInfo.currentOS()

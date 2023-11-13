@@ -1020,7 +1020,7 @@ struct TypeChecker {
 
   /// Type checks `s`.
   private mutating func check(_ s: ConditionalCompilationStmt.ID) {
-    for t in program[s].expansion { check(t) }
+    for t in program.ast[s].expansion(for: program.ast.compilerInfo) { check(t) }
   }
 
   /// Type checks `s`.

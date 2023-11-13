@@ -58,6 +58,11 @@ public struct AST {
     set { storage.coreLibrary = newValue }
   }
 
+  /// Information about the compiler processing `self`.
+  public var compilerInfo: CompilerInfo {
+    return storage.compilerInfo
+  }
+
   /// Creates an empty AST.
   public init(for compilerInfo: CompilerInfo) {
     self.storage = Storage(for: compilerInfo)
