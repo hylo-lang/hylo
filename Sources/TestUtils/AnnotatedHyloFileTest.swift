@@ -26,7 +26,7 @@ extension XCTestCase {
     diagnostics: DiagnosticSet
   )
 
-  /// Applies `processAndCheck` to `valToTest` and the subset of its annotations whose commands
+  /// Applies `processAndCheck` to `hyloToTest` and the subset of its annotations whose commands
   /// match `checkedCommands`, recording resulting XCTest failures along with any additional
   /// failures where the effects of processing don't match the its annotation commands ("//!
   /// ... diagnostic ...").
@@ -37,7 +37,7 @@ extension XCTestCase {
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
   fileprivate func checkAnnotations(
-    in valToTest: SourceFile,
+    in hyloToTest: SourceFile,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
     _ processAndCheck: (
       _ file: SourceFile,
@@ -45,7 +45,7 @@ extension XCTestCase {
       _ diagnostics: inout DiagnosticSet
     ) throws -> [XCTIssue]
   ) -> Bool {
-    var annotations = TestAnnotation.parseAll(from: valToTest)
+    var annotations = TestAnnotation.parseAll(from: hyloToTest)
 
     // Separate the annotations to be checked by default diagnostic annotation checking from
     // those to be checked by `processAndCheck`.
@@ -56,10 +56,10 @@ extension XCTestCase {
     var processingThrewError = false
 
     let failures = XCTContext.runActivity(
-      named: valToTest.baseName,
+      named: hyloToTest.baseName,
       block: { activity in
         let completedProcessingTestFailures = try? processAndCheck(
-          valToTest, processingAnnotations, &diagnostics)
+          hyloToTest, processingAnnotations, &diagnostics)
 
         processingThrewError = completedProcessingTestFailures == nil
 
@@ -147,7 +147,7 @@ extension XCTestCase {
     return testFailures
   }
 
-  /// Compiles and runs the val file at `hyloFilePath`, `XCTAssert`ing that diagnostics and exit
+  /// Compiles and runs the hylo file at `hyloFilePath`, `XCTAssert`ing that diagnostics and exit
   /// codes match annotated expectations.
   public func compileAndRun(_ hyloFilePath: String, expectSuccess: Bool) throws {
     if swiftyLLVMMandatoryPassesCrash { return }
