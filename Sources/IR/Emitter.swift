@@ -941,6 +941,8 @@ struct Emitter {
       return emit(braceStmt: .init(s)!)
     case BreakStmt.self:
       return emit(breakStmt: .init(s)!)
+    case ConditionalCompilationStmt.self:
+      return emit(condCompilationStmt: .init(s)!)
     case ConditionalStmt.self:
       return emit(conditionalStmt: .init(s)!)
     case DeclStmt.self:
@@ -987,14 +989,18 @@ struct Emitter {
       frames.pop()
     }
 
-    for i in ast[s].stmts.indices {
-      let a = emit(stmt: ast[s].stmts[i])
+    return emit(stmtList: ast[s].stmts)
+  }
+
+  private mutating func emit(stmtList stmts: [AnyStmtID]) -> ControlFlow {
+    for i in stmts.indices {
+      let a = emit(stmt: stmts[i])
       if a == .next { continue }
 
       // Exit the scope early if `i` was a control-flow statement, complaining if it wasn't the
       // last statement of the code block.
-      if i != ast[s].stmts.count - 1 {
-        report(.warning(unreachableStatement: ast[s].stmts[i + 1], in: ast))
+      if i != stmts.count - 1 {
+        report(.warning(unreachableStatement: stmts[i + 1], in: ast))
       }
       return a
     }
@@ -1004,6 +1010,10 @@ struct Emitter {
 
   private mutating func emit(breakStmt s: BreakStmt.ID) -> ControlFlow {
     return .break(s)
+  }
+
+  private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
+    return emit(stmtList: ast[s].expansion)
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {

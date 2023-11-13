@@ -968,6 +968,8 @@ struct TypeChecker {
       check(BraceStmt.ID(s)!)
     case BreakStmt.self:
       break
+    case ConditionalCompilationStmt.self:
+      check(ConditionalCompilationStmt.ID(s)!)
     case ConditionalStmt.self:
       check(ConditionalStmt.ID(s)!)
     case ContinueStmt.self:
@@ -1014,6 +1016,11 @@ struct TypeChecker {
     obligations.insert(SubtypingConstraint(rhs, lhs, origin: o))
 
     discharge(obligations, relatedTo: s)
+  }
+
+  /// Type checks `s`.
+  private mutating func check(_ s: ConditionalCompilationStmt.ID) {
+    for t in program[s].expansion { check(t) }
   }
 
   /// Type checks `s`.
