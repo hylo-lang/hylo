@@ -16,6 +16,20 @@ extension Diagnostic {
 
 }
 
+extension Result {
+
+  /// The success value, if any, and `nil` otherwise.
+  var success: Success? {
+    if case .success(let r) = self { return r } else { return nil }
+  }
+
+  /// The failure value, if any, and `nil` otherwise.
+  var failure: Failure? {
+    if case .failure(let r) = self { return r } else { return nil }
+  }
+
+}
+
 extension XCTestCase {
 
   /// The effects of running the `processAndCheck` parameter to `checkAnnotatedHyloFiles`.
@@ -44,7 +58,7 @@ extension XCTestCase {
       _ annotationsToCheck: ArraySlice<TestAnnotation>,
       _ diagnostics: inout DiagnosticSet
     ) throws -> [XCTIssue]
-  ) -> Bool {
+  ) -> Error? {
     var annotations = TestAnnotation.parseAll(from: hyloToTest)
 
     // Separate the annotations to be checked by default diagnostic annotation checking from
@@ -53,19 +67,17 @@ extension XCTestCase {
     let (diagnosticAnnotations, processingAnnotations) = (annotations[..<p], annotations[p...])
 
     var diagnostics = DiagnosticSet()
-    var processingThrewError = false
+    var thrownError: Error? = nil
 
     let failures = XCTContext.runActivity(
       named: hyloToTest.baseName,
       block: { activity in
-        let completedProcessingTestFailures = try? processAndCheck(
-          hyloToTest, processingAnnotations, &diagnostics)
-
-        processingThrewError = completedProcessingTestFailures == nil
+        let r = Result { try processAndCheck(hyloToTest, processingAnnotations, &diagnostics) }
+        thrownError = r.failure
 
         return failuresToReport(
           effectsOfProcessing: (
-            testFailures: completedProcessingTestFailures ?? [],
+            testFailures: r.success ?? [],
             diagnostics: diagnostics
           ),
           unhandledAnnotations: diagnosticAnnotations)
@@ -75,7 +87,7 @@ extension XCTestCase {
       record(f)
     }
 
-    return !processingThrewError
+    return thrownError
   }
 
   /// Applies `process` to the ".hylo" file at the given path and reports XCTest failures where the
@@ -94,20 +106,19 @@ extension XCTestCase {
     let f = try SourceFile(at: hyloFilePath)
 
     // FIXME: clarify/explain this code
-    let processingSucceeded = checkAnnotations(in: f, checkingAnnotationCommands: []) {
+    let thrownError = checkAnnotations(in: f, checkingAnnotationCommands: []) {
       (f, annotationsToHandle, diagnostics) in
       assert(annotationsToHandle.isEmpty)
       try process(f, &diagnostics)
       return []
     }
 
-    if processingSucceeded != expectSuccess {
+    if (thrownError == nil) != expectSuccess {
       record(
         XCTIssue(
           Diagnostic.error(
-            processingSucceeded
-              ? "processing succeeded, but failure was expected"
-              : "processing failed, but success was expected",
+            thrownError.map { "success was expected, but processing failed with thrown error: \($0)" }
+              ?? "processing succeeded, but failure was expected",
             at: f.wholeRange)))
     }
   }
