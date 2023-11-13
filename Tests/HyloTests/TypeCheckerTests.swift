@@ -1,8 +1,8 @@
 import Core
 import FrontEnd
+import StandardLibrary
 import TestUtils
 import XCTest
-import StandardLibrary
 
 extension XCTestCase {
 

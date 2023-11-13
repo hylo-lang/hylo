@@ -77,8 +77,7 @@ public struct LazyThrowing<T> {
             let r = try f()
             s = .success(r)
             return r
-          }
-          catch let e {
+          } catch let e {
             s = .failure(e)
             throw e
           }

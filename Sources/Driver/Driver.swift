@@ -3,9 +3,9 @@ import CodeGenLLVM
 import Core
 import Foundation
 import FrontEnd
-import StandardLibrary
 import IR
 import LLVM
+import StandardLibrary
 import Utils
 
 public struct Driver: ParsableCommand {
@@ -129,8 +129,7 @@ public struct Driver: ParsableCommand {
         into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
 
       Driver.exit(withError: exitCode)
-    }
-    catch let e {
+    } catch let e {
       print("Unexpected error\n\(e)")
       Driver.exit(withError: e)
     }
@@ -199,9 +198,9 @@ public struct Driver: ParsableCommand {
       standardError.write("create LLVM target machine.\n")
     }
     #if os(Windows)
-    let target = try LLVM.TargetMachine(for: .host())
+      let target = try LLVM.TargetMachine(for: .host())
     #else
-    let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
+      let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
     #endif
     if verbose {
       standardError.write("create LLVM program.\n")
@@ -342,7 +341,8 @@ public struct Driver: ParsableCommand {
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
-    try runCommandLine(findExecutable(invokedAs: "clang++").fileSystemPath, arguments, diagnostics: &diagnostics)
+    try runCommandLine(
+      findExecutable(invokedAs: "clang++").fileSystemPath, arguments, diagnostics: &diagnostics)
   }
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
@@ -354,7 +354,8 @@ public struct Driver: ParsableCommand {
   ) throws {
     try runCommandLine(
       findExecutable(invokedAs: "lld-link").fileSystemPath,
-      ["-defaultlib:HyloLibC", "-defaultlib:msvcrt", "-out:" + binaryPath] + objects.map(\.fileSystemPath),
+      ["-defaultlib:HyloLibC", "-defaultlib:msvcrt", "-out:" + binaryPath]
+        + objects.map(\.fileSystemPath),
       diagnostics: &diagnostics)
   }
 
@@ -398,8 +399,9 @@ public struct Driver: ParsableCommand {
   private func findExecutable(invokedAs invocationName: String) throws -> URL {
     if let cached = Driver.executableLocationCache[invocationName] { return cached }
 
-    let executableFileName
-      = invocationName.hasSuffix(executableSuffix) ? invocationName : invocationName + executableSuffix
+    let executableFileName =
+      invocationName.hasSuffix(executableSuffix)
+      ? invocationName : invocationName + executableSuffix
 
     // Search in the current working directory.
     var candidate = currentDirectory.appendingPathComponent(executableFileName)
@@ -412,7 +414,8 @@ public struct Driver: ParsableCommand {
     let environment =
       ProcessInfo.processInfo.environment[HostPlatform.pathEnvironmentVariable] ?? ""
     for root in environment.split(separator: HostPlatform.pathEnvironmentSeparator) {
-      candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(invocationName + HostPlatform.executableSuffix)
+      candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(
+        invocationName + HostPlatform.executableSuffix)
       if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
         Driver.executableLocationCache[invocationName] = candidate
         return candidate

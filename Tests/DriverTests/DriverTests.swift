@@ -1,9 +1,9 @@
 import ArgumentParser
 import Core
 import Driver
+import TestUtils
 import Utils
 import XCTest
-import TestUtils
 
 final class DriverTests: XCTestCase {
 

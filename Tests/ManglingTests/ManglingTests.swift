@@ -1,9 +1,9 @@
 import Core
 import FrontEnd
 import IR
+import StandardLibrary
 import TestUtils
 import XCTest
-import StandardLibrary
 
 final class ManglingTests: XCTestCase {
 

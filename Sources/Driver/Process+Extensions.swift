@@ -33,7 +33,7 @@ extension Process {
 
   /// Runs `executable` with the given command line `arguments` and returns its exit status along
   /// with the text written to its standard output and standard error streams.
-  public static func run( _ executable: URL, arguments: [String] = []) throws -> OutputText {
+  public static func run(_ executable: URL, arguments: [String] = []) throws -> OutputText {
     let p = Process()
     let pipes = (standardOutput: Pipe(), standardError: Pipe())
     p.executableURL = executable
