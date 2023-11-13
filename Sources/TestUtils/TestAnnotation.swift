@@ -1,6 +1,6 @@
 import Core
-import XCTest
 import Utils
+import XCTest
 
 /// A test annotation in a source file.
 ///

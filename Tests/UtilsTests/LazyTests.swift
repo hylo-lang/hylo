@@ -79,76 +79,75 @@ final class LazyThrowingTests: XCTestCase {
 
   func testComputedOnceNoCopyWithThrow() throws {
     var counter = 0
-    let l = LazyThrowing<Int> { counter += 1; throw X() }
+    let l = LazyThrowing<Int> {
+      counter += 1
+      throw X()
+    }
 
     do {
       _ = try l[]
       XCTFail()
-    }
-    catch is X {}
+    } catch is X {}
 
     XCTAssertEqual(counter, 1)
     do {
       _ = try l[]
       XCTFail()
-    }
-    catch is X {}
+    } catch is X {}
     XCTAssertEqual(counter, 1)
   }
 
   func testComputedOnceWithCopyWithThrow() throws {
     var counter = 0
-    let l = LazyThrowing<Int> { counter += 1; throw X() }
+    let l = LazyThrowing<Int> {
+      counter += 1
+      throw X()
+    }
     let l1 = l
 
     do {
       _ = try l[]
       XCTFail()
-    }
-    catch is X {}
+    } catch is X {}
     XCTAssertEqual(counter, 1)
 
     do {
       _ = try l1[]
       XCTFail()
-    }
-    catch is X {}
+    } catch is X {}
     XCTAssertEqual(counter, 1)
-
 
     do {
       _ = try l[]
       XCTFail()
-    }
-    catch is X {}
+    } catch is X {}
     XCTAssertEqual(counter, 1)
   }
 
   func testComputedOnceWithPostCallCopyWithThrow() throws {
     var counter = 0
-    let l = LazyThrowing<Int> { counter += 1; throw X() }
+    let l = LazyThrowing<Int> {
+      counter += 1
+      throw X()
+    }
 
     do {
       _ = try l[]
       XCTFail()
-    }
-    catch is X {}
+    } catch is X {}
     XCTAssertEqual(counter, 1)
 
     let l1 = l
     do {
       _ = try l1[]
       XCTFail()
-    }
-    catch is X {}
+    } catch is X {}
     XCTAssertEqual(counter, 1)
-
 
     do {
       _ = try l[]
       XCTFail()
-    }
-    catch is X {}
+    } catch is X {}
     XCTAssertEqual(counter, 1)
   }
 

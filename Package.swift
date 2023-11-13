@@ -2,9 +2,9 @@
 import PackageDescription
 
 #if os(Windows)
-let onWindows = true
+  let onWindows = true
 #else
-let onWindows = false
+  let onWindows = false
 #endif
 
 /// Settings to be passed to swiftc for all targets.
@@ -141,7 +141,7 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         "Utils",
       ],
-      swiftSettings: allTargetsSwiftSettings + [ .unsafeFlags(["-parse-as-library"]) ]),
+      swiftSettings: allTargetsSwiftSettings + [.unsafeFlags(["-parse-as-library"])]),
 
     // Test targets.
     .testTarget(
