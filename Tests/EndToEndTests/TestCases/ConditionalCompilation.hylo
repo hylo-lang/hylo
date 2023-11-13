@@ -49,7 +49,7 @@ fun testArch() {
 }
 
 fun testFeature() {
-  #if feature(useLibC)
+  #if !feature(freestanding)
     let a = 13
   #else
     error()

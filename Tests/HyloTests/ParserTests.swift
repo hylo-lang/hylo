@@ -13,7 +13,7 @@ extension XCTestCase {
 
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (hyloSource, diagnostics) in
-      var ast = AST()
+      var ast = AST(for: CompilerInfo())
       _ = try ast.makeModule(
         hyloSource.baseName, sourceCode: [hyloSource], diagnostics: &diagnostics)
     }
@@ -34,7 +34,7 @@ final class ParserTests: XCTestCase {
       }
       """)
 
-    var a = AST()
+    var a = AST(for: CompilerInfo())
     try checkNoDiagnostic { d in
       _ = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     }
@@ -53,7 +53,7 @@ final class ParserTests: XCTestCase {
         public let y = 0;
       """)
 
-    var a = AST()
+    var a = AST(for: CompilerInfo())
     let m = try checkNoDiagnostic { d in
       try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     }
@@ -1881,7 +1881,7 @@ final class ParserTests: XCTestCase {
 
   func testTakeOperator() throws {
     let input: SourceFile = "+ & == | < <= > >="
-    var context = ParserState(ast: AST(), lexer: Lexer(tokenizing: input))
+    var context = ParserState(ast: AST(for: CompilerInfo()), lexer: Lexer(tokenizing: input))
     XCTAssertEqual(context.takeOperator()?.value, "+")
     XCTAssertEqual(context.takeOperator()?.value, "&")
     XCTAssertEqual(context.takeOperator()?.value, "==")
@@ -1928,7 +1928,7 @@ extension SourceFile {
     inContext context: ParserState.Context? = nil,
     with parser: (inout ParserState) throws -> Element
   ) rethrows -> (element: Element, ast: AST) {
-    var state = ParserState(ast: AST(), lexer: Lexer(tokenizing: self))
+    var state = ParserState(ast: AST(for: CompilerInfo()), lexer: Lexer(tokenizing: self))
     if let c = context {
       state.contexts.append(c)
     }

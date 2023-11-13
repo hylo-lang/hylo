@@ -50,6 +50,11 @@ public struct Driver: ParsableCommand {
   private var noStandardLibrary: Bool = false
 
   @Flag(
+    name: [.customLong("freestanding")],
+    help: "Compile in freestanding mode (no libc).")
+  private var freestanding: Bool = false
+
+  @Flag(
     name: [.customLong("sequential")],
     help: "Execute the compilation pipeline sequentially.")
   private var compileSequentially: Bool = false
@@ -152,7 +157,10 @@ public struct Driver: ParsableCommand {
     }
 
     let productName = makeProductName(inputs)
-    var ast = noStandardLibrary ? AST.coreModule : AST.standardLibrary
+    let compilerInfo = CompilerInfo(freestanding ? ["freestanding"] : [])
+    var ast =
+      noStandardLibrary
+      ? AST(coreModuleFor: compilerInfo) : AST(standardLibraryModuleFor: compilerInfo)
 
     // The module whose Hylo files were given on the command-line
     let sourceModule = try ast.makeModule(

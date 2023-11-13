@@ -5,15 +5,19 @@ import Utils
 
 extension AST {
 
-  /// An instance that includes just the core module.
-  public static var coreModule = AST(libraryRoot: HyloModule.core)
+  /// Creates an instance that includes just the core module.
+  public init(coreModuleFor compilerInfo: CompilerInfo) {
+    self.init(libraryRoot: HyloModule.core, for: compilerInfo)
+  }
 
-  /// An instance that includes just the standard library.
-  public static var standardLibrary = AST(libraryRoot: HyloModule.standardLibrary)
+  /// Creates an instance that includes just the standard library.
+  public init(standardLibraryModuleFor compilerInfo: CompilerInfo) {
+    self.init(libraryRoot: HyloModule.standardLibrary, for: compilerInfo)
+  }
 
   /// Creates an instance that includes the Hylo library rooted at `libraryRoot`.
-  private init(libraryRoot: URL) {
-    self.init()
+  private init(libraryRoot: URL, for compilerInfo: CompilerInfo) {
+    self.init(for: compilerInfo)
     do {
       var diagnostics = DiagnosticSet()
       coreLibrary = try makeModule(

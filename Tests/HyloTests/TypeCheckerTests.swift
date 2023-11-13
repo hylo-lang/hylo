@@ -12,7 +12,7 @@ extension XCTestCase {
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (source, diagnostics) in
 
-      var ast = AST.coreModule
+      var ast = AST(coreModuleFor: CompilerInfo())
       _ = try ast.makeModule(
         source.baseName, sourceCode: [source], builtinModuleAccess: true,
         diagnostics: &diagnostics)
