@@ -7,5 +7,6 @@ public fun main() {
 
   &x = None()
   let z = if let i: Int = x { i.copy() } else { 0 }
+  print(z)
   precondition(z == 0)
 }
