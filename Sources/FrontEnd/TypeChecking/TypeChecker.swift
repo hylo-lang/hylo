@@ -126,6 +126,31 @@ struct TypeChecker {
     (t != u) && conformedTraits(of: t, in: scopeOfUse).contains(u)
   }
 
+  /// Returns the traits refining `t`, reporting a diagnostic if one of them is in `refinedTraits`.
+  ///
+  /// `refinedTraits` serves as a memo to catch refinement cycles and is expected to be empty
+  /// unless `refinements(of:knownToRefine:)` is called recursively.
+  private mutating func refinements(
+    of t: TraitType, knownToRefine refinedTraits: Set<TraitType> = []
+  ) -> RefinementCluster {
+    if let r = cache.traitToRefinements[t] { return r }
+
+    let knownRefinedTraits = refinedTraits.inserting(t)
+    var result = RefinementCluster(t)
+
+    for (n, s) in evalTraitComposition(program[t.decl].refinements) {
+      if knownRefinedTraits.contains(s) {
+        report(.error(circularRefinementAt: program[n].site))
+      } else {
+        let newRefinements = refinements(of: s, knownToRefine: knownRefinedTraits)
+        result.insert(newRefinements, refining: t)
+      }
+    }
+
+    cache.traitToRefinements[t] = result
+    return result
+  }
+
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
   mutating func conformedTraits(of t: AnyType, in scopeOfUse: AnyScopeID) -> Set<TraitType> {
     let key = Cache.TypeLookupKey(t, in: scopeOfUse)
@@ -208,26 +233,11 @@ struct TypeChecker {
     return result
   }
 
-  /// Returns `concept` and the traits of which `concept` is a refinement in `scopeOfUse`.
+  /// Returns `t` and the traits of which `t` is a refinement.
   private mutating func conformedTraits(
-    of concept: TraitType, in scopeOfUse: AnyScopeID
+    of t: TraitType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    var result = Set([concept])
-
-    for (n, t) in evalTraitComposition(program[concept.decl].refinements) {
-      var work = Set([t])
-      while let base = work.popFirst() {
-        if base == concept {
-          report(.error(circularRefinementAt: program[n].site))
-        } else if result.insert(base).inserted {
-          let new = evalTraitComposition(program[base.decl].refinements)
-          work.formUnion(new.map(\.trait))
-        }
-      }
-    }
-
-    // Traits can't be refined in extensions; we're done.
-    return result
+    refinements(of: t).unorderedTraits
   }
 
   /// Returns the traits to which `t` can be assumed to be conforming in `scopeOfUse`.
@@ -5221,6 +5231,11 @@ struct TypeChecker {
     ///
     /// This map serves as cache for `extensions(of:exposedTo:)`.
     var typeToExtensions: [TypeLookupKey: [AnyDeclID]] = [:]
+
+    /// A map from trait to its refinements.
+    ///
+    /// This map serves as cache for `refinements(of:)`
+    var traitToRefinements: [TraitType: RefinementCluster] = [:]
 
     /// Creates an instance for memoizing type checking results in `local` and comminicating them
     /// to concurrent type checkers using `shared`.
