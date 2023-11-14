@@ -3,7 +3,7 @@ import FrontEnd
 import IR
 import Utils
 import XCTest
-import StandardLibrary
+import StandardLibraryModules
 
 extension XCTestCase {
 

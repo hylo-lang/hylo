@@ -2,7 +2,7 @@ import Core
 import FrontEnd
 import TestUtils
 import XCTest
-import StandardLibrary
+import StandardLibraryModules
 
 extension XCTestCase {
 
