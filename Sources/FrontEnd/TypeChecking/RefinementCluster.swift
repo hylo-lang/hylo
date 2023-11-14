@@ -11,7 +11,7 @@ struct RefinementCluster: Equatable {
   let bottom: TraitType
 
   /// The traits in the cluster, in no particular order.
-  private(set) var unorderedTraits: Set<TraitType>
+  private(set) var unordered: Set<TraitType>
 
   /// The refinement relationships in the cluster.
   private(set) var refinements: Refinements
@@ -19,18 +19,18 @@ struct RefinementCluster: Equatable {
   /// Creates a cluster contaning only `bottom`.
   init(_ bottom: TraitType) {
     self.bottom = bottom
-    self.unorderedTraits = [bottom]
+    self.unordered = [bottom]
     self.refinements = .init()
   }
 
-  /// The traits in `self` sorted in topologica order w.r.t. to their refinements.
-  var traits: RefinementIterator { .init(self) }
+  /// The traits in `self` sorted in topological order w.r.t. to their refinements.
+  var orderedByDependency: RefinementIterator { .init(self) }
 
   /// Returns `true` iff `t` is in the cluster.
   ///
   /// - Complexity: O(1)
   func contains(_ t: TraitType) -> Bool {
-    unorderedTraits.contains(t)
+    unordered.contains(t)
   }
 
   /// Inserts `t` as a refinement of `u` in `self`.
@@ -41,7 +41,7 @@ struct RefinementCluster: Equatable {
     if t == u { return }
     assert(!refinements.isReachable(u, from: t), "refinement cycle")
     refinements.insertEdge(from: u, to: t)
-    unorderedTraits.insert(t)
+    unordered.insert(t)
   }
 
   /// Inserts `c.bottom` as a refinement of `u` in `self` along with all the relationships in `c`.
