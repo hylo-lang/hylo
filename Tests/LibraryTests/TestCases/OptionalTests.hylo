@@ -6,7 +6,7 @@ public fun main() {
   precondition(y == 42)
 
   &x = None()
-  let z = if let i: Int = x { i.copy() } else { 0 }
+  let z = if let i: Int = x { i.copy() } else { 1337 }
   print(z)
-  precondition(z == 0)
+  precondition(z == 1337)
 }
