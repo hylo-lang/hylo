@@ -121,9 +121,9 @@ struct TypeChecker {
     canonical(t, in: scopeOfUse) == canonical(u, in: scopeOfUse)
   }
 
-  /// Returns `true` iff `t` is a refinement of `u` in `scopeOfUse`.
-  mutating func isRefinement(_ t: TraitType, of u: TraitType, in scopeOfUse: AnyScopeID) -> Bool {
-    (t != u) && conformedTraits(of: t, in: scopeOfUse).contains(u)
+  /// Returns `true` iff `t` is a refinement of `u` and `t != u`.
+  mutating func isStrictRefinement(_ t: TraitType, of u: TraitType) -> Bool {
+    (t != u) && refinements(of: t).contains(u)
   }
 
   /// Returns the traits refining `t`, reporting a diagnostic if one of them is in `refinedTraits`.
@@ -171,7 +171,7 @@ struct TypeChecker {
     case let u as ProductType:
       result = conformedTraits(of: u, in: scopeOfUse)
     case let u as TraitType:
-      result = conformedTraits(of: u, in: scopeOfUse)
+      result = refinements(of: u).unorderedTraits
     case let u as TypeAliasType:
       result = conformedTraits(of: u.resolved, in: scopeOfUse)
     case let u as WitnessType:
@@ -212,7 +212,7 @@ struct TypeChecker {
   ) -> Set<TraitType> {
     // Generic parameters declared at trait scope conform to that trait.
     if let d = TraitDecl.ID(program[t.decl].scope) {
-      return conformedTraits(of: TraitType(d, ast: program.ast), in: scopeOfUse)
+      return refinements(of: TraitType(d, ast: program.ast)).unorderedTraits
     }
 
     var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
@@ -226,7 +226,7 @@ struct TypeChecker {
   ) -> Set<TraitType> {
     var result = Set<TraitType>()
     for (_, u) in evalTraitComposition(program[t.decl].conformances) {
-      result.formUnion(conformedTraits(of: u, in: scopeOfUse))
+      result.formUnion(refinements(of: u).unorderedTraits)
     }
 
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
@@ -234,9 +234,7 @@ struct TypeChecker {
   }
 
   /// Returns `t` and the traits of which `t` is a refinement.
-  private mutating func conformedTraits(
-    of t: TraitType, in scopeOfUse: AnyScopeID
-  ) -> Set<TraitType> {
+  private mutating func conformedTraits(of t: TraitType) -> Set<TraitType> {
     refinements(of: t).unorderedTraits
   }
 
@@ -246,8 +244,8 @@ struct TypeChecker {
   ) -> Set<TraitType> {
     switch t.container.interface {
     case .traits(let traits):
-      return traits.reduce(into: []) { (r, c) in
-        r.formUnion(conformedTraits(of: c, in: scopeOfUse))
+      return traits.reduce(into: []) { (result, u) in
+        result.formUnion(refinements(of: u).unorderedTraits)
       }
 
     default:
@@ -263,7 +261,7 @@ struct TypeChecker {
     var result = Set<TraitType>()
     for e in extensions(of: t, exposedTo: scopeOfUse).filter(ConformanceDecl.self) {
       for (_, u) in evalTraitComposition(program[e].conformances) {
-        result.formUnion(conformedTraits(of: u, in: scopeOfUse))
+        result.formUnion(refinements(of: u).unorderedTraits)
       }
     }
     return result
@@ -1166,7 +1164,7 @@ struct TypeChecker {
     r = canonical(r, in: program[d].scope)
 
     for (n, rhs) in evalTraitComposition(program[d].conformances) {
-      for t in conformedTraits(of: rhs, in: program[d].scope) {
+      for t in refinements(of: rhs).traits {
         checkConformance(of: r, to: t, declaredBy: .init(d, at: program[n].site))
       }
     }
@@ -1202,7 +1200,7 @@ struct TypeChecker {
 
     // TODO: This is hack until #1106 is fixed
     var traitReceiverToModel = GenericArguments()
-    for t in conformedTraits(of: concept, in: scopeOfDefinition) {
+    for t in refinements(of: concept).unorderedTraits {
       traitReceiverToModel[program[t.decl].receiver] = model
     }
 
@@ -1572,7 +1570,7 @@ struct TypeChecker {
     // Synthesize `Self: T`.
     let s = GenericTypeParameterType(receiver, ast: program.ast)
     let t = TraitType(uncheckedType(of: d))!
-    for c in conformedTraits(of: t, in: AnyScopeID(d)) {
+    for c in refinements(of: t).unorderedTraits {
       result.insertConstraint(.init(.conformance(^s, c), at: program[d].identifier.site))
     }
 
@@ -1644,7 +1642,7 @@ struct TypeChecker {
 
     // Synthesize sugared conformance constraint, if any.
     for (n, t) in evalTraitComposition(program[p].conformances) {
-      for c in conformedTraits(of: t, in: program[p].scope) {
+      for c in refinements(of: t).unorderedTraits {
         e.insertConstraint(.init(.conformance(lhs, c), at: program[n].site))
       }
     }
@@ -4973,8 +4971,8 @@ struct TypeChecker {
 
       // If `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, then `lhs` shadows
       // `rhs` iff `t1` refines `t2`.
-      if isRefinement(l, of: r, in: scopeOfUse) { return .ascending }
-      if isRefinement(r, of: l, in: scopeOfUse) { return .descending }
+      if isStrictRefinement(l, of: r) { return .ascending }
+      if isStrictRefinement(r, of: l) { return .descending }
       return nil
     }
 
