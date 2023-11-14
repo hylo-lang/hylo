@@ -75,6 +75,34 @@ final class DirectedGraphTests: XCTestCase {
     XCTAssert(g.edges.sorted().elementsEqual(edges, by: { $0 == $1 }))
   }
 
+  func testBFS() {
+    var g = DirectedGraph<Int, ()>()
+    g.insertEdge(from: 0, to: 1)
+    g.insertEdge(from: 0, to: 2)
+    g.insertEdge(from: 1, to: 3)
+    g.insertEdge(from: 2, to: 3)
+
+    let vertices = Array(g.bfs(from: 0))
+    XCTAssertEqual(Set(vertices), [0, 1, 2, 3])
+    XCTAssertEqual(vertices.first, 0)
+    XCTAssertEqual(vertices.last, 3)
+  }
+
+  func testIsReachable() {
+    var g = DirectedGraph<Int, ()>()
+    g.insertEdge(from: 0, to: 1)
+    g.insertEdge(from: 0, to: 2)
+    g.insertEdge(from: 1, to: 3)
+    g.insertEdge(from: 2, to: 3)
+
+    XCTAssert(g.isReachable(3, from: 0))
+    XCTAssert(g.isReachable(2, from: 0))
+    XCTAssert(g.isReachable(3, from: 1))
+
+    XCTAssertFalse(g.isReachable(0, from: 3))
+    XCTAssertFalse(g.isReachable(2, from: 1))
+  }
+
 }
 
 extension DirectedGraph<Int, String>.Edge {
