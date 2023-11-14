@@ -4,7 +4,9 @@ import StandardLibrary
 import Utils
 
 /// The standard library module.
-public let standardLibraryModule = Lazy { AST(libraryRoot: standardLibrarySourceRoot) }
+public let standardLibraryModule
+  = LazyThrowing { try AST(libraryRoot: standardLibrarySourceRoot) }
 
 /// The core library module.
-public let coreLibraryModule = Lazy { AST(libraryRoot: coreLibrarySourceRoot) }
+public let coreLibraryModule
+  = LazyThrowing { try AST(libraryRoot: coreLibrarySourceRoot) }
