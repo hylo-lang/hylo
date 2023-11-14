@@ -3,10 +3,10 @@
 public fun main() {
   var x: Optional<Int> = 42
   let y = if let i: Int = x { i.copy() } else { 0 }
-  precondition(y == 42)
+  precondition(y == 42, "#1 failed")
 
   &x = None()
   let z = if let i: Int = x { i.copy() } else { 1337 }
   print(z)
-  precondition(z == 1337)
+  precondition(z == 1337, "#2 failed")
 }
