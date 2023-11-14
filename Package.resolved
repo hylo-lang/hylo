@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/dabrahams/CBORCoding.git",
       "state" : {
-        "branch" : "51848a0",
-        "revision" : "51848a0f8b013002dcf6db0e1ef65a6cdd82bbc2"
+        "branch" : "75b8b87",
+        "revision" : "75b8b8735986b130a74b158d848569af834dabac"
       }
     },
     {
@@ -25,15 +25,6 @@
       "state" : {
         "revision" : "3d802c00e9063b8bba8ba3fff5691e82df7949e1",
         "version" : "1.2.0"
-      }
-    },
-    {
-      "identity" : "half",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SomeRandomiOSDev/Half",
-      "state" : {
-        "revision" : "28838ea236eac27870e8fa0dbc75cc2680dd6161",
-        "version" : "1.4.0"
       }
     },
     {
