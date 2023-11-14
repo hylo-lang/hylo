@@ -43,7 +43,7 @@ extension XCTestCase {
   /// Applies `processAndCheck` to `hyloToTest` and the subset of its annotations whose commands
   /// match `checkedCommands`, recording resulting XCTest failures along with any additional
   /// failures where the effects of processing don't match the its annotation commands ("//!
-  /// ... diagnostic ...").
+  /// ... diagnostic ..."), and returning any error thrown by `processAndCheck`.
   ///
   /// - Parameters:
   ///   - checkedCommands: the annnotation commands to be validated by `processAndCheck`.
