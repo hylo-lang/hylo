@@ -184,7 +184,7 @@ jobs:
     - name: Ensure that build tools have been built, since reentrancy is disabled
       run: >
         swift build --explicit-target-dependency-import-check error --pkg-config-path .
-        --target BuildStandardLibrary --target GenerateHyloFileTests
+        --product BuildStandardLibrary --product GenerateHyloFileTests
 
     - name: Build tests
       run: swift build --explicit-target-dependency-import-check error --build-tests --pkg-config-path .
