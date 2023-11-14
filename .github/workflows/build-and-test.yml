@@ -44,11 +44,17 @@ jobs:
       matrix:
         host: [
           { type: linux, os: ubuntu-latest,
-            build-options: "-v --build-tests -Xswiftc -enable-testing",
-            test-options: "-v --enable-code-coverage"
+            build-options: "--build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
+            test-options: "--enable-code-coverage --explicit-target-dependency-import-check error",
           }
         ]
         configuration: [ "debug", "release" ]
+        include:
+          - configuration: "debug"
+            parallel-test: "--parallel"
+          # See https://github.com/apple/swift-package-manager/issues/7069
+          - configuration: "release"
+            parallel-test: ""
 
     runs-on: ${{ matrix.host.os }}
     steps:
@@ -63,7 +69,7 @@ jobs:
           .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
           export PKG_CONFIG_PATH=$PWD
           swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }}
-          swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
+          swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} ${{ matrix.parallel-test }} |
             tee testoutput.txt && (
               (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
               (echo "error: generated tests failed to run; see
@@ -84,9 +90,9 @@ jobs:
         host: [
           {
             type: macos, os: macos-13,
-            build-options: "-v --build-tests -Xswiftc -enable-testing",
+            build-options: "--build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
             # No coverage support on MacOS
-            test-options: "-v"
+            test-options: "--parallel"
           }
         ]
         swift: [
@@ -137,7 +143,7 @@ jobs:
             https://github.com/apple/swift-package-manager/issues/6595" && false) )
           
   build-native-windows:
-    name: "Native, no testing: windows-latest/release"
+    name: "Native: windows-latest, debug"
     strategy:
       fail-fast: false
     runs-on: windows-latest
@@ -145,8 +151,10 @@ jobs:
     - name: Setup swift
       uses: compnerd/gha-setup-swift@main
       with:
-        branch: swift-5.8.1-release
-        tag: 5.8.1-RELEASE
+        github-repo: thebrowsercompany/swift-build
+        release-asset-name: installer-amd64.exe
+        release-tag-name: 20231010.3
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - uses: actions/checkout@v3
 
@@ -159,26 +167,25 @@ jobs:
         7z x llvm-15.0.6-windows-x86-msvc17-msvcrt.7z -oC:\
         Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-msvcrt\bin'
         
-    - name: Copy LLVM's include and lib to include and lib folder of MSVC
-      run: |
-        xcopy c:\llvm-15.0.6-windows-x86-msvc17-msvcrt\include\*.* c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\include\ /s /h
-        xcopy c:\llvm-15.0.6-windows-x86-msvc17-msvcrt\lib\*.* c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\ /s /h
-
     - run: llvm-config --version
 
+    - name: Generate LLVM pkgconfig file
+      run: |
+        swift package resolve
+        & "C:\Program Files\Git\bin\bash.exe" .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
+        type llvm.pc
+
     - name: Build support library
-      run: clang -c ./Library/Hylo/LibC.c -o HyloLibC.lib
+      run: clang -c ./StandardLibrary/Sources/LibC.c -o HyloLibC.lib
 
-    - name: Copy support library
-      run: xcopy HyloLibC.lib c:\program" "files\microsoft" "visual" "studio\2022\enterprise\vc\tools\msvc\${{ env.VCToolsVersion }}\lib\x64\
+    - name: Prevent reentrant builds for speed
+      run: echo 'HYLO_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
 
-    - name: Build (Release)
-      id: build
-      continue-on-error: true
-      run: swift build -v -c release
+    - name: Non-test build ensuring that build tools have been built
+      run: swift build --explicit-target-dependency-import-check error --pkg-config-path .
 
-    - name: Retry on failure
-      continue-on-error: false
-      if: steps.build.outcome != 'success'
-      run: swift build -v -c release
+    - name: Build tests
+      run: swift build --explicit-target-dependency-import-check error --build-tests --pkg-config-path .
 
+    - name: Test
+      run: swift test --parallel --skip-build --pkg-config-path . 

@@ -6,7 +6,7 @@ PROJECT_DIR=$( cd "${CUR_DIR}/../" ; pwd -P )
 
 # The targets that we are checking/formatting as parameters to `swift package plugin`
 # Only top-level targets need to be present here
-TARGETS_ARGS="--target CLI --target Driver --target FrontEnd --target Core --target IR --target CodeGenLLVM --target HyloModule --target Utils --target UtilsTests --target HyloTests --target DriverTests"
+TARGETS_ARGS="--target CLI --target Driver --target FrontEnd --target Core --target IR --target CodeGenLLVM --target StandardLibrary --target Utils --target UtilsTests --target HyloTests --target DriverTests"
 
 
 function usage {

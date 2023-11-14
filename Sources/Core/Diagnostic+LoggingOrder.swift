@@ -8,7 +8,7 @@ extension Diagnostic {
     if lhs.file == rhs.file {
       return lhs.first() < rhs.first()
     } else {
-      return lhs.file.url.path.lexicographicallyPrecedes(rhs.file.url.path)
+      return lhs.file.url.fileSystemPath.lexicographicallyPrecedes(rhs.file.url.path)
     }
   }
 
