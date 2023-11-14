@@ -23,12 +23,12 @@ struct RefinementIterator: IteratorProtocol, Sequence {
     self.cluster = cluster
     self.state = [(cluster.bottom, cluster.refinements[from: cluster.bottom].startIndex)]
     self.visited = []
-    self.visited.reserveCapacity(cluster.unorderedTraits.count)
+    self.visited.reserveCapacity(cluster.unordered.count)
   }
 
   /// The number of traits in `cluster`.
   var underestimatedCount: Int {
-    cluster.unorderedTraits.count
+    cluster.unordered.count
   }
 
   /// Returns the next trait, or `nil` if all traits have been returned already.
