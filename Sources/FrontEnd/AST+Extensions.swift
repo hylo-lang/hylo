@@ -17,4 +17,12 @@ extension AST {
     self.coreTraits = .init(self)
   }
 
+  /// Creates an instance representing `sourceCode` as a module named `moduleName`, with access to
+  /// the builtin module iff `builtinModuleAccess` is `true`.
+  public init<S: Sequence>(_ sourceCode: S, moduleName: String, builtinModuleAccess: Bool) throws where S.Element == URL {
+    self.init()
+    var diagnostics = DiagnosticSet()
+    _ = try makeModule(moduleName, sourceCode: sourceCode, builtinModuleAccess: builtinModuleAccess, diagnostics: &diagnostics)
+    self.coreTraits = .init(self)
+  }
 }

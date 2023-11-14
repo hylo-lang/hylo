@@ -10,15 +10,16 @@ struct StandardLibraryBuilderPlugin: PortableBuildToolPlugin {
   {
     guard let target = target as? SourceModuleTarget else { return [] }
     let inputPaths = target.sourceFiles(withSuffix: ".hylo").map(\.path)
-    let outputPath = context.pluginWorkDirectory
+    let outputPath = context.pluginWorkDirectory.appending("StandardLibrary.cbor")
 
-    if true {return []}
     return [
       .buildCommand(
-        displayName: "Building standard library module into .",
+        displayName: "Building standard library module into \(outputPath).",
         tool: .executableProduct(name: "BuildStandardLibrary"),
-        arguments: ["-o", outputPath.platformString, "-n", target.moduleName]
-        + inputPaths.map(\.platformString),
+        arguments: [
+          "-o", outputPath.platformString,
+          "-r", context.package.directory.platformString
+        ] + inputPaths.map(\.platformString),
       inputFiles: inputPaths,
       outputFiles: [outputPath])]
   }
