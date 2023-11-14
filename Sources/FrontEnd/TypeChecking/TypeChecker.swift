@@ -233,11 +233,6 @@ struct TypeChecker {
     return result
   }
 
-  /// Returns `t` and the traits of which `t` is a refinement.
-  private mutating func conformedTraits(of t: TraitType) -> Set<TraitType> {
-    refinements(of: t).unordered
-  }
-
   /// Returns the traits to which `t` can be assumed to be conforming in `scopeOfUse`.
   private mutating func conformedTraits(
     of t: WitnessType, in scopeOfUse: AnyScopeID
