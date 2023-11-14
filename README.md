@@ -1,7 +1,4 @@
-# Hylo
-
-> **Warning**
-> Val is getting renamed to Hylo. We apologize for any broken links and confusion this may cause. We're working on it.
+# Hylo (formerly Val)
 
 Hylo is a programming language that leverages [mutable value semantics](https://www.jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
 
