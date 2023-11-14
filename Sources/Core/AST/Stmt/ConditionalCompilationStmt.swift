@@ -23,7 +23,7 @@ public struct ConditionalCompilationStmt: Stmt {
   }
 
   /// A condition in a conditional compilation statement.
-  public enum Condition: Codable, Equatable {
+  public indirect enum Condition: Codable, Equatable {
 
     /// Always holds.
     case `true`
@@ -46,6 +46,9 @@ public struct ConditionalCompilationStmt: Stmt {
     /// Holds iff the version of Hylo for which this file is compiled, satisfies `comparison`.
     case hyloVersion(comparison: VersionComparison)
 
+    /// Holds iff the payload doesn't.
+    case not(Condition)
+
     /// `true` iff the body of the conditional-compilation shouldn't be parsed.
     public var mayNotNeedParsing: Bool {
       switch self {
@@ -55,6 +58,8 @@ public struct ConditionalCompilationStmt: Stmt {
         return true
       case .hyloVersion:
         return true
+      case .not(let c):
+        return c.mayNotNeedParsing
       default:
         return false
       }
@@ -72,6 +77,8 @@ public struct ConditionalCompilationStmt: Stmt {
         return comparison.evaluate(for: info.compilerVersion)
       case .hyloVersion(let comparison):
         return comparison.evaluate(for: info.hyloVersion)
+      case .not(let c):
+        return !c.holds(for: info)
       }
     }
 
