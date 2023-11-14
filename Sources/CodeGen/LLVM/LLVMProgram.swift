@@ -60,7 +60,7 @@ public struct LLVMProgram {
     var result: [URL] = []
     for m in llvmModules.values {
       let f = directory.appendingPathComponent(m.name).appendingPathExtension("o")
-      try m.write(type, for: target, to: f.path)
+      try m.write(type, for: target, to: f.fileSystemPath)
       result.append(f)
     }
     return result

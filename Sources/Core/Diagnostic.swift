@@ -73,7 +73,7 @@ extension Diagnostic: CustomStringConvertible {
     let prefix: String
     let l = site.first()
     let (line, column) = l.lineAndColumn
-    prefix = "\(l.file.url.standardizedFileURL.path):\(line):\(column): "
+    prefix = "\(l.file.url.fileSystemPath):\(line):\(column): "
     return prefix + "\(level): \(message)"
   }
 

@@ -11,7 +11,7 @@ builder:
     - Driver
     - FrontEnd
     - GenerateHyloFileTests
-    - HyloModule
+    - StandardLibrary
     - IR
     - TestUtils
     - Utils

@@ -36,12 +36,24 @@ extension StringProtocol {
   public func lineBoundaries() -> [Index] {
     var r = [startIndex]
     var remainder = self[...]
-    while !remainder.isEmpty, let i = remainder.firstIndex(of: "\n") {
+    while !remainder.isEmpty, let i = remainder.firstIndex(where: \.isNewline) {
       let j = index(after: i)
       r.append(j)
       remainder = remainder[j...]
     }
     return r
+  }
+
+  /// Returns each line of text in order, sans terminating newline.
+  public func lineContents() -> [SubSequence] {
+    var result: [SubSequence] = []
+    var remainder = self[...]
+    while !remainder.isEmpty {
+      let i = remainder.firstIndex(where: \.isNewline) ?? remainder.endIndex
+      result.append(remainder[..<i])
+      remainder = remainder[i...].dropFirst()
+    }
+    return result
   }
 
   /// Replace any succession of whitespace characters (including newlines and tabs) with a single
