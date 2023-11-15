@@ -2969,15 +2969,16 @@ struct TypeChecker {
       switch s.kind {
       case ModuleDecl.self:
         let m = ModuleDecl.ID(s)!
-        let symbols = program.ast.topLevelDecls(m)
-        reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
+        let d = program.ast.topLevelDecls(m)
+        reduce(decls: d, extending: subject, in: scopeOfUse, into: &matches)
         root = m
 
       case TranslationUnit.self:
         continue
 
       default:
-        reduce(decls: program[s].decls, extending: subject, in: scopeOfUse, into: &matches)
+        let d = program[s].decls.extensions
+        reduce(decls: d, extending: subject, in: scopeOfUse, into: &matches)
       }
     }
 
@@ -3004,7 +3005,7 @@ struct TypeChecker {
   ) where S.Element == AnyDeclID {
     precondition(subject[.isCanonical])
 
-    for d in decls where d.kind.value is TypeExtendingDecl.Type {
+    for d in decls where d.isTypeExtendingDecl {
       // Skip declarations that are already on the checker's stack.
       if cache.uncheckedType[d] == .inProgress { continue }
 
