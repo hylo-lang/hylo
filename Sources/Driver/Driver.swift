@@ -3,7 +3,7 @@ import CodeGenLLVM
 import Core
 import Foundation
 import FrontEnd
-import StandardLibraryModules
+import StandardLibrary
 import IR
 import LLVM
 import Utils

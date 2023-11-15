@@ -1,9 +1,16 @@
+import CBORCoding
+import Core
 import Foundation
+import FrontEnd
+import Utils
 
-private let libraryRoot = Bundle.module.resourceURL!
+private let standardLibraries = LazyThrowing<[AST]> {
+  let d = try Data(contentsOf: Bundle.module.resourceURL!, options: .alwaysMapped)
+  return try CBORDecoder().forAST.decode(from: d)
+}
 
-/// The root URL of Hylo's standard library.
-public let standardLibrarySourceRoot: URL = libraryRoot.appendingPathComponent("Sources")
+/// The standard library module.
+public let standardLibraryModule = LazyThrowing { try standardLibraries[][0] }
 
-/// The root URL of Hylo's core library.
-public let coreLibrarySourceRoot: URL = standardLibrarySourceRoot.appendingPathComponent("Core")
+/// The core library module.
+public let coreLibraryModule = LazyThrowing { try standardLibraries[][1] }

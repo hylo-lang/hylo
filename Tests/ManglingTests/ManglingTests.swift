@@ -3,7 +3,7 @@ import FrontEnd
 import IR
 import TestUtils
 import XCTest
-import StandardLibraryModules
+import StandardLibrary
 
 final class ManglingTests: XCTestCase {
 

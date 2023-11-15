@@ -72,7 +72,7 @@ let package = Package(
         "FrontEnd",
         "IR",
         "CodeGenLLVM",
-        "StandardLibraryModules",
+        "StandardLibrary",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: allTargetsSwiftSettings),
@@ -129,18 +129,11 @@ let package = Package(
 
     .target(
       name: "StandardLibrary",
-      path: "StandardLibrary",
-      resources: [.copy("Sources")],
-      swiftSettings: allTargetsSwiftSettings
-    ),
-
-    .target(
-      name: "StandardLibraryModules",
       dependencies: [
-        "FrontEnd", "Core", "StandardLibrary",
+        "FrontEnd", "Core", "Utils",
         .product(name: "CBORCoding", package: "CBORCoding")
       ],
-      resources: [],
+      path: "StandardLibrary",
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["StandardLibraryBuilderPlugin"]
     ),
