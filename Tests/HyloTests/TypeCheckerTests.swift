@@ -1,5 +1,6 @@
 import Core
 import FrontEnd
+import StandardLibrary
 import TestUtils
 import XCTest
 
@@ -12,7 +13,8 @@ extension XCTestCase {
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (source, diagnostics) in
 
-      var ast = AST(coreModuleFor: CompilerInfo())
+      var ast = AST(libraryRoot: coreLibrarySourceRoot, for: CompilerInfo())
+
       _ = try ast.makeModule(
         source.baseName, sourceCode: [source], builtinModuleAccess: true,
         diagnostics: &diagnostics)

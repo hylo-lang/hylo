@@ -3,9 +3,9 @@ import CodeGenLLVM
 import Core
 import Foundation
 import FrontEnd
-import HyloModule
 import IR
 import LLVM
+import StandardLibrary
 import Utils
 
 public struct Driver: ParsableCommand {
@@ -45,9 +45,9 @@ public struct Driver: ParsableCommand {
   private var importBuiltinModule: Bool = false
 
   @Flag(
-    name: [.customLong("no-std")],
-    help: "Do not include the standard library.")
-  private var noStandardLibrary: Bool = false
+    name: [.customLong("unhosted")],
+    help: "Load only the core library, omitting any definitions that depend on OS support.")
+  private var unhosted: Bool = false
 
   @Flag(
     name: [.customLong("freestanding")],
@@ -127,12 +127,17 @@ public struct Driver: ParsableCommand {
   }
 
   public func run() throws {
-    let (exitCode, diagnostics) = try execute()
+    do {
+      let (exitCode, diagnostics) = try execute()
 
-    diagnostics.render(
-      into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
+      diagnostics.render(
+        into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
 
-    Driver.exit(withError: exitCode)
+      Driver.exit(withError: exitCode)
+    } catch let e {
+      print("Unexpected error\n\(e)")
+      Driver.exit(withError: e)
+    }
   }
 
   /// Executes the command, returning its exit status and any generated diagnostics.
@@ -157,10 +162,8 @@ public struct Driver: ParsableCommand {
     }
 
     let productName = makeProductName(inputs)
-    let compilerInfo = CompilerInfo(freestanding ? ["freestanding"] : [])
-    var ast =
-      noStandardLibrary
-      ? AST(coreModuleFor: compilerInfo) : AST(standardLibraryModuleFor: compilerInfo)
+    /// An instance that includes just the standard library.
+    var ast = AST(libraryRoot: unhosted ? coreLibrarySourceRoot : standardLibrarySourceRoot, for: CompilerInfo(freestanding ? ["freestanding"] : []))
 
     // The module whose Hylo files were given on the command-line
     let sourceModule = try ast.makeModule(
@@ -190,19 +193,44 @@ public struct Driver: ParsableCommand {
 
     // LLVM
 
+    if verbose {
+      standardError.write("begin depolymorphization pass.\n")
+    }
     ir.applyPass(.depolymorphize)
 
-    let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
+    if verbose {
+      standardError.write("create LLVM target machine.\n")
+    }
+    #if os(Windows)
+      let target = try LLVM.TargetMachine(for: .host())
+    #else
+      let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
+    #endif
+    if verbose {
+      standardError.write("create LLVM program.\n")
+    }
     var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
 
     if optimize {
+      if verbose {
+        standardError.write("LLVM optimization.\n")
+      }
       llvmProgram.optimize()
     } else {
+      if verbose {
+        standardError.write("LLVM mandatory passes.\n")
+      }
       llvmProgram.applyMandatoryPasses()
     }
 
+    if verbose {
+      standardError.write("LLVM processing complete.\n")
+    }
     if outputType == .llvm {
       let m = llvmProgram.llvmModules[sourceModule]!
+      if verbose {
+        standardError.write("writing LLVM output.")
+      }
       try m.description.write(to: llvmFile(productName), atomically: true, encoding: .utf8)
       return
     }
@@ -211,7 +239,7 @@ public struct Driver: ParsableCommand {
 
     if outputType == .intelAsm {
       try llvmProgram.llvmModules[sourceModule]!.write(
-        .assembly, for: target, to: intelASMFile(productName).path)
+        .assembly, for: target, to: intelASMFile(productName).fileSystemPath)
       return
     }
 
@@ -284,7 +312,7 @@ public struct Driver: ParsableCommand {
   private func makeMacOSExecutable(
     at binaryPath: String, linking objects: [URL], diagnostics: inout DiagnosticSet
   ) throws {
-    let xcrun = try find("xcrun")
+    let xcrun = try findExecutable(invokedAs: "xcrun").fileSystemPath
     let sdk =
       try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"], diagnostics: &diagnostics)
       ?? ""
@@ -294,9 +322,8 @@ public struct Driver: ParsableCommand {
       "-L\(sdk)/usr/lib",
     ]
     arguments.append(contentsOf: librarySearchPaths.map({ "-L\($0)" }))
-    arguments.append(contentsOf: objects.map(\.path))
+    arguments.append(contentsOf: objects.map(\.fileSystemPath))
     arguments.append("-lSystem")
-    arguments.append("-lc++")
     arguments.append(contentsOf: libraries.map({ "-l\($0)" }))
 
     try runCommandLine(xcrun, arguments, diagnostics: &diagnostics)
@@ -313,12 +340,13 @@ public struct Driver: ParsableCommand {
       "-o", binaryPath,
     ]
     arguments.append(contentsOf: librarySearchPaths.map({ "-L\($0)" }))
-    arguments.append(contentsOf: objects.map(\.path))
+    arguments.append(contentsOf: objects.map(\.fileSystemPath))
     arguments.append(contentsOf: libraries.map({ "-l\($0)" }))
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
-    try runCommandLine(find("clang++"), arguments, diagnostics: &diagnostics)
+    try runCommandLine(
+      findExecutable(invokedAs: "clang++").fileSystemPath, arguments, diagnostics: &diagnostics)
   }
 
   /// Combines the object files located at `objects` into an executable file at `binaryPath`,
@@ -329,15 +357,16 @@ public struct Driver: ParsableCommand {
     diagnostics: inout DiagnosticSet
   ) throws {
     try runCommandLine(
-      find("lld-link"),
-      ["-defaultlib:HyloLibC", "-defaultlib:msvcrt", "-out:" + binaryPath] + objects.map(\.path),
+      findExecutable(invokedAs: "lld-link").fileSystemPath,
+      ["-defaultlib:HyloLibC", "-defaultlib:msvcrt", "-out:" + binaryPath]
+        + objects.map(\.fileSystemPath),
       diagnostics: &diagnostics)
   }
 
   /// Returns `self.outputURL` transformed as a suitable executable file path, using `productName`
   /// as a default name if `outputURL` is `nil`.
   private func executableOutputPath(default productName: String) -> String {
-    var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).path
+    var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).fileSystemPath
     if !binaryPath.hasSuffix(HostPlatform.executableSuffix) {
       binaryPath += HostPlatform.executableSuffix
     }
@@ -369,29 +398,35 @@ public struct Driver: ParsableCommand {
     UNIMPLEMENTED()
   }
 
-  /// Returns the path of the specified executable.
-  private func find(_ executable: String) throws -> String {
-    if let path = Driver.executableLocationCache[executable] { return path }
+  /// Returns the path of the executable that is invoked at the command-line with the name given by
+  /// `invocationName`.
+  private func findExecutable(invokedAs invocationName: String) throws -> URL {
+    if let cached = Driver.executableLocationCache[invocationName] { return cached }
+
+    let executableFileName =
+      invocationName.hasSuffix(executableSuffix)
+      ? invocationName : invocationName + executableSuffix
 
     // Search in the current working directory.
-    var candidate = currentDirectory.appendingPathComponent(executable)
-    if FileManager.default.fileExists(atPath: candidate.path) {
-      Driver.executableLocationCache[executable] = candidate.path
-      return candidate.path
+    var candidate = currentDirectory.appendingPathComponent(executableFileName)
+    if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
+      Driver.executableLocationCache[invocationName] = candidate
+      return candidate
     }
 
     // Search in the PATH.
     let environment =
       ProcessInfo.processInfo.environment[HostPlatform.pathEnvironmentVariable] ?? ""
     for root in environment.split(separator: HostPlatform.pathEnvironmentSeparator) {
-      candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executable)
-      if FileManager.default.fileExists(atPath: candidate.path + HostPlatform.executableSuffix) {
-        Driver.executableLocationCache[executable] = candidate.path
-        return candidate.path
+      candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(
+        invocationName + HostPlatform.executableSuffix)
+      if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
+        Driver.executableLocationCache[invocationName] = candidate
+        return candidate
       }
     }
 
-    throw EnvironmentError("executable not found: \(executable)")
+    throw EnvironmentError("not found: executable invoked as \(invocationName)")
   }
 
   /// Runs the executable at `path`, passing `arguments` on the command line, and returns
@@ -408,11 +443,11 @@ public struct Driver: ParsableCommand {
 
     let r = try Process.run(URL(fileURLWithPath: programPath), arguments: arguments)
 
-    return r.standardOutput.readUTF8().trimmingCharacters(in: .whitespacesAndNewlines)
+    return r.standardOutput[].trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  /// A map from executable name to path of the named binary.
-  private static var executableLocationCache: [String: String] = [:]
+  /// A map from the name by which an executable is invoked to path of the named binary.
+  private static var executableLocationCache: [String: URL] = [:]
 
   /// Writes a textual description of `input` to the given `output` file.
   func write(_ input: AST, to output: URL) throws {

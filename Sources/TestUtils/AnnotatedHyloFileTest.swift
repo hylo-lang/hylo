@@ -16,6 +16,20 @@ extension Diagnostic {
 
 }
 
+extension Result {
+
+  /// The success value, if any, and `nil` otherwise.
+  var success: Success? {
+    if case .success(let r) = self { return r } else { return nil }
+  }
+
+  /// The failure value, if any, and `nil` otherwise.
+  var failure: Failure? {
+    if case .failure(let r) = self { return r } else { return nil }
+  }
+
+}
+
 extension XCTestCase {
 
   /// The effects of running the `processAndCheck` parameter to `checkAnnotatedHyloFiles`.
@@ -26,10 +40,10 @@ extension XCTestCase {
     diagnostics: DiagnosticSet
   )
 
-  /// Applies `processAndCheck` to `valToTest` and the subset of its annotations whose commands
+  /// Applies `processAndCheck` to `hyloToTest` and the subset of its annotations whose commands
   /// match `checkedCommands`, recording resulting XCTest failures along with any additional
   /// failures where the effects of processing don't match the its annotation commands ("//!
-  /// ... diagnostic ...").
+  /// ... diagnostic ..."), and returning any error thrown by `processAndCheck`.
   ///
   /// - Parameters:
   ///   - checkedCommands: the annnotation commands to be validated by `processAndCheck`.
@@ -37,15 +51,15 @@ extension XCTestCase {
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
   fileprivate func checkAnnotations(
-    in valToTest: SourceFile,
+    in hyloToTest: SourceFile,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
     _ processAndCheck: (
       _ file: SourceFile,
       _ annotationsToCheck: ArraySlice<TestAnnotation>,
       _ diagnostics: inout DiagnosticSet
     ) throws -> [XCTIssue]
-  ) -> Bool {
-    var annotations = TestAnnotation.parseAll(from: valToTest)
+  ) -> Error? {
+    var annotations = TestAnnotation.parseAll(from: hyloToTest)
 
     // Separate the annotations to be checked by default diagnostic annotation checking from
     // those to be checked by `processAndCheck`.
@@ -53,19 +67,17 @@ extension XCTestCase {
     let (diagnosticAnnotations, processingAnnotations) = (annotations[..<p], annotations[p...])
 
     var diagnostics = DiagnosticSet()
-    var processingThrewError = false
+    var thrownError: Error? = nil
 
     let failures = XCTContext.runActivity(
-      named: valToTest.baseName,
+      named: hyloToTest.baseName,
       block: { activity in
-        let completedProcessingTestFailures = try? processAndCheck(
-          valToTest, processingAnnotations, &diagnostics)
-
-        processingThrewError = completedProcessingTestFailures == nil
+        let r = Result { try processAndCheck(hyloToTest, processingAnnotations, &diagnostics) }
+        thrownError = r.failure
 
         return failuresToReport(
           effectsOfProcessing: (
-            testFailures: completedProcessingTestFailures ?? [],
+            testFailures: r.success ?? [],
             diagnostics: diagnostics
           ),
           unhandledAnnotations: diagnosticAnnotations)
@@ -75,17 +87,18 @@ extension XCTestCase {
       record(f)
     }
 
-    return !processingThrewError
+    return thrownError
   }
 
   /// Applies `process` to the ".hylo" file at the given path and reports XCTest failures where the
   /// effects of processing don't match the file's annotation commands ("//! ... diagnostic ...").
   ///
-  /// - Parameter process: applies some processing to `file`, updating `diagnostics`
-  ///   with any generated diagnostics. Throws an `Error` if processing failed.
-  /// - Parameter expectSuccess: true if an error from `process` represents a test failure, false if
-  ///   the lack of an error represents a test failure; nil if that information is to be derived
-  ///   from the contents of the file.
+  /// - Parameters:
+  ///   - process: applies some processing to `file`, updating `diagnostics` with any generated
+  ///     diagnostics. Throws an `Error` if processing failed.
+  ///   - expectSuccess: true if an error from `process` represents a test failure, false if the
+  ///     lack of an error represents a test failure; nil if that information is to be derived
+  ///     from the contents of the file.
   public func checkAnnotatedHyloFileDiagnostics(
     inFileAt hyloFilePath: String,
     expectSuccess: Bool,
@@ -94,21 +107,24 @@ extension XCTestCase {
     let f = try SourceFile(at: hyloFilePath)
 
     // FIXME: clarify/explain this code
-    let processingSucceeded = checkAnnotations(in: f, checkingAnnotationCommands: []) {
+    let thrownError = checkAnnotations(in: f, checkingAnnotationCommands: []) {
       (f, annotationsToHandle, diagnostics) in
       assert(annotationsToHandle.isEmpty)
       try process(f, &diagnostics)
       return []
     }
 
-    if processingSucceeded != expectSuccess {
-      record(
-        XCTIssue(
-          Diagnostic.error(
-            processingSucceeded
-              ? "processing succeeded, but failure was expected"
-              : "processing failed, but success was expected",
-            at: f.wholeRange)))
+    if (thrownError == nil) != expectSuccess {
+      record(XCTIssue(unexpectedOutcomeDiagnostic(thrownError: thrownError, at: f.wholeRange)))
+    }
+  }
+
+  /// Returns the diagnostic of an unexpected outcome with given `thrownError` reported at `s`.
+  private func unexpectedOutcomeDiagnostic(thrownError: Error?, at s: SourceRange) -> Diagnostic {
+    if let e = thrownError {
+      return .error("success was expected, but processing failed with thrown error: \(e)", at: s)
+    } else {
+      return .error("processing succeeded, but failure was expected", at: s)
     }
   }
 
@@ -147,9 +163,10 @@ extension XCTestCase {
     return testFailures
   }
 
-  /// Compiles and runs the val file at `hyloFilePath`, `XCTAssert`ing that diagnostics and exit
+  /// Compiles and runs the hylo file at `hyloFilePath`, `XCTAssert`ing that diagnostics and exit
   /// codes match annotated expectations.
   public func compileAndRun(_ hyloFilePath: String, expectSuccess: Bool) throws {
+    if swiftyLLVMMandatoryPassesCrash { return }
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (hyloSource, diagnostics) in
 

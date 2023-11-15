@@ -1,22 +1,12 @@
 import Core
 import Foundation
-import HyloModule
+import StandardLibrary
 import Utils
 
 extension AST {
 
-  /// Creates an instance that includes just the core module.
-  public init(coreModuleFor compilerInfo: CompilerInfo) {
-    self.init(libraryRoot: HyloModule.core, for: compilerInfo)
-  }
-
-  /// Creates an instance that includes just the standard library.
-  public init(standardLibraryModuleFor compilerInfo: CompilerInfo) {
-    self.init(libraryRoot: HyloModule.standardLibrary, for: compilerInfo)
-  }
-
-  /// Creates an instance that includes the Hylo library rooted at `libraryRoot`.
-  private init(libraryRoot: URL, for compilerInfo: CompilerInfo) {
+  /// Creates an instance that includes the Hylo library whose sources are rooted at `libraryRoot`.
+  public init(libraryRoot: URL, for compilerInfo: CompilerInfo) {
     self.init(for: compilerInfo)
     do {
       var diagnostics = DiagnosticSet()

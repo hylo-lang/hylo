@@ -3,7 +3,7 @@
     "build": {
         "dockerfile": "Dockerfile",
         "args": {
-            "SWIFT_VERSION" : "5.8"
+            "SWIFT_VERSION" : "5.9"
         }
     },
     "features": {
