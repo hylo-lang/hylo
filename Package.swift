@@ -140,6 +140,7 @@ let package = Package(
         "FrontEnd", "Core", "StandardLibrary",
         .product(name: "CBORCoding", package: "CBORCoding")
       ],
+      resources: [],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["StandardLibraryBuilderPlugin"]
     ),
