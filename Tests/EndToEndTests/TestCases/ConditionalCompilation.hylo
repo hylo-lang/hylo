@@ -48,6 +48,19 @@ fun testArch() {
   use(a)
 }
 
+fun testFeature() {
+  #if feature(useLibC)
+    let a = 13
+  #else
+    error()
+  #endif
+  use(a)
+
+  #if feature(dummy)
+    error()
+  #endif
+}
+
 fun testCompiler() {
   #if compiler(hc)
     let a = 29
@@ -161,6 +174,7 @@ public fun main() {
   testFalse()
   testOs()
   testArch()
+  testFeature()
   testCompiler()
   testCompilerVersion()
   testHyloVersion()

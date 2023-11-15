@@ -3143,6 +3143,7 @@ public enum Parser {
         switch conditionName {
         case "os": return .os(id)
         case "arch": return .arch(id)
+        case "feature": return .feature(id)
         case "compiler": return .compiler(id)
         default:
           throw [.error(expected: "compiler condition", at: state.currentLocation)] as DiagnosticSet

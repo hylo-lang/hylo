@@ -37,6 +37,9 @@ public struct ConditionalCompilationStmt: Stmt {
     /// Holds iff the processor architecture for which the code is compiled matches the payload.
     case arch(Identifier)
 
+    /// Holds iff the payload matches any of the feature enabled in the compiler.
+    case feature(Identifier)
+
     /// Holds iff the name of the compiler processing the file matches the payload.
     case compiler(Identifier)
 
@@ -72,6 +75,7 @@ public struct ConditionalCompilationStmt: Stmt {
       case .`false`: return false
       case .os(let id): return id == info.os
       case .arch(let id): return id == info.arch
+      case .feature(let id): return info.features.contains(id)
       case .compiler(let id): return id == info.compiler
       case .compilerVersion(let comparison):
         return comparison.evaluate(for: info.compilerVersion)
