@@ -116,7 +116,10 @@ let package = Package(
 
     .target(
       name: "Utils",
-      dependencies: [.product(name: "BigInt", package: "BigInt")],
+      dependencies: [
+        .product(name: "BigInt", package: "BigInt"),
+        .product(name: "CBORCoding", package: "CBORCoding")
+      ],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
