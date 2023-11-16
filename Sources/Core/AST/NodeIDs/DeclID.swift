@@ -20,6 +20,11 @@ extension DeclID {
     (kind.value as! Decl.Type).isCallable
   }
 
+  /// `true` iff `self` denotes a conformance source.
+  public var isConformanceSource: Bool {
+    kind.value is ConformanceSource.Type
+  }
+
 }
 
 extension NodeID: DeclID where Subject: Decl {}

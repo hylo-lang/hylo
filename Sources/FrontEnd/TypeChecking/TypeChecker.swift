@@ -299,11 +299,10 @@ struct TypeChecker {
 
     // If the conformance isn't already in cache, check sources defining a conformance of `model`
     // to `trait` in scope, thus filling the cache before we look again.
+    let r = refinements(of: trait)
     let s = originsOfConformance(of: m, to: trait, exposedTo: scopeOfUse)
     for o in s {
-      guard var r = extendedModel(o.source).errorFree else { continue }
-      r = canonical(r, in: program[o.source].scope)
-      checkConformance(of: r, to: trait, declaredBy: o)
+      checkConformances(to: r, declaredBy: o.source)
     }
 
     // If the conformance is still not in cache, `model` does not conform to `trait`.
@@ -1147,39 +1146,84 @@ struct TypeChecker {
     check(e.parameters)
   }
 
-  /// Type checks the conformances declared by `d` and inserts valid ones in `self.conformances`,
-  /// reporting diagnostics for each ill-typed conformance.
-  private mutating func checkAllConformances<T: ConformanceSource & LexicalScope>(
-    declaredBy d: T.ID
-  ) {
-    // Nothing to do if no conformance is declared.
-    if program[d].conformances.isEmpty { return }
-
-    guard var r = extendedModel(AnyDeclID(d)).errorFree else { return }
-    r = canonical(r, in: program[d].scope)
-
-    for (n, rhs) in evalTraitComposition(program[d].conformances) {
-      for t in refinements(of: rhs).orderedByDependency {
-        checkConformance(of: r, to: t, declaredBy: .init(d, at: program[n].site))
-      }
+  /// Type checks the conformances declared by `d`.
+  ///
+  /// Only well-typed conformances are added to `self.conformances`. A diagnostic is reported for
+  /// each ill-typed conformance.
+  private mutating func checkAllConformances<T: ConformanceSource>(declaredBy d: T.ID) {
+    for (_, rhs) in evalTraitComposition(program[d].conformances) {
+      let r = refinements(of: rhs)
+      checkConformances(to: r, declaredBy: AnyDeclID(d))
     }
   }
 
-  /// Type checks the conformance of `model` to `concept`, which is declared by `source`, reporting
-  /// diagnostics if it isn't valid.
+  /// Type checks the conformances to `traits` declared by `d`.
   ///
-  /// - Requires: `model` is canonical.
-  private mutating func checkConformance(
-    of model: AnyType, to concept: TraitType, declaredBy origin: ConformanceOrigin
-  ) {
-    assert(model[.isCanonical])
+  /// - Parameters:
+  ///   - traits: A refinement cluster for one of the traits mentioned by `d`. For instance, if `d`
+  ///     is a type declaration `type A: P, Q {}`, `traits` is a cluster describing the refinements
+  ///     of either `P` or `Q`.
+  ///   - d: A conformance source.
+  private mutating func checkConformances(to traits: RefinementCluster, declaredBy d: AnyDeclID) {
+    precondition(d.isConformanceSource)
 
+    let scopeOfDefinition = program[d].scope
+    let m = canonical(extendedModel(d), in: scopeOfDefinition)
+    if m[.hasError] { return }
+
+    for t in traits.orderedByDependency {
+      let s = originsOfConformance(of: m, to: t, exposedTo: scopeOfDefinition)
+      checkConformance(to: t, declaredBy: s, in: scopeOfDefinition)
+    }
+  }
+
+  /// Type checks the conformance to `trait` declared by `origins` in `scopeOfDefinition`.
+  ///
+  /// This method deterministically selects the declaration severing as the origin of a type's
+  /// conformance to a specific trait in a scope, reporting diagnostics of ambiguous cases.
+  ///
+  /// - Parameters:
+  ///   - trait: A trait belonging to the refinement cluster of a trait mentioned by one of the
+  ///     conformance sources in `origins`.
+  ///   - origins: The declarations introducing a conformance to `trait` in `scopeOfDefinition`.
+  ///   - scopeOfDefinition: The outermost scope in which the conformance is checked.
+  ///
+  /// - Requires: Conformances to the strict refinements of `trait` have already been checked.
+  private mutating func checkConformance(
+    to trait: TraitType, declaredBy origins: [ConformanceOrigin],
+    in scopeOfDefinition: AnyScopeID
+  ) {
+    let s = origins.filter({ (o) in program.isContained(o.source, in: scopeOfDefinition) })
+
+    // TODO: If there exists several conformances, make sure they have the same bounds.
+
+    // We could use a more clever algorithm to select the least refined declaration (e.g., `A: Q`
+    // there are both `A: P` and `A: Q` such that `P` refines `Q`), but all choices have the same
+    // semantics. So any criterion is fine as long as we can generate consistent diagnostics when
+    // errors occur.
+    let o = s.sorted(by: \.source.rawValue).first!
+    checkConformance(to: trait, declaredBy: o)
+  }
+
+  /// Type checks the conformance to `trait` declared by `origin`.
+  ///
+  /// - Parameters:
+  ///   - trait: A trait belonging to the refinement cluster of a trait mentioned `origin`.
+  ///   - origin: A declaration introducing a conformance to `trait`.
+  ///
+  /// - Requires: Conformances to the strict refinements of `concept` have already been checked.
+  private mutating func checkConformance(
+    to concept: TraitType, declaredBy origin: ConformanceOrigin
+  ) {
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
     let scopeOfDefinition = program[origin.source].scope
     let scopeOfExposition = read(scopeOfDefinition) { (s) in
       (s.kind == TranslationUnit.self) ? program[s].scope : s
     }
+
+    let model = canonical(extendedModel(origin.source), in: scopeOfDefinition)
+    if model[.hasError] { return }
 
     let conformanceCacheKey = BoundGenericType(model)?.base ?? model
 
