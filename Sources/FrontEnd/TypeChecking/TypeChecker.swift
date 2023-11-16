@@ -344,7 +344,7 @@ struct TypeChecker {
     return .init(
       model: model.base, concept: trait, arguments: model.arguments, conditions: [],
       scope: c.scope, implementations: c.implementations, isStructural: c.isStructural,
-      site: c.site)
+      origin: c.origin)
   }
 
   /// Returns the innermost element in `conformances` that is exposed to `scopeOfUse`.
@@ -1261,7 +1261,7 @@ struct TypeChecker {
     let c = Conformance(
       model: conformanceCacheKey, concept: trait,
       arguments: [:], conditions: [], scope: scopeOfExposition,
-      implementations: implementations, isStructural: false, site: origin.site)
+      implementations: implementations, isStructural: false, origin: origin)
     insertConformance(c)
     return
 
