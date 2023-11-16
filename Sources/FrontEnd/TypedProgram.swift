@@ -406,9 +406,8 @@ public struct TypedProgram {
 
     var implementations = Conformance.ImplementationMap()
     for requirement in ast.requirements(of: concept.decl) {
-      guard let k = ast.synthesizedKind(of: requirement, definedBy: concept) else {
-        return nil
-      }
+      guard let k = ast.synthesizedKind(of: requirement, definedBy: concept) else { return nil }
+
       let a: GenericArguments = [ast[concept.decl].receiver: model]
       let t = LambdaType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!
       let d = SynthesizedFunctionDecl(k, typed: t, in: scopeOfUse)
