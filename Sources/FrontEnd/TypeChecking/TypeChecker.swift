@@ -1215,17 +1215,20 @@ struct TypeChecker {
   private mutating func checkConformance(
     to trait: TraitType, declaredBy origin: ConformanceOrigin
   ) {
-    // Conformances at file scope are exposed in the whole module. Other conformances are exposed
-    // in their containing scope.
+    /// The scope in which the origin of the conformance is defined.
     let scopeOfDefinition = program[origin.source].scope
+
+    /// The scope in which the conformance applies.
+    ///
+    /// Conformances at file scope are exposed in the whole module. Other conformances are exposed
+    /// in their containing scope.
     let scopeOfExposition = read(scopeOfDefinition) { (s) in
       (s.kind == TranslationUnit.self) ? program[s].scope : s
     }
 
+    /// The type for which conformance to `trait` is being checked.
     let model = canonical(extendedModel(origin.source), in: scopeOfDefinition)
     if model[.hasError] { return }
-
-    let conformanceCacheKey = BoundGenericType(model)?.base ?? model
 
     // TODO: Use arguments to bound generic types as constraints
 
@@ -1234,29 +1237,32 @@ struct TypeChecker {
       return
     }
 
-    // TODO: This is hack until #1106 is fixed
+    /// A map from requirement to its implementation.
+    var implementations = Conformance.ImplementationMap()
+
+    /// The diagnostics of the errors found during conformance checking.
+    var conformanceDiagnostics = DiagnosticSet()
+
+    /// A map associating the "Self" parameter of each trait in the refinement cluster of `trait`
+    /// to the type `
     var traitReceiverToModel = GenericArguments()
     for t in refinements(of: trait).unordered {
       traitReceiverToModel[program[t.decl].receiver] = model
     }
 
-    var implementations = Conformance.ImplementationMap()
-    var conformanceDiagnostics = DiagnosticSet()
-
     for r in program.ast.requirements(of: trait.decl) {
-      implementation(of: r)
+      resolveImplementation(of: r)
     }
 
     if !conformanceDiagnostics.isEmpty || !checkRequirementConstraints() {
       // Use `extendedModel(_:)` to get `model` as it was declared in program sources.
       let m = extendedModel(origin.source)
-      report(
-        .error(m, doesNotConformTo: trait, at: origin.site, because: conformanceDiagnostics))
+      report(.error(m, doesNotConformTo: trait, at: origin.site, because: conformanceDiagnostics))
       return
     }
 
     let c = Conformance(
-      model: conformanceCacheKey, concept: trait,
+      model: BoundGenericType(model)?.base ?? model, concept: trait,
       arguments: [:], conditions: [], scope: scopeOfExposition,
       implementations: implementations, isStructural: false, origin: origin)
     insertConformance(c)
@@ -1286,33 +1292,54 @@ struct TypeChecker {
       return s.isSound
     }
 
-    /// Returns a concrete or synthesized implementation of requirement `r` in `trait` for `model`
-    /// exposed to `scopeOfUse`, or `nil` if no such implementation exist.
-    func implementation(of r: AnyDeclID) {
-      // Note: `t` is used for generating diagnostics, `u` is used for testing equivalences.
-      let t = type(ofMember: r)
-      let u = canonical(t, in: scopeOfDefinition)
-
-      let n = program.name(of: r)!
-      if let d = concreteImplementation(of: r, typed: u, named: n) {
-        implementations[r] = .concrete(d)
-        return
-      } else if let d = syntheticImplementation(of: r, typed: u, named: n) {
-        implementations[r] = .synthetic(d)
-
-        let m = program.module(containing: program[origin.source].scope)
-        var s = cache.local.synthesizedDecls[m] ?? []
-        s.insert(d)
-        cache.write(s, at: \.synthesizedDecls[m], ignoringSharedCache: true)
-        return
+    /// Identifies the implementation of `requirement` for `model`.
+    ///
+    /// If an implementation is found, it is written to `implementations`. Otherwise, a diagnostic
+    /// is reported in `conformanceDiagnostics`.
+    func resolveImplementation(of requirement: AnyDeclID) {
+      switch requirement.kind {
+      case AssociatedTypeDecl.self:
+        return resolveAssociatedImplementation(of: AssociatedTypeDecl.ID(requirement)!)
+      case AssociatedValueDecl.self:
+        UNIMPLEMENTED("associated values are not supported yet")
+      default:
+        resolveFunctionalImplementation(of: requirement)
       }
-
-      conformanceDiagnostics.insert(
-        .note(trait: trait, requires: r.kind, named: n, typed: t, at: origin.site))
     }
 
-    /// Returns a synthetic implementation of `requirement` in `concept`, which has type `t` and
-    /// name `n` in `model`, or returns `nil` if no such implementation exist.
+    /// Identifies the implementation of `requirement` for `model`.
+    func resolveAssociatedImplementation(of requirement: AssociatedTypeDecl.ID) {
+      guard let d = implementation(of: requirement) else {
+        let n = Diagnostic.note(
+          trait: trait, requiresAssociatedType: program[requirement].baseName, at: origin.site)
+        conformanceDiagnostics.insert(n)
+        return
+      }
+      implementations[requirement] = .concrete(d)
+    }
+
+    /// Identifies the implementation of `requirement`, function, initializer, or subscript
+    /// requirement, for `model`.
+    func resolveFunctionalImplementation(of requirement: AnyDeclID) {
+      // Note: `t` is used for generating diagnostics, `u` is used for testing equivalences.
+      let t = type(ofMember: requirement)
+      let u = canonical(t, in: scopeOfDefinition)
+
+      let n = program.name(of: requirement)!
+      if let d = concreteImplementation(of: requirement, typed: u, named: n) {
+        implementations[requirement] = .concrete(d)
+      } else if let d = syntheticImplementation(of: requirement, typed: u, named: n) {
+        implementations[requirement] = .synthetic(d)
+        registerSynthesizedDecl(d, in: program.module(containing: program[origin.source].scope))
+      } else {
+        let n = Diagnostic.note(
+          trait: trait, requires: requirement.kind, named: n, typed: t, at: origin.site)
+        conformanceDiagnostics.insert(n)
+      }
+    }
+
+    /// Returns a synthetic implementation of `requirement`, which must have type `t` and name `n`
+    /// in `model`, or returns `nil` if no such implementation exist.
     func syntheticImplementation(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name
     ) -> SynthesizedFunctionDecl? {
@@ -1325,18 +1352,12 @@ struct TypeChecker {
       return .init(k, typed: LambdaType(t)!, in: scopeOfDefinition)
     }
 
-    /// Returns a concrete implementation of `requirement` in `concept`, which has type `t` and
-    /// name `n` in `model`, or returns `nil` if no such implementation exist.
+    /// Returns a concrete implementation of `requirement`, which must have type `t` and name `n`
+    /// in `model`, or returns `nil` if no such implementation exist.
     func concreteImplementation(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name
     ) -> AnyDeclID? {
       switch requirement.kind {
-      case AssociatedTypeDecl.self:
-        return implementation(of: AssociatedTypeDecl.ID(requirement)!)
-
-      case AssociatedValueDecl.self:
-        UNIMPLEMENTED()
-
       case FunctionDecl.self:
         return implementation(
           of: requirement, typed: t, named: n,
@@ -1463,6 +1484,15 @@ struct TypeChecker {
     }
 
     return result
+  }
+
+  /// Registers the use of synthesized declaration `d` in `m`.
+  private mutating func registerSynthesizedDecl(
+    _ d: SynthesizedFunctionDecl, in m: ModuleDecl.ID
+  ) {
+    var s = cache.local.synthesizedDecls[m] ?? []
+    s.insert(d)
+    cache.write(s, at: \.synthesizedDecls[m], ignoringSharedCache: true)
   }
 
   /// Type checks `d` and all declarations nested in `d`, returning the type of `d`.
