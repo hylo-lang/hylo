@@ -35,7 +35,7 @@ struct RefinementCluster: Equatable {
 
   /// Inserts `t` as a refinement of `u` in `self`.
   ///
-  /// - Precondition: `u` is in the cluster and if `t != u`, then `t` isn't refined by any trait in
+  /// - Requires: `u` is in the cluster and if `t != u`, then `t` isn't refined by any trait in
   ///   the cluster.
   mutating func insert(_ t: TraitType, refining u: TraitType) {
     if t == u { return }
@@ -46,7 +46,7 @@ struct RefinementCluster: Equatable {
 
   /// Inserts `c.bottom` as a refinement of `u` in `self` along with all the relationships in `c`.
   ///
-  /// - Precondition: `c.bottom` is in the cluster.
+  /// - Requires: `c.bottom` is in the cluster.
   mutating func insert(_ c: Self, refining u: TraitType) {
     var work = [(c.bottom, u)]
     while let (s, t) = work.popLast() {
