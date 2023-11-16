@@ -5,4 +5,11 @@ extension Set {
     self = try self.filter(predicate)
   }
 
+  /// Returns a set containing the elements in `self` and `newElement`.
+  public func inserting(_ newElement: Element) -> Self {
+    var result = self
+    result.insert(newElement)
+    return result
+  }
+
 }

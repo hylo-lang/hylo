@@ -1,6 +1,18 @@
 import DequeModule
 
+/// The absence of a label in a directed graph.
+public struct NoLabel: Hashable {
+
+  /// Creates an instance.
+  public init() {}
+
+}
+
 /// A finite, directed graph.
+///
+/// - Note: Use `DirectedGraph<V, NoLabel>` rather than `DirectedGraph<V, Void>` to implement an
+///   unlabeled graph. Unlike `Void`, `NoLabel` conforms to `Equatable`, allowing the graph itself
+///   to be `Equatable`.
 public struct DirectedGraph<Vertex: Hashable, Label> {
 
   /// The base of an edge.
@@ -113,7 +125,7 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
 
 }
 
-extension DirectedGraph where Label == () {
+extension DirectedGraph where Label == NoLabel {
 
   /// Inserts an edge from `source` to `target`, labeled by `label`.
   ///
@@ -122,7 +134,7 @@ extension DirectedGraph where Label == () {
   /// - Complexity: O(1).
   @discardableResult
   public mutating func insertEdge(from source: Vertex, to target: Vertex) -> Bool {
-    insertEdge(from: source, to: target, labeledBy: ()).inserted
+    insertEdge(from: source, to: target, labeledBy: .init()).inserted
   }
 
 }

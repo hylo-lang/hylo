@@ -20,7 +20,7 @@ final class DirectedGraphTests: XCTestCase {
   }
 
   func testInsertEdgeWithoutLabel() {
-    var g = DirectedGraph<Int, Void>()
+    var g = DirectedGraph<Int, NoLabel>()
 
     XCTAssert(g.insertEdge(from: 0, to: 0))
     XCTAssert(g.insertEdge(from: 0, to: 1))
@@ -76,7 +76,7 @@ final class DirectedGraphTests: XCTestCase {
   }
 
   func testBFS() {
-    var g = DirectedGraph<Int, ()>()
+    var g = DirectedGraph<Int, NoLabel>()
     g.insertEdge(from: 0, to: 1)
     g.insertEdge(from: 0, to: 2)
     g.insertEdge(from: 1, to: 3)
@@ -89,7 +89,7 @@ final class DirectedGraphTests: XCTestCase {
   }
 
   func testIsReachable() {
-    var g = DirectedGraph<Int, ()>()
+    var g = DirectedGraph<Int, NoLabel>()
     g.insertEdge(from: 0, to: 1)
     g.insertEdge(from: 0, to: 2)
     g.insertEdge(from: 1, to: 3)

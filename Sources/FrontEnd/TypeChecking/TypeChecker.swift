@@ -121,9 +121,34 @@ struct TypeChecker {
     canonical(t, in: scopeOfUse) == canonical(u, in: scopeOfUse)
   }
 
-  /// Returns `true` iff `t` is a refinement of `u` in `scopeOfUse`.
-  mutating func isRefinement(_ t: TraitType, of u: TraitType, in scopeOfUse: AnyScopeID) -> Bool {
-    (t != u) && conformedTraits(of: t, in: scopeOfUse).contains(u)
+  /// Returns `true` iff `t` is a refinement of `u` and `t != u`.
+  mutating func isStrictRefinement(_ t: TraitType, of u: TraitType) -> Bool {
+    (t != u) && refinements(of: t).contains(u)
+  }
+
+  /// Returns the traits refining `t`, reporting a diagnostic if one of them is in `refinedTraits`.
+  ///
+  /// `refinedTraits` serves as a memo to catch refinement cycles and is expected to be empty
+  /// unless `refinements(of:knownToRefine:)` is called recursively.
+  private mutating func refinements(
+    of t: TraitType, knownToRefine refinedTraits: Set<TraitType> = []
+  ) -> RefinementCluster {
+    if let r = cache.traitToRefinements[t] { return r }
+
+    let knownRefinedTraits = refinedTraits.inserting(t)
+    var result = RefinementCluster(t)
+
+    for (n, s) in evalTraitComposition(program[t.decl].refinements) {
+      if knownRefinedTraits.contains(s) {
+        report(.error(circularRefinementAt: program[n].site))
+      } else {
+        let newRefinements = refinements(of: s, knownToRefine: knownRefinedTraits)
+        result.insert(newRefinements, refining: t)
+      }
+    }
+
+    cache.traitToRefinements[t] = result
+    return result
   }
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
@@ -146,7 +171,7 @@ struct TypeChecker {
     case let u as ProductType:
       result = conformedTraits(of: u, in: scopeOfUse)
     case let u as TraitType:
-      result = conformedTraits(of: u, in: scopeOfUse)
+      result = refinements(of: u).unordered
     case let u as TypeAliasType:
       result = conformedTraits(of: u.resolved, in: scopeOfUse)
     case let u as WitnessType:
@@ -187,7 +212,7 @@ struct TypeChecker {
   ) -> Set<TraitType> {
     // Generic parameters declared at trait scope conform to that trait.
     if let d = TraitDecl.ID(program[t.decl].scope) {
-      return conformedTraits(of: TraitType(d, ast: program.ast), in: scopeOfUse)
+      return refinements(of: TraitType(d, ast: program.ast)).unordered
     }
 
     var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
@@ -201,32 +226,10 @@ struct TypeChecker {
   ) -> Set<TraitType> {
     var result = Set<TraitType>()
     for (_, u) in evalTraitComposition(program[t.decl].conformances) {
-      result.formUnion(conformedTraits(of: u, in: scopeOfUse))
+      result.formUnion(refinements(of: u).unordered)
     }
 
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
-    return result
-  }
-
-  /// Returns `concept` and the traits of which `concept` is a refinement in `scopeOfUse`.
-  private mutating func conformedTraits(
-    of concept: TraitType, in scopeOfUse: AnyScopeID
-  ) -> Set<TraitType> {
-    var result = Set([concept])
-
-    for (n, t) in evalTraitComposition(program[concept.decl].refinements) {
-      var work = Set([t])
-      while let base = work.popFirst() {
-        if base == concept {
-          report(.error(circularRefinementAt: program[n].site))
-        } else if result.insert(base).inserted {
-          let new = evalTraitComposition(program[base.decl].refinements)
-          work.formUnion(new.map(\.trait))
-        }
-      }
-    }
-
-    // Traits can't be refined in extensions; we're done.
     return result
   }
 
@@ -236,8 +239,8 @@ struct TypeChecker {
   ) -> Set<TraitType> {
     switch t.container.interface {
     case .traits(let traits):
-      return traits.reduce(into: []) { (r, c) in
-        r.formUnion(conformedTraits(of: c, in: scopeOfUse))
+      return traits.reduce(into: []) { (result, u) in
+        result.formUnion(refinements(of: u).unordered)
       }
 
     default:
@@ -253,7 +256,7 @@ struct TypeChecker {
     var result = Set<TraitType>()
     for e in extensions(of: t, exposedTo: scopeOfUse).filter(ConformanceDecl.self) {
       for (_, u) in evalTraitComposition(program[e].conformances) {
-        result.formUnion(conformedTraits(of: u, in: scopeOfUse))
+        result.formUnion(refinements(of: u).unordered)
       }
     }
     return result
@@ -296,11 +299,10 @@ struct TypeChecker {
 
     // If the conformance isn't already in cache, check sources defining a conformance of `model`
     // to `trait` in scope, thus filling the cache before we look again.
+    let r = refinements(of: trait)
     let s = originsOfConformance(of: m, to: trait, exposedTo: scopeOfUse)
     for o in s {
-      guard var r = extendedModel(o.source).errorFree else { continue }
-      r = canonical(r, in: program[o.source].scope)
-      checkConformance(of: r, to: trait, declaredBy: o)
+      checkConformances(to: r, declaredBy: o.source)
     }
 
     // If the conformance is still not in cache, `model` does not conform to `trait`.
@@ -342,7 +344,7 @@ struct TypeChecker {
     return .init(
       model: model.base, concept: trait, arguments: model.arguments, conditions: [],
       scope: c.scope, implementations: c.implementations, isStructural: c.isStructural,
-      site: c.site)
+      origin: c.origin)
   }
 
   /// Returns the innermost element in `conformances` that is exposed to `scopeOfUse`.
@@ -629,7 +631,7 @@ struct TypeChecker {
 
     // Check for infinite recursion.
     if !cache.declsUnderChecking.insert(AnyDeclID(d)).inserted {
-      fatalError("infinite recursion")
+      fatalError("infinite recursion caused by '\(d.kind)' at \(program[d].site)")
     }
 
     // Do the work.
@@ -1151,33 +1153,75 @@ struct TypeChecker {
     check(e.parameters)
   }
 
-  /// Type checks the conformances declared by `d` and inserts valid ones in `self.conformances`,
-  /// reporting diagnostics for each ill-typed conformance.
-  private mutating func checkAllConformances<T: ConformanceSource & LexicalScope>(
-    declaredBy d: T.ID
-  ) {
-    // Nothing to do if no conformance is declared.
-    if program[d].conformances.isEmpty { return }
-
-    guard var r = extendedModel(AnyDeclID(d)).errorFree else { return }
-    r = canonical(r, in: program[d].scope)
-
-    for (n, rhs) in evalTraitComposition(program[d].conformances) {
-      for t in conformedTraits(of: rhs, in: program[d].scope) {
-        checkConformance(of: r, to: t, declaredBy: .init(d, at: program[n].site))
-      }
+  /// Type checks the conformances declared by `d`.
+  ///
+  /// Only well-typed conformances are added to `self.conformances`. A diagnostic is reported for
+  /// each ill-typed conformance.
+  private mutating func checkAllConformances<T: ConformanceSource>(declaredBy d: T.ID) {
+    for (_, rhs) in evalTraitComposition(program[d].conformances) {
+      let r = refinements(of: rhs)
+      checkConformances(to: r, declaredBy: AnyDeclID(d))
     }
   }
 
-  /// Type checks the conformance of `model` to `concept`, which is declared by `source`, reporting
-  /// diagnostics if it isn't valid.
+  /// Type checks the conformances to `traits` declared by `d`.
   ///
-  /// - Requires: `model` is canonical.
-  private mutating func checkConformance(
-    of model: AnyType, to concept: TraitType, declaredBy origin: ConformanceOrigin
-  ) {
-    assert(model[.isCanonical])
+  /// - Parameters:
+  ///   - traits: A refinement cluster for one of the traits mentioned by `d`. For instance, if `d`
+  ///     is a type declaration `type A: P, Q {}`, `traits` is a cluster describing the refinements
+  ///     of either `P` or `Q`.
+  ///   - d: A conformance source.
+  private mutating func checkConformances(to traits: RefinementCluster, declaredBy d: AnyDeclID) {
+    precondition(d.isConformanceSource)
 
+    let scopeOfDefinition = program[d].scope
+    let m = canonical(extendedModel(d), in: scopeOfDefinition)
+    if m[.hasError] { return }
+
+    for t in traits.orderedByDependency {
+      let s = originsOfConformance(of: m, to: t, exposedTo: scopeOfDefinition)
+      checkConformance(to: t, declaredBy: s, in: scopeOfDefinition)
+    }
+  }
+
+  /// Type checks the conformance to `trait` declared by `origins` in `scopeOfDefinition`.
+  ///
+  /// This method deterministically selects the declaration severing as the origin of a type's
+  /// conformance to a specific trait in a scope, reporting diagnostics of ambiguous cases.
+  ///
+  /// - Parameters:
+  ///   - trait: A trait belonging to the refinement cluster of a trait mentioned by one of the
+  ///     conformance sources in `origins`.
+  ///   - origins: The declarations introducing a conformance to `trait` in `scopeOfDefinition`.
+  ///   - scopeOfDefinition: The outermost scope in which the conformance is checked.
+  ///
+  /// - Requires: Conformances to the strict refinements of `trait` have already been checked.
+  private mutating func checkConformance(
+    to trait: TraitType, declaredBy origins: [ConformanceOrigin],
+    in scopeOfDefinition: AnyScopeID
+  ) {
+    let s = origins.filter({ (o) in program.isContained(o.source, in: scopeOfDefinition) })
+
+    // TODO: If there exists several conformances, make sure they have the same bounds.
+
+    // We could use a more clever algorithm to select the least refined declaration (e.g., `A: Q`
+    // there are both `A: P` and `A: Q` such that `P` refines `Q`), but all choices have the same
+    // semantics. So any criterion is fine as long as we can generate consistent diagnostics when
+    // errors occur.
+    let o = s.sorted(by: \.source.rawValue).first!
+    checkConformance(to: trait, declaredBy: o)
+  }
+
+  /// Type checks the conformance to `trait` declared by `origin`.
+  ///
+  /// - Parameters:
+  ///   - trait: A trait belonging to the refinement cluster of a trait mentioned `origin`.
+  ///   - origin: A declaration introducing a conformance to `trait`.
+  ///
+  /// - Requires: Conformances to the strict refinements of `trait` have already been checked.
+  private mutating func checkConformance(
+    to trait: TraitType, declaredBy origin: ConformanceOrigin
+  ) {
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
     let scopeOfDefinition = program[origin.source].scope
@@ -1185,28 +1229,28 @@ struct TypeChecker {
       (s.kind == TranslationUnit.self) ? program[s].scope : s
     }
 
+    let model = canonical(extendedModel(origin.source), in: scopeOfDefinition)
+    if model[.hasError] { return }
+
     let conformanceCacheKey = BoundGenericType(model)?.base ?? model
 
     // TODO: Use arguments to bound generic types as constraints
 
-    if let s = cache.local.conformances[conformanceCacheKey, default: [:]][concept] {
-      let fileImports = imports(exposedTo: program[origin.source].scope)
-      for c in s {
-        if let d = ModuleDecl.ID(c.scope), fileImports.contains(d) { return }
-        if program.isContained(scopeOfDefinition, in: c.scope) { return }
-      }
+    if let c = cachedConformance(of: model, to: trait, exposedTo: scopeOfDefinition) {
+      assert(c.origin == origin, "inconsistent conformance origin")
+      return
     }
 
     // TODO: This is hack until #1106 is fixed
     var traitReceiverToModel = GenericArguments()
-    for t in conformedTraits(of: concept, in: scopeOfDefinition) {
+    for t in refinements(of: trait).unordered {
       traitReceiverToModel[program[t.decl].receiver] = model
     }
 
     var implementations = Conformance.ImplementationMap()
     var conformanceDiagnostics = DiagnosticSet()
 
-    for r in program.ast.requirements(of: concept.decl) {
+    for r in program.ast.requirements(of: trait.decl) {
       implementation(of: r)
     }
 
@@ -1214,14 +1258,14 @@ struct TypeChecker {
       // Use `extendedModel(_:)` to get `model` as it was declared in program sources.
       let m = extendedModel(origin.source)
       report(
-        .error(m, doesNotConformTo: concept, at: origin.site, because: conformanceDiagnostics))
+        .error(m, doesNotConformTo: trait, at: origin.site, because: conformanceDiagnostics))
       return
     }
 
     let c = Conformance(
-      model: conformanceCacheKey, concept: concept,
+      model: conformanceCacheKey, concept: trait,
       arguments: [:], conditions: [], scope: scopeOfExposition,
-      implementations: implementations, isStructural: false, site: origin.site)
+      implementations: implementations, isStructural: false, origin: origin)
     insertConformance(c)
     return
 
@@ -1232,12 +1276,12 @@ struct TypeChecker {
       return specialize(t, for: traitReceiverToModel, in: scopeOfDefinition)
     }
 
-    /// Checks whether the constraints on the requirements of `concept` are satisfied by `model` in
+    /// Checks whether the constraints on the requirements of `trait` are satisfied by `model` in
     /// `scopeOfuse`, reporting diagnostics in `conformanceDiagnostics`.
     func checkRequirementConstraints() -> Bool {
       var obligations = ProofObligations(scope: scopeOfDefinition)
 
-      let e = environment(of: concept.decl)
+      let e = environment(of: trait.decl)
       for g in e.constraints {
         let c = specialize(
           g, for: traitReceiverToModel, in: scopeOfDefinition,
@@ -1249,8 +1293,8 @@ struct TypeChecker {
       return s.isSound
     }
 
-    /// Returns a concrete or synthesized implementation of requirement `r` in `concept` for
-    /// `model` exposed to `scopeOfUse`, or `nil` if no such implementation exist.
+    /// Returns a concrete or synthesized implementation of requirement `r` in `trait` for `model`
+    /// exposed to `scopeOfUse`, or `nil` if no such implementation exist.
     func implementation(of r: AnyDeclID) {
       // Note: `t` is used for generating diagnostics, `u` is used for testing equivalences.
       let t = type(ofMember: r)
@@ -1271,7 +1315,7 @@ struct TypeChecker {
       }
 
       conformanceDiagnostics.insert(
-        .note(trait: concept, requires: r.kind, named: n, typed: t, at: origin.site))
+        .note(trait: trait, requires: r.kind, named: n, typed: t, at: origin.site))
     }
 
     /// Returns a synthetic implementation of `requirement` in `concept`, which has type `t` and
@@ -1279,7 +1323,7 @@ struct TypeChecker {
     func syntheticImplementation(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name
     ) -> SynthesizedFunctionDecl? {
-      guard let k = program.ast.synthesizedKind(of: requirement, definedBy: concept) else {
+      guard let k = program.ast.synthesizedKind(of: requirement, definedBy: trait) else {
         return nil
       }
 
@@ -1347,11 +1391,10 @@ struct TypeChecker {
     /// Returns the implementation of `requirement` in `model` or returns `nil` if no such
     /// implementation exist.
     ///
-    /// `requirement` is defined by `concept` and `t` is the type it is expected to have when
-    /// implemented by `model`. `idKind` specifies the kinds of declarations that are considered
-    /// as candidate implementations. `appendDefinitions` is called for each candidate in the
-    /// declaration space of `model` to gather those that are definitions (i.e., declarations with
-    /// a body) of type `t`.
+    /// `requirement` is defined by `trait` and `t` is the type `requirement` is expected to have
+    /// when implemented by `model`. `idKind` specifies the kinds of declarations to be considered
+    /// as candidates. `appendDefinitions` is called for each candidate in the declaration space of
+    /// `model` to gather those that are definitions (i.e., declarations with a body) of type `t`.
     func implementation<D: DeclID>(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name,
       identifiedBy idKind: D.Type = D.self,
@@ -1569,7 +1612,7 @@ struct TypeChecker {
     // Synthesize `Self: T`.
     let s = GenericTypeParameterType(receiver, ast: program.ast)
     let t = TraitType(uncheckedType(of: d))!
-    for c in conformedTraits(of: t, in: AnyScopeID(d)) {
+    for c in refinements(of: t).unordered {
       result.insertConstraint(.init(.conformance(^s, c), at: program[d].identifier.site))
     }
 
@@ -1641,7 +1684,7 @@ struct TypeChecker {
 
     // Synthesize sugared conformance constraint, if any.
     for (n, t) in evalTraitComposition(program[p].conformances) {
-      for c in conformedTraits(of: t, in: program[p].scope) {
+      for c in refinements(of: t).unordered {
         e.insertConstraint(.init(.conformance(lhs, c), at: program[n].site))
       }
     }
@@ -4970,8 +5013,8 @@ struct TypeChecker {
 
       // If `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, then `lhs` shadows
       // `rhs` iff `t1` refines `t2`.
-      if isRefinement(l, of: r, in: scopeOfUse) { return .ascending }
-      if isRefinement(r, of: l, in: scopeOfUse) { return .descending }
+      if isStrictRefinement(l, of: r) { return .ascending }
+      if isStrictRefinement(r, of: l) { return .descending }
       return nil
     }
 
@@ -5228,6 +5271,11 @@ struct TypeChecker {
     ///
     /// This map serves as cache for `extensions(of:exposedTo:)`.
     var typeToExtensions: [TypeLookupKey: [AnyDeclID]] = [:]
+
+    /// A map from trait to its refinements.
+    ///
+    /// This map serves as cache for `refinements(of:)`
+    var traitToRefinements: [TraitType: RefinementCluster] = [:]
 
     /// Creates an instance for memoizing type checking results in `local` and comminicating them
     /// to concurrent type checkers using `shared`.
