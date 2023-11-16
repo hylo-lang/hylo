@@ -24,7 +24,7 @@ struct RefinementCluster: Equatable {
   }
 
   /// The traits in `self` sorted in topological order w.r.t. to their refinements.
-  var orderedByDependency: RefinementIterator { .init(self) }
+  var orderedByDependency: RefinementSequence { .init(self) }
 
   /// Returns `true` iff `t` is in the cluster.
   ///

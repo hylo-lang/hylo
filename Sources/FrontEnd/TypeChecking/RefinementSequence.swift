@@ -4,7 +4,7 @@ import Core
 ///
 /// The order of the traits in the sequence is such that the refinements of a trait always occur
 /// before that trait. In other words, if `t` occurs after `u`, then `t` does not refine `u`.
-struct RefinementIterator: IteratorProtocol, Sequence {
+struct RefinementSequence: IteratorProtocol, Sequence {
 
   /// A stack of vertices left to visit with the indices of their currently visited neighbors.
   private typealias VisitList = [(TraitType, RefinementCluster.Refinements.OutgoingEdges.Index)]
