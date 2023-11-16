@@ -1461,29 +1461,21 @@ struct TypeChecker {
   /// Registers conformance `c` iff it hasn't been established.
   ///
   /// - Note: This method doesn't write to the shared cache.
-  /// - Returns: `(true, c)` if no conformance describing how `c.model` conforms to `c.trait` in a
-  ///   scope overlapping with `c.scope` was already registered. Otherwise, `(false, other)`, where
-  ///   `other` is the existing conformance.
-  @discardableResult
-  private mutating func insertConformance(
-    _ c: Conformance
-  ) -> (inserted: Bool, conformanceAfterInsert: Conformance) {
+  private mutating func insertConformance(_ c: Conformance) {
     var traitToConformance = cache.local.conformances[c.model, default: [:]]
-    let result = modify(&traitToConformance[c.concept, default: []]) { (s) in
-      if let x = s.first(where: { program.areOverlapping($0.scope, c.scope) }) {
-        return (inserted: false, conformanceAfterInsert: x)
+    let inserted = modify(&traitToConformance[c.concept, default: []]) { (s) in
+      if !s.contains(where: { program.areOverlapping($0.scope, c.scope) }) {
+        let i = s.insert(c).inserted
+        assert(i)
+        return true
       } else {
-        let inserted = s.insert(c).inserted
-        assert(inserted)
-        return (inserted: true, conformanceAfterInsert: c)
+        return false
       }
     }
 
-    if result.inserted {
+    if inserted {
       cache.write(traitToConformance, at: \.conformances[c.model], ignoringSharedCache: true)
     }
-
-    return result
   }
 
   /// Registers the use of synthesized declaration `d` in `m`.
