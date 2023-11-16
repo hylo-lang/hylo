@@ -631,7 +631,7 @@ struct TypeChecker {
 
     // Check for infinite recursion.
     if !cache.declsUnderChecking.insert(AnyDeclID(d)).inserted {
-      fatalError("infinite recursion")
+      fatalError("infinite recursion caused by '\(d.kind)' at \(program[d].site)")
     }
 
     // Do the work.
