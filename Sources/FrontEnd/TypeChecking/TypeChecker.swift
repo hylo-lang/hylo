@@ -1229,12 +1229,9 @@ struct TypeChecker {
 
     // TODO: Use arguments to bound generic types as constraints
 
-    if let s = cache.local.conformances[conformanceCacheKey, default: [:]][trait] {
-      let fileImports = imports(exposedTo: program[origin.source].scope)
-      for c in s {
-        if let d = ModuleDecl.ID(c.scope), fileImports.contains(d) { return }
-        if program.isContained(scopeOfDefinition, in: c.scope) { return }
-      }
+    if let c = cachedConformance(of: model, to: trait, exposedTo: scopeOfDefinition) {
+      assert(c.origin == origin, "inconsistent conformance origin")
+      return
     }
 
     // TODO: This is hack until #1106 is fixed
