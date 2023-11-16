@@ -1211,9 +1211,9 @@ struct TypeChecker {
   ///   - trait: A trait belonging to the refinement cluster of a trait mentioned `origin`.
   ///   - origin: A declaration introducing a conformance to `trait`.
   ///
-  /// - Requires: Conformances to the strict refinements of `concept` have already been checked.
+  /// - Requires: Conformances to the strict refinements of `trait` have already been checked.
   private mutating func checkConformance(
-    to concept: TraitType, declaredBy origin: ConformanceOrigin
+    to trait: TraitType, declaredBy origin: ConformanceOrigin
   ) {
     // Conformances at file scope are exposed in the whole module. Other conformances are exposed
     // in their containing scope.
@@ -1229,7 +1229,7 @@ struct TypeChecker {
 
     // TODO: Use arguments to bound generic types as constraints
 
-    if let s = cache.local.conformances[conformanceCacheKey, default: [:]][concept] {
+    if let s = cache.local.conformances[conformanceCacheKey, default: [:]][trait] {
       let fileImports = imports(exposedTo: program[origin.source].scope)
       for c in s {
         if let d = ModuleDecl.ID(c.scope), fileImports.contains(d) { return }
@@ -1239,14 +1239,14 @@ struct TypeChecker {
 
     // TODO: This is hack until #1106 is fixed
     var traitReceiverToModel = GenericArguments()
-    for t in refinements(of: concept).unordered {
+    for t in refinements(of: trait).unordered {
       traitReceiverToModel[program[t.decl].receiver] = model
     }
 
     var implementations = Conformance.ImplementationMap()
     var conformanceDiagnostics = DiagnosticSet()
 
-    for r in program.ast.requirements(of: concept.decl) {
+    for r in program.ast.requirements(of: trait.decl) {
       implementation(of: r)
     }
 
@@ -1254,12 +1254,12 @@ struct TypeChecker {
       // Use `extendedModel(_:)` to get `model` as it was declared in program sources.
       let m = extendedModel(origin.source)
       report(
-        .error(m, doesNotConformTo: concept, at: origin.site, because: conformanceDiagnostics))
+        .error(m, doesNotConformTo: trait, at: origin.site, because: conformanceDiagnostics))
       return
     }
 
     let c = Conformance(
-      model: conformanceCacheKey, concept: concept,
+      model: conformanceCacheKey, concept: trait,
       arguments: [:], conditions: [], scope: scopeOfExposition,
       implementations: implementations, isStructural: false, site: origin.site)
     insertConformance(c)
@@ -1272,12 +1272,12 @@ struct TypeChecker {
       return specialize(t, for: traitReceiverToModel, in: scopeOfDefinition)
     }
 
-    /// Checks whether the constraints on the requirements of `concept` are satisfied by `model` in
+    /// Checks whether the constraints on the requirements of `trait` are satisfied by `model` in
     /// `scopeOfuse`, reporting diagnostics in `conformanceDiagnostics`.
     func checkRequirementConstraints() -> Bool {
       var obligations = ProofObligations(scope: scopeOfDefinition)
 
-      let e = environment(of: concept.decl)
+      let e = environment(of: trait.decl)
       for g in e.constraints {
         let c = specialize(
           g, for: traitReceiverToModel, in: scopeOfDefinition,
@@ -1289,8 +1289,8 @@ struct TypeChecker {
       return s.isSound
     }
 
-    /// Returns a concrete or synthesized implementation of requirement `r` in `concept` for
-    /// `model` exposed to `scopeOfUse`, or `nil` if no such implementation exist.
+    /// Returns a concrete or synthesized implementation of requirement `r` in `trait` for `model`
+    /// exposed to `scopeOfUse`, or `nil` if no such implementation exist.
     func implementation(of r: AnyDeclID) {
       // Note: `t` is used for generating diagnostics, `u` is used for testing equivalences.
       let t = type(ofMember: r)
@@ -1311,7 +1311,7 @@ struct TypeChecker {
       }
 
       conformanceDiagnostics.insert(
-        .note(trait: concept, requires: r.kind, named: n, typed: t, at: origin.site))
+        .note(trait: trait, requires: r.kind, named: n, typed: t, at: origin.site))
     }
 
     /// Returns a synthetic implementation of `requirement` in `concept`, which has type `t` and
@@ -1319,7 +1319,7 @@ struct TypeChecker {
     func syntheticImplementation(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name
     ) -> SynthesizedFunctionDecl? {
-      guard let k = program.ast.synthesizedKind(of: requirement, definedBy: concept) else {
+      guard let k = program.ast.synthesizedKind(of: requirement, definedBy: trait) else {
         return nil
       }
 
@@ -1387,11 +1387,10 @@ struct TypeChecker {
     /// Returns the implementation of `requirement` in `model` or returns `nil` if no such
     /// implementation exist.
     ///
-    /// `requirement` is defined by `concept` and `t` is the type it is expected to have when
-    /// implemented by `model`. `idKind` specifies the kinds of declarations that are considered
-    /// as candidate implementations. `appendDefinitions` is called for each candidate in the
-    /// declaration space of `model` to gather those that are definitions (i.e., declarations with
-    /// a body) of type `t`.
+    /// `requirement` is defined by `trait` and `t` is the type `requirement` is expected to have
+    /// when implemented by `model`. `idKind` specifies the kinds of declarations to be considered
+    /// as candidates. `appendDefinitions` is called for each candidate in the declaration space of
+    /// `model` to gather those that are definitions (i.e., declarations with a body) of type `t`.
     func implementation<D: DeclID>(
       of requirement: AnyDeclID, typed t: AnyType, named n: Name,
       identifiedBy idKind: D.Type = D.self,
