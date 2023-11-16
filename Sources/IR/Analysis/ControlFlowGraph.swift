@@ -82,12 +82,12 @@ struct ControlFlowGraph {
   func paths(to destination: Vertex, from ancestor: Vertex) -> [PredecessorPath] {
     var v: Set = [destination]
     var c: [Vertex: [PredecessorPath]] = [:]
-    return pathsToEntry(to: destination, from: ancestor, notContaining: &v, cachingResultsTo: &c)
+    return paths(to: destination, from: ancestor, notContaining: &v, cachingResultsTo: &c)
   }
 
   /// Returns the paths originating at `ancestor` and reaching `destination` excluding those that
   /// contain the vertices in `visited`.
-  private func pathsToEntry(
+  private func paths(
     to destination: Vertex, from ancestor: Vertex, notContaining visited: inout Set<Vertex>,
     cachingResultsTo cache: inout [Vertex: [PredecessorPath]]
   ) -> [PredecessorPath] {
@@ -97,7 +97,7 @@ struct ControlFlowGraph {
     var result: [PredecessorPath] = []
     visited.insert(destination)
     for p in predecessors(of: destination) where !visited.contains(p) {
-      let s = pathsToEntry(
+      let s = paths(
         to: p, from: ancestor, notContaining: &visited, cachingResultsTo: &cache)
       result.append(contentsOf: s.map({ [p] + $0 }))
     }
