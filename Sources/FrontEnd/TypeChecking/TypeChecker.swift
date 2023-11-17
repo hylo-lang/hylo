@@ -1268,11 +1268,20 @@ struct TypeChecker {
     insertConformance(c)
     return
 
-    /// Returns the type of `d` viewed as a member of `model` through its conformance to `concept`
-    /// in `scopeOfUse`, or `nil` no such type can be constructed.
-    func type(ofMember m: AnyDeclID) -> AnyType {
-      let t = uncheckedType(of: m)
-      return specialize(t, for: traitReceiverToModel, in: scopeOfDefinition)
+    /// The information describing how to refer to and use an entity.
+    typealias API = (type: AnyType, name: Name, environment: GenericEnvironment?)
+
+    /// Returns the API of `m` viewed as a member of `model` through its conformance to `trait`.
+    func canonicaAPI(of m: AnyDeclID) -> API {
+      let t = canonical(expectedType(of: m), in: scopeOfDefinition)
+      let n = program.name(of: m)!
+      let e = memberEnvironment(of: m)
+      return (type: t, name: n, environment: e)
+    }
+
+    /// Returns the type of `m` viewed as a member of `model` through its conformance to `trait`.
+    func expectedType(of m: AnyDeclID) -> AnyType {
+      specialize(uncheckedType(of: m), for: traitReceiverToModel, in: scopeOfDefinition)
     }
 
     /// Checks whether the constraints on the requirements of `trait` are satisfied by `model` in
@@ -1318,64 +1327,66 @@ struct TypeChecker {
       implementations[requirement] = .concrete(d)
     }
 
-    /// Identifies the implementation of `requirement`, function, initializer, or subscript
-    /// requirement, for `model`.
+    /// Identifies the implementation of `requirement` for `model`.
+    ///
+    /// `requirement` is a function, initializer, or subscript requirement.
     func resolveFunctionalImplementation(of requirement: AnyDeclID) {
-      // Note: `t` is used for generating diagnostics, `u` is used for testing equivalences.
-      let t = type(ofMember: requirement)
-      let u = canonical(t, in: scopeOfDefinition)
+      let expectedAPI = canonicaAPI(of: requirement)
 
-      let n = program.name(of: requirement)!
-      if let d = concreteImplementation(of: requirement, typed: u, named: n) {
+      if let d = concreteImplementation(of: requirement, withAPI: expectedAPI) {
         implementations[requirement] = .concrete(d)
-      } else if let d = syntheticImplementation(of: requirement, typed: u, named: n) {
+      } else if let d = syntheticImplementation(of: requirement, withAPI: expectedAPI) {
         implementations[requirement] = .synthetic(d)
         registerSynthesizedDecl(d, in: program.module(containing: program[origin.source].scope))
       } else {
+        let t = expectedType(of: requirement)
         let n = Diagnostic.note(
-          trait: trait, requires: requirement.kind, named: n, typed: t, at: origin.site)
+          trait: trait, requires: requirement.kind,
+          named: expectedAPI.name, typed: t,
+          at: origin.site)
         conformanceDiagnostics.insert(n)
       }
     }
 
-    /// Returns a synthetic implementation of `requirement`, which must have type `t` and name `n`
-    /// in `model`, or returns `nil` if no such implementation exist.
+    /// Returns a synthetic implementation of `requirement` for `model` with given `expectedAPI`,
+    /// or `nil` if no such implementation can be synthesized.
     func syntheticImplementation(
-      of requirement: AnyDeclID, typed t: AnyType, named n: Name
+      of requirement: AnyDeclID, withAPI expectedAPI: API
     ) -> SynthesizedFunctionDecl? {
       guard let k = program.ast.synthesizedKind(of: requirement, definedBy: trait) else {
         return nil
       }
 
       // Note: compiler-known requirement is assumed to be well-typed.
-      let scopeOfDefinition = AnyScopeID(origin.source)!
-      return .init(k, typed: LambdaType(t)!, in: scopeOfDefinition)
+      return .init(k, typed: LambdaType(expectedAPI.type)!, in: AnyScopeID(origin.source)!)
     }
 
-    /// Returns a concrete implementation of `requirement`, which must have type `t` and name `n`
-    /// in `model`, or returns `nil` if no such implementation exist.
+    /// Returns a concrete implementation of `requirement` for `model` with given `expectedAPI`,
+    /// or `nil` if no such implementation exists.
     func concreteImplementation(
-      of requirement: AnyDeclID, typed t: AnyType, named n: Name
+      of requirement: AnyDeclID, withAPI expectedAPI: API
     ) -> AnyDeclID? {
+      guard !expectedAPI.type[.hasError] else { return nil }
+
       switch requirement.kind {
       case FunctionDecl.self:
         return implementation(
-          of: requirement, typed: t, named: n,
+          of: requirement, withAPI: expectedAPI,
           collectingCandidatesWith: appendFunctionDefinitions)
 
       case InitializerDecl.self:
         return implementation(
-          of: requirement, typed: t, named: n, identifiedBy: InitializerDecl.ID.self,
+          of: requirement, withAPI: expectedAPI, identifiedBy: InitializerDecl.ID.self,
           collectingCandidatesWith: appendIfDefinition)
 
       case MethodImpl.self:
         return implementation(
-          of: requirement, typed: t, named: n,
+          of: requirement, withAPI: expectedAPI,
           collectingCandidatesWith: appendFunctionDefinitions)
 
       case SubscriptImpl.self:
         return implementation(
-          of: requirement, typed: t, named: n, identifiedBy: SubscriptDecl.ID.self,
+          of: requirement, withAPI: expectedAPI, identifiedBy: SubscriptDecl.ID.self,
           collectingCandidatesWith: appendDefinitions)
 
       default:
@@ -1383,10 +1394,7 @@ struct TypeChecker {
       }
     }
 
-    /// Returns the implementation of `requirement` in `model` or returns `nil` if no such
-    /// implementation exist.
-    ///
-    /// `requirement` is an associated type of `concept`.
+    /// Returns the implementation of `requirement` in `model` or `nil` if there's none.
     func implementation(of requirement: AssociatedTypeDecl.ID) -> AnyDeclID? {
       let n = program[requirement].baseName
       let candidates = lookup(n, memberOf: model, exposedTo: scopeOfDefinition)
@@ -1402,57 +1410,72 @@ struct TypeChecker {
       return viable.uniqueElement
     }
 
-    /// Returns the implementation of `requirement` in `model` or returns `nil` if no such
-    /// implementation exist.
+    /// Returns the implementation of `requirement` in `model` or `nil` if there's none.
     ///
-    /// `requirement` is defined by `trait` and `t` is the type `requirement` is expected to have
-    /// when implemented by `model`. `idKind` specifies the kinds of declarations to be considered
-    /// as candidates. `appendDefinitions` is called for each candidate in the declaration space of
-    /// `model` to gather those that are definitions (i.e., declarations with a body) of type `t`.
+    /// - Parameters:
+    ///   - expectedAPI: The API `requirement` is expected to have when implemented by `model`.
+    ///   - idKind: The kind of declarations to be considered as candidates.
+    ///   - appendDefinitions: A closure called for each candidate in the declaration space of
+    ///     `model` to gather those that are definitions (i.e., declarations with a body) of an
+    ///     entity with the given `expectedAPI`.
     func implementation<D: DeclID>(
-      of requirement: AnyDeclID, typed t: AnyType, named n: Name,
+      of requirement: AnyDeclID, withAPI expectedAPI: API,
       identifiedBy idKind: D.Type = D.self,
-      collectingCandidatesWith appendDefinitions: (D, AnyType, inout [AnyDeclID]) -> Void
+      collectingCandidatesWith appendDefinitions: (D, API, inout [AnyDeclID]) -> Void
     ) -> AnyDeclID? {
-      guard !t[.hasError] else { return nil }
-
-      let candidates = lookup(n.stem, memberOf: model, exposedTo: scopeOfDefinition)
+      let candidates = lookup(expectedAPI.name.stem, memberOf: model, exposedTo: scopeOfDefinition)
       var viable: [AnyDeclID] = []
       for c in candidates {
         guard let d = D(c) else { continue }
-        appendDefinitions(d, t, &viable)
+        appendDefinitions(d, expectedAPI, &viable)
       }
 
       viable = viable.minimalElements(by: { (a, b) in compareDepth(a, b, in: scopeOfDefinition) })
       return viable.uniqueElement
     }
 
-    /// Appends the function definitions of `d` that have type `t` to `s` .
-    func appendFunctionDefinitions(of d: AnyDeclID, matching t: AnyType, to s: inout [AnyDeclID]) {
+    /// Appends the function definitions of `d` that have API `a` to `s` .
+    func appendFunctionDefinitions(of d: AnyDeclID, matching a: API, to s: inout [AnyDeclID]) {
       switch d.kind {
       case FunctionDecl.self:
-        appendIfDefinition(FunctionDecl.ID(d)!, matching: t, to: &s)
+        appendIfDefinition(FunctionDecl.ID(d)!, matching: a, to: &s)
       case MethodDecl.self:
-        appendDefinitions(of: MethodDecl.ID(d)!, matching: t, to: &s)
+        appendDefinitions(of: MethodDecl.ID(d)!, matching: a, to: &s)
       default:
         break
       }
     }
 
-    /// Appends each variant of `c` to `candidates` that is has type `t` to `s`.
-    func appendDefinitions(of d: MethodDecl.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
-      for v in program[d].impls { appendIfDefinition(v, matching: t, to: &s) }
+    /// Appends each variant of `d` that is has API `a` to `s`.
+    func appendDefinitions(of d: MethodDecl.ID, matching a: API, to s: inout [AnyDeclID]) {
+      for v in program[d].impls { appendIfDefinition(v, matching: a, to: &s) }
     }
 
-    /// Appends each variant of `c` to `candidates` that is has type `t` to `s`.
-    func appendDefinitions(of d: SubscriptDecl.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
-      for v in program[d].impls { appendIfDefinition(v, matching: t, to: &s) }
+    /// Appends each variant of `d` that is has API `a` to `s`.
+    func appendDefinitions(of d: SubscriptDecl.ID, matching a: API, to s: inout [AnyDeclID]) {
+      for v in program[d].impls { appendIfDefinition(v, matching: a, to: &s) }
     }
 
-    /// Appends `d` to `s` iff `d` is a definition with type `t`.
-    func appendIfDefinition<D: Decl>(_ d: D.ID, matching t: AnyType, to s: inout [AnyDeclID]) {
-      let u = type(ofMember: AnyDeclID(d))
-      if program[d].isDefinition && areEquivalent(t, u, in: scopeOfDefinition) {
+    /// Appends `d` to `s` iff `d` is a definition with with API `a`.
+    func appendIfDefinition<D: Decl>(_ d: D.ID, matching a: API, to s: inout [AnyDeclID]) {
+      let b = canonicaAPI(of: AnyDeclID(d))
+
+      // A generic requirement must be implemented by a generic implementation whose environment
+      // implies that of the requirement.
+      let expectedType: AnyType
+      if let lhs = a.environment?.parameters, !lhs.isEmpty {
+        guard let rhs = b.environment?.parameters, lhs.count == rhs.count else { return }
+        var s = GenericArguments()
+        for (p, t) in zip(lhs, rhs) {
+          s[p] = ^GenericTypeParameterType(t, ast: program.ast)
+        }
+        expectedType = specialize(a.type, for: s, in: scopeOfDefinition)
+      } else {
+        expectedType = a.type
+      }
+
+      assert(expectedType[.isCanonical] && b.type[.isCanonical])
+      if program[d].isDefinition && (b.type == expectedType) {
         s.append(AnyDeclID(d))
       }
     }
@@ -1488,8 +1511,6 @@ struct TypeChecker {
   }
 
   /// Type checks `d` and all declarations nested in `d`, returning the type of `d`.
-  ///
-  ///
   ///
   /// - Requires: `!cache.declsUnderChecking.contains(d)`
   @discardableResult
@@ -1659,6 +1680,18 @@ struct TypeChecker {
     case let u as TypeAliasType:
       return environment(of: u.decl)
     default:
+      return nil
+    }
+  }
+
+  /// Returns the generic environment introduced by `m` or its immediate parent if `m` is a variant
+  /// in a bundled declaration.
+  private mutating func memberEnvironment(of m: AnyDeclID) -> GenericEnvironment? {
+    if (m.kind == MethodImpl.self) || (m.kind == SubscriptImpl.self) {
+      return environment(of: program[m].scope)
+    } else if let s = AnyScopeID(m) {
+      return environment(of: s)
+    } else {
       return nil
     }
   }
@@ -2998,10 +3031,11 @@ struct TypeChecker {
 
   /// Returns the generic parameters introduced by `d`.
   private func genericParameters(introducedBy d: AnyDeclID) -> [GenericParameterDecl.ID] {
-    if let g = program.ast[d] as? GenericScope {
-      return (d.kind == TraitDecl.self) ? [] : g.genericParameters
-    } else {
+    switch d.kind {
+    case TraitDecl.self:
       return []
+    default:
+      return (program.ast[d] as? GenericScope)?.genericParameters ?? []
     }
   }
 
