@@ -133,7 +133,7 @@ public conformance UInt: BinaryInteger {
   }
 
   public fun quotient_and_remainder(dividing_by other: Self) -> {quotient: Self, remainder: Self} {
-    (quotient: self / other, remainder: self & other)
+    (quotient: self / other, remainder: self % other)
   }
 
   public fun words() -> CollectionOfOne<UInt> {
