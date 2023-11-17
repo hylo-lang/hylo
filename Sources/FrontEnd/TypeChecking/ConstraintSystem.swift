@@ -852,19 +852,18 @@ struct ConstraintSystem {
       assume(v, equals: u)
       return true
     }
-    else if let v = TypeVariable(u) {
+    if let v = TypeVariable(u) {
       assume(v, equals: t)
       return true
     }
-    else if !t[.isCanonical] {
+    if !t[.isCanonical] {
       return unify(checker.canonical(t, in: scope), u)
     }
-    else if !u[.isCanonical] {
+    if !u[.isCanonical] {
       return unify(t, checker.canonical(u, in: scope))
     }
-    else {
-      return t == u
-    }
+
+    return t == u
   }
 
   /// Extends the type substution table to map `tau` to `substitute`.
