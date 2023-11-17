@@ -26,6 +26,8 @@ public conformance UInt: ExpressibleByIntegerLiteral {}
 
 public conformance UInt: Deinitializable {}
 
+public conformance UInt: Movable {}
+
 public conformance UInt: Copyable {
 
   public fun copy() -> Self {
@@ -45,6 +47,8 @@ public conformance UInt: Equatable {
   }
 
 }
+
+public conformance UInt: Regular {}
 
 public conformance UInt: Comparable {
 
