@@ -233,18 +233,20 @@ public conformance UInt: FixedWidthInteger {
 
   public fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool} {
     if other == UInt() {
-      return (partial_value: self.copy(), overflow: true)
+      (partial_value: self.copy(), overflow: true)
+    } else {
+      (partial_value: UInt(value: Builtin.udiv_word(value, other.value)), overflow: false)
     }
-    return (partial_value: UInt(value: Builtin.udiv_word(value, other.value)), overflow: false)
   }
 
   public fun remainder_reporting_overflow(
     dividing_by other: Self
   ) -> {partial_value: Self, overflow: Bool} {
     if other == UInt() {
-      return (partial_value: self.copy(), overflow: true)
+      (partial_value: self.copy(), overflow: true)
+    } else {
+      (partial_value: UInt(value: Builtin.urem_word(value, other.value)), overflow: false)
     }
-    return (partial_value: UInt(value: Builtin.urem_word(value, other.value)), overflow: false)
   }
 
   public fun nonzero_bit_count() -> Int {
