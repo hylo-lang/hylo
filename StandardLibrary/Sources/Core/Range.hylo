@@ -21,14 +21,18 @@ public type Range<Bound: SemiRegular> {
     &self.upper_bound = upper_bound
   }
 
-  /// Returns `true` iff `element` is contained in `self`.
-  public fun contains<B: Comparable where Bound == B>(_ element: B) -> Bool {
-    ((element as! Bound) >= lower_bound) && ((element as! Bound) < upper_bound)
+}
+
+public extension Range where Bound: Comparable {
+
+  /// Returns `true` iff `x` is contained in `self`.
+  public fun contains(_ x: Bound) -> Bool {
+    return (x >= lower_bound) && (x < upper_bound)
   }
 
   /// Returns `true` iff `other` is contained in `self`.
-  public fun contains<B: Comparable where Bound == B>(_ other: Range<B>) -> Bool {
-    ((other.lower_bound as! Bound) >= self.lower_bound) && ((other.upper_bound as! Bound) <= self.upper_bound)
+  public fun contains(_ other: Self) -> Bool {
+    return (other.lower_bound >= self.lower_bound) && (other.upper_bound <= self.upper_bound)
   }
 
 }
