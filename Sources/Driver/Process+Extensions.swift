@@ -60,11 +60,28 @@ extension Process {
 
 }
 
-extension Process.NonzeroExit: CustomStringConvertible {
+extension Process.NonzeroExit: CustomStringConvertible, CustomDebugStringConvertible {
 
   public var description: String {
     return """
-      NonzeroExit(
+      Process.NonzeroExit (status: \(terminationStatus))
+      Command line: \(commandLine.map(String.init(reflecting:)).joined(separator: " "))
+
+        standard output:
+        -------------
+      \(standardOutput[])
+        -------------
+
+        standard error:
+        -------------
+      \(standardError[])
+        -------------
+      """
+  }
+
+  public var debugDescription: String {
+    return """
+      Process.NonzeroExit(
         terminationStatus: \(terminationStatus),
         standardOutput: \(String(reflecting: standardOutput[])),
         standardError: \(String(reflecting: standardError[])),
