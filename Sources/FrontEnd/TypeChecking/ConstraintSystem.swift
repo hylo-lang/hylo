@@ -507,11 +507,14 @@ struct ConstraintSystem {
 
     case let p as ParameterType:
       if p.flags.contains(TypeFlags.hasAutoclosure) {
-        let destinationType = (p.bareType.base as! LambdaType).output
-        let expectedType = AnyType(ParameterType(.`let`, destinationType))
+        let t = LambdaType(p.bareType)!
         let s = schedule(
-          ParameterConstraint(goal.left, expectedType, origin: goal.origin.subordinate()))
-        return .product([s]) { (d, m, r) in
+          ParameterConstraint(
+            goal.left, AnyType(ParameterType(.`let`, t.output)), origin: goal.origin.subordinate()))
+        // TODO: the env is not always .void
+        let s1 = schedule(
+          EqualityConstraint(.void, t.environment, origin: goal.origin.subordinate()))
+        return .product([s, s1]) { (d, m, r) in
           let (l, r) = (m.reify(goal.left), m.reify(goal.right))
           d.insert(.error(cannotPass: l, toParameter: r, at: goal.origin.site))
         }

@@ -23,14 +23,22 @@ fun logic2<E>(withDelayed value: @autoclosure [E]() -> Int) {
 
 public fun main() {
   &counter = 0
+
   // Test with function call.
   logic(withDelayed: prime(), counterStartingAt: 0, endingAt: 1)
 
-  &counter = 0
-  // Test with generics.
-  // logic2(withDelayed: prime())
-  logic2(withDelayed: fun(){ prime() })
-
   // Test with constant.
   logic(withDelayed: 17, counterStartingAt: 1, endingAt: 1)
+
+  &counter = 0
+  // Test with generics.
+  logic2(withDelayed: prime())
+
+  // Test with generics and non-void environments.
+  // &counter = 0
+  // let r = 17
+  // logic2(withDelayed: fun() -> Int {
+  //   &counter += 1
+  //   return r
+  // })
 }

@@ -107,11 +107,15 @@ public struct LambdaType: TypeProtocol {
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
-    LambdaType(
+    let r = LambdaType(
       receiverEffect: receiverEffect,
       environment: environment.transform(mutating: &m, transformer),
       inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
       output: output.transform(mutating: &m, transformer))
+    if flags.contains(TypeFlags.hasAutoclosure) {
+      return LambdaType(addingAutoclosureTo: r)
+    }
+    return r
   }
 }
 
