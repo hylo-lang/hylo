@@ -191,7 +191,6 @@ extension Module {
           sink(a, with: i, in: &context)
         case let request:
           assert(self[a.instruction!].isAccess(request))
-          let _ = request
         }
       }
 
