@@ -1794,7 +1794,7 @@ struct Emitter {
     argument e: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
   ) -> Operand {
 
-    if parameter.flags.contains(TypeFlags.hasAutoclosure) {
+    if parameter.isAutoclosure {
       return emit(autoclosureFor: e, to: parameter, at: site)
     }
 

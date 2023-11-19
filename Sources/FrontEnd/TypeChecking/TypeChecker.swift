@@ -2398,10 +2398,10 @@ struct TypeChecker {
   /// Evaluates and returns the value of `e`, which is a type annotation.
   private mutating func evalTypeAnnotation(_ e: ParameterTypeExpr.ID) -> AnyType {
     // Check attributes.
-    var hasAutoclosure = false
+    var isAutoclosure = false
     for a in program[e].attributes {
       if a.value.name.value == "@autoclosure" {
-        hasAutoclosure = true
+        isAutoclosure = true
         if !a.value.arguments.isEmpty {
           report(.error(unexpectedAttributeArguments: a.value, at: a.site))
         }
@@ -2410,22 +2410,21 @@ struct TypeChecker {
       }
     }
 
-    var t = evalTypeAnnotation(program[e].bareType)
+    let t = evalTypeAnnotation(program[e].bareType)
 
-    if hasAutoclosure {
+    if isAutoclosure {
       switch t.base {
       case let u as LambdaType:
         if !u.inputs.isEmpty {
           report(
             .error(autoclosureExpectsEmptyLambdaAt: program[program[e].bareType].site, given: t))
         }
-        t = ^LambdaType(addingAutoclosureTo: u)
       default:
         report(.error(autoclosureExpectsEmptyLambdaAt: program[program[e].bareType].site, given: t))
       }
     }
 
-    return ^ParameterType(program[e].convention.value, t)
+    return ^ParameterType(program[e].convention.value, t, isAutoclosure: isAutoclosure)
   }
 
   /// Evaluates and returns the value of `e`, which is a type annotation.

@@ -86,9 +86,6 @@ public struct TypeFlags: Hashable {
   /// The type contains one or more remote types.
   public static let hasRemoteType = TypeFlags(universal: 0, existential: 1 << 4)
 
-  /// The type is marked with `@autoclosure`.
-  public static let hasAutoclosure = TypeFlags(universal: 0, existential: 1 << 5)
-
 }
 
 extension TypeFlags: ExpressibleByArrayLiteral {

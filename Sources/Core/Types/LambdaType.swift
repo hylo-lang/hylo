@@ -59,15 +59,6 @@ public struct LambdaType: TypeProtocol {
     self.init(receiverEffect: .let, inputs: [r] + t.inputs, output: .void)
   }
 
-  /// Creates a lambda type marked as `@autoclosure` from bare type `t`.
-  public init(addingAutoclosureTo t: LambdaType) {
-    self.receiverEffect = t.receiverEffect
-    self.environment = t.environment
-    self.inputs = t.inputs
-    self.output = t.output
-    self.flags = t.flags.inserting(TypeFlags.hasAutoclosure)
-  }
-
   /// Returns a thin type accepting `self`'s environment as parameters.
   public var lifted: LambdaType {
     let elements = TupleType(environment).map(\.elements) ?? [.init(label: nil, type: environment)]
@@ -107,15 +98,11 @@ public struct LambdaType: TypeProtocol {
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
-    let r = LambdaType(
+    return LambdaType(
       receiverEffect: receiverEffect,
       environment: environment.transform(mutating: &m, transformer),
       inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
       output: output.transform(mutating: &m, transformer))
-    if flags.contains(TypeFlags.hasAutoclosure) {
-      return LambdaType(addingAutoclosureTo: r)
-    }
-    return r
   }
 }
 
@@ -128,12 +115,7 @@ extension LambdaType: CallableType {
 extension LambdaType: CustomStringConvertible {
 
   public var description: String {
-    let r = "[\(environment)] (\(list: inputs)) \(receiverEffect) -> \(output)"
-    if flags.contains(TypeFlags.hasAutoclosure) {
-      return "@autoclosure \(r)"
-    } else {
-      return r
-    }
+    "[\(environment)] (\(list: inputs)) \(receiverEffect) -> \(output)"
   }
 
 }

@@ -506,7 +506,7 @@ struct ConstraintSystem {
       return nil
 
     case let p as ParameterType:
-      if p.flags.contains(TypeFlags.hasAutoclosure) {
+      if p.isAutoclosure {
         let t = LambdaType(p.bareType)!
         let s = schedule(
           ParameterConstraint(
