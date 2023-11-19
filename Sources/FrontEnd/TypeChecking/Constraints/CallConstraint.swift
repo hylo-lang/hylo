@@ -15,6 +15,9 @@ struct CallConstraint: Constraint, Hashable {
     /// The type of the argument.
     fileprivate(set) var type: AnyType
 
+    /// The value of the argument.
+    let value: AnyExprID
+
     /// The site from which the argument's value was parsed.
     let valueSite: SourceRange
 

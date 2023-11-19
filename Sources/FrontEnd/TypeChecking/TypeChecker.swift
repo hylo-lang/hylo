@@ -1573,7 +1573,8 @@ struct TypeChecker {
     var obligations = ProofObligations(scope: program[e].scope)
 
     let t = inferredType(of: e, withHint: p.bareType, updating: &obligations)
-    obligations.insert(ParameterConstraint(t, ^p, origin: .init(.argument, at: program[e].site)))
+    obligations.insert(
+      ParameterConstraint(t, ^p, origin: .init(.argument, at: program[e].site), withArgument: e))
 
     let s = discharge(obligations, relatedTo: e)
     return s.typeAssumptions.reify(t)
@@ -4276,7 +4277,8 @@ struct TypeChecker {
     var arguments: [CallConstraint.Argument] = []
     for a in program[e].arguments {
       let p = inferredType(of: a.value, withHint: ^freshVariable(), updating: &obligations)
-      arguments.append(.init(label: a.label, type: p, valueSite: program[a.value].site))
+      arguments.append(
+        .init(label: a.label, type: p, value: a.value, valueSite: program[a.value].site))
     }
 
     let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
@@ -4485,7 +4487,10 @@ struct TypeChecker {
       obligations.insert(
         CallConstraint(
           arrow: operatorType,
-          takes: [.init(label: nil, type: rhsType, valueSite: program.ast.site(of: rhs))],
+          takes: [
+            .init(
+              label: nil, type: rhsType, value: rhs.exprID, valueSite: program.ast.site(of: rhs))
+          ],
           gives: outputType,
           origin: .init(.callee, at: program.ast.site(of: e))))
 
@@ -4546,7 +4551,8 @@ struct TypeChecker {
     var arguments: [CallConstraint.Argument] = []
     for a in program[e].arguments {
       let p = inferredType(of: a.value, withHint: ^freshVariable(), updating: &obligations)
-      arguments.append(.init(label: a.label, type: p, valueSite: program[a.value].site))
+      arguments.append(
+        .init(label: a.label, type: p, value: a.value, valueSite: program[a.value].site))
     }
 
     let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()

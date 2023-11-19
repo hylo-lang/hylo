@@ -510,7 +510,8 @@ struct ConstraintSystem {
         let t = LambdaType(p.bareType)!
         let s = schedule(
           ParameterConstraint(
-            goal.left, AnyType(ParameterType(.`let`, t.output)), origin: goal.origin.subordinate()))
+            goal.left, AnyType(ParameterType(.`let`, t.output)), origin: goal.origin.subordinate(),
+            withArgument: goal.argument))
         // TODO: the env is not always .void
         let s1 = schedule(
           EqualityConstraint(.void, t.environment, origin: goal.origin.subordinate()))
@@ -654,7 +655,8 @@ struct ConstraintSystem {
     for (a, j) in zip(goal.arguments, argumentsToParameter) {
       let b = callee.inputs[j]
       let o = ConstraintOrigin(.argument, at: a.valueSite)
-      subordinates.append(schedule(ParameterConstraint(a.type, b.type, origin: o)))
+      subordinates.append(
+        schedule(ParameterConstraint(a.type, b.type, origin: o, withArgument: a.value)))
     }
     subordinates.append(
       schedule(EqualityConstraint(callee.output, goal.output, origin: goal.origin.subordinate())))

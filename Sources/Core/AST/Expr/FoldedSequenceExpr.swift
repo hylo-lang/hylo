@@ -29,6 +29,16 @@ public indirect enum FoldedSequenceExpr: Equatable {
   /// A leaf node representing some expression.
   case leaf(AnyExprID)
 
+  /// The expression ID for `self`.
+  public var exprID: AnyExprID {
+    switch self {
+    case .infix(let o, _, _):
+      return AnyExprID(o.expr)!
+    case .leaf(let id):
+      return id
+    }
+  }
+
   /// Mutates `self` so that it represents the expression evaluated by appending `operator.expr`
   /// and `right` to `self`.
   ///
