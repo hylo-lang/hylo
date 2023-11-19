@@ -1,7 +1,0 @@
-//- typeCheck expecting: failure
-
-trait T: U {} //! diagnostic circular trait refinement
-
-trait U: V {} //! diagnostic circular trait refinement
-
-trait V: T {} //! diagnostic circular trait refinement

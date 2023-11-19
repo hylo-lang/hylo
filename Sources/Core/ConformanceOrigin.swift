@@ -14,3 +14,5 @@ public struct ConformanceOrigin {
   }
 
 }
+
+extension ConformanceOrigin: Hashable {}

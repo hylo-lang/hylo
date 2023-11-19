@@ -845,106 +845,38 @@ struct ConstraintSystem {
     stale.append(g)
   }
 
-  /// Unifies `lhs` with `rhs` using `relations` to check for equivalence, returning `true` if
-  /// unification succeeded.
+  /// Returns `true` iff `lhs` and `rhs` can be unified, updating the type substitution table.
   ///
-  /// Type unification consists of finding substitutions that makes `lhs` and `rhs` equal. The
-  /// algorithm recursively visits both types in lockstep, updating `self.typeAssumptions` every
-  /// time either side is a type variable for which no substitution has been made yet.
+  /// Type unification consists of finding substitutions that makes `lhs` and `rhs` equal. Both
+  /// types are visited in lockstep, updating `self.typeAssumptions` every time either side is a
+  /// type variable for which no substitution has been made yet.
   private mutating func unify(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    let (a, b) = (typeAssumptions[lhs], typeAssumptions[rhs])
-    if checker.areEquivalent(a, b, in: scope) { return true }
-
-    switch (a.base, b.base) {
-    case (let v as TypeVariable, _):
-      assume(v, equals: rhs)
-      return true
-
-    case (_, let v as TypeVariable):
-      assume(v, equals: lhs)
-      return true
-
-    case (let l as BoundGenericType, let r as BoundGenericType):
-      guard unify(l.base, r.base), l.arguments.count == r.arguments.count else {
-        return false
-      }
-
-      var result = true
-      for (a, b) in zip(l.arguments, r.arguments) {
-        result = (a.key == b.key) && result
-        switch (a.value, b.value) {
-        case (let vl as AnyType, let vr as AnyType):
-          result = unify(vl, vr) && result
-        default:
-          result = a.value.equals(b.value) && result
-        }
-      }
-      return result
-
-    case (let l as MetatypeType, let r as MetatypeType):
-      return unify(l.instance, r.instance)
-
-    case (let l as TupleType, let r as TupleType):
-      if !l.labels.elementsEqual(r.labels) {
-        return false
-      }
-
-      var result = true
-      for (a, b) in zip(l.elements, r.elements) {
-        result = unify(a.type, b.type) && result
-      }
-      return result
-
-    case (let l as LambdaType, let r as LambdaType):
-      if !l.labels.elementsEqual(r.labels) {
-        return false
-      }
-
-      var result = true
-      for (a, b) in zip(l.inputs, r.inputs) {
-        result = unify(a.type, b.type) && result
-      }
-      result = unify(l.output, r.output) && result
-      result = unify(l.environment, r.environment) && result
-      return result
-
-    case (let l as MethodType, let r as MethodType):
-      if !l.labels.elementsEqual(r.labels) {
-        return false
-      }
-      if l.capabilities != r.capabilities {
-        return false
-      }
-
-      var result = true
-      for (a, b) in zip(l.inputs, r.inputs) {
-        result = unify(a.type, b.type) && result
-      }
-      result = unify(l.output, r.output) && result
-      result = unify(l.receiver, r.receiver) && result
-      return result
-
-    case (let l as ParameterType, let r as ParameterType):
-      if l.access != r.access {
-        return false
-      }
-      return unify(l.bareType, r.bareType)
-
-    case (let l as RemoteType, let r as RemoteType):
-      if l.access != r.access {
-        return false
-      }
-      return unify(l.bareType, r.bareType)
-
-    default:
-      if !lhs[.isCanonical] {
-        return unify(checker.canonical(lhs, in: scope), rhs)
-      }
-      if !rhs[.isCanonical] {
-        return unify(lhs, checker.canonical(rhs, in: scope))
-      }
-      return false
+    lhs.matches(rhs, mutating: &self) { (this, a, b) in
+      this.unifySyntacticallyInequal(a, b)
     }
+  }
+
+  /// Returns `true` iff `lhs` and `rhs`, which have different constructors, can be unified.
+  private mutating func unifySyntacticallyInequal(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
+    let t = typeAssumptions[lhs]
+    let u = typeAssumptions[rhs]
+
+    if let v = TypeVariable(t) {
+      assume(v, equals: u)
+      return true
+    }
+    if let v = TypeVariable(u) {
+      assume(v, equals: t)
+      return true
+    }
+    if !t[.isCanonical] {
+      return unify(checker.canonical(t, in: scope), u)
+    }
+    if !u[.isCanonical] {
+      return unify(t, checker.canonical(u, in: scope))
+    }
+
+    return t == u
   }
 
   /// Extends the type substution table to map `tau` to `substitute`.

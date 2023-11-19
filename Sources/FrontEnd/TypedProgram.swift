@@ -82,7 +82,7 @@ public struct TypedProgram {
     }
 
     var checker = TypeChecker(
-      constructing: instanceUnderConstruction.wrapped,
+      constructing: instanceUnderConstruction[],
       tracingInferenceIf: isTypeCheckingParallel ? nil : shouldTraceInference)
     checker.checkAllDeclarations()
 
@@ -381,8 +381,7 @@ public struct TypedProgram {
 
     return .init(
       model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
-      implementations: implementations, isStructural: true,
-      site: .empty(at: ast[scopeOfUse].site.first()))
+      implementations: implementations, isStructural: true, origin: nil)
   }
 
   /// Returns the implicit structural conformance of `model` to `concept` that is exposed to
@@ -407,9 +406,8 @@ public struct TypedProgram {
 
     var implementations = Conformance.ImplementationMap()
     for requirement in ast.requirements(of: concept.decl) {
-      guard let k = ast.synthesizedKind(of: requirement, definedBy: concept) else {
-        return nil
-      }
+      guard let k = ast.synthesizedKind(of: requirement, definedBy: concept) else { return nil }
+
       let a: GenericArguments = [ast[concept.decl].receiver: model]
       let t = LambdaType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!
       let d = SynthesizedFunctionDecl(k, typed: t, in: scopeOfUse)
@@ -418,8 +416,7 @@ public struct TypedProgram {
 
     return .init(
       model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
-      implementations: implementations, isStructural: true,
-      site: .empty(at: ast[scopeOfUse].site.first()))
+      implementations: implementations, isStructural: true, origin: nil)
   }
 
   /// Returns the type satisfying the associated type requirement `n` in conformance `c`.

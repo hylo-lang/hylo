@@ -8,7 +8,7 @@ public fun print(_ item: String, terminator: String = "\n") {
 /// Writes the textual representation of `item` to the standard output.
 public fun print(_ item: Int, radix: Int = 10, terminator: String = "\n") {
   if item == 0 {
-    print("0")
+    print("0", terminator: terminator)
     return
   }
 
