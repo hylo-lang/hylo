@@ -845,20 +845,25 @@ struct ConstraintSystem {
 
   /// Returns `true` iff `lhs` and `rhs`, which have different constructors, can be unified.
   private mutating func unifySyntacticallyInequal(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    switch (typeAssumptions[lhs].base, typeAssumptions[rhs].base) {
-    case (let v as TypeVariable, _):
-      assume(v, equals: rhs)
+    let t = typeAssumptions[lhs]
+    let u = typeAssumptions[rhs]
+
+    if let v = TypeVariable(t) {
+      assume(v, equals: u)
       return true
-    case (_, let v as TypeVariable):
-      assume(v, equals: lhs)
-      return true
-    case (_, _) where !lhs[.isCanonical]:
-      return unify(checker.canonical(lhs, in: scope), rhs)
-    case (_, _) where !rhs[.isCanonical]:
-      return unify(lhs, checker.canonical(rhs, in: scope))
-    default:
-      return checker.areEquivalent(lhs, rhs, in: scope)
     }
+    if let v = TypeVariable(u) {
+      assume(v, equals: t)
+      return true
+    }
+    if !t[.isCanonical] {
+      return unify(checker.canonical(t, in: scope), u)
+    }
+    if !u[.isCanonical] {
+      return unify(t, checker.canonical(u, in: scope))
+    }
+
+    return t == u
   }
 
   /// Extends the type substution table to map `tau` to `substitute`.

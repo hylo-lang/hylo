@@ -3070,7 +3070,7 @@ public enum Parser {
     if let boolLiteral = state.take(.bool) {
       return state.lexer.sourceCode[boolLiteral.site] == "true" ? .`true` : .`false`
     }
-    
+
     if let op = state.take(.oper) {
       if state.token(op).value == "!" {
         return .not(try parseCompilerCondition(in: &state))
@@ -3078,7 +3078,7 @@ public enum Parser {
         throw [.error(expected: "compiler condition", at: state.currentLocation)] as DiagnosticSet
       }
     }
-    
+
     if let name = state.take(.name) {
       let expectVersionNumber: Bool
       let conditionName = state.token(name).value
