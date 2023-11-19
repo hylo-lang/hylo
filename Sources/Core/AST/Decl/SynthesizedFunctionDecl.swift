@@ -22,7 +22,7 @@ public struct SynthesizedFunctionDecl: Hashable {
     case globalInitialization(BindingDecl.ID)
 
     /// Lambda generated for an autoclosure argument.
-    case autoclosure
+    case autoclosure(AnyExprID)
 
   }
 
