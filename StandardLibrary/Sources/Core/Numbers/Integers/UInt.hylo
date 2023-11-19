@@ -1,68 +1,42 @@
-/// A signed integer value.
-public type Int {
+/// An unsigned integer value.
+public type UInt {
 
   var value: Builtin.word
 
   memberwise init
 
   /// Creates an instance with the same memory representation as `other`.
-  public init(bit_pattern other: UInt) {
+  public init(bit_pattern other: Int) {
     &self.value = other.value
   }
 
   /// Creates an instance with the same memory representation as `address`.
-  public init(bit_pattern address: PointerToMutable<Never>) {
+  public init(bit_pattern address: MemoryAddress) {
     &self.value = Builtin.ptrtoint_word(address.base)
-  }
-
-  /// Returns the absolute value of `self`.
-  public fun abs() -> Int {
-    if self < 0 { -self } else { +self }
-  }
-
-  /// Returns `self` rounded up to the nearest multiple of `stride`.
-  public fun round_up(nearest_multiple_of stride: Int) -> Int {
-    if stride == 0 {
-      return self.copy()
-    }
-
-    let r = abs() % stride
-    if r == 0 {
-      return self.copy()
-    } else if r < 0 {
-      return -(abs() - r)
-    }
-
-    return self + stride - r
-  }
-
-  /// Returns `self`.
-  public fun prefix+ () -> Self {
-    self.copy()
   }
 
   /// Returns the bitwise inverse of `self`.
   public fun prefix~ () -> Self {
-    self ^ -1
+    self ^ UInt(bit_pattern: -1)
   }
 
 }
 
-public conformance Int: ExpressibleByIntegerLiteral {}
+public conformance UInt: ExpressibleByIntegerLiteral {}
 
-public conformance Int: Deinitializable {}
+public conformance UInt: Deinitializable {}
 
-public conformance Int: Movable {}
+public conformance UInt: Movable {}
 
-public conformance Int: Copyable {
+public conformance UInt: Copyable {
 
   public fun copy() -> Self {
-    Int(value: value)
+    UInt(value: value)
   }
 
 }
 
-public conformance Int: Equatable {
+public conformance UInt: Equatable {
 
   public fun infix== (_ other: Self) -> Bool {
     Bool(value: Builtin.icmp_eq_word(value, other.value))
@@ -74,32 +48,32 @@ public conformance Int: Equatable {
 
 }
 
-public conformance Int: Regular {}
+public conformance UInt: Regular {}
 
-public conformance Int: Comparable {
+public conformance UInt: Comparable {
 
   public fun infix< (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_slt_word(value, other.value))
+    Bool(value: Builtin.icmp_ult_word(value, other.value))
   }
 
   public fun infix<= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sle_word(value, other.value))
+    Bool(value: Builtin.icmp_ule_word(value, other.value))
   }
 
   public fun infix> (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sgt_word(value, other.value))
+    Bool(value: Builtin.icmp_ugt_word(value, other.value))
   }
 
   public fun infix>= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_sge_word(value, other.value))
+    Bool(value: Builtin.icmp_uge_word(value, other.value))
   }
 
 }
 
-public conformance Int: AdditiveArithmetic {
+public conformance UInt: AdditiveArithmetic {
 
   public fun infix+ (_ other: Self) -> Self {
-    Int(value: Builtin.add_word(value, other.value))
+    UInt(value: Builtin.add_word(value, other.value))
   }
 
   public fun infix+= (_ other: Self) inout {
@@ -107,7 +81,7 @@ public conformance Int: AdditiveArithmetic {
   }
 
   public fun infix- (_ other: Self) -> Self {
-    Int(value: Builtin.sub_word(value, other.value))
+    UInt(value: Builtin.sub_word(value, other.value))
   }
 
   public fun infix-= (_ other: Self) inout {
@@ -115,21 +89,22 @@ public conformance Int: AdditiveArithmetic {
   }
 
   public static fun zero() -> Self {
-    Int()
+    UInt()
   }
 
 }
 
-public conformance Int: Numeric {
+// TODO: Rewrite as a conformance to `Numeric` when #1047 is fixed
+public extension UInt {
 
-  public typealias Magnitude = UInt
+//   public typealias Magnitude = UInt
 
   public fun magnitude() -> UInt {
-    UInt(bit_pattern: self)
+    self.copy()
   }
 
   public fun infix* (_ other: Self) -> Self {
-    Int(value: Builtin.mul_word(value, other.value))
+    UInt(value: Builtin.mul_word(value, other.value))
   }
 
   public fun infix*= (_ other: Self) inout {
@@ -138,19 +113,7 @@ public conformance Int: Numeric {
 
 }
 
-public conformance Int: SignedNumeric {
-
-  public fun prefix- () -> Self {
-    Int() - self
-  }
-
-  public fun negate() inout {
-    &self = -self
-  }
-
-}
-
-public conformance Int: BinaryInteger {
+public conformance UInt: BinaryInteger {
 
   public init() {
     &self.value = Builtin.zeroinitializer_word()
@@ -166,8 +129,7 @@ public conformance Int: BinaryInteger {
   }
 
   public fun signum() -> Int {
-    let positive = Int(value: Builtin.zext_i1_word((self > 0).value))
-    return positive | (self &>> (Self.bit_width() - 1))
+    Int(value: Builtin.zext_i1_word((self > UInt()).value))
   }
 
   public fun trailing_zeros() -> Int {
@@ -175,31 +137,31 @@ public conformance Int: BinaryInteger {
   }
 
   public fun quotient_and_remainder(dividing_by other: Self) -> {quotient: Self, remainder: Self} {
-    (quotient: self / other, remainder: self & other)
+    (quotient: self / other, remainder: self % other)
   }
 
   public fun words() -> CollectionOfOne<UInt> {
-    CollectionOfOne(UInt(bit_pattern: self))
+    CollectionOfOne(self.copy())
   }
 
   public fun infix/ (_ other: Self) -> Self {
-    Int(value: Builtin.sdiv_word(value, other.value))
+    UInt(value: Builtin.udiv_word(value, other.value))
   }
 
   public fun infix/= (_ other: Self) inout {
-    &self.value = Builtin.sdiv_word(value, other.value)
+    &self.value = Builtin.udiv_word(value, other.value)
   }
 
   public fun infix% (_ other: Self) -> Self {
-    Int(value: Builtin.srem_word(value, other.value))
+    UInt(value: Builtin.urem_word(value, other.value))
   }
 
   public fun infix%= (_ other: Self) inout {
-    &self.value = Builtin.srem_word(value, other.value)
+    &self.value = Builtin.urem_word(value, other.value)
   }
 
   public fun infix& (_ other: Self) -> Self {
-    Int(value: Builtin.and_word(value, other.value))
+    UInt(value: Builtin.and_word(value, other.value))
   }
 
   public fun infix&= (_ other: Self) inout {
@@ -207,7 +169,7 @@ public conformance Int: BinaryInteger {
   }
 
   public fun infix| (_ other: Self) -> Self {
-    Int(value: Builtin.or_word(value, other.value))
+    UInt(value: Builtin.or_word(value, other.value))
   }
 
   public fun infix|= (_ other: Self) inout {
@@ -215,7 +177,7 @@ public conformance Int: BinaryInteger {
   }
 
   public fun infix^ (_ other: Self) -> Self {
-    Int(value: Builtin.xor_word(value, other.value))
+    UInt(value: Builtin.xor_word(value, other.value))
   }
 
   public fun infix^= (_ other: Self) inout {
@@ -223,7 +185,7 @@ public conformance Int: BinaryInteger {
   }
 
   public fun infix<< (_ n: Int) -> Self {
-    Int(value: Builtin.shl_word(value, n.value))
+    UInt(value: Builtin.shl_word(value, n.value))
   }
 
   public fun infix<<= (_ n: Int) inout {
@@ -231,64 +193,60 @@ public conformance Int: BinaryInteger {
   }
 
   public fun infix>> (_ n: Int) -> Self {
-    Int(value: Builtin.ashr_word(value, n.value))
+    UInt(value: Builtin.lshr_word(value, n.value))
   }
 
   public fun infix>>= (_ n: Int) inout {
-    &self.value = Builtin.ashr_word(value, n.value)
+    &self.value = Builtin.lshr_word(value, n.value)
   }
 
   public static fun is_signed() -> Bool {
-    true
+    false
   }
 
 }
 
-public conformance Int: FixedWidthInteger {
+public conformance UInt: FixedWidthInteger {
 
   public fun matches(_ mask: Self) -> Bool {
     (self & mask) == mask
   }
 
   public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
-    let r = Builtin.sadd_with_overflow_word(value, other.value)
-    return (partial_value: Int(value: r.0), overflow: Bool(value: r.1))
+    let r = Builtin.uadd_with_overflow_word(value, other.value)
+    return (partial_value: UInt(value: r.0), overflow: Bool(value: r.1))
   }
 
   public fun subtracting_reporting_overflow(
     _ other: Self
   ) -> {partial_value: Self, overflow: Bool} {
-    let r = Builtin.ssub_with_overflow_word(value, other.value)
-    return (partial_value: Int(value: r.0), overflow: Bool(value: r.1))
+    let r = Builtin.usub_with_overflow_word(value, other.value)
+    return (partial_value: UInt(value: r.0), overflow: Bool(value: r.1))
   }
 
   public fun multiplied_reporting_overflow(
     by other: Self
   ) -> {partial_value: Self, overflow: Bool} {
-    let r = Builtin.smul_with_overflow_word(value, other.value)
-    return (partial_value: Int(value: r.0), overflow: Bool(value: r.1))
+    let r = Builtin.umul_with_overflow_word(value, other.value)
+    return (partial_value: UInt(value: r.0), overflow: Bool(value: r.1))
   }
 
   public fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool} {
-    if other == 0 {
-      return (partial_value: self.copy(), overflow: true)
+    if other == UInt() {
+      (partial_value: self.copy(), overflow: true)
+    } else {
+      (partial_value: UInt(value: Builtin.udiv_word(value, other.value)), overflow: false)
     }
-    if (self == Self.min()) && (other == -1) {
-      return (partial_value: self.copy(), overflow: true)
-    }
-    return (partial_value: Int(value: Builtin.sdiv_word(value, other.value)), overflow: false)
   }
 
   public fun remainder_reporting_overflow(
     dividing_by other: Self
   ) -> {partial_value: Self, overflow: Bool} {
-    if other == 0 {
-      return (partial_value: self.copy(), overflow: true)
+    if other == UInt() {
+      (partial_value: self.copy(), overflow: true)
+    } else {
+      (partial_value: UInt(value: Builtin.urem_word(value, other.value)), overflow: false)
     }
-    if (self == Self.min()) && (other == -1) {
-      return (partial_value: 0, overflow: true)
-    }
-    return (partial_value: Int(value: Builtin.srem_word(value, other.value)), overflow: false)
   }
 
   public fun nonzero_bit_count() -> Int {
@@ -300,7 +258,7 @@ public conformance Int: FixedWidthInteger {
   }
 
   public fun infix&<< (_ n: Int) -> Self {
-    Int(value: Builtin.shl_word(value, n.value))
+    UInt(value: Builtin.shl_word(value, n.value))
   }
 
   public fun infix&<<= (_ n: Int) inout {
@@ -308,11 +266,11 @@ public conformance Int: FixedWidthInteger {
   }
 
   public fun infix&>> (_ n: Int) -> Self {
-    Int(value: Builtin.ashr_word(value, n.value))
+    UInt(value: Builtin.lshr_word(value, n.value))
   }
 
   public fun infix&>>= (_ n: Int) inout {
-    &self.value = Builtin.ashr_word(value, n.value)
+    &self.value = Builtin.lshr_word(value, n.value)
   }
 
   public static fun bit_width() -> Int {
@@ -320,25 +278,11 @@ public conformance Int: FixedWidthInteger {
   }
 
   public static fun max() -> Self {
-    Int(value: Builtin.lshr_word((~0).value, (1).value))
+    ~UInt()
   }
 
   public static fun min() -> Self {
-    Int(value: Builtin.shl_word((1).value, (bit_width() - 1).value))
-  }
-
-}
-
-public conformance Int: ForeignConvertible {
-
-  public typealias ForeignRepresentation = Builtin.word
-
-  public init(foreign_value: sink Builtin.word) {
-    &self.value = foreign_value
-  }
-
-  public fun foreign_value() -> Builtin.word {
-    value
+    0
   }
 
 }

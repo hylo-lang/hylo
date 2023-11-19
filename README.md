@@ -23,7 +23,7 @@ You can skip directly to step 3 if you're doing development exclusively in a [de
 Otherwise:
 
 1. Install LLVM 15 or later on your system (e.g. `brew install llvm`) 
-2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$HOMEBREW_PREFIX/opt/llvm/bin:$PATH"`). 
+2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$(brew --prefix --installed llvm)/bin:$PATH""`).
 3. In this project's root directory.
     1. `swift package resolve` to get the `make-pkgconfig` tool.
     2. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description 
