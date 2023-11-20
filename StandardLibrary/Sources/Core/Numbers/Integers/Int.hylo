@@ -46,6 +46,11 @@ public type Int {
     self ^ -1
   }
 
+  /// Returns the product of `self` and `other, wrapping the result in case of any overflow.
+  public fun infix &* (_ other: Self) -> Self {
+    self.multiplied_reporting_overflow(by: other).0
+  }
+
 }
 
 public conformance Int: ExpressibleByIntegerLiteral {}
