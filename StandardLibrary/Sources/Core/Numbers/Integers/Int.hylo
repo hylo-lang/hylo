@@ -81,6 +81,15 @@ public conformance Int: Equatable {
 
 public conformance Int: Regular {}
 
+public conformance Int: Hashable {
+
+  public fun hash(into hasher: inout Hasher) {
+    // TODO: use conditional compilation to avoid branches
+    &hasher.unsafe_combine(bytes: pointer_to_bytes[of: self])
+  }
+
+}
+
 public conformance Int: Comparable {
 
   public fun infix< (_ other: Self) -> Bool {

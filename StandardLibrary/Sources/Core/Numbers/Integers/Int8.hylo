@@ -62,6 +62,14 @@ public conformance Int8: Equatable {
 
 public conformance Int8: Regular {}
 
+public conformance Int8: Hashable {
+
+  public fun hash(into hasher: inout Hasher) {
+    &hasher.combine(byte: self)
+  }
+
+}
+
 public conformance Int8: Comparable {
 
   public fun infix< (_ other: Self) -> Bool {
