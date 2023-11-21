@@ -181,38 +181,37 @@ public struct TypedProgram {
 
   /// Returns `true` iff deinitializing an instance of `t` in `scopeOfUse` is a no-op.
   ///
-  /// A type is trivially deinitializable in a scope `s` if it is built-in, or if its conformance
-  /// to `Deinitializable` exposed to `s` does not involve any user-defined function.
+  /// A type is "trivially deinitializable" if deinitializing its instances doesn't have runtime
+  /// effects. Built-in types are trivially deinitializable. Types composed only of trivially
+  /// deinitializable parts are trivially deinitializable unless there exists a non-synthetic
+  /// conformance to `Deinitializable` in scope.
   public func isTriviallyDeinitializable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
     let model = canonical(t, in: scopeOfUse)
+    let deinitializable = ast.core.deinitializable.type
 
-    guard let c = conformance(of: model, to: ast.core.deinitializable.type, exposedTo: scopeOfUse)
-    else {
+    guard let c = conformance(of: model, to: deinitializable, exposedTo: scopeOfUse) else {
       // Built-in types never have conformances.
       switch model.base {
       case is BuiltinType:
         return true
       case let u as TupleType:
         return u.elements.allSatisfy(\.type.isBuiltin)
-
-      // FIXME: Should have structural conformance
-      case is MetatypeType:
-        return true
-
       default:
-        return false
+        // FIXME: Metatypes should have a structural conformance
+        return model.base is MetatypeType
       }
     }
 
-    guard case .synthetic = c.implementations.uniqueElement!.value else { return false }
+    // Non-synthethic conformances are not trivial.
+    if !c.implementations.uniqueElement!.value.isSynthetic { return false }
 
     switch model.base {
-    case is BuiltinType:
-      return true
     case let u as TupleType:
       return u.elements.allSatisfy({ isTriviallyDeinitializable($0.type, in: scopeOfUse) })
     case let u as UnionType:
       return u.elements.allSatisfy({ isTriviallyDeinitializable($0, in: scopeOfUse) })
+    case is ProductType:
+      return true
     default:
       return false
     }
