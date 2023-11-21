@@ -31,16 +31,18 @@ public type Hasher {
     &hash = hash &* FNV.prime
   }
 
-  /// Adds `value` to the hash value computed by `self`.
-  public fun combine<T>(_ value: T) inout {
-    var p = Pointer<Int8>(type_punning: pointer[to: value])
-    let e = MemoryLayout<T>.size()
+  /// Adds `bytes` to the hash value computed by `self`.
+  public fun unsafe_combine(bytes: PointerToBuffer<Int8>) {
     var i = 0
-    while i < e {
-      &combine(byte: p.unsafe[])
-      &p = p.advance(by: 1)
+    while i < bytes.count {
+      &combine(byte: bytes.start.advance(by: i).unsafe[])
       &i += 1
     }
+  }
+
+  /// Adds `value` to the hash value computed by `self`.
+  public fun combine<T: Hashable>(_ value: T) inout {
+    value.hash(into: &self)
   }
 
 }
