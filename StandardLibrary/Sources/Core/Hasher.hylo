@@ -1,0 +1,48 @@
+namespace FNV {
+
+  let offset_basis = Int(bit_pattern: 0xcbf29ce484222325)
+
+  let prime = Int(bit_pattern: 0x100000001b3)
+
+}
+
+/// A universal hash function.
+///
+/// A hash function maps arbitrary data to fixed-size integers, called _hashes_. You feed data to
+/// a `Hasher` by calling its `combine` methods and then call `finalize` to compute a hash.
+public type Hasher {
+
+  /// The currently computed hash value.
+  var hash: Int
+
+  /// Creates a new instance.
+  public init() {
+    &self.hash = FNV.offset_basis.copy()
+  }
+
+  /// Returns the hash value computed by `self`.
+  public fun finalize() sink -> Int {
+    hash
+  }
+
+  /// Adds `byte` to the hash value computed by `self`.
+  public fun combine(byte: Int8) inout {
+    &hash = hash ^ Int(truncating_or_extending: UInt8(bit_pattern: byte))
+    &hash = hash &* FNV.prime
+  }
+
+  /// Adds `bytes` to the hash value computed by `self`.
+  public fun unsafe_combine(bytes: PointerToBuffer<Int8>) {
+    var i = 0
+    while i < bytes.count {
+      &combine(byte: bytes.start.advance(by: i).unsafe[])
+      &i += 1
+    }
+  }
+
+  /// Adds `value` to the hash value computed by `self`.
+  public fun combine<T: Hashable>(_ value: T) inout {
+    value.hash(into: &self)
+  }
+
+}
