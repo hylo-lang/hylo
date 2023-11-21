@@ -481,6 +481,8 @@ struct Emitter {
         lower(initializer: .init(m)!)
       case MethodDecl.self:
         lower(method: .init(m)!)
+      case ProductTypeDecl.self:
+        lower(product: .init(m)!)
       case SubscriptDecl.self:
         lower(subscript: .init(m)!)
       default:
