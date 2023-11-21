@@ -333,15 +333,8 @@ public struct TypedProgram {
   ) -> Conformance? {
     let m = canonical(model, in: scopeOfUse)
 
-    if let c = explicitConformance(of: m, to: concept, exposedTo: scopeOfUse) {
-      return c
-    }
-
-    if let c = impliedConformance(of: m, to: concept, exposedTo: scopeOfUse) {
-      return c
-    }
-
-    // Last resort; maybe the conformance is structural.
+    if let c = explicitConformance(of: m, to: concept, exposedTo: scopeOfUse) { return c }
+    if let c = impliedConformance(of: m, to: concept, exposedTo: scopeOfUse) { return c }
     return structuralConformance(of: m, to: concept, exposedTo: scopeOfUse)
   }
 
