@@ -189,16 +189,15 @@ public struct TypedProgram {
     let model = canonical(t, in: scopeOfUse)
     let deinitializable = ast.core.deinitializable.type
 
+    // Built-in types have no conformance to `Deinitializable`.
     guard let c = conformance(of: model, to: deinitializable, exposedTo: scopeOfUse) else {
-      // Built-in types never have conformances.
       switch model.base {
       case is BuiltinType:
         return true
       case let u as TupleType:
         return u.elements.allSatisfy(\.type.isBuiltin)
       default:
-        // FIXME: Metatypes should have a structural conformance
-        return model.base is MetatypeType
+        return false
       }
     }
 
@@ -210,6 +209,8 @@ public struct TypedProgram {
       return u.elements.allSatisfy({ isTriviallyDeinitializable($0.type, in: scopeOfUse) })
     case let u as UnionType:
       return u.elements.allSatisfy({ isTriviallyDeinitializable($0, in: scopeOfUse) })
+    case is MetatypeType:
+      return true
     case is ProductType:
       return true
     default:
@@ -390,6 +391,8 @@ public struct TypedProgram {
       guard allConform(m.elements.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as UnionType:
       guard allConform(m.elements, to: concept, in: scopeOfUse) else { return nil }
+    case is MetatypeType:
+      break
     case is RemoteType:
       break
     default:
