@@ -1,0 +1,6 @@
+/// A type that can be hashed into a `Hasher` to produce a hash value.
+public trait Hashable: Equatable {
+
+  fun hash(into hasher: inout Hasher)
+
+}
