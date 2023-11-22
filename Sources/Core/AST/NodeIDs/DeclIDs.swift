@@ -19,6 +19,20 @@ public struct DeclIDs {
     extensionEndIndex = 0
   }
 
+  /// Creates an instance with the contents of each collection in `batch`.
+  public init<S: Sequence<DeclIDs>>(formingUnionOf batch: S) {
+    all = []
+
+    var end: [AnyDeclID] = []
+    for c in batch {
+      all.append(contentsOf: c[..<c.extensionEndIndex])
+      end.append(contentsOf: c[c.extensionEndIndex...])
+    }
+
+    extensionEndIndex = all.endIndex
+    all.append(contentsOf: end)
+  }
+
   /// The identifiers in `self` denoting type extending declarations.
   public var extensions: ArraySlice<AnyDeclID> {
     all[0 ..< extensionEndIndex]

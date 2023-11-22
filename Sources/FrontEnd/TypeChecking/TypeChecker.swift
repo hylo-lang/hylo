@@ -2850,8 +2850,8 @@ struct TypeChecker {
     operator operatorName: Identifier, used notation: OperatorNotation,
     in scopeOfUse: ModuleDecl.ID
   ) -> OperatorDecl.ID? {
-    for decl in program.ast.topLevelDecls(scopeOfUse) where decl.kind == OperatorDecl.self {
-      let o = OperatorDecl.ID(decl)!
+    for d in program[scopeOfUse].decls.withoutExtensions where d.kind == OperatorDecl.self {
+      let o = OperatorDecl.ID(d)!
       if (program[o].notation.value == notation) && (program[o].name.value == operatorName) {
         return o
       }
@@ -2969,7 +2969,7 @@ struct TypeChecker {
       switch s.kind {
       case ModuleDecl.self:
         let m = ModuleDecl.ID(s)!
-        let d = program.ast.topLevelDecls(m)
+        let d = program[m].decls.extensions
         reduce(decls: d, extending: subject, in: scopeOfUse, into: &matches)
         root = m
 
@@ -2988,7 +2988,7 @@ struct TypeChecker {
     // Look for extension declarations in imported modules.
     let fileImports = imports(exposedTo: scopeOfUse)
     for m in fileImports where m != root {
-      let symbols = program.ast.topLevelDecls(m)
+      let symbols = program[m].decls.extensions
       reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
     }
 

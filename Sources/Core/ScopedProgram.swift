@@ -145,9 +145,11 @@ private struct ScopeVisitor: ASTWalkObserver {
 
   private mutating func visit(moduleDecl d: ModuleDecl.ID, in ast: AST) -> Bool {
     assert(innermost == nil)
-    scopeToDecls[d] = .init()
+
     innermost = AnyScopeID(d)
     ast.traverse(ast[d], notifying: &self)
+    scopeToDecls[d] = DeclIDs(formingUnionOf: ast[d].sources.map({ scopeToDecls[$0]! }))
+
     innermost = nil
     return false
   }
