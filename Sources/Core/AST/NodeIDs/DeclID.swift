@@ -15,6 +15,11 @@ extension DeclID {
     }
   }
 
+  /// `true` iff `self` denotes an associated type or value.
+  public var isAssociatedDecl: Bool {
+    (kind == AssociatedTypeDecl.self) || (kind == AssociatedValueDecl.self)
+  }
+
   /// `true` iff `self` denotes the declaration of a callable entity.
   public var isCallable: Bool {
     (kind.value as! Decl.Type).isCallable
@@ -23,6 +28,11 @@ extension DeclID {
   /// `true` iff `self` denotes a type extending declaration.
   public var isTypeExtendingDecl: Bool {
     (kind == ExtensionDecl.self) || (kind == ConformanceDecl.self)
+  }
+
+  /// `true` iff `self` denotes a conformance source.
+  public var isConformanceSource: Bool {
+    kind.value is ConformanceSource.Type
   }
 
 }

@@ -22,6 +22,15 @@ public struct Conformance {
       }
     }
 
+    /// `true` iff `self` is synthetic.
+    public var isSynthetic: Bool {
+      if case .synthetic = self {
+        return true
+      } else {
+        return false
+      }
+    }
+
   }
 
   /// The type on the left-hand side of this conformance.
@@ -42,8 +51,8 @@ public struct Conformance {
   /// A map from requirement of `concept` to the declaration implementing it in `model`.
   public let implementations: ImplementationMap
 
-  /// The site at which the conformance is declared.
-  public let site: SourceRange
+  /// The origin of the conformance, unless it is synthetic.
+  public let origin: ConformanceOrigin?
 
   /// `true` iff the conformance is implicitly synthesized for a structural type.
   public let isStructural: Bool
@@ -57,7 +66,7 @@ public struct Conformance {
     scope: AnyScopeID,
     implementations: ImplementationMap,
     isStructural: Bool,
-    site: SourceRange
+    origin: ConformanceOrigin?
   ) {
     self.model = model
     self.concept = concept
@@ -66,7 +75,7 @@ public struct Conformance {
     self.scope = scope
     self.implementations = implementations
     self.isStructural = isStructural
-    self.site = site
+    self.origin = origin
   }
 
 }

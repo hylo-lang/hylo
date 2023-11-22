@@ -67,3 +67,12 @@ public conformance Pointer: Equatable {
 public subscript pointer<T>(to x: T): Pointer<T> {
   let { yield Pointer(base: Builtin.address(of: x)) }
 }
+
+/// The address and size of a buffer covering the raw bytes of `x`.
+public subscript pointer_to_bytes<T>(of x: T): PointerToBuffer<Int8> {
+  let {
+    let start = Pointer<Int8>(type_punning: Pointer<T>(base: Builtin.address(of: x)))
+    let count = MemoryLayout<T>.size()
+    yield PointerToBuffer(start: start, count: count)
+  }
+}
