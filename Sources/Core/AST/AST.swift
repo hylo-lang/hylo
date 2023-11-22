@@ -121,10 +121,10 @@ public struct AST {
   public func coreType(_ name: String) -> ProductType? {
     precondition(isCoreModuleLoaded, "Core library is not loaded")
 
-    for id in topLevelDecls(coreLibrary!) where id.kind == ProductTypeDecl.self {
-      let id = ProductTypeDecl.ID(id)!
-      if self[id].baseName == name {
-        return ProductType(id, ast: self)
+    for d in topLevelDecls(coreLibrary!) where d.kind == ProductTypeDecl.self {
+      let d = ProductTypeDecl.ID(d)!
+      if self[d].baseName == name {
+        return ProductType(d, ast: self)
       }
     }
 
@@ -169,8 +169,8 @@ public struct AST {
     modules.first(where: { self[$0].baseName == n })
   }
 
-  /// Returns the IDs of the top-level declarations in the lexical scope of `module`.
-  public func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
+  /// Returns the top-level declarations in the lexical scope of `module`.
+  private func topLevelDecls(_ module: ModuleDecl.ID) -> some Collection<AnyDeclID> {
     self[self[module].sources].map(\.decls).joined()
   }
 

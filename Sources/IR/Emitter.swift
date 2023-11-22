@@ -123,7 +123,7 @@ struct Emitter {
 
   /// Inserts the IR for the top-level declarations of `self.module`.
   mutating func incorporateTopLevelDeclarations() {
-    for u in program.ast.topLevelDecls(module.id) {
+    for u in program[module.id].decls {
       lower(topLevel: u)
     }
   }
@@ -169,6 +169,8 @@ struct Emitter {
     case TraitDecl.self:
       lower(trait: .init(d)!)
     case TypeAliasDecl.self:
+      break
+    case VarDecl.self:
       break
     default:
       unexpected(d, in: ast)

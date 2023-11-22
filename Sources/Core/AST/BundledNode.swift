@@ -49,8 +49,8 @@ extension BundledNode where T: ConcreteNodeID {
 extension BundledNode where T: ScopeID {
 
   /// The declarations in this immediate scope.
-  public var decls: [AnyDeclID] {
-    container.scopeToDecls[id, default: []]
+  public var decls: DeclIDs {
+    container.scopeToDecls[id, default: .init()]
   }
 
 }

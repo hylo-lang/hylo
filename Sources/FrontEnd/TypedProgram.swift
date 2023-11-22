@@ -540,7 +540,7 @@ extension TypedProgram: Program {
   public var nodeToScope: ASTProperty<AnyScopeID> { base.nodeToScope }
 
   /// A map from scope to the declarations directly contained in it.
-  public var scopeToDecls: ASTProperty<[AnyDeclID]> { base.scopeToDecls }
+  public var scopeToDecls: ASTProperty<DeclIDs> { base.scopeToDecls }
 
   /// A map from variable declaration its containing binding declaration.
   public var varToBinding: [VarDecl.ID: BindingDecl.ID] { base.varToBinding }
