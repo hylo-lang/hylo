@@ -26,21 +26,16 @@ public struct RequirementSequence: IteratorProtocol, Sequence {
     while member != ast[base].members.count {
       let m = ast[base].members[member]
       switch m.kind {
-      case AssociatedTypeDecl.self, AssociatedValueDecl.self, FunctionDecl.self,
-        InitializerDecl.self:
+      case AssociatedTypeDecl.self, AssociatedValueDecl.self:
         member += 1
-        return AnyDeclID(m)
-
+        return m
+      case FunctionDecl.self, InitializerDecl.self:
+        member += 1
+        return m
       case MethodDecl.self:
-        if let d = next(in: MethodDecl.ID(m)!) {
-          return d
-        }
-
+        if let d = next(in: MethodDecl.ID(m)!) { return d }
       case SubscriptDecl.self:
-        if let d = next(in: SubscriptDecl.ID(m)!) {
-          return d
-        }
-
+        if let d = next(in: SubscriptDecl.ID(m)!) { return d }
       default:
         break
       }

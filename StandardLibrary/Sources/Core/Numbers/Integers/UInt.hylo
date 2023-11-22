@@ -26,6 +26,8 @@ public conformance UInt: ExpressibleByIntegerLiteral {}
 
 public conformance UInt: Deinitializable {}
 
+public conformance UInt: Movable {}
+
 public conformance UInt: Copyable {
 
   public fun copy() -> Self {
@@ -42,6 +44,17 @@ public conformance UInt: Equatable {
 
   public fun infix!= (_ other: Self) -> Bool {
     Bool(value: Builtin.icmp_ne_word(value, other.value))
+  }
+
+}
+
+public conformance UInt: Regular {}
+
+public conformance UInt: Hashable {
+
+  public fun hash(into hasher: inout Hasher) {
+    // TODO: use conditional compilation to avoid branches
+    &hasher.unsafe_combine(bytes: pointer_to_bytes[of: self])
   }
 
 }
@@ -133,7 +146,7 @@ public conformance UInt: BinaryInteger {
   }
 
   public fun quotient_and_remainder(dividing_by other: Self) -> {quotient: Self, remainder: Self} {
-    (quotient: self / other, remainder: self & other)
+    (quotient: self / other, remainder: self % other)
   }
 
   public fun words() -> CollectionOfOne<UInt> {
@@ -229,18 +242,20 @@ public conformance UInt: FixedWidthInteger {
 
   public fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool} {
     if other == UInt() {
-      return (partial_value: self.copy(), overflow: true)
+      (partial_value: self.copy(), overflow: true)
+    } else {
+      (partial_value: UInt(value: Builtin.udiv_word(value, other.value)), overflow: false)
     }
-    return (partial_value: UInt(value: Builtin.udiv_word(value, other.value)), overflow: false)
   }
 
   public fun remainder_reporting_overflow(
     dividing_by other: Self
   ) -> {partial_value: Self, overflow: Bool} {
     if other == UInt() {
-      return (partial_value: self.copy(), overflow: true)
+      (partial_value: self.copy(), overflow: true)
+    } else {
+      (partial_value: UInt(value: Builtin.urem_word(value, other.value)), overflow: false)
     }
-    return (partial_value: UInt(value: Builtin.urem_word(value, other.value)), overflow: false)
   }
 
   public fun nonzero_bit_count() -> Int {

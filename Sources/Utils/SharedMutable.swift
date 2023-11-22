@@ -1,27 +1,30 @@
 import Dispatch
 
-/// A threadsafe shared mutable wrapper for a `WrappedType` instance.
-public class SharedMutable<WrappedType> {
+/// A threadsafe shared mutable wrapper for a `SharedValue` instance.
+///
+/// - Warning: The shared value has reference semantics; it's up to the programmer to ensure that
+/// the value only used monotonically.
+public final class SharedMutable<SharedValue> {
 
   /// The synchronization mechanism that makes `self` threadsafe.
-  private let mutex = DispatchQueue(label: "org.hylo-lang.\(WrappedType.self)")
+  private let mutex = DispatchQueue(label: "org.hylo-lang.\(SharedValue.self)")
 
   /// The (thread-unsafe) stored instance.
-  private var storage: WrappedType
+  private var storage: SharedValue
 
-  /// Creates an instance storing `wrapped`.
-  public init(_ wrapped: WrappedType) {
-    self.storage = wrapped
+  /// Creates an instance storing `toBeShared`.
+  public init(_ toBeShared: SharedValue) {
+    self.storage = toBeShared
   }
 
   /// Thread-safely accesses the wrapped instance.
-  public var wrapped: WrappedType {
+  public subscript() -> SharedValue {
     get { mutex.sync { storage } }
     set { mutex.sync { storage = newValue } }
   }
 
   /// Returns the result of thread-safely applying `modification` to the wrapped instance.
-  public func modify<R>(applying modification: (inout WrappedType) throws -> R) rethrows -> R {
+  public func modify<R>(applying modification: (inout SharedValue) throws -> R) rethrows -> R {
     try mutex.sync {
       let r = try modification(&storage)
       return r
