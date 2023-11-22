@@ -65,7 +65,7 @@ extension DeclIDs: RandomAccessCollection {
 
   public var startIndex: Int { 0 }
 
-  public var endIndex: Int { all.endIndex  }
+  public var endIndex: Int { all.endIndex }
 
   public func index(after position: Int) -> Int {
     position + 1
