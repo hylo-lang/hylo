@@ -1263,9 +1263,9 @@ struct Emitter {
 
   // MARK: Values
 
-  /// - Note: should be renamed `emitInit`.
-  private mutating func emitStore(
-    value: Operand, to storage: Operand, at site: SourceRange
+  /// Inserts the IR for initializing `storage` by storing `value` to it.
+  private mutating func emitInitialize(
+    storage: Operand, to value: Operand, at site: SourceRange
   ) {
     let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
     insert(module.makeStore(value, at: x0, at: site))
@@ -1466,7 +1466,7 @@ struct Emitter {
     let site = ast[e].site
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
     let x1 = emitSubfieldView(storage, at: [0], at: site)
-    emitStore(value: x0, to: x1, at: ast[e].site)
+    emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
     let lambda = LambdaType(program.canonical(program[e].type, in: insertionScope!))!
     if lambda.environment == .void { return }
@@ -1660,7 +1660,7 @@ struct Emitter {
 
     let x1 = emitSubfieldView(storage, at: [1, 0], at: site)
     let x2 = insert(module.makeConstantString(utf8: bytes, at: site))!
-    emitStore(value: x2, to: x1, at: site)
+    emitInitialize(storage: x1, to: x2, at: site)
   }
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
@@ -2223,7 +2223,7 @@ struct Emitter {
 
     // Store the foreign representation in memory to call the converter.
     let source = emitAllocStack(for: module.type(of: foreign).ast, at: site)
-    emitStore(value: foreign, to: source, at: site)
+    emitInitialize(storage: source, to: foreign, at: site)
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
@@ -2435,7 +2435,7 @@ struct Emitter {
     // Handle references to type declarations.
     if let t = MetatypeType(program[d].type) {
       let s = emitAllocStack(for: ^t, at: site)
-      emitStore(value: .constant(t), to: s, at: site)
+      emitInitialize(storage: s, to: .constant(t), at: site)
       return s
     }
 
