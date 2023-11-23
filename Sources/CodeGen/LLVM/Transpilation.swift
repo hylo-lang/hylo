@@ -520,8 +520,6 @@ extension LLVM.Module {
   ) {
     addAttribute(named: .noalias, to: llvmParameter)
     addAttribute(named: .nofree, to: llvmParameter)
-    addAttribute(named: .nonnull, to: llvmParameter)
-    addAttribute(named: .noundef, to: llvmParameter)
 
     if !m[f].isSubscript {
       addAttribute(named: .nocapture, to: llvmParameter)
@@ -686,7 +684,11 @@ extension LLVM.Module {
     func insert(allocStack i: IR.InstructionID) {
       let s = m[i] as! AllocStack
       let t = ir.llvm(s.allocatedType, in: &self)
-      register[.register(i)] = insertAlloca(t, atEntryOf: transpilation)
+      if layout.storageSize(of: t) == 0 {
+        register[.register(i)] = ptr.null
+      } else {
+        register[.register(i)] = insertAlloca(t, atEntryOf: transpilation)
+      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
