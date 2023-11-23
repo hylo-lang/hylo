@@ -1017,7 +1017,7 @@ struct Emitter {
   }
 
   private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
-    return emit(stmtList: ast[s].expansion(for: ast.compilerInfo))
+    return emit(stmtList: ast[s].expansion(for: ast.compiler))
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {

@@ -21,11 +21,11 @@ public struct AST {
     public var coreLibrary: ModuleDecl.ID?
 
     /// Information about the compiler processing `self`.
-    public let compilerInfo: CompilerInfo
+    public let compiler: CompilerConfiguration
 
     /// Creates an empty AST for given compiler.
-    public init(for compilerInfo: CompilerInfo) {
-      self.compilerInfo = compilerInfo
+    public init(for compiler: CompilerConfiguration) {
+      self.compiler = compiler
     }
 
   }
@@ -59,13 +59,13 @@ public struct AST {
   }
 
   /// Information about the compiler processing `self`.
-  public var compilerInfo: CompilerInfo {
-    return storage.compilerInfo
+  public var compiler: CompilerConfiguration {
+    return storage.compiler
   }
 
   /// Creates an empty AST.
-  public init(for compilerInfo: CompilerInfo) {
-    self.storage = Storage(for: compilerInfo)
+  public init(for compiler: CompilerConfiguration) {
+    self.storage = Storage(for: compiler)
   }
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.

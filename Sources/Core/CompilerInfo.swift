@@ -1,5 +1,5 @@
 /// Describes the compiler; used as source of truth for conditional compilation.
-public struct CompilerInfo: Codable {
+public struct CompilerConfiguration: Codable {
 
   /// The operating-system used when performing the compilation.
   let os: String
@@ -21,8 +21,8 @@ public struct CompilerInfo: Codable {
 
   /// Creates an instance with the properties of the machine running this initializer, using features `f`.
   public init(_ f: [String] = []) {
-    os = CompilerInfo.currentOS()
-    arch = CompilerInfo.currentArch()
+    os = CompilerConfiguration.currentOS()
+    arch = CompilerConfiguration.currentArch()
     compiler = "hc"
     compilerVersion = SemanticVersion(major: 0, minor: 1, patch: 0)
     hyloVersion = SemanticVersion(major: 0, minor: 1, patch: 0)
