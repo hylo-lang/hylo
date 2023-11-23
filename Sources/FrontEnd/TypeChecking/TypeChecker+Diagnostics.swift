@@ -182,6 +182,12 @@ extension Diagnostic {
     return .note("trait '\(x)' requires \(entity) '\(n)' with type '\(t)'", at: site)
   }
 
+  static func note(
+    trait x: TraitType, requiresAssociatedType n: String, at site: SourceRange
+  ) -> Diagnostic {
+    return .note("trait '\(x)' requires associaed type '\(n)'", at: site)
+  }
+
   static func error(undefinedOperator name: String, at site: SourceRange) -> Diagnostic {
     .error("undefined operator '\(name)'", at: site)
   }

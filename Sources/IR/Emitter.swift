@@ -123,7 +123,7 @@ struct Emitter {
 
   /// Inserts the IR for the top-level declarations of `self.module`.
   mutating func incorporateTopLevelDeclarations() {
-    for u in program.ast.topLevelDecls(module.id) {
+    for u in program[module.id].decls {
       lower(topLevel: u)
     }
   }
@@ -169,6 +169,8 @@ struct Emitter {
     case TraitDecl.self:
       lower(trait: .init(d)!)
     case TypeAliasDecl.self:
+      break
+    case VarDecl.self:
       break
     default:
       unexpected(d, in: ast)
@@ -481,6 +483,8 @@ struct Emitter {
         lower(initializer: .init(m)!)
       case MethodDecl.self:
         lower(method: .init(m)!)
+      case ProductTypeDecl.self:
+        lower(product: .init(m)!)
       case SubscriptDecl.self:
         lower(subscript: .init(m)!)
       default:
@@ -1591,6 +1595,8 @@ struct Emitter {
       emitStore(integer: literal, signed: true, bitWidth: 8, to: storage)
     case ast.coreType("UInt")!:
       emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
+    case ast.coreType("UInt8")!:
+      emitStore(integer: literal, signed: false, bitWidth: 8, to: storage)
     case ast.coreType("Float64")!:
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
     case ast.coreType("Float32")!:
@@ -2647,7 +2653,9 @@ struct Emitter {
   private mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
     let t = module.type(of: storage).ast
 
-    if t.hasRecordLayout {
+    if program.isTriviallyDeinitializable(t, in: insertionScope!) {
+      insert(module.makeMarkState(storage, initialized: false, at: site))
+    } else if t.hasRecordLayout {
       emitDeinitRecordParts(of: storage, at: site)
     } else if t.base is UnionType {
       emitDeinitUnionPayload(of: storage, at: site)
