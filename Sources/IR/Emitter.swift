@@ -247,7 +247,8 @@ struct Emitter {
     switch emit(braceStmt: b) {
     case .next:
       if canonical(returnType).isVoidOrNever {
-        emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: ast[b].site))
+        let anchor = SourceRange.empty(atEndOf: ast[b].site)
+        insert(module.makeMarkState(returnValue!, initialized: true, at: anchor))
       }
       return ast[b].site
 
@@ -299,7 +300,7 @@ struct Emitter {
       insert(module.makeUnreachable(at: site))
 
     case .void:
-      emitStore(value: .void, to: returnValue!, at: site)
+      insert(module.makeMarkState(returnValue!, initialized: true, at: site))
       emitDeallocTopFrame(at: site)
       insert(module.makeReturn(at: site))
 
@@ -692,7 +693,7 @@ struct Emitter {
     let receiver = Operand.parameter(entry, 0)
     emitDeinitParts(of: receiver, at: site)
 
-    emitStore(value: .void, to: returnValue!, at: site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -729,7 +730,7 @@ struct Emitter {
       emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
     }
 
-    emitStore(value: .void, to: returnValue!, at: site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -841,7 +842,7 @@ struct Emitter {
 
     // Apply the move-initializer.
     emitMove([.set], argument, to: receiver, at: site)
-    emitStore(value: .void, to: returnValue!, at: site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -870,7 +871,7 @@ struct Emitter {
     emitInitStoredLocalBindings(
       in: program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
       consuming: initializer)
-    emitStore(value: .void, to: returnValue!, at: program[initializer].site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: program[initializer].site))
     emitDeallocTopFrame(at: program[initializer].site)
     insert(module.makeReturn(at: program[initializer].site))
 
@@ -1220,7 +1221,7 @@ struct Emitter {
     if let e = ast[s].value {
       emitStore(value: e, to: returnValue!)
     } else {
-      emitStore(value: .void, to: returnValue!, at: ast[s].site)
+      insert(module.makeMarkState(returnValue!, initialized: true, at: ast[s].site))
     }
 
     // The return instruction is emitted by the caller handling this control-flow effect.
