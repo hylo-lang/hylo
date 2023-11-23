@@ -3278,7 +3278,7 @@ public enum Parser {
 
   // MARK: Attributes
 
-  static let attributesList =
+  static let attributeList =
     (zeroOrMany(Apply(parseDeclAttribute(in:)))
       .map({ (_, tree) -> [SourceRepresentable<Attribute>] in tree }))
 
